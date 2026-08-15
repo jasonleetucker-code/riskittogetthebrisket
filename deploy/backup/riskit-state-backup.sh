@@ -403,6 +403,41 @@ backup_session_file "${APP_DIR}/idpshow_session.json"     "repo.idpshow_session.
 backup_session_file "/var/lib/dlf-fetch/dlf_session.json"         "workdir.dlf_session.json"
 backup_session_file "/var/lib/idpshow-fetch/idpshow_session.json" "workdir.idpshow_session.json"
 
+# Dated generations this writer could plausibly have produced, oldest first.
+# ONE definition, shared by the keep-window and the mirror's continuity count —
+# two answers to "what is a generation" is the class of bug this whole change
+# exists to remove.
+plausible_generations() {
+    local dir
+    while IFS= read -r -d '' dir; do
+        dir="$(basename "${dir}")"
+        [[ -n "${dir}" ]] || continue
+
+        # POSITIVE recognition, not "did not look wrong". prune deletes with
+        # `rm -rf`, so an entry it cannot account for as one of this writer's
+        # own generations must never reach it — and, just as important, must
+        # never consume a slot in the keep window. Measured before this guard:
+        # a plain README.txt dropped into daily/ took a retention slot and a
+        # REAL generation (2026-08-10) was deleted early to make room for it.
+        #
+        # Four independent things must hold. Shape alone is not enough: a
+        # regular file, a symlink, or an impossible calendar date can all wear
+        # a date-shaped name.
+        [[ -d "${BACKUP_ROOT}/daily/${dir}" ]] || continue                 # a directory
+        [[ ! -L "${BACKUP_ROOT}/daily/${dir}" ]] || continue               # not a symlink
+        [[ "${dir}" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}$ ]] || continue         # the writer's shape
+        # A real calendar date: `date -d` rejects 2026-13-45, 2026-00-00 and
+        # 2026-02-31, and the round-trip rejects 2026-8-1 and other loose forms.
+        [[ "$(date -u -d "${dir}" +%Y-%m-%d 2>/dev/null)" == "${dir}" ]] || continue
+
+        if backup_root_name_is_future "${dir}"; then
+            warn "generation ${BACKUP_ROOT}/daily/${dir} is dated beyond the clock-skew bound (newest plausible $(backup_root_max_plausible_date)) — excluded from the keep window and NOT deleted; remove or re-date it"
+            continue
+        fi
+        printf '%s\n' "${dir}"
+    done < <(find "${BACKUP_ROOT}/daily" -mindepth 1 -maxdepth 1 -print0 2>/dev/null | sort -z)
+}
+
 # ── Validate this run BEFORE any destructive step ────────────────────
 # Ordering is deliberate: write artifacts into staging → integrity
 # checks (above) → on failure discard the staging dir and stop → only
@@ -464,21 +499,55 @@ fi
 MIRROR_FAILED=0
 if [[ -n "${OFFBOX_RSYNC_DEST}" ]]; then
     if command -v rsync >/dev/null 2>&1; then
-        # `--delete` makes the remote an exact replica of ONE root's daily/
-        # namespace. On a fallback night this root holds only what this run
-        # just wrote, while the generations the mirror was built from live in
-        # the root we could NOT write to — which is exactly the failure
-        # (read-only /var, dead disk) that makes the off-box copy the only
-        # surviving one. So a change of root publishes ADDITIVELY: it may
-        # never delete remotely.
+        # `--delete` makes the remote an exact replica of this root's daily/
+        # namespace, so it may run ONLY with positive proof that this root
+        # still holds the history the mirror was built from.
+        #
+        # "Same root as requested" is NOT that proof — it answers which root we
+        # wrote to, not whether its history is continuous. Measured: a writable
+        # primary whose local generations had vanished (disk replaced, /var
+        # wiped, restored image) took `--delete` and cut a remote of 5
+        # generations to 1, destroying four that were the only surviving
+        # copies. That is precisely the state in which the off-box copy is the
+        # last one standing.
+        #
+        # Four conditions, all required. Any unproven ⇒ publish additively.
+        MIRROR_MARKER="${BACKUP_ROOT%/}/last_mirror"
+        MIRROR_COUNT="$(plausible_generations | wc -l | tr -d ' ')"
+        MIRROR_PRIOR_DEST="$(backup_root_pointer_field "${MIRROR_MARKER}" dest || true)"
+        MIRROR_PRIOR_COUNT="$(backup_root_pointer_field "${MIRROR_MARKER}" generations || true)"
+
         RSYNC_ARGS=(-a)
-        if [[ "${BACKUP_ROOT}" == "${REQUESTED_ROOT}" ]]; then
-            RSYNC_ARGS+=(--delete)
+        MIRROR_DELETE_REFUSED=""
+        if [[ "${BACKUP_ROOT}" != "${REQUESTED_ROOT}" ]]; then
+            MIRROR_DELETE_REFUSED="this run wrote to the fallback root '${BACKUP_ROOT}', so the generations mirrored from '${REQUESTED_ROOT}' are not represented here"
+        elif [[ ! -f "${MIRROR_MARKER}" ]]; then
+            MIRROR_DELETE_REFUSED="no record of a previous mirror from this root, so local-history continuity cannot be established"
+        elif [[ "${MIRROR_PRIOR_DEST}" != "${OFFBOX_RSYNC_DEST}" ]]; then
+            MIRROR_DELETE_REFUSED="the destination changed (previously '${MIRROR_PRIOR_DEST}'), so this remote's history was not built from this root"
+        elif [[ ! "${MIRROR_PRIOR_COUNT}" =~ ^[0-9]+$ ]]; then
+            MIRROR_DELETE_REFUSED="the previous mirror record carries no usable generation count"
+        elif (( MIRROR_COUNT < MIRROR_PRIOR_COUNT )); then
+            MIRROR_DELETE_REFUSED="local history SHRANK since the last mirror (${MIRROR_PRIOR_COUNT} -> ${MIRROR_COUNT} generations), so the remote may hold the only surviving copies"
         else
-            warn "off-box mirror running from fallback root '${BACKUP_ROOT}' — publishing WITHOUT --delete so generations mirrored from '${REQUESTED_ROOT}' survive"
+            RSYNC_ARGS+=(--delete)
+        fi
+        if [[ -n "${MIRROR_DELETE_REFUSED}" ]]; then
+            warn "off-box mirror publishing WITHOUT --delete: ${MIRROR_DELETE_REFUSED}"
         fi
         if rsync "${RSYNC_ARGS[@]}" "${BACKUP_ROOT}/daily/" "${OFFBOX_RSYNC_DEST}"; then
             log "off-box mirror ok: ${OFFBOX_RSYNC_DEST}"
+            # Re-baseline. A deliberate KEEP_DAILY reduction therefore
+            # publishes additively once and reconciles normally afterwards —
+            # fail-closed must not become fail-never, or remote retention grows
+            # without bound.
+            {
+                printf 'schema=%s\n' "${BACKUP_ROOT_POINTER_SCHEMA}"
+                printf 'dest=%s\n' "${OFFBOX_RSYNC_DEST}"
+                printf 'generations=%s\n' "${MIRROR_COUNT}"
+                printf 'mirrored_at=%s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+            } > "${MIRROR_MARKER}" 2>/dev/null \
+                || warn "could not record the mirror continuity marker at ${MIRROR_MARKER}; the next run will publish additively"
         else
             warn "off-box mirror FAILED (local backup unaffected)"
             MIRROR_FAILED=1
@@ -504,15 +573,11 @@ fi
 # an anomaly for an operator to look at, and this script's destructive steps
 # only ever remove things it can account for.
 prune_candidates() {
-    local dir plausible=()
+    local plausible=()
     while IFS= read -r dir; do
         [[ -n "${dir}" ]] || continue
-        if backup_root_name_is_future "${dir}"; then
-            warn "generation ${BACKUP_ROOT}/daily/${dir} is dated beyond the clock-skew bound (newest plausible $(backup_root_max_plausible_date)) — excluded from the keep window and NOT deleted; remove or re-date it"
-            continue
-        fi
         plausible+=("${dir}")
-    done < <(ls -1 "${BACKUP_ROOT}/daily" 2>/dev/null | sort)
+    done < <(plausible_generations)
     (( ${#plausible[@]} > KEEP_DAILY )) || return 0
     printf '%s\n' "${plausible[@]}" | head -n -"${KEEP_DAILY}"
 }

@@ -1077,9 +1077,14 @@ def test_the_writer_only_deletes_a_mirror_it_is_a_replica_of(tmp_path):
     """
     body = (REPO / "deploy" / "backup" / "riskit-state-backup.sh").read_text(encoding="utf-8")
     assert "RSYNC_ARGS=(-a)" in body
-    assert '[[ "${BACKUP_ROOT}" == "${REQUESTED_ROOT}" ]]' in body
     assert "RSYNC_ARGS+=(--delete)" in body
     assert "rsync -a --delete" not in body, "unconditional --delete is the defect"
+    # Root identity is NECESSARY but not SUFFICIENT — that was the blocker.
+    # Continuity is the gate; these name the conditions that must hold.
+    assert "MIRROR_DELETE_REFUSED" in body
+    assert "local-history continuity cannot be established" in body
+    assert "local history SHRANK since the last mirror" in body
+    assert "the destination changed" in body
 
 
 def test_the_orphan_pointer_temp_sweep_reaches_a_symlinked_root(tmp_path):
@@ -1208,9 +1213,10 @@ def test_the_mirror_delete_gating_is_behavioural_not_textual(tmp_path):
     assert "WITHOUT --delete" in out, out
 
 
-def test_the_mirror_still_deletes_when_it_owns_the_root(tmp_path):
-    """Additive-on-fallback must not become never-reconcile: a normal night
-    still makes the remote an exact replica, or remote retention grows forever."""
+def test_the_first_mirror_from_a_root_publishes_additively(tmp_path):
+    """There is no continuity evidence yet on a first mirror, so the safe
+    direction is additive. Reconciliation is proven on the second run by
+    test_a_continuous_root_still_reconciles_the_mirror."""
     app, data = _app(tmp_path)
     stub = tmp_path / "bin"
     stub.mkdir()
@@ -1224,7 +1230,7 @@ def test_the_mirror_still_deletes_when_it_owns_the_root(tmp_path):
     env.update(
         APP_DIR=str(app),
         DATA_DIR=str(data),
-        BACKUP_ROOT=str(tmp_path / "primary"),  # writable: no fallback
+        BACKUP_ROOT=str(tmp_path / "primary"),
         BACKUP_FALLBACK_ROOT=str(tmp_path / "fallback"),
         PYTHON_BIN=sys.executable,
         OFFBOX_RSYNC_DEST=str(tmp_path / "mirror") + "/",
@@ -1240,7 +1246,8 @@ def test_the_mirror_still_deletes_when_it_owns_the_root(tmp_path):
     )
     out = result.stdout + result.stderr
     assert result.returncode == 0, out
-    assert "--delete" in argv.read_text(encoding="utf-8").split("\n"), out
+    assert "--delete" not in argv.read_text(encoding="utf-8").split("\n"), out
+    assert "no record of a previous mirror" in out, out
 
 
 def test_a_source_directory_that_cannot_be_enumerated_is_a_failure(tmp_path):
@@ -1326,3 +1333,133 @@ def test_the_comparison_stamp_falls_back_to_the_directory_date(tmp_path):
         f"promoted_at {TODAY}T00:00:00Z" in out
     ), "the derived stamp must be visible and non-empty"
     assert f"[backup-proof] proving generation: {primary}/daily/{TODAY}" in out, out
+
+
+# ── off-box destructive reconciliation requires proof of continuity ──
+
+
+def _rsync_stub(tmp_path: Path) -> Path:
+    """A stub implementing the real `--delete` semantic, so the test measures
+    behaviour rather than the presence of a flag."""
+    stub = tmp_path / "bin"
+    stub.mkdir(exist_ok=True)
+    (stub / "rsync").write_text(
+        "#!/bin/bash\n"
+        'args=("$@"); del=0\n'
+        'for a in "${args[@]}"; do [[ "$a" == "--delete" ]] && del=1; done\n'
+        'src="${args[-2]}"; dst="${args[-1]}"\n'
+        'cp -a "${src}." "${dst}" 2>/dev/null\n'
+        "if (( del )); then\n"
+        '  for e in "${dst}"*/; do n="$(basename "$e")"; [[ -e "${src}${n}" ]] || rm -rf "$e"; done\n'
+        "fi\nexit 0\n",
+        encoding="utf-8",
+    )
+    (stub / "rsync").chmod(0o755)
+    return stub
+
+
+def _run_writer(app: Path, data: Path, root: Path, tmp_path: Path, dest: Path):
+    env = {k: v for k, v in os.environ.items() if k not in {"BACKUP_ROOT", "BACKUP_FALLBACK_ROOT"}}
+    env.update(
+        APP_DIR=str(app),
+        DATA_DIR=str(data),
+        BACKUP_ROOT=str(root),
+        BACKUP_FALLBACK_ROOT=str(tmp_path / "fb"),
+        PYTHON_BIN=sys.executable,
+        OFFBOX_RSYNC_DEST=str(dest) + "/",
+        PATH=f"{_rsync_stub(tmp_path)}:{os.environ['PATH']}",
+    )
+    return subprocess.run(
+        ["bash", str(REPO / "deploy" / "backup" / "riskit-state-backup.sh")],
+        env=env,
+        capture_output=True,
+        text=True,
+        timeout=300,
+    )
+
+
+def test_local_history_loss_must_not_delete_the_only_surviving_remote_copies(tmp_path):
+    """THE release blocker. Reproduced 5 -> 1 before the fix.
+
+    `BACKUP_ROOT == REQUESTED_ROOT` answers which root we wrote to, not whether
+    that root still holds the history the mirror was built from. A writable
+    primary whose local generations vanished — disk replaced, /var wiped,
+    restored image, fresh host — passed that gate while being exactly the state
+    in which the off-box copy is the last one standing.
+    """
+    app, data = _app(tmp_path)
+    mirror = tmp_path / "mirror"
+    mirror.mkdir()
+    for g in ("2026-08-01", "2026-08-02", "2026-08-03", "2026-08-04", "2026-08-05"):
+        (mirror / g / "sqlite").mkdir(parents=True)
+
+    root = tmp_path / "primary"  # writable, but its local history is gone
+    (root / "daily").mkdir(parents=True)
+    result = _run_writer(app, data, root, tmp_path, mirror)
+    out = result.stdout + result.stderr
+
+    assert result.returncode == 0, out
+    survivors = sorted(p.name for p in mirror.iterdir() if p.is_dir())
+    assert len(survivors) == 6, f"remote history was destroyed: {survivors}\n{out}"
+    assert "WITHOUT --delete" in out and "local-history continuity" in out, out
+
+
+def test_a_continuous_root_still_reconciles_the_mirror(tmp_path):
+    """Fail-closed must not become fail-never: without reconciliation the
+    remote grows without bound, which is its own failure."""
+    app, data = _app(tmp_path)
+    mirror = tmp_path / "mirror"
+    mirror.mkdir()
+    root = tmp_path / "primary"
+
+    first = _run_writer(app, data, root, tmp_path, mirror)
+    assert first.returncode == 0, first.stdout + first.stderr
+    # A stale remote generation with no local counterpart.
+    (mirror / "2000-01-01" / "sqlite").mkdir(parents=True)
+
+    second = _run_writer(app, data, root, tmp_path, mirror)
+    out = second.stdout + second.stderr
+    assert second.returncode == 0, out
+    assert not (
+        mirror / "2000-01-01"
+    ).exists(), f"a continuous root must still reconcile, or remote retention grows forever\n{out}"
+
+
+def test_a_changed_destination_is_not_reconciled(tmp_path):
+    """Continuity is proven against a DESTINATION, not in the abstract — a
+    remote we have never mirrored to may hold someone else's only copies."""
+    app, data = _app(tmp_path)
+    root = tmp_path / "primary"
+    first_dest = tmp_path / "mirror-a"
+    first_dest.mkdir()
+    assert _run_writer(app, data, root, tmp_path, first_dest).returncode == 0
+
+    other = tmp_path / "mirror-b"
+    other.mkdir()
+    for g in ("2026-07-01", "2026-07-02"):
+        (other / g / "sqlite").mkdir(parents=True)
+    result = _run_writer(app, data, root, tmp_path, other)
+    out = result.stdout + result.stderr
+    assert result.returncode == 0, out
+    assert (other / "2026-07-01").exists() and (other / "2026-07-02").exists(), out
+    assert "destination changed" in out, out
+
+
+def test_only_recognised_generations_count_toward_continuity(tmp_path):
+    """The continuity count must mean GENERATIONS.
+
+    If a stray entry inflates it, the count can hold steady while real
+    generations vanish — which would let `--delete` run in exactly the state
+    the gate exists to catch. Positive recognition: a directory, not a symlink,
+    the writer's dated shape, and a real calendar date.
+    """
+    body = (REPO / "deploy" / "backup" / "riskit-state-backup.sh").read_text(encoding="utf-8")
+    assert "plausible_generations()" in body
+    assert "MIRROR_COUNT=\"$(plausible_generations | wc -l | tr -d ' ')\"" in body
+    for guard in (
+        '[[ -d "${BACKUP_ROOT}/daily/${dir}" ]] || continue',
+        '[[ ! -L "${BACKUP_ROOT}/daily/${dir}" ]] || continue',
+        '[[ "${dir}" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}$ ]] || continue',
+        '[[ "$(date -u -d "${dir}" +%Y-%m-%d 2>/dev/null)" == "${dir}" ]] || continue',
+    ):
+        assert guard in body, f"missing positive-recognition guard: {guard}"
