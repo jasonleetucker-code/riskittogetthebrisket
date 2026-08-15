@@ -85,18 +85,28 @@ unit_state() {
     kv "${unit}" "installed"
     kv "  is-enabled" "$(systemctl is-enabled "${unit}" 2>&1 || true)"
     kv "  is-active" "$(systemctl is-active "${unit}" 2>&1 || true)"
-    local prop
+    local prop val
     for prop in Result ExecMainStatus ExecMainExitTimestamp NRestarts \
                 WorkingDirectory User ActiveEnterTimestamp \
                 LastTriggerUSec NextElapseUSecRealtime Persistent; do
-        local val
         val="$(systemctl show "${unit}" -p "${prop}" --value 2>/dev/null || true)"
-        [[ -n "${val}" ]] && kv "  ${prop}" "${val}"
+        if [[ -n "${val}" ]]; then
+            kv "  ${prop}" "${val}"
+        fi
     done
     # ExecStart is a struct; the path is what matters here.
+    #
+    # `if`, not `[[ … ]] && kv …`.  A TIMER has no ExecStart, so the && chain
+    # returns 1, that becomes this function's exit status, and `set -e` kills
+    # the whole inventory mid-report — which is what happened on the first
+    # production run: section A completed, the first installed TIMER aborted it.
+    # The units in section A had escaped it only by returning early.
     local execstart
     execstart="$(systemctl show "${unit}" -p ExecStart --value 2>/dev/null | head -c 300 || true)"
-    [[ -n "${execstart}" ]] && kv "  ExecStart" "${execstart}"
+    if [[ -n "${execstart}" ]]; then
+        kv "  ExecStart" "${execstart}"
+    fi
+    return 0
 }
 
 journal_tail() {
@@ -145,6 +155,17 @@ for pair in "writer:${INSTALLED_WRITER}:${DEPLOYED_WRITER}" "lib:${INSTALLED_LIB
 done
 
 hdr "A2. backup units"
+# Corroborate a NOT-INSTALLED verdict against the unit REGISTRY before
+# believing it. Probing one hard-coded name and reporting absence would turn a
+# rename into "there is no nightly backup", which is a far more alarming claim
+# than the evidence would support.
+say "unit files whose name mentions riskit/backup:"
+if systemctl list-unit-files --no-pager --no-legend 2>/dev/null \
+    | grep -Ei 'riskit|backup' | sed 's/^/[c1a-inventory]     /'; then
+    :
+else
+    kv "  registry match" "NONE — no installed unit file mentions riskit or backup"
+fi
 unit_state "riskit-state-backup.timer"
 unit_state "riskit-state-backup.service"
 journal_tail "riskit-state-backup.service"
