@@ -217,9 +217,7 @@ def test_a_recorded_generation_that_no_longer_exists_is_a_failure(tmp_path):
 def test_no_recorded_generation_anywhere_is_a_failure(tmp_path):
     app, data = _app(tmp_path)
 
-    result = _run_proof(
-        app, data, tmp_path / "primary", tmp_path / "fallback", run_backup="0"
-    )
+    result = _run_proof(app, data, tmp_path / "primary", tmp_path / "fallback", run_backup="0")
     out = result.stdout + result.stderr
 
     assert result.returncode == 1, out
@@ -339,6 +337,7 @@ def test_neither_script_resolves_the_backup_root_itself():
     `BACKUP_FALLBACK_ROOT` default to either script would restore the two
     independent implementations that caused run 31872681688 to fail.
     """
+
     def executable_lines(path: Path) -> str:
         # Comment lines are excluded: the header prose quotes both paths
         # when explaining the defect, and prose is not an implementation.
