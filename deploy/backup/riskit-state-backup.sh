@@ -248,17 +248,42 @@ backup_file() {
 # ── Directories (tar.gz, guarded) ────────────────────────────────────
 backup_dir() {
     local src="$1"
-    # Optional archive label.  Needed where basename alone is ambiguous
-    # on restore: data/playerctx/history would land as "history.tar.gz".
-    local name="${2:-}"
-    [[ -n "${name}" ]] || name="$(basename "${src}")"
+    # The MEMBER tar archives is always the real directory name; the
+    # optional second argument only renames the OUTPUT file, for cases
+    # where basename alone is ambiguous on restore (data/playerctx/history
+    # would otherwise land as "history.tar.gz").
+    #
+    # These were conflated when the label was added, and the first real
+    # backup-proof run caught it: tar was asked for a member called
+    # "playerctx_history" inside data/playerctx/, which does not exist, so
+    # the archive failed and — because the run counts that as an error —
+    # the WHOLE nightly generation was discarded.
+    local member
+    member="$(basename "${src}")"
+    local name="${2:-${member}}"
     if [[ ! -d "${src}" ]]; then
         log "skip dir (absent): ${src}"
         return 0
     fi
     local out="${DEST}/dirs/${name}.tar.gz"
-    if ! tar -czf "${out}" -C "$(dirname "${src}")" "${name}"; then
-        warn "tar FAILED: ${src}"
+
+    # GNU tar exits 1 for "file changed as we read it" and 2 for a fatal
+    # error.  They are not the same event and must not be treated alike:
+    # exit 1 means the archive was WRITTEN and one member may be torn,
+    # which for a live directory (data/intel holds a SQLite WAL that the
+    # app writes continuously) is expected and routine.  Failing the run
+    # on it discards every OTHER artifact in the generation — including
+    # the retention stores this backup exists to protect — because one
+    # unrelated directory was busy.  That is a durability defect wearing
+    # the costume of strictness.
+    #
+    # Live SQLite still belongs in backup_sqlite(), which uses the online
+    # backup API and is consistent under WAL; that is exactly why the
+    # retention stores go through it and not through here.
+    local rc=0
+    tar -czf "${out}" -C "$(dirname "${src}")" "${member}" || rc=$?
+    if (( rc >= 2 )); then
+        warn "tar FAILED (rc=${rc}): ${src}"
         ERRORS=$((ERRORS + 1))
         rm -f "${out}"
         return 0
@@ -266,7 +291,11 @@ backup_dir() {
     if ! tar -tzf "${out}" >/dev/null; then
         warn "integrity check FAILED: ${out}"
         ERRORS=$((ERRORS + 1))
+        rm -f "${out}"
         return 0
+    fi
+    if (( rc == 1 )); then
+        warn "tar reported changed file(s) while reading ${src} — archive is intact but a member may be torn"
     fi
     ARTIFACTS=$((ARTIFACTS + 1))
     OK_LIST+="${name} "
