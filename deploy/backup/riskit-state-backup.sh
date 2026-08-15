@@ -89,8 +89,9 @@ set -Eeuo pipefail
 
 APP_DIR="${APP_DIR:-/home/dynasty/trade-calculator}"
 DATA_DIR="${DATA_DIR:-${APP_DIR}/data}"
-BACKUP_ROOT="${BACKUP_ROOT:-/var/backups/riskit-state}"
-BACKUP_FALLBACK_ROOT="${BACKUP_FALLBACK_ROOT:-/home/dynasty/backups/riskit-state}"
+# BACKUP_ROOT / BACKUP_FALLBACK_ROOT are read here as overrides only.
+# Their DEFAULTS live in backup_root_lib.sh, sourced below, which is the
+# single owner of where a backup goes — see the destination block.
 KEEP_DAILY="${KEEP_DAILY:-14}"
 DATE_STAMP="$(date -u +%Y-%m-%d)"
 OFFBOX_RSYNC_DEST="${OFFBOX_RSYNC_DEST:-}"
@@ -109,18 +110,25 @@ fail() { printf '[state-backup][ERROR] %s\n' "$*" >&2; exit 1; }
 [[ -n "${PYTHON_BIN}" ]] || fail "no python interpreter available for sqlite online backup"
 
 # ── Destination (primary, then service-user fallback) ────────────────
-ensure_root() {
-    if mkdir -p "${BACKUP_ROOT}" 2>/dev/null && [[ -w "${BACKUP_ROOT}" ]]; then
-        return 0
-    fi
-    warn "primary backup root '${BACKUP_ROOT}' not writable, using fallback"
-    BACKUP_ROOT="${BACKUP_FALLBACK_ROOT}"
-    if mkdir -p "${BACKUP_ROOT}" 2>/dev/null && [[ -w "${BACKUP_ROOT}" ]]; then
-        return 0
-    fi
-    fail "neither primary nor fallback backup root writable"
-}
-ensure_root
+#
+# Resolved by the SHARED owner, not here.  The requested primary root, the
+# writability determination and the fallback are one decision made in one
+# place, because the backup/restore proof has to inspect the location this
+# run actually wrote to.  While each script resolved it independently, a
+# fallback here left the proof reading an empty primary and reporting "no
+# backup generation" for a backup that had succeeded (production proof run
+# 31872681688).
+BACKUP_ROOT_LIB="$(dirname "${BASH_SOURCE[0]}")/backup_root_lib.sh"
+[[ -f "${BACKUP_ROOT_LIB}" ]] || fail "backup root library missing: ${BACKUP_ROOT_LIB}"
+# shellcheck source=deploy/backup/backup_root_lib.sh
+source "${BACKUP_ROOT_LIB}"
+
+REQUESTED_ROOT="$(backup_root_primary)"
+BACKUP_ROOT="$(backup_root_claim)" || fail "neither primary ('${REQUESTED_ROOT}') nor fallback ('$(backup_root_fallback)') backup root writable"
+if [[ "${BACKUP_ROOT}" != "${REQUESTED_ROOT}" ]]; then
+    warn "primary backup root '${REQUESTED_ROOT}' not writable, using fallback '${BACKUP_ROOT}'"
+fi
+log "effective backup root: ${BACKUP_ROOT}"
 chmod 700 "${BACKUP_ROOT}" 2>/dev/null || true
 
 # Stage the snapshot in a hidden dir and promote it to the dated slot
@@ -389,6 +397,24 @@ rm -rf "${FINAL_DEST}"
 mv "${DEST}" "${FINAL_DEST}"
 DEST="${FINAL_DEST}"
 log "snapshot promoted: ${FINAL_DEST}"
+
+# Record what this run actually did, machine-readably.  A reader that
+# re-derives the location can be wrong about it (that is the defect this
+# replaces); a reader that parses the log line above would be depending on
+# human prose, which is not an API.  Written only now, after promotion, so
+# the pointer never names a generation that does not exist.
+if ! backup_root_write_pointer "${BACKUP_ROOT}" "${FINAL_DEST}" "${DATE_STAMP}" "${ARTIFACTS}"; then
+    warn "could not record the generation pointer under ${BACKUP_ROOT} (the snapshot itself is intact)"
+fi
+# A caller that asked for the result by path gets it or gets a failed run.
+# Silently not writing it would send the caller looking somewhere else,
+# which is precisely the failure mode being closed.
+if [[ -n "${BACKUP_RESULT_FILE:-}" ]]; then
+    backup_root_write_result "${BACKUP_RESULT_FILE}" "${BACKUP_ROOT}" \
+        "${FINAL_DEST}" "${DATE_STAMP}" "${ARTIFACTS}" \
+        || fail "could not write the requested BACKUP_RESULT_FILE=${BACKUP_RESULT_FILE}"
+    log "result recorded: ${BACKUP_RESULT_FILE}"
+fi
 
 # ── Optional off-box mirror (operator opt-in) ────────────────────────
 # Reached only with every artifact written and integrity-checked, so a

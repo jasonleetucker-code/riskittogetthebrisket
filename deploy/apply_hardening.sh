@@ -254,6 +254,7 @@ apply_app_services() {
 # user who can already edit it.
 install_priv_script() {
     local src="$1"
+    local mode="${2:-0755}"
     local dest="${RISKIT_LIB_DIR}/$(basename "$1")"
     if [[ -f "${dest}" ]] && cmp -s "${src}" "${dest}"; then
         log "up-to-date: ${dest}"
@@ -262,15 +263,19 @@ install_priv_script() {
     log "installing root-owned script: ${dest}"
     show_diff "${dest}" "${src}"
     if [[ "${DRY_RUN}" == "true" ]]; then
-        log "(dry-run) would install ${dest} (root:root 0755)"
+        log "(dry-run) would install ${dest} (root:root ${mode})"
     else
-        install -o root -g root -m 0755 -D "${src}" "${dest}"
+        install -o root -g root -m "${mode}" -D "${src}" "${dest}"
     fi
 }
 
 apply_privileged_scripts() {
     install_priv_script "${APP_DIR}/deploy/systemd/dynasty-healthcheck.sh"
     install_priv_script "${APP_DIR}/deploy/backup/riskit-state-backup.sh"
+    # riskit-state-backup.sh SOURCES this from its own directory, so the
+    # root-owned copy needs it beside it or the nightly cannot resolve a
+    # backup root at all.  Sourced, never executed: 0644, not 0755.
+    install_priv_script "${APP_DIR}/deploy/backup/backup_root_lib.sh" 0644
 }
 
 # ── 3-5. hardening units ─────────────────────────────────────────────

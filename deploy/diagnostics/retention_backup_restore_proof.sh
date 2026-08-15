@@ -28,13 +28,26 @@
 # proven by SCHEMA, COUNTS and ID SHAPE only. No payload, no manager
 # name, no roster is printed — this output goes to a CI log.
 #
+# WHERE IT LOOKS
+# ──────────────
+# It does not decide.  `deploy/backup/backup_root_lib.sh` — sourced from
+# the DEPLOYED tree, so it is the same resolver the writer just ran — owns
+# the requested primary root, the writability determination, the fallback
+# and the pointer format.  With RUN_BACKUP=1 the generation comes from the
+# machine-readable result that run wrote; with RUN_BACKUP=0 it is the
+# newest generation recorded by any candidate root.  Nothing here parses a
+# log line, and nothing here reimplements the fallback.
+#
 # Inputs (environment):
-#   APP_DIR      deployed app tree
-#   DATA_DIR     live data dir (READ ONLY here)
-#   BACKUP_ROOT  where riskit-state-backup.sh writes
-#   PYTHON_BIN   venv interpreter (sqlite3 CLI is not on the box)
-#   RUN_BACKUP   "1" (default) to run the backup first; "0" to verify
-#                the newest existing generation only
+#   APP_DIR              deployed app tree (also where the resolver lives)
+#   DATA_DIR             live data dir (READ ONLY here)
+#   BACKUP_ROOT          requested primary root — read via the shared
+#                        resolver, and NOT assumed to be where the backup
+#                        actually landed
+#   BACKUP_FALLBACK_ROOT fallback root, same
+#   PYTHON_BIN           venv interpreter (sqlite3 CLI is not on the box)
+#   RUN_BACKUP           "1" (default) to run the backup first; "0" to
+#                        verify the newest recorded generation only
 #
 # Exit codes: 0 proven · 1 could not run · 2 an artifact that exists on
 # the source is missing from the backup, or a restored artifact failed
@@ -44,7 +57,6 @@ set -Eeuo pipefail
 
 APP_DIR="${APP_DIR:-/home/dynasty/trade-calculator}"
 DATA_DIR="${DATA_DIR:-${APP_DIR}/data}"
-BACKUP_ROOT="${BACKUP_ROOT:-/var/backups/riskit-state}"
 PYTHON_BIN="${PYTHON_BIN:-/home/dynasty/.venvs/trade-calculator/bin/python}"
 RUN_BACKUP="${RUN_BACKUP:-1}"
 
@@ -55,31 +67,85 @@ fail() { printf '[backup-proof][ERROR] %s\n' "$*" >&2; exit 1; }
 FAILURES=0
 note_fail() { printf '[backup-proof][FAIL] %s\n' "$*" >&2; FAILURES=$((FAILURES + 1)); }
 
+RESTORE_DIR=""
+RESULT_FILE=""
+cleanup() {
+    [[ -n "${RESTORE_DIR}" ]] && rm -rf "${RESTORE_DIR}"
+    [[ -n "${RESULT_FILE}" ]] && rm -f "${RESULT_FILE}"
+    return 0
+}
+trap cleanup EXIT
+
 [[ -d "${APP_DIR}" ]] || fail "app dir not found: ${APP_DIR}"
 [[ -x "${PYTHON_BIN}" ]] || PYTHON_BIN="$(command -v python3 || true)"
 [[ -x "${PYTHON_BIN}" ]] || fail "no usable python interpreter"
+
+# ── 0. The backup root has ONE owner, and it is not this script ──────
+# This script does not know where backups live and must not guess.  It
+# asks the same library the writer uses, from the DEPLOYED tree, so the
+# resolver answering here is byte-identical to the one that ran there.
+# Absent library = cannot run (exit 1); never a silent pass, and never a
+# locally reimplemented fallback.
+BACKUP_ROOT_LIB="${APP_DIR}/deploy/backup/backup_root_lib.sh"
+[[ -f "${BACKUP_ROOT_LIB}" ]] || fail "backup root library missing on the deployed revision: ${BACKUP_ROOT_LIB} — cannot resolve the effective backup root without reimplementing it; deploy the revision that ships it"
+# shellcheck source=deploy/backup/backup_root_lib.sh
+source "${BACKUP_ROOT_LIB}"
 
 # ── 1. Run the real backup ───────────────────────────────────────────
 if [[ "${RUN_BACKUP}" == "1" ]]; then
     BACKUP_SCRIPT="${APP_DIR}/deploy/backup/riskit-state-backup.sh"
     [[ -f "${BACKUP_SCRIPT}" ]] || fail "backup script absent on the deployed revision: ${BACKUP_SCRIPT}"
+    RESULT_FILE="$(mktemp /tmp/retention-backup-result-XXXXXX)"
     log "running production backup: ${BACKUP_SCRIPT}"
-    if ! APP_DIR="${APP_DIR}" DATA_DIR="${DATA_DIR}" BACKUP_ROOT="${BACKUP_ROOT}" \
+    if ! APP_DIR="${APP_DIR}" DATA_DIR="${DATA_DIR}" \
+         BACKUP_ROOT="$(backup_root_primary)" \
+         BACKUP_FALLBACK_ROOT="$(backup_root_fallback)" \
+         BACKUP_RESULT_FILE="${RESULT_FILE}" \
          PYTHON_BIN="${PYTHON_BIN}" bash "${BACKUP_SCRIPT}"; then
         fail "backup run FAILED"
     fi
-else
-    log "RUN_BACKUP=0 — verifying the newest existing generation only"
 fi
 
 # ── 2. Locate the generation we are proving ──────────────────────────
-GEN="$(ls -1d "${BACKUP_ROOT}/daily"/20* 2>/dev/null | sort | tail -n1 || true)"
-[[ -n "${GEN}" && -d "${GEN}" ]] || fail "no backup generation under ${BACKUP_ROOT}/daily"
+# With a backup just run, the generation is whatever THAT run reported —
+# read from its machine-readable result, not re-derived and not scraped
+# out of its log.  This is what makes the location that received the
+# promoted backup and the location inspected here the same location by
+# construction, and it is why a newer pointer sitting in the other
+# candidate root cannot capture this proof.
+if [[ "${RUN_BACKUP}" == "1" ]]; then
+    GEN="$(backup_root_pointer_field "${RESULT_FILE}" generation || true)"
+    EFFECTIVE_ROOT="$(backup_root_pointer_field "${RESULT_FILE}" effective_root || true)"
+    [[ -n "${GEN}" ]] || fail "the backup completed but recorded no generation in ${RESULT_FILE}"
+else
+    # Verifying an existing generation: ask each candidate root what it
+    # recorded and take the newest.  `promoted_at` is fixed-width ISO-8601
+    # UTC, so a string comparison is a chronological one.  Every candidate
+    # examined is logged, so the selection is visible rather than implied.
+    log "RUN_BACKUP=0 — locating the newest recorded generation"
+    GEN=""; EFFECTIVE_ROOT=""; BEST_AT=""
+    while IFS= read -r cand; do
+        [[ -n "${cand}" ]] || continue
+        cand_gen="$(backup_root_read_generation "${cand}" || true)"
+        if [[ -z "${cand_gen}" ]]; then
+            log "candidate root ${cand}: no usable recorded generation"
+            continue
+        fi
+        cand_at="$(backup_root_pointer_field "$(backup_root_pointer_path "${cand}")" promoted_at || true)"
+        log "candidate root ${cand}: generation ${cand_gen} promoted_at ${cand_at:-unknown}"
+        if [[ -z "${BEST_AT}" || "${cand_at}" > "${BEST_AT}" ]]; then
+            GEN="${cand_gen}"; EFFECTIVE_ROOT="${cand}"; BEST_AT="${cand_at}"
+        fi
+    done < <(backup_root_candidates)
+    [[ -n "${GEN}" ]] || fail "no recorded backup generation in any candidate root ($(backup_root_candidates | tr '\n' ' ')) — run with RUN_BACKUP=1"
+fi
+
+[[ -d "${GEN}" ]] || fail "recorded generation does not exist on disk: ${GEN}"
+log "effective backup root: ${EFFECTIVE_ROOT:-unknown}"
 log "proving generation: ${GEN}"
 log "generation size: $(du -sh "${GEN}" 2>/dev/null | cut -f1)"
 
 RESTORE_DIR="$(mktemp -d /tmp/retention-restore-XXXXXX)"
-trap 'rm -rf "${RESTORE_DIR}"' EXIT
 log "restore target (throwaway): ${RESTORE_DIR}"
 
 # ── SQLite: restore, integrity-check, read schema + counts ───────────
