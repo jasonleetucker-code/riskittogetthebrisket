@@ -9,6 +9,33 @@
 #   * data/guest_passes.sqlite   — guest pass grants
 #   * data/public_league/        — public-league snapshots & identity
 #   * data/intel/                — intel artifacts (guarded: may not exist yet)
+#
+#   C1A irreversible-evidence retention (docs/retention/RETENTION_REGISTER.md).
+#   Every one of these records something that CANNOT be re-fetched once
+#   it is gone — a rolling source window that has turned over, an
+#   overwrite that has already landed, or a board that was computed and
+#   discarded.  Losing the box loses the history permanently, which is
+#   what makes them state and not cache:
+#
+#   * data/retention/evidence.sqlite     — per-observation scoring-card
+#     history + Sleeper trending series (C1-RET-04, C1-RET-05)
+#   * data/retention/league_events.sqlite — our own leagues'
+#     transactions (C1-RET-06).  PRIVATE: real managers, real trades.
+#     On-box like the session cookies; it may reach the off-box mirror
+#     only because that destination is the operator's own.  It must
+#     NEVER be committed or force-added to the public repository.
+#   * data/board_history.sqlite  — canonical board as-of records
+#     (C1-RET-02)
+#   * data/rank_history.jsonl    — per-player rank series (C1-RET-03)
+#   * data/faab/                 — KTC crowd-FAAB accumulator, whose
+#     upstream is a ~5-day rolling window, plus per-league bid history
+#     (C1-RET-01).  PRIVATE: contains our leagues' own claim history.
+#   * data/identity/             — identity resolution reports
+#     (C1-RET-07)
+#   * data/playerctx/history/    — dated playerctx snapshots
+#     (C1-RET-08).  The directory ONLY: data/playerctx/ next door holds
+#     a 38 MB depth-chart CSV and a 14 MB Sleeper dump, both
+#     regenerable, and neither belongs in a nightly generation.
 #   * scraper session cookies    — dlf/draftsharks/idpshow *_session.json
 #     from the repo root and the /var/lib/{dlf,idpshow}-fetch work dirs.
 #     These are SECRETS: gitignored, manually provisioned (IDP Show's
@@ -104,7 +131,7 @@ chmod 700 "${BACKUP_ROOT}" 2>/dev/null || true
 # to prune's `ls -1` and sort out of the retention math entirely.)
 FINAL_DEST="${BACKUP_ROOT}/daily/${DATE_STAMP}"
 DEST="${BACKUP_ROOT}/daily/.staging-${DATE_STAMP}-$$"
-mkdir -p "${DEST}/sqlite" "${DEST}/dirs" "${DEST}/sessions"
+mkdir -p "${DEST}/sqlite" "${DEST}/dirs" "${DEST}/sessions" "${DEST}/files"
 
 # Clear stale staging dirs from previous crashed runs (>1 day old).
 find "${BACKUP_ROOT}/daily" -maxdepth 1 -name '.staging-*' -mtime +1 \
@@ -185,11 +212,46 @@ backup_sqlite() {
     log "sqlite ok: ${src} -> ${out}"
 }
 
-# ── Directories (tar.gz, guarded) ────────────────────────────────────
-backup_dir() {
+# ── Single files (gzip, guarded) ─────────────────────────────────────
+#
+# For append-only logs that are neither a SQLite database nor a
+# directory — today just data/rank_history.jsonl (C1-RET-03).  A plain
+# copy is safe for it because the writer appends whole lines and the
+# reader tolerates a truncated final line, so a copy taken mid-append
+# loses at most the record being written and never corrupts the ones
+# before it.
+backup_file() {
     local src="$1"
     local name
     name="$(basename "${src}")"
+    if [[ ! -f "${src}" ]]; then
+        log "skip file (absent): ${src}"
+        return 0
+    fi
+    local out="${DEST}/files/${name}.gz"
+    if ! gzip -c "${src}" > "${out}"; then
+        warn "gzip FAILED: ${src}"
+        ERRORS=$((ERRORS + 1))
+        rm -f "${out}"
+        return 0
+    fi
+    if ! gzip -t "${out}"; then
+        warn "integrity check FAILED: ${out}"
+        ERRORS=$((ERRORS + 1))
+        return 0
+    fi
+    ARTIFACTS=$((ARTIFACTS + 1))
+    OK_LIST+="${name} "
+    log "file ok: ${src} -> ${out}"
+}
+
+# ── Directories (tar.gz, guarded) ────────────────────────────────────
+backup_dir() {
+    local src="$1"
+    # Optional archive label.  Needed where basename alone is ambiguous
+    # on restore: data/playerctx/history would land as "history.tar.gz".
+    local name="${2:-}"
+    [[ -n "${name}" ]] || name="$(basename "${src}")"
     if [[ ! -d "${src}" ]]; then
         log "skip dir (absent): ${src}"
         return 0
@@ -237,8 +299,22 @@ backup_sqlite "${DATA_DIR}/user_kv.sqlite"
 backup_sqlite "${DATA_DIR}/session_store.sqlite"
 backup_sqlite "${DATA_DIR}/guest_passes.sqlite"
 
+# C1A irreversible-evidence retention.  All guarded: a host that has not
+# yet produced one of these logs "skip (absent)" and the run still
+# succeeds, so adding them cannot turn a working nightly red.  They are
+# deliberately NOT added to BACKUP_REQUIRED for the same reason — the
+# required manifest exists to reject a snapshot that lost CORE state,
+# and a stream that has legitimately not started yet is not that.
+backup_sqlite "${DATA_DIR}/retention/evidence.sqlite"
+backup_sqlite "${DATA_DIR}/retention/league_events.sqlite"
+backup_sqlite "${DATA_DIR}/board_history.sqlite"
+backup_file   "${DATA_DIR}/rank_history.jsonl"
+
 backup_dir "${DATA_DIR}/public_league"
 backup_dir "${DATA_DIR}/intel"
+backup_dir "${DATA_DIR}/faab"
+backup_dir "${DATA_DIR}/identity"
+backup_dir "${DATA_DIR}/playerctx/history" "playerctx_history"
 
 # Repo-root session files (gitignored via "*_session.json").
 backup_session_file "${APP_DIR}/dlf_session.json"         "repo.dlf_session.json"

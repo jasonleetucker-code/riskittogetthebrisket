@@ -1,0 +1,133 @@
+name: Retention health (read-only)
+
+# C1A irreversible-evidence retention — the observability half.
+#
+# The eight C1-RET rows share one failure mode: a recorder that ships,
+# stops, and stays quiet.  This repo has measured that pattern before —
+# nine timer pairs shipped, two were installed, and the deploy reported
+# success the whole time — and four of the eight rows are flagged
+# PARTIAL or PROOF-REQUIRED for precisely that reason.
+#
+# So this asserts on the ARTIFACTS, not on the configuration.  A timer
+# existing is not evidence it ran; a green deploy is not evidence
+# anything landed.  ``scripts/retention_health.py`` exits 2 when a
+# required stream is stale, missing or unreadable, and that exit status
+# is this job's exit status — no ``|| true``, no masking pipe.
+#
+# THE SCHEDULED RUN REQUIRES THE COMPLETE AUTHORIZED TRANCHE.  That rule
+# lives in ``deploy/diagnostics/retention_health_probe.sh``, not in an
+# expression here, because the first version of this workflow resolved
+# REQUIRE from ``inputs.require`` — which is empty on a ``schedule``
+# event — so the nightly watchdog silently ran in report-only mode and
+# would have stayed green with every stream dead.  A watchdog that
+# cannot fail is the same ships-then-stops-then-stays-quiet silence this
+# tranche repairs, wearing a green tick.  In the script the rule is
+# executable and tested end-to-end
+# (``tests/retention/test_watchdog_semantics.py``); in YAML it could
+# only be regex-checked.
+#
+# A scheduled failure while production has not yet produced all eight
+# artifacts is TRUTHFUL AND USEFUL, and it is not a reason to soften the
+# check.  The job turns green when the retention system actually becomes
+# healthy — that is the signal.
+#
+# It runs OVER SSH on the production host because every store it probes
+# lives under ``data/``, which is gitignored.  A runner's checkout holds
+# none of them and would honestly report eight missing streams — a true
+# statement about the runner and a useless one about production.  Same
+# reason and same mechanism as scoring-snapshot-diagnostics.yml, and it
+# pipes the interpreter invocation over stdin rather than trusting the
+# host's checkout to be at this revision.
+#
+# READ-ONLY.  Every probe opens files and databases for reading and
+# writes nothing.
+
+on:
+  schedule:
+    # 06:40 UTC daily — after the 05:50 sharp roster pass and clear of
+    # the nightly backup window, so a stream is judged on a settled day
+    # rather than mid-write.
+    - cron: "40 6 * * *"
+  workflow_dispatch:
+    inputs:
+      require:
+        description: >-
+          MANUAL RUNS ONLY — scheduled runs always require every stream.
+          Space-separated stream ids whose failure should fail this run
+          (e.g. "C1-RET-01 C1-RET-04"), or "ALL" for the whole tranche.
+          Empty = report only, never fail.
+        required: false
+        default: ""
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  # Its OWN group, deliberately.  Sharing `production-deploy` (as the
+  # first version did, copied from the scoring-snapshot diagnostic)
+  # means a deploy queued ahead of the nightly can supersede it —
+  # GitHub keeps only the newest PENDING run per group — so the
+  # watchdog silently produces NO signal on exactly the days something
+  # changed.  A watchdog that can be cancelled into silence has the
+  # same failure mode as one that cannot fail.
+  #
+  # The deploy-overlap concern that motivated the shared group does not
+  # apply here: this probe reads files under gitignored `data/`, which a
+  # deploy never rewrites, so there is no restart-plus-startup-scrape
+  # window to measure across.
+  group: retention-health
+  cancel-in-progress: false
+
+jobs:
+  probe:
+    name: Probe retention streams
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: production
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Configure production SSH
+        env:
+          DEPLOY_SSH_PRIVATE_KEY: ${{ secrets.DEPLOY_SSH_PRIVATE_KEY }}
+          DEPLOY_KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+          DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          install -d -m 700 "$HOME/.ssh"
+          printf '%s\n' "$DEPLOY_SSH_PRIVATE_KEY" | sed 's/\r$//' > "$HOME/.ssh/id_ed25519"
+          printf '%s\n' "$DEPLOY_KNOWN_HOSTS" | sed 's/\r$//' > "$HOME/.ssh/known_hosts"
+          chmod 600 "$HOME/.ssh/id_ed25519"
+          chmod 644 "$HOME/.ssh/known_hosts"
+          ssh-keygen -y -f "$HOME/.ssh/id_ed25519" >/dev/null
+          echo "PORT=${DEPLOY_PORT:-22}" >> "$GITHUB_ENV"
+
+      - name: Probe retention streams on production
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          APP_DIR: ${{ vars.PROD_APP_DIR || '/home/dynasty/trade-calculator' }}
+          PYTHON_BIN: ${{ vars.PROD_PYTHON_BIN || '/home/dynasty/.venvs/trade-calculator/bin/python' }}
+          # Both forwarded verbatim.  The probe script owns the rule that
+          # a scheduled run requires everything — see the header comment.
+          # This workflow deliberately makes no decision of its own here,
+          # so there is nothing to get wrong in an expression.
+          EVENT_NAME: ${{ github.event_name }}
+          REQUIRE: ${{ inputs.require || '' }}
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          # The remote exit status is this step's exit status — no
+          # `|| true`, no masking pipe.  A diagnostic that reports
+          # success while asserting nothing is exactly the failure this
+          # job exists to catch.
+          ssh -i "$HOME/.ssh/id_ed25519" \
+            -o BatchMode=yes -o StrictHostKeyChecking=yes \
+            -o UserKnownHostsFile="$HOME/.ssh/known_hosts" \
+            -o ConnectTimeout=15 -o ServerAliveInterval=15 \
+            -p "$PORT" "$DEPLOY_USER@$DEPLOY_HOST" \
+            "APP_DIR=$(printf %q "$APP_DIR") PYTHON_BIN=$(printf %q "$PYTHON_BIN") EVENT_NAME=$(printf %q "$EVENT_NAME") REQUIRE=$(printf %q "$REQUIRE") bash -s" \
+            < deploy/diagnostics/retention_health_probe.sh

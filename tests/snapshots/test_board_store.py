@@ -16,6 +16,7 @@ each of which the consensus-edge store got wrong once and had to fix:
 
 from __future__ import annotations
 
+import re
 import sqlite3
 import unittest
 from pathlib import Path
@@ -228,6 +229,16 @@ class TestNotADecisionPath(unittest.TestCase):
             repo / "src" / "snapshots" / "board_store.py",
             repo / "src" / "snapshots" / "__init__.py",
             repo / "scripts" / "snapshot_board.py",
+            # C1-RET-02.  The retention health probe answers "is this
+            # recorder still running", which is the question the store's
+            # own docstring says goes unanswered ("every day it is not
+            # running is a day of evidence that cannot be recovered
+            # later") and which nothing asked until now -- ``coverage()``
+            # had zero consumers.  Counts and dates cannot feed the
+            # board, so this is not the circularity the guard exists to
+            # prevent.  It is pinned to that surface by the test below,
+            # so the exception cannot widen into a row reader.
+            repo / "src" / "retention" / "health.py",
         }
         offenders = []
         for path in list((repo / "src").rglob("*.py")) + [repo / "server.py"]:
@@ -243,6 +254,27 @@ class TestNotADecisionPath(unittest.TestCase):
             offenders,
             [],
             "the as-of store must not be read by a decision path — " f"imported by: {offenders}",
+        )
+
+    def test_the_health_probe_reads_only_coverage(self) -> None:
+        """The one allowed importer may not grow into a row reader.
+
+        Widening an allow-list is how a structural guard becomes a
+        convention, so the exception is bounded by what it may CALL, not
+        just by which file it lives in.  ``coverage()`` returns counts
+        and dates; every other surface on the store returns board values,
+        and a board value read back into the board would be exactly the
+        circularity this class exists to prevent.
+        """
+        repo = Path(__file__).resolve().parents[2]
+        body = (repo / "src" / "retention" / "health.py").read_text(encoding="utf-8")
+        # Call syntax only — the probe's operator-facing text quotes
+        # "board_store.py" and that is prose, not an access.
+        used = sorted(set(re.findall(r"board_store\.(\w+)\s*\(", body)))
+        self.assertEqual(
+            used,
+            ["coverage"],
+            f"the retention health probe may only call board_store.coverage — calls: {used}",
         )
 
 

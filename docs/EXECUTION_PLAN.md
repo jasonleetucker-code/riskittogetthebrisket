@@ -112,16 +112,24 @@ radius of a rename that is otherwise mechanical.
 inside phase C1. Read them from `docs/C_SERIES_SCOPE_MANIFEST.md`; that file is authoritative if this summary
 and it ever disagree.
 
-| row | what stops being lost |
-|---|---|
-| `C1-RET-01` | KTC crowd-FAAB rolling window durably retained |
-| `C1-RET-02` | canonical board history provably recording |
-| `C1-RET-03` | `rank_history.jsonl` stall detectable |
-| `C1-RET-04` | scoring card at a date (today: overwritten) |
-| `C1-RET-05` | Sleeper trending adds (today: discarded every 15 min) |
-| `C1-RET-06` | own-league trade events before the rolling window drops them |
-| `C1-RET-07` | per-source raw ingest + identity reports (halted 2026-04-20) |
-| `C1-RET-08` | `playerctx` history actually landing |
+| row | what stops being lost | implementation state |
+|---|---|---|
+| `C1-RET-01` | KTC crowd-FAAB rolling window durably retained | code landed — **awaiting production evidence** |
+| `C1-RET-02` | canonical board history provably recording | code landed — **awaiting production evidence** |
+| `C1-RET-03` | `rank_history.jsonl` stall detectable | code landed — **awaiting production evidence** |
+| `C1-RET-04` | scoring card at a date (today: overwritten) | code landed — **awaiting production evidence** |
+| `C1-RET-05` | Sleeper trending adds (today: discarded every 15 min) | code landed — **awaiting production evidence** |
+| `C1-RET-06` | own-league trade events before the rolling window drops them | code landed — **awaiting production evidence** |
+| `C1-RET-07` | per-source raw ingest + identity reports (halted 2026-04-20) | labelled honestly; **collection NOT resumed** — the producer is not in the tree |
+| `C1-RET-08` | `playerctx` history actually landing | observability landed; **the deploy-key blocker is unchanged** |
+
+> **"Code landed" is not "done", and this table will not say otherwise until the evidence exists.**
+> Configuration is not completion: a store that exists in the repository, a backup line that has never run, and
+> a scheduled probe that has never reported are all *mechanisms*, and every one of the four PARTIAL /
+> PROOF-REQUIRED rows in this tranche was a working mechanism nobody had observed. The completion evidence is
+> `scripts/retention_health.py` reporting `ok` for a row **on the production host**, plus a verified restore of
+> the new backup artifacts. Neither has happened yet. Operational record:
+> `docs/retention/RETENTION_REGISTER.md`.
 
 **Four other rows carry the `RET` flag but are NOT in this tranche** — `C4-FAAB-02`, `C5-GD-02`, `C7-DRAFT-02`
 and `C9-UR-02` are flagged so their collection starts as early as their phase allows, but they belong to C4, C5,

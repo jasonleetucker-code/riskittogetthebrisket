@@ -564,12 +564,37 @@ def write_scoring_snapshot(sleeper_league_id: str, scoring: dict[str, Any], **ex
     """Persist a league's scoring card.  Callers run OFF the request path."""
     path = scoring_snapshot_path(sleeper_league_id)
     path.parent.mkdir(parents=True, exist_ok=True)
+    fetched_at = datetime.now(timezone.utc).isoformat()
     payload = {
         "sleeperLeagueId": str(sleeper_league_id),
-        "fetchedAt": datetime.now(timezone.utc).isoformat(),
+        "fetchedAt": fetched_at,
         "scoringSettings": dict(scoring or {}),
     }
     payload.update({k: v for k, v in extra.items() if v is not None})
+
+    # C1-RET-04.  Record the observation BEFORE the overwrite below.
+    # ``tmp.replace(path)`` destroys the previous card, and the snapshot
+    # is the only copy -- so "what was this league scoring on <date>"
+    # has never been answerable about our own past.  Ordering matters:
+    # writing history first means a crash between the two steps loses
+    # nothing, while the reverse loses the card permanently.
+    #
+    # Best-effort by contract.  This function keeps the W18-F001
+    # scoring gate supplied, and a retention-store failure must not stop
+    # a league's card being refreshed.
+    try:
+        from src.retention import evidence_store as _evidence_store  # noqa: PLC0415
+
+        _evidence_store.observe_scoring_card(
+            str(sleeper_league_id),
+            scoring,
+            observed_at=fetched_at,
+            season=payload.get("season"),
+            scoring_fingerprint=payload.get("scoringFingerprint"),
+        )
+    except Exception as exc:  # noqa: BLE001
+        log.warning("scoring-card retention: observe failed for %s: %s", sleeper_league_id, exc)
+
     tmp = path.with_suffix(".json.tmp")
     tmp.write_text(json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8")
     tmp.replace(path)
