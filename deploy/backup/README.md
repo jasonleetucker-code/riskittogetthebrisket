@@ -37,15 +37,61 @@ artifact is required, it blocks promotion entirely.
 ## Layout & retention
 
 ```
-/var/backups/riskit-state/daily/YYYY-MM-DD/
-├── sqlite/    user_kv.sqlite.gz, session_store.sqlite.gz, guest_passes.sqlite.gz
-├── dirs/      public_league.tar.gz, intel.tar.gz
-└── sessions/  repo.*.json, workdir.*.json   (mode 0600)
+/var/backups/riskit-state/
+├── last_generation                        ← machine-readable pointer
+└── daily/YYYY-MM-DD/
+    ├── sqlite/    user_kv.sqlite.gz, session_store.sqlite.gz, guest_passes.sqlite.gz
+    ├── files/     rank_history.jsonl.gz
+    ├── dirs/      public_league.tar.gz, intel.tar.gz, faab.tar.gz, …
+    └── sessions/  repo.*.json, workdir.*.json   (mode 0600)
 ```
 
 Rotation keeps the newest **14** dated directories (`KEEP_DAILY`).
 Falls back to `/home/dynasty/backups/riskit-state` if `/var/backups`
 is not writable.
+
+### Where the backup actually went
+
+`BACKUP_ROOT` is what was *requested*. The effective root can be the
+fallback, so **nothing may re-derive the location** — it is resolved once,
+by `backup_root_lib.sh`, which owns the requested primary, the writability
+determination and the fallback for every caller.
+
+After a successful promotion the writer records what it did:
+
+```
+schema=1
+effective_root=/home/dynasty/backups/riskit-state
+generation=/home/dynasty/backups/riskit-state/daily/2026-08-15
+date_stamp=2026-08-15
+artifacts=14
+promoted_at=2026-08-15T02:31:07Z
+```
+
+at `<effective_root>/last_generation`, and additionally at
+`$BACKUP_RESULT_FILE` when a caller sets it. `promoted_at` is fixed-width
+ISO-8601 UTC, so string order is chronological order.
+
+`retention_backup_restore_proof.sh` reads that pointer rather than
+guessing, which is what holds the invariant *the location that received
+the promoted backup is the location the proof inspects*. Before the shared
+owner existed, the two disagreed the first time the fallback fired:
+production proof run **31872681688** reported "no backup generation under
+/var/backups/riskit-state/daily" for a backup that had succeeded in the
+fallback. Pinned by `tests/deploy/test_backup_root_resolution.py`, which
+runs both shipped scripts end to end.
+
+Log lines are for humans and are not an API — do not parse them.
+
+> **Two copies of the writer exist, deliberately.** The nightly systemd
+> job runs the root-owned copy at `/usr/local/lib/riskit/` (see the
+> security note in `riskit-state-backup.service`), which only
+> `apply_hardening.sh` updates; the backup+restore proof runs the
+> checkout copy as the deploy user. A deploy therefore updates what the
+> proof exercises but **not** what the nightly runs — re-run
+> `sudo bash deploy/apply_hardening.sh` to move a script change into the
+> nightly. The installer ships `backup_root_lib.sh` beside the root copy
+> for exactly this reason.
 
 Destructive steps run strictly last: artifacts are written into a
 hidden staging dir, integrity-checked, and only a fully validated
@@ -73,6 +119,10 @@ path).  After changing the script in the repo, re-run
 ## Install
 
 ```bash
+# The sourced resolver FIRST — the writer hard-fails without it, and the
+# timer fires at 02:30 UTC, so the reverse order can cost a whole night's
+# backup. Sourced, never executed: 0644.
+sudo install -o root -g root -m 0644 -D deploy/backup/backup_root_lib.sh /usr/local/lib/riskit/backup_root_lib.sh
 # Root-owned script copy OUTSIDE the checkout (the unit executes this):
 sudo install -o root -g root -m 0755 -D deploy/backup/riskit-state-backup.sh /usr/local/lib/riskit/riskit-state-backup.sh
 sudo cp deploy/backup/riskit-state-backup.service deploy/backup/riskit-state-backup.timer /etc/systemd/system/
