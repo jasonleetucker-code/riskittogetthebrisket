@@ -17,27 +17,67 @@ so the waiver-heat series has never existed.  The FAAB market layer
 already treats trending as demand evidence; without a series there is
 no way to ask whether demand led or lagged a value move.
 
-WHY A CHANGE LOG, NOT A DAILY COPY
-──────────────────────────────────
-The manifest's acceptance wording for ``C1-RET-04`` is "append-only
-history keyed by (league, observed_at)".  A row per observation would
-satisfy that literally and produce thousands of identical cards, because
-scoring settings change a few times a year and the refresh runs on the
-scrape cadence.  This stores **open intervals** instead: one row per
-distinct card, carrying the window over which it was observed.
+OBSERVATIONS ARE THE STORAGE.  CONTINUITY IS DERIVED.
+─────────────────────────────────────────────────────
+One row per **actual observation**, keyed ``(league, observed_at)``.
+Nothing is merged, compressed or bridged at write time, because the
+write path cannot know what happened while it was not looking.
 
-That is strictly more informative, not less — ``scoring_card_at`` answers
-the same "card at a date" question, and the interval additionally records
-*when it changed*, which a pile of daily copies only implies.  A league
-that changes A → B → A gets three rows, not two, because the second A is
-a different observation window and collapsing it would invent continuity
-across a period the card demonstrably differed.
+An earlier draft of this module stored **intervals** — one row per
+distinct card, extended whenever a later observation matched the same
+hash — and owner review rejected it as unsafe.  The defect is worth
+recording, because it is subtle and it is the exact failure this whole
+tranche exists to prevent:
 
-**A missing interval is not "unchanged".**  Intervals record what was
-OBSERVED.  Gaps before ``first_observed_at``, and gaps where the recorder
-did not run, are unobserved — ``scoring_card_at`` returns ``None`` for a
-date it cannot cover rather than extrapolating the nearest card
-backwards.  Missing is never today's value, and it is never zero.
+    Jan 1: observe card A
+    (one month with NO observations at all)
+    Feb 1: observe card A
+
+Extending the interval produces a single window ``Jan 1 → Feb 1``, and
+therefore answers "what was the card on Jan 15?" with **card A, fidelity
+exact**.  That is not justified.  During the unobserved month the true
+history could have been ``A → B → A``, or collection could simply have
+been dead.  **A matching hash across a gap is not evidence of
+continuity** — it is two observations with nothing in between, and
+inferring a straight line through them manufactures evidence.
+
+    UNOBSERVED MUST REMAIN UNOBSERVED.
+
+There is deliberately **no gap threshold** anywhere in this module.  A
+"cards more than N hours apart do not bridge" rule would be a magic
+number standing in for a cadence guarantee this platform does not have —
+the recorder is best-effort, the scrape cadence drifts, and the whole
+reason the row exists is that collection stops silently.  Instead the
+read path REPORTS the bracket it used and the gap it spans, and lets a
+caller apply whatever standard its own question needs.
+
+Storage is normalised so that recording every observation costs almost
+nothing: the card payload is content-addressed in
+``scoring_card_payloads`` and each observation stores only its hash.
+Deduplicating identical *content* under its own hash loses no evidence —
+the hash IS the identity — while deduplicating *observations* would lose
+exactly the evidence that decides fidelity.
+
+FIDELITY IS EXPLICIT, AND ``exact`` IS THE STRICT DEFAULT
+─────────────────────────────────────────────────────────
+``scoring_card_at`` answers at one of four fidelities, and returns only
+``exact`` unless a caller opts into more:
+
+``exact``          an observation exists AT that instant.
+``reconstructed``  two adjacent observations BRACKET the instant and
+                   agree on the card.  Strong evidence, not proof —
+                   ``bracketGapHours`` states how wide the unobserved
+                   span is, and the caller decides whether that is good
+                   enough for its question.
+``nearest_prior``  only a prior observation exists, or the bracketing
+                   pair DISAGREE so the instant is genuinely
+                   indeterminate.  Bounded by ``coverageGapEndsAt``.
+``unavailable``    ``None``.  Nothing supports an answer.
+
+What no argument ever produces is today's card returned for a historical
+date it has no bearing on.  ``nearest_prior`` looks strictly backwards,
+and a later observation can only contribute as one endpoint of an
+*agreeing* bracket — never as a standalone answer about the past.
 
 DESIGN TAKEN FROM ``src/snapshots/board_store.py``
 ──────────────────────────────────────────────────
@@ -53,7 +93,7 @@ corrected once under audit and the corrections apply verbatim here:
 
 Deliberately NOT wired to ``platform_ledger.PLATFORM_SCHEMA_VERSION``:
 bumping that re-runs the whole platform migration on every deployed
-ledger to add two additive tables, which is the same trade
+ledger to add three additive tables, which is the same trade
 ``src/sharp/roster_store.py`` declined for the same reason.
 
 PRIVACY
@@ -77,7 +117,28 @@ from typing import Any
 
 DB_PATH: Path = Path(__file__).resolve().parents[2] / "data" / "retention" / "evidence.sqlite"
 
-SCHEMA_VERSION = 1
+# 2 — per-observation scoring-card storage.  Schema 1 was the interval
+# design rejected in review; it never ran on any host, so there is no
+# migration to write.  A developer who exercised it locally is left with
+# an unused ``scoring_card_history`` table and loses nothing.
+SCHEMA_VERSION = 2
+
+# Fidelity vocabulary.  Ordered weakest-last so a caller can widen what
+# it accepts without memorising the strings.
+FIDELITY_EXACT = "exact"
+FIDELITY_RECONSTRUCTED = "reconstructed"
+FIDELITY_NEAREST_PRIOR = "nearest_prior"
+
+#: Default.  Only an observation AT the instant counts.
+ACCEPT_EXACT: tuple[str, ...] = (FIDELITY_EXACT,)
+#: Also accept an agreeing bracket, labelled with the gap it spans.
+ACCEPT_BRACKETED: tuple[str, ...] = (FIDELITY_EXACT, FIDELITY_RECONSTRUCTED)
+#: Also accept the most recent prior observation.  Never a later one.
+ACCEPT_ANY: tuple[str, ...] = (
+    FIDELITY_EXACT,
+    FIDELITY_RECONSTRUCTED,
+    FIDELITY_NEAREST_PRIOR,
+)
 
 _SETUP_LOCK = threading.Lock()
 _SETUP_DONE: dict[str, bool] = {}
@@ -88,37 +149,41 @@ CREATE TABLE IF NOT EXISTS meta (
     value TEXT
 );
 
--- C1-RET-04.  One row per DISTINCT card per observation window.  See
--- the module docstring for why this is an interval log rather than a
--- row per observation.
-CREATE TABLE IF NOT EXISTS scoring_card_history (
-    sleeper_league_id  TEXT NOT NULL,
-    -- Interval start doubles as the tie-break in the key: a league that
-    -- reverts to an earlier card gets a NEW row, because the second
-    -- window is a different observation and merging them would assert
-    -- continuity across a period the card demonstrably differed.
-    first_observed_at  TEXT NOT NULL,
-    last_observed_at   TEXT NOT NULL,
-    card_hash          TEXT NOT NULL,
+-- C1-RET-04, content half.  Content-addressed, so recording the same
+-- card on every scrape costs one row per DISTINCT card rather than one
+-- per observation.  Deduplicating identical content under its own hash
+-- loses no evidence; deduplicating observations would.
+CREATE TABLE IF NOT EXISTS scoring_card_payloads (
+    card_hash           TEXT PRIMARY KEY,
 
     -- The card itself, stored whole.  A future question about a key we
     -- do not extract today is answerable only if the payload survived.
-    scoring_json       TEXT NOT NULL,
+    scoring_json        TEXT NOT NULL,
 
     -- The canonical W18-F001 identity when it could be computed, NULL
     -- when it could not.  NULL means "not computed", never "no card" --
     -- scoring_fingerprint() itself returns None rather than hashing {}.
     scoring_fingerprint TEXT,
-    season              TEXT,
 
-    observation_count  INTEGER NOT NULL DEFAULT 1,
-    PRIMARY KEY (sleeper_league_id, first_observed_at)
+    first_recorded_at   TEXT NOT NULL
 );
 
-CREATE INDEX IF NOT EXISTS idx_sch_league_last
-    ON scoring_card_history(sleeper_league_id, last_observed_at);
-CREATE INDEX IF NOT EXISTS idx_sch_hash
-    ON scoring_card_history(sleeper_league_id, card_hash);
+-- C1-RET-04, evidence half.  ONE ROW PER ACTUAL OBSERVATION.  Nothing
+-- is merged or bridged here: see the module docstring for why a
+-- matching hash across a gap is not evidence of continuity.
+CREATE TABLE IF NOT EXISTS scoring_card_observations (
+    sleeper_league_id TEXT NOT NULL,
+    observed_at       TEXT NOT NULL,
+    card_hash         TEXT NOT NULL,
+    season            TEXT,
+    recorded_at       TEXT NOT NULL,
+    PRIMARY KEY (sleeper_league_id, observed_at)
+);
+
+CREATE INDEX IF NOT EXISTS idx_sco_league_time
+    ON scoring_card_observations(sleeper_league_id, observed_at);
+CREATE INDEX IF NOT EXISTS idx_sco_hash
+    ON scoring_card_observations(card_hash);
 
 -- C1-RET-05.  One row per (source, snapshot, player).  observed_at is
 -- the SNAPSHOT's own fetch stamp, not the write time, so re-recording a
@@ -180,6 +245,26 @@ def _reset_setup_cache_for_tests() -> None:
         _SETUP_DONE.clear()
 
 
+def _parse_iso(value: Any) -> datetime | None:
+    if not isinstance(value, str) or not value.strip():
+        return None
+    text = value.strip().replace("Z", "+00:00")
+    try:
+        parsed = datetime.fromisoformat(text)
+    except ValueError:
+        return None
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=timezone.utc)
+    return parsed
+
+
+def _gap_hours(start: Any, end: Any) -> float | None:
+    a, b = _parse_iso(start), _parse_iso(end)
+    if a is None or b is None:
+        return None
+    return round((b - a).total_seconds() / 3600.0, 4)
+
+
 # ── C1-RET-04: scoring cards ─────────────────────────────────────────
 
 
@@ -214,12 +299,18 @@ def observe_scoring_card(
 ) -> dict[str, Any]:
     """Record that this league was observed carrying this card.
 
-    Returns ``{"action": "opened"|"extended"|"skipped", ...}``.
+    One row per observation, keyed ``(league, observed_at)``.  Nothing is
+    merged with a neighbouring observation and no interval is extended —
+    the write path cannot know what happened while it was not looking.
+
+    Returns ``{"action": "recorded"|"duplicate"|"skipped", ...}``.
+    ``duplicate`` means this exact instant was already recorded, which
+    makes a replay of a collection run a structural no-op.
 
     ``skipped`` is returned for an empty card and nothing is written.
     An absent card is not evidence that a league scores nothing — it is
     the absence of an observation, and storing ``{}`` as a scoring
-    interval would let a fetch failure read back as a real settings
+    observation would let a fetch failure read back as a real settings
     change.
     """
     league_id = str(sleeper_league_id or "").strip()
@@ -228,99 +319,95 @@ def observe_scoring_card(
 
     stamp = observed_at or _utc_now()
     digest = card_hash(scoring)
+    now = _utc_now()
+
     conn = connect(path)
     try:
-        cur = conn.execute(
-            """
-            SELECT first_observed_at, card_hash, last_observed_at, observation_count
-              FROM scoring_card_history
-             WHERE sleeper_league_id = ?
-             ORDER BY first_observed_at DESC
-             LIMIT 1
-            """,
-            (league_id,),
-        )
-        latest = cur.fetchone()
-
-        if latest and latest[1] == digest:
-            # Same card still in force — extend the open interval.
-            # ``max`` guards an out-of-order replay from rewinding the
-            # window; a late arrival adds no information about the end.
-            new_last = max(str(latest[2] or ""), stamp)
-            conn.execute(
-                """
-                UPDATE scoring_card_history
-                   SET last_observed_at  = ?,
-                       observation_count = observation_count + 1
-                 WHERE sleeper_league_id = ? AND first_observed_at = ?
-                """,
-                (new_last, league_id, latest[0]),
-            )
-            conn.commit()
-            return {
-                "action": "extended",
-                "cardHash": digest,
-                "firstObservedAt": latest[0],
-                "lastObservedAt": new_last,
-                "observationCount": int(latest[3] or 0) + 1,
-            }
-
-        # A different card (or the first one ever seen) opens a new
-        # interval.  Named columns on conflict: a replay of the same
-        # stamp must not clear ``observation_count`` or the payload.
+        # Content first: an observation must never reference a payload
+        # that is not there.  DO NOTHING preserves the original
+        # first_recorded_at and the fingerprint recorded with it.
         conn.execute(
             """
-            INSERT INTO scoring_card_history (
-                sleeper_league_id, first_observed_at, last_observed_at,
-                card_hash, scoring_json, scoring_fingerprint, season,
-                observation_count
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, 1)
-            ON CONFLICT(sleeper_league_id, first_observed_at) DO UPDATE SET
-                last_observed_at    = excluded.last_observed_at,
-                card_hash           = excluded.card_hash,
-                scoring_json        = excluded.scoring_json,
-                scoring_fingerprint = excluded.scoring_fingerprint,
-                season              = excluded.season
+            INSERT INTO scoring_card_payloads (
+                card_hash, scoring_json, scoring_fingerprint, first_recorded_at
+            ) VALUES (?, ?, ?, ?)
+            ON CONFLICT(card_hash) DO NOTHING
             """,
             (
-                league_id,
-                stamp,
-                stamp,
                 digest,
                 json.dumps(dict(scoring), sort_keys=True, separators=(",", ":")),
                 scoring_fingerprint,
-                str(season) if season is not None else None,
+                now,
             ),
         )
+        cur = conn.execute(
+            """
+            INSERT INTO scoring_card_observations (
+                sleeper_league_id, observed_at, card_hash, season, recorded_at
+            ) VALUES (?, ?, ?, ?, ?)
+            ON CONFLICT(sleeper_league_id, observed_at) DO NOTHING
+            """,
+            (league_id, stamp, digest, str(season) if season is not None else None, now),
+        )
+        inserted = cur.rowcount == 1
         conn.commit()
-        return {
-            "action": "opened",
-            "cardHash": digest,
-            "firstObservedAt": stamp,
-            "lastObservedAt": stamp,
-            "observationCount": 1,
-            "previousCardHash": latest[1] if latest else None,
-        }
+        total = conn.execute(
+            "SELECT COUNT(*) FROM scoring_card_observations WHERE sleeper_league_id = ?",
+            (league_id,),
+        ).fetchone()[0]
     finally:
         conn.close()
 
+    return {
+        "action": "recorded" if inserted else "duplicate",
+        "cardHash": digest,
+        "observedAt": stamp,
+        "observationCount": int(total or 0),
+    }
 
-_CARD_COLUMNS = """
-    first_observed_at, last_observed_at, card_hash,
-    scoring_json, scoring_fingerprint, season, observation_count
-"""
+
+def _observation_at_or_before(
+    conn: sqlite3.Connection, league_id: str, when: str
+) -> tuple[Any, ...] | None:
+    return conn.execute(
+        """
+        SELECT o.observed_at, o.card_hash, o.season,
+               p.scoring_json, p.scoring_fingerprint
+          FROM scoring_card_observations o
+          JOIN scoring_card_payloads p ON p.card_hash = o.card_hash
+         WHERE o.sleeper_league_id = ? AND o.observed_at <= ?
+         ORDER BY o.observed_at DESC
+         LIMIT 1
+        """,
+        (league_id, when),
+    ).fetchone()
 
 
-def _card_row(league_id: str, row: tuple[Any, ...], fidelity: str) -> dict[str, Any]:
+def _observation_at_or_after(
+    conn: sqlite3.Connection, league_id: str, when: str
+) -> tuple[Any, ...] | None:
+    return conn.execute(
+        """
+        SELECT o.observed_at, o.card_hash, o.season,
+               p.scoring_json, p.scoring_fingerprint
+          FROM scoring_card_observations o
+          JOIN scoring_card_payloads p ON p.card_hash = o.card_hash
+         WHERE o.sleeper_league_id = ? AND o.observed_at >= ?
+         ORDER BY o.observed_at ASC
+         LIMIT 1
+        """,
+        (league_id, when),
+    ).fetchone()
+
+
+def _answer(league_id: str, row: tuple[Any, ...], fidelity: str) -> dict[str, Any]:
     return {
         "sleeperLeagueId": league_id,
-        "firstObservedAt": row[0],
-        "lastObservedAt": row[1],
-        "cardHash": row[2],
+        "observedAt": row[0],
+        "cardHash": row[1],
+        "season": row[2],
         "scoringSettings": json.loads(row[3]),
         "scoringFingerprint": row[4],
-        "season": row[5],
-        "observationCount": int(row[6] or 0),
         "fidelity": fidelity,
     }
 
@@ -329,130 +416,153 @@ def scoring_card_at(
     sleeper_league_id: str,
     when: str,
     *,
-    allow_nearest_prior: bool = False,
+    accept: tuple[str, ...] = ACCEPT_EXACT,
     path: Path | None = None,
 ) -> dict[str, Any] | None:
-    """The card this league was observed carrying at ``when``.
+    """The card this league was carrying at ``when``, at a stated fidelity.
 
-    Two answers, and the caller must choose which it can live with.
+    ``accept`` decides how much inference the caller is willing to take,
+    and it defaults to none.  Pass ``ACCEPT_BRACKETED`` or ``ACCEPT_ANY``
+    to widen it; the answer always carries ``fidelity`` so a widened
+    result can never be mistaken for a measured one.
 
-    **Default — ``exact`` only.**  Returns a card only when an
-    observation window actually covers that instant.  ``None``
-    otherwise, including for a date before the recorder started.  A
-    recorder that ran on Jan 1 and again on Feb 1 under a different card
-    proves the change happened *somewhere* in between; it does not prove
-    what was in force on Jan 15, and answering "A" would be a guess
-    wearing the costume of a measurement.
+    * ``exact`` — an observation exists at that instant.
+    * ``reconstructed`` — the observations immediately before and after
+      ``when`` both exist and agree on the card.  ``bracketGapHours``
+      states how wide the unobserved span is.  This is **not** exact: the
+      card could have changed and changed back inside the gap, and a
+      matching pair of endpoints cannot rule that out.
+    * ``nearest_prior`` — only a prior observation exists, or the
+      bracketing pair DISAGREE (so the instant is genuinely
+      indeterminate and the answer is the last thing actually seen).
+      ``coverageGapEndsAt`` bounds it.
 
-    **``allow_nearest_prior=True``** additionally returns the most
-    recent interval that ENDED before ``when``, stamped
-    ``fidelity: "nearest_prior"`` with ``coverageGapEndsAt`` naming the
-    next observation that bounds the uncertainty.  Opt-in and labelled,
-    because a downgraded answer a caller did not ask for is how
-    approximations end up quoted as facts.
-
-    What is never returned is today's card for a historical date.  That
-    substitution — missing = current — is the one the retention tranche
-    exists to prevent, and no flag enables it.
+    ``None`` when nothing supports an answer at the requested fidelity,
+    including every date before the recorder started.  No value of
+    ``accept`` returns a later card as a standalone answer about an
+    earlier date — that substitution, missing = current, is the one this
+    tranche exists to prevent.
     """
     league_id = str(sleeper_league_id or "").strip()
     if not league_id or not when:
         return None
+
     conn = connect(path)
     try:
-        row = conn.execute(
-            f"""
-            SELECT {_CARD_COLUMNS}
-              FROM scoring_card_history
-             WHERE sleeper_league_id = ?
-               AND first_observed_at <= ?
-               AND last_observed_at  >= ?
-             ORDER BY first_observed_at DESC
-             LIMIT 1
-            """,
-            (league_id, when, when),
-        ).fetchone()
-        if row:
-            return _card_row(league_id, row, "exact")
-        if not allow_nearest_prior:
-            return None
-
-        prior = conn.execute(
-            f"""
-            SELECT {_CARD_COLUMNS}
-              FROM scoring_card_history
-             WHERE sleeper_league_id = ?
-               AND last_observed_at < ?
-             ORDER BY last_observed_at DESC
-             LIMIT 1
-            """,
-            (league_id, when),
-        ).fetchone()
-        if not prior:
-            return None
-        # The next observation of ANY card bounds how far the prior one
-        # could have run.  Without it "nearest prior" would look like an
-        # unbounded claim rather than a gap of known width.
-        next_seen = conn.execute(
-            """
-            SELECT MIN(first_observed_at)
-              FROM scoring_card_history
-             WHERE sleeper_league_id = ? AND first_observed_at > ?
-            """,
-            (league_id, prior[1]),
-        ).fetchone()
+        prior = _observation_at_or_before(conn, league_id, when)
+        later = _observation_at_or_after(conn, league_id, when)
     finally:
         conn.close()
 
-    out = _card_row(league_id, prior, "nearest_prior")
-    out["coverageGapStartsAt"] = prior[1]
-    out["coverageGapEndsAt"] = next_seen[0] if next_seen else None
+    if prior is not None and str(prior[0]) == str(when):
+        return _answer(league_id, prior, FIDELITY_EXACT) if FIDELITY_EXACT in accept else None
+
+    if prior is None:
+        # Nothing before it.  A later observation alone says nothing
+        # about an earlier date, however recent or however matching.
+        return None
+
+    bracketed = later is not None and later[1] == prior[1]
+    if bracketed:
+        if FIDELITY_RECONSTRUCTED not in accept:
+            return None
+        out = _answer(league_id, prior, FIDELITY_RECONSTRUCTED)
+        out["bracketStartsAt"] = prior[0]
+        out["bracketEndsAt"] = later[0]
+        out["bracketGapHours"] = _gap_hours(prior[0], later[0])
+        return out
+
+    if FIDELITY_NEAREST_PRIOR not in accept:
+        return None
+    out = _answer(league_id, prior, FIDELITY_NEAREST_PRIOR)
+    out["coverageGapStartsAt"] = prior[0]
+    # The next observation of ANY card bounds how far the prior one could
+    # have run.  Without it "nearest prior" would look like an unbounded
+    # claim rather than a gap of known width.
+    out["coverageGapEndsAt"] = later[0] if later is not None else None
+    out["coverageGapHours"] = _gap_hours(prior[0], later[0]) if later is not None else None
     return out
 
 
-def scoring_card_history(
+def scoring_card_observations(
     sleeper_league_id: str | None = None,
     *,
     path: Path | None = None,
 ) -> list[dict[str, Any]]:
-    """Every observed interval, oldest first.  Operators and tests only."""
+    """Every recorded observation, oldest first.  The raw evidence.
+
+    Operators and tests only — see the package docstring.
+    """
+    where = "WHERE o.sleeper_league_id = ?" if sleeper_league_id else ""
+    params: tuple[Any, ...] = (str(sleeper_league_id).strip(),) if sleeper_league_id else ()
     conn = connect(path)
     try:
-        if sleeper_league_id:
-            cur = conn.execute(
-                """
-                SELECT sleeper_league_id, first_observed_at, last_observed_at,
-                       card_hash, scoring_fingerprint, season, observation_count
-                  FROM scoring_card_history
-                 WHERE sleeper_league_id = ?
-                 ORDER BY first_observed_at
-                """,
-                (str(sleeper_league_id).strip(),),
-            )
-        else:
-            cur = conn.execute(
-                """
-                SELECT sleeper_league_id, first_observed_at, last_observed_at,
-                       card_hash, scoring_fingerprint, season, observation_count
-                  FROM scoring_card_history
-                 ORDER BY sleeper_league_id, first_observed_at
-                """
-            )
-        rows = cur.fetchall()
+        rows = conn.execute(
+            f"""
+            SELECT o.sleeper_league_id, o.observed_at, o.card_hash, o.season,
+                   p.scoring_fingerprint
+              FROM scoring_card_observations o
+              JOIN scoring_card_payloads p ON p.card_hash = o.card_hash
+              {where}
+             ORDER BY o.sleeper_league_id, o.observed_at
+            """,
+            params,
+        ).fetchall()
     finally:
         conn.close()
     return [
         {
             "sleeperLeagueId": r[0],
-            "firstObservedAt": r[1],
-            "lastObservedAt": r[2],
-            "cardHash": r[3],
+            "observedAt": r[1],
+            "cardHash": r[2],
+            "season": r[3],
             "scoringFingerprint": r[4],
-            "season": r[5],
-            "observationCount": int(r[6] or 0),
         }
         for r in rows
     ]
+
+
+def scoring_card_windows(
+    sleeper_league_id: str,
+    *,
+    path: Path | None = None,
+) -> list[dict[str, Any]]:
+    """Runs of consecutive observations that agree on the card.
+
+    **Derived, never stored.**  A window is a summary of observations,
+    not a claim that the card held continuously across it — which is why
+    each one carries ``maxGapHours``, the widest unobserved span inside
+    it.  A window whose ``observationCount`` is 2 and whose
+    ``maxGapHours`` is 744 is two observations a month apart, and it
+    reads as exactly that rather than as a month of coverage.
+
+    ``A → B → A`` is three windows, because the second ``A`` is a
+    different run of observations and merging it with the first would
+    assert continuity across a period the card demonstrably differed.
+    """
+    obs = scoring_card_observations(sleeper_league_id, path=path)
+    windows: list[dict[str, Any]] = []
+    for row in obs:
+        if windows and windows[-1]["cardHash"] == row["cardHash"]:
+            w = windows[-1]
+            gap = _gap_hours(w["lastObservedAt"], row["observedAt"])
+            if gap is not None and (w["maxGapHours"] is None or gap > w["maxGapHours"]):
+                w["maxGapHours"] = gap
+            w["lastObservedAt"] = row["observedAt"]
+            w["observationCount"] += 1
+            continue
+        windows.append(
+            {
+                "sleeperLeagueId": row["sleeperLeagueId"],
+                "cardHash": row["cardHash"],
+                "firstObservedAt": row["observedAt"],
+                "lastObservedAt": row["observedAt"],
+                "observationCount": 1,
+                "maxGapHours": None,
+                "scoringFingerprint": row["scoringFingerprint"],
+            }
+        )
+    return windows
 
 
 # ── C1-RET-05: Sleeper trending adds ─────────────────────────────────
@@ -594,12 +704,13 @@ def coverage(*, path: Path | None = None) -> dict[str, Any]:
 
     conn = connect(target)
     try:
-        cards = conn.execute("SELECT COUNT(*) FROM scoring_card_history").fetchone()[0]
+        observations = conn.execute("SELECT COUNT(*) FROM scoring_card_observations").fetchone()[0]
         leagues = conn.execute(
-            "SELECT COUNT(DISTINCT sleeper_league_id) FROM scoring_card_history"
+            "SELECT COUNT(DISTINCT sleeper_league_id) FROM scoring_card_observations"
         ).fetchone()[0]
+        distinct_cards = conn.execute("SELECT COUNT(*) FROM scoring_card_payloads").fetchone()[0]
         card_last = conn.execute(
-            "SELECT MAX(last_observed_at) FROM scoring_card_history"
+            "SELECT MAX(observed_at) FROM scoring_card_observations"
         ).fetchone()[0]
         trend_rows = conn.execute("SELECT COUNT(*) FROM trending_observations").fetchone()[0]
         trend_snaps = conn.execute(
@@ -615,7 +726,8 @@ def coverage(*, path: Path | None = None) -> dict[str, Any]:
         "present": True,
         "path": str(target),
         "scoringCards": {
-            "intervals": int(cards or 0),
+            "observations": int(observations or 0),
+            "distinctCards": int(distinct_cards or 0),
             "leagues": int(leagues or 0),
             "lastObservedAt": card_last,
         },

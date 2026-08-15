@@ -2,8 +2,9 @@
 
 These pin the properties that make the store *retention* rather than
 just another cache: an observation cannot be destroyed by a later one,
-a re-run cannot duplicate or truncate, and an unobserved period reads as
-unobserved rather than as the nearest value.
+a re-run cannot duplicate or truncate, and — the property owner review
+had to correct — an unobserved period reads as unobserved rather than as
+a straight line between two matching endpoints.
 """
 
 from __future__ import annotations
@@ -27,191 +28,221 @@ def db(tmp_path):
 CARD_A = {"rec": 1.0, "pass_td": 4, "bonus_rec_te": 0.5}
 CARD_B = {"rec": 0.08, "pass_td": 6, "bonus_rec_te": 0.0}
 
-
-# ── C1-RET-04: scoring card history ──────────────────────────────────
-
-
-def test_first_observation_opens_an_interval(db):
-    result = evidence_store.observe_scoring_card(
-        "111", CARD_A, observed_at="2026-01-01T00:00:00+00:00", path=db
-    )
-    assert result["action"] == "opened"
-    assert result["observationCount"] == 1
-
-    rows = evidence_store.scoring_card_history("111", path=db)
-    assert len(rows) == 1
-    assert rows[0]["firstObservedAt"] == "2026-01-01T00:00:00+00:00"
-    assert rows[0]["lastObservedAt"] == "2026-01-01T00:00:00+00:00"
+JAN01 = "2026-01-01T00:00:00+00:00"
+JAN02 = "2026-01-02T00:00:00+00:00"
+JAN03 = "2026-01-03T00:00:00+00:00"
+JAN15 = "2026-01-15T00:00:00+00:00"
+FEB01 = "2026-02-01T00:00:00+00:00"
+MAR01 = "2026-03-01T00:00:00+00:00"
 
 
-def test_unchanged_card_extends_rather_than_duplicating(db):
-    evidence_store.observe_scoring_card(
-        "111", CARD_A, observed_at="2026-01-01T00:00:00+00:00", path=db
-    )
-    evidence_store.observe_scoring_card(
-        "111", CARD_A, observed_at="2026-01-02T00:00:00+00:00", path=db
-    )
-    result = evidence_store.observe_scoring_card(
-        "111", CARD_A, observed_at="2026-01-03T00:00:00+00:00", path=db
-    )
-
-    assert result["action"] == "extended"
-    assert result["observationCount"] == 3
-    rows = evidence_store.scoring_card_history("111", path=db)
-    assert len(rows) == 1, "an unchanged card must not mint a row per observation"
-    assert rows[0]["lastObservedAt"] == "2026-01-03T00:00:00+00:00"
+def _observe(db, league, card, when, **kw):
+    return evidence_store.observe_scoring_card(league, card, observed_at=when, path=db, **kw)
 
 
-def test_key_order_and_numeric_form_are_not_a_change(db):
-    """1 and 1.0 are the same scoring rule; so is a reordered dict.
+# ── THE review finding: continuity may not be invented ───────────────
 
-    Same normalisation ``scoring_fingerprint`` applies for the same
-    reason — without it every re-serialisation would read as a settings
-    change and the history would be noise.
+
+def test_a_same_card_observation_gap_is_not_exact(db):
+    """The defect owner review caught, pinned as a regression test.
+
+    A matching hash across an unobserved month is not evidence that the
+    card held continuously.  The true history could have been A -> B -> A,
+    or collection could simply have been dead.  The earlier interval
+    design extended one window across this gap and answered Jan 15 with
+    ``fidelity: exact``.
+
+        UNOBSERVED MUST REMAIN UNOBSERVED.
     """
-    evidence_store.observe_scoring_card(
-        "111", {"rec": 1, "pass_td": 4}, observed_at="2026-01-01T00:00:00+00:00", path=db
+    _observe(db, "111", CARD_A, JAN01)
+    # ... one month with NO observations at all ...
+    _observe(db, "111", CARD_A, FEB01)
+
+    answer = evidence_store.scoring_card_at("111", JAN15, path=db)
+    assert answer is None, "a gap must not be answerable at the strict default"
+
+    widened = evidence_store.scoring_card_at(
+        "111", JAN15, accept=evidence_store.ACCEPT_ANY, path=db
     )
-    result = evidence_store.observe_scoring_card(
-        "111", {"pass_td": 4.0, "rec": 1.0}, observed_at="2026-01-02T00:00:00+00:00", path=db
-    )
-    assert result["action"] == "extended"
-    assert len(evidence_store.scoring_card_history("111", path=db)) == 1
+    assert widened["fidelity"] != evidence_store.FIDELITY_EXACT
+    assert widened["fidelity"] == evidence_store.FIDELITY_RECONSTRUCTED
+    # And the size of what was NOT observed is stated, not hidden.
+    assert widened["bracketGapHours"] == pytest.approx(744.0)
+    assert widened["bracketStartsAt"] == JAN01
+    assert widened["bracketEndsAt"] == FEB01
 
 
-def test_a_changed_card_opens_a_new_interval_and_preserves_the_old(db):
-    evidence_store.observe_scoring_card(
-        "111", CARD_A, observed_at="2026-01-01T00:00:00+00:00", path=db
-    )
-    evidence_store.observe_scoring_card(
-        "111", CARD_B, observed_at="2026-02-01T00:00:00+00:00", path=db
-    )
+def test_a_disagreeing_bracket_is_not_reconstructed(db):
+    """Jan 1 A + Feb 1 B: the card on Jan 15 is genuinely indeterminate.
 
-    rows = evidence_store.scoring_card_history("111", path=db)
-    assert len(rows) == 2
-    # THE point of the row: the old card still exists after the
-    # overwrite that destroyed it in data/leagues/scoring_*.json.
-    assert rows[0]["cardHash"] != rows[1]["cardHash"]
+    We know it was A or B and we cannot say which, so the answer is the
+    last thing actually seen, labelled as such — never a reconstruction.
+    """
+    _observe(db, "111", CARD_A, JAN01)
+    _observe(db, "111", CARD_B, FEB01)
 
-    old = evidence_store.scoring_card_at("111", "2026-01-01T00:00:00+00:00", path=db)
-    assert old is not None
-    assert old["fidelity"] == "exact"
-    assert old["scoringSettings"] == CARD_A
-
-
-def test_a_gap_between_observations_is_not_answered_exactly(db):
-    """Two observations a month apart under different cards prove a
-    change happened between them — not what was in force on Jan 15."""
-    evidence_store.observe_scoring_card(
-        "111", CARD_A, observed_at="2026-01-01T00:00:00+00:00", path=db
-    )
-    evidence_store.observe_scoring_card(
-        "111", CARD_B, observed_at="2026-02-01T00:00:00+00:00", path=db
-    )
-
-    assert evidence_store.scoring_card_at("111", "2026-01-15T00:00:00+00:00", path=db) is None
-
-    downgraded = evidence_store.scoring_card_at(
-        "111", "2026-01-15T00:00:00+00:00", allow_nearest_prior=True, path=db
-    )
-    assert downgraded["fidelity"] == "nearest_prior"
-    assert downgraded["scoringSettings"] == CARD_A
-    # The uncertainty is bounded and stated, not implied.
-    assert downgraded["coverageGapStartsAt"] == "2026-01-01T00:00:00+00:00"
-    assert downgraded["coverageGapEndsAt"] == "2026-02-01T00:00:00+00:00"
-
-
-def test_nearest_prior_never_reaches_backwards_to_a_later_card(db):
-    """No flag makes today's card an answer about the past."""
-    evidence_store.observe_scoring_card(
-        "111", CARD_A, observed_at="2026-06-01T00:00:00+00:00", path=db
-    )
-
+    assert evidence_store.scoring_card_at("111", JAN15, path=db) is None
     assert (
         evidence_store.scoring_card_at(
-            "111", "2026-01-01T00:00:00+00:00", allow_nearest_prior=True, path=db
+            "111", JAN15, accept=evidence_store.ACCEPT_BRACKETED, path=db
         )
         is None
     )
 
+    widened = evidence_store.scoring_card_at(
+        "111", JAN15, accept=evidence_store.ACCEPT_ANY, path=db
+    )
+    assert widened["fidelity"] == evidence_store.FIDELITY_NEAREST_PRIOR
+    assert widened["scoringSettings"] == CARD_A
+    assert widened["coverageGapStartsAt"] == JAN01
+    assert widened["coverageGapEndsAt"] == FEB01
 
-def test_reverting_to_an_earlier_card_opens_a_third_interval(db):
-    """A → B → A is three windows, not two.
 
-    Merging the second A into the first would assert the card was
-    continuous across a period it demonstrably differed.
+def test_exact_means_an_observation_at_that_instant(db):
+    """Not "the endpoints matched", which is what review rejected."""
+    _observe(db, "111", CARD_A, JAN01)
+    _observe(db, "111", CARD_A, JAN02)
+
+    at_obs = evidence_store.scoring_card_at("111", JAN01, path=db)
+    assert at_obs["fidelity"] == evidence_store.FIDELITY_EXACT
+    assert at_obs["scoringSettings"] == CARD_A
+
+    # One second later there is no observation, so even between two
+    # adjacent same-card observations the strict default declines.
+    between = evidence_store.scoring_card_at("111", "2026-01-01T00:00:01+00:00", path=db)
+    assert between is None
+
+
+def test_the_strict_default_never_widens_on_its_own(db):
+    """Every non-exact answer requires the caller to have asked for it."""
+    _observe(db, "111", CARD_A, JAN01)
+    _observe(db, "111", CARD_A, FEB01)
+
+    assert evidence_store.scoring_card_at("111", JAN15, path=db) is None
+    assert (
+        evidence_store.scoring_card_at("111", JAN15, accept=evidence_store.ACCEPT_EXACT, path=db)
+        is None
+    )
+
+
+def test_no_accept_setting_backfills_an_unobserved_earlier_date(db):
+    """A later observation says nothing about a date before it, however
+    recent and however matching."""
+    _observe(db, "111", CARD_A, "2026-06-01T00:00:00+00:00")
+
+    for accept in (
+        evidence_store.ACCEPT_EXACT,
+        evidence_store.ACCEPT_BRACKETED,
+        evidence_store.ACCEPT_ANY,
+    ):
+        assert evidence_store.scoring_card_at("111", JAN01, accept=accept, path=db) is None
+
+
+def test_there_is_no_gap_threshold_constant(db):
+    """A "gaps under N hours bridge" rule would be a magic number
+    standing in for a cadence guarantee this platform does not have.
+
+    A 36-second gap and a one-month gap take the SAME code path and get
+    the same fidelity label; only the reported ``bracketGapHours``
+    differs, and the caller applies its own standard.
     """
-    evidence_store.observe_scoring_card(
-        "111", CARD_A, observed_at="2026-01-01T00:00:00+00:00", path=db
-    )
-    evidence_store.observe_scoring_card(
-        "111", CARD_B, observed_at="2026-02-01T00:00:00+00:00", path=db
-    )
-    evidence_store.observe_scoring_card(
-        "111", CARD_A, observed_at="2026-03-01T00:00:00+00:00", path=db
+    _observe(db, "111", CARD_A, JAN01)
+    _observe(db, "111", CARD_A, "2026-01-01T00:00:36+00:00")
+    tight = evidence_store.scoring_card_at(
+        "111", "2026-01-01T00:00:18+00:00", accept=evidence_store.ACCEPT_ANY, path=db
     )
 
-    rows = evidence_store.scoring_card_history("111", path=db)
-    assert len(rows) == 3
-    mid = evidence_store.scoring_card_at(
-        "111", "2026-02-15T00:00:00+00:00", allow_nearest_prior=True, path=db
-    )
-    assert mid["scoringSettings"] == CARD_B
-    assert mid["coverageGapEndsAt"] == "2026-03-01T00:00:00+00:00"
+    assert tight["fidelity"] == evidence_store.FIDELITY_RECONSTRUCTED
+    assert tight["bracketGapHours"] == pytest.approx(0.01)
+    # Same fidelity as the month-wide bracket above — only the reported
+    # gap distinguishes them, which is the caller's call to make.
+    assert tight["fidelity"] == evidence_store.FIDELITY_RECONSTRUCTED
 
 
-def test_card_at_an_unobserved_date_is_none_not_the_nearest(db):
-    """MISSING IS NEVER ZERO, and never today's value either."""
-    evidence_store.observe_scoring_card(
-        "111", CARD_A, observed_at="2026-06-01T00:00:00+00:00", path=db
-    )
-
-    assert evidence_store.scoring_card_at("111", "2026-01-01T00:00:00+00:00", path=db) is None
-    # And after the last observation: the window is open-ended in
-    # reality but only CLOSED evidence is reported.
-    assert evidence_store.scoring_card_at("111", "2026-09-01T00:00:00+00:00", path=db) is None
+# ── storage is observations, append-only and idempotent ──────────────
 
 
-def test_empty_card_is_not_recorded_as_a_change(db):
+def test_every_observation_is_recorded(db):
+    """No merging at write time: the write path cannot know what
+    happened while it was not looking."""
+    _observe(db, "111", CARD_A, JAN01)
+    _observe(db, "111", CARD_A, JAN02)
+    result = _observe(db, "111", CARD_A, JAN03)
+
+    assert result["action"] == "recorded"
+    assert result["observationCount"] == 3
+    assert len(evidence_store.scoring_card_observations("111", path=db)) == 3
+
+
+def test_replaying_the_same_instant_is_a_no_op(db):
+    _observe(db, "111", CARD_A, JAN01)
+    result = _observe(db, "111", CARD_A, JAN01)
+
+    assert result["action"] == "duplicate"
+    assert len(evidence_store.scoring_card_observations("111", path=db)) == 1
+
+
+def test_identical_cards_are_stored_once_but_observed_many_times(db):
+    """The smallest representation that preserves the evidence:
+    deduplicate identical CONTENT under its own hash, never the
+    observations that decide fidelity."""
+    for when in (JAN01, JAN02, JAN03):
+        _observe(db, "111", CARD_A, when)
+
+    conn = evidence_store.connect(db)
+    try:
+        payloads = conn.execute("SELECT COUNT(*) FROM scoring_card_payloads").fetchone()[0]
+        observations = conn.execute("SELECT COUNT(*) FROM scoring_card_observations").fetchone()[0]
+    finally:
+        conn.close()
+    assert payloads == 1
+    assert observations == 3
+
+
+def test_key_order_and_numeric_form_are_not_a_change(db):
+    """1 and 1.0 are the same scoring rule; so is a reordered dict."""
+    _observe(db, "111", {"rec": 1, "pass_td": 4}, JAN01)
+    _observe(db, "111", {"pass_td": 4.0, "rec": 1.0}, JAN02)
+
+    hashes = {o["cardHash"] for o in evidence_store.scoring_card_observations("111", path=db)}
+    assert len(hashes) == 1
+
+
+def test_the_overwritten_card_is_still_readable(db):
+    """THE point of the row: the card the live path destroys survives."""
+    _observe(db, "111", CARD_A, JAN01)
+    _observe(db, "111", CARD_B, FEB01)
+
+    old = evidence_store.scoring_card_at("111", JAN01, path=db)
+    assert old["fidelity"] == evidence_store.FIDELITY_EXACT
+    assert old["scoringSettings"] == CARD_A
+
+
+def test_empty_card_is_not_recorded_as_an_observation(db):
     """A failed fetch must not read back as "this league scores nothing"."""
-    evidence_store.observe_scoring_card(
-        "111", CARD_A, observed_at="2026-01-01T00:00:00+00:00", path=db
-    )
-    result = evidence_store.observe_scoring_card(
-        "111", {}, observed_at="2026-01-02T00:00:00+00:00", path=db
-    )
+    _observe(db, "111", CARD_A, JAN01)
+    result = _observe(db, "111", {}, JAN02)
+
     assert result["action"] == "skipped"
-    assert len(evidence_store.scoring_card_history("111", path=db)) == 1
+    assert len(evidence_store.scoring_card_observations("111", path=db)) == 1
 
 
 def test_leagues_are_isolated(db):
-    evidence_store.observe_scoring_card(
-        "111", CARD_A, observed_at="2026-01-01T00:00:00+00:00", path=db
-    )
-    evidence_store.observe_scoring_card(
-        "222", CARD_B, observed_at="2026-01-01T00:00:00+00:00", path=db
-    )
+    _observe(db, "111", CARD_A, JAN01)
+    _observe(db, "222", CARD_B, JAN01)
 
-    assert len(evidence_store.scoring_card_history("111", path=db)) == 1
-    assert len(evidence_store.scoring_card_history("222", path=db)) == 1
-    assert (
-        evidence_store.scoring_card_at("222", "2026-01-01T00:00:00+00:00", path=db)[
-            "scoringSettings"
-        ]
-        == CARD_B
-    )
+    assert len(evidence_store.scoring_card_observations("111", path=db)) == 1
+    assert evidence_store.scoring_card_at("222", JAN01, path=db)["scoringSettings"] == CARD_B
 
 
-def test_out_of_order_replay_does_not_rewind_the_window(db):
-    evidence_store.observe_scoring_card(
-        "111", CARD_A, observed_at="2026-01-05T00:00:00+00:00", path=db
-    )
-    evidence_store.observe_scoring_card(
-        "111", CARD_A, observed_at="2026-01-02T00:00:00+00:00", path=db
-    )
+def test_out_of_order_recording_is_ordered_on_read(db):
+    """Observations arrive however the collector runs; the evidence is
+    ordered by when it was OBSERVED, not by when it was written."""
+    _observe(db, "111", CARD_A, FEB01)
+    _observe(db, "111", CARD_A, JAN01)
 
-    rows = evidence_store.scoring_card_history("111", path=db)
-    assert rows[0]["lastObservedAt"] == "2026-01-05T00:00:00+00:00"
+    stamps = [o["observedAt"] for o in evidence_store.scoring_card_observations("111", path=db)]
+    assert stamps == [JAN01, FEB01]
 
 
 def test_whole_card_is_stored_not_just_indexed_fields(db):
@@ -219,12 +250,66 @@ def test_whole_card_is_stored_not_just_indexed_fields(db):
     answerable only if the payload survived."""
     card = dict(CARD_A)
     card["some_future_key_nobody_reads_yet"] = 3.25
-    evidence_store.observe_scoring_card(
-        "111", card, observed_at="2026-01-01T00:00:00+00:00", path=db
-    )
+    _observe(db, "111", card, JAN01)
 
-    stored = evidence_store.scoring_card_at("111", "2026-01-01T00:00:00+00:00", path=db)
+    stored = evidence_store.scoring_card_at("111", JAN01, path=db)
     assert stored["scoringSettings"]["some_future_key_nobody_reads_yet"] == 3.25
+
+
+def test_stored_payload_is_valid_json(db):
+    _observe(db, "111", CARD_A, JAN01)
+    conn = evidence_store.connect(db)
+    try:
+        raw = conn.execute("SELECT scoring_json FROM scoring_card_payloads").fetchone()[0]
+    finally:
+        conn.close()
+    assert json.loads(raw) == CARD_A
+
+
+# ── derived windows ──────────────────────────────────────────────────
+
+
+def test_a_b_a_remains_three_windows(db):
+    """Merging the second A into the first would assert continuity
+    across a period the card demonstrably differed."""
+    _observe(db, "111", CARD_A, JAN01)
+    _observe(db, "111", CARD_B, FEB01)
+    _observe(db, "111", CARD_A, MAR01)
+
+    windows = evidence_store.scoring_card_windows("111", path=db)
+    assert len(windows) == 3
+    assert [w["firstObservedAt"] for w in windows] == [JAN01, FEB01, MAR01]
+
+
+def test_a_window_reports_its_widest_unobserved_span(db):
+    """So a window of two observations a month apart reads as exactly
+    that, and never as a month of coverage."""
+    _observe(db, "111", CARD_A, JAN01)
+    _observe(db, "111", CARD_A, FEB01)
+
+    window = evidence_store.scoring_card_windows("111", path=db)[0]
+    assert window["observationCount"] == 2
+    assert window["maxGapHours"] == pytest.approx(744.0)
+
+
+def test_a_single_observation_window_has_no_gap(db):
+    _observe(db, "111", CARD_A, JAN01)
+    window = evidence_store.scoring_card_windows("111", path=db)[0]
+
+    assert window["observationCount"] == 1
+    assert window["maxGapHours"] is None, "one observation spans nothing"
+
+
+def test_windows_are_derived_never_stored(db):
+    """Structural: there is no interval table to drift from the evidence."""
+    _observe(db, "111", CARD_A, JAN01)
+    conn = evidence_store.connect(db)
+    try:
+        tables = {r[0] for r in conn.execute("SELECT name FROM sqlite_master WHERE type = 'table'")}
+    finally:
+        conn.close()
+    assert "scoring_card_history" not in tables
+    assert {"scoring_card_observations", "scoring_card_payloads"} <= tables
 
 
 # ── C1-RET-05: trending observations ─────────────────────────────────
@@ -291,12 +376,11 @@ def test_empty_or_undated_snapshots_are_skipped(db):
 def test_coverage_distinguishes_absent_from_empty(db):
     assert evidence_store.coverage(path=db) == {"present": False, "path": str(db)}
 
-    evidence_store.observe_scoring_card(
-        "111", CARD_A, observed_at="2026-01-01T00:00:00+00:00", path=db
-    )
+    _observe(db, "111", CARD_A, JAN01)
     cov = evidence_store.coverage(path=db)
     assert cov["present"] is True
-    assert cov["scoringCards"]["intervals"] == 1
+    assert cov["scoringCards"]["observations"] == 1
+    assert cov["scoringCards"]["distinctCards"] == 1
     # The trending half is genuinely empty, and says so with a count
     # rather than by being absent from the report.
     assert cov["trending"]["observations"] == 0
@@ -315,15 +399,3 @@ def test_no_insert_or_replace_in_the_write_path():
     # every column in its table.
     statements = re.findall(r"INSERT OR REPLACE INTO\s+(\w+)", text)
     assert statements == ["meta"], statements
-
-
-def test_stored_payload_is_valid_json(db):
-    evidence_store.observe_scoring_card(
-        "111", CARD_A, observed_at="2026-01-01T00:00:00+00:00", path=db
-    )
-    conn = evidence_store.connect(db)
-    try:
-        raw = conn.execute("SELECT scoring_json FROM scoring_card_history").fetchone()[0]
-    finally:
-        conn.close()
-    assert json.loads(raw) == CARD_A

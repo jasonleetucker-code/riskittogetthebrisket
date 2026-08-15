@@ -34,20 +34,28 @@ restore/replay method and health signal — is
 """
 
 from src.retention.evidence_store import (
+    ACCEPT_ANY,
+    ACCEPT_BRACKETED,
+    ACCEPT_EXACT,
     observe_scoring_card,
     observe_trending_snapshot,
     scoring_card_at,
-    scoring_card_history,
+    scoring_card_observations,
+    scoring_card_windows,
     trending_series,
 )
 from src.retention.league_events import record_transactions, transaction_coverage
 
 __all__ = [
+    "ACCEPT_ANY",
+    "ACCEPT_BRACKETED",
+    "ACCEPT_EXACT",
     "observe_scoring_card",
     "observe_trending_snapshot",
     "record_transactions",
     "scoring_card_at",
-    "scoring_card_history",
+    "scoring_card_observations",
+    "scoring_card_windows",
     "transaction_coverage",
     "trending_series",
 ]

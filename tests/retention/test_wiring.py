@@ -48,12 +48,12 @@ def _isolated_stores(tmp_path, monkeypatch):
 # ── C1-RET-04: write_scoring_snapshot records before it overwrites ───
 
 
-def test_writing_a_scoring_snapshot_records_history(tmp_path, monkeypatch):
+def test_writing_a_scoring_snapshot_records_an_observation(tmp_path, monkeypatch):
     monkeypatch.setattr(league_registry, "_DEFAULT_SCORING_SNAPSHOT_DIR", tmp_path / "leagues")
 
     league_registry.write_scoring_snapshot("999", {"rec": 1.0, "pass_td": 4})
 
-    rows = evidence_store.scoring_card_history("999")
+    rows = evidence_store.scoring_card_observations("999")
     assert len(rows) == 1
 
 
@@ -70,11 +70,29 @@ def test_the_overwritten_card_survives_in_history(tmp_path, monkeypatch):
     on_disk = json.loads(path.read_text(encoding="utf-8"))
     assert on_disk["scoringSettings"] == {"rec": 0.08}
 
-    # And the destroyed one is recoverable.
-    history = evidence_store.scoring_card_history("999")
-    assert len(history) == 2
-    first = evidence_store.scoring_card_at("999", history[0]["firstObservedAt"])
+    # And the destroyed one is recoverable AT ITS OBSERVED INSTANT —
+    # exact evidence, not an inference across a gap.
+    observations = evidence_store.scoring_card_observations("999")
+    assert len(observations) == 2
+    first = evidence_store.scoring_card_at("999", observations[0]["observedAt"])
+    assert first["fidelity"] == evidence_store.FIDELITY_EXACT
     assert first["scoringSettings"] == {"rec": 1.0}
+
+
+def test_the_recorded_instant_is_the_snapshot_stamp(tmp_path, monkeypatch):
+    """The observation stamp must be the one written into the card file.
+
+    If they drifted, the exact-fidelity lookup above would silently stop
+    resolving and every historical answer would degrade to an inference.
+    """
+    monkeypatch.setattr(league_registry, "_DEFAULT_SCORING_SNAPSHOT_DIR", tmp_path / "leagues")
+
+    path = league_registry.write_scoring_snapshot("999", {"rec": 1.0})
+    fetched_at = json.loads(path.read_text(encoding="utf-8"))["fetchedAt"]
+
+    answer = evidence_store.scoring_card_at("999", fetched_at)
+    assert answer is not None
+    assert answer["fidelity"] == evidence_store.FIDELITY_EXACT
 
 
 def test_a_retention_failure_does_not_break_the_scoring_snapshot(tmp_path, monkeypatch):

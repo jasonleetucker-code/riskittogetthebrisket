@@ -414,7 +414,7 @@ def _probe_scoring_cards(data_dir: Path) -> dict[str, Any]:
         present=True,
         last_observed=cards.get("lastObservedAt"),
         budget_h=SCRAPE_BUDGET_H,
-        rows=int(cards.get("intervals") or 0),
+        rows=int(cards.get("observations") or 0),
     )
     return _stream(
         "C1-RET-04",
@@ -425,10 +425,15 @@ def _probe_scoring_cards(data_dir: Path) -> dict[str, Any]:
         age_h=age,
         primary_store=str(db),
         detail=(
-            f"{cards.get('intervals', 0)} observed interval(s) "
+            f"{cards.get('observations', 0)} observation(s) of "
+            f"{cards.get('distinctCards', 0)} distinct card(s) "
             f"across {cards.get('leagues', 0)} league(s)"
         ),
-        extra={"intervals": cards.get("intervals"), "leagues": cards.get("leagues")},
+        extra={
+            "observations": cards.get("observations"),
+            "distinctCards": cards.get("distinctCards"),
+            "leagues": cards.get("leagues"),
+        },
     )
 
 

@@ -14,6 +14,23 @@ name: Retention health (read-only)
 # required stream is stale, missing or unreadable, and that exit status
 # is this job's exit status — no ``|| true``, no masking pipe.
 #
+# THE SCHEDULED RUN REQUIRES THE COMPLETE AUTHORIZED TRANCHE.  That rule
+# lives in ``deploy/diagnostics/retention_health_probe.sh``, not in an
+# expression here, because the first version of this workflow resolved
+# REQUIRE from ``inputs.require`` — which is empty on a ``schedule``
+# event — so the nightly watchdog silently ran in report-only mode and
+# would have stayed green with every stream dead.  A watchdog that
+# cannot fail is the same ships-then-stops-then-stays-quiet silence this
+# tranche repairs, wearing a green tick.  In the script the rule is
+# executable and tested end-to-end
+# (``tests/retention/test_watchdog_semantics.py``); in YAML it could
+# only be regex-checked.
+#
+# A scheduled failure while production has not yet produced all eight
+# artifacts is TRUTHFUL AND USEFUL, and it is not a reason to soften the
+# check.  The job turns green when the retention system actually becomes
+# healthy — that is the signal.
+#
 # It runs OVER SSH on the production host because every store it probes
 # lives under ``data/``, which is gitignored.  A runner's checkout holds
 # none of them and would honestly report eight missing streams — a true
@@ -35,9 +52,10 @@ on:
     inputs:
       require:
         description: >-
+          MANUAL RUNS ONLY — scheduled runs always require every stream.
           Space-separated stream ids whose failure should fail this run
-          (e.g. "C1-RET-01 C1-RET-04").  Empty = report only, never fail.
-          Default requires every stream.
+          (e.g. "C1-RET-01 C1-RET-04"), or "ALL" for the whole tranche.
+          Empty = report only, never fail.
         required: false
         default: ""
         type: string
@@ -83,12 +101,11 @@ jobs:
           DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
           APP_DIR: ${{ vars.PROD_APP_DIR || '/home/dynasty/trade-calculator' }}
           PYTHON_BIN: ${{ vars.PROD_PYTHON_BIN || '/home/dynasty/.venvs/trade-calculator/bin/python' }}
-          # A scheduled run REPORTS without failing, deliberately.  The
-          # eight streams are provisioned incrementally, and a job that
-          # goes red every night for a stream nobody has enabled yet is a
-          # job nobody reads — which is the same silence this tranche is
-          # repairing.  Tighten this to the provisioned set as each one
-          # lands; "ALL" requires every stream.
+          # Both forwarded verbatim.  The probe script owns the rule that
+          # a scheduled run requires everything — see the header comment.
+          # This workflow deliberately makes no decision of its own here,
+          # so there is nothing to get wrong in an expression.
+          EVENT_NAME: ${{ github.event_name }}
           REQUIRE: ${{ inputs.require || '' }}
         shell: bash
         run: |
@@ -102,5 +119,5 @@ jobs:
             -o UserKnownHostsFile="$HOME/.ssh/known_hosts" \
             -o ConnectTimeout=15 -o ServerAliveInterval=15 \
             -p "$PORT" "$DEPLOY_USER@$DEPLOY_HOST" \
-            "APP_DIR=$(printf %q "$APP_DIR") PYTHON_BIN=$(printf %q "$PYTHON_BIN") REQUIRE=$(printf %q "$REQUIRE") bash -s" \
+            "APP_DIR=$(printf %q "$APP_DIR") PYTHON_BIN=$(printf %q "$PYTHON_BIN") EVENT_NAME=$(printf %q "$EVENT_NAME") REQUIRE=$(printf %q "$REQUIRE") bash -s" \
             < deploy/diagnostics/retention_health_probe.sh

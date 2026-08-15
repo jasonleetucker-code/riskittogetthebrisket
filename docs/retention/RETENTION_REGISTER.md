@@ -118,11 +118,11 @@ write must not break the contract response — but it is no longer unobserved.
 
 | | |
 |---|---|
-| **Primary store** | `data/retention/evidence.sqlite` → `scoring_card_history` |
+| **Primary store** | `data/retention/evidence.sqlite` → `scoring_card_observations` + `scoring_card_payloads` |
 | **Backup** | `riskit-state-backup.sh` → `sqlite/evidence.sqlite.gz` |
 | **Write owner** | `src/retention/evidence_store.py::observe_scoring_card`, called from `league_registry.write_scoring_snapshot` **before** its overwrite |
 | **Read owner** | operators, tests, `scoring_card_at()`. No decision path — the live W18-F001 gate keeps reading `data/leagues/scoring_<id>.json`, unchanged |
-| **Retention** | indefinite; one row per distinct card per observation window |
+| **Retention** | indefinite; one row per **actual observation**, plus one payload row per distinct card |
 | **Privacy class** | internal |
 | **Restore / replay** | restore the gz. **Not reconstructible** — Sleeper serves the current card only |
 | **Health signal** | `scripts/retention_health.py` → `C1-RET-04`; budget 6 h |
@@ -133,20 +133,56 @@ the previous card. "What was this league scoring on 2026-03-01" was a question
 the platform could not answer about its own past — and any retrospective
 scoring a historical week under today's card silently measures the wrong league.
 
-**Design note — intervals, not daily copies.** The manifest's acceptance wording
-is "append-only history keyed by (league, observed_at)". A row per observation
-would satisfy that literally and produce thousands of identical cards. The store
-records **open intervals** instead: one row per distinct card, carrying the
-window over which it was observed. Strictly more informative — it answers the
-same "card at a date" question *and* records when the card changed.
+**Design note — observations are the storage; continuity is derived.** The
+manifest's acceptance wording is "append-only history keyed by
+(league, observed_at)", and that is exactly what is stored: one row per **actual
+observation**. Nothing is merged or bridged at write time, because the write
+path cannot know what happened while it was not looking.
 
-**Fidelity is explicit.** `scoring_card_at()` returns `exact` only when an
-observation window covers the instant asked about. A gap between two
-observations under different cards proves a change happened *somewhere*
-between them; it does not prove what was in force in the middle.
-`allow_nearest_prior=True` opts into a `nearest_prior` answer with
-`coverageGapStartsAt` / `coverageGapEndsAt` bounding the uncertainty. **No flag
-returns today's card for a historical date.**
+> **An earlier draft stored intervals and owner review rejected it.** One row
+> per distinct card, extended whenever a later observation matched the same
+> hash — so `Jan 1: A` … *(a month with no observations)* … `Feb 1: A` produced
+> a single window `Jan 1 → Feb 1` and answered "the card on Jan 15?" with **card
+> A, fidelity `exact`**. That is not justified: during the unobserved month the
+> true history could have been `A → B → A`, or collection could simply have been
+> dead. A matching hash across a gap is not evidence of continuity.
+> **UNOBSERVED MUST REMAIN UNOBSERVED.** Pinned by
+> `test_a_same_card_observation_gap_is_not_exact`.
+
+Recording every observation is cheap because the payload is **content-addressed**
+in `scoring_card_payloads` and each observation stores only its hash.
+Deduplicating identical *content* under its own hash loses no evidence — the hash
+*is* the identity — while deduplicating *observations* would lose exactly the
+evidence that decides fidelity. That is the smallest representation that
+preserves the evidence.
+
+`scoring_card_windows()` still reports runs of agreeing observations, but they
+are **derived, never stored**, and each carries `maxGapHours` — the widest
+unobserved span inside it. A window of two observations a month apart reads as
+exactly that, never as a month of coverage. `A → B → A` is three windows.
+
+**Fidelity is explicit and `exact` is the strict default.** `scoring_card_at()`
+takes an `accept` tuple and returns nothing beyond `exact` unless a caller opts
+in:
+
+| fidelity | supported by |
+|---|---|
+| `exact` | an observation **at that instant** — never "the endpoints matched" |
+| `reconstructed` | the observations immediately before and after both exist and **agree**; `bracketGapHours` states how wide the unobserved span is |
+| `nearest_prior` | only a prior observation exists, **or** the bracketing pair disagree so the instant is genuinely indeterminate; bounded by `coverageGapEndsAt` |
+| *(none)* | `None` |
+
+**There is deliberately no gap threshold anywhere in the module.** A "gaps under
+N hours bridge" rule would be a magic number standing in for a cadence guarantee
+this platform does not have — the recorder is best-effort, the scrape cadence
+drifts, and the whole reason the row exists is that collection stops silently.
+The read path reports the bracket and its width; the caller applies its own
+standard.
+
+**No value of `accept` returns today's card for a historical date.**
+`nearest_prior` looks strictly backwards, and a later observation can only
+contribute as one endpoint of an *agreeing* bracket — never as a standalone
+answer about the past.
 
 ---
 
@@ -302,11 +338,36 @@ never `ok`.
 `allOk` requires **every** stream. An aggregate that averaged would let five
 healthy streams hide three dead ones — the exact failure this exists for.
 
-**The scheduled run reports without failing**, and that is deliberate: the
-streams are provisioned incrementally, and a job that goes red every night for a
-stream nobody has enabled yet is a job nobody reads — the same silence this
-tranche is repairing. Tighten `REQUIRE` to the provisioned set as each stream
-lands; `ALL` requires every one.
+**The scheduled run requires the complete authorized tranche and fails when any
+of it is unhealthy.** The invariant, stated once:
+
+> **scheduled watchdog + unhealthy required artifact = FAILED CHECK** — never a
+> green informational report.
+
+A scheduled failure while production has not yet produced all eight artifacts is
+**truthful and useful**, and it is not a reason to soften the check. The job
+turns green when the retention system actually becomes healthy; that is the
+signal.
+
+**Where the rule lives is load-bearing.** It is in the probe *script*, not in a
+GitHub Actions expression — and that placement is the fix for a real defect
+found in owner review. The first version resolved `REQUIRE` from
+`inputs.require`, which is **empty on a `schedule` event**, so the nightly
+watchdog silently ran in report-only mode and would have stayed green with every
+stream dead. A watchdog that cannot fail is the same
+ships-then-stops-then-stays-quiet silence this tranche repairs, wearing a green
+tick. In a shell script the rule is executable and therefore testable
+end-to-end; in YAML it could only be regex-checked.
+
+Manual `workflow_dispatch` keeps three modes: report-only (empty `require`),
+selected streams, or `ALL`. A narrowing `require` passed to a *scheduled* run is
+logged and ignored — the watchdog cannot be quietly scoped down to a stream that
+happens to be fine.
+
+Pinned by `tests/retention/test_watchdog_semantics.py`, which executes the probe
+against a temporary data directory and asserts the exit codes for every mode,
+including that a missing checker or a missing app dir is an **error**, never a
+pass.
 
 ---
 
