@@ -2,7 +2,7 @@
 
 **Status:** GOVERNANCE INDEX
 **Canonical front door:** `PRODUCT_PLAN.md` → `docs/MASTER_PRODUCT_PLAN.md`
-**Last reconciled:** 2026-08-15 (owner mathematical-methodology refinement)
+**Last reconciled:** 2026-08-15 (owner mathematical-methodology + projection-ensemble refinements)
 
 This file exists so an assistant cannot reasonably mistake an old session capture, an audit roadmap, or a
 competitor TODO for the current product plan. **Every planning document in the repository must appear somewhere
@@ -91,6 +91,7 @@ intent in the repository and win over anything older they contradict.
 
 ### Valuation, sources, seasonal
 - `docs/MATH_MODEL_CALIBRATION_POLICY_2026-08-15.md` — **binding owner methodology refinement.** Preserve the canonical consensus board as champion; classify consequential tunables as MEASURED / MECHANICAL / PRIOR; calibrate future-pick discounts and pick distributions in C1, roster/replacement/core/Young-Core math in C2, trade fairness/consolidation/Monte-Carlo math in C3, TE-demand mapping under existing #785, and require a C10 prior census. It refines existing manifest rows and authorizes no implementation.
+- `docs/PROJECTION_ENSEMBLE_PLAN_2026-08-15.md` — **binding owner projection-source/methodology refinement, issue #854.** Build a multi-source weekly/ROS/full-season projection evidence layer for offense and IDP; initial desired families are CBS, NFL Fantasy, FantasyPros, DraftSharks, Mike Clay/ESPN and IDP Show where applicable; rescore raw projected football stats through exact league scoring; preserve source lineage/independence; archive forecasts before outcomes; backtest simple family-level ensembles before learned weighting; keep the entire lane separate from canonical dynasty value. It maps primarily to `C5-ROS-01` and authorizes no implementation.
 - `docs/MULTI_FORMAT_SOURCE_NORMALIZATION_SPEC.md` *(#809)*
 - `docs/REDRAFT_ROS_INTELLIGENCE_SPEC.md` *(#809)*
 - `docs/PLAYER_IMPACT_WAR_MVP_SPEC.md` — **its §7 supersedes the player-MVP eligibility gate** *(#816)*
