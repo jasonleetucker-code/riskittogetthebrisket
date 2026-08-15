@@ -5,8 +5,9 @@
     python scripts/retention_health.py --json
     python scripts/retention_health.py --require C1-RET-01 C1-RET-04
 
-Exit codes: 0 every probed stream ok · 1 error · 2 at least one stream
-is stale, missing or unknown.
+Exit codes: 0 every required stream ok · 1 the check could not run as
+asked (including an unknown stream id in ``--require``) · 2 at least one
+required stream is stale, missing or unknown.
 
 **Run this on the production host.**  Every store it probes lives under
 ``data/``, which is gitignored, so a CI runner's checkout honestly holds
@@ -95,10 +96,24 @@ def main() -> int:
             f"missing={counts[STATE_MISSING]}  unknown={counts[STATE_UNKNOWN]}"
         )
 
+    known = {s.get("id") for s in report["streams"]}
     if args.require is None:
         failing = [s for s in report["streams"] if s.get("state") != STATE_OK]
     else:
         wanted = set(args.require)
+        # A requirement naming a stream that does not exist is satisfied
+        # by nothing and would therefore pass silently — so a typo in
+        # REQUIRE would turn the watchdog green.  "I could not check
+        # what you asked for" is a different outcome from "what you
+        # asked for is healthy", and it exits 1 (cannot run), not 0.
+        unknown = sorted(wanted - known)
+        if unknown:
+            print(
+                "retention-health: unknown stream id(s) in --require: "
+                f"{', '.join(unknown)}. Known: {', '.join(sorted(known))}",
+                file=sys.stderr,
+            )
+            return 1
         failing = [
             s for s in report["streams"] if s.get("id") in wanted and s.get("state") != STATE_OK
         ]

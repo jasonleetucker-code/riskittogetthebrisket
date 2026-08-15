@@ -233,3 +233,23 @@ def test_the_workflow_does_not_mask_the_remote_exit_status():
 
     assert "|| true" not in code, "a masked exit status makes the watchdog unable to fail"
     assert "continue-on-error" not in code
+
+
+def test_a_typo_in_require_cannot_pass_silently(empty_data):
+    """A requirement naming a stream that does not exist is satisfied by
+    nothing, so it would exit 0 — turning the watchdog green through a
+    typo.  "I could not check what you asked for" is not "what you asked
+    for is healthy"."""
+    result = _run(empty_data, event_name="workflow_dispatch", require="C1-RET-99")
+
+    assert result.returncode == EXIT_CANNOT_RUN
+    assert "unknown stream id" in result.stderr
+
+
+def test_a_partly_typoed_require_does_not_check_the_valid_half(empty_data):
+    """Failing closed on the whole request, rather than quietly checking
+    the ids it recognised and reporting on a narrower set than asked."""
+    result = _run(empty_data, event_name="workflow_dispatch", require="C1-RET-01 C1-RET-99")
+
+    assert result.returncode == EXIT_CANNOT_RUN
+    assert "C1-RET-99" in result.stderr

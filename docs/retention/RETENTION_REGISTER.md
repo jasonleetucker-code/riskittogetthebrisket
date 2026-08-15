@@ -313,7 +313,7 @@ health probe, not a change to the exit code.
 | | |
 |---|---|
 | **Probe** | `src/retention/health.py::retention_health` — one state per stream, never raises |
-| **CLI** | `scripts/retention_health.py` (`--json`, `--require`). Exit **0** all required streams ok · **1** the probe could not run · **2** a required stream is stale, missing or unknown |
+| **CLI** | `scripts/retention_health.py` (`--json`, `--require`). Exit **0** all required streams ok · **1** the check could not run *as asked* — including an unknown stream id in `--require`, since a typo would otherwise be satisfied by nothing and pass silently · **2** a required stream is stale, missing or unknown |
 | **Scheduled** | `.github/workflows/retention-health.yml`, 06:40 UTC daily, over SSH via `deploy/diagnostics/retention_health_probe.sh` |
 
 **It runs on the production host**, because every store lives under `data/`,
