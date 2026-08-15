@@ -470,7 +470,7 @@ kind**. Those gate the *ingestion*, which is already live and long-standing — 
 | External blockers | 3 (`F-EXT-01`, `F-EXT-02`, `F-EXT-03` — all one owner decision, `OD-01`) |
 | Owner decisions required | 7 (§6) |
 | Rows flagged `BLOCK-C` | **0** |
-| Rows flagged `RET` (irreversible evidence) | 11 |
+| Rows flagged `RET` (irreversible evidence) | **12** — `C1-RET-01`…`C1-RET-08` (phase C1, the authorized C1A tranche) plus `C4-FAAB-02`, `C5-GD-02`, `C7-DRAFT-02`, `C9-UR-02`, which are flagged so collection starts as early as their phase allows but are **not** part of the C1A tranche |
 
 ---
 
