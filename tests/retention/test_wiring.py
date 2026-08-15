@@ -224,3 +224,31 @@ def test_the_adapter_snapshot_shape_is_what_the_recorder_consumes():
 
     assert result["action"] == "recorded"
     assert evidence_store.trending_series("4034")[0]["count"] == 900
+
+
+def test_the_suite_cannot_write_into_the_real_retention_stores():
+    """C1A wired recorders into two LIVE paths this suite exercises with
+    fixture data, so before ``RISKIT_RETENTION_DIR`` a full run left
+    leagues "111", "L-MAIN", "LT" and four fixture leagues' trades in the
+    real ``data/retention/``.
+
+    Those stores are append-only evidence about production and this
+    tranche exists to protect them; a test run that can contaminate them
+    corrupts the thing under test.
+    """
+    import os
+    from pathlib import Path
+
+    from src.retention import evidence_store as es
+
+    repo_data = (Path(__file__).resolve().parents[2] / "data" / "retention").resolve()
+
+    assert os.environ.get("RISKIT_RETENTION_DIR"), "conftest must redirect the retention root"
+    assert es.RETENTION_DIR.resolve() != repo_data
+    # Both stores must share ONE root, so a redirect cannot cover only
+    # half of them. Checked on the module default rather than on
+    # DB_PATH, which this module's autouse fixture monkeypatches.
+    assert es.RETENTION_DIR / "league_events.sqlite" != es.RETENTION_DIR / "evidence.sqlite"
+    import src.retention.league_events as le_mod
+
+    assert le_mod.RETENTION_DIR is es.RETENTION_DIR

@@ -122,13 +122,26 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import sqlite3
 import threading
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-DB_PATH: Path = Path(__file__).resolve().parents[2] / "data" / "retention" / "evidence.sqlite"
+#: Where both retention stores live.  Overridable by
+#: ``RISKIT_RETENTION_DIR`` because the recorders are wired into
+#: ``write_scoring_snapshot`` and ``_build_trades_block``, which the
+#: repo's OWN test suite exercises — so without a redirect, running
+#: pytest writes fixture leagues ("111", "L-MAIN") and fixture trades
+#: into the real evidence store this tranche exists to protect.  A test
+#: run must not be able to contaminate the evidence.
+RETENTION_DIR: Path = Path(
+    os.environ.get("RISKIT_RETENTION_DIR")
+    or (Path(__file__).resolve().parents[2] / "data" / "retention")
+)
+
+DB_PATH: Path = RETENTION_DIR / "evidence.sqlite"
 
 # 2 — per-observation scoring-card storage.  Schema 1 was the interval
 # design rejected in review; it never ran on any host, so there is no

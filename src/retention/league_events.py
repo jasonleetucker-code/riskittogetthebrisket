@@ -66,7 +66,12 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Iterable
 
-DB_PATH: Path = Path(__file__).resolve().parents[2] / "data" / "retention" / "league_events.sqlite"
+from src.retention.evidence_store import RETENTION_DIR
+
+#: Shares ``RETENTION_DIR`` with the internal store so one env var
+#: redirects BOTH — a test run that redirected only one would still
+#: contaminate the other.  Separate FILE, same root.
+DB_PATH: Path = RETENTION_DIR / "league_events.sqlite"
 
 SCHEMA_VERSION = 1
 

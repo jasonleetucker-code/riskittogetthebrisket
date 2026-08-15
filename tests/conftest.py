@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import tempfile
 
 import pytest
 
@@ -10,6 +11,28 @@ import pytest
 # The placeholder "changeme" is acceptable for unit/integration tests;
 # production rejects ALLOW_DEFAULT_LOGIN_DEV=1 by design.
 os.environ.setdefault("ALLOW_DEFAULT_LOGIN_DEV", "1")
+
+# ── The suite must not write into the real retention stores ──────────
+# C1A wired retention recorders into two LIVE code paths —
+# ``league_registry.write_scoring_snapshot`` and
+# ``sleeper_overlay._build_trades_block`` — which this suite exercises
+# with fixture data. Measured before this redirect: a full run left
+# leagues "111", "222", "L-MAIN", "L-SIDE", "LM", "LS", "LT" and four
+# fixture leagues' trades sitting in ``data/retention/*.sqlite``.
+#
+# Those stores are append-only evidence about production, and this
+# tranche exists to protect them. A test run that can contaminate them
+# is a test run that corrupts the thing under test. Set BEFORE
+# ``src.retention`` is imported — the module reads it at import time —
+# which conftest guarantees, since collection imports test modules after
+# this file runs.
+#
+# ``setdefault``: an operator who deliberately points it somewhere keeps
+# their choice.
+os.environ.setdefault(
+    "RISKIT_RETENTION_DIR",
+    os.path.join(tempfile.gettempdir(), f"riskit-retention-test-{os.getpid()}"),
+)
 
 # ── The suite does not depend on the live site being up ───────────────
 # ``server`` reads UPTIME_CHECK_ENABLED at import (production default
