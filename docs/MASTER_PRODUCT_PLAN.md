@@ -227,6 +227,15 @@ Required products include:
 - Golden Upgrades as a consumer, not a second engine;
 - Package Builder using the shared package-generation engine;
 - Trade Finder and Trade Suggestions repairs/consolidation;
+- **Best Trade to Send Each Team** — for every other team in the selected league, exactly one best mutually
+  defensible player-only offer: equal player counts, no picks, a canonical win for the selected team, and even
+  or better for the opponent on KTC or IDP Trade Calculator with complete native coverage of every asset.
+  Missing, unsupported or imputed external coverage can never manufacture qualification. Ranked for real
+  roster benefit and mutual defensibility rather than the largest calculator discrepancy; honest no-result
+  state when nothing qualifies; recommendation only, never a silent send. Persistent user+league outgoing
+  protection and generated-package LOCK/EXCLUDE refinement are part of the same contract and are consumed by
+  every generated-trade surface through ONE canonical constraint owner. Binding spec:
+  `docs/trade/TRADE_GENERATION_PREFERENCES_AND_REFINEMENT_SPEC.md`;
 - multi-team draft-pick destination correctness;
 - trade equalizer suggestions ranked by **post-active-Value-Adjustment gap**, without double-applying VA;
 - acquisition/holding-period history;
@@ -251,7 +260,7 @@ Keep separate:
 
 CE-02 Pick Forecast is private decision intelligence. Public `/league` may show factual pick ownership but not internal projection distributions/expected values.
 
-Far-future picks (including 2028/2029 where configured) remain explicitly unpriced if defensible valuation does not exist; never convert missing to zero.
+**SUPERSEDED 2026-08-14.** This sentence allowed valid 2028/2029 picks to remain unpriced indefinitely. The newer owner requirement is that **every valid league-supported draft-pick asset through the 2029 rookie class must carry a finite, non-missing canonical value** by C completion — see `docs/C_SERIES_REPLAN_AND_COMPLETION_CONTRACT.md` §2 and §10, and manifest row `C1-PICK-01`. MISSING IS NEVER ZERO is unchanged and is not the thing being superseded: the replacement for an unpriced pick is a documented generic/future valuation carrying provenance and uncertainty, never a zero and never a dropped asset. Unknown exact slot is not permission to drop the asset.
 
 ---
 
@@ -385,6 +394,10 @@ Private Game Day may include personalized actionable intelligence. Public Game D
 ---
 
 ## 4.9 Competitive expansion — unified CE roadmap
+
+> **`docs/CE_REGISTRY.md` is the canonical CE registry as of 2026-08-14.** The list below mirrors it and
+> loses to it on any disagreement. The registry now runs **CE-01…CE-29**: CE-22…CE-29 were minted to resolve an
+> identifier collision in which 18 of 22 ids named two different capabilities.
 
 Approved concepts from OTC Fantasy, Play For Keeps, and Dynasty Daddy are one roadmap, not three independent competitor roadmaps.
 

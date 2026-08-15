@@ -165,6 +165,21 @@ jobs:
           set -Eeuo pipefail
           python scripts/audit_status.py
 
+      - name: Planning integrity gate
+        # Structural guards on the planning hierarchy. Each check exists
+        # because the failure actually happened: two live CE registries in
+        # which 18 of 22 identifiers named different capabilities, so a
+        # binding owner decision citing "CE-19" resolved to a different
+        # feature depending on which document you opened; an authorization
+        # record that recorded B6 as merged in §1 while authorizing B6 as
+        # next in §2; and 65 binding owner decisions living in a file the
+        # governance index classified as superseded. Cheap to check,
+        # expensive to discover a month later.
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python scripts/check_planning_integrity.py
+
       - name: Python import gate
         shell: bash
         env:
