@@ -39,9 +39,11 @@ Both audits are evidence inputs. **Neither is authority**, and both were wrong a
 **ADJUDICATED: AUDIT 2 is directionally right and AUDIT 1's census is not a census.** Both undercount the source
 population, by roughly a factor of six.
 
-Recomputed by enumeration across twelve sources: **≈926 raw requirement entries → ≈357 distinct capability
-identities**, plus ≈425 binding constraint/methodology units that are not capabilities. Per-source counts and the
-de-duplication rule are in `docs/C_SERIES_ZERO_LOSS_TRACEABILITY.md` §2.
+Recomputed by enumeration across twelve source families (A–L): **≈926 raw requirement entries → ≈357
+distinct capability identities**, plus ≈425 binding constraint/methodology units that are not capabilities. Per-source counts and the
+de-duplication rule are in `docs/C_SERIES_ZERO_LOSS_TRACEABILITY.md` §2, which also states the counting
+convention: the **E** family later gained two cohorts (E2, E3) totalling ≈256 further units, so the combined
+population is **≈1,182** while the family count remains twelve.
 
 AUDIT 1's 154 is a *sample of source entries*, not an enumeration. It omits `UNIMPLEMENTED_BACKLOG.md` (56
 items, 15 of them single-source), `docs/status/*` and `docs/ROADMAP-competitor-parity.md` (18 deltas), and it
@@ -140,8 +142,9 @@ Inventory, the Backlog Spec, the Master Product Plan and the 104-ledger, given i
 subjects, and the older MIN wording is annotated rather than deleted. **#835 is left open and untouched** until
 the owner approves this reconciliation.
 
-Every approved behaviour is preserved: one best qualifying trade per opponent · players only · equal counts · no
-picks · canonical WIN for us · opponent EVEN-or-better on KTC or IDPTC with whole-package native coverage · no
+Every approved behaviour is preserved: one best qualifying trade per opponent · ~~players only~~ ·
+~~equal counts~~ · ~~no picks~~ *(these three withdrawn later the same day by #841/#842 — see D12)* ·
+canonical WIN for us · opponent EVEN-or-better on KTC or IDPTC with whole-package native coverage · no
 imputed approval · honest no-result · plausibility/roster-benefit ranking · recommendation ≠ execution ·
 user+league-scoped protection · values unaffected · NFL-team protection · MIN outgoing-only with incoming still
 allowed · dynamic current-team identity · individual permanent untouchables · LOCK requires · EXCLUDE forbids ·

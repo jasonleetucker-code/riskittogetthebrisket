@@ -15,16 +15,24 @@ this is where it lands"; it does not mean the work may begin.
 
 ## 1.1 Why the row count is what it is
 
-The reconciliation enumerated **≈926 raw requirement entries** across twelve independent sources. After
-de-duplication those collapse to **≈357 distinct capability identities** plus **≈425 constraint / methodology /
-validation units** that are binding but are not themselves capabilities (owner decisions 1–65, the global
-invariants, the completion contract's definition-of-done, the performance ceilings).
+The reconciliation enumerated **≈926 raw requirement entries across twelve independent source families
+(A–L)** at census time. Two further cohorts of the **E** family arrived while the reconciliation was being
+written — **E2** (#838, ≈54 units) and **E3** (the six 2026-08-14 trade addenda #839–#843, ≈202 distinct
+units) — bringing the combined population to **≈1,182**. E2 and E3 are subdivisions of E, not new families,
+so the family count stays twelve; the counting convention is stated once in
+`docs/C_SERIES_ZERO_LOSS_TRACEABILITY.md` §2 and enforced by `scripts/check_planning_integrity.py`.
+
+After de-duplication the population collapses to **≈357 distinct capability identities** plus **≈425
+constraint / methodology / validation units** that are binding but are not themselves capabilities (owner
+decisions 1–65, the global invariants, the completion contract's definition-of-done, the performance
+ceilings).
 
 Neither audit's headline number survives contact with that census. One reported "154 source entries, 154 mapped,
 0 unmapped"; the other reported eight at-risk clusters. **The second is closer, and both undercount the source
 population by a factor of six** — because the first counted a *sample* of source entries rather than enumerating
 them, and neither unioned `UNIMPLEMENTED_BACKLOG.md`, `docs/status/*`, or `docs/ROADMAP-competitor-parity.md`.
 
+<!-- MANIFEST-ROW-COUNT: 163 -->
 This manifest carries **163 rows** — 142 C-phase rows, 14 completed foundations and 7 explicit out-of-scope rows,
 with 3 of them aggregates that enumerate their members inline (`C7-CE-01` names 16 CE surfaces; `C10-CLOSE-*`
 and `C1-RET-*` are individually listed). Rows are at *capability* grain: where a source enumerates many small members
@@ -38,8 +46,8 @@ Every row carries all of the fields the completion contract §4 requires. Nine o
 identical across large groups of rows**, so they are defined once as **acceptance profiles** (§3) and referenced
 by name, with per-row overrides where a row genuinely differs. A profile reference is the field, not a way of
 omitting it. Writing "p95 ≤ 2 s, mobile parity required, WCAG AA, missing-is-never-zero, private, unit+integration
-+E2E, deployed behind a flag, verified on production" into 214 rows would make the manifest unreadable and would
-not make it more true.
++E2E, deployed behind a flag, verified on production" into every row would make the manifest unreadable and
+would not make it more true.
 
 Per-row fields:
 
@@ -171,7 +179,7 @@ history.*
 |---|---|---|---|---|---|---|---|---|---|---|---|
 | `C0-GOV-01` | One authorization record that matches merged reality | `docs/EXECUTION_PLAN.md` | PARTIAL — stale and self-contradictory | Post-B rewrite; B closed; C gate stated | REPAIR | — | audit both | P5 | gov | — | this PR |
 | `C0-GOV-02` | One CE identifier namespace | `docs/CE_REGISTRY.md` | ABSENT — 2 contradictory registries | Single registry, CI-enforced | IMPLEMENT | — | D3 | P5 | gov | — | `check_planning_integrity.py` |
-| `C0-GOV-03` | Zero-loss scope census | this file | ABSENT | 214 rows, every source mapped | IMPLEMENT | — | contract §4 | P5 | gov | — | traceability doc |
+| `C0-GOV-03` | Zero-loss scope census | this file | ABSENT | Every source entry mapped; the declared row total agrees with the measured one | IMPLEMENT | — | contract §4 | P5 | gov | — | traceability doc + `check_planning_integrity.py` |
 | `C0-GOV-04` | Source→manifest traceability proof | `docs/C_SERIES_ZERO_LOSS_TRACEABILITY.md` | ABSENT | Every source entry resolves | IMPLEMENT | `C0-GOV-03` | contract §4 | P5 | gov | — | 0 unexplained unmapped |
 | `C0-GOV-05` | One intake mechanism for new owner instructions | `docs/PLANNING_DOCUMENT_STATUS.md` | **INVERTED** — 65 binding decisions live in a doc the index calls superseded | The intake ledger is reclassified ACTIVE, with a defined reconciliation workflow | REPAIR | — | D7 | P5 | gov | — | this PR |
 | `C0-GOV-06` | Governance index names every planning document | `docs/PLANNING_DOCUMENT_STATUS.md` | PARTIAL — 2 binding 08-14 specs unregistered; 3 findable roadmaps unnamed | Complete classification | REPAIR | — | D7 | P5 | gov | — | this PR |
@@ -448,7 +456,9 @@ kind**. Those gate the *ingestion*, which is already live and long-standing — 
 
 | measure | count |
 |---|---|
-| Raw source requirement entries enumerated | ≈926 |
+| Raw source entries enumerated (twelve families A–L, at census time) | ≈926 |
+| Later cohorts E2 + E3 (subdivisions of family E) | ≈256 |
+| Combined raw population | ≈1,182 |
 | Distinct capability identities after de-duplication | ≈357 |
 | Binding constraint / methodology / validation units (not capabilities) | ≈425 |
 | **Manifest rows** | **163** (142 C-phase · 14 completed foundations · 7 out-of-scope; 3 of the 142 are aggregates that enumerate their members inline) |

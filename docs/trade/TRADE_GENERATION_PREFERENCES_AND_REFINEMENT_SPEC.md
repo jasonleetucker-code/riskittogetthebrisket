@@ -121,14 +121,25 @@ When the user excludes Player B and regenerates, Player B must not appear on the
 
 LOCK/EXCLUDE refines the feasible candidate set. It never weakens the parent feature's qualification rules.
 
-For **Best Trade to Send Each Team**, a regenerated candidate still must satisfy all of its hard requirements:
+For **Best Trade to Send Each Team**, a regenerated candidate still must satisfy all of its hard requirements.
+**Two of the six below were withdrawn by newer owner decisions on 2026-08-14 (#841 / #842) and are marked as
+such; the other four are unchanged and still hard.**
 
-- players only;
-- equal player counts each direction;
-- canonical win for the selected team;
-- opponent even/win on at least one approved external calculator (KTC or IDP Trade Calculator);
-- whole-package native external coverage;
-- one best qualifying result per opponent.
+- ~~players only~~ — **SUPERSEDED by #841.** **Current rule:** draft picks are legal in a generated package when
+  both teams' strategic positions make them mutually beneficial. They are **never** generic equalizer filler,
+  never inserted cosmetically, and never used to make raw totals line up. A player-only offer stays preferred
+  when it is the best mutual trade. See `TRADE_FINDER_POSTURE_AWARE_PICKS_ADDENDUM_2026-08-14.md`.
+- ~~equal player counts each direction~~ — **SUPERSEDED by #841/#842.** **Current rule:** the player-count
+  topology constraint is `abs(players_A − players_B) <= 1`, and **picks do not count as players** for that
+  calculation. 1v1, 2v1, 1v2, 3v2 and 2v3 are allowed; 3v1, 1v3, 4v2 and 2v4 are not. See
+  `TRADE_CONTEXT_AND_TOPOLOGY_SUPERSESSION_2026-08-14.md`.
+- canonical win for the selected team — **unchanged, still hard**;
+- opponent even/win on at least one approved external calculator (KTC or IDP Trade Calculator) — **unchanged,
+  still hard**;
+- whole-package native external coverage — **unchanged, still hard.** A pick-inclusive package additionally
+  needs a defined qualification path before shipping: a source that cannot natively evaluate the full package is
+  marked **incomplete**, never treated as approval;
+- one best qualifying result per opponent — **unchanged, still hard**.
 
 If active locks/exclusions make those conditions impossible, return an explicit state such as:
 
@@ -138,8 +149,11 @@ Never solve the conflict by silently:
 
 - dropping a lock;
 - reintroducing an excluded/protected player;
-- adding a draft pick;
-- changing required package count;
+- ~~adding a draft pick~~ — **SUPERSEDED by #841.** Adding a pick is no longer a violation in itself. What
+  remains forbidden is adding one **to escape an otherwise-failing constraint** — a pick used as filler to
+  manufacture qualification rather than because posture makes it mutually beneficial;
+- ~~changing required package count~~ — **SUPERSEDED by #841/#842**, which replaced the exact-equal-count rule.
+  What remains forbidden is **breaching the topology constraint** `abs(players_A − players_B) <= 1`;
 - accepting a canonical loss/even result when a win is required; or
 - treating missing external coverage as approval.
 

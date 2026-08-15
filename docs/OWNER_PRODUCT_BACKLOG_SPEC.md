@@ -148,8 +148,8 @@ This is a specialized consumer of the same canonical package-generation, valuati
 
 A candidate trade qualifies only when **all** of the following are true:
 
-1. **Players only.** No draft picks may appear on either side.
-2. **Equal player counts.** The number of players sent must equal the number received: 1-for-1, 2-for-2, 3-for-3, etc. No unequal-count consolidation packages qualify for this feature.
+1. ~~**Players only.** No draft picks may appear on either side.~~ **SUPERSEDED 2026-08-14 by #841.** **Current rule:** draft picks are legal when both teams' strategic positions make them mutually beneficial. Never generic equalizer filler, never cosmetic, never used to make raw totals line up; a player-only offer stays preferred when it is the best mutual trade. Spec: `docs/trade/TRADE_FINDER_POSTURE_AWARE_PICKS_ADDENDUM_2026-08-14.md`.
+2. ~~**Equal player counts.** The number of players sent must equal the number received: 1-for-1, 2-for-2, 3-for-3, etc. No unequal-count consolidation packages qualify~~ **SUPERSEDED 2026-08-14 by #841/#842.** **Current rule:** `abs(players_A − players_B) <= 1`, with **picks excluded from the count**. 1v1, 2v1, 1v2, 3v2 and 2v3 qualify; 3v1, 1v3, 4v2 and 2v4 do not. Spec: `docs/trade/TRADE_CONTEXT_AND_TOPOLOGY_SUPERSESSION_2026-08-14.md` for this feature.
 3. **Canonical win for us.** From the selected user's/team's perspective, the site's canonical trade calculator/decision economics must grade the trade as a win. A merely even or losing canonical result does not qualify.
 4. **Externally defensible for them.** The opponent must grade **even or better** on at least one approved external market calculator: **KeepTradeCut (KTC)** or **IDP Trade Calculator**.
 5. **Whole-package native coverage.** An external calculator counts only when it can meaningfully/native-value every asset in the proposed package. Missing, unsupported, imputed-through-our-own-values, or partially covered assets may not be treated as an external win/even result.

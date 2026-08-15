@@ -21,6 +21,14 @@ Checks
     document that appears nowhere in the governance index is drift.
 9.  Exactly one document claims to be the authorization record.
 10. The reserved C-completion phrase is not used as a claim.
+11. The manifest's declared row total agrees with the measured one — and so does every other
+    "N rows" claim in the file.  It shipped for review declaring 163 in one place and 214 in
+    two others.
+12. The declared source-family count agrees with the traceability table, counting by base
+    letter so dated cohorts (E, E2, E3) stay subdivisions rather than silently inflating the
+    headline.
+13. The traceability record resolves: every destination it cites is a real manifest row, no
+    destination is unresolved, and the unexplained-unmapped total is still zero.
 
 Exit codes: 0 pass, 1 failures found, 2 the check could not run.
 """
@@ -226,6 +234,127 @@ def check_manifest(f: Failures, ce_registry: dict[str, str]) -> None:
         if r["cells"] and not r["cells"][-1]:
             f.add("manifest-evidence", f"{r['id']} has no completion evidence")
 
+    check_declared_row_count(f, text, rows)
+
+
+def check_declared_row_count(f: Failures, text: str, rows: list[dict]) -> None:
+    """11: the manifest's declared row total agrees with the measured one.
+
+    This exists because the manifest shipped for review declaring 163 rows in one place and
+    214 in two others — a first-draft figure that survived two corrections. Prose is not a
+    reliable place to keep a number that can be counted, so the count is measured here and
+    every declared total in the file has to match it.
+    """
+    measured = len([r for r in rows if not r["id"].startswith("OD-")])
+
+    marker = re.search(r"<!--\s*MANIFEST-ROW-COUNT:\s*(\d+)\s*-->", text)
+    if not marker:
+        f.add(
+            "manifest-count",
+            "docs/C_SERIES_SCOPE_MANIFEST.md has no <!-- MANIFEST-ROW-COUNT: N --> marker; "
+            f"the measured count is {measured}",
+        )
+        return
+    declared = int(marker.group(1))
+    if declared != measured:
+        f.add(
+            "manifest-count",
+            f"MANIFEST-ROW-COUNT declares {declared} but {measured} rows are present "
+            "(OD-* rows in §6 are not manifest rows and are excluded)",
+        )
+
+    # Any other "N rows" claim in the manifest must agree too — that is how 214 survived.
+    for m in re.finditer(r"\*\*(\d{2,4})\s+rows\*\*|\b(\d{2,4})\s+rows\b", text):
+        n = int(m.group(1) or m.group(2))
+        if n != measured:
+            line = text[: m.start()].count("\n") + 1
+            f.add(
+                "manifest-count",
+                f"line {line} claims {n} rows; the measured count is {measured}",
+            )
+
+
+def check_source_census(f: Failures) -> None:
+    """12: the declared source-family count agrees with the traceability table.
+
+    Families are lettered A-L. The E family carries dated cohorts (E, E2, E3, ...) listed as
+    separate rows so arrival time stays visible, so a row count and a family count are
+    different numbers and both are correct. Counting by base letter is what makes adding an
+    E4 cohort safe while adding a real family M fails until the headline is updated.
+    """
+    text = read(TRACE)
+
+    marker = re.search(r"<!--\s*SOURCE-FAMILY-COUNT:\s*(\d+)\s*-->", text)
+    if not marker:
+        f.add(
+            "source-census",
+            "docs/C_SERIES_ZERO_LOSS_TRACEABILITY.md has no "
+            "<!-- SOURCE-FAMILY-COUNT: N --> marker declaring the counting convention",
+        )
+        return
+    declared = int(marker.group(1))
+
+    section = text.split("# 2. Source-population summary", 1)[-1].split("\n# 3.", 1)[0]
+    # Any non-empty second cell counts. A stricter pattern silently skipped the E3 row,
+    # whose description begins with "#839" — exactly the kind of quiet miss this file exists
+    # to prevent. Totals rows have an empty first cell and cannot match.
+    labels = re.findall(r"^\|\s*([A-Z]\d*)\s*\|\s*\S", section, re.M)
+    families = {lbl[0] for lbl in labels}
+    if not families:
+        f.add("source-census", "no source rows parsed from the population table")
+        return
+    if len(families) != declared:
+        f.add(
+            "source-census",
+            f"SOURCE-FAMILY-COUNT declares {declared} but the table carries "
+            f"{len(families)} lettered families ({''.join(sorted(families))}); "
+            f"cohort rows seen: {len(labels)}",
+        )
+
+    # The prose headline must say the same thing.
+    for m in re.finditer(
+        r"(?:across|over)\s+(twelve|thirteen|fourteen|\d+)\s+"
+        r"(?:independent\s+)?source",
+        text,
+        re.I,
+    ):
+        word = m.group(1).lower()
+        spelled = {"twelve": 12, "thirteen": 13, "fourteen": 14}
+        n = spelled.get(word, int(word) if word.isdigit() else None)
+        if n is not None and n != declared:
+            line = text[: m.start()].count("\n") + 1
+            f.add(
+                "source-census", f"line {line} says {word} sources; declared families = {declared}"
+            )
+
+
+def check_traceability(f: Failures, manifest_ids: set[str]) -> None:
+    """13: the traceability record actually resolves.
+
+    TRACE was defined but never validated in the first version of this script, which is how a
+    destination could have been renamed without anything noticing.
+    """
+    text = read(TRACE)
+
+    # every manifest id cited as a destination must exist
+    cited = set(re.findall(r"`((?:C\d{1,2}|F|X)-[A-Z0-9-]+)`", text))
+    for dest in sorted(cited):
+        if dest not in manifest_ids:
+            f.add("traceability", f"cites destination {dest}, which is not a manifest row")
+
+    # no unresolved destinations
+    for i, line in enumerate(text.split("\n"), 1):
+        if re.search(r"(?<![A-Z_])\b(UNMAPPED|TBD|FIXME|\?\?\?)\b(?![A-Z_])", line):
+            if "unmapped" not in line.lower() or "0" not in line:
+                f.add("traceability", f"line {i} carries an unresolved destination marker")
+
+    # the zero-unmapped claim must still be zero
+    m = re.search(r"\*\*Unexplained unmapped\*\*\s*\|\s*\*\*(\d+)\*\*", text)
+    if not m:
+        f.add("traceability", "the unexplained-unmapped total is no longer stated")
+    elif int(m.group(1)) != 0:
+        f.add("traceability", f"unexplained unmapped is {m.group(1)}, not 0")
+
 
 def check_governance_index(f: Failures) -> None:
     """8: every planning document is classified somewhere."""
@@ -288,6 +417,9 @@ def main() -> int:
     try:
         ce = check_ce_registry(f)
         check_manifest(f, ce)
+        manifest_ids = {r["id"] for r in parse_manifest(read(MANIFEST))}
+        check_source_census(f)
+        check_traceability(f, manifest_ids)
         check_governance_index(f)
         check_single_authorization_record(f)
         check_reserved_phrase(f)
@@ -309,6 +441,9 @@ def main() -> int:
     print("  every planning document is classified")
     print("  exactly one authorization record")
     print("  reserved completion phrase not claimed")
+    print("  declared manifest row count agrees with the measured one")
+    print("  source-family count agrees with the traceability table")
+    print("  every traceability destination resolves; unexplained unmapped is 0")
     return 0
 
 

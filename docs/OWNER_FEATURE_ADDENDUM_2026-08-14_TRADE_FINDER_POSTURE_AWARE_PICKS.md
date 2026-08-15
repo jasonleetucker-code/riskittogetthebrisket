@@ -34,7 +34,7 @@ This is a true owner-precedence change. The C-series Scope Manifest must not pre
 
 - Exactly one strongest qualifying offer per opponent remains the target.
 - Picks may now be included.
-- The earlier equal-count rule remains **equal player count each direction**; picks do not count as players and may be added around that equal-player package.
+- ~~The earlier equal-count rule remains **equal player count each direction**; picks do not count as players and may be added around that equal-player package.~~ **SUPERSEDED within the same PR by the later topology addendum (commit `c1d493a9`, #841/#842), which withdrew the exact-equal-player-count rule outright.** **Current rule:** `abs(players_A − players_B) <= 1`, picks still excluded from the count. See `docs/trade/TRADE_CONTEXT_AND_TOPOLOGY_SUPERSESSION_2026-08-14.md`.
 - Do not force picks when a player-only offer is better.
 - Preserve honest no-result behavior.
 

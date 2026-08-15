@@ -243,14 +243,20 @@ Required products include:
 - Package Builder using the shared package-generation engine;
 - Trade Finder and Trade Suggestions repairs/consolidation;
 - **Best Trade to Send Each Team** — for every other team in the selected league, exactly one best mutually
-  defensible player-only offer: equal player counts, no picks, a canonical win for the selected team, and even
+  defensible offer: a canonical win for the selected team, and even
   or better for the opponent on KTC or IDP Trade Calculator with complete native coverage of every asset.
   Missing, unsupported or imputed external coverage can never manufacture qualification. Ranked for real
   roster benefit and mutual defensibility rather than the largest calculator discrepancy; honest no-result
   state when nothing qualifies; recommendation only, never a silent send. Persistent user+league outgoing
   protection and generated-package LOCK/EXCLUDE refinement are part of the same contract and are consumed by
-  every generated-trade surface through ONE canonical constraint owner. Binding spec:
-  `docs/trade/TRADE_GENERATION_PREFERENCES_AND_REFINEMENT_SPEC.md`;
+  every generated-trade surface through ONE canonical constraint owner. **Topology, per the newer 2026-08-14
+  decisions (#841/#842):** draft picks are legal when both teams' strategic positions make them mutually
+  beneficial — never as filler — and player counts may differ by at most one
+  (`abs(players_A − players_B) <= 1`), with picks excluded from that count. The earlier `players only` and
+  exact-equal-count rules are withdrawn. Binding specs:
+  `docs/trade/TRADE_GENERATION_PREFERENCES_AND_REFINEMENT_SPEC.md`,
+  `docs/trade/TRADE_FINDER_POSTURE_AWARE_PICKS_ADDENDUM_2026-08-14.md`,
+  `docs/trade/TRADE_CONTEXT_AND_TOPOLOGY_SUPERSESSION_2026-08-14.md`;
 - multi-team draft-pick destination correctness;
 - trade equalizer suggestions ranked by **post-active-Value-Adjustment gap**, without double-applying VA;
 - acquisition/holding-period history;

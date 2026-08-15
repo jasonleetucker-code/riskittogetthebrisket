@@ -26,6 +26,35 @@ specifications onto `main` rather than merely citing them.
 
 # 2. Source-population summary
 
+> <!-- SOURCE-FAMILY-COUNT: 12 -->
+> **Counting convention — read before quoting a number from this table.**
+>
+> The census is over **twelve lettered source families, A–L**. That is the number quoted everywhere as "twelve
+> sources", and it is what `SOURCE-FAMILY-COUNT` above declares.
+>
+> The table has **fourteen rows** because the **E family — dated standalone owner specs and addenda — arrived in
+> three cohorts**, and they are listed separately so the arrival time stays visible rather than being flattened
+> into one row:
+>
+> | cohort | what | when it arrived |
+> |---|---|---|
+> | **E** | `WEEKLY_REPORT_STUDIO_…` + `FAAB_MARKET_SIGNAL_…` (#829, #830) | on `main` before the census |
+> | **E2** | `OWNER_FEATURE_ADDENDUM_…_AGE_VALUE_PORTFOLIO` (#838) | on `main`, **during** the reconciliation |
+> | **E3** | the six 2026-08-14 trade addenda (#839–#843) | on the planning PRs, **during** the reconciliation |
+>
+> **E2 and E3 are subdivisions of E, not additional families.** A row count of fourteen and a family count of
+> twelve are both correct and describe different things. `scripts/check_planning_integrity.py` enforces the
+> distinction: it counts lettered families by their base letter, so adding an `E4` cohort will not silently
+> change the headline, while adding a genuine new family `M` will fail CI until the declared count is updated.
+>
+> **On the raw-entry total.** The **≈926** figure was enumerated across A–L at census time (2026-08-14), at the
+> granularity each family's row states. The two later cohorts were measured afterwards and are reported
+> separately rather than folded into that figure, because they were counted at bullet granularity and mixing the
+> two would create false precision: **E2 ≈ 54 units**, **E3 ≈ 202 distinct units** (233 raw bullets, of which 31
+> are condensed restatements — #816 carries a shorter version of two addenda that #835 carries in full).
+> Combined, the population is **≈1,182 raw entries**, and that is the number to quote when a total including the
+> later cohorts is wanted.
+
 | # | source | location before this PR | raw entries | now on `main`? |
 |---|---|---|---|---|
 | A | `docs/OWNER_FEATURE_INVENTORY.md` | main | 106 rows (+43 sub-units) | yes |
@@ -42,7 +71,9 @@ specifications onto `main` rather than merely citing them.
 | J | `docs/OWNER_FEATURE_ADDENDUM_2026-08-11.md` + `docs/SCOPE_COORDINATION_2026-08-11.md` | main | 12 | yes |
 | K | `UNIMPLEMENTED_BACKLOG.md` | main | 56 | yes |
 | L | `docs/ROADMAP-competitor-parity.md` + `docs/status/*.md` | main | 18 deltas | yes — now named as historical |
-| | **total** | | **≈926** | |
+| | **total across A–L at census time** | | **≈926** | |
+| | **plus cohorts E2 + E3, measured later** | | **≈256** | |
+| | **combined population** | | **≈1,182** | |
 
 **Neither audit's census matched this population.** One reported 154 source entries with 154 mapped and 0
 unmapped; the other reported eight at-risk clusters without a total. The 154 figure is a sample, not an
@@ -382,7 +413,10 @@ faithfully at a lower resolution. → `C3-CON-02`.
 
 | measure | count |
 |---|---|
-| Raw source entries enumerated | ≈926 |
+| Raw source entries enumerated (A–L at census time) | ≈926 |
+| Later cohorts E2 + E3 | ≈256 |
+| Combined raw population | ≈1,182 |
+| Lettered source families | 12 (A–L; E has three cohorts) |
 | Distinct capability identities | ≈357 |
 | Manifest rows | 163 |
 | **Source entries with no destination** | **0** |
