@@ -53,7 +53,7 @@ this mission's definition, a requirement is safely mapped only when — among ot
 if an old PR is later closed.** By that standard AUDIT 1's "0 unmapped" was false for roughly 134 capabilities
 that existed in exactly one source, most of them on unmerged branches.
 
-**Resolution:** `docs/C_SERIES_SCOPE_MANIFEST.md` (153 rows) plus
+**Resolution:** `docs/C_SERIES_SCOPE_MANIFEST.md` (157 rows) plus
 `docs/C_SERIES_ZERO_LOSS_TRACEABILITY.md`. Every source entry resolves to a disposition. **Unexplained
 unmapped: 0** — and now genuinely so, because the 25 branch-only specifications were promoted onto `main`.
 
@@ -338,6 +338,29 @@ CE-11 is an unbuilt "L"-sized new build; any C-completion claim including it is 
 | **Public payload latency** ~2.1 MB / 14.8 s observed | **NORMAL C FEATURE WORK** (`C8-PERF-05`) | Real and measured, but it is a performance gate on a public surface, not a foundation defect |
 | **Public awards manufactured with zero games; 2024 declares ten teams with eight standings** | **NORMAL C FEATURE WORK** (`C9-AWARD-01`, `C9-HIST-01`) | Publicly wrong today and worth fixing early in C9's lane. Franchise continuity must precede any awards or WAR backfill |
 | **11 irreversible-evidence-loss mechanisms** | **EARLY-C FOUNDATION WORK — the first thing C1 does** | See §4 |
+
+## D12 — Owner intent that arrived mid-reconciliation
+
+Not one of the mission's eleven adjudications, recorded because it happened and because it validates the guard.
+
+While this reconciliation was being written, `docs/OWNER_FEATURE_ADDENDUM_2026-08-14_AGE_VALUE_PORTFOLIO.md`
+(issue #838, owner decision 2026-08-14) landed on `main` — the Roster Age-Value Portfolio and Young Core Index.
+Neither audit saw it; it did not exist when either was written.
+
+**It was caught by the new planning-integrity gate on its first CI run**, which failed the build because a
+planning document existed that the governance index classified nowhere. That is precisely the failure mode this
+reconciliation exists to end, and it was detected in minutes rather than at the next audit.
+
+It is now folded into all four records the addendum itself names as required — the Master Product Plan, the
+Feature Inventory, the Product Backlog Spec's dependency chain, and the C-series sequencing — plus manifest rows
+`C2-AGE-01`, `C2-AGE-02`, `C2-AGE-03` and `C7-AGE-01`. Its own sequencing instruction is honoured: it sits
+after/with the Team Strength and Team Weakness foundations it consumes, not before them.
+
+Two of its guardrails are worth repeating because they are easy to violate while building it: **it describes
+roster construction and must not alter player value** — canonical dynasty value already embeds age — and
+**missing age stays missing, with picks excluded from age math rather than treated as age zero.**
+
+---
 
 ---
 

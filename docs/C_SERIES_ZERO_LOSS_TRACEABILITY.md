@@ -33,6 +33,7 @@ specifications onto `main` rather than merely citing them.
 | C | `docs/OWNER_REQUESTED_TODO.md` | main | 20 TODO rows + **65 binding decisions** + 8 freshness classes = 93 | yes |
 | D | `docs/MASTER_PRODUCT_PLAN.md` | main | 99 named capabilities | yes |
 | E | `docs/WEEKLY_REPORT_STUDIO_…` + `docs/FAAB_MARKET_SIGNAL_…` | main (unregistered) | 58 | yes — now registered |
+| E2 | `docs/OWNER_FEATURE_ADDENDUM_2026-08-14_AGE_VALUE_PORTFOLIO.md` (#838) | main (landed mid-reconciliation) | 6 required outputs | yes — now registered |
 | F | PR #816 — 104-ledger + 17 T-NEW + reconciliation lists | **branch only** | 245 | **yes — promoted** |
 | G | PR #816 — feature-spec appendix | **branch only** | 40 | **yes — promoted** |
 | H | PR #835 — trade-generation preferences | **branch only** | 3 families (~40 sub-reqs) | **yes — promoted** |
@@ -154,6 +155,22 @@ yet). `docs/FAAB_MARKET_SIGNAL_NORMALIZATION_2026-08-14.md` (25) → `C4-FAAB-01
 **Both were unregistered in the governance index before this PR** (`C0-GOV-06`), and neither appears anywhere in
 PR #816 — whose planning layer carries a "synchronized through 2026-08-14" stamp. That stamp is false for exactly
 these two, and the correction is recorded in `docs/PRODUCT_DIRECTION_SYNC_MANIFEST.md`'s amendment.
+
+## E2 — `docs/OWNER_FEATURE_ADDENDUM_2026-08-14_AGE_VALUE_PORTFOLIO.md` (#838)
+
+Landed on `main` **after** this reconciliation branched, and was caught by the new planning-integrity gate
+rather than by a human noticing — which is the gate earning its place on its first run.
+
+Its six required outputs map to `C2-AGE-01` (value-weighted core age, age-value distribution, position-group
+profiles, league-relative comparison), `C2-AGE-02` (Young Core Index and the positional leaderboards),
+`C7-AGE-01` (the team-profile Age & Value module) and `C2-AGE-03` (the future historical trend extension,
+explicitly downstream of snapshot foundations and explicitly not a blocker on the current-state feature).
+
+The addendum names four documents it must be folded into before the roadmap counts as reconciled — the Master
+Product Plan, the Feature Inventory, the Product Backlog Spec and the C-series sequencing record. All four are
+updated in this change.
+
+---
 
 ## F — PR #816: the 104-row ledger, 17 T-NEW items, reconciliation lists (245)
 
@@ -340,7 +357,7 @@ faithfully at a lower resolution. → `C3-CON-02`.
 |---|---|
 | Raw source entries enumerated | ≈926 |
 | Distinct capability identities | ≈357 |
-| Manifest rows | 153 |
+| Manifest rows | 157 |
 | **Source entries with no destination** | **0** |
 | Capabilities that existed in exactly one source | ≈134 (38%) — all now on `main` |
 | Duplicate clusters resolved | 4 |

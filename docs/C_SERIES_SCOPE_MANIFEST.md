@@ -25,9 +25,9 @@ Neither audit's headline number survives contact with that census. One reported 
 population by a factor of six** — because the first counted a *sample* of source entries rather than enumerating
 them, and neither unioned `UNIMPLEMENTED_BACKLOG.md`, `docs/status/*`, or `docs/ROADMAP-competitor-parity.md`.
 
-This manifest carries **153 rows** — 129 C-phase rows, 14 completed foundations, 7 explicit out-of-scope rows,
-and 3 aggregate rows that enumerate their members inline (`C7-CE-01` names 16 CE surfaces; `C10-CLOSE-*` and
-`C1-RET-*` are individually listed). Rows are at *capability* grain: where a source enumerates many small members
+This manifest carries **157 rows** — 136 C-phase rows, 14 completed foundations and 7 explicit out-of-scope rows,
+with 3 of them aggregates that enumerate their members inline (`C7-CE-01` names 16 CE surfaces; `C10-CLOSE-*`
+and `C1-RET-*` are individually listed). Rows are at *capability* grain: where a source enumerates many small members
 of one capability — the 104-ledger's calculator-workflow tier is the main case — the row **names its members
 explicitly by source id** so nothing hides inside an aggregate.
 `docs/C_SERIES_ZERO_LOSS_TRACEABILITY.md` proves the mapping entry by entry.
@@ -228,6 +228,9 @@ the same answer on every surface.*
 | `C2-SIM-01` | Exact before→apply→re-solve→after roster simulation | *(new)* | WRONG-OWNER — `trade_simulator` is value-delta only; `team_impact` reimplements the lineup | Promotions/displacements and need changes as separate roster information, never a value subtraction | IMPLEMENT | `C2-LINE-01`, `C2-STR-01` | owner decision 26 | P2 | roster | — | displacement test |
 | `C2-DROP-01` | Dropability / cut candidates | `src/draft/displacement.py` | COMPLETE | Consumes the shared replacement owner | CONSOLIDATE | `C2-REPL-01` | inventory 1.4 | P2 | roster | — | parity |
 | `C2-GP-01` | `roster_intel` / `/api/gameplan` reaches a user or is retired | `src/roster_intel/` | **DISCONNECTED** — substantial partner/package/need logic, zero frontend consumers | Adapted into the canonical substrate, or retired with its logic absorbed | MIGRATE | `C2-STR-01`, `C3-PKG-01` | W20-F001 | P1 | roster | — | reachable or removed |
+| `C2-AGE-01` | Roster age-value portfolio | `C2-STR-01` | ABSENT | Value-Weighted Core Age over the canonical **meaningful** Team Strength group (a full-roster version is secondary context only, so low-value young bench players cannot make a roster look young); age-value distribution per player and per band; per-position-group profiles for QB/RB/WR/TE/DL-EDGE/LB/DB with league rank, percentile and difference from median. **Missing age stays missing; picks are excluded from age math, never treated as age zero.** Explicitly does NOT create a second age-adjusted valuation — canonical value already embeds age | IMPLEMENT | `C2-STR-01`, `C1-ID-01` | `docs/OWNER_FEATURE_ADDENDUM_2026-08-14_AGE_VALUE_PORTFOLIO.md` (#838) | P2 | roster | — | league-relative parity + missing-age test |
+| `C2-AGE-02` | Young Core Index | `C2-AGE-01` | ABSENT | A 0–100 **league-relative roster-construction index**, not a player-value model: youth normalized **per position** so QB and RB age expectations differ, weighted by canonical value within the meaningful core, then league-percentiled. Component breakdown exposed; **validated against real league examples before it is treated as canonical**. Plus overall and per-position "youngest valuable room" leaderboards | IMPLEMENT | `C2-AGE-01` | #838 addendum §5–6 | P6 | roster | — | validation against intuitive league examples |
+| `C2-AGE-03` | Age/value history and trend views | `C1-HIST-01` | ABSENT | Roster-window movement over time; before/after a trade; Young Core Index trend. **Downstream of snapshot foundations and must not block the current-state feature** | IMPLEMENT | `C1-HIST-01`, `C2-AGE-01` | #838 addendum, future extension | P2 | hist | — | trend reconstruction |
 | `C2-EXP-01` | Value-weighted NFL-team exposure before/after (CE-06) | `C2-SIM-01` | ABSENT | Descriptive only; must not influence trade grade | IMPLEMENT | `C2-SIM-01` | #786, decision 12 | P1 | roster | — | non-influence test |
 
 ## C3 — Canonical trade substrate
@@ -328,6 +331,7 @@ in production rather than merely deployed.*
 | `C7-AI-03` | Trade Liquidity & Market Depth | `C4-MTL-01` | ABSENT | Advisory only; **liquidity never changes canonical value** | IMPLEMENT | `C4-MTL-01`, `C6-MGR-01` | spec §5 | P1 | decide | — | non-influence test |
 | `C7-AI-04` | Negotiation Coach | `C7-DESK-01` | ABSENT | No automatic offers; no real-world profiling | IMPLEMENT | `C7-DESK-01`, `C6-MGR-01` | spec §6 | P1 | decide | — | acceptance |
 | `C7-AI-05` | League Truth | `C5-POW-01` | ABSENT | Record vs underlying performance, without collapsing distinct metrics into one number | IMPLEMENT | `C5-POW-01` | spec §7 | P1/P4 | decide | — | metric separation |
+| `C7-AGE-01` | Age & Value / Roster Window on every team profile | `C2-AGE-02` | ABSENT | Compact module on each team profile/home page: Young Core Index + league rank, value-weighted core age, compact age-value chart, position rows with league percentile, flags where the roster is old relative to the league, and expansion into the detailed league comparison view | IMPLEMENT | `C2-AGE-02` | #838 addendum, team-profile UX | P1 | decide | — | per-surface acceptance incl. mobile |
 | `C7-CMD-01` | Dynasty Command Center (CE-04) / Portfolio (CE-06) | `C2-STR-01` | ABSENT | Consumer surfaces | IMPLEMENT | `C2-STR-01`, `C7-DESK-01` | CE-04/06 | P1 | decide | — | acceptance |
 | `C7-CE-01` | Remaining CE consumer surfaces | per `docs/CE_REGISTRY.md` | ABSENT | CE-07 Market ADP · CE-08 Projections & Stats Hub · CE-12 Lineup Intelligence · CE-13 Draft Room · CE-14 Market Pulse · CE-14A Personal Rankings Overlay · CE-15 Portfolio Trade Campaign · CE-16 Trade Polls · CE-17 League Format/Utilization Lab · CE-22 starter-relevance filter · CE-23 roster-age windows · CE-24 league longevity · CE-25 compare multi-select · CE-26 cross-league view · CE-27 keeper/privacy mechanics · CE-29 push (exists) | IMPLEMENT | phase-dependent | `docs/CE_REGISTRY.md` | P1 | decide | — | per-surface acceptance |
 
@@ -441,8 +445,8 @@ kind**. Those gate the *ingestion*, which is already live and long-standing — 
 | Raw source requirement entries enumerated | ≈926 |
 | Distinct capability identities after de-duplication | ≈357 |
 | Binding constraint / methodology / validation units (not capabilities) | ≈425 |
-| **Manifest rows** | **153** (129 C-phase · 14 completed foundations · 7 out-of-scope · 3 of the 129 are aggregates that enumerate members inline) |
-| Rows carrying a phase, a disposition and completion evidence | 153 |
+| **Manifest rows** | **157** (136 C-phase · 14 completed foundations · 7 out-of-scope; 3 of the 136 are aggregates that enumerate their members inline) |
+| Rows carrying a phase, a disposition and completion evidence | 157 |
 | **Unmapped** | **0** |
 | Duplicate clusters resolved | 4 (CE namespace · ledger 102–104 ≡ #835 · Best Trade dual record · Trade Trees dual identity) |
 | Explicitly superseded owner rules | 3 (2028/2029 unpriced posture · player-MVP eligibility gate · `unified_signal_engine` ownership claim) |

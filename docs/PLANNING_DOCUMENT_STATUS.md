@@ -79,6 +79,12 @@ Detailed owner-approved behaviour. Binding within their subject; they do not aut
 - `docs/faab-model.md`, `docs/FAAB_MARKET_SIGNAL_NORMALIZATION_2026-08-14.md` — **binding, issue #830, decisions 56–65**
 - `docs/perfect-draft.md`
 
+### Roster intelligence
+- `docs/OWNER_FEATURE_ADDENDUM_2026-08-14_AGE_VALUE_PORTFOLIO.md` — **binding, issue #838, owner decision
+  2026-08-14.** Roster Age-Value Portfolio and the Young Core Index. Reconciled into the Master Product Plan,
+  the Feature Inventory, the Product Backlog Spec and the Scope Manifest (`C2-AGE-01`…`C2-AGE-03`,
+  `C7-AGE-01`) by the post-B reconciliation, as the addendum itself requires
+
 ### Public, storytelling, intelligence
 - `docs/BRISKET_HONORS_ELIGIBILITY_SPEC.md` — **player-MVP gate superseded; Manager of the Year NOT superseded** *(#809)*
 - `docs/UPSIDE_REPORT_WEEKLY_SHOWCASE_SPEC.md` *(#809)*

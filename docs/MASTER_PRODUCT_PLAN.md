@@ -186,6 +186,21 @@ One canonical starting-slot weakness model. Existing owner thresholds include:
 
 Need Priority must agree with the canonical lineup/assignment solve. An `urgentNeed` flag that contradicts the actual roster solve is a defect, not an alternate opinion.
 
+### Roster age-value portfolio / Young Core Index
+
+League-relative age/value intelligence on every team profile: value-weighted core age over the canonical
+**meaningful** roster group, an age-value distribution, per-position-group profiles with league rank and
+percentile, and a 0–100 **roster-construction** index answering who owns the strongest concentration of
+meaningful young talent.
+
+**This describes roster construction; it does not alter player value.** Canonical dynasty value already embeds
+age and market expectations — do not create a second age-adjusted valuation. Missing age stays missing, and
+picks are excluded from age math rather than treated as age zero. Youth must be normalized per position and
+weighted by canonical value, so a roster full of low-value youth cannot dominate the index.
+
+Sequenced **after/with** the Team Strength and Team Weakness foundations it consumes. Binding requirement:
+`docs/OWNER_FEATURE_ADDENDUM_2026-08-14_AGE_VALUE_PORTFOLIO.md` (#838).
+
 ### Roster-aware trade simulation
 
 Apply a proposed transaction to real before/after rosters, rerank/reassign, and expose:
