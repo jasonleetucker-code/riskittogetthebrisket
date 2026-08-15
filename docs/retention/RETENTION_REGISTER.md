@@ -52,8 +52,24 @@ dir    ok: data/identity
   and it means the nightly generation has been at risk of discard whenever `intel` was being written.
 
 Both fixed in #849 (`ce5e6128`), pinned by `tests/deploy/test_state_backup_dir_archiving.py`, which runs the
-shipped `backup_dir` including a real write-while-tarring race. **Backup and restore remain UNPROVEN until a
-green `retention-backup-proof` run exists.**
+shipped `backup_dir` including a real write-while-tarring race.
+
+**Three proof runs, and what each one settled:**
+
+| run | result | what it established |
+|---|---|---|
+| `31870387349` | FAIL, 2 errors / 14 artifacts | both defects, and that all six retention artifacts write cleanly |
+| `31871813972` | FAIL, 1 error / 15 artifacts | `intel` passed (race did not fire); `playerctx_history` failed identically → the box was still running the pre-#849 script |
+| `31872429488` | FAIL | same shape, ~57 s — deploy of `ce5e6128` still had not landed |
+
+The retention artifacts are written successfully on **every** run. The only thing discarding the generation is
+the old script still on the host; deploys serialize on one concurrency group and #849's had not reached the box
+within this session.
+
+> **BACKUP AND RESTORE REMAIN UNPROVEN.** Not "probably fine" — unproven. The fix is merged and its correctness
+> is pinned by tests, but a backup nobody has restored is a hypothesis, and that is exactly the standard this
+> mechanism exists to hold. Re-run `retention-backup-proof` once `ce5e6128` is on the box; a green run is what
+> moves the rows.
 
 ---
 
