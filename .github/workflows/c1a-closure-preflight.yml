@@ -65,6 +65,7 @@ jobs:
           DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
           DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
           APP_DIR: ${{ vars.PROD_APP_DIR || '/home/dynasty/trade-calculator' }}
+          SERVICE_NAME: ${{ vars.PROD_SERVICE_NAME || 'dynasty' }}
         shell: bash
         run: |
           set -Eeuo pipefail
@@ -73,5 +74,5 @@ jobs:
             -o UserKnownHostsFile="$HOME/.ssh/known_hosts" \
             -o ConnectTimeout=15 -o ServerAliveInterval=15 \
             -p "$PORT" "$DEPLOY_USER@$DEPLOY_HOST" \
-            "APP_DIR=$(printf %q "$APP_DIR") bash -s" \
+            "APP_DIR=$(printf %q "$APP_DIR") SERVICE_NAME=$(printf %q "$SERVICE_NAME") bash -s" \
             < deploy/diagnostics/c1a_closure_preflight.sh

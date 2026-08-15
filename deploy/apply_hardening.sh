@@ -252,6 +252,15 @@ apply_app_services() {
 # installed here: it runs unprivileged (User=dynasty) from the
 # checkout, which is fine because it has no more privilege than the
 # user who can already edit it.
+# THE canonical state-backup installation lives in its own file so that the
+# deploy account can run it WITHOUT a root shell — measured 2026-08-15, this
+# host's NOPASSWD sudo covers systemctl/journalctl/install/chown and not bash,
+# so `sudo bash apply_hardening.sh` cannot run here at all. Sourced rather than
+# re-implemented: two copies of "which files, in which order, with which modes"
+# drift, and drift here means a writer installed without its library.
+# shellcheck source=deploy/backup/install_state_backup.sh
+source "${APP_DIR}/deploy/backup/install_state_backup.sh"
+
 install_priv_script() {
     local src="$1"
     local mode="${2:-0755}"
@@ -271,17 +280,14 @@ install_priv_script() {
 
 apply_privileged_scripts() {
     install_priv_script "${APP_DIR}/deploy/systemd/dynasty-healthcheck.sh"
-    # LIBRARY FIRST, and the order is load-bearing.  riskit-state-backup.sh
-    # SOURCES this from its own directory and treats it as fatal when
-    # absent, so the root-owned copy needs it beside it or the nightly
-    # cannot resolve a backup root at all.  Installing the writer first
-    # would leave a window — riskit-state-backup.timer fires at 02:30 UTC —
-    # in which the new writer exists without its library and that night's
-    # state backup is simply not taken.  A library present without the new
-    # writer is harmless; the reverse is a lost generation.
-    # Sourced, never executed: 0644, not 0755.
-    install_priv_script "${APP_DIR}/deploy/backup/backup_root_lib.sh" 0644
-    install_priv_script "${APP_DIR}/deploy/backup/riskit-state-backup.sh"
+    # The state-backup pair — library first, modes, destinations — is owned by
+    # deploy/backup/install_state_backup.sh and called, not copied. That file
+    # documents why the ordering is load-bearing.
+    if [[ "${DRY_RUN}" == "true" ]]; then
+        log "(dry-run) would install the state-backup library + writer into ${RISKIT_LIB_DIR}"
+    else
+        state_backup_install_scripts "${APP_DIR}" "${RISKIT_LIB_DIR}"
+    fi
 }
 
 # ── 3-5. hardening units ─────────────────────────────────────────────
@@ -290,10 +296,13 @@ apply_hardening_units() {
                  "/etc/systemd/system/dynasty-healthcheck.service" yes
     install_unit "${APP_DIR}/deploy/systemd/dynasty-healthcheck.timer" \
                  "/etc/systemd/system/dynasty-healthcheck.timer"
-    install_unit "${APP_DIR}/deploy/backup/riskit-state-backup.service" \
-                 "/etc/systemd/system/riskit-state-backup.service" yes
-    install_unit "${APP_DIR}/deploy/backup/riskit-state-backup.timer" \
-                 "/etc/systemd/system/riskit-state-backup.timer"
+    # Same owner as above — see deploy/backup/install_state_backup.sh.
+    if [[ "${DRY_RUN}" == "true" ]]; then
+        log "(dry-run) would install ${STATE_BACKUP_SERVICE} + ${STATE_BACKUP_TIMER}"
+    else
+        state_backup_install_units "${APP_DIR}" "${RISKIT_LIB_DIR}"
+        CHANGED_UNITS=true
+    fi
     install_unit "${APP_DIR}/deploy/monitoring/riskit-uptime.service" \
                  "/etc/systemd/system/riskit-uptime.service" yes
     install_unit "${APP_DIR}/deploy/monitoring/riskit-uptime.timer" \
@@ -316,7 +325,7 @@ if [[ "${DRY_RUN}" != "true" && "${CHANGED_UNITS}" == "true" ]]; then
     log "systemd daemon-reload done"
 fi
 enable_timer dynasty-healthcheck.timer
-enable_timer riskit-state-backup.timer
+enable_timer "${STATE_BACKUP_TIMER}"
 enable_timer riskit-uptime.timer
 
 # ── Verification checklist ───────────────────────────────────────────
