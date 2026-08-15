@@ -35,7 +35,7 @@ import shutil
 import sqlite3
 import subprocess
 import sys
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 import pytest
@@ -168,6 +168,173 @@ def test_an_unreadable_candidate_root_refuses_rather_than_certifying_an_older_on
     # so the refusal is legible. What must not happen is proving it.
     assert f"[backup-proof] proving generation: {stale}" not in out, out
     assert "proven for every artifact" not in out, out
+
+
+def test_a_root_whose_daily_cannot_be_a_directory_refuses(tmp_path):
+    """ROOT-SAFE cover for the `daily/` readability arm.
+
+    The permission version of this needs a non-root runner, and under a root
+    runner the whole arm could be reverted to root-only with a green suite —
+    so the same policy is also exercised with a `daily` that simply cannot be
+    read as a directory, which no uid can bypass.
+    """
+    app, data = _app(tmp_path)
+    primary = tmp_path / "primary"
+    fallback = tmp_path / "fallback"
+
+    primary.mkdir()
+    (primary / "daily").write_text("not a directory", encoding="utf-8")
+    stale = fallback / "daily" / "2026-01-02"
+    stale.mkdir(parents=True)
+    _write_pointer(fallback, stale, "2026-01-02T02:30:00Z")
+
+    result = _run_proof(app, data, primary, fallback, run_backup="0")
+    out = result.stdout + result.stderr
+
+    assert result.returncode == 1, out
+    assert "NOT READABLE" in out, out
+    assert f"[backup-proof] proving generation: {stale}" not in out, out
+
+
+def test_a_root_whose_daily_is_an_unresolvable_symlink_refuses(tmp_path):
+    """ROOT-SAFE cover for the `! -L` pairing on the `daily/` arm.
+
+    `-e` dereferences, so a `daily/` symlink whose target cannot be resolved
+    is `! -e` too — and without the pairing that short-circuits the whole
+    readability check and reports "holds no generation", letting an older
+    root be certified. A dangling symlink reproduces it at any uid: it is
+    emphatically not "a root that was never written".
+    """
+    app, data = _app(tmp_path)
+    primary = tmp_path / "primary"
+    fallback = tmp_path / "fallback"
+
+    primary.mkdir()
+    (primary / "daily").symlink_to(tmp_path / "somewhere-unreachable")
+    stale = fallback / "daily" / "2026-01-02"
+    stale.mkdir(parents=True)
+    _write_pointer(fallback, stale, "2026-01-02T02:30:00Z")
+
+    result = _run_proof(app, data, primary, fallback, run_backup="0")
+    out = result.stdout + result.stderr
+
+    assert result.returncode == 1, out
+    assert "NOT READABLE" in out, out
+    assert f"[backup-proof] proving generation: {stale}" not in out, out
+
+
+@pytest.mark.skipif(os.geteuid() == 0, reason="root bypasses the permission bits this exercises")
+def test_a_root_with_an_unreadable_daily_refuses(tmp_path):
+    """The root and its `daily/` are permissioned independently.
+
+    The writer chmods only the root; `daily/` takes whatever `umask 077` gave
+    it. A root readable with an unreadable `daily/` used to report "holds no
+    generation" and let an older root be certified.
+    """
+    app, data = _app(tmp_path)
+    primary = tmp_path / "primary"
+    fallback = tmp_path / "fallback"
+
+    fresh = primary / "daily" / TODAY
+    fresh.mkdir(parents=True)
+    stale = fallback / "daily" / "2026-01-02"
+    stale.mkdir(parents=True)
+    _write_pointer(fallback, stale, "2026-01-02T02:30:00Z")
+
+    (primary / "daily").chmod(0o000)
+    try:
+        result = _run_proof(app, data, primary, fallback, run_backup="0")
+    finally:
+        (primary / "daily").chmod(0o755)
+    out = result.stdout + result.stderr
+
+    assert result.returncode == 1, out
+    assert "NOT READABLE" in out, out
+    assert f"[backup-proof] proving generation: {stale}" not in out, out
+
+
+@pytest.mark.skipif(os.geteuid() == 0, reason="root bypasses the permission bits this exercises")
+def test_a_symlinked_root_pointing_somewhere_unreachable_refuses(tmp_path):
+    """Relocating backups to another volume via a symlink is ordinary.
+
+    `-e` dereferences and `dirname` does not, so the ancestor walk used to
+    step OFF the symlink onto its readable lexical parent and call the root
+    "absent" — reproducing the very fail-open the walk was added to close.
+    """
+    app, data = _app(tmp_path)
+    real = tmp_path / "vol" / "riskit-state"
+    (real / "daily" / TODAY).mkdir(parents=True)
+    primary = tmp_path / "primary"
+    primary.symlink_to(real)
+
+    fallback = tmp_path / "fallback"
+    stale = fallback / "daily" / "2026-01-02"
+    stale.mkdir(parents=True)
+    _write_pointer(fallback, stale, "2026-01-02T02:30:00Z")
+
+    (tmp_path / "vol").chmod(0o000)
+    try:
+        result = _run_proof(app, data, primary, fallback, run_backup="0")
+    finally:
+        (tmp_path / "vol").chmod(0o755)
+    out = result.stdout + result.stderr
+
+    assert result.returncode == 1, out
+    assert "NOT READABLE" in out, out
+    assert "does not exist" not in out, "a symlink to an unreachable target is not an absent root"
+    assert f"[backup-proof] proving generation: {stale}" not in out, out
+
+
+def test_a_root_behind_a_non_directory_parent_refuses(tmp_path):
+    """ROOT-SAFE cover for the ancestor walk.
+
+    The faithful EACCES version needs a non-root runner. This one puts a
+    regular file where an ancestor directory belongs, which no uid can
+    traverse, so the walk's refusal is exercised at every privilege level.
+    """
+    app, data = _app(tmp_path)
+    primary = _blocked(tmp_path, "primary")
+    fallback = tmp_path / "fallback"
+    stale = fallback / "daily" / "2026-01-02"
+    stale.mkdir(parents=True)
+    _write_pointer(fallback, stale, "2026-01-02T02:30:00Z")
+
+    result = _run_proof(app, data, primary, fallback, run_backup="0")
+    out = result.stdout + result.stderr
+
+    assert result.returncode == 1, out
+    assert "NOT READABLE" in out, out
+    assert f"[backup-proof] proving generation: {stale}" not in out, out
+
+
+def test_selection_compares_the_date_before_the_instant(tmp_path):
+    """A derived midnight and a real `promoted_at` are not one currency.
+
+    Across 00:00 UTC a run mints `daily/<yesterday>` carrying a `promoted_at`
+    of *today*, which on a bare-stamp comparison beats a genuinely newer
+    pointerless `daily/<today>` sitting at `T00:00:00Z`.
+    """
+    app, data = _app(tmp_path)
+    primary = tmp_path / "primary"
+    fallback = tmp_path / "fallback"
+
+    # The genuinely newer generation, discovered by scan (no pointer).
+    first = _run_proof(app, data, primary, fallback)
+    assert first.returncode == 0, first.stdout + first.stderr
+    (primary / "last_generation").unlink()
+
+    # Yesterday's directory, stamped with an instant later in the day.
+    yesterday = (datetime.now(timezone.utc) - timedelta(days=1)).strftime("%Y-%m-%d")
+    older = fallback / "daily" / yesterday
+    older.mkdir(parents=True)
+    _write_pointer(fallback, older, f"{TODAY}T09:00:00Z")
+
+    result = _run_proof(app, data, primary, fallback, run_backup="0")
+    out = result.stdout + result.stderr
+
+    assert result.returncode == 0, out
+    assert f"[backup-proof] proving generation: {primary}/daily/{TODAY}" in out, out
+    assert f"[backup-proof] proving generation: {older}" not in out, out
 
 
 def test_a_generation_without_a_pointer_is_still_found(tmp_path):
@@ -532,15 +699,24 @@ def test_a_root_installed_script_gets_the_libraries_it_sources():
 
     # Anything a root-installed script resolves relative to ITSELF has to
     # travel with it.
-    sibling = re.compile(r'\$\(dirname "\$\{BASH_SOURCE\[0\]\}"\)/([\w.-]+)')
+    # Match on the SOURCED FILE, not on how its directory is spelled. Keying
+    # the rule to `$(dirname "${BASH_SOURCE[0]}")/x` matched exactly one
+    # idiom, and the repo's dominant form — `SCRIPT_DIR="$(cd "$(dirname
+    # "${BASH_SOURCE[0]}")" && pwd)"`, used by ten scripts under deploy/ —
+    # slips straight past it, re-opening the lost-nightly window with a
+    # green suite. Any sibling .sh a root-installed script sources must
+    # travel with it, however the path is written.
+    sourced = re.compile(r"^\s*(?:source|\.)\s+.*?([\w.-]+\.sh)", re.MULTILINE)
     for name in sorted(installed):
         src = next(REPO.glob(f"deploy/**/{name}"), None)
         assert src is not None, f"apply_hardening.sh installs {name}, which is not in deploy/"
-        for needed in sorted(set(sibling.findall(src.read_text(encoding="utf-8")))):
+        body = src.read_text(encoding="utf-8")
+        for needed in sorted(set(sourced.findall(body))):
+            if needed == name:
+                continue
             assert needed in installed, (
-                f"{name} resolves {needed} beside itself, but apply_hardening.sh "
-                f"does not install {needed} into the root-owned dir — the nightly "
-                f"would run without it"
+                f"{name} sources {needed}, but apply_hardening.sh does not install "
+                f"{needed} into the root-owned dir — the nightly would run without it"
             )
 
 

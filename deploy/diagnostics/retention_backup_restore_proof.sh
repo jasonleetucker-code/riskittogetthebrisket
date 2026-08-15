@@ -69,9 +69,15 @@ note_fail() { printf '[backup-proof][FAIL] %s\n' "$*" >&2; FAILURES=$((FAILURES 
 
 RESTORE_DIR=""
 RESULT_FILE=""
+# Each step guarded INDEPENDENTLY. Under `set -Eeuo pipefail` a failing
+# `rm -rf` inside an EXIT trap aborts the trap: the pending exit status is
+# replaced by 1 and every later step is skipped. That turns a real artifact
+# failure (exit 2, "missing from the backup") into what reads as
+# infrastructure breakage, and a fully green proof into a red one — while
+# also leaking the result file it never got to remove.
 cleanup() {
-    [[ -n "${RESTORE_DIR}" ]] && rm -rf "${RESTORE_DIR}"
-    [[ -n "${RESULT_FILE}" ]] && rm -f "${RESULT_FILE}"
+    [[ -z "${RESTORE_DIR}" ]] || rm -rf "${RESTORE_DIR}" || true
+    [[ -z "${RESULT_FILE}" ]] || rm -f "${RESULT_FILE}" || true
     return 0
 }
 trap cleanup EXIT
@@ -158,8 +164,15 @@ else
             # behind the permission — which is an unreadable root, not a
             # missing one.  Keeping the branch matters: a genuinely absent
             # fallback must stay ordinary, not turn every run red.
+            # `! -L` is not decoration.  `-e` DEREFERENCES a symlink while
+            # `dirname` is purely textual, so without it the walk steps OFF a
+            # symlinked root onto its readable lexical parent and calls a root
+            # whose target is merely unreachable "absent" — the pre-fix
+            # fail-open, restored by the ordinary sysadmin move of relocating
+            # backups to another volume via a symlink.  lstat-visible means
+            # unresolvable, not missing.
             probe="${cand}"
-            while [[ ! -e "${probe}" && "${probe}" != "/" && "${probe}" != "." ]]; do
+            while [[ ! -e "${probe}" && ! -L "${probe}" && "${probe}" != "/" && "${probe}" != "." ]]; do
                 probe="$(dirname "${probe}")"
             done
             if [[ ! -x "${probe}" ]]; then

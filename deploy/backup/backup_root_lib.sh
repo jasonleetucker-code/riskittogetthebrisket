@@ -161,12 +161,16 @@ backup_root_write_pointer() {
 #
 # The `! -e` arm is load-bearing: a root that has never been written has no
 # daily/ at all, and that must stay an ordinary empty root rather than
-# becoming a refusal.
+# becoming a refusal.  It is paired with `! -L` because `-e` DEREFERENCES:
+# a symlinked daily/ pointing somewhere unreachable is `! -e` too, and
+# without the pairing it short-circuits the whole check and reports "holds
+# no generation" — the same errno confusion this arm was added to close,
+# one directory level down.
 backup_root_readable() {
     local root="${1:-}"
     [[ -n "${root}" && -d "${root}" && -r "${root}" && -x "${root}" ]] || return 1
     local daily="${root%/}/daily"
-    [[ ! -e "${daily}" ]] || [[ -d "${daily}" && -r "${daily}" && -x "${daily}" ]]
+    [[ ! -e "${daily}" && ! -L "${daily}" ]] || [[ -d "${daily}" && -r "${daily}" && -x "${daily}" ]]
 }
 
 # The newest dated generation actually ON DISK under a root, with no
