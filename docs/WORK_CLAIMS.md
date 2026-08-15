@@ -1,5 +1,10 @@
 # Work Claims
 
+> **2026-08-14 — post-B master reconciliation.** Any claim row below referencing pre-B-completion state is
+> closed. The reconciliation touched planning and documentation only, on
+> `claude/master-reconciliation-post-audit-ewgl00`. No C implementation is authorized.
+
+
 **What you are about to work on, recorded before you start.**
 
 One row per piece of work in flight. Add yours in your first commit; set it

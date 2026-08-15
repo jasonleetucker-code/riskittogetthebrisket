@@ -1,5 +1,21 @@
 # Architecture Handoff
 
+> **PHASE STATUS IS STALE — CORRECTED 2026-08-14.** Any statement in this file that Phase B has not started, or
+> that pins HEAD at B3, is wrong. **B4–B11 are merged and the B-Series Completion Audit passed** (#837,
+> `79f47ff`, 20/20 executable checks). Per this repository's own precedence rule, `docs/EXECUTION_PLAN.md`
+> answers what is authorized and this file must never override it.
+>
+> The **architecture and canonical-owner content below remains useful**, with two corrections:
+> - `docs/competitive/COMPETITIVE_EXPANSION_ARCHITECTURE.md` and `docs/competitive/OTC_PFK_FEATURE_AUDIT.md`
+>   are cited here and **do not exist** in any tree. The canonical CE registry is `docs/CE_REGISTRY.md`.
+> - The frozen range "CE-01 … CE-16" predates CE-17…CE-21 and the 2026-08-14 minting of CE-22…CE-29.
+>
+> Measured canonical-owner truth as of 2026-08-14 is in `docs/C_SERIES_SCOPE_MANIFEST.md` §2, and it is less
+> settled than this document implies: the lineup solver has 6 competing implementations with 2 serving
+> production, Value Adjustment has 5, package generation has 4, replacement level has 5, and Team Strength has
+> no owner at all.
+
+
 **What the next model/session must not have to rediscover.**
 
 This file exists because the engagement runs across model handoffs (Fable/UltraCode for planning

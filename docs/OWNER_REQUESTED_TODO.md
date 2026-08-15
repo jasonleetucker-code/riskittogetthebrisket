@@ -1,8 +1,22 @@
 # Owner-Requested To-Do List
 
+**Status:** ACTIVE — **THE LIVE OWNER INTAKE LEDGER** (reclassified 2026-08-14 by the post-B master
+reconciliation). New owner instructions land here first and are durable the moment they are written.
+
+> This file was previously listed as historical/superseded while carrying **65 binding owner decisions**,
+> including the two newest sets in the repository (#829 decisions 47–55, #830 decisions 56–65, both
+> 2026-08-14). The governance index was telling readers not to trust the file where the newest owner intent
+> lived. That inversion is fixed: see `docs/PLANNING_DOCUMENT_STATUS.md` §2 for the intake → canonical record
+> → manifest row → authorization workflow, which `scripts/check_planning_integrity.py` enforces in CI.
+>
+> **Recording an instruction here does not authorize building it.** Only `docs/EXECUTION_PLAN.md` does that.
+> Every numbered decision below is mapped in `docs/C_SERIES_ZERO_LOSS_TRACEABILITY.md` §C.
+
 This file is the durable repository record for owner-requested live defects, UX requirements, planned products, and explicitly deferred long-term ideas that must not be lost between implementation phases or coding sessions. Items remain open until the linked issue is actually reproduced/researched, implemented where authorized, validated, and closed.
 
 ## Added 2026-08-11
+
+*(Rows #829 and #830 and binding decisions 47–65 were added 2026-08-14 under this same heading.)*
 
 | Priority | Issue | Area | Required outcome | Status |
 |---|---|---|---|---|

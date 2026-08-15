@@ -186,6 +186,21 @@ One canonical starting-slot weakness model. Existing owner thresholds include:
 
 Need Priority must agree with the canonical lineup/assignment solve. An `urgentNeed` flag that contradicts the actual roster solve is a defect, not an alternate opinion.
 
+### Roster age-value portfolio / Young Core Index
+
+League-relative age/value intelligence on every team profile: value-weighted core age over the canonical
+**meaningful** roster group, an age-value distribution, per-position-group profiles with league rank and
+percentile, and a 0–100 **roster-construction** index answering who owns the strongest concentration of
+meaningful young talent.
+
+**This describes roster construction; it does not alter player value.** Canonical dynasty value already embeds
+age and market expectations — do not create a second age-adjusted valuation. Missing age stays missing, and
+picks are excluded from age math rather than treated as age zero. Youth must be normalized per position and
+weighted by canonical value, so a roster full of low-value youth cannot dominate the index.
+
+Sequenced **after/with** the Team Strength and Team Weakness foundations it consumes. Binding requirement:
+`docs/OWNER_FEATURE_ADDENDUM_2026-08-14_AGE_VALUE_PORTFOLIO.md` (#838).
+
 ### Roster-aware trade simulation
 
 Apply a proposed transaction to real before/after rosters, rerank/reassign, and expose:
@@ -227,6 +242,21 @@ Required products include:
 - Golden Upgrades as a consumer, not a second engine;
 - Package Builder using the shared package-generation engine;
 - Trade Finder and Trade Suggestions repairs/consolidation;
+- **Best Trade to Send Each Team** — for every other team in the selected league, exactly one best mutually
+  defensible offer: a canonical win for the selected team, and even
+  or better for the opponent on KTC or IDP Trade Calculator with complete native coverage of every asset.
+  Missing, unsupported or imputed external coverage can never manufacture qualification. Ranked for real
+  roster benefit and mutual defensibility rather than the largest calculator discrepancy; honest no-result
+  state when nothing qualifies; recommendation only, never a silent send. Persistent user+league outgoing
+  protection and generated-package LOCK/EXCLUDE refinement are part of the same contract and are consumed by
+  every generated-trade surface through ONE canonical constraint owner. **Topology, per the newer 2026-08-14
+  decisions (#841/#842):** draft picks are legal when both teams' strategic positions make them mutually
+  beneficial — never as filler — and player counts may differ by at most one
+  (`abs(players_A − players_B) <= 1`), with picks excluded from that count. The earlier `players only` and
+  exact-equal-count rules are withdrawn. Binding specs:
+  `docs/trade/TRADE_GENERATION_PREFERENCES_AND_REFINEMENT_SPEC.md`,
+  `docs/trade/TRADE_FINDER_POSTURE_AWARE_PICKS_ADDENDUM_2026-08-14.md`,
+  `docs/trade/TRADE_CONTEXT_AND_TOPOLOGY_SUPERSESSION_2026-08-14.md`;
 - multi-team draft-pick destination correctness;
 - trade equalizer suggestions ranked by **post-active-Value-Adjustment gap**, without double-applying VA;
 - acquisition/holding-period history;
@@ -251,7 +281,7 @@ Keep separate:
 
 CE-02 Pick Forecast is private decision intelligence. Public `/league` may show factual pick ownership but not internal projection distributions/expected values.
 
-Far-future picks (including 2028/2029 where configured) remain explicitly unpriced if defensible valuation does not exist; never convert missing to zero.
+**SUPERSEDED 2026-08-14.** This sentence allowed valid 2028/2029 picks to remain unpriced indefinitely. The newer owner requirement is that **every valid league-supported draft-pick asset through the 2029 rookie class must carry a finite, non-missing canonical value** by C completion — see `docs/C_SERIES_REPLAN_AND_COMPLETION_CONTRACT.md` §2 and §10, and manifest row `C1-PICK-01`. MISSING IS NEVER ZERO is unchanged and is not the thing being superseded: the replacement for an unpriced pick is a documented generic/future valuation carrying provenance and uncertainty, never a zero and never a dropped asset. Unknown exact slot is not permission to drop the asset.
 
 ---
 
@@ -385,6 +415,10 @@ Private Game Day may include personalized actionable intelligence. Public Game D
 ---
 
 ## 4.9 Competitive expansion — unified CE roadmap
+
+> **`docs/CE_REGISTRY.md` is the canonical CE registry as of 2026-08-14.** The list below mirrors it and
+> loses to it on any disagreement. The registry now runs **CE-01…CE-29**: CE-22…CE-29 were minted to resolve an
+> identifier collision in which 18 of 22 ids named two different capabilities.
 
 Approved concepts from OTC Fantasy, Play For Keeps, and Dynasty Daddy are one roadmap, not three independent competitor roadmaps.
 

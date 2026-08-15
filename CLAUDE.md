@@ -21,6 +21,10 @@ source of truth.** Nothing here authorizes a feature.
 | What does an approved feature actually mean? | `docs/OWNER_PRODUCT_BACKLOG_SPEC.md` |
 | Does a feature exist / is it defective / evidence-gated? | `docs/OWNER_FEATURE_INVENTORY.md` |
 | **What am I authorized to implement right now?** | `docs/EXECUTION_PLAN.md` |
+| What is the complete scope, who owns it, and what proves it done? | `docs/C_SERIES_SCOPE_MANIFEST.md` |
+| Where did a given requirement go? | `docs/C_SERIES_ZERO_LOSS_TRACEABILITY.md` |
+| What does a CE identifier mean? | `docs/CE_REGISTRY.md` |
+| What is the C-Series completion standard? | `docs/C_SERIES_REPLAN_AND_COMPLETION_CONTRACT.md` |
 | Canonical owners, boundaries, technical invariants | `docs/ARCHITECTURE_HANDOFF.md`, current ADRs, live code |
 | What defect was measured, with what evidence? | `docs/master-site-audit/` |
 | Which records are legacy vs canonical? | `docs/PLANNING_DOCUMENT_STATUS.md` |
@@ -79,7 +83,7 @@ anything that touches these.
 
 Two evidence domains, deliberately separated. Full methodology in
 `docs/MULTI_FORMAT_SOURCE_NORMALIZATION_SPEC.md` and
-`docs/REDRAFT_ROS_INTELLIGENCE_SPEC.md` (both land with PR #809; read them
+`docs/REDRAFT_ROS_INTELLIGENCE_SPEC.md` (both on `main`; read them
 before ingesting anything new).
 
 **Dynasty valuation lane.** Every external ranking/value observation that
@@ -111,7 +115,7 @@ separately evidence-gated and owner-approved.
 
 ## Trade History — three distinct questions
 
-Full methodology in `docs/TRADE_HISTORY_AGING_SPEC.md` (lands with PR #809).
+Full methodology in `docs/TRADE_HISTORY_AGING_SPEC.md`.
 Not currently authorized for implementation. The guardrails that must survive
 any future work:
 
@@ -194,7 +198,7 @@ Dynasty fantasy football valuation and trade calculator platform. Ingests extern
 ├── scripts/                   # Pipeline helper scripts (source fetches, fit, etc.)
 ├── deploy/                    # Deployment configs (nginx, systemd, deploy scripts)
 ├── tests/                     # pytest unit/integration + Playwright E2E
-├── data/                      # Pipeline outputs. MOSTLY gitignored, but 8,562
+├── data/                      # Pipeline outputs. MOSTLY gitignored, but 8,825
 │                              #   files ARE tracked (data/ros/ is re-included by
 │                              #   .gitignore, and refresh workflows `git add -f`).
 │                              #   The tracking is DELIBERATE, not an accident:
@@ -204,7 +208,7 @@ Dynasty fantasy football valuation and trade calculator platform. Ingests extern
 │                              #   those commit subjects — so `git rm --cached`
 │                              #   freezes prod's source_health. See W31-F001 in
 │                              #   docs/master-site-audit/REBASELINE_2026-08-11.md
-├── exports/                   # Release artifacts (latest/ + archive/) — 141 tracked
+├── exports/                   # Release artifacts (latest/ + archive/) — 168 tracked
 └── docs/                      # Architecture blueprints, status docs, ADRs, audits
 ```
 
@@ -285,10 +289,11 @@ The single most important architectural rule for multi-league:
   1/30, `pass_int` -1 vs -4, `bonus_rec_te` 0.0 vs 0.5), so
   `/api/data?leagueKey=dynasty_new` served dynasty_main's board.
 
-  **Status — the mechanism below is B6/W18-F001, implemented in PR #810
-  and in owner review; it is not on `main` yet.** Treat the invariant
-  above as canonical and the field/API shape below as the shape under
-  review. `docs/EXECUTION_PLAN.md` is authoritative for its status.
+  **Status — B6/W18-F001 is MERGED AND LIVE on `main`** (PR #810, merge
+  `5c699af`, 2026-08-13). `scoring_fingerprint`, `leagues_share_scoring`
+  and `_scoring_identity_error` all resolve in `src/` and `server.py`.
+  The invariant above and the field/API shape below are both canonical.
+  `docs/EXECUTION_PLAN.md` remains authoritative for phase status.
 
   The identity is `scoring_fingerprint()`
   (`src/league_comparison/sleeper_scoring.py`), computed over the
