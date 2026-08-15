@@ -1,0 +1,77 @@
+name: C1A closure preflight (read-only)
+
+# Decides whether the authorized C1A closure actions can be performed from CI
+# at all, BEFORE anything mutates production.
+#
+#   A. Which deploy key each pusher is actually configured to use, and whether
+#      the siblings' keys are readable by the app user and attached to this
+#      repository. C1-RET-08's pusher logged "no readable deploy key" at the
+#      shared default path while DLF and IDP Show push successfully, so the
+#      siblings must be overridden — this measures which override, instead of
+#      copying a credential to a new path on a guess.
+#
+#   B. Whether NOPASSWD sudo covers an arbitrary root shell. The hardening
+#      installer needs one; the deploy pipeline only ever proves sudo for
+#      systemctl, journalctl and install. If a root shell is not permitted,
+#      installing the nightly is a human-at-a-terminal action and no workflow
+#      can do it — which is worth knowing now rather than halfway through.
+#
+# STRICTLY READ-ONLY. No install, no enable, no start, no commit, no push, and
+# no `--dry-run` invocation either: that needs the root shell whose
+# availability is the thing being measured.
+#
+# PRIVACY: reads `.env` for exactly three named variables and prints only
+# whether each is set plus the KEY PATH it names — never the file, never
+# another variable, never key material.
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: c1a-closure-preflight
+  cancel-in-progress: false
+
+jobs:
+  preflight:
+    name: Measure key configuration and sudo scope
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: production
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Configure production SSH
+        env:
+          DEPLOY_SSH_PRIVATE_KEY: ${{ secrets.DEPLOY_SSH_PRIVATE_KEY }}
+          DEPLOY_KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+          DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          install -d -m 700 "$HOME/.ssh"
+          printf '%s\n' "$DEPLOY_SSH_PRIVATE_KEY" | sed 's/\r$//' > "$HOME/.ssh/id_ed25519"
+          printf '%s\n' "$DEPLOY_KNOWN_HOSTS" | sed 's/\r$//' > "$HOME/.ssh/known_hosts"
+          chmod 600 "$HOME/.ssh/id_ed25519"
+          chmod 644 "$HOME/.ssh/known_hosts"
+          ssh-keygen -y -f "$HOME/.ssh/id_ed25519" >/dev/null
+          echo "PORT=${DEPLOY_PORT:-22}" >> "$GITHUB_ENV"
+
+      - name: Run the preflight on production
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          APP_DIR: ${{ vars.PROD_APP_DIR || '/home/dynasty/trade-calculator' }}
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          ssh -i "$HOME/.ssh/id_ed25519" \
+            -o BatchMode=yes -o StrictHostKeyChecking=yes \
+            -o UserKnownHostsFile="$HOME/.ssh/known_hosts" \
+            -o ConnectTimeout=15 -o ServerAliveInterval=15 \
+            -p "$PORT" "$DEPLOY_USER@$DEPLOY_HOST" \
+            "APP_DIR=$(printf %q "$APP_DIR") bash -s" \
+            < deploy/diagnostics/c1a_closure_preflight.sh
