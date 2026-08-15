@@ -377,7 +377,6 @@ def check_traceability(f: Failures, manifest_ids: set[str]) -> None:
         f.add("traceability", f"unexplained unmapped is {m.group(1)}, not 0")
 
 
-
 def check_execution_map(f: Failures, manifest_ids: set[str]) -> None:
     """The execution map claims to decompose EVERY manifest row into exactly one unit.
 
@@ -425,9 +424,8 @@ def check_execution_map(f: Failures, manifest_ids: set[str]) -> None:
             f"[execution-map] {len(missing)} manifest row(s) are in no execution unit: {missing}"
         )
     if extra:
-        f.append(
-            f"[execution-map] {len(extra)} mapped id(s) are not manifest rows: {extra}"
-        )
+        f.append(f"[execution-map] {len(extra)} mapped id(s) are not manifest rows: {extra}")
+
 
 def check_governance_index(f: Failures) -> None:
     """8: every planning document is classified somewhere."""
