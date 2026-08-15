@@ -265,7 +265,12 @@ T-NEW-01…17 → `C1-PICK-03` (01) · `C3-CALC-01` (02) · `C9-V3-01` (03) · `
 `C8-PSI-*` (06) · `C9-UR-01` (07) · `C5-POW-01` (08) · `C9-AWARD-02` (09) · `C6-FRESH-01` (10) ·
 **`C0-GOV-01` — satisfied through step 7 by this reconciliation** (11) · **DONE, shipped in `7cf722e3` (#814)** (12) ·
 `C5-WAR-01` (13) · `C3-CALC-01` (14) · `C1-PICK-01` (15) · **discharged by this document** (16) ·
-`C3-REPLAY-01` (17).
+`C3-REPLAY-01` (17) · `C2-AGE-01`…`C2-AGE-03` + `C7-AGE-01` (**18**) · `C2-CORE-01` (**19**).
+
+T-NEW-18 and T-NEW-19 were authored on #816 *after* the reconciliation promoted T-NEW-01…17. Their
+capabilities were already mapped through the #838 and #839 addenda; the two identifiers themselves were
+promoted to `docs/OWNER_REQUESTED_TODO_SPEC_INDEX.md` on 2026-08-15 before #816 was closed, so nothing is
+lost by either name or id.
 
 ## G — PR #816 feature-spec appendix (40 entries)
 
