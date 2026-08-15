@@ -6,6 +6,57 @@
 
 ---
 
+## Production evidence — 2026-08-15
+
+Deployed as merge `47d7d243` (validated head `ef76a425`), deploy run `31869441040` SUCCESS.
+
+**Strict `ALL` watchdog, run `31870347342`, 2026-08-15T06:48:36Z, against the production data directory:**
+
+| row | state | age | measured artifact |
+|---|---|---|---|
+| `C1-RET-01` | `ok` | 0.3 h | 2 accumulator files, **1,092 deduped rows** |
+| `C1-RET-02` | `ok` | 30.8 h | **9,842 rows across 9 dates** |
+| `C1-RET-03` | `ok` | 6.8 h | 27 snapshots, **missingDays=0, staleDays=0** |
+| `C1-RET-04` | `ok` | 0.0 h | **4 observations of 2 distinct cards across 2 leagues** |
+| `C1-RET-05` | `ok` | 0.0 h | **200 observations across 2 snapshots** |
+| `C1-RET-06` | `ok` | 0.0 h | **285 transactions, 285 trades, 4 chain leagues** |
+| `C1-RET-07` | **`stale`** | **2,795.0 h** | newest `identity_report_20260420T194828Z.json` |
+| `C1-RET-08` | `ok` | 102.8 h | **2 snapshots**, newest `snapshot_2026-08-11.json` |
+
+`ok=7 stale=1 missing=0 unknown=0` — **exit code 2**. The watchdog can fail, and did, on a genuinely stale
+stream. It has not been weakened to obtain green.
+
+**Natural producer execution.** `C1-RET-04`, `C1-RET-05` and `C1-RET-06` all read **0.0 h** on the first probe
+after deploy: the post-scrape warm pass, the trending fetch and the overlay build fired on their own schedule
+and wrote real evidence. No writer was invoked by hand. The three rows the manifest recorded as ABSENT are
+recording within minutes of the deploy.
+
+**Backup + restore.** The first real proof run (`31870387349`) **FAILED**, and refusing to claim success is
+what it is for. All six retention artifacts were written —
+
+```
+sqlite ok: data/retention/evidence.sqlite
+sqlite ok: data/retention/league_events.sqlite
+sqlite ok: data/board_history.sqlite
+file   ok: data/rank_history.jsonl
+dir    ok: data/faab
+dir    ok: data/identity
+```
+
+— but two directory archives errored and the script discarded the whole generation, all 14 artifacts:
+
+- **`tar: playerctx_history: Cannot stat`** — the archive label added for `data/playerctx/history` was passed
+  to tar as the *member* name. Introduced by this tranche.
+- **`tar: intel/ledger.sqlite3-wal: file changed as we read it`** — GNU tar exits 1 for that and 2 for a fatal
+  error; the script treated them alike, so one busy directory threw away every other artifact. **Pre-existing**,
+  and it means the nightly generation has been at risk of discard whenever `intel` was being written.
+
+Both fixed in #849 (`ce5e6128`), pinned by `tests/deploy/test_state_backup_dir_archiving.py`, which runs the
+shipped `backup_dir` including a real write-while-tarring race. **Backup and restore remain UNPROVEN until a
+green `retention-backup-proof` run exists.**
+
+---
+
 ## What this document is
 
 The eight rows in this tranche share one property that no other work in the

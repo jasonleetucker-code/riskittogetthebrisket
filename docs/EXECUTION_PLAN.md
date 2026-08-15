@@ -112,24 +112,35 @@ radius of a rename that is otherwise mechanical.
 inside phase C1. Read them from `docs/C_SERIES_SCOPE_MANIFEST.md`; that file is authoritative if this summary
 and it ever disagree.
 
-| row | what stops being lost | implementation state |
-|---|---|---|
-| `C1-RET-01` | KTC crowd-FAAB rolling window durably retained | code landed — **awaiting production evidence** |
-| `C1-RET-02` | canonical board history provably recording | code landed — **awaiting production evidence** |
-| `C1-RET-03` | `rank_history.jsonl` stall detectable | code landed — **awaiting production evidence** |
-| `C1-RET-04` | scoring card at a date (today: overwritten) | code landed — **awaiting production evidence** |
-| `C1-RET-05` | Sleeper trending adds (today: discarded every 15 min) | code landed — **awaiting production evidence** |
-| `C1-RET-06` | own-league trade events before the rolling window drops them | code landed — **awaiting production evidence** |
-| `C1-RET-07` | per-source raw ingest + identity reports (halted 2026-04-20) | labelled honestly; **collection NOT resumed** — the producer is not in the tree |
-| `C1-RET-08` | `playerctx` history actually landing | observability landed; **the deploy-key blocker is unchanged** |
+Deployed as merge `47d7d243` (validated head `ef76a425`), deploy run `31869441040` SUCCESS.
+Production evidence below is the **strict `ALL` watchdog run `31870347342`**, measured 2026-08-15T06:48:36Z
+against the production data directory.
 
-> **"Code landed" is not "done", and this table will not say otherwise until the evidence exists.**
-> Configuration is not completion: a store that exists in the repository, a backup line that has never run, and
-> a scheduled probe that has never reported are all *mechanisms*, and every one of the four PARTIAL /
-> PROOF-REQUIRED rows in this tranche was a working mechanism nobody had observed. The completion evidence is
-> `scripts/retention_health.py` reporting `ok` for a row **on the production host**, plus a verified restore of
-> the new backup artifacts. Neither has happened yet. Operational record:
-> `docs/retention/RETENTION_REGISTER.md`.
+| row | what stops being lost | production state | status |
+|---|---|---|---|
+| `C1-RET-01` | KTC crowd-FAAB rolling window durably retained | `ok`, 0.3 h — 2 accumulator files, **1,092 deduped rows** | RECORDING |
+| `C1-RET-02` | canonical board history provably recording | `ok`, 30.8 h — **9,842 rows across 9 dates** | RECORDING |
+| `C1-RET-03` | `rank_history.jsonl` stall detectable | `ok`, 6.8 h — 27 snapshots, **missingDays=0, staleDays=0** | RECORDING |
+| `C1-RET-04` | scoring card at a date (today: overwritten) | `ok`, 0.0 h — **4 observations of 2 distinct cards across 2 leagues** | RECORDING |
+| `C1-RET-05` | Sleeper trending adds (today: discarded every 15 min) | `ok`, 0.0 h — **200 observations across 2 snapshots** | RECORDING |
+| `C1-RET-06` | own-league trade events before the rolling window drops them | `ok`, 0.0 h — **285 transactions, 285 trades, 4 chain leagues** | RECORDING |
+| `C1-RET-07` | per-source raw ingest + identity reports (halted 2026-04-20) | **`stale`, 2,795.0 h** — newest `identity_report_20260420T194828Z.json` | PARTIAL — honestly labelled; **collection NOT resumed** |
+| `C1-RET-08` | `playerctx` history actually landing | `ok`, 102.8 h — **2 snapshots**, newest `snapshot_2026-08-11.json` | PARTIAL — landing locally; **git push still unproven** |
+
+**The watchdog exited 2**, on a genuinely stale stream. That is the corrected semantics working, and per the
+production-checkpoint instruction a stale row is *not* a reason to weaken it. It has not been weakened.
+
+> **RECORDING is not COMPLETE.** Six rows now hold real production evidence and are observable — the loss those
+> rows describe has stopped. What is still outstanding for every row is the **backup + restore proof**: the
+> first real run (`31870387349`) FAILED and correctly refused to claim success, catching two defects that were
+> discarding the entire nightly generation (fixed in #849). Until a green
+> `retention-backup-proof` run exists, no row moves to COMPLETE.
+>
+> `C1-RET-07` and `C1-RET-08` stay **PARTIAL on their own merits** regardless of that proof: identity
+> collection has not resumed (the producer is not in the tree), and the playerctx **git push** has still never
+> succeeded — local snapshots landing is a different fact from the off-box copy the row's acceptance names.
+>
+> Operational record, with the full backup/restore evidence: `docs/retention/RETENTION_REGISTER.md`.
 
 **Four other rows carry the `RET` flag but are NOT in this tranche** — `C4-FAAB-02`, `C5-GD-02`, `C7-DRAFT-02`
 and `C9-UR-02` are flagged so their collection starts as early as their phase allows, but they belong to C4, C5,
