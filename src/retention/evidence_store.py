@@ -265,6 +265,26 @@ def _gap_hours(start: Any, end: Any) -> float | None:
     return round((b - a).total_seconds() / 3600.0, 4)
 
 
+def canonical_stamp(value: Any) -> str | None:
+    """One spelling per instant, in UTC.  ``None`` if it cannot be parsed.
+
+    Observation times are the PRIMARY KEY and the SQL ordering key, and
+    SQLite compares them as TEXT — so ``2026-01-01T00:00:00Z`` and
+    ``2026-01-01T00:00:00+00:00`` are the same moment stored as two
+    different keys, and an exact lookup spelled the other way misses its
+    own observation.  A non-UTC offset is worse: ``...T09:00:00+05:00``
+    sorts AFTER ``...T05:00:00+00:00`` as text while preceding it in
+    time, which silently corrupts every bracket for that league.
+
+    Normalising here rather than at each call site means the write path
+    and the read path cannot disagree about what an instant is called.
+    """
+    parsed = _parse_iso(value)
+    if parsed is None:
+        return None
+    return parsed.astimezone(timezone.utc).isoformat()
+
+
 # ── C1-RET-04: scoring cards ─────────────────────────────────────────
 
 
@@ -317,7 +337,14 @@ def observe_scoring_card(
     if not league_id or not scoring:
         return {"action": "skipped", "reason": "empty_card_or_league"}
 
-    stamp = observed_at or _utc_now()
+    # Fail closed on a stamp we cannot place in time.  An observation
+    # whose instant is unknown is not usable evidence, and storing it
+    # would corrupt the ordering — and therefore every bracket — for the
+    # whole league rather than losing just itself.
+    stamp = canonical_stamp(observed_at or _utc_now())
+    if stamp is None:
+        return {"action": "skipped", "reason": "unparseable_observed_at"}
+
     digest = card_hash(scoring)
     now = _utc_now()
 
@@ -445,6 +472,12 @@ def scoring_card_at(
     """
     league_id = str(sleeper_league_id or "").strip()
     if not league_id or not when:
+        return None
+    # Same normalisation as the write path, so an instant spelled with a
+    # ``Z`` suffix or a non-UTC offset finds its own observation instead
+    # of silently missing it.
+    when = canonical_stamp(when)
+    if when is None:
         return None
 
     conn = connect(path)

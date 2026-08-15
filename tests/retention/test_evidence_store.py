@@ -399,3 +399,53 @@ def test_no_insert_or_replace_in_the_write_path():
     # every column in its table.
     statements = re.findall(r"INSERT OR REPLACE INTO\s+(\w+)", text)
     assert statements == ["meta"], statements
+
+
+# ── instants have one spelling ───────────────────────────────────────
+
+
+def test_the_same_instant_spelled_two_ways_is_one_observation(db):
+    """observed_at is the PRIMARY KEY and SQLite compares it as TEXT, so
+    ``...Z`` and ``...+00:00`` would otherwise be two keys for one
+    moment — and an exact lookup spelled the other way would miss its
+    own observation."""
+    first = _observe(db, "111", CARD_A, "2026-01-01T00:00:00Z")
+    second = _observe(db, "111", CARD_A, "2026-01-01T00:00:00+00:00")
+
+    assert first["action"] == "recorded"
+    assert second["action"] == "duplicate"
+    assert len(evidence_store.scoring_card_observations("111", path=db)) == 1
+
+
+def test_a_query_finds_its_observation_however_the_instant_is_spelled(db):
+    _observe(db, "111", CARD_A, "2026-02-01T00:00:00+00:00")
+
+    for spelling in ("2026-02-01T00:00:00+00:00", "2026-02-01T00:00:00Z"):
+        answer = evidence_store.scoring_card_at("111", spelling, path=db)
+        assert answer is not None, spelling
+        assert answer["fidelity"] == evidence_store.FIDELITY_EXACT
+
+
+def test_a_non_utc_offset_orders_by_time_not_by_text(db):
+    """ "2026-01-01T09:00:00+05:00" sorts AFTER "2026-01-01T05:00:00+00:00"
+    as text while being the SAME instant.  Left unnormalised that
+    silently corrupts every bracket for the league."""
+    _observe(db, "111", CARD_A, "2026-01-01T00:00:00+00:00")
+    _observe(db, "111", CARD_B, "2026-01-01T09:00:00+05:00")  # == 04:00Z
+
+    stamps = [o["observedAt"] for o in evidence_store.scoring_card_observations("111", path=db)]
+    assert stamps == ["2026-01-01T00:00:00+00:00", "2026-01-01T04:00:00+00:00"]
+
+    at_second = evidence_store.scoring_card_at("111", "2026-01-01T04:00:00+00:00", path=db)
+    assert at_second["scoringSettings"] == CARD_B
+
+
+def test_an_unparseable_instant_is_refused_not_stored(db):
+    """Fail closed: an observation whose time is unknown would corrupt
+    the ordering — and every bracket — for the whole league, rather than
+    losing only itself."""
+    result = _observe(db, "111", CARD_A, "not-a-timestamp")
+
+    assert result["action"] == "skipped"
+    assert result["reason"] == "unparseable_observed_at"
+    assert evidence_store.scoring_card_observations("111", path=db) == []
