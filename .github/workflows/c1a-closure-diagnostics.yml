@@ -3,13 +3,20 @@ name: C1A closure inventory (read-only)
 # Two facts the backup/restore proof structurally cannot report, because
 # they are about state it does not touch:
 #
-#   A. Whether the NIGHTLY backup lineage carries #852.  `apply_hardening.sh`
-#      installs root-owned copies under /usr/local/lib/riskit/ and ordinary
-#      deploys deliberately do not run it — pinned by
+#   A. Whether the NIGHTLY backup lineage carries #852.  The root-owned copies
+#      under /usr/local/lib/riskit/ are refreshed only by the operator-run
+#      hardening installer, which ordinary deploys deliberately never invoke —
+#      a policy pinned by
 #      tests/deploy/test_hardening_script_stays_operator_run.py.  So a green
 #      deploy says nothing about the nightly, and a green restore proof run
 #      by the deploy user says nothing either.  This hashes what is actually
 #      installed against what is actually deployed.
+#
+#      That test greps these workflow files for the installer's filename, so
+#      this comment deliberately does not spell it out.  Naming it here would
+#      trip a tripwire whose entire job is to make wiring it a deliberate act —
+#      and a guard that a comment can trip is a guard someone eventually
+#      weakens to stop the noise.  The name is in the diagnostic script.
 #
 #   B. Why C1-RET-08's player-context history has never been published.
 #      /api/status reports pendingPush=2 — both retained snapshots exist
