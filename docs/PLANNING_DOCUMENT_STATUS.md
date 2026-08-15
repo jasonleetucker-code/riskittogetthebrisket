@@ -19,6 +19,7 @@ below.** A document that appears nowhere is drift, and `scripts/check_planning_i
 | `docs/OWNER_FEATURE_INVENTORY.md` | Exhaustive feature/status/classification/dependency ledger |
 | `docs/OWNER_PRODUCT_BACKLOG_SPEC.md` | Detailed owner product intent/methodology/UX for specified features |
 | `docs/C_SERIES_SCOPE_MANIFEST.md` | **The exhaustive implementation/disposition census.** Answers "is this in scope, who owns it, what phase, what proves it done" |
+| `docs/C_SERIES_EXECUTION_MAP.md` | **The bounded-unit decomposition of the manifest.** Answers "what are the executable units, in what order, owned by whom, proven how". Decomposition only — it authorizes nothing; `EXECUTION_PLAN.md` alone does |
 | `docs/EXECUTION_PLAN.md` | **The ONLY record of current sequencing and explicit next authorized scope** |
 | `docs/CE_REGISTRY.md` | **The only place a CE identifier is defined** |
 | `docs/OWNER_REQUESTED_TODO.md` | **THE LIVE OWNER INTAKE LEDGER** — see §2 |
