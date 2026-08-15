@@ -136,15 +136,37 @@ else
     #     the writer that only apply_hardening.sh refreshes, so real
     #     generations land with no pointer beside them.  Pointer first,
     #     on-disk scan second, and the log says which answered.
-    #  3. Compare on a stamp that is never empty, and hold the incumbent on
-    #     "do we have one" rather than "does it have a stamp" — an incumbent
-    #     with an unknown stamp must not be a blank slate that any later
-    #     candidate overwrites.
+    #  3. A pointer is a HINT, not an upper bound.  Within one root, take
+    #     whichever of the pointer and the disk names the newer generation —
+    #     the pointer write is warn-only and happens AFTER promotion, so a
+    #     run killed in that window leaves a stale pointer sitting in front
+    #     of a newer generation.
+    #  4. Compare on the DATE first and the instant only as a tiebreak, and
+    #     hold the incumbent on "do we have one" rather than "does it have a
+    #     stamp".  A derived midnight and a real promoted_at are not the same
+    #     currency: straddling 00:00 UTC, yesterday's dated directory can
+    #     carry a promoted_at of today and outrank a genuinely newer one.
     log "RUN_BACKUP=0 — locating the newest recorded generation"
-    GEN=""; EFFECTIVE_ROOT=""; BEST_AT=""; UNREADABLE=""
+    GEN=""; EFFECTIVE_ROOT=""; BEST_KEY=""; UNREADABLE=""
     while IFS= read -r cand; do
         [[ -n "${cand}" ]] || continue
         if [[ ! -e "${cand}" ]]; then
+            # `-e` is false for ENOENT *and* for EACCES anywhere on the path,
+            # and only the first is an empty root.  Absence has to be PROVEN:
+            # walk up to the deepest ancestor that can actually be stat'd, and
+            # if that one is not searchable then a generation may be sitting
+            # behind the permission — which is an unreadable root, not a
+            # missing one.  Keeping the branch matters: a genuinely absent
+            # fallback must stay ordinary, not turn every run red.
+            probe="${cand}"
+            while [[ ! -e "${probe}" && "${probe}" != "/" && "${probe}" != "." ]]; do
+                probe="$(dirname "${probe}")"
+            done
+            if [[ ! -x "${probe}" ]]; then
+                log "candidate root ${cand}: NOT READABLE by $(id -un) (cannot stat through ${probe}) — cannot rule out a newer generation here"
+                UNREADABLE+="${cand} "
+                continue
+            fi
             log "candidate root ${cand}: does not exist"
             continue
         fi
@@ -153,20 +175,35 @@ else
             UNREADABLE+="${cand} "
             continue
         fi
+        # Ask BOTH finders, always.  Consulting the disk only when the
+        # pointer says nothing lets a stale pointer mask a newer generation
+        # in its own root.
         cand_src="pointer"
         cand_gen="$(backup_root_read_generation "${cand}" || true)"
+        cand_disk="$(backup_root_scan_generation "${cand}" || true)"
         if [[ -z "${cand_gen}" ]]; then
             cand_src="on-disk scan"
-            cand_gen="$(backup_root_scan_generation "${cand}" || true)"
+            cand_gen="${cand_disk}"
+        elif [[ -n "${cand_disk}" && "${cand_disk}" != "${cand_gen}" ]]; then
+            # Same generation ⇒ keep the pointer, which carries the real
+            # instant.  Different ⇒ newer wins, whichever named it.
+            if [[ "$(basename "${cand_disk}")" > "$(basename "${cand_gen}")" ]]; then
+                log "candidate root ${cand}: pointer names ${cand_gen} but a NEWER generation is on disk"
+                cand_src="on-disk scan (newer than the pointer)"
+                cand_gen="${cand_disk}"
+            fi
         fi
         if [[ -z "${cand_gen}" ]]; then
             log "candidate root ${cand}: readable, holds no generation"
             continue
         fi
         cand_at="$(backup_root_generation_stamp "${cand}" "${cand_gen}")"
+        # Date dominates; the space sorts below every digit, so an unknown
+        # instant loses a tie rather than winning one.
+        cand_key="$(basename "${cand_gen}") ${cand_at}"
         log "candidate root ${cand}: generation ${cand_gen} (via ${cand_src}) promoted_at ${cand_at:-unknown}"
-        if [[ -z "${GEN}" || "${cand_at}" > "${BEST_AT}" ]]; then
-            GEN="${cand_gen}"; EFFECTIVE_ROOT="${cand}"; BEST_AT="${cand_at}"
+        if [[ -z "${GEN}" || "${cand_key}" > "${BEST_KEY}" ]]; then
+            GEN="${cand_gen}"; EFFECTIVE_ROOT="${cand}"; BEST_KEY="${cand_key}"
         fi
     done < <(backup_root_candidates)
 
@@ -174,7 +211,7 @@ else
     # generation while a root we cannot see may hold a newer one is
     # precisely the false pass this ordering prevents.
     if [[ -n "${UNREADABLE}" ]]; then
-        fail "cannot certify a generation: candidate root(s) ${UNREADABLE}are not readable by $(id -un), so a newer generation may exist there and be invisible here — refusing to certify an older one instead. The nightly runs as root and chmods its root 0700; run with RUN_BACKUP=1 to prove a generation this user can actually write and read."
+        fail "cannot certify a generation: candidate root(s) ${UNREADABLE}are not readable by $(id -un) (the root itself, its daily/, or a parent directory), so a newer generation may exist there and be invisible here — refusing to certify an older one instead. The nightly runs as root and chmods its root 0700; run with RUN_BACKUP=1 to prove a generation this user can actually write and read."
     fi
     [[ -n "${GEN}" ]] || fail "no backup generation in any readable candidate root ($(backup_root_candidates | tr '\n' ' ')) — run with RUN_BACKUP=1"
 fi

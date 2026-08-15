@@ -119,6 +119,10 @@ path).  After changing the script in the repo, re-run
 ## Install
 
 ```bash
+# The sourced resolver FIRST — the writer hard-fails without it, and the
+# timer fires at 02:30 UTC, so the reverse order can cost a whole night's
+# backup. Sourced, never executed: 0644.
+sudo install -o root -g root -m 0644 -D deploy/backup/backup_root_lib.sh /usr/local/lib/riskit/backup_root_lib.sh
 # Root-owned script copy OUTSIDE the checkout (the unit executes this):
 sudo install -o root -g root -m 0755 -D deploy/backup/riskit-state-backup.sh /usr/local/lib/riskit/riskit-state-backup.sh
 sudo cp deploy/backup/riskit-state-backup.service deploy/backup/riskit-state-backup.timer /etc/systemd/system/

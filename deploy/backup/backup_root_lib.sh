@@ -151,9 +151,22 @@ backup_root_write_pointer() {
 # is FULL of generations.  Treating that as "empty" and quietly certifying
 # an older generation from the other root is a fail-open, and it is the
 # exact defect this library exists to prevent, merely inverted.
+# It covers `daily/` as well as the root, because that is what both finders
+# actually open — and the two levels are permissioned independently: the
+# writer chmods only the root, while daily/ takes whatever `umask 077` gave
+# it at mkdir.  A root readable with an unreadable daily/ would otherwise
+# report "holds no generation", which is the same fail-open one level down,
+# and it is exactly what an operator produces by chmod'ing the root alone
+# after reading the refusal message.
+#
+# The `! -e` arm is load-bearing: a root that has never been written has no
+# daily/ at all, and that must stay an ordinary empty root rather than
+# becoming a refusal.
 backup_root_readable() {
     local root="${1:-}"
-    [[ -n "${root}" && -d "${root}" && -r "${root}" && -x "${root}" ]]
+    [[ -n "${root}" && -d "${root}" && -r "${root}" && -x "${root}" ]] || return 1
+    local daily="${root%/}/daily"
+    [[ ! -e "${daily}" ]] || [[ -d "${daily}" && -r "${daily}" && -x "${daily}" ]]
 }
 
 # The newest dated generation actually ON DISK under a root, with no

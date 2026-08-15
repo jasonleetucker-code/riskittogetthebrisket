@@ -166,7 +166,7 @@ def test_an_unreadable_candidate_root_refuses_rather_than_certifying_an_older_on
     assert "refusing to certify an older one" in out, out
     # The stale candidate is still LOGGED — every candidate examined is,
     # so the refusal is legible. What must not happen is proving it.
-    assert f"proving generation: {stale}" not in out, out
+    assert f"[backup-proof] proving generation: {stale}" not in out, out
     assert "proven for every artifact" not in out, out
 
 
@@ -199,7 +199,80 @@ def test_a_generation_without_a_pointer_is_still_found(tmp_path):
 
     assert result.returncode == 0, out
     assert "via on-disk scan" in out, out
-    assert f"proving generation: {primary}/daily/{TODAY}" in out, out
+    assert f"[backup-proof] proving generation: {primary}/daily/{TODAY}" in out, out
+
+
+def test_a_stale_pointer_does_not_mask_a_newer_generation_in_its_own_root(tmp_path):
+    """The pointer is a hint, not an upper bound.
+
+    It is written AFTER promotion and a failed write is only a warning, so
+    a run killed in that window leaves a stale pointer sitting in front of
+    a newer generation in the same root. Consulting the disk only when the
+    pointer says *nothing* lets that stale pointer win unconditionally.
+    """
+    app, data = _app(tmp_path)
+    primary = tmp_path / "primary"
+    fallback = tmp_path / "fallback"
+
+    first = _run_proof(app, data, primary, fallback)
+    assert first.returncode == 0, first.stdout + first.stderr
+
+    # Age the real generation, and leave the pointer naming it — then put a
+    # newer dated generation on disk beside it with no pointer of its own.
+    real = primary / "daily" / TODAY
+    older = primary / "daily" / "2026-01-02"
+    shutil.copytree(real, older)
+    _write_pointer(primary, older, "2026-01-02T02:30:00Z")
+
+    result = _run_proof(app, data, primary, fallback, run_backup="0")
+    out = result.stdout + result.stderr
+
+    assert result.returncode == 0, out
+    assert "NEWER generation is on disk" in out, out
+    assert f"[backup-proof] proving generation: {real}" in out, out
+
+
+def test_the_proof_reads_the_run_s_result_rather_than_re_deriving(tmp_path):
+    """The headline mechanism, pinned.
+
+    Re-deriving the location — `ls -1d $BACKUP_ROOT/daily/20*`, which is
+    what `main` did — is the defect. Here the writer records a generation
+    the re-derivation could never name, so a proof that re-derives cannot
+    pass this.
+    """
+    app, data = _app(tmp_path)
+    primary = tmp_path / "primary"
+    fallback = tmp_path / "fallback"
+
+    # A decoy the old `ls .../daily/20*` scan WOULD have picked: newest by
+    # name, in the requested primary, but not what any run promoted.
+    decoy = primary / "daily" / "2099-12-31"
+    decoy.mkdir(parents=True)
+
+    result = _run_proof(app, data, primary, fallback)
+    out = result.stdout + result.stderr
+
+    assert result.returncode == 0, out
+    assert f"[backup-proof] proving generation: {primary}/daily/{TODAY}" in out, out
+    assert str(decoy) not in out, "the proof re-derived the location instead of reading the result"
+
+
+def test_the_on_disk_scan_takes_the_newest_dated_directory(tmp_path):
+    app, data = _app(tmp_path)
+    primary = tmp_path / "primary"
+    fallback = tmp_path / "fallback"
+
+    first = _run_proof(app, data, primary, fallback)
+    assert first.returncode == 0, first.stdout + first.stderr
+    (primary / "last_generation").unlink()
+    for older in ("2019-01-01", "2020-06-30", "2026-01-02"):
+        (primary / "daily" / older).mkdir(parents=True)
+
+    result = _run_proof(app, data, primary, fallback, run_backup="0")
+    out = result.stdout + result.stderr
+
+    assert result.returncode == 0, out
+    assert f"[backup-proof] proving generation: {primary}/daily/{TODAY}" in out, out
 
 
 def test_an_incumbent_with_an_unknown_stamp_is_not_a_blank_slate(tmp_path):
@@ -236,10 +309,10 @@ def test_an_incumbent_with_an_unknown_stamp_is_not_a_blank_slate(tmp_path):
     out = result.stdout + result.stderr
 
     assert result.returncode == 0, out
-    assert f"proving generation: {primary}/daily/{TODAY}" in out, out
+    assert f"[backup-proof] proving generation: {primary}/daily/{TODAY}" in out, out
     # The ancient candidate is LOGGED on purpose — selection must be
     # visible — but it must not be the one proven.
-    assert f"proving generation: {ancient}" not in out, out
+    assert f"[backup-proof] proving generation: {ancient}" not in out, out
 
 
 def test_proving_the_fallback_lineage_says_so(tmp_path):
@@ -272,8 +345,8 @@ def test_an_unwritable_primary_root_falls_back_and_the_proof_follows(tmp_path):
     out = result.stdout + result.stderr
 
     assert result.returncode == 0, out
-    assert f"effective backup root: {fallback}" in out, out
-    assert f"proving generation: {fallback}/daily/{TODAY}" in out, out
+    assert f"[backup-proof] effective backup root: {fallback}" in out, out
+    assert f"[backup-proof] proving generation: {fallback}/daily/{TODAY}" in out, out
     # The proof read the fallback generation back, not merely located it.
     assert "C1-RET-04/05 evidence.sqlite: PRAGMA integrity_check = ok" in out, out
     # And the backup really is there.
@@ -289,8 +362,8 @@ def test_a_writable_primary_root_is_used_by_both(tmp_path):
     out = result.stdout + result.stderr
 
     assert result.returncode == 0, out
-    assert f"effective backup root: {primary}" in out, out
-    assert f"proving generation: {primary}/daily/{TODAY}" in out, out
+    assert f"[backup-proof] effective backup root: {primary}" in out, out
+    assert f"[backup-proof] proving generation: {primary}/daily/{TODAY}" in out, out
     assert not fallback.exists(), "the fallback must not be touched when the primary works"
 
 
@@ -380,7 +453,7 @@ def test_the_proof_cannot_be_captured_by_a_pointer_in_the_other_root(tmp_path):
     out = result.stdout + result.stderr
 
     assert result.returncode == 0, out
-    assert f"proving generation: {primary}/daily/{TODAY}" in out, out
+    assert f"[backup-proof] proving generation: {primary}/daily/{TODAY}" in out, out
     assert str(decoy) not in out, out
 
 
@@ -406,8 +479,8 @@ def test_discovery_takes_the_newest_recorded_generation(tmp_path):
     assert result.returncode == 0, out
     assert f"candidate root {primary}: generation" in out, out
     assert f"candidate root {fallback}: generation" in out, out
-    assert f"effective backup root: {fallback}" in out, out
-    assert f"proving generation: {newer}" in out, out
+    assert f"[backup-proof] effective backup root: {fallback}" in out, out
+    assert f"[backup-proof] proving generation: {newer}" in out, out
 
 
 # ── structural: one owner, not two ───────────────────────────────────
