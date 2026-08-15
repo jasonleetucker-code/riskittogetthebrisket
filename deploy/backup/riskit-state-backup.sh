@@ -144,6 +144,11 @@ mkdir -p "${DEST}/sqlite" "${DEST}/dirs" "${DEST}/sessions" "${DEST}/files"
 # Clear stale staging dirs from previous crashed runs (>1 day old).
 find "${BACKUP_ROOT}/daily" -maxdepth 1 -name '.staging-*' -mtime +1 \
     -exec rm -rf {} + 2>/dev/null || true
+# And stale pointer temp files.  These live one level ABOVE daily/, so
+# neither the sweep above nor prune can reach them: a run killed between
+# writing the temp and renaming it leaves one behind forever.
+find "${BACKUP_ROOT}" -maxdepth 1 -name 'last_generation.tmp.*' -mtime +1 \
+    -delete 2>/dev/null || true
 
 ARTIFACTS=0
 ERRORS=0

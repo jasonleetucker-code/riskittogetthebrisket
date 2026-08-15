@@ -122,26 +122,73 @@ else
     # recorded and take the newest.  `promoted_at` is fixed-width ISO-8601
     # UTC, so a string comparison is a chronological one.  Every candidate
     # examined is logged, so the selection is visible rather than implied.
+    # Verifying an existing generation.  Three rules, and every one of them
+    # exists because breaking it turns this proof into a false pass:
+    #
+    #  1. A root we cannot READ is not an empty root.  The nightly runs as
+    #     root and chmods its root 0700, so an unprivileged prover sees
+    #     exactly that — and if we skipped it we would go on to certify an
+    #     OLDER generation out of the readable root and exit 0, which is
+    #     worse than the bug this file was rewritten to fix.  Unreadable ⇒
+    #     refuse (below), never substitute.
+    #  2. A generation with no pointer still counts.  The pointer is younger
+    #     than the backups: production's nightly runs a root-owned copy of
+    #     the writer that only apply_hardening.sh refreshes, so real
+    #     generations land with no pointer beside them.  Pointer first,
+    #     on-disk scan second, and the log says which answered.
+    #  3. Compare on a stamp that is never empty, and hold the incumbent on
+    #     "do we have one" rather than "does it have a stamp" — an incumbent
+    #     with an unknown stamp must not be a blank slate that any later
+    #     candidate overwrites.
     log "RUN_BACKUP=0 — locating the newest recorded generation"
-    GEN=""; EFFECTIVE_ROOT=""; BEST_AT=""
+    GEN=""; EFFECTIVE_ROOT=""; BEST_AT=""; UNREADABLE=""
     while IFS= read -r cand; do
         [[ -n "${cand}" ]] || continue
-        cand_gen="$(backup_root_read_generation "${cand}" || true)"
-        if [[ -z "${cand_gen}" ]]; then
-            log "candidate root ${cand}: no usable recorded generation"
+        if [[ ! -e "${cand}" ]]; then
+            log "candidate root ${cand}: does not exist"
             continue
         fi
-        cand_at="$(backup_root_pointer_field "$(backup_root_pointer_path "${cand}")" promoted_at || true)"
-        log "candidate root ${cand}: generation ${cand_gen} promoted_at ${cand_at:-unknown}"
-        if [[ -z "${BEST_AT}" || "${cand_at}" > "${BEST_AT}" ]]; then
+        if ! backup_root_readable "${cand}"; then
+            log "candidate root ${cand}: NOT READABLE by $(id -un) — cannot rule out a newer generation here"
+            UNREADABLE+="${cand} "
+            continue
+        fi
+        cand_src="pointer"
+        cand_gen="$(backup_root_read_generation "${cand}" || true)"
+        if [[ -z "${cand_gen}" ]]; then
+            cand_src="on-disk scan"
+            cand_gen="$(backup_root_scan_generation "${cand}" || true)"
+        fi
+        if [[ -z "${cand_gen}" ]]; then
+            log "candidate root ${cand}: readable, holds no generation"
+            continue
+        fi
+        cand_at="$(backup_root_generation_stamp "${cand}" "${cand_gen}")"
+        log "candidate root ${cand}: generation ${cand_gen} (via ${cand_src}) promoted_at ${cand_at:-unknown}"
+        if [[ -z "${GEN}" || "${cand_at}" > "${BEST_AT}" ]]; then
             GEN="${cand_gen}"; EFFECTIVE_ROOT="${cand}"; BEST_AT="${cand_at}"
         fi
     done < <(backup_root_candidates)
-    [[ -n "${GEN}" ]] || fail "no recorded backup generation in any candidate root ($(backup_root_candidates | tr '\n' ' ')) — run with RUN_BACKUP=1"
+
+    # Refuse BEFORE accepting a winner.  Proving the older readable
+    # generation while a root we cannot see may hold a newer one is
+    # precisely the false pass this ordering prevents.
+    if [[ -n "${UNREADABLE}" ]]; then
+        fail "cannot certify a generation: candidate root(s) ${UNREADABLE}are not readable by $(id -un), so a newer generation may exist there and be invisible here — refusing to certify an older one instead. The nightly runs as root and chmods its root 0700; run with RUN_BACKUP=1 to prove a generation this user can actually write and read."
+    fi
+    [[ -n "${GEN}" ]] || fail "no backup generation in any readable candidate root ($(backup_root_candidates | tr '\n' ' ')) — run with RUN_BACKUP=1"
 fi
 
 [[ -d "${GEN}" ]] || fail "recorded generation does not exist on disk: ${GEN}"
 log "effective backup root: ${EFFECTIVE_ROOT:-unknown}"
+
+# Say what this run does NOT cover.  The nightly is a different process
+# (root, from /usr/local/lib/riskit) writing a different root, and a green
+# tick here must not be read as "the nightly's generations restore" when
+# this user cannot even open them.
+if [[ -n "${EFFECTIVE_ROOT}" && "${EFFECTIVE_ROOT}" != "$(backup_root_primary)" ]]; then
+    warn "this proves the backup lineage written by $(id -un) into the FALLBACK root. The nightly systemd job runs as root and writes $(backup_root_primary); those generations are not readable here and are NOT covered by this run."
+fi
 log "proving generation: ${GEN}"
 log "generation size: $(du -sh "${GEN}" 2>/dev/null | cut -f1)"
 

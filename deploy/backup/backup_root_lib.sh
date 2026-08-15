@@ -141,6 +141,55 @@ backup_root_write_pointer() {
         "${root}" "${gen}" "${stamp}" "${artifacts}"
 }
 
+# Can a READER see into this root at all?  Distinct from
+# `backup_root_writable`, which is the writer's question and CREATES the
+# directory — a reader must never do that, because a root it just made is
+# indistinguishable from one that legitimately holds nothing.
+#
+# The distinction is load-bearing: the nightly runs as root and chmods its
+# root 0700, so an unprivileged reader gets "not readable" for a root that
+# is FULL of generations.  Treating that as "empty" and quietly certifying
+# an older generation from the other root is a fail-open, and it is the
+# exact defect this library exists to prevent, merely inverted.
+backup_root_readable() {
+    local root="${1:-}"
+    [[ -n "${root}" && -d "${root}" && -r "${root}" && -x "${root}" ]]
+}
+
+# The newest dated generation actually ON DISK under a root, with no
+# pointer involved.
+#
+# Needed because the pointer is younger than the backups: the production
+# nightly executes a root-owned copy of the writer that only
+# apply_hardening.sh refreshes, so real generations keep landing with no
+# pointer beside them until an operator re-runs that installer.  A reader
+# that could only follow pointers would be blind to every one of them.
+backup_root_scan_generation() {
+    local root="${1:-}" gen
+    [[ -n "${root}" ]] || return 1
+    gen="$(ls -1d "${root%/}/daily"/[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9] 2>/dev/null | sort | tail -n1 || true)"
+    [[ -n "${gen}" && -d "${gen}" ]] || return 1
+    printf '%s\n' "${gen}"
+}
+
+# When was this generation promoted?  The pointer's `promoted_at` when the
+# pointer describes THIS generation, else midnight of the dated directory
+# name.  Never empty for a well-formed generation, which matters because a
+# comparison against an empty incumbent silently accepts anything.
+backup_root_generation_stamp() {
+    local root="$1" gen="$2" ptr at="" ptr_gen base
+    ptr="$(backup_root_pointer_path "${root}")"
+    ptr_gen="$(backup_root_pointer_field "${ptr}" generation || true)"
+    if [[ -n "${ptr_gen}" && "${ptr_gen}" == "${gen}" ]]; then
+        at="$(backup_root_pointer_field "${ptr}" promoted_at || true)"
+    fi
+    if [[ -z "${at}" ]]; then
+        base="$(basename "${gen}")"
+        [[ "${base}" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}$ ]] && at="${base}T00:00:00Z"
+    fi
+    printf '%s\n' "${at}"
+}
+
 # Read one field.  First-`=` split; no eval, no sourcing of the pointer.
 backup_root_pointer_field() {
     local file="$1" key="$2" line

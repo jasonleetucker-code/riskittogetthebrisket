@@ -271,11 +271,17 @@ install_priv_script() {
 
 apply_privileged_scripts() {
     install_priv_script "${APP_DIR}/deploy/systemd/dynasty-healthcheck.sh"
-    install_priv_script "${APP_DIR}/deploy/backup/riskit-state-backup.sh"
-    # riskit-state-backup.sh SOURCES this from its own directory, so the
-    # root-owned copy needs it beside it or the nightly cannot resolve a
-    # backup root at all.  Sourced, never executed: 0644, not 0755.
+    # LIBRARY FIRST, and the order is load-bearing.  riskit-state-backup.sh
+    # SOURCES this from its own directory and treats it as fatal when
+    # absent, so the root-owned copy needs it beside it or the nightly
+    # cannot resolve a backup root at all.  Installing the writer first
+    # would leave a window — riskit-state-backup.timer fires at 02:30 UTC —
+    # in which the new writer exists without its library and that night's
+    # state backup is simply not taken.  A library present without the new
+    # writer is harmless; the reverse is a lost generation.
+    # Sourced, never executed: 0644, not 0755.
     install_priv_script "${APP_DIR}/deploy/backup/backup_root_lib.sh" 0644
+    install_priv_script "${APP_DIR}/deploy/backup/riskit-state-backup.sh"
 }
 
 # ── 3-5. hardening units ─────────────────────────────────────────────

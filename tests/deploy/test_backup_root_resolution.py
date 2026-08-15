@@ -123,6 +123,135 @@ def _write_pointer(root: Path, generation: Path, promoted_at: str) -> None:
     )
 
 
+# ── discovery must not fail OPEN ─────────────────────────────────────
+#
+# Every case below was found by adversarially reviewing the first version
+# of this repair, and each was reproduced end to end before being fixed.
+# They share one shape: the proof reports success having certified a
+# generation that is not the newest one, or not production's at all.
+
+
+@pytest.mark.skipif(os.geteuid() == 0, reason="root bypasses the permission bits this exercises")
+def test_an_unreadable_candidate_root_refuses_rather_than_certifying_an_older_one(tmp_path):
+    """The nightly runs as root and chmods its root 0700.
+
+    An unprivileged prover therefore sees the primary as unreadable — and
+    if that reads as "empty", the proof goes on to certify the OLDER
+    generation in the readable fallback and exits 0. That is a worse bug
+    than the one this file exists to fix: it is the same disagreement
+    about location, inverted into a false pass.
+    """
+    app, data = _app(tmp_path)
+    primary = tmp_path / "primary"
+    fallback = tmp_path / "fallback"
+
+    # A FRESH generation in the primary, which we then make unreadable.
+    fresh = primary / "daily" / TODAY
+    fresh.mkdir(parents=True)
+    _write_pointer(primary, fresh, "2026-08-15T02:30:00Z")
+    # A STALE one in the readable fallback.
+    stale = fallback / "daily" / "2026-01-02"
+    stale.mkdir(parents=True)
+    _write_pointer(fallback, stale, "2026-01-02T02:30:00Z")
+
+    primary.chmod(0o000)
+    try:
+        result = _run_proof(app, data, primary, fallback, run_backup="0")
+    finally:
+        primary.chmod(0o755)
+    out = result.stdout + result.stderr
+
+    assert result.returncode == 1, out
+    assert "NOT READABLE" in out, out
+    assert "refusing to certify an older one" in out, out
+    assert str(stale) not in out.split("NOT READABLE")[-1], out
+
+
+def test_a_generation_without_a_pointer_is_still_found(tmp_path):
+    """The pointer is younger than the backups.
+
+    Production's nightly runs a root-owned copy of the writer that only
+    apply_hardening.sh refreshes, so real generations land with no pointer
+    beside them. A discovery pass that could only follow pointers would be
+    blind to every one of them — and would silently prefer an older
+    generation that happens to have one.
+    """
+    app, data = _app(tmp_path)
+    primary = tmp_path / "primary"
+    fallback = tmp_path / "fallback"
+
+    # Build a real, complete generation in the primary, then remove its
+    # pointer to imitate the old writer.
+    first = _run_proof(app, data, primary, fallback)
+    assert first.returncode == 0, first.stdout + first.stderr
+    (primary / "last_generation").unlink()
+
+    # An older, pointered generation next door must not win.
+    stale = fallback / "daily" / "2026-01-02"
+    stale.mkdir(parents=True)
+    _write_pointer(fallback, stale, "2026-01-02T02:30:00Z")
+
+    result = _run_proof(app, data, primary, fallback, run_backup="0")
+    out = result.stdout + result.stderr
+
+    assert result.returncode == 0, out
+    assert "via on-disk scan" in out, out
+    assert f"proving generation: {primary}/daily/{TODAY}" in out, out
+
+
+def test_an_incumbent_with_an_unknown_stamp_is_not_a_blank_slate(tmp_path):
+    """`-z BEST_AT` let any later candidate win unconditionally.
+
+    A pointer whose promoted_at line is missing gave the incumbent an
+    empty stamp, and an empty incumbent accepted the next candidate
+    without comparing anything — measured selecting a 2020 generation over
+    a same-day one.
+    """
+    app, data = _app(tmp_path)
+    primary = tmp_path / "primary"
+    fallback = tmp_path / "fallback"
+
+    first = _run_proof(app, data, primary, fallback)
+    assert first.returncode == 0, first.stdout + first.stderr
+
+    ptr = primary / "last_generation"
+    ptr.write_text(
+        "\n".join(
+            line
+            for line in ptr.read_text(encoding="utf-8").splitlines()
+            if not line.startswith("promoted_at=")
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    ancient = fallback / "daily" / "2020-01-01"
+    ancient.mkdir(parents=True)
+    _write_pointer(fallback, ancient, "2020-01-01T02:30:00Z")
+
+    result = _run_proof(app, data, primary, fallback, run_backup="0")
+    out = result.stdout + result.stderr
+
+    assert result.returncode == 0, out
+    assert f"proving generation: {primary}/daily/{TODAY}" in out, out
+    # The ancient candidate is LOGGED on purpose — selection must be
+    # visible — but it must not be the one proven.
+    assert f"proving generation: {ancient}" not in out, out
+
+
+def test_proving_the_fallback_lineage_says_so(tmp_path):
+    """A green tick must not be read as "the nightly's backups restore"."""
+    app, data = _app(tmp_path)
+    primary = _blocked(tmp_path, "primary")
+    fallback = tmp_path / "fallback"
+
+    result = _run_proof(app, data, primary, fallback)
+    out = result.stdout + result.stderr
+
+    assert result.returncode == 0, out
+    assert "NOT covered by this run" in out, out
+
+
 # ── the production defect ────────────────────────────────────────────
 
 
@@ -211,7 +340,7 @@ def test_a_recorded_generation_that_no_longer_exists_is_a_failure(tmp_path):
     out = result.stdout + result.stderr
 
     assert result.returncode == 1, out
-    assert "no recorded backup generation in any candidate root" in out, out
+    assert "no backup generation in any readable candidate root" in out, out
 
 
 def test_no_recorded_generation_anywhere_is_a_failure(tmp_path):
@@ -221,7 +350,7 @@ def test_no_recorded_generation_anywhere_is_a_failure(tmp_path):
     out = result.stdout + result.stderr
 
     assert result.returncode == 1, out
-    assert "no recorded backup generation in any candidate root" in out, out
+    assert "no backup generation in any readable candidate root" in out, out
 
 
 # ── the proof must prove the generation this run wrote ───────────────
@@ -309,12 +438,21 @@ def test_a_root_installed_script_gets_the_libraries_it_sources():
     start = hardening.index("apply_privileged_scripts() {")
     body = hardening[start : hardening.index("\n}\n", start)]
 
-    installed = {
+    order = [
         line.split('"')[1].rsplit("/", 1)[-1]
         for line in body.splitlines()
         if "install_priv_script " in line and not line.lstrip().startswith("#")
-    }
+    ]
+    installed = set(order)
     assert "riskit-state-backup.sh" in installed, installed
+
+    # ORDER MATTERS. The writer treats a missing library as fatal, and the
+    # backup timer fires at 02:30 UTC — installing the writer first leaves a
+    # window in which a nightly takes no backup at all.
+    assert order.index("backup_root_lib.sh") < order.index("riskit-state-backup.sh"), (
+        "the sourced library must be installed BEFORE the script that hard-fails "
+        f"without it; got {order}"
+    )
 
     # Anything a root-installed script resolves relative to ITSELF has to
     # travel with it.
