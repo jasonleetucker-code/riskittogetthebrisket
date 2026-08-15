@@ -496,6 +496,27 @@ fi
 # the keep-window always counts today's GOOD snapshot — never a failed
 # stub.  (Safe even when the mirror failed above: the local snapshot
 # is validated either way.)
+# Generations dated beyond the clock-skew bound are EXCLUDED from the keep
+# window rather than counted in it. `sort` puts a 2099 directory at the end of
+# an ascending list, so `head -n -N` keeps it forever AND spends one of the N
+# slots on it — real retention silently drops to N-1, and to N-2 after the next
+# skewed run. It is deliberately not deleted here: an implausible generation is
+# an anomaly for an operator to look at, and this script's destructive steps
+# only ever remove things it can account for.
+prune_candidates() {
+    local dir plausible=()
+    while IFS= read -r dir; do
+        [[ -n "${dir}" ]] || continue
+        if backup_root_name_is_future "${dir}"; then
+            warn "generation ${BACKUP_ROOT}/daily/${dir} is dated beyond the clock-skew bound (newest plausible $(backup_root_max_plausible_date)) — excluded from the keep window and NOT deleted; remove or re-date it"
+            continue
+        fi
+        plausible+=("${dir}")
+    done < <(ls -1 "${BACKUP_ROOT}/daily" 2>/dev/null | sort)
+    (( ${#plausible[@]} > KEEP_DAILY )) || return 0
+    printf '%s\n' "${plausible[@]}" | head -n -"${KEEP_DAILY}"
+}
+
 prune() {
     local dir
     # Dated names sort lexicographically == chronologically.
@@ -503,7 +524,7 @@ prune() {
         [[ -n "${dir}" ]] || continue
         log "prune: ${BACKUP_ROOT}/daily/${dir}"
         rm -rf "${BACKUP_ROOT:?}/daily/${dir}"
-    done < <(ls -1 "${BACKUP_ROOT}/daily" 2>/dev/null | sort | head -n -"${KEEP_DAILY}")
+    done < <(prune_candidates)
 }
 prune
 

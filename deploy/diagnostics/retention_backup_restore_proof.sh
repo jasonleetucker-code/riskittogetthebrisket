@@ -211,6 +211,11 @@ else
         cand_src="pointer"
         cand_disk=""; cand_rc=0
         cand_disk="$(backup_root_scan_generation "${cand}")" || cand_rc=$?
+        if (( cand_rc == 3 )); then
+            log "candidate root ${cand}: holds a generation dated beyond the clock-skew bound — name-ordered recency is untrustworthy here"
+            UNREADABLE+="${cand} "
+            continue
+        fi
         if (( cand_rc == 2 )); then
             log "candidate root ${cand}: a dated entry under daily/ cannot be resolved by $(id -un) — cannot rule out a newer generation here"
             UNREADABLE+="${cand} "

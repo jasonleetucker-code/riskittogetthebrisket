@@ -221,8 +221,26 @@ backup_root_readable() {
 # future-dated one provably is not — refusing would trade a fail-open for
 # an outage.  The skip is announced, because an unannounced substitution is
 # the bug this whole file is about.
+# The accepted clock-skew bound. A writer whose clock runs slightly ahead, or a
+# proof crossing midnight UTC, legitimately produces a generation dated
+# tomorrow; that is skew and it is normal. A generation dated beyond this bound
+# is not skew — it is a WRONG CLOCK, and because this system decides recency by
+# directory name, a wrong clock means recency cannot be trusted in that root at
+# all.
+BACKUP_ROOT_FUTURE_TOLERANCE_DAYS="${BACKUP_ROOT_FUTURE_TOLERANCE_DAYS:-1}"
+
+backup_root_max_plausible_date() {
+    date -u -d "+${BACKUP_ROOT_FUTURE_TOLERANCE_DAYS} days" +%Y-%m-%d
+}
+
+# Dated within the bound (today, or tomorrow by default)?
+backup_root_name_is_plausible() {
+    [[ ! "${1:-}" > "$(backup_root_max_plausible_date)" ]]
+}
+
+# Retained under its old name for callers; TRUE only beyond the bound.
 backup_root_name_is_future() {
-    [[ "${1:-}" > "$(date -u +%Y-%m-%d)" ]]
+    ! backup_root_name_is_plausible "${1:-}"
 }
 
 # Is a SOURCE path provably absent, or merely invisible from here?
@@ -285,9 +303,15 @@ backup_root_scan_generation() {
             # keeps stopping the walk.  Only an entry that resolves — whose
             # name is therefore the writer's own date stamp — is ruled out.
             if backup_root_name_is_future "$(basename "${entry}")"; then
-                printf 'ignoring generation dated in the future: %s (clock skew when it was written; it can never be pruned and is not evidence of recency)\n' \
-                    "${entry}" >&2
-                continue
+                # rc 3, not `continue`. A name beyond the skew bound means the
+                # clock that wrote it was wrong, and this scan decides recency
+                # BY NAME — so no ordering in this root can be trusted. It also
+                # sits inside prune's keep window forever, silently costing a
+                # retention slot per skewed run. Refusing is what puts it in
+                # front of an operator, who is the only one who can clear it.
+                printf 'generation dated beyond the clock-skew bound: %s (newest plausible is %s) — the clock that wrote it was wrong, so name-ordered recency cannot be trusted in this root; remove or re-date it\n' \
+                    "${entry}" "$(backup_root_max_plausible_date)" >&2
+                return 3
             fi
             printf '%s\n' "${entry}"
             return 0

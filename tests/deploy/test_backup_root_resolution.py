@@ -526,7 +526,11 @@ def test_the_proof_reads_the_run_s_result_rather_than_re_deriving(tmp_path):
 
     assert result.returncode == 0, out
     assert f"[backup-proof] proving generation: {primary}/daily/{TODAY}" in out, out
-    assert str(decoy) not in out, "the proof re-derived the location instead of reading the result"
+    # The decoy now also appears in the writer's prune warning, which is
+    # correct — what must not happen is proving it.
+    assert (
+        f"proving generation: {decoy}" not in out
+    ), "the proof re-derived the location instead of reading the result"
 
 
 def test_the_on_disk_scan_takes_the_newest_dated_directory(tmp_path):
@@ -904,12 +908,17 @@ def test_the_selected_generation_must_lie_under_the_root_that_supplied_it(tmp_pa
     assert '"${GEN}" != "${EFFECTIVE_ROOT%/}/daily/"*' in body
 
 
-def test_a_future_dated_generation_is_not_evidence_of_recency(tmp_path):
+def test_a_generation_beyond_the_clock_skew_bound_fails_closed(tmp_path):
     """`riskit-state-backup.timer` is `Persistent=true`, so a missed nightly
-    replays at boot — before NTP has stepped the clock — and promotes a
-    complete generation dated years ahead. It then outranks every real one
-    forever and prune can never reach it, so every later proof certifies it
-    without opening the current generation.
+    replays at boot — before NTP has stepped the clock — and promotes a complete
+    generation dated years ahead.
+
+    Skipping it is not enough, and that is the whole point. A wrong clock does
+    not corrupt one directory: this system decides recency BY NAME, so a wrong
+    clock means no ordering in that root can be trusted. The directory also sits
+    inside prune's keep window forever — never deletable, and costing a
+    retention slot per skewed run. Refusing is what puts it in front of the only
+    person who can clear it.
     """
     app, data = _app(tmp_path)
     primary = tmp_path / "primary"
@@ -925,9 +934,57 @@ def test_a_future_dated_generation_is_not_evidence_of_recency(tmp_path):
     result = _run_proof(app, data, primary, fallback, run_backup="0")
     out = result.stdout + result.stderr
 
+    assert result.returncode == 1, out
+    assert "beyond the clock-skew bound" in out, out
+    assert (
+        f"proving generation: {real}" not in out
+    ), "name-ordered recency is untrustworthy in this root; it must refuse, not pick"
+
+
+def test_a_generation_dated_tomorrow_is_skew_not_corruption(tmp_path):
+    """Fail-closed must not become fail-always.
+
+    A writer whose clock runs slightly ahead, or a proof crossing midnight UTC,
+    legitimately produces a generation dated tomorrow. Rejecting that would turn
+    an ordinary boundary into an outage, so the bound is a tolerance rather than
+    a strict `> today`.
+    """
+    app, data = _app(tmp_path)
+    primary = tmp_path / "primary"
+    fallback = tmp_path / "fallback"
+
+    first = _run_proof(app, data, primary, fallback)
+    assert first.returncode == 0, first.stdout + first.stderr
+    real = primary / "daily" / TODAY
+    tomorrow = (datetime.now(timezone.utc) + timedelta(days=1)).strftime("%Y-%m-%d")
+    ahead = primary / "daily" / tomorrow
+    shutil.copytree(real, ahead)
+    (primary / "last_generation").unlink()
+
+    result = _run_proof(app, data, primary, fallback, run_backup="0")
+    out = result.stdout + result.stderr
+
     assert result.returncode == 0, out
-    assert f"[backup-proof] proving generation: {real}" in out, out
-    assert "dated in the future" in out, "the skip must be announced, never silent"
+    assert f"[backup-proof] proving generation: {ahead}" in out, out
+    assert "beyond the clock-skew bound" not in out, out
+
+
+def test_an_implausible_generation_does_not_consume_a_retention_slot(tmp_path):
+    """`sort` puts a 2099 directory at the END of an ascending list, so
+    `head -n -N` keeps it forever AND spends one of the N slots on it — real
+    retention drops to N-1, and again with every further skewed run.
+
+    It is excluded from the keep window and deliberately NOT deleted: an
+    implausible generation is an anomaly for an operator, and this script's
+    destructive steps only remove what it can account for.
+    """
+    body = (REPO / "deploy" / "backup" / "riskit-state-backup.sh").read_text(encoding="utf-8")
+    assert "prune_candidates()" in body
+    assert "done < <(prune_candidates)" in body
+    assert (
+        'ls -1 "${BACKUP_ROOT}/daily" 2>/dev/null | sort | head -n -' not in body
+    ), "the raw keep-window is the defect"
+    assert "excluded from the keep window and NOT deleted" in body
 
 
 def test_a_relative_backup_root_is_refused(tmp_path):
@@ -1102,3 +1159,170 @@ def test_a_non_dated_pointer_inside_its_root_is_rejected(tmp_path):
     assert result.returncode == 1, out
     assert "holds no generation" in out, out
     assert f"proving generation: {decoy}" not in out, out
+
+
+# ── protections review #6 found inadequately pinned ──────────────────
+
+
+def test_the_mirror_delete_gating_is_behavioural_not_textual(tmp_path):
+    """A grep for `--delete` proves nothing about WHEN it is passed.
+
+    The earlier structural test would pass a script that built `RSYNC_ARGS=(-a)`
+    and then appended `--delete` unconditionally. This stubs rsync and reads the
+    arguments the writer actually chose on a fallback night.
+    """
+    app, data = _app(tmp_path)
+    stub = tmp_path / "bin"
+    stub.mkdir()
+    argv = tmp_path / "rsync-argv"
+    (stub / "rsync").write_text(
+        f'#!/bin/sh\nprintf "%s\\n" "$@" >> {argv}\nexit 0\n', encoding="utf-8"
+    )
+    (stub / "rsync").chmod(0o755)
+
+    env = {k: v for k, v in os.environ.items() if k not in {"BACKUP_ROOT", "BACKUP_FALLBACK_ROOT"}}
+    env.update(
+        APP_DIR=str(app),
+        DATA_DIR=str(data),
+        BACKUP_ROOT=str(_blocked(tmp_path, "primary")),  # forces the fallback
+        BACKUP_FALLBACK_ROOT=str(tmp_path / "fallback"),
+        PYTHON_BIN=sys.executable,
+        OFFBOX_RSYNC_DEST=str(tmp_path / "mirror") + "/",
+        PATH=f"{stub}:{os.environ['PATH']}",
+    )
+    (tmp_path / "mirror").mkdir()
+    result = subprocess.run(
+        ["bash", str(REPO / "deploy" / "backup" / "riskit-state-backup.sh")],
+        env=env,
+        capture_output=True,
+        text=True,
+        timeout=300,
+    )
+    out = result.stdout + result.stderr
+    assert result.returncode == 0, out
+    args = argv.read_text(encoding="utf-8").split("\n")
+    assert "--delete" not in args, (
+        "a fallback night must publish additively — the mirrored generations live "
+        f"in the root this run could not write to. args={args}"
+    )
+    assert "WITHOUT --delete" in out, out
+
+
+def test_the_mirror_still_deletes_when_it_owns_the_root(tmp_path):
+    """Additive-on-fallback must not become never-reconcile: a normal night
+    still makes the remote an exact replica, or remote retention grows forever."""
+    app, data = _app(tmp_path)
+    stub = tmp_path / "bin"
+    stub.mkdir()
+    argv = tmp_path / "rsync-argv"
+    (stub / "rsync").write_text(
+        f'#!/bin/sh\nprintf "%s\\n" "$@" >> {argv}\nexit 0\n', encoding="utf-8"
+    )
+    (stub / "rsync").chmod(0o755)
+
+    env = {k: v for k, v in os.environ.items() if k not in {"BACKUP_ROOT", "BACKUP_FALLBACK_ROOT"}}
+    env.update(
+        APP_DIR=str(app),
+        DATA_DIR=str(data),
+        BACKUP_ROOT=str(tmp_path / "primary"),  # writable: no fallback
+        BACKUP_FALLBACK_ROOT=str(tmp_path / "fallback"),
+        PYTHON_BIN=sys.executable,
+        OFFBOX_RSYNC_DEST=str(tmp_path / "mirror") + "/",
+        PATH=f"{stub}:{os.environ['PATH']}",
+    )
+    (tmp_path / "mirror").mkdir()
+    result = subprocess.run(
+        ["bash", str(REPO / "deploy" / "backup" / "riskit-state-backup.sh")],
+        env=env,
+        capture_output=True,
+        text=True,
+        timeout=300,
+    )
+    out = result.stdout + result.stderr
+    assert result.returncode == 0, out
+    assert "--delete" in argv.read_text(encoding="utf-8").split("\n"), out
+
+
+def test_a_source_directory_that_cannot_be_enumerated_is_a_failure(tmp_path):
+    """`prove_dir`'s find was unguarded: under `set -e` a partially unreadable
+    source killed the sweep with no diagnostic. A `|| true` would be worse —
+    it undercounts, and an undercount lets an empty restore pass the
+    zero-check. So an unenumerable source is a FAIL."""
+    body = PROOF.read_text(encoding="utf-8")
+    assert "could not be enumerated — coverage cannot be established" in body
+    assert 'src_entries="$(find "${src}" -type f 2>/dev/null | wc -l | tr -d \' \')"' in body
+    assert 'src_entries="$(find "${src}" -type f | wc -l | tr -d \' \')"' not in body
+
+
+@pytest.mark.skipif(os.geteuid() == 0, reason="root's rm always succeeds, so the trap cannot fail")
+def test_a_failing_cleanup_does_not_rewrite_the_verdict(tmp_path):
+    """F15, finally pinned — and pinned deterministically.
+
+    Under `set -Eeuo pipefail` a failing `rm -rf` inside an EXIT trap aborts the
+    trap: the pending exit status becomes 1 and every later step is skipped.
+    That reports a real artifact failure (exit 2) as infrastructure breakage and
+    leaks the result file.
+
+    An end-to-end version of this is a race — the proof finishes before you can
+    make the directory undeletable — so this extracts the SHIPPED `cleanup`
+    text and runs it with a restore dir that provably cannot be removed.
+    """
+    body = PROOF.read_text(encoding="utf-8")
+    start = body.index("cleanup() {")
+    end = body.index("\n}\n", start) + len("\n}\n")
+    func = body[start:end]
+
+    jail = tmp_path / "jail"
+    (jail / "restore").mkdir(parents=True)
+    (jail / "restore" / "held").write_text("x", encoding="utf-8")
+    result_file = tmp_path / "result"
+    result_file.write_text("schema=1\n", encoding="utf-8")
+    jail.chmod(0o500)  # entries inside cannot be unlinked
+    try:
+        harness = (
+            "set -Eeuo pipefail\n"
+            f'RESTORE_DIR="{jail / "restore"}"\n'
+            f'RESULT_FILE="{result_file}"\n' + func + "trap cleanup EXIT\nexit 2\n"
+        )
+        proc = subprocess.run(["bash", "-c", harness], capture_output=True, text=True, timeout=60)
+    finally:
+        jail.chmod(0o755)
+
+    assert proc.returncode == 2, (
+        "a failing cleanup must not rewrite the pending exit status "
+        f"(got {proc.returncode}){proc.stdout}{proc.stderr}"
+    )
+    assert not result_file.exists(), "a failing first step must not skip the second"
+
+
+def test_the_comparison_stamp_falls_back_to_the_directory_date(tmp_path):
+    """F7's derived-midnight fallback, isolated.
+
+    Without it a pointerless generation compares on an EMPTY stamp, and an empty
+    incumbent is a blank slate any later candidate overwrites — which is how a
+    2020 generation beat a same-day one.
+    """
+    lib = LIB.read_text(encoding="utf-8")
+    assert (
+        'at="${base}T00:00:00Z"' in lib
+    ), "the derived-midnight fallback is what makes the stamp non-empty"
+
+    app, data = _app(tmp_path)
+    primary = tmp_path / "primary"
+    fallback = tmp_path / "fallback"
+
+    first = _run_proof(app, data, primary, fallback)
+    assert first.returncode == 0, first.stdout + first.stderr
+    (primary / "last_generation").unlink()  # pointerless: stamp must be derived
+
+    older = fallback / "daily" / "2020-01-01"
+    older.mkdir(parents=True)
+    _write_pointer(fallback, older, "2020-01-01T02:30:00Z")
+
+    result = _run_proof(app, data, primary, fallback, run_backup="0")
+    out = result.stdout + result.stderr
+    assert result.returncode == 0, out
+    assert (
+        f"promoted_at {TODAY}T00:00:00Z" in out
+    ), "the derived stamp must be visible and non-empty"
+    assert f"[backup-proof] proving generation: {primary}/daily/{TODAY}" in out, out
