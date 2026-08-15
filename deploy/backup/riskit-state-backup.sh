@@ -89,8 +89,9 @@ set -Eeuo pipefail
 
 APP_DIR="${APP_DIR:-/home/dynasty/trade-calculator}"
 DATA_DIR="${DATA_DIR:-${APP_DIR}/data}"
-BACKUP_ROOT="${BACKUP_ROOT:-/var/backups/riskit-state}"
-BACKUP_FALLBACK_ROOT="${BACKUP_FALLBACK_ROOT:-/home/dynasty/backups/riskit-state}"
+# BACKUP_ROOT / BACKUP_FALLBACK_ROOT are read here as overrides only.
+# Their DEFAULTS live in backup_root_lib.sh, sourced below, which is the
+# single owner of where a backup goes — see the destination block.
 KEEP_DAILY="${KEEP_DAILY:-14}"
 DATE_STAMP="$(date -u +%Y-%m-%d)"
 OFFBOX_RSYNC_DEST="${OFFBOX_RSYNC_DEST:-}"
@@ -109,18 +110,25 @@ fail() { printf '[state-backup][ERROR] %s\n' "$*" >&2; exit 1; }
 [[ -n "${PYTHON_BIN}" ]] || fail "no python interpreter available for sqlite online backup"
 
 # ── Destination (primary, then service-user fallback) ────────────────
-ensure_root() {
-    if mkdir -p "${BACKUP_ROOT}" 2>/dev/null && [[ -w "${BACKUP_ROOT}" ]]; then
-        return 0
-    fi
-    warn "primary backup root '${BACKUP_ROOT}' not writable, using fallback"
-    BACKUP_ROOT="${BACKUP_FALLBACK_ROOT}"
-    if mkdir -p "${BACKUP_ROOT}" 2>/dev/null && [[ -w "${BACKUP_ROOT}" ]]; then
-        return 0
-    fi
-    fail "neither primary nor fallback backup root writable"
-}
-ensure_root
+#
+# Resolved by the SHARED owner, not here.  The requested primary root, the
+# writability determination and the fallback are one decision made in one
+# place, because the backup/restore proof has to inspect the location this
+# run actually wrote to.  While each script resolved it independently, a
+# fallback here left the proof reading an empty primary and reporting "no
+# backup generation" for a backup that had succeeded (production proof run
+# 31872681688).
+BACKUP_ROOT_LIB="$(dirname "${BASH_SOURCE[0]}")/backup_root_lib.sh"
+[[ -f "${BACKUP_ROOT_LIB}" ]] || fail "backup root library missing: ${BACKUP_ROOT_LIB}"
+# shellcheck source=deploy/backup/backup_root_lib.sh
+source "${BACKUP_ROOT_LIB}"
+
+REQUESTED_ROOT="$(backup_root_primary)"
+BACKUP_ROOT="$(backup_root_claim)" || fail "neither primary ('${REQUESTED_ROOT}') nor fallback ('$(backup_root_fallback)') backup root writable"
+if [[ "${BACKUP_ROOT}" != "${REQUESTED_ROOT}" ]]; then
+    warn "primary backup root '${REQUESTED_ROOT}' not writable, using fallback '${BACKUP_ROOT}'"
+fi
+log "effective backup root: ${BACKUP_ROOT}"
 chmod 700 "${BACKUP_ROOT}" 2>/dev/null || true
 
 # Stage the snapshot in a hidden dir and promote it to the dated slot
@@ -136,6 +144,11 @@ mkdir -p "${DEST}/sqlite" "${DEST}/dirs" "${DEST}/sessions" "${DEST}/files"
 # Clear stale staging dirs from previous crashed runs (>1 day old).
 find "${BACKUP_ROOT}/daily" -maxdepth 1 -name '.staging-*' -mtime +1 \
     -exec rm -rf {} + 2>/dev/null || true
+# And stale pointer temp files.  These live one level ABOVE daily/, so
+# neither the sweep above nor prune can reach them: a run killed between
+# writing the temp and renaming it leaves one behind forever.
+find "${BACKUP_ROOT}/" -maxdepth 1 -name 'last_generation.tmp.*' -mtime +1 \
+    -delete 2>/dev/null || true
 
 ARTIFACTS=0
 ERRORS=0
@@ -184,7 +197,19 @@ backup_sqlite() {
     local name
     name="$(basename "${src}")"
     if [[ ! -f "${src}" ]]; then
-        log "skip sqlite (absent): ${src}"
+        # "(absent)" must mean PROVEN absent. `-f`/`-d` are false for
+        # ENOENT *and* EACCES/ENOTDIR anywhere on the path, so a store
+        # behind a 0700 ancestor or on a volume that failed to mount was
+        # silently omitted from every generation under a reassuring line.
+        # WARN rather than ERROR: the header's posture is that unreadable
+        # OPTIONAL inputs are skipped, and failing here would discard
+        # user_kv and session_store too. The prover is the fail-closed
+        # authority; this is the visibility half.
+        if backup_source_absent "${src}"; then
+            log "skip sqlite (absent): ${src}"
+        else
+            warn "sqlite source NOT backed up and NOT provably absent: ${src} — it may exist and be unreadable by $(id -un); this generation omits it"
+        fi
         return 0
     fi
     local tmp="${DEST}/sqlite/${name}"
@@ -225,7 +250,19 @@ backup_file() {
     local name
     name="$(basename "${src}")"
     if [[ ! -f "${src}" ]]; then
-        log "skip file (absent): ${src}"
+        # "(absent)" must mean PROVEN absent. `-f`/`-d` are false for
+        # ENOENT *and* EACCES/ENOTDIR anywhere on the path, so a store
+        # behind a 0700 ancestor or on a volume that failed to mount was
+        # silently omitted from every generation under a reassuring line.
+        # WARN rather than ERROR: the header's posture is that unreadable
+        # OPTIONAL inputs are skipped, and failing here would discard
+        # user_kv and session_store too. The prover is the fail-closed
+        # authority; this is the visibility half.
+        if backup_source_absent "${src}"; then
+            log "skip file (absent): ${src}"
+        else
+            warn "file source NOT backed up and NOT provably absent: ${src} — it may exist and be unreadable by $(id -un); this generation omits it"
+        fi
         return 0
     fi
     local out="${DEST}/files/${name}.gz"
@@ -262,7 +299,19 @@ backup_dir() {
     member="$(basename "${src}")"
     local name="${2:-${member}}"
     if [[ ! -d "${src}" ]]; then
-        log "skip dir (absent): ${src}"
+        # "(absent)" must mean PROVEN absent. `-f`/`-d` are false for
+        # ENOENT *and* EACCES/ENOTDIR anywhere on the path, so a store
+        # behind a 0700 ancestor or on a volume that failed to mount was
+        # silently omitted from every generation under a reassuring line.
+        # WARN rather than ERROR: the header's posture is that unreadable
+        # OPTIONAL inputs are skipped, and failing here would discard
+        # user_kv and session_store too. The prover is the fail-closed
+        # authority; this is the visibility half.
+        if backup_source_absent "${src}"; then
+            log "skip dir (absent): ${src}"
+        else
+            warn "dir source NOT backed up and NOT provably absent: ${src} — it may exist and be unreadable by $(id -un); this generation omits it"
+        fi
         return 0
     fi
     local out="${DEST}/dirs/${name}.tar.gz"
@@ -354,6 +403,41 @@ backup_session_file "${APP_DIR}/idpshow_session.json"     "repo.idpshow_session.
 backup_session_file "/var/lib/dlf-fetch/dlf_session.json"         "workdir.dlf_session.json"
 backup_session_file "/var/lib/idpshow-fetch/idpshow_session.json" "workdir.idpshow_session.json"
 
+# Dated generations this writer could plausibly have produced, oldest first.
+# ONE definition, shared by the keep-window and the mirror's continuity count —
+# two answers to "what is a generation" is the class of bug this whole change
+# exists to remove.
+plausible_generations() {
+    local dir
+    while IFS= read -r -d '' dir; do
+        dir="$(basename "${dir}")"
+        [[ -n "${dir}" ]] || continue
+
+        # POSITIVE recognition, not "did not look wrong". prune deletes with
+        # `rm -rf`, so an entry it cannot account for as one of this writer's
+        # own generations must never reach it — and, just as important, must
+        # never consume a slot in the keep window. Measured before this guard:
+        # a plain README.txt dropped into daily/ took a retention slot and a
+        # REAL generation (2026-08-10) was deleted early to make room for it.
+        #
+        # Four independent things must hold. Shape alone is not enough: a
+        # regular file, a symlink, or an impossible calendar date can all wear
+        # a date-shaped name.
+        [[ -d "${BACKUP_ROOT}/daily/${dir}" ]] || continue                 # a directory
+        [[ ! -L "${BACKUP_ROOT}/daily/${dir}" ]] || continue               # not a symlink
+        [[ "${dir}" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}$ ]] || continue         # the writer's shape
+        # A real calendar date: `date -d` rejects 2026-13-45, 2026-00-00 and
+        # 2026-02-31, and the round-trip rejects 2026-8-1 and other loose forms.
+        [[ "$(date -u -d "${dir}" +%Y-%m-%d 2>/dev/null)" == "${dir}" ]] || continue
+
+        if backup_root_name_is_future "${dir}"; then
+            warn "generation ${BACKUP_ROOT}/daily/${dir} is dated beyond the clock-skew bound (newest plausible $(backup_root_max_plausible_date)) — excluded from the keep window and NOT deleted; remove or re-date it"
+            continue
+        fi
+        printf '%s\n' "${dir}"
+    done < <(find "${BACKUP_ROOT}/daily" -mindepth 1 -maxdepth 1 -print0 2>/dev/null | sort -z)
+}
+
 # ── Validate this run BEFORE any destructive step ────────────────────
 # Ordering is deliberate: write artifacts into staging → integrity
 # checks (above) → on failure discard the staging dir and stop → only
@@ -390,6 +474,24 @@ mv "${DEST}" "${FINAL_DEST}"
 DEST="${FINAL_DEST}"
 log "snapshot promoted: ${FINAL_DEST}"
 
+# Record what this run actually did, machine-readably.  A reader that
+# re-derives the location can be wrong about it (that is the defect this
+# replaces); a reader that parses the log line above would be depending on
+# human prose, which is not an API.  Written only now, after promotion, so
+# the pointer never names a generation that does not exist.
+if ! backup_root_write_pointer "${BACKUP_ROOT}" "${FINAL_DEST}" "${DATE_STAMP}" "${ARTIFACTS}"; then
+    warn "could not record the generation pointer under ${BACKUP_ROOT} (the snapshot itself is intact)"
+fi
+# A caller that asked for the result by path gets it or gets a failed run.
+# Silently not writing it would send the caller looking somewhere else,
+# which is precisely the failure mode being closed.
+if [[ -n "${BACKUP_RESULT_FILE:-}" ]]; then
+    backup_root_write_result "${BACKUP_RESULT_FILE}" "${BACKUP_ROOT}" \
+        "${FINAL_DEST}" "${DATE_STAMP}" "${ARTIFACTS}" \
+        || fail "could not write the requested BACKUP_RESULT_FILE=${BACKUP_RESULT_FILE}"
+    log "result recorded: ${BACKUP_RESULT_FILE}"
+fi
+
 # ── Optional off-box mirror (operator opt-in) ────────────────────────
 # Reached only with every artifact written and integrity-checked, so a
 # partial/corrupt snapshot can never replace the off-box copy (rsync
@@ -397,8 +499,55 @@ log "snapshot promoted: ${FINAL_DEST}"
 MIRROR_FAILED=0
 if [[ -n "${OFFBOX_RSYNC_DEST}" ]]; then
     if command -v rsync >/dev/null 2>&1; then
-        if rsync -a --delete "${BACKUP_ROOT}/daily/" "${OFFBOX_RSYNC_DEST}"; then
+        # `--delete` makes the remote an exact replica of this root's daily/
+        # namespace, so it may run ONLY with positive proof that this root
+        # still holds the history the mirror was built from.
+        #
+        # "Same root as requested" is NOT that proof — it answers which root we
+        # wrote to, not whether its history is continuous. Measured: a writable
+        # primary whose local generations had vanished (disk replaced, /var
+        # wiped, restored image) took `--delete` and cut a remote of 5
+        # generations to 1, destroying four that were the only surviving
+        # copies. That is precisely the state in which the off-box copy is the
+        # last one standing.
+        #
+        # Four conditions, all required. Any unproven ⇒ publish additively.
+        MIRROR_MARKER="${BACKUP_ROOT%/}/last_mirror"
+        MIRROR_COUNT="$(plausible_generations | wc -l | tr -d ' ')"
+        MIRROR_PRIOR_DEST="$(backup_root_pointer_field "${MIRROR_MARKER}" dest || true)"
+        MIRROR_PRIOR_COUNT="$(backup_root_pointer_field "${MIRROR_MARKER}" generations || true)"
+
+        RSYNC_ARGS=(-a)
+        MIRROR_DELETE_REFUSED=""
+        if [[ "${BACKUP_ROOT}" != "${REQUESTED_ROOT}" ]]; then
+            MIRROR_DELETE_REFUSED="this run wrote to the fallback root '${BACKUP_ROOT}', so the generations mirrored from '${REQUESTED_ROOT}' are not represented here"
+        elif [[ ! -f "${MIRROR_MARKER}" ]]; then
+            MIRROR_DELETE_REFUSED="no record of a previous mirror from this root, so local-history continuity cannot be established"
+        elif [[ "${MIRROR_PRIOR_DEST}" != "${OFFBOX_RSYNC_DEST}" ]]; then
+            MIRROR_DELETE_REFUSED="the destination changed (previously '${MIRROR_PRIOR_DEST}'), so this remote's history was not built from this root"
+        elif [[ ! "${MIRROR_PRIOR_COUNT}" =~ ^[0-9]+$ ]]; then
+            MIRROR_DELETE_REFUSED="the previous mirror record carries no usable generation count"
+        elif (( MIRROR_COUNT < MIRROR_PRIOR_COUNT )); then
+            MIRROR_DELETE_REFUSED="local history SHRANK since the last mirror (${MIRROR_PRIOR_COUNT} -> ${MIRROR_COUNT} generations), so the remote may hold the only surviving copies"
+        else
+            RSYNC_ARGS+=(--delete)
+        fi
+        if [[ -n "${MIRROR_DELETE_REFUSED}" ]]; then
+            warn "off-box mirror publishing WITHOUT --delete: ${MIRROR_DELETE_REFUSED}"
+        fi
+        if rsync "${RSYNC_ARGS[@]}" "${BACKUP_ROOT}/daily/" "${OFFBOX_RSYNC_DEST}"; then
             log "off-box mirror ok: ${OFFBOX_RSYNC_DEST}"
+            # Re-baseline. A deliberate KEEP_DAILY reduction therefore
+            # publishes additively once and reconciles normally afterwards —
+            # fail-closed must not become fail-never, or remote retention grows
+            # without bound.
+            {
+                printf 'schema=%s\n' "${BACKUP_ROOT_POINTER_SCHEMA}"
+                printf 'dest=%s\n' "${OFFBOX_RSYNC_DEST}"
+                printf 'generations=%s\n' "${MIRROR_COUNT}"
+                printf 'mirrored_at=%s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+            } > "${MIRROR_MARKER}" 2>/dev/null \
+                || warn "could not record the mirror continuity marker at ${MIRROR_MARKER}; the next run will publish additively"
         else
             warn "off-box mirror FAILED (local backup unaffected)"
             MIRROR_FAILED=1
@@ -416,6 +565,23 @@ fi
 # the keep-window always counts today's GOOD snapshot — never a failed
 # stub.  (Safe even when the mirror failed above: the local snapshot
 # is validated either way.)
+# Generations dated beyond the clock-skew bound are EXCLUDED from the keep
+# window rather than counted in it. `sort` puts a 2099 directory at the end of
+# an ascending list, so `head -n -N` keeps it forever AND spends one of the N
+# slots on it — real retention silently drops to N-1, and to N-2 after the next
+# skewed run. It is deliberately not deleted here: an implausible generation is
+# an anomaly for an operator to look at, and this script's destructive steps
+# only ever remove things it can account for.
+prune_candidates() {
+    local plausible=()
+    while IFS= read -r dir; do
+        [[ -n "${dir}" ]] || continue
+        plausible+=("${dir}")
+    done < <(plausible_generations)
+    (( ${#plausible[@]} > KEEP_DAILY )) || return 0
+    printf '%s\n' "${plausible[@]}" | head -n -"${KEEP_DAILY}"
+}
+
 prune() {
     local dir
     # Dated names sort lexicographically == chronologically.
@@ -423,7 +589,7 @@ prune() {
         [[ -n "${dir}" ]] || continue
         log "prune: ${BACKUP_ROOT}/daily/${dir}"
         rm -rf "${BACKUP_ROOT:?}/daily/${dir}"
-    done < <(ls -1 "${BACKUP_ROOT}/daily" 2>/dev/null | sort | head -n -"${KEEP_DAILY}")
+    done < <(prune_candidates)
 }
 prune
 

@@ -254,6 +254,7 @@ apply_app_services() {
 # user who can already edit it.
 install_priv_script() {
     local src="$1"
+    local mode="${2:-0755}"
     local dest="${RISKIT_LIB_DIR}/$(basename "$1")"
     if [[ -f "${dest}" ]] && cmp -s "${src}" "${dest}"; then
         log "up-to-date: ${dest}"
@@ -262,14 +263,24 @@ install_priv_script() {
     log "installing root-owned script: ${dest}"
     show_diff "${dest}" "${src}"
     if [[ "${DRY_RUN}" == "true" ]]; then
-        log "(dry-run) would install ${dest} (root:root 0755)"
+        log "(dry-run) would install ${dest} (root:root ${mode})"
     else
-        install -o root -g root -m 0755 -D "${src}" "${dest}"
+        install -o root -g root -m "${mode}" -D "${src}" "${dest}"
     fi
 }
 
 apply_privileged_scripts() {
     install_priv_script "${APP_DIR}/deploy/systemd/dynasty-healthcheck.sh"
+    # LIBRARY FIRST, and the order is load-bearing.  riskit-state-backup.sh
+    # SOURCES this from its own directory and treats it as fatal when
+    # absent, so the root-owned copy needs it beside it or the nightly
+    # cannot resolve a backup root at all.  Installing the writer first
+    # would leave a window — riskit-state-backup.timer fires at 02:30 UTC —
+    # in which the new writer exists without its library and that night's
+    # state backup is simply not taken.  A library present without the new
+    # writer is harmless; the reverse is a lost generation.
+    # Sourced, never executed: 0644, not 0755.
+    install_priv_script "${APP_DIR}/deploy/backup/backup_root_lib.sh" 0644
     install_priv_script "${APP_DIR}/deploy/backup/riskit-state-backup.sh"
 }
 
