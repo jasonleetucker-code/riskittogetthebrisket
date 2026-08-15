@@ -1,0 +1,94 @@
+name: Retention backup + restore proof
+
+# C1A unit 1 requires BOTH halves, and neither could be asserted before:
+# `riskit-state-backup.sh` verifies what it writes, but nothing ever read
+# a generation back. A backup nobody has restored is a hypothesis, and
+# log text saying a backup command ran is not evidence the artifact is
+# in it.
+#
+# This runs the REAL production backup, then restores the retained
+# artifacts into a throwaway directory and verifies them —
+# PRAGMA integrity_check on each SQLite copy, schema and row counts,
+# archive listings, JSONL parse.
+#
+# The rule that makes it meaningful: an artifact that EXISTS on the
+# source and is ABSENT from the backup FAILS the run; an artifact whose
+# stream has legitimately not started is reported and does not. So a
+# not-yet-provisioned stream cannot make this red, and a provisioned one
+# cannot be quietly left out of the backup.
+#
+# It NEVER touches live state: restore goes to mktemp, no path under
+# DATA_DIR is written, and the backend is not stopped.
+#
+# PRIVACY: `league_events.sqlite` holds our own leagues' real trades and
+# is proven by schema, counts and schema_version only. No payload,
+# manager name or roster reaches this log.
+
+on:
+  workflow_dispatch:
+    inputs:
+      run_backup:
+        description: >-
+          Run the production backup before verifying (default true).
+          Set false to verify the newest existing generation only.
+        required: false
+        default: true
+        type: boolean
+
+permissions:
+  contents: read
+
+concurrency:
+  # Its own group. Not `production-deploy`: GitHub keeps only the newest
+  # PENDING run per group, so sharing it would let a queued deploy cancel
+  # this proof into silence — the same failure the retention watchdog
+  # was corrected for.
+  group: retention-backup-proof
+  cancel-in-progress: false
+
+jobs:
+  prove:
+    name: Backup, restore, verify
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: production
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Configure production SSH
+        env:
+          DEPLOY_SSH_PRIVATE_KEY: ${{ secrets.DEPLOY_SSH_PRIVATE_KEY }}
+          DEPLOY_KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+          DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          install -d -m 700 "$HOME/.ssh"
+          printf '%s\n' "$DEPLOY_SSH_PRIVATE_KEY" | sed 's/\r$//' > "$HOME/.ssh/id_ed25519"
+          printf '%s\n' "$DEPLOY_KNOWN_HOSTS" | sed 's/\r$//' > "$HOME/.ssh/known_hosts"
+          chmod 600 "$HOME/.ssh/id_ed25519"
+          chmod 644 "$HOME/.ssh/known_hosts"
+          ssh-keygen -y -f "$HOME/.ssh/id_ed25519" >/dev/null
+          echo "PORT=${DEPLOY_PORT:-22}" >> "$GITHUB_ENV"
+
+      - name: Run backup and prove restore on production
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          APP_DIR: ${{ vars.PROD_APP_DIR || '/home/dynasty/trade-calculator' }}
+          PYTHON_BIN: ${{ vars.PROD_PYTHON_BIN || '/home/dynasty/.venvs/trade-calculator/bin/python' }}
+          RUN_BACKUP: ${{ inputs.run_backup == false && '0' || '1' }}
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          # The remote exit status is this step's exit status — no
+          # `|| true`, no masking pipe. A proof that reports success
+          # while asserting nothing is the failure being repaired.
+          ssh -i "$HOME/.ssh/id_ed25519" \
+            -o BatchMode=yes -o StrictHostKeyChecking=yes \
+            -o UserKnownHostsFile="$HOME/.ssh/known_hosts" \
+            -o ConnectTimeout=15 -o ServerAliveInterval=15 \
+            -p "$PORT" "$DEPLOY_USER@$DEPLOY_HOST" \
+            "APP_DIR=$(printf %q "$APP_DIR") PYTHON_BIN=$(printf %q "$PYTHON_BIN") RUN_BACKUP=$(printf %q "$RUN_BACKUP") bash -s" \
+            < deploy/diagnostics/retention_backup_restore_proof.sh
