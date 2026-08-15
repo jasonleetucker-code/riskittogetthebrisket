@@ -313,8 +313,7 @@ def check_source_census(f: Failures) -> None:
 
     # The prose headline must say the same thing.
     for m in re.finditer(
-        r"(?:across|over)\s+(twelve|thirteen|fourteen|\d+)\s+"
-        r"(?:independent\s+)?source",
+        r"(?:across|over)\s+(twelve|thirteen|fourteen|\d+)\s+(?:independent\s+)?source",
         text,
         re.I,
     ):
