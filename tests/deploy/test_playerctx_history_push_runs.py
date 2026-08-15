@@ -161,34 +161,76 @@ def test_nothing_outside_the_history_directory_is_ever_staged(tmp_path):
     ]
 
 
-def test_a_missing_key_exits_clean_and_pushes_nothing(tmp_path):
-    """Exit 0, not 1 — a unit that goes red weekly is one nobody reads,
-    and nothing is half-done at that point."""
+def test_a_missing_key_no_longer_aborts_the_push(tmp_path):
+    """The absence of the nominal -i target is NOT proof that git cannot
+    authenticate, and treating it as proof cost C1-RET-08 every snapshot it
+    ever produced.
+
+    Measured on production 2026-08-15 (preflight run 31912677700): all three
+    pushers run as the same user with the same HOME, ``github_deploy_key`` is
+    absent for all three, and DLF and IDP Show push anyway because
+    ``~/.ssh/config`` supplies ``IdentityFile ~/.ssh/github_push``. ``-i``
+    accumulates WITH that rather than replacing it, so the siblings' ``-i`` is
+    a no-op. This script alone decided on ssh's behalf, before ssh ran, that a
+    push was impossible — and exited 0, so the timer went green weekly while
+    publishing nothing.
+
+    The old test asserted that keyless meant "pushes nothing". That was the
+    defect, written down as the contract.
+    """
     origin = _make_origin(tmp_path)
     live = _make_live_dir(tmp_path, ["2026-08-11"])
 
     proc = _run(tmp_path, live, origin, key=None)
     assert proc.returncode == 0, proc.stderr
-    assert "no readable deploy key" in proc.stdout + proc.stderr
-    assert not any("playerctx/history" in f for f in _committed_files(origin))
+    # It says what it is doing rather than going quiet.
+    assert "falling back to ssh" in proc.stdout + proc.stderr
+    # And it PUBLISHES, which is the whole point.
+    assert "data/playerctx/history/snapshot_2026-08-11.json" in _committed_files(origin)
 
 
-def test_the_backlog_survives_a_keyless_run(tmp_path):
-    """The claim exit-0 rests on, end to end: a keyless week loses
-    nothing, and the next run with a key backfills it."""
+def test_an_explicit_readable_key_is_still_used_explicitly(tmp_path):
+    """Unchanged behaviour where a key IS configured: it is passed as -i with
+    IdentitiesOnly, so naming a key still pins the identity."""
+    origin = _make_origin(tmp_path)
+    live = _make_live_dir(tmp_path, ["2026-08-11"])
+    key = tmp_path / "key"
+    key.write_text("k", encoding="utf-8")
+
+    proc = _run(tmp_path, live, origin, key=key)
+    assert proc.returncode == 0, proc.stderr
+    assert "falling back to ssh" not in proc.stdout + proc.stderr
+    assert "data/playerctx/history/snapshot_2026-08-11.json" in _committed_files(origin)
+
+
+def test_the_whole_backlog_publishes_on_one_keyless_run(tmp_path):
+    """Every dated snapshot, not just the newest — the backlog claim now has to
+    hold on the run itself rather than on a later run that has a key."""
     origin = _make_origin(tmp_path)
     live = _make_live_dir(tmp_path, ["2026-08-11", "2026-08-18"])
 
     assert _run(tmp_path, live, origin, key=None).returncode == 0
-    assert not any("playerctx/history" in f for f in _committed_files(origin))
-
-    key = tmp_path / "key"
-    key.write_text("k", encoding="utf-8")
-    assert _run(tmp_path, live, origin, key=key).returncode == 0
 
     files = _committed_files(origin)
     assert "data/playerctx/history/snapshot_2026-08-11.json" in files
     assert "data/playerctx/history/snapshot_2026-08-18.json" in files
+
+
+def test_a_real_authentication_failure_is_still_a_failure(tmp_path):
+    """Relaxing the pre-flight guard must NOT relax the outcome. An
+    unreachable remote has to fail the run loudly — the failure this repair
+    removes is the one that reported success while publishing nothing, not
+    every failure.
+    """
+    origin = tmp_path / "does-not-exist.git"
+    live = _make_live_dir(tmp_path, ["2026-08-11"])
+
+    proc = _run(tmp_path, live, origin, key=None)
+    assert proc.returncode != 0, (
+        "an unreachable remote must fail the unit; got exit 0 with stdout:\n" + proc.stdout
+    )
+    # And it must not have claimed to publish.
+    assert "pushed on attempt" not in proc.stdout
 
 
 def test_no_snapshots_exits_clean(tmp_path):

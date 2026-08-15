@@ -150,11 +150,19 @@ def test_the_installer_does_not_gate_the_unit_on_a_key_it_cannot_read():
         None,
     )
     assert guard is not None, "the key check must run as the service user"
-    block = lines[guard : guard + 8]
+    # AND IT MUST NOT ABORT. This assertion used to require `exit 0` inside the
+    # guard block — the defect written down as the contract. Measured on
+    # production 2026-08-15 (preflight 31912677700): all three pushers share a
+    # user and HOME, github_deploy_key is absent for all three, and the two that
+    # DO publish authenticate via ~/.ssh/config's IdentityFile, because `-i`
+    # accumulates with it rather than replacing it. Exiting on a missing -i
+    # target meant this unit reported success weekly while publishing nothing.
+    block = lines[guard : guard + 12]
     end = next((i for i, ln in enumerate(block) if ln.strip() == "fi"), len(block))
-    assert any(
-        ln.strip() == "exit 0" for ln in block[:end]
-    ), "a missing key must not make the weekly unit go red — nothing is lost yet"
+    assert not any(ln.strip() == "exit 0" for ln in block[:end]), (
+        "a missing -i target is not proof that git cannot authenticate; the "
+        "guard must select ssh's own identity resolution, not abort the push"
+    )
 
 
 def test_a_missing_key_does_not_lose_the_backlog():

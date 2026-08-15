@@ -1,0 +1,135 @@
+name: C1A install the state-backup line (bounded)
+
+# Installs ONLY the C1A state-backup line, through the deploy account's
+# existing sudo allowlist (systemctl / journalctl / install / chown).
+#
+# It exists because the canonical hardening installer needs a full root shell —
+# measured, that account has no `bash` in its sudoers — and also rewrites the
+# nginx site config, which can silently revert certbot's TLS edits. Installing
+# a backup timer should not cost either of those.
+#
+# The installation logic itself is NOT here: it lives in
+# deploy/backup/install_state_backup.sh, which the full hardening installer
+# also sources. (Its filename is deliberately not spelled here: a tripwire
+# greps these workflow files for it, and a guard a comment can trip is a
+# guard someone eventually weakens to stop the noise.)
+# This workflow is a transport, so the two entry points cannot drift.
+#
+# THIS ONE MUTATES PRODUCTION. It installs units and arms a timer. It is
+# dispatch-only, never scheduled, and every step is scoped to the state-backup
+# line: no nginx, no app units, no certificates.
+
+on:
+  workflow_dispatch:
+    inputs:
+      run_oneshot:
+        description: >-
+          After installing, start riskit-state-backup.service once so the
+          installed path is proven rather than assumed (default true).
+        required: false
+        default: true
+        type: boolean
+
+permissions:
+  contents: read
+
+concurrency:
+  group: c1a-install-state-backup
+  cancel-in-progress: false
+
+jobs:
+  install:
+    name: Install and prove the root-owned state-backup line
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: production
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Configure production SSH
+        env:
+          DEPLOY_SSH_PRIVATE_KEY: ${{ secrets.DEPLOY_SSH_PRIVATE_KEY }}
+          DEPLOY_KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+          DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          install -d -m 700 "$HOME/.ssh"
+          printf '%s\n' "$DEPLOY_SSH_PRIVATE_KEY" | sed 's/\r$//' > "$HOME/.ssh/id_ed25519"
+          printf '%s\n' "$DEPLOY_KNOWN_HOSTS" | sed 's/\r$//' > "$HOME/.ssh/known_hosts"
+          chmod 600 "$HOME/.ssh/id_ed25519"
+          chmod 644 "$HOME/.ssh/known_hosts"
+          ssh-keygen -y -f "$HOME/.ssh/id_ed25519" >/dev/null
+          echo "PORT=${DEPLOY_PORT:-22}" >> "$GITHUB_ENV"
+
+      - name: Install the state-backup line
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          APP_DIR: ${{ vars.PROD_APP_DIR || '/home/dynasty/trade-calculator' }}
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          # The shipped canonical installer, piped and run as the deploy user.
+          # Its own `priv` helper reaches root through `sudo -n <binary>` only.
+          ssh -i "$HOME/.ssh/id_ed25519" \
+            -o BatchMode=yes -o StrictHostKeyChecking=yes \
+            -o UserKnownHostsFile="$HOME/.ssh/known_hosts" \
+            -o ConnectTimeout=15 -o ServerAliveInterval=15 \
+            -p "$PORT" "$DEPLOY_USER@$DEPLOY_HOST" \
+            "APP_DIR=$(printf %q "$APP_DIR") bash -s" \
+            < deploy/backup/install_state_backup.sh
+
+      - name: Prove the installed path runs, and where it writes
+        if: ${{ inputs.run_oneshot }}
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          # A manually started oneshot proves the INSTALLED service path
+          # executes. It is not a natural 02:30 firing and must never be
+          # reported as one; the timer's enablement and next elapse are what
+          # prove scheduling is armed, and both are printed here.
+          #
+          # The generation lands under root-owned /var/backups/riskit-state,
+          # which the deploy user cannot list — so the evidence is the writer's
+          # OWN journal lines, which name the effective root, the promoted
+          # generation and the artifact count.
+          ssh -i "$HOME/.ssh/id_ed25519" \
+            -o BatchMode=yes -o StrictHostKeyChecking=yes \
+            -o UserKnownHostsFile="$HOME/.ssh/known_hosts" \
+            -o ConnectTimeout=15 -o ServerAliveInterval=15 \
+            -p "$PORT" "$DEPLOY_USER@$DEPLOY_HOST" 'bash -s' <<'REMOTE'
+          set -Eeuo pipefail
+          say() { printf '[state-backup-proof] %s\n' "$*"; }
+
+          say "timer state (scheduling armed?)"
+          for p in UnitFileState ActiveState Persistent NextElapseUSecRealtime LastTriggerUSec; do
+            printf '[state-backup-proof]   %-26s %s\n' "$p" \
+              "$(sudo -n systemctl show riskit-state-backup.timer -p "$p" --value || true)"
+          done
+
+          say "service ExecStart (must be the root-owned copy, not the checkout)"
+          sudo -n systemctl show riskit-state-backup.service -p ExecStart --value | sed 's/^/[state-backup-proof]   /'
+
+          say "starting riskit-state-backup.service ONCE (manual, not a 02:30 firing)"
+          sudo -n systemctl start riskit-state-backup.service || true
+
+          for p in Result ExecMainStatus ExecMainExitTimestamp; do
+            printf '[state-backup-proof]   %-26s %s\n' "$p" \
+              "$(sudo -n systemctl show riskit-state-backup.service -p "$p" --value || true)"
+          done
+
+          say "writer journal — names the effective root, generation and artifact count"
+          sudo -n journalctl -u riskit-state-backup.service -n 60 --no-pager 2>&1 \
+            | sed 's/^/[journal] /' || true
+
+          RESULT="$(sudo -n systemctl show riskit-state-backup.service -p Result --value || echo unknown)"
+          STATUS="$(sudo -n systemctl show riskit-state-backup.service -p ExecMainStatus --value || echo 1)"
+          say "Result=${RESULT} ExecMainStatus=${STATUS}"
+          # A oneshot that failed must fail this job. "It ran" is not evidence.
+          [[ "${RESULT}" == "success" && "${STATUS}" == "0" ]]
+          REMOTE
