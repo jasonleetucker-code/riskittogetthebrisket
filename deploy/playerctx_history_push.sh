@@ -44,29 +44,43 @@ PUSH_RETRY_MAX=3
 log() { printf '[playerctx-history] %s\n' "$*"; }
 err() { printf '[playerctx-history][ERR] %s\n' "$*" >&2; }
 
-export GIT_SSH_COMMAND="ssh -i ${SSH_KEY} -o IdentitiesOnly=yes -o StrictHostKeyChecking=accept-new"
-
-# The deploy-key check lives HERE, not in install-systemd-service.sh, and
-# that placement is the fix for a measured failure rather than a
-# preference.  The installer gated the whole unit on this file and
-# reported it missing on the 2026-08-05 deploy, installing nothing —
-# but the installer runs as the DEPLOY user, whose sudo is scoped to
-# specific commands, so it can neither `sudo test -f` nor stat another
-# user's ~/.ssh.  This script runs as the app user under
-# `User=__APP_USER__`, which is the only context that can answer the
-# question it is actually asking: can the thing that pushes read the key?
+# THE ABSENCE OF THIS FILE IS NOT PROOF THAT GIT CANNOT AUTHENTICATE, and
+# treating it as proof cost C1-RET-08 every snapshot it ever produced.
 #
-# Exit 0, not 1.  Nothing has been lost or half-done at this point, and a
-# unit that goes red every week is a unit nobody reads.  The backlog is
-# safe because the glob below takes EVERY dated snapshot rather than the
-# newest, so supplying the key later backfills every missed week on the
-# next run.  A stalled retention is meant to surface through
-# `store.history_coverage()`'s missingDays — the same way rank_history
-# reports its own gaps — not through a permanently failing timer.
-if [[ ! -r "${SSH_KEY}" ]]; then
-  log "no readable deploy key at ${SSH_KEY} - snapshots stay on disk, nothing pushed"
-  log "fix: place the key there, or set PLAYERCTX_HISTORY_SSH_KEY in ${LIVE_APP_DIR}/.env"
-  exit 0
+# Measured on production 2026-08-15 (preflight run 31912677700). All three
+# pushers — DLF, IDP Show and this one — run as the SAME user with the SAME
+# HOME, and `${HOME}/.ssh/github_deploy_key` is absent for all three. DLF and
+# IDP Show nonetheless push successfully, because `~/.ssh/config` carries
+#
+#     Host github.com
+#       IdentityFile ~/.ssh/github_push
+#       IdentitiesOnly yes
+#
+# and `-i` accumulates WITH the config's IdentityFile rather than replacing it.
+# The absent `-i` target contributes nothing and `github_push` supplies the
+# identity, so the siblings' `-i` is effectively a no-op. Demonstrated
+# non-mutatingly with `git ls-remote` in that same context: authentication
+# succeeds both with the siblings' exact GIT_SSH_COMMAND and with none at all.
+#
+# This script was the only one of the three that decided, on ssh's behalf and
+# before ssh ran, that a push was impossible — and then exited 0, so the unit
+# went green every week while publishing nothing. Two dated snapshots sat
+# unpushed from 2026-08-05 and 2026-08-11 with the timer reporting success.
+#
+# So: use the key EXPLICITLY when it is there, and otherwise let ssh resolve an
+# identity by its own rules — exactly what the working siblings rely on. What is
+# NOT relaxed is the outcome: a real authentication failure still fails the run,
+# because `git clone`/`git push` failing is still fatal below. The difference is
+# that failure is now reported by the thing that actually tried.
+if [[ -r "${SSH_KEY}" ]]; then
+  export GIT_SSH_COMMAND="ssh -i ${SSH_KEY} -o IdentitiesOnly=yes -o StrictHostKeyChecking=accept-new"
+else
+  log "no readable deploy key at ${SSH_KEY} - falling back to ssh's own identity"
+  log "resolution (~/.ssh/config, agent), which is what the sibling pushers use"
+  log "set PLAYERCTX_HISTORY_SSH_KEY in ${LIVE_APP_DIR}/.env to name one explicitly"
+  # No -i and no IdentitiesOnly here: ssh_config governs. Forcing
+  # IdentitiesOnly with nothing to point at would restrict ssh to an empty set.
+  export GIT_SSH_COMMAND="ssh -o StrictHostKeyChecking=accept-new"
 fi
 
 SRC_DIR="${LIVE_APP_DIR}/${HISTORY_REL}"
