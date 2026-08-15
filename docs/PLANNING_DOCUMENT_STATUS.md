@@ -2,7 +2,7 @@
 
 **Status:** GOVERNANCE INDEX
 **Canonical front door:** `PRODUCT_PLAN.md` → `docs/MASTER_PRODUCT_PLAN.md`
-**Last reconciled:** 2026-08-14 (post-B master reconciliation)
+**Last reconciled:** 2026-08-15 (owner mathematical-methodology refinement)
 
 This file exists so an assistant cannot reasonably mistake an old session capture, an audit roadmap, or a
 competitor TODO for the current product plan. **Every planning document in the repository must appear somewhere
@@ -90,6 +90,7 @@ intent in the repository and win over anything older they contradict.
   as real QB demand) is recorded in `docs/OWNER_REQUESTED_TODO.md` and → `C2-CORE-01`
 
 ### Valuation, sources, seasonal
+- `docs/MATH_MODEL_CALIBRATION_POLICY_2026-08-15.md` — **binding owner methodology refinement.** Preserve the canonical consensus board as champion; classify consequential tunables as MEASURED / MECHANICAL / PRIOR; calibrate future-pick discounts and pick distributions in C1, roster/replacement/core/Young-Core math in C2, trade fairness/consolidation/Monte-Carlo math in C3, TE-demand mapping under existing #785, and require a C10 prior census. It refines existing manifest rows and authorizes no implementation.
 - `docs/MULTI_FORMAT_SOURCE_NORMALIZATION_SPEC.md` *(#809)*
 - `docs/REDRAFT_ROS_INTELLIGENCE_SPEC.md` *(#809)*
 - `docs/PLAYER_IMPACT_WAR_MVP_SPEC.md` — **its §7 supersedes the player-MVP eligibility gate** *(#816)*
