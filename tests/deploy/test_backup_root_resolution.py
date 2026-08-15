@@ -1463,3 +1463,54 @@ def test_only_recognised_generations_count_toward_continuity(tmp_path):
         '[[ "$(date -u -d "${dir}" +%Y-%m-%d 2>/dev/null)" == "${dir}" ]] || continue',
     ):
         assert guard in body, f"missing positive-recognition guard: {guard}"
+
+
+def test_an_interleaved_non_generation_entry_costs_no_real_generation(tmp_path):
+    """The harmful variant, which two earlier attempts at this test missed.
+
+    A stray entry sorting ABOVE every date is skipped by the clock-skew guard;
+    one sorting BELOW every date is pruned first and costs nothing. Both are
+    harmless, and both are what I originally tested. The damaging case is an
+    entry that sorts INSIDE the date range — a dated restore-scratch directory
+    is the likeliest real example — because it consumes a slot in the keep
+    window and one REAL generation is deleted to make room, every night it
+    exists.
+
+    Measured on the shipped writer with KEEP_DAILY=14: 14 real generations
+    became 13 with the entry present, and stayed 14 once entries are recognised
+    positively rather than merely not-looking-wrong.
+    """
+    app, data = _app(tmp_path)
+    root = tmp_path / "primary"
+    (root / "daily").mkdir(parents=True)
+    for i in range(1, 15):
+        (root / "daily" / f"2026-08-{i:02d}" / "sqlite").mkdir(parents=True)
+    scratch = root / "daily" / "2026-08-07-restore-scratch"
+    scratch.mkdir()
+
+    env = {k: v for k, v in os.environ.items() if k not in {"BACKUP_ROOT", "BACKUP_FALLBACK_ROOT"}}
+    env.update(
+        APP_DIR=str(app),
+        DATA_DIR=str(data),
+        BACKUP_ROOT=str(root),
+        BACKUP_FALLBACK_ROOT=str(tmp_path / "fb"),
+        PYTHON_BIN=sys.executable,
+        KEEP_DAILY="14",
+    )
+    result = subprocess.run(
+        ["bash", str(REPO / "deploy" / "backup" / "riskit-state-backup.sh")],
+        env=env,
+        capture_output=True,
+        text=True,
+        timeout=300,
+    )
+    out = result.stdout + result.stderr
+    assert result.returncode == 0, out
+
+    survivors = sorted(
+        p.name
+        for p in (root / "daily").iterdir()
+        if p.is_dir() and re.fullmatch(r"2026-08-\d{2}", p.name)
+    )
+    assert len(survivors) == 14, f"a stray entry cost a real generation: {survivors}\n{out}"
+    assert scratch.exists(), "an unrecognised entry must be excluded, not deleted"
