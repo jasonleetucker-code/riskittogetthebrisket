@@ -779,22 +779,33 @@ def test_a_root_installed_script_gets_the_libraries_it_sources():
     """The nightly does not run the checkout copy.
 
     `riskit-state-backup.service` points at a root-owned copy under
-    /usr/local/lib/riskit that `apply_hardening.sh` installs, so a script
-    that starts SOURCING a sibling needs that sibling installed beside it
-    or the nightly resolves no backup root at all and exits 1.
+    /usr/local/lib/riskit, so a script that starts SOURCING a sibling needs
+    that sibling installed beside it or the nightly resolves no backup root at
+    all and exits 1.
 
     Stated as the general rule rather than the one instance, because the
     next sourced helper will hit exactly this.
+
+    FOLLOWS THE INVARIANT TO ITS OWNER. The two installs used to sit in
+    `apply_hardening.sh::apply_privileged_scripts`; they now live in
+    `deploy/backup/install_state_backup.sh`, which that script sources, so the
+    deploy account can install the backup line without the root shell its
+    sudoers does not grant. The rule did not change, only where it is written.
+    `tests/deploy/test_state_backup_installer.py` pins the same ordering
+    BEHAVIOURALLY — by running the shipped installer and reading back the
+    command log — which is the stronger proof; this stays as the textual guard
+    so a future edit that reorders the calls is caught at the source too.
     """
-    hardening = (REPO / "deploy" / "apply_hardening.sh").read_text(encoding="utf-8")
-    start = hardening.index("apply_privileged_scripts() {")
-    body = hardening[start : hardening.index("\n}\n", start)]
+    installer = (REPO / "deploy" / "backup" / "install_state_backup.sh").read_text(encoding="utf-8")
+    start = installer.index("state_backup_install_scripts() {")
+    body = installer[start : installer.index("\n}\n", start)]
 
     order = [
         line.split('"')[1].rsplit("/", 1)[-1]
         for line in body.splitlines()
-        if "install_priv_script " in line and not line.lstrip().startswith("#")
+        if "_sb_install_file " in line or "backup/" in line
     ]
+    order = [n for n in order if n.endswith(".sh")]
     installed = set(order)
     assert "riskit-state-backup.sh" in installed, installed
 
