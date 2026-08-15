@@ -196,6 +196,111 @@ def test_a_root_whose_daily_cannot_be_a_directory_refuses(tmp_path):
     assert f"[backup-proof] proving generation: {stale}" not in out, out
 
 
+def test_a_root_behind_a_symlink_through_a_non_directory_refuses(tmp_path):
+    """ROOT-SAFE cover for the ancestor walk's `! -L` conjunct.
+
+    The permission version of this skips as root, which left the whole walk
+    deletable with a green suite under a root runner. This construction uses
+    no permission bit at all: the root is a symlink whose target sits below a
+    regular FILE, so `-e` is false via ENOTDIR while `lstat` still sees the
+    link. Without `! -L` the walk steps off the symlink onto a readable
+    lexical parent and reports "does not exist".
+    """
+    app, data = _app(tmp_path)
+    blocker = tmp_path / "blocker"
+    blocker.write_text("not a directory", encoding="utf-8")
+    primary = tmp_path / "primary"
+    primary.symlink_to(blocker / "riskit-state")
+
+    fallback = tmp_path / "fallback"
+    stale = fallback / "daily" / "2026-01-02"
+    stale.mkdir(parents=True)
+    _write_pointer(fallback, stale, "2026-01-02T02:30:00Z")
+
+    result = _run_proof(app, data, primary, fallback, run_backup="0")
+    out = result.stdout + result.stderr
+
+    assert result.returncode == 1, out
+    assert "NOT READABLE" in out, out
+    assert "does not exist" not in out, "an unresolvable symlink is not an absent root"
+    assert f"[backup-proof] proving generation: {stale}" not in out, out
+
+
+def test_one_unresolvable_entry_in_daily_does_not_empty_the_whole_root(tmp_path):
+    """A glob match is lstat; `-d` is stat. One junk entry is not an empty root.
+
+    Taking only the newest match and failing the root when it is not a
+    directory discarded every older REAL generation under it and reported the
+    root as empty — so an older generation elsewhere was certified, exit 0.
+    One dangling symlink, one stray file, or one generation on an unmounted
+    volume was enough, and production's nightly shape (a real generation with
+    no pointer beside it) is exactly where it bites.
+    """
+    app, data = _app(tmp_path)
+    primary = tmp_path / "primary"
+    fallback = tmp_path / "fallback"
+
+    first = _run_proof(app, data, primary, fallback)
+    assert first.returncode == 0, first.stdout + first.stderr
+    (primary / "last_generation").unlink()  # the nightly writes no pointer
+
+    stale = fallback / "daily" / "2026-01-02"
+    stale.mkdir(parents=True)
+    _write_pointer(fallback, stale, "2026-01-02T02:30:00Z")
+
+    # A dated entry that lists but cannot be resolved as a directory.
+    (primary / "daily" / "2099-12-31").symlink_to(tmp_path / "unmounted-volume")
+
+    result = _run_proof(app, data, primary, fallback, run_backup="0")
+    out = result.stdout + result.stderr
+
+    assert result.returncode == 1, out
+    assert "cannot be resolved" in out, out
+    assert f"[backup-proof] proving generation: {stale}" not in out, out
+    assert "proven for every artifact" not in out, out
+
+
+def test_a_stray_file_in_daily_is_also_indeterminate(tmp_path):
+    """Same rule, no symlink involved — a plain file named like a generation."""
+    app, data = _app(tmp_path)
+    primary = tmp_path / "primary"
+    fallback = tmp_path / "fallback"
+
+    first = _run_proof(app, data, primary, fallback)
+    assert first.returncode == 0, first.stdout + first.stderr
+    (primary / "last_generation").unlink()
+    (primary / "daily" / "2099-12-31").write_text("", encoding="utf-8")
+
+    result = _run_proof(app, data, primary, fallback, run_backup="0")
+    out = result.stdout + result.stderr
+
+    assert result.returncode == 1, out
+    assert "cannot be resolved" in out, out
+
+
+def test_an_older_junk_entry_does_not_block_a_newer_real_generation(tmp_path):
+    """Fail-closed must not become fail-always.
+
+    An unresolvable entry OLDER than the newest real generation cannot be a
+    newer generation, so it must not refuse — otherwise one stray file would
+    disable the proof permanently.
+    """
+    app, data = _app(tmp_path)
+    primary = tmp_path / "primary"
+    fallback = tmp_path / "fallback"
+
+    first = _run_proof(app, data, primary, fallback)
+    assert first.returncode == 0, first.stdout + first.stderr
+    (primary / "last_generation").unlink()
+    (primary / "daily" / "2019-01-01").symlink_to(tmp_path / "long-gone")
+
+    result = _run_proof(app, data, primary, fallback, run_backup="0")
+    out = result.stdout + result.stderr
+
+    assert result.returncode == 0, out
+    assert f"[backup-proof] proving generation: {primary}/daily/{TODAY}" in out, out
+
+
 def test_a_root_whose_daily_is_an_unresolvable_symlink_refuses(tmp_path):
     """ROOT-SAFE cover for the `! -L` pairing on the `daily/` arm.
 

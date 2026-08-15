@@ -191,9 +191,22 @@ else
         # Ask BOTH finders, always.  Consulting the disk only when the
         # pointer says nothing lets a stale pointer mask a newer generation
         # in its own root.
+        #
+        # rc 2 from the scan means a dated entry is listed but unresolvable —
+        # an unmounted volume, a dangling symlink, a path this user cannot
+        # traverse. That entry may BE a newer generation, so the root is
+        # INDETERMINATE, not empty, and takes the same refusal an unreadable
+        # root takes. Checked before the pointer is consulted: a pointer
+        # cannot vouch for a sibling entry nobody can read.
         cand_src="pointer"
+        cand_disk=""; cand_rc=0
+        cand_disk="$(backup_root_scan_generation "${cand}")" || cand_rc=$?
+        if (( cand_rc == 2 )); then
+            log "candidate root ${cand}: a dated entry under daily/ cannot be resolved by $(id -un) — cannot rule out a newer generation here"
+            UNREADABLE+="${cand} "
+            continue
+        fi
         cand_gen="$(backup_root_read_generation "${cand}" || true)"
-        cand_disk="$(backup_root_scan_generation "${cand}" || true)"
         if [[ -z "${cand_gen}" ]]; then
             cand_src="on-disk scan"
             cand_gen="${cand_disk}"

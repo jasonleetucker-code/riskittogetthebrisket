@@ -181,12 +181,44 @@ backup_root_readable() {
 # apply_hardening.sh refreshes, so real generations keep landing with no
 # pointer beside them until an operator re-runs that installer.  A reader
 # that could only follow pointers would be blind to every one of them.
+# THREE outcomes, and the third is the point:
+#   0 + path  the newest dated entry that really resolves to a directory
+#   2         a dated entry is LISTED but cannot be resolved as a directory,
+#             so a newer generation cannot be ruled out here — indeterminate
+#   1         the root holds no dated entries at all — genuinely empty
+#
+# A glob match is an lstat-level fact; `-d` is a stat-level fact. Taking only
+# `tail -n1` and failing the whole root when that one entry is not a directory
+# discarded every older real generation under it and reported the root as
+# EMPTY — so the prover certified a stale generation from the other root and
+# exited 0. One dangling symlink, one stray file, or one generation on an
+# unmounted volume was enough. That is the ENOENT/EACCES corollary re-opened
+# one directory below where backup_root_readable closes it.
+#
+# Newest-first, and an unresolvable NEWEST entry stops the walk rather than
+# being skipped: it may itself BE the newer generation, and silently falling
+# back to an older sibling is exactly the substitution this library forbids.
 backup_root_scan_generation() {
-    local root="${1:-}" gen
+    local root="${1:-}" entry
     [[ -n "${root}" ]] || return 1
-    gen="$(ls -1d "${root%/}/daily"/[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9] 2>/dev/null | sort | tail -n1 || true)"
-    [[ -n "${gen}" && -d "${gen}" ]] || return 1
-    printf '%s\n' "${gen}"
+    local daily="${root%/}/daily"
+    [[ -d "${daily}" ]] || return 1
+
+    local -a entries=()
+    while IFS= read -r entry; do
+        [[ -n "${entry}" ]] || continue
+        entries+=("${entry}")
+    done < <(ls -1d "${daily}"/[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9] 2>/dev/null | sort -r)
+    (( ${#entries[@]} )) || return 1
+
+    for entry in "${entries[@]}"; do
+        if [[ -d "${entry}" ]]; then
+            printf '%s\n' "${entry}"
+            return 0
+        fi
+        return 2
+    done
+    return 1
 }
 
 # When was this generation promoted?  The pointer's `promoted_at` when the
