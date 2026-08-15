@@ -285,3 +285,39 @@ Historical-event/snapshot retention required for future exact replay should be i
 # Maintenance rule
 
 When the owner materially changes a feature, do not merely add another one-line row. Update the detailed spec source and this index if the canonical pointer changes. The goal is that a fresh Claude Code session can recover **what the owner actually meant** without relying on conversational memory.
+
+## T-NEW-18 — Roster Age-Value Portfolio / Young Core Index
+
+**Status:** PLANNED / C-REPLAN DEPENDENCY-GATED  
+**Priority:** roster-intelligence product built on canonical Team Strength foundations
+
+Add a team-profile Age & Value / Roster Window that shows how meaningful canonical player value is distributed by age overall and by QB/RB/WR/TE/DL-EDGE/LB/DB. Include value-weighted core age, age/value graph or distribution, league-relative rank/percentile, position-group profiles, and a transparent 0–100 league-relative Young Core Index rewarding meaningful value plus position-appropriate youth. Low-value young bench depth must not dominate.
+
+Canonical dynasty player value already embeds age expectations, so this feature is a **roster-construction descriptor**, not a second age-adjusted valuation. Use canonical My League values unchanged, authoritative DOB/age, explicit missing-age states, and exclude draft picks from player-age math. Primary calculations must consume T-NEW-19 / #839; full-roster age/value is secondary context. Historical trend views depend on historical value snapshots.
+
+**Tracking / binding spec:** #838 plus `OWNER_REQUESTED_TODO.md` decisions 47–50.
+
+## T-NEW-19 — Canonical Meaningful Roster Core / Universal 1.5× Starter Demand
+
+**Status:** BINDING C-SERIES ROSTER FOUNDATION  
+**Priority:** establish with Team Strength before downstream roster-value consumers
+
+Create one canonical selector for any product claim that collapses an entire fantasy roster into dynasty roster value/strength or a derivative. Dedicated position meaningful depth is `ceil(1.5 × actual dedicated starter slots)` from the requested league configuration. **Superflex is always QB demand:** add real Superflex count to QB starter demand before applying 1.5×. Regular offensive FLEX and defensive/IDP FLEX each create `ceil(1.5 × real flex slots)` after dedicated cores are selected, and are filled by the **highest-valued remaining legally eligible players**. Each player may count once.
+
+All Team Strength, team-profile roster value/strength, T-NEW-18, roster-aware trade before/after impact, Analyze Trade roster marginal impact, league-relative roster-quality rankings, and future whole-team dynasty-value consumers must call this same owner. A separately labeled full-roster asset-capital total may exist, but must not masquerade as Team Strength. Missing/unpriced values stay explicit.
+
+Validation must derive slot counts from live league configuration, cover offensive FLEX, IDP FLEX, and Superflex-as-QB fixtures, prove no double counting, and audit/remove raw-sum or page-local alternatives.
+
+**Tracking / binding spec:** #839 plus `OWNER_REQUESTED_TODO.md` decisions 47–49.
+
+---
+
+# Maintenance rule
+
+When the owner materially changes a feature, do not merely add another one-line row. Update the detailed spec source and this index if the canonical pointer changes. The goal is that a fresh Claude Code session can recover **what the owner actually meant** without relying on conversational memory.
+
+> **Promoted 2026-08-15** from PR #816 by the C1A authorization change, before that PR was closed.
+> T-NEW-18 and T-NEW-19 were added to the branch after the post-B reconciliation had already promoted
+> T-NEW-01…T-NEW-17, so they arrived on `main` by capability (manifest rows `C2-AGE-01`…`C2-AGE-03`,
+> `C7-AGE-01`, `C2-CORE-01`) but not by identifier. Both are now here, so closing #816 loses nothing
+> addressable by either name or id.

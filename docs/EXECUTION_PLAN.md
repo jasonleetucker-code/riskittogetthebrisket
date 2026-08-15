@@ -15,21 +15,28 @@ Backlog Spec and the feature specs. It does not define scope — that lives in `
 
 # 0. CURRENT AUTHORIZATION — READ THIS FIRST
 
-## The B-Series is COMPLETE. No C implementation is authorized.
-
-**Nothing in the C-Series may begin.** The B→C hard gate is reached and its replan has been performed, but the
-gate is not cleared: it requires explicit owner approval, and that approval has not been given.
+## The B→C gate is CLEARED. **C1A is authorized. Nothing beyond C1A is.**
 
 | question | answer |
 |---|---|
 | Is B complete? | **Yes.** B4–B11 merged; the B-Series Completion Audit passed (#837, `79f47ff`, 20/20 executable checks) |
-| Is C authorized? | **No** |
-| What is authorized right now? | Owner review of the post-B reconciliation. Plus the always-open lanes in §5. |
-| What clears the gate? | Jason + ChatGPT approve the reconciliation PR and the proposed C-Series plan |
-| What happens first after that? | `C1A` — see §3 |
+| Is the post-B / C0 master reconciliation complete? | **Yes.** PR #845 **MERGED** — merge `6d9640c7`, validated head `020e7135` |
+| Has the owner reviewed it? | **Yes.** Jason approved; ChatGPT concurred |
+| Is the B→C gate cleared? | **Yes.** All nine steps of `docs/C_SERIES_REPLAN_AND_COMPLETION_CONTRACT.md` §3 are satisfied |
+| **Is C authorized?** | **YES — `C1A` ONLY** |
+| **What may I build right now?** | **`C1A`, beginning with the irreversible-evidence retention tranche `C1-RET-01`…`C1-RET-08`.** Nothing beyond that boundary |
+| Is `C1B` authorized? | **No** |
+| Is `C2` authorized? | **No** |
+| Is `C3` or later authorized? | **No** |
+| What authorizes the next slice? | Jason + ChatGPT review the completed retention evidence at the §3 checkpoint |
 
-**If you are a new session reading this file to decide what to build: the answer is that no C work is
-authorized.** Read `docs/POST_B_RECONCILIATION_2026-08-14.md` for why, then stop.
+**The authorization is deliberately narrow, and "C1A is authorized" is not permission to consume every C1
+capability at once.** C1A's own PR-sized units are ordered in §3; the retention tranche is unit 1, and units 2–6
+are **not** authorized by this decision. Reaching the end of unit 1 is a **STOP**, not a hand-off to unit 2.
+
+**If you are a new session reading this file to decide what to build:** you may implement the retention tranche
+in §3 unit 1 and nothing else. Every product surface in §6 remains unauthorized. When the tranche is done, stop
+and report — do not continue because the next dependency looks obvious.
 
 ---
 
@@ -99,21 +106,43 @@ radius of a rename that is otherwise mechanical.
 
 # 2. NEXT AUTHORIZED SCOPE
 
-## Owner review of the post-B reconciliation. Nothing else.
+## `C1A` unit 1 — the irreversible-evidence retention tranche. Nothing else.
 
-The reconciliation PR delivers: the adjudication of both independent audits
-(`docs/POST_B_RECONCILIATION_2026-08-14.md`), the zero-loss scope census
-(`docs/C_SERIES_SCOPE_MANIFEST.md`), the traceability proof
-(`docs/C_SERIES_ZERO_LOSS_TRACEABILITY.md`), the resolved CE namespace (`docs/CE_REGISTRY.md`), the C-Series
-completion contract and 24 further owner specifications promoted onto `main`, and this rewrite.
+**Authorized:** manifest rows **`C1-RET-01` … `C1-RET-08`** — the eight rows the Scope Manifest flags `RET`
+inside phase C1. Read them from `docs/C_SERIES_SCOPE_MANIFEST.md`; that file is authoritative if this summary
+and it ever disagree.
 
-**Approving it authorizes C1A and nothing further.** Each subsequent phase requires its own checkpoint.
+| row | what stops being lost |
+|---|---|
+| `C1-RET-01` | KTC crowd-FAAB rolling window durably retained |
+| `C1-RET-02` | canonical board history provably recording |
+| `C1-RET-03` | `rank_history.jsonl` stall detectable |
+| `C1-RET-04` | scoring card at a date (today: overwritten) |
+| `C1-RET-05` | Sleeper trending adds (today: discarded every 15 min) |
+| `C1-RET-06` | own-league trade events before the rolling window drops them |
+| `C1-RET-07` | per-source raw ingest + identity reports (halted 2026-04-20) |
+| `C1-RET-08` | `playerctx` history actually landing |
 
-### The B→C gate, precisely
+**Four other rows carry the `RET` flag but are NOT in this tranche** — `C4-FAAB-02`, `C5-GD-02`, `C7-DRAFT-02`
+and `C9-UR-02` are flagged so their collection starts as early as their phase allows, but they belong to C4, C5,
+C7 and C9 and **are not authorized here**.
 
-`docs/C_SERIES_REPLAN_AND_COMPLETION_CONTRACT.md` §3 defines nine steps. Steps 1–7 — stop, no automatic C1,
-plan mode, re-read everything, reconcile, build the dependency graph, produce the proposed plan — are **done**.
-Steps 8 and 9 — owner review, explicit owner approval — are **outstanding**.
+### Minimum-substrate boundary
+
+Some retention rows depend on broader C1 owners (`C1-HIST-01` immutable as-of storage, `C1-ACQ-01` transaction
+identity, `C1-ID-01`/`C1-ID-02` asset identity). This authorization permits **only the minimum canonical
+substrate needed to stop evidence loss safely** — the durable event/snapshot envelope, stable event ids,
+schema/version/provenance fields, a minimal append-only storage interface, and bounded adapters or dual-writes.
+
+It is **not** permission to complete those parent owners. If a prerequisite cannot be finished safely inside
+C1A, implement the maximum non-throwaway stop-loss and record the remaining dependency — and **do not** mark the
+parent owner complete.
+
+### The B→C gate, satisfied
+
+`docs/C_SERIES_REPLAN_AND_COMPLETION_CONTRACT.md` §3 defines nine steps. Steps 1–7 were performed by the post-B
+reconciliation. **Steps 8 and 9 — owner review and explicit owner approval — are now complete**, recorded by the
+merge of PR #845 (`6d9640c7`) and the owner's authorization of C1A.
 
 ---
 
@@ -143,20 +172,21 @@ C9  Public / awards / storytelling
 C10 Closure
 ```
 
-## The first unit, when authorized: `C1A — Canonical asset identity, temporal evidence and retention`
+## `C1A — Canonical asset identity, temporal evidence and retention`
 
-Recommended, not authorized. Rationale in `docs/POST_B_RECONCILIATION_2026-08-14.md` §30.
+**Unit 1 is AUTHORIZED. Units 2–6 are NOT.** Rationale in `docs/POST_B_RECONCILIATION_2026-08-14.md` §30.
 
 PR-sized units within C1A, in order:
 
-1. **Retention first** (`C1-RET-01`…`C1-RET-08`) — the only work in the plan that gets permanently harder every
-   day it waits. Small, mechanical, no product surface.
-2. Stable ids and schemas for players, picks, teams, leagues, sources and transactions (`C1-ID-01`, `C1-ID-02`).
-3. Immutable as-of snapshot/event schema with provenance, model/config version and fidelity labels
+1. **Retention first** (`C1-RET-01`…`C1-RET-08`) — **AUTHORIZED.** The only work in the plan that gets
+   permanently harder every day it waits. Small, mechanical, no product surface. **Completing it is a STOP
+   checkpoint:** Jason + ChatGPT review the retention evidence before unit 2 is authorized.
+2. **NOT AUTHORIZED.** Stable ids and schemas for players, picks, teams, leagues, sources and transactions (`C1-ID-01`, `C1-ID-02`).
+3. **NOT AUTHORIZED.** Immutable as-of snapshot/event schema with provenance, model/config version and fidelity labels
    (`C1-HIST-01`), plus the deterministic-replay test that closes `C1-HIST-03`.
-4. Confidence naming migration with aliases and a consumer census (`C1-CONF-01`).
-5. Pick census through 2029 and the generic ↔ exact-slot invariant (`C1-PICK-01`, `C1-PICK-02`).
-6. Dual-read adapters for the existing board, rank-history, platform, trade and pick stores.
+4. **NOT AUTHORIZED.** Confidence naming migration with aliases and a consumer census (`C1-CONF-01`).
+5. **NOT AUTHORIZED.** Pick census through 2029 and the generic ↔ exact-slot invariant (`C1-PICK-01`, `C1-PICK-02`).
+6. **NOT AUTHORIZED.** Dual-read adapters for the existing board, rank-history, platform, trade and pick stores.
 
 **C1A deliberately builds no UI.** It unlocks pick valuation, roster math, historical replay, acquisition
 history, market ledgers, manager intelligence, waivers and trade consolidation.
@@ -196,10 +226,9 @@ These do not wait for the C gate and never have.
   session absent on production, so the watchdog is red every two hours while nine-day-old values still vote in
   every blend. This is operations, not C scope — but it needs an owner decision on disposition (`OD-04`).
 - **Security patches and dependency updates.**
-- **The retention items in `C1-RET-*` are the one grey area.** They are C1 scope by placement, but every day
-  they wait is evidence that cannot be recovered at any price. They are the first thing C1A does, and if the
-  owner wants them started before the wider C authorization, that is a defensible exception to make explicitly
-  rather than by drift.
+- **The retention items in `C1-RET-*` are no longer a grey area** — the owner authorized them as C1A unit 1 on
+  2026-08-15, precisely because every day they wait is evidence that cannot be recovered at any price. They are
+  now ordinary authorized work under §2, not an exception to this section.
 
 ---
 

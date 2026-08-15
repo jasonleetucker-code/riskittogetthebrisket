@@ -29,6 +29,8 @@ Checks
     headline.
 13. The traceability record resolves: every destination it cites is a real manifest row, no
     destination is unresolved, and the unexplained-unmapped total is still zero.
+14. The declared RET-row count matches the rows actually flagged RET — that number scopes the
+    authorized retention tranche, so a stale one can under- or over-authorize real work.
 
 Exit codes: 0 pass, 1 failures found, 2 the check could not run.
 """
@@ -235,6 +237,26 @@ def check_manifest(f: Failures, ce_registry: dict[str, str]) -> None:
             f.add("manifest-evidence", f"{r['id']} has no completion evidence")
 
     check_declared_row_count(f, text, rows)
+    check_declared_flag_count(f, text, rows)
+
+
+def check_declared_flag_count(f: Failures, text: str, rows: list[dict]) -> None:
+    """14: the declared RET count agrees with the rows actually flagged RET.
+
+    Same class as check 11, found the same way: the counts table declared 11 RET rows while 12
+    carry the flag. That number scopes the authorized retention tranche, so a stale one is not
+    cosmetic — it can under-authorize or over-authorize real work.
+    """
+    measured = len([r for r in rows if re.search(r"\|\s*`RET`\s*\|", r["line"])])
+    m = re.search(r"\|\s*Rows flagged `RET`[^|]*\|\s*\**(\d+)\**", text)
+    if not m:
+        f.add("manifest-count", f"no declared RET-row count found; {measured} rows carry the flag")
+        return
+    if int(m.group(1)) != measured:
+        f.add(
+            "manifest-count",
+            f"the counts table declares {m.group(1)} RET rows but {measured} carry the `RET` flag",
+        )
 
 
 def check_declared_row_count(f: Failures, text: str, rows: list[dict]) -> None:
@@ -443,6 +465,7 @@ def main() -> int:
     print("  declared manifest row count agrees with the measured one")
     print("  source-family count agrees with the traceability table")
     print("  every traceability destination resolves; unexplained unmapped is 0")
+    print("  declared RET-row count matches the rows actually flagged")
     return 0
 
 
