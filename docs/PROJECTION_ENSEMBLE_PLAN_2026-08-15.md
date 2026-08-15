@@ -64,6 +64,32 @@ A future internally developed **Brisket projection model** is an approved challe
 
 Do not add another paid vendor merely to increase source count. First prove whether the authorized/current-access ensemble is strong enough. Additional vendors such as RotoWire, PFF, FTN or Footballguys are challenger candidates only if they add measurable incremental accuracy, coverage or distribution information worth the cost/licensing burden.
 
+### DFS and betting-market discovery lane
+
+The source census must also actively look for **weekly DFS projection providers** and **sportsbook/player-prop markets** because both can provide useful short-horizon evidence that ordinary season-long fantasy platforms may not.
+
+For DFS sources:
+
+- distinguish actual projected player stat lines / fantasy-point projections from salary, ownership, optimizer output or rankings;
+- preserve the DFS scoring system the projection was built for;
+- where underlying football stats are available, rescore through Brisket exact-league scoring rather than using the provider's native DFS point total as if it were already comparable;
+- treat multiple products from one DFS vendor as one model family unless there is evidence of genuinely independent underlying models;
+- record authorized access/automation posture before production ingestion.
+
+For sportsbook/player-prop evidence:
+
+- player props are a **market-implied weekly evidence lane**, not another expert projection family;
+- collect authorized, timestamped lines and prices for useful stat markets such as passing/rushing/receiving yards, receptions, attempts/carries, touchdowns, completions and, where offered, defensive tackle/sack/IDP-style props;
+- preserve both the line and over/under prices so vig can be removed and the implied probability/quantile can be estimated;
+- an over/under line near 50/50 after de-vig can be treated as a **median-like market threshold**, but must not be labelled a mathematically exact median or expected value without a distribution model;
+- touchdown and other binary/event props should be converted to de-vigged event probabilities, not forced into a median-stat interpretation;
+- if converting prop markets into expected fantasy points, use an explicit Brisket distribution/joint-stat model and preserve uncertainty/correlation rather than simply summing prop lines;
+- multiple sportsbooks are often observing the same underlying betting market and must not be counted as independent projection-model votes merely because several books post similar numbers;
+- line movement is itself useful timestamped evidence and should be archived where feasible;
+- do not allow betting-market evidence to enter canonical dynasty market value.
+
+The weekly ensemble should be able to compare three distinct evidence classes without pretending they are independent copies of the same thing: **projection models**, **DFS projection models**, and **betting-market-implied player outcomes**.
+
 ## 4. Canonical projection observation contract
 
 Do not simply average whatever fantasy-point total each site displays.
@@ -76,6 +102,7 @@ Every projection observation should preserve at least:
 - native source player ID;
 - provider/source family;
 - model/expert ID where exposed;
+- evidence class (`PROJECTION_MODEL`, `DFS_PROJECTION`, `BETTING_MARKET`, etc.);
 - consensus ancestry/constituents where known;
 - horizon (`WEEKLY`, `REST_OF_SEASON`, `PRESEASON_FULL_SEASON`, `SELECTED_WEEKS`, etc.);
 - season and week/date range;
@@ -84,6 +111,7 @@ Every projection observation should preserve at least:
 - raw projected football stat fields;
 - native provider fantasy points, if supplied;
 - provider scoring basis/preset;
+- sportsbook market type, line and over/under prices where applicable;
 - floor/median/ceiling/percentiles or distributions where available;
 - freshness/update cadence;
 - coverage and missing-state semantics;
@@ -115,6 +143,8 @@ This is especially important for custom categories such as:
 
 If a source does not project a scored category, preserve the coverage gap. A later Brisket estimator may model missing categories from historical conditional rates, but that modeled quantity must be explicitly attributed to Brisket and must not be presented as if the provider projected it.
 
+Betting-market inputs require a separate transformation step: de-vig the market, estimate the relevant quantile/probability, then map the market-implied stat distribution through exact league scoring. The raw sportsbook line must remain visible in provenance so the derived Brisket quantity can be replayed.
+
 ## 6. Independence / lineage rules
 
 The projection ensemble must count **independent model families**, not pages.
@@ -124,7 +154,9 @@ Examples:
 - FantasyPros consensus and individual experts/models inside that consensus are not automatically independent votes;
 - a platform consensus built partly from another model already ingested cannot receive a full extra vote without ancestry handling;
 - multiple horizons from the same model are different forecasts, not independent providers for the same target;
-- multiple offense/IDP pages from one provider are one provider family unless there is evidence they are genuinely independent models.
+- multiple offense/IDP pages from one provider are one provider family unless there is evidence they are genuinely independent models;
+- several sportsbooks quoting the same efficient market are correlated market observations, not several independent projection models;
+- a DFS site that licenses/derives projections from another already-ingested model must retain that ancestry rather than becoming another independent vote.
 
 Start with simple robust family-level baselines rather than learned weights from a tiny sample:
 
@@ -133,6 +165,8 @@ Start with simple robust family-level baselines rather than learned weights from
 - trimmed/robust mean.
 
 Reliability/adaptive weighting is challenger methodology only after sufficient leakage-safe history exists and it beats the simple champion out of sample.
+
+Market-implied evidence should initially be evaluated as a separately named challenger/input class rather than silently receiving the same vote weight as an expert/statistical model.
 
 ## 7. Archive before learning
 
@@ -145,6 +179,8 @@ Archive at least:
 - weekly pre-kickoff snapshots;
 - ROS snapshots on a defined cadence;
 - preseason/full-season baseline snapshots;
+- DFS projection snapshots at a defined pre-kickoff cutoff when used;
+- sportsbook/player-prop line + price snapshots and meaningful line movement where authorized/feasible;
 - model/source version and freshness;
 - the raw/stat inputs needed to replay Brisket rescoring and ensemble construction.
 
@@ -167,7 +203,10 @@ At minimum measure:
 - injury/inactive handling;
 - tail/boom-bust behavior;
 - freshness and missingness;
-- whether the ensemble actually beats the strongest simple single-source baseline out of sample.
+- DFS projection accuracy separately from conventional fantasy projection families;
+- sportsbook implied-probability/quantile calibration and whether line movement adds signal;
+- whether the ensemble actually beats the strongest simple single-source baseline out of sample;
+- whether adding DFS and/or betting-market evidence measurably improves the projection-only champion rather than merely adding correlated noise.
 
 Follow the site's P6 champion/challenger and pinned-input rules. Do not tune on hand-picked examples until the results merely look right.
 
@@ -178,19 +217,19 @@ This work belongs primarily under `C5-ROS-01`, with C1 history/provenance depend
 The detailed C-Series execution map should create bounded units equivalent to:
 
 1. **C5-PROJ-A — source capability/access/lineage census**  
-   Confirm horizon, coverage, raw-stat fields, offense/IDP positions, cadence, ancestry, and exact authorized acquisition path for CBS, NFL Fantasy, FantasyPros, DraftSharks, IDP Show and Mike Clay/ESPN; record any source that is rankings-only rather than a true projection model.
+   Confirm horizon, coverage, raw-stat fields, offense/IDP positions, cadence, ancestry, and exact authorized acquisition path for CBS, NFL Fantasy, FantasyPros, DraftSharks, IDP Show and Mike Clay/ESPN; actively inventory DFS projection vendors and authorized sportsbook/player-prop data paths; record any source that is rankings-only rather than a true projection model.
 
 2. **C5-PROJ-B — canonical projection-stat schema + exact-league rescoring**  
-   One typed observation contract; one scoring owner; explicit missing categories; source/native vs Brisket-estimated fields kept separate.
+   One typed observation contract; one scoring owner; explicit missing categories; source/native vs Brisket-estimated fields kept separate; betting-market line/price observations retain their raw market provenance.
 
 3. **C5-PROJ-C — weekly offense + IDP ensemble**  
-   Independent-family consensus, disagreement, freshness, coverage and uncertainty.
+   Independent-family consensus, disagreement, freshness, coverage and uncertainty, with DFS and betting-market evidence evaluated as separately lineage-aware weekly inputs rather than blindly pooled votes.
 
 4. **C5-PROJ-D — ROS / full-season offense + IDP ensemble**  
-   Horizon-matched source set and consumer contract; no weekly/ROS semantic mixing.
+   Horizon-matched source set and consumer contract; no weekly/ROS semantic mixing. DFS/betting weekly data does not masquerade as ROS evidence.
 
 5. **C5-PROJ-E — immutable archive + leakage-safe backtesting**  
-   Retain source/ensemble predictions before outcomes; accuracy lab by horizon/position/source family; champion/challenger evidence.
+   Retain source/ensemble predictions and weekly market observations before outcomes; accuracy lab by horizon/position/source family/evidence class; champion/challenger evidence.
 
 6. **C5-PROJ-F — consumer migration + production proof**  
    Migrate seasonal consumers to the canonical projection service; honest degraded states; source lineage/confidence; production freshness/performance proof.
@@ -215,12 +254,12 @@ Intended consumers include:
 - trade/Trade Desk current-season context only as a separately named seasonal dimension;
 - public-safe Game Day / weekly reporting outputs where allowed.
 
-No downstream consumer may quietly reimplement projection averaging, scoring conversion, source weighting, or missing-data rules locally.
+No downstream consumer may quietly reimplement projection averaging, scoring conversion, source weighting, market de-vigging, prop-to-distribution conversion, or missing-data rules locally.
 
 ## 11. Product acceptance direction
 
 By C completion, for an eligible player the site should be able to answer:
 
-> What do several independent models expect this week / ROS, what does each forecast mean under this exact league scoring, how much do they disagree, how fresh/complete is the evidence, and how accurate have the source models and Brisket ensemble actually been?
+> What do several independent models expect this week / ROS, what does each forecast mean under this exact league scoring, what do DFS models and the betting market imply for the current week, how much do these evidence classes disagree, how fresh/complete is the evidence, and how accurate have the source models, market signals and Brisket ensemble actually been?
 
-One provider's projection or one generic PPR fantasy-point total is not sufficient.
+One provider's projection, one generic PPR fantasy-point total, or one sportsbook line is not sufficient.
