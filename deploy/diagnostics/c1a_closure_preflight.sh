@@ -144,5 +144,115 @@ else
     kv "apply_hardening.sh" "ABSENT or unreadable at ${HARDEN}"
 fi
 
+# ── C. the sibling auth question, settled ────────────────────────────────
+hdr "C. do the pushers share an auth context?"
+#
+# Three candidate explanations for "siblings push, playerctx does not", and
+# they call for three different repairs, so guessing is not an option:
+#
+#   A. the siblings run as a DIFFERENT user with a different HOME, so their
+#      nominal key path resolves somewhere else and exists there;
+#   B. the siblings run in the SAME context and simply let ssh resolve an
+#      identity by its normal rules, while playerctx refuses before ssh runs;
+#   C. some other mechanism entirely.
+#
+# PRIVACY: unit metadata, usernames, home directories and FILE NAMES only.
+# The one place a value is printed is a variable whose NAME ends in _SSH_KEY,
+# because that value is a path and the repair has to name it. No key is read.
+
+unit_identity() {
+    local unit="$1"
+    if ! systemctl cat "${unit}" >/dev/null 2>&1; then
+        kv "${unit}" "NOT INSTALLED"
+        return 0
+    fi
+    kv "${unit}" "installed"
+    local prop val
+    for prop in User Group WorkingDirectory EnvironmentFiles; do
+        val="$(systemctl show "${unit}" -p "${prop}" --value 2>/dev/null || true)"
+        if [[ -n "${val}" ]]; then
+            kv "  ${prop}" "${val}"
+        fi
+    done
+    # Environment= can carry secrets, so only *_SSH_KEY names are echoed and
+    # everything else is counted rather than shown.
+    local envblock other
+    envblock="$(systemctl show "${unit}" -p Environment --value 2>/dev/null || true)"
+    if [[ -n "${envblock}" ]]; then
+        other=0
+        for tok in ${envblock}; do
+            case "${tok}" in
+                *_SSH_KEY=*) kv "  Environment" "${tok}" ;;
+                *) other=$(( other + 1 )) ;;
+            esac
+        done
+        kv "  Environment (other vars)" "${other} present, values withheld"
+    else
+        kv "  Environment" "none set inline"
+    fi
+    # Effective HOME for the unit's User, from passwd — not a secret.
+    local u home
+    u="$(systemctl show "${unit}" -p User --value 2>/dev/null || true)"
+    [[ -n "${u}" ]] || u="$(id -un)"
+    home="$(getent passwd "${u}" 2>/dev/null | cut -d: -f6 || true)"
+    kv "  effective HOME" "${home:-<unresolvable>}"
+    if [[ -n "${home}" ]]; then
+        if [[ -r "${home}/.ssh/github_deploy_key" ]]; then
+            kv "  <HOME>/.ssh/github_deploy_key" "READABLE by $(id -un)"
+        elif [[ -e "${home}/.ssh/github_deploy_key" ]]; then
+            kv "  <HOME>/.ssh/github_deploy_key" "present, not readable by $(id -un)"
+        else
+            kv "  <HOME>/.ssh/github_deploy_key" "ABSENT"
+        fi
+    fi
+    return 0
+}
+
+for u in dlf-fetch idpshow-fetch playerctx-history; do
+    unit_identity "${SERVICE_NAME:-dynasty}-${u}.service"
+done
+
+hdr "C2. what ssh would resolve for this account (names and paths only)"
+kv "~/.ssh exists" "$([[ -d "${HOME}/.ssh" ]] && echo yes || echo no)"
+if [[ -d "${HOME}/.ssh" && -r "${HOME}/.ssh" ]]; then
+    say "~/.ssh entries (names only, no contents):"
+    ls -1 "${HOME}/.ssh" 2>/dev/null | sed 's/^/[c1a-preflight]     /' || true
+fi
+if [[ -r "${HOME}/.ssh/config" ]]; then
+    say "~/.ssh/config Host + IdentityFile lines (paths, never key material):"
+    grep -iE '^[[:space:]]*(host|identityfile|identitiesonly)[[:space:]]' "${HOME}/.ssh/config" 2>/dev/null \
+        | sed 's/^/[c1a-preflight]     /' || true
+else
+    kv "~/.ssh/config" "absent or unreadable"
+fi
+if ssh-add -l >/dev/null 2>&1; then
+    kv "ssh-agent" "reachable, $(ssh-add -l 2>/dev/null | wc -l | tr -d ' ') identity(ies) loaded"
+else
+    kv "ssh-agent" "not reachable from this session"
+fi
+
+hdr "C3. NON-MUTATING auth demonstration — the RED/GREEN for RET-08"
+# `git ls-remote` reads. It never writes a ref, so this cannot publish
+# anything by accident, and it answers the only question that matters:
+# does authentication succeed in THIS context despite the nominal -i target
+# being absent?
+cd "${APP_DIR}" 2>/dev/null || true
+MISSING_KEY="${HOME}/.ssh/github_deploy_key"
+
+say "probe 1 — exactly what the SIBLING pushers export, with the absent key:"
+if GIT_SSH_COMMAND="ssh -i ${MISSING_KEY} -o IdentitiesOnly=yes -o StrictHostKeyChecking=accept-new -o BatchMode=yes" \
+     git ls-remote --heads origin main >/dev/null 2>&1; then
+    kv "  result" "AUTH SUCCEEDS despite the absent -i target"
+else
+    kv "  result" "AUTH FAILS — the absent -i target is fatal here"
+fi
+
+say "probe 2 — ambient resolution, no GIT_SSH_COMMAND at all:"
+if git ls-remote --heads origin main >/dev/null 2>&1; then
+    kv "  result" "AUTH SUCCEEDS"
+else
+    kv "  result" "AUTH FAILS"
+fi
+
 hdr "DONE — nothing above was modified"
 exit 0
