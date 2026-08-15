@@ -1,0 +1,106 @@
+name: Retention health (read-only)
+
+# C1A irreversible-evidence retention — the observability half.
+#
+# The eight C1-RET rows share one failure mode: a recorder that ships,
+# stops, and stays quiet.  This repo has measured that pattern before —
+# nine timer pairs shipped, two were installed, and the deploy reported
+# success the whole time — and four of the eight rows are flagged
+# PARTIAL or PROOF-REQUIRED for precisely that reason.
+#
+# So this asserts on the ARTIFACTS, not on the configuration.  A timer
+# existing is not evidence it ran; a green deploy is not evidence
+# anything landed.  ``scripts/retention_health.py`` exits 2 when a
+# required stream is stale, missing or unreadable, and that exit status
+# is this job's exit status — no ``|| true``, no masking pipe.
+#
+# It runs OVER SSH on the production host because every store it probes
+# lives under ``data/``, which is gitignored.  A runner's checkout holds
+# none of them and would honestly report eight missing streams — a true
+# statement about the runner and a useless one about production.  Same
+# reason and same mechanism as scoring-snapshot-diagnostics.yml, and it
+# pipes the interpreter invocation over stdin rather than trusting the
+# host's checkout to be at this revision.
+#
+# READ-ONLY.  Every probe opens files and databases for reading and
+# writes nothing.
+
+on:
+  schedule:
+    # 06:40 UTC daily — after the 05:50 sharp roster pass and clear of
+    # the nightly backup window, so a stream is judged on a settled day
+    # rather than mid-write.
+    - cron: "40 6 * * *"
+  workflow_dispatch:
+    inputs:
+      require:
+        description: >-
+          Space-separated stream ids whose failure should fail this run
+          (e.g. "C1-RET-01 C1-RET-04").  Empty = report only, never fail.
+          Default requires every stream.
+        required: false
+        default: ""
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  # Never overlap a deploy: a stream's age measured across a service
+  # restart plus its startup scrape is not the age production saw.
+  group: production-deploy
+  cancel-in-progress: false
+
+jobs:
+  probe:
+    name: Probe retention streams
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: production
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Configure production SSH
+        env:
+          DEPLOY_SSH_PRIVATE_KEY: ${{ secrets.DEPLOY_SSH_PRIVATE_KEY }}
+          DEPLOY_KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+          DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          install -d -m 700 "$HOME/.ssh"
+          printf '%s\n' "$DEPLOY_SSH_PRIVATE_KEY" | sed 's/\r$//' > "$HOME/.ssh/id_ed25519"
+          printf '%s\n' "$DEPLOY_KNOWN_HOSTS" | sed 's/\r$//' > "$HOME/.ssh/known_hosts"
+          chmod 600 "$HOME/.ssh/id_ed25519"
+          chmod 644 "$HOME/.ssh/known_hosts"
+          ssh-keygen -y -f "$HOME/.ssh/id_ed25519" >/dev/null
+          echo "PORT=${DEPLOY_PORT:-22}" >> "$GITHUB_ENV"
+
+      - name: Probe retention streams on production
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          APP_DIR: ${{ vars.PROD_APP_DIR || '/home/dynasty/trade-calculator' }}
+          PYTHON_BIN: ${{ vars.PROD_PYTHON_BIN || '/home/dynasty/.venvs/trade-calculator/bin/python' }}
+          # A scheduled run REPORTS without failing, deliberately.  The
+          # eight streams are provisioned incrementally, and a job that
+          # goes red every night for a stream nobody has enabled yet is a
+          # job nobody reads — which is the same silence this tranche is
+          # repairing.  Tighten this to the provisioned set as each one
+          # lands; "ALL" requires every stream.
+          REQUIRE: ${{ inputs.require || '' }}
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          # The remote exit status is this step's exit status — no
+          # `|| true`, no masking pipe.  A diagnostic that reports
+          # success while asserting nothing is exactly the failure this
+          # job exists to catch.
+          ssh -i "$HOME/.ssh/id_ed25519" \
+            -o BatchMode=yes -o StrictHostKeyChecking=yes \
+            -o UserKnownHostsFile="$HOME/.ssh/known_hosts" \
+            -o ConnectTimeout=15 -o ServerAliveInterval=15 \
+            -p "$PORT" "$DEPLOY_USER@$DEPLOY_HOST" \
+            "APP_DIR=$(printf %q "$APP_DIR") PYTHON_BIN=$(printf %q "$PYTHON_BIN") REQUIRE=$(printf %q "$REQUIRE") bash -s" \
+            < deploy/diagnostics/retention_health_probe.sh

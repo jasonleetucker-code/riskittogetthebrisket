@@ -1935,6 +1935,28 @@ def _warm_overlays_in_background(contract_payload: dict) -> None:
 
                 if not _sleeper_trending.warm():
                     log.warning("post-scrape trending warm: no snapshot available")
+                else:
+                    # C1-RET-05.  The adapter holds a 15-minute TTL and
+                    # persists nothing, so the waiver-heat series has
+                    # never existed.  This is a CACHE READ of the
+                    # snapshot warm() just fetched — no second
+                    # round-trip — recorded off the request path on the
+                    # scrape cadence.  Keyed on the snapshot's own
+                    # fetchedAt, so re-recording a cached snapshot is a
+                    # structural no-op rather than a duplicate.
+                    try:
+                        from src.retention import evidence_store as _evidence  # noqa: PLC0415
+
+                        snap = _sleeper_trending.get_trending_adds()
+                        result = _evidence.observe_trending_snapshot(snap)
+                        if result.get("action") == "recorded":
+                            log.info(
+                                "trending retention: recorded %d observation(s) @ %s",
+                                result.get("inserted", 0),
+                                result.get("observedAt"),
+                            )
+                    except Exception as ret_exc:  # noqa: BLE001
+                        log.warning("trending retention: record failed: %s", ret_exc)
             except Exception as trend_exc:  # noqa: BLE001
                 log.warning("post-scrape trending warm failed: %s", trend_exc)
         except Exception as exc:  # noqa: BLE001
@@ -5308,13 +5330,66 @@ async def get_scaffold_league():
 
 @app.get("/api/scaffold/identity")
 async def get_scaffold_identity():
+    """The newest identity-resolution report, LABELLED with its own age.
+
+    C1-RET-07.  This endpoint serves ``_latest_file``, and identity
+    collection has been halted since 2026-04-20 — so the response was a
+    four-month-old report presented with nothing to distinguish it from
+    one produced this morning.  A stale artifact served without its age
+    is indistinguishable from a current one, which is the "stale =
+    current" substitution the retention tranche exists to prevent.
+
+    The repair is the honest label, not a fabricated refresh: the
+    collector's return is separate REPAIR work and no response may
+    imply data that was never collected.  ``evidenceFreshness`` is
+    additive — every existing key of the report is untouched.
+    """
     file_path = _latest_file(DATA_DIR / "identity", "identity_resolution_*.json")
     if file_path is None:
         file_path = _latest_file(DATA_DIR / "identity", "identity_report_*.json")
     payload = _load_json_file(file_path)
     if payload is None:
         return JSONResponse(status_code=404, content={"error": "No identity report found"})
-    return JSONResponse(content=payload)
+
+    freshness: dict[str, Any] = {
+        "sourceFile": getattr(file_path, "name", None),
+        "observedAt": None,
+        "ageHours": None,
+        # "unknown", never a default of "fresh" -- an age we could not
+        # measure must not read as an age within budget.
+        "state": "unknown",
+        "budgetHours": 48.0,
+        "note": (
+            "Age of the artifact on disk. This endpoint serves the newest "
+            "identity report; it does not prove collection is still running."
+        ),
+    }
+    try:
+        from src.retention.health import age_hours, artifact_stamp  # noqa: PLC0415
+
+        # Same owner as the retention health probe, and for the same
+        # reason: the artifact's own dated filename beats mtime, which a
+        # deploy or a restore rewrites.  Measured here — mtime put the
+        # newest identity report at 4 days old; its filename puts it at
+        # 116, which is the real halt.
+        stamp, stamp_source = artifact_stamp(Path(file_path))
+        age_h = age_hours(stamp)
+        freshness["observedAt"] = stamp
+        freshness["stampSource"] = stamp_source
+        if age_h is not None:
+            freshness["ageHours"] = round(age_h, 2)
+            freshness["state"] = "fresh" if age_h <= freshness["budgetHours"] else "stale"
+    except Exception:  # noqa: BLE001
+        # The report itself still serves; only its label degrades, and
+        # it degrades to "unknown" rather than to "fresh".
+        pass
+
+    if isinstance(payload, dict):
+        body = dict(payload)
+        body["evidenceFreshness"] = freshness
+    else:
+        body = {"report": payload, "evidenceFreshness": freshness}
+    return JSONResponse(content=body)
 
 
 @app.post("/api/waiver/suggestions")

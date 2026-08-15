@@ -1027,6 +1027,12 @@ def _build_trades_block(
         # round labels).
         league_size = max(3, len(rosters_list) or 12)
 
+        # C1-RET-06.  Completed trades observed for THIS chain member,
+        # accumulated across its weeks and flushed once.  Per-league
+        # rather than per-week so the ledger takes one transaction
+        # instead of nineteen.
+        ledger_batch: list[dict[str, Any]] = []
+
         # Weeks 0..18 cover preseason/regular/postseason transaction
         # calendar.  0 is cheap to include and catches preseason
         # trades that happened before week 1.
@@ -1044,6 +1050,18 @@ def _build_trades_block(
                 # Mid-flight proposals shouldn't show up on /trades.
                 if tx.get("status") != "complete":
                     continue
+
+                # C1-RET-06.  Retain BEFORE the window filter below.
+                # ``window_days`` is OUR cutoff, not Sleeper's: this
+                # fetch still returns trades older than it, and the
+                # filter is the only reason they are discarded.  Once
+                # Sleeper's own feed rolls past them there is nowhere
+                # left to read them from, so capturing here — ahead of
+                # the cutoff, ahead of the ``seen`` dedup, and with the
+                # raw payload intact — is the difference between a
+                # recoverable history and a permanently lost one.
+                ledger_batch.append(tx)
+
                 status_ts = tx.get("status_updated") or tx.get("created")
                 ts_ms = _normalize_ts_ms(status_ts)
                 if ts_ms and ts_ms < cutoff_ms:
@@ -1112,11 +1130,32 @@ def _build_trades_block(
                     trades.append(
                         {
                             "leagueId": str(lid),
+                            # C1-RET-06.  Sleeper's own stable id, which
+                            # this shape dropped.  Without it nothing
+                            # downstream can say "this is the same trade
+                            # I saw last week", so a trade cannot be
+                            # graded at-the-time and re-graded later —
+                            # the three questions
+                            # docs/TRADE_HISTORY_AGING_SPEC.md keeps
+                            # separate.  Empty string when Sleeper
+                            # omitted one: an absent id is reported as
+                            # absent, never synthesised.
+                            "transactionId": tx_id,
                             "week": week,
                             "timestamp": ts_ms or 0,
                             "sides": sides,
                         }
                     )
+
+        # Flush this chain member's observations.  Best-effort: /trades
+        # must keep working when the ledger cannot be written.
+        if ledger_batch:
+            try:
+                from src.retention import league_events as _league_events  # noqa: PLC0415
+
+                _league_events.record_transactions(str(lid), ledger_batch)
+            except Exception as ledger_exc:  # noqa: BLE001
+                log.warning("league-event retention: record failed for %s: %s", lid, ledger_exc)
 
     # Newest first — /trades UI sorts by recency.
     trades.sort(key=lambda t: -int(t.get("timestamp", 0) or 0))
