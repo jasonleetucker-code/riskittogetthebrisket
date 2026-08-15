@@ -147,7 +147,7 @@ find "${BACKUP_ROOT}/daily" -maxdepth 1 -name '.staging-*' -mtime +1 \
 # And stale pointer temp files.  These live one level ABOVE daily/, so
 # neither the sweep above nor prune can reach them: a run killed between
 # writing the temp and renaming it leaves one behind forever.
-find "${BACKUP_ROOT}" -maxdepth 1 -name 'last_generation.tmp.*' -mtime +1 \
+find "${BACKUP_ROOT}/" -maxdepth 1 -name 'last_generation.tmp.*' -mtime +1 \
     -delete 2>/dev/null || true
 
 ARTIFACTS=0
@@ -197,7 +197,19 @@ backup_sqlite() {
     local name
     name="$(basename "${src}")"
     if [[ ! -f "${src}" ]]; then
-        log "skip sqlite (absent): ${src}"
+        # "(absent)" must mean PROVEN absent. `-f`/`-d` are false for
+        # ENOENT *and* EACCES/ENOTDIR anywhere on the path, so a store
+        # behind a 0700 ancestor or on a volume that failed to mount was
+        # silently omitted from every generation under a reassuring line.
+        # WARN rather than ERROR: the header's posture is that unreadable
+        # OPTIONAL inputs are skipped, and failing here would discard
+        # user_kv and session_store too. The prover is the fail-closed
+        # authority; this is the visibility half.
+        if backup_source_absent "${src}"; then
+            log "skip sqlite (absent): ${src}"
+        else
+            warn "sqlite source NOT backed up and NOT provably absent: ${src} — it may exist and be unreadable by $(id -un); this generation omits it"
+        fi
         return 0
     fi
     local tmp="${DEST}/sqlite/${name}"
@@ -238,7 +250,19 @@ backup_file() {
     local name
     name="$(basename "${src}")"
     if [[ ! -f "${src}" ]]; then
-        log "skip file (absent): ${src}"
+        # "(absent)" must mean PROVEN absent. `-f`/`-d` are false for
+        # ENOENT *and* EACCES/ENOTDIR anywhere on the path, so a store
+        # behind a 0700 ancestor or on a volume that failed to mount was
+        # silently omitted from every generation under a reassuring line.
+        # WARN rather than ERROR: the header's posture is that unreadable
+        # OPTIONAL inputs are skipped, and failing here would discard
+        # user_kv and session_store too. The prover is the fail-closed
+        # authority; this is the visibility half.
+        if backup_source_absent "${src}"; then
+            log "skip file (absent): ${src}"
+        else
+            warn "file source NOT backed up and NOT provably absent: ${src} — it may exist and be unreadable by $(id -un); this generation omits it"
+        fi
         return 0
     fi
     local out="${DEST}/files/${name}.gz"
@@ -275,7 +299,19 @@ backup_dir() {
     member="$(basename "${src}")"
     local name="${2:-${member}}"
     if [[ ! -d "${src}" ]]; then
-        log "skip dir (absent): ${src}"
+        # "(absent)" must mean PROVEN absent. `-f`/`-d` are false for
+        # ENOENT *and* EACCES/ENOTDIR anywhere on the path, so a store
+        # behind a 0700 ancestor or on a volume that failed to mount was
+        # silently omitted from every generation under a reassuring line.
+        # WARN rather than ERROR: the header's posture is that unreadable
+        # OPTIONAL inputs are skipped, and failing here would discard
+        # user_kv and session_store too. The prover is the fail-closed
+        # authority; this is the visibility half.
+        if backup_source_absent "${src}"; then
+            log "skip dir (absent): ${src}"
+        else
+            warn "dir source NOT backed up and NOT provably absent: ${src} — it may exist and be unreadable by $(id -un); this generation omits it"
+        fi
         return 0
     fi
     local out="${DEST}/dirs/${name}.tar.gz"
@@ -428,7 +464,20 @@ fi
 MIRROR_FAILED=0
 if [[ -n "${OFFBOX_RSYNC_DEST}" ]]; then
     if command -v rsync >/dev/null 2>&1; then
-        if rsync -a --delete "${BACKUP_ROOT}/daily/" "${OFFBOX_RSYNC_DEST}"; then
+        # `--delete` makes the remote an exact replica of ONE root's daily/
+        # namespace. On a fallback night this root holds only what this run
+        # just wrote, while the generations the mirror was built from live in
+        # the root we could NOT write to — which is exactly the failure
+        # (read-only /var, dead disk) that makes the off-box copy the only
+        # surviving one. So a change of root publishes ADDITIVELY: it may
+        # never delete remotely.
+        RSYNC_ARGS=(-a)
+        if [[ "${BACKUP_ROOT}" == "${REQUESTED_ROOT}" ]]; then
+            RSYNC_ARGS+=(--delete)
+        else
+            warn "off-box mirror running from fallback root '${BACKUP_ROOT}' — publishing WITHOUT --delete so generations mirrored from '${REQUESTED_ROOT}' survive"
+        fi
+        if rsync "${RSYNC_ARGS[@]}" "${BACKUP_ROOT}/daily/" "${OFFBOX_RSYNC_DEST}"; then
             log "off-box mirror ok: ${OFFBOX_RSYNC_DEST}"
         else
             warn "off-box mirror FAILED (local backup unaffected)"

@@ -66,6 +66,10 @@ fail() { printf '[backup-proof][ERROR] %s\n' "$*" >&2; exit 1; }
 
 FAILURES=0
 note_fail() { printf '[backup-proof][FAIL] %s\n' "$*" >&2; FAILURES=$((FAILURES + 1)); }
+# "nothing failed" is TRUE of a run that read nothing. Counting what was
+# actually restored and verified is what stops silence reading as proof.
+PROVEN=0
+note_proven() { PROVEN=$((PROVEN + 1)); }
 
 RESTORE_DIR=""
 RESULT_FILE=""
@@ -97,6 +101,11 @@ BACKUP_ROOT_LIB="${APP_DIR}/deploy/backup/backup_root_lib.sh"
 # shellcheck source=deploy/backup/backup_root_lib.sh
 source "${BACKUP_ROOT_LIB}"
 
+# The getters refuse a non-absolute root; make that refusal fatal HERE rather
+# than letting an empty candidate list quietly become "no generation found".
+backup_root_primary >/dev/null || fail "BACKUP_ROOT must be an absolute path"
+backup_root_fallback >/dev/null || fail "BACKUP_FALLBACK_ROOT must be an absolute path"
+
 # ── 1. Run the real backup ───────────────────────────────────────────
 if [[ "${RUN_BACKUP}" == "1" ]]; then
     BACKUP_SCRIPT="${APP_DIR}/deploy/backup/riskit-state-backup.sh"
@@ -107,6 +116,7 @@ if [[ "${RUN_BACKUP}" == "1" ]]; then
          BACKUP_ROOT="$(backup_root_primary)" \
          BACKUP_FALLBACK_ROOT="$(backup_root_fallback)" \
          BACKUP_RESULT_FILE="${RESULT_FILE}" \
+         OFFBOX_RSYNC_DEST= \
          PYTHON_BIN="${PYTHON_BIN}" bash "${BACKUP_SCRIPT}"; then
         fail "backup run FAILED"
     fi
@@ -243,6 +253,11 @@ else
 fi
 
 [[ -d "${GEN}" ]] || fail "recorded generation does not exist on disk: ${GEN}"
+# "effective backup root: X" must never be printed for a generation that is
+# not under X. Belt-and-braces behind the library's pointer containment check.
+if [[ -n "${EFFECTIVE_ROOT}" && "${GEN}" != "${EFFECTIVE_ROOT%/}/daily/"* ]]; then
+    fail "selected generation ${GEN} is not under the root that supplied it (${EFFECTIVE_ROOT}) — refusing to certify a generation from outside a candidate backup location"
+fi
 log "effective backup root: ${EFFECTIVE_ROOT:-unknown}"
 
 # Say what this run does NOT cover.  The nightly is a different process
@@ -265,13 +280,21 @@ prove_sqlite() {
     local src="$1" name="$2" label="$3"; shift 3
     local gz="${GEN}/sqlite/${name}.gz"
 
-    if [[ ! -f "${src}" ]]; then
-        if [[ -f "${gz}" ]]; then
-            log "${label}: source absent, backup present (older generation) — ok"
-        else
-            log "${label}: SOURCE ABSENT, not backed up — stream has not started (not a failure)"
+    if [[ ! -f "${src}" && ! -f "${gz}" ]]; then
+        if ! backup_source_absent "${src}"; then
+            note_fail "${label}: source ${src} cannot be resolved by $(id -un) — it may EXIST and be unreadable (permission on it or on a parent, or an unresolved path), so it may be silently outside this generation; refusing to record it as a stream that has not started"
+            return 0
         fi
+        log "${label}: SOURCE ABSENT, not backed up — stream has not started (not a failure)"
         return 0
+    fi
+    if [[ ! -f "${src}" ]]; then
+        if ! backup_source_absent "${src}"; then
+            note_fail "${label}: source ${src} cannot be resolved by $(id -un) — it may EXIST and be unreadable (permission on it or on a parent, or an unresolved path), so it may be silently outside this generation; refusing to record it as a stream that has not started"
+            return 0
+        fi
+        # Present in the backup: PROVE it rather than waving it through.
+        log "${label}: source absent, backup present (older generation) — proving it from the backup"
     fi
     if [[ ! -f "${gz}" ]]; then
         note_fail "${label}: EXISTS at ${src} but is MISSING from the backup (${gz})"
@@ -316,6 +339,8 @@ finally:
 PY
     then
         note_fail "${label}: restored database failed verification"
+    else
+        note_proven
     fi
 }
 
@@ -324,9 +349,20 @@ prove_file() {
     local src="$1" name="$2" label="$3"
     local gz="${GEN}/files/${name}.gz"
 
-    if [[ ! -f "${src}" ]]; then
+    if [[ ! -f "${src}" && ! -f "${gz}" ]]; then
+        if ! backup_source_absent "${src}"; then
+            note_fail "${label}: source ${src} cannot be resolved by $(id -un) — it may EXIST and be unreadable (permission on it or on a parent, or an unresolved path), so it may be silently outside this generation; refusing to record it as a stream that has not started"
+            return 0
+        fi
         log "${label}: SOURCE ABSENT, not backed up — stream has not started (not a failure)"
         return 0
+    fi
+    if [[ ! -f "${src}" ]]; then
+        if ! backup_source_absent "${src}"; then
+            note_fail "${label}: source ${src} cannot be resolved by $(id -un) — it may EXIST and be unreadable (permission on it or on a parent, or an unresolved path), so it may be silently outside this generation; refusing to record it as a stream that has not started"
+            return 0
+        fi
+        log "${label}: source absent, backup present (older generation) — proving it from the backup"
     fi
     if [[ ! -f "${gz}" ]]; then
         note_fail "${label}: EXISTS at ${src} but is MISSING from the backup (${gz})"
@@ -341,6 +377,7 @@ prove_file() {
     local lines
     lines="$(wc -l < "${out}" | tr -d ' ')"
     log "${label}: restored, gzip -t ok, ${lines} line(s)"
+    note_proven
     # JSONL: prove it parses rather than merely existing.
     if [[ "${name}" == *.jsonl ]]; then
         if ! "${PYTHON_BIN}" - "${out}" "${label}" <<'PY'
@@ -372,9 +409,20 @@ prove_dir() {
     local src="$1" name="$2" label="$3"
     local tgz="${GEN}/dirs/${name}.tar.gz"
 
-    if [[ ! -d "${src}" ]]; then
+    if [[ ! -d "${src}" && ! -f "${tgz}" ]]; then
+        if ! backup_source_absent "${src}"; then
+            note_fail "${label}: source ${src} cannot be resolved by $(id -un) — it may EXIST and be unreadable (permission on it or on a parent, or an unresolved path), so it may be silently outside this generation; refusing to record it as a stream that has not started"
+            return 0
+        fi
         log "${label}: SOURCE ABSENT, not backed up — stream has not started (not a failure)"
         return 0
+    fi
+    if [[ ! -d "${src}" ]]; then
+        if ! backup_source_absent "${src}"; then
+            note_fail "${label}: source ${src} cannot be resolved by $(id -un) — it may EXIST and be unreadable (permission on it or on a parent, or an unresolved path), so it may be silently outside this generation; refusing to record it as a stream that has not started"
+            return 0
+        fi
+        log "${label}: source absent, backup present (older generation) — proving it from the backup"
     fi
     if [[ ! -f "${tgz}" ]]; then
         note_fail "${label}: EXISTS at ${src} but is MISSING from the backup (${tgz})"
@@ -386,12 +434,24 @@ prove_dir() {
     fi
     local entries src_entries
     entries="$(tar -tzf "${tgz}" | grep -cv '/$' || true)"
-    src_entries="$(find "${src}" -type f | wc -l | tr -d ' ')"
+    if [[ -d "${src}" ]]; then
+        # An UNGUARDED find dies under `set -e` on a partially unreadable
+        # source, killing the sweep with no diagnostic; a `|| true` would
+        # undercount instead, and an undercount lets an empty restore pass
+        # the zero-check below. So a walk that cannot complete is a FAIL.
+        if ! src_entries="$(find "${src}" -type f 2>/dev/null | wc -l | tr -d ' ')"; then
+            note_fail "${label}: source ${src} could not be enumerated — coverage cannot be established"
+            return 0
+        fi
+    else
+        src_entries=0
+    fi
     mkdir -p "${RESTORE_DIR}/${name}"
     tar -xzf "${tgz}" -C "${RESTORE_DIR}/${name}"
     local restored
     restored="$(find "${RESTORE_DIR}/${name}" -type f | wc -l | tr -d ' ')"
     log "${label}: restored ${restored} file(s) (archive listed ${entries}, source holds ${src_entries})"
+    note_proven
     if [[ "${restored}" -eq 0 && "${src_entries}" -gt 0 ]]; then
         note_fail "${label}: source has ${src_entries} file(s) but the restore produced none"
     fi
@@ -420,5 +480,21 @@ if (( FAILURES > 0 )); then
     warn "${FAILURES} artifact(s) failed backup/restore proof"
     exit 2
 fi
-log "backup + restore proven for every artifact that exists"
+
+# "No artifact failed" is TRUE of a run that read nothing at all. The writer
+# discards any snapshot with ARTIFACTS == 0 and never promotes it, so a
+# certified directory holding no artifact is not a generation — announcing a
+# proof over one is the vacuous-success shape this whole script exists to
+# remove. Measured against a corrupt current generation that was never opened.
+#
+# The floor counts the WHOLE generation, not the seven retention artifacts:
+# a host whose retention streams have legitimately not started still carries
+# its core state (user_kv + session_store), so it stays green — and the
+# printed counts make a zero visible instead of implied.
+GEN_HELD="$(find "${GEN}" -type f 2>/dev/null | wc -l | tr -d ' ')"
+if (( GEN_HELD == 0 )); then
+    warn "certified generation ${GEN} holds NO artifact at all — the writer discards any snapshot with zero artifacts, so this directory is not a generation; refusing to announce a proof over an empty one"
+    exit 2
+fi
+log "backup + restore proven: ${PROVEN} retention artifact(s) restored and verified, ${GEN_HELD} artifact(s) in the generation"
 exit 0

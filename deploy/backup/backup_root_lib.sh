@@ -58,17 +58,36 @@ BACKUP_ROOT_LIB_VERSION=1
 BACKUP_ROOT_POINTER_SCHEMA=1
 BACKUP_ROOT_POINTER_NAME="last_generation"
 
+# A root is a LOCATION, and only an absolute path is one.  A relative root
+# — or a systemd `~/...` that was never expanded — resolves against each
+# PROCESS's own cwd, so the writer promotes under its cwd while the prover
+# reports "does not exist" and certifies the other root's older generation.
+# That is two answers to one location question, which is the entire class
+# this library exists to eliminate.
+#
+# Refused, never normalised against $PWD: normalising would silently pick
+# one process's cwd as the truth and reintroduce the disagreement one layer
+# down.
+backup_root_require_absolute() {
+    local path="${1:-}" name="${2:-root}"
+    if [[ "${path}" != /* ]]; then
+        printf 'backup root %s must be an absolute path, got: %s\n' "${name}" "${path}" >&2
+        return 1
+    fi
+    printf '%s\n' "${path}"
+}
+
 # The requested primary root.  `BACKUP_ROOT` is the operator/caller
 # override; the default is the system location.
 backup_root_primary() {
-    printf '%s\n' "${BACKUP_ROOT:-/var/backups/riskit-state}"
+    backup_root_require_absolute "${BACKUP_ROOT:-/var/backups/riskit-state}" BACKUP_ROOT
 }
 
 # The fallback, used when the primary cannot be created or written.  It is
 # the service user's own home, which is writable without privilege — the
 # nightly runs unprivileged on some hosts.
 backup_root_fallback() {
-    printf '%s\n' "${BACKUP_FALLBACK_ROOT:-/home/dynasty/backups/riskit-state}"
+    backup_root_require_absolute "${BACKUP_FALLBACK_ROOT:-/home/dynasty/backups/riskit-state}" BACKUP_FALLBACK_ROOT
 }
 
 # Every location a generation could legitimately be in, in preference
@@ -120,7 +139,10 @@ backup_root_pointer_path() {
 # pointer.
 backup_root_write_result() {
     local out="$1" root="$2" gen="$3" stamp="$4" artifacts="$5"
-    local tmp="${out}.tmp.$$"
+    # `mktemp`, not "${out}.tmp.$$": the old name was derivable from the
+    # world-readable result path, and `>` follows a symlink planted there.
+    local tmp
+    tmp="$(mktemp "${out}.tmp.XXXXXX" 2>/dev/null)" || return 1
     {
         printf 'schema=%s\n' "${BACKUP_ROOT_POINTER_SCHEMA}"
         printf 'effective_root=%s\n' "${root}"
@@ -181,6 +203,51 @@ backup_root_readable() {
 # apply_hardening.sh refreshes, so real generations keep landing with no
 # pointer beside them until an operator re-runs that installer.  A reader
 # that could only follow pointers would be blind to every one of them.
+# Nothing can have been promoted after now, so a dated name AHEAD of today
+# is not a newer generation — it is a MISDATED one, and it is the only kind
+# of entry that can be positively ruled out rather than merely resolved.
+#
+# The name is the ONLY evidence of recency this scan has, and it had no
+# upper bound.  `riskit-state-backup.timer` is `Persistent=true`, so a
+# missed nightly replays at boot — before NTP has stepped the clock — and
+# that run promotes a COMPLETE generation under e.g. `daily/2099-03-04`.
+# It then outranks every real generation forever (`sort -r` takes it, and
+# prune's `sort | head -n -14` can never reach it, so retention silently
+# drops 14 -> 13), and every later proof certifies it and exits 0 without
+# ever opening the current generation.
+#
+# SKIPPED, not refused: this library refuses on anything it cannot resolve
+# because an unresolvable entry may BE the newer generation, but a
+# future-dated one provably is not — refusing would trade a fail-open for
+# an outage.  The skip is announced, because an unannounced substitution is
+# the bug this whole file is about.
+backup_root_name_is_future() {
+    [[ "${1:-}" > "$(date -u +%Y-%m-%d)" ]]
+}
+
+# Is a SOURCE path provably absent, or merely invisible from here?
+#
+# The same ENOENT/EACCES conflation this library closed for the backup root,
+# closed for the artifacts.  `-e`/`-f`/`-d` are false for ENOENT *and* for
+# EACCES/ENOTDIR anywhere on the path, and only the first means "this stream
+# has not started".  A retention store behind a mode-0700 ancestor, or on a
+# volume that failed to mount, is otherwise excused as never-started and
+# omitted from every generation — silently, because the retention artifacts
+# are deliberately not in BACKUP_REQUIRED.
+#
+#   0  proven absent      2  indeterminate (may exist and be unreachable)
+backup_source_absent() {
+    local path="${1:-}" probe
+    [[ -n "${path}" ]] || return 2
+    [[ ! -e "${path}" && ! -L "${path}" ]] || return 2
+    probe="${path}"
+    while [[ ! -e "${probe}" && ! -L "${probe}" && "${probe}" != "/" && "${probe}" != "." ]]; do
+        probe="$(dirname "${probe}")"
+    done
+    [[ -r "${probe}" && -x "${probe}" ]] || return 2
+    return 0
+}
+
 # THREE outcomes, and the third is the point:
 #   0 + path  the newest dated entry that really resolves to a directory
 #   2         a dated entry is LISTED but cannot be resolved as a directory,
@@ -213,6 +280,15 @@ backup_root_scan_generation() {
 
     for entry in "${entries[@]}"; do
         if [[ -d "${entry}" ]]; then
+            # Checked AFTER resolution, never before: an unresolvable entry
+            # may still BE a newer generation whatever it is named, so it
+            # keeps stopping the walk.  Only an entry that resolves — whose
+            # name is therefore the writer's own date stamp — is ruled out.
+            if backup_root_name_is_future "$(basename "${entry}")"; then
+                printf 'ignoring generation dated in the future: %s (clock skew when it was written; it can never be pruned and is not evidence of recency)\n' \
+                    "${entry}" >&2
+                continue
+            fi
             printf '%s\n' "${entry}"
             return 0
         fi
@@ -256,13 +332,41 @@ backup_root_pointer_field() {
 # generation it names still exists — a pointer to a pruned generation is
 # not a generation, and must not be presented as one.
 backup_root_read_generation() {
-    local root="$1" ptr schema gen
+    local root="$1" ptr schema gen base
     ptr="$(backup_root_pointer_path "${root}")"
     [[ -f "${ptr}" ]] || return 1
     schema="$(backup_root_pointer_field "${ptr}" schema || true)"
     [[ "${schema}" == "${BACKUP_ROOT_POINTER_SCHEMA}" ]] || return 1
     gen="$(backup_root_pointer_field "${ptr}" generation || true)"
-    [[ -n "${gen}" && -d "${gen}" ]] || return 1
+    [[ -n "${gen}" ]] || return 1
+
+    # A pointer is a hint about THIS root, never a redirect out of it, and
+    # the name it gives must be the dated shape the whole selection
+    # algorithm compares on.  Both are load-bearing, and the second is not
+    # cosmetic: the reader ranks a pointer against the root's own newest
+    # with `basename >`, and EVERY non-dated name sorts ABOVE every date, so
+    # an out-of-root pointer named anything else wins unconditionally and
+    # silently disarms the on-disk scan that exists to stop a stale pointer
+    # masking a newer generation.  Measured: a pointer naming
+    # `<root>/../elsewhere/restore-scratch` was certified — and its contents
+    # gunzipped — while the real `daily/<today>` in the named root was never
+    # opened, under a log line reading "effective backup root: <root>".
+    #
+    # Exact-path match, not a prefix test, so `daily/../..` cannot satisfy it.
+    #
+    # REJECTED, not refused: the caller falls through to the on-disk scan of
+    # the root it actually asked about, so that root's own newest real
+    # generation is certified and the log says `via on-disk scan`. A
+    # well-formed pointer is unaffected — the writer only ever emits
+    # ${BACKUP_ROOT}/daily/${DATE_STAMP}.
+    base="$(basename "${gen}")"
+    [[ "${gen}" == "${root%/}/daily/${base}" ]] || return 1
+    [[ "${base}" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}$ ]] || return 1
+    [[ -d "${gen}" ]] || return 1
+    # The skewed run writes its pointer with the same wrong clock, so the
+    # other finder must rule it out too.
+    ! backup_root_name_is_future "${base}" || return 1
+
     printf '%s\n' "${gen}"
     return 0
 }
