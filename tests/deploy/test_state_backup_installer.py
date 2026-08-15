@@ -264,6 +264,79 @@ def test_rerunning_is_idempotent(tmp_path):
     assert "up-to-date" in proc.stdout
 
 
+def test_it_runs_when_piped_over_stdin_the_way_the_workflow_delivers_it(tmp_path):
+    """`ssh host bash -s < script` is how EVERY workflow in this repo delivers a
+    script to production, and it is a different execution mode from `bash path`.
+
+    Piped, bash leaves BASH_SOURCE empty, so the standalone-entry guard's
+    `${BASH_SOURCE[0]}` was an unbound variable under `set -u`. The first
+    production run of the bounded installer died there — before any privileged
+    call, having installed nothing.
+
+    Every other test in this file invokes the script BY PATH, which is why they
+    were all green while the only invocation that matters was broken. This one
+    constructs the real mode.
+    """
+    app = _app_dir(tmp_path)
+    bindir, log = _stub_bin(tmp_path)
+    env = dict(os.environ)
+    env.update(
+        {
+            "PATH": f"{bindir}:{env['PATH']}",
+            "CMD_LOG": str(log),
+            "APP_DIR": str(app),
+            "RISKIT_LIB_DIR": str(tmp_path / "lib"),
+            "STATE_BACKUP_UNIT_DIR": str(tmp_path / "units"),
+        }
+    )
+    with INSTALLER.open("rb") as script:
+        proc = subprocess.run(
+            ["bash", "-s"],
+            stdin=script,
+            env=env,
+            capture_output=True,
+            text=True,
+            timeout=120,
+        )
+    assert proc.returncode == 0, proc.stderr
+    assert "unbound variable" not in proc.stderr
+    # It must actually DO the work, not merely survive: a guard that silently
+    # decides "I am being sourced" would also exit 0 and install nothing.
+    assert (tmp_path / "lib" / "backup_root_lib.sh").is_file()
+    assert (tmp_path / "units" / "riskit-state-backup.timer").is_file()
+
+
+def test_sourcing_defines_without_installing(tmp_path):
+    """The other side of the same guard: apply_hardening.sh sources this file
+    and drives the functions itself, so sourcing must install nothing."""
+    app = _app_dir(tmp_path)
+    bindir, log = _stub_bin(tmp_path)
+    env = dict(os.environ)
+    env.update(
+        {
+            "PATH": f"{bindir}:{env['PATH']}",
+            "CMD_LOG": str(log),
+            "APP_DIR": str(app),
+            "RISKIT_LIB_DIR": str(tmp_path / "lib"),
+            "STATE_BACKUP_UNIT_DIR": str(tmp_path / "units"),
+        }
+    )
+    proc = subprocess.run(
+        [
+            "bash",
+            "-c",
+            f'set -Eeuo pipefail; source "{INSTALLER}"; type -t state_backup_install_scripts',
+        ],
+        env=env,
+        capture_output=True,
+        text=True,
+        timeout=60,
+    )
+    assert proc.returncode == 0, proc.stderr
+    assert proc.stdout.strip() == "function"
+    assert not _log_lines(log), f"sourcing must not install anything; ran: {_log_lines(log)}"
+
+
 # ── one owner, structurally ───────────────────────────────────────────────
 
 
