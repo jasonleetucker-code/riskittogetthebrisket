@@ -79,7 +79,7 @@ output — if the boundary is ever crossed, that test fails loudly.
 
 PR 2-5 add: PFN/PFSN ROS SF, CBS ROS, FantasyPros IDP, Draft Sharks IDP
 (separate ROS scrape), RotoBaller, Fantasy Nerds, SportsKeeda, FFC 2QB
-ADP, ESPN/Mike Clay, IDP Guru, PFF IDP, Fantasy In Frames IDP,
+ADP, ESPN/Mike Clay, PFF IDP, Fantasy In Frames IDP,
 Footballguys IDP.
 
 ## Source weight formula
