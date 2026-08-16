@@ -1,30 +1,44 @@
 #!/usr/bin/env python3
-"""C1-ID-01 parity harness: legacy matchers vs the canonical identity engine.
+"""C1-ID-01 ownership harness: is the canonical owner deciding identity?
 
 The acceptance evidence for manifest row ``C1-ID-01`` (execution map
-C1-U2).  One command answers "does the canonical engine reproduce the
-legacy matchers on the live corpus, and what would the repaired
-CANONICAL_V2 semantics change?"
+C1-U2).  Its job changed when the unit cut over, and deliberately so:
+
+* **Before the cutover** it answered "does the canonical engine reproduce
+  the legacy matchers on the live corpus?" — the zero-divergence prod
+  gate.  That gate passed (scraper 2,016/2,016 over a full production
+  refresh cycle; contract 24,024/24,024) and the legacy paths were
+  deleted.
+* **After the cutover** there is no legacy answer left to compare
+  against, so the harness asserts the property the deletion bought:
+  **both sites report the canonical owner as their decider.**  A harness
+  that kept looking for a comparison would report "no data" forever and
+  a reader could mistake that for "nothing to see".
 
 Sites measured:
 
 * ``contract_csv_join`` — rebuilds the live contract from
-  ``exports/latest`` + ``CSVs/site_raw`` and reads the build's own
-  dual-read tally (every (row, source) join decision compared).
+  ``exports/latest`` + ``CSVs/site_raw`` and reads its ``identityJoin``
+  stamp (owner, policy, decision counts).
 * ``scraper_sleeper_attach`` — reads the artifact the production scraper
   writes every cycle at ``data/scrape_state/identity_dual_read.json``.
-  This harness cannot run the scraper's run()-scope ladder itself; the
-  artifact IS the evidence, produced where the ladder lives.  Absent
-  artifact → reported honestly (exit 2 under ``--require-scraper-artifact``,
-  the prod-gate mode).
+  This harness cannot run the scraper inside a request; the artifact IS
+  the evidence, produced where the resolution happens.  Absent artifact →
+  reported honestly (exit 2 under ``--require-scraper-artifact``, the
+  prod-gate mode).  It also carries the standing ``v2WouldChange`` gap.
 * optionally, with ``--directory PATH`` (a Sleeper ``/v1/players/nfl``
   dump): the W06-F006 false-merge sweep under CANONICAL_V2 (must be 0)
-  and the V1-vs-V2 board delta (the measured cost of the future semantic
-  cutover — reported, never asserted, because that step is owner-gated).
+  and the served-vs-V2 delta — the measured cost of the deferred semantic
+  step, reported and never asserted, because V2 is not authorized to
+  serve (see the design doc §9).
+
+Both shapes are still accepted: a pre-cutover artifact (``v1Diverge``)
+is validated as a divergence gate, a post-cutover one (``servedBy``) as
+an ownership assertion.  Old evidence stays readable.
 
 Exit codes (playerctx convention): 0 = all measured gates green ·
-1 = divergence found · 2 = required evidence missing ("no data" must
-never read as "passed").
+1 = a gate failed · 2 = required evidence missing ("no data" must never
+read as "passed").
 """
 
 from __future__ import annotations
@@ -51,11 +65,20 @@ def check_contract_join() -> tuple[bool, dict]:
     raw = json.loads(boards[0].read_bytes())
     with contextlib.redirect_stdout(io.StringIO()):
         contract = build_api_data_contract(raw)
+    # Post-cutover shape: the build stamps who decided its joins.
+    summary = contract.get("identityJoin")
+    if isinstance(summary, dict) and summary.get("decisions"):
+        ok = summary.get(
+            "decidedBy"
+        ) == "src.identity.resolution.match_row_to_source_entry" and bool(
+            summary.get("legacyCascadeRetired")
+        )
+        return ok, summary
+    # Pre-cutover shape, kept readable so historical evidence still verifies.
     tally = contract.get("identityDualRead")
-    if not isinstance(tally, dict) or not tally.get("calls"):
-        return False, {"error": "contract build produced no identityDualRead tally"}
-    ok = tally.get("v1Diverge") == 0
-    return ok, tally
+    if isinstance(tally, dict) and tally.get("calls"):
+        return tally.get("v1Diverge") == 0, tally
+    return False, {"error": "contract build reported no identity-join evidence"}
 
 
 def check_scraper_artifact() -> tuple[bool | None, dict]:
@@ -71,8 +94,16 @@ def check_scraper_artifact() -> tuple[bool | None, dict]:
         payload = json.loads(SCRAPER_ARTIFACT.read_text(encoding="utf-8"))
     except (OSError, ValueError) as exc:
         return False, {"error": f"artifact unreadable: {exc}"}
-    ok = payload.get("v1Diverge") == 0 and bool(payload.get("calls"))
-    return ok, payload
+    if not payload.get("calls"):
+        return False, {"error": "artifact records no resolution decisions"}
+    if payload.get("servedBy"):
+        # Post-cutover: assert ownership, not agreement.
+        ok = payload.get("servedBy") == "src.identity.resolution" and bool(
+            payload.get("legacyLadderRetired")
+        )
+        return ok, payload
+    # Pre-cutover divergence gate.
+    return payload.get("v1Diverge") == 0, payload
 
 
 def sweep_directory(directory_path: Path) -> dict:
@@ -169,8 +200,9 @@ def main() -> int:
         print(json.dumps(sweep["f006"], indent=1))
         d = sweep["v1VsV2"]
         print(
-            f"V1-vs-V2 board delta: {d['differ']} of {d['boardNames']} names "
-            "(the owner-gated semantic step's measured cost — informational)"
+            f"served-vs-V2 board delta: {d['differ']} of {d['boardNames']} names "
+            "(the deferred semantic step's measured cost — informational; V2 is not "
+            "authorized to serve, see the design doc §9)"
         )
         for ex in d["examples"][:15]:
             print(
