@@ -362,7 +362,28 @@ unchanged: `source_value_history`'s export-wins overwrite defect,
 `exports/dynasty_export_latest.zip`'s zero-consumer status, per-point fidelity
 on the rank-history endpoints.
 
-## 16. What was deliberately NOT done
+## 16. Production proof (measured post-merge, 2026-08-16)
+
+Merge `8b6a9987` deployed via run 31958433677 (SUCCESS, 16:42 UTC). The
+dispatchable read-only `Temporal Ledger Diagnostics` workflow (run 31960075629)
+then measured production directly:
+
+* ledger present: **169,896 observations, 34/34 dates** 2026-07-14 → 2026-08-16,
+  schema v1, floor stamped; corrections 0;
+* all three ingest stages ran on the box (archive backfill 34 bundles at the
+  local per-date counts; `migration:board_history` 8,932; `migration:rank_history`
+  20,613) and the **live recorder had already recorded the first post-deploy
+  scrape** (16:45:58Z) before the probe ran;
+* the structural pre-boundary probe answered `before_history_boundary`;
+* real as-of queries resolve on production: `mpick:2026:r1:s1` @2026-08-16 →
+  `exact` 7,779.0, rank NULL, origin `live:server`, pipeline
+  `2026-03-10.v2+97f0…6e` (historical pick value through canonical pick
+  identity — C1-HIST-02 live); `player:5859` → `exact` 4,947.0 / rank 72 /
+  tier 10 / confidence high with playerId provenance (C1-HIST-01 live). The
+  rankChange derivation therefore has 34 dated comparators on the box from its
+  first post-deploy build (C1-HIST-03 live).
+
+## 17. What was deliberately NOT done
 
 No valuation methodology change (double-build equality proves value/rank/tier
 inertness). No trade grading, no UI, no projection work. `CANONICAL_V2` untouched;

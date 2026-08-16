@@ -136,8 +136,17 @@ consumer migrations (C3-U9 / C2-AGE-03). Full record: `docs/history/C1_U4_TEMPOR
 **MERGED** — PR #869, merge `8b6a9987` (parents `49603291e` + validated head `5940a177f`), exact-head CI
 run 31955465747 green (format + lint + coercion gate + finding-drift gate + planning integrity + import
 gate + full pytest + contract check + deploy syntax + frontend). The one bounded final review confirmed
-and closed two release blockers before the head was validated (design record §15). The unit's owner
-checkpoint remains pending and no further unit is authorized.
+and closed two release blockers before the head was validated (design record §15).
+
+**DEPLOYED AND PRODUCTION-PROVEN** — deploy run 31958433677 SUCCESS (16:42 UTC); the read-only
+`Temporal Ledger Diagnostics` run 31960075629 then measured the box directly: ledger present with
+**169,896 rows across all 34 dates** (2026-07-14 → 2026-08-16; canonical_board 30,357 — board-history
+migration 8,932 + rank-history migration 20,613 + the live recorder, which had already recorded the
+16:45 post-deploy scrape), corrections 0, pre-boundary probe answering `before_history_boundary`, and
+real as-of queries resolving on production: `mpick:2026:r1:s1` @2026-08-16 → `exact` 7,779 with rank
+NULL (a canonical historical PICK value through canonical pick identity — C1-HIST-02 live) and
+`player:5859` → `exact` 4,947 / rank 72 / tier 10, both stamped `live:server` with the pipeline version.
+The unit's owner checkpoint remains pending and no further unit is authorized.
 
 ## `C1A` unit 3 — `C1-U3` / `C1-ID-02`, one pick identity, end to end. **CLOSED at the owner checkpoint 2026-08-16.**
 
