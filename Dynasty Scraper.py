@@ -46,7 +46,6 @@ import math
 import shutil
 import zipfile
 import bisect
-from difflib import SequenceMatcher
 from urllib.parse import urlparse
 
 import requests
@@ -63,6 +62,26 @@ from src.utils.name_clean import is_first_name_variant  # noqa: E402
 from src.utils.name_clean import resolve_idp_position as _resolve_idp_position  # noqa: E402
 from src.utils.age import age_from_birthdate as _age_from_birthdate  # noqa: E402
 from src.utils.owner_names import owner_label as _owner_label  # noqa: E402
+
+# ── C1-ID-01: the name-matching primitives this file defined are now
+# owned by the canonical identity package and imported back, so this
+# scraper is an ADAPTER over src/identity rather than a second
+# player-identity owner.  The moved code is byte-for-byte identical
+# (tests/identity/test_name_primitives_parity.py pins it).
+from src.identity import resolution as _identity_resolution  # noqa: E402
+from src.identity.name_primitives import best_match as _identity_best_match  # noqa: E402
+from src.identity.name_primitives import clean_name as _identity_clean_name  # noqa: E402
+from src.identity.name_primitives import (  # noqa: E402
+    first_name_compatible as _identity_first_name_compatible,
+)
+from src.identity.name_primitives import (  # noqa: E402
+    is_safe_name_merge as _identity_is_safe_name_merge,
+)
+from src.identity.name_primitives import name_tokens as _identity_name_tokens  # noqa: E402
+from src.identity.name_primitives import (  # noqa: E402
+    normalize_lookup_name as _identity_normalize_lookup_name,
+)
+from src.identity.name_primitives import similarity as _identity_similarity  # noqa: E402
 
 try:
     from src.scoring import (
@@ -409,184 +428,16 @@ def load_rookie_must_have(path):
 # Helpers
 # ─────────────────────────────────────────
 
-# Common team abbreviations appended directly to names on some sites
-_TEAM_CODES = {
-    "ARI",
-    "ATL",
-    "BAL",
-    "BUF",
-    "CAR",
-    "CHI",
-    "CIN",
-    "CLE",
-    "DAL",
-    "DEN",
-    "DET",
-    "GB",
-    "HOU",
-    "IND",
-    "JAC",
-    "JAX",
-    "KC",
-    "LAC",
-    "LAR",
-    "LV",
-    "MIA",
-    "MIN",
-    "NE",
-    "NO",
-    "NYG",
-    "NYJ",
-    "PHI",
-    "PIT",
-    "SEA",
-    "SF",
-    "TB",
-    "TEN",
-    "WAS",
-    "FA",
-    "LVR",
-    "GBP",
-    "SFO",
-    "TBB",
-    "KCC",
-    "NEP",
-}
-
-
-def clean_name(raw):
-    """Strip position/team suffixes, generational suffixes, and inline team codes.
-    Also normalizes unicode escapes and apostrophe variants."""
-    if not raw:
-        return ""
-    name = str(raw).strip()
-    # Decode literal unicode escapes like \u0027 → '
-    if "\\u" in name:
-        try:
-            name = name.encode("utf-8").decode("unicode_escape")
-        except Exception:
-            name = re.sub(r"\\u([0-9a-fA-F]{4})", lambda m: chr(int(m.group(1), 16)), name)
-    # Trim ranking prefixes and misc scrape markers.
-    name = re.sub(r"^\s*#?\d+\s*[\).:-]\s*", "", name)
-    name = re.sub(r"\s*[\*\u2020\u2021]+\s*$", "", name)
-    # Strip trailing parenthetical notes: "X Player (IR)".
-    name = re.sub(r"\s*\([^)]*\)\s*$", "", name).strip()
-    # Normalize various apostrophe/quote chars to standard apostrophe
-    name = re.sub(r"[\u2018\u2019\u0060\u00B4\u0027\u2032]", "'", name)
-    # Convert "Last, First" to "First Last" where applicable.
-    if "," in name:
-        m = re.match(r"^\s*([A-Za-z.'\- ]+),\s*([A-Za-z.'\- ]+)\s*$", name)
-        if m:
-            name = f"{m.group(2).strip()} {m.group(1).strip()}".strip()
-    # Strip position/team tag after name (e.g. "Caleb Williams QB CHI")
-    name = re.split(r"\s+(QB|RB|WR|TE|K|DEF|DST|OL|LB|DB|DL|DE|DT|CB|S|PK)\b", name)[0].strip()
-    # Strip team code glued to end (e.g. "Caleb WilliamsCHI")
-    m = re.match(r"^(.+?)([A-Z]{2,3})$", name)
-    if m and m.group(2) in _TEAM_CODES and len(m.group(1).strip()) > 3:
-        name = m.group(1).strip()
-    # Strip generational suffixes: Jr., Sr., II, III, IV, V (with or without period/comma)
-    name = re.sub(r"[,\s]+(Jr.?|Sr.?|I{2,3}|IV|V|VI)\s*$", "", name, flags=re.IGNORECASE).strip()
-    # Normalize periods in initials: "T.J." → "T.J.", but also allow matching "TJ"
-    # Don't strip periods here — handle in matching instead
-    # Collapse any double spaces
-    name = re.sub(r"\s{2,}", " ", name)
-    return name
-
-
-@functools.lru_cache(maxsize=8192)
-def normalize_lookup_name(raw):
-    """Name key for resilient matching across sources."""
-    s = clean_name(raw or "").lower()
-    # Treat punctuation variants as the same player identity:
-    # "T.J. Parker", "TJ Parker", and "T J Parker" -> "tj parker".
-    s = s.replace("-", " ")
-    s = s.replace(".", "")
-    s = s.replace("'", "")
-    s = re.sub(r"[^a-z0-9\s]", " ", s)
-    s = re.sub(r"\s+(jr|sr|ii|iii|iv|v)\s*$", "", s)
-    s = re.sub(r"\s+", " ", s).strip()
-    if not s:
-        return s
-    parts = s.split()
-    # Collapse leading initial tokens: "t j parker" -> "tj parker".
-    initial_run = []
-    idx = 0
-    while idx < len(parts) and len(parts[idx]) == 1:
-        initial_run.append(parts[idx])
-        idx += 1
-    if len(initial_run) >= 2:
-        merged = "".join(initial_run)
-        s = " ".join([merged] + parts[idx:])
-    return s
-
-
-def _tokenize(name):
-    """Lowercase, normalize hyphens, split, sort tokens for order-independent comparison."""
-    # Normalize hyphens to spaces, remove periods for matching: "T.J." → "tj", "Amon-Ra" → "amon ra"
-    normalized = name.lower().replace("-", " ").replace(".", "")
-    return sorted(normalized.split())
-
-
-def similarity(a, b):
-    """
-    Compute similarity with a token-sorted approach.
-    Handles cases like "Travis Etienne" vs "Etienne, Travis" and
-    partial matches like "C. Williams" vs "Caleb Williams".
-
-    When last names match but first names are clearly different,
-    we apply a penalty to prevent "Caleb Williams" matching "James Williams".
-
-    [NEW] Length-aware penalty: very short names (≤5 chars) get penalized
-    to prevent "DJ" from matching "D.J. Moore" with inflated scores.
-    """
-    a_low, b_low = a.lower().strip(), b.lower().strip()
-    # Direct ratio
-    direct = SequenceMatcher(None, a_low, b_low).ratio()
-    # Token-sorted ratio (handles reordered tokens)
-    # [FIX] Use hyphen-normalized tokens
-    a_sorted = " ".join(_tokenize(a_low))
-    b_sorted = " ".join(_tokenize(b_low))
-    token_sorted = SequenceMatcher(None, a_sorted, b_sorted).ratio()
-    base = max(direct, token_sorted)
-
-    # Adjust based on first/last name analysis
-    a_parts, b_parts = a_low.split(), b_low.split()
-    adjustment = 0.0
-    if len(a_parts) >= 2 and len(b_parts) >= 2:
-        last_a, last_b = a_parts[-1], b_parts[-1]
-        first_a, first_b = a_parts[0].rstrip("."), b_parts[0].rstrip(".")
-
-        if last_a == last_b and len(last_a) > 2:
-            # Same last name — check first names carefully
-            if first_a == first_b:
-                adjustment = 0.02
-            elif first_a[0] == first_b[0] and (len(first_a) <= 2 or len(first_b) <= 2):
-                adjustment = 0.10
-            else:
-                # Prefix-subset penalty: one first name is a strict prefix
-                # of the other with 2+ extra chars → distinct people.
-                # e.g. "james"/"jameson", "chris"/"christian"
-                shorter_f, longer_f = (
-                    (first_a, first_b) if len(first_a) <= len(first_b) else (first_b, first_a)
-                )
-                if longer_f.startswith(shorter_f) and (len(longer_f) - len(shorter_f)) >= 2:
-                    adjustment = -0.20
-                else:
-                    first_sim = SequenceMatcher(None, first_a, first_b).ratio()
-                    if first_sim < 0.5:
-                        adjustment = -0.15
-                    else:
-                        adjustment = -0.05
-        elif last_a != last_b:
-            if first_a == first_b and len(first_a) > 2:
-                pass  # Same first name, different last — no special adjustment
-
-    # [NEW] Length penalty — prevent very short names from inflating similarity
-    min_len = min(len(a_low), len(b_low))
-    if min_len <= 5:
-        adjustment -= 0.08  # short names are unreliable matches
-
-    return base + adjustment
+# ── C1-ID-01: name primitives are owned by src/identity/name_primitives ──
+# The definitions that lived here (``_TEAM_CODES``, ``clean_name``,
+# ``normalize_lookup_name``, ``_tokenize``/``similarity``) moved verbatim
+# to the canonical identity owner; these aliases keep every call site in
+# this file working while making the scraper an adapter over that owner.
+# Do not redefine matching semantics here — change
+# ``src/identity/resolution.py`` policies instead.
+clean_name = _identity_clean_name
+normalize_lookup_name = _identity_normalize_lookup_name
+similarity = _identity_similarity
 
 
 # ── Position-family normalization for cross-source matching ──────────────
@@ -653,93 +504,21 @@ def _positions_compatible(name_a, name_b):
 
 
 def best_match(target, candidates, threshold=0.78, match_guard=None):
-    """Find the best fuzzy match for target among candidates.
-
-    match_guard: optional callable (target, candidate) -> bool
-    used to reject structurally unsafe matches.
-    """
-    best, best_score = None, 0
-    for c in candidates:
-        if match_guard and not match_guard(target, c):
-            continue
-        s = similarity(target, c)
-        if s > best_score:
-            best, best_score = c, s
-    if DEBUG and best and best_score >= threshold:
-        print(f"    ✓ '{target}' → '{best}' ({best_score:.2f})")
-    return best if best_score >= threshold else None
+    """Adapter over the owned primitive; threads this module's DEBUG flag."""
+    return _identity_best_match(
+        target, candidates, threshold=threshold, match_guard=match_guard, debug=DEBUG
+    )
 
 
-def _name_tokens(name):
-    """Normalize a name into ordered alpha tokens for conservative merge checks."""
-    cleaned = clean_name(name).lower().replace(".", "").replace("-", " ").replace("'", " ")
-    return [t for t in cleaned.split() if t]
-
-
-def _first_name_compatible(a_first, b_first):
-    """Allow exact, initial, and near-typo first-name matches.
-
-    Rejects prefix-subset names where one is a strict prefix of the other
-    with 2+ extra characters (e.g. "james" vs "jameson", "chris" vs
-    "christian").  These are almost always distinct people even though
-    SequenceMatcher rates them highly similar.
-    """
-    if not a_first or not b_first:
-        return False
-    if a_first == b_first:
-        return True
-    if len(a_first) == 1 and a_first == b_first[:1]:
-        return True
-    if len(b_first) == 1 and b_first == a_first[:1]:
-        return True
-    # Reject when one name is a strict prefix of the other with 2+ extra
-    # chars — these are distinct names, not typos.
-    # e.g. "james"/"jameson", "chris"/"christian", "mark"/"marquez"
-    shorter, longer = (a_first, b_first) if len(a_first) <= len(b_first) else (b_first, a_first)
-    if longer.startswith(shorter) and (len(longer) - len(shorter)) >= 2:
-        return False
-    return SequenceMatcher(None, a_first, b_first).ratio() >= 0.72
+_name_tokens = _identity_name_tokens
+_first_name_compatible = _identity_first_name_compatible
 
 
 def _is_safe_name_merge(src_name, dst_name):
-    """Guard fuzzy canonicalization so unrelated players are not merged.
-
-    Checks both name structure AND position compatibility. Two players
-    with known but different position families (e.g. WR vs DB) are never
-    merged, even if their names are similar.
-    """
-    # Position gate: reject if both players have known incompatible positions
-    if not _positions_compatible(src_name, dst_name):
-        return False
-
-    src = _name_tokens(src_name)
-    dst = _name_tokens(dst_name)
-    if len(src) < 2 or len(dst) < 2:
-        return False
-
-    src_first, dst_first = src[0], dst[0]
-    src_last, dst_last = src[-1], dst[-1]
-    src_mid = src[1:-1]
-    dst_mid = dst[1:-1]
-
-    # Do not merge names that share first+last but differ on non-trivial middle tokens.
-    # Example: "Josh Allen" vs "Josh Hines-Allen" must remain distinct.
-    if src_first == dst_first and src_last == dst_last and src_mid != dst_mid:
-        return False
-
-    # Exact or near-exact last names must still have compatible first names.
-    if src_last == dst_last:
-        return _first_name_compatible(src_first, dst_first)
-    if SequenceMatcher(None, src_last, dst_last).ratio() >= 0.92:
-        return _first_name_compatible(src_first, dst_first)
-
-    # Allow one trailing short token artifact (e.g., "Gervon Dexter Dr" -> "Gervon Dexter").
-    if len(src) == len(dst) + 1 and len(src[-1]) <= 3 and src[:-1] == dst:
-        return True
-    if len(dst) == len(src) + 1 and len(dst[-1]) <= 3 and dst[:-1] == src:
-        return True
-
-    return False
+    """Adapter binding the roster-position evidence this module holds
+    (``SLEEPER_ROSTER_DATA`` via ``_get_sleeper_pos``) into the owned
+    structural merge guard."""
+    return _identity_is_safe_name_merge(src_name, dst_name, position_lookup=_get_sleeper_pos)
 
 
 def match_all(players, name_map, results, site_key=None):
@@ -4603,7 +4382,7 @@ async def run(progress_callback=None):
             return True
         return False
 
-    def _resolve_sleeper_identity(name, preferred_pos=""):
+    def _resolve_sleeper_identity_legacy(name, preferred_pos=""):
         cleaned = clean_name(name)
         if not cleaned or _looks_like_pick_name(cleaned):
             return None
@@ -4633,6 +4412,62 @@ async def run(progress_callback=None):
             "name": best["name"],
             "pos": _pos_family(best.get("pos", "")),
         }
+
+    # ── C1-ID-01 dual-read: the canonical engine resolves alongside the
+    # legacy ladder.  The LEGACY answer is served until the prod gate
+    # (zero V1 divergence over a full refresh cycle) authorizes cutover
+    # via RISKIT_IDENTITY_CUTOVER=1 — never a flag-day swap.  The engine
+    # also records what the repaired CANONICAL_V2 semantics WOULD answer,
+    # so the eventual semantic step is owner-reviewable evidence, not a
+    # surprise.  Artifact: data/scrape_state/identity_dual_read.json
+    # (committed by scheduled-refresh, so it is observable off-box).
+    _identity_engine_index = _identity_resolution.build_sleeper_index(SLEEPER_ALL_NFL)
+    _identity_dual_read_tally = _identity_resolution.DualReadTally("scraper_sleeper_attach")
+    _identity_dual_read_on = _identity_resolution.dual_read_enabled()
+    _identity_cutover_on = _identity_resolution.cutover_active()
+    # (name, pos) memo so repeated lookups don't re-pay the engine's fuzzy
+    # walk on misses — the tally counts unique ladder decisions, which is
+    # what the divergence gate is about.
+    _identity_dual_read_memo = {}
+
+    def _resolve_sleeper_identity(name, preferred_pos=""):
+        memo_key = (str(name or ""), str(preferred_pos or ""))
+        if memo_key in _identity_dual_read_memo:
+            return _identity_dual_read_memo[memo_key]
+        result = _resolve_sleeper_identity_uncached(name, preferred_pos)
+        _identity_dual_read_memo[memo_key] = result
+        return result
+
+    def _resolve_sleeper_identity_uncached(name, preferred_pos=""):
+        legacy = _resolve_sleeper_identity_legacy(name, preferred_pos)
+        if not (_identity_dual_read_on or _identity_cutover_on):
+            return legacy
+        engine_v1 = _identity_resolution.resolve_scraper_attach_v1(
+            _identity_engine_index,
+            name,
+            preferred_pos=preferred_pos,
+            merge_guard=_is_safe_name_merge,
+        )
+        if _identity_dual_read_on:
+            engine_v2 = _identity_resolution.resolve_canonical_v2(
+                _identity_engine_index, name=name, position=preferred_pos or None
+            )
+            _identity_dual_read_tally.record(
+                input_name=str(name or ""),
+                input_pos=str(preferred_pos or ""),
+                legacy_id=(legacy or {}).get("id"),
+                v1_id=engine_v1.sleeper_id if engine_v1.resolved else None,
+                v2=engine_v2,
+            )
+        if _identity_cutover_on:
+            if not engine_v1.resolved:
+                return None
+            return {
+                "id": engine_v1.sleeper_id,
+                "name": engine_v1.display_name,
+                "pos": engine_v1.position,
+            }
+        return legacy
 
     # Position-based site filtering:
     # IDP-only sites should not contribute values to offensive players
@@ -4933,6 +4768,11 @@ async def run(progress_callback=None):
     if _player_id_map:
         SLEEPER_ROSTER_DATA["playerIds"] = _player_id_map
         SLEEPER_ROSTER_DATA["idToPlayer"] = _id_to_player
+
+    # The roster-position map just changed, and it is evidence the fuzzy
+    # merge guard reads — drop memoized identity answers so later passes
+    # re-resolve exactly as the uncached legacy ladder would have.
+    _identity_dual_read_memo.clear()
 
     # Canonical KTC playerID map for URL imports and DB joins in the UI.
     ktc_id_map = {}
@@ -7515,6 +7355,27 @@ async def run(progress_callback=None):
         json.dump(dashboard_json, f, indent=2, ensure_ascii=False)
         f.write(";\n")
     print(f"Saved to: {js_fname}")
+
+    # ── C1-ID-01 dual-read artifact — the prod-gate evidence.  Best-effort:
+    # an identity-observability write must never fail a scrape.
+    try:
+        _dr_path = os.path.join(SCRIPT_DIR, "data", "scrape_state", "identity_dual_read.json")
+        os.makedirs(os.path.dirname(_dr_path), exist_ok=True)
+        _dr_payload = {
+            "generatedAt": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+            "dualReadEnabled": _identity_dual_read_on,
+            "cutoverActive": _identity_cutover_on,
+            **_identity_dual_read_tally.to_dict(),
+        }
+        with open(_dr_path, "w", encoding="utf-8") as f:
+            json.dump(_dr_payload, f, indent=1, ensure_ascii=False)
+        print(
+            f"  [Identity] dual-read: {_identity_dual_read_tally.calls} calls, "
+            f"v1Diverge={_identity_dual_read_tally.v1_diverge}, "
+            f"v2WouldChange={_identity_dual_read_tally.v2_would_change} -> {_dr_path}"
+        )
+    except Exception as _dr_err:  # noqa: BLE001
+        print(f"  [Identity] dual-read artifact write failed (non-fatal): {_dr_err}")
 
     print(f"  {len(players_json)} players, {len(max_values)} sites with max values")
     if pick_anchors:
