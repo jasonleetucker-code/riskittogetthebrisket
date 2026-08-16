@@ -197,7 +197,12 @@ assumption is named in the config (`classificationNote`) and here.
 * **Unchanged by design:** finder/suggestions/angle/terminal/public-activity
   (they read the board; completeness reaches them automatically — pinned by the
   census parity test), BDVM (separate named concept), waivers/Perfect Draft
-  (picks excluded by design).
+  (picks excluded by design).  The EXPORT surface (`exports/latest/` +
+  archive zips) serves the scraper's raw payload + site CSVs — the
+  `scraper_blend`/`source_value` lanes in C1-U4's terms, deliberately
+  different named quantities from the canonical board — so the acceptance
+  chain's "export" leg is the raw-evidence archive, not a second canonical
+  value surface; the export-parity test self-skips with that recorded.
 * **Deferred with record:** the frontend label-lookup migration onto
   identity-routed lookup (the C1-U3 deferral; the generic-grade rows it needs
   now exist; grammar-parity test holds the lockstep), the intel-ledger re-key
@@ -208,8 +213,9 @@ assumption is named in the config (`classificationNote`) and here.
 ## 8. Board effects (measured, `scripts/board_diff.py` before→after)
 
 * 1093 → 1111 rows (+18 generic-grade); picks 144 → 162; priced 812 → 849
-  (+18 generic, +18 round-step completions, +5 off-cap stamps, −4 cap-margin
-  players); ranked 740 → 740.
+  (the diff's own accounting: 23 pick rows newly priced in place + 18 added
+  generic rows − 4 cap-margin players; the 23 = 18 round-step completions +
+  5 previously cap-truncated voted rows); ranked 740 → 740.
 * **Authorized pick movement:** the eleven synthetic 2029 tier rows rose
   +34.7%..+65.3% (the measured step replacing 0.53 on the same basis values);
   2027/2028 vendor rows byte-identical except two tail completions.
@@ -238,7 +244,8 @@ assumption is named in the config (`classificationNote`) and here.
 ## 9. Sensitivity (bounded, recorded — not optimized)
 
 * **Year-step**: observed cell range [0.7138, 0.8954]; cross-provider
-  disagreement ≤3.4% per cell except late.4 at 8.6% (both stated in config).
+  disagreement ≤3.4% per cell except late.4 at 8.6% (per-cell band recorded in
+  the config's evidence block).
   2029 E1 spans ≈ 3593 × [0.85, 1.12] under ± the disagreement band; under the
   full observed range a 2029 first sits between ~3,600 and ~4,500 vs the
   incumbent's 2,668.  Board-order effect: 2029 firsts sit ranks ~117-136 under

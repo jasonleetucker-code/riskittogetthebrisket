@@ -21,17 +21,48 @@
       "late.3": 0.8954,
       "late.4": 0.7726
     },
-    "stepByRound": { "1": 0.8078, "2": 0.8662, "3": 0.8527, "4": 0.8636 },
+    "stepByRound": {
+      "1": 0.8078,
+      "2": 0.8662,
+      "3": 0.8527,
+      "4": 0.8636
+    },
     "stepFallback": 0.8407,
     "evidence": {
-      "windowDates": ["2026-07-14", "2026-08-16"],
+      "windowDates": [
+        "2026-07-14",
+        "2026-08-16"
+      ],
       "dateCount": 34,
-      "providers": ["ktcSfTep", "idpTradeCalc"],
+      "providers": [
+        "ktcSfTep",
+        "idpTradeCalc"
+      ],
       "cellObservations": 816,
-      "providerHoldoutMapeMedianPct": [1.4, 1.74],
+      "providerHoldoutMapeMedianPct": [
+        1.4,
+        1.74
+      ],
       "timeSplitMapeMedianPct": 1.41,
-      "retiredIncumbentMapeMedianPct": [36.67, 37.98],
-      "note": "idpTradeCalc's pick board is frozen across the window - one independent observation, not 34; ktcSfTep drifts (cell sd <= 0.021)"
+      "retiredIncumbentMapeMedianPct": [
+        36.67,
+        37.98
+      ],
+      "note": "idpTradeCalc's pick board is frozen across the window, so its 34 daily copies carry the evidential weight of ONE independent observation per cell (the cell medians still pool both providers' rows arithmetically - the frozen board simply pins its provider's median); ktcSfTep drifts (cell sd <= 0.021)",
+      "crossProviderDisagreementPerCell": {
+        "early.1": 0.0152,
+        "early.2": 0.0213,
+        "early.3": 0.0335,
+        "early.4": 0.0305,
+        "mid.1": 0.0102,
+        "mid.2": 0.0037,
+        "mid.3": 0.0105,
+        "mid.4": 0.0054,
+        "late.1": 0.009,
+        "late.2": 0.0235,
+        "late.3": 0.0128,
+        "late.4": 0.086
+      }
     },
     "calibration": "scripts/calibrate_pick_year_step.py",
     "record": "docs/picks/C1_U6_PICK_VALUE_COMPLETENESS.md"
@@ -40,11 +71,20 @@
     "family": "canonical_rookie_ladder_round_step_v1",
     "classification": "PRIOR",
     "classificationNote": "measured-anchored: the served canonical board's own tethered rookie-market round ladder (current class), R5/R4 and R6/R5 means; applying the current class's tail structure to future-year tier curves is an assumption no vendor publishes evidence for (both pick markets stop at round 4)",
-    "stepByRound": { "5": 0.929, "6": 0.916 },
+    "stepByRound": {
+      "5": 0.929,
+      "6": 0.916
+    },
     "evidence": {
       "measuredOn": "canonical tethered 2026 slot rows, 6 sampled archive rebuilds 2026-07-14..2026-08-16",
-      "observedRangeR5": [0.9007, 0.9323],
-      "observedRangeR6": [0.9128, 0.9182],
+      "observedRangeR5": [
+        0.9007,
+        0.9323
+      ],
+      "observedRangeR6": [
+        0.9128,
+        0.9182
+      ],
       "rejectedAlternatives": "future-tier trend extrapolation (~0.75-0.80, fitted shape with zero observations of the target quantity); scraper pickAnchors R5/R6 (its own model, measured non-monotonic R4->R5 > 1.0)"
     },
     "record": "docs/picks/C1_U6_PICK_VALUE_COMPLETENESS.md"

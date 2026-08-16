@@ -78,16 +78,30 @@ def _resolve_asset(
             return None
         from src.api.data_contract import current_rookie_draft_year
 
-        res = market_resolution(
-            year=parsed.year,
-            round_num=parsed.round_num,
-            slot=parsed.slot,
-            current_draft_year=current_rookie_draft_year(),
-        )
-        board_name = res.ref.board_row_name()
-        if not board_name:
-            return None
-        row = row_index.get(board_name.strip().lower())
+        # The label's OWN grade first: a parsed tier ("2027 Mid 1st
+        # (from X)") PROVES the tier, and the vendor-priced tier row
+        # outranks any derivation — falling straight to
+        # market_resolution here would discard the proven refinement
+        # and price the pick at the generic-grade PRIOR EV
+        # (final-review hardening).  market_resolution then handles
+        # what the label alone cannot: mapping a known slot onto the
+        # right grade for the clock (slot rows exist only for the
+        # active draft year).
+        row = None
+        own_name = parsed.market_ref.board_row_name()
+        if own_name:
+            row = row_index.get(own_name.strip().lower())
+        if not row:
+            res = market_resolution(
+                year=parsed.year,
+                round_num=parsed.round_num,
+                slot=parsed.slot,
+                current_draft_year=current_rookie_draft_year(),
+            )
+            board_name = res.ref.board_row_name()
+            if not board_name:
+                return None
+            row = row_index.get(board_name.strip().lower())
         if not row:
             return None
     # A pick row the pipeline deliberately left valueless (an

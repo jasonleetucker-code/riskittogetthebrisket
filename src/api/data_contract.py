@@ -11036,8 +11036,28 @@ def validate_api_data_contract(payload: dict[str, Any]) -> dict[str, Any]:
             if parsed_tier is not None:
                 tier_years.add(parsed_tier[0])
         if tier_years:
-            census_current = min(tier_years)
-            for census_year in sorted(y for y in tier_years if y > census_current):
+            # Anchor on the contract's own stamped draft year — never on
+            # min(tier_years), where one stale past-year tier row would
+            # drag the anchor back and fail the census over the anchor
+            # year's deliberately alias-suppressed tiers (final-review
+            # hardening).  Fallback for payloads without the stamp.
+            stamped_year = payload.get("currentDraftYear")
+            census_current = (
+                int(stamped_year)
+                if isinstance(stamped_year, (int, float)) and stamped_year
+                else min(tier_years)
+            )
+            # The horizon range is UNCONDITIONAL (final-review
+            # hardening): a scrape that lost the entire future horizon
+            # (no future tier years at all, so the injection had no
+            # template) must fail THIS census, not just the coarse
+            # pick-count floor — wholesale absence is the exact
+            # C1-PICK-01 regression class the gate exists for.
+            try:
+                census_horizon = max(0, int(_load_pick_year_discount().get("horizonYears") or 3))
+            except (TypeError, ValueError):
+                census_horizon = 3
+            for census_year in range(census_current + 1, census_current + census_horizon + 1):
                 for census_round in range(1, 7):
                     names = [
                         f"{census_year} {t} {_round_suffix(census_round)}"
