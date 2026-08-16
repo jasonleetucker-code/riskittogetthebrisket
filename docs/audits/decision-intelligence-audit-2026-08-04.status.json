@@ -3,9 +3,9 @@
  "severity": "Critical",
  "total": 43,
  "tally": {
-  "open": 19,
+  "open": 18,
   "needs_review": 2,
-  "closed": 21,
+  "closed": 22,
   "deferred": 1
  },
  "findings": [
@@ -206,13 +206,13 @@
    "auditId": "S-6",
    "path": "src/api/data_contract.py",
    "signature": "write_snapshot=not source_overrides",
-   "status": "open",
-   "verifiedBy": "The shared rank snapshot is still written on any build without source overrides, and rankChange still diffs a board whose source set may have changed.",
+   "status": "closed",
+   "verifiedBy": "CLOSED by C1-U4 (C1-HIST-03), 2026-08-16. Not a respelling: the shared rank snapshot (data/snapshots/ranks_last.json) and its write path are DELETED, not renamed. rankChange is now derived read-only from the temporal ledger's previous BOARD DATE (src/history/asof.previous_board_ranks), so no build of any kind \u2014 override bodies included (W03-F010) \u2014 can move the comparison baseline, and a board whose source set changed still diffs against the same dated observation. The signature is kept so its return trips this gate. Pinned by tests/history/test_temporal_red.py (tombstones) + test_temporal_ledger.py::TestRankChangeDeterministic (back-to-back determinism, collision-keying, None-never-zero).",
    "closedBy": null,
    "measuredEffect": null,
    "batch": null,
    "probe": {
-    "result": "signature_present",
+    "result": "signature_absent",
     "path": "src/api/data_contract.py",
     "needle": "write_snapshot=not source_overrides"
    }
@@ -638,7 +638,7 @@
    "title": "Competitive window ranks 8 of 12 rosters on one scale and 4 on an incomparable other, then presents both in one five-state vocabulary",
    "area": "Roster & Trade Intelligence (src/roster_intel/), Terminal aggregation (src/api/terminal.py + GET /api/terminal), Gameplan API (src/api/gameplan.py + GET /api/gameplan), and their frontend surfaces (frontend/lib/portfolio-insights.js, frontend/lib/team-phase.js, frontend/lib/signal-engine.js, frontend/components/terminal/*, frontend/components/TeamPhasePanel.jsx) \u2014 commit 9c5d972",
    "complexity": "Medium",
-   "auditEvidence": "`data/ros/sims/latest_playoff.json` contains 8 rows for a 12-team league (verified: `len(playoffOdds)==8`; missing ownerIds `{owner-9b939999c520, owner-396ab6a38b0f, owner-81e37a629680, owner-85176a3f8776}`). `src/roster_intel/window.py:league_competitiveness` percentiles championshipOdds *over the rows it was given* (`below/ties over len(champ)`), else falls back to `lineupScoreRank` over all ",
+   "auditEvidence": "`data/ros/sims/latest_playoff.json` contains 8 rows for a 12-team league (verified: `len(playoffOdds)==8`; missing ownerIds `{owner-9b939999c520, owner-396ab6a38b0f, owner-81e37a629680, owner-85176a3f8776}`). `src/roster_intel/window.py:league_competitiveness` percentiles championshipOdds *over the rows it was given* (`below/ties over len(champ)`), else falls back to `lineupScoreRank` over all 12.",
    "auditId": "R-3b",
    "path": "src/ros/trade_deadline.py",
    "signature": "owner_ids = sorted(set(playoffs) | set(champs) | set(strengths))",
@@ -821,9 +821,5 @@
     "result": "no_mechanical_probe"
    }
   }
- ],
- "_sanitized": {
-  "by": "scripts/sanitize_audit_evidence.py",
-  "why": "B8 \u2014 git is a distribution channel. Manager identifiers are deterministic non-reversible pseudonyms and per-manager intelligence values are nulled with their keys kept, so this capture still proves which fields the payload exposed, how many managers it covered and how deep it went. Public league-wide facts (rank, odds, percentile) and the strategy text the findings turn on are preserved."
- }
+ ]
 }
