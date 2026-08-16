@@ -465,6 +465,24 @@ def get_sleeper_league_id(key: str | None = None) -> str | None:
     return cfg.sleeper_league_id if cfg else None
 
 
+def league_key_for_sleeper_id(sleeper_league_id: str | None) -> str | None:
+    """Reverse lookup: Sleeper league ID → stable registry key.
+
+    Used by the pick-identity stamping path (C1-ID-02): canonical pick
+    ids are league-scoped by REGISTRY KEY, never by raw Sleeper id
+    (Sleeper leagues chain year-to-year under new ids while the key is
+    stable).  Returns None for an unknown id — callers must fail closed
+    (no stamp) rather than mint an id under a wrong league.
+    """
+    sid = str(sleeper_league_id or "").strip()
+    if not sid:
+        return None
+    for cfg in all_leagues():
+        if cfg.sleeper_league_id == sid:
+            return cfg.key
+    return None
+
+
 def get_scoring_profile(key: str | None = None) -> str | None:
     """Return the scoring-profile marker for a league, or the default's.
 

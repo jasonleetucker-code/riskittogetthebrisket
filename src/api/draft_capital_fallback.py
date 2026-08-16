@@ -68,7 +68,17 @@ def _fetch_json(url: str) -> Any:
 
 
 def _normalize_pick_name(season: int, round_num: int, slot: int) -> str:
-    return f"{season} Pick {round_num}.{slot:02d}"
+    """Board slot-row display name — grammar owned by the canonical
+    pick-identity module (C1-ID-02, ``src/identity/picks``).  Values
+    outside the canonical domain keep the legacy verbatim formatting:
+    they miss the board lookup and read as UNPRICED, exactly as before,
+    rather than crashing the endpoint."""
+    from src.identity.picks import MarketPickRef
+
+    try:
+        return MarketPickRef(year=season, round_num=round_num, slot=slot).board_row_name()
+    except (TypeError, ValueError):
+        return f"{season} Pick {round_num}.{slot:02d}"
 
 
 def _pick_value_from_contract(

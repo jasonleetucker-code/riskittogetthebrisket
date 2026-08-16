@@ -41,6 +41,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Any, Callable
 
+from src.identity.picks import format_intel_pick_asset_id as _format_intel_pick_asset_id
 from src.intel import league_filter
 from src.intel.store import EVENT_RETENTION_DAYS, default_state
 
@@ -239,7 +240,12 @@ def _pick_holdings(
                 ownership[key] = owner
     out: dict[str, list[str]] = {}
     for (season, rnd, _original), owner in sorted(ownership.items()):
-        out.setdefault(owner, []).append(f"pick:{season}:{rnd}")
+        # C1-ID-02: this is the ledger's PERSISTED generic-grade key —
+        # origin is deliberately dropped here and two same-season+round
+        # picks collapse (the owner documents the collision at the
+        # definition).  Re-keying onto the canonical league-pick id is
+        # C1-U8's migration; new writes must keep joining old rows.
+        out.setdefault(owner, []).append(_format_intel_pick_asset_id(season, rnd))
     return out
 
 
@@ -351,7 +357,9 @@ def _events_from_tx(
         rnd = pick.get("round")
         if not season or rnd is None:
             continue
-        asset_id = f"pick:{season}:{rnd}"
+        # C1-ID-02: persisted generic-grade key — see the note in the
+        # holdings builder above; owner: src/identity/picks.
+        asset_id = _format_intel_pick_asset_id(season, rnd)
         original = pick.get("roster_id")
         # roster_id is stable across refetches; the enumerate index is
         # a last-resort fallback for malformed entries.

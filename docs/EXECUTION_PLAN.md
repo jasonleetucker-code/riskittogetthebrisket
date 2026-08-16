@@ -15,7 +15,7 @@ Backlog Spec and the feature specs. It does not define scope — that lives in `
 
 # 0. CURRENT AUTHORIZATION — READ THIS FIRST
 
-## The B→C gate is CLEARED. **C1A units 1 and 2 are CLOSED. No unit is currently authorized.**
+## The B→C gate is CLEARED. **C1A units 1, 2 and 3 are done — unit 3 DELIVERED, awaiting its owner checkpoint. No further unit is authorized.**
 
 | question | answer |
 |---|---|
@@ -26,14 +26,16 @@ Backlog Spec and the feature specs. It does not define scope — that lives in `
 | **Is C authorized?** | **YES — `C1A` ONLY** |
 | Is C1A unit 1 (retention) done? | **Yes — CLOSED at the owner checkpoint 2026-08-16.** `C1-RET-07` remains honestly STALE; observational follow-ups do not reopen the unit |
 | Is C1A unit 2 (`C1-U2` / `C1-ID-01`) done? | **Yes — CLOSED 2026-08-16.** Cut over and retired; production gate passed at both sites with zero divergence. `CANONICAL_V2` activation is deliberately NOT part of it (measured blocker, §2) |
-| **What may I build right now?** | **Nothing — awaiting owner authorization of the next unit.** C1A unit 2 is closed; C1-U3 is not authorized |
-| Is C1A unit 3 (`C1-U3` / `C1-ID-02` pick identity) authorized? | **No** |
+| Is C1A unit 3 (`C1-U3` / `C1-ID-02` pick identity) authorized? | **Yes — owner-authorized 2026-08-16 at the C1-U2 checkpoint** |
+| Is C1A unit 3 done? | **DELIVERED 2026-08-16 — awaiting its §3 owner checkpoint** (see §2; canonical owner `src/identity/picks.py`; board proven byte-inert 0/1093) |
+| **What may I build right now?** | **Nothing — C1-U3 is delivered and its checkpoint is pending.** No further unit is authorized |
+| Is `C1-U4`+ authorized? | **No** |
 | Is `C1B` authorized? | **No** |
 | Is `C2` authorized? | **No** |
 | Is `C3` or later authorized? | **No** |
-| What authorizes the next slice? | Jason + ChatGPT review the completed C1-ID-01 evidence at the §3 checkpoint |
+| What authorizes the next slice? | Jason + ChatGPT review the completed C1-ID-02 evidence at the §3 checkpoint |
 
-**The authorization is deliberately narrow, and it is now spent.** C1-U2 closed on 2026-08-16; reaching
+**The authorization is deliberately narrow, and it is now spent.** C1-U3 delivered on 2026-08-16; reaching
 the end of a unit is a **STOP**, not a hand-off to the next one.
 
 **If you are a new session reading this file to decide what to build:** the answer is *nothing yet* — the
@@ -109,10 +111,34 @@ radius of a rename that is otherwise mechanical.
 
 # 2. NEXT AUTHORIZED SCOPE
 
-## None. Awaiting an owner decision.
+## `C1A` unit 3 — `C1-U3` / `C1-ID-02`, one pick identity, end to end. **DELIVERED 2026-08-16, checkpoint pending.**
 
-`C1A` unit 2 is closed (below). The proposed next unit is `C1-U3` / `C1-ID-02` (one pick identity, end to
-end), but **it is not authorized** and must not be started before the §3 checkpoint.
+Owner-authorized 2026-08-16 at the C1-U2 checkpoint; scope was exactly manifest row `C1-ID-02`.
+
+**Delivered.** The canonical owner (`src/identity/picks.py`) now defines pick identity end to end: a
+league pick's identity is `league_key + season + round + origin franchise` (current owner and realized
+slot are STATE — a trade or the draft order landing never mints a new asset); market pick references
+carry exactly one of slot/tier/generic grades; the generic→exact transition is a pure state change with
+a deterministic `market_resolution()` that answers an unknown slot with the GENERIC grade, never a
+fabricated tier or slot. The census measured **14 independent representations** (vs the map's estimate
+of 7); six real defect classes were reproduced on live code paths + real league data
+(`tests/identity/test_pick_identity_red.py`) — the execution-map RED (same pick, two representations, no
+round-trip) among them, plus five real 2027 1sts serializing to one label, wall-clock/rename label drift,
+fabricated "Mid" for unknown slots, the intel ledger's origin-stripping asset id, and league-free overlay
+shapes. Consumers adapted with **byte-parity**: the contract's pick grammar, the overlay's and scraper's
+ownership fold + both label grammars (pickDetails gained an additive canonical `assetId`, fail-closed on
+unregistered leagues), draft-capital name formatting, and the intel crawler's persisted generic-grade key
+(re-key deferred to C1-U8 with the collision documented at the owner). Board proven byte-inert:
+**0 of 1,093 rows moved, 144 picks intact, 0 values, 0 ranks** (`golden_board` + `board_diff
+--expect-no-value-change`). Full record: `docs/identity/C1_ID_02_PICK_IDENTITY.md`.
+
+**Deliberately deferred, recorded not hidden:** the intel-ledger re-key (C1-U8), the frontend
+label-lookup migration (needs C1-U6's generic-grade board rows; held in lockstep by
+`tests/identity/test_pick_grammar_frontend_parity.py`), the public-league fold (bespoke multi-season
+semantics; origin retained), and every valuation half of C1-PICK-01/-02/-03.
+
+No further unit is authorized. The next authorization comes from the owner reviewing this unit's
+evidence at the §3 checkpoint.
 
 ## `C1A` unit 2 — `C1-U2` / `C1-ID-01`, one player-identity owner. **CLOSED 2026-08-16.**
 

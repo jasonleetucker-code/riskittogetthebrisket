@@ -140,11 +140,19 @@ C1-U1 and C1-U2 both closed on 2026-08-16; the next authorization is an owner de
   regress the first-name-variant class; that repair needs its own unit. Record:
   `docs/identity/C1_ID_01_IDENTITY_CONSOLIDATION.md` §5a, §9
 
-### C1-U3 — One pick identity, end to end
-- **rows** `C1-ID-02` · **owner** *(to create)* one asset-identity contract
-- **retires** 7 representations · **kind** INFRA · **deps** C1-U2
-- **RED→GREEN** the same pick failing to round-trip across two representations
+### C1-U3 — One pick identity, end to end  ← **DELIVERED (C1A unit 3, checkpoint pending)**
+- **rows** `C1-ID-02` · **owner** `src/identity/picks.py` (created)
+- **retires** measured **14** representations (map's 7 was an estimate) · **kind** INFRA · **deps** C1-U2
+- **RED→GREEN** the same pick failing to round-trip across two representations —
+  reproduced on real league data (`tests/identity/test_pick_identity_red.py`, six
+  defect classes) and closed by the owner (`test_pick_identity.py`)
 - **note** `DO NOT PARALLELIZE` with C1-U6/U7 per EXECUTION_PLAN §4
+- **state** DELIVERED 2026-08-16. League-pick identity = league+season+round+origin
+  (owner/slot are state); market refs at slot/tier/generic grades; generic→exact is a
+  pure state change; consumers adapted with byte-parity (board inert 0/1093, 144 picks
+  intact). Deferred with record: intel-ledger re-key (C1-U8), frontend lookup
+  migration (needs C1-U6), public-league fold. Record:
+  `docs/identity/C1_ID_02_PICK_IDENTITY.md`
 
 ### C1-U4 — One immutable as-of value/provenance ledger
 - **rows** `C1-HIST-01` `C1-HIST-02` `C1-HIST-03`

@@ -50,6 +50,7 @@ import urllib.request
 from collections.abc import Mapping
 from typing import Any
 
+from src.identity import picks as _pick_identity
 from src.utils.name_clean import strip_display_suffix
 from src.utils.owner_names import owner_label
 
@@ -241,15 +242,9 @@ def _walk_league_chain(root_league_id: str, max_depth: int = 2, getter=None) -> 
 
 
 def _round_suffix(n: int) -> str:
-    """1 → '1st', 2 → '2nd', 3 → '3rd', 4+ → 'Nth'.  Matches the
-    scraper's convention for pick labels (``2027 1st``)."""
-    if n == 1:
-        return "1st"
-    if n == 2:
-        return "2nd"
-    if n == 3:
-        return "3rd"
-    return f"{n}th"
+    """1 → '1st', 2 → '2nd', 3 → '3rd', 4+ → 'Nth'.  Delegates to the
+    canonical pick-identity owner (C1-ID-02, ``src/identity/picks``)."""
+    return _pick_identity.round_suffix(n)
 
 
 def _format_pick_label(season: str, round_num: int, slot: int | None = None) -> str:
@@ -257,10 +252,9 @@ def _format_pick_label(season: str, round_num: int, slot: int | None = None) -> 
     rankings board renders: ``"2027 1.05"`` when slot is known,
     ``"2027 1st"`` otherwise (traded-future picks usually have no
     slot yet).  The rankings pipeline emits both shapes so the UI
-    resolves either."""
-    if slot is not None and slot > 0:
-        return f"{season} {round_num}.{str(slot).zfill(2)}"
-    return f"{season} {_round_suffix(round_num)}"
+    resolves either.  Grammar owned by the canonical pick-identity
+    module (C1-ID-02)."""
+    return _pick_identity.format_pick_label_overlay(season, round_num, slot)
 
 
 def _build_pick_ownership(
@@ -288,48 +282,46 @@ def _build_pick_ownership(
     if not roster_ids:
         return {}
     current_year = _dt.datetime.now(_dt.timezone.utc).year
-    years = [str(current_year + y) for y in range(num_years)]
-
-    # Seed: every roster owns its own picks by default.
-    ownership: dict[tuple[str, int, int], int] = {}
-    for year in years:
-        for rnd in range(1, num_rounds + 1):
-            for rid in roster_ids:
-                ownership[(year, rnd, rid)] = rid
+    years = [current_year + y for y in range(num_years)]
 
     traded = (getter or _http_get_json)(
         f"https://api.sleeper.app/v1/league/{sleeper_league_id}/traded_picks"
     )
-    if isinstance(traded, list):
-        for tp in traded:
-            if not isinstance(tp, dict):
-                continue
-            try:
-                season = str(tp.get("season") or "")
-                rnd = int(tp.get("round") or 0)
-                original = int(tp.get("roster_id") or 0)
-                owner = int(tp.get("owner_id") or 0)
-            except (TypeError, ValueError):
-                continue
-            if not season or rnd < 1 or not original or not owner:
-                continue
-            key = (season, rnd, original)
-            if key in ownership:
-                ownership[key] = owner
 
-    # Re-pivot to {current_owner: [pickDetail...]}.
+    # The seed + traded-diff fold is owned by the canonical pick-identity
+    # module (C1-ID-02) — one implementation instead of the four copies
+    # the census measured.  Canonical ids are league-scoped by REGISTRY
+    # key; an unregistered Sleeper id gets no stamp (fail closed) rather
+    # than an id minted under a wrong league.
+    from src.api.league_registry import league_key_for_sleeper_id
+
+    league_key = league_key_for_sleeper_id(sleeper_league_id)
+    owned = _pick_identity.build_pick_ownership(
+        league_key or "unregistered-league",
+        roster_ids,
+        traded if isinstance(traded, list) else [],
+        seasons=years,
+        rounds=num_rounds,
+    )
+
+    # Re-pivot to the legacy {current_owner: [pickDetail...]} shape —
+    # every pre-existing field byte-identical (season stays the string
+    # Sleeper sent; slot stays None: this builder never fetches draft
+    # order) — plus the additive canonical ``assetId``.
     per_roster: dict[int, list[dict[str, Any]]] = {rid: [] for rid in roster_ids}
-    for (season, rnd, original), current_owner in ownership.items():
-        per_roster.setdefault(current_owner, []).append(
-            {
-                "season": season,
-                "round": rnd,
-                "slot": None,
-                "original_roster_id": original,
-                "owner_roster_id": current_owner,
-                "label": _format_pick_label(season, rnd),
-            }
-        )
+    for o in owned:
+        current_owner = o.state.owner_roster_id
+        detail: dict[str, Any] = {
+            "season": str(o.identity.season),
+            "round": o.identity.round_num,
+            "slot": None,
+            "original_roster_id": o.identity.origin_roster_id,
+            "owner_roster_id": current_owner,
+            "label": _format_pick_label(str(o.identity.season), o.identity.round_num),
+        }
+        if league_key is not None:
+            detail["assetId"] = o.identity.canonical_id
+        per_roster.setdefault(current_owner, []).append(detail)
     # Sort each team's picks year-then-round for deterministic output.
     for rid, plist in per_roster.items():
         plist.sort(key=lambda p: (p.get("season", ""), p.get("round", 0)))
@@ -623,23 +615,18 @@ def _league_draft_slot_lookup(
 
 
 def _slot_to_tier_label(slot: Any, league_size: int = 12) -> str:
-    """Bucket a draft slot into Early / Mid / Late thirds.  Mirrors
-    the offline scraper's ``_slot_to_tier_label``.  Used for FUTURE-
-    year picks where slot exists but the rankings board only carries
-    tier-bucketed pick rows (e.g. ``"2027 Early 1st"`` not
+    """Bucket a draft slot into Early / Mid / Late thirds.  Used for
+    FUTURE-year picks where slot exists but the rankings board only
+    carries tier-bucketed pick rows (e.g. ``"2027 Early 1st"`` not
     ``"2027 1.03"`` — the rookie crop-by-slot view is reserved for
     the upcoming year).
+
+    Delegates to the canonical pick-identity owner (C1-ID-02).  NOTE
+    the legacy display fabrication this inherits: an UNKNOWN slot
+    renders as "Mid" — the canonical non-fabricating answer is
+    ``picks.market_resolution``'s ``unknown_slot`` basis.
     """
-    n = _safe_int(slot)
-    if not isinstance(n, int) or n <= 0:
-        return "Mid"
-    size = max(3, int(league_size or 12))
-    per_tier = max(1, size // 3)
-    if n <= per_tier:
-        return "Early"
-    if n <= min(size, per_tier * 2):
-        return "Mid"
-    return "Late"
+    return _pick_identity.legacy_slot_tier_label(slot, league_size=league_size)
 
 
 def _format_trade_pick_label(
@@ -676,40 +663,17 @@ def _format_trade_pick_label(
 
         current_year = _dt.datetime.now(_dt.timezone.utc).year
 
-    season = _safe_int(pick.get("season"))
-    round_num = _safe_int(pick.get("round"))
-    origin_rid = _safe_int(pick.get("roster_id") or pick.get("origin_roster_id"))
-
-    from_team: str | None = None
-    if origin_rid is not None:
-        from_team = (
-            rid_to_name.get(origin_rid) or rid_to_name.get(str(origin_rid)) or f"Team {origin_rid}"
-        )
-
-    base_label: str | None = None
-    if season is not None and round_num is not None and round_num > 0:
-        slot = draft_slot_by_origin.get((season, origin_rid)) if origin_rid is not None else None
-        if season >= current_year + 1:
-            # Future year — tier label, slot-aware when known.
-            # ``_round_suffix(1) = "1st"`` already includes the digit
-            # so we don't prepend ``round_num`` separately here (the
-            # offline scraper's ``_round_suffix`` returns only the
-            # suffix and prepends — same output, different code split).
-            tier_label = _slot_to_tier_label(slot, league_size=league_size)
-            base_label = f"{season} {tier_label} {_round_suffix(round_num)}"
-        elif isinstance(slot, int) and slot > 0:
-            # Current year (or past) with known slot — slot-specific.
-            base_label = f"{season} {round_num}.{str(slot).zfill(2)}"
-        else:
-            # Current year, slot unknown — round-suffix fallback.
-            base_label = f"{season} {_round_suffix(round_num)}"
-
-    if not base_label:
-        season_txt = str(pick.get("season", "")).strip()
-        round_txt = str(pick.get("round", "?")).strip()
-        base_label = f"{season_txt} Round {round_txt}".strip()
-
-    return f"{base_label} (from {from_team})" if from_team else base_label
+    # Grammar owned by the canonical pick-identity module (C1-ID-02);
+    # the wall-clock default above stays at THIS boundary — the owner
+    # requires the clock as an argument (the year-dependent label drift
+    # is pinned in tests/identity/test_pick_identity_red.py).
+    return _pick_identity.format_trade_pick_label(
+        pick,
+        rid_to_name,
+        draft_slot_by_origin,
+        current_year=current_year,
+        league_size=league_size,
+    )
 
 
 def _append_trade_side_item(
