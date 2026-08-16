@@ -1,5 +1,5 @@
 {
-  "count": 689,
+  "count": 687,
   "note": "Known missing-data coercions on decision paths, recorded so the gate can block NEW ones while the remediation batches burn these down. Each batch deletes its findings' entries. Do not add to this file to make a build pass.",
   "violations": [
     "frontend/lib/auction-power.js::const raw = names.map((n) => Number(totalsObj[n]) || 0);",
@@ -101,7 +101,6 @@
     "frontend/lib/edge-helpers.js::sort: (a, b) => (b.sourceRankSpread ?? 0) - (a.sourceRankSpread ?? 0),",
     "frontend/lib/league-analysis.js::(best, s) => (Math.abs(s.pctGap) > Math.abs(best?.pctGap ?? 0) ? s : best),",
     "frontend/lib/league-analysis.js::const b = Number(m[3]) || 0;",
-    "frontend/lib/league-analysis.js::const baseVal = row.values?.full || 0;",
     "frontend/lib/league-analysis.js::const g = Number(m[2]) || 0;",
     "frontend/lib/league-analysis.js::const r = Number(m[1]) || 0;",
     "frontend/lib/league-analysis.js::const sorted = teams.slice().sort((a, b) => (b.byGroup[g] || 0) - (a.byGroup[g] || 0));",
@@ -116,7 +115,6 @@
     "frontend/lib/league-analysis.js::return row ? (row.values?.full || 0) : 0;",
     "frontend/lib/league-analysis.js::stats.posBias[pos] = (stats.posBias[pos] || 0) + 1;",
     "frontend/lib/league-analysis.js::value: row.values?.full || 0,",
-    "frontend/lib/league-analysis.js::value: strippedRow.values?.full || 0,",
     "frontend/lib/market-movers.js::return (b.value || 0) - (a.value || 0);",
     "frontend/lib/market-movers.js::value: Number(r.rankDerivedValue || r.values?.full || 0),",
     "frontend/lib/movers.js::value: Number(r.rankDerivedValue || r.values?.full || 0),",
