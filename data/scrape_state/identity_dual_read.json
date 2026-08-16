@@ -1,5 +1,5 @@
 {
- "generatedAt": "2026-08-16T05:08:22.600351+00:00",
+ "generatedAt": "2026-08-16T07:20:57.664226+00:00",
  "servedPolicy": "scraper_sleeper_attach_v1",
  "servedBy": "src.identity.resolution",
  "legacyLadderRetired": true,
@@ -9,8 +9,8 @@
  "v1Agree": 0,
  "v1Diverge": 0,
  "v1Examples": [],
- "v2Same": 1998,
- "v2WouldChange": 19,
+ "v2Same": 1997,
+ "v2WouldChange": 20,
  "v2Examples": [
   {
    "name": "Bam Knight",
@@ -43,6 +43,14 @@
    "engineV2": null,
    "v2Method": "exact_clean:name",
    "v2Reason": "ambiguous"
+  },
+  {
+   "name": "Frank Gore",
+   "pos": "",
+   "served": "232",
+   "engineV2": "11573",
+   "v2Method": "exact_clean:name_teamed",
+   "v2Reason": null
   },
   {
    "name": "Jaylon Jones",
