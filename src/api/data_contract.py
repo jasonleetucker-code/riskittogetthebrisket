@@ -4552,15 +4552,17 @@ def _percentile_rank_spread(
 # Helpers below are gated to picks and run as POST-blend corrections in
 # ``_compute_unified_rankings``.  They never touch player rows.
 
-# Regex matching specific slot pick names like "2026 Pick 1.06" — used
-# by the slot reassignment pass to bucket picks by (year, round) and
-# extract the slot number for in-bucket sorting.
-_PICK_SLOT_RE = re.compile(r"^(20\d{2})\s+Pick\s+([1-6])\.(0?[1-9]|1[0-2])$", re.I)
-
-# Regex matching generic tier pick names like "2026 Early 1st" — used
-# by the generic-tier suppression pass to detect rows that should be
-# moved to ``pickAliases`` when slot-specific siblings exist.
-_PICK_TIER_RE = re.compile(r"^(20\d{2})\s+(Early|Mid|Late)\s+([1-6])(st|nd|rd|th)$", re.I)
+# Board pick-name grammar — OWNED by the canonical pick-identity module
+# (C1-ID-02, ``src/identity/picks.py``); imported back here so the
+# pipeline's acceptance bounds cannot drift from the owner's.  The
+# local names survive for the pipeline's many call sites.
+from src.identity.picks import (  # noqa: E402
+    BOARD_TIER_RE as _PICK_TIER_RE,
+    is_pick_name as _owner_is_pick_name,
+    parse_board_slot_name as _owner_parse_board_slot_name,
+    parse_board_tier_name as _owner_parse_board_tier_name,
+    pick_year_from_name as _owner_pick_year_from_name,
+)
 
 # Pick year discount is loaded once per build from
 # config/weights/pick_year_discount.json.  See the file header for the
@@ -4819,17 +4821,10 @@ def _pick_year_from_name(name: str) -> int | None:
     """Extract the 4-digit year from a pick canonical name, or None.
 
     Handles all three pick name formats: ``2026 Pick 1.06``,
-    ``2026 Early 1st``, ``2026 Round 1``, etc.
+    ``2026 Early 1st``, ``2026 Round 1``, etc.  Delegates to the
+    canonical pick-identity owner (C1-ID-02).
     """
-    if not name:
-        return None
-    m = re.search(r"\b(20\d{2})\b", str(name))
-    if not m:
-        return None
-    try:
-        return int(m.group(1))
-    except (TypeError, ValueError):
-        return None
+    return _owner_pick_year_from_name(name)
 
 
 def _pick_year_discount_for(
@@ -4876,33 +4871,19 @@ def _pick_year_discount_for(
 def _parse_pick_slot(name: str) -> tuple[int, int, int] | None:
     """Return (year, round, slot) for a slot-specific pick name.
 
-    Returns None for tier-only rows like "2026 Early 1st".
+    Returns None for tier-only rows like "2026 Early 1st".  Delegates
+    to the canonical pick-identity owner (C1-ID-02).
     """
-    if not name:
-        return None
-    m = _PICK_SLOT_RE.match(str(name).strip())
-    if not m:
-        return None
-    try:
-        return int(m.group(1)), int(m.group(2)), int(m.group(3))
-    except (TypeError, ValueError):
-        return None
+    return _owner_parse_board_slot_name(name)
 
 
 def _parse_pick_tier(name: str) -> tuple[int, str, int] | None:
     """Return (year, tier, round) for a generic tier pick name.
 
     Returns None for slot-specific rows like "2026 Pick 1.06".
+    Delegates to the canonical pick-identity owner (C1-ID-02).
     """
-    if not name:
-        return None
-    m = _PICK_TIER_RE.match(str(name).strip())
-    if not m:
-        return None
-    try:
-        return int(m.group(1)), m.group(2).capitalize(), int(m.group(3))
-    except (TypeError, ValueError):
-        return None
+    return _owner_parse_board_tier_name(name)
 
 
 # ── Blend-integrity detection ───────────────────────────────────────────
@@ -9101,16 +9082,8 @@ def _normalize_pos(pos: Any) -> str:
 
 
 def _is_pick_name(name: str) -> bool:
-    n = str(name or "").strip()
-    if not n:
-        return False
-    if re.search(r"\b(20\d{2})\s+(EARLY|MID|LATE)\s+[1-6](ST|ND|RD|TH)\b", n, re.I):
-        return True
-    if re.search(r"\b(20\d{2})\s+[1-6]\.(0?[1-9]|1[0-2])\b", n, re.I):
-        return True
-    if re.search(r"\b(20\d{2})\s+(PICK|ROUND)\b", n, re.I):
-        return True
-    return False
+    """Delegates to the canonical pick-identity owner (C1-ID-02)."""
+    return _owner_is_pick_name(name)
 
 
 def _canonical_site_values(

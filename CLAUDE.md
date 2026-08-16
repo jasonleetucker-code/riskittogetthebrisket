@@ -1710,6 +1710,34 @@ served board policy); never add consumers to `unified_mapper.resolve_player`
 `src/identity/` + the `name_clean` family registry. Full record:
 `docs/identity/C1_ID_01_IDENTITY_CONSOLIDATION.md`.
 
+### Pick identity — one owner (C1-ID-02, cut over 2026-08-16)
+
+`src/identity/picks.py` owns draft-pick identity end to end. Two canonical
+concepts, deliberately distinct: a **league pick** (owned asset — identity is
+`league_key + season + round + origin franchise`, canonical id
+`pick:<leagueKey>:<season>:r<N>:o<rid>`; current owner and realized slot are
+STATE, so a trade or the draft order landing never mints a new asset) and a
+**market pick reference** (what sources price — `mpick:<year>:r<N>[:s<slot>|:t<tier>]`
+at exactly one of slot/tier/generic grades; the board's pick-row names are its
+display form). A league pick *resolves to* a market ref via
+`market_resolution()` — a pure function of state that takes the clock as an
+argument and answers `unknown_slot` with the GENERIC grade, never a fabricated
+tier or slot (the legacy "unknown → Mid" display convention survives only inside
+the owner's explicitly-named legacy formatters, byte-parity-pinned).
+
+Consumers are adapters: the contract's pick regexes/parsers, the overlay's and
+scraper's ownership fold + label grammars (pickDetails now also carry an
+additive canonical `assetId`, stamped only when the Sleeper id resolves to a
+registry key — fail closed), draft-capital's name formatting, and the intel
+crawler's `pick:<season>:<round>` strings all delegate.  That intel grade is a
+PERSISTED generic-grade key whose origin collapse is documented at the owner;
+re-keying it is C1-U8's migration.  The frontend's label-lookup grammar is a
+deferred migration held in lockstep by
+`tests/identity/test_pick_grammar_frontend_parity.py`.  Rules for new code:
+never parse, compare, or mint pick identity outside the owner; identity says
+WHAT the asset is — valuation stays in the pipeline.  Full record:
+`docs/identity/C1_ID_02_PICK_IDENTITY.md`.
+
 ### Adapter Pattern
 Pluggable source adapters (`src/adapters/base.py` defines the frozen contract). All adapters emit `RawAssetRecord` dataclasses with normalized fields.
 

@@ -1,0 +1,47 @@
+{
+  "_provenance": {
+    "capturedFrom": "exports/latest/dynasty_data_2026-08-16.json (scraper-baked contract, real league) and data/sleeper_last_good.json (baked trades block, real league)",
+    "leagueKey": "dynasty_main",
+    "sleeperLeagueId": "1312006700437352448",
+    "note": "Real production data, unedited. The scrapersPickDetails entries are the scraper's S2 representation verbatim. The sleeperTradedPicks rows are the exact Sleeper /traded_picks S1 rows those details were derived from, reconstructed by inverting the scraper's own field mapping (season -> str per Sleeper's wire format, roster_id = fromRosterId, owner_id = ownerRosterId); the inversion is lossless because the scraper copies these fields verbatim apart from int-coercing season."
+  },
+  "scraperPickDetails": [
+    {"team": "Jason", "rosterId": 1, "season": 2026, "round": 1, "fromRosterId": 1, "fromTeam": "Jason", "ownerRosterId": 1, "slot": 3, "label": "2026 1.03 (own)", "baseLabel": "2026 1.03"},
+    {"team": "Jason", "rosterId": 1, "season": 2027, "round": 1, "fromRosterId": 12, "fromTeam": "Blaine", "ownerRosterId": 1, "slot": null, "label": "2027 Mid 1st (from Blaine)", "baseLabel": "2027 Mid 1st"},
+    {"team": "Jason", "rosterId": 1, "season": 2027, "round": 1, "fromRosterId": 9, "fromTeam": "Brent", "ownerRosterId": 1, "slot": null, "label": "2027 Mid 1st (from Brent)", "baseLabel": "2027 Mid 1st"},
+    {"team": "Jason", "rosterId": 1, "season": 2027, "round": 1, "fromRosterId": 10, "fromTeam": "Kich", "ownerRosterId": 1, "slot": null, "label": "2027 Mid 1st (from Kich)", "baseLabel": "2027 Mid 1st"},
+    {"team": "Jason", "rosterId": 1, "season": 2027, "round": 1, "fromRosterId": 3, "fromTeam": "Ty", "ownerRosterId": 1, "slot": null, "label": "2027 Mid 1st (from Ty)", "baseLabel": "2027 Mid 1st"},
+    {"team": "Jason", "rosterId": 1, "season": 2029, "round": 3, "fromRosterId": 2, "fromTeam": "Ed", "ownerRosterId": 1, "slot": null, "label": "2029 Mid 3rd (from Ed)", "baseLabel": "2029 Mid 3rd"},
+    {"team": "Roy", "rosterId": 7, "season": 2028, "round": 1, "fromRosterId": 12, "fromTeam": "Blaine", "ownerRosterId": 7, "slot": null, "label": "2028 Mid 1st (from Blaine)", "baseLabel": "2028 Mid 1st"},
+    {"team": "Roy", "rosterId": 7, "season": 2028, "round": 1, "fromRosterId": 9, "fromTeam": "Brent", "ownerRosterId": 7, "slot": null, "label": "2028 Mid 1st (from Brent)", "baseLabel": "2028 Mid 1st"},
+    {"team": "Roy", "rosterId": 7, "season": 2028, "round": 1, "fromRosterId": 2, "fromTeam": "Ed", "ownerRosterId": 7, "slot": null, "label": "2028 Mid 1st (from Ed)", "baseLabel": "2028 Mid 1st"},
+    {"team": "Roy", "rosterId": 7, "season": 2028, "round": 1, "fromRosterId": 6, "fromTeam": "Eric", "ownerRosterId": 7, "slot": null, "label": "2028 Mid 1st (from Eric)", "baseLabel": "2028 Mid 1st"},
+    {"team": "Roy", "rosterId": 7, "season": 2028, "round": 1, "fromRosterId": 1, "fromTeam": "Jason", "ownerRosterId": 7, "slot": null, "label": "2028 Mid 1st (from Jason)", "baseLabel": "2028 Mid 1st"},
+    {"team": "Roy", "rosterId": 7, "season": 2028, "round": 1, "fromRosterId": 5, "fromTeam": "MaKayla", "ownerRosterId": 7, "slot": null, "label": "2028 Mid 1st (from MaKayla)", "baseLabel": "2028 Mid 1st"},
+    {"team": "Roy", "rosterId": 7, "season": 2028, "round": 1, "fromRosterId": 7, "fromTeam": "Roy", "ownerRosterId": 7, "slot": null, "label": "2028 Mid 1st (own)", "baseLabel": "2028 Mid 1st"}
+  ],
+  "sleeperTradedPicks": [
+    {"season": "2027", "round": 1, "roster_id": 12, "owner_id": 1, "previous_owner_id": 12},
+    {"season": "2027", "round": 1, "roster_id": 9, "owner_id": 1, "previous_owner_id": 9},
+    {"season": "2027", "round": 1, "roster_id": 10, "owner_id": 1, "previous_owner_id": 10},
+    {"season": "2027", "round": 1, "roster_id": 3, "owner_id": 1, "previous_owner_id": 3},
+    {"season": "2028", "round": 1, "roster_id": 12, "owner_id": 7, "previous_owner_id": 12},
+    {"season": "2028", "round": 1, "roster_id": 9, "owner_id": 7, "previous_owner_id": 9},
+    {"season": "2028", "round": 1, "roster_id": 2, "owner_id": 7, "previous_owner_id": 2},
+    {"season": "2028", "round": 1, "roster_id": 6, "owner_id": 7, "previous_owner_id": 6},
+    {"season": "2028", "round": 1, "roster_id": 1, "owner_id": 7, "previous_owner_id": 1},
+    {"season": "2028", "round": 1, "roster_id": 5, "owner_id": 7, "previous_owner_id": 5},
+    {"season": "2029", "round": 3, "roster_id": 2, "owner_id": 1, "previous_owner_id": 2}
+  ],
+  "storedTradeWithPickStrings": {
+    "leagueId": "1312006700437352448",
+    "week": 1,
+    "timestamp": 1786818713561,
+    "sides": [
+      {"team": "Jason", "rosterId": 1, "got": ["Daiyan Henley", "Cooper DeJean"], "gave": ["Malachi Moore", "Patrick Queen", "2028 Mid 2nd (from Blaine)", "2029 Mid 2nd (from Ed)"]},
+      {"team": "Roy", "rosterId": 7, "got": ["Malachi Moore", "Patrick Queen", "2028 Mid 2nd (from Blaine)", "2029 Mid 2nd (from Ed)"], "gave": ["Daiyan Henley", "Cooper DeJean"]}
+    ]
+  },
+  "rosterNameById": {"1": "Jason", "2": "Ed", "3": "Ty", "5": "MaKayla", "6": "Eric", "7": "Roy", "9": "Brent", "10": "Kich", "12": "Blaine"},
+  "secondLeague": {"leagueKey": "dynasty_new", "sleeperLeagueId": "1320092771247222784"}
+}

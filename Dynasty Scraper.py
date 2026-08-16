@@ -83,6 +83,11 @@ from src.identity.name_primitives import (  # noqa: E402
 )
 from src.identity.name_primitives import similarity as _identity_similarity  # noqa: E402
 
+# C1-ID-02: pick identity and pick-label grammars are owned by
+# src/identity/picks; this scraper is an ADAPTER for them, exactly like
+# the name primitives above.
+from src.identity import picks as _pick_identity  # noqa: E402
+
 try:
     from src.scoring import (
         build_default_baseline_config,
@@ -778,15 +783,6 @@ def fetch_sleeper_rosters(league_id):
         except Exception:
             return None
 
-    def _round_suffix(round_num):
-        if round_num == 1:
-            return "st"
-        if round_num == 2:
-            return "nd"
-        if round_num == 3:
-            return "rd"
-        return "th"
-
     def _pick_sort_key(label):
         s = str(label or "")
         m_slot = re.match(r"^(20\d{2})\s+([1-6])\.(\d{1,2})", s)
@@ -816,32 +812,10 @@ def fetch_sleeper_rosters(league_id):
     )
     league_size_for_tiers = max(3, int(league_size_for_tiers))
 
-    def _slot_to_tier_label(slot):
-        slot_num = _safe_int(slot)
-        if not isinstance(slot_num, int) or slot_num <= 0:
-            return "Mid"
-        per_tier = max(1, league_size_for_tiers // 3)
-        early_end = per_tier
-        mid_end = min(league_size_for_tiers, per_tier * 2)
-        if slot_num <= early_end:
-            return "Early"
-        if slot_num <= mid_end:
-            return "Mid"
-        return "Late"
-
     draft_rounds = _safe_int((league_settings or {}).get("draft_rounds")) or 4
     draft_rounds = max(1, min(6, draft_rounds))
     current_year = datetime.date.today().year
     pick_years = [current_year, current_year + 1, current_year + 2, current_year + 3]
-
-    pick_owner = {}  # (season, round, original_roster_id) -> owner_roster_id
-    # Canonical pick identity map so trade-history can reference the exact pick label
-    # (slot/tier + source team), not only generic "YYYY Round N".
-    pick_identity = {}  # (season, round, original_roster_id) -> {baseLabel, fromTeam, slot}
-    for season in pick_years:
-        for round_num in range(1, draft_rounds + 1):
-            for origin_rid in roster_ids:
-                pick_owner[(season, round_num, origin_rid)] = origin_rid
 
     # Resolve exact rookie-draft slot (when available) so picks can be
     # represented as 2026 1.03 instead of only Early/Mid/Late style labels.
@@ -903,56 +877,65 @@ def fetch_sleeper_rosters(league_id):
     except Exception:
         traded_picks = []
 
-    for tp in traded_picks:
-        season = _safe_int(tp.get("season"))
-        round_num = _safe_int(tp.get("round"))
-        origin_rid = _safe_int(tp.get("roster_id"))
-        owner_rid = _safe_int(tp.get("owner_id"))
-        if (
-            season in pick_years
-            and isinstance(round_num, int)
-            and 1 <= round_num <= draft_rounds
-            and origin_rid in roster_id_set
-            and owner_rid in roster_id_set
-        ):
-            pick_owner[(season, round_num, origin_rid)] = owner_rid
+    # C1-ID-02: the seed + traded-diff fold and both label grammars are
+    # owned by src/identity/picks — this block is an adapter.  Canonical
+    # ids are league-scoped by REGISTRY key; an unregistered Sleeper id
+    # gets no ``assetId`` stamp (fail closed) rather than an id minted
+    # under a wrong league.
+    _pick_league_key = None
+    try:
+        from src.api.league_registry import league_key_for_sleeper_id
 
-    for (season, round_num, origin_rid), owner_rid in pick_owner.items():
-        slot_num = draft_slot_by_origin.get((season, origin_rid))
-        # Keep current-year picks as slot-specific when available.
-        # For all future years (current+1 .. current+3), normalize to
-        # Early/Mid/Late buckets.
-        if season >= current_year + 1:
-            tier_label = _slot_to_tier_label(slot_num)
-            base_label = f"{season} {tier_label} {round_num}{_round_suffix(round_num)}"
-        elif isinstance(slot_num, int) and slot_num > 0:
-            base_label = f"{season} {round_num}.{str(slot_num).zfill(2)}"
-        else:
-            base_label = f"{season} {round_num}{_round_suffix(round_num)}"
+        _pick_league_key = league_key_for_sleeper_id(league_id)
+    except Exception:
+        _pick_league_key = None
+
+    owned_picks = _pick_identity.build_pick_ownership(
+        _pick_league_key or "unregistered-league",
+        roster_ids,
+        traded_picks,
+        seasons=pick_years,
+        rounds=draft_rounds,
+        slot_by_origin=draft_slot_by_origin,
+    )
+
+    for o in owned_picks:
+        season = o.identity.season
+        round_num = o.identity.round_num
+        origin_rid = o.identity.origin_roster_id
+        owner_rid = o.state.owner_roster_id
+        slot_num = o.state.slot
+        # Current-year picks stay slot-specific when available; future
+        # years normalize to Early/Mid/Late buckets (the legacy grammar,
+        # including its unknown-slot "Mid" display fabrication, lives in
+        # the owner's format_pick_label_baked and only there).
+        base_label = _pick_identity.format_pick_label_baked(
+            season=season,
+            round_num=round_num,
+            slot=slot_num,
+            current_year=current_year,
+            league_size=league_size_for_tiers,
+        )
         from_team = roster_name_by_id.get(origin_rid, f"Team {origin_rid}")
-        pick_identity[(season, round_num, origin_rid)] = {
-            "baseLabel": base_label,
-            "fromTeam": from_team,
-            "slot": slot_num if isinstance(slot_num, int) else None,
-        }
         if owner_rid == origin_rid:
             display_label = f"{base_label} (own)"
         else:
             display_label = f"{base_label} (from {from_team})"
 
         team_pick_assets.setdefault(owner_rid, []).append(display_label)
-        team_pick_details.setdefault(owner_rid, []).append(
-            {
-                "season": season,
-                "round": round_num,
-                "fromRosterId": origin_rid,
-                "fromTeam": from_team,
-                "ownerRosterId": owner_rid,
-                "slot": slot_num if isinstance(slot_num, int) else None,
-                "label": display_label,
-                "baseLabel": base_label,
-            }
-        )
+        detail = {
+            "season": season,
+            "round": round_num,
+            "fromRosterId": origin_rid,
+            "fromTeam": from_team,
+            "ownerRosterId": owner_rid,
+            "slot": slot_num if isinstance(slot_num, int) else None,
+            "label": display_label,
+            "baseLabel": base_label,
+        }
+        if _pick_league_key is not None:
+            detail["assetId"] = o.identity.canonical_id
+        team_pick_details.setdefault(owner_rid, []).append(detail)
 
     if team_pick_assets:
         total_pick_assets = sum(len(v) for v in team_pick_assets.values())
@@ -1198,52 +1181,28 @@ def fetch_sleeper_rosters(league_id):
                     arr.append(label)
 
         def _format_trade_pick_label(pick, rid_to_name):
-            """Return canonical pick label (slot/tier + from team) for trade-history valuation."""
-            season = _safe_int(pick.get("season"))
-            round_num = _safe_int(pick.get("round"))
+            """Return canonical pick label (slot/tier + from team) for
+            trade-history valuation.  Grammar owned by the canonical
+            pick-identity module (C1-ID-02); this closure only resolves
+            the origin's display name through the scraper's wider
+            fallback chain (rid_to_name → roster_name_by_id → Team N)
+            before delegating."""
             origin_rid = _safe_int(pick.get("roster_id") or pick.get("origin_roster_id"))
-
-            from_team = None
+            from_team_map = {}
             if isinstance(origin_rid, int):
-                from_team = (
+                from_team_map[origin_rid] = (
                     rid_to_name.get(origin_rid)
                     or rid_to_name.get(str(origin_rid))
                     or roster_name_by_id.get(origin_rid)
                     or f"Team {origin_rid}"
                 )
-
-            base_label = None
-            if isinstance(season, int) and isinstance(round_num, int) and round_num > 0:
-                ident = (
-                    pick_identity.get((season, round_num, origin_rid))
-                    if isinstance(origin_rid, int)
-                    else None
-                )
-                if isinstance(ident, dict):
-                    base_label = str(ident.get("baseLabel") or "").strip() or None
-                    if not from_team:
-                        from_team = str(ident.get("fromTeam") or "").strip() or None
-
-                if not base_label:
-                    slot_num = (
-                        _safe_int(draft_slot_by_origin.get((season, origin_rid)))
-                        if isinstance(origin_rid, int)
-                        else None
-                    )
-                    if season >= current_year + 1:
-                        tier_label = _slot_to_tier_label(slot_num)
-                        base_label = f"{season} {tier_label} {round_num}{_round_suffix(round_num)}"
-                    elif isinstance(slot_num, int) and slot_num > 0:
-                        base_label = f"{season} {round_num}.{str(slot_num).zfill(2)}"
-                    else:
-                        base_label = f"{season} {round_num}{_round_suffix(round_num)}"
-
-            if not base_label:
-                season_txt = str(pick.get("season", "")).strip()
-                round_txt = str(pick.get("round", "?")).strip()
-                base_label = f"{season_txt} Round {round_txt}".strip()
-
-            return f"{base_label} (from {from_team})" if from_team else base_label
+            return _pick_identity.format_trade_pick_label(
+                pick,
+                from_team_map,
+                draft_slot_by_origin,
+                current_year=current_year,
+                league_size=league_size_for_tiers,
+            )
 
         seen_tx_ids = set()
         league_ids = _league_chain_ids(league_id, max_depth=4)
