@@ -1,16 +1,16 @@
 {
- "generatedAt": "2026-08-16T19:09:04.488634+00:00",
+ "generatedAt": "2026-08-16T21:00:53.913106+00:00",
  "servedPolicy": "scraper_sleeper_attach_v1",
  "servedBy": "src.identity.resolution",
  "legacyLadderRetired": true,
  "v2WatchEnabled": true,
  "site": "scraper_sleeper_attach",
- "calls": 1927,
+ "calls": 2016,
  "v1Agree": 0,
  "v1Diverge": 0,
  "v1Examples": [],
- "v2Same": 1909,
- "v2WouldChange": 18,
+ "v2Same": 1996,
+ "v2WouldChange": 20,
  "v2Examples": [
   {
    "name": "Bam Knight",
@@ -34,6 +34,14 @@
    "served": "10917",
    "engineV2": null,
    "v2Method": "exact_clean:name_pos",
+   "v2Reason": "ambiguous"
+  },
+  {
+   "name": "Elijah Mitchell",
+   "pos": "",
+   "served": "7561",
+   "engineV2": null,
+   "v2Method": "exact_clean:name",
    "v2Reason": "ambiguous"
   },
   {
@@ -109,6 +117,22 @@
    "v2Reason": "no_candidate"
   },
   {
+   "name": "Bam Knight",
+   "pos": "",
+   "served": "6050",
+   "engineV2": null,
+   "v2Method": "none",
+   "v2Reason": "no_candidate"
+  },
+  {
+   "name": "Matthew Hibner",
+   "pos": "",
+   "served": "13324",
+   "engineV2": null,
+   "v2Method": "none",
+   "v2Reason": "no_candidate"
+  },
+  {
    "name": "Byron Murphy",
    "pos": "DL",
    "served": "11668",
@@ -128,14 +152,6 @@
    "name": "Jamarion Miller",
    "pos": "",
    "served": "12103",
-   "engineV2": null,
-   "v2Method": "none",
-   "v2Reason": "no_candidate"
-  },
-  {
-   "name": "Matthew Hibner",
-   "pos": "",
-   "served": "13324",
    "engineV2": null,
    "v2Method": "none",
    "v2Reason": "no_candidate"
