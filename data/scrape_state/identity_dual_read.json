@@ -1,0 +1,166 @@
+{
+ "generatedAt": "2026-08-16T02:50:03.852389+00:00",
+ "dualReadEnabled": true,
+ "cutoverActive": false,
+ "site": "scraper_sleeper_attach",
+ "calls": 2016,
+ "v1Agree": 2016,
+ "v1Diverge": 0,
+ "v1Examples": [],
+ "v2Same": 1997,
+ "v2WouldChange": 19,
+ "v2Examples": [
+  {
+   "name": "Bam Knight",
+   "pos": "",
+   "legacy": "6050",
+   "engineV2": null,
+   "v2Method": "none",
+   "v2Reason": "no_candidate"
+  },
+  {
+   "name": "Byron Murphy",
+   "pos": "DL",
+   "legacy": "11668",
+   "engineV2": null,
+   "v2Method": "exact_clean:name_pos",
+   "v2Reason": "ambiguous"
+  },
+  {
+   "name": "Byron Young",
+   "pos": "DL",
+   "legacy": "10917",
+   "engineV2": null,
+   "v2Method": "exact_clean:name_pos",
+   "v2Reason": "ambiguous"
+  },
+  {
+   "name": "Elijah Mitchell",
+   "pos": "",
+   "legacy": "7561",
+   "engineV2": null,
+   "v2Method": "exact_clean:name",
+   "v2Reason": "ambiguous"
+  },
+  {
+   "name": "Jaylon Jones",
+   "pos": "",
+   "legacy": "8702",
+   "engineV2": null,
+   "v2Method": "exact_clean:name",
+   "v2Reason": "ambiguous"
+  },
+  {
+   "name": "Johnny Newton",
+   "pos": "",
+   "legacy": "11764",
+   "engineV2": null,
+   "v2Method": "none",
+   "v2Reason": "no_candidate"
+  },
+  {
+   "name": "Justin Madubuike",
+   "pos": "",
+   "legacy": null,
+   "engineV2": "6818",
+   "v2Method": "exact_canonical:name",
+   "v2Reason": null
+  },
+  {
+   "name": "Matt Judon",
+   "pos": "",
+   "legacy": "3303",
+   "engineV2": null,
+   "v2Method": "none",
+   "v2Reason": "no_candidate"
+  },
+  {
+   "name": "Matthew Hibner",
+   "pos": "",
+   "legacy": "13324",
+   "engineV2": null,
+   "v2Method": "none",
+   "v2Reason": "no_candidate"
+  },
+  {
+   "name": "Michael Carter",
+   "pos": "",
+   "legacy": "7607",
+   "engineV2": null,
+   "v2Method": "exact_clean:name",
+   "v2Reason": "ambiguous"
+  },
+  {
+   "name": "Michael Hall",
+   "pos": "",
+   "legacy": "11692",
+   "engineV2": null,
+   "v2Method": "none",
+   "v2Reason": "no_candidate"
+  },
+  {
+   "name": "Nikolas Martin",
+   "pos": "",
+   "legacy": "12630",
+   "engineV2": null,
+   "v2Method": "none",
+   "v2Reason": "no_candidate"
+  },
+  {
+   "name": "Bam Knight",
+   "pos": "",
+   "legacy": "6050",
+   "engineV2": null,
+   "v2Method": "none",
+   "v2Reason": "no_candidate"
+  },
+  {
+   "name": "Matthew Hibner",
+   "pos": "",
+   "legacy": "13324",
+   "engineV2": null,
+   "v2Method": "none",
+   "v2Reason": "no_candidate"
+  },
+  {
+   "name": "Byron Murphy",
+   "pos": "DL",
+   "legacy": "11668",
+   "engineV2": null,
+   "v2Method": "exact_clean:name_pos",
+   "v2Reason": "ambiguous"
+  },
+  {
+   "name": "Byron Young",
+   "pos": "DL",
+   "legacy": "10917",
+   "engineV2": null,
+   "v2Method": "exact_clean:name_pos",
+   "v2Reason": "ambiguous"
+  },
+  {
+   "name": "Jamarion Miller",
+   "pos": "",
+   "legacy": "12103",
+   "engineV2": null,
+   "v2Method": "none",
+   "v2Reason": "no_candidate"
+  },
+  {
+   "name": "Whit Weeks",
+   "pos": "",
+   "legacy": "13785",
+   "engineV2": null,
+   "v2Method": "none",
+   "v2Reason": "no_candidate"
+  },
+  {
+   "name": "Rod Moore",
+   "pos": "",
+   "legacy": "873",
+   "engineV2": null,
+   "v2Method": "none",
+   "v2Reason": "no_candidate"
+  }
+ ]
+}
