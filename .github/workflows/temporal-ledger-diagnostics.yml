@@ -84,7 +84,9 @@ jobs:
             "APP_DIR=$(printf %q "$APP_DIR") PROBE_ASSETS=$(printf %q "$PROBE_ASSETS") PROBE_DATE=$(printf %q "$PROBE_DATE") bash -s" <<'REMOTE'
           set -Eeuo pipefail
           cd "$APP_DIR"
-          PY="$APP_DIR/venv/bin/python"
+          # deploy.sh's VENV_DIR default is .venv; older layouts used venv.
+          PY="$APP_DIR/.venv/bin/python"
+          [ -x "$PY" ] || PY="$APP_DIR/venv/bin/python"
           [ -x "$PY" ] || PY=python3
           ARGS=()
           IFS=',' read -ra ASSETS <<< "${PROBE_ASSETS:-}"

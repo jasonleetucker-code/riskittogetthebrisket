@@ -5098,19 +5098,21 @@ def _stamp_rank_changes(
 
     flag = _os.environ.get("RISKIT_FEATURE_LEDGER_RANK_CHANGE", "1").strip().lower()
     previous: dict[str, tuple[str, int]] = {}
+    _history_keys = None
     if flag not in ("0", "false", "off"):
+        # Every src.history touch — the keys import included — sits
+        # inside one guard: a history failure (or the rollback flag)
+        # must not break the contract build, and the degraded stamp is
+        # "no comparator" (None), never a wrong number.
         try:
             from src.history import asof as _asof
+            from src.history import keys as _history_keys  # noqa: F811
 
             if not board_date:
                 board_date = datetime.now(timezone.utc).date().isoformat()
             previous = _asof.previous_board_ranks(before_date=board_date, path=ledger_path)
         except Exception:
-            # A history failure must not break the contract build; the
-            # stamp degrades to "no comparator", never to a wrong number.
             previous = {}
-
-    from src.history import keys as _history_keys
 
     for row in rows:
         rank = row.get("canonicalConsensusRank")
@@ -5118,7 +5120,7 @@ def _stamp_rank_changes(
             cur_rank = int(rank) if rank is not None else None
         except (TypeError, ValueError):
             cur_rank = None
-        if cur_rank is None:
+        if cur_rank is None or _history_keys is None:
             row["rankChange"] = None
             continue
         keyed = _history_keys.asset_key_for_contract_row(row)

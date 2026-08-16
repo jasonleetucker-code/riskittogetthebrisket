@@ -2231,7 +2231,15 @@ def _prime_latest_payload(data: dict | None, *, is_fresh_scrape: bool = False) -
         #   frontend glyph needs it on startup-primed payloads too.
         try:
             if is_fresh_scrape:
-                _rank_history.append_snapshot(contract_payload)
+                # Each of the three recorders is isolated in its own
+                # try so one failing append can never silently skip the
+                # others (the ledger record used to sit downstream of
+                # the rank-history append inside one block — an
+                # asymmetric coupling the C1-U4 final review flagged).
+                try:
+                    _rank_history.append_snapshot(contract_payload)
+                except Exception as inner_exc:  # noqa: BLE001
+                    log.warning("rank_history: append failed: %s", inner_exc)
                 # Sister snapshot: per-source value history.  Stored in
                 # a separate JSONL so the rank-history log stays small
                 # and readable while the popup chart can stream a

@@ -234,6 +234,52 @@ class ObservationError(ValueError):
     """A record that must not enter the ledger (fail closed)."""
 
 
+def has_time_component(stamp: Any) -> bool:
+    """True only for a parseable ISO stamp that actually CARRIES a time.
+
+    Load-bearing for the never-future guarantee: a date-only string
+    ("2026-08-16") parses as midnight and lexicographically precedes
+    every instant of its own day, so treating it as a proven instant
+    would promote an UNKNOWN scrape time to "provably at-or-before any
+    moment today" — the exact leak the final review reproduced
+    (``board_store`` can stamp ``scraped_at`` with the bare contract
+    date when ``scrapeTimestamp`` is absent).  An instant is proven
+    only when the text contains an explicit time separator and parses.
+    """
+    s = str(stamp or "").strip()
+    if len(s) <= 10 or (s[10] not in ("T", " ")):
+        return False
+    try:
+        datetime.fromisoformat(s)
+    except ValueError:
+        return False
+    return True
+
+
+def _normalize_observation(obs: dict[str, Any]) -> dict[str, Any]:
+    """Write-path normalization — the store owns these rules so every
+    writer (live, backfill, migrations, future ones) inherits them:
+
+    * ``source_key`` ``None`` → ``''`` (the column is NOT NULL; without
+      this a None would be dropped by OR IGNORE and then misreported by
+      the conflict probe);
+    * ``observed_at`` without a real time component → ``None``
+      (an unparseable or date-only stamp IS no instant; storing it
+      would poison the instant-strict query per
+      :func:`has_time_component`), and ``''`` → ``None`` so the
+      identity index's COALESCE cannot make an empty string and a NULL
+      two spellings of one identity.
+    """
+    out = dict(obs)
+    if out.get("source_key") is None:
+        out["source_key"] = ""
+    oa = out.get("observed_at")
+    if oa is not None and not has_time_component(oa):
+        out["observed_at"] = None
+        out["observed_at_zone"] = None
+    return out
+
+
 def validate_observation(obs: dict[str, Any]) -> None:
     key = obs.get("asset_key")
     if not is_valid_asset_key(str(key or "")):
@@ -243,9 +289,14 @@ def validate_observation(obs: dict[str, Any]) -> None:
         raise ObservationError(f"invalid lane: {lane!r}")
     od = str(obs.get("observed_date") or "")
     try:
-        datetime.strptime(od, "%Y-%m-%d")
+        parsed = datetime.strptime(od, "%Y-%m-%d")
     except ValueError as exc:
         raise ObservationError(f"invalid observed_date: {od!r}") from exc
+    # strptime accepts non-zero-padded forms ("2026-7-15") that would
+    # corrupt every lexicographic date comparison in the query layer —
+    # require the canonical ISO spelling exactly.
+    if parsed.date().isoformat() != od:
+        raise ObservationError(f"observed_date not canonical ISO (YYYY-MM-DD): {od!r}")
     if od < HISTORY_FLOOR:
         # A pre-boundary observation cannot exist: nothing earlier than
         # the archive floor survives, so a row claiming to is
@@ -289,7 +340,8 @@ def write_observations(
 
     conn = connect(path)
     try:
-        for obs in observations:
+        for raw_obs in observations:
+            obs = _normalize_observation(raw_obs)
             try:
                 validate_observation(obs)
             except ObservationError as exc:
@@ -363,12 +415,24 @@ def record_correction(
     """
     if not reason or not reason.strip():
         raise ObservationError("a correction requires a reason")
+    if superseded_id == superseding_id:
+        raise ObservationError("an observation cannot supersede itself")
     conn = connect(path)
     try:
         for oid in (superseded_id, superseding_id):
             row = conn.execute("SELECT id FROM observations WHERE id=?", (oid,)).fetchone()
             if row is None:
                 raise ObservationError(f"correction references missing observation id {oid}")
+        # A superseding row must itself be live evidence: allowing a
+        # superseded row to supersede would let a two-row cycle remove
+        # both from every query surface — evidence deletion by another
+        # name.
+        if conn.execute(
+            "SELECT 1 FROM corrections WHERE superseded_id=?", (superseding_id,)
+        ).fetchone():
+            raise ObservationError(
+                f"observation {superseding_id} is itself superseded and cannot supersede"
+            )
         conn.execute(
             "INSERT INTO corrections(superseded_id, superseding_id, reason, recorded_at) "
             "VALUES (?, ?, ?, ?)",

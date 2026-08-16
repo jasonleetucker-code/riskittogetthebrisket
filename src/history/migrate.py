@@ -171,6 +171,43 @@ def _split_legacy_key(raw_key: str) -> tuple[str, str]:
     return raw_key[:idx], raw_key[idx + 2 :].strip().lower() or "unknown"
 
 
+def _already_migrated_facts(path: Path | None) -> set[tuple[str, str, str]]:
+    """Legacy facts this migration has ALREADY ingested, keyed by their
+    LEGACY natural identity ``(lower name, asset_class, observed_date)``
+    rather than by the resolved asset key.
+
+    Load-bearing for idempotence (final-review blocker 2): the
+    name→id resolution map grows as live recording adds identity
+    evidence, so re-resolving on every run would migrate the SAME
+    legacy fact again under a different (better or worse) key — a new
+    observation identity the append-only store would admit, duplicating
+    evidence on every deploy.  First migration wins instead: the key
+    grade recorded reflects the evidence available when the fact was
+    migrated, which is provenance-truthful, and a re-run is a genuine
+    no-op.  This also refuses to re-ingest a date the legacy log later
+    OVERWROTE in place (its documented same-date most-recent-wins
+    behavior — RED-5): the ledger keeps the evidence from the first
+    migration rather than silently following the rewrite.
+    """
+    conn = store.connect(path)
+    try:
+        rows = conn.execute(
+            "SELECT DISTINCT display_name, asset_class, observed_date "
+            "FROM observations WHERE origin=?",
+            (ORIGIN_RANK_HISTORY,),
+        ).fetchall()
+    finally:
+        conn.close()
+    return {
+        (
+            str(r["display_name"] or "").strip().lower(),
+            str(r["asset_class"]),
+            str(r["observed_date"]),
+        )
+        for r in rows
+    }
+
+
 def migrate_rank_history(
     source: Path | None = None,
     *,
@@ -181,11 +218,13 @@ def migrate_rank_history(
         return {"skipped": True, "reason": f"no rank_history log at {source}"}
 
     id_map = _identity_map(path)
+    already = _already_migrated_facts(path)
 
     observations: list[dict[str, Any]] = []
     unresolved_picks = 0
     name_keyed = 0
     ambiguous_or_unknown = 0
+    already_migrated = 0
     entries = 0
     with source.open("r", encoding="utf-8") as f:
         for raw_line in f:
@@ -207,6 +246,10 @@ def migrate_rank_history(
 
             for legacy_key, rank in ranks.items():
                 name, asset_class = _split_legacy_key(str(legacy_key))
+                norm_class = asset_class if asset_class in ("offense", "idp", "pick") else "unknown"
+                if (name.strip().lower(), norm_class, date_s) in already:
+                    already_migrated += 1
+                    continue
                 try:
                     rank_i = int(rank)
                 except (TypeError, ValueError):
@@ -238,9 +281,7 @@ def migrate_rank_history(
                 observations.append(
                     {
                         "asset_key": asset_key,
-                        "asset_class": asset_class
-                        if asset_class in ("offense", "idp", "pick")
-                        else "unknown",
+                        "asset_class": norm_class,
                         "lane": store.LANE_CANONICAL,
                         "source_key": "",
                         "observed_date": date_s,
@@ -266,6 +307,7 @@ def migrate_rank_history(
             "unresolvedPicks": unresolved_picks,
             "nameKeyed": name_keyed,
             "unkeyable": ambiguous_or_unknown,
+            "alreadyMigrated": already_migrated,
             "skipped": False,
         }
     )

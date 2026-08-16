@@ -78,11 +78,41 @@ def _connect_readonly(path: Path | None) -> sqlite3.Connection | None:
     """Open the ledger for a READ, or return ``None`` when it does not
     exist.  A query must never create the database file as a side
     effect — an empty ledger created by a read would make "no ledger"
-    and "empty ledger" indistinguishable on disk."""
-    target = path or store.DB_PATH
-    if not Path(target).exists():
+    and "empty ledger" indistinguishable on disk — and it must not
+    write AT ALL, so this opens SQLite in true read-only mode rather
+    than routing through the schema-ensuring write connector."""
+    target = Path(path or store.DB_PATH)
+    if not target.exists():
         return None
-    return store.connect(target)
+    conn = sqlite3.connect(f"file:{target}?mode=ro", uri=True, timeout=10.0)
+    conn.row_factory = sqlite3.Row
+    return conn
+
+
+def _instant_at_or_before(observed_at: Any, instant_utc: datetime) -> bool:
+    """True only when ``observed_at`` is a PROVEN instant at or before
+    ``instant_utc``.
+
+    Proven means the stamp carries an explicit time component
+    (``store.has_time_component`` — a date-only string parses as
+    midnight and would promote an unknown scrape time to "provably
+    before every moment of its day", the leak the final review
+    reproduced).  Comparison is on PARSED datetimes, never
+    lexicographic text (a zone-qualified stamp with a negative UTC
+    offset would defeat a string compare): zone-aware stamps convert
+    to UTC; naive stamps are compared under the recorded
+    naive-means-UTC assumption of the recording hosts.
+    """
+    s = str(observed_at or "").strip()
+    if not store.has_time_component(s):
+        return False
+    try:
+        parsed = datetime.fromisoformat(s)
+    except ValueError:
+        return False
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=timezone.utc)
+    return parsed <= instant_utc
 
 
 FIDELITY_EXACT = "exact"
@@ -169,14 +199,7 @@ def _select_best(rows: list[sqlite3.Row]) -> sqlite3.Row | None:
     if not rows:
         return None
 
-    def sort_key(r: sqlite3.Row):
-        return (
-            str(r["observed_date"]),
-            (1, str(r["observed_at"])) if r["observed_at"] else (0, ""),
-            # origin_rank sorts ascending-preferred; negate via tuple trick
-        )
-
-    # Python's sort is stable; do it in three passes, least significant
+    # Python's sort is stable; do it in passes, least significant
     # first, all ascending-normalized.
     ordered = sorted(rows, key=lambda r: str(r["content_hash"]))
     ordered = sorted(ordered, key=lambda r: origin_rank(str(r["origin"])))
@@ -197,14 +220,16 @@ def _fetch_candidates(
     *,
     date_max: str,
     strict_before_date: str | None = None,
-    instant_max: str | None = None,
+    instant_max: datetime | None = None,
 ) -> list[sqlite3.Row]:
     """Date-bounded candidate rows, superseded observations excluded.
 
     ``date_max`` bounds ``observed_date <= date_max``.  When
     ``instant_max`` is set (instant-strict mode), rows on the boundary
-    date qualify only with a known ``observed_at <= instant_max``;
-    rows on strictly earlier dates always qualify.
+    date qualify only with a PROVEN ``observed_at`` at or before it
+    (:func:`_instant_at_or_before` — a date-only or unparseable stamp
+    is an unknown instant and never qualifies); rows on strictly
+    earlier dates always qualify.
     """
     q = (
         f"SELECT {_SELECT_COLS} FROM observations "
@@ -223,9 +248,10 @@ def _fetch_candidates(
     for r in rows:
         if str(r["observed_date"]) < boundary:
             out.append(r)
-        elif r["observed_at"] and str(r["observed_at"]) <= instant_max:
+        elif _instant_at_or_before(r["observed_at"], instant_max):
             out.append(r)
-        # else: same-day with unknown/later instant — excluded (conservative)
+        # else: same-day with unknown/unproven/later instant — excluded
+        # (conservative)
     return out
 
 
@@ -305,7 +331,7 @@ def value_known_before(
             lane,
             source_key,
             date_max=requested,
-            instant_max=utc.isoformat(),
+            instant_max=utc,
         )
     finally:
         conn.close()

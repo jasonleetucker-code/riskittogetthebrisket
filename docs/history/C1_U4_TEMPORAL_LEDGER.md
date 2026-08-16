@@ -306,12 +306,66 @@ double-build equality on a real archived payload (`TestValuationInertness`).
 * **C9 history/storytelling:** `series()` with explicit `historyFloor` and
   preserved gaps — a chart gap is correct; a fabricated line is not.
 
-## 15. What was deliberately NOT done
+## 15. The bounded final review — outcome
+
+One adversarial review (four lenses — temporal correctness, immutability/
+idempotence, integration blast radius, acceptance completeness — each claimed
+blocker independently verified by reproduction). **Two release blockers found,
+both confirmed by execution, both fixed in the same unit:**
+
+1. **A date-only `observed_at` passed the instant-strict filter as a proven
+   instant** (a date string lexicographically precedes every instant of its own
+   day), so `value_known_before` could serve same-day evidence whose scrape time
+   was unknown — mintable via `board_store`'s `scraped_at = scrapeTimestamp or
+   date` fallback flowing through the migration. Fixed twice over: the write path
+   normalizes a time-less `observed_at` to NULL (`store.has_time_component` /
+   `_normalize_observation`), and the reader refuses unproven stamps even for
+   pre-existing rows, comparing PARSED datetimes (zone-aware → UTC; naive under
+   the recorded naive-means-UTC assumption) instead of text. Pinned by
+   `test_date_only_observed_at_is_an_unknown_instant` and
+   `test_negative_utc_offset_instant_compares_correctly`.
+2. **Re-running `migrate_rank_history` duplicated migrated evidence under
+   drifting keys**: the name→id map grows as live recording lands, so the same
+   legacy fact re-migrated under a new key on the next deploy (reproduced both
+   directions). Fixed by keying idempotence on the LEGACY fact's natural identity
+   — first migration wins; re-runs are genuine no-ops (`alreadyMigrated`
+   counted), which also stops the legacy log's in-place same-date rewrites from
+   spamming content conflicts. Pinned by
+   `test_migrate_rerun_is_noop_after_identity_evidence_arrives` and
+   `test_migrate_ignores_same_date_log_rewrite`.
+
+Same-function hardenings folded into the fix commit: canonical-ISO
+`observed_date` enforcement (a non-zero-padded date would corrupt lexicographic
+bounds), `source_key` NULL normalization, truly read-only query connections
+(SQLite `mode=ro`; reads no longer touch the schema), correction self/cycle
+guards, the `keys` import moved inside `_stamp_rank_changes`' failure guard,
+per-recorder exception isolation in `server.py`, the diagnostics workflow's venv
+path corrected to deploy.sh's `.venv` default, and the valuation-inertness test
+upgraded to run against a genuinely populated ledger (doubling as the end-to-end
+`board_date`-threading proof).
+
+**Follow-up hardening, recorded not fixed** (none can select future evidence,
+rewrite history, or fabricate values): `previous_board_ranks` has no
+scoring-scope filter (single-profile boards today; thread `scope` when a second
+profile ships) and anchors on the latest canonical date even if that date's rows
+are all rank-less (yields honest `None`s); backfill groups by filename date and
+re-dates by manifest claim — a bundle whose manifest disagrees with its filename
+could shadow a same-day sibling (not observed in the real archive; deterministic
+either way); the rank-history migration can attach a name-collided same-class
+legacy series to the one platform id known (inherent to name-grade evidence;
+counted); unit tests calling the full builder on a dev box with a real ledger at
+the default path will derive real rankChange stamps (CI has none; tests assert
+determinism, not absence); `terminal.py` user-facing copy still says "since the
+previous scrape" (wording follows the consumer migration, C3);
+`src/api/rank_history.py`'s stale docstring line refs. Previously recorded and
+unchanged: `source_value_history`'s export-wins overwrite defect,
+`exports/dynasty_export_latest.zip`'s zero-consumer status, per-point fidelity
+on the rank-history endpoints.
+
+## 16. What was deliberately NOT done
 
 No valuation methodology change (double-build equality proves value/rank/tier
 inertness). No trade grading, no UI, no projection work. `CANONICAL_V2` untouched;
 C1-U3 not reopened; C1-U5/U6/U7/U8/U9 not started; IDP Guru remains out of scope.
-`source_value_history`'s export-wins overwrite defect and
-`exports/dynasty_export_latest.zip`'s zero-consumer status are recorded here as
-unrelated follow-ups, not fixed. The `reconstructed` fidelity label is defined but
-unproduced pending an owner-approved reconstruction methodology.
+The `reconstructed` fidelity label is defined but unproduced pending an
+owner-approved reconstruction methodology.

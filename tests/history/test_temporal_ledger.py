@@ -174,6 +174,129 @@ class TestAsOfFidelity(_LedgerCase):
         r2 = asof.value_known_before("player:5859", early, path=self.ledger)
         self.assertEqual(r2["observedDate"], "2026-08-15")
 
+    def test_date_only_observed_at_is_an_unknown_instant(self):
+        """Final-review blocker 1: a date-only stamp parses as midnight
+        and lexicographically precedes every instant of its own day, so
+        treating it as proven would serve same-day evidence whose
+        scrape time is UNKNOWN as 'known before' any moment of that
+        day.  Two defenses, both pinned here: the write path normalizes
+        a time-less observed_at to NULL, and the instant-strict reader
+        refuses unproven stamps even if one is already in the store."""
+        # Write-path normalization: board_store's scraped_at fallback
+        # can be the bare contract date — it must land as no-instant.
+        store.write_observations(
+            [
+                {
+                    "asset_key": "player:5859",
+                    "asset_class": "offense",
+                    "lane": store.LANE_CANONICAL,
+                    "source_key": "",
+                    "observed_date": "2026-08-16",
+                    "observed_at": "2026-08-16",  # date-only: unknown instant
+                    "value": 4947.0,
+                    "origin": "migration:board_history",
+                }
+            ],
+            path=self.ledger,
+        )
+        conn = store.connect(self.ledger)
+        stored = conn.execute("SELECT observed_at FROM observations").fetchone()[0]
+        conn.close()
+        self.assertIsNone(stored)
+
+        early = datetime(2026, 8, 16, 0, 30, tzinfo=timezone.utc)
+        r = asof.value_known_before("player:5859", early, path=self.ledger)
+        self.assertEqual(r["fidelity"], asof.FIDELITY_UNAVAILABLE)
+
+        # Reader defense-in-depth: even a PRE-EXISTING date-only stamp
+        # (legacy row written before normalization) never qualifies.
+        conn = store.connect(self.ledger)
+        conn.execute(
+            "UPDATE observations SET observed_at='2026-08-16' WHERE asset_key='player:5859'"
+        )
+        conn.commit()
+        conn.close()
+        r2 = asof.value_known_before("player:5859", early, path=self.ledger)
+        self.assertEqual(r2["fidelity"], asof.FIDELITY_UNAVAILABLE)
+        # …while the day-granular mode still answers (day resolution is
+        # its documented contract).
+        r3 = asof.value_as_of("player:5859", "2026-08-16", path=self.ledger)
+        self.assertEqual(r3["fidelity"], asof.FIDELITY_EXACT)
+
+    def test_negative_utc_offset_instant_compares_correctly(self):
+        """Instant comparison is on parsed datetimes, not text: a
+        zone-qualified stamp with a negative offset would defeat a
+        lexicographic compare."""
+        store.write_observations(
+            [
+                {
+                    "asset_key": "player:5859",
+                    "asset_class": "offense",
+                    "lane": store.LANE_CANONICAL,
+                    "source_key": "",
+                    "observed_date": "2026-08-16",
+                    # 18:00-07:00 == 2026-08-17T01:00Z — AFTER the query
+                    # instant below despite sorting before it as text.
+                    "observed_at": "2026-08-16T18:00:00-07:00",
+                    "value": 4947.0,
+                    "origin": "test",
+                }
+            ],
+            path=self.ledger,
+        )
+        q = datetime(2026, 8, 16, 23, 0, tzinfo=timezone.utc)
+        r = asof.value_known_before("player:5859", q, path=self.ledger)
+        self.assertEqual(r["fidelity"], asof.FIDELITY_UNAVAILABLE)
+        q2 = datetime(2026, 8, 17, 2, 0, tzinfo=timezone.utc)
+        r2 = asof.value_known_before("player:5859", q2, path=self.ledger)
+        self.assertEqual(r2["observedDate"], "2026-08-16")
+
+    def test_non_canonical_observed_date_rejected(self):
+        """strptime accepts '2026-7-15'; stored, it would corrupt every
+        lexicographic date bound.  The canonical ISO spelling is
+        required exactly."""
+        result = store.write_observations(
+            [
+                {
+                    "asset_key": "player:5859",
+                    "asset_class": "offense",
+                    "lane": store.LANE_CANONICAL,
+                    "source_key": "",
+                    "observed_date": "2026-7-15",
+                    "value": 1.0,
+                    "origin": "test",
+                }
+            ],
+            path=self.ledger,
+        )
+        self.assertEqual(result["written"], 0)
+        self.assertIn("not canonical ISO", result["rejected"][0]["reason"])
+
+    def test_source_key_none_normalized(self):
+        result = store.write_observations(
+            [
+                {
+                    "asset_key": "player:5859",
+                    "asset_class": "offense",
+                    "lane": store.LANE_SOURCE,
+                    "source_key": None,
+                    "observed_date": "2026-08-16",
+                    "value": 5000.0,
+                    "origin": "test",
+                }
+            ],
+            path=self.ledger,
+        )
+        self.assertEqual(result["written"], 1)
+        r = asof.value_as_of(
+            "player:5859",
+            "2026-08-16",
+            lane=store.LANE_SOURCE,
+            source_key="",
+            path=self.ledger,
+        )
+        self.assertEqual(r["value"], 5000.0)
+
     def test_naive_instant_refused(self):
         with self.assertRaises(store.ObservationError):
             asof.value_known_before("player:5859", datetime(2026, 8, 16, 6, 0), path=self.ledger)
@@ -301,7 +424,13 @@ class TestReplayDeterminism(_LedgerCase):
         conn.close()
         with self.assertRaises(store.ObservationError):
             store.record_correction(ids[0], ids[1], "   ", path=self.ledger)
+        with self.assertRaises(store.ObservationError):
+            store.record_correction(ids[0], ids[0], "self", path=self.ledger)
         store.record_correction(ids[0], ids[1], "corrupt write", path=self.ledger)
+        # A superseded row cannot itself supersede — a two-row cycle
+        # would remove BOTH rows from every query surface.
+        with self.assertRaises(store.ObservationError):
+            store.record_correction(ids[1], ids[0], "cycle", path=self.ledger)
         r = asof.value_as_of("player:5859", "2026-08-16", path=self.ledger)
         self.assertEqual(r["value"], 4947.0)
         # The superseded row is retained, readable, marked — not erased.
@@ -554,6 +683,71 @@ class TestBackfillAndMigration(_LedgerCase):
         again = migrate.migrate_rank_history(log, path=self.ledger)
         self.assertEqual(again["written"], 0)
 
+    def test_migrate_rerun_is_noop_after_identity_evidence_arrives(self):
+        """Final-review blocker 2: the name→id map grows as live
+        recording lands, so re-resolving on every run would migrate the
+        same legacy fact again under a new key.  First migration wins;
+        a re-run against the byte-identical log writes NOTHING even
+        after better identity evidence arrives."""
+        log = Path(self._td.name) / "rank_history.jsonl"
+        log.write_text(
+            json.dumps({"date": "2026-07-20", "ranks": {"Jalen Carter::idp": 40}}) + "\n"
+        )
+        # Run 1: no identity evidence — migrates name-keyed.
+        r1 = migrate.migrate_rank_history(log, path=self.ledger)
+        self.assertEqual((r1["written"], r1["nameKeyed"]), (1, 1))
+
+        # Live recording later supplies the platform id for that name.
+        record.record_contract(
+            _contract_for(
+                [
+                    {
+                        "canonicalName": "Jalen Carter",
+                        "displayName": "Jalen Carter",
+                        "assetClass": "idp",
+                        "position": "DL",
+                        "playerId": "9999",
+                        "canonicalConsensusRank": 38,
+                        "rankDerivedValue": 6000,
+                    }
+                ],
+                "2026-08-16",
+            ),
+            path=self.ledger,
+        )
+
+        # Run 2, byte-identical log: a genuine no-op — the fact is NOT
+        # re-minted under player:9999.
+        r2 = migrate.migrate_rank_history(log, path=self.ledger)
+        self.assertEqual(r2["written"], 0)
+        self.assertEqual(r2["alreadyMigrated"], 1)
+        conn = store.connect(self.ledger)
+        n = conn.execute(
+            "SELECT COUNT(*) FROM observations WHERE observed_date='2026-07-20'"
+        ).fetchone()[0]
+        conn.close()
+        self.assertEqual(n, 1)
+
+    def test_migrate_ignores_same_date_log_rewrite(self):
+        """The legacy log overwrites a date's entry in place (RED-5).
+        The ledger keeps the first-migrated evidence rather than
+        following the rewrite — and reports it, instead of spamming a
+        content conflict on every deploy."""
+        log = Path(self._td.name) / "rank_history.jsonl"
+        log.write_text(
+            json.dumps({"date": "2026-07-20", "ranks": {"Jalen Carter::idp": 40}}) + "\n"
+        )
+        migrate.migrate_rank_history(log, path=self.ledger)
+        # The log's 2026-07-20 entry is later rewritten in place.
+        log.write_text(
+            json.dumps({"date": "2026-07-20", "ranks": {"Jalen Carter::idp": 44}}) + "\n"
+        )
+        r = migrate.migrate_rank_history(log, path=self.ledger)
+        self.assertEqual((r["written"], len(r["contentConflicts"])), (0, 0))
+        self.assertEqual(r["alreadyMigrated"], 1)
+        got = asof.value_as_of("name:jalen carter::IDP", "2026-07-20", path=self.ledger)
+        self.assertEqual(got["rank"], 40)  # first evidence stands
+
     def test_provenance_round_trip(self):
         _record_fixture_board(self.ledger, "2026-08-16")
         r = asof.value_as_of("player:5859", "2026-08-16", path=self.ledger)
@@ -568,11 +762,20 @@ class TestBackfillAndMigration(_LedgerCase):
 class TestValuationInertness(unittest.TestCase):
     """The ledger records and derives; it never moves a canonical value
     or rank.  Two full builds of the same real archived payload — one
-    with a populated ledger visible to rankChange, one with none —
-    must produce byte-identical values, ranks and tiers."""
+    against a genuinely POPULATED ledger (seeded with a prior-day
+    board, so rankChange actually derives comparators), one with the
+    derivation off — must produce byte-identical values, ranks and
+    tiers.  The populated build doubles as the end-to-end proof that
+    ``build_api_data_contract`` threads the board's own date into the
+    derivation: the prior-day comparator is found, so ranked rows stamp
+    a real (zero) delta instead of None."""
 
     def test_ledger_presence_never_moves_values_or_ranks(self):
+        import os
+        import tempfile
         import zipfile
+        from datetime import date as _date, timedelta
+        from unittest import mock
 
         archive_dir = Path(__file__).resolve().parents[2] / "exports" / "archive"
         zips = sorted(archive_dir.glob("dynasty_export_*.zip"))
@@ -584,15 +787,7 @@ class TestValuationInertness(unittest.TestCase):
             )
             raw = json.load(z.open(data_name))
 
-        def board(ledger_env: str | None):
-            import os
-
-            if ledger_env is None:
-                os.environ["RISKIT_FEATURE_LEDGER_RANK_CHANGE"] = "0"
-            try:
-                contract = data_contract.build_api_data_contract(json.loads(json.dumps(raw)))
-            finally:
-                os.environ.pop("RISKIT_FEATURE_LEDGER_RANK_CHANGE", None)
+        def snapshot(contract):
             return [
                 (
                     r.get("canonicalName"),
@@ -604,7 +799,41 @@ class TestValuationInertness(unittest.TestCase):
                 for r in contract["playersArray"]
             ]
 
-        self.assertEqual(board(None), board("on"))
+        # Build 1 — derivation off.
+        os.environ["RISKIT_FEATURE_LEDGER_RANK_CHANGE"] = "0"
+        try:
+            baseline = data_contract.build_api_data_contract(json.loads(json.dumps(raw)))
+        finally:
+            os.environ.pop("RISKIT_FEATURE_LEDGER_RANK_CHANGE", None)
+
+        # Seed a ledger with the SAME board recorded under the prior
+        # date, then build again with the derivation on and the default
+        # ledger path patched to the seed.
+        board_date = str(raw.get("date"))
+        prior = (_date.fromisoformat(board_date) - timedelta(days=1)).isoformat()
+        with tempfile.TemporaryDirectory() as td:
+            seeded = Path(td) / "ledger.sqlite"
+            store._reset_setup_cache_for_tests()
+            record.record_contract(baseline, path=seeded, observed_date=prior)
+            with mock.patch.object(store, "DB_PATH", seeded):
+                populated = data_contract.build_api_data_contract(json.loads(json.dumps(raw)))
+
+        self.assertEqual(snapshot(baseline), snapshot(populated))
+
+        # Threading proof: the prior-day comparator was actually found
+        # — identical boards a day apart stamp 0 (a found comparator),
+        # not None (no comparator), on hundreds of ranked rows.
+        stamped = [
+            r.get("rankChange")
+            for r in populated["playersArray"]
+            if isinstance(r.get("canonicalConsensusRank"), int)
+        ]
+        zeros = sum(1 for v in stamped if v == 0)
+        self.assertGreater(zeros, 500)
+        self.assertTrue(all(v in (0, None) for v in stamped))
+        # And the off-build stamped only None, as the rollback contract
+        # requires.
+        self.assertTrue(all(r.get("rankChange") is None for r in baseline["playersArray"]))
 
 
 if __name__ == "__main__":
