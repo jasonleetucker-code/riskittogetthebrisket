@@ -183,7 +183,7 @@ C1-U1 and C1-U2 both closed on 2026-08-16; the next authorization is an owner de
 - **scope** `confidenceBucket:"none"` on 24 priced rows; `identityConfidence` and
   `marketConfidence` renamed to what they mean
 
-### C1-U6 — Pick completeness through 2029  ← **DELIVERED 2026-08-16 (checkpoint pending)**
+### C1-U6 — Pick completeness through 2029  ← **CLOSED at the owner checkpoint 2026-08-16** (PR #871, merge `ce8a8341a`, exact-head run 31965928453 SUCCESS; stabilized by `docs/ops/STABILIZATION_2026-08-16.md`)
 - **rows** `C1-PICK-01` `C1-PICK-02` · **owner** `data_contract` pick pipeline
   (+ `src/api/pick_value_resolution.py`, reference-class lookup)
 - **kind** INFRA · **deps** C1-U3

@@ -1841,6 +1841,93 @@ Single source of truth: `POSITION_ALIASES` in `src/utils/name_clean.py`. All mod
 ### Deployment
 Production runs on a VPS (currently Contabo; the deploy target is the `DEPLOY_HOST` secret, not hardcoded anywhere) with nginx reverse proxy, systemd service, and Let's Encrypt SSL. See `deploy/` directory.
 
+### CI has two lanes, and confusing them is a defect (2026-08-16)
+
+**Deterministic code correctness and external source health are different
+questions and are asked in different places.** They were not, and one KTC scrape
+timing out (300 s against a 39-run baseline of ~18.8 s) turned every open PR red
+and skipped a production deploy.
+
+`validate_api_data_contract` partitions its own errors and publishes both halves:
+
+| field | meaning |
+|---|---|
+| `structuralErrors` | statements about OUR code given whatever payload arrived — schema, rank invariants, the 1–9999 scale, blend-hull integrity, the pick-completeness census |
+| `sourceHealthErrors` | conditions that can flip purely because a provider returned less data, with our code byte-identical — `partial_run_critical:*`, `source_missing:*`, `pick_count_below_floor:*`, missing/empty `pickAnchors`, an implausibly small IDP pool |
+
+`ok` is unchanged and still means "every check passed". The boundary lives in
+`_SOURCE_HEALTH_ERROR_KINDS`; a new error string joins it only if an upstream
+provider alone can cause it.
+
+Where each lane blocks:
+
+* `scripts/validate_api_contract.py --lane structural` — **blocking** on PR
+  Validation and the Release Candidate job.
+* `scripts/validate_api_contract.py --lane full` — **blocking** on Deploy
+  Production. The deploy ships `exports/` and `data/` to the box, so refusing to
+  ship a board built without a critical market is fail-safe: production keeps
+  serving what it already has, and the 2-hourly refresh clears the condition with
+  no override.
+* `scripts/check_source_health.py` — **advisory** on PRs, loud always. Contract
+  source-health errors + fetch freshness (reused from `scripts/watchdog_freshness`
+  — no second freshness rule) + **content staleness**, measured read-only over
+  the tracked export archive.
+
+**Two traps this closed, and they were hiding each other.** The contract gate had
+searched for its payload in `repo/data` and the repo root — both gitignored for
+that artifact — and had silently skipped since the day it was written; a gate that
+cannot find its input reads exactly like a gate that passed. So the *accidental*
+unit-test failure was in practice the only thing keeping a source-degraded payload
+out of production. Both are repaired; `tests/api/test_contract_health_lanes.py`
+pins the split on synthetic payloads (no live board, no network).
+
+**Rule for new tests.** A test in the hard gate (`-m "not livedata"`) must not
+assert an absolute count, a floor or a health status over the LIVE board — those
+are functions of which sources answered the last scrape. Assert the invariant
+instead (all-of-them rather than more-than-N), build from
+`tests/archive_fixtures.newest_complete_raw_payload()` when you need a real board,
+or classify the test `livedata` and say which deterministic test replaces its
+coverage. `docs/ops/STABILIZATION_2026-08-16.md` §3d is the measured census.
+
+**Content staleness is not fetch freshness.** A `_last_success` stamp proves a
+fetch succeeded, not that the vendor published anything. Measured over 165
+archives: `ktcSfTep` content changes on 164 of them; `idpTradeCalc` on 6, and its
+PICK rows have not moved since 2026-07-14 — while it is one of only two families
+that price picks. Budget in `config/source_staleness.json::contentStaleness`
+(observability only; it decides what gets reported, never what anything is worth).
+
+### Release discipline — HEAD FREEZE (2026-08-16)
+
+`pull_request` CI validates a merge ref computed when the run starts; the merge
+button then builds a *new* merge commit against whatever the base is at click
+time. On 2026-08-16 that gap was **103 seconds**, and an automated data refresh
+landed in it — producing a merge commit nothing had validated.
+
+**A commit that changes data consumed by builds, tests, contracts or deploy
+validation is not inert drift.** `scripts/check_release_candidate.py` classifies
+what the base has moved by that a head does not contain:
+
+* **A — inert**: prose nothing reads at build or test time.
+* **B — source / governance**: code, tests, workflows, deploy scripts, the
+  canonical planning records.
+* **C — build/test/contract-consumed data**: `data/`, `exports/`, `CSVs/`,
+  `config/`.
+
+Advisory on every PR; **strict once**, at the release moment, via
+`.github/workflows/release-candidate.yml` (`workflow_dispatch`, `release-candidate`
+concurrency group), which asserts the property and then runs the gates against the
+merge of base and head — the tree that will actually exist.
+
+    develop → full checks → one bounded final review
+            → HEAD FREEZE
+            → integrate the base ONCE → validate that exact SHA
+            → merge promptly → deploy validates the merged tree anyway
+
+Deliberately bounded: blocking on every base change would chase the 2-hourly
+refresh forever. It makes the race detectable and bounded, not impossible — no
+in-repo gate holds a lock across a human clicking merge, and the deploy's validate
+job remains the backstop.
+
 ## Non-Negotiable Rules
 
 1. **Do not assume features work** — trace the live execution path end-to-end before claiming anything is implemented

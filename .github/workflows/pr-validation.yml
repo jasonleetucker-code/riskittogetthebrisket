@@ -180,6 +180,19 @@ jobs:
           set -Eeuo pipefail
           python scripts/check_planning_integrity.py
 
+      - name: Product-plan governance gate
+        # The companion structural guard: every planning-like document in
+        # the tree must be classified in the governance index, so a new
+        # owner addendum cannot quietly become a parallel roadmap.
+        #
+        # It existed and was never wired to any workflow, which is why it
+        # sat red on ``main`` (C1-U6 follow-up 5) with nobody told. An
+        # unwired gate is indistinguishable from a passing one.
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python scripts/check_product_plan_governance.py
+
       - name: Python import gate
         shell: bash
         env:
@@ -241,15 +254,59 @@ jobs:
           set -Eeuo pipefail
           python -m pytest tests/ -q --tb=short -m livedata
 
-      - name: API data contract check
+      - name: API data contract check (structural lane — blocking)
+        # BLOCKING, and deliberately scoped to the STRUCTURAL lane.
+        #
+        # Two repairs landed here on 2026-08-16, both of which had been
+        # hiding each other:
+        #
+        # 1. The old guard looked for ``dynasty_data_*.json`` in the repo
+        #    root or ``data/``.  Both are gitignored for that artifact —
+        #    the only tracked payload is ``exports/latest/`` — so this step
+        #    printed "No sample data; skipping" on EVERY run since it was
+        #    written.  The gate had never executed.  ``validate_api_contract.py``
+        #    now looks in ``exports/latest`` first, so it does.
+        #
+        # 2. Turning it on unmodified would have made a live KTC timeout
+        #    fail every open PR, which is precisely the contamination this
+        #    stabilization exists to remove.  ``--lane structural`` fails on
+        #    what our code owns — schema, rank invariants, the 1..9999
+        #    scale, blend-hull integrity, the pick-completeness census — and
+        #    reports source-health conditions as warnings instead.
+        #
+        # The full lane still blocks the DEPLOY (deploy.yml), and the
+        # advisory step below keeps the condition loud here.
         shell: bash
         run: |
           set -Eeuo pipefail
-          if ls dynasty_data_*.json >/dev/null 2>&1 || ls data/dynasty_data_*.json >/dev/null 2>&1; then
-            python scripts/validate_api_contract.py --repo .
-          else
-            echo "No sample data; skipping contract validation."
-          fi
+          python scripts/validate_api_contract.py --repo . --lane structural
+
+      - name: Release-candidate freshness (advisory)
+        # Answers the question `PR Validation` structurally cannot: is
+        # the tree this run validated the tree that will actually merge?
+        # Advisory here on purpose — main takes an automated data refresh
+        # every two hours, and blocking on that would mean chasing it
+        # forever.  The STRICT form runs once, deliberately, from
+        # `.github/workflows/release-candidate.yml` at HEAD FREEZE.
+        if: ${{ always() }}
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          git fetch origin main --depth=200 || true
+          python scripts/check_release_candidate.py --base origin/main --head HEAD
+
+      - name: Source-health check (advisory — non-blocking)
+        # The other half of the split.  A timed-out or empty upstream source
+        # is real and must stay visible on the PR; it is simply not evidence
+        # about the PR's code.  ``continue-on-error`` + ``always()`` so it
+        # reports even when an earlier gate failed.
+        if: ${{ always() }}
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python scripts/check_source_health.py --repo .
 
       - name: Deploy script syntax gate
         shell: bash

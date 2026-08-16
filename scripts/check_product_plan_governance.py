@@ -91,8 +91,29 @@ def main() -> int:
         ):
             candidate_paths.add(rel)
 
+    # A document is CLASSIFIED when the governance index actually says
+    # something about it — which is the rule the index states about itself
+    # ("Every planning document in the repository must appear somewhere
+    # below") and the thing this check exists to enforce.
+    #
+    # CORRECTED 2026-08-16 (stabilization, C1-U6 follow-up 5).  This used
+    # to compare against the two hard-coded sets above and nothing else,
+    # so it failed on four documents that ARE classified — the three
+    # 2026-08-14 owner addenda and the TODO spec index, each of them named
+    # and given a status in ``docs/PLANNING_DOCUMENT_STATUS.md``, two of
+    # them additionally carrying Scope Manifest rows and traceability
+    # entries.  The check was measuring the allowlist rather than the
+    # governance record, so the only way to make it green was to edit the
+    # script every time the owner filed an addendum — which is how an
+    # allowlist rots into a rubber stamp.
+    #
+    # Reading the index is STRICTER, not weaker: appending a filename to a
+    # Python set no longer discharges anything, and a document that is
+    # named nowhere in the index still fails.
     classified = CANONICAL | KNOWN_LEGACY
     for rel in sorted(candidate_paths - classified):
+        if Path(rel).name in status:
+            continue
         errors.append(
             "unclassified planning-like document: "
             f"{rel} — reconcile it into the canonical plan or add an explicit status"

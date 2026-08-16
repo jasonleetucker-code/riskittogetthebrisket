@@ -25,14 +25,13 @@ That false signal is exactly what this comment exists to prevent.
 
 from __future__ import annotations
 
-import json
 import unittest
-import zipfile
 from pathlib import Path
 from unittest import mock
 
 from src.api import data_contract as dc
 from src.consensus_edge import fair_value as fv
+from tests.archive_fixtures import newest_complete_raw_payload
 
 REPO = Path(__file__).resolve().parents[2]
 ARCHIVE = REPO / "exports" / "archive"
@@ -46,16 +45,12 @@ def _load_latest_raw_payload() -> dict | None:
     are properties of how 21 real sources interact, and a three-source
     fixture would pass while the live board still leaked.
     """
-    if not ARCHIVE.is_dir():
-        return None
-    zips = sorted(ARCHIVE.glob("dynasty_export_*.zip"))
-    if not zips:
-        return None
-    with zipfile.ZipFile(zips[-1]) as zf:
-        names = [n for n in zf.namelist() if n.startswith("dynasty_data_") and n.endswith(".json")]
-        if not names:
-            return None
-        return json.loads(zf.read(names[0]))
+    # The newest COMPLETE scrape, not simply the newest: a single
+    # timed-out source produces a bundle whose thin board fails these
+    # assertions for a data reason (2026-08-16).  See
+    # ``tests/archive_fixtures``.
+    raw, _archive = newest_complete_raw_payload()
+    return raw
 
 
 _RAW = _load_latest_raw_payload()

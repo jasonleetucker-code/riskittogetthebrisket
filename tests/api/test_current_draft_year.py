@@ -110,7 +110,7 @@ def test_retired_discount_machinery_is_gone():
 def test_vendor_years_carry_no_penalty_structurally():
     # "Take the penalty off the next draft" survives STRUCTURALLY: the
     # year-step is only ever applied to names the injection synthesised
-    # (_SYNTHETIC_PICK_DERIVATIONS gate), and the injection only mints
+    # (the build's synthetic-derivation map is the gate), and the injection only mints
     # years with no vendor rows.  The current draft, the past, and every
     # vendor-priced future year never receive any factor — pinned
     # end-to-end by tests/api/test_pick_year_discount_gate.py.
@@ -154,16 +154,20 @@ def test_injection_self_rolls_and_compounds_across_gaps():
         players = {
             "2028 Early 1st": {"idpTradeCalc": 5000.0},
         }
-        added = dc._inject_far_future_pick_sources(players, 2027)
+        # The injection RETURNS its per-build derivation map (2026-08-16,
+        # follow-up 8) instead of writing two module globals, so the test
+        # no longer has to save and restore process state to read it.
+        derivations = dc._inject_far_future_pick_sources(players, 2027)
         # 2029 clones 2028 (gap 1), 2030 clones synthetic 2029 (gap 1).
-        assert added == 2
+        assert len(derivations) == 2
         assert players["2029 Early 1st"]["idpTradeCalc"] == pytest.approx(5000 * 0.7138, abs=0.1)
         assert players["2030 Early 1st"]["idpTradeCalc"] == pytest.approx(
             5000 * 0.7138 * 0.7138, abs=0.1
         )
         key = dc._canonical_match_key("2030 Early 1st")
-        assert dc._SYNTHETIC_PICK_DERIVATIONS[key]["classification"] == "PRIOR"
+        assert derivations[key]["classification"] == "PRIOR"
+        # Nothing leaked onto the module.
+        assert not hasattr(dc, "_SYNTHETIC_PICK_DERIVATIONS")
+        assert not hasattr(dc, "_SYNTHETIC_FAR_FUTURE_PICK_NAMES")
     finally:
         dc._PICK_YEAR_DISCOUNT_CACHE = prev_cache
-        dc._SYNTHETIC_FAR_FUTURE_PICK_NAMES = set()
-        dc._SYNTHETIC_PICK_DERIVATIONS = {}

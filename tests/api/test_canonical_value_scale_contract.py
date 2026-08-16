@@ -150,17 +150,33 @@ class TestTheOverrideDeltaCannotPublishAnOutOfScaleCanonicalValue:
     def test_the_validator_catches_an_out_of_scale_value(self):
         """The check must not be vacuous.
 
-        ``validate_api_data_contract`` returns ``ok: True`` on the live
-        board, which is what we want and also exactly what a check that
-        never fires would return.  So inject the breach and require the
-        gate to open — ``scripts/validate_api_contract.py`` keys on
-        ``ok``, so this is what turns a ceiling breach into a red CI run
-        rather than a silently published board.
+        A validator that never fires reports exactly what a healthy board
+        reports, so the assertion is a BEFORE/AFTER on this specific
+        error: absent on the board as built, present once the breach is
+        injected.  ``scripts/validate_api_contract.py`` keys on it, so
+        this is what turns a ceiling breach into a red CI run rather than
+        a silently published board.
+
+        CORRECTED 2026-08-16 (stabilization).  This used to assert
+        ``validate_api_data_contract(contract)["ok"] is True`` as the
+        precondition — a claim about the WHOLE report, which includes
+        external source health.  On 2026-08-16 one KTC scrape timed out,
+        the report legitimately went ``ok: False`` on
+        ``partial_run_critical:KTC``, and this deterministic test failed
+        on a provider outage: ``pytest -x`` then blocked the hard gate on
+        every open PR and skipped the deploy.  The signal was right and
+        the assertion was too broad.  Asserting the absence of the error
+        THIS TEST IS ABOUT is strictly stronger for its own purpose (a
+        blanket ``ok`` would also pass if some unrelated check failed to
+        fire) and cannot be flipped by an upstream source.
         """
         from src.api.data_contract import validate_api_data_contract
 
         contract = build_api_data_contract(_raw_export())
-        assert validate_api_data_contract(contract)["ok"] is True
+        before = validate_api_data_contract(contract)
+        assert not [e for e in before["errors"] if "canonical_value_out_of_scale" in e], before[
+            "errors"
+        ]
 
         for row in contract["playersArray"]:
             if isinstance(row.get("rankDerivedValue"), int):
@@ -170,6 +186,11 @@ class TestTheOverrideDeltaCannotPublishAnOutOfScaleCanonicalValue:
         report = validate_api_data_contract(contract)
         assert report["ok"] is False
         assert any("canonical_value_out_of_scale" in e for e in report["errors"]), report["errors"]
+        # …and it lands in the lane that blocks a PR, not the lane that
+        # merely reports an upstream outage.
+        assert any("canonical_value_out_of_scale" in e for e in report["structuralErrors"]), report[
+            "structuralErrors"
+        ]
 
     def test_the_validator_catches_an_out_of_scale_alias(self):
         """``values.*`` are exact copies, so they are the same defect."""

@@ -25,7 +25,6 @@ from __future__ import annotations
 import json
 import os
 import unittest
-import zipfile
 from pathlib import Path
 from unittest import mock
 
@@ -33,6 +32,7 @@ from fastapi.testclient import TestClient
 
 import server
 from src.api import feature_flags
+from tests.archive_fixtures import newest_complete_raw_payload
 
 REPO = Path(__file__).resolve().parents[2]
 ARCHIVE = REPO / "exports" / "archive"
@@ -42,20 +42,19 @@ def _load_contract() -> dict | None:
     """A real built contract, the same shape `latest_contract_data` holds.
 
     Built from a tracked archive payload rather than a fixture so the
-    test exercises the real pipeline. Returns None if the archive is
-    unavailable, in which case these tests skip rather than pass
-    vacuously.
+    test exercises the real pipeline. Returns None if no usable archive
+    exists, in which case these tests skip rather than pass vacuously.
+
+    The newest COMPLETE scrape, not simply the newest (2026-08-16).
+    Taking `zips[-1]` made this seam test a function of the last
+    scrape's health: one timed-out KTC fetch produced a bundle with an
+    empty KTC board, and all ten tests in this file failed in the
+    blocking gate with `'offense' not found in set()` — a provider
+    outage reported as a code regression. See `tests/archive_fixtures`.
     """
-    if not ARCHIVE.is_dir():
+    raw, _archive = newest_complete_raw_payload()
+    if raw is None:
         return None
-    zips = sorted(ARCHIVE.glob("dynasty_export_*.zip"))
-    if not zips:
-        return None
-    with zipfile.ZipFile(zips[-1]) as zf:
-        names = [n for n in zf.namelist() if n.startswith("dynasty_data_") and n.endswith(".json")]
-        if not names:
-            return None
-        raw = json.loads(zf.read(names[0]))
     from src.api.data_contract import build_api_data_contract
 
     return build_api_data_contract(raw)
@@ -368,7 +367,6 @@ class TestOpportunityReachesRealBoardRows(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
-        import json
         import tempfile
 
         from src.api import rank_history

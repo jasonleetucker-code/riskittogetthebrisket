@@ -40,10 +40,10 @@ class TestOnlySynthesisedYearsAreDiscounted:
         """Run the discount stage over ``names`` with ``synthetic`` marked."""
         players = [{"assetClass": "pick", "canonicalName": n} for n in names]
         row_normalized = [(1000.0, i) for i in range(len(names))]
-        prev = dc._SYNTHETIC_FAR_FUTURE_PICK_NAMES
-        prev_der = dc._SYNTHETIC_PICK_DERIVATIONS
-        dc._SYNTHETIC_FAR_FUTURE_PICK_NAMES = {dc._canonical_match_key(n) for n in synthetic}
-        dc._SYNTHETIC_PICK_DERIVATIONS = {
+        # The derivation map is an ARGUMENT (2026-08-16, follow-up 8), so
+        # this exercises a pure function instead of mutating and restoring
+        # process-wide state.
+        derivations = {
             dc._canonical_match_key(n): {
                 "factor": 0.8407,
                 "basisYear": 2028,
@@ -53,11 +53,7 @@ class TestOnlySynthesisedYearsAreDiscounted:
             }
             for n in synthetic
         }
-        try:
-            out, applied = dc._apply_pick_year_discount_to_blend(row_normalized, players)
-        finally:
-            dc._SYNTHETIC_FAR_FUTURE_PICK_NAMES = prev
-            dc._SYNTHETIC_PICK_DERIVATIONS = prev_der
+        out, applied = dc._apply_pick_year_discount_to_blend(row_normalized, players, derivations)
         return {names[i]: v for v, i in out}, applied, players
 
     def test_vendor_priced_year_keeps_its_blended_value(self):

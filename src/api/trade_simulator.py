@@ -23,6 +23,7 @@ simulator for the same swap.
 
 from __future__ import annotations
 
+from collections import Counter
 from typing import Any
 
 from src.api.terminal import (
@@ -128,6 +129,12 @@ def _resolve_asset(
     base_pos = normalize_position(row.get("pos") or row.get("position"))
     return {
         "name": row.get("displayName") or row.get("canonicalName") or name,
+        # The label the CALLER used, kept alongside the board row name.
+        # Two roster picks can share a board row ("2027 Mid 1st") while
+        # being different assets ("(own)" vs "(from Team X)"), so the
+        # after-state removal below needs the distinction the board row
+        # deliberately does not carry.
+        "sourceLabel": str(name),
         "pos": pos,
         "basePos": base_pos or pos,
         "value": value,
@@ -269,14 +276,55 @@ def simulate_trade(
     receiving, unresolved_in = _resolve_many([*players_in, *picks_in])
     sending, unresolved_out = _resolve_many([*players_out, *picks_out])
 
-    # AFTER state: drop the sent, add the received.  Uses a Set of
-    # lowercased names to de-dup in case the same player appears on
-    # both the current roster and in the sending list (user error
-    # protection).
-    sent_keys = {str(a["name"]).strip().lower() for a in sending}
-    after_assets: list[dict[str, Any]] = [
-        a for a in before_assets if str(a["name"]).strip().lower() not in sent_keys
-    ]
+    # AFTER state: drop the sent, add the received.
+    #
+    # Removal is by MULTIPLICITY, not by set membership (repaired
+    # 2026-08-16, C1-U6 follow-up 10).  The old code built a set of
+    # lowercased names and dropped every roster asset whose name was in
+    # it, so a manager holding two picks that share a board row — a
+    # 2027 1st of their own and a 2027 1st acquired from another team —
+    # lost BOTH from the after-state by trading ONE.  The board row is
+    # deliberately one row for both (that is what a tier grade means);
+    # the roster holds two assets.  Collapsing distinct assets by
+    # display name is the defect class C1-U3 exists to prevent, and it
+    # only became visible once roster picks resolved at all.
+    #
+    # Exact caller labels first (they distinguish "(own)" from
+    # "(from X)"), then board identity for anything unmatched — each
+    # consuming one occurrence, never all of them.
+    def _label_key(asset: dict[str, Any]) -> str:
+        return str(asset.get("sourceLabel") or asset.get("name") or "").strip().lower()
+
+    def _board_key(asset: dict[str, Any]) -> str:
+        return str(asset.get("name") or "").strip().lower()
+
+    sent_by_label = Counter(_label_key(a) for a in sending)
+    consumed_label: Counter[str] = Counter()
+    kept: list[dict[str, Any]] = []
+    for asset in before_assets:
+        key = _label_key(asset)
+        if consumed_label[key] < sent_by_label.get(key, 0):
+            consumed_label[key] += 1
+            continue
+        kept.append(asset)
+
+    unmatched = []
+    for asset in sending:
+        key = _label_key(asset)
+        if consumed_label[key] > 0:
+            consumed_label[key] -= 1
+        else:
+            unmatched.append(asset)
+
+    sent_by_board = Counter(_board_key(a) for a in unmatched)
+    consumed_board: Counter[str] = Counter()
+    after_assets: list[dict[str, Any]] = []
+    for asset in kept:
+        key = _board_key(asset)
+        if consumed_board[key] < sent_by_board.get(key, 0):
+            consumed_board[key] += 1
+            continue
+        after_assets.append(asset)
     after_assets.extend(receiving)
 
     before = _aggregate(before_assets)

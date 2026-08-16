@@ -829,8 +829,24 @@ class TestValuationInertness(unittest.TestCase):
             if isinstance(r.get("canonicalConsensusRank"), int)
         ]
         zeros = sum(1 for v in stamped if v == 0)
-        self.assertGreater(zeros, 500)
-        self.assertTrue(all(v in (0, None) for v in stamped))
+        # Every ranked row must stamp 0, and there must BE ranked rows.
+        #
+        # This asserted ``zeros > 500`` until 2026-08-16 — an absolute
+        # count over the live board's population, which is a function of
+        # how many sources answered the last scrape.  During that day's
+        # KTC outage it read 473 and failed in the blocking gate with
+        # the ledger behaving perfectly.  The property being proven is
+        # that the seeded prior-day comparator was FOUND, and "all of
+        # them, and there is at least one" proves that strictly better
+        # than "more than five hundred of them" while depending on no
+        # board size at all.
+        self.assertGreater(len(stamped), 0, "no ranked rows — the check would be vacuous")
+        self.assertEqual(
+            zeros,
+            len(stamped),
+            "an identical board a day apart must stamp 0 on every ranked row "
+            "(None would mean the comparator was not found)",
+        )
         # And the off-build stamped only None, as the rollback contract
         # requires.
         self.assertTrue(all(r.get("rankChange") is None for r in baseline["playersArray"]))

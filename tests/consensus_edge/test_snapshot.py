@@ -459,16 +459,14 @@ class TestRealBoardRoundTrip(unittest.TestCase):
     """A real board, not a fixture, survives the round trip."""
 
     def test_a_real_board_can_be_written_and_read(self):
-        import json
-        import zipfile
+        # Newest COMPLETE scrape (2026-08-16): `zips[-1]` made this a
+        # function of the last scrape's health.  See
+        # ``tests/archive_fixtures``.
+        from tests.archive_fixtures import newest_complete_raw_payload
 
-        repo = Path(__file__).resolve().parents[2]
-        zips = sorted((repo / "exports" / "archive").glob("dynasty_export_*.zip"))
-        if not zips:
-            self.skipTest("no archived payload")
-        with zipfile.ZipFile(zips[-1]) as zf:
-            names = [n for n in zf.namelist() if n.startswith("dynasty_data_")]
-            raw = json.loads(zf.read(names[0]))
+        raw, _archive = newest_complete_raw_payload()
+        if raw is None:
+            self.skipTest("no complete archived payload")
 
         from src.consensus_edge import service
 
