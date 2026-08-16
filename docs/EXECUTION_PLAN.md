@@ -133,6 +133,10 @@ unregistered leagues), draft-capital name formatting, and the intel crawler's pe
 **0 of 1,093 rows moved, 144 picks intact, 0 values, 0 ranks** (`golden_board` + `board_diff
 --expect-no-value-change`). Full record: `docs/identity/C1_ID_02_PICK_IDENTITY.md`.
 
+**MERGED** — PR #867, merge `22ce424f` (parents `f7acd646` + validated head `5a221f61`), exact-head CI
+run 31938061211 green (format + lint + full pytest + livedata + contract check + frontend). The
+coercion-debt ledger shrank 692 → 689 (the canonical fold removed three legacy coercion sites).
+
 **Deliberately deferred, recorded not hidden:** the intel-ledger re-key (C1-U8), the frontend
 label-lookup migration (needs C1-U6's generic-grade board rows; held in lockstep by
 `tests/identity/test_pick_grammar_frontend_parity.py`), the public-league fold (bespoke multi-season
