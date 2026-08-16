@@ -1,7 +1,7 @@
 # Chase Upside / Risk It To Get The Brisket — Current Execution Plan
 
 **Status:** CANONICAL SEQUENCING / AUTHORIZATION RECORD
-**Last reconciled:** 2026-08-16 (C1-U4 owner checkpoint: C1-U4 closed, C1-U6 authorized, C1-U5 deferred)
+**Last reconciled:** 2026-08-16 (C1-U6 owner checkpoint: C1-U6 CLOSED after the stabilization pass; no next unit authorized — a new owner decision is required)
 **Companion:** `docs/MASTER_PRODUCT_PLAN.md` · `docs/C_SERIES_REPLAN_AND_COMPLETION_CONTRACT.md`
 
 This file answers **what implementation work is authorized right now**, and nothing else. It does not define
@@ -15,7 +15,7 @@ Backlog Spec and the feature specs. It does not define scope — that lives in `
 
 # 0. CURRENT AUTHORIZATION — READ THIS FIRST
 
-## The B→C gate is CLEARED. **C1A units 1, 2, 3 and 4 are CLOSED. The owner has authorized `C1-U6` — and only `C1-U6`.**
+## The B→C gate is CLEARED. **C1A units 1, 2, 3, 4 and 6 are CLOSED. No further unit is authorized.**
 
 | question | answer |
 |---|---|
@@ -29,7 +29,8 @@ Backlog Spec and the feature specs. It does not define scope — that lives in `
 | Is C1A unit 3 (`C1-U3` / `C1-ID-02` pick identity) done? | **Yes — CLOSED at the owner checkpoint 2026-08-16.** The owner reviewed and accepted the C1-ID-02 evidence; implementation merged as PR #867 (merge `22ce424f`) with bookkeeping/work-claim closure in PR #868. Do not reopen |
 | Is C1A unit 4 (`C1-U4` / `C1-HIST-01`..`-03`) authorized? | **Yes — owner-authorized 2026-08-16 at the C1-U3 checkpoint.** Scope is exactly manifest rows `C1-HIST-01`, `C1-HIST-02`, `C1-HIST-03` — the immutable as-of value/provenance ledger |
 | Is C1A unit 4 done? | **Yes — CLOSED at the owner checkpoint 2026-08-16.** Merged as PR #869 (merge `8b6a9987`, validated head `5940a177f`, exact-head run 31955465747), deploy run 31958433677 SUCCESS with the ledger production-proven on the box (see §2). The closure is recorded on PR #869. Do not reopen |
-| **What may I build right now?** | **`C1-U6` (`C1-PICK-01`, `C1-PICK-02` — pick completeness through 2029) — and only C1-U6** |
+| Is C1A unit 6 (`C1-U6` / `C1-PICK-01`, `C1-PICK-02`) done? | **Yes — CLOSED at the owner checkpoint 2026-08-16.** Merged as PR #871 (merge `ce8a8341a`, validated head `edc25300d`, exact-head run **31965928453 SUCCESS**); stabilized and closed by the bounded repair pass of the same day (`docs/ops/STABILIZATION_2026-08-16.md`). Do not reopen |
+| **What may I build right now?** | **Nothing.** C1-U1..U4 and C1-U6 are closed; the next unit requires a new explicit owner decision (§2) |
 | Is `C1-U5` authorized? | **No — deliberately DEFERRED, not cancelled.** At the C1-U4 checkpoint the owner selected C1-U6 ahead of C1-U5 (`C1-CONF-01` is a mechanical naming migration with no methodology change; it waits for an ordinary window). C1-U6 must therefore build **no new confidence consumer** (§2) |
 | Is `C1-U7`+ / anything after C1-U6 authorized? | **No** |
 | Is `C1B` authorized? | **No** |
@@ -37,11 +38,11 @@ Backlog Spec and the feature specs. It does not define scope — that lives in `
 | Is `C3` or later authorized? | **No** |
 | What authorizes the next slice? | Jason + ChatGPT review the completed C1-U6 evidence at the §3 checkpoint |
 
-**The authorization is deliberately narrow.** When C1-U6 closes, reaching the end of the unit is a
-**STOP**, not a hand-off to the next one.
+**The authorization is deliberately narrow, and it is now spent.** C1-U6 closed; reaching the end of a
+unit is a **STOP**, not a hand-off to the next one.
 
-**If you are a new session reading this file to decide what to build:** the answer is *C1-U6 and nothing
-else* — anything further requires an explicit owner decision at the
+**If you are a new session reading this file to decide what to build:** the answer is *nothing* —
+every remaining unit requires an explicit owner decision at the
 `docs/C_SERIES_REPLAN_AND_COMPLETION_CONTRACT.md` §3 checkpoint. Every product surface in §6 remains
 unauthorized.
 
@@ -113,7 +114,7 @@ radius of a rename that is otherwise mechanical.
 
 # 2. NEXT AUTHORIZED SCOPE
 
-## `C1A` unit 6 — `C1-U6`, pick completeness through 2029. **AUTHORIZED 2026-08-16 at the C1-U4 checkpoint.**
+## `C1A` unit 6 — `C1-U6`, pick completeness through 2029. **CLOSED at the owner checkpoint 2026-08-16.**
 
 Scope is exactly manifest rows `C1-PICK-01` (every valid pick through 2029 has a finite canonical
 value — provenance stamped, never zero-as-missing, all surfaces agreeing) and `C1-PICK-02` (the
@@ -147,8 +148,40 @@ the simulator's roster-pick labels resolve through identity instead of silently 
 Player-value coupling measured and explained (IDPTC backbone re-indexing, p50 ±0.1%; see the
 record §8). Full record: `docs/picks/C1_U6_PICK_VALUE_COMPLETENESS.md`.
 
-No unit beyond C1-U6 is authorized. The next authorization comes from the owner reviewing C1-U6's
-evidence at the §3 checkpoint.
+**MERGED** — PR #871, merge `ce8a8341a` (parents `801bf940d`, an automated data refresh on main,
++ validated head `edc25300d`), merged by the owner 2026-08-16 19:10:41Z.
+
+**Exact-head CI, stated correctly.** `6d7b9dd47` passed run **31964305868 SUCCESS**, and the final
+head `edc25300d` — which differs from it only by merging main's automated data-refresh commits —
+passed its OWN exact-head run **31965928453 SUCCESS**, concluded 19:08:58Z, one minute and
+forty-three seconds before the merge. An earlier version of this section said that run was
+cancelled by the merge and never concluded. **That was wrong**, and it is corrected here and in
+`docs/picks/C1_U6_PICK_VALUE_COMPLETENESS.md` §13 and §14; the direct post-merge verification that
+was performed remains valid evidence, but it was an addition, not a substitute.
+
+**What did fail** was the post-merge tree `ce8a8341a`: its *other* parent brought in a newer scrape
+in which KTC had timed out (300 s against a 39-run baseline of ~18.8 s). Deploy Production run
+31966802715 failed in validation and `Deploy To Production` was **skipped** — nothing shipped.
+A/B on the identical payload reproduced the same contract-health status and the same
+13-named / 29-with-subtests failure set on the pre-C1-U6 parent `801bf940d`, zero unique to C1-U6.
+Pick completeness held on the merged tree: 162 pick rows, 2029 **24/24** finite, provenance 162/162,
+zero census errors.
+
+**STABILIZED** — the bounded repair pass of 2026-08-16 (record:
+`docs/ops/STABILIZATION_2026-08-16.md`) separated deterministic code correctness from external
+source health in CI, turned on the contract gate that had never once run, added the source-health
+lane and the release-candidate discipline, corrected this false CI history everywhere it appeared,
+and disposed of all eleven C1-U6 follow-ups (ten fixed, one proven an intentional contract and
+pinned).
+
+**CLOSED at the owner checkpoint 2026-08-16.** C1-U6 / `C1-PICK-01` / `C1-PICK-02` are closed. Do
+not reopen; a value that moved during stabilization is recorded with its mechanism in the
+stabilization record §6, not re-litigated.
+
+**No unit beyond C1-U6 is authorized, and closing C1-U6 authorizes nothing.** Reaching this point is
+a **STOP**. The next unit — C1-U5, C1-U7, C1-U8, C1-U9, C1B, C2 or anything else — requires a **new
+explicit owner decision** at the `docs/C_SERIES_REPLAN_AND_COMPLETION_CONTRACT.md` §3 checkpoint.
+Neither the stabilization pass nor this closure carries any implicit authorization forward.
 
 ## `C1A` unit 4 — `C1-U4`, one immutable as-of value/provenance ledger. **CLOSED at the owner checkpoint 2026-08-16.**
 

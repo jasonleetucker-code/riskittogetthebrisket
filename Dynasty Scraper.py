@@ -6147,10 +6147,53 @@ async def run(progress_callback=None):
     if _ktc_seed_added:
         print(f"  [KTC Seed] Ensured top-400 baseline by adding {_ktc_seed_added} KTC-only entries")
 
-    # ── Pick model reset/rebuild (2026 rookie-proxy centered) ──
-    # Legacy pick anchors are only used as outside-market inputs for 2027/2028 rounds 1-4.
+    # ── Pick model reset/rebuild (current-class rookie-proxy centered) ──
+    # Legacy pick anchors are only used as outside-market inputs for the
+    # vendor-published future years, rounds 1-4.
     _legacy_pick_anchors = pick_anchors if isinstance(pick_anchors, dict) else {}
     _pick_suffix_local = _pick_suffix
+
+    # ── Which years is this? ──────────────────────────────────────────
+    # DERIVED, not hard-coded (2026-08-16, C1-U6 follow-up 1).  This
+    # block used to write the literals ``2026`` and ``(2027, 2028)``,
+    # which is a circular pin: ``current_rookie_draft_year()`` in the
+    # contract is "self-rolling" precisely BECAUSE it observes the year
+    # that still carries slot-specific rows in the scrape — the rows
+    # this block mints.  A stale literal here would therefore freeze
+    # every downstream year at the next class rollover (~May 2027)
+    # while every downstream component still claimed to roll on its own.
+    #
+    # Both questions are answered by the canonical owner over the vendor
+    # anchors we are about to consume, so there is no second year rule
+    # and no second label grammar (the owner parses through C1-U3 pick
+    # identity).  Measured on the live payload: current 2026, future
+    # [2027, 2028] — byte-identical to the retired literals.
+    from src.api.data_contract import (
+        derive_current_draft_year_from_names,
+        derive_future_tier_years_from_names,
+    )
+
+    _anchor_keys = sorted(
+        {
+            str(k)
+            for _site, _map in _legacy_pick_anchors.items()
+            if isinstance(_map, dict)
+            for k in _map
+        }
+    )
+    _pick_model_year = derive_current_draft_year_from_names(_anchor_keys)
+    if _pick_model_year is None:
+        # No vendor slot rows at all.  Fall back to the canonical owner's
+        # own answer rather than inventing a second rule, and say so —
+        # this is a source-shape change, not a routine condition.
+        from src.api.data_contract import current_rookie_draft_year as _crdy
+
+        _pick_model_year = int(_crdy())
+        print(
+            "  [Pick Model] WARNING: no slot-specific vendor pick rows found; "
+            f"falling back to the contract's current draft year {_pick_model_year}."
+        )
+    _future_pick_years = tuple(derive_future_tier_years_from_names(_anchor_keys, _pick_model_year))
 
     def _player_years_exp_local(pname, pdata):
         sid = str((pdata or {}).get("_sleeperId") or _player_id_map.get(pname) or "").strip()
@@ -6273,7 +6316,7 @@ async def run(progress_callback=None):
         if _looks_like_pick_name(_nm):
             players_json.pop(_nm, None)
 
-    # 2026 slots = direct one-to-one mapping to top 72 rookie composites.
+    # Current-class slots = one-to-one mapping to top 72 rookie composites.
     # Rookies are sourced from either:
     #  - Sleeper years_exp == 0, or
     #  - must-have rookie list (if the player has at least one site value).
@@ -6338,7 +6381,7 @@ async def run(progress_callback=None):
     rookie_pool.sort(key=lambda x: -x[1])
     if DEBUG:
         print(
-            f"  [Pick Model] 2026 rookie pool candidates: {len(rookie_pool)} "
+            f"  [Pick Model] {_pick_model_year} rookie pool candidates: {len(rookie_pool)} "
             f"(years_exp==0: {rookie_pool_year0}, must-have matched: {rookie_pool_manual})"
         )
 
@@ -6351,11 +6394,11 @@ async def run(progress_callback=None):
         last = rookie_slot_vals[-1]
         rookie_slot_vals.append(max(1, int(round(last * 0.94))))
 
-    base_2026_slot = {}  # (round, slot) -> value
+    base_current_slot = {}  # (round, slot) -> value
     for idx in range(72):
         r = (idx // 12) + 1
         s = (idx % 12) + 1
-        base_2026_slot[(r, s)] = int(rookie_slot_vals[idx])
+        base_current_slot[(r, s)] = int(rookie_slot_vals[idx])
 
     def _tier_avg_from_slots(slot_map, round_num, tier):
         vals = []
@@ -6389,14 +6432,14 @@ async def run(progress_callback=None):
         if sk in _legacy_pick_anchors
     ]
 
-    # Outside-market tier values for 2027/2028 rounds 1-4.
+    # Outside-market tier values for the vendor-published future years, rounds 1-4.
     outside_site_keys = [
         sk
         for sk in ("ktc", "fantasyCalc", "dynastyDaddy", "fantasyPros", "yahoo", "idpTradeCalc")
         if sk in _legacy_pick_anchors
     ]
     outside_tier = {}  # (year, round, tier) -> {"siteVals":{}, "blend":float|None}
-    for year in (2027, 2028):
+    for year in _future_pick_years:
         for rnd in range(1, 5):
             for tier in ("early", "mid", "late"):
                 site_vals = {}
@@ -6417,13 +6460,41 @@ async def run(progress_callback=None):
                     "blend": _weighted_site_blend(site_vals),
                 }
 
-    # Discount calibration from rounds 1-4 outside markets relative to 2026 rookie-proxy base.
-    discount_by_year = {2027: 0.84, 2028: 0.70}
-    for year in (2027, 2028):
+    # Discount calibration from rounds 1-4 outside markets relative to the
+    # current-class rookie-proxy base.
+    #
+    # Seeds and clamps are keyed by YEAR OFFSET rather than by absolute
+    # year (2026-08-16, follow-up 1).  Same numbers, same meaning — "one
+    # year out", "two years out" is what these priors were always about —
+    # but they now roll with the class instead of expiring with it.  All
+    # PRIOR, unchanged: this stabilizer feeds the scraper's own display
+    # composite and does not vote in the canonical blend.
+    _YEAR_OFFSET_DISCOUNT_SEED = {1: 0.84, 2: 0.70}
+    _YEAR_OFFSET_DISCOUNT_CLAMP = {1: (0.60, 0.95), 2: (0.45, 0.85)}
+    _deepest_declared_offset = max(_YEAR_OFFSET_DISCOUNT_SEED)
+
+    def _offset_prior(offset):
+        """(seed, lo, hi) for a year offset, reusing the deepest declared
+        band past the table rather than inventing a new prior."""
+        key = offset if offset in _YEAR_OFFSET_DISCOUNT_SEED else _deepest_declared_offset
+        lo, hi = _YEAR_OFFSET_DISCOUNT_CLAMP[key]
+        return _YEAR_OFFSET_DISCOUNT_SEED[key], lo, hi
+
+    discount_by_year = {}
+    for year in _future_pick_years:
+        offset = int(year) - int(_pick_model_year)
+        seed, clamp_lo, clamp_hi = _offset_prior(offset)
+        if offset not in _YEAR_OFFSET_DISCOUNT_SEED:
+            print(
+                f"  [Pick Model] NOTE: vendors published tiers for {year} "
+                f"(offset {offset}); reusing the offset-{_deepest_declared_offset} "
+                "prior band, which is an extrapolation."
+            )
+        discount_by_year[year] = seed
         ratios = []
         for rnd in range(1, 5):
             for tier in ("early", "mid", "late"):
-                base = _tier_avg_from_slots(base_2026_slot, rnd, tier)
+                base = _tier_avg_from_slots(base_current_slot, rnd, tier)
                 ext = outside_tier.get((year, rnd, tier), {}).get("blend")
                 if (
                     isinstance(base, (int, float))
@@ -6433,11 +6504,7 @@ async def run(progress_callback=None):
                 ):
                     ratios.append(ext / base)
         if ratios:
-            med = _median(ratios, discount_by_year[year])
-            if year == 2027:
-                discount_by_year[year] = max(0.60, min(0.95, med))
-            else:
-                discount_by_year[year] = max(0.45, min(0.85, med))
+            discount_by_year[year] = max(clamp_lo, min(clamp_hi, _median(ratios, seed)))
 
     rebuilt_pick_entries = {}  # players_json labels -> entry
     rebuilt_pick_anchors = {}  # site -> canonical pick key (no "Pick")
@@ -6453,39 +6520,69 @@ async def run(progress_callback=None):
                 if fv is not None:
                     e[sk] = fv
                     rebuilt_pick_anchors.setdefault(sk, {})[canonical_key] = fv
-        if "ktc" not in e:
+        # Publish the model value under the VENDOR's key only when at
+        # least one vendor actually priced this asset.
+        #
+        # 2026-08-16 (C1-U6 follow-up 3).  This injection was
+        # unconditional, so every pick row no vendor prices — the
+        # future rounds 5-6, which neither pick market publishes —
+        # carried the scraper's own model number under ``ktc``, in the
+        # row AND in the exported market-anchor map.  Downstream that is
+        # indistinguishable from a KTC quote, and market-anchor
+        # consumers (the angle engine's ``ktc`` fallback) read it as
+        # one.  The numbers were also measured NON-MONOTONIC — 2027 Mid
+        # 5th priced ABOVE 2027 Mid 4th on the live payload — so what
+        # was being presented as a market anchor was a synthesis that
+        # contradicts the market's own round ordering.
+        #
+        # Those rows are not left valueless: the canonical owner prices
+        # them (``derived_round_step``, provenance-stamped) and it is
+        # the only pick pricer.  What is withdrawn here is a SECOND
+        # opinion wearing a vendor's name.
+        #
+        # Board-inert, verified by rebuild on the 2026-08-16 payload:
+        # 12 rows lose the fabricated ``ktc``, 0 canonical values move —
+        # those values never voted, exactly as the C1-U6 record states.
+        vendor_priced = any(kk and kk[0] != "_" and _has_numeric_value(vv) for kk, vv in e.items())
+        if vendor_priced and "ktc" not in e:
             e["ktc"] = v
             rebuilt_pick_anchors.setdefault("ktc", {})[canonical_key] = v
         e["_composite"] = v
-        e["_sites"] = max(
-            1, sum(1 for kk, vv in e.items() if kk and kk[0] != "_" and _has_numeric_value(vv))
+        # The TRUE count.  ``max(1, ...)`` claimed one source for a row
+        # with none, which is the same conflation in a second field.
+        e["_sites"] = sum(
+            1 for kk, vv in e.items() if kk and kk[0] != "_" and _has_numeric_value(vv)
         )
         rebuilt_pick_entries[label] = e
 
-    # Year 2026: direct rookie-slot mapping.
+    # Current class: direct rookie-slot mapping.
     for rnd in range(1, 7):
         for slot in range(1, 13):
-            val = base_2026_slot.get((rnd, slot), 1)
-            slot_label = f"2026 Pick {rnd}.{slot:02d}"
-            slot_key = f"2026 {rnd}.{slot:02d}"
+            val = base_current_slot.get((rnd, slot), 1)
+            slot_label = f"{_pick_model_year} Pick {rnd}.{slot:02d}"
+            slot_key = f"{_pick_model_year} {rnd}.{slot:02d}"
             site_vals = {}
             for sk in _legacy_pick_site_keys:
-                sv = _legacy_pick_site_value(sk, 2026, rnd, slot=slot, tier=_tier_for_slot(slot))
+                sv = _legacy_pick_site_value(
+                    sk, _pick_model_year, rnd, slot=slot, tier=_tier_for_slot(slot)
+                )
                 if sv is not None:
                     site_vals[sk] = float(sv)
             _put_pick(slot_label, slot_key, val, site_vals)
 
         for tier in ("early", "mid", "late"):
-            tval = _tier_avg_from_slots(base_2026_slot, rnd, tier) or 1
-            tier_label = f"2026 {tier.capitalize()} {rnd}{_pick_suffix_local(rnd)}"
+            tval = _tier_avg_from_slots(base_current_slot, rnd, tier) or 1
+            tier_label = f"{_pick_model_year} {tier.capitalize()} {rnd}{_pick_suffix_local(rnd)}"
             tier_key = tier_label
             site_vals = {}
             for sk in _legacy_pick_site_keys:
-                sv = _legacy_pick_site_value(sk, 2026, rnd, tier=tier)
+                sv = _legacy_pick_site_value(sk, _pick_model_year, rnd, tier=tier)
                 if sv is None:
                     slot_vals = []
                     for slot in _slot_range_for_tier(tier):
-                        mv = _legacy_pick_site_value(sk, 2026, rnd, slot=slot, tier=tier)
+                        mv = _legacy_pick_site_value(
+                            sk, _pick_model_year, rnd, slot=slot, tier=tier
+                        )
                         if mv is not None:
                             slot_vals.append(mv)
                     if slot_vals:
@@ -6494,21 +6591,25 @@ async def run(progress_callback=None):
                     site_vals[sk] = float(sv)
             _put_pick(tier_label, tier_key, tval, site_vals)
 
-    # Years 2027/2028: tier-first model only (no slot-specific rows),
-    # with rounds 5-6 internal curve from 2026 structure + calibrated discounts.
-    for year in (2027, 2028):
-        y_disc = float(discount_by_year.get(year, 0.70 if year == 2028 else 0.84))
+    # Future years: tier-first model only (no slot-specific rows), with
+    # rounds 5-6 an internal curve from the current class's structure +
+    # the calibrated year discount.
+    for year in _future_pick_years:
+        y_disc = float(
+            discount_by_year.get(year, _offset_prior(int(year) - int(_pick_model_year))[0])
+        )
         for rnd in range(1, 7):
             tier_values = {}
             tier_site_values = {}
             for tier in ("early", "mid", "late"):
-                base_tier = _tier_avg_from_slots(base_2026_slot, rnd, tier) or 1
+                base_tier = _tier_avg_from_slots(base_current_slot, rnd, tier) or 1
                 ext = outside_tier.get((year, rnd, tier), {})
                 ext_blend = ext.get("blend")
                 ext_site_vals = dict(ext.get("siteVals") or {})
 
                 if rnd <= 2:
-                    # First two rounds: outside-market led, with discounted 2026 anchor as stabilizer.
+                    # First two rounds: outside-market led, with the discounted
+                    # current-class anchor as stabilizer.
                     if isinstance(ext_blend, (int, float)) and ext_blend > 0:
                         model_val = (0.75 * float(ext_blend)) + (0.25 * (base_tier * y_disc))
                     else:
@@ -6520,7 +6621,8 @@ async def run(progress_callback=None):
                     else:
                         model_val = base_tier * y_disc
                 else:
-                    # Rounds 5-6: internal curve from 2026 rookie structure + calibrated year discount.
+                    # Rounds 5-6: internal curve from the current rookie structure
+                    # + calibrated year discount.
                     model_val = base_tier * y_disc
 
                 final_val = max(1, int(round(model_val)))
@@ -6532,7 +6634,13 @@ async def run(progress_callback=None):
                 _put_pick(tier_label, tier_key, final_val, ext_site_vals)
 
     # Remove stale future-year slot picks from earlier raw ingestion paths.
-    _future_slot_rx = re.compile(r"^202[78]\s+(PICK\s+)?[1-6]\.(0?[1-9]|1[0-2])$", re.IGNORECASE)
+    # Year alternation built from the DERIVED future years, not the
+    # literal ``202[78]`` this used to carry.
+    _future_slot_rx = re.compile(
+        r"^(?:%s)\s+(PICK\s+)?[1-6]\.(0?[1-9]|1[0-2])$"
+        % "|".join(str(int(y)) for y in _future_pick_years or (0,)),
+        re.IGNORECASE,
+    )
     _removed_future_slot_rows = 0
     for _pick_name in list(players_json.keys()):
         if _future_slot_rx.match(str(_pick_name).strip()):
@@ -6540,17 +6648,22 @@ async def run(progress_callback=None):
             _removed_future_slot_rows += 1
     if DEBUG and _removed_future_slot_rows:
         print(
-            f"  [Pick Model] Removed {_removed_future_slot_rows} future-year slot pick rows (2027/2028 tier-only)."
+            f"  [Pick Model] Removed {_removed_future_slot_rows} future-year slot "
+            f"pick rows ({', '.join(str(y) for y in _future_pick_years)} tier-only)."
         )
 
     # Attach rebuilt picks and overwrite exported pick anchors.
     players_json.update(rebuilt_pick_entries)
     pick_anchors = rebuilt_pick_anchors
     pick_anchors_raw = dict(rebuilt_pick_anchors)
+    _disc_str = ", ".join(
+        f"y+{int(y) - int(_pick_model_year)}={discount_by_year.get(y, 0):.3f}"
+        for y in _future_pick_years
+    )
     print(
         f"  [Pick Model] Rebuilt {len(rebuilt_pick_entries)} pick assets "
-        f"(2026 rookie-proxy + 2027/2028 tier model; discounts y+1={discount_by_year.get(2027, 0):.3f}, "
-        f"y+2={discount_by_year.get(2028, 0):.3f})"
+        f"({_pick_model_year} rookie-proxy + "
+        f"{'/'.join(str(y) for y in _future_pick_years)} tier model; discounts {_disc_str})"
     )
 
     # ── Roster guarantee: every rostered player gets a value/rank entry ──

@@ -25,6 +25,8 @@ from __future__ import annotations
 
 import json
 import unittest
+
+import pytest
 from pathlib import Path
 
 from src.api.data_contract import (
@@ -177,11 +179,28 @@ class DraftSharksNegativeValueTests(unittest.TestCase):
             "computation still requires ``v > 0`` for DS sources.",
         )
 
+    @pytest.mark.livedata
     def test_ds_coverage_counts_include_negative_tail(self) -> None:
         """Aggregate check: the fix should expand DS coverage by
         hundreds of players (the negative-value tail).  Floor the
         totals so a regression that silently re-introduces the
-        ``> 0`` gate would drop coverage below expected and fail."""
+        ``> 0`` gate would drop coverage below expected and fail.
+
+        LIVEDATA (2026-08-16).  The floors are absolute counts over the
+        live board's PLAYER POPULATION, so they move with whichever
+        sources answered the last scrape — not only with this carve-out.
+        Measured during the KTC outage of 2026-08-16: DS SF coverage
+        read 40 against a floor of 326 with the carve-out perfectly
+        intact, because the offense population itself had collapsed to
+        whatever a single surviving market covered.  An absolute floor
+        over a variable denominator cannot tell those two apart.
+
+        The carve-out's own three gates stay in the BLOCKING tier —
+        ``test_negative_ds_row_gets_full_coverage`` above walks a known
+        negative-valued row through ``canonicalSiteValues`` →
+        ``sourceRanks`` → ``sourcePresence`` end to end, and it passed
+        throughout the outage.  Nothing about the regression this file
+        exists for became advisory."""
         if not DS_IDP_CSV.exists() or not DS_SF_CSV.exists():
             self.skipTest("DraftSharks CSVs missing")
         if self.contract is None:

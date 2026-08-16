@@ -1,0 +1,130 @@
+name: Release Candidate
+
+# The HEAD FREEZE gate, run once and deliberately.
+#
+# `PR Validation` answers "is this head correct".  It cannot answer "is
+# the tree I validated the tree that will merge", because the base moves
+# after the run concludes.  On 2026-08-16 that gap was 103 seconds: PR
+# #871's exact head went green at 19:08:58, an automated data refresh
+# pushed to main at 19:10:04, and the merge at 19:10:41 produced a tree
+# nothing had ever validated — one whose refreshed payload carried a
+# timed-out KTC scrape.  The deploy gate caught it, which is the system
+# working, but `main` went red on an untested combination.
+#
+# Dispatch this against the frozen head immediately before merging.  It
+# asserts the release-candidate property in STRICT mode and then runs the
+# same gates `PR Validation` runs, against the merge of base and head —
+# the tree that will actually exist.
+#
+# It is deliberately manual.  Running it on every push would chase the
+# 2-hourly refresh forever (green → refresh → revalidate → refresh),
+# which is the loop the owner explicitly ruled out.  Bounded discipline:
+# freeze, integrate once, validate that exact SHA, merge promptly.
+
+on:
+  workflow_dispatch:
+    inputs:
+      head_ref:
+        description: "Branch or SHA being released (the frozen head)"
+        required: true
+        type: string
+      base_ref:
+        description: "Base branch to integrate against"
+        required: false
+        default: "main"
+        type: string
+
+concurrency:
+  # One release candidate at a time. Two people freezing different heads
+  # against the same base is precisely the situation this exists to stop.
+  group: release-candidate
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  candidate:
+    name: Validate Release Candidate
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Checkout (full history — the check diffs base against head)
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          ref: ${{ inputs.head_ref }}
+
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python -m pip install --upgrade pip
+          pip install -r requirements-dev.txt
+
+      - name: Release-candidate freshness (STRICT)
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          git fetch origin "${{ inputs.base_ref }}" --depth=200
+          python scripts/check_release_candidate.py \
+            --base "origin/${{ inputs.base_ref }}" \
+            --head HEAD \
+            --strict
+
+      - name: Build the exact merge candidate
+        # Not the head — the TREE THAT WILL EXIST.  If the strict check
+        # above passed, this is a fast-forward and the two are the same
+        # tree; doing it anyway means the gates below are running on the
+        # merge result by construction rather than by assumption.
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          git config user.name  "release-candidate"
+          git config user.email "noreply@anthropic.com"
+          git merge --no-edit "origin/${{ inputs.base_ref }}"
+          echo "candidate tree: $(git rev-parse HEAD)"
+
+      - name: Python format + lint gates
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python -m ruff format --check .
+          python -m ruff check .
+
+      - name: Governance + planning gates
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python scripts/check_planning_integrity.py
+          python scripts/check_product_plan_governance.py
+          python scripts/check_decision_coercions.py
+          python scripts/audit_status.py
+
+      - name: Unit tests (hard gate — pure logic)
+        shell: bash
+        env:
+          ALLOW_DEFAULT_LOGIN_DEV: "1"
+          UPTIME_CHECK_ENABLED: "0"
+        run: |
+          set -Eeuo pipefail
+          python -m pytest tests/ -x -q --tb=short -m "not livedata"
+
+      - name: API data contract check (structural lane)
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python scripts/validate_api_contract.py --repo . --lane structural
+
+      - name: Source health (advisory — the deploy gate is the blocking one)
+        if: ${{ always() }}
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python scripts/check_source_health.py --repo .

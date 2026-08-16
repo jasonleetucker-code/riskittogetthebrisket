@@ -280,7 +280,42 @@ TestGenericExactSlotTransition`).  Valuation never mutates identity: the
 resolver echoes the caller's ref verbatim; the generic grade never becomes
 "Mid" outside the legacy formatters that already carried the label.
 
-## 12. Follow-ups recorded, NOT blocking this unit
+## 12. Follow-ups — ALL DISPOSED 2026-08-16
+
+The eleven items below were recorded as nonblocking at delivery.  The bounded
+stabilization pass of 2026-08-16 reproduced, classified and closed every one of
+them before this unit was allowed to close.  **Ten were current defects and are
+fixed; one (11) is an intentional contract, now proven and pinned.**  None was
+deferred into a future unit.  Full record, with the measured value impact:
+`docs/ops/STABILIZATION_2026-08-16.md` §5 and §6.
+
+| # | classification | outcome |
+|---|---|---|
+| 1 | CURRENT DEFECT (latent — would manifest at the ~May 2027 rollover) | fixed: years derived from vendor anchors through the canonical owner; discount seeds/clamps re-keyed by offset; byte-identical today |
+| 2 | CURRENT DEFECT | fixed: derived rows withdrawn from the cross-market evidence pool (values move — measured, §12a) |
+| 3 | CURRENT DEFECT | fixed: no model composite published under a vendor key for rows no vendor priced; 0 canonical values move |
+| 4 | CURRENT DEFECT | fixed: unresolvable trade assets are `null` + counted, never 0 |
+| 5 | CURRENT DEFECT (in the governance script) | fixed: the script reads the governance index instead of a hard-coded allowlist; now CI-wired |
+| 6 | CURRENT DEFECT | fixed: `pickValue` is `null` + `pickValueState: "unavailable"` when unfed |
+| 7 | OBSERVABILITY GAP | measured (32 days of frozen IDPTC pick rows) and surfaced by the new source-health lane; no methodology change |
+| 8 | CURRENT DEFECT (concurrency) | fixed: module globals deleted, derivation map threaded per build; sequential AND concurrent builds hash-identical |
+| 9 | CURRENT DEFECT (label) | fixed: every derived year factor names its basis; rows with an unstated basis 12 → 0 |
+| 10 | CURRENT DEFECT | fixed: after-state removal by multiplicity, caller label first |
+| 11 | INTENTIONAL CURRENT CONTRACT | proven (no export carries a canonical value) and pinned by `tests/api/test_export_leg_is_raw_evidence.py` |
+
+### 12a. The one repair that moves canonical values
+
+Follow-up 2 only.  Measured on the healthy 2026-08-16 board: 12 synthetic rows
+leave the backbone pool, the shared-market ladder shifts by at most 12 combined
+ranks (the arithmetic bound — exactly the count removed), 297 rows change value
+at **p50 0.085% / p90 0.152%**, and two IDP rows move ~29.5% because a ≤12-rank
+shift crosses the trim boundary of the count-aware mean-median.  Direction is
+mostly upward for IDP, which IS the correction: synthetic rows had been padding
+the vendor's pool with assets it never published, pushing IDP players to worse
+combined ranks and lower translated values.  No curve, weight, family or
+classification changed; the year-step family remains **PRIOR**.
+
+### 12b. The items as originally recorded
 
 1. **Scraper rollover year-literals** — `Dynasty Scraper.py` hard-codes "2026"
    slot labels and `(2027, 2028)` tier years; when the sources roll, the
@@ -328,7 +363,60 @@ resolver echoes the caller's ref verbatim; the generic grade never becomes
    parity test self-skips accordingly.  If a contract-derived export ever
    ships, wire it into the census.
 
-## 13. What was deliberately NOT done
+## 13. Merge, and the CI record stated correctly
+
+**MERGED** — PR #871, merge commit `ce8a8341a`, parents `801bf940d` (main, an
+automated data refresh) + `edc25300d` (the branch head).  Merged by the owner at
+19:10:41Z.
+
+**Exact-head CI.**  The validated head `6d7b9dd47` passed run **31964305868
+SUCCESS** (all gates: format, lint, coercion, finding-drift, planning integrity,
+import, unit tests, contract check, deploy syntax, frontend).  The final head
+`edc25300d` differs from it ONLY by merging main's four automated data-refresh
+commits — no source change, verified by diff — and it passed its **own**
+exact-head run **31965928453 SUCCESS**: `status: completed`,
+`conclusion: success`, concluded **19:08:58Z**, one minute and forty-three
+seconds before the merge.
+
+**Correction.**  An earlier record (PR #872's body, `docs/EXECUTION_PLAN.md`, and
+a draft of this section) stated that run 31965928453 was cancelled by the merge
+and never concluded, and that the merged head was therefore verified directly
+"instead".  **That was false**, and it is corrected here and in every other
+record that carried it.  The direct post-merge verification below was performed
+and remains valid evidence — it was an addition, not a substitute.
+
+**Post-merge verification on `ce8a8341a`** (against the newer 19:09:04 payload):
+
+* pick completeness holds — **162** pick rows; 2027 24/24, 2028 24/24, **2029
+  24/24** finite; provenance 162/162; **zero** completeness-census errors;
+* `validate_api_data_contract` returns `invalid` on `partial_run_critical:KTC` —
+  a **failed KTC scrape in that refresh, not a code defect**.  Proven
+  independent: the pre-merge parent `801bf940d` produces the identical status and
+  identical error on the identical payload;
+* the test suites fail 13 named tests (29 including subtests) on the merged tree
+  — and the **same 13, set-identical, zero unique to either side**, on the
+  pre-merge parent with the same payload.  **C1-U6 introduces no test failure.**
+
+Deploy Production run **31966802715** failed in validation and `Deploy To
+Production` was **skipped**: no deployment of `ce8a8341a` occurred.
+
+## 14. Stabilization and closure (2026-08-16)
+
+The post-merge failure was **not** this unit.  `ce8a8341a`'s other parent brought
+in a scrape in which KTC had timed out (300.09 s against a 39-run baseline of
+18.49–19.19 s).
+
+The bounded stabilization pass that followed separated deterministic code
+correctness from external source health in CI, turned on the contract gate that
+had never once executed, added the source-health lane and the release-candidate
+discipline, corrected the false CI history wherever it appeared, and disposed of
+all eleven §12 follow-ups.  Full record:
+`docs/ops/STABILIZATION_2026-08-16.md`.
+
+**C1-U6 / C1-PICK-01 / C1-PICK-02 are CLOSED at the owner checkpoint.**  This
+closure authorizes no later unit.
+
+## 15. What was deliberately NOT done
 
 No C1-U5 confidence work (no new confidence consumer was built — derived rows
 stamp buckets through the existing pick vocabulary only).  No C1-U7 owned-pick

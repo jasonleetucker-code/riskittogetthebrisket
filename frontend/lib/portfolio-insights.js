@@ -249,18 +249,35 @@ export function computePortfolio({ rows, selectedTeam, rawData, history, rosterS
     // `lib/league-analysis.js` already uses it; this module simply
     // never imported it. With it, 216 of 288 resolve.
     //
-    // The other 72 are RIGHT to be unresolved: they are every 2029
-    // pick, and the board prices 2026 (90 rows), 2027 (18) and 2028
-    // (18) but publishes nothing for 2029. Do not "fix" that number to
-    // 288 — a pick with no board row has no value to show, and
-    // inventing one is the failure mode this codebase already had with
-    // the flat 7000/4000/2000/1200 table.
+    // The remaining 72 were every 2029 pick, which the board did not
+    // price at the time this comment was written. C1-U6 CLOSED that:
+    // the board now carries a finite, provenance-stamped value for
+    // every valid pick through the horizon, including rank-less
+    // generic-grade rows ("2029 Round 1"). The count is therefore
+    // expected to be far lower now, and a residual unresolved pick
+    // means a LABEL the candidate expansion cannot map — not a pick the
+    // board declines to price.
+    //
+    // What has not changed, and must not: a pick with no board row has
+    // no value to show. It stays in `unresolved`; nothing is invented.
+    // That was the failure mode of the deleted flat 7000/4000/2000/1200
+    // table, and it is still the rule.
     const row = resolveByCandidates(byName, buildPickLookupCandidates(name));
     if (!row) {
       unresolved.push(name);
       continue;
     }
-    const value = Number(row.rankDerivedValue || row.values?.full || 0);
+    // MISSING IS NEVER ZERO: a row the board explicitly declines to
+    // price (`rankDerivedValue: null`) is unresolved, not worth 0.
+    // `Number(null || undefined || 0)` collapsed all three into a
+    // measured zero that then summed into the portfolio total.
+    const rawValue = row.rankDerivedValue ?? row.values?.full ?? null;
+    const numericValue = Number(rawValue);
+    if (rawValue === null || !Number.isFinite(numericValue) || numericValue <= 0) {
+      unresolved.push(name);
+      continue;
+    }
+    const value = numericValue;
     rosterValues.push({
       name: row.name,
       pos: "PICK",

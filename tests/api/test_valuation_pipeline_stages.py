@@ -438,10 +438,7 @@ class TestPickYearDiscountThroughTheBlend:
             _row(name, "PICK", ktcSfTep=7000, idpTradeCalc=7000),
             _anchor_qb(),
         ]
-        prev = dc._SYNTHETIC_FAR_FUTURE_PICK_NAMES
-        prev_der = dc._SYNTHETIC_PICK_DERIVATIONS
-        dc._SYNTHETIC_FAR_FUTURE_PICK_NAMES = {dc._canonical_match_key(name)}
-        dc._SYNTHETIC_PICK_DERIVATIONS = {
+        derivations = {
             dc._canonical_match_key(name): {
                 "factor": 0.7138,
                 "basisYear": year + 1,
@@ -450,11 +447,7 @@ class TestPickYearDiscountThroughTheBlend:
                 "classification": "PRIOR",
             }
         }
-        try:
-            dc._compute_unified_rankings(rows, {})
-        finally:
-            dc._SYNTHETIC_FAR_FUTURE_PICK_NAMES = prev
-            dc._SYNTHETIC_PICK_DERIVATIONS = prev_der
+        dc._compute_unified_rankings(rows, {}, synthetic_pick_derivations=derivations)
 
         assert _by_name(rows)[name]["rankDerivedValue"] == 7000
 
@@ -480,10 +473,7 @@ class TestPickYearDiscountThroughTheBlend:
             _row(name, "PICK", ktcSfTep=7000, idpTradeCalc=7000),
             _anchor_qb(),
         ]
-        prev = dc._SYNTHETIC_FAR_FUTURE_PICK_NAMES
-        prev_der = dc._SYNTHETIC_PICK_DERIVATIONS
-        dc._SYNTHETIC_FAR_FUTURE_PICK_NAMES = {dc._canonical_match_key(name)}
-        dc._SYNTHETIC_PICK_DERIVATIONS = {
+        derivations = {
             dc._canonical_match_key(name): {
                 "factor": 0.8407,
                 "basisYear": year,
@@ -492,11 +482,7 @@ class TestPickYearDiscountThroughTheBlend:
                 "classification": "PRIOR",
             }
         }
-        try:
-            dc._compute_unified_rankings(rows, {})
-        finally:
-            dc._SYNTHETIC_FAR_FUTURE_PICK_NAMES = prev
-            dc._SYNTHETIC_PICK_DERIVATIONS = prev_der
+        dc._compute_unified_rankings(rows, {}, synthetic_pick_derivations=derivations)
         assert _by_name(rows)[name]["pickYearDiscount"] == 0.8407
 
     def test_vendor_priced_future_year_carries_no_discount_stamp(self):

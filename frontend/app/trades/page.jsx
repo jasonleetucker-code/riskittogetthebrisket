@@ -197,7 +197,12 @@ function AssetPill({ item }) {
       />
       <Badge tone="outline">{item.isPick ? "PICK" : item.pos}</Badge>
       <span className={styles.assetPillName}>{item.name}</span>
-      <span className={styles.assetPillValue}>{item.val.toLocaleString()}</span>
+      {/* `val` is null when the board cannot price the asset.  It used
+          to be 0, which rendered as a confident "0" beside a real
+          value — the display half of MISSING IS NEVER ZERO. */}
+      <span className={styles.assetPillValue} title={item.unresolved ? "No board value for this asset — excluded from the totals" : undefined}>
+        {typeof item.val === "number" ? item.val.toLocaleString() : "—"}
+      </span>
     </span>
   );
 }

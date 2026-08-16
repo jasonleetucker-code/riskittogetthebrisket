@@ -187,6 +187,28 @@ _LIVEDATA_MODULES = frozenset(
         "test_fantasypros_idp_integration.py",
         "test_ktc_reconciliation.py",
         "test_fetch_flock_fantasy_rookies.py",
+        # ``test_faab_calibration.py`` — added 2026-08-16.  Its own
+        # docstring says what it is: "These are the tests that would
+        # catch a recalibration going wrong.  They run against the REAL
+        # exported board rather than a synthetic one."  Its anchors are
+        # resolved FROM that board (``resolve_anchors(values, league)``),
+        # so when a scrape loses a market the replacement line moves and
+        # value points that were at replacement no longer are.  Measured
+        # during the 2026-08-16 KTC outage: a 1,000-value player priced
+        # at 2% of budget instead of 0% and recommended $7 instead of
+        # $1, with ``faab_engine`` byte-identical.
+        #
+        # The ENGINE's deterministic invariants are unaffected and stay
+        # in the blocking tier: ``tests/trade/test_faab_engine.py``
+        # builds a SYNTHETIC board and already pins
+        # ``objective_ceiling(v_repl - 1) == 0``,
+        # ``objective_ceiling(v_allin) == 1``, the monotonicity of the
+        # curve and the raw-ceiling cap.  What moves to the advisory
+        # tier is only the claim that TODAY'S REAL BOARD lands its
+        # anchors where the two managers said they should — a
+        # calibration claim about live data, which is what this tier is
+        # for.
+        "test_faab_calibration.py",
     }
 )
 

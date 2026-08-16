@@ -75,7 +75,17 @@ class RosterValues:
     # Starting-lineup ROS value vs everything else.
     starters_ros: float = 0.0
     bench_ros: float = 0.0
-    pick_value: float = 0.0
+    #: ``None`` means NOBODY SUPPLIED IT — not "this roster holds no picks".
+    #:
+    #: Every production caller (``src/api/gameplan.py``) omits the argument,
+    #: so the previous ``0.0`` default was published on a live field as a
+    #: real, measured $0 of draft capital for teams that in fact hold picks
+    #: worth thousands.  That is the repo's MISSING-IS-NEVER-ZERO rule
+    #: broken on an output surface (C1-U6 follow-up 6).  Repaired by making
+    #: the missing state expressible rather than by inventing a number: no
+    #: second pick pricer is introduced here, and a caller that DOES have
+    #: the roster's pick total still passes it.
+    pick_value: float | None = None
     priced_players: int = 0
     unpriced_players: int = 0
 
@@ -87,7 +97,8 @@ class RosterValues:
             "ros": round(self.ros, 3),
             "startersRos": round(self.starters_ros, 3),
             "benchRos": round(self.bench_ros, 3),
-            "pickValue": round(self.pick_value, 3),
+            "pickValue": (None if self.pick_value is None else round(self.pick_value, 3)),
+            "pickValueState": ("unavailable" if self.pick_value is None else "supplied"),
             "pricedPlayers": self.priced_players,
             "unpricedPlayers": self.unpriced_players,
         }
@@ -222,7 +233,7 @@ def _rollup_values(
     pool: Sequence[RosterPlayer],
     entered_ids: frozenset[str],
     player_values: Mapping[str, Mapping[str, Any]] | None,
-    pick_value: float,
+    pick_value: float | None,
 ) -> RosterValues:
     """Sum the parallel value scales over the roster.
 
@@ -355,7 +366,9 @@ def analyze_roster(
     replacement: Mapping[str, PositionReplacement] | None = None,
     player_meta: Mapping[str, Mapping[str, Any]] | None = None,
     player_values: Mapping[str, Mapping[str, Any]] | None = None,
-    pick_value: float = 0.0,
+    # ``None`` = not supplied.  See ``RosterValues.pick_value``: an
+    # unfed parameter must not publish as a measured $0.
+    pick_value: float | None = None,
     playoff_odds: Sequence[Mapping[str, Any]] | None = None,
     lineup_scores: Mapping[str, float] | None = None,
     override_state: str | None = None,

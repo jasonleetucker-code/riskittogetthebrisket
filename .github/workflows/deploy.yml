@@ -165,15 +165,25 @@ jobs:
           set -Eeuo pipefail
           python -m pytest tests/ -q --tb=short -m livedata
 
-      - name: API data contract check (if sample data exists)
+      - name: API data contract check (FULL lane — blocking)
+        # The deploy ships ``exports/`` and ``data/`` to the box (that is why
+        # scheduled-refresh.yml dispatches this workflow after a scrape), so
+        # here the source-health half is exactly the point: refusing to ship
+        # a board built without a critical market is fail-safe — production
+        # keeps serving what it already has.
+        #
+        # This step had also never run before 2026-08-16: it looked for the
+        # payload in two gitignored locations and skipped every time.  The
+        # only thing blocking a source-degraded deploy was a unit test that
+        # happened to assert ``contractHealth.ok`` — i.e. the contamination
+        # bug WAS the production guard.  It is a named gate now.
+        #
+        # Recovery is automatic and needs no override: the 2-hourly refresh
+        # re-scrapes and the condition clears on the next healthy run.
         shell: bash
         run: |
           set -Eeuo pipefail
-          if ls dynasty_data_*.json >/dev/null 2>&1 || ls data/dynasty_data_*.json >/dev/null 2>&1; then
-            python scripts/validate_api_contract.py --repo .
-          else
-            echo "No dynasty_data_*.json sample found; skipping contract validation."
-          fi
+          python scripts/validate_api_contract.py --repo . --lane full
 
       - name: Validate required deploy artifacts exist
         shell: bash

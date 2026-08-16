@@ -107,6 +107,16 @@ export function buildRowLookup(rows) {
   return map;
 }
 
+/** A board row prices an asset only when it carries a finite, positive
+ *  value.  `values.full` is null on rows the board explicitly declines
+ *  to price (`rowsUnpricedByBoard`), and `x || 0` turned every one of
+ *  those into a measured zero. */
+function boardValueOrNull(row) {
+  const raw = row?.values?.full;
+  const num = Number(raw);
+  return Number.isFinite(num) && num > 0 ? num : null;
+}
+
 // ── Resolve Trade Item → Row Value ──────────────────────────────────────
 /**
  * Resolve a trade item name to a value using the rows from useDynastyData.
@@ -116,10 +126,27 @@ export function buildRowLookup(rows) {
  * stores canonical rows as "2026 Pick 1.04" or "2027 Mid 1st".  The
  * `resolvePickRow` helper walks parsed candidates + backend alias map
  * so pick values surface correctly in trade history.
+ *
+ * MISSING IS NEVER ZERO (repaired 2026-08-16, C1-U6 follow-up 4).  Every
+ * unresolvable branch here used to return `value: 0`, so an asset the
+ * board declines to price was aggregated as an asset worth NOTHING —
+ * which silently understates whichever side of a historical trade
+ * happened to contain it, and reads on screen as a measured zero.  Those
+ * branches now return `value: null` with `unresolved: true`; the caller
+ * excludes them from the sums and counts them instead.  No value is
+ * invented and no consumer is asked to guess.
  */
 export function resolveTradeItemValue(itemName, rowLookup, posMap, pickAliases) {
   if (!itemName) {
-    return { name: itemName, value: 0, pos: "", isPick: false, playerId: "", team: "" };
+    return {
+      name: itemName,
+      value: null,
+      unresolved: true,
+      pos: "",
+      isPick: false,
+      playerId: "",
+      team: "",
+    };
   }
   const name = String(itemName).trim();
   const isPick = !!parsePickToken(name);
@@ -127,23 +154,33 @@ export function resolveTradeItemValue(itemName, rowLookup, posMap, pickAliases) 
   if (isPick) {
     const row = resolvePickRow(name, rowLookup, pickAliases);
     if (row) {
+      const priced = boardValueOrNull(row);
       return {
         name,
-        value: row.values?.full || 0,
+        value: priced,
+        unresolved: priced === null,
         pos: "PICK",
         isPick: true,
         playerId: "",
         team: "",
       };
     }
-    // No match — fall through to empty pick result below.
-    return { name, value: 0, pos: "PICK", isPick: true, playerId: "", team: "" };
+    // No board row for this pick.  Unresolvable, NOT worthless.
+    return {
+      name,
+      value: null,
+      unresolved: true,
+      pos: "PICK",
+      isPick: true,
+      playerId: "",
+      team: "",
+    };
   }
 
   const key = name.toLowerCase();
   const row = rowLookup.get(key);
   if (row) {
-    const baseVal = row.values?.full || 0;
+    const baseVal = boardValueOrNull(row);
     return {
       name,
       // When the user has Apply Scoring Fit on, IDP values shift by
@@ -151,6 +188,7 @@ export function resolveTradeItemValue(itemName, rowLookup, posMap, pickAliases) 
       // the deal looks like UNDER YOUR LEAGUE'S RULES, not just the
       // generic consensus.  Offense + picks pass through unchanged.
       value: baseVal,
+      unresolved: baseVal === null,
       pos: row.pos || "",
       isPick: false,
       // Carry the Sleeper player id + NFL team forward so the trade
@@ -168,9 +206,11 @@ export function resolveTradeItemValue(itemName, rowLookup, posMap, pickAliases) 
   if (stripped !== name) {
     const strippedRow = rowLookup.get(stripped.toLowerCase());
     if (strippedRow) {
+      const strippedVal = boardValueOrNull(strippedRow);
       return {
         name,
-        value: strippedRow.values?.full || 0,
+        value: strippedVal,
+        unresolved: strippedVal === null,
         pos: strippedRow.pos || "",
         isPick: false,
         playerId: String(strippedRow.raw?.playerId || "") || "",
@@ -179,9 +219,9 @@ export function resolveTradeItemValue(itemName, rowLookup, posMap, pickAliases) 
     }
   }
 
-  // Fallback — check position map
+  // Fallback — the board has no row for this name at all.
   const pos = posMap?.[name] || "";
-  return { name, value: 0, pos, isPick: false, playerId: "", team: "" };
+  return { name, value: null, unresolved: true, pos, isPick: false, playerId: "", team: "" };
 }
 
 // ── Normalize Trade Asset Label ─────────────────────────────────────────
@@ -315,22 +355,36 @@ function resolveTradeSideList(rawList, ctx) {
   const values = [];
   let linear = 0;
   let weighted = 0;
+  let unresolvedCount = 0;
   for (const rawItem of getTradeSideItemLabels(rawList)) {
     const resolved = resolveTradeItemValue(rawItem, rowLookup, posMap, pickAliases);
-    const safeVal = Number.isFinite(resolved.value) ? Math.max(0, resolved.value) : 0;
-    linear += safeVal;
-    weighted += Math.pow(Math.max(safeVal, 1), alpha);
-    if (safeVal > 0) values.push(safeVal);
+    const num = Number(resolved.value);
+    const priced = !resolved.unresolved && Number.isFinite(num);
+    // An asset the board cannot price is EXCLUDED from both sums rather
+    // than folded in at zero.  Note the old `weighted` line added
+    // `Math.pow(Math.max(0, 1), alpha)` = 1 for every such asset — a
+    // fabricated unit of value, small but real, on the very assets we
+    // knew least about.
+    if (priced) {
+      const safeVal = Math.max(0, num);
+      linear += safeVal;
+      weighted += Math.pow(Math.max(safeVal, 1), alpha);
+      if (safeVal > 0) values.push(safeVal);
+    } else {
+      unresolvedCount += 1;
+    }
     items.push({
       name: resolved.name,
-      val: Math.round(safeVal),
+      // `null`, never 0 — the UI must be able to render "unpriced".
+      val: priced ? Math.round(Math.max(0, num)) : null,
+      unresolved: !priced,
       pos: resolved.pos,
       isPick: resolved.isPick,
       playerId: resolved.playerId,
       team: resolved.team,
     });
   }
-  return { items, linear, weighted, values };
+  return { items, linear, weighted, values, unresolvedCount };
 }
 
 // KTC value adjustment for one team's "got vs gave" comparison —
@@ -488,6 +542,13 @@ export function analyzeRawTrade(trade, ctx) {
       netAdjusted: g.netAdjusted,
       pctGap: g.pctGap,
       grade: g.grade,
+      // How many assets on this side the board could not price.  A grade
+      // computed over an incomplete package is still the best available
+      // answer, but the consumer has to be able to SEE that it is
+      // incomplete rather than infer completeness from silence.
+      gotUnresolved: got.unresolvedCount,
+      gaveUnresolved: gave.unresolvedCount,
+      unresolvedAssets: got.unresolvedCount + gave.unresolvedCount,
     });
   }
 

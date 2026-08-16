@@ -10,7 +10,7 @@ import re
 import statistics
 from datetime import date, datetime, timezone
 from pathlib import Path
-from typing import Any, Iterable
+from typing import Any, Iterable, Mapping
 
 from src.canonical.player_valuation import (
     PERCENTILE_REFERENCE_N as _CANONICAL_PERCENTILE_REFERENCE_N,
@@ -4666,15 +4666,29 @@ def _load_pick_year_discount() -> dict[str, Any]:
 # config edit and no stale baseline.
 _OBSERVED_CURRENT_DRAFT_YEAR: int | None = None
 
-# Canonical names of pick rows synthesized by
-# ``_inject_far_future_pick_sources`` for this build.  These are
-# legitimately single-source (no vendor prices picks that far out), so
-# the single-source safety gate allowlists them by name.
-_SYNTHETIC_FAR_FUTURE_PICK_NAMES: set[str] = set()
-# Per-build derivation record for those names (canonical match key →
-# {"factor", "basisYear", "family"}), consumed by the Phase 3a stamp
-# pass and the pick-provenance stamping (C1-U6).
-_SYNTHETIC_PICK_DERIVATIONS: dict[str, dict[str, Any]] = {}
+# Per-build derivation record for the pick rows synthesized by
+# ``_inject_far_future_pick_sources`` (canonical match key →
+# {"factor", "basisYear", "basisName", "family", "classification"}).
+#
+# Its KEYS are also the synthetic-name set: these rows are legitimately
+# single-source (no vendor prices picks that far out), so the
+# single-source safety gate allowlists them.  Until 2026-08-16 the same
+# information was kept twice — a ``set`` and a ``dict`` populated side by
+# side — and both were MODULE GLOBALS reset at the top of each injection.
+#
+# That was a real concurrency defect on a live endpoint, not a style
+# preference (C1-U6 follow-up 8).  ``POST /api/rankings/overrides``
+# rebuilds the board per request; two overlapping builds in one process
+# shared the globals, so build B could reset them mid-way through build
+# A's provenance stamping and A would publish a derived pick row with no
+# derivation record — or, worse, with B's.  It also made the tests set
+# and restore process state to exercise a pure function.
+#
+# The map is now created by the injection, returned to the caller, and
+# threaded explicitly to the three passes that read it.  There is no
+# process-global derivation state left, so builds cannot see each
+# other's, in any interleaving.
+_EMPTY_PICK_DERIVATIONS: dict[str, dict[str, Any]] = {}
 _FAR_FUTURE_ALLOWLIST_REASON = (
     "synthetic_far_future_tier:no vendor prices picks this far out; "
     "derived from the nearest published year via the measured vendor "
@@ -4682,29 +4696,75 @@ _FAR_FUTURE_ALLOWLIST_REASON = (
     "auto-pivots when sources publish this year)"
 )
 
-_PICK_SLOT_NAME_RE = re.compile(r"^\s*(20\d{2})\s+Pick\s+[1-6]\.\d{1,2}\s*$", re.I)
 
-
-def _derive_current_draft_year_from_names(names: Any) -> int | None:
-    """Lowest year with a slot-specific ``YYYY Pick R.SS`` name, or None.
+def derive_current_draft_year_from_names(names: Any) -> int | None:
+    """Lowest year carrying a SLOT-specific pick label, or ``None``.
 
     The lowest such year is the active draft — older classes have been
     drafted out of the source boards, further-out classes only have
     generic Early/Mid/Late tiers.
+
+    THE grammar-independent form of the rule (2026-08-16).  It used to
+    match one hard-coded regex for ``YYYY Pick R.SS`` — the contract's own
+    row names — which meant the SCRAPER, whose vendor anchors are keyed
+    ``"2026 1.01"``, could not ask this question and hard-coded ``2026``
+    and ``(2027, 2028)`` instead (C1-U6 follow-up 1).  That is a circular
+    pin: the contract's "self-rolling" current year is DERIVED from the
+    scrape, so a stale literal upstream freezes the whole board at the
+    next class rollover while every downstream year claims to self-roll.
+    Parsing runs through the C1-U3 pick-identity owner, which already
+    knows every label grammar in the repository, so there is exactly one
+    rule and exactly one grammar authority.
+
+    Verified equivalent on the live payload: identical answer (2026) to
+    the retired regex on contract row names, and it additionally answers
+    on the scraper's anchor grammar, where the regex returned ``None``.
     """
+    from src.identity.picks import parse_pick_label
+
     best: int | None = None
     try:
         iterator = iter(names)
     except TypeError:
         return None
     for nm in iterator:
-        m = _PICK_SLOT_NAME_RE.match(str(nm))
-        if not m:
+        parsed = parse_pick_label(str(nm))
+        if parsed is None or parsed.slot is None or parsed.year is None:
             continue
-        yr = int(m.group(1))
-        if best is None or yr < best:
-            best = yr
+        year = int(parsed.year)
+        if best is None or year < best:
+            best = year
     return best
+
+
+def derive_future_tier_years_from_names(names: Any, current_year: int) -> list[int]:
+    """Years strictly after ``current_year`` that carry generic TIER labels.
+
+    The other half of the same question, and the other scraper literal:
+    which future classes do the vendors actually publish tiers for.  Data
+    says ``[2027, 2028]`` today — the two years the scraper hard-codes —
+    and it rolls on its own when a vendor adds a year.
+    """
+    from src.identity.picks import parse_pick_label
+
+    years: set[int] = set()
+    try:
+        iterator = iter(names)
+    except TypeError:
+        return []
+    for nm in iterator:
+        parsed = parse_pick_label(str(nm))
+        if parsed is None or parsed.year is None or parsed.slot is not None:
+            continue
+        year = int(parsed.year)
+        if year > int(current_year):
+            years.add(year)
+    return sorted(years)
+
+
+def _derive_current_draft_year_from_names(names: Any) -> int | None:
+    """Deprecated private alias — call the public name."""
+    return derive_current_draft_year_from_names(names)
 
 
 def set_observed_current_draft_year(year: int | None) -> None:
@@ -4777,11 +4837,13 @@ def _inject_far_future_pick_sources(
     tier entry is left untouched, so the moment vendors publish e.g.
     2029 this no-ops for that year ("pivot when sources add them").
 
-    Returns the number of synthetic raw entries added.
+    Returns the per-build derivation map (canonical match key → record).
+    Its length is the number of synthetic raw entries added, and its keys
+    are the synthetic-name set the single-source gate allowlists.  It is
+    deliberately RETURNED rather than stored on the module: see
+    ``_EMPTY_PICK_DERIVATIONS`` for the concurrency defect that caused.
     """
-    global _SYNTHETIC_FAR_FUTURE_PICK_NAMES, _SYNTHETIC_PICK_DERIVATIONS
-    _SYNTHETIC_FAR_FUTURE_PICK_NAMES = set()
-    _SYNTHETIC_PICK_DERIVATIONS = {}
+    derivations: dict[str, dict[str, Any]] = {}
     cfg = _load_pick_year_discount()
     try:
         horizon = max(0, int(cfg.get("horizonYears") or 3))
@@ -4789,7 +4851,7 @@ def _inject_far_future_pick_sources(
         horizon = 3
     target_year = current_year + horizon
     if target_year <= current_year:
-        return 0
+        return derivations
 
     years_with_tiers: set[int] = set()
     for key in list(players_by_name.keys()):
@@ -4797,7 +4859,7 @@ def _inject_far_future_pick_sources(
         if m:
             years_with_tiers.add(int(m.group(1)))
     if not years_with_tiers:
-        return 0
+        return derivations
 
     added = 0
     for year in range(current_year + 1, target_year + 1):
@@ -4836,8 +4898,7 @@ def _inject_far_future_pick_sources(
             # gate keys ``allowlistReason`` lookups on), not the raw
             # display name.
             match_key = _canonical_match_key(new_name)
-            _SYNTHETIC_FAR_FUTURE_PICK_NAMES.add(match_key)
-            _SYNTHETIC_PICK_DERIVATIONS[match_key] = {
+            derivations[match_key] = {
                 "factor": round(factor, 4),
                 "basisYear": template_year,
                 "basisName": key,
@@ -4846,7 +4907,7 @@ def _inject_far_future_pick_sources(
             }
             added += 1
         years_with_tiers.add(year)
-    return added
+    return derivations
 
 
 def current_rookie_draft_year(today: date | None = None) -> int:
@@ -6661,6 +6722,7 @@ def _compute_pick_confidence(
 def _apply_pick_year_discount_to_blend(
     row_normalized: list[tuple[float, int]],
     players_array: list[dict[str, Any]],
+    synthetic_pick_derivations: Mapping[str, dict[str, Any]] | None = None,
 ) -> tuple[list[tuple[float, int]], dict[int, float]]:
     """Stamp the effective year-derivation factor on synthetic-year picks.
 
@@ -6681,21 +6743,23 @@ def _apply_pick_year_discount_to_blend(
     composing any decay onto real prices published 2027 firsts 18% and
     2028 firsts 34% BELOW what both markets agreed, biasing every trade
     involving future capital the same way (sell futures cheap, buy
-    futures expensive).  ``_SYNTHETIC_FAR_FUTURE_PICK_NAMES`` is
-    exactly the synthesized set, so it is the gate — pinned by
+    futures expensive).  ``synthetic_pick_derivations`` is exactly the
+    synthesized set (the map ``_inject_far_future_pick_sources``
+    returned for THIS build), so it is the gate — pinned by
     ``tests/api/test_pick_year_discount_gate.py``.
 
     Audit V-12/C-11 (the uncalibrated 0.53-on-a-clone prior this pass
     used to apply) is CLOSED by the injection-time measured year-step —
     challenger record in ``docs/picks/C1_U6_PICK_VALUE_COMPLETENESS.md``.
     """
+    derivations = synthetic_pick_derivations or _EMPTY_PICK_DERIVATIONS
     stamped: dict[int, float] = {}
     for _value, row_idx in row_normalized:
         row = players_array[row_idx]
         if row.get("assetClass") != "pick":
             continue
         cname = row.get("canonicalName") or ""
-        derivation = _SYNTHETIC_PICK_DERIVATIONS.get(_canonical_match_key(cname))
+        derivation = derivations.get(_canonical_match_key(cname))
         if derivation is None:
             # Vendor-priced year: the market already priced the year.
             continue
@@ -6786,6 +6850,7 @@ def _complete_future_pick_values(
     players_array: list[dict[str, Any]],
     players_by_name: dict[str, Any],
     current_year: int,
+    synthetic_pick_derivations: Mapping[str, dict[str, Any]] | None = None,
 ) -> dict[str, int]:
     """Guarantee a finite canonical value for every valid future pick
     through the horizon, and stamp provenance on EVERY pick row (C1-U6,
@@ -6894,6 +6959,25 @@ def _complete_future_pick_values(
                 if isinstance(basis_year_stamp, (int, float)):
                     row["pickYearDiscount"] = round(float(basis_year_stamp), 4)
                     prov["yearStepFactor"] = round(float(basis_year_stamp), 4)
+                    # WHAT the factor is relative to (2026-08-16, C1-U6
+                    # follow-up 9).  ``yearStepFactor`` alone reads as
+                    # "the step from the current draft year", and it is
+                    # not: this row inherits the year factor of its
+                    # round-4 basis, which itself steps from a TEMPLATE
+                    # year.  Naming the basis is the difference between a
+                    # reproducible stamp and a plausible one; no value
+                    # changes.
+                    # Read the basis year from the BUILD's derivation map,
+                    # not from the basis row's provenance: this pass runs
+                    # before the pass that stamps it, so the row would
+                    # answer None and the stamp would silently omit the
+                    # one fact it exists to carry.
+                    basis_derivation = (synthetic_pick_derivations or _EMPTY_PICK_DERIVATIONS).get(
+                        _canonical_match_key(basis_name)
+                    )
+                    if isinstance(basis_derivation, dict) and basis_derivation.get("basisYear"):
+                        prov["yearStepBasisYear"] = basis_derivation["basisYear"]
+                    prov["yearStepInheritedFrom"] = basis_name
                 row["pickValueProvenance"] = prov
                 derived[name] = value
                 legacy = players_by_name.get(row.get("legacyRef") or name)
@@ -6941,6 +7025,24 @@ def _complete_future_pick_values(
                 net = round(sum(float(v) for v in year_stamps) / 3.0, 4)
                 row["pickYearDiscount"] = net
                 prov["yearStepFactor"] = net
+                # A generic row's factor is the MEAN of its three tier
+                # factors, not a step this row itself took.  Say so
+                # (follow-up 9): the tiers can carry different factors,
+                # and a reader who assumes a single step cannot
+                # reproduce this number from any one of them.
+                prov["yearStepFactorIsMeanOfBasis"] = True
+                derivations_map = synthetic_pick_derivations or _EMPTY_PICK_DERIVATIONS
+                basis_years = {
+                    (
+                        derivations_map.get(_canonical_match_key(str(t.get("canonicalName") or "")))
+                        or {}
+                    ).get("basisYear")
+                    for t in tiers
+                    if isinstance(t, dict)
+                }
+                basis_years.discard(None)
+                if len(basis_years) == 1:
+                    prov["yearStepBasisYear"] = basis_years.pop()
             row["pickValueProvenance"] = prov
             derived[name] = value
             legacy = players_by_name.get(name)
@@ -6968,7 +7070,9 @@ def _complete_future_pick_values(
                 "basis": row.get("pickRookieAnchor"),
             }
             continue
-        derivation = _SYNTHETIC_PICK_DERIVATIONS.get(_canonical_match_key(cname))
+        derivation = (synthetic_pick_derivations or _EMPTY_PICK_DERIVATIONS).get(
+            _canonical_match_key(cname)
+        )
         if derivation is not None:
             row["pickValueProvenance"] = {
                 "class": "derived_year_step",
@@ -7250,6 +7354,7 @@ def _compute_unified_rankings(
     tep_multiplier_is_override: bool = False,
     suppress_market_corridor_clamp: bool = False,
     board_date: str | None = None,
+    synthetic_pick_derivations: Mapping[str, dict[str, Any]] | None = None,
 ) -> dict[str, str]:
     """Compute a single unified ranking across all sources and positions.
 
@@ -7352,6 +7457,16 @@ def _compute_unified_rankings(
     from src.canonical.player_valuation import (  # noqa: PLC0415
         percentile_to_value,
         rank_to_percentile,
+    )
+
+    # Per-BUILD synthetic-pick derivations, supplied by the caller that
+    # ran ``_inject_far_future_pick_sources`` on this payload.  Never a
+    # module global (see ``_EMPTY_PICK_DERIVATIONS``): two overlapping
+    # override builds in one process must not be able to see each
+    # other's.  Empty is a legitimate state — a build whose sources
+    # already publish every horizon year synthesizes nothing.
+    synthetic_pick_derivation_map: Mapping[str, dict[str, Any]] = (
+        synthetic_pick_derivations or _EMPTY_PICK_DERIVATIONS
     )
 
     # Updated framework (steps 5-6): route each rank to the master fit
@@ -7508,6 +7623,38 @@ def _compute_unified_rankings(
             backbone_source_key = src["key"]
             break
     if backbone_source_key:
+        # ── Derived rows are not this vendor's evidence ──────────────
+        #
+        # The backbone answers ONE question: at which positions in THIS
+        # VENDOR'S OWN published value pool do IDP players sit?  Its
+        # answer is then used to translate OTHER sources' ranks.  A
+        # synthetic far-future pick row is not published by the vendor —
+        # it is our own PRIOR-classified derivation, written into
+        # ``canonicalSiteValues`` under the vendor's key at injection so
+        # that the row can be blended.  Leaving it in the ladder lets a
+        # derived prior act as market evidence about other rows, and
+        # closes a feedback loop: our derived pick value shifts the
+        # crosswalk, which shifts IDP players' translated votes, which
+        # shifts the blend.  Signal independence forbids exactly that
+        # (C1-U6 follow-up 2).
+        #
+        # The boundary is deliberate and narrow.  Being ON the board —
+        # and therefore in the board's own ordering — is the product
+        # decision that far-future picks exist and are priced, and that
+        # is unchanged.  What is withdrawn is the claim that a vendor
+        # OBSERVED them.  Vendor-published pick rows stay in the pool;
+        # they are real observations on the vendor's own scale.
+        backbone_rows = players_array
+        if synthetic_pick_derivation_map:
+            backbone_rows = [
+                r
+                for r in players_array
+                if not (
+                    isinstance(r, dict)
+                    and _canonical_match_key(str(r.get("canonicalName") or ""))
+                    in synthetic_pick_derivation_map
+                )
+            ]
         # Only seed the shared-market ladder when the backbone source
         # actually prices both offense + IDP on a shared scale; this is
         # detected by the registry declaring offense in extra_scopes.
@@ -7518,14 +7665,14 @@ def _compute_unified_rankings(
         backbone_extra_scopes = list(backbone_src_def.get("extra_scopes") or [])
         if SOURCE_SCOPE_OVERALL_OFFENSE in backbone_extra_scopes:
             backbone = build_backbone_from_rows(
-                players_array,
+                backbone_rows,
                 source_key=backbone_source_key,
                 idp_positions=_IDP_POSITIONS,
                 offense_positions=_OFFENSE_POSITIONS | {"PICK"},
             )
         else:
             backbone = build_backbone_from_rows(
-                players_array,
+                backbone_rows,
                 source_key=backbone_source_key,
                 idp_positions=_IDP_POSITIONS,
             )
@@ -8662,7 +8809,7 @@ def _compute_unified_rankings(
     # sort so 2027/2028 picks naturally drift to lower positions in
     # the final ladder. Player rows are untouched.
     row_normalized, _pick_year_discounts = _apply_pick_year_discount_to_blend(
-        row_normalized, players_array
+        row_normalized, players_array, synthetic_pick_derivation_map
     )
 
     # ── Phase 4: Unified sort and overall rank assignment ──
@@ -8768,7 +8915,7 @@ def _compute_unified_rankings(
             reason = "fully_matched"
 
         allowlist_reason = SINGLE_SOURCE_ALLOWLIST.get(cname)
-        if allowlist_reason is None and cname in _SYNTHETIC_FAR_FUTURE_PICK_NAMES:
+        if allowlist_reason is None and cname in synthetic_pick_derivation_map:
             allowlist_reason = _FAR_FUTURE_ALLOWLIST_REASON
         row["sourceAudit"] = {
             "canonicalName": cname,
@@ -9210,7 +9357,9 @@ def _compute_unified_rankings(
     #      ``pickValueProvenance`` on every pick row.  Direct market
     #      evidence always outranks a derivation — rows the blend or the
     #      tether priced are never touched.
-    _complete_future_pick_values(players_array, players_by_name, _anchor_year)
+    _complete_future_pick_values(
+        players_array, players_by_name, _anchor_year, synthetic_pick_derivation_map
+    )
 
     # 2c) Stamp draft-day value projections on every pick row.
     #     Inverts the year-discount so the frontend can show "this
@@ -9947,7 +10096,12 @@ def build_api_data_contract(
     # Seed raw entries for far-future pick years the vendors don't
     # price yet (e.g. 2029) so they ride the normal pipeline like the
     # real future tiers.  No-ops the moment sources publish that year.
-    _inject_far_future_pick_sources(players_by_name, current_rookie_draft_year())
+    # The map is BUILD-SCOPED: created here, handed to the pipeline, and
+    # dropped when this build ends.  Nothing is stored on the module, so
+    # concurrent override builds cannot cross-contaminate (follow-up 8).
+    synthetic_pick_derivations = _inject_far_future_pick_sources(
+        players_by_name, current_rookie_draft_year()
+    )
 
     # Strip legacy LAM/scarcity fields before building the contract.
     _strip_legacy_lam_fields(base, players_by_name)
@@ -10046,6 +10200,7 @@ def build_api_data_contract(
         # The board's own UTC date claim — the rankChange derivation's
         # comparison anchor (latest ledger date strictly before it).
         board_date=str(raw_payload.get("date") or "") or None,
+        synthetic_pick_derivations=synthetic_pick_derivations,
     )
 
     # Stamp rankDerivedValue into the values bundle so every page uses the
@@ -10760,6 +10915,49 @@ def assert_ranking_coherence(
     return errors
 
 
+#: Contract-health errors whose CAUSE is an external source, not this
+#: repository's code.  The distinction is not cosmetic — it decides which
+#: CI lane may be made red by the condition.
+#:
+#: WHY THIS EXISTS.  On 2026-08-16 a single KTC scrape timed out (300 s
+#: against a 39-run baseline of ~18.8 s).  ``validate_api_data_contract``
+#: correctly returned ``ok: False`` on ``partial_run_critical:KTC``, and a
+#: deterministic unit test that asserted ``ok is True`` as a *precondition*
+#: therefore failed — turning a provider timeout into a red hard gate on
+#: every open pull request, including ones that touched no source code.
+#: The signal was right; the consumer could not tell the two kinds of
+#: failure apart because the report did not distinguish them.
+#:
+#: THE BOUNDARY.  An error is source-health iff it can flip purely because
+#: an upstream provider returned less data than usual, with this
+#: repository's code byte-identical.  Everything else — schema shape, rank
+#: invariants, the 1..9999 scale, blend-hull integrity, the pick
+#: completeness census — is a statement about OUR code given whatever
+#: payload arrived, and stays in the deterministic lane.
+#:
+#: Matched as prefixes because these error strings carry the offending
+#: source key / count after a colon.
+_SOURCE_HEALTH_ERROR_KINDS: tuple[str, ...] = (
+    # The scraper itself reported a failed/timed-out critical source.
+    "partial_run_critical:",
+    # A registered source contributed zero non-zero values to the board.
+    "source_missing:",
+    # Fewer pick rows than the floor: the pick markets did not deliver.
+    "pick_count_below_floor:",
+    "pickAnchors missing from payload",
+    "pickAnchors is empty",
+    # The IDP pool collapsed — an availability statement about the IDP
+    # markets, not a claim about our aggregation code.
+    "implausibly small IDP pool in playersArray",
+)
+
+
+def _is_source_health_error(message: str) -> bool:
+    """True when ``message`` is caused by upstream data availability."""
+    text = str(message)
+    return any(text.startswith(kind) for kind in _SOURCE_HEALTH_ERROR_KINDS)
+
+
 def validate_api_data_contract(payload: dict[str, Any]) -> dict[str, Any]:
     errors: list[str] = []
     warnings: list[str] = []
@@ -10775,6 +10973,10 @@ def validate_api_data_contract(payload: dict[str, Any]) -> dict[str, Any]:
             "warnings": [],
             "errorCount": 1,
             "warningCount": 0,
+            "sourceHealthErrors": [],
+            "structuralErrors": ["payload is not an object"],
+            "sourceHealthOk": True,
+            "structurallyOk": False,
             "checkedAt": utc_now_iso(),
             "contractVersion": CONTRACT_VERSION,
             "playerCount": 0,
@@ -11202,6 +11404,8 @@ def validate_api_data_contract(payload: dict[str, Any]) -> dict[str, Any]:
         status = "degraded"
     else:
         status = "healthy"
+    source_health_errors = [e for e in errors if _is_source_health_error(e)]
+    structural_errors = [e for e in errors if not _is_source_health_error(e)]
     return {
         "ok": ok,
         "status": status,
@@ -11209,6 +11413,15 @@ def validate_api_data_contract(payload: dict[str, Any]) -> dict[str, Any]:
         "warnings": warnings[:200],
         "errorCount": len(errors),
         "warningCount": len(warnings),
+        # ── Lane partition (stabilization 2026-08-16) ────────────────────
+        # ``ok`` is unchanged and still means "every check passed"; these
+        # two lists say WHICH KIND of check failed, so a consumer can ask
+        # the question it actually has.  See ``_SOURCE_HEALTH_ERROR_KINDS``
+        # for why the boundary sits where it does.
+        "sourceHealthErrors": source_health_errors[:200],
+        "structuralErrors": structural_errors[:200],
+        "sourceHealthOk": not source_health_errors,
+        "structurallyOk": not structural_errors,
         "checkedAt": utc_now_iso(),
         "contractVersion": str(payload.get("contractVersion") or CONTRACT_VERSION),
         "playerCount": len(players_array),
