@@ -1,7 +1,7 @@
 # Chase Upside / Risk It To Get The Brisket — Current Execution Plan
 
 **Status:** CANONICAL SEQUENCING / AUTHORIZATION RECORD
-**Last reconciled:** 2026-08-14 (post-B master reconciliation)
+**Last reconciled:** 2026-08-16 (C1-U4 owner checkpoint: C1-U4 closed, C1-U6 authorized, C1-U5 deferred)
 **Companion:** `docs/MASTER_PRODUCT_PLAN.md` · `docs/C_SERIES_REPLAN_AND_COMPLETION_CONTRACT.md`
 
 This file answers **what implementation work is authorized right now**, and nothing else. It does not define
@@ -15,7 +15,7 @@ Backlog Spec and the feature specs. It does not define scope — that lives in `
 
 # 0. CURRENT AUTHORIZATION — READ THIS FIRST
 
-## The B→C gate is CLEARED. **C1A units 1, 2 and 3 are CLOSED. The owner has authorized `C1-U4` — and only `C1-U4`.**
+## The B→C gate is CLEARED. **C1A units 1, 2, 3 and 4 are CLOSED. The owner has authorized `C1-U6` — and only `C1-U6`.**
 
 | question | answer |
 |---|---|
@@ -28,18 +28,19 @@ Backlog Spec and the feature specs. It does not define scope — that lives in `
 | Is C1A unit 2 (`C1-U2` / `C1-ID-01`) done? | **Yes — CLOSED 2026-08-16.** Cut over and retired; production gate passed at both sites with zero divergence. `CANONICAL_V2` activation is deliberately NOT part of it (measured blocker, §2) |
 | Is C1A unit 3 (`C1-U3` / `C1-ID-02` pick identity) done? | **Yes — CLOSED at the owner checkpoint 2026-08-16.** The owner reviewed and accepted the C1-ID-02 evidence; implementation merged as PR #867 (merge `22ce424f`) with bookkeeping/work-claim closure in PR #868. Do not reopen |
 | Is C1A unit 4 (`C1-U4` / `C1-HIST-01`..`-03`) authorized? | **Yes — owner-authorized 2026-08-16 at the C1-U3 checkpoint.** Scope is exactly manifest rows `C1-HIST-01`, `C1-HIST-02`, `C1-HIST-03` — the immutable as-of value/provenance ledger |
-| Is C1A unit 4 done? | **DELIVERED 2026-08-16 — awaiting its §3 owner checkpoint** (see §2; canonical owner `src/history/`; board proven value/rank-inert by double-build equality) |
-| **What may I build right now?** | **Nothing — C1-U4 is delivered and its checkpoint is pending.** No further unit is authorized |
-| Is `C1-U5`+ authorized? | **No** |
+| Is C1A unit 4 done? | **Yes — CLOSED at the owner checkpoint 2026-08-16.** Merged as PR #869 (merge `8b6a9987`, validated head `5940a177f`, exact-head run 31955465747), deploy run 31958433677 SUCCESS with the ledger production-proven on the box (see §2). The closure is recorded on PR #869. Do not reopen |
+| **What may I build right now?** | **`C1-U6` (`C1-PICK-01`, `C1-PICK-02` — pick completeness through 2029) — and only C1-U6** |
+| Is `C1-U5` authorized? | **No — deliberately DEFERRED, not cancelled.** At the C1-U4 checkpoint the owner selected C1-U6 ahead of C1-U5 (`C1-CONF-01` is a mechanical naming migration with no methodology change; it waits for an ordinary window). C1-U6 must therefore build **no new confidence consumer** (§2) |
+| Is `C1-U7`+ / anything after C1-U6 authorized? | **No** |
 | Is `C1B` authorized? | **No** |
 | Is `C2` authorized? | **No** |
 | Is `C3` or later authorized? | **No** |
-| What authorizes the next slice? | Jason + ChatGPT review the completed C1-U4 evidence at the §3 checkpoint |
+| What authorizes the next slice? | Jason + ChatGPT review the completed C1-U6 evidence at the §3 checkpoint |
 
-**The authorization is deliberately narrow.** When C1-U4 closes, reaching the end of the unit is a
+**The authorization is deliberately narrow.** When C1-U6 closes, reaching the end of the unit is a
 **STOP**, not a hand-off to the next one.
 
-**If you are a new session reading this file to decide what to build:** the answer is *C1-U4 and nothing
+**If you are a new session reading this file to decide what to build:** the answer is *C1-U6 and nothing
 else* — anything further requires an explicit owner decision at the
 `docs/C_SERIES_REPLAN_AND_COMPLETION_CONTRACT.md` §3 checkpoint. Every product surface in §6 remains
 unauthorized.
@@ -112,7 +113,26 @@ radius of a rename that is otherwise mechanical.
 
 # 2. NEXT AUTHORIZED SCOPE
 
-## `C1A` unit 4 — `C1-U4`, one immutable as-of value/provenance ledger. **DELIVERED 2026-08-16, checkpoint pending.**
+## `C1A` unit 6 — `C1-U6`, pick completeness through 2029. **AUTHORIZED 2026-08-16 at the C1-U4 checkpoint.**
+
+Scope is exactly manifest rows `C1-PICK-01` (every valid pick through 2029 has a finite canonical
+value — provenance stamped, never zero-as-missing, all surfaces agreeing) and `C1-PICK-02` (the
+generic ↔ exact-slot transition survives without a second asset). Owner: the `data_contract` pick
+pipeline. Deps: C1-U3 (closed). Binding calibration requirement
+(`docs/MATH_MODEL_CALIBRATION_POLICY_2026-08-15.md` §3.1, map §17): the future-year discount is a
+**PRIOR** — challenger-test discount families against real market evidence; **never `0` for an
+unknown future pick**. Execution-map RED: a valid 2029 pick with no finite canonical value.
+
+**The checkpoint decision deliberately selected C1-U6 ahead of C1-U5.** `C1-U5` / `C1-CONF-01` is a
+mechanical confidence-label migration with no methodology change; it is **DEFERRED, not cancelled**,
+and remains unauthorized. Consequence for C1-U6 (per §1's rename-first rule): C1-U6 must build **no
+new confidence consumer** — evidence quality it needs to expose goes through existing canonical
+provenance/evidence structures.
+
+No unit beyond C1-U6 is authorized. The next authorization comes from the owner reviewing C1-U6's
+evidence at the §3 checkpoint.
+
+## `C1A` unit 4 — `C1-U4`, one immutable as-of value/provenance ledger. **CLOSED at the owner checkpoint 2026-08-16.**
 
 Owner-authorized 2026-08-16 at the C1-U3 checkpoint; scope was exactly manifest rows `C1-HIST-01`,
 `C1-HIST-02`, `C1-HIST-03`.
@@ -133,8 +153,23 @@ equality). Archive backfill: 34/34 dates from 2026-07-14, 138,127 observations, 
 idempotent. Deferred with record (manifest's own decomposition): the trade-retro/terminal/value-chart
 consumer migrations (C3-U9 / C2-AGE-03). Full record: `docs/history/C1_U4_TEMPORAL_LEDGER.md`.
 
-No further unit is authorized. The next authorization comes from the owner reviewing this unit's
-evidence at the §3 checkpoint.
+**MERGED** — PR #869, merge `8b6a9987` (parents `49603291e` + validated head `5940a177f`), exact-head CI
+run 31955465747 green (format + lint + coercion gate + finding-drift gate + planning integrity + import
+gate + full pytest + contract check + deploy syntax + frontend). The one bounded final review confirmed
+and closed two release blockers before the head was validated (design record §15).
+
+**DEPLOYED AND PRODUCTION-PROVEN** — deploy run 31958433677 SUCCESS (16:42 UTC); the read-only
+`Temporal Ledger Diagnostics` run 31960075629 then measured the box directly: ledger present with
+**169,896 rows across all 34 dates** (2026-07-14 → 2026-08-16; canonical_board 30,357 — board-history
+migration 8,932 + rank-history migration 20,613 + the live recorder, which had already recorded the
+16:45 post-deploy scrape), corrections 0, pre-boundary probe answering `before_history_boundary`, and
+real as-of queries resolving on production: `mpick:2026:r1:s1` @2026-08-16 → `exact` 7,779 with rank
+NULL (a canonical historical PICK value through canonical pick identity — C1-HIST-02 live) and
+`player:5859` → `exact` 4,947 / rank 72 / tier 10, both stamped `live:server` with the pipeline version.
+
+**Checkpoint outcome (2026-08-16, recorded on PR #869):** the owner reviewed and **ACCEPTED** this
+unit's evidence. C1-U4 is CLOSED; the checkpoint decision authorized `C1-U6` (above) and nothing
+beyond it, deliberately deferring `C1-U5`. Do not reopen C1-U4.
 
 ## `C1A` unit 3 — `C1-U3` / `C1-ID-02`, one pick identity, end to end. **CLOSED at the owner checkpoint 2026-08-16.**
 
@@ -295,7 +330,8 @@ C10 Closure
 
 ## `C1A — Canonical asset identity, temporal evidence and retention`
 
-**Unit 1 is AUTHORIZED. Units 2–6 are NOT.** Rationale in `docs/POST_B_RECONCILIATION_2026-08-14.md` §30.
+**Units 1–4 are CLOSED. Unit 5 of this list (`C1-U6`) is AUTHORIZED. Unit 4 of this list (`C1-U5`) is
+DEFERRED; unit 6 is NOT authorized.** Original rationale in `docs/POST_B_RECONCILIATION_2026-08-14.md` §30.
 
 PR-sized units within C1A, in order:
 
@@ -303,10 +339,13 @@ PR-sized units within C1A, in order:
 2. **CLOSED 2026-08-16.** One player-identity owner (`C1-ID-01` / map unit `C1-U2`). Cut over, legacy
    retired, production gate green at both sites. `CANONICAL_V2` activation deferred on measured evidence —
    see §2.
-3. **AUTHORIZED 2026-08-16 — in progress as `C1-U4`.** Immutable as-of snapshot/event schema with provenance, model/config version and fidelity labels
+3. **CLOSED at the owner checkpoint 2026-08-16 as `C1-U4`** (PR #869, merge `8b6a9987`, deploy run
+   31958433677 SUCCESS; closure recorded on PR #869). Immutable as-of snapshot/event schema with provenance, model/config version and fidelity labels
    (`C1-HIST-01`), plus the deterministic-replay test that closes `C1-HIST-03`.
-4. **NOT AUTHORIZED.** Confidence naming migration with aliases and a consumer census (`C1-CONF-01`).
-5. **NOT AUTHORIZED.** Pick census through 2029 and the generic ↔ exact-slot invariant (`C1-PICK-01`, `C1-PICK-02`).
+4. **DEFERRED — NOT AUTHORIZED** (`C1-U5` / `C1-CONF-01`). Confidence naming migration with aliases and a consumer census.
+   The owner deferred it at the C1-U4 checkpoint in favor of C1-U6; §1's rename-first rule holds because
+   C1-U6 builds no new confidence consumer.
+5. **AUTHORIZED 2026-08-16 as `C1-U6` at the C1-U4 checkpoint.** Pick census through 2029 and the generic ↔ exact-slot invariant (`C1-PICK-01`, `C1-PICK-02`).
 6. **NOT AUTHORIZED.** Dual-read adapters for the existing board, rank-history, platform, trade and pick stores.
 
 **C1A deliberately builds no UI.** It unlocks pick valuation, roster math, historical replay, acquisition

@@ -155,7 +155,7 @@ C1-U1 and C1-U2 both closed on 2026-08-16; the next authorization is an owner de
   migration (needs C1-U6), public-league fold. Record:
   `docs/identity/C1_ID_02_PICK_IDENTITY.md`
 
-### C1-U4 — One immutable as-of value/provenance ledger  ← **DELIVERED 2026-08-16 (C1A unit 4, checkpoint pending)**
+### C1-U4 — One immutable as-of value/provenance ledger  ← **CLOSED at the owner checkpoint 2026-08-16** (PR #869 merge `8b6a9987`; deploy run 31958433677 SUCCESS; closure recorded on PR #869)
 - **rows** `C1-HIST-01` `C1-HIST-02` `C1-HIST-03`
 - **owner** `src/history/` (created) · **retires** the fragmented as-of semantics of
   **5** measured decision paths (map's 4 was an estimate; the fifth is the frontend
@@ -172,7 +172,9 @@ C1-U1 and C1-U2 both closed on 2026-08-16; the next authorization is an owner de
   enforced at write AND query (`before_history_boundary`), never interpolated**
 - **consumers** C3-U9 replay/aging, C5 backtesting, C9 history — substrate
   interfaces documented in `docs/history/C1_U4_TEMPORAL_LEDGER.md` §14
-- **state** DELIVERED 2026-08-16. Awaiting its §3 owner checkpoint.
+- **state** CLOSED 2026-08-16. The checkpoint decision authorized `C1-U6` and nothing beyond it;
+  `C1-U5` deliberately deferred. Production-proven on the box (run 31960075629: 169,896 rows /
+  34 dates; as-of pick + player queries resolving live).
 
 ### C1-U5 — Confidence naming migration
 - **rows** `C1-CONF-01` · **owner** `src/api/confidence.py` · **kind** INFRA

@@ -12,8 +12,10 @@ For current authorized execution order — **the only record that says what may 
 
 ## Current position, in one line
 
-**The B-Series is complete. No C-Series implementation is authorized.** The B→C hard gate has been reached and
-its replan performed; the gate clears only on explicit owner approval.
+**The B-Series is complete and the B→C gate is CLEARED by explicit owner approval.** C1A units 1–4 are
+CLOSED at their owner checkpoints. The current authorization is exactly what
+`docs/EXECUTION_PLAN.md` §0 names (today: `C1-U6`, with `C1-U5` deliberately deferred); that file is
+the only record that authorizes implementation.
 
 ## The canonical set, in reading order
 

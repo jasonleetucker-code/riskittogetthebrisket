@@ -1738,7 +1738,7 @@ never parse, compare, or mint pick identity outside the owner; identity says
 WHAT the asset is — valuation stays in the pipeline.  Full record:
 `docs/identity/C1_ID_02_PICK_IDENTITY.md`.
 
-### Temporal history — one owner (C1-U4, delivered 2026-08-16)
+### Temporal history — one owner (C1-U4, closed at the owner checkpoint 2026-08-16)
 
 `src/history/` owns as-of asset-value history end to end: what a historical
 observation IS (`store.py` — append-only `data/temporal_ledger.sqlite`; identical
