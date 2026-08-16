@@ -1,0 +1,172 @@
+{
+ "codeSha": "83277e989fabc892fac8b7f5a34f38b209a94ce7",
+ "board": "dynasty_data_2026-08-15.json",
+ "counts": {
+  "rows": 1093,
+  "servedRows": 740,
+  "legacyPlayersDict": 1093,
+  "playerRows": 949,
+  "picks": 144,
+  "offense": 552,
+  "idp": 397,
+  "rookies": 181
+ },
+ "identity": {
+  "rowsWithPlayerId": 937,
+  "rowsWithoutPlayerId": 156,
+  "playerRowsWithoutPlayerId": 12,
+  "playerRowsWithoutPlayerIdNames": [
+   "Barika Kpeenu",
+   "Brendan Sorsby",
+   "Chip Trayanum",
+   "Donoven McCulley",
+   "Jamarion Miller",
+   "Matayo Uiagalelei",
+   "Matthew Hibner",
+   "Rob Henry",
+   "Rod Moore",
+   "Suntarine Perkins",
+   "Trinidad Chambliss",
+   "Whit Weeks"
+  ],
+  "quarantined": 1,
+  "anomalyFlags": {
+   "suspicious_disagreement": 60,
+   "unsupported_position": 1
+  }
+ },
+ "duplicates": {
+  "positionAwareDuplicateKeys": 0,
+  "positionAwareDuplicates": {},
+  "crossUniverseNameCollisions": 0,
+  "ghostPairs": 0,
+  "ghostPairDetail": []
+ },
+ "nameShapes": {
+  "suffixed": 0,
+  "suffixedSample": [],
+  "punctuated": 51,
+  "accented": 0,
+  "accentedSample": [],
+  "nearNameClusters": 47,
+  "nearNameClusterSample": {
+   "brown|a": [
+    "aj brown",
+    "amon ra st brown"
+   ],
+   "robinson|b": [
+    "bijan robinson",
+    "brian robinson"
+   ],
+   "thompson|b": [
+    "brenen thompson",
+    "bryan thompson"
+   ],
+   "young|b": [
+    "bryce young",
+    "byron young"
+   ],
+   "johnson|c": [
+    "chris johnson",
+    "cj gardner johnson"
+   ],
+   "young|c": [
+    "chase young",
+    "colbie young"
+   ],
+   "allen|c": [
+    "cj allen",
+    "cyrus allen"
+   ],
+   "turner|d": [
+    "dallas turner",
+    "dj turner"
+   ],
+   "bailey|d": [
+    "dan bailey",
+    "david bailey"
+   ],
+   "robinson|d": [
+    "darius robinson",
+    "demarcus robinson"
+   ],
+   "walker|d": [
+    "david walker",
+    "devontez walker"
+   ],
+   "lawrence|d": [
+    "demarcus lawrence",
+    "dexter lawrence"
+   ],
+   "davis|d": [
+    "demario davis",
+    "derius davis"
+   ],
+   "brown|d": [
+    "derrick brown",
+    "dyami brown"
+   ],
+   "moore|d": [
+    "derrick moore",
+    "dj moore"
+   ]
+  }
+ },
+ "sourceCoverage": {
+  "dlfIdp": 171,
+  "dlfRookieIdp": 29,
+  "dlfRookieSf": 110,
+  "dlfSf": 277,
+  "draftSharks": 399,
+  "draftSharksIdp": 143,
+  "dynastyDaddySf": 371,
+  "dynastyNerdsSfTep": 293,
+  "fantasyCalc": 389,
+  "fantasyNavigatorSf": 455,
+  "fantasyProsFitzmaurice": 299,
+  "fantasyProsIdp": 148,
+  "fantasyProsSf": 477,
+  "flockFantasySf": 412,
+  "flockFantasySfRookies": 77,
+  "idpShow": 349,
+  "idpTradeCalc": 911,
+  "ktc": 609,
+  "ktcSfTep": 501,
+  "otcffbSf": 461,
+  "pfkDynasty": 473,
+  "yahooBoone": 404
+ },
+ "matchedVia": {
+  "partial_coverage": 305,
+  "no_source_match": 104,
+  "matching_failure_other_sources_eligible": 74,
+  "structurally_single_source": 21,
+  "fully_matched": 589
+ },
+ "providerIdColumns": {
+  "acceptedTokens": [
+   "sleeperid",
+   "sleeperplayerid"
+  ],
+  "sources": {
+   "dynastyNerdsSfTep": {
+    "columns": [
+     "SleeperId"
+    ],
+    "rows": 294,
+    "visibleToLoader": [
+     "SleeperId"
+    ]
+   },
+   "pfkDynasty": {
+    "columns": [
+     "sleeper_id"
+    ],
+    "rows": 496,
+    "visibleToLoader": [
+     "sleeper_id"
+    ]
+   }
+  }
+ }
+}

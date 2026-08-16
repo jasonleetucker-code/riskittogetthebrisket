@@ -1676,6 +1676,26 @@ methodology and the known limitations (no general-dynasty ownership feed
 exists; FFPC contributes zero rosters until a roster-bearing URL is
 configured) are in `docs/sharp-roster-percentage/METHODOLOGY.md`.
 
+### Player identity — one owner, dual-read migration in flight (C1-ID-01)
+
+`src/identity/` owns player-identity resolution. `resolution.py` is the canonical
+engine: legacy-faithful V1 policies (`SCRAPER_SLEEPER_ATTACH_V1`,
+`CONTRACT_CSV_JOIN_V1`) reproduce the two historical matchers exactly for the
+dual-read migration, and `CANONICAL_V2` is the repaired destination semantics
+(guarded fuzzy per W06-F006, explicit AMBIGUOUS/UNRESOLVED with reasons and
+candidates, group-level position drift tolerance, deterministic under directory
+order). `name_primitives.py` holds the scraper's name-matching primitives, moved
+verbatim; `Dynasty Scraper.py` imports them back and is an ADAPTER, not an owner.
+
+Migration state: dual-read live at both consolidation sites, LEGACY answers served.
+Evidence artifacts: `data/scrape_state/identity_dual_read.json` (scraper site, every
+cycle) and the contract's `identityDualRead` stamp (join site, every build — CI-pinned
+at zero divergence). Cutover only via `RISKIT_IDENTITY_CUTOVER=1` after the prod gate.
+Rules for new code: need identity resolution → `resolution.resolve_canonical_v2`;
+never add consumers to `unified_mapper.resolve_player` (legacy-V1 compat only); never
+define matching/normalization logic outside `src/identity/` + the `name_clean` family
+registry. Full record: `docs/identity/C1_ID_01_IDENTITY_CONSOLIDATION.md`.
+
 ### Adapter Pattern
 Pluggable source adapters (`src/adapters/base.py` defines the frozen contract). All adapters emit `RawAssetRecord` dataclasses with normalized fields.
 

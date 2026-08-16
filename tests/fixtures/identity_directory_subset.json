@@ -1,0 +1,889 @@
+{
+ "_comment": "C1-ID-01 test fixture: a curated subset of the real Sleeper /v1/players/nfl directory captured 2026-08-16, containing every homonym family and defect-class player from the matcher-disagreement RED corpus and the W06-F006 false-merge corpus. KEY ORDER IS THE LIVE DUMP'S ITERATION ORDER and is load-bearing: the legacy matchers inherit dict order (Frank Gore Sr 232 precedes Jr 11573, which is why the mapper served the retired father on the live board), and the RED tests pin exactly that order-dependence. Whit Weeks, Jamarion Miller and Rod Moore are deliberately ABSENT (they were absent from the live directory too - that absence is what exposed the unguarded initial+last rung).",
+ "players": {
+  "12602": {
+   "full_name": "Mykel Williams",
+   "first_name": "Mykel",
+   "last_name": "Williams",
+   "position": "DL",
+   "team": "SF",
+   "active": true,
+   "search_rank": 579,
+   "years_exp": 1,
+   "gsis_id": null,
+   "espn_id": null,
+   "fantasy_positions": [
+    "DL"
+   ],
+   "status": "Active"
+  },
+  "13600": {
+   "full_name": "Tyren Montgomery",
+   "first_name": "Tyren",
+   "last_name": "Montgomery",
+   "position": "WR",
+   "team": "TEN",
+   "active": true,
+   "search_rank": 296,
+   "years_exp": 0,
+   "gsis_id": null,
+   "espn_id": null,
+   "fantasy_positions": [
+    "WR"
+   ],
+   "status": "Active"
+  },
+  "5100": {
+   "full_name": "Jordan Wilkins",
+   "first_name": "Jordan",
+   "last_name": "Wilkins",
+   "position": "RB",
+   "team": null,
+   "active": true,
+   "search_rank": 9999999,
+   "years_exp": 5,
+   "gsis_id": "00-0034400",
+   "espn_id": 3051891,
+   "fantasy_positions": [
+    "RB"
+   ],
+   "status": "Active"
+  },
+  "4634": {
+   "full_name": "Kenneth Walker",
+   "first_name": "Kenneth",
+   "last_name": "Walker",
+   "position": "WR",
+   "team": null,
+   "active": false,
+   "search_rank": 9999999,
+   "years_exp": 5,
+   "gsis_id": null,
+   "espn_id": 2971595,
+   "fantasy_positions": [
+    "WR"
+   ],
+   "status": "Active"
+  },
+  "6087": {
+   "full_name": "Chris Johnson",
+   "first_name": "Chris",
+   "last_name": "Johnson",
+   "position": "DB",
+   "team": null,
+   "active": true,
+   "search_rank": 9999999,
+   "years_exp": 3,
+   "gsis_id": " 00-0035456",
+   "espn_id": 3117846,
+   "fantasy_positions": [
+    "DB"
+   ],
+   "status": "Active"
+  },
+  "13785": {
+   "full_name": "West Weeks",
+   "first_name": "West",
+   "last_name": "Weeks",
+   "position": "LB",
+   "team": "IND",
+   "active": true,
+   "search_rank": 9999999,
+   "years_exp": 0,
+   "gsis_id": null,
+   "espn_id": null,
+   "fantasy_positions": [
+    "LB"
+   ],
+   "status": "Active"
+  },
+  "9488": {
+   "full_name": "Jaxon Smith-Njigba",
+   "first_name": "Jaxon",
+   "last_name": "Smith-Njigba",
+   "position": "WR",
+   "team": "SEA",
+   "active": true,
+   "search_rank": 6,
+   "years_exp": 3,
+   "gsis_id": null,
+   "espn_id": null,
+   "fantasy_positions": [
+    "WR"
+   ],
+   "status": "Active"
+  },
+  "7696": {
+   "full_name": "Milton Williams",
+   "first_name": "Milton",
+   "last_name": "Williams",
+   "position": "DT",
+   "team": "NE",
+   "active": true,
+   "search_rank": 510,
+   "years_exp": 5,
+   "gsis_id": null,
+   "espn_id": null,
+   "fantasy_positions": [
+    "DL"
+   ],
+   "status": "Active"
+  },
+  "4046": {
+   "full_name": "Patrick Mahomes",
+   "first_name": "Patrick",
+   "last_name": "Mahomes",
+   "position": "QB",
+   "team": "KC",
+   "active": true,
+   "search_rank": 35,
+   "years_exp": 9,
+   "gsis_id": "00-0033873",
+   "espn_id": 3139477,
+   "fantasy_positions": [
+    "QB"
+   ],
+   "status": "Active"
+  },
+  "11567": {
+   "full_name": "Jordan Travis",
+   "first_name": "Jordan",
+   "last_name": "Travis",
+   "position": "QB",
+   "team": null,
+   "active": true,
+   "search_rank": 404,
+   "years_exp": 1,
+   "gsis_id": null,
+   "espn_id": null,
+   "fantasy_positions": [
+    "QB"
+   ],
+   "status": "Active"
+  },
+  "2399": {
+   "full_name": "Ty Montgomery",
+   "first_name": "Ty",
+   "last_name": "Montgomery",
+   "position": "RB",
+   "team": null,
+   "active": true,
+   "search_rank": 639,
+   "years_exp": 8,
+   "gsis_id": "00-0032200",
+   "espn_id": 2577134,
+   "fantasy_positions": [
+    "RB"
+   ],
+   "status": "Active"
+  },
+  "903": {
+   "full_name": "Chris Jones",
+   "first_name": "Chris",
+   "last_name": "Jones",
+   "position": "P",
+   "team": null,
+   "active": true,
+   "search_rank": 9999999,
+   "years_exp": 11,
+   "gsis_id": "00-0028664",
+   "espn_id": 14723,
+   "fantasy_positions": [
+    "P"
+   ],
+   "status": "Active"
+  },
+  "5815": {
+   "full_name": "Chris Jones",
+   "first_name": "Chris",
+   "last_name": "Jones",
+   "position": "CB",
+   "team": null,
+   "active": true,
+   "search_rank": 9999999,
+   "years_exp": 4,
+   "gsis_id": " 00-0034641",
+   "espn_id": 3116104,
+   "fantasy_positions": [
+    "DB"
+   ],
+   "status": "Active"
+  },
+  "8667": {
+   "full_name": "Eric Wilson",
+   "first_name": "Eric",
+   "last_name": "Wilson",
+   "position": "OL",
+   "team": null,
+   "active": false,
+   "search_rank": 9999999,
+   "years_exp": 4,
+   "gsis_id": null,
+   "espn_id": null,
+   "fantasy_positions": [
+    "OL"
+   ],
+   "status": "Inactive"
+  },
+  "232": {
+   "full_name": "Frank Gore",
+   "first_name": "Frank",
+   "last_name": "Gore",
+   "position": "RB",
+   "team": null,
+   "active": true,
+   "search_rank": 187,
+   "years_exp": 17,
+   "gsis_id": "00-0023500",
+   "espn_id": 8479,
+   "fantasy_positions": [
+    "RB"
+   ],
+   "status": "Active"
+  },
+  "7703": {
+   "full_name": "Jacob Harris",
+   "first_name": "Jacob",
+   "last_name": "Harris",
+   "position": "WR",
+   "team": null,
+   "active": true,
+   "search_rank": 476,
+   "years_exp": 4,
+   "gsis_id": null,
+   "espn_id": null,
+   "fantasy_positions": [
+    "WR"
+   ],
+   "status": "Active"
+  },
+  "13370": {
+   "full_name": "Chris Johnson",
+   "first_name": "Chris",
+   "last_name": "Johnson",
+   "position": "DB",
+   "team": "MIA",
+   "active": true,
+   "search_rank": 500,
+   "years_exp": 0,
+   "gsis_id": null,
+   "espn_id": null,
+   "fantasy_positions": [
+    "DB"
+   ],
+   "status": "Active"
+  },
+  "8266": {
+   "full_name": "Quay Walker",
+   "first_name": "Quay",
+   "last_name": "Walker",
+   "position": "LB",
+   "team": "LV",
+   "active": true,
+   "search_rank": 141,
+   "years_exp": 4,
+   "gsis_id": null,
+   "espn_id": null,
+   "fantasy_positions": [
+    "LB"
+   ],
+   "status": "Active"
+  },
+  "2309": {
+   "full_name": "Amari Cooper",
+   "first_name": "Amari",
+   "last_name": "Cooper",
+   "position": "WR",
+   "team": null,
+   "active": true,
+   "search_rank": 183,
+   "years_exp": 10,
+   "gsis_id": "00-0031544",
+   "espn_id": 2976499,
+   "fantasy_positions": [
+    "WR"
+   ],
+   "status": "Active"
+  },
+  "2378": {
+   "full_name": "Tevin Coleman",
+   "first_name": "Tevin",
+   "last_name": "Coleman",
+   "position": "RB",
+   "team": null,
+   "active": true,
+   "search_rank": 9999999,
+   "years_exp": 8,
+   "gsis_id": "00-0032058",
+   "espn_id": 2979477,
+   "fantasy_positions": [
+    "RB"
+   ],
+   "status": "Active"
+  },
+  "4068": {
+   "full_name": "Mike Williams",
+   "first_name": "Mike",
+   "last_name": "Williams",
+   "position": "WR",
+   "team": null,
+   "active": true,
+   "search_rank": 297,
+   "years_exp": 8,
+   "gsis_id": "00-0033536",
+   "espn_id": 3045138,
+   "fantasy_positions": [
+    "WR"
+   ],
+   "status": "Active"
+  },
+  "10917": {
+   "full_name": "Byron Young",
+   "first_name": "Byron",
+   "last_name": "Young",
+   "position": "LB",
+   "team": "LAR",
+   "active": true,
+   "search_rank": 184,
+   "years_exp": 3,
+   "gsis_id": null,
+   "espn_id": null,
+   "fantasy_positions": [
+    "DL",
+    "LB"
+   ],
+   "status": "Active"
+  },
+  "7437": {
+   "full_name": "Kyle Williams",
+   "first_name": "Kyle",
+   "last_name": "Williams",
+   "position": "WR",
+   "team": null,
+   "active": false,
+   "search_rank": 9999999,
+   "years_exp": 2,
+   "gsis_id": null,
+   "espn_id": 4252364,
+   "fantasy_positions": [
+    "WR"
+   ],
+   "status": "Inactive"
+  },
+  "8269": {
+   "full_name": "Jordan Davis",
+   "first_name": "Jordan",
+   "last_name": "Davis",
+   "position": "DL",
+   "team": "PHI",
+   "active": true,
+   "search_rank": 567,
+   "years_exp": 4,
+   "gsis_id": null,
+   "espn_id": null,
+   "fantasy_positions": [
+    "DL"
+   ],
+   "status": "Active"
+  },
+  "9509": {
+   "full_name": "Bijan Robinson",
+   "first_name": "Bijan",
+   "last_name": "Robinson",
+   "position": "RB",
+   "team": "ATL",
+   "active": true,
+   "search_rank": 1,
+   "years_exp": 3,
+   "gsis_id": null,
+   "espn_id": null,
+   "fantasy_positions": [
+    "RB"
+   ],
+   "status": "Active"
+  },
+  "12530": {
+   "full_name": "Travis Hunter",
+   "first_name": "Travis",
+   "last_name": "Hunter",
+   "position": "WR",
+   "team": "JAX",
+   "active": true,
+   "search_rank": 129,
+   "years_exp": 1,
+   "gsis_id": null,
+   "espn_id": null,
+   "fantasy_positions": [
+    "DB",
+    "WR"
+   ],
+   "status": "Active"
+  },
+  "2212": {
+   "full_name": "Josh Allen",
+   "first_name": "Josh",
+   "last_name": "Allen",
+   "position": "G",
+   "team": null,
+   "active": false,
+   "search_rank": 9999999,
+   "years_exp": 8,
+   "gsis_id": "00-0030833",
+   "espn_id": 17102,
+   "fantasy_positions": [
+    "OL"
+   ],
+   "status": "Inactive"
+  },
+  "11742": {
+   "full_name": "Cedric Gray",
+   "first_name": "Cedric",
+   "last_name": "Gray",
+   "position": "LB",
+   "team": "TEN",
+   "active": true,
+   "search_rank": 247,
+   "years_exp": 2,
+   "gsis_id": null,
+   "espn_id": null,
+   "fantasy_positions": [
+    "LB"
+   ],
+   "status": "Active"
+  },
+  "12605": {
+   "full_name": "Jacob Parrish",
+   "first_name": "Jacob",
+   "last_name": "Parrish",
+   "position": "DB",
+   "team": "TB",
+   "active": true,
+   "search_rank": 9999999,
+   "years_exp": 1,
+   "gsis_id": null,
+   "espn_id": null,
+   "fantasy_positions": [
+    "DB"
+   ],
+   "status": "Active"
+  },
+  "11628": {
+   "full_name": "Marvin Harrison",
+   "first_name": "Marvin",
+   "last_name": "Harrison",
+   "position": "WR",
+   "team": "ARI",
+   "active": true,
+   "search_rank": 74,
+   "years_exp": 2,
+   "gsis_id": null,
+   "espn_id": null,
+   "fantasy_positions": [
+    "WR"
+   ],
+   "status": "Active"
+  },
+  "12195": {
+   "full_name": "Myles Murphy",
+   "first_name": "Myles",
+   "last_name": "Murphy",
+   "position": "DL",
+   "team": null,
+   "active": true,
+   "search_rank": 9999999,
+   "years_exp": 1,
+   "gsis_id": null,
+   "espn_id": null,
+   "fantasy_positions": [
+    "DL"
+   ],
+   "status": "Active"
+  },
+  "4413": {
+   "full_name": "Eric Wilson",
+   "first_name": "Eric",
+   "last_name": "Wilson",
+   "position": "LB",
+   "team": "MIN",
+   "active": true,
+   "search_rank": 362,
+   "years_exp": 9,
+   "gsis_id": "00-0033336",
+   "espn_id": 3056916,
+   "fantasy_positions": [
+    "LB"
+   ],
+   "status": "Active"
+  },
+  "3558": {
+   "full_name": "Chris Jones",
+   "first_name": "Chris",
+   "last_name": "Jones",
+   "position": "DT",
+   "team": "KC",
+   "active": true,
+   "search_rank": 494,
+   "years_exp": 10,
+   "gsis_id": "00-0032762",
+   "espn_id": 3044859,
+   "fantasy_positions": [
+    "DL"
+   ],
+   "status": "Active"
+  },
+  "748": {
+   "full_name": "Mike Williams",
+   "first_name": "Mike",
+   "last_name": "Williams",
+   "position": "WR",
+   "team": null,
+   "active": false,
+   "search_rank": 9999999,
+   "years_exp": 9,
+   "gsis_id": null,
+   "espn_id": 13489,
+   "fantasy_positions": [
+    "WR"
+   ],
+   "status": "Inactive"
+  },
+  "873": {
+   "full_name": "Rahim Moore",
+   "first_name": "Rahim",
+   "last_name": "Moore",
+   "position": "FS",
+   "team": null,
+   "active": false,
+   "search_rank": 9999999,
+   "years_exp": 9,
+   "gsis_id": null,
+   "espn_id": 14050,
+   "fantasy_positions": [
+    "DB"
+   ],
+   "status": "Inactive"
+  },
+  "12634": {
+   "full_name": "Jordan Watkins",
+   "first_name": "Jordan",
+   "last_name": "Watkins",
+   "position": "WR",
+   "team": "SF",
+   "active": true,
+   "search_rank": 999,
+   "years_exp": 1,
+   "gsis_id": null,
+   "espn_id": null,
+   "fantasy_positions": [
+    "WR"
+   ],
+   "status": "Active"
+  },
+  "8151": {
+   "full_name": "Kenneth Walker",
+   "first_name": "Kenneth",
+   "last_name": "Walker",
+   "position": "RB",
+   "team": "KC",
+   "active": true,
+   "search_rank": 18,
+   "years_exp": 4,
+   "gsis_id": null,
+   "espn_id": null,
+   "fantasy_positions": [
+    "RB"
+   ],
+   "status": "Active"
+  },
+  "1430": {
+   "full_name": "Chris Jones",
+   "first_name": "Chris",
+   "last_name": "Jones",
+   "position": "DT",
+   "team": null,
+   "active": false,
+   "search_rank": 9999999,
+   "years_exp": 9,
+   "gsis_id": "00-0030106",
+   "espn_id": 15955,
+   "fantasy_positions": [
+    "DL"
+   ],
+   "status": "Inactive"
+  },
+  "272": {
+   "full_name": "Chris Johnson",
+   "first_name": "Chris",
+   "last_name": "Johnson",
+   "position": "RB",
+   "team": null,
+   "active": false,
+   "search_rank": 9999999,
+   "years_exp": 12,
+   "gsis_id": "00-0026164",
+   "espn_id": 11258,
+   "fantasy_positions": [
+    "RB"
+   ],
+   "status": "Inactive"
+  },
+  "10223": {
+   "full_name": "Eric Gray",
+   "first_name": "Eric",
+   "last_name": "Gray",
+   "position": "RB",
+   "team": "NYG",
+   "active": true,
+   "search_rank": 999,
+   "years_exp": 3,
+   "gsis_id": null,
+   "espn_id": null,
+   "fantasy_positions": [
+    "RB"
+   ],
+   "status": "Active"
+  },
+  "13276": {
+   "full_name": "Omar Cooper",
+   "first_name": "Omar",
+   "last_name": "Cooper",
+   "position": "WR",
+   "team": "NYJ",
+   "active": true,
+   "search_rank": 151,
+   "years_exp": 0,
+   "gsis_id": null,
+   "espn_id": null,
+   "fantasy_positions": [
+    "WR"
+   ],
+   "status": "Active"
+  },
+  "94": {
+   "full_name": "Kyle Williams",
+   "first_name": "Kyle",
+   "last_name": "Williams",
+   "position": "DT",
+   "team": null,
+   "active": false,
+   "search_rank": 9999999,
+   "years_exp": 16,
+   "gsis_id": "00-0024348",
+   "espn_id": 9720,
+   "fantasy_positions": [
+    "DL"
+   ],
+   "status": "Injured Reserve"
+  },
+  "11631": {
+   "full_name": "Brian Thomas",
+   "first_name": "Brian",
+   "last_name": "Thomas",
+   "position": "WR",
+   "team": "JAX",
+   "active": true,
+   "search_rank": 70,
+   "years_exp": 2,
+   "gsis_id": null,
+   "espn_id": null,
+   "fantasy_positions": [
+    "WR"
+   ],
+   "status": "Active"
+  },
+  "5840": {
+   "full_name": "Josh Hines-Allen",
+   "first_name": "Josh",
+   "last_name": "Hines-Allen",
+   "position": "DE",
+   "team": "JAX",
+   "active": true,
+   "search_rank": 187,
+   "years_exp": 7,
+   "gsis_id": " 00-0035642",
+   "espn_id": 3915239,
+   "fantasy_positions": [
+    "DL",
+    "LB"
+   ],
+   "status": "Active"
+  },
+  "4995": {
+   "full_name": "Ian Thomas",
+   "first_name": "Ian",
+   "last_name": "Thomas",
+   "position": "TE",
+   "team": "LV",
+   "active": true,
+   "search_rank": 999,
+   "years_exp": 8,
+   "gsis_id": "00-0034365",
+   "espn_id": 4045305,
+   "fantasy_positions": [
+    "TE"
+   ],
+   "status": "Active"
+  },
+  "12547": {
+   "full_name": "Kyle Williams",
+   "first_name": "Kyle",
+   "last_name": "Williams",
+   "position": "WR",
+   "team": "NE",
+   "active": true,
+   "search_rank": 195,
+   "years_exp": 1,
+   "gsis_id": null,
+   "espn_id": null,
+   "fantasy_positions": [
+    "WR"
+   ],
+   "status": "Active"
+  },
+  "10925": {
+   "full_name": "Byron Young",
+   "first_name": "Byron",
+   "last_name": "Young",
+   "position": "DL",
+   "team": "PHI",
+   "active": true,
+   "search_rank": 9999999,
+   "years_exp": 3,
+   "gsis_id": null,
+   "espn_id": null,
+   "fantasy_positions": [
+    "DL"
+   ],
+   "status": "Active"
+  },
+  "11573": {
+   "full_name": "Frank Gore",
+   "first_name": "Frank",
+   "last_name": "Gore",
+   "position": "RB",
+   "team": "BUF",
+   "active": true,
+   "search_rank": 627,
+   "years_exp": 2,
+   "gsis_id": null,
+   "espn_id": null,
+   "fantasy_positions": [
+    "RB"
+   ],
+   "status": "Active"
+  },
+  "10875": {
+   "full_name": "Myles Murphy",
+   "first_name": "Myles",
+   "last_name": "Murphy",
+   "position": "DL",
+   "team": "CIN",
+   "active": true,
+   "search_rank": 9999999,
+   "years_exp": 3,
+   "gsis_id": null,
+   "espn_id": null,
+   "fantasy_positions": [
+    "DL",
+    "LB"
+   ],
+   "status": "Active"
+  },
+  "4984": {
+   "full_name": "Josh Allen",
+   "first_name": "Josh",
+   "last_name": "Allen",
+   "position": "QB",
+   "team": "BUF",
+   "active": true,
+   "search_rank": 4,
+   "years_exp": 8,
+   "gsis_id": "00-0034857",
+   "espn_id": 3918298,
+   "fantasy_positions": [
+    "QB"
+   ],
+   "status": "Active"
+  },
+  "5113": {
+   "full_name": "Cedrick Wilson",
+   "first_name": "Cedrick",
+   "last_name": "Wilson",
+   "position": "WR",
+   "team": "DET",
+   "active": true,
+   "search_rank": 387,
+   "years_exp": 8,
+   "gsis_id": " 00-0034418",
+   "espn_id": 4036335,
+   "fantasy_positions": [
+    "WR"
+   ],
+   "status": "Active"
+  },
+  "638": {
+   "full_name": "Kyle Williams",
+   "first_name": "Kyle",
+   "last_name": "Williams",
+   "position": "WR",
+   "team": null,
+   "active": false,
+   "search_rank": 9999999,
+   "years_exp": 5,
+   "gsis_id": null,
+   "espn_id": 13488,
+   "fantasy_positions": [
+    "WR"
+   ],
+   "status": "Inactive"
+  },
+  "13338": {
+   "full_name": "Kevin Coleman",
+   "first_name": "Kevin",
+   "last_name": "Coleman",
+   "position": "WR",
+   "team": "MIA",
+   "active": true,
+   "search_rank": 453,
+   "years_exp": 0,
+   "gsis_id": null,
+   "espn_id": null,
+   "fantasy_positions": [
+    "WR"
+   ],
+   "status": "Active"
+  },
+  "13324": {
+   "full_name": "Matt Hibner",
+   "first_name": "Matt",
+   "last_name": "Hibner",
+   "position": "TE",
+   "team": "BAL",
+   "active": true,
+   "search_rank": 476,
+   "years_exp": 0,
+   "gsis_id": null,
+   "espn_id": null,
+   "fantasy_positions": [
+    "TE"
+   ],
+   "status": "Active"
+  },
+  "12103": {
+   "full_name": "Jordan Miller",
+   "first_name": "Jordan",
+   "last_name": "Miller",
+   "position": "DT",
+   "team": "DEN",
+   "active": true,
+   "search_rank": 9999999,
+   "years_exp": 2,
+   "gsis_id": null,
+   "espn_id": null,
+   "fantasy_positions": [
+    "DL"
+   ],
+   "status": "Active"
+  }
+ }
+}

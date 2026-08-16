@@ -1,36 +1,32 @@
-"""Team-code table parity: the scraper vs the canonical pool builder.
+"""Team-code table ownership: one definition, every cleaner imports it.
 
-``src/pool/builder.py::pool_clean_name`` is labelled "(extracted from
-Dynasty Scraper.py)" and its regex bodies are character-identical to
-``Dynasty Scraper.py::clean_name``.  The DATA had drifted: the pool
-carried its own ``_TEAM_CODES`` literal that was 7 entries behind the
-scraper's (GBP, JAC, KCC, LVR, NEP, SFO, TBB), so ``"Caleb WilliamsJAC"``
-cleaned to ``"Caleb Williams"`` in the scraper and stayed
-``"Caleb WilliamsJAC"`` in the pool.
+History, in two stages:
 
-That divergence was latent — the scraper pre-cleans every Sleeper
-roster name (``Dynasty Scraper.py`` builds ``SLEEPER_ROSTER_DATA
-["positions"]`` from ``clean_name(full)``) and hands the pool KTC /
-IDPTradeCalc maps it has already run through the same function, so the
-pool never saw a raw glued name in the live path.  It was one new
-caller away from mattering.
+* 2026-07-29 — ``src/pool/builder.py`` carried its own ``_TEAM_CODES``
+  literal that was 7 entries behind the scraper's (GBP, JAC, KCC, LVR,
+  NEP, SFO, TBB), so ``"Caleb WilliamsJAC"`` cleaned differently in the
+  two "identical" cleaners.  Fix: ``name_clean.NFL_TEAM_CODES`` became
+  the single definition, the pool imported it, and this test regex-
+  extracted the scraper's remaining literal as text to pin equality.
 
-Fix: ``src/utils/name_clean.py::NFL_TEAM_CODES`` is now the single
-definition and ``src/pool/builder.py`` imports it.  The scraper keeps
-its own literal (it is the production scraper and is deliberately not
-edited here), so this test is the drift guard: it parses that literal
-out of the file as text and asserts the two sets are equal.
+* C1-ID-01 — ``Dynasty Scraper.py::clean_name`` itself moved verbatim to
+  ``src/identity/name_primitives.py`` (the canonical identity owner) and
+  the scraper's literal was DELETED along with it.  The text-extraction
+  tripwire in the previous version of this test fired exactly as
+  designed — the literal moved, and the mover (this change) updated the
+  guard to pin the new structure instead of the old text.
 
-Measured before the change (2026-07-29): adopting the scraper's full
-table changes the cleaned form of ZERO strings across every real
-payload in the repo — ``exports/latest/dynasty_data_2026-07-29.json``,
-``data/legacy_data_2026-03-22.json``, ``data/sleeper_last_good.json``
-and ``exports/latest/site_raw/*.json``, 3,492 distinct strings.
+What this test now asserts: there is ONE team-code table,
+``src/utils/name_clean.py::NFL_TEAM_CODES``, and every clean-name
+implementation — the identity owner's ``clean_name`` and the pool's
+``pool_clean_name`` — reads that object, not a copy.  The scraper no
+longer defines either the table or the cleaner; it imports both from
+``src/identity/name_primitives`` (asserted structurally below without
+importing the scraper, which would execute it).
 """
 
 from __future__ import annotations
 
-import ast
 import re
 import unittest
 from pathlib import Path
@@ -40,42 +36,17 @@ from src.utils.name_clean import NFL_TEAM_CODES
 REPO_ROOT = Path(__file__).resolve().parents[2]
 SCRAPER_PATH = REPO_ROOT / "Dynasty Scraper.py"
 
-_LITERAL_RE = re.compile(r"^_TEAM_CODES\s*=\s*\{(.*?)\n\}", re.S | re.M)
 
+class TestTeamCodeOwnership(unittest.TestCase):
+    def test_identity_owner_uses_the_shared_table(self):
+        from src.identity import name_primitives
 
-def _scraper_team_codes() -> set[str]:
-    """Extract the scraper's ``_TEAM_CODES`` set literal as text.
-
-    Deliberately narrow: read the file as text, locate the top-level
-    assignment, and ``ast.literal_eval`` just that literal.  The scraper
-    module is never imported — importing it executes the whole thing.
-    """
-    if not SCRAPER_PATH.exists():
-        raise FileNotFoundError(f"scraper not found: {SCRAPER_PATH}")
-    text = SCRAPER_PATH.read_text(encoding="utf-8")
-    match = _LITERAL_RE.search(text)
-    if not match:
-        raise AssertionError(
-            "could not locate a top-level `_TEAM_CODES = {...}` literal in "
-            "Dynasty Scraper.py — if it moved or changed shape, update this "
-            "parser rather than deleting the test"
-        )
-    return set(ast.literal_eval("{" + match.group(1) + "}"))
-
-
-class TestTeamCodeParity(unittest.TestCase):
-    def test_scraper_and_shared_table_agree(self):
-        scraper = _scraper_team_codes()
-        shared = set(NFL_TEAM_CODES)
-        self.assertEqual(
-            scraper,
-            shared,
-            "Dynasty Scraper.py::_TEAM_CODES and "
-            "src/utils/name_clean.py::NFL_TEAM_CODES have drifted.\n"
-            f"  only in scraper: {sorted(scraper - shared)}\n"
-            f"  only in shared:  {sorted(shared - scraper)}\n"
-            "Update NFL_TEAM_CODES to match; src/pool/builder.py reads it "
-            "and must clean names exactly as the scraper does.",
+        self.assertIs(
+            name_primitives._TEAM_CODES,
+            NFL_TEAM_CODES,
+            "src/identity/name_primitives.py no longer shares "
+            "name_clean.NFL_TEAM_CODES — a second copy is exactly the drift "
+            "this test exists to prevent",
         )
 
     def test_pool_builder_uses_the_shared_table(self):
@@ -89,6 +60,28 @@ class TestTeamCodeParity(unittest.TestCase):
             "a second copy is exactly the drift this test exists to prevent",
         )
 
+    def test_scraper_no_longer_carries_a_private_literal(self):
+        """The scraper must stay an adapter: no resurrected ``_TEAM_CODES``
+        literal and no local ``def clean_name`` — it imports both from the
+        identity owner.  Text assertions on purpose: importing the scraper
+        executes it."""
+        text = SCRAPER_PATH.read_text(encoding="utf-8")
+        self.assertIsNone(
+            re.search(r"^_TEAM_CODES\s*=\s*\{", text, re.M),
+            "Dynasty Scraper.py has grown a private _TEAM_CODES literal again — "
+            "the table's one owner is src/utils/name_clean.py::NFL_TEAM_CODES",
+        )
+        self.assertIsNone(
+            re.search(r"^def clean_name\(", text, re.M),
+            "Dynasty Scraper.py has grown a private clean_name again — the "
+            "canonical owner is src/identity/name_primitives.py::clean_name",
+        )
+        self.assertIn(
+            "from src.identity.name_primitives import",
+            text,
+            "the scraper must import its name primitives from the identity owner",
+        )
+
     def test_glued_team_code_is_stripped_by_the_pool(self):
         from src.pool.builder import pool_clean_name
 
@@ -98,13 +91,21 @@ class TestTeamCodeParity(unittest.TestCase):
         self.assertEqual(pool_clean_name("Jordan LoveGBP"), "Jordan Love")
         self.assertEqual(pool_clean_name("Jordan LoveGB"), "Jordan Love")
 
+    def test_glued_team_code_is_stripped_by_the_identity_owner(self):
+        from src.identity.name_primitives import clean_name
+
+        self.assertEqual(clean_name("Caleb WilliamsJAC"), "Caleb Williams")
+        self.assertEqual(clean_name("Jordan LoveGBP"), "Jordan Love")
+
     def test_short_stems_are_left_alone(self):
         """The >3-character stem guard is what keeps this from eating
         real names; assert it rather than trusting it."""
+        from src.identity.name_primitives import clean_name
         from src.pool.builder import pool_clean_name
 
         # Stem "Ali" is 3 characters, so the trailing code is NOT stripped.
         self.assertEqual(pool_clean_name("AliNE"), "AliNE")
+        self.assertEqual(clean_name("AliNE"), "AliNE")
 
 
 if __name__ == "__main__":
