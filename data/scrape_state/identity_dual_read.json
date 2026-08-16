@@ -1,15 +1,15 @@
 {
- "generatedAt": "2026-08-16T15:01:21.179078+00:00",
+ "generatedAt": "2026-08-16T17:03:43.435859+00:00",
  "servedPolicy": "scraper_sleeper_attach_v1",
  "servedBy": "src.identity.resolution",
  "legacyLadderRetired": true,
  "v2WatchEnabled": true,
  "site": "scraper_sleeper_attach",
- "calls": 2016,
+ "calls": 2017,
  "v1Agree": 0,
  "v1Diverge": 0,
  "v1Examples": [],
- "v2Same": 1996,
+ "v2Same": 1997,
  "v2WouldChange": 20,
  "v2Examples": [
   {
@@ -125,14 +125,6 @@
    "v2Reason": "no_candidate"
   },
   {
-   "name": "Matthew Hibner",
-   "pos": "",
-   "served": "13324",
-   "engineV2": null,
-   "v2Method": "none",
-   "v2Reason": "no_candidate"
-  },
-  {
    "name": "Byron Murphy",
    "pos": "DL",
    "served": "11668",
@@ -152,6 +144,14 @@
    "name": "Jamarion Miller",
    "pos": "",
    "served": "12103",
+   "engineV2": null,
+   "v2Method": "none",
+   "v2Reason": "no_candidate"
+  },
+  {
+   "name": "Matthew Hibner",
+   "pos": "",
+   "served": "13324",
    "engineV2": null,
    "v2Method": "none",
    "v2Reason": "no_candidate"
