@@ -221,10 +221,19 @@ _FINDINGS: dict[str, tuple[str, str | None, str | None, str, str]] = {
         "S-6",
         "src/api/data_contract.py",
         "write_snapshot=not source_overrides",
-        OPEN,
-        "The shared rank snapshot is still written on any build without "
-        "source overrides, and rankChange still diffs a board whose "
-        "source set may have changed.",
+        CLOSED,
+        "CLOSED by C1-U4 (C1-HIST-03), 2026-08-16. Not a respelling: the "
+        "shared rank snapshot (data/snapshots/ranks_last.json) and its "
+        "write path are DELETED, not renamed. rankChange is now derived "
+        "read-only from the temporal ledger's previous BOARD DATE "
+        "(src/history/asof.previous_board_ranks), so no build of any kind "
+        "— override bodies included (W03-F010) — can move the comparison "
+        "baseline, and a board whose source set changed still diffs "
+        "against the same dated observation. The signature is kept so its "
+        "return trips this gate. Pinned by tests/history/"
+        "test_temporal_red.py (tombstones) + test_temporal_ledger.py::"
+        "TestRankChangeDeterministic (back-to-back determinism, "
+        "collision-keying, None-never-zero).",
     ),
     "C12": (
         "V-4",

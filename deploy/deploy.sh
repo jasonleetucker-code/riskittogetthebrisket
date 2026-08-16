@@ -886,6 +886,32 @@ reconcile_source_history() {
   fi
 }
 
+# Idempotent post-deploy build of the canonical temporal ledger
+# (C1-U4, src/history).  First deploy: backfills exports/archive/ and
+# migrates board_history.sqlite + rank_history.jsonl into
+# data/temporal_ledger.sqlite.  Later deploys: converges in seconds
+# (every ingest is INSERT-or-counted-duplicate; re-running writes
+# nothing new).  Non-fatal — a failure degrades to "rankChange has no
+# comparator yet" (stamped None, never 0) until the next deploy or a
+# manual run of scripts/build_temporal_ledger.py.
+build_temporal_ledger() {
+  local script="${APP_DIR}/scripts/build_temporal_ledger.py"
+  if [[ ! -f "${script}" ]]; then
+    log "[ledger] build script not present; skipping"
+    return 0
+  fi
+  if [[ -z "${VENV_DIR:-}" || ! -x "${VENV_DIR}/bin/python" ]]; then
+    log "[ledger] virtualenv missing; skipping"
+    return 0
+  fi
+  log "[ledger] building temporal ledger (idempotent)"
+  if "${VENV_DIR}/bin/python" "${script}" >/dev/null 2>&1; then
+    log "[ledger] temporal ledger build completed"
+  else
+    warn "[ledger] temporal ledger build exited non-zero — non-fatal"
+  fi
+}
+
 verify_deploy() {
   if [[ -f "${APP_DIR}/deploy/verify-deploy.sh" ]]; then
     log "Running deploy verification script."
@@ -1120,6 +1146,7 @@ main() {
   restart_service
   verify_runtime_state
   reconcile_source_history
+  build_temporal_ledger
   verify_deploy
   record_success_state
 

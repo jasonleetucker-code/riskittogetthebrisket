@@ -1,0 +1,98 @@
+name: Temporal Ledger Diagnostics (read-only)
+
+# C1-U4 production evidence.  Answers, from the box, what is otherwise
+# unobservable (data/temporal_ledger.sqlite is gitignored and no HTTP
+# surface reads it):
+#
+#   1. Does the canonical temporal ledger exist on production, with how
+#      many observations across which dates, from which origins?
+#   2. Do real as-of queries answer correctly — including the structural
+#      pre-2026-07-14 probe (must be `before_history_boundary`)?
+#
+# Runs scripts/temporal_ledger_status.py from the DEPLOYED app tree, so
+# it is meaningful only after the C1-U4 revision deploys — which is
+# exactly when the unit's production gate needs it.  Read-only: the
+# status script opens the ledger for reads and creates nothing.
+#
+# Same SSH mechanism and concurrency posture as
+# scoring-snapshot-diagnostics.yml.
+
+on:
+  workflow_dispatch:
+    inputs:
+      asset:
+        description: >-
+          Optional asset key to probe (e.g. "mpick:2026:r1:s1" or
+          "player:5859").  Repeatable probes: comma-separate.
+        required: false
+        default: "mpick:2026:r1:s1,player:5859"
+        type: string
+      date:
+        description: As-of date for the probes (YYYY-MM-DD; default = newest ledger date)
+        required: false
+        default: ""
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: production-deploy
+  cancel-in-progress: false
+
+jobs:
+  ledger-status:
+    name: Temporal ledger status
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: production
+    steps:
+      - name: Configure production SSH
+        env:
+          DEPLOY_SSH_PRIVATE_KEY: ${{ secrets.DEPLOY_SSH_PRIVATE_KEY }}
+          DEPLOY_KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+          DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          install -d -m 700 "$HOME/.ssh"
+          printf '%s\n' "$DEPLOY_SSH_PRIVATE_KEY" | sed 's/\r$//' > "$HOME/.ssh/id_ed25519"
+          printf '%s\n' "$DEPLOY_KNOWN_HOSTS" | sed 's/\r$//' > "$HOME/.ssh/known_hosts"
+          chmod 600 "$HOME/.ssh/id_ed25519"
+          chmod 644 "$HOME/.ssh/known_hosts"
+          ssh-keygen -y -f "$HOME/.ssh/id_ed25519" >/dev/null
+          echo "PORT=${DEPLOY_PORT:-22}" >> "$GITHUB_ENV"
+
+      - name: Probe temporal ledger on production
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          APP_DIR: ${{ vars.PROD_APP_DIR || '/home/dynasty/trade-calculator' }}
+          PROBE_ASSETS: ${{ inputs.asset }}
+          PROBE_DATE: ${{ inputs.date }}
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          # The remote command's exit status is this step's exit status.
+          # Exit 2 = ledger absent/empty (not recording yet) — a real
+          # answer, surfaced as a failure so nobody reads silence as ok.
+          ssh -i "$HOME/.ssh/id_ed25519" \
+            -o BatchMode=yes -o StrictHostKeyChecking=yes \
+            -o UserKnownHostsFile="$HOME/.ssh/known_hosts" \
+            -o ConnectTimeout=15 -o ServerAliveInterval=15 \
+            -p "$PORT" "$DEPLOY_USER@$DEPLOY_HOST" \
+            "APP_DIR=$(printf %q "$APP_DIR") PROBE_ASSETS=$(printf %q "$PROBE_ASSETS") PROBE_DATE=$(printf %q "$PROBE_DATE") bash -s" <<'REMOTE'
+          set -Eeuo pipefail
+          cd "$APP_DIR"
+          # deploy.sh's VENV_DIR default is .venv; older layouts used venv.
+          PY="$APP_DIR/.venv/bin/python"
+          [ -x "$PY" ] || PY="$APP_DIR/venv/bin/python"
+          [ -x "$PY" ] || PY=python3
+          ARGS=()
+          IFS=',' read -ra ASSETS <<< "${PROBE_ASSETS:-}"
+          for a in "${ASSETS[@]}"; do
+            [ -n "$a" ] && ARGS+=(--asset "$a")
+          done
+          [ -n "${PROBE_DATE:-}" ] && ARGS+=(--date "$PROBE_DATE")
+          exec "$PY" scripts/temporal_ledger_status.py "${ARGS[@]}"
+          REMOTE

@@ -140,7 +140,7 @@ C1-U1 and C1-U2 both closed on 2026-08-16; the next authorization is an owner de
   regress the first-name-variant class; that repair needs its own unit. Record:
   `docs/identity/C1_ID_01_IDENTITY_CONSOLIDATION.md` §5a, §9
 
-### C1-U3 — One pick identity, end to end  ← **DELIVERED (C1A unit 3, checkpoint pending)**
+### C1-U3 — One pick identity, end to end  ← **CLOSED at the owner checkpoint 2026-08-16** (PR #867 merge `22ce424f`; bookkeeping PR #868)
 - **rows** `C1-ID-02` · **owner** `src/identity/picks.py` (created)
 - **retires/adapts** measured **39** independent definition sites, 97 raw census records
   (map's 7 was an estimate; `docs/identity/C1_ID_02_CENSUS.md`) · **kind** INFRA · **deps** C1-U2
@@ -155,15 +155,24 @@ C1-U1 and C1-U2 both closed on 2026-08-16; the next authorization is an owner de
   migration (needs C1-U6), public-league fold. Record:
   `docs/identity/C1_ID_02_PICK_IDENTITY.md`
 
-### C1-U4 — One immutable as-of value/provenance ledger
+### C1-U4 — One immutable as-of value/provenance ledger  ← **DELIVERED 2026-08-16 (C1A unit 4, checkpoint pending)**
 - **rows** `C1-HIST-01` `C1-HIST-02` `C1-HIST-03`
-- **owner** *(to create)* temporal ledger · **retires** 4 fragmented stores
+- **owner** `src/history/` (created) · **retires** the fragmented as-of semantics of
+  **5** measured decision paths (map's 4 was an estimate; the fifth is the frontend
+  aging helper, deferred to C3-U9 by this map's own decomposition) — raw stores
+  remain as recording evidence feeds per the retention rows
 - **kind** INFRA · **deps** C1-U2, C1-U3
-- **RED→GREEN** `rankChange` proven non-deterministic (build N+1 diffs against
-  build N's own output); a historical pick value unrecoverable
-- **backfill** from `exports/archive/` (starts 2026-07-14) — **the pre-2026-07-14
-  gap is permanent and must be recorded as missing, never interpolated**
-- **consumers** C3-U9 replay/aging, C5 backtesting, C9 history
+- **RED→GREEN** both map REDs reproduced on real production data and closed
+  (`tests/history/test_temporal_red.py` — 5 defect classes — →
+  `test_temporal_ledger.py`): rankChange self-reference (740-row back-to-back
+  divergence) → ledger-derived, read-only, deterministic; slot-pick values (72
+  live rows) unrecoverable → first-class rank-less observations
+- **backfill** from `exports/archive/` done: 34/34 dates from 2026-07-14, 138,127
+  observations, deterministic + idempotent — **the pre-2026-07-14 gap is permanent,
+  enforced at write AND query (`before_history_boundary`), never interpolated**
+- **consumers** C3-U9 replay/aging, C5 backtesting, C9 history — substrate
+  interfaces documented in `docs/history/C1_U4_TEMPORAL_LEDGER.md` §14
+- **state** DELIVERED 2026-08-16. Awaiting its §3 owner checkpoint.
 
 ### C1-U5 — Confidence naming migration
 - **rows** `C1-CONF-01` · **owner** `src/api/confidence.py` · **kind** INFRA

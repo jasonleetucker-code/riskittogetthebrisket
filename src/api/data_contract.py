@@ -5041,81 +5041,97 @@ def _detect_blend_integrity_violations(
                 pdata["blendIntegrityViolation"] = dict(stamp)
 
 
-# ── Rank-change snapshot ────────────────────────────────────────────────
-# Persists the last board's ranks so we can stamp per-player movement
-# deltas on each subsequent build.  Stored as a small JSON file at
-# ``data/snapshots/ranks_last.json``: ``{name: rank, ...}``.  Missing
-# file = first run; nothing is stamped.  The snapshot is rewritten at
-# the end of each non-delta build so the next build can diff against
-# it.  Deltas: +N means the player moved UP N ranks since the last
-# build; -N means down; None = newly ranked or previously unranked.
-_RANK_SNAPSHOT_PATH: "Path | None" = None
-
-
-def _get_rank_snapshot_path() -> "Path":
-    from pathlib import Path as _Path
-
-    global _RANK_SNAPSHOT_PATH
-    if _RANK_SNAPSHOT_PATH is None:
-        _RANK_SNAPSHOT_PATH = (
-            _Path(__file__).resolve().parents[2] / "data" / "snapshots" / "ranks_last.json"
-        )
-    return _RANK_SNAPSHOT_PATH
+# ── Rank change — derived from the temporal ledger (C1-HIST-03) ────────
+# ``rankChange`` is a DERIVED quantity, not mutable state.  It is the
+# difference between a row's current ``canonicalConsensusRank`` and the
+# same asset's rank on the latest canonical-board date STRICTLY BEFORE
+# this board's own date, read from the temporal ledger
+# (``src/history`` — the one owner of as-of history).
+#
+# This replaces the retired single-slot cache
+# ``data/snapshots/ranks_last.json``, which made rankChange
+# non-deterministic by construction: every non-override build (server
+# scrape promotions, startup priming, the two daily offline recorder
+# scripts, and — W03-F010 — even a stock ``/rankings`` override
+# request) rewrote the baseline, so build N+1 diffed against build N's
+# own output and two back-to-back builds of identical inputs disagreed
+# on 740 rows (B-audit residual H).  It was also keyed by bare
+# ``canonicalName``, so cross-universe same-name players fabricated
+# movement for each other.  Both defects are pinned in
+# ``tests/history/test_temporal_red.py`` and closed by
+# ``tests/history/test_temporal_ledger.py``.
+#
+# Determinism properties of the derivation:
+#   * same board + same ledger → same stamps, however many times the
+#     build runs (a rebuild has no side effect here — nothing writes);
+#   * the comparator is a DATED observation (latest ledger date before
+#     the board date), never the previous build's output — recording
+#     today's board cannot change today's comparator because the
+#     lookup is strictly-before;
+#   * keys are the canonical asset namespace (``player:<id>`` /
+#     ``name:<canonical>::<group>`` / ``mpick:*``), so the collision
+#     class is unrepresentable;
+#   * no prior board date, no ledger, or a lookup failure → ``None``
+#     ("no historical comparator"), NEVER 0.
+#
+# Rollback: ``RISKIT_FEATURE_LEDGER_RANK_CHANGE=0`` stamps ``None``
+# everywhere (honest missing).  It deliberately does NOT resurrect the
+# retired cache — a rollback must not reintroduce the defect.
 
 
 def _stamp_rank_changes(
     rows: list[dict[str, Any]],
     *,
-    write_snapshot: bool = True,
+    board_date: str | None = None,
+    ledger_path: "Path | None" = None,
 ) -> None:
-    """Diff each row's canonicalConsensusRank against the last-saved
-    snapshot and stamp ``rankChange`` (positive = moved up).
-    Optionally rewrite the snapshot file with the current ranks.
+    """Stamp ``rankChange`` (positive = moved up) on each ranked row,
+    derived from the temporal ledger's previous board date.
 
-    ``write_snapshot=False`` is used on override / delta-payload
-    builds so a user toggling sources on /settings doesn't clobber
-    the canonical-board snapshot the scheduled scrape writes.  Reads
-    always happen so the stamp is available on every build.
+    ``board_date`` is the board's own UTC date claim (the raw
+    payload's ``date``); when absent, today-UTC.  Read-only: this
+    function writes nothing anywhere, on any build kind — recording
+    into the ledger happens only at the fresh-scrape promotion site in
+    ``server.py``.
     """
-    import json as _json
+    import os as _os
 
-    snap_path = _get_rank_snapshot_path()
-    previous: dict[str, int] = {}
-    try:
-        if snap_path.exists():
-            previous = _json.loads(snap_path.read_text()) or {}
-    except Exception:
-        previous = {}
-
-    current: dict[str, int] = {}
-    for row in rows:
-        name = str(row.get("canonicalName") or "")
-        rank = row.get("canonicalConsensusRank")
-        if not name or rank is None:
-            continue
+    flag = _os.environ.get("RISKIT_FEATURE_LEDGER_RANK_CHANGE", "1").strip().lower()
+    previous: dict[str, tuple[str, int]] = {}
+    _history_keys = None
+    if flag not in ("0", "false", "off"):
+        # Every src.history touch — the keys import included — sits
+        # inside one guard: a history failure (or the rollback flag)
+        # must not break the contract build, and the degraded stamp is
+        # "no comparator" (None), never a wrong number.
         try:
-            cur_rank = int(rank)
+            from src.history import asof as _asof
+            from src.history import keys as _history_keys  # noqa: F811
+
+            if not board_date:
+                board_date = datetime.now(timezone.utc).date().isoformat()
+            previous = _asof.previous_board_ranks(before_date=board_date, path=ledger_path)
+        except Exception:
+            previous = {}
+
+    for row in rows:
+        rank = row.get("canonicalConsensusRank")
+        try:
+            cur_rank = int(rank) if rank is not None else None
         except (TypeError, ValueError):
+            cur_rank = None
+        if cur_rank is None or _history_keys is None:
+            row["rankChange"] = None
             continue
-        current[name] = cur_rank
-        prev = previous.get(name)
-        if isinstance(prev, int) and prev > 0:
+        keyed = _history_keys.asset_key_for_contract_row(row)
+        prev = previous.get(keyed[0]) if keyed else None
+        if prev is not None and prev[1] > 0:
             # Positive = moved UP (prev rank higher number, now lower
             # number).  A player at prev=50 who's now at 40 moved up
             # 10; change = 10.
-            row["rankChange"] = prev - cur_rank
+            row["rankChange"] = prev[1] - cur_rank
         else:
             row["rankChange"] = None
-
-    if not write_snapshot:
-        return
-    try:
-        snap_path.parent.mkdir(parents=True, exist_ok=True)
-        snap_path.write_text(_json.dumps(current, separators=(",", ":")))
-    except Exception:
-        # Snapshot write failure is non-fatal — next build just
-        # lacks diff data, exactly like first-run.
-        pass
 
 
 # ── Two-way player override ─────────────────────────────────────────────
@@ -6928,6 +6944,7 @@ def _compute_unified_rankings(
     tep_native_correction: float = 1.0,
     tep_multiplier_is_override: bool = False,
     suppress_market_corridor_clamp: bool = False,
+    board_date: str | None = None,
 ) -> dict[str, str]:
     """Compute a single unified ranking across all sources and positions.
 
@@ -8872,14 +8889,14 @@ def _compute_unified_rankings(
         copy_rows=False,
     )
 
-    # Rank-change vs previous scrape.  Stamps ``rankChange`` on
-    # each row from the persisted snapshot; writes the current ranks
-    # back only when this is the canonical board build (no source
-    # overrides — override paths shouldn't clobber the snapshot that
-    # the scheduled scrape maintains).
+    # Rank-change vs the previous BOARD DATE, derived read-only from
+    # the temporal ledger (src/history).  Identical on every rebuild of
+    # the same board — override and delta builds included, which is
+    # what closed W03-F010 (any request used to be able to clobber the
+    # old snapshot baseline; there is no baseline to clobber now).
     _stamp_rank_changes(
         tiered_rows,
-        write_snapshot=not source_overrides,
+        board_date=board_date,
     )
 
     # ── Post-compaction disagreement re-stamp ──
@@ -9674,6 +9691,9 @@ def build_api_data_contract(
         tep_native_correction=tep_native_correction,
         tep_multiplier_is_override=(tep_multiplier_source == "override"),
         suppress_market_corridor_clamp=suppress_market_corridor_clamp,
+        # The board's own UTC date claim — the rankChange derivation's
+        # comparison anchor (latest ledger date strictly before it).
+        board_date=str(raw_payload.get("date") or "") or None,
     )
 
     # Stamp rankDerivedValue into the values bundle so every page uses the

@@ -75,6 +75,7 @@ from src.api import gameplan as _gameplan
 from src.api import guest_passes as _guest_passes
 from src.api import rank_history as _rank_history
 from src.api import source_history as _source_history
+from src.history import record as _history_record
 from src.api import push_delivery as _push_delivery
 from src.api import signal_alerts as _signal_alerts
 from src.api import terminal as _terminal
@@ -2230,7 +2231,15 @@ def _prime_latest_payload(data: dict | None, *, is_fresh_scrape: bool = False) -
         #   frontend glyph needs it on startup-primed payloads too.
         try:
             if is_fresh_scrape:
-                _rank_history.append_snapshot(contract_payload)
+                # Each of the three recorders is isolated in its own
+                # try so one failing append can never silently skip the
+                # others (the ledger record used to sit downstream of
+                # the rank-history append inside one block — an
+                # asymmetric coupling the C1-U4 final review flagged).
+                try:
+                    _rank_history.append_snapshot(contract_payload)
+                except Exception as inner_exc:  # noqa: BLE001
+                    log.warning("rank_history: append failed: %s", inner_exc)
                 # Sister snapshot: per-source value history.  Stored in
                 # a separate JSONL so the rank-history log stays small
                 # and readable while the popup chart can stream a
@@ -2244,6 +2253,24 @@ def _prime_latest_payload(data: dict | None, *, is_fresh_scrape: bool = False) -
                         "source_history: append failed: %s",
                         inner_exc,
                     )
+                # Canonical temporal ledger (src/history, C1-U4): the
+                # one as-of owner records this build — including the
+                # tethered slot-pick rows the rank-gated log above
+                # structurally drops (C1-HIST-02).  Fresh scrapes only,
+                # same discipline as the appends above; isolated so a
+                # ledger failure cannot nuke either sibling append.
+                try:
+                    ledger_result = _history_record.record_contract(contract_payload)
+                    log.info(
+                        "temporal_ledger: recorded %d observations for %s "
+                        "(%d duplicate, %d unresolved rows)",
+                        ledger_result.get("written", 0),
+                        ledger_result.get("boardDate"),
+                        ledger_result.get("duplicates", 0),
+                        ledger_result.get("unresolved", 0),
+                    )
+                except Exception as inner_exc:  # noqa: BLE001
+                    log.warning("temporal_ledger: record failed: %s", inner_exc)
             stamped = _rank_history.stamp_contract_with_history(contract_payload)
             if stamped:
                 log.info("rank_history: stamped %d rows with history series", stamped)
