@@ -1,0 +1,195 @@
+{
+ "_provenance": {
+  "currentZip": "exports/archive/dynasty_export_20260816_110140.zip",
+  "priorZip": "exports/archive/dynasty_export_20260815_230043.zip",
+  "builtBy": "build_api_data_contract on the archived raw scraper payloads, subset extracted unedited",
+  "extractedAt": "2026-08-16",
+  "note": "Real production data. currentRows are canonical contract rows for 2026-08-16; priorRanks/priorSlotPickValues are the canonical board of 2026-08-15."
+ },
+ "currentRows": [
+  {
+   "canonicalName": "A.J. Brown",
+   "displayName": "A.J. Brown",
+   "assetClass": "offense",
+   "position": "WR",
+   "canonicalConsensusRank": 72,
+   "rankDerivedValue": 4947,
+   "playerId": "5859",
+   "canonicalTierId": 10,
+   "confidenceBucket": "high"
+  },
+  {
+   "canonicalName": "Aaron Anderson",
+   "displayName": "Aaron Anderson",
+   "assetClass": "offense",
+   "position": "WR",
+   "canonicalConsensusRank": 648,
+   "rankDerivedValue": 1268,
+   "playerId": "13309",
+   "canonicalTierId": 100,
+   "confidenceBucket": "low"
+  },
+  {
+   "canonicalName": "Aaron Jones",
+   "displayName": "Aaron Jones",
+   "assetClass": "offense",
+   "position": "RB",
+   "canonicalConsensusRank": 286,
+   "rankDerivedValue": 2117,
+   "playerId": "4199",
+   "canonicalTierId": 38,
+   "confidenceBucket": "high"
+  },
+  {
+   "canonicalName": "Aaron Rodgers",
+   "displayName": "Aaron Rodgers",
+   "assetClass": "offense",
+   "position": "QB",
+   "canonicalConsensusRank": 316,
+   "rankDerivedValue": 1976,
+   "playerId": "96",
+   "canonicalTierId": 40,
+   "confidenceBucket": "high"
+  },
+  {
+   "canonicalName": "Adam Randall",
+   "displayName": "Adam Randall",
+   "assetClass": "offense",
+   "position": "RB",
+   "canonicalConsensusRank": 467,
+   "rankDerivedValue": 1601,
+   "playerId": "13302",
+   "canonicalTierId": 65,
+   "confidenceBucket": "high"
+  },
+  {
+   "canonicalName": "Adam Thielen",
+   "displayName": "Adam Thielen",
+   "assetClass": "offense",
+   "position": "WR",
+   "canonicalConsensusRank": 645,
+   "rankDerivedValue": 1277,
+   "playerId": "1689",
+   "canonicalTierId": 99,
+   "confidenceBucket": "low"
+  },
+  {
+   "canonicalName": "Abdul Carter",
+   "displayName": "Abdul Carter",
+   "assetClass": "idp",
+   "position": "DL",
+   "canonicalConsensusRank": 118,
+   "rankDerivedValue": 3654,
+   "playerId": "12574",
+   "canonicalTierId": 16,
+   "confidenceBucket": "low"
+  },
+  {
+   "canonicalName": "Aidan Hutchinson",
+   "displayName": "Aidan Hutchinson",
+   "assetClass": "idp",
+   "position": "DL",
+   "canonicalConsensusRank": 34,
+   "rankDerivedValue": 6393,
+   "playerId": "8289",
+   "canonicalTierId": 4,
+   "confidenceBucket": "medium"
+  },
+  {
+   "canonicalName": "AJ Haulcy",
+   "displayName": "AJ Haulcy",
+   "assetClass": "idp",
+   "position": "DB",
+   "canonicalConsensusRank": 350,
+   "rankDerivedValue": 1893,
+   "playerId": "13384",
+   "canonicalTierId": 45,
+   "confidenceBucket": "medium"
+  },
+  {
+   "canonicalName": "Akeem Davis-Gaither",
+   "displayName": "Akeem Davis-Gaither",
+   "assetClass": "idp",
+   "position": "LB",
+   "canonicalConsensusRank": 617,
+   "rankDerivedValue": 1316,
+   "playerId": "6860",
+   "canonicalTierId": 94,
+   "confidenceBucket": "medium"
+  },
+  {
+   "canonicalName": "2026 Pick 1.01",
+   "displayName": "2026 Pick 1.01",
+   "assetClass": "pick",
+   "position": "PICK",
+   "canonicalConsensusRank": null,
+   "rankDerivedValue": 7779,
+   "playerId": null,
+   "canonicalTierId": null,
+   "confidenceBucket": "low"
+  },
+  {
+   "canonicalName": "2026 Pick 1.02",
+   "displayName": "2026 Pick 1.02",
+   "assetClass": "pick",
+   "position": "PICK",
+   "canonicalConsensusRank": null,
+   "rankDerivedValue": 6072,
+   "playerId": null,
+   "canonicalTierId": null,
+   "confidenceBucket": "low"
+  },
+  {
+   "canonicalName": "2026 Pick 1.03",
+   "displayName": "2026 Pick 1.03",
+   "assetClass": "pick",
+   "position": "PICK",
+   "canonicalConsensusRank": null,
+   "rankDerivedValue": 5542,
+   "playerId": null,
+   "canonicalTierId": null,
+   "confidenceBucket": "low"
+  },
+  {
+   "canonicalName": "2027 Early 1st",
+   "displayName": "2027 Early 1st",
+   "assetClass": "pick",
+   "position": "PICK",
+   "canonicalConsensusRank": 29,
+   "rankDerivedValue": 7032,
+   "playerId": null,
+   "canonicalTierId": 3,
+   "confidenceBucket": "high"
+  },
+  {
+   "canonicalName": "2027 Early 2nd",
+   "displayName": "2027 Early 2nd",
+   "assetClass": "pick",
+   "position": "PICK",
+   "canonicalConsensusRank": 109,
+   "rankDerivedValue": 3815,
+   "playerId": null,
+   "canonicalTierId": 16,
+   "confidenceBucket": "high"
+  }
+ ],
+ "priorRanks": {
+  "A.J. Brown": 72,
+  "Aaron Anderson": 648,
+  "Aaron Jones": 286,
+  "Aaron Rodgers": 316,
+  "Adam Randall": 467,
+  "Adam Thielen": 645,
+  "Abdul Carter": 118,
+  "Aidan Hutchinson": 34,
+  "AJ Haulcy": 350,
+  "Akeem Davis-Gaither": 617,
+  "2027 Early 1st": 29,
+  "2027 Early 2nd": 110
+ },
+ "priorSlotPickValues": {
+  "2026 Pick 1.01": 7778,
+  "2026 Pick 1.02": 6074,
+  "2026 Pick 1.03": 5541
+ }
+}
