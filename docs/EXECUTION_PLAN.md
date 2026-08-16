@@ -133,8 +133,11 @@ equality). Archive backfill: 34/34 dates from 2026-07-14, 138,127 observations, 
 idempotent. Deferred with record (manifest's own decomposition): the trade-retro/terminal/value-chart
 consumer migrations (C3-U9 / C2-AGE-03). Full record: `docs/history/C1_U4_TEMPORAL_LEDGER.md`.
 
-No further unit is authorized. The next authorization comes from the owner reviewing this unit's
-evidence at the §3 checkpoint.
+**MERGED** — PR #869, merge `8b6a9987` (parents `49603291e` + validated head `5940a177f`), exact-head CI
+run 31955465747 green (format + lint + coercion gate + finding-drift gate + planning integrity + import
+gate + full pytest + contract check + deploy syntax + frontend). The one bounded final review confirmed
+and closed two release blockers before the head was validated (design record §15). The unit's owner
+checkpoint remains pending and no further unit is authorized.
 
 ## `C1A` unit 3 — `C1-U3` / `C1-ID-02`, one pick identity, end to end. **CLOSED at the owner checkpoint 2026-08-16.**
 
