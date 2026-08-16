@@ -140,7 +140,7 @@ C1-U1 and C1-U2 both closed on 2026-08-16; the next authorization is an owner de
   regress the first-name-variant class; that repair needs its own unit. Record:
   `docs/identity/C1_ID_01_IDENTITY_CONSOLIDATION.md` §5a, §9
 
-### C1-U3 — One pick identity, end to end  ← **DELIVERED (C1A unit 3, checkpoint pending)**
+### C1-U3 — One pick identity, end to end  ← **CLOSED at the owner checkpoint 2026-08-16** (PR #867 merge `22ce424f`; bookkeeping PR #868)
 - **rows** `C1-ID-02` · **owner** `src/identity/picks.py` (created)
 - **retires/adapts** measured **39** independent definition sites, 97 raw census records
   (map's 7 was an estimate; `docs/identity/C1_ID_02_CENSUS.md`) · **kind** INFRA · **deps** C1-U2
@@ -155,7 +155,7 @@ C1-U1 and C1-U2 both closed on 2026-08-16; the next authorization is an owner de
   migration (needs C1-U6), public-league fold. Record:
   `docs/identity/C1_ID_02_PICK_IDENTITY.md`
 
-### C1-U4 — One immutable as-of value/provenance ledger
+### C1-U4 — One immutable as-of value/provenance ledger  ← **AUTHORIZED 2026-08-16 (C1A unit 4, in progress)**
 - **rows** `C1-HIST-01` `C1-HIST-02` `C1-HIST-03`
 - **owner** *(to create)* temporal ledger · **retires** 4 fragmented stores
 - **kind** INFRA · **deps** C1-U2, C1-U3

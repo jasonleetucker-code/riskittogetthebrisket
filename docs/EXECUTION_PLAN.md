@@ -15,7 +15,7 @@ Backlog Spec and the feature specs. It does not define scope — that lives in `
 
 # 0. CURRENT AUTHORIZATION — READ THIS FIRST
 
-## The B→C gate is CLEARED. **C1A units 1, 2 and 3 are done — unit 3 DELIVERED, awaiting its owner checkpoint. No further unit is authorized.**
+## The B→C gate is CLEARED. **C1A units 1, 2 and 3 are CLOSED. The owner has authorized `C1-U4` — and only `C1-U4`.**
 
 | question | answer |
 |---|---|
@@ -26,20 +26,20 @@ Backlog Spec and the feature specs. It does not define scope — that lives in `
 | **Is C authorized?** | **YES — `C1A` ONLY** |
 | Is C1A unit 1 (retention) done? | **Yes — CLOSED at the owner checkpoint 2026-08-16.** `C1-RET-07` remains honestly STALE; observational follow-ups do not reopen the unit |
 | Is C1A unit 2 (`C1-U2` / `C1-ID-01`) done? | **Yes — CLOSED 2026-08-16.** Cut over and retired; production gate passed at both sites with zero divergence. `CANONICAL_V2` activation is deliberately NOT part of it (measured blocker, §2) |
-| Is C1A unit 3 (`C1-U3` / `C1-ID-02` pick identity) authorized? | **Yes — owner-authorized 2026-08-16 at the C1-U2 checkpoint** |
-| Is C1A unit 3 done? | **DELIVERED 2026-08-16 — awaiting its §3 owner checkpoint** (see §2; canonical owner `src/identity/picks.py`; board proven byte-inert 0/1093) |
-| **What may I build right now?** | **Nothing — C1-U3 is delivered and its checkpoint is pending.** No further unit is authorized |
-| Is `C1-U4`+ authorized? | **No** |
+| Is C1A unit 3 (`C1-U3` / `C1-ID-02` pick identity) done? | **Yes — CLOSED at the owner checkpoint 2026-08-16.** The owner reviewed and accepted the C1-ID-02 evidence; implementation merged as PR #867 (merge `22ce424f`) with bookkeeping/work-claim closure in PR #868. Do not reopen |
+| Is C1A unit 4 (`C1-U4` / `C1-HIST-01`..`-03`) authorized? | **Yes — owner-authorized 2026-08-16 at the C1-U3 checkpoint.** Scope is exactly manifest rows `C1-HIST-01`, `C1-HIST-02`, `C1-HIST-03` — the immutable as-of value/provenance ledger |
+| **What may I build right now?** | **`C1-U4` only** (see §2) |
+| Is `C1-U5`+ authorized? | **No** |
 | Is `C1B` authorized? | **No** |
 | Is `C2` authorized? | **No** |
 | Is `C3` or later authorized? | **No** |
-| What authorizes the next slice? | Jason + ChatGPT review the completed C1-ID-02 evidence at the §3 checkpoint |
+| What authorizes the next slice? | Jason + ChatGPT review the completed C1-U4 evidence at the §3 checkpoint |
 
-**The authorization is deliberately narrow, and it is now spent.** C1-U3 delivered on 2026-08-16; reaching
-the end of a unit is a **STOP**, not a hand-off to the next one.
+**The authorization is deliberately narrow.** When C1-U4 closes, reaching the end of the unit is a
+**STOP**, not a hand-off to the next one.
 
-**If you are a new session reading this file to decide what to build:** the answer is *nothing yet* — the
-next unit requires an explicit owner decision at the
+**If you are a new session reading this file to decide what to build:** the answer is *C1-U4 and nothing
+else* — anything further requires an explicit owner decision at the
 `docs/C_SERIES_REPLAN_AND_COMPLETION_CONTRACT.md` §3 checkpoint. Every product surface in §6 remains
 unauthorized.
 
@@ -111,7 +111,19 @@ radius of a rename that is otherwise mechanical.
 
 # 2. NEXT AUTHORIZED SCOPE
 
-## `C1A` unit 3 — `C1-U3` / `C1-ID-02`, one pick identity, end to end. **DELIVERED 2026-08-16, checkpoint pending.**
+## `C1A` unit 4 — `C1-U4`, one immutable as-of value/provenance ledger. **AUTHORIZED 2026-08-16, in progress.**
+
+Owner-authorized 2026-08-16 at the C1-U3 checkpoint. Scope is exactly manifest rows **`C1-HIST-01`**
+(one immutable as-of value/provenance ledger — one contract, fidelity labels
+`exact` / `nearest-prior` / `reconstructed` / `partial` / `unavailable`), **`C1-HIST-02`** (historical pick
+values first-class, keyed by C1-U3 canonical pick identity) and **`C1-HIST-03`** (board-history
+`rankChange` deterministic — derived from the dated log, collision-keyed). Backfill authorized from
+`exports/archive/` (coverage starts 2026-07-14; **the pre-2026-07-14 gap is permanent and must be
+recorded as missing, never interpolated or reconstructed from later data**). This is INFRA: no valuation
+methodology, no trade grading, no UI. Read the manifest rows before implementing; that file is
+authoritative if this summary and it disagree.
+
+## `C1A` unit 3 — `C1-U3` / `C1-ID-02`, one pick identity, end to end. **CLOSED at the owner checkpoint 2026-08-16.**
 
 Owner-authorized 2026-08-16 at the C1-U2 checkpoint; scope was exactly manifest row `C1-ID-02`.
 
@@ -142,8 +154,8 @@ label-lookup migration (needs C1-U6's generic-grade board rows; held in lockstep
 `tests/identity/test_pick_grammar_frontend_parity.py`), the public-league fold (bespoke multi-season
 semantics; origin retained), and every valuation half of C1-PICK-01/-02/-03.
 
-No further unit is authorized. The next authorization comes from the owner reviewing this unit's
-evidence at the §3 checkpoint.
+**Checkpoint outcome (2026-08-16):** the owner reviewed and **ACCEPTED** this unit's evidence. C1-U3 is
+CLOSED; the checkpoint decision authorized `C1-U4` (above) and nothing beyond it.
 
 ## `C1A` unit 2 — `C1-U2` / `C1-ID-01`, one player-identity owner. **CLOSED 2026-08-16.**
 
@@ -278,7 +290,7 @@ PR-sized units within C1A, in order:
 2. **CLOSED 2026-08-16.** One player-identity owner (`C1-ID-01` / map unit `C1-U2`). Cut over, legacy
    retired, production gate green at both sites. `CANONICAL_V2` activation deferred on measured evidence —
    see §2.
-3. **NOT AUTHORIZED.** Immutable as-of snapshot/event schema with provenance, model/config version and fidelity labels
+3. **AUTHORIZED 2026-08-16 — in progress as `C1-U4`.** Immutable as-of snapshot/event schema with provenance, model/config version and fidelity labels
    (`C1-HIST-01`), plus the deterministic-replay test that closes `C1-HIST-03`.
 4. **NOT AUTHORIZED.** Confidence naming migration with aliases and a consumer census (`C1-CONF-01`).
 5. **NOT AUTHORIZED.** Pick census through 2029 and the generic ↔ exact-slot invariant (`C1-PICK-01`, `C1-PICK-02`).
