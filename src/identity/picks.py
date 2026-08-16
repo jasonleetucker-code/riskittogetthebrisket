@@ -242,8 +242,13 @@ def build_pick_ownership(
     requested season.  Then apply Sleeper ``/traded_picks`` rows —
     ``roster_id`` is the ORIGIN (identity), ``owner_id`` the current
     holder (state).  Rows that don't join a seeded identity (unknown
-    origin, out-of-range season/round) are skipped, exactly as every
-    legacy copy of this fold skipped them.
+    origin, out-of-range season/round) are skipped, as every legacy
+    copy of this fold skipped them.  One deliberate hardening over the
+    overlay's copy: a row whose ``owner_id`` is not a league roster is
+    also skipped (the pick stays with its origin), where the legacy
+    pivot filed the asset under the foreign id and it silently vanished
+    from every team's list.  Valid Sleeper data never hits this branch
+    — ``owner_id`` is always a roster in the league.
 
     Sleeper serializes ``season`` as a string; normalization to ``int``
     happens here, at the boundary, so no consumer ever joins int-vs-str

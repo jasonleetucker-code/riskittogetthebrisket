@@ -226,13 +226,22 @@ class TestRedIntelAssetIdStripsOrigin(unittest.TestCase):
         self.assertEqual(asset_ids, {"pick:2027:2"})
 
 
-class TestRedOverlayShapeCarriesNoLeague(unittest.TestCase):
-    """``_build_pick_ownership`` output rows have no league component, so
-    identical-looking picks from the two live leagues produce EQUAL
-    dicts.  Once a row leaves the function, nothing distinguishes
-    dynasty_main's 2027 R1 (origin 12) from dynasty_new's."""
+class TestOverlayLeagueScoping(unittest.TestCase):
+    """Was ``TestRedOverlayShapeCarriesNoLeague``: overlay rows carried
+    no league component, so identical-looking picks from the two live
+    leagues produced EQUAL dicts.  The canonical ``assetId`` stamp
+    CLOSED that for registered leagues, so this class now pins all
+    three facts: the residual legacy fields are still league-free
+    (frontend consumers still key on them — the deferred half), a
+    resolvable registry separates the two leagues by canonical id, and
+    an unresolvable league id fails closed with NO id rather than an id
+    minted under a wrong league.
 
-    def test_red_same_shape_from_two_leagues_compares_equal(self):
+    Note the pytest environment's registry is deliberately empty
+    (``tests/conftest.py`` points it at a non-existent file), so the
+    default runs here exercise the fail-closed branch."""
+
+    def _rows(self):
         fx = _fx()
         main = _overlay_details_for(fx, fx["_provenance"]["sleeperLeagueId"])
         new = _overlay_details_for(fx, fx["secondLeague"]["sleeperLeagueId"])
@@ -246,7 +255,39 @@ class TestRedOverlayShapeCarriesNoLeague(unittest.TestCase):
             for pd in new[1]
             if pd["season"] == "2027" and pd["round"] == 1 and pd["original_roster_id"] == 12
         )
-        self.assertEqual(main_row, new_row)
+        return main_row, new_row
+
+    def test_red_residual_legacy_fields_are_still_league_free(self):
+        main_row, new_row = self._rows()
+        legacy_keys = ("season", "round", "slot", "original_roster_id", "owner_roster_id", "label")
+        self.assertEqual(
+            {k: main_row.get(k) for k in legacy_keys},
+            {k: new_row.get(k) for k in legacy_keys},
+        )
+
+    def test_green_no_registry_fails_closed_with_no_asset_id(self):
+        # The pytest registry is empty, so neither league resolves — and
+        # the correct answer is NO id, never one under a wrong league.
+        main_row, new_row = self._rows()
+        self.assertNotIn("assetId", main_row)
+        self.assertNotIn("assetId", new_row)
+
+    def test_green_registered_leagues_get_distinct_canonical_ids(self):
+        from unittest import mock
+
+        fx = _fx()
+        key_by_sid = {
+            fx["_provenance"]["sleeperLeagueId"]: "dynasty_main",
+            fx["secondLeague"]["sleeperLeagueId"]: "dynasty_new",
+        }
+        with mock.patch(
+            "src.api.league_registry.league_key_for_sleeper_id",
+            side_effect=lambda sid: key_by_sid.get(str(sid or "")),
+        ):
+            main_row, new_row = self._rows()
+        self.assertEqual(main_row["assetId"], "pick:dynasty_main:2027:r1:o12")
+        self.assertEqual(new_row["assetId"], "pick:dynasty_new:2027:r1:o12")
+        self.assertNotEqual(main_row, new_row)
 
 
 if __name__ == "__main__":
