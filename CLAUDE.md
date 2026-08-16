@@ -1738,6 +1738,37 @@ never parse, compare, or mint pick identity outside the owner; identity says
 WHAT the asset is — valuation stays in the pipeline.  Full record:
 `docs/identity/C1_ID_02_PICK_IDENTITY.md`.
 
+### Temporal history — one owner (C1-U4, delivered 2026-08-16)
+
+`src/history/` owns as-of asset-value history end to end: what a historical
+observation IS (`store.py` — append-only `data/temporal_ledger.sqlite`; identical
+re-ingest is a no-op, conflicting re-ingest is surfaced and never applied,
+corrections are explicit rows), how assets are KEYED across time (`keys.py` —
+`player:<sleeperId>` / `name:<canonical>::<group>` / `mpick:*` via the C1-U2/C1-U3
+identity owners; the prefixes are disjoint so players and picks cannot collide),
+and what "as of T" MEANS (`asof.py` — fidelity `exact` / `nearest-prior` /
+`reconstructed` (defined, never produced — no approved reconstruction methodology
+exists) / `partial` / `unavailable` with machine-readable missing reasons).
+**A future observation is never selectable**, structurally.  The pre-2026-07-14
+gap is PERMANENT: writes earlier than `HISTORY_FLOOR` are refused and queries
+answer `before_history_boundary` — never interpolated, never today's value.
+Lanes keep quantities honest: `canonical_board` (served values incl. rank-less
+slot picks — pick history is first-class), `source_value` (vendor-published
+numbers only), `scraper_blend` (the scraper's own composite, a different named
+quantity).  `rankChange` is now DERIVED from the ledger's previous board date
+(read-only on every build; no comparator → `None`, never 0; rollback
+`RISKIT_FEATURE_LEDGER_RANK_CHANGE=0` stamps `None`, deliberately not the retired
+cache).  `data/snapshots/ranks_last.json` and its self-referential diff are
+deleted.  Ingest: live recording at the fresh-scrape site in `server.py`;
+`scripts/build_temporal_ledger.py` (archive backfill + legacy-store migrations,
+deterministic and idempotent); `scripts/temporal_ledger_status.py` (probe).
+Rules for new code: any historical/as-of read goes through `src/history` — never
+interpret `rank_history.jsonl` / `source_value_history.jsonl` /
+`board_history.sqlite` / `exports/archive` directly in new consumers (they remain
+raw evidence and keep recording for the retention rows); never re-derive an old
+value with today's curve and present it as observed.  Full record:
+`docs/history/C1_U4_TEMPORAL_LEDGER.md`.
+
 ### Adapter Pattern
 Pluggable source adapters (`src/adapters/base.py` defines the frozen contract). All adapters emit `RawAssetRecord` dataclasses with normalized fields.
 

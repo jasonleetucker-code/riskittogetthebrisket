@@ -28,7 +28,8 @@ Backlog Spec and the feature specs. It does not define scope — that lives in `
 | Is C1A unit 2 (`C1-U2` / `C1-ID-01`) done? | **Yes — CLOSED 2026-08-16.** Cut over and retired; production gate passed at both sites with zero divergence. `CANONICAL_V2` activation is deliberately NOT part of it (measured blocker, §2) |
 | Is C1A unit 3 (`C1-U3` / `C1-ID-02` pick identity) done? | **Yes — CLOSED at the owner checkpoint 2026-08-16.** The owner reviewed and accepted the C1-ID-02 evidence; implementation merged as PR #867 (merge `22ce424f`) with bookkeeping/work-claim closure in PR #868. Do not reopen |
 | Is C1A unit 4 (`C1-U4` / `C1-HIST-01`..`-03`) authorized? | **Yes — owner-authorized 2026-08-16 at the C1-U3 checkpoint.** Scope is exactly manifest rows `C1-HIST-01`, `C1-HIST-02`, `C1-HIST-03` — the immutable as-of value/provenance ledger |
-| **What may I build right now?** | **`C1-U4` only** (see §2) |
+| Is C1A unit 4 done? | **DELIVERED 2026-08-16 — awaiting its §3 owner checkpoint** (see §2; canonical owner `src/history/`; board proven value/rank-inert by double-build equality) |
+| **What may I build right now?** | **Nothing — C1-U4 is delivered and its checkpoint is pending.** No further unit is authorized |
 | Is `C1-U5`+ authorized? | **No** |
 | Is `C1B` authorized? | **No** |
 | Is `C2` authorized? | **No** |
@@ -111,17 +112,29 @@ radius of a rename that is otherwise mechanical.
 
 # 2. NEXT AUTHORIZED SCOPE
 
-## `C1A` unit 4 — `C1-U4`, one immutable as-of value/provenance ledger. **AUTHORIZED 2026-08-16, in progress.**
+## `C1A` unit 4 — `C1-U4`, one immutable as-of value/provenance ledger. **DELIVERED 2026-08-16, checkpoint pending.**
 
-Owner-authorized 2026-08-16 at the C1-U3 checkpoint. Scope is exactly manifest rows **`C1-HIST-01`**
-(one immutable as-of value/provenance ledger — one contract, fidelity labels
-`exact` / `nearest-prior` / `reconstructed` / `partial` / `unavailable`), **`C1-HIST-02`** (historical pick
-values first-class, keyed by C1-U3 canonical pick identity) and **`C1-HIST-03`** (board-history
-`rankChange` deterministic — derived from the dated log, collision-keyed). Backfill authorized from
-`exports/archive/` (coverage starts 2026-07-14; **the pre-2026-07-14 gap is permanent and must be
-recorded as missing, never interpolated or reconstructed from later data**). This is INFRA: no valuation
-methodology, no trade grading, no UI. Read the manifest rows before implementing; that file is
-authoritative if this summary and it disagree.
+Owner-authorized 2026-08-16 at the C1-U3 checkpoint; scope was exactly manifest rows `C1-HIST-01`,
+`C1-HIST-02`, `C1-HIST-03`.
+
+**Delivered.** The canonical temporal owner (`src/history/` — `keys`/`store`/`asof`/`record`/
+`backfill`/`migrate`/`provenance`) now decides as-of lookup, historical fidelity
+(`exact` / `nearest-prior` / `reconstructed` (defined, deliberately unproduced — no approved
+reconstruction methodology) / `partial` / `unavailable`), missing semantics (machine-readable reasons;
+the pre-2026-07-14 gap is PERMANENT, enforced at write and query), rankChange derivation
+(ledger-dated comparator, read-only on every build, collision-keyed, `None` never 0 — the retired
+`ranks_last.json` cache and its 740-row back-to-back divergence are deleted, closing W03-F010 as a
+side effect), and historical player+pick value queries (players by C1-U2 identity, picks by C1-U3
+`mpick:*` refs; the 72 rank-less slot-pick rows now record first-class). The census measured **five**
+fragmented as-of decision paths (map said 4); five RED classes were reproduced on real retained data
+(`tests/history/test_temporal_red.py`) and closed (`test_temporal_ledger.py` — replay determinism,
+never-future property, back-to-back build determinism, valuation inertness by full double-build
+equality). Archive backfill: 34/34 dates from 2026-07-14, 138,127 observations, deterministic and
+idempotent. Deferred with record (manifest's own decomposition): the trade-retro/terminal/value-chart
+consumer migrations (C3-U9 / C2-AGE-03). Full record: `docs/history/C1_U4_TEMPORAL_LEDGER.md`.
+
+No further unit is authorized. The next authorization comes from the owner reviewing this unit's
+evidence at the §3 checkpoint.
 
 ## `C1A` unit 3 — `C1-U3` / `C1-ID-02`, one pick identity, end to end. **CLOSED at the owner checkpoint 2026-08-16.**
 
