@@ -40,6 +40,18 @@ This module reads from existing player state and returns a new
 ``src.identity.matcher`` or ``src.identity.models`` pipeline — the
 scrape-normalize-merge flow still runs exactly as before.  The
 mapper is a LOOKUP surface, not a write path.
+
+C1-ID-01 status
+---------------
+This ladder is the LEGACY-V1 compat surface for its existing consumers
+(``src/playerctx/normalize.py`` and the two ``server.py`` read sites).
+The canonical resolution API is ``src.identity.resolution`` — its
+``resolve_canonical_v2`` carries the repaired semantics (guarded fuzzy
+per W06-F006, explicit AMBIGUOUS refusal, roster-presence homonym
+separation) that this ladder's raw-difflib fuzzy rung lacks.  Do not add
+NEW consumers here; use the resolution engine.  Migrating the existing
+consumers is a staged step recorded in
+``docs/identity/C1_ID_01_IDENTITY_CONSOLIDATION.md``.
 """
 
 from __future__ import annotations
@@ -129,7 +141,12 @@ def _load_overrides(path: Path | None = None) -> dict[str, dict[str, Any]]:
 
 def reload_overrides() -> None:
     """Clear the override cache so the next call re-reads the JSON.
-    Used by tests and the ``/admin/refresh-id-overrides`` endpoint.
+
+    Called by tests (and by ``src/playerctx/normalize.py`` indirectly
+    through ``_load_overrides``).  No HTTP endpoint reloads overrides —
+    the previous claim of an ``/admin/refresh-id-overrides`` route was
+    doc drift; edits to ``config/identity/id_overrides.json`` take
+    effect on process restart.
     """
     with _OVERRIDES_LOCK:
         _OVERRIDES_CACHE.clear()

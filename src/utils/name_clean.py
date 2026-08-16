@@ -85,7 +85,9 @@ JS counterpart is the header of ``frontend/lib/player-name-match.js``.
    KTC's own name vocabulary; never escapes that module),
    ``scripts/_shared.py::_normalize_name`` (script-only, suffix strip
    runs first, no ASCII fold), and the scraper-clean pair
-   ``clean_name`` / ``normalize_lookup_name`` in ``Dynasty Scraper.py``
+   ``clean_name`` / ``normalize_lookup_name`` — owned since C1-ID-01 by
+   ``src/identity/name_primitives.py`` (moved verbatim out of
+   ``Dynasty Scraper.py``, which now imports them back as an adapter) —
    mirrored as ``pool_clean_name`` / ``pool_normalize_lookup`` in
    ``src/pool/builder.py``.
 """
