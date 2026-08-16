@@ -158,39 +158,36 @@ class TestPicksPresentInContract(unittest.TestCase):
         )
 
     def test_every_pick_has_rank_and_value(self) -> None:
-        # Picks that pass through the pick refinement passes can be
-        # legitimately *unranked* in three cases:
-        #   1. Generic Early/Mid/Late tier rows that were suppressed
-        #      because slot-specific siblings exist for the same year
-        #      (see _suppress_generic_pick_tiers_when_slots_exist).
-        #   2. Deep R5/R6 future-year tier rows (e.g. 2028 Mid 6th)
-        #      that fall below OVERALL_RANK_LIMIT after the future-year
-        #      discount is applied.
-        #   3. 2026 slot-specific picks (e.g. "2026 Pick 1.01") — these
-        #      are anchored to the corresponding rookie by value and
-        #      intentionally un-ranked so they don't consume merged-
-        #      board rank slots.
-        # Every other pick must still carry rank + value.
+        # VALUE is unconditional since C1-U6 (manifest C1-PICK-01):
+        # every non-suppressed pick row publishes a finite positive
+        # canonical value — the deep-tier "allowed to be unvalued"
+        # tolerance this test used to carry is retired.  RANK remains
+        # legitimately absent for the known rank-less classes:
+        #   1. Alias-suppressed current-year generic tiers (value also
+        #      absent there — the alias's centre slot carries it).
+        #   2. Slot-specific picks in the anchor year — rookie-tethered
+        #      by value, intentionally un-ranked.
+        #   3. Off-cap or derived pick rows (round-step / generic-grade
+        #      / below OVERALL_RANK_LIMIT) — valued, never ranked.
         picks = _pick_rows(self.contract)
-        missing = [
+        value_missing_rows = [
             p["canonicalName"]
             for p in picks
             if not p.get("pickGenericSuppressed")
-            and not str(p.get("canonicalName") or "").startswith("2026 Pick ")
-            and (
-                not p.get("canonicalConsensusRank")
-                or not p.get("rankDerivedValue")
-                or p.get("rankDerivedValue", 0) <= 0
-            )
+            and (not p.get("rankDerivedValue") or p.get("rankDerivedValue", 0) <= 0)
         ]
-        # Allow at most a handful of deep-tier dropouts (R5/R6 future
-        # years).  Any larger count is a regression in the discount.
-        unexpected = [n for n in missing if not _is_deep_future_tier(n)]
         self.assertEqual(
-            unexpected,
+            value_missing_rows,
             [],
-            f"Picks missing rank/value (excluding deep-tier dropouts): " f"{unexpected[:10]}",
+            f"Picks missing a finite canonical value: {value_missing_rows[:10]}",
         )
+        # Ranked-or-known-rank-less: a RANKED pick must also be valued.
+        rank_no_value = [
+            p["canonicalName"]
+            for p in picks
+            if p.get("canonicalConsensusRank") and not p.get("rankDerivedValue")
+        ]
+        self.assertEqual(rank_no_value, [], f"Ranked picks without value: {rank_no_value[:10]}")
         # 2026 slot picks in rounds 1-4 must have VALUE (anchored to
         # the corresponding rookie). Later-round slot picks depend on
         # rookie universe depth; if the rookie list runs out before
@@ -215,16 +212,18 @@ class TestPicksPresentInContract(unittest.TestCase):
         )
 
     def test_every_pick_has_source_ranks(self) -> None:
-        # Same exemption window as test_every_pick_has_rank_and_value:
-        # suppressed generic tiers and deep R4-R6 future-year tiers
-        # may lack sourceRanks after the discount pushes them off the
-        # ranked board.
+        # sourceRanks reflect VOTES, and three classes legitimately
+        # carry none: suppressed generic tiers, derived rows (round-step
+        # completions and generic-grade rows carry provenance instead of
+        # votes — no vendor prices them), and deep tethered slot rows.
         picks = _pick_rows(self.contract)
         empty = [
             p["canonicalName"]
             for p in picks
             if not (p.get("sourceRanks") or {})
             and not p.get("pickGenericSuppressed")
+            and (p.get("pickValueProvenance") or {}).get("class")
+            not in ("derived_round_step", "derived_uniform_tier_ev", "rookie_pool_tether")
             and not _is_deep_future_tier(p["canonicalName"])
         ]
         self.assertEqual(empty, [], f"Picks with no sourceRanks: {empty[:10]}")

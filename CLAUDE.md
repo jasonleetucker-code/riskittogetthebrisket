@@ -450,9 +450,15 @@ Error behavior on endpoints:
     `pricedPickCount` / `unpricedPickCount` / `unpricedPickYears` make
     the omission visible (same posture as
     `metadata.assetsUnpricedByBoard` in `src/trade/finder.py`).
-    Consequence worth knowing: the $1200 pool now lands entirely on the
-    current class, so a real pick's dollar value is roughly double what
-    this path used to report.
+    Since C1-U6 the future season prices again — at the canonical
+    GENERIC grade ("2027 Round 1" board rows) via
+    `src/api/pick_value_resolution.py`, because a future pick's
+    generated "slot" is a reverse-standings stand-in, not a known slot
+    (every pick of one future season+round prices identically; no
+    fabricated slot certainty, no owned-pick forecasting — that is
+    C1-U7).  Consequence: the $1200 pool redistributes across BOTH
+    generated seasons again, with real generic values rather than the
+    deleted constants.
   - Pinned by `tests/api/test_draft_capital_data_not_ready.py` (which
     fails if a future change re-resolves D-2 by accident in either
     direction) and `tests/api/test_draft_capital_fallback.py` (which
@@ -682,16 +688,60 @@ Steps:
 The pick stages are NOT in the order this list used to give.  Actual
 live order (corrected 2026-07-29 audit):
 
-12. Multiplicative future-year pick discount
-    (``config/weights/pick_year_discount.json``) — **Phase 3a, BEFORE
-    the global sort**, applied to the blended value so 2027/2028 picks
-    settle lower in the ladder.
+12. Synthetic far-future pick derivation (C1-U6, 2026-08-16) — years no
+    vendor publishes (2029 while the active draft is 2026; horizon =
+    current + 3, self-rolling) are derived AT INJECTION
+    (``_inject_far_future_pick_sources``): the nearest published future
+    year's tier entries are cloned with every per-source value stepped
+    by the **measured vendor year-step** for its (tier, round) cell
+    (``config/weights/pick_year_discount.json::derivedYearModel`` —
+    per-cell medians of the same-day 2-out/1-out ratios both pick
+    markets publish; classification **PRIOR**, because applying the
+    observed 1→2-out step to the 2→3-out gap is an extrapolation no
+    market evidence can test).  Phase 3a
+    (``_apply_pick_year_discount_to_blend``) is now STAMP-ONLY —
+    ``pickYearDiscount`` records the net factor; nothing multiplies at
+    the blend (that would double-count).  The retired composition —
+    verbatim clone × ``offsetDiscounts["3"]`` = 0.53 — was audit
+    V-12/C-11: ~37% below every observed vendor cell, and it presented
+    2028's vendor numbers unchanged on 2029 rows (a fake undiscounted
+    market anchor).  Vendor-priced years (2027/2028) still take NO
+    discount (T-3/C-2 — their prices already encode the +26%..+9%
+    term-structure premium; pinned by
+    ``tests/api/test_pick_year_discount_gate.py``).
 13. Pick tethering — **Phase 5.2b, AFTER the sort**: current-year slot
     picks inherit the merged rookie pool's values (offense + IDP
-    rookies combined), OVERWRITING ``rankDerivedValue`` outright.  A
-    tethered current-year pick therefore never carries a discount
-    anyway (its year offset is 0 → factor 1.0), but the causal order
-    matters when reasoning about future-year picks.
+    rookies combined), OVERWRITING ``rankDerivedValue`` outright.
+14. Pick completeness — **Phase 5.2b′** (``_complete_future_pick_values``,
+    C1-U6 / manifest C1-PICK-01): every valid pick through the horizon
+    ends finite, direct evidence always outranking a derivation.
+    Future rounds 5-6 (no vendor prices them) derive from the same
+    year+tier's round 4 via the canonical board's own tethered
+    rookie-ladder round steps (``derivedRoundModel``, PRIOR); a
+    rank-less GENERIC-grade row ("2027 Round 1") per future year ×
+    round carries the unweighted tier mean (``genericGradeModel``,
+    PRIOR — the value of ``market_resolution``'s ``unknown_slot``
+    basis; C1-U7 replaces the uniform assumption with real owned-pick
+    distributions).  Every pick row carries ``pickValueProvenance``
+    naming its evidence class (direct_market_blend /
+    rookie_pool_tether / derived_year_step / derived_round_step /
+    derived_uniform_tier_ev / alias_suppressed / unavailable+reason —
+    **never 0 for missing**).  Pick rows that voted keep their value
+    past ``OVERALL_RANK_LIMIT`` (value only; ranks stay capped — same
+    posture as the tether).  ``src/api/pick_value_resolution.py`` is
+    the one MarketPickRef→value resolver (slot/tier/generic grades,
+    aliases followed, current-year generic = labelled centre-slot
+    convention); consumers must not re-invent tier-centre or year
+    fallbacks.  Build-level census in ``validate_api_data_contract``
+    errors on any unpriced/zero/provenance-less pick through the
+    horizon.  The dormant second pick pricer in
+    ``src/canonical/calibration.py`` is DELETED (it now refuses picks:
+    ``retired_second_owner_c1u6``).  Known, explained coupling: IDP
+    rank sources translate onto the IDPTC cross-market backbone, which
+    by design contains pick rows — repricing synthetic picks shifts
+    IDP players' translated votes ~±0.1% (measured; see
+    ``docs/picks/C1_U6_PICK_VALUE_COMPLETENESS.md`` §8).  Full record:
+    that document.
 
 Master curve constants are refit weekly by
 ``.github/workflows/refit-hill-curves.yml`` (see
@@ -1738,7 +1788,7 @@ never parse, compare, or mint pick identity outside the owner; identity says
 WHAT the asset is — valuation stays in the pipeline.  Full record:
 `docs/identity/C1_ID_02_PICK_IDENTITY.md`.
 
-### Temporal history — one owner (C1-U4, delivered 2026-08-16)
+### Temporal history — one owner (C1-U4, closed at the owner checkpoint 2026-08-16)
 
 `src/history/` owns as-of asset-value history end to end: what a historical
 observation IS (`store.py` — append-only `data/temporal_ledger.sqlite`; identical

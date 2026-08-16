@@ -84,46 +84,86 @@ def test_date_fallback_rolls_at_configured_boundary():
     assert dc.current_rookie_draft_year(today=_dt.date(2026, 5, 15)) == 2027
 
 
-def _offset_cfg():
+def _step_cfg():
     return {
         "currentDraftYear": None,
-        "offsetDiscounts": {"0": 1.00, "1": 0.82, "2": 0.66, "3": 0.53},
-        "fallbackBase": 0.80,
+        "horizonYears": 3,
+        "yearStepByTierRound": {"early.1": 0.7138, "late.4": 0.7726},
+        "yearStepByRound": {"1": 0.8078, "2": 0.8662},
+        "yearStepFallback": 0.8407,
+        "roundStepByRound": {"5": 0.929, "6": 0.916},
     }
 
 
-def test_next_draft_has_no_penalty():
-    cfg = _offset_cfg()
-    # Active draft = 2026 (offset 0): the user's "take the penalty off
-    # the next draft" requirement.
-    assert dc._pick_year_discount_for(2026, cfg, current_draft_year=2026) == 1.0
-    # A past class is never penalized either.
-    assert dc._pick_year_discount_for(2025, cfg, current_draft_year=2026) == 1.0
+# The retired ``_pick_year_discount_for`` (offsetDiscounts
+# 1.00/0.82/0.66/0.53 + fallbackBase**offset) is DELETED — C1-U6 replaced
+# the offset-from-current multiplier family with the measured vendor
+# year-step applied at injection (audit V-12/C-11; challenger record in
+# docs/picks/C1_U6_PICK_VALUE_COMPLETENESS.md).  The properties the old
+# tests pinned survive in the successor and are pinned below.
 
 
-def test_offset_discounts_apply_by_distance():
-    cfg = _offset_cfg()
-    assert dc._pick_year_discount_for(2027, cfg, current_draft_year=2026) == 0.82
-    assert dc._pick_year_discount_for(2028, cfg, current_draft_year=2026) == 0.66
-    assert dc._pick_year_discount_for(2029, cfg, current_draft_year=2026) == 0.53
-    # Beyond the configured offsets → exponential fallback.
-    assert dc._pick_year_discount_for(2030, cfg, current_draft_year=2026) == pytest.approx(0.80**4)
+def test_retired_discount_machinery_is_gone():
+    assert not hasattr(dc, "_pick_year_discount_for")
 
 
-def test_discount_self_rolls_when_active_year_advances():
-    cfg = _offset_cfg()
-    # Once sources roll to 2027 as the active class, 2027 loses its
-    # penalty and 2028 becomes the offset-1 year automatically — no
-    # config edit.
-    assert dc._pick_year_discount_for(2027, cfg, current_draft_year=2027) == 1.0
-    assert dc._pick_year_discount_for(2028, cfg, current_draft_year=2027) == 0.82
+def test_vendor_years_carry_no_penalty_structurally():
+    # "Take the penalty off the next draft" survives STRUCTURALLY: the
+    # year-step is only ever applied to names the injection synthesised
+    # (_SYNTHETIC_PICK_DERIVATIONS gate), and the injection only mints
+    # years with no vendor rows.  The current draft, the past, and every
+    # vendor-priced future year never receive any factor — pinned
+    # end-to-end by tests/api/test_pick_year_discount_gate.py.
+    players = [
+        {"assetClass": "pick", "canonicalName": "2026 Pick 1.01"},
+        {"assetClass": "pick", "canonicalName": "2027 Early 1st"},
+    ]
+    out, applied = dc._apply_pick_year_discount_to_blend([(1000.0, 0), (900.0, 1)], players)
+    assert [v for v, _ in out] == [1000.0, 900.0]
+    assert applied == {}
+    assert all("pickYearDiscount" not in p for p in players)
 
 
-def test_legacy_absolute_schema_still_honored():
-    cfg = {
-        "currentDraftYear": None,
-        "offsetDiscounts": {},
-        "discounts": {"2027": 0.5},
-        "fallbackBase": 0.80,
-    }
-    assert dc._pick_year_discount_for(2027, cfg, current_draft_year=2026) == 0.5
+def test_year_step_lookup_order_cell_round_fallback():
+    cfg = _step_cfg()
+    assert dc._year_step_for("Early", 1, cfg) == 0.7138  # cell
+    assert dc._year_step_for("Mid", 1, cfg) == 0.8078  # round
+    assert dc._year_step_for("Mid", 3, cfg) == 0.8407  # pooled fallback
+    assert dc._year_step_for(None, None, cfg) == 0.8407
+
+
+def test_year_step_rejects_pathological_parameters():
+    # A step above 1.0 (a "future year worth MORE" parameter) or at/near
+    # zero is a config pathology, not a valid derivation — clamped to
+    # (0.05, 1.0].
+    cfg = {"yearStepByRound": {"1": 4.2}, "yearStepFallback": 0.0}
+    assert dc._year_step_for("Early", 1, cfg) == 1.0
+    assert dc._year_step_for("Early", 2, cfg) == 0.05
+    cfg_bad = {"yearStepFallback": "not-a-number"}
+    assert dc._year_step_for("Early", 1, cfg_bad) == 0.84
+
+
+def test_injection_self_rolls_and_compounds_across_gaps():
+    # Once sources roll to 2027 as the active class, the horizon becomes
+    # 2030 and the injection derives it from the deepest published year
+    # automatically — no config edit.  A multi-year gap compounds
+    # step**gap.
+    prev_cache = dc._PICK_YEAR_DISCOUNT_CACHE
+    dc._PICK_YEAR_DISCOUNT_CACHE = _step_cfg()
+    try:
+        players = {
+            "2028 Early 1st": {"idpTradeCalc": 5000.0},
+        }
+        added = dc._inject_far_future_pick_sources(players, 2027)
+        # 2029 clones 2028 (gap 1), 2030 clones synthetic 2029 (gap 1).
+        assert added == 2
+        assert players["2029 Early 1st"]["idpTradeCalc"] == pytest.approx(5000 * 0.7138, abs=0.1)
+        assert players["2030 Early 1st"]["idpTradeCalc"] == pytest.approx(
+            5000 * 0.7138 * 0.7138, abs=0.1
+        )
+        key = dc._canonical_match_key("2030 Early 1st")
+        assert dc._SYNTHETIC_PICK_DERIVATIONS[key]["classification"] == "PRIOR"
+    finally:
+        dc._PICK_YEAR_DISCOUNT_CACHE = prev_cache
+        dc._SYNTHETIC_FAR_FUTURE_PICK_NAMES = set()
+        dc._SYNTHETIC_PICK_DERIVATIONS = {}

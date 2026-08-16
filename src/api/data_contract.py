@@ -4562,6 +4562,7 @@ from src.identity.picks import (  # noqa: E402
     parse_board_slot_name as _owner_parse_board_slot_name,
     parse_board_tier_name as _owner_parse_board_tier_name,
     pick_year_from_name as _owner_pick_year_from_name,
+    round_suffix as _round_suffix,
 )
 
 # Pick year discount is loaded once per build from
@@ -4572,7 +4573,7 @@ _PICK_YEAR_DISCOUNT_CACHE: dict[str, Any] | None = None
 
 
 def _load_pick_year_discount() -> dict[str, Any]:
-    """Load and cache the pick year discount config.
+    """Load and cache the canonical future-pick derivation config.
 
     Returns a dict shaped like::
 
@@ -4580,21 +4581,24 @@ def _load_pick_year_discount() -> dict[str, Any]:
             "currentDraftYear": 2027 | None,   # explicit override
             "rolloverMonth": 5,
             "rolloverDay": 15,
-            "offsetDiscounts": {"0": 1.0, "1": 0.82, ...},
-            "discounts": {"2026": 1.0, ...},   # legacy absolute, optional
-            "baselineYear": 2026,              # legacy, optional
-            "fallbackBase": 0.80,
+            "horizonYears": 3,                 # MECHANICAL: current+3 (TC-19)
+            "yearStepByTierRound": {"early.1": 0.7138, ...},
+            "yearStepByRound": {"1": 0.8078, ...},
+            "yearStepFallback": 0.8407,
+            "roundStepByRound": {"5": 0.929, "6": 0.916},
         }
 
-    The schema is OFFSET-from-current-draft-year so it never goes stale.
-    The legacy absolute-year ``baselineYear``/``discounts`` keys are
-    still read for backward compatibility when ``offsetDiscounts`` is
-    absent.
+    C1-U6 replaced the retired ``offsetDiscounts`` decay curve
+    (1.00/0.82/0.66/0.53, audit V-12/C-11: an uncalibrated prior applied
+    to a cloned price) with the measured vendor year-step families —
+    see the config file's own notes and
+    ``docs/picks/C1_U6_PICK_VALUE_COMPLETENESS.md``.  Every parameter is
+    classification PRIOR (measured-anchored) per
+    ``docs/MATH_MODEL_CALIBRATION_POLICY_2026-08-15.md`` §3.1.
 
-    If the config file is missing or malformed, falls back to a built-in
-    default (offset 0 = no discount, fallbackBase=0.80).  This keeps the
-    pipeline robust on stripped-down test environments while still
-    letting ops tune the discount via ``config/weights/``.
+    If the config file is missing or malformed, falls back to built-in
+    defaults (the shipped priors) so the pipeline stays robust on
+    stripped-down test environments.
     """
     global _PICK_YEAR_DISCOUNT_CACHE
     if _PICK_YEAR_DISCOUNT_CACHE is not None:
@@ -4609,10 +4613,11 @@ def _load_pick_year_discount() -> dict[str, Any]:
         "currentDraftYear": None,
         "rolloverMonth": 5,
         "rolloverDay": 15,
-        "offsetDiscounts": {},
-        "discounts": {},
-        "baselineYear": None,
-        "fallbackBase": 0.80,
+        "horizonYears": 3,
+        "yearStepByTierRound": {},
+        "yearStepByRound": {},
+        "yearStepFallback": 0.84,
+        "roundStepByRound": {"5": 0.93, "6": 0.92},
     }
     try:
         with cfg_path.open("r", encoding="utf-8") as f:
@@ -4624,19 +4629,28 @@ def _load_pick_year_discount() -> dict[str, Any]:
                 cfg["rolloverMonth"] = int(loaded["rolloverMonth"])
             if loaded.get("rolloverDay") is not None:
                 cfg["rolloverDay"] = int(loaded["rolloverDay"])
-            raw_offsets = loaded.get("offsetDiscounts") or {}
-            if isinstance(raw_offsets, dict):
-                cfg["offsetDiscounts"] = {str(int(k)): float(v) for k, v in raw_offsets.items()}
-            # Legacy absolute-year schema (back-compat only).
-            base = loaded.get("baselineYear")
-            cfg["baselineYear"] = int(base) if base else None
-            raw_discounts = loaded.get("discounts") or {}
-            if isinstance(raw_discounts, dict):
-                cfg["discounts"] = {str(k): float(v) for k, v in raw_discounts.items()}
-            cfg["fallbackBase"] = float(loaded.get("fallbackBase") or 0.80)
+            if loaded.get("horizonYears") is not None:
+                cfg["horizonYears"] = max(0, int(loaded["horizonYears"]))
+            year_model = loaded.get("derivedYearModel") or {}
+            if isinstance(year_model, dict):
+                cells = year_model.get("stepByTierRound") or {}
+                if isinstance(cells, dict):
+                    cfg["yearStepByTierRound"] = {
+                        str(k).lower(): float(v) for k, v in cells.items()
+                    }
+                rounds = year_model.get("stepByRound") or {}
+                if isinstance(rounds, dict):
+                    cfg["yearStepByRound"] = {str(int(k)): float(v) for k, v in rounds.items()}
+                if year_model.get("stepFallback") is not None:
+                    cfg["yearStepFallback"] = float(year_model["stepFallback"])
+            round_model = loaded.get("derivedRoundModel") or {}
+            if isinstance(round_model, dict):
+                rounds = round_model.get("stepByRound") or {}
+                if isinstance(rounds, dict):
+                    cfg["roundStepByRound"] = {str(int(k)): float(v) for k, v in rounds.items()}
     except (OSError, ValueError, TypeError):
-        # Stick with the built-in default — never block the build on
-        # a missing/malformed pick-discount config.
+        # Stick with the built-in defaults — never block the build on
+        # a missing/malformed pick-derivation config.
         pass
 
     _PICK_YEAR_DISCOUNT_CACHE = cfg
@@ -4657,10 +4671,15 @@ _OBSERVED_CURRENT_DRAFT_YEAR: int | None = None
 # legitimately single-source (no vendor prices picks that far out), so
 # the single-source safety gate allowlists them by name.
 _SYNTHETIC_FAR_FUTURE_PICK_NAMES: set[str] = set()
+# Per-build derivation record for those names (canonical match key →
+# {"factor", "basisYear", "family"}), consumed by the Phase 3a stamp
+# pass and the pick-provenance stamping (C1-U6).
+_SYNTHETIC_PICK_DERIVATIONS: dict[str, dict[str, Any]] = {}
 _FAR_FUTURE_ALLOWLIST_REASON = (
     "synthetic_far_future_tier:no vendor prices picks this far out; "
-    "cloned from the nearest published year and year-discounted "
-    "(auto-pivots when sources publish this year)"
+    "derived from the nearest published year via the measured vendor "
+    "year-step (config derivedYearModel, classification PRIOR; "
+    "auto-pivots when sources publish this year)"
 )
 
 _PICK_SLOT_NAME_RE = re.compile(r"^\s*(20\d{2})\s+Pick\s+[1-6]\.\d{1,2}\s*$", re.I)
@@ -4699,24 +4718,60 @@ def set_observed_current_draft_year(year: int | None) -> None:
     _OBSERVED_CURRENT_DRAFT_YEAR = int(year) if year else None
 
 
+def _year_step_for(tier: str | None, round_num: int | None, cfg: dict[str, Any]) -> float:
+    """The measured one-year vendor step for a (tier, round) cell.
+
+    Lookup order: ``yearStepByTierRound["<tier>.<round>"]`` →
+    ``yearStepByRound["<round>"]`` → ``yearStepFallback``.  Every value
+    is classification PRIOR (measured-anchored) — see the config file
+    and ``docs/picks/C1_U6_PICK_VALUE_COMPLETENESS.md``.  Clamped to
+    (0.05, 1.0]: a step above 1.0 or near 0 is a pathological parameter,
+    not a valid derivation.
+    """
+    step = None
+    if tier is not None and round_num is not None:
+        step = (cfg.get("yearStepByTierRound") or {}).get(f"{str(tier).lower()}.{int(round_num)}")
+    if step is None and round_num is not None:
+        step = (cfg.get("yearStepByRound") or {}).get(str(int(round_num)))
+    if step is None:
+        step = cfg.get("yearStepFallback")
+    try:
+        step_f = float(step)
+    except (TypeError, ValueError):
+        step_f = 0.84
+    return max(0.05, min(1.0, step_f))
+
+
 def _inject_far_future_pick_sources(
     players_by_name: dict[str, Any],
     current_year: int,
 ) -> int:
     """Seed raw source entries for far-future pick years the vendors
-    don't publish yet, out to the deepest configured discount offset
-    (``current_year + max(offsetDiscounts)``, e.g. 2029 when the active
-    draft is 2026).
+    don't publish yet, out to the product horizon
+    (``current_year + horizonYears``, e.g. 2029 when the active draft is
+    2026 — TC-19 / manifest C1-PICK-01; the horizon self-rolls).
 
-    KTC/DLF/etc. only price two future years.  The user trades picks
-    further out than that, so for any missing year we clone the nearest
+    KTC/IDPTC only price two future years.  The user trades picks
+    further out than that, so for any missing year we derive the nearest
     *published* future year's generic-tier raw entries (Early/Mid/Late ×
-    rounds) under the new year's names, copying only the per-source
-    value keys.  These then ride the **entire** normal pipeline exactly
-    like the real future-tier picks — blended, year-discounted (the
-    extra year out is handled automatically by
-    :func:`_pick_year_discount_for`), ranked, legacy-mirrored, and
-    surfaced in the app view — with no special-casing downstream.
+    rounds) under the new year's names, **stepping every per-source
+    value down by the measured vendor year-step for its (tier, round)
+    cell at derivation time** (compounding ``step ** gap`` across a
+    multi-year gap).  The derived entries then ride the **entire**
+    normal pipeline exactly like the real future-tier picks — blended,
+    ranked, legacy-mirrored, and surfaced in the app view — and because
+    the step is applied to the source values themselves, the published
+    value, the per-source display values, and the pick-confidence
+    inputs all carry ONE consistent derivation (closing the RED-4
+    anchor asymmetry, where a clone presented the template year's
+    vendor numbers verbatim against a separately-discounted model
+    value).
+
+    This replaced the retired verbatim-clone + Phase 3a ``× 0.53``
+    composition (audit V-12/C-11): the offset-from-current multiplier
+    family was never calibrated, and the challenger evaluation measured
+    it ~37% below every observed vendor year-step cell
+    (``scripts/calibrate_pick_year_step.py``).
 
     Real source rows always win: a year that already has any generic
     tier entry is left untouched, so the moment vendors publish e.g.
@@ -4724,15 +4779,15 @@ def _inject_far_future_pick_sources(
 
     Returns the number of synthetic raw entries added.
     """
-    global _SYNTHETIC_FAR_FUTURE_PICK_NAMES
+    global _SYNTHETIC_FAR_FUTURE_PICK_NAMES, _SYNTHETIC_PICK_DERIVATIONS
     _SYNTHETIC_FAR_FUTURE_PICK_NAMES = set()
+    _SYNTHETIC_PICK_DERIVATIONS = {}
     cfg = _load_pick_year_discount()
-    offsets = cfg.get("offsetDiscounts") or {}
     try:
-        max_offset = max(int(k) for k in offsets) if offsets else 3
+        horizon = max(0, int(cfg.get("horizonYears") or 3))
     except (TypeError, ValueError):
-        max_offset = 3
-    target_year = current_year + max(max_offset, 0)
+        horizon = 3
+    target_year = current_year + horizon
     if target_year <= current_year:
         return 0
 
@@ -4764,16 +4819,31 @@ def _inject_far_future_pick_sources(
             entry = players_by_name[key]
             if not isinstance(entry, dict):
                 continue
-            # Copy only the per-source value keys; the pipeline
-            # recomputes every ``_``-prefixed cached/derived field, and
-            # the year-discount step steps this year down on its own.
-            players_by_name[new_name] = {
-                k: v for k, v in entry.items() if not str(k).startswith("_")
-            }
+            tier, rnd = m.group(2), int(m.group(3))
+            gap = year - template_year
+            factor = _year_step_for(tier, rnd, cfg) ** gap
+            derived: dict[str, Any] = {}
+            for k, v in entry.items():
+                if str(k).startswith("_"):
+                    # The pipeline recomputes every cached/derived field.
+                    continue
+                if isinstance(v, (int, float)) and not isinstance(v, bool) and v > 0:
+                    derived[k] = round(float(v) * factor, 1)
+                else:
+                    derived[k] = v
+            players_by_name[new_name] = derived
             # Store the canonical match key (what the single-source
             # gate keys ``allowlistReason`` lookups on), not the raw
             # display name.
-            _SYNTHETIC_FAR_FUTURE_PICK_NAMES.add(_canonical_match_key(new_name))
+            match_key = _canonical_match_key(new_name)
+            _SYNTHETIC_FAR_FUTURE_PICK_NAMES.add(match_key)
+            _SYNTHETIC_PICK_DERIVATIONS[match_key] = {
+                "factor": round(factor, 4),
+                "basisYear": template_year,
+                "basisName": key,
+                "family": "measured_vendor_year_step_v1",
+                "classification": "PRIOR",
+            }
             added += 1
         years_with_tiers.add(year)
     return added
@@ -4827,45 +4897,15 @@ def _pick_year_from_name(name: str) -> int | None:
     return _owner_pick_year_from_name(name)
 
 
-def _pick_year_discount_for(
-    year: int | None,
-    cfg: dict[str, Any],
-    *,
-    current_draft_year: int | None = None,
-) -> float:
-    """Return the multiplicative discount for a pick year.
-
-    Resolution (offset = ``year - current_draft_year``):
-
-      * offset <= 0 (the upcoming/current draft or earlier) -> 1.0.
-      * ``cfg['offsetDiscounts'][str(offset)]`` if present -> that value.
-      * else legacy absolute ``cfg['discounts'][str(year)]`` if present
-        (back-compat only) -> that value.
-      * else ``fallbackBase ** offset``.
-
-    ``current_draft_year`` is injectable for deterministic tests; it
-    defaults to :func:`current_rookie_draft_year`.
-    """
-    if year is None:
-        return 1.0
-    if current_draft_year is None:
-        current_draft_year = current_rookie_draft_year()
-    offset = int(year) - int(current_draft_year)
-    if offset <= 0:
-        return 1.0
-    fallback_base = float(cfg.get("fallbackBase") or 0.80)
-
-    offset_discounts = cfg.get("offsetDiscounts") or {}
-    raw = offset_discounts.get(str(offset))
-    if raw is None:
-        # Legacy absolute-year schema fallback (back-compat).
-        raw = (cfg.get("discounts") or {}).get(str(year))
-    if raw is not None:
-        try:
-            return max(0.05, min(1.0, float(raw)))
-        except (TypeError, ValueError):
-            pass
-    return max(0.05, fallback_base**offset)
+# RETIRED (C1-U6): ``_pick_year_discount_for`` — the offset-from-current
+# multiplier family (offsetDiscounts 1.00/0.82/0.66/0.53 + fallbackBase
+# 0.80).  Audit V-12/C-11 measured its one live entry (offset 3 → 0.53,
+# applied to a verbatim 2028 clone) ~37% below every observed vendor
+# year-step cell.  Synthetic-year derivation now happens at injection
+# via :func:`_year_step_for` (measured per-cell steps, classification
+# PRIOR); vendor-priced years were already exempt (T-3/C-2) and stay
+# exempt.  Deleted rather than left unreferenced so no seam remains to
+# re-thread by accident.
 
 
 def _parse_pick_slot(name: str) -> tuple[int, int, int] | None:
@@ -6622,66 +6662,331 @@ def _apply_pick_year_discount_to_blend(
     row_normalized: list[tuple[float, int]],
     players_array: list[dict[str, Any]],
 ) -> tuple[list[tuple[float, int]], dict[int, float]]:
-    """Apply the pick year discount to the blended pre-sort values.
+    """Stamp the effective year-derivation factor on synthetic-year picks.
 
-    Picks in future years have their post-blend value multiplied by
-    the discount config; every other row is untouched.  Returns the
-    new ``row_normalized`` list and a per-row-idx map of the multiplier
-    actually applied (for debugging / audit).
+    **C1-U6: this pass no longer changes any value.**  The measured
+    vendor year-step is applied to the cloned per-source values AT
+    INJECTION (:func:`_inject_far_future_pick_sources`), so the blend
+    already carries the derived level and multiplying here again would
+    double-count.  What survives is the transparency stamp:
+    ``pickYearDiscount`` = the net factor the row's source values were
+    stepped by, read by ``_stamp_pick_value_projections`` (which inverts
+    it into the on-draft projection), the delta payload and the
+    frontend.  The returned per-row map keeps the audit shape.
 
-    Applied BEFORE the unified Phase 4 sort so future-year picks
-    naturally drift to lower positions in the global ladder.
+    ONLY SYNTHESISED YEARS carry a factor (audit finding T-3/C-2,
+    2026-08-04).  A vendor-priced year needs no correction — the price
+    already encodes the term structure: both ingested pick markets
+    price the next class ABOVE the imminent one (+26% at round 1), so
+    composing any decay onto real prices published 2027 firsts 18% and
+    2028 firsts 34% BELOW what both markets agreed, biasing every trade
+    involving future capital the same way (sell futures cheap, buy
+    futures expensive).  ``_SYNTHETIC_FAR_FUTURE_PICK_NAMES`` is
+    exactly the synthesized set, so it is the gate — pinned by
+    ``tests/api/test_pick_year_discount_gate.py``.
 
-    ONLY SYNTHESISED YEARS ARE DISCOUNTED (audit finding T-3/C-2,
-    2026-08-04).  The discount used to apply to every future-year pick,
-    including the years the vendors publish a real per-slot price for.
-    That double-counts, and in the WRONG DIRECTION: both ingested pick
-    markets price the next class ABOVE the imminent one, because the
-    unknown class carries option value while the imminent one is priced
-    to known prospects.  Measured on the 2026-08-04 boards::
+    Audit V-12/C-11 (the uncalibrated 0.53-on-a-clone prior this pass
+    used to apply) is CLOSED by the injection-time measured year-step —
+    challenger record in ``docs/picks/C1_U6_PICK_VALUE_COMPLETENESS.md``.
+    """
+    stamped: dict[int, float] = {}
+    for _value, row_idx in row_normalized:
+        row = players_array[row_idx]
+        if row.get("assetClass") != "pick":
+            continue
+        cname = row.get("canonicalName") or ""
+        derivation = _SYNTHETIC_PICK_DERIVATIONS.get(_canonical_match_key(cname))
+        if derivation is None:
+            # Vendor-priced year: the market already priced the year.
+            continue
+        factor = derivation.get("factor")
+        if isinstance(factor, (int, float)) and 0 < float(factor) < 1.0:
+            stamped[row_idx] = float(factor)
+            row["pickYearDiscount"] = round(float(factor), 4)
+    return row_normalized, stamped
 
-        ktcSfTep      2026 Early 1st 5595 | 2027 7061 | 2028 5122
-        idpTradeCalc  2026 Early 1st 5554 | 2027 7052 | 2028 5034
 
-    The market term structure is +26% from 2026 to 2027 and then down;
-    ``offsetDiscounts`` assumes a smooth 1.00/0.82/0.66/0.53 decay.
-    Multiplying one onto the other published 2027 firsts 18% and 2028
-    firsts 34% BELOW what both markets agreed on, which biased every
-    trade involving future capital the same way: sell futures cheap,
-    buy futures expensive.
+def _build_generic_pick_row(name: str, value: int) -> dict[str, Any]:
+    """A standard-shaped, rank-less board row for a generic-grade pick.
 
-    A vendor-priced year needs no correction — the price already
-    encodes the term structure.  What DOES need the step-down is a year
-    this pipeline invented by cloning a nearer year's values
-    (``_inject_far_future_pick_sources``), because that clone carries
-    the nearer year's price verbatim.  ``_SYNTHETIC_FAR_FUTURE_PICK_NAMES``
-    is exactly that set, so it is the gate.
+    Mirrors ``_derive_player_row``'s field template (same defaults, same
+    trust/transparency keys) so downstream passes — values-bundle sync,
+    validation shape checks, legacy mirror, app view — need no special
+    case.  Deliberately NO rank, NO tier, NO source votes: the tier rows
+    stay the ranked market representation; the generic row is the
+    valuation representation of an unrealized league pick
+    (``market_resolution``'s ``unknown_slot`` basis).
+    """
+    return {
+        "playerId": None,
+        "canonicalName": name,
+        "displayName": name,
+        "position": "PICK",
+        "team": None,
+        "age": None,
+        "yearsExp": None,
+        "rookie": False,
+        "assetClass": "pick",
+        "values": {
+            "overall": None,
+            "finalAdjusted": None,
+            "displayValue": None,
+            "rawComposite": None,
+        },
+        "canonicalSiteValues": {},
+        "rawSourceValues": {},
+        "sourceCount": 0,
+        "sourcePresence": {},
+        "marketConfidence": None,
+        "marketDispersionCV": None,
+        "legacyRef": name,
+        "confidenceBucket": "low",
+        "confidenceLabel": "Low — derived from tier values (no direct market row)",
+        "confidenceAxes": None,
+        "confidenceReasons": None,
+        "anomalyFlags": [],
+        "isSingleSource": False,
+        "isStructurallySingleSource": False,
+        "hasSourceDisagreement": False,
+        "blendedSourceRank": None,
+        "sourceRankSpread": None,
+        "sourceRankPercentileSpread": None,
+        "hillValueSpread": None,
+        "sourceSpread": None,
+        "madPenaltyApplied": None,
+        "anchorValue": None,
+        "subgroupBlendValue": None,
+        "subgroupDelta": None,
+        "alphaShrinkage": None,
+        "softFallbackCount": 0,
+        "idpBackboneFallback": False,
+        "droppedSources": [],
+        "effectiveSourceRanks": {},
+        "effectiveSourceCount": 0,
+        "independentSourceCount": 0,
+        "sourceRanks": {},
+        "sourceRankMeta": {},
+        "sourceOriginalRanks": {},
+        "sourceNativeValues": {},
+        "canonicalConsensusRank": None,
+        "canonicalTierId": None,
+        "canonicalPercentile": None,
+        "rankChange": None,
+        "quarantined": False,
+        "marketGapDirection": None,
+        "marketGapMagnitude": None,
+        "marketGapValueRatio": None,
+        "identityConfidence": None,
+        "identityMethod": None,
+        "rankDerivedValue": int(value),
+    }
 
-    NOTE this does not close audit finding V-12/C-11: for a synthesised
-    year the multiplier is still an uncalibrated prior applied to a
-    cloned price.  It closes only the double-count on real years.
+
+def _complete_future_pick_values(
+    players_array: list[dict[str, Any]],
+    players_by_name: dict[str, Any],
+    current_year: int,
+) -> dict[str, int]:
+    """Guarantee a finite canonical value for every valid future pick
+    through the horizon, and stamp provenance on EVERY pick row (C1-U6,
+    manifest C1-PICK-01).
+
+    Runs after the rookie tether and before the draft-day projections,
+    so it sees final values for everything the blend and the tether
+    priced.  Three derivations, strict priority (direct evidence always
+    outranks a derivation — a row that already carries a finite value is
+    never touched):
+
+    1. **Round-step** (``derivedRoundModel``, classification PRIOR) —
+       future-year tier rows in rounds no vendor prices (5-6; both pick
+       markets stop at round 4) derive from the same year+tier's nearest
+       priced lower round: ``value(R) = value(R-1) × roundStep(R)``.
+       The steps are the served canonical board's own tethered
+       rookie-market round ladder (measured stable across the archive);
+       the assumption that the current class's tail structure carries to
+       future classes is named in the config.
+
+    2. **Uniform-tier EV** (``genericGradeModel``, classification
+       PRIOR) — a rank-less generic-grade row (``"2027 Round 1"``) per
+       future year × round, valued at the unweighted mean of the
+       year+round's three tier values.  This is the board row for
+       ``market_resolution``'s ``unknown_slot`` basis — the honest
+       representation of a league pick whose slot does not exist yet.
+       Identity fabricates nothing (C1-U3 frozen): the tier rows stay
+       untouched, and C1-U7 replaces the uniform assumption with real
+       owned-pick distributions.
+
+    3. **Provenance** — every pick row gets ``pickValueProvenance``
+       naming which evidence class produced its number:
+       ``direct_market_blend`` / ``rookie_pool_tether`` /
+       ``derived_year_step`` / ``derived_round_step`` /
+       ``derived_uniform_tier_ev`` / ``alias_suppressed`` /
+       ``unavailable`` (with a reason — never 0, never a fabricated
+       value).
+
+    Returns ``{canonicalName: value}`` for rows this pass derived
+    (audit/test hook).
     """
     cfg = _load_pick_year_discount()
-    cdy = current_rookie_draft_year()
-    discount_applied: dict[int, float] = {}
-    out: list[tuple[float, int]] = []
-    for value, row_idx in row_normalized:
-        row = players_array[row_idx]
+    try:
+        horizon = max(0, int(cfg.get("horizonYears") or 3))
+    except (TypeError, ValueError):
+        horizon = 3
+    round_steps = cfg.get("roundStepByRound") or {}
+
+    def _finite_value(row: dict[str, Any] | None) -> float | None:
+        if not isinstance(row, dict):
+            return None
+        v = row.get("rankDerivedValue")
+        if (
+            isinstance(v, (int, float))
+            and not isinstance(v, bool)
+            and math.isfinite(float(v))
+            and v > 0
+        ):
+            return float(v)
+        return None
+
+    by_name: dict[str, dict[str, Any]] = {}
+    for row in players_array:
         if row.get("assetClass") == "pick":
-            cname = row.get("canonicalName") or ""
-            if _canonical_match_key(cname) not in _SYNTHETIC_FAR_FUTURE_PICK_NAMES:
-                # Vendor-priced year: the market already priced the year.
-                out.append((value, row_idx))
+            by_name[str(row.get("canonicalName") or "")] = row
+
+    future_years = range(current_year + 1, current_year + horizon + 1)
+    derived: dict[str, int] = {}
+
+    # ── 1. Round-step completion for unpriced future tier rows ──
+    for year in future_years:
+        for tier in ("Early", "Mid", "Late"):
+            for rnd in range(2, 7):
+                name = f"{year} {tier} {_round_suffix(rnd)}"
+                row = by_name.get(name)
+                if row is None or _finite_value(row) is not None:
+                    continue
+                step = round_steps.get(str(rnd))
+                if step is None:
+                    continue  # only vendor-uncovered rounds carry a configured step
+                basis_name = f"{year} {tier} {_round_suffix(rnd - 1)}"
+                basis_row = by_name.get(basis_name)
+                basis_value = _finite_value(basis_row)
+                if basis_value is None:
+                    continue
+                try:
+                    step_f = max(0.05, min(1.0, float(step)))
+                except (TypeError, ValueError):
+                    continue
+                value = int(round(basis_value * step_f))
+                if value <= 0:
+                    continue
+                row["rankDerivedValue"] = value
+                row["confidenceBucket"] = "low"
+                row["confidenceLabel"] = "Low — derived from the same year's nearest priced round"
+                row["confidenceAxes"] = None
+                row["confidenceReasons"] = None
+                prov: dict[str, Any] = {
+                    "class": "derived_round_step",
+                    "family": "canonical_rookie_ladder_round_step_v1",
+                    "classification": "PRIOR",
+                    "basis": basis_name,
+                    "factor": round(step_f, 4),
+                }
+                basis_year_stamp = basis_row.get("pickYearDiscount") if basis_row else None
+                if isinstance(basis_year_stamp, (int, float)):
+                    row["pickYearDiscount"] = round(float(basis_year_stamp), 4)
+                    prov["yearStepFactor"] = round(float(basis_year_stamp), 4)
+                row["pickValueProvenance"] = prov
+                derived[name] = value
+                legacy = players_by_name.get(row.get("legacyRef") or name)
+                if isinstance(legacy, dict):
+                    legacy["rankDerivedValue"] = value
+
+    # ── 2. Generic-grade rows (uniform-tier EV) ──
+    for year in future_years:
+        for rnd in range(1, 7):
+            tiers = [
+                by_name.get(f"{year} {t} {_round_suffix(rnd)}") for t in ("Early", "Mid", "Late")
+            ]
+            tier_values = [_finite_value(t) for t in tiers]
+            priced = [v for v in tier_values if v is not None]
+            name = f"{year} Round {rnd}"
+            existing = by_name.get(name)
+            if existing is not None and _finite_value(existing) is not None:
+                continue  # a real source row for the generic grade wins
+            if len(priced) < 3:
+                continue  # derive only from a complete tier set
+            value = int(round(sum(priced) / len(priced)))
+            if value <= 0:
                 continue
-            year = _pick_year_from_name(cname)
-            mult = _pick_year_discount_for(year, cfg, current_draft_year=cdy)
-            if mult != 1.0:
-                value = value * mult
-                discount_applied[row_idx] = mult
-                # Stamp on row for transparency
-                row["pickYearDiscount"] = round(mult, 4)
-        out.append((value, row_idx))
-    return out, discount_applied
+            if existing is None:
+                row = _build_generic_pick_row(name, value)
+                players_array.append(row)
+                by_name[name] = row
+            else:
+                row = existing
+                row["rankDerivedValue"] = value
+                row["confidenceBucket"] = "low"
+                row["confidenceLabel"] = "Low — derived from tier values (no direct market row)"
+            prov = {
+                "class": "derived_uniform_tier_ev",
+                "family": "uniform_tier_ev_v1",
+                "classification": "PRIOR",
+                "basis": [f"{year} {t} {_round_suffix(rnd)}" for t in ("Early", "Mid", "Late")],
+            }
+            year_stamps = [
+                t.get("pickYearDiscount")
+                for t in tiers
+                if isinstance(t, dict) and isinstance(t.get("pickYearDiscount"), (int, float))
+            ]
+            if len(year_stamps) == 3:
+                net = round(sum(float(v) for v in year_stamps) / 3.0, 4)
+                row["pickYearDiscount"] = net
+                prov["yearStepFactor"] = net
+            row["pickValueProvenance"] = prov
+            derived[name] = value
+            legacy = players_by_name.get(name)
+            if not isinstance(legacy, dict):
+                legacy = {}
+                players_by_name[name] = legacy
+            legacy["rankDerivedValue"] = value
+            legacy["_canonicalConsensusRank"] = None
+            legacy["sourceCount"] = 0
+
+    # ── 3. Provenance on every remaining pick row ──
+    for row in players_array:
+        if row.get("assetClass") != "pick" or row.get("pickValueProvenance"):
+            continue
+        cname = str(row.get("canonicalName") or "")
+        if row.get("pickGenericSuppressed"):
+            row["pickValueProvenance"] = {
+                "class": "alias_suppressed",
+                "basis": row.get("pickAliasFor"),
+            }
+            continue
+        if row.get("pickRookieAnchor"):
+            row["pickValueProvenance"] = {
+                "class": "rookie_pool_tether",
+                "basis": row.get("pickRookieAnchor"),
+            }
+            continue
+        derivation = _SYNTHETIC_PICK_DERIVATIONS.get(_canonical_match_key(cname))
+        if derivation is not None:
+            row["pickValueProvenance"] = {
+                "class": "derived_year_step",
+                "family": derivation.get("family"),
+                "classification": derivation.get("classification"),
+                "basis": derivation.get("basisName"),
+                "basisYear": derivation.get("basisYear"),
+                "factor": derivation.get("factor"),
+            }
+            continue
+        if _finite_value(row) is not None:
+            row["pickValueProvenance"] = {"class": "direct_market_blend"}
+        else:
+            row["pickValueProvenance"] = {
+                "class": "unavailable",
+                "reason": "no_market_evidence_and_no_derivation_basis",
+            }
+    return derived
 
 
 def _stamp_pick_value_projections(
@@ -8735,6 +9040,44 @@ def _compute_unified_rankings(
                 if "idpTradeCalc" in source_ranks:
                     pdata["idpRank"] = source_ranks["idpTradeCalc"]
 
+    # ── Phase 4b': off-cap pick value stamping (C1-U6, RED-1) ──
+    #
+    # ``OVERALL_RANK_LIMIT`` is a RANK concept: the board publishes 800
+    # ranked rows.  For PLAYER rows past the cap, withholding the value
+    # is deliberate top-board behavior and is untouched here.  A PICK
+    # row that voted, though, is a valid tradeable asset whose canonical
+    # value must exist regardless of where it sorts (manifest
+    # C1-PICK-01: "every valid pick through 2029 has a finite canonical
+    # value") — the rookie-anchor pass already takes exactly this
+    # posture for current-year slot picks ("anchor regardless of
+    # whether the pick survived the cap").  Measured before this pass:
+    # five voted 2029 tier rows published ``rankDerivedValue: None``
+    # with their discount stamp already on the row.  Value only — no
+    # rank, no tier, no percentile: those stay capped.
+    for norm_val, row_idx in row_normalized[OVERALL_RANK_LIMIT:]:
+        row = players_array[row_idx]
+        if row.get("assetClass") != "pick":
+            continue
+        derived = int(norm_val)
+        if derived <= 0:
+            continue
+        row["rankDerivedValue"] = derived
+        row["offCapPickValue"] = True
+        is_slot_specific = _parse_pick_slot(row.get("canonicalName") or "") is not None
+        bucket, label = assess_pick_confidence(
+            row.get("canonicalSiteValues") or {},
+            is_slot_specific=is_slot_specific,
+        )
+        row["confidenceBucket"] = bucket
+        row["confidenceLabel"] = label
+        row["confidenceAxes"] = None
+        row["confidenceReasons"] = None
+        legacy_ref = row.get("legacyRef")
+        if legacy_ref and legacy_ref in players_by_name:
+            pdata = players_by_name[legacy_ref]
+            if isinstance(pdata, dict):
+                pdata["rankDerivedValue"] = derived
+
     # ── Phase 4c: removed ──
     # The IDP calibration post-pass (a Lab-configured per-bucket
     # multiplier applied to DL/LB/DB rows) has been retired.  The
@@ -8859,6 +9202,15 @@ def _compute_unified_rankings(
     #     by value so coherence holds.
     _anchor_year = current_rookie_draft_year()
     _anchor_current_year_picks_to_rookies(players_array, _anchor_year)
+
+    # 2b') Complete future-pick values through the horizon (C1-U6,
+    #      manifest C1-PICK-01): round-step derivation for the rounds no
+    #      vendor prices (5-6), rank-less generic-grade rows for
+    #      ``market_resolution``'s unknown-slot basis, and
+    #      ``pickValueProvenance`` on every pick row.  Direct market
+    #      evidence always outranks a derivation — rows the blend or the
+    #      tether priced are never touched.
+    _complete_future_pick_values(players_array, players_by_name, _anchor_year)
 
     # 2c) Stamp draft-day value projections on every pick row.
     #     Inverts the year-discount so the frontend can show "this
@@ -10108,6 +10460,12 @@ _DELTA_PLAYER_FIELDS: tuple[str, ...] = (
     "pickProjectedDraftYear",
     "pickProjectedDraftValueGain",
     "pickProjectedDraftValueGainPct",
+    # C1-U6: which evidence class produced the pick's value.  Override-
+    # sensitive because toggling a source can flip a row between a
+    # direct blend and a derivation (or to honestly unavailable), and a
+    # stale provenance block would describe a board the row is no
+    # longer on.
+    "pickValueProvenance",
 )
 
 
@@ -10651,6 +11009,73 @@ def validate_api_data_contract(payload: dict[str, Any]) -> dict[str, Any]:
             errors.append("pickAnchors missing from payload")
         elif isinstance(pick_anchors, dict) and not pick_anchors:
             errors.append("pickAnchors is empty")
+
+        # ── C1-PICK-01 completeness census (C1-U6) ──────────────────
+        # Every valid pick through the horizon must publish a finite
+        # canonical value with provenance: all tier + generic rows for
+        # every future year on the board (rounds 1-6), no pick anywhere
+        # at 0 or NaN, and no zero-as-missing.  An ERROR, not a warning
+        # — the CI gate keys on ``ok`` and ignores warnings (same
+        # posture as the blend-integrity scan).  Alias-suppressed
+        # current-year tiers are the one deliberate valueless state and
+        # must say so via provenance.
+        pick_rows_by_name: dict[str, dict[str, Any]] = {}
+        tier_years: set[int] = set()
+        for row in players_array:
+            if not isinstance(row, dict) or row.get("assetClass") != "pick":
+                continue
+            nm = str(row.get("canonicalName") or "")
+            pick_rows_by_name[nm] = row
+            v = row.get("rankDerivedValue")
+            if isinstance(v, (int, float)) and not isinstance(v, bool):
+                if not math.isfinite(float(v)):
+                    errors.append(f"pick_value_not_finite:{nm}")
+                elif float(v) == 0:
+                    errors.append(f"pick_value_zero_as_missing:{nm}")
+            parsed_tier = _parse_pick_tier(nm)
+            if parsed_tier is not None:
+                tier_years.add(parsed_tier[0])
+        if tier_years:
+            # Anchor on the contract's own stamped draft year — never on
+            # min(tier_years), where one stale past-year tier row would
+            # drag the anchor back and fail the census over the anchor
+            # year's deliberately alias-suppressed tiers (final-review
+            # hardening).  Fallback for payloads without the stamp.
+            stamped_year = payload.get("currentDraftYear")
+            census_current = (
+                int(stamped_year)
+                if isinstance(stamped_year, (int, float)) and stamped_year
+                else min(tier_years)
+            )
+            # The horizon range is UNCONDITIONAL (final-review
+            # hardening): a scrape that lost the entire future horizon
+            # (no future tier years at all, so the injection had no
+            # template) must fail THIS census, not just the coarse
+            # pick-count floor — wholesale absence is the exact
+            # C1-PICK-01 regression class the gate exists for.
+            try:
+                census_horizon = max(0, int(_load_pick_year_discount().get("horizonYears") or 3))
+            except (TypeError, ValueError):
+                census_horizon = 3
+            for census_year in range(census_current + 1, census_current + census_horizon + 1):
+                for census_round in range(1, 7):
+                    names = [
+                        f"{census_year} {t} {_round_suffix(census_round)}"
+                        for t in ("Early", "Mid", "Late")
+                    ] + [f"{census_year} Round {census_round}"]
+                    for nm in names:
+                        row = pick_rows_by_name.get(nm)
+                        v = row.get("rankDerivedValue") if isinstance(row, dict) else None
+                        ok_value = (
+                            isinstance(v, (int, float))
+                            and not isinstance(v, bool)
+                            and math.isfinite(float(v))
+                            and float(v) > 0
+                        )
+                        if row is None or not ok_value:
+                            errors.append(f"pick_completeness_census:{nm}:missing_or_unpriced")
+                        elif not isinstance(row.get("pickValueProvenance"), dict):
+                            errors.append(f"pick_completeness_census:{nm}:no_provenance")
 
     # ── Top-50 per-source coverage floors ───────────────────────────────
     # Sort each asset class (offense / idp) by values.overall desc and

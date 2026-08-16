@@ -2,43 +2,123 @@
   "currentDraftYear": null,
   "rolloverMonth": 5,
   "rolloverDay": 15,
-  "offsetDiscounts": {
-    "0": 1.00,
-    "1": 0.82,
-    "2": 0.66,
-    "3": 0.53
+  "horizonYears": 3,
+  "derivedYearModel": {
+    "family": "measured_vendor_year_step_v1",
+    "classification": "PRIOR",
+    "classificationNote": "measured-anchored: each cell is the median same-day cross-sectional 1-out->2-out ratio (2028/2027 while current=2026) over both vendor pick markets and every archive date; applying it one further year out (2-out->3-out) is an extrapolation no market evidence can test today, so the family stays PRIOR, never MEASURED/VALIDATED",
+    "stepByTierRound": {
+      "early.1": 0.7138,
+      "early.2": 0.8174,
+      "early.3": 0.8328,
+      "early.4": 0.8633,
+      "mid.1": 0.8078,
+      "mid.2": 0.8662,
+      "mid.3": 0.8399,
+      "mid.4": 0.8938,
+      "late.1": 0.8339,
+      "late.2": 0.876,
+      "late.3": 0.8954,
+      "late.4": 0.7726
+    },
+    "stepByRound": {
+      "1": 0.8078,
+      "2": 0.8662,
+      "3": 0.8527,
+      "4": 0.8636
+    },
+    "stepFallback": 0.8407,
+    "evidence": {
+      "windowDates": [
+        "2026-07-14",
+        "2026-08-16"
+      ],
+      "dateCount": 34,
+      "providers": [
+        "ktcSfTep",
+        "idpTradeCalc"
+      ],
+      "cellObservations": 816,
+      "providerHoldoutMapeMedianPct": [
+        1.4,
+        1.74
+      ],
+      "timeSplitMapeMedianPct": 1.41,
+      "retiredIncumbentMapeMedianPct": [
+        36.67,
+        37.98
+      ],
+      "note": "idpTradeCalc's pick board is frozen across the window, so its 34 daily copies carry the evidential weight of ONE independent observation per cell (the cell medians still pool both providers' rows arithmetically - the frozen board simply pins its provider's median); ktcSfTep drifts (cell sd <= 0.021)",
+      "crossProviderDisagreementPerCell": {
+        "early.1": 0.0152,
+        "early.2": 0.0213,
+        "early.3": 0.0335,
+        "early.4": 0.0305,
+        "mid.1": 0.0102,
+        "mid.2": 0.0037,
+        "mid.3": 0.0105,
+        "mid.4": 0.0054,
+        "late.1": 0.009,
+        "late.2": 0.0235,
+        "late.3": 0.0128,
+        "late.4": 0.086
+      }
+    },
+    "calibration": "scripts/calibrate_pick_year_step.py",
+    "record": "docs/picks/C1_U6_PICK_VALUE_COMPLETENESS.md"
   },
-  "method": "multiplicative",
-  "appliedTo": "rankDerivedValue",
-  "fallbackBase": 0.80,
+  "derivedRoundModel": {
+    "family": "canonical_rookie_ladder_round_step_v1",
+    "classification": "PRIOR",
+    "classificationNote": "measured-anchored: the served canonical board's own tethered rookie-market round ladder (current class), R5/R4 and R6/R5 means; applying the current class's tail structure to future-year tier curves is an assumption no vendor publishes evidence for (both pick markets stop at round 4)",
+    "stepByRound": {
+      "5": 0.929,
+      "6": 0.916
+    },
+    "evidence": {
+      "measuredOn": "canonical tethered 2026 slot rows, 6 sampled archive rebuilds 2026-07-14..2026-08-16",
+      "observedRangeR5": [
+        0.9007,
+        0.9323
+      ],
+      "observedRangeR6": [
+        0.9128,
+        0.9182
+      ],
+      "rejectedAlternatives": "future-tier trend extrapolation (~0.75-0.80, fitted shape with zero observations of the target quantity); scraper pickAnchors R5/R6 (its own model, measured non-monotonic R4->R5 > 1.0)"
+    },
+    "record": "docs/picks/C1_U6_PICK_VALUE_COMPLETENESS.md"
+  },
+  "genericGradeModel": {
+    "family": "uniform_tier_ev_v1",
+    "classification": "PRIOR",
+    "classificationNote": "generic (tierless) grade values as the unweighted mean of the year+round's three tier values - the EV of a slot with no information beyond the round; replaced by real owned-pick distributions in C1-U7"
+  },
   "_notes": [
-    "Multiplicative future-year discount applied ONLY to picks (assetClass=='pick')",
-    "in _compute_unified_rankings() before the global value sort.",
+    "Canonical future-pick derivation parameters (C1-U6 / C1-PICK-01).",
     "",
-    "Schema is OFFSET-from-current-draft-year so it never goes stale:",
-    "  offset = pick_year - current_rookie_draft_year()",
-    "  offset 0 -> the upcoming/current rookie draft -> 1.00 (NO discount)",
-    "  offset 1 -> next year, offset 2 -> the year after, etc.",
-    "  offsets not listed fall back to fallbackBase ** offset.",
+    "horizonYears is MECHANICAL: the product contract (TC-19, manifest",
+    "C1-PICK-01) requires every valid pick through current+3 (2029 while",
+    "the active draft is 2026) to carry a finite canonical value. The",
+    "horizon self-rolls with current_rookie_draft_year().",
     "",
-    "current_rookie_draft_year() resolution order (see",
-    "src/api/data_contract.py::current_rookie_draft_year):",
-    "  1. 'currentDraftYear' below, if set (manual override; null = off).",
-    "  2. else DERIVED FROM THE SCRAPE: the lowest year that still has",
-    "     slot-specific 'YYYY Pick R.SS' rows IS the active rookie draft",
-    "     (vendors publish full slots for the next class, generic tiers",
-    "     for further-out years). This self-rolls the instant the data",
-    "     sources advance to the next class -- no config edit, no stale",
-    "     baseline, and the board stays internally consistent. Once your",
-    "     league drafts a class the sources roll too, so 'current'",
-    "     advances on its own.",
-    "  3. else date-derived fallback: calendar year rolled to year+1",
-    "     once today is on/after (rolloverMonth, rolloverDay). Only used",
-    "     when no scrape is available (cold start / tests).",
+    "derivedYearModel replaces the retired offsetDiscounts curve",
+    "(1.00/0.82/0.66/0.53 + fallbackBase 0.80) whose offset-3 entry was",
+    "the only live one: audit V-12/C-11 measured it as an uncalibrated",
+    "prior applied to a cloned price, ~37% below every observed vendor",
+    "year-step cell. The step is applied AT INJECTION relative to the",
+    "TEMPLATE year (compounding step^gap for multi-year gaps), so the",
+    "cloned per-source values, the blend, the confidence inputs and the",
+    "published value all carry one consistent derivation. Vendor-priced",
+    "years still take NO discount (audit T-3/C-2 - their prices already",
+    "encode the term structure; pinned by",
+    "tests/api/test_pick_year_discount_gate.py).",
     "",
-    "Legacy absolute-year 'baselineYear'/'discounts' keys are still read",
-    "for backward compatibility if 'offsetDiscounts' is absent.",
-    "This config is loaded by src/api/data_contract.py::_load_pick_year_discount."
+    "Cell keys are '<tier>.<round>'; lookup order is stepByTierRound ->",
+    "stepByRound -> stepFallback. All three classifications are PRIOR and",
+    "the extrapolation assumption is named above; challenger evidence and",
+    "sensitivity live in the record document.",
+    "",
+    "Loaded by src/api/data_contract.py::_load_pick_year_discount."
   ]
 }
-

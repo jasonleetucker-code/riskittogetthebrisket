@@ -155,7 +155,7 @@ C1-U1 and C1-U2 both closed on 2026-08-16; the next authorization is an owner de
   migration (needs C1-U6), public-league fold. Record:
   `docs/identity/C1_ID_02_PICK_IDENTITY.md`
 
-### C1-U4 — One immutable as-of value/provenance ledger  ← **DELIVERED 2026-08-16 (C1A unit 4, checkpoint pending)**
+### C1-U4 — One immutable as-of value/provenance ledger  ← **CLOSED at the owner checkpoint 2026-08-16** (PR #869 merge `8b6a9987`; deploy run 31958433677 SUCCESS; closure recorded on PR #869)
 - **rows** `C1-HIST-01` `C1-HIST-02` `C1-HIST-03`
 - **owner** `src/history/` (created) · **retires** the fragmented as-of semantics of
   **5** measured decision paths (map's 4 was an estimate; the fifth is the frontend
@@ -172,7 +172,9 @@ C1-U1 and C1-U2 both closed on 2026-08-16; the next authorization is an owner de
   enforced at write AND query (`before_history_boundary`), never interpolated**
 - **consumers** C3-U9 replay/aging, C5 backtesting, C9 history — substrate
   interfaces documented in `docs/history/C1_U4_TEMPORAL_LEDGER.md` §14
-- **state** DELIVERED 2026-08-16. Awaiting its §3 owner checkpoint.
+- **state** CLOSED 2026-08-16. The checkpoint decision authorized `C1-U6` and nothing beyond it;
+  `C1-U5` deliberately deferred. Production-proven on the box (run 31960075629: 169,896 rows /
+  34 dates; as-of pick + player queries resolving live).
 
 ### C1-U5 — Confidence naming migration
 - **rows** `C1-CONF-01` · **owner** `src/api/confidence.py` · **kind** INFRA
@@ -181,12 +183,23 @@ C1-U1 and C1-U2 both closed on 2026-08-16; the next authorization is an owner de
 - **scope** `confidenceBucket:"none"` on 24 priced rows; `identityConfidence` and
   `marketConfidence` renamed to what they mean
 
-### C1-U6 — Pick completeness through 2029
+### C1-U6 — Pick completeness through 2029  ← **DELIVERED 2026-08-16 (checkpoint pending)**
 - **rows** `C1-PICK-01` `C1-PICK-02` · **owner** `data_contract` pick pipeline
+  (+ `src/api/pick_value_resolution.py`, reference-class lookup)
 - **kind** INFRA · **deps** C1-U3
 - **calibration** future-year discount is a **PRIOR** — challenger-test discount
   families against real market evidence; **never `0` for an unknown future pick**
-- **RED→GREEN** a valid 2029 pick with no finite canonical value
+- **RED→GREEN** a valid 2029 pick with no finite canonical value — reproduced on
+  the live payload as five defect classes (`tests/api/test_pick_completeness_red.py`)
+  and closed (`test_pick_completeness.py`; census also an ERROR gate in
+  `validate_api_data_contract`)
+- **state** DELIVERED 2026-08-16. Challenger-tested the discount families
+  (incumbent clone×0.53 → measured per-cell vendor year-step, holdout MAPE
+  36.7-38.3% → 1.4-1.7%; still PRIOR — the extrapolation assumption is named);
+  rounds 5-6 + generic grade derived with provenance; the dormant
+  `canonical/calibration.py` pick pricer deleted (§17's discount row: challenger
+  work performed in this unit, promotion recorded for the checkpoint).  Record:
+  `docs/picks/C1_U6_PICK_VALUE_COMPLETENESS.md`
 
 ### C1-U7 — Owned-pick outcome distributions
 - **rows** `C1-PICK-03` · **owner** same · **kind** INFRA · **deps** C1-U6, C2-U4
@@ -607,7 +620,7 @@ Per `MATH_MODEL_CALIBRATION_POLICY_2026-08-15.md` §2, every consequential tunab
 
 | tunable | class today | validated in |
 |---|---|---|
-| future-pick year discount | PRIOR | C1-U6 |
+| future-pick year discount | PRIOR (measured-anchored per-cell year-step; extrapolation named) | C1-U6 — challenger-tested + promoted 2026-08-16 |
 | `ceil(1.5 × starter demand)` core | PRIOR (approved V1 champion) | C2-U6 |
 | Young Core age buckets | PRIOR | C2-U7 |
 | trade fairness raw-point thresholds | PRIOR | C3-U5 |

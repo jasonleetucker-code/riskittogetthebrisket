@@ -17,8 +17,6 @@ agreement with the legacy system based on comparison batch data.
 
 from __future__ import annotations
 
-import datetime
-import json
 import re
 from pathlib import Path
 from typing import Any
@@ -89,20 +87,15 @@ def to_display_value(calibrated_value: int | float) -> int:
 NON_FANTASY_POSITIONS = {"K", "P", "OL"}
 NON_FANTASY_CEILING = 600  # Legacy kickers max at ~568
 
-# Legacy pick value curve by round (median values from legacy data)
-# Used as fallback when a pick can't be matched by name
-LEGACY_PICK_ROUND_CURVE: dict[int, int] = {
-    1: 6124,  # median 1st round pick
-    2: 5251,  # median 2nd round pick
-    3: 4367,  # median 3rd round pick
-    4: 3425,  # median 4th round pick
-    5: 3146,  # median 5th round pick
-    6: 2600,  # median 6th round pick
-}
-
-# Year discount: future year picks are worth less
-# Relative to the current calendar year. Each year out reduces by this factor.
-PICK_YEAR_DISCOUNT = 0.70
+# RETIRED (C1-U6): this module's own pick pricer — LEGACY_PICK_ROUND_CURVE
+# ({6124/5251/4367/3425/3146/2600}), PICK_YEAR_DISCOUNT (0.70**years_out),
+# the ±15% tier adjustment and the slot interpolation — is DELETED.  It was
+# a complete second future-pick valuation owner surviving in the tree
+# (production-dormant since the CANONICAL_DATA_MODE retirement, exercised
+# only by its own tests), and its constants contradicted the canonical
+# pipeline's measured derivations.  Canonical pick values have exactly one
+# owner: the data_contract pick pipeline (+ src/api/pick_value_resolution
+# for reference-class lookup).  This layer now refuses to price picks.
 
 
 def _is_pick(asset: dict[str, Any]) -> bool:
@@ -116,134 +109,6 @@ def _is_pick(asset: dict[str, Any]) -> bool:
         r"^\d{4}\s+\d+(st|nd|rd|th)$",
     ]
     return any(re.search(p, name) for p in patterns)
-
-
-def _parse_pick_info(name: str) -> dict[str, Any]:
-    """Extract structured info from a pick name for curve-based calibration."""
-    n = name.lower().strip()
-    info: dict[str, Any] = {"year": None, "round": None, "slot": None, "tier": None}
-
-    # "2026 Pick 1.01" format
-    m = re.match(r"(\d{4})\s+pick\s+(\d+)\.(\d+)", n)
-    if m:
-        info["year"] = int(m.group(1))
-        info["round"] = int(m.group(2))
-        info["slot"] = int(m.group(3))
-        return info
-
-    # "2026 Early 1st" format
-    m = re.match(r"(\d{4})\s+(early|mid|late)\s+(\d+)", n)
-    if m:
-        info["year"] = int(m.group(1))
-        info["tier"] = m.group(2)
-        info["round"] = int(m.group(3))
-        return info
-
-    # "2026 1st" format (no tier)
-    m = re.match(r"(\d{4})\s+(\d+)(st|nd|rd|th)$", n)
-    if m:
-        info["year"] = int(m.group(1))
-        info["round"] = int(m.group(2))
-        return info
-
-    # "Early 1st" format (no year)
-    m = re.match(r"(early|mid|late)\s+(\d+)", n)
-    if m:
-        info["tier"] = m.group(1)
-        info["round"] = int(m.group(2))
-        return info
-
-    return info
-
-
-def _pick_curve_value(info: dict[str, Any], current_year: int | None = None) -> int:
-    """Compute a pick value from the legacy round curve with tier/year adjustments."""
-    if current_year is None:
-        current_year = datetime.date.today().year
-    rnd = info.get("round")
-    # Out-of-range / unparseable rounds fall back to the WORST tabulated
-    # round, not the best.  ``min(keys())`` was round 1, so a 7th (or a
-    # name we couldn't parse a round out of at all) was priced at 6124 —
-    # the median value of a FIRST.  The curve tops out at round 6; a
-    # round past its tail is worth at most that.
-    best_round = min(LEGACY_PICK_ROUND_CURVE.keys(), default=1)
-    worst_round = max(LEGACY_PICK_ROUND_CURVE.keys(), default=1)
-    if rnd is None:
-        rnd = worst_round
-    elif rnd not in LEGACY_PICK_ROUND_CURVE:
-        # Clamp to the nearest tabulated round rather than jumping to
-        # either end: a 7th prices as a 6th, a (nonsensical) round 0 as
-        # a 1st.
-        rnd = max(best_round, min(worst_round, int(rnd)))
-
-    base = LEGACY_PICK_ROUND_CURVE.get(rnd, 2000)
-
-    # Tier adjustment: early +15%, mid 0%, late -15%
-    tier = info.get("tier")
-    if tier == "early":
-        base = int(base * 1.15)
-    elif tier == "late":
-        base = int(base * 0.85)
-
-    # Slot adjustment: specific slots get interpolated
-    slot = info.get("slot")
-    if slot is not None and rnd in LEGACY_PICK_ROUND_CURVE:
-        # Interpolate between early/late within the round
-        early_val = int(LEGACY_PICK_ROUND_CURVE[rnd] * 1.15)
-        late_val = int(LEGACY_PICK_ROUND_CURVE[rnd] * 0.85)
-        # 12-team league: slot 1-4 = early, 5-8 = mid, 9-12 = late.
-        # All three bands must be covered.  Slots 5-8 used to match
-        # NEITHER branch, so they kept the untouched round median while
-        # slot 4 carried the full early-band premium — a 13% cliff
-        # between two adjacent picks (1.04 → 7042, 1.05 → 6124).
-        if slot <= 4:
-            frac = (4 - slot) / 4
-            base = int(early_val * (1 - frac) + (early_val + 200) * frac)
-        elif slot <= 8:
-            # Mid band: ramp from where the early band ends (slot 4 =
-            # early_val) down to the round median, which is exactly
-            # where the late band below starts (its frac is 0 at slot 8).
-            frac = (slot - 4) / 4
-            base = int(early_val * (1 - frac) + LEGACY_PICK_ROUND_CURVE[rnd] * frac)
-        else:
-            frac = (slot - 8) / 4
-            base = int(LEGACY_PICK_ROUND_CURVE[rnd] * (1 - frac) + late_val * frac)
-
-    # Year discount: future years are worth less
-    year = info.get("year")
-    if year is not None and year > current_year:
-        years_out = year - current_year
-        discount = PICK_YEAR_DISCOUNT**years_out
-        base = int(base * discount)
-
-    return max(100, min(PICK_CEILING, base))
-
-
-def _build_legacy_pick_lookup(legacy_path: Path | None) -> dict[str, int]:
-    """Build a name-normalized lookup of legacy pick values."""
-    if legacy_path is None or not legacy_path.exists():
-        return {}
-
-    try:
-        data = json.loads(legacy_path.read_text())
-    except Exception:
-        return {}
-
-    players = data.get("players", {})
-    lookup: dict[str, int] = {}
-
-    for name, pdata in players.items():
-        if not isinstance(pdata, dict):
-            continue
-        pos = str(pdata.get("position", pdata.get("POS", ""))).strip().upper()
-        if pos != "PICK":
-            continue
-        val = pdata.get("_composite", 0)
-        if val > 0:
-            norm = name.lower().strip()
-            lookup[norm] = int(val)
-
-    return lookup
 
 
 def calibrate_canonical_values(
@@ -300,7 +165,6 @@ def calibrate_canonical_values(
 
     scales = universe_scales or UNIVERSE_SCALES
     knees = universe_knees or UNIVERSE_KNEES
-    legacy_pick_lookup = _build_legacy_pick_lookup(legacy_path)
 
     by_universe: dict[str, list[dict[str, Any]]] = {}
     for asset in assets:
@@ -338,30 +202,13 @@ def calibrate_canonical_values(
 
             asset["calibrated_value"] = calibrated
 
-        # Calibrate picks using legacy curve
+        # Picks: this retired layer prices NO pick (C1-U6 — one owner).
+        # Missing is never zero: calibrated_value stays None and the
+        # source label says why, so a consumer cannot mistake refusal
+        # for a real $0.
         for asset in picks:
-            name = str(asset.get("display_name", "")).strip()
-            norm_name = name.lower().strip()
-
-            # Strategy 1: Direct legacy value lookup
-            legacy_val = legacy_pick_lookup.get(norm_name)
-            if legacy_val is not None:
-                asset["calibrated_value"] = legacy_val
-                asset["_pick_calibration_source"] = "legacy_direct"
-                continue
-
-            # Strategy 2: Parse pick info and use round curve
-            info = _parse_pick_info(name)
-            if info.get("round") is not None:
-                curve_val = _pick_curve_value(info)
-                asset["calibrated_value"] = curve_val
-                asset["_pick_calibration_source"] = "round_curve"
-                continue
-
-            # Strategy 3: Fallback power curve
-            # Sort picks by blended value and use generic curve
-            asset["calibrated_value"] = min(pick_ceiling, int(asset.get("blended_value", 0) * 0.5))
-            asset["_pick_calibration_source"] = "fallback"
+            asset["calibrated_value"] = None
+            asset["_pick_calibration_source"] = "retired_second_owner_c1u6"
 
     # Apply display-scale values to all assets (players + picks)
     for asset in assets:
@@ -383,14 +230,12 @@ def get_calibration_params() -> dict[str, Any]:
         "pick_ceiling": PICK_CEILING,
         "non_fantasy_ceiling": NON_FANTASY_CEILING,
         "non_fantasy_positions": sorted(NON_FANTASY_POSITIONS),
-        "pick_calibration": "Legacy curve: direct name match → round/tier/year curve → fallback",
-        "pick_round_curve": dict(LEGACY_PICK_ROUND_CURVE),
-        "pick_year_discount": PICK_YEAR_DISCOUNT,
+        "pick_calibration": "RETIRED (C1-U6): this layer prices no pick; canonical owner is the data_contract pick pipeline",
         "description": (
             f"Piecewise power curve: scale * percentile^{CALIBRATION_EXPONENT}, "
             f"offense knee={UNIVERSE_KNEES.get('offense_vet')}, IDP knee={UNIVERSE_KNEES.get('idp_vet')}. "
             f"Offense scale={UNIVERSE_SCALES.get('offense_vet')}, IDP scale={UNIVERSE_SCALES.get('idp_vet')}. "
-            f"Picks use legacy curve, kickers/punters capped at {NON_FANTASY_CEILING}."
+            f"Picks are not priced by this layer (C1-U6), kickers/punters capped at {NON_FANTASY_CEILING}."
         ),
         "tier_thresholds": {
             "elite": ">= 7000",
