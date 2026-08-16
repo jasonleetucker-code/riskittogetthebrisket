@@ -303,6 +303,30 @@ resolver echoes the caller's ref verbatim; the generic grade never becomes
 7. **IDPTC staleness** — its pick board did not move for 34 days; if it is
    abandoned upstream, the pick blend's second family goes stale silently.
    Worth a freshness note in a future source-health pass.
+8. **Module-global derivation state** — `_SYNTHETIC_PICK_DERIVATIONS` follows
+   the pre-existing `_SYNTHETIC_FAR_FUTURE_PICK_NAMES` module-global lifecycle;
+   concurrent override builds in one process share it (sequential builds
+   verified deterministic).  Fix direction: thread the map through
+   `_compute_unified_rankings` as a parameter.
+9. **Transparency-stamp precision on derived rows** — a synthetic year's
+   `pickYearDiscount` is the step to its TEMPLATE year (so the draft-day
+   projection unwinds to the template level, same net behavior as the retired
+   composition); a generic row stamps the mean of its tier factors; a derived
+   R5/R6 row inherits its round-4 basis's year factor while its (non-voting)
+   injected display values used the pooled fallback.  Label accuracy only —
+   no canonical value is affected.
+10. **Simulator conventions** — `_resolve_asset` follows aliases and board
+   names inline against the terminal row index rather than calling
+   `resolve_pick_value` (which needs the contract object); and removing a sent
+   pick still de-dups by name, so two identically-named roster picks collapse
+   in the AFTER state (pre-existing name-keying; visible now that roster picks
+   resolve at all).  The terminal portfolio's deliberate pick exclusion is
+   unchanged and now visibly diverges from the simulator's aggregates that do
+   include picks — the documented product decision, restated here.
+11. **Export-leg census** — the export artifacts are the raw-evidence lane
+   (scraper payload + site CSVs), not a canonical-value surface; the export
+   parity test self-skips accordingly.  If a contract-derived export ever
+   ships, wire it into the census.
 
 ## 13. What was deliberately NOT done
 
