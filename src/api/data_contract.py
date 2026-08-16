@@ -3769,12 +3769,13 @@ _SOURCE_CSV_PARSE_CACHE: dict[
     str, tuple[float, dict[str, list[tuple[str, int, float | None]]], dict[str, str] | None]
 ] = {}
 
-# C1-ID-01 dual-read: the most recent contract-build CSV-join comparison
-# (legacy inline cascade vs src/identity/resolution.match_row_to_source_entry).
+# C1-ID-01 CUTOVER: summary of the most recent contract-build CSV-join,
+# now decided solely by src/identity/resolution.match_row_to_source_entry.
 # Written by _enrich_from_source_csvs, stamped into the contract payload as
-# ``identityDualRead`` by build_api_data_contract.  The prod gate for the
-# C1-U2 cutover reads this: v1Diverge must be ZERO over a full refresh cycle.
-_LAST_CONTRACT_JOIN_DUAL_READ: dict | None = None
+# ``identityJoin`` by build_api_data_contract.  Before the cutover this held
+# a legacy-vs-engine comparison; the gate it existed for passed at 24,024 of
+# 24,024 decisions and the inline cascade was then deleted.
+_LAST_CONTRACT_JOIN_SUMMARY: dict | None = None
 
 _FP_META_CSV_CACHE: dict[str, tuple[float, dict[str, dict[str, Any]]]] = {}
 
@@ -4074,16 +4075,14 @@ def _enrich_from_source_csvs(
     repo = Path(__file__).resolve().parents[2]
     csv_index: dict[str, dict[str, dict[str, Any]]] = {}
 
-    # C1-ID-01 dual-read: compare the inline join cascade below against the
-    # canonical engine's transcription of it on every (row, source) lookup.
-    # The INLINE decision is served either way — this is observability for
-    # the cutover gate, never a behaviour change.
+    # C1-ID-01 CUTOVER: the canonical owner decides every (row, source)
+    # join.  The inline cascade that used to live in the row loop is
+    # DELETED — no flag, no fallback — after its transcription was proven
+    # identical on 24,024 of 24,024 live decisions.
     from src.identity import resolution as _identity_resolution  # noqa: PLC0415
 
-    _join_dual_read_on = _identity_resolution.dual_read_enabled()
-    _join_tally = (
-        _identity_resolution.DualReadTally("contract_csv_join") if _join_dual_read_on else None
-    )
+    _join_decisions = 0
+    _join_matched = 0
 
     # DraftSharks (offense + IDP) publish a cross-market 0-100 ``3D
     # Value +`` scale that goes negative past ~rank 200 — the CSV
@@ -4269,16 +4268,23 @@ def _enrich_from_source_csvs(
             value_present = existing is not None and (
                 existing > 0 or (source_key in ds_combined_rank_keys and existing <= 0)
             )
+            decision = _identity_resolution.match_row_to_source_entry(
+                row_player_id=row.get("playerId"),
+                row_name=str(row.get("canonicalName") or row.get("displayName") or ""),
+                row_position=row.get("position"),
+                per_source=per_source,
+                sid_index=sid_index,
+                row_groups_by_key=row_groups_by_key,
+                canonical_match_key=_canonical_match_key,
+                position_group=canonical_position_group,
+            )
+            _join_decisions += 1
             entry = None
-            _legacy_join_key = None
-            if sid_index:
+            if decision.via == "sleeper_id":
                 # Rows stamp the Sleeper id as ``playerId`` (mapped
                 # from the legacy ``_sleeperId``).
                 row_sid = str(row.get("playerId") or "").strip()
-                if row_sid:
-                    entry = sid_index.get(row_sid)
-                    if entry is not None:
-                        _legacy_join_key = f"sid::{row_sid}"
+                entry = sid_index.get(row_sid)
                 if entry is not None:
                     # Mirror the ID match into the name-keyed audit
                     # index under the ROW's canonical key — the
@@ -4297,48 +4303,11 @@ def _enrich_from_source_csvs(
                             f"{audit_cname}::{audit_grp}",
                             {**entry, "matchedVia": "sleeper_id"},
                         )
-            if entry is None:
-                nm = str(row.get("canonicalName") or row.get("displayName") or "")
-                if nm:
-                    cname = _canonical_match_key(nm)
-                    if cname:
-                        grp = canonical_position_group(row.get("position"))
-                        if f"{cname}::{grp}" in per_source:
-                            entry = per_source[f"{cname}::{grp}"]
-                            _legacy_join_key = f"{cname}::{grp}"
-                        else:
-                            # Fall back to a name-only / unknown-group lookup so
-                            # rows whose position is missing still receive an
-                            # enrichment when a single non-ambiguous CSV entry
-                            # exists.
-                            if f"{cname}::*" in per_source:
-                                entry = per_source[f"{cname}::*"]
-                                _legacy_join_key = f"{cname}::*"
-                            elif len(row_groups_by_key.get(cname, set())) == 1:
-                                only_grp = next(iter(row_groups_by_key[cname]))
-                                if f"{cname}::{only_grp}" in per_source:
-                                    entry = per_source[f"{cname}::{only_grp}"]
-                                    _legacy_join_key = f"{cname}::{only_grp}"
-            if _join_tally is not None:
-                _decision = _identity_resolution.match_row_to_source_entry(
-                    row_player_id=row.get("playerId"),
-                    row_name=str(row.get("canonicalName") or row.get("displayName") or ""),
-                    row_position=row.get("position"),
-                    per_source=per_source,
-                    sid_index=sid_index,
-                    row_groups_by_key=row_groups_by_key,
-                    canonical_match_key=_canonical_match_key,
-                    position_group=canonical_position_group,
-                )
-                _join_tally.record_keys(
-                    input_name=str(row.get("canonicalName") or row.get("displayName") or ""),
-                    input_pos=str(row.get("position") or ""),
-                    source=source_key,
-                    legacy_key=_legacy_join_key,
-                    engine_key=_decision.entry_key,
-                )
+            elif decision.entry_key:
+                entry = per_source.get(decision.entry_key)
             if not entry:
                 continue
+            _join_matched += 1
             if value_present:
                 # Metadata-only stamping: never overwrite the existing
                 # contribution, just make sure the display fields are
@@ -4422,8 +4391,15 @@ def _enrich_from_source_csvs(
             except Exception as exc:  # noqa: BLE001
                 _LOGGER.warning("FantasyPros IDP metadata stamp failed: %s", exc)
 
-    global _LAST_CONTRACT_JOIN_DUAL_READ
-    _LAST_CONTRACT_JOIN_DUAL_READ = _join_tally.to_dict() if _join_tally is not None else None
+    global _LAST_CONTRACT_JOIN_SUMMARY
+    _LAST_CONTRACT_JOIN_SUMMARY = {
+        "site": "contract_csv_join",
+        "policy": _identity_resolution.CONTRACT_CSV_JOIN_V1,
+        "decidedBy": "src.identity.resolution.match_row_to_source_entry",
+        "legacyCascadeRetired": True,
+        "decisions": _join_decisions,
+        "matched": _join_matched,
+    }
 
     return csv_index
 
@@ -10049,9 +10025,9 @@ def build_api_data_contract(
         "validationSummary": validation_summary,
         "pickAliases": pick_aliases or {},
         "sourceParseErrors": source_parse_errors,
-        # C1-ID-01 dual-read evidence for the contract CSV-join site.  The
+        # C1-ID-01: which owner decided this build's source-CSV joins.  The
         # scraper site's twin artifact is data/scrape_state/identity_dual_read.json.
-        "identityDualRead": _LAST_CONTRACT_JOIN_DUAL_READ,
+        "identityJoin": _LAST_CONTRACT_JOIN_SUMMARY,
         "hillCurves": _build_hill_curves_block(),
     }
     # Drop internal-only provenance markers before materializing the

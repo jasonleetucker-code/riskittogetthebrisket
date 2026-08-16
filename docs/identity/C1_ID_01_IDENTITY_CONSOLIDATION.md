@@ -4,8 +4,9 @@
 (`docs/C_SERIES_SCOPE_MANIFEST.md` §4) · **Disposition:** CONSOLIDATE · **Profile:** P2
 **Authorized:** owner authorization of C1A unit 2, 2026-08-16 (recorded in `docs/EXECUTION_PLAN.md` §0)
 **Base:** `main` @ `83277e989fabc892fac8b7f5a34f38b209a94ce7`
-**Status:** DUAL-READ LIVE — legacy answers served everywhere; cutover gated on the
-production zero-divergence proof (§6)
+**Status:** **CUT OVER AND CLOSED.** The canonical owner serves player identity at both
+sites; the legacy ladders are deleted. `CANONICAL_V2` is measured but deliberately NOT
+served — see §9 for the production evidence that blocks it.
 
 ---
 
@@ -35,14 +36,18 @@ single functions):
 One engine owns resolution semantics through **named, versioned policies**:
 
 - **`SCRAPER_SLEEPER_ATTACH_V1`** — exact transcription of the scraper's ladder,
-  hazards included (unguarded initial+last rung, argmax homonym guessing). Exists to
-  prove dual-read parity; retired at cutover.
+  hazards included (unguarded initial+last rung, argmax homonym guessing). It proved
+  dual-read parity and is now the **served** scraper policy: production already
+  produced exactly these answers, and they are now produced by the canonical owner.
+  Its known hazards are real but pre-existing; removing them is the V2 work (§9).
 - **`CONTRACT_CSV_JOIN_V1`** (`match_row_to_source_entry`) — exact transcription of the
   contract's sid-first + position-aware-key cascade. Deliberately fuzzy-free: measured
   on the live corpus, the exact join rejected all 544 unmatched CSV names with zero
   false merges (W06-F006 `whatWorks`).
-- **`CANONICAL_V2`** — the destination semantics, **dark** (no production consumer)
-  until the prod gate authorizes cutover. Repairs, each grounded in a measured defect:
+- **`CANONICAL_V2`** — the intended destination semantics, still **dark** (no
+  production consumer). The prod gate it was waiting on passed, but the same cycle
+  measured that V2 is not yet a strict improvement — §9. Repairs it already carries,
+  each grounded in a measured defect:
   - fuzzy and initial-expansion rungs are guarded (`is_safe_name_merge` + exact-surname
     requirement) — kills the 3 live sibling false-merges and all 11 W06-F006 pairs;
   - homonym selection prefers the single candidate **currently rostered on an NFL
@@ -82,20 +87,28 @@ names the new home. **Consolidating the vocabularies themselves is a semantic ch
 this unit deliberately does not make** — the two adapter sites keep their measured
 vocabularies through V1 policies until an owner-gated semantic step.
 
-### 2.3 The two adapters (dual-read, legacy served)
+### 2.3 The two adapters — dual-read first, then cut over (§5a)
 
-- **Scraper site** (`_resolve_sleeper_identity`): every call now also resolves through
-  the engine (V1 + V2), tallies agreement, and serves the **legacy** answer. Artifact:
-  `data/scrape_state/identity_dual_read.json`, committed by `scheduled-refresh.yml`
-  every cycle, so the prod gate is observable off-box (the C1-RET-02 lesson). Memoized
-  per (name, pos); the memo is dropped when the roster-position map is enriched
-  mid-run, because that map is evidence the merge guard reads.
-- **Contract site** (`_enrich_from_source_csvs`): every (row, source) join decision is
-  compared against `match_row_to_source_entry`; the tally is stamped on the contract
-  as `identityDualRead`. The inline cascade still serves.
-- **Cutover flag:** `RISKIT_IDENTITY_CUTOVER=1` (default OFF) switches the scraper
-  site to the engine's V1 answer. Kill-switch for the comparison itself:
-  `RISKIT_IDENTITY_DUAL_READ=0` (cost control, not correctness).
+Both sites went through the same two phases. **Phase 1 (dual-read):** each site
+resolved through the engine alongside its legacy path, tallied agreement, and served
+the **legacy** answer — so the comparison could never itself change a value.
+**Phase 2 (cutover, executed after the gate):** the engine's answer is served and the
+legacy path is deleted.
+
+- **Scraper site** (`_resolve_sleeper_identity`): now resolves solely through
+  `resolve_scraper_attach_v1`. Artifact: `data/scrape_state/identity_dual_read.json`,
+  committed by `scheduled-refresh.yml` every cycle, so the evidence is observable
+  off-box (the C1-RET-02 lesson). Post-cutover it records `servedPolicy` and the
+  standing `v2WouldChange` gap (§9). Memoized per (name, pos); the memo is dropped
+  when the roster-position map is enriched mid-run, because that map is evidence the
+  merge guard reads.
+- **Contract site** (`_enrich_from_source_csvs`): now calls
+  `match_row_to_source_entry` as the only join decision; the build stamps
+  `identityJoin` naming the deciding owner, its policy and the decision/match counts.
+- **Flags:** `RISKIT_IDENTITY_CUTOVER` is **gone** — with the legacy paths deleted
+  there is nothing to fall back to. `RISKIT_IDENTITY_DUAL_READ=0` survives as the
+  kill-switch for the V2 *watch* only (cost control; it cannot change a served
+  identity).
 
 ## 3. The RED, measured
 
@@ -161,33 +174,78 @@ baseline/context name-collision asymmetry, and the `identityConfidence` semantic
 (rename owned by C1-CONF-01 / unit C1-U5 — its "1.00 canonical_id means a name-matched
 id" trust-laundering is documented in W06-F005 and untouched).
 
-## 6. The prod gate and the remaining stages
+## 5a. Cutover — executed 2026-08-16
 
-Per the execution map: **dual-read → compare → cut over → retire.** This PR delivers
-dual-read + compare, provably inert (the served board is unchanged — §4).
+The staged migration completed: **dual-read → compare → cut over → retire.**
 
-1. **Observe** (next): each production scrape writes
-   `data/scrape_state/identity_dual_read.json`; each contract build stamps
-   `identityDualRead`. Gate: **`v1Diverge == 0` over a full refresh cycle** on both
-   sites. `scripts/identity_parity.py --require-scraper-artifact` is the check.
-2. **Cut over** (after the gate): set `RISKIT_IDENTITY_CUTOVER=1` in the production
-   environment; the scraper site serves the engine's V1 answers (identical by proof);
-   the contract site's inline cascade is replaced by the owned function (zero-diff by
-   CI pin).
-3. **Retire** (same window): delete `_resolve_sleeper_identity_legacy` and the inline
-   cascade; drop the flag. The unit's "retires 3 independent matchers" line closes
-   here.
-4. **Semantic step** (separate, owner-gated, NOT part of this unit's closure):
-   activating `CANONICAL_V2` at the scraper site changes 10 board-vocabulary
-   resolutions (§4) — every one an explicit refusal replacing a guess. That is a
-   product decision on how the board renders `ambiguous`/`unresolved`, and it waits
-   for the owner.
+| stage | evidence |
+|---|---|
+| deployed | merge `b0c2f36` (parents `83277e9` + validated head `cb40aa9`); Deploy Production run `31921280237` SUCCESS, remote deploy + smoke test + live-contract validation green |
+| production cycle observed | prod server scrape completed 02:35:05Z on the new revision; CI refresh run wrote and committed the artifact at 02:50:03Z |
+| **prod gate** | `scripts/identity_parity.py --require-scraper-artifact` → **exit 0**. Scraper site: **2,016 / 2,016 agree, v1Diverge 0**. Contract site: **24,024 / 24,024 agree, v1Diverge 0** |
+| cut over | both sites now resolve through `src/identity/resolution.py`. Served policies: `SCRAPER_SLEEPER_ATTACH_V1` and `CONTRACT_CSV_JOIN_V1` |
+| retired | scraper `_resolve_sleeper_identity_legacy` **deleted**, plus its now-dead machinery (the triple Sleeper candidate index, `_candidate_score`, `_pick_best_candidate`); contract inline join cascade **deleted**; the `RISKIT_IDENTITY_CUTOVER` branch **deleted** |
+| inertness | contract rebuilt before vs after: **0 of 1,092 rows differ** in (playerId, rankDerivedValue, canonicalConsensusRank) |
+
+**No flag, no fallback.** The cutover flag is gone rather than left at `1`: with the
+legacy path deleted there is nothing to fall back *to*, and a surviving branch would
+misdescribe what can happen. `tests/identity/test_dual_read_zero_divergence.py` pins
+this structurally — the legacy symbols, the flag branch and a private candidate
+selector may not reappear.
+
+## 9. CANONICAL_V2 is NOT served — the measured reason
+
+The same production cycle measured what the repaired semantics *would* change:
+**19 changed decisions across 15 distinct (name, position) inputs.** They do not all
+point the same way, and that is what blocks activation:
+
+| class | cases | verdict |
+|---|---|---|
+| **first-name variant** — Matt/Matthew Judon, Matthew/Matt Hibner, Michael/Mike Hall, Nikolas/Nick Martin | 4 | **REGRESSION.** V2 would drop identity for four real, correctly-resolved players. Its `first_name_compatible` guard rejects prefix-subset first names (right for *distinct people* — chris/christian) but that is exactly wrong for *one person's* short form |
+| **ambiguity from a missing position** — Elijah Mitchell, Jaylon Jones, Michael Carter | 3 | **NEEDS WORK.** V2 refuses only because those call sites pass no position; the retired ladder's active/team scoring picked the rostered player |
+| **legacy false merges V2 correctly refuses** — Whit Weeks→West Weeks, Rod Moore→Rahim Moore, Jamarion Miller→Jordan Miller, Bam Knight→Brandon Knight (an OT), Johnny Newton→Josh Newton (a CB) | 5 | V2 right |
+| **genuine two-rostered homonyms** — Byron Murphy DL, Byron Young DL | 2 | V2 defensible (refuses, names candidates) |
+| **recovery** — Justin Madubuike → Nnamdi Madubuike via the alias table | 1 | V2 improvement (legacy returned nothing) |
+
+So V2 is not a strict improvement today. Before it can serve it needs:
+
+1. a **first-name-variant rung** — the repo already owns the rule,
+   `src/utils/name_clean.is_first_name_variant` (built in B5 for W06-F001, and note
+   Matt/Matthew Hibner is literally that finding's own pair); and
+2. a **no-position tiebreak** — reuse the roster-presence preference V2 already has,
+   so a missing position hint degrades to "prefer the rostered candidate" rather than
+   to a refusal.
+
+Both are canonical-identity semantics, not adapter mechanics, so they are **out of
+C1-U2's scope** and belong to a dedicated, owner-authorized unit. Serving V1 in the
+meantime is not a compromise: V1 is what production already produced, proven
+identical over 2,016 live decisions, and it is now produced *by the canonical owner*.
+
+**The gap stays measured.** The scraper writes `v2WouldChange` every cycle into
+`data/scrape_state/identity_dual_read.json`, so the V2 work starts from live evidence
+rather than a fresh investigation.
+
+## 6. Stage history (all stages complete)
+
+Recorded because the discipline mattered more than the outcome: at no point did a
+single change both alter the served answer and remove the ability to compare.
+
+1. **Observe** — done. Both sites dual-read on production; artifacts at
+   `data/scrape_state/identity_dual_read.json` and the contract's stamp.
+2. **Cut over** — done, 2026-08-16 (§5a). Gate was zero divergence at both sites.
+3. **Retire** — done. Legacy ladders, their dead machinery and the cutover flag are
+   deleted; structural tests prevent their return.
+4. **Semantic step (V2)** — **deliberately not taken.** §9 records the production
+   evidence that blocks it and the two specific repairs it needs.
 
 ## 7. Follow-up ledger (non-blocking)
 
+- **`CANONICAL_V2` activation (§9)** — needs a first-name-variant rung and a
+  no-position tiebreak. Canonical-identity semantics, so it needs its own authorized
+  unit; the standing `v2WouldChange` measurement is its starting evidence.
 - Convert the remaining scraper ladder sites (`match_all`, `_canonical_map`,
   `_find_site_candidate`, dedupe/guarantee passes) to engine policies, one dual-read
-  at a time, after the first cutover proves the pattern.
+  at a time — the pattern is now proven end to end.
 - Migrate the mapper's 3 consumers to `resolution.resolve_canonical_v2`; then retire
   `resolve_player`'s raw-fuzzy rung (closing W06-F006 at every layer, not just at the
   canonical API).
@@ -197,14 +255,16 @@ dual-read + compare, provably inert (the served board is unchanged — §4).
 
 ## 8. Invariants this unit holds (and tests that pin them)
 
-- The board is byte-inert: `b5_metrics` numeric-identical; contract-join dual-read
-  24,046/0; full backend suite green.
+- The board is byte-inert across the whole unit, cutover included: `b5_metrics`
+  numeric-identical; production dual-read 2,016/0 and contract 24,024/0; a
+  before/after rebuild across the cutover differs on **0 of 1,092 rows**; full backend
+  suite green.
 - The W06-F002 near-name detector **stays retired** — nothing here reintroduces it.
 - Unresolved identity ≠ best fuzzy guess: `CANONICAL_V2` refuses with named reasons
   and named candidates (`test_matcher_disagreement_red.py`,
   `test_resolution_engine.py`).
-- One owner: the scraper carries no private name-matching definitions
-  (`test_team_codes_parity.py` structural pins), and the CSV-join transcription
-  cannot drift from the inline cascade unnoticed
-  (`test_dual_read_zero_divergence.py`, every CI run).
+- One owner, no fallback: the scraper carries no private name-matching definitions
+  and no private candidate ladder, the legacy symbols and the cutover flag cannot
+  reappear, and both sites stamp which owner decided
+  (`test_team_codes_parity.py`, `test_dual_read_zero_divergence.py`, every CI run).
 - Pick identity untouched (C1-ID-02): pick-shaped names refuse with `pick_name`.

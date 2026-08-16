@@ -1687,14 +1687,28 @@ candidates, group-level position drift tolerance, deterministic under directory
 order). `name_primitives.py` holds the scraper's name-matching primitives, moved
 verbatim; `Dynasty Scraper.py` imports them back and is an ADAPTER, not an owner.
 
-Migration state: dual-read live at both consolidation sites, LEGACY answers served.
-Evidence artifacts: `data/scrape_state/identity_dual_read.json` (scraper site, every
-cycle) and the contract's `identityDualRead` stamp (join site, every build — CI-pinned
-at zero divergence). Cutover only via `RISKIT_IDENTITY_CUTOVER=1` after the prod gate.
-Rules for new code: need identity resolution → `resolution.resolve_canonical_v2`;
-never add consumers to `unified_mapper.resolve_player` (legacy-V1 compat only); never
-define matching/normalization logic outside `src/identity/` + the `name_clean` family
-registry. Full record: `docs/identity/C1_ID_01_IDENTITY_CONSOLIDATION.md`.
+Migration state: **CUT OVER (2026-08-16).** Both sites resolve through the owner and
+the legacy ladders are **deleted** — no flag, no fallback. Served policies are
+`SCRAPER_SLEEPER_ATTACH_V1` and `CONTRACT_CSV_JOIN_V1` (the owner's exact
+transcriptions of the retired ladders), proven identical on production before the
+swap: scraper 2,016/2,016 over a full refresh cycle, contract 24,024/24,024, and a
+before/after board rebuild moving 0 of 1,092 rows.
+
+**`CANONICAL_V2` is implemented but NOT served, deliberately.** The same production
+cycle measured that it is not yet a strict improvement: it would drop correct identity
+for the first-name-variant class (Matt/Matthew Judon, Michael/Mike Hall, …) and refuse
+rows whose call site passes no position. It needs a first-name-variant rung
+(`name_clean.is_first_name_variant`) and a no-position tiebreak — canonical-identity
+semantics, so a separate authorized unit. The gap is measured every cycle as
+`v2WouldChange` in `data/scrape_state/identity_dual_read.json`; the contract stamps
+`identityJoin` naming the deciding owner.
+
+Rules for new code: need identity resolution → `src/identity/resolution.py` (use
+`resolve_canonical_v2` only where an explicit refusal is acceptable — it is not the
+served board policy); never add consumers to `unified_mapper.resolve_player`
+(legacy-V1 compat only); never define matching/normalization logic outside
+`src/identity/` + the `name_clean` family registry. Full record:
+`docs/identity/C1_ID_01_IDENTITY_CONSOLIDATION.md`.
 
 ### Adapter Pattern
 Pluggable source adapters (`src/adapters/base.py` defines the frozen contract). All adapters emit `RawAssetRecord` dataclasses with normalized fields.

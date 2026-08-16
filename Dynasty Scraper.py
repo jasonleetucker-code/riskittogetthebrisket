@@ -4292,41 +4292,14 @@ async def run(progress_callback=None):
         # No match — keep as-is
         _canonical_map[cn] = cn
 
-    # ── Build full Sleeper identity indexes from the global Sleeper player DB ──
-    _sleeper_name_candidates = {}  # clean_name -> [candidate...]
-    _sleeper_norm_candidates = {}  # normalized_name -> [candidate...]
-    _sleeper_initial_candidates = {}  # (initial, last_norm) -> [candidate...]
-
-    for pid, pdata in SLEEPER_ALL_NFL.items():
-        if not isinstance(pdata, dict):
-            continue
-        full = clean_name(
-            pdata.get("full_name")
-            or f"{pdata.get('first_name', '')} {pdata.get('last_name', '')}".strip()
-        )
-        if not full:
-            continue
-        pos = str(pdata.get("position", "") or "").upper()
-        cand = {
-            "id": str(pid),
-            "name": full,
-            "pos": pos,
-            "active": 1 if pdata.get("active") else 0,
-            "team": pdata.get("team") or "",
-            "search_rank": float(pdata.get("search_rank", 0) or 0),
-            "years_exp": int(pdata.get("years_exp", pdata.get("experience", 0)) or 0),
-        }
-        _sleeper_name_candidates.setdefault(full, []).append(cand)
-        _sleeper_norm_candidates.setdefault(normalize_lookup_name(full), []).append(cand)
-        parts = full.split()
-        if len(parts) >= 2:
-            key = (
-                parts[0][0].lower(),
-                " ".join(parts[1:]).lower().replace("-", " ").replace(".", ""),
-            )
-            _sleeper_initial_candidates.setdefault(key, []).append(cand)
-
-    _sleeper_name_pool = list(_sleeper_name_candidates.keys())
+    # ── C1-ID-01 CUTOVER: the Sleeper candidate indexes and the
+    # candidate-scoring pair that fed the retired run()-scope ladder are
+    # GONE.  ``src/identity/resolution.SleeperDirectoryIndex`` builds the
+    # equivalent indexes inside the canonical owner, so keeping a second
+    # copy here would rebuild a ~12k-entry triple index every scrape for
+    # no reader — and would be exactly the duplicate owner this unit
+    # retired.  ``_pos_family`` below survives: it is still read by the
+    # identity cache key and the candidate-position check.
 
     def _pos_family(pos):
         up = str(pos or "").upper()
@@ -4337,30 +4310,6 @@ async def run(progress_callback=None):
         if up in {"OLB", "ILB"}:
             return "LB"
         return up
-
-    def _candidate_score(cand, preferred_pos=""):
-        score = 0.0
-        if cand.get("active"):
-            score += 10000.0
-        if cand.get("team"):
-            score += 500.0
-        # Sleeper's search_rank is "lower is better" (1 = top result).
-        # Inactive/irrelevant players get 9999999 as a sentinel — drop it
-        # entirely so it can't dwarf the active-status bonus and pin a
-        # popular name (e.g. "Josh Allen") to a long-retired homonym.
-        sr = cand.get("search_rank") or 0
-        if 0 < sr < 9999999:
-            score += max(0.0, 1000.0 - float(sr))
-        score += cand.get("years_exp", 0) * 2.0
-        if preferred_pos:
-            if _pos_family(cand.get("pos")) == _pos_family(preferred_pos):
-                score += 300.0
-        return score
-
-    def _pick_best_candidate(candidates, preferred_pos=""):
-        if not candidates:
-            return None
-        return max(candidates, key=lambda c: _candidate_score(c, preferred_pos))
 
     def _looks_like_pick_name(name):
         s = str(name or "").upper().strip()
@@ -4382,92 +4331,71 @@ async def run(progress_callback=None):
             return True
         return False
 
-    def _resolve_sleeper_identity_legacy(name, preferred_pos=""):
-        cleaned = clean_name(name)
-        if not cleaned or _looks_like_pick_name(cleaned):
-            return None
-
-        candidates = list(_sleeper_name_candidates.get(cleaned, []))
-        if not candidates:
-            candidates = list(_sleeper_norm_candidates.get(normalize_lookup_name(cleaned), []))
-        if not candidates:
-            parts = cleaned.split()
-            if len(parts) >= 2:
-                key = (
-                    parts[0][0].lower(),
-                    " ".join(parts[1:]).lower().replace("-", " ").replace(".", ""),
-                )
-                candidates = list(_sleeper_initial_candidates.get(key, []))
-        if not candidates and _sleeper_name_pool:
-            fm = best_match(
-                cleaned, _sleeper_name_pool, threshold=0.90, match_guard=_is_safe_name_merge
-            )
-            if fm:
-                candidates = list(_sleeper_name_candidates.get(fm, []))
-        best = _pick_best_candidate(candidates, preferred_pos)
-        if not best:
-            return None
-        return {
-            "id": best["id"],
-            "name": best["name"],
-            "pos": _pos_family(best.get("pos", "")),
-        }
-
-    # ── C1-ID-01 dual-read: the canonical engine resolves alongside the
-    # legacy ladder.  The LEGACY answer is served until the prod gate
-    # (zero V1 divergence over a full refresh cycle) authorizes cutover
-    # via RISKIT_IDENTITY_CUTOVER=1 — never a flag-day swap.  The engine
-    # also records what the repaired CANONICAL_V2 semantics WOULD answer,
-    # so the eventual semantic step is owner-reviewable evidence, not a
-    # surprise.  Artifact: data/scrape_state/identity_dual_read.json
-    # (committed by scheduled-refresh, so it is observable off-box).
+    # ── C1-ID-01 CUTOVER (2026-08-16) ────────────────────────────────
+    # Player identity is resolved by the canonical owner,
+    # ``src/identity/resolution.py``.  The legacy run()-scope ladder that
+    # used to live here is DELETED, not flagged off: there is no
+    # fallback and no environment switch, so nothing can override the
+    # owner's answer.
+    #
+    # The served policy is SCRAPER_SLEEPER_ATTACH_V1 — the owner's exact
+    # transcription of that retired ladder.  It was proven identical on
+    # production before the swap: 2,016 of 2,016 live scrape decisions
+    # agreed over a full refresh cycle (artifact
+    # ``data/scrape_state/identity_dual_read.json``, run 2026-08-16), on
+    # top of 9,465 offline corpus inputs.  Serving it is therefore a
+    # pure ownership move with no behavioural delta.
+    #
+    # CANONICAL_V2 (the repaired semantics) is deliberately NOT served.
+    # The same production cycle measured what it would change, and 4 of
+    # those changes are regressions on the first-name-variant class
+    # (Matt/Matthew Judon, Matthew/Matt Hibner, Michael/Mike Hall,
+    # Nikolas/Nick Martin) plus 3 ambiguity refusals caused only by call
+    # sites that pass no position.  V2 needs a first-name-variant rung
+    # (the repo already owns the rule: ``name_clean.is_first_name_variant``)
+    # and a no-position tiebreak before it can serve.  The watch below
+    # keeps that gap measured every cycle so the work starts from
+    # evidence.  See docs/identity/C1_ID_01_IDENTITY_CONSOLIDATION.md §9.
     _identity_engine_index = _identity_resolution.build_sleeper_index(SLEEPER_ALL_NFL)
-    _identity_dual_read_tally = _identity_resolution.DualReadTally("scraper_sleeper_attach")
-    _identity_dual_read_on = _identity_resolution.dual_read_enabled()
-    _identity_cutover_on = _identity_resolution.cutover_active()
-    # (name, pos) memo so repeated lookups don't re-pay the engine's fuzzy
-    # walk on misses — the tally counts unique ladder decisions, which is
-    # what the divergence gate is about.
-    _identity_dual_read_memo = {}
+    _identity_v2_watch = _identity_resolution.DualReadTally("scraper_sleeper_attach")
+    _identity_v2_watch_on = _identity_resolution.dual_read_enabled()
+    # (name, pos) memo so repeated lookups don't re-pay the resolution
+    # walk; cleared when the roster-position map (evidence the merge
+    # guard reads) is enriched mid-run.
+    _identity_memo = {}
 
     def _resolve_sleeper_identity(name, preferred_pos=""):
         memo_key = (str(name or ""), str(preferred_pos or ""))
-        if memo_key in _identity_dual_read_memo:
-            return _identity_dual_read_memo[memo_key]
+        if memo_key in _identity_memo:
+            return _identity_memo[memo_key]
         result = _resolve_sleeper_identity_uncached(name, preferred_pos)
-        _identity_dual_read_memo[memo_key] = result
+        _identity_memo[memo_key] = result
         return result
 
     def _resolve_sleeper_identity_uncached(name, preferred_pos=""):
-        legacy = _resolve_sleeper_identity_legacy(name, preferred_pos)
-        if not (_identity_dual_read_on or _identity_cutover_on):
-            return legacy
-        engine_v1 = _identity_resolution.resolve_scraper_attach_v1(
+        served = _identity_resolution.resolve_scraper_attach_v1(
             _identity_engine_index,
             name,
             preferred_pos=preferred_pos,
             merge_guard=_is_safe_name_merge,
         )
-        if _identity_dual_read_on:
-            engine_v2 = _identity_resolution.resolve_canonical_v2(
-                _identity_engine_index, name=name, position=preferred_pos or None
-            )
-            _identity_dual_read_tally.record(
+        served_id = served.sleeper_id if served.resolved else None
+        if _identity_v2_watch_on:
+            _identity_v2_watch.record_served(
                 input_name=str(name or ""),
                 input_pos=str(preferred_pos or ""),
-                legacy_id=(legacy or {}).get("id"),
-                v1_id=engine_v1.sleeper_id if engine_v1.resolved else None,
-                v2=engine_v2,
+                served_id=served_id,
+                v2=_identity_resolution.resolve_canonical_v2(
+                    _identity_engine_index, name=name, position=preferred_pos or None
+                ),
             )
-        if _identity_cutover_on:
-            if not engine_v1.resolved:
-                return None
-            return {
-                "id": engine_v1.sleeper_id,
-                "name": engine_v1.display_name,
-                "pos": engine_v1.position,
-            }
-        return legacy
+        if not served.resolved:
+            return None
+        return {
+            "id": served.sleeper_id,
+            "name": served.display_name,
+            "pos": served.position,
+        }
 
     # Position-based site filtering:
     # IDP-only sites should not contribute values to offensive players
@@ -4771,8 +4699,8 @@ async def run(progress_callback=None):
 
     # The roster-position map just changed, and it is evidence the fuzzy
     # merge guard reads — drop memoized identity answers so later passes
-    # re-resolve exactly as the uncached legacy ladder would have.
-    _identity_dual_read_memo.clear()
+    # re-resolve against the updated evidence.
+    _identity_memo.clear()
 
     # Canonical KTC playerID map for URL imports and DB joins in the UI.
     ktc_id_map = {}
@@ -7363,16 +7291,17 @@ async def run(progress_callback=None):
         os.makedirs(os.path.dirname(_dr_path), exist_ok=True)
         _dr_payload = {
             "generatedAt": datetime.datetime.now(datetime.timezone.utc).isoformat(),
-            "dualReadEnabled": _identity_dual_read_on,
-            "cutoverActive": _identity_cutover_on,
-            **_identity_dual_read_tally.to_dict(),
+            "servedPolicy": _identity_resolution.SCRAPER_ATTACH_V1,
+            "servedBy": "src.identity.resolution",
+            "legacyLadderRetired": True,
+            "v2WatchEnabled": _identity_v2_watch_on,
+            **_identity_v2_watch.to_dict(),
         }
         with open(_dr_path, "w", encoding="utf-8") as f:
             json.dump(_dr_payload, f, indent=1, ensure_ascii=False)
         print(
-            f"  [Identity] dual-read: {_identity_dual_read_tally.calls} calls, "
-            f"v1Diverge={_identity_dual_read_tally.v1_diverge}, "
-            f"v2WouldChange={_identity_dual_read_tally.v2_would_change} -> {_dr_path}"
+            f"  [Identity] canonical owner served {_identity_v2_watch.calls} decisions, "
+            f"v2WouldChange={_identity_v2_watch.v2_would_change} -> {_dr_path}"
         )
     except Exception as _dr_err:  # noqa: BLE001
         print(f"  [Identity] dual-read artifact write failed (non-fatal): {_dr_err}")
