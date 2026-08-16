@@ -65,85 +65,62 @@ def _rows(fx: dict) -> list[dict]:
     return json.loads(json.dumps(fx["currentRows"]))
 
 
-class _SnapshotPathPatch:
-    """Point ``_stamp_rank_changes`` at a temp snapshot file."""
-
-    def __init__(self, path: Path):
-        self.path = path
-
-    def __enter__(self):
-        self._saved = data_contract._RANK_SNAPSHOT_PATH
-        data_contract._RANK_SNAPSHOT_PATH = self.path
-        return self.path
-
-    def __exit__(self, *exc):
-        data_contract._RANK_SNAPSHOT_PATH = self._saved
-        return False
-
-
 class TestRed1RankChangeSelfReference(unittest.TestCase):
-    """THE execution-map RED.  Seed the snapshot with the REAL
-    2026-08-15 canonical board, stamp the REAL 2026-08-16 rows, then
-    stamp the identical rows again — as any override-free rebuild
-    (server restart, second scrape pass) does in production.
+    """THE execution-map RED — now a TOMBSTONE.
 
-    The first build answers "movement since 2026-08-15".  The second
-    build, given byte-identical inputs and the same durable history,
-    answers "movement since my own previous invocation" — all zeros.
-    Same board, same history, two answers: the comparison horizon is
-    whatever the process last happened to write, not a dated
-    observation."""
+    As measured (B-audit residual H; 740 rows across two back-to-back
+    identical builds): ``_stamp_rank_changes`` read
+    ``data/snapshots/ranks_last.json``, stamped deltas against it, then
+    unconditionally rewrote it — so build N+1 diffed against build N's
+    own output, and every non-override build (scrape promotions,
+    startup priming, the two daily offline recorder scripts, and even a
+    stock ``/rankings`` override request — W03-F010) moved the
+    baseline.
 
-    def test_second_identical_build_erases_the_dated_comparison(self):
-        fx = _fx()
+    The mechanism is DELETED: the cache path, its accessor and the
+    ``write_snapshot`` parameter no longer exist, so the defect is
+    unrepresentable rather than merely untriggered.  The GREEN
+    counterpart is ``test_temporal_ledger.py::TestRankChangeDeterministic``
+    (back-to-back identical builds, recording-today inertness, and the
+    real 2026-08-15→16 movement reproduced deterministically)."""
+
+    def test_self_referential_cache_mechanism_is_gone(self):
+        self.assertFalse(hasattr(data_contract, "_RANK_SNAPSHOT_PATH"))
+        self.assertFalse(hasattr(data_contract, "_get_rank_snapshot_path"))
+        import inspect
+
+        sig = inspect.signature(data_contract._stamp_rank_changes)
+        self.assertNotIn("write_snapshot", sig.parameters)
+        # The derivation is read-only by signature: it takes the board's
+        # own date and a ledger path, and writes nothing anywhere.
+        self.assertIn("board_date", sig.parameters)
+
+    def test_stamp_writes_no_files(self):
         import tempfile
 
+        fx = _fx()
         with tempfile.TemporaryDirectory() as td:
-            snap = Path(td) / "ranks_last.json"
-            # The REAL prior-day observation, keyed the way production
-            # writes it (bare canonicalName).
-            snap.write_text(json.dumps(fx["priorRanks"]))
-
-            with _SnapshotPathPatch(snap):
-                rows_build_n = _rows(fx)
-                data_contract._stamp_rank_changes(rows_build_n, write_snapshot=True)
-
-                first = {
-                    r["canonicalName"]: r.get("rankChange")
-                    for r in rows_build_n
-                    if isinstance(r.get("canonicalConsensusRank"), int)
-                }
-                # Real movement existed between the two days:
-                # 2027 Early 2nd moved 110 -> 109.
-                self.assertEqual(first["2027 Early 2nd"], 1)
-
-                # Build N+1: identical inputs, same durable history.
-                rows_build_n1 = _rows(fx)
-                data_contract._stamp_rank_changes(rows_build_n1, write_snapshot=True)
-                second = {
-                    r["canonicalName"]: r.get("rankChange")
-                    for r in rows_build_n1
-                    if isinstance(r.get("canonicalConsensusRank"), int)
-                }
-
-        # RED: the same question gets a different answer on the second
-        # build — every delta collapses to 0 because the baseline was
-        # overwritten by build N's own output.
-        self.assertNotEqual(first, second)
-        self.assertTrue(all(v == 0 for v in second.values()))
-        # And the 2026-08-15 observation is gone from the comparison
-        # base entirely, though the durable log still holds it.
-        self.assertEqual(second["2027 Early 2nd"], 0)
+            ledger = Path(td) / "ledger.sqlite"
+            rows = _rows(fx)
+            data_contract._stamp_rank_changes(rows, board_date="2026-08-16", ledger_path=ledger)
+            # A build creates NOTHING — no cache, not even an empty
+            # ledger file (reads must not mint stores).
+            self.assertEqual(sorted(p.name for p in Path(td).iterdir()), [])
 
 
 class TestRed2RankChangeNamespaceCollision(unittest.TestCase):
-    """The snapshot dict is keyed by bare ``canonicalName``; the durable
-    log keys the same concept ``name::assetClass``.  The cross-universe
-    same-name pair the identity-validation code records
-    (``name_collision_cross_universe`` — offense "James Williams" vs
-    IDP "James Williams", both real Sleeper players) therefore
-    collapses to ONE snapshot slot, and the next build stamps a
-    fabricated move on whichever player didn't win the slot."""
+    """TOMBSTONE.  The retired cache was keyed by bare
+    ``canonicalName``, so the real cross-universe same-name pair the
+    identity-validation code records (offense "James Williams" vs IDP
+    "James Williams") collapsed to one slot and fabricated a ±300
+    "move" for whichever player didn't win the last write.
+
+    ``rankChange`` now keys through the canonical asset namespace
+    (``src/history/keys.py``), where the collision is unrepresentable:
+    the pair below yields two distinct keys, and the three namespace
+    prefixes (``player:`` / ``name:`` / ``mpick:``) are disjoint.  The
+    GREEN counterpart is
+    ``test_temporal_ledger.py::TestRankChangeDeterministic::test_collision_keyed``."""
 
     ROWS = [
         {
@@ -164,35 +141,22 @@ class TestRed2RankChangeNamespaceCollision(unittest.TestCase):
         },
     ]
 
-    def test_two_players_one_snapshot_slot_fabricates_movement(self):
-        import tempfile
+    def test_same_name_pair_yields_distinct_canonical_keys(self):
+        from src.history import keys as history_keys
 
-        with tempfile.TemporaryDirectory() as td:
-            snap = Path(td) / "ranks_last.json"
-            with _SnapshotPathPatch(snap):
-                rows = json.loads(json.dumps(self.ROWS))
-                data_contract._stamp_rank_changes(rows, write_snapshot=True)
-
-                # RED half 1: two distinct players persisted as ONE key.
-                stored = json.loads(snap.read_text())
-                self.assertEqual(len(stored), 1)
-                self.assertEqual(stored["James Williams"], 700)  # last writer wins
-
-                # RED half 2: next build stamps the offense player
-                # against the IDP player's rank — a fabricated +300
-                # "move" caused by a different human being.
-                rows2 = json.loads(json.dumps(self.ROWS))
-                data_contract._stamp_rank_changes(rows2, write_snapshot=True)
-                offense = next(r for r in rows2 if r["assetClass"] == "offense")
-                self.assertEqual(offense["rankChange"], 700 - 400)
-
-        # Contrast: the durable log's keying for the SAME two rows is
-        # collision-safe.  The defect is the divergence — one concept,
-        # two keyings.
-        keys = {rank_history._player_key(r) for r in self.ROWS}
+        keyed = {history_keys.asset_key_for_contract_row(r) for r in self.ROWS}
         self.assertEqual(
-            keys, {"James Williams::offense", "James Williams::idp"}
+            keyed,
+            {
+                ("name:james williams::OFFENSE", "offense"),
+                ("name:james williams::IDP", "idp"),
+            },
         )
+        # The durable legacy log was already collision-safe; the defect
+        # was the cache's DIVERGENT keying for the same concept.  That
+        # log keying survives unchanged (raw evidence store).
+        legacy = {rank_history._player_key(r) for r in self.ROWS}
+        self.assertEqual(legacy, {"James Williams::offense", "James Williams::idp"})
 
 
 class TestRed3HistoricalPickValueUnrecoverable(unittest.TestCase):
@@ -212,17 +176,13 @@ class TestRed3HistoricalPickValueUnrecoverable(unittest.TestCase):
         with tempfile.TemporaryDirectory() as td:
             log = Path(td) / "rank_history.jsonl"
             contract = {"playersArray": _rows(fx)}
-            wrote = rank_history.append_snapshot(
-                contract, date="2026-08-16", path=log
-            )
+            wrote = rank_history.append_snapshot(contract, date="2026-08-16", path=log)
             self.assertTrue(wrote)
 
             history = rank_history.load_history(days=30, path=log)
 
         # The value demonstrably existed (real board, real prior day)…
-        slot = next(
-            r for r in fx["currentRows"] if r["canonicalName"] == "2026 Pick 1.01"
-        )
+        slot = next(r for r in fx["currentRows"] if r["canonicalName"] == "2026 Pick 1.01")
         self.assertGreater(slot["rankDerivedValue"], 0)
         self.assertIn("2026 Pick 1.01", fx["priorSlotPickValues"])
 
@@ -270,9 +230,7 @@ class TestRed4ReconstructionIndistinguishableFromObservation(unittest.TestCase):
         recorded = next(p for p in series if p["date"] == "2026-07-21")
 
         # The 2026-07-20 "val" is today's curve applied to an old rank…
-        self.assertEqual(
-            reconstructed["val"], rank_to_value_for_scope(72.0, "offense")
-        )
+        self.assertEqual(reconstructed["val"], rank_to_value_for_scope(72.0, "offense"))
         # …and nothing distinguishes it from the recorded observation:
         # identical key sets, no fidelity field on either.
         self.assertEqual(set(reconstructed.keys()), set(recorded.keys()))
@@ -296,13 +254,9 @@ class TestRed5SameDateRewriteDestroysEvidence(unittest.TestCase):
             log = Path(td) / "rank_history.jsonl"
 
             # The contemporaneous observation production recorded.
-            rank_history.append_snapshot(
-                {"playersArray": _rows(fx)}, date="2026-08-16", path=log
-            )
+            rank_history.append_snapshot({"playersArray": _rows(fx)}, date="2026-08-16", path=log)
             before = rank_history.load_history(days=5, path=log)
-            self.assertEqual(
-                before["A.J. Brown::offense"][0]["val"], 4947
-            )
+            self.assertEqual(before["A.J. Brown::offense"][0]["val"], 4947)
 
             # A later rebuild of the same date under a drifted pipeline
             # (one rank different — the smallest possible drift).
@@ -311,9 +265,7 @@ class TestRed5SameDateRewriteDestroysEvidence(unittest.TestCase):
                 if r["canonicalName"] == "A.J. Brown":
                     r["canonicalConsensusRank"] = 75
                     r["rankDerivedValue"] = 4800
-            rank_history.append_snapshot(
-                {"playersArray": drifted}, date="2026-08-16", path=log
-            )
+            rank_history.append_snapshot({"playersArray": drifted}, date="2026-08-16", path=log)
             after = rank_history.load_history(days=5, path=log)
 
         # RED: the original evidence is gone — same date, same key,
