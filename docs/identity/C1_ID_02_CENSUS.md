@@ -125,3 +125,30 @@ shapes. The remaining census reds fall into three buckets:
 * **F12** overlay `_build_pick_ownership` hardcodes `num_rounds=6, num_years=3`
   vs the league's actual `draft_rounds` (three different answers to "which
   rounds exist" across overlay/scraper/crawler).
+* **F13** `resolution.looks_like_pick_name` (C1-U2's frozen refusal rung) misses
+  four real production label grammars (`2027 R1`, `2027 Round 2`,
+  `2026 1.02 (own)`, `2027 Mid 1st (from Blaine)`) and diverges from
+  `picks.is_pick_name` on 5 of 9 measured forms — different questions, both
+  pinned; the relationship is now documented at both definitions. Widening the
+  refusal is a player-identity behavior change requiring its own authorization.
+* **F14** the contract's CSV-enrichment join runs every PICK row through the
+  player-name normalizer (`resolve_canonical_name`), which splits one real pick
+  across three normalized keys (`2026 pick 1 06` / `2026 pick 1 6` /
+  `2026 1 06`); live joins survive only because both sides emit the same
+  canonical spelling today.
+* **F15** the dormant identity-scaffold bridge (`scraper_bridge_adapter.py`)
+  stamped every CSV row `asset_type='player'`, so the stale 2026-04-20 artifact
+  served by `/api/scaffold/identity` carries **84 pick-shaped master-player
+  records** (e.g. `player::2026 early 1st::OTHER`) — pick strings minted as
+  players in the halted lane (C1-RET-07 adjacency).
+
+## The manifest's "collapse is documented in 3 places", located
+
+1. **W08-F005** (master-site-audit): 216 league picks → 163 distinct trade-asset
+   names, 53 unrepresentable; one manager's EIGHT 2027 firsts (origins
+   {1,2,3,6,8,9,10,12}) all rendering `2027 Mid 1st` at one price.
+2. **`docs/TRADE_HISTORY_AGING_SPEC.md`** :32/:120/§7 — stored trade-history
+   pick labels regenerate from the wall clock + current team names; "today's
+   pick value presented as historical pick value" is a named forbidden fallback.
+3. **`C1-ACQ-03` / intel ledger** — `originalOwnerId` is one hop, not a chain;
+   the ledger's persisted asset id strips origin.

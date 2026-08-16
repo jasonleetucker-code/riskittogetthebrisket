@@ -413,7 +413,25 @@ def parse_board_pick_name(name: str) -> MarketPickRef | None:
 
 
 def is_pick_name(name: str) -> bool:
-    """Verbatim port of the contract's ``_is_pick_name`` detector."""
+    """Verbatim port of the contract's ``_is_pick_name`` detector.
+
+    NOTE — this package hosts TWO pick detectors answering DIFFERENT
+    questions, and they deliberately do not agree (measured divergence
+    on 5 of 9 label forms, census `docs/identity/C1_ID_02_CENSUS.md`):
+
+    * this one — "should the CONTRACT treat this row name as a pick
+      row" (board-detector semantics; accepts bare slot forms like
+      ``2026 1.05`` and ``Round`` phrasing);
+    * ``resolution.looks_like_pick_name`` — "should PLAYER matching
+      refuse this string" (C1-U2's frozen V1 refusal rung; accepts
+      bare round-suffix ``2028 2nd`` but not annotated roster labels).
+
+    Do not "unify" them casually: each is pinned to its consumer's
+    behavior, and widening the refusal rung is a player-identity
+    behavior change (a C1-U2 follow-up, not a drive-by).  For parsing
+    (rather than detecting), use :func:`parse_pick_label`, which covers
+    every measured production grammar including the annotated forms
+    both detectors miss."""
     n = str(name or "").strip()
     if not n:
         return False
