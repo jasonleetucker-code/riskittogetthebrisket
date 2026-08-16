@@ -15,7 +15,7 @@ Backlog Spec and the feature specs. It does not define scope — that lives in `
 
 # 0. CURRENT AUTHORIZATION — READ THIS FIRST
 
-## The B→C gate is CLEARED. **C1A is authorized. Nothing beyond C1A is.**
+## The B→C gate is CLEARED. **C1A is authorized; unit 1 is CLOSED; unit 2 is the active unit. Nothing beyond it is.**
 
 | question | answer |
 |---|---|
@@ -24,19 +24,21 @@ Backlog Spec and the feature specs. It does not define scope — that lives in `
 | Has the owner reviewed it? | **Yes.** Jason approved; ChatGPT concurred |
 | Is the B→C gate cleared? | **Yes.** All nine steps of `docs/C_SERIES_REPLAN_AND_COMPLETION_CONTRACT.md` §3 are satisfied |
 | **Is C authorized?** | **YES — `C1A` ONLY** |
-| **What may I build right now?** | **`C1A`, beginning with the irreversible-evidence retention tranche `C1-RET-01`…`C1-RET-08`.** Nothing beyond that boundary |
+| Is C1A unit 1 (retention) done? | **Yes — CLOSED at the owner checkpoint 2026-08-16.** `C1-RET-07` remains honestly STALE; observational follow-ups do not reopen the unit |
+| **What may I build right now?** | **C1A unit 2 — `C1-U2` / manifest row `C1-ID-01` (one player-identity owner).** Owner-authorized 2026-08-16. Nothing beyond that boundary |
+| Is C1A unit 3 (`C1-U3` / `C1-ID-02` pick identity) authorized? | **No** |
 | Is `C1B` authorized? | **No** |
 | Is `C2` authorized? | **No** |
 | Is `C3` or later authorized? | **No** |
-| What authorizes the next slice? | Jason + ChatGPT review the completed retention evidence at the §3 checkpoint |
+| What authorizes the next slice? | Jason + ChatGPT review the completed C1-ID-01 evidence at the §3 checkpoint |
 
-**The authorization is deliberately narrow, and "C1A is authorized" is not permission to consume every C1
-capability at once.** C1A's own PR-sized units are ordered in §3; the retention tranche is unit 1, and units 2–6
-are **not** authorized by this decision. Reaching the end of unit 1 is a **STOP**, not a hand-off to unit 2.
+**The authorization is deliberately narrow.** The unit decomposition is
+`docs/C_SERIES_EXECUTION_MAP.md` §3: C1-U2 is exactly manifest row `C1-ID-01` — pick identity (`C1-ID-02`)
+belongs to C1-U3 and is NOT included. Reaching the end of unit 2 is a **STOP**, not a hand-off to unit 3.
 
-**If you are a new session reading this file to decide what to build:** you may implement the retention tranche
-in §3 unit 1 and nothing else. Every product surface in §6 remains unauthorized. When the tranche is done, stop
-and report — do not continue because the next dependency looks obvious.
+**If you are a new session reading this file to decide what to build:** you may implement C1-U2 and nothing
+else. Every product surface in §6 remains unauthorized. When the unit is done, stop and report — do not
+continue because the next dependency looks obvious.
 
 ---
 
@@ -106,11 +108,35 @@ radius of a rename that is otherwise mechanical.
 
 # 2. NEXT AUTHORIZED SCOPE
 
-## `C1A` unit 1 — the irreversible-evidence retention tranche. Nothing else.
+## `C1A` unit 2 — `C1-U2` / `C1-ID-01`, one player-identity owner. Nothing else.
 
-**Authorized:** manifest rows **`C1-RET-01` … `C1-RET-08`** — the eight rows the Scope Manifest flags `RET`
-inside phase C1. Read them from `docs/C_SERIES_SCOPE_MANIFEST.md`; that file is authoritative if this summary
-and it ever disagree.
+**Authorized 2026-08-16** by owner decision at the unit-1 checkpoint. Scope is exactly manifest row
+`C1-ID-01` (`docs/C_SERIES_SCOPE_MANIFEST.md` §4): the canonical owner is
+`src/identity/unified_mapper.py` + `src/utils/name_clean.py`, the scraper and data-contract matching become
+adapters, evidence is a parity harness, and the migration is dual-read → compare → cut over → retire —
+never a flag-day swap (`docs/C_SERIES_EXECUTION_MAP.md` C1-U2).
+
+**State:** the consolidation is implemented and provably inert — canonical engine
+(`src/identity/resolution.py`), scraper primitives moved to the owner
+(`src/identity/name_primitives.py`), dual-read live at both adapter sites with the legacy answers served,
+RED reproduced (10 live-board disagreements in three defect classes) and pinned. Full record, census
+dispositions, measured parity evidence and the staged cutover plan:
+`docs/identity/C1_ID_01_IDENTITY_CONSOLIDATION.md`.
+
+**Remaining gate before cutover/retire:** production dual-read shows **zero divergence over a full refresh
+cycle** on both sites (`data/scrape_state/identity_dual_read.json` + the contract's `identityDualRead`
+stamp; check with `scripts/identity_parity.py --require-scraper-artifact`). Cutover is
+`RISKIT_IDENTITY_CUTOVER=1`, then the legacy ladders are retired. Activating the repaired `CANONICAL_V2`
+semantics on the board is a separate, owner-gated decision — measured cost on record: 10 of 1,075
+board-vocabulary names change, every one an explicit refusal replacing a guess.
+
+## `C1A` unit 1 — the irreversible-evidence retention tranche. **CLOSED 2026-08-16.**
+
+**Was authorized as:** manifest rows **`C1-RET-01` … `C1-RET-08`** — the eight rows the Scope Manifest flags
+`RET` inside phase C1. Read them from `docs/C_SERIES_SCOPE_MANIFEST.md`; that file is authoritative if this
+summary and it ever disagree. Closed at the owner checkpoint; `C1-RET-07` remains honestly STALE (collection
+not resumed, watchdog still exits 2 for it) and the observational follow-ups recorded in
+`docs/retention/RETENTION_REGISTER.md` are hardening items, not reopeners.
 
 Deployed as merge `47d7d243` (validated head `ef76a425`), deploy run `31869441040` SUCCESS.
 Production evidence below is the **strict `ALL` watchdog run `31870347342`**, measured 2026-08-15T06:48:36Z
@@ -210,10 +236,10 @@ C10 Closure
 
 PR-sized units within C1A, in order:
 
-1. **Retention first** (`C1-RET-01`…`C1-RET-08`) — **AUTHORIZED.** The only work in the plan that gets
-   permanently harder every day it waits. Small, mechanical, no product surface. **Completing it is a STOP
-   checkpoint:** Jason + ChatGPT review the retention evidence before unit 2 is authorized.
-2. **NOT AUTHORIZED.** Stable ids and schemas for players, picks, teams, leagues, sources and transactions (`C1-ID-01`, `C1-ID-02`).
+1. **Retention first** (`C1-RET-01`…`C1-RET-08`) — **CLOSED 2026-08-16** at the owner checkpoint.
+2. **AUTHORIZED — ACTIVE.** One player-identity owner (`C1-ID-01` / map unit `C1-U2`). Note the finer map
+   decomposition governs: pick identity (`C1-ID-02`) is map unit `C1-U3` and is **NOT** part of this
+   authorization. State and remaining prod gate in §2.
 3. **NOT AUTHORIZED.** Immutable as-of snapshot/event schema with provenance, model/config version and fidelity labels
    (`C1-HIST-01`), plus the deterministic-replay test that closes `C1-HIST-03`.
 4. **NOT AUTHORIZED.** Confidence naming migration with aliases and a consumer census (`C1-CONF-01`).
