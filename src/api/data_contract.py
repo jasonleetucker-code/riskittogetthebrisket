@@ -4557,7 +4557,6 @@ def _percentile_rank_spread(
 # pipeline's acceptance bounds cannot drift from the owner's.  The
 # local names survive for the pipeline's many call sites.
 from src.identity.picks import (  # noqa: E402
-    BOARD_SLOT_RE as _PICK_SLOT_RE,
     BOARD_TIER_RE as _PICK_TIER_RE,
     is_pick_name as _owner_is_pick_name,
     parse_board_slot_name as _owner_parse_board_slot_name,
