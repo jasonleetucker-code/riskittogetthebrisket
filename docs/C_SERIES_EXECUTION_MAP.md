@@ -7,7 +7,8 @@ foundations, 7 explicitly out of scope)
 **Binding methodology inputs:** `docs/MATH_MODEL_CALIBRATION_POLICY_2026-08-15.md`,
 `docs/PROJECTION_ENSEMBLE_PLAN_2026-08-15.md` (PR #853)
 **Authorization:** **THIS FILE AUTHORIZES NOTHING.** `docs/EXECUTION_PLAN.md` alone
-answers "what may I build now?" Today that answer is **C1A unit 1 only**.
+answers "what may I build now?" Today that answer is **nothing** — C1A units 1 and 2
+both closed on 2026-08-16 and the next unit awaits an owner decision.
 
 ---
 
@@ -109,8 +110,8 @@ Mostly discharged by the post-B reconciliation; listed so the census closes.
 
 # 3. C1 — Identity, temporal substrate, retention (22 rows, 9 units)
 
-The foundation everything else consumes. **C1-U2 is the only authorized unit in the
-entire map today** (C1-U1 closed at the 2026-08-16 owner checkpoint).
+The foundation everything else consumes. **No unit in this map is authorized today** —
+C1-U1 and C1-U2 both closed on 2026-08-16; the next authorization is an owner decision.
 
 ### C1-U1 — Irreversible-evidence retention  ← **CLOSED (C1A unit 1)**
 - **rows** `C1-RET-01` … `C1-RET-08`
@@ -125,16 +126,19 @@ entire map today** (C1-U1 closed at the 2026-08-16 owner checkpoint).
 - **state** per-row disposition is recorded in PR #851, not here; RET-07 is
   STALE-by-design and RET-08 BLOCKED pending production observation
 
-### C1-U2 — One player-identity owner  ← **AUTHORIZED (C1A unit 2)**
+### C1-U2 — One player-identity owner  ← **CLOSED (C1A unit 2)**
 - **rows** `C1-ID-01` · **owner** `src/identity/unified_mapper.py`
 - **retires** 3 independent matchers · **kind** INFRA · **deps** C1-U1 (schema
   stability only)
 - **RED→GREEN** two matchers disagreeing on a real player on the live board
 - **prod gate** dual-read adapter shows zero divergence over a full refresh cycle
 - **migration** dual-read → compare → cut over → retire. Never a flag-day swap.
-- **state** dual-read LIVE (legacy served, provably inert); RED measured — 10 of 949
-  live-board rows, three defect classes; awaiting the prod gate. Record:
-  `docs/identity/C1_ID_01_IDENTITY_CONSOLIDATION.md`
+- **state** CLOSED 2026-08-16. Cut over and retired: the canonical owner decides at
+  both sites, legacy ladders deleted, no flag or fallback. Prod gate passed with zero
+  divergence (scraper 2,016/2,016 over a full cycle; contract 24,024/24,024); board
+  inert (0 of 1,092 rows moved). `CANONICAL_V2` measured but NOT served — it would
+  regress the first-name-variant class; that repair needs its own unit. Record:
+  `docs/identity/C1_ID_01_IDENTITY_CONSOLIDATION.md` §5a, §9
 
 ### C1-U3 — One pick identity, end to end
 - **rows** `C1-ID-02` · **owner** *(to create)* one asset-identity contract
@@ -604,12 +608,13 @@ self-promoting, and carrying a named challenger task before C10.
 
 # 18. Authorization boundary
 
-**Authorized today:** `C1-U2` (`C1-ID-01`), per `docs/EXECUTION_PLAN.md` §0 — the owner
-closed `C1-U1` and authorized unit 2 at the 2026-08-16 checkpoint.
+**Authorized today:** **nothing.** `C1-U1` and `C1-U2` both closed on 2026-08-16, per
+`docs/EXECUTION_PLAN.md` §0.
 
 **Not authorized by this file or any other:** C1-U3 (`C1-ID-02`) · every other C1
 unit · all of C2, C3, C4, C5, C6, C7, C8, C9, C10 · any projection-source
-implementation · any product UI work.
+implementation · any product UI work · **`CANONICAL_V2` activation**, which C1-U2
+measured and deliberately deferred.
 
 Producing this map does not start any of it. The next authorization comes from the
 owner reviewing completed C1-U2 evidence at the
