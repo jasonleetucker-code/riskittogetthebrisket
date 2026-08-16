@@ -328,7 +328,46 @@ resolver echoes the caller's ref verbatim; the generic grade never becomes
    parity test self-skips accordingly.  If a contract-derived export ever
    ships, wire it into the census.
 
-## 13. What was deliberately NOT done
+## 13. Merge and post-merge verification (2026-08-16)
+
+**MERGED** — PR #871, merge commit `ce8a8341a`, parents `801bf940d` (main, an
+automated data refresh) + `edc25300d` (the branch head).  Merge method: merge
+commit.  Merged by the owner at 19:10:41Z.
+
+**CI evidence, stated precisely.** The validated head `6d7b9dd47` passed
+exact-head PR validation (run **31964305868 SUCCESS**, 15 min, all gates:
+format, lint, coercion, finding-drift, planning integrity, import, unit tests,
+contract check, deploy syntax, frontend).  The final head `edc25300d` differs
+from it ONLY by merging main's four automated data-refresh commits (no source
+change — verified by diff).  Its own run (31965928453) had cleared 13 of 21
+steps — every gate through the import gate — and was on the unit-test step when
+the owner's merge closed the PR and cancelled it.  That run therefore never
+concluded, so the merged head was verified DIRECTLY instead, below.
+
+**Post-merge verification on the merged tree** (`ce8a8341a`, against the
+19:09:04 production payload — a *newer* scrape than the one the unit was built
+on):
+
+* pick completeness holds: **162 pick rows**, 2026 90/72 priced (18 alias-
+  suppressed by design), 2027 24/24, 2028 24/24, **2029 24/24**; provenance
+  coverage 162/162; **zero** pick errors from the build-level census.
+* `validate_api_data_contract` returns `invalid` — on `partial_run_critical:KTC`,
+  a **failed KTC scrape in that refresh, not a code defect**.  Proven
+  independent: the pre-merge parent `801bf940d` produces the identical status
+  and identical error on the identical payload.
+* Test suites (`tests/api` + `tests/identity` + `tests/canonical` + `tests/trade`)
+  fail 13 named tests / 29 including subtests on the merged tree — and the
+  **same 13, set-identical (zero unique to either side)**, on the pre-merge
+  parent with the same payload.  All are live-data gates that a thin KTC board
+  trips: top-50 coverage, the 1-src gates, DS cross-market rank sanity, the
+  rookie anchor's top-value assertion, and FAAB calibration anchors.
+  **C1-U6 introduces no test failure.**
+
+The KTC partial-run condition is an active `main` data-health matter, owned by
+the scrape/source-health lane, not by this unit; it resolves on the next
+successful KTC scrape.
+
+## 14. What was deliberately NOT done
 
 No C1-U5 confidence work (no new confidence consumer was built — derived rows
 stamp buckets through the existing pick vocabulary only).  No C1-U7 owned-pick

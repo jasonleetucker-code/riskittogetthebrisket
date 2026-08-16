@@ -147,6 +147,14 @@ the simulator's roster-pick labels resolve through identity instead of silently 
 Player-value coupling measured and explained (IDPTC backbone re-indexing, p50 ±0.1%; see the
 record §8). Full record: `docs/picks/C1_U6_PICK_VALUE_COMPLETENESS.md`.
 
+**MERGED** — PR #871, merge `ce8a8341a` (parents `801bf940d` + validated head `edc25300d`), merged by
+the owner 2026-08-16 19:10:41Z. Exact-head CI passed on `6d7b9dd47` (run 31964305868); the final head
+adds only main's automated data-refresh merge and its run was cancelled by the merge, so the merged
+tree was verified directly instead: 162 pick rows with 2029 at 24/24 finite, provenance 162/162, zero
+census errors, and a test-failure set **identical** to the pre-merge parent on the same payload (13
+live-data gates tripped by a `partial_run_critical:KTC` scrape failure in that refresh — independent
+of this unit, proven on the parent commit). Record: `docs/picks/C1_U6_PICK_VALUE_COMPLETENESS.md` §13.
+
 No unit beyond C1-U6 is authorized. The next authorization comes from the owner reviewing C1-U6's
 evidence at the §3 checkpoint.
 
