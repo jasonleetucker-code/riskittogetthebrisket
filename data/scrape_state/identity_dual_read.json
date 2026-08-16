@@ -1,13 +1,13 @@
 {
- "generatedAt": "2026-08-16T02:50:03.852389+00:00",
+ "generatedAt": "2026-08-16T03:35:17.346989+00:00",
  "dualReadEnabled": true,
  "cutoverActive": false,
  "site": "scraper_sleeper_attach",
- "calls": 2016,
- "v1Agree": 2016,
+ "calls": 2017,
+ "v1Agree": 2017,
  "v1Diverge": 0,
  "v1Examples": [],
- "v2Same": 1997,
+ "v2Same": 1998,
  "v2WouldChange": 19,
  "v2Examples": [
   {
