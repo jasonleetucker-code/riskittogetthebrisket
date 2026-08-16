@@ -1,0 +1,21 @@
+{
+  "source_key": "fantasyProsRosSf",
+  "status": "failed",
+  "error": "http: ('Connection aborted.', ConnectionResetError(104, 'Connection reset by peer'))",
+  "started_at": "2026-08-16T09:05:41.130749+00:00",
+  "completed_at": "2026-08-16T09:05:41.212313+00:00",
+  "player_count": 0,
+  "source_id": "fantasyProsRosSf",
+  "source_name": "FantasyPros Dynasty SF (ROS proxy)",
+  "source_url": "https://www.fantasypros.com/nfl/rankings/dynasty-superflex.php",
+  "source_type": "dynasty_proxy",
+  "scoring_format": "ppr",
+  "is_superflex": true,
+  "is_2qb": false,
+  "is_te_premium": false,
+  "is_idp": false,
+  "is_ros": false,
+  "is_dynasty": true,
+  "is_projection_source": false,
+  "stale_after_hours": 168
+}
