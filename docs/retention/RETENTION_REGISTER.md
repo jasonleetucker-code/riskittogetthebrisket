@@ -6,6 +6,170 @@
 
 ---
 
+## Production evidence — 2026-08-15
+
+Deployed as merge `47d7d243` (validated head `ef76a425`), deploy run `31869441040` SUCCESS.
+
+**FINAL strict `ALL` watchdog, run `31916149679`, 2026-08-16T00:00:29Z**, against the production data
+directory. Growth columns are against the 06:48:36Z reading (`31870347342`), because two probes far apart
+show a store is being *written to* — a single probe only shows it is non-empty:
+
+| row | state | age | measured artifact | 06:48 → 00:00 |
+|---|---|---|---|---|
+| `C1-RET-01` | `ok` | 2.6 h | 2 accumulator files, **1,128 deduped rows** | 1,092 → 1,128 |
+| `C1-RET-02` | `ok` | 24.0 h | **10,934 rows across 10 dates** | 9,842 / 9 dates → 10,934 / 10 |
+| `C1-RET-03` | `ok` | 24.0 h | 27 snapshots, missingDays=0, **staleDays=1** | 27, staleDays 0 → 1 |
+| `C1-RET-04` | `ok` | 0.1 h | **90 observations of 2 distinct cards across 2 leagues** | 4 → **90** |
+| `C1-RET-05` | `ok` | 0.1 h | **4,500 observations across 45 snapshots** | 200 / 2 → **4,500 / 45** |
+| `C1-RET-06` | `ok` | 0.1 h | **288 transactions, 288 trades, 4 leagues** | 285 → 288 |
+| `C1-RET-07` | **`stale`** | **2,812.2 h** | 177 artifacts; newest `identity_report_20260420T194828Z.json` | still stale, +17.2 h |
+| `C1-RET-08` | `ok` | 120.0 h | **2 snapshots**, newest `snapshot_2026-08-11.json` — **both now published off-box** | see below |
+
+`ok=7 stale=1 missing=0 unknown=0` — **exit code 2**. The watchdog can fail, and did, on a genuinely stale
+stream. It has **not** been weakened to obtain green; this is the same exit code it returned at 06:48, and
+`C1-RET-07` is the same stale row.
+
+**Six streams are demonstrably still accumulating.** `C1-RET-05` went 200 → 4,500 observations and
+`C1-RET-04` 4 → 90, entirely on their own timers with no writer invoked by hand.
+
+`C1-RET-02`'s 10,934 rows is the same number the restore proof counted inside the restored
+`board_history.sqlite` — the health probe reads the live store and the proof reads a decompressed copy of the
+backup, so the two agreeing is evidence the backup captured the live state rather than an older one.
+
+**`C1-RET-08` did not move, and that is expected, not a stall.** Its producer is weekly
+(`OnCalendar=Tue *-*-* 05:40 UTC`); `2026-08-11` was the most recent Tuesday. `staleDays`/`missingDays` from
+`store.history_coverage()` are plain calendar-day counts — the shape `rank_history.coverage` uses for a DAILY
+artifact — so on a weekly store they are non-zero even when healthy and must not be read as a halted producer.
+The real defect on this row is publication, not production; see `C1-RET-08` below.
+
+**Backup + restore.** The first real proof run (`31870387349`) **FAILED**, and refusing to claim success is
+what it is for. All six retention artifacts were written —
+
+```
+sqlite ok: data/retention/evidence.sqlite
+sqlite ok: data/retention/league_events.sqlite
+sqlite ok: data/board_history.sqlite
+file   ok: data/rank_history.jsonl
+dir    ok: data/faab
+dir    ok: data/identity
+```
+
+— but two directory archives errored and the script discarded the whole generation, all 14 artifacts:
+
+- **`tar: playerctx_history: Cannot stat`** — the archive label added for `data/playerctx/history` was passed
+  to tar as the *member* name. Introduced by this tranche.
+- **`tar: intel/ledger.sqlite3-wal: file changed as we read it`** — GNU tar exits 1 for that and 2 for a fatal
+  error; the script treated them alike, so one busy directory threw away every other artifact. **Pre-existing**,
+  and it means the nightly generation has been at risk of discard whenever `intel` was being written.
+
+Both fixed in #849 (`ce5e6128`), pinned by `tests/deploy/test_state_backup_dir_archiving.py`, which runs the
+shipped `backup_dir` including a real write-while-tarring race.
+
+**Five proof runs, and what each one settled:**
+
+| run | result | what it established |
+|---|---|---|
+| `31870387349` | FAIL, 2 errors / 14 artifacts | both defects, and that all six retention artifacts write cleanly |
+| `31871813972` | FAIL, 1 error / 15 artifacts | `intel` passed (race did not fire); `playerctx_history` failed identically → the box was still running the pre-#849 script |
+| `31872429488` | FAIL | same shape, ~57 s — deploy of `ce5e6128` still had not landed |
+| `31872681688` | FAIL — **backup succeeded, proof looked elsewhere** | the writer promoted 16 artifacts into the FALLBACK root and the proof read the empty primary. Two independent implementations of "where is the backup". Fixed by #852 (merge `a0feb1e04`) giving the question ONE owner, `deploy/backup/backup_root_lib.sh` |
+| **`31906622971`** | **SUCCESS, exit 0** | **the first proven backup + isolated restore on production** |
+
+The retention artifacts wrote successfully on **every** run. What failed was, in order, the archiving of two
+directories (#849) and then the agreement between the writer and the reader about which root held the result
+(#852).
+
+### Run `31906622971` — 2026-08-15T20:25:20Z–20:26:14Z, `RUN_BACKUP=1`
+
+Deployed revision at the time of the run: merge **`a0feb1e04`** (PR #852), deploy run `31905743421` SUCCESS,
+both jobs green.
+
+| fact | measured value |
+|---|---|
+| effective backup root | `/home/<deploy-user>/backups/riskit-state` — **fallback** |
+| primary root | `/var/backups/riskit-state` — not writable by the deploy user |
+| exact generation proven | `…/backups/riskit-state/daily/2026-08-15` |
+| generation size | 125 M |
+| artifacts in the generation | **16** |
+| retention artifacts restored **and verified** | **7** |
+| restore target | `/tmp/retention-restore-3fvx4i` (throwaway; no path under `DATA_DIR` written) |
+| exit code | **0** |
+
+The generation was not searched for. The writer recorded its own result at `/tmp/retention-backup-result-*`
+and the proof verified **that** generation — `[state-backup] effective backup root:` and
+`[backup-proof] effective backup root:` name the same path in the same run. That agreement is the whole point
+of #852, and it is now observed in production rather than argued from tests.
+
+**What was restored and checked, from the restored copies rather than the live originals:**
+
+| row | artifact | verification |
+|---|---|---|
+| `C1-RET-04` / `C1-RET-05` | `evidence.sqlite` | 733,184 B from 84,273 compressed; `PRAGMA integrity_check = ok`; `schema_version = 2`; `scoring_card_observations` 50, `scoring_card_payloads` 2, `trending_observations` 2,500 |
+| `C1-RET-06` | `league_events.sqlite` (**PRIVATE**) | 282,624 B from 41,880; `integrity_check = ok`; `schema_version = 1`; `league_transactions` **287** — schema, counts and version only. No payload, manager name or roster reached the log |
+| `C1-RET-02` | `board_history.sqlite` | 3,555,328 B from 686,240; `integrity_check = ok`; `schema_version = 1`; `board_history` **10,934** rows |
+| `C1-RET-03` | `rank_history.jsonl` | `gzip -t` ok, 27 lines, **27 parseable / 0 unparseable** |
+| `C1-RET-01` | `faab/` | 2 files restored — archive listed 2, source holds 2 |
+| `C1-RET-07` | `identity/` | 177 files restored — archive listed 177, source holds 177 |
+| `C1-RET-08` | `playerctx history/` | 2 files restored — archive listed 2, source holds 2 |
+
+> **WHAT THIS RUN DOES NOT PROVE.** It exercised the **deploy user's FALLBACK lineage**, and the tool said so
+> itself rather than leaving it to be inferred:
+>
+> ```
+> [backup-proof][WARN] this proves the backup lineage written by <deploy-user> into the FALLBACK root.
+> The nightly systemd job runs as root and writes /var/backups/riskit-state; those generations are not
+> readable here and are NOT covered by this run.
+> ```
+>
+> A green tick here must not be read as "the nightly's backups restore". See **The nightly lineage** below —
+> that is a separate fact with separate evidence, and it is not established by this run.
+
+### The nightly lineage — installed 2026-08-16, armed, exercised
+
+The C1A state-backup line did not exist on production. Not stale — **absent**: no
+`riskit-state-backup` unit, neither file under `/usr/local/lib/riskit/`, no
+`/var/backups/riskit-state`. The registry corroborated it against a rename
+(`riskit-backup.*` and `riskit-backup-restore-test.*` are enabled and are an
+older, separate 3-database line, left untouched). So the seven retention
+artifacts were covered by no scheduled job at all; the only backups that existed
+were the ones a dispatched proof run created.
+
+It could not be installed the canonical way. `deploy/apply_hardening.sh` needs a
+full root shell, and the deploy account's NOPASSWD sudo is exactly
+`systemctl / journalctl / install / chown` — **no `bash`** (preflight run
+`31910753511`). That installer also rewrites the nginx site config, which can
+silently revert certbot's TLS edits, so the price of a backup timer was a human
+root session plus the one step with real blast radius.
+
+`deploy/backup/install_state_backup.sh` now **owns** the four steps, and
+`apply_hardening.sh` sources it rather than carrying a copy — two definitions of
+"which files, in which order, with which modes" drift, and drift here installs a
+writer without the library it hard-fails without. Bounded install run
+**`31915897174`**, exit 0:
+
+| fact | measured |
+|---|---|
+| `riskit-state-backup.timer` | `UnitFileState=enabled`, `ActiveState=active`, `Persistent=yes` |
+| next elapse | **Sun 2026-08-16 04:30:00 CEST = 02:30 UTC** — the intended nightly |
+| `ExecStart` | `/usr/local/lib/riskit/riskit-state-backup.sh` — the root-owned copy, **not** the deploy-user-writable checkout |
+| manual oneshot | `Result=success`, `ExecMainStatus=0`, 35 s wall / 40 s CPU |
+
+> **A MANUAL ONESHOT IS NOT A NIGHTLY FIRING, and this register will not say it
+> was.** Starting the unit proves the *installed service path executes*. The
+> timer being `enabled`/`active` with a next elapse at 02:30 UTC proves
+> *scheduling is armed*. Those are two facts and neither is the other. No
+> natural 02:30 firing has been observed; the first is due 2026-08-16.
+>
+> **What is still unmeasured:** the writer logs to
+> `/var/log/riskit-state-backup.log` rather than the journal, and its generation
+> lands under root-owned `/var/backups/riskit-state`. Neither is readable by the
+> deploy account, so the effective root, generation and artifact count *for this
+> lineage* are **not** evidenced here. The 35 s runtime is consistent with a real
+> backup and is not proof of one. The fallback lineage's generation is fully
+> evidenced above; do not read one as the other.
+
+---
+
 ## What this document is
 
 The eight rows in this tranche share one property that no other work in the
@@ -312,19 +476,59 @@ is the single owner of that answer and the endpoint calls it.
 | **Restore / replay** | restore the tarball; the pusher's glob takes **every** dated snapshot rather than the newest, so supplying the deploy key later backfills every missed week |
 | **Health signal** | `scripts/retention_health.py` → `C1-RET-08`; budget 336 h (weekly × 2) |
 
-**Why it was at risk.** **0 snapshots ever committed**, despite producer, pusher
-and weekly timer all being correctly wired. The measured failure is the deploy
-key: `playerctx_history_push.sh:52-71` exits **0** when it cannot read the key.
+**Why it was at risk, and what the cause actually was.** **0 snapshots ever
+committed**, despite producer, pusher and weekly timer all being correctly wired.
 
-**That exit code is deliberate and stays.** The script's own comment gives the
-reason — nothing has been lost at that point, the backlog is safe because the
-glob backfills, and "a unit that goes red every week is a unit nobody reads". It
-explicitly names the intended surface: *"A stalled retention is meant to surface
-through `store.history_coverage()`'s missingDays — the same way rank_history
-reports its own gaps — not through a permanently failing timer."*
+The cause was NOT a missing credential. Measured 2026-08-15 (preflight
+`31912677700`): all three pushers run as the same user with the same HOME,
+`${HOME}/.ssh/github_deploy_key` is absent for all three, no `*_SSH_KEY`
+override is configured for any of them — and DLF and IDP Show publish anyway,
+because `~/.ssh/config` carries `IdentityFile ~/.ssh/github_push` with
+`IdentitiesOnly yes`. **`-i` accumulates with the config's IdentityFile rather
+than replacing it**, so the absent `-i` target contributes nothing and
+`github_push` supplies the identity. Demonstrated non-mutatingly with
+`git ls-remote` in that context: authentication succeeds both with the siblings'
+exact `GIT_SSH_COMMAND` and with none at all.
 
-That surface did not exist. **Now it does** — which makes this row's repair the
-health probe, not a change to the exit code.
+**This script alone decided, on ssh's behalf and before ssh ran, that a push was
+impossible — and then exited 0.** The unit went green every week while
+publishing nothing, for two snapshots and counting. The earlier claim in this
+register that "the measured failure is the deploy key" was wrong; the key path is
+absent for the pushers that work.
+
+**Repaired in #860.** The guard now selects: an explicit readable key is still
+used as `-i` with `IdentitiesOnly`; otherwise it warns and lets ssh resolve an
+identity by its own rules. The *outcome* is not relaxed — a real authentication
+failure still fails the run, pinned by a test that points the script at an
+unreachable remote and requires non-zero exit plus the absence of any
+"pushed on attempt" claim.
+
+**PUBLISHED 2026-08-16T01:58:32 CEST** by a dispatched one-shot start of
+`dynasty-playerctx-history.service`; unit `Result=success`, `ExecMainStatus=0`,
+ran 01:57:23 → 01:58:32 CEST:
+
+```
+[playerctx-history] no readable deploy key ... - falling back to ssh's own identity
+[playerctx-history] first run - cloning ... into /var/lib/playerctx-history/repo
+[playerctx-history] staging 2 snapshot(s)
+[main 7730677eb] chore(playerctx): retain snapshot 2026-08-15T23:58:30Z
+ 2 files changed, 2 insertions(+)
+ create mode 100644 data/playerctx/history/snapshot_2026-08-05.json
+ create mode 100644 data/playerctx/history/snapshot_2026-08-11.json
+   4a9a061ea..7730677eb  main -> main
+[playerctx-history] pushed on attempt 1
+```
+
+Both dated snapshots are on `origin/main` as commit `7730677eb`, authored
+`playerctx History (prod)`. **Local snapshots were never the acceptance
+criterion; the off-box copies are, and they now exist.**
+
+Two things this does NOT claim. The APP_DIR checkout still reports
+`tracked count 0` and `/api/status` will still report `pendingPush: 2` until
+that checkout advances past `7730677eb` — those read the LOCAL tree, which a
+push does not change, so they lag by one deploy and are not evidence of a
+failed publication. And the next natural firing is Tue 2026-08-18 08:45 CEST;
+this run was started by hand.
 
 ---
 
@@ -441,9 +645,12 @@ permission:
   implemented. `C1-RET-06` records the events those questions would need.
 - **Identity consolidation is not started.** `C1-RET-07` labels a stale surface
   honestly; it does not resume collection or resolve any identity.
-- **Backups are configured, not proven.** `riskit-state-backup.sh` verifies
-  every artifact it writes (`gzip -t`, `tar -tzf`, `PRAGMA integrity_check`) and
-  discards a partial snapshot rather than promoting it — but **no restore of the
-  new artifacts has been performed on production**, and configuration is not
-  completion. The first production run is the evidence, and it has not happened
-  yet.
+- **Backups are proven for ONE lineage, not for the nightly.** Run
+  `31906622971` restored and verified 7 retention artifacts out of a 16-artifact
+  generation on production, exit 0 — so "configured, not proven" no longer
+  describes the deploy user's fallback lineage. It still describes the
+  **root-owned nightly**: `deploy/apply_hardening.sh` installs
+  `/usr/local/lib/riskit/` and ordinary deploys deliberately never run it, so
+  merging #852 did not by itself change what the 02:30 UTC timer executes.
+  Treating one lineage's proof as the other's is exactly the substitution this
+  tranche exists to refuse.

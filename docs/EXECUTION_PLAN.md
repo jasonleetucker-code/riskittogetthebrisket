@@ -112,24 +112,48 @@ radius of a rename that is otherwise mechanical.
 inside phase C1. Read them from `docs/C_SERIES_SCOPE_MANIFEST.md`; that file is authoritative if this summary
 and it ever disagree.
 
-| row | what stops being lost | implementation state |
-|---|---|---|
-| `C1-RET-01` | KTC crowd-FAAB rolling window durably retained | code landed — **awaiting production evidence** |
-| `C1-RET-02` | canonical board history provably recording | code landed — **awaiting production evidence** |
-| `C1-RET-03` | `rank_history.jsonl` stall detectable | code landed — **awaiting production evidence** |
-| `C1-RET-04` | scoring card at a date (today: overwritten) | code landed — **awaiting production evidence** |
-| `C1-RET-05` | Sleeper trending adds (today: discarded every 15 min) | code landed — **awaiting production evidence** |
-| `C1-RET-06` | own-league trade events before the rolling window drops them | code landed — **awaiting production evidence** |
-| `C1-RET-07` | per-source raw ingest + identity reports (halted 2026-04-20) | labelled honestly; **collection NOT resumed** — the producer is not in the tree |
-| `C1-RET-08` | `playerctx` history actually landing | observability landed; **the deploy-key blocker is unchanged** |
+Deployed as merge `47d7d243` (validated head `ef76a425`), deploy run `31869441040` SUCCESS.
+Production evidence below is the **strict `ALL` watchdog run `31870347342`**, measured 2026-08-15T06:48:36Z
+against the production data directory.
 
-> **"Code landed" is not "done", and this table will not say otherwise until the evidence exists.**
-> Configuration is not completion: a store that exists in the repository, a backup line that has never run, and
-> a scheduled probe that has never reported are all *mechanisms*, and every one of the four PARTIAL /
-> PROOF-REQUIRED rows in this tranche was a working mechanism nobody had observed. The completion evidence is
-> `scripts/retention_health.py` reporting `ok` for a row **on the production host**, plus a verified restore of
-> the new backup artifacts. Neither has happened yet. Operational record:
-> `docs/retention/RETENTION_REGISTER.md`.
+| row | what stops being lost | production state (final, run `31916149679`) | status |
+|---|---|---|---|
+| `C1-RET-01` | KTC crowd-FAAB rolling window durably retained | `ok`, 2.6 h — 2 accumulator files, **1,128 deduped rows** | **COMPLETE** |
+| `C1-RET-02` | canonical board history provably recording | `ok`, 24.0 h — **10,934 rows across 10 dates** | **COMPLETE** |
+| `C1-RET-03` | `rank_history.jsonl` stall detectable | `ok`, 24.0 h — 27 snapshots, missingDays=0, staleDays=1 | **COMPLETE** |
+| `C1-RET-04` | scoring card at a date (today: overwritten) | `ok`, 0.1 h — **90 observations of 2 distinct cards across 2 leagues** | **COMPLETE** |
+| `C1-RET-05` | Sleeper trending adds (today: discarded every 15 min) | `ok`, 0.1 h — **4,500 observations across 45 snapshots** | **COMPLETE** |
+| `C1-RET-06` | own-league trade events before the rolling window drops them | `ok`, 0.1 h — **288 transactions, 288 trades, 4 leagues** | **COMPLETE** |
+| `C1-RET-07` | per-source raw ingest + identity reports (halted 2026-04-20) | **`stale`, 2,812.2 h** — newest `identity_report_20260420T194828Z.json` | **STALE** — honestly labelled; **collection NOT resumed** |
+| `C1-RET-08` | `playerctx` history actually landing | `ok`, 120.0 h — 2 snapshots, **both published to `origin/main` as `7730677eb`** | **COMPLETE** |
+
+**COMPLETE means: recording on production, restored and verified from a backup, and — for `C1-RET-08` —
+actually off-box.** The six recording rows are each restored and verified in run `31906622971`; the watchdog
+proves they are still being written to. `C1-RET-07` is the one row that is not complete, and it is not
+weakened to look like one: its collector has not resumed, the producer is not in the tree, and the strict
+`ALL` watchdog still exits **2** because of it.
+
+**The watchdog exited 2**, on a genuinely stale stream. That is the corrected semantics working, and per the
+production-checkpoint instruction a stale row is *not* a reason to weaken it. It has not been weakened.
+
+> **The backup + restore proof is green**: run `31906622971`, `RUN_BACKUP=1`, exit 0 — 16 artifacts in the
+> generation, **7 retention artifacts restored and verified from the restored copies**. It exercised the deploy
+> user's FALLBACK lineage and said so itself.
+>
+> **The unattended nightly now exists.** It did not: no `riskit-state-backup` unit, neither file under
+> `/usr/local/lib/riskit/`, no `/var/backups/riskit-state` — so the seven artifacts were covered by no
+> scheduled job. Installed 2026-08-16 through the deploy account's existing sudo allowlist (run
+> `31915897174`), timer `enabled`/`active`/`Persistent=yes`, next elapse **02:30 UTC**, `ExecStart` rooted at
+> `/usr/local/lib/riskit/`, manual oneshot `Result=success`.
+>
+> **A manual oneshot is not a nightly firing, and a proven fallback lineage is not a proven root lineage.**
+> Both distinctions are kept explicitly in `docs/retention/RETENTION_REGISTER.md`, along with what remains
+> unmeasured: the root-owned generation's contents are not readable by the deploy account.
+>
+> `C1-RET-07` stays **STALE on its own merits**: identity collection has not resumed and the producer is not
+> in the tree.
+>
+> Operational record, with the full backup/restore evidence: `docs/retention/RETENTION_REGISTER.md`.
 
 **Four other rows carry the `RET` flag but are NOT in this tranche** — `C4-FAAB-02`, `C5-GD-02`, `C7-DRAFT-02`
 and `C9-UR-02` are flagged so their collection starts as early as their phase allows, but they belong to C4, C5,
