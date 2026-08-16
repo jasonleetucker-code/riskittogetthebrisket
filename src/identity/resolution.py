@@ -752,6 +752,39 @@ class DualReadTally:
                         }
                     )
 
+    def record_served(
+        self,
+        *,
+        input_name: str,
+        input_pos: str = "",
+        served_id: str | None,
+        v2: "Resolution | None" = None,
+    ) -> None:
+        """POST-CUTOVER accounting: the canonical owner is the only
+        decider, so there is no legacy answer left to diverge from.  The
+        v1 counters are therefore not comparisons and stay at zero; the
+        meaningful figure is ``v2WouldChange`` — the standing measurement
+        of the gap between the served policy and ``CANONICAL_V2``, which
+        is the evidence base for the deferred semantic step."""
+        self.calls += 1
+        if v2 is not None:
+            v2_id = v2.sleeper_id if v2.resolved else None
+            if v2_id == served_id:
+                self.v2_same += 1
+            else:
+                self.v2_would_change += 1
+                if len(self.v2_examples) < self.example_cap:
+                    self.v2_examples.append(
+                        {
+                            "name": input_name,
+                            "pos": input_pos,
+                            "served": served_id,
+                            "engineV2": v2_id,
+                            "v2Method": v2.method,
+                            "v2Reason": v2.reason,
+                        }
+                    )
+
     def record_keys(
         self,
         *,
@@ -793,20 +826,22 @@ class DualReadTally:
         }
 
 
-def cutover_active(env: Mapping[str, str] | None = None) -> bool:
-    """Whether the identity cutover flag is set.  Default OFF: adapters
-    serve the legacy answer until the prod gate (zero V1 divergence over
-    a full refresh cycle) is met and the owner flips
-    ``RISKIT_IDENTITY_CUTOVER=1``."""
-    import os  # noqa: PLC0415
-
-    src = env if env is not None else os.environ
-    return str(src.get("RISKIT_IDENTITY_CUTOVER", "")).strip() in {"1", "true", "yes", "on"}
+# ``cutover_active`` / ``RISKIT_IDENTITY_CUTOVER`` are DELETED (2026-08-16).
+# The flag existed to make the dual-read window reversible; the cutover
+# happened and the legacy paths were removed, so there is nothing left to
+# fall back to.  Keeping a flag that cannot restore anything would
+# misdescribe the system — the honest statement is that the canonical
+# owner is the only decider.
 
 
 def dual_read_enabled(env: Mapping[str, str] | None = None) -> bool:
-    """Dual-read comparison runs by default; ``RISKIT_IDENTITY_DUAL_READ=0``
-    is the operational kill-switch (cost, not correctness)."""
+    """Whether the standing ``CANONICAL_V2`` watch runs.
+
+    Post-cutover this gates OBSERVATION only: the watch records what V2
+    would answer differently (§9 of the design doc) so the deferred
+    semantic work starts from live evidence.  ``RISKIT_IDENTITY_DUAL_READ=0``
+    turns that measurement off for cost; it cannot change a served
+    identity, because the served answer no longer depends on it."""
     import os  # noqa: PLC0415
 
     src = env if env is not None else os.environ
