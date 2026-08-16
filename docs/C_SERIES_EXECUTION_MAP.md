@@ -142,7 +142,8 @@ C1-U1 and C1-U2 both closed on 2026-08-16; the next authorization is an owner de
 
 ### C1-U3 — One pick identity, end to end  ← **DELIVERED (C1A unit 3, checkpoint pending)**
 - **rows** `C1-ID-02` · **owner** `src/identity/picks.py` (created)
-- **retires** measured **14** representations (map's 7 was an estimate) · **kind** INFRA · **deps** C1-U2
+- **retires/adapts** measured **39** independent definition sites, 97 raw census records
+  (map's 7 was an estimate; `docs/identity/C1_ID_02_CENSUS.md`) · **kind** INFRA · **deps** C1-U2
 - **RED→GREEN** the same pick failing to round-trip across two representations —
   reproduced on real league data (`tests/identity/test_pick_identity_red.py`, six
   defect classes) and closed by the owner (`test_pick_identity.py`)

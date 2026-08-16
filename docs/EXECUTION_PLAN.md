@@ -120,8 +120,9 @@ league pick's identity is `league_key + season + round + origin franchise` (curr
 slot are STATE — a trade or the draft order landing never mints a new asset); market pick references
 carry exactly one of slot/tier/generic grades; the generic→exact transition is a pure state change with
 a deterministic `market_resolution()` that answers an unknown slot with the GENERIC grade, never a
-fabricated tier or slot. The census measured **14 independent representations** (vs the map's estimate
-of 7); six real defect classes were reproduced on live code paths + real league data
+fabricated tier or slot. The census measured **97 raw representation records deduplicating to 39 independent
+pick-identity definition sites** (vs the map's estimate of 7 — see
+`docs/identity/C1_ID_02_CENSUS.md`); six real defect classes were reproduced on live code paths + real league data
 (`tests/identity/test_pick_identity_red.py`) — the execution-map RED (same pick, two representations, no
 round-trip) among them, plus five real 2027 1sts serializing to one label, wall-clock/rename label drift,
 fabricated "Mid" for unknown slots, the intel ledger's origin-stripping asset id, and league-free overlay

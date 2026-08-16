@@ -72,9 +72,14 @@ intel-ledger collision.
 
 ## 2. Census — every representation measured on current main
 
-Counted at origin/main `e3b230e31` (2026-08-16). The manifest's estimate was ~7;
-the measured count is **14 independent representations** (7 structured shapes + 6
-label grammars + 1 persisted key form), excluding pure presentation.
+Counted at origin/main `e3b230e31` (2026-08-16). The manifest's estimate was ~7.
+Seven parallel census sweeps yielded **97 raw representation records and 56 red
+candidates**, deduplicating to **39 independent pick-identity definition sites**
+in four families — 12 owned-asset structured shapes, 10 market/board shapes, 7
+serialization grammars, 10 independent parser/detector definitions. The full
+deduplicated census with per-site dispositions is
+[`C1_ID_02_CENSUS.md`](C1_ID_02_CENSUS.md); the tables below are the core
+subset this design was derived from.
 
 ### 2.1 Structured shapes
 
