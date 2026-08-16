@@ -377,6 +377,56 @@ def check_traceability(f: Failures, manifest_ids: set[str]) -> None:
         f.add("traceability", f"unexplained unmapped is {m.group(1)}, not 0")
 
 
+def check_execution_map(f: Failures, manifest_ids: set[str]) -> None:
+    """The execution map claims to decompose EVERY manifest row into exactly one unit.
+
+    A claim of exhaustiveness that nothing recomputes is a claim that decays
+    silently, and this one already did: the map shipped asserting 153 rows
+    against a manifest of 163, because it was built with an ad-hoc regex that
+    required three hyphen-separated parts with alphabetic middles.  It dropped
+    ``C7-BEST-TRADE`` (no numeric suffix), ``C8-A11Y-01`` and ``C9-V3-01``
+    (digits in the middle segment) and ``X-01``..``X-07`` (two parts) — ten rows,
+    including every explicitly out-of-scope row, which are exactly the ones a
+    later session would otherwise rediscover as unexplored ideas.
+
+    So the map's own appendix is checked against ``parse_manifest`` — the single
+    owner of "what is a manifest row" — rather than against a second parser.
+    """
+    # Same exclusion as check_declared_row_count: OD-* rows in §6 are owner
+    # decisions, not manifest rows. Stated in one place there and applied here
+    # by the same rule, so the two counts cannot disagree about what a row is.
+    rows = {i for i in manifest_ids if not i.startswith("OD-")}
+
+    path = DOCS / "C_SERIES_EXECUTION_MAP.md"
+    if not path.exists():
+        return
+    text = read(path)
+    marker = "\n# 20. Appendix"
+    if marker not in text:
+        f.append("[execution-map] no '# 20. Appendix' row->unit table to verify")
+        return
+
+    mapped: list[str] = []
+    for line in text.split(marker, 1)[1].split("\n"):
+        m = re.match(r"^\|\s*`([^`]+)`\s*\|\s*(\S+)\s*\|", line)
+        if m:
+            mapped.append(m.group(1))
+
+    seen = set()
+    dupes = sorted({r for r in mapped if r in seen or seen.add(r)})
+    if dupes:
+        f.append(f"[execution-map] rows assigned to more than one unit: {dupes}")
+
+    missing = sorted(rows - set(mapped))
+    extra = sorted(set(mapped) - rows)
+    if missing:
+        f.append(
+            f"[execution-map] {len(missing)} manifest row(s) are in no execution unit: {missing}"
+        )
+    if extra:
+        f.append(f"[execution-map] {len(extra)} mapped id(s) are not manifest rows: {extra}")
+
+
 def check_governance_index(f: Failures) -> None:
     """8: every planning document is classified somewhere."""
     status = read(STATUS)
@@ -441,6 +491,7 @@ def main() -> int:
         manifest_ids = {r["id"] for r in parse_manifest(read(MANIFEST))}
         check_source_census(f)
         check_traceability(f, manifest_ids)
+        check_execution_map(f, manifest_ids)
         check_governance_index(f)
         check_single_authorization_record(f)
         check_reserved_phrase(f)
@@ -466,6 +517,7 @@ def main() -> int:
     print("  source-family count agrees with the traceability table")
     print("  every traceability destination resolves; unexplained unmapped is 0")
     print("  declared RET-row count matches the rows actually flagged")
+    print("  every manifest row maps to exactly one execution unit")
     return 0
 
 

@@ -1,0 +1,101 @@
+name: C1A closure inventory (read-only)
+
+# Two facts the backup/restore proof structurally cannot report, because
+# they are about state it does not touch:
+#
+#   A. Whether the NIGHTLY backup lineage carries #852.  The root-owned copies
+#      under /usr/local/lib/riskit/ are refreshed only by the operator-run
+#      hardening installer, which ordinary deploys deliberately never invoke —
+#      a policy pinned by
+#      tests/deploy/test_hardening_script_stays_operator_run.py.  So a green
+#      deploy says nothing about the nightly, and a green restore proof run
+#      by the deploy user says nothing either.  This hashes what is actually
+#      installed against what is actually deployed.
+#
+#      That test greps these workflow files for the installer's filename, so
+#      this comment deliberately does not spell it out.  Naming it here would
+#      trip a tripwire whose entire job is to make wiring it a deliberate act —
+#      and a guard that a comment can trip is a guard someone eventually
+#      weakens to stop the noise.  The name is in the diagnostic script.
+#
+#   B. Why C1-RET-08's player-context history has never been published.
+#      /api/status reports pendingPush=2 — both retained snapshots exist
+#      locally and neither is committed.  The producer and the pusher fail
+#      independently, so this reports the pusher's unit state, working
+#      directory, last result and journal.
+#
+# STRICTLY READ-ONLY.  It installs nothing, enables nothing, starts nothing,
+# commits nothing and pushes nothing.  Repairing production is a separate,
+# explicitly authorised action — a diagnostic that fixes its subject
+# destroys the evidence it was run to collect.
+#
+# PRIVACY: unit metadata, file hashes and dated filenames only.  No snapshot
+# contents, no league payload, no roster, no manager name, no key material —
+# the deploy key is probed with `test -r`, never read.
+
+on:
+  workflow_dispatch:
+    inputs:
+      journal_lines:
+        description: "How many journal lines to tail per unit"
+        required: false
+        default: "40"
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  # Its own group. Not `production-deploy`: GitHub keeps only the newest
+  # PENDING run per group, so sharing it would let a queued deploy cancel
+  # this inventory into silence.
+  group: c1a-closure-diagnostics
+  cancel-in-progress: false
+
+jobs:
+  inventory:
+    name: Inspect nightly lineage + playerctx publication
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: production
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Configure production SSH
+        env:
+          DEPLOY_SSH_PRIVATE_KEY: ${{ secrets.DEPLOY_SSH_PRIVATE_KEY }}
+          DEPLOY_KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+          DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          install -d -m 700 "$HOME/.ssh"
+          printf '%s\n' "$DEPLOY_SSH_PRIVATE_KEY" | sed 's/\r$//' > "$HOME/.ssh/id_ed25519"
+          printf '%s\n' "$DEPLOY_KNOWN_HOSTS" | sed 's/\r$//' > "$HOME/.ssh/known_hosts"
+          chmod 600 "$HOME/.ssh/id_ed25519"
+          chmod 644 "$HOME/.ssh/known_hosts"
+          ssh-keygen -y -f "$HOME/.ssh/id_ed25519" >/dev/null
+          echo "PORT=${DEPLOY_PORT:-22}" >> "$GITHUB_ENV"
+
+      - name: Collect the inventory from production
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          APP_DIR: ${{ vars.PROD_APP_DIR || '/home/dynasty/trade-calculator' }}
+          SERVICE_NAME: ${{ vars.PROD_SERVICE_NAME || 'dynasty' }}
+          JOURNAL_LINES: ${{ inputs.journal_lines }}
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          # The remote exit status is this step's exit status. The script
+          # exits non-zero only when the inventory itself could not run;
+          # a defect it FINDS is reported, not raised, because the point
+          # is to read the report.
+          ssh -i "$HOME/.ssh/id_ed25519" \
+            -o BatchMode=yes -o StrictHostKeyChecking=yes \
+            -o UserKnownHostsFile="$HOME/.ssh/known_hosts" \
+            -o ConnectTimeout=15 -o ServerAliveInterval=15 \
+            -p "$PORT" "$DEPLOY_USER@$DEPLOY_HOST" \
+            "APP_DIR=$(printf %q "$APP_DIR") SERVICE_NAME=$(printf %q "$SERVICE_NAME") JOURNAL_LINES=$(printf %q "$JOURNAL_LINES") bash -s" \
+            < deploy/diagnostics/c1a_closure_inventory.sh
