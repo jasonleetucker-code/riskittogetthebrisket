@@ -130,9 +130,7 @@ class TestRedDistinctRealPicksCollapseToOneLabel(unittest.TestCase):
             if pd["season"] == 2028 and pd["round"] == 1
         }
         count = sum(
-            1
-            for pd in self.fx["scraperPickDetails"]
-            if pd["season"] == 2028 and pd["round"] == 1
+            1 for pd in self.fx["scraperPickDetails"] if pd["season"] == 2028 and pd["round"] == 1
         )
         self.assertEqual(count, 7)
         self.assertEqual(base, {"2028 Mid 1st"})
@@ -212,8 +210,20 @@ class TestRedIntelAssetIdStripsOrigin(unittest.TestCase):
             "adds": {},
             "drops": {},
             "draft_picks": [
-                {"season": "2027", "round": 2, "roster_id": 9, "owner_id": 1, "previous_owner_id": 9},
-                {"season": "2027", "round": 2, "roster_id": 4, "owner_id": 1, "previous_owner_id": 4},
+                {
+                    "season": "2027",
+                    "round": 2,
+                    "roster_id": 9,
+                    "owner_id": 1,
+                    "previous_owner_id": 9,
+                },
+                {
+                    "season": "2027",
+                    "round": 2,
+                    "roster_id": 4,
+                    "owner_id": 1,
+                    "previous_owner_id": 4,
+                },
             ],
         }
         rid_to_owner = {"1": "u1", "9": "u9", "4": "u4"}

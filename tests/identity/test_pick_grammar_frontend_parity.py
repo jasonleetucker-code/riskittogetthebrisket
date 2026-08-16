@@ -71,9 +71,7 @@ class TestFrontendLabelRegexesStillMatchOwnerGrammar(unittest.TestCase):
     def test_slot_and_label_regex_literals_are_the_measured_ones(self):
         js = TRADE_LOGIC.read_text(encoding="utf-8")
         self.assertIn(r"/^(\d{4})\s+(\d)\.(\d{2})/", js)
-        self.assertIn(
-            r"/^(\d{4})\s+(early|mid|late)?\s*(1st|2nd|3rd|4th|5th|6th)/i", js
-        )
+        self.assertIn(r"/^(\d{4})\s+(early|mid|late)?\s*(1st|2nd|3rd|4th|5th|6th)/i", js)
 
     def test_every_owner_emitted_label_family_is_parseable_by_the_js_grammar(self):
         """Python-side simulation of the two JS regexes over the owner's
@@ -82,9 +80,7 @@ class TestFrontendLabelRegexesStillMatchOwnerGrammar(unittest.TestCase):
         from src.identity import picks as P
 
         js_slot = re.compile(r"^(\d{4})\s+(\d)\.(\d{2})")
-        js_label = re.compile(
-            r"^(\d{4})\s+(early|mid|late)?\s*(1st|2nd|3rd|4th|5th|6th)", re.I
-        )
+        js_label = re.compile(r"^(\d{4})\s+(early|mid|late)?\s*(1st|2nd|3rd|4th|5th|6th)", re.I)
         emitted = []
         for season in (2026, 2027, 2028, 2029):
             for rnd in range(1, 7):

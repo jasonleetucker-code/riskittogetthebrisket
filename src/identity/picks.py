@@ -106,9 +106,7 @@ _INTEL_PICK_ID_RE = re.compile(r"^pick:(?P<season>20\d{2}):(?P<round>\d{1,2})$")
 # fallback "Round 1").  Each parses to exactly what it proves.
 _LABEL_ANNOTATION_RE = re.compile(r"\s*\((?P<ann>[^)]*)\)\s*$")
 _LABEL_SLOT_RE = re.compile(r"^(20\d{2})\s+(?:Pick\s+)?([1-6])\.(0?[1-9]|1[0-2])$", re.I)
-_LABEL_TIER_RE = re.compile(
-    r"^(20\d{2})\s+(Early|Mid|Late)\s+([1-6])(?:st|nd|rd|th)$", re.I
-)
+_LABEL_TIER_RE = re.compile(r"^(20\d{2})\s+(Early|Mid|Late)\s+([1-6])(?:st|nd|rd|th)$", re.I)
 _LABEL_ROUND_SUFFIX_RE = re.compile(r"^(20\d{2})\s+([1-6])(?:st|nd|rd|th)$", re.I)
 _LABEL_ROUND_WORD_RE = re.compile(r"^(20\d{2})\s+(?:Round\s+|R)([1-9]\d?)$", re.I)
 
@@ -174,8 +172,7 @@ class LeaguePickIdentity:
     @property
     def canonical_id(self) -> str:
         return (
-            f"pick:{self.league_key}:{self.season}"
-            f":r{self.round_num}:o{self.origin_roster_id}"
+            f"pick:{self.league_key}:{self.season}" f":r{self.round_num}:o{self.origin_roster_id}"
         )
 
 
@@ -275,9 +272,7 @@ def build_pick_ownership(
                     slot = slot_by_origin.get((season_i, rid))
                 out[(season_i, rnd, rid)] = OwnedLeaguePick(
                     identity=ident,
-                    state=LeaguePickState(
-                        owner_roster_id=rid, slot=slot, source=source
-                    ),
+                    state=LeaguePickState(owner_roster_id=rid, slot=slot, source=source),
                 )
     for tp in traded_picks or []:
         if not isinstance(tp, Mapping):
@@ -705,18 +700,12 @@ def format_trade_pick_label(
     from_team: str | None = None
     if origin_rid is not None:
         from_team = (
-            rid_to_name.get(origin_rid)
-            or rid_to_name.get(str(origin_rid))
-            or f"Team {origin_rid}"
+            rid_to_name.get(origin_rid) or rid_to_name.get(str(origin_rid)) or f"Team {origin_rid}"
         )
 
     base_label: str | None = None
     if season is not None and round_num is not None and round_num > 0:
-        slot = (
-            draft_slot_by_origin.get((season, origin_rid))
-            if origin_rid is not None
-            else None
-        )
+        slot = draft_slot_by_origin.get((season, origin_rid)) if origin_rid is not None else None
         if season >= int(current_year) + 1:
             tier_label = legacy_slot_tier_label(slot, league_size)
             base_label = f"{season} {tier_label} {round_suffix(round_num)}"

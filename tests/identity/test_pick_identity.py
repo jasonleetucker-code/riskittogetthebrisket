@@ -52,12 +52,8 @@ class TestCanonicalIdRoundTrip(unittest.TestCase):
         for year in (2026, 2029):
             for rnd in range(1, 7):
                 refs = [P.MarketPickRef(year=year, round_num=rnd)]
-                refs += [
-                    P.MarketPickRef(year=year, round_num=rnd, slot=s) for s in range(1, 15)
-                ]
-                refs += [
-                    P.MarketPickRef(year=year, round_num=rnd, tier=t) for t in P.PICK_TIERS
-                ]
+                refs += [P.MarketPickRef(year=year, round_num=rnd, slot=s) for s in range(1, 15)]
+                refs += [P.MarketPickRef(year=year, round_num=rnd, tier=t) for t in P.PICK_TIERS]
                 for ref in refs:
                     self.assertEqual(P.parse_market_pick_id(ref.canonical_id), ref)
 
@@ -149,9 +145,7 @@ class TestTheExecutionMapGreen(unittest.TestCase):
 
     def test_five_real_2027_firsts_are_five_distinct_canonical_ids(self):
         details = [
-            pd
-            for pd in self.fx["scraperPickDetails"]
-            if pd["season"] == 2027 and pd["round"] == 1
+            pd for pd in self.fx["scraperPickDetails"] if pd["season"] == 2027 and pd["round"] == 1
         ]
         ids = {
             P.LeaguePickIdentity(
@@ -163,9 +157,7 @@ class TestTheExecutionMapGreen(unittest.TestCase):
 
     def test_seven_real_2028_firsts_are_seven_distinct_canonical_ids(self):
         details = [
-            pd
-            for pd in self.fx["scraperPickDetails"]
-            if pd["season"] == 2028 and pd["round"] == 1
+            pd for pd in self.fx["scraperPickDetails"] if pd["season"] == 2028 and pd["round"] == 1
         ]
         self.assertEqual(len(details), 7)
         ids = {
@@ -200,9 +192,7 @@ class TestOwnershipFold(unittest.TestCase):
             and o.state.owner_roster_id == 1
         ]
         # Roster 1's own 2027 R1 plus the four real traded-in origins.
-        self.assertEqual(
-            {o.identity.origin_roster_id for o in r1_2027}, {1, 12, 9, 10, 3}
-        )
+        self.assertEqual({o.identity.origin_roster_id for o in r1_2027}, {1, 12, 9, 10, 3})
 
     def test_season_is_normalized_to_int_at_the_boundary(self):
         self.assertTrue(all(isinstance(o.identity.season, int) for o in self.owned))
@@ -262,9 +252,7 @@ class TestGenericToExactTransition(unittest.TestCase):
     def test_unknown_slot_never_fabricates_a_tier_or_slot(self):
         for year in (2026, 2027, 2028, 2029):
             for cdy in (2026, 2027):
-                res = P.market_resolution(
-                    year=year, round_num=3, slot=None, current_draft_year=cdy
-                )
+                res = P.market_resolution(year=year, round_num=3, slot=None, current_draft_year=cdy)
                 self.assertEqual(res.basis, "unknown_slot")
                 self.assertIsNone(res.ref.slot)
                 self.assertIsNone(res.ref.tier)
@@ -356,36 +344,49 @@ class TestBoardGrammarParityWithContract(unittest.TestCase):
 
     CORPUS = (
         [f"{y} Pick {r}.{s:02d}" for y in (2026, 2027) for r in range(1, 7) for s in range(1, 13)]
-        + [f"{y} {t} {r}{sfx}" for y in (2026, 2028) for t in ("Early", "Mid", "Late")
-           for r, sfx in ((1, "st"), (2, "nd"), (3, "rd"), (4, "th"), (6, "th"))]
-        + ["2026 Pick 1.13", "2026 Pick 7.01", "2026 Pick 1.00", "2026 Early 7th",
-           "2026 early 1ST", "2026 PICK 1.06", " 2026 Pick 1.06 ", "2026 Mid 1nd",
-           "2026 1.06", "2027 1st", "Justin Jefferson", "", "2026 Round 1",
-           "1999 Pick 1.06", "2026 Pick 1.6"]
+        + [
+            f"{y} {t} {r}{sfx}"
+            for y in (2026, 2028)
+            for t in ("Early", "Mid", "Late")
+            for r, sfx in ((1, "st"), (2, "nd"), (3, "rd"), (4, "th"), (6, "th"))
+        ]
+        + [
+            "2026 Pick 1.13",
+            "2026 Pick 7.01",
+            "2026 Pick 1.00",
+            "2026 Early 7th",
+            "2026 early 1ST",
+            "2026 PICK 1.06",
+            " 2026 Pick 1.06 ",
+            "2026 Mid 1nd",
+            "2026 1.06",
+            "2027 1st",
+            "Justin Jefferson",
+            "",
+            "2026 Round 1",
+            "1999 Pick 1.06",
+            "2026 Pick 1.6",
+        ]
     )
 
     def test_slot_and_tier_parsers_agree_with_data_contract(self):
         from src.api import data_contract as DC
 
         for name in self.CORPUS:
-            self.assertEqual(
-                P.parse_board_slot_name(name), DC._parse_pick_slot(name), name
-            )
-            self.assertEqual(
-                P.parse_board_tier_name(name), DC._parse_pick_tier(name), name
-            )
+            self.assertEqual(P.parse_board_slot_name(name), DC._parse_pick_slot(name), name)
+            self.assertEqual(P.parse_board_tier_name(name), DC._parse_pick_tier(name), name)
 
     def test_pick_detector_and_year_extractor_agree_with_data_contract(self):
         from src.api import data_contract as DC
 
         detector_corpus = list(self.CORPUS) + [
-            "2027 Mid 1st (from Blaine)", "2026 1.03 (own)", "pick:2027:2",
+            "2027 Mid 1st (from Blaine)",
+            "2026 1.03 (own)",
+            "pick:2027:2",
         ]
         for name in detector_corpus:
             self.assertEqual(P.is_pick_name(name), DC._is_pick_name(name), name)
-            self.assertEqual(
-                P.pick_year_from_name(name), DC._pick_year_from_name(name), name
-            )
+            self.assertEqual(P.pick_year_from_name(name), DC._pick_year_from_name(name), name)
 
 
 class TestLegacyFormatterParity(unittest.TestCase):
@@ -458,9 +459,7 @@ class TestLegacyFormatterParity(unittest.TestCase):
             )
             self.assertEqual(base, pd["baseLabel"], pd)
             suffix = (
-                "(own)"
-                if pd["fromRosterId"] == pd["ownerRosterId"]
-                else f"(from {pd['fromTeam']})"
+                "(own)" if pd["fromRosterId"] == pd["ownerRosterId"] else f"(from {pd['fromTeam']})"
             )
             self.assertEqual(f"{base} {suffix}", pd["label"], pd)
 
@@ -480,9 +479,7 @@ class TestPersistedIdGrades(unittest.TestCase):
         market_id = P.MarketPickRef(year=2028, round_num=2).canonical_id
         self.assertEqual(P.parse_any_pick_asset_id(league_id)[0], "league")
         self.assertEqual(P.parse_any_pick_asset_id(market_id)[0], "market")
-        self.assertEqual(
-            P.parse_any_pick_asset_id("pick:2027:2"), ("intel_generic", (2027, 2))
-        )
+        self.assertEqual(P.parse_any_pick_asset_id("pick:2027:2"), ("intel_generic", (2027, 2)))
         self.assertIsNone(P.parse_any_pick_asset_id("player:1234"))
         self.assertIsNone(P.parse_any_pick_asset_id(""))
 
