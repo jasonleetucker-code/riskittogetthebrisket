@@ -300,11 +300,16 @@ class TestDualReadTally(unittest.TestCase):
 
 
 class TestFlags(unittest.TestCase):
-    def test_cutover_defaults_off(self):
-        self.assertFalse(R.cutover_active(env={}))
-        self.assertTrue(R.cutover_active(env={"RISKIT_IDENTITY_CUTOVER": "1"}))
+    def test_the_cutover_flag_is_gone(self):
+        """C1-U2 cut over and deleted the legacy paths, so the flag that
+        selected between them must not survive: a flag implying a
+        fallback that cannot exist is a lie about the system."""
+        self.assertFalse(
+            hasattr(R, "cutover_active"),
+            "cutover_active is back — there is no legacy path for it to select",
+        )
 
-    def test_dual_read_defaults_on_with_kill_switch(self):
+    def test_v2_watch_defaults_on_with_kill_switch(self):
         self.assertTrue(R.dual_read_enabled(env={}))
         self.assertFalse(R.dual_read_enabled(env={"RISKIT_IDENTITY_DUAL_READ": "0"}))
 
