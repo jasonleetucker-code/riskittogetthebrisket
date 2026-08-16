@@ -16,9 +16,15 @@ decay.  Composing them published 2027 firsts 18% and 2028 firsts 34%
 below what both markets agreed, biasing every trade involving future
 capital toward selling futures cheap.
 
-What still NEEDS the step-down is a year this pipeline synthesised by
-cloning a nearer year (``_inject_far_future_pick_sources``), because the
-clone carries the nearer year's price verbatim.
+What still NEEDS a step-down is a year this pipeline synthesised from
+a nearer year (``_inject_far_future_pick_sources``).  Since C1-U6 the
+step is applied AT INJECTION (measured vendor year-step, config
+``derivedYearModel``, classification PRIOR), so the Phase 3a pass is
+stamp-only: it records the net factor as ``pickYearDiscount`` for
+transparency/projections and never multiplies a value — multiplying
+again would double-count the injection-time step.  The gate is the
+same: only synthesised names are stamped; vendor-priced years pass
+untouched with no stamp.
 
 These tests are synthetic and pure-logic — no live board, no CSVs — so
 they belong in the blocking CI tier.
@@ -35,11 +41,23 @@ class TestOnlySynthesisedYearsAreDiscounted:
         players = [{"assetClass": "pick", "canonicalName": n} for n in names]
         row_normalized = [(1000.0, i) for i in range(len(names))]
         prev = dc._SYNTHETIC_FAR_FUTURE_PICK_NAMES
+        prev_der = dc._SYNTHETIC_PICK_DERIVATIONS
         dc._SYNTHETIC_FAR_FUTURE_PICK_NAMES = {dc._canonical_match_key(n) for n in synthetic}
+        dc._SYNTHETIC_PICK_DERIVATIONS = {
+            dc._canonical_match_key(n): {
+                "factor": 0.8407,
+                "basisYear": 2028,
+                "basisName": n.replace("2029", "2028"),
+                "family": "measured_vendor_year_step_v1",
+                "classification": "PRIOR",
+            }
+            for n in synthetic
+        }
         try:
             out, applied = dc._apply_pick_year_discount_to_blend(row_normalized, players)
         finally:
             dc._SYNTHETIC_FAR_FUTURE_PICK_NAMES = prev
+            dc._SYNTHETIC_PICK_DERIVATIONS = prev_der
         return {names[i]: v for v, i in out}, applied, players
 
     def test_vendor_priced_year_keeps_its_blended_value(self):
@@ -56,20 +74,29 @@ class TestOnlySynthesisedYearsAreDiscounted:
         for p in players:
             assert "pickYearDiscount" not in p
 
-    def test_synthesised_year_is_still_stepped_down(self):
-        """A cloned year carries the nearer year's price and DOES need it."""
-        values, applied, players = self._run(["2029 Early 1st"], synthetic={"2029 Early 1st"})
-        assert values["2029 Early 1st"] < 1000.0
-        assert applied, "a synthesised year must record its multiplier"
-        assert players[0]["pickYearDiscount"] < 1.0
+    def test_synthesised_year_is_stamped_but_not_multiplied_again(self):
+        """The step is applied at injection; Phase 3a only records it.
 
-    def test_mixed_board_discounts_only_the_clone(self):
+        The blended value passes through UNCHANGED (multiplying here on
+        top of the injection-time step would double-count), while the
+        transparency stamp still lands so projections and the frontend
+        can invert the derivation.
+        """
+        values, applied, players = self._run(["2029 Early 1st"], synthetic={"2029 Early 1st"})
+        assert values["2029 Early 1st"] == 1000.0
+        assert applied, "a synthesised year must record its factor"
+        assert players[0]["pickYearDiscount"] == 0.8407
+
+    def test_mixed_board_stamps_only_the_clone(self):
         """The realistic case: real 2027/2028 beside a synthesised 2029."""
         names = ["2027 Early 1st", "2028 Early 1st", "2029 Early 1st"]
-        values, _, _ = self._run(names, synthetic={"2029 Early 1st"})
+        values, applied, players = self._run(names, synthetic={"2029 Early 1st"})
         assert values["2027 Early 1st"] == 1000.0
         assert values["2028 Early 1st"] == 1000.0
-        assert values["2029 Early 1st"] < 1000.0
+        assert values["2029 Early 1st"] == 1000.0
+        assert "pickYearDiscount" not in players[0]
+        assert "pickYearDiscount" not in players[1]
+        assert players[2]["pickYearDiscount"] == 0.8407
 
     def test_non_pick_rows_are_never_touched(self):
         players = [
@@ -106,12 +133,12 @@ class TestAgainstTheRealMarketBoards:
             )
 
         cfg = dc._load_pick_year_discount()
-        offsets = cfg.get("offsetDiscounts") or {}
-        # The config is a monotonically decreasing prior...
-        assert float(offsets.get("1", 1.0)) < 1.0
+        step = dc._year_step_for("Early", 1, cfg)
+        # The year-step is a decreasing prior...
+        assert step < 1.0
         # ...which is exactly why it must not reach a vendor-priced year.
         market_avg_2027 = (ktc[2027] + idptc[2027]) / 2
-        would_publish = market_avg_2027 * float(offsets["1"])
+        would_publish = market_avg_2027 * step
         assert would_publish < market_avg_2027 * 0.90, (
             "sanity: composing the prior really does move the value >10% "
             "below the market, which is the harm this gate prevents"

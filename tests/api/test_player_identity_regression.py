@@ -423,6 +423,14 @@ class TestTopBoardSingleSourceAllowlist(unittest.TestCase):
             name = row.get("canonicalName") or ""
             if name in KNOWN_TOP_BOARD_SINGLE_SOURCE_ALLOWLIST:
                 continue
+            # A row the PIPELINE annotated (sourceAudit.allowlistReason —
+            # e.g. the synthetic far-future pick tiers, which are
+            # legitimately single-source because no vendor prices that
+            # year) is not SILENTLY 1-src: the annotation carries the
+            # rationale, and the names self-roll with the draft year so
+            # a hardcoded list here would go stale every rollover.
+            if (row.get("sourceAudit") or {}).get("allowlistReason"):
+                continue
             offenders.append(f"#{ccr} {name} ({row.get('position')})")
         self.assertEqual(
             offenders,

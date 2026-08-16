@@ -60,7 +60,48 @@ def _resolve_asset(
     key = str(name).strip().lower()
     row = row_index.get(key)
     if not row:
-        return None
+        # C1-U6: roster/trade pick labels arrive in overlay grammars
+        # ("2027 1st", "2026 1.03 (own)") that are not board row names —
+        # measured silently dropping every roster pick from the
+        # before/after aggregates (no counter, no trace).  Route the
+        # miss through the canonical identity owner: parse the label
+        # (never a guess — an unparseable string stays unresolved),
+        # resolve to the market reference for today's clock, and retry
+        # the index at the ref's board row name.  The board now carries
+        # a value for every valid grade — tier rows, generic-grade rows,
+        # and slot rows — so a parsed pick label resolves instead of
+        # vanishing.
+        from src.identity.picks import market_resolution, parse_pick_label
+
+        parsed = parse_pick_label(str(name))
+        if parsed is None:
+            return None
+        from src.api.data_contract import current_rookie_draft_year
+
+        res = market_resolution(
+            year=parsed.year,
+            round_num=parsed.round_num,
+            slot=parsed.slot,
+            current_draft_year=current_rookie_draft_year(),
+        )
+        board_name = res.ref.board_row_name()
+        if not board_name:
+            return None
+        row = row_index.get(board_name.strip().lower())
+        if not row:
+            return None
+    # A pick row the pipeline deliberately left valueless (an
+    # alias-suppressed current-year tier) must not price at 0 —
+    # zero-as-missing is the exact defect class C1-PICK-01 forbids.
+    # Follow the alias to the centre slot; if no positive value exists
+    # anywhere, stay unresolved (honest) rather than counting 0.
+    if row.get("assetClass") == "pick" and _row_value(row) <= 0:
+        alias = str(row.get("pickAliasFor") or "").strip().lower()
+        alias_row = row_index.get(alias) if alias else None
+        if alias_row is not None and _row_value(alias_row) > 0:
+            row = alias_row
+        else:
+            return None
     value = int(_row_value(row))
     pos = _normalize_pos(row.get("pos") or row.get("position"))
     age = row.get("age")

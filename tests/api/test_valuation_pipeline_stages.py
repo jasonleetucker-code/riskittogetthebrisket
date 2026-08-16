@@ -384,9 +384,14 @@ class TestPercentileReferenceClamp:
 class TestPickYearDiscountThroughTheBlend:
     """``_apply_pick_year_discount_to_blend`` runs pre-sort on picks.
 
-    ``_pick_year_discount_for`` is unit-tested in
-    ``test_current_draft_year.py``; what is untested off the livedata
-    path is that the multiplier actually reaches ``rankDerivedValue``.
+    Since C1-U6 the year-step is applied AT INJECTION to the cloned
+    source values (``_year_step_for``, unit-tested in
+    ``test_current_draft_year.py``); the pre-sort pass is STAMP-ONLY.
+    What these tests pin off the livedata path is that no value is
+    multiplied in the blend stage — for vendor years because they are
+    exempt (T-3/C-2), for synthesised years because the derivation
+    already happened upstream — while the audit stamp still lands on
+    synthesised rows.
     """
 
     def test_vendor_priced_future_years_are_NOT_discounted(self):
@@ -419,13 +424,13 @@ class TestPickYearDiscountThroughTheBlend:
         assert got[f"{year + 1} Pick 1.01"]["rankDerivedValue"] == 7000
         assert got[f"{year + 2} Pick 1.01"]["rankDerivedValue"] == 7000
 
-    def test_synthesised_far_future_years_ARE_still_discounted(self):
-        """A year this pipeline invented by cloning still needs the step-down.
-
-        ``_inject_far_future_pick_sources`` clones the nearest published
-        future year's values under the missing year's names, so the row
-        carries the NEARER year's price verbatim.  That is the one case
-        where the config factor is doing real work.
+    def test_synthesised_far_future_values_arrive_pre_stepped(self):
+        """A synthesised year's values are stepped at INJECTION, so the
+        blend must publish them AS GIVEN — multiplying again in the
+        blend stage would double-count the derivation (the retired
+        composition applied offset factors here on top of the clone).
+        The 7000 below plays the part of an already-stepped source
+        value; it must come through at exactly 7000.
         """
         year = dc.current_rookie_draft_year()
         name = f"{year + 2} Pick 1.01"
@@ -434,13 +439,24 @@ class TestPickYearDiscountThroughTheBlend:
             _anchor_qb(),
         ]
         prev = dc._SYNTHETIC_FAR_FUTURE_PICK_NAMES
+        prev_der = dc._SYNTHETIC_PICK_DERIVATIONS
         dc._SYNTHETIC_FAR_FUTURE_PICK_NAMES = {dc._canonical_match_key(name)}
+        dc._SYNTHETIC_PICK_DERIVATIONS = {
+            dc._canonical_match_key(name): {
+                "factor": 0.7138,
+                "basisYear": year + 1,
+                "basisName": f"{year + 1} Pick 1.01",
+                "family": "measured_vendor_year_step_v1",
+                "classification": "PRIOR",
+            }
+        }
         try:
             dc._compute_unified_rankings(rows, {})
         finally:
             dc._SYNTHETIC_FAR_FUTURE_PICK_NAMES = prev
+            dc._SYNTHETIC_PICK_DERIVATIONS = prev_der
 
-        assert _by_name(rows)[name]["rankDerivedValue"] == 4620  # 7000 × 0.66
+        assert _by_name(rows)[name]["rankDerivedValue"] == 7000
 
     def test_current_year_pick_carries_no_discount_stamp(self):
         """offset 0 → multiplier 1.0 → the row is left untouched."""
@@ -465,12 +481,23 @@ class TestPickYearDiscountThroughTheBlend:
             _anchor_qb(),
         ]
         prev = dc._SYNTHETIC_FAR_FUTURE_PICK_NAMES
+        prev_der = dc._SYNTHETIC_PICK_DERIVATIONS
         dc._SYNTHETIC_FAR_FUTURE_PICK_NAMES = {dc._canonical_match_key(name)}
+        dc._SYNTHETIC_PICK_DERIVATIONS = {
+            dc._canonical_match_key(name): {
+                "factor": 0.8407,
+                "basisYear": year,
+                "basisName": f"{year} Pick 1.01",
+                "family": "measured_vendor_year_step_v1",
+                "classification": "PRIOR",
+            }
+        }
         try:
             dc._compute_unified_rankings(rows, {})
         finally:
             dc._SYNTHETIC_FAR_FUTURE_PICK_NAMES = prev
-        assert _by_name(rows)[name]["pickYearDiscount"] == 0.82
+            dc._SYNTHETIC_PICK_DERIVATIONS = prev_der
+        assert _by_name(rows)[name]["pickYearDiscount"] == 0.8407
 
     def test_vendor_priced_future_year_carries_no_discount_stamp(self):
         """The complement: no discount applied means no stamp to explain."""

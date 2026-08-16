@@ -129,6 +129,24 @@ and remains unauthorized. Consequence for C1-U6 (per §1's rename-first rule): C
 new confidence consumer** — evidence quality it needs to expose goes through existing canonical
 provenance/evidence structures.
 
+**Delivered (2026-08-16).** Five RED classes reproduced on the live payload through the production
+build path and closed (`tests/api/test_pick_completeness_red.py` → `test_pick_completeness.py`):
+cap-truncated voted picks, vote-less future rounds 5-6, the uncalibrated clone×0.53 (audit
+V-12/C-11), the clone's verbatim vendor-anchor asymmetry, and the valueless generic grade. The
+year discount was challenger-tested against real market evidence per the calibration policy —
+five families over 34 archive dates × two vendor pick markets, leakage-free provider/time
+holdouts — and the measured per-cell vendor year-step replaced the incumbent (holdout MAPE
+36.7-38.3% → 1.4-1.7%), **still classified PRIOR** because the 2-out→3-out extrapolation is
+untestable on today's evidence. Rounds 5-6 derive from the canonical rookie-ladder round step;
+rank-less generic-grade rows ("2027 Round 1") give `market_resolution`'s unknown-slot basis a
+finite value; every pick row carries `pickValueProvenance`; the census is an ERROR gate in
+`validate_api_data_contract`; `src/api/pick_value_resolution.py` is the one reference-class
+resolver; the dormant second pick pricer in `src/canonical/calibration.py` is deleted; the two
+authorized consumer repairs landed (draft-capital future seasons price at the generic grade,
+the simulator's roster-pick labels resolve through identity instead of silently dropping).
+Player-value coupling measured and explained (IDPTC backbone re-indexing, p50 ±0.1%; see the
+record §8). Full record: `docs/picks/C1_U6_PICK_VALUE_COMPLETENESS.md`.
+
 No unit beyond C1-U6 is authorized. The next authorization comes from the owner reviewing C1-U6's
 evidence at the §3 checkpoint.
 

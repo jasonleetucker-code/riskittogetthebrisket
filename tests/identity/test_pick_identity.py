@@ -65,11 +65,21 @@ class TestCanonicalIdRoundTrip(unittest.TestCase):
         self.assertEqual(tier_ref.board_row_name(), "2027 Early 1st")
         self.assertEqual(P.parse_board_pick_name("2027 Early 1st"), tier_ref)
 
-    def test_generic_grade_has_no_board_row_and_says_so(self):
-        # The board carries no generic rows today; inventing a name here
-        # would fabricate a row the pipeline never made (C1-U6 owns
-        # completeness).  None, not a guess.
-        self.assertIsNone(P.MarketPickRef(year=2028, round_num=2).board_row_name())
+    def test_generic_grade_board_row_round_trips_within_grammar(self):
+        # C1-U6 answered the completeness question this test used to
+        # defer: the pipeline now publishes a rank-less generic-grade
+        # row per future year x round (uniform-tier EV, PRIOR), so the
+        # generic grade has a real board row form and it round-trips.
+        generic_ref = P.MarketPickRef(year=2028, round_num=2)
+        self.assertEqual(generic_ref.board_row_name(), "2028 Round 2")
+        self.assertEqual(P.parse_board_pick_name("2028 Round 2"), generic_ref)
+        self.assertEqual(P.parse_board_generic_name("2028 Round 2"), (2028, 2))
+        # Slot/tier rows never parse as generic.
+        self.assertIsNone(P.parse_board_generic_name("2028 Early 2nd"))
+        self.assertIsNone(P.parse_board_generic_name("2026 Pick 1.06"))
+        # Outside the board grammar's round bounds there is still no
+        # row form — identity supports rounds to 20, the board does not.
+        self.assertIsNone(P.MarketPickRef(year=2028, round_num=7).board_row_name())
 
 
 class TestIdentityVersusState(unittest.TestCase):

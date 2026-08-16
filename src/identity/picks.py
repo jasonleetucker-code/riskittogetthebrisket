@@ -63,6 +63,7 @@ __all__ = [
     "legacy_slot_tier_label",
     "market_resolution",
     "parse_any_pick_asset_id",
+    "parse_board_generic_name",
     "parse_board_pick_name",
     "parse_board_slot_name",
     "parse_board_tier_name",
@@ -85,6 +86,11 @@ __all__ = [
 # ("2027 Early 1th" matches), exactly as the pipeline always accepted.
 BOARD_SLOT_RE = re.compile(r"^(20\d{2})\s+Pick\s+([1-6])\.(0?[1-9]|1[0-2])$", re.I)
 BOARD_TIER_RE = re.compile(r"^(20\d{2})\s+(Early|Mid|Late)\s+([1-6])(st|nd|rd|th)$", re.I)
+# Generic-grade board rows ("2027 Round 1") exist since C1-U6: the
+# valuation representation of a league pick whose slot is not known yet
+# (``market_resolution``'s ``unknown_slot`` basis).  The grammar matches
+# the round-word label form ``parse_pick_label`` already accepted.
+BOARD_GENERIC_RE = re.compile(r"^(20\d{2})\s+Round\s+([1-6])$", re.I)
 
 PICK_TIERS = ("early", "mid", "late")
 
@@ -338,14 +344,19 @@ class MarketPickRef:
         return base
 
     def board_row_name(self) -> str | None:
-        """The canonical board display name, or ``None`` when the board
-        has no row form for this grade (the generic grade has no board
-        row today — that completeness question is C1-U6's, and inventing
-        a name here would fabricate a row the pipeline never made)."""
+        """The canonical board display name for this grade.
+
+        The generic grade's row form ("2027 Round 1") exists since
+        C1-U6 — the pipeline publishes a rank-less generic-grade row per
+        future year × round (uniform-tier EV, classification PRIOR), so
+        the name is no longer a fabrication.  Board grammar bounds still
+        apply: a round outside 1-6 has no board row form."""
         if self.slot is not None:
             return f"{self.year} Pick {self.round_num}.{self.slot:02d}"
         if self.tier is not None:
             return f"{self.year} {self.tier.capitalize()} {round_suffix(self.round_num)}"
+        if 1 <= int(self.round_num) <= 6:
+            return f"{self.year} Round {self.round_num}"
         return None
 
 
@@ -399,8 +410,22 @@ def parse_board_tier_name(name: str) -> tuple[int, str, int] | None:
         return None
 
 
+def parse_board_generic_name(name: str) -> tuple[int, int] | None:
+    """``"2027 Round 1" -> (2027, 1)`` — the C1-U6 generic-grade board
+    row grammar.  ``None`` for slot/tier rows and anything else."""
+    if not name:
+        return None
+    m = BOARD_GENERIC_RE.match(str(name).strip())
+    if not m:
+        return None
+    try:
+        return int(m.group(1)), int(m.group(2))
+    except (TypeError, ValueError):
+        return None
+
+
 def parse_board_pick_name(name: str) -> MarketPickRef | None:
-    """Either board grammar → :class:`MarketPickRef`, else ``None``."""
+    """Any board grammar → :class:`MarketPickRef`, else ``None``."""
     slot_parsed = parse_board_slot_name(name)
     if slot_parsed is not None:
         year, rnd, slot = slot_parsed
@@ -409,6 +434,10 @@ def parse_board_pick_name(name: str) -> MarketPickRef | None:
     if tier_parsed is not None:
         year, tier, rnd = tier_parsed
         return MarketPickRef(year=year, round_num=rnd, tier=tier.lower())
+    generic_parsed = parse_board_generic_name(name)
+    if generic_parsed is not None:
+        year, rnd = generic_parsed
+        return MarketPickRef(year=year, round_num=rnd)
     return None
 
 

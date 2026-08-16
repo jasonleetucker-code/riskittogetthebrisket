@@ -122,6 +122,30 @@ def _pick_value_from_contract(
         v = row.get("rankDerivedValue") if isinstance(row, dict) else None
         if isinstance(v, (int, float)):
             return float(v)
+
+    # C1-U6: a FUTURE season's "slot" here is a reverse-standings
+    # stand-in the pick loop invents for display ordering, not a known
+    # draft slot — the honest market reference for such a pick is the
+    # GENERIC grade (identity rule C1-ID-02: unknown slot never
+    # fabricates a slot or tier).  The canonical board now publishes a
+    # generic-grade row per future year x round, so the lookup resolves
+    # instead of silently reading UNPRICED for every next-season pick.
+    # Every pick of the same future (season, round) prices identically,
+    # which is exactly right before draft order exists — owned-pick
+    # slot forecasting is C1-U7, not this board.
+    try:
+        from src.api.data_contract import current_rookie_draft_year
+        from src.api.pick_value_resolution import resolve_pick_value
+        from src.identity.picks import MarketPickRef
+
+        if int(season) > int(current_rookie_draft_year()):
+            res = resolve_pick_value(
+                contract, MarketPickRef(year=int(season), round_num=int(round_num))
+            )
+            if res.value is not None:
+                return float(res.value)
+    except (TypeError, ValueError):
+        pass
     return None
 
 
