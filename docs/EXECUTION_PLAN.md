@@ -116,29 +116,42 @@ Deployed as merge `47d7d243` (validated head `ef76a425`), deploy run `3186944104
 Production evidence below is the **strict `ALL` watchdog run `31870347342`**, measured 2026-08-15T06:48:36Z
 against the production data directory.
 
-| row | what stops being lost | production state | status |
+| row | what stops being lost | production state (final, run `31916149679`) | status |
 |---|---|---|---|
-| `C1-RET-01` | KTC crowd-FAAB rolling window durably retained | `ok`, 0.3 h — 2 accumulator files, **1,092 deduped rows** | RECORDING |
-| `C1-RET-02` | canonical board history provably recording | `ok`, 30.8 h — **9,842 rows across 9 dates** | RECORDING |
-| `C1-RET-03` | `rank_history.jsonl` stall detectable | `ok`, 6.8 h — 27 snapshots, **missingDays=0, staleDays=0** | RECORDING |
-| `C1-RET-04` | scoring card at a date (today: overwritten) | `ok`, 0.0 h — **4 observations of 2 distinct cards across 2 leagues** | RECORDING |
-| `C1-RET-05` | Sleeper trending adds (today: discarded every 15 min) | `ok`, 0.0 h — **200 observations across 2 snapshots** | RECORDING |
-| `C1-RET-06` | own-league trade events before the rolling window drops them | `ok`, 0.0 h — **285 transactions, 285 trades, 4 chain leagues** | RECORDING |
-| `C1-RET-07` | per-source raw ingest + identity reports (halted 2026-04-20) | **`stale`, 2,795.0 h** — newest `identity_report_20260420T194828Z.json` | PARTIAL — honestly labelled; **collection NOT resumed** |
-| `C1-RET-08` | `playerctx` history actually landing | `ok`, 102.8 h — **2 snapshots**, newest `snapshot_2026-08-11.json` | PARTIAL — landing locally; **git push still unproven** |
+| `C1-RET-01` | KTC crowd-FAAB rolling window durably retained | `ok`, 2.6 h — 2 accumulator files, **1,128 deduped rows** | **COMPLETE** |
+| `C1-RET-02` | canonical board history provably recording | `ok`, 24.0 h — **10,934 rows across 10 dates** | **COMPLETE** |
+| `C1-RET-03` | `rank_history.jsonl` stall detectable | `ok`, 24.0 h — 27 snapshots, missingDays=0, staleDays=1 | **COMPLETE** |
+| `C1-RET-04` | scoring card at a date (today: overwritten) | `ok`, 0.1 h — **90 observations of 2 distinct cards across 2 leagues** | **COMPLETE** |
+| `C1-RET-05` | Sleeper trending adds (today: discarded every 15 min) | `ok`, 0.1 h — **4,500 observations across 45 snapshots** | **COMPLETE** |
+| `C1-RET-06` | own-league trade events before the rolling window drops them | `ok`, 0.1 h — **288 transactions, 288 trades, 4 leagues** | **COMPLETE** |
+| `C1-RET-07` | per-source raw ingest + identity reports (halted 2026-04-20) | **`stale`, 2,812.2 h** — newest `identity_report_20260420T194828Z.json` | **STALE** — honestly labelled; **collection NOT resumed** |
+| `C1-RET-08` | `playerctx` history actually landing | `ok`, 120.0 h — 2 snapshots, **both published to `origin/main` as `7730677eb`** | **COMPLETE** |
+
+**COMPLETE means: recording on production, restored and verified from a backup, and — for `C1-RET-08` —
+actually off-box.** The six recording rows are each restored and verified in run `31906622971`; the watchdog
+proves they are still being written to. `C1-RET-07` is the one row that is not complete, and it is not
+weakened to look like one: its collector has not resumed, the producer is not in the tree, and the strict
+`ALL` watchdog still exits **2** because of it.
 
 **The watchdog exited 2**, on a genuinely stale stream. That is the corrected semantics working, and per the
 production-checkpoint instruction a stale row is *not* a reason to weaken it. It has not been weakened.
 
-> **RECORDING is not COMPLETE.** Six rows now hold real production evidence and are observable — the loss those
-> rows describe has stopped. What is still outstanding for every row is the **backup + restore proof**: the
-> first real run (`31870387349`) FAILED and correctly refused to claim success, catching two defects that were
-> discarding the entire nightly generation (fixed in #849). Until a green
-> `retention-backup-proof` run exists, no row moves to COMPLETE.
+> **The backup + restore proof is green**: run `31906622971`, `RUN_BACKUP=1`, exit 0 — 16 artifacts in the
+> generation, **7 retention artifacts restored and verified from the restored copies**. It exercised the deploy
+> user's FALLBACK lineage and said so itself.
 >
-> `C1-RET-07` and `C1-RET-08` stay **PARTIAL on their own merits** regardless of that proof: identity
-> collection has not resumed (the producer is not in the tree), and the playerctx **git push** has still never
-> succeeded — local snapshots landing is a different fact from the off-box copy the row's acceptance names.
+> **The unattended nightly now exists.** It did not: no `riskit-state-backup` unit, neither file under
+> `/usr/local/lib/riskit/`, no `/var/backups/riskit-state` — so the seven artifacts were covered by no
+> scheduled job. Installed 2026-08-16 through the deploy account's existing sudo allowlist (run
+> `31915897174`), timer `enabled`/`active`/`Persistent=yes`, next elapse **02:30 UTC**, `ExecStart` rooted at
+> `/usr/local/lib/riskit/`, manual oneshot `Result=success`.
+>
+> **A manual oneshot is not a nightly firing, and a proven fallback lineage is not a proven root lineage.**
+> Both distinctions are kept explicitly in `docs/retention/RETENTION_REGISTER.md`, along with what remains
+> unmeasured: the root-owned generation's contents are not readable by the deploy account.
+>
+> `C1-RET-07` stays **STALE on its own merits**: identity collection has not resumed and the producer is not
+> in the tree.
 >
 > Operational record, with the full backup/restore evidence: `docs/retention/RETENTION_REGISTER.md`.
 
