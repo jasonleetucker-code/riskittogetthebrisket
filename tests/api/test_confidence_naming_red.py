@@ -159,9 +159,9 @@ class TestPricedRowsWearThePlaceholderLabel:
             for r in anchored
             if r.get("confidenceBasis") in (None, "", "unpriced", "no_evidence")
         ]
-        assert not unassessed, (
-            f"rookie-anchored picks carrying a value but no honest basis: {unassessed[:8]}"
-        )
+        assert (
+            not unassessed
+        ), f"rookie-anchored picks carrying a value but no honest basis: {unassessed[:8]}"
 
 
 class TestNoneBucketIsAmbiguous:
@@ -173,9 +173,9 @@ class TestNoneBucketIsAmbiguous:
         without_basis = [
             r.get("canonicalName") for r in none_bucket if not r.get("confidenceBasis")
         ]
-        assert not without_basis, (
-            f"'none' rows with no basis to disambiguate them: {without_basis[:8]}"
-        )
+        assert (
+            not without_basis
+        ), f"'none' rows with no basis to disambiguate them: {without_basis[:8]}"
 
     def test_priced_and_unpriced_none_rows_are_distinguishable(self) -> None:
         none_bucket = [r for r in _rows() if r.get("confidenceBucket") == "none"]
@@ -194,9 +194,9 @@ class TestIdentityConfidenceGradesResolutionNotEvidence:
 
     def test_the_honest_name_is_published(self) -> None:
         rows = _rows()
-        assert any("identityResolutionConfidence" in r for r in rows), (
-            "identityResolutionConfidence is gone — the rename has been reverted"
-        )
+        assert any(
+            "identityResolutionConfidence" in r for r in rows
+        ), "identityResolutionConfidence is gone — the rename has been reverted"
         assert any("identityResolutionMethod" in r for r in rows), (
             "identityResolutionMethod is gone; renaming the score and not the method "
             "splits a pair that must travel together"
@@ -225,9 +225,9 @@ class TestMarketConfidenceCannotExpressItsOwnName:
     OBSERVED_CEILING = 0.59375
 
     def test_the_honest_name_is_published(self) -> None:
-        assert any("marketBreadthAgreementIndex" in r for r in _rows()), (
-            "marketBreadthAgreementIndex is gone — the rename has been reverted"
-        )
+        assert any(
+            "marketBreadthAgreementIndex" in r for r in _rows()
+        ), "marketBreadthAgreementIndex is gone — the rename has been reverted"
 
     def test_the_two_halves_are_published_not_discarded(self) -> None:
         """The decomposition is what stops the rename being cosmetic.
@@ -267,9 +267,9 @@ class TestPickConfidenceHasTwoOwners:
 
     def test_the_consumer_no_longer_defines_a_pick_confidence_rule(self) -> None:
         source = (_REPO / "src" / "api" / "data_contract.py").read_text(encoding="utf-8")
-        assert "def _compute_pick_confidence(" not in source, (
-            "a pick confidence rule reappeared in data_contract.py — one concept, one owner"
-        )
+        assert (
+            "def _compute_pick_confidence(" not in source
+        ), "a pick confidence rule reappeared in data_contract.py — one concept, one owner"
 
     def test_the_moved_rule_still_returns_the_same_verdicts(self) -> None:
         """Moved verbatim: the migration must not have changed a single bucket."""

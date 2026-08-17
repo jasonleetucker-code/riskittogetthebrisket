@@ -102,9 +102,9 @@ class TestEveryPricedRowSaysWhatDecidedIt:
     def test_every_basis_is_from_the_closed_set(self) -> None:
         seen = {r.get("confidenceBasis") for r in _rows() if r.get("confidenceBasis")}
         assert seen, "no row publishes a confidenceBasis"
-        assert seen <= set(CONFIDENCE_BASES), (
-            f"unknown basis values: {seen - set(CONFIDENCE_BASES)}"
-        )
+        assert seen <= set(
+            CONFIDENCE_BASES
+        ), f"unknown basis values: {seen - set(CONFIDENCE_BASES)}"
 
     def test_no_priced_row_claims_it_is_unpriced_or_unlooked_at(self) -> None:
         offenders = [
@@ -112,9 +112,9 @@ class TestEveryPricedRowSaysWhatDecidedIt:
             for r in _rows()
             if _priced(r) and r.get("confidenceBasis") in ("unpriced", "no_evidence")
         ]
-        assert not offenders, (
-            f"rows carrying a real value while claiming no value / no assessment: {offenders[:10]}"
-        )
+        assert (
+            not offenders
+        ), f"rows carrying a real value while claiming no value / no assessment: {offenders[:10]}"
 
     def test_no_priced_row_wears_the_row_builder_placeholder(self) -> None:
         offenders = [
@@ -122,9 +122,9 @@ class TestEveryPricedRowSaysWhatDecidedIt:
             for r in _rows()
             if _priced(r) and r.get("confidenceLabel") == "None — unranked"
         ]
-        assert not offenders, (
-            f"priced rows still wearing the constructor's placeholder: {offenders[:10]}"
-        )
+        assert (
+            not offenders
+        ), f"priced rows still wearing the constructor's placeholder: {offenders[:10]}"
 
     def test_the_contract_validator_rejects_a_priced_row_without_a_basis(self) -> None:
         """The hole, not just the rows that fell through it."""
@@ -153,9 +153,9 @@ class TestRookieTetheredPicksAreHonest:
         assert tethered, "no row reports a rookie tether — the anchor pass stopped stamping"
         for row in tethered:
             assert _priced(row), f"{row.get('canonicalName')} claims a tether but carries no value"
-            assert row.get("pickRookieAnchor"), (
-                f"{row.get('canonicalName')} claims a tether with no anchor recorded"
-            )
+            assert row.get(
+                "pickRookieAnchor"
+            ), f"{row.get('canonicalName')} claims a tether with no anchor recorded"
             assert row.get("confidenceBucket") == "low"
 
     def test_picks_with_their_own_market_keep_the_dispersion_basis(self) -> None:
@@ -180,17 +180,17 @@ class TestOwnerHelpers:
         _b2, _l2, basis_priced = unassessed_defaults(priced=True)
         assert basis_unpriced == "unpriced"
         assert basis_priced == "no_evidence"
-        assert basis_unpriced != basis_priced, (
-            "'we have no value' and 'we never looked' collapsed back into one state"
-        )
+        assert (
+            basis_unpriced != basis_priced
+        ), "'we have no value' and 'we never looked' collapsed back into one state"
 
     def test_quarantine_never_promotes(self) -> None:
         for level in CONFIDENCE_LEVELS:
             bucket, _label, basis = degrade_for_quarantine(level)
             assert basis == "quarantine_degraded"
-            assert CONFIDENCE_LEVELS.index(bucket) <= CONFIDENCE_LEVELS.index(level), (
-                f"quarantining a {level!r} row promoted it to {bucket!r}"
-            )
+            assert CONFIDENCE_LEVELS.index(bucket) <= CONFIDENCE_LEVELS.index(
+                level
+            ), f"quarantining a {level!r} row promoted it to {bucket!r}"
 
 
 class TestThePickRuleLivesAtItsOwner:
@@ -205,9 +205,9 @@ class TestThePickRuleLivesAtItsOwner:
 
     def test_data_contract_no_longer_defines_a_pick_confidence_rule(self) -> None:
         source = (_REPO / "src" / "api" / "data_contract.py").read_text(encoding="utf-8")
-        assert "def _compute_pick_confidence(" not in source, (
-            "a pick confidence rule reappeared in data_contract.py — one concept, one owner"
-        )
+        assert (
+            "def _compute_pick_confidence(" not in source
+        ), "a pick confidence rule reappeared in data_contract.py — one concept, one owner"
 
     def test_the_rule_still_produces_the_same_verdicts(self) -> None:
         """Moved verbatim. Two sources agreeing tightly is still high."""

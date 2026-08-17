@@ -96,9 +96,9 @@ class TestTheDeclarationMatchesReality:
         """The reverse direction: a new dual-write must be declared."""
         suspects = {"identityConfidence", "identityMethod", "marketConfidence"}
         emitted = {k for r in _rows() for k in r if k in suspects}
-        assert emitted <= set(FROZEN_ALIASES), (
-            f"legacy field(s) {emitted - set(FROZEN_ALIASES)} are emitted but undeclared"
-        )
+        assert emitted <= set(
+            FROZEN_ALIASES
+        ), f"legacy field(s) {emitted - set(FROZEN_ALIASES)} are emitted but undeclared"
 
 
 class TestTheTwoHalvesNeverDisagree:
