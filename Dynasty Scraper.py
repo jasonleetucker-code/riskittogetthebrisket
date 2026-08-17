@@ -4717,260 +4717,22 @@ async def run(progress_callback=None):
         if canonical in players_json:
             ktc_id_map[str(pid)] = canonical
 
-    def _pick_value(v):
-        if v is None or not isinstance(v, (int, float)):
-            return None
-        if v <= 0:
-            return None
-        return float(v)
+    # ── Pick-map primitives: ADAPTER, not owner (C1-U6-D1, 2026-08-17) ──
+    # These were closures here.  A function nobody can import is a
+    # function nobody can test, and the year fabrication this unit
+    # repairs lived inside them through three audits.  The owner is
+    # ``src/picks/site_pick_map.py``; the local aliases keep the ~15 call
+    # sites below reading as they always have.  Same arrangement
+    # ``src/identity/name_primitives.py`` has with this file.
+    from src.picks import site_pick_map as _pickmap
 
-    def _fmt_pick_value(v):
-        if v is None:
-            return None
-        if abs(v - round(v)) < 1e-9:
-            return int(round(v))
-        return round(v, 2)
-
-    def _pick_suffix(round_num):
-        if round_num == 1:
-            return "st"
-        if round_num == 2:
-            return "nd"
-        if round_num == 3:
-            return "rd"
-        return "th"
-
-    def _slot_tier_ranges(league_size=12):
-        per_tier = max(1, int(league_size) // 3)
-        early_end = per_tier
-        mid_end = per_tier * 2
-        return {
-            "early": (1, early_end),
-            "mid": (early_end + 1, mid_end),
-            "late": (mid_end + 1, int(league_size)),
-        }
-
-    def _slot_to_tier(slot, league_size=12):
-        ranges = _slot_tier_ranges(league_size)
-        for tier, (lo, hi) in ranges.items():
-            if lo <= slot <= hi:
-                return tier
-        return "late"
-
-    def _parse_pick_label(raw):
-        if not isinstance(raw, str):
-            return None
-        s = re.sub(r"\s+", " ", raw.strip().upper())
-        if not s:
-            return None
-        s = re.sub(r"\b(PICK|ROUND|RD|DRAFT|OVERALL)\b", " ", s)
-        s = re.sub(r"\s+", " ", s).strip()
-
-        m = re.match(r"^(20\d{2})\s+([1-6])\.(0?[1-9]|1[0-2])$", s)
-        if m:
-            return {
-                "kind": "slot",
-                "year": int(m.group(1)),
-                "round": int(m.group(2)),
-                "slot": int(m.group(3)),
-            }
-        m = re.match(r"^([1-6])\.(0?[1-9]|1[0-2])$", s)
-        if m:
-            return {
-                "kind": "slot",
-                "year": None,
-                "round": int(m.group(1)),
-                "slot": int(m.group(2)),
-            }
-
-        m = re.match(r"^(20\d{2})\s+(EARLY|MID|LATE)\s+([1-6])\s*(ST|ND|RD|TH)$", s)
-        if m:
-            return {
-                "kind": "tier",
-                "year": int(m.group(1)),
-                "tier": m.group(2).lower(),
-                "round": int(m.group(3)),
-            }
-        m = re.match(r"^(EARLY|MID|LATE)\s+([1-6])\s*(ST|ND|RD|TH)$", s)
-        if m:
-            return {
-                "kind": "tier",
-                "year": None,
-                "tier": m.group(1).lower(),
-                "round": int(m.group(2)),
-            }
-
-        m = re.match(r"^(20\d{2})\s+([1-6])\s*(ST|ND|RD|TH)\s*(EARLY|MID|LATE)?$", s)
-        if m:
-            return {
-                "kind": "tier",
-                "year": int(m.group(1)),
-                "tier": (m.group(4) or "MID").lower(),
-                "round": int(m.group(2)),
-            }
-        m = re.match(r"^([1-6])\s*(ST|ND|RD|TH)\s*(EARLY|MID|LATE)?$", s)
-        if m:
-            return {
-                "kind": "tier",
-                "year": None,
-                "tier": (m.group(3) or "MID").lower(),
-                "round": int(m.group(1)),
-            }
-
-        m = re.match(r"^(20\d{2})\s+([1-6])$", s)
-        if m:
-            return {
-                "kind": "tier",
-                "year": int(m.group(1)),
-                "tier": "mid",
-                "round": int(m.group(2)),
-            }
-        m = re.match(r"^([1-6])$", s)
-        if m:
-            return {
-                "kind": "tier",
-                "year": None,
-                "tier": "mid",
-                "round": int(m.group(1)),
-            }
-        return None
-
-    def _nearest_year(years, target):
-        years = sorted(y for y in years if y is not None)
-        if not years:
-            return None
-        return min(years, key=lambda y: abs(y - target))
-
-    def _avg(vals):
-        if not vals:
-            return None
-        return sum(vals) / len(vals)
-
-    def _build_site_pick_map(parsed_rows, target_years, league_size=12):
-        if not parsed_rows:
-            return {}
-
-        tier_values = {}  # (year, round, tier) -> [values]
-        slot_values = {}  # (year, round, slot) -> [values]
-        rounds_found = set()
-
-        for row in parsed_rows:
-            year = row.get("year")
-            round_num = row.get("round")
-            if not isinstance(round_num, int) or not (1 <= round_num <= 6):
-                continue
-            rounds_found.add(round_num)
-            val = row["value"]
-            if row["kind"] == "tier":
-                key = (year, round_num, row["tier"])
-                tier_values.setdefault(key, []).append(val)
-            elif row["kind"] == "slot":
-                slot = row["slot"]
-                if 1 <= slot <= league_size:
-                    key = (year, round_num, slot)
-                    slot_values.setdefault(key, []).append(val)
-
-        if not rounds_found:
-            return {}
-
-        max_round = min(6, max(rounds_found))
-        emit_max_round = max(4, max_round)
-        rounds_to_emit = range(1, emit_max_round + 1)
-        tier_ranges = _slot_tier_ranges(league_size)
-
-        def lookup_tier(year, round_num, tier):
-            for y in (year, None):
-                vals = tier_values.get((y, round_num, tier), [])
-                if vals:
-                    return _avg(vals)
-
-            lo, hi = tier_ranges[tier]
-            for y in (year, None):
-                vals = []
-                for slot in range(lo, hi + 1):
-                    vals.extend(slot_values.get((y, round_num, slot), []))
-                if vals:
-                    return _avg(vals)
-
-            years_with_tier = {
-                y
-                for (y, r, t) in tier_values.keys()
-                if y is not None and r == round_num and t == tier
-            }
-            near_year = _nearest_year(years_with_tier, year)
-            if near_year is not None:
-                vals = tier_values.get((near_year, round_num, tier), [])
-                if vals:
-                    return _avg(vals)
-
-            years_with_slots = {
-                y
-                for (y, r, s) in slot_values.keys()
-                if y is not None and r == round_num and lo <= s <= hi
-            }
-            near_year = _nearest_year(years_with_slots, year)
-            if near_year is not None:
-                vals = []
-                for slot in range(lo, hi + 1):
-                    vals.extend(slot_values.get((near_year, round_num, slot), []))
-                if vals:
-                    return _avg(vals)
-            return None
-
-        def _estimate_slot_from_tier(year, round_num, slot):
-            tier = _slot_to_tier(slot, league_size)
-            tier_val = lookup_tier(year, round_num, tier)
-            if tier_val is None:
-                return None
-
-            lo, hi = tier_ranges[tier]
-            if hi <= lo:
-                return tier_val
-
-            # Spread tier-only values into a slot curve so 1.01 != "Early 1st".
-            # Keeps the average near the tier value while creating realistic separation.
-            spread = 0.20 if tier == "early" else 0.14 if tier == "mid" else 0.12
-            rel = 1.0 - (2.0 * (slot - lo) / float(hi - lo))  # +1 at start, -1 at end
-            est = tier_val * (1.0 + spread * rel)
-            return max(1.0, est)
-
-        def lookup_slot(year, round_num, slot):
-            for y in (year, None):
-                vals = slot_values.get((y, round_num, slot), [])
-                if vals:
-                    return _avg(vals)
-
-            years_with_slot = {
-                y
-                for (y, r, s) in slot_values.keys()
-                if y is not None and r == round_num and s == slot
-            }
-            near_year = _nearest_year(years_with_slot, year)
-            if near_year is not None:
-                vals = slot_values.get((near_year, round_num, slot), [])
-                if vals:
-                    return _avg(vals)
-
-            est = _estimate_slot_from_tier(year, round_num, slot)
-            if est is not None:
-                return est
-            return None
-
-        out = {}
-        for year in target_years:
-            for round_num in rounds_to_emit:
-                for tier in ("early", "mid", "late"):
-                    t_val = lookup_tier(year, round_num, tier)
-                    if t_val is not None:
-                        out[f"{year} {tier.capitalize()} {round_num}{_pick_suffix(round_num)}"] = (
-                            _fmt_pick_value(t_val)
-                        )
-
-                for slot in range(1, league_size + 1):
-                    s_val = lookup_slot(year, round_num, slot)
-                    if s_val is not None:
-                        out[f"{year} {round_num}.{slot:02d}"] = _fmt_pick_value(s_val)
-        return out
+    _pick_value = _pickmap.pick_value
+    _fmt_pick_value = _pickmap.fmt_pick_value
+    _pick_suffix = _pickmap.pick_suffix
+    _slot_tier_ranges = _pickmap.slot_tier_ranges
+    _slot_to_tier = _pickmap.slot_to_tier
+    _parse_pick_label = _pickmap.parse_pick_label
+    _build_site_pick_map = _pickmap.build_site_pick_map
 
     current_year = datetime.date.today().year
     target_pick_years = [current_year, current_year + 1, current_year + 2, current_year + 3]
@@ -4978,6 +4740,7 @@ async def run(progress_callback=None):
     PICK_VALUE_EXCLUDED_SITES = {"draftSharks"}
     pick_anchors = {}
     pick_anchors_raw = {}
+    pick_anchors_provenance = {}
     for scraper_name, full_map in FULL_DATA.items():
         dash_key = site_key_map.get(scraper_name, scraper_name)
         if dash_key in PICK_VALUE_EXCLUDED_SITES:
@@ -4999,19 +4762,24 @@ async def run(progress_callback=None):
             continue
 
         pick_anchors_raw[dash_key] = raw_picks
-        site_map = _build_site_pick_map(parsed_rows, target_pick_years, league_size=12)
-        if site_map:
-            pick_anchors[dash_key] = site_map
+        built = _build_site_pick_map(parsed_rows, target_pick_years, league_size=12)
+        if built:
+            pick_anchors[dash_key] = built.values
+            pick_anchors_provenance[dash_key] = built.provenance
             if DEBUG:
                 years = sorted(
                     {
                         int(m.group(1))
-                        for key in site_map.keys()
+                        for key in built.values
                         for m in [re.match(r"^(20\d{2})\s+", key)]
                         if m
                     }
                 )
-                print(f"  [Pick Anchors] {dash_key}: {len(site_map)} canonical picks ({years})")
+                published = sorted({r["year"] for r in parsed_rows if r.get("year") is not None})
+                print(
+                    f"  [Pick Anchors] {dash_key}: {len(built)} canonical picks "
+                    f"(emitted {years}; published {published})"
+                )
         else:
             pick_anchors[dash_key] = raw_picks
 
@@ -6305,20 +6073,19 @@ async def run(progress_callback=None):
             return float(arr[mid])
         return float((arr[mid - 1] + arr[mid]) / 2.0)
 
+    # Slot↔tier is the pick-map owner's table, not a second one.  These
+    # two were hand-written 12-team duplicates (early 1-4 / mid 5-8 /
+    # late 9-12) sitting a few hundred lines below the identical
+    # ``slot_tier_ranges`` the anchors were built with.  They agreed —
+    # which is exactly why a second owner survives — so this is an exact
+    # identity at league_size 12 and stops being one only if the two
+    # tables ever disagree, which is the point (C1-U6-D1).
     def _tier_for_slot(slot):
-        if 1 <= slot <= 4:
-            return "early"
-        if 5 <= slot <= 8:
-            return "mid"
-        return "late"
+        return _slot_to_tier(int(slot), 12)
 
     def _slot_range_for_tier(tier):
-        t = str(tier or "mid").lower()
-        if t == "early":
-            return range(1, 5)
-        if t == "mid":
-            return range(5, 9)
-        return range(9, 13)
+        lo, hi = _slot_tier_ranges(12)[str(tier or "mid").lower()]
+        return range(lo, hi + 1)
 
     def _fmt_site_val(v):
         if not isinstance(v, (int, float)) or v <= 0:
@@ -6706,9 +6473,17 @@ async def run(progress_callback=None):
         )
 
     # Attach rebuilt picks and overwrite exported pick anchors.
+    #
+    # ``pick_anchors`` is the MODEL's board and is rightly replaced here.
+    # ``pick_anchors_raw`` is NOT: it is the record of what each vendor
+    # literally published, captured above, and it used to be overwritten
+    # with ``dict(rebuilt_pick_anchors)`` on this line — so the export
+    # carried the model's own output under a key promising raw evidence,
+    # and no channel anywhere distinguished an observation from a
+    # substitution.  That is what let the 2029 clone read as a market
+    # anchor (C1-U6-D1, 2026-08-17).  Raw now means raw.
     players_json.update(rebuilt_pick_entries)
     pick_anchors = rebuilt_pick_anchors
-    pick_anchors_raw = dict(rebuilt_pick_anchors)
     _disc_str = ", ".join(
         f"y+{int(y) - int(_pick_model_year)}={discount_by_year.get(y, 0):.3f}"
         for y in _future_pick_years
@@ -7377,6 +7152,12 @@ async def run(progress_callback=None):
         "siteStats": site_stats,
         "pickAnchors": pick_anchors,
         "pickAnchorsRaw": pick_anchors_raw,
+        # What each emitted anchor key actually IS, per source — a
+        # published observation or a within-year derivation.  Additive
+        # and read by nothing yet; it exists so "derived" and "observed"
+        # are distinguishable in the export at all, which they were not
+        # (C1-U6-D1).
+        "pickAnchorsProvenance": pick_anchors_provenance,
         "coverageAudit": coverage_audit,
         "poolAudit": _pool_audit.to_dict() if _pool_audit else None,
         "players": players_json,
