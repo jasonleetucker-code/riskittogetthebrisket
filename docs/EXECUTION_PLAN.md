@@ -79,21 +79,38 @@ Ordered. A unit leaves this queue only when production proof lands on the deploy
 
 | unit | PR | exact head | CI | unlocks | production proof |
 |---|---|---|---|---|---|
-| `C0-R` | [#875](https://github.com/jasonleetucker-code/riskittogetthebrisket/pull/875) | `698280e` | run 31987015120 **orphaned** — never assigned a runner (`updated_at` frozen 4 s after start, zero log bytes, HTTP 404 on the job log) while unrelated runs completed normally. Cancelled and superseded by a fresh run on the next push | every later unit — this is the record that authorizes them | pending |
-| `C1-U5` | [#876](https://github.com/jasonleetucker-code/riskittogetthebrisket/pull/876) (stacked on #875) | `d33465d` | local gates green: 7,653 backend / 2,051 frontend, 0 failures | `C2`/`C3`/`C6` confidence consumers — §1's rename-before-new-consumer rule is discharged by this unit | pending |
-| `C1-U8` | (stacked on #876) | see PR | local: 80 acquisition tests green; ruff, coercion and planning gates clean | `C3-REPLAY-01` (needs `C1-ACQ-02`), `C4-MTL-01`, `C4-WAIV-01`, `C4-INS-01` | pending — checklist in `docs/acquisition/C1_U8_ACQUISITION_LEDGER.md` §8 |
+| `C0-R` | [#875](https://github.com/jasonleetucker-code/riskittogetthebrisket/pull/875) | `ad95bd6` | **RED on the inherited `main` defect below, and only that** — run 31987737878: `test_derived_2029_value_uses_measured_year_step` (ratio 0.9857), plus four advisory-lane source-coverage rails on the same nine rows. Its own diff is documentation and standing-invariant tests | every later unit — this is the record that authorizes them | pending |
+| `C1-U5` | [#876](https://github.com/jasonleetucker-code/riskittogetthebrisket/pull/876) (stacked on #875) | `d33465d` | **GREEN** — run 31991834158 SUCCESS on the exact head | `C2`/`C3`/`C6` confidence consumers — §1's rename-before-new-consumer rule is discharged by this unit | pending |
+| `C1-U8` | [#878](https://github.com/jasonleetucker-code/riskittogetthebrisket/pull/878) (stacked on #876) | `17ab0d6` | local gates green: 7,733 backend / 2,051 frontend, 0 failures; 80 acquisition tests; ruff, coercion, planning and structural-contract gates clean | `C3-REPLAY-01` (needs `C1-ACQ-02`), `C4-MTL-01`, `C4-WAIV-01`, `C4-INS-01` | pending — checklist in `docs/acquisition/C1_U8_ACQUISITION_LEDGER.md` §8 |
 
 **Current unit: `C1-U8`.**
 
 **Blocking, not owned by any queued unit:** `main` is pricing 2029 picks at their 2028
 price — a live canonical-value defect recorded in
 `docs/picks/C1_U6_D1_FABRICATED_FUTURE_YEAR_ANCHORS.md` ([#877](https://github.com/jasonleetucker-code/riskittogetthebrisket/pull/877),
-report only). It reddens the deterministic gate on every PR based on `main` via
+report only). It reddens the deterministic gate via
 `test_derived_2029_value_uses_measured_year_step`, which is a **correct** assertion that
-found a real defect and must not be reclassified or loosened. The queued units' own diffs
-are clean; they inherit `main`'s board. Repair is a C1-U6 defect unit and needs a full
-scrape to verify (the fabricated anchors are baked into every archive since
+found a real defect and must not be reclassified or loosened. Repair is a C1-U6 defect unit
+and needs a full scrape to verify (the fabricated anchors are baked into every archive since
 2026-08-17 02:11 UTC, so it cannot be measured by rebuilding an existing bundle).
+
+**Why the queue is red at the bottom and green above it**, which is easy to misread as the
+stack being broken: `pull_request` CI validates the **merge ref** — base merged into head.
+`C0-R`'s base is `main`, so its validated tree carries `main`'s 2026-08-17 export and the
+fabricated anchors with it. The stacked units' bases are branches that predate the
+transition, so their validated trees carry the clean 2026-08-16 export and they go green on
+their own merits.
+
+Two consequences worth stating rather than rediscovering:
+
+- **The whole queue is gated on the scraper repair**, not on anything in the queued diffs.
+  `C0-R` cannot go green while `main` carries the defect, because merging `main` is exactly
+  what brings the bad export in.
+- **A green stacked PR is not evidence the defect is gone.** It is evidence that the unit's
+  own diff is clean against a pre-defect base. Re-basing any of them onto current `main`
+  would turn them red without a line changing — measured on `f1e3700` (the 04:27 DLF
+  refresh), whose board is byte-identical to `776cfa9`'s: the same 9 of 18 cells, the same
+  values. A data refresh that does not re-run the pick scrape does not clear this.
 
 ---
 
