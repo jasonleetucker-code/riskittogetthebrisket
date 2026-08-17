@@ -500,6 +500,80 @@ describe("analyzeTradeTendencies — ownerId aggregation", () => {
   });
 });
 
+describe("analyzeTradeTendencies — an unpriced asset is not worth zero", () => {
+  // Audit 2026-08-17.  `resolveAssetValue` used `row.values?.full || 0`
+  // on both branches, so an asset the board declines to price counted
+  // as a measured zero in totalGot / totalGiven.  It matters most for
+  // picks: every 2027/2028 5th and 6th is unpriced, so a manager who
+  // trades late picks had them valued at exactly nothing.
+  //
+  // `boardValueOrNull` — the correct helper — was already defined 900
+  // lines above in the same file, with a comment about this exact
+  // coercion.  This function had simply never adopted it.
+  const rowsWithUnpriced = [
+    ...rows,
+    // A row the board explicitly declines to price.
+    { name: "Unpriced Guy", pos: "WR", values: { full: null, raw: null } },
+  ];
+
+  function tendenciesFor(got, gave, rowSet) {
+    const rawData = {
+      sleeper: {
+        teams: [
+          { name: "A", roster_id: 1, ownerId: "u-a" },
+          { name: "B", roster_id: 2, ownerId: "u-b" },
+        ],
+        positions: {},
+        trades: [
+          mkTrade({
+            sides: [
+              { team: "A", rosterId: 1, ownerId: "u-a", got, gave },
+              { team: "B", rosterId: 2, ownerId: "u-b", got: gave, gave: got },
+            ],
+          }),
+        ],
+      },
+    };
+    return analyzeTradeTendencies(rawData, rowSet);
+  }
+
+  it("omits an unpriced asset from the total instead of adding 0", () => {
+    const withUnpriced = tendenciesFor(["Test Star", "Unpriced Guy"], ["Test Mid"], rowsWithUnpriced);
+    const a = withUnpriced.find((t) => t.manager === "A");
+    // 5000 from Test Star, and NOTHING from the unpriced row — not 0
+    // added, but the asset excluded and disclosed.
+    expect(a.avgGot).toBe(5000);
+    expect(a.unpricedAssets).toBe(1);
+  });
+
+  it("an asset with no board row at all is unpriced, not zero", () => {
+    const t = tendenciesFor(["Test Star", "Nobody Has Heard Of Him"], ["Test Mid"], rows);
+    const a = t.find((t) => t.manager === "A");
+    expect(a.avgGot).toBe(5000);
+    expect(a.unpricedAssets).toBe(1);
+  });
+
+  it("reports zero unpriced when every asset prices", () => {
+    const t = tendenciesFor(["Test Star"], ["Test Mid"], rows);
+    const a = t.find((t) => t.manager === "A");
+    expect(a.avgGot).toBe(5000);
+    expect(a.avgGiven).toBe(2000);
+    expect(a.unpricedAssets).toBe(0);
+  });
+
+  it("does not let an unpriced asset drag the net toward zero", () => {
+    // The defect's visible symptom: adding an unpriced asset to the GOT
+    // side used to leave the total unchanged while the asset counted
+    // toward nothing, making a manager look like they got less value.
+    const clean = tendenciesFor(["Test Star"], ["Test Mid"], rows);
+    const withExtra = tendenciesFor(["Test Star", "Unpriced Guy"], ["Test Mid"], rowsWithUnpriced);
+    const a1 = clean.find((t) => t.manager === "A");
+    const a2 = withExtra.find((t) => t.manager === "A");
+    expect(a2.net).toBe(a1.net);
+    expect(a2.unpricedAssets).toBeGreaterThan(a1.unpricedAssets);
+  });
+});
+
 describe("buildCombinedPairTrade — two-team net history", () => {
   // Mirror the "Dak" example: an asset that goes A→B, back B→A, then
   // A→B again must net to a single A→B move (odd crossings collapse to
