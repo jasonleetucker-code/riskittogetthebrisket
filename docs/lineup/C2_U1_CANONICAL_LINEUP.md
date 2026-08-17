@@ -200,6 +200,49 @@ until then**; absent means absent, never fabricated.
 
 ---
 
+## 7a. D3 — the stamp did not survive the SERVING path
+
+Found by an adversarial review of this unit AFTER it was first reported green, by two
+independent reviewers, and refuted by none of six refutation attempts. It is the most serious
+defect in the unit and it was mine.
+
+`/api/data` splices a live Sleeper overlay over the baked contract and rebuilds
+`sleeper.teams` **wholesale** from `sleeper_overlay._build_teams_block` (`server.py`, the
+`scrubbed["sleeper"] = overlay_full` seam). That builder emits no `optimalLineup`, and nothing
+re-stamped afterwards — so on the **normal** path the stamp was discarded and every frontend
+lineup surface failed closed: /terminal's split bar at 0% starters, /rosters reporting
+`starterSlotsUnavailable`, and `scoreTeamTiers` ranking all twelve teams on the depth term alone
+with nothing on screen saying the starter term was missing.
+
+The overlay is force-warmed after every scrape and cached for 15 minutes, so this was the steady
+state. **The feature worked only while Sleeper was DOWN** — the exact inverse of a degradation.
+
+Why every other test missed it: `tests/lineup/test_canonical_lineup.py` proves the solver is
+right and `frontend/__tests__/starter-slots.test.js` proves the client renders a stamp
+faithfully. Nothing tested that the stamp travels from one to the other. That is
+`CLAUDE.md`'s "trace the live execution path end-to-end" rule, and this unit broke it.
+
+**Repaired by re-SOLVING at the seam, not by copying the baked stamp.** The overlay's rosters are
+fresher, so a copied lineup could start a player dropped ten minutes ago —
+`test_serving_path.py` pins exactly that case. Two hazards the repair had to respect:
+
+* the overlay's teams are entries in a **shared 15-minute cache**, so the stamp is now
+  copy-on-write and never mutates the dicts it is given (in-place stamping would leak one
+  request's lineup into every later request on the same entry, and on the cross-league path a
+  *different league's*);
+* some payload views **strip `playersArray`** (`server.py` pops it for the runtime view), so the
+  value source is passed explicitly from the baked contract. Values are scoring-profile scoped
+  and identical either way, so that is correct as well as safe.
+
+Also repaired alongside it: `_stamp_optimal_lineups` read only the FIRST rung of the truth
+ladder (`starter_slots_from_roster_positions`), which made the registry rung unreachable from the
+only producer of the stamp — `slotSource: "registry_starters"` was a state the frontend rendered
+a message for and the server had no code path to emit. It now calls the owner's
+`resolve_starter_slots` with the league's registry settings, as §5 always claimed it did.
+
+`tests/lineup/test_serving_path.py` is the regression, and its structural guards are **proven to
+fire**: with the re-stamp removed they fail, and they pass with it restored.
+
 ## 8. Inertness — measured, both axes
 
 Captured through `scripts/golden_board.py` on the base and on this head, on one tree state so
@@ -258,6 +301,9 @@ deployed merge SHA:
    the server's, and the panel shows the unpriced count rather than benching those players.
 3. `/api/trade/simulate` returns a `teamImpact` block whose `starterDelta` is unchanged for
    trades that change no starter.
+3a. **With Sleeper REACHABLE** (the §7a case): `/api/data` teams still carry
+   `optimalLineup.available: true`, and /terminal shows a real starter/bench split rather than
+   0% — this is the state the defect made unreachable, so verify it explicitly and first.
 4. A scrape completes and the board is unchanged (`board_diff --expect-no-value-change`).
 5. **After** that scrape: `sleeper.fantasyPositions` is populated, and at least one DL/LB hybrid
    is started in a slot its primary position alone would not have allowed.

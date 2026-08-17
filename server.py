@@ -69,6 +69,7 @@ from src.api.data_contract import (
     normalize_source_overrides,
     normalize_tep_multiplier,
     normalize_tep_native_multiplier,
+    stamp_optimal_lineups as _stamp_optimal_lineups_owner,
     validate_api_data_contract,
 )
 from src.api import gameplan as _gameplan
@@ -3671,6 +3672,31 @@ async def get_data(request: Request):
                     )
                 )
             scrubbed["sleeper"] = overlay_full
+            # RE-STAMP THE LINEUP (C2-U1).  The overlay rebuilds
+            # ``teams`` from scratch (``sleeper_overlay._build_teams_block``
+            # emits no ``optimalLineup``), so the stamp taken at contract
+            # build time is discarded here — on the NORMAL path, because
+            # the overlay is warmed after every scrape and cached for
+            # 15 minutes.  Without this the frontend fails closed and
+            # /terminal, /rosters and the team-tier leaderboard all lose
+            # their starter/bench split whenever Sleeper is REACHABLE,
+            # which is the opposite of a degradation.
+            #
+            # Re-SOLVED, never copied: the overlay's rosters are fresher
+            # than the baked ones, so a copied lineup could start a
+            # player dropped ten minutes ago.  Values come from the baked
+            # contract because some payload views strip ``playersArray``,
+            # and they are scoring-profile scoped so they are identical
+            # either way.  Degrades, never raises.
+            try:
+                _stamp_optimal_lineups_owner(
+                    scrubbed,
+                    rows=(latest_contract_data or {}).get("playersArray")
+                    if isinstance(latest_contract_data, dict)
+                    else None,
+                )
+            except Exception as exc:  # noqa: BLE001
+                log.warning("optimalLineup re-stamp failed for %s: %s", league_cfg.key, exc)
             meta = dict(scrubbed.get("meta") or {})
             meta["leagueKey"] = league_cfg.key
             meta["scoringProfile"] = league_cfg.scoring_profile

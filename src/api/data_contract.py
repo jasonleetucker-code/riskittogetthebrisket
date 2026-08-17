@@ -10880,11 +10880,15 @@ def build_api_data_contract(
     # contract so they don't leak into the public payload.
     for row in players_array:
         row.pop("_positionFromSleeperOnly", None)
-    _stamp_optimal_lineups(contract_payload)
+    stamp_optimal_lineups(contract_payload)
     return contract_payload
 
 
-def _stamp_optimal_lineups(contract: dict[str, Any]) -> None:
+def stamp_optimal_lineups(
+    contract: dict[str, Any],
+    *,
+    rows: list[dict[str, Any]] | None = None,
+) -> None:
     """Stamp each team's optimal starting lineup onto ``sleeper.teams``.
 
     **The server assigns; the client renders** (C2-U1).  This is the
@@ -10904,6 +10908,27 @@ def _stamp_optimal_lineups(contract: dict[str, Any]) -> None:
     ``available: false`` with a reason, because "we do not know this
     league's lineup" and "this team starts nobody" must not render the
     same.
+
+    **Call this again after anything replaces ``sleeper.teams``.**
+    ``/api/data`` splices a live Sleeper overlay over the baked block
+    (``server.py``), and the overlay rebuilds ``teams`` from scratch —
+    so the stamp taken at build time is discarded on the normal serving
+    path unless it is re-taken.  Re-solving rather than copying is the
+    correct repair, and not merely the convenient one: the overlay's
+    rosters are FRESHER, so a copied lineup could start a player who was
+    dropped ten minutes ago.
+
+    ``rows`` supplies the value source explicitly, because some payload
+    views strip ``playersArray`` (``server.py`` pops it for the runtime
+    view) and reading a reduced view would price every player as
+    UNKNOWN.  Values are scoring-profile scoped and identical between
+    the baked contract and any view of it, so passing the baked rows is
+    correct as well as safe.
+
+    **Never mutates the team dicts it is given.**  It writes a new list
+    of shallow copies, because the overlay's teams come out of a shared
+    15-minute cache and stamping them in place would leak one league's
+    lineup into every later request that hit the same entry.
     """
     sleeper = contract.get("sleeper")
     if not isinstance(sleeper, dict):
@@ -10912,24 +10937,51 @@ def _stamp_optimal_lineups(contract: dict[str, Any]) -> None:
     if not isinstance(teams, list) or not teams:
         return
 
-    slots = lineup_owner.starter_slots_from_roster_positions(sleeper.get("rosterPositions"))
-    slot_source = "sleeper_roster_positions" if slots else None
+    # THE truth ladder, not just its first rung: live host
+    # ``rosterPositions`` → registry ``starters`` → refuse.  Reading only
+    # the first rung here made the second unreachable from the ONLY
+    # producer of this stamp, so ``slotSource: "registry_starters"`` was
+    # a state the server had no code path to emit while the frontend
+    # rendered a message for it — and a partial Sleeper fetch (lineup
+    # endpoint times out, rosters succeed) would have refused a lineup
+    # the registry could answer.
+    registry_settings: dict[str, Any] | None = None
+    try:
+        from src.api.league_registry import (  # noqa: PLC0415
+            get_league_roster_settings,
+        )
+
+        registry_settings = get_league_roster_settings(
+            str((contract.get("meta") or {}).get("leagueKey") or "") or None
+        )
+    except Exception:  # noqa: BLE001 — the registry is optional here
+        registry_settings = None
+    slots, slot_source = lineup_owner.resolve_starter_slots(
+        roster_positions=sleeper.get("rosterPositions"),
+        roster_settings=registry_settings,
+    )
 
     positions = sleeper.get("positions") if isinstance(sleeper.get("positions"), dict) else {}
     eligibility = (
         sleeper.get("fantasyPositions") if isinstance(sleeper.get("fantasyPositions"), dict) else {}
     )
     value_by_name: dict[str, float | None] = {}
-    for row in contract.get("playersArray") or []:
+    for row in (rows if rows is not None else contract.get("playersArray")) or []:
         if row.get("assetClass") == "pick":
             continue
         for key in (row.get("canonicalName"), row.get("displayName")):
             if key:
                 value_by_name.setdefault(str(key), row.get("rankDerivedValue"))
 
-    for team in teams:
-        if not isinstance(team, dict):
+    stamped: list[Any] = []
+    for original in teams:
+        if not isinstance(original, dict):
+            stamped.append(original)
             continue
+        # Copy-on-write: see the docstring.  The overlay's teams are
+        # shared cache entries.
+        team = dict(original)
+        stamped.append(team)
         if not slots:
             team["optimalLineup"] = {
                 "available": False,
@@ -10984,6 +11036,8 @@ def _stamp_optimal_lineups(contract: dict[str, Any]) -> None:
             "unpriced": sorted(solved.unpriced_ids),
             "unfilledSlots": solved.unfilled_slots,
         }
+
+    sleeper["teams"] = stamped
 
 
 # ── Rankings override delta contract ──────────────────────────────────
