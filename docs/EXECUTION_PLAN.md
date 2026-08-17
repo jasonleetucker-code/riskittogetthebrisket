@@ -79,22 +79,40 @@ Ordered. A unit leaves this queue only when production proof lands on the deploy
 
 | unit | PR | exact head | CI | unlocks | production proof |
 |---|---|---|---|---|---|
-| `C0-R` | [#875](https://github.com/jasonleetucker-code/riskittogetthebrisket/pull/875) | `ad95bd6` | **RED on the inherited `main` defect below, and only that** — run 31987737878: `test_derived_2029_value_uses_measured_year_step` (ratio 0.9857), plus four advisory-lane source-coverage rails on the same nine rows. **Re-measured across three `main` revisions: `b1c6a42a` = 9 of 18 tier cells violating, `85b13689` = 8, `01574f63` = 9 again.** The count OSCILLATES with routine data refreshes while the mechanism sits untouched — the structural cells (Mid 4th/5th/6th) hold at ratio 1.035 throughout, and `Mid 2nd` flips either way on a one-point drift in its 2028 twin. The 8 was therefore noise, and the return to 9 is the measurement that proves it rather than an argument for it. Only a scrape that re-runs the pick anchors can clear this. Its own diff is documentation and standing-invariant tests | every later unit — this is the record that authorizes them | pending |
-| `C1-U5` | [#876](https://github.com/jasonleetucker-code/riskittogetthebrisket/pull/876) (stacked on #875) | `d33465d` | **GREEN** — run 31991834158 SUCCESS on the exact head | `C2`/`C3`/`C6` confidence consumers — §1's rename-before-new-consumer rule is discharged by this unit | pending |
-| `C1-U8` | [#878](https://github.com/jasonleetucker-code/riskittogetthebrisket/pull/878) (stacked on #876) | `ac731c6` | **GREEN** — run 31997754113 SUCCESS on the exact head (05:39:52Z). Earlier head `ab9d31a` was also hard-gate/livedata/contract green (run 31994961129). A post-delivery checklist audit then found **nine defects**, two of them false claims of correctness (a dead-code as-of clock and its vacuous test) — repaired on the same branch rather than duplicated. Board inertness now **measured 0/1111**, not asserted. 106 acquisition tests | `C3-REPLAY-01` (needs `C1-ACQ-02`), `C4-MTL-01`, `C4-WAIV-01`, `C4-INS-01` | pending — checklist in `docs/acquisition/C1_U8_ACQUISITION_LEDGER.md` §8 |
-| `C1-U9` | (stacked on #878) | see PR | local: 7,782 backend / 2,051 frontend, 0 failures; 23 source tests; board measured inert 0/1111; ruff, coercion, planning and structural-contract gates clean | `C5-ROS-01` (deps `C1-SRC-01`) | pending — checklist in `docs/sources/C1_U9_MULTI_FORMAT_SOURCE_ARCHIVE.md` §7 |
-| `C2-U1` | [#880](https://github.com/jasonleetucker-code/riskittogetthebrisket/pull/880) (stacked on #879) | `066d2517` | **GREEN** — run 32022945892 SUCCESS on the exact head, all 24 steps. **Reported green once prematurely.** An adversarial review then found a CRITICAL defect in the unit's own premise: `/api/data` splices a live Sleeper overlay that rebuilds `sleeper.teams` wholesale, discarding the lineup stamp on the NORMAL path — so the feature worked only while Sleeper was DOWN. Four further real findings followed (a slot-legality name collision, a FALSE RED claim in my own test header, a latent FAAB divide-by-eligibility bug that was a 6th even-split derivation, and two structural guards weaker than claimed). All fixed and regression-pinned; the guards are proven to fire. Board inert **0/1111 values, 0 ranks**, confidence inert **0/1111 rows**, re-measured after every round. The canonical solver was verified against **Sleeper's own awarded lineups, 10/10** before being trusted | `C2-U2` · `C2-U3` · `C2-U4` · `C2-U6` · `C2-U9` · `C5-PLAY-01` — the root of the C2 phase | pending — checklist in `docs/lineup/C2_U1_CANONICAL_LINEUP.md` §10, whose step 3a exists because of the critical defect above |
+| `C0-R` | [#875](https://github.com/jasonleetucker-code/riskittogetthebrisket/pull/875) | `ad95bd6` | **RED on the inherited `main` defect below, and only that** — run 31987737878: `test_derived_2029_value_uses_measured_year_step` (ratio 0.9857), plus four advisory-lane source-coverage rails on the same nine rows. **Re-measured across three `main` revisions: `b1c6a42a` = 9 of 18 tier cells violating, `85b13689` = 8, `01574f63` = 9 again.** The count OSCILLATES with routine data refreshes while the mechanism sits untouched — the structural cells (Mid 4th/5th/6th) hold at ratio 1.035 throughout, and `Mid 2nd` flips either way on a one-point drift in its 2028 twin. The 8 was therefore noise, and the return to 9 is the measurement that proves it rather than an argument for it. Only a scrape that re-runs the pick anchors can clear this. Its own diff is documentation and standing-invariant tests | every later unit — this is the record that authorizes them | **MERGED — PENDING PROD PROOF** (#875 on `main` @ `4fc7ab22`; deploy frozen since 2026-08-17T00:35Z — see below). No production checklist exists for this unit; one must be written before it can close per §0.2 |
+| `C1-U5` | [#876](https://github.com/jasonleetucker-code/riskittogetthebrisket/pull/876) (stacked on #875) | `d33465d` | **GREEN** — run 31991834158 SUCCESS on the exact head | `C2`/`C3`/`C6` confidence consumers — §1's rename-before-new-consumer rule is discharged by this unit | **MERGED — PENDING PROD PROOF** (#876). No production checklist exists for this unit; one must be written before it can close per §0.2 |
+| `C1-U8` | [#878](https://github.com/jasonleetucker-code/riskittogetthebrisket/pull/878) (stacked on #876) | `ac731c6` | **GREEN** — run 31997754113 SUCCESS on the exact head (05:39:52Z). Earlier head `ab9d31a` was also hard-gate/livedata/contract green (run 31994961129). A post-delivery checklist audit then found **nine defects**, two of them false claims of correctness (a dead-code as-of clock and its vacuous test) — repaired on the same branch rather than duplicated. Board inertness now **measured 0/1111**, not asserted. 106 acquisition tests | `C3-REPLAY-01` (needs `C1-ACQ-02`), `C4-MTL-01`, `C4-WAIV-01`, `C4-INS-01` | **MERGED — PENDING PROD PROOF** (#878) — checklist in `docs/acquisition/C1_U8_ACQUISITION_LEDGER.md` §8 |
+| `C1-U9` | (stacked on #878) | see PR | local: 7,782 backend / 2,051 frontend, 0 failures; 23 source tests; board measured inert 0/1111; ruff, coercion, planning and structural-contract gates clean | `C5-ROS-01` (deps `C1-SRC-01`) | **MERGED — PENDING PROD PROOF** (#879) — checklist in `docs/sources/C1_U9_MULTI_FORMAT_SOURCE_ARCHIVE.md` §7 |
+| `C2-U1` | [#880](https://github.com/jasonleetucker-code/riskittogetthebrisket/pull/880) (stacked on #879) | `066d2517` | **GREEN** — run 32022945892 SUCCESS on the exact head, all 24 steps. **Reported green once prematurely.** An adversarial review then found a CRITICAL defect in the unit's own premise: `/api/data` splices a live Sleeper overlay that rebuilds `sleeper.teams` wholesale, discarding the lineup stamp on the NORMAL path — so the feature worked only while Sleeper was DOWN. Four further real findings followed (a slot-legality name collision, a FALSE RED claim in my own test header, a latent FAAB divide-by-eligibility bug that was a 6th even-split derivation, and two structural guards weaker than claimed). All fixed and regression-pinned; the guards are proven to fire. Board inert **0/1111 values, 0 ranks**, confidence inert **0/1111 rows**, re-measured after every round. The canonical solver was verified against **Sleeper's own awarded lineups, 10/10** before being trusted | `C2-U2` · `C2-U3` · `C2-U4` · `C2-U6` · `C2-U9` · `C5-PLAY-01` — the root of the C2 phase | **MERGED — PENDING PROD PROOF** (#880) — checklist in `docs/lineup/C2_U1_CANONICAL_LINEUP.md` §10, whose step 3a exists because of the critical defect above |
+| `C1-U6-D1` | *(this branch)* | see PR | RED-authored at the extracted scraper boundary: 8 failures against the verbatim extraction, one per forcing path. Now 40/40 green, plus the whole pick family | **UNBLOCKS DEPLOY** — and therefore the production proof of all five merged units | pending — needs one repaired scrape (§7.5 of the D1 record) |
 
-**Current unit: `C1-U9`.**
+**Current unit: `C1-U6-D1` (the deploy-blocking repair).**
 
-**Blocking, not owned by any queued unit:** `main` is pricing 2029 picks at their 2028
-price — a live canonical-value defect recorded in
-`docs/picks/C1_U6_D1_FABRICATED_FUTURE_YEAR_ANCHORS.md` ([#877](https://github.com/jasonleetucker-code/riskittogetthebrisket/pull/877),
-report only). It reddens the deterministic gate via
-`test_derived_2029_value_uses_measured_year_step`, which is a **correct** assertion that
-found a real defect and must not be reclassified or loosened. Repair is a C1-U6 defect unit
-and needs a full scrape to verify (the fabricated anchors are baked into every archive since
-2026-08-17 02:11 UTC, so it cannot be measured by rebuilding an existing bundle).
+**Every queue row above is `MERGED — PENDING PROD PROOF`.** All six PRs (#875 C0-R, #876
+C1-U5, #877 C1-U6-D1 record, #878 C1-U8, #879 C1-U9, #880 C2-U1) are on `main` @ `4fc7ab22`
+and merge integrity was verified against main's history rather than trusted from GitHub's
+merged flag. **None is production-verified**, and none could be — see the freeze below.
+
+**THE PRODUCTION FREEZE (found 2026-08-17, while attempting that verification).**
+Deploy Production last SUCCEEDED at `8d6930cd6`, **2026-08-17T00:35Z**, and has failed
+**12 consecutive times since**. Every failure is the same: `Validate Build Inputs` →
+`pytest -x -q -m "not livedata"` → `test_derived_2029_value_uses_measured_year_step`
+(ratio 0.985), after which the `Deploy To Production` job is `needs: validate` and reports
+`skipped`. `validate_api_contract --lane full` passes; the blocker is unit tests only.
+
+So **production is running the `8d6930cd6` build and none of the six merged units are in
+it.** That reorders the campaign: C1-U6-D1 is not merely a canonical-truth defect, it is
+*the deploy blocker*, and it gates the closure of all five other units.
+
+**REPAIRED 2026-08-17** — `docs/picks/C1_U6_D1_FABRICATED_FUTURE_YEAR_ANCHORS.md` §7.
+Root cause is in `Dynasty Scraper.py`, not the contract: four paths (three sharing an
+uncapped, undirected `_nearest_year`, plus an un-yeared `(year, None)` bucket the earlier
+diagnosis missed) forced a value for a year the source never published. The builder is
+extracted to `src/picks/site_pick_map.py` — byte-parity-proven over 36 source boards /
+8,640 keys before any behaviour changed — and RED-tested there, since as closures it had no
+test, no fixture and no import seam anywhere in the repo. All **18 of 18** `(tier, round)`
+cells now sit strictly below their 2028 equivalent **by derivation, never a clamp**, and no
+2029 row stamps `direct_market_blend`.
 
 **Why the queue is red at the bottom and green above it**, which is easy to misread as the
 stack being broken: `pull_request` CI validates the **merge ref** — base merged into head.
