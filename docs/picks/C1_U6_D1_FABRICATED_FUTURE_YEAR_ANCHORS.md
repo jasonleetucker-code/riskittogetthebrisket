@@ -408,10 +408,9 @@ single-source rows to begin with.
   `data_stale: false`, `scrape_stalled: false`, `data_age_hours: 0.0`. That is
   full-pipeline evidence from the real pipeline rather than a fixture.
 
-  Still outstanding: the **repo's** `exports/latest` board. Production's scrape output
-  lives on the box and is not committed back, so the tracked artifact stays pre-repair
-  until the scheduled refresh runs the repaired scraper on CI and commits it — exactly
-  the condition `test_the_shim_is_inert_once_the_scrape_itself_is_repaired` watches.
+  **The repo's board is repaired too** (§9): the refresh at 2026-08-17T21:05Z
+  (`a58e9d923`) ran the repaired scraper on CI and committed the result. Nothing about
+  this repair rests on a fixture any more.
 * **`exports/latest/dynasty_data_*.json` is git-tracked and still holds the
   pre-repair board.** The tests that detect this defect build from that artifact, so
   they were reporting a real defect that no change at their layer could fix — which
@@ -488,3 +487,59 @@ a pick-valuation one. Recorded for its own unit.
 **Production state after the green deploy** (probed directly, 20:26Z): `/api/health` 200
 `status: ok`, `has_data: true`, `data_stale: false`, `scrape_stalled: false`,
 `data_age_hours: 0.0`; `/api/status` 200; `/api/public/league` 200 in 6.6 s.
+
+---
+
+## 9. The committed board, verified — and the shim retired
+
+The scheduled refresh was dispatched after the green deploy and committed
+**`a58e9d923` — "chore: automated data refresh 2026-08-17T21:05:39Z"**, the first
+`exports/latest` board built by the repaired scraper. Measured on that artifact, through
+`build_api_data_contract` (the same call `server.py` makes):
+
+| cell | 2029 | 2028 | ratio | provenance |
+|---|---:|---:|---:|---|
+| Early 1st | 3593 | 5111 | 0.7030 | `derived_year_step` |
+| Mid 1st | 3676 | 4556 | 0.8068 | `derived_year_step` |
+| Late 1st | 3446 | 4101 | 0.8403 | `derived_year_step` |
+| Early 2nd | 2590 | 3175 | 0.8157 | `derived_year_step` |
+| Mid 2nd | 2596 | 2997 | 0.8662 | `derived_year_step` |
+| Late 2nd | 2440 | 2804 | 0.8702 | `derived_year_step` |
+| Early 3rd | 1811 | 2191 | 0.8266 | `derived_year_step` |
+| Mid 3rd | 1758 | 2112 | 0.8324 | `derived_year_step` |
+| Late 3rd | 1794 | 2002 | 0.8961 | `derived_year_step` |
+| Early 4th | 1412 | 1627 | 0.8679 | `derived_year_step` |
+| Mid 4th | 1421 | 1531 | 0.9282 | `derived_year_step` |
+| Late 4th | 980 | 1314 | 0.7458 | `derived_year_step` |
+| Early/Mid/Late 5th | 1312 / 1320 / 910 | 1511 / 1422 / 1221 | 0.8683 / 0.9283 / 0.7453 | `derived_round_step` |
+| Early/Mid/Late 6th | 1202 / 1209 / 834 | 1384 / 1303 / 1118 | 0.8685 / 0.9279 / 0.7460 | `derived_round_step` |
+
+> **0 violations of 18. 0 rows claiming `direct_market_blend`.**
+
+RED-4 closed on the artifact: `2029 Early 1st` carries `{ktc 3703, idpTradeCalc 3593}`
+against `2028 Early 1st`'s `{ktc 5188, idpTradeCalc 5034, ktcSfTep 5188}` — stepped, not
+the template year's numbers verbatim.
+
+Advisory rails: **0** unexplained single-source rows at rank ≤ 400 and ≤ 400/800 alike
+(was 9 and 11). 12 of the 24 2029 rows carry `_FAR_FUTURE_ALLOWLIST_REASON`.
+`contractHealth`: 0 structural errors, 0 source-health errors.
+
+### The shim is deleted
+
+`tests/pick_board_fixture.py` declared its own retirement condition — that it drop nothing
+once a repaired scrape landed. Measured on `a58e9d923`: **0 rows dropped**. It is therefore
+**removed**, and `_load_contract` reads the artifact directly again.
+
+That is not just tidiness. An inert transformation sitting between the artifact and the
+tests is a second opinion about what the board should contain, which is precisely the
+duplicate-owner pattern this campaign retires. What replaces it is stronger and asserted
+at the artifact itself:
+`TestTheFabricationCannotReturnThroughTheArtifact::test_no_pick_row_exists_for_a_year_no_source_published`
+— no pick row may claim `direct_market_blend` for a year absent from every vendor's
+published rows, with the published-year set read from the bundle's own `site_raw/*.csv`
+through the canonical owner. A *derived* row for such a year is correct and expected; a
+row claiming a market priced it is the defect.
+
+Vendor drift still cannot redden this file: every assertion needing a specific row
+`skipTest`s when it is absent, so a source outage degrades to a skip rather than a failure
+— which was the owner's stated requirement for the hardening.
