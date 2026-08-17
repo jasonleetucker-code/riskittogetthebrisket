@@ -31,9 +31,11 @@ from src.data_models.contracts import utc_now_iso
 #: B11 — the single owner of "how good is the evidence behind this value".
 #: This module ASSEMBLES the evidence; it decides no confidence level.
 from src.api.confidence import (  # noqa: E402  — grouped with its siblings
+    CONFIDENCE_BASES,
     FamilyEvidence,
     assess_confidence,
     assess_pick_confidence,
+    degrade_for_quarantine,
     gate_parameter as _confidence_gate_parameter,
 )
 
@@ -3572,8 +3574,10 @@ def _validate_and_quarantine_rows(
             # Degrade confidence bucket — never promote, only degrade
             current_bucket = row.get("confidenceBucket") or "none"
             if current_bucket in ("high", "medium"):
-                row["confidenceBucket"] = "low"
-                row["confidenceLabel"] = "Low — quarantined due to identity/data-quality flags"
+                bucket, label, basis = degrade_for_quarantine(current_bucket)
+                row["confidenceBucket"] = bucket
+                row["confidenceLabel"] = label
+                row["confidenceBasis"] = basis
         else:
             row["quarantined"] = False
 
@@ -5297,6 +5301,7 @@ def _restate_confidence_after_override(
         )
         row["confidenceBucket"] = assessment.overall
         row["confidenceLabel"] = assessment.label
+        row["confidenceBasis"] = "evidence_gate"
         row["confidenceAxes"] = dict(assessment.axes)
         row["confidenceReasons"] = list(assessment.reasons)
         restated.append(str(row.get("canonicalName") or row.get("displayName") or row_idx))
@@ -6126,6 +6131,9 @@ def _suppress_generic_pick_tiers_when_slots_exist(
         row["canonicalTierId"] = None
         row["confidenceBucket"] = "none"
         row["confidenceLabel"] = "None — generic tier suppressed in favor of slot-specific picks"
+        # The value is cleared two lines up, so this row is genuinely unpriced —
+        # a different statement from "priced, but nothing assessed it".
+        row["confidenceBasis"] = "unpriced"
         row["pickGenericSuppressed"] = True
         # Drop quarantine / single-source flags so the suppressed row
         # cannot accidentally trip the launch-readiness 1-src gate.
@@ -6637,86 +6645,42 @@ def _anchor_current_year_picks_to_rookies(
         # the cutoff, squeezing tail R4 picks off the bottom.
         row["rankDerivedValue"] = anchor_val
         row["pickRookieAnchor"] = anchor.get("canonicalName")
+        # C1-U5: when this pass prices a row that neither assessment pass
+        # reached, it owns the confidence statement too — otherwise the row
+        # keeps the constructor's placeholder and reads as "unranked and
+        # therefore unconfident" when the truth is "tethered to a real
+        # rookie value, with no pick market of its own". Measured: 24 rows,
+        # all round-5/6 slots, which are the ones no pick market prices.
+        #
+        # Scoped to UNASSESSED rows deliberately. This pass anchors all 72
+        # current-year slots, and the other 48 were already assessed by the
+        # dispersion rule. Restamping those would downgrade real pick-market
+        # confidence to a derivation label — a methodology change, not a
+        # naming migration, and out of scope for C1-U5. That the tether
+        # overwrites a value whose confidence was measured from the pick
+        # market is a real question; it is recorded as a follow-up rather
+        # than decided quietly here.
+        if not row.get("confidenceBasis") or row.get("confidenceBasis") in (
+            "unpriced",
+            "no_evidence",
+        ):
+            row["confidenceBucket"] = "low"
+            row["confidenceLabel"] = (
+                "Low — tethered to the rookie at this slot (no direct pick market)"
+            )
+            row["confidenceBasis"] = "derived_rookie_tether"
+            row["confidenceAxes"] = None
+            row["confidenceReasons"] = None
         anchored += 1
     return anchored
 
 
-def _compute_pick_confidence(
-    canonical_sites: dict[str, Any],
-    is_slot_specific: bool,
-) -> tuple[str, str]:
-    """Compute (confidenceBucket, confidenceLabel) for a pick row.
-
-    Pick confidence is rank-spread agnostic: for picks the meaningful
-    signal is whether multiple raw source values agree on the pick's
-    dollar value, not whether the source ordinal ranks line up (rank
-    spread on picks is dominated by flat-value regions in R3-R6 and
-    misleads the player-centric bucketing).
-
-    Rules:
-      * Effective source count: count raw values > 0.  KTC slot values
-        on slot-specific picks are SYNTHESIZED by Dynasty Scraper's
-        ``_estimate_slot_from_tier`` from KTC's 14 tier rows — they
-        carry partial information so we count them at 0.5 instead of
-        1.0.  KTC tier-row picks (e.g. 2026 Early 1st) are real KTC
-        rows and count at 1.0.
-      * Coefficient of variation: cv = stdev(raw_values) / mean.
-      * Bucketing:
-          high   — effective count >= 1.5 AND cv <= 0.15
-          medium — effective count >= 1.0 AND cv <= 0.30
-          low    — otherwise
-    """
-    raw_values: list[tuple[str, float]] = []
-    for key in (
-        "ktcSfTep",
-        "idpTradeCalc",
-        "dlfSf",
-        "dynastyNerdsSfTep",
-        "dlfIdp",
-        "fantasyProsIdp",
-    ):
-        v = canonical_sites.get(key)
-        if v is None:
-            continue
-        try:
-            f = float(v)
-        except (TypeError, ValueError):
-            continue
-        if f > 0:
-            raw_values.append((key, f))
-
-    if not raw_values:
-        return "none", "None — no pick source values"
-
-    # KTC slot values on specific slots are partial evidence (the
-    # underlying KTC pick board is the same whether we read its
-    # standard or TE+ flavor — picks aren't TE-position-sensitive).
-    effective_count = 0.0
-    for key, _v in raw_values:
-        if key == "ktcSfTep" and is_slot_specific:
-            effective_count += 0.5
-        else:
-            effective_count += 1.0
-
-    values = [v for _k, v in raw_values]
-    mean = sum(values) / len(values)
-    if mean <= 0 or len(values) < 2:
-        cv = None
-    else:
-        var = sum((v - mean) ** 2 for v in values) / len(values)
-        cv = math.sqrt(var) / mean
-
-    if cv is None:
-        # Single-source pick — no agreement signal at all.
-        if effective_count >= 1.0:
-            return "low", "Low — single pick source"
-        return "low", "Low — limited pick sources"
-
-    if effective_count >= 1.5 and cv <= 0.15:
-        return "high", "High — picks agree within 15%"
-    if effective_count >= 1.0 and cv <= 0.30:
-        return "medium", "Medium — moderate pick source disagreement"
-    return "low", "Low — divergent pick sources"
+# ``_compute_pick_confidence`` lived here until C1-U5 and was imported BACK
+# into ``src/api/confidence.py`` — the declared canonical owner reaching into
+# its own consumer.  The rule now lives at the owner as
+# ``confidence._pick_confidence_from_values``, arithmetic unchanged.  Call
+# ``confidence.assess_pick_confidence`` instead; do not re-add a pick
+# confidence rule to this module.
 
 
 def _apply_pick_year_discount_to_blend(
@@ -6806,6 +6770,7 @@ def _build_generic_pick_row(name: str, value: int) -> dict[str, Any]:
         "legacyRef": name,
         "confidenceBucket": "low",
         "confidenceLabel": "Low — derived from tier values (no direct market row)",
+        "confidenceBasis": "derived_tier_values",
         "confidenceAxes": None,
         "confidenceReasons": None,
         "anomalyFlags": [],
@@ -6946,6 +6911,7 @@ def _complete_future_pick_values(
                 row["rankDerivedValue"] = value
                 row["confidenceBucket"] = "low"
                 row["confidenceLabel"] = "Low — derived from the same year's nearest priced round"
+                row["confidenceBasis"] = "derived_round_step"
                 row["confidenceAxes"] = None
                 row["confidenceReasons"] = None
                 prov: dict[str, Any] = {
@@ -7010,6 +6976,7 @@ def _complete_future_pick_values(
                 row["rankDerivedValue"] = value
                 row["confidenceBucket"] = "low"
                 row["confidenceLabel"] = "Low — derived from tier values (no direct market row)"
+                row["confidenceBasis"] = "derived_tier_values"
             prov = {
                 "class": "derived_uniform_tier_ev",
                 "family": "uniform_tier_ev_v1",
@@ -9053,6 +9020,7 @@ def _compute_unified_rankings(
         # R3-R6 and KTC's per-slot synth bleeds in as fake agreement.
         # Family-aware since B11 — see ``assess_pick_confidence``.
         if row.get("assetClass") == "pick":
+            basis = "pick_dispersion"
             is_slot_specific = _parse_pick_slot(row.get("canonicalName") or "") is not None
             bucket, label = assess_pick_confidence(
                 row.get("canonicalSiteValues") or {},
@@ -9110,6 +9078,7 @@ def _compute_unified_rankings(
                 evidence,
                 row_eligible_families.get(row_idx, set()),
             )
+            basis = "evidence_gate"
             assessment = assess_confidence(
                 evidence,
                 eligible_families=row_eligible_families.get(row_idx, set()),
@@ -9129,6 +9098,7 @@ def _compute_unified_rankings(
             # in-process auditors.
         row["confidenceBucket"] = bucket
         row["confidenceLabel"] = label
+        row["confidenceBasis"] = basis
 
         audit = row.get("sourceAudit") or {}
         row["anomalyFlags"] = _compute_anomaly_flags(
@@ -9217,6 +9187,7 @@ def _compute_unified_rankings(
         )
         row["confidenceBucket"] = bucket
         row["confidenceLabel"] = label
+        row["confidenceBasis"] = "pick_dispersion"
         row["confidenceAxes"] = None
         row["confidenceReasons"] = None
         legacy_ref = row.get("legacyRef")
@@ -9827,8 +9798,13 @@ def _derive_player_row(
         "legacyRef": canonical_name,
         # Trust/transparency defaults — overwritten by _compute_unified_rankings
         # for players that receive a unified rank.
+        # The owner decides what an unassessed row says. This default is
+        # what 24 PRICED rows wore before C1-U5, because
+        # ``_anchor_current_year_picks_to_rookies`` priced them after both
+        # assessment passes had skipped them and wrote no confidence field.
         "confidenceBucket": "none",
         "confidenceLabel": "None — unranked",
+        "confidenceBasis": "unpriced",
         "anomalyFlags": [],
         "isSingleSource": False,
         "isStructurallySingleSource": False,
@@ -11221,6 +11197,37 @@ def validate_api_data_contract(payload: dict[str, Any]) -> dict[str, Any]:
         # posture as the blend-integrity scan).  Alias-suppressed
         # current-year tiers are the one deliberate valueless state and
         # must say so via provenance.
+        # C1-U5: a priced row must say what decided its confidence.
+        #
+        # Structural, not advisory. The defect this closes was a pass that
+        # priced 24 rows and wrote no confidence field, so they shipped
+        # wearing the row constructor's "None — unranked" placeholder — a
+        # label asserting the row was unranked and therefore unconfident,
+        # when the truth was that nothing had ever assessed it. Requiring a
+        # basis on every priced row makes that state unrepresentable rather
+        # than merely discouraged: the next pass that prices a row without
+        # saying why fails the build instead of shipping quietly.
+        #
+        # Scanned over the WHOLE array, not a prefix — the board runs
+        # deeper than the per-row shape checks' 1000-row cap, and the
+        # measured population sat at ranks past it.
+        for row in players_array:
+            if not isinstance(row, dict):
+                continue
+            v = row.get("rankDerivedValue")
+            if not (isinstance(v, (int, float)) and not isinstance(v, bool) and float(v) > 0):
+                continue
+            basis = row.get("confidenceBasis")
+            nm = str(row.get("canonicalName") or row.get("displayName") or "?")
+            if not basis:
+                errors.append(f"confidence_basis_missing:{nm}")
+            elif basis not in CONFIDENCE_BASES:
+                errors.append(f"confidence_basis_unknown:{nm}:{basis}")
+            elif basis in ("unpriced", "no_evidence"):
+                # A priced row claiming it has no value, or that nothing
+                # looked at it, is the exact contradiction this guards.
+                errors.append(f"confidence_basis_contradicts_value:{nm}:{basis}")
+
         pick_rows_by_name: dict[str, dict[str, Any]] = {}
         tier_years: set[int] = set()
         for row in players_array:

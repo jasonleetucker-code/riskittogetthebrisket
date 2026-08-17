@@ -61,10 +61,27 @@ RED-5  (the owner imports its consumer) — ``_compute_pick_confidence``
        own job.  "One concept, one canonical owner" is violated *inside*
        the owner module.
 
-STATUS: OPEN.  Each test below asserts the DEFECT, so each one starts
-green and must go red as C1-U5 lands.  That inversion is deliberate and
-is what makes this file a reproduction rather than a wish; the GREEN
-assertions live in ``test_confidence_naming.py``.
+STATUS: PARTIALLY CLOSED — RED-1, RED-2 and RED-5 are repaired and their
+assertions below now verify the defect is GONE.  **RED-3 and RED-4 remain
+OPEN** and still assert the defect, because the ``identityConfidence`` and
+``marketConfidence`` renames are the second half of C1-U5 and have not
+landed yet.  Saying otherwise would make this file claim a repair that
+does not exist.
+
+Closed here:
+  RED-1  the anchor pass stamps its own confidence when it prices a row
+         nothing assessed — scoped to exactly those rows, so the 48 picks
+         the dispersion rule had already judged keep their verdict.
+  RED-2  ``confidenceBasis`` separates the four states ``"none"`` was
+         covering, and ``validate_api_data_contract`` now ERRORS on a
+         priced row with a missing, unknown or self-contradicting basis —
+         so the hole is closed, not just the rows that fell through it.
+  RED-5  the pick rule moved to its owner; the circular import is gone.
+
+Measured blast radius of the repair: 0 values moved, 24 buckets
+``none`` -> ``low``, all of them 2026 round-5/6 slot picks.
+
+The positive contract lives in ``test_confidence_naming.py``.
 
 NOT ``livedata``-marked: builds the contract from a tracked export under
 ``exports/latest``, so it is deterministic for a given tree.  The counts
@@ -117,52 +134,54 @@ def _is_priced(row: dict[str, Any]) -> bool:
 
 
 class TestPricedRowsWearThePlaceholderLabel:
-    """RED-1: a priced asset must not read as having no confidence."""
+    """RED-1 — CLOSED. A priced asset no longer reads as having no confidence."""
 
-    def test_priced_rows_carry_the_row_builder_placeholder(self) -> None:
+    def test_no_priced_row_carries_the_row_builder_placeholder(self) -> None:
         offenders = [
-            r for r in _rows() if _is_priced(r) and r.get("confidenceLabel") == PLACEHOLDER_LABEL
+            (r.get("canonicalName"), r.get("rankDerivedValue"))
+            for r in _rows()
+            if _is_priced(r) and r.get("confidenceLabel") == PLACEHOLDER_LABEL
         ]
-        assert offenders, (
-            "RED-1 no longer reproduces — no priced row wears the placeholder label. "
-            "If C1-U5 has landed, this file's job is done; delete it with the unit."
-        )
-        # Characterise it, so a future reader knows which population this was.
-        anchored = [r for r in offenders if r.get("pickRookieAnchor")]
-        assert len(anchored) == len(offenders), (
-            f"{len(offenders) - len(anchored)} placeholder-labelled priced rows are NOT "
-            f"rookie-anchored picks — the defect population has changed and the "
-            f"traced mechanism (_anchor_current_year_picks_to_rookies) no longer "
-            f"explains all of it."
+        assert not offenders, (
+            f"RED-1 has REGRESSED — {len(offenders)} priced rows wear the constructor's "
+            f"placeholder again: {offenders[:8]}. A pass is pricing rows without saying "
+            f"what decided their confidence."
         )
 
-    def test_those_rows_are_unranked_which_is_why_nothing_assessed_them(self) -> None:
-        offenders = [
-            r for r in _rows() if _is_priced(r) and r.get("confidenceLabel") == PLACEHOLDER_LABEL
+    def test_the_measured_population_now_reports_its_tether(self) -> None:
+        """The 24 rows this RED was written for, by the property that identified them."""
+        anchored = [r for r in _rows() if r.get("pickRookieAnchor") and _is_priced(r)]
+        assert anchored, "no rookie-anchored priced picks — the anchor pass stopped running"
+        unassessed = [
+            r.get("canonicalName")
+            for r in anchored
+            if r.get("confidenceBasis") in (None, "", "unpriced", "no_evidence")
         ]
-        assert offenders
-        ranked = [r for r in offenders if r.get("canonicalConsensusRank") is not None]
-        assert not ranked, (
-            "a placeholder-labelled priced row now carries a rank, so the Phase 4 "
-            "cap no longer explains why it was skipped"
+        assert not unassessed, (
+            f"rookie-anchored picks carrying a value but no honest basis: {unassessed[:8]}"
         )
 
 
 class TestNoneBucketIsAmbiguous:
-    """RED-2: one word for two incompatible states."""
+    """RED-2 — CLOSED. ``none`` no longer covers four states with one word."""
 
-    def test_none_means_both_unpriced_and_priced_but_unassessed(self) -> None:
-        rows = _rows()
-        none_bucket = [r for r in rows if r.get("confidenceBucket") == "none"]
-        priced = [r for r in none_bucket if _is_priced(r)]
-        unpriced = [r for r in none_bucket if not _is_priced(r)]
-        assert priced and unpriced, (
-            f"RED-2 no longer reproduces: 'none' now covers only "
-            f"{'priced' if priced else 'unpriced'} rows"
+    def test_a_field_now_separates_unpriced_from_never_assessed(self) -> None:
+        none_bucket = [r for r in _rows() if r.get("confidenceBucket") == "none"]
+        assert none_bucket, "no row buckets 'none' any more — check this is intended"
+        without_basis = [
+            r.get("canonicalName") for r in none_bucket if not r.get("confidenceBasis")
+        ]
+        assert not without_basis, (
+            f"'none' rows with no basis to disambiguate them: {without_basis[:8]}"
         )
-        # No published field separates them.
-        assert all("confidenceBasis" not in r for r in none_bucket), (
-            "a confidenceBasis field exists — C1-U5 has landed and this RED is closed"
+
+    def test_priced_and_unpriced_none_rows_are_distinguishable(self) -> None:
+        none_bucket = [r for r in _rows() if r.get("confidenceBucket") == "none"]
+        priced_bases = {r.get("confidenceBasis") for r in none_bucket if _is_priced(r)}
+        unpriced_bases = {r.get("confidenceBasis") for r in none_bucket if not _is_priced(r)}
+        assert not (priced_bases & unpriced_bases), (
+            f"a basis value is shared by priced and unpriced 'none' rows "
+            f"({priced_bases & unpriced_bases}) — the states are ambiguous again"
         )
 
 
@@ -214,20 +233,33 @@ class TestMarketConfidenceCannotExpressItsOwnName:
 
 
 class TestPickConfidenceHasTwoOwners:
-    """RED-5: the declared owner reaches into its consumer."""
+    """RED-5 — CLOSED. The owner no longer reaches into its consumer."""
 
-    def test_the_owner_module_imports_the_pick_rule_from_data_contract(self) -> None:
+    def test_the_owner_no_longer_imports_the_pick_rule(self) -> None:
         source = (_REPO / "src" / "api" / "confidence.py").read_text(encoding="utf-8")
-        assert "from src.api.data_contract import" in source, (
-            "src/api/confidence.py no longer imports from data_contract — C1-U5 has "
-            "landed and this RED is closed"
-        )
-        assert "_compute_pick_confidence" in source, (
-            "the owner no longer borrows _compute_pick_confidence — this RED is closed"
+        assert "_compute_pick_confidence" not in source, (
+            "src/api/confidence.py references _compute_pick_confidence again — the "
+            "canonical owner is borrowing its rule back from data_contract"
         )
 
-    def test_the_pick_rule_lives_in_the_consumer_not_the_owner(self) -> None:
-        contract_src = (_REPO / "src" / "api" / "data_contract.py").read_text(encoding="utf-8")
-        assert "def _compute_pick_confidence(" in contract_src, (
-            "_compute_pick_confidence has moved out of data_contract — this RED is closed"
+    def test_the_consumer_no_longer_defines_a_pick_confidence_rule(self) -> None:
+        source = (_REPO / "src" / "api" / "data_contract.py").read_text(encoding="utf-8")
+        assert "def _compute_pick_confidence(" not in source, (
+            "a pick confidence rule reappeared in data_contract.py — one concept, one owner"
+        )
+
+    def test_the_moved_rule_still_returns_the_same_verdicts(self) -> None:
+        """Moved verbatim: the migration must not have changed a single bucket."""
+        from src.api.confidence import assess_pick_confidence
+
+        assert (
+            assess_pick_confidence(
+                {"ktcSfTep": 5000.0, "idpTradeCalc": 5100.0}, is_slot_specific=False
+            )[0]
+            == "high"
+        )
+        assert assess_pick_confidence({"idpTradeCalc": 5000.0}, is_slot_specific=False)[0] == "low"
+        assert assess_pick_confidence({}, is_slot_specific=False) == (
+            "none",
+            "None — no pick source values",
         )
