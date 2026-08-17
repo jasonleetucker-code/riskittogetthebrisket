@@ -231,14 +231,19 @@ is C1-U6's, recorded in `docs/picks/C1_U6_D1_FABRICATED_FUTURE_YEAR_ANCHORS.md`.
 `roster_intel/profiles._required_slots` and `replacement.measure_endogenous_starters` are kept as
 they are: different questions, not duplicates (§1).
 
-**One inherited defect found and NOT fixed here, because it is not this unit's.**
+**One inherited condition observed and NOT acted on, because the lane split already covers it.**
 `tests/api/test_launch_readiness.py::test_confidence_distribution_reasonable` asserts an absolute
-floor (`high ≥ 6%`) over the LIVE board. Measured: **freshness is the bottleneck axis on 682 of
-740 ranked rows**, and freshness decays with wall-clock time since the last scrape — so the test
-passes minutes after a refresh and fails hours later. It fails on this branch's **base** as well
-as its head, and #879's CI was green on all 24 steps, so it is time-dependent rather than
-code-dependent. It is a `docs/ops/STABILIZATION_2026-08-16.md` §3d violation (an absolute health
-floor over live data in the hard gate) and belongs to the confidence lane, not here.
+floor (`high ≥ 6%`) over the LIVE board, and it currently fails: measured, **freshness is the
+bottleneck axis on 682 of 740 ranked rows**, and freshness decays with wall-clock time since the
+last scrape, so the assertion holds minutes after a refresh and not hours later. It fails on this
+branch's **base** as well as its head.
+
+It is **not** a `docs/ops/STABILIZATION_2026-08-16.md` §3d violation, and an earlier draft of this
+document said it was. `tests/conftest.py::_LIVEDATA_MODULES` auto-marks the whole module
+`livedata`, so it runs in the **advisory** lane, not the hard gate — which is precisely the
+tiering §3d prescribes, working as designed. Recorded here as an observation for the confidence
+lane (the 6% floor was calibrated before the five-axis gate landed and now describes a board that
+no longer exists), not as a defect this unit left behind.
 
 ---
 
