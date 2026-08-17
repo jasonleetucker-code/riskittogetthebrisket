@@ -1,5 +1,5 @@
 {
-  "count": 682,
+  "count": 680,
   "note": "Known missing-data coercions on decision paths, recorded so the gate can block NEW ones while the remediation batches burn these down. Each batch deletes its findings' entries. Do not add to this file to make a build pass.",
   "violations": [
     "frontend/lib/auction-power.js::const raw = names.map((n) => Number(totalsObj[n]) || 0);",
@@ -646,8 +646,6 @@
     "src/trade/faab_engine.py::aggression = max(float(lo), min(float(hi), float(rival.aggression or 1.0)))",
     "src/trade/faab_engine.py::float(raw.get(\"weight\") or 0.0),",
     "src/trade/faab_engine.py::posture = float(posture_map.get(str(team.risk_posture or \"balanced\"), 1.0) or 1.0)",
-    "src/trade/faab_engine.py::slots = float(starters.get(flex_key) or 0)",
-    "src/trade/faab_engine.py::total = float(starters.get(family) or starters.get(pos) or 0)",
     "src/trade/faab_history.py::\"createdAt\": int(tx.get(\"status_updated\") or tx.get(\"created\") or 0),",
     "src/trade/faab_history.py::\"teamCount\": int(settings.get(\"num_teams\") or 0) or None,",
     "src/trade/faab_history.py::budget = int(settings.get(\"waiver_budget\") or 0) or 100",

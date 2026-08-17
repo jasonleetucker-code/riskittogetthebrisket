@@ -157,15 +157,38 @@ class TestNoSecondAssignmentEngine:
         engine that only runs when nobody is looking."""
         src = OWNER_PATH.read_text(encoding="utf-8")
         tree = ast.parse(src)
+        # Every function on the assignment path, not just the two
+        # top-level entry points — naming only those meant a HELPER could
+        # carry the fallback instead, which the C2-U1 review flagged.
+        # ``load_league_starter_slots`` is the one deliberate exception:
+        # its try/except guards a REGISTRY read and degrades to "no
+        # slots", which is a refusal, not a heuristic lineup.
+        assignment_path = {
+            "solve_optimal_assignment",
+            "assign_lineup",
+            "_augment",
+            "_canonicalize_slots",
+            "_eligibility_predicate",
+            "_objective",
+            "_value_with_health_penalty",
+            "_eligible_for_slot",
+            "_player_eligible_for_slot",
+            "slot_eligible_positions",
+            "slot_demand",
+            "optimize_lineup",
+        }
+        seen = set()
         for node in ast.walk(tree):
-            if isinstance(node, ast.FunctionDef) and node.name in {
-                "solve_optimal_assignment",
-                "assign_lineup",
-            }:
+            if isinstance(node, ast.FunctionDef) and node.name in assignment_path:
+                seen.add(node.name)
                 assert not any(isinstance(n, ast.Try) for n in ast.walk(node)), (
                     f"{node.name} contains exception handling — an exact solver has no "
                     "failure mode that a heuristic answer would be the right response to"
                 )
+        # A renamed or deleted function must not silently drop out of the
+        # guard's coverage — a guard that checks nothing passes forever.
+        missing = assignment_path - seen
+        assert not missing, f"guard names functions that no longer exist: {sorted(missing)}"
 
 
 class TestFrontendIsNotAnOptimizer:

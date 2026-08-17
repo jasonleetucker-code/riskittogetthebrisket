@@ -1,8 +1,30 @@
-"""C2-U1 RED — the invariants that did NOT hold before this unit.
+"""C2-U1 RED — the invariants that did NOT hold before this unit, and the
+CHARACTERIZATION that established the baseline.
 
-Every test here failed at ``a9be61b`` (the C1-U9 head this branch is
-stacked on).  They are kept, not deleted, because a repaired defect with
-no test is a defect waiting to return.
+An earlier version of this header claimed "every test here failed at
+``a9be61b``".  **That was false and is corrected here**, because a RED
+claim nobody re-checked is exactly the kind of unearned assurance this
+campaign exists to remove.  Measured against the base commit rather than
+asserted:
+
+* ``TestMissingIsNotZero``, ``TestLineupPositionExistsInPython``,
+  ``TestOneStarterSlotTruthLadder``, ``TestSlotDemandIsOneDeclaredContract``
+  — genuinely RED.  The APIs they exercise did not exist, and the
+  behaviours they pin (an unpriced player must not win a slot; a
+  refusal is not a default lineup; the two demand answers must differ)
+  did not hold.
+* ``TestGreedyEnginesWereMeasurablyWrong`` — **CHARACTERIZATION, not RED.**
+  Its host-truth assertion was ALREADY TRUE at the base: the exact
+  solver already reproduced Sleeper's awarded lineup 10/10 there, and
+  re-running that assertion against the base commit passes.  The module
+  as a whole failed to import at base (``assign_lineup`` did not exist),
+  which is why a naive "did the file pass" check said RED — a collection
+  error is not evidence an invariant was violated.
+
+  It is kept deliberately.  Its job is to pin the ground truth the
+  retired greedies were measured against, so a future change that
+  quietly degrades the solver is caught by the HOST's answer rather than
+  by our own previous one.
 
 Each class names the mechanism and the measurement, so a future reader
 can tell an invariant from a preference.

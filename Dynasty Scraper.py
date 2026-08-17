@@ -952,6 +952,7 @@ def fetch_sleeper_rosters(league_id):
     # lineups.  It arrives in the SAME ``all_nfl`` payload already
     # fetched, so this costs no request — discarding it was the loss.
     fantasy_positions_map: dict[str, list[str]] = {}
+    fantasy_positions_collisions: set[str] = set()
 
     for roster in rosters:
         owner_id = roster.get("owner_id", "")
@@ -1011,7 +1012,21 @@ def fetch_sleeper_rosters(league_id):
                     # "eligible at nothing".
                     cleaned = [str(fp).strip().upper() for fp in fp_list if str(fp or "").strip()]
                     if cleaned:
-                        fantasy_positions_map[cn] = cleaned
+                        # SAME COLLISION RULE as ``position_map`` below,
+                        # and for a stronger reason.  Two different players
+                        # can clean to one name (DJ Turner WR vs DJ Turner
+                        # II CB); last-write-wins would hand one player the
+                        # other's SLOT LEGALITY, which is worse than a
+                        # mislabelled position — it can make a receiver
+                        # legal at DB.  Dropping leaves the row with no
+                        # eligibility data, which the lineup owner already
+                        # treats as "fall back to position".
+                        existing = fantasy_positions_map.get(cn)
+                        if existing is not None and existing != cleaned:
+                            fantasy_positions_map.pop(cn, None)
+                            fantasy_positions_collisions.add(cn)
+                        elif cn not in fantasy_positions_collisions:
+                            fantasy_positions_map[cn] = cleaned
                 if pos and cn:
                     # Multi-positional IDP rule: prefer non-LB for dual-position players
                     # Sleeper stores a single position; we override known edge cases
@@ -1064,6 +1079,12 @@ def fetch_sleeper_rosters(league_id):
         cn = clean_name(name)
         if cn in position_map:
             position_map[cn] = override_pos
+
+    if fantasy_positions_collisions:
+        print(
+            f"  [Sleeper] Dropped {len(fantasy_positions_collisions)} colliding "
+            f"fantasy-position entries"
+        )
 
     if position_collisions:
         preview = ", ".join(

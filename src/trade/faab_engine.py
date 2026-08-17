@@ -417,15 +417,23 @@ def starter_slots_for_position(
     """
     if not position or not isinstance(starters, dict):
         return 0.0
-    pos = str(position).upper()
-    family = position_family(pos)
-    total = float(starters.get(family) or starters.get(pos) or 0)
-
-    for flex_key, eligible in _FLEX_ELIGIBILITY.items():
-        slots = float(starters.get(flex_key) or 0)
-        if slots > 0 and family in eligible:
-            total += slots / len(eligible)
-    return total
+    family = position_family(str(position).upper())
+    # Reads the canonical slot-demand contract's ``even_split`` (C2-U1) —
+    # a sixth hand-rolled copy of the same rule lived here.
+    #
+    # It was also subtly WRONG once it started reading the owner's
+    # eligibility SET: this divided by ``len(eligible)``, and the
+    # IDP_FLEX set spells eight positions (DL/DE/DT/EDGE/LB/DB/CB/S)
+    # where the demand keys are three FAMILIES, so an IDP flex slot
+    # attributed 1/8 of a slot to DL instead of 1/3.  Latent only —
+    # both live leagues start zero IDP_FLEX — but wrong, and
+    # ``slot_demand`` keys demand by family precisely so this cannot
+    # happen.
+    return float(
+        lineup_owner.slot_demand(lineup_owner.flatten_starter_slots(starters)).even_split.get(
+            family, 0.0
+        )
+    )
 
 
 _POSITION_FAMILY = {
@@ -440,15 +448,6 @@ _POSITION_FAMILY = {
     "S": "DB",
     "FS": "DB",
     "SS": "DB",
-}
-
-# Derived from the canonical owner (C2-U1) — this was a private
-# slot-eligibility table, and a second table is a second owner even
-# while it agrees.  The KEYS are the slot spellings this module sees in
-# a registry ``starters`` map.
-_FLEX_ELIGIBILITY = {
-    slot: lineup_owner.ordered_positions(lineup_owner.slot_eligible_positions(slot))
-    for slot in ("FLEX", "SFLEX", "SUPER_FLEX", "IDP_FLEX")
 }
 
 

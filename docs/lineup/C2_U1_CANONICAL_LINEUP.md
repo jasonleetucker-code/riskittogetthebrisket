@@ -243,6 +243,50 @@ a message for and the server had no code path to emit. It now calls the owner's
 `tests/lineup/test_serving_path.py` is the regression, and its structural guards are **proven to
 fire**: with the re-stamp removed they fail, and they pass with it restored.
 
+## 7b. What else the adversarial review found
+
+The same review that found §7a raised sixteen candidate findings across six dimensions. Three
+survived its refutation panel; I re-checked the rest myself rather than trusting a refutation,
+and four more were real:
+
+**A name collision could hand one player another's SLOT LEGALITY.** Flagged independently by
+three of the six dimensions. `Dynasty Scraper.py`'s new `fantasy_positions_map` was plain
+last-write-wins, while `position_map` ten lines below deliberately DROPS colliding entries ("DJ
+Turner WR" vs "DJ Turner II CB"). Eligibility is worse to get wrong than a label: it decides
+which slots a player is legal in, so a collision could make a receiver legal at DB. Now the same
+drop-on-collision rule, with its own count printed.
+
+**My own RED claim was false.** `tests/lineup/test_c2u1_red.py`'s header said "every test here
+failed at `a9be61b`". Checked against the base commit in a worktree:
+`TestGreedyEnginesWereMeasurablyWrong`'s host-truth assertion **passes** there — the solver was
+already exact and already 10/10. The file as a whole failed to *import* at base
+(`assign_lineup` did not exist), which is what a naive "did it pass" check sees, and a collection
+error is not evidence an invariant was violated. The header now states which classes were RED and
+which are characterization, and why the characterization is kept.
+
+**A latent divide-by-eligibility bug in FAAB demand.** `faab_engine.starter_slots_for_position`
+divided a flex slot by `len(eligible)`, and once it read the owner's eligibility SET that became
+8 for `IDP_FLEX` (DL/DE/DT/EDGE/LB/DB/CB/S) where the demand keys are 3 families — attributing
+1/8 of a slot to DL instead of 1/3. Zero live impact (both leagues start no `IDP_FLEX`) but
+wrong. It was also a SIXTH hand-rolled even-split derivation the census missed; it now reads
+`slot_demand().even_split`, which keys demand by family precisely so this cannot happen. Verified
+identical for both live leagues, and correct on the IDP case (DL 2.0, not 1.375).
+
+**Two of my structural guards were weaker than I claimed.** The eligibility-table guard
+fingerprinted only variable NAMES containing "FLEX", so a table called `_ELIGIBLE_BY_SLOT` would
+pass; it now also matches dict literals KEYED by flex slot names. The no-fallback-greedy guard
+walked only the two functions literally named `solve_optimal_assignment` and `assign_lineup`, so
+a helper could carry the fallback; it now walks every function on the assignment path and fails
+if any of those names stops existing. Both widenings are proven to fire — a `try/except` planted
+in `_augment` now fails the guard, where before it passed.
+
+**Deliberately NOT fixed: `team_strength.py`'s `ros_value=0.0` for unranked players.** It is a
+real missing-is-zero coercion and the owner can now express `None` instead. Passing it would
+change `health_availability_score` (its denominator is the starter count) and `unfilled_slots` on
+the live /terminal composite — and that composite is **C2-U4's** unit, which will redefine it
+against its own evidence. Moving a live number on a lineup unit's authority is not this unit's
+call. Named in the code as an inherited decision rather than left to be discovered.
+
 ## 8. Inertness — measured, both axes
 
 Captured through `scripts/golden_board.py` on the base and on this head, on one tree state so
