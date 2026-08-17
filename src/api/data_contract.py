@@ -1138,6 +1138,46 @@ from src.canonical.rank_coordinates import (  # noqa: E402
 # the settings page, frontend registry, and backend all agree on a
 # single canonical value.  Mirror any future change here in
 # ``frontend/lib/dynasty-data.js::RANKING_SOURCES``.
+# ── Game type — C1-SRC-02 ────────────────────────────────────────────
+#
+# **This is a dynasty product, and dynasty eligibility is PROVEN per
+# endpoint rather than inferred from the provider.**  A site that
+# publishes dynasty content is not globally "dynasty": FantasyCalc's
+# same endpoint serves redraft on a different flag, FantasyPros exposes
+# dynasty and weekly as distinct URLs, and DraftSharks publishes ROS
+# boards alongside its dynasty ones.
+#
+# Recorded as a manifest row (`C1-SRC-02`) that read COMPLETE while no
+# field, no gate and no test existed — the property was true of the
+# registered 21 only because each was hand-verified in a COMMENT.  A
+# convention that a new entry can silently violate is not a guarantee,
+# so the vocabulary and the import-time gate below are the first
+# executable form of it.
+#
+# ``docs/MULTI_FORMAT_SOURCE_NORMALIZATION_SPEC.md`` §1.1: "Only
+# ``DYNASTY`` observations are eligible ... ``UNKNOWN/UNVERIFIED`` fails
+# closed and must not be silently accepted."  Non-dynasty values are
+# representable ON PURPOSE — a board we have identified as redraft is a
+# different fact from one nobody has checked, and quarantining the first
+# is only possible if it can be named.
+GAME_TYPE_DYNASTY = "DYNASTY"
+
+#: Closed set.  ``UNKNOWN`` is the default an unproven feed must carry,
+#: and is exactly what the gate refuses — "missing is never zero, and
+#: unverified is never dynasty".
+GAME_TYPES: frozenset[str] = frozenset(
+    {
+        GAME_TYPE_DYNASTY,
+        "REDRAFT",
+        "REST_OF_SEASON",
+        "WEEKLY",
+        "BEST_BALL",
+        "KEEPER",
+        "UNKNOWN",
+    }
+)
+
+
 _RANKING_SOURCES: list[dict[str, Any]] = [
     {
         # KeepTradeCut Superflex + TE Premium board.  KTC publishes both
@@ -1155,6 +1195,14 @@ _RANKING_SOURCES: list[dict[str, Any]] = [
         # finder + per-source winner row on /trade can keep displaying
         # both values side-by-side.  Only the blend vote was removed.
         "key": "ktcSfTep",
+        # C1-SRC-02: DYNASTY is PROVEN per endpoint, never inferred from the
+        # provider being one we otherwise trust.  UNKNOWN fails closed.
+        "game_type": GAME_TYPE_DYNASTY,
+        "game_type_evidence": (
+            "keeptradecut.com dynasty rankings; the SF/TE++ board is served from the same "
+            "dynasty per-player payload (superflexValues) — KTC's redraft product is a "
+            "separate site section and is not fetched"
+        ),
         "display_name": "KeepTradeCut SF-TE++",
         "scope": SOURCE_SCOPE_OVERALL_OFFENSE,
         "position_group": None,
@@ -1180,6 +1228,13 @@ _RANKING_SOURCES: list[dict[str, Any]] = [
         # row sets (offense vs IDP positions), so sourceRanks["idpTradeCalc"]
         # is written exactly once per row.
         "key": "idpTradeCalc",
+        # C1-SRC-02: DYNASTY is PROVEN per endpoint, never inferred from the
+        # provider being one we otherwise trust.  UNKNOWN fails closed.
+        "game_type": GAME_TYPE_DYNASTY,
+        "game_type_evidence": (
+            "idptradecalculator.com dynasty value pool; the calculator is dynasty-only (it "
+            "prices future rookie picks, which a redraft calculator does not)"
+        ),
         "display_name": "IDP Trade Calculator",
         "scope": SOURCE_SCOPE_OVERALL_IDP,
         "extra_scopes": [SOURCE_SCOPE_OVERALL_OFFENSE],
@@ -1227,6 +1282,13 @@ _RANKING_SOURCES: list[dict[str, Any]] = [
         # preventing false 1-src flags on fringe offense players
         # that DLF SF was never going to list.
         "key": "dlfSf",
+        # C1-SRC-02: DYNASTY is PROVEN per endpoint, never inferred from the
+        # provider being one we otherwise trust.  UNKNOWN fails closed.
+        "game_type": GAME_TYPE_DYNASTY,
+        "game_type_evidence": (
+            "dynastyleaguefootball.com Dynasty Superflex expert-consensus board — DLF's "
+            "product name and board header both state Dynasty"
+        ),
         "correlation_group": "dlf",
         "display_name": "Dynasty League Football Superflex",
         "scope": SOURCE_SCOPE_OVERALL_OFFENSE,
@@ -1265,6 +1327,12 @@ _RANKING_SOURCES: list[dict[str, Any]] = [
         # weight scales contribution down so the rookie board never
         # overwhelms the veteran-rich retail/expert blend.
         "key": "dlfRookieSf",
+        # C1-SRC-02: DYNASTY is PROVEN per endpoint, never inferred from the
+        # provider being one we otherwise trust.  UNKNOWN fails closed.
+        "game_type": GAME_TYPE_DYNASTY,
+        "game_type_evidence": (
+            "DLF Dynasty Rookie Superflex — a rookie board only exists as a dynasty product"
+        ),
         "correlation_group": "dlf",
         "display_name": "Dynasty League Football Rookie SF",
         "scope": SOURCE_SCOPE_OVERALL_OFFENSE,
@@ -1308,6 +1376,12 @@ _RANKING_SOURCES: list[dict[str, Any]] = [
         # the best IDP in the shared market (typically ~30-50), which
         # correctly calibrates DLF against the retail offense market.
         "key": "dlfIdp",
+        # C1-SRC-02: DYNASTY is PROVEN per endpoint, never inferred from the
+        # provider being one we otherwise trust.  UNKNOWN fails closed.
+        "game_type": GAME_TYPE_DYNASTY,
+        "game_type_evidence": (
+            "DLF Dynasty IDP full-board expert consensus; board header states Dynasty"
+        ),
         "correlation_group": "dlf",
         "display_name": "Dynasty League Football IDP",
         "scope": SOURCE_SCOPE_OVERALL_IDP,
@@ -1340,6 +1414,12 @@ _RANKING_SOURCES: list[dict[str, Any]] = [
         # translated against IDPTC's ladder.  depth=50 matches the
         # typical export size.
         "key": "dlfRookieIdp",
+        # C1-SRC-02: DYNASTY is PROVEN per endpoint, never inferred from the
+        # provider being one we otherwise trust.  UNKNOWN fails closed.
+        "game_type": GAME_TYPE_DYNASTY,
+        "game_type_evidence": (
+            "DLF Dynasty Rookie IDP — rookie-only defensive board, a dynasty-only product"
+        ),
         "correlation_group": "dlf",
         "display_name": "Dynasty League Football Rookie IDP",
         "scope": SOURCE_SCOPE_OVERALL_IDP,
@@ -1371,6 +1451,14 @@ _RANKING_SOURCES: list[dict[str, Any]] = [
         # rank and let the shared-market translator convert to the
         # combined-pool for Hill-curve input.
         "key": "idpShow",
+        # C1-SRC-02: DYNASTY is PROVEN per endpoint, never inferred from the
+        # provider being one we otherwise trust.  UNKNOWN fails closed.
+        "game_type": GAME_TYPE_DYNASTY,
+        "game_type_evidence": (
+            "theidpshow.com/p/idp-dynasty-rankings — the endpoint path itself is the "
+            "dynasty board, and the publisher's redraft/weekly output lives at separate "
+            "posts that are not fetched"
+        ),
         "display_name": "The IDP Show (Adamidp)",
         "column_label": "IDP Show",
         "scope": SOURCE_SCOPE_OVERALL_IDP,
@@ -1404,6 +1492,13 @@ _RANKING_SOURCES: list[dict[str, Any]] = [
         # rows; ``_expected_sources_for_position`` multiplies this by
         # 1.25 so DN is not expected for players deeper than ~375.
         "key": "dynastyNerdsSfTep",
+        # C1-SRC-02: DYNASTY is PROVEN per endpoint, never inferred from the
+        # provider being one we otherwise trust.  UNKNOWN fails closed.
+        "game_type": GAME_TYPE_DYNASTY,
+        "game_type_evidence": (
+            "dynastynerds.com/dynasty-rankings/sf-tep/ — dynasty rankings section; Nerds' "
+            "redraft content is a different route"
+        ),
         "display_name": "Dynasty Nerds SF-TEP",
         "scope": SOURCE_SCOPE_OVERALL_OFFENSE,
         "position_group": None,
@@ -1447,6 +1542,13 @@ _RANKING_SOURCES: list[dict[str, Any]] = [
         # frontend ``settings.tepMultiplier`` boost applies to its
         # blended contribution like Dynasty Daddy SF or FlockFantasy.
         "key": "fantasyCalc",
+        # C1-SRC-02: DYNASTY is PROVEN per endpoint, never inferred from the
+        # provider being one we otherwise trust.  UNKNOWN fails closed.
+        "game_type": GAME_TYPE_DYNASTY,
+        "game_type_evidence": (
+            "api.fantasycalc.com/values/current fetched with isDynasty=true; the same "
+            "endpoint serves redraft when that flag is false, so the flag is the proof"
+        ),
         "display_name": "FantasyCalc Dynasty SF",
         "scope": SOURCE_SCOPE_OVERALL_OFFENSE,
         "position_group": None,
@@ -1472,6 +1574,13 @@ _RANKING_SOURCES: list[dict[str, Any]] = [
         # the frontend ``settings.tepMultiplier`` boost applies to its
         # blended contribution.
         "key": "otcffbSf",
+        # C1-SRC-02: DYNASTY is PROVEN per endpoint, never inferred from the
+        # provider being one we otherwise trust.  UNKNOWN fails closed.
+        "game_type": GAME_TYPE_DYNASTY,
+        "game_type_evidence": (
+            "otcffb.com/api/trade-values?format=sf — OTC publishes dynasty trade values; "
+            "the format parameter selects superflex, not game type"
+        ),
         "display_name": "OTC Fantasy Football SF",
         "scope": SOURCE_SCOPE_OVERALL_OFFENSE,
         "position_group": None,
@@ -1506,6 +1615,13 @@ _RANKING_SOURCES: list[dict[str, Any]] = [
         # Pinning depth to raw rows (780) would stamp "expected but
         # did not match" on ~500 rows — the item-10 noise class.
         "key": "fantasyNavigatorSf",
+        # C1-SRC-02: DYNASTY is PROVEN per endpoint, never inferred from the
+        # provider being one we otherwise trust.  UNKNOWN fails closed.
+        "game_type": GAME_TYPE_DYNASTY,
+        "game_type_evidence": (
+            "fantasy-navigator-latest.onrender.com/ranks?platform=sf — Fantasy Navigator's "
+            "dynasty board"
+        ),
         "display_name": "Fantasy Navigator SF",
         "scope": SOURCE_SCOPE_OVERALL_OFFENSE,
         "position_group": None,
@@ -1539,6 +1655,12 @@ _RANKING_SOURCES: list[dict[str, Any]] = [
         # live canonical-match count (472 of 496 offensive rows at
         # integration).
         "key": "pfkDynasty",
+        # C1-SRC-02: DYNASTY is PROVEN per endpoint, never inferred from the
+        # provider being one we otherwise trust.  UNKNOWN fails closed.
+        "game_type": GAME_TYPE_DYNASTY,
+        "game_type_evidence": (
+            "Play for Keeps pfk_dynasty_rankings Supabase table — the table name is the " "product"
+        ),
         "display_name": "Play for Keeps Dynasty",
         "scope": SOURCE_SCOPE_OVERALL_OFFENSE,
         "position_group": None,
@@ -1568,6 +1690,12 @@ _RANKING_SOURCES: list[dict[str, Any]] = [
         # TE premium baked in.  The frontend ``settings.tepMultiplier``
         # boost applies to its blended contribution.
         "key": "dynastyDaddySf",
+        # C1-SRC-02: DYNASTY is PROVEN per endpoint, never inferred from the
+        # provider being one we otherwise trust.  UNKNOWN fails closed.
+        "game_type": GAME_TYPE_DYNASTY,
+        "game_type_evidence": (
+            "dynasty-daddy.com/api/v1/player/all/today — Dynasty Daddy is a dynasty-only " "product"
+        ),
         "display_name": "Dynasty Daddy Superflex",
         "scope": SOURCE_SCOPE_OVERALL_OFFENSE,
         "position_group": None,
@@ -1600,6 +1728,13 @@ _RANKING_SOURCES: list[dict[str, Any]] = [
         # ``settings.tepMultiplier`` boost applies to its blended
         # contribution.
         "key": "fantasyProsSf",
+        # C1-SRC-02: DYNASTY is PROVEN per endpoint, never inferred from the
+        # provider being one we otherwise trust.  UNKNOWN fails closed.
+        "game_type": GAME_TYPE_DYNASTY,
+        "game_type_evidence": (
+            "fantasypros.com/nfl/rankings/dynasty-superflex.php — FantasyPros exposes "
+            "dynasty and redraft as distinct URLs; this is the dynasty one"
+        ),
         "correlation_group": "fantasyPros",
         "display_name": "FantasyPros Dynasty Superflex",
         "scope": SOURCE_SCOPE_OVERALL_OFFENSE,
@@ -1628,6 +1763,13 @@ _RANKING_SOURCES: list[dict[str, Any]] = [
         # ``_expected_sources_for_position`` not to expect this
         # source for players ranked deeper than ~125 (depth * 1.25).
         "key": "fantasyProsIdp",
+        # C1-SRC-02: DYNASTY is PROVEN per endpoint, never inferred from the
+        # provider being one we otherwise trust.  UNKNOWN fails closed.
+        "game_type": GAME_TYPE_DYNASTY,
+        "game_type_evidence": (
+            "fantasypros.com/nfl/rankings/dynasty-idp.php — the dynasty IDP URL, distinct "
+            "from FantasyPros' weekly IDP route"
+        ),
         "correlation_group": "fantasyPros",
         "display_name": "FantasyPros Dynasty IDP",
         "scope": SOURCE_SCOPE_OVERALL_IDP,
@@ -1674,6 +1816,13 @@ _RANKING_SOURCES: list[dict[str, Any]] = [
         # TE premium directly via the TEP Value column, so the global
         # TEP multiplier MUST NOT compound.
         "key": "fantasyProsFitzmaurice",
+        # C1-SRC-02: DYNASTY is PROVEN per endpoint, never inferred from the
+        # provider being one we otherwise trust.  UNKNOWN fails closed.
+        "game_type": GAME_TYPE_DYNASTY,
+        "game_type_evidence": (
+            "FantasyPros Pat Fitzmaurice DYNASTY trade value chart — the chart is titled "
+            "Dynasty and is published separately from his redraft chart"
+        ),
         "correlation_group": "fantasyPros",
         "display_name": "FantasyPros / Pat Fitzmaurice SF-TEP",
         "column_label": "Fitzmaurice",
@@ -1694,6 +1843,10 @@ _RANKING_SOURCES: list[dict[str, Any]] = [
         # `settings.tepMultiplier` boost applies to its blended
         # contribution for TE-position players.
         "key": "flockFantasySf",
+        # C1-SRC-02: DYNASTY is PROVEN per endpoint, never inferred from the
+        # provider being one we otherwise trust.  UNKNOWN fails closed.
+        "game_type": GAME_TYPE_DYNASTY,
+        "game_type_evidence": ("flockfantasy.com dynasty superflex expert consensus"),
         "correlation_group": "flockFantasy",
         "display_name": "Flock Fantasy Superflex",
         "scope": SOURCE_SCOPE_OVERALL_OFFENSE,
@@ -1724,6 +1877,13 @@ _RANKING_SOURCES: list[dict[str, Any]] = [
         # rookie pick tethering pass (Phase 11) blends Flock's rookie
         # values into picks via the merged rookie pool.
         "key": "flockFantasySfRookies",
+        # C1-SRC-02: DYNASTY is PROVEN per endpoint, never inferred from the
+        # provider being one we otherwise trust.  UNKNOWN fails closed.
+        "game_type": GAME_TYPE_DYNASTY,
+        "game_type_evidence": (
+            "Flock Fantasy dynasty superflex ROOKIE board — a rookie board is a "
+            "dynasty-only product"
+        ),
         "correlation_group": "flockFantasy",
         "display_name": "Flock Fantasy Rookie SF",
         "scope": SOURCE_SCOPE_OVERALL_OFFENSE,
@@ -1763,6 +1923,13 @@ _RANKING_SOURCES: list[dict[str, Any]] = [
         # multiplies this by 1.25 so YAHOO_BOONE is not expected for
         # players ranked deeper than ~625.
         "key": "yahooBoone",
+        # C1-SRC-02: DYNASTY is PROVEN per endpoint, never inferred from the
+        # provider being one we otherwise trust.  UNKNOWN fails closed.
+        "game_type": GAME_TYPE_DYNASTY,
+        "game_type_evidence": (
+            "Yahoo / Justin Boone DYNASTY trade value charts — published as dynasty, "
+            "separate from his redraft rankings"
+        ),
         "display_name": "Yahoo / Justin Boone SF-TEP",
         "scope": SOURCE_SCOPE_OVERALL_OFFENSE,
         "position_group": None,
@@ -1799,6 +1966,14 @@ _RANKING_SOURCES: list[dict[str, Any]] = [
         # non-TEP multiplier — which inflated every TE's DS
         # contribution and pushed top TEs like Brock Bowers too high.)
         "key": "draftSharks",
+        # C1-SRC-02: DYNASTY is PROVEN per endpoint, never inferred from the
+        # provider being one we otherwise trust.  UNKNOWN fails closed.
+        "game_type": GAME_TYPE_DYNASTY,
+        "game_type_evidence": (
+            "draftsharks.com/dynasty-rankings/te-premium-superflex — the dynasty-rankings "
+            "route; DS's ROS boards are a different route and are deliberately NOT "
+            "registered (see draftSharksRosSf.csv, unregistered)"
+        ),
         "correlation_group": "draftSharks",
         "display_name": "Draft Sharks Dynasty",
         "scope": SOURCE_SCOPE_OVERALL_OFFENSE,
@@ -1838,6 +2013,12 @@ _RANKING_SOURCES: list[dict[str, Any]] = [
         # 2026 baseline.  depth=400 because IDP depth in the DS
         # export is smaller than offense.
         "key": "draftSharksIdp",
+        # C1-SRC-02: DYNASTY is PROVEN per endpoint, never inferred from the
+        # provider being one we otherwise trust.  UNKNOWN fails closed.
+        "game_type": GAME_TYPE_DYNASTY,
+        "game_type_evidence": (
+            "same draftsharks.com dynasty-rankings page as draftSharks, IDP slice of the " "one DOM"
+        ),
         "correlation_group": "draftSharks",
         "display_name": "Draft Sharks IDP Dynasty",
         "scope": SOURCE_SCOPE_OVERALL_IDP,
@@ -2338,6 +2519,10 @@ def get_ranking_source_registry() -> list[dict[str, Any]]:
             "isBackbone": bool(src.get("is_backbone")),
             "isRetail": bool(src.get("is_retail")),
             "isTepPremium": bool(src.get("is_tep_premium")),
+            # C1-SRC-02: exported so a consumer can CHECK the claim
+            # rather than trust the registry silently.
+            "gameType": src.get("game_type"),
+            "gameTypeEvidence": src.get("game_type_evidence"),
             "isRankSignal": bool(src.get("is_rank_signal")),
             "needsSharedMarketTranslation": bool(src.get("needs_shared_market_translation")),
             "excludesRookies": bool(src.get("excludes_rookies")),
@@ -5989,6 +6174,83 @@ def _value_is_in_declared_range(source_key: str, raw_f: float) -> bool:
     return 0.0 <= raw_f <= ceiling
 
 
+def _validate_source_game_types_invariant(
+    sources: list[dict[str, Any]] | None = None,
+) -> None:
+    """Module-import safety rail: **every voting source must be PROVEN
+    dynasty** (``C1-SRC-02``).
+
+    Refuses, with the offending keys named:
+
+    * a source declaring no ``game_type`` at all — silence is not
+      consent, and defaulting an unlabelled feed to DYNASTY is the exact
+      inference the spec forbids;
+    * a ``game_type`` outside :data:`GAME_TYPES`;
+    * any value other than ``DYNASTY`` — including ``UNKNOWN``, which is
+      the whole point: *unverified is never dynasty*;
+    * a declaration with no ``game_type_evidence``, because a label
+      nobody can re-check is the comment this replaced.
+
+    Raising at IMPORT is deliberate. The alternative — filtering the
+    offender out of the blend — would let a redraft board sit in the
+    registry looking registered while quietly not voting, and the next
+    reader would have to run the pipeline to find out which sources are
+    real. A registry that cannot be trusted by reading it is the
+    condition this unit exists to end.
+
+    ``sources`` is injectable so the gate can be exercised against a
+    rogue entry without mutating the live registry.
+    """
+    registry = _RANKING_SOURCES if sources is None else sources
+
+    undeclared: list[str] = []
+    unknown_value: list[tuple[str, Any]] = []
+    not_dynasty: list[tuple[str, Any]] = []
+    unevidenced: list[str] = []
+
+    for src in registry:
+        key = str(src.get("key") or "<unnamed>")
+        declared = src.get("game_type")
+        if not declared:
+            undeclared.append(key)
+            continue
+        if declared not in GAME_TYPES:
+            unknown_value.append((key, declared))
+            continue
+        if declared != GAME_TYPE_DYNASTY:
+            not_dynasty.append((key, declared))
+            continue
+        if not str(src.get("game_type_evidence") or "").strip():
+            unevidenced.append(key)
+
+    problems: list[str] = []
+    if undeclared:
+        problems.append(
+            f"declare no game_type: {undeclared}. A source that votes on dynasty value "
+            f"without saying it IS dynasty is trusted for who published it."
+        )
+    if unknown_value:
+        problems.append(
+            f"declare a game_type outside GAME_TYPES: {unknown_value}. "
+            f"Valid: {sorted(GAME_TYPES)}"
+        )
+    if not_dynasty:
+        problems.append(
+            f"are not DYNASTY: {not_dynasty}. This is a dynasty product; a redraft, ROS, "
+            f"weekly, best-ball or UNVERIFIED board may not price a dynasty asset. "
+            f"Archive it if you want the data, but do not register it for voting."
+        )
+    if unevidenced:
+        problems.append(
+            f"declare DYNASTY with no game_type_evidence: {unevidenced}. Record HOW it "
+            f"was established — endpoint semantics, an explicit provider label, a page "
+            f"control — so the claim is re-checkable."
+        )
+
+    if problems:
+        raise ValueError("C1-SRC-02 game-type gate: " + " | ".join(problems))
+
+
 def _validate_value_based_sources_invariant() -> None:
     """Module-import safety rail: every source registered for VOTING
     in ``_RANKING_SOURCES`` whose CSV signal is ``value`` must either
@@ -6042,6 +6304,7 @@ def _validate_value_based_sources_invariant() -> None:
 # Fire the safety rail at import time — misconfigured registries
 # fail the server boot rather than silently routing a value source
 # through the Hill curve.
+_validate_source_game_types_invariant()
 _validate_value_based_sources_invariant()
 
 
