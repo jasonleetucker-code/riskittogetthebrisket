@@ -23,14 +23,12 @@ carries EXACTLY its replacement's value, on every row. A dual-write whose
 two halves disagree is worse than no rename — it is two answers under one
 concept, which is the defect class this whole series is about.
 
-NOT ``livedata``-marked: builds from a tracked export and asserts
-invariants, never absolute counts.
+NOT ``livedata``-marked: builds from the newest COMPLETE bundle in the
+tracked archive and asserts invariants, never absolute counts.
 """
 
 from __future__ import annotations
 
-import json
-from pathlib import Path
 from typing import Any
 
 import pytest
@@ -40,8 +38,7 @@ from src.api.data_contract import (
     DEPRECATED_FIELD_ALIASES,
     build_api_data_contract,
 )
-
-_REPO = Path(__file__).resolve().parents[2]
+from tests.archive_fixtures import newest_complete_raw_payload
 
 #: Direction 3. Changing this is how an alias is deliberately retired.
 FROZEN_ALIASES: dict[str, str] = {
@@ -54,13 +51,13 @@ _contract_cache: dict[str, Any] | None = None
 
 
 def _contract() -> dict[str, Any]:
+    """See ``test_confidence_naming._load_contract`` — same rule, same reason."""
     global _contract_cache
     if _contract_cache is None:
-        files = sorted((_REPO / "exports" / "latest").glob("dynasty_data_*.json"), reverse=True)
-        if not files:
-            pytest.skip("no export under exports/latest")
-        with files[0].open() as f:
-            _contract_cache = build_api_data_contract(json.load(f))
+        raw, _archive = newest_complete_raw_payload()
+        if raw is None:
+            pytest.skip("no complete archived scrape to build a contract from")
+        _contract_cache = build_api_data_contract(raw)
     return _contract_cache
 
 

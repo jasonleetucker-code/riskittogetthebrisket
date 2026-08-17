@@ -156,6 +156,16 @@ chip text *does* change on 24 pick rows. Saying "no user-visible change" would b
 Suites: 33 confidence tests green · full `-m "not livedata"` gate · frontend 126 files /
 2,051 tests green.
 
+**All three build from `tests/archive_fixtures.newest_complete_raw_payload()`, not from
+`exports/latest`.** The first cut read the latest export, which would have made every assertion
+here a function of the last scrape's *health* — precisely the class
+`docs/ops/STABILIZATION_2026-08-16.md` §3d exists to keep out of the blocking gate, and these
+were three new instances of it added in the same week the census repaired seven. §3d prefers
+repair to reclassification, so the input changed and no assertion was weakened: the complete
+archive `dynasty_export_20260816_225946.zip` reproduces the live distribution exactly —
+705 / 261 / 84 / **24** / 18 / 18 — so the 24-row tether population is asserted against a
+deterministic board rather than whatever landed last.
+
 ---
 
 ## 5. Deliberately not done
@@ -166,6 +176,21 @@ Suites: 33 confidence tests green · full `-m "not livedata"` gate · frontend 1
   populate from the next scrape. Missing, not zero — and the keys are present so the
   explanation cannot silently vanish.
 - **Alias removal.** That is the breaking half and bumps `CONTRACT_VERSION`.
+- **`src/api/terminal.py`'s read order.** An earlier cut added a three-step read
+  (`marketBreadthAgreementIndex` → `marketConfidence` → `confidence`) as future-proofing for the
+  day the alias goes away. It was **reverted**, and the reason is worth recording because it is
+  not "it was wrong": the contract dual-writes `marketConfidence` with the identical value
+  (`data_contract.py:9854` / `:9857`), so the file behaves the same either way *today* — while
+  touching it pulled its three pre-existing unbaselined `float(mad or 0)` coercions into
+  `check_decision_coercions.py`'s changed-files enforcement and reddened the PR.
+
+  Neither escape was acceptable. Repairing those coercions means deciding what a MONITOR signal
+  says when MAD is unmeasured — a product decision in the terminal's signal text, not a naming
+  migration's business. Baselining them would use the debt ledger as a bypass, which is the
+  failure mode that gate's own docstring warns about.
+
+  So both the read order and that coercion debt belong to the **alias-removal unit**, which bumps
+  `CONTRACT_VERSION` and has to touch `terminal.py` anyway. Deferred together, deliberately.
 - **`scripts/crawl_ffpc_sharp.py`'s `identityConfidence`** is a **homonym**, not a
   consumer: it reads a `curatedManagers` config record feeding
   `platform_ledger.upsert_manager`. That is *manager*-identity confidence in a different

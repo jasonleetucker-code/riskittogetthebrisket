@@ -828,13 +828,7 @@ def _build_signal_context(
     # Deliberately NOT coerced to 0 when absent: 256 of 1094 live rows
     # carry no confidence at all, and "unmeasured" must never read as
     # "zero confidence".
-    # C1-U5: the honest name first, then the deprecated alias, then the
-    # frontend row's spelling.  Three steps rather than two because the
-    # rename is dual-written for a window and this reads BOTH contract
-    # payloads and materialized rows.
-    confidence = row.get("marketBreadthAgreementIndex")
-    if confidence is None:
-        confidence = row.get("marketConfidence")
+    confidence = row.get("marketConfidence")
     if confidence is None:
         confidence = row.get("confidence")
     try:

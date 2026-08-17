@@ -85,21 +85,22 @@ Measured blast radius: 0 values moved, 24 buckets ``none`` -> ``low``,
 all of them 2026 round-5/6 slot picks.  Every legacy key is still emitted
 with its replacement's exact value for the declared deprecation window.
 
-NOT ``livedata``-marked: builds the contract from a tracked export under
-``exports/latest``, so it is deterministic for a given tree.  The counts
-are asserted as invariants ("some rows", "more than one meaning"), never
-as absolute totals, per ``docs/ops/STABILIZATION_2026-08-16.md`` §3d.
+NOT ``livedata``-marked: builds the contract from the newest COMPLETE
+bundle in the tracked archive, so it is deterministic for a given tree
+AND immune to a single degraded scrape.  The counts are asserted as
+invariants ("some rows", "more than one meaning"), never as absolute
+totals, per ``docs/ops/STABILIZATION_2026-08-16.md`` §3d.
 """
 
 from __future__ import annotations
 
-import json
 from pathlib import Path
 from typing import Any
 
 import pytest
 
 from src.api.data_contract import build_api_data_contract
+from tests.archive_fixtures import newest_complete_raw_payload
 
 _REPO = Path(__file__).resolve().parents[2]
 
@@ -111,14 +112,13 @@ _contract_cache: dict[str, Any] | None = None
 
 
 def _load_contract() -> dict[str, Any] | None:
+    """See ``test_confidence_naming._load_contract`` — same rule, same reason."""
     global _contract_cache
     if _contract_cache is not None:
         return _contract_cache
-    json_files = sorted((_REPO / "exports" / "latest").glob("dynasty_data_*.json"), reverse=True)
-    if not json_files:
+    raw, _archive = newest_complete_raw_payload()
+    if raw is None:
         return None
-    with json_files[0].open() as f:
-        raw = json.load(f)
     _contract_cache = build_api_data_contract(raw)
     return _contract_cache
 
@@ -126,7 +126,7 @@ def _load_contract() -> dict[str, Any] | None:
 def _rows() -> list[dict[str, Any]]:
     contract = _load_contract()
     if contract is None:
-        pytest.skip("no export under exports/latest to build a contract from")
+        pytest.skip("no complete archived scrape to build a contract from")
     return contract.get("playersArray") or []
 
 

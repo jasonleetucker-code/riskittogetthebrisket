@@ -39,6 +39,7 @@ from src.api.confidence import (
     unassessed_defaults,
 )
 from src.api.data_contract import build_api_data_contract, validate_api_data_contract
+from tests.archive_fixtures import newest_complete_raw_payload
 
 _REPO = Path(__file__).resolve().parents[2]
 
@@ -46,14 +47,20 @@ _contract_cache: dict[str, Any] | None = None
 
 
 def _load_contract() -> dict[str, Any] | None:
+    """Build from the newest COMPLETE archive, never simply the newest board.
+
+    ``exports/latest`` is whatever the last scrape produced, so reading it
+    would make every assertion below a function of that scrape's health —
+    the exact class ``docs/ops/STABILIZATION_2026-08-16.md`` §3d exists to
+    keep out of the blocking gate.  The archive is tracked, so this is
+    deterministic, and it skips rather than passing vacuously.
+    """
     global _contract_cache
     if _contract_cache is not None:
         return _contract_cache
-    json_files = sorted((_REPO / "exports" / "latest").glob("dynasty_data_*.json"), reverse=True)
-    if not json_files:
+    raw, _archive = newest_complete_raw_payload()
+    if raw is None:
         return None
-    with json_files[0].open() as f:
-        raw = json.load(f)
     _contract_cache = build_api_data_contract(raw)
     return _contract_cache
 
@@ -61,7 +68,7 @@ def _load_contract() -> dict[str, Any] | None:
 def _rows() -> list[dict[str, Any]]:
     contract = _load_contract()
     if contract is None:
-        pytest.skip("no export under exports/latest to build a contract from")
+        pytest.skip("no complete archived scrape to build a contract from")
     return contract.get("playersArray") or []
 
 
@@ -130,7 +137,7 @@ class TestEveryPricedRowSaysWhatDecidedIt:
         """The hole, not just the rows that fell through it."""
         contract = _load_contract()
         if contract is None:
-            pytest.skip("no export")
+            pytest.skip("no complete archived scrape")
         broken = json.loads(json.dumps(contract))
         for row in broken.get("playersArray") or []:
             if _priced(row):
