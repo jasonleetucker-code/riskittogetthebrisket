@@ -61,27 +61,29 @@ RED-5  (the owner imports its consumer) — ``_compute_pick_confidence``
        own job.  "One concept, one canonical owner" is violated *inside*
        the owner module.
 
-STATUS: PARTIALLY CLOSED — RED-1, RED-2 and RED-5 are repaired and their
-assertions below now verify the defect is GONE.  **RED-3 and RED-4 remain
-OPEN** and still assert the defect, because the ``identityConfidence`` and
-``marketConfidence`` renames are the second half of C1-U5 and have not
-landed yet.  Saying otherwise would make this file claim a repair that
-does not exist.
+STATUS: CLOSED.  All five classes were reproduced on the live payload
+BEFORE the repair — the counts in this docstring are those measurements,
+kept as the record of what was actually wrong.  The assertions below now
+verify each defect is GONE, so this file is a permanent regression guard
+rather than a reproduction that rots the moment it succeeds.  The positive
+contract lives in ``test_confidence_naming.py`` and
+``test_confidence_rename_aliases.py``.
 
-Closed here:
+The repair, one line each:
   RED-1  the anchor pass stamps its own confidence when it prices a row
-         nothing assessed — scoped to exactly those rows, so the 48 picks
-         the dispersion rule had already judged keep their verdict.
-  RED-2  ``confidenceBasis`` separates the four states ``"none"`` was
-         covering, and ``validate_api_data_contract`` now ERRORS on a
-         priced row with a missing, unknown or self-contradicting basis —
-         so the hole is closed, not just the rows that fell through it.
+         nothing assessed — scoped to those rows, so the 48 picks the
+         dispersion rule had already judged keep their verdict.
+  RED-2  ``confidenceBasis`` separates the four states ``"none"`` covered,
+         and the contract validator ERRORS on a priced row without one.
+  RED-3  ``identityResolutionConfidence`` / ``...Method`` say they grade
+         the join, not the evidence.
+  RED-4  ``marketBreadthAgreementIndex`` says what it measures, and the
+         two halves the scraper used to discard are published beside it.
   RED-5  the pick rule moved to its owner; the circular import is gone.
 
-Measured blast radius of the repair: 0 values moved, 24 buckets
-``none`` -> ``low``, all of them 2026 round-5/6 slot picks.
-
-The positive contract lives in ``test_confidence_naming.py``.
+Measured blast radius: 0 values moved, 24 buckets ``none`` -> ``low``,
+all of them 2026 round-5/6 slot picks.  Every legacy key is still emitted
+with its replacement's exact value for the declared deprecation window.
 
 NOT ``livedata``-marked: builds the contract from a tracked export under
 ``exports/latest``, so it is deterministic for a given tree.  The counts
@@ -186,49 +188,70 @@ class TestNoneBucketIsAmbiguous:
 
 
 class TestIdentityConfidenceGradesResolutionNotEvidence:
-    """RED-3: the value set proves what it measures."""
+    """RED-3 — CLOSED. The field now says it grades RESOLUTION."""
 
     RESOLUTION_GRADES = {1.0, 0.95, 0.7}
 
-    def test_it_only_ever_takes_the_join_quality_grades(self) -> None:
-        values = {
-            r["identityConfidence"] for r in _rows() if r.get("identityConfidence") is not None
-        }
-        assert values, "identityConfidence is no longer published"
-        assert values <= self.RESOLUTION_GRADES, (
-            f"identityConfidence took values outside the join-quality grades "
-            f"{sorted(self.RESOLUTION_GRADES)}: {sorted(values - self.RESOLUTION_GRADES)}. "
-            f"If it has become a continuous score it is measuring something else now."
+    def test_the_honest_name_is_published(self) -> None:
+        rows = _rows()
+        assert any("identityResolutionConfidence" in r for r in rows), (
+            "identityResolutionConfidence is gone — the rename has been reverted"
+        )
+        assert any("identityResolutionMethod" in r for r in rows), (
+            "identityResolutionMethod is gone; renaming the score and not the method "
+            "splits a pair that must travel together"
         )
 
-    def test_it_is_published_beside_evidence_confidence_under_a_confusable_name(self) -> None:
-        rows = [r for r in _rows() if r.get("identityConfidence") is not None]
-        both = [r for r in rows if r.get("confidenceBucket") is not None]
-        assert both, "no row publishes identityConfidence and confidenceBucket together"
-        assert not any("identityResolutionConfidence" in r for r in rows), (
-            "identityResolutionConfidence exists — C1-U5 has landed and this RED is closed"
+    def test_it_still_only_takes_the_join_quality_grades(self) -> None:
+        """The rename must not have changed what the number measures."""
+        values = {
+            r["identityResolutionConfidence"]
+            for r in _rows()
+            if r.get("identityResolutionConfidence") is not None
+        }
+        assert values, "identityResolutionConfidence is published nowhere"
+        assert values <= self.RESOLUTION_GRADES, (
+            f"values outside the join-quality grades {sorted(self.RESOLUTION_GRADES)}: "
+            f"{sorted(values - self.RESOLUTION_GRADES)} — this was a rename, not a "
+            f"methodology change"
         )
 
 
 class TestMarketConfidenceCannotExpressItsOwnName:
-    """RED-4: a bounded breadth/agreement index named as a confidence."""
+    """RED-4 — CLOSED. The index says it measures breadth and agreement."""
 
     #: ``site_score*0.65 + cv_score*0.35``, both clamped to [0.20, 1.00],
     #: published as ``round(x, 4)``. The live board's observed ceiling.
     OBSERVED_CEILING = 0.59375
 
-    def test_it_never_enters_the_top_of_a_zero_to_one_scale(self) -> None:
-        values = [r["marketConfidence"] for r in _rows() if r.get("marketConfidence") is not None]
-        assert values, "marketConfidence is no longer published"
-        # Compare against the rounded ceiling the payload can actually carry.
-        ceiling = round(self.OBSERVED_CEILING, 4)
-        assert max(values) <= ceiling, (
-            f"marketConfidence reached {max(values)}, above the {ceiling} ceiling this "
-            f"RED was measured against — the blend's inputs have changed"
+    def test_the_honest_name_is_published(self) -> None:
+        assert any("marketBreadthAgreementIndex" in r for r in _rows()), (
+            "marketBreadthAgreementIndex is gone — the rename has been reverted"
         )
-        assert max(values) < 0.60, (
-            "marketConfidence now reaches into the top 40% of its own 0–1 name, so the "
-            "naming defect this RED describes has changed shape"
+
+    def test_the_two_halves_are_published_not_discarded(self) -> None:
+        """The decomposition is what stops the rename being cosmetic.
+
+        Both may legitimately be ``None`` on an export produced before the
+        scraper change — MISSING, not zero. What must not happen is the keys
+        vanishing, which would take the explanation away again.
+        """
+        rows = _rows()
+        assert any("marketBreadthScore" in r for r in rows), "marketBreadthScore is not emitted"
+        assert any("marketAgreementScore" in r for r in rows), "marketAgreementScore is not emitted"
+
+    def test_the_index_still_cannot_reach_the_top_of_a_zero_to_one_scale(self) -> None:
+        values = [
+            r["marketBreadthAgreementIndex"]
+            for r in _rows()
+            if r.get("marketBreadthAgreementIndex") is not None
+        ]
+        if not values:
+            pytest.skip("no market index on this export")
+        assert max(values) <= round(self.OBSERVED_CEILING, 4), (
+            f"the index reached {max(values)}, above the {self.OBSERVED_CEILING} ceiling "
+            f"this was measured against — the blend's inputs have changed, and the name "
+            f"should be re-checked against what it can now express"
         )
 
 

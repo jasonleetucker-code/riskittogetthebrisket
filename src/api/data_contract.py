@@ -69,6 +69,42 @@ OFFENSE_TO_IDP_VALIDATION_EXCEPTIONS: frozenset[str] = frozenset(
 
 CONTRACT_VERSION = "2026-03-10.v2"
 
+#: Legacy field names still emitted alongside their honest replacements, and
+#: the version at which they stop being emitted.  C1-U5 (`C1-CONF-01`).
+#:
+#: Kept for the deprecation window because a rolling deploy can serve an old
+#: bundle a new payload and vice versa, and because ``exports/archive/*.zip``
+#: is immutable evidence written under the old spellings — archive readers stay
+#: bilingual permanently, which is a different lifetime from these aliases.
+#: An alias is a temporary promise to writers; bilingual reading is a permanent
+#: property of a reader of immutable history.
+DEPRECATED_FIELD_ALIASES: tuple[dict[str, str], ...] = (
+    {
+        "field": "identityConfidence",
+        "replacedBy": "identityResolutionConfidence",
+        "reason": "grades source-row-to-player RESOLUTION, not evidence quality",
+        "since": "2026-08-17",
+        "removeAfterContractVersion": "2026-03-10.v3",
+    },
+    {
+        "field": "identityMethod",
+        "replacedBy": "identityResolutionMethod",
+        "reason": "travels with identityConfidence; renaming one and not the other splits a pair",
+        "since": "2026-08-17",
+        "removeAfterContractVersion": "2026-03-10.v3",
+    },
+    {
+        "field": "marketConfidence",
+        "replacedBy": "marketBreadthAgreementIndex",
+        "reason": (
+            "a bounded site-count x dispersion blend measured to span [0.3252, 0.59375] "
+            "on the live board — it never reaches the top 40% of the 0-1 scale its name implied"
+        ),
+        "since": "2026-08-17",
+        "removeAfterContractVersion": "2026-03-10.v3",
+    },
+)
+
 # ── Unified rankings: blended board from all active sources ──────────────────
 # rank_to_value() is imported from src.canonical.player_valuation — that module
 # is the ONE authoritative formula implementation.
@@ -3562,6 +3598,14 @@ def _validate_and_quarantine_rows(
     # ── Check 6: Identity confidence + quarantine degradation ──
     for idx, row in enumerate(players_array):
         ic_score, ic_method = _compute_identity_confidence(row)
+        # C1-U5: these grade how confidently a SOURCE ROW resolved to this
+        # player — join quality, not evidence quality. Published beside
+        # ``confidenceBucket`` under a name a reader cannot tell apart from
+        # it, which is the confusion this rename removes. Legacy keys keep
+        # their exact values for the deprecation window declared in
+        # ``meta.deprecations``.
+        row["identityResolutionConfidence"] = ic_score
+        row["identityResolutionMethod"] = ic_method
         row["identityConfidence"] = ic_score
         row["identityMethod"] = ic_method
 
@@ -3620,6 +3664,8 @@ _TRUST_MIRROR_FIELDS = (
     "marketGapValueRatio",
     "identityConfidence",
     "identityMethod",
+    "identityResolutionConfidence",
+    "identityResolutionMethod",
     "quarantined",
     "sourceAudit",
     "sourceOriginalRanks",
@@ -6766,6 +6812,9 @@ def _build_generic_pick_row(name: str, value: int) -> dict[str, Any]:
         "sourceCount": 0,
         "sourcePresence": {},
         "marketConfidence": None,
+        "marketBreadthAgreementIndex": None,
+        "marketBreadthScore": None,
+        "marketAgreementScore": None,
         "marketDispersionCV": None,
         "legacyRef": name,
         "confidenceBucket": "low",
@@ -6807,6 +6856,8 @@ def _build_generic_pick_row(name: str, value: int) -> dict[str, Any]:
         "marketGapValueRatio": None,
         "identityConfidence": None,
         "identityMethod": None,
+        "identityResolutionConfidence": None,
+        "identityResolutionMethod": None,
         "rankDerivedValue": int(value),
     }
 
@@ -9793,6 +9844,16 @@ def _derive_player_row(
         "rawSourceValues": _raw_source_values(p_data),
         "sourceCount": source_count,
         "sourcePresence": {k: (v is not None and v > 0) for k, v in canonical_sites.items()},
+        # C1-U5: a bounded ``site_score*0.65 + cv_score*0.35`` blend of
+        # source COUNT and DISPERSION, measured on the live board to span
+        # [0.3252, 0.59375] — it never reaches the top 40% of the 0-1 scale
+        # its old name implied. Renamed to what it measures, with the two
+        # halves the scraper already computes now published instead of
+        # discarded, and the ceiling stamped so the number cannot be read
+        # as a confidence.
+        "marketBreadthAgreementIndex": _safe_num(p_data.get("_marketConfidence")),
+        "marketBreadthScore": _safe_num(p_data.get("_marketBreadthScore")),
+        "marketAgreementScore": _safe_num(p_data.get("_marketAgreementScore")),
         "marketConfidence": _safe_num(p_data.get("_marketConfidence")),
         "marketDispersionCV": _safe_num(p_data.get("_marketDispersionCV")),
         "legacyRef": canonical_name,
@@ -9843,6 +9904,8 @@ def _derive_player_row(
         # Identity quality — overwritten by _validate_and_quarantine_rows
         "identityConfidence": 0.70,
         "identityMethod": "name_only",
+        "identityResolutionConfidence": 0.70,
+        "identityResolutionMethod": "name_only",
         "quarantined": False,
     }
 
@@ -10470,6 +10533,21 @@ def build_api_data_contract(
     contract_payload: dict[str, Any] = {
         **base,
         "contractVersion": CONTRACT_VERSION,
+        # C1-U5: the contract states its own deprecations, machine-readably.
+        #
+        # ``CONTRACT_VERSION`` deliberately does NOT bump here: this change is
+        # ADDITIVE — every legacy key still carries its exact former value —
+        # and a version bump for an additive change trains consumers to ignore
+        # version bumps. It bumps when the aliases are REMOVED, which is the
+        # breaking half.
+        #
+        # This block is what a removal is checked against, and what
+        # ``tests/api/test_confidence_rename_aliases.py`` pins in three
+        # directions at once: declaring an alias that is not emitted, emitting
+        # one that is not declared, and either drifting from the frozen literal
+        # all fail. An undeclared alias is how a "temporary" dual-write becomes
+        # permanent.
+        "deprecations": DEPRECATED_FIELD_ALIASES,
         "generatedAt": generated_at,
         # The resolved active rookie-draft year (offset-0, no-penalty
         # class).  Self-rolls with the scrape; serialized so frontend
@@ -10573,6 +10651,9 @@ _DELTA_PLAYER_FIELDS: tuple[str, ...] = (
     "anomalyFlags",
     "canonicalTierId",
     "marketConfidence",
+    "marketBreadthAgreementIndex",
+    "marketBreadthScore",
+    "marketAgreementScore",
     "values",
     "idpBackboneFallback",
     "canonicalSiteValues",

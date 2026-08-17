@@ -5901,11 +5901,18 @@ async def run(progress_callback=None):
             return lo
 
     def _market_confidence(norm_vals, site_count):
+        """Breadth x agreement.  C1-U5 publishes the two halves; the blend is unchanged.
+
+        ``conf`` and ``cv`` are byte-identical to before — the two extra
+        return values are the components this function always computed and
+        then discarded, and which the contract now exports so a reader can
+        see WHY the index sits where it does instead of only that it does.
+        """
         cv = _coeff_var(norm_vals)
         site_score = _clampf(float(site_count) / 8.0, 0.20, 1.00)
         cv_score = _clampf(1.0 - (min(cv, 0.35) / 0.35), 0.20, 1.00)
         conf = _clampf((site_score * 0.65) + (cv_score * 0.35), 0.20, 1.00)
-        return conf, cv
+        return conf, cv, site_score, cv_score
 
     def _elite_expansion_multiplier(norms, conf, cv):
         """Elite-separation expansion factor for the composite.
@@ -6034,7 +6041,7 @@ async def run(progress_callback=None):
         composite = meta_norm * COMPOSITE_SCALE
 
         norm_vals = [n for n, _ in wNorms]
-        market_conf, cv = _market_confidence(norm_vals, len(wNorms))
+        market_conf, cv, breadth_score, agreement_score = _market_confidence(norm_vals, len(wNorms))
 
         # Elite-separation expansion: consensus top-tier players should stay
         # near ceiling.  Decided on the trimmed population, because that is
@@ -6045,7 +6052,7 @@ async def run(progress_callback=None):
         # how much did they disagree", which is a property of the observed
         # market and not of our estimator.
         trimmed_norms = [n for n, _ in trimmed]
-        boost_conf, boost_cv = _market_confidence(trimmed_norms, len(trimmed_norms))
+        boost_conf, boost_cv, _bs, _as = _market_confidence(trimmed_norms, len(trimmed_norms))
         composite *= _elite_expansion_multiplier(trimmed_norms, boost_conf, boost_cv)
 
         # Single-source discount
@@ -6090,6 +6097,8 @@ async def run(progress_callback=None):
             "sites": len(wNorms),
             "canonicalSiteValues": canonical_site_values,
             "marketConfidence": round(market_conf, 4),
+            "marketBreadthScore": round(breadth_score, 4),
+            "marketAgreementScore": round(agreement_score, 4),
             "dispersionCV": round(cv, 6),
             "idpRealMarketSources": int(_real_idp_market_source_count),
             "rookieOnlyDlfGuardrailApplied": bool(rookie_only_guardrail_applied),
@@ -6101,6 +6110,8 @@ async def run(progress_callback=None):
         players_json[name]["_sites"] = comp["sites"]
         players_json[name]["_canonicalSiteValues"] = dict(comp.get("canonicalSiteValues") or {})
         players_json[name]["_marketConfidence"] = comp.get("marketConfidence", 0.5)
+        players_json[name]["_marketBreadthScore"] = comp.get("marketBreadthScore")
+        players_json[name]["_marketAgreementScore"] = comp.get("marketAgreementScore")
         players_json[name]["_marketDispersionCV"] = comp.get("dispersionCV", 0.0)
         players_json[name]["_idpRealMarketSources"] = int(comp.get("idpRealMarketSources", 0) or 0)
         players_json[name]["_rookieOnlyDlfGuardrailApplied"] = bool(

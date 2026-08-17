@@ -80,9 +80,9 @@ Ordered. A unit leaves this queue only when production proof lands on the deploy
 | unit | PR | exact head | CI | unlocks | production proof |
 |---|---|---|---|---|---|
 | `C0-R` | [#875](https://github.com/jasonleetucker-code/riskittogetthebrisket/pull/875) | `698280e` | run 31987015120 **orphaned** — never assigned a runner (`updated_at` frozen 4 s after start, zero log bytes, HTTP 404 on the job log) while unrelated runs completed normally. Cancelled and superseded by a fresh run on the next push | every later unit — this is the record that authorizes them | pending |
-| `C1-U5` | *(open on push)* | — | RED committed, implementation in progress | `C2`/`C3`/`C6` confidence consumers | pending |
+| `C1-U5` | *(open on push)* | — | local gates green (hard gate + frontend 2,051) | `C2`/`C3`/`C6` confidence consumers — §1's rename-before-new-consumer rule is discharged by this unit | pending |
 
-**Current unit: `C0-R`.**
+**Current unit: `C1-U5`.**
 
 ---
 
