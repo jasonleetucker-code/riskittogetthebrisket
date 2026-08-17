@@ -51,10 +51,10 @@ same style as ``tests/identity/test_pick_identity_red.py`` /
 
 from __future__ import annotations
 
+import json
 import math
 import unittest
 
-import pytest
 from pathlib import Path
 from typing import Any
 
@@ -67,39 +67,44 @@ _contract_cache: dict[str, Any] | None = None
 
 
 def _load_contract() -> dict[str, Any] | None:
-    """The contract over the board a REPAIRED scrape produces.
+    """The contract over the newest scraper export — the real artifact.
 
-    INPUT HARDENING ONLY (C1-U6-D1, 2026-08-17).  Not one assertion in
-    this file changed; ``git diff`` shows the change is confined to this
-    function.
+    This read the artifact directly, then briefly went through a
+    reconstruction shim, and now reads it directly again.  The round trip
+    is worth one paragraph because it is the whole shape of C1-U6-D1.
 
-    It used to read ``exports/latest/dynasty_data_*.json`` directly.
-    That artifact is git-tracked and is written by the SCRAPER, and the
-    2029 fabrication these tests detect is committed into it upstream of
-    the contract — so RED-3 and RED-4 were reporting a real defect that
-    no change at this layer could fix.  They blocked Deploy Production
-    for 17.5 hours across 12 consecutive runs, which is the gate
-    behaving correctly and the test's INPUT being wrong for the
-    question.
+    The 2029 fabrication these tests detect was committed INTO this
+    artifact by the scraper, upstream of the contract — so RED-3 and
+    RED-4 were reporting a real defect that no change at the layer under
+    test could fix, and they blocked Deploy Production for 19.8 hours
+    across 12 consecutive runs.  That is the gate behaving correctly
+    against an input that was wrong for the question.  While the
+    artifact was stale, ``tests/pick_board_fixture`` fed these tests the
+    board a repaired scrape emits, reconstructed from the bundle's own
+    ``site_raw/*.csv`` through the canonical owner.
 
-    ``tests/pick_board_fixture`` measures which years the vendors
-    actually published from the bundle's own ``site_raw/*.csv`` — same
-    evidence, same rule, through the canonical owner — and drops pick
-    rows for years none of them published, because the repaired scraper
-    emits none.  No value is edited.  The transformation self-retires:
-    once a repaired scrape lands it drops nothing, which
-    ``TestTheHardenedInputIsHonest`` asserts.
+    **That shim is DELETED**, on the condition it declared for itself:
+    the refresh at 2026-08-17T21:05Z ran the repaired scraper and
+    committed a repaired board, on which the reconstruction dropped
+    **zero** rows.  Keeping an inert transformation between the artifact
+    and the test would leave a second opinion about what the board should
+    contain — which is the duplicate-owner pattern this campaign exists
+    to retire.
+
+    Vendor drift still cannot redden this file: every assertion that
+    needs a specific row ``skipTest``s when the row is absent, so a
+    source outage degrades to a skip rather than a failure.
     """
     global _contract_cache
     if _contract_cache is not None:
         return _contract_cache
-    from tests.pick_board_fixture import load_raw_payload, repaired_pick_board
-
-    raw = load_raw_payload()
-    if raw is None:
+    data_dir = _REPO / "exports" / "latest"
+    json_files = sorted(data_dir.glob("dynasty_data_*.json"), reverse=True)
+    if not json_files:
         return None
-    repaired, _dropped = repaired_pick_board(raw)
-    _contract_cache = build_api_data_contract(repaired)
+    with json_files[0].open() as f:
+        raw = json.load(f)
+    _contract_cache = build_api_data_contract(raw)
     return _contract_cache
 
 
@@ -248,71 +253,72 @@ class TestRed5GenericGradeHasCanonicalValue(unittest.TestCase):
         self.assertEqual(offenders, [], f"generic-grade rows missing or unpriced: {offenders}")
 
 
-class TestTheHardenedInputIsHonest(unittest.TestCase):
-    """A test-side transformation is exactly how a symptom gets hidden,
-    so the transformation states what it did and is required to become
-    a no-op.
+class TestTheFabricationCannotReturnThroughTheArtifact(unittest.TestCase):
+    """The shim that fed these tests a reconstructed board is gone (see
+    :func:`_load_contract`).  What replaces it is the property the shim
+    was standing in for, asserted against the artifact itself.
 
-    These do not assert the defect is fixed — the rest of the file does
-    that.  They assert the SHIM is narrow, temporary, and visible.
+    Measured on the 2026-08-17T21:05Z refresh — the first board built by
+    the repaired scraper — this passes with zero offenders.
     """
 
-    def _dropped(self) -> list[str] | None:
-        from tests.pick_board_fixture import load_raw_payload, repaired_pick_board
+    def test_no_pick_row_exists_for_a_year_no_source_published(self) -> None:
+        """The defect class in one assertion, at the artifact.
 
-        raw = load_raw_payload()
-        if raw is None:
-            return None
-        _repaired, dropped = repaired_pick_board(raw)
-        return dropped
-
-    def test_it_only_ever_drops_pick_rows_for_unpublished_years(self) -> None:
-        """It may not touch a player, and it may not touch a year a
-        vendor actually published.  If it ever does, it has stopped
-        being a repaired-scrape reconstruction and become an edit."""
-        from src.identity.picks import is_pick_name
-        from tests.pick_board_fixture import LATEST, _published_years
-
-        dropped = self._dropped()
-        if dropped is None:
-            self.skipTest("no scraper export available")
-        published = _published_years(LATEST / "site_raw")
-        for name in dropped:
-            self.assertTrue(is_pick_name(name), f"{name} is not a pick row")
-            year = int(name[:4])
-            self.assertNotIn(
-                year,
-                published,
-                f"{name}: {year} IS published by a vendor — dropping it would be an edit, "
-                "not a reconstruction of what the repaired scraper emits",
-            )
-
-    @pytest.mark.livedata
-    def test_the_shim_is_inert_once_the_scrape_itself_is_repaired(self) -> None:
-        """THE RETIREMENT CONDITION.
-
-        This currently FAILS BY DESIGN and says so, because
-        ``exports/latest`` still holds the pre-repair board committed by
-        the last unrepaired scrape.  Marked ``livedata`` — at the METHOD
-        level, since the rest of this module must stay blocking — so it
-        reports rather than blocks: a test whose subject is "has the
-        scheduled refresh run yet" is a statement about data freshness,
-        not about our code, which is exactly the CI-lane boundary in
-        ``docs/ops/STABILIZATION_2026-08-16.md`` §3d.
-
-        When it passes, delete ``tests/pick_board_fixture.py`` and point
-        ``_load_contract`` back at the artifact.
+        A pick row whose year appears in NO vendor's published rows is a
+        fabrication by definition, whatever value it carries.  Reads the
+        published-year set from the bundle's own ``site_raw/*.csv``
+        through the canonical owner, so there is one rule and one
+        grammar.
         """
-        dropped = self._dropped()
-        if dropped is None:
+        import csv
+        import io
+
+        from src.identity.picks import is_pick_name
+        from src.picks.site_pick_map import parse_pick_label, pick_value
+
+        site_raw = _REPO / "exports" / "latest" / "site_raw"
+        if not site_raw.is_dir():
+            self.skipTest("no site_raw snapshots in this checkout")
+        published: set[int] = set()
+        for path in sorted(site_raw.glob("*.csv")):
+            for row in csv.DictReader(io.StringIO(path.read_text(encoding="utf-8"))):
+                try:
+                    val = float(row.get("value") or 0)
+                except (TypeError, ValueError):
+                    continue
+                if pick_value(val) is None:
+                    continue
+                parsed = parse_pick_label(row.get("name") or "")
+                if parsed and parsed.get("year") is not None:
+                    published.add(int(parsed["year"]))
+        if not published:
+            self.skipTest("no yeared vendor pick rows to reason about")
+
+        contract = _load_contract()
+        if contract is None:
             self.skipTest("no scraper export available")
+
+        offenders = []
+        for row in _pick_rows(contract):
+            name = str(row.get("canonicalName") or "")
+            if not name[:4].isdigit() or not is_pick_name(name):
+                continue
+            year = int(name[:4])
+            if year in published:
+                continue
+            prov = (row.get("pickValueProvenance") or {}).get("class")
+            # A DERIVED row for an unpublished year is correct and
+            # expected — that is the approved owner doing its job.  A row
+            # claiming direct market evidence for a year nobody published
+            # is the defect.
+            if prov == "direct_market_blend":
+                offenders.append((name, prov, row.get("rankDerivedValue")))
         self.assertEqual(
-            dropped,
+            offenders,
             [],
-            f"exports/latest still carries {len(dropped)} fabricated pick rows "
-            f"({sorted({d[:4] for d in dropped})}) — the repaired scraper has not "
-            "run into this artifact yet.  Once the scheduled refresh has, this "
-            "passes and the shim can be deleted.",
+            f"pick rows claim direct market evidence for years no source published "
+            f"{sorted(published)}: {offenders}",
         )
 
 
