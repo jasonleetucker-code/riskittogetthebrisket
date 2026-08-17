@@ -26,13 +26,26 @@ TRADE_LOGIC = REPO / "frontend" / "lib" / "trade-logic.js"
 
 
 class TestTierCentreSlotsLockstep(unittest.TestCase):
-    """The tier→centre-slot convention exists in exactly two places:
-    the backend's alias builder (``data_contract.
-    _suppress_generic_pick_tiers_when_slots_exist``) and the frontend's
-    ``TIER_CENTRE_SLOT``.  They must agree or the same tier label
-    resolves to different slot rows on the two surfaces."""
+    """The tier→centre-slot convention, checked against its OWNER.
 
-    def test_frontend_and_backend_centres_agree(self):
+    This used to compare two literals — the backend's
+    ``tier_centre_slot`` and the frontend's ``TIER_CENTRE_SLOT`` — to
+    each other.  That kept the two surfaces consistent but said nothing
+    about whether either matched ``src/picks/site_pick_map.py``, which
+    actually owns the tier ranges; two copies agreeing with each other
+    and both drifting from the owner would have passed.
+
+    The backend literal was retired on 2026-08-17 (audit batch C) and now
+    derives from the owner, so the comparison is re-pointed: the JS
+    mirror is checked against the OWNER's ranges directly.  Strictly
+    stronger, and it keeps the frontend/backend guarantee the original
+    test existed for, since the backend is now the owner's output by
+    construction.
+    """
+
+    def test_frontend_centres_agree_with_the_owner(self):
+        from src.picks.site_pick_map import slot_tier_ranges
+
         js = TRADE_LOGIC.read_text(encoding="utf-8")
         m = re.search(
             r"TIER_CENTRE_SLOT\s*=\s*\{\s*early:\s*(\d+),\s*mid:\s*(\d+),\s*late:\s*(\d+)\s*\}",
@@ -40,23 +53,33 @@ class TestTierCentreSlotsLockstep(unittest.TestCase):
         )
         self.assertIsNotNone(m, "TIER_CENTRE_SLOT literal not found in trade-logic.js")
         js_centres = {
-            "Early": int(m.group(1)),
-            "Mid": int(m.group(2)),
-            "Late": int(m.group(3)),
+            "early": int(m.group(1)),
+            "mid": int(m.group(2)),
+            "late": int(m.group(3)),
         }
-
-        py = (REPO / "src" / "api" / "data_contract.py").read_text(encoding="utf-8")
-        pm = re.search(
-            r"tier_centre_slot\s*=\s*\{\"Early\":\s*(\d+),\s*\"Mid\":\s*(\d+),\s*\"Late\":\s*(\d+)\}",
-            py,
+        owner_centres = {
+            tier: round((lo + hi) / 2) for tier, (lo, hi) in slot_tier_ranges(12).items()
+        }
+        self.assertEqual(
+            js_centres,
+            owner_centres,
+            "frontend TIER_CENTRE_SLOT has drifted from src/picks/site_pick_map.py",
         )
-        self.assertIsNotNone(pm, "tier_centre_slot literal not found in data_contract.py")
-        py_centres = {
-            "Early": int(pm.group(1)),
-            "Mid": int(pm.group(2)),
-            "Late": int(pm.group(3)),
-        }
-        self.assertEqual(js_centres, py_centres)
+
+    def test_the_backend_no_longer_carries_its_own_literal(self):
+        """The retirement itself, pinned — so the literal cannot quietly
+        come back and re-establish a second owner."""
+        py = (REPO / "src" / "api" / "data_contract.py").read_text(encoding="utf-8")
+        self.assertNotIn(
+            'tier_centre_slot = {"Early": 2, "Mid": 6, "Late": 10}',
+            py,
+            "data_contract.py has regained its hand-written tier-centre literal",
+        )
+        self.assertIn(
+            "_site_pick_map.slot_tier_ranges(",
+            py,
+            "data_contract.py no longer derives tier centres from the owner",
+        )
 
 
 class TestFrontendLabelRegexesStillMatchOwnerGrammar(unittest.TestCase):

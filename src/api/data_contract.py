@@ -29,6 +29,10 @@ from src.canonical.player_valuation import (  # noqa: E402  — grouped with its
 from src.data_models.contracts import utc_now_iso
 from src.ros import lineup as lineup_owner
 
+#: C1-U6-D1 — the single owner of the slot↔tier tables.  This module is a
+#: CONSUMER: it must never restate a tier range (audit 2026-08-17).
+from src.picks import site_pick_map as _site_pick_map
+
 #: B11 — the single owner of "how good is the evidence behind this value".
 #: This module ASSEMBLES the evidence; it decides no confidence level.
 from src.api.confidence import (  # noqa: E402  — grouped with its siblings
@@ -6432,7 +6436,20 @@ def _suppress_generic_pick_tiers_when_slots_exist(
         return {}
 
     aliases: dict[str, str] = {}
-    tier_centre_slot = {"Early": 2, "Mid": 6, "Late": 10}
+    # DERIVED from the pick-map owner, not restated (audit 2026-08-17).
+    # This was a literal ``{"Early": 2, "Mid": 6, "Late": 10}`` — a
+    # fourth hand-written copy of the same 12-team tier ranges, sitting a
+    # few thousand lines from the owner that defines them.  It agreed,
+    # which is exactly why it survived: a second owner that disagrees
+    # gets found, a second owner that agrees does not.
+    #
+    # Verified an EXACT identity before the swap: the owner's centres are
+    # 2.5 / 6.5 / 10.5 and Python's banker's rounding takes those to
+    # 2 / 6 / 10 — the literal's own values, unchanged.
+    _tier_ranges = _site_pick_map.slot_tier_ranges(12)
+    tier_centre_slot = {
+        tier.capitalize(): round((lo + hi) / 2) for tier, (lo, hi) in _tier_ranges.items()
+    }
     rounds_with_slots: dict[tuple[int, int], bool] = {}
     for row in players_array:
         parsed = _parse_pick_slot(row.get("canonicalName") or "")
