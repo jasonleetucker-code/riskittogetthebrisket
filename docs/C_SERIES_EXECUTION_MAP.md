@@ -230,10 +230,13 @@ Calibration policy §4 governs this phase. Canonical dynasty value is **not**
 recomputed anywhere here — this is roster-impact math.
 
 ### C2-U1 — One lineup / slot assignment
-- **rows** `C2-LINE-01` · **owner** `src/ros/lineup.py::solve_optimal_assignment`
-- **retires** 6 competing greedy fills (2 in production) · **kind** INFRA
+- **rows** `C2-LINE-01` · **owner** `src/ros/lineup.py` · **DELIVERED 2026-08-17**
+- **retired** 3 competing greedy fills, all 3 in production — re-measured at HEAD, not 6/2
+  (`docs/lineup/C2_U1_CANONICAL_LINEUP.md` §1) — plus 6 private eligibility tables and 5
+  duplicate slot-demand derivations · **kind** INFRA
 - **deps** C1-U2 · **the root of the whole phase** — everything below consumes it
-- **RED→GREEN** a roster where a greedy fill and the exact solver disagree
+- **RED→GREEN** delivered on real data: the exact solver reproduces Sleeper's own awarded
+  lineups 10/10 where the two production greedies manage 0/10 and 5/10
 
 ### C2-U2 — One replacement level / PAR owner
 - **rows** `C2-REPL-01` · **owner** *(to consolidate)* · **retires** 5 implementations
@@ -567,7 +570,7 @@ The consolidation ledger. `C10-U2` closes only when every line is zero.
 | Player identity | 3 independent matchers | C1-U2 |
 | Pick identity | 7 representations, no end-to-end id | C1-U3 |
 | Historical value | 4 fragmented stores, 1 with no history | C1-U4 |
-| Lineup / slot assignment | 6 competing greedy fills (2 in prod) | C2-U1 |
+| Lineup / slot assignment | 3 competing greedy fills (all 3 in prod — measured) | C2-U1 |
 | Replacement level / PAR | 5 implementations | C2-U2 |
 | Team Strength | 4 competing notions | C2-U4 |
 | Team Weakness / need | ≥5 definitions | C2-U5 |

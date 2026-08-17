@@ -1337,6 +1337,71 @@ Operational surfaces (post-merge additions):
   backend-stamped ranks untouched. Tests:
   ``frontend/__tests__/components/DraftBoardSort.test.jsx``.
 
+### Lineup / slot assignment — one owner (C2-U1, 2026-08-17)
+
+``src/ros/lineup.py`` owns two deliberately distinct concepts, because
+conflating them is what produced the duplicates:
+
+* **league slot RULES** — which slots exist and who is legal in each:
+  ``resolve_starter_slots`` (the ONE truth ladder — live
+  ``rosterPositions`` → registry ``starters`` → **refuse**, never a
+  literal), ``slot_eligible_positions``, ``player_eligible_for_slot``,
+  ``lineup_position``, ``normalize_slot``, ``slot_demand``;
+* **ASSIGNMENT** — who occupies which legal slot: ``assign_lineup`` /
+  ``solve_optimal_assignment``. **Exact, and there is no fallback
+  greedy** (pinned by an AST test — a ``try: exact except: greedy`` is a
+  second engine that only runs when nobody is looking).
+
+Verified before it was trusted, against ground truth that is not ours:
+Sleeper's own awarded best-ball lineups over 10 real 2025 team-weeks.
+The exact solver is **10/10**; the two production greedies it replaced
+were **0/10** (``team_impact``) and **5/10** (``starter-slots.js``).
+
+**Retired, all three of them serving production at the time:**
+``trade/team_impact.py::project_starters``,
+``frontend/lib/starter-slots.js::fillLineup``,
+``bdvm/roster.py::_quick_starter_fpg`` — plus six private
+slot-eligibility tables and five duplicate slot-demand derivations. The
+planning record said "6 competing fills, 2 in production"; the measured
+answer at HEAD was 3, all three live. Full record:
+``docs/lineup/C2_U1_CANONICAL_LINEUP.md``.
+
+**Missing is never zero, and the coercion here was invisible.**
+``ros_value`` is ``float | None``: ``0.0`` is a real objective (the
+player is assignable and contributes nothing); ``None`` is UNKNOWN (not
+assignable, reported in ``unpriced_ids``, its slot reported unfilled).
+The retired ``float(player.ros_value or 0.0)`` produced the **identical
+score** either way — so nothing that only summed values could have
+caught it — while reporting slots as filled by players nobody can price.
+Unpriced players are in neither starters nor bench; that third state is
+the point.
+
+**The frontend renders; it does not decide.** The contract stamps
+``sleeper.teams[].optimalLineup`` (league-scoped, it hangs off
+``sleeper.teams``) and ``fillLineup`` is a materializer that **fails
+closed** with no local recompute — the same relationship ``buildRows``
+has with ``canonicalConsensusRank``. A JavaScript port of the
+eligibility tables was measured and rejected as the fix: 16.13 of the
+JS greedy's 50.14 missing points are the ALGORITHM, measured with the
+canonical eligibility handed to it. Correct data does not rescue a
+greedy. ``lineupPosition`` survives as the DISPLAY vocabulary and is
+held in lockstep with ``lineup_position`` by
+``tests/lineup/test_single_owner.py``.
+
+**Slot demand is a contract, not a number.** ``slot_demand`` publishes
+``dedicated`` / ``flex_capacity`` / ``even_split`` (flagged
+``even_split_is_approximation``) / ``flex_priority`` as separate named
+quantities. They are NOT interchangeable and were not collapsed: LI-5
+measured the even split ~40% wrong at QB (SUPER_FLEX went to a QB in 9
+of 12 live rosters, not 1-in-4). When the number decides something, use
+the MEASURED answer — ``league_intel/replacement.measure_endogenous_starters``,
+which runs the exact solver over real rosters.
+
+Rule for new code: need a lineup, a starter/bench split, slot
+eligibility or slot demand → call this module. Never keep a private
+slot→positions table, never re-derive the flex split, and never fill a
+lineup in the frontend.
+
 ### Confidence — one owner, five axes, a bottleneck (B11)
 
 ``src/api/confidence.py`` is the ONLY place a ``confidenceBucket`` is

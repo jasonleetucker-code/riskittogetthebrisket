@@ -29,12 +29,16 @@ from statistics import mean, median, quantiles
 from typing import Iterable, Sequence
 
 from .scoring_engine import PlayerSeasonScore
+from src.ros import lineup as lineup_owner
 
 
 # ── Constants ─────────────────────────────────────────────────────────
 
 OFFENSE_POSITIONS: tuple[str, ...] = ("QB", "RB", "WR", "TE")
-FLEX_POSITIONS: tuple[str, ...] = ("RB", "WR", "TE")  # excludes QB
+# Read from the canonical slot owner (C2-U1) rather than restated.
+FLEX_POSITIONS: tuple[str, ...] = lineup_owner.ordered_positions(
+    lineup_owner.slot_eligible_positions("FLEX")
+)  # excludes QB
 
 # Improved-method coefficients.  Documented in the user-facing
 # methodology section so changes here flow into the UI explanation.

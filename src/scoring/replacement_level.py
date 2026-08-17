@@ -43,6 +43,8 @@ from collections import defaultdict
 from dataclasses import dataclass
 from typing import Iterable
 
+from src.ros.lineup import slot_demand
+
 
 # ── Public input contract ─────────────────────────────────────────
 @dataclass(frozen=True)
@@ -88,6 +90,12 @@ def starter_slot_counts(
     ``"REC_FLEX"``, ``"IDP_FLEX"``) which contribute fractionally to
     multiple eligible positions.  Multiplied by ``num_teams``.
 
+    Slot names, aliases and eligibility all come from the canonical
+    owner ``src/ros/lineup.py`` (C2-U1).  One behaviour change came with
+    that: ``REC_FLEX`` is a WR/TE flex and now splits two ways, where
+    this module had split it three ways across WR/TE/RB.  Neither live
+    league runs one.
+
     Flex contributions split evenly across eligible positions —
     close enough for a VORP baseline without overfitting; the
     proposal's "dynamic flex allocation" algorithm achieves the same
@@ -99,26 +107,16 @@ def starter_slot_counts(
     """
     teams = max(1, int(num_teams or 0))
     counts: dict[str, float] = defaultdict(float)
+    # Reads the canonical :func:`slot_demand` contract's ``even_split``
+    # (C2-U1) rather than re-deriving the split inline — this was one of
+    # four independent copies of the same rule, and the only one that
+    # spelled ``REC_FLEX``/``WRT`` as RB/WR/TE (a WR-TE flex is not a
+    # full offensive flex).  Routing through the owner also fixes that.
+    for pos, frac in slot_demand(list(roster_positions or [])).even_split.items():
+        counts[pos] += frac
     for slot in roster_positions or []:
-        slot_norm = str(slot or "").upper()
-        if slot_norm in {"BN", "TAXI", "IR", ""}:
-            continue
-        if slot_norm == "FLEX":
-            for p in ("RB", "WR", "TE"):
-                counts[p] += 1.0 / 3.0
-        elif slot_norm in {"SUPER_FLEX", "SUPERFLEX", "SFLEX", "QFLEX"}:
-            for p in ("QB", "RB", "WR", "TE"):
-                counts[p] += 1.0 / 4.0
-        elif slot_norm in {"REC_FLEX", "WRT", "WRRBTE"}:
-            for p in ("WR", "TE", "RB"):
-                counts[p] += 1.0 / 3.0
-        elif slot_norm in {"IDP_FLEX"}:
-            for p in ("DL", "LB", "DB"):
-                counts[p] += 1.0 / 3.0
-        elif slot_norm in {"DEF"}:
+        if str(slot or "").strip().upper() == "DEF":
             counts["DEF"] += 1.0
-        else:
-            counts[slot_norm] += 1.0
     out: dict[str, int] = {}
     for pos, frac in counts.items():
         out[pos] = max(1, int(round(frac * teams)))

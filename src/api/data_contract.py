@@ -27,6 +27,7 @@ from src.canonical.player_valuation import (  # noqa: E402  — grouped with its
     DISPLAY_SCALE_MIN as _CANONICAL_VALUE_MIN,
 )
 from src.data_models.contracts import utc_now_iso
+from src.ros import lineup as lineup_owner
 
 #: B11 — the single owner of "how good is the evidence behind this value".
 #: This module ASSEMBLES the evidence; it decides no confidence level.
@@ -10879,7 +10880,164 @@ def build_api_data_contract(
     # contract so they don't leak into the public payload.
     for row in players_array:
         row.pop("_positionFromSleeperOnly", None)
+    stamp_optimal_lineups(contract_payload)
     return contract_payload
+
+
+def stamp_optimal_lineups(
+    contract: dict[str, Any],
+    *,
+    rows: list[dict[str, Any]] | None = None,
+) -> None:
+    """Stamp each team's optimal starting lineup onto ``sleeper.teams``.
+
+    **The server assigns; the client renders** (C2-U1).  This is the
+    same posture ``canonicalConsensusRank`` already establishes for
+    ranks, and for the same reason: ``frontend/lib/starter-slots.js``
+    was an independent two-pass greedy that reproduced Sleeper's own
+    awarded lineup on 5 of 10 real team-weeks.  Correct eligibility data
+    would not have fixed it — 16.13 of its 50.14 missing points were the
+    ALGORITHM — so the repair is to stop computing the answer in two
+    places, not to ship better inputs to the wrong one.
+
+    League-scoped by construction: it hangs off ``sleeper.teams``, which
+    ``LEAGUE_SPECIFIC_SLEEPER_FIELDS`` already governs, so a shared-
+    rankings response with ``sleeper: null`` carries no lineup either.
+
+    Degrades, never raises.  A team we cannot solve gets
+    ``available: false`` with a reason, because "we do not know this
+    league's lineup" and "this team starts nobody" must not render the
+    same.
+
+    **Call this again after anything replaces ``sleeper.teams``.**
+    ``/api/data`` splices a live Sleeper overlay over the baked block
+    (``server.py``), and the overlay rebuilds ``teams`` from scratch —
+    so the stamp taken at build time is discarded on the normal serving
+    path unless it is re-taken.  Re-solving rather than copying is the
+    correct repair, and not merely the convenient one: the overlay's
+    rosters are FRESHER, so a copied lineup could start a player who was
+    dropped ten minutes ago.
+
+    ``rows`` supplies the value source explicitly, because some payload
+    views strip ``playersArray`` (``server.py`` pops it for the runtime
+    view) and reading a reduced view would price every player as
+    UNKNOWN.  Values are scoring-profile scoped and identical between
+    the baked contract and any view of it, so passing the baked rows is
+    correct as well as safe.
+
+    **Never mutates the team dicts it is given.**  It writes a new list
+    of shallow copies, because the overlay's teams come out of a shared
+    15-minute cache and stamping them in place would leak one league's
+    lineup into every later request that hit the same entry.
+    """
+    sleeper = contract.get("sleeper")
+    if not isinstance(sleeper, dict):
+        return
+    teams = sleeper.get("teams")
+    if not isinstance(teams, list) or not teams:
+        return
+
+    # THE truth ladder, not just its first rung: live host
+    # ``rosterPositions`` → registry ``starters`` → refuse.  Reading only
+    # the first rung here made the second unreachable from the ONLY
+    # producer of this stamp, so ``slotSource: "registry_starters"`` was
+    # a state the server had no code path to emit while the frontend
+    # rendered a message for it — and a partial Sleeper fetch (lineup
+    # endpoint times out, rosters succeed) would have refused a lineup
+    # the registry could answer.
+    registry_settings: dict[str, Any] | None = None
+    try:
+        from src.api.league_registry import (  # noqa: PLC0415
+            get_league_roster_settings,
+        )
+
+        registry_settings = get_league_roster_settings(
+            str((contract.get("meta") or {}).get("leagueKey") or "") or None
+        )
+    except Exception:  # noqa: BLE001 — the registry is optional here
+        registry_settings = None
+    slots, slot_source = lineup_owner.resolve_starter_slots(
+        roster_positions=sleeper.get("rosterPositions"),
+        roster_settings=registry_settings,
+    )
+
+    positions = sleeper.get("positions") if isinstance(sleeper.get("positions"), dict) else {}
+    eligibility = (
+        sleeper.get("fantasyPositions") if isinstance(sleeper.get("fantasyPositions"), dict) else {}
+    )
+    value_by_name: dict[str, float | None] = {}
+    for row in (rows if rows is not None else contract.get("playersArray")) or []:
+        if row.get("assetClass") == "pick":
+            continue
+        for key in (row.get("canonicalName"), row.get("displayName")):
+            if key:
+                value_by_name.setdefault(str(key), row.get("rankDerivedValue"))
+
+    stamped: list[Any] = []
+    for original in teams:
+        if not isinstance(original, dict):
+            stamped.append(original)
+            continue
+        # Copy-on-write: see the docstring.  The overlay's teams are
+        # shared cache entries.
+        team = dict(original)
+        stamped.append(team)
+        if not slots:
+            team["optimalLineup"] = {
+                "available": False,
+                "reason": "no_starter_slots",
+                "slotSource": None,
+            }
+            continue
+        pool: list[lineup_owner.RosterPlayer] = []
+        for name in team.get("players") or []:
+            key = str(name)
+            raw = value_by_name.get(key)
+            pool.append(
+                lineup_owner.RosterPlayer(
+                    player_id=key,
+                    canonical_name=key,
+                    # ``lineup_position`` is the ONE vocabulary a slot is
+                    # named in — the frontend's ``lineupPosition`` twin.
+                    position=lineup_owner.lineup_position(str(positions.get(key) or "")),
+                    # Unpriced stays unpriced.  A player the board
+                    # declined to price must not win a starting slot over
+                    # one it did.
+                    ros_value=None if raw is None else float(raw),
+                    fantasy_positions=tuple(
+                        lineup_owner.lineup_position(str(fp))
+                        for fp in (eligibility.get(key) or ())
+                        if str(fp).strip()
+                    ),
+                )
+            )
+        try:
+            solved = lineup_owner.assign_lineup(pool, slots)
+        except Exception:  # noqa: BLE001 — an optional stamp must not fail a build
+            team["optimalLineup"] = {
+                "available": False,
+                "reason": "solver_error",
+                "slotSource": slot_source,
+            }
+            continue
+        team["optimalLineup"] = {
+            "available": True,
+            "slotSource": slot_source,
+            "slots": list(solved.slots),
+            "assignments": [
+                {"slotIndex": i, "slot": solved.slots[i], "player": p.player_id}
+                for i, p in sorted(solved.assignments.items())
+            ],
+            "starters": sorted(solved.starter_ids),
+            "bench": sorted(solved.bench_ids(pool)),
+            # Neither started nor benched: a third state, because folding
+            # "we have no read on this player" into the bench is the same
+            # missing-is-zero error one layer up.
+            "unpriced": sorted(solved.unpriced_ids),
+            "unfilledSlots": solved.unfilled_slots,
+        }
+
+    sleeper["teams"] = stamped
 
 
 # ── Rankings override delta contract ──────────────────────────────────
