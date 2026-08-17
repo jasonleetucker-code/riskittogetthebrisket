@@ -35,13 +35,11 @@ import csv
 import glob
 import io
 import os
-import re
 import zipfile
 
 import pytest
 
 from src.picks.site_pick_map import (
-    PICK_TIERS,
     build_site_pick_map,
     fmt_pick_value,
     parse_pick_label,
@@ -176,7 +174,9 @@ class TestUnpublishedYearIsMissing:
 
         assert slot_key(2028, 1, 1) in built.values, "the same-year estimate must still work"
         fabricated = [k for k in built.values if k.startswith("2029")]
-        assert fabricated == [], f"2029 rows derived from a 2029 tier that does not exist: {fabricated}"
+        assert (
+            fabricated == []
+        ), f"2029 rows derived from a 2029 tier that does not exist: {fabricated}"
 
     def test_a_year_gap_in_the_middle_is_also_missing(self):
         """Not a "future years" rule — an EVIDENCE rule.
@@ -321,7 +321,10 @@ class TestPrimitives:
         assert not build_site_pick_map([], [2026])
 
     def test_rows_with_no_usable_round_emit_nothing(self):
-        assert build_site_pick_map([{"kind": "tier", "year": 2026, "round": None}], [2026]).values == {}
+        assert (
+            build_site_pick_map([{"kind": "tier", "year": 2026, "round": None}], [2026]).values
+            == {}
+        )
 
 
 class TestAgainstRealVendorBoards:

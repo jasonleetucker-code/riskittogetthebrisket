@@ -38,7 +38,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass, field
-from typing import Any, Iterable, Mapping, Sequence
+from typing import Any, Mapping, Sequence
 
 __all__ = [
     "PICK_TIERS",
@@ -190,13 +190,6 @@ def parse_pick_label(raw: Any) -> dict[str, Any] | None:
     return None
 
 
-def _nearest_year(years: Iterable[int | None], target: int) -> int | None:
-    years = sorted(y for y in years if y is not None)
-    if not years:
-        return None
-    return min(years, key=lambda y: abs(y - target))
-
-
 def _avg(vals: Sequence[float]) -> float | None:
     if not vals:
         return None
@@ -236,6 +229,48 @@ def build_site_pick_map(
     **A year this source did not publish is MISSING**, and missing is
     represented by the key's ABSENCE.  It is not the nearest year's
     value, not the previous year's value, and not zero.
+
+    Four paths used to force a value where the source published none,
+    and all four are gone (C1-U6-D1, 2026-08-17):
+
+    1. ``lookup_tier`` fell back to the NEAREST year with the same tier.
+    2. ``lookup_tier`` then fell back to the nearest year's published
+       SLOTS inside the tier's slot range.
+    3. ``lookup_slot`` fell back to the nearest year with the same slot.
+    4. Both consulted the ``(year, None)`` un-yeared bucket for EVERY
+       requested year.
+
+    Paths 1-3 shared ``_nearest_year``, which had neither a distance cap
+    nor a direction constraint — so a 2028 row answered a 2029 question,
+    and would equally have answered 2031.  Measured at this boundary on
+    the live KTC board: ``2029 Early 1st`` came back 5188, which is
+    ``2028 Early 1st`` byte-for-byte, and asking for 2031 produced 2031.
+
+    Path 4 is subtler and independent: a label the parser resolved
+    without a year ("EARLY 1ST") is evidence about ONE draft, and
+    crediting it to four is the same fabrication by another route.  It
+    now applies to the nearest requested year only.  Measured before
+    choosing that rule: across 13 archives spanning 2026-07-14 to
+    2026-08-17, every pick-bearing source, the un-yeared grammars
+    matched ZERO rows — the branch is latent, not live, which is exactly
+    why it had to be closed by rule rather than by inspection.
+
+    What is deliberately KEPT, because it is aggregation of this year's
+    own observations rather than substitution from another year:
+
+    * a tier answered by averaging the SAME year's published slots
+      inside that tier's range;
+    * a slot estimated by spreading the SAME year's published tier value
+      across the tier's slot curve (stamped ``derived_slot_from_tier``,
+      so it is distinguishable from a published slot).
+
+    Deriving an unpublished year is legitimate, owned elsewhere, and
+    already built: ``_inject_far_future_pick_sources`` mints those rows
+    from ``config/weights/pick_year_discount.json::derivedYearModel``
+    (family ``measured_vendor_year_step_v1``, classification PRIOR) and
+    ``_complete_future_pick_values`` stamps them ``derived_year_step``.
+    That owner fires only when the year is ABSENT — so for as long as
+    this function invented one, the approved derivation could never run.
     """
     if not parsed_rows:
         return SitePickMap()
@@ -266,48 +301,55 @@ def build_site_pick_map(
     rounds_to_emit = range(1, emit_max_round + 1)
     tier_ranges = slot_tier_ranges(league_size)
 
+    # A year-less label states a draft without naming it.  It is
+    # evidence about the NEAREST requested draft and about no other —
+    # nothing published today is an observation of a class three years
+    # out.  ``None`` when the caller asked for no years at all.
+    unyeared_year = min(target_years) if target_years else None
+
+    def _year_buckets(year):
+        """Which row-buckets may answer a question about ``year``.
+
+        Exactly one entry in the normal case.  The un-yeared bucket
+        joins it only for the single year an un-yeared label denotes —
+        and never for a year the source demonstrably did not publish,
+        which is the whole repair in one expression.
+        """
+        if unyeared_year is not None and year == unyeared_year:
+            return (year, None)
+        return (year,)
+
     def lookup_tier(year, round_num, tier):
-        for y in (year, None):
+        """This source's value for one (year, round, tier), or ``None``.
+
+        ``None`` is a first-class answer: it means the source published
+        nothing that speaks to this year.
+        """
+        for y in _year_buckets(year):
             vals = tier_values.get((y, round_num, tier), [])
             if vals:
-                return _avg(vals)
+                return _avg(vals), ("published_tier" if y == year else "unyeared_tier")
 
+        # Same YEAR, finer grain: the source priced the individual slots
+        # inside this tier but not the tier itself.  Aggregation of its
+        # own observations for the year being asked about.
         lo, hi = tier_ranges[tier]
-        for y in (year, None):
+        for y in _year_buckets(year):
             vals = []
             for slot in range(lo, hi + 1):
                 vals.extend(slot_values.get((y, round_num, slot), []))
             if vals:
-                return _avg(vals)
-
-        years_with_tier = {
-            y for (y, r, t) in tier_values.keys() if y is not None and r == round_num and t == tier
-        }
-        near_year = _nearest_year(years_with_tier, year)
-        if near_year is not None:
-            vals = tier_values.get((near_year, round_num, tier), [])
-            if vals:
-                return _avg(vals)
-
-        years_with_slots = {
-            y
-            for (y, r, s) in slot_values.keys()
-            if y is not None and r == round_num and lo <= s <= hi
-        }
-        near_year = _nearest_year(years_with_slots, year)
-        if near_year is not None:
-            vals = []
-            for slot in range(lo, hi + 1):
-                vals.extend(slot_values.get((near_year, round_num, slot), []))
-            if vals:
-                return _avg(vals)
+                return _avg(vals), (
+                    "published_slots_in_tier" if y == year else "unyeared_slots_in_tier"
+                )
         return None
 
     def _estimate_slot_from_tier(year, round_num, slot):
         tier = slot_to_tier(slot, league_size)
-        tier_val = lookup_tier(year, round_num, tier)
-        if tier_val is None:
+        found = lookup_tier(year, round_num, tier)
+        if found is None:
             return None
+        tier_val, _tier_class = found
 
         lo, hi = tier_ranges[tier]
         if hi <= lo:
@@ -321,23 +363,14 @@ def build_site_pick_map(
         return max(1.0, est)
 
     def lookup_slot(year, round_num, slot):
-        for y in (year, None):
+        for y in _year_buckets(year):
             vals = slot_values.get((y, round_num, slot), [])
             if vals:
-                return _avg(vals)
-
-        years_with_slot = {
-            y for (y, r, s) in slot_values.keys() if y is not None and r == round_num and s == slot
-        }
-        near_year = _nearest_year(years_with_slot, year)
-        if near_year is not None:
-            vals = slot_values.get((near_year, round_num, slot), [])
-            if vals:
-                return _avg(vals)
+                return _avg(vals), ("published_slot" if y == year else "unyeared_slot")
 
         est = _estimate_slot_from_tier(year, round_num, slot)
         if est is not None:
-            return est
+            return est, "derived_slot_from_tier"
         return None
 
     values: dict[str, int | float] = {}
@@ -345,16 +378,18 @@ def build_site_pick_map(
     for year in target_years:
         for round_num in rounds_to_emit:
             for tier in PICK_TIERS:
-                t_val = lookup_tier(year, round_num, tier)
-                if t_val is not None:
+                found = lookup_tier(year, round_num, tier)
+                if found is not None:
+                    t_val, t_class = found
                     key = f"{year} {tier.capitalize()} {round_num}{pick_suffix(round_num)}"
                     values[key] = fmt_pick_value(t_val)
-                    provenance[key] = "published_tier"
+                    provenance[key] = t_class
 
             for slot in range(1, league_size + 1):
-                s_val = lookup_slot(year, round_num, slot)
-                if s_val is not None:
+                found = lookup_slot(year, round_num, slot)
+                if found is not None:
+                    s_val, s_class = found
                     key = f"{year} {round_num}.{slot:02d}"
                     values[key] = fmt_pick_value(s_val)
-                    provenance[key] = "published_slot"
+                    provenance[key] = s_class
     return SitePickMap(values=values, provenance=provenance)
