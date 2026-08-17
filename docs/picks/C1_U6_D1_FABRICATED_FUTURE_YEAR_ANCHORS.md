@@ -370,6 +370,25 @@ derivation map re-enables the synthetic-rows-are-not-market-evidence backbone
 filter, and IDP rank sources translate onto the IDPTC cross-market backbone, which
 by design contains pick rows. Both movers were predicted before the measurement.
 
+### 7.4a The advisory rails, measured
+
+§3.4 recorded four safety rails firing in the advisory lane on the same nine rows.
+Re-measured through the rails' own helper
+(`data_contract.assert_no_unexplained_single_source`) on the repaired board:
+
+| rank limit | before | after |
+|---|---:|---:|
+| top-400 (`test_no_unexplained_1src_top400`) | **9** | **0** |
+| top-800 | **11** | **0** |
+
+The mechanism is `_FAR_FUTURE_ALLOWLIST_REASON` (`data_contract.py:9229`): a row in
+the per-build synthetic derivation map is allowlisted as explicitly synthetic. Under
+the fabrication those rows were *not* in the map — they looked published — so they
+read as unexplained single-source rows at ranks #70/#87/#98/#170/#186. 12 of the 24
+2029 rows now carry the reason (the `derived_year_step` tiers); the remaining 12 are
+the round-5/6 and generic-grade rows, which take a different derivation and are not
+single-source rows to begin with.
+
 ### 7.5 Two boundaries, stated rather than papered over
 
 * **No full browser scrape was run for this repair.** Browser egress is blocked in
