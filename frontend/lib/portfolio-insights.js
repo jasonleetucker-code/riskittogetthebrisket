@@ -7,7 +7,7 @@ import {
   buildHistoryLookup,
 } from "@/lib/value-history";
 import { buildPickLookupCandidates } from "@/lib/trade-logic";
-import { fillLineup, lineupPosition, slotsFromStarterCounts } from "@/lib/starter-slots";
+import { fillLineup, lineupPosition } from "@/lib/starter-slots";
 
 /** First contract row matching any candidate key, or null. */
 function resolveByCandidates(byName, candidates) {
@@ -81,72 +81,65 @@ function pct(part, whole) {
   return Math.round((part / whole) * 1000) / 10;
 }
 
-// NO LITERAL FALLBACK LINEUP.  This used to hold a 9-slot offence-only
-// default used whenever the contract lacked ``sleeper.rosterPositions``,
-// justified as "degrade to a plausible shape".  It was neither plausible
-// nor necessary:
+// NO LITERAL FALLBACK LINEUP, AND NO CLIENT-SIDE FILL AT ALL.
 //
-//   * Measured by running this module both ways on one 29-player roster,
-//     it produced 9 starters — QB2 RB3 WR3 TE1 and ZERO DL / LB / DB, all
-//     12 defenders benched — where the real lineup gives 20 starters
-//     including 3 / 3 / 3.  The split bar read 40.1% against a true
-//     68.1%.  Offense was wrong too (TE 1, not 2).
-//   * It was reachable in production, and stickily so.  ``fetch_sleeper_
-//     rosters`` gets teams and the lineup from two DIFFERENT Sleeper
-//     endpoints, and only the lineup call sits in a bare ``except: pass``
-//     with ``roster_positions`` pre-set to ``[]`` — so one timeout on
-//     that endpoint alone yields teams-present / lineup-empty.
-//   * And the league's real lineup was one destructure away the whole
-//     time: ``useTeam()`` already returns ``rosterSettings`` from
-//     ``/api/leagues``, and ``PortfolioSummary`` already calls it.
+// This used to hold a 9-slot offence-only default lineup, then a
+// live-host → registry truth ladder feeding a local greedy fill.  Both
+// are gone: since C2-U1 the SERVER solves each team's lineup and stamps
+// it on ``sleeper.teams[].optimalLineup``, and this module renders it.
 //
-// So the ladder is now the same one BDVM already set
-// (``src/bdvm/league_config.py``) and that /rosters follows: live host
-// (``sleeper.rosterPositions``) → registry (``rosterSettings.starters``)
-// → refuse and say so.  Never a literal.
+// The literal default is worth remembering because it shows what a
+// "plausible" client-side guess costs.  Measured on one 29-player
+// roster it produced 9 starters — QB2 RB3 WR3 TE1 and ZERO DL/LB/DB,
+// all 12 defenders benched — where the real lineup gives 20 including
+// 3/3/3, and the split bar read 40.1% against a true 68.1%.  It was
+// reachable in production too: ``fetch_sleeper_rosters`` gets teams and
+// the lineup from two DIFFERENT Sleeper endpoints and only the lineup
+// call sits in a bare ``except: pass``, so one timeout yields
+// teams-present / lineup-empty.
+//
+// The truth ladder that replaced it (live ``rosterPositions`` →
+// registry ``rosterSettings.starters`` → refuse) still exists — in
+// ``src/ros/lineup.py::resolve_starter_slots``, where it is written
+// once instead of once per consumer.
 
 /**
  * Starter / bench split for the terminal's portfolio panels.
  *
- * Thin wrapper over the shared ``fillLineup`` — see
- * ``lib/starter-slots.js`` for why the slot filling lives there.
+ * Materializes the server's stamped lineup — see ``lib/starter-slots.js``
+ * for why no fill happens here.
  *
- * Fills on ``lineupPos`` (DL / LB / DB kept DISTINCT), never on ``pos``
- * (every defender collapsed to "IDP").  The league starts 3 at each IDP
- * position; filling on the collapsed field made every defensive slot
- * match every defender, so the split credited the top 9 defenders by
- * value.  Identical answer on a balanced roster, wrong on one stacked at
- * a single IDP position — it counted starters the league has no slot
- * for.  ``pos`` is still what ``byPosition`` allocates against, which is
- * why both fields exist.
+ * ``lineupPos`` (DL / LB / DB kept DISTINCT) survives as the DISPLAY
+ * grouping; ``pos`` (every defender collapsed to "IDP") is what
+ * ``byPosition`` allocates against.  Both fields exist because they
+ * answer different questions, and neither of them selects a starter any
+ * more — the server does.
  */
-function splitStartersBench({ rosterValues, sleeperRosterPositions, rosterSettings }) {
-  const { starters, bench, assignments, usedFallback, available } = fillLineup({
+function splitStartersBench({ rosterValues, optimalLineup }) {
+  const { starters, bench, unpriced, assignments, available, slotSource } = fillLineup({
     assets: rosterValues,
-    rosterPositions: sleeperRosterPositions,
-    // ``|| p.pos`` only for callers that predate ``lineupPos``; every
-    // row built by ``computePortfolio`` carries it.
-    positionOf: (p) => p.lineupPos || p.pos,
-    // Rung two of the ladder — the registry's own lineup, not a guess.
-    // Omitted entirely when the registry has nothing either, so
-    // ``available: false`` propagates and the panel says so.
-    fallbackSlots: slotsFromStarterCounts(rosterSettings?.starters),
+    keyOf: (p) => p.sleeperName ?? p.name,
+    optimalLineup,
   });
   return {
     starters,
     bench,
+    // Neither started nor benched — the board declined to price them, so
+    // they were never passed over on merit. Rendering them as bench
+    // depth would credit the roster for value nobody measured.
+    unpriced,
     // Slot-ordered, for anything that RENDERS the lineup.  ``starters``
     // is value-descending, and truncating that to fit a panel drops the
     // defense — IDP values sit far below offense on the blended board.
     starterAssignments: assignments,
-    // Which rung of the truth ladder produced this lineup, so the panel
-    // can be honest about it:
-    //   lineupFromLeague true        -> the league's live rosterPositions
-    //   false + lineupKnown true     -> the registry's rosterSettings
-    //   both false                   -> no lineup at all; nobody starts,
-    //                                   and the panel must say so rather
-    //                                   than render 0% as a measurement
-    lineupFromLeague: !usedFallback && available,
+    // Which rung of the SERVER's truth ladder produced this lineup, so
+    // the panel can be honest about it:
+    //   lineupFromLeague true    -> the league's live rosterPositions
+    //   false + lineupKnown true -> the registry's rosterSettings
+    //   both false               -> no lineup at all; nobody starts, and
+    //                               the panel must say so rather than
+    //                               render 0% as a measurement
+    lineupFromLeague: available && slotSource === "sleeper_roster_positions",
     lineupKnown: available,
     starterCount: starters.length,
     benchCount: bench.length,
@@ -155,19 +148,19 @@ function splitStartersBench({ rosterValues, sleeperRosterPositions, rosterSettin
   };
 }
 
+
 /**
  * Compute the full portfolio snapshot.
  *
  * Inputs:
  *   - rows          flat contract rows (from useDynastyData)
  *   - selectedTeam  Sleeper team object ({players, picks})
- *   - rawData       full contract (used for sleeper.rosterPositions —
- *                   the lineup-slot ARRAY, distinct from
- *                   sleeper.positions which is the player→position map)
+ *   - rawData       full contract (row lookup + pick aliases)
  *   - history       rank-history map (name -> [{date, rank}])
- *   - rosterSettings the registry's roster settings (from ``useTeam()``),
- *                   used ONLY as the lineup fallback when the contract
- *                   carries no rosterPositions
+ *
+ * The league's lineup is NOT an input any more: it arrives already
+ * solved on ``selectedTeam.optimalLineup``.  ``rosterSettings`` is still
+ * accepted so existing callers keep working, and is unused here.
  */
 export function computePortfolio({ rows, selectedTeam, rawData, history, rosterSettings }) {
   const hasPlayers = !!selectedTeam?.players?.length;
@@ -213,6 +206,11 @@ export function computePortfolio({ rows, selectedTeam, rawData, history, rosterS
     const vol = computeVolatility(points, 30);
     rosterValues.push({
       name: row.name,
+      // The SLEEPER roster spelling, which is the key the server's
+      // lineup stamp uses. `row.name` is the board's display name and
+      // the two can differ, so joining on it would silently drop
+      // starters wherever they do.
+      sleeperName: String(name),
       pos,
       lineupPos,
       value,
@@ -302,15 +300,15 @@ export function computePortfolio({ rows, selectedTeam, rawData, history, rosterS
   // ["QB","RB","RB","WR","WR","WR","TE","FLEX","SUPER_FLEX","BN",...]).
   // ``sleeper.positions`` is a different field entirely — a
   // player-name → position MAP — and was previously misread here.
-  const sleeperRosterPositions = rawData?.sleeper?.rosterPositions;
   // Starters are drawn from the lineup-eligible pool only — picks
   // don't fill lineup slots, so we filter them out before the split.
   // Picks still appear in totalValue and byPosition.PICK below.
   const lineupEligible = rosterValues.filter((p) => !p.isPick);
   const starterSplit = splitStartersBench({
     rosterValues: lineupEligible,
-    sleeperRosterPositions,
-    rosterSettings,
+    // The SERVER's solved lineup for this team. No client-side fill and
+    // no fallback: see `lib/starter-slots.js`.
+    optimalLineup: selectedTeam?.optimalLineup,
   });
   const picks = rosterValues.filter((p) => p.isPick);
   const pickValue = sumValue(picks);

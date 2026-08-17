@@ -26,6 +26,7 @@ from typing import Any
 from src.canonical.calibration import to_display_value
 from src.trade.ktc_va import adjusted_pair_totals
 from src.utils.name_clean import normalize_position as _norm_pos  # noqa: F401 — see _norm_pos shim removal below (audit S2)
+from src.ros.lineup import resolve_starter_slots, slot_demand
 
 
 # ── Configuration ────────────────────────────────────────────────────
@@ -45,11 +46,6 @@ DEFAULT_STARTER_NEEDS: dict[str, int] = {
     "LB": 3,  # 3 LB
     "DB": 3,  # 3 DB
 }
-
-# Order flex slots are handed out in when converting a lineup to
-# effective demand.  RB before WR before TE matches how the constant
-# above was hand-derived, and is what makes the derivation reproduce it.
-_FLEX_ALLOCATION_ORDER: tuple[str, ...] = ("RB", "WR", "TE")
 
 # Slots that carry no dynasty trade demand.  ``K`` is deliberately
 # absent from the constant above and must stay absent from the derived
@@ -81,6 +77,12 @@ def starter_needs_for_league(league_key: str | None = None) -> dict[str, int]:
       ``idpFlexEligible``;
     * ``K``/``DEF`` contribute nothing — see ``_NON_DEMAND_SLOTS``.
 
+    Since C2-U1 the first four bullets ARE
+    ``src/ros/lineup.py::slot_demand(...).flex_priority`` — a declared
+    variant of the one slot-demand contract, not a fifth private model.
+    Only the last bullet is this engine's own policy, because "a kicker
+    is not a dynasty need" is a trade judgment rather than a lineup fact.
+
     Applied to ``dynasty_main`` this reproduces ``DEFAULT_STARTER_NEEDS``
     exactly, so the live league's suggestions are unchanged; pinned by
     ``tests/league_intel/test_registry_consumers.py``.
@@ -90,59 +92,24 @@ def starter_needs_for_league(league_key: str | None = None) -> dict[str, int]:
     returning an empty demand map, which would read as "this roster
     needs nobody" and silence every surplus/need suggestion.
     """
-    starters: dict[str, Any] = {}
-    flex_eligible: list[str] = []
-    idp_flex_eligible: list[str] = []
+    settings: dict[str, Any] = {}
     try:
         from src.api.league_registry import get_league_roster_settings
 
         settings = get_league_roster_settings(league_key) or {}
-        starters = dict(settings.get("starters") or {})
-        flex_eligible = list(settings.get("flexEligible") or [])
-        idp_flex_eligible = list(settings.get("idpFlexEligible") or [])
     except Exception:  # noqa: BLE001 — registry is optional for this module
-        starters = {}
-    if not starters:
+        settings = {}
+    slots, _source = resolve_starter_slots(roster_settings=settings)
+    if not slots:
         return dict(DEFAULT_STARTER_NEEDS)
 
-    needs: dict[str, int] = {}
-
-    def _add(position: str, count: int = 1) -> None:
-        pos = str(position).upper()
-        if pos in _NON_DEMAND_SLOTS:
-            return
-        needs[pos] = needs.get(pos, 0) + count
-
-    def _round_robin(count: int, eligible: list[str], order: tuple[str, ...]) -> None:
-        pool = [p for p in order if p in {str(e).upper() for e in eligible}]
-        if not pool:
-            return
-        for i in range(int(count)):
-            _add(pool[i % len(pool)])
-
-    flex_count = 0
-    sflex_count = 0
-    idp_flex_count = 0
-    for slot, count in starters.items():
-        key = str(slot).upper()
-        n = int(count or 0)
-        if n <= 0:
-            continue
-        if key in ("FLEX", "WR_RB_FLEX", "REC_FLEX"):
-            flex_count += n
-        elif key in ("SFLEX", "SUPER_FLEX", "SUPERFLEX"):
-            sflex_count += n
-        elif key == "IDP_FLEX":
-            idp_flex_count += n
-        else:
-            _add(key, n)
-
-    # Superflex is a QB slot in everything but name.
-    if sflex_count:
-        _add("QB", sflex_count)
-    _round_robin(flex_count, flex_eligible, _FLEX_ALLOCATION_ORDER)
-    _round_robin(idp_flex_count, idp_flex_eligible, ("DL", "LB", "DB"))
-
+    overrides = {
+        slot: settings[key]
+        for slot, key in (("FLEX", "flexEligible"), ("IDP_FLEX", "idpFlexEligible"))
+        if settings.get(key)
+    }
+    demand = slot_demand(slots, eligibility_overrides=overrides).flex_priority
+    needs = {pos: n for pos, n in demand.items() if pos not in _NON_DEMAND_SLOTS}
     return needs or dict(DEFAULT_STARTER_NEEDS)
 
 

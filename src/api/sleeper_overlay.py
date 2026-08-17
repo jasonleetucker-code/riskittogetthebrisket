@@ -241,6 +241,71 @@ def _walk_league_chain(root_league_id: str, max_depth: int = 2, getter=None) -> 
     return out
 
 
+def _chain_member_season(lid: str, fetch) -> str | None:
+    """The Sleeper season of one chain member, or ``None`` if unknown.
+
+    Deliberately NOT :func:`_league_season`, which falls back to the
+    calendar year.  That fallback is right for a display path and wrong
+    for retention: a recorded season is a claim about which season an
+    event happened in, and a guessed one is indistinguishable from an
+    observed one once it is in the database.  Unknown stays NULL.
+
+    Reads through the caller's ``fetch``, which during a contract build
+    is the memoising ``_BuildFetcher`` that already pulled this exact
+    URL for the chain walk — so this costs no additional request.
+    """
+    info = fetch(f"https://api.sleeper.app/v1/league/{lid}")
+    if isinstance(info, dict):
+        season = str(info.get("season") or "").strip()
+        if season:
+            return season
+    return None
+
+
+def _registry_key_for_chain(root_league_id: str) -> str | None:
+    """The registry key of the league whose chain we are walking.
+
+    Resolved from the ROOT id, then stamped on every chain member —
+    because a previous season's Sleeper id is not in the registry (the
+    registry holds the current one), so resolving per member would leave
+    every historical row unattributed.  The chain IS that registry
+    league across seasons, which is exactly what the column means.
+
+    ``None`` for an unregistered league: fail closed rather than mint a
+    row under a guessed key.
+    """
+    try:
+        from src.api.league_registry import league_key_for_sleeper_id  # noqa: PLC0415
+
+        return league_key_for_sleeper_id(root_league_id)
+    except Exception:  # noqa: BLE001
+        return None
+
+
+def _flush_transaction_ledger(
+    lid: str,
+    batch: list[dict[str, Any]],
+    *,
+    league_key: str | None,
+    season: str | None,
+) -> None:
+    """Best-effort retention write for one chain member (C1-RET-06).
+
+    Shared by the trades and waivers builders so there is one flush
+    posture rather than two that drift: both are wrapped so a ledger
+    failure can never take a user-facing page down, and both write once
+    per chain member rather than once per week.
+    """
+    if not batch:
+        return
+    try:
+        from src.retention import league_events as _league_events  # noqa: PLC0415
+
+        _league_events.record_transactions(str(lid), batch, league_key=league_key, season=season)
+    except Exception as ledger_exc:  # noqa: BLE001
+        log.warning("league-event retention: record failed for %s: %s", lid, ledger_exc)
+
+
 def _round_suffix(n: int) -> str:
     """1 → '1st', 2 → '2nd', 3 → '3rd', 4+ → 'Nth'.  Delegates to the
     canonical pick-identity owner (C1-ID-02, ``src/identity/picks``)."""
@@ -832,12 +897,18 @@ def _build_waivers_block(
         return []
 
     id_map = id_to_player if isinstance(id_to_player, dict) else {}
+    registry_key = _registry_key_for_chain(sleeper_league_id)
 
     out: list[dict[str, Any]] = []
     seen: set[str] = set()
 
     for lid in chain:
         rid_to_name, rid_to_owner = _league_rid_lookup(lid, getter=getter)
+
+        # C1-U8.  Waiver and free-agent claims observed for THIS chain
+        # member, accumulated across its weeks and flushed once — the
+        # same shape ``_build_trades_block`` already uses.
+        ledger_batch: list[dict[str, Any]] = []
 
         for week in range(0, 19):
             url = f"https://api.sleeper.app/v1/league/{lid}/transactions/{week}"
@@ -852,6 +923,19 @@ def _build_waivers_block(
                     continue
                 if tx.get("status") != "complete":
                     continue
+
+                # C1-U8.  Retain BEFORE the window filter and BEFORE the
+                # ``seen`` dedupe, for the two reasons the trades path
+                # states at its own append.  ``window_days`` is OUR
+                # cutoff, not Sleeper's, so the claims it drops are
+                # precisely the ones about to become unreadable — and
+                # this bid IS the cost basis of that acquisition.  The
+                # ``seen`` set exists to stop the UI showing one claim
+                # twice; the ledger has a primary key for that, and
+                # deduping ahead of it would hide a chain member's own
+                # copy of the event.
+                ledger_batch.append(tx)
+
                 status_ts = tx.get("status_updated") or tx.get("created")
                 ts_ms = _normalize_ts_ms(status_ts)
                 if ts_ms and ts_ms < cutoff_ms:
@@ -921,6 +1005,13 @@ def _build_waivers_block(
                 # consumer; the frontend maps via ownerId today.
                 _ = rid_key
 
+        _flush_transaction_ledger(
+            lid,
+            ledger_batch,
+            league_key=registry_key,
+            season=_chain_member_season(lid, fetch),
+        )
+
     out.sort(key=lambda w: -int(w.get("createdAtMs", 0) or 0))
     return out
 
@@ -965,6 +1056,7 @@ def _build_trades_block(
 
     id_map = id_to_player if isinstance(id_to_player, dict) else {}
     current_year = _dt.datetime.now(_dt.timezone.utc).year
+    registry_key = _registry_key_for_chain(sleeper_league_id)
 
     trades: list[dict[str, Any]] = []
     seen: set[str] = set()
@@ -1113,13 +1205,12 @@ def _build_trades_block(
 
         # Flush this chain member's observations.  Best-effort: /trades
         # must keep working when the ledger cannot be written.
-        if ledger_batch:
-            try:
-                from src.retention import league_events as _league_events  # noqa: PLC0415
-
-                _league_events.record_transactions(str(lid), ledger_batch)
-            except Exception as ledger_exc:  # noqa: BLE001
-                log.warning("league-event retention: record failed for %s: %s", lid, ledger_exc)
+        _flush_transaction_ledger(
+            lid,
+            ledger_batch,
+            league_key=registry_key,
+            season=_chain_member_season(lid, fetch),
+        )
 
     # Newest first — /trades UI sorts by recency.
     trades.sort(key=lambda t: -int(t.get("timestamp", 0) or 0))
@@ -1151,15 +1242,23 @@ def _fetch_league_name(sleeper_league_id: str, getter=None) -> str | None:
 
 #: Fields of a Sleeper block that belong to ONE league and may never be
 #: inherited from another (W18-F002).  The NFL-wide maps — ``positions``,
-#: ``playerIds``, ``idToPlayer`` — are deliberately not here: they map
-#: player ids to names for the whole league universe and are genuinely
-#: league-independent.
+#: ``playerIds``, ``idToPlayer``, ``fantasyPositions`` — are deliberately
+#: not here: they map player ids to names and eligibility for the whole
+#: league universe and are genuinely league-independent.  Note
+#: ``fantasyPositions`` is which SLOTS a player is legal in, which is a
+#: property of the player; which slots EXIST is ``rosterPositions``, and
+#: that is league-specific and listed below.
 LEAGUE_SPECIFIC_SLEEPER_FIELDS: tuple[str, ...] = (
     "scoringSettings",
     "rosterPositions",
     "leagueSettings",
 )
-NFL_WIDE_SLEEPER_FIELDS: tuple[str, ...] = ("positions", "playerIds", "idToPlayer")
+NFL_WIDE_SLEEPER_FIELDS: tuple[str, ...] = (
+    "positions",
+    "playerIds",
+    "idToPlayer",
+    "fantasyPositions",
+)
 
 
 def league_config_is_complete(config: Mapping[str, Any] | None) -> bool:

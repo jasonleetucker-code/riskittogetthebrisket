@@ -14,11 +14,12 @@ offense+picks, IDPTC for IDP); a side that mixes markets is gated on
 BDVM trade-clearing values instead and labeled so — raw KTC and IDPTC
 numbers are never summed together (§3.12).
 
-Deliberate scope note: the quick starter fill here is a BDVM-side
-heuristic view.  The AUTHORITATIVE personalized layer (exact legal
-lineup solve, leave-out marginals) remains ``src/roster_intel`` /
-``src/ros/lineup.py`` per ADR-004; feeding BDVM currencies into that
-machinery is the UI-facing follow-up.
+Scope note: ``starterFpg`` here is BDVM's own currency (projected fantasy
+points per game), but the LINEUP behind it is no longer BDVM's own —
+since C2-U1 it is solved by the canonical owner ``src/ros/lineup.py``,
+exactly like every other lineup in the tree.  What stays BDVM-side is
+the objective, not the assignment.  The personalized layer (leave-out
+marginals) remains ``src/roster_intel`` per ADR-004.
 """
 
 from __future__ import annotations
@@ -28,6 +29,7 @@ from typing import Any, Mapping
 
 from src.bdvm.params import ParamSet
 from src.bdvm.trade_math import package_value
+from src.ros.lineup import RosterPlayer, assign_lineup
 
 _IDP_GROUPS = frozenset({"DL", "LB", "DB"})
 
@@ -95,41 +97,50 @@ def strategy_for_direction(direction: str) -> str:
     return {"contend": "contender", "rebuild": "rebuilder"}.get(direction, "balanced")
 
 
-def _quick_starter_fpg(
+def _starter_fpg(
     assets: list[Mapping[str, Any]], starters: Mapping[str, int], flex: Mapping[str, Any]
 ) -> float:
-    """Greedy starter fill by group on projected FPG.
+    """Projected FPG of this roster's best legal lineup.
 
-    Heuristic display number only — the exact solver in src/ros/lineup.py
-    is the authoritative lineup path (ADR-004/007).
+    Routes through the canonical assignment owner
+    (``src/ros/lineup.py``) — C2-U1.  It was ``_quick_starter_fpg``, a
+    per-group greedy that filled dedicated slots first and then took the
+    best next-available at each flex, and which said so itself
+    ("heuristic display number only").  Two things made that wrong
+    rather than merely approximate: it could not express a player legal
+    at more than one group, and its flex pass is the least-restrictive-
+    first order that a greedy is not optimal under.
+
+    The league's OWN flex eligibility is passed through
+    ``slot_eligibility``, because ``bdvm/league_config`` reads it from
+    the registry (``flexEligible`` / ``sflexEligible`` /
+    ``idpFlexEligible``) and it is league config, not a constant.
     """
-    by_group: dict[str, list[float]] = {}
-    for a in assets:
-        by_group.setdefault(a["group"], []).append(float(a["fpg"]))
-    for vals in by_group.values():
-        vals.sort(reverse=True)
-    used: dict[str, int] = {g: 0 for g in by_group}
-    total = 0.0
+    slots: list[str] = []
+    eligibility: dict[str, tuple[str, ...]] = {}
     for group, need in starters.items():
-        vals = by_group.get(group, [])
-        take = min(int(need), len(vals))
-        total += sum(vals[:take])
-        used[group] = take
-    for _slot, spec in (flex or {}).items():
+        slots.extend([str(group).upper()] * max(0, int(need)))
+    for slot, spec in (flex or {}).items():
         count, eligible = (
             spec if isinstance(spec, tuple) else (spec.get("count", 0), spec.get("eligible", []))
         )
-        for _ in range(int(count)):
-            best_g, best_v = None, 0.0
-            for g in eligible:
-                vals = by_group.get(g, [])
-                idx = used.get(g, 0)
-                if idx < len(vals) and vals[idx] > best_v:
-                    best_g, best_v = g, vals[idx]
-            if best_g is not None:
-                total += best_v
-                used[best_g] = used.get(best_g, 0) + 1
-    return total
+        slot_u = str(slot).upper()
+        slots.extend([slot_u] * max(0, int(count)))
+        eligibility[slot_u] = tuple(str(g).upper() for g in eligible)
+
+    pool = [
+        RosterPlayer(
+            player_id=str(a.get("playerId") or a.get("name") or i),
+            canonical_name=str(a.get("name") or ""),
+            position=str(a["group"]).upper(),
+            # BDVM never emits a priced asset without an fpg, but the
+            # distinction is preserved rather than coerced: an absent
+            # projection is UNKNOWN, not zero points.
+            ros_value=None if a.get("fpg") is None else float(a["fpg"]),
+        )
+        for i, a in enumerate(assets)
+    ]
+    return assign_lineup(pool, slots, slot_eligibility=eligibility or None).score
 
 
 def analyze_rosters(
@@ -194,7 +205,7 @@ def analyze_rosters(
                 "capitals": {k: round(v, 1) for k, v in capitals.items()},
                 "nowFutureRatio": round(now / max(1.0, future), 3),
                 "valueWeightedAge": round(weighted_age, 2),
-                "starterFpg": round(_quick_starter_fpg(assets, starters, flex), 1),
+                "starterFpg": round(_starter_fpg(assets, starters, flex), 1),
                 "positionalSurplus": surplus,
                 "pickCount": len(roster["picks"]),
                 "assets": sorted(assets, key=lambda a: -a["tradeValue"].get("balanced", 0.0)),

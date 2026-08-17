@@ -943,6 +943,17 @@ def fetch_sleeper_rosters(league_id):
             f"  [Sleeper] Computed {total_pick_assets} future pick assets ({draft_rounds} rounds, years {pick_years})"
         )
 
+    # C2-U1: Sleeper's own slot-eligibility list, kept rather than
+    # discarded.  ``position`` below is a single primary token, and the
+    # canonical lineup owner (``src/ros/lineup.py``) can only honour
+    # "eligibility is absolute" if it is told a DL/LB hybrid is legal in
+    # either slot.  Measured on 10 real best-ball team-weeks, filling
+    # without it costs 34.01 points against Sleeper's own awarded
+    # lineups.  It arrives in the SAME ``all_nfl`` payload already
+    # fetched, so this costs no request — discarding it was the loss.
+    fantasy_positions_map: dict[str, list[str]] = {}
+    fantasy_positions_collisions: set[str] = set()
+
     for roster in rosters:
         owner_id = roster.get("owner_id", "")
         roster_id = roster.get("roster_id")
@@ -994,6 +1005,28 @@ def fetch_sleeper_rosters(league_id):
                 if cn and sid:
                     player_id_map[cn] = sid
                     id_to_player[sid] = cn
+                if cn and fp_list:
+                    # VERBATIM from the host — never our resolved family,
+                    # which is a narrowing.  Absent when Sleeper lists
+                    # none, so "no eligibility data" stays distinct from
+                    # "eligible at nothing".
+                    cleaned = [str(fp).strip().upper() for fp in fp_list if str(fp or "").strip()]
+                    if cleaned:
+                        # SAME COLLISION RULE as ``position_map`` below,
+                        # and for a stronger reason.  Two different players
+                        # can clean to one name (DJ Turner WR vs DJ Turner
+                        # II CB); last-write-wins would hand one player the
+                        # other's SLOT LEGALITY, which is worse than a
+                        # mislabelled position — it can make a receiver
+                        # legal at DB.  Dropping leaves the row with no
+                        # eligibility data, which the lineup owner already
+                        # treats as "fall back to position".
+                        existing = fantasy_positions_map.get(cn)
+                        if existing is not None and existing != cleaned:
+                            fantasy_positions_map.pop(cn, None)
+                            fantasy_positions_collisions.add(cn)
+                        elif cn not in fantasy_positions_collisions:
+                            fantasy_positions_map[cn] = cleaned
                 if pos and cn:
                     # Multi-positional IDP rule: prefer non-LB for dual-position players
                     # Sleeper stores a single position; we override known edge cases
@@ -1047,6 +1080,12 @@ def fetch_sleeper_rosters(league_id):
         if cn in position_map:
             position_map[cn] = override_pos
 
+    if fantasy_positions_collisions:
+        print(
+            f"  [Sleeper] Dropped {len(fantasy_positions_collisions)} colliding "
+            f"fantasy-position entries"
+        )
+
     if position_collisions:
         preview = ", ".join(
             f"{k} ({'/'.join(sorted(v))})" for k, v in list(position_collisions.items())[:5]
@@ -1062,6 +1101,9 @@ def fetch_sleeper_rosters(league_id):
         "leagueName": league_name,
         "teams": teams,
         "positions": position_map,
+        # NFL-wide like ``positions`` — which slots a player is legal in
+        # does not depend on which league is asking.
+        "fantasyPositions": fantasy_positions_map,
         "playerIds": player_id_map,
         "idToPlayer": id_to_player,
         "scoringSettings": scoring_settings,
@@ -5901,11 +5943,18 @@ async def run(progress_callback=None):
             return lo
 
     def _market_confidence(norm_vals, site_count):
+        """Breadth x agreement.  C1-U5 publishes the two halves; the blend is unchanged.
+
+        ``conf`` and ``cv`` are byte-identical to before — the two extra
+        return values are the components this function always computed and
+        then discarded, and which the contract now exports so a reader can
+        see WHY the index sits where it does instead of only that it does.
+        """
         cv = _coeff_var(norm_vals)
         site_score = _clampf(float(site_count) / 8.0, 0.20, 1.00)
         cv_score = _clampf(1.0 - (min(cv, 0.35) / 0.35), 0.20, 1.00)
         conf = _clampf((site_score * 0.65) + (cv_score * 0.35), 0.20, 1.00)
-        return conf, cv
+        return conf, cv, site_score, cv_score
 
     def _elite_expansion_multiplier(norms, conf, cv):
         """Elite-separation expansion factor for the composite.
@@ -6034,7 +6083,7 @@ async def run(progress_callback=None):
         composite = meta_norm * COMPOSITE_SCALE
 
         norm_vals = [n for n, _ in wNorms]
-        market_conf, cv = _market_confidence(norm_vals, len(wNorms))
+        market_conf, cv, breadth_score, agreement_score = _market_confidence(norm_vals, len(wNorms))
 
         # Elite-separation expansion: consensus top-tier players should stay
         # near ceiling.  Decided on the trimmed population, because that is
@@ -6045,7 +6094,7 @@ async def run(progress_callback=None):
         # how much did they disagree", which is a property of the observed
         # market and not of our estimator.
         trimmed_norms = [n for n, _ in trimmed]
-        boost_conf, boost_cv = _market_confidence(trimmed_norms, len(trimmed_norms))
+        boost_conf, boost_cv, _bs, _as = _market_confidence(trimmed_norms, len(trimmed_norms))
         composite *= _elite_expansion_multiplier(trimmed_norms, boost_conf, boost_cv)
 
         # Single-source discount
@@ -6090,6 +6139,8 @@ async def run(progress_callback=None):
             "sites": len(wNorms),
             "canonicalSiteValues": canonical_site_values,
             "marketConfidence": round(market_conf, 4),
+            "marketBreadthScore": round(breadth_score, 4),
+            "marketAgreementScore": round(agreement_score, 4),
             "dispersionCV": round(cv, 6),
             "idpRealMarketSources": int(_real_idp_market_source_count),
             "rookieOnlyDlfGuardrailApplied": bool(rookie_only_guardrail_applied),
@@ -6101,6 +6152,8 @@ async def run(progress_callback=None):
         players_json[name]["_sites"] = comp["sites"]
         players_json[name]["_canonicalSiteValues"] = dict(comp.get("canonicalSiteValues") or {})
         players_json[name]["_marketConfidence"] = comp.get("marketConfidence", 0.5)
+        players_json[name]["_marketBreadthScore"] = comp.get("marketBreadthScore")
+        players_json[name]["_marketAgreementScore"] = comp.get("marketAgreementScore")
         players_json[name]["_marketDispersionCV"] = comp.get("dispersionCV", 0.0)
         players_json[name]["_idpRealMarketSources"] = int(comp.get("idpRealMarketSources", 0) or 0)
         players_json[name]["_rookieOnlyDlfGuardrailApplied"] = bool(

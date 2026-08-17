@@ -356,7 +356,7 @@ planning documents would miss entirely.
 |---|---|---|
 | 3 independent player-identity matchers | `C1-ID-01` | CONSOLIDATE |
 | 7 pick representations, no end-to-end id | `C1-ID-02` | IMPLEMENT |
-| 6 lineup implementations, 2 serving production | `C2-LINE-01` | CONSOLIDATE |
+| 6 lineup implementations, 2 serving production (measured at HEAD: **3**, all 3 serving production) | `C2-LINE-01` | CONSOLIDATE — done, C2-U1 |
 | 5 replacement-level implementations | `C2-REPL-01` | CONSOLIDATE |
 | 4 competing Team Strength notions | `C2-STR-01` | IMPLEMENT |
 | ≥5 need definitions, one contradicting the lineup solve | `C2-WEAK-01` | IMPLEMENT |
@@ -391,7 +391,12 @@ dropped: every branch-side entry either resolved to its canonical identifier or 
 
 # 6. Superseded owner rules
 
-Three, each with the newer instruction winning per `docs/MASTER_PRODUCT_PLAN.md` §2 precedence.
+**Six**, each with the newer instruction winning per `docs/MASTER_PRODUCT_PLAN.md` §2 precedence.
+
+> **Corrected 2026-08-17 (C0-R).** This section listed three and had never been updated for the two
+> Best Trade supersessions recorded in its own §E3 (#841, #841/#842), nor for the meaningful-core
+> supersession established in `docs/C_SERIES_DIRECTIVE_RECONCILIATION_2026-08-17.md` §4.1. The
+> manifest's counts table said five. Both records now say six and enumerate the same six.
 
 1. **Far-future picks may remain unpriced.** `docs/MASTER_PRODUCT_PLAN.md` §4.3 and inventory row 2.8 held that
    valid 2028/2029 picks may stay explicitly unpriced. **Superseded** by the newer owner requirement that every
@@ -405,6 +410,22 @@ Three, each with the newer instruction winning per `docs/MASTER_PRODUCT_PLAN.md`
 3. **`src/news/unified_signal_engine.py` is "the single entry point for every BUY/SELL/HOLD decision."** A
    docstring ownership claim in a module with zero callers, while six other emitters serve production.
    **Superseded** — the claim is retired and a real reconciler is scope. → `C6-SIG-01`.
+
+4. **Best Trade generates player-only packages — `no draft picks`.** **Superseded** by #841: picks are
+   valid when both teams' strategic positions make them mutually beneficial, and are never filler.
+   → `C7-PICKGEN-01`, `C7-BEST-TRADE`. Already recorded in §E3; counted here from 2026-08-17.
+5. **Best Trade requires exactly equal player counts.** **Superseded** by #841/#842: player counts may
+   differ by at most one (`abs(players_A − players_B) <= 1`), and picks do not count as players.
+   → `C3-TOPO-01`, `C7-BEST-TRADE`. Already recorded in §E3; counted here from 2026-08-17.
+6. **Fixed meaningful-roster positional caps** — `QB3/RB3/WR5/TE3/DL5/LB5/DB5`, from
+   `docs/MASTER_PRODUCT_PLAN.md` §4.1, where they are labelled "initial" and explicitly not yet
+   canonical. **Superseded** by addendum **#839** (2026-08-14), which names them and states it replaces
+   them, with one league-config-derived selector: `ceil(1.5 × real starter demand)`, Superflex counted
+   as real QB demand, and regular/IDP FLEX as `ceil(1.5 × real flex slots)` of the highest-valued
+   remaining eligible players, each player counted once. The successor ships as a **V1 champion
+   labelled PRIOR**, not as discovered truth, and carries the calibration policy's 1.25× / 1.50× /
+   1.75× / data-derived challenger pass. → `C2-CORE-01`. Full provenance:
+   `docs/C_SERIES_DIRECTIVE_RECONCILIATION_2026-08-17.md` §4.1.
 
 **One near-miss reconciled rather than superseded:** the Product Backlog Spec §1.6 and §18 describe Minnesota
 Vikings players as "effectively untouchable for the owner's roster", which is broader and vaguer than the newer
@@ -427,7 +448,7 @@ faithfully at a lower resolution. → `C3-CON-02`.
 | **Source entries with no destination** | **0** |
 | Capabilities that existed in exactly one source | ≈134 (38%) — all now on `main` |
 | Duplicate clusters resolved | 4 |
-| Superseded rules | 3 |
+| Superseded rules | 6 (corrected 2026-08-17 — see §6) |
 | External blockers | 3, all one owner decision (`OD-01`) |
 | Owner decisions required | 7 |
 | **Unexplained unmapped** | **0** |

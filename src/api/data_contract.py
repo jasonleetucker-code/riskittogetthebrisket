@@ -27,13 +27,16 @@ from src.canonical.player_valuation import (  # noqa: E402  — grouped with its
     DISPLAY_SCALE_MIN as _CANONICAL_VALUE_MIN,
 )
 from src.data_models.contracts import utc_now_iso
+from src.ros import lineup as lineup_owner
 
 #: B11 — the single owner of "how good is the evidence behind this value".
 #: This module ASSEMBLES the evidence; it decides no confidence level.
 from src.api.confidence import (  # noqa: E402  — grouped with its siblings
+    CONFIDENCE_BASES,
     FamilyEvidence,
     assess_confidence,
     assess_pick_confidence,
+    degrade_for_quarantine,
     gate_parameter as _confidence_gate_parameter,
 )
 
@@ -66,6 +69,42 @@ OFFENSE_TO_IDP_VALIDATION_EXCEPTIONS: frozenset[str] = frozenset(
 
 
 CONTRACT_VERSION = "2026-03-10.v2"
+
+#: Legacy field names still emitted alongside their honest replacements, and
+#: the version at which they stop being emitted.  C1-U5 (`C1-CONF-01`).
+#:
+#: Kept for the deprecation window because a rolling deploy can serve an old
+#: bundle a new payload and vice versa, and because ``exports/archive/*.zip``
+#: is immutable evidence written under the old spellings — archive readers stay
+#: bilingual permanently, which is a different lifetime from these aliases.
+#: An alias is a temporary promise to writers; bilingual reading is a permanent
+#: property of a reader of immutable history.
+DEPRECATED_FIELD_ALIASES: tuple[dict[str, str], ...] = (
+    {
+        "field": "identityConfidence",
+        "replacedBy": "identityResolutionConfidence",
+        "reason": "grades source-row-to-player RESOLUTION, not evidence quality",
+        "since": "2026-08-17",
+        "removeAfterContractVersion": "2026-03-10.v3",
+    },
+    {
+        "field": "identityMethod",
+        "replacedBy": "identityResolutionMethod",
+        "reason": "travels with identityConfidence; renaming one and not the other splits a pair",
+        "since": "2026-08-17",
+        "removeAfterContractVersion": "2026-03-10.v3",
+    },
+    {
+        "field": "marketConfidence",
+        "replacedBy": "marketBreadthAgreementIndex",
+        "reason": (
+            "a bounded site-count x dispersion blend measured to span [0.3252, 0.59375] "
+            "on the live board — it never reaches the top 40% of the 0-1 scale its name implied"
+        ),
+        "since": "2026-08-17",
+        "removeAfterContractVersion": "2026-03-10.v3",
+    },
+)
 
 # ── Unified rankings: blended board from all active sources ──────────────────
 # rank_to_value() is imported from src.canonical.player_valuation — that module
@@ -1100,6 +1139,46 @@ from src.canonical.rank_coordinates import (  # noqa: E402
 # the settings page, frontend registry, and backend all agree on a
 # single canonical value.  Mirror any future change here in
 # ``frontend/lib/dynasty-data.js::RANKING_SOURCES``.
+# ── Game type — C1-SRC-02 ────────────────────────────────────────────
+#
+# **This is a dynasty product, and dynasty eligibility is PROVEN per
+# endpoint rather than inferred from the provider.**  A site that
+# publishes dynasty content is not globally "dynasty": FantasyCalc's
+# same endpoint serves redraft on a different flag, FantasyPros exposes
+# dynasty and weekly as distinct URLs, and DraftSharks publishes ROS
+# boards alongside its dynasty ones.
+#
+# Recorded as a manifest row (`C1-SRC-02`) that read COMPLETE while no
+# field, no gate and no test existed — the property was true of the
+# registered 21 only because each was hand-verified in a COMMENT.  A
+# convention that a new entry can silently violate is not a guarantee,
+# so the vocabulary and the import-time gate below are the first
+# executable form of it.
+#
+# ``docs/MULTI_FORMAT_SOURCE_NORMALIZATION_SPEC.md`` §1.1: "Only
+# ``DYNASTY`` observations are eligible ... ``UNKNOWN/UNVERIFIED`` fails
+# closed and must not be silently accepted."  Non-dynasty values are
+# representable ON PURPOSE — a board we have identified as redraft is a
+# different fact from one nobody has checked, and quarantining the first
+# is only possible if it can be named.
+GAME_TYPE_DYNASTY = "DYNASTY"
+
+#: Closed set.  ``UNKNOWN`` is the default an unproven feed must carry,
+#: and is exactly what the gate refuses — "missing is never zero, and
+#: unverified is never dynasty".
+GAME_TYPES: frozenset[str] = frozenset(
+    {
+        GAME_TYPE_DYNASTY,
+        "REDRAFT",
+        "REST_OF_SEASON",
+        "WEEKLY",
+        "BEST_BALL",
+        "KEEPER",
+        "UNKNOWN",
+    }
+)
+
+
 _RANKING_SOURCES: list[dict[str, Any]] = [
     {
         # KeepTradeCut Superflex + TE Premium board.  KTC publishes both
@@ -1117,6 +1196,14 @@ _RANKING_SOURCES: list[dict[str, Any]] = [
         # finder + per-source winner row on /trade can keep displaying
         # both values side-by-side.  Only the blend vote was removed.
         "key": "ktcSfTep",
+        # C1-SRC-02: DYNASTY is PROVEN per endpoint, never inferred from the
+        # provider being one we otherwise trust.  UNKNOWN fails closed.
+        "game_type": GAME_TYPE_DYNASTY,
+        "game_type_evidence": (
+            "keeptradecut.com dynasty rankings; the SF/TE++ board is served from the same "
+            "dynasty per-player payload (superflexValues) — KTC's redraft product is a "
+            "separate site section and is not fetched"
+        ),
         "display_name": "KeepTradeCut SF-TE++",
         "scope": SOURCE_SCOPE_OVERALL_OFFENSE,
         "position_group": None,
@@ -1142,6 +1229,13 @@ _RANKING_SOURCES: list[dict[str, Any]] = [
         # row sets (offense vs IDP positions), so sourceRanks["idpTradeCalc"]
         # is written exactly once per row.
         "key": "idpTradeCalc",
+        # C1-SRC-02: DYNASTY is PROVEN per endpoint, never inferred from the
+        # provider being one we otherwise trust.  UNKNOWN fails closed.
+        "game_type": GAME_TYPE_DYNASTY,
+        "game_type_evidence": (
+            "idptradecalculator.com dynasty value pool; the calculator is dynasty-only (it "
+            "prices future rookie picks, which a redraft calculator does not)"
+        ),
         "display_name": "IDP Trade Calculator",
         "scope": SOURCE_SCOPE_OVERALL_IDP,
         "extra_scopes": [SOURCE_SCOPE_OVERALL_OFFENSE],
@@ -1189,6 +1283,13 @@ _RANKING_SOURCES: list[dict[str, Any]] = [
         # preventing false 1-src flags on fringe offense players
         # that DLF SF was never going to list.
         "key": "dlfSf",
+        # C1-SRC-02: DYNASTY is PROVEN per endpoint, never inferred from the
+        # provider being one we otherwise trust.  UNKNOWN fails closed.
+        "game_type": GAME_TYPE_DYNASTY,
+        "game_type_evidence": (
+            "dynastyleaguefootball.com Dynasty Superflex expert-consensus board — DLF's "
+            "product name and board header both state Dynasty"
+        ),
         "correlation_group": "dlf",
         "display_name": "Dynasty League Football Superflex",
         "scope": SOURCE_SCOPE_OVERALL_OFFENSE,
@@ -1227,6 +1328,12 @@ _RANKING_SOURCES: list[dict[str, Any]] = [
         # weight scales contribution down so the rookie board never
         # overwhelms the veteran-rich retail/expert blend.
         "key": "dlfRookieSf",
+        # C1-SRC-02: DYNASTY is PROVEN per endpoint, never inferred from the
+        # provider being one we otherwise trust.  UNKNOWN fails closed.
+        "game_type": GAME_TYPE_DYNASTY,
+        "game_type_evidence": (
+            "DLF Dynasty Rookie Superflex — a rookie board only exists as a dynasty product"
+        ),
         "correlation_group": "dlf",
         "display_name": "Dynasty League Football Rookie SF",
         "scope": SOURCE_SCOPE_OVERALL_OFFENSE,
@@ -1270,6 +1377,12 @@ _RANKING_SOURCES: list[dict[str, Any]] = [
         # the best IDP in the shared market (typically ~30-50), which
         # correctly calibrates DLF against the retail offense market.
         "key": "dlfIdp",
+        # C1-SRC-02: DYNASTY is PROVEN per endpoint, never inferred from the
+        # provider being one we otherwise trust.  UNKNOWN fails closed.
+        "game_type": GAME_TYPE_DYNASTY,
+        "game_type_evidence": (
+            "DLF Dynasty IDP full-board expert consensus; board header states Dynasty"
+        ),
         "correlation_group": "dlf",
         "display_name": "Dynasty League Football IDP",
         "scope": SOURCE_SCOPE_OVERALL_IDP,
@@ -1302,6 +1415,12 @@ _RANKING_SOURCES: list[dict[str, Any]] = [
         # translated against IDPTC's ladder.  depth=50 matches the
         # typical export size.
         "key": "dlfRookieIdp",
+        # C1-SRC-02: DYNASTY is PROVEN per endpoint, never inferred from the
+        # provider being one we otherwise trust.  UNKNOWN fails closed.
+        "game_type": GAME_TYPE_DYNASTY,
+        "game_type_evidence": (
+            "DLF Dynasty Rookie IDP — rookie-only defensive board, a dynasty-only product"
+        ),
         "correlation_group": "dlf",
         "display_name": "Dynasty League Football Rookie IDP",
         "scope": SOURCE_SCOPE_OVERALL_IDP,
@@ -1333,6 +1452,14 @@ _RANKING_SOURCES: list[dict[str, Any]] = [
         # rank and let the shared-market translator convert to the
         # combined-pool for Hill-curve input.
         "key": "idpShow",
+        # C1-SRC-02: DYNASTY is PROVEN per endpoint, never inferred from the
+        # provider being one we otherwise trust.  UNKNOWN fails closed.
+        "game_type": GAME_TYPE_DYNASTY,
+        "game_type_evidence": (
+            "theidpshow.com/p/idp-dynasty-rankings — the endpoint path itself is the "
+            "dynasty board, and the publisher's redraft/weekly output lives at separate "
+            "posts that are not fetched"
+        ),
         "display_name": "The IDP Show (Adamidp)",
         "column_label": "IDP Show",
         "scope": SOURCE_SCOPE_OVERALL_IDP,
@@ -1366,6 +1493,13 @@ _RANKING_SOURCES: list[dict[str, Any]] = [
         # rows; ``_expected_sources_for_position`` multiplies this by
         # 1.25 so DN is not expected for players deeper than ~375.
         "key": "dynastyNerdsSfTep",
+        # C1-SRC-02: DYNASTY is PROVEN per endpoint, never inferred from the
+        # provider being one we otherwise trust.  UNKNOWN fails closed.
+        "game_type": GAME_TYPE_DYNASTY,
+        "game_type_evidence": (
+            "dynastynerds.com/dynasty-rankings/sf-tep/ — dynasty rankings section; Nerds' "
+            "redraft content is a different route"
+        ),
         "display_name": "Dynasty Nerds SF-TEP",
         "scope": SOURCE_SCOPE_OVERALL_OFFENSE,
         "position_group": None,
@@ -1409,6 +1543,13 @@ _RANKING_SOURCES: list[dict[str, Any]] = [
         # frontend ``settings.tepMultiplier`` boost applies to its
         # blended contribution like Dynasty Daddy SF or FlockFantasy.
         "key": "fantasyCalc",
+        # C1-SRC-02: DYNASTY is PROVEN per endpoint, never inferred from the
+        # provider being one we otherwise trust.  UNKNOWN fails closed.
+        "game_type": GAME_TYPE_DYNASTY,
+        "game_type_evidence": (
+            "api.fantasycalc.com/values/current fetched with isDynasty=true; the same "
+            "endpoint serves redraft when that flag is false, so the flag is the proof"
+        ),
         "display_name": "FantasyCalc Dynasty SF",
         "scope": SOURCE_SCOPE_OVERALL_OFFENSE,
         "position_group": None,
@@ -1434,6 +1575,13 @@ _RANKING_SOURCES: list[dict[str, Any]] = [
         # the frontend ``settings.tepMultiplier`` boost applies to its
         # blended contribution.
         "key": "otcffbSf",
+        # C1-SRC-02: DYNASTY is PROVEN per endpoint, never inferred from the
+        # provider being one we otherwise trust.  UNKNOWN fails closed.
+        "game_type": GAME_TYPE_DYNASTY,
+        "game_type_evidence": (
+            "otcffb.com/api/trade-values?format=sf — OTC publishes dynasty trade values; "
+            "the format parameter selects superflex, not game type"
+        ),
         "display_name": "OTC Fantasy Football SF",
         "scope": SOURCE_SCOPE_OVERALL_OFFENSE,
         "position_group": None,
@@ -1468,6 +1616,13 @@ _RANKING_SOURCES: list[dict[str, Any]] = [
         # Pinning depth to raw rows (780) would stamp "expected but
         # did not match" on ~500 rows — the item-10 noise class.
         "key": "fantasyNavigatorSf",
+        # C1-SRC-02: DYNASTY is PROVEN per endpoint, never inferred from the
+        # provider being one we otherwise trust.  UNKNOWN fails closed.
+        "game_type": GAME_TYPE_DYNASTY,
+        "game_type_evidence": (
+            "fantasy-navigator-latest.onrender.com/ranks?platform=sf — Fantasy Navigator's "
+            "dynasty board"
+        ),
         "display_name": "Fantasy Navigator SF",
         "scope": SOURCE_SCOPE_OVERALL_OFFENSE,
         "position_group": None,
@@ -1501,6 +1656,12 @@ _RANKING_SOURCES: list[dict[str, Any]] = [
         # live canonical-match count (472 of 496 offensive rows at
         # integration).
         "key": "pfkDynasty",
+        # C1-SRC-02: DYNASTY is PROVEN per endpoint, never inferred from the
+        # provider being one we otherwise trust.  UNKNOWN fails closed.
+        "game_type": GAME_TYPE_DYNASTY,
+        "game_type_evidence": (
+            "Play for Keeps pfk_dynasty_rankings Supabase table — the table name is the " "product"
+        ),
         "display_name": "Play for Keeps Dynasty",
         "scope": SOURCE_SCOPE_OVERALL_OFFENSE,
         "position_group": None,
@@ -1530,6 +1691,12 @@ _RANKING_SOURCES: list[dict[str, Any]] = [
         # TE premium baked in.  The frontend ``settings.tepMultiplier``
         # boost applies to its blended contribution.
         "key": "dynastyDaddySf",
+        # C1-SRC-02: DYNASTY is PROVEN per endpoint, never inferred from the
+        # provider being one we otherwise trust.  UNKNOWN fails closed.
+        "game_type": GAME_TYPE_DYNASTY,
+        "game_type_evidence": (
+            "dynasty-daddy.com/api/v1/player/all/today — Dynasty Daddy is a dynasty-only " "product"
+        ),
         "display_name": "Dynasty Daddy Superflex",
         "scope": SOURCE_SCOPE_OVERALL_OFFENSE,
         "position_group": None,
@@ -1562,6 +1729,13 @@ _RANKING_SOURCES: list[dict[str, Any]] = [
         # ``settings.tepMultiplier`` boost applies to its blended
         # contribution.
         "key": "fantasyProsSf",
+        # C1-SRC-02: DYNASTY is PROVEN per endpoint, never inferred from the
+        # provider being one we otherwise trust.  UNKNOWN fails closed.
+        "game_type": GAME_TYPE_DYNASTY,
+        "game_type_evidence": (
+            "fantasypros.com/nfl/rankings/dynasty-superflex.php — FantasyPros exposes "
+            "dynasty and redraft as distinct URLs; this is the dynasty one"
+        ),
         "correlation_group": "fantasyPros",
         "display_name": "FantasyPros Dynasty Superflex",
         "scope": SOURCE_SCOPE_OVERALL_OFFENSE,
@@ -1590,6 +1764,13 @@ _RANKING_SOURCES: list[dict[str, Any]] = [
         # ``_expected_sources_for_position`` not to expect this
         # source for players ranked deeper than ~125 (depth * 1.25).
         "key": "fantasyProsIdp",
+        # C1-SRC-02: DYNASTY is PROVEN per endpoint, never inferred from the
+        # provider being one we otherwise trust.  UNKNOWN fails closed.
+        "game_type": GAME_TYPE_DYNASTY,
+        "game_type_evidence": (
+            "fantasypros.com/nfl/rankings/dynasty-idp.php — the dynasty IDP URL, distinct "
+            "from FantasyPros' weekly IDP route"
+        ),
         "correlation_group": "fantasyPros",
         "display_name": "FantasyPros Dynasty IDP",
         "scope": SOURCE_SCOPE_OVERALL_IDP,
@@ -1636,6 +1817,13 @@ _RANKING_SOURCES: list[dict[str, Any]] = [
         # TE premium directly via the TEP Value column, so the global
         # TEP multiplier MUST NOT compound.
         "key": "fantasyProsFitzmaurice",
+        # C1-SRC-02: DYNASTY is PROVEN per endpoint, never inferred from the
+        # provider being one we otherwise trust.  UNKNOWN fails closed.
+        "game_type": GAME_TYPE_DYNASTY,
+        "game_type_evidence": (
+            "FantasyPros Pat Fitzmaurice DYNASTY trade value chart — the chart is titled "
+            "Dynasty and is published separately from his redraft chart"
+        ),
         "correlation_group": "fantasyPros",
         "display_name": "FantasyPros / Pat Fitzmaurice SF-TEP",
         "column_label": "Fitzmaurice",
@@ -1656,6 +1844,10 @@ _RANKING_SOURCES: list[dict[str, Any]] = [
         # `settings.tepMultiplier` boost applies to its blended
         # contribution for TE-position players.
         "key": "flockFantasySf",
+        # C1-SRC-02: DYNASTY is PROVEN per endpoint, never inferred from the
+        # provider being one we otherwise trust.  UNKNOWN fails closed.
+        "game_type": GAME_TYPE_DYNASTY,
+        "game_type_evidence": ("flockfantasy.com dynasty superflex expert consensus"),
         "correlation_group": "flockFantasy",
         "display_name": "Flock Fantasy Superflex",
         "scope": SOURCE_SCOPE_OVERALL_OFFENSE,
@@ -1686,6 +1878,13 @@ _RANKING_SOURCES: list[dict[str, Any]] = [
         # rookie pick tethering pass (Phase 11) blends Flock's rookie
         # values into picks via the merged rookie pool.
         "key": "flockFantasySfRookies",
+        # C1-SRC-02: DYNASTY is PROVEN per endpoint, never inferred from the
+        # provider being one we otherwise trust.  UNKNOWN fails closed.
+        "game_type": GAME_TYPE_DYNASTY,
+        "game_type_evidence": (
+            "Flock Fantasy dynasty superflex ROOKIE board — a rookie board is a "
+            "dynasty-only product"
+        ),
         "correlation_group": "flockFantasy",
         "display_name": "Flock Fantasy Rookie SF",
         "scope": SOURCE_SCOPE_OVERALL_OFFENSE,
@@ -1725,6 +1924,13 @@ _RANKING_SOURCES: list[dict[str, Any]] = [
         # multiplies this by 1.25 so YAHOO_BOONE is not expected for
         # players ranked deeper than ~625.
         "key": "yahooBoone",
+        # C1-SRC-02: DYNASTY is PROVEN per endpoint, never inferred from the
+        # provider being one we otherwise trust.  UNKNOWN fails closed.
+        "game_type": GAME_TYPE_DYNASTY,
+        "game_type_evidence": (
+            "Yahoo / Justin Boone DYNASTY trade value charts — published as dynasty, "
+            "separate from his redraft rankings"
+        ),
         "display_name": "Yahoo / Justin Boone SF-TEP",
         "scope": SOURCE_SCOPE_OVERALL_OFFENSE,
         "position_group": None,
@@ -1761,6 +1967,14 @@ _RANKING_SOURCES: list[dict[str, Any]] = [
         # non-TEP multiplier — which inflated every TE's DS
         # contribution and pushed top TEs like Brock Bowers too high.)
         "key": "draftSharks",
+        # C1-SRC-02: DYNASTY is PROVEN per endpoint, never inferred from the
+        # provider being one we otherwise trust.  UNKNOWN fails closed.
+        "game_type": GAME_TYPE_DYNASTY,
+        "game_type_evidence": (
+            "draftsharks.com/dynasty-rankings/te-premium-superflex — the dynasty-rankings "
+            "route; DS's ROS boards are a different route and are deliberately NOT "
+            "registered (see draftSharksRosSf.csv, unregistered)"
+        ),
         "correlation_group": "draftSharks",
         "display_name": "Draft Sharks Dynasty",
         "scope": SOURCE_SCOPE_OVERALL_OFFENSE,
@@ -1800,6 +2014,12 @@ _RANKING_SOURCES: list[dict[str, Any]] = [
         # 2026 baseline.  depth=400 because IDP depth in the DS
         # export is smaller than offense.
         "key": "draftSharksIdp",
+        # C1-SRC-02: DYNASTY is PROVEN per endpoint, never inferred from the
+        # provider being one we otherwise trust.  UNKNOWN fails closed.
+        "game_type": GAME_TYPE_DYNASTY,
+        "game_type_evidence": (
+            "same draftsharks.com dynasty-rankings page as draftSharks, IDP slice of the " "one DOM"
+        ),
         "correlation_group": "draftSharks",
         "display_name": "Draft Sharks IDP Dynasty",
         "scope": SOURCE_SCOPE_OVERALL_IDP,
@@ -2300,6 +2520,10 @@ def get_ranking_source_registry() -> list[dict[str, Any]]:
             "isBackbone": bool(src.get("is_backbone")),
             "isRetail": bool(src.get("is_retail")),
             "isTepPremium": bool(src.get("is_tep_premium")),
+            # C1-SRC-02: exported so a consumer can CHECK the claim
+            # rather than trust the registry silently.
+            "gameType": src.get("game_type"),
+            "gameTypeEvidence": src.get("game_type_evidence"),
             "isRankSignal": bool(src.get("is_rank_signal")),
             "needsSharedMarketTranslation": bool(src.get("needs_shared_market_translation")),
             "excludesRookies": bool(src.get("excludes_rookies")),
@@ -3560,6 +3784,14 @@ def _validate_and_quarantine_rows(
     # ── Check 6: Identity confidence + quarantine degradation ──
     for idx, row in enumerate(players_array):
         ic_score, ic_method = _compute_identity_confidence(row)
+        # C1-U5: these grade how confidently a SOURCE ROW resolved to this
+        # player — join quality, not evidence quality. Published beside
+        # ``confidenceBucket`` under a name a reader cannot tell apart from
+        # it, which is the confusion this rename removes. Legacy keys keep
+        # their exact values for the deprecation window declared in
+        # ``meta.deprecations``.
+        row["identityResolutionConfidence"] = ic_score
+        row["identityResolutionMethod"] = ic_method
         row["identityConfidence"] = ic_score
         row["identityMethod"] = ic_method
 
@@ -3572,8 +3804,10 @@ def _validate_and_quarantine_rows(
             # Degrade confidence bucket — never promote, only degrade
             current_bucket = row.get("confidenceBucket") or "none"
             if current_bucket in ("high", "medium"):
-                row["confidenceBucket"] = "low"
-                row["confidenceLabel"] = "Low — quarantined due to identity/data-quality flags"
+                bucket, label, basis = degrade_for_quarantine(current_bucket)
+                row["confidenceBucket"] = bucket
+                row["confidenceLabel"] = label
+                row["confidenceBasis"] = basis
         else:
             row["quarantined"] = False
 
@@ -3616,6 +3850,8 @@ _TRUST_MIRROR_FIELDS = (
     "marketGapValueRatio",
     "identityConfidence",
     "identityMethod",
+    "identityResolutionConfidence",
+    "identityResolutionMethod",
     "quarantined",
     "sourceAudit",
     "sourceOriginalRanks",
@@ -4929,6 +5165,13 @@ def current_rookie_draft_year(today: date | None = None) -> int:
          cold start with no scrape available, or in tests.
 
     ``today`` is injectable for deterministic tests.
+
+    **This function answers a PRESENT-TENSE question.**  Steps 1 and 2
+    describe which draft is current *now* and are deliberately
+    clock-independent, so passing a historical ``today`` does NOT make
+    this an as-of resolver — the override or the observed year still
+    wins.  For "which draft was current on some past date", call
+    :func:`rookie_draft_year_on`, which is step 3 on its own.
     """
     cfg = _load_pick_year_discount()
     override = cfg.get("currentDraftYear")
@@ -4941,11 +5184,32 @@ def current_rookie_draft_year(today: date | None = None) -> int:
         return _OBSERVED_CURRENT_DRAFT_YEAR
     if today is None:
         today = datetime.now(timezone.utc).date()
+    return rookie_draft_year_on(today)
+
+
+def rookie_draft_year_on(day: date) -> int:
+    """Which rookie draft was current on ``day`` — the AS-OF form.
+
+    Step 3 of :func:`current_rookie_draft_year`, factored out so a
+    historical caller has one to call.  The configured
+    ``(rolloverMonth, rolloverDay)`` boundary is applied to the given
+    date and nothing else is consulted: the ``currentDraftYear`` override
+    and the observed-year self-roll both describe the PRESENT, and
+    applying either to a past instant would re-grade an old event under
+    today's clock.
+
+    Extracted for ``src/acquisition``'s at-the-time cost basis
+    (``C3-REPLAY-01`` class).  It lives here rather than there because a
+    second copy of the rollover rule is a second answer — the first cut
+    of that consumer reimplemented it and silently dropped the config
+    override.
+    """
+    cfg = _load_pick_year_discount()
     roll_m = int(cfg.get("rolloverMonth") or 5)
     roll_d = int(cfg.get("rolloverDay") or 15)
-    if (today.month, today.day) >= (roll_m, roll_d):
-        return today.year + 1
-    return today.year
+    if (day.month, day.day) >= (roll_m, roll_d):
+        return day.year + 1
+    return day.year
 
 
 def _pick_year_from_name(name: str) -> int | None:
@@ -5297,6 +5561,7 @@ def _restate_confidence_after_override(
         )
         row["confidenceBucket"] = assessment.overall
         row["confidenceLabel"] = assessment.label
+        row["confidenceBasis"] = "evidence_gate"
         row["confidenceAxes"] = dict(assessment.axes)
         row["confidenceReasons"] = list(assessment.reasons)
         restated.append(str(row.get("canonicalName") or row.get("displayName") or row_idx))
@@ -5910,6 +6175,83 @@ def _value_is_in_declared_range(source_key: str, raw_f: float) -> bool:
     return 0.0 <= raw_f <= ceiling
 
 
+def _validate_source_game_types_invariant(
+    sources: list[dict[str, Any]] | None = None,
+) -> None:
+    """Module-import safety rail: **every voting source must be PROVEN
+    dynasty** (``C1-SRC-02``).
+
+    Refuses, with the offending keys named:
+
+    * a source declaring no ``game_type`` at all — silence is not
+      consent, and defaulting an unlabelled feed to DYNASTY is the exact
+      inference the spec forbids;
+    * a ``game_type`` outside :data:`GAME_TYPES`;
+    * any value other than ``DYNASTY`` — including ``UNKNOWN``, which is
+      the whole point: *unverified is never dynasty*;
+    * a declaration with no ``game_type_evidence``, because a label
+      nobody can re-check is the comment this replaced.
+
+    Raising at IMPORT is deliberate. The alternative — filtering the
+    offender out of the blend — would let a redraft board sit in the
+    registry looking registered while quietly not voting, and the next
+    reader would have to run the pipeline to find out which sources are
+    real. A registry that cannot be trusted by reading it is the
+    condition this unit exists to end.
+
+    ``sources`` is injectable so the gate can be exercised against a
+    rogue entry without mutating the live registry.
+    """
+    registry = _RANKING_SOURCES if sources is None else sources
+
+    undeclared: list[str] = []
+    unknown_value: list[tuple[str, Any]] = []
+    not_dynasty: list[tuple[str, Any]] = []
+    unevidenced: list[str] = []
+
+    for src in registry:
+        key = str(src.get("key") or "<unnamed>")
+        declared = src.get("game_type")
+        if not declared:
+            undeclared.append(key)
+            continue
+        if declared not in GAME_TYPES:
+            unknown_value.append((key, declared))
+            continue
+        if declared != GAME_TYPE_DYNASTY:
+            not_dynasty.append((key, declared))
+            continue
+        if not str(src.get("game_type_evidence") or "").strip():
+            unevidenced.append(key)
+
+    problems: list[str] = []
+    if undeclared:
+        problems.append(
+            f"declare no game_type: {undeclared}. A source that votes on dynasty value "
+            f"without saying it IS dynasty is trusted for who published it."
+        )
+    if unknown_value:
+        problems.append(
+            f"declare a game_type outside GAME_TYPES: {unknown_value}. "
+            f"Valid: {sorted(GAME_TYPES)}"
+        )
+    if not_dynasty:
+        problems.append(
+            f"are not DYNASTY: {not_dynasty}. This is a dynasty product; a redraft, ROS, "
+            f"weekly, best-ball or UNVERIFIED board may not price a dynasty asset. "
+            f"Archive it if you want the data, but do not register it for voting."
+        )
+    if unevidenced:
+        problems.append(
+            f"declare DYNASTY with no game_type_evidence: {unevidenced}. Record HOW it "
+            f"was established — endpoint semantics, an explicit provider label, a page "
+            f"control — so the claim is re-checkable."
+        )
+
+    if problems:
+        raise ValueError("C1-SRC-02 game-type gate: " + " | ".join(problems))
+
+
 def _validate_value_based_sources_invariant() -> None:
     """Module-import safety rail: every source registered for VOTING
     in ``_RANKING_SOURCES`` whose CSV signal is ``value`` must either
@@ -5963,6 +6305,7 @@ def _validate_value_based_sources_invariant() -> None:
 # Fire the safety rail at import time — misconfigured registries
 # fail the server boot rather than silently routing a value source
 # through the Hill curve.
+_validate_source_game_types_invariant()
 _validate_value_based_sources_invariant()
 
 
@@ -6126,6 +6469,9 @@ def _suppress_generic_pick_tiers_when_slots_exist(
         row["canonicalTierId"] = None
         row["confidenceBucket"] = "none"
         row["confidenceLabel"] = "None — generic tier suppressed in favor of slot-specific picks"
+        # The value is cleared two lines up, so this row is genuinely unpriced —
+        # a different statement from "priced, but nothing assessed it".
+        row["confidenceBasis"] = "unpriced"
         row["pickGenericSuppressed"] = True
         # Drop quarantine / single-source flags so the suppressed row
         # cannot accidentally trip the launch-readiness 1-src gate.
@@ -6637,86 +6983,42 @@ def _anchor_current_year_picks_to_rookies(
         # the cutoff, squeezing tail R4 picks off the bottom.
         row["rankDerivedValue"] = anchor_val
         row["pickRookieAnchor"] = anchor.get("canonicalName")
+        # C1-U5: when this pass prices a row that neither assessment pass
+        # reached, it owns the confidence statement too — otherwise the row
+        # keeps the constructor's placeholder and reads as "unranked and
+        # therefore unconfident" when the truth is "tethered to a real
+        # rookie value, with no pick market of its own". Measured: 24 rows,
+        # all round-5/6 slots, which are the ones no pick market prices.
+        #
+        # Scoped to UNASSESSED rows deliberately. This pass anchors all 72
+        # current-year slots, and the other 48 were already assessed by the
+        # dispersion rule. Restamping those would downgrade real pick-market
+        # confidence to a derivation label — a methodology change, not a
+        # naming migration, and out of scope for C1-U5. That the tether
+        # overwrites a value whose confidence was measured from the pick
+        # market is a real question; it is recorded as a follow-up rather
+        # than decided quietly here.
+        if not row.get("confidenceBasis") or row.get("confidenceBasis") in (
+            "unpriced",
+            "no_evidence",
+        ):
+            row["confidenceBucket"] = "low"
+            row["confidenceLabel"] = (
+                "Low — tethered to the rookie at this slot (no direct pick market)"
+            )
+            row["confidenceBasis"] = "derived_rookie_tether"
+            row["confidenceAxes"] = None
+            row["confidenceReasons"] = None
         anchored += 1
     return anchored
 
 
-def _compute_pick_confidence(
-    canonical_sites: dict[str, Any],
-    is_slot_specific: bool,
-) -> tuple[str, str]:
-    """Compute (confidenceBucket, confidenceLabel) for a pick row.
-
-    Pick confidence is rank-spread agnostic: for picks the meaningful
-    signal is whether multiple raw source values agree on the pick's
-    dollar value, not whether the source ordinal ranks line up (rank
-    spread on picks is dominated by flat-value regions in R3-R6 and
-    misleads the player-centric bucketing).
-
-    Rules:
-      * Effective source count: count raw values > 0.  KTC slot values
-        on slot-specific picks are SYNTHESIZED by Dynasty Scraper's
-        ``_estimate_slot_from_tier`` from KTC's 14 tier rows — they
-        carry partial information so we count them at 0.5 instead of
-        1.0.  KTC tier-row picks (e.g. 2026 Early 1st) are real KTC
-        rows and count at 1.0.
-      * Coefficient of variation: cv = stdev(raw_values) / mean.
-      * Bucketing:
-          high   — effective count >= 1.5 AND cv <= 0.15
-          medium — effective count >= 1.0 AND cv <= 0.30
-          low    — otherwise
-    """
-    raw_values: list[tuple[str, float]] = []
-    for key in (
-        "ktcSfTep",
-        "idpTradeCalc",
-        "dlfSf",
-        "dynastyNerdsSfTep",
-        "dlfIdp",
-        "fantasyProsIdp",
-    ):
-        v = canonical_sites.get(key)
-        if v is None:
-            continue
-        try:
-            f = float(v)
-        except (TypeError, ValueError):
-            continue
-        if f > 0:
-            raw_values.append((key, f))
-
-    if not raw_values:
-        return "none", "None — no pick source values"
-
-    # KTC slot values on specific slots are partial evidence (the
-    # underlying KTC pick board is the same whether we read its
-    # standard or TE+ flavor — picks aren't TE-position-sensitive).
-    effective_count = 0.0
-    for key, _v in raw_values:
-        if key == "ktcSfTep" and is_slot_specific:
-            effective_count += 0.5
-        else:
-            effective_count += 1.0
-
-    values = [v for _k, v in raw_values]
-    mean = sum(values) / len(values)
-    if mean <= 0 or len(values) < 2:
-        cv = None
-    else:
-        var = sum((v - mean) ** 2 for v in values) / len(values)
-        cv = math.sqrt(var) / mean
-
-    if cv is None:
-        # Single-source pick — no agreement signal at all.
-        if effective_count >= 1.0:
-            return "low", "Low — single pick source"
-        return "low", "Low — limited pick sources"
-
-    if effective_count >= 1.5 and cv <= 0.15:
-        return "high", "High — picks agree within 15%"
-    if effective_count >= 1.0 and cv <= 0.30:
-        return "medium", "Medium — moderate pick source disagreement"
-    return "low", "Low — divergent pick sources"
+# ``_compute_pick_confidence`` lived here until C1-U5 and was imported BACK
+# into ``src/api/confidence.py`` — the declared canonical owner reaching into
+# its own consumer.  The rule now lives at the owner as
+# ``confidence._pick_confidence_from_values``, arithmetic unchanged.  Call
+# ``confidence.assess_pick_confidence`` instead; do not re-add a pick
+# confidence rule to this module.
 
 
 def _apply_pick_year_discount_to_blend(
@@ -6802,10 +7104,14 @@ def _build_generic_pick_row(name: str, value: int) -> dict[str, Any]:
         "sourceCount": 0,
         "sourcePresence": {},
         "marketConfidence": None,
+        "marketBreadthAgreementIndex": None,
+        "marketBreadthScore": None,
+        "marketAgreementScore": None,
         "marketDispersionCV": None,
         "legacyRef": name,
         "confidenceBucket": "low",
         "confidenceLabel": "Low — derived from tier values (no direct market row)",
+        "confidenceBasis": "derived_tier_values",
         "confidenceAxes": None,
         "confidenceReasons": None,
         "anomalyFlags": [],
@@ -6842,6 +7148,8 @@ def _build_generic_pick_row(name: str, value: int) -> dict[str, Any]:
         "marketGapValueRatio": None,
         "identityConfidence": None,
         "identityMethod": None,
+        "identityResolutionConfidence": None,
+        "identityResolutionMethod": None,
         "rankDerivedValue": int(value),
     }
 
@@ -6946,6 +7254,7 @@ def _complete_future_pick_values(
                 row["rankDerivedValue"] = value
                 row["confidenceBucket"] = "low"
                 row["confidenceLabel"] = "Low — derived from the same year's nearest priced round"
+                row["confidenceBasis"] = "derived_round_step"
                 row["confidenceAxes"] = None
                 row["confidenceReasons"] = None
                 prov: dict[str, Any] = {
@@ -7010,6 +7319,7 @@ def _complete_future_pick_values(
                 row["rankDerivedValue"] = value
                 row["confidenceBucket"] = "low"
                 row["confidenceLabel"] = "Low — derived from tier values (no direct market row)"
+                row["confidenceBasis"] = "derived_tier_values"
             prov = {
                 "class": "derived_uniform_tier_ev",
                 "family": "uniform_tier_ev_v1",
@@ -9053,6 +9363,7 @@ def _compute_unified_rankings(
         # R3-R6 and KTC's per-slot synth bleeds in as fake agreement.
         # Family-aware since B11 — see ``assess_pick_confidence``.
         if row.get("assetClass") == "pick":
+            basis = "pick_dispersion"
             is_slot_specific = _parse_pick_slot(row.get("canonicalName") or "") is not None
             bucket, label = assess_pick_confidence(
                 row.get("canonicalSiteValues") or {},
@@ -9110,6 +9421,7 @@ def _compute_unified_rankings(
                 evidence,
                 row_eligible_families.get(row_idx, set()),
             )
+            basis = "evidence_gate"
             assessment = assess_confidence(
                 evidence,
                 eligible_families=row_eligible_families.get(row_idx, set()),
@@ -9129,6 +9441,7 @@ def _compute_unified_rankings(
             # in-process auditors.
         row["confidenceBucket"] = bucket
         row["confidenceLabel"] = label
+        row["confidenceBasis"] = basis
 
         audit = row.get("sourceAudit") or {}
         row["anomalyFlags"] = _compute_anomaly_flags(
@@ -9217,6 +9530,7 @@ def _compute_unified_rankings(
         )
         row["confidenceBucket"] = bucket
         row["confidenceLabel"] = label
+        row["confidenceBasis"] = "pick_dispersion"
         row["confidenceAxes"] = None
         row["confidenceReasons"] = None
         legacy_ref = row.get("legacyRef")
@@ -9822,13 +10136,28 @@ def _derive_player_row(
         "rawSourceValues": _raw_source_values(p_data),
         "sourceCount": source_count,
         "sourcePresence": {k: (v is not None and v > 0) for k, v in canonical_sites.items()},
+        # C1-U5: a bounded ``site_score*0.65 + cv_score*0.35`` blend of
+        # source COUNT and DISPERSION, measured on the live board to span
+        # [0.3252, 0.59375] — it never reaches the top 40% of the 0-1 scale
+        # its old name implied. Renamed to what it measures, with the two
+        # halves the scraper already computes now published instead of
+        # discarded, and the ceiling stamped so the number cannot be read
+        # as a confidence.
+        "marketBreadthAgreementIndex": _safe_num(p_data.get("_marketConfidence")),
+        "marketBreadthScore": _safe_num(p_data.get("_marketBreadthScore")),
+        "marketAgreementScore": _safe_num(p_data.get("_marketAgreementScore")),
         "marketConfidence": _safe_num(p_data.get("_marketConfidence")),
         "marketDispersionCV": _safe_num(p_data.get("_marketDispersionCV")),
         "legacyRef": canonical_name,
         # Trust/transparency defaults — overwritten by _compute_unified_rankings
         # for players that receive a unified rank.
+        # The owner decides what an unassessed row says. This default is
+        # what 24 PRICED rows wore before C1-U5, because
+        # ``_anchor_current_year_picks_to_rookies`` priced them after both
+        # assessment passes had skipped them and wrote no confidence field.
         "confidenceBucket": "none",
         "confidenceLabel": "None — unranked",
+        "confidenceBasis": "unpriced",
         "anomalyFlags": [],
         "isSingleSource": False,
         "isStructurallySingleSource": False,
@@ -9867,6 +10196,8 @@ def _derive_player_row(
         # Identity quality — overwritten by _validate_and_quarantine_rows
         "identityConfidence": 0.70,
         "identityMethod": "name_only",
+        "identityResolutionConfidence": 0.70,
+        "identityResolutionMethod": "name_only",
         "quarantined": False,
     }
 
@@ -10494,6 +10825,21 @@ def build_api_data_contract(
     contract_payload: dict[str, Any] = {
         **base,
         "contractVersion": CONTRACT_VERSION,
+        # C1-U5: the contract states its own deprecations, machine-readably.
+        #
+        # ``CONTRACT_VERSION`` deliberately does NOT bump here: this change is
+        # ADDITIVE — every legacy key still carries its exact former value —
+        # and a version bump for an additive change trains consumers to ignore
+        # version bumps. It bumps when the aliases are REMOVED, which is the
+        # breaking half.
+        #
+        # This block is what a removal is checked against, and what
+        # ``tests/api/test_confidence_rename_aliases.py`` pins in three
+        # directions at once: declaring an alias that is not emitted, emitting
+        # one that is not declared, and either drifting from the frozen literal
+        # all fail. An undeclared alias is how a "temporary" dual-write becomes
+        # permanent.
+        "deprecations": DEPRECATED_FIELD_ALIASES,
         "generatedAt": generated_at,
         # The resolved active rookie-draft year (offset-0, no-penalty
         # class).  Self-rolls with the scrape; serialized so frontend
@@ -10534,7 +10880,164 @@ def build_api_data_contract(
     # contract so they don't leak into the public payload.
     for row in players_array:
         row.pop("_positionFromSleeperOnly", None)
+    stamp_optimal_lineups(contract_payload)
     return contract_payload
+
+
+def stamp_optimal_lineups(
+    contract: dict[str, Any],
+    *,
+    rows: list[dict[str, Any]] | None = None,
+) -> None:
+    """Stamp each team's optimal starting lineup onto ``sleeper.teams``.
+
+    **The server assigns; the client renders** (C2-U1).  This is the
+    same posture ``canonicalConsensusRank`` already establishes for
+    ranks, and for the same reason: ``frontend/lib/starter-slots.js``
+    was an independent two-pass greedy that reproduced Sleeper's own
+    awarded lineup on 5 of 10 real team-weeks.  Correct eligibility data
+    would not have fixed it — 16.13 of its 50.14 missing points were the
+    ALGORITHM — so the repair is to stop computing the answer in two
+    places, not to ship better inputs to the wrong one.
+
+    League-scoped by construction: it hangs off ``sleeper.teams``, which
+    ``LEAGUE_SPECIFIC_SLEEPER_FIELDS`` already governs, so a shared-
+    rankings response with ``sleeper: null`` carries no lineup either.
+
+    Degrades, never raises.  A team we cannot solve gets
+    ``available: false`` with a reason, because "we do not know this
+    league's lineup" and "this team starts nobody" must not render the
+    same.
+
+    **Call this again after anything replaces ``sleeper.teams``.**
+    ``/api/data`` splices a live Sleeper overlay over the baked block
+    (``server.py``), and the overlay rebuilds ``teams`` from scratch —
+    so the stamp taken at build time is discarded on the normal serving
+    path unless it is re-taken.  Re-solving rather than copying is the
+    correct repair, and not merely the convenient one: the overlay's
+    rosters are FRESHER, so a copied lineup could start a player who was
+    dropped ten minutes ago.
+
+    ``rows`` supplies the value source explicitly, because some payload
+    views strip ``playersArray`` (``server.py`` pops it for the runtime
+    view) and reading a reduced view would price every player as
+    UNKNOWN.  Values are scoring-profile scoped and identical between
+    the baked contract and any view of it, so passing the baked rows is
+    correct as well as safe.
+
+    **Never mutates the team dicts it is given.**  It writes a new list
+    of shallow copies, because the overlay's teams come out of a shared
+    15-minute cache and stamping them in place would leak one league's
+    lineup into every later request that hit the same entry.
+    """
+    sleeper = contract.get("sleeper")
+    if not isinstance(sleeper, dict):
+        return
+    teams = sleeper.get("teams")
+    if not isinstance(teams, list) or not teams:
+        return
+
+    # THE truth ladder, not just its first rung: live host
+    # ``rosterPositions`` → registry ``starters`` → refuse.  Reading only
+    # the first rung here made the second unreachable from the ONLY
+    # producer of this stamp, so ``slotSource: "registry_starters"`` was
+    # a state the server had no code path to emit while the frontend
+    # rendered a message for it — and a partial Sleeper fetch (lineup
+    # endpoint times out, rosters succeed) would have refused a lineup
+    # the registry could answer.
+    registry_settings: dict[str, Any] | None = None
+    try:
+        from src.api.league_registry import (  # noqa: PLC0415
+            get_league_roster_settings,
+        )
+
+        registry_settings = get_league_roster_settings(
+            str((contract.get("meta") or {}).get("leagueKey") or "") or None
+        )
+    except Exception:  # noqa: BLE001 — the registry is optional here
+        registry_settings = None
+    slots, slot_source = lineup_owner.resolve_starter_slots(
+        roster_positions=sleeper.get("rosterPositions"),
+        roster_settings=registry_settings,
+    )
+
+    positions = sleeper.get("positions") if isinstance(sleeper.get("positions"), dict) else {}
+    eligibility = (
+        sleeper.get("fantasyPositions") if isinstance(sleeper.get("fantasyPositions"), dict) else {}
+    )
+    value_by_name: dict[str, float | None] = {}
+    for row in (rows if rows is not None else contract.get("playersArray")) or []:
+        if row.get("assetClass") == "pick":
+            continue
+        for key in (row.get("canonicalName"), row.get("displayName")):
+            if key:
+                value_by_name.setdefault(str(key), row.get("rankDerivedValue"))
+
+    stamped: list[Any] = []
+    for original in teams:
+        if not isinstance(original, dict):
+            stamped.append(original)
+            continue
+        # Copy-on-write: see the docstring.  The overlay's teams are
+        # shared cache entries.
+        team = dict(original)
+        stamped.append(team)
+        if not slots:
+            team["optimalLineup"] = {
+                "available": False,
+                "reason": "no_starter_slots",
+                "slotSource": None,
+            }
+            continue
+        pool: list[lineup_owner.RosterPlayer] = []
+        for name in team.get("players") or []:
+            key = str(name)
+            raw = value_by_name.get(key)
+            pool.append(
+                lineup_owner.RosterPlayer(
+                    player_id=key,
+                    canonical_name=key,
+                    # ``lineup_position`` is the ONE vocabulary a slot is
+                    # named in — the frontend's ``lineupPosition`` twin.
+                    position=lineup_owner.lineup_position(str(positions.get(key) or "")),
+                    # Unpriced stays unpriced.  A player the board
+                    # declined to price must not win a starting slot over
+                    # one it did.
+                    ros_value=None if raw is None else float(raw),
+                    fantasy_positions=tuple(
+                        lineup_owner.lineup_position(str(fp))
+                        for fp in (eligibility.get(key) or ())
+                        if str(fp).strip()
+                    ),
+                )
+            )
+        try:
+            solved = lineup_owner.assign_lineup(pool, slots)
+        except Exception:  # noqa: BLE001 — an optional stamp must not fail a build
+            team["optimalLineup"] = {
+                "available": False,
+                "reason": "solver_error",
+                "slotSource": slot_source,
+            }
+            continue
+        team["optimalLineup"] = {
+            "available": True,
+            "slotSource": slot_source,
+            "slots": list(solved.slots),
+            "assignments": [
+                {"slotIndex": i, "slot": solved.slots[i], "player": p.player_id}
+                for i, p in sorted(solved.assignments.items())
+            ],
+            "starters": sorted(solved.starter_ids),
+            "bench": sorted(solved.bench_ids(pool)),
+            # Neither started nor benched: a third state, because folding
+            # "we have no read on this player" into the bench is the same
+            # missing-is-zero error one layer up.
+            "unpriced": sorted(solved.unpriced_ids),
+            "unfilledSlots": solved.unfilled_slots,
+        }
+
+    sleeper["teams"] = stamped
 
 
 # ── Rankings override delta contract ──────────────────────────────────
@@ -10597,6 +11100,9 @@ _DELTA_PLAYER_FIELDS: tuple[str, ...] = (
     "anomalyFlags",
     "canonicalTierId",
     "marketConfidence",
+    "marketBreadthAgreementIndex",
+    "marketBreadthScore",
+    "marketAgreementScore",
     "values",
     "idpBackboneFallback",
     "canonicalSiteValues",
@@ -11221,6 +11727,37 @@ def validate_api_data_contract(payload: dict[str, Any]) -> dict[str, Any]:
         # posture as the blend-integrity scan).  Alias-suppressed
         # current-year tiers are the one deliberate valueless state and
         # must say so via provenance.
+        # C1-U5: a priced row must say what decided its confidence.
+        #
+        # Structural, not advisory. The defect this closes was a pass that
+        # priced 24 rows and wrote no confidence field, so they shipped
+        # wearing the row constructor's "None — unranked" placeholder — a
+        # label asserting the row was unranked and therefore unconfident,
+        # when the truth was that nothing had ever assessed it. Requiring a
+        # basis on every priced row makes that state unrepresentable rather
+        # than merely discouraged: the next pass that prices a row without
+        # saying why fails the build instead of shipping quietly.
+        #
+        # Scanned over the WHOLE array, not a prefix — the board runs
+        # deeper than the per-row shape checks' 1000-row cap, and the
+        # measured population sat at ranks past it.
+        for row in players_array:
+            if not isinstance(row, dict):
+                continue
+            v = row.get("rankDerivedValue")
+            if not (isinstance(v, (int, float)) and not isinstance(v, bool) and float(v) > 0):
+                continue
+            basis = row.get("confidenceBasis")
+            nm = str(row.get("canonicalName") or row.get("displayName") or "?")
+            if not basis:
+                errors.append(f"confidence_basis_missing:{nm}")
+            elif basis not in CONFIDENCE_BASES:
+                errors.append(f"confidence_basis_unknown:{nm}:{basis}")
+            elif basis in ("unpriced", "no_evidence"):
+                # A priced row claiming it has no value, or that nothing
+                # looked at it, is the exact contradiction this guards.
+                errors.append(f"confidence_basis_contradicts_value:{nm}:{basis}")
+
         pick_rows_by_name: dict[str, dict[str, Any]] = {}
         tier_years: set[int] = set()
         for row in players_array:

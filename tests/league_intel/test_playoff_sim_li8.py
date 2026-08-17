@@ -50,7 +50,21 @@ class TestNoDuplication:
     def test_flattener_normalizes_slot_aliases(self):
         # SFLEX was aliased in two private maps that could drift apart.
         assert lineup.flatten_starter_slots({"SFLEX": 1}) == ["SUPER_FLEX"]
-        assert lineup.flatten_starter_slots({"WRRB_FLEX": 2}) == ["FLEX", "FLEX"]
+
+    def test_a_wr_rb_flex_is_not_a_full_flex(self):
+        """This assertion is INVERTED from what it said before C2-U1, and
+        the old form was pinning a defect.
+
+        ``WRRB_FLEX`` normalized to ``FLEX``, and ``FLEX`` accepts a tight
+        end — so a slot whose whole point is excluding tight ends would
+        have taken one.  It is now its own slot with its own eligibility.
+        Neither live league runs one, so nothing on the board moves; this
+        is the table being right rather than lucky.
+        """
+        assert lineup.flatten_starter_slots({"WRRB_FLEX": 2}) == ["WR_RB_FLEX"] * 2
+        assert lineup.slot_eligible_positions("WRRB_FLEX") == frozenset({"RB", "WR"})
+        assert "TE" not in lineup.slot_eligible_positions("WRRB_FLEX")
+        assert "TE" in lineup.slot_eligible_positions("FLEX")
 
     def test_flattener_skips_junk_counts(self):
         assert lineup.flatten_starter_slots({"QB": 0, "RB": -1, "WR": "x", "TE": 2}) == [

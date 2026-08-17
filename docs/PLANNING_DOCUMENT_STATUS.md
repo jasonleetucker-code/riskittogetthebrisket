@@ -144,6 +144,12 @@ Authoritative for *why* the plan is shaped this way; it authorizes nothing.
 ### `docs/C_SERIES_ZERO_LOSS_TRACEABILITY.md`
 The source-entry → manifest-row proof. Authoritative for *where a requirement went*.
 
+### `docs/C_SERIES_DIRECTIVE_RECONCILIATION_2026-08-17.md`
+The 2026-08-17 owner-directive → manifest-row proof, and the **owner methodology authority**
+record: where two owner records could be read as disagreeing, which one governs and on what
+evidence. Authoritative for the meaningful-roster-core, FLEX, KTC-VA and future-pick-decay
+dispositions, and for the restated `X-02` / `X-07` rejections. It authorizes nothing.
+
 ### `docs/master-site-audit/`
 Authoritative for measured findings at the pinned code/input state each artifact names. **Not** authoritative for
 current phase completion or long-term scope. `B_SERIES_COMPLETION_AUDIT.md` and `B_SERIES_EXECUTION_LEDGER.md`
@@ -183,16 +189,24 @@ If an old capture contains a requirement that cannot be found in the canonical h
 
 ---
 
-## 6. OPEN PLANNING PULL REQUESTS
+## 6. THE THREE PLANNING PULL REQUESTS — ALL CLOSED
 
-**All three remain open and untouched.** They are evidence until the owner approves the post-B reconciliation.
-Recommended disposition afterwards is in `docs/POST_B_RECONCILIATION_2026-08-14.md` §5.
+**All three are CLOSED, not merged.** Verified against GitHub 2026-08-17: #809 closed
+2026-08-15T02:53:35Z, #816 closed 02:53:57Z, #835 closed 02:54:17Z — none merged, all three
+`mergeable_state: dirty`. This section previously read *"All three remain open and untouched…
+evidence until the owner approves the post-B reconciliation"*; that approval landed (PR #845,
+merge `6d9640c7`) and the PRs were closed two minutes apart the same night.
 
-| PR | content | status |
+**Nothing was lost, and that is the point.** Their content had already been **promoted to `main`**
+before closure, which is exactly what traceability criterion 6 demands — *"it cannot disappear if
+an old PR is later closed"*. Had the reconciliation merely cited these branches, closing them
+would have destroyed the newest owner intent in the repository.
+
+| PR | content | state |
 |---|---|---|
-| #809 | 15 detailed specifications | **Content promoted to `main`.** Do not merge; do not close until the owner confirms |
-| #816 | 9 owner-intent documents + 3 governance rewrites | **9 documents promoted; the governance rewrites deliberately not imported.** Do not merge — it would regress the authorization record, delete the CLAUDE.md runbook and flip the CE namespace |
-| #835 | Best Trade / protection / LOCK-EXCLUDE | **Spec promoted and cross-referenced.** Still merges clean if the owner prefers its lineage on record |
+| #809 | 15 detailed specifications | **CLOSED unmerged 2026-08-15.** Content on `main` |
+| #816 | 9 owner-intent documents + 3 governance rewrites | **CLOSED unmerged 2026-08-15.** 9 documents promoted; the governance rewrites deliberately not imported — importing them would have regressed the authorization record, deleted the CLAUDE.md runbook and flipped the CE namespace. T-NEW-18/T-NEW-19 were promoted to `OWNER_REQUESTED_TODO_SPEC_INDEX.md` before closure |
+| #835 | Best Trade / protection / LOCK-EXCLUDE | **CLOSED unmerged 2026-08-15.** Spec promoted and cross-referenced |
 
 ---
 
