@@ -195,3 +195,36 @@ deterministic board rather than whatever landed last.
   consumer: it reads a `curatedManagers` config record feeding
   `platform_ledger.upsert_manager`. That is *manager*-identity confidence in a different
   domain, and renaming it would have been a real defect.
+
+---
+
+## 6. Production verification checklist
+
+Written 2026-08-17 as a **precondition of closure**, not after the fact.
+`EXECUTION_PLAN.md` §0.2 requires a named production-verification checklist before a unit
+may reach `CLOSED-PENDING-PROD`, and this unit was recorded in that state without one. That
+was a governance defect in this record, and it is repaired here rather than waived.
+
+Run every step against the **deployed merge SHA**, not a PR head. `/api/health` exposes no
+commit, so read the deployed SHA from the prod host's
+`/home/dynasty/.deploy-state/trade-calculator.last_successful_deploy_commit`, or from the
+deploy log's `In production: <sha>` line. **Do not assume it.**
+
+| # | check | how | pass condition |
+|---|---|---|---|
+| 1 | the deployed SHA contains this unit | read the deploy-state file above; `git merge-base --is-ancestor <c1u5-merge-sha> <deployed-sha>` | ancestor, exit 0 |
+| 2 | the backend booted with the migrated writers | `GET /api/health` | 200 |
+| 3 | **every priced row carries a `confidenceBasis`** — the invariant this unit made unrepresentable | `GET /api/data` (authenticated), count rows with a finite `rankDerivedValue` and no valid `confidenceBasis` | **0** |
+| 4 | the basis vocabulary is the closed set, not free text | same payload, collect `{r.confidenceBasis}` | subset of the declared `CONFIDENCE_BASES` |
+| 5 | the contract validator agrees | `contractHealth.structuralErrors` on the served payload | contains no `confidence_basis:*` error |
+| 6 | the deprecation block is published and honest | `meta.deprecations` | present, names all three dual-written aliases, each with a replacement |
+| 7 | **the aliases still resolve** — this unit is additive and must not have broken a consumer | same payload: `identityResolutionConfidence` / `identityResolutionMethod` / `marketBreadthAgreementIndex` | present, and equal to their new-name counterparts |
+| 8 | the terminal still renders confidence | `GET /api/terminal` (authenticated) | 200, signal rows carry a confidence label |
+
+**Item 3 is the one that matters.** The rest confirm nothing regressed; item 3 is the
+property the unit exists to establish, and it is the only one whose failure means the unit
+did not land.
+
+**Known-null, not a failure:** `marketBreadthScore` / `marketAgreementScore` are `None` on
+any board built before this unit's first scrape (§5). A production run that predates that
+scrape shows nulls, and that is *missing*, not zero — item 3 does not read them.

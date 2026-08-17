@@ -240,3 +240,52 @@ still absent from the product, not quietly reintroduced under another name.
    count); the manifest's §5 counts table listed **five** and omitted the fixed-cap
    supersession established in §4.1 above. Both records now say **six** and enumerate the
    same six.
+
+---
+
+# 7. Production verification checklist
+
+Written 2026-08-17 as a **precondition of closure**. `EXECUTION_PLAN.md` §0.2 requires a
+named production-verification checklist before a unit may reach `CLOSED-PENDING-PROD`, and
+C0-R was queued without one — a governance defect in the governance unit, repaired here
+rather than waived.
+
+## 7.1 The honest shape of this one
+
+**C0-R changes no runtime behaviour.** It is planning records plus standing-invariant tests;
+its diff touches `docs/`, `PRODUCT_PLAN.md` and `tests/docs/`, and no module the server
+imports. So there is **no user-visible surface to probe**, and inventing one — asserting an
+API response that this unit cannot affect — would manufacture evidence rather than gather it.
+
+What *can* be verified against the deployed SHA is that the authorization records this unit
+repaired are the ones actually shipped, and that the invariants it added still hold on that
+tree. That is the whole of the claim, and the checklist is scoped to exactly it.
+
+## 7.2 The checklist
+
+Read the deployed SHA from the prod host's
+`/home/dynasty/.deploy-state/trade-calculator.last_successful_deploy_commit` or from the
+deploy log's `In production: <sha>` line — `/api/health` exposes no commit. **Do not assume
+it.**
+
+| # | check | how | pass condition |
+|---|---|---|---|
+| 1 | the deployed SHA contains this unit | `git merge-base --is-ancestor <c0r-merge-sha> <deployed-sha>` | ancestor, exit 0 |
+| 2 | the deploy was not degraded by it | the deploy run's `Validate Build Inputs` job | success |
+| 3 | the authorization record shipped intact | at `<deployed-sha>`: `docs/EXECUTION_PLAN.md` exists and is the single authorization record | `scripts/check_planning_integrity.py` reports *exactly one authorization record* |
+| 4 | the governance invariants hold on the deployed tree | `git checkout <deployed-sha>` in a scratch worktree, then `python scripts/check_planning_integrity.py` and `python scripts/check_product_plan_governance.py` | both exit 0 |
+| 5 | this unit's own standing tests hold there | `python -m pytest tests/docs/ -q` on that tree | all pass |
+| 6 | the repaired census figures are the shipped ones | at `<deployed-sha>`: manifest row count, source-family count, superseded-rule count (**six**) | match §6's repaired values |
+| 7 | the reserved completion phrase is still unclaimed | `scripts/check_planning_integrity.py` | reports *reserved completion phrase not claimed* |
+
+## 7.3 What would falsify it
+
+Item 4 or 5 failing on the deployed tree means the records shipped in a state the gates
+reject — i.e. something was merged past them, which is the exact drift this unit exists to
+prevent. Item 6 failing means a later unit edited a census without updating its declared
+count, which `check_planning_integrity.py` is built to catch and which would make this
+unit's repair stale rather than wrong.
+
+**Item 7 is a standing obligation, not a one-time check.** Five units are `MERGED — PENDING
+PROD PROOF` as of 2026-08-17, so the completion phrase may not be claimed by anyone yet
+(§0.2), and this item re-asserts that on every deployed tree.
