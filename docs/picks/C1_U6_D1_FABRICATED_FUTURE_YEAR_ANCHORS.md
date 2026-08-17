@@ -1,8 +1,9 @@
 # C1-U6 D1 — the board is pricing 2029 picks at their 2028 price
 
-**Status:** REPAIRED 2026-08-17 — see §7. The repair is merged code; the
-**production board** carries it once the scheduled refresh next runs the
-repaired scraper (§7.5).
+**Status:** REPAIRED AND DEPLOYED 2026-08-17 — see §7 and §8. Merged as
+[#883](https://github.com/jasonleetucker-code/riskittogetthebrisket/pull/883)
+(`a4007aec4`); Deploy Production run 32062696830 SUCCEEDED, the first success since
+2026-08-17T00:35Z and the end of a 19.8-hour freeze across 12 failed runs.
 **Was:** OPEN — live defect on `main`, present in every board built since
 **2026-08-17 02:11 UTC**
 **Class:** canonical value defect (pick valuation) + fabricated market evidence
@@ -391,15 +392,26 @@ single-source rows to begin with.
 
 ### 7.5 Two boundaries, stated rather than papered over
 
-* **No full browser scrape was run for this repair.** Browser egress is blocked in
-  the authoring sandbox (`ERR_CONNECTION_RESET` through the agent proxy under every
-  CA configuration tried), so `Dynasty Scraper.py`'s Playwright fetchers cannot
-  reach the vendors here; the one attempt produced a fully degraded board
-  (`complete=0/4`) and its artifacts were discarded, not committed. What *was*
-  exercised is everything downstream of the fetch, on real vendor rows, plus a
-  direct non-browser fetch of KTC's live page confirming the published-year set.
-  **The real full-pipeline proof is the scheduled refresh**, which runs the repaired
-  scraper on CI with real egress every 2 hours.
+* **No full browser scrape was run for this repair AT AUTHORING TIME — but two have
+  run since, in production.** Browser egress is blocked in the authoring sandbox
+  (`ERR_CONNECTION_RESET` through the agent proxy under every CA configuration
+  tried), so `Dynasty Scraper.py`'s Playwright fetchers could not reach the vendors
+  there; the one attempt produced a fully degraded board (`complete=0/4`) and its
+  artifacts were discarded, not committed. What *was* exercised at authoring time is
+  everything downstream of the fetch, on real vendor rows, plus a direct non-browser
+  fetch of KTC's live page confirming the published-year set.
+
+  **RESOLVED ON DEPLOY (2026-08-17).** Restarting the service runs a startup scrape,
+  so the repaired scraper executed end to end against the live vendors on the
+  production host **twice**: `20:10:21 → 20:14:02` and `20:21:56 → 20:25:29` UTC.
+  Both completed cleanly — `/api/health` reports `status: ok`, `has_data: true`,
+  `data_stale: false`, `scrape_stalled: false`, `data_age_hours: 0.0`. That is
+  full-pipeline evidence from the real pipeline rather than a fixture.
+
+  Still outstanding: the **repo's** `exports/latest` board. Production's scrape output
+  lives on the box and is not committed back, so the tracked artifact stays pre-repair
+  until the scheduled refresh runs the repaired scraper on CI and commits it — exactly
+  the condition `test_the_shim_is_inert_once_the_scrape_itself_is_repaired` watches.
 * **`exports/latest/dynasty_data_*.json` is git-tracked and still holds the
   pre-repair board.** The tests that detect this defect build from that artifact, so
   they were reporting a real defect that no change at their layer could fix — which
@@ -434,3 +446,45 @@ structural guarantee lives at the source-map owner instead, where the evidence i
   sweep. Blocking lane, no live-board coupling.
 * `tests/api/test_pick_completeness_red.py` — assertions untouched; input hardened;
   two new tests assert the shim is narrow and temporary.
+
+---
+
+## 8. The deploy unfreeze, measured
+
+`docs/EXECUTION_PLAN.md` §0.3 records the freeze; this is its resolution.
+
+| | before | after |
+|---|---|---|
+| last successful Deploy Production | `8d6930cd6`, 2026-08-17T00:35Z | **`a4007aec4`, 2026-08-17T20:22Z** |
+| consecutive failures | **12** | 0 |
+| `Validate Build Inputs` | failed at step 11 after **1m54s** (`-x` stopped at `test_derived_2029_value_uses_measured_year_step`) | **success** — full suite to completion in 11m55s |
+| advisory livedata lane | 4 failures, all nine 2029 rows | **success** |
+| FULL contract lane | passed (never the blocker) | passed |
+| `Deploy To Production` | **`skipped`** (`needs: validate`) | **success** |
+
+**Run 32062696830, attempt 1** shipped the code — `Run remote deploy script` succeeded at
+20:10:45 — but its **post-deploy smoke test failed**, and the cause is worth recording because
+it is a standing fragility rather than anything this unit changed:
+
+* `/api/health` → 503, `/api/public/league` → 30s timeout; the other **25 of 27** checks passed
+  (`/api/status` 200, `/api/data` 401, `/` and `/league` 200, all 21 `_next` chunks 200).
+* A service restart triggers a **startup scrape**. `/api/status` puts that scrape at
+  **20:10:21 → 20:14:02**; the smoke test ran **20:10:45 → 20:13:26** — entirely inside it, and
+  its readiness loop spent 104 s on `/api/health` before giving up.
+* For contrast, the last successful deploy's smoke test took **29 seconds** (00:55:08 →
+  00:55:37) and never met a scrape.
+
+So the smoke step is a **race the deploy design has always had**: every deploy restarts the
+service, every restart scrapes, and whether the smoke test lands inside that window is timing.
+The 00:55 run won it; attempt 1 lost it. Re-running the failed job after the scrape completed
+gave `Post-deploy smoke test` **success in 22 s** and `Validate live data contract`
+**success** — run 32062696830 attempt 2, both jobs green.
+
+**Not fixed here, and named rather than folded in:** the readiness loop does not tolerate a
+mid-scrape 503, so a future deploy can lose the same coin flip. Repairing it means changing
+`.github/workflows/deploy.yml`'s wait semantics, which is a deploy-reliability change and not
+a pick-valuation one. Recorded for its own unit.
+
+**Production state after the green deploy** (probed directly, 20:26Z): `/api/health` 200
+`status: ok`, `has_data: true`, `data_stale: false`, `scrape_stalled: false`,
+`data_age_hours: 0.0`; `/api/status` 200; `/api/public/league` 200 in 6.6 s.
