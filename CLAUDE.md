@@ -23,6 +23,7 @@ source of truth.** Nothing here authorizes a feature.
 | **What am I authorized to implement right now?** | `docs/EXECUTION_PLAN.md` |
 | What is the complete scope, who owns it, and what proves it done? | `docs/C_SERIES_SCOPE_MANIFEST.md` |
 | Where did a given requirement go? | `docs/C_SERIES_ZERO_LOSS_TRACEABILITY.md` |
+| **Two owner records disagree — which one wins?** | `docs/C_SERIES_DIRECTIVE_RECONCILIATION_2026-08-17.md` §4 |
 | What does a CE identifier mean? | `docs/CE_REGISTRY.md` |
 | What is the C-Series completion standard? | `docs/C_SERIES_REPLAN_AND_COMPLETION_CONTRACT.md` |
 | Canonical owners, boundaries, technical invariants | `docs/ARCHITECTURE_HANDOFF.md`, current ADRs, live code |

@@ -169,6 +169,24 @@ Owner-approved initial roster-value groups:
 - LB: top 5
 - DB: top 5
 
+> **SUPERSEDED 2026-08-14 by owner addendum #839.** The fixed caps above were approved as an
+> **initial** definition and, per the Method status line below, were never canonical. #839 is an
+> explicit later owner decision that names them and replaces them with one league-config-derived
+> selector: **`ceil(1.5 × real starter demand)`** per position, **Superflex counted as real QB
+> demand** (added to QB demand *before* the 1.5×), and regular offensive / IDP FLEX each creating
+> **`ceil(1.5 × real flex slots)`** from the highest-valued remaining legally eligible players after
+> the dedicated cores, with **each player counted at most once**.
+>
+> The caps are retained here as historical context, not deleted — they record owner intent
+> faithfully at a lower resolution. The successor ships as a **V1 champion labelled PRIOR** and
+> carries the `MATH_MODEL_CALIBRATION_POLICY_2026-08-15.md` §4.3 challenger pass (1.25× / 1.50× /
+> 1.75× / a data-derived cutoff) before it may be frozen as canonical methodology.
+>
+> Canonical records: `OWNER_FEATURE_INVENTORY.md` row 1.7 · `OWNER_REQUESTED_TODO_SPEC_INDEX.md`
+> T-NEW-19 · manifest `C2-CORE-01`. Full provenance and the evidence that #839 is a direct owner
+> decision rather than a calibration recommendation:
+> `docs/C_SERIES_DIRECTIVE_RECONCILIATION_2026-08-17.md` §4.1.
+
 Use canonical league-adjusted player values and the league's real positional model. Team Strength is dynasty roster strength; it is **not** Power Ranking, Playoff Odds, or ROS production.
 
 **Method status:** product definition approved; implementation must prove/consolidate competing existing strength notions before becoming canonical.

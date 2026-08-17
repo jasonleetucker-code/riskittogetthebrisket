@@ -7,8 +7,9 @@ foundations, 7 explicitly out of scope)
 **Binding methodology inputs:** `docs/MATH_MODEL_CALIBRATION_POLICY_2026-08-15.md`,
 `docs/PROJECTION_ENSEMBLE_PLAN_2026-08-15.md` (PR #853)
 **Authorization:** **THIS FILE AUTHORIZES NOTHING.** `docs/EXECUTION_PLAN.md` alone
-answers "what may I build now?" Today that answer is **nothing** — C1A units 1 and 2
-both closed on 2026-08-16 and the next unit awaits an owner decision.
+answers "what may I build now?" Today that answer is the **continuous C-Series campaign**
+authorized by the owner directive of 2026-08-17; `C1-U1`, `C1-U2`, `C1-U3`, `C1-U4` and
+`C1-U6` are closed. See §18 for what the campaign deliberately does *not* sweep in.
 
 ---
 
@@ -110,8 +111,10 @@ Mostly discharged by the post-B reconciliation; listed so the census closes.
 
 # 3. C1 — Identity, temporal substrate, retention (22 rows, 9 units)
 
-The foundation everything else consumes. **No unit in this map is authorized today** —
-C1-U1 and C1-U2 both closed on 2026-08-16; the next authorization is an owner decision.
+The foundation everything else consumes. **Closed: `C1-U1`, `C1-U2`, `C1-U3`, `C1-U4`,
+`C1-U6`.** Remaining in this phase: `C1-U5`, `C1-U8`, `C1-U9` — and `C1-U7`, which cannot
+run here because it declares `deps C2-U4` (see its entry). Authorization state is §18;
+`docs/EXECUTION_PLAN.md` is the only record that authorizes anything.
 
 ### C1-U1 — Irreversible-evidence retention  ← **CLOSED (C1A unit 1)**
 - **rows** `C1-RET-01` … `C1-RET-08`
@@ -515,7 +518,16 @@ forecasts and manager tendencies are private.
 
 # 12. Complete manifest-row → unit mapping
 
-Every one of the 153 rows appears exactly once.
+Every one of the **163** rows appears exactly once.
+
+> **Corrected 2026-08-17 (C0-R).** This summary declared **153** and dropped ten rows —
+> `C7-BEST-TRADE` (no numeric suffix), `C8-A11Y-01` and `C9-V3-01` (digits in the middle
+> segment) and `X-01`…`X-07` (two segments). That is the same ad-hoc-regex defect
+> `check_execution_map` documents, reproduced in this table's own arithmetic; the
+> out-of-scope rows it dropped are precisely the ones a later session would otherwise
+> rediscover as unexplored ideas. **§20's appendix is the CI-verified table** — it is
+> checked row-by-row against `parse_manifest`, the single owner of "what is a manifest
+> row". This one is a per-unit summary and is now reconciled to it.
 
 | unit | rows | n |
 |---|---|---|
@@ -536,12 +548,13 @@ Every one of the 153 rows appears exactly once.
 | C4-U1…U6 | C4-SRC-01/-02/-03 · C4-SHARP-01/-02/-03 · C4-MTL-01/-02/-03/C4-KTC-01 · C4-FAAB-01/-02 · C4-WAIV-01 · C4-INS-01 | 14 |
 | C5-U1…U8 | C5-ROS-01 · C5-GD-01/-02 · C5-PLAY-01 · C5-POW-01 · C5-WAR-01 · C5-ST-01 · C5-BDVM-01 · C5-FIT-01 | 9 |
 | C6-U1…U6 | C6-SIG-01/-02 · C6-ANA-01/C6-FRESH-01 · C6-POD-01/C6-YT-01/C6-X-01 · C6-MGR-01 · C6-EDGE-01 · C6-UPP-01 | 10 |
-| C7-U1…U11 | C7-DESK-01 · C7-GOLD-01 · C7-PKGB-01 · C7-POST-01/C7-PICKGEN-01 · C7-WAIV-01 · C7-DRAFT-01/-02 · C7-CMD-01/C7-AGE-01 · C7-CE-01 · C7-AI-01…05 · C7-ALERT-01 · C7-GATE-01 | 18 |
-| C8-U1, C8-U2 | C8-PERF-01…05 · C8-PSI-01/-02/-03 | 8 |
-| C9-U1…U6 | C9-HIST-01/-02 · C9-AWARD-01/-02 · C9-SHARE-01 · C9-UR-01/-02/C9-WRS-01 · C9-RECAP-01 · C9-TRUTH-01 | 10 |
+| C7-U1…U11 | C7-BEST-TRADE · C7-DESK-01 · C7-GOLD-01 · C7-PKGB-01 · C7-POST-01/C7-PICKGEN-01 · C7-WAIV-01 · C7-DRAFT-01/-02 · C7-CMD-01/C7-AGE-01 · C7-CE-01 · C7-AI-01…05 · C7-ALERT-01 · C7-GATE-01 | 19 |
+| C8-U1…U3 | C8-PERF-01…05 · C8-PSI-01/-02/-03 · C8-A11Y-01 | 9 |
+| C9-U1…U7 | C9-HIST-01/-02 · C9-AWARD-01/-02 · C9-SHARE-01 · C9-UR-01/-02/C9-WRS-01 · C9-RECAP-01 · C9-TRUTH-01 · C9-V3-01 | 11 |
 | C10-U1…U4 | C10-CLOSE-01 · -02 · C10-ML-01 · C10-CLOSE-03…07 | 8 |
 | F-U1, F-U2 | 11 invariant rows + 3 permission rows | 14 |
-| | **total** | **153** |
+| X-U1 | X-01…X-07 — dispositions, **no implementation unit** | 7 |
+| | **total** | **163** |
 
 ---
 
@@ -639,17 +652,31 @@ self-promoting, and carrying a named challenger task before C10.
 
 # 18. Authorization boundary
 
-**Authorized today:** **nothing.** `C1-U1` and `C1-U2` both closed on 2026-08-16, per
-`docs/EXECUTION_PLAN.md` §0.
+**Rewritten 2026-08-17 (C0-R).** This section was stale in a way that mattered: it listed
+`C1-U3` as not authorized after C1-U3, C1-U4 and C1-U6 had all closed, and it derived its
+answer from "the owner reviewing completed C1-U2 evidence". Its bottom line happened to
+stay correct while its reasoning rotted — the failure mode this map's own §0.3 exists to
+catch.
 
-**Not authorized by this file or any other:** C1-U3 (`C1-ID-02`) · every other C1
-unit · all of C2, C3, C4, C5, C6, C7, C8, C9, C10 · any projection-source
-implementation · any product UI work · **`CANONICAL_V2` activation**, which C1-U2
-measured and deliberately deferred.
+**Authorized today:** the **continuous C-Series campaign** under the owner directive of
+2026-08-17, which supersedes the routine per-unit stop-and-wait checkpoints. Closed:
+`C1-U1`, `C1-U2`, `C1-U3`, `C1-U4`, `C1-U6`. The campaign's current unit and its ordered
+merge queue live in `docs/EXECUTION_PLAN.md` §0 — **that file is still the only record
+that authorizes anything**, and producing or reading this map starts nothing.
 
-Producing this map does not start any of it. The next authorization comes from the
-owner reviewing completed C1-U2 evidence at the
-`C_SERIES_REPLAN_AND_COMPLETION_CONTRACT.md` §3 checkpoint.
+**Still not authorized, and not swept in by the campaign:**
+
+- **`CANONICAL_V2` activation** — C1-U2 measured it and deliberately deferred it; it is a
+  separate authorized unit, not a side effect of identity work;
+- **`X-01` … `X-07`** — the out-of-scope dispositions in §19, including `X-02`
+  (Money / dues / Constitution / League Media) and `X-07` (general "link any Sleeper
+  account" onboarding), both **restated as OWNER-REJECTED on 2026-08-17**;
+- anything gated on an outstanding owner decision (`OD-01` … `OD-07`) or an external
+  permission record (`F-EXT-01` … `F-EXT-03`), which fail closed rather than proceeding on
+  an assumed grant.
+
+Scope reconciliation for the directive that authorized the campaign:
+`docs/C_SERIES_DIRECTIVE_RECONCILIATION_2026-08-17.md`.
 
 ---
 

@@ -1,7 +1,7 @@
 # Chase Upside / Risk It To Get The Brisket — Current Execution Plan
 
 **Status:** CANONICAL SEQUENCING / AUTHORIZATION RECORD
-**Last reconciled:** 2026-08-16 (C1-U6 owner checkpoint: C1-U6 CLOSED after the stabilization pass; no next unit authorized — a new owner decision is required)
+**Last reconciled:** 2026-08-17 (owner directive: **continuous C0→C10 campaign authorized**; routine per-unit stop-and-wait checkpoints superseded)
 **Companion:** `docs/MASTER_PRODUCT_PLAN.md` · `docs/C_SERIES_REPLAN_AND_COMPLETION_CONTRACT.md`
 
 This file answers **what implementation work is authorized right now**, and nothing else. It does not define
@@ -15,36 +15,73 @@ Backlog Spec and the feature specs. It does not define scope — that lives in `
 
 # 0. CURRENT AUTHORIZATION — READ THIS FIRST
 
-## The B→C gate is CLEARED. **C1A units 1, 2, 3, 4 and 6 are CLOSED. No further unit is authorized.**
+## The **continuous C-Series campaign** is authorized. Owner directive, 2026-08-17.
+
+The owner authorized continuous execution of the entire remaining C-Series and **explicitly
+superseded the routine per-unit stop-and-wait checkpoints**. Units are executed in the order below
+without asking permission between them.
+
+**One record, one answer** (§7.6 still holds). The single authorized scope is *the campaign*, and
+the single current unit is the one named in the queue below.
 
 | question | answer |
 |---|---|
 | Is B complete? | **Yes.** B4–B11 merged; the B-Series Completion Audit passed (#837, `79f47ff`, 20/20 executable checks) |
-| Is the post-B / C0 master reconciliation complete? | **Yes.** PR #845 **MERGED** — merge `6d9640c7`, validated head `020e7135` |
-| Has the owner reviewed it? | **Yes.** Jason approved; ChatGPT concurred |
-| Is the B→C gate cleared? | **Yes.** All nine steps of `docs/C_SERIES_REPLAN_AND_COMPLETION_CONTRACT.md` §3 are satisfied |
-| **Is C authorized?** | **YES — `C1A` ONLY** |
-| Is C1A unit 1 (retention) done? | **Yes — CLOSED at the owner checkpoint 2026-08-16.** `C1-RET-07` remains honestly STALE; observational follow-ups do not reopen the unit |
-| Is C1A unit 2 (`C1-U2` / `C1-ID-01`) done? | **Yes — CLOSED 2026-08-16.** Cut over and retired; production gate passed at both sites with zero divergence. `CANONICAL_V2` activation is deliberately NOT part of it (measured blocker, §2) |
-| Is C1A unit 3 (`C1-U3` / `C1-ID-02` pick identity) done? | **Yes — CLOSED at the owner checkpoint 2026-08-16.** The owner reviewed and accepted the C1-ID-02 evidence; implementation merged as PR #867 (merge `22ce424f`) with bookkeeping/work-claim closure in PR #868. Do not reopen |
-| Is C1A unit 4 (`C1-U4` / `C1-HIST-01`..`-03`) authorized? | **Yes — owner-authorized 2026-08-16 at the C1-U3 checkpoint.** Scope is exactly manifest rows `C1-HIST-01`, `C1-HIST-02`, `C1-HIST-03` — the immutable as-of value/provenance ledger |
-| Is C1A unit 4 done? | **Yes — CLOSED at the owner checkpoint 2026-08-16.** Merged as PR #869 (merge `8b6a9987`, validated head `5940a177f`, exact-head run 31955465747), deploy run 31958433677 SUCCESS with the ledger production-proven on the box (see §2). The closure is recorded on PR #869. Do not reopen |
-| Is C1A unit 6 (`C1-U6` / `C1-PICK-01`, `C1-PICK-02`) done? | **Yes — CLOSED at the owner checkpoint 2026-08-16.** Merged as PR #871 (merge `ce8a8341a`, validated head `edc25300d`, exact-head run **31965928453 SUCCESS**); stabilized and closed by the bounded repair pass of the same day (`docs/ops/STABILIZATION_2026-08-16.md`). Do not reopen |
-| **What may I build right now?** | **Nothing.** C1-U1..U4 and C1-U6 are closed; the next unit requires a new explicit owner decision (§2) |
-| Is `C1-U5` authorized? | **No — deliberately DEFERRED, not cancelled.** At the C1-U4 checkpoint the owner selected C1-U6 ahead of C1-U5 (`C1-CONF-01` is a mechanical naming migration with no methodology change; it waits for an ordinary window). C1-U6 must therefore build **no new confidence consumer** (§2) |
-| Is `C1-U7`+ / anything after C1-U6 authorized? | **No** |
-| Is `C1B` authorized? | **No** |
-| Is `C2` authorized? | **No** |
-| Is `C3` or later authorized? | **No** |
-| What authorizes the next slice? | Jason + ChatGPT review the completed C1-U6 evidence at the §3 checkpoint |
+| Is the B→C gate cleared? | **Yes.** All nine steps of `docs/C_SERIES_REPLAN_AND_COMPLETION_CONTRACT.md` §3 are satisfied; PR #845 merged (`6d9640c7`) |
+| **What may I build right now?** | **The current unit in the queue below**, then the next dependency-eligible one, continuously |
+| Which units are CLOSED? | `C1-U1` (retention — `C1-RET-07` honestly STALE) · `C1-U2` (player identity) · `C1-U3` (pick identity) · `C1-U4` (temporal ledger) · `C1-U6` (pick completeness). **Do not reopen any of them** |
+| Do I stop at the end of a unit? | **No.** Mark it `CLOSED-PENDING-PROD`, enqueue it, and start the next eligible unit or a parallel-safe lane |
+| When *do* I stop and ask? | Only for: a genuine unresolved owner decision · required external authorization · paid-API permission · credentials only the owner holds · an irreversible destructive operation · or a merge that now blocks **every** legitimate dependency-eligible lane |
+| Is `CLOSED-PENDING-PROD` closure? | **No.** See §0.2 |
+| Is `CANONICAL_V2` activation authorized? | **No** — C1-U2 measured it and deliberately deferred it; separate unit |
+| Are `X-01`…`X-07` authorized? | **No.** `X-02` (Money/dues, Constitution, League Media) and `X-07` (general "link any Sleeper account" onboarding) were **restated OWNER-REJECTED on 2026-08-17** and must not be reintroduced from directive boilerplate |
 
-**The authorization is deliberately narrow, and it is now spent.** C1-U6 closed; reaching the end of a
-unit is a **STOP**, not a hand-off to the next one.
+Scope reconciliation for the directive, including the owner-methodology authority findings:
+**`docs/C_SERIES_DIRECTIVE_RECONCILIATION_2026-08-17.md`**.
 
-**If you are a new session reading this file to decide what to build:** the answer is *nothing* —
-every remaining unit requires an explicit owner decision at the
-`docs/C_SERIES_REPLAN_AND_COMPLETION_CONTRACT.md` §3 checkpoint. Every product surface in §6 remains
-unauthorized.
+## 0.1 Campaign order
+
+`C1-U7` sits **after `C2-U4`** and not with the rest of C1. It declares `deps C1-U6, C2-U4`
+(`docs/C_SERIES_EXECUTION_MAP.md`), because an owned pick's slot distribution is a function of
+simulated final standings, hence of Team Strength. Building it earlier would tune it against a
+provisional formula — the thing the map's §1 ordering rule exists to prevent. It is deferred by
+one dependency, not descoped.
+
+```
+C0-R   ← governance reconciliation (this unit)      C2-U6  meaningful roster core
+C0-U2  performance baselines        ∥ parallel      C2-U4  canonical Team Strength
+C1-U5  confidence naming migration                  C1-U7  owned-pick distributions ← unblocked
+C1-U8  acquisition / cost basis / lineage           C2-U5 · C2-U7 · C2-U8 · C2-U9 · C2-U10
+C1-U9  multi-format source archive                  C3-U1…U9 · C4 · C5 · C6 · C7 · C8 · C9 · C10
+C2-U1  one lineup / slot assignment
+C2-U2  one replacement level / PAR                  standing parallel lanes when blocked:
+C2-U3  exact roster simulation                      C0-U2 · C4-U1 · C8-U1
+```
+
+## 0.2 `CLOSED-PENDING-PROD` is not `CLOSED`
+
+A unit reaches **`CLOSED-PENDING-PROD`** on: RED→GREEN, exact-head CI green on its own PR,
+evidence document written, duplicate owners retired, required documentation updated, and a named
+production-verification checklist. That state authorizes **continuing to the next unit** — nothing
+more.
+
+A unit becomes **`CLOSED`** only when its production verification succeeds **against the deployed
+merge SHA**. Therefore:
+
+- **`C10` may not count `CLOSED-PENDING-PROD` units as closed;**
+- the reserved completion phrase in `docs/C_SERIES_REPLAN_AND_COMPLETION_CONTRACT.md` §15 may not
+  be used while any required production proof is outstanding;
+- PR-head CI is necessary and **not** a substitute for proof on the merged, deployed tree.
+
+## 0.3 Merge queue
+
+Ordered. A unit leaves this queue only when production proof lands on the deployed merge.
+
+| unit | PR | exact head | CI | unlocks | production proof |
+|---|---|---|---|---|---|
+| `C0-R` | *(open on push)* | *(pending)* | *(pending)* | every later unit — this is the record that authorizes them | pending |
+
+**Current unit: `C0-R`.**
 
 ---
 
@@ -178,10 +215,11 @@ pinned).
 not reopen; a value that moved during stabilization is recorded with its mechanism in the
 stabilization record §6, not re-litigated.
 
-**No unit beyond C1-U6 is authorized, and closing C1-U6 authorizes nothing.** Reaching this point is
-a **STOP**. The next unit — C1-U5, C1-U7, C1-U8, C1-U9, C1B, C2 or anything else — requires a **new
-explicit owner decision** at the `docs/C_SERIES_REPLAN_AND_COMPLETION_CONTRACT.md` §3 checkpoint.
-Neither the stabilization pass nor this closure carries any implicit authorization forward.
+**SUPERSEDED 2026-08-17.** This paragraph read: *"No unit beyond C1-U6 is authorized… Reaching this
+point is a **STOP**… requires a new explicit owner decision at the §3 checkpoint."* That STOP was
+discharged by the owner directive of 2026-08-17, which authorized the continuous campaign in §0 and
+superseded the routine per-unit checkpoints. **C1-U6 itself remains CLOSED and must not be
+reopened**; what changed is what happens *after* a unit closes, not the closure.
 
 ## `C1A` unit 4 — `C1-U4`, one immutable as-of value/provenance ledger. **CLOSED at the owner checkpoint 2026-08-16.**
 
@@ -445,7 +483,12 @@ These do not wait for the C gate and never have.
 
 # 6. PRODUCT WORK THAT MUST NOT PREEMPT FOUNDATIONS
 
-Approved future scope is **not** authorized merely by being approved. In particular, do not opportunistically
+**Still binding under the campaign.** The 2026-08-17 directive authorized the whole C-Series *in
+dependency order*; it did not authorize starting anywhere in it. Every product below is now
+scheduled rather than forbidden — reached at its own unit, after the substrate it consumes exists.
+Jumping to one early is the same defect it always was.
+
+Do not opportunistically
 begin: Best Trade to Send Each Team · LOCK/EXCLUDE · persistent protection · Golden Upgrades · Package Builder ·
 Trade Desk · Team Strength/Weakness · Market Trade Ledger · Pick Forecast · Manager Scout · Analyst Intelligence ·
 Game Day · Share Renderer · Weekly Report Studio · Public League v3 · Awards v2 · Universal Player Profile
@@ -463,10 +506,12 @@ means building all five wrong and refitting later.
 
 # 7. EXECUTION UPDATE RULE
 
-At every owner-approved checkpoint:
+Under the continuous campaign this runs **at every unit boundary**, not only at an owner checkpoint
+— that is what replaces the checkpoint. At each boundary:
 
 1. update completed/accepted phase state here;
-2. record the exact next authorized scope **only after an owner decision**;
+2. advance §0.3's **current unit** and append the finished unit to the merge queue; a unit leaves
+   the queue only when production proof lands on the deployed merge SHA (§0.2);
 3. leave later approved product scope in the Master Product Plan and the Scope Manifest rather than copying it
    here;
 4. never let a stale phase statement in `ARCHITECTURE_HANDOFF.md`, an old audit roadmap, a planning branch or a
@@ -474,4 +519,10 @@ At every owner-approved checkpoint:
 5. if current code or executable evidence disproves this execution state, **reconcile this document before
    beginning another phase**;
 6. **this file may state exactly one "next authorized" scope at a time.** The defect this rewrite fixes was a
-   §1 that recorded B6 as merged while §2 authorized B6 as next. One record, one answer.
+   §1 that recorded B6 as merged while §2 authorized B6 as next. One record, one answer. Under the
+   campaign the single answer is *the campaign*, and §0.3 names the single current unit — so the
+   rule is satisfied by there being exactly one **Current unit** line, not by there being one unit
+   in flight;
+7. when a later section contradicts §0, **mark it superseded in place with the date and the
+   reason** rather than deleting it. §2's C1-U6 STOP is the worked example: the closure it records
+   is still true, only its forward-looking clause was discharged.
