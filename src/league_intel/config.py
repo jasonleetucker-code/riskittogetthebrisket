@@ -33,6 +33,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Callable, Mapping
 
+from src.ros import lineup as lineup_owner
+
 CONFIG_VERSION = 1
 """Version of the canonical-config *shape* produced by this module.
 Bump when the dataclass contract below changes incompatibly."""
@@ -44,10 +46,16 @@ _SNAPSHOT_RE = re.compile(r"^sleeper_league_snapshot_(\d{4}-\d{2}-\d{2})(?:T\d{6
 _SLEEPER_API_ROOT = "https://api.sleeper.app/v1"
 _HTTP_TIMEOUT = 20.0
 
-# Sleeper's own flex-slot eligibility (fixed platform semantics, not
-# league-configurable).  Mirrors src/ros/lineup.py.
-FLEX_ELIGIBLE: tuple[str, ...] = ("RB", "WR", "TE")
-SUPER_FLEX_ELIGIBLE: tuple[str, ...] = ("QB", "RB", "WR", "TE")
+# Sleeper's own flex-slot eligibility.  READ from the canonical owner
+# (C2-U1) rather than mirrored: the comment here used to say "Mirrors
+# src/ros/lineup.py", and a mirror maintained by comment is exactly the
+# second table this unit removed.
+FLEX_ELIGIBLE: tuple[str, ...] = lineup_owner.ordered_positions(
+    lineup_owner.slot_eligible_positions("FLEX")
+)
+SUPER_FLEX_ELIGIBLE: tuple[str, ...] = lineup_owner.ordered_positions(
+    lineup_owner.slot_eligible_positions("SUPER_FLEX")
+)
 
 # Scoring keys that must exist for the config to be usable by the
 # exact scorer — a canary against truncated/malformed snapshots, not

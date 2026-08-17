@@ -607,6 +607,32 @@ describe("buildCombinedPairTrade — two-team net history", () => {
 
 const tierRosterPositions = ["QB", "WR", "LB", "BN", "BN"];
 
+// Since C2-U1 the SERVER solves each lineup and stamps it on the team;
+// `scoreTeamTiers` renders that stamp rather than filling slots itself.
+// These stamps are what `src/ros/lineup.py` produces for a QB/WR/LB
+// lineup over each roster below — hand-written here because recomputing
+// them in JavaScript is the second implementation this unit deleted.
+const tierLineups = {
+  "Win Now": ["Star QB", "Star WR", "Star LB"],
+  Balanced: ["Solid QB", "Solid WR", "Depth LB"],
+  // Only the WR slot can be filled; QB and LB go unfilled.
+  "Pick Hoard": ["Lone WR"],
+};
+
+function tierStamp(name, starters) {
+  const slots = ["QB", "WR", "LB"];
+  return {
+    available: true,
+    slotSource: "sleeper_roster_positions",
+    slots,
+    assignments: starters.map((player, i) => ({ slotIndex: i, slot: slots[i], player })),
+    starters,
+    bench: [],
+    unpriced: [],
+    unfilledSlots: slots.slice(starters.length),
+  };
+}
+
 const tierPlayerMeta = {
   "star qb": { name: "Star QB", pos: "QB", group: "QB", meta: 5000 },
   "star wr": { name: "Star WR", pos: "WR", group: "WR", meta: 4000 },
@@ -641,16 +667,19 @@ const tierTeams = [
     name: "Win Now",
     players: ["Star QB", "Star WR", "Star LB", "Bench WR"],
     picks: [],
+    optimalLineup: tierStamp("Win Now", tierLineups["Win Now"]),
   },
   {
     name: "Balanced",
     players: ["Solid QB", "Solid WR", "Depth LB", "Spare WR"],
     picks: [],
+    optimalLineup: tierStamp("Balanced", tierLineups["Balanced"]),
   },
   {
     name: "Pick Hoard",
     players: ["Lone WR"],
     picks: tierPickNames,
+    optimalLineup: tierStamp("Pick Hoard", tierLineups["Pick Hoard"]),
   },
 ];
 

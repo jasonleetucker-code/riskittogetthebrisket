@@ -125,6 +125,24 @@ def compute_team_strength(
                 # as zero contribution but kept on the unmapped list
                 # so the UI can flag "we don't have an ROS read on N
                 # of your players".
+                #
+                # KNOWN BOUNDARY (C2-U1 → C2-U4).  This is a real
+                # missing-is-zero coercion and it is left in place
+                # DELIBERATELY, not overlooked.  ``RosterPlayer.ros_value``
+                # is now ``float | None`` and the canonical owner would
+                # treat ``None`` as UNPRICED — excluded from starters and
+                # bench, its slot reported unfilled — which is the honest
+                # answer.  Passing ``None`` here would therefore change
+                # ``health_availability_score`` (its denominator is the
+                # starter count) and ``unfilled_slots`` on the live
+                # /terminal team-strength composite.
+                #
+                # That composite is C2-U4's unit ("canonical Team
+                # Strength"), which will redefine it against its own
+                # evidence.  Moving the number from inside C2-U1 would
+                # change a live surface on a lineup unit's authority.
+                # Named here so the next reader inherits a decision
+                # rather than discovering an accident.
                 unmapped.append(name)
                 roster.append(
                     RosterPlayer(

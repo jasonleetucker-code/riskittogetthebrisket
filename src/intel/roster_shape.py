@@ -22,40 +22,24 @@ import logging
 from typing import Any, Mapping
 
 from src.roster_intel.partner import RosterSignal
+from src.ros.lineup import resolve_starter_slots, slot_demand
 
 log = logging.getLogger(__name__)
 
-# Flex buckets are requirements satisfied by several positions, so they
-# are distributed rather than treated as their own position.
-_FLEX_ELIGIBLE = {
-    "FLEX": ("RB", "WR", "TE"),
-    "SFLEX": ("QB", "RB", "WR", "TE"),
-    "SUPER_FLEX": ("QB", "RB", "WR", "TE"),
-    "IDP_FLEX": ("DL", "LB", "DB"),
-}
-
 
 def _starter_requirements(roster_settings: Mapping[str, Any] | None) -> dict[str, float]:
-    """Effective starters per real position, with flex spread across
-    its eligible positions."""
-    starters = ((roster_settings or {}).get("starters") or {}) if roster_settings else {}
-    req: dict[str, float] = {}
-    for slot, count in starters.items():
-        try:
-            n = float(count or 0)
-        except (TypeError, ValueError):
-            continue
-        if n <= 0:
-            continue
-        slot_u = str(slot).upper()
-        eligible = _FLEX_ELIGIBLE.get(slot_u)
-        if eligible:
-            share = n / len(eligible)
-            for pos in eligible:
-                req[pos] = req.get(pos, 0.0) + share
-        else:
-            req[slot_u] = req.get(slot_u, 0.0) + n
-    return req
+    """Effective starters per real position, flex spread evenly.
+
+    Reads the canonical :func:`slot_demand` contract's ``even_split``
+    (C2-U1) instead of the local ``_FLEX_ELIGIBLE`` table this module
+    used to keep — one of four independent re-derivations of the same
+    rule.  The approximation is fine HERE and only here for the reason
+    the module docstring already gives: consumers use the relative
+    magnitudes within a roster, never the absolute number.
+    """
+    settings = dict(roster_settings or {})
+    slots, _source = resolve_starter_slots(roster_settings=settings)
+    return dict(slot_demand(slots).even_split)
 
 
 def team_signals(
