@@ -1854,6 +1854,46 @@ never parse, compare, or mint pick identity outside the owner; identity says
 WHAT the asset is — valuation stays in the pipeline.  Full record:
 `docs/identity/C1_ID_02_PICK_IDENTITY.md`.
 
+### Per-source pick boards — one owner (C1-U6-D1, 2026-08-17)
+
+`src/picks/site_pick_map.py` turns ONE vendor's published pick rows into
+canonical `"2027 Early 1st"` / `"2027 1.06"` keys.  It reports EVIDENCE; it
+does not blend, discount, or derive a year nobody published.
+`Dynasty Scraper.py` imports it back and is an ADAPTER — the same arrangement
+`src/identity/name_primitives.py` has with that file.
+
+**A year a source did not publish is MISSING, and missing is the key's
+ABSENCE.**  Not the nearest year's value, not the previous year's, not zero.
+Four paths used to force one, and all four are gone: three shared a
+`_nearest_year` with no distance cap and no direction constraint (so a 2028 row
+answered a 2029 question, and would equally have answered 2031), and the fourth
+was a `(year, None)` un-yeared bucket consulted for EVERY requested year.  The
+un-yeared bucket now applies to the nearest requested year only.
+
+Why it mattered: the board priced 2029 firsts at their 2028 price, stamped
+`direct_market_blend` — a claim that a market priced them — while the vendors
+publish 2026-2028 only.  It **self-authenticated**:
+`derive_future_tier_years_from_names` read those fabricated anchors, so 2029
+looked published, so `_inject_far_future_pick_sources` skipped it, so the
+approved `derivedYearModel` derivation could never fire.  The fabrication was
+the reason its own replacement stayed dormant.
+
+KEPT, because they aggregate the year's OWN observations rather than substitute
+another year's: a tier answered from the same year's published slots, and a slot
+spread from the same year's published tier — the latter stamped
+`derived_slot_from_tier` so a derivation is not indistinguishable from a
+published slot.  `pick_anchors_raw` is no longer overwritten with the rebuilt
+model board (it promised raw evidence and carried the model's own output), and
+`pickAnchorsProvenance` is stamped beside it.
+
+Rule for new code: need a per-source pick board, a pick-label parse, or the
+slot↔tier tables → call this module.  Never re-derive a tier range, and never
+answer a year question with another year's row.  Deriving an unpublished year is
+a DIFFERENT owner (`_inject_far_future_pick_sources` +
+`_complete_future_pick_values`), and it can only work if this one leaves the year
+missing.  Full record: `docs/picks/C1_U6_D1_FABRICATED_FUTURE_YEAR_ANCHORS.md`.
+
+
 ### Temporal history — one owner (C1-U4, closed at the owner checkpoint 2026-08-16)
 
 `src/history/` owns as-of asset-value history end to end: what a historical

@@ -1,6 +1,9 @@
 # C1-U6 D1 — the board is pricing 2029 picks at their 2028 price
 
-**Status:** OPEN — live defect on `main`, present in every board built since
+**Status:** REPAIRED 2026-08-17 — see §7. The repair is merged code; the
+**production board** carries it once the scheduled refresh next runs the
+repaired scraper (§7.5).
+**Was:** OPEN — live defect on `main`, present in every board built since
 **2026-08-17 02:11 UTC**
 **Class:** canonical value defect (pick valuation) + fabricated market evidence
 **Found by:** `tests/api/test_pick_completeness_red.py::TestRed3UncalibratedCloneDiscountRetired::test_derived_2029_value_uses_measured_year_step`,
@@ -245,3 +248,189 @@ rows and the documented IDP coupling.
   `:4805` (`_inject_far_future_pick_sources`)
 - `config/weights/pick_year_discount.json::derivedYearModel` — the measured step
   this board is not applying
+
+---
+
+## 7. The repair, as shipped (2026-08-17)
+
+### 7.1 What was actually wrong — one correction to §3
+
+§3's diagnosis named three nearest-year substitution paths. There is a **fourth**,
+independent of `_nearest_year` and untouched by any repair that only deletes it:
+
+> `for y in (year, None)` — at `lookup_tier` (twice) and `lookup_slot` (once).
+
+A vendor row whose label the parser resolved **without a year** (`"1ST EARLY"`,
+`"1.06"`) landed in a `(None, round, tier)` bucket that was consulted for **every**
+requested year, three of which have not happened. It is latent rather than live —
+measured across 13 archives spanning 2026-07-14 to 2026-08-17, every pick-bearing
+source, the un-yeared grammars match **zero** rows — which is exactly why it had to
+be closed by rule rather than by inspection.
+
+The substitution was also **unbounded in reach**, not a one-year overshoot:
+`_nearest_year` had neither a distance cap nor a direction constraint, so asking
+for 2031 emitted 2031 from rows published for 2028. Measured at the extracted
+boundary.
+
+### 7.2 The function had no test, and could not have one
+
+`_build_site_pick_map` and its five helpers were closures inside a ~2,000-line
+procedural function in `Dynasty Scraper.py`. There was **no test, no fixture and no
+import seam** for them anywhere in the repository. That is not incidental to a
+defect that survived three audits: a function nothing can call is a function
+nothing can check.
+
+They now live in `src/picks/site_pick_map.py`. `Dynasty Scraper.py` imports them
+back and is an ADAPTER — the same arrangement `src/identity/name_primitives.py`
+already had with that file.
+
+**The extraction was proven behaviour-identical before anything else changed:** 36
+source boards (live `exports/latest/site_raw/` + 11 sampled archives), 8,640
+emitted keys, byte-identical output and byte-identical label parsing.
+
+### 7.3 The repair
+
+A source that did not publish the requested year contributes **MISSING**, and
+missing is the key's **absence** — the representation the whole downstream chain
+already handles correctly.
+
+`_nearest_year` is **deleted, not capped**: a capped substitution is still
+substitution. The un-yeared bucket now applies to the nearest requested year only.
+
+**Kept deliberately**, because they aggregate the year's *own* observations rather
+than substitute another year's: a tier answered from the same year's published
+slots, and a slot spread from the same year's published tier. The latter is a
+derivation and is now **stamped as one** (`derived_slot_from_tier`) instead of
+being indistinguishable from a published slot.
+
+Two adjacent repairs, both narrow and both in scope:
+
+* **`pick_anchors_raw` is no longer overwritten** with `dict(rebuilt_pick_anchors)`.
+  It promised raw vendor evidence and carried the model's own board, so no channel
+  in the export distinguished an observation from a substitution. Raw now means raw,
+  and `pickAnchorsProvenance` is stamped alongside it.
+* **`_tier_for_slot` / `_slot_range_for_tier`** were hand-written 12-team duplicates
+  of the pick-map owner's `slot_to_tier` / `slot_tier_ranges`, a few hundred lines
+  below the anchors they describe. They agreed — which is why a second owner
+  survives — so routing them through the owner is an exact identity at
+  `league_size` 12.
+
+### 7.4 Measured
+
+**At the pick-map boundary**, on the real vendor rows:
+
+| source | published years | keys | dropped | published-year values moved |
+|---|---|---:|---:|---:|
+| `ktc` | 2026/2027/2028 | 240 → 180 | 60 (all 2029) | **0** |
+| `ktcSfTep` | 2026/2027/2028 | 240 → 180 | 60 (all 2029) | **0** |
+| `idpTradeCalc` | 2026/2027/2028 | 240 → 180 | 60 (all 2029) | **96** |
+
+Those 96 are **not collateral — they are a second instance of the same defect**.
+`idpTradeCalc` publishes 2026 slots and 2026/2027/2028 tiers but no future slots,
+so path 3 was serving `2027 1.01 = 8013`, which is 2026's published `1.01`
+byte-for-byte. It is now 8462.4, derived from 2027's own published Early-1st tier.
+Median |Δ| 11.0%, max 37.9%, every one a slot row on a year whose slots were
+another year's.
+
+**Confirmed against the live vendor**, not only the archive: KTC's page fetched
+2026-08-17 publishes 36 pick rows covering **2026, 2027 and 2028 only**.
+
+**The self-authentication loop is broken:** over the real anchors,
+`derive_future_tier_years_from_names` goes `(2027, 2028, 2029)` → `(2027, 2028)`
+while `_pick_model_year` stays `2026`, so `_inject_far_future_pick_sources` sees no
+2029 and resumes ownership.
+
+**All 18 `(tier, round)` cells** — the §5 verification requirement:
+
+> **0 violations of 18.** Ratios 0.7030 – 0.9279, every cell strictly below its 2028
+> equivalent, achieved **by derivation and never by an output clamp**. Rounds 1-4
+> stamp `derived_year_step`; rounds 5-6 stamp `derived_round_step`. **No 2029 row
+> stamps `direct_market_blend`.**
+
+Per-source values are stepped with the model value, closing RED-4's anchor
+asymmetry: `2029 Early 1st` sources go `{ktc 5188, idpTradeCalc 5034}` (2028's
+numbers verbatim) → `{ktc 3703, idpTradeCalc 3593}`.
+
+**Board blast radius** (`build_api_data_contract`, 1,110 rows, before → after):
+
+| class | moved | p50 |Δ| | p90 | max |
+|---|---:|---:|---:|---:|
+| offense | 1 / 551 | 0.021% | 0.021% | 0.021% |
+| IDP | 277 / 397 | 0.113% | 0.155% | **29.558%** |
+| picks | 50 / 162 | 6.249% | 19.227% | 28.625% |
+
+Ranks: 498 changed, only 20 by ≥ 5 places. Top-200 membership: `2029 Early 2nd` and
+`2029 Mid 2nd` leave (they were priced as 2028 clones), `Derwin James` and
+`Rueben Bain` enter. Confidence: 4 bucket changes. `structuralErrors` 0 → 0,
+`sourceHealthErrors` 0 → 0.
+
+**This is not board-inert and is not claimed to be.** The two ~29.5% IDP movers are
+the documented coupling in `C1_U6_PICK_VALUE_COMPLETENESS.md` §8: re-arming the
+derivation map re-enables the synthetic-rows-are-not-market-evidence backbone
+filter, and IDP rank sources translate onto the IDPTC cross-market backbone, which
+by design contains pick rows. Both movers were predicted before the measurement.
+
+### 7.4a The advisory rails, measured
+
+§3.4 recorded four safety rails firing in the advisory lane on the same nine rows.
+Re-measured through the rails' own helper
+(`data_contract.assert_no_unexplained_single_source`) on the repaired board:
+
+| rank limit | before | after |
+|---|---:|---:|
+| top-400 (`test_no_unexplained_1src_top400`) | **9** | **0** |
+| top-800 | **11** | **0** |
+
+The mechanism is `_FAR_FUTURE_ALLOWLIST_REASON` (`data_contract.py:9229`): a row in
+the per-build synthetic derivation map is allowlisted as explicitly synthetic. Under
+the fabrication those rows were *not* in the map — they looked published — so they
+read as unexplained single-source rows at ranks #70/#87/#98/#170/#186. 12 of the 24
+2029 rows now carry the reason (the `derived_year_step` tiers); the remaining 12 are
+the round-5/6 and generic-grade rows, which take a different derivation and are not
+single-source rows to begin with.
+
+### 7.5 Two boundaries, stated rather than papered over
+
+* **No full browser scrape was run for this repair.** Browser egress is blocked in
+  the authoring sandbox (`ERR_CONNECTION_RESET` through the agent proxy under every
+  CA configuration tried), so `Dynasty Scraper.py`'s Playwright fetchers cannot
+  reach the vendors here; the one attempt produced a fully degraded board
+  (`complete=0/4`) and its artifacts were discarded, not committed. What *was*
+  exercised is everything downstream of the fetch, on real vendor rows, plus a
+  direct non-browser fetch of KTC's live page confirming the published-year set.
+  **The real full-pipeline proof is the scheduled refresh**, which runs the repaired
+  scraper on CI with real egress every 2 hours.
+* **`exports/latest/dynasty_data_*.json` is git-tracked and still holds the
+  pre-repair board.** The tests that detect this defect build from that artifact, so
+  they were reporting a real defect that no change at their layer could fix — which
+  is why they blocked Deploy Production for 17.5 hours across 12 runs. Their INPUT
+  is now hardened (`tests/pick_board_fixture.py`) to the board a repaired scrape
+  emits, measured from the bundle's own `site_raw/*.csv` through the canonical
+  owner. **No assertion changed** and no value is edited. The shim self-retires:
+  `test_the_shim_is_inert_once_the_scrape_itself_is_repaired` (livedata, advisory)
+  passes once a repaired scrape lands, and then the shim is deleted.
+
+### 7.6 A seam investigated and deliberately NOT changed
+
+`_complete_future_pick_values` stamps `direct_market_blend` as a **pure
+fallthrough** (`data_contract.py:7397`): finite value + none of the three
+derivation branches claimed it ⇒ declared market-observed. It inspects no source
+evidence.
+
+Hardening it to assert real evidence was considered and rejected on measurement:
+**every** `direct_market_blend` row on the real pre-repair board carries positive
+`canonicalSiteValues` — including the fabricated 2029 rows, whose site values were
+the cloned 2028 numbers. The check would have fired on **0 of 36** rows and, more
+importantly, **would not have caught this defect**, because the fabrication enters
+upstream of anything the contract can see. Adding an inert guard that cannot catch
+the failure it appears to guard against would misrepresent the coverage. The
+structural guarantee lives at the source-map owner instead, where the evidence is.
+
+### 7.7 Tests
+
+* `tests/picks/test_site_pick_map.py` — **40 tests, RED-authored**. Eight failed
+  against the verbatim extraction before any behaviour changed, one per forcing
+  path plus the estimate re-entry, a mid-sequence year gap, and a real-vendor-board
+  sweep. Blocking lane, no live-board coupling.
+* `tests/api/test_pick_completeness_red.py` — assertions untouched; input hardened;
+  two new tests assert the shim is narrow and temporary.
