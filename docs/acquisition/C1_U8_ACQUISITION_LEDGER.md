@@ -116,13 +116,37 @@ board, which already contains the market's reaction to that trade.
 
 Two further leaks closed explicitly:
 
-- **The clock is an argument.** `market_resolution()` takes the current draft year as an
-  INPUT, so a pick's grade resolves with the clock **as of the event**. Passing today's
-  would re-grade an old trade under today's basis — the `C3-REPLAY-01` class, which
-  measures the methodology rather than the aging.
+- **The clock is an argument, and it decides a real thing.** `market_resolution()` takes the
+  current draft year as an INPUT. For a pick whose slot is **known** it answers `exact_slot`
+  once that draft year has arrived and `tier_from_slot` while it is still future — so asking
+  with today's clock would price a pre-draft trade at the slot the pick eventually landed on.
+  That is the `C3-REPLAY-01` class: it measures the methodology rather than the aging.
+
+  Where the slot is genuinely unknown the answer is the GENERIC grade and the clock is not
+  consulted — by construction, not by omission. Both cases are exercised.
+
+  > **This was a defect in the first cut and is worth recording rather than quietly fixing.**
+  > `basis.py` passed `slot=None` unconditionally, so `market_resolution` never reached the
+  > branch that reads the clock — the entire as-of-event mechanism was unreachable, and the
+  > test that "proved" it passed vacuously because both clocks collapsed to the same generic
+  > ref. The repair carries `realized_slot` onto the event and the holding (slot is STATE, so
+  > learning it mints no second asset), and the test now asserts the two grades **differ**.
+
+- **One rollover rule, in one place.** The first cut reimplemented the draft-year rollover
+  inside `basis.py` and reached across the package boundary for a private config loader — and
+  reproduced only the date-derived fallback, dropping the `currentDraftYear` override. Fixed by
+  factoring `data_contract.rookie_draft_year_on(day)` out of `current_rookie_draft_year`'s own
+  step 3. The distinction is load-bearing: `current_rookie_draft_year` answers a
+  **present-tense** question and its override and observed-year self-roll both beat its `today`
+  argument, so calling it with a historical date would silently return today's answer.
+
 - **Before the floor is missing, not cheap.** An acquisition earlier than `HISTORY_FLOOR`
   returns `None` with `before_history_boundary` — never interpolated, never today's value,
   and never the earliest *future* observation, which is the same look-ahead reversed.
+
+- **A genuine `0.0` is a value, not a miss.** The code branches on `is None`, never on
+  truthiness, and a test pins it — a refactor to `if not value:` would otherwise reclassify
+  every observed zero as `no_prior_observation` with nothing failing.
 
 ### 4.2 `IMPORT_UNKNOWN` is fail-closed
 
@@ -201,6 +225,34 @@ is a later, separately-authorized unit.
 
 ---
 
+## 6b. The post-delivery audit, and the nine repairs it forced
+
+This unit was reported delivered before a completion report existed. Reconstructing that
+report meant auditing the implementation against the owner's checklist rather than against
+memory — and the audit found defects, so the honest sequence was **finish, then report.**
+
+Recording it here because "the audit found nothing" and "no audit was run" look identical
+from the outside, and because two of these were *false claims of correctness*, which is a
+worse failure than an absent feature.
+
+| # | found | resolution |
+|---|---|---|
+| 1 | the as-of-event clock was **dead code** — `slot=None` meant `market_resolution` never reached the branch that reads it | `realized_slot` now rides the event and the holding; §4.1 |
+| 2 | the test that "proved" it was **vacuous** — hardcoded a clock the code disagreed with, and passed because both collapsed to one generic ref | rewritten to assert the two grades **differ**; `test_a_known_slot_is_graded_by_the_clock_at_the_EVENT` |
+| 3 | `_draft_year_at` was a **competing owner** of the rollover rule, reaching across the package boundary for a private loader | `data_contract.rookie_draft_year_on` factored out; §4.1 |
+| 4 | **no manager identity** — roster ids only, and a roster id means nothing outside one Sleeper league id | `after/before_owner_user_id` on events, `owner_user_id` on holdings and lineage |
+| 5 | **startup and supplemental drafts were indistinguishable** from rookie drafts; the collector fetched the draft `type` and discarded it | `draft_kind` carried through; unlabelled stays `None`, never assumed rookie |
+| 6 | **board/confidence inertness was prose**, never measured, on a unit stacked on the confidence work | measured **0/1111**, plus four structural guards; §8b |
+| 7 | **no test that a real `0.0` basis survives** — the exact failure the module is built around | `test_a_genuine_zero_survives_as_a_value` |
+| 8 | `derive_pick_lineage` numbered hops by **caller order**, so a public export was correct for one caller | ordering established inside the derivation; convergence tested |
+| 9 | `WORK_CLAIMS.md` claimed the unit consumes `build_pick_ownership`; **it does not** | claim corrected — that fold answers current ownership from `/traded_picks`, which cannot express a chain |
+
+Two pick-lineage cases the owner names were also untested and now are: **A→B→A** (a pick
+returning to a prior owner — exactly where an owner-keyed identity would fragment) and a pick
+**traversing three rosters inside one multi-party transaction**. The privacy import-scan was
+widened from `src/public_league/` to `server.py` and `src/api/`, and the `0600` file mode is
+asserted rather than merely applied.
+
 ## 7. Deliberately not done, with the measurements
 
 - **The intel-ledger pick re-key.** `crawler.py:243-248` assigns this to C1-U8, and the
@@ -249,6 +301,37 @@ Until those are recorded, the unit is implementation-complete and not closed.
 
 ---
 
+## 8b. Board and confidence inertness — MEASURED
+
+The first cut asserted this in prose and measured nothing. Both halves now exist.
+
+**Measured**, `scripts/golden_board.py` on the base (`d33465d`) and on this head, then
+`scripts/board_diff.py --expect-no-value-change`:
+
+```
+rows: 1111 -> 1111 · ranked: 740 -> 740 · priced: 849 -> 849 · picks: 162 -> 162 · idp: 398 -> 398
+VALUES: 0 moved, 0 newly priced, 0 newly unpriced
+RANKS:  0 changed
+ASSERTION OK: no value changed.
+```
+
+**Structural**, `tests/acquisition/test_board_inertness.py` — because a diff proves inertness
+*on the day it ran*, and for this unit inertness was otherwise true only by accident of
+wiring: nothing outside the package imported it, so one future import would have made a
+private historical substrate a valuation input and the measurement would still have read zero.
+
+The direction of the rule matters and is stated in the test: this is **not** "acquisition may
+not import the pipeline" — it reads value history through `src/history` quite legitimately. It
+is the reverse. **The valuation path may not read acquisition**, because ownership history is
+downstream of value, and feeding it back makes every measurement taken from the ledger
+circular — the same rule `src/retention/__init__.py` states for its own stores.
+
+Four guards: no module in the canonical valuation path imports `src.acquisition`; no module
+in the whole `src/` tree does outside the package itself; a fresh interpreter that imports
+`data_contract` has no `src.acquisition` in `sys.modules` (which a static scan would miss for
+a lazy import); and the C1-U5 confidence vocabularies are unchanged — four levels, no
+acquisition-flavoured basis.
+
 ## 9. Tests
 
 | file | role |
@@ -258,6 +341,7 @@ Until those are recorded, the unit is implementation-complete and not closed.
 | `tests/acquisition/test_cost_basis.py` | the never-future rule and the four refusals |
 | `tests/acquisition/test_roster_and_privacy.py` | fidelity labels, `unavailable` ≠ empty, the structural privacy boundary |
 | `tests/acquisition/test_end_to_end.py` | one league's whole season, and running it twice changing nothing |
+| `tests/acquisition/test_board_inertness.py` | the structural half of §8b — the valuation path cannot reach acquisition history |
 
-**80 tests, all invariants — no absolute counts over live data**, so every one belongs in
+**106 tests, all invariants — no absolute counts over live data**, so every one belongs in
 the deterministic gate.

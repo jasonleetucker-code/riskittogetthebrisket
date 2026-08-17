@@ -13,11 +13,18 @@ qualify even on the same day (``src/history/asof.py``).
 
 TWO MORE LEAKS, CLOSED EXPLICITLY
 ─────────────────────────────────
-* **the clock is an argument.**  ``market_resolution()`` takes the
-  current draft year as an INPUT, so a pick's grade must be resolved
-  with the clock AS OF THE EVENT.  Passing today's re-grades an old
-  trade under today's basis, which is the ``C3-REPLAY-01`` defect
-  class: it measures the methodology rather than the aging.
+* **the clock is an argument, and it decides a real thing.**
+  ``market_resolution()`` takes the current draft year as an INPUT.  For
+  a pick whose slot is KNOWN it returns the ``exact_slot`` grade once
+  that draft year has arrived and the ``tier_from_slot`` grade while it
+  is still future — so asking with TODAY's clock would price a
+  pre-draft trade at the slot the pick eventually landed on.  That is
+  the ``C3-REPLAY-01`` defect class: it measures the methodology rather
+  than the aging.
+
+  Where the slot is genuinely unknown the answer is the GENERIC grade
+  and the clock is not consulted at all — by construction, not by
+  omission.  Both cases are exercised in ``tests/acquisition/test_cost_basis.py``.
 * **before the floor is missing, not cheap.**  An acquisition earlier
   than ``HISTORY_FLOOR`` gets ``basis_value = None`` with
   ``basis_missing_reason = "before_history_boundary"`` — never
@@ -25,7 +32,9 @@ TWO MORE LEAKS, CLOSED EXPLICITLY
   observation, which is the same look-ahead in a different direction.
 
 An undated acquisition has no instant to ask about, so it is
-``undated_acquisition``.  Missing is never zero.
+``undated_acquisition``.  Missing is never zero — and a genuine value of
+``0.0`` is a value, not a miss, which this module distinguishes by
+branching on ``is None`` and never on truthiness.
 """
 
 from __future__ import annotations
@@ -44,13 +53,41 @@ def _instant(ms: int) -> datetime:
     return datetime.fromtimestamp(ms / 1000.0, tz=timezone.utc)
 
 
-def _history_asset_key(asset_id: str, instant: datetime) -> str | None:
+def _draft_year_at(instant: datetime) -> int:
+    """Which rookie draft was 'current' at ``instant``.
+
+    Delegates to :func:`data_contract.rookie_draft_year_on`, the owner's
+    AS-OF form.  An earlier cut of this module reimplemented the rollover
+    rule locally and reached across the package boundary for a private
+    config loader; the rule now lives in one place.
+
+    Deliberately NOT ``current_rookie_draft_year``: that answers a
+    present-tense question, and its ``currentDraftYear`` override and
+    observed-year self-roll both win over the date argument — so calling
+    it with a historical date would silently return today's answer, which
+    is the exact re-grading this module exists to prevent.
+    """
+    from src.api.data_contract import rookie_draft_year_on
+
+    return int(rookie_draft_year_on(instant.astimezone(timezone.utc).date()))
+
+
+def _history_asset_key(
+    asset_id: str, instant: datetime, *, realized_slot: int | None = None
+) -> str | None:
     """Acquisition asset id → the ``src/history`` key namespace.
 
     Players map straight across.  A league pick does not: history keys
-    priced MARKET refs (``mpick:*``), and a league pick resolves to one
-    through the C1-U3 owner — with the clock passed as of the event, per
-    the module docstring.
+    price MARKET refs (``mpick:*``), and a league pick resolves to one
+    through the C1-U3 owner — with BOTH the slot as it was known and the
+    clock as of the event.
+
+    ``realized_slot`` is what makes the clock load-bearing.  With a slot,
+    ``market_resolution`` answers ``exact_slot`` once that draft year has
+    arrived and ``tier_from_slot`` while it is still future; without one
+    it answers the generic grade and never reads the clock.  Passing
+    ``None`` unconditionally — as an earlier cut did — made the whole
+    as-of-event mechanism unreachable.
     """
     from src.history.keys import pick_asset_key
     from src.identity.picks import market_resolution, parse_league_pick_id
@@ -65,7 +102,7 @@ def _history_asset_key(asset_id: str, instant: datetime) -> str | None:
     resolution = market_resolution(
         year=identity.season,
         round_num=identity.round_num,
-        slot=None,
+        slot=realized_slot,
         current_draft_year=_draft_year_at(instant),
     )
     if resolution is None or resolution.ref is None:
@@ -74,21 +111,15 @@ def _history_asset_key(asset_id: str, instant: datetime) -> str | None:
     return pick_asset_key(row_name) if row_name else None
 
 
-def _draft_year_at(instant: datetime) -> int:
-    """Which rookie draft was 'current' at ``instant``.
-
-    The same rollover convention ``current_rookie_draft_year`` uses, but
-    evaluated at the EVENT's instant rather than now.  Reading the live
-    resolver would re-grade every historical acquisition under today's
-    clock, which is exactly what this module exists to prevent.
-    """
-    from src.api.data_contract import _load_pick_year_discount
-
-    cfg = _load_pick_year_discount() or {}
-    roll_m = int(cfg.get("rolloverMonth") or 5)
-    roll_d = int(cfg.get("rolloverDay") or 15)
-    d = instant.astimezone(timezone.utc).date()
-    return d.year + 1 if (d.month, d.day) >= (roll_m, roll_d) else d.year
+def _coerce_slot(value: Any) -> int | None:
+    """A slot is known or it is not.  ``0`` is not a slot."""
+    if value is None or isinstance(value, bool):
+        return None
+    try:
+        slot = int(value)
+    except (TypeError, ValueError):
+        return None
+    return slot if slot > 0 else None
 
 
 def basis_for_holding(holding: dict[str, Any], *, path: Path | None = None) -> dict[str, Any]:
@@ -100,7 +131,11 @@ def basis_for_holding(holding: dict[str, Any], *, path: Path | None = None) -> d
     from src.history.asof import value_known_before
 
     instant = _instant(int(ms))
-    asset_key = _history_asset_key(str(holding.get("asset_id") or ""), instant)
+    asset_key = _history_asset_key(
+        str(holding.get("asset_id") or ""),
+        instant,
+        realized_slot=_coerce_slot(holding.get("realized_slot")),
+    )
     if not asset_key:
         return {"value": None, "fidelity": None, "missingReason": REASON_NO_ASSET_KEY}
 

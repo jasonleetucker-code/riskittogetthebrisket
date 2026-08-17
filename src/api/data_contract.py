@@ -4979,6 +4979,13 @@ def current_rookie_draft_year(today: date | None = None) -> int:
          cold start with no scrape available, or in tests.
 
     ``today`` is injectable for deterministic tests.
+
+    **This function answers a PRESENT-TENSE question.**  Steps 1 and 2
+    describe which draft is current *now* and are deliberately
+    clock-independent, so passing a historical ``today`` does NOT make
+    this an as-of resolver — the override or the observed year still
+    wins.  For "which draft was current on some past date", call
+    :func:`rookie_draft_year_on`, which is step 3 on its own.
     """
     cfg = _load_pick_year_discount()
     override = cfg.get("currentDraftYear")
@@ -4991,11 +4998,32 @@ def current_rookie_draft_year(today: date | None = None) -> int:
         return _OBSERVED_CURRENT_DRAFT_YEAR
     if today is None:
         today = datetime.now(timezone.utc).date()
+    return rookie_draft_year_on(today)
+
+
+def rookie_draft_year_on(day: date) -> int:
+    """Which rookie draft was current on ``day`` — the AS-OF form.
+
+    Step 3 of :func:`current_rookie_draft_year`, factored out so a
+    historical caller has one to call.  The configured
+    ``(rolloverMonth, rolloverDay)`` boundary is applied to the given
+    date and nothing else is consulted: the ``currentDraftYear`` override
+    and the observed-year self-roll both describe the PRESENT, and
+    applying either to a past instant would re-grade an old event under
+    today's clock.
+
+    Extracted for ``src/acquisition``'s at-the-time cost basis
+    (``C3-REPLAY-01`` class).  It lives here rather than there because a
+    second copy of the rollover rule is a second answer — the first cut
+    of that consumer reimplemented it and silently dropped the config
+    override.
+    """
+    cfg = _load_pick_year_discount()
     roll_m = int(cfg.get("rolloverMonth") or 5)
     roll_d = int(cfg.get("rolloverDay") or 15)
-    if (today.month, today.day) >= (roll_m, roll_d):
-        return today.year + 1
-    return today.year
+    if (day.month, day.day) >= (roll_m, roll_d):
+        return day.year + 1
+    return day.year
 
 
 def _pick_year_from_name(name: str) -> int | None:

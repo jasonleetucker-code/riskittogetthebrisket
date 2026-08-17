@@ -83,7 +83,9 @@ def derive_holdings(
             "league_key": league_key,
             "asset_id": asset_id,
             "owner_rid": owner_rid,
+            "owner_user_id": ev.get("after_owner_user_id"),
             "sequence_num": seq_by_pair[pair],
+            "realized_slot": ev.get("realized_slot"),
             "acquired_at_ms": ev.get("occurred_at_ms"),
             "acquired_ref": ev.get("source_ref"),
             "acquired_method": ev.get("event_type"),
@@ -153,7 +155,9 @@ def derive_holdings(
                     "league_key": league_key,
                     "asset_id": asset_id,
                     "owner_rid": int(before),
+                    "owner_user_id": ev.get("before_owner_user_id"),
                     "sequence_num": seq_by_pair[pair],
+                    "realized_slot": ev.get("realized_slot"),
                     "acquired_at_ms": None,
                     "acquired_ref": ev.get("source_ref"),
                     "acquired_method": "IMPORT_UNKNOWN",
@@ -187,7 +191,9 @@ def derive_holdings(
                 "league_key": league_key,
                 "asset_id": asset_id,
                 "owner_rid": int(owner_rid),
+                "owner_user_id": None,
                 "sequence_num": seq_by_pair[pair],
+                "realized_slot": None,
                 "acquired_at_ms": None,
                 "acquired_ref": "roster_snapshot",
                 "acquired_method": "IMPORT_UNKNOWN",
@@ -225,6 +231,14 @@ def derive_pick_lineage(league_key: str, events: Iterable[dict[str, Any]]) -> li
     CURRENT ownership, so N appearances across N season snapshots is not
     N trades.  A chain needs the transaction feed, which is what this
     reads.
+
+    **Hop order is established here, not inherited from the caller.**
+    An earlier cut numbered hops by list-append order, which made this
+    public function correct only for a caller that had already sorted —
+    in practice only ``store.read_events``.  It now applies the same
+    ordering rule itself (undated first, then instant, then
+    ``source_ref``/``asset_id`` to break ties), so any caller and any
+    ingest order converge on one chain.
     """
     hops_by_pick: dict[str, list[dict[str, Any]]] = {}
     for ev in events:
@@ -240,17 +254,24 @@ def derive_pick_lineage(league_key: str, events: Iterable[dict[str, Any]]) -> li
             {
                 "league_key": league_key,
                 "pick_id": pick_id,
-                "hop_num": 0,  # assigned below, after the full chain is known
+                "hop_num": 0,  # assigned below, after the chain is ordered
                 "from_rid": ev.get("before_owner_rid"),
                 "to_rid": int(to_rid),
+                "from_user_id": ev.get("before_owner_user_id"),
+                "to_user_id": ev.get("after_owner_user_id"),
+                "realized_slot": ev.get("realized_slot"),
                 "source_ref": ev.get("source_ref"),
                 "occurred_at_ms": ev.get("occurred_at_ms"),
             }
         )
 
+    def _hop_order(hop: dict[str, Any]) -> tuple[Any, ...]:
+        ms = hop.get("occurred_at_ms")
+        return (ms is None, ms or 0, str(hop.get("source_ref") or ""))
+
     out: list[dict[str, Any]] = []
     for pick_id in sorted(hops_by_pick):
-        for i, hop in enumerate(hops_by_pick[pick_id], start=1):
+        for i, hop in enumerate(sorted(hops_by_pick[pick_id], key=_hop_order), start=1):
             hop["hop_num"] = i
             out.append(hop)
     return out

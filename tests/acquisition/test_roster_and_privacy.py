@@ -77,12 +77,14 @@ def _seed(path, holdings, *, earliest_event_ms: int | None = _ms(_T0)) -> None:
     )
 
 
-def _holding(asset_id, owner, acquired, disposed=None, method="TRADE", seq=1):
+def _holding(asset_id, owner, acquired, disposed=None, method="TRADE", seq=1, user=None):
     return {
         "league_key": LEAGUE,
         "asset_id": asset_id,
         "owner_rid": owner,
+        "owner_user_id": user,
         "sequence_num": seq,
+        "realized_slot": None,
         "acquired_at_ms": acquired,
         "acquired_ref": "tx:x",
         "acquired_method": method,
@@ -185,6 +187,29 @@ class TestThePrivacyBoundaryHolds:
             and "acquisition.sqlite" in p.read_text(encoding="utf-8", errors="ignore")
         ]
         assert not hits, hits
+
+    def test_no_server_route_handler_imports_the_package(self):
+        """The scan used to cover only ``src/public_league/``. A private
+        substrate reachable from an HTTP handler is a distribution
+        boundary regardless of which module the handler lives in."""
+        offenders = []
+        for path in [REPO / "server.py", *(REPO / "src" / "api").rglob("*.py")]:
+            if any(n.startswith("src.acquisition") for n in self._imports(path)):
+                offenders.append(str(path.relative_to(REPO)))
+        assert not offenders, (
+            f"an API/route module imports private acquisition history: {offenders}. "
+            "C1-ACQ is a library + offline collector; serving it needs a separately "
+            "authorized contract, not an import."
+        )
+
+    def test_the_database_is_created_private(self, db):
+        """``store`` chmods 0600; nothing tested that it took effect."""
+        import stat
+
+        store_mod.connect(db).close()
+        assert db.exists()
+        mode = stat.S_IMODE(db.stat().st_mode)
+        assert mode & 0o077 == 0, f"acquisition db is group/world accessible: {oct(mode)}"
 
     def test_the_database_is_gitignored(self):
         import subprocess

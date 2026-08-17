@@ -99,8 +99,8 @@ def _transactions_for(league_key: str) -> list[tuple[dict[str, Any], str | None,
     return out
 
 
-def _draft_picks_for(league_key: str) -> list[tuple[str, list[dict], str | None, str | None]]:
-    """``(draft_id, picks, sleeper_league_id, season)`` from Sleeper.
+def _draft_picks_for(league_key: str) -> list[dict[str, Any]]:
+    """One record per draft: picks plus the metadata that identifies it.
 
     Draft is the one asset-origin class with no durable record anywhere,
     and a completed auction's realized prices become unrecoverable once
@@ -115,12 +115,13 @@ def _draft_picks_for(league_key: str) -> list[tuple[str, list[dict], str | None,
     if cfg is None or not cfg.sleeper_league_id:
         return []
 
-    out: list[tuple[str, list[dict], str | None, str | None]] = []
+    out: list[dict[str, Any]] = []
     for lid in _walk_league_chain(cfg.sleeper_league_id, max_depth=2):
         info = _http_get_json(f"https://api.sleeper.app/v1/league/{lid}")
         season = None
         if isinstance(info, dict):
             season = str(info.get("season") or "").strip() or None
+        owners = _owner_by_roster(str(lid))
         drafts = _http_get_json(f"https://api.sleeper.app/v1/league/{lid}/drafts")
         for draft in drafts or []:
             if not isinstance(draft, dict):
@@ -130,8 +131,57 @@ def _draft_picks_for(league_key: str) -> list[tuple[str, list[dict], str | None,
                 continue
             picks = _http_get_json(f"https://api.sleeper.app/v1/draft/{draft_id}/picks")
             if isinstance(picks, list) and picks:
-                out.append((draft_id, picks, str(lid), season))
+                out.append(
+                    {
+                        "draft_id": draft_id,
+                        "picks": picks,
+                        "sleeper_league_id": str(lid),
+                        # The draft object's OWN season, not the
+                        # league's -- a startup draft can sit in a
+                        # season the league object no longer reports.
+                        "season": str(draft.get("season") or "").strip() or season,
+                        # Sleeper's own draft type.  Previously fetched
+                        # and discarded, which made a startup auction
+                        # indistinguishable from a rookie draft.
+                        "draft_kind": str(draft.get("type") or "").strip() or None,
+                        "owner_by_roster": owners,
+                    }
+                )
     return out
+
+
+def _owner_by_roster(sleeper_league_id: str) -> dict[Any, str]:
+    """``roster_id -> Sleeper user id`` for one chain member.
+
+    Reuses the overlay's own lookup so there is one definition of the
+    roster->owner map.  Empty on failure: an unattributed event is
+    honest, an invented manager is not.
+    """
+    try:
+        from src.api.sleeper_overlay import _league_rid_lookup
+
+        _names, rid_to_owner = _league_rid_lookup(str(sleeper_league_id))
+        return {k: str(v) for k, v in (rid_to_owner or {}).items() if v}
+    except Exception as exc:  # noqa: BLE001
+        _log(f"[acquisition] WARNING: roster->owner map unavailable for {sleeper_league_id}: {exc}")
+        return {}
+
+
+def _draft_slots_for(sleeper_league_id: str) -> dict[tuple[int, int], int]:
+    """``(season, origin_roster_id) -> draft slot`` for one chain member.
+
+    Reuses ``sleeper_overlay._league_draft_slot_lookup``, the existing
+    owner of slot resolution, rather than re-deriving draft order here.
+    Empty on failure -- an unknown slot resolves a pick at its GENERIC
+    grade, which is correct, so this degrades rather than guesses.
+    """
+    try:
+        from src.api.sleeper_overlay import _league_draft_slot_lookup
+
+        return _league_draft_slot_lookup(str(sleeper_league_id)) or {}
+    except Exception as exc:  # noqa: BLE001
+        _log(f"[acquisition] WARNING: draft-slot map unavailable for {sleeper_league_id}: {exc}")
+        return {}
 
 
 def _current_rosters(league_key: str) -> dict[str, int]:
@@ -166,10 +216,23 @@ def build(league_key: str, *, offline: bool, dry_run: bool) -> int:
 
     events = []
     txs = _transactions_for(league_key)
+    owner_cache: dict[str, dict[Any, str]] = {}
+    slot_cache: dict[str, dict[tuple[int, int], int]] = {}
     for payload, sleeper_id, season in txs:
+        lid = str(sleeper_id or "")
+        if lid and not offline:
+            if lid not in owner_cache:
+                owner_cache[lid] = _owner_by_roster(lid)
+            if lid not in slot_cache:
+                slot_cache[lid] = _draft_slots_for(lid)
         events.extend(
             events_from_transaction(
-                payload, league_key=league_key, sleeper_league_id=sleeper_id, season=season
+                payload,
+                league_key=league_key,
+                sleeper_league_id=sleeper_id,
+                season=season,
+                owner_by_roster=owner_cache.get(lid),
+                slot_by_origin=slot_cache.get(lid),
             )
         )
     _log(f"[acquisition] {len(txs)} retained transactions -> {len(events)} asset movements")
@@ -177,14 +240,16 @@ def build(league_key: str, *, offline: bool, dry_run: bool) -> int:
     rosters: dict[str, int] = {}
     if not offline:
         drafts = _draft_picks_for(league_key)
-        for draft_id, picks, sleeper_id, season in drafts:
+        for draft in drafts:
             events.extend(
                 events_from_draft_picks(
-                    picks,
+                    draft["picks"],
                     league_key=league_key,
-                    draft_id=draft_id,
-                    sleeper_league_id=sleeper_id,
-                    season=season,
+                    draft_id=draft["draft_id"],
+                    sleeper_league_id=draft["sleeper_league_id"],
+                    season=draft["season"],
+                    draft_kind=draft["draft_kind"],
+                    owner_by_roster=draft["owner_by_roster"],
                 )
             )
         _log(f"[acquisition] {len(drafts)} drafts fetched")

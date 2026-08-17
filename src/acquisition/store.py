@@ -36,7 +36,7 @@ from src.retention.evidence_store import RETENTION_DIR
 
 DB_PATH: Path = RETENTION_DIR / "acquisition.sqlite"
 
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
 
 PRIVACY_CLASS = "private"
 
@@ -62,6 +62,26 @@ CREATE TABLE IF NOT EXISTS acquisition_events (
     event_type        TEXT NOT NULL,   -- an ACQUISITION_METHODS / DISPOSAL_METHODS value
     after_owner_rid   INTEGER,         -- NULL = left every roster
     before_owner_rid  INTEGER,         -- NULL = came from outside the league
+
+    -- MANAGER identity.  A roster id is stable only WITHIN one Sleeper
+    -- league id, and a registry league spans several across seasons, so
+    -- roster id alone cannot answer "which human".  NULL = the
+    -- roster->owner map could not be resolved: unattributed, not guessed.
+    after_owner_user_id  TEXT,
+    before_owner_user_id TEXT,
+
+    -- Sleeper's own draft ``type`` for a DRAFT event (rookie / startup /
+    -- auction / ...).  A startup auction and a rookie draft are
+    -- different acquisition facts with different cost-basis semantics.
+    -- NULL for non-draft events and for a draft that reported no type.
+    draft_kind        TEXT,
+
+    -- The pick slot this event realized, for a pick asset.  Load-bearing
+    -- for cost basis: with a slot, market_resolution distinguishes the
+    -- exact-slot grade from the tier grade USING THE CLOCK AS OF THE
+    -- EVENT; without one it answers the generic grade and never reads
+    -- the clock.  NULL = slot genuinely unknown.  Never 0.
+    realized_slot     INTEGER,
 
     sleeper_league_id TEXT,
     season            TEXT,
@@ -94,9 +114,16 @@ CREATE TABLE IF NOT EXISTS holdings (
     league_key      TEXT NOT NULL,
     asset_id        TEXT NOT NULL,
     owner_rid       INTEGER NOT NULL,
+    -- Manager identity for this holding period.  NULL when the
+    -- roster->owner map could not be resolved.
+    owner_user_id   TEXT,
     -- Reacquisition opens a NEW period rather than editing the old
     -- one, so "he owned him twice" is representable.
     sequence_num    INTEGER NOT NULL,
+
+    -- Carried onto the holding so cost basis can hand it to
+    -- market_resolution; see the acquisition_events column comment.
+    realized_slot   INTEGER,
 
     acquired_at_ms  INTEGER,
     acquired_ref    TEXT NOT NULL,
@@ -131,6 +158,12 @@ CREATE TABLE IF NOT EXISTS pick_lineage (
     hop_num        INTEGER NOT NULL,
     from_rid       INTEGER,
     to_rid         INTEGER NOT NULL,
+    from_user_id   TEXT,
+    to_user_id     TEXT,
+    -- Slot at the moment of this hop, when known.  A pick keeps ONE
+    -- identity across realization (C1-U3: owner and slot are STATE), so
+    -- this is hop state, never a second asset.
+    realized_slot  INTEGER,
     source_ref     TEXT NOT NULL,
     occurred_at_ms INTEGER,
 
@@ -146,6 +179,8 @@ _EVENT_COLS: Sequence[str] = (
     "event_type",
     "after_owner_rid",
     "before_owner_rid",
+    "after_owner_user_id",
+    "before_owner_user_id",
     "sleeper_league_id",
     "season",
     "week",
@@ -153,6 +188,8 @@ _EVENT_COLS: Sequence[str] = (
     "time_fidelity",
     "faab_bid",
     "auction_amount",
+    "draft_kind",
+    "realized_slot",
     "source",
     "content_hash",
 )
@@ -259,6 +296,8 @@ def write_events(events: Iterable[AcquisitionEvent], *, path: Path | None = None
                     ev.event_type,
                     ev.after_owner_rid,
                     ev.before_owner_rid,
+                    ev.after_owner_user_id,
+                    ev.before_owner_user_id,
                     ev.sleeper_league_id,
                     ev.season,
                     ev.week,
@@ -266,6 +305,8 @@ def write_events(events: Iterable[AcquisitionEvent], *, path: Path | None = None
                     ev.time_fidelity,
                     ev.faab_bid,
                     ev.auction_amount,
+                    ev.draft_kind,
+                    ev.realized_slot,
                     ev.source,
                     digest,
                     now,
@@ -331,19 +372,21 @@ def replace_derivations(
         conn.execute("DELETE FROM holdings WHERE league_key = ?", (league_key,))
         conn.execute("DELETE FROM pick_lineage WHERE league_key = ?", (league_key,))
         conn.executemany(
-            "INSERT INTO holdings (league_key, asset_id, owner_rid, sequence_num, "
-            "acquired_at_ms, acquired_ref, acquired_method, disposed_at_ms, disposed_ref, "
-            "disposed_method, basis_value, basis_fidelity, basis_missing_reason, "
-            "order_fidelity) VALUES (:league_key, :asset_id, :owner_rid, :sequence_num, "
-            ":acquired_at_ms, :acquired_ref, :acquired_method, :disposed_at_ms, "
-            ":disposed_ref, :disposed_method, :basis_value, :basis_fidelity, "
-            ":basis_missing_reason, :order_fidelity)",
+            "INSERT INTO holdings (league_key, asset_id, owner_rid, owner_user_id, "
+            "sequence_num, realized_slot, acquired_at_ms, acquired_ref, acquired_method, "
+            "disposed_at_ms, disposed_ref, disposed_method, basis_value, basis_fidelity, "
+            "basis_missing_reason, order_fidelity) VALUES (:league_key, :asset_id, "
+            ":owner_rid, :owner_user_id, :sequence_num, :realized_slot, :acquired_at_ms, "
+            ":acquired_ref, :acquired_method, :disposed_at_ms, :disposed_ref, "
+            ":disposed_method, :basis_value, :basis_fidelity, :basis_missing_reason, "
+            ":order_fidelity)",
             list(holdings),
         )
         conn.executemany(
             "INSERT INTO pick_lineage (league_key, pick_id, hop_num, from_rid, to_rid, "
-            "source_ref, occurred_at_ms) VALUES (:league_key, :pick_id, :hop_num, "
-            ":from_rid, :to_rid, :source_ref, :occurred_at_ms)",
+            "from_user_id, to_user_id, realized_slot, source_ref, occurred_at_ms) "
+            "VALUES (:league_key, :pick_id, :hop_num, :from_rid, :to_rid, :from_user_id, "
+            ":to_user_id, :realized_slot, :source_ref, :occurred_at_ms)",
             list(lineage),
         )
         conn.commit()

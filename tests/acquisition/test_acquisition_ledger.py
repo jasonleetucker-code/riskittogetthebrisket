@@ -75,6 +75,10 @@ def _rows(events):
                 "event_type": e.event_type,
                 "after_owner_rid": e.after_owner_rid,
                 "before_owner_rid": e.before_owner_rid,
+                "after_owner_user_id": e.after_owner_user_id,
+                "before_owner_user_id": e.before_owner_user_id,
+                "draft_kind": e.draft_kind,
+                "realized_slot": e.realized_slot,
                 "occurred_at_ms": e.occurred_at_ms,
                 "source_ref": e.source_ref,
             }
@@ -570,3 +574,217 @@ def test_the_method_vocabularies_overlap_only_where_direction_is_genuinely_ambig
         "a method in both vocabularies is one whose direction the replay must read from "
         f"after_owner_rid rather than the name; unexpected members: {both}"
     )
+
+
+# ── gaps closed after the C1-U8 checklist audit ─────────────────────
+
+
+class TestPickLineageReturnsAndMultiPartyMovement:
+    """Two cases the first cut left untested, both named in the owner's
+    pick-lineage rule."""
+
+    def _pick_tx(self, tx_id: str, ts: int, frm: int | None, to: int) -> dict[str, Any]:
+        return _trade(
+            tx_id,
+            ts=ts,
+            adds={},
+            drops={},
+            draft_picks=[
+                {
+                    "season": "2028",
+                    "round": 1,
+                    "roster_id": 9,  # ORIGIN — constant across every hop
+                    "owner_id": to,
+                    "previous_owner_id": frm,
+                }
+            ],
+        )
+
+    def test_a_pick_traded_away_and_reacquired_is_one_chain(self):
+        """A→B→A. The player-side equivalent was covered; the pick side
+        was not, and a pick returning to a prior owner is exactly where
+        an identity keyed on owner would fragment."""
+        events = _rows(
+            _norm(self._pick_tx("h1", T1, 9, 2))
+            + _norm(self._pick_tx("h2", T2, 2, 5))
+            + _norm(self._pick_tx("h3", T3, 5, 2))
+        )
+        chain = derive_pick_lineage(LEAGUE, events)
+        assert len({h["pick_id"] for h in chain}) == 1, "the chain fragmented on the return"
+        assert [(h["hop_num"], h["from_rid"], h["to_rid"]) for h in chain] == [
+            (1, 9, 2),
+            (2, 2, 5),
+            (3, 5, 2),
+        ]
+
+    def test_a_pick_moving_through_three_rosters_in_one_trade(self):
+        """A three-team trade where the pick itself changes hands, rather
+        than a three-team trade that merely contains a pick."""
+        tx = _trade(
+            "three_way_pick",
+            roster_ids=[1, 2, 3],
+            adds={},
+            drops={},
+            draft_picks=[
+                {
+                    "season": "2028",
+                    "round": 1,
+                    "roster_id": 7,
+                    "owner_id": 2,
+                    "previous_owner_id": 1,
+                },
+                {
+                    "season": "2029",
+                    "round": 2,
+                    "roster_id": 8,
+                    "owner_id": 3,
+                    "previous_owner_id": 2,
+                },
+                {
+                    "season": "2029",
+                    "round": 3,
+                    "roster_id": 9,
+                    "owner_id": 1,
+                    "previous_owner_id": 3,
+                },
+            ],
+        )
+        events = _norm(tx)
+        assert len({e.source_ref for e in events}) == 1, "the multi-party shape was split"
+        chain = derive_pick_lineage(LEAGUE, _rows(events))
+        assert len({h["pick_id"] for h in chain}) == 3
+        assert {(h["from_rid"], h["to_rid"]) for h in chain} == {(1, 2), (2, 3), (3, 1)}
+
+
+class TestLineageOrderIsEstablishedByTheDerivation:
+    """``derive_pick_lineage`` is a public export. Numbering hops by the
+    caller's list order made it correct only for one caller."""
+
+    def _pick_tx(self, tx_id: str, ts: int, frm: int, to: int) -> dict[str, Any]:
+        return _trade(
+            tx_id,
+            ts=ts,
+            adds={},
+            drops={},
+            draft_picks=[
+                {
+                    "season": "2028",
+                    "round": 1,
+                    "roster_id": 9,
+                    "owner_id": to,
+                    "previous_owner_id": frm,
+                }
+            ],
+        )
+
+    def test_shuffled_input_produces_the_same_chain(self):
+        forward = (
+            _norm(self._pick_tx("a", T1, 9, 2))
+            + _norm(self._pick_tx("b", T2, 2, 5))
+            + _norm(self._pick_tx("c", T3, 5, 7))
+        )
+        ordered = derive_pick_lineage(LEAGUE, _rows(forward))
+        # Feed the RAW list reversed, bypassing store.read_events' sort.
+        shuffled_rows = list(reversed(_rows(forward)))
+        assert (
+            derive_pick_lineage(LEAGUE, shuffled_rows) == ordered
+        ), "hop numbering depended on caller order — the derivation must establish it"
+        assert [h["to_rid"] for h in ordered] == [2, 5, 7]
+
+    def test_holdings_converge_under_shuffled_input(self):
+        forward = _norm(_trade("t1", ts=T1, adds={"P": 1}, drops={})) + _norm(
+            _trade("t2", ts=T2, adds={"P": 2}, drops={"P": 1})
+        )
+        rows = _rows(forward)
+        assert derive_holdings(LEAGUE, rows) == derive_holdings(
+            LEAGUE, sorted(rows, key=lambda r: r["source_ref"])
+        ), "derived holdings depend on input order"
+
+
+class TestDraftKindIsPreserved:
+    """A startup auction and a rookie draft are different acquisition
+    facts with different cost-basis semantics. The metadata is fetched
+    from the draft object; the first cut discarded it."""
+
+    def _picks(self):
+        return [{"pick_no": 1, "player_id": "p", "roster_id": 2, "picked_at": T1, "metadata": {}}]
+
+    def test_each_draft_kind_survives_onto_the_event(self):
+        for kind in ("rookie", "startup", "supplemental", "auction"):
+            events = events_from_draft_picks(
+                self._picks(), league_key=LEAGUE, draft_id=f"d-{kind}", draft_kind=kind
+            )
+            assert events[0].draft_kind == kind, kind
+            assert events[0].event_type == "DRAFT"
+
+    def test_an_unreported_kind_stays_none_rather_than_defaulting_to_rookie(self):
+        events = events_from_draft_picks(self._picks(), league_key=LEAGUE, draft_id="d")
+        assert (
+            events[0].draft_kind is None
+        ), "an unlabelled draft must not be assumed to be a rookie draft"
+
+    def test_two_draft_kinds_are_distinguishable_in_the_store(self, db):
+        rookie = events_from_draft_picks(
+            self._picks(), league_key=LEAGUE, draft_id="d1", draft_kind="rookie"
+        )
+        startup = events_from_draft_picks(
+            self._picks(), league_key=LEAGUE, draft_id="d2", draft_kind="startup"
+        )
+        store_mod.write_events(rookie + startup, path=db)
+        kinds = {r["draft_kind"] for r in store_mod.read_events(LEAGUE, path=db)}
+        assert kinds == {"rookie", "startup"}
+
+
+class TestManagerIdentityIsCarried:
+    """A roster id is stable only within one Sleeper league id, and a
+    registry league spans several across seasons — so roster id alone
+    cannot answer "which human"."""
+
+    def test_a_trade_records_both_managers(self):
+        events = _norm(_trade("t"), owner_by_roster={1: "userA", 2: "userB"})
+        moved = next(e for e in events if e.asset_id == "player:4034")
+        assert moved.after_owner_user_id == "userA"
+        assert moved.before_owner_user_id == "userB"
+
+    def test_an_unresolvable_roster_stays_unattributed_rather_than_guessed(self):
+        events = _norm(_trade("t"), owner_by_roster={})
+        assert events[0].after_owner_user_id is None
+
+    def test_the_manager_reaches_the_holding(self):
+        events = _rows(_norm(_trade("t"), owner_by_roster={1: "userA", 2: "userB"}))
+        holdings = derive_holdings(LEAGUE, events)
+        by_owner = {h["owner_rid"]: h for h in holdings}
+        assert by_owner[1]["owner_user_id"] == "userA"
+
+    def test_a_draft_selection_records_its_picker(self):
+        events = events_from_draft_picks(
+            [
+                {
+                    "pick_no": 1,
+                    "player_id": "p",
+                    "roster_id": 2,
+                    "picked_by": "userZ",
+                    "metadata": {},
+                }
+            ],
+            league_key=LEAGUE,
+            draft_id="d",
+        )
+        assert events[0].after_owner_user_id == "userZ"
+
+
+class TestRealizedSlotIsStateNotIdentity:
+    def test_a_known_slot_rides_the_event_without_changing_the_pick_id(self):
+        tx = _trade(
+            "slotted",
+            adds={},
+            drops={},
+            draft_picks=[{"season": "2028", "round": 1, "roster_id": 9, "owner_id": 2}],
+        )
+        blind = _norm(tx)
+        aware = _norm(tx, slot_by_origin={(2028, 9): 4})
+        assert blind[0].realized_slot is None
+        assert aware[0].realized_slot == 4
+        assert (
+            blind[0].asset_id == aware[0].asset_id
+        ), "slot is STATE — learning it must not mint a second asset"

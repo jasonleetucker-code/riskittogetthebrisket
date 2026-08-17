@@ -80,8 +80,8 @@ def roster_at(
     conn = connect(path)
     try:
         rows = conn.execute(
-            "SELECT asset_id, owner_rid, sequence_num, acquired_at_ms, acquired_method, "
-            "disposed_at_ms, basis_value, basis_missing_reason "
+            "SELECT asset_id, owner_rid, owner_user_id, sequence_num, acquired_at_ms, "
+            "acquired_method, disposed_at_ms, basis_value, basis_missing_reason "
             "FROM holdings WHERE league_key = ? ORDER BY asset_id, owner_rid, sequence_num",
             (league_key,),
         ).fetchall()
@@ -114,6 +114,7 @@ def roster_at(
     cols = (
         "asset_id",
         "owner_rid",
+        "owner_user_id",
         "sequence_num",
         "acquired_at_ms",
         "acquired_method",
@@ -135,6 +136,7 @@ def roster_at(
             {
                 "assetId": holding["asset_id"],
                 "ownerRosterId": int(holding["owner_rid"]),
+                "ownerUserId": holding["owner_user_id"],
                 "acquiredAtMs": holding["acquired_at_ms"],
                 "acquiredMethod": holding["acquired_method"],
                 "basisValue": holding["basis_value"],
