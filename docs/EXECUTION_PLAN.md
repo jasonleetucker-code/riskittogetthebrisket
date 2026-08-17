@@ -79,7 +79,8 @@ Ordered. A unit leaves this queue only when production proof lands on the deploy
 
 | unit | PR | exact head | CI | unlocks | production proof |
 |---|---|---|---|---|---|
-| `C0-R` | *(open on push)* | *(pending)* | *(pending)* | every later unit — this is the record that authorizes them | pending |
+| `C0-R` | [#875](https://github.com/jasonleetucker-code/riskittogetthebrisket/pull/875) | `698280e` | run 31987015120 **orphaned** — never assigned a runner (`updated_at` frozen 4 s after start, zero log bytes, HTTP 404 on the job log) while unrelated runs completed normally. Cancelled and superseded by a fresh run on the next push | every later unit — this is the record that authorizes them | pending |
+| `C1-U5` | *(open on push)* | — | RED committed, implementation in progress | `C2`/`C3`/`C6` confidence consumers | pending |
 
 **Current unit: `C0-R`.**
 
