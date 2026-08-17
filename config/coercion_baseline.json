@@ -477,7 +477,6 @@
     "src/ros/aggregate.py::row_weight = weight * (row.confidence or 1.0)",
     "src/ros/api.py::unmapped_total = sum(int(t.get(\"unmappedPlayerCount\") or 0) for t in team_strength)",
     "src/ros/direction.py::strength_pct = team_ros_strength_percentile or 0.0",
-    "src/ros/lineup.py::base = max(0.0, float(player.ros_value or 0.0))",
     "src/ros/parse.py::base = float(src.get(\"base_weight\") or 0.0)",
     "src/ros/pick_projection.py::original = int(pd.get(\"original_roster_id\") or 0)",
     "src/ros/pick_projection.py::owner = int(pd.get(\"owner_roster_id\") or 0)",

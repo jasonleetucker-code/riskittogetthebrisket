@@ -943,6 +943,16 @@ def fetch_sleeper_rosters(league_id):
             f"  [Sleeper] Computed {total_pick_assets} future pick assets ({draft_rounds} rounds, years {pick_years})"
         )
 
+    # C2-U1: Sleeper's own slot-eligibility list, kept rather than
+    # discarded.  ``position`` below is a single primary token, and the
+    # canonical lineup owner (``src/ros/lineup.py``) can only honour
+    # "eligibility is absolute" if it is told a DL/LB hybrid is legal in
+    # either slot.  Measured on 10 real best-ball team-weeks, filling
+    # without it costs 34.01 points against Sleeper's own awarded
+    # lineups.  It arrives in the SAME ``all_nfl`` payload already
+    # fetched, so this costs no request — discarding it was the loss.
+    fantasy_positions_map: dict[str, list[str]] = {}
+
     for roster in rosters:
         owner_id = roster.get("owner_id", "")
         roster_id = roster.get("roster_id")
@@ -994,6 +1004,14 @@ def fetch_sleeper_rosters(league_id):
                 if cn and sid:
                     player_id_map[cn] = sid
                     id_to_player[sid] = cn
+                if cn and fp_list:
+                    # VERBATIM from the host — never our resolved family,
+                    # which is a narrowing.  Absent when Sleeper lists
+                    # none, so "no eligibility data" stays distinct from
+                    # "eligible at nothing".
+                    cleaned = [str(fp).strip().upper() for fp in fp_list if str(fp or "").strip()]
+                    if cleaned:
+                        fantasy_positions_map[cn] = cleaned
                 if pos and cn:
                     # Multi-positional IDP rule: prefer non-LB for dual-position players
                     # Sleeper stores a single position; we override known edge cases
@@ -1062,6 +1080,9 @@ def fetch_sleeper_rosters(league_id):
         "leagueName": league_name,
         "teams": teams,
         "positions": position_map,
+        # NFL-wide like ``positions`` — which slots a player is legal in
+        # does not depend on which league is asking.
+        "fantasyPositions": fantasy_positions_map,
         "playerIds": player_id_map,
         "idToPlayer": id_to_player,
         "scoringSettings": scoring_settings,

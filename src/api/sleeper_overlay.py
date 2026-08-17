@@ -1242,15 +1242,23 @@ def _fetch_league_name(sleeper_league_id: str, getter=None) -> str | None:
 
 #: Fields of a Sleeper block that belong to ONE league and may never be
 #: inherited from another (W18-F002).  The NFL-wide maps — ``positions``,
-#: ``playerIds``, ``idToPlayer`` — are deliberately not here: they map
-#: player ids to names for the whole league universe and are genuinely
-#: league-independent.
+#: ``playerIds``, ``idToPlayer``, ``fantasyPositions`` — are deliberately
+#: not here: they map player ids to names and eligibility for the whole
+#: league universe and are genuinely league-independent.  Note
+#: ``fantasyPositions`` is which SLOTS a player is legal in, which is a
+#: property of the player; which slots EXIST is ``rosterPositions``, and
+#: that is league-specific and listed below.
 LEAGUE_SPECIFIC_SLEEPER_FIELDS: tuple[str, ...] = (
     "scoringSettings",
     "rosterPositions",
     "leagueSettings",
 )
-NFL_WIDE_SLEEPER_FIELDS: tuple[str, ...] = ("positions", "playerIds", "idToPlayer")
+NFL_WIDE_SLEEPER_FIELDS: tuple[str, ...] = (
+    "positions",
+    "playerIds",
+    "idToPlayer",
+    "fantasyPositions",
+)
 
 
 def league_config_is_complete(config: Mapping[str, Any] | None) -> bool:

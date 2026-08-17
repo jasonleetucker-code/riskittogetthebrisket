@@ -78,6 +78,7 @@ contains no numeric literal that affects a recommendation.
 """
 
 from __future__ import annotations
+from src.ros import lineup as lineup_owner
 
 import math
 from dataclasses import dataclass
@@ -441,11 +442,13 @@ _POSITION_FAMILY = {
     "SS": "DB",
 }
 
+# Derived from the canonical owner (C2-U1) — this was a private
+# slot-eligibility table, and a second table is a second owner even
+# while it agrees.  The KEYS are the slot spellings this module sees in
+# a registry ``starters`` map.
 _FLEX_ELIGIBILITY = {
-    "FLEX": ("RB", "WR", "TE"),
-    "SFLEX": ("QB", "RB", "WR", "TE"),
-    "SUPER_FLEX": ("QB", "RB", "WR", "TE"),
-    "IDP_FLEX": ("DL", "LB", "DB"),
+    slot: lineup_owner.ordered_positions(lineup_owner.slot_eligible_positions(slot))
+    for slot in ("FLEX", "SFLEX", "SUPER_FLEX", "IDP_FLEX")
 }
 
 
