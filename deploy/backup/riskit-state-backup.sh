@@ -93,7 +93,19 @@ DATA_DIR="${DATA_DIR:-${APP_DIR}/data}"
 # Their DEFAULTS live in backup_root_lib.sh, sourced below, which is the
 # single owner of where a backup goes — see the destination block.
 KEEP_DAILY="${KEEP_DAILY:-14}"
-DATE_STAMP="$(date -u +%Y-%m-%d)"
+# The generation date. Overridable like KEEP_DAILY / OFFBOX_RSYNC_DEST
+# below it, and for the same reason: a caller that needs a deterministic
+# generation name must be able to say so.
+#
+# Added 2026-08-17. ``tests/deploy/test_backup_root_resolution.py`` reads
+# the UTC date once at module import and asserts on ``daily/${DATE_STAMP}``
+# at thirty-odd sites, while this script read the clock when it ran — so a
+# suite that straddled UTC midnight compared a generation the script had
+# just created as ``2026-08-17`` against an expectation of ``2026-08-16``
+# and failed a docs-only pull request at 00:03:49Z. Pinning the two
+# together by construction is the fix; the default is unchanged, so
+# production behaviour is identical unless someone exports it deliberately.
+DATE_STAMP="${DATE_STAMP:-$(date -u +%Y-%m-%d)}"
 OFFBOX_RSYNC_DEST="${OFFBOX_RSYNC_DEST:-}"
 BACKUP_REQUIRED="${BACKUP_REQUIRED:-user_kv.sqlite session_store.sqlite}"
 
