@@ -154,6 +154,40 @@ same wrong number.
 
 ---
 
+## 3.4 Four more safety rails are already firing — in the advisory lane
+
+Added after the first CI run on this branch (run 31992373267). The hard gate fails on the
+year-step test above; the **`livedata` lane fails four more times, all on the same nine
+rows**, and it supplies a fact the archive analysis could not:
+
+```
+{'canonicalName': '2029 Early 1st', 'position': 'PICK', 'rank': 70,
+ 'matchedSources': ['idpTradeCalc'],
+ 'reason': 'matching_failure_other_sources_eligible'}
+```
+
+- `tests/api/test_launch_readiness.py::test_no_unexplained_1src_top400` — 9 rows
+- `tests/api/test_picks_end_to_end.py::test_no_unexplained_single_source_with_picks`
+- `tests/api/test_player_identity_regression.py::test_no_unannotated_single_source_in_top_board`
+  — ranks **#70, #88, #98, #167, #185**
+- `tests/api/test_source_monitoring.py::test_launch_readiness_gates_still_pass` (aggregate)
+
+Two things this adds:
+
+1. **Only ONE family votes on these rows.** `ktc` is present in `canonicalSiteValues` but is
+   the scraper's own model composite, retired from voting in 2026-04-28 — so every 2029 row
+   is a single-source row carrying the 30% single-source haircut, at ranks inside the top
+   200.
+2. **The pipeline itself classifies them as `matching_failure_other_sources_eligible`** —
+   it believes other sources should have covered these rows and did not. That is exactly
+   what a fabricated year looks like from the inside: the anchors assert 2029 exists, so
+   every family becomes "eligible", while only the fabrication reaches the blend.
+
+The board's own instrumentation caught this. It did not block because these four tests are
+`livedata` (advisory), which is the correct classification for them — they *are* statements
+about source coverage. The year-step test is the one that belongs in the hard gate, and it
+is the one that fired there.
+
 ## 4. Blast radius
 
 - **Every 2029 pick on the live board**, in the canonical `rankDerivedValue` — so
