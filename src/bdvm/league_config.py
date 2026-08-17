@@ -20,15 +20,18 @@ import json
 from dataclasses import dataclass, field
 from typing import Any, Mapping
 
+from src.ros import lineup as lineup_owner
+
 # Sleeper roster_positions vocabulary → (fixed group | flex definition).
 # BN / TAXI / IR are bench-type slots and never start.
 _FIXED_SLOTS = {"QB", "RB", "WR", "TE", "K", "DL", "LB", "DB", "DEF"}
+# Derived from the canonical owner (C2-U1) rather than restated — this
+# was a second slot-eligibility table, and a second table is a second
+# owner even while it agrees.  The KEYS name which slots this module
+# treats as flex; the VALUES come from ``src/ros/lineup.py``.
 _FLEX_SLOTS: dict[str, tuple[str, ...]] = {
-    "FLEX": ("RB", "WR", "TE"),
-    "WRRB_FLEX": ("RB", "WR"),
-    "REC_FLEX": ("WR", "TE"),
-    "SUPER_FLEX": ("QB", "RB", "WR", "TE"),
-    "IDP_FLEX": ("DL", "LB", "DB"),
+    slot: lineup_owner.ordered_positions(lineup_owner.slot_eligible_positions(slot))
+    for slot in ("FLEX", "WRRB_FLEX", "REC_FLEX", "SUPER_FLEX", "IDP_FLEX")
 }
 _BENCH_SLOTS = {"BN", "TAXI", "IR"}
 

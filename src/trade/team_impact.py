@@ -24,17 +24,9 @@ import json
 from pathlib import Path
 from typing import Any
 
-# Greedy starter fill order — premium positions first, then flex
-# slots, then IDP.  Within each slot, highest value eligible asset
-# wins.  IDP slots are skipped automatically if the league has no
-# DL/LB/DB starters configured.
-_FILL_ORDER = ("QB", "RB", "WR", "TE", "SFLEX", "FLEX", "DL", "LB", "DB", "IDP_FLEX")
+from src.ros.lineup import RosterPlayer, assign_lineup, resolve_starter_slots, slot_demand
 
 _BASE_POSITIONS = ("QB", "RB", "WR", "TE", "DL", "LB", "DB")
-
-_DEFAULT_FLEX_ELIGIBLE = ("RB", "WR", "TE")
-_DEFAULT_SFLEX_ELIGIBLE = ("QB", "RB", "WR", "TE")
-_DEFAULT_IDP_FLEX_ELIGIBLE = ("DL", "LB", "DB")
 
 
 def _load_default_weights() -> dict[str, Any]:
@@ -81,58 +73,74 @@ def _starter_slots(roster_settings: dict[str, Any]) -> dict[str, int]:
     return {str(k).upper(): int(v) for k, v in s.items() if isinstance(v, (int, float))}
 
 
-def _eligible(slot: str, pos: str, roster_settings: dict[str, Any]) -> bool:
-    pos = (pos or "").upper()
-    slot = slot.upper()
-    if not pos:
-        return False
-    if slot == pos:
-        return True
-    if slot == "FLEX":
-        eligible = roster_settings.get("flexEligible") or _DEFAULT_FLEX_ELIGIBLE
-        return pos in {p.upper() for p in eligible}
-    if slot == "SFLEX":
-        eligible = roster_settings.get("sflexEligible") or _DEFAULT_SFLEX_ELIGIBLE
-        return pos in {p.upper() for p in eligible}
-    if slot == "IDP_FLEX":
-        eligible = roster_settings.get("idpFlexEligible") or _DEFAULT_IDP_FLEX_ELIGIBLE
-        return pos in {p.upper() for p in eligible}
-    return False
-
-
 def project_starters(
     assets: list[dict[str, Any]],
     roster_settings: dict[str, Any],
 ) -> dict[str, list[dict[str, Any]]]:
-    """Greedy-fill starting lineup from a list of resolved assets.
+    """Starting lineup from a list of resolved assets.
 
     Returns ``{base_pos: [asset, ...]}`` — the starters at each base
-    position (RB starters from FLEX go into the RB bucket).  Picks
-    are ignored (they don't start).
-    """
-    slots = _starter_slots(roster_settings)
-    pool = [
-        a for a in assets if (a.get("basePos") or a.get("pos") or "").upper() in _BASE_POSITIONS
-    ]
-    pool.sort(key=lambda a: int(a.get("value") or 0), reverse=True)
-    used: set[int] = set()
-    starters: dict[str, list[dict[str, Any]]] = {p: [] for p in _BASE_POSITIONS}
+    position (RB starters from FLEX go into the RB bucket).  Picks are
+    ignored (they don't start).
 
-    for slot in _FILL_ORDER:
-        count = slots.get(slot, 0)
-        if count <= 0:
+    **Consumes the canonical assignment owner** (C2-U1).  It used to
+    keep its own slot-ordered greedy plus its own
+    ``_DEFAULT_*_ELIGIBLE`` tables, and measured against Sleeper's own
+    awarded lineups over 10 real 2025 team-weeks that engine reproduced
+    the host on **0 of 10** — 238.92 points of which was eligibility
+    blindness (it read ``basePos`` only, so a DL/LB hybrid was locked
+    out of half its legal slots) and 2.76 points the greedy itself lost
+    (its ``_FILL_ORDER`` filled ``SFLEX`` before ``FLEX``, i.e.
+    least-restrictive first).  It also named no ``K`` slot, though that
+    never reached this function's own output.
+
+    The eligibility half only becomes real once callers supply
+    ``fantasyPositions``; assets that carry none fall back to
+    ``basePos``, which is exactly the old behaviour.  Nothing is
+    fabricated to fill the gap.
+    """
+    slots, _source = resolve_starter_slots(roster_settings=roster_settings)
+    if not slots:
+        return {p: [] for p in _BASE_POSITIONS}
+
+    pool: list[RosterPlayer] = []
+    by_id: dict[str, dict[str, Any]] = {}
+    for idx, asset in enumerate(assets):
+        base = (asset.get("basePos") or asset.get("pos") or "").upper()
+        if base not in _BASE_POSITIONS:
             continue
-        filled = 0
-        for idx, asset in enumerate(pool):
-            if filled >= count:
-                break
-            if idx in used:
-                continue
-            pos = (asset.get("basePos") or asset.get("pos") or "").upper()
-            if _eligible(slot, pos, roster_settings):
-                starters[pos].append(asset)
-                used.add(idx)
-                filled += 1
+        # Index-keyed: these dicts have no stable identifier, and two
+        # roster picks can legitimately share a display name.
+        key = f"{idx}"
+        by_id[key] = asset
+        value = asset.get("value")
+        pool.append(
+            RosterPlayer(
+                player_id=key,
+                canonical_name=str(asset.get("name") or key),
+                position=base,
+                # ``None`` stays ``None``: an asset the board declined to
+                # price is UNPRICED, not worth zero, and must not win a
+                # starting slot ahead of one we can price.
+                ros_value=None if value is None else float(value),
+                fantasy_positions=tuple(
+                    str(fp).upper() for fp in (asset.get("fantasyPositions") or ()) if fp
+                ),
+            )
+        )
+
+    starters: dict[str, list[dict[str, Any]]] = {p: [] for p in _BASE_POSITIONS}
+    assignment = assign_lineup(pool, slots)
+    # Slot order, so the buckets read the way the league's lineup card
+    # does rather than in augmenting-path order.
+    for slot_idx in sorted(assignment.assignments):
+        player = assignment.assignments[slot_idx]
+        asset = by_id.get(player.player_id)
+        if asset is None:
+            continue
+        base = (asset.get("basePos") or asset.get("pos") or "").upper()
+        if base in starters:
+            starters[base].append(asset)
     return starters
 
 
@@ -161,29 +169,22 @@ def _aggregate_state(
     }
 
 
-def _flex_share(pos: str, roster_settings: dict[str, Any]) -> float:
-    """Approximate share of FLEX/SFLEX slots a base position absorbs.
-
-    Used to compute ``needed[pos]`` for overflow detection.  Pure
-    convenience — equal split across eligible positions.
-    """
-    slots = _starter_slots(roster_settings)
-    share = 0.0
-    if pos in (roster_settings.get("flexEligible") or _DEFAULT_FLEX_ELIGIBLE):
-        eligible = roster_settings.get("flexEligible") or _DEFAULT_FLEX_ELIGIBLE
-        share += slots.get("FLEX", 0) / max(1, len(eligible))
-    if pos in (roster_settings.get("sflexEligible") or _DEFAULT_SFLEX_ELIGIBLE):
-        eligible = roster_settings.get("sflexEligible") or _DEFAULT_SFLEX_ELIGIBLE
-        share += slots.get("SFLEX", 0) / max(1, len(eligible))
-    if pos in (roster_settings.get("idpFlexEligible") or _DEFAULT_IDP_FLEX_ELIGIBLE):
-        eligible = roster_settings.get("idpFlexEligible") or _DEFAULT_IDP_FLEX_ELIGIBLE
-        share += slots.get("IDP_FLEX", 0) / max(1, len(eligible))
-    return share
-
-
 def _needed_at(pos: str, roster_settings: dict[str, Any]) -> float:
-    slots = _starter_slots(roster_settings)
-    return slots.get(pos, 0) + _flex_share(pos, roster_settings)
+    """Starter demand at ``pos``, for overflow detection.
+
+    Reads the canonical :func:`slot_demand` contract's ``even_split``
+    field — a DECLARED approximation, not truth (see
+    ``src/ros/lineup.py::SlotDemand``: LI-5 measured the even split ~40%
+    wrong at QB).  It is the right rung here because overflow only asks
+    "is this roster carrying more bodies than the lineup can absorb",
+    which a coarse sizing constant answers.
+
+    Retired the local ``_flex_share`` — one of four independent
+    re-derivations of the same even-split rule in the tree.
+    """
+    return slot_demand(resolve_starter_slots(roster_settings=roster_settings)[0]).even_split.get(
+        pos.upper(), 0.0
+    )
 
 
 def _avg(values: list[int]) -> float:

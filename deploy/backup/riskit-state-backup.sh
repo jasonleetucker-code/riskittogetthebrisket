@@ -24,6 +24,13 @@
 #     On-box like the session cookies; it may reach the off-box mirror
 #     only because that destination is the operator's own.  It must
 #     NEVER be committed or force-added to the public repository.
+#   * data/retention/acquisition.sqlite  — acquisition history, cost
+#     basis and pick lineage (C1-ACQ-01..03).  Same PRIVATE class and
+#     same rules as league_events.sqlite.  Its events are a normalised
+#     projection and could in principle be rebuilt, but only from
+#     evidence that is itself irreplaceable — realized auction prices
+#     and out-of-window waiver claims that Sleeper no longer serves —
+#     so losing it is losing history, not losing a cache.
 #   * data/board_history.sqlite  — canonical board as-of records
 #     (C1-RET-02)
 #   * data/rank_history.jsonl    — per-player rank series (C1-RET-03)
@@ -397,6 +404,7 @@ backup_sqlite "${DATA_DIR}/guest_passes.sqlite"
 # and a stream that has legitimately not started yet is not that.
 backup_sqlite "${DATA_DIR}/retention/evidence.sqlite"
 backup_sqlite "${DATA_DIR}/retention/league_events.sqlite"
+backup_sqlite "${DATA_DIR}/retention/acquisition.sqlite"
 backup_sqlite "${DATA_DIR}/board_history.sqlite"
 backup_file   "${DATA_DIR}/rank_history.jsonl"
 

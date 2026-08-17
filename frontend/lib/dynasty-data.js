@@ -1062,8 +1062,13 @@ function _materializePlayerArrayRow(player) {
     // verdict any more — but absent-is-not-zero is the right contract for
     // a measurement regardless, and this is the row field the terminal
     // signal context reads.
-    confidence: Number.isFinite(Number(player.marketConfidence))
-      ? Number(player.marketConfidence)
+    // C1-U5: prefer the honest name, fall back to the deprecated alias so a
+    // bundle can serve an old payload and vice versa during a rolling deploy.
+    // The null-not-zero rule below is unchanged (audit N2).
+    confidence: Number.isFinite(
+      Number(player.marketBreadthAgreementIndex ?? player.marketConfidence),
+    )
+      ? Number(player.marketBreadthAgreementIndex ?? player.marketConfidence)
       : null,
     marketLabel: "",
     canonicalSites,
@@ -1164,7 +1169,14 @@ function _materializePlayerArrayRow(player) {
         : Number.isFinite(Number(player._yearsExp)) && player._yearsExp !== null
           ? Number(player._yearsExp)
           : null,
-    identityConfidence: Number(player.identityConfidence ?? 0.7),
+    identityResolutionConfidence: Number(
+      player.identityResolutionConfidence ?? player.identityConfidence ?? 0.7,
+    ),
+    // Deprecated alias, emitted for the declared window so a component that
+    // still reads the old name keeps working while it migrates.
+    identityConfidence: Number(
+      player.identityResolutionConfidence ?? player.identityConfidence ?? 0.7,
+    ),
     identityMethod: String(player.identityMethod || "name_only"),
     quarantined: Boolean(player.quarantined),
     // rankHistory: array of { date, rank } points stamped by the
@@ -1245,8 +1257,11 @@ function _materializeLegacyDictRow(name, player, posMap) {
     // on the legacy path. Reads the field that is actually stamped, and
     // keeps absent as null rather than 0. (That rule was retired
     // 2026-07-30; reading the real field is still correct.)
-    confidence: Number.isFinite(Number(player._marketConfidence))
-      ? Number(player._marketConfidence)
+    // C1-U5: same lockstep as the playersArray materializer above.
+    confidence: Number.isFinite(
+      Number(player._marketBreadthAgreementIndex ?? player._marketConfidence),
+    )
+      ? Number(player._marketBreadthAgreementIndex ?? player._marketConfidence)
       : null,
     marketLabel: String(player._marketReliabilityLabel || ""),
     canonicalSites,
@@ -1313,7 +1328,14 @@ function _materializeLegacyDictRow(name, player, posMap) {
         : Number.isFinite(Number(player._yearsExp)) && player._yearsExp !== null
           ? Number(player._yearsExp)
           : null,
-    identityConfidence: Number(player.identityConfidence ?? 0.7),
+    identityResolutionConfidence: Number(
+      player.identityResolutionConfidence ?? player.identityConfidence ?? 0.7,
+    ),
+    // Deprecated alias, emitted for the declared window so a component that
+    // still reads the old name keeps working while it migrates.
+    identityConfidence: Number(
+      player.identityResolutionConfidence ?? player.identityConfidence ?? 0.7,
+    ),
     identityMethod: String(player.identityMethod || "name_only"),
     quarantined: Boolean(player.quarantined),
     // Same history field, mirrored onto the legacy-dict code path.
@@ -1800,7 +1822,16 @@ export function mergeRankingsDelta(baseContract, delta) {
           legacy._formatFitRookie || legacy._isRookie || legacy.rookie,
         ),
         assetClass: String(legacy.assetClass || ""),
-        identityConfidence: Number(legacy.identityConfidence ?? 0.7),
+        identityResolutionConfidence: Number(
+          legacy.identityResolutionConfidence ??
+            legacy.identityConfidence ??
+            0.7,
+        ),
+        identityConfidence: Number(
+          legacy.identityResolutionConfidence ??
+            legacy.identityConfidence ??
+            0.7,
+        ),
         identityMethod: String(legacy.identityMethod || "name_only"),
         // Carry forward the pre-override canonical site values so
         // the retail-vs-consensus gap column can fall back when the
@@ -2174,12 +2205,19 @@ export async function fetchDynastyData(opts = {}) {
   // needed the base payload (only the merge does), yet they used to
   // run serially, putting a full extra round-trip on the critical
   // path of every first page view.
-  const promise = _postOverridesAndMerge(_fetchBaseContract(), body, overrideKey);
+  const promise = _postOverridesAndMerge(
+    _fetchBaseContract(),
+    body,
+    overrideKey,
+  );
   _inflightOverrideResult = { key: overrideKey, promise };
   try {
     return await promise;
   } finally {
-    if (_inflightOverrideResult && _inflightOverrideResult.promise === promise) {
+    if (
+      _inflightOverrideResult &&
+      _inflightOverrideResult.promise === promise
+    ) {
       _inflightOverrideResult = null;
     }
   }

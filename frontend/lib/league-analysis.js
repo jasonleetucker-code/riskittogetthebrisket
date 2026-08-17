@@ -760,10 +760,11 @@ export function buildPlayerMetaMap(rows) {
  *   ("full" | "raw") meaning which value NUMBER to read.  Both use the
  *   key "full", so mixing them up runs clean and returns wrong totals.
  * @param {object} [pickAliases] - optional backend alias map
- * @param {string[]} [rosterPositions] - the league's Sleeper lineup-slot
- *   array (`rawData.sleeper.rosterPositions`).  REQUIRED for the
- *   "starters" scope; without it that scope reports
- *   `starterSlotsUnavailable` instead of guessing a lineup.
+ * @param {string[]} [rosterPositions] - ACCEPTED AND UNUSED since C2-U1.
+ *   The lineup arrives already solved on `team.optimalLineup`; the
+ *   "starters" scope reports `starterSlotsUnavailable` when the server
+ *   stamped none, rather than guessing a lineup here.  Kept in the
+ *   signature so existing callers keep working.
  * @returns {{ total, byGroup, playerDetails, pickDetails,
  *   starterSlotsUnavailable }}
  */
@@ -797,7 +798,9 @@ export function buildTeamValueBreakdown(
     if (assetScope !== "starters") {
       if (byGroup[pm.group] !== undefined) byGroup[pm.group] += pm.meta;
     }
-    if (PLAYER_GROUPS.includes(pm.group)) lineupPool.push(pm);
+    // Carry the SLEEPER roster spelling: it is the key the server's
+    // lineup stamp uses, and `pm.name` is the board's display name.
+    if (PLAYER_GROUPS.includes(pm.group)) lineupPool.push({ ...pm, sleeperName: pName });
   }
 
   // Resolve pick values using multi-candidate lookup so Sleeper labels
@@ -822,15 +825,12 @@ export function buildTeamValueBreakdown(
   // start" depends on the rest of the roster, not a constant.
   let starterSlotsUnavailable = false;
   if (assetScope === "starters") {
+    // Materializes the SERVER's solved lineup — no client-side fill.
+    // See `lib/starter-slots.js`.
     const fill = fillLineup({
       assets: lineupPool,
-      rosterPositions,
-      // The un-collapsed vocabulary: DL, LB and DB stay distinct, so a
-      // DL slot matches only defensive linemen.  This is the exact
-      // answer; /terminal's collapsed vocabulary credits the top N
-      // defenders regardless of whether the roster can fill each slot.
-      positionOf: (p) => p.group,
-      valueFor: (p) => p.meta,
+      keyOf: (p) => p.sleeperName ?? p.name,
+      optimalLineup: team?.optimalLineup,
     });
     starterSlotsUnavailable = !fill.available;
     for (const p of fill.starters) {
@@ -1142,9 +1142,10 @@ export function analyzeTradeTendencies(rawData, rows) {
  * is an ordinal ranking key (the sorted list is cut into thirds), so
  * only the RATIOS between the terms move a team's tier.
  *
- * @param {string[]} [rosterPositions] - the league's Sleeper lineup-slot
- *   array.  Without it there is no lineup to fill and every team scores
- *   as pure depth, so callers should pass it; `/rosters` does.
+ * @param {string[]} [rosterPositions] - ACCEPTED AND UNUSED since C2-U1;
+ *   the lineup arrives on `team.optimalLineup`.  A team the server could
+ *   not solve scores as pure depth, which is what an unknown lineup
+ *   honestly means here.
  */
 export function scoreTeamTiers(
   sleeperTeams,
@@ -1166,7 +1167,7 @@ export function scoreTeamTiers(
       if (!pm) continue;
       totalValue += pm.meta;
       if (PLAYER_GROUPS.includes(pm.group)) {
-        lineupPool.push(pm);
+        lineupPool.push({ ...pm, sleeperName: pName });
       }
     }
 
@@ -1181,9 +1182,8 @@ export function scoreTeamTiers(
 
     const { starters } = fillLineup({
       assets: lineupPool,
-      rosterPositions,
-      positionOf: (p) => p.group,
-      valueFor: (p) => p.meta,
+      keyOf: (p) => p.sleeperName ?? p.name,
+      optimalLineup: team?.optimalLineup,
     });
     const starterValue = starters.reduce((s, p) => s + p.meta, 0);
     // Players only: totalValue carries pick capital too, and picks are

@@ -85,6 +85,7 @@ carries levels, shares and counts only.
 from __future__ import annotations
 
 import json
+import math
 from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
@@ -92,17 +93,53 @@ from typing import Any, Iterable, Sequence
 
 __all__ = [
     "AXES",
+    "CONFIDENCE_BASES",
     "CONFIDENCE_LEVELS",
     "ConfidenceAssessment",
     "FamilyEvidence",
     "assess_confidence",
     "assess_pick_confidence",
+    "degrade_for_quarantine",
     "gate_parameter",
     "gate_parameters",
+    "unassessed_defaults",
 ]
 
 #: Ordered weakest → strongest. The published ``confidenceBucket`` values.
+#:
+#: **Exactly four, deliberately.** The overall level is the WEAKEST axis, so
+#: widening this tuple changes what the bottleneck ``min()`` means for every
+#: axis at once. C1-U5 adds a second, ORTHOGONAL field (``confidenceBasis``,
+#: below) rather than a fifth level, because the thing that was missing was
+#: never a degree of confidence — it was *which owner decided it, from what
+#: class of evidence*.
 CONFIDENCE_LEVELS: tuple[str, ...] = ("none", "low", "medium", "high")
+
+#: What produced a row's ``confidenceBucket``. Closed set, always published.
+#:
+#: ``confidenceBucket`` answers "how good is the evidence"; ``confidenceBasis``
+#: answers "what kind of evidence, decided by whom". Before C1-U5 the bucket
+#: ``"none"`` was published for four incompatible states at once — measured on
+#: the 2026-08-17 board: 24 priced-but-never-assessed rookie-anchored picks and
+#: 261 genuinely unpriced rows, sharing one word with no field separating them.
+#: A consumer could not tell "we looked and found nothing" from "we never
+#: looked", which is MISSING-IS-NEVER-ZERO applied to the evidence label
+#: instead of the value.
+#:
+#: The pairing makes the bad state UNREPRESENTABLE: a row with a finite
+#: positive value and no basis now fails the contract validator, so a future
+#: pass that prices a row without saying why cannot ship quietly the way
+#: ``_anchor_current_year_picks_to_rookies`` did.
+CONFIDENCE_BASES: tuple[str, ...] = (
+    "evidence_gate",  # the five-axis bottleneck ran
+    "pick_dispersion",  # the pick coefficient-of-variation rule ran
+    "derived_round_step",  # value derived from the same year's nearest priced round
+    "derived_rookie_tether",  # value inherited from the rookie at this slot
+    "derived_tier_values",  # value derived from tier values (generic grade)
+    "unpriced",  # no canonical value exists for this row
+    "no_evidence",  # a value exists, but zero families voted
+    "quarantine_degraded",  # degraded after the fact by a data-quality flag
+)
 
 #: The axes, in reporting order.
 AXES: tuple[str, ...] = (
@@ -430,12 +467,10 @@ def assess_pick_confidence(
     number. It is here, and pinned, so it cannot open again quietly.
     """
     # Imported lazily: ``data_contract`` imports this module, so a
-    # top-level import would be circular.
-    from src.api.data_contract import (
-        _compute_pick_confidence,
-        _source_precedence,
-        correlation_group_for,
-    )
+    # top-level import would be circular. These two are SOURCE-REGISTRY
+    # concerns and legitimately live there; the pick RULE itself does not,
+    # and no longer does — see ``_pick_confidence_from_values`` below.
+    from src.api.data_contract import _source_precedence, correlation_group_for
 
     by_family: dict[str, list[str]] = {}
     for key, raw in site_values.items():
@@ -452,4 +487,123 @@ def assess_pick_confidence(
     }
     if superseded:
         site_values = {k: v for k, v in site_values.items() if k not in superseded}
-    return _compute_pick_confidence(site_values, is_slot_specific=is_slot_specific)
+    return _pick_confidence_from_values(site_values, is_slot_specific=is_slot_specific)
+
+
+def _pick_confidence_from_values(
+    canonical_sites: dict[str, Any],
+    is_slot_specific: bool,
+) -> tuple[str, str]:
+    """The pick coefficient-of-variation rule. Moved here VERBATIM by C1-U5.
+
+    It lived in ``src/api/data_contract.py`` and was imported back into
+    this module — the declared canonical owner reaching into its own
+    consumer to do its job. "One concept, one canonical owner" was being
+    violated *inside* the owner, which is the hardest place to notice it.
+
+    **The arithmetic is unchanged**, deliberately: C1-U5 is a naming and
+    ownership migration, and the calibration policy §7 preserves the
+    confidence architecture. Pinned by ``tests/api/test_confidence_gate.py``.
+
+    Picks keep their own dispersion statistic rather than the five-axis
+    gate because rank spread on picks is dominated by the flat-value
+    regions in R3-R6 and misleads a player-centric bucketing.
+
+    Rules:
+      * Effective source count: count raw values > 0. KTC slot values on
+        slot-specific picks are SYNTHESIZED by the scraper's
+        ``_estimate_slot_from_tier`` from KTC's 14 tier rows — partial
+        information, so they count 0.5 rather than 1.0. KTC tier rows
+        (e.g. "2026 Early 1st") are real KTC rows and count 1.0.
+      * cv = stdev(raw values) / mean.
+      * high   — effective count >= 1.5 AND cv <= 0.15
+        medium — effective count >= 1.0 AND cv <= 0.30
+        low    — otherwise
+    """
+    raw_values: list[tuple[str, float]] = []
+    for key in (
+        "ktcSfTep",
+        "idpTradeCalc",
+        "dlfSf",
+        "dynastyNerdsSfTep",
+        "dlfIdp",
+        "fantasyProsIdp",
+    ):
+        v = canonical_sites.get(key)
+        if v is None:
+            continue
+        try:
+            f = float(v)
+        except (TypeError, ValueError):
+            continue
+        if f > 0:
+            raw_values.append((key, f))
+
+    if not raw_values:
+        return "none", "None — no pick source values"
+
+    effective_count = 0.0
+    for key, _v in raw_values:
+        if key == "ktcSfTep" and is_slot_specific:
+            effective_count += 0.5
+        else:
+            effective_count += 1.0
+
+    values = [v for _k, v in raw_values]
+    mean = sum(values) / len(values)
+    if mean <= 0 or len(values) < 2:
+        cv = None
+    else:
+        var = sum((v - mean) ** 2 for v in values) / len(values)
+        cv = math.sqrt(var) / mean
+
+    if cv is None:
+        # Single-source pick — no agreement signal at all.
+        if effective_count >= 1.0:
+            return "low", "Low — single pick source"
+        return "low", "Low — limited pick sources"
+
+    if effective_count >= 1.5 and cv <= 0.15:
+        return "high", "High — picks agree within 15%"
+    if effective_count >= 1.0 and cv <= 0.30:
+        return "medium", "Medium — moderate pick source disagreement"
+    return "low", "Low — divergent pick sources"
+
+
+def unassessed_defaults(*, priced: bool) -> tuple[str, str, str]:
+    """The (bucket, label, basis) a row starts with before anything assesses it.
+
+    Returns ``basis="unpriced"`` for a row with no canonical value, and
+    ``basis="no_evidence"`` for one that HAS a value but that no assessment
+    pass reached. Before C1-U5 both were the string ``"none"`` with the
+    label ``"None — unranked"``, and the second case was silently wrong:
+    the row was not unranked *and therefore* unconfident, it had simply
+    never been looked at.
+
+    Callers that price a row outside the assessment passes must stamp a
+    real basis instead of leaving this default — the contract validator
+    rejects a priced row whose basis is still ``no_evidence``.
+    """
+    if priced:
+        return "none", "None — priced but not assessed", "no_evidence"
+    return "none", "None — unpriced", "unpriced"
+
+
+def degrade_for_quarantine(current: str) -> tuple[str, str, str]:
+    """Degrade a bucket after a data-quality flag, without inventing a level.
+
+    Quarantine weakens confidence; it never strengthens it. A row already
+    at ``none`` stays there rather than being promoted to ``low`` by the
+    act of being quarantined.
+    """
+    if current not in CONFIDENCE_LEVELS:
+        current = "none"
+    if _LEVEL_INDEX[current] <= _LEVEL_INDEX["low"]:
+        return (
+            current,
+            "None — quarantined due to identity/data-quality flags"
+            if current == "none"
+            else "Low — quarantined due to identity/data-quality flags",
+            "quarantine_degraded",
+        )
+    return "low", "Low — quarantined due to identity/data-quality flags", "quarantine_degraded"

@@ -356,7 +356,7 @@ planning documents would miss entirely.
 |---|---|---|
 | 3 independent player-identity matchers | `C1-ID-01` | CONSOLIDATE |
 | 7 pick representations, no end-to-end id | `C1-ID-02` | IMPLEMENT |
-| 6 lineup implementations, 2 serving production | `C2-LINE-01` | CONSOLIDATE |
+| 6 lineup implementations, 2 serving production (measured at HEAD: **3**, all 3 serving production) | `C2-LINE-01` | CONSOLIDATE — done, C2-U1 |
 | 5 replacement-level implementations | `C2-REPL-01` | CONSOLIDATE |
 | 4 competing Team Strength notions | `C2-STR-01` | IMPLEMENT |
 | ≥5 need definitions, one contradicting the lineup solve | `C2-WEAK-01` | IMPLEMENT |
