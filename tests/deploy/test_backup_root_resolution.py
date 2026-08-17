@@ -97,6 +97,11 @@ def _run_proof(
         BACKUP_FALLBACK_ROOT=str(fallback),
         PYTHON_BIN=sys.executable,
         RUN_BACKUP=run_backup,
+        # Pin the generation date so the script and this module cannot
+        # disagree across a UTC midnight.  ``TODAY`` is evaluated once at
+        # import; the script read the clock when it ran, and a suite that
+        # straddled midnight failed on that alone (2026-08-17T00:03:49Z).
+        DATE_STAMP=TODAY,
     )
     return subprocess.run(
         ["bash", str(PROOF)], env=env, capture_output=True, text=True, timeout=300
