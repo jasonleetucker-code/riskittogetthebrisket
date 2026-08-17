@@ -128,3 +128,90 @@ jobs:
         run: |
           set -Eeuo pipefail
           python scripts/check_source_health.py --repo .
+
+      # ── Parity with PR Validation ───────────────────────────────────
+      # This workflow's header claims it "runs the same gates
+      # `PR Validation` runs".  Audit 2026-08-17 measured that claim
+      # false: it omitted EIGHT gates, including the entire frontend
+      # (vitest + build + bundle budgets) and the `import server`
+      # runtime gate.  So the HEAD-FREEZE tree — the one thing this
+      # workflow exists to validate, and the tree that will actually
+      # merge — was validated MORE WEAKLY than any ordinary PR.
+      #
+      # That is the same defect class `deploy.yml` records at its own
+      # head ("the deploy path was strictly weaker than the PR path"),
+      # reintroduced one workflow over.  The steps below close it.
+
+      - name: Validate dependency graph (pip check)
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python -m pip check
+
+      - name: Preflight environment check
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python scripts/check_env.py
+
+      - name: Python syntax gate
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python -m py_compile server.py "Dynasty Scraper.py"
+          python -m py_compile src/api/data_contract.py
+
+      - name: Python runtime import gate
+        shell: bash
+        env:
+          ALLOW_DEFAULT_LOGIN_DEV: "1"
+        run: |
+          set -Eeuo pipefail
+          python - <<'PY'
+          import fastapi  # noqa: F401
+          import uvicorn  # noqa: F401
+          import requests  # noqa: F401
+          from playwright.async_api import async_playwright  # noqa: F401
+          import server  # noqa: F401
+          print("Runtime import gate passed.")
+          PY
+
+      - name: Deploy script syntax gate (existing scripts only)
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          for f in deploy/*.sh; do
+            [ -e "$f" ] || continue
+            bash -n "$f"
+          done
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: "20"
+
+      - name: Install frontend dependencies
+        shell: bash
+        working-directory: frontend
+        run: |
+          set -Eeuo pipefail
+          if [[ -f package-lock.json ]]; then
+            npm ci --no-audit --no-fund
+          else
+            npm install --no-audit --no-fund
+          fi
+
+      - name: Frontend unit tests (vitest)
+        shell: bash
+        working-directory: frontend
+        run: |
+          set -Eeuo pipefail
+          npm test
+
+      - name: Frontend build + bundle-size budget
+        shell: bash
+        working-directory: frontend
+        run: |
+          set -Eeuo pipefail
+          npm run build:nocheck
+          npm run check:bundles
