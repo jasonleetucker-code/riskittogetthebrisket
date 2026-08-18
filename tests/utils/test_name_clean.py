@@ -433,9 +433,9 @@ class TestIdentitySweepAliases:
 class TestCompactNameKey:
     """The compact key is a DIFFERENT family from ``normalize_player_name``.
 
-    It was previously defined twice, character-identically, in
-    ``src/adapters/ktc_crowd_faab.py`` and
-    ``src/roster_intel/roster_source.py``; both now delegate here.  These
+    It was previously defined twice, character-identically, in the
+    retired ``src/adapters/ktc_crowd_faab.py`` and in
+    ``src/roster_intel/roster_source.py``; the survivor delegates here.  These
     tests pin the properties that make it non-interchangeable with the
     strict key, so a future "consolidation" cannot quietly collapse the
     two families.
@@ -479,53 +479,44 @@ class TestCompactNameKey:
         """``roster_source.normalize_name`` is a PUBLIC deprecated alias
         (it is in that module's ``__all__``), so it is pinned here.
 
-        ``ktc_crowd_faab`` used to carry an equivalent ``_normalize_name``
-        alias and it is deliberately gone: private, unused by its own
-        module, and referenced only by this test — i.e. kept alive purely
-        by being asserted.  What actually matters there is that the
-        producer keys with this function, which
-        ``test_faab_producer_and_consumer_agree`` below pins directly.
+        The second call site used to be ``adapters/ktc_crowd_faab``,
+        which was retired with the rest of the dead KTC crowd path.  Its
+        replacement is the live producer/consumer pair pinned by
+        ``test_faab_producer_and_consumer_agree`` below.
         """
-        from src.adapters import ktc_crowd_faab
         from src.roster_intel import roster_source
 
         assert roster_source.normalize_name is compact_name_key
-        assert not hasattr(
-            ktc_crowd_faab, "_normalize_name"
-        ), "the dead private alias is back; nothing should re-export it"
 
     def test_faab_producer_and_consumer_agree(self):
         """Regression for the live defect this consolidation surfaced.
 
-        ``build_crowd_bid_map`` keys with the compact key; the
-        recommender used to look up with ``strip().lower()``, so the
-        crowd calibration factor never fired for any name containing a
-        space — i.e. every real player.
+        The producer keys with the compact key; the recommender used to
+        look up with ``strip().lower()``, so the crowd factor never
+        fired for any name containing a space — i.e. every real player.
 
-        The consumer moved when the FAAB engine landed: the crowd bid
-        is no longer blended into the bid as a multiplier (that was one
-        of four separate readings of the same demand signal).  It is
-        now surfaced as demand EVIDENCE by
-        ``_demand_evidence_factors``.  The name-key parity this test
-        exists for is unchanged, so the assertion follows the consumer
-        rather than being deleted with the old blender.
+        The producer moved when the dead KTC crowd path was retired
+        (2026-08-18): it is now ``faab_history.crowd_bid_index`` over
+        rows accumulated by ``scripts/fetch_crowd_faab.py``, and the
+        consumer is ``server.py``'s ``compact_name_key(add_name)``
+        lookup into that index.  The retired
+        ``adapters/ktc_crowd_faab.build_crowd_bid_map`` was a SECOND
+        producer for a contract block that never once shipped.
+
+        The key-parity property is unchanged, so this test follows the
+        live producer rather than being deleted with the dead one.
         """
-        from src.adapters.ktc_crowd_faab import build_crowd_bid_map
-        from src.trade.faab_recommender import _demand_evidence_factors
+        from src.trade.faab_history import crowd_bid_index
 
-        crowd = build_crowd_bid_map(
+        index = crowd_bid_index(
             {
-                "waivers": [
-                    {"added": "T.J. Watt", "bid": 20, "settings": {"waiver_budget": 100}},
-                    {"added": "T.J. Watt", "bid": 20, "settings": {"waiver_budget": 100}},
+                "rows": [
+                    {"added": "T.J. Watt", "bidPct": 20.0, "settings": {"leagueId": "a"}},
+                    {"added": "T.J. Watt", "bidPct": 20.0, "settings": {"leagueId": "b"}},
                 ]
             }
         )
-        assert crowd == {"tjwatt": 20.0}
-
-        rows = _demand_evidence_factors(None, crowd, "T.J. Watt")
-        # A missing row here would mean the spaced, punctuated display
-        # name failed to join the compact-keyed map.
-        crowd_rows = [r for r in rows if r["label"] == "Crowd-sourced bid"]
-        assert len(crowd_rows) == 1
-        assert "20%" in crowd_rows[0]["contribution"]
+        # The producer's key must be reachable from the consumer's
+        # spaced, punctuated display name.
+        assert set(index) == {"tjwatt"}
+        assert index[compact_name_key("T.J. Watt")]["medianPct"] == 20.0

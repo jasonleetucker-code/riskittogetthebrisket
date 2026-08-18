@@ -33,7 +33,6 @@
 # """
 
 import asyncio
-import ast
 import functools
 import inspect
 import re
@@ -622,12 +621,6 @@ FULL_DATA = {}
 _KTC_SITE_RAW_FLOOR: int = 400
 _IDPTC_SITE_RAW_FLOOR: int = 700
 DLF_IMPORT_DEBUG = {}
-
-# KTC playerID → name mapping (populated during KTC rankings scrape)
-KTC_ID_TO_NAME = {}
-
-# KTC crowdsourced trade + waiver data
-KTC_CROWD_DATA = {"trades": [], "waivers": []}
 
 # KTC blocker diagnosis — set by scrape_ktc on failure for source reporting
 _KTC_BLOCKER: str | None = None
@@ -2046,6 +2039,14 @@ async def scrape_ktc(page, players):
                     )
 
         # ── Strategy 3: Full page source parsing ──
+        # Bound unconditionally so later code can ask "did we read the
+        # page source?" by testing the VALUE.  It used to be assigned
+        # only inside the guard below, and the readers probed
+        # ``"content" in dir()`` — a test for whether an earlier branch
+        # happened to run.  That is what silently disabled the KTC crowd
+        # databases for months: the block that needed it could only see
+        # it when the primary scrape had already failed.
+        content = ""
         if not name_map:
             content = await page.content()
 
@@ -2210,13 +2211,11 @@ async def scrape_ktc(page, players):
         if not name_map and DEBUG:
             await page_dump(page, "KTC")
             # Check what script tags exist
-            script_ids = re.findall(
-                r'<script[^>]*id="([^"]*)"', content if "content" in dir() else ""
-            )
+            script_ids = re.findall(r'<script[^>]*id="([^"]*)"', content)
             print(f"  [KTC] Script IDs in page: {script_ids[:10]}")
             # Check for superflexValues anywhere in content
-            sf_count = content.count("superflexValues") if "content" in dir() else 0
-            sf_value_count = content.count("superflexValue") if "content" in dir() else 0
+            sf_count = content.count("superflexValues")
+            sf_value_count = content.count("superflexValue")
             print(
                 f"  [KTC] 'superflexValues' appears {sf_count}x, 'superflexValue' appears {sf_value_count}x in page"
             )
@@ -2253,517 +2252,9 @@ async def scrape_ktc(page, players):
                 f"  [KTC] TE+ map skipped — only {len(tep_name_map)} players carried TE+ fields (need ≥25)"
             )
 
-        # ── Always build playerID → name mapping for trade/waiver database ──
-        global KTC_ID_TO_NAME
-        if "content" in dir() and content:
-            id_name = re.findall(
-                r'"playerID"\s*:\s*(\d+).{0,500}?"playerName"\s*:\s*"([^"]+)"', content, re.DOTALL
-            )
-            if not id_name:
-                id_name = [
-                    (pid, nm)
-                    for nm, pid in re.findall(
-                        r'"playerName"\s*:\s*"([^"]+)".{0,500}?"playerID"\s*:\s*(\d+)',
-                        content,
-                        re.DOTALL,
-                    )
-                ]
-            for pid_str, pname in id_name:
-                KTC_ID_TO_NAME[int(pid_str)] = clean_name(pname)
-            if KTC_ID_TO_NAME:
-                print(
-                    f"  [KTC] Stored {len(KTC_ID_TO_NAME)} playerID→name mappings for trade/waiver DB"
-                )
     except Exception as e:
         print(f"  [KTC error] {e}")
     return results
-
-
-# ─────────────────────────────────────────
-# KTC TRADE DATABASE — real dynasty trades from 140k+ leagues
-# ─────────────────────────────────────────
-@retry(max_attempts=2, delay=3)
-async def scrape_ktc_trade_database(page):
-    """Scrape crowdsourced trade data from KTC's trade database."""
-    global KTC_CROWD_DATA
-    trades = []
-    sf = 1 if SUPERFLEX else 0
-    tep = 2 if TEP else 0  # KTC trade-DB tepLevel: 1=TE+, 2=TE++
-    url = f"https://keeptradecut.com/dynasty/trade-database?sf={sf}&tep={tep}"
-    print("  [KTC Trades] Fetching trade database...")
-
-    try:
-        api_data = []
-        api_received = asyncio.Event()
-
-        async def handle_response(response):
-            try:
-                rurl = response.url
-                if response.status != 200:
-                    return
-                ct = response.headers.get("content-type", "")
-                if "json" not in ct and "javascript" not in ct:
-                    return
-                if "trade" in rurl.lower() and "keeptradecut" in rurl.lower():
-                    body = await response.json()
-                    if isinstance(body, list) and len(body) > 0:
-                        api_data.extend(body)
-                        print(f"  [KTC Trades] Intercepted API: {len(body)} items from {rurl[:80]}")
-                        api_received.set()
-            except Exception:
-                pass
-
-        page.on("response", handle_response)
-        ok = await safe_goto(page, url, "KTC Trades", wait_ms=5000)
-        if not ok:
-            print("  [KTC Trades] Failed to load page")
-            return trades
-
-        try:
-            await asyncio.wait_for(api_received.wait(), timeout=10)
-        except asyncio.TimeoutError:
-            print("  [KTC Trades] API intercept timed out")
-
-        if api_data:
-            # Debug: log first item structure
-            if api_data and isinstance(api_data[0], dict):
-                print(f"  [KTC Trades] Item keys: {list(api_data[0].keys())[:15]}")
-                # Log first item sample
-                sample = {k: str(v)[:80] for k, v in list(api_data[0].items())[:10]}
-                print(f"  [KTC Trades] Sample item: {sample}")
-
-            for item in api_data[:500]:
-                trade = _parse_ktc_trade(item)
-                if trade:
-                    trades.append(trade)
-
-            print(f"  [KTC Trades] Parsed {len(trades)} trades from {len(api_data)} API items")
-        else:
-            print("  [KTC Trades] No API data intercepted")
-
-    except Exception as e:
-        print(f"  [KTC Trades error] {e}")
-
-    KTC_CROWD_DATA["trades"] = trades
-    return trades
-
-
-def _parse_ktc_literal(raw):
-    """Parse KTC payload fields that may arrive as Python-literal strings."""
-    if isinstance(raw, (dict, list, tuple, int, float, bool)) or raw is None:
-        return raw
-    if not isinstance(raw, str):
-        return raw
-    text = raw.strip()
-    if not text:
-        return ""
-    if text[0] not in "{[":
-        return raw
-    try:
-        return json.loads(text)
-    except Exception:
-        pass
-    try:
-        return ast.literal_eval(text)
-    except Exception:
-        return raw
-
-
-def _ktc_to_number(val, default=None):
-    """Convert numeric-like strings to numbers."""
-    if isinstance(val, bool):
-        return int(val)
-    if isinstance(val, (int, float)):
-        return val
-    if isinstance(val, str):
-        s = val.strip()
-        if re.fullmatch(r"-?\d+", s):
-            return int(s)
-        try:
-            return float(s)
-        except Exception:
-            return default
-    return default
-
-
-def _ktc_to_int(val, default=""):
-    n = _ktc_to_number(val, default=None)
-    if n is None:
-        return default
-    return int(n)
-
-
-def _ktc_to_flag(val):
-    if isinstance(val, bool):
-        return val
-    if isinstance(val, (int, float)):
-        return val != 0
-    if isinstance(val, str):
-        s = val.strip().lower()
-        if s in {"1", "true", "yes", "y", "on"}:
-            return True
-        if s in {"0", "false", "no", "n", "off", ""}:
-            return False
-    return bool(val)
-
-
-def _ktc_tep_level(tep_raw, tep_flag=False):
-    """Normalize KTC TEP config to a tier number (0, 1, 2, ...)."""
-    lvl = _ktc_to_int(tep_raw, default=None)
-    if isinstance(lvl, int):
-        return lvl
-    if isinstance(tep_raw, str):
-        s = tep_raw.strip().lower()
-        if "++" in s:
-            return 2
-        if "+" in s:
-            return 1
-    return 1 if tep_flag else 0
-
-
-def _ktc_crowd_league_ok(settings):
-    """True only for SF leagues with 10/12/14 teams and TE+ / TE++."""
-    if not isinstance(settings, dict):
-        return False
-    if not settings.get("sf"):
-        return False
-    teams = settings.get("teams")
-    if teams not in KTC_CROWD_ALLOWED_TEAMS:
-        return False
-    tep_level = settings.get("tepLevel")
-    if not isinstance(tep_level, int):
-        tep_level = _ktc_tep_level(settings.get("tepRaw", ""), settings.get("tep", False))
-    return tep_level in KTC_CROWD_ALLOWED_TEP_LEVELS
-
-
-def _extract_ktc_side_assets(side):
-    """Extract player/pick assets from a KTC side payload."""
-    side = _parse_ktc_literal(side)
-    if isinstance(side, (list, tuple, set)):
-        return list(side)
-    if not isinstance(side, dict):
-        return []
-
-    for key in ["playerIds", "playerIDs", "players", "assets", "items"]:
-        raw = _parse_ktc_literal(side.get(key))
-        if isinstance(raw, (list, tuple, set)):
-            return list(raw)
-        if raw is not None and raw != "":
-            return [raw]
-
-    for key in ["playerId", "playerID", "id", "name"]:
-        if side.get(key) is not None:
-            return [side.get(key)]
-    return []
-
-
-def _parse_ktc_settings(raw_settings):
-    settings = _parse_ktc_literal(raw_settings) or {}
-    if not isinstance(settings, dict):
-        return {}
-
-    sf_raw = settings.get("sf", settings.get("superflex"))
-    if sf_raw is None:
-        qb_slots = settings.get("qBs", settings.get("qbs", settings.get("quarterbacks")))
-        qb_slots_int = _ktc_to_int(qb_slots, default="")
-        sf_raw = qb_slots_int >= 2 if qb_slots_int != "" else False
-
-    tep_raw = settings.get("tep", settings.get("teBonus", settings.get("tePremium", 0)))
-    tep_flag = _ktc_to_flag(tep_raw)
-    tep_level = _ktc_tep_level(tep_raw, tep_flag)
-
-    return {
-        "sf": _ktc_to_flag(sf_raw),
-        "tep": tep_flag,
-        "tepLevel": tep_level,
-        "tepRaw": tep_raw,
-        "teams": _ktc_to_int(settings.get("teams", settings.get("numTeams")), default=""),
-        "starters": _ktc_to_int(settings.get("starters", settings.get("numStarters")), default=""),
-        "ppr": settings.get("ppr", settings.get("scoringFormat", "")),
-    }
-
-
-def _resolve_ktc_player(val):
-    """Resolve a KTC trade item player reference to a readable name.
-
-    KTC uses ``-1`` (and occasionally ``0``) as the "no player" sentinel
-    — a waiver claim with no corresponding drop carries
-    ``droppedPlayer: "-1"``.  Those must resolve to ``None``, not to the
-    literal string ``"-1"``: the waiver database is ~50% no-drop adds,
-    so leaking the sentinel puts a phantom player named "-1" into every
-    downstream consumer.
-    """
-    val = _parse_ktc_literal(val)
-
-    if isinstance(val, str):
-        raw = val.strip()
-        if not raw:
-            return None
-        if re.fullmatch(r"-?\d+", raw):
-            pid = int(raw)
-            return None if pid <= 0 else KTC_ID_TO_NAME.get(pid, f"Player#{pid}")
-        return clean_name(raw)
-
-    if isinstance(val, (int, float)):
-        pid = int(val)
-        return None if pid <= 0 else KTC_ID_TO_NAME.get(pid, f"Player#{pid}")
-
-    if isinstance(val, dict):
-        name = val.get("playerName") or val.get("name") or val.get("player_name")
-        if name:
-            return clean_name(name)
-        pid = val.get("playerID") or val.get("player_id") or val.get("id")
-        if isinstance(pid, str) and re.fullmatch(r"\d+", pid.strip()):
-            pid = int(pid.strip())
-        if pid and isinstance(pid, (int, float)):
-            pid = int(pid)
-            return KTC_ID_TO_NAME.get(pid, f"Player#{pid}")
-    return None
-
-
-def _parse_ktc_trade(item):
-    """Parse a KTC trade API item across known payload formats."""
-    item = _parse_ktc_literal(item)
-    if not isinstance(item, dict):
-        return None
-
-    settings = _parse_ktc_settings(item.get("settings") or item.get("leagueSettings") or {})
-    if not _ktc_crowd_league_ok(settings):
-        return None
-
-    sides = []
-
-    # Format 1: side arrays or side objects
-    for a_key, b_key in [
-        ("sideA", "sideB"),
-        ("side1", "side2"),
-        ("team1Players", "team2Players"),
-        ("team1Assets", "team2Assets"),
-        ("teamOne", "teamTwo"),
-        ("team1", "team2"),
-    ]:
-        if a_key in item and b_key in item:
-            side_a_assets = _extract_ktc_side_assets(item.get(a_key))
-            side_b_assets = _extract_ktc_side_assets(item.get(b_key))
-            side_a = [_resolve_ktc_player(p) for p in side_a_assets if p is not None]
-            side_b = [_resolve_ktc_player(p) for p in side_b_assets if p is not None]
-            side_a = [n for n in side_a if n]
-            side_b = [n for n in side_b if n]
-            if side_a and side_b:
-                sides = [{"players": side_a}, {"players": side_b}]
-                break
-
-    # Format 2: nested sides list
-    raw_sides = _parse_ktc_literal(item.get("sides"))
-    if not sides and isinstance(raw_sides, list):
-        for s in raw_sides:
-            if not isinstance(s, dict):
-                continue
-            raw = _parse_ktc_literal(s.get("players") or s.get("assets") or s.get("items") or [])
-            players = [_resolve_ktc_player(p) for p in raw if p]
-            players = [n for n in players if n]
-            if players:
-                sides.append({"players": players})
-
-    # Format 3: flat list + grouping metadata
-    if not sides:
-        for players_key in ["players", "assets", "items", "tradeItems"]:
-            if players_key in item:
-                raw = _parse_ktc_literal(item[players_key])
-                if isinstance(raw, list) and len(raw) >= 2:
-                    group_key = _parse_ktc_literal(item.get("groups") or item.get("sideGroups"))
-                    if isinstance(group_key, list) and len(group_key) == len(raw):
-                        by_group = {}
-                        for p, g in zip(raw, group_key):
-                            by_group.setdefault(g, []).append(p)
-                        for g_players in by_group.values():
-                            names = [_resolve_ktc_player(p) for p in g_players if p is not None]
-                            names = [n for n in names if n]
-                            if names:
-                                sides.append({"players": names})
-
-    if len(sides) < 2:
-        return None
-
-    return {
-        "source": "ktc",
-        "date": item.get("date", item.get("createdAt", item.get("created_at", ""))),
-        "sides": sides,
-        "settings": settings,
-    }
-
-
-# ─────────────────────────────────────────
-# KTC WAIVER DATABASE — real dynasty waivers from 3000+ leagues
-# ─────────────────────────────────────────
-@retry(max_attempts=2, delay=3)
-async def scrape_ktc_waiver_database(page):
-    """Scrape crowdsourced waiver data from KTC's waiver database."""
-    global KTC_CROWD_DATA
-    waivers = []
-    sf = 1 if SUPERFLEX else 0
-    tep = 2 if TEP else 0  # KTC waiver-DB tepLevel: 1=TE+, 2=TE++
-    url = f"https://keeptradecut.com/dynasty/waiver-database?sf={sf}&tep={tep}"
-    print("  [KTC Waivers] Fetching waiver database...")
-
-    try:
-        api_data = []
-        api_received = asyncio.Event()
-
-        async def handle_response(response):
-            try:
-                rurl = response.url
-                if response.status != 200:
-                    return
-                ct = response.headers.get("content-type", "")
-                if "json" not in ct and "javascript" not in ct:
-                    return
-                if "waiver" in rurl.lower() and "keeptradecut" in rurl.lower():
-                    body = await response.json()
-                    if isinstance(body, list) and len(body) > 0:
-                        api_data.extend(body)
-                        print(
-                            f"  [KTC Waivers] Intercepted API: {len(body)} items from {rurl[:80]}"
-                        )
-                        api_received.set()
-            except Exception:
-                pass
-
-        page.on("response", handle_response)
-        ok = await safe_goto(page, url, "KTC Waivers", wait_ms=5000)
-        if not ok:
-            print("  [KTC Waivers] Failed to load page")
-            return waivers
-
-        # ── Strategy 1: inline ``var waivers`` (current KTC format) ──
-        #
-        # MEASURED 2026-08-04: this page ships its rows INLINE in the
-        # HTML and fires no waiver XHR at all, so the response-intercept
-        # below always timed out and ``KTC_CROWD_DATA["waivers"]`` was
-        # empty in every export — which is why the recommender's crowd
-        # factor never fired in production.  Same shape as the
-        # ``playersArray`` extraction in ``scrape_ktc``: read the page
-        # source, not the network.
-        #
-        # Also measured: the ``sf`` / ``tep`` query params do NOT filter
-        # this payload (sf=0&tep=0 and sf=1&tep=2 return byte-identical
-        # rows).  They drive the rendered DOM only, so format filtering
-        # has to happen our side — ``_ktc_crowd_league_ok`` does it.
-        try:
-            content = await page.content()
-            inline = re.search(r"var\s+waivers\s*=\s*(\[.*?\]);", content, re.DOTALL)
-            if inline:
-                parsed = json.loads(inline.group(1))
-                if isinstance(parsed, list) and parsed:
-                    api_data.extend(parsed)
-                    print(f"  [KTC Waivers] Inline array: {len(parsed)} items")
-        except Exception as e:
-            print(f"  [KTC Waivers] Inline parse failed ({e}) — falling back to intercept")
-
-        # ── Strategy 2: response intercept (retained as a fallback) ──
-        if not api_data:
-            try:
-                await asyncio.wait_for(api_received.wait(), timeout=10)
-            except asyncio.TimeoutError:
-                print("  [KTC Waivers] API intercept timed out")
-
-        if api_data:
-            # Debug first item
-            if api_data and isinstance(api_data[0], dict):
-                print(f"  [KTC Waivers] Item keys: {list(api_data[0].keys())[:15]}")
-                sample = {k: str(v)[:80] for k, v in list(api_data[0].items())[:10]}
-                print(f"  [KTC Waivers] Sample item: {sample}")
-
-            for item in api_data[:500]:
-                w = _parse_ktc_waiver(item)
-                if w:
-                    waivers.append(w)
-
-            print(f"  [KTC Waivers] Parsed {len(waivers)} waivers from {len(api_data)} API items")
-        else:
-            print("  [KTC Waivers] No API data intercepted")
-
-    except Exception as e:
-        print(f"  [KTC Waivers error] {e}")
-
-    KTC_CROWD_DATA["waivers"] = waivers
-    return waivers
-
-
-def _parse_ktc_waiver(item):
-    """Parse a KTC waiver API item."""
-    item = _parse_ktc_literal(item)
-    if not isinstance(item, dict):
-        return None
-
-    settings = _parse_ktc_settings(item.get("settings") or item.get("leagueSettings") or {})
-    if not _ktc_crowd_league_ok(settings):
-        return None
-
-    # Try various field names for added/dropped player
-    added = None
-    for k in [
-        "addedPlayer",
-        "playerAdded",
-        "player",
-        "added",
-        "addPlayer",
-        "addedPlayerId",
-        "playerAddedId",
-        "addPlayerId",
-        "pickedUpPlayer",
-        "pickedUpPlayerId",
-        "pickedUp",
-    ]:
-        val = item.get(k)
-        if val is not None:
-            added = _resolve_ktc_player(val)
-            if added:
-                break
-
-    dropped = None
-    for k in [
-        "droppedPlayer",
-        "playerDropped",
-        "dropped",
-        "dropPlayer",
-        "droppedPlayerId",
-        "playerDroppedId",
-        "dropPlayerId",
-    ]:
-        val = item.get(k)
-        if val is not None:
-            dropped = _resolve_ktc_player(val)
-            if dropped:
-                break
-
-    if not added:
-        return None
-
-    bid = _ktc_to_number(
-        item.get("winningBid", item.get("bid", item.get("faabBid", item.get("blindBid", 0)))),
-        default=0,
-    )
-    if isinstance(bid, float) and bid.is_integer():
-        bid = int(bid)
-
-    bid_pct = item.get(
-        "bidPct",
-        item.get(
-            "winningBidPct",
-            item.get("faabPct", item.get("bidPercentage", item.get("percentage", ""))),
-        ),
-    )
-
-    return {
-        "source": "ktc",
-        "date": item.get("date", item.get("createdAt", item.get("created_at", ""))),
-        "added": added,
-        "dropped": dropped or "",
-        "bid": bid if isinstance(bid, (int, float)) else 0,
-        "bidPct": str(bid_pct) if bid_pct else "",
-        "settings": settings,
-    }
 
 
 # ─────────────────────────────────────────
@@ -3547,12 +3038,6 @@ async def run(progress_callback=None):
             "SCRAPER_SOURCE_TIMEOUT_FANTASYPROS_IDP", source_timeout_default
         ),
         "Flock": _env_int("SCRAPER_SOURCE_TIMEOUT_FLOCK", max(420, source_timeout_default)),
-        "KTC_TradeDB": _env_int(
-            "SCRAPER_SOURCE_TIMEOUT_KTC_TRADEDB", max(300, source_timeout_default)
-        ),
-        "KTC_WaiverDB": _env_int(
-            "SCRAPER_SOURCE_TIMEOUT_KTC_WAIVERDB", max(300, source_timeout_default)
-        ),
         "FantasyCalc": _env_int("SCRAPER_SOURCE_TIMEOUT_FANTASYCALC", 90),
         "DLF_LocalCSV": _env_int("SCRAPER_SOURCE_TIMEOUT_DLF_LOCALCSV", 60),
     }
@@ -3569,8 +3054,6 @@ async def run(progress_callback=None):
         "DraftSharks_IDP": bool(SITES.get("DraftSharks_IDP")),
         "FantasyPros_IDP": bool(SITES.get("FantasyPros_IDP")),
         "Flock": bool(SITES.get("Flock")),
-        "KTC_TradeDB": bool(SITES.get("KTC")),
-        "KTC_WaiverDB": bool(SITES.get("KTC")),
     }
     source_run_state = {}
 
@@ -3818,129 +3301,6 @@ async def run(progress_callback=None):
                     finally:
                         await page.close()
 
-                # ── KTC Trade + Waiver Database scraping ──
-                if SITES.get("KTC") and KTC_ID_TO_NAME:
-                    try:
-                        await _phase(
-                            "source_start",
-                            "KTC_TradeDB",
-                            event="source_start",
-                            message="Scraping KTC trade database",
-                        )
-                        trade_page = await context.new_page()
-                        await asyncio.wait_for(
-                            scrape_ktc_trade_database(trade_page),
-                            timeout=source_timeouts["KTC_TradeDB"],
-                        )
-                        trade_count = len(KTC_CROWD_DATA.get("trades", []) or [])
-                        await _emit_progress(
-                            step="source_complete" if trade_count > 0 else "source_partial",
-                            source="KTC_TradeDB",
-                            step_index=progress_index,
-                            step_total=planned_total_steps,
-                            event="source_complete" if trade_count > 0 else "source_partial",
-                            level="info" if trade_count > 0 else "warning",
-                            message=f"KTC trade database complete ({trade_count} trades)",
-                            meta={"valueCount": trade_count},
-                        )
-                        await trade_page.close()
-                    except asyncio.TimeoutError:
-                        await _emit_progress(
-                            step="source_failed",
-                            source="KTC_TradeDB",
-                            step_index=progress_index,
-                            step_total=planned_total_steps,
-                            event="source_failed",
-                            level="error",
-                            message=f"KTC trade DB timed out after {source_timeouts['KTC_TradeDB']}s",
-                        )
-                        print(
-                            f"  [KTC Trade DB error] Timeout after {source_timeouts['KTC_TradeDB']}s"
-                        )
-                    except Exception as e:
-                        await _emit_progress(
-                            step="source_failed",
-                            source="KTC_TradeDB",
-                            step_index=progress_index,
-                            step_total=planned_total_steps,
-                            event="source_failed",
-                            level="error",
-                            message=f"KTC trade DB failed: {type(e).__name__}: {e}",
-                        )
-                        print(f"  [KTC Trade DB error] {e}")
-                    try:
-                        await _phase(
-                            "source_start",
-                            "KTC_WaiverDB",
-                            event="source_start",
-                            message="Scraping KTC waiver database",
-                        )
-                        waiver_page = await context.new_page()
-                        await asyncio.wait_for(
-                            scrape_ktc_waiver_database(waiver_page),
-                            timeout=source_timeouts["KTC_WaiverDB"],
-                        )
-                        waiver_count = len(KTC_CROWD_DATA.get("waivers", []) or [])
-                        await _emit_progress(
-                            step="source_complete" if waiver_count > 0 else "source_partial",
-                            source="KTC_WaiverDB",
-                            step_index=progress_index,
-                            step_total=planned_total_steps,
-                            event="source_complete" if waiver_count > 0 else "source_partial",
-                            level="info" if waiver_count > 0 else "warning",
-                            message=f"KTC waiver database complete ({waiver_count} waivers)",
-                            meta={"valueCount": waiver_count},
-                        )
-                        await waiver_page.close()
-                    except asyncio.TimeoutError:
-                        await _emit_progress(
-                            step="source_failed",
-                            source="KTC_WaiverDB",
-                            step_index=progress_index,
-                            step_total=planned_total_steps,
-                            event="source_failed",
-                            level="error",
-                            message=f"KTC waiver DB timed out after {source_timeouts['KTC_WaiverDB']}s",
-                        )
-                        print(
-                            f"  [KTC Waiver DB error] Timeout after {source_timeouts['KTC_WaiverDB']}s"
-                        )
-                    except Exception as e:
-                        await _emit_progress(
-                            step="source_failed",
-                            source="KTC_WaiverDB",
-                            step_index=progress_index,
-                            step_total=planned_total_steps,
-                            event="source_failed",
-                            level="error",
-                            message=f"KTC waiver DB failed: {type(e).__name__}: {e}",
-                        )
-                        print(f"  [KTC Waiver DB error] {e}")
-                elif SITES.get("KTC"):
-                    print(
-                        "  [KTC Crowd] Skipping trade/waiver DB — no playerID→name mapping available"
-                    )
-                    await _emit_progress(
-                        step="source_partial",
-                        source="KTC_TradeDB",
-                        step_index=progress_index,
-                        step_total=planned_total_steps,
-                        event="source_partial",
-                        level="warning",
-                        message="KTC trade DB skipped — no playerID→name mapping available",
-                        meta={"valueCount": 0, "skipReason": "missing_ktc_id_map"},
-                    )
-                    await _emit_progress(
-                        step="source_partial",
-                        source="KTC_WaiverDB",
-                        step_index=progress_index,
-                        step_total=planned_total_steps,
-                        event="source_partial",
-                        level="warning",
-                        message="KTC waiver DB skipped — no playerID→name mapping available",
-                        meta={"valueCount": 0, "skipReason": "missing_ktc_id_map"},
-                    )
-
                 await browser.close()
 
     def _count_site_values_from_results(site_name):
@@ -3952,10 +3312,6 @@ async def run(progress_callback=None):
                 for k in dlf_keys
                 if isinstance((row or {}).get(k), (int, float)) and (row or {}).get(k) > 0
             )
-        if site_name == "KTC_TradeDB":
-            return len(KTC_CROWD_DATA.get("trades", []) or [])
-        if site_name == "KTC_WaiverDB":
-            return len(KTC_CROWD_DATA.get("waivers", []) or [])
         return sum(
             1
             for _player, row in all_results.items()
@@ -4702,20 +4058,6 @@ async def run(progress_callback=None):
     # merge guard reads — drop memoized identity answers so later passes
     # re-resolve against the updated evidence.
     _identity_memo.clear()
-
-    # Canonical KTC playerID map for URL imports and DB joins in the UI.
-    ktc_id_map = {}
-    for pid, pname in KTC_ID_TO_NAME.items():
-        clean = clean_name(pname)
-        if not clean:
-            continue
-        canonical = _canonical_map.get(clean, clean)
-        pref_pos = _get_pos(canonical)
-        ident = _resolve_sleeper_identity(canonical, preferred_pos=pref_pos)
-        if ident and ident.get("name"):
-            canonical = ident["name"]
-        if canonical in players_json:
-            ktc_id_map[str(pid)] = canonical
 
     # ── Pick-map primitives: ADAPTER, not owner (C1-U6-D1, 2026-08-17) ──
     # These were closures here.  A function nobody can import is a
@@ -7165,16 +6507,6 @@ async def run(progress_callback=None):
 
     if SLEEPER_ROSTER_DATA:
         dashboard_json["sleeper"] = SLEEPER_ROSTER_DATA
-
-    if KTC_CROWD_DATA.get("trades") or KTC_CROWD_DATA.get("waivers"):
-        dashboard_json["ktcCrowd"] = KTC_CROWD_DATA
-        print(
-            f"  [KTC Crowd] {len(KTC_CROWD_DATA.get('trades', []))} trades, "
-            f"{len(KTC_CROWD_DATA.get('waivers', []))} waivers"
-        )
-
-    if ktc_id_map:
-        dashboard_json["ktcIdMap"] = ktc_id_map
 
     await _phase("write_files", "dynasty_data_json", message="Writing dashboard JSON/JS outputs")
     json_fname = os.path.join(SCRIPT_DIR, f"dynasty_data_{datetime.date.today()}.json")
