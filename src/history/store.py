@@ -513,7 +513,19 @@ def _reset_setup_cache_for_tests() -> None:
 
 
 def as_of_date(value: date | datetime | str) -> str:
-    """Normalize a caller-supplied date to the ledger's UTC date string."""
+    """Normalize a caller-supplied date to the ledger's UTC date string.
+
+    A string spelling of an instant answers exactly what the equivalent
+    ``datetime`` object answers — the string branch DELEGATES rather than
+    reimplementing, so the two cannot drift.
+
+    F-5: this used to be ``strptime(s, "%Y-%m-%d")`` and nothing else, so
+    an ISO-8601 *datetime* string escaped as a raw
+    ``ValueError: unconverted data remains: T23:00:00``.  That is not this
+    module's error type — a caller cannot catch it with
+    ``except ObservationError`` — and it said nothing about the
+    UTC-awareness rule that actually governs instants here.
+    """
     if isinstance(value, datetime):
         if value.tzinfo is None:
             raise ObservationError(
@@ -522,6 +534,20 @@ def as_of_date(value: date | datetime | str) -> str:
         return value.astimezone(timezone.utc).date().isoformat()
     if isinstance(value, date):
         return value.isoformat()
-    s = str(value)
-    datetime.strptime(s, "%Y-%m-%d")
-    return s
+
+    text = str(value).strip()
+    try:
+        return date.fromisoformat(text).isoformat()
+    except ValueError:
+        pass
+    try:
+        # ``Z`` is valid ISO-8601 but predates fromisoformat's support on
+        # some versions; normalise it rather than depend on the runtime.
+        parsed = datetime.fromisoformat(text[:-1] + "+00:00" if text.endswith("Z") else text)
+    except ValueError:
+        raise ObservationError(
+            f"unparseable as-of date {value!r}; expected YYYY-MM-DD or a UTC-aware ISO-8601 instant"
+        ) from None
+    # Delegate, so a datetime STRING and a datetime OBJECT can never
+    # disagree — including on the naive-instant refusal.
+    return as_of_date(parsed)
