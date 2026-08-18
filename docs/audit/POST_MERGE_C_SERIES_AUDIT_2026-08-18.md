@@ -1368,6 +1368,49 @@ with its own verification, not a rushed addition to an observability PR already 
 
 Owner: lane 5. Carried in the V1 contract as `V1-128`.
 
+### F-29 · The E2E failure set has grown from 1 to 4, and one of the three is unexplained · CONFIRMED · CI · **OPEN**
+
+Measured on run `32148846855` (PR #910, head `f8a2402`, a tree containing `#909`):
+
+```
+4 failed
+  [desktop-1366] journey-settings-overrides.spec.js:45 › toggling a source fires the overrides request
+  [desktop-1366] journey-tools-health.spec.js:31      › /tools/source-health lists real scraper sources
+  [desktop-1366] public-league.spec.js:533            › teamAssignment returns 12 manager slots (Phase A)
+  [mobile-chromium] public-league.spec.js:533         › teamAssignment returns 12 manager slots (Phase A)
+1 flaky
+  [mobile-chromium] public-league.spec.js:193         › deep links via ?tab= land on the right tab
+149 passed, 52 skipped (8.5m)
+```
+
+The audit's own earlier CI re-measurement recorded **1 failed + 1 flaky**. Three of these are
+therefore new *to this register*, and each is accounted for differently:
+
+* **`journey-settings-overrides`** — this is `F-3a`, already recorded and diagnosed (the backend
+  answered 200 four of four times; the spec fails downstream of the serving path).
+* **`public-league:533` (both projects)** — **not a regression.** `git log` puts this spec's
+  introduction at `f9b9f29`, *Audit batch G* (#891), on 2026-08-17. It asserts
+  `assignments.length >= 8` and a non-empty `nflTeams` per manager, which is precisely the defect
+  open as **#815** ("teamAssignment serves a degraded snapshot as zero assignments, HTTP 200").
+  It is a regression test written for a defect that has not been fixed yet — a deliberate red,
+  and it will stay red until `V1-94` lands. Counting it as new breakage would be wrong.
+* **`journey-tools-health:31`** — **UNEXPLAINED, and it is the one to chase.** The spec reads
+  `status.source_health.source_runtime.enabled_sources` and renders `/tools/source-health`.
+  `#909` did not touch that field, but it did touch `server.py`, which is where `/api/status` is
+  built — so a relationship cannot be ruled out from the file list alone, and it is not being
+  ruled out here on the strength of an argument.
+* **The flaky one is explained by the harness's own banner**: React 19.2 stages a Suspense
+  boundary in `<div hidden id="S:n">` and reveals it a frame later, so a full copy legitimately
+  exists for a window. The banner is explicit that this is React's behaviour, not a product
+  defect, and that `.first()` must NOT be used to silence it because two specs are the repo's only
+  detectors for a PERMANENT duplicate (#709's `dynamic()` bug).
+
+**Not attributed to `#909` without evidence.** The correct next step is to run
+`journey-tools-health` against `main` immediately before and after `82b25bd`, which needs a booted
+stack. Recorded as an open question with the measurement that raised it rather than as a verdict.
+
+Owner: lane 5.
+
 ## 2. Repairs made during the audit
 
 Each is a repair-only PR: exact-head CI, mutation-proven where structural, merged on green.
