@@ -4,7 +4,7 @@ import { useCallback, useEffect, useId, useMemo, useState } from "react";
 import Link from "next/link";
 import { useDynastyData } from "@/components/useDynastyData";
 import { useAuthContext } from "@/app/AppShellWrapper";
-import { HelpModal, InfoTip } from "@/components/ds";
+import { FailureState, HelpModal, InfoTip } from "@/components/ds";
 import {
   useSettings,
   SETTINGS_DEFAULTS as DEFAULTS,
@@ -170,7 +170,7 @@ function ToggleRow({ label, checked, onChange, hint }) {
 }
 
 export default function SettingsPage() {
-  const { loading, error, rows, rawData } = useDynastyData();
+  const { loading, error, failure, rows, rawData, retry } = useDynastyData();
   // Only to point an operator at where the moved panels went; nothing
   // on this page is gated by it.
   const { isAdmin } = useAuthContext();
@@ -352,8 +352,12 @@ export default function SettingsPage() {
         </button>
       </div>
 
-      {loading && <p>Loading data...</p>}
-      {!!error && <p style={{ color: "var(--red)" }}>{error}</p>}
+      {loading && <p role="status">Loading data…</p>}
+      {/* Was a bare red <p>: no role, so nothing was announced; no
+          primitive, so it looked like nothing else in the app; and no
+          kind, so "you are signed out" and "the backend is down" and
+          "the board is empty" were one sentence in one colour. */}
+      {failure ? <FailureState failure={failure} onRetry={retry} /> : null}
 
       <SettingsGroup
         title="League &amp; scoring"

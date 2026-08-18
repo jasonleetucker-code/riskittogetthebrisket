@@ -1589,10 +1589,36 @@ async function _fetchBaseContractNetwork(leagueKey, view, cacheKey) {
   // buys over ``no-store``: an unchanged contract answers with a
   // zero-body 304 instead of a multi-MB re-download on every
   // navigation past the in-memory TTL.
-  const res = await fetch(url, { cache: "no-cache" });
+  let res;
+  try {
+    res = await fetch(url, { cache: "no-cache" });
+  } catch (netErr) {
+    // No status at all: the request never reached a server. That is a
+    // DIFFERENT state from every HTTP failure below and used to be
+    // indistinguishable from them once the message was the only channel.
+    const err = new Error(
+      `Could not reach the server: ${netErr?.message || "network error"}`,
+    );
+    err.status = null;
+    err.body = null;
+    throw err;
+  }
   if (!res.ok) {
     const txt = await res.text();
-    throw new Error(`Failed to load dynasty data: ${res.status} ${txt}`);
+    // Carry the STATUS on the error, not just inside its message.
+    // `useDynastyData` used to recover it with `/\b401\b/.test(message)`,
+    // which cannot tell a 503 from a 500 from a timeout — and would have
+    // matched a player named "401" in the body. See lib/contract-failure.js.
+    let body = null;
+    try {
+      body = JSON.parse(txt);
+    } catch {
+      body = txt || null;
+    }
+    const err = new Error(`Failed to load dynasty data: ${res.status} ${txt}`);
+    err.status = res.status;
+    err.body = body;
+    throw err;
   }
   const json = await res.json();
 

@@ -70,6 +70,7 @@ import {
   Button,
   DataTable,
   EmptyState,
+  FailureState,
   HelpModal,
   Icon,
   InfoTip,
@@ -273,7 +274,7 @@ function CustomMixBadge({ rankingsOverride }) {
 // ── Main component ───────────────────────────────────────────────────
 
 export default function RankingsPage() {
-  const { loading, error, rows, rawData } = useDynastyData();
+  const { loading, error, failure, rows, rawData, retry } = useDynastyData();
   const {
     settings,
     update: updateSetting,
@@ -1652,11 +1653,18 @@ export default function RankingsPage() {
           <SkeletonTable rows={12} columns={7} />
         </Panel>
       )}
-      {!!error && (
-        <Banner tone="negative" title="Rankings unavailable">
-          {error}
-        </Banner>
-      )}
+      {/* One banner, but the RIGHT one.  This used to be
+          `tone="negative" title="Rankings unavailable"` for every
+          failure, so a backend that was up and declining for a stated
+          reason (a scoring-identity mismatch, a contract still loading)
+          read exactly like an outage — and a board that was simply
+          empty because the pipeline had not finished its first scrape
+          read like a fault.  `failure.kind` decides tone, title and
+          whether a retry is even offered; a 403 gets no retry button
+          because retrying cannot change the answer. */}
+      {failure ? (
+        <FailureState failure={failure} onRetry={retry} context="rankings" />
+      ) : null}
       {!loading && !error && rows.length === 0 && (
         <EmptyState
           title="No player data available"

@@ -31,19 +31,37 @@ test.describe("journey: /tools health pages", () => {
   test("/tools/source-health lists real scraper sources from /api/status", async ({
     authedPage: page,
   }) => {
-    // Authoritative source list straight from the backend.  NOTE the
-    // path: `source_runtime.enabled_sources` is what the strip renders
-    // from, and it uses display casing ("KTC", "IDPTradeCalc") that
-    // differs from the lowercase keys in `source_health.sources`.
-    // Comparing against the wrong one silently never matches.
+    // Authoritative source list straight from the backend — and it is
+    // `registered_sources`, NOT `source_runtime.enabled_sources`.
+    //
+    // This comment used to say the opposite, and it was true when it was
+    // written.  F-7 (repaired 2026-08-18) changed what the strip renders
+    // from, for a stated reason: `enabled_sources` carries the scraper's
+    // run names for the two ANCHOR markets, so a page whose subtitle
+    // promises "every ranking source in the pipeline" was rendering 2
+    // rows out of 21 and a source that stopped contributing entirely
+    // could never appear as missing — it was never in the population.
+    // `SourceHealthStrip.jsx` now takes the registry and falls back to
+    // the runtime list only when the registry is empty.
+    //
+    // The test was not updated with it, so it has been asserting 21 === 2
+    // ever since.  It mirrors the component's own ladder now rather than
+    // pinning one branch of it.
     const statusRes = await page.request.get("/api/status");
     expect(statusRes.status()).toBe(200);
     const status = await statusRes.json();
-    const enabled = status?.source_health?.source_runtime?.enabled_sources || [];
+    const health = status?.source_health || {};
+    const registered = Array.isArray(health.registered_sources)
+      ? health.registered_sources
+      : [];
+    const runtimeEnabled = Array.isArray(health.source_runtime?.enabled_sources)
+      ? health.source_runtime.enabled_sources
+      : [];
+    const enabled = registered.length ? registered : runtimeEnabled;
     expect(
-      Array.isArray(enabled),
-      "/api/status must report source_runtime.enabled_sources",
-    ).toBeTruthy();
+      registered.length || runtimeEnabled.length,
+      "/api/status must report registered_sources or source_runtime.enabled_sources",
+    ).toBeGreaterThan(0);
 
     await page.goto(pageUrl("/tools/source-health"), {
       waitUntil: "domcontentloaded",

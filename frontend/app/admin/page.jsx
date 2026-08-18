@@ -18,23 +18,44 @@
 import { useEffect, useState } from "react";
 import ServerStatusPanel from "@/components/admin/ServerStatusPanel";
 import GuestPassPanel from "@/components/admin/GuestPassPanel";
+import { FailureState } from "@/components/ds";
+import { classifyContractFailure } from "@/lib/contract-failure";
 
 export default function AdminPage() {
   const [status, setStatus] = useState(null);
   const [err, setErr] = useState("");
+  const [failure, setFailure] = useState(null);
   const [busy, setBusy] = useState(false);
   const [actionLog, setActionLog] = useState([]);
 
   const loadStatus = async () => {
     try {
       setBusy(true);
-      const res = await fetch("/api/status");
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      let res;
+      try {
+        res = await fetch("/api/status");
+      } catch (netErr) {
+        // No status at all — the request never reached a server. This
+        // used to arrive here as a message and be attributed to the
+        // allowlist, which sent an operator hunting a permissions
+        // problem while the backend was simply down.
+        setFailure(classifyContractFailure(null, null));
+        setErr("");
+        return;
+      }
+      if (!res.ok) {
+        const body = await res.json().catch(() => null);
+        setFailure(classifyContractFailure(res.status, body));
+        setErr("");
+        return;
+      }
       const body = await res.json();
       setStatus(body);
       setErr("");
+      setFailure(null);
     } catch (e) {
-      setErr(`Failed to load status: ${e.message}`);
+      setFailure(classifyContractFailure(null, null));
+      setErr(e?.message || "");
     } finally {
       setBusy(false);
     }
@@ -80,17 +101,30 @@ export default function AdminPage() {
     }
   };
 
-  if (err) {
+  if (failure) {
+    // This block used to print one fixed hint — "your username may not be
+    // in the allowlist" — for EVERY failure, including a 500, a 503 and a
+    // dropped connection. It named a cause it had not established, which
+    // is the most expensive kind of wrong message: it sends an operator
+    // to check permissions while the backend is down.
+    //
+    // `FailureState` says only what the status supports, and only offers
+    // a retry where retrying could help — a 403 gets none.
     return (
       <main style={{ padding: "var(--space-lg)" }}>
         <h1>Admin</h1>
-        <div className="card" style={{ background: "rgba(220, 50, 50, 0.1)" }}>
-          <p>{err}</p>
+        <FailureState
+          failure={failure}
+          onRetry={loadStatus}
+          variant="block"
+          context="server status"
+        />
+        {failure.kind === "forbidden" ? (
           <p style={{ fontSize: "0.85rem", color: "var(--muted)" }}>
-            This page requires an admin session. If you're signed in and still
-            seeing this, your username may not be in the allowlist.
+            This page requires an admin session. Your username may not be in the
+            allowlist.
           </p>
-        </div>
+        ) : null}
       </main>
     );
   }

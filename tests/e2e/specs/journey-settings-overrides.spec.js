@@ -15,6 +15,7 @@ const { test, expect } = require("../helpers/auth-fixture");
 const {
   desktopOnly,
   gotoRankingsBoard,
+  boardRowCount,
   attachConsoleGuards,
   pageUrl,
 } = require("../helpers/journey");
@@ -141,7 +142,10 @@ test.describe("journey: settings source toggles", () => {
       .catch(() => null);
 
     const rows = await gotoRankingsBoard(page);
-    expect(await rows.count()).toBeGreaterThan(50);
+    // Board SIZE, not mounted rows: the table is windowed, so it mounts a
+    // viewport's worth (~28) by design. See journey.js::boardRowCount.
+    expect(await boardRowCount(page)).toBeGreaterThan(50);
+    expect(await rows.count(), "no board rows mounted").toBeGreaterThan(0);
 
     const rehydrateResponse = await rehydrateOverrides;
     expect(
