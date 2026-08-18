@@ -1832,6 +1832,39 @@ board" family (`F-VAL-02`, W29-F001/F002), which this joins as the first member 
 user-facing delivery path.
 
 
+### F-33 · The external crowd-FAAB pool admitted evidence it cannot compare · CONFIRMED · data integrity · **FOUND AND FIXED BY LANE 4 (#911)**
+
+Filed by the integration lane so `V1-129` has a register entry to point at. The work and the
+credit are lane 4's.
+
+The crowd waiver feed reaches `faab_engine.rival_bid_cdf` through
+`data/faab/crowd_history_<leagueKey>.json` → `crowd_bid_index`, and is blended into the modelled
+rival share at **weight 0.6**. What that pool admits therefore moves **real recommended bids** —
+this is not an observability field.
+
+It admitted three kinds of evidence it had no standing to use: leagues whose format is not
+comparable to the target league, a ledger that had not been refreshed inside its budget, and
+**positions the retained population cannot price at all** (measured: no external league in the
+feed starts an individual defender, so an IDP recommendation would have been answered from a
+population that never prices one). `#911` refuses each, and reports the refusal rather than
+silently narrowing.
+
+Two things worth keeping visible because they are easy to lose:
+
+* **Own-league history was already correct and is untouched.** `fetch_bid_history` normalises to
+  percent-of-original-budget across the $1,000 / $200 / $100 eras, keeps `$0` bids, and refuses a
+  season with no usable `waiver_budget` rather than fabricating `$100`. The defect was in the
+  *external* lane only, and saying so stops a future reader "fixing" the half that works.
+* **A snapshot proves when it was taken, not that it is still true** — the staleness refusal is
+  the same posture as the scoring-fingerprint evidence states, not a new rule.
+
+This is the CLAUDE.md signal-independence discipline applied to admission rather than to counting:
+evidence that cannot be compared to the question is not weak evidence, it is *not evidence*, and
+weighting it at 0.6 was the defect.
+
+Owner: lane 4, fixed in `#911`. Related: `V1-129`, `V1-55`.
+
+
 ### Interruption: the 2026-08-18 CI incident
 
 This audit was suspended mid-phase to work a reported seven-workflow CI failure. Record:

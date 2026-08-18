@@ -1,6 +1,6 @@
 # Version 1 Completion Contract
 
-**Status:** COMPLETE AND PROPOSED — awaiting owner ratification.
+**Status:** **RATIFIED** as to scope (owner, 2026-08-18) — the boundary in §1, the vocabulary in §2 and the classification in §3-§6 are settled and frozen. **Statuses stay live** and are reconciled against the open six-lane PRs after every integration. Three genuinely irreducible product questions remain in §7.2; they do not hold up the rest.
 **Published:** 2026-08-18 by the Integration Authority lane (Claude 5).
 **Companions:** `docs/EXECUTION_PLAN.md` §0 (authorization) · `docs/C_SERIES_SCOPE_MANIFEST.md`
 (scope) · `docs/OWNER_FEATURE_INVENTORY.md` (owner product record) ·
@@ -140,7 +140,7 @@ Projections · **L4** Market / FAAB / Analyst · **L5** Integration / QA / CI / 
 | V1-09 | Five-axis confidence, weakest axis wins | `F-CONF-01` / inv 7.4 | L5 | `VERIFIED` | L1 | canonical value. B11 |
 | V1-10 | Provider families, one vote each | `F-SRC-01` / inv 7.6 | L5 | `VERIFIED` | L1 | canonical value. 21 keys → 13 families |
 | V1-11 | Confidence naming migration | `C1-CONF-01` / `C1-U5` | L5 | `IMPLEMENTED_UNVERIFIED` | L3 | canonical value. PR #876 merged. §6 checklist **executed 2026-08-18** (§ verification record): 5 of 8 PASS incl. item 3 (0 of 857 priced rows without a `confidenceBasis`), 2 `BLOCKED-EXTERNAL` on auth, 1 checklist path corrected. Reached **L2**, not L3 — the passes are on a rebuilt real board, not a deployed response |
-| V1-12 | Pick value completeness through 2029 | `C1-PICK-01` / MFB-89 / inv 2.8 | L5 | `VERIFIED` | L2 | canonical value; owner hard requirement. PR #871 + D1 repair |
+| V1-12 | Pick value completeness through 2029 | `C1-PICK-01` / MFB-89 / inv 2.8 | L5 | `IN PROGRESS` | L2 | canonical value; owner hard requirement. PR #871 + D1 repair. **DOWNGRADED from `VERIFIED` 2026-08-18 (owner instruction)** — audit `F-30`: `main` left 2029 rounds 2-6 unpriced when a pick market truncated, failing the hard gate and **skipping a production deploy**. A previously verified capability is allowed to regress; leaving it `VERIFIED` during a known live failure is the false green this contract exists to prevent. Restoration needs all four: exact-head deterministic tests, a clean 2029 completeness census, board-diff measurement, and deployed evidence. Repair is in #910, unmerged at the time of writing |
 | V1-13 | Generic ↔ exact-slot transition, one asset | `C1-PICK-02` | L5 | `VERIFIED` | L1 | canonical identity |
 | V1-14 | Per-source pick boards: no fabricated year anchors | `C1-U6-D1` | L5 | `VERIFIED` | L3 | false-green repair. Deployed `5a5f1507f`; 0 of 18 cells violating |
 | V1-15 | Acquisition history / cost basis | `C1-ACQ-01` / inv 7.11 | L5 | `IMPLEMENTED_UNVERIFIED` | L3 | canonical history. PR #878; §8 checklist **attempted 2026-08-18 and BLOCKED-EXTERNAL on all seven** (§8a) — `data/retention/` and `data/intel/` do not exist outside prod, and running the builder here would report `0` transactions for the uninteresting reason that the store is absent |
@@ -161,13 +161,14 @@ Projections · **L4** Market / FAAB / Analyst · **L5** Integration / QA / CI / 
 | # | capability | canonical id | lane | status | level | in V1 because |
 |---|---|---|---|---|---|---|
 | V1-27 | One lineup / slot assignment owner | `C2-LINE-01` / `C2-U1` | L1 | `IMPLEMENTED_UNVERIFIED` | L3 | named V1 scope. PR #880; 10/10 vs Sleeper truth. §10 checklist **executed 2026-08-18** (§10a): items 1, 3a, 5 PASS at **L2** (12/12 lineups solved from `sleeper_roster_positions`; 4 hybrids started in slots their primary alone forbids), items 2-3 `BLOCKED-EXTERNAL` on auth, item 4 PARTIAL |
-| V1-28 | FLEX / SF / IDP-FLEX starters assigned before reserve depth | `#899` addendum | L1 | `NOT STARTED` | L1 | binding owner decision 2026-08-18, decision 72 |
-| V1-29 | One replacement level / PAR owner | `C2-REPL-01` / `C2-U2` | L1 | `NOT STARTED` | L2 | named V1 scope. 5 implementations to retire |
-| V1-30 | Canonical meaningful roster core | `C2-CORE-01` / `C2-U6` / `#839` | L1 | `NOT STARTED` | L2 | named V1 scope. `M=1.5` ships as V1 champion labelled PRIOR, challenger pass required |
-| V1-31 | Canonical Team Strength | `C2-STR-01` / `C2-U4` | L1 | `NOT STARTED` | L2 | named V1 scope. 4 competing notions to retire |
-| V1-32 | Canonical Team Weakness / Need Priority | `C2-WEAK-01` / `C2-U5` | L1 | `NOT STARTED` | L2 | named V1 scope. ≥5 need definitions to retire |
-| V1-33 | Basic Young Core Index | `C2-AGE-02` / inv 1.6 | L1 | `NOT STARTED` | L1 | **basic** Young Core named in V1 scope. Age buckets classified PRIOR |
+| V1-28 | FLEX / SF / IDP-FLEX starters assigned before reserve depth | `#899` addendum | L1 | `IN PROGRESS` | L1 | binding owner decision 2026-08-18, decision 72. **#914** — reserve demand is the same exact solver re-run over the survivors, so starters are assigned before reserve depth by construction rather than by ordering convention |
+| V1-29 | One replacement level / PAR owner | `C2-REPL-01` / `C2-U2` | L1 | `IN PROGRESS` | L2 | named V1 scope. 5 implementations to retire. **#914** designates the owner and publishes the boundary table but adds **no new implementation** — the retirements are still owed, so this is begun, not done |
+| V1-30 | Canonical meaningful roster core | `C2-CORE-01` / `C2-U6` / `#839` | L1 | `IN PROGRESS` | L2 | named V1 scope. `M=1.5` ships as V1 champion labelled PRIOR, challenger pass required. **#914** builds it as two exact solves (starters ∪ reserves), which is what `#899` §3 requires over independent greedy lists |
+| V1-31 | Canonical Team Strength | `C2-STR-01` / `C2-U4` | L1 | `IN PROGRESS` | L2 | named V1 scope. 4 competing notions to retire. **#914** builds the owner |
+| V1-32 | Canonical Team Weakness / Need Priority | `C2-WEAK-01` / `C2-U5` | L1 | `IN PROGRESS` | L2 | named V1 scope. ≥5 need definitions to retire. **#914** builds the owner |
+| V1-33 | Basic Young Core Index | `C2-AGE-02` / inv 1.6 | L1 | `IN PROGRESS` | L1 | **basic** Young Core named in V1 scope. Age buckets classified PRIOR. **#914** builds it |
 | V1-34 | Untouchable / excluded-player control | inv 1.5 | L2 | `NOT STARTED` | L1 | owner control over recommendations; W09-F011 |
+| V1-130 | One recommendation-constraint owner | `C3-CON-01` | L2 | `NOT STARTED` | L2 | **added 2026-08-18, §7.1 A-2** — follows mechanically: `V1-34` is V1 REQUIRED and `C3-CON-01` is its canonical owner, so excluding the owner would require building a required capability without one, which ONE CONCEPT, ONE CANONICAL OWNER forbids. The **owner** is in scope; the wider constraint feature set is not |
 | V1-35 | Metric separation (asset value / roster strength / lineup / depth / power / playoff / championship) | decision 69 | L1 | `NOT STARTED` | L1 | binding owner decision — may not collapse into one team score |
 
 ### 3.3 Canonical trade intelligence (Analyze Trade V1)
@@ -177,12 +178,12 @@ Projections · **L4** Market / FAAB / Analyst · **L5** Integration / QA / CI / 
 | V1-36 | ONE shared package generator | `C3-PKG-01` / `C3-U1` | L2 | `NOT STARTED` | L2 | named V1 scope. 4 generators to retire |
 | V1-37 | ONE Value Adjustment per runtime, parity proven | `C3-VA-01` / `C3-U2` / decision 70 | L2 | `NOT STARTED` | L2 | named V1 scope. 5 implementations, one via import-time monkeypatch |
 | V1-38 | KTC VA stays an explicit labelled market lens | `C3-VA-02` | L2 | `VERIFIED` | L1 | truthful semantics; already complete |
-| V1-39 | Roster capacity / forced-drop trade analysis | `C3-CAP-01` / `#843` | L2 | `NOT STARTED` | L1 | named V1 scope |
+| V1-39 | Roster capacity / forced-drop trade analysis | `C3-CAP-01` / `#843` | L2 | `IN PROGRESS` | L1 | named V1 scope. **#913** adds `src/trade/roster_capacity` as the single resolver and retires the duplicate `rosterSize` lookups in `draft/context.py` and `gameplan.py`; `None` means UNKNOWN, never unlimited |
 | V1-40 | Dropability / cut candidates consolidation | `C2-DROP-01` / `C2-U8` / inv 1.4 | L2 | `IN PROGRESS` | L2 | named V1 scope (forced drops); complete but not consolidated |
 | V1-41 | "Use Team Context" toggle, ON by default | `C3-CTX-01` / `#842` | L2 | `NOT STARTED` | L1 | named V1 scope |
 | V1-42 | Exact before→apply→re-solve→after roster simulation | `C2-SIM-01` / `C2-U3` / inv 1.3 | L2 | `NOT STARTED` | L2 | trade simulation, named V1 scope |
 | V1-43 | Analyze Trade canonical recommendation (V1) | `C7-DESK-01` / `#792` | L2 | `NOT STARTED` | L1 | named V1 scope, explicitly at V1 depth. No double-counting of overlapping signals |
-| V1-44 | Equalizers rank on the post-VA gap | `C3-EQ-01` / `#800` | L2 | `NOT STARTED` | L1 | P1 live trade correctness; `findBalancers` divergent in two runtimes |
+| V1-44 | Equalizers rank on the post-VA gap | `C3-EQ-01` / `#800` | L2 | `IN PROGRESS` | L1 | P1 live trade correctness; `findBalancers` divergent in two runtimes. **#913** — both equalizers ranked candidates by raw value against an **adjusted** target, which is only valid if adding a piece worth V moves the adjusted gap by V, and VA is a function of both complete value arrays so it does not |
 | V1-45 | Trade calculator | inv 2.1 | L2 | `IMPLEMENTED_UNVERIFIED` | L4 | high-use surface; owner status "ALREADY COMPLETE — VERIFY ONLY" |
 | V1-46 | Manual override UX: visually silent, one global reset | `C3-CALC-02` / `#781` | L6 | `NOT STARTED` | L1 | binding owner UX requirement, decisions 3–7 |
 | V1-47 | Multi-team (3+) trade modelling preserved | `BS-3TEAM` | L2 | `VERIFIED` | L1 | owner requirement: "must never be simplified away" |
@@ -192,7 +193,7 @@ Projections · **L4** Market / FAAB / Analyst · **L5** Integration / QA / CI / 
 | # | capability | canonical id | lane | status | level | in V1 because |
 |---|---|---|---|---|---|---|
 | V1-48 | Realized scoring correctness | `F-SCORE-02` / inv 7.9 | L3 | `VERIFIED` | L2 | exact scoring. B7 |
-| V1-49 | Individual special-teams scoring | `C5-ST-01` / `#802` | L3 | `NOT STARTED` | L2 | **named explicitly** in the V1 boundary |
+| V1-49 | Individual special-teams scoring | `C5-ST-01` / `#802` | L3 | `IN PROGRESS` | L2 | **named explicitly** in the V1 boundary. **#915** — measuring `#802` found its headline already closed (B7/W18-F003 wired `kr_yd`/`pr_yd`/`st_td`, re-verified at 1,280 rows / 2,239.40 pts) and three larger defects underneath, incl. **safeties scoring a well-formed 0.000** because `SAF` was in neither `POSITION_ALIASES` nor `_IDP_POSITIONS` — 10,842.88 points |
 | V1-50 | ROS projections honest about what they are | `F-ROS-01` | L3 | `VERIFIED` | L1 | truthful semantics — `rosValue` precedent |
 | V1-51 | One playoff-probability engine | `C5-PLAY-01` / inv 6.1 | L3 | `NOT STARTED` | L2 | required current-season-model correctness: 2 engines disagree 7 vs 6 spots |
 | V1-52 | One weekly power-rankings engine | `C5-POW-01` / inv 6.2 | L3 | `NOT STARTED` | L2 | required current-season-model correctness: 2 competing engines |
@@ -206,6 +207,7 @@ Projections · **L4** Market / FAAB / Analyst · **L5** Integration / QA / CI / 
 | V1-55 | One FAAB engine (ceiling vs recommended bid) | `F-FAAB-01` / inv 3.1 | L4 | `VERIFIED` | L2 | FAAB core. 247 tests; backtest 166/166 → 0/166 low-value overbids |
 | V1-56 | FAAB league context panel | inv 3.2 | L4 | `IMPLEMENTED_UNVERIFIED` | L4 | FAAB core; owner status "VERIFY ONLY" |
 | V1-57 | FAAB bid-history collection is scheduled, not a manual step | `C4-FAAB-02` | L4 | `NOT STARTED` | L3 | FAAB core trustworthiness — no timer today |
+| V1-129 | External crowd-FAAB evidence is comparable, fresh and position-capable | audit `F-33` / `FAAB_MARKET_SIGNAL_NORMALIZATION_2026-08-14` §3/§5/§7/§10 | L4 | `IN PROGRESS` | L2 | **added 2026-08-18** — a tracked DEFECT against the already-required FAAB core, not new product scope. The KTC crowd pool feeds `rival_bid_cdf` at weight **0.6**, so what it admits moves real recommended bids; it was admitting incomparable leagues, stale ledgers and positions the retained population cannot price. **#911** refuses all three and reports the refusal. Own-league history was already correct and is untouched |
 | V1-58 | Sharp cohort proven populated in production | `C4-SHARP-01` / `C4-U2` | L4 | `IMPLEMENTED_UNVERIFIED` | L3 | Sharp core. Verification artifacts end at 502/401/"unverifiable_unauthenticated" |
 | V1-59 | Sharp bootstrap stops failing | `C4-SHARP-02` | L4 | `IN PROGRESS` | L3 | Sharp core. FFPC timeouts + SQLite locking |
 | V1-60 | FFPC roster lane real or honestly empty | `C4-SHARP-03` | L4 | `IN PROGRESS` | L2 | truthful degraded state — must not read as zero rosters silently |
@@ -246,6 +248,7 @@ Projections · **L4** Market / FAAB / Analyst · **L5** Integration / QA / CI / 
 | V1-90 | FootballGuys ghost stamps removed | `C4-SRC-03` | L5 | `NOT STARTED` | L1 | source-health correctness — stamps with no fetcher since 2026-05-24 |
 | V1-91 | Partial runs cannot report as healthy | `C4-SRC-02` | L5 | `IN PROGRESS` | L2 | false-green repair |
 | V1-92 | Freshness indicators complete | inv 6.8 | L6 | `IN PROGRESS` | L1 | truthful degraded state; W08-F011 |
+| V1-131 | Nav does not offer a page whose endpoints all 503 | audit `F-25` / `C6-EDGE-01` (gating only) | L6 | `NOT STARTED` | L3 | **added 2026-08-18, §7.1 A-7** — follows mechanically from "truthful degraded states", which the boundary names. Nav currently offers Consensus Edge while its three endpoints 503. **Gating only**: the Consensus Edge FEATURE stays POST-V1 |
 | V1-127 | `normalizationHealth` reports the board it actually has | audit `F-27` | L5 | `IMPLEMENTED_UNVERIFIED` | L3 | **added 2026-08-18** — false red in production since C1-U6; see §10 note below |
 | V1-128 | Board age is measured in a timezone that exists | audit `F-28` | L5 | `IMPLEMENTED_UNVERIFIED` | L3 | **added 2026-08-18** — host is UTC+2, so reported age is always ≤ 0 and `data_stale` is structurally unreachable. Fixed at the source (tz-aware `scrapeTimestamp`) plus a future-board UNKNOWN guard; L3 needs a deployed scrape showing a positive age tracking the 2-hourly cadence |
 
@@ -254,7 +257,7 @@ Projections · **L4** Market / FAAB / Analyst · **L5** Integration / QA / CI / 
 | # | capability | canonical id | lane | status | level | in V1 because |
 |---|---|---|---|---|---|---|
 | V1-93 | Missing is never zero, on display | `F-MISS-01` | L5 | `VERIFIED` | L1 | governing invariant (#836) |
-| V1-94 | `teamAssignment` degraded/missing is not served as `assignments: []` | `R-TEAMASSIGN` / `#815` | L1 | `NOT STARTED` | L2 | named correctness defect; HTTP 200 on a degraded snapshot |
+| V1-94 | `teamAssignment` degraded/missing is not served as `assignments: []` | `R-TEAMASSIGN` / `#815` | L1 | `IN PROGRESS` | L2 | named correctness defect; HTTP 200 on a degraded snapshot. **#914** fixes it and reports a second missing-as-zero found alongside. Note `tests/e2e/specs/public-league.spec.js:533` is a deliberate red written against this defect — it goes green when this lands |
 | V1-95 | Awards do not exist before games are played | `C9-AWARD-01` | L3 | `NOT STARTED` | L2 | live production defect: eight awards manufactured with zero games |
 | V1-96 | Historical franchise continuity | `C9-HIST-01` | L5 | `NOT STARTED` | L2 | live defect: 2024 declares ten teams, carries eight standings rows |
 | V1-97 | Historical Trade Replay does not leak hindsight | `C3-REPLAY-01` | L2 | `NOT STARTED` | L2 | **wrong semantics in production** |
@@ -266,7 +269,7 @@ Projections · **L4** Market / FAAB / Analyst · **L5** Integration / QA / CI / 
 
 | # | capability | canonical id | lane | status | level | in V1 because |
 |---|---|---|---|---|---|---|
-| V1-101 | `/admin` `fmtPassExpiry` crash repaired | `#779` | L6 | `NOT STARTED` | L4 | named V1 scope; live user-facing crash |
+| V1-101 | `/admin` `fmtPassExpiry` crash repaired | `#779` | L6 | `IN PROGRESS` | L4 | named V1 scope; live user-facing crash. **#912** |
 | V1-102 | Temporary-password generator with configurable expiry | `#780` | L6 | `NOT STARTED` | L4 | named V1 scope; owner workflow must work end-to-end |
 | V1-103 | Security repairs | inv 9.6 | L5 | `IN PROGRESS` | L2 | named V1 scope. W22-F002/F003/F005/F007 |
 | V1-104 | Human review / admin controls | inv 6.9 / `#779`-adjacent | L5 | `IN PROGRESS` | L1 | named V1 scope; narrow today (sharp-identities only) |
@@ -283,7 +286,7 @@ Projections · **L4** Market / FAAB / Analyst · **L5** Integration / QA / CI / 
 | V1-110 | Design primitives / tokens / shell / focus | `C8-PSI-01` | L6 | `IN PROGRESS` | L2 | high-use Premium UI. **Owner decision `OD-05`** on token direction |
 | V1-111 | Premium migration of the high-use routes (Rankings first) | `C8-PSI-02` / `R-PREMIUM` | L6 | `NOT STARTED` | L4 | **high-use** Premium UI only — route-by-route migration is post-V1 |
 | V1-112 | Streaming SSR does not leave a duplicate DOM copy | `#730` | L6 | `NOT STARTED` | L2 | stability; page markup renders twice |
-| V1-113 | Accessibility instrumentation in CI | `C8-A11Y-01` | L6 | `NOT STARTED` | L1 | accessibility not measured in CI regresses silently |
+| V1-113 | Accessibility instrumentation in CI | `C8-A11Y-01` | L6 | `IN PROGRESS` | L1 | accessibility not measured in CI regresses silently. **#912** adds axe to CI and reports **84** violations it found |
 
 ### 3.10 CI / E2E, governance and production verification
 
@@ -312,14 +315,22 @@ than by editing this block.
 
 | status | count |
 |---|---|
-| `VERIFIED` | 36 |
+| `VERIFIED` | 35 |
 | `IMPLEMENTED_UNVERIFIED` | 21 |
-| `IN PROGRESS` | 24 |
-| `NOT STARTED` | 45 |
+| `IN PROGRESS` | 39 |
+| `NOT STARTED` | 34 |
 | `BLOCKED` | 2 |
-| **denominator** | **128** |
+| **denominator** | **131** |
 
-**V1 completion: 36 / 128 = 28.1%.**
+**V1 completion: 35 / 131 = 26.7%.**
+
+Reconciled against every open six-lane PR — #910 (L5), #911 (L4), #912 (L6),
+#913 (L2), #914 (L1), #915 (L3). Thirteen rows moved `NOT STARTED` →
+`IN PROGRESS` because a lane is *demonstrably implementing them right now*;
+leaving them `NOT STARTED` while an open PR builds them understates the work in
+flight exactly as leaving a regressed row `VERIFIED` overstates the work
+finished. `IN PROGRESS` means begun and unmerged — none of these has earned
+`IMPLEMENTED_UNVERIFIED`, which requires the merge.
 
 The percentage went **down** between publication and the first update, and that is
 the contract working rather than failing. One item was added (`V1-127`), two
@@ -332,6 +343,20 @@ is verified from the post-deploy committed export, which carries the
 `coverageAudit.expectedSites` block `/api/status` does not expose. `V1-128` moved
 `NOT STARTED` → `IMPLEMENTED_UNVERIFIED` (fixed, deploy proof still owed), which
 leaves the denominator untouched.
+
+**And then down again, deliberately.** `V1-12` (pick value completeness through
+2029) was `VERIFIED` and is now `IN PROGRESS`: audit `F-30` measured `main`
+leaving 2029 rounds 2-6 unpriced when a pick market truncated, which failed the
+hard gate and **skipped a production deploy**. `V1-107` moved `NOT STARTED` →
+`IN PROGRESS` on `F-32`.
+
+**A previously verified capability is allowed to regress, and saying so is the
+point.** A ledger whose entries only ever ratchet upward is not measuring the
+system; it is describing the intentions of the people editing it. `VERIFIED`
+asserts a property holds *now*, so a measured live failure retracts it — and the
+retraction is what distinguishes this contract from the status documents it was
+written to replace. The denominator did not move: a regression is not a scope
+change.
 
 `V1-87` is the instructive one. Its repair is mechanically trivial and was written,
 then **backed out**, because the guard that governs defaulted-ON flags demands a
@@ -445,25 +470,58 @@ Out of the denominator because no amount of engineering clears them.
 
 ---
 
-## 7. Ambiguous items — flagged individually for owner decision
+## 7. Ambiguous items — seven resolved mechanically, three left for the owner
 
-The owner's instruction was to flag the specific item rather than broaden the denominator. Each
-of these is currently classified as shown; **the classification is a proposal, not a ruling.**
+The owner's instruction was to flag the specific item rather than broaden the denominator, and
+then (2026-08-18) to *"resolve any that follow mechanically from existing owner decisions"* and
+batch only the genuinely irreducible product choices.
 
-| # | item | classified | why it did not resolve cleanly |
+**Seven of the twelve follow mechanically and are now RULED**, each from a decision the owner has
+already made, not from a fresh judgement of mine. Three of the remaining five collapse into a
+single question, so §7.2 asks **three** questions rather than five.
+
+**The rule that resolves five of them is one the owner already set**, and it is worth stating once
+because it recurs: *a live defect in a required capability is V1; the post-V1 feature it sits
+inside is not.* That is the same split used for `V1-127`, `V1-128` and `V1-129`, and the owner
+restated it as *"new defects that violate an already-required V1 capability may be
+added/tracked without redefining the product scope."*
+
+### 7.1 Resolved
+
+| # | item | ruling | the owner decision it follows from |
 |---|---|---|---|
-| A-1 | `C2-AGE-01` roster age-value portfolio | POST-V1 | The boundary names "**basic** Young Core". `#838` treats the portfolio and the index as one approved feature, and the index is arguably not computable without the age-bucket work the portfolio carries. If they are one deliverable, `V1-33` should absorb `C2-AGE-01` |
-| A-2 | `C3-CON-01` recommendation-constraint owner | POST-V1 | The boundary names capacity, forced drops and team context but not constraints — yet `V1-34` (untouchable control) and the owner's `#781`/2.10/2.11 decisions are constraint features, and `C3-CON-01` is their single owner. If `V1-34` is in, its owner arguably must be too |
-| A-3 | `C5-U1` projection ensemble vs "required current-season-model correctness" | ensemble POST-V1; `V1-51`/`V1-52` in V1 | The boundary excludes the full ensemble but requires current-season-model correctness. I read that as: consolidate the two playoff engines and the two power-rankings engines onto what exists, without building the ensemble. If correctness is judged to *require* better projections, `V1-51`/`V1-52` become unreachable inside V1 |
+
+### 7.2 Still genuinely the owner's — three questions
+
+| # | item | classified | the irreducible question |
+|---|---|---|---|
 | A-4 | `C5-PROJ-E` immutable projection archive | POST-V1 | It is **perishable**: an observation not made now cannot be made later, the same loss class as the `C1-RET-*` tranche which *is* V1. Deferring it is correct on scope and lossy on evidence. Recommend authorizing the archive alone, ahead of the ensemble |
 | A-5 | `C7-DRAFT-02` pre-auction immutable snapshot | POST-V1 | Also perishable and **one-shot**: `--record-snapshot` must run before the 2026 rookie auction or Perfect Draft can never be backtested. Not a V1 capability, but it has a deadline V1 does not |
 | A-6 | `C9-UR-02` Upside Report Preseason / Kickoff Edition | POST-V1 | Carries a hard publication date (Tuesday before Week 1). Deferred on scope; the date is not deferred |
-| A-7 | `C6-EDGE-01` Consensus Edge | POST-V1 | The feature is post-V1, but `F-25` — nav offers a page whose three endpoints 503 — is a live truthful-degraded-state defect on a shipped surface. Recommend the **nav gating** enter V1 while the feature stays out |
 | A-8 | inv 6.6 Universal Player Profile | POST-V1 | Named the second Premium migration reference route. If "high-use Premium UI" includes it, it moves into `V1-111` |
 | A-9 | `C4-INS-01` Insider Trading | V1 (`V1-65`) | Included as Sharp core because it is live and cross-league ownership is the Sharp product. If "Sharp core" means only the cohort and roster-percentage boards, this is post-V1 |
-| A-10 | `C3-REPLAY-01` historical trade replay | V1 (`V1-97`) | The **semantics fix** is in V1 as a live wrong-semantics defect; the full `MFB-101` three-lens replay feature is post-V1. The line between "stop lying" and "build the feature" is thin here |
-| A-11 | `C9-HIST-01` franchise continuity | V1 (`V1-96`) | Included as a truthful-degraded-state defect. It sits inside Public League v3, which is explicitly post-V1 — but the defect is live today |
-| A-12 | `C1-U7` owned-pick distributions | POST-V1 | Depends on Team Strength (`V1-31`), which is V1. Once `V1-31` lands, `C1-U7` becomes dependency-ready inside the V1 window; deferring it is a scope call, not a dependency one |
+
+**These five are three questions, and A-4/A-5/A-6 are one of them.**
+
+**Q1 — perishable capture (A-4, A-5, A-6).** All three are POST-V1 *features* and that is not in
+doubt. What is in doubt is whether to authorize the **capture** ahead of the feature, because each
+loses evidence that cannot be recovered later: `C5-PROJ-E` archives projections that are
+overwritten, `C7-DRAFT-02`'s `--record-snapshot` must run **before the 2026 rookie auction** or
+Perfect Draft can never be backtested at all (`scripts/backtest_perfect_draft.py` already exits 2
+and says so), and `C9-UR-02` carries a fixed publication date. The scope ruling is not the
+question; the deadline is. *Recommend authorizing the capture only — no feature work, no
+denominator change.*
+
+**Q2 — is the Universal Player Profile "high-use"? (A-8).** This is a usage judgement about the
+product, and I have no usage data. If it is high-use it joins `V1-111`; if not it stays post-V1.
+
+**Q3 — does "Sharp core" include Insider Trading? (A-9).** Currently in, as `V1-65`. The case for
+out: the boundary excludes **Manager Scout**, and cross-league ownership intelligence is nearer to
+that than to "the cohort and the roster-percentage board". The case for in: it is live today and
+cross-league ownership *is* the Sharp product. This one genuinely turns on what the owner meant by
+"core", which no existing decision settles.
+
+Nothing else in §7 is waiting on the owner. Everything in §7.1 is ruled and reflected in §3.
 
 ---
 
@@ -548,6 +606,8 @@ as a pass. **An unreachable check is not a green one.**
 
 | date | change | reason |
 |---|---|---|
+| 2026-08-18 | **+2** — `V1-130` (§7 A-2) and `V1-131` (§7 A-7) added | **Mechanical consequences of decisions the owner had already made**, resolved under the 2026-08-18 instruction to settle any ambiguity that follows from an existing ruling rather than leave the contract PROPOSED. `V1-130`: `V1-34` is required and `C3-CON-01` is its canonical owner — ONE CONCEPT, ONE CANONICAL OWNER makes excluding the owner incoherent. `V1-131`: "truthful degraded states" is named in the boundary and nav offering an all-503 page is a live instance; the Consensus Edge feature itself stays POST-V1. Neither adds product scope — both are the minimum needed to make an already-required item buildable or honest. |
+| 2026-08-18 | **+1** — `V1-129` added (audit `F-33`, lane 4 / `#911`) | A tracked **defect against an already-required capability**, which the owner's 2026-08-18 direction explicitly permits: *"New defects that violate an already-required V1 capability may be added/tracked without redefining the product scope."* FAAB core is already V1 REQUIRED; this adds no product. The crowd pool feeds `rival_bid_cdf` at weight **0.6**, so admitting incomparable leagues, a stale ledger, or a position the retained population cannot price moves real recommended bids — a trustworthiness defect in a required capability, not a new one. |
 | 2026-08-18 | **+1** — `V1-128` added (audit `F-28`) | Found by verifying the `#909` deploy against production: `data_age_hours` is **negative** because the naive `scrapeTimestamp` is the host's local time and `_board_age_hours` attaches UTC. A live measurement defect in the freshness signal the ops alerter reads — squarely "stability / false-green repairs" and "source-health correctness". Recorded the same day it was introduced, by the verification step that exists to catch exactly this. |
 | 2026-08-18 | **+1** — `V1-127` added (audit `F-27`) | A genuine omission from already-approved V1 scope, not a new idea. `normalizationHealth.healthy` had been **false in production since C1-U6** because a stale private pick-name grammar flagged 18 deliberate canonical rows as malformed. That is a live false red on a shipped surface, which the owner's boundary names explicitly under "stability / false-green repairs" and "truthful degraded states". It was found after publication, during the same sweep, and is recorded here rather than folded in silently — the denominator moving is the kind of event this log exists for. |
 
