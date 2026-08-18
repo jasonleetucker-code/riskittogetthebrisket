@@ -742,7 +742,7 @@ census.
 
 ---
 
-### F-14 · The `/api/dynasty-data` bridge answers 200 off disk when the backend says 401 · CONFIRMED · security / data integrity · **OPEN**
+### F-14 · The `/api/dynasty-data` bridge answers 200 off disk when the backend says 401 · CONFIRMED · security / data integrity · **REPAIRED 2026-08-18**
 
 `frontend/app/api/dynasty-data/route.js` streams the backend response only when
 `res.ok && isJson`. Its own comment states the else branch plainly: *"Non-2xx, or a 200 that
@@ -779,6 +779,33 @@ the code, and nothing tests it.
 This also supersedes the standing **F-3b** diagnosis, which attributed the journey-rankings
 failure to a stack-readiness race. The readiness gate passes; the board never talks to the
 backend at all.
+
+**REPAIRED by removing the fallback, not by validating it.** Measured every candidate
+`loadFromDisk` could reach — `exports/latest/dynasty_data_*.json`, `data/dynasty_data_*.json`
+and `dynasty_data.js` — and **all three are the raw scraper export**: no `contractVersion`, no
+`playersArray`, zero rank stamps. So the path could not serve a usable board on ANY input; it
+only ever converted a diagnosable backend status into an undiagnosable empty board. Validating
+it would have rejected all three candidates, i.e. disabled it while leaving the seam.
+
+The backend's answer now propagates: `401` / `403` / `5xx` verbatim (with `www-authenticate`
+preserved, so a refusal keeps its challenge), a transport failure or header-time abort becomes
+`503` with `reason: backend_unreachable` / `backend_idle_timeout`, and a non-JSON 200 becomes
+`502 backend_non_json`. No client change was needed — `fetchDynastyData` already throws on
+`!res.ok` (`frontend/lib/dynasty-data.js:1587`), so the hook's existing error state surfaces an
+explicit banner where the old path rendered a silent empty board.
+
+`loadFromDisk`, `listCandidates`, `newestFile`, `parseDynastyDataJs` and the `node:fs` import
+are **deleted**, not left dormant — a fallback nobody can reach is a seam somebody re-threads,
+and one of the new assertions reads the file to prove it is gone rather than merely unused.
+
+**RED first, and measured**: 9 of 12 assertions fail against the pre-repair route — every
+auth-propagation case, both transport cases, the non-JSON case and the structural one. The 3
+that pass are the happy paths (streaming, 304 round-trip, cookie + `view`/`leagueKey`
+forwarding), which are deliberately unchanged. Frontend suite: 2055 passed across 127 files.
+Pinned by `frontend/__tests__/dynasty-data-bridge-no-disk-fallback.test.js` (12).
+
+The stale nginx filename in the route's own comment is corrected to
+`deploy/nginx/chaseupside-proxy.conf` at the same time.
 
 ---
 

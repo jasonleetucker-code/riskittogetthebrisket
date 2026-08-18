@@ -1,6 +1,4 @@
 import { NextResponse } from "next/server";
-import fs from "node:fs";
-import path from "node:path";
 
 // Backend origin (scheme + host) resolved once at module load.  We
 // build the ``/api/data`` URL per-request so the caller's view /
@@ -17,12 +15,48 @@ const BACKEND_ORIGIN = (() => {
 
 // NOTE ON DEPLOYMENT SCOPE: in production, nginx routes every ``/api/*``
 // request (including ``/api/dynasty-data``) straight to the Python
-// backend — see ``deploy/nginx/chaseupside.com.conf`` — where
-// ``server.py::get_dynasty_data_alias`` already honors the caller's
-// ``view``/``leagueKey``.  This Next route only handles the dev flow
-// (no nginx in front) and any Next-fronted deployment.  The improvements
-// here (param forwarding, stream-through, idle-abort) bring that dev
-// path in line with production; they are NOT a production data-path fix.
+// backend — see ``deploy/nginx/chaseupside-proxy.conf`` (the shared
+// location snippet) and ``deploy/nginx/riskittogetthebrisket.org.conf``,
+// where ``server.py::get_dynasty_data_alias`` already honors the
+// caller's ``view``/``leagueKey``.  This Next route only handles the dev
+// flow (no nginx in front), the E2E stack, and any Next-fronted
+// deployment.
+//
+// That asymmetry is exactly what let audit finding F-14 hide, and it is
+// the same asymmetry documented in
+// ``frontend/__tests__/bridge-routes-forward-cookies.test.js``:
+// production is fine, so a defect here is quietly invisible.
+
+// THE DISK FALLBACK IS GONE (audit F-14, 2026-08-18).
+//
+// This route used to answer ``NextResponse.json(loadFromDisk())`` — an
+// unconditional **HTTP 200** — whenever the backend returned any non-2xx
+// status, a non-JSON 200, or stalled at header time.  Two defects, and
+// the first is the serious one:
+//
+//  (a) A REFUSAL WAS CONVERTED INTO A GRANT.  ``401`` is non-2xx, so an
+//      unauthenticated caller received the board off disk under 200.
+//      ``frontend/middleware.js``'s matcher excludes ``api/`` by design —
+//      the backend's own ``/api/*`` gate is meant to be the authority —
+//      so the fallback overrode the only gate there was.  Measured
+//      against a live stack: unauthenticated request → 200 / 635,170
+//      bytes while the backend answered 401, byte-identical to the disk
+//      file.
+//
+//  (b) IT COULD NOT SERVE A BOARD ANYWAY.  Every candidate the loader
+//      could reach — ``exports/latest/dynasty_data_*.json``,
+//      ``data/dynasty_data_*.json`` and ``dynasty_data.js`` — is the RAW
+//      SCRAPER EXPORT: measured 2026-08-18, all three carry no
+//      ``contractVersion``, no ``playersArray`` and ZERO rank stamps,
+//      which is precisely what ``buildRows``' fail-fast rejects.  So the
+//      "resilience" path turned a diagnosable backend status into an
+//      undiagnosable empty board, under a status code that said
+//      everything was fine.
+//
+// The backend's answer is now propagated verbatim, and a genuine
+// transport failure is reported AS a failure.  MISSING IS NEVER ZERO,
+// at the HTTP layer: "here is the board" and "I could not get the
+// board" must not share a status code.
 
 // Idle (per-chunk) timeout: abort if the backend stalls for this long
 // without sending data, at header time OR mid-body.  Using an inactivity
@@ -36,13 +70,18 @@ const BACKEND_IDLE_TIMEOUT_MS = 4000;
 // on the way out.
 const PASS_THROUGH_HEADERS = ["content-type", "cache-control", "etag", "vary"];
 
+// Headers that must survive on an ERROR response too, or the caller
+// cannot act on it.  ``www-authenticate`` is the one that matters: a 401
+// without it is a refusal with no stated challenge.
+const PASS_THROUGH_ERROR_HEADERS = ["content-type", "www-authenticate"];
+
 function backendDataUrl(reqUrl) {
   const incoming = new URL(reqUrl);
   const target = new URL(`${BACKEND_ORIGIN}/api/data`);
   // Forward the params that actually change the payload the backend
   // serves.  ``view`` is the big one — mobile / slow-network callers
-  // ask for the compact (~90% smaller) view, which the previous proxy
-  // silently dropped by always requesting the default.
+  // ask for the compact view, which the previous proxy silently dropped
+  // by always requesting the default.
   for (const key of ["view", "leagueKey"]) {
     const val = incoming.searchParams.get(key);
     if (val) target.searchParams.set(key, val);
@@ -52,11 +91,11 @@ function backendDataUrl(reqUrl) {
 }
 
 // Fetch the backend response with an idle timeout that covers ONLY the
-// header phase.  A header-time stall aborts and returns null so the
-// caller falls back to disk.  Once headers arrive the timer is cleared;
-// the body phase gets its own per-read idle timeout (see
-// ``streamWithUpstreamIdleAbort``) so header latency doesn't eat into
-// the first body chunk's budget.
+// header phase.  A header-time stall aborts and returns null; the caller
+// then reports a transport failure rather than inventing a body.  Once
+// headers arrive the timer is cleared; the body phase gets its own
+// per-read idle timeout (see ``streamWithUpstreamIdleAbort``) so header
+// latency doesn't eat into the first body chunk's budget.
 async function fetchFromBackendApi(request, backendUrl) {
   const ctl = new AbortController();
   const headerTimer = setTimeout(() => ctl.abort(), BACKEND_IDLE_TIMEOUT_MS);
@@ -75,9 +114,9 @@ async function fetchFromBackendApi(request, backendUrl) {
     });
     clearTimeout(headerTimer);
     return { res, ctl };
-  } catch {
+  } catch (err) {
     clearTimeout(headerTimer);
-    return null;
+    return { res: null, ctl, error: err };
   }
 }
 
@@ -127,72 +166,11 @@ function streamWithUpstreamIdleAbort(res, ctl) {
   });
 }
 
-function parseDynastyDataJs(jsText) {
-  if (!jsText) return null;
-  const match = jsText.match(/window\.DYNASTY_DATA\s*=\s*(\{[\s\S]*\})\s*;?/);
-  if (!match) return null;
-  try {
-    return JSON.parse(match[1]);
-  } catch {
-    return null;
-  }
-}
-
-function listCandidates(baseDir) {
-  const checks = [
-    path.join(baseDir, "exports", "latest"),
-    path.join(baseDir, "data"),
-    baseDir,
-  ];
-
-  const candidates = [];
-  for (const dir of checks) {
-    if (!fs.existsSync(dir)) continue;
-    const files = fs.readdirSync(dir)
-      .filter((f) => /^dynasty_data_\d{4}-\d{2}-\d{2}\.json$/i.test(f))
-      .map((f) => path.join(dir, f));
-    candidates.push(...files);
-  }
-
-  return candidates;
-}
-
-function newestFile(files) {
-  if (!files.length) return null;
-  return files
-    .map((f) => ({ f, m: fs.statSync(f).mtimeMs }))
-    .sort((a, b) => b.m - a.m)[0]?.f || null;
-}
-
-// Disk fallback — used only when the backend is unreachable / errored.
-// Returns the RAW contract object; the client normalizes both the raw
-// contract and the legacy ``{ ok, source, data }`` wrapper.
-function loadFromDisk() {
-  const repoRoot = path.resolve(process.cwd(), "..");
-
-  const jsonFile = newestFile(listCandidates(repoRoot));
-  if (jsonFile && fs.existsSync(jsonFile)) {
-    return JSON.parse(fs.readFileSync(jsonFile, "utf8"));
-  }
-
-  const jsCandidates = [
-    path.join(repoRoot, "exports", "latest", "dynasty_data.js"),
-    path.join(repoRoot, "dynasty_data.js"),
-    path.join(repoRoot, "data", "dynasty_data.js"),
-  ];
-  for (const jsFile of jsCandidates) {
-    if (!fs.existsSync(jsFile)) continue;
-    const parsed = parseDynastyDataJs(fs.readFileSync(jsFile, "utf8"));
-    if (parsed) return parsed;
-  }
-  return null;
-}
-
 // Copy the response headers we forward downstream (content-type,
 // cache-control, etag, vary — never content-encoding; see note above).
-function passThroughHeaders(res) {
+function passThroughHeaders(res, names = PASS_THROUGH_HEADERS) {
   const headers = new Headers();
-  for (const h of PASS_THROUGH_HEADERS) {
+  for (const h of names) {
     const v = res.headers.get(h);
     if (v) headers.set(h, v);
   }
@@ -202,63 +180,75 @@ function passThroughHeaders(res) {
 export async function GET(request) {
   try {
     const backendUrl = backendDataUrl(request.url);
-    const backend = await fetchFromBackendApi(request, backendUrl);
+    const { res, ctl, error } = await fetchFromBackendApi(request, backendUrl);
 
-    // Happy path: stream the backend response straight through without
-    // buffering / re-serializing the multi-MB contract, preserving its
-    // Cache-Control + ETag so the browser can revalidate.
-    if (backend) {
-      const { res, ctl } = backend;
-
-      // Conditional hit — no body to stream.
-      if (res.status === 304) {
-        return new NextResponse(null, { status: 304, headers: passThroughHeaders(res) });
-      }
-
-      // A 200 is only streamable if it's actually the JSON contract.  We
-      // can't validate the full body without buffering (that would defeat
-      // streaming), but we can reject a non-JSON 200 — an HTML gateway
-      // page, an error interstitial, a scalar — up front so the client
-      // gets the disk snapshot instead of a body it can't parse.
-      const contentType = res.headers.get("content-type") || "";
-      const isJson = /\bapplication\/json\b/i.test(contentType);
-      if (res.ok && isJson) {
-        if (!res.body) {
-          return new NextResponse(null, { status: res.status, headers: passThroughHeaders(res) });
-        }
-        // Stream the body with a per-read (upstream-only) idle timeout.
-        return new NextResponse(streamWithUpstreamIdleAbort(res, ctl), {
-          status: res.status,
-          headers: passThroughHeaders(res),
-        });
-      }
-      // Non-2xx, or a 200 that isn't JSON — fall through to disk.
+    // Transport failure or a header-time stall.  We have no answer, and
+    // saying so is the answer — never a 200 with a substitute body.
+    if (!res) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error: "backend unreachable or stalled",
+          reason: error?.name === "AbortError" ? "backend_idle_timeout" : "backend_unreachable",
+          timeoutMs: BACKEND_IDLE_TIMEOUT_MS,
+        },
+        { status: 503, headers: { "Cache-Control": "no-store" } },
+      );
     }
 
-    // Backend unreachable / errored / served a non-contract response —
-    // fall back to a disk snapshot.  (Once streaming has started we can
-    // no longer fall back; a mid-stream stall aborts and surfaces as a
-    // fetch error.)  Release the unconsumed backend response, if any.
-    if (backend) {
+    // Conditional hit — no body to stream.
+    if (res.status === 304) {
+      return new NextResponse(null, { status: 304, headers: passThroughHeaders(res) });
+    }
+
+    const contentType = res.headers.get("content-type") || "";
+    const isJson = /\bapplication\/json\b/i.test(contentType);
+
+    if (res.ok && isJson) {
+      if (!res.body) {
+        return new NextResponse(null, { status: res.status, headers: passThroughHeaders(res) });
+      }
+      // Stream the body with a per-read (upstream-only) idle timeout.
+      return new NextResponse(streamWithUpstreamIdleAbort(res, ctl), {
+        status: res.status,
+        headers: passThroughHeaders(res),
+      });
+    }
+
+    // A 200 that is not JSON — an HTML gateway page, an error
+    // interstitial, a scalar.  The upstream answered, but not with the
+    // contract, and that is a BAD GATEWAY, not a cue to invent one.
+    if (res.ok) {
       try {
-        backend.ctl.abort();
+        ctl.abort();
       } catch {
         /* already aborted */
       }
-    }
-    const parsed = loadFromDisk();
-    if (parsed) {
-      return NextResponse.json(parsed);
+      return NextResponse.json(
+        {
+          ok: false,
+          error: "backend returned a non-JSON 200",
+          reason: "backend_non_json",
+          contentType,
+        },
+        { status: 502, headers: { "Cache-Control": "no-store" } },
+      );
     }
 
-    return NextResponse.json(
-      { ok: false, error: "No dynasty_data_YYYY-MM-DD.json or dynasty_data.js found." },
-      { status: 404 },
-    );
+    // Any other non-2xx — 401, 403, 404, 5xx — is the BACKEND'S ANSWER
+    // and it is propagated.  A refusal is an answer, not a failure: the
+    // backend's ``/api/*`` gate is the only authority here (Next's
+    // middleware matcher deliberately excludes ``api/``), so converting
+    // its 401 into anything else is an authentication bypass.
+    const body = await res.text().catch(() => "");
+    return new NextResponse(body || null, {
+      status: res.status,
+      headers: passThroughHeaders(res, PASS_THROUGH_ERROR_HEADERS),
+    });
   } catch (err) {
     return NextResponse.json(
-      { ok: false, error: err?.message || "Unknown server error" },
-      { status: 500 },
+      { ok: false, error: err?.message || "Unknown server error", reason: "bridge_exception" },
+      { status: 500, headers: { "Cache-Control": "no-store" } },
     );
   }
 }
