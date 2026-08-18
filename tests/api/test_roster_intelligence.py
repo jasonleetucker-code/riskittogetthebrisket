@@ -81,7 +81,10 @@ def _league(**kw):
 # ══ It composes the owners; it recomputes nothing ══════════════════
 
 
-def test_every_team_carries_all_four_outputs():
+def test_every_team_carries_the_full_output_set():
+    """Exact equality, not a subset: a new key appearing unannounced is
+    how a payload grows a second answer to a question that already has
+    one.  ``droppability`` is the deliberate exception and is opt-in."""
     _, out = _league()
     assert len(out["teams"]) == 4
     for team in out["teams"].values():
@@ -93,6 +96,7 @@ def test_every_team_carries_all_four_outputs():
             "strength",
             "weakness",
             "agePortfolio",
+            "nflExposure",
         } == set(team)
 
 
@@ -331,3 +335,62 @@ def test_requesting_droppability_does_not_disturb_the_four_core_outputs():
         other = dict(with_drops["teams"][oid])
         other.pop("droppability", None)
         assert other == team
+
+
+# ══ NFL exposure is descriptive, and present for every team ════════
+
+
+def test_every_team_carries_both_exposure_scopes():
+    _, out = _league()
+    for team in out["teams"].values():
+        exposure = team["nflExposure"]
+        assert exposure["core"]["scope"] == "meaningful_core"
+        assert exposure["fullRoster"]["scope"] == "full_roster"
+
+
+def test_exposure_matches_the_owner_called_directly():
+    from src.api.data_contract import contract_roster_pools
+    from src.roster_intel.exposure import exposure_from_core
+
+    c, out = _league()
+    pools, slots, _ = contract_roster_pools(c)
+    core = build_meaningful_core(pools["o0"], slots)
+    direct = exposure_from_core(core, teams=ri._nfl_teams(c))
+    assert out["teams"]["o0"]["nflExposure"]["core"] == direct.to_dict()
+
+
+def test_an_unpriced_rostered_player_reaches_the_full_roster_exposure_unweighted():
+    """Roster membership is real even when the value is not; the share
+    denominator must exclude him without deleting the evidence that he
+    is there."""
+    _, out = _league(unpriced=3)
+    full = out["teams"]["o0"]["nflExposure"]["fullRoster"]
+    assert len(full["unpricedIds"]) == 3
+    assert all(pid not in b["playerIds"] for pid in full["unpricedIds"] for b in full["buckets"])
+
+
+def test_a_board_row_with_no_nfl_team_is_not_given_a_bucket():
+    """The fixture carries no ``team`` field at all, so every player is
+    unknown-team.  That must produce an empty bucket list and a full
+    ``unknownTeamIds``, never a franchise called UNKNOWN holding 100%."""
+    _, out = _league()
+    core = out["teams"]["o0"]["nflExposure"]["core"]
+    assert core["buckets"] == []
+    assert core["topFranchiseShare"] is None
+    assert len(core["unknownTeamIds"]) > 0
+
+
+def test_nfl_teams_are_keyed_the_way_the_pools_are():
+    """Same silent-failure class as ``_board_players``: a playerId key
+    against name-keyed pools produces a fully shaped, entirely empty
+    exposure with nothing raised."""
+    c = _contract()
+    for row in c["playersArray"]:
+        row["team"] = "MIN"
+    keys = set(ri._nfl_teams(c))
+    assert "o0_QB0" in keys
+    assert not any(k.startswith("id_") for k in keys)
+    out = ri.build_league_roster_intelligence(c, team_count=12)
+    core = out["teams"]["o0"]["nflExposure"]["core"]
+    assert [b["team"] for b in core["buckets"]] == ["MIN"]
+    assert core["unknownTeamIds"] == []

@@ -28,6 +28,7 @@ Binding requirements, in precedence order:
 | Age / Young Core | `src/roster_intel/age_portfolio.py` | **Absent** — built |
 | Roster simulation | `src/roster_intel/simulation.py` (C2-SIM-01) | **Absent** — built |
 | Droppability | `src/draft/displacement.py` (C2-DROP-01) | **Existed and was correct — unreachable.** Adapter built, §12 |
+| NFL-franchise exposure | `src/roster_intel/exposure.py` (C2-EXP-01) | **Absent** — built, §13 |
 | Consumer interface | `src/roster_intel/__init__.py`, `GET /api/roster/intelligence` | **Absent** — built |
 
 The chain was not broken at its head. It was missing its middle.
@@ -244,6 +245,8 @@ against real league examples first, and that has not run.
   foreign-league contract, matching `/api/gameplan`, `/api/terminal` and
   `/api/trade/*`. Rosters come from `data_contract.contract_roster_pools` — see
   §8.
+- **Exposure** — `src/roster_intel/exposure.py`, and on every team in the
+  endpoint payload as `nflExposure.core` / `nflExposure.fullRoster`. See §13.
 - **Droppability** — `src/roster_intel/droppability.py`
   (`team_droppability` / `league_droppability`), also re-exported from the
   package. Opt-in on the HTTP surface: `?droppability=1`. See §12.
@@ -322,6 +325,10 @@ PRIOR.
    differently here than on the draft board.
 8. **The waiver page's naive drop is untouched.** It is a different lane's
    surface; the exact rewire is handed over in §11.
+9. **Exposure has no consumer surface yet.** It is computed and published on
+   every team in `GET /api/roster/intelligence`; rendering it in Simulate
+   Impact is Claude 6's, and the trade lane must keep it out of any grade
+   (§13).
 
 ## 11. Cross-lane dependency for Claude 5
 
@@ -470,3 +477,101 @@ The waiver page still pairs an add with a naive lowest-value drop. That is
 `C7-WAIV-01`, a different lane, and the correct answer there is the matching
 problem this owner already solves — so it is a rewire, not a rewrite. It comes
 to the integration lane as a dependency (§11), not as a cross-lane edit.
+
+---
+
+## 13. NFL-franchise exposure (C2-EXP-01, CE-06)
+
+*"Show value-weighted NFL franchise exposure Before → After, e.g.
+`MIN 18.2% → 22.4%`. It is informational, not an automatic trade penalty."*
+— `OWNER_PRODUCT_BACKLOG_SPEC.md` §1.6, #786 decision 12.
+
+### Descriptive only, enforced two ways
+
+The manifest's evidence for this unit is a **non-influence test**, and there
+are two, because a promise and a property are different things:
+
+* **No verdict exists to influence anything with.** The payload carries no
+  flag, grade, penalty, warning or recommendation — asserted over the payload
+  keys, the same guard `simulation.py` carries.
+* **No edge exists along which it could.** Nothing in `src/trade/`, and nothing
+  in the roster chain itself, imports `roster_intel.exposure`; the only
+  importers are the package `__init__` and the API assembly. The dependency
+  arrow runs **exposure → simulation**, never back, and
+  `simulation_exposure_change` takes `Any` rather than annotating
+  `RosterSimulation` precisely so the annotation cannot create the edge. Both
+  are pinned, and the import guard is mutation-proven (adding one import to
+  `src/trade/suggestions.py` turns it red).
+
+That is also how the spec's handcuff carve-out is discharged. *"Intentional
+starting-QB + primary-backup handcuffs are purposeful exposure and should not
+be flagged as accidental concentration"* is a guard against a flag. The honest
+way to satisfy it is not a heuristic that guesses intent — it is to flag
+nothing and report the pair. Same-franchise same-position groups appear under
+`handcuffPairs` with three keys (`team`, `position`, `playerIds`) and no claim
+about why they are there. On the live board this finds real ones: Saquon
+Barkley + Tank Bigsby, both PHI RB.
+
+The owner's Minnesota overlay is a **different owner** — user- and
+league-scoped, outgoing side of generated packages only, specified in
+`docs/trade/TRADE_GENERATION_PREFERENCES_AND_REFINEMENT_SPEC.md`. Nothing here
+knows about it.
+
+### `FA` is not a franchise
+
+25 of 660 rostered players on the live board carry `FA` — genuine unsigned free
+agents — which **ties the largest franchise by headcount** (HOU, also 25). Only
+6 of those 25 are priced, so by value it is small: 0.58% of a roster on
+average, 4.8% at the worst, present on 2 of 12 teams.
+
+Both numbers matter and neither makes `FA` a team. Bucketing it as a 33rd
+franchise would report the *absence* of a team as an exposure to one — a
+different risk, since an unsigned player's outlook depends on a signing that
+has not happened. It gets `isFranchise: false`, and `topFranchiseShare` /
+`franchiseHHI` are computed over franchises only.
+
+### Two scopes, named separately
+
+Exposure over the **meaningful core** answers "how concentrated is the part of
+this roster that plays"; over the **full roster**, "how concentrated is the
+capital". They differ materially and neither is quietly chosen:
+
+| team | core top franchise | full-roster top franchise |
+|---|---|---|
+| Blaine | PHI 17.8% | PHI 16.4% |
+| Collin | GB 18.4% | GB 17.1% |
+| Ty | HOU 21.8% | — |
+
+Measured across the live 12-team league, core top-franchise share runs
+**10.6% – 27.9%** with franchise HHI **584 – 1175**. HHI is published because
+"one 25% team" and "five 5% teams" are different rosters that a single top
+share cannot tell apart; it carries no threshold, because what counts as
+concentrated is a judgement this module does not make.
+
+Before → after, on a real transaction (trading Josh Allen away):
+
+```
+BUF 17.5% → 5.6%   (-11.9)
+PHI 17.8% → 21.6%  (+3.9)
+ATL 10.3% → 11.5%  (+1.3)
+```
+
+The change set is the **union** of both sides, so a franchise you exited
+(share → 0.0) is as visible as one you entered. Reporting only the after side
+would make an exit invisible, which is the direction a diversification story is
+most likely to be told badly.
+
+### Missing is never zero, and one place where zero is real
+
+* unpriced → `unpricedIds`, no weight, still counted as roster membership;
+* priced but no known NFL team → `unknownTeamIds`, **not** a bucket, because a
+  franchise called UNKNOWN would then hold a share of your roster;
+* picks have no NFL team and never enter — excluded by the pool builder, not
+  bucketed;
+* an empty population has `topFranchiseShare: null`, never `0.0`;
+* a franchise you own nobody from is **genuinely 0.0%**, and that is the one
+  real zero here. It is distinguishable because the missing cases live in their
+  own sets rather than in the bucket list.
+
+Cost: **+7 ms** on the live 12-team board (69 → 76 ms). No solver runs, so it
+is computed for every team by default rather than made opt-in.

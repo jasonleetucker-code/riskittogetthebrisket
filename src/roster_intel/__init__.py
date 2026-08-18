@@ -31,6 +31,11 @@ surface over the same owners is ``GET /api/roster/intelligence``
 (``src/api/roster_intelligence.py``), which computes nothing of its own,
 so an importer and an HTTP caller get identical numbers by construction.
 
+``exposure`` is the C2-EXP-01 owner: value-weighted NFL-franchise
+exposure, before/after.  It is DESCRIPTIVE ONLY — it emits no flag, no
+verdict and no penalty, and nothing in the trade or roster chain imports
+it, so it has no edge along which it could influence a grade.
+
 ``droppability`` is the odd one out and deliberately so: it OWNS
 nothing.  The cut-ladder owner is ``src/draft/displacement.py``, and
 that module is an adapter onto it so the trade and waiver lanes can
@@ -61,6 +66,15 @@ from src.roster_intel.droppability import (
     league_droppability,
     team_droppability,
 )
+from src.roster_intel.exposure import (
+    ExposureChange,
+    FranchiseExposure,
+    NflExposure,
+    build_nfl_exposure,
+    exposure_change,
+    exposure_from_core,
+    simulation_exposure_change,
+)
 from src.roster_intel.simulation import (
     RosterSimulation,
     SlotMovement,
@@ -85,7 +99,10 @@ from src.roster_intel.weakness import (
 __all__ = [
     "CoreMember",
     "DROPPABILITY_CONTRACT_VERSION",
+    "ExposureChange",
+    "FranchiseExposure",
     "MeaningfulCore",
+    "NflExposure",
     "POSITION_GROUPS",
     "PositionNeed",
     "PositionRanks",
@@ -101,14 +118,18 @@ __all__ = [
     "YouthCurve",
     "build_age_portfolio",
     "build_meaningful_core",
+    "build_nfl_exposure",
     "build_position_ranks",
     "build_team_strength",
     "build_team_weakness",
     "build_youth_curve",
+    "exposure_change",
+    "exposure_from_core",
     "league_droppability",
     "rank_age_portfolios",
     "rank_team_strengths",
     "reserve_demand",
     "simulate_roster_change",
+    "simulation_exposure_change",
     "team_droppability",
 ]
