@@ -1290,7 +1290,7 @@ string appears once in the whole frontend, in a comment. That is the Scope Manif
 
 Carried as `V1-88`.
 
-### F-27 · `normalizationHealth` has been red in production since C1-U6, on a correct board · CONFIRMED · observability · **REPAIRED 2026-08-18**
+### F-27 · `normalizationHealth` has been red in production since C1-U6, on a correct board · CONFIRMED · observability · **REPAIRED AND PRODUCTION-VERIFIED 2026-08-18**
 
 Measured on the live board via `/api/status`, 2026-08-18:
 
@@ -1325,7 +1325,7 @@ one that fails if the canonical grammar is ever restated locally again.
 
 No value path touched — `is_valid_pick_name` is a reporting predicate.
 
-### F-28 · F-19's UTC assumption is false in production, and `data_stale` can never fire · CONFIRMED · observability · **FIXED — awaiting production verification**
+### F-28 · F-19's UTC assumption is false in production, and `data_stale` can never fire · CONFIRMED · observability · **FIXED — source repair PRODUCTION-VERIFIED 2026-08-18; the cadence sample is still owed**
 
 **Found by verifying the F-19 deploy against production rather than trusting the merge**, which is
 the whole reason that step exists. `#909` deployed at 14:27 UTC on 2026-08-18. Measured minutes
@@ -1602,7 +1602,7 @@ row, which is the point at which that label stops being evidence and becomes an 
 belongs to the same E2E backlog as `F-3a` and should be re-diagnosed rather than re-labelled —
 recorded here so the next reader does not inherit "known flaky" as a conclusion.
 
-### F-30 · A truncated pick market exposes a real derivation gap — and my first fix was wrong · CONFIRMED · data integrity · **OPEN (assigned)**
+### F-30 · A truncated pick market exposes a real derivation gap — and my first fix was wrong · CONFIRMED · data integrity · **REPAIRED AND PRODUCTION-VERIFIED 2026-08-18**
 
 **Symptom.** `idpTradeCalc` dropped from 84 pick anchors to 16 (round 1 only, every year) between
 two scrapes of 2026-08-18. 20 census errors followed —
@@ -1984,6 +1984,37 @@ from any vendor evidence.
 Had 2029 R5/R6 come out **un**quarantined while 2027 and 2028 were quarantined, that would have
 been a real defect introduced by this repair, and the comparison is what distinguishes the two
 cases.
+
+
+#### Production verification — 2026-08-18 23:00 UTC
+
+`#910` merged at 21:29 UTC. The deploy that carried it (`ff1d9dd`) was **cancelled**
+mid-run by a newer push; the follow-on deploy on `92469d3` — which contains it —
+completed at ~22:50 with every gate green, including the FULL contract lane that
+`F-30` had been failing. The 2-hourly scrape at 22:55 then produced the first board
+built end to end by post-`#910` code. Measured against `chaseupside.com`:
+
+```
+producedAt        2026-08-18T22:55:34.252784+00:00     <- tz-aware, F-28
+loadedAt          2026-08-18T22:55:40.555545+00:00
+last_scrape       2026-08-18T22:55:49.611203+00:00
+data_age_hours    0.1        data_stale   false        <- was -1.0, F-28/F-19
+pickNameMalformed 0          healthy      true         <- was 18 / false, F-27
+contract.health   ok=true  structuralErrors=[]  sourceHealthErrors=[]   <- F-30
+```
+
+Three properties, each the thing its finding actually claimed:
+
+* **`F-27`** — the 18 generic-grade rows are still on the board (the same endpoint
+  listed `2029 Round 6` among its malformed samples an hour earlier); only the
+  grammar reading them changed. A false red cleared without touching the board is
+  the correct shape for this repair.
+* **`F-19` / `F-28`** — `producedAt` < `loadedAt` < `last_scrape` is the ordering
+  that distinguishes a board age from a process age, and it now holds. The +2 h
+  offset is gone at the source.
+* **`F-30`** — the pick-completeness census is a **structural** check, so an empty
+  `structuralErrors` on a live board carrying 2029 rows is the census passing:
+  every valid pick through the horizon priced, with provenance, in production.
 
 ### F-31 · C2-U1's "unpriced" third state is unreachable on the live snapshot path · CONFIRMED · false green · **OPEN (assigned: lane 1)**
 
