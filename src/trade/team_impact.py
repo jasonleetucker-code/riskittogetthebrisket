@@ -22,7 +22,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Any
+from typing import Any, Sequence
 
 from src.ros.lineup import RosterPlayer, assign_lineup, resolve_starter_slots, slot_demand
 
@@ -166,6 +166,133 @@ def _aggregate_state(
         "starterValue": starter_value,
         "totalCount": total_count,
         "depthCount": depth_count,
+    }
+
+
+def _starter_identity(asset: dict[str, Any]) -> str:
+    """Identity for the before/after starter diff.
+
+    Board display name, lowercased.  Picks never reach here — ``project_starters``
+    keeps only ``_BASE_POSITIONS`` — which matters, because a pick is the one
+    asset class where two roster entries legitimately share a board row
+    ("2027 Mid 1st" own vs acquired) and a name key would collapse them.  For
+    PLAYERS the canonical board carries one row per identity, so the name is a
+    sound key; :func:`lineup_displacement` refuses rather than guesses if that
+    ever stops being true.
+    """
+
+    return str(asset.get("name") or asset.get("sourceLabel") or "").strip().lower()
+
+
+def _flatten_starters(starters: dict[str, list[dict[str, Any]]]) -> dict[str, dict[str, Any]]:
+    """``identity -> asset`` across every base position."""
+
+    out: dict[str, dict[str, Any]] = {}
+    for position, assets in starters.items():
+        for asset in assets:
+            key = _starter_identity(asset)
+            if not key:
+                continue
+            enriched = dict(asset)
+            enriched["startingAt"] = position
+            out[key] = enriched
+    return out
+
+
+def _starter_row(asset: dict[str, Any], position: str) -> dict[str, Any]:
+    value = asset.get("value")
+    return {
+        "name": asset.get("name"),
+        "position": position,
+        # ``None`` stays ``None``.  An unpriced player is UNPRICED, and this
+        # block is roster information — publishing 0 here would read as "worth
+        # nothing" on the one surface whose whole point is that it is not a
+        # value statement.
+        "value": None if value is None else int(value),
+        "valueScale": "rankDerivedValue",
+    }
+
+
+def lineup_displacement(
+    before_starters: dict[str, list[dict[str, Any]]],
+    after_starters: dict[str, list[dict[str, Any]]],
+    *,
+    incoming: Sequence[dict[str, Any]] = (),
+    outgoing: Sequence[dict[str, Any]] = (),
+) -> dict[str, Any]:
+    """Who starts now who did not, and who lost a slot — as ROSTER information.
+
+    C2-SIM-01 / V1-42, and owner decision 26: promotions and displacements are
+    *separate roster information, never a value subtraction*.  Nothing here
+    returns a delta; every field names players and slots.
+
+    **Four categories, deliberately not two.**  Collapsing them is the error
+    this function exists to avoid — "your starting RB is gone" and "your
+    starting RB got benched by the guy you just acquired" are different
+    sentences, and only the second is displacement:
+
+    ``arrived``    starting now, came IN with this trade
+    ``promoted``   starting now, was ALREADY on the roster and was not starting
+    ``departed``   was starting, LEFT in this trade — not displaced, gone
+    ``displaced``  was starting, is STILL on the roster, no longer starts
+
+    ``displaced`` is the one that answers "what did this trade cost me that the
+    value delta does not show".
+
+    An unpriced player is not assignable by the canonical solver, so he appears
+    in neither state's starters and therefore in no category — reported by the
+    solver as unpriced rather than silently counted as a bench player who was
+    never promoted.
+    """
+
+    before_map = _flatten_starters(before_starters)
+    after_map = _flatten_starters(after_starters)
+
+    for label, starters in (("before", before_starters), ("after", after_starters)):
+        seen: set[str] = set()
+        for assets in starters.values():
+            for asset in assets:
+                key = _starter_identity(asset)
+                if key and key in seen:
+                    raise ValueError(
+                        f"two {label}-state starters share the identity {key!r}; the "
+                        "before/after diff would silently merge them"
+                    )
+                if key:
+                    seen.add(key)
+
+    incoming_keys = {_starter_identity(a) for a in incoming if _starter_identity(a)}
+    outgoing_keys = {_starter_identity(a) for a in outgoing if _starter_identity(a)}
+
+    arrived: list[dict[str, Any]] = []
+    promoted: list[dict[str, Any]] = []
+    departed: list[dict[str, Any]] = []
+    displaced: list[dict[str, Any]] = []
+
+    for key, asset in after_map.items():
+        if key in before_map:
+            continue
+        row = _starter_row(asset, asset["startingAt"])
+        (arrived if key in incoming_keys else promoted).append(row)
+
+    for key, asset in before_map.items():
+        if key in after_map:
+            continue
+        row = _starter_row(asset, asset["startingAt"])
+        (departed if key in outgoing_keys else displaced).append(row)
+
+    def _by_position_then_name(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        return sorted(rows, key=lambda r: (r["position"], str(r["name"] or "")))
+
+    return {
+        "arrived": _by_position_then_name(arrived),
+        "promoted": _by_position_then_name(promoted),
+        "departed": _by_position_then_name(departed),
+        "displaced": _by_position_then_name(displaced),
+        "startersBefore": len(before_map),
+        "startersAfter": len(after_map),
+        # Named so a consumer cannot mistake this block for a value statement.
+        "isValueDelta": False,
     }
 
 
@@ -410,6 +537,17 @@ def compute(
     after = _aggregate_state(after_assets, roster_settings)
     active = _league_active_positions(roster_settings)
 
+    # C2-SIM-01 / V1-42.  The exact before -> apply -> re-solve -> after
+    # lineup, published as NAMES rather than as another number.  Both states
+    # are already solved above by the canonical assignment owner, so this adds
+    # no second lineup engine — it reads the two solutions.
+    displacement = lineup_displacement(
+        before["starters"],
+        after["starters"],
+        incoming=receiving,
+        outgoing=sending,
+    )
+
     starter_delta = {
         p: after["starterCount"][p] - before["starterCount"][p] for p in _BASE_POSITIONS
     }
@@ -514,4 +652,8 @@ def compute(
         "scarcityDelta": scarcity_delta,
         "redundancy": redundancy,
         "rationale": rationale,
+        # Roster information, NOT a value statement — see `lineup_displacement`.
+        # It sits beside the scores rather than inside them: nothing above reads
+        # it, and no verdict moves because of it.
+        "lineupDisplacement": displacement,
     }
