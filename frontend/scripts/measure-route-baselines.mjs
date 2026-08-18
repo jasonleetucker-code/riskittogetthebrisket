@@ -121,16 +121,6 @@ function pct(values, p) {
  * not from wall-clock around `goto`, so harness overhead is excluded.
  */
 async function measureOnce(page, route, timeoutMs) {
-  const bytes = { transfer: 0 };
-  const onResponse = async (res) => {
-    try {
-      const h = res.headers()["content-length"];
-      if (h) bytes.transfer += Number(h) || 0;
-    } catch {
-      /* a response that vanished mid-flight is not a measurement */
-    }
-  };
-  page.on("response", onResponse);
 
   let readyReason = null;
   let usefulMs = null;
@@ -149,17 +139,32 @@ async function measureOnce(page, route, timeoutMs) {
     // readiness wait above usually outlives it, but not always.
     await page.waitForLoadState("load", { timeout: timeoutMs }).catch(() => {});
   } catch (err) {
-    page.off("response", onResponse);
     return { error: err?.message || String(err) };
   }
-  page.off("response", onResponse);
 
   const nav = await page.evaluate(() => {
     const n = performance.getEntriesByType("navigation")[0];
     const fcp = performance
       .getEntriesByType("paint")
       .find((e) => e.name === "first-contentful-paint");
+    // Bytes come from Resource Timing, NOT from summing `content-length`
+    // response headers. The first version of this probe did the latter
+    // and reported ~89 KB for every route on the board — because the
+    // contract response is gzipped and chunked and carries no
+    // `content-length`, so the multi-MB payload the page actually
+    // downloads was silently missing and only the shell assets counted.
+    // `encodedBodySize` is the compressed bytes as received.
+    const resources = performance.getEntriesByType("resource");
+    const encoded =
+      resources.reduce((a, r) => a + (r.encodedBodySize || 0), 0) +
+      (n?.encodedBodySize || 0);
+    const decoded =
+      resources.reduce((a, r) => a + (r.decodedBodySize || 0), 0) +
+      (n?.decodedBodySize || 0);
     return {
+      encodedBytes: encoded || null,
+      decodedBytes: decoded || null,
+      requestCount: resources.length,
       ttfbMs: n ? Math.round(n.responseStart) : null,
       fcpMs: fcp ? Math.round(fcp.startTime) : null,
       domContentLoadedMs: n ? Math.round(n.domContentLoadedEventEnd) : null,
@@ -173,12 +178,11 @@ async function measureOnce(page, route, timeoutMs) {
     ...nav,
     usefulMs: usefulMs == null ? null : Math.round(usefulMs),
     readyReason,
-    transferBytes: bytes.transfer || null,
   };
 }
 
 function summarise(samples) {
-  const keys = ["ttfbMs", "fcpMs", "usefulMs", "domContentLoadedMs", "loadMs", "transferBytes", "domNodes"];
+  const keys = ["ttfbMs", "fcpMs", "usefulMs", "domContentLoadedMs", "loadMs", "encodedBytes", "decodedBytes", "requestCount", "domNodes"];
   const out = {};
   for (const k of keys) {
     const vals = samples.map((s) => s?.[k]).filter((v) => Number.isFinite(v));
