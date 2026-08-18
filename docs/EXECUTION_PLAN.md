@@ -200,6 +200,54 @@ Ordered. A unit leaves this queue only when production proof lands on the deploy
 
 | `C1-U6-D1` verification | [#884](https://github.com/jasonleetucker-code/riskittogetthebrisket/pull/884) | `3b829b1eb` | **GREEN** on the exact head | closes the repair's own loop | **DEPLOYED** — merged `5a5f1507f`, Deploy Production run 32075149186 SUCCESS. Verified the committed board **0 of 18** tier-round cells violating, and retired the temporary fixture shim on its own declared condition (it dropped 0 rows on `a58e9d923`) |
 
+## 0.4 V1 six-lane integration order — MEASURED 2026-08-18
+
+**The Integration Authority lane decides the integrated representation of shared files. A lane
+may propose a shared-owner change; it does not resolve a shared-owner collision unilaterally.**
+Six parallel sessions each resolving `CLAUDE.md` or a gate baseline their own way produces six
+subtly different repository instructions, which is the failure this section exists to prevent.
+
+Order, by dependency — **not** by readiness or by who finished first:
+
+```
+#910  integration / stability / governance   (this lane)
+  └─> #914  canonical roster intelligence     (lane 1)
+        └─> #913  roster-dependent trade      (lane 2)
+              └─> #912  contract consumers    (lane 6)
+
+  #915 (lane 3) and #911 (lane 4) integrate independently — no shared-owner collision
+```
+
+`#910` is first because it carries the F-30 2029-pick repair that every other lane's CI is
+currently failing on, plus the governance records the rest are reconciled against.
+
+**Conflicts are measured, not predicted.** All six branches were trial-merged into a scratch
+worktree off `main` in the order above:
+
+| shared file | lanes touching it | result |
+|---|---|---|
+| `server.py` | #910, #911, #912, #913, #914 | **merges clean** |
+| `CLAUDE.md` | #911, #913 | **merges clean** — additive, different sections |
+| `src/api/feature_flags.py` | #910, #915 | **merges clean** — different regions |
+| `tests/e2e/specs/journey-tools-health.spec.js` | #910, #912 | resolved: #910 **withdrew** its version, #912's is correct |
+| `config/coercion_baseline.json` | #911, #913, #914 | **the only real conflict** |
+
+The integrated six-lane tree passes `check_planning_integrity`, `check_product_plan_governance`,
+`audit_status`, the coercion gate, `py_compile` and `ruff check`.
+
+**Resolution rule for `config/coercion_baseline.json`: regenerate, never hand-merge.** Each lane
+recomputed `count` from a different base (677, 676, and `main`'s own 676 over a different set), so
+a hand-merge yields a number matching no tree. Run
+`python scripts/check_decision_coercions.py --write-baseline` and commit the result; the gate
+scopes to changed files, so another lane's drift cannot fail the resolving PR. Measured end state:
+**676 → 670**, the six lanes retiring six coercions between them.
+
+**A lane blocked on another lane's merge does not stop.** It takes its next dependency-ready V1
+item; when its V1 work is exhausted it continues into explicitly classified post-V1 work, which
+does **not** enter the V1 denominator.
+
+---
+
 **Current work: the §0 audit and stability gate. No unit is in flight.**
 
 **The deploy is unblocked and every merged unit's CODE is in production.** All six PRs (#875
