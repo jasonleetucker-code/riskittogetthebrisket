@@ -139,7 +139,7 @@ Projections · **L4** Market / FAAB / Analyst · **L5** Integration / QA / CI / 
 | V1-08 | `valuation_mode` withdrawn, ignored, stamped | `F-VAL-03` | L5 | `VERIFIED` | L1 | canonical value |
 | V1-09 | Five-axis confidence, weakest axis wins | `F-CONF-01` / inv 7.4 | L5 | `VERIFIED` | L1 | canonical value. B11 |
 | V1-10 | Provider families, one vote each | `F-SRC-01` / inv 7.6 | L5 | `VERIFIED` | L1 | canonical value. 21 keys → 13 families |
-| V1-11 | Confidence naming migration | `C1-CONF-01` / `C1-U5` | L5 | `IMPLEMENTED_UNVERIFIED` | L3 | canonical value. PR #876 merged; §6 checklist **unexecuted** |
+| V1-11 | Confidence naming migration | `C1-CONF-01` / `C1-U5` | L5 | `IMPLEMENTED_UNVERIFIED` | L3 | canonical value. PR #876 merged. §6 checklist **executed 2026-08-18** (§ verification record): 5 of 8 PASS incl. item 3 (0 of 857 priced rows without a `confidenceBasis`), 2 `BLOCKED-EXTERNAL` on auth, 1 checklist path corrected. Reached **L2**, not L3 — the passes are on a rebuilt real board, not a deployed response |
 | V1-12 | Pick value completeness through 2029 | `C1-PICK-01` / MFB-89 / inv 2.8 | L5 | `VERIFIED` | L2 | canonical value; owner hard requirement. PR #871 + D1 repair |
 | V1-13 | Generic ↔ exact-slot transition, one asset | `C1-PICK-02` | L5 | `VERIFIED` | L1 | canonical identity |
 | V1-14 | Per-source pick boards: no fabricated year anchors | `C1-U6-D1` | L5 | `VERIFIED` | L3 | false-green repair. Deployed `5a5f1507f`; 0 of 18 cells violating |
@@ -147,7 +147,7 @@ Projections · **L4** Market / FAAB / Analyst · **L5** Integration / QA / CI / 
 | V1-16 | Historical roster reconstruction | `C1-ACQ-02` | L5 | `IMPLEMENTED_UNVERIFIED` | L3 | canonical history |
 | V1-17 | Pick lineage / trade trees | `C1-ACQ-03` / CE-18 | L5 | `IMPLEMENTED_UNVERIFIED` | L3 | canonical history |
 | V1-18 | Irreversible-evidence retention | `C1-U1` / `C1-RET-01…08` | L5 | `VERIFIED` | L3 | perishable evidence; loss is unrecoverable. `C1-RET-07` honestly STALE |
-| V1-19 | Multi-format dynasty source archive | `C1-SRC-01` / `C1-U9` | L5 | `IMPLEMENTED_UNVERIFIED` | L3 | canonical value provenance. §7 checklist **unexecuted** |
+| V1-19 | Multi-format dynasty source archive | `C1-SRC-01` / `C1-U9` | L5 | `IMPLEMENTED_UNVERIFIED` | L3 | canonical value provenance. §7 checklist **executed 2026-08-18** (§7a): items 1-2 PASS at **L3** on live production (21/21 `DYNASTY` with evidence), item 3 PARTIAL (healthy post-deploy scrape; strict inertness needs a pre-deploy snapshot nobody captured), item 4 N/A |
 | V1-20 | Game type proven per feed, fails closed | `C1-SRC-02` | L5 | `IMPLEMENTED_UNVERIFIED` | L3 | canonical value — dynasty lane purity |
 | V1-21 | Model provenance stamps | inv 7.12 | L5 | `IN PROGRESS` | L1 | canonical value provenance; partial (W04-F011) |
 | V1-22 | Hill curve / percentile→value correctness | inv 7.2 | L5 | `IN PROGRESS` | L2 | canonical value. B1 investigated, not implemented |
@@ -160,7 +160,7 @@ Projections · **L4** Market / FAAB / Analyst · **L5** Integration / QA / CI / 
 
 | # | capability | canonical id | lane | status | level | in V1 because |
 |---|---|---|---|---|---|---|
-| V1-27 | One lineup / slot assignment owner | `C2-LINE-01` / `C2-U1` | L1 | `IMPLEMENTED_UNVERIFIED` | L3 | named V1 scope. PR #880; 10/10 vs Sleeper truth; §10 checklist **unexecuted** |
+| V1-27 | One lineup / slot assignment owner | `C2-LINE-01` / `C2-U1` | L1 | `IMPLEMENTED_UNVERIFIED` | L3 | named V1 scope. PR #880; 10/10 vs Sleeper truth. §10 checklist **executed 2026-08-18** (§10a): items 1, 3a, 5 PASS at **L2** (12/12 lineups solved from `sleeper_roster_positions`; 4 hybrids started in slots their primary alone forbids), items 2-3 `BLOCKED-EXTERNAL` on auth, item 4 PARTIAL |
 | V1-28 | FLEX / SF / IDP-FLEX starters assigned before reserve depth | `#899` addendum | L1 | `NOT STARTED` | L1 | binding owner decision 2026-08-18, decision 72 |
 | V1-29 | One replacement level / PAR owner | `C2-REPL-01` / `C2-U2` | L1 | `NOT STARTED` | L2 | named V1 scope. 5 implementations to retire |
 | V1-30 | Canonical meaningful roster core | `C2-CORE-01` / `C2-U6` / `#839` | L1 | `NOT STARTED` | L2 | named V1 scope. `M=1.5` ships as V1 champion labelled PRIOR, challenger pass required |
