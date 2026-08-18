@@ -39,8 +39,30 @@ on:
 permissions:
   contents: read
 
+# Its OWN group, not ``production-deploy``.
+#
+# Copying the deploy group from temporal-ledger-diagnostics.yml looked
+# like the safe choice -- don't probe the box mid-deploy -- but measured
+# in practice it STARVES: every merge enqueues a deploy in that group, so
+# during a merge train this run sat queued with 0 jobs for 17+ minutes
+# and would have waited out four deploys.  A production probe that cannot
+# run when the repository is busy is a probe that reports nothing exactly
+# when the most is changing.
+#
+# Serializing bought nothing here, because section 2 of the probe ALREADY
+# verifies deployment state itself and fails loudly with "stale deploy" if
+# the repaired code is not present.  A mid-deploy read therefore returns
+# an honest answer either way -- old code is reported as a stale deploy,
+# new code as deployed.  The check is in the probe, where it belongs,
+# rather than in a queue that assumes it.
+#
+# NOT changed for fd-diagnostics.yml, scoring-snapshot-diagnostics.yml or
+# temporal-ledger-diagnostics.yml, which share the same group and the same
+# starvation. They have not been verified to self-check deployment state,
+# and for them the serialization may still be load-bearing. Recorded in
+# the audit register rather than changed on assumption.
 concurrency:
-  group: production-deploy
+  group: crowd-faab-diagnostics
   cancel-in-progress: false
 
 jobs:
