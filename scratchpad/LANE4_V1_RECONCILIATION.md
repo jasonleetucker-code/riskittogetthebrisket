@@ -24,7 +24,7 @@
 | V1-62 | Sharp Tracker | **verified honest** — per-platform `status` of `disabled` / `degraded` / `no_data` / `ok`, top level `ok` vs `cohort_building`, and FFPC `enabled` derived from the same config the cohort reads (no disagreement between the two surfaces) | — |
 | V1-63 | Manager-level Sharp concentration | **verified + 2 defects fixed this pass** — see below | — |
 | V1-64 | Sharp add/drop event ledger | **verified honest** — `crawl_coverage` publishes `sharpEligibleLeagues` beside `leaguesCrawled`, so a zero is explained by its own denominator, and `oldestCrawlMs` is `null` rather than 0 | — |
-| V1-65 | Insider Trading / cross-league ownership consolidation | components present across `src/intel/*` and `src/sharp/*`; consolidation not assessed | needs scoping |
+| V1-65 | Insider Trading / cross-league ownership consolidation | **assessed — already consolidated; vocabulary boundary now pinned** — see below | — |
 
 ## V1-57 — reconciled before implementing, as instructed
 
@@ -99,6 +99,47 @@ to hold, and `0.0` is the one value that reads as the exact opposite — "no
 single network dominates". Now `None`, matching what `roster_percentage`
 already publishes for `cohortCoveragePct` in the same situation. The field had
 **no consumers**, so the correction is free.
+
+## V1-65 — the consolidation already happened; what was missing was a guarantee
+
+Assessed rather than rebuilt. The two products are **already** consolidated
+onto shared infrastructure, and correctly:
+
+| layer | module | role |
+|---|---|---|
+| substrate | `src/intel/ledger.py` | normalized movement rows + indexed window queries, under **both** products; neither product's logic lives there |
+| metrics | `src/intel/signals.py` | window-safe primitives shared by both; recency is a **ratio** between windows, never a sum, so it is arithmetically incapable of double-counting |
+| products | `src/intel/service.py` (league-scoped) / `src/sharp/market.py` (global cohort) | the two questions |
+
+The predecessor's `trendScore = 3·net48h + 2·net7d + 1·net30d` summed **nested**
+windows, so one movement an hour old counted six times. It is retired, and the
+replacement cannot reproduce the fault by construction.
+
+### The boundary that mattered, and was unguarded
+
+The evidence bars are deliberately different:
+
+- **Sharp** — dynasty only, league age ≥ 2 seasons (`SHARP_ELIGIBLE_TYPES`). It
+  is a claim about SKILL.
+- **Insider** — dynasty *and keeper* (`ELIGIBLE_TYPES`), no age floor, because a
+  keeper league is real evidence about a real person you can trade with.
+
+So a manager can be legitimate Insider Trading evidence while carrying no sharp
+qualification at all. Labelling that population "sharp" would assert a claim
+the source never made — the lane brief's §9 rule.
+
+**It held only by absence.** The three insider modules emit no sharp vocabulary
+anywhere; the only occurrences are two docstring lines explaining the boundary.
+Nothing stopped a future change from adding a "sharp" badge to the insider
+board.
+
+Added `tests/intel/test_insider_never_claims_sharp.py`: an AST scan asserting no
+**non-docstring** string literal in `service.py` / `leads.py` / `lead_service.py`
+contains "sharp", with a positive control so the scan cannot pass by silently
+matching nothing, and a negative control so docstrings stay allowed. The gate
+asymmetry itself was already pinned by
+`tests/sharp/test_sharp_gates.py::test_keeper_is_not_sharp_eligible_even_with_history`,
+so this adds the half that was missing rather than duplicating it.
 
 ## V1-58 / V1-59 — blocked on production access, and honestly so
 
