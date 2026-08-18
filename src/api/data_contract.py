@@ -5212,8 +5212,26 @@ def _inject_far_future_pick_sources(
 
     added = 0
     for year in range(current_year + 1, target_year + 1):
-        if year in years_with_tiers:
-            continue  # real source rows exist — defer to them.
+        # Deferral to real source rows is PER CELL, not per year.
+        #
+        # AUDIT F-30 (second half).  This used to skip the whole year on
+        # ``if year in years_with_tiers`` — but the per-cell guard below
+        # (``new_name in players_by_name``) already defers to every real row,
+        # so the year-level skip added nothing except a failure mode: a vendor
+        # publishing PART of a horizon year made the injection defer for the
+        # cells it did NOT publish as well, and nothing else creates those rows.
+        # The completion rung cannot repair it either — completion reprices
+        # rows that exist, and these never came into existence.
+        #
+        # Measured on the real payload with only the horizon year's round-1
+        # tiers published: 15 tier rows absent, 5 generic rows unbuilt, 20
+        # census errors — with the earlier future year fully priced the whole
+        # time.  Same shape as the incident that skipped a production deploy.
+        #
+        # Removing the year-level skip is INERT whenever a year is wholly
+        # absent (every cell is synthesized, as before) or wholly published
+        # (every cell defers, as before).  It changes behaviour only in the
+        # partial case, which is the case that was broken.
         template_year = next(
             (y for y in sorted(years_with_tiers, reverse=True) if y < year and y > current_year),
             None,

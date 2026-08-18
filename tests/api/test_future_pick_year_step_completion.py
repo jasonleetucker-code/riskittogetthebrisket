@@ -542,3 +542,108 @@ class TestPartialHorizonPublication(unittest.TestCase):
                 "derived_year_step",
                 f"{name} carried direct evidence and was relabelled as derived",
             )
+
+
+class TestPartialPublicationWhereTheRowsDoNotExist(unittest.TestCase):
+    """The OTHER form of partial publication, and the one a completion rung
+    cannot reach.
+
+    There are two ways a horizon year can be partially published:
+
+    * its rows EXIST but carry no voting source — the measured F-30 incident,
+      repaired by the year-step rung above; and
+    * its rows do not exist AT ALL for the cells the vendor did not publish.
+
+    A completion rung reprices rows that exist, so it is structurally unable
+    to help with the second: ``by_name.get(name)`` is ``None`` and there is
+    nothing to reprice.  Measured on the real payload with only the horizon
+    year's round-1 tiers published, BOTH the record-keyed and the
+    basis-search rungs left 15 tier rows absent, 5 generic rows unbuilt and
+    20 census errors.
+
+    The cause is upstream, in ``_inject_far_future_pick_sources``: it used to
+    skip a whole year on ``if year in years_with_tiers``, although the
+    per-cell guard beside it (``new_name in players_by_name``) already defers
+    to every real row.  The year-level skip therefore deferred for cells the
+    vendor had NOT published.  Deferral is now per cell.
+
+    These tests exercise the injection, not the completion owner, because
+    that is where the defect was.
+    """
+
+    def _payload(self, template_year: int, horizon_year: int, published_rounds: tuple[int, ...]):
+        """A raw ``players`` dict: a full template year, plus only SOME of the
+        horizon year's tier rows."""
+        players: dict[str, dict] = {}
+        for tier in TIERS:
+            for rnd in VENDOR_ROUNDS:
+                players[_tier_name(template_year, tier, rnd)] = {
+                    "ktc": 5000 - rnd * 500,
+                    "idpTradeCalc": 4900 - rnd * 500,
+                }
+        for tier in TIERS:
+            for rnd in published_rounds:
+                players[_tier_name(horizon_year, tier, rnd)] = {
+                    "ktc": 4000 - rnd * 400,
+                    "idpTradeCalc": 3900 - rnd * 400,
+                }
+        return players
+
+    def test_a_partially_published_year_still_gets_its_missing_cells(self):
+        from src.api.data_contract import _inject_far_future_pick_sources
+
+        current = 2026
+        horizon_year = current + 3
+        players = self._payload(current + 2, horizon_year, published_rounds=(1,))
+        before = set(players)
+
+        _inject_far_future_pick_sources(players, current)
+
+        for tier in TIERS:
+            for rnd in VENDOR_ROUNDS:
+                name = _tier_name(horizon_year, tier, rnd)
+                self.assertIn(
+                    name,
+                    players,
+                    f"{name} was never created — the injection deferred for a cell "
+                    "the vendor did not publish",
+                )
+        # Non-vacuity: it really did add something.
+        self.assertTrue(set(players) - before, "no rows were injected at all")
+
+    def test_real_rows_are_never_overwritten(self):
+        """Per-cell deferral must still defer: a published cell keeps its own
+        vendor values, and is not replaced by a derived clone."""
+        from src.api.data_contract import _inject_far_future_pick_sources
+
+        current = 2026
+        horizon_year = current + 3
+        players = self._payload(current + 2, horizon_year, published_rounds=(1,))
+        published = {
+            _tier_name(horizon_year, tier, 1): dict(players[_tier_name(horizon_year, tier, 1)])
+            for tier in TIERS
+        }
+
+        _inject_far_future_pick_sources(players, current)
+
+        for name, original in published.items():
+            self.assertEqual(
+                players[name],
+                original,
+                f"{name} was published by a vendor and the injection overwrote it",
+            )
+
+    def test_a_wholly_published_year_is_left_entirely_alone(self):
+        """Inertness in the other direction: nothing is injected into a year
+        the vendor covered completely."""
+        from src.api.data_contract import _inject_far_future_pick_sources
+
+        current = 2026
+        horizon_year = current + 3
+        players = self._payload(current + 2, horizon_year, published_rounds=VENDOR_ROUNDS)
+        before = dict(players)
+
+        _inject_far_future_pick_sources(players, current)
+
+        for name in before:
+            self.assertEqual(players[name], before[name], f"{name} changed")

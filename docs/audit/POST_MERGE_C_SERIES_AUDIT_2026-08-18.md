@@ -1761,6 +1761,57 @@ deployed SHA, the §22 board diff, and the full regression sweep) have not been 
 verdict is withheld until they have.
 
 
+#### F-30 — SECOND HALF: partial publication has two forms, and completion can only reach one
+
+An adversarial re-check of the absorbed repair — run against both implementations rather than
+against reasoning — found that **"partially published horizon year" is two different states**, and
+that the fix above covers only one of them:
+
+| partial-publication form | record-keyed | basis search | after the injection fix |
+|---|---|---|---|
+| horizon rows **exist**, no voting source | 20 census errors | **0** | **0** |
+| horizon rows **absent** for unpublished cells | 20 census errors | **20 — identical** | **0** |
+
+**A completion rung reprices rows that exist.** In the second form `by_name.get(name)` is `None`
+and there is nothing to reprice, so `#916`'s search and my first rung fail identically — which
+`#916` itself named honestly under "known limitations", calling it a genuinely evidence-free
+state. **It is not evidence-free.** The earlier future year was fully priced the whole time; the
+rows simply were never created.
+
+**The cause is upstream of completion**, in `_inject_far_future_pick_sources`:
+
+```python
+for year in range(current_year + 1, target_year + 1):
+    if year in years_with_tiers:
+        continue  # real source rows exist — defer to them.
+    ...
+        if new_name in players_by_name:
+            continue          # ← the per-cell guard, already correct
+```
+
+The per-cell guard already defers to every real row. The **year-level** skip therefore added
+nothing except a failure mode: a vendor publishing part of a horizon year made the injection
+defer for the cells it had **not** published, and nothing else creates those rows. Deferral is now
+per cell, and the year-level skip is gone.
+
+**Inert in both directions, which is why this is safe.** A wholly absent year synthesizes every
+cell exactly as before; a wholly published year defers on every cell exactly as before. Behaviour
+changes only in the partial case — the case that was broken. Measured on the live board with code
+as the only variable: **0 values moved, 0 ranks changed, 0 labels flipped**
+(`--expect-no-value-change` OK), and the originally failing `f9444f7` payload still goes
+**20 → 0** on both lanes.
+
+Pinned by three tests over the injection itself (not the completion owner, because that is not
+where the defect was): missing cells are created, published cells are never overwritten, and a
+wholly published year is untouched. The first is **red against `main`**; the other two pass there,
+correctly, since only the partial case was broken.
+
+**Method note worth keeping.** The first form was the one I probed, and it confirmed the repair.
+The second form only surfaced because the verification asked "is the claim true in *every*
+construction of its own words" rather than "does my probe pass". Lane 7's report said "absent or
+have no voting source"; I measured the second half of that sentence and would have shipped
+believing the gap closed.
+
 #### F-30 — ABSORBED #916: the first repair was too narrow, and lane 7 measured it
 
 **The first revision of this rung was defective, and it is worth being precise about how.**
