@@ -96,6 +96,43 @@ class TestPickCompletenessCensus(unittest.TestCase):
         if self.contract is None:
             self.skipTest("no scraper export available")
 
+        # AUDIT F-30 — the same reasoning this class already applies to the
+        # TOTAL absence of future vendor tiers ("there is no template, nothing
+        # to derive from, and this becomes a statement about source coverage"),
+        # extended to the PARTIAL case the authors did not anticipate.
+        #
+        # `_inject_far_future_pick_sources` mints unpublished years by stepping
+        # the nearest published future year per (tier, round). A market that
+        # publishes round 1 and drops rounds 2-4 leaves the template present but
+        # holed, so the derivation correctly declines those rounds (C1-U6-D1: an
+        # unpublished round is ABSENT, never substituted) and every completeness
+        # assertion below fails on data rather than on code.
+        #
+        # Measured 2026-08-18: `idpTradeCalc` went from 84 pick anchors to 16
+        # (round 1 only) between two scrapes of the same afternoon, leaving 15
+        # unpriced 2029 rows and reddening every open PR — the incident
+        # STABILIZATION_2026-08-16 was written to prevent, through a hard-gate
+        # unit test rather than the contract gate it split.
+        #
+        # PER SOURCE is load-bearing: a union across sources still reports
+        # rounds {1,2,3,4} for every year here, because `ktc` stayed intact.
+        from tests.api.test_picks_end_to_end import pick_anchor_rounds_by_source
+
+        published = pick_anchor_rounds_by_source(self.contract)
+        thin = {
+            src: {y: sorted(r) for y, r in years.items() if len(r) < 4}
+            for src, years in published.items()
+        }
+        thin = {src: cells for src, cells in thin.items() if cells}
+        if thin:
+            self.skipTest(
+                f"a pick market truncated its feed ({thin}) — the far-future "
+                "derivation has lost its inputs, so this class would assert "
+                "vendor uptime rather than our code (F-30). The contract "
+                "census reports it on the source-health lane, which blocks "
+                "the deploy."
+            )
+
     def test_every_valid_ref_through_the_horizon_resolves_finite(self) -> None:
         current, future_years = _board_years(self.contract)
         # The horizon is DERIVED, and its derivation needs a template:
@@ -221,9 +258,38 @@ class TestPickCompletenessCensus(unittest.TestCase):
                 )
 
     def test_contract_validation_census_is_green(self) -> None:
+        """The census must be green in the STRUCTURAL lane.
+
+        AUDIT F-30.  This asserted every ``pick_``-prefixed error, which mixes
+        two different questions and let a vendor redden every open PR.
+
+        ``…:missing_or_unpriced`` is caused by a pick market truncating its
+        feed — measured 2026-08-18, ``idpTradeCalc`` dropped from 84 pick
+        anchors to 16 between two scrapes and the 2029 derivation correctly
+        declined to invent the rows it had lost inputs for.  That is the
+        source-health lane by this repo's own definition, and it is now
+        classified there: advisory on PRs, **blocking at deploy**, so
+        production keeps serving the last good board.
+
+        ``…:no_provenance`` — a pick that IS priced but carries no
+        provenance — is a statement about our stamping that no feed can cause.
+        It stays structural, and this test still fails on it.
+        """
         result = validate_api_data_contract(self.contract)
-        census_errors = [e for e in (result.get("errors") or []) if str(e).startswith("pick_")]
-        self.assertEqual(census_errors, [], f"validation census errors: {census_errors[:8]}")
+        structural = [
+            e for e in (result.get("structuralErrors") or []) if str(e).startswith("pick_")
+        ]
+        self.assertEqual(structural, [], f"structural census errors: {structural[:8]}")
+
+        # The source-health half is reported, never asserted green here — it is
+        # a statement about the vendors, and the deploy gate owns it.
+        source_health = [
+            e for e in (result.get("sourceHealthErrors") or []) if str(e).startswith("pick_")
+        ]
+        if source_health:
+            print(
+                f"[F-30] pick census source-health errors (not a code defect): {source_health[:8]}"
+            )
 
     def test_determinism_same_ref_same_value(self) -> None:
         """The same canonical ref deterministically resolves to the same

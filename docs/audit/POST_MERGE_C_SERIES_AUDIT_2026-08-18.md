@@ -1486,8 +1486,32 @@ scrape.
 (measured for census S-2), so a silently truncated pick board still reads as complete. The
 fixture would have handed back the same broken input.
 
-**Repair.** The assertion now skips on the PREMISE it depends on: **per-source** pick-anchor
-coverage. Per source is load-bearing — a union across sources reports `{1,2,3,4}` for every year
+**Repair — two halves, and the second is the important one.**
+
+**(a) The lane classification was wrong.** `pick_completeness_census:…:missing_or_unpriced` sat in
+the STRUCTURAL lane while being exactly what the source-health lane is defined as: a condition an
+upstream provider can cause alone, with our code byte-identical. Its siblings
+`pick_count_below_floor:` and `pickAnchors is empty` were already classified that way. It now is
+too — but only that variant. `pick_completeness_census:…:no_provenance` (a pick that IS priced yet
+carries no provenance) is a statement about our own stamping that no feed can cause, and stays
+structural; classifying the whole prefix would have quietly downgraded it, which is the opposite
+of the repair. Because the two are distinguished by their TAIL, `_is_source_health_error` gained a
+suffix rule alongside its prefix list.
+
+Measured end-to-end by rebuilding the truncated board:
+
+```
+structuralErrors  (pick_*):  0     -> PR validation passes
+sourceHealthErrors(pick_*): 20     -> correctly routed
+ok: False, structurallyOk: True, sourceHealthOk: False
+```
+
+`ok: False` is the point: the **deploy's full lane still blocks**, so production keeps serving the
+last good board rather than one with 15 unpriced picks.
+
+**(b) Three hard-gate tests assert the completeness property directly**, not through the census, so
+the lane fix alone does not reach them. They now skip on the PREMISE they depend on: **per-source**
+pick-anchor coverage. Per source is load-bearing — a union across sources reports `{1,2,3,4}` for every year
 on BOTH boards, because `ktc` stayed intact, and would have hidden the failure completely. My
 first attempt made exactly that mistake and was caught by testing the discriminator against both
 boards before shipping it:
@@ -1497,7 +1521,9 @@ boards before shipping it:
 17:11 board -> SKIP (thin: idpTradeCalc 2026:[1] 2027:[1] 2028:[1])
 ```
 
-The guard keeps its teeth: if our derivation breaks while anchors are complete, it still fails.
+The guard keeps its teeth, and that was verified rather than asserted — replaying the class against
+the healthy 15:09 board runs 16 tests with 0 failures and 1 pre-existing skip, while the truncated
+board skips 11. A guard that skipped both ways would have silently retired a C1-PICK-01 gate.
 The live-board question stays owned by `validate_api_data_contract`'s pick census — advisory on
 PRs, **blocking at deploy**, so production keeps serving the last good board rather than one with
 15 unpriced picks.

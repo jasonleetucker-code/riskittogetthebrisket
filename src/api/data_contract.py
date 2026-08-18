@@ -11611,11 +11611,37 @@ _SOURCE_HEALTH_ERROR_KINDS: tuple[str, ...] = (
     "implausibly small IDP pool in playersArray",
 )
 
+#: Source-health kinds that are decidable only from the error's TAIL.
+#:
+#: AUDIT F-30.  ``pick_completeness_census:`` cannot be classified by prefix,
+#: because the two variants it emits belong to DIFFERENT lanes and the
+#: distinguishing word is at the end:
+#:
+#: * ``…:missing_or_unpriced`` — a pick the board could not price.  A pick
+#:   market truncating its feed causes this on its own, with our code
+#:   byte-identical: measured 2026-08-18, ``idpTradeCalc`` went from 84 pick
+#:   anchors to 16 (round 1 only) between two scrapes of the same afternoon,
+#:   and the 2029 derivation it feeds correctly declined to invent the 15 rows
+#:   it no longer had inputs for (C1-U6-D1: an unpublished round is ABSENT,
+#:   never substituted).  That is the definition this file gives for the
+#:   source-health lane, and it is why the sibling checks
+#:   ``pick_count_below_floor:`` and ``pickAnchors is empty`` already sit there.
+#:
+#: * ``…:no_provenance`` — a pick that IS priced but carries no
+#:   ``pickValueProvenance``.  No upstream feed can cause that; it is a
+#:   statement about our own stamping.  It stays STRUCTURAL.
+#:
+#: Classifying the whole prefix would have quietly downgraded the second one,
+#: which is the opposite of the repair.
+_SOURCE_HEALTH_ERROR_SUFFIXES: tuple[str, ...] = (":missing_or_unpriced",)
+
 
 def _is_source_health_error(message: str) -> bool:
     """True when ``message`` is caused by upstream data availability."""
     text = str(message)
-    return any(text.startswith(kind) for kind in _SOURCE_HEALTH_ERROR_KINDS)
+    if any(text.startswith(kind) for kind in _SOURCE_HEALTH_ERROR_KINDS):
+        return True
+    return any(text.endswith(suffix) for suffix in _SOURCE_HEALTH_ERROR_SUFFIXES)
 
 
 def validate_api_data_contract(payload: dict[str, Any]) -> dict[str, Any]:
