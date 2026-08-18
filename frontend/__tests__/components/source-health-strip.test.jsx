@@ -168,3 +168,150 @@ describe("SourceHealthStrip · population", () => {
     expect(screen.getByText("not measured")).toBeTruthy();
   });
 });
+
+// ── F-12 ─────────────────────────────────────────────────────────────
+// The strip decided per-row tone, and looked up per-row failure reasons,
+// by MEMBERSHIP — testing a registry key against lists built from a
+// different vocabulary entirely.
+//
+// Rows come from ``registered_sources``: 21 ranking-registry keys
+// (``ktcSfTep``, ``idpTradeCalc``, ``dlfSf``, …), published by
+// ``server._source_health``.
+//
+// ``failed_sources`` / ``partial_sources`` / ``timed_out_sources`` and
+// every ``source_failures[].source`` come from the legacy scraper's
+// ``source_enabled_map`` (Dynasty Scraper.py): 12 run names (``KTC``,
+// ``IDPTradeCalc``, ``DLF_LocalCSV``, ``FantasyCalc``, …).
+//
+// The intersection on real data is EMPTY. ``"KTC" !== "ktcSfTep"``. So
+// all three lookups were structurally dead: no row could ever be
+// ``down`` or ``warn`` from run state, and no failure reason could ever
+// render. Every row fell through to the age branch — and because a
+// failed fetch normally leaves the previous CSV in place, a source that
+// hard-failed this run rendered GREEN.
+//
+// The two populations are also genuinely different sizes and not a
+// rename of each other: one scraper step can feed several registry keys
+// (KTC -> ``ktc`` + ``ktcSfTep``), and most registry sources are fetched
+// by their own ``scripts/`` timers and appear in no scrape run at all.
+// So there is no mapping to infer here, and inventing one in the
+// frontend would make a second owner of source identity.
+//
+// What the frontend CAN do without a mapping, and now does: stop
+// discarding run-reported failures it cannot attribute, and show them
+// verbatim instead of implying health.
+describe("SourceHealthStrip · run failures it cannot attribute (F-12)", () => {
+  /** Real shape: registry-keyed rows, scraper-named failures. */
+  const VOCABULARY_SPLIT = {
+    source_health: {
+      source_runtime: {
+        overall_status: "partial",
+        enabled_sources: ["KTC", "IDPTradeCalc"],
+        failed_sources: ["KTC"],
+        partial_sources: ["DLF_LocalCSV"],
+        timed_out_sources: [],
+        finished_at: new Date().toISOString(),
+      },
+      registered_sources: ["ktcSfTep", "idpTradeCalc", "dlfSf"],
+      source_counts: { ktcSfTep: 502, idpTradeCalc: 911, dlfSf: 400 },
+      unmeasured_sources: [],
+      // Fresh CSVs — a failed fetch leaves the last good file in place,
+      // which is exactly why age cannot stand in for run state.
+      sources: {
+        ktcSfTep: { lastFetched: new Date().toISOString(), ageHours: 0.2 },
+        idpTradeCalc: { lastFetched: new Date().toISOString(), ageHours: 0.2 },
+        dlfSf: { lastFetched: new Date().toISOString(), ageHours: 0.2 },
+      },
+      source_failures: [
+        { source: "KTC", kind: "failed", details: { message: "KTC blocked: cloudflare challenge" } },
+        { source: "DLF_LocalCSV", kind: "partial", details: { message: "source completed with zero mapped values" } },
+      ],
+      missing_sources: [],
+    },
+  };
+
+  it("surfaces run-reported failures that match no registered source", async () => {
+    mockStatus({ body: VOCABULARY_SPLIT });
+    const { container } = render(<SourceHealthStrip variant="page" />);
+    await waitFor(() => expect(screen.getByRole("region")).toBeTruthy());
+    screen.getByRole("button").click();
+
+    // The names come back verbatim — they are the scrape run's own, and
+    // renaming them to guess at a registry key is the fabrication this
+    // whole finding is about.
+    await waitFor(() =>
+      expect(
+        container.querySelectorAll(".source-health-unattributed-row").length,
+      ).toBe(2),
+    );
+    const names = [
+      ...container.querySelectorAll(
+        ".source-health-unattributed-row .source-health-name",
+      ),
+    ].map((n) => n.textContent);
+    expect(names).toEqual(["KTC", "DLF_LocalCSV"]);
+  });
+
+  it("shows the reason the run gave, not just that something failed", async () => {
+    mockStatus({ body: VOCABULARY_SPLIT });
+    render(<SourceHealthStrip variant="page" />);
+    await waitFor(() => expect(screen.getByRole("region")).toBeTruthy());
+    screen.getByRole("button").click();
+
+    await waitFor(() =>
+      expect(document.body.textContent).toMatch(/cloudflare challenge/),
+    );
+    expect(document.body.textContent).toMatch(/zero mapped values/);
+  });
+
+  it("says the failures are not attributable to a row, rather than implying they are", async () => {
+    mockStatus({ body: VOCABULARY_SPLIT });
+    render(<SourceHealthStrip variant="page" />);
+    await waitFor(() => expect(screen.getByRole("region")).toBeTruthy());
+    screen.getByRole("button").click();
+
+    // The reader has to be able to tell "these three rows are fine" from
+    // "the run failed somewhere and we cannot say which row".
+    await waitFor(() =>
+      expect(document.body.textContent).toMatch(/could not be matched|not attributable/i),
+    );
+  });
+
+  it("does not invent a failed row: registry rows keep their freshness tone", async () => {
+    // The fix must not smear an unattributable failure across every row
+    // either — that would be a different fabrication, and on a partial
+    // run (common) it would paint the whole board red.
+    mockStatus({ body: VOCABULARY_SPLIT });
+    const { container } = render(<SourceHealthStrip variant="page" />);
+    await waitFor(() => expect(screen.getByRole("region")).toBeTruthy());
+    screen.getByRole("button").click();
+
+    await waitFor(() =>
+      expect(container.querySelectorAll(".source-health-row").length).toBe(3),
+    );
+    expect(container.querySelectorAll(".source-health-row--down").length).toBe(0);
+  });
+
+  it("still attributes a failure when the names DO line up", async () => {
+    // Forward compatibility: if the backend ever publishes run state in
+    // registry keys, the per-row path must light up on its own rather
+    // than needing this component changed again.
+    const body = JSON.parse(JSON.stringify(VOCABULARY_SPLIT));
+    body.source_health.failed_sources = ["ktcSfTep"];
+    body.source_health.source_runtime.failed_sources = ["ktcSfTep"];
+    body.source_health.source_runtime.partial_sources = [];
+    body.source_health.source_failures = [
+      { source: "ktcSfTep", kind: "failed", details: { message: "matched by key" } },
+    ];
+    mockStatus({ body });
+
+    const { container } = render(<SourceHealthStrip variant="page" />);
+    await waitFor(() => expect(screen.getByRole("region")).toBeTruthy());
+    screen.getByRole("button").click();
+
+    await waitFor(() =>
+      expect(container.querySelectorAll(".source-health-row--down").length).toBe(1),
+    );
+    expect(document.body.textContent).toMatch(/matched by key/);
+  });
+});

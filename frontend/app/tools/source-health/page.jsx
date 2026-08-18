@@ -28,13 +28,23 @@ export default function SourceHealthPage() {
           Auto-refreshes every 60 seconds.
           <InfoTip label="the status dots">
             <p>
-              <strong>Green</strong> — last run OK and recent (under 4h).
+              The dots report <strong>freshness</strong> — how long ago each
+              source last refreshed — not whether the last scrape of it
+              succeeded. A failed fetch usually leaves the previous file in
+              place, so a recent file is not proof of a clean run.
             </p>
             <p>
-              <strong>Amber</strong> — partial run, or stale (4–12h).
+              <strong>Green</strong> — refreshed within 4h.
             </p>
             <p>
-              <strong>Red</strong> — failed, or older than 12h.
+              <strong>Amber</strong> — refreshed 4–12h ago.
+            </p>
+            <p>
+              <strong>Red</strong> — refreshed over 12h ago, or never.
+            </p>
+            <p>
+              Run failures are listed separately at the foot of the detail
+              panel, under the names the scrape run itself used.
             </p>
             <p>Click a header to expand that source&apos;s detail.</p>
           </InfoTip>

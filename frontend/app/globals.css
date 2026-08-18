@@ -5945,3 +5945,29 @@ input[type="range"]:focus-visible::-moz-range-thumb {
   font-size: 0.66rem;
   color: var(--red);
 }
+/* F-12 — failures the scrape run reported that name no registered
+   source.  Set apart from the rows above rather than mixed into them:
+   these are the run's own vocabulary, and presenting them as if they
+   were registry rows would be the fabrication the finding is about. */
+.source-health-unattributed {
+  margin-top: 6px;
+  padding-top: 6px;
+  border-top: 1px dashed var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.source-health-unattributed-head {
+  font-size: 0.66rem;
+  color: var(--amber, var(--accent));
+}
+.source-health-unattributed-row {
+  display: grid;
+  grid-template-columns: 10px 120px 80px minmax(0, 1fr);
+  gap: 8px;
+  align-items: center;
+  font-size: 0.7rem;
+  padding: 3px 0;
+}
+.source-health-unattributed-row--down { color: var(--red); }
+.source-health-unattributed-row--warn { color: var(--amber, var(--accent)); }

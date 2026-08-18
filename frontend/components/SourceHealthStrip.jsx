@@ -8,9 +8,16 @@ import { useEffect, useMemo, useState } from "react";
  * Renders a row of dots + source labels + age (e.g. ``DLF 4h ·
  * KTC 12m · FP 2d ⚠``).  One dot color:
  *
- *   green:  last run was OK and recent (<4h)
- *   amber:  last run partial OR age is 4-12h
- *   red:    last run failed OR age >12h OR never completed
+ *   green:  refreshed within 4h
+ *   amber:  refreshed 4-12h ago
+ *   red:    refreshed over 12h ago, or never
+ *
+ * That is FRESHNESS, and the distinction is load-bearing: a failed fetch
+ * normally leaves the previous CSV in place, so a green dot means the
+ * file is recent, NOT that the last run succeeded.  This docstring used
+ * to say "last run was OK and recent", which the code could not deliver
+ * — see attributionSplit for why, and for where run-state failures go
+ * instead.
  *
  * Clicking the strip expands a details panel with per-source
  * record counts + failure reasons.  Hidden entirely when the
@@ -46,15 +53,84 @@ function ageLabel(iso) {
   return `${Math.round(days)}d`;
 }
 
+// Per-row tone.
+//
+// The two membership tests are kept and are CORRECT — they simply do not
+// fire on today's payload, because the two sides speak different
+// vocabularies (see attributionSplit below).  Left in place rather than
+// deleted so that the day run state is published in registry keys, rows
+// light up without touching this component.  What must not happen is a
+// reader assuming they work now: they are pinned by a test either way.
 function toneFor(source, runtime, ageHours) {
   // Hard signals first.
   if (runtime?.failed_sources?.includes(source)) return "down";
   if (runtime?.partial_sources?.includes(source)) return "warn";
-  // Age-based fallback.
+  if (runtime?.timed_out_sources?.includes(source)) return "down";
+  // Age-based fallback.  NOTE this is FRESHNESS, not run state: a failed
+  // fetch normally leaves the previous CSV in place, so a recent file
+  // does not mean a successful run.
   if (ageHours == null) return "flat";
   if (ageHours >= 12) return "down";
   if (ageHours >= 4) return "warn";
   return "up";
+}
+
+// Split the run's reported failures into the ones that name a row we are
+// rendering, and the ones that name something else.
+//
+// F-12. Rows come from ``registered_sources`` — 21 ranking-registry keys
+// (``ktcSfTep``, ``idpTradeCalc``, ``dlfSf``…).  ``failed_sources`` /
+// ``partial_sources`` / ``timed_out_sources`` and every
+// ``source_failures[].source`` come from the legacy scraper's
+// ``source_enabled_map`` — 12 run names (``KTC``, ``IDPTradeCalc``,
+// ``DLF_LocalCSV``…).  On real data the intersection is EMPTY, so every
+// per-row lookup above was structurally dead and a source that
+// hard-failed rendered green off its stale-but-recent CSV.
+//
+// These are not two spellings of one list.  One scraper step can feed
+// several registry keys (KTC -> ``ktc`` + ``ktcSfTep``), and most
+// registry sources are fetched by their own ``scripts/`` timers and
+// appear in no scrape run at all.  A mapping therefore has to be
+// DECLARED, by whoever owns source identity, at the one seam that holds
+// both vocabularies (``server._source_health``) — inventing one here
+// would make this component a second owner of it.
+//
+// So this does the part that needs no mapping: it stops throwing the
+// unmatched failures away.  They are reported under their own names,
+// with the run's own reason, and labelled as unattributable — which is
+// the honest state, and is not the same as "everything is fine".
+function attributionSplit(health, runtime, rowSources) {
+  const known = new Set(rowSources);
+  const failures = Array.isArray(health?.source_failures)
+    ? health.source_failures
+    : [];
+  const seen = new Set();
+  const unattributed = [];
+  for (const f of failures) {
+    const name = f?.source;
+    if (!name || known.has(name) || seen.has(name)) continue;
+    seen.add(name);
+    unattributed.push({
+      source: name,
+      kind: f?.kind || "failed",
+      reason: f?.details?.message || f?.details?.error || null,
+    });
+  }
+  // Belt and braces: a name can appear in the runtime lists without a
+  // ``source_failures`` row. Dropping it would be the same class of
+  // silent loss this function exists to end.
+  for (const [key, kind] of [
+    ["failed_sources", "failed"],
+    ["timed_out_sources", "timeout"],
+    ["partial_sources", "partial"],
+  ]) {
+    for (const name of Array.isArray(runtime?.[key]) ? runtime[key] : []) {
+      if (!name || known.has(name) || seen.has(name)) continue;
+      seen.add(name);
+      unattributed.push({ source: name, kind, reason: null });
+    }
+  }
+  return unattributed;
 }
 
 export default function SourceHealthStrip({ variant = "inline" }) {
@@ -154,6 +230,7 @@ export default function SourceHealthStrip({ variant = "inline" }) {
       overall: runtime.overall_status || "unknown",
       failures: (health.source_failures || []).length,
       missing: health.missing_sources || [],
+      unattributed: attributionSplit(health, runtime, enabled),
     };
   }, [status]);
 
@@ -259,6 +336,43 @@ export default function SourceHealthStrip({ variant = "inline" }) {
               )}
             </div>
           ))}
+          {summary.unattributed.length > 0 && (
+            /* The scrape run reported these, and no row above is named by
+               them.  Shown verbatim: renaming one to guess at a registry
+               key would fabricate an attribution nothing supports. */
+            <div className="source-health-unattributed">
+              <div className="source-health-unattributed-head">
+                {summary.unattributed.length} scrape
+                {summary.unattributed.length === 1 ? "" : "s"} reported a problem
+                that could not be matched to a source above
+              </div>
+              {summary.unattributed.map((u) => (
+                <div
+                  key={u.source}
+                  /* Deliberately NOT ``source-health-row``: these are not
+                     registered sources, and counting them as rows would
+                     misreport the population the page is about. */
+                  className={`source-health-unattributed-row source-health-unattributed-row--${
+                    u.kind === "partial" ? "warn" : "down"
+                  }`}
+                >
+                  <span
+                    className={`source-health-dot source-health-dot--${
+                      u.kind === "partial" ? "warn" : "down"
+                    }`}
+                    aria-hidden="true"
+                  />
+                  <span className="source-health-name">{u.source}</span>
+                  <span className="source-health-count">{u.kind}</span>
+                  {u.reason && (
+                    <span className="source-health-reason" title={u.reason}>
+                      {u.reason}
+                    </span>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
           {summary.missing.length > 0 && (
             <div className="source-health-missing">
               Missing: {summary.missing.join(", ")}
