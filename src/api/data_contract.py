@@ -1719,7 +1719,7 @@ _RANKING_SOURCES: list[dict[str, Any]] = [
         # provider being one we otherwise trust.  UNKNOWN fails closed.
         "game_type": GAME_TYPE_DYNASTY,
         "game_type_evidence": (
-            "Play for Keeps pfk_dynasty_rankings Supabase table — the table name is the product"
+            "Play for Keeps pfk_dynasty_rankings Supabase table — the table name is the " "product"
         ),
         "display_name": "Play for Keeps Dynasty",
         "scope": SOURCE_SCOPE_OVERALL_OFFENSE,
@@ -1754,7 +1754,7 @@ _RANKING_SOURCES: list[dict[str, Any]] = [
         # provider being one we otherwise trust.  UNKNOWN fails closed.
         "game_type": GAME_TYPE_DYNASTY,
         "game_type_evidence": (
-            "dynasty-daddy.com/api/v1/player/all/today — Dynasty Daddy is a dynasty-only product"
+            "dynasty-daddy.com/api/v1/player/all/today — Dynasty Daddy is a dynasty-only " "product"
         ),
         "display_name": "Dynasty Daddy Superflex",
         "scope": SOURCE_SCOPE_OVERALL_OFFENSE,
@@ -2077,7 +2077,7 @@ _RANKING_SOURCES: list[dict[str, Any]] = [
         # provider being one we otherwise trust.  UNKNOWN fails closed.
         "game_type": GAME_TYPE_DYNASTY,
         "game_type_evidence": (
-            "same draftsharks.com dynasty-rankings page as draftSharks, IDP slice of the one DOM"
+            "same draftsharks.com dynasty-rankings page as draftSharks, IDP slice of the " "one DOM"
         ),
         "correlation_group": "draftSharks",
         "display_name": "Draft Sharks IDP Dynasty",
@@ -5582,25 +5582,25 @@ def _stamp_rank_changes(
     # inventory that would tell an operator it exists is not.
     #
     # Registering it in ``_DEFAULTS`` is the obvious repair and was attempted.
-    # It is gated by ``tests/api/test_feature_flags.py``, which requires every
-    # defaulted-ON flag to be classified either ``safe_on`` (additive, inert,
-    # cannot move a number) or ``value_moving_on`` (with a MEASURED blast
-    # radius).  This flag is neither cheaply: it MUTATES THE CONTRACT — ON
-    # stamps ledger-derived ``rankChange``, OFF stamps ``None`` — so the
-    # ``safe_on`` standard that ``perfect_draft`` meets ("writes no value,
-    # mutates no contract") does not hold, and ``value_moving_on`` demands a
+    # It is refused by ``tests/api/test_feature_flags.py``, which requires
+    # every defaulted-ON flag to be classified either ``safe_on`` (additive,
+    # inert, cannot move a number) or ``value_moving_on`` (with a MEASURED
+    # blast radius).  This flag is neither cheaply: it MUTATES THE CONTRACT —
+    # ON stamps ledger-derived ``rankChange``, OFF stamps ``None`` — so the
+    # ``safe_on`` standard ``perfect_draft`` meets ("writes no value, mutates
+    # no contract") does not hold, and ``value_moving_on`` demands a
     # measurement.
     #
-    # That measurement needs the temporal ledger and a built board. Neither is
-    # available off-box: with no ``data/temporal_ledger.sqlite`` BOTH branches
-    # stamp ``None``, so a local on/off diff would report "0 rows changed" —
-    # a vacuous number that would read as evidence.  Recording it would be
-    # worse than recording nothing.
+    # That measurement needs the temporal ledger and a built board.  With no
+    # ``data/temporal_ledger.sqlite`` present BOTH branches stamp ``None``,
+    # so an on/off diff taken without it reports "0 rows changed" — a vacuous
+    # figure that would read as evidence.  Recording that would be worse than
+    # recording nothing.
     #
     # To close F-24: measure ON vs OFF over a real board with the ledger
-    # present (rows whose ``rankChange`` becomes ``None``, and the
-    # distribution of the non-null values), then register the flag with that
-    # blast radius. Until then this direct read stays, and stays documented.
+    # present (which rows' ``rankChange`` becomes ``None``, and the
+    # distribution of the non-null values), then register the flag carrying
+    # that blast radius.  Until then this direct read stays, documented.
     import os as _os
 
     flag = _os.environ.get("RISKIT_FEATURE_LEDGER_RANK_CHANGE", "1").strip().lower()
@@ -6374,7 +6374,8 @@ def _validate_source_game_types_invariant(
         )
     if unknown_value:
         problems.append(
-            f"declare a game_type outside GAME_TYPES: {unknown_value}. Valid: {sorted(GAME_TYPES)}"
+            f"declare a game_type outside GAME_TYPES: {unknown_value}. "
+            f"Valid: {sorted(GAME_TYPES)}"
         )
     if not_dynasty:
         problems.append(
