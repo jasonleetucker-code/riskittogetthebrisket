@@ -19,6 +19,16 @@ import { useState } from "react";
 import NflTeamLogo from "@/components/ui/NflTeamLogo";
 import { Avatar, EmptyCard, nameFor } from "../shared.jsx";
 
+// Machine-readable reason (from ``src/api/team_assignment.py``) → the
+// sentence a reader can act on.  Kept as a lookup so an unknown reason
+// falls back to an honest generic rather than to a fabricated cause.
+const UNAVAILABLE_MESSAGES = {
+  no_current_season:
+    "Assignment is unavailable — Sleeper has not returned a current season for this league yet. This is a data-availability state, not an empty league.",
+  no_rosters:
+    "Assignment is unavailable — the current season carries no rosters yet.",
+};
+
 function NflTeamChip({ team }) {
   return (
     <div
@@ -199,7 +209,17 @@ function ManagerCard({ assignment, managers, expanded, onToggle }) {
           </button>
         ) : null}
       </div>
-      {teams.length === 0 ? (
+      {assignment.rosterScored === false ? (
+        <div
+          className="muted"
+          style={{ fontSize: "0.78rem", padding: "4px 0" }}
+        >
+          Roster-based assignment unavailable — Sleeper&apos;s player
+          directory could not be read, so only a configured favorite can
+          be shown. This is not a claim that no roster team qualified.
+        </div>
+      ) : null}
+      {teams.length === 0 && assignment.rosterScored !== false ? (
         <div
           className="muted"
           style={{ fontSize: "0.78rem", padding: "4px 0" }}
@@ -231,20 +251,61 @@ export default function TeamAssignmentSection({ data, managers }) {
     );
   }
 
+  // #815: an empty ``assignments`` list is only a real answer when the
+  // server says the section is available.  This branch used to assert a
+  // cause it had not measured ("current season has no rosters yet") for
+  // every empty payload, including a degraded/seasonless snapshot.
+  //
+  // ``available === undefined`` is an OLD payload from a server that
+  // predates the flag, not a claim of health — treated as unknown so a
+  // rolling deploy degrades honestly rather than confidently.
+  if (data.available === false) {
+    return (
+      <EmptyCard
+        label="Team Assignment"
+        message={UNAVAILABLE_MESSAGES[data.unavailableReason] ||
+          "Assignment is currently unavailable. It will return once Sleeper's league data is readable again."}
+      />
+    );
+  }
+
   const assignments = Array.isArray(data.assignments) ? data.assignments : [];
   if (assignments.length === 0) {
     return (
       <EmptyCard
         label="Team Assignment"
-        message="No assignments available — current season has no rosters yet."
+        message={
+          data.available === true
+            ? "No assignments yet — the current season has no rosters."
+            : "Assignment status is unknown for this response. Refresh to retry."
+        }
       />
     );
   }
+
+  const rosterScoringAvailable = data.rosterScoringAvailable !== false;
 
   const threshold = data.config?.thresholds?.assignmentMinPoints ?? 15;
 
   return (
     <div>
+      {rosterScoringAvailable ? null : (
+        <div
+          className="card"
+          style={{
+            fontSize: "0.75rem",
+            marginBottom: 12,
+            padding: "10px 12px",
+            borderLeft: "3px solid var(--amber, #d99a2b)",
+          }}
+        >
+          <strong>Roster-based scoring is unavailable.</strong> Sleeper&apos;s
+          player directory could not be read for this snapshot, so no roster
+          could be scored against an NFL team. Cards below show configured
+          favorites only — an absent team here means <em>unmeasured</em>, not
+          <em> did not qualify</em>.
+        </div>
+      )}
       <div
         style={{
           fontSize: "0.72rem",

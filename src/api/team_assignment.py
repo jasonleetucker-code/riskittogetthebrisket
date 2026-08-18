@@ -22,15 +22,52 @@ The section's ``debug`` block carries per-player point contributions
 so the UI can render a breakdown panel ("Buffalo Bills — 22 pts:
 Josh Allen +10 (QB anchor), Stefon Diggs +5 (Starter), …").
 
+**An empty ``assignments`` list is never the answer to a question we
+could not ask** (#815).  The section previously returned
+``{"assignments": []}`` with HTTP 200 whenever the snapshot carried no
+current season, so a degraded Sleeper fetch rendered identically to a
+league that genuinely has no rosters — and the frontend printed a
+fabricated diagnosis ("current season has no rosters yet") for a cause
+it had not measured.  Availability is now stated explicitly, in the
+same ``{"available": bool, "reason": ...}`` shape
+``data_contract.stamp_optimal_lineups`` already uses for the lineup
+stamp.
+
+Three distinct failure states, deliberately not collapsed:
+
+``no_current_season`` / ``no_rosters``
+    Total: ``available`` is ``False`` and ``assignments`` is empty
+    because there was nothing to assign, not because nothing qualified.
+
+``player_directory_unavailable``
+    PARTIAL.  ``snapshot.nfl_players`` is empty — the ~5 MB Sleeper
+    dump failed or was not requested — so no player can be scored
+    against an NFL team.  Favorites are config-derived and still real,
+    so ``available`` stays ``True`` while ``rosterScoringAvailable`` is
+    ``False``.  Without this flag a favorite-only card reads as "we
+    scored the roster and nothing cleared the threshold", which is a
+    confident claim about evidence we never had.
+
+Per assignment, ``playersResolved`` / ``playersTotal`` report how much
+of the roster the directory could actually answer for, so a *partial*
+directory is visible too rather than silently lowering every score.
+
 Output shape::
 
     {
+      "available": bool,
+      "unavailableReason": str | None,
+      "rosterScoringAvailable": bool,
+      "degradedReasons": [str, ...],
       "assignments": [
         {
           "ownerId": str,
           "displayName": str,
           "teamName": str,            # current Sleeper team name
           "favoriteKey": str | None,  # which favorites entry was matched
+          "rosterScored": bool,       # False ⇒ nflTeams is favorite-only
+          "playersResolved": int,     # roster ids the directory answered
+          "playersTotal": int,
           "nflTeams": [
             {
               "abbr": str,            # 3-letter abbr, e.g. "KC"
@@ -332,10 +369,45 @@ def _player_display(meta: dict[str, Any], pid: str) -> str:
     return name or str(pid)
 
 
+#: Machine-readable reasons the section cannot be produced at all.
+UNAVAILABLE_NO_CURRENT_SEASON = "no_current_season"
+UNAVAILABLE_NO_ROSTERS = "no_rosters"
+#: Degraded — the section is produced, but part of its evidence is absent.
+DEGRADED_NO_PLAYER_DIRECTORY = "player_directory_unavailable"
+
+
+def _unavailable(config: dict[str, Any], reason: str) -> dict[str, Any]:
+    """A shaped payload that says WHY it is empty.
+
+    Same field set as the healthy path so the frontend's
+    destructure-and-map flow still never hits ``undefined`` — the
+    difference is that ``available: False`` names the cause instead of
+    letting an empty list imply one (#815).
+    """
+    return {
+        "available": False,
+        "unavailableReason": reason,
+        "rosterScoringAvailable": False,
+        "degradedReasons": [],
+        "assignments": [],
+        "config": {
+            "weights": config["weights"],
+            "thresholds": config["thresholds"],
+            "limits": config["limits"],
+        },
+        "currentSeason": None,
+        "asOf": _dt.datetime.now(_dt.timezone.utc).isoformat(),
+    }
+
+
 def build_section(snapshot: PublicLeagueSnapshot) -> dict[str, Any]:
     """Assemble the team-assignment payload for the public-league
     aggregate response.  Always emits a fully-shaped payload so the
     frontend's destructure-and-map flow never hits ``undefined``.
+
+    See the module docstring for the availability semantics: an empty
+    ``assignments`` list is only ever a real answer when ``available``
+    is ``True``.
     """
     config = load_config()
     favorites = config.get("favorites") or {}
@@ -350,12 +422,22 @@ def build_section(snapshot: PublicLeagueSnapshot) -> dict[str, Any]:
 
     season = snapshot.current_season
     if season is None:
-        return {
-            "assignments": [],
-            "config": config,
-            "currentSeason": None,
-            "asOf": _dt.datetime.now(_dt.timezone.utc).isoformat(),
-        }
+        # #815: this branch used to return a bare ``assignments: []``,
+        # which is a degraded snapshot presented as a real empty result.
+        return _unavailable(config, UNAVAILABLE_NO_CURRENT_SEASON)
+    if not season.rosters:
+        return _unavailable(config, UNAVAILABLE_NO_ROSTERS)
+
+    # Roster-based scoring needs Sleeper's player directory.  It is
+    # fetched on a separate future that falls back to ``{}`` on error
+    # (``snapshot.build`` swallows the exception), and tests / cheap
+    # callers pass ``include_nfl_players=False`` — so "no directory" is
+    # a REACHABLE state that scores every player zero.  Detected up
+    # front rather than inferred from a run of zeros.
+    roster_scoring_available = bool(snapshot.nfl_players)
+    degraded_reasons: list[str] = (
+        [] if roster_scoring_available else [DEGRADED_NO_PLAYER_DIRECTORY]
+    )
 
     # Walk every roster in the current season.  Score per (owner,
     # NFL team) pair.  Track contributors so the breakdown panel can
@@ -378,10 +460,12 @@ def build_section(snapshot: PublicLeagueSnapshot) -> dict[str, Any]:
         scored: dict[str, dict[str, Any]] = defaultdict(lambda: {"score": 0, "contributors": []})
 
         player_ids = roster.get("players") or []
+        players_resolved = 0
         for pid in player_ids:
             meta = _player_meta(snapshot, pid)
             if not meta:
                 continue
+            players_resolved += 1
             nfl_team = str(meta.get("team") or "").upper()
             if not nfl_team:
                 continue
@@ -450,6 +534,12 @@ def build_section(snapshot: PublicLeagueSnapshot) -> dict[str, Any]:
                 "displayName": display_name or team_name or owner_id,
                 "teamName": team_name,
                 "favoriteKey": favorite_key,
+                # A favorite-only card must not read as "we scored this
+                # roster and nothing qualified" when we could not score
+                # it at all.
+                "rosterScored": roster_scoring_available,
+                "playersResolved": players_resolved,
+                "playersTotal": len(player_ids),
                 "nflTeams": nfl_teams_out,
             }
         )
@@ -459,6 +549,10 @@ def build_section(snapshot: PublicLeagueSnapshot) -> dict[str, Any]:
     assignments.sort(key=lambda a: a["displayName"].lower())
 
     return {
+        "available": True,
+        "unavailableReason": None,
+        "rosterScoringAvailable": roster_scoring_available,
+        "degradedReasons": degraded_reasons,
         "assignments": assignments,
         "config": {
             "weights": config["weights"],
