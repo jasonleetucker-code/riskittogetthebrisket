@@ -223,6 +223,52 @@ class RosterPlayer:
         return (self.position.strip().upper(),) if self.position else ()
 
 
+def roster_player_from_row(row: Mapping[str, Any]) -> RosterPlayer:
+    """THE roster-row → :class:`RosterPlayer` adapter.
+
+    Two byte-identical copies of this existed —
+    ``league_intel.replacement._to_roster_players`` and
+    ``roster_intel.marginal.to_roster_players`` — the second documenting
+    that it "mirrors" the first "deliberately: the two modules must
+    agree on how a roster row becomes an optimizer input, or their
+    numbers stop being comparable".  Agreement maintained by hand is the
+    thing ONE CONCEPT, ONE CANONICAL OWNER exists to replace; both now
+    delegate here, so they agree structurally.
+
+    **``rosValue`` missing is UNKNOWN, not 0.0.**  Both copies wrote
+    ``float(row.get("rosValue") or 0.0)`` — the exact coercion C2-U1
+    retired from this module, reintroduced at the adapter, where it
+    would hand the solver a real, assignable, worthless player instead
+    of an unpriced one.  An explicitly supplied ``0`` still passes
+    through as the real value it is.
+
+    Measured before changing: on the live path this is a no-op, because
+    ``ros/team_strength.py`` already drops rows with
+    ``rosValue <= 0`` before writing the snapshot these adapters read.
+    That is worth knowing rather than assuming — the honest-missing
+    state is lost UPSTREAM of here, so ``LineupAssignment.unpriced_ids``
+    is empty by construction on the snapshot path however correct this
+    function is.  Callers that assemble rows themselves (and can carry
+    an unpriced player) get the honest behaviour.
+    """
+    raw = row.get("rosValue")
+    return RosterPlayer(
+        player_id=str(row.get("playerId") or row.get("canonicalName") or ""),
+        canonical_name=str(row.get("canonicalName") or row.get("name") or ""),
+        position=str(row.get("position") or "").upper(),
+        ros_value=None if raw is None else float(raw),
+        confidence=float(row.get("confidence") or 0.0),
+        injured=bool(row.get("injured")),
+        bye=bool(row.get("bye")),
+        fantasy_positions=tuple(str(fp).upper() for fp in (row.get("fantasyPositions") or ())),
+    )
+
+
+def roster_players_from_rows(rows: Iterable[Mapping[str, Any]]) -> list[RosterPlayer]:
+    """:func:`roster_player_from_row` over a sequence."""
+    return [roster_player_from_row(r) for r in rows]
+
+
 @dataclass
 class LineupSolution:
     """Structured optimizer output for serialization + UI."""

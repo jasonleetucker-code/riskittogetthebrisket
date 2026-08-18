@@ -39,7 +39,7 @@ from dataclasses import dataclass, field
 from typing import Any, Iterable, Mapping, Sequence
 
 from src.league_intel.replacement import normalize_base_position
-from src.ros.lineup import RosterPlayer, solve_optimal_assignment
+from src.ros.lineup import RosterPlayer, roster_players_from_rows, solve_optimal_assignment
 
 __all__ = [
     "AbsenceImpact",
@@ -55,31 +55,15 @@ __all__ = [
 
 
 def to_roster_players(players: Iterable[Mapping[str, Any]]) -> list[RosterPlayer]:
-    """Map contract-shaped dicts onto the optimizer's frozen dataclass.
+    """Map roster rows onto the optimizer's frozen dataclass.
 
-    Mirrors ``replacement._to_roster_players`` deliberately: the two
-    modules must agree on how a roster row becomes an optimizer input,
-    or their numbers stop being comparable.  ``fantasyPositions`` is
-    carried through because Sleeper evaluates slot eligibility against
-    it (LI-3/ADR-007) — dropping it silently benches hybrid IDPs.
+    Delegates to ``ros.lineup.roster_player_from_row``.  This used to be
+    a hand-maintained copy of ``replacement._to_roster_players``, whose
+    own docstring said the two "must agree ... or their numbers stop
+    being comparable".  They now agree structurally rather than by
+    vigilance.  Kept as a name because callers import it.
     """
-    out: list[RosterPlayer] = []
-    for p in players:
-        out.append(
-            RosterPlayer(
-                player_id=str(p.get("playerId") or p.get("canonicalName") or ""),
-                canonical_name=str(p.get("canonicalName") or p.get("name") or ""),
-                position=str(p.get("position") or "").upper(),
-                ros_value=float(p.get("rosValue") or 0.0),
-                confidence=float(p.get("confidence") or 0.0),
-                injured=bool(p.get("injured")),
-                bye=bool(p.get("bye")),
-                fantasy_positions=tuple(
-                    str(fp).upper() for fp in (p.get("fantasyPositions") or ())
-                ),
-            )
-        )
-    return out
+    return roster_players_from_rows(players)
 
 
 @dataclass(frozen=True)
