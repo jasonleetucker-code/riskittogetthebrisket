@@ -139,8 +139,8 @@ Projections · **L4** Market / FAAB / Analyst · **L5** Integration / QA / CI / 
 | V1-08 | `valuation_mode` withdrawn, ignored, stamped | `F-VAL-03` | L5 | `VERIFIED` | L1 | canonical value |
 | V1-09 | Five-axis confidence, weakest axis wins | `F-CONF-01` / inv 7.4 | L5 | `VERIFIED` | L1 | canonical value. B11 |
 | V1-10 | Provider families, one vote each | `F-SRC-01` / inv 7.6 | L5 | `VERIFIED` | L1 | canonical value. 21 keys → 13 families |
-| V1-11 | Confidence naming migration | `C1-CONF-01` / `C1-U5` | L5 | `IMPLEMENTED_UNVERIFIED` | L3 | canonical value. PR #876 merged. §6 checklist **executed 2026-08-18** (§ verification record): 5 of 8 PASS incl. item 3 (0 of 857 priced rows without a `confidenceBasis`), 2 `BLOCKED-EXTERNAL` on auth, 1 checklist path corrected. Reached **L2**, not L3 — the passes are on a rebuilt real board, not a deployed response |
-| V1-12 | Pick value completeness through 2029 | `C1-PICK-01` / MFB-89 / inv 2.8 | L5 | `IN PROGRESS` | L2 | canonical value; owner hard requirement. PR #871 + D1 repair. **DOWNGRADED from `VERIFIED` 2026-08-18 (owner instruction)** — audit `F-30`: `main` left 2029 rounds 2-6 unpriced when a pick market truncated, failing the hard gate and **skipping a production deploy**. A previously verified capability is allowed to regress; leaving it `VERIFIED` during a known live failure is the false green this contract exists to prevent. Restoration needs all four: exact-head deterministic tests, a clean 2029 completeness census, board-diff measurement, and deployed evidence. Repair is in #910. **Three of four satisfied 2026-08-18** (strengthened after lane 7's `#916` measured the first repair too narrow — see `F-30`; the shipped rung searches the board for the nearest priced earlier future year instead of consulting the injection's record, which also covers a PARTIALLY published horizon year: 24 census errors → 0 on that case) — deterministic tests green at exact head; census clean (0 errors, 24/24 2029 rows priced with explicit provenance); board diff `main`→repair shows **0 values moved, 0 ranks changed, 15 newly priced, 5 rows added**, with the 6 quarantine flips proven to be 2029 matching the treatment 2027 and 2028 already had. **Deployed evidence is the one still owed** |
+| V1-11 | Confidence naming migration | `C1-CONF-01` / `C1-U5` | L5 | `IMPLEMENTED_UNVERIFIED` | L3 | canonical value. PR #876 merged. §6 checklist **executed 2026-08-18** (§ verification record): 5 of 8 PASS incl. item 3 (0 of 857 priced rows without a `confidenceBasis`), 2 `BLOCKED-EXTERNAL` on auth, 1 checklist path corrected. Reached **L2**, not L3 — the passes are on a rebuilt real board, not a deployed response  **Item 3 re-verified 2026-08-18 23:00 on the post-#910 SHA**, which mattered because `#910` added a NEW `confidenceBasis` value (`derived_year_step`) to the closed set: production's `contract.health.structuralErrors` is empty, and `validate_api_data_contract` ERRORS on any priced row carrying a basis outside that set — so the new value was registered rather than smuggled. The two `BLOCKED-EXTERNAL` items are unchanged; this does not move the row. |
+| V1-12 | Pick value completeness through 2029 | `C1-PICK-01` / MFB-89 / inv 2.8 | L5 | `VERIFIED` | L3 | canonical value; owner hard requirement. PR #871 + D1 repair. **DOWNGRADED from `VERIFIED` 2026-08-18 (owner instruction)** — audit `F-30`: `main` left 2029 rounds 2-6 unpriced when a pick market truncated, failing the hard gate and **skipping a production deploy**. A previously verified capability is allowed to regress; leaving it `VERIFIED` during a known live failure is the false green this contract exists to prevent. Restoration needs all four: exact-head deterministic tests, a clean 2029 completeness census, board-diff measurement, and deployed evidence. Repair is in #910. **Three of four satisfied 2026-08-18** (strengthened after lane 7's `#916` measured the first repair too narrow — see `F-30`; the shipped rung searches the board for the nearest priced earlier future year instead of consulting the injection's record, which also covers a PARTIALLY published horizon year: 24 census errors → 0 on that case) — deterministic tests green at exact head; census clean (0 errors, 24/24 2029 rows priced with explicit provenance); board diff `main`→repair shows **0 values moved, 0 ranks changed, 15 newly priced, 5 rows added**, with the 6 quarantine flips proven to be 2029 matching the treatment 2027 and 2028 already had. **Deployed evidence landed 2026-08-18 23:00 UTC and the fourth condition is met, so this returns to `VERIFIED`**: on a board built entirely by post-#910 code, production's own `contract.health` reports `ok: true`, `structuralErrors: []`, `sourceHealthErrors: []`, `errorCount: 0`. The pick-completeness census is a STRUCTURAL check, so an empty `structuralErrors` is the census passing — every valid pick through the horizon priced with explicit provenance. The 2029 rows are demonstrably on that board: the same endpoint listed `2029 Round 6` among `normalizationHealth`'s samples an hour earlier, so this is not a vacuous pass over an empty population |
 | V1-13 | Generic ↔ exact-slot transition, one asset | `C1-PICK-02` | L5 | `VERIFIED` | L1 | canonical identity |
 | V1-14 | Per-source pick boards: no fabricated year anchors | `C1-U6-D1` | L5 | `VERIFIED` | L3 | false-green repair. Deployed `5a5f1507f`; 0 of 18 cells violating |
 | V1-15 | Acquisition history / cost basis | `C1-ACQ-01` / inv 7.11 | L5 | `IMPLEMENTED_UNVERIFIED` | L3 | canonical history. PR #878; §8 checklist **attempted 2026-08-18 and BLOCKED-EXTERNAL on all seven** (§8a) — `data/retention/` and `data/intel/` do not exist outside prod, and running the builder here would report `0` transactions for the uninteresting reason that the store is absent |
@@ -238,7 +238,7 @@ Projections · **L4** Market / FAAB / Analyst · **L5** Integration / QA / CI / 
 | V1-79 | A blocking gate bounds the production payload | audit `F-16` | L6 | `NOT STARTED` | L2 | performance / test integrity |
 | V1-80 | The critical-source gate can fire for DLF | audit `F-17` | L5 | `NOT STARTED` | L2 | source-health correctness |
 | V1-81 | Freshness budgets bound what the signal measures | audit `F-18` | L5 | `IMPLEMENTED_UNVERIFIED` | L2 | source-health correctness. #909 |
-| V1-82 | Health/status/metrics/alerts report board age, not process age | audit `F-19` | L5 | `IMPLEMENTED_UNVERIFIED` | L3 | false-green repair. #909 |
+| V1-82 | Health/status/metrics/alerts report board age, not process age | audit `F-19` | L5 | `VERIFIED` | L3 | false-green repair. #909, completed by #910's `F-28` repair. **Production-verified 2026-08-18 23:00 UTC** on the deployed SHA: `producedAt 22:55:34+00:00` < `loadedAt 22:55:40+00:00` < `last_scrape 22:55:49+00:00`, `data_age_hours 0.1`. The age now tracks the BOARD. It was `IMPLEMENTED_UNVERIFIED` rather than verified because #909 shipped the repair onto a host whose clock made it unmeasurable — see `V1-128` |
 | V1-83 | Alert cooldown keyed on delivery | audit `F-20` | L5 | `IMPLEMENTED_UNVERIFIED` | L3 | observability correctness. #909 |
 | V1-84 | 503 is not exempt from production health failure | audit `F-21` | L5 | `IMPLEMENTED_UNVERIFIED` | L3 | false-green repair. #909 |
 | V1-85 | `pickAnchors` reporting consistent with the contract | audit `F-22` | L5 | `NOT STARTED` | L1 | P2 reporting consistency — **reclassified, see §8** |
@@ -250,7 +250,7 @@ Projections · **L4** Market / FAAB / Analyst · **L5** Integration / QA / CI / 
 | V1-91 | Partial runs cannot report as healthy | `C4-SRC-02` | L5 | `IN PROGRESS` | L2 | false-green repair |
 | V1-92 | Freshness indicators complete | inv 6.8 | L6 | `IN PROGRESS` | L1 | truthful degraded state; W08-F011 |
 | V1-131 | Nav does not offer a page whose endpoints all 503 | audit `F-25` / `C6-EDGE-01` (gating only) | L6 | `NOT STARTED` | L3 | **added 2026-08-18, §7.1 A-7** — follows mechanically from "truthful degraded states", which the boundary names. Nav currently offers Consensus Edge while its three endpoints 503. **Gating only**: the Consensus Edge FEATURE stays POST-V1 |
-| V1-127 | `normalizationHealth` reports the board it actually has | audit `F-27` | L5 | `IMPLEMENTED_UNVERIFIED` | L3 | **added 2026-08-18** — false red in production since C1-U6; see §10 note below |
+| V1-127 | `normalizationHealth` reports the board it actually has | audit `F-27` | L5 | `VERIFIED` | L3 | **added 2026-08-18** — false red in production since C1-U6; see §10 note below. **Production-verified 2026-08-18** on the deployed SHA: `playersArray.pickNameMalformed` **18 → 0** and `healthy` **false → true**, with the 18 generic-grade pick rows (`2027 Round 1` … `2029 Round 6`) still present on the board — the rows were never wrong, the grammar reading them was |
 | V1-128 | Board age is measured in a timezone that exists | audit `F-28` | L5 | `IMPLEMENTED_UNVERIFIED` | L3 | **added 2026-08-18** — host is UTC+2, so reported age is always ≤ 0 and `data_stale` is structurally unreachable. Fixed at the source (tz-aware `scrapeTimestamp`) plus a future-board UNKNOWN guard; L3 needs a deployed scrape showing a positive age tracking the 2-hourly cadence |
 
 ### 3.7 Truthful degraded states
@@ -307,23 +307,48 @@ Projections · **L4** Market / FAAB / Analyst · **L5** Integration / QA / CI / 
 | V1-125 | Duplicate owners retired (every `retires` line zero) | `C10-CLOSE-02` | L5 | `NOT STARTED` | L2 | ONE CONCEPT, ONE CANONICAL OWNER |
 | V1-126 | Final V1 regression green | `C10-CLOSE-07` | L5 | `NOT STARTED` | L1 | production verification |
 
-**Denominator: 127 items.**
+**Denominator: 132 items.** (This line read **127** until 2026-08-18 — stale from before `V1-127`…`V1-132` were added, while §3.11 already said 132. Recounted from the table itself: 132 rows, 132 distinct ids. A contract that disagrees with itself about its own denominator is the failure mode this document exists to prevent, so it is corrected here and the count is derived, never typed forward.)
 
 ### 3.11 Standing tally
 
-Measured 2026-08-18 at `main` + PR #910, counted from the §3 table itself rather
-than by editing this block.
+Measured 2026-08-18 23:00 UTC at `main` (with #910 merged and deployed), counted
+from the §3 table itself rather than by editing this block.
 
 | status | count |
 |---|---|
-| `VERIFIED` | 35 |
-| `IMPLEMENTED_UNVERIFIED` | 21 |
-| `IN PROGRESS` | 39 |
+| `VERIFIED` | 38 |
+| `IMPLEMENTED_UNVERIFIED` | 19 |
+| `IN PROGRESS` | 38 |
 | `NOT STARTED` | 35 |
 | `BLOCKED` | 2 |
 | **denominator** | **132** |
 
-**V1 completion: 35 / 132 = 26.5%.**
+**V1 completion: 38 / 132 = 28.8%.**
+
+**Up three, and every one of them on deployed evidence rather than on a merge.**
+#910 merged at 21:29 UTC; the deploy that carried it completed at ~22:50 and the
+2-hourly scrape at 22:55 produced the first board built entirely by post-#910
+code. Measured against `chaseupside.com` at 23:00:
+
+* `V1-127` (`F-27`) — `normalizationHealth.pickNameMalformed` **18 → 0**,
+  `healthy` **false → true**.
+* `V1-82` (`F-19`) — `producedAt 22:55:34+00:00` < `loadedAt 22:55:40+00:00` <
+  `last_scrape 22:55:49+00:00`, `data_age_hours 0.1`. The ordering is what makes
+  it a board age rather than a process age.
+* `V1-12` (`F-30`) — production's own `contract.health`: `ok: true`,
+  `structuralErrors: []`, `errorCount: 0`. This was **downgraded** from
+  `VERIFIED` earlier the same day on owner instruction, and it returns only
+  because the fourth of its four stated conditions is now satisfied. The
+  round trip is the mechanism working: it left `VERIFIED` on a measured live
+  failure and came back on a measured live pass, not on a merge.
+
+`V1-128` (`F-28`) deliberately stays `IMPLEMENTED_UNVERIFIED`. Its own stated bar
+is "a deployed scrape showing a positive age **tracking the 2-hourly cadence**",
+and one 0.1 h reading taken five minutes after a scrape shows a positive age but
+not yet that it tracks. A second sample later in the cycle settles it. The fix is
+demonstrably live — the naive local `scrapeTimestamp` is gone — but "the defect is
+fixed" and "the row's evidence bar is met" are different statements, and this
+contract only counts the second.
 
 Reconciled against every open six-lane PR — #910 (L5), #911 (L4), #912 (L6),
 #913 (L2), #914 (L1), #915 (L3). Thirteen rows moved `NOT STARTED` →
