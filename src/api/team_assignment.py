@@ -435,9 +435,7 @@ def build_section(snapshot: PublicLeagueSnapshot) -> dict[str, Any]:
     # a REACHABLE state that scores every player zero.  Detected up
     # front rather than inferred from a run of zeros.
     roster_scoring_available = bool(snapshot.nfl_players)
-    degraded_reasons: list[str] = (
-        [] if roster_scoring_available else [DEGRADED_NO_PLAYER_DIRECTORY]
-    )
+    degraded_reasons: list[str] = [] if roster_scoring_available else [DEGRADED_NO_PLAYER_DIRECTORY]
 
     # Walk every roster in the current season.  Score per (owner,
     # NFL team) pair.  Track contributors so the breakdown panel can

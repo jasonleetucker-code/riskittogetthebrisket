@@ -38,9 +38,7 @@ def _team(owner_id, *, scale=1.0, depth=4):
     rows = []
     for pos in ("QB", "RB", "WR", "TE"):
         for i in range(depth):
-            rows.append(
-                _row(f"{owner_id}_{pos}{i}", pos, round((900 - i * 90) * scale, 2))
-            )
+            rows.append(_row(f"{owner_id}_{pos}{i}", pos, round((900 - i * 90) * scale, 2)))
     return _gameplan.TeamInput(
         owner_id=owner_id,
         team_name=f"Team {owner_id}",
@@ -178,9 +176,7 @@ def test_roster_count_is_the_fallback_not_a_constant():
     bundle = _bundle(n_teams=4)
     out = ri.build_league_roster_intelligence(bundle, _contract(bundle))
     assert out["teamCount"] == 4
-    qb = next(
-        n for n in out["teams"]["o0"]["weakness"]["needs"] if n["position"] == "QB"
-    )
+    qb = next(n for n in out["teams"]["o0"]["weakness"]["needs"] if n["position"] == "QB")
     assert [r["thresholdRank"] for r in qb["rungs"]] == [4, 8]
 
 
@@ -231,14 +227,12 @@ def test_team_view_returns_the_team_plus_league_context(monkeypatch):
 
 
 def test_an_unknown_team_raises_rather_than_returning_an_empty_team(monkeypatch):
-    """"This owner is not in the league" and "this owner has nothing"
+    """ "This owner is not in the league" and "this owner has nothing"
     are different answers."""
     bundle = _bundle()
     monkeypatch.setattr(_gameplan, "get_league_bundle", lambda *a, **k: (bundle, True))
     with pytest.raises(ri.TeamNotInLeague):
-        ri.get_team_roster_intelligence(
-            "test_league", "test_profile", _contract(bundle), "nobody"
-        )
+        ri.get_team_roster_intelligence("test_league", "test_profile", _contract(bundle), "nobody")
 
 
 def test_contract_version_is_stamped():
