@@ -228,6 +228,42 @@ waiting for the merge**.
 | 9 | no known P0/P1 regression introduced |
 | 10 | shared files (`CLAUDE.md`, governance records, the coercion baseline, major shared API owners) **reconciled**, never first-past-the-post |
 
+**`config/coercion_baseline.json` is never trusted because Git found no conflict.** Discovered by
+lane 4 and reproduced here on real branches. The file stores a derived `count` beside the list it
+counts, and that scalar can go stale through a **clean** merge with nothing to notice:
+
+```
+main   retires entry A and writes count 676
+a lane retires entry B and writes count 676
+the merge keeps BOTH removals; both sides agreed on the scalar, so git reports
+no conflict — and the file now claims 676 over 675.
+```
+
+Measured 2026-08-18 merging two live lane branches in order: `origin/main` 676/676 OK → `+#914`
+673/673 OK → `+#913` **declared 673, actual 670**, both merges reported clean. The old gate
+exited **0** on that tree, because it counts entries and never read the scalar.
+
+So whenever an integrated PR touches this file: reconcile the code first, then **regenerate from
+the merged tree** with `python scripts/check_decision_coercions.py --write-baseline`, run the gate
+against the regenerated result, require declared == actual, and **commit the regenerated
+baseline** rather than hand-resolving the number.
+
+It is now **enforced** rather than remembered: the gate refuses a baseline whose declared `count`
+disagrees with its own `violations` list, and names the regeneration command. Verified to fire —
+injecting a +3 skew gives exit **2** with the remedy, and a consistent tree stays exit **0**.
+
+Regeneration matters even when the merge is clean and the count already agrees. On #911 it swapped
+an entry: `main` carried a different coercion text in `frontend/lib/perfect-draft.js`, so the
+branch held a stale allowance for the old text and none for the current one — invisible to the
+gate, which enforces on changed files and correctly called it "main moved; not this PR's to fix".
+
+**Git-scoped gates must run AFTER the commit exists.** `_changed_files()` is
+`git diff --name-only <base>...HEAD`, so an uncommitted edit is outside the enforced scope.
+Measured on the same new coercion: **uncommitted → exit 0, "clean: no new coercions"; committed →
+exit 1, "NEW (1) — a decision path may not fabricate a number"**. Running such a gate against a
+dirty working tree is not a weaker check, it is a different one — and it answers "clean" for work
+it cannot see.
+
 **Check formatting with the PINNED ruff, not whatever is on your box.** CI pins
 `ruff~=0.6.0` (resolving to 0.6.9); a newer local ruff formats differently and will pass a file
 the gate then rejects — which costs a full validation cycle for one line. It has done so twice in
@@ -259,6 +295,50 @@ reconcile with the new `main`; and moves to the next ready PR.
 **Escalated to the owner, and nothing else:** genuine product decisions, destructive or data-loss
 operations, legal/credential issues, and irreducible conflicts between binding owner decisions.
 Routine merges satisfying the frozen contract and the gates above need no approval.
+
+---
+
+## 0.4b Rank-digest retention (#804) — CAPTURE AUTHORIZED, methodology stays POST-V1
+
+**Decision, 2026-08-18, Integration Authority.** Lane 4 asked whether longitudinal per-source
+rank capture can begin now, since the evidence is perishable: an observation not made today
+cannot be reconstructed later, and the correlation question it exists to answer needs a time
+series nobody is currently keeping.
+
+**Authorized — capture only.** This does not need an owner decision, because it decides no
+product question. It is explicitly classified **post-V1**, enters no V1 row and moves no
+denominator; the owner has already ruled that a lane with its V1 queue exhausted may continue
+into classified post-V1 work.
+
+**Conditions, and the first is the one that matters:**
+
+1. **It goes through `src/history`, the canonical temporal-history owner — never a parallel
+   store.** CLAUDE.md already forbids new consumers interpreting `rank_history.jsonl` and
+   friends directly, and a second time-series store would be a second owner of "what was true
+   when". A **new named lane** beside `canonical_board` / `source_value` / `scraper_blend`
+   (`VALID_LANES` is a closed set and must be extended deliberately) — **not** an overload of
+   `source_value`, which is vendor-published *values*; a rank is a different quantity and the
+   lane split exists to keep quantities honest.
+2. Append-only, `HISTORY_FLOOR` respected, the never-future guarantee preserved, `observed_at`
+   tz-aware per `F-28`.
+3. **No consumer, no weighting, no downweighting, no canonical-value movement.** Prove it, do
+   not assert it: `board_diff --expect-no-value-change` before/after with code as the only
+   variable.
+4. **Measure the growth before it runs unbounded on production.** Rows per build × builds per
+   day, and the resulting ledger size, reported in the PR. This is the one part with real
+   production risk, and measuring it converts that risk into a number rather than deferring the
+   whole unit.
+5. Enough provenance to later test whether observed source correlations persist — source key,
+   observed instant, board/scrape identity — because a capture that cannot answer the question
+   it was taken for is just storage.
+
+**What stays post-V1 and unauthorized:** any use of the captured series. No correlation
+re-weighting, no automatic downweighting, no change to `B10` family assignment or the confidence
+gate. Capture now, decide later, and the decision is a separate authorized unit with its own
+evidence gate.
+
+**Central Buy/Sell reconciliation stays post-V1**, unchanged, unless the frozen contract is
+deliberately amended.
 
 ---
 

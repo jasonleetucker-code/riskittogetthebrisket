@@ -268,7 +268,42 @@ def main() -> int:
     if not BASELINE.exists():
         print(f"error: {BASELINE} missing — run --write-baseline once", file=sys.stderr)
         return 2
-    accepted = set(json.loads(BASELINE.read_text(encoding="utf-8")).get("violations") or [])
+    baseline_doc = json.loads(BASELINE.read_text(encoding="utf-8"))
+    accepted = set(baseline_doc.get("violations") or [])
+
+    # The declared ``count`` must agree with the list it counts.
+    #
+    # It is a DERIVED number stored beside its source, which makes it exactly
+    # the kind of second owner this repository keeps finding — and it can go
+    # wrong through a CLEAN git merge, with no conflict to notice:
+    #
+    #   main retires entry A and writes count 676
+    #   a lane retires entry B and writes count 676
+    #   the merge keeps BOTH removals and both sides agreed on the scalar,
+    #   so git reports no conflict and the file now claims 676 of 675.
+    #
+    # Reproduced on real branches 2026-08-18 (found by lane 4): merging two
+    # lane branches that had each retired different entries produced a file
+    # declaring 673 over 670 actual, with git reporting a clean merge both
+    # times.  Nothing read the field, so nothing objected — which is why a
+    # number that describes itself is worth checking rather than trusting.
+    #
+    # The fix is one line of enforcement, not a rule someone has to remember:
+    # regenerate with ``--write-baseline`` and the two agree by construction.
+    declared = baseline_doc.get("count")
+    if isinstance(declared, int) and declared != len(accepted):
+        print(
+            f"error: {BASELINE.name} declares count={declared} but carries "
+            f"{len(accepted)} violations.\n"
+            "       A clean git merge can leave this scalar stale — two branches "
+            "retiring\n"
+            "       different entries can agree on the number and conflict on "
+            "nothing.\n"
+            "       Regenerate it from this tree: "
+            "python scripts/check_decision_coercions.py --write-baseline",
+            file=sys.stderr,
+        )
+        return 2
 
     new = sorted(set(by_key) - accepted)
     stale = sorted(accepted - set(by_key))
