@@ -43,7 +43,7 @@ test.describe("journey: settings source toggles", () => {
     expect(await toggles.count()).toBeGreaterThanOrEqual(registeredCount);
   });
 
-  test("toggling a source fires the overrides request and updates the board", async ({ authedPage: page }) => {
+  test("toggling a source round-trips, and the withdrawn custom mix is ignored rather than applied", async ({ authedPage: page }) => {
     // Each overrides POST recomputes the full blend server-side
     // (CPU-seconds per call), and this journey triggers it twice —
     // once from /settings, once when /rankings rehydrates.  Give the
@@ -73,6 +73,28 @@ test.describe("journey: settings source toggles", () => {
     // Pick the first currently-enabled toggle and switch it off.
     const enabledToggle = toggles.and(page.locator(":checked")).first();
     await expect(enabledToggle).toBeVisible({ timeout: 15_000 });
+
+    // Resolve WHICH registry source that toggle is, so the assertions
+    // below can name it. The input carries only
+    // `aria-label="Include <displayName> in blend"` — no key attribute —
+    // so the display name is mapped back through the authoritative
+    // registry rather than guessed from the label text.
+    const toggleLabel = (await enabledToggle.getAttribute("aria-label")) || "";
+    const displayName = toggleLabel
+      .replace(/^Include\s+/, "")
+      .replace(/\s+in blend$/, "")
+      .trim();
+    const regJson = await (await page.request.get("/api/rankings/sources")).json();
+    const regList = Array.isArray(regJson.sources || regJson)
+      ? regJson.sources || regJson
+      : Object.values(regJson.sources || regJson);
+    const disabledKey = (
+      regList.find((r) => (r.displayName || r.name) === displayName) || {}
+    ).key;
+    expect(
+      disabledKey,
+      `could not resolve a registry key for the toggled source "${displayName}" — the spec cannot assert on a source it cannot name`,
+    ).toBeTruthy();
 
     // The round-trip contract: the click must fire POST
     // /api/rankings/overrides and it must succeed.  60s budget: the
@@ -157,19 +179,65 @@ test.describe("journey: settings source toggles", () => {
       "the /rankings-side overrides round-trip should also recompute successfully",
     ).toBe(200);
 
+    // ── The custom mix is WITHDRAWN, and this is what that must look like ──
+    //
+    // This block used to assert the custom-mix badge APPEARS. It stopped
+    // being true on 2026-08-14: `_SOURCE_OVERRIDES_DISABLED = True`
+    // (`src/api/data_contract.py`, merged in #875) closes user source
+    // weighting at `normalize_source_overrides` — the one function every
+    // override body passes through — because a user-weighted board served
+    // under `rankDerivedValue` is a SECOND canonical truth, which is the
+    // thing CLAUDE.md's one-canonical-value invariant exists to prevent.
+    //
+    // So the spec was stale, not the product. It is repaired by asserting
+    // the CURRENT contract, and deliberately with MORE assertions than it
+    // had, not fewer — the withdrawal itself is now pinned, so silently
+    // re-enabling a second canonical board fails here.
+    //
+    // The three round-trip assertions above are untouched: the endpoint
+    // must still answer, still recompute, and still return a full delta.
+    // "Ignored, not refused" is the documented posture — refusing would
+    // break /rankings for anyone whose device still posts a stored mix.
+
+    // The server must SAY why the weights did nothing. A silent ignore
+    // and a working custom mix are indistinguishable to a caller.
+    expect(
+      delta.warnings || [],
+      "the overrides response must state that custom weighting is withdrawn",
+    ).toEqual(
+      expect.arrayContaining([
+        expect.stringContaining("custom source weighting is disabled"),
+      ]),
+    );
+
+    // Ignored means IGNORED: the source we switched off must still be in
+    // the served board's enabled set. If this ever flips, a user-weighted
+    // board is being served again.
+    const ro = delta.rankingsOverride || {};
+    expect(ro.isCustomized, "no custom mix may be reported as active").toBe(
+      false,
+    );
+    expect(
+      ro.enabledSources || [],
+      "the disabled source must still be blended — the override is ignored, not applied",
+    ).toContain(disabledKey);
+
+    // ...and the badge must therefore NOT be shown. Rendering "Custom Mix"
+    // over the canonical board would be the UI claiming an override the
+    // backend refused to apply.
     const badge = page.locator('[aria-label="Custom source mix active"]').first();
     const badgeVisible = await badge
-      .waitFor({ state: "visible", timeout: 60_000 })
+      .waitFor({ state: "visible", timeout: 10_000 })
       .then(() => true)
       .catch(() => false);
     expect(
       badgeVisible,
-      `custom-mix badge should appear once a source is disabled${
+      `the custom-mix badge must NOT appear while source weighting is withdrawn — showing it would claim an override the backend ignored${
         fallbackWarnings.length > 0
-          ? ` — the app logged a base-contract fallback: ${fallbackWarnings[0]}`
+          ? ` (app also logged a base-contract fallback: ${fallbackWarnings[0]})`
           : ""
       }`,
-    ).toBeTruthy();
+    ).toBe(false);
 
     guard.assertClean();
   });
