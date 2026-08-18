@@ -1,5 +1,5 @@
 {
-  "count": 678,
+  "count": 677,
   "note": "Known missing-data coercions on decision paths, recorded so the gate can block NEW ones while the remediation batches burn these down. Each batch deletes its findings' entries. Do not add to this file to make a build pass.",
   "violations": [
     "frontend/lib/auction-power.js::const raw = names.map((n) => Number(totalsObj[n]) || 0);",
@@ -215,7 +215,6 @@
     "server.py::_fpts_int = int(_settings.get(\"fpts\", 0) or 0)",
     "server.py::add_value = float(add_row.get(\"rankDerivedValue\") or 0)",
     "server.py::after_pick_no=int(afterPickNo or 0),",
-    "server.py::count = int(row.get(\"playerCount\") or 0)",
     "server.py::denom_decay = sum(values[i] * weights[i] for i in range(n)) or 1.0",
     "server.py::denom_spine = sum(excess) or 1.0",
     "server.py::drop_value = float(drop_row.get(\"rankDerivedValue\") or 0) if drop_row else 0.0",

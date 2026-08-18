@@ -1593,14 +1593,20 @@ def _build_source_health_snapshot(
     sites = payload.get("sites")
     if not isinstance(sites, list):
         sites = []
-    anchor_row_counts: dict[str, int] = {}
+    anchor_row_counts: dict[str, int | None] = {}
     for row in sites:
         if not isinstance(row, dict):
             continue
         key = str(row.get("key") or "").strip()
         if not key:
             continue
-        anchor_row_counts[key] = int(row.get("playerCount") or 0)
+        # A row with no ``playerCount`` has not told us its size.  That
+        # is unknown, not zero — and this map is a diagnostic, so it can
+        # carry the distinction rather than flatten it.
+        raw_player_count = row.get("playerCount")
+        anchor_row_counts[key] = (
+            int(raw_player_count) if isinstance(raw_player_count, (int, float)) else None
+        )
 
     # The population owner is the ranking-source registry.  Falling back
     # to the anchor list would silently restore the defect, so a
@@ -1631,7 +1637,14 @@ def _build_source_health_snapshot(
             source_counts[key] = None
             unmeasured.append(key)
             continue
-        count = int(coverage.get(key) or 0)
+        # Absent from the coverage map means the scan of the served
+        # board found this source on ZERO rows.  That is a real
+        # measurement over a complete pass — the map is built by walking
+        # every row — not a stand-in for evidence we do not have.  The
+        # "we were not given a board at all" case is the ``measured``
+        # branch above, and it reports ``None``.
+        raw_count = coverage.get(key)
+        count = int(raw_count) if isinstance(raw_count, (int, float)) else 0
         source_counts[key] = count
         if count > 0:
             available += 1
