@@ -143,7 +143,7 @@ Projections · **L4** Market / FAAB / Analyst · **L5** Integration / QA / CI / 
 | V1-12 | Pick value completeness through 2029 | `C1-PICK-01` / MFB-89 / inv 2.8 | L5 | `VERIFIED` | L2 | canonical value; owner hard requirement. PR #871 + D1 repair |
 | V1-13 | Generic ↔ exact-slot transition, one asset | `C1-PICK-02` | L5 | `VERIFIED` | L1 | canonical identity |
 | V1-14 | Per-source pick boards: no fabricated year anchors | `C1-U6-D1` | L5 | `VERIFIED` | L3 | false-green repair. Deployed `5a5f1507f`; 0 of 18 cells violating |
-| V1-15 | Acquisition history / cost basis | `C1-ACQ-01` / inv 7.11 | L5 | `IMPLEMENTED_UNVERIFIED` | L3 | canonical history. PR #878; §8 checklist **unexecuted** |
+| V1-15 | Acquisition history / cost basis | `C1-ACQ-01` / inv 7.11 | L5 | `IMPLEMENTED_UNVERIFIED` | L3 | canonical history. PR #878; §8 checklist **attempted 2026-08-18 and BLOCKED-EXTERNAL on all seven** (§8a) — `data/retention/` and `data/intel/` do not exist outside prod, and running the builder here would report `0` transactions for the uninteresting reason that the store is absent |
 | V1-16 | Historical roster reconstruction | `C1-ACQ-02` | L5 | `IMPLEMENTED_UNVERIFIED` | L3 | canonical history |
 | V1-17 | Pick lineage / trade trees | `C1-ACQ-03` / CE-18 | L5 | `IMPLEMENTED_UNVERIFIED` | L3 | canonical history |
 | V1-18 | Irreversible-evidence retention | `C1-U1` / `C1-RET-01…08` | L5 | `VERIFIED` | L3 | perishable evidence; loss is unrecoverable. `C1-RET-07` honestly STALE |
@@ -295,7 +295,7 @@ Projections · **L4** Market / FAAB / Analyst · **L5** Integration / QA / CI / 
 | V1-117 | One intake mechanism for owner instructions | `C0-GOV-05` | L5 | `NOT STARTED` | L1 | governance; 65 binding decisions sit in a doc the index calls superseded |
 | V1-118 | Governance index names every planning doc | `C0-GOV-06` | L5 | `IN PROGRESS` | L1 | governance |
 | V1-119 | Planning-integrity validation in CI | `C0-GOV-07` | L5 | `IMPLEMENTED_UNVERIFIED` | L1 | CI |
-| V1-120 | Governance / directive reconciliation | `C0-R` | L5 | `IMPLEMENTED_UNVERIFIED` | L3 | production verification. §7.2 checklist **unexecuted** |
+| V1-120 | Governance / directive reconciliation | `C0-R` | L5 | `IMPLEMENTED_UNVERIFIED` | L3 | production verification. §7.2 checklist **executed 2026-08-18** against the deployed SHA `8ec1978e` (§7.2a): **6 of 7 PASS**, incl. ancestry, both governance gates and the census figures. Item 5 PARTIAL — `tests/docs/test_governance_census_consistency` imports `pytest`, absent from this session's interpreter, so it is recorded UNRUN rather than passed. Not `VERIFIED`: the checklist requires all seven |
 | V1-121 | Release-gate classification: every check has a category | release discipline | L5 | `NOT STARTED` | L1 | CI. A real blocker must not be treated as noise, nor a detector block releases |
 | V1-122 | Structural / source-health CI lanes stay separated | `docs/ops/STABILIZATION_2026-08-16.md` | L5 | `VERIFIED` | L1 | CI correctness |
 | V1-123 | Browser / workflow matrix | `C10-CLOSE-03` | L5 | `NOT STARTED` | L4 | production verification |
