@@ -131,10 +131,25 @@ const TierGapWaterfall = dynamic(
 //   • Flagged rows: shown inline (not hidden)
 //   • Quarantined rows: shown but dimmed
 //
-// Performance note (measured before rebuild): the row-limit pattern
-// (200 rows default, filters bypass) keeps initial render well under
-// budget on the ~1.1k-row pool — virtualization is not warranted;
-// revisit only if the default limit grows past ~500 rows.
+// Performance note.  This used to read "virtualization is not
+// warranted; revisit only if the default limit grows past ~500 rows",
+// and the row limit was doing the work it credited itself with — but
+// only while the user left the limit alone.  "Show all" takes the board
+// to ~1,100 rows / ~31k DOM nodes, and there it collapses: measured 6.8
+// FPS during a real scroll against a 60.0 FPS control on the same
+// hardware, with a p95 frame time of 167 ms.
+//
+// The cost is TABLE LAYOUT, not paint, and no CSS reaches it (the
+// containment spec excludes table-row / table-row-group, so
+// `content-visibility` and `contain` both measured as no-ops).  Hence
+// `virtualize` below, and hence `freezeColumnWidths` as its
+// prerequisite rather than its companion.  Ablation table and method:
+// components/ds/useRowWindow.js and docs/performance-optimization.md.
+//
+// The row limit STAYS.  It is a different control — it bounds the
+// initial commit, where windowing bounds the scroll — and the
+// useTransition wrapper on `growRows` still exists for the same reason
+// it always did.
 
 const CONFIDENCE_FILTERS = [
   { key: "all", label: "Any confidence" },
@@ -1958,6 +1973,12 @@ export default function RankingsPage() {
               // on and freezes exactly those, so the geometry is
               // unchanged at every breakpoint.  See DataTable.jsx.
               freezeColumnWidths
+              // Mount only the rows near the viewport. This is what makes
+              // "Show all" usable: the full board is ~1,100 rows at ~32 DOM
+              // nodes each, and the cost is TABLE LAYOUT — no containment
+              // property reaches table internals, so no CSS avoids it. See
+              // components/ds/useRowWindow.js for the ablation table.
+              virtualize
               density="compact"
               // DataTable renders emptyState INSTEAD of the table when
               // rows are empty — without one, a filter that matches

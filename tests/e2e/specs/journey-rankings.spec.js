@@ -18,6 +18,7 @@ const {
   desktopOnly,
   gotoRankingsBoard,
   boardPlayerNames,
+  boardRowCount,
   expectNoBadValueTokens,
   attachConsoleGuards,
 } = require("../helpers/journey");
@@ -31,8 +32,16 @@ test.describe("journey: rankings board", () => {
 
     // Structure, not names: every visible row has a non-empty player
     // name and a position token.
+    //
+    // The >= 50 belongs on the board's SIZE, not on the number of names
+    // in the DOM. The table is windowed, so it mounts a viewport's worth
+    // of rows by design — asserting on mounted names would report the
+    // feature as the failure, and quietly lowering the number would stop
+    // this test noticing a board that came back with two rows.
+    // journey.js::boardRowCount reads the table's own `aria-rowcount`.
+    expect(await boardRowCount(page)).toBeGreaterThanOrEqual(50);
     const names = await boardPlayerNames(page);
-    expect(names.length).toBeGreaterThanOrEqual(50);
+    expect(names.length, "no player names rendered").toBeGreaterThan(0);
     expect(names.every((n) => n.trim().length > 0)).toBeTruthy();
 
     // Rank column (#) counts up from 1 on the default sort.
