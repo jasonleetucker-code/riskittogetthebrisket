@@ -166,7 +166,7 @@ Projections · **L4** Market / FAAB / Analyst · **L5** Integration / QA / CI / 
 | V1-30 | Canonical meaningful roster core | `C2-CORE-01` / `C2-U6` / `#839` | L1 | `IN PROGRESS` | L2 | named V1 scope. `M=1.5` ships as V1 champion labelled PRIOR, challenger pass required. **#914** builds it as two exact solves (starters ∪ reserves), which is what `#899` §3 requires over independent greedy lists |
 | V1-31 | Canonical Team Strength | `C2-STR-01` / `C2-U4` | L1 | `IN PROGRESS` | L2 | named V1 scope. 4 competing notions to retire. **#914** builds the owner |
 | V1-32 | Canonical Team Weakness / Need Priority | `C2-WEAK-01` / `C2-U5` | L1 | `IN PROGRESS` | L2 | named V1 scope. ≥5 need definitions to retire. **#914** builds the owner |
-| V1-33 | Basic Young Core Index | `C2-AGE-02` / inv 1.6 | L1 | `IN PROGRESS` | L1 | **basic** Young Core named in V1 scope. Age buckets classified PRIOR. **#914** builds it |
+| V1-33 | Basic Young Core Index **+ the age-value portfolio it is computed from** | `C2-AGE-02` + `C2-AGE-01` / inv 1.6 / `#838` | L1 | `IN PROGRESS` | L1 | **basic** Young Core named in V1 scope; `C2-AGE-01` absorbed here 2026-08-18 (§7.1 A-1) because the index is a percentile of a value-weighted youth score over the meaningful core — it *is* the portfolio's composite, not a separable subset. **#914** builds both. Index status is `PRIOR` by the addendum's own requirement (validation against intuitive league examples not yet run) and every payload says so |
 | V1-34 | Untouchable / excluded-player control | inv 1.5 | L2 | `NOT STARTED` | L1 | owner control over recommendations; W09-F011 |
 | V1-130 | One recommendation-constraint owner | `C3-CON-01` | L2 | `NOT STARTED` | L2 | **added 2026-08-18, §7.1 A-2** — follows mechanically: `V1-34` is V1 REQUIRED and `C3-CON-01` is its canonical owner, so excluding the owner would require building a required capability without one, which ONE CONCEPT, ONE CANONICAL OWNER forbids. The **owner** is in scope; the wider constraint feature set is not |
 | V1-35 | Metric separation (asset value / roster strength / lineup / depth / power / playoff / championship) | decision 69 | L1 | `NOT STARTED` | L1 | binding owner decision — may not collapse into one team score |
@@ -490,6 +490,20 @@ added/tracked without redefining the product scope."*
 
 | # | item | ruling | the owner decision it follows from |
 |---|---|---|---|
+| A-1 | `C2-AGE-01` roster age-value portfolio | **→ V1, absorbed into `V1-33`** | **A correction of my own first ruling.** I initially recorded "POST-V1 confirmed — `#914` builds `V1-33` and does not build `C2-AGE-01`, resolved by measurement". That was false and I had not read the module: `#914` ships `src/roster_intel/age_portfolio.py`, whose first line is *"Roster Age-Value Portfolio / Young Core Index (row 1.6, #838)"*. The evidence points the other way and settles the original doubt — the index is a percentile of a value-weighted youth score over the meaningful core, i.e. it **is** the portfolio's composite, exactly as `#838` treats them. Absorbed into `V1-33`; no new row, denominator unchanged |
+| A-2 | `C3-CON-01` recommendation-constraint owner | **→ V1 REQUIRED** (`V1-130`) | `V1-34` (untouchable control) is V1, and ONE CONCEPT, ONE CANONICAL OWNER is a ratified governance invariant. A required capability whose canonical owner is out of scope would have to be built without one, which the invariant forbids. The *owner* enters V1; the wider constraint feature set does not |
+| A-3 | `C5-U1` ensemble vs current-season correctness | **As classified — confirmed** | The ratified boundary excludes "the full projection ensemble" and includes "required current season-model correctness" in the same sentence. That *is* the ruling: consolidate the two playoff engines and the two power-rankings engines onto what exists; do not build the ensemble |
+| A-7 | `C6-EDGE-01` Consensus Edge | **Split — nav gating → V1** (`V1-131`); feature POST-V1 | "Truthful degraded states" is named in the boundary. Nav offering a page whose three endpoints 503 (`F-25`) is a live instance of it on a shipped surface |
+| A-10 | `C3-REPLAY-01` historical trade replay | **Split — as classified, confirmed** | Same rule. `V1-97` is the wrong-semantics defect; the `MFB-101` three-lens feature stays out |
+| A-11 | `C9-HIST-01` franchise continuity | **Split — as classified, confirmed** | Same rule. `V1-96` is the live defect (2024 declares ten teams, carries eight standings rows); Public League v3 stays out |
+| A-12 | `C1-U7` owned-pick distributions | **POST-V1 — confirmed** | The owner ruled that lane continuation work does not enter the denominator, and specifically that becoming dependency-ready is not entry. `C1-U7` becoming reachable once `V1-31` lands is exactly that case |
+
+**A-1 is the one to read twice.** It is the only ruling here I got wrong first time, and I got it
+wrong in the most seductive way available: by writing "resolved by measurement" over an assumption
+I had not measured. The lane's own module title refutes it in one line. The correction is recorded
+in place rather than overwritten, because a register that quietly fixes its own errors is the
+thing this contract exists to be an alternative to.
+
 
 ### 7.2 Still genuinely the owner's — three questions
 
