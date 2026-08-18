@@ -532,3 +532,55 @@ def test_a_streamed_week_with_no_qualifying_events_is_still_covered():
     )
     assert weeks == {3, 4}
     assert PbpWeeklyStats(2025, by_player, weeks).stats_for("00-a", 4) == {}
+
+
+def test_the_special_teams_scope_is_the_flag_and_not_the_play_type():
+    """Both scopings are measured, and the totals alone do not decide it.
+
+    Over the seven-week run the wider ``play_type`` scope nets to 759 of
+    759 — right in total and wrong in both directions. Week 1 is in the
+    fixtures because it discriminates them: a blocked-field-goal return
+    that nflverse does not flag as a special-teams play carries a solo
+    tackle the host charges to neither side."""
+    import csv as _csv
+
+    from src.nfl_data.reception_depth import is_truthy
+
+    def _cells(row, idx, name):
+        i = idx.get(name, -1)
+        if i < 0 or i >= len(row):
+            return ""
+        value = row[i].strip()
+        return "" if value == "NA" else value
+
+    host = json.loads(_host_path(1).read_text(encoding="utf-8"))
+    expected = sum(float(v.get("st_tkl_solo", 0) or 0) for v in host.values())
+
+    reader = _csv.reader(_slice_path(1).open("r", encoding="utf-8", newline=""))
+    header = next(reader)
+    idx = {n: i for i, n in enumerate(header)}
+    by_flag = by_play_type = 0
+    for row in reader:
+        tacklers = sum(
+            1
+            for c in (
+                "solo_tackle_1_player_id",
+                "solo_tackle_2_player_id",
+                "tackle_with_assist_1_player_id",
+                "tackle_with_assist_2_player_id",
+            )
+            if _cells(row, idx, c)
+        )
+        flagged = is_truthy(_cells(row, idx, "special_teams_play"))
+        if flagged:
+            by_flag += tacklers
+        if flagged or _cells(row, idx, "play_type") in (
+            "kickoff",
+            "punt",
+            "field_goal",
+            "extra_point",
+        ):
+            by_play_type += tacklers
+
+    assert by_flag == expected == 121
+    assert by_play_type == 122, "the wider scope over-counts, which is why it is not used"

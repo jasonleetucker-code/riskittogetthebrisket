@@ -49,14 +49,21 @@ count and reception count.
 **``st_tkl_solo``** — ``special_teams_play``, crediting
 ``solo_tackle_1/2_player_id`` plus ``tackle_with_assist_1/2_player_id``.
 The tackle-with-assist columns are load-bearing: solo-only lands 748 of
-759 over the sample, and adding them lands **758 of 759, exact in six of
-the seven weeks**. The one residual (week 3, one tackle) is a per-play
-charting difference between nflverse and the gamebook Sleeper reads, not
-a rule difference — week 1's other candidate, a blocked-field-goal
-return that nflverse does not flag as a special-teams play, is charged
-by neither side. Scoping by ``play_type`` instead of the flag scores
-that play and is measurably WORSE (759 of 759 in total but wrong in both
-directions), so the flag is what is used.
+759 over the seven-week sample, and adding them lands **758 of 759,
+exact in six of the seven weeks**. The one residual (week 3, one tackle)
+is a per-play charting difference between nflverse and the gamebook
+Sleeper reads, not a rule difference; week 3 is deliberately NOT among
+the committed fixtures, because pinning a known disagreement as an
+expectation is how a charting artifact becomes a requirement.
+
+Scoping by the ``special_teams_play`` flag rather than by ``play_type``
+is also measured, and week 1 is in the fixtures precisely because it
+discriminates them: a blocked-field-goal return that nflverse does not
+flag as a special-teams play carries a solo tackle the host charges to
+NEITHER side, so the wider ``play_type`` scope scores 122 against the
+host's 121. Over the seven-week sample that scope nets to 759 of 759 —
+right in total and wrong in both directions — which is why the total
+alone is not the test.
 
 **``st_ff``** — ``special_teams_play`` +
 ``forced_fumble_player_1/2_player_id``. Exact on all seven weeks (10 of
