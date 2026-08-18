@@ -4814,6 +4814,81 @@ from src.identity.picks import (  # noqa: E402
 _PICK_YEAR_DISCOUNT_CACHE: dict[str, Any] | None = None
 
 
+_TIER_ORDER: tuple[str, ...] = ("early", "mid", "late")
+
+
+def _pava_non_increasing(values: list[float]) -> list[float]:
+    """Pool-adjacent-violators projection onto the non-increasing cone.
+
+    The least-squares closest non-increasing sequence, equal weights.
+    Standard isotonic regression; pooling replaces a violating run with
+    its mean.
+    """
+    blocks: list[list[float]] = []  # [sum, count]
+    for value in values:
+        blocks.append([float(value), 1.0])
+        while len(blocks) > 1 and (blocks[-2][0] / blocks[-2][1]) < (blocks[-1][0] / blocks[-1][1]):
+            total, count = blocks.pop()
+            blocks[-1][0] += total
+            blocks[-1][1] += count
+    out: list[float] = []
+    for total, count in blocks:
+        out.extend([total / count] * int(count))
+    return out
+
+
+def _project_tier_steps_monotone(cells: dict[str, float]) -> dict[str, float]:
+    """Constrain the year-step surface so it cannot invert tier ordering.
+
+    **F-1.** Each ``<tier>.<round>`` cell is an independently measured
+    same-day vendor ratio, and the ratios RISE with tier — a late pick
+    decays less year-over-year than an early one.  That compresses the
+    Early-Late spread, and nothing stopped the compression before it
+    CROSSED.  On 2029 it crossed in six of six rounds: ``2029 Mid 1st``
+    priced 3676 against ``2029 Early 1st`` at 3593, so the trade
+    calculator booked a gain for downgrading, and ``/rankings`` published
+    the mid first ABOVE the early first.
+
+    Within a round the step is projected onto the non-increasing cone by
+    isotonic regression.  Two properties make this the constraint rather
+    than a patch:
+
+    * it acts on the DERIVATION SURFACE, not on output values — no clamp
+      sits downstream of the blend;
+    * a constant ratio applied to a strictly ordered template year yields
+      a strictly ordered derived year, so pooling can never produce a
+      TIE in value space.  Ordering is preserved **by construction**, for
+      every source and every template, with no epsilon.
+
+    Cells that already comply are returned unchanged, so the projection
+    is the identity wherever the measured surface is already consistent.
+
+    Classification stays **PRIOR** with the rest of
+    ``derivedYearModel``: the 2-out->3-out extrapolation was already
+    untestable on current evidence, and constraining it does not make it
+    measured.  The unprojected surface is preserved under
+    ``yearStepByTierRoundMeasured`` so the evidence is not overwritten by
+    the model built from it.
+    """
+    if not cells:
+        return {}
+    rounds: set[int] = set()
+    for key in cells:
+        tier, _, rnd = str(key).partition(".")
+        if tier in _TIER_ORDER and rnd.isdigit():
+            rounds.add(int(rnd))
+
+    projected = dict(cells)
+    for rnd in sorted(rounds):
+        keys = [f"{tier}.{rnd}" for tier in _TIER_ORDER]
+        if not all(k in cells for k in keys):
+            continue  # a partial round is left exactly as measured
+        fitted = _pava_non_increasing([float(cells[k]) for k in keys])
+        for key, value in zip(keys, fitted):
+            projected[key] = round(value, 6)
+    return projected
+
+
 def _load_pick_year_discount() -> dict[str, Any]:
     """Load and cache the canonical future-pick derivation config.
 
@@ -4894,6 +4969,15 @@ def _load_pick_year_discount() -> dict[str, Any]:
         # Stick with the built-in defaults — never block the build on
         # a missing/malformed pick-derivation config.
         pass
+
+    # F-1: the measured surface is EVIDENCE and is kept; what the
+    # derivation consumes is that surface projected onto the cone where
+    # it cannot invert tier ordering.  Keeping both means a future
+    # recalibration compares against what was measured, not against what
+    # was constrained.
+    measured = dict(cfg["yearStepByTierRound"])
+    cfg["yearStepByTierRoundMeasured"] = measured
+    cfg["yearStepByTierRound"] = _project_tier_steps_monotone(measured)
 
     _PICK_YEAR_DISCOUNT_CACHE = cfg
     return cfg
@@ -11833,6 +11917,41 @@ def validate_api_data_contract(payload: dict[str, Any]) -> dict[str, Any]:
                             errors.append(f"pick_completeness_census:{nm}:missing_or_unpriced")
                         elif not isinstance(row.get("pickValueProvenance"), dict):
                             errors.append(f"pick_completeness_census:{nm}:no_provenance")
+
+                    # F-1: an EARLIER pick must be worth MORE than a later
+                    # one.  The census above proves every cell is finite,
+                    # priced and provenanced — it said nothing about ORDER,
+                    # and for six of eighteen cells the order was wrong:
+                    # ``2029 Mid 1st`` published 3676 against ``2029 Early
+                    # 1st`` at 3593, so the trade calculator booked a gain
+                    # for downgrading and /rankings ranked the mid first
+                    # ABOVE the early first.  A finite, provenanced,
+                    # correctly-scaled, wrongly-ordered board passed every
+                    # other check in this function.
+                    tier_values = []
+                    for tier_name in ("Early", "Mid", "Late"):
+                        tier_row = pick_rows_by_name.get(
+                            f"{census_year} {tier_name} {_round_suffix(census_round)}"
+                        )
+                        tv = (
+                            tier_row.get("rankDerivedValue") if isinstance(tier_row, dict) else None
+                        )
+                        tier_values.append(
+                            float(tv)
+                            if isinstance(tv, (int, float))
+                            and not isinstance(tv, bool)
+                            and math.isfinite(float(tv))
+                            else None
+                        )
+                    if all(v is not None for v in tier_values) and not (
+                        tier_values[0] > tier_values[1] > tier_values[2]
+                    ):
+                        errors.append(
+                            "pick_tier_ordering:"
+                            f"{census_year}:r{census_round}:"
+                            f"early={tier_values[0]:.0f},mid={tier_values[1]:.0f},"
+                            f"late={tier_values[2]:.0f}"
+                        )
 
     # ── Top-50 per-source coverage floors ───────────────────────────────
     # Sort each asset class (offense / idp) by values.overall desc and
