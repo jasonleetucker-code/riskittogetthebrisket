@@ -1760,6 +1760,39 @@ independent adversarial pass over all 20 lenses), and Phase 5 (production proof 
 deployed SHA, the §22 board diff, and the full regression sweep) have not been completed. The
 verdict is withheld until they have.
 
+
+### F-31 · C2-U1's "unpriced" third state is unreachable on the live snapshot path · CONFIRMED · false green · **OPEN (assigned: lane 1)**
+
+**Found by reviewing `#914`, and disclosed BY `#914` rather than caught in spite of it.** Lane 1's
+own docstring for the new canonical `roster_player_from_row` adapter says it, and the claim was
+verified against the tree rather than taken on trust.
+
+C2-U1 made `RosterPlayer.ros_value` a `float | None` on a deliberate distinction: `0.0` is a real
+objective (assignable, contributes nothing) and `None` is UNKNOWN (not assignable, reported in
+`unpriced_ids`, its slot reported unfilled). That third state is the point of the type — the
+retired `float(player.ros_value or 0.0)` scored both identically while reporting slots as filled
+by players nobody can price.
+
+**The only live producer of the adapter's input destroys that state before the adapter sees it.**
+`src/ros/team_strength.py:123` drops any row whose `rosValue` is `<= 0` before writing the
+snapshot the roster adapters read, and line 165 carries its own `float(agg.get("rosValue") or 0.0)`.
+So on the production path `LineupAssignment.unpriced_ids` is **empty by construction**, however
+correct the canonical owner is.
+
+This is the false-green test applied to a repair rather than to a feature. The implementation is
+truthful; its live input is not, so the honest-missing state that C2-U1 exists to preserve never
+reaches it. Nothing is *wrong* on the board today — an unpriced player is excluded rather than
+mis-scored — but the guarantee C2-U1 is credited with is not in force where it matters, and
+`V1-27`'s production evidence should not be read as covering it.
+
+**Not fixed here, deliberately.** The repair is upstream in `ros/team_strength.py`, which is lane
+1's surface, and it is a behaviour change to the snapshot every roster consumer reads — it needs
+its own measured blast radius, not a drive-by edit from the integration lane. `#914` is not
+blocked on it: the adapter consolidation is a strict improvement and the disclosure is what makes
+this finding possible.
+
+Owner: lane 1. Related: `V1-27` (C2-U1), `#914`.
+
 ### Interruption: the 2026-08-18 CI incident
 
 This audit was suspended mid-phase to work a reported seven-workflow CI failure. Record:
