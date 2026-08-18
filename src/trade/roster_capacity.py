@@ -213,6 +213,30 @@ class ForcedDrop:
     value_basis: str
     #: 1-based ladder position; rung 1 goes first.
     rung: int
+    #: What releasing him ACTUALLY costs this roster: ``base x scarcity``.
+    #:
+    #: ``effective_cut_cost`` above is ``max(0, base - waiver) x scarcity`` and
+    #: is **0 for every player at or below waiver level** — which, on a roster
+    #: that is full, is exactly the tail the ladder selects. Measured on the
+    #: 2026-08-18 board: all twelve ``dynasty_main`` rosters produce forced
+    #: drops whose ECC is 0.0, so ``forced_drop_cut_cost`` summed to 0.0 while
+    #: ``forced_drop_value`` was 3,964 on the same trade.
+    #:
+    #: ECC is not wrong — it answers "what do I lose versus the wire", and
+    #: Bobby Wagner (1,312) really is below the LB waiver level (1,740). It is
+    #: the wrong QUESTION here: the vacated spot is consumed by the incoming
+    #: player, so there is no wire pickup to net against. Charging value over
+    #: replacement gives credit for a replacement you cannot sign.
+    #:
+    #: Perfect Draft hit this first and CLAUDE.md records its answer —
+    #: "releaseCost = baseValue x scarcityMultiplier ... ECC itself is unchanged
+    #: for its other consumers". This consumes that same rule rather than
+    #: inventing a third notion of what a cut costs.
+    release_cost: float = 0.0
+    #: Waiver level at his position, and the scarcity multiplier applied.
+    #: Published so the two costs above can be reconciled by a reader.
+    waiver_value: float = 0.0
+    scarcity_multiplier: float = 1.0
     #: True when this player ARRIVED in the trade being evaluated.  Not hidden:
     #: "this trade forces you to release the player you just acquired" is a
     #: real signal, and suppressing it would make the cheapest legal path
@@ -226,6 +250,9 @@ class ForcedDrop:
             "position": self.position,
             "value": None if self.value is None else round(self.value, 1),
             "effectiveCutCost": round(self.effective_cut_cost, 1),
+            "releaseCost": round(self.release_cost, 1),
+            "waiverValue": round(self.waiver_value, 1),
+            "scarcityMultiplier": round(self.scarcity_multiplier, 4),
             "valueBasis": self.value_basis,
             "rung": self.rung,
             "acquiredInTrade": self.acquired_in_trade,
@@ -274,6 +301,10 @@ class RosterCapacity:
     #: total is never quietly understated by treating missing as zero.
     forced_drop_value: float | None = None
     forced_drop_cut_cost: float | None = None
+    #: Sum of ``ForcedDrop.release_cost`` — the honest "what does this trade
+    #: cost me in releases". See ``ForcedDrop.release_cost`` for why
+    #: ``forced_drop_cut_cost`` beside it is structurally 0 on a full roster.
+    forced_drop_release_cost: float | None = None
     unpriced_forced_drops: int = 0
     #: True when the cut ladder ran out before the roster reached legal size —
     #: "no legal path modelled" and "no drops needed" render identically and
@@ -335,6 +366,11 @@ class RosterCapacity:
             ),
             "forcedDropCutCost": (
                 None if self.forced_drop_cut_cost is None else round(self.forced_drop_cut_cost, 1)
+            ),
+            "forcedDropReleaseCost": (
+                None
+                if self.forced_drop_release_cost is None
+                else round(self.forced_drop_release_cost, 1)
             ),
             "unpricedForcedDrops": self.unpriced_forced_drops,
             "ladderExhausted": self.ladder_exhausted,
@@ -719,6 +755,9 @@ def assess_roster_capacity(
                 position=rung.position,
                 value=(asset.board_value if asset is not None else None),
                 effective_cut_cost=rung.effective_cut_cost,
+                release_cost=float(rung.base_value) * float(rung.scarcity_multiplier),
+                waiver_value=float(rung.waiver_value),
+                scarcity_multiplier=float(rung.scarcity_multiplier),
                 value_basis=rung.value_basis,
                 rung=rung.rung,
                 acquired_in_trade=_norm(rung.player_id) in acquired_keys,
@@ -754,6 +793,7 @@ def assess_roster_capacity(
         forced_drops=drops,
         forced_drop_value=float(sum(priced)) if priced else 0.0,
         forced_drop_cut_cost=float(sum(d.effective_cut_cost for d in drops)),
+        forced_drop_release_cost=float(sum(d.release_cost for d in drops)),
         unpriced_forced_drops=sum(1 for d in drops if d.value is None),
         ladder_exhausted=exhausted,
         notes=notes,

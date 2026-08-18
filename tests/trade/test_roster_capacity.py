@@ -720,3 +720,91 @@ def test_to_dict_is_json_shaped():
     json.dumps(payload)  # must not raise
     assert payload["valueScale"] == "rankDerivedValue"
     assert payload["forcedDrops"][0]["valueScale"] == "rankDerivedValue"
+
+
+# ── Release cost vs Effective Cut Cost ────────────────────────────────
+#
+# `effective_cut_cost` is `max(0, base - waiver) x scarcity`, so it is **0 for
+# every player at or below waiver level** — which, on a roster that is full, is
+# exactly the tail the cut ladder selects. Measured on the 2026-08-18 board:
+# every one of the twelve `dynasty_main` rosters produces forced drops with
+# ECC 0.0, so `forcedDropCutCost` summed to 0.0 while `forcedDropValue` on the
+# same trade was 3,964.
+#
+# ECC is not WRONG, it answers a different question — "what do I lose against
+# the wire", and Bobby Wagner (1,312) really is below the LB waiver level
+# (1,740). It is the wrong question HERE: the vacated spot is consumed by the
+# incoming player, so there is no wire pickup to net against, and charging
+# value-over-replacement credits a replacement that cannot be signed.
+#
+# Perfect Draft hit this first; CLAUDE.md records its answer and this consumes
+# the same rule rather than inventing a third notion of what a cut costs.
+
+
+def test_release_cost_is_not_zero_when_the_cut_ladder_is_below_waiver_level():
+    roster = _roster(58)
+    contract, team = _contract(roster, extra_rows=_free_agents())
+    context = build_capacity_context(contract, None, team, roster_settings=MAIN_SETTINGS)
+    capacity = assess_roster_capacity(context, incoming_players=["Free Agent 00"])
+
+    assert capacity.forced_drops, "fixture forced no drops — it proves nothing"
+    drop = capacity.forced_drops[0]
+    # The whole point: a real cost where ECC reports none.
+    assert drop.release_cost > 0
+    assert capacity.forced_drop_release_cost == pytest.approx(
+        sum(d.release_cost for d in capacity.forced_drops)
+    )
+
+
+def test_release_cost_consumes_the_ladder_rather_than_re_deriving_scarcity():
+    """`base x scarcity`, with both read off the rung.
+
+    Re-deriving the multiplier here would be a fourth copy of a rule
+    `src/draft/displacement.py` already owns (its docstring names the third).
+    """
+    roster = _roster(58)
+    contract, team = _contract(roster, extra_rows=_free_agents())
+    context = build_capacity_context(contract, None, team, roster_settings=MAIN_SETTINGS)
+    capacity = assess_roster_capacity(context, incoming_players=["Free Agent 00"])
+
+    for drop in capacity.forced_drops:
+        base = drop.value if drop.value is not None else drop.waiver_value
+        assert drop.release_cost == pytest.approx(base * drop.scarcity_multiplier)
+
+
+def test_both_costs_are_published_so_they_can_be_reconciled():
+    """Neither number is removed.
+
+    `effectiveCutCost` keeps its meaning for the consumers that want value over
+    replacement; `releaseCost` answers the roster question. Publishing only one
+    would either hide the real cost or silently change what an existing field
+    means.
+    """
+    roster = _roster(58)
+    contract, team = _contract(roster, extra_rows=_free_agents())
+    context = build_capacity_context(contract, None, team, roster_settings=MAIN_SETTINGS)
+    payload = assess_roster_capacity(context, incoming_players=["Free Agent 00"]).to_dict()
+
+    assert {"forcedDropCutCost", "forcedDropReleaseCost"} <= set(payload)
+    row = payload["forcedDrops"][0]
+    assert {"effectiveCutCost", "releaseCost", "waiverValue", "scarcityMultiplier"} <= set(row)
+
+
+def test_an_above_replacement_drop_still_reports_both_costs():
+    """Where ECC is non-zero the two numbers differ but neither is zero.
+
+    Guards against "just alias releaseCost to ECC" — they are different
+    quantities, and a fixture where ECC happens to be 0 could not show that.
+    """
+    roster = _roster(58)
+    contract, team = _contract(roster, extra_rows=_free_agents())
+    context = build_capacity_context(contract, None, team, roster_settings=MAIN_SETTINGS)
+    capacity = assess_roster_capacity(context, incoming_players=["Free Agent 00"])
+
+    for drop in capacity.forced_drops:
+        if drop.effective_cut_cost > 0:
+            assert drop.release_cost > drop.effective_cut_cost, (
+                "release cost must exceed value-over-replacement — it does not "
+                "net out the waiver level"
+            )
+            break
