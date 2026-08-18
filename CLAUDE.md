@@ -1150,17 +1150,32 @@ Rules for new code:
 
 Bid history lives in ``data/faab/bid_history_<leagueKey>.json``
 (gitignored like the rest of ``data/``), written by
-``scripts/fetch_faab_history.py``; run it on prod.  Without it the
-engine falls back to configured priors plus the live analytics block
-and says so in ``contention.notes``.  Note
-``src/api/faab_analytics.py`` gates its median on ``bid > 0`` and so
-reports 2.00% of budget where the true median is 0.00% — measured
-2026-08-04, 41-77% of adds cost nothing per season (combined 56.6% in
-``dynasty_main``, 50.3% in ``dynasty_new``).  ``src/trade/faab_history.py``
-keeps zero bids for exactly that reason; prefer it for anything
-market-facing.  ``faab_analytics.py`` is unchanged and still powers the
-history panel, so anything reading ``leagueMedianWinningBid`` is reading
-a nonzero-only median.
+``scripts/fetch_faab_history.py``, which runs daily on prod via the
+``dynasty-faab-history`` timer (V1-57).  Distinct from
+``dynasty-crowd-faab``, which collects what OTHER leagues pay: this one
+collects what THIS league pays, and it is what the market priors are
+fitted from.  Without the file the engine falls back to configured
+priors plus the live analytics block and says so in
+``contention.notes``.
+
+**CORRECTED 2026-08-18.**  This section used to say
+``src/api/faab_analytics.py`` "gates its median on ``bid > 0``" and that
+"anything reading ``leagueMedianWinningBid`` is reading a nonzero-only
+median".  That is **no longer true and had become actively misleading**
+— it told a reader to distrust a number that is now correct, and to
+prefer a different module on grounds that no longer hold.
+``faab_analytics.py`` KEEPS $0 bids (see the comment at its
+``all_bids.append(bid)``) and computes both the mean and the median over
+the full set, pinned by
+``tests/api/test_faab_analytics.py::test_zero_bid_free_agents_are_counted``.
+
+The measurement that motivated the fix still stands and is why it
+mattered: 41-77% of adds cost nothing per season (combined 56.6% in
+``dynasty_main``, 50.3% in ``dynasty_new``), so a nonzero-only median
+reported ~2% of budget where the true median is 0% — roughly a 200x
+overstatement of the single most important number in the market model.
+``src/trade/faab_history.py`` keeps zero bids for the same reason; the
+two now agree rather than one being preferred over the other.
 
 Did it work?  ``scripts/faab_backtest.py`` replays this league's real
 claims through both models (384 of 695 join to a canonical value today).

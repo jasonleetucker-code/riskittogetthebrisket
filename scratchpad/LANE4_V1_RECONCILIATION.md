@@ -15,7 +15,7 @@
 | # | Item | State | Owner / blocker |
 |---|---|---|---|
 | V1-55 | FAAB engine verification | **verified** — 526 tests in `tests/trade/` incl. `test_faab_engine`, `test_faab_calibration` (pins the derived all-in line against two managers' stated judgments), `test_faab_config_parity` (no in-code default may drift from `faab.json`) | — |
-| V1-56 | FAAB context production verification | **partly blocked** — endpoint contract is pinned (`tests/api/test_faab_recommend_endpoint.py`, 26 tests) and now publishes `crowdMarket` state + `staleInputs`. Verifying the *production* context needs prod access | Claude 5 (prod) |
+| V1-56 | FAAB context production verification | **advanced — the context number is correct and the canonical doc said it wasn't** — see below. Verifying the *running* production instance still needs prod access | Claude 5 (prod half) |
 | V1-57 | Scheduled FAAB bid-history collection | **DONE this pass** — see below | — |
 | V1-58 | Sharp cohort production population | **UNVERIFIED, not empty** — blocked on prod auth | Claude 5 (prod) |
 | V1-59 | Failing Sharp/bootstrap path | **diagnosed, blocked** — same root cause as V1-58 | Claude 5 (prod) |
@@ -140,6 +140,38 @@ matching nothing, and a negative control so docstrings stay allowed. The gate
 asymmetry itself was already pinned by
 `tests/sharp/test_sharp_gates.py::test_keeper_is_not_sharp_eligible_even_with_history`,
 so this adds the half that was missing rather than duplicating it.
+
+## V1-56 — the FAAB context strip is correct; CLAUDE.md said it was not
+
+"FAAB context" is the `/waivers` league-FAAB strip, served from
+`/api/public/league/faabAnalytics` (`src/api/faab_analytics.py`) through the
+lazy public-league envelope.
+
+Its headline field, `leagueMedianWinningBid`, is **correct**:
+`faab_analytics.py` keeps $0 bids and computes both mean and median over the
+full set, pinned by
+`tests/api/test_faab_analytics.py::test_zero_bid_free_agents_are_counted`.
+
+**CLAUDE.md still said the opposite**, in the canonical FAAB section:
+
+> `src/api/faab_analytics.py` gates its median on `bid > 0` … `faab_analytics.py`
+> is unchanged and still powers the history panel, so anything reading
+> `leagueMedianWinningBid` is reading a nonzero-only median.
+
+That claim is stale and was actively misleading: it told a reader to distrust
+a number that is now right, and to prefer `faab_history.py` for market-facing
+use on grounds that no longer hold. Corrected under CLAUDE.md's own precedence
+rule — *live code or executable evidence can prove a status claim in any
+document, including this one, stale.*
+
+Why it mattered enough to be worth writing down twice: 41-77% of adds cost
+nothing per season, so a nonzero-only median reports ~2% of budget where the
+truth is 0% — about a **200x** overstatement of the single most important
+number in the market model. On a representative bid set the two readings are
+`0.0` and `8.5`.
+
+**This edit touches `CLAUDE.md`, a shared governance file — flagged for Claude
+5 rather than treated as a lane-local change.**
 
 ## V1-58 / V1-59 — blocked on production access, and honestly so
 
