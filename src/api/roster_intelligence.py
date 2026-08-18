@@ -9,25 +9,37 @@ portfolio — for one league, with the requesting team broken out.
 the shell that loads inputs and shapes a response, the same relationship
 ``server.py::get_gameplan`` has with ``src/api/gameplan.py``.
 
-Inputs are reused, not reloaded
-===============================
+The roster source is the CONTRACT, and that is load-bearing
+===========================================================
 
-``gameplan.get_league_bundle`` already loads every input this needs —
-rosters, the league's starter slots, ages, replacement levels — and
-caches the expensive solve on a source stamp.  Building a second loader
-here would give the two surfaces two views of the same league, which is
-the failure mode the whole lane exists to remove.
+Rosters come from ``data_contract.contract_roster_pools`` — the same
+builder the ``optimalLineup`` stamp uses — not from the ROS
+team-strength snapshot.  Two defects made the snapshot the wrong
+source, and both are gone as a consequence rather than as a patch:
 
-Two limitations, named rather than implied
-==========================================
+**It carried the wrong QUANTITY.**  Its ``rosValue`` is "a normalized
+log-rank index on 0-100, not points, and not projection-aware"
+(``src/ros/aggregate.py``) — a rest-of-season PRODUCTION measure.
+``MASTER_PRODUCT_PLAN`` §4.1 says Team Strength "is not Power Ranking,
+Playoff Odds, or ROS production" and must use canonical league values.
+Team Strength was therefore summing the wrong number entirely; it now
+sums ``rankDerivedValue`` on the canonical 1-9999 dynasty scale.
 
-**The roster source drops unpriced players.**
-``ros/team_strength.py`` skips rows with ``rosValue <= 0`` before
-writing the snapshot ``load_league_inputs`` reads.  So ``unpricedIds``
-is empty **by construction** on this path — not because every player
-was priced, but because the ones that were not never arrived.  Stamped
-as ``rosterSource`` + ``unpricedVisibility`` so a reader cannot mistake
-an empty list for a complete roster.
+**It dropped unpriced players before anyone could see them.**
+``ros/team_strength.py`` skips every row with ``rosValue <= 0`` when
+writing, so ``unpriced_ids`` was structurally empty — not because every
+player was priced, but because the unpriced ones never arrived.  V1's
+MISSING IS NEVER ZERO rule requires a consumer to tell an unpriced
+asset from a valued-zero one, and a source that deletes the evidence
+makes that impossible downstream however correct the consumer is.
+Measured on the live 12-team board: **49 of 660 rostered players
+(7.4%) carry no canonical value**, and every one of them is now
+reported in ``unpricedIds`` instead of vanishing.
+
+A third consequence, worth stating because it removes a real
+operational fragility: the endpoint no longer needs the ROS refresh to
+have run at all.  The contract is always loaded, so roster
+intelligence cannot be dark because a different lane's timer failed.
 
 **Positional ranks are measured against the contract board.**  "Top 12
 QB" is a statement about a player's standing, not about who owns him,
@@ -42,7 +54,7 @@ import math
 import time
 from typing import Any, Mapping
 
-from src.api import gameplan as _gameplan
+from src.api.data_contract import contract_roster_pools
 from src.roster_intel.age_portfolio import (
     build_age_portfolio,
     build_youth_curve,
@@ -61,13 +73,15 @@ __all__ = [
 
 ROSTER_INTELLIGENCE_CONTRACT_VERSION = "roster-intelligence/2026-08-18.v1"
 
-#: What ``load_league_inputs`` reads, and what it silently excludes.
-_ROSTER_SOURCE = "ros_team_strength_snapshot"
+#: Where rosters and values come from.  Named in the payload because a
+#: consumer comparing two responses must know they were built the same
+#: way — and because this value CHANGED (it was the ROS snapshot, which
+#: carried a production index and pre-deleted unpriced players).
+_ROSTER_SOURCE = "canonical_contract"
 _UNPRICED_VISIBILITY = (
-    "unpriced players are excluded by the roster snapshot writer "
-    "(ros/team_strength.py drops rosValue <= 0), so unpricedIds is empty "
-    "by construction on this path and is NOT evidence that every player "
-    "was priced"
+    "rostered players the canonical board did not price are reported in "
+    "unpricedIds and excluded from every value aggregate; they are never "
+    "counted as zero"
 )
 _RANK_POPULATION = "contract_board_priced_players"
 
@@ -77,11 +91,25 @@ class TeamNotInLeague(Exception):
 
 
 def _board_players(contract: Mapping[str, Any] | None) -> list[tuple[str, str, float | None]]:
-    """``(playerId, position, value)`` for every priced non-pick row.
+    """``(playerKey, position, value)`` for every non-pick board row.
+
+    ``playerKey`` is the CANONICAL NAME, not the Sleeper id, because
+    that is what ``contract_roster_pools`` keys a ``RosterPlayer`` by —
+    and every consumer of this list looks its rows up by
+    ``CoreMember.player_id``.
+
+    That is not a stylistic choice; keying it by ``playerId`` is a
+    silent-failure bug, and this function had it. Positional ranks then
+    matched nothing, so every weakness rung reported UNKNOWN, and the
+    youth curve was empty, so every Young Core Index came back ``None``.
+    Nothing raised — the payload was fully shaped and entirely
+    unpopulated, which is precisely the failure mode the missing-vs-zero
+    discipline exists to make visible. It was caught by running the real
+    12-team board and seeing twelve ``None`` indices, not by a test.
 
     Picks are excluded because they are not players and cannot hold a
     positional rank; unpriced rows are carried through with ``None`` so
-    ``build_position_ranks`` can exclude them for its own stated reason
+    ``build_position_ranks`` excludes them for its own stated reason
     rather than never seeing them.
     """
     rows: list[tuple[str, str, float | None]] = []
@@ -90,26 +118,44 @@ def _board_players(contract: Mapping[str, Any] | None) -> list[tuple[str, str, f
     for row in contract.get("playersArray") or []:
         if not isinstance(row, Mapping) or row.get("assetClass") == "pick":
             continue
-        pid = str(row.get("playerId") or "").strip()
         position = str(row.get("position") or "").strip()
-        if not pid or not position:
+        if not position:
             continue
         value = row.get("rankDerivedValue")
-        rows.append((pid, position, float(value) if isinstance(value, (int, float)) else None))
+        priced = float(value) if isinstance(value, (int, float)) else None
+        for key in (row.get("canonicalName"), row.get("displayName")):
+            if key:
+                rows.append((str(key), position, priced))
+                break
     return rows
 
 
-def _ages(bundle: _gameplan.LeagueBundle) -> dict[str, float | None]:
-    """``{playerId: age}`` from the bundle's contract-derived meta."""
-    return {
-        pid: float(meta["age"])
-        for pid, meta in bundle.inputs.player_meta.items()
-        if isinstance(meta, Mapping) and meta.get("age") is not None
-    }
+def _ages(contract: Mapping[str, Any] | None) -> dict[str, float | None]:
+    """``{playerName: age}`` from the canonical board.
+
+    Keyed by the SAME name ``contract_roster_pools`` keys players by, so
+    an age lookup cannot silently miss every player because two halves
+    of this module disagreed about the join key.  A non-positive age is
+    dropped rather than carried: Sleeper writes ``0`` for an unresolved
+    record, and ``0`` is exactly the value that would make a roster look
+    historically young.
+    """
+    out: dict[str, float | None] = {}
+    if not isinstance(contract, Mapping):
+        return out
+    for row in contract.get("playersArray") or []:
+        if not isinstance(row, Mapping) or row.get("assetClass") == "pick":
+            continue
+        age = row.get("age")
+        if not isinstance(age, (int, float)) or age <= 0:
+            continue
+        for key in (row.get("canonicalName"), row.get("displayName")):
+            if key:
+                out.setdefault(str(key), float(age))
+    return out
 
 
 def build_league_roster_intelligence(
-    bundle: _gameplan.LeagueBundle,
     contract: Mapping[str, Any] | None,
     *,
     team_count: int | None = None,
@@ -123,21 +169,20 @@ def build_league_roster_intelligence(
     prevents.
     """
     t0 = time.perf_counter()
-    slots = list(bundle.inputs.slots)
-    ages = _ages(bundle)
+    pools, slots, slot_source = contract_roster_pools(dict(contract or {}))
+    team_names = _team_names(contract)
+    ages = _ages(contract)
 
     board = _board_players(contract)
     ranks = build_position_ranks(board, population=_RANK_POPULATION)
     youth = build_youth_curve([(position, ages.get(pid)) for pid, position, _ in board])
 
-    # The league's OWN size, measured from the rosters we loaded, with
-    # the registry's declared count preferred when supplied: a snapshot
-    # missing one roster must not shrink every weakness threshold.
-    n_teams = int(team_count) if team_count else len(bundle.inputs.teams)
+    # The league's OWN size, with the registry's declared count preferred
+    # when supplied: a contract missing one roster must not shrink every
+    # weakness threshold.
+    n_teams = int(team_count) if team_count else len(pools)
 
-    cores = {
-        team.owner_id: build_meaningful_core(list(team.pool), slots) for team in bundle.inputs.teams
-    }
+    cores = {oid: build_meaningful_core(pool, slots) for oid, pool in pools.items()}
     strengths = rank_team_strengths({oid: build_team_strength(core) for oid, core in cores.items()})
     weaknesses = {
         oid: build_team_weakness(core, ranks, team_count=n_teams) for oid, core in cores.items()
@@ -148,54 +193,54 @@ def build_league_roster_intelligence(
                 core,
                 ages,
                 youth=youth,
-                full_roster=_full_roster_values(bundle, oid),
+                full_roster=[
+                    (pl.player_id, float(pl.ros_value))
+                    for pl in pools[oid]
+                    if pl.ros_value is not None
+                ],
             )
             for oid, core in cores.items()
         }
     )
 
     teams = {
-        team.owner_id: {
-            "ownerId": team.owner_id,
-            "teamName": team.team_name,
-            "core": cores[team.owner_id].to_dict(),
-            "strength": strengths[team.owner_id].to_dict(),
-            "weakness": weaknesses[team.owner_id].to_dict(),
-            "agePortfolio": portfolios[team.owner_id].to_dict(),
+        oid: {
+            "ownerId": oid,
+            "teamName": team_names.get(oid, ""),
+            "rosteredCount": len(pools[oid]),
+            "core": cores[oid].to_dict(),
+            "strength": strengths[oid].to_dict(),
+            "weakness": weaknesses[oid].to_dict(),
+            "agePortfolio": portfolios[oid].to_dict(),
         }
-        for team in bundle.inputs.teams
+        for oid in pools
     }
 
     return {
         "contractVersion": ROSTER_INTELLIGENCE_CONTRACT_VERSION,
-        "leagueKey": bundle.inputs.league_key,
+        "leagueKey": (contract or {}).get("meta", {}).get("leagueKey"),
         "teamCount": n_teams,
         "starterSlots": slots,
+        "slotSource": slot_source,
         "rosterSource": _ROSTER_SOURCE,
         "unpricedVisibility": _UNPRICED_VISIBILITY,
         "rankPopulation": _RANK_POPULATION,
         "teams": teams,
-        "notes": list(bundle.inputs.notes),
         "timing": {"computeMs": round((time.perf_counter() - t0) * 1000.0, 1)},
     }
 
 
-def _full_roster_values(bundle: _gameplan.LeagueBundle, owner_id: str) -> list[tuple[str, float]]:
-    """``(playerId, value)`` over the WHOLE roster, for the addendum's
-    secondary full-roster age.
-
-    Rows carrying no ``rosValue`` are SKIPPED rather than valued at 0:
-    a zero-weight row would contribute nothing to a value-weighted mean
-    anyway, but writing the coercion invites the next reader to copy it
-    somewhere it does matter.
-    """
-    team = bundle.team(owner_id)
-    out: list[tuple[str, float]] = []
-    for row in team.rows if team else ():
-        pid = str(row.get("playerId") or "")
-        value = row.get("rosValue")
-        if pid and isinstance(value, (int, float)):
-            out.append((pid, float(value)))
+def _team_names(contract: Mapping[str, Any] | None) -> dict[str, str]:
+    """``{ownerId: teamName}`` from the contract's sleeper block."""
+    out: dict[str, str] = {}
+    sleeper = (contract or {}).get("sleeper")
+    if not isinstance(sleeper, Mapping):
+        return out
+    for team in sleeper.get("teams") or []:
+        if isinstance(team, Mapping):
+            oid = str(team.get("ownerId") or "")
+            if oid:
+                out[oid] = str(team.get("name") or team.get("sleeperTeamName") or "")
     return out
 
 
@@ -219,8 +264,6 @@ def _league_context_order(item: tuple[str, Mapping[str, Any]]) -> tuple[bool, fl
 
 
 def get_team_roster_intelligence(
-    league_key: str,
-    scoring_profile: str,
     contract: Mapping[str, Any] | None,
     owner_id: str,
     *,
@@ -229,12 +272,16 @@ def get_team_roster_intelligence(
     """One team's roster intelligence, plus the league context it is
     ranked against.
 
-    Raises :class:`TeamNotInLeague` when the owner has no roster, and
-    ``gameplan.GameplanUnavailable`` when the inputs are not loadable —
-    both distinct from "this team has nothing", which is a real answer.
+    Raises :class:`TeamNotInLeague` when the owner has no roster in this
+    contract — distinct from "this team has nothing", which is a real
+    answer with a real payload.
+
+    ``league_key`` / ``scoring_profile`` were parameters while this read
+    the ROS snapshot through ``gameplan.get_league_bundle``; the
+    contract carries its own league identity, so they are gone rather
+    than left accepted-and-ignored.
     """
-    bundle, cache_hit = _gameplan.get_league_bundle(league_key, scoring_profile, contract)
-    league = build_league_roster_intelligence(bundle, contract, team_count=team_count)
+    league = build_league_roster_intelligence(contract, team_count=team_count)
     team = league["teams"].get(str(owner_id))
     if team is None:
         raise TeamNotInLeague(str(owner_id))
@@ -255,5 +302,4 @@ def get_team_roster_intelligence(
         for oid, t in sorted(league["teams"].items(), key=_league_context_order)
     ]
     payload.pop("teams", None)
-    payload["timing"] = {**league["timing"], "bundleCacheHit": cache_hit}
     return payload

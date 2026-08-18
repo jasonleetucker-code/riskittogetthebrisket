@@ -6934,21 +6934,9 @@ async def get_roster_intelligence(request: Request):
     try:
         payload = await run_in_threadpool(
             _roster_intelligence.get_team_roster_intelligence,
-            league_cfg.key,
-            league_cfg.scoring_profile,
             contract,
             owner_id,
             team_count=declared_teams,
-        )
-    except _gameplan.GameplanUnavailable as exc:
-        return JSONResponse(
-            status_code=503,
-            content={
-                "error": "data_not_ready",
-                "reason": exc.reason,
-                "message": exc.detail,
-                "leagueKey": league_cfg.key,
-            },
         )
     except _roster_intelligence.TeamNotInLeague:
         return JSONResponse(

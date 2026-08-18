@@ -3,100 +3,79 @@
 The shell over the canonical roster-intelligence chain. What matters
 here is that it composes the owners rather than recomputing anything,
 that the league-relative half is computed league-wide (a rank invented
-for one team in isolation is not a rank), and that the two known
-limitations are STAMPED rather than implied.
+for one team in isolation is not a rank), and that unpriced roster
+membership SURVIVES to the consumer.
 
-Builds a synthetic ``LeagueBundle`` rather than reading a live snapshot:
-``data/ros/team_strength/`` is a gitignored production artifact, so a
-test that needed it would be a `livedata` test and would give the hard
-gate no coverage at all.
+Fixtures are contracts, not ROS bundles, and that is the point of the
+suite as much as its setup: rosters now come from
+``data_contract.contract_roster_pools`` — canonical ``rankDerivedValue``
+over full ``sleeper.teams[].players`` membership — rather than from the
+ROS team-strength snapshot, which carried a 0-100 production index and
+deleted every unpriced player before writing.
 """
 
 from __future__ import annotations
 
 import pytest
 
-from src.api import gameplan as _gameplan
 from src.api import roster_intelligence as ri
 from src.roster_intel.core import build_meaningful_core
 from src.roster_intel.strength import build_team_strength
 
-_SLOTS = ("QB", "RB", "RB", "WR", "WR", "WR", "TE", "FLEX", "SUPER_FLEX")
+_SLOTS = ["QB", "RB", "RB", "WR", "WR", "WR", "TE", "FLEX", "SUPER_FLEX"]
 
 
-def _row(pid, pos, value):
-    return {
-        "playerId": pid,
-        "canonicalName": pid,
-        "position": pos,
-        "rosValue": value,
-        "confidence": 1.0,
-    }
-
-
-def _team(owner_id, *, scale=1.0, depth=4):
-    rows = []
-    for pos in ("QB", "RB", "WR", "TE"):
-        for i in range(depth):
-            rows.append(_row(f"{owner_id}_{pos}{i}", pos, round((900 - i * 90) * scale, 2)))
-    return _gameplan.TeamInput(
-        owner_id=owner_id,
-        team_name=f"Team {owner_id}",
-        rows=tuple(rows),
-        pool=tuple(_gameplan.to_roster_players(rows)),
-    )
-
-
-def _bundle(n_teams=4, ages=True):
-    teams = tuple(_team(f"o{i}", scale=1.0 + i * 0.1) for i in range(n_teams))
-    player_meta = {}
-    if ages:
-        for t in teams:
-            for j, row in enumerate(t.rows):
-                player_meta[row["playerId"]] = {"age": 22.0 + (j % 8)}
-    inputs = _gameplan.LeagueInputs(
-        league_key="test_league",
-        scoring_profile="test_profile",
-        slots=_SLOTS,
-        teams=teams,
-        player_meta=player_meta,
-        site_values={},
-        playoff_odds=None,
-        source_stamp="stamp",
-        notes=("a note from the loader",),
-    )
-    return _gameplan.LeagueBundle(
-        inputs=inputs,
-        replacement={},
-        scarcity={},
-        lineup_scores={},
-        intel={},
-        signals={},
-        compute_ms=0.0,
-    )
-
-
-def _contract(bundle):
-    return {
+def _contract(n_teams=4, *, ages=True, depth=4, unpriced=0, teams_present=True):
+    """A minimal but REAL-shaped contract: sleeper block + board."""
+    positions, rows, teams = {}, [], []
+    for ti in range(n_teams):
+        owner, names = f"o{ti}", []
+        for pos in ("QB", "RB", "WR", "TE"):
+            for i in range(depth):
+                name = f"{owner}_{pos}{i}"
+                names.append(name)
+                positions[name] = pos
+                rows.append(
+                    {
+                        "playerId": f"id_{name}",
+                        "canonicalName": name,
+                        "displayName": name,
+                        "position": pos,
+                        "rankDerivedValue": round((900 - i * 90) * (1 + ti * 0.1), 2),
+                        **({"age": 22.0 + (i % 8)} if ages else {}),
+                    }
+                )
+        # Rostered players the board never priced: present on the roster,
+        # absent from ``playersArray`` entirely.
+        for u in range(unpriced):
+            name = f"{owner}_GHOST{u}"
+            names.append(name)
+            positions[name] = "WR"
+        teams.append({"ownerId": owner, "name": f"Team {owner}", "players": names})
+    contract = {
         "meta": {"leagueKey": "test_league"},
-        "playersArray": [
+        "playersArray": rows
+        + [
             {
-                "playerId": row["playerId"],
-                "position": row["position"],
-                "rankDerivedValue": row["rosValue"],
-                "age": (bundle.inputs.player_meta.get(row["playerId"]) or {}).get("age"),
+                "playerId": "mp1",
+                "canonicalName": "2027 Pick 1.01",
+                "position": "PICK",
+                "assetClass": "pick",
+                "rankDerivedValue": 5000,
             }
-            for t in bundle.inputs.teams
-            for row in t.rows
-        ]
-        # A pick row, which must never reach a positional rank.
-        + [{"playerId": "mp1", "position": "PICK", "assetClass": "pick", "rankDerivedValue": 5000}],
+        ],
+        "sleeper": {
+            "rosterPositions": list(_SLOTS) + ["BN", "BN"],
+            "positions": positions,
+            "teams": teams if teams_present else [],
+        },
     }
+    return contract
 
 
 def _league(**kw):
-    b = _bundle(**kw)
-    return b, ri.build_league_roster_intelligence(b, _contract(b), team_count=12)
+    c = _contract(**kw)
+    return c, ri.build_league_roster_intelligence(c, team_count=12)
 
 
 # ══ It composes the owners; it recomputes nothing ══════════════════
@@ -106,43 +85,79 @@ def test_every_team_carries_all_four_outputs():
     _, out = _league()
     assert len(out["teams"]) == 4
     for team in out["teams"].values():
-        assert set(team) == {"ownerId", "teamName", "core", "strength", "weakness", "agePortfolio"}
+        assert {
+            "ownerId",
+            "teamName",
+            "rosteredCount",
+            "core",
+            "strength",
+            "weakness",
+            "agePortfolio",
+        } == set(team)
 
 
 def test_the_payload_matches_the_owners_called_directly():
     """If this drifts, the endpoint and a direct `src.roster_intel`
     consumer are giving two answers to one question — the failure the
     whole lane exists to remove."""
-    bundle, out = _league()
-    team = bundle.inputs.teams[0]
-    core = build_meaningful_core(list(team.pool), list(_SLOTS))
-    assert out["teams"][team.owner_id]["core"]["members"] == core.to_dict()["members"]
-    assert (
-        out["teams"][team.owner_id]["strength"]["total"]
-        == build_team_strength(core).to_dict()["total"]
-    )
+    from src.api.data_contract import contract_roster_pools
+
+    c, out = _league()
+    pools, slots, _ = contract_roster_pools(c)
+    core = build_meaningful_core(pools["o0"], slots)
+    assert out["teams"]["o0"]["core"]["members"] == core.to_dict()["members"]
+    assert out["teams"]["o0"]["strength"]["total"] == build_team_strength(core).to_dict()["total"]
 
 
 def test_league_relative_fields_are_computed_across_the_whole_league():
     """A rank invented for one team in isolation is not a rank."""
     _, out = _league()
-    ranks = sorted(t["strength"]["leagueRank"] for t in out["teams"].values())
-    assert ranks == [1, 2, 3, 4]
-    indices = [t["agePortfolio"]["youngCoreIndex"] for t in out["teams"].values()]
-    assert all(i is not None for i in indices)
+    assert sorted(t["strength"]["leagueRank"] for t in out["teams"].values()) == [1, 2, 3, 4]
+    assert all(t["agePortfolio"]["youngCoreIndex"] is not None for t in out["teams"].values())
 
 
-# ══ Limitations are stamped, not implied ═══════════════════════════
+# ══ Unpriced roster membership SURVIVES ════════════════════════════
 
 
-def test_unpriced_visibility_is_stamped():
-    """`unpricedIds` is empty by construction on this path because the
-    snapshot writer drops unpriced rows. A reader must not mistake that
-    for a fully priced roster."""
+def test_unpriced_rostered_players_reach_the_consumer():
+    """THE repair. The ROS snapshot dropped `rosValue <= 0` before
+    writing, so `unpricedIds` was structurally empty — not because every
+    player was priced, but because the unpriced ones never arrived.
+
+    V1's missing-is-never-zero rule requires the consumer to tell an
+    unpriced asset from a valued-zero one, and a source that deletes the
+    evidence makes that impossible however correct the consumer is.
+    """
+    _, out = _league(unpriced=3)
+    for team in out["teams"].values():
+        unpriced = team["core"]["unpricedIds"]
+        assert len(unpriced) == 3, unpriced
+        assert all(u.endswith(("GHOST0", "GHOST1", "GHOST2")) for u in unpriced)
+
+
+def test_an_unpriced_player_is_neither_in_the_core_nor_valued_at_zero():
+    _, out = _league(unpriced=2)
+    team = out["teams"]["o0"]
+    core_ids = {m["playerId"] for m in team["core"]["members"]}
+    assert not (core_ids & set(team["core"]["unpricedIds"]))
+    # And they did not drag the aggregate down by counting as 0.
+    _, clean = _league(unpriced=0)
+    assert team["strength"]["total"] == clean["teams"]["o0"]["strength"]["total"]
+
+
+def test_roster_count_includes_unpriced_players():
+    """`rosteredCount` is roster MEMBERSHIP, so it must count players the
+    board could not price — otherwise the payload silently agrees with
+    the source that deleted them."""
+    _, out = _league(unpriced=3)
+    _, clean = _league(unpriced=0)
+    assert out["teams"]["o0"]["rosteredCount"] == clean["teams"]["o0"]["rosteredCount"] + 3
+
+
+def test_unpriced_visibility_is_stamped_and_names_the_real_source():
     _, out = _league()
-    assert out["rosterSource"] == "ros_team_strength_snapshot"
-    assert "ros/team_strength.py" in out["unpricedVisibility"]
-    assert "NOT evidence" in out["unpricedVisibility"]
+    assert out["rosterSource"] == "canonical_contract"
+    assert "never counted as zero" in out["unpricedVisibility"]
 
 
 def test_rank_population_is_stamped():
@@ -152,48 +167,40 @@ def test_rank_population_is_stamped():
         assert team["weakness"]["rankPopulation"] == "contract_board_priced_players"
 
 
-def test_loader_notes_are_carried_through():
-    """The bundle's own notes describe real incomparabilities; dropping
-    them here would hide them."""
-    _, out = _league()
-    assert "a note from the loader" in out["notes"]
+# ══ The board join key ═════════════════════════════════════════════
 
 
-# ══ Thresholds use the DECLARED league size ════════════════════════
-
-
-def test_declared_team_count_wins_over_the_roster_count():
-    """A snapshot missing one roster must not shrink every weakness
-    threshold — the bug would look like the whole league improving."""
-    bundle = _bundle(n_teams=4)
-    out = ri.build_league_roster_intelligence(bundle, _contract(bundle), team_count=12)
-    rungs = out["teams"]["o0"]["weakness"]["needs"]
-    qb = next(n for n in rungs if n["position"] == "QB")
-    assert [r["thresholdRank"] for r in qb["rungs"]] == [12, 24]
-
-
-def test_roster_count_is_the_fallback_not_a_constant():
-    bundle = _bundle(n_teams=4)
-    out = ri.build_league_roster_intelligence(bundle, _contract(bundle))
-    assert out["teamCount"] == 4
-    qb = next(n for n in out["teams"]["o0"]["weakness"]["needs"] if n["position"] == "QB")
-    assert [r["thresholdRank"] for r in qb["rungs"]] == [4, 8]
-
-
-# ══ Board population ═══════════════════════════════════════════════
+def test_board_rows_are_keyed_by_the_name_the_pools_use():
+    """Keying the board by `playerId` while pools key by name is a
+    SILENT failure: ranks match nothing, so every weakness rung reports
+    UNKNOWN and every Young Core Index comes back None — with a fully
+    shaped payload and no exception. It shipped that way briefly and was
+    caught by running a real board, not by a test. This is the test."""
+    c, out = _league()
+    rows = ri._board_players(c)
+    keys = {k for k, _, _ in rows}
+    assert "o0_QB0" in keys
+    assert not any(k.startswith("id_") for k in keys)
+    # And the downstream consequence is asserted, not just the shape.
+    for team in out["teams"].values():
+        assert team["agePortfolio"]["youngCoreIndex"] is not None
+        assert any(
+            r["status"] != "unknown" for need in team["weakness"]["needs"] for r in need["rungs"]
+        )
 
 
 def test_picks_never_enter_the_positional_rank_population():
-    bundle = _bundle()
-    rows = ri._board_players(_contract(bundle))
-    assert all(pos != "PICK" for _, pos, _ in rows)
+    c = _contract()
+    assert all(pos != "PICK" for _, pos, _ in ri._board_players(c))
 
 
 def test_an_unpriced_board_row_is_carried_as_none_not_dropped_silently():
     """`build_position_ranks` owns the decision to exclude it, and does
     so for a stated reason. Filtering here would move that decision
     somewhere it is not explained."""
-    contract = {"playersArray": [{"playerId": "x", "position": "QB", "rankDerivedValue": None}]}
+    contract = {
+        "playersArray": [{"canonicalName": "x", "position": "QB", "rankDerivedValue": None}]
+    }
     assert ri._board_players(contract) == [("x", "QB", None)]
 
 
@@ -201,20 +208,33 @@ def test_no_contract_yields_an_empty_board_rather_than_raising():
     assert ri._board_players(None) == []
 
 
+# ══ Thresholds use the DECLARED league size ════════════════════════
+
+
+def test_declared_team_count_wins_over_the_roster_count():
+    """A contract missing one roster must not shrink every weakness
+    threshold — the bug would look like the whole league improving."""
+    _, out = _league(n_teams=4)
+    qb = next(n for n in out["teams"]["o0"]["weakness"]["needs"] if n["position"] == "QB")
+    assert [r["thresholdRank"] for r in qb["rungs"]] == [12, 24]
+
+
+def test_roster_count_is_the_fallback_not_a_constant():
+    c = _contract(n_teams=4)
+    out = ri.build_league_roster_intelligence(c)
+    assert out["teamCount"] == 4
+    qb = next(n for n in out["teams"]["o0"]["weakness"]["needs"] if n["position"] == "QB")
+    assert [r["thresholdRank"] for r in qb["rungs"]] == [4, 8]
+
+
 # ══ Team view ══════════════════════════════════════════════════════
 
 
-def test_team_view_returns_the_team_plus_league_context(monkeypatch):
-    bundle = _bundle()
-    monkeypatch.setattr(_gameplan, "get_league_bundle", lambda *a, **k: (bundle, True))
-    out = ri.get_team_roster_intelligence(
-        "test_league", "test_profile", _contract(bundle), "o0", team_count=12
-    )
+def test_team_view_returns_the_team_plus_league_context():
+    c = _contract()
+    out = ri.get_team_roster_intelligence(c, "o0", team_count=12)
     assert out["team"]["ownerId"] == "o0"
-    # Context carries every team, ordered by strength rank, but not the
-    # full per-team payload — one team's request should not ship four
-    # rosters' worth of detail.
-    assert [c["ownerId"] for c in out["leagueContext"]] == ["o3", "o2", "o1", "o0"]
+    assert [x["ownerId"] for x in out["leagueContext"]] == ["o3", "o2", "o1", "o0"]
     assert "teams" not in out
     assert set(out["leagueContext"][0]) == {
         "ownerId",
@@ -226,18 +246,17 @@ def test_team_view_returns_the_team_plus_league_context(monkeypatch):
     }
 
 
-def test_an_unknown_team_raises_rather_than_returning_an_empty_team(monkeypatch):
+def test_an_unknown_team_raises_rather_than_returning_an_empty_team():
     """ "This owner is not in the league" and "this owner has nothing"
     are different answers."""
-    bundle = _bundle()
-    monkeypatch.setattr(_gameplan, "get_league_bundle", lambda *a, **k: (bundle, True))
     with pytest.raises(ri.TeamNotInLeague):
-        ri.get_team_roster_intelligence("test_league", "test_profile", _contract(bundle), "nobody")
+        ri.get_team_roster_intelligence(_contract(), "nobody")
 
 
-def test_contract_version_is_stamped():
+def test_contract_version_and_slot_source_are_stamped():
     _, out = _league()
     assert out["contractVersion"] == ri.ROSTER_INTELLIGENCE_CONTRACT_VERSION
+    assert out["slotSource"] == "sleeper_roster_positions"
 
 
 # ══ Degradation ════════════════════════════════════════════════════
@@ -252,15 +271,13 @@ def test_no_ages_degrades_honestly_rather_than_reporting_zero():
         assert team["strength"]["total"] > 0
 
 
-def test_no_contract_still_produces_core_and_strength():
-    """Rosters come from the snapshot, not the contract. Losing the
-    board costs ranks and ages — it must not cost the lineup solve."""
-    bundle = _bundle()
-    out = ri.build_league_roster_intelligence(bundle, None, team_count=12)
-    team = out["teams"]["o0"]
-    assert team["core"]["starterCount"] > 0
-    assert team["strength"]["total"] > 0
-    # Every weakness rung is UNKNOWN — unmeasured, not failed.
-    for need in team["weakness"]["needs"]:
-        assert need["unmetRungs"] == 0
-        assert need["unknownRungs"] + need["unfilledRungs"] == len(need["rungs"])
+def test_a_contract_with_no_teams_yields_no_teams_rather_than_raising():
+    out = ri.build_league_roster_intelligence(_contract(teams_present=False))
+    assert out["teams"] == {}
+    assert out["starterSlots"] == []
+
+
+def test_no_contract_at_all_is_shaped_and_empty():
+    out = ri.build_league_roster_intelligence(None)
+    assert out["teams"] == {}
+    assert out["contractVersion"] == ri.ROSTER_INTELLIGENCE_CONTRACT_VERSION
