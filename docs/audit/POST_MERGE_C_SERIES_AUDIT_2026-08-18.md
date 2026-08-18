@@ -1325,7 +1325,7 @@ one that fails if the canonical grammar is ever restated locally again.
 
 No value path touched — `is_valid_pick_name` is a reporting predicate.
 
-### F-28 · F-19's UTC assumption is false in production, and `data_stale` can never fire · CONFIRMED · observability · **OPEN**
+### F-28 · F-19's UTC assumption is false in production, and `data_stale` can never fire · CONFIRMED · observability · **FIXED — awaiting production verification**
 
 **Found by verifying the F-19 deploy against production rather than trusting the merge**, which is
 the whole reason that step exists. `#909` deployed at 14:27 UTC on 2026-08-18. Measured minutes
@@ -1392,6 +1392,54 @@ with its own verification, not a rushed addition to an observability PR already 
 
 Owner: lane 5. Carried in the V1 contract as `V1-128`.
 
+**THE REPAIR (2026-08-18, this session).** Confirmed once more against production immediately
+before fixing, so the fix is measured against a live reading rather than a recalled one:
+
+```
+2026-08-18T18:35:32Z   /api/health.data_age_hours   -1.0
+                       /api/health.data_stale       false
+                       /api/status.last_scrape      2026-08-18T17:36:12.758337+00:00
+```
+
+A board produced 59 minutes earlier, reported as an hour in the future. Same +2h.
+
+Four changes, and the first two are load-bearing **together** — either alone is worse than
+neither:
+
+1. **`Dynasty Scraper.py`** stamps `scrapeTimestamp` with
+   `datetime.datetime.now(datetime.timezone.utc)`. This retires the assumption at its source
+   rather than restating it correctly in three files, and puts the field on the same footing as
+   the contract's `generatedAt`, which has always been `utc_now_iso()`.
+2. **`server.py::_board_age_hours`** refuses a board produced in the future — UNKNOWN, never a
+   number. Alone this would turn *every* production reading into UNKNOWN, which is why it lands
+   with (1). `ops_alerts._check_data_freshness` already returns no alert on `None`, verified
+   before writing the guard, so UNKNOWN degrades quietly rather than inventing an alarm.
+   Tolerance is `5 minutes`, bounded from both sides rather than picked: larger than real
+   NTP skew between two synced hosts (seconds), smaller than the smallest timezone quantum in
+   use anywhere (15 minutes — UTC+05:45, UTC+12:45), because swallowing a genuine timezone
+   misreading is the one thing the guard must not do.
+3. **`src/history/record.py`** — the naive branch survives for legacy payloads and now says so.
+   Live rows stamp `observed_at_zone: "utc"` on the producer's own statement instead of on an
+   assumption about the host.
+4. **`src/history/asof.py::_instant_at_or_before`** — same correction to the comparison rule.
+   Naive stamps are still read as UTC, deliberately: refusing them would make the entire
+   pre-F-28 ledger unreadable to as-of queries. The zone column records which rows are affected.
+
+**The ledger's existing live-origin rows are NOT rewritten.** They are two hours ahead of the
+instant they claim, `src/history` is append-only by design, and corrections are explicit
+correction rows. Rewriting history to fix history is a destructive migration needing owner
+judgment, so it is recorded here as a known-skewed population rather than performed. No
+user-facing wrong answer has been demonstrated from it (`value_as_of` has no route).
+
+Pinned by `tests/api/test_data_age_is_board_age.py`: the measured production state as an
+assertion, a two-hour future board, the clock-skew tolerance in both directions, and a
+source-text guard on the producer — because the guard without the source fix trades a wrong
+number for a permanently missing one, and nothing else would catch that.
+
+**Still owed:** production verification after deploy — `data_age_hours` positive and tracking the
+2-hourly cadence (0h..2h), `data_stale` reachable in principle, and `/api/status.last_data_refresh_at`
+agreeing with `last_scrape` rather than leading it by two hours.
+
 **A correction to this session's own verification attempt.** F-10's production check was first
 pointed at `source_health.anchor_row_counts`, which still reads `ktc` after a completed scrape on
 the new code. That is **not** evidence against F-10: `server.py` documents `anchor_row_counts` as
@@ -1444,6 +1492,77 @@ therefore new *to this register*, and each is accounted for differently:
 stack. Recorded as an open question with the measurement that raised it rather than as a verdict.
 
 Owner: lane 5.
+
+---
+
+**ANSWERED (2026-08-18, same day). Not a `#909` regression, and the diagnosis did not need a
+booted stack after all.**
+
+The cheaper measurement was the workflow's own history. `E2E Safety Net` on `main`:
+
+```
+2026-08-18T07:08Z  schedule  failure  cc9e1630   <- BEFORE #909 merged (14:27Z)
+2026-08-17T07:26Z  schedule  failure  b1c6a42a
+2026-08-16T07:03Z  schedule  failure  45b7142e
+…  13 consecutive scheduled runs, every night back to 2026-08-05, all failure
+```
+
+The suite has been red on `main` for two weeks. A failure occurring at 07:08 on the day `#909`
+merged at 14:27, and every night for the thirteen nights before it, is not caused by `#909`. The
+planned before/after bisect would have measured a difference that the run history says does not
+exist.
+
+**`journey-tools-health:31` is a STALE SPEC, not a product defect — and it was failing the repair
+of an earlier finding.** The current failure is exact:
+
+```
+Error: expanding the strip should reveal 2 per-source rows
+Expected: 2      <- status.source_health.source_runtime.enabled_sources.length
+Received: 21     <- .source-health-name rows the page rendered
+```
+
+The spec carried a note asserting that `source_runtime.enabled_sources` is "what the strip renders
+from". **Audit F-7 made that false.** `SourceHealthStrip` now renders
+`source_health.registered_sources`, with an in-code comment giving the reason: `enabled_sources`
+carries the scraper's own run names for the two ANCHOR markets only, so a page whose subtitle
+promises "every ranking source in the pipeline" was rendering 2 rows out of 21 and looking their
+counts up under keys that did not match.
+
+Confirmed against production the same day — the two numbers are both real and both correct for
+their own question:
+
+| field | value |
+|---|---|
+| `source_runtime.enabled_sources` | `["IDPTradeCalc", "KTC"]` — the browser-scraped anchor markets |
+| `source_runtime.complete_sources` | the same two, `overall_status: complete`, 121.97 s |
+| `registered_sources` | all 21 |
+| `sources_with_data` | **21** |
+| `missing_sources` / `source_failures` / `partial_run` | `[]` / `[]` / `false` |
+
+So the page showing 21 is correct and the spec expecting 2 is the pre-F-7 expectation. This is the
+**same failure class as F-23**: a guard pinned to a fact it never re-verified, which then reported
+the fix as the fault.
+
+**Repaired** by deriving the expectation from `registered_sources` — the page's stated contract —
+rather than mirroring the component's resolution order, because a test that recomputes what the
+component computes cannot catch the component computing the wrong thing. The zero-state branch now
+requires BOTH the registry and the runtime list to be empty; keyed on the registry alone it would
+have asserted an empty strip against a page that legitimately renders the runtime fallback.
+
+**Still open, and separated rather than folded in:** `journey-settings-overrides:45`. Its retry
+carries a different and more interesting diagnostic than the first failure —
+
+```
+[board diagnostic] /api/data?view=app: 200, playerCount=988, playersArray=0,
+legacyPlayers=988, rankStamps=740  => the payload looks serveable, so the board had data
+and still did not render it. That points at the client, not the contract.
+```
+
+— which is `F-3a`'s territory, not this one's. It keeps `F-29` from closing, and it is the next
+E2E question.
+
+Status: `journey-tools-health` half **FIXED**; `#909` attribution **REFUTED**; `F-3a` half remains
+open.
 
 ### F-30 · A truncated pick market exposes a real derivation gap — and my first fix was wrong · CONFIRMED · data integrity · **OPEN (assigned)**
 

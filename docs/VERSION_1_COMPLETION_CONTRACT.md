@@ -227,7 +227,7 @@ Projections · **L4** Market / FAAB / Analyst · **L5** Integration / QA / CI / 
 | V1-71 | Source-health headline counts the real voter population | audit `F-7` / `C4-SRC-02` | L5 | `VERIFIED` | L2 | false-green repair — 2/2 for a 21-voter board |
 | V1-72 | Build-check suppressions rest on sources that exist | audit `F-8` | L5 | `VERIFIED` | L1 | evidence integrity |
 | V1-73 | Board-diff harness hashes all three inputs | audit `F-9` | L5 | `VERIFIED` | L1 | test integrity |
-| V1-74 | The board's retail anchor is watched | audit `F-10` | L5 | `IMPLEMENTED_UNVERIFIED` | L2 | source-health correctness. Merged in #909; production check pending — `expectedSites` is not exposed on `/api/status` |
+| V1-74 | The board's retail anchor is watched | audit `F-10` | L5 | `VERIFIED` | L2 | source-health correctness. Verified 2026-08-18 from the post-deploy committed export: `coverageAudit.expectedSites: {offense: [ktcSfTep], idp: [idpTradeCalc]}`. Not from `/api/status`, which does not expose the field — the first check read `anchor_row_counts`, a different question, and was withdrawn |
 | V1-75 | A source losing all evidence stays visible to the watchdog | audit `F-11` | L5 | `VERIFIED` | L1 | truthful degraded state |
 | V1-76 | Failure attribution compares one vocabulary | audit `F-12` / census `S-2` | L5 | `NOT STARTED` | L2 | source-health correctness. **Design refuted — see §8** |
 | V1-77 | `/api/dynasty-data` cannot answer 200 off disk when the backend says 401 | audit `F-14` | L5 | `VERIFIED` | L2 | security / data integrity |
@@ -247,7 +247,7 @@ Projections · **L4** Market / FAAB / Analyst · **L5** Integration / QA / CI / 
 | V1-91 | Partial runs cannot report as healthy | `C4-SRC-02` | L5 | `IN PROGRESS` | L2 | false-green repair |
 | V1-92 | Freshness indicators complete | inv 6.8 | L6 | `IN PROGRESS` | L1 | truthful degraded state; W08-F011 |
 | V1-127 | `normalizationHealth` reports the board it actually has | audit `F-27` | L5 | `IMPLEMENTED_UNVERIFIED` | L3 | **added 2026-08-18** — false red in production since C1-U6; see §10 note below |
-| V1-128 | Board age is measured in a timezone that exists | audit `F-28` | L5 | `NOT STARTED` | L3 | **added 2026-08-18** — host is UTC+2, so reported age is always ≤ 0 and `data_stale` is structurally unreachable |
+| V1-128 | Board age is measured in a timezone that exists | audit `F-28` | L5 | `IMPLEMENTED_UNVERIFIED` | L3 | **added 2026-08-18** — host is UTC+2, so reported age is always ≤ 0 and `data_stale` is structurally unreachable. Fixed at the source (tz-aware `scrapeTimestamp`) plus a future-board UNKNOWN guard; L3 needs a deployed scrape showing a positive age tracking the 2-hourly cadence |
 
 ### 3.7 Truthful degraded states
 
@@ -307,24 +307,31 @@ Projections · **L4** Market / FAAB / Analyst · **L5** Integration / QA / CI / 
 
 ### 3.11 Standing tally
 
-Measured 2026-08-18 at `main` + PR #909.
+Measured 2026-08-18 at `main` + PR #910, counted from the §3 table itself rather
+than by editing this block.
 
 | status | count |
 |---|---|
-| `VERIFIED` | 35 |
+| `VERIFIED` | 36 |
 | `IMPLEMENTED_UNVERIFIED` | 21 |
 | `IN PROGRESS` | 24 |
-| `NOT STARTED` | 46 |
+| `NOT STARTED` | 45 |
 | `BLOCKED` | 2 |
 | **denominator** | **128** |
 
-**V1 completion: 35 / 128 = 27.3%.**
+**V1 completion: 36 / 128 = 28.1%.**
 
 The percentage went **down** between publication and the first update, and that is
 the contract working rather than failing. One item was added (`V1-127`), two
 moved to `IMPLEMENTED_UNVERIFIED` (`V1-86` from `IN PROGRESS`, `V1-88` from
-`NOT STARTED`), and one moved to `BLOCKED` (`V1-87`). The numerator did not move
-at all: 36 either way, over a larger denominator.
+`NOT STARTED`), one moved to `BLOCKED` (`V1-87`), and `V1-74` was **downgraded**
+from `VERIFIED` after its production check turned out to have read the wrong field.
+
+It has since moved back up, on evidence rather than on reconsideration: `V1-74`
+is verified from the post-deploy committed export, which carries the
+`coverageAudit.expectedSites` block `/api/status` does not expose. `V1-128` moved
+`NOT STARTED` → `IMPLEMENTED_UNVERIFIED` (fixed, deploy proof still owed), which
+leaves the denominator untouched.
 
 `V1-87` is the instructive one. Its repair is mechanically trivial and was written,
 then **backed out**, because the guard that governs defaulted-ON flags demands a
