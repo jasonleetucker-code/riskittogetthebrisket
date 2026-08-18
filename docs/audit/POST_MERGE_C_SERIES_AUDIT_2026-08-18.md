@@ -860,6 +860,234 @@ them is not required for the zero check and is left as an owner-visible decision
 
 ---
 
+### F-16 · No blocking gate bounds the production payload, and the one that looks like it measures something else · CONFIRMED · performance / test integrity · **OPEN**
+
+Three separate defects, all verified:
+
+**The two budgets that read the real board cannot block a merge.**
+`tests/api/test_launch_readiness.py` carries the only assertions measured against a live
+contract — `build_time < 5.0` (:458) and `test_gzipped_payload_under_2mb` (:460). Its module is
+in `_LIVEDATA_MODULES` (`tests/conftest.py:135`), and that CI step is
+`continue-on-error: true` (`pr-validation.yml:245`). The lane choice is defensible — a source
+row-count dip is not a code defect — but its consequence for *performance* is that every
+real-board performance assertion in the repo is advisory.
+
+**And the 2 MB check measures a quantity production never sends.** It uses
+`json.dumps(contract)` with **default separators**, `gzip.compress` at **default level 9**, on
+the **full** contract. Production serializes compactly and serves `app` / `array` / `compact`,
+never `full`. Measured at level 6 with compact separators on 1109 rows: full 1144.2 KB gz,
+array 662.6, compact 764.6. The cap has ~44% headroom against a figure nobody receives — it
+would not trip on F-13 even if it were blocking.
+
+**`--strict` is documented and does not exist.** `frontend/scripts/check-bundle-sizes.mjs`
+names it at :17 and :225 ("``--strict`` flag below would change this") and the file contains
+**no `process.argv` at all**. Missing pages are therefore always a warning, so a page dropping
+out of the build manifest passes silently — and this *is* the blocking budget (PR validation,
+release-candidate, deploy, and `deploy/deploy.sh`).
+
+**A correction to the lens that raised this.** It reported the `delta_bytes < 60_000`
+assertion in `test_source_overrides.py` as "the only BLOCKING byte budget … while the live
+delta is 74x the cap". The arithmetic is right and the framing is not: that is a fixture
+regression guard, and the comment directly above it already records the real production
+figures ("3.864 → 4.136 MB raw and **314.3 → 334.1 KB over the wire**"). The honest statement
+is *no blocking gate bounds the production payload*, not that a cap was breached.
+
+Not repaired here. `--strict` should be implemented or both mentions deleted — a documented
+flag with no reader reads as coverage that exists. A real payload budget would have to measure
+the served views with the server's own serialization, in the blocking lane, against a pinned
+fixture (§3d forbids a live-board assertion there).
+
+---
+
+### F-17 · The critical-source gate cannot fire for DLF · CONFIRMED · source integrity · **OPEN (census S-2)**
+
+`_CRITICAL_PRIMARY_SOURCES` (`data_contract.py:1024`) contains `"DLF"`. The name that would
+reach it does not. `Dynasty Scraper.py` keeps three hand-written run-name registries and they
+already disagree:
+
+| | |
+|---|---|
+| `SITES` (:1493) | `"DLF": False` |
+| `source_timeouts` (:3063) | `"DLF_LocalCSV"` |
+| `source_enabled_map` (:3067) | `"DLF_LocalCSV": bool(SITES.get("DLF"))` |
+
+`source_enabled_map` seeds `source_run_state` (:3107) → `sourceRunSummary`, so a DLF failure is
+emitted as `DLF_LocalCSV`, and `"DLF_LocalCSV" in ("KTC","IDPTradeCalc","DLF","DynastyNerds")`
+is `False`. Result: `partial_run_unknown:DLF_LocalCSV` — a **warning** — for one of four
+sources the repo declares critical. Line :3067 is the tell: it reads `SITES.get("DLF")` and
+registers the result under a different name.
+
+**Latent, not active.** `SITES["DLF"] = False` today and DLF reaches the board via
+`scripts/fetch_dlf.py`, which does not populate `sourceRunSummary`; the other three criticals
+match exactly and the `startswith` clause covers IDPTC's sub-endpoints. It matters because
+re-enabling DLF in `SITES` looks like a one-line change and would ship with its critical gate
+disabled.
+
+The repair belongs to the S-2 mapping owner. Adding `"DLF_LocalCSV"` to the tuple would be a
+fourth hand-maintained list agreeing with the third — the defect, not the fix.
+
+---
+
+### F-18 · Seven freshness budgets measure vendor publication against a fetch-success signal · CONFIRMED · observability · **OPEN**
+
+The contract's `_SOURCE_MAX_AGE_HOURS` and the alert engine's `resolve_threshold` disagree on
+**22 of 22** sources. Seven contract budgets are 168h or 720h and every justification in the
+file cites the **vendor's publication cadence** — "refresh ~monthly, so allow a 30-day window"
+(`yahooBoone`), "refreshes monthly as a new FP article" (`fantasyProsFitzmaurice`), "Substack
+article updated periodically" (`idpShow`), and so on.
+
+The signal is not publication. All seven have a `data/scrape_state/<key>_last_success` stamp —
+which `_build_source_timestamps` prefers over CSV mtime, and which records **fetch success** by
+construction — and all seven were **1.1–1.7 hours old** when measured. A 720h budget is ~400×
+the observed fetch interval.
+
+**The repository already decided this rule and applied it to two of nine.**
+`data_contract.py:758-767`: *"mtime measures fetch success, not the vendors' editorial cadence
+… (An earlier 720h/168h pair conflated this with how often the vendors PUBLISH — which mtime
+cannot observe; Codex review on PR #532.)"* — applied to `fantasyNavigatorSf` / `pfkDynasty`
+only. Repairing the rest is applying an existing owner decision, not inventing policy; census
+**S-6** is untouched.
+
+**Impact measured, and smaller than reported.** Rebuilding with all seven held to 6h — stricter
+than the alert engine's 24h — moves **0 confidenceBucket and 0 confidenceLabel** across 1109
+rows, because everything is currently fresh. This **corrects** the lens's claim that 705 rows
+carry a freshness reason on that basis and that 230 of 232 HIGH rows would change.
+
+It still matters: the exposure is F-6's failure mode with confidence blind to it. DraftSharks
+went 12.6 days unfetched at full weight and its 6h budget would have degraded its rows; for
+these seven a 12.6-day outage sits comfortably inside budget.
+
+---
+
+### F-19 · Four surfaces report process-load time as data age · CONFIRMED · observability · **REPAIRED 2026-08-18**
+
+`latest_data_source["loadedAt"]` is stamped `_utc_now_iso()` when **this process** loads a
+payload (`server.py:1511`). Three surfaces treat it as when the board was produced:
+
+| surface | field |
+|---|---|
+| `/api/health` (:5109) | `data_age_hours`, `data_stale` — comment: *"flag stale if no refresh in SCRAPE_INTERVAL_HOURS * 3"* |
+| `/api/metrics` (:5270) | `data_age_seconds` |
+| `/api/status` (:4842) | `"last_data_refresh_at"` — a name that states the wrong fact outright |
+
+"No refresh" is therefore measured as "no process restart". Measured against the real server:
+a payload 12.74 h old — more than 2× the 6 h budget — returned `data_age_hours = 0.0`,
+`data_stale = False`.
+
+**The repo already knows.** `deploy/systemd/dynasty-healthcheck.sh:17-20`: *"a restart clears
+the in-memory scrape error and reloads the disk cache with a fresh `loadedAt`, flipping health
+green WITHOUT a successful scrape and concealing the ingestion fault."* The response was a
+restart **policy** — degraded 503s are log-only — which protects the one path the watchdog
+controls and leaves every other restart laundering a stale board. **A production deploy is one
+of those**, and deploys happen several times a day.
+
+The correct value exists and is unused: the payload carries `scrapeTimestamp`
+(`2026-08-18T11:04:55.664246` on today's export) and the contract carries `generatedAt`.
+
+**REPAIRED.** `latest_data_source` gains `producedAt`, set from the payload's own
+`scrapeTimestamp` at both load sites, and `server.py::_board_age_hours()` becomes the one owner
+of "how old is the board". All three age consumers route through it; `/api/status` reads
+`producedAt` directly because it publishes a *timestamp*, not a duration, and gains
+`last_payload_loaded_at` so the process fact keeps its own honest name rather than being
+deleted. `None` means UNKNOWN and is never approximated from `loadedAt`.
+
+**The trap that would have made this repair inert.** `scrapeTimestamp` is written with
+`datetime.datetime.now()` and is therefore **naive**. Subtracting a naive datetime from a
+tz-aware `now` raises `TypeError`, which every one of these call sites swallowed with
+`except (ValueError, TypeError): pass` — so the obvious implementation returns `None`
+everywhere and looks like it worked. The helper attaches UTC explicitly when `tzinfo is None`,
+and records that this is an *assumption* about where the scraper runs.
+
+Mutation-proven both ways: making the helper fall back to `loadedAt` reddens the
+never-falls-back assertion; removing the UTC attach reddens three, including the naive-stamp
+one written for exactly that purpose. Pinned by `tests/api/test_data_age_is_board_age.py` (10).
+
+---
+
+### F-20 · The ops alerter records "we decided to alert" as "an alert happened" · CONFIRMED · observability · **REPAIRED 2026-08-18**
+
+`src/api/ops_alerts.py::check_and_alert` writes `state[a.category] = {"firedAt": now, …}` and
+`_save_ops_state(...)` **before** delivery is attempted, then returns early when
+`delivery is None or not to_email`. The 4-hour cooldown is already banked, so the next sweep
+inside that window sees `firedAt`, `_should_fire` returns False, and the operator is never
+told. The `except` branch reports `delivered: False` and does not roll the state back either,
+so a mail-server blip burns the window too.
+
+Worse than silence: `_detect_recovery` reads the same state, so once the condition clears the
+operator receives `[RECOVERY] <category> resolved` — a resolution notice for an incident they
+were never told about. Reproduced over three sweeps on a persistent kv: the only email
+delivered was the recovery.
+
+41 tests exercise the module and all pass. None runs it with `delivery=None`, an empty
+`to_email`, or a delivery callable that raises — the three paths on which the cooldown is spent
+without an email being sent.
+
+**REPAIRED.** The sweep now records `attemptedAt` when it decides to alert and `deliveredAt`
+only after an email actually goes out; `_should_fire` keys on `deliveredAt`. A category that
+fired for the first time and was not delivered has its bookkeeping dropped, so the next sweep
+is free to try again, while a category already carrying a delivered notice keeps its window.
+Recovery is marked only on the delivered path, so a resolution notice can no longer be sent
+for an incident nobody was told about. `deliveryConfigured` is published in the summary
+because "nothing to send" and "could not send" must not read the same.
+
+`_should_fire` still reads a legacy `firedAt` when `deliveredAt` is absent, so a state file
+written by the previous implementation keeps suppressing what it already suppressed rather
+than producing a burst on upgrade.
+
+Mutation-proven: restoring the pre-delivery write reddens 6 of 8, including the
+no-recovery-for-an-unreported-incident case. The pre-existing 41-assertion suite still passes.
+Pinned by `tests/api/test_ops_alert_cooldown_needs_delivery.py` (8) — whose first test asserts
+a *working* mailer still gets its cooldown, so the repair cannot degrade into a mail flood.
+
+---
+
+### F-21 · The external production check exempts the one status that means something is wrong · CONFIRMED · observability · **REPAIRED 2026-08-18**
+
+`.github/workflows/health-check.yml`:
+
+    :42   elif [[ "${HTTP_CODE}" == "503" ]]; then
+    :44        echo "::warning title=Health Degraded::Service returned 503 (degraded)."
+    :48   else echo "::error title=Health Check Failed::…" ; exit 1
+
+`503` is exactly what `get_health` returns for stale data, a failed or stalled scrape, or
+contract validation failure — and it is the **only** non-200 that does not fail the run. There
+is no `if: failure()` handler in the workflow, so even the codes that do exit 1 open no issue.
+
+Three further steps (:68, :116, :155) **skip** the coverage and backup assertions with a
+warning whenever `/api/status` is unreachable — so "we could not check" reads identically to
+"we checked and it is fine", precisely when it matters most.
+
+Compounds F-19: the staleness signal usually cannot fire, and when it does, the watchdog does
+not act on it. Twenty consecutive scheduled runs are green.
+
+**REPAIRED.** `503` now fails — but as a *delay, not an exemption*: the step probes up to
+`HEALTH_PROBES = 3` times, `HEALTH_PROBE_GAP_SEC = 30` apart, and fails only if every probe
+reports degraded. The concern behind the original exemption (a momentary degrade should not
+page anyone) is answered the way `deploy/systemd/dynasty-healthcheck.sh` already answers it
+for liveness, rather than by permanently exempting the status. This workflow keeps no state
+between its 6-hourly runs, so "consecutive" is measured within the run. Any other non-200
+still fails immediately — re-probing an unreachable service tells us nothing new.
+
+The three "Status Unreachable" branches now `::error` and exit non-zero instead of skipping
+their assertion with a warning, and their message says the assertion did **not** run.
+
+A rolling `production-health` tracking issue is opened or commented on failure, and closed on
+a green run — both halves, because the repo already learned on `stale-sources` that an alert
+which cannot clear stops being read.
+
+**Expected consequence, stated plainly:** if production is genuinely degraded this check will
+now go red. That is the intended outcome, and F-19 landed alongside it so the staleness input
+it keys on is trustworthy.
+
+Mutation-proven: restoring the warning-only 503 branch reddens two assertions; weakening the
+handler's `if: failure()` reddens the reaches-a-human one. The guard reads workflow source
+with comment lines stripped — this file's own comments quote the old
+`::warning title=Health Degraded` line verbatim, so a raw-text match would have matched the
+explanation as readily as a regression. Pinned by
+`tests/deploy/test_health_check_does_not_exempt_degraded.py` (9).
+
+---
+
 ## 2. Repairs made during the audit
 
 Each is a repair-only PR: exact-head CI, mutation-proven where structural, merged on green.

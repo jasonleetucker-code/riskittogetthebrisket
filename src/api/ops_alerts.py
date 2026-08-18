@@ -196,7 +196,15 @@ def _should_fire(
     """Cooldown check.  Returns True when an alert should fire,
     False when it's within the re-alert window."""
     last = state.get(alert.category) or {}
-    last_at = float(last.get("firedAt") or 0.0)
+    # Audit F-20: the window is spent by a DELIVERED alert, never by the
+    # decision to send one.  "We decided to alert", "we attempted delivery"
+    # and "the operator was told" are three different facts, and only the
+    # third may silence the next sweep — an unconfigured or failing mailer
+    # used to consume the cooldown and the operator was never told at all.
+    # ``firedAt`` is still read so a state file written by the previous
+    # implementation keeps suppressing what it already suppressed rather
+    # than producing a burst on upgrade.
+    last_at = float(last.get("deliveredAt") or last.get("firedAt") or 0.0)
     if now - last_at < _ALERT_COOLDOWN_SEC:
         return False
     return True
@@ -296,34 +304,59 @@ def check_and_alert(
     for a in alerts:
         if _should_fire(a, state, now=now):
             firing.append(a)
-            state[a.category] = {"firedAt": now, "severity": a.severity, "recoveryFired": False}
-
-    # Mark recoveries.
-    for r in recovery_alerts:
-        if r.category in state:
-            state[r.category] = {
-                **(state[r.category] or {}),
-                "recoveryFired": True,
-                "recoveredAt": now,
+            # ``attemptedAt`` only — ``deliveredAt`` is written below, and
+            # only if an email actually went out (audit F-20).
+            state[a.category] = {
+                "attemptedAt": now,
+                "severity": a.severity,
+                "recoveryFired": False,
             }
 
-    _save_ops_state(state, path=kv_path)
+    delivery_configured = delivery is not None and bool(to_email)
 
     summary = {
         "active": len(alerts),
         "fired": len(firing),
         "recovered": len(recovery_alerts),
         "delivered": False,
+        # "nothing to send" and "could not send" must not read the same.
+        "deliveryConfigured": delivery_configured,
         "categories": [a.category for a in firing],
     }
 
     to_deliver = firing + recovery_alerts
-    if not to_deliver or delivery is None or not to_email:
-        return summary
-    subject, body = format_ops_email(to_deliver)
-    try:
-        summary["delivered"] = bool(delivery(to_email, subject, body))
-    except Exception as exc:  # noqa: BLE001
-        _LOGGER.warning("ops alert delivery failed: %s", exc)
-        summary["delivered"] = False
+    delivered = False
+    if to_deliver and delivery_configured:
+        subject, body = format_ops_email(to_deliver)
+        try:
+            delivered = bool(delivery(to_email, subject, body))
+        except Exception as exc:  # noqa: BLE001
+            _LOGGER.warning("ops alert delivery failed: %s", exc)
+            delivered = False
+    summary["delivered"] = delivered
+
+    if delivered:
+        # The operator has now been told, so the window starts and the
+        # recovery notice this incident will eventually earn is legitimate.
+        for a in firing:
+            entry = state.get(a.category) or {}
+            entry["deliveredAt"] = now
+            state[a.category] = entry
+        for r in recovery_alerts:
+            if r.category in state:
+                state[r.category] = {
+                    **(state[r.category] or {}),
+                    "recoveryFired": True,
+                    "recoveredAt": now,
+                }
+    else:
+        # Nothing was sent.  Drop the bookkeeping for categories that fired
+        # for the FIRST time this sweep, so the next one is free to try
+        # again; a category already carrying a delivered notice keeps it.
+        for a in firing:
+            entry = state.get(a.category) or {}
+            if not entry.get("deliveredAt"):
+                state.pop(a.category, None)
+
+    _save_ops_state(state, path=kv_path)
     return summary
