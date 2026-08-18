@@ -1045,14 +1045,25 @@ export function analyzeTradeTendencies(rawData, rows) {
   // Shared resolver that handles both players and pick labels, so trade
   // tendency totals include pick value rather than silently dropping
   // picks that fail a direct rowLookup hit.
+  // Returns null for an asset the board declines to price — NOT 0
+  // (audit 2026-08-17).  This was `row.values?.full || 0` on both
+  // branches, which is the exact coercion `boardValueOrNull` was written
+  // for 900 lines above, comment and all: "`x || 0` turned every one of
+  // those into a measured zero".  This function simply never adopted it.
+  //
+  // It matters most for PICKS: every 2027/2028 5th and 6th is unpriced,
+  // so a manager who trades late picks had them counted as worth exactly
+  // nothing in `totalGot` / `totalGiven` — the trade-tendency numbers on
+  // the league page.  "We cannot price this" was published as "this is
+  // worth zero".
   const resolveAssetValue = (name) => {
-    if (!name) return 0;
+    if (!name) return null;
     if (parsePickToken(name)) {
       const row = resolvePickRow(name, rowLookup, pickAliases);
-      return row ? (row.values?.full || 0) : 0;
+      return row ? boardValueOrNull(row) : null;
     }
     const row = rowLookup.get(String(name).toLowerCase());
-    return row ? (row.values?.full || 0) : 0;
+    return row ? boardValueOrNull(row) : null;
   };
 
   for (const trade of trades) {
@@ -1069,6 +1080,12 @@ export function analyzeTradeTendencies(rawData, rows) {
           trades: 0,
           totalGiven: 0,
           totalGot: 0,
+          // How many assets on each side the board could not price.
+          // Without this the totals look complete while silently
+          // omitting assets — which is the same lie as counting them
+          // as zero, just harder to see.
+          unpricedGot: 0,
+          unpricedGave: 0,
           posBias: {},
         };
       }
@@ -1078,10 +1095,14 @@ export function analyzeTradeTendencies(rawData, rows) {
       let gotTotal = 0;
       let gaveTotal = 0;
       for (const name of side.got || []) {
-        gotTotal += resolveAssetValue(name);
+        const v = resolveAssetValue(name);
+        if (v === null) stats.unpricedGot++;
+        else gotTotal += v;
       }
       for (const name of side.gave || []) {
-        gaveTotal += resolveAssetValue(name);
+        const v = resolveAssetValue(name);
+        if (v === null) stats.unpricedGave++;
+        else gaveTotal += v;
       }
       stats.totalGot += gotTotal;
       stats.totalGiven += gaveTotal;
@@ -1106,7 +1127,19 @@ export function analyzeTradeTendencies(rawData, rows) {
       // `id` is the ownerId-first aggregation key so the React table
       // can key rows uniquely even when two managers happen to share
       // a display name.
-      return { id: key, manager: s.manager, trades: s.trades, avgGiven, avgGot, net, tendency };
+      return {
+        id: key,
+        manager: s.manager,
+        trades: s.trades,
+        avgGiven,
+        avgGot,
+        net,
+        tendency,
+        // Published so a consumer can say "based on N of M assets"
+        // rather than presenting a partial total as a complete one.
+        // Additive; existing readers are unaffected.
+        unpricedAssets: s.unpricedGot + s.unpricedGave,
+      };
     })
     .sort((a, b) => b.trades - a.trades);
 }
