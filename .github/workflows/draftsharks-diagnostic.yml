@@ -1,0 +1,128 @@
+# DraftSharks dynasty ingestion — credentialed diagnostic and candidate fetch.
+#
+# WHY THIS EXISTS.  The DraftSharks parser broke on 2026-08-05 and the
+# repair could not be written blind: the authenticated, league-scored DOM
+# is the only place the current markup can be observed, and it needs both
+# Playwright egress and the account credentials.  Neither exists in a dev
+# sandbox (Chromium gets ERR_CONNECTION_RESET through the agent proxy).
+#
+# WHAT THIS IS NOT.  It is NOT a production ingestion path.  It writes
+# nothing into the repository, commits nothing, pushes nothing, and
+# stamps no freshness key.  A green run here does NOT mean the incident
+# is repaired — that is proven only by the real `scheduled-refresh.yml`
+# run, which is where `fetch_draftsharks.py` actually lives.  Keeping the
+# two apart is deliberate: a diagnostic that could double as the
+# production path would let a hand-driven success masquerade as a healthy
+# pipeline.
+#
+# Everything it produces lands in $RUNNER_TEMP and leaves as an artifact.
+
+name: DraftSharks Diagnostic
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "diagnostic = DOM shape + sanitized fixture only. candidate = also fetch CSVs to the artifact (still no commit)."
+        required: true
+        default: diagnostic
+        type: choice
+        options:
+          - diagnostic
+          - candidate
+
+permissions:
+  contents: read
+
+concurrency:
+  group: draftsharks-diagnostic
+  cancel-in-progress: false
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          # Same install the data pipeline uses (scheduled-refresh.yml).
+          # Unlike there, a missing browser here is fatal: the whole point
+          # of this job is to drive a real one.
+          python -m playwright install chromium
+
+      - name: Probe the authenticated dynasty board
+        env:
+          DRAFTSHARKS_EMAIL: ${{ secrets.DRAFTSHARKS_EMAIL }}
+          DRAFTSHARKS_PASSWORD: ${{ secrets.DRAFTSHARKS_PASSWORD }}
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          if [[ -z "${DRAFTSHARKS_EMAIL:-}" || -z "${DRAFTSHARKS_PASSWORD:-}" ]]; then
+            echo "::error title=DraftSharks credentials missing::DRAFTSHARKS_EMAIL / DRAFTSHARKS_PASSWORD are not set for this repository."
+            exit 1
+          fi
+          out="${RUNNER_TEMP}/draftsharks"
+          mkdir -p "${out}"
+
+          args=(
+            --dom-diagnostic "${out}/dom_diagnostic.json"
+            --sanitized-fixture "${out}/draftsharks_current_markup.html"
+          )
+          if [[ "${{ inputs.mode }}" == "candidate" ]]; then
+            # Candidate CSVs go to RUNNER_TEMP, never CSVs/site_raw, so a
+            # probe can never become an unreviewed board change.
+            args+=(--dest-sf "${out}/draftSharksSf.csv" --dest-idp "${out}/draftSharksIdp.csv")
+          else
+            args+=(--dry-run)
+          fi
+
+          # Deliberately not `|| true`: this job's only purpose is to tell
+          # us the truth about the live board, so a failure must be red.
+          python scripts/fetch_draftsharks.py "${args[@]}"
+
+      - name: Assert nothing in the repository was modified
+        if: ${{ always() }}
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          # A diagnostic that quietly rewrote CSVs/site_raw would turn an
+          # investigation into an unreviewed production change.
+          if [[ -n "$(git status --porcelain)" ]]; then
+            echo "::error title=Diagnostic mutated the working tree::"
+            git status --porcelain
+            exit 1
+          fi
+          echo "working tree clean — the probe wrote only to RUNNER_TEMP"
+
+      - name: Summarise
+        if: ${{ always() }}
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          out="${RUNNER_TEMP}/draftsharks"
+          [[ -f "${out}/dom_diagnostic.json" ]] && {
+            echo "### DraftSharks DOM diagnostic" >> "$GITHUB_STEP_SUMMARY"
+            echo '```json' >> "$GITHUB_STEP_SUMMARY"
+            cat "${out}/dom_diagnostic.json" >> "$GITHUB_STEP_SUMMARY"
+            echo '```' >> "$GITHUB_STEP_SUMMARY"
+          } || echo "no diagnostic produced" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload diagnostic artifact
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: draftsharks-diagnostic
+          path: ${{ runner.temp }}/draftsharks/
+          if-no-files-found: warn
+          retention-days: 30
