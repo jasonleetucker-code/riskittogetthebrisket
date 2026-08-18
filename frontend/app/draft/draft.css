@@ -632,19 +632,53 @@
 .draft-nbt-target {
   background: rgba(52, 211, 153, 0.06);
 }
+/* The board row takes the tabIndex+key fallback (a <tr> cannot become a
+   button without breaking table semantics), so it needs a focus ring of
+   its own — an invisible focus stop is worse than none. */
+.draft-row:focus-visible {
+  outline: 2px solid var(--cyan);
+  outline-offset: -2px;
+}
 .draft-nbt-rank {
   font-family: var(--mono, monospace);
   font-weight: 700;
   color: var(--muted);
   font-size: 0.72rem;
 }
+/* A real <button>, not a clickable span: drafting a player was mouse-only
+   from five panels. The resets below make the button carry the row's own
+   typography instead of the UA's, so the element changed and the pixels
+   did not. */
 .draft-nbt-name {
   cursor: pointer;
   text-decoration: underline dotted;
   text-underline-offset: 2px;
+  appearance: none;
+  background: none;
+  border: 0;
+  margin: 0;
+  padding: 0;
+  font: inherit;
+  color: inherit;
+  text-align: left;
 }
-.draft-nbt-name:hover {
+.draft-nbt-name:hover:not(:disabled) {
   color: var(--cyan);
+}
+/* globals.css strips :focus outlines in places without a substitute, so
+   the ring is stated here rather than inherited. :focus-visible keeps it
+   off mouse clicks and on for keyboard users — who are the entire point
+   of this element being a button. */
+.draft-nbt-name:focus-visible {
+  outline: 2px solid var(--cyan);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+/* Not in the rookie pool: nothing to draft. Says so to every input mode,
+   where the old `cursor: default` said it only to a pointer. */
+.draft-nbt-name:disabled {
+  cursor: default;
+  text-decoration: none;
 }
 
 /* Bid simulator in draft modal */
