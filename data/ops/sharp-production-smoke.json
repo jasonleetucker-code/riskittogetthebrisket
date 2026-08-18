@@ -1,23 +1,18 @@
 {
-  "attempts": 2,
-  "checkedAt": "2026-08-18T14:28:19.507994+00:00",
+  "attempts": 1,
+  "checkedAt": "2026-08-18T14:29:20.376734+00:00",
   "cohort": {},
-  "deployConclusion": "pending",
-  "deployHeadSha": "5a42fb9ce7824393e8ccdd8fe4bb0fc83501ef41",
-  "deployRunId": "",
+  "deployConclusion": "success",
+  "deployHeadSha": "82b25bd7d3d1c268866e3454b246975a734a518f",
+  "deployRunId": "32145412274",
   "errors": [
     {
       "attempt": 1,
-      "message": "HTTP Error 502: Bad Gateway",
-      "type": "HTTPError"
-    },
-    {
-      "attempt": 2,
       "message": "401 from https://chaseupside.com/api/sharp/cohort",
       "type": "Unauthenticated"
     }
   ],
-  "eventName": "push",
+  "eventName": "workflow_run",
   "ffpcMarket": {},
   "status": "unverifiable_unauthenticated"
 }
