@@ -551,10 +551,29 @@ class TestYearStepCompletesUnpricedDerivedRows(unittest.TestCase):
         )
         self.assertIsNone(derived["rankDerivedValue"])
 
-    def test_a_row_with_no_recorded_derivation_is_left_alone(self) -> None:
-        """Only rows the injector actually derived are completed here."""
+    def test_a_row_with_no_recorded_derivation_is_STILL_completed(self) -> None:
+        """REPLACES ``test_a_row_with_no_recorded_derivation_is_left_alone``,
+        which pinned this rung's own defect.
+
+        That test asserted "only rows the injector actually derived are
+        completed here" — the record-keyed contract of the first revision.
+        It was a faithful test of an implementation that was too narrow:
+        ``_inject_far_future_pick_sources`` **no-ops for a horizon year that
+        already carries any tier row**, so a partially published horizon year
+        records nothing, and a rung keyed on those records cannot fire.
+        Measured on the real payload: 18 tier rows unpriced, 6 generic rows
+        unbuilt, 24 census errors (lane 7, #916).
+
+        The basis is now SEARCHED on the board, so the absence of a record is
+        irrelevant — which is exactly what this test now pins.  Keeping the old
+        assertion would have locked the defect in behind a green test, which is
+        the failure mode this repository keeps finding in other people's code.
+        """
         players_array, by_name, _, derived = self._board(3176, None)
         _complete_future_pick_values(
             players_array, by_name, self.CURRENT, synthetic_pick_derivations={}
         )
-        self.assertIsNone(derived["rankDerivedValue"])
+        self.assertEqual(derived["rankDerivedValue"], 2710)
+        prov = derived.get("pickValueProvenance") or {}
+        self.assertEqual(prov.get("basis"), "2028 Early 2nd")
+        self.assertEqual(prov.get("appliedTo"), "canonical_board_value")

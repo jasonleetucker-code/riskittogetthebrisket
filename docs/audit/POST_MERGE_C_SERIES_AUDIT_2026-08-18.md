@@ -1761,6 +1761,79 @@ deployed SHA, the §22 board diff, and the full regression sweep) have not been 
 verdict is withheld until they have.
 
 
+#### F-30 — ABSORBED #916: the first repair was too narrow, and lane 7 measured it
+
+**The first revision of this rung was defective, and it is worth being precise about how.**
+It completed a row from the derivation record `_inject_far_future_pick_sources` had stored —
+which made value and provenance structurally unable to disagree, and did fix the observed
+incident (20 → 0). But it inherited the injection's own precondition:
+
+```python
+for year in range(current_year + 1, target_year + 1):
+    if year in years_with_tiers:
+        continue  # real source rows exist — defer to them.
+```
+
+**The injection no-ops for a horizon year that already carries ANY tier row**, so it records
+nothing for that year. A vendor publishing *part* of the horizon produces exactly that state,
+and a record-keyed rung cannot fire in it. Found by lane 7 (`#916`) and **verified here
+independently** rather than accepted on report — the same probe, two implementations, one raw
+payload, differing only in code:
+
+| | horizon tier rows unpriced | generic rows unbuilt | census errors |
+|---|---|---|---|
+| record-keyed (first revision) | **18** | **6** | **24** |
+| basis search (shipped) | **0** | **0** | **0** |
+
+Lane 7 reported 15 and 5 from a probe that left rounds 2-6 unpriced; this one leaves the whole
+horizon year unpriced, so it counts 18 and 6. Different construction, same defect — and the
+numbers are reported as measured rather than reconciled to match.
+
+**The shipped rung searches the board instead of consulting a memo**: nearest priced EARLIER
+FUTURE year, same tier+round, through the one shared `_year_step_for`, compounded across the
+gap. That subsumes the record-keyed case, because when the injection *did* create the row its
+template year is by construction a priced earlier future year.
+
+Three things kept from the first revision, because they were right:
+
+* **A derivation ENTRY is not a derived VALUE.** The provenance pass now requires
+  `_finite_value(row) is not None` before stamping `derived_year_step`. A valueless row falls
+  through to `unavailable` with a reason instead of claiming a derivation that produced no
+  number.
+* **Domain is the config's measured surface** (rounds 1-4 today). Rounds it publishes no cell
+  for would fall to `yearStepFallback` — an unmeasured number for those rounds — so they take
+  the round-step rung, which is anchored on measured round ratios.
+* **The current draft year is never a basis**: its rows are rookie-pool-tethered slot picks, a
+  different quantity, and vendor-priced years take no year discount at all (T-3/C-2).
+
+**A defect the comparison exposed in the first revision beyond the generality gap:** it never
+mirrored the completed value into the legacy `players` dict, which the round-step rung beside it
+has always done. So the two encodings of the same row would have disagreed.
+
+**Verification of the shipped combination**
+
+| check | result |
+|---|---|
+| originally failing payload `f9444f7`, `--lane structural` | `errors=20` → **`ok=True errors=0`** |
+| same payload, `--lane full` (deploy gate) | `errors=20` → **`ok=True errors=0`** |
+| partial horizon publication (synthetic, real payload) | 24 census errors → **0** |
+| healthy-board diff, code the only variable | **0 values moved, 0 ranks changed, 0 labels flipped** (`--expect-no-value-change` OK) |
+| `#916`'s 12 invariant tests against this implementation | **12/12 pass** |
+| 5 further invariants added here | **red on the first revision (3/5), green now** |
+
+The added tests pin what `#916`'s set did not: completion with **no derivation map at all**, a
+structural guard that a *misleading* derivation map cannot change the derived value (behaviour
+alone cannot catch a re-introduced record dependency), nearest-basis selection when two earlier
+future years are priced, provenance never stamped on an unpriced row, and inertness on a fully
+priced horizon.
+
+**And one of my own tests had to be replaced rather than deleted.**
+`test_a_row_with_no_recorded_derivation_is_left_alone` asserted *"only rows the injector
+actually derived are completed here"* — a faithful test of the too-narrow contract, which would
+have locked the defect in behind a green assertion. It is now
+`test_a_row_with_no_recorded_derivation_is_STILL_completed`, and its docstring says what it used
+to claim and why that was wrong.
+
 #### F-30 — the "direct evidence wins" guard, verified on a RECOVERED board (2026-08-18)
 
 The board-diff above was measured while `idpTradeCalc` was still truncated. The 19:21Z refresh
