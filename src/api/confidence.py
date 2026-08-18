@@ -134,6 +134,14 @@ CONFIDENCE_BASES: tuple[str, ...] = (
     "evidence_gate",  # the five-axis bottleneck ran
     "pick_dispersion",  # the pick coefficient-of-variation rule ran
     "derived_round_step",  # value derived from the same year's nearest priced round
+    # Value derived from the nearest priced EARLIER future year's board
+    # value for the same tier+round (``derivedYearModel``).  Distinct
+    # from ``derived_round_step``: that one steps ACROSS ROUNDS within
+    # one year, this one steps ACROSS YEARS within one round.  A row
+    # reaching the board through the far-future source injection
+    # blends normally and is ``evidence_gate``; this basis marks the
+    # rows the blend could not price at all.
+    "derived_year_step",
     "derived_rookie_tether",  # value inherited from the rookie at this slot
     "derived_tier_values",  # value derived from tier values (generic grade)
     "unpriced",  # no canonical value exists for this row

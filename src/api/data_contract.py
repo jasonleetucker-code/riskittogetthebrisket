@@ -7292,11 +7292,25 @@ def _complete_future_pick_values(
 
     Runs after the rookie tether and before the draft-day projections,
     so it sees final values for everything the blend and the tether
-    priced.  Three derivations, strict priority (direct evidence always
+    priced.  Four derivations, strict priority (direct evidence always
     outranks a derivation — a row that already carries a finite value is
     never touched):
 
-    1. **Round-step** (``derivedRoundModel``, classification PRIOR) —
+    1. **Year-step** (``derivedYearModel``, classification PRIOR) —
+       a future-year tier row the blend could not price derives from
+       the nearest priced EARLIER future year's canonical board value
+       for the same tier+round: ``value(Y) = value(Y-gap) ×
+       yearStep(tier, round) ** gap``.  Same model and same measured
+       per-cell steps as the injection-time derivation in
+       ``_inject_far_future_pick_sources``; what differs is the basis
+       quantity (the published board value rather than the template
+       year's raw per-source values), which is what makes the horizon
+       guarantee independent of which vendor keys survived in the raw
+       scrape.  Its DOMAIN is the config's own measured surface — the
+       rounds ``derivedYearModel`` publishes cells for — so rounds no
+       year cell covers fall to the round-step rung below.
+
+    2. **Round-step** (``derivedRoundModel``, classification PRIOR) —
        future-year tier rows in rounds no vendor prices (5-6; both pick
        markets stop at round 4) derive from the same year+tier's nearest
        priced lower round: ``value(R) = value(R-1) × roundStep(R)``.
@@ -7305,7 +7319,7 @@ def _complete_future_pick_values(
        the assumption that the current class's tail structure carries to
        future classes is named in the config.
 
-    2. **Uniform-tier EV** (``genericGradeModel``, classification
+    3. **Uniform-tier EV** (``genericGradeModel``, classification
        PRIOR) — a rank-less generic-grade row (``"2027 Round 1"``) per
        future year × round, valued at the unweighted mean of the
        year+round's three tier values.  This is the board row for
@@ -7315,7 +7329,7 @@ def _complete_future_pick_values(
        untouched, and C1-U7 replaces the uniform assumption with real
        owned-pick distributions.
 
-    3. **Provenance** — every pick row gets ``pickValueProvenance``
+    4. **Provenance** — every pick row gets ``pickValueProvenance``
        naming which evidence class produced its number:
        ``direct_market_blend`` / ``rookie_pool_tether`` /
        ``derived_year_step`` / ``derived_round_step`` /
@@ -7354,7 +7368,106 @@ def _complete_future_pick_values(
     future_years = range(current_year + 1, current_year + horizon + 1)
     derived: dict[str, int] = {}
 
-    # ── 1. Round-step completion for unpriced future tier rows ──
+    # ── 1. Year-step completion for unpriced future tier rows ──
+    #
+    # The horizon guarantee must not depend on WHICH vendor keys
+    # happened to survive in the raw scrape JSON.
+    # ``_inject_far_future_pick_sources`` seeds the synthetic far-future
+    # rows by cloning the template year's entry out of
+    # ``players_by_name`` — the raw scraper payload — and that
+    # population is strictly poorer than the one the canonical board
+    # uses for the very same template year: ``ktcSfTep``'s pick values
+    # (all 36 vendor pick rows) reach a row through the CSV enrichment,
+    # and the CSVs correctly carry no far-future year with which to
+    # enrich a synthetic row.  A synthetic row can therefore only ever
+    # vote on the in-JSON sources, and when those thin out it is left
+    # with NO voting source at all.
+    #
+    # Measured on the 2026-08-18T17:11Z refresh: the scrape's in-JSON
+    # ``idpTradeCalc`` pick values collapsed to the round-1 tiers while
+    # BOTH vendor CSVs stayed complete (36 ``ktcSfTep`` + 84
+    # ``idpTradeCalc`` pick rows, every 2028 tier through round 4).
+    # Every 2029 row in rounds 2-6 blended to ``None`` and the census
+    # below failed 20 cells on a board whose evidence was intact.
+    #
+    # So completion carries its own year-step rung, anchored on the
+    # CANONICAL BOARD value of the nearest priced earlier future year:
+    # the same ``derivedYearModel`` family and the same measured
+    # per-(tier, round) step compounded across the gap, applied to the
+    # number the board actually published rather than to whichever raw
+    # keys survived.  Direct evidence still outranks it absolutely — a
+    # row already carrying a finite value is never touched — so this is
+    # inert on a healthy board.  Nothing here is keyed to a particular
+    # year; the horizon self-rolls with ``current_year``.
+    year_step_rounds: set[int] = set()
+    for _cell in cfg.get("yearStepByTierRound") or {}:
+        _, _, _cell_round = str(_cell).partition(".")
+        if _cell_round.isdigit():
+            year_step_rounds.add(int(_cell_round))
+    for _cell in cfg.get("yearStepByRound") or {}:
+        if str(_cell).isdigit():
+            year_step_rounds.add(int(_cell))
+    for year in future_years:
+        for tier in ("Early", "Mid", "Late"):
+            for rnd in sorted(year_step_rounds):
+                name = f"{year} {tier} {_round_suffix(rnd)}"
+                row = by_name.get(name)
+                if row is None or _finite_value(row) is not None:
+                    continue
+                # Nearest priced EARLIER **future** year.  Never the
+                # current draft year: its rows are rookie-pool-tethered
+                # slot picks (a different quantity), and vendor-priced
+                # years take no year discount at all (T-3/C-2).
+                basis_name: str | None = None
+                basis_year: int | None = None
+                basis_value: float | None = None
+                for cand_year in range(year - 1, current_year, -1):
+                    cand_name = f"{cand_year} {tier} {_round_suffix(rnd)}"
+                    cand_value = _finite_value(by_name.get(cand_name))
+                    if cand_value is not None:
+                        basis_name, basis_year, basis_value = cand_name, cand_year, cand_value
+                        break
+                if basis_value is None or basis_year is None:
+                    # No future evidence to step from.  The row stays
+                    # unpriced and is reported ``unavailable`` below —
+                    # never 0, never a fabricated number.
+                    continue
+                gap = year - basis_year
+                factor = _year_step_for(tier, rnd, cfg) ** gap
+                value = int(round(basis_value * factor))
+                if value <= 0:
+                    continue
+                row["rankDerivedValue"] = value
+                row["confidenceBucket"] = "low"
+                row["confidenceLabel"] = (
+                    "Low — derived from the nearest priced future year (no market row)"
+                )
+                row["confidenceBasis"] = "derived_year_step"
+                row["confidenceAxes"] = None
+                row["confidenceReasons"] = None
+                row["pickYearDiscount"] = round(factor, 4)
+                row["pickValueProvenance"] = {
+                    "class": "derived_year_step",
+                    "family": "measured_vendor_year_step_v1",
+                    "classification": "PRIOR",
+                    "basis": basis_name,
+                    "basisYear": basis_year,
+                    "factor": round(factor, 4),
+                    # WHICH quantity the factor multiplied.  The
+                    # injection-time derivation of the same family steps
+                    # the template year's per-SOURCE values; this one
+                    # steps the template year's published board value.
+                    # Same model, different basis quantity — naming it
+                    # is the difference between a reproducible stamp and
+                    # a merely plausible one.
+                    "appliedTo": "canonical_board_value",
+                }
+                derived[name] = value
+                legacy = players_by_name.get(row.get("legacyRef") or name)
+                if isinstance(legacy, dict):
+                    legacy["rankDerivedValue"] = value
+
+    # ── 2. Round-step completion for unpriced future tier rows ──
     for year in future_years:
         for tier in ("Early", "Mid", "Late"):
             for rnd in range(2, 7):
@@ -7419,7 +7532,7 @@ def _complete_future_pick_values(
                 if isinstance(legacy, dict):
                     legacy["rankDerivedValue"] = value
 
-    # ── 2. Generic-grade rows (uniform-tier EV) ──
+    # ── 3. Generic-grade rows (uniform-tier EV) ──
     for year in future_years:
         for rnd in range(1, 7):
             tiers = [
@@ -7489,7 +7602,7 @@ def _complete_future_pick_values(
             legacy["_canonicalConsensusRank"] = None
             legacy["sourceCount"] = 0
 
-    # ── 3. Provenance on every remaining pick row ──
+    # ── 4. Provenance on every remaining pick row ──
     for row in players_array:
         if row.get("assetClass") != "pick" or row.get("pickValueProvenance"):
             continue
@@ -7509,7 +7622,12 @@ def _complete_future_pick_values(
         derivation = (synthetic_pick_derivations or _EMPTY_PICK_DERIVATIONS).get(
             _canonical_match_key(cname)
         )
-        if derivation is not None:
+        # A derivation ENTRY is not a derived VALUE.  The injection
+        # records one for every synthetic row it seeds, including rows
+        # whose cloned sources then failed to blend — and stamping
+        # ``derived_year_step`` on a row carrying no value claims a
+        # derivation that did not produce a number.  Require the value.
+        if derivation is not None and _finite_value(row) is not None:
             row["pickValueProvenance"] = {
                 "class": "derived_year_step",
                 "family": derivation.get("family"),
