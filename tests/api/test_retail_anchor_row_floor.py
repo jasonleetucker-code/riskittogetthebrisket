@@ -81,6 +81,7 @@ from src.api.data_contract import (
     _RANKING_SOURCES,
     _is_source_health_error,
     _load_source_row_floors,
+    get_ranking_source_keys,
     validate_api_data_contract,
 )
 
@@ -297,3 +298,71 @@ def test_retail_top50_floor_matches_its_twin() -> None:
     non-voting one."""
     floors = _top50_floors().get("offense") or {}
     assert floors.get("ktcSfTep", 0) >= floors["ktc"]
+
+
+# ── The scrape-promotion anchor ─────────────────────────────────────────
+#
+# A CORRECTION TO THIS MODULE'S OWN F-10 RECORD.
+#
+# The original note said the scrape-promotion gate could not be repaired
+# here: that ``ktcSfTep`` never reaches ``raw.sites``, so
+# ``server.py::_missing_expected_sites`` could not resolve it if
+# ``coverageAudit.expectedSites.offense`` named it.  The first clause is
+# true; the conclusion was wrong.  That function reads ``siteStats`` as
+# well as ``sites`` (``server.py:1179-1182``), and ``siteStats`` carries
+# ``ktcSfTep`` with a real count — 644 on the 2026-08-18 board.
+#
+# So the anchor now names the board that actually votes, and the claim
+# that it could not is retracted rather than left standing.
+#
+# Measured inert: replayed over all 176 committed export archives,
+# ``["ktc"]`` and ``["ktcSfTep"]`` block the IDENTICAL 4 archives — the
+# same set, not merely the same count.  Both CSVs come from one KTC API
+# response, so they fail together; the anchors diverge only when the TE++
+# extraction breaks on its own, which is exactly the case the old anchor
+# missed.
+
+
+def _scraper_source() -> str:
+    from pathlib import Path
+
+    return (Path(__file__).resolve().parents[2] / "Dynasty Scraper.py").read_text()
+
+
+def test_the_offense_anchor_names_a_voting_source() -> None:
+    """The anchor must watch a board the blend actually depends on.
+
+    Stated as a property — "is a registered voter" — rather than as the
+    literal string, so promoting a different retail source keeps the guard
+    meaningful instead of pinning a name.
+    """
+    import ast
+
+    tree = ast.parse(_scraper_source())
+    keys = None
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Assign) and any(
+            isinstance(t, ast.Name) and t.id == "TOP_OFF_EXPECTED_SITE_KEYS" for t in node.targets
+        ):
+            keys = [e.value for e in node.value.elts if isinstance(e, ast.Constant)]
+    assert keys, "TOP_OFF_EXPECTED_SITE_KEYS not found"
+
+    registered = set(get_ranking_source_keys())
+    non_voters = [k for k in keys if k not in registered]
+    assert not non_voters, (
+        f"the offense anchor watches non-voting source(s) {non_voters}; "
+        f"registered voters include {sorted(_RETAIL_KEYS)}"
+    )
+
+
+def test_the_offense_anchor_stays_one_wide() -> None:
+    """It is an ANCHOR-LOSS detector, not the health population — S-1 pinned
+    that distinction and widening it here would quietly undo it."""
+    import ast
+
+    tree = ast.parse(_scraper_source())
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Assign) and any(
+            isinstance(t, ast.Name) and t.id == "TOP_OFF_EXPECTED_SITE_KEYS" for t in node.targets
+        ):
+            assert len(node.value.elts) == 1, ast.dump(node.value)
