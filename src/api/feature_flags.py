@@ -214,8 +214,18 @@ _DEFAULTS: Final[dict[str, bool]] = {
     # swings the level 2x and flips its sign across plausible rates.
     # Mean-normalised, so this cannot inflate receivers as a class.
     #
-    # Reaches the OPT-IN league-adjusted lens (/api/gameplan) only,
-    # never the default market board.
+    # Reaches the OPT-IN league-adjusted lens only, never the default
+    # market board.
+    #
+    # AUDIT F-26 (2026-08-18): this line used to name `/api/gameplan` as the
+    # endpoint it reaches.  Measured, that is wrong in a way worth stating
+    # rather than silently editing — the gate in `src/api/gameplan.py` is
+    # called only from `get_league_adjusted_values`, which backs
+    # **`/api/valuation/league-adjusted`**.  The flag is genuinely live; the
+    # module it lives in is not the endpoint it serves.  `/api/gameplan`
+    # itself has zero frontend consumers (Scope Manifest `C2-GP-01`,
+    # DISCONNECTED), so the old wording pointed a reader at a route no user
+    # can reach and implied this flag was inert.
     # Rollback: RISKIT_FEATURE_RECEPTION_SCORING_FIT=0.
     "reception_scoring_fit": True,
     # BDVM — projection-driven fundamental dynasty valuation engine
@@ -294,6 +304,23 @@ _DEFAULTS: Final[dict[str, bool]] = {
     # ``scripts/validate_consensus_edge_board.py`` to pass on a re-run,
     # not a judgement call.  See ADR-023.
     "consensus_edge": False,
+    # AUDIT F-24 — registered 2026-08-18, and it was ALREADY LIVE before it
+    # was registered.
+    #
+    # ``data_contract._stamp_rank_changes`` read
+    # ``RISKIT_FEATURE_LEDGER_RANK_CHANGE`` straight from the environment,
+    # defaulting to ON, and the name it used is exactly the one this registry
+    # derives (``_ENV_PREFIX`` + the key upper-cased) — so the rollback lever
+    # documented in CLAUDE.md was real, but the inventory that would tell an
+    # operator it exists was not.  It appeared in neither ``snapshot()`` nor
+    # ``effective_flags()`` nor ``/api/status``, and
+    # ``tests/api/test_feature_flag_reachability.py`` could not see it either.
+    #
+    # A gate nobody can enumerate is a gate nobody can roll back under
+    # pressure, which is the point of having one.  Default stays True: the
+    # C1-U4 ledger derivation is the canonical source of ``rankChange`` and
+    # this only ever existed as the escape hatch.
+    "ledger_rank_change": True,
 }
 
 _ENV_PREFIX: Final[str] = "RISKIT_FEATURE_"

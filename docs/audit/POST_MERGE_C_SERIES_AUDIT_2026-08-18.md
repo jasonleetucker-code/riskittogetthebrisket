@@ -1218,7 +1218,7 @@ there is a green run declining to clear a real alert.
 
 Draining the accumulated duplicates is tracked separately.
 
-### F-24 · A live, defaulted-ON feature flag is invisible to every operator surface · CONFIRMED · observability · **OPEN**
+### F-24 · A live, defaulted-ON feature flag is invisible to every operator surface · CONFIRMED · observability · **REPAIRED 2026-08-18**
 
 `RISKIT_FEATURE_LEDGER_RANK_CHANGE` is read directly at `src/api/data_contract.py:5545` via
 `os.environ.get(..., "1")` — **default ON** — but is absent from `feature_flags._DEFAULTS`
@@ -1229,7 +1229,7 @@ Consequence: it does not appear in `snapshot()`, `effective_flags()` or `/api/st
 gets one that omits a live gate on the canonical board's `rankChange` derivation. The rollback
 lever documented in CLAUDE.md is real; the inventory that would tell you it exists is not.
 
-Carried as `V1-87`.
+**Repair.** Registered as `ledger_rank_change` (the registry derives exactly the env var already in use, `RISKIT_FEATURE_LEDGER_RANK_CHANGE`, so the documented rollback lever is unchanged) and the read site now resolves through `feature_flags.is_enabled`. Equivalence proven across all six spellings the retired direct read accepted — `0`/`false`/`off` disable, `1`/empty/garbage enable — so the gate behaves identically and is now enumerable in `snapshot()`, `effective_flags()` and `/api/status`. Carried as `V1-87`.
 
 ### F-25 · The nav offers a page whose every endpoint 503s · CONFIRMED · truthful degraded state · **OPEN**
 
@@ -1244,13 +1244,19 @@ identically.
 
 **Ownership: lane 6.** The feature stays post-V1; the nav gating is the V1-required part.
 
-### F-26 · Flag documentation names an endpoint the flags do not gate · CONFIRMED · evidence integrity · **OPEN**
+### F-26 · Flag documentation names an endpoint the flag does not gate · CONFIRMED · evidence integrity · **REPAIRED 2026-08-18**
 
-`src/api/feature_flags.py:186` and `:217` state that `reception_scoring_fit` and
-`idp_scoring_fit` "reach `/api/gameplan`". Measured: the gates at `src/api/gameplan.py:1157` and
+`src/api/feature_flags.py` stated that `reception_scoring_fit` "reaches the OPT-IN
+league-adjusted lens (`/api/gameplan`)". Measured: the gates at `src/api/gameplan.py:1157` and
 `:1253` are called only from `get_league_adjusted_values` (`:1332-1333`), which backs
-**`/api/valuation/league-adjusted`**. The flags are genuinely live; the endpoint named is not the
-one they gate.
+**`/api/valuation/league-adjusted`**. The flag is genuinely live; the endpoint named is not the
+one it serves.
+
+**Scoped down from the original sweep finding, on inspection.** That finding named *two* comment
+sites, `reception_scoring_fit` and `idp_scoring_fit`. Only the first was wrong. The
+`idp_scoring_fit` comment says the axis "reaches only `build_board_adjustments` — the OPT-IN
+league-adjusted lens", which names the function rather than a route and is accurate. One site,
+not two — recorded rather than left overstated, on the same principle as F-22.
 
 Related, and separately recorded: `/api/gameplan` itself has **zero frontend consumers** — the
 string appears once in the whole frontend, in a comment. That is the Scope Manifest's

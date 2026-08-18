@@ -1719,7 +1719,7 @@ _RANKING_SOURCES: list[dict[str, Any]] = [
         # provider being one we otherwise trust.  UNKNOWN fails closed.
         "game_type": GAME_TYPE_DYNASTY,
         "game_type_evidence": (
-            "Play for Keeps pfk_dynasty_rankings Supabase table — the table name is the " "product"
+            "Play for Keeps pfk_dynasty_rankings Supabase table — the table name is the product"
         ),
         "display_name": "Play for Keeps Dynasty",
         "scope": SOURCE_SCOPE_OVERALL_OFFENSE,
@@ -1754,7 +1754,7 @@ _RANKING_SOURCES: list[dict[str, Any]] = [
         # provider being one we otherwise trust.  UNKNOWN fails closed.
         "game_type": GAME_TYPE_DYNASTY,
         "game_type_evidence": (
-            "dynasty-daddy.com/api/v1/player/all/today — Dynasty Daddy is a dynasty-only " "product"
+            "dynasty-daddy.com/api/v1/player/all/today — Dynasty Daddy is a dynasty-only product"
         ),
         "display_name": "Dynasty Daddy Superflex",
         "scope": SOURCE_SCOPE_OVERALL_OFFENSE,
@@ -2077,7 +2077,7 @@ _RANKING_SOURCES: list[dict[str, Any]] = [
         # provider being one we otherwise trust.  UNKNOWN fails closed.
         "game_type": GAME_TYPE_DYNASTY,
         "game_type_evidence": (
-            "same draftsharks.com dynasty-rankings page as draftSharks, IDP slice of the " "one DOM"
+            "same draftsharks.com dynasty-rankings page as draftSharks, IDP slice of the one DOM"
         ),
         "correlation_group": "draftSharks",
         "display_name": "Draft Sharks IDP Dynasty",
@@ -5572,12 +5572,17 @@ def _stamp_rank_changes(
     into the ledger happens only at the fresh-scrape promotion site in
     ``server.py``.
     """
-    import os as _os
+    # F-24: resolved through the flag registry rather than a direct
+    # ``os.environ`` read, so the gate appears in ``snapshot()``,
+    # ``effective_flags()`` and ``/api/status`` like every other one.  The env
+    # var name is unchanged — the registry derives exactly
+    # ``RISKIT_FEATURE_LEDGER_RANK_CHANGE`` from the key — so the documented
+    # rollback lever still works, and now it is also discoverable.
+    from src.api import feature_flags as _feature_flags  # noqa: PLC0415
 
-    flag = _os.environ.get("RISKIT_FEATURE_LEDGER_RANK_CHANGE", "1").strip().lower()
     previous: dict[str, tuple[str, int]] = {}
     _history_keys = None
-    if flag not in ("0", "false", "off"):
+    if _feature_flags.is_enabled("ledger_rank_change"):
         # Every src.history touch — the keys import included — sits
         # inside one guard: a history failure (or the rollback flag)
         # must not break the contract build, and the degraded stamp is
@@ -6345,8 +6350,7 @@ def _validate_source_game_types_invariant(
         )
     if unknown_value:
         problems.append(
-            f"declare a game_type outside GAME_TYPES: {unknown_value}. "
-            f"Valid: {sorted(GAME_TYPES)}"
+            f"declare a game_type outside GAME_TYPES: {unknown_value}. Valid: {sorted(GAME_TYPES)}"
         )
     if not_dynasty:
         problems.append(
