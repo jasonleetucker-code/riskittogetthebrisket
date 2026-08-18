@@ -66,6 +66,18 @@ to get wrong by reading the source list instead of the family list.
 `votes` = rows carrying a positive `canonicalSiteValues` entry on the built contract.
 `fetch age` = `data/scrape_state/<key>_last_success`.
 
+**Correction, 2026-08-18 — that predicate undercounts sign-bearing sources.** `> 0` drops
+legitimately NEGATIVE vendor values, and DraftSharks IDP publishes them (its `3D Value +` column
+runs down to −38). Measured against `sourceRankMeta` — the sources that actually voted in the
+blend, sign-agnostic — `draftSharksIdp` is **269**, not the 143 in the table below. Every other
+row moves by less, in the same direction: `ktcSfTep` 502 → 421, `idpTradeCalc` 911 → 768,
+`fantasyNavigatorSf` 454 → 367, `dlfRookieSf` 112 → 54.
+
+The two quantities answer different questions — "did this source publish a value here" versus
+"did it vote in the blend here" — and the second is the one source *health* wants, so
+`_build_source_health_snapshot` counts off `sourceRankMeta` (S-1, below). The table is left as
+measured rather than restated, with this note beside it.
+
 | source | scope | game type | family | votes | fetch age | disposition |
 |---|---|---|---|---|---|---|
 | `idpTradeCalc` | overall_idp | DYNASTY | `idpTradeCalc` | 911 | 1.9h | ACTIVE — HEALTHY |
@@ -76,7 +88,7 @@ to get wrong by reading the source list instead of the family list.
 | `otcffbSf` | overall_offense | DYNASTY | `otcffbSf` | 425 | 1.9h | ACTIVE — HEALTHY |
 | `flockFantasySf` | overall_offense | DYNASTY | `flockFantasy` | 412 | 1.9h | ACTIVE — HEALTHY |
 | `yahooBoone` | overall_offense | DYNASTY | `yahooBoone` | 402 | 1.9h | ACTIVE — HEALTHY |
-| `draftSharks` | overall_offense | DYNASTY | `draftSharks` | 399 | 303.1h | ACTIVE — DEGRADED |
+| `draftSharks` | overall_offense | DYNASTY | `draftSharks` | 399 | 0.0h | ACTIVE — HEALTHY |
 | `fantasyCalc` | overall_offense | DYNASTY | `fantasyCalc` | 385 | 1.9h | ACTIVE — HEALTHY |
 | `dynastyDaddySf` | overall_offense | DYNASTY | `dynastyDaddySf` | 368 | 1.9h | ACTIVE — HEALTHY |
 | `idpShow` | overall_idp | DYNASTY | `idpShow` | 349 | 0.8h | ACTIVE — HEALTHY |
@@ -85,15 +97,20 @@ to get wrong by reading the source list instead of the family list.
 | `dlfSf` | overall_offense | DYNASTY | `dlf` | 285 | 0.9h | ACTIVE — HEALTHY |
 | `dlfIdp` | overall_idp | DYNASTY | `dlf` | 171 | 0.9h | ACTIVE — HEALTHY |
 | `fantasyProsIdp` | overall_idp | DYNASTY | `fantasyPros` | 148 | 1.9h | ACTIVE — HEALTHY |
-| `draftSharksIdp` | overall_idp | DYNASTY | `draftSharks` | 143 | 303.1h | ACTIVE — DEGRADED |
+| `draftSharksIdp` | overall_idp | DYNASTY | `draftSharks` | 143 | 0.0h | ACTIVE — HEALTHY |
 | `dlfRookieSf` | overall_offense | DYNASTY | `dlf` | 112 | 0.9h | ACTIVE — HEALTHY |
 | `flockFantasySfRookies` | overall_offense | DYNASTY | `flockFantasy` | 76 | 1.9h | ACTIVE — HEALTHY |
 | `dlfRookieIdp` | overall_idp | DYNASTY | `dlf` | 29 | 0.9h | ACTIVE — HEALTHY |
 
-**All 21 are `ACTIVE — HEALTHY` except the two DraftSharks boards**, which are
-`ACTIVE — DEGRADED`: last successful dynasty fetch **303h** (12.6 days). Repair in flight (#894).
-Note `draftSharksRos_last_success` is **1.8h** — the ROS fetch works; only the *dynasty* board is
-broken, which is the evidence the repair's diagnosis rests on.
+**All 21 are now `ACTIVE — HEALTHY`.** The two DraftSharks boards were `ACTIVE — DEGRADED`
+when this census was taken — last successful dynasty fetch **303h** (12.6 days) — and were
+repaired the same day by #894; see S-4 below. The diagnosis rested on
+`draftSharksRos_last_success` being **1.8h** while the dynasty stamps sat at 303h: the ROS
+fetch is a different endpoint and always worked, so "DraftSharks" looked healthy at a glance.
+
+`votes` in the table above are as-measured at census time and are not restated here; the
+refreshed boards moved 418 canonical values (p50 0.2%, p90 1.0%, max 6.9%) — classified in
+`docs/sources/DRAFTSHARKS_DYNASTY_INGESTION_REPAIR.md` §5.
 
 ---
 
@@ -106,6 +123,41 @@ broken, which is the evidence the repair's diagnosis rests on.
 | `ktcCrowd` contract block | **RETIRED** | Appeared in **0 of 173** committed export archives, decompressed. |
 | `ktcIdMap` contract block | **RETIRED** | Also 0 of 173; no consumer in any language. |
 | `src/adapters/ktc_crowd_faab.py` | **SUPERSEDED — RETIRED** | Fed a second recommender input whose only output duplicated a row the live engine already emits. |
+
+### KTC crowd-FAAB — production proof (§11), 2026-08-18
+
+Read-only SSH probe, run
+[`32129757659`](https://github.com/jasonleetucker-code/riskittogetthebrisket/actions/runs/32129757659),
+against the deployed tree. No credential reached the agent; secrets and league names are
+masked in the public log by the workflow.
+
+*(The first dispatch, `32120625936`, was **cancelled** — it collided with the
+`production-deploy` concurrency group. That was repaired in #904; this is the first run that
+produced output.)*
+
+| § | check | measured |
+|---|---|---|
+| 1 | timer unit | **present**, **enabled**, **active** |
+| 1 | last service run / result | **0 (ok)** / **success** |
+| 1 | last trigger · next elapse | 2026-08-18 11:26:12 CEST · 14:27:42 CEST |
+| 2 | `src/sources/ktc_identity.py` on the box | **present** |
+| 2 | producer consumes the owner | **yes** |
+| 2 | retired crowd path removed | **yes** |
+| 3 | identity source | `allPlayerSearchValues` — the search index, not the 500-row value board |
+| 3 | index size | **1,961 players / 36 picks** |
+| 3 | raw feed rows | 200 |
+| 3 | **claims resolved to a player** | **200 / 200** |
+| 3 | rows emitted by the producer | 200 |
+| 3 | rows with an unreadable format | **0** |
+| 4 | `dynasty_main` accumulated history | 702 persisted rows · 199 players priced · **148 $0 bids retained** |
+| 4 | `dynasty_new` accumulated history | 561 persisted rows · 179 players priced · **129 $0 bids retained** |
+
+Verdict: *"timer present, repaired code deployed, every claim resolved"*.
+
+Two details worth keeping. The identity source is the **search index** (1,961 players), not
+the 500-row value board — which is why resolution is 200/200 rather than partial. And the
+retained **$0 bids** confirm the live path is `faab_history`, not `faab_analytics`: the latter
+gates its median on `bid > 0`, and 41–77% of real adds cost nothing.
 | `footballGuys` / `footballGuysSf` / `footballGuysIdp` | **RETIRED — orphaned stamps** | **No registry entry, no CSV, no consumer.** `_last_success` stamps are **2049h** (85 days) old. Survives only in comments and `source_gap:` explanation strings in `data_contract.py`. |
 | `draftSharksRos` | **ACTIVE — NOT A DYNASTY VOTER** | Fetches fine (1.8h). ROS is the seasonal lane and must never enter dynasty valuation (C1-U9 / source-domain boundary). |
 | `sleeper` | **ACTIVE — HEALTHY** | League/roster substrate, not a ranking voter. 1.9h. |
@@ -133,11 +185,11 @@ is deliberately **not** a dynasty voter.
 
 | # | item | state |
 |---|---|---|
-| S-1 | Publish a **21-source** health surface. `check_source_health` already knows the right population; `/api/status`, `/tools/source-health` and the contract do not. Do **not** widen `expectedSites` — it is an anchor-loss detector and 2 is correct for it | **OPEN** |
+| S-1 | Publish a **21-source** health surface. `check_source_health` already knows the right population; `/api/status`, `/tools/source-health` and the contract do not. Do **not** widen `expectedSites` — it is an anchor-loss detector and 2 is correct for it | **REPAIRED 2026-08-18.** Measured first: `/api/status` reported `total_sources: 2` because its denominator was the 2-row `sites` list, and `/tools/source-health` rendered 2 rows because it listed `source_runtime.enabled_sources` (`["KTC", "IDPTradeCalc"]` — the scraper's own run names, which do not case-fold onto registry keys). Population now comes from `get_ranking_source_keys()`; counts from the served board's `sourceRankMeta`; a registered source contributing nothing is named in `missing_sources`, and one we have no measurement for is `unmeasured_sources` rather than accused of silence. `expectedSites` untouched and pinned. Audit finding **F-7** |
 | S-2 | Map scraper-run names ↔ registry keys so a disposition round-trips and a run-level "complete" decomposes into which boards arrived | **OPEN** |
 | S-2b | Collapse the `ktc` / `ktcSfTep` spelling split across `raw.sites`, `expectedSites` and `canonicalSiteValues` | **OPEN** |
 | S-3 | Health vocabulary must distinguish vendor-unchanged / stale / fetch-failed / parser-failed / credential / blocked / retired / future / archive-only | **OPEN** |
-| S-4 | DraftSharks dynasty fetch | repair in flight (#894) |
-| S-5 | Drop orphaned FootballGuys stamps; fix stale `source_gap:` explanations | **OPEN** |
+| S-4 | DraftSharks dynasty fetch | **CLOSED 2026-08-18** — #894 merged (`77f037ef2`); production `scheduled-refresh` run `32123775865` green, stamps 303.5h → 0.03h, tracking issue #765 auto-closed. Record: `docs/sources/DRAFTSHARKS_DYNASTY_INGESTION_REPAIR.md` |
+| S-5 | Drop orphaned FootballGuys stamps; fix stale `source_gap:` explanations | **REPAIRED 2026-08-18.** Far larger than "stale strings": **18 of 52** `SINGLE_SOURCE_ALLOWLIST` entries named FootballGuys as the SOLE ranker of a top-board player, and none was true — 2 players were off the board, 14 were not single-source (Zavion Thomas carried **13** sources), and the 2 that were single-source were carried by `draftSharks` / `fantasyProsSf`. Removing all 18 leaves the contract `ok: True`, so they guarded nothing. Also normalised three prefix-grammar classes (`ktc_only` used the grammar backwards; `dynastyNerds` / `flock` resolved to nothing) and untracked the three orphaned stamps. Guarded by `tests/api/test_single_source_allowlist_integrity.py`, mutation-proven. Audit finding **F-8** |
 | S-6 | Freshness policy: is stale evidence still a full-weight vote? | **OWNER DECISION REQUIRED** — no approved rule found in the authority hierarchy; inventing decay during an audit is forbidden (§15) |
 

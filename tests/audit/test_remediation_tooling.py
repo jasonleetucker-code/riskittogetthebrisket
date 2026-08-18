@@ -317,6 +317,45 @@ class TestGoldenBoardInputIsFrozen(unittest.TestCase):
         self.assertEqual(proc.returncode, 2, proc.stdout + proc.stderr)
         self.assertIn("does not record its inputs", proc.stderr)
 
+    def test_diff_refuses_a_capture_missing_only_the_freshness_digest(self) -> None:
+        """The THIRD input, added 2026-08-18 (audit F-9).
+
+        ``data_contract._source_freshness_flags`` stats every registered
+        source's ``data/scrape_state/<key>_last_success`` at BUILD time
+        and feeds the B11 confidence gate, so the stamps are a board
+        input.  Measured by perturbing only the stamps, with the export
+        and all 24 CSVs byte-identical: all-stale flips **588
+        confidenceBucket and 705 confidenceLabel** while moving 0 values
+        and 0 ranks.  A capture predating the digest therefore cannot be
+        shown comparable on the confidence half, and "cannot verify"
+        must not read as "verified equal" — the same lesson as the test
+        above, one input later.
+        """
+        base = json.loads(
+            (REPO_ROOT / "tests" / "fixtures" / "golden" / "baseline.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        base.setdefault("freshnessSha256", "0" * 64)
+        base.setdefault("freshnessStampCount", 28)
+        old = {k: v for k, v in base.items() if k != "freshnessSha256"}
+        proc = self._run_diff(old, base)
+        self.assertEqual(proc.returncode, 2, proc.stdout + proc.stderr)
+        self.assertIn("freshnessSha256", proc.stderr)
+
+    def test_diff_refuses_when_only_the_freshness_stamps_moved(self) -> None:
+        """Export and CSVs identical, stamps different — still not comparable."""
+        base = json.loads(
+            (REPO_ROOT / "tests" / "fixtures" / "golden" / "baseline.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        before = dict(base, freshnessSha256="a" * 64, freshnessStampCount=28)
+        after = dict(base, freshnessSha256="b" * 64, freshnessStampCount=28)
+        proc = self._run_diff(before, after)
+        self.assertEqual(proc.returncode, 2, proc.stdout + proc.stderr)
+        self.assertIn("freshness stamps", proc.stderr)
+
 
 class TestSurfaceHarness(unittest.TestCase):
     """The surface capture must keep exposing the defects it was built for.

@@ -2121,9 +2121,9 @@ SINGLE_SOURCE_ALLOWLIST: dict[str, str] = {
     # IDPTC and DLF have not yet added. Remove these entries once the
     # IDPTC Sheet3 scrape stabilizes and these names appear in the
     # snapshot.
-    "chris brazzell": "source_gap:ktc_only — deep KTC prospect not yet in IDPTC Sheet3 / DLF SF",
-    "mike washington": "source_gap:ktc_only — deep KTC prospect not yet in IDPTC Sheet3 / DLF SF",
-    "omar cooper": "source_gap:ktc_only — deep KTC prospect not yet in IDPTC Sheet3 / DLF SF",
+    "chris brazzell": "source_gap:idpTradeCalc+dlfSf — deep KTC prospect not yet in IDPTC Sheet3 / DLF SF",
+    "mike washington": "source_gap:idpTradeCalc+dlfSf — deep KTC prospect not yet in IDPTC Sheet3 / DLF SF",
+    "omar cooper": "source_gap:idpTradeCalc+dlfSf — deep KTC prospect not yet in IDPTC Sheet3 / DLF SF",
     # ── IDP: IDPTradeCalc-only (DLF does not list these players) ──
     # DLF publishes a curated 185-player IDP veteran board.  Rookies and
     # players outside the top 185 are structurally excluded.
@@ -2156,58 +2156,28 @@ SINGLE_SOURCE_ALLOWLIST: dict[str, str] = {
     # ── Offense: FantasyPros-SF-only (not listed by other offense sources) ──
     # Deep-board prospects that FantasyPros dynasty superflex ranks but
     # neither KTC, IDPTradeCalc, DLF SF, nor Dynasty Nerds carry.
-    "brenen thompson": "source_gap:ktc+idpTradeCalc+dlfSf+dynastyNerds — deep WR only ranked by FantasyPros dynasty SF",
-    "eric mcalister": "source_gap:ktc+idpTradeCalc+dlfSf+dynastyNerds — deep WR only ranked by FantasyPros dynasty SF",
-    "roman hemby": "source_gap:ktc+idpTradeCalc+dlfSf+dynastyNerds — deep RB only ranked by FantasyPros dynasty SF",
+    "brenen thompson": "source_gap:ktc+idpTradeCalc+dlfSf+dynastyNerdsSfTep — deep WR only ranked by FantasyPros dynasty SF",
+    "eric mcalister": "source_gap:ktc+idpTradeCalc+dlfSf+dynastyNerdsSfTep — deep WR only ranked by FantasyPros dynasty SF",
+    "roman hemby": "source_gap:ktc+idpTradeCalc+dlfSf+dynastyNerdsSfTep — deep RB only ranked by FantasyPros dynasty SF",
     # ── Offense: Flock-Fantasy-SF-only (not listed by other offense sources) ──
     # Deep-board veterans that Flock Fantasy's expert consensus ranks but
     # no other source currently carries.
-    "adam thielen": "source_gap:ktc+idpTradeCalc+dlfSf+dynastyNerds+fantasyPros — veteran WR only ranked by Flock Fantasy SF",
-    "zonovan knight": "source_gap:ktc+idpTradeCalc+dlfSf+dynastyNerds+fantasyPros — veteran RB only ranked by Flock Fantasy SF",
-    "riley nowakowski": "source_gap:ktc+idpTradeCalc+dlfSf+dynastyNerds+flock — deep TE only ranked by FantasyPros SF",
-    "rj maryland": "source_gap:ktc+idpTradeCalc+dlfSf+dynastyNerds+flock — deep TE only ranked by FantasyPros SF",
-    # ── IDP: FootballGuys-IDP-only (not listed by other IDP sources) ──
-    # Veteran / free-agent LBs that FootballGuys' 3-expert IDP board
-    # ranks as deep dynasty holds even though IDPTradeCalc and the
-    # other IDP boards have dropped them.  Genuine source gaps.
-    "lavonte david": "source_gap:idpTradeCalc+dlfIdp+fantasyProsIdp — 36yo FA veteran LB only ranked by FootballGuys IDP",
-    "jordan davis": "source_gap:idpTradeCalc+dlfIdp+fantasyProsIdp — DL only ranked by FootballGuys IDP",
-    "marlon humphrey": "source_gap:idpTradeCalc+dlfIdp+fantasyProsIdp — DB veteran only ranked by FootballGuys IDP",
-    "mike jackson": "source_gap:idpTradeCalc+dlfIdp+fantasyProsIdp — DB veteran only ranked by FootballGuys IDP",
-    # ── IDP: IDPTradeCalc-only (not listed by other IDP sources) ──
-    # Depth IDP players that only IDPTradeCalc's combined pool lists;
-    # DLF / FP / FBG expert boards haven't added them (yet).  After
-    # the 2026 IDP Hill refit to IDPTC's curve, several of these
-    # elevated into the top 400.
-    "ashton gillotte": "source_gap:dlfIdp+fantasyProsIdp+footballGuysIdp — DL only ranked by IDPTradeCalc",
-    "christian harris": "source_gap:dlfIdp+fantasyProsIdp+footballGuysIdp — LB only ranked by IDPTradeCalc",
-    "josh newton": "source_gap:dlfIdp+fantasyProsIdp+footballGuysIdp — DB only ranked by IDPTradeCalc",
-    "noah sewell": "source_gap:dlfIdp+fantasyProsIdp+footballGuysIdp — LB only ranked by IDPTradeCalc",
+    "adam thielen": "source_gap:ktc+idpTradeCalc+dlfSf+dynastyNerdsSfTep+fantasyPros — veteran WR only ranked by Flock Fantasy SF",
+    "zonovan knight": "source_gap:ktc+idpTradeCalc+dlfSf+dynastyNerdsSfTep+fantasyPros — veteran RB only ranked by Flock Fantasy SF",
+    "riley nowakowski": "source_gap:ktc+idpTradeCalc+dlfSf+dynastyNerdsSfTep+flockFantasy — deep TE only ranked by FantasyPros SF",
+    "rj maryland": "source_gap:ktc+idpTradeCalc+dlfSf+dynastyNerdsSfTep+flockFantasy — deep TE only ranked by FantasyPros SF",
+    "ashton gillotte": "source_gap:dlfIdp+fantasyProsIdp — DL only ranked by IDPTradeCalc",
+    "christian harris": "source_gap:dlfIdp+fantasyProsIdp — LB only ranked by IDPTradeCalc",
+    "josh newton": "source_gap:dlfIdp+fantasyProsIdp — DB only ranked by IDPTradeCalc",
+    "noah sewell": "source_gap:dlfIdp+fantasyProsIdp — LB only ranked by IDPTradeCalc",
     # ── IDP: DLF-Rookie-IDP-only (rookie prospects only in DLF rookie board) ──
     # Current-class IDP rookies that only DLF Rookie IDP has
-    # evaluated.  IDPTC and FBG haven't added them yet.
-    "aj haulcy": "rookie_source_gap:idpTradeCalc+footballGuysIdp — 2026 DB rookie only ranked by DLF Rookie IDP",
-    "shavon revel": "source_gap:idpTradeCalc+dlfIdp+fantasyProsIdp+footballGuysIdp — 2026 DB rookie only ranked by DraftSharks",
-    "kamari ramsey": "rookie_source_gap:idpTradeCalc+draftSharksIdp+footballGuysIdp — 2026 DB rookie only ranked by DLF Rookie IDP",
-    # ── Deep-board FootballGuys-only coverage (2026-04-20 scraper
-    # upgrade).  FBG's combined cross-market ordering pulled these
-    # deep-roster DBs / veteran DL / fringe RBs+WRs into the top-400
-    # board; they're genuine FBG-only picks that every other source
-    # either ranks outside its published depth or has dropped. ──
-    "dane belton": "source_gap:idpTradeCalc+draftSharksIdp+dlfIdp — deep veteran DB only ranked by FootballGuys",
-    "daron bland": "source_gap:idpTradeCalc+draftSharksIdp+dlfIdp — veteran CB only ranked by FootballGuys IDP",
-    "dee alford": "source_gap:idpTradeCalc+draftSharksIdp+dlfIdp — deep nickel CB only ranked by FootballGuys IDP",
-    "emmanuel henderson": "source_gap:ktc+idpTradeCalc+dlfSf+dynastyNerds+fantasyPros+flock — deep WR only ranked by FootballGuys SF",
-    "isaiah pola mao": "source_gap:idpTradeCalc+draftSharksIdp+dlfIdp — veteran safety only ranked by FootballGuys IDP",
-    "jadeveon clowney": "source_gap:idpTradeCalc+draftSharksIdp+dlfIdp — veteran DL only ranked by FootballGuys IDP",
-    "jamel dean": "source_gap:idpTradeCalc+draftSharksIdp+dlfIdp — veteran CB only ranked by FootballGuys IDP",
-    "jaylen watson": "source_gap:idpTradeCalc+draftSharksIdp+dlfIdp — veteran CB only ranked by FootballGuys IDP",
-    "kentrel bullock": "source_gap:ktc+idpTradeCalc+dlfSf+dynastyNerds — deep RB only ranked by FootballGuys SF",
-    "nahshon wright": "source_gap:idpTradeCalc+draftSharksIdp+dlfIdp — deep CB only ranked by FootballGuys IDP",
-    "rahsul faison": "source_gap:ktc+idpTradeCalc+dlfSf+dynastyNerds+fantasyPros+flock — deep RB only ranked by FootballGuys SF",
-    "upton stout": "source_gap:idpTradeCalc+draftSharksIdp+dlfIdp — deep CB only ranked by FootballGuys IDP",
-    "zavion thomas": "source_gap:ktc+idpTradeCalc+dlfSf+dynastyNerds — deep WR only ranked by FootballGuys SF",
-    "zyon mccollum": "source_gap:idpTradeCalc+draftSharksIdp+dlfIdp — veteran CB only ranked by FootballGuys IDP",
+    # evaluated.  IDPTradeCalc hasn't added them yet.  (This note used
+    # to name FootballGuys too; those boards were retired and the
+    # explanation outlived them — see F-8.)
+    "aj haulcy": "rookie_source_gap:idpTradeCalc — 2026 DB rookie only ranked by DLF Rookie IDP",
+    "shavon revel": "source_gap:idpTradeCalc+dlfIdp+fantasyProsIdp — 2026 DB rookie only ranked by DraftSharks",
+    "kamari ramsey": "rookie_source_gap:idpTradeCalc+draftSharksIdp — 2026 DB rookie only ranked by DLF Rookie IDP",
 }
 
 

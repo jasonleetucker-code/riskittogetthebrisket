@@ -97,8 +97,28 @@ export default function SourceHealthStrip({ variant = "inline" }) {
       Number.isFinite(finishedMs) && finishedMs > 0
         ? (Date.now() - finishedMs) / (60 * 60 * 1000)
         : null;
-    const enabled = Array.isArray(runtime.enabled_sources) ? runtime.enabled_sources : [];
+    // The row list is the population we are ENTITLED TO EXPECT — the
+    // ranking-source registry — not the sources one scrape happened to
+    // enable.  ``runtime.enabled_sources`` carries the scraper's own
+    // run names for the two ANCHOR markets (["KTC", "IDPTradeCalc"]),
+    // so this page — whose subtitle promises "every ranking source in
+    // the pipeline" — rendered 2 rows out of 21, and looked their
+    // counts up under registry keys that did not match.  F-7.
+    const registered = Array.isArray(health.registered_sources)
+      ? health.registered_sources
+      : [];
+    const enabled = registered.length
+      ? registered
+      : Array.isArray(runtime.enabled_sources)
+        ? runtime.enabled_sources
+        : [];
     const counts = health.source_counts || {};
+    // A source we were not given the served board for is UNKNOWN, not
+    // zero — it renders as "—" like an empty source, but it must not be
+    // accused of going silent.
+    const unmeasured = new Set(
+      Array.isArray(health.unmeasured_sources) ? health.unmeasured_sources : [],
+    );
     // Per-source freshness map: stamped by ``server._per_source_freshness``,
     // shape ``{src: {lastFetched, ageHours}}``.  Lets us render a per-source
     // age next to each row instead of one aggregate "last scrape" age.
@@ -114,9 +134,11 @@ export default function SourceHealthStrip({ variant = "inline" }) {
       // truer per-source health signal.
       const tone = toneFor(src, runtime, srcAgeHours);
       const ageLbl = meta.lastFetched ? ageLabel(meta.lastFetched) : null;
+      const rawCount = counts[src] ?? counts[src.toLowerCase()];
       return {
         source: src,
-        count: Number(counts[src] || counts[src.toLowerCase()] || 0),
+        count: rawCount == null ? null : Number(rawCount),
+        unmeasured: unmeasured.has(src),
         tone,
         ageLabel: ageLbl,
         ageHours: srcAgeHours,
@@ -205,8 +227,25 @@ export default function SourceHealthStrip({ variant = "inline" }) {
             <div key={e.source} className={`source-health-row source-health-row--${e.tone}`}>
               <span className={`source-health-dot source-health-dot--${e.tone}`} aria-hidden="true" />
               <span className="source-health-name">{e.source}</span>
-              <span className="source-health-count">
-                {e.count > 0 ? `${e.count.toLocaleString()} rows` : "—"}
+              {/* Three distinct states, and collapsing them is the
+                  defect this page exists to avoid: a real count, a
+                  source that voted on NOTHING, and a source we have no
+                  measurement for at all. */}
+              <span
+                className="source-health-count"
+                title={
+                  e.unmeasured || e.count == null
+                    ? "no served-board measurement available"
+                    : e.count === 0
+                      ? "registered, but contributed to no rows on the served board"
+                      : undefined
+                }
+              >
+                {e.unmeasured || e.count == null
+                  ? "not measured"
+                  : e.count > 0
+                    ? `${e.count.toLocaleString()} rows`
+                    : "no rows"}
               </span>
               {e.ageLabel && (
                 <span className="source-health-age" title="CSV file mtime — when this source last refreshed">
