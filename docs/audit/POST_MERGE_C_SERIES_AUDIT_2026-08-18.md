@@ -1445,94 +1445,53 @@ stack. Recorded as an open question with the measurement that raised it rather t
 
 Owner: lane 5.
 
-### F-30 · One vendor truncating its pick feed turns every open PR red · CONFIRMED · CI · **REPAIRED 2026-08-18**
+### F-30 · A truncated pick market exposes a real derivation gap — and my first fix was wrong · CONFIRMED · data integrity · **OPEN (assigned)**
 
-The 2026-08-16 stabilization split contract errors into a **structural** lane (statements about
-our code) and a **source-health** lane (conditions a provider alone can cause), and made the
-latter advisory on PRs — because *"one KTC scrape timing out turned every open PR red and skipped
-a production deploy"*. That incident recurred today through a door the split does not cover: a
-**unit test in the hard gate**.
+**Symptom.** `idpTradeCalc` dropped from 84 pick anchors to 16 (round 1 only, every year) between
+two scrapes of 2026-08-18. 20 census errors followed —
+`pick_completeness_census:2029 Round 2..6:missing_or_unpriced` — reddening every open PR.
 
-**What happened.** `tests/api/test_picks_end_to_end.py::test_every_pick_has_rank_and_value`
-failed on the 17:11 board with:
+**My first diagnosis was that the census was in the wrong lane, and it was wrong.** I moved
+`…:missing_or_unpriced` to source-health on the theory that a vendor truncation causes it. CI then
+failed on an existing, explicitly parametrized test —
+`tests/api/test_contract_health_lanes.py::TestTheTaxonomyItself::test_statements_about_our_code_are_structural[pick_completeness_census:2029 Round 5:missing_or_unpriced]`
+— which had already decided this string is a statement about OUR code. I overrode a recorded
+decision without reading it first. **Reverted**, and the taxonomy is right.
 
-```
-Picks missing a finite canonical value:
-['2029 Early 2nd' … '2029 Mid 6th']   — 15 rows
-```
+**The real defect, measured on the live board.** `ktc` publishes rounds 1-4 for 2026/2027/2028
+throughout; only `idpTradeCalc` truncated. The 2029 rows that price are exactly the rounds
+`idpTradeCalc` still covers:
 
-**Root cause — a source-availability event, not a code regression.** Comparing the two boards of
-the same afternoon, per source:
-
-| scrape | `ktc` | `idpTradeCalc` |
+| row | backing sources | value |
 |---|---|---|
-| 15:09 (test passed) | 84 anchors — 2026:60 2027:12 2028:12 | **84** anchors — 2026:60 2027:12 2028:12 |
-| 17:11 (test failed) | 84 anchors — unchanged | **16** anchors — 2026:10 2027:3 2028:3, **round 1 only** |
+| `2028 Early 2nd` (template) | idpTradeCalc, ktc, ktcSfTep | 3176 |
+| `2029 Early 1st` (derived) | idpTradeCalc, ktc | 4497 |
+| **`2029 Early 2nd`** (derived) | **ktc only** | **None** |
 
-`idpTradeCalc` is one of only two families that price picks. Losing its 2028 rounds 2-4 removed
-the input for the 2029 derivation, and `C1-U6-D1` is explicit that a round a source did not
-publish is **ABSENT, never substituted** — so the pipeline correctly declined to price them.
-5 rounds x 3 tiers = the exact 15 rows. **The pipeline did the right thing and the test punished
-it.**
+`2029 Early 2nd` carries COMPLETE provenance — `derived_year_step`, `basis: 2028 Early 2nd`,
+`factor: 0.8532`, `family: measured_vendor_year_step_v1` — against a basis row priced at 3176, and
+still resolves to `None`. The clone LOST `idpTradeCalc` and `ktcSfTep` relative to its own
+template, fell to a single source, and the single-source gate nulled it.
 
-**Why the test was wrong to be in the hard gate.** It builds from `exports/latest` — the LIVE
-committed board — which `docs/ops/STABILIZATION_2026-08-16.md` §3d forbids for a `-m "not
-livedata"` test precisely because the result is a function of which sources answered the last
-scrape.
+So a row can assert "I was derived from that basis by that factor" while carrying no value. The
+provenance and the valuation disagree, which is worse than either failing alone: the census
+correctly reports `missing_or_unpriced`, but `pickValueProvenance` reads as a successful
+derivation, so the row looks explained.
 
-**Why the prescribed escape did not work.** That rule offers
-`tests/archive_fixtures.newest_complete_raw_payload()`. It classifies degradation from
-`settings.sourceRunSummary`, and `failedSources` is **ABSENT from all 176 committed archives**
-(measured for census S-2), so a silently truncated pick board still reads as complete. The
-fixture would have handed back the same broken input.
+**Why it is structural, not vendor availability.** `ktc` alone carries every (tier, round) cell
+needed for 2029 R2-R4, and `derivedRoundModel` derives R5-R6 from R4. The inputs were present; the
+derivation did not use them. That is our code, exactly as the taxonomy test asserts.
 
-**Repair — two halves, and the second is the important one.**
+**Ownership: this is C1-U6 pick valuation, NOT integration.** Recorded and assigned rather than
+repaired from lane 5 — the fix is in `_inject_far_future_pick_sources`'s per-source combination
+rule (why a clone drops sources its template had) and its interaction with the single-source gate,
+which is pick-valuation methodology.
 
-**(a) The lane classification was wrong.** `pick_completeness_census:…:missing_or_unpriced` sat in
-the STRUCTURAL lane while being exactly what the source-health lane is defined as: a condition an
-upstream provider can cause alone, with our code byte-identical. Its siblings
-`pick_count_below_floor:` and `pickAnchors is empty` were already classified that way. It now is
-too — but only that variant. `pick_completeness_census:…:no_provenance` (a pick that IS priced yet
-carries no provenance) is a statement about our own stamping that no feed can cause, and stays
-structural; classifying the whole prefix would have quietly downgraded it, which is the opposite
-of the repair. Because the two are distinguished by their TAIL, `_is_source_health_error` gained a
-suffix rule alongside its prefix list.
-
-Measured end-to-end by rebuilding the truncated board:
-
-```
-structuralErrors  (pick_*):  0     -> PR validation passes
-sourceHealthErrors(pick_*): 20     -> correctly routed
-ok: False, structurallyOk: True, sourceHealthOk: False
-```
-
-`ok: False` is the point: the **deploy's full lane still blocks**, so production keeps serving the
-last good board rather than one with 15 unpriced picks.
-
-**(b) Three hard-gate tests assert the completeness property directly**, not through the census, so
-the lane fix alone does not reach them. They now skip on the PREMISE they depend on: **per-source**
-pick-anchor coverage. Per source is load-bearing — a union across sources reports `{1,2,3,4}` for every year
-on BOTH boards, because `ktc` stayed intact, and would have hidden the failure completely. My
-first attempt made exactly that mistake and was caught by testing the discriminator against both
-boards before shipping it:
-
-```
-15:09 board -> RUN  (thin cells: none)
-17:11 board -> SKIP (thin: idpTradeCalc 2026:[1] 2027:[1] 2028:[1])
-```
-
-The guard keeps its teeth, and that was verified rather than asserted — replaying the class against
-the healthy 15:09 board runs 16 tests with 0 failures and 1 pre-existing skip, while the truncated
-board skips 11. A guard that skipped both ways would have silently retired a C1-PICK-01 gate.
-The live-board question stays owned by `validate_api_data_contract`'s pick census — advisory on
-PRs, **blocking at deploy**, so production keeps serving the last good board rather than one with
-15 unpriced picks.
-
-**Not a change to `V1-12`'s status.** C1-PICK-01's code is correct and remains `VERIFIED`; what is
-currently untrue on the live board is a vendor-availability condition, and the deploy gate is the
-right owner for it.
-
-Owner: lane 5.
+**What lane 5 did land:** the three hard-gate tests that build from `exports/latest` now skip on a
+per-source anchor-coverage premise. That stands independently of the lane question — a hard-gate
+test may not assert over the live board at all (`STABILIZATION_2026-08-16` §3d). The guard was
+verified to keep its teeth rather than assumed: replayed against the healthy 15:09 board the class
+runs 16 tests with 0 failures and 1 pre-existing skip; against the truncated board it skips 11.
 
 ## 2. Repairs made during the audit
 

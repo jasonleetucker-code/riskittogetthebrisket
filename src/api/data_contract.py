@@ -7383,6 +7383,67 @@ def _complete_future_pick_values(
     future_years = range(current_year + 1, current_year + horizon + 1)
     derived: dict[str, int] = {}
 
+    # ── 0. Year-step completion for unpriced synthetic far-future rows ──
+    #
+    # AUDIT F-30.  ``_inject_far_future_pick_sources`` clones the template
+    # year's RAW per-source entries and scales them, then records the basis and
+    # factor it used.  The clone therefore inherits its template's source set —
+    # and a template row whose only surviving source is ``ktc`` produces a
+    # derived row backed solely by ``ktc``, which has not been a blend voter
+    # since 2026-04-28 (dropped as a KTC double-count; it survives for display).
+    # No voter means no rank, no rank means no ``rankDerivedValue``, and the row
+    # arrives here unpriced while already carrying ``derived_year_step``
+    # provenance naming a basis and a factor. The value and the provenance
+    # disagreed, which reads as an explained row and is not one.
+    #
+    # Measured 2026-08-18, when ``idpTradeCalc`` truncated to round 1 only while
+    # ``ktc`` kept rounds 1-4: 20 census errors, all 2029 rounds 2-6, every one
+    # with a priced 2028 basis sitting right there (``2028 Early 2nd`` = 3176,
+    # factor 0.8532 — the exact ``yearStepByTierRound['early.2']``).
+    #
+    # This completes the value FROM THE BUILD'S OWN RECORDED DERIVATION rather
+    # than recomputing a factor, so the number cannot disagree with the
+    # provenance stamped beside it.  Direct evidence still wins: a row that is
+    # already priced is skipped, so the moment a market publishes these cells
+    # again this pass no-ops for them.
+    #
+    # It runs BEFORE the round-step pass so a round-4 row completed here can
+    # serve as the basis for rounds 5-6.
+    _year_step_derivations = synthetic_pick_derivations or _EMPTY_PICK_DERIVATIONS
+    for year in future_years:
+        for tier in ("Early", "Mid", "Late"):
+            for rnd in range(1, 7):
+                name = f"{year} {tier} {_round_suffix(rnd)}"
+                row = by_name.get(name)
+                if row is None or _finite_value(row) is not None:
+                    continue
+                record = _year_step_derivations.get(_canonical_match_key(name))
+                if not isinstance(record, dict):
+                    continue
+                basis_name = str(record.get("basisName") or "")
+                basis_value = _finite_value(by_name.get(basis_name))
+                if basis_value is None:
+                    continue
+                try:
+                    factor_f = float(record.get("factor"))
+                except (TypeError, ValueError):
+                    continue
+                if not 0.0 < factor_f <= 1.0:
+                    continue
+                value = int(round(basis_value * factor_f))
+                if value <= 0:
+                    continue
+                row["rankDerivedValue"] = value
+                row["confidenceBucket"] = "low"
+                row["confidenceLabel"] = (
+                    "Low — derived from the nearest published year via the measured vendor "
+                    "year-step"
+                )
+                row["confidenceBasis"] = "derived_year_step"
+                row["confidenceAxes"] = None
+                row["confidenceReasons"] = None
+                derived[name] = value
+
     # ── 1. Round-step completion for unpriced future tier rows ──
     for year in future_years:
         for tier in ("Early", "Mid", "Late"):
@@ -11611,37 +11672,19 @@ _SOURCE_HEALTH_ERROR_KINDS: tuple[str, ...] = (
     "implausibly small IDP pool in playersArray",
 )
 
-#: Source-health kinds that are decidable only from the error's TAIL.
-#:
-#: AUDIT F-30.  ``pick_completeness_census:`` cannot be classified by prefix,
-#: because the two variants it emits belong to DIFFERENT lanes and the
-#: distinguishing word is at the end:
-#:
-#: * ``…:missing_or_unpriced`` — a pick the board could not price.  A pick
-#:   market truncating its feed causes this on its own, with our code
-#:   byte-identical: measured 2026-08-18, ``idpTradeCalc`` went from 84 pick
-#:   anchors to 16 (round 1 only) between two scrapes of the same afternoon,
-#:   and the 2029 derivation it feeds correctly declined to invent the 15 rows
-#:   it no longer had inputs for (C1-U6-D1: an unpublished round is ABSENT,
-#:   never substituted).  That is the definition this file gives for the
-#:   source-health lane, and it is why the sibling checks
-#:   ``pick_count_below_floor:`` and ``pickAnchors is empty`` already sit there.
-#:
-#: * ``…:no_provenance`` — a pick that IS priced but carries no
-#:   ``pickValueProvenance``.  No upstream feed can cause that; it is a
-#:   statement about our own stamping.  It stays STRUCTURAL.
-#:
-#: Classifying the whole prefix would have quietly downgraded the second one,
-#: which is the opposite of the repair.
-_SOURCE_HEALTH_ERROR_SUFFIXES: tuple[str, ...] = (":missing_or_unpriced",)
-
 
 def _is_source_health_error(message: str) -> bool:
-    """True when ``message`` is caused by upstream data availability."""
+    """True when ``message`` is caused by upstream data availability.
+
+    NOT ``pick_completeness_census:…:missing_or_unpriced``, and that is
+    deliberate — ``tests/api/test_contract_health_lanes.py::TestTheTaxonomyItself``
+    parametrizes it as a statement about OUR code.  Audit F-30 moved it here and
+    was wrong to: the census asserts that our derivation prices every pick
+    through the horizon given whatever anchors arrived, so an unpriced pick is a
+    gap in the derivation, not a vendor's absence.  See the F-30 entry.
+    """
     text = str(message)
-    if any(text.startswith(kind) for kind in _SOURCE_HEALTH_ERROR_KINDS):
-        return True
-    return any(text.endswith(suffix) for suffix in _SOURCE_HEALTH_ERROR_SUFFIXES)
+    return any(text.startswith(kind) for kind in _SOURCE_HEALTH_ERROR_KINDS)
 
 
 def validate_api_data_contract(payload: dict[str, Any]) -> dict[str, Any]:

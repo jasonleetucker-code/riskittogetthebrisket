@@ -57,52 +57,6 @@ def _load_contract() -> dict[str, Any] | None:
     return build_api_data_contract(raw)
 
 
-def pick_anchor_rounds_by_source(
-    raw_or_contract: dict[str, Any] | None,
-) -> dict[str, dict[str, set[int]]]:
-    """``{source: {year: {rounds that source published}}}`` from ``pickAnchors``.
-
-    PER SOURCE, and that is the whole point: a union across sources hides the
-    failure. Measured on the two boards below, the union reports
-    ``{1,2,3,4}`` for every year in BOTH cases because `ktc` stayed intact,
-    while the per-source view separates them cleanly.
-
-    AUDIT F-30.  The completeness assertion below derives far-future pick
-    values from the nearest published future year, per (tier, round).  When a
-    pick market truncates its feed that derivation has no input, and C1-U6-D1
-    is explicit that a round a source did not publish is ABSENT rather than
-    substituted — so the pipeline correctly declines to price the rows.
-
-    Measured 2026-08-18, two consecutive scrapes of the same day:
-
-        15:09   ktc 84 anchors (2026:60 2027:12 2028:12)
-                idpTradeCalc 84 anchors (2026:60 2027:12 2028:12)
-        17:11   ktc 84 anchors — unchanged
-                idpTradeCalc 16 anchors (2026:10 2027:3 2028:3), round 1 only
-
-    `idpTradeCalc` is one of only two families that price picks, so losing its
-    2028 rounds 2-4 removed the input for 2029 rounds 2-6: 5 rounds x 3 tiers =
-    the exact 15 rows the assertion reported.
-    """
-    out: dict[str, dict[str, set[int]]] = {}
-    anchors = (raw_or_contract or {}).get("pickAnchors")
-    if not isinstance(anchors, dict):
-        return out
-    for source, board in anchors.items():
-        if not isinstance(board, dict):
-            continue
-        per_year: dict[str, set[int]] = {}
-        for key in board:
-            m = re.match(
-                r"^(20\d{2})\s+(?:Early|Mid|Late)\s+([1-6])(?:st|nd|rd|th)$", str(key), re.I
-            )
-            if m:
-                per_year.setdefault(m.group(1), set()).add(int(m.group(2)))
-        if per_year:
-            out[str(source)] = per_year
-    return out
-
-
 _DEEP_TIER_GENERIC_RE = re.compile(r"^(20\d{2})\s+(Early|Mid|Late)\s+([1-6])(st|nd|rd|th)$", re.I)
 _DEEP_TIER_SLOT_RE = re.compile(r"^(20\d{2})\s+Pick\s+([1-6])\.\d{1,2}$", re.I)
 
@@ -216,44 +170,6 @@ class TestPicksPresentInContract(unittest.TestCase):
         #   3. Off-cap or derived pick rows (round-step / generic-grade
         #      / below OVERALL_RANK_LIMIT) — valued, never ranked.
         picks = _pick_rows(self.contract)
-
-        # AUDIT F-30 — this assertion tests OUR derivation, not the vendors'
-        # uptime, and the difference decides whether a truncated upstream feed
-        # is allowed to redden every open PR.
-        #
-        # It lives in the HARD gate (`-m "not livedata"`) and builds from the
-        # LIVE committed board, which `docs/ops/STABILIZATION_2026-08-16.md`
-        # §3d forbids precisely because the result is a function of which
-        # sources answered the last scrape.  On 2026-08-18 that bit: a single
-        # `idpTradeCalc` pick-board truncation left 15 unpriced 2029 rows and
-        # turned every open PR red — the incident that stabilization was
-        # written to prevent, reached through a different door.
-        #
-        # `tests/archive_fixtures.newest_complete_raw_payload()` is the
-        # prescribed escape and does NOT help here: it classifies degradation
-        # off `settings.sourceRunSummary`, and `failedSources` is ABSENT from
-        # all 176 committed archives, so a silently truncated pick board still
-        # reads as complete.  (That blind spot is census S-2.)
-        #
-        # So skip on the PREMISE the assertion depends on: pick anchors that
-        # actually cover the rounds a horizon year must derive from.  The guard
-        # keeps its teeth — if our code breaks while anchors are complete this
-        # still fails — and the live-board question stays owned by
-        # `validate_api_data_contract`'s pick census, which is advisory on PRs
-        # and blocking at deploy.
-        published = pick_anchor_rounds_by_source(self.contract)
-        thin = {
-            src: {y: sorted(r) for y, r in years.items() if len(r) < 4}
-            for src, years in published.items()
-        }
-        thin = {src: cells for src, cells in thin.items() if cells}
-        if thin:
-            self.skipTest(
-                f"a pick market truncated its feed ({thin}) — the far-future "
-                "derivation has no input for the missing rounds, so this would "
-                "assert vendor uptime rather than our code (F-30). The contract "
-                "pick census owns the live-board question."
-            )
 
         value_missing_rows = [
             p["canonicalName"]
