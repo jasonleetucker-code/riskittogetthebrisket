@@ -5929,9 +5929,11 @@ async def post_waiver_faab_recommend(request: Request):
     # roster shape.  All of it is resolved dynamically — nothing about
     # which team is asking is hard-coded.
     from src.trade import faab_engine as _faab_engine  # noqa: PLC0415
-    from src.utils.name_clean import compact_name_key  # noqa: PLC0415
+    from src.trade import faab_comparability as _faab_comparability  # noqa: PLC0415
     from src.trade.faab_history import (  # noqa: PLC0415
-        crowd_bid_index,
+        build_crowd_market,
+        crowd_evidence_for,
+        crowd_refusal_reason,
         load_bid_history,
         load_crowd_history,
         summarize_bid_history,
@@ -5988,13 +5990,42 @@ async def post_waiver_faab_recommend(request: Request):
     # (scripts/fetch_crowd_faab.py accumulates them).  A second,
     # independent read on how contested the claim will be — it moves
     # the expected clearing price and never the objective ceiling.
+    #
+    # Read through the comparability owner, which fails closed twice: a ledger
+    # that has not been refreshed inside its budget is STALE and refused (a
+    # snapshot proves when it was taken, not that it is still true), and a
+    # position the retained population cannot price — measured, no external
+    # league in this feed starts an individual defender — is refused rather
+    # than answered from the wrong population.  Both refusals are reported.
     crowd_for_player: dict | None = None
+    crowd_market_block: dict | None = None
     try:
-        crowd_index = crowd_bid_index(load_crowd_history(league_cfg.key))
-        if crowd_index:
-            crowd_for_player = crowd_index.get(compact_name_key(add_name))
+        crowd_target = _faab_comparability.TargetFormat.from_roster_settings(
+            roster_settings,
+            league_key=league_cfg.key,
+            scoring_profile=getattr(league_cfg, "scoring_profile", "") or "",
+            idp_enabled=getattr(league_cfg, "idp_enabled", None),
+            original_budget=float(league_budget),
+        )
+        crowd_policy = _faab_comparability.ComparabilityPolicy.from_config(
+            _faab_engine.FaabConfig()
+        )
+        # Both the disk read and the classification pass run off the event
+        # loop — the ledger is a file and the pass is O(rows).
+        crowd_market = await run_in_threadpool(
+            lambda: build_crowd_market(
+                load_crowd_history(league_cfg.key),
+                target=crowd_target,
+                policy=crowd_policy,
+            )
+        )
+        crowd_for_player = crowd_evidence_for(crowd_market, add_name, add_position)
+        crowd_market_block = crowd_market.to_dict()
+        crowd_market_block["refusalReason"] = crowd_refusal_reason(crowd_market, add_position)
+        crowd_market_block["playerHasEvidence"] = crowd_for_player is not None
     except Exception as exc:  # noqa: BLE001 — an optional signal must never 500
         log.warning("crowd bid lookup failed for %s: %s", league_cfg.key, exc)
+        crowd_market_block = {"state": "missing", "refusalReason": "crowd_lookup_failed"}
 
     # The selected team's own roster shape.
     selected_team_row: dict | None = None
@@ -6279,6 +6310,13 @@ async def post_waiver_faab_recommend(request: Request):
         "intel": intel_as_of,
     }
     rec["staleInputs"] = _faab_contention.stale_inputs(rec["inputsAsOf"])
+    # Provenance for the external market lane.  "We have no crowd price for
+    # this player" and "we refused to quote one" must not read the same, so
+    # the state, the freshness, the tier composition, what was excluded and
+    # why, and the refusal reason are all reported — including when the
+    # answer is that nothing was usable.
+    if crowd_market_block is not None:
+        rec["crowdMarket"] = crowd_market_block
     rec["leagueKey"] = league_cfg.key
     rec["resolvedAddValue"] = add_value
     rec["resolvedDropValue"] = drop_value

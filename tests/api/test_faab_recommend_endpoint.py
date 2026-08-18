@@ -610,3 +610,133 @@ def test_matching_league_snapshot_consumed_normally(faab_env, monkeypatch):
     # o1: avgBid 20 vs median 10 → aggression 2.0, real sample.
     assert per["o1"]["aggression"] == 2.0
     assert per["o1"]["lowSample"] is False
+
+
+# ── Crowd market provenance ──────────────────────────────────────────
+#
+# The external-league lane fails closed (stale ledger, or a population that
+# cannot price the position asked about).  A refusal must be VISIBLE — "we
+# have no crowd price for this player" and "we declined to quote one" must
+# not read the same on the wire.
+
+
+def _crowd_payload(updated_at, *, has_idp=False, name="Hot Pickup", pct=12.0):
+    """A crowd ledger whose format matches this fixture's league.
+
+    ``faab_env`` registers a bare ``{"teamCount": 12}`` league — no superflex,
+    no TEP, one TE — so the rows must match THAT shape to survive the gate.
+    That is the point of the gate: comparability is measured against the
+    target league, not against Brisket's hard-coded settings.
+    """
+    return {
+        "schemaVersion": 1,
+        "updatedAt": updated_at,
+        "rows": [
+            {
+                "id": i,
+                "date": "2026-07-25T00:00:00",
+                "added": name,
+                "bidPct": pct,
+                "settings": {
+                    "leagueId": f"L{i}",
+                    "superflex": False,
+                    "tepLevel": 0,
+                    "is2TE": False,
+                    "teams": 12,
+                    "rostersPerPlayer": 1,
+                    "hasIdpSlots": has_idp,
+                    "originalBudget": 200.0,
+                },
+            }
+            for i in range(4)
+        ],
+    }
+
+
+def _with_crowd(monkeypatch, payload):
+    from src.trade import faab_history
+
+    monkeypatch.setattr(faab_history, "load_crowd_history", lambda key: payload)
+
+
+def _now():
+    import datetime as _dt
+
+    return _dt.datetime.now(_dt.timezone.utc).isoformat()
+
+
+def test_crowd_market_provenance_is_reported_when_fresh(faab_env, monkeypatch):
+    with TestClient(server.app) as c:
+        _with_crowd(monkeypatch, _crowd_payload(_now()))
+        res = _post(c, monkeypatch, {"addPlayerName": "Hot Pickup"})
+    assert res.status_code == 200
+    block = res.json()["crowdMarket"]
+    assert block["state"] == "fresh"
+    assert block["refusalReason"] is None
+    assert block["playerHasEvidence"] is True
+    assert block["rowsUsed"] == 4
+    assert block["dynastyProvenance"].startswith("source_level_claim")
+
+
+def test_incomparable_rows_are_dropped_on_read(faab_env, monkeypatch):
+    """The ledger is accumulated, so a tightened policy has to apply to rows
+    already stored — not only to the next fetch."""
+    payload = _crowd_payload(_now())
+    payload["rows"][0]["settings"]["rostersPerPlayer"] = 3
+    payload["rows"][1]["settings"]["originalBudget"] = 1.0
+    with TestClient(server.app) as c:
+        _with_crowd(monkeypatch, payload)
+        res = _post(c, monkeypatch, {"addPlayerName": "Hot Pickup"})
+    block = res.json()["crowdMarket"]
+    assert block["rowsTotal"] == 4 and block["rowsUsed"] == 2
+    assert block["excludedCounts"] == {"multi_copy_league": 1, "degenerate_budget": 1}
+
+
+def test_a_stale_crowd_ledger_is_refused_and_says_so(faab_env, monkeypatch):
+    with TestClient(server.app) as c:
+        _with_crowd(monkeypatch, _crowd_payload("2026-01-01T00:00:00+00:00"))
+        res = _post(c, monkeypatch, {"addPlayerName": "Hot Pickup"})
+    block = res.json()["crowdMarket"]
+    assert block["state"] == "stale"
+    assert block["refusalReason"] == "crowd_ledger_stale"
+    assert block["playerHasEvidence"] is False
+
+
+def test_an_offense_only_population_refuses_to_price_a_defender(faab_env, monkeypatch):
+    """Measured on the live feed: no external league in it starts an
+    individual defender, so its median is offense-only evidence and may not
+    price an IDP claim."""
+
+    def add_lb(contract):
+        contract["playersArray"].append(_row("Free Lb", "LB", 3000))
+
+    with TestClient(server.app) as c:
+        _with_crowd(monkeypatch, _crowd_payload(_now(), name="Free Lb"))
+        res = _post(c, monkeypatch, {"addPlayerName": "Free Lb"}, mutate=add_lb)
+    assert res.status_code == 200
+    block = res.json()["crowdMarket"]
+    assert block["pricesIdp"] is False
+    assert block["refusalReason"] == "population_cannot_price_idp"
+    assert block["playerHasEvidence"] is False
+
+
+def test_an_idp_league_in_the_population_unlocks_idp_pricing(faab_env, monkeypatch):
+    def add_lb(contract):
+        contract["playersArray"].append(_row("Free Lb", "LB", 3000))
+
+    with TestClient(server.app) as c:
+        _with_crowd(monkeypatch, _crowd_payload(_now(), name="Free Lb", has_idp=True))
+        res = _post(c, monkeypatch, {"addPlayerName": "Free Lb"}, mutate=add_lb)
+    block = res.json()["crowdMarket"]
+    assert block["pricesIdp"] is True
+    assert block["refusalReason"] is None
+    assert block["playerHasEvidence"] is True
+
+
+def test_no_ledger_reports_missing_rather_than_omitting_the_block(faab_env, monkeypatch):
+    with TestClient(server.app) as c:
+        _with_crowd(monkeypatch, None)
+        res = _post(c, monkeypatch, {"addPlayerName": "Hot Pickup"})
+    block = res.json()["crowdMarket"]
+    assert block["state"] == "missing"
+    assert block["refusalReason"] == "no_crowd_ledger"

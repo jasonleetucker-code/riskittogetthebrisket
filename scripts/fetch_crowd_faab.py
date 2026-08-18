@@ -46,8 +46,10 @@ from typing import Any
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from src.sources.ktc_identity import parse_ktc_identity  # noqa: E402
+from src.trade import faab_comparability as FC  # noqa: E402
+from src.trade.faab_engine import FaabConfig  # noqa: E402
 from src.trade.faab_history import (  # noqa: E402
-    crowd_bid_index,
+    build_crowd_market,
     load_crowd_history,
     merge_crowd_rows,
     save_crowd_history,
@@ -121,15 +123,20 @@ def fetch_rows() -> list[dict[str, Any]]:
         dropped_asset = identity.classify(row.get("droppedPlayer"))
         dropped = dropped_asset.name if dropped_asset.is_player else None
 
+        share = FC.normalized_bid_share(bid, budget)
         out.append(
             {
                 "id": row.get("id"),
                 "date": row.get("date"),
                 "added": added,
                 "dropped": dropped,
+                # Raw bid AND raw starting budget are preserved alongside the
+                # normalized values so any consumer can audit the conversion
+                # (owner spec section 3).
                 "bid": bid,
                 "budget": budget,
                 "bidPct": round(100.0 * bid / budget, 3),
+                "normalizedBidShare": None if share is None else round(share, 6),
                 "settings": {
                     "leagueId": str(settings.get("id") or ""),
                     "teams": settings.get("teams"),
@@ -141,6 +148,29 @@ def fetch_rows() -> list[dict[str, Any]]:
                     # empty market rather than as a broken parse.
                     "superflex": _superflex_of(settings),
                     "tep": settings.get("tep") if "tep" in settings else None,
+                    # KTC publishes tep as 0/1/2/3 (Off / TE+ / TE++ /
+                    # TE+++).  The boolean above answers "TEP at all"; the
+                    # level answers "how much", and TE+ is not TE+++.
+                    "tepLevel": settings.get("tep") if "tep" in settings else None,
+                    # Two mandatory TE starters — named separately from TEP
+                    # by the owner spec, because they are separate settings
+                    # and either one on its own changes TE waiver demand.
+                    "is2TE": settings.get("is2TE") if "is2TE" in settings else None,
+                    # Roster EXCLUSIVITY.  > 1 means the same player may sit
+                    # on several rosters at once, so the league has no waiver
+                    # scarcity and its claims clear near nothing.  Measured
+                    # 2026-08-18: such leagues were 37% of everything the old
+                    # gate admitted, at a 5x lower median.
+                    "rostersPerPlayer": (
+                        settings.get("rostersPerPlayer")
+                        if "rostersPerPlayer" in settings
+                        else None
+                    ),
+                    # Whether the league starts INDIVIDUAL defenders.  A team
+                    # ``Def`` slot is not IDP, and the distinction decides
+                    # whether this row may ever price a linebacker.
+                    "hasIdpSlots": FC.source_format_from_settings(settings).has_idp_slots,
+                    "originalBudget": budget,
                     "ppr": settings.get("ppr"),
                     "platform": settings.get("dynastyPlatformType"),
                 },
@@ -161,6 +191,15 @@ def fetch_rows() -> list[dict[str, Any]]:
             f"all {len(out)} crowd rows have an unreadable format "
             "(superflex/tep settings keys missing) — refusing to report an empty market"
         )
+    # Same posture for roster exclusivity, which is now a hard gate: if the
+    # vendor renames ``rostersPerPlayer`` every row fails closed and the run
+    # would report "0 comparable" as though the market were quiet.  A universal
+    # parse failure is a FAILURE, not an empty market.
+    if out and all(r["settings"]["rostersPerPlayer"] is None for r in out):
+        raise RuntimeError(
+            f"all {len(out)} crowd rows lack rostersPerPlayer — the roster-exclusivity "
+            "gate cannot be applied; refusing to report an empty market"
+        )
     if unformattable:
         print(f"  format: {unformattable} of {len(out)} rows unclassifiable", file=sys.stderr)
     return out
@@ -176,29 +215,54 @@ def _superflex_of(settings: dict[str, Any]) -> bool | None:
         return None
 
 
-def comparable(row: dict[str, Any], *, teams: int, superflex: bool, tep: bool) -> bool:
-    """Keep only leagues whose FORMAT makes their prices meaningful here.
+def league_budget_for(league_key: str) -> float | None:
+    """The target league's ORIGINAL FAAB budget, for the $-equivalent display.
 
-    A 10-team 1QB league's waiver wire is a different market from a
-    12-team superflex TEP league's — deeper starting requirements make
-    the same player scarcer and dearer.  Team count is allowed +/-2
-    because exact-match alone discards most of an already small feed.
+    Read from the FAAB config's ``leagueRules.defaultBudget``, which is the
+    same documented fallback the engine uses when Sleeper's live settings are
+    not to hand.  ``None`` rather than a guess when it is unreadable: an
+    unknown budget has no scale, so the equivalent is simply omitted instead of
+    being quoted against an invented one.  It affects the display column only —
+    every stored percentage is already budget-neutral.
     """
-    s = row.get("settings") or {}
-    # An unstated format cannot be PROVEN comparable, so it is excluded.
-    # Fails closed: a league we cannot classify must not be priced as
-    # though it matched.
-    if s.get("superflex") is None or s.get("tep") is None:
-        return False
-    if bool(s.get("superflex")) != bool(superflex):
-        return False
-    if bool(s.get("tep")) != bool(tep):
-        return False
     try:
-        n = int(s.get("teams") or 0)
+        value = float(FaabConfig().get("leagueRules", "defaultBudget", 0) or 0)
     except (TypeError, ValueError):
-        return False
-    return abs(n - int(teams)) <= 2
+        return None
+    return value if value > 0 else None
+
+
+def classify_rows(
+    rows: list[dict[str, Any]],
+    target: FC.TargetFormat,
+    *,
+    policy: FC.ComparabilityPolicy,
+) -> tuple[list[dict[str, Any]], dict[str, int]]:
+    """``(kept, exclusion census)`` for one target league.
+
+    The verdict comes from ``src.trade.faab_comparability`` — the one owner of
+    "is this external league's waiver price meaningful here".  This script
+    stores evidence and applies the verdict; it decides nothing itself, so a
+    later policy change re-classifies the accumulated ledger on read without a
+    refetch.
+    """
+    kept: list[dict[str, Any]] = []
+    census: dict[str, int] = {}
+    for row in rows:
+        fmt = FC.source_format_from_settings(row.get("settings"))
+        verdict = FC.classify(fmt, target, policy=policy)
+        if verdict.excluded:
+            for reason in verdict.reasons or ("excluded",):
+                census[reason] = census.get(reason, 0) + 1
+            continue
+        stamped = dict(row)
+        stamped["comparability"] = verdict.to_dict()
+        stamped["dynastyProvenance"] = FC.DYNASTY_PROVENANCE_SOURCE_LEVEL
+        equiv = FC.equivalent_on_budget(row.get("normalizedBidShare"), target.original_budget)
+        if equiv is not None:
+            stamped["equivalentOnTargetBudget"] = round(equiv, 2)
+        kept.append(stamped)
+    return kept, census
 
 
 def main() -> int:
@@ -233,29 +297,47 @@ def main() -> int:
     print(f"fetched {len(rows)} crowd claims")
 
     now_iso = datetime.now(timezone.utc).isoformat()
+    policy = FC.ComparabilityPolicy.from_config(FaabConfig())
     for cfg in leagues:
-        settings = league_registry.get_league_roster_settings(cfg.key) or {}
-        starters = settings.get("starters") or {}
-        teams = int(settings.get("teamCount") or 12)
-        superflex = bool(starters.get("SFLEX") or starters.get("SUPER_FLEX"))
-        tep = bool(int(starters.get("TE") or 0) >= 2) or "tep" in str(
-            getattr(cfg, "scoring_profile", "")
+        # The comparator profile comes from the TARGET league's own canonical
+        # settings, never a hardcoded Brisket shape — the product is expected
+        # to serve other people's dynasty leagues later (owner spec section 7).
+        target = FC.TargetFormat.from_roster_settings(
+            league_registry.get_league_roster_settings(cfg.key) or {},
+            league_key=cfg.key,
+            scoring_profile=getattr(cfg, "scoring_profile", "") or "",
+            idp_enabled=getattr(cfg, "idp_enabled", None),
+            original_budget=league_budget_for(cfg.key),
         )
 
-        keep = [r for r in rows if comparable(r, teams=teams, superflex=superflex, tep=tep)]
+        keep, census = classify_rows(rows, target, policy=policy)
         print(
             f"→ {cfg.key}: {len(keep)} of {len(rows)} comparable "
-            f"({teams}tm superflex={superflex} tep={tep})"
+            f"({target.teams}tm superflex={target.superflex} tep={target.tep} "
+            f"2TE={target.is_2te} idp={target.idp})"
         )
+        if census:
+            detail = ", ".join(f"{k}={v}" for k, v in sorted(census.items(), key=lambda kv: -kv[1]))
+            print(f"   excluded: {detail}")
         if not keep:
             continue
 
         merged = merge_crowd_rows(load_crowd_history(cfg.key), keep, now_iso=now_iso)
-        index = crowd_bid_index(merged)
+        market = build_crowd_market(merged, target=target, now_iso=now_iso, policy=policy)
+        index = market.index
         print(
             f"   +{merged['addedLastRun']} new · {len(merged['rows'])} total rows · "
-            f"{len(index)} players priced"
+            f"{len(index)} players priced · tiers {market.tier_counts} · "
+            f"state {market.state}"
         )
+        if not market.prices_idp and target.idp:
+            # Named, not silently absorbed: this league starts IDP and the
+            # external population contains no IDP league, so crowd evidence
+            # will be refused for defenders downstream.
+            print(
+                "   note: no IDP league in the retained population — "
+                "crowd evidence will not price DL/LB/DB claims"
+            )
         if args.dry_run:
             top = sorted(index.items(), key=lambda kv: -kv[1]["medianPct"])[:8]
             for key, v in top:

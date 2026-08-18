@@ -19,6 +19,8 @@ labelled as such rather than estimated.
 | Every tunable | `config/trade/faab.json` |
 | Endpoint ↔ engine translation | `src/trade/faab_recommender.py::recommend_faab` |
 | Historical bid fetch + fit | `src/trade/faab_history.py`, `scripts/fetch_faab_history.py` |
+| External-league comparability, freshness, $-basis normalization | `src/trade/faab_comparability.py` — see [faab-external-market-comparability.md](faab-external-market-comparability.md) |
+| Cross-league crowd feed | `scripts/fetch_crowd_faab.py` → `faab_history.build_crowd_market` |
 | OLD-vs-NEW replay | `scripts/faab_backtest.py` |
 | Back-compat shim (no math of its own) | `src/trade/waiver.py::_compute_faab_bid` |
 | Endpoints | `POST /api/waiver/faab-recommend`, `POST /api/waiver/suggestions` |
