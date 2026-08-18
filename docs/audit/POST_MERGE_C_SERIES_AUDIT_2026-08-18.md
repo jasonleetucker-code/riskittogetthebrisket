@@ -26,7 +26,7 @@ Two conventions are load-bearing:
 
 ---
 
-## 1. Open findings — not repaired
+## 1. Findings
 
 ### F-1 · 2029 pick tier ordering is inverted on the live board · CONFIRMED · data integrity
 
@@ -80,63 +80,75 @@ under a freeze. Both were considered and declined.
 to preserve tier and round ordering, declare the constraint as part of the `PRIOR` family, and
 measure its effect on all 18 cells before and after.
 
-### F-2 · `/api/data` serves the raw snapshot, HTTP 200, until the first scrape succeeds · CONFIRMED · serving path
+### F-2 · The E2E board diagnostic reports a false root cause · CONFIRMED · observability · REPAIRED (#893)
 
-Booted `server:app` with the browser deliberately unavailable — the E2E config's own posture —
-so the startup scrape fails:
+**This entry replaces a REFUTED finding, and the refutation is the point.**
+
+I first recorded F-2 as *"`/api/data` serves the raw snapshot, HTTP 200, until the first scrape
+succeeds"*, having measured `playersArray=0`, `stamped=0`, `contractVersion=None` against a
+locally booted backend whose startup scrape had failed. **That finding was wrong**, and the
+owner had approved a startup-wiring repair on the strength of it before I re-measured. The
+repair was not built.
+
+What is actually true: the contract **is** built at startup. `_prime_latest_payload` calls
+`build_api_data_contract` and the default and `array` views carry 1,109 rows with **740
+stamped**. `view=app` is the *runtime* view and **deliberately drops `playersArray`** —
+`server.py` does `runtime_payload.pop("playersArray", None)`, the documented payload-size
+optimisation — so its rows live in the legacy `players` dict and carry
+**`_canonicalConsensusRank`**, the underscore-prefixed key the legacy materializer in
+`dynasty-data.js` actually reads. Measured on that exact payload:
+`_canonicalConsensusRank` on **740/1109**, `rankDerivedValue` on **849/1109**. I had checked
+the un-prefixed key. So had the diagnostic.
+
+**The real defect.** `tests/e2e/helpers/journey.js` counts stamps only over `body.playersArray`,
+using the un-prefixed key — over a view that always returns that array empty. `stamped` was
+therefore unconditionally `0`, the "NO RANK STAMPS" branch fired on **every** board failure, and
+the "looks serveable — that points at the client" branch was unreachable. What it printed:
 
 ```
-[Scrape] scrape_failed — BrowserType.launch: Executable doesn't exist ...
-GET /api/data?view=app  ->  200
-playersArray=0   legacyPlayers=1109   stamped=0   meta.contractVersion=None
+=> PAYLOAD HAS ROWS BUT NO RANK STAMPS ... The scrape pipeline is not stamping
+   canonicalConsensusRank — investigate upstream, do NOT add a client-side blend.
 ```
 
-Polled for 100 s after the failure: unchanged. The same on-disk export builds a **complete
-1,109-row stamped contract in 1.36 s** in-process. The data is present and buildable; it is
-simply never built.
+A confident, wrong headline naming a subsystem that is fine, on every red board run for a week.
+Replaying both expressions against the captured payload: old yields `0` and fires the false
+branch; new yields `740` and reports the payload serveable.
 
-**Mechanism.** At startup `latest_data = load_from_disk()` then `_prime_latest_payload(...)`,
-which primes the raw payload's bytes/gzip/etag. `latest_contract_data` is assigned in exactly
-one place — inside the scrape path — so it stays `None`. `get_data`'s `if latest_contract_data:`
-is False and the handler falls through to serving the primed **raw** bytes with 200. The
-`503 {"error": "No data available yet"}` at the end fires only when there is no data at all.
+**Repaired** in #893: count with the key each materializer reads, and report both halves so a
+future mismatch is visible rather than collapsed.
 
-The startup log prints **"Dashboard ready with cached data"** and the comment above the load
-says it exists "so the dashboard is usable right away". Neither is true since the `buildRows`
-fail-fast landed: with zero rank stamps the materializer returns `[]` **by design** and the page
-renders "No player data available" — while the API reports 200 OK.
+**The board failures themselves are a stack-readiness race, not a contract defect.** The same
+error context carries four 404s, a **502** and a 503 — none of which the diagnostic mentions.
+The mobile board test passes in isolation and failed twice under parallel load; the Streaks
+test passed on re-run. Classified as flaky-under-load, not deterministic. The earlier claim in
+this register that two failures were "deterministic from F-2" is withdrawn.
 
-**Why it matters.**
+**Process note, recorded deliberately.** A diagnostic that is wrong is worse than one that is
+absent: it spends the reader's attention on the wrong subsystem and forecloses the right
+question. It cost this audit a full investigation cycle — a booted backend, a serving-path
+probe, and a provisional finding — and it would have cost an owner-approved production change
+had I not re-measured before writing code.
 
-* It is a **hidden fallback** — the shape `docs/C_SERIES_EXECUTION_MAP.md` §0.3 rule 3 forbids.
-  The response is not a contract and nothing in it says so.
-* Every process restart is exposed until the next scrape succeeds. Deploys restart the service.
-* The deploy's own smoke test cannot catch it: it asserts `/api/data` returns **401**
-  anonymously, which it does.
-* It is the deterministic cause of two E2E failures measured here.
-
-**Correction to a prior diagnosis.** Open PR #762 attributes this class to "the Next bridge
-serves an unstamped snapshot as the contract". Measured against the backend directly, with no
-Next in the path: **the backend serves it.** The bridge may also; it is not the origin.
-
-**Why not repaired here.** It changes what a live production process serves in its first
-minutes. Recommended, with owner approval: build the contract from the disk-loaded payload at
-startup so a failed scrape degrades to a **stale contract** rather than to a non-contract, and
-return the existing 503 when a contract genuinely cannot be built.
 
 ### F-3 · The E2E regression suite has been red on `main` for seven consecutive days · CONFIRMED · process
 
 The `e2e.yml` workflow's scheduled run on `main` has concluded `failure` on **2026-08-11, -12,
 -13, -14, -15, -16 and -17**, and on the open dependabot PR. Its last success was 2026-08-10, on
-`claude/bridge-timeout-root-cause` — the branch of PR #762, still open, which diagnosed F-2's
-class.
+`claude/bridge-timeout-root-cause` — the branch of PR #762, still open.
 
 The repository's end-to-end regression signal has therefore been unread for a week. Local run
-during this audit: **148 passed, 5 failed** — one flake (Streaks; passed on re-run), two
-deterministic from F-2, two repaired by batch G.
+during this audit: **148 passed, 5 failed** — two repaired by batch G, and three that are
+**flaky under parallel load rather than deterministic**: Streaks passed on re-run, and the
+mobile board test passes in isolation having failed twice under load. The console evidence on
+the board failures is four 404s, a 502 and a 503 — a stack-readiness race.
 
-**Recommendation.** Either land F-2's repair (which is most of the red) or make the suite's
-verdict something a person is required to look at. A signal nobody reads is not a signal.
+The week of red was legible only through F-2's diagnostic, which named the wrong subsystem
+every time. That is repaired (#893); the underlying readiness race is not, and is the honest
+next question.
+
+**Recommendation.** Make the suite's verdict something a person is required to look at, and
+treat the readiness race as its own unit. A signal nobody reads is not a signal — and one that
+lies when read is worse.
 
 ### F-4 · Production proof outstanding for five units · BLOCKED-EXTERNAL
 
@@ -145,6 +157,10 @@ production (deployed `5a5f1507f`), but **not one of the five named checklists ha
 executed**. Each requires an authenticated production session. Recorded honestly in
 `docs/EXECUTION_PLAN.md` §0.3 as `IN PRODUCTION, CHECKLIST UNEXECUTED` — the deploy landing is
 the precondition, not the proof.
+
+**Owner decision, 2026-08-18: run what is reachable, mark the rest `BLOCKED-EXTERNAL`.** The
+five checklists are therefore carried as explicitly unverified into the verdict. They are not
+counted as passes, and the reserved completion phrase stays unclaimed.
 
 Also outstanding on production, because it cannot be measured here:
 
@@ -173,6 +189,7 @@ Each is a repair-only PR: exact-head CI, mutation-proven where structural, merge
 | **C** | #887 | `tests/picks/` had no source-text owner guard — which is why C2-U1's retirements held and the pick duplicates did not. Added the guard, routed the `tier_centre_slot` literal through the owner, and re-pointed a parity test that had been comparing **two literals to each other** (so both could drift from the owner together). |
 | **D** | #888 | An unknown FAAB budget became a fabricated `$100` — verbatim the example the repo's own coercion gate names in its docstring, still live on the path that builds the market priors, and the **denominator** of every `bidPct` in a league that has run $1,000 and $200. Separately, `resolveAssetValue` booked unpriced assets at `$0` of team value while the correct helper sat 900 lines above it in the same file; it bites hardest on picks, where every 2027/2028 5th and 6th is legitimately unpriced. |
 | **F** | #890 | The blocking hard gate **had a midnight**. `tests/deploy/test_backup_root_resolution.py` reads the clock once at import; two tests re-read it later, so a suite crossing 00:00 UTC collapses `yesterday` onto `TODAY` and builds its deliberately-older generation on top of the newer one. It took down #886 and #888. Reproduced byte-for-byte against the CI log. A `DATE_STAMP` fix the day before had pinned the *script's* clock and stopped there. |
+| **H** | #893 | The E2E board diagnostic — see F-2. |
 | **G** | #891 | A regression test **required private intelligence to be public** — it asserted `faabAnalytics` answers an anonymous caller with 200, when B8 made it one of three `PRIVATE_INTELLIGENCE_SECTIONS` returning 401. The obvious way to green it is to reopen the section, deleting a privacy boundary to satisfy a stale test. The boundary is now pinned for all three sections through **both** doors (the `.csv` route was untested); the shape coverage moved to a signed-in spec rather than being dropped. |
 | **E** | #889 | Governance — see §3. |
 
