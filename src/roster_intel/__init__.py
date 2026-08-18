@@ -49,6 +49,11 @@ from src.roster_intel.core import (
     build_meaningful_core,
     reserve_demand,
 )
+from src.roster_intel.simulation import (
+    RosterSimulation,
+    SlotMovement,
+    simulate_roster_change,
+)
 from src.roster_intel.strength import (
     POSITION_GROUPS,
     PositionStrength,
@@ -73,6 +78,8 @@ __all__ = [
     "PositionRanks",
     "PositionStrength",
     "ReserveDemand",
+    "RosterSimulation",
+    "SlotMovement",
     "SlotRung",
     "TeamAgePortfolio",
     "TeamStrength",
@@ -87,4 +94,5 @@ __all__ = [
     "rank_age_portfolios",
     "rank_team_strengths",
     "reserve_demand",
+    "simulate_roster_change",
 ]
