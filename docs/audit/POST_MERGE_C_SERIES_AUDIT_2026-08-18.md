@@ -1218,7 +1218,7 @@ there is a green run declining to clear a real alert.
 
 Draining the accumulated duplicates is tracked separately.
 
-### F-24 · A live, defaulted-ON feature flag is invisible to every operator surface · CONFIRMED · observability · **REPAIRED 2026-08-18**
+### F-24 · A live, defaulted-ON feature flag is invisible to every operator surface · CONFIRMED · observability · **OPEN — repair BLOCKED on a measurement**
 
 `RISKIT_FEATURE_LEDGER_RANK_CHANGE` is read directly at `src/api/data_contract.py:5545` via
 `os.environ.get(..., "1")` — **default ON** — but is absent from `feature_flags._DEFAULTS`
@@ -1229,7 +1229,33 @@ Consequence: it does not appear in `snapshot()`, `effective_flags()` or `/api/st
 gets one that omits a live gate on the canonical board's `rankChange` derivation. The rollback
 lever documented in CLAUDE.md is real; the inventory that would tell you it exists is not.
 
-**Repair.** Registered as `ledger_rank_change` (the registry derives exactly the env var already in use, `RISKIT_FEATURE_LEDGER_RANK_CHANGE`, so the documented rollback lever is unchanged) and the read site now resolves through `feature_flags.is_enabled`. Equivalence proven across all six spellings the retired direct read accepted — `0`/`false`/`off` disable, `1`/empty/garbage enable — so the gate behaves identically and is now enumerable in `snapshot()`, `effective_flags()` and `/api/status`. Carried as `V1-87`.
+**The obvious repair was attempted and backed out, deliberately.** Registering it in
+`_DEFAULTS` works mechanically — the registry derives exactly the env var already in use, so the
+rollback lever is unchanged, and equivalence was proven across all six spellings the direct read
+accepts (`0`/`false`/`off` disable; `1`/empty/garbage enable).
+
+It is refused by `tests/api/test_feature_flags.py`, which requires every defaulted-ON flag to be
+classified either `safe_on` (additive, inert, **cannot move a number**) or `value_moving_on`
+(with a **MEASURED** blast radius). This flag is neither cheaply:
+
+* it **mutates the contract** — ON stamps ledger-derived `rankChange`, OFF stamps `None` — so the
+  `safe_on` standard `perfect_draft` meets ("writes no value, mutates no contract") does not hold;
+* `value_moving_on` demands a measurement, and the guard's own comment forbids substituting an
+  argument that the change is probably fine.
+
+**The measurement is not obtainable from this environment, and faking it would be worse than
+leaving the finding open.** It needs the temporal ledger and a built board: with no
+`data/temporal_ledger.sqlite` present, BOTH branches stamp `None`, so a local on/off diff reports
+"0 rows changed" — a vacuous figure that would read as evidence. `/api/data` requires
+authentication, so the live board is equally out of reach here.
+
+**To close F-24:** with the ledger present, measure ON vs OFF over a real board — how many rows'
+`rankChange` becomes `None`, and the distribution of the non-null values — then register the flag
+carrying that blast radius. Until then the direct read stays, and the reason it stays is recorded
+both at the read site and in the `feature_flags` module docstring, so the gap is documented where
+a reader of either file will meet it.
+
+Carried as `V1-87`, status `BLOCKED`.
 
 ### F-25 · The nav offers a page whose every endpoint 503s · CONFIRMED · truthful degraded state · **OPEN**
 

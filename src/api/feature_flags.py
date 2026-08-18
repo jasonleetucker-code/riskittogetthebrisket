@@ -8,18 +8,21 @@ proves itself.
 enabled.**  This docstring, ``README.md`` and ``docs/ARCHITECTURE.md``
 all used to assert a blanket disabled-by-default rule, and
 ARCHITECTURE built a stronger claim on top of it about production
-behaviour being frozen until a flag was flipped.  Both were false: 9 of
-the 17 entries in ``_DEFAULTS`` below are ``True`` — ``bdvm_engine``,
+behaviour being frozen until a flag was flipped.  Both were false: 8 of
+the 16 entries in ``_DEFAULTS`` below are ``True`` — ``bdvm_engine``,
 ``te_basis_conversion`` (which reprices every tight end on the live
 board), ``monte_carlo_trade``, ``idp_scoring_fit``,
-``reception_scoring_fit``, ``nfl_data_ingest``, ``realized_points_api``,
-``perfect_draft`` and ``ledger_rank_change`` — several with comments
-recording that the enabled default is deliberate.
+``reception_scoring_fit``, ``nfl_data_ingest``, ``realized_points_api``
+and ``perfect_draft`` — several with comments recording that the
+enabled default is deliberate.
 
-``ledger_rank_change`` is the newest, registered 2026-08-18 by audit
-F-24 — and it was LIVE before it was registered, read straight from the
-environment and therefore absent from every operator surface.  It is the
-literal case this docstring warns about.
+**One live gate is deliberately NOT in this registry**, and it is the
+sharpest illustration of why the paragraph above matters:
+``RISKIT_FEATURE_LEDGER_RANK_CHANGE`` is read directly in
+``data_contract._stamp_rank_changes``, defaults ON, and therefore appears
+in no operator surface at all.  Audit **F-24** proposed registering it;
+that is blocked, not abandoned, and the reason is recorded at the read
+site.
 
 For a flag that ships enabled, the env var is a ROLLBACK lever, not an
 opt-in.  Read ``_DEFAULTS`` for the flag you care about rather than
@@ -309,23 +312,6 @@ _DEFAULTS: Final[dict[str, bool]] = {
     # ``scripts/validate_consensus_edge_board.py`` to pass on a re-run,
     # not a judgement call.  See ADR-023.
     "consensus_edge": False,
-    # AUDIT F-24 — registered 2026-08-18, and it was ALREADY LIVE before it
-    # was registered.
-    #
-    # ``data_contract._stamp_rank_changes`` read
-    # ``RISKIT_FEATURE_LEDGER_RANK_CHANGE`` straight from the environment,
-    # defaulting to ON, and the name it used is exactly the one this registry
-    # derives (``_ENV_PREFIX`` + the key upper-cased) — so the rollback lever
-    # documented in CLAUDE.md was real, but the inventory that would tell an
-    # operator it exists was not.  It appeared in neither ``snapshot()`` nor
-    # ``effective_flags()`` nor ``/api/status``, and
-    # ``tests/api/test_feature_flag_reachability.py`` could not see it either.
-    #
-    # A gate nobody can enumerate is a gate nobody can roll back under
-    # pressure, which is the point of having one.  Default stays True: the
-    # C1-U4 ledger derivation is the canonical source of ``rankChange`` and
-    # this only ever existed as the escape hatch.
-    "ledger_rank_change": True,
 }
 
 _ENV_PREFIX: Final[str] = "RISKIT_FEATURE_"
@@ -446,15 +432,6 @@ _GATE_STATUS: Final[dict[str, str]] = {
     # consensus_edge gates the /api/consensus-edge/* router mounted in
     # server.py: off → 503 feature_disabled, on → the board.
     "consensus_edge": LIVE,
-    # ledger_rank_change gates the C1-U4 ledger-derived ``rankChange``
-    # stamp in ``data_contract._stamp_rank_changes``, which runs on every
-    # contract build and therefore on every ``/api/data`` response: off →
-    # ``None`` everywhere (honest missing, NOT the retired cache), on →
-    # the derived stamps.  Registered by audit F-24; it was live and
-    # defaulted ON for its whole existence while being read straight from
-    # the environment, so it appeared in no operator surface and this
-    # table could not classify it.
-    "ledger_rank_change": LIVE,
     # ── Gate exists, module is stranded ──
     #
     # ``src/nfl_data/injury_feed.py`` and ``src/news/usage_signals.py``

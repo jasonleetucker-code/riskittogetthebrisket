@@ -240,7 +240,7 @@ Projections · **L4** Market / FAAB / Analyst · **L5** Integration / QA / CI / 
 | V1-84 | 503 is not exempt from production health failure | audit `F-21` | L5 | `IMPLEMENTED_UNVERIFIED` | L3 | false-green repair. #909 |
 | V1-85 | `pickAnchors` reporting consistent with the contract | audit `F-22` | L5 | `NOT STARTED` | L1 | P2 reporting consistency — **reclassified, see §8** |
 | V1-86 | The E2E tracker identity works | audit `F-23` | L5 | `IMPLEMENTED_UNVERIFIED` | L3 | CI/E2E false-green. 14 duplicate trackers; close step never fired |
-| V1-87 | Every live feature flag is visible to operators | audit `F-24` | L5 | `IMPLEMENTED_UNVERIFIED` | L1 | truthful degraded state — a defaulted-ON flag absent from `/api/status` |
+| V1-87 | Every live feature flag is visible to operators | audit `F-24` | L5 | `BLOCKED` | L2 | truthful degraded state — a defaulted-ON flag absent from `/api/status` |
 | V1-88 | Flag documentation names the endpoint it actually gates | audit `F-26` | L5 | `IMPLEMENTED_UNVERIFIED` | L1 | evidence integrity |
 | V1-89 | DraftSharks staleness resolved | `C4-SRC-01` | L4 | `BLOCKED` | L3 | source-health correctness. **Owner decision `OD-04`**: re-mint / accept / retire |
 | V1-90 | FootballGuys ghost stamps removed | `C4-SRC-03` | L5 | `NOT STARTED` | L1 | source-health correctness — stamps with no fetcher since 2026-05-24 |
@@ -311,20 +311,27 @@ Measured 2026-08-18 at `main` + PR #909.
 | status | count |
 |---|---|
 | `VERIFIED` | 36 |
-| `IMPLEMENTED_UNVERIFIED` | 21 |
+| `IMPLEMENTED_UNVERIFIED` | 20 |
 | `IN PROGRESS` | 24 |
 | `NOT STARTED` | 45 |
-| `BLOCKED` | 1 |
+| `BLOCKED` | 2 |
 | **denominator** | **127** |
 
 **V1 completion: 36 / 127 = 28.3%.**
 
 The percentage went **down** between publication and the first update, and that is
-the contract working rather than failing. One item was added (`V1-127`) and three
-moved to `IMPLEMENTED_UNVERIFIED` — `V1-86` from `IN PROGRESS`, `V1-87` and `V1-88`
-from `NOT STARTED`. All four are merged code that is not yet proven in production,
-so the numerator did not move at all: 36 either way, over a larger denominator.
-A ledger that only ever ticks upward is not measuring anything.
+the contract working rather than failing. One item was added (`V1-127`), two
+moved to `IMPLEMENTED_UNVERIFIED` (`V1-86` from `IN PROGRESS`, `V1-88` from
+`NOT STARTED`), and one moved to `BLOCKED` (`V1-87`). The numerator did not move
+at all: 36 either way, over a larger denominator.
+
+`V1-87` is the instructive one. Its repair is mechanically trivial and was written,
+then **backed out**, because the guard that governs defaulted-ON flags demands a
+measured blast radius and that measurement is not obtainable without the temporal
+ledger — locally both branches stamp `None`, so a diff would report a vacuous
+"0 rows changed" that reads as evidence. `BLOCKED` is the honest status for an
+item whose repair is known and whose proof is not available. A ledger that only
+ever ticks upward is not measuring anything.
 
 Read that number carefully. The 17 `IMPLEMENTED_UNVERIFIED` items are *merged and deployed
 code* — they are not missing, they are unproven, and five of them

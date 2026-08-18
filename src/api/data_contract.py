@@ -5572,17 +5572,41 @@ def _stamp_rank_changes(
     into the ledger happens only at the fresh-scrape promotion site in
     ``server.py``.
     """
-    # F-24: resolved through the flag registry rather than a direct
-    # ``os.environ`` read, so the gate appears in ``snapshot()``,
-    # ``effective_flags()`` and ``/api/status`` like every other one.  The env
-    # var name is unchanged — the registry derives exactly
-    # ``RISKIT_FEATURE_LEDGER_RANK_CHANGE`` from the key — so the documented
-    # rollback lever still works, and now it is also discoverable.
-    from src.api import feature_flags as _feature_flags  # noqa: PLC0415
+    # AUDIT F-24 — this gate is INVISIBLE to every operator surface, and
+    # registering it is BLOCKED rather than forgotten.
+    #
+    # Read straight from the environment and defaulted ON, it appears in
+    # neither ``feature_flags.snapshot()`` nor ``effective_flags()`` nor
+    # ``/api/status``, and ``test_feature_flag_reachability.py`` cannot see
+    # it either.  The rollback lever CLAUDE.md documents is real; the
+    # inventory that would tell an operator it exists is not.
+    #
+    # Registering it in ``_DEFAULTS`` is the obvious repair and was attempted.
+    # It is gated by ``tests/api/test_feature_flags.py``, which requires every
+    # defaulted-ON flag to be classified either ``safe_on`` (additive, inert,
+    # cannot move a number) or ``value_moving_on`` (with a MEASURED blast
+    # radius).  This flag is neither cheaply: it MUTATES THE CONTRACT — ON
+    # stamps ledger-derived ``rankChange``, OFF stamps ``None`` — so the
+    # ``safe_on`` standard that ``perfect_draft`` meets ("writes no value,
+    # mutates no contract") does not hold, and ``value_moving_on`` demands a
+    # measurement.
+    #
+    # That measurement needs the temporal ledger and a built board. Neither is
+    # available off-box: with no ``data/temporal_ledger.sqlite`` BOTH branches
+    # stamp ``None``, so a local on/off diff would report "0 rows changed" —
+    # a vacuous number that would read as evidence.  Recording it would be
+    # worse than recording nothing.
+    #
+    # To close F-24: measure ON vs OFF over a real board with the ledger
+    # present (rows whose ``rankChange`` becomes ``None``, and the
+    # distribution of the non-null values), then register the flag with that
+    # blast radius. Until then this direct read stays, and stays documented.
+    import os as _os
 
+    flag = _os.environ.get("RISKIT_FEATURE_LEDGER_RANK_CHANGE", "1").strip().lower()
     previous: dict[str, tuple[str, int]] = {}
     _history_keys = None
-    if _feature_flags.is_enabled("ledger_rank_change"):
+    if flag not in ("0", "false", "off"):
         # Every src.history touch — the keys import included — sits
         # inside one guard: a history failure (or the rollback flag)
         # must not break the contract build, and the degraded stamp is
