@@ -1299,11 +1299,12 @@ export function findBalancers(sides, behindIdx, rosterRows, valueMode, opts = {}
 
   const scored = [];
   for (const row of rosterRows || []) {
-    const value = Number(row?.values?.[valueMode] || 0);
-    // Unpriced rows cannot be shown to close anything.  Leaving them in
-    // as zero-value candidates would let "we do not know what this is
-    // worth" render as "this changes nothing".
-    if (!(value > 0)) continue;
+    // Unpriced rows cannot be shown to close anything, so they are
+    // SKIPPED rather than coerced to zero.  A zero-value candidate would
+    // let "we do not know what this is worth" render as "this changes
+    // nothing" — MISSING IS NEVER ZERO.
+    const value = Number(row?.values?.[valueMode]);
+    if (!Number.isFinite(value) || value <= 0) continue;
     const after = withCandidate(row);
     if (!(after.imbalance < before.imbalance)) continue;
     scored.push({
@@ -1462,7 +1463,13 @@ export function computeSideFlows(
     for (const asset of assets) {
       rawTotal += Math.max(0, effectiveValue(asset, valueMode, settings));
     }
-    const adjustment = Math.max(0, Number(adjustments[i]) || 0);
+    const rawAdjustment = Number(adjustments[i]);
+    // A non-finite premium means the VA could not be computed for this
+    // side, which is "no premium to attribute", not "a premium of zero
+    // that we measured".  Both land on 0 here because the arithmetic
+    // neutral is the same, but the distinction is why this is written
+    // out rather than coerced with ``|| 0``.
+    const adjustment = Number.isFinite(rawAdjustment) && rawAdjustment > 0 ? rawAdjustment : 0;
     // A side whose pieces are all unpriced has nothing to scale, so the
     // premium is dropped rather than divided by zero.  The assets are
     // still counted; they just carry no premium nobody can attribute.

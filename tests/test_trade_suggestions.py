@@ -1445,7 +1445,6 @@ def _make_pool_and_roster():
     return pool, roster, roster_set
 
 
-
 def _suggestion_with_gap(gap: int) -> TradeSuggestion:
     """A 1-for-1 suggestion whose ``_va_gap`` is exactly ``gap``.
 
@@ -1497,7 +1496,9 @@ class TestFindBalancersDirection:
         pool, roster, roster_set = _make_pool_and_roster()
         # User underpays by ~7300 — their QB depth (Caleb Williams ~9331, Drake Maye ~9721)
         # should be candidates since those are surplus QBs
-        bals, side, _residuals = _find_balancers(_suggestion_with_gap(-7300), pool, roster_set, set(), roster)
+        bals, side, _residuals = _find_balancers(
+            _suggestion_with_gap(-7300), pool, roster_set, set(), roster
+        )
         assert side == "you_add"
         # If balancers found, they must be from the user's roster
         for b in bals:
@@ -1506,7 +1507,9 @@ class TestFindBalancersDirection:
     def test_positive_gap_searches_global_pool(self):
         """When user overpays (gap > 0), balancers come from global pool."""
         pool, roster, roster_set = _make_pool_and_roster()
-        bals, side, _residuals = _find_balancers(_suggestion_with_gap(3000), pool, roster_set, set(), roster)
+        bals, side, _residuals = _find_balancers(
+            _suggestion_with_gap(3000), pool, roster_set, set(), roster
+        )
         assert side == "they_add"
         # Balancers must NOT be from user's roster
         for b in bals:
@@ -1515,14 +1518,18 @@ class TestFindBalancersDirection:
     def test_small_gap_returns_nothing(self):
         """Gaps under 256 don't need balancers."""
         pool, roster, roster_set = _make_pool_and_roster()
-        bals, side, _residuals = _find_balancers(_suggestion_with_gap(100), pool, roster_set, set(), roster)
+        bals, side, _residuals = _find_balancers(
+            _suggestion_with_gap(100), pool, roster_set, set(), roster
+        )
         assert bals == []
         assert side == ""
 
     def test_no_roster_falls_back_to_pool(self):
         """Without roster context, negative gap still uses global pool."""
         pool, _, roster_set = _make_pool_and_roster()
-        bals, side, _residuals = _find_balancers(_suggestion_with_gap(-3000), pool, roster_set, set(), None)
+        bals, side, _residuals = _find_balancers(
+            _suggestion_with_gap(-3000), pool, roster_set, set(), None
+        )
         assert side == "you_add"
         # Falls back to pool search since no roster provided
         for b in bals:
@@ -1536,20 +1543,26 @@ class TestBalancerQuality:
         """Never more than MAX_BALANCERS results."""
         assert MAX_BALANCERS == 2
         pool, roster, roster_set = _make_pool_and_roster()
-        bals, _side, _residuals = _find_balancers(_suggestion_with_gap(3000), pool, roster_set, set(), roster)
+        bals, _side, _residuals = _find_balancers(
+            _suggestion_with_gap(3000), pool, roster_set, set(), roster
+        )
         assert len(bals) <= 2
 
     def test_no_positionless_balancers(self):
         """Balancers with empty position are filtered out."""
         pool, roster, roster_set = _make_pool_and_roster()
-        bals, _side, _residuals = _find_balancers(_suggestion_with_gap(5000), pool, roster_set, set(), roster)
+        bals, _side, _residuals = _find_balancers(
+            _suggestion_with_gap(5000), pool, roster_set, set(), roster
+        )
         for b in bals:
             assert b.position != "", f"{b.name} has empty position"
 
     def test_no_below_min_relevant_value(self):
         """Balancers below MIN_RELEVANT_VALUE (500) are filtered."""
         pool, roster, roster_set = _make_pool_and_roster()
-        bals, _side, _residuals = _find_balancers(_suggestion_with_gap(3000), pool, roster_set, set(), roster)
+        bals, _side, _residuals = _find_balancers(
+            _suggestion_with_gap(3000), pool, roster_set, set(), roster
+        )
         for b in bals:
             assert b.display_value >= MIN_RELEVANT_VALUE
 
@@ -1558,7 +1571,9 @@ class TestBalancerQuality:
         pool, roster, roster_set = _make_pool_and_roster()
         assert "QB" in roster.surplus_positions
         # Large negative gap — user needs to add from their roster
-        bals, side, _residuals = _find_balancers(_suggestion_with_gap(-7500), pool, roster_set, set(), roster)
+        bals, side, _residuals = _find_balancers(
+            _suggestion_with_gap(-7500), pool, roster_set, set(), roster
+        )
         assert side == "you_add"
         if len(bals) >= 1:
             # First balancer should be from surplus position

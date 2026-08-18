@@ -1,5 +1,5 @@
 {
-  "count": 677,
+  "count": 675,
   "note": "Known missing-data coercions on decision paths, recorded so the gate can block NEW ones while the remediation batches burn these down. Each batch deletes its findings' entries. Do not add to this file to make a build pass.",
   "violations": [
     "frontend/lib/auction-power.js::const raw = names.map((n) => Number(totalsObj[n]) || 0);",
@@ -184,14 +184,12 @@
     "frontend/lib/team-phase.js::const ageGap = (r.medianAge || 0) - (w.medianAge || 0);",
     "frontend/lib/team-phase.js::const score = Math.max(0, valueGap) * Math.max(0, ageGap || 1);",
     "frontend/lib/team-phase.js::value: Number(r.rankDerivedValue || r.values?.full || 0),",
-    "frontend/lib/trade-logic.js::.map((r) => ({ name: r.name, pos: r.pos, value: Number(r.values?.[valueMode] || 0) }))",
     "frontend/lib/trade-logic.js::.map((v) => Number(v) || 0)",
     "frontend/lib/trade-logic.js::const adjustment = adjustments[i] || 0;",
     "frontend/lib/trade-logic.js::const d = Number(mv.dollars) || 0;",
     "frontend/lib/trade-logic.js::const premiumAfter = (after[team] || 0) - (post[team] || 0);",
     "frontend/lib/trade-logic.js::const premiumBefore = (before[team] || 0) - (leagueStacks[team] || 0);",
     "frontend/lib/trade-logic.js::const stackAdjustment = stack[i] || 0;",
-    "frontend/lib/trade-logic.js::let hi = Math.max(t || 0, KTC_V_OVERALL_MAX);",
     "frontend/lib/trade-logic.js::result[i].net = result[i].received - result[i].given + (stack[i] || 0);",
     "frontend/lib/trade-logic.js::return Number(row.values?.[valueMode] || 0);",
     "frontend/lib/trade-logic.js::sumBoard += Number(mv.board) || 0;",
