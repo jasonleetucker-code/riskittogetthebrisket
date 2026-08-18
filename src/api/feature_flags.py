@@ -312,6 +312,39 @@ _DEFAULTS: Final[dict[str, bool]] = {
     # ``scripts/validate_consensus_edge_board.py`` to pass on a re-run,
     # not a judgement call.  See ADR-023.
     "consensus_edge": False,
+    # Host-native realized scoring — score the LEAGUE HOST's own weekly
+    # stat line directly instead of round-tripping it through nflverse
+    # column names.  DEFAULT **OFF**, and off is a validation gate, not a
+    # verdict (#802).
+    #
+    # The champion path normalizes a provider row into Sleeper's stat
+    # vocabulary and scores that.  For nflverse rows that is right.  For
+    # rows that CAME from Sleeper it is a lossy round-trip:
+    # ``league_comparison.sleeper_stats._FIELD_MAP`` translates the host's
+    # short keys INTO nflverse long keys, and
+    # ``realized_points.sleeper_stat_line_from_row`` translates them BACK.
+    # A category with no nflverse column is destroyed in the middle hop
+    # even though the source and destination vocabularies both carry it —
+    # 50 of the 85 rules dynasty_main pays, including every player
+    # special-teams category, the whole kicker family, the rec_* distance
+    # bands and the first-down bonuses.
+    #
+    # Measured on the host's own 2025 wk14 dump, player entries only:
+    # ~451 points in one week, ~7,676 across a 17-week regular season,
+    # currently reported as impossible to know.
+    #
+    # OFF by default because flipping it MOVES HISTORICAL NUMBERS that
+    # BDVM's reconstructed baseline, league-comparison and the backtests
+    # all consume.  Evaluation is not activation.  Promotion is a
+    # separate, measured PR that flips the canonical owner and migrates
+    # those consumers together — this flag is a temporary
+    # champion/challenger gate and must NOT become a permanently
+    # supported second scoring system.
+    #
+    # Enable with ``RISKIT_FEATURE_HOST_NATIVE_SCORING=1`` **and a
+    # restart** (flag reads are process-cached).  Evidence:
+    # docs/scoring/HOST_NATIVE_SCORING_VALIDATION.md.
+    "host_native_scoring": False,
 }
 
 _ENV_PREFIX: Final[str] = "RISKIT_FEATURE_"
@@ -432,6 +465,15 @@ _GATE_STATUS: Final[dict[str, str]] = {
     # consensus_edge gates the /api/consensus-edge/* router mounted in
     # server.py: off → 503 feature_disabled, on → the board.
     "consensus_edge": LIVE,
+    # host_native_scoring gates the stat vocabulary
+    # ``league_comparison.sleeper_stats.fetch_sleeper_weekly_stats``
+    # emits, which reaches a request through ``historical_stats`` →
+    # ``scoring_engine`` → ``/api/league-comparison``: off → the host's
+    # keys are translated into nflverse column names (and 50 of the 85
+    # rules dynasty_main pays are lost in the round trip), on → the
+    # host's own vocabulary is scored directly.  See
+    # docs/scoring/HOST_NATIVE_SCORING_VALIDATION.md.
+    "host_native_scoring": LIVE,
     # ── Gate exists, module is stranded ──
     #
     # ``src/nfl_data/injury_feed.py`` and ``src/news/usage_signals.py``

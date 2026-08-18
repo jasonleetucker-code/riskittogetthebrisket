@@ -184,7 +184,17 @@ def compute_player_season_scores(
         if row_season <= 0:
             continue
 
-        rp = _rp.compute_weekly_points(row, scoring_settings, position=canonical)
+        # The row says which vocabulary it is written in (#802).  Rows from
+        # nflverse are normalized; rows the LEAGUE HOST produced are already
+        # in the scoring card's own vocabulary and are scored as-is, so no
+        # rule is lost to a rename that has no target.  Absent stamp →
+        # nflverse, which is every pre-existing producer.
+        rp = _rp.compute_weekly_points(
+            row,
+            scoring_settings,
+            position=canonical,
+            source=str(row.get("source") or "nflverse"),
+        )
         if rp is None:
             continue
         pts = float(rp.fantasy_points)

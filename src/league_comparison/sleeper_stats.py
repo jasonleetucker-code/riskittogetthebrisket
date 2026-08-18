@@ -36,8 +36,24 @@ import urllib.request
 from typing import Any, Callable
 
 from src.nfl_data import cache as _nfl_cache
+from src.nfl_data.realized_points import is_host_player_entry
 
 _LOGGER = logging.getLogger(__name__)
+
+
+def _host_native_enabled() -> bool:
+    """Is the host-native scoring challenger active? (#802)
+
+    Imported lazily so this module keeps working in contexts where the
+    flag registry is not importable, and read per call rather than at
+    import time so a test can flip it with ``feature_flags.reload()``.
+    """
+    try:
+        from src.api.feature_flags import is_enabled  # noqa: PLC0415
+
+        return is_enabled("host_native_scoring")
+    except Exception:  # noqa: BLE001
+        return False
 
 _SLEEPER_API_ROOT = "https://api.sleeper.app/v1"
 _HTTP_TIMEOUT = 15.0
@@ -205,6 +221,24 @@ def _translate_stats(sleeper_stats: dict[str, Any]) -> dict[str, float]:
     Unmapped keys pass through verbatim — the realized-points engine
     ignores anything it doesn't have a scoring rule for, so leaving
     extras in is harmless and keeps debug output discoverable.
+
+    .. warning::
+
+       This translation is **lossy**, and that is the defect #802 exists
+       to close.  It renames the host's own short keys into nflverse
+       column names so ``realized_points`` can rename them back.  A rule
+       with no nflverse column cannot survive the round trip even though
+       both ends of it speak the host's vocabulary: measured against
+       dynasty_main's live card, 50 of the 85 rules it pays are published
+       by the host and cannot traverse ``_FIELD_MAP`` — every player
+       special-teams category, the whole kicker family, all six ``rec_*``
+       distance bands, the first-down bonuses, ``pass_cmp``, ``pass_inc``,
+       ``rush_att``, ``idp_pass_def`` and ``idp_blk_kick``.
+
+       ``host_native_scoring`` replaces this with no translation at all.
+       This function remains the champion path until that flag is
+       promoted, and should be deleted with it — see
+       ``docs/scoring/HOST_NATIVE_SCORING_VALIDATION.md``.
     """
     out: dict[str, float] = {}
     for k, v in sleeper_stats.items():
@@ -259,13 +293,34 @@ def fetch_sleeper_weekly_stats(
         for sleeper_pid, stats in raw.items():
             if not isinstance(stats, dict) or not stats:
                 continue
+            # TEAM DEFENSE entries share this dump with players, and two
+            # keys (``st_tkl_solo``, ``kr_yd``) are published on BOTH under
+            # one name meaning different things — the team's total and the
+            # player's own.  Dropping them here rather than relying on the
+            # position join is deliberate: Sleeper gives a DST the position
+            # ``DEF``, which is non-empty, so the check below would let it
+            # through.  Team defense is not an asset class this board
+            # values (#802).
+            if not is_host_player_entry(sleeper_pid):
+                continue
             player = index.get(str(sleeper_pid)) or {}
             position = (player.get("position") or "").strip().upper()
             if not position:
                 # No position info → can't classify → drop row.  Logged
                 # at DEBUG so the volume doesn't drown real warnings.
                 continue
-            translated = _translate_stats(stats)
+            # Host-native mode emits the host's OWN vocabulary untouched, so
+            # nothing has to survive a rename it has no target for.  The
+            # row is tagged so ``compute_weekly_points`` knows which
+            # vocabulary it is holding and never has to guess.
+            if _host_native_enabled():
+                translated = {
+                    str(k): float(v)
+                    for k, v in stats.items()
+                    if isinstance(v, (int, float)) and not isinstance(v, bool)
+                }
+            else:
+                translated = _translate_stats(stats)
             gsis_id = (player.get("gsis_id") or "").strip()
             row: dict[str, Any] = {
                 "player_id": gsis_id or str(sleeper_pid),
@@ -276,6 +331,12 @@ def fetch_sleeper_weekly_stats(
                 "position": position,
                 "season": season,
                 "week": week,
+                # Which vocabulary the stat keys below are written in.
+                # Consumers pass this straight to
+                # ``compute_weekly_points(..., source=...)``; a row that
+                # cannot say what it is holding is a row that gets guessed
+                # at, which is how the round-trip lost 50 rules in silence.
+                "source": "sleeper" if _host_native_enabled() else "nflverse",
             }
             row.update(translated)
             rows.append(row)

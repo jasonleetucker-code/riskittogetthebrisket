@@ -228,3 +228,112 @@ def test_fetch_sleeper_weekly_stats_returns_empty_when_index_empty():
     assert rows == []
     # Should have short-circuited before attempting any week fetches.
     assert weeks_called["n"] == 0
+
+
+# ── #802: host-native emission, and the team-entry drop ───────────────
+
+
+def _host_native_fixture():
+    """One WR, one team DST, one week — the minimum that shows both defects.
+
+    ``st_tkl_solo`` is on BOTH entries under one key name, which is exactly
+    why the team row must be dropped by ENTRY KIND rather than by key.
+    """
+    player_index = {
+        "4034": {"full_name": "Return Man", "position": "WR", "gsis_id": "00-G4034"},
+        "PHI": {"full_name": "Philadelphia", "position": "DEF", "gsis_id": ""},
+    }
+    weeks = {
+        1: {
+            "4034": {"rec": 4, "rec_yd": 51, "kr_yd": 88, "st_tkl_solo": 2, "rec_5_9": 2},
+            "PHI": {"pts_allow": 13, "int": 2, "st_tkl_solo": 9, "kr_yd": 60},
+        }
+    }
+    return _make_fake_fetcher(player_index, weeks)
+
+
+def test_team_defense_entries_are_dropped(monkeypatch):
+    """Sleeper gives a DST the position ``DEF`` — non-empty — so the position
+    join alone would let it through and pay DST rules to a roster asset."""
+    rows = _ss.fetch_sleeper_weekly_stats(2025, fetcher=_host_native_fixture())
+    assert rows, "fixture produced no rows"
+    assert all(r["player_id_sleeper"] != "PHI" for r in rows)
+    assert not any("pts_allow" in r for r in rows)
+
+
+def test_flag_off_still_translates_to_nflverse_names(monkeypatch):
+    from src.api import feature_flags
+
+    monkeypatch.delenv("RISKIT_FEATURE_HOST_NATIVE_SCORING", raising=False)
+    feature_flags.reload()
+    rows = _ss.fetch_sleeper_weekly_stats(2025, fetcher=_host_native_fixture())
+    row = next(r for r in rows if r["player_id_sleeper"] == "4034")
+    assert row["source"] == "nflverse"
+    assert row["receptions"] == 4
+    assert row["receiving_yards"] == 51
+    # The champion path's loss, stated as a test rather than as prose:
+    # the host published these and the nflverse vocabulary has no name
+    # for them, so nothing downstream can score them.
+    assert "rec_5_9" in row  # retained verbatim for debugging...
+    from src.nfl_data.realized_points import sleeper_stat_line_from_row
+
+    assert "rec_5_9" not in sleeper_stat_line_from_row(row, position="WR")  # ...but unscorable
+
+
+def test_flag_on_emits_the_hosts_own_vocabulary(monkeypatch):
+    from src.api import feature_flags
+
+    monkeypatch.setenv("RISKIT_FEATURE_HOST_NATIVE_SCORING", "1")
+    feature_flags.reload()
+    try:
+        rows = _ss.fetch_sleeper_weekly_stats(2025, fetcher=_host_native_fixture())
+        row = next(r for r in rows if r["player_id_sleeper"] == "4034")
+        assert row["source"] == "sleeper"
+        for key in ("rec", "rec_yd", "kr_yd", "st_tkl_solo", "rec_5_9"):
+            assert row[key], f"{key} lost on the host-native path"
+        assert "receptions" not in row, "host-native rows must not be translated"
+    finally:
+        monkeypatch.delenv("RISKIT_FEATURE_HOST_NATIVE_SCORING", raising=False)
+        feature_flags.reload()
+
+
+def test_the_flag_changes_what_can_be_scored(monkeypatch):
+    """End to end: the same real player-week, both paths, one card."""
+    from src.api import feature_flags
+    from src.nfl_data.realized_points import compute_weekly_points
+
+    card = {"rec": 1.0, "rec_yd": 0.1, "kr_yd": 0.0333, "st_tkl_solo": 1.33, "rec_5_9": 0.42}
+
+    monkeypatch.delenv("RISKIT_FEATURE_HOST_NATIVE_SCORING", raising=False)
+    feature_flags.reload()
+    champ_row = next(
+        r for r in _ss.fetch_sleeper_weekly_stats(2025, fetcher=_host_native_fixture())
+        if r["player_id_sleeper"] == "4034"
+    )
+    champ = compute_weekly_points(champ_row, card, position="WR", source=champ_row["source"])
+
+    monkeypatch.setenv("RISKIT_FEATURE_HOST_NATIVE_SCORING", "1")
+    feature_flags.reload()
+    try:
+        host_row = next(
+            r for r in _ss.fetch_sleeper_weekly_stats(2025, fetcher=_host_native_fixture())
+            if r["player_id_sleeper"] == "4034"
+        )
+        host = compute_weekly_points(host_row, card, position="WR", source=host_row["source"])
+    finally:
+        monkeypatch.delenv("RISKIT_FEATURE_HOST_NATIVE_SCORING", raising=False)
+        feature_flags.reload()
+
+    # Three rules are unreachable on the champion path and real on the host
+    # path.  ``kr_yd`` is the one worth reading twice: #802 wired it into the
+    # nflverse path from ``kickoff_return_yards``, so it scores fine there —
+    # but on the SLEEPER path the host publishes it as ``kr_yd``, _FIELD_MAP
+    # has no entry to rename it, and the normalizer is looking for the
+    # nflverse spelling.  The category the issue was raised about is still
+    # lost, on the one path that will be live when the 2026 season starts.
+    assert host.fantasy_points > champ.fantasy_points
+    assert host.fantasy_points - champ.fantasy_points == pytest.approx(
+        2 * 1.33 + 2 * 0.42 + 88 * 0.0333, abs=1e-6
+    )
+    # And the champion path scored ONLY the two rules _FIELD_MAP can carry.
+    assert champ.fantasy_points == pytest.approx(4 * 1.0 + 51 * 0.1, abs=1e-6)

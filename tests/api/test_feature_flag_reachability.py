@@ -52,19 +52,53 @@ def _module_path(dotted: str) -> Path | None:
     return package if package.exists() else None
 
 
+def _dotted_of(path: Path) -> str:
+    """The dotted module name for a repo file, for resolving ``from .`` ."""
+    parts = list(path.resolve().relative_to(REPO_ROOT).parts)
+    if parts[-1] == "__init__.py":
+        parts = parts[:-1]
+    else:
+        parts[-1] = parts[-1][: -len(".py")]
+    return ".".join(parts)
+
+
 def _src_imports(path: Path) -> set[str]:
-    """Every ``src.*`` name imported by ``path``.
+    """Every ``src.*`` name imported by ``path``, absolute OR relative.
 
     ``from src.a import b`` yields both ``src.a`` and ``src.a.b`` — the
     second may be a module or just a symbol, and ``_module_path``
     discards the ones that are not files.  Over-collecting here is safe;
     under-collecting would mark a live module unreachable and produce a
     false accusation.
+
+    RELATIVE IMPORTS ADDED 2026-08-18 (#802), and the sentence above is
+    why it is a fix rather than a refinement: this walker followed only
+    absolute ``src.*`` names, so ``from . import historical_stats`` was
+    invisible and **42 modules measured unreachable while being imported
+    on every request**.  ``src.league_comparison.sleeper_stats`` is one of
+    them — reached from server.py via ``service`` → ``historical_stats``,
+    all three hops relative — so a flag gated there measured UNREACHABLE
+    and the table would have recorded the false accusation its own
+    docstring warns about.
+
+    Verified contained: re-measuring every registered flag with relative
+    imports resolved changes exactly one verdict, the new flag's.  No
+    existing classification moves, which is what makes this a repair to
+    the instrument rather than a re-baseline of its readings.
     """
     try:
         tree = ast.parse(path.read_text(encoding="utf-8"))
     except (SyntaxError, UnicodeDecodeError):  # pragma: no cover
         return set()
+
+    # The package a bare ``from . import x`` resolves against.  A package
+    # __init__ IS its package; a module inside one resolves to its parent.
+    dotted = "" if path == SERVER else _dotted_of(path)
+    if dotted and (REPO_ROOT / dotted.replace(".", "/") / "__init__.py").exists():
+        package = dotted
+    else:
+        package = dotted.rsplit(".", 1)[0] if "." in dotted else dotted
+
     found: set[str] = set()
     for node in ast.walk(tree):
         if isinstance(node, ast.Import):
@@ -73,6 +107,14 @@ def _src_imports(path: Path) -> set[str]:
             if node.module and node.module.startswith("src"):
                 found.add(node.module)
                 found.update(f"{node.module}.{a.name}" for a in node.names)
+            elif node.level and package:
+                base = package
+                for _ in range(node.level - 1):
+                    base = base.rsplit(".", 1)[0] if "." in base else base
+                target = f"{base}.{node.module}" if node.module else base
+                if target.startswith("src"):
+                    found.add(target)
+                    found.update(f"{target}.{a.name}" for a in node.names)
     return found
 
 
@@ -281,3 +323,37 @@ def test_effective_flags_reports_both_halves():
     # this surface is decoration too.
     statuses = {row["gateStatus"] for row in effective.values()}
     assert len(statuses) > 1, "every flag has the same gate status; the field says nothing"
+
+
+def test_the_walker_follows_relative_imports():
+    """Non-vacuity for the relative-import resolution (#802).
+
+    ``src.league_comparison.sleeper_stats`` is reached from server.py only
+    through relative imports (``service`` → ``historical_stats`` →
+    ``sleeper_stats``).  An absolute-only walker measured it, and 41 other
+    live modules, as unreachable — the "false accusation" ``_src_imports``
+    exists to avoid.
+    """
+    reachable = _reachable_from_server()
+    for module in (
+        "src.league_comparison.historical_stats",
+        "src.league_comparison.sleeper_stats",
+        "src.news.service",
+    ):
+        assert module in reachable, f"{module} is imported on every request but measured unreachable"
+
+
+def test_relative_resolution_did_not_reclassify_an_existing_flag():
+    """A repair to the instrument must not silently re-baseline its readings.
+
+    Every flag's declared status is re-derived above; this states the
+    stronger property that the walker change moved exactly one verdict —
+    the flag it was made for — rather than quietly promoting a stranded
+    gate to LIVE.
+    """
+    reachable = _reachable_from_server()
+    sites = _gate_sites()
+    for flag in feature_flags.registered_flags():
+        if flag == "host_native_scoring":
+            continue
+        assert _measure(flag, reachable, sites) == feature_flags.gate_status(flag), flag
