@@ -229,6 +229,15 @@ _OFFENSE_NUMERIC: dict[str, tuple[str, ...]] = {
     "receiving_tds": ("receiving_tds",),
     # Renamed 2025: fumbles_lost -> fumbles_lost_total.
     "fumbles_lost": ("fumbles_lost_total", "fumbles_lost"),
+    # Individual special teams (#802) — see WeeklyStatRow for why these
+    # are here.  Adding them to this table also widens
+    # _OFFENSE_PRESENCE_COLUMNS, which is intended: a returner whose only
+    # production that week was 90 kick-return yards HAS a stat line, and
+    # persisting nothing for him is the same "missing is not zero" error
+    # one layer down.
+    "kickoff_return_yards": ("kickoff_return_yards",),
+    "punt_return_yards": ("punt_return_yards",),
+    "special_teams_tds": ("special_teams_tds",),
 }
 
 _DEFENSE_NUMERIC: dict[str, tuple[str, ...]] = {

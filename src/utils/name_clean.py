@@ -189,6 +189,26 @@ POSITION_ALIASES: dict[str, str] = {
     "DB": "DB",
     "CB": "DB",
     "S": "DB",
+    # ``SAF`` is the spelling the 2025 unified nflverse release uses for a
+    # safety, on 1,423 of the 2025 regular-season defensive player-weeks —
+    # the largest secondary group on the feed by a wide margin (``S`` appears
+    # on 66, ``FS`` on 140).  ADDED 2026-08-18.
+    #
+    # It was in neither this map nor any of the three private tables that
+    # mirror it, so each consumer patched it locally instead:
+    # ``league_comparison.scoring_engine._canonical_position`` (whose comment
+    # records "it was in neither POSITION_ALIASES nor this table") and
+    # ``bdvm.context.TRUE_POSITION_MAP``.  The one consumer that did NOT
+    # patch it — ``nfl_data.realized_points._IDP_POSITIONS`` — therefore
+    # skipped the entire IDP scoring block for every safety, scoring a
+    # well-formed 0.000 with no reason and no flag: 1,429 player-weeks and
+    # 10,842.88 points never awarded across 2025 on the live dynasty_main
+    # card.
+    #
+    # Fixing it here rather than in a fourth private table is the point.  A
+    # position table that is not derived from this one is a second owner, and
+    # this defect is what a second owner costs.
+    "SAF": "DB",
     "SS": "DB",
     "FS": "DB",
     "K": "K",

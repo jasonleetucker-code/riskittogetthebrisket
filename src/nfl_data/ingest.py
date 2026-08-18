@@ -173,6 +173,20 @@ class WeeklyStatRow:
     receiving_tds: float
     # Fantasy-specific
     fumbles_lost: float
+    # Individual special teams (#802).  These are paid to the RB, WR, TE
+    # and DB this board ranks — not to a team DST — so a stat row that
+    # cannot carry them cannot represent a return specialist's production
+    # at all.  Defaulted rather than required so existing callers that
+    # build this dataclass by hand keep working.
+    #
+    # Nothing scores from the persisted store today (every realized-points
+    # consumer passes RAW rows), so this was latent rather than live.  It
+    # is closed here so it cannot quietly become live: the columns exist
+    # on the feed, the engine reads them, and only this schema could not
+    # hold them.
+    kickoff_return_yards: float = 0.0
+    punt_return_yards: float = 0.0
+    special_teams_tds: float = 0.0
     # Usage
     snap_count: float | None = None
     snap_pct: float | None = None

@@ -154,6 +154,15 @@ _MAXIMAL_ROW: dict[str, Any] = {
     "def_fumble_recovery_yards_own": 25,
     "def_tds": 2,
     "def_safeties": 1,
+    # ADDED 2026-08-18 (#802), with the idp_blk_kick reclassification.
+    # All three are summed into one blocked-kick total, so all three must
+    # be present or the probe under-fires; and without any of them the
+    # newly scored rule reads as a false GAP — the undersized-row hazard
+    # this row's own docstring warns about, which has already produced
+    # two false negatives in this file's history.
+    "def_punt_blocks": 1,
+    "def_pat_blocks": 1,
+    "def_fg_blocks": 1,
 }
 
 #: Key prefixes belonging to asset classes this platform does not value.
@@ -233,41 +242,88 @@ _NOT_APPLICABLE_KEYS: frozenset[str] = frozenset(
     }
 )
 
-#: Rules for players we DO value that the weekly feed cannot
+#: Categories the LEAGUE HOST publishes on its own weekly stat line but
+#: the nflverse-derived path cannot reconstruct.
+#
+# ADDED 2026-08-18 (#802).  Every reason below used to be phrased as a
+# statement about the universe — "not a column on the weekly feed",
+# "needs play-by-play".  Each is true of NFLVERSE and false of SLEEPER.
+# Measured on the host's own dump
+# (docs/master-site-audit/evidence/W18/sleeper_stats_2025_wk14.json:
+# 232 distinct stat keys against nflverse's ~150), restricted to player
+# entries, for one week of 2025:
+#
+#     st_tkl_solo   87 players   135.66 pts      rec_20_29  40   45.08
+#     rec_10_19    108           107.20          rec_30_39  16   25.74
+#     rec_5_9      123            73.92          rec_40p     8   19.20
+#     rec_0_4       81            18.02          st_ff       3   12.75
+#     pass_int_td    1            -2.00          st_fum_rec  0    0.00
+#
+# ~451 points in one week; ~7,676 across a 17-week regular season, on one
+# league's card.  Reporting that as impossible to know is the same
+# silencing failure NOT_APPLICABLE was for ``st_``: the key is suppressed
+# from the warning surface without the limitation being true.
+#
+# UNSCORABLE remains the right STATE for the nflverse path — nothing here
+# can be scored from the columns that path has.  What changes is that the
+# reason names its limiting source, and that a category another
+# configured source publishes is recorded as RECOVERABLE rather than
+# permanently lost.  Sourcing them is the host-native scoring path; this
+# set is what makes the difference visible until then.
+HOST_PUBLISHED: frozenset[str] = frozenset(
+    {
+        "rec_0_4",
+        "rec_5_9",
+        "rec_10_19",
+        "rec_20_29",
+        "rec_30_39",
+        "rec_40p",
+        "pass_int_td",
+        "st_tkl_solo",
+        "st_ff",
+        "st_fum_rec",
+    }
+)
+
+#: Rules for players we DO value that the nflverse weekly feed cannot
 #: reconstruct, each with the reason. Listing them is the point: an
 #: understatement nobody can see is the failure mode this module exists
-#: for. Every entry needs a data source, not a code change.
+#: for. Every entry needs a data source, not a code change — and for the
+#: entries in :data:`HOST_PUBLISHED` that source already exists.
 UNSCORABLE_REASONS: dict[str, str] = {
-    "rec_0_4": "reception distance bands need play-by-play; weekly stats carry only a reception count",
-    "rec_5_9": "reception distance bands need play-by-play",
-    "rec_10_19": "reception distance bands need play-by-play",
-    "rec_20_29": "reception distance bands need play-by-play",
-    "rec_30_39": "reception distance bands need play-by-play",
-    "rec_40p": "reception distance bands need play-by-play",
-    "rush_40p": "long-run bonus needs play-by-play",
-    "pass_td_40p": "long-TD bonus needs play-by-play",
-    "pass_td_50p": "long-TD bonus needs play-by-play",
-    "rec_td_40p": "long-TD bonus needs play-by-play",
-    "rec_td_50p": "long-TD bonus needs play-by-play",
-    "rush_td_40p": "long-TD bonus needs play-by-play",
-    "rush_td_50p": "long-TD bonus needs play-by-play",
-    "pass_cmp_40p": "long-completion bonus needs play-by-play",
-    "pass_int_td": "pick-six thrown is not a column on the weekly feed",
-    "idp_blk_kick": "blocked kicks are not a column on the weekly defensive feed",
+    "rec_0_4": "reception distance bands are not on the nflverse feed; the Sleeper host publishes them per player",
+    "rec_5_9": "reception distance bands are not on the nflverse feed; the Sleeper host publishes them per player",
+    "rec_10_19": "reception distance bands are not on the nflverse feed; the Sleeper host publishes them per player",
+    "rec_20_29": "reception distance bands are not on the nflverse feed; the Sleeper host publishes them per player",
+    "rec_30_39": "reception distance bands are not on the nflverse feed; the Sleeper host publishes them per player",
+    "rec_40p": "reception distance bands are not on the nflverse feed; the Sleeper host publishes them per player",
+    "rush_40p": "long-run bonus needs play-by-play; no configured source publishes it per player-week",
+    "pass_td_40p": "long-TD bonus needs play-by-play; no configured source publishes it per player-week",
+    "pass_td_50p": "long-TD bonus needs play-by-play; no configured source publishes it per player-week",
+    "rec_td_40p": "long-TD bonus needs play-by-play; no configured source publishes it per player-week",
+    "rec_td_50p": "long-TD bonus needs play-by-play; no configured source publishes it per player-week",
+    "rush_td_40p": "long-TD bonus needs play-by-play; no configured source publishes it per player-week",
+    "rush_td_50p": "long-TD bonus needs play-by-play; no configured source publishes it per player-week",
+    "pass_cmp_40p": "long-completion bonus needs play-by-play; no configured source publishes it per player-week",
+    "pass_int_td": "pick-six thrown is not an nflverse column; the Sleeper host publishes it per player",
     "idp_pass_def_3p": "per-game PD threshold; nflverse PD counts are season-aggregated on some releases",
     # ADDED 2026-08-13 (B7 / W18-F003), with the prefix change above.
     # These three are PLAYER special-teams rules — real points for
-    # players this board values — but the weekly feed publishes no
-    # special-teams tackle, forced-fumble or fumble-recovery column, so
-    # they are genuinely unscorable rather than a gap. Declared, so they
-    # reach describe_gaps() and Provenance.inputGaps instead of vanishing.
+    # players this board values. The nflverse feed publishes no
+    # special-teams tackle, forced-fumble or fumble-recovery column.
+    # The LEAGUE HOST does (#802), which is why they are in
+    # HOST_PUBLISHED: unscorable on this path, recoverable on that one.
     #
-    # Their siblings kr_yd / pr_yd / st_td ARE on the feed
+    # Their siblings kr_yd / pr_yd / st_td ARE on the nflverse feed
     # (kickoff_return_yards / punt_return_yards / special_teams_tds) and
-    # are now scored, so they must NOT appear here.
-    "st_tkl_solo": "special-teams tackles are not a column on the weekly feed",
-    "st_ff": "special-teams forced fumbles are not a column on the weekly feed",
-    "st_fum_rec": "special-teams fumble recoveries are not a column on the weekly feed",
+    # are scored, so they must NOT appear here.
+    #
+    # ``idp_blk_kick`` was here until 2026-08-18 and was simply wrong:
+    # def_punt_blocks / def_pat_blocks / def_fg_blocks are all on the
+    # nflverse feed. It is now scored — see realized_points._IDP_SUM_KEYS.
+    "st_tkl_solo": "special-teams tackles are not an nflverse column; the Sleeper host publishes them per player",
+    "st_ff": "special-teams forced fumbles are not an nflverse column; the Sleeper host publishes them per player",
+    "st_fum_rec": "special-teams fumble recoveries are not an nflverse column; the Sleeper host publishes them per player",
 }
 
 
@@ -334,11 +390,35 @@ def scored_keys_for(scoring_settings: dict[str, Any]) -> set[str]:
 
 
 def describe_gaps(scoring_settings: dict[str, Any]) -> list[str]:
-    """Human-readable lines for the warnings/methodology surface."""
+    """Human-readable lines for the warnings/methodology surface.
+
+    An UNSCORABLE rule the LEAGUE HOST publishes is reported as
+    *recoverable* rather than as a dead end (#802). The two are different
+    statements about the world and must not read the same: one is a
+    limitation of the source we chose, the other is a limitation of every
+    source we have. Collapsing them is what let ~7,676 points a season be
+    described as impossible to know while the host published all of it.
+    """
     audit = audit_scoring_settings(scoring_settings)
     lines: list[str] = []
     for key, rate in sorted(audit[Coverage.GAP].items(), key=lambda kv: -abs(kv[1])):
         lines.append(f"{key} ({rate:g}/event) is not scored — realized points are understated.")
     for key, rate in sorted(audit[Coverage.UNSCORABLE].items(), key=lambda kv: -abs(kv[1])):
-        lines.append(f"{key} ({rate:g}/event) cannot be scored: {UNSCORABLE_REASONS[key]}.")
+        if key in HOST_PUBLISHED:
+            lines.append(
+                f"{key} ({rate:g}/event) is not scored on the nflverse path — "
+                f"realized points are understated. Recoverable: {UNSCORABLE_REASONS[key]}."
+            )
+        else:
+            lines.append(f"{key} ({rate:g}/event) cannot be scored: {UNSCORABLE_REASONS[key]}.")
     return lines
+
+
+def host_recoverable(scoring_settings: dict[str, Any]) -> dict[str, float]:
+    """Nonzero rules this league pays that the host could supply and we do not.
+
+    The measurable size of the exact-scoring claim's remaining gap, for the
+    validation report and for any surface that wants to state it honestly.
+    """
+    audit = audit_scoring_settings(scoring_settings)
+    return {k: v for k, v in audit[Coverage.UNSCORABLE].items() if k in HOST_PUBLISHED}

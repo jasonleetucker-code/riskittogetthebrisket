@@ -67,6 +67,7 @@ from typing import Any
 
 from src.league_intel.scorer import score_stat_line as _score_stat_line
 from src.scoring.sleeper_ingest import KEY_ALIASES as _SLEEPER_KEY_ALIASES
+from src.utils.name_clean import POSITION_ALIASES as _POSITION_ALIASES
 
 
 # ── Scoring-key mapping ───────────────────────────────────────────
@@ -281,6 +282,35 @@ _IDP_KEYS: dict[str, tuple[tuple[str, ...], str]] = {
     "idp_safe": (("def_safeties", "def_safety"), "Safety"),
 }
 
+#: IDP rules whose stat is a SUM ACROSS SEVERAL COLUMNS.  Separate from
+#: ``_IDP_KEYS`` because that table resolves through ``_first_num``
+#: (first candidate present wins), which is the right shape for absorbing
+#: a rename and the wrong shape for a total: it would score the first
+#: block type and silently drop the rest.  Same distinction, and the same
+#: reason, as ``_FG_BAND_KEYS`` versus ``_SIMPLE_KEYS``.
+#
+# ADDED 2026-08-18 (#802).  ``idp_blk_kick`` was declared UNSCORABLE —
+# "blocked kicks are not a column on the weekly defensive feed" — while
+# all three columns below were populated on the very feed this engine
+# already reads.  A rule we can score and do not is a GAP; recording it
+# as permanently impossible suppressed it from ``describe_gaps`` and the
+# provenance surface, so the defect could not be seen either.
+#
+# Measured on 2025 REG at the live 5.32/event: 44 player-weeks, 234.08
+# points, split punt 9 / PAT 12 / FG 23 — the field-goal blocks alone are
+# more than half, which is what a first-present lookup would have lost.
+# Earned by DE, DT, SAF, LB and NT: the IDP assets this board ranks.
+#
+# IDP-SCOPED ON PURPOSE.  Three of 2025's 44 blocks were made by an RB, a
+# TE and an OT.  ``idp_blk_kick`` is Sleeper's IDP rule and those players
+# are not scored by it; the team ``blk_kick`` rule is a different family
+# for an asset class this board does not value.  Not an oversight — the
+# alternative pays a blocked kick under a rule the league does not apply
+# to that player.
+_IDP_SUM_KEYS: dict[str, tuple[tuple[str, ...], str]] = {
+    "idp_blk_kick": (("def_punt_blocks", "def_pat_blocks", "def_fg_blocks"), "Blk Kick"),
+}
+
 # Resolved by ``_tackle_view`` rather than a column read.  Ordered
 # solo, assist, combined — matching the tuple that function returns.
 _IDP_TACKLE_KEYS: tuple[tuple[str, str], ...] = (
@@ -321,26 +351,27 @@ _SCORING_KEY_ALIASES: dict[str, str] = {
 }
 
 
-# Position labels that count as IDP scoring eligible.  nflverse uses
-# both the abstract group (DL/LB/DB) and the specific listing
-# (DT/DE/EDGE/ILB/OLB/CB/S/FS/SS/NT) — accept both.
+# Position labels that count as IDP scoring eligible.  nflverse uses both
+# the abstract group (DL/LB/DB) and the specific listing
+# (DT/DE/EDGE/ILB/OLB/CB/S/SAF/FS/SS/NT) — accept both.
+#
+# DERIVED, not restated (2026-08-18).  This was a hand-maintained literal,
+# and it drifted from ``POSITION_ALIASES`` — the map CLAUDE.md names the
+# single source of truth for position families — in the way a mirror
+# always eventually does: the list was missing ``SAF``, the spelling the
+# 2025 unified release uses for a safety on 1,423 player-weeks.  Every
+# safety therefore skipped the whole IDP block below and scored a
+# well-formed 0.000, worth 10,842.88 points across 2025 REG on the live
+# card.  The same omission had already been found and patched *locally*
+# by two other consumers, which is precisely why it survived here.
+#
+# Deriving means the next spelling the owner learns is scored
+# automatically instead of waiting to be noticed as a position group
+# scoring suspiciously low.  Pinned by
+# ``tests/nfl_data/test_idp_position_coverage.py``.
+_IDP_FAMILIES = frozenset({"DL", "LB", "DB"})
 _IDP_POSITIONS = frozenset(
-    {
-        "DL",
-        "DT",
-        "DE",
-        "EDGE",
-        "NT",
-        "LB",
-        "ILB",
-        "OLB",
-        "MLB",
-        "DB",
-        "CB",
-        "S",
-        "FS",
-        "SS",
-    }
+    raw for raw, family in _POSITION_ALIASES.items() if family in _IDP_FAMILIES
 )
 
 
@@ -445,6 +476,7 @@ _SLEEPER_KEY_LABELS: dict[str, str] = {
     **{k: label for k, (_cols, label) in _SIMPLE_KEYS.items()},
     **{k: label for k, (_cols, label) in _FG_BAND_KEYS.items()},
     **{k: label for k, (_cols, label) in _IDP_KEYS.items()},
+    **{k: label for k, (_cols, label) in _IDP_SUM_KEYS.items()},
     **dict(_IDP_TACKLE_KEYS),
     **{k: label for (k, _t, label) in _IDP_TACKLE_THRESHOLDS},
     **{k: label for (k, _c, _t, label) in _YARDAGE_THRESHOLDS},
@@ -515,6 +547,9 @@ def sleeper_stat_line_from_row(
     if _is_idp_position(pos):
         for key, (columns, _label) in _IDP_KEYS.items():
             _put(key, _first_num(stat_row, columns))
+        # Summed, not first-present — see ``_IDP_SUM_KEYS``.
+        for key, (columns, _label) in _IDP_SUM_KEYS.items():
+            _put(key, sum(_num(stat_row.get(col)) for col in columns))
         solo, assists, combined = _tackle_view(stat_row)
         for (key, _label), stat in zip(_IDP_TACKLE_KEYS, (solo, assists, combined)):
             _put(key, stat)
@@ -530,11 +565,129 @@ def sleeper_stat_line_from_row(
     return line
 
 
+#: Precomputed fantasy TOTALS the league host publishes on the same line
+#: as the raw stats.  These are never stats and must never be scored: a
+#: card that paid ``pts_ppr`` at 1.0 would score the whole line twice.
+#: Excluded structurally rather than by trusting that no card names them.
+HOST_DERIVED_TOTALS: frozenset[str] = frozenset(
+    {"pts_ppr", "pts_std", "pts_half_ppr", "pts_idp", "kick_pts"}
+)
+
+#: Row fields that identify the player-week rather than describe it.
+_HOST_METADATA_KEYS: frozenset[str] = frozenset(
+    {
+        "season",
+        "week",
+        "season_type",
+        "position",
+        "player_id",
+        "player_id_gsis",
+        "gsis_id",
+        "player_name",
+        "player_display_name",
+        "team",
+        "recent_team",
+        "opponent",
+        "source",
+    }
+)
+
+#: Sleeper stat keys that are RANKS or RATES rather than event counts.
+#: They share the line with real stats and are meaningless to multiply by
+#: a per-event rate.
+_HOST_NON_EVENT_PREFIXES: tuple[str, ...] = ("pos_rank_", "tm_")
+
+
+def is_host_player_entry(entry_id: Any) -> bool:
+    """Is this host stat entry an individual PLAYER rather than a team DST?
+
+    Sleeper keys players by numeric id and team defenses by their alpha
+    team code (``PHI``, ``KC``).  That distinction is the whole player/DST
+    separation, and it cannot be replaced by a key-family rule: measured
+    on the host's own wk14 2025 dump, ``st_tkl_solo`` appears on 87 player
+    entries AND 28 team entries, and ``kr_yd`` on 45 and 28 — one key
+    name, two different meanings.  Scoring a team entry as a player pays
+    a DST rule (``pts_allow``, ``int``, ``fum_rec``) to an individual.
+
+    A PLAYER is identified positively, and that direction is deliberate.
+    Identifying TEAMS instead was tried and under-caught: the host's dump
+    carries **two** team-entry families, bare team codes (``PHI``, ``HOU``)
+    and prefixed ones (``TEAM_BUF``, ``TEAM_LAR``), 28 of each in the wk14
+    2025 dump.  A "short alphabetic id" rule cleared all 28 prefixed ones,
+    because ``TEAM_BUF`` is neither short nor purely alphabetic.  An
+    allow-list of what a player looks like cannot fail that way: a new
+    team-entry spelling is refused by default, where a deny-list of team
+    shapes silently admits it.
+
+    Player ids are numeric (``4034``); rows rebuilt by
+    ``league_comparison.sleeper_stats.fetch_sleeper_weekly_stats`` carry a
+    GSIS id (``00-0034796``) instead, which is digits and hyphens.  Both
+    are accepted; nothing else is.
+    """
+    text = str(entry_id or "").strip()
+    if not text:
+        return False
+    return text.replace("-", "").isdigit()
+
+
+def host_stat_line(stat_row: dict[str, Any]) -> dict[str, float]:
+    """The host's OWN stat line, ready to score, with nothing translated.
+
+    This is the counterpart to :func:`sleeper_stat_line_from_row` for rows
+    that already arrived in Sleeper's vocabulary.  There is deliberately
+    no mapping table: the host publishes the same keys the scoring card is
+    written in, so translating them into nflverse column names and back —
+    which is what the league-comparison fallback does today — can only
+    lose the categories nflverse has no column for.
+
+    What it does do is drop the three things on the line that are not
+    per-event stats: identifying metadata, precomputed fantasy totals, and
+    rank/rate fields.  Then it reconciles Sleeper's own alias spellings so
+    a line carrying both ``idp_pass_def`` and ``idp_pd`` pays that rule
+    once rather than twice.
+    """
+    line: dict[str, float] = {}
+    for key, raw in (stat_row or {}).items():
+        name = str(key)
+        if name in _HOST_METADATA_KEYS or name in HOST_DERIVED_TOTALS:
+            continue
+        if name.startswith(_HOST_NON_EVENT_PREFIXES):
+            continue
+        try:
+            value = float(raw)
+        except (TypeError, ValueError):
+            continue
+        if value:
+            line[name] = value
+
+    # Stat-side alias reconciliation — a COLLAPSE onto the canonical
+    # spelling, not a copy.
+    #
+    # Copying was tried first and double-counted, caught by the golden
+    # host-awarded fixtures: ``compute_weekly_points`` already copies an
+    # alias RATE onto the canonical key, so a card written as
+    # ``idp_qb_hit`` ends up paying both spellings.  Add the stat under
+    # both spellings as well and the rule is paid twice — the tackle-LB
+    # archetype came out 29.7956 against the host's own 27.6.
+    #
+    # Collapsing makes exactly-once structural: after this, the line
+    # carries at most ONE key per rule, so no arrangement of card
+    # spellings can match a rule twice.  The pop is what makes it a
+    # collapse rather than a copy, and it is the whole guard.
+    for alias, canonical in _SCORING_KEY_ALIASES.items():
+        if alias not in line:
+            continue
+        value = line.pop(alias)
+        line.setdefault(canonical, value)
+    return line
+
+
 def compute_weekly_points(
     stat_row: dict[str, Any] | None,
     scoring_settings: dict[str, Any] | None,
     *,
     position: str | None = None,
+    source: str = "nflverse",
 ) -> RealizedPoints | None:
     """Return realized fantasy points for one player-week.
 
@@ -556,9 +709,34 @@ def compute_weekly_points(
     ``position`` still matters, but only to NORMALIZATION: it selects
     which position-scoped key a stat lands on (``bonus_fd_qb`` vs
     ``bonus_fd_rb``), and whether IDP rules apply at all.
+
+    ``source`` names the vocabulary the row arrived in (#802).
+    ``"nflverse"`` (the default, and the champion path) normalizes through
+    :func:`sleeper_stat_line_from_row`.  ``"sleeper"`` means the row is
+    ALREADY the host's own stat line and is scored as-is via
+    :func:`host_stat_line` — no round-trip, and no derivation, because the
+    host publishes ``pass_inc``, ``bonus_fd_qb`` and the tackle split
+    directly rather than requiring them to be reconstructed.
+
+    A host row that is a TEAM entry returns ``None``: team defense is not
+    an asset class this board values, and its line carries rules
+    (``pts_allow``, ``int``, ``fum_rec``) that would be nonsense paid to a
+    player.  Refusing is the honest answer — a zero would say the player
+    played and scored nothing.
     """
     if not stat_row:
         return None
+    if source not in ("nflverse", "sleeper"):
+        raise ValueError(
+            f"unknown stat source {source!r}; expected 'nflverse' or 'sleeper'. "
+            "Guessing a vocabulary is how a rule gets silently skipped."
+        )
+    if source == "sleeper":
+        # The host's OWN id is the reliable discriminator; a row rebuilt by
+        # the league-comparison producer carries a GSIS id in ``player_id``.
+        entry_id = stat_row.get("player_id_sleeper") or stat_row.get("player_id")
+        if not is_host_player_entry(entry_id):
+            return None
     season = int(_num(stat_row.get("season")))
     week = int(_num(stat_row.get("week")))
     if not scoring_settings:
@@ -578,7 +756,10 @@ def compute_weekly_points(
         if alias in scoring and canonical not in scoring:
             scoring[canonical] = scoring[alias]
 
-    stat_line = sleeper_stat_line_from_row(stat_row, position=position)
+    if source == "sleeper":
+        stat_line = host_stat_line(stat_row)
+    else:
+        stat_line = sleeper_stat_line_from_row(stat_row, position=position)
     result = _score_stat_line(stat_line, scoring)
 
     # Breakdown keeps its human labels; an unlabelled key falls back to
