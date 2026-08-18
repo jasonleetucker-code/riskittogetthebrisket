@@ -1445,6 +1445,69 @@ stack. Recorded as an open question with the measurement that raised it rather t
 
 Owner: lane 5.
 
+### F-30 · One vendor truncating its pick feed turns every open PR red · CONFIRMED · CI · **REPAIRED 2026-08-18**
+
+The 2026-08-16 stabilization split contract errors into a **structural** lane (statements about
+our code) and a **source-health** lane (conditions a provider alone can cause), and made the
+latter advisory on PRs — because *"one KTC scrape timing out turned every open PR red and skipped
+a production deploy"*. That incident recurred today through a door the split does not cover: a
+**unit test in the hard gate**.
+
+**What happened.** `tests/api/test_picks_end_to_end.py::test_every_pick_has_rank_and_value`
+failed on the 17:11 board with:
+
+```
+Picks missing a finite canonical value:
+['2029 Early 2nd' … '2029 Mid 6th']   — 15 rows
+```
+
+**Root cause — a source-availability event, not a code regression.** Comparing the two boards of
+the same afternoon, per source:
+
+| scrape | `ktc` | `idpTradeCalc` |
+|---|---|---|
+| 15:09 (test passed) | 84 anchors — 2026:60 2027:12 2028:12 | **84** anchors — 2026:60 2027:12 2028:12 |
+| 17:11 (test failed) | 84 anchors — unchanged | **16** anchors — 2026:10 2027:3 2028:3, **round 1 only** |
+
+`idpTradeCalc` is one of only two families that price picks. Losing its 2028 rounds 2-4 removed
+the input for the 2029 derivation, and `C1-U6-D1` is explicit that a round a source did not
+publish is **ABSENT, never substituted** — so the pipeline correctly declined to price them.
+5 rounds x 3 tiers = the exact 15 rows. **The pipeline did the right thing and the test punished
+it.**
+
+**Why the test was wrong to be in the hard gate.** It builds from `exports/latest` — the LIVE
+committed board — which `docs/ops/STABILIZATION_2026-08-16.md` §3d forbids for a `-m "not
+livedata"` test precisely because the result is a function of which sources answered the last
+scrape.
+
+**Why the prescribed escape did not work.** That rule offers
+`tests/archive_fixtures.newest_complete_raw_payload()`. It classifies degradation from
+`settings.sourceRunSummary`, and `failedSources` is **ABSENT from all 176 committed archives**
+(measured for census S-2), so a silently truncated pick board still reads as complete. The
+fixture would have handed back the same broken input.
+
+**Repair.** The assertion now skips on the PREMISE it depends on: **per-source** pick-anchor
+coverage. Per source is load-bearing — a union across sources reports `{1,2,3,4}` for every year
+on BOTH boards, because `ktc` stayed intact, and would have hidden the failure completely. My
+first attempt made exactly that mistake and was caught by testing the discriminator against both
+boards before shipping it:
+
+```
+15:09 board -> RUN  (thin cells: none)
+17:11 board -> SKIP (thin: idpTradeCalc 2026:[1] 2027:[1] 2028:[1])
+```
+
+The guard keeps its teeth: if our derivation breaks while anchors are complete, it still fails.
+The live-board question stays owned by `validate_api_data_contract`'s pick census — advisory on
+PRs, **blocking at deploy**, so production keeps serving the last good board rather than one with
+15 unpriced picks.
+
+**Not a change to `V1-12`'s status.** C1-PICK-01's code is correct and remains `VERIFIED`; what is
+currently untrue on the live board is a vendor-availability condition, and the deploy gate is the
+right owner for it.
+
+Owner: lane 5.
+
 ## 2. Repairs made during the audit
 
 Each is a repair-only PR: exact-head CI, mutation-proven where structural, merged on green.
