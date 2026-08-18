@@ -70,6 +70,27 @@ So the trade calculator books a **gain** for downgrading a 2029 early first to a
 `validate_api_data_contract`'s pick census passes: it checks finiteness, not-zero-as-missing
 and provenance — never ordering.
 
+**Attempted refutation, three ways — all failed, and two made it worse.**
+
+1. *"The 2029 tier rows are internal derivations nothing selects."* Refuted. All 24 are priced
+   **and ranked**, and all 24 appear in the legacy `players` dict the UI consumes.
+2. *"It only affects trade math, not anything a user sees."* Refuted, and this is the
+   escalation: the inversion is visible on the **published ranked board**.
+
+   | rank | row | value |
+   |---|---|---|
+   | **#117** | `2029 Mid 1st` | 3676 |
+   | **#123** | `2029 Early 1st` | 3593 |
+   | #139 | `2029 Late 1st` | 3446 |
+
+   A user browsing `/rankings` sees a mid first ranked above an early first.
+3. *"Maybe Early > Mid > Late is my assumption, not the product's."* Refuted by the other two
+   years: 2027 and 2028 satisfy it in all 12 of their cells. It is the board's own rule.
+
+A fourth check strengthens the impact rather than reducing it: there are **no slot-form rows
+for 2027–2029** — the tier grade is the entire user-facing granularity for every future pick,
+so there is no finer-grained correct value sitting behind the wrong one.
+
 **Why not repaired here.** Choosing how to restore monotonicity (clamp the crossing cell?
 isotonic-regress the ratio surface? shrink toward `stepByRound`?) is a calibration methodology
 change, which the freeze names as not permitted. An ERROR-level census check would turn the
