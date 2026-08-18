@@ -1761,6 +1761,52 @@ deployed SHA, the §22 board diff, and the full regression sweep) have not been 
 verdict is withheld until they have.
 
 
+#### F-30 — board-diff measurement (2026-08-18)
+
+Required by the owner as one of the four conditions for restoring `V1-12` to `VERIFIED`.
+Captured with the repo's own tooling — `scripts/golden_board.py` on `main` (`91336c5`) and on the
+repair head, then `scripts/board_diff.py` — from the same raw payload, so the only variable is the
+code.
+
+```
+rows:   983 -> 988      priced: 837 -> 857      picks: 157 -> 162
+ranked: 740 -> 740      idp:    280 -> 280
+
+VALUES: 0 moved, 15 newly priced, 0 newly unpriced
+RANKS:  0 changed
+rows ADDED (5): 2029 Round 2 … 2029 Round 6
+LABELS: confidenceBucket 15 flipped (none -> low)
+        confidenceLabel  15 flipped
+        quarantined       6 flipped (False -> True)
+```
+
+**The repair is purely additive: not one existing value or rank moved.** The 15 newly-priced rows
+are exactly the 2029 rounds 2-6 across the three tiers; the 5 added rows are their GENERIC-grade
+siblings ("2029 Round 2"…), which could not exist before because a generic grade is the tier mean
+and the tier rows were unpriced.
+
+**The six quarantine flips were chased rather than accepted, and they are 2029 joining an existing
+convention.** They are the rounds 5 and 6 rows, which no vendor prices and which reach a value
+through `derived_round_step` from the round 4 my pass completed. They carry
+`no_valid_source_values`, which is *true*, and the flag is in `_QUARANTINE_FLAGS`. Measured across
+every future year on the same board:
+
+| year | R1-R4 | R5 | R6 |
+|---|---|---|---|
+| 2027 | 0/3 quarantined | **3/3** | **3/3** |
+| 2028 | 0/3 quarantined | **3/3** | **3/3** |
+| 2029 (after this repair) | 0/3 quarantined | **3/3** | **3/3** |
+
+So 2027 and 2028 already behaved this way and 2029 now matches them. Before the repair those rows
+were unpriced, so there was nothing to quarantine — the flip is the *arrival* of a value, not a
+change of policy. The value is published with `low` confidence and withheld from the decision
+surfaces that read `quarantined`, which is the honest treatment for a number two derivations away
+from any vendor evidence.
+
+Had 2029 R5/R6 come out **un**quarantined while 2027 and 2028 were quarantined, that would have
+been a real defect introduced by this repair, and the comparison is what distinguishes the two
+cases.
+
 ### F-31 · C2-U1's "unpriced" third state is unreachable on the live snapshot path · CONFIRMED · false green · **OPEN (assigned: lane 1)**
 
 **Found by reviewing `#914`, and disclosed BY `#914` rather than caught in spite of it.** Lane 1's
