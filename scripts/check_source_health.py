@@ -69,6 +69,7 @@ if str(_REPO_ROOT) not in sys.path:
 from scripts.watchdog_freshness import (  # noqa: E402
     _read_freshness,
     classify_freshness,
+    unmeasurable_sources,
 )
 from src.api.source_health_alerts import (  # noqa: E402
     load_soft_escalation_hours,
@@ -251,6 +252,12 @@ def main() -> int:
     hard_stale, soft_stale, fresh = classify_freshness(
         _read_freshness(), thresholds, load_soft_sources(), load_soft_escalation_hours()
     )
+    # Audit F-11.  This script reuses the watchdog's freshness rule verbatim
+    # ("no second freshness rule"), so it inherited the watchdog's hole: a
+    # registered source with neither a stamp nor a CSV leaves the population
+    # entirely and is reported by nobody.  Advisory here, so it is named rather
+    # than fatal — but it must be NAMED.
+    unmeasurable = unmeasurable_sources()
 
     content: dict[str, dict] = {}
     content_stale: list[tuple[str, float, float]] = []
@@ -276,6 +283,7 @@ def main() -> int:
             {"source": s, "ageHours": a, "thresholdHours": t} for s, a, t, _ in soft_stale
         ],
         "freshCount": len(fresh),
+        "unmeasurable": unmeasurable,
         "contentStaleness": content,
         "contentStale": [
             {"source": s, "daysSinceChange": d, "budgetDays": b} for s, d, b in content_stale
@@ -288,11 +296,17 @@ def main() -> int:
         print(f"[source-health] payload={payload_path}")
         print(
             f"[source-health] contract source-health errors: {len(contract_errors)} · "
-            f"fetch: {len(fresh)} fresh / {len(soft_stale)} soft-stale / {len(hard_stale)} stale · "
+            f"fetch: {len(fresh)} fresh / {len(soft_stale)} soft-stale / "
+            f"{len(hard_stale)} stale / {len(unmeasurable)} unmeasurable · "
             f"content-stale: {len(content_stale)}"
         )
         for msg in contract_errors:
             print(f"::error title=Source health (contract)::{msg}")
+        for src_key in unmeasurable:
+            print(
+                f"::warning title=Unmeasurable source::{src_key} has neither a "
+                f"_last_success stamp nor its CSV — UNKNOWN, not fresh"
+            )
         for src_key, age, threshold, last in hard_stale:
             print(
                 f"::error title=Stale source::{src_key} last fetched {last} "

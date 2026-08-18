@@ -92,6 +92,49 @@ def _read_freshness() -> dict[str, dict]:
     return out
 
 
+def unmeasurable_sources() -> list[str]:
+    """Registered sources with NO stamp and NO CSV — we cannot say anything.
+
+    :func:`_read_freshness` prefers the ``_last_success`` stamp, falls back to
+    the CSV mtime, and when NEITHER exists ``continue``s — dropping the source
+    from the population entirely.  It is then not fresh, not soft-stale and not
+    hard-stale: it is unaccounted for, and the run prints "N sources fresh, 0
+    hard-stale" without ever naming it.
+
+    Measured 2026-08-18 (audit F-11) by injecting one evidence-less registry
+    key: the watchdog reported ``22 fresh / 0 hard-stale`` and exited **0**.
+    ``main()``'s ``if not freshness`` guard catches only the TOTAL wipe, never a
+    partial one.
+
+    That is MISSING IS NEVER ZERO at the freshness layer — the same denominator
+    rule ``src/api/confidence.py`` applies to coverage: the population is what
+    COULD have been observed, so silence is permanent missing evidence rather
+    than a smaller population.  Deleting evidence must never promote health.
+
+    This reports UNKNOWN and nothing more.  It deliberately invents no age, no
+    threshold and no staleness verdict: whether stale evidence still counts as a
+    full-weight vote is census item S-6 and is an owner decision, explicitly out
+    of scope here.
+
+    Kept separate from :func:`classify_freshness` rather than added as a fourth
+    bucket because that function's 3-tuple is unpacked at eight call sites; a
+    named fourth state consumed where it matters is the smaller correct change.
+    """
+    from src.api.data_contract import _SOURCE_CSV_PATHS
+
+    state_dir = _REPO_ROOT / "data" / "scrape_state"
+    out: list[str] = []
+    for src_key, entry in _SOURCE_CSV_PATHS.items():
+        csv_rel = entry if isinstance(entry, str) else (entry or {}).get("path")
+        if not csv_rel:
+            continue
+        has_stamp = (state_dir / f"{src_key}_last_success").exists()
+        has_csv = (_REPO_ROOT / csv_rel).exists()
+        if not has_stamp and not has_csv:
+            out.append(str(src_key))
+    return sorted(out)
+
+
 def classify_freshness(
     freshness: dict[str, dict],
     thresholds: dict[str, float],
@@ -139,6 +182,7 @@ def main() -> int:
     soft_sources = load_soft_sources()
     soft_escalate_hours = load_soft_escalation_hours()
     freshness = _read_freshness()
+    unmeasurable = unmeasurable_sources()
 
     if not freshness:
         # No sources registered at all = catastrophic regression in the
@@ -176,6 +220,19 @@ def main() -> int:
         for src, age, threshold, last in soft_stale:
             summary_lines.append(f"| `{src}` | {age:.1f} | {threshold:.1f} | {last} |")
         summary_lines.append("")
+    if unmeasurable:
+        summary_lines.append("### Unmeasurable sources (no stamp AND no CSV)")
+        summary_lines.append("")
+        summary_lines.append(
+            "_Registered, but we have no evidence at all about them.  Not fresh, "
+            "not stale — UNKNOWN.  Deleting evidence must not promote health._"
+        )
+        summary_lines.append("")
+        summary_lines.append("| source |")
+        summary_lines.append("|---|")
+        for src in unmeasurable:
+            summary_lines.append(f"| `{src}` |")
+        summary_lines.append("")
     summary_lines.append("### Fresh sources")
     summary_lines.append("")
     summary_lines.append("| source | age (h) | threshold (h) |")
@@ -201,9 +258,20 @@ def main() -> int:
             f"re-mint / fix the fetcher to clear it."
         )
 
-    if not hard_stale:
+    for src in unmeasurable:
+        print(
+            f"::error title=Unmeasurable source: {src}::Registered in the ranking "
+            f"source map, but has neither a data/scrape_state/{src}_last_success "
+            f"stamp nor its CSV.  We have no evidence about it at all — this is "
+            f"UNKNOWN, not fresh.  Restore the fetcher or de-register the source."
+        )
+
+    # The counts appear on BOTH exit paths so an unmeasurable source can never
+    # be silent — the defect this reports is precisely a source vanishing from
+    # the report rather than being named in it.
+    if not hard_stale and not unmeasurable:
         soft_note = f", {len(soft_stale)} soft-stale (non-fatal)" if soft_stale else ""
-        print(f"ok: {len(fresh)} sources fresh, 0 hard-stale{soft_note}")
+        print(f"ok: {len(fresh)} sources fresh, 0 hard-stale, 0 unmeasurable{soft_note}")
         return 0
 
     for src, age, threshold, last in hard_stale:
@@ -214,9 +282,11 @@ def main() -> int:
             f"'Run scraper' step above."
         )
     print(
-        f"\nfail: {len(hard_stale)} stale source(s), {len(fresh)} fresh"
+        f"\nfail: {len(hard_stale)} stale source(s), {len(unmeasurable)} unmeasurable, "
+        f"{len(fresh)} fresh"
         f"{f', {len(soft_stale)} soft-stale' if soft_stale else ''}.  "
-        f"Stale: {', '.join(s for s, *_ in hard_stale)}"
+        f"Stale: {', '.join(s for s, *_ in hard_stale) or 'none'}"
+        f"{'.  Unmeasurable: ' + ', '.join(unmeasurable) if unmeasurable else ''}"
     )
     return 1
 

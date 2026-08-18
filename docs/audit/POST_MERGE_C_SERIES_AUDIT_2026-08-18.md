@@ -637,6 +637,202 @@ consequence end.
 
 ---
 
+### F-11 · A source that loses all its evidence vanishes from the freshness watchdog · CONFIRMED · observability · **REPAIRED 2026-08-18**
+
+`scripts/watchdog_freshness._read_freshness` prefers the `_last_success` stamp, falls back to
+the CSV mtime, and when **neither** exists does `except OSError: continue` — the source leaves
+the population entirely. `classify_freshness` then iterates only what survived, so it is not
+fresh, not soft-stale and not hard-stale: it is unaccounted for, and nothing says so.
+
+Measured by injecting one evidence-less registry key:
+
+```
+present in freshness dict : False
+hard_stale=0  soft_stale=0  fresh=22
+named in ANY bucket       : False
+=> "22 sources fresh, 0 hard-stale", exit 0
+```
+
+`main()`'s `if not freshness` guard catches only the **total** wipe ("No sources could be
+read"), never a partial one — so deleting evidence promoted health. Same defect class as F-7's
+empty coverage map, and the same rule `src/api/confidence.py` applies to its coverage axis: the
+denominator is what COULD have been observed.
+
+It propagated: `scripts/check_source_health.py` deliberately reuses this rule ("no second
+freshness rule"), so the advisory PR check inherited the hole.
+
+**REPAIRED** by a named fourth state, `unmeasurable_sources()`, consumed by both scripts — the
+watchdog fails on it and names each one, `check_source_health` reports it in its JSON and its
+summary line. Counts appear on **both** exit paths, because the defect being reported is
+precisely a source vanishing from the report.
+
+Kept as a separate function rather than a fourth bucket on `classify_freshness`: that 3-tuple
+is unpacked at eight call sites and `_read_freshness`'s shape is consumed by three more
+scripts. `test_unmeasurable_is_invisible_to_classify_freshness` pins that the two mechanisms
+stay complementary rather than one silently covering for the other.
+
+**It reports UNKNOWN and nothing more** — no age, no threshold, no staleness verdict is
+invented, so census item **S-6** (is stale evidence still a full-weight vote?) is untouched.
+Inert today: all 22 registered sources carry evidence.
+
+**Mutation-proven, and the first version of the wiring guard FAILED that proof.** It walked
+every `ast.If` in `main()` and collected the names appearing in any of them — which the summary
+block's own `if unmeasurable:` satisfied, so it passed with the success gate reading
+`if not hard_stale:` and an unmeasurable source still exiting 0. It now targets the branch that
+actually returns 0. Pinned by `tests/api/test_watchdog_unmeasurable_source.py` (7).
+
+---
+
+### F-12 · Every failure-attribution path in the health UI compares two disjoint vocabularies · CONFIRMED · observability · **OPEN (census S-2)**
+
+`server.py::_push_failure` writes `failures[].source` as the scraper **run name** verbatim.
+`frontend/components/SourceHealthStrip.jsx` compares it against **registry keys** — `toneFor`'s
+"Hard signals first" branch (`runtime.failed_sources.includes(source)` /
+`partial_sources.includes(source)`, lines 51-52) and `failedReason`'s
+`health.source_failures.find(f => f.source === src)`.
+
+Measured over 176 committed export archives:
+
+```
+archives carrying a failed/timedOut/partial source : 170
+of those, naming a REGISTRY key                    :   0
+
+run-name vocabulary emitted:  KTC_TradeDB 170 · KTC_WaiverDB 170 · KTC 1
+```
+
+So the hard-signal branch has never been reachable and per-row `failedReason` is always null;
+tone always falls through to the age rule, and a source that failed under 4 hours ago renders
+green.
+
+**Honest sample note**: 170×2 of those entries are `KTC_TradeDB` / `KTC_WaiverDB`, the crowd-DB
+paths retired by KTC-4 on 2026-08-18, so they are largely pre-retirement noise. The one genuine
+critical failure in the window is `KTC` on 2026-08-16 — which matches no registry key either.
+The defect is the disjoint vocabularies, not the volume.
+
+Tracked as census **S-2**, with F-10 as its other consequence. Not repaired in this pass: the
+repair is a mapping owner touching the scraper and a production scrape-promotion gate, which is
+its own unit.
+
+---
+
+### F-13 · The mobile view is the LARGEST of the optimized views · CONFIRMED · performance · **OPEN**
+
+Measured on a 1109-row contract, each view serialized as `server.py` does and gzipped at
+level 6:
+
+| view | raw MB | gzip KB |
+|---|---|---|
+| full | 14.21 | 1144.2 |
+| **array** (desktop) | 7.86 | **662.6** |
+| **compact** (mobile / slow network) | 8.96 | **764.6** |
+
+**compact is +15.4% over the wire versus array.** `src/api/compact_view.compact_contract`
+prunes ~20 audit/trust fields but keeps **both** parallel player encodings — verified, the
+returned object carries `players` (dict) *and* `playersArray` — while the array view drops the
+legacy dict outright, which is where the weight is. `frontend/lib/device-profile.js` routes
+"mobile / slow network" to compact and desktop to array, so phones on slow connections receive
+102 KB more gzipped than desktops on fast ones.
+
+`server.py`'s comment on that branch claims "~90% byte reduction". Measured against full it is
+37% raw / 33% gzip, and against the other optimized view it is an increase.
+
+Not repaired here: dropping the dict needs a consumer sweep for `players[name]` reads, which is
+its own unit. The budget test that would have caught it does not exist — see the performance
+census.
+
+---
+
+### F-14 · The `/api/dynasty-data` bridge answers 200 off disk when the backend says 401 · CONFIRMED · security / data integrity · **OPEN**
+
+`frontend/app/api/dynasty-data/route.js` streams the backend response only when
+`res.ok && isJson`. Its own comment states the else branch plainly: *"Non-2xx, or a 200 that
+isn't JSON — fall through to disk."* The fallback is
+`const parsed = loadFromDisk(); if (parsed) return NextResponse.json(parsed);` — **HTTP 200** —
+and `loadFromDisk` reads the newest `dynasty_data_YYYY-MM-DD.json`, which is the **raw scraper
+export**, not the contract. It also fires on a `BACKEND_IDLE_TIMEOUT_MS = 4000` header stall.
+
+Two independent defects:
+
+**(a) A refusal is converted into a grant.** `401` is non-2xx, so an unauthenticated caller
+gets the board off disk under 200. The Next gate cannot save this — `frontend/middleware.js`'s
+matcher is `"/((?!_next/static|_next/image|api/|.*\.[\w]+$).*)"`, which **excludes `api/`** by
+design, because the backend's `/api/*` gate is meant to be the authority. The fallback overrides
+it. Measured against a real booted stack: unauthenticated request → `code=200 size=635170`
+while the backend answered `401`, byte-identical to the disk file; CI artifact for run
+32120428479 shows ten `GET /api/data?view=array HTTP/1.1 401 Unauthorized`.
+
+**(b) 200 for a payload that is not the contract.** I measured the raw export's shape — no
+`playersArray`, no `contractVersion`, no `meta`, zero rank stamps. That is exactly what
+`buildRows` fail-fasts on, so a 4-second stall or a 401 renders an empty board while every
+status surface stays green, and the client cannot distinguish "here is the board" from "here is
+a raw scraper dump" because both are 200. MISSING IS NEVER ZERO, at the HTTP layer.
+
+**Scope, stated honestly.** Production as configured is **not** affected: I verified the
+route's own claim — `deploy/nginx/chaseupside-proxy.conf:54` and
+`deploy/nginx/riskittogetthebrisket.org.conf:186` both carry
+`location /api/ { proxy_pass … backend; }`, so `/api/dynasty-data` never reaches Next in
+production. (The comment cites `chaseupside.com.conf`; the block actually lives in the shared
+`chaseupside-proxy.conf` snippet.) Affected: dev, CI/E2E, and "any Next-fronted deployment" — a
+topology the route says it handles. The protection is a deployment convention, not a property of
+the code, and nothing tests it.
+
+This also supersedes the standing **F-3b** diagnosis, which attributed the journey-rankings
+failure to a stack-readiness race. The readiness gate passes; the board never talks to the
+backend at all.
+
+---
+
+### F-15 · The row-floor guard is opt-in, and 8 of 21 registered voters had opted out · CONFIRMED · source integrity · **REPAIRED 2026-08-18**
+
+F-10 repaired one source. This is the class it belonged to.
+
+`validate_api_data_contract` drove its zero check off `_load_source_row_floors()`, iterating
+`row_floors.items()` — so a key with no floor entry was never counted and never checked.
+**Absence of a threshold silently meant absence of a check.**
+
+Measured with F-10's `ktcSfTep` floor already in place, zeroing each registered voter's
+`canonicalSiteValues` in a built contract one at a time — 8 of 21 produced `ok=True` with an
+empty source-health lane:
+
+| still silent | live rows |
+|---|---|
+| `fantasyProsSf` | 474 |
+| `pfkDynasty` | 472 |
+| `fantasyNavigatorSf` | 454 |
+| `otcffbSf` | 447 |
+| `fantasyCalc` | 388 |
+| `dlfRookieSf` | 112 |
+| `flockFantasySfRookies` | 76 |
+| `dlfRookieIdp` | 29 |
+
+Three of those were not oversights but **expired promises**: the `_DEFAULT_SOURCE_ROW_FLOORS`
+note of 2026-07-25 said floors for `fantasyCalc` / `fantasyNavigatorSf` / `pfkDynasty` were
+"intentionally NOT set yet … Add entries here once live canonical match counts are observed."
+The counts now exist — 388 / 454 / 472 — and the entries were never added.
+
+**REPAIRED** by separating two questions, only one of which needs a number. *Is it gone?* needs
+no calibration, so its population is the **registry** (`get_ranking_source_keys()`) union the
+keys that declare a floor — the union keeping `ktc`'s guard, since it carries a floor and the
+KTC pick market while not being a blend voter. *Is it thin?* keeps the floors map. Nothing is
+invented, so **S-6 is untouched**.
+
+**Is zero ever legitimate? Checked, not assumed.** The rookie boards were the plausible
+seasonal exception, so I read the tracked git history of every previously-unguarded CSV (up to
+60 commits each): `ever_zero = 0` on all eight, minimums 29 to 758 rows. Should a source ever
+acquire a legitimate empty state it gets an explicit reasoned declaration, never a silent
+omission.
+
+Board-inert: the live contract still validates `ok=True`, `status=healthy`,
+`sourceHealthErrors []`, no new warning. Mutation-proven — restoring the floors-driven loop
+reddens 9 of 26 assertions, including the structural one that states the population as a
+*property* rather than a name. Pinned by `tests/api/test_registered_voter_zero_check.py` (26).
+
+**Separately, and not conflated with the above**: the three expired promises should either
+become real floors at the file's own stated ~75-80% policy or be deleted as promises. Adding
+them is not required for the zero check and is left as an owner-visible decision.
+
+---
+
 ## 2. Repairs made during the audit
 
 Each is a repair-only PR: exact-head CI, mutation-proven where structural, merged on green.

@@ -11771,24 +11771,51 @@ def validate_api_data_contract(payload: dict[str, Any]) -> dict[str, Any]:
     # source is missing, we flip the overall status to degraded.
     if len(players_array) >= 250:
         row_floors = _load_source_row_floors()
-        source_nonzero_counts: dict[str, int] = {k: 0 for k in row_floors}
+        # "Is it GONE?" and "is it THIN?" are different questions, and only the
+        # second needs a calibrated number.  The population for the first is the
+        # REGISTRY — every source we are entitled to expect a vote from — union
+        # the keys that declare a floor, so ``ktc`` keeps its guard: it carries
+        # a floor and the KTC pick market (60 pick rows ``ktcSfTep`` does not
+        # cover) while not being a blend voter.
+        #
+        # Driving the zero check off ``row_floors`` alone made absence of a
+        # THRESHOLD mean absence of a CHECK.  Measured 2026-08-18 (audit F-15),
+        # with F-10's ``ktcSfTep`` floor already in place: 8 of 21 registered
+        # voters could fall to zero rows with ``ok=True`` and an empty
+        # source-health lane — fantasyProsSf (474 live rows), pfkDynasty (472),
+        # fantasyNavigatorSf (454), otcffbSf (447), fantasyCalc (388),
+        # dlfRookieSf (112), flockFantasySfRookies (76), dlfRookieIdp (29).
+        # Three of those omissions carried an explicit "floors intentionally NOT
+        # set yet … add once live canonical match counts are observed" note from
+        # 2026-07-25; the counts now exist and the entries were never added.
+        #
+        # Zero is not a legitimate state for a registered source: across the
+        # tracked git history of all eight CSVs (up to 60 commits each) none has
+        # ever been empty, minimums ranging 29-758 rows.  Should one ever
+        # acquire a legitimate empty state it gets an explicit reasoned
+        # declaration, never a silent omission.
+        watched_keys = set(get_ranking_source_keys()) | set(row_floors)
+        source_nonzero_counts: dict[str, int] = {k: 0 for k in watched_keys}
         for row in players_array:
             if not isinstance(row, dict):
                 continue
             sites_map = row.get("canonicalSiteValues")
             if not isinstance(sites_map, dict):
                 continue
-            for src_key in row_floors:
+            for src_key in watched_keys:
                 val = _to_int_or_none(sites_map.get(src_key))
                 if val is not None and val > 0:
                     source_nonzero_counts[src_key] += 1
 
-        for src_key, threshold in row_floors.items():
+        # ``sorted`` so the emitted order is a property of the population rather
+        # than of a config file's key order.
+        for src_key in sorted(watched_keys):
             count = source_nonzero_counts.get(src_key, 0)
+            threshold = row_floors.get(src_key)
             if count == 0:
                 errors.append(f"source_missing:{src_key}")
                 any_source_missing = True
-            elif count < threshold:
+            elif threshold is not None and count < threshold:
                 warnings.append(f"source_below_floor:{src_key}:{count}:{threshold}")
                 below_floor_count += 1
 
