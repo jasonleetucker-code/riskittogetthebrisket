@@ -146,9 +146,9 @@ class TestSourceFormatParsing:
             "originalBudget": 1000.0,
             "hasIdpSlots": False,
         }
-        assert FC.classify(
-            FC.source_format_from_settings(stored), BRISKET
-        ) == FC.classify(FC.source_format_from_settings(self.RAW), BRISKET)
+        assert FC.classify(FC.source_format_from_settings(stored), BRISKET) == FC.classify(
+            FC.source_format_from_settings(self.RAW), BRISKET
+        )
 
     def test_tep_level_and_tep_on_off_are_different_questions(self):
         assert FC.source_format_from_settings({"tep": 0}).tep is False
@@ -337,7 +337,9 @@ class TestPolicy:
         assert policy.max_file_age_days > 0
 
     def test_a_plain_dict_works_too(self):
-        policy = FC.ComparabilityPolicy.from_config({"crowdComparability": {"minOriginalBudget": 25}})
+        policy = FC.ComparabilityPolicy.from_config(
+            {"crowdComparability": {"minOriginalBudget": 25}}
+        )
         assert policy.min_original_budget == 25
 
     def test_no_config_degrades_to_the_documented_defaults(self):

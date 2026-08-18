@@ -53,8 +53,22 @@ from typing import Any
 # every non-offense slot in the live feed is one of those.  Getting this
 # backwards would let offense-only leagues price linebackers.
 _IDP_SLOT_NAMES = {
-    "DL", "DE", "DT", "EDGE", "LB", "ILB", "OLB", "DB", "CB", "S", "SS", "FS",
-    "IDP", "IDP_FLEX", "DP", "IL",
+    "DL",
+    "DE",
+    "DT",
+    "EDGE",
+    "LB",
+    "ILB",
+    "OLB",
+    "DB",
+    "CB",
+    "S",
+    "SS",
+    "FS",
+    "IDP",
+    "IDP_FLEX",
+    "DP",
+    "IL",
 }
 _TEAM_DEFENSE_SLOT_NAMES = {"DEF", "DST", "D/ST", "D", "TEAM DEF", "TEAMDEF"}
 
@@ -340,9 +354,7 @@ class ComparabilityPolicy:
         if hasattr(config, "num"):
             return cls(
                 min_original_budget=config.num("crowdComparability", "minOriginalBudget", 10.0),
-                team_count_tolerance=int(
-                    config.num("crowdComparability", "teamCountTolerance", 2)
-                ),
+                team_count_tolerance=int(config.num("crowdComparability", "teamCountTolerance", 2)),
                 tep_severity_gap=int(config.num("crowdComparability", "tepSeverityGap", 2)),
                 allow_multi_copy_leagues=bool(
                     config.get("crowdComparability", "allowMultiCopyLeagues", False)

@@ -162,9 +162,7 @@ def fetch_rows() -> list[dict[str, Any]]:
                     # 2026-08-18: such leagues were 37% of everything the old
                     # gate admitted, at a 5x lower median.
                     "rostersPerPlayer": (
-                        settings.get("rostersPerPlayer")
-                        if "rostersPerPlayer" in settings
-                        else None
+                        settings.get("rostersPerPlayer") if "rostersPerPlayer" in settings else None
                     ),
                     # Whether the league starts INDIVIDUAL defenders.  A team
                     # ``Def`` slot is not IDP, and the distinction decides
