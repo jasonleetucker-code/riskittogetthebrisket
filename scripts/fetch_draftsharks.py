@@ -10,17 +10,35 @@ all players, waits for the worker to finish recomputing each row's
 ``3D Value +`` under the user's league scoring, then dumps the
 rendered DOM.
 
-The offense-combined rankings URL (``/dynasty-rankings/te-premium-superflex``)
-holds the full 874-row universe in a single DOM: QB/RB/WR/TE
-rows are visible, DL/LB/DB rows are rendered with ``display:none``
-when the page's default position filter hides them.  We extract
-ALL rows (including hidden ones) because the dsValue of every
-player is a cross-universe comparable number in that view — e.g.
-Carson Schwesinger shows value 44 at overall rank 36 among all
-positions.  The IDP-only URL uses a DIFFERENT scale (Schwesinger
-shows 81 rescaled to IDP-universe), so we deliberately do not
-scrape it — merging the two scales would produce ugly value
-collisions.
+HOW THE BOARD IS LOADED (corrected 2026-08-18 — the previous
+description was obsolete and had cost 12 days of silent staleness).
+
+This file used to state that ``/dynasty-rankings/te-premium-superflex``
+"holds the full 874-row universe in a single DOM" with DL/LB/DB rows
+merely hidden by ``display:none``.  That stopped being true.  The page
+now server-renders ~25 rows and loads the rest over **htmx**
+(``hx-get="/dynasty-rankings/load-table"``, ``hx-include="#sharedParams"``),
+and ``#sharedParams`` carries a ``fantasyPosition`` filter that decides
+which families are RENDERED AT ALL.  Extracting "all rows including
+hidden ones" therefore returned offense only, `idp_count == 0` tripped
+the zero-IDP guard on every 2-hourly run from 2026-08-05, and last-good
+preservation correctly kept serving 12-day-old CSVs.
+
+So we harvest the unfiltered board first and stop there when it already
+carries both families.  Only when IDP is genuinely absent do we traverse
+the page's OWN ``fantasyPosition`` control — same URL, same
+league-scored session, same settled worker values — and union the passes
+on DraftSharks' own ``data-key``.
+
+That union is gated on a proof, not an assumption: an asset seen in two
+passes must carry the SAME ``3D Value +`` as an exact ``Decimal``, over
+at least ``_MIN_OVERLAP_FOR_EQUIVALENCE`` overlapping assets.  Too few
+overlaps, any value conflict, or a vendor-id collision all FAIL CLOSED.
+
+Still deliberately NOT scraped: the IDP-only URL
+(``/dynasty-rankings/idp``) and the ROS boards.  Those are separately
+rescaled — the same defender reads 44 on the combined board and 81 on
+the IDP-only one — and merging scales would splice two currencies.
 
 Output: TWO CSVs, same header as the manual DS export:
 
@@ -56,8 +74,11 @@ import asyncio
 import csv
 import json
 import os
+import re
 import sys
+from decimal import Decimal, InvalidOperation
 from pathlib import Path
+from typing import Any
 
 REPO = Path(__file__).resolve().parents[1]
 SESSION_PATH = REPO / "draftsharks_session.json"
@@ -110,6 +131,192 @@ CSV_HEADER = [
     "DS Analysis",
     "3D Value +",
 ]
+
+
+# ── Pure parsing seam ────────────────────────────────────────────────
+#
+# Extraction used to live entirely in a JS string evaluated against a
+# live Playwright ``Page``, which meant nothing could be tested without
+# a browser and the 2026-08 breakage sat undetected for 12 days.  The
+# parser below is the ONE owner of "HTML -> rows"; navigation only
+# fetches HTML and hands it here.  There is deliberately no second
+# JS implementation — a duplicate that agrees today is still a second
+# owner.
+#
+# THE VALUE TRAP, stated because it is easy to get backwards.  Every
+# value cell carries static ``data-scoring-value-*`` attributes (one
+# per site scoring format).  Those are DraftSharks' PUBLIC defaults.
+# When our league is activated the WebAssembly worker rewrites the
+# RENDERED text and leaves those attributes alone, so reading
+# ``data-scoring-value-te-premium-superflex`` would silently harvest
+# public values while every league-activation gate above reported
+# success.  We read rendered ``.column-title`` text, and
+# ``tests/scripts/test_fetch_draftsharks.py`` pins that we never read
+# the attribute form.
+
+_TEAM_CLASS_RE = re.compile(r"team-(?:abbr|logo)-([a-z]+)", re.I)
+
+
+def _norm(text: str) -> str:
+    """Whitespace-normalized label, matching the league-activation chain."""
+    return " ".join(str(text or "").split())
+
+
+def classify_position(raw: str) -> str:
+    """Canonical family for a DS position label.
+
+    DS emits compound labels such as ``"EDGE/DL"``.  The previous
+    exact-match against the family sets classified those as NEITHER, so
+    they were dropped from both CSVs with no counter and no log line.
+    Mirrors ``fetch_draftsharks_ros.py::_classify_position``.
+    """
+    token = str(raw or "").upper().strip()
+    if not token:
+        return ""
+    for part in re.split(r"[/,|]", token):
+        part = part.strip()
+        if part in _OFFENSE_FAMILIES or part in _IDP_FAMILIES:
+            return part
+    return token.split("/")[0].strip()
+
+
+def family_of(position: str) -> str | None:
+    """``"offense"`` / ``"idp"`` / ``None`` for an unclassifiable row."""
+    pos = classify_position(position)
+    if pos in _OFFENSE_FAMILIES:
+        return "offense"
+    if pos in _IDP_FAMILIES:
+        return "idp"
+    return None
+
+
+# The seven families the production board must always carry.  Aliases
+# canonicalize INTO these buckets, so a DL that DraftSharks labels
+# ``EDGE`` still proves the DL family is present — the completeness gate
+# is about the family being represented, not about the exact token.
+_EXPECTED_FAMILIES: tuple[str, ...] = ("QB", "RB", "WR", "TE", "DL", "LB", "DB")
+
+_FAMILY_BUCKETS: dict[str, str] = {
+    "QB": "QB",
+    "RB": "RB",
+    "WR": "WR",
+    "TE": "TE",
+    "DL": "DL",
+    "DE": "DL",
+    "DT": "DL",
+    "EDGE": "DL",
+    "NT": "DL",
+    "LB": "LB",
+    "ILB": "LB",
+    "OLB": "LB",
+    "MLB": "LB",
+    "DB": "DB",
+    "CB": "DB",
+    "S": "DB",
+    "SS": "DB",
+    "FS": "DB",
+}
+
+
+def canonical_family(position: str) -> str | None:
+    """The expected-family bucket for a DS position label, or ``None``.
+
+    ``EDGE`` -> ``DL``, ``CB`` -> ``DB``, and so on.  Kept separate from
+    ``family_of`` because the two answer different questions: which CSV
+    a row belongs in, versus which of the seven families it evidences.
+    """
+    return _FAMILY_BUCKETS.get(classify_position(position))
+
+
+def missing_expected_families(rows: list[dict[str, Any]]) -> list[str]:
+    """Which of the seven expected families this board does not contain.
+
+    Deliberately NOT derivable from the aggregate offense/IDP floors.  A
+    board carrying DL=180, LB=150, DB=0 clears the IDP floor of 85 with
+    room to spare while an entire family has silently vanished — which is
+    precisely the shape of the 2026-08 breakage, one level down.
+    """
+    present = {canonical_family(r.get("position", "")) for r in rows}
+    return [fam for fam in _EXPECTED_FAMILIES if fam not in present]
+
+
+def normalize_value(raw: str) -> Decimal | None:
+    """Rendered ``3D Value +`` text -> exact Decimal, or ``None``.
+
+    Exact decimal, never float: the multipass equivalence gate compares
+    the same asset seen through two position filters and must accept
+    ``"53"`` == ``"53.0"`` while rejecting ``53`` vs ``52.99``.  Float
+    parsing would blur that boundary in both directions.
+    """
+    text = re.sub(r"[,\s]", "", str(raw or ""))
+    if not text:
+        return None
+    try:
+        return Decimal(text)
+    except InvalidOperation:
+        return None
+
+
+def _cell_text(row: Any, attr: str) -> str:
+    el = row.find(attrs={"data-attribute": attr})
+    if el is None:
+        return ""
+    inner = el.find(class_="column-title")
+    return re.sub(r"\s+", " ", (inner or el).get_text()).strip()
+
+
+def parse_rows(html: str) -> list[dict[str, Any]]:
+    """Every ``<tbody data-player-row>`` in ``html`` as a record.
+
+    ``vendorId`` is DS's own ``data-key`` — a stable per-player
+    identifier that survives filtering and re-render.  It is the
+    reconciliation key for multipass traversal; player NAME never is,
+    because a same-name collision under last-write-wins silently
+    corrupts a row's position and therefore its family.
+    """
+    from bs4 import BeautifulSoup  # noqa: PLC0415 — keep import cost off module load
+
+    soup = BeautifulSoup(html or "", "html.parser")
+    out: list[dict[str, Any]] = []
+    for tb in soup.find_all("tbody", attrs={"data-player-row": True}):
+        name = str(tb.get("data-player-name") or "").strip()
+        if not name:
+            continue
+
+        team = ""
+        for el in tb.find_all(attrs={"class": True}):
+            classes = el.get("class") or []
+            match = _TEAM_CLASS_RE.search(" ".join(classes))
+            if match:
+                team = match.group(1).upper()
+                break
+
+        rank_el = tb.find(class_="rank-index")
+        rank_raw = re.sub(r"\s+", " ", rank_el.get_text()).strip() if rank_el else ""
+        try:
+            ds_rank: int | None = int(rank_raw)
+        except (TypeError, ValueError):
+            ds_rank = None
+
+        out.append(
+            {
+                "vendorId": str(tb.get("data-key") or "").strip() or None,
+                "name": name,
+                "team": team,
+                "position": str(tb.get("data-fantasy-position") or "").upper().strip(),
+                "dsRank": ds_rank,
+                "adp": _cell_text(tb, "adp"),
+                "bye": _cell_text(tb, "player.team.bye") or _cell_text(tb, "bye"),
+                "age": _cell_text(tb, "player.age") or _cell_text(tb, "age"),
+                "oneYr": _cell_text(tb, "fantasy_points"),
+                "threeYr": _cell_text(tb, "threeYrPts"),
+                "fiveYr": _cell_text(tb, "fiveYrPts"),
+                "tenYr": _cell_text(tb, "tenYrPts"),
+                "comment": _cell_text(tb, "comment"),
+                "dsValue": _cell_text(tb, "dsValue"),
+            }
+        )
+    return out
 
 
 def _load_env_dotfile(path: Path) -> None:
@@ -234,76 +441,6 @@ async def _browser_login(context, page) -> None:
         f"[DS] logged in; persisted {count} cookie(s) to {SESSION_PATH.name}",
         flush=True,
     )
-
-
-# Extraction JS — walks every ``<tbody data-player-row>`` in the DOM,
-# including rows that the default position filter hides with
-# ``display:none``.  The offense-combined URL puts the entire 874-
-# player universe in one table; IDP rows are hidden but still carry
-# the correct cross-universe dsValue + rank-index from the
-# WebAssembly worker (e.g. Carson Schwesinger at value 44, rank 36
-# when the IDP filter is off).  We sort by DOM order so rank
-# ordering matches what DS would show if the user toggled the
-# position filter, and we tag each row with its raw family so
-# ``main`` can split the rows into the SF / IDP CSVs.
-_EXTRACT_JS = r"""() => {
-    const rows = Array.from(document.querySelectorAll('tbody[data-player-row]'));
-    const out = [];
-    for (const tb of rows) {
-        const name = tb.getAttribute('data-player-name') || '';
-        const pos = (tb.getAttribute('data-fantasy-position') || '').toUpperCase();
-        if (!name) continue;
-
-        const pick = (attr) => {
-            const el = tb.querySelector(`[data-attribute="${attr}"]`);
-            if (!el) return '';
-            const inner = el.querySelector('.column-title');
-            return (inner || el).textContent.replace(/\s+/g, ' ').trim();
-        };
-
-        // SVG className is an SVGAnimatedString — read the raw class
-        // attribute instead.
-        let team = '';
-        const teamEl = tb.querySelector('[class*="team-abbr-"]');
-        if (teamEl) {
-            const cls = teamEl.getAttribute('class') || '';
-            const m = cls.match(/team-abbr-([a-z]+)/i);
-            if (m) team = m[1].toUpperCase();
-        }
-        if (!team) {
-            const logo = tb.querySelector('[class*="team-logo-"]');
-            if (logo) {
-                const cls = logo.getAttribute('class') || '';
-                const m = cls.match(/team-logo-([a-z]+)/i);
-                if (m) team = m[1].toUpperCase();
-            }
-        }
-
-        // ``.rank-index`` reflects DS's own cross-universe rank
-        // after the worker settles — more reliable than DOM order
-        // because hidden rows still carry the correct rank.
-        const rankEl = tb.querySelector('.rank-index');
-        const rankRaw = rankEl ? rankEl.textContent.trim() : '';
-        const rankNum = rankRaw ? parseInt(rankRaw, 10) : null;
-
-        out.push({
-            name,
-            team,
-            position: pos,
-            dsRank:  Number.isFinite(rankNum) ? rankNum : null,
-            adp:     pick('adp'),
-            bye:     pick('player.team.bye') || pick('bye'),
-            age:     pick('player.age') || pick('age'),
-            oneYr:   pick('fantasy_points'),
-            threeYr: pick('threeYrPts'),
-            fiveYr:  pick('fiveYrPts'),
-            tenYr:   pick('tenYrPts'),
-            comment: pick('comment'),
-            dsValue: pick('dsValue'),
-        });
-    }
-    return out;
-}"""
 
 
 # League-activation JS for the post-2026-06-23 DS UI.  The legacy
@@ -659,7 +796,209 @@ async def _scrape_one(page) -> list[dict]:
             f"baseline={baseline!r} current={current!r}"
         )
 
-    return await _extract_rows(page)
+    return await _harvest_full_universe(page)
+
+
+# Every ``fantasyPosition`` option the dynasty page itself offers, in
+# DOM order.  ``''`` is "All Positions".  These are the page's OWN
+# controls on the SAME league-scored session — not the separately
+# rescaled ``/dynasty-rankings/idp`` board, which stays forbidden.
+#
+# The aggregate ``IDP`` pass is included deliberately.  Without it the
+# only overlaps are offense-side (a QB appears in both the unfiltered
+# board and the QB pass), which proves filtering does not rescale
+# OFFENSE and leaves the IDP families resting on an inference.  With it,
+# every defender appears in both ``IDP`` and its own ``DL``/``LB``/``DB``
+# pass, so filter-invariance is demonstrated inside both families
+# instead of argued across them.
+_POSITION_PASSES: tuple[str, ...] = ("", "QB", "RB", "WR", "TE", "IDP", "DL", "LB", "DB")
+
+# Below this many overlapping assets we refuse to declare the passes
+# share one currency.  One coincidental match is not a proof.
+_MIN_OVERLAP_FOR_EQUIVALENCE: int = 25
+# ...and it must not all sit in one family (see overlapByFamily).
+_MIN_OVERLAP_PER_FAMILY: int = 10
+
+
+async def _harvest_full_universe(page) -> list[dict]:
+    """Collect the whole board, proving one valuation currency.
+
+    The default view no longer contains the IDP universe: DraftSharks
+    now loads the table over htmx (``/dynasty-rankings/load-table``,
+    parameterised by ``#sharedParams``) and the ``fantasyPosition``
+    filter decides which families are RENDERED AT ALL, rather than
+    hiding them with ``display:none`` as the 2026 parser assumed.
+
+    So we take the unfiltered pass first and stop there if it already
+    carries both families — that is the cheap, no-merge path.  Only if
+    IDP is genuinely absent do we traverse the page's own position
+    filters, and then the union is gated on an exact-decimal
+    equivalence proof over the assets that appear in more than one
+    pass.  No overlap means no proof, and no proof means no union.
+    """
+    first = await _extract_rows(page)
+    if any(family_of(r.get("position", "")) == "idp" for r in first):
+        print("[DS] single pass carries both families — no merge needed", flush=True)
+        return first
+
+    print(
+        "[DS] no IDP rows in the unfiltered board — traversing the page's own "
+        "fantasyPosition filters on this same league-scored session",
+        flush=True,
+    )
+    # The unfiltered board's league scoring was already proven by the
+    # public->league transition gate in ``_scrape_one``; re-prove it here
+    # anyway so every pass entering reconciliation carries the same
+    # evidence, recorded the same way.
+    scoring_evidence = [await _prove_pass_is_league_scored(page, "all")]
+    passes: dict[str, list[dict]] = {"all": first}
+    for value in _POSITION_PASSES[1:]:
+        try:
+            await _select_position_filter(page, value)
+        except RuntimeError as exc:
+            print(f"[DS] position pass {value!r} unavailable: {exc}", flush=True)
+            continue
+        # PROVE BEFORE INGEST.  A pass whose values are still the public
+        # defaults must never reach reconciliation: a full set of such
+        # passes would agree with one another perfectly and sail through
+        # the equivalence gate.  This raises rather than skipping,
+        # because silently dropping an unproven pass would quietly
+        # shrink the board instead of refusing it.
+        scoring_evidence.append(await _prove_pass_is_league_scored(page, value))
+        rows = await _extract_rows(page)
+        passes[value] = rows
+        print(f"[DS] pass {value or 'ALL'}: {len(rows)} rows", flush=True)
+
+    merged, report = reconcile_passes(passes)
+    print(f"[DS] reconciliation: {json.dumps(report, default=str)}", flush=True)
+
+    assert_union_is_admissible(report)
+
+    # TWO separate proofs, deliberately not conflated:
+    #   1. every pass is league-scored   (scoring_evidence, above)
+    #   2. the passes share one currency (report, here)
+    # Treating (2) as evidence for (1) is the trap: a set of passes that
+    # are all public defaults satisfies (2) perfectly.
+    print(
+        f"[DS] league-scoring proven for {len(scoring_evidence)} pass(es); "
+        f"currency equivalence proven across {report['overlappingAssets']} "
+        f"overlapping assets {report['overlapByFamily']}, 0 conflicts",
+        flush=True,
+    )
+    return merged
+
+
+async def collect_dom_diagnostic(page) -> dict:
+    """Counts and selector shapes for the CURRENT authenticated DOM.
+
+    Deliberately emits NO player names, NO league identifiers, NO
+    account details and NO raw HTML — only the structural facts needed
+    to decide how the parser must change.  Same posture as
+    ``_activate_league``, which already refuses to log the league label.
+    """
+    return await page.evaluate(
+        """() => {
+            const n = (sel) => document.querySelectorAll(sel).length;
+            const rows = Array.from(document.querySelectorAll('tbody[data-player-row]'));
+            const posCounts = {};
+            let hidden = 0;
+            const attrNames = new Set();
+            for (const tb of rows) {
+                const p = (tb.getAttribute('data-fantasy-position') || '').toUpperCase() || '<empty>';
+                posCounts[p] = (posCounts[p] || 0) + 1;
+                const st = window.getComputedStyle(tb);
+                if (st && st.display === 'none') hidden += 1;
+                for (const a of tb.attributes) attrNames.add(a.name);
+            }
+            const first = rows[0] || null;
+            const cellAttrs = first
+                ? Array.from(first.querySelectorAll('[data-attribute]'))
+                      .map((el) => el.getAttribute('data-attribute'))
+                : [];
+            return {
+                rowContainers: n('tbody[data-player-row]'),
+                playerNameAttrs: n('[data-player-name]'),
+                dsValueCells: n('[data-attribute="dsValue"]'),
+                columnTitleNodes: n('.column-title'),
+                rankIndexNodes: n('.rank-index'),
+                hiddenRowContainers: hidden,
+                positionCounts: posCounts,
+                rowAttributeNames: Array.from(attrNames).sort(),
+                cellDataAttributes: cellAttrs,
+                stableIdCandidates: {
+                    dataKey: rows.filter((t) => t.getAttribute('data-key')).length,
+                    dataPlayerId: rows.filter((t) => t.getAttribute('data-player-id')).length,
+                    dataTeamId: rows.filter((t) => t.getAttribute('data-team-id')).length,
+                },
+                positionFilterOptions: Array.from(
+                    document.querySelectorAll('[role="listbox"] [role="option"], [role="listbox"] li, [role="listbox"] button')
+                ).map((el) => {
+                    const h = el.getAttribute('@click') || el.getAttribute('x-on:click') || '';
+                    const m = h.match(/handleFantasyPositionChange\\((?:"|')([^"']*)(?:"|')\\)/);
+                    return m ? m[1] : null;
+                }).filter((v) => v !== null),
+                sharedParamNames: Array.from(
+                    document.querySelectorAll('#sharedParams input[name]')
+                ).map((el) => el.getAttribute('name')),
+                htmxTableEndpointPresent: !!document.querySelector('[hx-get*="load-table"]'),
+            };
+        }"""
+    )
+
+
+# Identifying strings that must never survive into a committed fixture.
+# The league name is the one the activation chain already refuses to
+# log; the rest are the account-scoped values this scraper handles.
+_FIXTURE_FORBIDDEN: tuple[str, ...] = (LEAGUE_NAME, LEAGUE_ID)
+
+
+def sanitize_html_fixture(html: str) -> str:
+    """A committable fixture: real STRUCTURE, synthetic IDENTITIES.
+
+    Keeps exactly what the parser reads — the ``tbody[data-player-row]``
+    hierarchy, the ``data-*`` attributes, the ``[data-attribute]`` cells
+    and their ``.column-title`` descent, the team class form and the
+    ``.rank-index`` node — and replaces every real identity with a
+    deterministic synthetic one, so the fixture reproduces the current
+    parser behaviour without carrying production data.
+
+    Deterministic (index-derived, not random) so re-running produces a
+    byte-identical fixture and a diff means the SHAPE changed.
+    """
+    from bs4 import BeautifulSoup  # noqa: PLC0415
+
+    soup = BeautifulSoup(html or "", "html.parser")
+    out_rows = []
+    for i, tb in enumerate(soup.find_all("tbody", attrs={"data-player-row": True}), 1):
+        pos = str(tb.get("data-fantasy-position") or "").upper().strip()
+        value = _cell_text(tb, "dsValue")
+        rank_el = tb.find(class_="rank-index")
+        rank = re.sub(r"\s+", " ", rank_el.get_text()).strip() if rank_el else str(i)
+        cells = []
+        for attr in ("adp", "bye", "age", "fantasy_points", "threeYrPts", "fiveYrPts", "tenYrPts"):
+            cells.append(f'<td data-attribute="{attr}"><span class="column-title">{i}</span></td>')
+        cells.append(
+            f'<td data-attribute="comment"><span class="column-title">note {i}</span></td>'
+        )
+        cells.append(f'<td data-attribute="dsValue"><span class="column-title">{value}</span></td>')
+        out_rows.append(
+            f'<tbody data-player-row data-key="{900000 + i}" '
+            f'data-fantasy-position="{pos}" data-player-name="Synthetic Player {i:04d}" '
+            f'data-team-id="{(i % 32) + 1}" data-is-rookie="false">'
+            f"<tr>"
+            f'<td><div class="column-title rank-index"><span>{rank}</span></div></td>'
+            f'<td><span class="team-abbr-fa"></span></td>' + "".join(cells) + "</tr></tbody>"
+        )
+    doc = (
+        "<!-- SANITIZED FIXTURE — synthetic identities, real structure.\n"
+        "     Generated by scripts/fetch_draftsharks.py --sanitized-fixture.\n"
+        "     Contains no real player, league or account data. -->\n"
+        '<table id="rankingsTableContainer">\n' + "\n".join(out_rows) + "\n</table>\n"
+    )
+    for needle in _FIXTURE_FORBIDDEN:
+        if needle and needle in doc:  # pragma: no cover — defence in depth
+            raise RuntimeError(f"sanitizer leaked an identifying string: {needle!r}")
+    return doc
 
 
 async def _extract_rows(page) -> list[dict]:
@@ -685,9 +1024,291 @@ async def _extract_rows(page) -> list[dict]:
     # Extra settle time for Alpine re-render after worker messages.
     await page.wait_for_timeout(2_000)
 
-    rows = await page.evaluate(_EXTRACT_JS)
-    print(f"[DS] extracted rows (incl hidden): {len(rows)}", flush=True)
+    rows = parse_rows(await page.content())
+    print(f"[DS] extracted rows: {len(rows)}", flush=True)
     return rows
+
+
+# The static per-format attribute holding DraftSharks' PUBLIC default.
+# The PARSER must never read this — see the value-trap note above, and
+# ``test_the_parser_never_reads_the_static_scoring_attributes``.  The
+# VERIFICATION layer below reads it deliberately, and only to prove the
+# rendered text has been transformed away from it.
+_PUBLIC_VALUE_ATTR = "data-scoring-value-te-premium-superflex"
+
+# A settled pass must show the worker actually moved values off the
+# public defaults on at least this many sampled rows.  Some players
+# legitimately score the same under our league as under the site
+# default, so a handful of matches is normal — but a pass where NOTHING
+# moved is indistinguishable from a pass the worker never touched.
+_MIN_LEAGUE_SCORED_DIFFERENCES: int = 5
+_LEAGUE_SCORING_SAMPLE: int = 40
+
+
+async def _prove_pass_is_league_scored(page, pass_label: str) -> dict:
+    """Positive evidence that THIS pass reached its league-scored state.
+
+    The equivalence gate proves the passes agree with each other.  That
+    is necessary and not sufficient: if every htmx pass returned public
+    defaults they would agree *perfectly*, sail through equivalence, and
+    silently replace a league-synced board with the site's public one.
+    Agreement is not scoring.
+
+    So each pass is proven separately, using evidence DraftSharks
+    already carries: the static ``data-scoring-value-*`` attribute is
+    the public default, while the rendered ``.column-title`` text is
+    what the WebAssembly worker produced.  If the two differ across a
+    non-vacuous sample, the worker has demonstrably transformed this
+    pass.  Four conditions, all required:
+
+    1. the league is still confirmed selected;
+    2. the pass rendered rows at all;
+    3. the rendered values settle across repeated probes;
+    4. enough sampled rows differ from their public default.
+
+    Fails closed.  If our league happens to price a sampled pass
+    identically to the public board we refuse rather than guess — an
+    unprovable pass and an unscored pass look the same from here, and
+    only one of them is safe.
+    """
+    label = await page.evaluate(_LEAGUE_LABEL_JS)
+    if not label or _norm(LEAGUE_NAME) not in _norm(label):
+        raise RuntimeError(
+            f"pass {pass_label!r}: league selection was lost after the htmx swap — "
+            "the rendered board is no longer proven league-scored.  Refusing."
+        )
+
+    probe_js = """(limit) => {
+        const rows = Array.from(document.querySelectorAll('tbody[data-player-row]')).slice(0, limit);
+        return rows.map((tb) => {
+            const cell = tb.querySelector('[data-attribute="dsValue"]');
+            const inner = cell ? cell.querySelector('.column-title') : null;
+            return {
+                key: tb.getAttribute('data-key') || '',
+                rendered: cell ? ((inner || cell).textContent || '').trim() : '',
+                publicDefault: cell ? (cell.getAttribute(ATTR) || '') : '',
+            };
+        });
+    }""".replace("ATTR", json.dumps(_PUBLIC_VALUE_ATTR))
+
+    previous: list[dict] | None = None
+    streak = 0
+    sample: list[dict] = []
+    for _ in range(15):
+        sample = await page.evaluate(probe_js, _LEAGUE_SCORING_SAMPLE)
+        if not sample:
+            await page.wait_for_timeout(2_000)
+            continue
+        current = [(r["key"], r["rendered"]) for r in sample]
+        streak = streak + 1 if previous is not None and current == previous else 0
+        previous = current
+        if streak >= 2:
+            break
+        await page.wait_for_timeout(2_000)
+
+    if not sample:
+        raise RuntimeError(f"pass {pass_label!r}: rendered no rows within the settle budget.")
+    if streak < 2:
+        raise RuntimeError(
+            f"pass {pass_label!r}: rendered values never settled across repeated probes — "
+            "the worker is still recomputing, so these values are not final.  Refusing."
+        )
+
+    comparable = [
+        r
+        for r in sample
+        if normalize_value(r["rendered"]) is not None
+        and normalize_value(r["publicDefault"]) is not None
+    ]
+    differing = [
+        r
+        for r in comparable
+        if normalize_value(r["rendered"]) != normalize_value(r["publicDefault"])
+    ]
+    evidence = {
+        "pass": pass_label,
+        "sampled": len(sample),
+        "comparable": len(comparable),
+        "differingFromPublicDefault": len(differing),
+    }
+    if len(comparable) < _MIN_LEAGUE_SCORED_DIFFERENCES:
+        raise RuntimeError(
+            f"pass {pass_label!r}: only {len(comparable)} row(s) expose both a rendered "
+            "value and a public default, which is too small a sample to prove anything.  "
+            f"Refusing.  {evidence}"
+        )
+    if len(differing) < _MIN_LEAGUE_SCORED_DIFFERENCES:
+        raise RuntimeError(
+            f"pass {pass_label!r}: rendered values match DraftSharks' PUBLIC defaults on "
+            f"all but {len(differing)} of {len(comparable)} comparable rows (need >= "
+            f"{_MIN_LEAGUE_SCORED_DIFFERENCES}).  This pass is not demonstrably "
+            "league-scored — and a set of passes that are all public defaults would agree "
+            "with each other perfectly, so the equivalence gate cannot catch it.  Refusing."
+        )
+    print(f"[DS] league-scoring proven for pass {pass_label!r}: {evidence}", flush=True)
+    return evidence
+
+
+async def _select_position_filter(page, value: str) -> None:
+    """Drive the dynasty page's own ``fantasyPosition`` filter.
+
+    The board is loaded by htmx (``hx-get="/dynasty-rankings/load-table"``,
+    ``hx-include="#sharedParams"``); ``fantasyPosition`` is one of the
+    params in that block.  We click the page's own control rather than
+    calling the endpoint directly so the league-scored session, the
+    settled worker values and every gate above stay exactly as proven.
+    """
+    label = value or "All Positions"
+    clicked = await page.evaluate(
+        """(wanted) => {
+            const norm = (s) => (s || '').replace(/\\s+/g, ' ').trim();
+            const items = Array.from(
+                document.querySelectorAll('[role="listbox"] [role="option"], [role="listbox"] li, [role="listbox"] button')
+            );
+            for (const el of items) {
+                const handler = el.getAttribute('@click') || el.getAttribute('x-on:click') || '';
+                if (handler.includes(`handleFantasyPositionChange("${wanted}")`)
+                    || handler.includes(`handleFantasyPositionChange('${wanted}')`)) {
+                    el.click();
+                    return true;
+                }
+            }
+            return false;
+        }""",
+        value,
+    )
+    if not clicked:
+        raise RuntimeError(f"position filter option not found: {label}")
+    # htmx swaps #rankingsTableContainer; give the swap and the Alpine
+    # re-render room before the scroll loop counts rows.
+    await page.wait_for_timeout(1_500)
+
+
+def reconcile_passes(passes: dict[str, list[dict]]) -> tuple[list[dict], dict]:
+    """Union multipass rows on DS's own ``vendorId``, proving one currency.
+
+    Three rules, each of which exists because its absence is a known
+    corruption mode in this repository:
+
+    * **Never key on player name.**  Two different players sharing a
+      normalized name under last-write-wins silently inherits the other
+      one's position, and therefore the other one's FAMILY — the same
+      class of defect the C-Series lineup work found.  ``vendorId`` is
+      DS's ``data-key`` and survives filtering and re-render.
+    * **A collision fails closed.**  If one ``vendorId`` arrives with two
+      different names, we refuse rather than pick one.
+    * **Equivalence is exact.**  An asset seen in two passes must carry
+      the SAME value as an exact ``Decimal``, so ``"53"`` and ``"53.0"``
+      agree while ``53`` and ``52.99`` do not.  That is what proves the
+      filter changes only which rows RENDER and not the currency they
+      are priced in.
+
+    Returns ``(rows, report)``.  ``report`` carries the overlap evidence
+    the caller needs to decide whether equivalence was actually PROVEN
+    rather than merely un-contradicted.
+    """
+    merged: dict[str, dict] = {}
+    seen_in: dict[str, list[str]] = {}
+    identity_collisions: list[str] = []
+    value_conflicts: list[dict] = []
+    missing_id = 0
+
+    for pass_name, rows in passes.items():
+        for row in rows:
+            vid = row.get("vendorId")
+            if not vid:
+                missing_id += 1
+                continue
+            prior = merged.get(vid)
+            if prior is None:
+                merged[vid] = dict(row)
+                seen_in[vid] = [pass_name]
+                continue
+            seen_in[vid].append(pass_name)
+            if str(prior.get("name") or "") != str(row.get("name") or ""):
+                identity_collisions.append(vid)
+                continue
+            a = normalize_value(prior.get("dsValue"))
+            b = normalize_value(row.get("dsValue"))
+            if a is None or b is None or a != b:
+                value_conflicts.append(
+                    {
+                        "vendorId": vid,
+                        "passes": seen_in[vid][-2:],
+                        "values": [prior.get("dsValue"), row.get("dsValue")],
+                    }
+                )
+
+    overlaps = {vid: names for vid, names in seen_in.items() if len(names) > 1}
+    # Report overlap PER FAMILY.  A healthy total that is entirely
+    # offense would leave the IDP families' currency unproven while the
+    # aggregate number looked reassuring.
+    overlap_by_family: dict[str, int] = {}
+    for vid in overlaps:
+        fam = family_of(merged[vid].get("position", "")) or "unclassified"
+        overlap_by_family[fam] = overlap_by_family.get(fam, 0) + 1
+    report = {
+        "passes": {name: len(rows) for name, rows in passes.items()},
+        "uniqueAssets": len(merged),
+        "rowsWithoutVendorId": missing_id,
+        "overlappingAssets": len(overlaps),
+        "overlapByFamily": overlap_by_family,
+        "identityCollisions": sorted(set(identity_collisions)),
+        "valueConflicts": value_conflicts[:20],
+        "valueConflictCount": len(value_conflicts),
+    }
+    return list(merged.values()), report
+
+
+def assert_union_is_admissible(report: dict) -> None:
+    """Raise unless a multipass union may be published.
+
+    Pure, and deliberately separate from ``reconcile_passes`` (which
+    only MEASURES) and from the navigation that produced the passes, so
+    every refusal is reachable from a test without a browser.  Each
+    condition below is a way a union can be wrong while looking fine.
+    """
+    if report["rowsWithoutVendorId"]:
+        raise RuntimeError(
+            f"{report['rowsWithoutVendorId']} row(s) across the passes carry no "
+            "DraftSharks data-key.  A cross-pass union requires COMPLETE "
+            "reconciliation identity: a row without one cannot be matched to its "
+            "twin in another pass, and the three ways to continue — fall back to "
+            "player name, synthesize an id, or drop the row — are respectively a "
+            "known corruption mode, a fabrication, and silent data loss.  Refusing."
+        )
+    if report["identityCollisions"]:
+        raise RuntimeError(
+            f"vendorId collision across passes ({len(report['identityCollisions'])} ids) — "
+            "the same DraftSharks key arrived under two different player names.  "
+            "Refusing to merge: last-write-wins here would silently swap a row's "
+            "position and therefore its family."
+        )
+    if report["valueConflictCount"]:
+        raise RuntimeError(
+            f"3D Value + disagrees across position filters for "
+            f"{report['valueConflictCount']} asset(s), e.g. {report['valueConflicts'][:3]}.  "
+            "The filters are therefore NOT views on one valuation currency, and "
+            "merging them would splice two scales.  Refusing."
+        )
+    if report["overlappingAssets"] < _MIN_OVERLAP_FOR_EQUIVALENCE:
+        raise RuntimeError(
+            f"only {report['overlappingAssets']} asset(s) appear in more than one pass "
+            f"(need >= {_MIN_OVERLAP_FOR_EQUIVALENCE}) — there is not enough overlap to "
+            "PROVE the passes share one currency.  Absence of contradiction is not proof; "
+            "refusing to merge."
+        )
+    thin = [
+        fam
+        for fam in ("offense", "idp")
+        if report["overlapByFamily"].get(fam, 0) < _MIN_OVERLAP_PER_FAMILY
+    ]
+    if thin:
+        raise RuntimeError(
+            f"insufficient overlap inside {thin} (need >= {_MIN_OVERLAP_PER_FAMILY} each; "
+            f"got {report['overlapByFamily']}) — a healthy TOTAL that is entirely one family "
+            "would leave the other family's currency unproven.  Refusing to merge."
+        )
 
 
 async def _scrape_with_autologin(context, page) -> list[dict]:
@@ -706,7 +1327,12 @@ async def _scrape_with_autologin(context, page) -> list[dict]:
         return await _scrape_one(page)
 
 
-async def _scrape(*, headless: bool) -> list[dict]:
+async def _scrape(
+    *,
+    headless: bool,
+    dom_diagnostic: Path | None = None,
+    sanitized_fixture: Path | None = None,
+) -> list[dict]:
     try:
         from playwright.async_api import async_playwright
     except ImportError:
@@ -730,7 +1356,21 @@ async def _scrape(*, headless: bool) -> list[dict]:
             if cookies:
                 await context.add_cookies(cookies)
             page = await context.new_page()
-            return await _scrape_with_autologin(context, page)
+            rows = await _scrape_with_autologin(context, page)
+            # Both artefacts are captured from the SETTLED, league-scored
+            # board — the same DOM the rows came from — so the diagnostic
+            # describes what we actually parsed rather than a fresh load.
+            if dom_diagnostic is not None:
+                diag = await collect_dom_diagnostic(page)
+                dom_diagnostic.parent.mkdir(parents=True, exist_ok=True)
+                dom_diagnostic.write_text(json.dumps(diag, indent=2) + "\n", encoding="utf-8")
+                print(f"[DS] wrote DOM diagnostic -> {dom_diagnostic}", flush=True)
+            if sanitized_fixture is not None:
+                fixture = sanitize_html_fixture(await page.content())
+                sanitized_fixture.parent.mkdir(parents=True, exist_ok=True)
+                sanitized_fixture.write_text(fixture, encoding="utf-8")
+                print(f"[DS] wrote sanitized fixture -> {sanitized_fixture}", flush=True)
+            return rows
         finally:
             await browser.close()
 
@@ -753,7 +1393,8 @@ def _write_csv(
     (cross-universe scale), so Schwesinger's IDP CSV row will show
     the same value the user sees on the offense-combined page
     (e.g. 44, not the IDP-only-page rescaled 81)."""
-    selected = [r for r in rows if r.get("position", "").upper() in include_families]
+    want = "offense" if include_families is _OFFENSE_FAMILIES else "idp"
+    selected = [r for r in rows if family_of(r.get("position", "")) == want]
 
     # Sort by DS value desc; ties broken by DS's own rank-index, then
     # by name.  The DS worker may assign the same dsValue to multiple
@@ -792,7 +1433,7 @@ def _write_csv(
     return len(selected)
 
 
-def main() -> int:
+def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         "--dry-run",
@@ -804,10 +1445,59 @@ def main() -> int:
         action="store_true",
         help="Launch the browser visibly (useful for debugging).",
     )
-    args = parser.parse_args()
+    parser.add_argument(
+        "--dest-sf",
+        type=Path,
+        default=OUT_SF,
+        help=f"Offense CSV path (default: {OUT_SF.relative_to(REPO)}).",
+    )
+    parser.add_argument(
+        "--dest-idp",
+        type=Path,
+        default=OUT_IDP,
+        help=f"IDP CSV path (default: {OUT_IDP.relative_to(REPO)}).",
+    )
+    parser.add_argument(
+        "--from-file",
+        type=Path,
+        help=(
+            "Parse a saved HTML file instead of driving a browser.  Exercises "
+            "the parser and every guard deterministically, with no network."
+        ),
+    )
+    parser.add_argument(
+        "--dom-diagnostic",
+        type=Path,
+        help=(
+            "After the league-scored board settles, write a COUNTS-AND-SHAPES "
+            "JSON describing the current DOM.  No player names, no league "
+            "identifiers, no raw HTML."
+        ),
+    )
+    parser.add_argument(
+        "--sanitized-fixture",
+        type=Path,
+        help=(
+            "Write a synthetic HTML fixture that preserves parser-relevant "
+            "structure with deterministic fake identities substituted for "
+            "every real one.  Safe to commit."
+        ),
+    )
+    args = parser.parse_args(argv)
 
     _load_env_dotfile(ENV_PATH)
-    rows = asyncio.run(_scrape(headless=not args.headful))
+
+    if args.from_file:
+        rows = parse_rows(args.from_file.read_text(encoding="utf-8", errors="replace"))
+        print(f"[DS] parsed {len(rows)} rows from {args.from_file}", flush=True)
+    else:
+        rows = asyncio.run(
+            _scrape(
+                headless=not args.headful,
+                dom_diagnostic=args.dom_diagnostic,
+                sanitized_fixture=args.sanitized_fixture,
+            )
+        )
 
     if not rows:
         print("[DS] ERROR: no rows extracted", file=sys.stderr)
@@ -818,9 +1508,29 @@ def main() -> int:
     # cross-universe universe (QB + IDP on the same dsValue scale),
     # so a missing IDP count here means the worker didn't settle
     # or the position attribute normalization changed.
-    off_count = sum(1 for r in rows if r.get("position", "").upper() in _OFFENSE_FAMILIES)
-    idp_count = sum(1 for r in rows if r.get("position", "").upper() in _IDP_FAMILIES)
+    families = [family_of(r.get("position", "")) for r in rows]
+    off_count = sum(1 for f in families if f == "offense")
+    idp_count = sum(1 for f in families if f == "idp")
+    unclassified = [r.get("position", "") for r, f in zip(rows, families, strict=True) if f is None]
     print(f"[DS] family split: offense={off_count} idp={idp_count}")
+    if unclassified:
+        # Previously these vanished from both CSVs with no counter and
+        # no log line, so a position-label change looked identical to a
+        # smaller board.  Report them; K/DEF are expected here.
+        seen = sorted({p or "<empty>" for p in unclassified})
+        print(f"[DS] unclassified rows: {len(unclassified)} across labels {seen}")
+    per_position: dict[str, int] = {}
+    for row in rows:
+        key = classify_position(row.get("position", "")) or "<empty>"
+        per_position[key] = per_position.get(key, 0) + 1
+    print(f"[DS] position counts: {dict(sorted(per_position.items()))}")
+    family_counts = {fam: 0 for fam in _EXPECTED_FAMILIES}
+    for row in rows:
+        bucket = canonical_family(row.get("position", ""))
+        if bucket:
+            family_counts[bucket] += 1
+    print(f"[DS] expected-family counts: {family_counts}")
+
     if idp_count == 0:
         print(
             "[DS] ERROR: no IDP rows — league-synced scrape probably "
@@ -841,7 +1551,7 @@ def main() -> int:
     # is "max IDP value > 0": one positive IDP row is enough to prove
     # the worker finished its pass.
     idp_max_value = max(
-        (_value_of(r) for r in rows if r.get("position", "").upper() in _IDP_FAMILIES),
+        (_value_of(r) for r in rows if family_of(r.get("position", "")) == "idp"),
         default=0.0,
     )
     if idp_max_value <= 0:
@@ -853,6 +1563,23 @@ def main() -> int:
             file=sys.stderr,
         )
         return 1
+
+    # Expected-family completeness — a DEPTH guard cannot see this.
+    # A board with DL=180 LB=150 DB=0 clears the aggregate IDP floor of
+    # 85 with room to spare while an entire family has silently
+    # vanished, which is the 2026-08 breakage one level down.  Runs
+    # AFTER the zero-IDP and IDP-value guards so those keep their
+    # sharper diagnosis of a wholly-missing IDP side, and BEFORE the
+    # depth floors so a lost family is never reported as merely a short
+    # board.
+    missing = missing_expected_families(rows)
+    if missing:
+        print(
+            f"[DS] ERROR: missing expected DraftSharks position families: {missing}.  "
+            f"Counts: {family_counts}.  Preserving last-good CSVs; not overwriting.",
+            file=sys.stderr,
+        )
+        return 2
 
     # Contract-aligned floor BEFORE writing: a partial scrape (WASM
     # worker hung, lazy-load shortfall) that still emits some positive
@@ -873,7 +1600,7 @@ def main() -> int:
         print("[DS] dry-run — skipping CSV write")
         print("Top 10 offense:")
         off_sorted = sorted(
-            (r for r in rows if r.get("position", "").upper() in _OFFENSE_FAMILIES),
+            (r for r in rows if family_of(r.get("position", "")) == "offense"),
             key=lambda r: (-_value_of(r), int(r.get("dsRank") or 99999)),
         )
         for i, r in enumerate(off_sorted[:10], 1):
@@ -885,7 +1612,7 @@ def main() -> int:
             )
         print("Top 10 IDP:")
         idp_sorted = sorted(
-            (r for r in rows if r.get("position", "").upper() in _IDP_FAMILIES),
+            (r for r in rows if family_of(r.get("position", "")) == "idp"),
             key=lambda r: (-_value_of(r), int(r.get("dsRank") or 99999)),
         )
         for i, r in enumerate(idp_sorted[:10], 1):
@@ -897,10 +1624,10 @@ def main() -> int:
             )
         return 0
 
-    off_written = _write_csv(OUT_SF, rows, include_families=_OFFENSE_FAMILIES)
-    print(f"[DS] wrote {OUT_SF} ({off_written} rows)")
-    idp_written = _write_csv(OUT_IDP, rows, include_families=_IDP_FAMILIES)
-    print(f"[DS] wrote {OUT_IDP} ({idp_written} rows)")
+    off_written = _write_csv(args.dest_sf, rows, include_families=_OFFENSE_FAMILIES)
+    print(f"[DS] wrote {args.dest_sf} ({off_written} rows)")
+    idp_written = _write_csv(args.dest_idp, rows, include_families=_IDP_FAMILIES)
+    print(f"[DS] wrote {args.dest_idp} ({idp_written} rows)")
     if off_written == 0 or idp_written == 0:
         print(
             "[DS] ERROR: zero rows written for one or both families — "
