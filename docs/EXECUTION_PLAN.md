@@ -1,7 +1,7 @@
 # Chase Upside / Risk It To Get The Brisket — Current Execution Plan
 
 **Status:** CANONICAL SEQUENCING / AUTHORIZATION RECORD
-**Last reconciled:** 2026-08-17 (owner directive: **FEATURE FREEZE** — post-merge C-Series audit and stability gate is the only authorized work; the continuous C0→C10 campaign authorized earlier the same day is **paused**, §0)
+**Last reconciled:** 2026-08-18 (owner directive: **V1 COMPLETION SPRINT AUTHORIZED**, six parallel lanes, superseding the 2026-08-17 feature freeze for V1-required work only — §0)
 **Companion:** `docs/MASTER_PRODUCT_PLAN.md` · `docs/C_SERIES_REPLAN_AND_COMPLETION_CONTRACT.md`
 
 This file answers **what implementation work is authorized right now**, and nothing else. It does not define
@@ -14,6 +14,71 @@ Backlog Spec and the feature specs. It does not define scope — that lives in `
 ---
 
 # 0. CURRENT AUTHORIZATION — READ THIS FIRST
+
+## V1 COMPLETION SPRINT — AUTHORIZED BY THE OWNER, 2026-08-18.
+
+**This supersedes the 2026-08-17 feature freeze below, to the extent necessary for V1
+completion — and no further.** The freeze text is retained beneath, unedited, as the record of
+what it paused and of the conditions it imposed. Where the freeze and this section conflict on
+V1-required work, this section governs; everywhere else the freeze still reads correctly.
+
+**What is authorized.** Implementation of the **V1 REQUIRED** denominator in
+[`docs/VERSION_1_COMPLETION_CONTRACT.md`](VERSION_1_COMPLETION_CONTRACT.md) §3, together with the
+production verification in §9 of that document.
+
+**What this is NOT.** It is **not** blanket permission to implement backlog ideas. An item that
+is not in the V1 REQUIRED denominator is not authorized by this section, however small, obvious
+or adjacent to authorized work it looks — that is the same "do not expand scope under the label
+of repair" rule the freeze states, applied to a larger permitted set rather than replaced.
+Genuinely new ideas go to the long-term roadmap. A genuine **omission** from already-approved V1
+scope is a denominator change, and a denominator change is an owner decision recorded in the
+completion contract §10 — never a silent edit.
+
+**Six parallel lanes are authorized**, with these ownership boundaries. A lane that introduces
+another lane's canonical math is rejected or refactored — ONE CONCEPT, ONE CANONICAL OWNER
+applies across lanes exactly as it applies across modules.
+
+| lane | owns |
+|---|---|
+| **1 — Roster Intelligence** | lineup · replacement · meaningful roster core · Team Strength · Team Weakness · Young Core |
+| **2 — Trade Intelligence** | package generation · Value Adjustment · capacity / forced drops · trade simulation · team-context trade logic · Analyze Trade |
+| **3 — Season / Scoring / Projections** | exact scoring · season models · projections |
+| **4 — Market / FAAB / Analyst** | FAAB · market · Sharp · Buy/Sell and analyst systems |
+| **5 — Integration Authority** | governance · integration · CI · cross-cutting QA · global source-health semantics · deployment and production verification · the completion ledger |
+| **6 — Premium UI / Frontend** | UI · frontend · performance · accessibility |
+
+**Lane assignments deliberately extend past V1.** Each lane owns post-V1 continuation work so
+that no lane goes idle after finishing its V1 responsibilities. **That continuation work is not
+V1-required and must not be pulled into the denominator** (owner decision, 2026-08-18;
+completion contract §1 and §4.2).
+
+**Merge order is governed by V1 dependency and verification, not by lane convenience or by
+date.** Lanes do not merge themselves: every lane PR is integrated by lane 5 against the gate in
+the completion contract and in this section. **Green CI is necessary and not sufficient** — the
+exact diff, the ownership boundary, upstream dependencies, duplicate canonical logic, tests,
+exact-head CI and, where material, production behaviour are all checked before a merge.
+
+**`CLOSED-PENDING-PROD` still is not `CLOSED`** (§0.2 below, unchanged). Only `VERIFIED` counts
+toward V1, and code existence, a merged PR, unit tests alone or a statement in a document —
+**including this one** — do not constitute verification.
+
+**After V1 is genuinely complete:** a stable V1 tag and baseline is established with its proof
+preserved; dependency-ready post-V1 work then continues in isolated lanes under the same
+integration discipline, without corrupting that baseline. Speculative features are not to be
+stuffed into V1 to make it look larger, and V1 is not to be shrunk to make it look finished.
+
+**The target date is 2026-08-25, and it is an absolute latest, not a schedule.** If V1 is
+verified earlier, it is declared earlier.
+
+---
+
+
+## 0.-1 FEATURE FREEZE (2026-08-17) — **SUPERSEDED 2026-08-18 for V1-required work; otherwise still in force.**
+
+> Retained verbatim below. Read it for the conditions it imposes — production proof may not
+> be substituted, an unreachable check is `BLOCKED-EXTERNAL` and never a pass, and scope may
+> not be expanded under the label of repair. Those conditions survive the supersession and
+> bind the V1 sprint too.
 
 ## FEATURE FREEZE. The **post-merge C-Series audit and stability gate** is the only authorized work. Owner directive, 2026-08-17 (later the same day).
 
