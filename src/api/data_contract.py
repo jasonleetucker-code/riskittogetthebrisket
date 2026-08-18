@@ -983,19 +983,21 @@ def assert_payload_size_floor(
 
 
 # ── Partial-run cross-wire: tolerable partials allowlist ─────────────────
-# Sub-endpoints that are known to flip to partial without impacting the
-# primary ranking data.  KTC_TradeDB and KTC_WaiverDB are *sub-endpoints*
-# of the KTC source: KTC itself still returns its full 500-row board; the
-# partial flag refers to secondary trade-DB / waiver-DB endpoints that
-# only feed retail metadata, not ranks.  Treat as warnings rather than
-# errors.  Truly critical failures use the full source names (``KTC``,
-# ``IDPTradeCalc``, ``DLF``, ``DynastyNerds``) which bypass the allowlist.
-TOLERABLE_PARTIAL_SOURCES: frozenset[str] = frozenset(
-    {
-        "KTC_TradeDB",
-        "KTC_WaiverDB",
-    }
-)
+# Sub-endpoints known to flip to partial without impacting the primary
+# ranking data, reported as warnings rather than errors.  Critical
+# failures use the full source names (``KTC``, ``IDPTradeCalc``,
+# ``DLF``, ``DynastyNerds``) and bypass this allowlist entirely.
+#
+# DELIBERATELY EMPTY since 2026-08-18.  Its only two members were
+# ``KTC_TradeDB`` and ``KTC_WaiverDB``, which were retired along with the
+# rest of the dead KTC crowd path — they had reported partial on every
+# run for months, and because they were allowlisted, that permanent
+# failure was never once surfaced as anything a human had to look at.
+#
+# An entry here silences a source forever.  Add one only as a recorded
+# decision about a source that is genuinely secondary, never to quiet a
+# noisy check — the alternative is what this list just taught us.
+TOLERABLE_PARTIAL_SOURCES: frozenset[str] = frozenset()
 
 # Primary sources whose partial/failed state should flip contractHealth.
 _CRITICAL_PRIMARY_SOURCES: tuple[str, ...] = (
@@ -9881,7 +9883,6 @@ STARTUP_HEAVY_PLAYER_FIELDS = {
 STARTUP_DROP_TOP_LEVEL_KEYS = {
     # Large secondary blocks not required for first-screen calculator/rankings usability.
     "coverageAudit",
-    "ktcCrowd",
     # Runtime/startup views intentionally avoid the duplicated contract array.
     "playersArray",
 }
@@ -11916,8 +11917,8 @@ def validate_api_data_contract(payload: dict[str, Any]) -> dict[str, Any]:
     # settings.sourceRunSummary.  Historically those were invisible to the
     # contract health check, so a prod build could have
     # partialSources=['KTC_TradeDB'] while contractHealth said "healthy".
-    # We now promote critical partials to errors and leave tolerable
-    # partials (KTC_TradeDB / KTC_WaiverDB) as warnings.
+    # We now promote critical partials to errors and leave allowlisted
+    # partials (``TOLERABLE_PARTIAL_SOURCES``) as warnings.
     settings_block = payload.get("settings") if isinstance(payload.get("settings"), dict) else {}
     run_summary = (
         settings_block.get("sourceRunSummary") if isinstance(settings_block, dict) else None

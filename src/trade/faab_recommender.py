@@ -56,7 +56,6 @@ from __future__ import annotations
 from typing import Any, Sequence
 
 from src.trade import faab_engine as engine
-from src.utils.name_clean import compact_name_key
 
 __all__ = ["recommend_faab", "compute_confidence", "build_rivals"]
 
@@ -255,7 +254,6 @@ def build_rivals(
 
 def _demand_evidence_factors(
     sleeper_trending: dict[str, Any] | None,
-    ktc_crowd_bids: dict[str, Any] | None,
     player_name: str | None,
 ) -> list[dict[str, Any]]:
     """Trending + crowd signals as REPORTED EVIDENCE, not multipliers.
@@ -287,16 +285,6 @@ def _demand_evidence_factors(
             }
         )
 
-    if ktc_crowd_bids and player_name:
-        pct = ktc_crowd_bids.get(compact_name_key(player_name))
-        if isinstance(pct, (int, float)) and pct > 0:
-            rows.append(
-                {
-                    "label": "Crowd-sourced bid",
-                    "contribution": f"the KTC crowd bids ~{float(pct):.0f}% of budget",
-                    "weight": 0.07,
-                }
-            )
     return rows
 
 
@@ -310,7 +298,6 @@ def recommend_faab(
     team_faab_remaining: int | None = None,
     league_faab_summary: dict[str, Any] | None = None,
     sleeper_trending: dict[str, Any] | None = None,
-    ktc_crowd_bids: dict[str, Any] | None = None,
     league_budget: int = 100,
     top_value_in_pool: float | None = None,
     contention: dict[str, Any] | None = None,
@@ -391,7 +378,7 @@ def recommend_faab(
         drop_value=drop_value,
     )
 
-    extra = _demand_evidence_factors(sleeper_trending, ktc_crowd_bids, add_player_name)
+    extra = _demand_evidence_factors(sleeper_trending, add_player_name)
     if league_faab_summary is None:
         extra.append(
             {

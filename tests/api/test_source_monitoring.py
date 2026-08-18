@@ -219,19 +219,35 @@ class TestPartialRunCrossWire(unittest.TestCase):
         )
 
     def test_partial_run_with_tolerable_source_warns_but_ok(self):
-        """KTC_TradeDB / KTC_WaiverDB stay as warnings, not errors."""
-        payload = self._minimal_payload_with_partial(["KTC_TradeDB", "KTC_WaiverDB"])
-        report = validate_api_data_contract(payload)
+        """An allowlisted sub-endpoint warns rather than erroring.
+
+        Uses a patched allowlist: the real one is empty since the two
+        retired KTC crowd sub-endpoints came out of it (2026-08-18)."""
+        from unittest import mock
+
+        from src.api import data_contract as _dc
+
+        payload = self._minimal_payload_with_partial(["ExampleSubEndpoint"])
+        with mock.patch.object(_dc, "TOLERABLE_PARTIAL_SOURCES", frozenset({"ExampleSubEndpoint"})):
+            report = validate_api_data_contract(payload)
         self.assertTrue(
             report["ok"],
             f"Tolerable partials should not flip ok. errors={report['errors']}",
         )
         tolerable_warnings = [w for w in report["warnings"] if "partial_run_tolerable" in w]
-        self.assertEqual(len(tolerable_warnings), 2)
+        self.assertEqual(len(tolerable_warnings), 1)
 
-    def test_tolerable_allowlist_covers_known_ktc_subendpoints(self):
-        self.assertIn("KTC_TradeDB", TOLERABLE_PARTIAL_SOURCES)
-        self.assertIn("KTC_WaiverDB", TOLERABLE_PARTIAL_SOURCES)
+    def test_an_unlisted_partial_subendpoint_is_not_silently_forgiven(self):
+        """With the allowlist empty, a partial sub-endpoint must still be
+        reported.  This is the property the two retired entries defeated
+        for months: they were partial on every run and nobody saw it."""
+        self.assertEqual(TOLERABLE_PARTIAL_SOURCES, frozenset())
+        payload = self._minimal_payload_with_partial(["ExampleSubEndpoint"])
+        report = validate_api_data_contract(payload)
+        self.assertFalse(
+            [w for w in report["warnings"] if "partial_run_tolerable" in w],
+            "an empty allowlist must not forgive anything",
+        )
 
 
 # ── Pick-count floor ─────────────────────────────────────────────────

@@ -36,6 +36,7 @@ from __future__ import annotations
 
 import pytest
 
+from src.api import data_contract
 from src.api.data_contract import (
     _is_source_health_error,
     build_api_data_contract,
@@ -89,7 +90,7 @@ def _ktc_timeout_payload() -> dict:
         "overallStatus": "partial",
         "partialRun": True,
         "completeSources": ["IDPTradeCalc"],
-        "partialSources": ["KTC_TradeDB", "KTC_WaiverDB"],
+        "partialSources": ["ExampleSubEndpoint"],
         "failedSources": [],
         "timedOutSources": ["KTC"],
         "sources": {
@@ -122,12 +123,26 @@ class TestTheSourceHealthLaneStillFires:
         ]
         assert report["sourceHealthOk"] is False
 
-    def test_the_tolerable_partials_stay_warnings(self):
-        """KTC_TradeDB / KTC_WaiverDB are known-partial by policy and must
-        not be promoted to errors by this partition."""
-        report = validate_api_data_contract(build_api_data_contract(_ktc_timeout_payload()))
-        assert any("partial_run_tolerable:KTC_TradeDB" in w for w in report["warnings"])
-        assert not [e for e in report["errors"] if "KTC_TradeDB" in e]
+    def test_an_allowlisted_partial_stays_a_warning(self):
+        """The allowlist mechanism must still work — it is empty today,
+        not removed.
+
+        Patched rather than asserted against a real member: the list's
+        only two entries (``KTC_TradeDB`` / ``KTC_WaiverDB``) were
+        retired 2026-08-18, and a test that needs a live silenced source
+        in order to pass is a reason not to un-silence one."""
+        from unittest import mock
+
+        with mock.patch.object(
+            data_contract, "TOLERABLE_PARTIAL_SOURCES", frozenset({"ExampleSubEndpoint"})
+        ):
+            report = validate_api_data_contract(build_api_data_contract(_ktc_timeout_payload()))
+        assert any("partial_run_tolerable:ExampleSubEndpoint" in w for w in report["warnings"])
+        assert not [e for e in report["errors"] if "ExampleSubEndpoint" in e]
+
+    def test_the_allowlist_is_empty_so_nothing_is_silently_forgiven(self):
+        """A permanently-partial source must be a recorded decision."""
+        assert data_contract.TOLERABLE_PARTIAL_SOURCES == frozenset()
 
 
 class TestTheStructuralLaneIsNotMovedByAnOutage:

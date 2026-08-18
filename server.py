@@ -5815,28 +5815,6 @@ async def post_waiver_faab_recommend(request: Request):
                     trending_for_player = rec
                     break
 
-    # KTC crowd-sourced bid map — Phase B7 bridge.  Bridge degrades
-    # gracefully (returns empty dict) when the contract has no
-    # ``ktcCrowd`` block, so this lookup is unconditional.
-    #
-    # The map is keyed by ``name_clean.compact_name_key``, NOT by the
-    # local ``_norm`` above; ``_ktc_crowd_blend`` applies that key to
-    # ``add_player_name`` itself.  Do not pre-normalize ``add_name``
-    # here — the raw display name is what the recommender expects.
-    #
-    # Two independent reasons this factor can be absent, worth knowing
-    # before debugging it: the contract only carries ``ktcCrowd`` when
-    # the scrape actually captured crowd data (the 2026-07-29 export has
-    # none), and the crowd names come from KTC's raw API vocabulary,
-    # which — unlike the Sleeper/contract vocabulary — has not been
-    # through ``clean_name``, so a KTC "Marvin Harrison Jr." still will
-    # not join a contract "Marvin Harrison" under the compact key.
-    from src.adapters.ktc_crowd_faab import (  # noqa: PLC0415
-        crowd_bid_map_from_contract,
-    )
-
-    ktc_crowd_bids = crowd_bid_map_from_contract(latest_contract_data)
-
     from src.trade import faab_contention as _faab_contention  # noqa: PLC0415
     from src.trade.faab_recommender import (  # noqa: PLC0415
         _need_level,
@@ -5983,7 +5961,6 @@ async def post_waiver_faab_recommend(request: Request):
         team_faab_remaining=team_faab_remaining,
         league_faab_summary=league_summary,
         sleeper_trending=trending_for_player,
-        ktc_crowd_bids=ktc_crowd_bids if ktc_crowd_bids else None,
         league_budget=int(league_budget),
         anchors=faab_anchors,
         board_values=board_values,
