@@ -295,23 +295,49 @@ async function _diagnoseEmptyBoard(page) {
     const legacy =
       body && typeof body.players === "object" ? Object.keys(body.players) : [];
     const count = arr.length || legacy.length;
-    const stamped = arr.filter(
-      (p) =>
-        p &&
-        p.canonicalConsensusRank !== null &&
-        p.canonicalConsensusRank !== undefined,
+    // Count stamps with the SAME key each materializer actually reads.
+    //
+    // `view=app` is the runtime view, and it deliberately drops
+    // `playersArray` (server.py: `runtime_payload.pop("playersArray")` —
+    // the documented payload-size optimisation).  So `arr` is empty here
+    // by design, and everything this diagnostic can see lives in the
+    // legacy `players` dict — whose rows carry `_canonicalConsensusRank`
+    // with a LEADING UNDERSCORE.  That is the key `buildRows` reads on
+    // this path (`dynasty-data.js` legacy materializer); the un-prefixed
+    // form belongs to the `playersArray` materializer.
+    //
+    // Counting only the un-prefixed form over an always-empty array made
+    // `stamped` unconditionally 0, so the "NO RANK STAMPS" branch below
+    // fired on EVERY board failure and the "looks serveable" branch was
+    // unreachable.  The message it printed named the scrape pipeline and
+    // told the reader not to add a client-side blend — a confident,
+    // wrong headline on a week of red runs.  Measured on the real payload
+    // it maligned: `_canonicalConsensusRank` on 740/1109 rows,
+    // `rankDerivedValue` on 849/1109.
+    const legacyRows =
+      body && typeof body.players === "object"
+        ? Object.values(body.players)
+        : [];
+    const isStamped = (p, key) => p && p[key] !== null && p[key] !== undefined;
+    const stampedArr = arr.filter((p) =>
+      isStamped(p, "canonicalConsensusRank"),
     ).length;
+    const stampedLegacy = legacyRows.filter((p) =>
+      isStamped(p, "_canonicalConsensusRank"),
+    ).length;
+    const stamped = arr.length ? stampedArr : stampedLegacy;
     return [
       `/api/data?view=app: ${status}, playerCount=${body?.playerCount ?? "?"}, `,
       `playersArray=${arr.length}, legacyPlayers=${legacy.length}, `,
-      `rowsWithCanonicalConsensusRank=${stamped}.`,
+      `rankStamps=${stamped} (playersArray:${stampedArr} via canonicalConsensusRank, `,
+      `legacy:${stampedLegacy} via _canonicalConsensusRank).`,
       count === 0
         ? " => THE PAYLOAD IS EMPTY: the server served no players, so this is a" +
           " serving/priming problem, not a rendering one."
         : stamped === 0
-          ? " => PAYLOAD HAS ROWS BUT NO RANK STAMPS: buildRows fail-fasts and" +
-            " returns [] by design. The scrape pipeline is not stamping" +
-            " canonicalConsensusRank — investigate upstream, do NOT add a" +
+          ? " => PAYLOAD HAS ROWS BUT NO RANK STAMPS, in EITHER key form:" +
+            " buildRows fail-fasts and returns [] by design. The scrape" +
+            " pipeline is not stamping — investigate upstream, do NOT add a" +
             " client-side blend."
           : " => The payload looks serveable, so the board had data and still" +
             " did not render it. That points at the client, not the contract.",
