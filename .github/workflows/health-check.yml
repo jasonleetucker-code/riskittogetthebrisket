@@ -30,8 +30,49 @@ jobs:
           HEALTH_URL="${URL}/api/health"
           echo "Checking: ${HEALTH_URL}"
 
-          HTTP_CODE=$(curl --silent --show-error --output /tmp/health.json \
-            --write-out '%{http_code}' --max-time 15 "${HEALTH_URL}" || echo "000")
+          # AUDIT F-21.  ``503`` used to be the ONE non-200 that did not fail
+          # this check — a permanent exemption for exactly the code
+          # ``server.py::get_health`` returns for stale data, a failed or
+          # stalled scrape, or contract validation failure.  Every OTHER
+          # unexpected code failed.  So the only always-on external check of
+          # production could not report the conditions it exists for, and 20
+          # consecutive runs were green.
+          #
+          # The concern behind the exemption was real — a momentary degrade
+          # should not page anyone — but the answer to that is a
+          # CONSECUTIVE-failure threshold, which is what
+          # ``deploy/systemd/dynasty-healthcheck.sh`` already does for
+          # liveness (``HEALTH_FAIL_THRESHOLD`` consecutive failures before
+          # it acts).  This workflow keeps no state between its 6-hourly
+          # runs, so "consecutive" is measured WITHIN the run: probe up to
+          # ``HEALTH_PROBES`` times, ``HEALTH_PROBE_GAP_SEC`` apart, and fail
+          # only if every probe reports degraded.  A transient degrade
+          # clears; a real one persists and is now visible.
+          HEALTH_PROBES=3
+          HEALTH_PROBE_GAP_SEC=30
+
+          HTTP_CODE="000"
+          DEGRADED_COUNT=0
+          for attempt in $(seq 1 "${HEALTH_PROBES}"); do
+            HTTP_CODE=$(curl --silent --show-error --output /tmp/health.json \
+              --write-out '%{http_code}' --max-time 15 "${HEALTH_URL}" || echo "000")
+            echo "probe ${attempt}/${HEALTH_PROBES}: HTTP ${HTTP_CODE}"
+
+            if [[ "${HTTP_CODE}" == "200" ]]; then
+              break
+            fi
+            if [[ "${HTTP_CODE}" == "503" ]]; then
+              DEGRADED_COUNT=$((DEGRADED_COUNT + 1))
+              # Only sleep between probes, never after the last one.
+              if (( attempt < HEALTH_PROBES )); then
+                sleep "${HEALTH_PROBE_GAP_SEC}"
+              fi
+              continue
+            fi
+            # Anything else is not a degrade — it is unreachable or broken,
+            # and re-probing tells us nothing new.  Fail immediately.
+            break
+          done
 
           echo "HTTP status: ${HTTP_CODE}"
 
@@ -39,10 +80,11 @@ jobs:
             echo "status=healthy" >> "$GITHUB_OUTPUT"
             echo "Health check passed."
             cat /tmp/health.json | python3 -m json.tool 2>/dev/null || cat /tmp/health.json
-          elif [[ "${HTTP_CODE}" == "503" ]]; then
+          elif [[ "${HTTP_CODE}" == "503" && "${DEGRADED_COUNT}" -ge "${HEALTH_PROBES}" ]]; then
             echo "status=degraded" >> "$GITHUB_OUTPUT"
-            echo "::warning title=Health Degraded::Service returned 503 (degraded)."
+            echo "::error title=Health Degraded::Service returned 503 (degraded) on all ${HEALTH_PROBES} probes over $(( (HEALTH_PROBES - 1) * HEALTH_PROBE_GAP_SEC ))s.  /api/health returns 503 for stale data, a failed or stalled scrape, or contract validation failure."
             cat /tmp/health.json | python3 -m json.tool 2>/dev/null || cat /tmp/health.json
+            exit 1
           else
             echo "status=down" >> "$GITHUB_OUTPUT"
             echo "::error title=Health Check Failed::Service returned HTTP ${HTTP_CODE}."
@@ -65,8 +107,11 @@ jobs:
             --write-out '%{http_code}' --max-time 15 "${STATUS_URL}" || echo "000")
 
           if [[ "${HTTP_CODE}" != "200" ]]; then
-            echo "::warning title=Status Unreachable::Status endpoint returned HTTP ${HTTP_CODE}."
-            exit 0
+            # AUDIT F-21: an assertion that could not run is UNKNOWN,
+            # not a pass.  Reported as its own state so "we could not
+            # check" stops reading like "we checked and it is fine".
+            echo "::error title=Status Unreachable::Status endpoint returned HTTP ${HTTP_CODE}.  The assertion below did NOT run — this is unknown, not healthy."
+            exit 1
           fi
 
           # Extract key metrics
@@ -113,8 +158,11 @@ jobs:
           HTTP_CODE=$(curl --silent --show-error --output /tmp/status_cov.json \
             --write-out '%{http_code}' --max-time 20 "${URL}/api/status" || echo "000")
           if [[ "${HTTP_CODE}" != "200" ]]; then
-            echo "::warning title=Status Unreachable::Coverage check skipped (HTTP ${HTTP_CODE})."
-            exit 0
+            # AUDIT F-21: an assertion that could not run is UNKNOWN,
+            # not a pass.  Reported as its own state so "we could not
+            # check" stops reading like "we checked and it is fine".
+            echo "::error title=Status Unreachable::Coverage check skipped (HTTP ${HTTP_CODE}).  The assertion below did NOT run — this is unknown, not healthy."
+            exit 1
           fi
           python3 - <<'PY'
           import json, sys
@@ -152,8 +200,11 @@ jobs:
           HTTP_CODE=$(curl --silent --show-error --output /tmp/status_bkp.json \
             --write-out '%{http_code}' --max-time 20 "${URL}/api/status" || echo "000")
           if [[ "${HTTP_CODE}" != "200" ]]; then
-            echo "::warning title=Status Unreachable::Backup check skipped (HTTP ${HTTP_CODE})."
-            exit 0
+            # AUDIT F-21: an assertion that could not run is UNKNOWN,
+            # not a pass.  Reported as its own state so "we could not
+            # check" stops reading like "we checked and it is fine".
+            echo "::error title=Status Unreachable::Backup check skipped (HTTP ${HTTP_CODE}).  The assertion below did NOT run — this is unknown, not healthy."
+            exit 1
           fi
           python3 - <<'PY'
           import json, sys
@@ -186,3 +237,74 @@ jobs:
                     f"of 3 SQLite DBs in the latest backup set.")
           print("SQLite backup freshness OK.")
           PY
+
+      - name: Open or update the tracking issue on failure
+        # AUDIT F-21.  This workflow had no failure handler at all, so even
+        # the codes that DID ``exit 1`` produced nothing but a red square on
+        # a page nobody watches.  Same rolling-issue shape as
+        # ``scheduled-refresh.yml``'s ``stale-sources`` handler: create the
+        # label idempotently (an unlabelled fallback can never be found by
+        # the dedup search, which is how that one used to spam a fresh issue
+        # every cycle), then comment on the open issue if there is one.
+        if: failure()
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -Eeuo pipefail
+          RUN_URL="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+          BODY=$(cat <<EOF
+          Production health check failed.
+
+          - Workflow run: ${RUN_URL}
+          - Checked at: $(date -u +"%Y-%m-%dT%H:%M:%SZ")
+
+          What this means, by which step failed:
+
+          1. **Health Degraded** — \`/api/health\` returned 503 on every probe.
+             That code means stale data, a failed or stalled scrape, or
+             contract validation failure. Check \`/api/status\` and the most
+             recent **Scheduled Data Refresh** run.
+          2. **Health Check Failed** — the service answered something else, or
+             nothing at all. Check the backend service and nginx.
+          3. **Status Unreachable** — \`/api/status\` did not answer, so the
+             coverage and backup assertions did not run. Their state is
+             UNKNOWN, not healthy.
+
+          The cron retries every 6 hours. This issue is rolling: it is
+          commented on rather than reopened, and closed automatically by the
+          next green run.
+          EOF
+          )
+          gh label create production-health \
+            --color B60205 \
+            --description "Auto-opened when the scheduled production health check fails" \
+            2>/dev/null || true
+          EXISTING=$(gh issue list --state open --label production-health \
+                       --json number --jq '.[0].number' 2>/dev/null || echo "")
+          if [[ -n "$EXISTING" && "$EXISTING" != "null" ]]; then
+            gh issue comment "$EXISTING" --body "$BODY"
+          else
+            gh issue create \
+              --title "Production health check failing" \
+              --body "$BODY" \
+              --label production-health
+          fi
+
+      - name: Close the tracking issue on a green run
+        # The counterpart, so an alert that has cleared stops being read as
+        # an open incident.  ``success()`` is the whole condition: every gate
+        # in this workflow must have passed.
+        if: success()
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -Eeuo pipefail
+          EXISTING=$(gh issue list --state open --label production-health \
+                       --json number --jq '.[0].number' 2>/dev/null || echo "")
+          if [[ -n "$EXISTING" && "$EXISTING" != "null" ]]; then
+            gh issue comment "$EXISTING" \
+              --body "Production health check green again as of $(date -u +"%Y-%m-%dT%H:%M:%SZ"). Closing."
+            gh issue close "$EXISTING"
+          fi

@@ -390,7 +390,13 @@ _OVERRIDES_RESPONSE_CACHE_MAX = 16
 latest_data_source: dict = {
     "type": "",
     "path": "",
+    # When THIS PROCESS loaded a payload.  A real fact about the process,
+    # and NOT a statement about the board — see ``producedAt`` below.
     "loadedAt": "",
+    # When the BOARD was produced, taken from the payload's own
+    # ``scrapeTimestamp``.  Empty means the payload did not say, which is
+    # UNKNOWN — never a licence to substitute ``loadedAt`` (audit F-19).
+    "producedAt": "",
 }
 contract_health: dict = {
     "ok": False,
@@ -1503,14 +1509,57 @@ def _scrape_status_payload() -> dict:
     return payload
 
 
-def _set_latest_data_source(source_type: str, path: str | None = None) -> None:
+def _set_latest_data_source(
+    source_type: str, path: str | None = None, produced_at: str | None = None
+) -> None:
+    """Record what we loaded, when we loaded it, and when it was PRODUCED.
+
+    ``produced_at`` is the payload's own ``scrapeTimestamp``.  Audit F-19:
+    four surfaces used to compute "how old is the data" from ``loadedAt``,
+    which measures how long THIS PROCESS has been holding it — so every
+    restart, including every production deploy, reset the answer to zero.
+    """
     latest_data_source.update(
         {
             "type": str(source_type or ""),
             "path": str(path or ""),
             "loadedAt": _utc_now_iso(),
+            "producedAt": str(produced_at or ""),
         }
     )
+
+
+def _board_age_hours() -> float | None:
+    """Hours since the loaded BOARD was produced, or ``None`` if unknown.
+
+    THE ONE OWNER of that question (audit F-19).  ``None`` means the payload
+    did not state when it was produced; it is never approximated from
+    ``loadedAt``, because doing so is the defect this replaced — MISSING IS
+    NEVER ZERO, and here zero is the most reassuring number the field can
+    carry.
+
+    ``scrapeTimestamp`` is written by ``Dynasty Scraper.py`` with
+    ``datetime.datetime.now()`` and is therefore NAIVE
+    (``"2026-08-18T11:04:55.664246"``).  Subtracting a naive datetime from a
+    tz-aware ``now`` raises ``TypeError``, which every caller here swallows —
+    so without the explicit attach below this function would return ``None``
+    for every real payload and the repair would be silently inert.  Treating
+    a naive stamp as UTC is an ASSUMPTION about where the scraper runs; it is
+    stated here rather than left implicit.
+    """
+    produced_at = latest_data_source.get("producedAt")
+    if not produced_at:
+        return None
+    try:
+        produced_dt = datetime.fromisoformat(str(produced_at))
+    except (ValueError, TypeError):
+        return None
+    if produced_dt.tzinfo is None:
+        produced_dt = produced_dt.replace(tzinfo=timezone.utc)
+    try:
+        return (datetime.now(timezone.utc) - produced_dt).total_seconds() / 3600.0
+    except (ValueError, TypeError, OverflowError):
+        return None
 
 
 # Identity-keyed cache for live rankDerivedValue lookups used by the
@@ -2569,7 +2618,9 @@ def load_from_disk() -> dict | None:
             latest_path = json_files[0]
             with open(latest_path) as f:
                 data = json.load(f)
-            _set_latest_data_source("disk_cache", str(latest_path))
+            _set_latest_data_source(
+                "disk_cache", str(latest_path), produced_at=data.get("scrapeTimestamp")
+            )
             log.info(
                 f"Loaded cached data from {latest_path.name} "
                 f"({len(data.get('players', {}))} players)"
@@ -2938,7 +2989,9 @@ async def run_scraper(trigger: str = "manual") -> dict | None:
                 candidate = DATA_DIR / f"dynasty_data_{result_date}.json"
                 if candidate.exists():
                     source_path = str(candidate)
-            _set_latest_data_source("scrape_run", source_path)
+            _set_latest_data_source(
+                "scrape_run", source_path, produced_at=result.get("scrapeTimestamp")
+            )
             # Fresh scrape promotion — rank-history log gets a new
             # "today" entry.  Startup priming from cached disk data
             # (``_prime_latest_payload`` called in the lifespan hook)
@@ -4839,7 +4892,13 @@ async def get_status():
                 "value_authority": (latest_contract_data or {}).get("valueAuthority"),
             },
             "data_runtime": {
-                "last_data_refresh_at": latest_data_source.get("loadedAt"),
+                # The name claims a REFRESH time, so it carries one: when
+                # the board was produced.  It used to carry ``loadedAt`` —
+                # when this process started holding it — which is a different
+                # fact and is published beside it under its own name
+                # (audit F-19).
+                "last_data_refresh_at": latest_data_source.get("producedAt") or None,
+                "last_payload_loaded_at": latest_data_source.get("loadedAt") or None,
                 "active_data_source": latest_data_source,
                 "payload_bytes_full": full_bytes,
                 "payload_bytes_runtime": runtime_bytes,
@@ -5103,19 +5162,15 @@ async def get_health():
     """Basic health endpoint for reverse proxy / uptime probes."""
     status_payload = _scrape_status_payload()
 
-    # R-1: Data freshness check — flag stale if no refresh in SCRAPE_INTERVAL_HOURS * 3
-    data_stale = False
-    data_age_hours = None
-    loaded_at = latest_data_source.get("loadedAt")
-    if loaded_at:
-        try:
-            loaded_dt = datetime.fromisoformat(loaded_at)
-            data_age_hours = round(
-                (datetime.now(timezone.utc) - loaded_dt).total_seconds() / 3600, 1
-            )
-            data_stale = data_age_hours > SCRAPE_INTERVAL_HOURS * 3
-        except (ValueError, TypeError):
-            pass
+    # R-1: Data freshness check — flag stale if the BOARD is older than
+    # SCRAPE_INTERVAL_HOURS * 3.  Measured from the payload's own production
+    # time, never from when this process loaded it (audit F-19): the latter
+    # reset to zero on every restart, so a stale board read fresh after every
+    # deploy.  Unknown production time leaves both fields honest — age None,
+    # not-stale — rather than asserting freshness we cannot support.
+    raw_age = _board_age_hours()
+    data_age_hours = None if raw_age is None else round(raw_age, 1)
+    data_stale = data_age_hours is not None and data_age_hours > SCRAPE_INTERVAL_HOURS * 3
 
     # Session-cookie age surface.  Distinguishes AUTO-refreshing
     # sessions (scraper re-logs-in via stored credentials when the
@@ -5266,14 +5321,9 @@ async def get_metrics():
     """R-9: Lightweight metrics endpoint for dashboards and monitoring."""
     now = datetime.now(timezone.utc)
     # Calculate data age
-    data_age_seconds = None
-    loaded_at = latest_data_source.get("loadedAt")
-    if loaded_at:
-        try:
-            loaded_dt = datetime.fromisoformat(loaded_at)
-            data_age_seconds = round((now - loaded_dt).total_seconds(), 0)
-        except (ValueError, TypeError):
-            pass
+    # Board age, not process age — audit F-19.
+    _age_h = _board_age_hours()
+    data_age_seconds = None if _age_h is None else round(_age_h * 3600.0, 0)
 
     # Calculate uptime
     uptime_seconds = None
@@ -12931,14 +12981,9 @@ async def run_signal_alerts(request: Request):
         from src.utils import circuit_breaker as _cb
 
         status_payload = _scrape_status_payload()
-        data_age_hours = None
-        loaded_at = latest_data_source.get("loadedAt")
-        if loaded_at:
-            try:
-                loaded_dt = datetime.fromisoformat(loaded_at)
-                data_age_hours = (datetime.now(timezone.utc) - loaded_dt).total_seconds() / 3600.0
-            except (ValueError, TypeError):
-                pass
+        # Board age, not process age (audit F-19).  This one fed the ALERTER,
+        # so the wrong number here did not merely mislead a dashboard.
+        data_age_hours = _board_age_hours()
         ops_summary = _ops.check_and_alert(
             status_payload=status_payload,
             circuit_snapshots=_cb.snapshot_all(),
