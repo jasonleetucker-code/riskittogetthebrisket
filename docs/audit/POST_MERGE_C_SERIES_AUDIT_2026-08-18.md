@@ -1793,6 +1793,45 @@ this finding possible.
 
 Owner: lane 1. Related: `V1-27` (C2-U1), `#914`.
 
+### F-32 · The mobile view rendered different numbers than desktop, and was the larger payload · CONFIRMED · false green · **FOUND AND FIXED BY LANE 6 (#912)**
+
+Recorded here because it is a **canonical-value integrity** finding, not merely a frontend one, and
+because the V1 row for mobile/desktop parity should point at it. The work and the credit are lane
+6's; this register entry is the integration lane confirming and filing it.
+
+`/api/data?view=compact` exists to send a phone FEWER BYTES. It may not send a phone a
+**different board**. It did both wrongly:
+
+* **It was lossy in a way that changed rendered numbers.** `_materializePlayerArrayRow` reads
+  **14 of the 17** fields `compact_view` pruned, so the compact board rendered differently from
+  the array board for the same player on the same day — `anomalyFlags` (so /edge's "Flagged" tile
+  read **0**), `confidenceLabel` (a different confidence string), the `anchorValue` /
+  `subgroupBlendValue` / `subgroupDelta` / `alphaShrinkage` chain (so PlayerPopup's value
+  derivation collapsed), and — worst — **`blendedSourceRank`, which is a SORT KEY**, so the
+  Consensus sort collapsed on mobile.
+* **It was BIGGER than the view it was meant to beat.** Measured on the 1,109-row contract at
+  gzip 6: full 13.09 MB / 1,092.8 KB gz, array 7.25 MB / 631.8 KB gz, compact 8.28 MB /
+  735.0 KB gz — **+16.3% against `array`**. Compact still carried the legacy `players` dict,
+  which `buildRows` never reads when `playersArray` is present; `?view=array` had already dropped
+  it and compact had not.
+
+This is the false-green test failing on a *delivery* surface rather than an engine: the intended
+production consumer was reading the canonical implementation, but through a view that silently
+removed the inputs it materializes from. It sits directly against the invariant CLAUDE.md states
+as **one canonical value per player per session** — two devices, one player, one day, two
+answers — and it reached users, unlike the two W29 violations that motivated that wording.
+
+**Why nothing caught it:** there was no test relating the view to its consumer. A shape test that
+pins "compact prunes these fields" passes forever while the consumer quietly starts reading one of
+them. #912's structural fix is the right one — `test_compact_view_consumer_parity.py` plus
+`tests/e2e/specs/api-view-parity.spec.js` make the *relationship* the assertion rather than the
+field list.
+
+Owner: lane 6, fixed in `#912`. Related: `V1` mobile/desktop parity; the "no second canonical
+board" family (`F-VAL-02`, W29-F001/F002), which this joins as the first member measured on a
+user-facing delivery path.
+
+
 ### Interruption: the 2026-08-18 CI incident
 
 This audit was suspended mid-phase to work a reported seven-workflow CI failure. Record:

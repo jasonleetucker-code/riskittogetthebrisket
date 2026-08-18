@@ -277,7 +277,7 @@ Projections · **L4** Market / FAAB / Analyst · **L5** Integration / QA / CI / 
 |---|---|---|---|---|---|---|
 | V1-105 | Performance baselines captured before feature work | `C0-PERF-01` / `C0-U2` | L6 | `NOT STARTED` | L2 | a baseline captured after the work cannot show what the work cost |
 | V1-106 | Rankings board windowing / virtualization | `C8-PERF-03` / inv 9.1 | L6 | `IN PROGRESS` | L2 | **named explicitly** in the V1 boundary. PR #760 |
-| V1-107 | Mobile payload smaller than desktop | `C8-PERF-01` / audit `F-13` | L6 | `NOT STARTED` | L2 | mobile-desktop parity. Mobile is +13% LARGER |
+| V1-107 | Mobile payload smaller than desktop | `C8-PERF-01` / audit `F-13`, `F-32` | L6 | `IN PROGRESS` | L2 | mobile-desktop parity. Mobile measured **+16.3% LARGER** than `array` (8.28 MB vs 7.25 MB raw; 735.0 vs 631.8 KB gz, 1,109 rows). #912 removes the legacy `players` dict compact still carried. **And the same view was LOSSY**: it pruned 14 of the 17 fields the frontend materializer reads, including the `blendedSourceRank` sort key — mobile and desktop rendered different numbers for the same player. See `F-32` |
 | V1-108 | Non-data routes stop fetching the contract | `C8-PERF-02` | L6 | `IN PROGRESS` | L2 | rankings/app performance. PR #759 |
 | V1-109 | Mobile usability for roster-heavy views | inv 9.3 / MFB-67 / MFB-93 | L6 | `IN PROGRESS` | L4 | mobile-desktop parity |
 | V1-110 | Design primitives / tokens / shell / focus | `C8-PSI-01` | L6 | `IN PROGRESS` | L2 | high-use Premium UI. **Owner decision `OD-05`** on token direction |
