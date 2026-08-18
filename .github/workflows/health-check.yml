@@ -280,13 +280,31 @@ jobs:
             --color B60205 \
             --description "Auto-opened when the scheduled production health check fails" \
             2>/dev/null || true
-          EXISTING=$(gh issue list --state open --label production-health \
-                       --json number --jq '.[0].number' 2>/dev/null || echo "")
+          # AUDIT F-23, applied forward.  Selecting `.[0]` off the LABEL alone
+          # treats any issue wearing it as this workflow's own tracker.
+          # `e2e.yml` learned that the hard way on #753 — a hand-filed defect
+          # carrying the label, which the alert step hijacked and a green run
+          # would have closed with a "resolved" comment.  `production-health`
+          # is a new label so nothing wears it yet; this closes the door before
+          # anyone does, rather than after.
+          #
+          # Identify the tracker by what this step actually CREATES: author AND
+          # title.  The `[bot]` suffix is normalised away because `gh` reports a
+          # bot's login differently depending on which API answers — that
+          # mismatch is F-23 itself, and pinning either spelling is a bet.
+          TRACKER_TITLE="Production health check failing"
+          if ! EXISTING=$(gh issue list --state open --label production-health \
+                            --json number,title,author \
+                            --jq "[.[] | select((.author.login | sub(\"\\\\[bot\\\\]$\"; \"\")) == \"github-actions\")
+                                       | select(.title==\"${TRACKER_TITLE}\")] | .[0].number"); then
+            echo "::error title=Tracker lookup failed::gh issue list failed; filing an alert without deduplicating against the existing tracker"
+            EXISTING=""
+          fi
           if [[ -n "$EXISTING" && "$EXISTING" != "null" ]]; then
             gh issue comment "$EXISTING" --body "$BODY"
           else
             gh issue create \
-              --title "Production health check failing" \
+              --title "$TRACKER_TITLE" \
               --body "$BODY" \
               --label production-health
           fi
@@ -301,8 +319,17 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -Eeuo pipefail
-          EXISTING=$(gh issue list --state open --label production-health \
-                       --json number --jq '.[0].number' 2>/dev/null || echo "")
+          # Same identification as the alert step, and it must stay identical —
+          # this is the direction where getting it wrong CLOSES a real open
+          # issue rather than merely filing a wrong one (F-23).
+          TRACKER_TITLE="Production health check failing"
+          if ! EXISTING=$(gh issue list --state open --label production-health \
+                            --json number,title,author \
+                            --jq "[.[] | select((.author.login | sub(\"\\\\[bot\\\\]$\"; \"\")) == \"github-actions\")
+                                       | select(.title==\"${TRACKER_TITLE}\")] | .[0].number"); then
+            echo "::error title=Tracker lookup failed::gh issue list failed; the green all-clear did NOT run and any open tracker is still open"
+            exit 1
+          fi
           if [[ -n "$EXISTING" && "$EXISTING" != "null" ]]; then
             gh issue comment "$EXISTING" \
               --body "Production health check green again as of $(date -u +"%Y-%m-%dT%H:%M:%SZ"). Closing."

@@ -16,6 +16,14 @@ board), ``monte_carlo_trade``, ``idp_scoring_fit``,
 and ``perfect_draft`` — several with comments recording that the
 enabled default is deliberate.
 
+**One live gate is deliberately NOT in this registry**, and it is the
+sharpest illustration of why the paragraph above matters:
+``RISKIT_FEATURE_LEDGER_RANK_CHANGE`` is read directly in
+``data_contract._stamp_rank_changes``, defaults ON, and therefore appears
+in no operator surface at all.  Audit **F-24** proposed registering it;
+that is blocked, not abandoned, and the reason is recorded at the read
+site.
+
 For a flag that ships enabled, the env var is a ROLLBACK lever, not an
 opt-in.  Read ``_DEFAULTS`` for the flag you care about rather than
 assuming dormancy; a reader who trusted the old sentence would have
@@ -214,8 +222,18 @@ _DEFAULTS: Final[dict[str, bool]] = {
     # swings the level 2x and flips its sign across plausible rates.
     # Mean-normalised, so this cannot inflate receivers as a class.
     #
-    # Reaches the OPT-IN league-adjusted lens (/api/gameplan) only,
-    # never the default market board.
+    # Reaches the OPT-IN league-adjusted lens only, never the default
+    # market board.
+    #
+    # AUDIT F-26 (2026-08-18): this line used to name `/api/gameplan` as the
+    # endpoint it reaches.  Measured, that is wrong in a way worth stating
+    # rather than silently editing — the gate in `src/api/gameplan.py` is
+    # called only from `get_league_adjusted_values`, which backs
+    # **`/api/valuation/league-adjusted`**.  The flag is genuinely live; the
+    # module it lives in is not the endpoint it serves.  `/api/gameplan`
+    # itself has zero frontend consumers (Scope Manifest `C2-GP-01`,
+    # DISCONNECTED), so the old wording pointed a reader at a route no user
+    # can reach and implied this flag was inert.
     # Rollback: RISKIT_FEATURE_RECEPTION_SCORING_FIT=0.
     "reception_scoring_fit": True,
     # BDVM — projection-driven fundamental dynasty valuation engine

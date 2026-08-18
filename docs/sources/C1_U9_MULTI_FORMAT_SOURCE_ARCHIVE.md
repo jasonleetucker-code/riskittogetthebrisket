@@ -167,3 +167,21 @@ Production verification, on the deployed merge SHA:
 3. A scrape completes and the board is unchanged (`board_diff --expect-no-value-change`).
 4. When the KTC ladder capture lands: four boards per run sharing one `run_id`, all
    `provider_family: ktc`, and the independent-family count still unchanged.
+
+### 7a. Production verification record — 2026-08-18
+
+Run against `https://chaseupside.com` (public endpoints; `/api/data` is 401 from the
+integration session, so anything needing an authenticated payload is marked below rather
+than guessed at).
+
+| # | check | result | evidence |
+|---|---|---|---|
+| 1 | server boots, import-time gate passes against the live registry | **PASS** | `/api/rankings/sources` and `/api/status` both 200. The gate runs at import; a failure would prevent the process serving at all, so a served response IS the evidence |
+| 2 | all 21 sources report `gameType: "DYNASTY"` with non-empty `gameTypeEvidence` | **PASS** | 21 sources returned; non-`DYNASTY` count **0**, empty-evidence count **0** |
+| 3 | a scrape completes and the board is unchanged | **PARTIAL** | a post-deploy scrape completed at 17:32:33→17:34:35Z, `overall_status: complete`, `partial_run: false`, no failed/timed-out sources, and `contract.health` reports `ok: true` with `structuralErrors: []` / `sourceHealthErrors: []` over 1109 players. **Strict value-inertness is NOT re-measurable here**: `board_diff --expect-no-value-change` needs a pre-deploy production board snapshot, and none was taken. It was measured on this box pre-merge (§ inertness); that is what stands, and saying so is more useful than presenting a healthy scrape as if it were the same statement |
+| 4 | KTC ladder capture | **N/A** | not landed yet; the check is written for a future unit |
+
+Item 3's residue is a *process* gap worth naming, because it will recur for every unit whose
+proof is "the board did not move": the snapshot has to be captured **before** the deploy, and
+nothing currently does that. Same shape as `scripts/backtest_perfect_draft.py --record-snapshot`,
+and the same lesson — no code recovers an observation nobody made.

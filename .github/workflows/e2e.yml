@@ -402,12 +402,39 @@ jobs:
           # who reused the string.  TRACKER_TITLE is used for BOTH the
           # lookup and the create below so the two cannot drift, and the
           # close step carries the same constant.
+          #
+          # AUDIT F-23.  The author clause compared against the bare
+          # spelling `github-actions`, and the login this bot actually
+          # files under is `github-actions[bot]`.  So the lookup matched
+          # nothing, every failing run took the `create` branch, and the
+          # close step below — carrying the identical clause — could
+          # never drain what accumulated: 14 open issues, all titled
+          # "E2E safety net failing", 0 comments between them.  The
+          # mechanism was still working as late as #732, which holds 9
+          # comments; every tracker filed after it holds none.
+          #
+          # `gh` reports a bot's login differently depending on which API
+          # answers — GraphQL's `Bot` type gives `github-actions`, REST
+          # gives `github-actions[bot]` — so pinning either spelling is a
+          # bet.  Normalise the suffix away instead and the clause is
+          # correct under both.  `tests/deploy/test_e2e_workflow_triggers.py`
+          # pinned the losing spelling as a literal string, which is why a
+          # green test suite sat on top of a dead selector for two weeks;
+          # it now pins the normalisation.
           TRACKER_TITLE="E2E safety net failing"
-          EXISTING=$(gh issue list --state open --label e2e-failures \
-                       --json number,title,author \
-                       --jq "[.[] | select(.author.login==\"github-actions\")
-                                  | select(.title==\"${TRACKER_TITLE}\")] | .[0].number" \
-                       2>/dev/null || echo "")
+          # A lookup that FAILS must not be indistinguishable from a lookup
+          # that found nothing — that difference is the whole defect above.
+          # `2>/dev/null || echo ""` erased it, so a broken `gh` call filed a
+          # duplicate in silence.  On failure: say so loudly, then still file
+          # the alert, because losing the alert entirely is worse than
+          # filing a second copy of it.
+          if ! EXISTING=$(gh issue list --state open --label e2e-failures \
+                            --json number,title,author \
+                            --jq "[.[] | select((.author.login | sub(\"\\\\[bot\\\\]$\"; \"\")) == \"github-actions\")
+                                       | select(.title==\"${TRACKER_TITLE}\")] | .[0].number"); then
+            echo "::error title=Tracker lookup failed::gh issue list failed; filing an alert without deduplicating against the existing tracker"
+            EXISTING=""
+          fi
           if [[ -n "$EXISTING" && "$EXISTING" != "null" ]]; then
             gh issue comment "$EXISTING" --body "$BODY"
           else
@@ -474,12 +501,23 @@ jobs:
           # string.  TRACKER_TITLE must stay identical to the alert
           # step's — tests/deploy/test_e2e_workflow_triggers.py fails if
           # the two drift, or if either clause is dropped.
+          #
+          # F-23: the same bare-`github-actions` comparison was here too, so
+          # this step has never closed anything.  Both halves carry the
+          # normalisation, and they must stay identical — the guard test
+          # fails if they drift.
           TRACKER_TITLE="E2E safety net failing"
-          OPEN=$(gh issue list --state open --label e2e-failures \
-                   --json number,title,author \
-                   --jq ".[] | select(.author.login==\"github-actions\")
-                             | select(.title==\"${TRACKER_TITLE}\") | .number" \
-                   2>/dev/null || echo "")
+          # A failed lookup here reads as "nothing open" and exits 0, i.e. a
+          # green run silently declining to clear a real alert.  Fail loudly
+          # instead: this direction cannot compensate by doing more work, so
+          # the only honest outcome is to say the all-clear did not run.
+          if ! OPEN=$(gh issue list --state open --label e2e-failures \
+                        --json number,title,author \
+                        --jq ".[] | select((.author.login | sub(\"\\\\[bot\\\\]$\"; \"\")) == \"github-actions\")
+                                  | select(.title==\"${TRACKER_TITLE}\") | .number"); then
+            echo "::error title=Tracker lookup failed::gh issue list failed; the green all-clear did NOT run and any open tracker is still open"
+            exit 1
+          fi
           if [[ -z "$OPEN" ]]; then
             echo "no open e2e-failures issue; nothing to close"
             exit 0

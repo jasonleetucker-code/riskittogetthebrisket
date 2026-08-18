@@ -278,6 +278,38 @@ it.**
 | 6 | the repaired census figures are the shipped ones | at `<deployed-sha>`: manifest row count, source-family count, superseded-rule count (**six**) | match §6's repaired values |
 | 7 | the reserved completion phrase is still unclaimed | `scripts/check_planning_integrity.py` | reports *reserved completion phrase not claimed* |
 
+## 7.2a Verification record — 2026-08-18
+
+**Deployed SHA: `8ec1978e`.** The prod host's deploy-state file is unreachable from the
+integration session, so the SHA was read the other way the section allows — from the deploy
+run itself: `Deploy Production` run `32152953800` (15:11:37Z) is the **last successful** one,
+its `Deploy To Production` job succeeded, and it ran a post-deploy smoke test plus a live
+data-contract validation. It was not assumed. **Production is behind `main`:** the next
+deploy, run `32164548748` at 17:14Z, failed at the unit-test hard gate on audit `F-30` and
+its deploy job was skipped, so `8ec1978e` is still what is serving.
+
+| # | check | result | evidence |
+|---|---|---|---|
+| 1 | deployed SHA contains this unit | **PASS** | `git merge-base --is-ancestor 24759f8 8ec1978e` → exit 0 (`24759f8` = merge of #875) |
+| 2 | deploy not degraded by it | **PASS** | `Validate Build Inputs` on run `32152953800`: success, every step green including the FULL contract lane and the bundle gate |
+| 3 | authorization record shipped intact | **PASS** | on a worktree at `8ec1978e`: *exactly one authorization record* |
+| 4 | governance invariants hold on the deployed tree | **PASS** | same worktree: `check_planning_integrity.py` exit 0, `check_product_plan_governance.py` exit 0 |
+| 5 | this unit's standing tests hold there | **PARTIAL** | `tests/docs/test_coordination_docs_agree` 8/8 and `test_pipeline_trace_matches_tree` 9/9 pass; `test_governance_census_consistency` could **not be executed** — it imports `pytest`, which is absent from this session's interpreter. An environment limit, not a tree defect, and it is recorded as unrun rather than as a pass |
+| 6 | the repaired census figures are the shipped ones | **PASS** | `check_planning_integrity.py` on the deployed tree reports, by name: *declared manifest row count agrees with the measured one*, *source-family count agrees with the traceability table*, *declared RET-row count matches the rows actually flagged* |
+| 7 | reserved completion phrase still unclaimed | **PASS** | same run: *reserved completion phrase not claimed* |
+
+**Item 6 was nearly verified the wrong way, and the near-miss is this unit's own subject.**
+The first attempt hand-rolled a regex over the manifest to count rows independently — and
+measured **0**, because the pattern did not match the real row format. That is precisely the
+ad-hoc-regex failure §7.2's own preamble describes (a pattern that silently drops
+`C7-BEST-TRADE`, `C8-A11Y-01`, `C9-V3-01`, `X-01`…`X-07`), reproduced by someone verifying the
+fix for it. The count is therefore taken from `check_planning_integrity.py`, which owns the
+question, rather than from a second implementation invented at verification time. A verifier
+who writes their own parser has added a competing owner, not checked one.
+
+Outstanding: item 5's third module needs an interpreter with `pytest`. Everything else on this
+checklist is satisfied at the deployed SHA.
+
 ## 7.3 What would falsify it
 
 Item 4 or 5 failing on the deployed tree means the records shipped in a state the gates
