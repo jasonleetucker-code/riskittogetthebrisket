@@ -1108,7 +1108,7 @@ Before 2026-08-18 nothing in the trade surface could answer it.
 ``team_impact`` for starter slots; ``suggestions.py`` / ``finder.py`` /
 ``angle.py`` proposed 2-for-1s with no notion of a cap at all.  The single
 legality check in the repo, ``roster_intel/packages._check_legality``, is
-``/api/gameplan``-only.
+``/api/gameplan``-only.  All four now consume this owner.
 
 **Not an edge case here.**  ``dynasty_main`` caps at 58 and its twelve rosters
 held ``[45, 46, 53, 55, 56, 57, 58, 58, 58, 58, 58, 58]`` on 2026-08-18 — six
@@ -1130,10 +1130,13 @@ roster, same drops.
 which is right for a generator choosing what to put on a Pareto frontier and
 wrong for a simulator answering a question the user typed in.  Both consume the
 same counting rule and a test pins that they never disagree about whether a
-package is over the cap.  ``/api/trade/suggestions`` and ``/api/trade/finder``
-attach the same block and **filter nothing** — on a full roster a legality
-filter would silently shorten those lists, and a proposal that vanishes is
-invisible rather than explained.
+package is over the cap.  ``/api/trade/suggestions``, ``/api/trade/finder``,
+``/api/trade/simulate`` and both ``/api/angle/*`` endpoints attach the same
+block and **filter nothing** — on a full roster a legality filter would
+silently shorten those lists, and a proposal that vanishes is invisible rather
+than explained.  Measured on the live board: ``find_angle_packages`` returns
+the SAME 25 candidates with the capacity read on and off, 10 of which force a
+release.
 
 Four rules that are load-bearing:
 
@@ -1152,10 +1155,27 @@ Four rules that are load-bearing:
 - **An unpriced forced drop reports ``value: null``**, is counted in
   ``unpricedForcedDrops`` and excluded from ``forcedDropValue``.  Its
   ``effectiveCutCost`` IS defined and is published separately.
+- **An outgoing player the roster does not hold frees NO spot**, and the
+  discrepancy is published as ``outgoingNotOnRoster`` rather than corrected
+  away.  Removal is matched by MULTIPLICITY — the same rule ``_surviving_keys``
+  and the post-trade roster rebuild use.  ``size_after`` used to subtract
+  ``len(outgoing)`` flat, so those three disagreed about what the post-trade
+  roster was, in the direction that HIDES pressure: a freed spot that never
+  existed, and so a forced drop never reported.  Reachable from
+  ``/api/angle/find``, which lets a user select any player on the BOARD.
 
-**Taxi is NOT modelled**, and the note says so: Sleeper's per-player taxi
-assignment is ingested nowhere in this codebase, so open spots may be
-understated for a taxi league.
+**Taxi occupancy is BRACKETED, never assumed.**  Sleeper lists taxi players
+INSIDE ``players``, so ``size_before`` counts them while membership is
+invisible — ``dynasty_new`` carries 5 taxi slots and no source in this
+codebase says who occupies them.  Guessing 0 overstates pressure and invents
+forced drops; guessing full relief hides real ones.  So active occupancy is a
+RANGE (``taxiOccupiedMin`` / ``taxiOccupiedMax``), ``certainty`` becomes
+``partial``, and ``forcedDropsAreUpperBound`` says the drops are the worst case
+rather than a determined set.  ``requiresDrops`` is ``True`` / ``False`` /
+**``None``** — ``None`` ONLY when the range straddles zero; ``lo > 0`` is
+``True``, because "how many" being unknown does not make "whether" unknown.
+When a caller hands over a roster that DOES carry taxi membership the answer is
+``exact``.  Unknown must never become "no taxi relief".
 
 ``league_roster_limit`` / ``league_taxi_size`` are the ONE resolver;
 ``draft/context._roster_size_for`` and ``api/gameplan._roster_limit`` delegate
@@ -1163,9 +1183,12 @@ to them.
 
 Known reachability limit, recorded rather than left to be discovered: no
 current ``suggestions.py`` shape (1-for-1, 2-for-1) can exceed a cap, so the
-forced-drop path is reachable there only on an already-over-limit roster.
-``finder.py``'s ``_generate_1for2`` is the shape that goes over.  A test fails
-if a 1-for-2 suggestion generator is added, which is when that changes.
+forced-drop path is reachable there only on an already-over-limit roster.  A
+test fails if a 1-for-2 suggestion generator is added, which is when that
+changes.  The shapes that DO go over are the finder's ``PackageShape(1, 2)``
+and Angle's N+1 counter-package — the latter on ANY roster at the cap, with no
+over-limit precondition, which makes ``/api/angle/packages`` the surface where
+the forced-drop path is genuinely exercised.
 
 **The finder's Value Adjustment is no longer a monkeypatch.**
 ``src/trade/__init__.py`` used to rebind ``finder._score_trade`` and
