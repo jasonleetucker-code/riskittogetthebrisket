@@ -1,18 +1,13 @@
 {
-  "attempts": 2,
-  "checkedAt": "2026-08-05T03:28:25.734601+00:00",
+  "attempts": 1,
+  "checkedAt": "2026-08-18T11:37:33.849475+00:00",
   "cohort": {},
   "deployConclusion": "pending",
-  "deployHeadSha": "f060dc49f6127cc371b2a896fda9f67609de4623",
+  "deployHeadSha": "6a788c182ce4fe8261b52e5e65ed128b78c2dbc3",
   "deployRunId": "",
   "errors": [
     {
       "attempt": 1,
-      "message": "HTTP Error 502: Bad Gateway",
-      "type": "HTTPError"
-    },
-    {
-      "attempt": 2,
       "message": "401 from https://chaseupside.com/api/sharp/cohort",
       "type": "Unauthenticated"
     }
