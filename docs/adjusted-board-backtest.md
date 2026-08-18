@@ -25,8 +25,10 @@ resamples, seeded).
 * market arm — `rankDerivedValue` straight off the live contract
 * adjusted arm — the same value times this league's overlay factor from
   `GET /api/valuation/league-adjusted`
-* target — season totals from `compute_player_season_scores` **plus the
-  banded reception component**, which weekly box scores cannot produce
+* target — season totals from `compute_player_season_scores` **with the
+  play-by-play supplement joined**, which carries the six reception
+  bands, the three player special-teams rules and the pick-six penalty
+  that weekly box scores cannot produce
 
 Population: 572 players. From 1093 board rows, 144 picks (no realized
 points, and the adjustment never moves them), 240 rows the pipeline
@@ -104,19 +106,41 @@ identically in both arms.
 ## Why banded receptions had to be in the target
 
 This league pays by catch distance (`rec_0_4` 0.17 through `rec_40p`
-1.92). Those keys are **UNSCORABLE** from weekly box scores — only
+1.92). Those keys are unscorable from weekly box scores — only
 play-by-play carries them, which `src/nfl_data/scoring_coverage.py`
-reports directly. A target built from weekly stats alone is missing the
+reports directly (`audit_scoring_settings(..., pbp_supplement=False)`).
+A target built from weekly stats alone is missing the
 reception-distance component entirely, and reception fit is one of the
 two live axes in the adjustment.
 
 Scoring the adjustment against a target that omits the thing it corrects
 for would have guaranteed a loss for a reason unrelated to whether it is
-right. Season band counts from
-`data/nfl_data/actuals/reception_depth_2025.jsonl` are added on top of
-the flat `rec` rate the weekly engine already applied — the band rate
-only, never `rec + band`, or every receiver would be inflated by his
-reception count times 0.08.
+right.
+
+**Changed 2026-08-18 (#802).** The bands used to be bolted on here from
+the SEASON histogram in `reception_depth_<season>.jsonl`, which made this
+script a second owner of what a band is worth — and it carried none of
+the player special-teams rules (`st_tkl_solo` 1.33, `st_ff` 4.25,
+`st_fum_rec` 3.19) or the pick-six penalty at all, so the target was
+still incomplete in a way the prose did not say. The target now comes
+from the canonical per-week supplement,
+`data/nfl_data/actuals/pbp_weekly_<season>.jsonl`
+(`src/nfl_data/pbp_weekly.py`), which carries all ten and is reconciled
+to the league host's own weekly line.
+
+The no-double-count rule is unchanged and is now **structural** rather
+than a caller remembering it: the supplement is an allow-list of the ten
+keys the weekly feed cannot supply, so it cannot write `rec` — which
+the weekly engine already paid — even if handed one.
+
+Two consequences for reading a run:
+
+* the target moved, so verdicts from before this date are not comparable
+  with verdicts after it;
+* `pbpPlayers` in the run header replaces `bandedPlayers`. **A zero there
+  means the artifact is missing and the ten rules scored nothing**, which
+  makes the run a measurement of a different quantity than it claims.
+  Build it with `scripts/build_pbp_weekly.py`.
 
 ## What this does not establish
 
