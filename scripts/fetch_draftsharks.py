@@ -748,11 +748,21 @@ async def _scrape_one(page) -> list[dict]:
 # DOM order.  ``''`` is "All Positions".  These are the page's OWN
 # controls on the SAME league-scored session — not the separately
 # rescaled ``/dynasty-rankings/idp`` board, which stays forbidden.
-_POSITION_PASSES: tuple[str, ...] = ("", "QB", "RB", "WR", "TE", "DL", "LB", "DB")
+#
+# The aggregate ``IDP`` pass is included deliberately.  Without it the
+# only overlaps are offense-side (a QB appears in both the unfiltered
+# board and the QB pass), which proves filtering does not rescale
+# OFFENSE and leaves the IDP families resting on an inference.  With it,
+# every defender appears in both ``IDP`` and its own ``DL``/``LB``/``DB``
+# pass, so filter-invariance is demonstrated inside both families
+# instead of argued across them.
+_POSITION_PASSES: tuple[str, ...] = ("", "QB", "RB", "WR", "TE", "IDP", "DL", "LB", "DB")
 
 # Below this many overlapping assets we refuse to declare the passes
 # share one currency.  One coincidental match is not a proof.
 _MIN_OVERLAP_FOR_EQUIVALENCE: int = 25
+# ...and it must not all sit in one family (see overlapByFamily).
+_MIN_OVERLAP_PER_FAMILY: int = 10
 
 
 async def _harvest_full_universe(page) -> list[dict]:
@@ -816,9 +826,20 @@ async def _harvest_full_universe(page) -> list[dict]:
             "PROVE the passes share one currency.  Absence of contradiction is not proof; "
             "refusing to merge."
         )
+    thin = [
+        fam
+        for fam in ("offense", "idp")
+        if report["overlapByFamily"].get(fam, 0) < _MIN_OVERLAP_PER_FAMILY
+    ]
+    if thin:
+        raise RuntimeError(
+            f"insufficient overlap inside {thin} (need >= {_MIN_OVERLAP_PER_FAMILY} each; "
+            f"got {report['overlapByFamily']}) — a healthy TOTAL that is entirely one family "
+            "would leave the other family's currency unproven.  Refusing to merge."
+        )
     print(
         f"[DS] currency equivalence proven across {report['overlappingAssets']} "
-        f"overlapping assets, 0 conflicts",
+        f"overlapping assets {report['overlapByFamily']}, 0 conflicts",
         flush=True,
     )
     return merged
@@ -1056,11 +1077,19 @@ def reconcile_passes(passes: dict[str, list[dict]]) -> tuple[list[dict], dict]:
                 )
 
     overlaps = {vid: names for vid, names in seen_in.items() if len(names) > 1}
+    # Report overlap PER FAMILY.  A healthy total that is entirely
+    # offense would leave the IDP families' currency unproven while the
+    # aggregate number looked reassuring.
+    overlap_by_family: dict[str, int] = {}
+    for vid in overlaps:
+        fam = family_of(merged[vid].get("position", "")) or "unclassified"
+        overlap_by_family[fam] = overlap_by_family.get(fam, 0) + 1
     report = {
         "passes": {name: len(rows) for name, rows in passes.items()},
         "uniqueAssets": len(merged),
         "rowsWithoutVendorId": missing_id,
         "overlappingAssets": len(overlaps),
+        "overlapByFamily": overlap_by_family,
         "identityCollisions": sorted(set(identity_collisions)),
         "valueConflicts": value_conflicts[:20],
         "valueConflictCount": len(value_conflicts),
