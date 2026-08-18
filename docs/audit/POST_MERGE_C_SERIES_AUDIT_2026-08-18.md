@@ -627,13 +627,33 @@ behavioural one; un-wiring the scraper dict while leaving the constant defined r
 wiring assertions, which read the `_site_raw_floors` dict literal from the **AST** rather than a
 constant name or a comment. Pinned by `tests/api/test_retail_anchor_row_floor.py` (13).
 
-**What this does NOT close, named rather than implied.** The scrape-promotion gate
-`server.py::_missing_expected_sites` still watches `ktc`, because `ktcSfTep` never reaches
-`raw.sites` at all: `KTC_TEP` is a sub-product held in `FULL_DATA`, not a member of `active_sites`,
-so `sites_meta` never emits it and `_reported_rows` could not find it if `expectedSites` named it.
-That is census item **S-2** — scraper-run names do not round-trip onto registry keys, and a
-run-level "complete" does not decompose into which boards arrived — and F-10 is S-2 seen from the
-consequence end.
+**CORRECTION 2026-08-18 — the third gate was closable, and this entry said it was not.**
+
+This finding originally read: *"the scrape-promotion gate `server.py::_missing_expected_sites`
+still watches `ktc`, because `ktcSfTep` never reaches `raw.sites` at all … `_reported_rows` could
+not find it if `expectedSites` named it."* The first clause is true. **The conclusion was wrong**,
+and it was wrong in the way an audit can least afford — it declared a repair impossible and
+deferred it.
+
+`_missing_expected_sites` reads `siteStats` as well as `sites` (`server.py:1179-1182`), and
+`siteStats` carries `ktcSfTep` with a real count — **644** on the 2026-08-18 board. Measured
+directly against the live payload, an `expectedSites.offense` of `["ktcSfTep"]` resolves with
+`missing: []`. I had traced only the `sites` half and stopped.
+
+Surfaced by an adversarial reviewer on the S-2 design panel, then re-measured here before being
+accepted.
+
+**So the anchor now names the board that votes.** `TOP_OFF_EXPECTED_SITE_KEYS` is `("ktcSfTep",)`.
+Replayed over **all 176 committed export archives**, `["ktc"]` and `["ktcSfTep"]` block the
+**identical 4** — the same set, not merely the same count — because both CSVs come from one KTC
+API response and fail together. The anchors diverge only when the TE++ extraction breaks on its
+own, which is exactly the failure the old anchor missed and this one now catches. Guarded as a
+*property* (the anchor must name a registered voter) rather than as a literal string, and pinned
+one-wide so S-1's anchor-detector-vs-population distinction cannot be undone here.
+
+What genuinely remains for census **S-2** is narrower than this entry claimed: scraper-run names
+still do not round-trip onto registry keys, `sites_meta` still never emits `ktcSfTep`, and a
+run-level "complete" still does not decompose into which boards arrived.
 
 ---
 
