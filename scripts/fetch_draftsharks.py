@@ -157,6 +157,11 @@ CSV_HEADER = [
 _TEAM_CLASS_RE = re.compile(r"team-(?:abbr|logo)-([a-z]+)", re.I)
 
 
+def _norm(text: str) -> str:
+    """Whitespace-normalized label, matching the league-activation chain."""
+    return " ".join(str(text or "").split())
+
+
 def classify_position(raw: str) -> str:
     """Canonical family for a DS position label.
 
@@ -183,6 +188,56 @@ def family_of(position: str) -> str | None:
     if pos in _IDP_FAMILIES:
         return "idp"
     return None
+
+
+# The seven families the production board must always carry.  Aliases
+# canonicalize INTO these buckets, so a DL that DraftSharks labels
+# ``EDGE`` still proves the DL family is present — the completeness gate
+# is about the family being represented, not about the exact token.
+_EXPECTED_FAMILIES: tuple[str, ...] = ("QB", "RB", "WR", "TE", "DL", "LB", "DB")
+
+_FAMILY_BUCKETS: dict[str, str] = {
+    "QB": "QB",
+    "RB": "RB",
+    "WR": "WR",
+    "TE": "TE",
+    "DL": "DL",
+    "DE": "DL",
+    "DT": "DL",
+    "EDGE": "DL",
+    "NT": "DL",
+    "LB": "LB",
+    "ILB": "LB",
+    "OLB": "LB",
+    "MLB": "LB",
+    "DB": "DB",
+    "CB": "DB",
+    "S": "DB",
+    "SS": "DB",
+    "FS": "DB",
+}
+
+
+def canonical_family(position: str) -> str | None:
+    """The expected-family bucket for a DS position label, or ``None``.
+
+    ``EDGE`` -> ``DL``, ``CB`` -> ``DB``, and so on.  Kept separate from
+    ``family_of`` because the two answer different questions: which CSV
+    a row belongs in, versus which of the seven families it evidences.
+    """
+    return _FAMILY_BUCKETS.get(classify_position(position))
+
+
+def missing_expected_families(rows: list[dict[str, Any]]) -> list[str]:
+    """Which of the seven expected families this board does not contain.
+
+    Deliberately NOT derivable from the aggregate offense/IDP floors.  A
+    board carrying DL=180, LB=150, DB=0 clears the IDP floor of 85 with
+    room to spare while an entire family has silently vanished — which is
+    precisely the shape of the 2026-08 breakage, one level down.
+    """
+    present = {canonical_family(r.get("position", "")) for r in rows}
+    return [fam for fam in _EXPECTED_FAMILIES if fam not in present]
 
 
 def normalize_value(raw: str) -> Decimal | None:
@@ -791,6 +846,11 @@ async def _harvest_full_universe(page) -> list[dict]:
         "fantasyPosition filters on this same league-scored session",
         flush=True,
     )
+    # The unfiltered board's league scoring was already proven by the
+    # public->league transition gate in ``_scrape_one``; re-prove it here
+    # anyway so every pass entering reconciliation carries the same
+    # evidence, recorded the same way.
+    scoring_evidence = [await _prove_pass_is_league_scored(page, "all")]
     passes: dict[str, list[dict]] = {"all": first}
     for value in _POSITION_PASSES[1:]:
         try:
@@ -798,6 +858,13 @@ async def _harvest_full_universe(page) -> list[dict]:
         except RuntimeError as exc:
             print(f"[DS] position pass {value!r} unavailable: {exc}", flush=True)
             continue
+        # PROVE BEFORE INGEST.  A pass whose values are still the public
+        # defaults must never reach reconciliation: a full set of such
+        # passes would agree with one another perfectly and sail through
+        # the equivalence gate.  This raises rather than skipping,
+        # because silently dropping an unproven pass would quietly
+        # shrink the board instead of refusing it.
+        scoring_evidence.append(await _prove_pass_is_league_scored(page, value))
         rows = await _extract_rows(page)
         passes[value] = rows
         print(f"[DS] pass {value or 'ALL'}: {len(rows)} rows", flush=True)
@@ -805,40 +872,16 @@ async def _harvest_full_universe(page) -> list[dict]:
     merged, report = reconcile_passes(passes)
     print(f"[DS] reconciliation: {json.dumps(report, default=str)}", flush=True)
 
-    if report["identityCollisions"]:
-        raise RuntimeError(
-            f"vendorId collision across passes ({len(report['identityCollisions'])} ids) — "
-            "the same DraftSharks key arrived under two different player names.  "
-            "Refusing to merge: last-write-wins here would silently swap a row's "
-            "position and therefore its family."
-        )
-    if report["valueConflictCount"]:
-        raise RuntimeError(
-            f"3D Value + disagrees across position filters for "
-            f"{report['valueConflictCount']} asset(s), e.g. {report['valueConflicts'][:3]}.  "
-            "The filters are therefore NOT views on one valuation currency, and "
-            "merging them would splice two scales.  Refusing."
-        )
-    if report["overlappingAssets"] < _MIN_OVERLAP_FOR_EQUIVALENCE:
-        raise RuntimeError(
-            f"only {report['overlappingAssets']} asset(s) appear in more than one pass "
-            f"(need >= {_MIN_OVERLAP_FOR_EQUIVALENCE}) — there is not enough overlap to "
-            "PROVE the passes share one currency.  Absence of contradiction is not proof; "
-            "refusing to merge."
-        )
-    thin = [
-        fam
-        for fam in ("offense", "idp")
-        if report["overlapByFamily"].get(fam, 0) < _MIN_OVERLAP_PER_FAMILY
-    ]
-    if thin:
-        raise RuntimeError(
-            f"insufficient overlap inside {thin} (need >= {_MIN_OVERLAP_PER_FAMILY} each; "
-            f"got {report['overlapByFamily']}) — a healthy TOTAL that is entirely one family "
-            "would leave the other family's currency unproven.  Refusing to merge."
-        )
+    assert_union_is_admissible(report)
+
+    # TWO separate proofs, deliberately not conflated:
+    #   1. every pass is league-scored   (scoring_evidence, above)
+    #   2. the passes share one currency (report, here)
+    # Treating (2) as evidence for (1) is the trap: a set of passes that
+    # are all public defaults satisfies (2) perfectly.
     print(
-        f"[DS] currency equivalence proven across {report['overlappingAssets']} "
+        f"[DS] league-scoring proven for {len(scoring_evidence)} pass(es); "
+        f"currency equivalence proven across {report['overlappingAssets']} "
         f"overlapping assets {report['overlapByFamily']}, 0 conflicts",
         flush=True,
     )
@@ -986,6 +1029,126 @@ async def _extract_rows(page) -> list[dict]:
     return rows
 
 
+# The static per-format attribute holding DraftSharks' PUBLIC default.
+# The PARSER must never read this — see the value-trap note above, and
+# ``test_the_parser_never_reads_the_static_scoring_attributes``.  The
+# VERIFICATION layer below reads it deliberately, and only to prove the
+# rendered text has been transformed away from it.
+_PUBLIC_VALUE_ATTR = "data-scoring-value-te-premium-superflex"
+
+# A settled pass must show the worker actually moved values off the
+# public defaults on at least this many sampled rows.  Some players
+# legitimately score the same under our league as under the site
+# default, so a handful of matches is normal — but a pass where NOTHING
+# moved is indistinguishable from a pass the worker never touched.
+_MIN_LEAGUE_SCORED_DIFFERENCES: int = 5
+_LEAGUE_SCORING_SAMPLE: int = 40
+
+
+async def _prove_pass_is_league_scored(page, pass_label: str) -> dict:
+    """Positive evidence that THIS pass reached its league-scored state.
+
+    The equivalence gate proves the passes agree with each other.  That
+    is necessary and not sufficient: if every htmx pass returned public
+    defaults they would agree *perfectly*, sail through equivalence, and
+    silently replace a league-synced board with the site's public one.
+    Agreement is not scoring.
+
+    So each pass is proven separately, using evidence DraftSharks
+    already carries: the static ``data-scoring-value-*`` attribute is
+    the public default, while the rendered ``.column-title`` text is
+    what the WebAssembly worker produced.  If the two differ across a
+    non-vacuous sample, the worker has demonstrably transformed this
+    pass.  Four conditions, all required:
+
+    1. the league is still confirmed selected;
+    2. the pass rendered rows at all;
+    3. the rendered values settle across repeated probes;
+    4. enough sampled rows differ from their public default.
+
+    Fails closed.  If our league happens to price a sampled pass
+    identically to the public board we refuse rather than guess — an
+    unprovable pass and an unscored pass look the same from here, and
+    only one of them is safe.
+    """
+    label = await page.evaluate(_LEAGUE_LABEL_JS)
+    if not label or _norm(LEAGUE_NAME) not in _norm(label):
+        raise RuntimeError(
+            f"pass {pass_label!r}: league selection was lost after the htmx swap — "
+            "the rendered board is no longer proven league-scored.  Refusing."
+        )
+
+    probe_js = """(limit) => {
+        const rows = Array.from(document.querySelectorAll('tbody[data-player-row]')).slice(0, limit);
+        return rows.map((tb) => {
+            const cell = tb.querySelector('[data-attribute="dsValue"]');
+            const inner = cell ? cell.querySelector('.column-title') : null;
+            return {
+                key: tb.getAttribute('data-key') || '',
+                rendered: cell ? ((inner || cell).textContent || '').trim() : '',
+                publicDefault: cell ? (cell.getAttribute(ATTR) || '') : '',
+            };
+        });
+    }""".replace("ATTR", json.dumps(_PUBLIC_VALUE_ATTR))
+
+    previous: list[dict] | None = None
+    streak = 0
+    sample: list[dict] = []
+    for _ in range(15):
+        sample = await page.evaluate(probe_js, _LEAGUE_SCORING_SAMPLE)
+        if not sample:
+            await page.wait_for_timeout(2_000)
+            continue
+        current = [(r["key"], r["rendered"]) for r in sample]
+        streak = streak + 1 if previous is not None and current == previous else 0
+        previous = current
+        if streak >= 2:
+            break
+        await page.wait_for_timeout(2_000)
+
+    if not sample:
+        raise RuntimeError(f"pass {pass_label!r}: rendered no rows within the settle budget.")
+    if streak < 2:
+        raise RuntimeError(
+            f"pass {pass_label!r}: rendered values never settled across repeated probes — "
+            "the worker is still recomputing, so these values are not final.  Refusing."
+        )
+
+    comparable = [
+        r
+        for r in sample
+        if normalize_value(r["rendered"]) is not None
+        and normalize_value(r["publicDefault"]) is not None
+    ]
+    differing = [
+        r
+        for r in comparable
+        if normalize_value(r["rendered"]) != normalize_value(r["publicDefault"])
+    ]
+    evidence = {
+        "pass": pass_label,
+        "sampled": len(sample),
+        "comparable": len(comparable),
+        "differingFromPublicDefault": len(differing),
+    }
+    if len(comparable) < _MIN_LEAGUE_SCORED_DIFFERENCES:
+        raise RuntimeError(
+            f"pass {pass_label!r}: only {len(comparable)} row(s) expose both a rendered "
+            "value and a public default, which is too small a sample to prove anything.  "
+            f"Refusing.  {evidence}"
+        )
+    if len(differing) < _MIN_LEAGUE_SCORED_DIFFERENCES:
+        raise RuntimeError(
+            f"pass {pass_label!r}: rendered values match DraftSharks' PUBLIC defaults on "
+            f"all but {len(differing)} of {len(comparable)} comparable rows (need >= "
+            f"{_MIN_LEAGUE_SCORED_DIFFERENCES}).  This pass is not demonstrably "
+            "league-scored — and a set of passes that are all public defaults would agree "
+            "with each other perfectly, so the equivalence gate cannot catch it.  Refusing."
+        )
+    print(f"[DS] league-scoring proven for pass {pass_label!r}: {evidence}", flush=True)
+    return evidence
+
+
 async def _select_position_filter(page, value: str) -> None:
     """Drive the dynasty page's own ``fantasyPosition`` filter.
 
@@ -1095,6 +1258,57 @@ def reconcile_passes(passes: dict[str, list[dict]]) -> tuple[list[dict], dict]:
         "valueConflictCount": len(value_conflicts),
     }
     return list(merged.values()), report
+
+
+def assert_union_is_admissible(report: dict) -> None:
+    """Raise unless a multipass union may be published.
+
+    Pure, and deliberately separate from ``reconcile_passes`` (which
+    only MEASURES) and from the navigation that produced the passes, so
+    every refusal is reachable from a test without a browser.  Each
+    condition below is a way a union can be wrong while looking fine.
+    """
+    if report["rowsWithoutVendorId"]:
+        raise RuntimeError(
+            f"{report['rowsWithoutVendorId']} row(s) across the passes carry no "
+            "DraftSharks data-key.  A cross-pass union requires COMPLETE "
+            "reconciliation identity: a row without one cannot be matched to its "
+            "twin in another pass, and the three ways to continue — fall back to "
+            "player name, synthesize an id, or drop the row — are respectively a "
+            "known corruption mode, a fabrication, and silent data loss.  Refusing."
+        )
+    if report["identityCollisions"]:
+        raise RuntimeError(
+            f"vendorId collision across passes ({len(report['identityCollisions'])} ids) — "
+            "the same DraftSharks key arrived under two different player names.  "
+            "Refusing to merge: last-write-wins here would silently swap a row's "
+            "position and therefore its family."
+        )
+    if report["valueConflictCount"]:
+        raise RuntimeError(
+            f"3D Value + disagrees across position filters for "
+            f"{report['valueConflictCount']} asset(s), e.g. {report['valueConflicts'][:3]}.  "
+            "The filters are therefore NOT views on one valuation currency, and "
+            "merging them would splice two scales.  Refusing."
+        )
+    if report["overlappingAssets"] < _MIN_OVERLAP_FOR_EQUIVALENCE:
+        raise RuntimeError(
+            f"only {report['overlappingAssets']} asset(s) appear in more than one pass "
+            f"(need >= {_MIN_OVERLAP_FOR_EQUIVALENCE}) — there is not enough overlap to "
+            "PROVE the passes share one currency.  Absence of contradiction is not proof; "
+            "refusing to merge."
+        )
+    thin = [
+        fam
+        for fam in ("offense", "idp")
+        if report["overlapByFamily"].get(fam, 0) < _MIN_OVERLAP_PER_FAMILY
+    ]
+    if thin:
+        raise RuntimeError(
+            f"insufficient overlap inside {thin} (need >= {_MIN_OVERLAP_PER_FAMILY} each; "
+            f"got {report['overlapByFamily']}) — a healthy TOTAL that is entirely one family "
+            "would leave the other family's currency unproven.  Refusing to merge."
+        )
 
 
 async def _scrape_with_autologin(context, page) -> list[dict]:
@@ -1310,6 +1524,13 @@ def main(argv: list[str] | None = None) -> int:
         key = classify_position(row.get("position", "")) or "<empty>"
         per_position[key] = per_position.get(key, 0) + 1
     print(f"[DS] position counts: {dict(sorted(per_position.items()))}")
+    family_counts = {fam: 0 for fam in _EXPECTED_FAMILIES}
+    for row in rows:
+        bucket = canonical_family(row.get("position", ""))
+        if bucket:
+            family_counts[bucket] += 1
+    print(f"[DS] expected-family counts: {family_counts}")
+
     if idp_count == 0:
         print(
             "[DS] ERROR: no IDP rows — league-synced scrape probably "
@@ -1342,6 +1563,23 @@ def main(argv: list[str] | None = None) -> int:
             file=sys.stderr,
         )
         return 1
+
+    # Expected-family completeness — a DEPTH guard cannot see this.
+    # A board with DL=180 LB=150 DB=0 clears the aggregate IDP floor of
+    # 85 with room to spare while an entire family has silently
+    # vanished, which is the 2026-08 breakage one level down.  Runs
+    # AFTER the zero-IDP and IDP-value guards so those keep their
+    # sharper diagnosis of a wholly-missing IDP side, and BEFORE the
+    # depth floors so a lost family is never reported as merely a short
+    # board.
+    missing = missing_expected_families(rows)
+    if missing:
+        print(
+            f"[DS] ERROR: missing expected DraftSharks position families: {missing}.  "
+            f"Counts: {family_counts}.  Preserving last-good CSVs; not overwriting.",
+            file=sys.stderr,
+        )
+        return 2
 
     # Contract-aligned floor BEFORE writing: a partial scrape (WASM
     # worker hung, lazy-load shortfall) that still emits some positive

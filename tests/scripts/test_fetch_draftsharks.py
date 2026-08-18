@@ -240,6 +240,136 @@ class TestMultipassReconciliation(unittest.TestCase):
         return ds.reconcile_passes(passes)
 
 
+class TestUnionAdmissibility(unittest.TestCase):
+    """The four ways a multipass union can be wrong while looking fine.
+
+    Exercised through the pure gate rather than through navigation, so
+    every refusal is reachable without a browser.
+    """
+
+    @staticmethod
+    def _ok_report(**over):
+        base = {
+            "rowsWithoutVendorId": 0,
+            "identityCollisions": [],
+            "valueConflictCount": 0,
+            "valueConflicts": [],
+            "overlappingAssets": 100,
+            "overlapByFamily": {"offense": 60, "idp": 40},
+        }
+        base.update(over)
+        return base
+
+    def test_a_healthy_report_is_admitted(self):
+        """Anti-vacuity: if the happy path raised, every assertion below
+        would pass for the wrong reason."""
+        ds.assert_union_is_admissible(self._ok_report())
+
+    def test_a_row_without_a_vendor_id_rejects_the_whole_union(self):
+        """DraftSharks' data-key IS the reconciliation identity.  A row
+        without one cannot be matched to its twin in another pass, and
+        the three ways to carry on — fall back to name, synthesize an
+        id, drop the row — are a known corruption mode, a fabrication,
+        and silent data loss.  So the union fails, rather than the row
+        being quietly omitted."""
+        with self.assertRaises(RuntimeError) as ctx:
+            ds.assert_union_is_admissible(self._ok_report(rowsWithoutVendorId=1))
+        self.assertIn("data-key", str(ctx.exception))
+
+    def test_an_identity_collision_rejects_the_union(self):
+        with self.assertRaises(RuntimeError):
+            ds.assert_union_is_admissible(self._ok_report(identityCollisions=["9962"]))
+
+    def test_a_value_conflict_rejects_the_union(self):
+        with self.assertRaises(RuntimeError):
+            ds.assert_union_is_admissible(self._ok_report(valueConflictCount=1))
+
+    def test_too_little_overlap_rejects_the_union(self):
+        with self.assertRaises(RuntimeError) as ctx:
+            ds.assert_union_is_admissible(
+                self._ok_report(overlappingAssets=3, overlapByFamily={"offense": 2, "idp": 1})
+            )
+        self.assertIn("not enough overlap", str(ctx.exception))
+
+    def test_overlap_concentrated_in_one_family_rejects_the_union(self):
+        """A reassuring TOTAL that sits entirely on the offense side
+        leaves every IDP value's currency unproven."""
+        with self.assertRaises(RuntimeError) as ctx:
+            ds.assert_union_is_admissible(
+                self._ok_report(overlappingAssets=100, overlapByFamily={"offense": 100})
+            )
+        self.assertIn("idp", str(ctx.exception).lower())
+
+
+class TestExpectedFamilyCompleteness(unittest.TestCase):
+    """A depth floor cannot see a lost family."""
+
+    @staticmethod
+    def _board(**counts):
+        rows = []
+        n = 0
+        for pos, count in counts.items():
+            for _ in range(count):
+                n += 1
+                rows.append({"vendorId": str(n), "name": f"P{n}", "position": pos, "dsValue": "10"})
+        return rows
+
+    def test_a_complete_board_is_missing_nothing(self):
+        rows = self._board(QB=1, RB=1, WR=1, TE=1, DL=1, LB=1, DB=1)
+        self.assertEqual(ds.missing_expected_families(rows), [])
+
+    def test_each_family_is_independently_detectable(self):
+        full = dict(QB=1, RB=1, WR=1, TE=1, DL=1, LB=1, DB=1)
+        for family in ("QB", "RB", "WR", "TE", "DL", "LB", "DB"):
+            counts = {k: v for k, v in full.items() if k != family}
+            self.assertEqual(
+                ds.missing_expected_families(self._board(**counts)),
+                [family],
+                f"losing {family} must be detected on its own",
+            )
+
+    def test_a_lost_family_is_invisible_to_the_aggregate_floor(self):
+        """DL=180 LB=150 DB=0 clears the IDP floor of 85 with room to
+        spare.  This is the exact shape the floors cannot catch."""
+        rows = self._board(QB=60, RB=60, WR=60, TE=60, DL=180, LB=150, DB=0)
+        idp = sum(1 for r in rows if ds.family_of(r["position"]) == "idp")
+        self.assertGreater(
+            idp, ds._DS_IDP_ROW_FLOOR, "the aggregate floor is comfortably satisfied"
+        )
+        self.assertEqual(ds.missing_expected_families(rows), ["DB"])
+
+    def test_aliases_canonicalize_into_their_family(self):
+        """DS labelling a lineman EDGE still evidences the DL family —
+        the gate is about the family being represented, not the token."""
+        rows = self._board(QB=1, RB=1, WR=1, TE=1, EDGE=1, MLB=1, CB=1)
+        self.assertEqual(ds.missing_expected_families(rows), [])
+        self.assertEqual(ds.canonical_family("EDGE"), "DL")
+        self.assertEqual(ds.canonical_family("CB"), "DB")
+        self.assertEqual(ds.canonical_family("MLB"), "LB")
+
+    def test_the_missing_family_error_is_named_and_fails_closed(self):
+        import contextlib
+        import io
+
+        html = PRIOR.read_text(encoding="utf-8")
+        # Remove the DB family from an otherwise-valid board.
+        no_db = html.replace('data-fantasy-position="DB"', 'data-fantasy-position="LB"')
+        err = io.StringIO()
+        with tempfile.TemporaryDirectory() as tmp, contextlib.redirect_stderr(err):
+            sf = Path(tmp) / "sf.csv"
+            idp = Path(tmp) / "idp.csv"
+            fixture = Path(tmp) / "no_db.html"
+            fixture.write_text(no_db, encoding="utf-8")
+            rc = ds.main(
+                ["--from-file", str(fixture), "--dest-sf", str(sf), "--dest-idp", str(idp)]
+            )
+            self.assertEqual(rc, 2)
+            self.assertFalse(sf.exists())
+            self.assertFalse(idp.exists())
+        self.assertIn("missing expected DraftSharks position families", err.getvalue())
+        self.assertIn("DB", err.getvalue())
+
+
 class TestSanitizerCannotLeak(unittest.TestCase):
     def test_fixture_generation_strips_every_identifying_string(self):
         html = PRIOR.read_text(encoding="utf-8")
@@ -308,17 +438,121 @@ class TestStructuralGuards(unittest.TestCase):
             and node.value not in docstrings
         ]
 
-    def test_parser_never_reads_the_static_scoring_attributes(self):
+    @staticmethod
+    def _strings_in(func_names: set[str]) -> list[str]:
+        """String literals inside the named functions only, docstrings
+        excluded."""
+        import ast
+
+        tree = ast.parse(TestStructuralGuards.SOURCE)
+        found: list[str] = []
+        for node in ast.walk(tree):
+            if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                continue
+            if node.name not in func_names:
+                continue
+            doc = ast.get_docstring(node, clean=False)
+            found.extend(
+                child.value
+                for child in ast.walk(node)
+                if isinstance(child, ast.Constant)
+                and isinstance(child.value, str)
+                and child.value != doc
+            )
+        return found
+
+    # The functions that turn markup into the values we publish.
+    _PARSER_FUNCS = {"parse_rows", "_cell_text", "sanitize_html_fixture"}
+
+    def test_the_parser_never_reads_the_static_scoring_attributes(self):
         # Assembled, not written literally, so this guard cannot match
         # its own source text.
         needle = "data-scoring" + "-value"
-        offenders = [s for s in self._code_strings() if needle in s]
+        offenders = [s for s in self._strings_in(self._PARSER_FUNCS) if needle in s]
         self.assertEqual(
             offenders,
             [],
             "the parser must read rendered .column-title text; the "
             "data-scoring-value-* attributes are DraftSharks' PUBLIC "
             "defaults and would silently harvest unsynced values",
+        )
+
+    def test_the_public_default_attribute_is_read_only_to_prove_scoring(self):
+        """The verification layer is ALLOWED to read the public default —
+        that comparison is how it proves the worker transformed a pass.
+
+        So the guard above is scoped to the parser rather than to the
+        module.  This test pins the other half: the attribute has
+        exactly one named home, and it is the proof function.  Widening
+        that is what would let the public value drift back into the
+        published board.
+        """
+        import ast
+
+        needle = "data-scoring" + "-value"
+        tree = ast.parse(self.SOURCE)
+        homes = set()
+        for node in ast.walk(tree):
+            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                doc = ast.get_docstring(node, clean=False)
+                if any(
+                    isinstance(c, ast.Constant)
+                    and isinstance(c.value, str)
+                    and needle in c.value
+                    and c.value != doc
+                    for c in ast.walk(node)
+                ):
+                    homes.add(node.name)
+        module_level = [
+            t.id
+            for n in tree.body
+            if isinstance(n, ast.Assign)
+            and isinstance(n.value, ast.Constant)
+            and isinstance(n.value.value, str)
+            and needle in n.value.value
+            for t in n.targets
+            if isinstance(t, ast.Name)
+        ]
+        self.assertEqual(
+            module_level,
+            ["_PUBLIC_VALUE_ATTR"],
+            "the public-default attribute name must live in exactly one " "named constant",
+        )
+        self.assertEqual(
+            homes,
+            set(),
+            "no function may hardcode the public-default attribute; it is "
+            f"referenced via _PUBLIC_VALUE_ATTR (found in {sorted(homes)})",
+        )
+
+    def test_league_scoring_is_proven_per_pass_not_inferred_from_agreement(self):
+        """Passes that are ALL public defaults would agree with each
+        other perfectly, so the equivalence gate cannot detect them.
+        The per-pass proof is what closes that hole — assert it exists
+        and is actually called before rows are ingested."""
+        import ast
+
+        tree = ast.parse(self.SOURCE)
+        names = {
+            n.name for n in ast.walk(tree) if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef))
+        }
+        self.assertIn("_prove_pass_is_league_scored", names)
+
+        harvest = next(
+            n
+            for n in ast.walk(tree)
+            if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef))
+            and n.name == "_harvest_full_universe"
+        )
+        called = {
+            c.func.id
+            for c in ast.walk(harvest)
+            if isinstance(c, ast.Call) and isinstance(c.func, ast.Name)
+        }
+        self.assertIn(
+            "_prove_pass_is_league_scored",
+            called,
+            "every pass must be proven league-scored before its rows enter " "reconciliation",
         )
 
     def test_the_alternate_scale_boards_are_not_fetched(self):
