@@ -27,12 +27,37 @@ const { test, expect } = require("../helpers/auth-fixture");
 const { desktopOnly } = require("../helpers/journey");
 
 /**
- * Every field `_materializePlayerArrayRow` reads off a contract player row.
+ * `sourceRankMeta` is compared SEPARATELY, and that is not a loophole.
+ *
+ * It is the one field the compact view legitimately reshapes: the whole
+ * object is kept but each per-source entry is reduced to the subset the UI
+ * consumes (`_SLIM_SOURCE_RANK_META_FIELDS` in `src/api/compact_view.py`).
+ * Comparing it wholesale therefore reports a difference on ~800 rows that
+ * is by design, and — worse — that expected noise would mask a real
+ * divergence inside it.
+ *
+ * So the four consumed subfields are compared exactly, per source, and the
+ * audit stamps around them are not.  `percentile`, `isAnchor`, `ladderDepth`,
+ * `valueContributionPath` and `tepBoostApplied` were each checked against
+ * the whole frontend and have no reader.
+ */
+const CONSUMED_SOURCE_META_FIELDS = [
+  "valueContribution",
+  "appliedWeight",
+  "effectiveWeight",
+  "method",
+];
+
+/**
+ * Every field `_materializePlayerArrayRow` reads off a contract player row,
+ * minus `sourceRankMeta` (above).
  *
  * Kept as an explicit list rather than derived, because this file cannot
  * import the ES module and a silent under-derivation would make the whole
  * spec pass vacuously.  `test_compact_view_consumer_parity.py` owns the
- * derived check; the guard test below owns the "this list is not stale" one.
+ * derived check; the guard test below owns the "this list is not stale" one
+ * — and it earned its keep immediately, catching `marketCorridorClamp`
+ * missing from a first draft of this list.
  */
 const MATERIALIZED_FIELDS = [
   "age",
@@ -57,6 +82,7 @@ const MATERIALIZED_FIELDS = [
   "madPenaltyApplied",
   "marketBreadthAgreementIndex",
   "marketConfidence",
+  "marketCorridorClamp",
   "marketGapDirection",
   "marketGapMagnitude",
   "marketGapValueRatio",
@@ -72,7 +98,6 @@ const MATERIALIZED_FIELDS = [
   "sourceCount",
   "sourceNativeValues",
   "sourceOriginalRanks",
-  "sourceRankMeta",
   "sourceRankPercentileSpread",
   "sourceRankSpread",
   "sourceRanks",
@@ -142,6 +167,85 @@ test.describe("api: mobile/desktop view parity", () => {
     expect(
       Object.fromEntries(divergent),
       "fields the frontend renders differ between the mobile and desktop views",
+    ).toEqual({});
+  });
+
+  test("the consumed sourceRankMeta subfields are identical in both views", async ({
+    authedPage: page,
+  }) => {
+    // The compact view slims each per-source entry, so this is the one
+    // field where "identical object" is the wrong question and "identical
+    // where it is read" is the right one.  Every value cell, the trade
+    // per-source winner card and the rankings audit popover read these
+    // four; if any of them moved between views, the board would disagree
+    // with itself at exactly the place a user goes to check it.
+    const array = await fetchView(page, "array");
+    const compact = await fetchView(page, "compact");
+
+    const divergent = new Map();
+    for (const [key, desktopRow] of array.byKey) {
+      const mobileRow = compact.byKey.get(key);
+      if (!mobileRow) continue;
+      const dMeta = desktopRow.sourceRankMeta || {};
+      const mMeta = mobileRow.sourceRankMeta || {};
+      const sources = new Set([...Object.keys(dMeta), ...Object.keys(mMeta)]);
+      for (const src of sources) {
+        for (const field of CONSUMED_SOURCE_META_FIELDS) {
+          const a = JSON.stringify(dMeta[src]?.[field] ?? null);
+          const b = JSON.stringify(mMeta[src]?.[field] ?? null);
+          if (a === b) continue;
+          const label = `${src}.${field}`;
+          if (!divergent.has(label)) {
+            divergent.set(label, { count: 0, sample: { player: key, desktop: a, mobile: b } });
+          }
+          divergent.get(label).count += 1;
+        }
+      }
+    }
+    expect(
+      Object.fromEntries(divergent),
+      "per-source meta the UI reads differs between the mobile and desktop views",
+    ).toEqual({});
+  });
+
+  test("the deliberately-pruned fields are the ONLY per-row difference", async ({
+    authedPage: page,
+  }) => {
+    // Stated positively, over EVERY key on the row rather than a list this
+    // file maintains — so a field added to the contract tomorrow, pruned
+    // by accident, and never added to MATERIALIZED_FIELDS still fails here.
+    //
+    // The three exceptions are the prune list, and `sourceRankMeta` is the
+    // slimming carved out above.  Anything else appearing in this set is a
+    // divergence nobody decided on.
+    const ALLOWED = new Set([
+      "hillValueSpread",
+      "marketDispersionCV",
+      "pickDetails",
+      "sourceRankMeta",
+    ]);
+    const array = await fetchView(page, "array");
+    const compact = await fetchView(page, "compact");
+
+    const unexpected = new Map();
+    for (const [key, desktopRow] of array.byKey) {
+      const mobileRow = compact.byKey.get(key);
+      if (!mobileRow) continue;
+      const fields = new Set([...Object.keys(desktopRow), ...Object.keys(mobileRow)]);
+      for (const field of fields) {
+        if (ALLOWED.has(field)) continue;
+        const a = JSON.stringify(desktopRow[field] ?? null);
+        const b = JSON.stringify(mobileRow[field] ?? null);
+        if (a === b) continue;
+        if (!unexpected.has(field)) {
+          unexpected.set(field, { count: 0, sample: { player: key, desktop: a.slice(0, 200), mobile: b.slice(0, 200) } });
+        }
+        unexpected.get(field).count += 1;
+      }
+    }
+    expect(
+      Object.fromEntries(unexpected),
+      "a field differs between the views that nobody decided to prune",
     ).toEqual({});
   });
 
@@ -215,7 +319,8 @@ test.describe("api: mobile/desktop view parity", () => {
     read.delete("identityConfidence"); // deprecated alias emitted beside the canonical name
     read.delete("_sleeperId"); // underscore compat mirror, read with a ?? fallback
     read.delete("_yearsExp"); // same
-    const listed = new Set(MATERIALIZED_FIELDS);
+    // Compared by the dedicated subfield test rather than wholesale.
+    const listed = new Set([...MATERIALIZED_FIELDS, "sourceRankMeta"]);
     const unlisted = [...read].filter((f) => !listed.has(f)).sort();
     expect(unlisted, "the materializer reads fields this spec does not compare").toEqual(
       [],
