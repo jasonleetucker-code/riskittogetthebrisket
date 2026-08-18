@@ -265,6 +265,38 @@ pointing at a branch that **no longer exists on the remote**.
 
 ---
 
+## 5b. §22 board diff — the repairs are inert on the canonical board
+
+Captured with `scripts/golden_board.py` **holding the input fixed** and varying only the code,
+which is the comparison that isolates code effect (the script's own help warns that diffing
+captures whose inputs differ is invalid, and `exports/latest` has taken several automated
+refreshes since the audit base).
+
+* **before** — code at audit base `96ecc22a9`, in a throwaway worktree
+* **after** — code at current `main`, all seven repair batches merged
+* **input** — one pinned copy of `exports/latest/dynasty_data_2026-08-17.json` for both
+
+```
+rows: 1109 -> 1109   ranked: 740 -> 740   priced: 849 -> 849
+picks: 162 -> 162    idp:    397 -> 397
+
+VALUES: 0 moved, 0 newly priced, 0 newly unpriced
+RANKS:  0 changed
+ASSERTION OK: no value changed.          (--expect-no-value-change, exit 0)
+```
+
+**Classification: EXPECTED — inert.** No `INCIDENTAL-BUT-EXPLAINED`, no `UNEXPECTED`.
+
+This is the predicted result rather than a lucky one, and the prediction is what makes it
+evidence: of the seven batches, only three touch anything importable by the board path, and
+each was chosen not to move a value — batch C replaced a duplicated `tier_centre_slot` literal
+with a call to the owner on an **alias-only, non-pricing** path; batch D repaired
+`src/trade/faab_history.py` (a market-prior input, not a board input) and a frontend
+materializer; the rest are workflows, tests and documentation. A non-zero diff here would have
+meant one of those three was not what it claimed to be.
+
+---
+
 ## 6. What authenticated production verification remains
 
 Enumerated so it can be completed separately, through whatever access method is safe, by
