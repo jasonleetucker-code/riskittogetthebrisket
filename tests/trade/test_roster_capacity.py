@@ -419,6 +419,66 @@ def test_removing_one_of_a_colliding_pair_removes_exactly_one_spot():
     assert capacity.size_after == 57  # one gone, one kept
 
 
+def test_an_outgoing_player_the_roster_does_not_hold_frees_no_spot():
+    """A name that was never there cannot free a spot.
+
+    ``size_after`` used to subtract ``len(outgoing)`` flat, while
+    ``_surviving_keys`` and the roster rebuild removed only what was actually
+    present — two definitions of the post-trade roster in one function,
+    disagreeing in the direction that HIDES pressure.  Reachable from
+    ``/api/angle/find``, which lets a user select any player on the BOARD.
+    """
+    roster = _roster(58)
+    contract, team = _contract(roster, extra_rows=_free_agents())
+    context = build_capacity_context(contract, None, team, roster_settings=MAIN_SETTINGS)
+
+    capacity = assess_roster_capacity(
+        context,
+        incoming_players=["Free Agent 00"],
+        outgoing_players=["Somebody Else Entirely"],
+    )
+    assert capacity.size_before == 58
+    assert capacity.outgoing == 1  # what was ASKED
+    assert capacity.outgoing_not_on_roster == 1  # what could not happen
+    assert capacity.size_after == 59  # not 58
+    assert capacity.over_limit_after == 1
+    assert len(capacity.forced_drops) == 1
+    assert any("free no spot" in n for n in capacity.notes)
+
+
+def test_a_partly_held_outgoing_multiset_frees_only_what_is_held():
+    """Multiplicity on the miss side too: two asked, one held, one freed."""
+    roster = _roster(58)
+    contract, team = _contract(roster, extra_rows=_free_agents())
+    context = build_capacity_context(contract, None, team, roster_settings=MAIN_SETTINGS)
+
+    capacity = assess_roster_capacity(
+        context,
+        incoming_players=[],
+        outgoing_players=["Player 00", "Player 00"],
+    )
+    assert capacity.outgoing == 2
+    assert capacity.outgoing_not_on_roster == 1
+    assert capacity.size_after == 57
+
+
+def test_an_outgoing_name_the_roster_holds_is_unaffected():
+    """The ordinary path must be byte-identical — this is not a new rule."""
+    roster = _roster(58)
+    contract, team = _contract(roster, extra_rows=_free_agents())
+    context = build_capacity_context(contract, None, team, roster_settings=MAIN_SETTINGS)
+
+    capacity = assess_roster_capacity(
+        context,
+        incoming_players=["Free Agent 00"],
+        outgoing_players=["Player 00"],
+    )
+    assert capacity.outgoing_not_on_roster == 0
+    assert capacity.size_after == 58
+    assert capacity.over_limit_after == 0
+    assert not any("free no spot" in n for n in capacity.notes)
+
+
 def test_an_unpriced_forced_drop_is_reported_not_counted_as_zero():
     roster = _roster(57)
     contract, team = _contract(

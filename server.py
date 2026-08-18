@@ -6949,19 +6949,14 @@ async def post_trade_suggestions(request: Request):
         # slots) does not depend on which trade is being scored.  Each
         # suggestion then reports what it would cost in forced releases;
         # nothing is filtered out on capacity grounds.
-        capacity_context = None
-        try:
-            from src.trade.roster_capacity import build_capacity_context
-
-            capacity_context = build_capacity_context(
-                contract,
-                getattr(league_cfg, "key", None),
-                {"players": list(roster)},
-                roster_settings=dict(getattr(league_cfg, "roster_settings", None) or {}),
-            )
-        except Exception as exc:  # noqa: BLE001
-            # Suggestions are the product; capacity is an annotation on them.
-            log.warning("roster capacity unavailable for /api/trade/suggestions: %s", exc)
+        # Suggestions are the product; capacity is an annotation on them, so a
+        # failure here degrades to no annotation rather than no suggestions.
+        capacity_context = _capacity_context_for(
+            contract,
+            league_cfg,
+            {"players": list(roster)},
+            surface="/api/trade/suggestions",
+        )
 
         return generate_suggestions_from_pool(
             roster_names=roster,
@@ -7071,23 +7066,12 @@ async def post_trade_finder(request: Request):
     # Roster capacity for the requesting team.  Built here rather than inside
     # the engine because it needs the league config, and reused across every
     # returned trade.  A failure here annotates nothing and breaks nothing.
-    finder_capacity_context = None
-    try:
-        from src.trade.roster_capacity import build_capacity_context as _build_capacity
-
-        my_team_block = next(
-            (t for t in sleeper_teams if t.get("name") == my_team),
-            None,
-        )
-        if my_team_block is not None:
-            finder_capacity_context = _build_capacity(
-                contract,
-                getattr(league_cfg, "key", None),
-                my_team_block,
-                roster_settings=dict(getattr(league_cfg, "roster_settings", None) or {}),
-            )
-    except Exception as exc:  # noqa: BLE001
-        log.warning("roster capacity unavailable for /api/trade/finder: %s", exc)
+    finder_capacity_context = _capacity_context_for(
+        contract,
+        league_cfg,
+        next((t for t in sleeper_teams if t.get("name") == my_team), None),
+        surface="/api/trade/finder",
+    )
 
     try:
         result = await run_in_threadpool(
@@ -7299,6 +7283,15 @@ async def post_angle_find(request: Request):
     contract, valuation_mode, valuation_note = await _valuation_scoped_contract(
         request, body, league_cfg
     )
+    # Roster capacity for the REQUESTING team.  Angle already knows which team
+    # is asking (``ownerId``), and each returned candidate reports what the
+    # swap would cost in forced releases.  Nothing is filtered on it.
+    angle_capacity_context = _capacity_context_for(
+        contract,
+        league_cfg,
+        _team_block_by_owner_id(sleeper_teams, owner_id),
+        surface="/api/angle/find",
+    )
     try:
         result = await run_in_threadpool(
             find_angles,
@@ -7310,6 +7303,7 @@ async def post_angle_find(request: Request):
             max_market_gain_pct=max_market,
             limit=limit,
             target_team_owner_id=target_team_owner_id,
+            capacity_context=angle_capacity_context,
         )
     except Exception as exc:  # noqa: BLE001
         log.error(f"Angle find failed: {exc}")
@@ -7459,6 +7453,15 @@ async def post_angle_packages(request: Request):
     )
     lens_rows = (contract or {}).get("playersArray") or players_array
 
+    # One context for both modes — the requesting team is the same either way,
+    # and only which SIDE it appears on changes.
+    angle_capacity_context = _capacity_context_for(
+        contract,
+        league_cfg,
+        _team_block_by_owner_id(sleeper_teams, owner_id),
+        surface="/api/angle/packages",
+    )
+
     if mode == "acquire":
         from src.trade.angle import find_acquisition_packages
 
@@ -7476,6 +7479,7 @@ async def post_angle_packages(request: Request):
                 positions=positions_req or None,
                 min_player_my_value=min_player,
                 include_idp=include_idp,
+                capacity_context=angle_capacity_context,
             )
         except Exception as exc:  # noqa: BLE001
             log.error(f"Angle acquire failed: {exc}")
@@ -7516,6 +7520,7 @@ async def post_angle_packages(request: Request):
             target_team_owner_ids=target_teams_req or None,
             seed_player_names=seeds_req or None,
             include_idp=include_idp,
+            capacity_context=angle_capacity_context,
         )
     except Exception as exc:  # noqa: BLE001
         log.error(f"Angle packages failed: {exc}")
@@ -7792,6 +7797,50 @@ def _stamp_valuation_mode(result: Any, mode: str, note: str | None) -> None:
             warnings.append(note)
         else:
             result["warnings"] = [note]
+
+
+def _capacity_context_for(
+    contract: dict | None,
+    league_cfg: Any,
+    team_block: dict | None,
+    *,
+    surface: str,
+) -> Any:
+    """Roster-capacity context for one team, or ``None`` with a log line.
+
+    ONE place, because capacity is an ANNOTATION on four different trade
+    products (suggestions, finder, angle offer, angle acquire) and a failure to
+    compute it must never take any of them down.  The canonical owner is
+    ``src/trade/roster_capacity``; this resolves the arguments and swallows
+    nothing else.
+    """
+
+    if team_block is None:
+        return None
+    try:
+        from src.trade.roster_capacity import build_capacity_context
+
+        return build_capacity_context(
+            contract,
+            getattr(league_cfg, "key", None),
+            team_block,
+            roster_settings=dict(getattr(league_cfg, "roster_settings", None) or {}),
+        )
+    except Exception as exc:  # noqa: BLE001
+        log.warning("roster capacity unavailable for %s: %s", surface, exc)
+        return None
+
+
+def _team_block_by_owner_id(sleeper_teams: list, owner_id: str) -> dict | None:
+    """The Sleeper team dict for one ``ownerId``, or ``None``."""
+
+    wanted = str(owner_id or "").strip()
+    if not wanted:
+        return None
+    for team in sleeper_teams or []:
+        if isinstance(team, dict) and str(team.get("ownerId") or "") == wanted:
+            return team
+    return None
 
 
 _KTC_TOTAL_PICKS = 72  # fill rookie data for all 6 rounds (12 teams × 6 rounds)

@@ -344,3 +344,255 @@ def test_finder_results_are_not_filtered_by_capacity():
         assert capacity["rosterLimit"] == ROSTER_SIZE
         assert capacity["sizeAfter"] == ROSTER_SIZE - len(trade["give"]) + len(trade["receive"])
         assert len(capacity["forcedDrops"]) == capacity["overLimitAfter"]
+
+
+# ── /api/angle/find + /api/angle/packages ────────────────────────────
+#
+# Angle is the surface where the forced-drop path is genuinely REACHABLE.
+# ``suggestions.py`` emits nothing that exceeds a cap (the test above records
+# that), and the finder needs its ``_generate_1for2`` shape.  Angle's offer mode
+# sizes the counter-package at ``{N-1, N, N+1}`` — so N+1 sends one fewer player
+# than it receives on EVERY size, on any roster, with no over-cap precondition.
+
+
+def _angle_rows(pool: list[PlayerAsset]) -> list[dict]:
+    """Angle's board rows: a my-value and a market value that differ.
+
+    Every other player is marked down 20% on the retail board, same reasoning
+    as ``_finder_inputs`` — with market == board there is no arbitrage in the
+    fixture and the search returns nothing.
+    """
+    rows = []
+    for i, asset in enumerate(pool):
+        market = asset.display_value if i % 2 else int(asset.display_value * 0.8)
+        rows.append(
+            {
+                "playerId": asset.name.lower().replace(" ", "_"),
+                "canonicalName": asset.name,
+                "displayName": asset.name,
+                "position": asset.position,
+                "rankDerivedValue": asset.display_value,
+                "canonicalSiteValues": {"ktc": market, "idpTradeCalc": market},
+            }
+        )
+    return rows
+
+
+@pytest.fixture()
+def angle_setup(full_roster_setup):
+    pool, roster, context = full_roster_setup
+    contract = _contract_for(pool, roster)
+    return pool, roster, context, _angle_rows(pool), contract["sleeper"]["teams"]
+
+
+def _cheapest_rostered(pool: list[PlayerAsset], roster: list[str]) -> str:
+    """The roster's LOWEST-valued player.
+
+    Angle only surfaces targets that beat the selected player on my-value, so
+    selecting the roster's best asset returns an empty list and proves nothing.
+    """
+    held = {a.name: a.display_value for a in pool if a.name in set(roster)}
+    return min(held, key=lambda n: held[n])
+
+
+def test_angle_find_is_not_filtered_by_capacity(angle_setup):
+    from src.trade.angle import find_angles
+
+    pool, roster, context, rows, teams = angle_setup
+    mine = _cheapest_rostered(pool, roster)
+
+    kwargs = dict(min_my_gain_pct=1.0, max_market_gain_pct=100.0)
+    without = find_angles(rows, mine, "owner-1", teams, **kwargs)
+    with_capacity = find_angles(rows, mine, "owner-1", teams, capacity_context=context, **kwargs)
+    assert without["candidates"], "fixture produced no angles — it proves nothing"
+    assert [c["name"] for c in without["candidates"]] == [
+        c["name"] for c in with_capacity["candidates"]
+    ]
+
+    for plain, annotated in zip(without["candidates"], with_capacity["candidates"]):
+        assert "rosterCapacity" not in plain
+        capacity = annotated["rosterCapacity"]
+        assert capacity["rosterLimit"] == ROSTER_SIZE
+        # 1-for-1 out of a roster that holds the selected player: size-neutral.
+        assert capacity["outgoing"] == 1
+        assert capacity["incoming"] == 1
+        assert capacity["sizeAfter"] == ROSTER_SIZE
+        assert capacity["overLimitAfter"] == 0
+        assert capacity["forcedDrops"] == []
+
+
+def test_angle_find_is_not_size_neutral_when_the_roster_lacks_the_player(angle_setup):
+    """The reason the block is attached per candidate rather than once.
+
+    Angle lets a user select any player on the BOARD, not only one they own, so
+    "trade away a player you do not hold" is reachable from the endpoint.  It
+    adds one and removes none.
+
+    This is also what caught a real inconsistency in the owner: ``size_after``
+    subtracted ``len(outgoing)`` flat while ``_surviving_keys`` and the roster
+    rebuild removed only what was actually there, so the ladder was built on one
+    roster and the drop count computed from another — in the direction that
+    HIDES pressure, reporting a freed spot that never existed.
+    """
+    from src.trade.angle import find_angles
+
+    pool, roster, _context, rows, teams = angle_setup
+    mine = _cheapest_rostered(pool, roster)
+    contract = _contract_for(pool, roster)
+    # Same league, but our team block is one player short of the name we trade.
+    team = dict(contract["sleeper"]["teams"][0])
+    team["players"] = [n for n in roster if n != mine]
+    context = build_capacity_context(contract, None, team, roster_settings=SETTINGS)
+
+    result = find_angles(
+        rows,
+        mine,
+        "owner-1",
+        teams,
+        min_my_gain_pct=1.0,
+        max_market_gain_pct=100.0,
+        capacity_context=context,
+    )
+    assert result["candidates"]
+    for candidate in result["candidates"]:
+        capacity = candidate["rosterCapacity"]
+        # The REQUEST still asked to send one player away...
+        assert capacity["outgoing"] == 1
+        # ...but the roster does not hold him, so no spot is freed and the
+        # discrepancy is published rather than corrected away.
+        assert capacity["outgoingNotOnRoster"] == 1
+        assert capacity["incoming"] == 1
+        assert capacity["sizeAfter"] == ROSTER_SIZE  # 33 held + 1 incoming
+        assert any("free no spot" in n for n in capacity["notes"])
+
+
+def test_angle_packages_offer_mode_is_not_filtered_by_capacity(angle_setup):
+    from src.trade.angle import find_angle_packages
+
+    pool, roster, context, rows, teams = angle_setup
+    offer = roster[:2]
+
+    kwargs = dict(min_my_gain_pct=1.0, max_market_gain_pct=50.0, include_idp=True)
+    without = find_angle_packages(rows, offer, "owner-1", teams, **kwargs)
+    with_capacity = find_angle_packages(
+        rows, offer, "owner-1", teams, capacity_context=context, **kwargs
+    )
+    assert without["candidates"], "fixture produced no counter-packages"
+    assert len(without["candidates"]) == len(with_capacity["candidates"])
+    assert [[p["name"] for p in c["players"]] for c in without["candidates"]] == [
+        [p["name"] for p in c["players"]] for c in with_capacity["candidates"]
+    ]
+
+    for plain, annotated in zip(without["candidates"], with_capacity["candidates"]):
+        assert "rosterCapacity" not in plain
+        capacity = annotated["rosterCapacity"]
+        assert capacity["outgoing"] == len(offer)
+        assert capacity["incoming"] == len(annotated["players"])
+        assert capacity["sizeAfter"] == ROSTER_SIZE - len(offer) + len(annotated["players"])
+
+
+def test_angle_packages_n_plus_one_reports_its_forced_drop(angle_setup):
+    """The reachable forced-drop shape, and the value it costs.
+
+    A size-N+1 counter-package into a roster at the cap is over by exactly one,
+    and the block must name the release rather than presenting the incoming
+    player as free.
+    """
+    from src.trade.angle import find_angle_packages
+
+    pool, roster, context, rows, teams = angle_setup
+    offer = roster[:2]
+    result = find_angle_packages(
+        rows,
+        offer,
+        "owner-1",
+        teams,
+        min_my_gain_pct=1.0,
+        max_market_gain_pct=50.0,
+        include_idp=True,
+        capacity_context=context,
+    )
+    over = [c for c in result["candidates"] if len(c["players"]) > len(offer)]
+    assert over, "fixture produced no N+1 counter-packages — the forced-drop path is untested"
+    for candidate in over:
+        capacity = candidate["rosterCapacity"]
+        excess = len(candidate["players"]) - len(offer)
+        assert capacity["overLimitAfter"] == excess
+        assert len(capacity["forcedDrops"]) == excess
+        assert capacity["forcedDropValue"] is not None
+        assert capacity["requiresDrops"] is True
+
+
+def test_angle_packages_acquire_mode_is_not_filtered_by_capacity(angle_setup):
+    from src.trade.angle import find_acquisition_packages
+
+    pool, roster, context, rows, teams = angle_setup
+    rostered = set(roster)
+    desired = [a.name for a in pool if a.name not in rostered][:2]
+    assert len(desired) == 2
+
+    kwargs = dict(min_my_gain_pct=1.0, max_market_gain_pct=50.0, include_idp=True)
+    without = find_acquisition_packages(rows, desired, "owner-1", teams, **kwargs)
+    with_capacity = find_acquisition_packages(
+        rows, desired, "owner-1", teams, capacity_context=context, **kwargs
+    )
+    assert without["candidates"], "fixture produced no acquisition packages"
+    assert len(without["candidates"]) == len(with_capacity["candidates"])
+
+    for plain, annotated in zip(without["candidates"], with_capacity["candidates"]):
+        assert "rosterCapacity" not in plain
+        capacity = annotated["rosterCapacity"]
+        # Mirror image: the DESIRED side comes in, the candidate goes out.
+        assert capacity["incoming"] == len(desired)
+        assert capacity["outgoing"] == len(annotated["players"])
+        assert capacity["sizeAfter"] == ROSTER_SIZE - len(annotated["players"]) + len(desired)
+
+
+def test_angle_without_a_context_carries_no_capacity_block(angle_setup):
+    """Silent-vanish, not a fabricated zero — same rule as suggestions."""
+    from src.trade.angle import find_acquisition_packages, find_angle_packages, find_angles
+
+    pool, roster, _context, rows, teams = angle_setup
+    rostered = set(roster)
+    desired = [a.name for a in pool if a.name not in rostered][:2]
+
+    a = find_angles(
+        rows,
+        _cheapest_rostered(pool, roster),
+        "owner-1",
+        teams,
+        min_my_gain_pct=1.0,
+        max_market_gain_pct=100.0,
+    )
+    b = find_angle_packages(
+        rows, roster[:2], "owner-1", teams, min_my_gain_pct=1.0, max_market_gain_pct=50.0
+    )
+    c = find_acquisition_packages(
+        rows, desired, "owner-1", teams, min_my_gain_pct=1.0, max_market_gain_pct=50.0
+    )
+    for result in (a, b, c):
+        for candidate in result["candidates"]:
+            assert "rosterCapacity" not in candidate
+
+
+def test_angle_picks_do_not_consume_a_roster_spot(angle_setup):
+    """A pick in a counter-package must not count against the cap.
+
+    Verified in the owner (``roster_capacity``) against the live league; pinned
+    here because Angle's pool CAN contain pick rows and the filtering happens in
+    the adapter this module hands the owner.
+    """
+    from src.trade.angle import _capacity_block
+
+    _pool_unused, _roster, context, _rows, _teams = angle_setup
+    block = _capacity_block(
+        context,
+        incoming=[
+            {"name": "2027 Round 1", "position": "PICK"},
+            {"name": "2027 Round 2", "position": "PICK"},
+        ],
+        outgoing=[],
+    )
+    assert block["incoming"] == 0
+    assert block["sizeAfter"] == ROSTER_SIZE
+    assert block["overLimitAfter"] == 0

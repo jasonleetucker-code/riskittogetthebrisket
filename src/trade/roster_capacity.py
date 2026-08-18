@@ -97,6 +97,7 @@ contract owner's surface, not this module's.  Recorded rather than reached for.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from collections import Counter
 from typing import Any, Iterable, Mapping, Sequence
 
 from src.draft.context import _index_contract_rows, _league_scarcity, _norm, build_roster_assets
@@ -253,6 +254,13 @@ class RosterCapacity:
     #: ``"exact"`` when active occupancy is known, ``"partial"`` when taxi
     #: membership is invisible and the answer is a range.
     certainty: str = "exact"
+    #: How many of the ``outgoing`` names the roster does NOT hold.  Normally
+    #: 0.  Reachable — Angle lets a user select any player on the BOARD, not
+    #: only one they own — and published rather than corrected away, because
+    #: "you cannot trade him, he is not yours" is the caller's answer to give,
+    #: not this module's to swallow.  The COUNTS below already exclude these,
+    #: so a name the roster never had cannot free a spot.
+    outgoing_not_on_roster: int = 0
     #: Bounds on ``over_limit_after``.  Equal to it when ``certainty`` is
     #: ``"exact"``.
     over_limit_after_min: int | None = None
@@ -306,6 +314,7 @@ class RosterCapacity:
             "sizeAfter": self.size_after,
             "incoming": self.incoming,
             "outgoing": self.outgoing,
+            "outgoingNotOnRoster": self.outgoing_not_on_roster,
             "openSpotsBefore": self.open_spots_before,
             "openSpotsAfter": self.open_spots_after,
             "overLimitBefore": self.over_limit_before,
@@ -509,6 +518,37 @@ def _resolve_incoming(
     )
 
 
+def _outgoing_held(
+    context: CapacityContext,
+    outgoing: Sequence[str],
+) -> tuple[int, list[str]]:
+    """How many outgoing names the roster actually holds, and which it does not.
+
+    Matched by MULTIPLICITY, the same rule ``_surviving_keys`` and the roster
+    rebuild use.  Before this existed ``size_after`` subtracted ``len(outgoing)``
+    flat while both of those removed only what was there, so the two definitions
+    of the post-trade roster disagreed whenever a caller named a player the
+    roster did not hold — and they disagreed in the direction that HIDES roster
+    pressure, reporting a spot freed that never existed.
+    """
+
+    held = Counter(_norm(n) for n in context.roster_player_names)
+    asked = Counter(_norm(n) for n in outgoing)
+    matched = sum(min(held[key], count) for key, count in asked.items())
+    # DISTINCT names for the note — asking to send the same player twice when
+    # the roster holds one copy is one shortfall, not two names.  The COUNT is
+    # ``len(outgoing) - matched``, which is what the caller publishes.
+    short = {key for key, count in asked.items() if count > held[key]}
+    seen: set[str] = set()
+    absent: list[str] = []
+    for name in outgoing:
+        key = _norm(name)
+        if key in short and key not in seen:
+            seen.add(key)
+            absent.append(name)
+    return matched, absent
+
+
 def _surviving_keys(
     context: CapacityContext,
     incoming: Sequence[str],
@@ -551,7 +591,14 @@ def assess_roster_capacity(
     notes = list(context.notes)
 
     size_before = len(context.roster_player_names)
-    size_after = size_before - len(outgoing) + len(incoming)
+    held_out, absent_out = _outgoing_held(context, outgoing)
+    size_after = size_before - held_out + len(incoming)
+    unheld_out = len(outgoing) - held_out
+    if unheld_out:
+        notes.append(
+            f"{unheld_out} outgoing player(s) are not on this roster and free no "
+            f"spot: {', '.join(absent_out[:5])}" + (" …" if len(absent_out) > 5 else "")
+        )
 
     limit = context.roster_limit
     if limit is None:
@@ -567,6 +614,7 @@ def assess_roster_capacity(
             over_limit_before=None,
             over_limit_after=None,
             certainty="partial",
+            outgoing_not_on_roster=unheld_out,
             notes=notes,
         )
 
@@ -616,6 +664,7 @@ def assess_roster_capacity(
             over_limit_before=over_before,
             over_limit_after=0,
             certainty="exact",
+            outgoing_not_on_roster=unheld_out,
             over_limit_after_min=0,
             over_limit_after_max=0,
             taxi_occupied_min=taxi_lo,
@@ -697,6 +746,7 @@ def assess_roster_capacity(
         over_limit_before=over_before,
         over_limit_after=over_after,
         certainty=certainty,
+        outgoing_not_on_roster=unheld_out,
         over_limit_after_min=over_after_min,
         over_limit_after_max=over_after_max,
         taxi_occupied_min=taxi_lo,
