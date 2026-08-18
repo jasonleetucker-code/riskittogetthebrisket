@@ -495,7 +495,9 @@ class TestPartialHorizonPublication(unittest.TestCase):
             f"expected the NEAREST priced earlier future year as basis, got {prov}",
         )
         cfg = _load_pick_year_discount()
-        expected = int(round(priced[_tier_name(current + 2, tier, rnd)] * _year_step_for(tier, rnd, cfg)))
+        expected = int(
+            round(priced[_tier_name(current + 2, tier, rnd)] * _year_step_for(tier, rnd, cfg))
+        )
         self.assertEqual(_value(rows, target), expected)
 
     def test_provenance_is_never_stamped_on_an_unpriced_row(self):
