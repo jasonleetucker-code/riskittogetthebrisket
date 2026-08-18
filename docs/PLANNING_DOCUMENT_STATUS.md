@@ -103,6 +103,13 @@ intent in the repository and win over anything older they contradict.
 - `docs/perfect-draft.md`
 
 ### Roster intelligence
+- `docs/OWNER_FEATURE_ADDENDUM_2026-08-18_FLEX_STARTER_ASSIGNMENT.md` — **binding, issue #899, owner decision
+  2026-08-18.** FLEX is an ASSIGNMENT RULE deciding which players enter the meaningful-roster value pool, not a
+  separate sortable Team Strength position. Supersedes the older "multiplied dedicated cores first, FLEX from the
+  leftovers" wording: actual starter assignment (dedicated → FLEX → SF → IDP FLEX) comes first, reserve/depth
+  demand second, and every player counts at most once. Reconciled into the Master Product Plan, the Owner
+  Requested TODO and its spec index, the Feature Inventory, the Scope Manifest, the Zero-Loss Traceability record,
+  the directive reconciliation and the Execution Plan, as the addendum itself requires
 - `docs/OWNER_FEATURE_ADDENDUM_2026-08-14_AGE_VALUE_PORTFOLIO.md` — **binding, issue #838, owner decision
   2026-08-14.** Roster Age-Value Portfolio and the Young Core Index. Reconciled into the Master Product Plan,
   the Feature Inventory, the Product Backlog Spec and the Scope Manifest (`C2-AGE-01`…`C2-AGE-03`,

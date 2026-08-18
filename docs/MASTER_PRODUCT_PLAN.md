@@ -187,6 +187,41 @@ Owner-approved initial roster-value groups:
 > decision rather than a calibration recommendation:
 > `docs/C_SERIES_DIRECTIVE_RECONCILIATION_2026-08-17.md` §4.1.
 
+> **AMENDED 2026-08-18 by owner addendum #899 — ordering, not magnitude.** #839's selector above
+> fills FLEX *"after the dedicated cores"*. That ordering is superseded. **FLEX is an assignment
+> rule that decides which players enter the meaningful-roster value pool; it is not a separate
+> sortable Team Strength position.**
+>
+> The canonical order is **actual starter assignment first, reserve/depth second**:
+>
+> 1. solve the **actual starting lineup** from real league configuration — dedicated QB/RB/WR/TE
+>    slots, ordinary offensive FLEX, Superflex, and IDP/IDP FLEX where present;
+> 2. assign dedicated starters to dedicated slots;
+> 3. fill each **actual FLEX starter slot from the highest-valued remaining legally eligible
+>    players** (if RB3 and WR4 are the two best remaining in a 2-FLEX league, they are FLEX
+>    starters — **not** positional depth);
+> 4. **remove every actual starter, FLEX starters included**, from the remaining pools;
+> 5. only then apply the multiplier to **reserve** demand.
+>
+> Reserve demand per dedicated position is `ceil(M × dedicated starter slots) − dedicated starter
+> slots`; FLEX reserve demand is `ceil(M × actual FLEX starter slots) − actual FLEX starter
+> slots`, selected globally from the highest-valued remaining legally eligible players **after**
+> dedicated and FLEX starters are removed. `M` remains the **1.5× V1 champion/PRIOR** and keeps
+> the §4.3 challenger pass — this amendment changes *when* players leave the pool, not the
+> multiplier.
+>
+> **Every player counts at most once** across dedicated starter, FLEX starter, dedicated reserve
+> and FLEX reserve. Superflex stays separate from ordinary RB/WR/TE FLEX; IDP FLEX behaves
+> analogously with its own eligibility pool. Implement by reusing the canonical exact
+> lineup/assignment machinery (`src/ros/lineup.py`), **never** independent per-position greedy
+> lists, which can double-count.
+>
+> **No FLEX column is required.** Sortable position groups stay QB / RB / WR / TE / DL / LB / DB.
+>
+> Canonical record: `docs/OWNER_FEATURE_ADDENDUM_2026-08-18_FLEX_STARTER_ASSIGNMENT.md` (issue
+> #899). Tracking/specification only while the audit freeze is active — it does not by itself
+> authorize forward C2 implementation.
+
 Use canonical league-adjusted player values and the league's real positional model. Team Strength is dynasty roster strength; it is **not** Power Ranking, Playoff Odds, or ROS production.
 
 **Method status:** product definition approved; implementation must prove/consolidate competing existing strength notions before becoming canonical.

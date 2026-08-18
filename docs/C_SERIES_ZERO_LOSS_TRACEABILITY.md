@@ -358,7 +358,7 @@ planning documents would miss entirely.
 | 7 pick representations, no end-to-end id | `C1-ID-02` | IMPLEMENT |
 | 6 lineup implementations, 2 serving production (measured at HEAD: **3**, all 3 serving production) | `C2-LINE-01` | CONSOLIDATE — done, C2-U1 |
 | 5 replacement-level implementations | `C2-REPL-01` | CONSOLIDATE |
-| 4 competing Team Strength notions | `C2-STR-01` | IMPLEMENT |
+| 4 competing Team Strength notions | `C2-STR-01` | IMPLEMENT — FLEX starter-assignment ordering bound by owner addendum **#899** (2026-08-18), mirrored to `C2-CORE-01`, inventory 1.7, T-NEW-19, decision 72 |
 | ≥5 need definitions, one contradicting the lineup solve | `C2-WEAK-01` | IMPLEMENT |
 | 4 package generators, no shared engine | `C3-PKG-01` | CONSOLIDATE |
 | 5 Value Adjustment implementations, one installed by import-time monkeypatch, rounding divergence | `C3-VA-01` | CONSOLIDATE |
