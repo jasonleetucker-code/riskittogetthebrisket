@@ -158,16 +158,33 @@ executed**. Each requires an authenticated production session. Recorded honestly
 `docs/EXECUTION_PLAN.md` §0.3 as `IN PRODUCTION, CHECKLIST UNEXECUTED` — the deploy landing is
 the precondition, not the proof.
 
-**Owner decision, 2026-08-18: run what is reachable, mark the rest `BLOCKED-EXTERNAL`.** The
-five checklists are therefore carried as explicitly unverified into the verdict. They are not
-counted as passes, and the reserved completion phrase stays unclaimed.
+**Owner decision, 2026-08-18, recorded verbatim in substance:**
 
-Also outstanding on production, because it cannot be measured here:
+> Run everything reachable from this environment. Do not request or accept my permanent
+> production credentials. Mark only the authenticated production checks as
+> `BLOCKED-EXTERNAL` / `PENDING-PROD` and keep the affected units `CLOSED-PENDING-PROD`.
+> This is not a manufactured pass and does not satisfy final production closure. Finish the
+> remainder of the audit, then identify exactly what authenticated production verification
+> remains so it can be completed separately through a safe access method.
 
-* the `canonical_board` lane of the temporal ledger (an archive-only backfill populates
-  `scraper_blend` and `source_value`; the canonical lane comes from live recording);
-* `rankChange`, which is correctly `null` on all 1,109 rows offline for want of a ledger
-  comparator.
+Three consequences, stated so they cannot be softened later:
+
+1. **No production credentials were requested, offered or used.** Everything measured in this
+   audit was measured from the development environment against the repository, a locally
+   built contract, a locally built temporal ledger and a locally booted stack.
+2. **The five units stay `CLOSED-PENDING-PROD`.** Completing this audit does not advance them.
+   `docs/EXECUTION_PLAN.md` §0.2 is unchanged: a unit becomes `CLOSED` only when its
+   production verification succeeds against the deployed merge SHA, and the reserved
+   completion phrase in `docs/C_SERIES_REPLAN_AND_COMPLETION_CONTRACT.md` §15 stays unclaimed.
+3. **This audit's verdict is not production closure and must not be cited as one.** It is a
+   verdict on what is reachable. §6 enumerates exactly what remains.
+
+Outstanding on production because it cannot be measured here at all:
+
+* the `canonical_board` lane of the temporal ledger — an archive-only backfill populates
+  `scraper_blend` and `source_value`, while the canonical lane comes from live recording at
+  the fresh-scrape site in `server.py`;
+* `rankChange`, correctly `null` on all 1,109 rows offline for want of a ledger comparator.
 
 ### F-5 · `value_as_of` raises a raw `strptime` error on an ISO datetime string · CONFIRMED · minor
 
@@ -224,6 +241,29 @@ pointing at a branch that **no longer exists on the remote**.
 | §25 league boundary | `/api/leagues` leaks no Sleeper IDs. `dynasty_new` is **refused** rather than served `dynasty_main`'s board. An unknown key 400s `unknown_league`. |
 | missing≠zero | `pickValueProvenance`, `confidenceBasis`, `rankChange`, `marketGapValueRatio` — every one uses `null` for missing, **zero occurrences of 0-as-missing**. |
 | governance gates | `check_planning_integrity` (11 invariants), `check_product_plan_governance`, `audit_status` ("no drift: every recorded status matches its probe"), `tests/docs` all clean. |
+
+---
+
+## 6. What authenticated production verification remains
+
+Enumerated so it can be completed separately, through whatever access method is safe, by
+someone who already holds the credentials. **None of this requires handing credentials to an
+agent** — each item is a check a human or a scheduled job on the box can run and record.
+
+| # | check | where it is specified | why it cannot be done here |
+|---|---|---|---|
+| P-1 | `C0-R` production checklist | `docs/C_SERIES_DIRECTIVE_RECONCILIATION_2026-08-17.md` §7 | needs an authenticated session against the deployed SHA |
+| P-2 | `C1-U5` — every priced row on the LIVE board carries a valid `confidenceBasis` | `docs/confidence/C1_U5_CONFIDENCE_NAMING.md` §6 | the live board is not this board |
+| P-3 | `C1-U8` — acquisition ledger populated by real production transactions | `docs/acquisition/C1_U8_ACQUISITION_LEDGER.md` §8 | the ledger is gitignored and lives on the box |
+| P-4 | `C1-U9` — source archive receiving real paired variants per scrape cycle | `docs/sources/C1_U9_MULTI_FORMAT_SOURCE_ARCHIVE.md` §7 | requires observed scrape cycles |
+| P-5 | `C2-U1` — `optimalLineup` survives the LIVE Sleeper overlay splice on the normal path | `docs/lineup/C2_U1_CANONICAL_LINEUP.md` §10 step 3a | the defect it exists for only appears when Sleeper is UP |
+| P-6 | temporal ledger `canonical_board` lane is being recorded | `docs/history/C1_U4_TEMPORAL_LEDGER.md` | populated only by live post-scrape recording |
+| P-7 | `rankChange` resolves against a real prior board date | same | needs ≥2 recorded canonical board dates |
+| P-8 | §7 cross-surface value parity on real production (API vs desktop vs mobile vs trade vs profile) | audit directive §7 | needs an authenticated production session |
+
+A safe method for each: run the check **on the box** (or in the existing scheduled-job
+context) and paste the output back. Nothing in this list needs an interactive credential
+handoff.
 
 ---
 
