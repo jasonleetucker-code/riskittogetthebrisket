@@ -298,6 +298,50 @@ Routine merges satisfying the frozen contract and the gates above need no approv
 
 ---
 
+## 0.4b Rank-digest retention (#804) — CAPTURE AUTHORIZED, methodology stays POST-V1
+
+**Decision, 2026-08-18, Integration Authority.** Lane 4 asked whether longitudinal per-source
+rank capture can begin now, since the evidence is perishable: an observation not made today
+cannot be reconstructed later, and the correlation question it exists to answer needs a time
+series nobody is currently keeping.
+
+**Authorized — capture only.** This does not need an owner decision, because it decides no
+product question. It is explicitly classified **post-V1**, enters no V1 row and moves no
+denominator; the owner has already ruled that a lane with its V1 queue exhausted may continue
+into classified post-V1 work.
+
+**Conditions, and the first is the one that matters:**
+
+1. **It goes through `src/history`, the canonical temporal-history owner — never a parallel
+   store.** CLAUDE.md already forbids new consumers interpreting `rank_history.jsonl` and
+   friends directly, and a second time-series store would be a second owner of "what was true
+   when". A **new named lane** beside `canonical_board` / `source_value` / `scraper_blend`
+   (`VALID_LANES` is a closed set and must be extended deliberately) — **not** an overload of
+   `source_value`, which is vendor-published *values*; a rank is a different quantity and the
+   lane split exists to keep quantities honest.
+2. Append-only, `HISTORY_FLOOR` respected, the never-future guarantee preserved, `observed_at`
+   tz-aware per `F-28`.
+3. **No consumer, no weighting, no downweighting, no canonical-value movement.** Prove it, do
+   not assert it: `board_diff --expect-no-value-change` before/after with code as the only
+   variable.
+4. **Measure the growth before it runs unbounded on production.** Rows per build × builds per
+   day, and the resulting ledger size, reported in the PR. This is the one part with real
+   production risk, and measuring it converts that risk into a number rather than deferring the
+   whole unit.
+5. Enough provenance to later test whether observed source correlations persist — source key,
+   observed instant, board/scrape identity — because a capture that cannot answer the question
+   it was taken for is just storage.
+
+**What stays post-V1 and unauthorized:** any use of the captured series. No correlation
+re-weighting, no automatic downweighting, no change to `B10` family assignment or the confidence
+gate. Capture now, decide later, and the decision is a separate authorized unit with its own
+evidence gate.
+
+**Central Buy/Sell reconciliation stays post-V1**, unchanged, unless the frozen contract is
+deliberately amended.
+
+---
+
 ## 0.4 V1 six-lane integration order — MEASURED 2026-08-18
 
 **The Integration Authority lane decides the integrated representation of shared files. A lane
