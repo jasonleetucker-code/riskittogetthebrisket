@@ -171,6 +171,32 @@ next question.
 treat the readiness race as its own unit. A signal nobody reads is not a signal — and one that
 lies when read is worse.
 
+**RE-MEASURED 2026-08-18, on CI rather than locally.** Batch G merged and #893 was rebased onto
+it, so the suite was re-run on a current base. Measured on run `32120428479`:
+
+```
+1 failed   journey-settings-overrides.spec.js:45 › toggling a source fires the overrides request
+1 flaky    journey-rankings.spec.js:28        › board loads with real rows and clean values
+152 passed (was 148), 52 skipped, 5.2m
+```
+
+So the count improved from **5 failures to 1 failure + 1 flaky**, which is batch G's two repairs
+landing plus the rebase. Two things this corrects in the entry above:
+
+* the earlier "three flaky under parallel load" figure was taken from a **local** run on a stale
+  base; on CI at a current base it is **one** flaky (`journey-rankings`, the board-readiness
+  race) — the same class, a smaller population;
+* **`journey-settings-overrides` is a hard failure, not flakiness.** It exercises the rankings
+  **override** path (`POST /api/rankings/overrides`), which is a canonical serving path, so it is
+  carried as an open audit item rather than absorbed into F-3's "readiness race" framing.
+
+The run exits non-zero partly *because* the repo sets `failOnFlakyTests` — a retried green is
+deliberately not accepted, and the banner explains why (without it, `e2e.yml`'s close step would
+drain every open `e2e-failures` issue). That is correct policy and is not itself a defect.
+
+**Open:** `F-3a` — diagnose `journey-settings-overrides`; **`F-3b`** — the `journey-rankings`
+board-readiness race. Neither is caused by #893, which changes only the diagnostic helper.
+
 ### F-4 · Production proof outstanding for five units · BLOCKED-EXTERNAL
 
 `C0-R`, `C1-U5`, `C1-U8`, `C1-U9` and `C2-U1` are all `CLOSED-PENDING-PROD`. Their code is in
