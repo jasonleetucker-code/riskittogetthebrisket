@@ -541,6 +541,102 @@ measurement, not on the guess that led to it.
 
 ---
 
+### F-10 · The board's only retail anchor is watched by nothing · CONFIRMED · source integrity · **REPAIRED 2026-08-18**
+
+`ktcSfTep` is the single most load-bearing offense input the pipeline has. It is the only
+`is_retail` source in `_RANKING_SOURCES`; it is the TE basis the whole board is anchored on, so
+every non-TEP TE row is *converted onto* it (ADR-015); it is half the pick anchor set
+(`pick_anchor = cross_market | {"ktcSfTep"}`); and it is the head of the `ktc` correlation group.
+
+Nothing watched it. Measured on the 2026-08-18 board by removing KTC's TE++ sub-board entirely
+while leaving the base `ktc` CSV intact:
+
+| gate | verdict on a board with no retail anchor |
+|---|---|
+| `validate_api_data_contract` → `sourceHealthErrors` | **`[]`** — no floor is configured for `ktcSfTep` |
+| `validate_api_data_contract` → `ok` | **`True`** (`status: degraded`) |
+| `coverageAudit.offense` | **`deficitPlayers: 0`, `missingBySite: {}`** |
+| structural lane | one error: `confidence_basis_contradicts_value:Travis Hunter` |
+
+**Board movement under that silence: 444 of 468 comparable offense rows, median |Δ| 804, p90 3907,
+max 8405** (Joe Royer 1592 → 9997, Malik Benson 1347 → 9695, Nate Boerkircher 1714 → 9998). Both CI
+lanes pass and Deploy Production ships it.
+
+The one thing that reddened the live-board mutation was **incidental**: the two-way boost lost its
+offense input for Travis Hunter, producing a structural self-consistency error naming one player.
+Removing that single player from the same mutant restores `ok: True`. A coincidence is not a guard,
+and the diagnosis it offers points at the wrong thing entirely.
+
+**Why the anchor was pointed at the wrong board.** `coverageAudit.expectedSites.offense` names
+`ktc` — which is *not a blend voter*. `_RANKING_SOURCES` says so explicitly: the standard `ktc` CSV
+was dropped from the blend on **2026-04-28** as a KTC double-count and `ktcSfTep` was promoted to
+the canonical retail source. Every offense health gate stayed pointed at the retired spelling —
+**three of them**, for 112 days:
+
+| gate | watched | should watch |
+|---|---|---|
+| `config/weights/source_row_floors.json` | `ktc: 400` | + `ktcSfTep` |
+| `config/weights/top50_coverage_floors.json` `offense` | `ktc: 48` | + `ktcSfTep` |
+| `Dynasty Scraper.py::TOP_OFF_EXPECTED_SITE_KEYS` → `coverageAudit.expectedSites.offense` | `("ktc",)` | see S-2 below |
+
+`ktc` is nevertheless **not** dead weight, and this document should not imply it: measured on the
+2026-08-18 board it covers the 501 rows `ktcSfTep` covers **plus 60 pick rows `ktcSfTep` does not
+cover at all**, and both `src/trade/finder.py` and `src/bdvm/market.py` resolve
+`("ktcSfTep", "ktc")` in that order — so on those 60 picks `ktc` is the only KTC market answer
+either engine has. Retiring it from the *blend* was right; it is still a consumed input. The defect
+is that the guards watched the non-voter **instead of**, not **as well as**, the voter.
+
+The failure mode is not hypothetical. `_ktc_extract_tep`'s own docstring records it: a KTC payload
+shape change makes the extractor return `None` for every row while base SF values parse fine — the
+earlier version "crashed on `int(float({}))` and silently skipped — **leaving ktcSfTep.csv empty**".
+
+**It is nevertheless a latent hole, not a shipped board, and this document says so.** Scanning
+every committed export archive in the window, exactly one carries zero `ktcSfTep` rows
+(`dynasty_export_20260816_190904`), and that one was a **whole-KTC timeout**
+(`sourceRunSummary.timedOut: ["KTC"]`, `sites` playerCount 0) which the existing guards *did* catch
+— `coverageAudit.offense` reported `deficitPlayers: 300`. It is the 2026-08-16 incident, not this
+one. No committed archive shows a board published with the asymmetric failure.
+
+**REPAIRED**, at both ends, because they guard different moments:
+
+* **contract floor** — `_DEFAULT_SOURCE_ROW_FLOORS["ktcSfTep"] = 400`, so the condition becomes
+  `source_missing:ktcSfTep`, which is already a `_SOURCE_HEALTH_ERROR_KINDS` prefix. That puts it
+  in the **correct lane**: the FULL lane blocks the deploy without the structural lane turning
+  every open PR red — the split `docs/ops/STABILIZATION_2026-08-16.md` established, used as
+  designed.
+* **top-50 coverage floor** — `top50_coverage_floors.json` `offense.ktcSfTep = 48`, catching the
+  other failure: a board that still returns enough rows to clear the row floor but has stopped
+  covering the premium tier. Live coverage is 50/50, so 48 is the same baseline-minus-5% this file
+  already applies to `ktc`.
+* **scraper floor** — `_KTC_TEP_SITE_RAW_FLOOR = 400` wired into `Dynasty Scraper.py`'s
+  `_site_raw_floors`, so a degraded map SKIPS the write and the restore-previous pass preserves
+  last-good. The contract floor only reports a board that already arrived empty; this one stops
+  the empty board overwriting the good one.
+
+`tests/api/test_source_floor_invariant.py` demanded the second half — adding the contract floor
+alone made it fail with *"ktcSfTep: no internal scraper floor found, but not in
+`_KNOWN_FLOOR_GAPS`"*. That allowlist carries an explicit instruction to **fix the scraper rather
+than allowlist the gap**, and it is still empty.
+
+**400 is not an invented number.** It is ~80% of the 501-row live baseline (this file's own stated
+floor policy) *and* the floor already carried by `ktc` — the twin board produced from the same KTC
+API response, with an identical 501-row count.
+
+**Mutation-proven both ways.** Removing the contract floor reddens 7 of 9 assertions including the
+behavioural one; un-wiring the scraper dict while leaving the constant defined reddens the two
+wiring assertions, which read the `_site_raw_floors` dict literal from the **AST** rather than a
+constant name or a comment. Pinned by `tests/api/test_retail_anchor_row_floor.py` (13).
+
+**What this does NOT close, named rather than implied.** The scrape-promotion gate
+`server.py::_missing_expected_sites` still watches `ktc`, because `ktcSfTep` never reaches
+`raw.sites` at all: `KTC_TEP` is a sub-product held in `FULL_DATA`, not a member of `active_sites`,
+so `sites_meta` never emits it and `_reported_rows` could not find it if `expectedSites` named it.
+That is census item **S-2** — scraper-run names do not round-trip onto registry keys, and a
+run-level "complete" does not decompose into which boards arrived — and F-10 is S-2 seen from the
+consequence end.
+
+---
+
 ## 2. Repairs made during the audit
 
 Each is a repair-only PR: exact-head CI, mutation-proven where structural, merged on green.

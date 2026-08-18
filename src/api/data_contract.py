@@ -774,6 +774,27 @@ _SOURCE_MAX_AGE_HOURS: dict[str, int] = {
 # source with zero non-zero values is a hard error (``source_missing``).
 _DEFAULT_SOURCE_ROW_FLOORS: dict[str, int] = {
     "ktc": 400,
+    # ``ktcSfTep`` — KTC's SF/TE++ sub-board, and the single most
+    # load-bearing offense input on the board: the only ``is_retail``
+    # source, the TE basis every non-TEP TE row is converted ONTO
+    # (ADR-015), half the pick anchor set, and the head of the ``ktc``
+    # correlation group.  It had NO floor until audit finding F-10
+    # (2026-08-18), so it could fall to zero rows in total silence.
+    #
+    # Measured, with the TE++ board removed and the base ``ktc`` CSV left
+    # intact — the exact failure ``_ktc_extract_tep``'s docstring records
+    # (a KTC payload shape change makes the extractor return ``None`` and
+    # write an empty ktcSfTep.csv, while ktc.csv is fine): the contract
+    # validated ``ok=True``, ``sourceHealthErrors=[]``, coverageAudit
+    # reported zero deficits — and 444 of 468 comparable offense rows
+    # moved, median |Δ| 804, max 8405.  Both CI lanes passed.
+    #
+    # 400 is not a new number: it is ~80% of the 501-row live baseline
+    # (this file's stated policy) AND the floor already carried by
+    # ``ktc``, the twin board produced from the same KTC API payload with
+    # an identical 501-row count.  Guarding the voting board more loosely
+    # than the display-only one is what created the gap.
+    "ktcSfTep": 400,
     "idpTradeCalc": 700,
     "dlfIdp": 150,
     "dlfSf": 240,

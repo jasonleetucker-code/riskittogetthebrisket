@@ -619,6 +619,27 @@ FULL_DATA = {}
 # on a clean checkout.  Below its floor we SKIP the write so the
 # "restore previous site_raw" pass keeps the prior good CSV.
 _KTC_SITE_RAW_FLOOR: int = 400
+#: ``ktcSfTep`` — KTC's SF/TE++ sub-board, plucked from the SAME per-player
+#: API payload as ``ktc`` (``superflexValues.tepp``) by
+#: ``_ktc_extract_tep``.  It is the only ``is_retail`` blend source, the TE
+#: basis every non-TEP TE row is converted onto, and half the pick anchor
+#: set — so it needs the floor MORE than its display-only twin, and had
+#: none until audit finding F-10 (2026-08-18).
+#:
+#: The asymmetric failure is the one this guards and the one the extractor
+#: has actually had: a KTC payload shape change makes ``_ktc_extract_tep``
+#: return ``None`` for every row while the base SF values parse fine, so
+#: ``ktc.csv`` is written healthy and ``ktcSfTep.csv`` is overwritten
+#: empty.  Its own docstring records that happening ("later code crashed
+#: on ``int(float({}))`` and silently skipped — leaving ktcSfTep.csv
+#: empty").  Below the floor we now SKIP the write, and the
+#: restore-previous pass preserves last-good.
+#:
+#: 400 == ``_KTC_SITE_RAW_FLOOR`` == the contract floor, and the two CSVs
+#: carry identical row counts (501/501 on 2026-08-18) because one KTC
+#: response produces both.  Guarding the voting board more loosely than
+#: the display-only one is what created the gap.
+_KTC_TEP_SITE_RAW_FLOOR: int = 400
 _IDPTC_SITE_RAW_FLOOR: int = 700
 DLF_IMPORT_DEBUG = {}
 
@@ -6626,6 +6647,7 @@ async def run(progress_callback=None):
         _fresh_site_raw: set[str] = set()
         _site_raw_floors = {
             "ktc": _KTC_SITE_RAW_FLOOR,
+            "ktcSfTep": _KTC_TEP_SITE_RAW_FLOOR,
             "idpTradeCalc": _IDPTC_SITE_RAW_FLOOR,
         }
         for scraper_name, full_map in FULL_DATA.items():
