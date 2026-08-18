@@ -93,10 +93,11 @@ C2-U1 retired from `lineup.py`, reintroduced at the adapter, where it hands the
 solver a real, assignable, worthless player instead of an unpriced one. Missing
 is now `None`; an explicit `0` still passes through as the real value it is.
 
-**Measured before changing:** on the live path this is a no-op, because
-`ros/team_strength.py:123` already drops rows with `rosValue <= 0` before
-writing the snapshot these adapters read. See §8 — the limitation this creates
-is named rather than papered over.
+**Measured before changing:** at the time, this was a no-op on the live path,
+because `ros/team_strength.py:123` drops rows with `rosValue <= 0` before
+writing the snapshot these adapters then read. That lossy hop is no longer on
+the roster-intelligence path at all — see §8 — so the adapter's honest-missing
+behaviour is now reachable rather than theoretical.
 
 ---
 
@@ -239,29 +240,102 @@ against real league examples first, and that has not run.
   an HTTP caller get identical numbers by construction. League-scoped through
   the standard `_resolve_league_for_request` gate; 503s `data_not_ready` on a
   foreign-league contract, matching `/api/gameplan`, `/api/terminal` and
-  `/api/trade/*`. Reuses `gameplan.get_league_bundle`, so it shares that
-  surface's source-stamped cache rather than loading the league twice.
+  `/api/trade/*`. Rosters come from `data_contract.contract_roster_pools` — see
+  §8.
 - **UI** — none from this lane. Claude 6 owns the frontend.
 
 ---
 
-## 8. Known limitations
+## 8. The roster source, and the two defects it fixed
 
-1. **`unpricedIds` is empty by construction on the HTTP path.**
-   `ros/team_strength.py` drops rows with `rosValue <= 0` before writing the
-   snapshot the loader reads, so unpriced players never arrive. The core's
-   honest-missing reporting is correct and *unreachable* on that path. Stamped
-   as `rosterSource` + `unpricedVisibility` in the payload. Repairing it means
-   changing the ROS snapshot writer — another lane's owner, and not attempted
-   here.
-2. **`M = 1.5` and the weakness severity bands are PRIORS.** Both labelled;
+Rosters come from **the canonical contract**, via
+`data_contract.contract_roster_pools` — `sleeper.teams[].players` for
+membership, `rankDerivedValue` for value. They previously came from the ROS
+team-strength snapshot, which was wrong in two independent ways:
+
+| defect | consequence |
+|---|---|
+| `rosValue` is "a normalized log-rank index on 0-100 — not points, and not projection-aware" (`src/ros/aggregate.py`) | Team Strength summed a **rest-of-season production** measure while claiming canonical dynasty value. §4.1 says Team Strength "is not Power Ranking, Playoff Odds, or ROS production" |
+| `ros/team_strength.py` skips every row with `rosValue <= 0` when writing | unpriced roster membership was **deleted before any consumer saw it**, so `unpricedIds` was structurally empty and missing-is-never-zero was unenforceable downstream |
+
+Not a second loader: `stamp_optimal_lineups` already built exactly this pool
+and was its only builder. That block is now `contract_roster_pools` and both
+call it, so the lineup stamp and the roster chain cannot disagree.
+
+A third consequence: the endpoint no longer needs the ROS refresh to have run.
+
+**Measured**, newest complete archived scrape, 12 teams: **83 of 660 rostered
+players (12.6%) carry no canonical value**, all now reported. An earlier board
+the same day showed 49 — the figure moves with scrape health, which is exactly
+the signal that was previously invisible.
+
+## 9. Young Core validation (#838 §5)
+
+`scripts/validate_young_core.py` runs the canonical chain over a real board and
+asserts four properties. Exit `0` pass · `1` fail · `2` no board (distinct,
+because "no data" must never read as "passed"). Result on the newest complete
+scrape:
+
+| property | evidence |
+|---|---|
+| cheap young bench cannot game the index | +20 minimum-value 21-year-olds on the weakest roster → core age Δ **0.0000**, YCI Δ **0.0000**. They never enter the meaningful core |
+| core selection matches league config | 21 slots + reserve demand 12 ⇒ ceiling 33; every team's `core + unfilled == 33`, zero duplicates. Demand `{QB 1, RB 1, WR 2, TE 1, FLEX 1, DL 2, LB 2, DB 2}` — QB 1 because SF folds in |
+| age never alters canonical value | +5 years on every player → Team Strength changed on **0 of 12** teams; core age moved by exactly **+5.00** on 12/12 |
+| ranks are credible | strength ranks a clean 1..12; YCI spans 0.0–100.0; **15 of 66** strength/YCI pair inversions, so youth is a genuinely separate axis and not a restatement of strength |
+
+Hand-checked examples that make the index legible: **Jason** is 1st in strength
+*and* youngest (24.42) with YCI 100. **Brent** is 2nd in strength but YCI 9.1 at
+26.52 — strong and old, which is the discrimination the index exists to make.
+**Kich** is 10th, oldest (28.44), YCI 0.0, and carries the most unpriced players
+(17) — an old, thin roster reading as one.
+
+This validates **behaviour, not calibration**. The 0–100 weighting stays a
+PRIOR.
+
+## 10. Known limitations
+
+1. **`M = 1.5` and the weakness severity bands are PRIORS.** Both labelled;
    neither calibrated.
-3. **The Young Core Index has not been validated against real league
-   examples**, which #838 requires before it is canonical.
-4. **The SF-into-QB fold is an owner prior, not a measurement** — see §5.
-5. **Not verified in production.** `data/ros/team_strength/` is a gitignored
-   production artifact and is empty in the development container, so the HTTP
-   endpoint has not been exercised against a real league. Tests build a
-   synthetic `LeagueBundle`. Production verification belongs to Claude 5.
-6. **`roster_intel`'s only prior production consumer was `/api/gameplan`.** This
+2. **The Young Core Index weighting is uncalibrated.** §9 discharges #838's
+   real-league validation requirement for *behaviour*; the specific weighting
+   has not been fitted against outcomes.
+3. **The SF-into-QB fold is an owner prior, not a measurement** — see §5.
+4. **Not verified in production.** Everything above is measured against the
+   tracked export archive, which is production-equivalent but not production.
+   Live verification belongs to Claude 5.
+5. **`roster_intel`'s only prior production consumer was `/api/gameplan`.** This
    adds a second. The package's live exposure is still narrow.
+6. **`/api/gameplan` still reads the ROS snapshot**, so its `roster_intel`
+   outputs (marginals, profiles, window) run on the 0-100 production index
+   rather than canonical value. That endpoint is not this lane's to change —
+   see §11.
+
+## 11. Cross-lane dependency for Claude 5
+
+`/api/gameplan` composes `src/roster_intel` (`marginal`, `profiles`, `window`,
+`partner`, `targets`, `packages`) over pools built from the ROS team-strength
+snapshot. Those pools carry `rosValue`, the 0-100 production index — not
+canonical dynasty value. This lane fixed its own endpoint by changing source;
+`/api/gameplan` is a different owner and was left alone.
+
+**Exact dependency, if that surface should also read canonical value:**
+
+- **File**: `src/api/gameplan.py::load_league_inputs`
+- **Required change**: build `TeamInput.pool` from
+  `data_contract.contract_roster_pools(contract)` instead of
+  `to_roster_players(row["fullRoster"])`
+- **Required output shape**: unchanged — `contract_roster_pools` returns
+  `{ownerId: list[RosterPlayer]}`, and `TeamInput.pool` is already
+  `tuple[RosterPlayer, ...]`
+- **Regression test**: assert a rostered player absent from `playersArray`
+  arrives with `ros_value is None` and is reported unpriced, rather than being
+  absent from the pool entirely
+- **Blast radius to expect**: every gameplan number moves, because the
+  objective changes scale (0-100 → 1-9999) and population (unpriced players
+  become visible). Marginal *shares* and *ranks* should be broadly stable;
+  absolute marginal points will not be.
+
+Alternatively the ROS snapshot writer (`src/ros/team_strength.py:123`) could
+stop dropping `rosValue <= 0` rows and emit them with an explicit null — but
+that changes a different lane's canonical methodology and should not be done
+casually.
