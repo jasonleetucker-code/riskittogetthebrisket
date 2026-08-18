@@ -59,8 +59,16 @@
      The Vikings hexes are DELETED, not re-pointed: a stray
      `var(--vikings-purple)` should fail loudly rather than quietly render
      something plausible. `--cyan` and `--amber` keep their (misleading)
-     names because ~200 call sites use them; both now resolve to the
-     accent, and renaming them is a separate mechanical pass. */
+     names because ~200 call sites use them; renaming them is a separate
+     mechanical pass.
+
+     OD-05 (2026-08-18): `--cyan` follows the accent, because it IS the
+     accent for those ~200 call sites — buttons, focus rings, chips,
+     active sort. Leaving it blue while `tokens.css` went gold would not
+     have been a partial migration, it would have been an application
+     rendered in two accents at once. `--amber` deliberately does NOT
+     follow: it is the state/warning flavour, and the gold's discipline
+     depends on it staying a separate role. */
   --bg: #0b0d10;
   --bg-soft: #131519;
   --card: #131519;
@@ -68,7 +76,7 @@
   --text: #eceef2;
   --subtext: #a8b0be;
   --muted: #8b93a5;
-  --cyan: #4f9bec; /* legacy name; now the signal-blue accent */
+  --cyan: #ffc704; /* legacy name; IS the franchise accent — see OD-05 above */
   --green: #5fcf9b;
   --red: #f2848d;
   --amber: #e8b25e;
