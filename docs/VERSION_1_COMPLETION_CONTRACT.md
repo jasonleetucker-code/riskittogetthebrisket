@@ -239,13 +239,14 @@ Projections · **L4** Market / FAAB / Analyst · **L5** Integration / QA / CI / 
 | V1-83 | Alert cooldown keyed on delivery | audit `F-20` | L5 | `IMPLEMENTED_UNVERIFIED` | L3 | observability correctness. #909 |
 | V1-84 | 503 is not exempt from production health failure | audit `F-21` | L5 | `IMPLEMENTED_UNVERIFIED` | L3 | false-green repair. #909 |
 | V1-85 | `pickAnchors` reporting consistent with the contract | audit `F-22` | L5 | `NOT STARTED` | L1 | P2 reporting consistency — **reclassified, see §8** |
-| V1-86 | The E2E tracker identity works | audit `F-23` | L5 | `IN PROGRESS` | L3 | CI/E2E false-green. 14 duplicate trackers; close step never fired |
-| V1-87 | Every live feature flag is visible to operators | audit `F-24` | L5 | `NOT STARTED` | L1 | truthful degraded state — a defaulted-ON flag absent from `/api/status` |
-| V1-88 | Flag documentation names the endpoint it actually gates | audit `F-26` | L5 | `NOT STARTED` | L1 | evidence integrity |
+| V1-86 | The E2E tracker identity works | audit `F-23` | L5 | `IMPLEMENTED_UNVERIFIED` | L3 | CI/E2E false-green. 14 duplicate trackers; close step never fired |
+| V1-87 | Every live feature flag is visible to operators | audit `F-24` | L5 | `IMPLEMENTED_UNVERIFIED` | L1 | truthful degraded state — a defaulted-ON flag absent from `/api/status` |
+| V1-88 | Flag documentation names the endpoint it actually gates | audit `F-26` | L5 | `IMPLEMENTED_UNVERIFIED` | L1 | evidence integrity |
 | V1-89 | DraftSharks staleness resolved | `C4-SRC-01` | L4 | `BLOCKED` | L3 | source-health correctness. **Owner decision `OD-04`**: re-mint / accept / retire |
 | V1-90 | FootballGuys ghost stamps removed | `C4-SRC-03` | L5 | `NOT STARTED` | L1 | source-health correctness — stamps with no fetcher since 2026-05-24 |
 | V1-91 | Partial runs cannot report as healthy | `C4-SRC-02` | L5 | `IN PROGRESS` | L2 | false-green repair |
 | V1-92 | Freshness indicators complete | inv 6.8 | L6 | `IN PROGRESS` | L1 | truthful degraded state; W08-F011 |
+| V1-127 | `normalizationHealth` reports the board it actually has | audit `F-27` | L5 | `IMPLEMENTED_UNVERIFIED` | L3 | **added 2026-08-18** — false red in production since C1-U6; see §10 note below |
 
 ### 3.7 Truthful degraded states
 
@@ -301,7 +302,7 @@ Projections · **L4** Market / FAAB / Analyst · **L5** Integration / QA / CI / 
 | V1-125 | Duplicate owners retired (every `retires` line zero) | `C10-CLOSE-02` | L5 | `NOT STARTED` | L2 | ONE CONCEPT, ONE CANONICAL OWNER |
 | V1-126 | Final V1 regression green | `C10-CLOSE-07` | L5 | `NOT STARTED` | L1 | production verification |
 
-**Denominator: 126 items.**
+**Denominator: 127 items.**
 
 ### 3.11 Standing tally
 
@@ -310,13 +311,20 @@ Measured 2026-08-18 at `main` + PR #909.
 | status | count |
 |---|---|
 | `VERIFIED` | 36 |
-| `IMPLEMENTED_UNVERIFIED` | 17 |
-| `IN PROGRESS` | 25 |
-| `NOT STARTED` | 47 |
+| `IMPLEMENTED_UNVERIFIED` | 21 |
+| `IN PROGRESS` | 24 |
+| `NOT STARTED` | 45 |
 | `BLOCKED` | 1 |
-| **denominator** | **126** |
+| **denominator** | **127** |
 
-**V1 completion: 36 / 126 = 28.6%.**
+**V1 completion: 36 / 127 = 28.3%.**
+
+The percentage went **down** between publication and the first update, and that is
+the contract working rather than failing. One item was added (`V1-127`) and three
+moved to `IMPLEMENTED_UNVERIFIED` — `V1-86` from `IN PROGRESS`, `V1-87` and `V1-88`
+from `NOT STARTED`. All four are merged code that is not yet proven in production,
+so the numerator did not move at all: 36 either way, over a larger denominator.
+A ledger that only ever ticks upward is not measuring anything.
 
 Read that number carefully. The 17 `IMPLEMENTED_UNVERIFIED` items are *merged and deployed
 code* — they are not missing, they are unproven, and five of them
@@ -520,4 +528,10 @@ as a pass. **An unreachable check is not a green one.**
   legitimate addition; a new idea is not, and goes to the long-term roadmap.
 - **Reclassification out of V1 REQUIRED because an item proved hard is not permitted.** That is
   the failure mode in §0, and it is the one this document exists to make visible.
+
+### Denominator change log
+
+| date | change | reason |
+|---|---|---|
+| 2026-08-18 | **+1** — `V1-127` added (audit `F-27`) | A genuine omission from already-approved V1 scope, not a new idea. `normalizationHealth.healthy` had been **false in production since C1-U6** because a stale private pick-name grammar flagged 18 deliberate canonical rows as malformed. That is a live false red on a shipped surface, which the owner's boundary names explicitly under "stability / false-green repairs" and "truthful degraded states". It was found after publication, during the same sweep, and is recorded here rather than folded in silently — the denominator moving is the kind of event this log exists for. |
 
