@@ -51,10 +51,10 @@ JS counterpart is the header of ``frontend/lib/player-name-match.js``.
    only alphanumerics, drop everything else including spaces.
    ``"D.J. Moore" → "djmoore"``.  Does NOT strip generational
    suffixes, so ``"Kenneth Walker III" → "kennethwalkeriii"``.
-   Consumers: ``src/adapters/ktc_crowd_faab`` (crowd FAAB bid map),
-   ``src/trade/faab_recommender::_ktc_crowd_blend`` (the lookup side of
-   that same map), ``src/roster_intel/roster_source`` (value index +
-   roster join).
+   Consumers: ``src/trade/faab_history::crowd_bid_index`` (crowd FAAB
+   bid map), ``server.py``'s waiver handler (the lookup side of that
+   same map), ``src/roster_intel/roster_source`` (value index + roster
+   join).
    NOT a cross-language pair.  ``waiver-logic.js::normalizeNameCompact``
    looks identical but is not: Python's ``str.isalnum()`` is
    Unicode-aware and keeps ``é``, while the JS ``[^a-z0-9]`` strip
@@ -472,12 +472,14 @@ def compact_name_key(name: object) -> str:
     load-bearing for its current consumers, which build and query the
     key on the same side of the wire:
 
-      * ``src/adapters/ktc_crowd_faab.build_crowd_bid_map`` keys the
-        crowd FAAB bid map with it, and
-        ``src/trade/faab_recommender._ktc_crowd_blend`` looks that map
-        up with it.  These two MUST agree — they did not until
+      * ``src/trade/faab_history.crowd_bid_index`` keys the crowd FAAB
+        bid map with it, and ``server.py``'s waiver handler looks that
+        map up with it.  These two MUST agree — they did not until
         2026-07-29, which silently disabled the crowd calibration
-        factor for every name containing a space.
+        factor for every name containing a space.  (The pair named here
+        used to be ``adapters/ktc_crowd_faab`` and
+        ``faab_recommender._ktc_crowd_blend``; both were retired
+        2026-08-18 as a second crowd path that never shipped.)
       * ``src/roster_intel/roster_source`` keys its value index and
         roster join with it.
 

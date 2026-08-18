@@ -69,7 +69,7 @@ _MULTI_FAMILY = {
 # tests and callers.  The lowercase-alphanumeric key now has exactly
 # one definition — ``src/utils/name_clean.compact_name_key``, family 2
 # in that module's key registry — shared with
-# ``src/adapters/ktc_crowd_faab``.
+# ``src/trade/faab_history.crowd_bid_index``.
 #
 # It is NOT byte-equivalent to the frontend's
 # ``waiver-logic.normalizeNameCompact`` (Python's ``str.isalnum()``
