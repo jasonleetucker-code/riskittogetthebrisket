@@ -200,6 +200,54 @@ Ordered. A unit leaves this queue only when production proof lands on the deploy
 
 | `C1-U6-D1` verification | [#884](https://github.com/jasonleetucker-code/riskittogetthebrisket/pull/884) | `3b829b1eb` | **GREEN** on the exact head | closes the repair's own loop | **DEPLOYED** — merged `5a5f1507f`, Deploy Production run 32075149186 SUCCESS. Verified the committed board **0 of 18** tier-round cells violating, and retired the temporary fixture shim on its own declared condition (it dropped 0 rows on `a58e9d923`) |
 
+## 0.4a EXCLUSIVE INTEGRATION / MERGE AUTHORITY — owner directive, 2026-08-18
+
+**Lanes 1, 2, 3, 4 and 6 no longer merge their own PRs.** The Integration Authority lane owns
+everything from `READY FOR INTEGRATION` through merge. This is a division of labour, not a
+quality gate on the lanes: it exists so implementation lanes spend essentially all their time
+implementing and verifying rather than babysitting a merge queue.
+
+**A lane's responsibility ends at a genuinely ready PR:** implement; keep the branch synchronised
+with current `origin/main`; fix lane-owned defects; run the deterministic, integration and
+exact-head checks; **document limitations and required post-deploy verification honestly**; mark
+it `READY FOR INTEGRATION`; then **immediately take the next dependency-ready unit rather than
+waiting for the merge**.
+
+**What this lane independently verifies before merging** — every one of these, every time:
+
+| # | gate |
+|---|---|
+| 1 | based on sufficiently current `main`, or reconciled against it |
+| 2 | **the actual merge tree is what was tested** |
+| 3 | required blocking CI green |
+| 4 | no lane-owned failure mislabelled as inherited |
+| 5 | no unresolved semantic conflict with another open V1 PR |
+| 6 | canonical-owner boundaries preserved |
+| 7 | missing/unknown not coerced into zero or success |
+| 8 | value / rank / board movement **measured** wherever the change can move canonical outputs |
+| 9 | no known P0/P1 regression introduced |
+| 10 | shared files (`CLAUDE.md`, governance records, the coercion baseline, major shared API owners) **reconciled**, never first-past-the-post |
+
+**Merge-ready is not `VERIFIED`, and the two must not be run together.** A capability can be safe
+to merge while still owing L3/L4 production proof. It merges, deploys through the normal path, and
+stays `IMPLEMENTED_UNVERIFIED` in the contract until the evidence exists. Merging is a statement
+about safety; `VERIFIED` is a statement about proof.
+
+**Never merge merely to obtain green, and never weaken, skip, suppress or reclassify a legitimate
+gate to make a PR mergeable.** The F-30 episode in this very lane is the cautionary case: a
+census error was reclassified into the source-health lane to clear CI, and the taxonomy test that
+refused it was right.
+
+**After every merge**, this lane: updates the contract ledger **from evidence**; identifies which
+open PRs are now behind or semantically affected; tells those lanes in their PR; requires them to
+reconcile with the new `main`; and moves to the next ready PR.
+
+**Escalated to the owner, and nothing else:** genuine product decisions, destructive or data-loss
+operations, legal/credential issues, and irreducible conflicts between binding owner decisions.
+Routine merges satisfying the frozen contract and the gates above need no approval.
+
+---
+
 ## 0.4 V1 six-lane integration order — MEASURED 2026-08-18
 
 **The Integration Authority lane decides the integrated representation of shared files. A lane
