@@ -176,7 +176,29 @@ TOP_OFF_COVERAGE_AUDIT_N = _env_int("TOP_OFF_COVERAGE_AUDIT_N", 300)
 TOP_IDP_COVERAGE_AUDIT_N = _env_int("TOP_IDP_COVERAGE_AUDIT_N", 250)
 TOP_OFF_MIN_SOURCES = _env_int("TOP_OFF_MIN_SOURCES", 1)
 TOP_IDP_MIN_SOURCES = _env_int("TOP_IDP_MIN_SOURCES", 1)
-TOP_OFF_EXPECTED_SITE_KEYS = ("ktc",)
+# The offense ANCHOR the coverage audit and the scrape-promotion gate watch.
+#
+# It named ``ktc`` — which has not been a blend voter since 2026-04-28, when it
+# was dropped as a KTC double-count and ``ktcSfTep`` became the canonical
+# retail source.  So the guard watched the board that does not vote while the
+# board that carries the whole offense blend, the TE basis and half the pick
+# anchor set went unwatched (audit F-10).
+#
+# A CORRECTION TO THE F-10 RECORD.  That finding said this half could not be
+# closed here — that ``ktcSfTep`` never reaches ``raw.sites``, so
+# ``server.py::_missing_expected_sites`` could not resolve it.  The first
+# clause is true and the conclusion was wrong: that function reads
+# ``siteStats`` as well as ``sites``, and ``siteStats["ktcSfTep"]`` carries a
+# real count (644 on the 2026-08-18 board).  Measured directly, an
+# ``expectedSites.offense`` of ``["ktcSfTep"]`` resolves today.
+#
+# Inert on every recorded run: replayed over all 176 committed export
+# archives, ``["ktc"]`` and ``["ktcSfTep"]`` block the IDENTICAL 4 archives —
+# the same set, not merely the same count.  The two CSVs are produced from one
+# KTC API response, so they fail together; the difference only appears when
+# the TE++ extraction breaks on its own, which is precisely the failure this
+# now covers and the old anchor did not.
+TOP_OFF_EXPECTED_SITE_KEYS = ("ktcSfTep",)
 TOP_IDP_EXPECTED_SITE_KEYS = ("idpTradeCalc",)
 
 # ─────────────────────────────────────────

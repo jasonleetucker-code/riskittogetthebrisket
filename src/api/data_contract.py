@@ -715,6 +715,33 @@ _RANK_TO_SYNTHETIC_VALUE_OFFSET = 10000
 # ktc/idpTradeCalc/dynastyNerdsSfTep refresh daily via the scheduled
 # scraper; DLF SF and DLF IDP are static-ish exports refreshed ~monthly
 # by hand.
+# AUDIT F-18 (2026-08-18).  Every budget here is a bound on how stale the
+# FETCH may be, because that is what the signal measures:
+# ``_build_source_timestamps`` prefers ``data/scrape_state/<key>_last_success``,
+# which is written on fetch success, and falls back to CSV mtime only when no
+# stamp exists.  It is NOT a bound on how often the vendor publishes — mtime
+# and a success stamp cannot observe that.
+#
+# Seven entries used to be 168h or 720h, each justified in-comment by the
+# vendor's editorial cadence, while carrying a fetch-success stamp that
+# measured 1.1-1.7h old.  A 720h budget was ~400x the observed fetch interval,
+# so any of them could have stopped fetching for a month while every row
+# resting on it kept claiming current evidence — audit finding F-6's failure
+# mode with the confidence gate blind to it.
+#
+# They are now 24, which is not a new number: it is what
+# ``config/source_staleness.json`` gives them and what
+# ``scheduled-refresh.yml``'s own "Assert DLF freshness" step already enforces
+# (``THRESHOLD_HOURS=24``, commented "same threshold the email alert engine
+# uses").  Deliberately NOT the 6h of the #532 correction below: that
+# derivation was made for CI 2-hourly fetchers and three of these run
+# production-side, so 24 is the value two existing owners already state and
+# needs no new derivation of mine.
+#
+# The relation is pinned by
+# ``tests/api/test_freshness_budget_not_laxer_than_alerts.py``: this map may
+# never be laxer than the alert engine, because the board must not count
+# evidence as current after the operator has been told it is stale.
 _SOURCE_MAX_AGE_HOURS: dict[str, int] = {
     "ktc": 6,
     # KTC TE++ (level 2) sub-board is sourced from the same scrape as
@@ -733,23 +760,28 @@ _SOURCE_MAX_AGE_HOURS: dict[str, int] = {
     # scheduled fetcher runs every 2 hours so the same 6-hour budget as
     # the other trade-derived sources applies.
     "otcffbSf": 6,
-    "flockFantasySf": 168,
-    # Flock Fantasy rookie board updates as experts refresh ranks
-    # through the offseason; same 1-week window as the vet board.
-    "flockFantasySfRookies": 168,
-    "dlfIdp": 720,
-    "dlfSf": 720,
-    # Yahoo / Justin Boone trade value charts refresh ~monthly, so
-    # allow a 30-day window; the fetcher also emits its own stale-
-    # article warning if Yahoo's redirect chain ever stops resolving.
-    "yahooBoone": 720,
-    # FantasyPros / Pat Fitzmaurice Dynasty Trade Value Chart:
-    # refreshes monthly as a new FP article.  30-day window.
-    "fantasyProsFitzmaurice": 720,
-    # The IDP Show (Adamidp): Substack article updated periodically;
-    # give a 30-day freshness budget — staler than that and we
-    # probably need a fresh cookie dump or the article is stale.
-    "idpShow": 720,
+    "flockFantasySf": 24,
+    # Flock Fantasy rookie board: fetched on the 2-hourly refresh like
+    # the vet board, so it shares the same fetch-success budget.  (It was
+    # 168h, justified by how often the experts re-rank — F-18.)
+    "flockFantasySfRookies": 24,
+    "dlfIdp": 24,
+    "dlfSf": 24,
+    # Yahoo / Justin Boone: the CHART refreshes ~monthly, but the fetcher
+    # runs on the 2-hourly refresh and stamps on success, so 24h bounds the
+    # thing we can actually observe.  The fetcher emits its own stale-article
+    # warning for the publication question.  (Was 720h — F-18.)
+    "yahooBoone": 24,
+    # FantasyPros / Pat Fitzmaurice Dynasty Trade Value Chart: the ARTICLE
+    # is monthly; the fetch is 2-hourly and stamped, and this budget bounds
+    # the fetch.  (Was 720h — F-18.)
+    "fantasyProsFitzmaurice": 24,
+    # The IDP Show (Adamidp): a lapsed hand-minted cookie is exactly what
+    # this should surface, and 24h matches config/source_staleness.json,
+    # which also flags idpShow SOFT with a 72h escalation — so a re-mint
+    # chore stays quiet for a day without the budget hiding a dead fetcher
+    # for a month.  (Was 720h — F-18.)
+    "idpShow": 24,
     # DraftSharks SF + IDP CSVs are written by scripts/fetch_draftsharks.py
     # on every scheduled-refresh tick (3-hour cadence), so the same
     # 6-hour freshness budget as ktc / idpTradeCalc applies.

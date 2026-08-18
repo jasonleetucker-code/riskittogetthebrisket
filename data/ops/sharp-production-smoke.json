@@ -1,18 +1,12 @@
 {
-  "attempts": 1,
-  "checkedAt": "2026-08-18T12:57:44.611534+00:00",
+  "attempts": 0,
+  "checkedAt": "2026-08-18T14:50:39.730788+00:00",
   "cohort": {},
-  "deployConclusion": "success",
-  "deployHeadSha": "121c89fbb8d908b39b2a6ae08ec1666398adcb1b",
-  "deployRunId": "32136926736",
-  "errors": [
-    {
-      "attempt": 1,
-      "message": "401 from https://chaseupside.com/api/sharp/cohort",
-      "type": "Unauthenticated"
-    }
-  ],
+  "deployConclusion": "cancelled",
+  "deployHeadSha": "5a42fb9ce7824393e8ccdd8fe4bb0fc83501ef41",
+  "deployRunId": "32148438307",
+  "errors": [],
   "eventName": "workflow_run",
   "ffpcMarket": {},
-  "status": "unverifiable_unauthenticated"
+  "status": "deploy_failed"
 }
