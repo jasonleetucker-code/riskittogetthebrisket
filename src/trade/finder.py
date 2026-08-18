@@ -17,6 +17,7 @@ from dataclasses import dataclass, field
 from itertools import combinations
 from typing import Any
 
+from src.trade.finder_value_adjustment import value_adjustment_payload
 from src.utils.name_clean import normalize_position as _norm_pos  # noqa: F401 — re-exported via _norm_pos shim below for back-compat
 
 # ── Thresholds ──────────────────────────────────────────────────────────
@@ -282,6 +283,10 @@ class TradeCandidate:
             "rankingFactors": self.ranking_factors,
             "flags": list(self.flags),
             "packageSize": f"{len(self.give)}-for-{len(self.receive)}",
+            # KTC package Value Adjustment.  These used to be spliced in by a
+            # wrapper installed over this method at import time; they are part
+            # of the payload now, so the shape is readable here.
+            **value_adjustment_payload(self),
         }
 
 
@@ -606,7 +611,26 @@ def _resolve_roster(
 
 
 def _score_trade(give: list[Asset], receive: list[Asset]) -> TradeCandidate | None:
-    """Score a candidate trade. Returns None if the trade is nonsensical."""
+    """Score a candidate trade on KTC-ADJUSTED side totals.
+
+    This is the scorer every generator calls.  Until 2026-08-18 it was the
+    value-only scorer below, and the Value Adjustment was bolted on by a
+    monkeypatch that ``src/trade/__init__.py`` installed at package-import
+    time — so reading this file told you the finder scored linearly, which it
+    did not.  The call is explicit now; see
+    ``src/trade/finder_value_adjustment`` for why the patch is gone.
+    """
+
+    from src.trade.finder_value_adjustment import (  # noqa: PLC0415
+        score_with_value_adjustment,
+    )
+
+    return score_with_value_adjustment(give, receive, _score_trade_on_values)
+
+
+def _score_trade_on_values(give: list[Asset], receive: list[Asset]) -> TradeCandidate | None:
+    """Score a candidate trade on the values passed in, with no package
+    adjustment of its own.  Callers want :func:`_score_trade`."""
     if not give or not receive:
         return None
 

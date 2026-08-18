@@ -1097,6 +1097,88 @@ Rule for new code: need to compare two packages → ``tradeImbalance`` /
 ``_va_gap``.  Need to close a gap → simulate, never subtract.  Never publish a
 VA-adjusted number under a raw-value field name, or vice versa.
 
+### Roster capacity and forced drops — one owner
+
+``src/trade/roster_capacity.py`` is the ONLY place a trade's roster consequence
+is computed: current size, allowed size, open spots, over-limit state, and the
+forced drops with **their value**.
+
+Before 2026-08-18 nothing in the trade surface could answer it.
+``simulate_trade`` accepted ``roster_settings`` and used it only to reach
+``team_impact`` for starter slots; ``suggestions.py`` / ``finder.py`` /
+``angle.py`` proposed 2-for-1s with no notion of a cap at all.  The single
+legality check in the repo, ``roster_intel/packages._check_legality``, is
+``/api/gameplan``-only.
+
+**Not an edge case here.**  ``dynasty_main`` caps at 58 and its twelve rosters
+held ``[45, 46, 53, 55, 56, 57, 58, 58, 58, 58, 58, 58]`` on 2026-08-18 — six
+teams AT the cap.  On a real full roster the finder returns 40 trades and all
+40 force a release; every one of them used to present that released value as
+free.
+
+**Consumed, never rebuilt.**  ``build_cut_ladder`` / ``effective_cut_cost`` /
+``waiver_values_by_position`` (``src/draft/displacement.py``),
+``build_roster_assets`` (``src/draft/context.py``),
+``load_league_starter_slots`` (``src/ros/lineup.py``).  One cut ladder, two
+consumers: ``/api/draft/roster-context`` and this.  No slot table, replacement
+level or lineup fill is defined here.  The ladder is bounded to the rungs the
+trade needs — a BOUND, not an approximation (rung *k* is identical whether the
+ladder stops at *k* or at its 30-rung default): 39 ms → 3 ms on a real 58-man
+roster, same drops.
+
+**REPORTS, never rejects.**  ``_check_legality`` REFUSES an over-cap package,
+which is right for a generator choosing what to put on a Pareto frontier and
+wrong for a simulator answering a question the user typed in.  Both consume the
+same counting rule and a test pins that they never disagree about whether a
+package is over the cap.  ``/api/trade/suggestions`` and ``/api/trade/finder``
+attach the same block and **filter nothing** — on a full roster a legality
+filter would silently shorten those lists, and a proposal that vanishes is
+invisible rather than explained.
+
+Four rules that are load-bearing:
+
+- **Draft picks do NOT occupy roster spots.**  Verified, not assumed:
+  ``rosterSize`` is 58, the largest live roster holds exactly 58 PLAYERS, and
+  those same teams hold 10-23 picks besides.  A pick-for-player trade is
+  therefore NOT capacity-neutral.
+- **An unresolved player still occupies a spot.**  Counts come from the roster
+  and the request, never from what the board managed to price — dropping an
+  unjoinable name understates roster pressure, the direction that hides a
+  forced drop.  Two entries colliding on identity are two spots, and removing
+  one removes exactly one.
+- **An unknown cap is UNKNOWN, never unlimited** — ``rosterLimit: None``,
+  ``overLimitAfter: None``, plus a note.  Coercing it makes every trade look
+  free.
+- **An unpriced forced drop reports ``value: null``**, is counted in
+  ``unpricedForcedDrops`` and excluded from ``forcedDropValue``.  Its
+  ``effectiveCutCost`` IS defined and is published separately.
+
+**Taxi is NOT modelled**, and the note says so: Sleeper's per-player taxi
+assignment is ingested nowhere in this codebase, so open spots may be
+understated for a taxi league.
+
+``league_roster_limit`` / ``league_taxi_size`` are the ONE resolver;
+``draft/context._roster_size_for`` and ``api/gameplan._roster_limit`` delegate
+to them.
+
+Known reachability limit, recorded rather than left to be discovered: no
+current ``suggestions.py`` shape (1-for-1, 2-for-1) can exceed a cap, so the
+forced-drop path is reachable there only on an already-over-limit roster.
+``finder.py``'s ``_generate_1for2`` is the shape that goes over.  A test fails
+if a 1-for-2 suggestion generator is added, which is when that changes.
+
+**The finder's Value Adjustment is no longer a monkeypatch.**
+``src/trade/__init__.py`` used to rebind ``finder._score_trade`` and
+``TradeCandidate.to_dict`` at package-import time.  Python's import machinery
+made it unbypassable, but reading ``finder.py`` told you the finder scored
+linearly — which it did not — and a double install wrapped the wrapper.
+``_score_trade`` now calls ``finder_value_adjustment.score_with_value_adjustment``
+explicitly over ``_score_trade_on_values``, and the package ``__init__`` is
+inert.  Pinned by ``tests/trade/test_finder_va_is_not_bypassable.py``, which
+tests the PROPERTY (the premium is applied and published) plus AST guards that
+no generator bypasses the adjusting scorer and the ``__init__`` has no
+executable statements.
+
 ### FAAB recommendations — one engine, two separate answers
 ``src/trade/faab_engine.py`` is the ONLY place a FAAB dollar figure is
 derived.  Full reference: ``docs/faab-model.md``.
