@@ -1,5 +1,5 @@
 {
-  "count": 677,
+  "count": 674,
   "note": "Known missing-data coercions on decision paths, recorded so the gate can block NEW ones while the remediation batches burn these down. Each batch deletes its findings' entries. Do not add to this file to make a build pass.",
   "violations": [
     "frontend/lib/auction-power.js::const raw = names.map((n) => Number(totalsObj[n]) || 0);",
@@ -398,9 +398,7 @@
     "src/league_intel/cross_market.py::idp_total = sum(abs(a.normalized_market_value or 0.0) for a in assets if _is_idp(a.position))",
     "src/league_intel/reception_fit.py::flat = float(scoring.get(\"rec\") or 0.0)",
     "src/league_intel/reception_fit.py::return sum(float(shares.get(b, 0.0)) * (flat + float(scoring.get(b) or 0.0)) for b in BAND_KEYS)",
-    "src/league_intel/replacement.py::confidence=float(p.get(\"confidence\") or 0.0),",
     "src/league_intel/replacement.py::per_pos.setdefault(base, []).append(float(row.get(\"rosValue\") or 0.0))",
-    "src/league_intel/replacement.py::ros_value=float(p.get(\"rosValue\") or 0.0),",
     "src/league_intel/replacement.py::value = float(p.get(\"rosValue\") or 0.0)",
     "src/league_intel/replacement.py::value = float(value_by_key.get(key) or 0.0)",
     "src/league_intel/sim.py::priced = sum(1 for p in roster if float(p.get(\"rosValue\") or 0.0) > 0)",
@@ -473,6 +471,7 @@
     "src/ros/aggregate.py::row_weight = weight * (row.confidence or 1.0)",
     "src/ros/api.py::unmapped_total = sum(int(t.get(\"unmappedPlayerCount\") or 0) for t in team_strength)",
     "src/ros/direction.py::strength_pct = team_ros_strength_percentile or 0.0",
+    "src/ros/lineup.py::confidence=float(row.get(\"confidence\") or 0.0),",
     "src/ros/parse.py::base = float(src.get(\"base_weight\") or 0.0)",
     "src/ros/pick_projection.py::original = int(pd.get(\"original_roster_id\") or 0)",
     "src/ros/pick_projection.py::owner = int(pd.get(\"owner_roster_id\") or 0)",
@@ -506,8 +505,6 @@
     "src/roster_intel/engine.py::adjusted += float(row.get(\"leagueAdjustedDynastyValue\") or row.get(\"consensusValue\") or 0.0)",
     "src/roster_intel/engine.py::consensus += float(row.get(\"consensusValue\") or 0.0)",
     "src/roster_intel/engine.py::market += float(row.get(\"marketValue\") or 0.0)",
-    "src/roster_intel/marginal.py::confidence=float(p.get(\"confidence\") or 0.0),",
-    "src/roster_intel/marginal.py::ros_value=float(p.get(\"rosValue\") or 0.0),",
     "src/roster_intel/partner.py::delta = (activity or 0.0) + familiarity",
     "src/roster_intel/partner.py::entered = int(getattr(pp, \"entered_lineup\", 0) or 0)",
     "src/roster_intel/partner.py::gap = abs(float(ours.contend_probability or 0.0) - float(theirs.contend_probability or 0.0))",
