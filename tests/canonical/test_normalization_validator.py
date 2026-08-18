@@ -146,3 +146,79 @@ def test_legacy_dict_shape_validated():
     }
     result = nv.validate_contract(contract)
     assert result["playersDict"]["playerNameDrift"] == 1
+
+
+# ── AUDIT F-27 ──────────────────────────────────────────────────────────────
+# A health check that is always red is not a health check.
+#
+# `normalizationHealth.healthy` was **false in production** from the day C1-U6
+# shipped until 2026-08-18, because this validator carried its own pick-name
+# grammar and that grammar predated the GENERIC grade. Measured on the live
+# board: `pickNameMalformed = 18` — 2027/2028/2029 x rounds 1-6, every one a
+# deliberate canonical row — while `playerNameDrift`, `assetClassMismatch` and
+# `dupKeys` were all 0. Nothing was wrong with the board.
+#
+# These tests pin the two halves of the repair: the canonical shapes come from
+# the pick-identity owner (so they cannot drift out of sync again), and the
+# legacy display shape is still accepted (so the repair did not quietly
+# tighten the check while claiming to widen it).
+
+
+class TestPickNameGrammarDelegatesToTheIdentityOwner:
+    """C1-ID-02: pick identity has ONE owner. This module is a consumer."""
+
+    def test_generic_grade_rows_are_valid(self) -> None:
+        """The exact 18 rows that were false-flagged in production."""
+        from src.canonical.normalization_validator import is_valid_pick_name
+
+        for year in (2027, 2028, 2029):
+            for rnd in range(1, 7):
+                name = f"{year} Round {rnd}"
+                assert is_valid_pick_name(name), (
+                    f"{name!r} is the C1-U6 GENERIC grade — a canonical row this "
+                    "board publishes. Flagging it makes normalizationHealth "
+                    "permanently false on a correct board (F-27)."
+                )
+
+    def test_tier_and_slot_grades_are_still_valid(self) -> None:
+        from src.canonical.normalization_validator import is_valid_pick_name
+
+        assert is_valid_pick_name("2027 Early 1st")
+        assert is_valid_pick_name("2026 Mid 4th")
+        assert is_valid_pick_name("2026 Pick 1.01")
+
+    def test_legacy_display_shape_is_still_accepted(self) -> None:
+        """The owner does not MINT this shape, so delegating outright would
+        newly flag any surviving legacy row. Widening a health check is a
+        repair; silently tightening one is a regression in a repair's clothes.
+        """
+        from src.canonical.normalization_validator import is_valid_pick_name
+
+        assert is_valid_pick_name("2026 1st Round")
+
+    def test_genuine_nonsense_is_still_rejected(self) -> None:
+        """The repair must not have turned the check off."""
+        from src.canonical.normalization_validator import is_valid_pick_name
+
+        for bad in ("2027 Round 7", "2027 Round 0", "Ja'Marr Chase", "", "   ", "Round 1"):
+            assert not is_valid_pick_name(bad), f"{bad!r} should not validate as a pick name"
+
+    def test_canonical_shapes_are_not_restated_locally(self) -> None:
+        """Structural: the accepted canonical grammar must come from the owner.
+
+        A future edit that re-adds a local tier/slot/generic regex would pass
+        every behavioural test above while restoring the duplicate ownership
+        that caused F-27 in the first place.
+        """
+        from pathlib import Path
+
+        src = Path("src/canonical/normalization_validator.py").read_text(encoding="utf-8")
+        assert "picks.parse_board_pick_name" in src, (
+            "the canonical pick-name grammar must be resolved through "
+            "src.identity.picks, not restated here (C1-ID-02)"
+        )
+        for restated in ("Early|Mid|Late", r"Pick\s+[1-6]", r"Round\s+([1-6])"):
+            assert restated not in src, (
+                f"{restated!r} looks like a locally restated canonical pick "
+                "grammar — that duplicate ownership is exactly what F-27 was"
+            )

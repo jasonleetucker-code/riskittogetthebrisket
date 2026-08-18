@@ -34,6 +34,8 @@ from pathlib import Path
 from typing import Any
 
 from src.api.data_contract import (
+    _canonical_match_key,
+    _complete_future_pick_values,
     build_api_data_contract,
     current_rookie_draft_year,
     validate_api_data_contract,
@@ -221,6 +223,20 @@ class TestPickCompletenessCensus(unittest.TestCase):
                 )
 
     def test_contract_validation_census_is_green(self) -> None:
+        """The census must be green, in the STRUCTURAL lane it belongs to.
+
+        AUDIT F-30 briefly moved ``…:missing_or_unpriced`` to the source-health
+        lane on the theory that a truncated pick market causes it.  That was
+        wrong, and ``test_contract_health_lanes.py::TestTheTaxonomyItself``
+        already said so by parametrizing this exact string as a statement about
+        our code: the census asserts our derivation prices every pick through
+        the horizon from whatever anchors arrived, so an unpriced pick means the
+        derivation did not cover a case.  Reverted.
+
+        The live-board premise question is handled in ``setUp`` instead, which
+        is where it belongs — a hard-gate test may not assert over
+        ``exports/latest`` at all.
+        """
         result = validate_api_data_contract(self.contract)
         census_errors = [e for e in (result.get("errors") or []) if str(e).startswith("pick_")]
         self.assertEqual(census_errors, [], f"validation census errors: {census_errors[:8]}")
@@ -453,3 +469,111 @@ class TestExportParity(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+# ── AUDIT F-30 ──────────────────────────────────────────────────────────────
+# A derived far-future pick can arrive unpriced while already carrying
+# `derived_year_step` provenance that names a basis and a factor.
+#
+# `_inject_far_future_pick_sources` clones the template year's RAW per-source
+# entries, so the clone inherits the template's source set. When a pick market
+# truncates, a template row can be left backed only by `ktc` — which has not
+# been a blend voter since 2026-04-28 (dropped as a KTC double-count, kept for
+# display). No voter means no rank, and no rank means no value: the row reaches
+# the completeness pass unpriced, with provenance asserting it was derived.
+#
+# Measured on the live board 2026-08-18, when `idpTradeCalc` truncated to round
+# 1 while `ktc` kept rounds 1-4: 20 census errors, all 2029 rounds 2-6, each
+# with a priced 2028 basis sitting right beside it.
+#
+# These tests are deterministic — they drive the pass directly rather than
+# asserting over `exports/latest`, which a hard-gate test may not do
+# (STABILIZATION_2026-08-16 §3d).
+
+
+class TestYearStepCompletesUnpricedDerivedRows(unittest.TestCase):
+    """The value must agree with the provenance already stamped on the row."""
+
+    CURRENT = 2026
+
+    def _board(self, basis_value, derived_value):
+        """A 2028 basis row and its unpriced 2029 derivation."""
+        basis = {
+            "canonicalName": "2028 Early 2nd",
+            "assetClass": "pick",
+            "rankDerivedValue": basis_value,
+        }
+        derived = {
+            "canonicalName": "2029 Early 2nd",
+            "assetClass": "pick",
+            "rankDerivedValue": derived_value,
+        }
+        players_array = [basis, derived]
+        by_name = {r["canonicalName"]: r for r in players_array}
+        derivations = {
+            _canonical_match_key("2029 Early 2nd"): {
+                "factor": 0.8532,
+                "basisYear": 2028,
+                "basisName": "2028 Early 2nd",
+                "family": "measured_vendor_year_step_v1",
+                "classification": "PRIOR",
+            }
+        }
+        return players_array, by_name, derivations, derived
+
+    def test_unpriced_derived_row_is_completed_from_its_recorded_basis(self) -> None:
+        players_array, by_name, derivations, derived = self._board(3176, None)
+        _complete_future_pick_values(
+            players_array, by_name, self.CURRENT, synthetic_pick_derivations=derivations
+        )
+        # 3176 * 0.8532 = 2709.76 -> 2710.  The value must be the one the row's
+        # OWN provenance implies; a different number would be a second opinion.
+        self.assertEqual(derived["rankDerivedValue"], 2710)
+        self.assertEqual(derived["confidenceBasis"], "derived_year_step")
+        self.assertEqual(derived["confidenceBucket"], "low")
+
+    def test_direct_evidence_wins_over_the_derivation(self) -> None:
+        """An already-priced row is never overwritten, so the pass no-ops the
+        moment a market publishes these cells again."""
+        players_array, by_name, derivations, derived = self._board(3176, 9999)
+        _complete_future_pick_values(
+            players_array, by_name, self.CURRENT, synthetic_pick_derivations=derivations
+        )
+        self.assertEqual(derived["rankDerivedValue"], 9999)
+
+    def test_an_unpriced_basis_does_not_invent_a_value(self) -> None:
+        """MISSING IS NEVER ZERO: with no priced basis there is nothing to step
+        from, and the row must stay unpriced rather than take a fabricated
+        number."""
+        players_array, by_name, derivations, derived = self._board(None, None)
+        _complete_future_pick_values(
+            players_array, by_name, self.CURRENT, synthetic_pick_derivations=derivations
+        )
+        self.assertIsNone(derived["rankDerivedValue"])
+
+    def test_a_row_with_no_recorded_derivation_is_STILL_completed(self) -> None:
+        """REPLACES ``test_a_row_with_no_recorded_derivation_is_left_alone``,
+        which pinned this rung's own defect.
+
+        That test asserted "only rows the injector actually derived are
+        completed here" — the record-keyed contract of the first revision.
+        It was a faithful test of an implementation that was too narrow:
+        ``_inject_far_future_pick_sources`` **no-ops for a horizon year that
+        already carries any tier row**, so a partially published horizon year
+        records nothing, and a rung keyed on those records cannot fire.
+        Measured on the real payload: 18 tier rows unpriced, 6 generic rows
+        unbuilt, 24 census errors (lane 7, #916).
+
+        The basis is now SEARCHED on the board, so the absence of a record is
+        irrelevant — which is exactly what this test now pins.  Keeping the old
+        assertion would have locked the defect in behind a green test, which is
+        the failure mode this repository keeps finding in other people's code.
+        """
+        players_array, by_name, _, derived = self._board(3176, None)
+        _complete_future_pick_values(
+            players_array, by_name, self.CURRENT, synthetic_pick_derivations={}
+        )
+        self.assertEqual(derived["rankDerivedValue"], 2710)
+        prov = derived.get("pickValueProvenance") or {}
+        self.assertEqual(prov.get("basis"), "2028 Early 2nd")
+        self.assertEqual(prov.get("appliedTo"), "canonical_board_value")

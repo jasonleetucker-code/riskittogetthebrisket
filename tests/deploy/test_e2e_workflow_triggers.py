@@ -180,16 +180,42 @@ def test_tracker_steps_identify_their_own_issue_not_just_the_label() -> None:
     title.  Both clauses are load-bearing and this test requires both —
     author alone still matches a different bot-filed issue, and title
     alone still matches a human who reused the string.
+
+    **AUDIT F-23 — what this test used to assert, and why that was worse
+    than asserting nothing.**  It pinned the author clause as the literal
+    string ``select(.author.login=="github-actions")``.  The login this
+    bot actually files under is ``github-actions[bot]``, so the clause
+    matched no issue in the repository: every failing run took the
+    ``create`` branch and the close step could never drain the result.
+    14 open trackers accumulated, all identically titled, 0 comments
+    between them — while this assertion stayed green, because a literal
+    string was present in a file.
+
+    A guard may not pin a SPELLING it never verifies against reality.
+    The clause is now normalised (``sub("\\[bot\\]$"; "")``), which is
+    correct whichever API answers — GraphQL reports a bot as
+    ``github-actions``, REST as ``github-actions[bot]`` — and this test
+    pins the normalisation rather than either spelling.
     """
     wf = _workflow()
     for name in _ISSUE_STEP_NAMES:
         run = _step_named(wf, name)["run"]
 
-        assert 'select(.author.login==\\"github-actions\\")' in run, (
+        assert ".author.login" in run, (
             f"{name!r} no longer filters the tracker lookup by author. "
             "Selecting on the e2e-failures label alone treats any issue "
             "wearing it as this workflow's own tracker — which closed/"
             "hijacked #753, a hand-filed defect."
+        )
+        assert 'sub(\\"\\\\\\\\[bot\\\\\\\\]$\\"; \\"\\")' in run, (
+            f"{name!r} compares the author login without normalising the "
+            "'[bot]' suffix. That is the F-23 defect: the bot files as "
+            "'github-actions[bot]', a bare 'github-actions' comparison "
+            "matches nothing, and the tracker silently duplicates forever."
+        )
+        assert 'select(.author.login==\\"github-actions\\")' not in run, (
+            f"{name!r} has gone back to comparing the raw login against "
+            "the bare spelling. That clause never matched (F-23)."
         )
         # Not an f-string: ${TRACKER_TITLE} is the shell variable the
         # workflow expands, so the braces are literal text to match.

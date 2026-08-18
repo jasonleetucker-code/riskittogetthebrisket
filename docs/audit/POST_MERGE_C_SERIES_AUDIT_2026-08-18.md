@@ -733,6 +733,33 @@ Tracked as census **S-2**, with F-10 as its other consequence. Not repaired in t
 repair is a mapping owner touching the scraper and a production scrape-promotion gate, which is
 its own unit.
 
+**S-2's PROPOSED DESIGN IS REFUTED — do not implement it more carefully (2026-08-18).**
+Two reviewers refuted it at high confidence; both halves were then re-verified directly at HEAD
+rather than relayed, and both hold.
+
+The proposal was to emit `playerCount: null` so that "reported zero" and "did not report" stop
+reading the same.
+
+1. `server.py` computes
+   `site_count = len([s for s in result.get("sites", []) if s.get("playerCount", 0) > 0])`.
+   A **present** key defeats `dict.get`'s default, so `None > 0` is evaluated and raises
+   `TypeError` — confirmed by execution, not by reading.
+2. That line sits above the promotion decision, inside a handler whose enclosing
+   `except Exception as e:` calls `_mark_scrape_failure(e, elapsed)`. The change would therefore
+   mark whole scrapes **FAILED** and break the two-hourly refresh.
+
+**A correction to the refutation's own wording.** It has circulated as "`failedSources` is empty
+in 176/176 inspected archives". Measured here across all 176 committed export archives: the key
+is **absent from every one**, not present-and-empty. That is a stronger statement and a different
+one — the field has never been populated, so a detector keyed on it would observe nothing. The
+degradation historically capable of taking the board down was timeout-related, which the proposal
+would not have observed either.
+
+**Required posture.** The underlying defect above is real and stays OPEN. Any replacement must be
+designed from actual failure data and adversarially tested before implementation. This entry is
+the reason S-2 must not be read as an actionable ready fix; the finding survives, the design does
+not.
+
 ---
 
 ### F-13 · The mobile view is the LARGEST of the optimized views · CONFIRMED · performance · **OPEN**
@@ -1139,6 +1166,513 @@ explanation as readily as a regression. Pinned by
 
 ---
 
+### F-22 · `pickAnchors` reporting is inconsistent with the contract · CONFIRMED · reporting · **RECLASSIFIED P0 → P2 2026-08-18**
+
+**Original framing, preserved:** the sweep recorded discarded `ktcSfTep` pick anchors as a
+**live value defect** — i.e. a P0 canonical-value corruption incident.
+
+**Refuted by measurement.** The canonical contract reads the CSV independently and obtains all
+**36** vendor pick rows. There is therefore **no demonstrated canonical pick-value error**, and
+the P0 framing overstated the finding.
+
+**Correct classification: P2 reporting inconsistency.** Two surfaces describe the same anchors
+differently; the served values are not implicated.
+
+Recorded rather than deleted, per §0's rule that a refuted finding may still be real and that
+audit conclusions are themselves auditable. Carried in the V1 contract as `V1-85`.
+
+### F-23 · The E2E tracker identity is dead in both directions · CONFIRMED · CI / observability · **REPAIRED 2026-08-18**
+
+Both tracker steps in `.github/workflows/e2e.yml` select
+`select(.author.login=="github-actions")`. The Actions bot files issues under
+**`github-actions[bot]`**, so the lookup matches nothing: every failing run takes the `create`
+branch, and the close step — carrying the identical clause — can never drain the result.
+
+| measurement | value |
+|---|---|
+| open issues titled "E2E safety net failing" | **15** |
+| comments on #732 | **9** (the dedup demonstrably worked once) |
+| comments on every tracker filed after #732 | **0** |
+| 2026-08-18 scheduled run, with #881 open and identically titled | filed **#896** anyway |
+
+The last row is the current selector tested in production under exactly the conditions it exists
+for.
+
+**The close direction is the worse one.** That step is what makes an open `e2e-failures` issue
+mean "broken now" rather than "broke once, ever" — the distinction #588 was filed over. Dead, a
+green run cannot clear the board, so the repository reads permanently red.
+
+**The guard test was green throughout.** `tests/deploy/test_e2e_workflow_triggers.py` asserted
+the losing spelling as a **literal string**, so it passed for the entire two weeks the mechanism
+was dead. Same class as F-8 and as the contract gate that could not find its payload: a check
+that cannot observe its subject reads exactly like a check that passed.
+
+**Repair.** `gh` reports a bot's login differently depending on which API answers — GraphQL's
+`Bot` type gives `github-actions`, REST gives `github-actions[bot]` — so pinning either spelling
+is a bet. `sub("\\[bot\\]$"; "")` is correct under both. Verified against sample issue JSON
+covering both bot spellings, a human author and a foreign bot: the normalised filter matches the
+two bot rows and still excludes #753, the hand-filed defect the author clause exists for; the old
+filter misses the real spelling entirely. Lookup failure is no longer swallowed — the alert step
+`::error`s and files anyway, the close step `::error`s and exits 1, because a silent failure
+there is a green run declining to clear a real alert.
+
+Draining the accumulated duplicates is tracked separately.
+
+### F-24 · A live, defaulted-ON feature flag is invisible to every operator surface · CONFIRMED · observability · **OPEN — repair BLOCKED on a measurement**
+
+`RISKIT_FEATURE_LEDGER_RANK_CHANGE` is read directly at `src/api/data_contract.py:5545` via
+`os.environ.get(..., "1")` — **default ON** — but is absent from `feature_flags._DEFAULTS`
+(`src/api/feature_flags.py:55-297`).
+
+Consequence: it does not appear in `snapshot()`, `effective_flags()` or `/api/status`, and
+`tests/api/test_feature_flag_reachability.py` cannot see it. An operator reading the flag list
+gets one that omits a live gate on the canonical board's `rankChange` derivation. The rollback
+lever documented in CLAUDE.md is real; the inventory that would tell you it exists is not.
+
+**The obvious repair was attempted and backed out, deliberately.** Registering it in
+`_DEFAULTS` works mechanically — the registry derives exactly the env var already in use, so the
+rollback lever is unchanged, and equivalence was proven across all six spellings the direct read
+accepts (`0`/`false`/`off` disable; `1`/empty/garbage enable).
+
+It is refused by `tests/api/test_feature_flags.py`, which requires every defaulted-ON flag to be
+classified either `safe_on` (additive, inert, **cannot move a number**) or `value_moving_on`
+(with a **MEASURED** blast radius). This flag is neither cheaply:
+
+* it **mutates the contract** — ON stamps ledger-derived `rankChange`, OFF stamps `None` — so the
+  `safe_on` standard `perfect_draft` meets ("writes no value, mutates no contract") does not hold;
+* `value_moving_on` demands a measurement, and the guard's own comment forbids substituting an
+  argument that the change is probably fine.
+
+**The measurement is not obtainable from this environment, and faking it would be worse than
+leaving the finding open.** It needs the temporal ledger and a built board: with no
+`data/temporal_ledger.sqlite` present, BOTH branches stamp `None`, so a local on/off diff reports
+"0 rows changed" — a vacuous figure that would read as evidence. `/api/data` requires
+authentication, so the live board is equally out of reach here.
+
+**To close F-24:** with the ledger present, measure ON vs OFF over a real board — how many rows'
+`rankChange` becomes `None`, and the distribution of the non-null values — then register the flag
+carrying that blast radius. Until then the direct read stays, and the reason it stays is recorded
+both at the read site and in the `feature_flags` module docstring, so the gap is documented where
+a reader of either file will meet it.
+
+Carried as `V1-87`, status `BLOCKED`.
+
+### F-25 · The nav offers a page whose every endpoint 503s · CONFIRMED · truthful degraded state · **OPEN**
+
+`consensus_edge` defaults `False` (`src/api/feature_flags.py:296`) and gates every handler
+(`src/consensus_edge/api.py:44`), while `/consensus-edge` is an **unconditional** nav entry
+(`frontend/lib/nav-model.js:191`) with no client-side flag check. In the default configuration a
+user can navigate to a page whose three endpoints all answer 503.
+
+The hold itself is deliberate and documented (ADR-023 — its own ship gate said do not ship). The
+defect is that the nav entry was not gated with it, so "deliberately held" and "broken" render
+identically.
+
+**Ownership: lane 6.** The feature stays post-V1; the nav gating is the V1-required part.
+
+### F-26 · Flag documentation names an endpoint the flag does not gate · CONFIRMED · evidence integrity · **REPAIRED 2026-08-18**
+
+`src/api/feature_flags.py` stated that `reception_scoring_fit` "reaches the OPT-IN
+league-adjusted lens (`/api/gameplan`)". Measured: the gates at `src/api/gameplan.py:1157` and
+`:1253` are called only from `get_league_adjusted_values` (`:1332-1333`), which backs
+**`/api/valuation/league-adjusted`**. The flag is genuinely live; the endpoint named is not the
+one it serves.
+
+**Scoped down from the original sweep finding, on inspection.** That finding named *two* comment
+sites, `reception_scoring_fit` and `idp_scoring_fit`. Only the first was wrong. The
+`idp_scoring_fit` comment says the axis "reaches only `build_board_adjustments` — the OPT-IN
+league-adjusted lens", which names the function rather than a route and is accurate. One site,
+not two — recorded rather than left overstated, on the same principle as F-22.
+
+Related, and separately recorded: `/api/gameplan` itself has **zero frontend consumers** — the
+string appears once in the whole frontend, in a comment. That is the Scope Manifest's
+`C2-GP-01` DISCONNECTED row, whose declared outcome is binary: reachable or retired.
+
+Carried as `V1-88`.
+
+### F-27 · `normalizationHealth` has been red in production since C1-U6, on a correct board · CONFIRMED · observability · **REPAIRED 2026-08-18**
+
+Measured on the live board via `/api/status`, 2026-08-18:
+
+```
+pickNameMalformed: 18      playerNameDrift:    0
+assetClassMismatch: 0      dupKeys:            0      healthy: false
+```
+
+All 18 samples are `2027 Round 1` … `2029 Round 6` — three future years by six
+rounds, every one a **deliberate canonical row**. Nothing was wrong with the board.
+
+**Mechanism: duplicate ownership.** `src/canonical/normalization_validator.py` carried its own
+pick-name grammar — three regexes for the tier, slot and legacy shapes. `C1-ID-02` states pick
+identity has exactly one owner and consumers must not parse it elsewhere. C1-U6 then added the
+GENERIC grade, a rank-less row named `"2027 Round 1"`; the legacy pattern here reads
+`"2026 1st Round"` — the same words in the opposite order — so it matched none of them.
+
+**This is a FALSE RED**, and it is the same failure as a signal nobody reads: a health surface
+that is permanently alarming trains its readers to stop looking (#588, F-3, from the other
+direction). It also means the regression this check exists to catch would have arrived as no
+visible change at all.
+
+**Repair.** Canonical shapes now resolve through `picks.parse_board_pick_name`, which answers
+slot, tier and generic together. The legacy display shape is retained locally and deliberately —
+the owner does not MINT it, so delegating outright would newly flag any surviving legacy row.
+Widening a health check is a repair; silently tightening one is a regression wearing a repair's
+clothes. The module docstring was stale in the identical way and is corrected.
+
+RED-first, and the arithmetic matches: replaying the retired grammar over the generic rows
+rejects exactly **18**, the number production reports. Five tests pin it, including a structural
+one that fails if the canonical grammar is ever restated locally again.
+
+No value path touched — `is_valid_pick_name` is a reporting predicate.
+
+### F-28 · F-19's UTC assumption is false in production, and `data_stale` can never fire · CONFIRMED · observability · **FIXED — awaiting production verification**
+
+**Found by verifying the F-19 deploy against production rather than trusting the merge**, which is
+the whole reason that step exists. `#909` deployed at 14:27 UTC on 2026-08-18. Measured minutes
+later against `chaseupside.com`:
+
+| field | value | |
+|---|---|---|
+| `data_runtime.last_payload_loaded_at` | `2026-08-18T14:27:50.636651+00:00` | tz-aware, and correct |
+| `data_runtime.last_data_refresh_at` / `active_data_source.producedAt` | `2026-08-18T15:20:51.104768` | **naive, and 53 minutes in the FUTURE** |
+| `/api/health.data_age_hours` | **-0.9** | |
+| `/api/health.data_stale` | `false` | |
+
+**A board cannot be produced after the process that loaded it.** The production box writes
+`scrapeTimestamp` as naive **local** time, and `server.py::_board_age_hours` attaches **UTC**.
+
+**The offset is exactly +2 hours (UTC+2 / CEST), measured against the payload's own scrape.**
+The first reading above compared `producedAt` with `loadedAt` and inferred +1h — that was wrong,
+because the payload loaded at 14:27:50Z had been produced by the *previous* scrape, so the
+comparison mixed two different boards. The clean measurement came from the next completed scrape,
+where `/api/status` carries both stamps for the SAME run:
+
+```
+last_scrape (tz-aware)  2026-08-18T14:31:58.928436+00:00
+producedAt  (naive)     2026-08-18T16:31:45.336015
+offset                  1:59:46  ->  UTC+2
+```
+
+The 14-second shortfall is the gap between stamping the payload and recording the run, so the
+offset is two hours exactly. Note that `last_scrape` is already tz-aware UTC while
+`scrapeTimestamp` is naive local — the correct reference is present in the same response.
+
+F-19's own docstring names this precisely — *"Treating a naive stamp as UTC is an ASSUMPTION about
+where the scraper runs; it is stated here rather than left implicit."* The assumption is stated,
+and production says it is false. Stating an assumption is not the same as verifying it.
+
+**Consequence — worse than the first assessment, and worth stating precisely.** The scrape
+cadence is 2-hourly, so the TRUE board age ranges 0h..2h. Subtracting a 2-hour offset puts the
+REPORTED age in **-2h..0h — never positive**. `data_stale` fires at
+`age > SCRAPE_INTERVAL_HOURS * 3` (6h), so on this deployment it is **structurally unreachable**:
+no amount of staleness can raise a non-positive number above six.
+
+Observed twice within half an hour: `data_age_hours` = **-0.9**, then **-1.6**.
+
+`/api/metrics` `data_age_seconds` carries the same error, and the ops alerter — the surface F-19
+exists to feed — keys on this number. So the staleness detector F-19 repaired is, on the box it
+actually runs on, incapable of alarming.
+
+**Is it still an improvement on what it replaced?** Only in a narrow sense, and the honest answer
+is less comfortable than the first draft of this entry. The retired measure was *process* age,
+which returned `0.0` for a 12.74-hour-old payload — wrong, unbounded, and also unable to alarm.
+The new measure is wrong by a constant and *also* unable to alarm. The repair moved the defect
+from "measures the wrong quantity" to "measures the right quantity in the wrong timezone"; it did
+not restore the alarm. That is a smaller win than F-19's merge claimed, and it is recorded here
+rather than left implied.
+
+**Deliberately NOT hot-patched onto the in-flight PR.** The obvious guard — refuse to publish a
+negative age — would now turn EVERY reading into UNKNOWN on this deployment, not half of them, so
+it is not a stopgap: it would replace a silent failure with a loud one, which is better, but it
+needs the alerter's `None` handling checked first. The correct repair is at the source:
+make `scrapeTimestamp` unambiguous (tz-aware UTC in `Dynasty Scraper.py`), which touches every
+consumer of that field including the temporal ledger and the freshness map, plus a guard that a
+board produced in the future is reported UNKNOWN rather than as a number. That is its own unit
+with its own verification, not a rushed addition to an observability PR already in CI.
+
+Owner: lane 5. Carried in the V1 contract as `V1-128`.
+
+**THE REPAIR (2026-08-18, this session).** Confirmed once more against production immediately
+before fixing, so the fix is measured against a live reading rather than a recalled one:
+
+```
+2026-08-18T18:35:32Z   /api/health.data_age_hours   -1.0
+                       /api/health.data_stale       false
+                       /api/status.last_scrape      2026-08-18T17:36:12.758337+00:00
+```
+
+A board produced 59 minutes earlier, reported as an hour in the future. Same +2h.
+
+Four changes, and the first two are load-bearing **together** — either alone is worse than
+neither:
+
+1. **`Dynasty Scraper.py`** stamps `scrapeTimestamp` with
+   `datetime.datetime.now(datetime.timezone.utc)`. This retires the assumption at its source
+   rather than restating it correctly in three files, and puts the field on the same footing as
+   the contract's `generatedAt`, which has always been `utc_now_iso()`.
+2. **`server.py::_board_age_hours`** refuses a board produced in the future — UNKNOWN, never a
+   number. Alone this would turn *every* production reading into UNKNOWN, which is why it lands
+   with (1). `ops_alerts._check_data_freshness` already returns no alert on `None`, verified
+   before writing the guard, so UNKNOWN degrades quietly rather than inventing an alarm.
+   Tolerance is `5 minutes`, bounded from both sides rather than picked: larger than real
+   NTP skew between two synced hosts (seconds), smaller than the smallest timezone quantum in
+   use anywhere (15 minutes — UTC+05:45, UTC+12:45), because swallowing a genuine timezone
+   misreading is the one thing the guard must not do.
+3. **`src/history/record.py`** — the naive branch survives for legacy payloads and now says so.
+   Live rows stamp `observed_at_zone: "utc"` on the producer's own statement instead of on an
+   assumption about the host.
+4. **`src/history/asof.py::_instant_at_or_before`** — same correction to the comparison rule.
+   Naive stamps are still read as UTC, deliberately: refusing them would make the entire
+   pre-F-28 ledger unreadable to as-of queries. The zone column records which rows are affected.
+
+**The ledger's existing live-origin rows are NOT rewritten.** They are two hours ahead of the
+instant they claim, `src/history` is append-only by design, and corrections are explicit
+correction rows. Rewriting history to fix history is a destructive migration needing owner
+judgment, so it is recorded here as a known-skewed population rather than performed. No
+user-facing wrong answer has been demonstrated from it (`value_as_of` has no route).
+
+Pinned by `tests/api/test_data_age_is_board_age.py`: the measured production state as an
+assertion, a two-hour future board, the clock-skew tolerance in both directions, and a
+source-text guard on the producer — because the guard without the source fix trades a wrong
+number for a permanently missing one, and nothing else would catch that.
+
+**Still owed:** production verification after deploy — `data_age_hours` positive and tracking the
+2-hourly cadence (0h..2h), `data_stale` reachable in principle, and `/api/status.last_data_refresh_at`
+agreeing with `last_scrape` rather than leading it by two hours.
+
+**A correction to this session's own verification attempt.** F-10's production check was first
+pointed at `source_health.anchor_row_counts`, which still reads `ktc` after a completed scrape on
+the new code. That is **not** evidence against F-10: `server.py` documents `anchor_row_counts` as
+the scraper's own anchor counts and states explicitly *"NOT `coverageAudit.expectedSites`: that
+block is an anchor-loss detector... Different question, different owner."* `TOP_OFF_EXPECTED_SITE_KEYS`
+feeds `expectedSites`, which `/api/status` does not expose at all. F-10 therefore remains
+**unverified in production** — it needs the contract payload or an export archive, not this
+endpoint — and the watcher aimed at the wrong field was stopped rather than left to report a
+false negative.
+
+### F-29 · The E2E failure set has grown from 1 to 4, and one of the three is unexplained · CONFIRMED · CI · **OPEN**
+
+Measured on run `32148846855` (PR #910, head `f8a2402`, a tree containing `#909`):
+
+```
+4 failed
+  [desktop-1366] journey-settings-overrides.spec.js:45 › toggling a source fires the overrides request
+  [desktop-1366] journey-tools-health.spec.js:31      › /tools/source-health lists real scraper sources
+  [desktop-1366] public-league.spec.js:533            › teamAssignment returns 12 manager slots (Phase A)
+  [mobile-chromium] public-league.spec.js:533         › teamAssignment returns 12 manager slots (Phase A)
+1 flaky
+  [mobile-chromium] public-league.spec.js:193         › deep links via ?tab= land on the right tab
+149 passed, 52 skipped (8.5m)
+```
+
+The audit's own earlier CI re-measurement recorded **1 failed + 1 flaky**. Three of these are
+therefore new *to this register*, and each is accounted for differently:
+
+* **`journey-settings-overrides`** — this is `F-3a`, already recorded and diagnosed (the backend
+  answered 200 four of four times; the spec fails downstream of the serving path).
+* **`public-league:533` (both projects)** — **not a regression.** `git log` puts this spec's
+  introduction at `f9b9f29`, *Audit batch G* (#891), on 2026-08-17. It asserts
+  `assignments.length >= 8` and a non-empty `nflTeams` per manager, which is precisely the defect
+  open as **#815** ("teamAssignment serves a degraded snapshot as zero assignments, HTTP 200").
+  It is a regression test written for a defect that has not been fixed yet — a deliberate red,
+  and it will stay red until `V1-94` lands. Counting it as new breakage would be wrong.
+* **`journey-tools-health:31`** — **UNEXPLAINED, and it is the one to chase.** The spec reads
+  `status.source_health.source_runtime.enabled_sources` and renders `/tools/source-health`.
+  `#909` did not touch that field, but it did touch `server.py`, which is where `/api/status` is
+  built — so a relationship cannot be ruled out from the file list alone, and it is not being
+  ruled out here on the strength of an argument.
+* **The flaky one is explained by the harness's own banner**: React 19.2 stages a Suspense
+  boundary in `<div hidden id="S:n">` and reveals it a frame later, so a full copy legitimately
+  exists for a window. The banner is explicit that this is React's behaviour, not a product
+  defect, and that `.first()` must NOT be used to silence it because two specs are the repo's only
+  detectors for a PERMANENT duplicate (#709's `dynamic()` bug).
+
+**Not attributed to `#909` without evidence.** The correct next step is to run
+`journey-tools-health` against `main` immediately before and after `82b25bd`, which needs a booted
+stack. Recorded as an open question with the measurement that raised it rather than as a verdict.
+
+Owner: lane 5.
+
+---
+
+**ANSWERED (2026-08-18, same day). Not a `#909` regression, and the diagnosis did not need a
+booted stack after all.**
+
+The cheaper measurement was the workflow's own history. `E2E Safety Net` on `main`:
+
+```
+2026-08-18T07:08Z  schedule  failure  cc9e1630   <- BEFORE #909 merged (14:27Z)
+2026-08-17T07:26Z  schedule  failure  b1c6a42a
+2026-08-16T07:03Z  schedule  failure  45b7142e
+…  13 consecutive scheduled runs, every night back to 2026-08-05, all failure
+```
+
+The suite has been red on `main` for two weeks. A failure occurring at 07:08 on the day `#909`
+merged at 14:27, and every night for the thirteen nights before it, is not caused by `#909`. The
+planned before/after bisect would have measured a difference that the run history says does not
+exist.
+
+**`journey-tools-health:31` is a STALE SPEC, not a product defect — and it was failing the repair
+of an earlier finding.** The current failure is exact:
+
+```
+Error: expanding the strip should reveal 2 per-source rows
+Expected: 2      <- status.source_health.source_runtime.enabled_sources.length
+Received: 21     <- .source-health-name rows the page rendered
+```
+
+The spec carried a note asserting that `source_runtime.enabled_sources` is "what the strip renders
+from". **Audit F-7 made that false.** `SourceHealthStrip` now renders
+`source_health.registered_sources`, with an in-code comment giving the reason: `enabled_sources`
+carries the scraper's own run names for the two ANCHOR markets only, so a page whose subtitle
+promises "every ranking source in the pipeline" was rendering 2 rows out of 21 and looking their
+counts up under keys that did not match.
+
+Confirmed against production the same day — the two numbers are both real and both correct for
+their own question:
+
+| field | value |
+|---|---|
+| `source_runtime.enabled_sources` | `["IDPTradeCalc", "KTC"]` — the browser-scraped anchor markets |
+| `source_runtime.complete_sources` | the same two, `overall_status: complete`, 121.97 s |
+| `registered_sources` | all 21 |
+| `sources_with_data` | **21** |
+| `missing_sources` / `source_failures` / `partial_run` | `[]` / `[]` / `false` |
+
+So the page showing 21 is correct and the spec expecting 2 is the pre-F-7 expectation. This is the
+**same failure class as F-23**: a guard pinned to a fact it never re-verified, which then reported
+the fix as the fault.
+
+**Repaired — by LANE 6, in `#912`, not by this lane.** Both lanes reached the same diagnosis
+independently and edited the same file. Integration takes lane 6's version and **withdraws this
+lane's**, for a reason stronger than "the frontend surface is theirs":
+
+*This lane's version was defective, and lane 6's is not.* The withdrawn version derived the
+expectation from `registered_sources` alone, on the principle that a test recomputing what the
+component computes cannot catch the component computing the wrong thing. The principle stands;
+the implementation did not honour it. With an empty registry but a live runtime list — the exact
+case its own comment described — it skipped the zero-state branch and then asserted **0** rendered
+rows against a page that legitimately renders the runtime fallback. Lane 6 mirrors the
+component's ladder (`registered.length ? registered : runtimeEnabled`) and is correct there.
+
+Recorded rather than quietly dropped, because "whoever wrote it first wins" is precisely the
+failure mode this lane exists to police, and the deciding fact must be the code, not the order of
+arrival.
+
+What this lane contributes instead is the half lane 6 does not have: the **`#909` attribution is
+refuted** by the run history above, and the two `/api/status` numbers are **measured on live
+production** rather than reasoned about.
+
+**Still open, and separated rather than folded in:** `journey-settings-overrides:45`. Its retry
+carries a different and more interesting diagnostic than the first failure —
+
+```
+[board diagnostic] /api/data?view=app: 200, playerCount=988, playersArray=0,
+legacyPlayers=988, rankStamps=740  => the payload looks serveable, so the board had data
+and still did not render it. That points at the client, not the contract.
+```
+
+— which is `F-3a`'s territory, not this one's. It keeps `F-29` from closing, and it is the next
+E2E question.
+
+Status: `journey-tools-health` half **FIXED**; `#909` attribution **REFUTED**; `F-3a` half remains
+open.
+
+**Update 2026-08-18 21:07 — the flaky one failed both attempts, so it is no longer "flaky" by
+observation.** Run `32185117818` reports **3 failed** rather than 2:
+
+```
+[desktop-1366]     journey-settings-overrides.spec.js:45   (F-3a, open)
+[desktop-1366]     journey-tools-health.spec.js:31         (stale spec; #912 owns the fix)
+[mobile-chromium]  public-league.spec.js:193 › deep links via ?tab= land on the right tab
+151 passed, 52 skipped (6.9m)
+```
+
+The third is the spec this entry already classified as **flaky** with a documented cause (React
+19.2 staging a Suspense boundary in `<div hidden>`). It passed on retry in the previous run
+(16.7 s) and failed **both** attempts here — `TimeoutError: page.waitForFunction` on
+`document.body.innerText.includes(needle)`, 15 s.
+
+**Not attributable to the F-30 work, and the reason is a measurement rather than an argument:**
+the pick repair is board-inert (`board_diff --expect-no-value-change` OK, 0 values / 0 ranks / 0
+labels), and `/league` renders public-league snapshots, which carry no pick values at all.
+
+What it does mean is that a spec carrying a "flaky, explained" label has now failed twice in a
+row, which is the point at which that label stops being evidence and becomes an assumption. It
+belongs to the same E2E backlog as `F-3a` and should be re-diagnosed rather than re-labelled —
+recorded here so the next reader does not inherit "known flaky" as a conclusion.
+
+### F-30 · A truncated pick market exposes a real derivation gap — and my first fix was wrong · CONFIRMED · data integrity · **OPEN (assigned)**
+
+**Symptom.** `idpTradeCalc` dropped from 84 pick anchors to 16 (round 1 only, every year) between
+two scrapes of 2026-08-18. 20 census errors followed —
+`pick_completeness_census:2029 Round 2..6:missing_or_unpriced` — reddening every open PR.
+
+**And it was worse than "every open PR": it SKIPPED A PRODUCTION DEPLOY.** Found while looking
+for the deployed SHA for an unrelated checklist, which is its own small lesson about what routine
+verification turns up. `Deploy Production` run `32164548748` (`main`, `f9444f7b`, 17:14:24Z)
+failed its `Validate Build Inputs` job at **`Run unit tests (hard gate — pure logic)`** —
+
+```
+1 failed, 298 passed, 25 skipped, 8197 deselected …
+  Picks missing a finite canonical value:
+  ['2029 Early 2nd', '2029 Early 3rd', '2029 Early 4th', '2029 Early 5th', '2029 Early 6th',
+   '2029 Late 2nd',  '2029 Late 3rd',  '2029 Late 4th',  '2029 Late 5th',  '2029 Late 6th', …]
+```
+
+— and the `Deploy To Production` job was consequently **skipped**. Note the ordering: the failure
+came from the *unit-test* gate, so the FULL contract lane never even ran (`skipped`). Production
+therefore stayed on `8ec1978e` (15:11:36Z, the last successful deploy) while `main` moved on.
+
+Two things this makes concrete. First, the owner's instruction to fix this before anything else
+("it blocks everything") was not an overstatement — a vendor truncating one feed halted the
+release path. Second, it is a live instance of the case `docs/ops/STABILIZATION_2026-08-16.md`
+§3d already legislates: a hard-gate test asserting an absolute property **over the live board**
+turns an upstream availability event into a red build. The lasting repair is the derivation fix
+below, which makes the property true again from the evidence that did arrive.
+
+**My first diagnosis was that the census was in the wrong lane, and it was wrong.** I moved
+`…:missing_or_unpriced` to source-health on the theory that a vendor truncation causes it. CI then
+failed on an existing, explicitly parametrized test —
+`tests/api/test_contract_health_lanes.py::TestTheTaxonomyItself::test_statements_about_our_code_are_structural[pick_completeness_census:2029 Round 5:missing_or_unpriced]`
+— which had already decided this string is a statement about OUR code. I overrode a recorded
+decision without reading it first. **Reverted**, and the taxonomy is right.
+
+**The real defect, measured on the live board.** `ktc` publishes rounds 1-4 for 2026/2027/2028
+throughout; only `idpTradeCalc` truncated. The 2029 rows that price are exactly the rounds
+`idpTradeCalc` still covers:
+
+| row | backing sources | value |
+|---|---|---|
+| `2028 Early 2nd` (template) | idpTradeCalc, ktc, ktcSfTep | 3176 |
+| `2029 Early 1st` (derived) | idpTradeCalc, ktc | 4497 |
+| **`2029 Early 2nd`** (derived) | **ktc only** | **None** |
+
+`2029 Early 2nd` carries COMPLETE provenance — `derived_year_step`, `basis: 2028 Early 2nd`,
+`factor: 0.8532`, `family: measured_vendor_year_step_v1` — against a basis row priced at 3176, and
+still resolves to `None`. The clone LOST `idpTradeCalc` and `ktcSfTep` relative to its own
+template, fell to a single source, and the single-source gate nulled it.
+
+So a row can assert "I was derived from that basis by that factor" while carrying no value. The
+provenance and the valuation disagree, which is worse than either failing alone: the census
+correctly reports `missing_or_unpriced`, but `pickValueProvenance` reads as a successful
+derivation, so the row looks explained.
+
+**Why it is structural, not vendor availability.** `ktc` alone carries every (tier, round) cell
+needed for 2029 R2-R4, and `derivedRoundModel` derives R5-R6 from R4. The inputs were present; the
+derivation did not use them. That is our code, exactly as the taxonomy test asserts.
+
+**Ownership: this is C1-U6 pick valuation, NOT integration.** Recorded and assigned rather than
+repaired from lane 5 — the fix is in `_inject_far_future_pick_sources`'s per-source combination
+rule (why a clone drops sources its template had) and its interaction with the single-source gate,
+which is pick-valuation methodology.
+
+**What lane 5 did land:** the three hard-gate tests that build from `exports/latest` now skip on a
+per-source anchor-coverage premise. That stands independently of the lane question — a hard-gate
+test may not assert over the live board at all (`STABILIZATION_2026-08-16` §3d). The guard was
+verified to keep its teeth rather than assumed: replayed against the healthy 15:09 board the class
+runs 16 tests with 0 failures and 1 pre-existing skip; against the truncated board it skips 11.
+
 ## 2. Repairs made during the audit
 
 Each is a repair-only PR: exact-head CI, mutation-proven where structural, merged on green.
@@ -1249,6 +1783,346 @@ Phase 3 (performance budgets, accessibility, the remainder of observability), Ph
 independent adversarial pass over all 20 lenses), and Phase 5 (production proof against the
 deployed SHA, the §22 board diff, and the full regression sweep) have not been completed. The
 verdict is withheld until they have.
+
+
+#### F-30 — SECOND HALF: partial publication has two forms, and completion can only reach one
+
+An adversarial re-check of the absorbed repair — run against both implementations rather than
+against reasoning — found that **"partially published horizon year" is two different states**, and
+that the fix above covers only one of them:
+
+| partial-publication form | record-keyed | basis search | after the injection fix |
+|---|---|---|---|
+| horizon rows **exist**, no voting source | 20 census errors | **0** | **0** |
+| horizon rows **absent** for unpublished cells | 20 census errors | **20 — identical** | **0** |
+
+**A completion rung reprices rows that exist.** In the second form `by_name.get(name)` is `None`
+and there is nothing to reprice, so `#916`'s search and my first rung fail identically — which
+`#916` itself named honestly under "known limitations", calling it a genuinely evidence-free
+state. **It is not evidence-free.** The earlier future year was fully priced the whole time; the
+rows simply were never created.
+
+**The cause is upstream of completion**, in `_inject_far_future_pick_sources`:
+
+```python
+for year in range(current_year + 1, target_year + 1):
+    if year in years_with_tiers:
+        continue  # real source rows exist — defer to them.
+    ...
+        if new_name in players_by_name:
+            continue          # ← the per-cell guard, already correct
+```
+
+The per-cell guard already defers to every real row. The **year-level** skip therefore added
+nothing except a failure mode: a vendor publishing part of a horizon year made the injection
+defer for the cells it had **not** published, and nothing else creates those rows. Deferral is now
+per cell, and the year-level skip is gone.
+
+**Inert in both directions, which is why this is safe.** A wholly absent year synthesizes every
+cell exactly as before; a wholly published year defers on every cell exactly as before. Behaviour
+changes only in the partial case — the case that was broken. Measured on the live board with code
+as the only variable: **0 values moved, 0 ranks changed, 0 labels flipped**
+(`--expect-no-value-change` OK), and the originally failing `f9444f7` payload still goes
+**20 → 0** on both lanes.
+
+Pinned by three tests over the injection itself (not the completion owner, because that is not
+where the defect was): missing cells are created, published cells are never overwritten, and a
+wholly published year is untouched. The first is **red against `main`**; the other two pass there,
+correctly, since only the partial case was broken.
+
+**Method note worth keeping.** The first form was the one I probed, and it confirmed the repair.
+The second form only surfaced because the verification asked "is the claim true in *every*
+construction of its own words" rather than "does my probe pass". Lane 7's report said "absent or
+have no voting source"; I measured the second half of that sentence and would have shipped
+believing the gap closed.
+
+#### F-30 — ABSORBED #916: the first repair was too narrow, and lane 7 measured it
+
+**The first revision of this rung was defective, and it is worth being precise about how.**
+It completed a row from the derivation record `_inject_far_future_pick_sources` had stored —
+which made value and provenance structurally unable to disagree, and did fix the observed
+incident (20 → 0). But it inherited the injection's own precondition:
+
+```python
+for year in range(current_year + 1, target_year + 1):
+    if year in years_with_tiers:
+        continue  # real source rows exist — defer to them.
+```
+
+**The injection no-ops for a horizon year that already carries ANY tier row**, so it records
+nothing for that year. A vendor publishing *part* of the horizon produces exactly that state,
+and a record-keyed rung cannot fire in it. Found by lane 7 (`#916`) and **verified here
+independently** rather than accepted on report — the same probe, two implementations, one raw
+payload, differing only in code:
+
+| | horizon tier rows unpriced | generic rows unbuilt | census errors |
+|---|---|---|---|
+| record-keyed (first revision) | **18** | **6** | **24** |
+| basis search (shipped) | **0** | **0** | **0** |
+
+Lane 7 reported 15 and 5 from a probe that left rounds 2-6 unpriced; this one leaves the whole
+horizon year unpriced, so it counts 18 and 6. Different construction, same defect — and the
+numbers are reported as measured rather than reconciled to match.
+
+**The shipped rung searches the board instead of consulting a memo**: nearest priced EARLIER
+FUTURE year, same tier+round, through the one shared `_year_step_for`, compounded across the
+gap. That subsumes the record-keyed case, because when the injection *did* create the row its
+template year is by construction a priced earlier future year.
+
+Three things kept from the first revision, because they were right:
+
+* **A derivation ENTRY is not a derived VALUE.** The provenance pass now requires
+  `_finite_value(row) is not None` before stamping `derived_year_step`. A valueless row falls
+  through to `unavailable` with a reason instead of claiming a derivation that produced no
+  number.
+* **Domain is the config's measured surface** (rounds 1-4 today). Rounds it publishes no cell
+  for would fall to `yearStepFallback` — an unmeasured number for those rounds — so they take
+  the round-step rung, which is anchored on measured round ratios.
+* **The current draft year is never a basis**: its rows are rookie-pool-tethered slot picks, a
+  different quantity, and vendor-priced years take no year discount at all (T-3/C-2).
+
+**A defect the comparison exposed in the first revision beyond the generality gap:** it never
+mirrored the completed value into the legacy `players` dict, which the round-step rung beside it
+has always done. So the two encodings of the same row would have disagreed.
+
+**Verification of the shipped combination**
+
+| check | result |
+|---|---|
+| originally failing payload `f9444f7`, `--lane structural` | `errors=20` → **`ok=True errors=0`** |
+| same payload, `--lane full` (deploy gate) | `errors=20` → **`ok=True errors=0`** |
+| partial horizon publication (synthetic, real payload) | 24 census errors → **0** |
+| healthy-board diff, code the only variable | **0 values moved, 0 ranks changed, 0 labels flipped** (`--expect-no-value-change` OK) |
+| `#916`'s 12 invariant tests against this implementation | **12/12 pass** |
+| 5 further invariants added here | **red on the first revision (3/5), green now** |
+
+The added tests pin what `#916`'s set did not: completion with **no derivation map at all**, a
+structural guard that a *misleading* derivation map cannot change the derived value (behaviour
+alone cannot catch a re-introduced record dependency), nearest-basis selection when two earlier
+future years are priced, provenance never stamped on an unpriced row, and inertness on a fully
+priced horizon.
+
+**And one of my own tests had to be replaced rather than deleted.**
+`test_a_row_with_no_recorded_derivation_is_left_alone` asserted *"only rows the injector
+actually derived are completed here"* — a faithful test of the too-narrow contract, which would
+have locked the defect in behind a green assertion. It is now
+`test_a_row_with_no_recorded_derivation_is_STILL_completed`, and its docstring says what it used
+to claim and why that was wrong.
+
+#### F-30 — the "direct evidence wins" guard, verified on a RECOVERED board (2026-08-18)
+
+The board-diff above was measured while `idpTradeCalc` was still truncated. The 19:21Z refresh
+restored it (458 → 994 values), which made the more important test possible: does the completion
+pass stay out of the way once the market comes back?
+
+Provenance census by year on the recovered board:
+
+| year | `direct_market_blend` | derived |
+|---|---|---|
+| 2027 | **12** (4 rounds × 3 tiers) | R5/R6 round-step + 6 generic tier EVs |
+| 2028 | **12** | R5/R6 round-step + 6 generic tier EVs |
+| 2029 | **0** | year-step (R1-R4), round-step (R5/R6), generic tier EV |
+
+**Every row a vendor actually prices is still `direct_market_blend`, and the pass touched none of
+them.** It fires only for 2029 — the year no vendor publishes, which is exactly the population
+C1-U6's `derivedYearModel` exists for. The skip-if-priced guard is not merely present in the code;
+it is measured doing nothing on 24 rows that have real evidence.
+
+Two details worth keeping:
+
+* The year-step factors are **per (tier, round) cells, not one number** — `2028 Early 4th` steps at
+  0.8786 while `2028 Late 4th` steps at 0.7726. That is the measured vendor term structure, and a
+  single global factor would have flattened it.
+* A 2029 round-5 row records **both** derivations in its provenance — `derived_round_step` from
+  `2029 Early 5th` with `yearStepFactor`, `yearStepBasisYear` and `yearStepInheritedFrom` — so a
+  value two derivations from vendor evidence says so on its face rather than presenting as a
+  single-hop derivation. That is the C1-U6 machinery working *through* the completion rather than
+  around it.
+
+#### F-30 — board-diff measurement (2026-08-18)
+
+Required by the owner as one of the four conditions for restoring `V1-12` to `VERIFIED`.
+Captured with the repo's own tooling — `scripts/golden_board.py` on `main` (`91336c5`) and on the
+repair head, then `scripts/board_diff.py` — from the same raw payload, so the only variable is the
+code.
+
+```
+rows:   983 -> 988      priced: 837 -> 857      picks: 157 -> 162
+ranked: 740 -> 740      idp:    280 -> 280
+
+VALUES: 0 moved, 15 newly priced, 0 newly unpriced
+RANKS:  0 changed
+rows ADDED (5): 2029 Round 2 … 2029 Round 6
+LABELS: confidenceBucket 15 flipped (none -> low)
+        confidenceLabel  15 flipped
+        quarantined       6 flipped (False -> True)
+```
+
+**The repair is purely additive: not one existing value or rank moved.** The 15 newly-priced rows
+are exactly the 2029 rounds 2-6 across the three tiers; the 5 added rows are their GENERIC-grade
+siblings ("2029 Round 2"…), which could not exist before because a generic grade is the tier mean
+and the tier rows were unpriced.
+
+**The six quarantine flips were chased rather than accepted, and they are 2029 joining an existing
+convention.** They are the rounds 5 and 6 rows, which no vendor prices and which reach a value
+through `derived_round_step` from the round 4 my pass completed. They carry
+`no_valid_source_values`, which is *true*, and the flag is in `_QUARANTINE_FLAGS`. Measured across
+every future year on the same board:
+
+| year | R1-R4 | R5 | R6 |
+|---|---|---|---|
+| 2027 | 0/3 quarantined | **3/3** | **3/3** |
+| 2028 | 0/3 quarantined | **3/3** | **3/3** |
+| 2029 (after this repair) | 0/3 quarantined | **3/3** | **3/3** |
+
+So 2027 and 2028 already behaved this way and 2029 now matches them. Before the repair those rows
+were unpriced, so there was nothing to quarantine — the flip is the *arrival* of a value, not a
+change of policy. The value is published with `low` confidence and withheld from the decision
+surfaces that read `quarantined`, which is the honest treatment for a number two derivations away
+from any vendor evidence.
+
+Had 2029 R5/R6 come out **un**quarantined while 2027 and 2028 were quarantined, that would have
+been a real defect introduced by this repair, and the comparison is what distinguishes the two
+cases.
+
+### F-31 · C2-U1's "unpriced" third state is unreachable on the live snapshot path · CONFIRMED · false green · **OPEN (assigned: lane 1)**
+
+**Found by reviewing `#914`, and disclosed BY `#914` rather than caught in spite of it.** Lane 1's
+own docstring for the new canonical `roster_player_from_row` adapter says it, and the claim was
+verified against the tree rather than taken on trust.
+
+C2-U1 made `RosterPlayer.ros_value` a `float | None` on a deliberate distinction: `0.0` is a real
+objective (assignable, contributes nothing) and `None` is UNKNOWN (not assignable, reported in
+`unpriced_ids`, its slot reported unfilled). That third state is the point of the type — the
+retired `float(player.ros_value or 0.0)` scored both identically while reporting slots as filled
+by players nobody can price.
+
+**The only live producer of the adapter's input destroys that state before the adapter sees it.**
+`src/ros/team_strength.py:123` drops any row whose `rosValue` is `<= 0` before writing the
+snapshot the roster adapters read, and line 165 carries its own `float(agg.get("rosValue") or 0.0)`.
+So on the production path `LineupAssignment.unpriced_ids` is **empty by construction**, however
+correct the canonical owner is.
+
+This is the false-green test applied to a repair rather than to a feature. The implementation is
+truthful; its live input is not, so the honest-missing state that C2-U1 exists to preserve never
+reaches it. Nothing is *wrong* on the board today — an unpriced player is excluded rather than
+mis-scored — but the guarantee C2-U1 is credited with is not in force where it matters, and
+`V1-27`'s production evidence should not be read as covering it.
+
+**Not fixed here, deliberately.** The repair is upstream in `ros/team_strength.py`, which is lane
+1's surface, and it is a behaviour change to the snapshot every roster consumer reads — it needs
+its own measured blast radius, not a drive-by edit from the integration lane. `#914` is not
+blocked on it: the adapter consolidation is a strict improvement and the disclosure is what makes
+this finding possible.
+
+Owner: lane 1. Related: `V1-27` (C2-U1), `#914`.
+
+### F-32 · The mobile view rendered different numbers than desktop, and was the larger payload · CONFIRMED · false green · **FOUND AND FIXED BY LANE 6 (#912)**
+
+Recorded here because it is a **canonical-value integrity** finding, not merely a frontend one, and
+because the V1 row for mobile/desktop parity should point at it. The work and the credit are lane
+6's; this register entry is the integration lane confirming and filing it.
+
+`/api/data?view=compact` exists to send a phone FEWER BYTES. It may not send a phone a
+**different board**. It did both wrongly:
+
+* **It was lossy in a way that changed rendered numbers.** `_materializePlayerArrayRow` reads
+  **14 of the 17** fields `compact_view` pruned, so the compact board rendered differently from
+  the array board for the same player on the same day — `anomalyFlags` (so /edge's "Flagged" tile
+  read **0**), `confidenceLabel` (a different confidence string), the `anchorValue` /
+  `subgroupBlendValue` / `subgroupDelta` / `alphaShrinkage` chain (so PlayerPopup's value
+  derivation collapsed), and — worst — **`blendedSourceRank`, which is a SORT KEY**, so the
+  Consensus sort collapsed on mobile.
+* **It was BIGGER than the view it was meant to beat.** Measured on the 1,109-row contract at
+  gzip 6: full 13.09 MB / 1,092.8 KB gz, array 7.25 MB / 631.8 KB gz, compact 8.28 MB /
+  735.0 KB gz — **+16.3% against `array`**. Compact still carried the legacy `players` dict,
+  which `buildRows` never reads when `playersArray` is present; `?view=array` had already dropped
+  it and compact had not.
+
+This is the false-green test failing on a *delivery* surface rather than an engine: the intended
+production consumer was reading the canonical implementation, but through a view that silently
+removed the inputs it materializes from. It sits directly against the invariant CLAUDE.md states
+as **one canonical value per player per session** — two devices, one player, one day, two
+answers — and it reached users, unlike the two W29 violations that motivated that wording.
+
+**Why nothing caught it:** there was no test relating the view to its consumer. A shape test that
+pins "compact prunes these fields" passes forever while the consumer quietly starts reading one of
+them. #912's structural fix is the right one — `test_compact_view_consumer_parity.py` plus
+`tests/e2e/specs/api-view-parity.spec.js` make the *relationship* the assertion rather than the
+field list.
+
+Owner: lane 6, fixed in `#912`. Related: `V1` mobile/desktop parity; the "no second canonical
+board" family (`F-VAL-02`, W29-F001/F002), which this joins as the first member measured on a
+user-facing delivery path.
+
+
+### F-33 · The external crowd-FAAB pool admitted evidence it cannot compare · CONFIRMED · data integrity · **FOUND AND FIXED BY LANE 4 (#911)**
+
+Filed by the integration lane so `V1-129` has a register entry to point at. The work and the
+credit are lane 4's.
+
+The crowd waiver feed reaches `faab_engine.rival_bid_cdf` through
+`data/faab/crowd_history_<leagueKey>.json` → `crowd_bid_index`, and is blended into the modelled
+rival share at **weight 0.6**. What that pool admits therefore moves **real recommended bids** —
+this is not an observability field.
+
+It admitted three kinds of evidence it had no standing to use: leagues whose format is not
+comparable to the target league, a ledger that had not been refreshed inside its budget, and
+**positions the retained population cannot price at all** (measured: no external league in the
+feed starts an individual defender, so an IDP recommendation would have been answered from a
+population that never prices one). `#911` refuses each, and reports the refusal rather than
+silently narrowing.
+
+Two things worth keeping visible because they are easy to lose:
+
+* **Own-league history was already correct and is untouched.** `fetch_bid_history` normalises to
+  percent-of-original-budget across the $1,000 / $200 / $100 eras, keeps `$0` bids, and refuses a
+  season with no usable `waiver_budget` rather than fabricating `$100`. The defect was in the
+  *external* lane only, and saying so stops a future reader "fixing" the half that works.
+* **A snapshot proves when it was taken, not that it is still true** — the staleness refusal is
+  the same posture as the scoring-fingerprint evidence states, not a new rule.
+
+This is the CLAUDE.md signal-independence discipline applied to admission rather than to counting:
+evidence that cannot be compared to the question is not weak evidence, it is *not evidence*, and
+weighting it at 0.6 was the defect.
+
+Owner: lane 4, fixed in `#911`. Related: `V1-129`, `V1-55`.
+
+
+### F-34 · The horizon year is a single-vendor dependency, on healthy days too · CONFIRMED · canonical value · **OPEN**
+
+Surfaced by lane 7 while diagnosing `F-30` (`#916` names it under "known limitations"), and
+**measured independently here** on the current healthy board:
+
+| pick year | sources voting on each vendor-covered tier row |
+|---|---|
+| 2026 | `idpTradeCalc` + `ktcSfTep` |
+| 2027 | `idpTradeCalc` + `ktcSfTep` |
+| 2028 | `idpTradeCalc` + `ktcSfTep` |
+| **2029 (the horizon)** | **`idpTradeCalc` alone**, on all 12 cells |
+
+**Mechanism.** `_inject_far_future_pick_sources` seeds synthetic far-future rows by cloning the
+template year's entry out of `players_by_name` — the RAW scraper payload. But `ktcSfTep`'s pick
+values do not reach a row that way: they arrive through the **CSV enrichment**, which runs later
+and correctly carries no far-future year to enrich a synthetic row with. So a synthetic row can
+only ever vote on the in-JSON sources, and one of the two pick markets is structurally invisible
+to it.
+
+**Why it matters beyond `F-30`.** `F-30` is now repaired: the horizon guarantee no longer depends
+on which raw keys survived, because completion searches the board. But the *blended* horizon
+value — when the blend does succeed — still rests on one provider. That is a
+signal-independence question on a canonical value, not an observability one: CLAUDE.md's B10
+family rules and the single-source haircut exist precisely because one voter is not a consensus.
+Worth checking explicitly whether the haircut and the confidence gate currently see these rows as
+single-source, since they are.
+
+**Not fixed here, and deliberately.** Making the injection see the enriched source population is
+a change with real blast radius on live 2029 values, and it is not what either `F-30` PR set out
+to do. `#916` was right to name it rather than fold it in. Filed so it does not disappear with
+that PR.
+
+Owner: lane 5 (pick valuation). Tracked as `V1-132`.
+
 
 ### Interruption: the 2026-08-18 CI incident
 

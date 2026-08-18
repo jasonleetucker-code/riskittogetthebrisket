@@ -2,7 +2,7 @@
 
 **Status:** GOVERNANCE INDEX
 **Canonical front door:** `PRODUCT_PLAN.md` → `docs/MASTER_PRODUCT_PLAN.md`
-**Last reconciled:** 2026-08-15 (owner mathematical-methodology + projection-ensemble refinements)
+**Last reconciled:** 2026-08-18 (V1 completion contract registered; owner V1 sprint authorization)
 
 This file exists so an assistant cannot reasonably mistake an old session capture, an audit roadmap, or a
 competitor TODO for the current product plan. **Every planning document in the repository must appear somewhere
@@ -21,6 +21,7 @@ below.** A document that appears nowhere is drift, and `scripts/check_planning_i
 | `docs/C_SERIES_SCOPE_MANIFEST.md` | **The exhaustive implementation/disposition census.** Answers "is this in scope, who owns it, what phase, what proves it done" |
 | `docs/C_SERIES_EXECUTION_MAP.md` | **The bounded-unit decomposition of the manifest.** Answers "what are the executable units, in what order, owned by whom, proven how". Decomposition only — it authorizes nothing; `EXECUTION_PLAN.md` alone does |
 | `docs/EXECUTION_PLAN.md` | **The ONLY record of current sequencing and explicit next authorized scope** |
+| `docs/VERSION_1_COMPLETION_CONTRACT.md` | **The V1 completion denominator and status ledger.** Answers "what must be true for V1 to be complete, and how much of it is proven". Classifies scope; authorizes nothing — `EXECUTION_PLAN.md` §0 alone does |
 | `docs/CE_REGISTRY.md` | **The only place a CE identifier is defined** |
 | `docs/OWNER_REQUESTED_TODO.md` | **THE LIVE OWNER INTAKE LEDGER** — see §2 |
 | `docs/ARCHITECTURE_HANDOFF.md` | Architecture / canonical-owner state; may contain stale phase metadata and must not override `EXECUTION_PLAN.md` |

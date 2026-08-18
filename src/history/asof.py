@@ -100,8 +100,17 @@ def _instant_at_or_before(observed_at: Any, instant_utc: datetime) -> bool:
     reproduced).  Comparison is on PARSED datetimes, never
     lexicographic text (a zone-qualified stamp with a negative UTC
     offset would defeat a string compare): zone-aware stamps convert
-    to UTC; naive stamps are compared under the recorded
-    naive-means-UTC assumption of the recording hosts.
+    to UTC.
+
+    Naive stamps are compared under a naive-means-UTC assumption.  As of
+    audit F-28 that applies to LEGACY rows only — ``scrapeTimestamp`` is
+    now tz-aware UTC at the source, so rows recorded after it carry their
+    zone explicitly (``observed_at_zone``).  For the legacy rows the
+    assumption is known to be wrong by two hours where the producer was
+    the production VPS, and it is kept rather than tightened because
+    refusing every naive stamp would make the entire pre-F-28 ledger
+    unreadable to as-of queries.  The zone column records which rows are
+    affected.
     """
     s = str(observed_at or "").strip()
     if not store.has_time_component(s):

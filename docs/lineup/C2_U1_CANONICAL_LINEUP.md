@@ -351,3 +351,40 @@ deployed merge SHA:
 4. A scrape completes and the board is unchanged (`board_diff --expect-no-value-change`).
 5. **After** that scrape: `sleeper.fantasyPositions` is populated, and at least one DL/LB hybrid
    is started in a slot its primary position alone would not have allowed.
+
+### 10a. Verification record — 2026-08-18
+
+`/api/data` and `/api/terminal` are 401 from the integration session, so the payload checks were
+run against the **committed export rebuilt through `build_api_data_contract`** — same code path,
+same day's real board, real Sleeper block. Real-data evidence (**L2**), not a deployed-production
+response (**L3**); the browser-rendering items need a session and are marked blocked rather than
+inferred from the payload.
+
+| # | check | result | level | evidence |
+|---|---|---|---|---|
+| 1 | every team carries `optimalLineup` with `available: true` and `slotSource: "sleeper_roster_positions"` | **PASS** | L2 | 12 of 12 teams, `available: true` × 12, `slotSource: sleeper_roster_positions` × 12 — no other value observed |
+| 2 | `/terminal` + `/rosters` render starters from the stamp | **BLOCKED-EXTERNAL** | — | needs an authenticated browser session |
+| 3 | `/api/trade/simulate` `starterDelta` unchanged for starter-neutral trades | **BLOCKED-EXTERNAL** | — | 401 without a session |
+| 3a | **with Sleeper reachable**, teams still carry `optimalLineup.available: true` | **PASS** | L2 | the rebuild's `sleeper` block is fully populated (`teams`, `rosterPositions`, `scoringSettings`, `fantasyPositions`, `idToPlayer`), and all 12 lineups solved — this is the state the §7a defect made unreachable |
+| 4 | scrape completes, board unchanged | **PARTIAL** | — | a post-deploy scrape completed healthy (see `C1_U9` §7a for the same measurement); strict value-inertness needs a pre-deploy production snapshot that was never captured |
+| 5 | `fantasyPositions` populated **and** a hybrid started in a slot its primary alone would not allow | **PASS** | L2 | 660 eligibility records; **43** players carry more than one fantasy position, **31** of them are started, and **4** occupy a slot their primary position alone does not permit |
+
+The item-5 hits, named because "at least one" is weaker than what was found:
+
+| player | primary | eligible | started at |
+|---|---|---|---|
+| T.J. Watt | DL | DL, LB | **LB** |
+| Travon Walker | DL | DL, LB | **LB** |
+| K'Lavon Chaisson | DL | DL, LB | **LB** |
+| Travis Hunter | WR | DB, WR | **DB** |
+
+Travis Hunter is the interesting one: the same two-way player the board applies an explicit
+post-blend override to, here starting on the *defensive* side of his eligibility.
+
+**How this measurement was nearly a false pass.** The first run joined assignments to eligibility
+by Sleeper player id and reported **0** hits — which reads exactly like "the property does not
+hold". It was a join failure: `sleeper.fantasyPositions` and `sleeper.positions` are keyed by
+NAME, and `optimalLineup.assignments` carries `player` (a name) with no id at all. The re-run
+publishes its own denominator — 240 assignments joined, i.e. 12 teams × 20 slots, all of them —
+so the reader can see the check ran rather than take "0" or "4" on trust. A verification that
+cannot distinguish "measured and found none" from "matched nothing" is not a verification.

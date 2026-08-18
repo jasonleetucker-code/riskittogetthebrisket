@@ -134,6 +134,12 @@ CONFIDENCE_BASES: tuple[str, ...] = (
     "evidence_gate",  # the five-axis bottleneck ran
     "pick_dispersion",  # the pick coefficient-of-variation rule ran
     "derived_round_step",  # value derived from the same year's nearest priced round
+    # AUDIT F-30: value derived from the nearest PUBLISHED year via the
+    # measured vendor year-step.  The far-future injector always stamped
+    # this provenance class; before F-30 the row it stamped it on could
+    # arrive unpriced, so no confidence basis was ever written and this
+    # entry was not needed.  Completing the value made the basis reachable.
+    "derived_year_step",  # value derived from the nearest published year
     "derived_rookie_tether",  # value inherited from the rookie at this slot
     "derived_tier_values",  # value derived from tier values (generic grade)
     "unpriced",  # no canonical value exists for this row
