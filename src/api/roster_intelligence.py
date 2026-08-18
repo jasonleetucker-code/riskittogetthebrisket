@@ -38,6 +38,7 @@ they were measured the same way.
 
 from __future__ import annotations
 
+import math
 import time
 from typing import Any, Mapping
 
@@ -198,6 +199,25 @@ def _full_roster_values(bundle: _gameplan.LeagueBundle, owner_id: str) -> list[t
     return out
 
 
+def _league_context_order(item: tuple[str, Mapping[str, Any]]) -> tuple[bool, float, str]:
+    """Sort key for the league context: ranked teams first, best first.
+
+    An unranked team sorts to the END on an explicit ``inf``, never on a
+    coerced ``0``. The coercion is what the decision-coercion gate flags
+    and it is right to: ``rank or 0`` reads an ABSENT rank as the best
+    possible one, so the leading ``is None`` element is the only thing
+    keeping such a team out of first place. Two guards where one should
+    do it, and the fragile one is invisible.
+
+    ``inf`` needs no companion guard — it is last on its own — so the
+    ``is None`` element survives only to keep every unranked team
+    grouped, and ``owner_id`` makes ties deterministic.
+    """
+    owner_id, team = item
+    rank = team["strength"]["leagueRank"]
+    return (rank is None, math.inf if rank is None else float(rank), owner_id)
+
+
 def get_team_roster_intelligence(
     league_key: str,
     scoring_profile: str,
@@ -232,14 +252,7 @@ def get_team_roster_intelligence(
             "youngCoreIndex": t["agePortfolio"]["youngCoreIndex"],
             "valueWeightedCoreAge": t["agePortfolio"]["valueWeightedCoreAge"],
         }
-        for oid, t in sorted(
-            league["teams"].items(),
-            key=lambda kv: (
-                kv[1]["strength"]["leagueRank"] is None,
-                kv[1]["strength"]["leagueRank"] or 0,
-                kv[0],
-            ),
-        )
+        for oid, t in sorted(league["teams"].items(), key=_league_context_order)
     ]
     payload.pop("teams", None)
     payload["timing"] = {**league["timing"], "bundleCacheHit": cache_hit}
