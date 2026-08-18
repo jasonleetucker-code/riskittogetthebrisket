@@ -584,3 +584,23 @@ def test_the_special_teams_scope_is_the_flag_and_not_the_play_type():
 
     assert by_flag == expected == 121
     assert by_play_type == 122, "the wider scope over-counts, which is why it is not used"
+
+
+@pytest.mark.parametrize(
+    "td_team,posteam",
+    [("", "KC"), ("KC", ""), ("", "")],
+    ids=["no-scoring-team", "no-offense", "neither"],
+)
+def test_an_unknown_scoring_team_is_not_a_pick_six(td_team, posteam):
+    """Fails closed. An unrecorded scoring team is not evidence that the
+    defense scored, and this rule charges a quarterback -2 points."""
+    by_player, _ = _accumulate(
+        _play(
+            interception=1,
+            return_touchdown=1,
+            passer_player_id="00-qb",
+            posteam=posteam,
+            td_team=td_team,
+        )
+    )
+    assert by_player == {}

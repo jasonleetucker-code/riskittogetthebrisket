@@ -266,8 +266,12 @@ def _iter_plays(lines: Iterable[str]) -> Iterator[tuple[int, str, dict[str, list
         if is_truthy(_cell(row, i_int)) and is_truthy(_cell(row, i_ret_td)):
             # A returned interception that the OFFENSE ends up scoring on
             # (defender fumbles the return back into the end zone) sets
-            # return_touchdown and is not a pick-six.
-            if _cell(row, i_td_team) != _cell(row, i_posteam):
+            # return_touchdown and is not a pick-six.  Both teams must be
+            # KNOWN: an unrecorded scoring team is not evidence that the
+            # defense scored, and this rule charges a quarterback -2.
+            scoring_team = _cell(row, i_td_team)
+            offense = _cell(row, i_posteam)
+            if scoring_team and offense and scoring_team != offense:
                 _credit("pass_int_td", _cell(row, i_passer))
 
         yield week, stype, events
