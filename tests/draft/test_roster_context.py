@@ -303,3 +303,58 @@ class TestRoute:
         finally:
             monkeypatch.delenv("RISKIT_FEATURE_PERFECT_DRAFT", raising=False)
             feature_flags.reload()
+
+
+class TestFeasibilityObjectiveIsIrrelevant:
+    """The cut ladder's lineup guard is a COUNT, and a count does not
+    depend on the objective.
+
+    ``build_roster_assets`` used to read ``rosValue`` off the contract
+    row and coerce a missing one to ``0.0`` — a missing-as-zero over a
+    field the contract does not carry at all (0 of 983 rows on the live
+    board).  It was replaced by an explicit constant, which is only
+    correct if the property below actually holds, so the property is
+    pinned rather than assumed.
+    """
+
+    def test_the_filled_slot_count_is_the_same_for_any_objective(self):
+        """``solve_optimal_assignment`` is a matroid greedy with
+        augmenting paths: it never evicts an assigned player, so the
+        matching it returns is maximum-cardinality whatever the weights
+        are.  Weights decide WHO starts, not HOW MANY."""
+        import random
+
+        from src.draft.displacement import RosterAsset, _filled_slot_count
+
+        slots = ["QB", "WR", "WR", "FLEX", "SUPER_FLEX"]
+        base = [
+            RosterAsset("p1", "P1", "QB", 900.0),
+            RosterAsset("p2", "P2", "QB", 400.0),
+            RosterAsset("p3", "P3", "WR", 800.0),
+            RosterAsset("p4", "P4", "WR", 300.0),
+            RosterAsset("p5", "P5", "RB", 700.0),
+            RosterAsset("p6", "P6", "TE", 100.0),
+        ]
+        expected = _filled_slot_count(base, slots)
+        rng = random.Random(20260818)
+        for _ in range(50):
+            shuffled = [
+                RosterAsset(
+                    a.player_id, a.name, a.position, a.board_value, ros_value=rng.random() * 1000
+                )
+                for a in base
+            ]
+            assert _filled_slot_count(shuffled, slots) == expected
+
+    def test_an_unpriced_player_still_counts_toward_feasibility(self):
+        """The constant is ``0.0`` and not ``None`` on purpose: ``None``
+        is UNKNOWN and the solver excludes it, but a player the board
+        could not price still occupies a body that can legally fill a
+        slot."""
+        from src.draft.context import _FEASIBILITY_OBJECTIVE
+        from src.draft.displacement import RosterAsset, _filled_slot_count
+
+        assert _FEASIBILITY_OBJECTIVE is not None
+        unpriced = RosterAsset("u", "U", "QB", None, ros_value=_FEASIBILITY_OBJECTIVE)
+        assert _filled_slot_count([unpriced], ["QB"]) == 1
+        assert _filled_slot_count([RosterAsset("u", "U", "QB", None, ros_value=None)], ["QB"]) == 0

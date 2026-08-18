@@ -281,3 +281,53 @@ def test_no_contract_at_all_is_shaped_and_empty():
     out = ri.build_league_roster_intelligence(None)
     assert out["teams"] == {}
     assert out["contractVersion"] == ri.ROSTER_INTELLIGENCE_CONTRACT_VERSION
+
+
+# ══ Droppability is composed, opt-in, and stamped ══════════════════
+
+
+def test_droppability_is_absent_by_default_and_the_absence_is_stamped():
+    """OFF by default is a measured choice: the four core outputs cost
+    69 ms on the live 12-team board and the cut ladder a further 710 ms.
+
+    The stamp is what keeps that honest — "you did not ask for it" and
+    "this team has nothing droppable" are different answers, and an
+    absent key alone cannot tell them apart."""
+    _, out = _league()
+    assert out["droppabilityIncluded"] is False
+    assert all("droppability" not in team for team in out["teams"].values())
+
+
+def test_droppability_when_requested_matches_the_owner_called_directly():
+    """Composition, not recomputation — the same rule the four core
+    outputs follow."""
+    from src.roster_intel.droppability import team_droppability
+
+    c = _contract()
+    out = ri.build_league_roster_intelligence(c, team_count=12, include_droppability=True)
+    assert out["droppabilityIncluded"] is True
+    for oid, team in out["teams"].items():
+        assert team["droppability"] == team_droppability(c, owner_id=oid)
+
+
+def test_the_team_view_computes_one_ladder_not_twelve():
+    """The other eleven ladders are not part of this answer, and the
+    league loop costs 13x this one."""
+    from src.roster_intel.droppability import team_droppability
+
+    c = _contract()
+    out = ri.get_team_roster_intelligence(c, "o0", team_count=12, include_droppability=True)
+    assert out["droppabilityIncluded"] is True
+    assert out["team"]["droppability"] == team_droppability(c, owner_id="o0")
+    # League context carries ranks, never other teams' cut ladders.
+    assert all("droppability" not in row for row in out["leagueContext"])
+
+
+def test_requesting_droppability_does_not_disturb_the_four_core_outputs():
+    c = _contract()
+    plain = ri.build_league_roster_intelligence(c, team_count=12)
+    with_drops = ri.build_league_roster_intelligence(c, team_count=12, include_droppability=True)
+    for oid, team in plain["teams"].items():
+        other = dict(with_drops["teams"][oid])
+        other.pop("droppability", None)
+        assert other == team

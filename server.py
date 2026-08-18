@@ -6853,6 +6853,11 @@ async def get_roster_intelligence(request: Request):
                     user's activeLeagueKey, else the registry default)
         team        optional — ownerId. Defaults to the session's
                     Sleeper user id, then the league's default_team_map.
+        droppability  optional — "1"/"true" adds this team's canonical cut
+                    ladder (C2-DROP-01) from ``src/draft/displacement.py``.
+                    OFF by default: it re-runs the exact assignment solver
+                    once per rung, which costs ~55 ms for one team against
+                    ~69 ms for everything else on the live board.
 
     LEAGUE-SCOPED, and necessarily so: rosters, starter slots and every
     league-relative rank resolve through ``leagueKey``.  Only the
@@ -6860,8 +6865,11 @@ async def get_roster_intelligence(request: Request):
     ``data_not_ready`` on a contract loaded for a different league,
     matching ``/api/gameplan``, ``/api/terminal`` and ``/api/trade/*``.
 
-    Reuses ``gameplan.get_league_bundle``, so it shares that surface's
-    source-stamped cache rather than loading the league a second time.
+    Reads the canonical contract directly.  It does NOT route through
+    ``gameplan.get_league_bundle``: that bundle's rosters come from the
+    ROS team-strength snapshot, which carries a 0-100 production index
+    rather than canonical dynasty value and drops unpriced players
+    before any consumer can see them.
     """
     try:
         league_cfg = _resolve_league_for_request(request)
@@ -6931,12 +6939,19 @@ async def get_roster_intelligence(request: Request):
     except Exception:  # noqa: BLE001 — the registry is optional here
         declared_teams = None
 
+    want_drops = (request.query_params.get("droppability") or "").strip().lower() in {
+        "1",
+        "true",
+        "yes",
+    }
+
     try:
         payload = await run_in_threadpool(
             _roster_intelligence.get_team_roster_intelligence,
             contract,
             owner_id,
             team_count=declared_teams,
+            include_droppability=want_drops,
         )
     except _roster_intelligence.TeamNotInLeague:
         return JSONResponse(

@@ -1,0 +1,283 @@
+"""Droppability — the canonical consumer interface (C2-DROP-01).
+
+**This module implements nothing.**  The owner of "what does releasing
+this player cost, and who can we legally release at all" is
+``src/draft/displacement.py``, and the manifest names it: `C2-DROP-01`
+is a **CONSOLIDATE**, not an IMPLEMENT.  This is the adapter that lets
+the rest of the canonical roster chain — and the trade lane's
+capacity/forced-drop work (`C3-CAP-01`) and Perfect Waivers
+(`C7-WAIV-01`) — reach that owner without going through the Perfect
+Draft board.
+
+The same relationship ``Dynasty Scraper.py`` has with
+``src/identity/name_primitives.py``: the caller is an adapter, the
+callee is the owner, and there is no second copy of the arithmetic.
+
+Why an adapter was needed at all
+================================
+
+``build_cut_ladder`` is sound.  Every rung is validated by re-running
+the exact assignment solver over the surviving roster (the legal
+cut-sets are the independent sets of the dual of a transversal matroid,
+so cheapest-first is exactly optimal, not a heuristic), and an unpriced
+player is stamped ``assumedWaiver`` rather than being read as a cheap
+cut.  What it was NOT was reachable: its only production caller is
+``src/draft/context.py`` → ``GET /api/draft/roster-context``, which
+also computes rookie pools, auction budgets and a dollar ladder, and
+which refuses outright unless a draft-shaped league resolves.  A trade
+surface asking "can this team legally absorb three players" had no way
+in that did not drag a draft board behind it.
+
+Measured parity, not asserted
+=============================
+
+Two roster joins reach the same board.  ``build_roster_assets``
+(``src/draft/context.py``) joins ``sleeper.teams[].players`` to
+``playersArray`` by name with an id fallback; ``contract_roster_pools``
+(``src/api/data_contract.py``) is the C2 chain's own builder.  They were
+compared on the live 12-team board before this module chose one:
+**identical membership on 12 of 12 teams (660 players), identical
+``rankDerivedValue`` on every one, zero unmatched rows** — and the two
+slot resolvers agreed on all 21 slots.
+
+So this adapter calls ``build_roster_assets`` directly.  Not because the
+chain's own builder is worse, but because reusing the owner's own join
+makes the ladder byte-identical to the draft surface's by construction
+instead of by coincidence, and ``RosterAsset`` needs two fields the pool
+builder does not carry (``playerId`` and the injury flag).  The
+measurement above is what makes that safe to say rather than hope.
+
+Two inputs are named, never invented
+====================================
+
+* **Scarcity** is OPTIONAL and defaults to inert.  The multiplier comes
+  from ``league_intel.replacement.compute_scarcity``, which reads
+  ``rosValue`` off the ROS team-strength snapshot — the same
+  wrong-quantity dependency the rest of this chain moved off (see
+  ``docs/roster-intelligence/C2_CANONICAL_ROSTER_CHAIN.md`` §8).  Rather
+  than reintroduce it, the caller supplies it or does not, and
+  ``scarcityApplied`` says which happened.  The divergence that creates
+  is BOUNDED and stated: the multiplier lives in [0.85, 1.15], so
+  scarcity can reorder two candidates only when their inert costs are
+  within a factor of 1.15/0.85 ≈ 1.353.  Beyond that ratio the two
+  ladders agree on order whatever the scarcity signals say.
+* **``unavailable_keys``** removes players who are not actually
+  signable.  The draft surface passes the rookies in the live auction
+  (without it, the board's best "free agent" TE was lot number one).
+  There is no auction outside a draft, so it defaults to empty — a
+  named input difference, not a second rule.
+
+Missing is never zero
+=====================
+
+A rostered player the board did not price keeps his roster spot, is
+counted, and is costed at ``assumedWaiver`` with the basis stamped —
+never at the board's tail floor, which ``league_intel/replacement.py``
+calls "the noisiest number in the league (deep dart throws, and any
+identity-join miss lands there)".  ``unmatchedRosterPlayers`` carries
+the names so a join miss reads as a join miss instead of as a free cut.
+
+Pure computation.  No I/O, no network, no clock.
+"""
+
+from __future__ import annotations
+
+from typing import Any, Collection, Iterable, Mapping, Sequence
+
+from src.draft.context import (
+    build_roster_assets,
+    contract_teams,
+    index_contract_rows,
+    league_rostered_keys,
+    match_team,
+)
+from src.draft.displacement import (
+    MAX_LADDER_RUNGS,
+    build_cut_ladder,
+    scarcity_multiplier,
+    waiver_values_by_position,
+)
+from src.league_intel.replacement import ScarcityComponents
+
+__all__ = [
+    "DROPPABILITY_CONTRACT_VERSION",
+    "SCARCITY_MULTIPLIER_BAND",
+    "SCARCITY_REORDER_RATIO",
+    "TeamNotInLeague",
+    "league_droppability",
+    "team_droppability",
+]
+
+DROPPABILITY_CONTRACT_VERSION = "roster-droppability/2026-08-18.v1"
+
+
+def _scarcity_band() -> tuple[float, float]:
+    """The owner's multiplier range, MEASURED by asking it.
+
+    Restating ``0.85`` and ``1.15`` here would be a duplicated constant in a
+    module whose entire point is that it duplicates nothing — and it would go
+    stale silently the day the owner retunes the band.  So the extremes are
+    read off ``displacement.scarcity_multiplier`` itself at import time.
+    """
+
+    def at(waiver: float) -> float:
+        return scarcity_multiplier(
+            ScarcityComponents(
+                position="",
+                lineup_scarcity=None,
+                roster_scarcity=None,
+                waiver_scarcity=waiver,
+                elite_separation=None,
+                starter_separation=None,
+                replacement_gap=None,
+            )
+        )
+
+    return at(0.0), at(1.0)
+
+
+#: ``displacement.scarcity_multiplier``'s range, read from the owner.
+SCARCITY_MULTIPLIER_BAND = _scarcity_band()
+
+#: Two candidates whose scarcity-inert costs differ by more than this ratio
+#: cannot swap places when scarcity is applied — the multiplier cannot close
+#: a gap wider than ``max_band / min_band``.
+SCARCITY_REORDER_RATIO = SCARCITY_MULTIPLIER_BAND[1] / SCARCITY_MULTIPLIER_BAND[0]
+
+
+class TeamNotInLeague(Exception):
+    """The requested team has no roster in this contract.
+
+    Distinct from "this team has nothing droppable", which is a real
+    answer with a real payload.
+    """
+
+
+def _slots_for(
+    contract: Mapping[str, Any] | None,
+    starter_slots: Sequence[str] | None,
+) -> tuple[list[str], str]:
+    """The league's real starting slots, and where they came from.
+
+    Defaults to the C2-U1 truth ladder via ``contract_roster_pools``
+    (live ``rosterPositions`` → registry ``starters`` → refuse) so this
+    module needs no ``leagueKey`` and no registry round-trip of its own.
+    An explicit list wins and is stamped ``caller`` — the parity test
+    uses it to hand both surfaces the same slots.
+    """
+    if starter_slots is not None:
+        return [str(s) for s in starter_slots if s], "caller"
+    from src.api.data_contract import contract_roster_pools  # noqa: PLC0415
+
+    _pools, slots, source = contract_roster_pools(dict(contract or {}))
+    return list(slots), str(source or "unresolved")
+
+
+def team_droppability(
+    contract: Mapping[str, Any] | None,
+    *,
+    owner_id: str | None = None,
+    roster_id: Any = None,
+    team_name: str | None = None,
+    starter_slots: Sequence[str] | None = None,
+    scarcity: Mapping[str, Any] | None = None,
+    unavailable_keys: Iterable[str] = (),
+    max_rungs: int = MAX_LADDER_RUNGS,
+) -> dict[str, Any]:
+    """One team's cut ladder, from the canonical owner.
+
+    Raises :class:`TeamNotInLeague` when the team cannot be resolved,
+    for the same reason ``build_roster_context`` does: silently
+    optimizing for whichever team sorted first is the worst possible
+    failure mode for a team-specific answer.
+    """
+    teams = contract_teams(contract)
+    if not teams:
+        raise TeamNotInLeague("no_rosters_loaded")
+    team = match_team(teams, owner_id=owner_id, roster_id=roster_id, team_name=team_name)
+    if team is None:
+        raise TeamNotInLeague(str(owner_id or roster_id or team_name or ""))
+
+    by_id, by_name = index_contract_rows(contract)
+    assets, unmatched = build_roster_assets(team, by_name, by_id)
+
+    excluded: Collection[str] = [str(k) for k in unavailable_keys]
+    waiver_values = waiver_values_by_position(contract, league_rostered_keys(contract), excluded)
+
+    slots, slot_source = _slots_for(contract, starter_slots)
+    ladder = build_cut_ladder(assets, slots, waiver_values, scarcity, max_rungs=max_rungs)
+
+    notes = list(ladder.notes)
+    if not waiver_values:
+        notes.append("no waiver-level values available — cut costs fall back to raw board value")
+    if unmatched:
+        notes.append(
+            f"{len(unmatched)} rostered player(s) did not join to the board and are "
+            "treated as unpriced — verify before releasing"
+        )
+    if scarcity is None:
+        notes.append(
+            "positional scarcity not supplied — multiplier inert (1.0); rung ORDER "
+            f"is unaffected for any pair whose costs differ by more than "
+            f"{SCARCITY_REORDER_RATIO:.3f}x"
+        )
+
+    return {
+        "contractVersion": DROPPABILITY_CONTRACT_VERSION,
+        "owner": "src/draft/displacement.py",
+        "valueScale": "rankDerivedValue",
+        "team": {
+            "ownerId": str(team.get("ownerId") or ""),
+            "teamName": str(team.get("name") or ""),
+            "rosterId": team.get("roster_id"),
+        },
+        "starterSlots": slots,
+        "slotSource": slot_source,
+        "scarcityApplied": scarcity is not None,
+        "waiverValues": {k: round(v, 1) for k, v in sorted(waiver_values.items())},
+        "cutLadder": ladder.to_dict(),
+        "counts": {
+            "rosterPlayers": len(assets),
+            "cutRungs": len(ladder.rungs),
+            "undroppable": len(ladder.undroppable),
+            "assumedWaiverRungs": sum(1 for r in ladder.rungs if r.value_basis == "assumedWaiver"),
+            "unmatchedRosterPlayers": len(unmatched),
+        },
+        "unmatchedRosterPlayers": unmatched[:25],
+        "notes": notes,
+    }
+
+
+def league_droppability(
+    contract: Mapping[str, Any] | None,
+    *,
+    starter_slots: Sequence[str] | None = None,
+    scarcity: Mapping[str, Any] | None = None,
+    unavailable_keys: Iterable[str] = (),
+    max_rungs: int = MAX_LADDER_RUNGS,
+) -> dict[str, dict[str, Any]]:
+    """``{ownerId: team_droppability(...)}`` for every team in the league.
+
+    The waiver level is league-wide, so computing one team at a time
+    would be correct but repeats the free-agent scan per team; this is
+    the same loop with the resolution done once.  A team that cannot be
+    resolved is skipped rather than raising — a league payload must not
+    fail because one roster is malformed.
+    """
+    out: dict[str, dict[str, Any]] = {}
+    for team in contract_teams(contract):
+        owner = str(team.get("ownerId") or "")
+        if not owner:
+            continue
+        try:
+            out[owner] = team_droppability(
+                contract,
+                owner_id=owner,
+                starter_slots=starter_slots,
+                scarcity=scarcity,
+                unavailable_keys=unavailable_keys,
+                max_rungs=max_rungs,
+            )
+        except TeamNotInLeague:
+            continue
+    return out

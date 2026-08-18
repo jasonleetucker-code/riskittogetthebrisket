@@ -39,8 +39,13 @@ from src.draft.rookie_pool import auction_rookie_keys
 
 __all__ = [
     "CONTEXT_VERSION",
+    "build_roster_assets",
     "build_roster_context",
+    "contract_teams",
+    "index_contract_rows",
+    "league_rostered_keys",
     "list_draft_teams",
+    "match_team",
 ]
 
 #: Bumped when the payload shape changes in a way the client must notice.
@@ -51,6 +56,15 @@ __all__ = [
 #: v3 (2026-08-04) adds ``rosterByPosition`` / ``startersByPosition`` so the
 #: client can say whether a plan leaves a starting slot unfilled.
 CONTEXT_VERSION = "2026-08-04.v3"
+
+
+#: The assignment objective handed to the lineup solver for feasibility
+#: questions.  Any constant works — see ``build_roster_assets`` for why the
+#: answer does not depend on its value — and ``0.0`` is chosen because it is a
+#: real number rather than an UNKNOWN: ``None`` would remove the player from
+#: the solve entirely, and an unpriced player still occupies a body that can
+#: legally fill a slot.
+_FEASIBILITY_OBJECTIVE = 0.0
 
 
 def _norm(s: Any) -> str:
@@ -64,14 +78,14 @@ def _sleeper_block(contract: Mapping[str, Any] | None) -> Mapping[str, Any]:
     return block if isinstance(block, Mapping) else {}
 
 
-def _teams(contract: Mapping[str, Any] | None) -> list[Mapping[str, Any]]:
+def contract_teams(contract: Mapping[str, Any] | None) -> list[Mapping[str, Any]]:
     teams = _sleeper_block(contract).get("teams")
     if not isinstance(teams, list):
         return []
     return [t for t in teams if isinstance(t, Mapping)]
 
 
-def _index_contract_rows(
+def index_contract_rows(
     contract: Mapping[str, Any] | None,
 ) -> tuple[dict[str, Mapping[str, Any]], dict[str, Mapping[str, Any]]]:
     """``(by_player_id, by_name)`` over ``playersArray``.
@@ -96,6 +110,31 @@ def _index_contract_rows(
             if key:
                 by_name.setdefault(key, row)
     return by_id, by_name
+
+
+def league_rostered_keys(contract: Mapping[str, Any] | None) -> set[str]:
+    """Every key that identifies a player owned by SOME team in the league.
+
+    The waiver level is "what could I sign instead", so the population it
+    excludes is league-wide, not one team's — a player on a rival roster is
+    exactly as unavailable as one on yours.  Both the id list and the name list
+    are folded in because the contract carries either or both and
+    ``_available_players`` matches on all of them.
+
+    Extracted from :func:`build_roster_context` when the canonical roster chain
+    became a second consumer (C2-DROP-01).  A private copy of this loop in the
+    other caller would be a second definition of "who is rostered", which is
+    the one thing a waiver level cannot afford to disagree about.
+    """
+    keys: set[str] = set()
+    for team in contract_teams(contract):
+        for pid in team.get("playerIds") or []:
+            if _norm(pid):
+                keys.add(_norm(pid))
+        for name in team.get("players") or []:
+            if _norm(name):
+                keys.add(_norm(name))
+    return keys
 
 
 def _roster_size_for(league_key: str | None) -> int | None:
@@ -161,7 +200,7 @@ def list_draft_teams(contract: Mapping[str, Any] | None) -> list[dict[str, Any]]
     league-internal handles the draft workspace already joins on.
     """
     out: list[dict[str, Any]] = []
-    for team in _teams(contract):
+    for team in contract_teams(contract):
         players = team.get("players")
         out.append(
             {
@@ -175,7 +214,7 @@ def list_draft_teams(contract: Mapping[str, Any] | None) -> list[dict[str, Any]]
     return out
 
 
-def _match_team(
+def match_team(
     teams: Sequence[Mapping[str, Any]],
     *,
     owner_id: str | None,
@@ -245,7 +284,29 @@ def build_roster_assets(
                 name=str(row.get("displayName") or row.get("canonicalName") or name),
                 position=str(row.get("position") or "").strip().upper(),
                 board_value=float(value) if isinstance(value, (int, float)) and value > 0 else None,
-                ros_value=float(row.get("rosValue") or 0.0),
+                # Feasibility only, and deliberately a CONSTANT.
+                #
+                # This used to read ``float(row.get("rosValue") or 0.0)``,
+                # which is a missing-as-zero coercion over a field the
+                # contract does not carry at all — measured 0 of 983 rows on
+                # the live board, so it evaluated to 0.0 every time and the
+                # coercion was the only thing standing between the model and
+                # a KeyError-shaped hole.
+                #
+                # The constant is the honest form because the only thing the
+                # cut ladder asks the solver is *how many* starting slots the
+                # surviving roster can fill, and that count is independent of
+                # the objective: ``solve_optimal_assignment`` is a matroid
+                # greedy with augmenting paths, which never evicts an
+                # assigned player, so it returns a MAXIMUM-CARDINALITY
+                # matching whatever the weights are.  Weights decide WHO
+                # starts; they cannot decide HOW MANY.  Pinned by
+                # ``tests/draft/test_roster_context.py``.
+                #
+                # Cost arithmetic uses ``board_value`` (``rankDerivedValue``)
+                # and never this field — the two are different quantities on
+                # different scales and the module docstring says so.
+                ros_value=_FEASIBILITY_OBJECTIVE,
                 fantasy_positions=tuple(fantasy) if isinstance(fantasy, (list, tuple)) else (),
                 injured=bool(row.get("injured")),
             )
@@ -268,26 +329,18 @@ def build_roster_context(
     team happened to sort first, which would be the worst possible failure mode
     for a tool whose entire output is team-specific.
     """
-    teams = _teams(contract)
+    teams = contract_teams(contract)
     if not teams:
         raise ValueError("no_rosters_loaded")
 
-    team = _match_team(teams, owner_id=owner_id, roster_id=roster_id, team_name=team_name)
+    team = match_team(teams, owner_id=owner_id, roster_id=roster_id, team_name=team_name)
     if team is None:
         raise ValueError("unknown_team")
 
-    by_id, by_name = _index_contract_rows(contract)
+    by_id, by_name = index_contract_rows(contract)
     notes: list[str] = []
 
-    # League-wide rostered set — a player on ANY roster is not a waiver option.
-    rostered_keys: set[str] = set()
-    for t in teams:
-        for pid in t.get("playerIds") or []:
-            if _norm(pid):
-                rostered_keys.add(_norm(pid))
-        for nm in t.get("players") or []:
-            if _norm(nm):
-                rostered_keys.add(_norm(nm))
+    rostered_keys = league_rostered_keys(contract)
 
     # Rookies in this auction are NOT free alternatives to buying rookies in
     # this auction.  Without this exclusion the board's best "free agent" tight

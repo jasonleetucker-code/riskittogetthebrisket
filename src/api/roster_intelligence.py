@@ -61,6 +61,7 @@ from src.roster_intel.age_portfolio import (
     rank_age_portfolios,
 )
 from src.roster_intel.core import build_meaningful_core
+from src.roster_intel.droppability import league_droppability, team_droppability
 from src.roster_intel.strength import build_team_strength, rank_team_strengths
 from src.roster_intel.weakness import build_position_ranks, build_team_weakness
 
@@ -159,6 +160,7 @@ def build_league_roster_intelligence(
     contract: Mapping[str, Any] | None,
     *,
     team_count: int | None = None,
+    include_droppability: bool = False,
 ) -> dict[str, Any]:
     """Core / strength / weakness / age for EVERY team in one league.
 
@@ -203,6 +205,8 @@ def build_league_roster_intelligence(
         }
     )
 
+    drops = league_droppability(contract) if include_droppability else {}
+
     teams = {
         oid: {
             "ownerId": oid,
@@ -212,6 +216,7 @@ def build_league_roster_intelligence(
             "strength": strengths[oid].to_dict(),
             "weakness": weaknesses[oid].to_dict(),
             "agePortfolio": portfolios[oid].to_dict(),
+            **({"droppability": drops[oid]} if oid in drops else {}),
         }
         for oid in pools
     }
@@ -225,6 +230,10 @@ def build_league_roster_intelligence(
         "rosterSource": _ROSTER_SOURCE,
         "unpricedVisibility": _UNPRICED_VISIBILITY,
         "rankPopulation": _RANK_POPULATION,
+        # Stamped whether or not it was asked for: "you did not request
+        # droppability" and "this team has nothing droppable" must not
+        # read the same, and an absent key alone cannot tell them apart.
+        "droppabilityIncluded": bool(include_droppability),
         "teams": teams,
         "timing": {"computeMs": round((time.perf_counter() - t0) * 1000.0, 1)},
     }
@@ -268,6 +277,7 @@ def get_team_roster_intelligence(
     owner_id: str,
     *,
     team_count: int | None = None,
+    include_droppability: bool = False,
 ) -> dict[str, Any]:
     """One team's roster intelligence, plus the league context it is
     ranked against.
@@ -286,7 +296,14 @@ def get_team_roster_intelligence(
     if team is None:
         raise TeamNotInLeague(str(owner_id))
 
+    if include_droppability:
+        # ONE team's ladder, not the league's — the league loop costs 13x
+        # this and the other eleven ladders are not part of this answer.
+        team = dict(team)
+        team["droppability"] = team_droppability(contract, owner_id=str(owner_id))
+
     payload = dict(league)
+    payload["droppabilityIncluded"] = bool(include_droppability)
     payload["team"] = team
     # League-relative context without shipping every roster twice: the
     # ranks a consumer needs to place this team, and nothing more.

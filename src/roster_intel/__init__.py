@@ -31,6 +31,12 @@ surface over the same owners is ``GET /api/roster/intelligence``
 (``src/api/roster_intelligence.py``), which computes nothing of its own,
 so an importer and an HTTP caller get identical numbers by construction.
 
+``droppability`` is the odd one out and deliberately so: it OWNS
+nothing.  The cut-ladder owner is ``src/draft/displacement.py``, and
+that module is an adapter onto it so the trade and waiver lanes can
+reach droppability without going through the Perfect Draft board.  It
+is proven byte-identical to that board's ladder on all 12 live teams.
+
 Full methodology, the replacement-level boundary table and the known
 limitations: ``docs/roster-intelligence/C2_CANONICAL_ROSTER_CHAIN.md``.
 """
@@ -48,6 +54,12 @@ from src.roster_intel.core import (
     ReserveDemand,
     build_meaningful_core,
     reserve_demand,
+)
+from src.roster_intel.droppability import (
+    DROPPABILITY_CONTRACT_VERSION,
+    SCARCITY_REORDER_RATIO,
+    league_droppability,
+    team_droppability,
 )
 from src.roster_intel.simulation import (
     RosterSimulation,
@@ -71,14 +83,16 @@ from src.roster_intel.weakness import (
 )
 
 __all__ = [
-    "POSITION_GROUPS",
     "CoreMember",
+    "DROPPABILITY_CONTRACT_VERSION",
     "MeaningfulCore",
+    "POSITION_GROUPS",
     "PositionNeed",
     "PositionRanks",
     "PositionStrength",
     "ReserveDemand",
     "RosterSimulation",
+    "SCARCITY_REORDER_RATIO",
     "SlotMovement",
     "SlotRung",
     "TeamAgePortfolio",
@@ -91,8 +105,10 @@ __all__ = [
     "build_team_strength",
     "build_team_weakness",
     "build_youth_curve",
+    "league_droppability",
     "rank_age_portfolios",
     "rank_team_strengths",
     "reserve_demand",
     "simulate_roster_change",
+    "team_droppability",
 ]

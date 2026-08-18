@@ -26,6 +26,8 @@ Binding requirements, in precedence order:
 | Team Strength | `src/roster_intel/strength.py` | **Absent as an owner** — built |
 | Team Weakness | `src/roster_intel/weakness.py` | **Absent as an owner** — built |
 | Age / Young Core | `src/roster_intel/age_portfolio.py` | **Absent** — built |
+| Roster simulation | `src/roster_intel/simulation.py` (C2-SIM-01) | **Absent** — built |
+| Droppability | `src/draft/displacement.py` (C2-DROP-01) | **Existed and was correct — unreachable.** Adapter built, §12 |
 | Consumer interface | `src/roster_intel/__init__.py`, `GET /api/roster/intelligence` | **Absent** — built |
 
 The chain was not broken at its head. It was missing its middle.
@@ -242,6 +244,9 @@ against real league examples first, and that has not run.
   foreign-league contract, matching `/api/gameplan`, `/api/terminal` and
   `/api/trade/*`. Rosters come from `data_contract.contract_roster_pools` — see
   §8.
+- **Droppability** — `src/roster_intel/droppability.py`
+  (`team_droppability` / `league_droppability`), also re-exported from the
+  package. Opt-in on the HTTP surface: `?droppability=1`. See §12.
 - **UI** — none from this lane. Claude 6 owns the frontend.
 
 ---
@@ -309,6 +314,14 @@ PRIOR.
    outputs (marginals, profiles, window) run on the 0-100 production index
    rather than canonical value. That endpoint is not this lane's to change —
    see §11.
+7. **Droppability without scarcity is a bounded approximation, not the same
+   number.** The roster-chain surface cannot supply positional scarcity without
+   reintroducing the ROS-snapshot dependency limitation 6 describes, so its
+   ladder is scarcity-inert. The divergence is bounded (§12) and stamped
+   (`scarcityApplied`), but it is real: two candidates within ~1.353x can order
+   differently here than on the draft board.
+8. **The waiver page's naive drop is untouched.** It is a different lane's
+   surface; the exact rewire is handed over in §11.
 
 ## 11. Cross-lane dependency for Claude 5
 
@@ -339,3 +352,121 @@ Alternatively the ROS snapshot writer (`src/ros/team_strength.py:123`) could
 stop dropping `rosValue <= 0` rows and emit them with an explicit null — but
 that changes a different lane's canonical methodology and should not be done
 casually.
+
+### Second dependency — the waiver page's naive drop (C7-WAIV-01)
+
+`frontend/app/waivers/` pairs each add with the lowest raw-value rostered
+player. That is wrong in both directions for the reason §12 gives: FLEX and
+SUPER_FLEX make droppability *set-dependent*, so "keep at least N at each
+position" and "drop the cheapest body" are both unsound. The correct answer is
+the matching problem `build_cut_ladder` already solves exactly.
+
+It is a **rewire, not a rewrite** — the owner exists, is correct, and is now
+reachable — but the surface belongs to the waiver/decide lane, so it comes to
+you as a dependency rather than as a cross-lane edit.
+
+- **File**: whatever computes the paired drop in `frontend/app/waivers/` and
+  its backend feed
+- **Required change**: consume `GET /api/roster/intelligence?droppability=1`
+  (or import `src.roster_intel.team_droppability`) instead of sorting the
+  roster by value and taking the tail
+- **Required output shape**: already published —
+  `droppability.cutLadder.rungs[]` carries `playerId`, `effectiveCutCost`,
+  `baseValue`, `valueBasis`, `waiverValue`, `scarcityMultiplier`, `rung`;
+  `cutLadder.undroppable[]` carries the players a legal lineup needs. Rungs are
+  cheapest-first and nest, so the optimal cut-set of size *k* is the first *k*
+  rungs — no re-solve on the client
+- **Regression test**: a roster whose WR3 and RB3 are individually droppable
+  but not jointly (two FLEX slots absorbing one, not both) must not be offered
+  both drops; the naive sort offers both
+- **Blast radius to expect**: the recommended drop changes for any roster where
+  the cheapest player is lineup-load-bearing, and unpriced players stop
+  appearing as free cuts (they arrive stamped `assumedWaiver`)
+
+---
+
+## 12. Droppability (C2-DROP-01) — a reachability fix, not an implementation
+
+The manifest's disposition for this unit is **CONSOLIDATE** with **parity** as
+its evidence, and that is exactly what it needed. `src/draft/displacement.py`
+was already correct and already the owner.
+
+**What was wrong was reachability.** Its only production caller is
+`src/draft/context.py` → `GET /api/draft/roster-context`, which also computes
+rookie pools, auction budgets and a dollar ladder, and refuses outright unless
+a draft-shaped league resolves. `C3-CAP-01` (forced-drop trade analysis) and
+`C7-WAIV-01` (Perfect Waivers) both declare `C2-DROP-01` as a dependency, and
+neither is a draft surface. A dependency you can only satisfy by dragging a
+draft board behind it is how a fifth implementation gets written.
+
+So `src/roster_intel/droppability.py` is an **adapter** — the same relationship
+`Dynasty Scraper.py` has with `src/identity/name_primitives.py`. It contains no
+cost arithmetic, constructs no `RosterAsset` of its own, and calls
+`build_cut_ladder` exactly once; all three are pinned structurally, and the
+guard is mutation-proven (inlining a `max(0, …)` turns it red).
+
+### Parity — measured on the live board, then pinned
+
+| claim | result |
+|---|---|
+| Cut ladder via the roster chain vs via `/api/draft/roster-context` | **identical on 12 of 12 teams** |
+| The two roster joins (`build_roster_assets` vs `contract_roster_pools`) | identical membership, 660 players, **0 value differences, 0 unmatched** |
+| The two slot resolvers (`load_league_starter_slots` vs the C2-U1 truth ladder) | identical, all 21 slots |
+
+The join measurement is why the adapter calls `build_roster_assets` rather than
+the chain's own pool builder: reusing the owner's join makes the ladder
+byte-identical **by construction** instead of by coincidence, and `RosterAsset`
+needs two fields (`playerId`, the injury flag) the pool builder does not carry.
+
+### Two inputs are named rather than invented
+
+* **Scarcity is optional and defaults to inert.** The multiplier comes from
+  `league_intel.replacement.compute_scarcity`, which reads `rosValue` off the
+  ROS team-strength snapshot — the same wrong-quantity dependency this chain
+  moved off in §8. Rather than reintroduce it, the caller supplies scarcity or
+  does not, and `scarcityApplied` says which happened.
+
+  The resulting divergence is **bounded and stated, not unknown**: the
+  multiplier lives in `[0.85, 1.15]` (read from the owner at import time, never
+  restated), so scarcity can only reorder two candidates whose inert costs are
+  within `1.15 / 0.85 ≈ 1.353`. Beyond that ratio the two ladders agree on
+  order whatever the scarcity signals say. Pinned as a property over 25 random
+  scarcity draws.
+* **`unavailable_keys`** removes players who are not actually signable. The
+  draft surface passes the rookies in the live auction; there is no auction
+  outside a draft, so it defaults empty. A named input difference, not a second
+  rule.
+
+### Cost, and why it is opt-in
+
+Measured on the live 12-team board: the four core outputs cost **69 ms**; the
+cut ladder costs a further **710 ms** for the league (it re-runs the exact
+solver once per rung per team) and **55 ms** for one team. So it is OFF by
+default, on by `?droppability=1`, and the team view computes one ladder rather
+than twelve. `droppabilityIncluded` is stamped either way — "you did not ask
+for it" and "this team has nothing droppable" must not read the same.
+
+### One coercion removed on the way past
+
+`build_roster_assets` read `float(row.get("rosValue") or 0.0)`. The contract
+carries no `rosValue` at all — **0 of 983 rows** on the live board — so it
+evaluated to `0.0` every time, and a missing-as-zero was the only thing between
+the model and a hole.
+
+It is now an explicit `_FEASIBILITY_OBJECTIVE` constant, because the only
+question the cut ladder asks the solver is *how many* starting slots the
+surviving roster can fill, and **that count does not depend on the objective**:
+`solve_optimal_assignment` is a matroid greedy with augmenting paths, which
+never evicts an assigned player, so it returns a maximum-cardinality matching
+whatever the weights are. Weights decide who starts, not how many. The property
+was pinned (50 random objectives, identical count) rather than assumed — and
+the constant is `0.0` and not `None` on purpose, since `None` is UNKNOWN and
+would remove from the solve a player who still occupies a body that can legally
+fill a slot.
+
+### Boundary that did NOT move
+
+The waiver page still pairs an add with a naive lowest-value drop. That is
+`C7-WAIV-01`, a different lane, and the correct answer there is the matching
+problem this owner already solves — so it is a rewire, not a rewrite. It comes
+to the integration lane as a dependency (§11), not as a cross-lane edit.
