@@ -317,11 +317,66 @@ class TestTargetFormat:
         )
 
     def test_an_unresolvable_league_degrades_rather_than_raising(self):
-        """A registry that cannot answer must not take the waiver page down.
-        The result is a documented generic shape, and every observation it
-        admits is still gated by the hard rules above."""
+        """A registry that cannot answer must not take the waiver page down —
+        but it must not invent a comparator either."""
         target = FC.TargetFormat.from_registry("no_such_league")
         assert isinstance(target, FC.TargetFormat)
+        assert target.superflex is None and target.tep is None and target.teams is None
+
+    def test_an_unstated_setting_is_none_never_a_generic_default(self):
+        """There is no 12-team 1QB non-TEP default.  A default comparator is
+        not a convenience — every external league would be judged against a
+        league nobody configured."""
+        target = FC.TargetFormat.from_roster_settings({}, league_key="bare")
+        assert (target.teams, target.superflex, target.tep, target.is_2te, target.idp) == (
+            None,
+            None,
+            None,
+            None,
+            None,
+        )
+
+    def test_a_tep_profile_label_is_positive_evidence_on_its_own(self):
+        """TEP is a SCORING property.  A profile that says so settles it even
+        when the starter block is missing; without one, an unknown starter
+        block leaves TEP unknown rather than false."""
+        labelled = FC.TargetFormat.from_roster_settings(
+            {"teamCount": 12}, scoring_profile="superflex_tep15_ppr1"
+        )
+        assert labelled.tep is True and labelled.is_2te is None
+        unlabelled = FC.TargetFormat.from_roster_settings({"teamCount": 12})
+        assert unlabelled.tep is None
+
+
+class TestAnUnknownTargetFailsClosed:
+    """Comparability is measured AGAINST the target.  A setting the target
+    league does not state cannot be matched, so it excludes rather than
+    defaulting — the failure is then visible in the exclusion census and
+    fixable in the registry."""
+
+    def test_an_unstated_target_superflex_excludes_everything(self):
+        bare = FC.TargetFormat(teams=12, tep=True, is_2te=True)
+        verdict = FC.classify(_fmt(), bare)
+        assert verdict.excluded
+        assert "target_format_unknown:superflex" in verdict.reasons
+
+    def test_an_unstated_target_tep_excludes_everything(self):
+        bare = FC.TargetFormat(teams=12, superflex=True, is_2te=True)
+        assert "target_format_unknown:tep" in FC.classify(_fmt(), bare).reasons
+
+    def test_an_unstated_target_team_count_excludes_everything(self):
+        bare = FC.TargetFormat(superflex=True, tep=True, is_2te=True)
+        assert "target_format_unknown:teams" in FC.classify(_fmt(), bare).reasons
+
+    def test_an_unstated_target_two_te_only_demotes(self):
+        """A soft setting missing on either side demotes; it does not
+        discard an otherwise comparable league."""
+        target = FC.TargetFormat(teams=12, superflex=True, tep=True, is_2te=None)
+        verdict = FC.classify(_fmt(), target)
+        assert not verdict.excluded and "two_te_unknown" in verdict.reasons
+
+    def test_a_fully_stated_target_is_unaffected(self):
+        assert FC.classify(_fmt(), BRISKET).tier == FC.TIER_A
 
 
 # ── Policy plumbing ──────────────────────────────────────────────────

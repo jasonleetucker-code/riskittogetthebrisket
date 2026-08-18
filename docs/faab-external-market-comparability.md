@@ -71,10 +71,15 @@ Vendor settings distribution across all 200 rows:
 | `leagueStartingLineup.position[].name` | QB, RB, WR, TE, PK, **Def** | **no** |
 | `dynastyPlatformType` | 1 (all 200) | stored, never used |
 
-After this change the same feed yields **66 comparable rows** for `dynasty_main`
-(A=16, B=40, C=10), with the exclusion census
-`superflex_mismatch=76, tep_mismatch=76, multi_copy_league=39, degenerate_budget=5`
-(a row can fail several rules; every failing reason is reported).
+After this change the same feed yields ~66-70 comparable rows for
+`dynasty_main` (A=16, B≈49, C≈5) and ~66 for `dynasty_new` (a 10-team, 1-TE
+league — a *different* pool, which is the point), with a census like
+`tep_mismatch=76, superflex_mismatch=74, multi_copy_league=35, degenerate_budget=2`.
+
+A row can fail several rules, and **every** failing reason is counted, at fetch
+time and on read alike — so the census can exceed the number of excluded rows.
+Reporting only the first reason would hide the second thing wrong with a
+league.
 
 ---
 
@@ -92,11 +97,35 @@ a match.
 | `superflex_mismatch` / `superflex_unknown` | `qBs ≥ 2` vs the target | the single biggest driver of QB waiver demand |
 | `tep_mismatch` / `tep_unknown` | `tep > 0` vs the target | TE premium on/off |
 | `team_count_mismatch` / `team_count_unknown` | outside ±`teamCountTolerance` | how many rivals split the same finite pool |
+| `target_format_unknown:<field>` | the **target** league's own registry entry does not state `superflex`, `tep` or `teams` | comparability is measured *against* the target — see below |
 
 The gate is **symmetric about the target**: a 1QB target excludes superflex
 evidence, not the other way round. Comparator relevance is derived from the
 target league's own canonical settings (`TargetFormat.from_registry`), never
 hardcoded to Brisket — spec §7's "future target leagues" requirement.
+
+### `TargetFormat` has no defaults, deliberately
+
+Every field is `None` when the registry entry does not state it. There is no
+generic 12-team / 1QB / non-TEP fallback, because a default here is not a
+harmless convenience — it is a **fabricated comparator**. Every external
+league would then be admitted or rejected on the strength of a league nobody
+configured, and the result would look identical to a correct one.
+
+An underspecified target therefore admits nothing, and the exclusion census
+names the missing field (`target_format_unknown:superflex`). That is visible,
+diagnosable, and fixed in the registry. Both live leagues state their format in
+full, so production is unaffected.
+
+The soft settings are treated differently: a `is2TE` unknown on *either* side
+demotes a tier (`two_te_unknown`) rather than excluding — unknown must not pass
+as a match, but a TE-starter count is not worth discarding an otherwise
+comparable league over.
+
+One nuance on TEP: it is a **scoring** property, so a scoring-profile label
+containing `tep` settles it on its own even when the starter block is missing.
+Without such a label, the 2-TE requirement is the only signal available, so an
+unknown starter block leaves TEP unknown rather than false.
 
 ### The parse-failure guard
 

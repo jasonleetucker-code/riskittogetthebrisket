@@ -269,12 +269,20 @@ class TargetFormat:
     league when the product later serves someone else's dynasty league.
     """
 
-    teams: int = 12
-    superflex: bool = False
-    tep: bool = False
-    is_2te: bool = False
+    #: Every field is ``None`` when the target league's own registry entry
+    #: does not state it.  There is no generic 12-team 1QB default, and that
+    #: is deliberate: a default here is not a harmless convenience, it is a
+    #: FABRICATED COMPARATOR — every external league would then be judged
+    #: against a league nobody configured, and ``classify`` would admit or
+    #: reject real evidence on the strength of it.  An underspecified target
+    #: fails closed instead (``target_format_unknown:*``), which is visible
+    #: in the exclusion census and fixable in the registry.
+    teams: int | None = None
+    superflex: bool | None = None
+    tep: bool | None = None
+    is_2te: bool | None = None
     tep_level: int | None = None
-    idp: bool = False
+    idp: bool | None = None
     original_budget: float | None = None
     league_key: str = ""
 
@@ -289,24 +297,43 @@ class TargetFormat:
         original_budget: float | None = None,
     ) -> "TargetFormat":
         settings = settings or {}
-        starters = settings.get("starters") or {}
-        te_starters = _as_int(starters.get("TE")) or 0
-        superflex = bool(starters.get("SFLEX") or starters.get("SUPER_FLEX"))
-        # TEP is a SCORING property, so it is read from the scoring profile
-        # label; the starter block only says how many TEs must start.  Both are
-        # kept because they answer different questions (§7 names them
-        # separately: "TE premium AND two mandatory TE starters").
-        tep = "tep" in str(scoring_profile or "").lower() or te_starters >= 2
-        idp = bool(
-            idp_enabled
-            if idp_enabled is not None
-            else any(_as_int(starters.get(k)) for k in ("DL", "LB", "DB", "IDP_FLEX"))
-        )
+        starters = settings.get("starters")
+        starters = starters if isinstance(starters, dict) and starters else None
+
+        te_starters = _as_int((starters or {}).get("TE")) if starters else None
+        is_2te = None if te_starters is None else te_starters >= 2
+
+        if starters is None:
+            superflex = None
+        else:
+            superflex = bool(starters.get("SFLEX") or starters.get("SUPER_FLEX"))
+
+        # TEP is a SCORING property, read from the scoring-profile label; the
+        # starter block only says how many TEs must START.  Both are kept
+        # because §7 names them separately ("TE premium AND two mandatory TE
+        # starters").  A profile label that says "tep" is positive evidence on
+        # its own; without one, the 2-TE requirement is the only signal, so an
+        # unknown starter block leaves TEP unknown rather than false.
+        profile_says_tep = "tep" in str(scoring_profile or "").lower()
+        if profile_says_tep:
+            tep = True
+        elif is_2te is None:
+            tep = None
+        else:
+            tep = is_2te
+
+        if idp_enabled is not None:
+            idp: bool | None = bool(idp_enabled)
+        elif starters is None:
+            idp = None
+        else:
+            idp = any(_as_int(starters.get(k)) for k in ("DL", "LB", "DB", "IDP_FLEX"))
+
         return cls(
-            teams=_as_int(settings.get("teamCount")) or 12,
+            teams=_as_int(settings.get("teamCount")),
             superflex=superflex,
             tep=tep,
-            is_2te=te_starters >= 2,
+            is_2te=is_2te,
             tep_level=None,
             idp=idp,
             original_budget=original_budget,
@@ -415,6 +442,14 @@ def classify(
     pol = policy or ComparabilityPolicy()
     hard: list[str] = []
 
+    # A setting the TARGET league does not state cannot be matched against.
+    # Excluding here rather than defaulting is the whole reason
+    # ``TargetFormat`` has no defaults: judging real external evidence
+    # against an invented comparator is worse than judging it against none.
+    for field_name in ("superflex", "tep", "teams"):
+        if getattr(target, field_name) is None:
+            hard.append(f"target_format_unknown:{field_name}")
+
     # Budget — the denominator of every normalized share.
     if source.original_budget is None or source.original_budget <= 0:
         hard.append("budget_unknown")
@@ -447,14 +482,19 @@ def classify(
     # Team count — how many rivals split the same finite pool.
     if source.teams is None:
         hard.append("team_count_unknown")
-    elif abs(int(source.teams) - int(target.teams)) > pol.team_count_tolerance:
+    elif target.teams is not None and (
+        abs(int(source.teams) - int(target.teams)) > pol.team_count_tolerance
+    ):
         hard.append("team_count_mismatch")
 
     if hard:
         return Comparability(tier=EXCLUDED, excluded=True, reasons=tuple(hard))
 
     soft: list[str] = []
-    if source.is_2te is None:
+    if source.is_2te is None or target.is_2te is None:
+        # A soft setting missing on EITHER side.  Demote, do not exclude:
+        # unknown must not pass as a match, but a TE-starter count is not
+        # worth discarding an otherwise comparable league over.
         soft.append("two_te_unknown")
     elif bool(source.is_2te) != bool(target.is_2te):
         soft.append("two_te_mismatch")
@@ -466,7 +506,11 @@ def classify(
     ):
         soft.append("tep_severity_gap")
 
-    if source.teams is not None and int(source.teams) != int(target.teams):
+    if (
+        source.teams is not None
+        and target.teams is not None
+        and int(source.teams) != int(target.teams)
+    ):
         soft.append("team_count_offset")
 
     if not soft:

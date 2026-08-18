@@ -528,9 +528,14 @@ def build_crowd_market(
     for row in rows:
         if not isinstance(row, dict):
             continue
-        tier, reason = _row_tier(row, target, pol)
+        tier, reasons = _row_tier(row, target, pol)
         if tier == _comparability.EXCLUDED:
-            market.excluded_counts[reason] = market.excluded_counts.get(reason, 0) + 1
+            # ALL failing reasons, matching the fetch-time census.  A row can
+            # fail several rules, so these counts can exceed the number of
+            # excluded rows — the alternative, reporting only the first, hides
+            # the second thing that is wrong with a league.
+            for reason in reasons or ("excluded",):
+                market.excluded_counts[reason] = market.excluded_counts.get(reason, 0) + 1
             continue
         market.tier_counts[tier] = market.tier_counts.get(tier, 0) + 1
         kept.append((row, tier))
@@ -556,8 +561,8 @@ def _row_tier(
     row: dict[str, Any],
     target: "_comparability.TargetFormat | None",
     policy: "_comparability.ComparabilityPolicy",
-) -> tuple[str, str]:
-    """``(tier, exclusion_reason)`` for one stored row."""
+) -> tuple[str, tuple[str, ...]]:
+    """``(tier, exclusion_reasons)`` for one stored row."""
     stamped = row.get("comparability")
     settings = row.get("settings")
     fmt = _comparability.source_format_from_settings(settings)
@@ -570,12 +575,12 @@ def _row_tier(
         # stored exclusion if one exists; otherwise carry it as unverified.
         if isinstance(stamped, dict) and stamped.get("excluded"):
             reasons = stamped.get("reasons") or ["excluded_at_fetch"]
-            return _comparability.EXCLUDED, str(reasons[0])
-        return _comparability.TIER_UNVERIFIED, ""
+            return _comparability.EXCLUDED, tuple(str(r) for r in reasons)
+        return _comparability.TIER_UNVERIFIED, ()
     verdict = _comparability.classify(fmt, target, policy=policy)
     if verdict.excluded:
-        return _comparability.EXCLUDED, (verdict.reasons[0] if verdict.reasons else "excluded")
-    return verdict.tier, ""
+        return _comparability.EXCLUDED, verdict.reasons or ("excluded",)
+    return verdict.tier, ()
 
 
 def _age_days(as_of: str | None, now_iso: str | None) -> float | None:

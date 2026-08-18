@@ -659,6 +659,26 @@ def _with_crowd(monkeypatch, payload):
     monkeypatch.setattr(faab_history, "load_crowd_history", lambda key: payload)
 
 
+#: A fully-stated league format.  ``faab_env`` registers only
+#: ``{"teamCount": 12}``, and an underspecified target now fails closed by
+#: design (see ``test_an_underspecified_target_league_admits_nothing``), so
+#: the tests that exercise the crowd path have to state a real format.
+_FULL_FORMAT = {
+    "teamCount": 12,
+    # 1QB, single TE, no TE premium — matching the crowd rows below, so the
+    # tests exercise the crowd path rather than the format gate.
+    "starters": {"QB": 1, "RB": 2, "WR": 3, "TE": 1, "FLEX": 2},
+}
+
+
+def _with_stated_format(monkeypatch):
+    monkeypatch.setattr(
+        server._league_registry,
+        "get_league_roster_settings",
+        lambda key: dict(_FULL_FORMAT),
+    )
+
+
 def _now():
     import datetime as _dt
 
@@ -666,6 +686,7 @@ def _now():
 
 
 def test_crowd_market_provenance_is_reported_when_fresh(faab_env, monkeypatch):
+    _with_stated_format(monkeypatch)
     with TestClient(server.app) as c:
         _with_crowd(monkeypatch, _crowd_payload(_now()))
         res = _post(c, monkeypatch, {"addPlayerName": "Hot Pickup"})
@@ -681,6 +702,7 @@ def test_crowd_market_provenance_is_reported_when_fresh(faab_env, monkeypatch):
 def test_incomparable_rows_are_dropped_on_read(faab_env, monkeypatch):
     """The ledger is accumulated, so a tightened policy has to apply to rows
     already stored — not only to the next fetch."""
+    _with_stated_format(monkeypatch)
     payload = _crowd_payload(_now())
     payload["rows"][0]["settings"]["rostersPerPlayer"] = 3
     payload["rows"][1]["settings"]["originalBudget"] = 1.0
@@ -693,6 +715,7 @@ def test_incomparable_rows_are_dropped_on_read(faab_env, monkeypatch):
 
 
 def test_a_stale_crowd_ledger_is_refused_and_says_so(faab_env, monkeypatch):
+    _with_stated_format(monkeypatch)
     with TestClient(server.app) as c:
         _with_crowd(monkeypatch, _crowd_payload("2026-01-01T00:00:00+00:00"))
         res = _post(c, monkeypatch, {"addPlayerName": "Hot Pickup"})
@@ -706,6 +729,8 @@ def test_an_offense_only_population_refuses_to_price_a_defender(faab_env, monkey
     """Measured on the live feed: no external league in it starts an
     individual defender, so its median is offense-only evidence and may not
     price an IDP claim."""
+
+    _with_stated_format(monkeypatch)
 
     def add_lb(contract):
         contract["playersArray"].append(_row("Free Lb", "LB", 3000))
@@ -721,6 +746,8 @@ def test_an_offense_only_population_refuses_to_price_a_defender(faab_env, monkey
 
 
 def test_an_idp_league_in_the_population_unlocks_idp_pricing(faab_env, monkeypatch):
+    _with_stated_format(monkeypatch)
+
     def add_lb(contract):
         contract["playersArray"].append(_row("Free Lb", "LB", 3000))
 
@@ -740,3 +767,25 @@ def test_no_ledger_reports_missing_rather_than_omitting_the_block(faab_env, monk
     block = res.json()["crowdMarket"]
     assert block["state"] == "missing"
     assert block["refusalReason"] == "no_crowd_ledger"
+
+
+def test_an_underspecified_target_league_admits_nothing(faab_env, monkeypatch):
+    """``faab_env`` registers a league with a team count and no starters, so
+    its superflex and TE-premium settings are UNKNOWN.
+
+    Comparability is measured against the target.  Defaulting the unknown
+    half to a generic 12-team 1QB non-TEP shape would judge real external
+    evidence against a league nobody configured — so the gate refuses, and
+    says which setting it was missing.  Fixable in the registry, visible in
+    the census, and never silent.
+    """
+    with TestClient(server.app) as c:
+        _with_crowd(monkeypatch, _crowd_payload(_now()))
+        res = _post(c, monkeypatch, {"addPlayerName": "Hot Pickup"})
+    block = res.json()["crowdMarket"]
+    assert block["state"] == "missing"
+    assert block["rowsTotal"] == 4 and block["rowsUsed"] == 0
+    assert set(block["excludedCounts"]) == {
+        "target_format_unknown:superflex",
+        "target_format_unknown:tep",
+    }
