@@ -340,7 +340,9 @@ def test_the_walker_follows_relative_imports():
         "src.league_comparison.sleeper_stats",
         "src.news.service",
     ):
-        assert module in reachable, f"{module} is imported on every request but measured unreachable"
+        assert (
+            module in reachable
+        ), f"{module} is imported on every request but measured unreachable"
 
 
 def test_relative_resolution_did_not_reclassify_an_existing_flag():

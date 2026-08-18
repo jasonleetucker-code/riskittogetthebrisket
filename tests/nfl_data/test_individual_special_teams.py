@@ -81,12 +81,18 @@ def test_player_return_categories_are_scored(key):
 
 def test_return_yards_move_a_real_players_total(dynasty_main_card):
     """A returner's points must change when his return yards do."""
-    row = {"season": 2025, "week": 1, "position": "WR",
-           "kickoff_return_yards": 105, "punt_return_yards": 41}
+    row = {
+        "season": 2025,
+        "week": 1,
+        "position": "WR",
+        "kickoff_return_yards": 105,
+        "punt_return_yards": 41,
+    }
     with_returns = compute_weekly_points(row, dynasty_main_card, position="WR")
     without = compute_weekly_points(
         {**row, "kickoff_return_yards": 0, "punt_return_yards": 0},
-        dynasty_main_card, position="WR",
+        dynasty_main_card,
+        position="WR",
     )
     assert with_returns.fantasy_points > without.fantasy_points
     # 105 * 0.0333.. + 41 * 0.0333.. = 4.8667
@@ -119,8 +125,14 @@ def test_blocked_kicks_sum_every_block_type():
     the single largest category.
     """
     line = sleeper_stat_line_from_row(
-        {"season": 2025, "week": 1, "position": "DE",
-         "def_punt_blocks": 1, "def_pat_blocks": 1, "def_fg_blocks": 1},
+        {
+            "season": 2025,
+            "week": 1,
+            "position": "DE",
+            "def_punt_blocks": 1,
+            "def_pat_blocks": 1,
+            "def_fg_blocks": 1,
+        },
         position="DE",
     )
     assert line.get("idp_blk_kick") == 3.0
@@ -151,9 +163,9 @@ def test_team_blocked_kick_rule_stays_non_player():
 
 
 def test_blocked_kicks_are_no_longer_declared_impossible():
-    assert "idp_blk_kick" not in UNSCORABLE_REASONS, (
-        "idp_blk_kick is scorable from def_punt_blocks/def_pat_blocks/def_fg_blocks"
-    )
+    assert (
+        "idp_blk_kick" not in UNSCORABLE_REASONS
+    ), "idp_blk_kick is scorable from def_punt_blocks/def_pat_blocks/def_fg_blocks"
 
 
 def test_the_probe_row_can_fire_a_blocked_kick():
@@ -205,9 +217,9 @@ def test_describe_gaps_says_a_host_recoverable_rule_is_recoverable(dynasty_main_
 
     lines = " ".join(describe_gaps(dynasty_main_card)).lower()
     assert "st_tkl_solo" in lines
-    assert "host" in lines or "sleeper" in lines, (
-        "the warning surface must say the host can supply these, not merely that we cannot"
-    )
+    assert (
+        "host" in lines or "sleeper" in lines
+    ), "the warning surface must say the host can supply these, not merely that we cannot"
 
 
 # ── the player/DST split, measured on the host's own dump ────────────
@@ -222,11 +234,13 @@ def test_shared_name_keys_appear_on_both_player_and_team_entries(host_week):
     """
     for key in ("st_tkl_solo", "kr_yd"):
         players = sum(
-            1 for pid, ln in host_week.items()
+            1
+            for pid, ln in host_week.items()
             if str(pid).isdigit() and isinstance(ln, dict) and ln.get(key)
         )
         teams = sum(
-            1 for pid, ln in host_week.items()
+            1
+            for pid, ln in host_week.items()
             if not str(pid).isdigit() and isinstance(ln, dict) and ln.get(key)
         )
         assert players > 0 and teams > 0, f"{key} no longer spans both entry kinds"
@@ -237,7 +251,8 @@ def test_pure_dst_keys_never_appear_on_a_player_entry(host_week):
     player's own idp_* rule."""
     for key in ("int", "fum_rec", "pts_allow", "def_3_and_out", "safe"):
         offenders = [
-            pid for pid, ln in host_week.items()
+            pid
+            for pid, ln in host_week.items()
             if str(pid).isdigit() and isinstance(ln, dict) and ln.get(key)
         ]
         assert not offenders, f"{key} appeared on player entries {offenders[:3]}"
@@ -263,9 +278,15 @@ def test_the_persisted_stat_row_can_carry_return_production():
 
     row = normalize_offensive_row(
         {
-            "player_id": "00-0034796", "player_display_name": "Return Man",
-            "position": "WR", "team": "PHI", "season": 2025, "week": 3,
-            "kickoff_return_yards": 90, "punt_return_yards": 22, "special_teams_tds": 1,
+            "player_id": "00-0034796",
+            "player_display_name": "Return Man",
+            "position": "WR",
+            "team": "PHI",
+            "season": 2025,
+            "week": 3,
+            "kickoff_return_yards": 90,
+            "punt_return_yards": 22,
+            "special_teams_tds": 1,
         }
     )
     assert row is not None, "a returner with only return production was dropped entirely"
@@ -283,10 +304,17 @@ def test_a_persisted_row_round_trips_through_the_scorer(dynasty_main_card):
 
     row = normalize_offensive_row(
         {
-            "player_id": "00-0034796", "player_display_name": "Return Man",
-            "position": "WR", "team": "PHI", "season": 2025, "week": 3,
-            "kickoff_return_yards": 105, "punt_return_yards": 41,
+            "player_id": "00-0034796",
+            "player_display_name": "Return Man",
+            "position": "WR",
+            "team": "PHI",
+            "season": 2025,
+            "week": 3,
+            "kickoff_return_yards": 105,
+            "punt_return_yards": 41,
         }
     )
-    rp = compute_weekly_points({**asdict(row), "season": 2025, "week": 3}, dynasty_main_card, position="WR")
+    rp = compute_weekly_points(
+        {**asdict(row), "season": 2025, "week": 3}, dynasty_main_card, position="WR"
+    )
     assert rp.fantasy_points == pytest.approx(4.8667, abs=1e-3)

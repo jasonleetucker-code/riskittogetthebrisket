@@ -307,7 +307,8 @@ def test_the_flag_changes_what_can_be_scored(monkeypatch):
     monkeypatch.delenv("RISKIT_FEATURE_HOST_NATIVE_SCORING", raising=False)
     feature_flags.reload()
     champ_row = next(
-        r for r in _ss.fetch_sleeper_weekly_stats(2025, fetcher=_host_native_fixture())
+        r
+        for r in _ss.fetch_sleeper_weekly_stats(2025, fetcher=_host_native_fixture())
         if r["player_id_sleeper"] == "4034"
     )
     champ = compute_weekly_points(champ_row, card, position="WR", source=champ_row["source"])
@@ -316,7 +317,8 @@ def test_the_flag_changes_what_can_be_scored(monkeypatch):
     feature_flags.reload()
     try:
         host_row = next(
-            r for r in _ss.fetch_sleeper_weekly_stats(2025, fetcher=_host_native_fixture())
+            r
+            for r in _ss.fetch_sleeper_weekly_stats(2025, fetcher=_host_native_fixture())
             if r["player_id_sleeper"] == "4034"
         )
         host = compute_weekly_points(host_row, card, position="WR", source=host_row["source"])

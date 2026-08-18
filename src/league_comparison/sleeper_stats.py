@@ -55,6 +55,7 @@ def _host_native_enabled() -> bool:
     except Exception:  # noqa: BLE001
         return False
 
+
 _SLEEPER_API_ROOT = "https://api.sleeper.app/v1"
 _HTTP_TIMEOUT = 15.0
 _PLAYER_INDEX_TTL = 7 * 24 * 3600  # 7 days

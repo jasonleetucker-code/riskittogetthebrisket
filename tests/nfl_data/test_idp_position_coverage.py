@@ -80,7 +80,9 @@ def test_a_safety_scores_the_same_however_the_feed_spells_him():
 def test_a_safety_is_not_scored_as_zero():
     """The specific production symptom: well-formed 0.000, no reason, no flag."""
     rp = compute_weekly_points({**SAFETY_LINE, "position": "SAF"}, CARD, position="SAF")
-    assert rp.fantasy_points == pytest.approx(6 * 1.33 + 2 * 1.33 + 3 * 0.71 + 2 * 5.32 + 4.25 + 22 * 0.111, abs=1e-6)
+    assert rp.fantasy_points == pytest.approx(
+        6 * 1.33 + 2 * 1.33 + 3 * 0.71 + 2 * 5.32 + 4.25 + 22 * 0.111, abs=1e-6
+    )
 
 
 def test_idp_positions_is_derived_from_the_alias_owner():
@@ -88,9 +90,9 @@ def test_idp_positions_is_derived_from_the_alias_owner():
     automatically.  A hand-maintained mirror of the owner drifts from it —
     that is what produced this defect and the three local workarounds."""
     expected = {raw for raw, fam in POSITION_ALIASES.items() if fam in {"DL", "LB", "DB"}}
-    assert _IDP_POSITIONS == expected, (
-        "the IDP-eligible set must be derived from POSITION_ALIASES, not restated"
-    )
+    assert (
+        _IDP_POSITIONS == expected
+    ), "the IDP-eligible set must be derived from POSITION_ALIASES, not restated"
 
 
 def test_offensive_players_are_still_not_scored_by_idp_rules():

@@ -70,8 +70,15 @@ def host_week() -> dict:
 
 
 HOST_ONLY_KEYS = [
-    "st_tkl_solo", "st_ff", "rec_0_4", "rec_5_9", "rec_10_19",
-    "rec_20_29", "rec_30_39", "rec_40p", "pass_int_td",
+    "st_tkl_solo",
+    "st_ff",
+    "rec_0_4",
+    "rec_5_9",
+    "rec_10_19",
+    "rec_20_29",
+    "rec_30_39",
+    "rec_40p",
+    "pass_int_td",
 ]
 
 
@@ -88,8 +95,17 @@ def test_host_only_categories_score_on_the_host_path(key, card):
 
 def test_the_host_path_scores_what_the_nflverse_path_cannot(card):
     """The whole point, in one assertion."""
-    row = {"season": 2025, "week": 14, "position": "WR", "player_id": "4034",
-           "rec": 5, "rec_yd": 60, "rec_5_9": 3, "rec_10_19": 2, "st_tkl_solo": 1}
+    row = {
+        "season": 2025,
+        "week": 14,
+        "position": "WR",
+        "player_id": "4034",
+        "rec": 5,
+        "rec_yd": 60,
+        "rec_5_9": 3,
+        "rec_10_19": 2,
+        "st_tkl_solo": 1,
+    }
     host = compute_weekly_points(row, card, position="WR", source="sleeper")
     # The same row through the champion path: rec/rec_yd are nflverse-shaped
     # names it does not read, and the bands have no nflverse column at all.
@@ -121,8 +137,14 @@ def test_a_gsis_id_is_a_player_not_a_team():
 
 
 def test_a_producer_row_carrying_a_gsis_id_still_scores(card):
-    row = {"season": 2025, "week": 14, "position": "WR",
-           "player_id": "00-0034796", "player_id_sleeper": "4034", "rec": 4}
+    row = {
+        "season": 2025,
+        "week": 14,
+        "position": "WR",
+        "player_id": "00-0034796",
+        "player_id_sleeper": "4034",
+        "rec": 4,
+    }
     rp = compute_weekly_points(row, card, position="WR", source="sleeper")
     assert rp is not None and rp.fantasy_points > 0
 
@@ -130,16 +152,29 @@ def test_a_producer_row_carrying_a_gsis_id_still_scores(card):
 def test_the_hosts_own_id_decides_when_both_are_present(card):
     """A team row rebuilt by the producer keeps its alpha id in
     ``player_id_sleeper``; that is the field that must decide."""
-    row = {"season": 2025, "week": 14, "position": "DEF",
-           "player_id": "PHI", "player_id_sleeper": "PHI", "pts_allow": 13}
+    row = {
+        "season": 2025,
+        "week": 14,
+        "position": "DEF",
+        "player_id": "PHI",
+        "player_id_sleeper": "PHI",
+        "pts_allow": 13,
+    }
     assert compute_weekly_points(row, card, position="DEF", source="sleeper") is None
 
 
 def test_a_team_entry_is_refused_rather_than_scored_as_a_player(card):
     """A DST line carries ``pts_allow``, ``int``, ``fum_rec`` — rules that would
     pay a player for his defense's production."""
-    team_row = {"season": 2025, "week": 14, "player_id": "PHI",
-                "pts_allow": 13, "int": 2, "fum_rec": 1, "st_tkl_solo": 9}
+    team_row = {
+        "season": 2025,
+        "week": 14,
+        "player_id": "PHI",
+        "pts_allow": 13,
+        "int": 2,
+        "fum_rec": 1,
+        "st_tkl_solo": 9,
+    }
     assert compute_weekly_points(team_row, card, position="DEF", source="sleeper") is None
 
 
@@ -148,11 +183,12 @@ def test_shared_name_keys_are_the_reason_the_filter_must_exist(host_week):
     so no key-family rule can separate them."""
     for key in ("st_tkl_solo", "kr_yd"):
         on_players = any(
-            str(p).isdigit() and isinstance(l, dict) and l.get(key) for p, l in host_week.items()
+            str(pid).isdigit() and isinstance(line, dict) and line.get(key)
+            for pid, line in host_week.items()
         )
         on_teams = any(
-            not str(p).isdigit() and isinstance(l, dict) and l.get(key)
-            for p, l in host_week.items()
+            not str(pid).isdigit() and isinstance(line, dict) and line.get(key)
+            for pid, line in host_week.items()
         )
         assert on_players and on_teams, key
 
@@ -182,8 +218,14 @@ def test_scoring_a_derived_total_would_double_the_line():
 def test_a_line_carrying_both_alias_spellings_pays_the_rule_once():
     """Sleeper ships several spellings for one IDP rule.  A card paying the
     canonical key and a line carrying both spellings must pay once."""
-    row = {"season": 2025, "week": 1, "player_id": "1", "position": "CB",
-           "idp_pass_def": 3, "idp_pd": 3}
+    row = {
+        "season": 2025,
+        "week": 1,
+        "player_id": "1",
+        "position": "CB",
+        "idp_pass_def": 3,
+        "idp_pd": 3,
+    }
     rp = compute_weekly_points(row, {"idp_pd": 5.32}, position="CB", source="sleeper")
     assert rp.fantasy_points == pytest.approx(3 * 5.32, abs=1e-9)
 
@@ -196,8 +238,16 @@ def test_an_alias_spelled_stat_reaches_a_canonically_spelled_rule():
 
 def test_metadata_never_becomes_a_stat():
     line = host_stat_line(
-        {"season": 2025, "week": 14, "player_id": "1", "position": "WR",
-         "player_name": "X", "team": "PHI", "season_type": "REG", "rec": 4}
+        {
+            "season": 2025,
+            "week": 14,
+            "player_id": "1",
+            "position": "WR",
+            "player_name": "X",
+            "team": "PHI",
+            "season_type": "REG",
+            "rec": 4,
+        }
     )
     assert set(line) == {"rec"}
 
@@ -207,8 +257,14 @@ def test_metadata_never_becomes_a_stat():
 
 def test_the_default_source_is_still_nflverse(card):
     """Flag off, no source argument: byte-identical to before."""
-    row = {"season": 2025, "week": 1, "position": "WR",
-           "receiving_yards": 100, "receptions": 7, "receiving_tds": 1}
+    row = {
+        "season": 2025,
+        "week": 1,
+        "position": "WR",
+        "receiving_yards": 100,
+        "receptions": 7,
+        "receiving_tds": 1,
+    }
     default = compute_weekly_points(row, card, position="WR")
     explicit = compute_weekly_points(row, card, position="WR", source="nflverse")
     assert default.fantasy_points == explicit.fantasy_points
@@ -287,12 +343,21 @@ def test_the_idp_archetypes_reconcile_specifically(golden_cases, scoring_2025):
     """Stacking semantics: solo / assist / combined tackles, sacks + TFL, and
     PD + INT must each be paid once and only once.  A double count shows up
     here as a positive delta on exactly the defensive archetypes."""
-    idp = [c for c in golden_cases if c["archetype"] in
-           ("tackle LB", "edge rusher", "interior DL", "box safety", "ballhawk corner")]
+    idp = [
+        c
+        for c in golden_cases
+        if c["archetype"]
+        in ("tackle LB", "edge rusher", "interior DL", "box safety", "ballhawk corner")
+    ]
     assert len(idp) == 5, "IDP archetype coverage shrank"
     for case in idp:
-        row = {"season": 2025, "week": case.get("week"), "player_id": "1",
-               "position": case.get("position"), **case["statLine"]}
+        row = {
+            "season": 2025,
+            "week": case.get("week"),
+            "player_id": "1",
+            "position": case.get("position"),
+            **case["statLine"],
+        }
         rp = compute_weekly_points(
             row, scoring_2025, position=case.get("position"), source="sleeper"
         )
@@ -306,8 +371,13 @@ def test_the_kicker_archetypes_reconcile(golden_cases, scoring_2025):
     kickers = [c for c in golden_cases if c["archetype"].startswith("kicker")]
     assert kickers
     for case in kickers:
-        row = {"season": 2025, "week": case.get("week"), "player_id": "1",
-               "position": case.get("position"), **case["statLine"]}
+        row = {
+            "season": 2025,
+            "week": case.get("week"),
+            "player_id": "1",
+            "position": case.get("position"),
+            **case["statLine"],
+        }
         rp = compute_weekly_points(
             row, scoring_2025, position=case.get("position"), source="sleeper"
         )
@@ -338,8 +408,15 @@ def test_the_collapse_leaves_at_most_one_key_per_rule():
     from src.nfl_data.realized_points import _SCORING_KEY_ALIASES
 
     line = host_stat_line(
-        {"season": 2025, "week": 1, "player_id": "1",
-         "idp_qb_hit": 1, "idp_hit": 1, "idp_pass_def": 2, "idp_pd": 2}
+        {
+            "season": 2025,
+            "week": 1,
+            "player_id": "1",
+            "idp_qb_hit": 1,
+            "idp_hit": 1,
+            "idp_pass_def": 2,
+            "idp_pd": 2,
+        }
     )
     for alias, canonical in _SCORING_KEY_ALIASES.items():
         assert not (alias in line and canonical in line), f"{alias}/{canonical} both survived"
@@ -353,7 +430,8 @@ def test_no_team_entry_in_the_real_host_dump_is_taken_for_a_player(host_week):
     exist, and an earlier deny-list rule admitted exactly half of them.
     """
     admitted = [
-        pid for pid in host_week
+        pid
+        for pid in host_week
         if not str(pid).replace("-", "").isdigit() and is_host_player_entry(pid)
     ]
     assert not admitted, f"{len(admitted)} team entries taken for players: {admitted[:6]}"
