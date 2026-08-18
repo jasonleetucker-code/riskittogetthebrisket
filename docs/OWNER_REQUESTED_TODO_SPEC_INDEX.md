@@ -302,13 +302,38 @@ Canonical dynasty player value already embeds age expectations, so this feature 
 **Status:** BINDING C-SERIES ROSTER FOUNDATION  
 **Priority:** establish with Team Strength before downstream roster-value consumers
 
-Create one canonical selector for any product claim that collapses an entire fantasy roster into dynasty roster value/strength or a derivative. Dedicated position meaningful depth is `ceil(1.5 × actual dedicated starter slots)` from the requested league configuration. **Superflex is always QB demand:** add real Superflex count to QB starter demand before applying 1.5×. Regular offensive FLEX and defensive/IDP FLEX each create `ceil(1.5 × real flex slots)` after dedicated cores are selected, and are filled by the **highest-valued remaining legally eligible players**. Each player may count once.
+Create one canonical selector for any product claim that collapses an entire fantasy roster into dynasty roster value/strength or a derivative. Dedicated position meaningful depth is `ceil(1.5 × actual dedicated starter slots)` from the requested league configuration. **Superflex is always QB demand:** add real Superflex count to QB starter demand before applying 1.5×. Regular offensive FLEX and defensive/IDP FLEX each create `ceil(1.5 × real flex slots)`, filled by the **highest-valued remaining legally eligible players**. Each player may count once.
+
+> **AMENDED 2026-08-18 — owner addendum #899, issue #899.** The clause that filled FLEX *"after
+> dedicated cores are selected"* is superseded. FLEX is an **assignment rule** deciding which
+> players enter the meaningful-roster pool — **not** a separate sortable Team Strength position.
+>
+> Canonical order: solve the **actual starting lineup** from real league configuration → assign
+> dedicated starters → fill each **actual FLEX / Superflex / IDP-FLEX starter slot** from the
+> highest-valued remaining legally eligible players → **remove every actual starter from the
+> pools** → only then compute reserve demand.
+>
+> Reserve demand is `ceil(M × dedicated starter slots) − dedicated starter slots` per dedicated
+> position, and `ceil(M × actual FLEX starter slots) − actual FLEX starter slots` for FLEX,
+> selected globally after all actual starters are removed. `M` remains the **1.5× V1
+> champion/PRIOR** with its §4.3 challenger pass: the amendment moves *when* a player leaves the
+> pool, not the multiplier.
+>
+> Consequence worth stating: a player used at FLEX **cannot** also count as native-position
+> depth. If RB3 and WR4 are the two best remaining in a 2-FLEX league they are FLEX starters, and
+> the first RB reserve may be raw-position RB4.
+>
+> Implement by reusing the canonical exact lineup/assignment machinery (`src/ros/lineup.py`);
+> independent per-position greedy lists can double-count and are forbidden. Sortable position
+> groups stay QB / RB / WR / TE / DL / LB / DB — **no FLEX column is required**.
+>
+> Canonical record: `docs/OWNER_FEATURE_ADDENDUM_2026-08-18_FLEX_STARTER_ASSIGNMENT.md`.
 
 All Team Strength, team-profile roster value/strength, T-NEW-18, roster-aware trade before/after impact, Analyze Trade roster marginal impact, league-relative roster-quality rankings, and future whole-team dynasty-value consumers must call this same owner. A separately labeled full-roster asset-capital total may exist, but must not masquerade as Team Strength. Missing/unpriced values stay explicit.
 
-Validation must derive slot counts from live league configuration, cover offensive FLEX, IDP FLEX, and Superflex-as-QB fixtures, prove no double counting, and audit/remove raw-sum or page-local alternatives.
+Validation must derive slot counts from live league configuration, cover 0/1/2/3+ FLEX configurations, IDP FLEX and Superflex-as-QB fixtures, prove FLEX starters are assigned before reserves, prove removing a FLEX starter shifts the next native-position player into the reserve pool, prove no double counting and permutation invariance, and audit/remove raw-sum or page-local alternatives.
 
-**Tracking / binding spec:** #839 plus `OWNER_REQUESTED_TODO.md` decisions 47–49.
+**Tracking / binding spec:** #839 plus `OWNER_REQUESTED_TODO.md` decisions 47–49; amended by **#899** (`docs/OWNER_FEATURE_ADDENDUM_2026-08-18_FLEX_STARTER_ASSIGNMENT.md`).
 
 ---
 

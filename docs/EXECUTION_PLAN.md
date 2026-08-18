@@ -73,6 +73,21 @@ Scope reconciliation for the directive, including the owner-methodology authorit
 
 ## 0.1 Campaign order — **paused; nothing in this diagram is authorized today**
 
+> **Acceptance criteria bound in advance for `C2-U6` / `C2-U4` (owner addendum #899, 2026-08-18).**
+> Recorded here so the units cannot be started against the older wording. **FLEX is an assignment
+> rule, not a sortable Team Strength position.** The meaningful-roster core must: solve the actual
+> starting lineup from real league configuration; assign dedicated starters; fill each actual
+> FLEX / Superflex / IDP-FLEX starter slot from the highest-valued remaining legally eligible
+> players; **remove every actual starter from the pools**; and only then take reserve demand as
+> `ceil(M × slots) − slots` per dedicated position and `ceil(M × actual FLEX slots) − actual FLEX
+> slots` for FLEX. `M` stays the 1.5× V1 champion/PRIOR with its challenger pass. A player used at
+> FLEX may not also count as native-position depth; every player counts at most once; 0/1/2/3+
+> FLEX configurations must work from league settings; SF and ordinary FLEX may not double-count.
+> Reuse the canonical exact assignment machinery (`src/ros/lineup.py`) — per-position greedy lists
+> are forbidden. No FLEX column is required. Canonical record:
+> `docs/OWNER_FEATURE_ADDENDUM_2026-08-18_FLEX_STARTER_ASSIGNMENT.md`; decision 72 in
+> `docs/OWNER_REQUESTED_TODO.md`.
+
 `C1-U7` sits **after `C2-U4`** and not with the rest of C1. It declares `deps C1-U6, C2-U4`
 (`docs/C_SERIES_EXECUTION_MAP.md`), because an owned pick's slot distribution is a function of
 simulated final standings, hence of Team Strength. Building it earlier would tune it against a
