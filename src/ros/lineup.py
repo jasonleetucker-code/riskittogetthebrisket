@@ -243,12 +243,14 @@ def roster_player_from_row(row: Mapping[str, Any]) -> RosterPlayer:
     through as the real value it is.
 
     Measured before changing: on the live path this is a no-op, because
-    ``ros/team_strength.py`` already drops rows with
-    ``rosValue <= 0`` before writing the snapshot these adapters read.
+    ``ros/team_strength.py`` already writes every unmatched row with
+    ``ros_value=0.0`` (a deliberate coercion its own comment names) —
+    so the snapshot these adapters read carries no ``None`` to preserve.
     That is worth knowing rather than assuming — the honest-missing
     state is lost UPSTREAM of here, so ``LineupAssignment.unpriced_ids``
     is empty by construction on the snapshot path however correct this
-    function is.  Callers that assemble rows themselves (and can carry
+    function is.  (Corrected 2026-08-19: this said the writer DROPPED
+    those rows.  It coerces them.)  Callers that assemble rows themselves (and can carry
     an unpriced player) get the honest behaviour.
     """
     raw = row.get("rosValue")

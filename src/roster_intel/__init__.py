@@ -36,10 +36,11 @@ exposure, before/after.  It is DESCRIPTIVE ONLY — it emits no flag, no
 verdict and no penalty, and nothing in the trade or roster chain imports
 it, so it has no edge along which it could influence a grade.
 
-``capacity`` runs #843's flow — apply, count, cleanup, re-solve — up
-to but NOT past the evaluation step, which is the trade lane's.  It
-exists so nobody has to write the ``package delta - lowest raw player
-value`` shortcut the spec forbids by name.
+``simulation`` is the exact before→apply→re-solve→after primitive
+(`C2-SIM-01`, lane ``roster``).  The trade lane's `C3-CAP-01` roster
+capacity / forced-drop unit is built ON it and lives in
+``src/trade/`` — see the lane doc §14 for why that split is the
+manifest's and not a halving of one unit.
 
 ``droppability`` is the odd one out and deliberately so: it OWNS
 nothing.  The cut-ladder owner is ``src/draft/displacement.py``, and
@@ -57,13 +58,6 @@ from src.roster_intel.age_portfolio import (
     build_age_portfolio,
     build_youth_curve,
     rank_age_portfolios,
-)
-from src.roster_intel.capacity import (
-    CLEANUP_AMBIGUITY_TOLERANCE,
-    CapacityState,
-    CleanupPlan,
-    RosterCapacityOutcome,
-    plan_roster_capacity,
 )
 from src.roster_intel.core import (
     CoreMember,
@@ -110,9 +104,6 @@ from src.roster_intel.weakness import (
 )
 
 __all__ = [
-    "CLEANUP_AMBIGUITY_TOLERANCE",
-    "CapacityState",
-    "CleanupPlan",
     "CoreMember",
     "DROPPABILITY_CONTRACT_VERSION",
     "ExposureChange",
@@ -124,7 +115,6 @@ __all__ = [
     "PositionRanks",
     "PositionStrength",
     "ReserveDemand",
-    "RosterCapacityOutcome",
     "RosterSimulation",
     "SCARCITY_REORDER_RATIO",
     "SlotMovement",
@@ -143,7 +133,6 @@ __all__ = [
     "exposure_change",
     "exposure_from_core",
     "league_droppability",
-    "plan_roster_capacity",
     "pool_cut_ladder",
     "rank_age_portfolios",
     "rank_team_strengths",

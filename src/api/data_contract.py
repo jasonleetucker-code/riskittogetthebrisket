@@ -11183,6 +11183,40 @@ def build_api_data_contract(
     return contract_payload
 
 
+def roster_pool_key(teams: list[Any], index: int, team: Any) -> str:
+    """UNIQUE identity for one team's roster pool, shared by every consumer.
+
+    ``ownerId`` alone is not an identity.  ``Dynasty Scraper.py`` writes
+    ``str(owner_id) if owner_id else ""`` and ``sleeper_overlay`` writes
+    ``str(r.get("owner_id") or "")``, so Sleeper's ``owner_id: null`` — an
+    unclaimed or orphaned roster, which the scraper's own comment anticipates —
+    arrives as ``""`` for EVERY such team.  Keying a dict on that silently
+    collapses them, and the survivor's roster is then published as the others'
+    ``optimalLineup`` with ``available: true``.  A chimera presented as fact is
+    worse than a refusal; ``src/api/gameplan.py`` already excludes an empty
+    ownerId rather than merging on it.
+
+    So: the ownerId is the key only when it is non-empty AND unambiguous across
+    this team list.  Otherwise the key is positional, which is unique by
+    construction.  The function is PURE in ``(teams, index, team)``, which is
+    what lets the builder and every consumer derive the same key from the same
+    list without threading state — and the index must be taken with
+    ``enumerate(teams)`` BEFORE any ``isinstance`` skip, or the two desync on a
+    malformed entry.
+    """
+    if isinstance(team, dict):
+        owner_id = str(team.get("ownerId") or "").strip()
+        if owner_id:
+            same = sum(
+                1
+                for other in teams
+                if isinstance(other, dict) and str(other.get("ownerId") or "").strip() == owner_id
+            )
+            if same == 1:
+                return owner_id
+    return f"__roster_{index}"
+
+
 def contract_roster_pools(
     contract: dict[str, Any],
     *,
@@ -11190,7 +11224,8 @@ def contract_roster_pools(
 ) -> tuple[dict[str, list[Any]], list[str], str | None]:
     """THE contract → per-team ``RosterPlayer`` pool builder.
 
-    Returns ``({ownerId: pool}, slots, slot_source)``.
+    Returns ``({rosterPoolKey: pool}, slots, slot_source)`` — see
+    :func:`roster_pool_key` for why that key is not simply ``ownerId``.
 
     Extracted from :func:`stamp_optimal_lineups`, which was its only
     caller and is now one of two — the other being roster intelligence.
@@ -11211,10 +11246,16 @@ def contract_roster_pools(
     0-100, not points, and not projection-aware"
     (``src/ros/aggregate.py``) — a REST-OF-SEASON PRODUCTION quantity,
     while ``MASTER_PRODUCT_PLAN`` §4.1 says Team Strength "is not Power
-    Ranking, Playoff Odds, or ROS production".  It also drops every row
-    with ``rosValue <= 0`` before writing (``ros/team_strength.py``), so
-    unpriced roster membership is gone before any consumer sees it.
-    Two separate defects, one source; the contract has neither.
+    Ranking, Playoff Odds, or ROS production".  It also COERCES every
+    unmatched row to ``ros_value=0.0`` before writing
+    (``ros/team_strength.py``), so unpriced roster membership arrives
+    indistinguishable from a real zero.  (Corrected 2026-08-19: this
+    said the writer DROPPED those rows.  It does not — it appends them
+    at 0.0, and its own comment names that as a deliberate
+    missing-is-zero boundary.  The consequence for a consumer is the
+    same, but a coercion and a deletion need different repairs, so the
+    description matters.)  Two separate defects, one source; the
+    contract has neither.
 
     ``rows`` supplies the value source explicitly for the same reason
     :func:`stamp_optimal_lineups` takes it: some payload views strip
@@ -11265,7 +11306,7 @@ def contract_roster_pools(
                 value_by_name.setdefault(str(key), row.get("rankDerivedValue"))
 
     pools: dict[str, list[Any]] = {}
-    for team in teams:
+    for index, team in enumerate(teams):
         if not isinstance(team, dict):
             continue
         pool: list[Any] = []
@@ -11290,7 +11331,7 @@ def contract_roster_pools(
                     ),
                 )
             )
-        pools[str(team.get("ownerId") or "")] = pool
+        pools[roster_pool_key(teams, index, team)] = pool
     return pools, list(slots), slot_source
 
 
@@ -11355,7 +11396,7 @@ def stamp_optimal_lineups(
     pools, slots, slot_source = contract_roster_pools(contract, rows=rows)
 
     stamped: list[Any] = []
-    for original in teams:
+    for index, original in enumerate(teams):
         if not isinstance(original, dict):
             stamped.append(original)
             continue
@@ -11370,7 +11411,7 @@ def stamp_optimal_lineups(
                 "slotSource": None,
             }
             continue
-        pool = pools.get(str(original.get("ownerId") or ""), [])
+        pool = pools.get(roster_pool_key(teams, index, original), [])
         try:
             solved = lineup_owner.assign_lineup(pool, slots)
         except Exception:  # noqa: BLE001 — an optional stamp must not fail a build

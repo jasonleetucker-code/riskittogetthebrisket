@@ -29,7 +29,6 @@ Binding requirements, in precedence order:
 | Roster simulation | `src/roster_intel/simulation.py` (C2-SIM-01) | **Absent** — built |
 | Droppability | `src/draft/displacement.py` (C2-DROP-01) | **Existed and was correct — unreachable.** Adapter built, §12 |
 | NFL-franchise exposure | `src/roster_intel/exposure.py` (C2-EXP-01) | **Absent** — built, §13 |
-| Roster capacity + legal cleanup | `src/roster_intel/capacity.py` (#843, roster half of C3-CAP-01) | **Absent** — built, §14 |
 | Consumer interface | `src/roster_intel/__init__.py`, `GET /api/roster/intelligence` | **Absent** — built |
 
 The chain was not broken at its head. It was missing its middle.
@@ -98,10 +97,11 @@ solver a real, assignable, worthless player instead of an unpriced one. Missing
 is now `None`; an explicit `0` still passes through as the real value it is.
 
 **Measured before changing:** at the time, this was a no-op on the live path,
-because `ros/team_strength.py:123` drops rows with `rosValue <= 0` before
-writing the snapshot these adapters then read. That lossy hop is no longer on
-the roster-intelligence path at all — see §8 — so the adapter's honest-missing
-behaviour is now reachable rather than theoretical.
+because `ros/team_strength.py:123` writes every unmatched row with
+`ros_value=0.0` — so the snapshot these adapters read carries no `None` to
+preserve. That lossy hop is no longer on the roster-intelligence path at all —
+see §8 — so the adapter's honest-missing behaviour is now reachable rather than
+theoretical.
 
 ---
 
@@ -246,9 +246,9 @@ against real league examples first, and that has not run.
   foreign-league contract, matching `/api/gameplan`, `/api/terminal` and
   `/api/trade/*`. Rosters come from `data_contract.contract_roster_pools` — see
   §8.
-- **Capacity / forced drop** — `src/roster_intel/capacity.py`
-  (`plan_roster_capacity`). The roster half of `C3-CAP-01`; the verdict half
-  is the trade lane's. See §14.
+- **Capacity / forced drop** — NOT here. `C3-CAP-01` is trade-owned (#913);
+  this lane publishes `simulate_roster_change` and `pool_cut_ladder` for it to
+  consume. See §14.
 - **Exposure** — `src/roster_intel/exposure.py`, and on every team in the
   endpoint payload as `nflExposure.core` / `nflExposure.fullRoster`. See §13.
 - **Droppability** — `src/roster_intel/droppability.py`
@@ -268,7 +268,17 @@ team-strength snapshot, which was wrong in two independent ways:
 | defect | consequence |
 |---|---|
 | `rosValue` is "a normalized log-rank index on 0-100 — not points, and not projection-aware" (`src/ros/aggregate.py`) | Team Strength summed a **rest-of-season production** measure while claiming canonical dynasty value. §4.1 says Team Strength "is not Power Ranking, Playoff Odds, or ROS production" |
-| `ros/team_strength.py` skips every row with `rosValue <= 0` when writing | unpriced roster membership was **deleted before any consumer saw it**, so `unpricedIds` was structurally empty and missing-is-never-zero was unenforceable downstream |
+| `ros/team_strength.py` writes every unmatched row with `ros_value=0.0` | unpriced roster membership arrived **indistinguishable from a real zero**, so `unpricedIds` was structurally empty and missing-is-never-zero was unenforceable downstream |
+
+> **Correction, 2026-08-19 (integration review).** Five places in this branch —
+> including the §11 instruction below — said the writer *dropped* those rows. It
+> does not: `src/ros/team_strength.py:123-160` appends the player at
+> `ros_value=0.0`, and that file's own comment names it as a deliberate
+> missing-is-zero boundary. The *consequence* claimed here is unchanged and so
+> is the repair on this side, but a coercion and a deletion are fixed
+> differently **at the source** — and §11 hands the integration lane a change
+> instruction premised on the description, so it had to be right. All five sites
+> are corrected.
 
 Not a second loader: `stamp_optimal_lineups` already built exactly this pool
 and was its only builder. That block is now `contract_roster_pools` and both
@@ -366,10 +376,17 @@ canonical dynasty value. This lane fixed its own endpoint by changing source;
   become visible). Marginal *shares* and *ranks* should be broadly stable;
   absolute marginal points will not be.
 
-Alternatively the ROS snapshot writer (`src/ros/team_strength.py:123`) could
-stop dropping `rosValue <= 0` rows and emit them with an explicit null — but
+Alternatively the ROS snapshot writer (`src/ros/team_strength.py:123-160`) could
+stop coercing unmatched rows to `ros_value=0.0` and emit `None` instead — but
 that changes a different lane's canonical methodology and should not be done
-casually.
+casually. **Its own comment already names this as a decision rather than an
+oversight**, and says why it was left: `RosterPlayer.ros_value` is now
+`float | None`, so passing `None` would change `health_availability_score` (its
+denominator is the starter count) and `unfilled_slots` on the live `/terminal`
+team-strength composite. That composite is `C2-U4`'s unit. So this alternative
+is not a smaller change than the one above — it moves a live number on a
+different unit's authority, which is precisely why the `load_league_inputs`
+route is the one written out in full.
 
 ### Second dependency — the waiver page's naive drop (C7-WAIV-01)
 
@@ -589,142 +606,62 @@ is computed for every team by default rather than made opt-in.
 
 ---
 
-## 14. Roster capacity and the legal post-trade roster (#843, roster half of C3-CAP-01)
+## 14. Roster capacity / forced drop (#843) — ruled TRADE-owned, and what this lane publishes for it
 
-Binding spec:
-`docs/trade/ROSTER_CAPACITY_FORCED_DROP_TRADE_ANALYSIS_ADDENDUM_2026-08-14.md`,
-inventory row 2.14. Its canonical flow is:
+**This lane does not own `C3-CAP-01`, and briefly acted as though it did.**
 
-```
-before roster → apply trade → capacity / overage → required legal cleanup
-              → apply optimal cleanup → rerun roster intelligence → EVALUATE
-```
+I built `src/roster_intel/capacity.py` as "the roster half" of #843 — capacity,
+required cleanup, optimal legal cleanup off the cut ladder, then a re-solve —
+on the reasoning that everything left of the spec's `EVALUATE` step is roster
+mechanics. Integration ruled against that, correctly:
 
-`src/roster_intel/capacity.py` runs that flow **up to the arrow before
-EVALUATE, and stops.** Everything to the left is roster mechanics and belongs
-to this lane; the verdict, the package ranking and the Use Team Context toggle
-are the trade lane's — `C3-CAP-01` is filed under `trade` and depends on
-`C3-CTX-01`, which does not exist yet.
+- `docs/C_SERIES_SCOPE_MANIFEST.md:267` assigns **`C3-CAP-01` (#843) to lane
+  `trade`**, as **one row, one lane**. The manifest splits nothing into halves;
+  the halving was mine.
+- **#913 already ships the same unit** as `src/trade/roster_capacity.py`, in the
+  lane the manifest names, and the V1 contract row `V1-39` records it as the
+  implementer.
 
-### Why it is built here rather than left for the evaluator
+Merging both would have produced two owners of one concept — the invariant this
+whole campaign exists to hold, and the one my own lane brief names first. So
+`capacity.py`, its tests and its exports are **removed from this branch**. The
+cut was clean: nothing inside #914 consumed it.
 
-The spec forbids one shortcut by name:
+`simulation.py` **stays**, and that is the intended shape rather than a
+compromise: `C2-SIM-01` is lane `roster` in the same table and `C3-CAP-01`
+depends on it. The roster lane publishes the exact before → apply → re-solve
+primitive; the trade lane builds capacity and forced-drop on top.
 
-> Do not model it solely as `package delta - lowest raw player value`. Use
-> canonical dropability / roster utility to determine the lowest-cost legal
-> cleanup path, then recompute the final roster.
+### What this lane publishes for #913 to consume
 
-That shortcut is what gets written when the cleanup step has no owner. Every
-piece needed to do it properly now exists in this chain — the exact solver, the
-meaningful core, the cut ladder — so the honest move is to publish the composed
-flow rather than describe it in a ticket.
+Two primitives, both already here, so the trade lane does not have to re-derive
+either:
 
-The cleanup itself needs no search: the cut ladder is cheapest-first and its
-prefixes nest, so **the first *k* rungs are the optimal legal cut-set of size
-*k*** (the matroid argument in `src/draft/displacement.py`).
-
-### Nine of the spec's eleven fixtures, by its own wording
-
-| # | fixture | result |
+| need | call | why not roll your own |
 |---|---|---|
-| 1 | full roster, 1-for-1 | no cut |
-| 2 | full roster, 1-for-2 | one cleanup move |
-| 3 | one open spot, 1-for-2 | fits cleanly, **no cost at all** (`null`, not `0`) |
-| 4 | 1 over, 2-for-1 | `resolved` |
-| 5 | 3 over, 2-for-1 | `improved` to 2 |
-| 6 | 1 over, 1-for-2 | `worsened` to 2 |
-| 7 | taxi/IR | **unavailable, not zero** — see below |
-| 8 | cut by real marginal loss, not raw value | two tests, see below |
-| 9 | picks do not consume a spot | counted, reported, never occupants |
+| before → apply → re-solve → after | `simulate_roster_change` (§ C2-SIM-01) | roster effects are set-dependent; the displaced player is frequently not the one traded |
+| the cheapest LEGAL cleanup of size *k* | `roster_intel.droppability.pool_cut_ladder` | the ladder is cheapest-first and its prefixes nest, so the first *k* rungs **are** the optimal legal cut-set of size *k* — no search |
 
-Fixtures 10–11 (Team Context OFF excluding #843 from the verdict; ranking
-changing when a side cannot absorb the extra player) are trade-lane behaviour
-and belong with whoever owns the verdict. This module has none — asserted
-structurally over the payload keys, the same guard `simulation.py` carries.
+`pool_cut_ladder` takes an arbitrary pool rather than a contract precisely
+because a post-trade roster does not exist in the contract. It is the answer to
+the shortcut the spec forbids by name — *"do not model it solely as
+`package delta - lowest raw player value`"* — and the discrimination is real:
+on a roster where `SPARE_WR` (300 over a 100 waiver, cost 200) and `SPARE_TE`
+(400 over a 500 waiver, cost **0**) are both legally droppable, raw value cuts
+the WR and real marginal loss cuts the **dearer** player.
 
-### Fixture 8 needed two tests, and the first one was not enough
+Two findings from the removed work that are worth carrying into #913 rather than
+rediscovering, since they cost measurement to find:
 
-The obvious test — the only TE on a roster that starts one is the cheapest
-player by raw value, and the ladder refuses to offer him — **is not sufficient**,
-and a mutation proved it: re-sorting the ladder by raw board value still passes,
-because that TE never reaches the ladder at all.
-
-The discrimination the spec actually demands is between two players who are
-*both* legally droppable, where raw value and real marginal loss disagree:
-
-| player | raw value | waiver at position | ECC |
-|---|---|---|---|
-| `SPARE_WR` | 300 | 100 | 200 |
-| `SPARE_TE` | 400 | 500 | **0** |
-
-Raw value says cut `SPARE_WR`. Real marginal loss says cut `SPARE_TE` — a tight
-end that good is sitting on the wire and the wide receiver is not. The right
-answer is the *dearer* player, which a raw-value rule cannot produce. With that
-fixture in place the mutation turns red.
-
-### Missing is never zero, and here it is the load-bearing rule
-
-> Missing capacity data must remain degraded/unknown; do not silently assume
-> zero open spots, zero overage, no forced drop.
-
-`active_limit` is `int | None` and `None` **propagates**: open spots, overage,
-cleanup requirement, final count and `fitsCleanly` all go `None`, `available` is
-`False` with a reason, and the counts that are knowable without a limit still
-are. A roster whose limit is unknown is not a roster with infinite room —
-mutation-proven (defaulting the unknown limit to a large number turns two tests
-red).
-
-**Taxi/IR relief is UNAVAILABLE, not zero** — twice over, and the second one
-was caught by the repo's own decision-coercion gate rather than by me. The
-first draft wrote `taxi_size=int(taxi_size or 0)`, which would have made an
-*unrecorded* taxi size read as a league with no taxi squad, in the one module
-whose entire taxi story is "unavailable, not zero". It is now `int | None`, and
-`0` is reserved for a league that genuinely has none.
-
-The relief itself: the registry knows a league's
-`taxiSize`, but Sleeper's per-player taxi assignment is ingested nowhere in this
-codebase and IR eligibility is a per-player status no canonical source carries.
-The spec permits those moves "only where actual league rules and player
-eligibility permit" — neither can be established, so the count is published
-beside `taxiReliefModelled: false` and its reason. Assuming relief understates
-required cuts; assuming none overstates them for a league that has it.
-
-**Infeasible cleanup is reported, not forced.** When every remaining player is
-needed to fill the lineup, the ladder cannot supply the cuts: `feasible: false`
-with a `shortfall`, rather than releasing a starter to make the arithmetic work.
-
-### Uncertainty is preserved rather than resolved
-
-> If multiple cleanup options are close, preserve uncertainty rather than
-> pretending one drop is certain.
-
-A rung just outside the plan that costs about the same as the last one inside it
-is reported in `closeAlternatives` with `ambiguous: true`.
-`CLEANUP_AMBIGUITY_TOLERANCE` (0.10) is a labelled **PRIOR** — the spec says
-"close" and not how close — and it is pinned that the tolerance decides only
-what is REPORTED, never what is CUT. A calibration knob that changed the answer
-would be a calibration knob on a canonical decision.
-
-### Two things it does not do
-
-* **No value for an open roster spot.** The spec: "do not invent an arbitrary
-  numeric value for an open roster spot". A clean fit carries
-  `totalEffectiveCutCost: null` — no cost, rather than a cost of zero.
-* **No bonus for becoming legal.** `overageTransition` is a state
-  (`resolved` / `improved` / `unchanged` / `worsened` / `none` / `unknown`),
-  never value. The benefit shows up where the spec says it should: in avoided
-  cuts and in the final roster.
-
-### The seam handed to the trade lane
-
-`plan_roster_capacity(...)` returns `capacity`, `cleanup`, and the before →
-**final legal** roster simulation — deliberately not before → post-package,
-because "the analyzer must not run season odds on an impossible over-limit
-roster when a required cleanup move materially changes the roster".
-
-What the evaluator adds on top: the verdict, the Use Team Context ON/OFF gate,
-and both-sides evaluation when ranking generated packages. None of that is here,
-and none of it needs to reach in.
+* **An unknown active-roster limit must propagate `None`**, not default to
+  "room". `#843` says so explicitly: *"do not silently assume zero open spots,
+  zero overage, no forced drop."*
+* **Taxi/IR relief is UNAVAILABLE, not zero.** The registry knows `taxiSize`,
+  but Sleeper's per-player taxi assignment is ingested nowhere in this codebase
+  and IR eligibility is a per-player status no canonical source carries — so
+  neither the league rule nor the player eligibility the spec conditions on can
+  be established. Assuming relief understates required cuts; assuming none
+  overstates them for a league that has it.
 
 ---
 
@@ -750,22 +687,19 @@ reachability), then the transitive closure through intra-package imports.
 | `engine` · `packages` · `targets` | 1–2 | ✅ | `api/gameplan.py`, `consensus_edge/` |
 | `partner` | 4 | ✅ | `api/gameplan.py`, `intel/*` |
 | `profiles` · `window` | 0 | ✅ | `engine`, `targets` |
-| `capacity` | 0 | ⚠️ **not yet** | its consumer is the trade lane (§14) |
 | `roster_source` | 0 | ❌ **no** | nothing, directly or transitively |
 
-**Fifteen of seventeen modules are reachable from production.** The "zero
+**Fifteen of sixteen modules are reachable from production.** The "zero
 frontend consumers" finding was accurate about the *frontend* and is now
 outdated about *production*: `GET /api/roster/intelligence` reaches six of them,
 and `partner` / `targets` were already reached from `intel/` and
 `consensus_edge/` independently of gameplan.
 
-Two exceptions, and they are different:
+One exception:
 
-**`capacity` is new and its seam is named.** It is exported, documented, and
-handed to the trade lane in §14. Unreachable-today is the expected state of a
-dependency published before its consumer; it is not orphaned. If `C3-CAP-01`
-were abandoned this would become dead code and should be removed — stating that
-now so nobody has to reconstruct the intent later.
+*(The table above was measured before `capacity.py` was removed per the
+`C3-CAP-01` lane ruling in §14; it was the other unreachable module, and
+removing it settles that row rather than leaving it pending.)*
 
 **`roster_source` is genuinely superseded.** `contract_roster_pools` answers its
 question for every consumer in the chain, and its motivating defect is

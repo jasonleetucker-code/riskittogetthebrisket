@@ -300,9 +300,11 @@ def pool_cut_ladder(
 
     :func:`team_droppability` answers "what would this team release today",
     and the contract is its roster.  A post-trade roster does not exist in the
-    contract, so the capacity owner (``roster_intel/capacity.py``) needs the
-    same ladder over a pool it constructed — hence this entry point rather
-    than a second ladder built somewhere else.
+    contract, so the trade lane's roster-capacity / forced-drop unit
+    (`C3-CAP-01`, ``src/trade/``) needs the same ladder over a pool it
+    constructed — hence this entry point rather than a second ladder built
+    there.  The spec forbids ``package delta - lowest raw player value`` by
+    name; this is what a consumer calls instead.
 
     Still no arithmetic here.  ``RosterPlayer`` carries canonical value in
     ``ros_value`` (that is what ``contract_roster_pools`` puts there), and

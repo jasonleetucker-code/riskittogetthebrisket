@@ -25,16 +25,28 @@ Playoff Odds, or ROS production" and must use canonical league values.
 Team Strength was therefore summing the wrong number entirely; it now
 sums ``rankDerivedValue`` on the canonical 1-9999 dynasty scale.
 
-**It dropped unpriced players before anyone could see them.**
-``ros/team_strength.py`` skips every row with ``rosValue <= 0`` when
-writing, so ``unpriced_ids`` was structurally empty — not because every
-player was priced, but because the unpriced ones never arrived.  V1's
-MISSING IS NEVER ZERO rule requires a consumer to tell an unpriced
-asset from a valued-zero one, and a source that deletes the evidence
-makes that impossible downstream however correct the consumer is.
-Measured on the live 12-team board: **49 of 660 rostered players
-(7.4%) carry no canonical value**, and every one of them is now
-reported in ``unpricedIds`` instead of vanishing.
+**It flattened unpriced players into real zeros before anyone could
+see them.**  ``ros/team_strength.py`` appends every row it cannot match
+with ``ros_value=0.0`` — its own comment calls that "a real
+missing-is-zero coercion … left in place DELIBERATELY" — so
+``unpriced_ids`` was structurally empty: not because every player was
+priced, but because the unpriced ones arrived indistinguishable from
+players genuinely worth nothing.  V1's MISSING IS NEVER ZERO rule
+requires a consumer to tell those two apart, and a source that erases
+the distinction makes that impossible downstream however correct the
+consumer is.
+
+*(Corrected 2026-08-19, integration review.  This said the writer
+DROPPED those rows.  It does not.  The consequence for a consumer is
+the same and the repair here is unchanged, but a coercion and a
+deletion are fixed differently at the source — and §11 of the lane doc
+hands the integration lane an instruction premised on the description,
+so it had to be right.)*
+
+Measured on the contract built from ``dynasty_export_20260818_191848.zip``
+via ``build_api_data_contract``: **83 of 660 rostered players (12.6%)
+carry no canonical value**, and every one is now reported in
+``unpricedIds`` instead of reading as zero.
 
 A third consequence, worth stating because it removes a real
 operational fragility: the endpoint no longer needs the ROS refresh to
