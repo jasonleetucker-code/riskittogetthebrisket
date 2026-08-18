@@ -394,3 +394,67 @@ def test_nfl_teams_are_keyed_the_way_the_pools_are():
     core = out["teams"]["o0"]["nflExposure"]["core"]
     assert [b["team"] for b in core["buckets"]] == ["MIN"]
     assert core["unknownTeamIds"] == []
+
+
+# ══ Hybrid slot eligibility survives the contract → pool join ══════
+
+
+def test_a_hybrid_idp_keeps_every_slot_he_is_legally_eligible_for():
+    """The defect ``src/roster_intel/roster_source.py`` was written to
+    prevent, checked on the source this chain actually uses.
+
+    ADR-007: Sleeper evaluates slot eligibility against
+    ``fantasy_positions``, not ``position``. A pass-rushing linebacker
+    ships as ``DL`` with ``["DL", "LB"]`` and is legal in either. LI-3
+    measured the cost of losing that: hybrid IDPs locked out of half
+    their legal slots, and 6 of 12 teams with a materially wrong
+    starting lineup.
+
+    ``roster_source`` exists because the ROS aggregate carries no
+    ``fantasy_positions`` at all — a property of the source this lane
+    moved OFF. The contract carries ``sleeper.fantasyPositions``, so the
+    join keeps eligibility; measured on the live board, 660 of 660
+    rostered players carry it and 43 are hybrids. This pins the
+    behaviour rather than the count, so it holds whatever the board
+    looks like on the day.
+    """
+    from src.api.data_contract import contract_roster_pools
+
+    c = _contract(n_teams=1, depth=1)
+    c["sleeper"]["teams"][0]["players"].append("o0_HYBRID")
+    c["sleeper"]["positions"]["o0_HYBRID"] = "DL"
+    c["sleeper"]["fantasyPositions"] = {"o0_HYBRID": ["DL", "LB"]}
+    c["playersArray"].append(
+        {
+            "playerId": "id_hybrid",
+            "canonicalName": "o0_HYBRID",
+            "displayName": "o0_HYBRID",
+            "position": "DL",
+            "rankDerivedValue": 500.0,
+        }
+    )
+    pools, _slots, _src = contract_roster_pools(c)
+    hybrid = next(p for p in pools["o0"] if p.player_id == "o0_HYBRID")
+    assert hybrid.position == "DL"
+    assert set(hybrid.fantasy_positions) == {"DL", "LB"}
+
+    # And the canonical solver actually seats him in the LB slot, which
+    # is the whole point — carrying the field and ignoring it would look
+    # identical in the payload.
+    from src.ros.lineup import solve_optimal_assignment
+
+    assigned = solve_optimal_assignment([hybrid], ["LB"])
+    assert list(assigned.values()) == [hybrid]
+
+
+def test_a_player_with_no_declared_eligibility_is_not_given_extra_slots():
+    """Absent eligibility means "only his own position", never "every
+    position" — the failure mode that would let a kicker start at LB."""
+    from src.api.data_contract import contract_roster_pools
+    from src.ros.lineup import solve_optimal_assignment
+
+    c = _contract(n_teams=1, depth=1)
+    pools, _slots, _src = contract_roster_pools(c)
+    qb = next(p for p in pools["o0"] if p.position == "QB")
+    assert qb.fantasy_positions == ()
+    assert solve_optimal_assignment([qb], ["LB"]) == {}

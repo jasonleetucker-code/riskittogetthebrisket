@@ -316,7 +316,8 @@ PRIOR.
    tracked export archive, which is production-equivalent but not production.
    Live verification belongs to Claude 5.
 5. **`roster_intel`'s only prior production consumer was `/api/gameplan`.** This
-   adds a second. The package's live exposure is still narrow.
+   adds a second. Measured reachability is now 15 of 17 modules (§15); the
+   remaining gap is the trade half, which waits on `C3-PKG-01`.
 6. **`/api/gameplan` still reads the ROS snapshot**, so its `roster_intel`
    outputs (marginals, profiles, window) run on the 0-100 production index
    rather than canonical value. That endpoint is not this lane's to change —
@@ -721,3 +722,76 @@ roster when a required cleanup move materially changes the roster".
 What the evaluator adds on top: the verdict, the Use Team Context ON/OFF gate,
 and both-sides evaluation when ranking generated packages. None of that is here,
 and none of it needs to reach in.
+
+---
+
+## 15. `C2-GP-01` — is `src/roster_intel/` reachable? (measured, 2026-08-18)
+
+`C2-GP-01`'s status is **DISCONNECTED** — *"substantial partner/package/need
+logic, zero frontend consumers"* — and its acceptance is **"reachable or
+removed"**. That is a question about this package, so it is answered here with a
+measurement rather than an impression. Its *disposition* is still `MIGRATE` with
+a dependency on `C3-PKG-01`, which this lane does not own; what follows is the
+half that can be settled now.
+
+**Method.** Direct importers of each `src/roster_intel/*` module from `src/`,
+`scripts/` and `server.py` (tests excluded — a test importer is not
+reachability), then the transitive closure through intra-package imports.
+
+| module | direct | reachable | reached via |
+|---|---|---|---|
+| `core` | 2 | ✅ | + `age_portfolio`, `exposure`, `simulation`, `strength`, `weakness` |
+| `strength` · `weakness` · `age_portfolio` · `exposure` · `droppability` | 1 each | ✅ | `api/roster_intelligence.py` |
+| `simulation` | 0 | ✅ | `exposure` |
+| `marginal` | 2 | ✅ | `api/gameplan.py`, `ros/lineup.py` |
+| `engine` · `packages` · `targets` | 1–2 | ✅ | `api/gameplan.py`, `consensus_edge/` |
+| `partner` | 4 | ✅ | `api/gameplan.py`, `intel/*` |
+| `profiles` · `window` | 0 | ✅ | `engine`, `targets` |
+| `capacity` | 0 | ⚠️ **not yet** | its consumer is the trade lane (§14) |
+| `roster_source` | 0 | ❌ **no** | nothing, directly or transitively |
+
+**Fifteen of seventeen modules are reachable from production.** The "zero
+frontend consumers" finding was accurate about the *frontend* and is now
+outdated about *production*: `GET /api/roster/intelligence` reaches six of them,
+and `partner` / `targets` were already reached from `intel/` and
+`consensus_edge/` independently of gameplan.
+
+Two exceptions, and they are different:
+
+**`capacity` is new and its seam is named.** It is exported, documented, and
+handed to the trade lane in §14. Unreachable-today is the expected state of a
+dependency published before its consumer; it is not orphaned. If `C3-CAP-01`
+were abandoned this would become dead code and should be removed — stating that
+now so nobody has to reconstruct the intent later.
+
+**`roster_source` is genuinely superseded.** `contract_roster_pools` answers its
+question for every consumer in the chain, and its motivating defect is
+structurally gone rather than merely avoided: it exists because the ROS
+aggregate carries no `fantasy_positions`, which is a property of the source §8
+moved off. The contract carries `sleeper.fantasyPositions` — 660 of 660 rostered
+players on the live board, 43 of them hybrids — and that behaviour is now pinned
+(`test_a_hybrid_idp_keeps_every_slot_he_is_legally_eligible_for`, plus its
+negative twin so absent eligibility cannot become *every* slot).
+
+It is **marked superseded in its own docstring and left in place**, because
+deleting it is a call for the integration lane, not for me. Exact plan if you
+take it:
+
+- **Delete**: `src/roster_intel/roster_source.py`,
+  `tests/roster_intel/test_roster_source.py`.
+- **Check first**: `tests/roster_intel/test_real_rosters.py` (marked `livedata`)
+  imports it to build full-depth real rosters; it needs re-pointing at
+  `contract_roster_pools` or deleting with it.
+- **Absorbed by**: `data_contract.contract_roster_pools` (join + values +
+  eligibility). `hybrid_coverage`/`JoinReport` have no direct equivalent —
+  the contract path proves the same property by test rather than by a returned
+  report, which is why the pin above was added before this was written down.
+- **Regression test**: the two hybrid tests above must stay green; they are the
+  absorption claim.
+- **Blast radius**: none in production — it has no production importers,
+  directly or transitively.
+
+**What is still genuinely disconnected is the trade half**, and it is not this
+lane's to move: `partner` / `targets` / `packages` are reached only from
+`api/gameplan.py` and `intel/`, and `C2-GP-01`'s migration of them waits on
+`C3-PKG-01`.
