@@ -144,8 +144,9 @@ def main() -> int:
             ]
             if missing_inputs:
                 mismatched.append(
-                    f"the {label} capture does not record {', '.join(missing_inputs)} "
-                    "(built by an older harness) — re-capture it"
+                    f"the {label} capture does not record its inputs "
+                    f"({', '.join(missing_inputs)}) — built by an older harness; "
+                    "re-capture it"
                 )
         sb, sa = b.get("inputSha256"), a.get("inputSha256")
         if sb and sa and sb != sa:
