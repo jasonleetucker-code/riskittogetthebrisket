@@ -1,7 +1,7 @@
 {
   "modelId": "hill_scope_masters",
   "schemaVersion": 1,
-  "updatedAt": "2026-08-11T07:40:45.846362+00:00",
+  "updatedAt": "2026-08-18T07:07:56.708898+00:00",
   "championVersion": 2,
   "versions": [
     {
@@ -75,7 +75,9 @@
         "holdout re-scored 2026-07-29 against that day's boards (849.8 -> 819.7). The prior figure was measured 2026-07-26 and was NOT comparable to challenger v2's 2026-07-28 score: promotion.py requires a PAIRED comparison because the criterion's absolute level drifts ~68 points week to week, so comparing across snapshot dates reads market drift as model quality."
       ],
       "promotedAt": "2026-07-26T20:14:13.267338+00:00",
-      "retiredAt": "2026-07-29T23:35:35.519297+00:00"
+      "retiredAt": "2026-07-29T23:35:35.519297+00:00",
+      "appliedAt": null,
+      "scopeValidation": {}
     },
     {
       "modelId": "hill_scope_masters",
@@ -147,7 +149,9 @@
         "promoted: held-out win: +38.5 paired on 2026-07-29 boards (819.7 -> 781.2), improving all four holdout sources with no sign flips; downstream contract diff over 1093 rows shows top-100 median 2.4% / max 4.4% and max top-150 rank displacement 46 slots"
       ],
       "promotedAt": "2026-07-29T23:35:35.519297+00:00",
-      "retiredAt": null
+      "retiredAt": null,
+      "appliedAt": null,
+      "scopeValidation": {}
     },
     {
       "modelId": "hill_scope_masters",
@@ -219,7 +223,9 @@
         "rejected: improvement +22.4 does not clear the 25-point margin; within criterion noise, so the incumbent keeps the tie"
       ],
       "promotedAt": null,
-      "retiredAt": null
+      "retiredAt": null,
+      "appliedAt": null,
+      "scopeValidation": {}
     },
     {
       "modelId": "hill_scope_masters",
@@ -290,7 +296,85 @@
       "confidence": "measured",
       "notes": [],
       "promotedAt": null,
-      "retiredAt": null
+      "retiredAt": null,
+      "appliedAt": null,
+      "scopeValidation": {}
+    },
+    {
+      "modelId": "hill_scope_masters",
+      "version": 5,
+      "params": {
+        "HILL_GLOBAL_PERCENTILE_C": 0.089,
+        "HILL_GLOBAL_PERCENTILE_S": 0.72,
+        "HILL_PERCENTILE_C": 0.077,
+        "HILL_PERCENTILE_S": 1.11,
+        "IDP_HILL_PERCENTILE_C": 0.038,
+        "IDP_HILL_PERCENTILE_S": 0.87,
+        "HILL_ROOKIE_PERCENTILE_C": 0.022,
+        "HILL_ROOKIE_PERCENTILE_S": 0.85
+      },
+      "fittedAt": "2026-08-18T07:07:56.705722+00:00",
+      "producer": "scripts/fit_hill_curve_percentile.py @ d6ab17d",
+      "status": "challenger",
+      "trainingInputs": {
+        "DraftSharks": "sha256:2a656d65e0514479",
+        "DynastyDaddy": "sha256:b754e2f55a8bc313",
+        "DynastyNerds": "sha256:66d296ec10f4db10",
+        "Fitzmaurice": "sha256:a834e5f371c49970",
+        "GLOBAL:IDPTradeCalc": "sha256:f39cdf1fde078ba8",
+        "IDP:DraftSharks-IDP": "sha256:f5fe62320c7e1837",
+        "KTC": "sha256:670ba2866976e901",
+        "YahooBoone": "sha256:27cdfd58e4f4e7db",
+        "boardSnapshot": "sha256:c6ec82d5092bc52f"
+      },
+      "holdout": {
+        "criterion": 683.0952,
+        "measuredAt": "2026-08-18T07:07:56.708808+00:00",
+        "criterionName": "mean_per_source_rmse",
+        "criterionUnits": "points on the 0-9999 value scale (lower is better)",
+        "perSource": {
+          "FantasyCalc": 612.9974,
+          "FantasyNavigator": 946.5242,
+          "OTCFFB": 861.3212,
+          "PFKDynasty": 311.5381
+        },
+        "perSourceRows": {
+          "FantasyCalc": 396,
+          "FantasyNavigator": 400,
+          "OTCFFB": 400,
+          "PFKDynasty": 400
+        },
+        "skipped": {},
+        "params": {
+          "c": 0.077,
+          "s": 1.11
+        },
+        "holdoutSources": [
+          "FantasyCalc",
+          "FantasyNavigator",
+          "OTCFFB",
+          "PFKDynasty"
+        ],
+        "trainingSources": [
+          "DraftSharks",
+          "DynastyDaddy",
+          "DynastyNerds",
+          "Fitzmaurice",
+          "KTC",
+          "YahooBoone"
+        ],
+        "_semantics": {
+          "measures": "generalization across dynasty markets \u2014 whether a curve fitted to the training boards also describes boards it never saw",
+          "doesNotMeasure": "accuracy against reality; every holdout board is another consensus market correlated with the training boards, and no ground truth for dynasty value exists"
+        }
+      },
+      "qualified": true,
+      "confidence": "measured",
+      "notes": [],
+      "promotedAt": null,
+      "retiredAt": null,
+      "appliedAt": null,
+      "scopeValidation": {}
     }
   ]
 }
