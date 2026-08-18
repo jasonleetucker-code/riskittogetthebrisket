@@ -101,7 +101,9 @@ from typing import Any, Iterable, Iterator, Mapping, Sequence
 from src.nfl_data.reception_depth import (
     PBP_URL_TEMPLATE,
     band_for_yards,
+    is_truthy,
     open_pbp,
+    reception_from_play,
     season_has_plausibly_started,
 )
 from src.nfl_data.realized_points import PBP_SUPPLEMENT_KEYS, PBP_SUPPLEMENT_ROW_KEY
@@ -114,6 +116,7 @@ __all__ = [
     "SeasonPbpIndex",
     "accumulate_weekly",
     "attach_supplement",
+    "default_pbp_stats",
     "gsis_of_row",
     "default_pbp_weekly_dir",
     "load_pbp_weekly",
@@ -122,9 +125,6 @@ __all__ = [
 ]
 
 PBP_WEEKLY_SCHEMA_VERSION = "2026-08-18.v1"
-
-#: Truthy spellings nflverse uses for its boolean-ish columns.
-_TRUE = frozenset({"1", "1.0", "True", "true", "TRUE"})
 
 #: Columns whose absence means the release schema moved under us. A
 #: renamed column must never read as "nothing happened this season" —
@@ -222,18 +222,23 @@ def _iter_plays(lines: Iterable[str]) -> Iterator[tuple[int, str, dict[str, list
             if gsis:
                 events.setdefault(key, []).append(gsis)
 
-        if _cell(row, i_complete) in _TRUE:
-            receiver = _cell(row, i_receiver)
-            raw = _cell(row, i_recyd) or _cell(row, i_gained)
-            if receiver and raw:
-                try:
-                    band = band_for_yards(float(raw))
-                except (TypeError, ValueError):
-                    band = None
-                if band is not None:
-                    _credit(band, receiver)
+        # ``reception_from_play`` and ``band_for_yards`` both live in
+        # ``reception_depth``: one owner for what a reception is, one for
+        # which band it falls in.  This module owns neither, on purpose —
+        # the two producers disagreed on ``complete_pass="TRUE"`` for as
+        # long as each had its own copy of the predicate.
+        caught = reception_from_play(
+            _cell(row, i_complete),
+            _cell(row, i_receiver),
+            _cell(row, i_recyd),
+            _cell(row, i_gained),
+        )
+        if caught is not None:
+            band = band_for_yards(caught[1])
+            if band is not None:
+                _credit(band, caught[0])
 
-        if _cell(row, i_st) in _TRUE:
+        if is_truthy(_cell(row, i_st)):
             for i in i_tacklers:
                 _credit("st_tkl_solo", _cell(row, i))
             for i in i_forced:
@@ -251,15 +256,14 @@ def _iter_plays(lines: Iterable[str]) -> Iterator[tuple[int, str, dict[str, list
                 if recovering and fumbling and recovering != fumbling:
                     _credit("st_fum_rec", player)
 
-        if _cell(row, i_int) in _TRUE and _cell(row, i_ret_td) in _TRUE:
+        if is_truthy(_cell(row, i_int)) and is_truthy(_cell(row, i_ret_td)):
             # A returned interception that the OFFENSE ends up scoring on
             # (defender fumbles the return back into the end zone) sets
             # return_touchdown and is not a pick-six.
             if _cell(row, i_td_team) != _cell(row, i_posteam):
                 _credit("pass_int_td", _cell(row, i_passer))
 
-        if events:
-            yield week, stype, events
+        yield week, stype, events
 
 
 def accumulate_weekly(
@@ -273,6 +277,10 @@ def accumulate_weekly(
     makes an absent player a real zero instead of an unknown, and
     deriving it from the players would lose any week in which nobody
     recorded one of these events.
+
+    A week here means "at least one play of this week was in the file",
+    which is NOT the same as "this week is finished" — see
+    ``persist_pbp_weekly``'s ``complete_through_week``.
     """
     wanted = {s.upper() for s in season_types} if season_types else None
     out: dict[str, dict[int, dict[str, float]]] = {}
@@ -280,6 +288,10 @@ def accumulate_weekly(
     for week, stype, events in _iter_plays(lines):
         if wanted is not None and stype not in wanted:
             continue
+        # From the PLAY, never from the event.  A week that was streamed
+        # and produced none of these ten is a covered week whose players
+        # score real zeroes; deriving coverage from events would make it
+        # indistinguishable from a week nobody ever fetched.
         weeks.add(week)
         for key, players in events.items():
             for gsis in players:
@@ -298,7 +310,7 @@ class PbpWeeklyStats:
     not.
     """
 
-    __slots__ = ("season", "_by_player", "_weeks", "provenance")
+    __slots__ = ("season", "_by_player", "_weeks", "_partial_weeks", "provenance")
 
     def __init__(
         self,
@@ -306,6 +318,7 @@ class PbpWeeklyStats:
         by_player: Mapping[str, Mapping[int, Mapping[str, float]]],
         weeks_covered: Iterable[int],
         *,
+        partial_weeks: Iterable[int] = (),
         provenance: Mapping[str, Any] | None = None,
     ) -> None:
         self.season = int(season)
@@ -313,17 +326,39 @@ class PbpWeeklyStats:
             str(k): {int(w): dict(v) for w, v in weeks.items()} for k, weeks in by_player.items()
         }
         self._weeks = {int(w) for w in weeks_covered}
+        # A week whose slate had not finished when the artifact was built.
+        # Its players who HAVE played look identical to its players who
+        # have not, so it answers UNKNOWN for everyone — the alternative
+        # is a fabricated zero for a game that has not kicked off, and it
+        # would additionally suppress the ``unscored`` signal that is the
+        # only thing that would have flagged it.
+        self._partial_weeks = {int(w) for w in partial_weeks}
         self.provenance = dict(provenance or {})
 
     @property
     def weeks_covered(self) -> frozenset[int]:
         return frozenset(self._weeks)
 
+    @property
+    def player_count(self) -> int:
+        """How many players recorded at least one of these events.
+
+        Reported by callers so an artifact that is present but empty
+        shows up in a run log rather than as an unexplained shift in a
+        verdict."""
+        return len(self._by_player)
+
+    @property
+    def partial_weeks(self) -> frozenset[int]:
+        return frozenset(self._partial_weeks)
+
     def covers(self, week: Any) -> bool:
+        """Was this week streamed AND finished?"""
         try:
-            return int(week) in self._weeks
+            value = int(week)
         except (TypeError, ValueError):
             return False
+        return value in self._weeks and value not in self._partial_weeks
 
     def stats_for(self, gsis: Any, week: Any) -> dict[str, float] | None:
         if not self.covers(week):
@@ -360,6 +395,7 @@ class PbpWeeklyStats:
             int(payload.get("season") or 0),
             by_player,
             covered,
+            partial_weeks=payload.get("partialWeeks") or [],
             provenance={
                 "schemaVersion": payload.get("schemaVersion"),
                 "capturedAt": payload.get("capturedAt"),
@@ -392,6 +428,7 @@ def persist_pbp_weekly(
     out_dir: Path | None = None,
     season_types: Sequence[str] | None = ("REG",),
     url_template: str = PBP_URL_TEMPLATE,
+    complete_through_week: int | None = None,
     _line_source=None,
 ) -> dict[str, Any]:
     """Stream play-by-play and persist per-player-week derived stats.
@@ -399,6 +436,23 @@ def persist_pbp_weekly(
     One file per season, one JSONL line per season. Re-running replaces
     the season's line. ``_line_source`` is a test seam supplying CSV
     lines directly; production passes nothing.
+
+    ``complete_through_week`` names the last week whose slate had
+    FINISHED. Anything after it is recorded in ``partialWeeks`` and reads
+    back as UNKNOWN rather than as a set of real zeroes.
+
+    The distinction is not pedantic. nflverse republishes the current
+    season's play-by-play during the week, so a Thursday-night build
+    contains week N and almost none of it: every player whose game is on
+    Sunday resolves to ``{}`` — "consulted, recorded nothing" — which
+    scores a fabricated zero AND suppresses the ``unscored`` flag that
+    would otherwise have said the week was not knowable. That result then
+    feeds the in-season posterior blend.
+
+    Omitting it asserts that every streamed week is final, which is true
+    of a completed season and is what the seasons this is normally built
+    for are. :func:`src.nfl_data.reception_depth.season_has_plausibly_started`
+    cannot answer the finer question, so the operator does.
     """
     result: dict[str, Any] = {
         "schemaVersion": PBP_WEEKLY_SCHEMA_VERSION,
@@ -453,6 +507,11 @@ def persist_pbp_weekly(
         events = sum(
             sum(stats.values()) for weeks_map in by_player.values() for stats in weeks_map.values()
         )
+        partial = (
+            sorted(w for w in weeks if w > int(complete_through_week))
+            if complete_through_week is not None
+            else []
+        )
         entry = {
             "schemaVersion": PBP_WEEKLY_SCHEMA_VERSION,
             "season": season,
@@ -461,6 +520,7 @@ def persist_pbp_weekly(
             "source": url_template.format(year=season),
             "statKeys": sorted(PBP_SUPPLEMENT_KEYS),
             "weeksCovered": sorted(weeks),
+            "partialWeeks": partial,
             "playerCount": len(by_player),
             "eventCount": events,
             "players": {
@@ -545,6 +605,16 @@ def attach_supplement(row: Mapping[str, Any], stats: "PbpWeeklyStats | None") ->
     out = dict(row)
     if stats is None:
         return out
+    # A 2019 row must never take 2025's numbers.  Every current caller
+    # resolves per season and so cannot produce the mismatch, but the
+    # owner refusing it is what keeps that true of the next caller.
+    row_season = row.get("season")
+    if row_season is not None:
+        try:
+            if int(row_season) != stats.season:
+                return out
+        except (TypeError, ValueError):
+            return out
     gsis = gsis_of_row(row)
     if not gsis:
         return out
@@ -555,18 +625,55 @@ def attach_supplement(row: Mapping[str, Any], stats: "PbpWeeklyStats | None") ->
     return out
 
 
+#: Process-wide parsed artifacts, keyed by season, each stored with the
+#: file fingerprint it was parsed from.
+_STATS_CACHE: dict[tuple[int, str], tuple[tuple[int, int] | None, PbpWeeklyStats | None]] = {}
+
+
+def _fingerprint(path: Path) -> tuple[int, int] | None:
+    try:
+        st = path.stat()
+    except OSError:
+        return None
+    return (st.st_mtime_ns, st.st_size)
+
+
+def default_pbp_stats(season: int, *, out_dir: Path | None = None) -> PbpWeeklyStats | None:
+    """Load one season's artifact, cached for the process and invalidated
+    on the file's ``(mtime_ns, size)``.
+
+    A season's artifact is several MB of JSON and long-lived consumers
+    (the API, the gameplan overlay) ask for it per request, so re-reading
+    it every time is not viable — and never re-reading it means a rebuild
+    on the box does not take effect until a restart. The fingerprint is
+    the same mechanism ``bdvm_api`` uses for its events file.
+    """
+    path = pbp_weekly_path(season, out_dir=out_dir)
+    key = (int(season), str(path))
+    stamp = _fingerprint(path)
+    cached = _STATS_CACHE.get(key)
+    if cached is not None and cached[0] == stamp:
+        return cached[1]
+    stats = PbpWeeklyStats.from_payload(load_pbp_weekly(season, out_dir=out_dir))
+    _STATS_CACHE[key] = (stamp, stats)
+    return stats
+
+
 class SeasonPbpIndex:
-    """Lazily load one :class:`PbpWeeklyStats` per season, and cache it.
+    """Lazily resolve one :class:`PbpWeeklyStats` per season, and cache it.
 
     A season that has no artifact caches as ``None`` and is reported by
     :attr:`seasons_missing`, so "we never built it" stays visible instead
     of degrading into a quiet re-read on every row.
+
+    The default loader is :func:`default_pbp_stats`, so building a fresh
+    index per request costs a ``stat`` rather than a parse.
     """
 
     __slots__ = ("_loader", "_cache", "_out_dir")
 
     def __init__(self, *, out_dir: Path | None = None, loader=None) -> None:
-        self._loader = loader or load_pbp_weekly
+        self._loader = loader
         self._out_dir = out_dir
         self._cache: dict[int, PbpWeeklyStats | None] = {}
 
@@ -576,8 +683,12 @@ class SeasonPbpIndex:
         except (TypeError, ValueError):
             return None
         if key not in self._cache:
-            payload = self._loader(key, out_dir=self._out_dir)
-            self._cache[key] = PbpWeeklyStats.from_payload(payload)
+            if self._loader is None:
+                self._cache[key] = default_pbp_stats(key, out_dir=self._out_dir)
+            else:
+                self._cache[key] = PbpWeeklyStats.from_payload(
+                    self._loader(key, out_dir=self._out_dir)
+                )
         return self._cache[key]
 
     def attach(self, row: Mapping[str, Any]) -> dict[str, Any]:

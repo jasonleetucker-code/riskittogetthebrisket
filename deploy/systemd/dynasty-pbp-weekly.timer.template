@@ -1,0 +1,26 @@
+[Unit]
+Description=Weekly play-by-play stat build for __SERVICE_NAME__
+# Deliberately NO Requires= on the service: [Timer] Unit= already binds
+# it, and a [Unit] Requires= would start the service on every boot
+# regardless of OnCalendar and let a service failure deactivate the
+# timer itself.  Persistent=true is the intended catch-up.
+
+[Timer]
+# Weekly, Wednesday 08:20 UTC.
+#
+# Cadence: this builds COMPLETED seasons only, which do not change, so
+# almost every run exits 2 having done nothing.  It is a schema-drift and
+# newly-completed-season catcher, not a data refresh.  Weekly is enough
+# and the run is nearly free once the files exist.
+#
+# Slot: an hour after dynasty-reception-depth (Wed 07:20), which streams
+# the same nflverse release.  Staggering keeps two ~98 MB streams off the
+# CDN at once and off each other's IO.
+OnCalendar=Wed *-*-* 08:20:00 UTC
+RandomizedDelaySec=900
+Persistent=true
+AccuracySec=2min
+Unit=__SERVICE_NAME__-pbp-weekly.service
+
+[Install]
+WantedBy=timers.target

@@ -1173,6 +1173,7 @@ def _resolve_reception_fit(league_key: str) -> dict[str, float] | None:
             reception_scoring_keys,
         )
         from src.nfl_data.ingest import fetch_weekly_stats  # noqa: PLC0415
+        from src.nfl_data.pbp_weekly import SeasonPbpIndex  # noqa: PLC0415
         from src.nfl_data.reception_depth import load_reception_depth  # noqa: PLC0415
         from src.utils.name_clean import resolve_canonical_name  # noqa: PLC0415
 
@@ -1193,13 +1194,26 @@ def _resolve_reception_fit(league_key: str) -> dict[str, float] | None:
                 # right denominator for "how much of this player's
                 # market value is reception-driven".
                 stripped = {k: v for k, v in baseline.items() if k not in reception_scoring_keys()}
+                # The bands ARE the numerator here — ``reception_scoring_keys``
+                # is ``BAND_KEYS | {"rec"}`` — so the supplement is not an
+                # accuracy nicety, it is the measurement.  Without it the
+                # bands score nothing on BOTH sides and the share collapses
+                # to the flat rate's contribution alone: measured on this
+                # card over 17 weeks at 6 catches / 80 yards a week, 5.66%
+                # against a true 30.43%.  A partial correction to a RATIO is
+                # a directional bias, not a smaller error.
+                pbp_for_season = SeasonPbpIndex().for_season
                 full = {
                     s.player_id: s
-                    for s in compute_player_season_scores(rows, baseline, season=season)
+                    for s in compute_player_season_scores(
+                        rows, baseline, season=season, pbp_for_season=pbp_for_season
+                    )
                 }
                 norec = {
                     s.player_id: s
-                    for s in compute_player_season_scores(rows, stripped, season=season)
+                    for s in compute_player_season_scores(
+                        rows, stripped, season=season, pbp_for_season=pbp_for_season
+                    )
                 }
                 shares = {
                     pid: (s.total_points - (norec[pid].total_points if pid in norec else 0.0))

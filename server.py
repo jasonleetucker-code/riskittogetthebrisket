@@ -12502,6 +12502,7 @@ async def get_player_realized(sleeper_id: str, request: Request):
     # returns [] when nfl_data_ingest is off).  We scope to the
     # current season for freshness + prior season for comparison.
     from src.nfl_data import ingest as _ing
+    from src.nfl_data import pbp_weekly as _pbp_weekly
     from src.nfl_data import realized_points as _rp
 
     now_year = datetime.now(timezone.utc).year
@@ -12577,8 +12578,13 @@ async def get_player_realized(sleeper_id: str, request: Request):
         if target_gsis
         and str(r.get("player_id") or r.get("player_id_gsis") or "").strip() == target_gsis
     ]
+    # The six reception bands and the player special-teams rules have no
+    # column on the weekly feed; without this the response is a total that
+    # silently omits them.  With it, a season the artifact does not cover
+    # is reported in ``unscored`` rather than scored as zero.
+    _pbp_index = _pbp_weekly.SeasonPbpIndex()
     cumulative = _rp.compute_cumulative_points(
-        player_rows,
+        [_pbp_index.attach(r) for r in player_rows],
         scoring_settings,
         position=resolved.position,
     )

@@ -99,8 +99,11 @@ __all__ = [
     "band_for_yards",
     "default_depth_dir",
     "depth_path",
+    "TRUTHY_CELLS",
+    "is_truthy",
     "load_reception_depth",
     "open_pbp",
+    "reception_from_play",
     "persist_reception_depth",
     "summarise_histogram",
 ]
@@ -160,6 +163,51 @@ def season_has_plausibly_started(season: int, *, now: datetime | None = None) ->
     if season > now.year:
         return False
     return now.month >= _SEASON_START_MONTH
+
+
+#: Spellings nflverse uses for a true boolean-ish cell. One definition,
+#: because two nearly-identical ones is how the two producers of the
+#: reception fact came to disagree on ``"TRUE"`` and on a leading space.
+TRUTHY_CELLS: frozenset[str] = frozenset({"1", "1.0", "True", "true", "TRUE"})
+
+
+def is_truthy(cell: Any) -> bool:
+    return str(cell or "").strip() in TRUTHY_CELLS
+
+
+def reception_from_play(
+    complete_pass: Any,
+    receiver_player_id: Any,
+    receiving_yards: Any,
+    yards_gained: Any,
+) -> tuple[str, float] | None:
+    """``(receiver gsis, yards)`` for a completed pass, else ``None``.
+
+    THE definition of "a reception of N yards", extracted so the season
+    histogram in this module and the per-week producer in
+    :mod:`src.nfl_data.pbp_weekly` cannot drift apart. They did: before
+    this existed, one accepted ``complete_pass="TRUE"`` and a
+    leading-space ``" 1"`` and the other did not, so the same play was a
+    catch to one and nothing to the other.
+
+    ``receiving_yards`` wins over ``yards_gained`` where present. They
+    agree on ordinary plays and diverge on laterals, where
+    ``yards_gained`` includes yardage the receiver was not credited with.
+    """
+    if not is_truthy(complete_pass):
+        return None
+    receiver = str(receiver_player_id or "").strip()
+    if not receiver or receiver == "NA":
+        return None
+    raw = str(receiving_yards or "").strip()
+    if raw in ("", "NA"):
+        raw = str(yards_gained or "").strip()
+    if raw in ("", "NA"):
+        return None
+    try:
+        return receiver, float(raw)
+    except (TypeError, ValueError):
+        return None
 
 
 def band_for_yards(yards: float) -> str | None:
@@ -244,23 +292,20 @@ def _iter_receptions(
     if i_recyd < 0 and i_gained < 0:
         raise ValueError("play-by-play carries neither receiving_yards nor yards_gained")
 
+    def _cell(row, i):
+        return row[i] if 0 <= i < len(row) else ""
+
     for row in reader:
-        if len(row) <= i_complete:
+        # One owner for what a reception IS — see ``reception_from_play``.
+        caught = reception_from_play(
+            _cell(row, i_complete),
+            _cell(row, i_rid),
+            _cell(row, i_recyd),
+            _cell(row, i_gained),
+        )
+        if caught is None:
             continue
-        if row[i_complete] not in ("1", "1.0", "True", "true"):
-            continue
-        gsis = row[i_rid] if i_rid < len(row) else ""
-        if not gsis:
-            continue
-        raw = ""
-        if i_recyd >= 0 and i_recyd < len(row):
-            raw = row[i_recyd]
-        if raw in ("", "NA") and i_gained >= 0 and i_gained < len(row):
-            raw = row[i_gained]
-        try:
-            yards = float(raw)
-        except (TypeError, ValueError):
-            continue
+        gsis, yards = caught
         try:
             week = int(float(row[i_week]))
         except (TypeError, ValueError):
@@ -465,7 +510,28 @@ def load_reception_depth(season: int, *, depth_dir: Path | None = None) -> dict[
     if not text:
         return None
     try:
-        return json.loads(text.splitlines()[0])
+        payload = json.loads(text.splitlines()[0])
     except json.JSONDecodeError:
         _LOGGER.warning("reception_depth: unparseable file at %s", path)
         return None
+    stamped = str((payload or {}).get("schemaVersion") or "")
+    if stamped != RECEPTION_DEPTH_SCHEMA_VERSION:
+        # REFUSE, do not adapt.  v2 changed what a band MEANS — a
+        # lost-yardage catch left ``rec_0_4`` — so a v1 file is not a
+        # v1-shaped v2, it is a different measurement wearing the same
+        # field names.  The refresh script skips completed seasons on file
+        # existence, so without this check every season written before
+        # 2026-08-18 would be consumed as though it had been rebuilt.
+        #
+        # Every consumer already handles ``None`` by serving no overlay
+        # (the silent-vanish posture the /rankings gap column and the
+        # BDVM panels use), so refusing degrades rather than breaks.
+        _LOGGER.warning(
+            "reception_depth: %s is schema %r, expected %r — refusing it. "
+            "Rebuild with scripts/refresh_reception_depth.py --force.",
+            path,
+            stamped or "(unstamped)",
+            RECEPTION_DEPTH_SCHEMA_VERSION,
+        )
+        return None
+    return payload

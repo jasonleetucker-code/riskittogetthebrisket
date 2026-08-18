@@ -98,6 +98,7 @@ def realized_ppg_history(
     totals: dict[tuple[str, int], float] = {}
     games: dict[tuple[str, int], int] = {}
     latest_pos: dict[str, tuple[int, str]] = {}
+    unscored: dict[tuple[str, int], dict[str, float]] = {}
 
     for raw in weekly_rows:
         if regular_season_only and str(raw.get("season_type") or "REG").upper() != "REG":
@@ -119,13 +120,24 @@ def realized_ppg_history(
         else:
             card = scoring_settings
         row = normalize_weekly_row(raw)
-        if pbp_for_season is not None:
+        if pbp_for_season is not None and str(raw.get("source") or "nflverse") == "nflverse":
+            # Host-native rows already carry these ten keys, and
+            # ``compute_weekly_points`` refuses the combination outright.
+            # The gate exists in all three consumers rather than only in
+            # the one that happens to see host rows today.
             row = attach_supplement(row, pbp_for_season(season))
         rp = compute_weekly_points(row, dict(card), position=pos)
         if rp is None:
             continue
         totals[(key, season)] = totals.get((key, season), 0.0) + rp.fantasy_points
         games[(key, season)] = games.get((key, season), 0) + 1
+        # Union across weeks — one week that could not supply a rule makes
+        # the season's PPG a lower bound, and that has to survive the
+        # roll-up or the caller sees a complete-looking rate.
+        if rp.unscored:
+            bucket = unscored.setdefault((key, season), {})
+            for unscored_key, rate in rp.unscored:
+                bucket[unscored_key] = rate
         prev = latest_pos.get(key)
         if prev is None or season >= prev[0]:
             latest_pos[key] = (season, pos)
@@ -136,7 +148,12 @@ def realized_ppg_history(
         if g <= 0:
             continue
         by_player.setdefault(key, []).append(
-            RealizedSeason(season=season, ppg=pts / g, games=float(g))
+            RealizedSeason(
+                season=season,
+                ppg=pts / g,
+                games=float(g),
+                unscored=tuple(sorted(unscored.get((key, season), {}).items())),
+            )
         )
     return {
         key: (latest_pos[key][1], sorted(seasons, key=lambda s: s.season))

@@ -65,7 +65,6 @@ if str(_REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(_REPO_ROOT))
 
 from src.model_registry.board_holdout import compare_boards  # noqa: E402
-from src.nfl_data.reception_depth import BAND_KEYS  # noqa: E402
 from src.utils.name_clean import resolve_canonical_name  # noqa: E402
 
 #: Board rows below this rank are excluded from the focused cut. The
@@ -80,26 +79,6 @@ FOCUS_TOP_N = 300
 def _latest_export(exports_dir: Path) -> Path | None:
     candidates = sorted(exports_dir.glob("dynasty_data_*.json"))
     return candidates[-1] if candidates else None
-
-
-def _banded_reception_points(
-    depth: dict[str, Any] | None, scoring: dict[str, Any]
-) -> dict[str, float]:
-    """Season points from catch distance, per GSIS id.
-
-    The flat ``rec`` rate is already in the weekly total, so only the
-    per-band add-on belongs here — double-adding ``rec`` would inflate
-    every receiver by his reception count times 0.08.
-    """
-    if not depth:
-        return {}
-    out: dict[str, float] = {}
-    for gsis, rec in (depth.get("players") or {}).items():
-        bands = (rec or {}).get("bands") or {}
-        out[str(gsis)] = sum(
-            float(bands.get(band, 0) or 0) * float(scoring.get(band) or 0.0) for band in BAND_KEYS
-        )
-    return out
 
 
 def _load_league_scoring() -> tuple[str, dict[str, Any], int | None]:
@@ -123,21 +102,31 @@ def _realized_points(
 ) -> tuple[dict[str, dict[str, Any]], int, int]:
     """Season totals per GSIS id under this league's exact rules.
 
-    Returns ``(by_gsis, weekly_row_count, banded_player_count)`` — the
-    two counts so a silently empty band file shows up in the run log
-    rather than as an unexplained shift in the verdict.
+    Returns ``(by_gsis, weekly_row_count, pbp_player_count)`` — the two
+    counts so a silently missing play-by-play artifact shows up in the run
+    log rather than as an unexplained shift in the verdict. A zero there
+    means the ten play-by-play rules scored nothing and the verdict is
+    about a different quantity than the one it claims.
     """
     from src.league_comparison.scoring_engine import compute_player_season_scores
     from src.nfl_data.ingest import fetch_weekly_stats
-    from src.nfl_data.reception_depth import load_reception_depth
+    from src.nfl_data.pbp_weekly import SeasonPbpIndex
 
     rows = [
         r
         for r in (fetch_weekly_stats([season]) or [])
         if str(r.get("season_type") or "REG").upper() == "REG"
     ]
-    scores = compute_player_season_scores(rows, scoring, season=season)
-    banded = _banded_reception_points(load_reception_depth(season), scoring)
+    # The bands used to be bolted on here from the SEASON depth histogram,
+    # which made this script a second owner of "what a band is worth" —
+    # and it carried none of the special-teams rules or the pick-six
+    # penalty at all.  The canonical supplement carries all ten, per week,
+    # and excludes the flat ``rec`` rate structurally rather than by the
+    # caller remembering to.
+    stats = SeasonPbpIndex().for_season(season)
+    scores = compute_player_season_scores(
+        rows, scoring, season=season, pbp_for_season=lambda _s: stats
+    )
 
     out: dict[str, dict[str, Any]] = {}
     for s in scores:
@@ -145,9 +134,9 @@ def _realized_points(
             "name": s.player_name,
             "position": s.position,
             "games": s.games_played,
-            "points": float(s.total_points) + banded.get(str(s.player_id), 0.0),
+            "points": float(s.total_points),
         }
-    return out, len(rows), len(banded)
+    return out, len(rows), (stats.player_count if stats is not None else 0)
 
 
 def _build_population(
@@ -345,10 +334,10 @@ def main(argv: list[str] | None = None) -> int:
         )
         return 2
 
-    realized, weekly_rows, banded_players = _realized_points(season, scoring)
+    realized, weekly_rows, pbp_players = _realized_points(season, scoring)
     print(
         f"[backtest] actuals: season={season} weeklyRows={weekly_rows} "
-        f"scoredPlayers={len(realized)} bandedPlayers={banded_players}"
+        f"scoredPlayers={len(realized)} pbpPlayers={pbp_players}"
     )
 
     population, join_stats = _build_population(board_rows, factors, realized)

@@ -74,7 +74,8 @@ def test_a_consulted_supplement_with_no_events_is_a_real_zero():
     rp = compute_weekly_points(row, card, position="WR")
 
     assert rp.unscored == ()
-    assert "fantasyPointsComplete" not in rp.to_dict()
+    assert rp.to_dict()["fantasyPointsComplete"] is True
+    assert rp.to_dict()["unscored"] == []
     assert rp.fantasy_points == pytest.approx(0.4)
 
 

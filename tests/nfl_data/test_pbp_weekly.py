@@ -54,30 +54,62 @@ from src.nfl_data.realized_points import PBP_SUPPLEMENT_KEYS, PBP_SUPPLEMENT_ROW
 
 FIXTURES = Path(__file__).resolve().parent / "fixtures"
 EVIDENCE = Path(__file__).resolve().parents[2] / "docs" / "master-site-audit" / "evidence" / "W18"
+HOST_WK14_FULL = EVIDENCE / "sleeper_stats_2025_wk14.json"
+
+#: Four weeks, chosen so the reconciliation DISCRIMINATES rather than
+#: merely agreeing. Week 14 alone is vacuous for three of the four
+#: non-band rules: it has no tackle-with-assist id on any special-teams
+#: play, all five of its special-teams fumble recoveries are own-team, and
+#: its only returned interception is a genuine pick-six — so deleting
+#: ``st_fum_rec`` outright, or dropping either constraint, leaves a
+#: week-14-only test GREEN. Weeks 1, 5 and 11 each supply what week 14
+#: cannot; week 5 in particular carries the Cam Ward return that the
+#: OFFENCE scored on.
+WEEKS = (1, 5, 11, 14)
 SLICE = FIXTURES / "pbp_2025_wk14_slice.csv"
-HOST_WK14 = EVIDENCE / "sleeper_stats_2025_wk14.json"
 
 BAND_KEYS = ("rec_0_4", "rec_5_9", "rec_10_19", "rec_20_29", "rec_30_39", "rec_40p")
+
+
+def _slice_path(week):
+    return FIXTURES / f"pbp_2025_wk{week}_slice.csv"
+
+
+def _host_path(week):
+    return FIXTURES / f"host_pbp_keys_2025_wk{week}.json"
+
+
+@pytest.fixture(scope="module")
+def derived_by_week():
+    out = {}
+    for week in WEEKS:
+        with _slice_path(week).open("r", encoding="utf-8", newline="") as fh:
+            out[week] = accumulate_weekly(fh)
+    return out
+
+
+@pytest.fixture(scope="module")
+def host_by_week():
+    """The host's own line for each week, PLAYER entries only.
+
+    Sleeper keys players by numeric id and team defenses by alpha team
+    code, and several of these keys (``st_tkl_solo``, ``kr_yd``) appear on
+    BOTH — one name, two meanings. The committed fixtures are already
+    filtered that way; ``test_the_pruned_host_fixture_matches_the_full_dump``
+    proves the pruning against the untouched evidence dump.
+    """
+    return {w: json.loads(_host_path(w).read_text(encoding="utf-8")) for w in WEEKS}
 
 
 @pytest.fixture(scope="module")
 def derived():
     with SLICE.open("r", encoding="utf-8", newline="") as fh:
-        by_player, weeks = accumulate_weekly(fh)
-    return by_player, weeks
+        return accumulate_weekly(fh)
 
 
 @pytest.fixture(scope="module")
-def host_players():
-    """The host's week-14 line, PLAYER entries only.
-
-    Sleeper keys players by numeric id and team defenses by alpha team
-    code, and several of these keys (``st_tkl_solo``, ``kr_yd``) appear on
-    BOTH — one name, two meanings. Filtering here is the same rule
-    ``realized_points.is_host_player_entry`` enforces in production.
-    """
-    raw = json.loads(HOST_WK14.read_text(encoding="utf-8"))
-    return {k: v for k, v in raw.items() if k.replace("-", "").isdigit()}
+def host_players(host_by_week):
+    return host_by_week[14]
 
 
 def _host_total(host_players, key):
@@ -94,6 +126,35 @@ def _derived_total(by_player, key, week=14):
 
 def _derived_player_count(by_player, key, week=14):
     return sum(1 for w in by_player.values() if float(w.get(week, {}).get(key, 0) or 0))
+
+
+def test_the_pruned_host_fixture_matches_the_full_dump():
+    """The committed host fixtures are pruned; this is what makes them
+    trustworthy rather than merely convenient."""
+    raw = json.loads(HOST_WK14_FULL.read_text(encoding="utf-8"))
+    players = {k: v for k, v in raw.items() if k.replace("-", "").isdigit()}
+    pruned = json.loads(_host_path(14).read_text(encoding="utf-8"))
+    for key in list(BAND_KEYS) + ["st_tkl_solo", "st_ff", "st_fum_rec", "pass_int_td", "rec"]:
+        assert sum(float(v.get(key, 0) or 0) for v in players.values()) == sum(
+            float(v.get(key, 0) or 0) for v in pruned.values()
+        ), key
+
+
+@pytest.mark.parametrize("week", WEEKS)
+@pytest.mark.parametrize("key", sorted(PBP_SUPPLEMENT_KEYS))
+def test_every_derived_key_matches_the_host_across_four_weeks(
+    derived_by_week, host_by_week, week, key
+):
+    """The reconciliation that discriminates.
+
+    Mutation-checked: dropping the ``tackle_with_assist`` columns, deleting
+    ``st_fum_rec``, or removing either the opponent-recovery or the
+    scoring-team constraint each turns at least one of these 40 cells RED.
+    """
+    by_player, _weeks = derived_by_week[week]
+    derived_total = sum(float(w.get(week, {}).get(key, 0) or 0) for w in by_player.values())
+    host_total = sum(float(v.get(key, 0) or 0) for v in host_by_week[week].values())
+    assert derived_total == host_total, (week, key)
 
 
 # ── Host truth ───────────────────────────────────────────────────────
@@ -367,3 +428,107 @@ def test_a_season_that_was_never_built_is_missing_not_empty(tmp_path):
     assert PBP_SUPPLEMENT_ROW_KEY not in index.attach(
         {"player_id": "00-a", "season": 2019, "week": 1}
     )
+
+
+# ── One owner for the reception fact ─────────────────────────────────
+
+
+def test_the_two_band_producers_agree_on_the_same_play_by_play():
+    """``reception_depth`` (season histogram) and this module (per week)
+    both count catches by band, and until 2026-08-18 each carried its own
+    copy of the predicate. They diverged: one accepted
+    ``complete_pass="TRUE"`` and a leading-space ``" 1"`` and the other did
+    not, so the same play was a catch to one and nothing to the other.
+
+    Both now call ``reception_depth.reception_from_play``. This holds them
+    in lockstep, the same posture ``tests/lineup/test_single_owner.py``
+    takes toward a second lineup fill."""
+    from src.nfl_data.reception_depth import BAND_KEYS as DEPTH_BANDS
+    from src.nfl_data.reception_depth import _accumulate, _iter_receptions
+
+    with SLICE.open("r", encoding="utf-8", newline="") as fh:
+        season = _accumulate(_iter_receptions(fh))
+    with SLICE.open("r", encoding="utf-8", newline="") as fh:
+        weekly, _weeks = accumulate_weekly(fh)
+
+    for band in DEPTH_BANDS:
+        assert sum(r["bands"][band] for r in season.values()) == sum(
+            w.get(14, {}).get(band, 0) for w in weekly.values()
+        ), band
+
+    for gsis, rec in season.items():
+        per_player = {b: rec["bands"][b] for b in DEPTH_BANDS if rec["bands"][b]}
+        assert per_player == {
+            k: v for k, v in weekly.get(gsis, {}).get(14, {}).items() if k in DEPTH_BANDS
+        }, gsis
+
+
+@pytest.mark.parametrize("spelling", ["1", "1.0", "true", "True", "TRUE", " 1"])
+def test_both_producers_read_the_same_truthy_spellings(spelling):
+    from src.nfl_data.reception_depth import _accumulate, _iter_receptions
+
+    header = "week,season_type,complete_pass,receiver_player_id,receiving_yards,yards_gained"
+    lines = [header, f"1,REG,{spelling},00-a,12,12"]
+    season = _accumulate(_iter_receptions(lines))
+    weekly, _weeks = _accumulate_min(complete_pass=spelling)
+    assert season["00-a"]["bands"]["rec_10_19"] == 1
+    assert weekly["00-a"][1]["rec_10_19"] == 1.0
+
+
+def _accumulate_min(**kw):
+    return _accumulate(
+        _play(
+            complete_pass=kw.get("complete_pass", 1), receiver_player_id="00-a", receiving_yards=12
+        )
+    )
+
+
+# ── Partial weeks ────────────────────────────────────────────────────
+
+
+def test_a_week_whose_slate_is_unfinished_answers_unknown_not_zero():
+    """The mid-week hazard, and it is worse than a plain wrong zero.
+
+    nflverse republishes the current season's play-by-play during the
+    week, so a Thursday-night build contains week N and almost none of
+    it. Every player whose game is on Sunday would resolve to ``{}`` —
+    "consulted, recorded nothing" — which both scores a fabricated zero
+    AND suppresses the ``unscored`` flag that is the only thing that
+    would have said the week was not knowable."""
+    stats = PbpWeeklyStats(
+        2025,
+        {"00-thu": {7: {"rec_10_19": 1.0}}},
+        [6, 7],
+        partial_weeks=[7],
+    )
+    assert stats.stats_for("00-sun", 6) == {}, "a finished week is a real zero"
+    assert stats.stats_for("00-sun", 7) is None, "an unfinished week is unknown"
+    assert stats.stats_for("00-thu", 7) is None, "including for players who HAVE played"
+    assert stats.partial_weeks == frozenset({7})
+
+
+def test_complete_through_week_is_what_marks_a_week_partial(tmp_path):
+    def lines(_season):
+        with SLICE.open("r", encoding="utf-8", newline="") as fh:
+            return list(fh)
+
+    persist_pbp_weekly([2025], out_dir=tmp_path, _line_source=lines, complete_through_week=13)
+    payload = load_pbp_weekly(2025, out_dir=tmp_path)
+    assert payload["partialWeeks"] == [14]
+    assert PbpWeeklyStats.from_payload(payload).stats_for("00-0033873", 14) is None
+
+    persist_pbp_weekly([2025], out_dir=tmp_path, _line_source=lines)
+    payload = load_pbp_weekly(2025, out_dir=tmp_path)
+    assert payload["partialWeeks"] == [], "omitting the flag asserts every streamed week is final"
+
+
+def test_a_streamed_week_with_no_qualifying_events_is_still_covered():
+    """Coverage comes from PLAYS, not events. Deriving it from events
+    would make a quiet week indistinguishable from one nobody fetched —
+    and a quiet week's players score real zeroes."""
+    by_player, weeks = _accumulate(
+        _play(week=3, complete_pass=1, receiver_player_id="00-a", receiving_yards=12),
+        _play(week=4, complete_pass=1, receiver_player_id="00-a", receiving_yards=-3),
+    )
+    assert weeks == {3, 4}
+    assert PbpWeeklyStats(2025, by_player, weeks).stats_for("00-a", 4) == {}

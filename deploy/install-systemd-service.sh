@@ -955,6 +955,57 @@ main() {
     fi
   fi
 
+  # ── Play-by-play weekly stat timer ────────────────────────────────────
+  # Streams nflverse play-by-play into per-player-WEEK stats for the ten
+  # rules this league pays that the nflverse WEEKLY feed does not publish
+  # (the six reception bands, st_tkl_solo, st_ff, st_fum_rec,
+  # pass_int_td).  Same prod-side reasoning as reception-depth: the
+  # readers load a LOCAL file and data/ is gitignored, so a CI-built
+  # artifact never reaches the VPS.  Public nflverse, no credentials.
+  #
+  # Builds COMPLETED seasons only, so it can never record a not-yet-played
+  # game as a real zero.  Exit 2 ("everything already on disk") is its
+  # normal weekly state and is treated as success.
+  local pbw_service_template="${APP_DIR}/deploy/systemd/dynasty-pbp-weekly.service.template"
+  local pbw_timer_template="${APP_DIR}/deploy/systemd/dynasty-pbp-weekly.timer.template"
+  local pbw_service_name="${SERVICE_NAME}-pbp-weekly"
+  local pbw_service_path="/etc/systemd/system/${pbw_service_name}.service"
+  local pbw_timer_path="/etc/systemd/system/${pbw_service_name}.timer"
+  local pbw_needs_install=false
+
+  if [[ -f "${pbw_service_template}" && -f "${pbw_timer_template}" ]]; then
+    if sudo -n "${SYSTEMCTL_BIN}" cat "${pbw_service_name}.timer" >/dev/null 2>&1; then
+      if [[ "${force_install_on}" == "true" ]]; then
+        log "FORCE_SERVICE_INSTALL enabled; rewriting ${pbw_service_path} + timer."
+        pbw_needs_install=true
+      else
+        log "Play-by-play weekly timer already installed; skipping."
+      fi
+    else
+      log "Installing play-by-play weekly stat service + timer."
+      pbw_needs_install=true
+    fi
+
+    if [[ "${pbw_needs_install}" == "true" ]]; then
+      local tmp_pbw_service tmp_pbw_timer
+      tmp_pbw_service="$(mktemp)"
+      tmp_pbw_timer="$(mktemp)"
+      sed \
+        -e "s/__SERVICE_NAME__/$(escape_sed_replacement "${SERVICE_NAME}")/g" \
+        -e "s/__APP_USER__/$(escape_sed_replacement "${APP_USER}")/g" \
+        -e "s/__APP_DIR__/$(escape_sed_replacement "${APP_DIR}")/g" \
+        -e "s/__VENV_DIR__/$(escape_sed_replacement "${VENV_DIR}")/g" \
+        "${pbw_service_template}" > "${tmp_pbw_service}"
+      sed \
+        -e "s/__SERVICE_NAME__/$(escape_sed_replacement "${SERVICE_NAME}")/g" \
+        "${pbw_timer_template}" > "${tmp_pbw_timer}"
+      sudo -n "${INSTALL_BIN}" -m 0644 "${tmp_pbw_service}" "${pbw_service_path}"
+      sudo -n "${INSTALL_BIN}" -m 0644 "${tmp_pbw_timer}" "${pbw_timer_path}"
+      rm -f "${tmp_pbw_service}" "${tmp_pbw_timer}"
+      log "Installed ${pbw_service_name}.service + .timer"
+    fi
+  fi
+
   # ── DLF fetch timer (prod-side replacement for CI fetch_dlf.py) ────────
   # CI cannot run scripts/fetch_dlf.py — Cloudflare 403s the GitHub
   # Actions runner IPs.  The same script succeeds from prod, so this
@@ -1106,7 +1157,7 @@ main() {
   # and `tests/deploy/test_all_timers_are_wired.py` now derives the
   # expected set from the declarations rather than trusting this line to
   # be maintained by hand.
-  if [[ "${backend_needs_install}" == "true" || "${frontend_needs_install}" == "true" || "${alerts_needs_install}" == "true" || "${custom_alerts_needs_install}" == "true" || "${playerctx_needs_install}" == "true" || "${pchist_needs_install}" == "true" || "${bdvm_needs_install}" == "true" || "${ce_needs_install}" == "true" || "${sharp_needs_install}" == "true" || "${sharprec_needs_install}" == "true" || "${sharpros_needs_install}" == "true" || "${sharptx_needs_install}" == "true" || "${ffpc_needs_install}" == "true" || "${rd_needs_install}" == "true" || "${dlf_fetch_needs_install}" == "true" || "${idpshow_fetch_needs_install}" == "true" ]]; then
+  if [[ "${backend_needs_install}" == "true" || "${frontend_needs_install}" == "true" || "${alerts_needs_install}" == "true" || "${custom_alerts_needs_install}" == "true" || "${playerctx_needs_install}" == "true" || "${pchist_needs_install}" == "true" || "${bdvm_needs_install}" == "true" || "${ce_needs_install}" == "true" || "${sharp_needs_install}" == "true" || "${sharprec_needs_install}" == "true" || "${sharpros_needs_install}" == "true" || "${sharptx_needs_install}" == "true" || "${ffpc_needs_install}" == "true" || "${rd_needs_install}" == "true" || "${pbw_needs_install}" == "true" || "${dlf_fetch_needs_install}" == "true" || "${idpshow_fetch_needs_install}" == "true" ]]; then
     sudo -n "${SYSTEMCTL_BIN}" daemon-reload
     log "Reloaded systemd unit files."
   fi
@@ -1166,6 +1217,15 @@ main() {
     # already has, so that first run is cheap.
     sudo -n "${SYSTEMCTL_BIN}" enable --now "${rd_service_name}.timer"
     log "Enabled ${rd_service_name}.timer"
+  fi
+  if [[ "${pbw_needs_install}" == "true" ]]; then
+    # Same reasoning as reception-depth: --now arms the timer, no initial
+    # kick.  Unlike that one this artifact GATES scoring rather than
+    # enriching it — without it ten configured rules score nothing — so
+    # the first Wednesday run matters, and until it lands the engine
+    # reports them in ``unscored`` rather than pretending they are zero.
+    sudo -n "${SYSTEMCTL_BIN}" enable --now "${pbw_service_name}.timer"
+    log "Enabled ${pbw_service_name}.timer"
   fi
   if [[ "${sharp_needs_install}" == "true" ]]; then
     # --now arms the daily timer, plus one immediate --no-block kick so

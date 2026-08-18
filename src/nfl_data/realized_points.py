@@ -409,9 +409,11 @@ class RealizedPoints:
                 for (lab, s, p) in self.breakdown
             ],
         }
-        if self.unscored:
-            out["unscored"] = [{"key": k, "rate": round(float(r), 4)} for (k, r) in self.unscored]
-            out["fantasyPointsComplete"] = False
+        # ALWAYS stamped, including when it is True. "This total is
+        # complete" and "this payload predates the check" must not read
+        # the same — the rule CLAUDE.md states for ``valuationMode``.
+        out["fantasyPointsComplete"] = not self.unscored
+        out["unscored"] = [{"key": k, "rate": round(float(r), 4)} for (k, r) in self.unscored]
         return out
 
 

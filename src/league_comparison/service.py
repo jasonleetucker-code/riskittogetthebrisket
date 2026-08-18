@@ -50,6 +50,8 @@ from . import idp as _idp
 from . import metrics as _m
 from . import season_scoring as _season_scoring
 from . import sleeper_scoring as _sleeper
+from src.nfl_data import pbp_weekly as _pbp_weekly
+
 from .scoring_engine import PlayerSeasonScore, compute_player_season_scores
 
 _LOGGER = logging.getLogger(__name__)
@@ -152,7 +154,12 @@ def _per_season_metrics_for_league(
     so callers can build a "top players used" breakdown for the
     year-by-year UI section without recomputing.
     """
-    scores = compute_player_season_scores(rows, scoring, season=season)
+    # Play-by-play supplies the six reception bands and the player
+    # special-teams rules; both cards in a comparison are scored with it
+    # or neither is (src/nfl_data/pbp_weekly.py).
+    scores = compute_player_season_scores(
+        rows, scoring, season=season, pbp_for_season=_pbp_weekly.SeasonPbpIndex().for_season
+    )
     per_pos: dict[str, _m.PositionMetrics] = {}
     sample_union: list[PlayerSeasonScore] = []
     for pos in _m.OFFENSE_POSITIONS:

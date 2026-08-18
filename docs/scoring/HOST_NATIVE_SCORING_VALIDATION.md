@@ -356,6 +356,91 @@ overstatement this module exists to remove. `pbp_supplement_recoverable()`
 names what a given pipeline is still missing, and the remedy is a join rather
 than a new source.
 
+### Predicate evidence is committed, and it discriminates
+
+The seven-week reconciliation above was a one-off run against a 98 MB
+download. What is committed — and what runs in the hard gate — is four
+weeks of it: **2025 REG weeks 1, 5, 11 and 14**, as column-pruned
+play-by-play slices plus the host's own line for each.
+
+Four weeks and not one, because **week 14 alone is vacuous for three of
+the four non-band rules.** Mutation-tested: with only week 14, deleting
+`st_fum_rec` outright, dropping the `tackle_with_assist` columns, and
+dropping the `td_team != posteam` clause all leave the reconciliation
+GREEN — week 14 has no tackle-with-assist id on any special-teams play,
+all five of its special-teams fumble recoveries are own-team, and its
+only returned interception is a genuine pick-six. The added weeks each
+supply what week 14 cannot, and week 5 carries the Cam Ward return.
+
+Against the committed four weeks, each mutation now turns cells RED:
+
+| mutation | cells failing (of 40) |
+|---|---|
+| drop the `tackle_with_assist` columns | 3 |
+| count every special-teams fumble recovery | 4 |
+| drop the `td_team != posteam` clause | 1 |
+| put negative-yardage catches back in `rec_0_4` | 4 |
+
+The pruned host fixtures are themselves checked against the untouched
+`docs/master-site-audit/evidence/W18/` dump, so the pruning is verifiable
+rather than merely convenient.
+
+**One residual, stated rather than smoothed over.** `st_tkl_solo` is 758
+of 759 over the seven sampled weeks — a single week-3 tackle. That is a
+per-play charting difference between nflverse and the gamebook Sleeper
+reads, not a rule difference, and week 3 is deliberately not among the
+committed fixtures because it would encode a known disagreement as an
+expectation.
+
+### Two owners of the reception fact — found, and merged
+
+`reception_depth` (season histogram) and `pbp_weekly` (per week) both
+count catches by band, and each carried its own copy of the predicate.
+They **already disagreed**: one accepted `complete_pass="TRUE"` and a
+leading-space `" 1"` and the other did not, so the same play was a catch
+to one and nothing to the other. Both now call
+`reception_depth.reception_from_play` and `reception_depth.band_for_yards`
+— one owner for what a reception is, one for which band it falls in — and
+`test_the_two_band_producers_agree_on_the_same_play_by_play` holds them
+in lockstep per player and per band over the committed week-14 slice.
+
+`scripts/backtest_adjusted_board.py` was a **third** owner: it bolted
+band points onto season totals from the depth histogram, and carried none
+of the special-teams rules or the pick-six penalty at all. That code is
+deleted; it takes the canonical supplement.
+
+### A schema bump orphans what is already on disk
+
+`RECEPTION_DEPTH_SCHEMA_VERSION` moved `2026-07-27.v1` → `2026-08-18.v2`,
+and v2 changes what a band **means**. Two independent paths would have
+kept serving v1 forever:
+
+* `scripts/refresh_reception_depth.py` skipped completed seasons on **file
+  existence alone**; it now reads the version and rebuilds a stale one.
+* `load_reception_depth` had **no version check at all**; it now refuses a
+  file at any other schema and says so. Every consumer already handles
+  `None` by serving no overlay, so this degrades rather than breaks — the
+  same silent-vanish posture the /rankings gap column uses.
+
+Refusing rather than adapting is the point: a v1 file is not a v1-shaped
+v2, it is a different measurement wearing the same field names.
+
+### A mid-week build must not fabricate zeros
+
+nflverse republishes the **current** season's play-by-play during the
+week, so a Thursday-night build contains week N and almost none of it.
+Every player whose game is on Sunday would resolve to `{}` — "consulted,
+recorded nothing" — which scores a fabricated zero **and** suppresses the
+`unscored` flag that is the only thing that would have said the week was
+not knowable. That result feeds the in-season posterior blend.
+
+So `persist_pbp_weekly` takes `complete_through_week`; anything after it
+is recorded in `partialWeeks` and reads back as **unknown**, for players
+who have played that week as well as those who have not. The build script
+**refuses** an in-progress season unless given that flag or
+`--assume-complete`, and the scheduled unit uses
+`--completed-seasons-back`, which can never select such a season.
+
 ### Downstream effect of the negative-reception correction — measured
 
 `band_for_yards` is the single owner of what a band is, so correcting it also
@@ -389,11 +474,37 @@ than an unexplained shortfall, exactly as it is on the host's own line.
 `data/`; build it on prod, same posture as the BDVM snapshots). Three
 production consumers thread a resolver:
 
-| consumer | parameter |
+**Threading a parameter is not wiring.** The original defect was a producer
+nothing called; adding `pbp_for_season` to three signatures repeats that shape
+exactly if no call site passes one. Every production call site now does:
+
+| call site | what it computes |
 |---|---|
-| `bdvm/baseline.realized_ppg_history` (+ `build_baseline_records`, `fetch_and_build_baseline`) | `pbp_for_season` |
-| `bdvm/actuals.weekly_points_from_rows` | `pbp_stats` |
-| `league_comparison/scoring_engine.compute_player_season_scores` | `pbp_for_season` |
+| `bdvm/baseline.realized_ppg_history` (+ `build_baseline_records`, `fetch_and_build_baseline`) | the reconstructed baseline |
+| `bdvm/actuals.weekly_points_from_rows` / `fetch_current_season_actuals` | the in-season posterior blend |
+| `league_comparison/scoring_engine.compute_player_season_scores` | card-vs-card season totals |
+| `league_comparison/service._per_season_metrics_for_league` | the league comparison |
+| `api/gameplan.py` (both calls) | the reception-share ratio |
+| `league_intel/scoring_fit.py` (both calls) | the scoring-fit measurement |
+| `scripts/backtest_adjusted_board.py` | the adjusted-board backtest |
+| `server.py` realized-points route | the live per-player response |
+
+`tests/nfl_data/test_pbp_supplement_call_sites.py` is a **static AST guard**
+over every call site, with a `DECLARED_EXEMPT` map so "we forgot" and "we
+decided not to" stop looking the same. It is written statically on purpose: a
+behavioural test is satisfied by the test supplying its own resolver, which is
+what every test in `test_pbp_supplement_consumers.py` does — only reading the
+call sites answers the question. Mutation-checked (removing one keyword turns
+it RED).
+
+**`gameplan.py` was the sharpest of these**, and it is why "everything is
+uniformly low, so it cancels" does not hold. It measures what share of a
+player's value is reception-driven, and `reception_scoring_keys()` is
+`BAND_KEYS | {"rec"}` — the bands *are* the numerator. Measured on this card
+over 17 weeks at 6 catches / 80 yards a week: **5.66% against a true 30.43%**,
+a 5.4× understatement of a ratio feeding the league-intel multipliers. This
+module's own docstring already records that a partial correction to a relative
+quantity is a directional bias, not a smaller error.
 
 `scripts/bdvm_build_baseline.py` builds a `SeasonPbpIndex` by default and
 prints which seasons have no artifact; `--no-pbp-supplement` reproduces a
@@ -401,6 +512,21 @@ pre-2026-08-18 build. A season the producer never built resolves to `None` and
 its ten rules stay **unavailable** — deliberately *not* skipped the way an
 unresolvable scoring card is, because a partial line is still a real lower
 bound while an unknown rule set makes the whole line meaningless.
+
+**`unscored` survives the consumer boundaries.** It was landing on
+`RealizedPoints` and being discarded one line later at every one of them, which
+would have made the three-state design structurally unobservable.
+`PlayerSeasonScore` and `RealizedSeason` now carry it; `bdvm/actuals` logs a
+warning naming the rules and the command that fixes it. `fantasyPointsComplete`
+is stamped **always**, including when true — "this total is complete" and "this
+payload predates the check" must not read the same.
+
+**Scheduling.** `deploy/systemd/dynasty-pbp-weekly.{service,timer}.template`,
+Wednesday 08:20 UTC, an hour after the reception-depth stream so two ~98 MB
+pulls do not collide. It runs `--completed-seasons-back 5 --skip-existing`, so
+almost every run exits 2 having done nothing — that is treated as success,
+because completed seasons do not change and a unit sitting red teaches everyone
+to ignore it.
 
 ### What this does and does not entitle us to say
 
@@ -529,8 +655,10 @@ after. Full suite runtime is unchanged.
 * `tests/nfl_data/test_pbp_supplement_join.py` — the three states of the seam,
   the allow-list, the host-native double-count refusal, union-across-weeks
   aggregation, and the coverage audit on the real card with and without the join
-* `tests/nfl_data/test_pbp_supplement_consumers.py` — that each production
-  consumer actually threads the resolver, that the default still reports the
+* `tests/nfl_data/test_pbp_supplement_consumers.py` — that each consumer
+  behaves correctly given a resolver, that the default still reports the
   shortfall, and that host-native rows are never given a supplement
+* `tests/nfl_data/test_pbp_supplement_call_sites.py` — the static AST guard
+  that every production call site actually passes one
 
 All deterministic, over committed fixtures. No live-board counts in the hard gate.

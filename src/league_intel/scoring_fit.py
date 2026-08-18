@@ -328,17 +328,28 @@ def measure_positional_scoring_fit(
     from src.league_comparison.scoring_engine import (  # noqa: PLC0415 - heavy import
         compute_player_season_scores,
     )
+    from src.nfl_data.pbp_weekly import SeasonPbpIndex  # noqa: PLC0415
 
     rows = list(weekly_rows or [])
     if not rows:
         return ScoringFitMeasurement(measured=False, reason="no weekly rows supplied")
 
+    # Both cards are scored with the play-by-play supplement or neither is.
+    # This measures how differently two cards price the same production, and
+    # the six reception bands are where they differ most — leaving them at
+    # zero on both sides does not cancel, it deletes the signal.
+    pbp_for_season = SeasonPbpIndex().for_season
     mine = {
-        s.player_id: s for s in compute_player_season_scores(rows, dict(my_scoring), season=season)
+        s.player_id: s
+        for s in compute_player_season_scores(
+            rows, dict(my_scoring), season=season, pbp_for_season=pbp_for_season
+        )
     }
     base = {
         s.player_id: s
-        for s in compute_player_season_scores(rows, dict(baseline_scoring), season=season)
+        for s in compute_player_season_scores(
+            rows, dict(baseline_scoring), season=season, pbp_for_season=pbp_for_season
+        )
     }
 
     cohorts: dict[str, list[tuple[float, float]]] = {p: [] for p in TRACKED_POSITIONS}

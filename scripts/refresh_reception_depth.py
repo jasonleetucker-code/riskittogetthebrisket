@@ -38,7 +38,9 @@ if str(REPO) not in sys.path:
     sys.path.insert(0, str(REPO))
 
 from src.nfl_data.reception_depth import (  # noqa: E402
+    RECEPTION_DEPTH_SCHEMA_VERSION,
     depth_path,
+    load_reception_depth,
     persist_reception_depth,
     season_has_plausibly_started,
 )
@@ -95,9 +97,22 @@ def main(argv: list[str] | None = None) -> int:
             continue
         # Completed seasons are immutable once written; only the season
         # in progress is worth re-fetching on a schedule.
+        # "Already on disk" is not enough: a file written under an older
+        # schema carries a DIFFERENT measurement under the same field
+        # names (v2 moved lost-yardage catches out of rec_0_4), and
+        # ``load_reception_depth`` now refuses it.  Checking the version
+        # here is what turns that refusal into a rebuild instead of a
+        # season that silently has no overlay forever.
         if not args.force and season != current and depth_path(season).exists():
-            _LOGGER.info("season %d already on disk and complete — skipping", season)
-            continue
+            existing = load_reception_depth(season)
+            if existing is not None:
+                _LOGGER.info("season %d already on disk and complete — skipping", season)
+                continue
+            _LOGGER.info(
+                "season %d is on disk but not readable at schema %s — rebuilding",
+                season,
+                RECEPTION_DEPTH_SCHEMA_VERSION,
+            )
         wanted.append(season)
 
     if not wanted:

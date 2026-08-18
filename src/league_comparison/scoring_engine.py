@@ -89,6 +89,16 @@ class PlayerSeasonScore:
     total_points: float
     games_played: int
 
+    unscored: tuple[tuple[str, float], ...] = ()
+    """Configured NONZERO rules no source supplied for this season.
+
+    Non-empty means :attr:`total_points` is a LOWER BOUND. Carried rather
+    than dropped because a season total that silently omits a rule the
+    league pays reads exactly like a season total that does not — which
+    is the whole failure this engine's realized-points source exists to
+    close, and dropping it here would reintroduce it one layer up.
+    """
+
     @property
     def blended_score(self) -> float:
         """The volume+pace composite used for ranking and metrics."""
@@ -173,6 +183,7 @@ def compute_player_season_scores(
             "canonical": None,
             "total": 0.0,
             "games": 0,
+            "unscored": {},
         }
     )
 
@@ -221,6 +232,10 @@ def compute_player_season_scores(
             b["raw_position"] = raw_pos
         b["canonical"] = canonical
         b["total"] += pts
+        # Union across weeks: one week that could not supply a rule makes
+        # the season total a lower bound.
+        for key, rate in rp.unscored:
+            b["unscored"][key] = rate
         # Count any game where the player had a stat row, regardless
         # of whether they scored — matches the "games played" intuition
         # for sample sizes.
@@ -239,6 +254,7 @@ def compute_player_season_scores(
                 season=yr,
                 total_points=round(float(b["total"]), 2),
                 games_played=int(b["games"]),
+                unscored=tuple(sorted(b["unscored"].items())),
             )
         )
 

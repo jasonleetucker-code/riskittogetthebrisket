@@ -555,6 +555,14 @@ class RealizedSeason:
     ppg: float  # realized per-game points UNDER THIS LEAGUE'S SCORING
     games: float
 
+    unscored: tuple[tuple[str, float], ...] = ()
+    """Configured NONZERO rules no source supplied for this season.
+
+    Non-empty means :attr:`ppg` is a LOWER BOUND, not the player's
+    realized rate. Carried rather than dropped so a baseline built
+    without the play-by-play artifact cannot present itself as the same
+    quantity as one built with it."""
+
 
 # Recent-first season weights for the 3-year blend.
 _BASELINE_SEASON_WEIGHTS = (0.5, 0.3, 0.2)
