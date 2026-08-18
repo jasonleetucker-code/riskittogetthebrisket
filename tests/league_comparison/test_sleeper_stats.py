@@ -339,3 +339,87 @@ def test_the_flag_changes_what_can_be_scored(monkeypatch):
     )
     # And the champion path scored ONLY the two rules _FIELD_MAP can carry.
     assert champ.fantasy_points == pytest.approx(4 * 1.0 + 51 * 0.1, abs=1e-6)
+
+
+# ── #802: an explicitly-enabled flag must fail visibly ────────────────
+
+
+def test_an_unresolvable_flag_raises_when_explicitly_requested(monkeypatch):
+    """The operator asked for the challenger; refusing loudly is the only
+    honest answer.
+
+    The old behaviour swallowed every exception and returned False, so a box
+    where the registry could not be imported scored every season through the
+    lossy _FIELD_MAP round trip while the operator believed host-native
+    scoring was active — publishing one quantity under the belief it was
+    another, with nothing saying so.
+    """
+    import builtins
+
+    monkeypatch.setenv("RISKIT_FEATURE_HOST_NATIVE_SCORING", "1")
+    real_import = builtins.__import__
+
+    def _boom(name, *a, **k):
+        if name == "src.api.feature_flags":
+            raise ImportError("registry unavailable")
+        return real_import(name, *a, **k)
+
+    monkeypatch.setattr(builtins, "__import__", _boom)
+    with pytest.raises(RuntimeError, match="RISKIT_FEATURE_HOST_NATIVE_SCORING"):
+        _ss._host_native_enabled()
+
+
+@pytest.mark.parametrize("override", ["1", "true", "YES", "on"])
+def test_every_truthy_spelling_counts_as_an_explicit_request(monkeypatch, override):
+    """The env parser accepts four spellings; all four are a request."""
+    import builtins
+
+    monkeypatch.setenv("RISKIT_FEATURE_HOST_NATIVE_SCORING", override)
+    real_import = builtins.__import__
+
+    def _boom(name, *a, **k):
+        if name == "src.api.feature_flags":
+            raise ImportError("registry unavailable")
+        return real_import(name, *a, **k)
+
+    monkeypatch.setattr(builtins, "__import__", _boom)
+    with pytest.raises(RuntimeError):
+        _ss._host_native_enabled()
+
+
+@pytest.mark.parametrize("override", [None, "0", "false", "off", ""])
+def test_an_unresolvable_flag_stays_fail_closed_when_not_requested(monkeypatch, override):
+    """Nobody asked for the challenger, so the champion path IS the right
+    answer — raising here would take down a working install over an
+    unused feature."""
+    import builtins
+
+    if override is None:
+        monkeypatch.delenv("RISKIT_FEATURE_HOST_NATIVE_SCORING", raising=False)
+    else:
+        monkeypatch.setenv("RISKIT_FEATURE_HOST_NATIVE_SCORING", override)
+    real_import = builtins.__import__
+
+    def _boom(name, *a, **k):
+        if name == "src.api.feature_flags":
+            raise ImportError("registry unavailable")
+        return real_import(name, *a, **k)
+
+    monkeypatch.setattr(builtins, "__import__", _boom)
+    assert _ss._host_native_enabled() is False
+
+
+def test_a_resolvable_flag_never_raises(monkeypatch):
+    """Non-vacuity: the guard must not fire on the normal path."""
+    from src.api import feature_flags
+
+    monkeypatch.delenv("RISKIT_FEATURE_HOST_NATIVE_SCORING", raising=False)
+    feature_flags.reload()
+    assert _ss._host_native_enabled() is False
+    monkeypatch.setenv("RISKIT_FEATURE_HOST_NATIVE_SCORING", "1")
+    feature_flags.reload()
+    try:
+        assert _ss._host_native_enabled() is True
+    finally:
+        monkeypatch.delenv("RISKIT_FEATURE_HOST_NATIVE_SCORING", raising=False)
+        feature_flags.reload()

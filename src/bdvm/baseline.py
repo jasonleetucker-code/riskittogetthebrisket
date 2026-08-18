@@ -16,7 +16,7 @@ blend beside (or replace) this baseline through the same consensus.
 from __future__ import annotations
 
 import logging
-from typing import Any, Iterable, Mapping
+from typing import Any, Callable, Iterable, Mapping
 
 from src.bdvm.context import TRUE_POSITION_MAP
 from src.bdvm.projections import ProjectionRecord, RealizedSeason, build_reconstructed_baseline
@@ -66,8 +66,23 @@ def realized_ppg_history(
     *,
     name_normalizer,
     regular_season_only: bool = True,
+    scoring_for_season: Callable[[int], Mapping[str, Any] | None] | None = None,
 ) -> dict[str, tuple[str, list[RealizedSeason]]]:
-    """player_key → (true position, [RealizedSeason...]) under league scoring."""
+    """player_key → (true position, [RealizedSeason...]) under league scoring.
+
+    ``scoring_for_season`` resolves the card that season was actually played
+    under — see ``src.league_comparison.season_scoring`` (#802 as-of
+    correctness).  Without it this function applies ONE card to every season
+    in ``weekly_rows``, which for a league that changed its rules rewrites
+    each prior year under rules nobody played.  The reconstructed baseline
+    spans several seasons, so that is not hypothetical here.
+
+    When a resolver is supplied and returns ``None`` for a season, that
+    season's rows are SKIPPED rather than scored under the fallback card: an
+    unknown rule set is unknown, not "presumably the current one".  Callers
+    that want the old single-card behaviour simply omit the resolver, which
+    keeps it explicit at the call site instead of implicit in here.
+    """
     totals: dict[tuple[str, int], float] = {}
     games: dict[tuple[str, int], int] = {}
     latest_pos: dict[str, tuple[int, str]] = {}
@@ -82,8 +97,17 @@ def realized_ppg_history(
         season = int(_num(raw.get("season")))
         listing = str(raw.get("position") or "").upper()
         pos = TRUE_POSITION_MAP.get(listing, listing)
+        if scoring_for_season is not None:
+            card = scoring_for_season(season)
+            if card is None:
+                # This season's rules are unknown. Scoring it under another
+                # season's card would manufacture a number, so the season is
+                # dropped from the history instead.
+                continue
+        else:
+            card = scoring_settings
         row = normalize_weekly_row(raw)
-        rp = compute_weekly_points(row, dict(scoring_settings), position=pos)
+        rp = compute_weekly_points(row, dict(card), position=pos)
         if rp is None:
             continue
         totals[(key, season)] = totals.get((key, season), 0.0) + rp.fantasy_points

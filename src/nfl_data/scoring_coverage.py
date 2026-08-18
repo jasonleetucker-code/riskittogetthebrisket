@@ -270,6 +270,42 @@ _NOT_APPLICABLE_KEYS: frozenset[str] = frozenset(
 # configured source publishes is recorded as RECOVERABLE rather than
 # permanently lost.  Sourcing them is the host-native scoring path; this
 # set is what makes the difference visible until then.
+#: Rules that nflverse PLAY-BY-PLAY can deterministically reconstruct.
+#
+# Recorded because "unscorable" must not be read as "unknowable" (#802
+# audit).  Play-by-play is already a configured source — see
+# ``nflverse_direct._URL_TEMPLATES["pbp"]``, streamed today by
+# ``src.nfl_data.reception_depth`` — and it carries yards_gained,
+# complete_pass, touchdown, pass_touchdown, rush_touchdown, the
+# passer/rusher/receiver id columns, the solo/assist tackler ids and the
+# forced-fumble player ids.
+#
+# The six reception bands are the sharp case: ``reception_depth`` already
+# emits them under these exact key names, so for those the word "unscorable"
+# describes a missing JOIN, not a missing fact.
+DERIVABLE_FROM_PLAY_BY_PLAY: frozenset[str] = frozenset(
+    {
+        "rec_0_4",
+        "rec_5_9",
+        "rec_10_19",
+        "rec_20_29",
+        "rec_30_39",
+        "rec_40p",
+        "rush_40p",
+        "pass_td_40p",
+        "pass_td_50p",
+        "rec_td_40p",
+        "rec_td_50p",
+        "rush_td_40p",
+        "rush_td_50p",
+        "pass_cmp_40p",
+        "pass_int_td",
+        "st_tkl_solo",
+        "st_ff",
+        "st_fum_rec",
+    }
+)
+
 HOST_PUBLISHED: frozenset[str] = frozenset(
     {
         "rec_0_4",
@@ -291,22 +327,39 @@ HOST_PUBLISHED: frozenset[str] = frozenset(
 #: for. Every entry needs a data source, not a code change — and for the
 #: entries in :data:`HOST_PUBLISHED` that source already exists.
 UNSCORABLE_REASONS: dict[str, str] = {
-    "rec_0_4": "reception distance bands are not on the nflverse feed; the Sleeper host publishes them per player",
-    "rec_5_9": "reception distance bands are not on the nflverse feed; the Sleeper host publishes them per player",
-    "rec_10_19": "reception distance bands are not on the nflverse feed; the Sleeper host publishes them per player",
-    "rec_20_29": "reception distance bands are not on the nflverse feed; the Sleeper host publishes them per player",
-    "rec_30_39": "reception distance bands are not on the nflverse feed; the Sleeper host publishes them per player",
-    "rec_40p": "reception distance bands are not on the nflverse feed; the Sleeper host publishes them per player",
-    "rush_40p": "long-run bonus needs play-by-play; no configured source publishes it per player-week",
-    "pass_td_40p": "long-TD bonus needs play-by-play; no configured source publishes it per player-week",
-    "pass_td_50p": "long-TD bonus needs play-by-play; no configured source publishes it per player-week",
-    "rec_td_40p": "long-TD bonus needs play-by-play; no configured source publishes it per player-week",
-    "rec_td_50p": "long-TD bonus needs play-by-play; no configured source publishes it per player-week",
-    "rush_td_40p": "long-TD bonus needs play-by-play; no configured source publishes it per player-week",
-    "rush_td_50p": "long-TD bonus needs play-by-play; no configured source publishes it per player-week",
-    "pass_cmp_40p": "long-completion bonus needs play-by-play; no configured source publishes it per player-week",
-    "pass_int_td": "pick-six thrown is not an nflverse column; the Sleeper host publishes it per player",
-    "idp_pass_def_3p": "per-game PD threshold; nflverse PD counts are season-aggregated on some releases",
+    # The six reception bands are NOT a source limitation, and saying they
+    # were was wrong (#802 audit).  ``src.nfl_data.reception_depth`` already
+    # streams nflverse play-by-play and emits these six keys by name — its
+    # own docstring explains that the weekly ``receiving_10/16/20/40``
+    # columns are cumulative, misaligned and cannot reconstruct ``rec_0_4``,
+    # "so the source has to be play-by-play".  The league host publishes them
+    # too.  They are unscorable on THIS path only because nothing joins that
+    # producer into weekly realized points yet — a wiring gap, not an
+    # unavailable fact.
+    "rec_0_4": "not on the nflverse weekly feed; derivable from play-by-play (reception_depth) and published by the Sleeper host — not yet joined into weekly scoring",
+    "rec_5_9": "not on the nflverse weekly feed; derivable from play-by-play (reception_depth) and published by the Sleeper host — not yet joined into weekly scoring",
+    "rec_10_19": "not on the nflverse weekly feed; derivable from play-by-play (reception_depth) and published by the Sleeper host — not yet joined into weekly scoring",
+    "rec_20_29": "not on the nflverse weekly feed; derivable from play-by-play (reception_depth) and published by the Sleeper host — not yet joined into weekly scoring",
+    "rec_30_39": "not on the nflverse weekly feed; derivable from play-by-play (reception_depth) and published by the Sleeper host — not yet joined into weekly scoring",
+    "rec_40p": "not on the nflverse weekly feed; derivable from play-by-play (reception_depth) and published by the Sleeper host — not yet joined into weekly scoring",
+    # Long-play bonuses.  "needs play-by-play" was true and "no configured
+    # source publishes it" was NOT: play-by-play IS a configured source
+    # (``nflverse_direct._URL_TEMPLATES["pbp"]``, already streamed by
+    # reception_depth), and it carries yards_gained, complete_pass,
+    # touchdown, pass_touchdown, rush_touchdown and the passer/rusher/
+    # receiver id columns.  Every one of these is deterministic from it.
+    # All are ZERO-RATED on both live cards, so none is a configured rule
+    # today — which is why they are recorded rather than built.
+    "rush_40p": "not on the weekly feed; deterministic from play-by-play (yards_gained + rusher_player_id) — zero-rated on both live cards",
+    "pass_td_40p": "not on the weekly feed; deterministic from play-by-play (pass_touchdown + yards_gained) — zero-rated on both live cards",
+    "pass_td_50p": "not on the weekly feed; deterministic from play-by-play (pass_touchdown + yards_gained) — zero-rated on both live cards",
+    "rec_td_40p": "not on the weekly feed; deterministic from play-by-play (pass_touchdown + receiver_player_id + yards_gained) — zero-rated on both live cards",
+    "rec_td_50p": "not on the weekly feed; deterministic from play-by-play (pass_touchdown + receiver_player_id + yards_gained) — zero-rated on both live cards",
+    "rush_td_40p": "not on the weekly feed; deterministic from play-by-play (rush_touchdown + yards_gained) — zero-rated on both live cards",
+    "rush_td_50p": "not on the weekly feed; deterministic from play-by-play (rush_touchdown + yards_gained) — zero-rated on both live cards",
+    "pass_cmp_40p": "not on the weekly feed; deterministic from play-by-play (complete_pass + yards_gained) — zero-rated on both live cards",
+    "pass_int_td": "pick-six thrown is not an nflverse weekly column; deterministic from play-by-play (interception + return_touchdown + passer_player_id) and published by the Sleeper host",
+    "idp_pass_def_3p": "per-game PD threshold; nflverse PD counts are season-aggregated on some releases — zero-rated on both live cards",
     # ADDED 2026-08-13 (B7 / W18-F003), with the prefix change above.
     # These three are PLAYER special-teams rules — real points for
     # players this board values. The nflverse feed publishes no
@@ -321,9 +374,9 @@ UNSCORABLE_REASONS: dict[str, str] = {
     # ``idp_blk_kick`` was here until 2026-08-18 and was simply wrong:
     # def_punt_blocks / def_pat_blocks / def_fg_blocks are all on the
     # nflverse feed. It is now scored — see realized_points._IDP_SUM_KEYS.
-    "st_tkl_solo": "special-teams tackles are not an nflverse column; the Sleeper host publishes them per player",
-    "st_ff": "special-teams forced fumbles are not an nflverse column; the Sleeper host publishes them per player",
-    "st_fum_rec": "special-teams fumble recoveries are not an nflverse column; the Sleeper host publishes them per player",
+    "st_tkl_solo": "not an nflverse weekly column; derivable from play-by-play (solo_tackle_1/2_player_id scoped by kickoff_attempt/punt_attempt) and published by the Sleeper host",
+    "st_ff": "not an nflverse weekly column; derivable from play-by-play (forced_fumble_player_1/2_player_id on special-teams plays) and published by the Sleeper host",
+    "st_fum_rec": "not an nflverse weekly column; derivable from play-by-play (fumble recovery on special-teams plays) and published by the Sleeper host",
 }
 
 

@@ -31,6 +31,7 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 import urllib.error
 import urllib.request
 from typing import Any, Callable
@@ -41,18 +42,50 @@ from src.nfl_data.realized_points import is_host_player_entry
 _LOGGER = logging.getLogger(__name__)
 
 
+#: The env override for the host-native flag, spelled the way
+#: ``feature_flags`` spells it.  Read directly here for one purpose only:
+#: to tell "the operator asked for this" apart from "nobody asked".
+_HOST_NATIVE_ENV = "RISKIT_FEATURE_HOST_NATIVE_SCORING"
+_TRUTHY = frozenset({"1", "true", "yes", "on"})
+
+
 def _host_native_enabled() -> bool:
     """Is the host-native scoring challenger active? (#802)
 
     Imported lazily so this module keeps working in contexts where the
     flag registry is not importable, and read per call rather than at
     import time so a test can flip it with ``feature_flags.reload()``.
+
+    **An explicit request that cannot be honoured RAISES.**  This used to
+    be a bare ``except Exception: return False``, which is the exact
+    failure this whole lane exists to close: the operator sets
+    ``RISKIT_FEATURE_HOST_NATIVE_SCORING=1``, the registry cannot be
+    imported, and the process quietly scores every historical season
+    through the lossy ``_FIELD_MAP`` round trip instead — publishing one
+    quantity while the operator believes it is publishing another, with
+    nothing anywhere saying so.  Silently serving a different number than
+    was asked for is worse than not starting.
+
+    Fail-closed is still the default for the UNASKED case: with no
+    override set, an unimportable registry means the challenger was never
+    requested and the champion path is the right answer.
     """
+    override = os.getenv(_HOST_NATIVE_ENV, "").strip().lower()
+    explicitly_requested = override in _TRUTHY
     try:
         from src.api.feature_flags import is_enabled  # noqa: PLC0415
 
         return is_enabled("host_native_scoring")
-    except Exception:  # noqa: BLE001
+    except Exception as exc:
+        if explicitly_requested:
+            raise RuntimeError(
+                f"{_HOST_NATIVE_ENV} is set to {override!r} but the host-native "
+                f"scoring flag could not be resolved ({exc!r}). Refusing to fall "
+                "back to the champion path: that would score these seasons "
+                "through the lossy nflverse round trip while reporting that the "
+                "host-native challenger is active."
+            ) from exc
+        _LOGGER.warning("sleeper_stats.host_native_flag_unresolved err=%r (not requested)", exc)
         return False
 
 

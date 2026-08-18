@@ -3,12 +3,19 @@
 **Issue:** #802 · **Date:** 2026-08-18 · **Flag:** `host_native_scoring` (default **OFF**)
 
 This record covers two things that arrived together because measuring the first
-found the second: repairs to the champion scoring path that are **live now**,
-and a challenger scoring source that is **off by default** pending promotion.
+found the second: repairs to the champion scoring path, and a challenger
+scoring source that is **off by default** pending promotion.
+
+**Deployment status — read this before quoting anything below.** #915 is OPEN
+and UNMERGED, so *nothing in this document is live*. The only already-live
+work is the 2026-08-13 return-yard repair (B7 / W18-F003) described in §1,
+which is on `main` because it merged earlier and independently. Everything in
+§2 and §3 becomes live only after **merge → deploy → production
+verification**, and production verification has **not** been done.
 
 ---
 
-## 1. What #802 asked for, and what was already done
+## 1. What #802 asked for, and what was already live
 
 The issue says individual special-teams production is paid to RB/WR/TE/LB assets
 this board values while being classified as an asset class the platform does not
@@ -33,7 +40,10 @@ That work is not repeated here.
 
 ---
 
-## 2. Repairs shipped in this change (champion path, live)
+## 2. Repairs in this change (champion path — unflagged, NOT yet deployed)
+
+These are unflagged, so they take effect **as soon as this PR is deployed** —
+but they are not live today. #915 is unmerged.
 
 ### 2a. Safeties scored zero — 10,842.88 points
 
@@ -215,10 +225,11 @@ gate, not a permanent second scoring system**.
 | requirement | status |
 |---|---|
 | redistribution attributed per category, not accidental | **done** — §3c, 0.000000 unexplained |
-| every configured category covered incl. individual ST | **done** — §3c/§2; card GAP count 0 |
+| every configured category covered incl. individual ST | **OPEN** — card GAP count is 0, but 10 configured rules remain UNSCORABLE on the champion path and 6 of them are derivable today (§4a) |
 | historical player-weeks reconcile to independent totals | **done** — §3d, 16/16 vs host-awarded |
 | offense and IDP stacking semantics correct | **done** — §3d IDP archetypes; §3e(1) |
-| no future / as-of leakage | **done** — §5 |
+| no future-week / future-stat leakage | **done** — REG-only, week 18 excluded, no future week selectable (§5) |
+| historical scoring-card / as-of configuration correctness | **partly closed** — resolver landed, promotion still needs a live chain walk (§5) |
 | downstream consumers identified | **done** — §6 |
 | performance / caching measured | **done** — §7 |
 | regression tests cover corrected categories | **done** — §8 |
@@ -226,7 +237,7 @@ gate, not a permanent second scoring system**.
 | league-comparison rerun and measured | **OPEN** — needs live Sleeper fetch |
 | historical backtests rerun | **OPEN** — needs the above |
 
-The three open items all require production data this environment does not have
+The remaining OPEN items mostly require production data this environment does not have
 (gitignored `data/`, live Sleeper API). They are the promotion PR's work, and
 promotion must not proceed without them.
 
@@ -238,23 +249,113 @@ point.
 
 ---
 
-## 5. Time semantics and leakage
+## 4a. Inventory: configured rules still UNSCORABLE
+
+"Exact league scoring" is **not yet earned**, and this table is why. Ten rules
+`dynasty_main` actively pays are still unscored on the champion path.
+
+| rule(s) | rate | verdict |
+|---|---|---|
+| `rec_0_4` … `rec_40p` (6) | 0.17 → 1.92 | **derivable today, in-tree** |
+| `st_tkl_solo` | 1.33 | derivable from PBP; published by the host |
+| `st_ff` | 4.25 | derivable from PBP; published by the host |
+| `st_fum_rec` | 3.19 | derivable from PBP; published by the host |
+| `pass_int_td` | −2 | derivable from PBP; published by the host |
+
+**The six reception bands are the sharp case.**
+`src/nfl_data/reception_depth.py` already streams nflverse play-by-play and
+emits **these exact six key names** (`BAND_KEYS`, boundaries 0/5/10/20/30/40).
+Its own docstring explains why it exists: the weekly `receiving_10/16/20/40`
+columns are cumulative, misaligned with Sleeper's bands, and "nothing in that
+set can reconstruct 0-4 — the 0.33x band, the single most mispriced one. So
+the source has to be play-by-play."
+
+So calling these unscorable-for-lack-of-data was **false**: the producer is in
+the tree, using the right names, from a source this repo already streams. They
+are 66% of the measured weekly gap (289 of 435.57 points). What is missing is
+the **join** into weekly realized points — the histogram currently aggregates
+per season, and `_iter_receptions` already yields `week`, so a per-week variant
+plus a join is the work. That is a **separate authorized unit**: it moves
+historical numbers and needs the same promotion evidence as the challenger.
+
+`UNSCORABLE_REASONS` has been restated so no reason contradicts the tree, and
+`DERIVABLE_FROM_PLAY_BY_PLAY` records the verdicts. The previous wording —
+"no configured source publishes it per player-week" — was wrong about
+play-by-play, which *is* a configured source
+(`nflverse_direct._URL_TEMPLATES["pbp"]`).
+
+**The long-play bonuses are not currently-configured rules.** `rush_40p`,
+`pass_td_40p/50p`, `rec_td_40p/50p`, `rush_td_40p/50p`, `pass_cmp_40p` and
+`idp_pass_def_3p` are **zero-rated on both live cards** — verified, not
+asserted, by `test_the_long_play_bonuses_are_zero_rated_on_the_live_cards`,
+which fails if a commissioner turns one on. All are deterministic from PBP
+(`yards_gained`, `complete_pass`, `touchdown`, `pass_touchdown`,
+`rush_touchdown`, plus the passer/rusher/receiver id columns), so if one is
+ever enabled it must be built rather than declared unavailable.
+
+**Until these are scored, or the V1 contract explicitly classifies them as an
+unavoidable external limitation, this system must not be described as "exact
+league scoring".** For the six bands that classification is not available: the
+data is here.
+
+## 5. Time semantics and leakage — two separate claims
+
+These were collapsed into one gate row, which let a closed claim vouch for an
+open one. They are split now.
+
+### 5a. Future-week / future-stat leakage — CLOSED
 
 * Week 18 stays excluded — `_REGULAR_WEEK_RANGE = range(1, 18)`, unchanged.
-* Only `season_type == "REG"` rows are scored by the consumers, unchanged.
-* No future week is selectable; the challenger changes *which rules* score, never
-  *which weeks* are visible.
-* **Declared limitation, not fixed here:** historical rescoring applies **today's**
-  scoring card to every season. Sleeper chains leagues year to year under new
-  ids, so a prior season's real card is reachable via `previous_league_id`, and
-  the golden fixtures already use the 2025 card for 2025 weeks. Resolving this
-  generally is its own unit; it is named here rather than left implicit, because
-  a card silently applied across seasons is a claim of exact historical scoring
-  that is not yet earned.
+* Only `season_type == "REG"` rows are scored, unchanged.
+* No future week is selectable; the challenger changes *which rules* score,
+  never *which weeks* are visible.
+
+### 5b. Historical scoring-card correctness — was OPEN, now largely closed
+
+The original text of this section conceded that historical rescoring applied
+**today's** card to every season, and the gate table still marked leakage
+"done" beside it. Applying the wrong season's *rules* is an as-of error in
+exactly the same family as reading a future *stat*: both answer a question
+about 2023 with information that does not belong to 2023.
+
+Measured, two independent consumers had it:
+
+* `league_comparison/service.py` looped seasons and passed the single
+  `league_info.scoring_settings` into every one;
+* `bdvm/baseline.py::realized_ppg_history` applied one card across its whole
+  multi-season window.
+
+**Now resolved by `src/league_comparison/season_scoring.py`**, which walks the
+Sleeper `previous_league_id` chain and indexes each hop by **its own `season`**
+— so a chain that skips a year cannot shift every earlier card by one. Both
+consumers resolve per season through it.
+
+It **fails closed**: a season whose card cannot be resolved is reported
+`unresolved` and excluded, never scored with today's card, because that
+substitution *is* the defect and doing it silently is what let it survive.
+`cardBasis` is stamped on every season block — `season_card` when the real card
+was resolved, `current_card_unverified` when the whole chain walk failed and the
+result is a labelled weaker number rather than a silent one.
+
+One deliberate nuance: a walk that resolves **nothing** is treated as "we
+learned nothing", not as "this league has no history". The walker degrades
+internally rather than raising, so an empty result is indistinguishable from a
+dead network, and treating it as authoritative absence would blank an entire
+comparison during a transient outage.
+
+Pinned by `tests/league_comparison/test_season_scoring.py` and
+`tests/bdvm/test_baseline_season_cards.py`, including the property the audit
+asked for — *changing a later season's card cannot move an earlier season's
+points* — and its non-vacuity twin, *the earlier season IS moved by its own
+card*, because a resolver returning nothing would satisfy the first perfectly.
+
+**Still open for promotion:** the resolver has only ever been exercised against
+synthetic chains. Walking the real `dynasty_main` chain and recording which
+seasons resolve is production work, and belongs with the other three gates.
 
 ## 6. Consumers
 
-Reached by the champion-path repairs (§2), live now:
+Reached by the champion-path repairs (§2) once this PR is deployed (not today):
 
 * `src/bdvm/actuals.py`, `src/bdvm/baseline.py` — in-season blending and the
   reconstructed baseline

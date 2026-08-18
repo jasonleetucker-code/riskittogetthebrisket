@@ -318,3 +318,75 @@ def test_a_persisted_row_round_trips_through_the_scorer(dynasty_main_card):
         {**asdict(row), "season": 2025, "week": 3}, dynasty_main_card, position="WR"
     )
     assert rp.fantasy_points == pytest.approx(4.8667, abs=1e-3)
+
+
+# ── the inventory must not contradict the tree (#802 audit) ───────────
+
+
+def test_the_reception_bands_are_not_claimed_unknowable():
+    """``reception_depth`` already emits these six keys by name.
+
+    Calling them unscorable-because-unavailable was false: the producer is
+    in the tree, streaming play-by-play, using these exact names. What is
+    missing is the JOIN into weekly scoring, and the reason must say so —
+    otherwise a real wiring gap reads as an external limitation nobody can
+    do anything about.
+    """
+    from src.nfl_data.reception_depth import BAND_KEYS
+    from src.nfl_data.scoring_coverage import DERIVABLE_FROM_PLAY_BY_PLAY
+
+    for key in BAND_KEYS:
+        assert key in UNSCORABLE_REASONS, f"{key} is no longer declared"
+        assert key in DERIVABLE_FROM_PLAY_BY_PLAY, f"{key} is derivable and must say so"
+        reason = UNSCORABLE_REASONS[key].lower()
+        assert "play-by-play" in reason or "reception_depth" in reason, reason
+        assert "no configured source" not in reason, f"{key}: false scarcity claim"
+
+
+def test_the_bands_the_engine_declares_match_the_producers_bands():
+    """Lockstep. If either side renames a band the join would silently drop
+    it, which is the same silent-zero shape this module exists for."""
+    from src.nfl_data.reception_depth import BAND_KEYS
+
+    declared = {k for k in UNSCORABLE_REASONS if k.startswith("rec_") and k != "rec_td_40p"}
+    assert set(BAND_KEYS) <= declared
+
+
+def test_no_unscorable_reason_claims_a_source_we_actually_have():
+    """The specific false statement the audit caught: "no configured source
+    publishes it" about rules play-by-play determines, when play-by-play is
+    already a configured source this repo streams."""
+    from src.nfl_data.scoring_coverage import DERIVABLE_FROM_PLAY_BY_PLAY
+
+    for key in DERIVABLE_FROM_PLAY_BY_PLAY:
+        reason = UNSCORABLE_REASONS.get(key, "")
+        assert "no configured source" not in reason.lower(), f"{key}: {reason}"
+
+
+def test_every_derivable_rule_is_declared_unscorable_or_scored():
+    """A rule cannot be listed as PBP-derivable and also be a silent GAP."""
+    from src.nfl_data.scoring_coverage import DERIVABLE_FROM_PLAY_BY_PLAY
+
+    for key in DERIVABLE_FROM_PLAY_BY_PLAY:
+        assert key in UNSCORABLE_REASONS or engine_reads_key(key), key
+
+
+def test_the_long_play_bonuses_are_zero_rated_on_the_live_cards(dynasty_main_card):
+    """The inventory claims these are not currently-configured rules. That
+    claim is checked here rather than asserted in prose — if a commissioner
+    turns one on, this fails and the claim gets revisited."""
+    for key in (
+        "rush_40p",
+        "pass_td_40p",
+        "pass_td_50p",
+        "rec_td_40p",
+        "rec_td_50p",
+        "rush_td_40p",
+        "rush_td_50p",
+        "pass_cmp_40p",
+        "idp_pass_def_3p",
+    ):
+        assert float(dynasty_main_card.get(key) or 0) == 0.0, (
+            f"{key} is now configured — it is PBP-derivable and must be built, "
+            "not left in the unscorable inventory"
+        )
