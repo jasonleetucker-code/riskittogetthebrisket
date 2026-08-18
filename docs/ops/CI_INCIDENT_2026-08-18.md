@@ -14,7 +14,7 @@ Green is not the goal. Each row below is placed in exactly one legitimate state.
 
 | # | Workflow | Before | After | Root cause | Resolution |
 |---|---|---|---|---|---|
-| 3 | Scheduled Data Refresh | 🔴 | **🟢** | DraftSharks dynasty fetch had not succeeded for **303.5 h**; the staleness watchdog was the sole failing condition on six consecutive runs | Repaired by #894; production run `32123775865` green at 09:57Z, stamps 303.5 h → 0.03 h, tracking issue #765 auto-closed |
+| 3 | Scheduled Data Refresh | 🔴 | **🟢 (persists)** | DraftSharks dynasty fetch had not succeeded for **303.5 h**; the staleness watchdog was the sole failing condition on **30+ consecutive runs** | Repaired by #894; dispatched run `32123775865` green 09:57Z, stamps 303.5 h → 0.03 h, issue #765 auto-closed — **and the next unattended SCHEDULED run `32129685368` at 11:01:45Z also succeeded**, so the fix holds on the cron path, not just on a hand-dispatch |
 | 4 | PR Validation | 🔴 | **🟢** | Not a repo defect — my own PR #905 tripped the decision-path coercion gate, then a guard's expected wording | Both fixed in #905 (`f922cd77d`, `9f429a475`); the gate did its job |
 | 1 | Verify Sharp Production Population | 🔴 | **🟢 (repaired here)** | `git pull --rebase` on a tree the smoke step had just made dirty → exit 128 → the enforce gate never ran | Pull with `--autostash`, **before** the `git add`; guarded + mutation-proven |
 | 5 | Audit Rank-Form Curve Drift | 🔴 | **🔴 — CORRECT (Case C)** | The audit ran correctly and detected **real drift** introduced by an approved pipeline change | Constants are obsolete. Rewriting them is an **owner action** under ADR-008 |
@@ -180,8 +180,12 @@ must not be retired, silenced, or made non-fatal.**
 
 ## 7. Production data health
 
-* **Refresh pipeline: operating.** Run `32123775865` green 09:57Z; all 24 source CSVs written;
-  22 of 22 fetch stamps fresh; contract source-health errors **0**.
+* **Refresh pipeline: operating, and proven to persist.** Dispatched run `32123775865` green
+  09:57Z; all 24 source CSVs written; 22 of 22 fetch stamps fresh; contract source-health
+  errors **0**. The next **scheduled** run, `32129685368` at 11:01:45Z, also succeeded — which
+  is the claim that matters, because a hand-dispatched green proves the repair works and only
+  an unattended green proves it keeps working. Prior to this the scheduled path had failed on
+  **every** run listed in the API's 30-run window (2026-08-16 05:05Z → 2026-08-18 09:13Z).
 * **Deployment: healthy.** `Deploy Production` succeeded 09:57Z on `43d9f9997`.
 * **Board: current.** DraftSharks recovered from 12.6 days stale to 0.03 h.
 * **Known stale, reported not hidden:** `idpTradeCalc` pick rows byte-identical for 34 days
