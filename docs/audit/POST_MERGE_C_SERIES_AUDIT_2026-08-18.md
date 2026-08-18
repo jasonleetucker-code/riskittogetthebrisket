@@ -1570,6 +1570,29 @@ open.
 two scrapes of 2026-08-18. 20 census errors followed —
 `pick_completeness_census:2029 Round 2..6:missing_or_unpriced` — reddening every open PR.
 
+**And it was worse than "every open PR": it SKIPPED A PRODUCTION DEPLOY.** Found while looking
+for the deployed SHA for an unrelated checklist, which is its own small lesson about what routine
+verification turns up. `Deploy Production` run `32164548748` (`main`, `f9444f7b`, 17:14:24Z)
+failed its `Validate Build Inputs` job at **`Run unit tests (hard gate — pure logic)`** —
+
+```
+1 failed, 298 passed, 25 skipped, 8197 deselected …
+  Picks missing a finite canonical value:
+  ['2029 Early 2nd', '2029 Early 3rd', '2029 Early 4th', '2029 Early 5th', '2029 Early 6th',
+   '2029 Late 2nd',  '2029 Late 3rd',  '2029 Late 4th',  '2029 Late 5th',  '2029 Late 6th', …]
+```
+
+— and the `Deploy To Production` job was consequently **skipped**. Note the ordering: the failure
+came from the *unit-test* gate, so the FULL contract lane never even ran (`skipped`). Production
+therefore stayed on `8ec1978e` (15:11:36Z, the last successful deploy) while `main` moved on.
+
+Two things this makes concrete. First, the owner's instruction to fix this before anything else
+("it blocks everything") was not an overstatement — a vendor truncating one feed halted the
+release path. Second, it is a live instance of the case `docs/ops/STABILIZATION_2026-08-16.md`
+§3d already legislates: a hard-gate test asserting an absolute property **over the live board**
+turns an upstream availability event into a red build. The lasting repair is the derivation fix
+below, which makes the property true again from the evidence that did arrive.
+
 **My first diagnosis was that the census was in the wrong lane, and it was wrong.** I moved
 `…:missing_or_unpriced` to source-health on the theory that a vendor truncation causes it. CI then
 failed on an existing, explicitly parametrized test —
