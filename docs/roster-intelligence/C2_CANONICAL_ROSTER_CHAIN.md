@@ -670,7 +670,14 @@ are. A roster whose limit is unknown is not a roster with infinite room —
 mutation-proven (defaulting the unknown limit to a large number turns two tests
 red).
 
-**Taxi/IR relief is UNAVAILABLE, not zero.** The registry knows a league's
+**Taxi/IR relief is UNAVAILABLE, not zero** — twice over, and the second one
+was caught by the repo's own decision-coercion gate rather than by me. The
+first draft wrote `taxi_size=int(taxi_size or 0)`, which would have made an
+*unrecorded* taxi size read as a league with no taxi squad, in the one module
+whose entire taxi story is "unavailable, not zero". It is now `int | None`, and
+`0` is reserved for a league that genuinely has none.
+
+The relief itself: the registry knows a league's
 `taxiSize`, but Sleeper's per-player taxi assignment is ingested nowhere in this
 codebase and IR eligibility is a per-player status no canonical source carries.
 The spec permits those moves "only where actual league rules and player

@@ -132,7 +132,7 @@ class CapacityState:
     #: ``None`` when the limit is unknown — not ``False``, which would assert
     #: a cut is required.
     fits_cleanly: bool | None
-    taxi_size: int
+    taxi_size: int | None
     taxi_relief_modelled: bool
     taxi_relief_reason: str
     available: bool
@@ -249,7 +249,7 @@ def plan_roster_capacity(
     active_limit: int | None = None,
     waiver_values: Mapping[str, float] | None = None,
     scarcity: Mapping[str, Any] | None = None,
-    taxi_size: int = 0,
+    taxi_size: int | None = None,
     ranks: Any = None,
     team_count: int | None = None,
     slot_eligibility: Mapping[str, Collection[str]] | None = None,
@@ -268,6 +268,9 @@ def plan_roster_capacity(
         active_limit: the league's active-roster limit.  ``None`` is UNKNOWN
             and degrades the whole capacity block rather than being read as
             "no limit".
+        taxi_size: the league's taxi slot count, reported only.  ``None`` is
+            UNKNOWN and stays ``None`` — a league whose taxi size nobody
+            recorded does not have a taxi size of zero.
         waiver_values: per-position waiver level for the cut ladder.  Absent
             means cut costs fall back to raw board value, exactly as the
             canonical owner already handles it.
@@ -331,7 +334,11 @@ def plan_roster_capacity(
         final_count=(post_count - len(release_ids)) if limit is not None else None,
         overage_transition=_overage_transition(over_before, over_after),
         fits_cleanly=(None if limit is None else not over_after),
-        taxi_size=int(taxi_size or 0),
+        # UNKNOWN stays unknown.  A league whose taxi size nobody recorded
+        # does not have a taxi size of zero, and this is the one module in
+        # the chain whose entire taxi story is "unavailable, not zero" — an
+        # ``or 0`` here would contradict the field two lines below it.
+        taxi_size=(taxi_size if isinstance(taxi_size, int) and taxi_size >= 0 else None),
         taxi_relief_modelled=False,
         taxi_relief_reason=TAXI_RELIEF_UNAVAILABLE_REASON,
         available=limit is not None,
