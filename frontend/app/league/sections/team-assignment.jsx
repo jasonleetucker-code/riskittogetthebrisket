@@ -14,6 +14,28 @@
 // contract.  Server-computed by ``src/api/team_assignment.py``;
 // re-runs whenever the contract is re-built (per-request, cached
 // at the public-league snapshot layer for 30 min).
+//
+// ─────────────────────────────────────────────────────────────────────
+// COMPATIBILITY REPAIR (#815) — owned by the UI lane, not the roster
+// lane that made it.
+//
+// The roster-intelligence lane changed the SERVER contract so a
+// degraded snapshot stops rendering as a real empty result, adding
+// ``available`` / ``unavailableReason`` / ``rosterScoringAvailable`` and
+// per-assignment ``rosterScored``.  This file had to change with it for
+// one reason only: it previously printed a CAUSE it had not measured
+// ("current season has no rosters yet") for every empty payload, so
+// leaving it alone would have kept the defect visible to users while
+// the API underneath was correct.
+//
+// Deliberately scoped to truthfulness: consume the new fields, stop
+// asserting an unmeasured cause.  A section-level styled banner was
+// written and then REMOVED as presentation — the per-card
+// ``rosterScored === false`` note already carries the same fact on
+// every affected card.  No layout, styling, component or copy work
+// beyond that; the Premium UI treatment of these states is the UI
+// lane's call to make.
+// ─────────────────────────────────────────────────────────────────────
 
 import { useState } from "react";
 import NflTeamLogo from "@/components/ui/NflTeamLogo";
@@ -283,29 +305,10 @@ export default function TeamAssignmentSection({ data, managers }) {
     );
   }
 
-  const rosterScoringAvailable = data.rosterScoringAvailable !== false;
-
   const threshold = data.config?.thresholds?.assignmentMinPoints ?? 15;
 
   return (
     <div>
-      {rosterScoringAvailable ? null : (
-        <div
-          className="card"
-          style={{
-            fontSize: "0.75rem",
-            marginBottom: 12,
-            padding: "10px 12px",
-            borderLeft: "3px solid var(--amber, #d99a2b)",
-          }}
-        >
-          <strong>Roster-based scoring is unavailable.</strong> Sleeper&apos;s
-          player directory could not be read for this snapshot, so no roster
-          could be scored against an NFL team. Cards below show configured
-          favorites only — an absent team here means <em>unmeasured</em>, not
-          <em> did not qualify</em>.
-        </div>
-      )}
       <div
         style={{
           fontSize: "0.72rem",
