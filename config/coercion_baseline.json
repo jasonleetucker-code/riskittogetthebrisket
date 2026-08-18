@@ -1,5 +1,5 @@
 {
-  "count": 675,
+  "count": 674,
   "note": "Known missing-data coercions on decision paths, recorded so the gate can block NEW ones while the remediation batches burn these down. Each batch deletes its findings' entries. Do not add to this file to make a build pass.",
   "violations": [
     "frontend/lib/auction-power.js::const raw = names.map((n) => Number(totalsObj[n]) || 0);",
@@ -541,7 +541,6 @@
     "src/sharp/cohort.py::quality=max(0.0, min(1.0, float(item.score or 0.0) / 100.0)),",
     "src/sharp/cohort.py::quality=max(0.0, min(1.0, float(row.quality or 0.0))),",
     "src/sharp/consensus.py::float(person[\"quality\"] or 0.0),",
-    "src/sharp/consensus.py::quality = float(person[\"quality\"] or 1.0)",
     "src/sharp/curated.py::\"totalActivityEventsImported\": int(summary[\"activity\"].get(\"activity_events\") or 0),",
     "src/sharp/curated.py::\"totalImportedAsCuratedSharps\": int(membership.get(\"curated_people\") or 0),",
     "src/sharp/curated.py::\"totalImportedAsResearchCandidates\": int(statuses.get(\"research_candidate\") or 0)",
