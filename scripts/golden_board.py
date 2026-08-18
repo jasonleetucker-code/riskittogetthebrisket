@@ -146,11 +146,54 @@ def _source_csv_digest() -> tuple[str, int]:
     return h.hexdigest(), count
 
 
+SCRAPE_STATE_DIR = REPO_ROOT / "data" / "scrape_state"
+
+
+def _freshness_digest() -> tuple[str, int]:
+    """Hash the per-source freshness stamps the contract build reads.
+
+    **The THIRD input**, and it moves independently of the other two.
+    ``_source_freshness_flags`` (``data_contract``) resolves every
+    registered source's ``data/scrape_state/<key>_last_success`` at
+    build time and hands the tri-state to the B11 confidence gate.
+
+    Measured 2026-08-18 by perturbing ONLY the stamps, with the export
+    and all 24 CSVs byte-identical: forcing every stamp deeply stale
+    flips **588 confidenceBucket and 705 confidenceLabel**
+    (``A.J. Brown: high -> low``, "High — every axis high" -> "Low —
+    limited by freshness").
+
+    It moves **0 values and 0 ranks**, and that is the precise shape:
+    the stamps drive CONFIDENCE, not price.  A single stale stamp moves
+    nothing at all, because ``overall`` is the weakest axis and one
+    source rarely decides it — which is exactly why this drift is easy
+    to miss and worth hashing.  ``data/scrape_state`` is force-added by
+    the 2-hourly refresh, so two captures spanning one are guaranteed to
+    differ here.
+
+    Content, not mtime: ``git checkout`` rewrites mtimes on files whose
+    bytes did not change, and a digest that moved on checkout would cry
+    wolf until people passed ``--allow-input-change`` unread.
+    """
+    h = hashlib.sha256()
+    count = 0
+    if SCRAPE_STATE_DIR.is_dir():
+        for path in sorted(SCRAPE_STATE_DIR.glob("*_last_success")):
+            h.update(path.name.encode("utf-8"))
+            try:
+                h.update(path.read_bytes())
+            except OSError:
+                h.update(b"<unreadable>")
+            count += 1
+    return h.hexdigest(), count
+
+
 def capture(input_path: Path) -> dict:
     from src.api.data_contract import build_api_data_contract
 
     raw, input_sha = _read_export(input_path)
     source_sha, source_count = _source_csv_digest()
+    freshness_sha, freshness_count = _freshness_digest()
     contract = build_api_data_contract(raw)
     arr = contract.get("playersArray") or []
 
@@ -174,6 +217,8 @@ def capture(input_path: Path) -> dict:
         "inputSha256": input_sha,
         "sourceCsvSha256": source_sha,
         "sourceCsvCount": source_count,
+        "freshnessSha256": freshness_sha,
+        "freshnessStampCount": freshness_count,
         "scrapeTimestamp": (raw.get("scrapeTimestamp") or raw.get("date")),
         "totals": {
             "rows": len(arr),

@@ -137,9 +137,14 @@ def main() -> int:
         # went through reporting 290 moved values as though the code
         # had moved them.
         for label, cap in (("before", b), ("after", a)):
-            if not cap.get("inputSha256") or not cap.get("sourceCsvSha256"):
+            missing_inputs = [
+                name
+                for name in ("inputSha256", "sourceCsvSha256", "freshnessSha256")
+                if not cap.get(name)
+            ]
+            if missing_inputs:
                 mismatched.append(
-                    f"the {label} capture does not record its inputs "
+                    f"the {label} capture does not record {', '.join(missing_inputs)} "
                     "(built by an older harness) — re-capture it"
                 )
         sb, sa = b.get("inputSha256"), a.get("inputSha256")
@@ -159,6 +164,25 @@ def main() -> int:
             mismatched.append(
                 f"source CSVs {cb[:12]} vs {ca[:12]} "
                 f"({b.get('sourceCsvCount')} vs {a.get('sourceCsvCount')} files)"
+            )
+        # The THIRD input, and the harness's own docstring used to say
+        # there were two.  ``data_contract._source_freshness_flags``
+        # stats every registered source's
+        # ``data/scrape_state/<key>_last_success`` at build time and
+        # feeds the tri-state to the B11 confidence gate.
+        #
+        # Measured 2026-08-18 by perturbing ONLY the stamps, export and
+        # all 24 CSVs byte-identical: all-stale flips 588
+        # confidenceBucket and 705 confidenceLabel, and moves 0 values
+        # and 0 ranks.  So this guard protects the CONFIDENCE half of a
+        # diff, which the value-only assertions cannot see — and
+        # ``data/scrape_state`` is force-added every 2 h, so two captures
+        # spanning a refresh always differ here.
+        fb, fa = b.get("freshnessSha256"), a.get("freshnessSha256")
+        if fb and fa and fb != fa:
+            mismatched.append(
+                f"freshness stamps {fb[:12]} vs {fa[:12]} "
+                f"({b.get('freshnessStampCount')} vs {a.get('freshnessStampCount')} stamps)"
             )
         if mismatched:
             print(

@@ -261,6 +261,57 @@ drain every open `e2e-failures` issue). That is correct policy and is not itself
 **Open:** `F-3a` — diagnose `journey-settings-overrides`; **`F-3b`** — the `journey-rankings`
 board-readiness race. Neither is caused by #893, which changes only the diagnostic helper.
 
+**F-3a and F-3b diagnosed 2026-08-18**, from run `32120428479`'s server logs (artifact
+`e2e-server-logs`, 7.5 KB — the 73 MB Playwright report was not needed).
+
+**F-3a is NOT a backend failure on the overrides path.** Every `POST /api/rankings/overrides`
+in that run returned **200**, four of four:
+
+```
+INFO: "POST /api/rankings/overrides?view=delta HTTP/1.1" 200 OK   (×4)
+```
+
+So the earlier framing — "a hard failure on a canonical serving path" — overstated it. The
+canonical serving path answered correctly every time; the spec fails downstream of it, on the
+badge or a console guard. **Corrected here rather than left standing**, and re-scoped: `F-3a` is
+a spec/UI question, not a serving defect. It does not gate the audit's canonical-value work.
+
+**F-3b is a readiness window, and the diagnostic cannot see it.** The board failure's console
+shows four 404s, a **502** and a **503** during load, then:
+
+```
+[dynasty-data] buildRows received a payload with zero backend rank stamps
+```
+
+`buildRows` refusing to render is **correct** — that is the fail-fast doing its job rather than
+publishing a silently-wrong board. The backend log confirms the window is real (`GET /api/health`
+→ **503** while priming).
+
+But the diagnostic that runs afterwards reports:
+
+```
+/api/data?view=app: 200, playerCount=1109, playersArray=0, legacyPlayers=1109, rankStamps=740
+ => The payload looks serveable ... That points at the client, not the contract.
+```
+
+Two things make that verdict unreliable, and **neither is a defect in #893's repair** — its
+`_canonicalConsensusRank` counting is right, and `playersArray=0` is correct for the runtime view
+(`server.py` pops it by design):
+
+1. **It samples a different view.** The page fetches `?view=array`; the diagnostic fetches
+   `?view=app`. Those are two different payloads built from the same contract, and a degradation
+   confined to one is invisible from the other.
+2. **It samples after the window has closed.** It issues a *new* request once the 60 s locator
+   timeout has already expired, by which time the backend has primed. A probe of a recovered
+   system cannot distinguish "the client is broken" from "the server was not ready when the
+   client asked".
+
+So its confident "points at the client" is a post-hoc measurement. The repair is to sample the
+**failing request** — the response the page actually received — rather than issue a fresh one,
+and to probe the view the page uses. Recorded rather than fixed here: it is a separate unit, and
+the audit's rule is that a diagnostic which names a subsystem must be able to prove it.
+
+
 ### F-4 · Production proof outstanding for five units · BLOCKED-EXTERNAL
 
 `C0-R`, `C1-U5`, `C1-U8`, `C1-U9` and `C2-U1` are all `CLOSED-PENDING-PROD`. Their code is in
@@ -409,6 +460,84 @@ Guards: `tests/api/test_source_health_population.py` (4 assertions, mutation-pro
 "population back to the anchor list" and "count silence as healthy") and two cases in
 `frontend/__tests__/components/source-health-strip.test.jsx` (mutation-proven against reverting
 the row list to `enabled_sources`). Census item **S-1** closes.
+
+---
+
+### F-8 · 18 build-check suppressions rested on a source that no longer exists · CONFIRMED · evidence integrity · **REPAIRED 2026-08-18**
+
+`SINGLE_SOURCE_ALLOWLIST` suppresses `assert_no_unexplained_single_source` for top-board players
+legitimately carried by one source. Every entry is a human-readable statement of **why**. Nothing
+checked that the statement was still true.
+
+Measured on the 2026-08-18 board: **25 of 52 entries mentioned FootballGuys, and 18 named it as
+the sole ranker** — a source that is in no registry, has no CSV path, no CSV file, and last
+stamped `2026-05-24` (86 days). Not one of the 18 was true:
+
+| | count | what was actually there |
+|---|---|---|
+| not on the board at all | 2 | Lavonte David, Zyon McCollum — dead entries |
+| on the board, **not single-source** | 14 | most extreme: **Zavion Thomas carries 13 sources** under an entry reading "only ranked by FootballGuys" |
+| still single-source | 2 | but by `draftSharks` and `fantasyProsSf` — and both sit past `OVERALL_RANK_LIMIT`, outside the window the gate polices |
+
+So the gate was being suppressed by explanations that had quietly become fiction. Removing all 18
+leaves the contract at **`ok: True`, 0 errors** — they were guarding nothing.
+
+Three further inconsistencies surfaced while normalising the machine-readable prefix:
+
+- `source_gap:ktc_only` (×3) used the grammar **backwards** — the prefix lists the sources that do
+  NOT carry the player, and this one named the one that does. The prose already said it correctly.
+- `dynastyNerds` (×7) and `flock` (×2) were loose spellings that resolve to no source key or
+  family name.
+
+**REPAIRED**: 18 false entries deleted, 7 entries stripped of the phantom `footballGuysIdp` in
+their gap lists, the three grammar/spelling classes normalised, and the orphaned
+`footballGuys*_last_success` stamps (frozen at 2026-05-24, no writer, no CSV, no registry entry)
+untracked.
+
+**The durable repair is the guard, not the deletion.** `tests/api/test_single_source_allowlist_integrity.py`
+asserts every prefix token resolves to a live source key, CSV-path key or correlation-family name,
+**and** that no prose reason names a sole ranker the registry does not contain — the prose half
+matters, because all 18 named FootballGuys in prose while their prefixes named other sources, so a
+prefix-only check would have passed every one. Mutation-proven against reinstating a FootballGuys
+entry and against reinstating a loose token. Census item **S-5** closes.
+
+---
+
+### F-9 · The board-diff harness hashes two inputs; the board has three · CONFIRMED · test integrity · **REPAIRED 2026-08-18**
+
+`scripts/golden_board.py` exists so that a board change is measurable, and its own docstring says
+so in capitals: *"THE CONTRACT HAS **TWO** INPUTS, AND BOTH MOVE"* — the pinned export and the
+per-source CSVs, both hashed, with `board_diff.py` refusing to compare captures whose inputs
+differ.
+
+There is a third. `data_contract._source_freshness_flags()` stats every registered source's
+`data/scrape_state/<key>_last_success` **at build time** and feeds the tri-state to the B11
+confidence gate.
+
+Measured by perturbing **only** the stamps, with the export and all 24 CSVs byte-identical:
+
+| perturbation | values | ranks | confidenceBucket | confidenceLabel |
+|---|---|---|---|---|
+| one stamp (`draftSharks` → 303 h) | 0 | 0 | 0 | 0 |
+| **all 28 stamps → deeply stale** | **0** | **0** | **588** | **705** |
+
+So the stamps drive **confidence, not price** — `A.J. Brown: high → low`, *"High — every axis
+high"* → *"Low — limited by freshness"*. A single stale stamp moves nothing, because `overall` is
+the weakest axis and one source rarely decides it, which is exactly what makes this drift easy to
+miss. And `data/scrape_state` is force-added by the 2-hourly refresh, so **two captures spanning
+one refresh are guaranteed to differ here** while both value assertions read clean.
+
+**REPAIRED**: `freshnessSha256` / `freshnessStampCount` are hashed into every capture (content, not
+mtime — a checkout rewrites mtimes and a digest that cried wolf would teach people to pass
+`--allow-input-change` unread), and `board_diff.py` refuses on a mismatch and on a capture that
+does not record it. Verified: a repeat capture on one tree state is exactly identical (0 values, 0
+ranks, 0 labels), and the guard names the stamp drift by hash.
+
+**A correction to my own working note.** An earlier A/B in this session attributed 47
+`confidenceLabel` flips and 5 pick-value moves to stamp drift. That was wrong — those captures also
+spanned the 09:54–09:57 scrape, so the CSV set had moved too. The one-stamp perturbation above
+moves **nothing**, and the all-stale figure is the honest evidence. The finding stands on the
+measurement, not on the guess that led to it.
 
 ---
 
