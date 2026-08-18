@@ -46,7 +46,26 @@ LIB = REPO / "deploy" / "backup" / "backup_root_lib.sh"
 
 pytestmark = pytest.mark.skipif(shutil.which("bash") is None, reason="bash required")
 
-TODAY = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+# ONE clock, read ONCE, for the whole module.
+#
+# ``DATE_STAMP`` (``deploy/backup/riskit-state-backup.sh``) exists so the
+# script under test names its generation from this same instant rather than
+# from its own ``date -u`` — added 2026-08-17 after a suite that straddled UTC
+# midnight failed a docs-only pull request at 00:03:49Z.
+#
+# That pinned the SCRIPT and stopped there.  Two tests still derived a
+# relative date from a SECOND, later clock read, and a run that crosses
+# midnight between import and those tests collapses ``yesterday`` onto
+# ``TODAY`` — the "older" generation is then created at the very path the
+# newer one occupies, its 09:00Z pointer outranks the real 00:00Z one, and
+# the proof fails on a generation the test never populated.  Measured on
+# PR #886 run 32082222024 (imported 23:52:50Z, failed 00:01:47Z).
+#
+# So every date in this file is derived from ``_TODAY_DT``.  Reading the
+# clock a second time anywhere here reintroduces the race; the guard in
+# ``test_every_date_in_this_module_comes_from_one_clock`` is what stops it.
+_TODAY_DT = datetime.now(timezone.utc)
+TODAY = _TODAY_DT.strftime("%Y-%m-%d")
 
 
 def _sqlite(path: Path, ddl: tuple[str, ...] = ()) -> None:
@@ -434,7 +453,7 @@ def test_selection_compares_the_date_before_the_instant(tmp_path):
     (primary / "last_generation").unlink()
 
     # Yesterday's directory, stamped with an instant later in the day.
-    yesterday = (datetime.now(timezone.utc) - timedelta(days=1)).strftime("%Y-%m-%d")
+    yesterday = (_TODAY_DT - timedelta(days=1)).strftime("%Y-%m-%d")
     older = fallback / "daily" / yesterday
     older.mkdir(parents=True)
     _write_pointer(fallback, older, f"{TODAY}T09:00:00Z")
@@ -972,7 +991,7 @@ def test_a_generation_dated_tomorrow_is_skew_not_corruption(tmp_path):
     first = _run_proof(app, data, primary, fallback)
     assert first.returncode == 0, first.stdout + first.stderr
     real = primary / "daily" / TODAY
-    tomorrow = (datetime.now(timezone.utc) + timedelta(days=1)).strftime("%Y-%m-%d")
+    tomorrow = (_TODAY_DT + timedelta(days=1)).strftime("%Y-%m-%d")
     ahead = primary / "daily" / tomorrow
     shutil.copytree(real, ahead)
     (primary / "last_generation").unlink()
@@ -1530,3 +1549,35 @@ def test_an_interleaved_non_generation_entry_costs_no_real_generation(tmp_path):
     )
     assert len(survivors) == 14, f"a stray entry cost a real generation: {survivors}\n{out}"
     assert scratch.exists(), "an unrecognised entry must be excluded, not deleted"
+
+
+def test_every_date_in_this_module_comes_from_one_clock():
+    """A second clock read in this file is a midnight race, not a style nit.
+
+    Every date here has to name the same generation the script under test
+    creates.  ``DATE_STAMP`` pins the script to ``TODAY``; what pins the
+    tests to it is that nothing else reads the clock.  Read it twice and a
+    run that crosses 00:00 UTC between the two reads gets two different
+    days — which is how ``test_selection_compares_the_date_before_the_instant``
+    built its "older" generation directly on top of the newer one and failed
+    a green pull request.
+
+    The failure is invisible for 23 hours 51 minutes of every day, so no
+    amount of re-running finds it.  A source-text guard does.
+    """
+    # Assembled, not written literally: a guard whose own matcher matches
+    # itself reports a defect that is only the guard looking in a mirror.
+    needle = "datetime." + "now("
+    src = Path(__file__).read_text(encoding="utf-8")
+    code = "\n".join(line.split("#", 1)[0] for line in src.splitlines())
+    reads = [ln.strip() for ln in code.splitlines() if needle in ln]
+    assert reads == ["_TODAY_DT = " + needle + "timezone.utc)"], (
+        "this module must read the clock exactly once, at _TODAY_DT; derive every "
+        f"other date from it with timedelta.  Found: {reads}"
+    )
+    # And the pin to the script must still be in place — one clock is only
+    # useful if it is also the script's.
+    assert "DATE_STAMP=TODAY" in code, (
+        "the generation-name pin to riskit-state-backup.sh is gone; the script "
+        "would name generations from its own clock again"
+    )
