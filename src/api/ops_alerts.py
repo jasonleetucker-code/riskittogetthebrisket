@@ -204,7 +204,22 @@ def _should_fire(
     # ``firedAt`` is still read so a state file written by the previous
     # implementation keeps suppressing what it already suppressed rather
     # than producing a burst on upgrade.
-    last_at = float(last.get("deliveredAt") or last.get("firedAt") or 0.0)
+    # No delivery on record means the operator has never been told, so there
+    # is no window to be inside — fire.  Written as an explicit branch rather
+    # than ``or 0.0``: an epoch of zero would work arithmetically, but it
+    # states "delivered at the start of 1970" where the truth is "never
+    # delivered", and this file is precisely about not conflating those.
+    delivered_at = last.get("deliveredAt")
+    if delivered_at is None:
+        # Legacy state written before deliveredAt existed.  Honour it so an
+        # upgrade does not re-fire everything that was already suppressed.
+        delivered_at = last.get("firedAt")
+    if delivered_at is None:
+        return True
+    try:
+        last_at = float(delivered_at)
+    except (TypeError, ValueError):
+        return True
     if now - last_at < _ALERT_COOLDOWN_SEC:
         return False
     return True

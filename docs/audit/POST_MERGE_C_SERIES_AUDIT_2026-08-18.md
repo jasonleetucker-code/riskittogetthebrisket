@@ -928,7 +928,7 @@ fourth hand-maintained list agreeing with the third — the defect, not the fix.
 
 ---
 
-### F-18 · Seven freshness budgets measure vendor publication against a fetch-success signal · CONFIRMED · observability · **OPEN**
+### F-18 · Seven freshness budgets measure vendor publication against a fetch-success signal · CONFIRMED · observability · **REPAIRED 2026-08-18**
 
 The contract's `_SOURCE_MAX_AGE_HOURS` and the alert engine's `resolve_threshold` disagree on
 **22 of 22** sources. Seven contract budgets are 168h or 720h and every justification in the
@@ -956,6 +956,37 @@ carry a freshness reason on that basis and that 230 of 232 HIGH rows would chang
 It still matters: the exposure is F-6's failure mode with confidence blind to it. DraftSharks
 went 12.6 days unfetched at full weight and its 6h budget would have degraded its rows; for
 these seven a 12.6-day outage sits comfortably inside budget.
+
+**REPAIRED.** The seven are now **24** — not a number of mine: it is what
+`config/source_staleness.json` already gives them, and what `scheduled-refresh.yml`'s own
+"Assert DLF freshness" step already enforces (`THRESHOLD_HOURS=24`, commented *"same threshold
+the email alert engine uses"*). Deliberately **not** the 6h of the #532 correction: that
+derivation was made for CI 2-hourly fetchers and three of these run production-side, so 24 is
+the value two existing owners already state and needs no new derivation.
+
+The four surviving prose justifications were corrected too — each described a publication
+cadence the budget no longer encodes, and a stale explanation beside a repaired number is how
+the next reader re-introduces the defect.
+
+**The relation, not the number, is what is pinned.**
+`tests/api/test_freshness_budget_not_laxer_than_alerts.py` asserts *contract budget ≤ alert
+threshold* for every entry — the same relational shape `test_source_floor_invariant` uses for
+scraper-floor ≥ contract-floor, so it invents nothing. The direction is the point: the contract
+owner decides whether a row's evidence counts as current; the alert owner decides whether a
+human is told. A source the alert engine calls stale while the board still counts its evidence
+current is precisely F-6 with confidence blind to it. The allowlist starts **empty** and has
+its own assertion, so adding an entry is a visible act rather than something a parametrised
+skip hides.
+
+One further guard reads `_build_source_timestamps` from the **AST** to confirm the
+fetch-success stamp is still the preferred signal — because if that preference were ever
+reversed, the publication-cadence reasoning would become defensible again and this invariant
+would need revisiting rather than silently continuing to hold.
+
+Board-inert, measured: the live contract still validates `ok=True`, `status=healthy`,
+`sourceHealthErrors []`, and the confidence distribution is unchanged (medium 355 / none 260 /
+high 258 / low 236). Mutation-proven — restoring any single 720h entry reddens its case by
+name. Pinned by 23 assertions.
 
 ---
 

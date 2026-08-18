@@ -1,5 +1,5 @@
 {
-  "count": 677,
+  "count": 676,
   "note": "Known missing-data coercions on decision paths, recorded so the gate can block NEW ones while the remediation batches burn these down. Each batch deletes its findings' entries. Do not add to this file to make a build pass.",
   "violations": [
     "frontend/lib/auction-power.js::const raw = names.map((n) => Number(totalsObj[n]) || 0);",
@@ -274,7 +274,6 @@
     "src/api/faab_analytics.py::waivers_recent_first = sorted(waivers, key=lambda tx: -int(tx.get(\"createdAt\") or 0))",
     "src/api/guest_passes.py::id=int(new_id or 0),",
     "src/api/guest_passes.py::return int(cur.rowcount or 0)",
-    "src/api/ops_alerts.py::last_at = float(last.get(\"firedAt\") or 0.0)",
     "src/api/rank_history.py::val = int(round(float(row.get(\"rankDerivedValue\") or 0)))",
     "src/api/session_store.py::return cursor.rowcount or 0",
     "src/api/signal_alerts.py::prev_notified_at = int(prev.get(\"notifiedAt\") or 0)",
