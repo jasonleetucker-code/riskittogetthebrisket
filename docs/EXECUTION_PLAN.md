@@ -228,6 +228,20 @@ waiting for the merge**.
 | 9 | no known P0/P1 regression introduced |
 | 10 | shared files (`CLAUDE.md`, governance records, the coercion baseline, major shared API owners) **reconciled**, never first-past-the-post |
 
+**Check formatting with the PINNED ruff, not whatever is on your box.** CI pins
+`ruff~=0.6.0` (resolving to 0.6.9); a newer local ruff formats differently and will pass a file
+the gate then rejects — which costs a full validation cycle for one line. It has done so twice in
+this lane. Create a pinned venv once and use it:
+
+```
+python3 -m venv <scratch>/rufenv && <scratch>/rufenv/bin/pip install "ruff~=0.6.0"
+<scratch>/rufenv/bin/ruff format --check .
+```
+
+The converse trap is just as real: running a NEWER ruff's `format` over a file rewrites hunks the
+pinned version never asked for, which lands unrelated churn in your diff. Format only files you
+touched, and verify the hunks are yours.
+
 **Merge-ready is not `VERIFIED`, and the two must not be run together.** A capability can be safe
 to merge while still owing L3/L4 production proof. It merges, deploys through the normal path, and
 stays `IMPLEMENTED_UNVERIFIED` in the contract until the evidence exists. Merging is a statement
