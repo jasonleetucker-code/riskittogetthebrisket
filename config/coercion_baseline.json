@@ -1,5 +1,5 @@
 {
-  "count": 680,
+  "count": 678,
   "note": "Known missing-data coercions on decision paths, recorded so the gate can block NEW ones while the remediation batches burn these down. Each batch deletes its findings' entries. Do not add to this file to make a build pass.",
   "violations": [
     "frontend/lib/auction-power.js::const raw = names.map((n) => Number(totalsObj[n]) || 0);",
@@ -112,7 +112,6 @@
     "frontend/lib/league-analysis.js::ledger.set(it.name, (ledger.get(it.name) || 0) - 1);",
     "frontend/lib/league-analysis.js::meta: r.values?.full || 0,",
     "frontend/lib/league-analysis.js::normalizeTradeTimestampMs(a.trade?.timestamp) || Date.parse(a.date) || 0;",
-    "frontend/lib/league-analysis.js::return row ? (row.values?.full || 0) : 0;",
     "frontend/lib/league-analysis.js::stats.posBias[pos] = (stats.posBias[pos] || 0) + 1;",
     "frontend/lib/league-analysis.js::value: row.values?.full || 0,",
     "frontend/lib/market-movers.js::return (b.value || 0) - (a.value || 0);",
@@ -648,7 +647,6 @@
     "src/trade/faab_engine.py::posture = float(posture_map.get(str(team.risk_posture or \"balanced\"), 1.0) or 1.0)",
     "src/trade/faab_history.py::\"createdAt\": int(tx.get(\"status_updated\") or tx.get(\"created\") or 0),",
     "src/trade/faab_history.py::\"teamCount\": int(settings.get(\"num_teams\") or 0) or None,",
-    "src/trade/faab_history.py::budget = int(settings.get(\"waiver_budget\") or 0) or 100",
     "src/trade/faab_history.py::by_week.setdefault(int(row.get(\"week\") or 0), []).append(pct)",
     "src/trade/faab_history.py::league_mean = priors.mean_pct or 1.0",
     "src/trade/faab_history.py::total_claims = sum(len(v) for v in buckets.values()) or 1",

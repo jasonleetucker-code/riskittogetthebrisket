@@ -423,6 +423,27 @@ Two smaller truth gaps:
 - `source_failures` permanently reports `KTC_TradeDB` and `KTC_WaiverDB` as *"partial"* — a state
   the docs call a tolerable transient. It is not transient; see §9.
 
+  **RESOLVED 2026-08-18 by RETIREMENT, not by repair.** Both were dead: the producers
+  could only run when the primary KTC scrape had already failed (the identity map they
+  gated on was built inside `if "content" in dir()`, and `content` was bound only inside
+  Strategy 3's `if not name_map:`), and `ktcCrowd` appears in **0 of 173** committed
+  export archives, decompressed. Dispositions:
+
+  - **`KTC_WaiverDB` — SUPERSEDED, RETIRED.** `scripts/fetch_crowd_faab.py` is the live
+    owner (3-hourly `dynasty-crowd-faab` timer → `data/faab/crowd_history_*.json` →
+    `faab_history.crowd_bid_index` → `engine.recommend(crowd=)`). The scraper path was a
+    second parser of the identical inline array feeding a second recommender input that
+    only ever produced a display factor row the live engine already emits, with a claim
+    count.
+  - **`KTC_TradeDB` — FUTURE, NOT PRODUCTION**, deferred to C4-U3 / `C4-MTL-02`. Zero
+    consumers: the trades list reached only `len()` for a status count. Its measured live
+    shape is recorded on the manifest row so the future unit need not rediscover it.
+
+  Neither reports as a failed source any more, because neither exists. Both entries also
+  came out of `TOLERABLE_PARTIAL_SOURCES`, which is now **empty**: they were its only two
+  members, and being allowlisted is precisely why a permanent failure never once had to be
+  looked at.
+
 ```bash
 curl -s -b /tmp/audit-cookies.txt http://127.0.0.1:8000/api/status | .venv/bin/python -c \
  "import json,sys;d=json.load(sys.stdin);sh=d['source_health'];print(sh['total_sources'],sh['source_counts'],sh['missing_sources'],sh['source_runtime']['enabled_sources'],len(d['served_source_coverage']))"

@@ -1,0 +1,200 @@
+name: Crowd FAAB Diagnostics (read-only)
+
+# Production evidence for the KTC crowd-data repair.  Answers, from the
+# box, what is otherwise unobservable: `data/faab/crowd_history_*.json`
+# is gitignored, the systemd timer's state is not in git, and no HTTP
+# surface exposes either.
+#
+#   1. Does the `dynasty-crowd-faab` timer exist, is it enabled/active,
+#      when did it last run and did that run succeed?
+#   2. Is the REPAIRED code actually deployed (the identity owner present
+#      and consumed by the producer)?
+#   3. Against the live feed, does the deployed producer resolve EVERY
+#      claim (the repair's measurable claim: 200/200, was 150/200)?
+#   4. How much crowd history has accumulated per league?
+#
+# Read-only by construction: `--dry-run` writes nothing, the history
+# files are opened for reads, and no systemctl verb here mutates state.
+#
+# PRIVACY: prints AGGREGATES only.  No Sleeper league ids, no crowd
+# league ids, no player names — the same posture the DraftSharks
+# diagnostic workflow holds.  League KEYS (`dynasty_main`) are already
+# public in config/leagues/registry.json and are not secrets.
+#
+# Same SSH mechanism and concurrency posture as
+# temporal-ledger-diagnostics.yml.
+
+on:
+  workflow_dispatch:
+    inputs:
+      require_full_resolution:
+        description: >-
+          Fail the run if the deployed producer cannot resolve every
+          claim in the live window.  Leave true — a partial resolution is
+          the exact defect this unit repaired.
+        required: false
+        default: true
+        type: boolean
+
+permissions:
+  contents: read
+
+concurrency:
+  group: production-deploy
+  cancel-in-progress: false
+
+jobs:
+  crowd-faab-status:
+    name: Crowd FAAB timer + resolution
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: production
+    steps:
+      - name: Configure production SSH
+        env:
+          DEPLOY_SSH_PRIVATE_KEY: ${{ secrets.DEPLOY_SSH_PRIVATE_KEY }}
+          DEPLOY_KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+          DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          install -d -m 700 "$HOME/.ssh"
+          printf '%s\n' "$DEPLOY_SSH_PRIVATE_KEY" | sed 's/\r$//' > "$HOME/.ssh/id_ed25519"
+          printf '%s\n' "$DEPLOY_KNOWN_HOSTS" | sed 's/\r$//' > "$HOME/.ssh/known_hosts"
+          chmod 600 "$HOME/.ssh/id_ed25519"
+          chmod 644 "$HOME/.ssh/known_hosts"
+          ssh-keygen -y -f "$HOME/.ssh/id_ed25519" >/dev/null
+          echo "PORT=${DEPLOY_PORT:-22}" >> "$GITHUB_ENV"
+
+      - name: Probe crowd FAAB on production
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          APP_DIR: ${{ vars.PROD_APP_DIR || '/home/dynasty/trade-calculator' }}
+          REQUIRE_FULL: ${{ inputs.require_full_resolution }}
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          # The remote command's exit status is this step's exit status.
+          # Exit 2 = timer missing or resolution incomplete — a real
+          # answer, surfaced as a failure so nobody reads silence as ok.
+          ssh -i "$HOME/.ssh/id_ed25519" \
+            -o BatchMode=yes -o StrictHostKeyChecking=yes \
+            -o UserKnownHostsFile="$HOME/.ssh/known_hosts" \
+            -o ConnectTimeout=15 -o ServerAliveInterval=15 \
+            -p "$PORT" "$DEPLOY_USER@$DEPLOY_HOST" \
+            "APP_DIR=$(printf %q "$APP_DIR") REQUIRE_FULL=$(printf %q "$REQUIRE_FULL") bash -s" <<'REMOTE'
+          set -Eeuo pipefail
+          cd "$APP_DIR"
+          PY="$APP_DIR/.venv/bin/python"
+          [ -x "$PY" ] || PY="$APP_DIR/venv/bin/python"
+          [ -x "$PY" ] || PY=python3
+
+          echo "── 1. systemd timer ────────────────────────────────────"
+          UNIT=dynasty-crowd-faab
+          if systemctl list-unit-files "${UNIT}.timer" >/dev/null 2>&1 \
+             && systemctl cat "${UNIT}.timer" >/dev/null 2>&1; then
+            echo "  timer unit        present"
+            echo "  enabled           $(systemctl is-enabled "${UNIT}.timer" 2>&1 || true)"
+            echo "  active            $(systemctl is-active  "${UNIT}.timer" 2>&1 || true)"
+            systemctl show "${UNIT}.timer" \
+              -p LastTriggerUSec -p NextElapseUSecRealtime 2>/dev/null | sed 's/^/  /' || true
+            echo "  last service run  $(systemctl show "${UNIT}.service" -p ExecMainStatus --value 2>/dev/null || echo 'unknown') (0 = ok)"
+            echo "  last result       $(systemctl show "${UNIT}.service" -p Result --value 2>/dev/null || echo 'unknown')"
+          else
+            echo "  timer unit        ABSENT"
+            TIMER_MISSING=1
+          fi
+
+          echo
+          echo "── 2. is the repaired code deployed? ───────────────────"
+          OWNER_PRESENT=0
+          [ -f src/sources/ktc_identity.py ] && OWNER_PRESENT=1
+          echo "  src/sources/ktc_identity.py            $([ "$OWNER_PRESENT" = 1 ] && echo present || echo ABSENT)"
+          if grep -q 'parse_ktc_identity' scripts/fetch_crowd_faab.py 2>/dev/null; then
+            echo "  producer consumes the owner           yes"
+          else
+            echo "  producer consumes the owner           NO (stale deploy)"
+            OWNER_PRESENT=0
+          fi
+          # The retired scraper crowd path must be gone.
+          if grep -q 'KTC_ID_TO_NAME\|scrape_ktc_waiver_database' "Dynasty Scraper.py" 2>/dev/null; then
+            echo "  retired crowd path removed            NO (stale deploy)"
+            OWNER_PRESENT=0
+          else
+            echo "  retired crowd path removed            yes"
+          fi
+
+          echo
+          echo "── 3. live resolution through the deployed producer ────"
+          RESOLVE_RC=0
+          "$PY" - <<'PY' || RESOLVE_RC=$?
+          import sys, json, re, urllib.request
+          sys.path.insert(0, ".")
+          try:
+              from src.sources.ktc_identity import parse_ktc_identity
+              import scripts.fetch_crowd_faab as producer
+          except Exception as exc:
+              print(f"  IMPORT FAILED: {exc}")
+              raise SystemExit(2)
+
+          req = urllib.request.Request(producer.WAIVER_DB_URL, headers={"User-Agent": producer._UA})
+          html = urllib.request.urlopen(req, timeout=30).read().decode("utf-8", "replace")
+          m = re.search(r"var\s+waivers\s*=\s*(\[.*?\]);", html, re.DOTALL)
+          if not m:
+              print("  feed shape changed: no inline `var waivers`")
+              raise SystemExit(2)
+          raw = json.loads(m.group(1))
+          ident = parse_ktc_identity(html)
+          rows = producer.fetch_rows()          # --dry-run equivalent: writes nothing
+
+          claimed = sum(1 for r in raw if ident.classify(r.get("pickedUpPlayer")).is_player)
+          named   = sum(1 for r in raw if ident.classify(r.get("droppedPlayer")).is_player)
+          nodrop  = sum(1 for r in raw if str(r.get("droppedPlayer")) == "-1")
+          print(f"  identity source                       {ident.source}")
+          print(f"  index size                            {len(ident.players)} players / {len(ident.picks)} picks")
+          print(f"  raw feed rows                         {len(raw)}")
+          print(f"  claims resolved to a player           {claimed}/{len(raw)}")
+          print(f"  drops named                           {named}/{len(raw)}  ({nodrop} are the -1 no-drop sentinel)")
+          print(f"  rows emitted by the producer          {len(rows)}")
+          unformattable = sum(
+              1 for r in rows
+              if r["settings"]["superflex"] is None or r["settings"]["tep"] is None
+          )
+          print(f"  rows with an unreadable format        {unformattable}")
+          raise SystemExit(0 if claimed == len(raw) and len(raw) > 0 else 3)
+          PY
+
+          echo
+          echo "── 4. accumulated crowd history ────────────────────────"
+          "$PY" - <<'PY' || true
+          import sys, glob, json, os
+          sys.path.insert(0, ".")
+          from src.trade.faab_history import crowd_bid_index, load_crowd_history
+          paths = sorted(glob.glob("data/faab/crowd_history_*.json"))
+          if not paths:
+              print("  no crowd history files yet (timer has not written one)")
+          for p in paths:
+              key = os.path.basename(p)[len("crowd_history_"):-len(".json")]
+              payload = load_crowd_history(key)
+              rows = (payload or {}).get("rows") or []
+              idx = crowd_bid_index(payload)
+              zero = sum(1 for r in rows if float(r.get("bidPct") or 0) == 0)
+              print(f"  {key:16s} {len(rows):5d} persisted rows · {len(idx):4d} players priced · {zero} $0 bids retained")
+          PY
+
+          echo
+          echo "── verdict ─────────────────────────────────────────────"
+          FAIL=0
+          [ "${TIMER_MISSING:-0}" = "1" ] && { echo "  FAIL: timer unit absent"; FAIL=2; }
+          [ "$OWNER_PRESENT" = "1" ] || { echo "  FAIL: repaired code is not deployed"; FAIL=2; }
+          if [ "$RESOLVE_RC" != "0" ]; then
+            if [ "${REQUIRE_FULL}" = "true" ]; then
+              echo "  FAIL: live resolution incomplete (rc=$RESOLVE_RC)"; FAIL=2
+            else
+              echo "  WARN: live resolution incomplete (rc=$RESOLVE_RC), not enforced"
+            fi
+          fi
+          [ "$FAIL" = "0" ] && echo "  OK: timer present, repaired code deployed, every claim resolved"
+          exit "$FAIL"
+          REMOTE

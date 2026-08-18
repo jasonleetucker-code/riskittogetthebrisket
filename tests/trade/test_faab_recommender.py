@@ -172,31 +172,23 @@ class TestDemandSignalsAreNotMultipliers:
         row = next(f for f in rec["factors"] if f["label"] == "Trending adds")
         assert row["missing"] is True
 
-    def test_crowd_bid_does_not_change_the_objective_value(self):
-        from src.utils.name_clean import compact_name_key
+    def test_the_dead_crowd_input_is_not_reachable(self):
+        """The recommender's ``ktc_crowd_bids`` parameter was a SECOND
+        crowd input, fed from a ``ktcCrowd`` contract block that never
+        shipped in 173 archives.  The live crowd signal reaches the FAAB
+        engine as ``recommend(crowd=...)`` and carries its own
+        explanation row with a claim count.
 
-        crowd = {compact_name_key("Target"): 45.0}
-        assert (
-            _rec(ktc_crowd_bids=crowd)["objective"]["dollars"]
-            == _rec(ktc_crowd_bids=None)["objective"]["dollars"]
-        )
+        Retired 2026-08-18.  Pinned so it cannot be re-threaded without
+        a decision — two crowd inputs is how the dead one stayed
+        invisible.
+        """
+        import inspect
 
-    def test_crowd_bid_is_reported_when_it_covers_the_player(self):
-        from src.utils.name_clean import compact_name_key
+        from src.trade.faab_recommender import _demand_evidence_factors, recommend_faab
 
-        rec = _rec(ktc_crowd_bids={compact_name_key("Target"): 45.0})
-        assert any(f["label"] == "Crowd-sourced bid" for f in rec["factors"])
-
-    def test_crowd_bid_lookup_uses_the_shared_compact_key(self):
-        """Producer and consumer must key the same way — a punctuated,
-        spaced display name has to join a compact-keyed crowd map."""
-        from src.adapters.ktc_crowd_faab import build_crowd_bid_map
-
-        crowd = build_crowd_bid_map(
-            {"waivers": [{"added": "De'Vondre Campbell", "bidPct": 30.0}] * 2}
-        )
-        rec = _rec(add_player_name="De'Vondre Campbell", ktc_crowd_bids=crowd)
-        assert any(f["label"] == "Crowd-sourced bid" for f in rec["factors"])
+        assert "ktc_crowd_bids" not in inspect.signature(recommend_faab).parameters
+        assert "ktc_crowd_bids" not in inspect.signature(_demand_evidence_factors).parameters
 
 
 # ── Drop cost ────────────────────────────────────────────────────────

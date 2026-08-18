@@ -45,6 +45,7 @@ from typing import Any
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
+from src.sources.ktc_identity import parse_ktc_identity  # noqa: E402
 from src.trade.faab_history import (  # noqa: E402
     crowd_bid_index,
     load_crowd_history,
@@ -79,18 +80,19 @@ def fetch_rows() -> list[dict[str, Any]]:
         return []
     rows = json.loads(waivers.group(1))
 
-    names: dict[str, str] = {}
-    players = re.search(r"var\s+playersArray\s*=\s*(\[.*?\]);", html, re.DOTALL)
-    if players:
-        try:
-            for p in json.loads(players.group(1)):
-                pid, nm = p.get("playerID"), p.get("playerName")
-                if pid is not None and nm:
-                    names[str(pid)] = nm
-        except (ValueError, TypeError):
-            pass
+    # Identity comes from the ONE owner, not a second inline regex here.
+    # This used to read ``playersArray`` (the 500-row value board) and
+    # ``continue`` past anything it could not resolve, which silently
+    # discarded 47 of 192 real claims per fetch.  The owner prefers
+    # ``allPlayerSearchValues`` (~1,997 rows) and resolves all of them.
+    identity = parse_ktc_identity(html)
+    if not identity.players:
+        # No identity observed is NOT an empty market — refuse rather
+        # than emit rows whose player is unknown.
+        raise RuntimeError("KTC identity map is empty; refusing to emit unjoinable rows")
 
     out: list[dict[str, Any]] = []
+    skipped: dict[str, int] = {}
     for row in rows if isinstance(rows, list) else []:
         if not isinstance(row, dict):
             continue
@@ -103,13 +105,21 @@ def fetch_rows() -> list[dict[str, Any]]:
         if budget <= 0 or bid < 0:
             continue
 
-        added = names.get(str(row.get("pickedUpPlayer")))
-        if not added:
-            continue  # unresolvable id — cannot join our board by name
+        # The claimed asset must be a PLAYER.  A pick or a FAAB amount in
+        # this position is a real thing the feed carries, not a failure —
+        # but it is not a waiver price for a player, so it is counted and
+        # excluded rather than dropped without trace.
+        picked = identity.classify(row.get("pickedUpPlayer"))
+        if not picked.is_player:
+            skipped[picked.reason or picked.kind] = skipped.get(picked.reason or picked.kind, 0) + 1
+            continue
+        added = picked.name
 
-        dropped_id = str(row.get("droppedPlayer") or "")
         # KTC uses -1 for "no drop"; ~half of all claims are no-drop.
-        dropped = names.get(dropped_id) if dropped_id not in ("-1", "0", "") else None
+        # An unresolved drop is None (unknown), which is what the storage
+        # layer already means by a missing drop — never a fabricated name.
+        dropped_asset = identity.classify(row.get("droppedPlayer"))
+        dropped = dropped_asset.name if dropped_asset.is_player else None
 
         out.append(
             {
@@ -123,14 +133,47 @@ def fetch_rows() -> list[dict[str, Any]]:
                 "settings": {
                     "leagueId": str(settings.get("id") or ""),
                     "teams": settings.get("teams"),
-                    "superflex": (settings.get("qBs") or 0) >= 2,
-                    "tep": settings.get("tep"),
+                    # ``None`` means the vendor did not tell us, which is
+                    # NOT the same statement as "1QB" or "no TEP".  If
+                    # KTC renames a key, the old code turned every league
+                    # in the feed into a 1QB non-TEP league and the
+                    # comparable count fell to zero — reported as an
+                    # empty market rather than as a broken parse.
+                    "superflex": _superflex_of(settings),
+                    "tep": settings.get("tep") if "tep" in settings else None,
                     "ppr": settings.get("ppr"),
                     "platform": settings.get("dynastyPlatformType"),
                 },
             }
         )
+    if skipped:
+        detail = ", ".join(f"{k}={v}" for k, v in sorted(skipped.items()))
+        print(f"  identity: {len(out)} rows kept · excluded {detail}", file=sys.stderr)
+
+    # A feed nobody can classify is a PARSE failure, not an empty market.
+    # Without this, a renamed settings key silently drops every league out
+    # of every format bucket and the run reports "0 comparable" as health.
+    unformattable = sum(
+        1 for r in out if r["settings"]["superflex"] is None or r["settings"]["tep"] is None
+    )
+    if out and unformattable == len(out):
+        raise RuntimeError(
+            f"all {len(out)} crowd rows have an unreadable format "
+            "(superflex/tep settings keys missing) — refusing to report an empty market"
+        )
+    if unformattable:
+        print(f"  format: {unformattable} of {len(out)} rows unclassifiable", file=sys.stderr)
     return out
+
+
+def _superflex_of(settings: dict[str, Any]) -> bool | None:
+    """Whether this crowd league is superflex, or ``None`` if unstated."""
+    if "qBs" not in settings:
+        return None
+    try:
+        return int(settings["qBs"]) >= 2
+    except (TypeError, ValueError):
+        return None
 
 
 def comparable(row: dict[str, Any], *, teams: int, superflex: bool, tep: bool) -> bool:
@@ -142,6 +185,11 @@ def comparable(row: dict[str, Any], *, teams: int, superflex: bool, tep: bool) -
     because exact-match alone discards most of an already small feed.
     """
     s = row.get("settings") or {}
+    # An unstated format cannot be PROVEN comparable, so it is excluded.
+    # Fails closed: a league we cannot classify must not be priced as
+    # though it matched.
+    if s.get("superflex") is None or s.get("tep") is None:
+        return False
     if bool(s.get("superflex")) != bool(superflex):
         return False
     if bool(s.get("tep")) != bool(tep):

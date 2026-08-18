@@ -97,8 +97,40 @@ def fetch_bid_history(
             break
 
         settings = league.get("settings") or {}
-        budget = int(settings.get("waiver_budget") or 0) or 100
+        # MISSING IS NEVER ZERO — and never 100 either (audit 2026-08-17).
+        #
+        # This was ``int(settings.get("waiver_budget") or 0) or 100``,
+        # which is the example this repo's own coercion-gate docstring
+        # uses ("An unknown FAAB budget becomes ``or 100``") and it was
+        # still live.  ``budget`` is the DENOMINATOR of every ``bidPct``
+        # below, and this module's own header records that the league ran
+        # **$1,000 in 2024 and $200** in another season — so fabricating
+        # 100 does not produce a slightly-off percentage, it produces one
+        # wrong by up to 10x, in the priors the recommender bids against.
+        #
+        # Two distinct unknowns were both being answered with 100:
+        #   * the key is ABSENT — we do not know the budget;
+        #   * the budget is genuinely 0 — a league with no FAAB, where a
+        #     percentage of budget is not a defined quantity at all.
+        # Neither is 100.  Both mean "this season cannot contribute a
+        # percentage", so the season is skipped with a reason rather than
+        # contributing fabricated ones.
+        raw_budget = settings.get("waiver_budget")
+        try:
+            budget = int(raw_budget) if raw_budget is not None else 0
+        except (TypeError, ValueError):
+            budget = 0
         season = str(league.get("season") or "")
+        if budget <= 0:
+            log.warning(
+                "faab history: league %s (season %s) has no usable waiver_budget (%r) — "
+                "skipping; a bid percentage has no denominator here",
+                league_id,
+                season or "?",
+                raw_budget,
+            )
+            league_id = str(league.get("previous_league_id") or "").strip()
+            continue
 
         rows: list[dict[str, Any]] = []
         for week in range(1, _MAX_WEEK + 1):

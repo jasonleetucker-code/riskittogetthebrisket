@@ -98,6 +98,24 @@ class TestPickCompletenessCensus(unittest.TestCase):
 
     def test_every_valid_ref_through_the_horizon_resolves_finite(self) -> None:
         current, future_years = _board_years(self.contract)
+        # The horizon is DERIVED, and its derivation needs a template:
+        # ``_inject_far_future_pick_sources`` mints the unpublished years
+        # by stepping the nearest PUBLISHED future year.  With no future
+        # vendor tiers at all there is no template, nothing to derive
+        # from, and this becomes a statement about source coverage rather
+        # than about our code — which the blocking lane must not make
+        # (audit 2026-08-17, §3d).
+        #
+        # So: no published future year at all is a SOURCE condition and
+        # is reported as such.  One or more, and the horizon requirement
+        # is fully in force — the injection must fill through current+3,
+        # and that IS a claim about our code.
+        if not future_years:
+            self.skipTest(
+                "no future pick years on this board — no template for the horizon "
+                "derivation; this is a source-coverage condition, reported by "
+                "scripts/check_source_health.py, not a code regression"
+            )
         self.assertGreaterEqual(
             len(future_years), 3, f"horizon must reach current+3 (got {future_years})"
         )
@@ -237,7 +255,12 @@ class TestPickCompletenessCensus(unittest.TestCase):
                 f"finder board value diverges for {name}",
             )
             checked += 1
-        self.assertGreater(checked, 100)
+        # Non-vacuity, not a floor (audit 2026-08-17, §3d).  Was
+        # ``> 100`` — an absolute count over the live board, which a
+        # source outage fails with the finder's extraction unchanged.
+        # The real assertion is the per-row ``assertEqual`` inside the
+        # loop; this only proves the loop ran.
+        self.assertGreater(checked, 0, "no priced picks compared — the loop was vacuous")
 
     def test_ownership_surface_resolves_owned_picks(self) -> None:
         """ownership: a league pick at every state resolves to a finite

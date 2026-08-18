@@ -175,7 +175,7 @@ Dynasty fantasy football valuation and trade calculator platform. Ingests extern
 │
 ├── src/                       # Modular canonical engine (~250 modules)
 │   ├── adapters/              # base.py (frozen contract), scraper bridge,
-│   │                          #   sleeper_trending, ktc_crowd_faab
+│   │                          #   sleeper_trending
 │   ├── api/                   # API data contract (versioned) + endpoints
 │   ├── bdvm/                  # Brisket Dynasty Valuation Model (fundamentals)
 │   ├── canonical/             # Hill curves + tiering (player_valuation.py)
@@ -1936,8 +1936,15 @@ that are not in the tree):
 |---|---|
 | `scraper_bridge_adapter.py` | live (`server.py`) |
 | `sleeper_trending.py` | live (`server.py`) |
-| `ktc_crowd_faab.py` | live (waiver/FAAB path) |
 | `base.py` | the frozen contract — imported by tests only, kept as the interface definition |
+
+`ktc_crowd_faab.py` was RETIRED 2026-08-18. It read a `ktcCrowd` contract
+block that appeared in **0 of 173** committed export archives, because its
+scraper-side producer could only run when the primary KTC scrape had already
+failed. The live crowd-FAAB path is `scripts/fetch_crowd_faab.py` →
+`data/faab/crowd_history_<leagueKey>.json` → `faab_history.crowd_bid_index` →
+`engine.recommend(crowd=)`, and KTC playerID → identity now has one owner in
+`src/sources/ktc_identity.py`.
 
 Source ingestion itself lives in `Dynasty Scraper.py` + `scripts/` fetchers, not in an adapter per source.
 

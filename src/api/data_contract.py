@@ -29,6 +29,10 @@ from src.canonical.player_valuation import (  # noqa: E402  — grouped with its
 from src.data_models.contracts import utc_now_iso
 from src.ros import lineup as lineup_owner
 
+#: C1-U6-D1 — the single owner of the slot↔tier tables.  This module is a
+#: CONSUMER: it must never restate a tier range (audit 2026-08-17).
+from src.picks import site_pick_map as _site_pick_map
+
 #: B11 — the single owner of "how good is the evidence behind this value".
 #: This module ASSEMBLES the evidence; it decides no confidence level.
 from src.api.confidence import (  # noqa: E402  — grouped with its siblings
@@ -979,19 +983,21 @@ def assert_payload_size_floor(
 
 
 # ── Partial-run cross-wire: tolerable partials allowlist ─────────────────
-# Sub-endpoints that are known to flip to partial without impacting the
-# primary ranking data.  KTC_TradeDB and KTC_WaiverDB are *sub-endpoints*
-# of the KTC source: KTC itself still returns its full 500-row board; the
-# partial flag refers to secondary trade-DB / waiver-DB endpoints that
-# only feed retail metadata, not ranks.  Treat as warnings rather than
-# errors.  Truly critical failures use the full source names (``KTC``,
-# ``IDPTradeCalc``, ``DLF``, ``DynastyNerds``) which bypass the allowlist.
-TOLERABLE_PARTIAL_SOURCES: frozenset[str] = frozenset(
-    {
-        "KTC_TradeDB",
-        "KTC_WaiverDB",
-    }
-)
+# Sub-endpoints known to flip to partial without impacting the primary
+# ranking data, reported as warnings rather than errors.  Critical
+# failures use the full source names (``KTC``, ``IDPTradeCalc``,
+# ``DLF``, ``DynastyNerds``) and bypass this allowlist entirely.
+#
+# DELIBERATELY EMPTY since 2026-08-18.  Its only two members were
+# ``KTC_TradeDB`` and ``KTC_WaiverDB``, which were retired along with the
+# rest of the dead KTC crowd path — they had reported partial on every
+# run for months, and because they were allowlisted, that permanent
+# failure was never once surfaced as anything a human had to look at.
+#
+# An entry here silences a source forever.  Add one only as a recorded
+# decision about a source that is genuinely secondary, never to quiet a
+# noisy check — the alternative is what this list just taught us.
+TOLERABLE_PARTIAL_SOURCES: frozenset[str] = frozenset()
 
 # Primary sources whose partial/failed state should flip contractHealth.
 _CRITICAL_PRIMARY_SOURCES: tuple[str, ...] = (
@@ -6432,7 +6438,20 @@ def _suppress_generic_pick_tiers_when_slots_exist(
         return {}
 
     aliases: dict[str, str] = {}
-    tier_centre_slot = {"Early": 2, "Mid": 6, "Late": 10}
+    # DERIVED from the pick-map owner, not restated (audit 2026-08-17).
+    # This was a literal ``{"Early": 2, "Mid": 6, "Late": 10}`` — a
+    # fourth hand-written copy of the same 12-team tier ranges, sitting a
+    # few thousand lines from the owner that defines them.  It agreed,
+    # which is exactly why it survived: a second owner that disagrees
+    # gets found, a second owner that agrees does not.
+    #
+    # Verified an EXACT identity before the swap: the owner's centres are
+    # 2.5 / 6.5 / 10.5 and Python's banker's rounding takes those to
+    # 2 / 6 / 10 — the literal's own values, unchanged.
+    _tier_ranges = _site_pick_map.slot_tier_ranges(12)
+    tier_centre_slot = {
+        tier.capitalize(): round((lo + hi) / 2) for tier, (lo, hi) in _tier_ranges.items()
+    }
     rounds_with_slots: dict[tuple[int, int], bool] = {}
     for row in players_array:
         parsed = _parse_pick_slot(row.get("canonicalName") or "")
@@ -9864,7 +9883,6 @@ STARTUP_HEAVY_PLAYER_FIELDS = {
 STARTUP_DROP_TOP_LEVEL_KEYS = {
     # Large secondary blocks not required for first-screen calculator/rankings usability.
     "coverageAudit",
-    "ktcCrowd",
     # Runtime/startup views intentionally avoid the duplicated contract array.
     "playersArray",
 }
@@ -11899,8 +11917,8 @@ def validate_api_data_contract(payload: dict[str, Any]) -> dict[str, Any]:
     # settings.sourceRunSummary.  Historically those were invisible to the
     # contract health check, so a prod build could have
     # partialSources=['KTC_TradeDB'] while contractHealth said "healthy".
-    # We now promote critical partials to errors and leave tolerable
-    # partials (KTC_TradeDB / KTC_WaiverDB) as warnings.
+    # We now promote critical partials to errors and leave allowlisted
+    # partials (``TOLERABLE_PARTIAL_SOURCES``) as warnings.
     settings_block = payload.get("settings") if isinstance(payload.get("settings"), dict) else {}
     run_summary = (
         settings_block.get("sourceRunSummary") if isinstance(settings_block, dict) else None
