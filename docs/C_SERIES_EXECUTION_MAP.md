@@ -7,9 +7,11 @@ foundations, 7 explicitly out of scope)
 **Binding methodology inputs:** `docs/MATH_MODEL_CALIBRATION_POLICY_2026-08-15.md`,
 `docs/PROJECTION_ENSEMBLE_PLAN_2026-08-15.md` (PR #853)
 **Authorization:** **THIS FILE AUTHORIZES NOTHING.** `docs/EXECUTION_PLAN.md` alone
-answers "what may I build now?" Today that answer is the **continuous C-Series campaign**
-authorized by the owner directive of 2026-08-17; `C1-U1`, `C1-U2`, `C1-U3`, `C1-U4` and
-`C1-U6` are closed. See §18 for what the campaign deliberately does *not* sweep in.
+answers "what may I build now?" Today that answer is **nothing in this map**: a **feature
+freeze** is in force for the post-merge C-Series audit and stability gate (owner directive
+2026-08-17, later the same day), and the continuous C-Series campaign it paused resumes only
+on a fresh owner decision. `C1-U1`, `C1-U2`, `C1-U3`, `C1-U4` and `C1-U6` are closed;
+`C0-R`, `C1-U5`, `C1-U8`, `C1-U9` and `C2-U1` are `CLOSED-PENDING-PROD`. See §18.
 
 ---
 
@@ -112,7 +114,8 @@ Mostly discharged by the post-B reconciliation; listed so the census closes.
 # 3. C1 — Identity, temporal substrate, retention (22 rows, 9 units)
 
 The foundation everything else consumes. **Closed: `C1-U1`, `C1-U2`, `C1-U3`, `C1-U4`,
-`C1-U6`.** Remaining in this phase: `C1-U5`, `C1-U8`, `C1-U9` — and `C1-U7`, which cannot
+`C1-U6`.** **`CLOSED-PENDING-PROD` (merged 2026-08-17, code in production, checklists not yet
+executed): `C1-U5`, `C1-U8`, `C1-U9`.** Remaining in this phase: `C1-U7` alone — and it cannot
 run here because it declares `deps C2-U4` (see its entry). Authorization state is §18;
 `docs/EXECUTION_PLAN.md` is the only record that authorizes anything.
 
@@ -179,12 +182,19 @@ run here because it declares `deps C2-U4` (see its entry). Authorization state i
   `C1-U5` deliberately deferred. Production-proven on the box (run 31960075629: 169,896 rows /
   34 dates; as-of pick + player queries resolving live).
 
-### C1-U5 — Confidence naming migration
+### C1-U5 — Confidence naming migration  ← **`CLOSED-PENDING-PROD` 2026-08-17** (PR #876)
 - **rows** `C1-CONF-01` · **owner** `src/api/confidence.py` · **kind** INFRA
 - **deps** none · **explicitly NOT a methodology change** — the five-axis
   bottleneck is preserved verbatim per calibration policy §7
 - **scope** `confidenceBucket:"none"` on 24 priced rows; `identityConfidence` and
   `marketConfidence` renamed to what they mean
+- **state** DELIVERED 2026-08-17. `CONFIDENCE_LEVELS` still exactly four; the orthogonal
+  `confidenceBasis` closed set separates the four states `"none"` was covering, and
+  `validate_api_data_contract` ERRORS on any priced row without a valid basis — the hole
+  closed, not merely the rows that fell through it. Board measured before/after: **0 values
+  moved, 24 buckets none→low**, all 2026 round-5/6 slot picks. Production checklist
+  `docs/confidence/C1_U5_CONFIDENCE_NAMING.md` §6 **not yet executed**. Record:
+  `docs/confidence/C1_U5_CONFIDENCE_NAMING.md`
 
 ### C1-U6 — Pick completeness through 2029  ← **CLOSED at the owner checkpoint 2026-08-16** (PR #871, merge `ce8a8341a`, exact-head run 31965928453 SUCCESS; stabilized by `docs/ops/STABILIZATION_2026-08-16.md`)
 - **rows** `C1-PICK-01` `C1-PICK-02` · **owner** `data_contract` pick pipeline
@@ -211,16 +221,32 @@ run here because it declares `deps C2-U4` (see its entry). Authorization state i
 - **guard** a manager's outlook may not improve from roster decay on a pick they no
   longer own
 
-### C1-U8 — Acquisition history / cost basis / pick lineage
-- **rows** `C1-ACQ-01` `C1-ACQ-02` `C1-ACQ-03` · **owner** transaction ledger
+### C1-U8 — Acquisition history / cost basis / pick lineage  ← **`CLOSED-PENDING-PROD` 2026-08-17** (PR #878)
+- **rows** `C1-ACQ-01` `C1-ACQ-02` `C1-ACQ-03` · **owner** `src/acquisition/` (created)
 - **kind** INFRA · **deps** C1-U3, C1-U4 · **feeds** CE-18 trade trees
 - **privacy** PRIVATE class — own-league transactions, same posture as `C1-RET-06`
+- **state** DELIVERED 2026-08-17. Three tables (`acquisition_events` INSERT-only with
+  conflicts surfaced-not-applied; `holdings` and `pick_lineage` pure replay derivations).
+  Both capture gaps closed at the source — `_build_waivers_block` recorded nothing, and
+  `record_transactions` was called with `league_key`/`season` unset. A post-delivery
+  checklist audit found **nine defects**, two of them false claims of correctness (a
+  dead-code as-of clock and its vacuous test), repaired on the same branch. Board inertness
+  **measured 0/1111**, not asserted. Production checklist
+  `docs/acquisition/C1_U8_ACQUISITION_LEDGER.md` §8 **not yet executed**
 
-### C1-U9 — Multi-format dynasty source archive
-- **rows** `C1-SRC-01` `C1-SRC-02` · **owner** `_RANKING_SOURCES` + ingest
+### C1-U9 — Multi-format dynasty source archive  ← **`CLOSED-PENDING-PROD` 2026-08-17** (PR #879)
+- **rows** `C1-SRC-01` `C1-SRC-02` · **owner** `src/source_archive/` (created) +
+  `_RANKING_SOURCES` game-type annotation
 - **kind** INFRA · **deps** C1-U4
 - **hard rule** archiving alternate boards does **not** authorize using them to
   alter production values; KTC Off/TE+/TE++/TE+++ remain **one** provider family
+- **state** DELIVERED 2026-08-17. `C1-SRC-02` had been recorded COMPLETE; verification found
+  **no `game_type` field, no fail-closed path and no test** — the dynasty-only property held
+  only because each of the 21 sources was hand-verified in a COMMENT. Now a closed
+  `GAME_TYPES` vocabulary, per-source `game_type` + `game_type_evidence`, and an IMPORT-time
+  invariant raising on absent/unknown/non-dynasty/unevidenced. Board measured inert 0/1111.
+  Production checklist `docs/sources/C1_U9_MULTI_FORMAT_SOURCE_ARCHIVE.md` §7 **not yet
+  executed**
 
 ---
 
@@ -661,11 +687,19 @@ answer from "the owner reviewing completed C1-U2 evidence". Its bottom line happ
 stay correct while its reasoning rotted — the failure mode this map's own §0.3 exists to
 catch.
 
-**Authorized today:** the **continuous C-Series campaign** under the owner directive of
-2026-08-17, which supersedes the routine per-unit stop-and-wait checkpoints. Closed:
-`C1-U1`, `C1-U2`, `C1-U3`, `C1-U4`, `C1-U6`. The campaign's current unit and its ordered
-merge queue live in `docs/EXECUTION_PLAN.md` §0 — **that file is still the only record
-that authorizes anything**, and producing or reading this map starts nothing.
+**Authorized today: NOTHING IN THIS MAP.** A **feature freeze** is in force under the owner
+directive of 2026-08-17 (issued later the same day as the campaign directive): the only
+authorized work is the **post-merge C-Series audit and stability gate** and its closed set of
+permitted repairs. `C2-U2`, `C2-U3`, `C2-U4`, `C2-U6`, `C1-U7` and every `C3+` unit below are
+**explicitly named as not-to-be-begun**, and execution does not resume automatically even if
+the audit ends `PASS`.
+
+The **continuous C-Series campaign** — which supersedes the routine per-unit stop-and-wait
+checkpoints — is **paused, not cancelled**, and resumes only on a fresh owner decision
+recorded in `docs/EXECUTION_PLAN.md` §0. Closed: `C1-U1`, `C1-U2`, `C1-U3`, `C1-U4`, `C1-U6`;
+`CLOSED-PENDING-PROD`: `C0-R`, `C1-U5`, `C1-U8`, `C1-U9`, `C2-U1`. The freeze, the paused
+campaign and the merge queue all live in `docs/EXECUTION_PLAN.md` §0 — **that file is still
+the only record that authorizes anything**, and producing or reading this map starts nothing.
 
 **Still not authorized, and not swept in by the campaign:**
 

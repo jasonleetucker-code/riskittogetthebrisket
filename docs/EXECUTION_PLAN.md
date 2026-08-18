@@ -1,7 +1,7 @@
 # Chase Upside / Risk It To Get The Brisket — Current Execution Plan
 
 **Status:** CANONICAL SEQUENCING / AUTHORIZATION RECORD
-**Last reconciled:** 2026-08-17 (owner directive: **continuous C0→C10 campaign authorized**; routine per-unit stop-and-wait checkpoints superseded)
+**Last reconciled:** 2026-08-17 (owner directive: **FEATURE FREEZE** — post-merge C-Series audit and stability gate is the only authorized work; the continuous C0→C10 campaign authorized earlier the same day is **paused**, §0)
 **Companion:** `docs/MASTER_PRODUCT_PLAN.md` · `docs/C_SERIES_REPLAN_AND_COMPLETION_CONTRACT.md`
 
 This file answers **what implementation work is authorized right now**, and nothing else. It does not define
@@ -15,22 +15,54 @@ Backlog Spec and the feature specs. It does not define scope — that lives in `
 
 # 0. CURRENT AUTHORIZATION — READ THIS FIRST
 
-## The **continuous C-Series campaign** is authorized. Owner directive, 2026-08-17.
+## FEATURE FREEZE. The **post-merge C-Series audit and stability gate** is the only authorized work. Owner directive, 2026-08-17 (later the same day).
+
+**This supersedes the continuous-campaign authorization recorded in §0.0.** The owner imposed a
+**temporary feature freeze** after the six-unit tranche merged, pending a comprehensive audit of
+the actual repository and production behaviour. Read this section before §0.0, which is retained
+as the record of what the freeze paused — not as a live authorization.
+
+**Do not begin, under any label:** `C2-U2` · `C2-U3` · `C2-U4` · `C2-U6` · `C1-U7` · any `C3+`
+implementation · any new product feature · any new methodology · any new UI surface · any
+opportunistic feature lane.
+
+**Do not expand scope under the label of "repair."** The permitted change set is closed:
+
+| permitted | not permitted |
+|---|---|
+| repair a defect · restore intended behaviour · reconcile a bad merge · restore a canonical invariant · remove a duplicate implementation · fix production wiring · fix an incorrect test · strengthen a regression guard · repair documentation/governance drift · fix a security, privacy, performance, accessibility, data-integrity, provenance or observability defect **in currently implemented functionality** | anything that adds capability, changes methodology, or opens a surface that does not exist today — including when it would be small, obvious, or adjacent to a repair |
+
+**Production proof may not be substituted.** Not by PR-head CI, not by local tests, not by a
+staging process, not by an older deployment, and **not by a statement in a document — including
+this one**. An unreachable check is recorded `BLOCKED-EXTERNAL`, never as a pass.
+
+**The audit ends in exactly one of `PASS` or `FAIL`**, plus one recommendation. "Basically okay"
+is not an outcome. **Even on `PASS`, execution does not resume automatically** — `C2-U2` does not
+begin, and the session stops after the report. Resumption is a fresh owner decision recorded here.
+
+> **Consequence for whoever reads this next.** Until that decision is recorded, the answer to
+> "what may I build right now?" is **nothing from the campaign queue**. The queue below is
+> sequencing state, not permission.
+
+## 0.0 The continuous C-Series campaign — AUTHORIZED 2026-08-17, **PAUSED by the freeze above**
+
+Retained verbatim in substance because the freeze is temporary and this is what resumes.
 
 The owner authorized continuous execution of the entire remaining C-Series and **explicitly
-superseded the routine per-unit stop-and-wait checkpoints**. Units are executed in the order below
+superseded the routine per-unit stop-and-wait checkpoints**. Units were executed in the order below
 without asking permission between them.
 
-**One record, one answer** (§7.6 still holds). The single authorized scope is *the campaign*, and
-the single current unit is the one named in the queue below.
+**One record, one answer** (§7.6 still holds). The single authorized scope was *the campaign*, and
+the single current unit was the one named in the queue below. **Both are paused**; §0's freeze is
+the operative authorization today.
 
 | question | answer |
 |---|---|
 | Is B complete? | **Yes.** B4–B11 merged; the B-Series Completion Audit passed (#837, `79f47ff`, 20/20 executable checks) |
 | Is the B→C gate cleared? | **Yes.** All nine steps of `docs/C_SERIES_REPLAN_AND_COMPLETION_CONTRACT.md` §3 are satisfied; PR #845 merged (`6d9640c7`) |
-| **What may I build right now?** | **The current unit in the queue below**, then the next dependency-eligible one, continuously |
+| **What may I build right now?** | **Under the §0 freeze: nothing from this queue.** Only the audit and its permitted repair set. When the freeze lifts: the current unit below, then the next dependency-eligible one, continuously |
 | Which units are CLOSED? | `C1-U1` (retention — `C1-RET-07` honestly STALE) · `C1-U2` (player identity) · `C1-U3` (pick identity) · `C1-U4` (temporal ledger) · `C1-U6` (pick completeness). **Do not reopen any of them** |
-| Do I stop at the end of a unit? | **No.** Mark it `CLOSED-PENDING-PROD`, enqueue it, and start the next eligible unit or a parallel-safe lane |
+| Do I stop at the end of a unit? | **Under the §0 freeze: yes — the audit report is the stopping point.** Under the campaign: no — mark it `CLOSED-PENDING-PROD`, enqueue it, and start the next eligible unit or a parallel-safe lane |
 | When *do* I stop and ask? | Only for: a genuine unresolved owner decision · required external authorization · paid-API permission · credentials only the owner holds · an irreversible destructive operation · or a merge that now blocks **every** legitimate dependency-eligible lane |
 | Is `CLOSED-PENDING-PROD` closure? | **No.** See §0.2 |
 | Is `CANONICAL_V2` activation authorized? | **No** — C1-U2 measured it and deliberately deferred it; separate unit |
@@ -39,7 +71,7 @@ the single current unit is the one named in the queue below.
 Scope reconciliation for the directive, including the owner-methodology authority findings:
 **`docs/C_SERIES_DIRECTIVE_RECONCILIATION_2026-08-17.md`**.
 
-## 0.1 Campaign order
+## 0.1 Campaign order — **paused; nothing in this diagram is authorized today**
 
 `C1-U7` sits **after `C2-U4`** and not with the rest of C1. It declares `deps C1-U6, C2-U4`
 (`docs/C_SERIES_EXECUTION_MAP.md`), because an owned pick's slot distribution is a function of
@@ -48,7 +80,7 @@ provisional formula — the thing the map's §1 ordering rule exists to prevent.
 one dependency, not descoped.
 
 ```
-C0-R   ← governance reconciliation (this unit)      C2-U6  meaningful roster core
+C0-R   governance reconciliation  [CLOSED-PEND-PROD] C2-U6  meaningful roster core
 C0-U2  performance baselines        ∥ parallel      C2-U4  canonical Team Strength
 C1-U5  confidence naming migration                  C1-U7  owned-pick distributions ← unblocked
 C1-U8  acquisition / cost basis / lineage           C2-U5 · C2-U7 · C2-U8 · C2-U9 · C2-U10
@@ -79,19 +111,31 @@ Ordered. A unit leaves this queue only when production proof lands on the deploy
 
 | unit | PR | exact head | CI | unlocks | production proof |
 |---|---|---|---|---|---|
-| `C0-R` | [#875](https://github.com/jasonleetucker-code/riskittogetthebrisket/pull/875) | `ad95bd6` | **RED on the inherited `main` defect below, and only that** — run 31987737878: `test_derived_2029_value_uses_measured_year_step` (ratio 0.9857), plus four advisory-lane source-coverage rails on the same nine rows. **Re-measured across three `main` revisions: `b1c6a42a` = 9 of 18 tier cells violating, `85b13689` = 8, `01574f63` = 9 again.** The count OSCILLATES with routine data refreshes while the mechanism sits untouched — the structural cells (Mid 4th/5th/6th) hold at ratio 1.035 throughout, and `Mid 2nd` flips either way on a one-point drift in its 2028 twin. The 8 was therefore noise, and the return to 9 is the measurement that proves it rather than an argument for it. Only a scrape that re-runs the pick anchors can clear this. Its own diff is documentation and standing-invariant tests | every later unit — this is the record that authorizes them | **MERGED — PENDING PROD PROOF** (#875 on `main` @ `4fc7ab22`; deploy frozen since 2026-08-17T00:35Z — see below) — checklist in `docs/C_SERIES_DIRECTIVE_RECONCILIATION_2026-08-17.md` §7, **written 2026-08-17 because it was missing**, which was a governance defect in the governance unit |
-| `C1-U5` | [#876](https://github.com/jasonleetucker-code/riskittogetthebrisket/pull/876) (stacked on #875) | `d33465d` | **GREEN** — run 31991834158 SUCCESS on the exact head | `C2`/`C3`/`C6` confidence consumers — §1's rename-before-new-consumer rule is discharged by this unit | **MERGED — PENDING PROD PROOF** (#876) — checklist in `docs/confidence/C1_U5_CONFIDENCE_NAMING.md` §6, **written 2026-08-17 because it was missing**; the unit had been recorded `CLOSED-PENDING-PROD` without one, which §0.2 does not permit |
-| `C1-U8` | [#878](https://github.com/jasonleetucker-code/riskittogetthebrisket/pull/878) (stacked on #876) | `ac731c6` | **GREEN** — run 31997754113 SUCCESS on the exact head (05:39:52Z). Earlier head `ab9d31a` was also hard-gate/livedata/contract green (run 31994961129). A post-delivery checklist audit then found **nine defects**, two of them false claims of correctness (a dead-code as-of clock and its vacuous test) — repaired on the same branch rather than duplicated. Board inertness now **measured 0/1111**, not asserted. 106 acquisition tests | `C3-REPLAY-01` (needs `C1-ACQ-02`), `C4-MTL-01`, `C4-WAIV-01`, `C4-INS-01` | **MERGED — PENDING PROD PROOF** (#878) — checklist in `docs/acquisition/C1_U8_ACQUISITION_LEDGER.md` §8 |
-| `C1-U9` | (stacked on #878) | see PR | local: 7,782 backend / 2,051 frontend, 0 failures; 23 source tests; board measured inert 0/1111; ruff, coercion, planning and structural-contract gates clean | `C5-ROS-01` (deps `C1-SRC-01`) | **MERGED — PENDING PROD PROOF** (#879) — checklist in `docs/sources/C1_U9_MULTI_FORMAT_SOURCE_ARCHIVE.md` §7 |
-| `C2-U1` | [#880](https://github.com/jasonleetucker-code/riskittogetthebrisket/pull/880) (stacked on #879) | `066d2517` | **GREEN** — run 32022945892 SUCCESS on the exact head, all 24 steps. **Reported green once prematurely.** An adversarial review then found a CRITICAL defect in the unit's own premise: `/api/data` splices a live Sleeper overlay that rebuilds `sleeper.teams` wholesale, discarding the lineup stamp on the NORMAL path — so the feature worked only while Sleeper was DOWN. Four further real findings followed (a slot-legality name collision, a FALSE RED claim in my own test header, a latent FAAB divide-by-eligibility bug that was a 6th even-split derivation, and two structural guards weaker than claimed). All fixed and regression-pinned; the guards are proven to fire. Board inert **0/1111 values, 0 ranks**, confidence inert **0/1111 rows**, re-measured after every round. The canonical solver was verified against **Sleeper's own awarded lineups, 10/10** before being trusted | `C2-U2` · `C2-U3` · `C2-U4` · `C2-U6` · `C2-U9` · `C5-PLAY-01` — the root of the C2 phase | **MERGED — PENDING PROD PROOF** (#880) — checklist in `docs/lineup/C2_U1_CANONICAL_LINEUP.md` §10, whose step 3a exists because of the critical defect above |
+| `C0-R` | [#875](https://github.com/jasonleetucker-code/riskittogetthebrisket/pull/875) | `ad95bd6` | **RED on the inherited `main` defect below, and only that** — run 31987737878: `test_derived_2029_value_uses_measured_year_step` (ratio 0.9857), plus four advisory-lane source-coverage rails on the same nine rows. **Re-measured across three `main` revisions: `b1c6a42a` = 9 of 18 tier cells violating, `85b13689` = 8, `01574f63` = 9 again.** The count OSCILLATES with routine data refreshes while the mechanism sits untouched — the structural cells (Mid 4th/5th/6th) hold at ratio 1.035 throughout, and `Mid 2nd` flips either way on a one-point drift in its 2028 twin. The 8 was therefore noise, and the return to 9 is the measurement that proves it rather than an argument for it. Only a scrape that re-runs the pick anchors can clear this. Its own diff is documentation and standing-invariant tests | every later unit — this is the record that authorizes them | **IN PRODUCTION, CHECKLIST UNEXECUTED** (#875 on `main` @ `4fc7ab22`; the freeze that blocked this cleared at 20:22Z — see below) — checklist in `docs/C_SERIES_DIRECTIVE_RECONCILIATION_2026-08-17.md` §7, **written 2026-08-17 because it was missing**, which was a governance defect in the governance unit |
+| `C1-U5` | [#876](https://github.com/jasonleetucker-code/riskittogetthebrisket/pull/876) (stacked on #875) | `d33465d` | **GREEN** — run 31991834158 SUCCESS on the exact head | `C2`/`C3`/`C6` confidence consumers — §1's rename-before-new-consumer rule is discharged by this unit | **IN PRODUCTION, CHECKLIST UNEXECUTED** (#876) — checklist in `docs/confidence/C1_U5_CONFIDENCE_NAMING.md` §6, **written 2026-08-17 because it was missing**; the unit had been recorded `CLOSED-PENDING-PROD` without one, which §0.2 does not permit |
+| `C1-U8` | [#878](https://github.com/jasonleetucker-code/riskittogetthebrisket/pull/878) (stacked on #876) | `ac731c6` | **GREEN** — run 31997754113 SUCCESS on the exact head (05:39:52Z). Earlier head `ab9d31a` was also hard-gate/livedata/contract green (run 31994961129). A post-delivery checklist audit then found **nine defects**, two of them false claims of correctness (a dead-code as-of clock and its vacuous test) — repaired on the same branch rather than duplicated. Board inertness now **measured 0/1111**, not asserted. 106 acquisition tests | `C3-REPLAY-01` (needs `C1-ACQ-02`), `C4-MTL-01`, `C4-WAIV-01`, `C4-INS-01` | **IN PRODUCTION, CHECKLIST UNEXECUTED** (#878) — checklist in `docs/acquisition/C1_U8_ACQUISITION_LEDGER.md` §8 |
+| `C1-U9` | (stacked on #878) | see PR | local: 7,782 backend / 2,051 frontend, 0 failures; 23 source tests; board measured inert 0/1111; ruff, coercion, planning and structural-contract gates clean | `C5-ROS-01` (deps `C1-SRC-01`) | **IN PRODUCTION, CHECKLIST UNEXECUTED** (#879) — checklist in `docs/sources/C1_U9_MULTI_FORMAT_SOURCE_ARCHIVE.md` §7 |
+| `C2-U1` | [#880](https://github.com/jasonleetucker-code/riskittogetthebrisket/pull/880) (stacked on #879) | `066d2517` | **GREEN** — run 32022945892 SUCCESS on the exact head, all 24 steps. **Reported green once prematurely.** An adversarial review then found a CRITICAL defect in the unit's own premise: `/api/data` splices a live Sleeper overlay that rebuilds `sleeper.teams` wholesale, discarding the lineup stamp on the NORMAL path — so the feature worked only while Sleeper was DOWN. Four further real findings followed (a slot-legality name collision, a FALSE RED claim in my own test header, a latent FAAB divide-by-eligibility bug that was a 6th even-split derivation, and two structural guards weaker than claimed). All fixed and regression-pinned; the guards are proven to fire. Board inert **0/1111 values, 0 ranks**, confidence inert **0/1111 rows**, re-measured after every round. The canonical solver was verified against **Sleeper's own awarded lineups, 10/10** before being trusted | `C2-U2` · `C2-U3` · `C2-U4` · `C2-U6` · `C2-U9` · `C5-PLAY-01` — the root of the C2 phase | **IN PRODUCTION, CHECKLIST UNEXECUTED** (#880) — checklist in `docs/lineup/C2_U1_CANONICAL_LINEUP.md` §10, whose step 3a exists because of the critical defect above |
 | `C1-U6-D1` | [#883](https://github.com/jasonleetucker-code/riskittogetthebrisket/pull/883) | `4e71b8105` | **GREEN** — run 32060480767 SUCCESS on the exact head; local full hard gate 7,924 passed / 0 failed | **UNBLOCKED THE DEPLOY** — and therefore the production proof of all five merged units | **DEPLOYED** — merged `a4007aec4`, Deploy Production run 32062696830 SUCCESS at 20:22Z, first since 00:35Z. Repaired scraper ran end-to-end in production twice (20:10-20:14, 20:21-20:25), both clean. Record: `docs/picks/C1_U6_D1_FABRICATED_FUTURE_YEAR_ANCHORS.md` §8 |
 
-**Current unit: `C1-U6-D1` (the deploy-blocking repair).**
+| `C1-U6-D1` verification | [#884](https://github.com/jasonleetucker-code/riskittogetthebrisket/pull/884) | `3b829b1eb` | **GREEN** on the exact head | closes the repair's own loop | **DEPLOYED** — merged `5a5f1507f`, Deploy Production run 32075149186 SUCCESS. Verified the committed board **0 of 18** tier-round cells violating, and retired the temporary fixture shim on its own declared condition (it dropped 0 rows on `a58e9d923`) |
 
-**Every queue row above is `MERGED — PENDING PROD PROOF`.** All six PRs (#875 C0-R, #876
-C1-U5, #877 C1-U6-D1 record, #878 C1-U8, #879 C1-U9, #880 C2-U1) are on `main` @ `4fc7ab22`
-and merge integrity was verified against main's history rather than trusted from GitHub's
-merged flag. **None is production-verified**, and none could be — see the freeze below.
+**Current work: the §0 audit and stability gate. No unit is in flight.**
+
+**The deploy is unblocked and every merged unit's CODE is in production.** All six PRs (#875
+C0-R, #876 C1-U5, #877 C1-U6-D1 record, #878 C1-U8, #879 C1-U9, #880 C2-U1) plus the two
+repairs (#883, #884) are ancestors of the deployed `5a5f1507f`, and merge integrity was
+verified against main's history rather than trusted from GitHub's merged flag.
+
+**That is not production proof, and the distinction is the whole of §0.2.** What changed at
+20:22Z is that the *precondition* was met: the code these checklists describe is now the code
+production is running. **Not one of the five named checklists has been executed.** Their
+remaining blocker is no longer the deploy — it is that each requires an authenticated
+production session, which the owner is supplying under the audit (§0). Until a checklist is
+run against the deployed SHA and its result recorded, every row above stays in this queue.
+
+**Do not read "IN PRODUCTION" as "verified".** It means the bits shipped. Whether they behave
+is the question the audit exists to answer.
 
 **THE PRODUCTION FREEZE — FOUND AND CLEARED 2026-08-17.** Resolved at 20:22Z by #883; the account below is the diagnosis that led there, kept because the mechanism matters.
 
