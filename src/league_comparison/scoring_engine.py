@@ -15,8 +15,9 @@ from __future__ import annotations
 import logging
 from collections import defaultdict
 from dataclasses import dataclass
-from typing import Any, Iterable
+from typing import Any, Callable, Iterable
 
+from src.nfl_data import pbp_weekly as _pbp_weekly
 from src.nfl_data import realized_points as _rp
 from src.utils.name_clean import POSITION_ALIASES
 
@@ -140,6 +141,7 @@ def compute_player_season_scores(
     scoring_settings: dict[str, Any],
     *,
     season: int | None = None,
+    pbp_for_season: Callable[[int], Any] | None = None,
 ) -> list[PlayerSeasonScore]:
     """Aggregate weekly rows to season totals under one league's scoring.
 
@@ -148,6 +150,15 @@ def compute_player_season_scores(
     ``LeagueScoringInfo.scoring_settings``.
 
     ``season`` is informational; if None we infer it from the rows.
+
+    ``pbp_for_season`` resolves the play-by-play supplement — see
+    :class:`src.nfl_data.pbp_weekly.SeasonPbpIndex`.  It is what makes the
+    six reception bands and the player special-teams rules count here;
+    without it they score nothing, and this function's whole purpose is
+    comparing two cards, so a rule that is silently missing from BOTH
+    sides still moves the comparison whenever the two price it
+    differently.  Host-native rows never take a supplement (the host
+    publishes these keys itself) and are skipped.
     """
     if not scoring_settings:
         return []
@@ -189,11 +200,14 @@ def compute_player_season_scores(
         # in the scoring card's own vocabulary and are scored as-is, so no
         # rule is lost to a rename that has no target.  Absent stamp →
         # nflverse, which is every pre-existing producer.
+        row_source = str(row.get("source") or "nflverse")
+        if pbp_for_season is not None and row_source == "nflverse":
+            row = _pbp_weekly.attach_supplement(row, pbp_for_season(row_season))
         rp = _rp.compute_weekly_points(
             row,
             scoring_settings,
             position=canonical,
-            source=str(row.get("source") or "nflverse"),
+            source=row_source,
         )
         if rp is None:
             continue

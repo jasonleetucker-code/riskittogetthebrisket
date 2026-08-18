@@ -30,6 +30,7 @@ from typing import Any, Callable, Mapping
 
 from src.bdvm.baseline import normalize_weekly_row
 from src.bdvm.context import TRUE_POSITION_MAP
+from src.nfl_data.pbp_weekly import attach_supplement
 from src.nfl_data.realized_points import compute_weekly_points
 
 
@@ -79,6 +80,7 @@ def weekly_points_from_rows(
     *,
     season: int,
     name_normalizer: Callable[[str], str],
+    pbp_stats: Any | None = None,
 ) -> tuple[int | None, dict[str, list[tuple[int, float]]]]:
     """(current_week, player_key → [(week, points), ...]) from raw rows.
 
@@ -94,6 +96,13 @@ def weekly_points_from_rows(
     over two different players is a chimera biased high by
     construction, and moving a player's µ on production that isn't his
     is worse than leaving him on the preseason prior.
+
+    ``pbp_stats`` is this season's
+    :class:`src.nfl_data.pbp_weekly.PbpWeeklyStats`, supplying the ten
+    rules the weekly feed does not publish.  ``None`` leaves them
+    unavailable rather than zero — the per-week result says so in
+    ``unscored`` — which matters most here, because the in-season blend
+    moves a player's posterior toward whatever these weeks measured.
     """
     samples: dict[str, dict[int, float]] = {}
     ids_by_key: dict[str, set[str]] = {}
@@ -112,6 +121,8 @@ def weekly_points_from_rows(
         listing = str(raw.get("position") or "").upper()
         position = TRUE_POSITION_MAP.get(listing, listing)
         row = normalize_weekly_row(raw)
+        if pbp_stats is not None:
+            row = attach_supplement(row, pbp_stats)
         rp = compute_weekly_points(row, dict(scoring_settings), position=position)
         if rp is None:
             continue

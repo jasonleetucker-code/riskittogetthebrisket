@@ -225,7 +225,7 @@ gate, not a permanent second scoring system**.
 | requirement | status |
 |---|---|
 | redistribution attributed per category, not accidental | **done** — §3c, 0.000000 unexplained |
-| every configured category covered incl. individual ST | **OPEN** — card GAP count is 0, but 10 configured rules remain UNSCORABLE on the champion path and 6 of them are derivable today (§4a) |
+| every configured category covered incl. individual ST | **done (2026-08-18)** — all ten remaining rules are derived by `src/nfl_data/pbp_weekly.py` and joined; the live card audits 54 scored / 0 unscorable / 0 gap with the supplement, reconciling to the host at delta 0.00 (§4a). Coverage is met; production verification of the resulting historical movement is not, and is tracked below. |
 | historical player-weeks reconcile to independent totals | **done** — §3d, 16/16 vs host-awarded |
 | offense and IDP stacking semantics correct | **done** — §3d IDP archetypes; §3e(1) |
 | no future-week / future-stat leakage | **done** — REG-only, week 18 excluded, no future week selectable (§5) |
@@ -236,6 +236,7 @@ gate, not a permanent second scoring system**.
 | BDVM rerun against challenger output | **OPEN** — needs a prod box with snapshots |
 | league-comparison rerun and measured | **OPEN** — needs live Sleeper fetch |
 | historical backtests rerun | **OPEN** — needs the above |
+| play-by-play artifact built and joined in production | **OPEN** — `scripts/build_pbp_weekly.py` must run on prod, and the resulting movement in BDVM baselines and league comparison must be measured, not assumed (§4a) |
 
 The remaining OPEN items mostly require production data this environment does not have
 (gitignored `data/`, live Sleeper API). They are the promotion PR's work, and
@@ -249,42 +250,172 @@ point.
 
 ---
 
-## 4a. Inventory: configured rules still UNSCORABLE
+## 4a. Inventory: the ten configured rules — CLOSED 2026-08-18
 
-"Exact league scoring" is **not yet earned**, and this table is why. Ten rules
-`dynasty_main` actively pays are still unscored on the champion path.
+Ten rules `dynasty_main` actively pays had no column on the nflverse **weekly**
+feed and scored at nothing. All ten are now derived, from play-by-play, by
+`src/nfl_data/pbp_weekly.py`, and joined into realized points through
+`realized_points.PBP_SUPPLEMENT_ROW_KEY`.
 
-| rule(s) | rate | verdict |
+**Measured against the league host's own week-14 2025 dump**, player entries
+only, at `dynasty_main`'s live rates:
+
+| rule | rate | events (wk14) | points |
+|---|---|---|---|
+| `st_tkl_solo` | 1.33 | 102 | 135.66 |
+| `rec_10_19` | 0.67 | 160 | 107.20 |
+| `rec_5_9` | 0.42 | 176 | 73.92 |
+| `rec_20_29` | 0.92 | 49 | 45.08 |
+| `rec_30_39` | 1.17 | 22 | 25.74 |
+| `rec_40p` | 1.92 | 10 | 19.20 |
+| `rec_0_4` | 0.17 | 106 | 18.02 |
+| `st_ff` | 4.25 | 3 | 12.75 |
+| `pass_int_td` | −2 | 1 | −2.00 |
+| `st_fum_rec` | 3.19 | 0 | 0.00 |
+| **total** | | | **435.57** — ≈ **7,405/season** |
+
+The producer reproduces that total **exactly** (delta +0.00), which is the
+point: it is not an approximation of the host's numbers, it is the same
+numbers derived independently.
+
+### The predicates, and what each was measured against
+
+Every one was reconciled against Sleeper's own `/v1/stats/nfl/regular/2025/{week}`
+dumps for REG weeks **1, 3, 5, 8, 11, 14 and 17** before it was written down.
+
+| key | predicate | agreement |
 |---|---|---|
-| `rec_0_4` … `rec_40p` (6) | 0.17 → 1.92 | **derivable today, in-tree** |
-| `st_tkl_solo` | 1.33 | derivable from PBP; published by the host |
-| `st_ff` | 4.25 | derivable from PBP; published by the host |
-| `st_fum_rec` | 3.19 | derivable from PBP; published by the host |
-| `pass_int_td` | −2 | derivable from PBP; published by the host |
+| `rec_0_4` … `rec_40p` | `complete_pass`, credited to `receiver_player_id`, banded on `receiving_yards` (else `yards_gained`) | **exact, 7/7 weeks**, on player count and reception count, all six bands — 42 of 42 cells |
+| `st_tkl_solo` | `special_teams_play` + `solo_tackle_1/2_player_id` + `tackle_with_assist_1/2_player_id` | 758 of 759; **exact in 6 of 7 weeks** |
+| `st_ff` | `special_teams_play` + `forced_fumble_player_1/2_player_id` | **exact, 7/7** (10 of 10) |
+| `st_fum_rec` | `special_teams_play` + `fumble_recovery_N_player_id` **where the recovering team is not the fumbling team** | **exact, 7/7** (8 of 8) |
+| `pass_int_td` | `interception` + `return_touchdown` **and the TD scored by a team other than the offense**, charged to `passer_player_id` | **exact, 7/7** (12 of 12) |
 
-**The six reception bands are the sharp case.**
-`src/nfl_data/reception_depth.py` already streams nflverse play-by-play and
-emits **these exact six key names** (`BAND_KEYS`, boundaries 0/5/10/20/30/40).
-Its own docstring explains why it exists: the weekly `receiving_10/16/20/40`
-columns are cumulative, misaligned with Sleeper's bands, and "nothing in that
-set can reconstruct 0-4 — the 0.33x band, the single most mispriced one. So
-the source has to be play-by-play."
+Three of those constraints are load-bearing and none was obvious:
 
-So calling these unscorable-for-lack-of-data was **false**: the producer is in
-the tree, using the right names, from a source this repo already streams. They
-are 66% of the measured weekly gap (289 of 435.57 points). What is missing is
-the **join** into weekly realized points — the histogram currently aggregates
-per season, and `_iter_receptions` already yields `week`, so a per-week variant
-plus a join is the work. That is a **separate authorized unit**: it moves
-historical numbers and needs the same promotion evidence as the challenger.
+* **A negative-yardage catch is a reception in NO band.** `reception_depth`'s
+  docstring had called this "an interpretation of an undocumented boundary
+  rather than a measurement" and put those catches in `rec_0_4`. It is now
+  measured, and the interpretation was wrong: week 14 has 537 completed passes,
+  the host reports `rec` 537.0 and bands totalling **523**, and the difference
+  is exactly that week's 14 negative receptions. Aaron Rodgers carries
+  `rec: 1`, `rec_yd: −9` and no `rec_0_4` key at all. Shipping the old reading
+  would have paid a band the host does not pay — to two quarterbacks among
+  others. `band_for_yards` now returns `None` for a loss.
+* **`st_fum_rec` needs the opponent constraint.** Counting every special-teams
+  recovery scores 20 events against the host's 8: falling on your own muff is
+  not a takeaway.
+* **`pass_int_td` needs the scoring-team constraint.** 2025 week 5: Cam Ward's
+  interception was fumbled back on the return and Tennessee recovered it in the
+  end zone. `return_touchdown` is 1 and it is not a pick-six. Without the
+  clause a quarterback is charged −2 points he did not concede.
 
-`UNSCORABLE_REASONS` has been restated so no reason contradicts the tree, and
-`DERIVABLE_FROM_PLAY_BY_PLAY` records the verdicts. The previous wording —
-"no configured source publishes it per player-week" — was wrong about
-play-by-play, which *is* a configured source
-(`nflverse_direct._URL_TEMPLATES["pbp"]`).
+The one residual — a single week-3 special-teams tackle — is a per-play
+charting difference between nflverse and the gamebook Sleeper reads, not a rule
+difference. Scoping special teams by `play_type` instead of the flag was
+measured as an alternative: it nets to 759 of 759 but is wrong in **both**
+directions (+1 week 1, −1 week 3), so the flag is what ships.
 
-**The long-play bonuses are not currently-configured rules.** `rush_40p`,
+### Missing is never zero — the three states
+
+`compute_weekly_points` distinguishes them, and that is what makes this
+honest rather than merely better:
+
+| state | meaning | result |
+|---|---|---|
+| supplement key **absent** | play-by-play was not consulted | rules reported in `RealizedPoints.unscored`; `fantasyPointsComplete: false` |
+| supplement present, `{}` | consulted; this player recorded none | real zeroes, no `unscored` |
+| supplement present with counts | consulted; these are the counts | scored |
+
+`compute_cumulative_points` takes the **union** across weeks, so one
+unavailable week makes a season total a declared lower bound rather than a
+complete-looking number. A rule the card rates at zero is never reported: it
+cannot cost anything.
+
+Three structural guards, each with its own test:
+
+* the supplement is an **allow-list** of the ten keys — it cannot write `rec`,
+  `pass_yd`, or `kr_yd`/`pr_yd`/`st_td` (which are on the weekly feed and are
+  scored from it, so a second owner would eventually disagree with the first);
+* a **host-native row refuses a supplement outright** — Sleeper publishes all
+  ten itself, and silently resolving the combination would pay several twice;
+* `attach_supplement` **copies** the row, because callers iterate rows they do
+  not own.
+
+### Coverage is now a property of the engine AND its inputs
+
+`scoring_coverage`'s probe takes `pbp_supplement: bool = False`. On the live
+`dynasty_main` card:
+
+    pbp_supplement=False → 44 scored, 10 unscorable, 0 gap
+    pbp_supplement=True  → 54 scored,  0 unscorable, 0 gap
+
+It defaults to **False**, the bare nflverse path, deliberately: answering as
+though an input were present when the caller does not supply it is the same
+overstatement this module exists to remove. `pbp_supplement_recoverable()`
+names what a given pipeline is still missing, and the remedy is a join rather
+than a new source.
+
+### Downstream effect of the negative-reception correction — measured
+
+`band_for_yards` is the single owner of what a band is, so correcting it also
+moves `league_intel/reception_fit.py` (and through it the /gameplan panel and
+`consensus_edge/scoring_fit.py`), which measures each receiver's per-catch
+value ratio from the same histograms. Measured over the full 2025 REG
+play-by-play, `dynasty_main` vs the baseline card, receivers with ≥ 20 catches
+(`MIN_RECEPTIONS`):
+
+| | |
+|---|---|
+| players in scope | 199 |
+| players whose shape changed | 114 |
+| per-catch ratio delta | mean **+0.0138**, median **+0.0092** |
+| largest single move | **+0.0885** (a receiver with 6 lost-yardage catches) |
+
+The direction is uniformly positive and is the correction working: the old
+reading padded the cheapest band (0.33×) with catches the host does not band
+there, which understated every affected receiver's fit. The moves sit far
+inside `MAX_TILT` (0.35) and the level/tilt split is unchanged.
+
+`RECEPTION_DEPTH_SCHEMA_VERSION` moves to `2026-08-18.v2`, and the persisted
+histogram gains `unbandedReceptions` per player plus `unbandedReceptionCount`
+per season — so `receptions` minus the band total is a stated quantity rather
+than an unexplained shortfall, exactly as it is on the host's own line.
+
+### Wiring, and how to build the artifact
+
+`scripts/build_pbp_weekly.py --seasons 2021 2022 2023 2024 2025` writes
+`data/nfl_data/actuals/pbp_weekly_<season>.jsonl` (gitignored like the rest of
+`data/`; build it on prod, same posture as the BDVM snapshots). Three
+production consumers thread a resolver:
+
+| consumer | parameter |
+|---|---|
+| `bdvm/baseline.realized_ppg_history` (+ `build_baseline_records`, `fetch_and_build_baseline`) | `pbp_for_season` |
+| `bdvm/actuals.weekly_points_from_rows` | `pbp_stats` |
+| `league_comparison/scoring_engine.compute_player_season_scores` | `pbp_for_season` |
+
+`scripts/bdvm_build_baseline.py` builds a `SeasonPbpIndex` by default and
+prints which seasons have no artifact; `--no-pbp-supplement` reproduces a
+pre-2026-08-18 build. A season the producer never built resolves to `None` and
+its ten rules stay **unavailable** — deliberately *not* skipped the way an
+unresolvable scoring card is, because a partial line is still a real lower
+bound while an unknown rule set makes the whole line meaningless.
+
+### What this does and does not entitle us to say
+
+Every configured nonzero rule on `dynasty_main` is now scorable, and with the
+artifact built and joined, scored. That closes the last of the promotion gate's
+coverage precondition.
+
+It does **not** by itself make "exact league scoring" a verified claim. These
+numbers move historical realized points wherever the join is switched on, and
+the change is unmerged and undeployed — production verification is still
+required, and `docs/EXECUTION_PLAN.md` remains authoritative for status. The
+`host_native_scoring` challenger stays **default OFF**; §4's gate is unchanged
+by this work except that the coverage row is now met.
+
+**The long-play bonuses are still not currently-configured rules.** `rush_40p`,
 `pass_td_40p/50p`, `rec_td_40p/50p`, `rush_td_40p/50p`, `pass_cmp_40p` and
 `idp_pass_def_3p` are **zero-rated on both live cards** — verified, not
 asserted, by `test_the_long_play_bonuses_are_zero_rated_on_the_live_cards`,
@@ -292,11 +423,6 @@ which fails if a commissioner turns one on. All are deterministic from PBP
 (`yards_gained`, `complete_pass`, `touchdown`, `pass_touchdown`,
 `rush_touchdown`, plus the passer/rusher/receiver id columns), so if one is
 ever enabled it must be built rather than declared unavailable.
-
-**Until these are scored, or the V1 contract explicitly classifies them as an
-unavoidable external limitation, this system must not be described as "exact
-league scoring".** For the six bands that classification is not available: the
-data is here.
 
 ## 5. Time semantics and leakage — two separate claims
 
@@ -395,5 +521,16 @@ after. Full suite runtime is unchanged.
 * `tests/league_comparison/test_sleeper_stats.py` — team-entry drop, flag-off
   translation preserved, flag-on host vocabulary, and an end-to-end measurement
   of what the flag changes
+* `tests/nfl_data/test_pbp_weekly.py` — all ten derived keys reconciled against
+  the host's own week-14 line, the negative-reception boundary settled by
+  measurement, the two constraints that are the rule (`st_fum_rec` opponent,
+  `pass_int_td` scoring team), a renamed column raising instead of reading as
+  no plays, and the uncovered-vs-zero distinction
+* `tests/nfl_data/test_pbp_supplement_join.py` — the three states of the seam,
+  the allow-list, the host-native double-count refusal, union-across-weeks
+  aggregation, and the coverage audit on the real card with and without the join
+* `tests/nfl_data/test_pbp_supplement_consumers.py` — that each production
+  consumer actually threads the resolver, that the default still reports the
+  shortfall, and that host-native rows are never given a supplement
 
 All deterministic, over committed fixtures. No live-board counts in the hard gate.

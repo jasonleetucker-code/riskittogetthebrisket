@@ -63,7 +63,7 @@ Degradation
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Mapping
 
 from src.league_intel.scorer import score_stat_line as _score_stat_line
 from src.scoring.sleeper_ingest import KEY_ALIASES as _SLEEPER_KEY_ALIASES
@@ -389,8 +389,18 @@ class RealizedPoints:
     # Ordered list of (label, stat, points) tuples — UI-friendly.
     breakdown: list[tuple[str, float, float]]
 
+    unscored: tuple[tuple[str, float], ...] = ()
+    """Configured NONZERO rules whose stat was UNAVAILABLE for this row.
+
+    Not "the player recorded none" — that is a real zero and is absent
+    from this list. This is "no source supplied the number", which makes
+    :attr:`fantasy_points` a lower bound rather than the total. Missing
+    is never zero, so the shortfall travels with the number instead of
+    being silently folded into it.
+    """
+
     def to_dict(self) -> dict[str, Any]:
-        return {
+        out: dict[str, Any] = {
             "season": self.season,
             "week": self.week,
             "fantasyPoints": round(self.fantasy_points, 2),
@@ -399,6 +409,10 @@ class RealizedPoints:
                 for (lab, s, p) in self.breakdown
             ],
         }
+        if self.unscored:
+            out["unscored"] = [{"key": k, "rate": round(float(r), 4)} for (k, r) in self.unscored]
+            out["fantasyPointsComplete"] = False
+        return out
 
 
 def _num(val: Any) -> float:
@@ -483,6 +497,16 @@ _SLEEPER_KEY_LABELS: dict[str, str] = {
     **{k: label for (k, _c, label) in _TWO_PT_KEYS},
     "pass_inc": "Incompletions",
     "bonus_rec_te": "TE Rec Bonus",
+    "rec_0_4": "Rec 0-4 yd",
+    "rec_5_9": "Rec 5-9 yd",
+    "rec_10_19": "Rec 10-19 yd",
+    "rec_20_29": "Rec 20-29 yd",
+    "rec_30_39": "Rec 30-39 yd",
+    "rec_40p": "Rec 40+ yd",
+    "st_tkl_solo": "ST Solo Tkl",
+    "st_ff": "ST Forced Fum",
+    "st_fum_rec": "ST Fum Rec",
+    "pass_int_td": "Pick-Six Thrown",
     **{k: "First Downs" for k in _FIRST_DOWN_BONUS_KEYS.values()},
 }
 
@@ -564,6 +588,44 @@ def sleeper_stat_line_from_row(
 
     return line
 
+
+#: Sleeper keys that the nflverse WEEKLY feed cannot supply and
+#: play-by-play can.  Produced by :mod:`src.nfl_data.pbp_weekly`, which
+#: imports this tuple so there is one vocabulary rather than two lists
+#: that drift.
+#:
+#: Kept here rather than in the producer because this module already owns
+#: the Sleeper scoring vocabulary (``_SIMPLE_KEYS``, ``_IDP_KEYS``,
+#: ``_SLEEPER_KEY_LABELS``); the producer owns how to MEASURE them.
+#:
+#: ``kr_yd`` / ``pr_yd`` / ``st_td`` are deliberately absent: they ARE on
+#: the weekly feed and are scored from it (B7 / W18-F003).  Deriving them
+#: here as well would be a second owner for one number.
+PBP_SUPPLEMENT_KEYS: frozenset[str] = frozenset(
+    {
+        "rec_0_4",
+        "rec_5_9",
+        "rec_10_19",
+        "rec_20_29",
+        "rec_30_39",
+        "rec_40p",
+        "st_tkl_solo",
+        "st_ff",
+        "st_fum_rec",
+        "pass_int_td",
+    }
+)
+
+#: Where a caller attaches the play-by-play supplement on the stat row.
+#:
+#: A row seam rather than a function parameter because every producer
+#: already builds these rows and ``compute_cumulative_points`` takes a
+#: LIST of them — a parameter would have to become a per-row lookup at
+#: every call site.  The three states are distinct and all meaningful:
+#: key absent → play-by-play was not consulted (UNKNOWN); key present and
+#: empty → consulted, this player recorded none (a real zero); key present
+#: with counts → consulted, these are the counts.
+PBP_SUPPLEMENT_ROW_KEY = "pbp_derived"
 
 #: Precomputed fantasy TOTALS the league host publishes on the same line
 #: as the raw stats.  These are never stats and must never be scored: a
@@ -682,6 +744,23 @@ def host_stat_line(stat_row: dict[str, Any]) -> dict[str, float]:
     return line
 
 
+def _pbp_supplement_line(supplement: Mapping[str, Any]) -> dict[str, float]:
+    """Filter a play-by-play supplement down to keys it is allowed to set.
+
+    An allow-list, not a merge of whatever arrived. The supplement's whole
+    justification is that these ten keys have no other source on this
+    path; letting it write ``rec`` or ``pass_yd`` would give the weekly
+    feed a second, silent owner. Zeroes are dropped for the same reason
+    the normalizer drops them — the host publishes events that happened.
+    """
+    out: dict[str, float] = {}
+    for key in PBP_SUPPLEMENT_KEYS:
+        value = _num(supplement.get(key))
+        if value:
+            out[key] = value
+    return out
+
+
 def compute_weekly_points(
     stat_row: dict[str, Any] | None,
     scoring_settings: dict[str, Any] | None,
@@ -756,10 +835,30 @@ def compute_weekly_points(
         if alias in scoring and canonical not in scoring:
             scoring[canonical] = scoring[alias]
 
+    unscored: tuple[tuple[str, float], ...] = ()
     if source == "sleeper":
+        if stat_row.get(PBP_SUPPLEMENT_ROW_KEY) is not None:
+            # The host publishes all ten of these itself.  Merging a
+            # derived copy on top would pay several of them twice, so the
+            # combination is refused rather than silently resolved.
+            raise ValueError(
+                f"{PBP_SUPPLEMENT_ROW_KEY!r} must not be attached to a host-native "
+                "row: the Sleeper stat line already carries these keys, and "
+                "merging a play-by-play copy would double-count them."
+            )
         stat_line = host_stat_line(stat_row)
     else:
         stat_line = sleeper_stat_line_from_row(stat_row, position=position)
+        supplement = stat_row.get(PBP_SUPPLEMENT_ROW_KEY)
+        if isinstance(supplement, Mapping):
+            stat_line.update(_pbp_supplement_line(supplement))
+        else:
+            # Play-by-play was not consulted, so every rule that only it
+            # can supply is UNKNOWN for this player-week.  A rule the card
+            # pays nothing for costs nothing, so only nonzero ones count.
+            unscored = tuple(
+                (key, scoring[key]) for key in sorted(PBP_SUPPLEMENT_KEYS) if scoring.get(key)
+            )
     result = _score_stat_line(stat_line, scoring)
 
     # Breakdown keeps its human labels; an unlabelled key falls back to
@@ -776,6 +875,7 @@ def compute_weekly_points(
         week=week,
         fantasy_points=result.total_points,
         breakdown=breakdown,
+        unscored=unscored,
     )
 
 
@@ -811,7 +911,15 @@ def compute_cumulative_points(
             "averagePoints": 0.0,
             "bestWeek": None,
             "worstWeek": None,
+            "unscored": [],
+            "totalPointsComplete": True,
         }
+    # The union, not a sum: one rule unavailable in one week makes the
+    # total a lower bound, and that fact must survive aggregation.
+    unscored_rates: dict[str, float] = {}
+    for rp in weekly:
+        for key, rate in rp.unscored:
+            unscored_rates[key] = rate
     weekly.sort(key=lambda rp: (rp.season, rp.week))
     total = sum(rp.fantasy_points for rp in weekly)
     best = max(weekly, key=lambda rp: rp.fantasy_points)
@@ -823,6 +931,10 @@ def compute_cumulative_points(
         "averagePoints": round(total / len(weekly), 2),
         "bestWeek": best.to_dict(),
         "worstWeek": worst.to_dict(),
+        "unscored": [
+            {"key": k, "rate": round(float(unscored_rates[k]), 4)} for k in sorted(unscored_rates)
+        ],
+        "totalPointsComplete": not unscored_rates,
     }
 
 
