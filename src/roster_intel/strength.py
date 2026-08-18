@@ -68,7 +68,6 @@ from __future__ import annotations
 from dataclasses import dataclass, field, replace
 from typing import Any, Iterable, Mapping, Sequence
 
-from src.league_intel.replacement import normalize_base_position
 from src.roster_intel.core import CoreMember, MeaningfulCore
 
 __all__ = [
@@ -219,26 +218,26 @@ def build_team_strength(
             unpriced_ids=core.unpriced_ids,
         )
 
+    # ``core.by_position()`` is ALREADY keyed by slot family: every
+    # ``CoreMember.position`` went through ``lineup_position``, which
+    # folds DE/DT/EDGE → DL and CB/S/FS/SS → DB.  So DE and DT arrive in
+    # one group rather than two, and there is no re-normalisation or
+    # group merge to do here — a merge step would be unreachable code
+    # defending against a state the core cannot produce.  Pinned by
+    # ``test_core.py::test_core_member_position_is_always_a_family_token``.
     by_position: dict[str, PositionStrength] = {}
-    for raw_pos, members in core.by_position().items():
-        pos = normalize_base_position(raw_pos)
+    for pos, members in core.by_position().items():
         starters = [m for m in members if m.role == "starter"]
         reserves = [m for m in members if m.role == "reserve"]
-        existing = by_position.get(pos)
-        # Two native positions can normalize onto one group (DE + DT →
-        # DL), so groups accumulate rather than overwrite.
-        by_position[pos] = _merge(
-            existing,
-            PositionStrength(
-                position=pos,
-                value=_sum(members),
-                count=len(members),
-                starter_value=_sum(starters),
-                starter_count=len(starters),
-                reserve_value=_sum(reserves),
-                reserve_count=len(reserves),
-                members=tuple(m.player_id for m in members),
-            ),
+        by_position[pos] = PositionStrength(
+            position=pos,
+            value=_sum(members),
+            count=len(members),
+            starter_value=_sum(starters),
+            starter_count=len(starters),
+            reserve_value=_sum(reserves),
+            reserve_count=len(reserves),
+            members=tuple(m.player_id for m in members),
         )
 
     return TeamStrength(
@@ -257,21 +256,6 @@ def build_team_strength(
 
 def _sum(members: Sequence[CoreMember]) -> float:
     return float(sum(m.value for m in members))
-
-
-def _merge(a: PositionStrength | None, b: PositionStrength) -> PositionStrength:
-    if a is None:
-        return b
-    return PositionStrength(
-        position=b.position,
-        value=a.value + b.value,
-        count=a.count + b.count,
-        starter_value=a.starter_value + b.starter_value,
-        starter_count=a.starter_count + b.starter_count,
-        reserve_value=a.reserve_value + b.reserve_value,
-        reserve_count=a.reserve_count + b.reserve_count,
-        members=tuple(sorted(a.members + b.members)),
-    )
 
 
 def rank_team_strengths(

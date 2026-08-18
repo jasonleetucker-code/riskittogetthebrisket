@@ -433,3 +433,25 @@ def test_live_league_dynasty_new_has_no_idp_demand():
     d = reserve_demand(["QB", "RB", "RB", "WR", "WR", "WR", "TE", "FLEX", "FLEX", "SFLEX"])
     assert d.by_slot == {"QB": 1, "RB": 1, "WR": 2, "TE": 1, "FLEX": 1}
     assert not {"DL", "LB", "DB", "IDP_FLEX"} & set(d.by_slot)
+
+
+def test_core_member_position_is_always_a_family_token():
+    """`CoreMember.position` goes through `lineup_position`, so DE/DT/
+    EDGE arrive as DL and CB/S/FS/SS as DB.
+
+    Load-bearing: `strength` and `age_portfolio` group on this field
+    with no re-normalisation and no group-merge step. If a raw position
+    ever reached them, DE and DT would land in two groups that both
+    claim to be the DL room.
+    """
+    pool = [
+        P("E1", "DE", 700),
+        P("T1", "DT", 650),
+        P("X1", "EDGE", 600),
+        P("C1", "CB", 500),
+        P("S1", "FS", 450),
+    ]
+    core = build_meaningful_core(pool, ["DL", "DL", "DL", "DB", "DB"])
+    assert {m.position for m in core.members} == {"DL", "DB"}
+    assert set(core.by_position()) == {"DL", "DB"}
+    assert len(core.by_position()["DL"]) == 3
