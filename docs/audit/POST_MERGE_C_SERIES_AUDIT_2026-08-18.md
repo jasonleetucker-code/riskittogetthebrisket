@@ -1761,6 +1761,36 @@ deployed SHA, the §22 board diff, and the full regression sweep) have not been 
 verdict is withheld until they have.
 
 
+#### F-30 — the "direct evidence wins" guard, verified on a RECOVERED board (2026-08-18)
+
+The board-diff above was measured while `idpTradeCalc` was still truncated. The 19:21Z refresh
+restored it (458 → 994 values), which made the more important test possible: does the completion
+pass stay out of the way once the market comes back?
+
+Provenance census by year on the recovered board:
+
+| year | `direct_market_blend` | derived |
+|---|---|---|
+| 2027 | **12** (4 rounds × 3 tiers) | R5/R6 round-step + 6 generic tier EVs |
+| 2028 | **12** | R5/R6 round-step + 6 generic tier EVs |
+| 2029 | **0** | year-step (R1-R4), round-step (R5/R6), generic tier EV |
+
+**Every row a vendor actually prices is still `direct_market_blend`, and the pass touched none of
+them.** It fires only for 2029 — the year no vendor publishes, which is exactly the population
+C1-U6's `derivedYearModel` exists for. The skip-if-priced guard is not merely present in the code;
+it is measured doing nothing on 24 rows that have real evidence.
+
+Two details worth keeping:
+
+* The year-step factors are **per (tier, round) cells, not one number** — `2028 Early 4th` steps at
+  0.8786 while `2028 Late 4th` steps at 0.7726. That is the measured vendor term structure, and a
+  single global factor would have flattened it.
+* A 2029 round-5 row records **both** derivations in its provenance — `derived_round_step` from
+  `2029 Early 5th` with `yearStepFactor`, `yearStepBasisYear` and `yearStepInheritedFrom` — so a
+  value two derivations from vendor evidence says so on its face rather than presenting as a
+  single-hop derivation. That is the C1-U6 machinery working *through* the completion rather than
+  around it.
+
 #### F-30 — board-diff measurement (2026-08-18)
 
 Required by the owner as one of the four conditions for restoring `V1-12` to `VERIFIED`.
