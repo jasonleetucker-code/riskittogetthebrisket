@@ -351,10 +351,13 @@ class TestFeasibilityObjectiveIsIrrelevant:
         is UNKNOWN and the solver excludes it, but a player the board
         could not price still occupies a body that can legally fill a
         slot."""
-        from src.draft.context import _FEASIBILITY_OBJECTIVE
-        from src.draft.displacement import RosterAsset, _filled_slot_count
+        from src.draft.displacement import (
+            FEASIBILITY_OBJECTIVE,
+            RosterAsset,
+            _filled_slot_count,
+        )
 
-        assert _FEASIBILITY_OBJECTIVE is not None
-        unpriced = RosterAsset("u", "U", "QB", None, ros_value=_FEASIBILITY_OBJECTIVE)
+        assert FEASIBILITY_OBJECTIVE is not None
+        unpriced = RosterAsset("u", "U", "QB", None, ros_value=FEASIBILITY_OBJECTIVE)
         assert _filled_slot_count([unpriced], ["QB"]) == 1
         assert _filled_slot_count([RosterAsset("u", "U", "QB", None, ros_value=None)], ["QB"]) == 0

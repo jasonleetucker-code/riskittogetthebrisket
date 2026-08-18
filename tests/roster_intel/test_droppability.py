@@ -195,20 +195,33 @@ def test_the_adapter_contains_no_cut_cost_arithmetic():
             if body and isinstance(body[0], ast.Expr) and isinstance(body[0].value, ast.Constant):
                 body[0].value.value = ""
     source = ast.unparse(tree)
-    # The owner's ECC formula, its scarcity band, its feasibility solver,
-    # and the roster join it delegates.  Reading a stamp the owner wrote
-    # (``r.value_basis == "assumedWaiver"``) is a read, not arithmetic, and
-    # is deliberately not banned.
-    for banned in ("max(0", "0.85", "1.15", "solve_optimal_assignment", "RosterAsset("):
+    # The owner's ECC formula, its scarcity band, and its feasibility solver.
+    # Reading a stamp the owner wrote (``r.value_basis == "assumedWaiver"``)
+    # is a read, not arithmetic, and is deliberately not banned.
+    for banned in ("max(0", "0.85", "1.15", "solve_optimal_assignment"):
         assert banned not in source, banned
 
-    # And the ladder has exactly one origin: the owner, called once.
+    # The roster JOIN is delegated, and ``playersArray`` is the tell: touching
+    # the board rows directly is how a second definition of who is on a roster
+    # gets written.  (This replaced a ban on ``RosterAsset(`` when
+    # ``pool_cut_ladder`` arrived — that entry point is handed a pool the
+    # caller already built, so constructing the owner's own dataclass from it
+    # is a type conversion, not a join.  The ban was a proxy for the join;
+    # this is the join.)
+    assert "playersArray" not in source
+    assert "build_roster_assets" in source
+
+    # And the ladder has exactly one origin: the owner, called once per
+    # public entry point — ``team_droppability`` (contract-backed) and
+    # ``pool_cut_ladder`` (an arbitrary post-trade roster).  An exact count
+    # rather than "at least one", so adding a third path is a deliberate act
+    # that updates this number, not something that slips through.
     calls = [
         n.func.id
         for n in ast.walk(tree)
         if isinstance(n, ast.Call) and isinstance(n.func, ast.Name)
     ]
-    assert calls.count("build_cut_ladder") == 1
+    assert calls.count("build_cut_ladder") == 2
 
 
 def test_the_cut_ladder_owner_has_exactly_two_callers():

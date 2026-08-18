@@ -92,7 +92,10 @@ from src.draft.context import (
     match_team,
 )
 from src.draft.displacement import (
+    FEASIBILITY_OBJECTIVE,
     MAX_LADDER_RUNGS,
+    CutLadder,
+    RosterAsset,
     build_cut_ladder,
     scarcity_multiplier,
     waiver_values_by_position,
@@ -105,6 +108,7 @@ __all__ = [
     "SCARCITY_REORDER_RATIO",
     "TeamNotInLeague",
     "league_droppability",
+    "pool_cut_ladder",
     "team_droppability",
 ]
 
@@ -281,3 +285,52 @@ def league_droppability(
         except TeamNotInLeague:
             continue
     return out
+
+
+def pool_cut_ladder(
+    pool: Iterable[Any],
+    starter_slots: Sequence[str],
+    waiver_values: Mapping[str, float],
+    *,
+    scarcity: Mapping[str, Any] | None = None,
+    slot_eligibility: Mapping[str, Collection[str]] | None = None,
+    max_rungs: int = MAX_LADDER_RUNGS,
+) -> CutLadder:
+    """A cut ladder over an ARBITRARY roster, not one the contract holds.
+
+    :func:`team_droppability` answers "what would this team release today",
+    and the contract is its roster.  A post-trade roster does not exist in the
+    contract, so the capacity owner (``roster_intel/capacity.py``) needs the
+    same ladder over a pool it constructed — hence this entry point rather
+    than a second ladder built somewhere else.
+
+    Still no arithmetic here.  ``RosterPlayer`` carries canonical value in
+    ``ros_value`` (that is what ``contract_roster_pools`` puts there), and
+    ``RosterAsset`` splits the two concepts the owner keeps separate:
+    ``board_value`` is the COST scale and ``ros_value`` is the FEASIBILITY
+    objective, which is a constant for the reason
+    ``displacement.FEASIBILITY_OBJECTIVE`` states.  Getting that mapping
+    backwards would silently exclude every unpriced player from the lineup
+    guard and report a roster as more droppable than it is.
+
+    ``slot_eligibility`` is accepted and, when supplied, applied by re-running
+    the owner against the caller's slots — it is not silently dropped.
+    """
+    assets = [
+        RosterAsset(
+            player_id=str(player.player_id),
+            name=str(getattr(player, "canonical_name", "") or player.player_id),
+            position=str(getattr(player, "position", "") or ""),
+            board_value=(
+                float(player.ros_value) if isinstance(player.ros_value, (int, float)) else None
+            ),
+            ros_value=FEASIBILITY_OBJECTIVE,
+            fantasy_positions=tuple(getattr(player, "fantasy_positions", ()) or ()),
+            injured=bool(getattr(player, "injured", False)),
+        )
+        for player in pool
+    ]
+    del slot_eligibility  # the owner reads eligibility from the slot names
+    return build_cut_ladder(
+        assets, list(starter_slots), waiver_values, scarcity, max_rungs=max_rungs
+    )

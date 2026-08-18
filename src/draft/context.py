@@ -29,6 +29,7 @@ from collections.abc import Mapping, Sequence
 from typing import Any
 
 from src.draft.displacement import (
+    FEASIBILITY_OBJECTIVE,
     RosterAsset,
     build_cut_ladder,
     count_free_agents,
@@ -56,15 +57,6 @@ __all__ = [
 #: v3 (2026-08-04) adds ``rosterByPosition`` / ``startersByPosition`` so the
 #: client can say whether a plan leaves a starting slot unfilled.
 CONTEXT_VERSION = "2026-08-04.v3"
-
-
-#: The assignment objective handed to the lineup solver for feasibility
-#: questions.  Any constant works — see ``build_roster_assets`` for why the
-#: answer does not depend on its value — and ``0.0`` is chosen because it is a
-#: real number rather than an UNKNOWN: ``None`` would remove the player from
-#: the solve entirely, and an unpriced player still occupies a body that can
-#: legally fill a slot.
-_FEASIBILITY_OBJECTIVE = 0.0
 
 
 def _norm(s: Any) -> str:
@@ -284,29 +276,15 @@ def build_roster_assets(
                 name=str(row.get("displayName") or row.get("canonicalName") or name),
                 position=str(row.get("position") or "").strip().upper(),
                 board_value=float(value) if isinstance(value, (int, float)) and value > 0 else None,
-                # Feasibility only, and deliberately a CONSTANT.
-                #
-                # This used to read ``float(row.get("rosValue") or 0.0)``,
-                # which is a missing-as-zero coercion over a field the
-                # contract does not carry at all — measured 0 of 983 rows on
-                # the live board, so it evaluated to 0.0 every time and the
-                # coercion was the only thing standing between the model and
-                # a KeyError-shaped hole.
-                #
-                # The constant is the honest form because the only thing the
-                # cut ladder asks the solver is *how many* starting slots the
-                # surviving roster can fill, and that count is independent of
-                # the objective: ``solve_optimal_assignment`` is a matroid
-                # greedy with augmenting paths, which never evicts an
-                # assigned player, so it returns a MAXIMUM-CARDINALITY
-                # matching whatever the weights are.  Weights decide WHO
-                # starts; they cannot decide HOW MANY.  Pinned by
-                # ``tests/draft/test_roster_context.py``.
-                #
-                # Cost arithmetic uses ``board_value`` (``rankDerivedValue``)
-                # and never this field — the two are different quantities on
-                # different scales and the module docstring says so.
-                ros_value=_FEASIBILITY_OBJECTIVE,
+                # Feasibility only, and deliberately a CONSTANT owned by
+                # the displacement module.  This used to read
+                # ``float(row.get("rosValue") or 0.0)`` — a missing-as-zero
+                # over a field the contract does not carry at all (0 of 983
+                # rows on the live board), so it was always 0.0 and the
+                # coercion was the only thing between the model and a hole.
+                # See FEASIBILITY_OBJECTIVE for why any constant is correct;
+                # pinned by ``tests/draft/test_roster_context.py``.
+                ros_value=FEASIBILITY_OBJECTIVE,
                 fantasy_positions=tuple(fantasy) if isinstance(fantasy, (list, tuple)) else (),
                 injured=bool(row.get("injured")),
             )
