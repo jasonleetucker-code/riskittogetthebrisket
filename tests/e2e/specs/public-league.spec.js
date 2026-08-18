@@ -62,7 +62,11 @@ const TABS = [
  * docs/e2e-assertion-audit.md rather than papered over by broadening a
  * listener whose meaning would then be ambiguous.
  */
-async function visitLeague(page, path = "/league", { waitForText = null } = {}) {
+async function visitLeague(
+  page,
+  path = "/league",
+  { waitForText = null } = {},
+) {
   const privateHits = [];
   page.on("request", (req) => {
     const url = req.url();
@@ -90,7 +94,9 @@ async function visitLeague(page, path = "/league", { waitForText = null } = {}) 
 }
 
 test.describe("public /league page", () => {
-  test("renders league page, switches tabs, and never touches private endpoints", async ({ page }) => {
+  test("renders league page, switches tabs, and never touches private endpoints", async ({
+    page,
+  }) => {
     // Walking 12 tabs and waiting for each to actually render its own
     // content does not fit the default 90s budget — the old version fit
     // only because it slept 150ms and asserted nothing about rendering.
@@ -160,7 +166,9 @@ test.describe("public /league page", () => {
         await mobileSelect.selectOption({ label });
         continue;
       }
-      const btn = page.getByRole("button", { name: label, exact: true }).first();
+      const btn = page
+        .getByRole("button", { name: label, exact: true })
+        .first();
       if ((await btn.count()) === 0) {
         missingTabs.push(label);
         continue;
@@ -176,14 +184,22 @@ test.describe("public /league page", () => {
     // The walk must leave the page functional, not crashed.
     await expect(page.getByRole("heading", { level: 1 }).first()).toBeVisible();
 
-    expect(privateHits, `private endpoints were touched: ${privateHits.join(", ")}`).toHaveLength(0);
+    expect(
+      privateHits,
+      `private endpoints were touched: ${privateHits.join(", ")}`,
+    ).toHaveLength(0);
   });
 
-  test("deep links via ?tab= query param land on the right tab", async ({ page }) => {
+  test("deep links via ?tab= query param land on the right tab", async ({
+    page,
+  }) => {
     await visitLeague(page, "/league?tab=awards", { waitForText: "award" });
   });
 
-  test("franchise deep link via ?owner= opens the selected franchise", async ({ page, request }) => {
+  test("franchise deep link via ?owner= opens the selected franchise", async ({
+    page,
+    request,
+  }) => {
     const res = await request.get("/api/public/league");
     const body = await res.json();
     const ownerId = body?.league?.managers?.[0]?.ownerId;
@@ -196,25 +212,35 @@ test.describe("public /league page", () => {
     );
   });
 
-  test("dedicated /league/franchise/[owner] route renders", async ({ page, request }) => {
+  test("dedicated /league/franchise/[owner] route renders", async ({
+    page,
+    request,
+  }) => {
     const res = await request.get("/api/public/league");
     const body = await res.json();
     const ownerId = body?.league?.managers?.[0]?.ownerId;
     expect(ownerId).toBeTruthy();
 
-    await page.goto(pageUrl(`/league/franchise/${encodeURIComponent(ownerId)}`), {
-      waitUntil: "domcontentloaded",
-    });
+    await page.goto(
+      pageUrl(`/league/franchise/${encodeURIComponent(ownerId)}`),
+      {
+        waitUntil: "domcontentloaded",
+      },
+    );
     await page.waitForFunction(
-      () => document.body.innerText.includes("Cumulative")
-        && document.body.innerText.includes("Season results"),
+      () =>
+        document.body.innerText.includes("Cumulative") &&
+        document.body.innerText.includes("Season results"),
       null,
       { timeout: 45_000 },
     );
     await expect(page.getByText("← League home").first()).toBeVisible();
   });
 
-  test("dedicated /league/rivalry/[pair] route renders when pair exists", async ({ page, request }) => {
+  test("dedicated /league/rivalry/[pair] route renders when pair exists", async ({
+    page,
+    request,
+  }) => {
     const res = await request.get("/api/public/league/rivalries");
     const body = await res.json();
     const rivalries = body?.data?.rivalries || [];
@@ -229,17 +255,22 @@ test.describe("public /league page", () => {
     ).toBeGreaterThan(0);
     const [a, b] = rivalries[0].ownerIds;
     const slug = `${encodeURIComponent(a)}-vs-${encodeURIComponent(b)}`;
-    await page.goto(pageUrl(`/league/rivalry/${slug}`), { waitUntil: "domcontentloaded" });
+    await page.goto(pageUrl(`/league/rivalry/${slug}`), {
+      waitUntil: "domcontentloaded",
+    });
     await page.waitForFunction(
-      () => document.body.innerText.includes("Head-to-head")
-        && document.body.innerText.includes("Memorable meetings"),
+      () =>
+        document.body.innerText.includes("Head-to-head") &&
+        document.body.innerText.includes("Memorable meetings"),
       null,
       { timeout: 45_000 },
     );
   });
 
   test("archives filter narrows the result set", async ({ page }) => {
-    await visitLeague(page, "/league?tab=archives", { waitForText: "Public archives" });
+    await visitLeague(page, "/league?tab=archives", {
+      waitForText: "Public archives",
+    });
 
     // The test's NAME promised narrowing; the body only counted rows
     // once and asserted `> 0`, so it passed with a filter that did
@@ -260,8 +291,12 @@ test.describe("public /league page", () => {
     // stale count and the later comparison was against the wrong
     // number. That is how this test reported 190 (the unfiltered
     // trades total) while claiming to measure matchups.
-    const matchupsBtn = page.getByRole("button", { name: /^Matchups \(\d+\)$/ });
-    const declared = Number((await matchupsBtn.innerText()).match(/\((\d+)\)/)[1]);
+    const matchupsBtn = page.getByRole("button", {
+      name: /^Matchups \(\d+\)$/,
+    });
+    const declared = Number(
+      (await matchupsBtn.innerText()).match(/\((\d+)\)/)[1],
+    );
 
     // Click INSIDE the poll, because the first one can land before
     // React has attached its handlers and is then simply lost.
@@ -305,7 +340,10 @@ test.describe("public /league page", () => {
 
     // Season filter is the narrowing control.  Pick the first specific
     // season offered and require a strictly smaller set than "all".
-    const seasonSelect = page.locator("select").filter({ hasText: /\d{4}/ }).first();
+    const seasonSelect = page
+      .locator("select")
+      .filter({ hasText: /\d{4}/ })
+      .first();
     const hasSeasonFilter = await seasonSelect.count();
     if (hasSeasonFilter) {
       const options = await seasonSelect.locator("option").allInnerTexts();
@@ -349,7 +387,10 @@ test.describe("public /league page", () => {
       // No season control in this build — then the section-type
       // buttons are the only filter, so prove THOSE narrow: a
       // different archive type must yield a different row count.
-      await page.getByRole("button", { name: /Trades/i }).first().click();
+      await page
+        .getByRole("button", { name: /Trades/i })
+        .first()
+        .click();
       await expect
         .poll(() => rows.count(), {
           message: "switching archive type should change the row set",
@@ -359,7 +400,9 @@ test.describe("public /league page", () => {
     }
   });
 
-  test("public contract payload never includes private field names", async ({ request }) => {
+  test("public contract payload never includes private field names", async ({
+    request,
+  }) => {
     const res = await request.get("/api/public/league");
     expect(res.status()).toBe(200);
     const body = await res.text();
@@ -374,11 +417,16 @@ test.describe("public /league page", () => {
       '"rankderivedvalue":',
       '"arbitragescore":',
     ]) {
-      expect(lower, `banned field ${banned} leaked into public contract`).not.toContain(banned);
+      expect(
+        lower,
+        `banned field ${banned} leaked into public contract`,
+      ).not.toContain(banned);
     }
   });
 
-  test("/league page has an OG title (server-rendered metadata)", async ({ request }) => {
+  test("/league page has an OG title (server-rendered metadata)", async ({
+    request,
+  }) => {
     const res = await request.get(pageUrl("/league"));
     expect(res.status()).toBe(200);
     const html = await res.text();
@@ -386,7 +434,9 @@ test.describe("public /league page", () => {
     expect(html).toMatch(/<meta property="og:description"/i);
   });
 
-  test("/league?tab=overview SSRs with overview content (no loading flash)", async ({ request }) => {
+  test("/league?tab=overview SSRs with overview content (no loading flash)", async ({
+    request,
+  }) => {
     // Server-rendered /league?tab=overview hits the overview content
     // directly — HTML should contain the overview headlines, not the
     // fallback "Loading" text.
@@ -395,15 +445,22 @@ test.describe("public /league page", () => {
     expect(html).toMatch(/At a glance|Defending champion|Featured rivalry/);
   });
 
-  test("/draft-capital redirects into the folded /league tab", async ({ request }) => {
-    const res = await request.get(pageUrl("/draft-capital"), { maxRedirects: 0 });
+  test("/draft-capital redirects into the folded /league tab", async ({
+    request,
+  }) => {
+    const res = await request.get(pageUrl("/draft-capital"), {
+      maxRedirects: 0,
+    });
     expect(res.status()).toBeGreaterThanOrEqual(300);
     expect(res.status()).toBeLessThan(400);
     const location = res.headers().location || "";
     expect(location).toMatch(/\/league\?tab=draft-capital/);
   });
 
-  test("per-matchup recap route is reachable with real data", async ({ page, request }) => {
+  test("per-matchup recap route is reachable with real data", async ({
+    page,
+    request,
+  }) => {
     const matchupsRes = await request.get("/api/public/league/matchups");
     expect(matchupsRes.status()).toBe(200);
     const body = await matchupsRes.json();
@@ -417,13 +474,20 @@ test.describe("public /league page", () => {
     ).toBeGreaterThan(0);
     const first = matchups[0];
     await page.goto(
-      pageUrl(`/league/weekly/${encodeURIComponent(first.season)}/${encodeURIComponent(first.week)}/${encodeURIComponent(first.matchupId)}`),
+      pageUrl(
+        `/league/weekly/${encodeURIComponent(first.season)}/${encodeURIComponent(first.week)}/${encodeURIComponent(first.matchupId)}`,
+      ),
       { waitUntil: "domcontentloaded" },
     );
-    await expect(page.getByText("Game summary").first()).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByText("Game summary").first()).toBeVisible({
+      timeout: 15_000,
+    });
   });
 
-  test("player-journey route is reachable with real data", async ({ page, request }) => {
+  test("player-journey route is reachable with real data", async ({
+    page,
+    request,
+  }) => {
     const playersRes = await request.get("/api/public/league/players");
     expect(playersRes.status()).toBe(200);
     const players = (await playersRes.json()).players || [];
@@ -444,7 +508,9 @@ test.describe("public /league page", () => {
     await page.goto(pageUrl(`/league/player/${encodeURIComponent(pid)}`), {
       waitUntil: "domcontentloaded",
     });
-    await expect(page.getByText("Impact by manager").first()).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByText("Impact by manager").first()).toBeVisible({
+      timeout: 15_000,
+    });
   });
 
   test("CSV export endpoint serves text/csv", async ({ request }) => {
@@ -453,7 +519,9 @@ test.describe("public /league page", () => {
     expect(res.headers()["content-type"]).toMatch(/text\/csv/);
   });
 
-  test("metrics endpoint exposes snapshot cache counters", async ({ request }) => {
+  test("metrics endpoint exposes snapshot cache counters", async ({
+    request,
+  }) => {
     const res = await request.get("/api/public/league/metrics");
     expect(res.status()).toBe(200);
     const body = await res.json();
@@ -486,33 +554,45 @@ test.describe("public /league page", () => {
     }
   });
 
-  test("faabAnalytics lazy section returns documented shape (Phase B5)", async ({
-    request,
-  }) => {
-    // FAAB analytics is a lazy section — only addressable through
-    // /api/public/league/{section}.  Powers the /waivers FAAB
-    // recommender's calibration step.  Shape regression here =
-    // recommender shape regression on next user click.
-    const res = await request.get("/api/public/league/faabAnalytics");
-    expect(res.status()).toBe(200);
-    const json = await res.json();
-    const data = json.data || json.body || json;
-    for (const k of [
-      "leagueBudget",
-      "leagueAvgWinningBid",
-      "leagueMedianWinningBid",
-      "totalBidsAnalyzed",
-      "positionBids",
-      "tierBids",
-      "teamAggression",
-      "recentWins",
-      "playerHistory",
-    ]) {
-      expect(data, `faabAnalytics missing ${k}`).toHaveProperty(k);
-    }
-    expect(typeof data.leagueBudget).toBe("number");
-    expect(Array.isArray(data.recentWins)).toBeTruthy();
-    expect(typeof data.positionBids).toBe("object");
-    expect(typeof data.tierBids).toBe("object");
-  });
+  // ── the private-intelligence boundary, from the anonymous door ────────
+  //
+  // This block used to assert that `faabAnalytics` answered an anonymous
+  // GET with **200** and the full recommender payload.  It does not, and
+  // must not: B8 classified it as one of three
+  // `PRIVATE_INTELLIGENCE_SECTIONS` (with `rosTeamStrength` and
+  // `rosTradeDeadline`), and `_public_section_access_error` refuses it
+  // without a session.  The 401 is the feature.
+  //
+  // A stale assertion here is not a harmless red: the obvious way to make
+  // it pass is to reopen the section, which would delete the privacy
+  // boundary to satisfy a test.  So the boundary is what gets pinned, and
+  // the shape assertions the old test carried moved to
+  // `signed-in-smoke.spec.js`, where a session makes them reachable — the
+  // coverage is relocated, not dropped.
+  for (const section of [
+    "faabAnalytics",
+    "rosTeamStrength",
+    "rosTradeDeadline",
+  ]) {
+    test(`${section} refuses an anonymous caller (B8 private intelligence)`, async ({
+      request,
+    }) => {
+      const res = await request.get(`/api/public/league/${section}`);
+      expect(res.status(), `${section} must require a session`).toBe(401);
+      const json = await res.json();
+      expect(json.error).toBe("auth_required");
+      expect(json.section).toBe(section);
+      // "requires a session" and "no such section" must not read the same.
+      expect(JSON.stringify(json)).not.toContain("availableSections");
+    });
+
+    test(`${section} refuses the .csv door too`, async ({ request }) => {
+      // One predicate, every representation.  The CSV route serves the
+      // same payload through a different door, and a boundary enforced on
+      // one door is not a boundary — the gate's own docstring says so.
+      const res = await request.get(`/api/public/league/${section}.csv`);
+      expect(res.status(), `${section}.csv must require a session`).toBe(401);
+      expect((await res.text()).toLowerCase()).not.toContain("leaguebudget");
+    });
+  }
 });

@@ -34,7 +34,6 @@ const {
   desktopOnly,
 } = require("../helpers/journey");
 
-
 // ── Assertion policy for this file ─────────────────────────────────
 // Every test below previously asserted `body).toContainText(/Word/i)`
 // where `Word` also appears in the persistent shell nav ("Trade",
@@ -60,9 +59,14 @@ test.describe("signed-in: basic navigation + UI render", () => {
   // mobile-smoke.spec.js, per the convention in helpers/journey.js.
   test.beforeEach(async ({}, testInfo) => desktopOnly(test, testInfo));
 
-  test("home dashboard renders the war-room surface with a real team list", async ({ authedPage }) => {
+  test("home dashboard renders the war-room surface with a real team list", async ({
+    authedPage,
+  }) => {
     const { teamNames } = await contractFixture(authedPage);
-    expect(teamNames.length, "contract must carry Sleeper teams").toBeGreaterThan(0);
+    expect(
+      teamNames.length,
+      "contract must carry Sleeper teams",
+    ).toBeGreaterThan(0);
 
     await authedPage.goto(pageUrl("/"));
 
@@ -108,7 +112,10 @@ test.describe("signed-in: basic navigation + UI render", () => {
     // Scoped to the team menu, and to ONE of them, for both reasons above:
     // an unscoped [role="option"] counts the league menu's entries too, and a
     // streaming duplicate would double the count.
-    const options = authedPage.locator(".team-switcher-menu").first().locator('[role="option"]');
+    const options = authedPage
+      .locator(".team-switcher-menu")
+      .first()
+      .locator('[role="option"]');
     await expect
       .poll(() => options.count(), {
         message: `team switcher should offer all ${teamNames.length} contract teams`,
@@ -116,13 +123,19 @@ test.describe("signed-in: basic navigation + UI render", () => {
       })
       .toBe(teamNames.length);
 
-    const offered = (await options.allInnerTexts()).map((t) => t.split("\n")[0].trim());
+    const offered = (await options.allInnerTexts()).map((t) =>
+      t.split("\n")[0].trim(),
+    );
     for (const name of teamNames) {
-      expect(offered, `team "${name}" missing from the switcher`).toContain(name);
+      expect(offered, `team "${name}" missing from the switcher`).toContain(
+        name,
+      );
     }
   });
 
-  test("trade builder renders its own page body, not just the nav link", async ({ authedPage }) => {
+  test("trade builder renders its own page body, not just the nav link", async ({
+    authedPage,
+  }) => {
     await authedPage.goto(pageUrl("/trade"));
     await expect(pageHeading(authedPage, titleFor("/trade"))).toBeVisible({
       timeout: 60_000,
@@ -138,7 +151,9 @@ test.describe("signed-in: basic navigation + UI render", () => {
     ).toBeVisible();
   });
 
-  test("rosters page power-ranks every team in the contract", async ({ authedPage }) => {
+  test("rosters page power-ranks every team in the contract", async ({
+    authedPage,
+  }) => {
     const { teamNames } = await contractFixture(authedPage);
     expect(teamNames.length).toBeGreaterThan(0);
 
@@ -151,7 +166,9 @@ test.describe("signed-in: basic navigation + UI render", () => {
     // ones.  A blank table, a partial roster load, or a rename in the
     // pipeline all fail here; "the word Roster is on the page" — the
     // assertion this replaced — catches none of them.
-    const teamCells = authedPage.locator(".table-wrap table tbody tr td:nth-child(2)");
+    const teamCells = authedPage.locator(
+      ".table-wrap table tbody tr td:nth-child(2)",
+    );
     await expect
       .poll(() => teamCells.count(), {
         message: `rosters table should render one row per contract team (${teamNames.length})`,
@@ -163,13 +180,16 @@ test.describe("signed-in: basic navigation + UI render", () => {
       t.split("\n")[0].trim(),
     );
     for (const name of teamNames) {
-      expect(rendered, `team "${name}" missing from the roster power rankings`).toContain(
-        name,
-      );
+      expect(
+        rendered,
+        `team "${name}" missing from the roster power rankings`,
+      ).toContain(name);
     }
   });
 
-  test("settings page lists the real ranking-source registry", async ({ authedPage }) => {
+  test("settings page lists the real ranking-source registry", async ({
+    authedPage,
+  }) => {
     // Authoritative count from the backend registry.
     const regRes = await authedPage.request.get("/api/rankings/sources");
     expect(regRes.status()).toBe(200);
@@ -200,7 +220,6 @@ test.describe("signed-in: basic navigation + UI render", () => {
   });
 });
 
-
 test.describe("signed-in: API round-trips that public smoke can't hit", () => {
   test("/api/data returns 200 with a players block", async ({ authedPage }) => {
     const res = await authedPage.request.get("/api/data?view=delta");
@@ -228,10 +247,14 @@ test.describe("signed-in: API round-trips that public smoke can't hit", () => {
   // the contract is an exact value, so assert that. Both ends of the
   // clamp are checked because they are separate `max`/`min` terms
   // (server.py:3556) and only one of them was covered before.
-  test("rank-history clamps days to [1, MAX_SNAPSHOTS]", async ({ authedPage }) => {
+  test("rank-history clamps days to [1, MAX_SNAPSHOTS]", async ({
+    authedPage,
+  }) => {
     const MAX_SNAPSHOTS = 365 * 3; // src/api/rank_history.py:85
 
-    const high = await authedPage.request.get("/api/data/rank-history?days=9999");
+    const high = await authedPage.request.get(
+      "/api/data/rank-history?days=9999",
+    );
     expect(high.status()).toBe(200);
     const highBody = await high.json();
     expect(highBody.days).toBe(MAX_SNAPSHOTS);
@@ -242,20 +265,26 @@ test.describe("signed-in: API round-trips that public smoke can't hit", () => {
     expect((await low.json()).days).toBe(1);
 
     // A non-numeric value falls back to the default rather than 500ing.
-    const junk = await authedPage.request.get("/api/data/rank-history?days=abc");
+    const junk = await authedPage.request.get(
+      "/api/data/rank-history?days=abc",
+    );
     expect(junk.status()).toBe(200);
     const junkDays = (await junk.json()).days;
     expect(junkDays).toBeGreaterThanOrEqual(1);
     expect(junkDays).toBeLessThanOrEqual(MAX_SNAPSHOTS);
   });
 
-  test("/api/terminal returns 200 (or 503 data_not_ready) for default league", async ({ authedPage }) => {
+  test("/api/terminal returns 200 (or 503 data_not_ready) for default league", async ({
+    authedPage,
+  }) => {
     const res = await authedPage.request.get("/api/terminal");
     // 200 = happy; 503 data_not_ready is acceptable when no live contract.
     expect([200, 503]).toContain(res.status());
   });
 
-  test("/api/trade/simulate-mc returns 503 feature_disabled by default", async ({ authedPage }) => {
+  test("/api/trade/simulate-mc returns 503 feature_disabled by default", async ({
+    authedPage,
+  }) => {
     // MC flag defaults OFF — endpoint returns 503 feature_disabled.
     const res = await authedPage.request.post("/api/trade/simulate-mc", {
       data: { sideA: [], sideB: [] },
@@ -275,9 +304,48 @@ test.describe("signed-in: API round-trips that public smoke can't hit", () => {
   });
 });
 
+test.describe("signed-in: private-intelligence sections", () => {
+  // Relocated from `public-league.spec.js`, which asserted this payload
+  // was readable ANONYMOUSLY with a 200.  It is not — B8 made
+  // `faabAnalytics` one of three `PRIVATE_INTELLIGENCE_SECTIONS`, and the
+  // anonymous 401 is pinned there now.  The shape still matters for the
+  // reason the original comment gave (it powers the /waivers FAAB
+  // recommender's calibration step, so a shape regression here is a
+  // recommender regression on the next user click), so it is tested from
+  // the door that is actually allowed to see it.
+  test("faabAnalytics returns the documented shape to a session", async ({
+    authedPage,
+  }) => {
+    const res = await authedPage.request.get(
+      "/api/public/league/faabAnalytics",
+    );
+    expect(res.status(), "a session must be able to read it").toBe(200);
+    const json = await res.json();
+    const data = json.data || json.body || json;
+    for (const k of [
+      "leagueBudget",
+      "leagueAvgWinningBid",
+      "leagueMedianWinningBid",
+      "totalBidsAnalyzed",
+      "positionBids",
+      "tierBids",
+      "teamAggression",
+      "recentWins",
+      "playerHistory",
+    ]) {
+      expect(data, `faabAnalytics missing ${k}`).toHaveProperty(k);
+    }
+    expect(typeof data.leagueBudget).toBe("number");
+    expect(Array.isArray(data.recentWins)).toBeTruthy();
+    expect(typeof data.positionBids).toBe("object");
+    expect(typeof data.tierBids).toBe("object");
+  });
+});
 
 test.describe("signed-in: admin endpoints are gated", () => {
-  test("/api/admin/nfl-data/flush returns ok for allowed user", async ({ authedPage }) => {
+  test("/api/admin/nfl-data/flush returns ok for allowed user", async ({
+    authedPage,
+  }) => {
     const res = await authedPage.request.post("/api/admin/nfl-data/flush");
     // If the test user is in the admin allowlist: 200.
     // If not: 403.  Either proves the gate works — we just pin that
