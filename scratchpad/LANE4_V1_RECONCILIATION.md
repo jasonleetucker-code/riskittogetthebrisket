@@ -21,9 +21,9 @@
 | V1-59 | Failing Sharp/bootstrap path | **diagnosed, blocked** — same root cause as V1-58 | Claude 5 (prod) |
 | V1-60 | FFPC roster lane: real or explicitly unavailable | **DONE this pass** — see below | — |
 | V1-61 | Sharp Roster Percentage | **implemented**; 7/14/30-day + season-to-date windows now published (14-day added earlier this session). Board is top-50 by default, per-player denominators, population-overlap guard | UI surfacing → Claude 6 |
-| V1-62 | Sharp Tracker | implemented (`src/sharp/market.py`, windows `48h/7d/14d/30d/90d/all`) | not re-verified this pass |
-| V1-63 | Manager-level Sharp concentration | implementation present (`src/sharp/market.py`, `src/sharp/consensus.py`) | not re-verified this pass |
-| V1-64 | Sharp add/drop event ledger | implementation present (`src/sharp/transactions.py`, paired add/drop semantics in `crawler._events_from_tx`) | not re-verified this pass |
+| V1-62 | Sharp Tracker | **verified honest** — per-platform `status` of `disabled` / `degraded` / `no_data` / `ok`, top level `ok` vs `cohort_building`, and FFPC `enabled` derived from the same config the cohort reads (no disagreement between the two surfaces) | — |
+| V1-63 | Manager-level Sharp concentration | **verified + 2 defects fixed this pass** — see below | — |
+| V1-64 | Sharp add/drop event ledger | **verified honest** — `crawl_coverage` publishes `sharpEligibleLeagues` beside `leaguesCrawled`, so a zero is explained by its own denominator, and `oldestCrawlMs` is `null` rather than 0 | — |
 | V1-65 | Insider Trading / cross-league ownership consolidation | components present across `src/intel/*` and `src/sharp/*`; consolidation not assessed | needs scoping |
 
 ## V1-57 — reconciled before implementing, as instructed
@@ -73,6 +73,32 @@ Three paths produced one: `skip_sleeper`, `skip_ffpc`, and
 
 An empty pass that really ran still reports `ok`. The distinction only works if
 both directions hold.
+
+## V1-63 — verified, and two defects found underneath
+
+The concentration design is sound and was confirmed rather than changed:
+raw counts (`buys`, `uniqueManagers`) are kept as evidence descriptions while
+the **capped** weights (`weightedBuys`…) are what `strength` is computed from,
+bounded at 0.34 per manager and per league, with `concentrationCapped` flagging
+when the cap actually bit.
+
+Two real defects sat under it, both the lane's own semantic:
+
+**1. An explicit zero quality voted at full weight.**
+`consensus.py` read `quality = float(person["quality"] or 1.0)`. A manager
+scored **0.0** — the lowest possible quality — was promoted to **1.0**, the
+highest, so a worthless vote carried full weight into both the consensus and
+the concentration cap. The default already happens upstream
+(`quality_by_manager.get(key, 1.0)`), so this second one could only ever
+overwrite a real measurement. Now only a non-numeric value defaults; the
+upstream default is preserved and tested.
+
+**2. `networkConcentration` published `0.0` for an undefined ratio.**
+It is a *share of weighted volume*; with no weighted volume there is no share
+to hold, and `0.0` is the one value that reads as the exact opposite — "no
+single network dominates". Now `None`, matching what `roster_percentage`
+already publishes for `cohortCoveragePct` in the same situation. The field had
+**no consumers**, so the correction is free.
 
 ## V1-58 / V1-59 — blocked on production access, and honestly so
 

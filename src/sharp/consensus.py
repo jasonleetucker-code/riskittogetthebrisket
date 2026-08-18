@@ -71,7 +71,15 @@ def aggregate_person_consensus(
             direction = 1 if net > 0 else -1
             buys += int(direction > 0)
             sells += int(direction < 0)
-            quality = float(person["quality"] or 1.0)
+            # AN EXPLICIT ZERO IS NOT A MISSING VALUE.  ``or 1.0`` promoted a
+            # manager scored 0.0 — the lowest possible quality — to 1.0, the
+            # highest, so a worthless vote carried full weight into both the
+            # consensus and the concentration cap.  The default already
+            # happened upstream (``quality_by_manager.get(key, 1.0)``), so
+            # this second one could only ever overwrite a real measurement.
+            # A non-numeric value is genuinely unknown and still defaults.
+            raw_quality = person["quality"]
+            quality = float(raw_quality) if isinstance(raw_quality, (int, float)) else 1.0
             network = str(person.get("network") or f"independent:{person_id}")
             # Diminishing independence within a shared company/network/model.
             independence = 1.0 / math.sqrt(max(1, network_sizes[network]))
@@ -81,10 +89,16 @@ def aggregate_person_consensus(
             quality_total += quality
             network_vote_abs[network] += weight
 
+        # UNDEFINED, NOT DIVERSIFIED.  With no weighted volume there is no
+        # share for any network to hold, so the ratio does not exist — and
+        # ``0.0`` is the one value that reads as its opposite ("no single
+        # network dominates").  ``None`` matches what
+        # ``roster_percentage`` publishes for ``cohortCoveragePct`` in the
+        # same situation.
         concentration = (
             max(network_vote_abs.values()) / weighted_volume
             if weighted_volume > 0 and network_vote_abs
-            else 0.0
+            else None
         )
         output[asset_id] = {
             "personBuys": buys,
@@ -96,7 +110,7 @@ def aggregate_person_consensus(
             "weightedPersonVolume": round(weighted_volume, 6),
             "personManagerQuality": quality_total / voters if voters else 1.0,
             "networkCount": len(network_vote_abs),
-            "networkConcentration": round(concentration, 4),
+            "networkConcentration": (None if concentration is None else round(concentration, 4)),
             "personAgreement": (max(buys, sells) / voters if voters else None),
         }
     return output
