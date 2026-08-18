@@ -733,6 +733,33 @@ Tracked as census **S-2**, with F-10 as its other consequence. Not repaired in t
 repair is a mapping owner touching the scraper and a production scrape-promotion gate, which is
 its own unit.
 
+**S-2's PROPOSED DESIGN IS REFUTED — do not implement it more carefully (2026-08-18).**
+Two reviewers refuted it at high confidence; both halves were then re-verified directly at HEAD
+rather than relayed, and both hold.
+
+The proposal was to emit `playerCount: null` so that "reported zero" and "did not report" stop
+reading the same.
+
+1. `server.py` computes
+   `site_count = len([s for s in result.get("sites", []) if s.get("playerCount", 0) > 0])`.
+   A **present** key defeats `dict.get`'s default, so `None > 0` is evaluated and raises
+   `TypeError` — confirmed by execution, not by reading.
+2. That line sits above the promotion decision, inside a handler whose enclosing
+   `except Exception as e:` calls `_mark_scrape_failure(e, elapsed)`. The change would therefore
+   mark whole scrapes **FAILED** and break the two-hourly refresh.
+
+**A correction to the refutation's own wording.** It has circulated as "`failedSources` is empty
+in 176/176 inspected archives". Measured here across all 176 committed export archives: the key
+is **absent from every one**, not present-and-empty. That is a stronger statement and a different
+one — the field has never been populated, so a detector keyed on it would observe nothing. The
+degradation historically capable of taking the board down was timeout-related, which the proposal
+would not have observed either.
+
+**Required posture.** The underlying defect above is real and stays OPEN. Any replacement must be
+designed from actual failure data and adversarially tested before implementation. This entry is
+the reason S-2 must not be read as an actionable ready fix; the finding survives, the design does
+not.
+
 ---
 
 ### F-13 · The mobile view is the LARGEST of the optimized views · CONFIRMED · performance · **OPEN**
@@ -1138,6 +1165,133 @@ explanation as readily as a regression. Pinned by
 `tests/deploy/test_health_check_does_not_exempt_degraded.py` (9).
 
 ---
+
+### F-22 · `pickAnchors` reporting is inconsistent with the contract · CONFIRMED · reporting · **RECLASSIFIED P0 → P2 2026-08-18**
+
+**Original framing, preserved:** the sweep recorded discarded `ktcSfTep` pick anchors as a
+**live value defect** — i.e. a P0 canonical-value corruption incident.
+
+**Refuted by measurement.** The canonical contract reads the CSV independently and obtains all
+**36** vendor pick rows. There is therefore **no demonstrated canonical pick-value error**, and
+the P0 framing overstated the finding.
+
+**Correct classification: P2 reporting inconsistency.** Two surfaces describe the same anchors
+differently; the served values are not implicated.
+
+Recorded rather than deleted, per §0's rule that a refuted finding may still be real and that
+audit conclusions are themselves auditable. Carried in the V1 contract as `V1-85`.
+
+### F-23 · The E2E tracker identity is dead in both directions · CONFIRMED · CI / observability · **REPAIRED 2026-08-18**
+
+Both tracker steps in `.github/workflows/e2e.yml` select
+`select(.author.login=="github-actions")`. The Actions bot files issues under
+**`github-actions[bot]`**, so the lookup matches nothing: every failing run takes the `create`
+branch, and the close step — carrying the identical clause — can never drain the result.
+
+| measurement | value |
+|---|---|
+| open issues titled "E2E safety net failing" | **15** |
+| comments on #732 | **9** (the dedup demonstrably worked once) |
+| comments on every tracker filed after #732 | **0** |
+| 2026-08-18 scheduled run, with #881 open and identically titled | filed **#896** anyway |
+
+The last row is the current selector tested in production under exactly the conditions it exists
+for.
+
+**The close direction is the worse one.** That step is what makes an open `e2e-failures` issue
+mean "broken now" rather than "broke once, ever" — the distinction #588 was filed over. Dead, a
+green run cannot clear the board, so the repository reads permanently red.
+
+**The guard test was green throughout.** `tests/deploy/test_e2e_workflow_triggers.py` asserted
+the losing spelling as a **literal string**, so it passed for the entire two weeks the mechanism
+was dead. Same class as F-8 and as the contract gate that could not find its payload: a check
+that cannot observe its subject reads exactly like a check that passed.
+
+**Repair.** `gh` reports a bot's login differently depending on which API answers — GraphQL's
+`Bot` type gives `github-actions`, REST gives `github-actions[bot]` — so pinning either spelling
+is a bet. `sub("\\[bot\\]$"; "")` is correct under both. Verified against sample issue JSON
+covering both bot spellings, a human author and a foreign bot: the normalised filter matches the
+two bot rows and still excludes #753, the hand-filed defect the author clause exists for; the old
+filter misses the real spelling entirely. Lookup failure is no longer swallowed — the alert step
+`::error`s and files anyway, the close step `::error`s and exits 1, because a silent failure
+there is a green run declining to clear a real alert.
+
+Draining the accumulated duplicates is tracked separately.
+
+### F-24 · A live, defaulted-ON feature flag is invisible to every operator surface · CONFIRMED · observability · **OPEN**
+
+`RISKIT_FEATURE_LEDGER_RANK_CHANGE` is read directly at `src/api/data_contract.py:5545` via
+`os.environ.get(..., "1")` — **default ON** — but is absent from `feature_flags._DEFAULTS`
+(`src/api/feature_flags.py:55-297`).
+
+Consequence: it does not appear in `snapshot()`, `effective_flags()` or `/api/status`, and
+`tests/api/test_feature_flag_reachability.py` cannot see it. An operator reading the flag list
+gets one that omits a live gate on the canonical board's `rankChange` derivation. The rollback
+lever documented in CLAUDE.md is real; the inventory that would tell you it exists is not.
+
+Carried as `V1-87`.
+
+### F-25 · The nav offers a page whose every endpoint 503s · CONFIRMED · truthful degraded state · **OPEN**
+
+`consensus_edge` defaults `False` (`src/api/feature_flags.py:296`) and gates every handler
+(`src/consensus_edge/api.py:44`), while `/consensus-edge` is an **unconditional** nav entry
+(`frontend/lib/nav-model.js:191`) with no client-side flag check. In the default configuration a
+user can navigate to a page whose three endpoints all answer 503.
+
+The hold itself is deliberate and documented (ADR-023 — its own ship gate said do not ship). The
+defect is that the nav entry was not gated with it, so "deliberately held" and "broken" render
+identically.
+
+**Ownership: lane 6.** The feature stays post-V1; the nav gating is the V1-required part.
+
+### F-26 · Flag documentation names an endpoint the flags do not gate · CONFIRMED · evidence integrity · **OPEN**
+
+`src/api/feature_flags.py:186` and `:217` state that `reception_scoring_fit` and
+`idp_scoring_fit` "reach `/api/gameplan`". Measured: the gates at `src/api/gameplan.py:1157` and
+`:1253` are called only from `get_league_adjusted_values` (`:1332-1333`), which backs
+**`/api/valuation/league-adjusted`**. The flags are genuinely live; the endpoint named is not the
+one they gate.
+
+Related, and separately recorded: `/api/gameplan` itself has **zero frontend consumers** — the
+string appears once in the whole frontend, in a comment. That is the Scope Manifest's
+`C2-GP-01` DISCONNECTED row, whose declared outcome is binary: reachable or retired.
+
+Carried as `V1-88`.
+
+### F-27 · `normalizationHealth` has been red in production since C1-U6, on a correct board · CONFIRMED · observability · **REPAIRED 2026-08-18**
+
+Measured on the live board via `/api/status`, 2026-08-18:
+
+```
+pickNameMalformed: 18      playerNameDrift:    0
+assetClassMismatch: 0      dupKeys:            0      healthy: false
+```
+
+All 18 samples are `2027 Round 1` … `2029 Round 6` — three future years by six
+rounds, every one a **deliberate canonical row**. Nothing was wrong with the board.
+
+**Mechanism: duplicate ownership.** `src/canonical/normalization_validator.py` carried its own
+pick-name grammar — three regexes for the tier, slot and legacy shapes. `C1-ID-02` states pick
+identity has exactly one owner and consumers must not parse it elsewhere. C1-U6 then added the
+GENERIC grade, a rank-less row named `"2027 Round 1"`; the legacy pattern here reads
+`"2026 1st Round"` — the same words in the opposite order — so it matched none of them.
+
+**This is a FALSE RED**, and it is the same failure as a signal nobody reads: a health surface
+that is permanently alarming trains its readers to stop looking (#588, F-3, from the other
+direction). It also means the regression this check exists to catch would have arrived as no
+visible change at all.
+
+**Repair.** Canonical shapes now resolve through `picks.parse_board_pick_name`, which answers
+slot, tier and generic together. The legacy display shape is retained locally and deliberately —
+the owner does not MINT it, so delegating outright would newly flag any surviving legacy row.
+Widening a health check is a repair; silently tightening one is a regression wearing a repair's
+clothes. The module docstring was stale in the identical way and is corrected.
+
+RED-first, and the arithmetic matches: replaying the retired grammar over the generic rows
+rejects exactly **18**, the number production reports. Five tests pin it, including a structural
+one that fails if the canonical grammar is ever restated locally again.
+
+No value path touched — `is_valid_pick_name` is a reporting predicate.
 
 ## 2. Repairs made during the audit
 
