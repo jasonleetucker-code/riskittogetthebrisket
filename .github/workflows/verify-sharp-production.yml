@@ -197,7 +197,24 @@ jobs:
           set -Eeuo pipefail
           git config user.name github-actions[bot]
           git config user.email 41898282+github-actions[bot]@users.noreply.github.com
-          git pull --rebase origin main
+          # ``--autostash``, and the pull BEFORE the add.  The smoke step
+          # above rewrites the tracked artifact, so the tree is dirty
+          # here and a bare ``git pull --rebase`` aborts with "cannot
+          # pull with rebase: You have unstaged changes" (exit 128).
+          # That is what it did on every run, taking the enforce gate
+          # below down with it — the SAME defect class as the AUDIT O-4
+          # note above, one line later: a mechanical step failing ahead
+          # of the gate, so the gate never executes.
+          #
+          # ORDER IS LOAD-BEARING.  Verified empirically, because the
+          # obvious "stage first, then pull" is WRONG: autostash pops
+          # with ``git stash apply`` semantics and does not restore the
+          # index, so a staged artifact comes back UNSTAGED, the
+          # ``git diff --cached --quiet`` below then exits 0, and the
+          # job takes the "nothing to commit" branch — green, and the
+          # smoke result silently never recorded. Pull first, stage
+          # after.
+          git pull --rebase --autostash origin main
           git add -f data/ops/sharp-production-smoke.json
           # A byte-identical result is not an error; only commit a change.
           if git diff --cached --quiet; then
