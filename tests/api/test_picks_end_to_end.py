@@ -170,6 +170,7 @@ class TestPicksPresentInContract(unittest.TestCase):
         #   3. Off-cap or derived pick rows (round-step / generic-grade
         #      / below OVERALL_RANK_LIMIT) — valued, never ranked.
         picks = _pick_rows(self.contract)
+
         value_missing_rows = [
             p["canonicalName"]
             for p in picks
@@ -255,7 +256,7 @@ class TestPickCanonicalIdentity(unittest.TestCase):
         self.assertEqual(
             collisions,
             set(),
-            f"Pick canonical names collide with player names: " f"{sorted(collisions)[:5]}",
+            f"Pick canonical names collide with player names: {sorted(collisions)[:5]}",
         )
 
     def test_no_player_name_accidentally_flagged_as_pick(self) -> None:

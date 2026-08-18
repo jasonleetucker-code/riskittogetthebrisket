@@ -6512,7 +6512,28 @@ async def run(progress_callback=None):
     dashboard_json = {
         "version": 4,
         "date": str(datetime.date.today()),
-        "scrapeTimestamp": datetime.datetime.now().isoformat(),
+        # AUDIT F-28.  This was ``datetime.datetime.now()`` — NAIVE, and so
+        # meaning whatever wall clock the producing host happens to keep.  Two
+        # hosts produce this payload and they do not agree: the CI runner is
+        # UTC, the production VPS is UTC+2.  Three separate consumers wrote
+        # down "naive means UTC" as a stated assumption
+        # (``server.py::_board_age_hours``, ``src/history/record.py``,
+        # ``src/history/asof.py::_instant_at_or_before``), which is correct for
+        # the CI-committed exports and two hours wrong for every board prod
+        # produces itself.
+        #
+        # Measured on production 2026-08-18 18:35 UTC: a board scraped at 17:36
+        # UTC reported ``data_age_hours: -1.0``.  A negative age is not a near
+        # miss — it made ``data_stale`` (age > 6h) STRUCTURALLY UNREACHABLE, so
+        # the staleness alarm F-19 exists to feed could never fire.  The same
+        # stamp is what the append-only temporal ledger records as
+        # ``observed_at`` for every live-origin row.
+        #
+        # Stamping UTC here retires the assumption at its source rather than
+        # restating it correctly in three files.  ``generatedAt`` on the
+        # canonical contract is already ``utc_now_iso()``; this brings the
+        # scrape stamp onto the same footing.
+        "scrapeTimestamp": datetime.datetime.now(datetime.timezone.utc).isoformat(),
         "settings": {
             "superflex": SUPERFLEX,
             "tep": TEP,

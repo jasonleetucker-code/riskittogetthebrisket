@@ -225,6 +225,33 @@ deploy log's `In production: <sha>` line. **Do not assume it.**
 property the unit exists to establish, and it is the only one whose failure means the unit
 did not land.
 
+### Verification record — 2026-08-18
+
+`/api/data` is 401 from the integration session, so items needing the authenticated payload
+were run against the **committed export rebuilt through `build_api_data_contract`** — the same
+code path, the same day's real board (988 rows, 857 priced). That is real-data evidence (L2),
+**not** a deployed-production response (L3), and the two are not interchangeable: they prove the
+code produces the property, not that the running process is serving it. Items are marked with
+which level they reached.
+
+| # | check | result | level | evidence |
+|---|---|---|---|---|
+| 1 | deployed SHA contains this unit | **BLOCKED-EXTERNAL** | — | the deploy-state file needs host access; `/api/status` exposes no commit |
+| 2 | backend booted | **PASS** | L3 | `GET /api/health` 200 on `chaseupside.com` |
+| 3 | **every priced row carries a `confidenceBasis`** | **PASS** | L2 | **0** of 857 priced rows without one |
+| 4 | basis vocabulary is the closed set | **PASS** | L2 | observed `{derived_rookie_tether, derived_round_step, derived_tier_values, derived_year_step, evidence_gate, pick_dispersion, unpriced}`; outside `CONFIDENCE_BASES`: **0** |
+| 5 | contract validator agrees | **PASS** | L2+L3 | no `confidence_basis:*` structural error on the rebuild, and production's own `contract.health` reports `structuralErrors: []` over 1109 players |
+| 6 | deprecation block published and honest | **PASS** | L2 | all three aliases declared with `replacedBy`, `reason`, `since`, `removeAfterContractVersion` |
+| 7 | **the aliases still resolve** | **PASS** | L2 | each of the three present on all 988 rows; value mismatches against their replacements: **0** |
+| 8 | terminal still renders confidence | **BLOCKED-EXTERNAL** | — | `/api/terminal` is 401 without a session |
+
+**A correction to this checklist, found by following it.** Item 6 names the field
+`meta.deprecations`. It is not under `meta` — `build_api_data_contract` stamps `deprecations`
+at the **top level** of the contract payload, and `meta` is empty on the rebuild. A verifier
+reading `meta.deprecations` finds nothing and concludes the block was never published, which is
+exactly what happened on the first pass here. The path is corrected in the table above; the
+checklist row is left as written so the discrepancy is visible rather than quietly patched.
+
 **Known-null, not a failure:** `marketBreadthScore` / `marketAgreementScore` are `None` on
 any board built before this unit's first scrape (§5). A production run that predates that
 scrape shows nulls, and that is *missing*, not zero — item 3 does not read them.
