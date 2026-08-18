@@ -509,6 +509,26 @@ jobs:
           echo "::error title=Deploy would skip or reverse shipped code::${REASON}. If this is an intentional rollback, re-run via workflow_dispatch with allow_non_fast_forward=true."
           exit 1
 
+      - name: Assert post-deploy verification will actually run
+        # BOTH verification steps below are gated on
+        # ``vars.PROD_PUBLIC_URL != ''``.  If that variable is unset,
+        # renamed, or scoped to an environment this job cannot read,
+        # they SKIP and the job reports green — a gate whose input is
+        # missing reading exactly like a gate that passed.  That is the
+        # same failure class as the contract gate which silently skipped
+        # for months (``scripts/validate_api_contract.py`` docstring),
+        # and it is the one thing that could make every other statement
+        # in this workflow untrue.  Fail loudly instead (audit
+        # 2026-08-17).
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          if [[ -z "${{ vars.PROD_PUBLIC_URL }}" ]]; then
+            echo "::error title=PROD_PUBLIC_URL is not set::Post-deploy smoke test and live-contract validation would both silently skip, and this job would report success without verifying anything. Set the repository variable PROD_PUBLIC_URL."
+            exit 1
+          fi
+          echo "PROD_PUBLIC_URL is set; post-deploy verification will run."
+
       - name: Run remote deploy script
         env:
           DEPLOY_REF_INPUT: ${{ github.event.inputs.deploy_ref }}
@@ -633,6 +653,10 @@ jobs:
 
           check_endpoint() {
             local path="$1"
+            # Accepts a REGEX of tolerated codes, not a single literal.
+            # ``/api/health`` needs ``200|503`` — see the readiness loop
+            # below for why a 503 here is a source-health statement, not
+            # a deploy failure.
             local expect_code="${2:-200}"
             local full_url="${URL}${path}"
             local code
@@ -642,7 +666,7 @@ jobs:
             # which preserve the brackets on disk.
             code=$(curl --silent --show-error --globoff --output /dev/null \
               --write-out '%{http_code}' --max-time 30 "${full_url}" || echo "000")
-            if [[ "${code}" == "${expect_code}" ]]; then
+            if [[ "${code}" =~ ^(${expect_code})$ ]]; then
               echo "PASS: ${path} -> ${code}"
               PASS=$((PASS + 1))
             else
@@ -657,16 +681,45 @@ jobs:
           # The service is restarted moments before this step runs, so
           # wait for it to finish loading its first payload before we
           # probe — a cold-start blip must not false-fail the deploy.
-          echo "Waiting for ${URL}/api/health to become ready…"
+          #
+          # ACCEPT 200 **OR** 503, and say which we got (audit 2026-08-17).
+          # ``/api/health`` returns 503 whenever ``is_ok`` is false
+          # (server.py: no last_error AND not stalled AND not data_stale
+          # AND contractHealth.ok) — so a box that is merely MID-SCRAPE,
+          # or serving a board whose critical source timed out, answers
+          # 503 while being perfectly alive.  A loop that breaks only on
+          # 200 therefore cannot distinguish "still booting" from
+          # "booted and degraded": it burned its whole budget and the
+          # probe below then failed the deploy over a SOURCE-HEALTH
+          # condition.  That is the CI lane inversion
+          # ``docs/ops/STABILIZATION_2026-08-16.md`` §3d exists to
+          # prevent, reproduced on the deploy side — measured on run
+          # 32062696830 (2026-08-17), where the remote deploy script had
+          # already succeeded and the smoke step reddened the job anyway.
+          #
+          # The adjudicator for "ok vs degraded" is the
+          # ``Validate live data contract`` step below, which already
+          # tolerates ``degraded`` deliberately.  Two consecutive steps
+          # must not hold opposite policies on one signal.
+          echo "Waiting for ${URL}/api/health to answer…"
+          _ready=""
           for _i in $(seq 1 30); do
             _hc=$(curl --silent --globoff --output /dev/null --max-time 10 \
               --write-out '%{http_code}' "${URL}/api/health" || echo "000")
-            if [[ "${_hc}" == "200" ]]; then
-              echo "  health ready after ~$(( _i * 3 ))s"
+            if [[ "${_hc}" == "200" || "${_hc}" == "503" ]]; then
+              echo "  health answering after ~$(( _i * 3 ))s (HTTP ${_hc})"
+              [[ "${_hc}" == "503" ]] && echo "  note: 503 = degraded (mid-scrape or source health); the live-contract step adjudicates"
+              _ready="${_hc}"
               break
             fi
             sleep 3
           done
+          # Exhaustion must be LOUD.  Previously this loop fell through
+          # silently and the only symptom was a failing probe 30 lines
+          # later with no explanation in the log.
+          if [[ -z "${_ready}" ]]; then
+            echo "::warning title=Health never answered::${URL}/api/health did not return 200 or 503 within ~90s (last code ${_hc}). Continuing to the probes, which will report the real code."
+          fi
 
           # The public-league snapshot is ALWAYS cold right after a
           # restart: the first request kicks a multi-season Sleeper
@@ -679,17 +732,34 @@ jobs:
           # and poll until warm (up to ~6 min) before the pass/fail
           # probes below.
           echo "Waiting for ${URL}/api/public/league snapshot to come warm…"
+          _warm=""
           for _i in $(seq 1 24); do
             _plc=$(curl --silent --globoff --output /dev/null --max-time 20 \
               --write-out '%{http_code}' "${URL}/api/public/league" || echo "000")
             if [[ "${_plc}" == "200" ]]; then
               echo "  public-league snapshot warm after ~$(( _i * 15 ))s"
+              _warm="1"
               break
             fi
             sleep 15
           done
+          # Deliberately still BLOCKING below (a public page that cannot
+          # answer after ~6 min is a real regression), but exhaustion is
+          # now stated instead of inferred from a bare FAIL line.  The
+          # residual false-red vector — a slow Sleeper upstream — is
+          # named in the audit rather than silently widened away.
+          if [[ -z "${_warm}" ]]; then
+            echo "::warning title=Public-league snapshot never warmed::Last code ${_plc} after ~6 min. If the probe below fails, suspect a slow Sleeper rebuild before suspecting this deploy."
+          fi
 
-          check_endpoint "/api/health" 200
+          # 200 OR 503 — see the readiness loop above.  503 means
+          # "degraded", which is a statement about SOURCE HEALTH, and
+          # source health is adjudicated by ``Validate live data
+          # contract`` below (which accepts ``degraded`` by design) and
+          # by the blocking ``--lane full`` contract gate in the
+          # validate job.  It is not a reason to red a deploy whose
+          # remote script already succeeded.
+          check_endpoint "/api/health" "200|503"
           check_endpoint "/api/status" 200
           # /api/data is intentionally gated by _private_api_gate in
           # server.py — an unauthenticated probe MUST return 401.

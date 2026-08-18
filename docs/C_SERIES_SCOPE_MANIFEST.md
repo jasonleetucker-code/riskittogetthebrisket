@@ -105,7 +105,8 @@ the invariant is satisfied today.
 | concept | canonical owner | state | manifest row |
 |---|---|---|---|
 | Player identity | `src/identity/resolution.py` + `src/identity/name_primitives.py` (**created 2026-08-16**, C1-U2) | ~~3 independent matchers~~ → one owner; both legacy ladders **deleted**, production gate green at both sites with zero divergence. `CANONICAL_V2` implemented but deliberately NOT served (`docs/identity/C1_ID_01_IDENTITY_CONSOLIDATION.md` §9) | `C1-ID-01` |
-| Pick identity | *(to be created)* one asset-identity contract | **7 representations, no end-to-end id** | `C1-ID-02` |
+| Pick identity | `src/identity/picks.py` (**created 2026-08-16**, C1-U3) | ~~7 representations, no end-to-end id~~ → one owner. The census measured **39** deduplicated definition sites, not 7 (`docs/identity/C1_ID_02_CENSUS.md`); league-pick identity and market-pick refs are separate concepts, consumers adapted byte-inert (board 0/1093). Deferred with record: the intel-ledger re-key, the frontend lookup grammar (held in lockstep by a parity test) | `C1-ID-02` |
+| Per-source pick boards | `src/picks/site_pick_map.py` (**created 2026-08-17**, C1-U6-D1) | One vendor's published pick rows → canonical keys. Reports EVIDENCE only: it does not blend, discount, or derive an unpublished year. Four paths that forced a value for a year no source published are deleted — the fabrication self-authenticated, making the approved derivation dormant. `Dynasty Scraper.py` is an ADAPTER. Guarded by `tests/picks/test_single_owner.py` | `C1-PICK-01` |
 | League / scoring identity | `league_registry.leagues_share_scoring` via `scoring_fingerprint` | HOLDS (B6) | `F-SCORE-01` |
 | Canonical player value | `data_contract._compute_unified_rankings` → `rankDerivedValue` | HOLDS (B9a) | `F-VAL-01` |
 | Canonical pick value | same pipeline (derive → blend → tether → complete) + `pick_value_resolution` | HOLDS for 2026–2029, completeness census enforced at build | `C1-PICK-01` |
@@ -125,7 +126,7 @@ the invariant is satisfied today.
 | Trade decision synthesis | *(to be created)* Analyze Trade / Trade Desk contract | ABSENT | `C7-DESK-01` |
 | FAAB | `src/trade/faab_engine.py` | HOLDS | `F-FAAB-01` |
 | Waiver optimization | *(to be created)* one waiver service | ABSENT (greedy client slate today) | `C7-WAIV-01` |
-| Acquisition history / cost basis | *(to be created)* transaction/lineage ledger | ABSENT | `C1-ACQ-01` |
+| Acquisition history / cost basis | `src/acquisition/` (**created 2026-08-17**, C1-U8) | ~~ABSENT — zero fields, zero tables~~ → a private per-league event ledger with holding periods and cost basis (`value_known_before`, never `value_as_of`). Both capture gaps closed at the source. PRIVATE class; no route, no decision path reads it | `C1-ACQ-01` |
 | Real market trades | *(to be created)* CE-01 canonical ledger | ABSENT | `C4-MTL-01` |
 | Sharp cohort | `src/sharp/cohort.py` | HOLDS in code; production population unproven | `C4-SHARP-01` |
 | Manager intelligence | `src/intel/*` substrate | HOLDS as substrate; Manager Scout absent | `C6-MGR-01` |
