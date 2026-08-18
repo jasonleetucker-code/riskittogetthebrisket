@@ -55,7 +55,10 @@ function DrawerGroup({ label, items, pathname, onNavigate }) {
   );
 }
 
-export function MobileTopBar({ authenticated, onSearch }) {
+// See the note on TopBar: `searchEnabled` is not derivable from
+// `authenticated`, because signed-in routes exist that load no player
+// contract.  Defaults true so existing callers are unaffected.
+export function MobileTopBar({ authenticated, onSearch, searchEnabled = true }) {
   const pathname = usePathname();
   return (
     <header className="shell-mobile-topbar" data-html2canvas-ignore>
@@ -63,7 +66,7 @@ export function MobileTopBar({ authenticated, onSearch }) {
       <div className="shell-mobile-actions">
         {authenticated && <LeagueSwitcher variant="mobile" />}
         {authenticated && <TeamSwitcher variant="mobile" />}
-        {authenticated && (
+        {authenticated && searchEnabled && (
           <button
             type="button"
             className="shell-icon-btn"
