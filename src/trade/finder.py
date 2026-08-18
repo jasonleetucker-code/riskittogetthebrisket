@@ -944,6 +944,7 @@ def find_trades(
     ktc_top_n: int | None = None,
     contract: dict[str, Any] | None = None,
     capacity_context: Any | None = None,
+    constraints: Any | None = None,
 ) -> dict[str, Any]:
     """
     Find board-arbitrage trades.
@@ -1022,6 +1023,35 @@ def find_trades(
             "error": f"Could not resolve team '{my_team}' or roster is empty.",
             "trades": [],
             "metadata": {},
+        }
+
+    # C3-CON-01 / V1-130 — recommendation constraints, applied to the OUTGOING
+    # pool BEFORE enumeration.  Spec §6: generate only feasible packages; never
+    # generate everything and hide the forbidden ones afterwards, which wastes
+    # the search budget and can return the wrong *best* result because the real
+    # best was removed after ranking.
+    #
+    # Only OUR side is constrained.  A protected player stays a valid incoming
+    # target and keeps his ordinary canonical value — this is a recommendation
+    # rule, not a valuation rule.
+    from src.trade.constraints import partition_sendable  # noqa: PLC0415
+
+    my_roster, blocked_outgoing = partition_sendable(my_roster, constraints)
+    if not my_roster:
+        # Honest no-result: every asset we could send is constrained.  An empty
+        # list with no explanation reads as "no trades exist".
+        return {
+            "trades": [],
+            "metadata": {
+                "myTeam": my_team,
+                "constraintsBlockedOutgoing": len(blocked_outgoing),
+                "constraintsBlockedReasons": sorted({r for _, r in blocked_outgoing}),
+                "noResultReason": "all_outgoing_assets_constrained",
+            },
+            "warnings": [
+                "Every asset on your roster is protected or excluded from outgoing "
+                "recommendations, so no trade could be generated."
+            ],
         }
 
     my_names = {a.name for a in my_roster}
@@ -1177,6 +1207,11 @@ def find_trades(
             "opponentTeams": opponent_teams,
             "opponentsAnalyzed": opponents_analyzed,
             "myRosterSize": len(my_roster),
+            # Why the outgoing pool may be smaller than the roster.  Published
+            # unconditionally: "you protect 22 players" and "no trade exists"
+            # must not render identically.
+            "constraintsBlockedOutgoing": len(blocked_outgoing),
+            "constraintsBlockedReasons": sorted({r for _, r in blocked_outgoing}),
             "totalCandidatesEvaluated": len(all_trades),
             "totalQualified": len(ranked),
             "returned": len(capped),
