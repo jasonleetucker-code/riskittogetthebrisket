@@ -102,6 +102,10 @@ const AppContext = createContext({
   rawData: null,
   loading: true,
   error: "",
+  // null means "no classified failure", which is NOT the same as a
+  // failure of unknown kind — consumers must be able to tell those apart.
+  failure: null,
+  retry: () => {},
   openPlayerPopup: () => {},
   openSearch: () => {},
   registerAddToTrade: () => {},
@@ -201,11 +205,14 @@ export default function AppShell({ children, authenticated = false }) {
 }
 
 function PrivateAppShell({ children, authenticated }) {
-  const { loading, error, rows, siteKeys, rawData } = useDynastyData();
+  const { loading, error, failure, retry, rows, siteKeys, rawData } =
+    useDynastyData();
   return (
     <InnerAppShell
       loading={loading}
       error={error}
+      failure={failure}
+      retry={retry}
       rows={rows}
       siteKeys={siteKeys}
       rawData={rawData}
@@ -230,6 +237,8 @@ function NoPlayerDataAppShell({ children, authenticated }) {
     <InnerAppShell
       loading={false}
       error=""
+      failure={null}
+      retry={() => {}}
       rows={[]}
       siteKeys={[]}
       rawData={null}
@@ -241,7 +250,7 @@ function NoPlayerDataAppShell({ children, authenticated }) {
   );
 }
 
-function InnerAppShell({ loading, error, rows, siteKeys, rawData, privateDataEnabled, authenticated, children }) {
+function InnerAppShell({ loading, error, failure, retry, rows, siteKeys, rawData, privateDataEnabled, authenticated, children }) {
   // Player search requires an authenticated session.  Search against
   // the private contract leaks ranking data and private identifiers
   // to logged-out visitors on otherwise-public surfaces.
@@ -350,6 +359,16 @@ function InnerAppShell({ loading, error, rows, siteKeys, rawData, privateDataEna
         rawData,
         loading,
         error,
+        // `error` is the message string, kept because every existing
+        // consumer reads it.  `failure` is the CLASSIFIED state — kind,
+        // code, retryable — and `retry` the affordance that goes with it.
+        // Both were added to useDynastyData when contract failures were
+        // classified, and then stopped here: the context forwarded only
+        // the string, so /rosters, /league and the player pages could not
+        // tell a 503 from a 403 however well the hook classified it, and
+        // kept rendering failures through the EMPTY primitive.
+        failure,
+        retry,
         openPlayerPopup,
         openSearch,
         registerAddToTrade,

@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { useApp } from "@/components/AppShell";
 import { useSettings } from "@/components/useSettings";
 import { PageHeader, LoadingState, EmptyState, PlayerImage } from "@/components/ui";
+import { FailureState } from "@/components/ds";
 import { InfoTip, PlayerNameButton } from "@/components/ds";
 import { ValueBasisNote } from "@/components/ds";
 import {
@@ -63,7 +64,8 @@ const ASSET_SCOPES = [
 ];
 
 export default function RostersPage() {
-  const { rows, rawData, loading, error, openPlayerPopup } = useApp();
+  const { rows, rawData, loading, error, failure, retry, openPlayerPopup } =
+    useApp();
   const { settings, update } = useSettings();
   const [assetScope, setAssetScope] = useState("full");
   const [activeGroups, setActiveGroups] = useState(new Set(POS_GROUPS));
@@ -141,7 +143,31 @@ export default function RostersPage() {
   }
 
   if (loading) return <LoadingState message="Loading roster data..." />;
-  if (error) return <div className="card"><EmptyState title="Error" message={error} /></div>;
+  // A failure is not an absence.  `EmptyState title="Error"` told a screen
+  // reader "nothing here", offered no retry, and printed the raw thrown
+  // string — which since contract failures carry their body is a JSON 503
+  // payload rendered into the page.  FailureState classifies instead:
+  // degraded reads as degraded, 403 offers no pointless retry, and the
+  // server's own message leads.
+  if (error) {
+    // `failure` is set alongside `error` by useDynastyData, but a caller
+    // that surfaces an error string without one must not render a blank
+    // card — FailureState returns null on a falsy failure. So an
+    // unclassified error becomes an explicit generic one rather than
+    // disappearing, which is the same missing-is-never-zero rule the
+    // contract applies to values.
+    const state = failure || {
+      kind: "error",
+      code: null,
+      message: error,
+      retryable: true,
+    };
+    return (
+      <div className="card">
+        <FailureState failure={state} onRetry={retry} />
+      </div>
+    );
+  }
 
   if (!sleeperTeams.length) {
     return (
