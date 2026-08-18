@@ -13,6 +13,9 @@ the shortfall instead of hiding it.
 
 from __future__ import annotations
 
+import json
+from pathlib import Path
+
 import pytest
 
 from src.bdvm.actuals import weekly_points_from_rows
@@ -122,3 +125,91 @@ def test_a_host_native_row_is_never_given_a_supplement():
     }
     out = compute_player_season_scores([row], CARD, season=2024, pbp_for_season=lambda _s: _stats())
     assert out[0].total_points == pytest.approx(4 * 0.08 + 3 * 0.25)
+
+
+# ── Where the join actually changes an answer ────────────────────────
+
+LIVE_CARDS = json.loads(
+    (Path(__file__).resolve().parent / "fixtures" / "live_scoring_cards_2026-07-28.json").read_text(
+        "utf-8"
+    )
+)
+
+
+def _profile_rows(bands, weeks=17):
+    rows = [
+        {
+            "player_id": "00-x",
+            "player_display_name": "Probe",
+            "position": "WR",
+            "season": 2025,
+            "week": w,
+            "season_type": "REG",
+            "receptions": sum(bands.values()),
+            "receiving_yards": 80,
+        }
+        for w in range(1, weeks + 1)
+    ]
+    stats = PbpWeeklyStats(
+        2025, {"00-x": {w: dict(bands) for w in range(1, weeks + 1)}}, range(1, weeks + 1)
+    )
+    return rows, stats
+
+
+def _ratio(bands, *, joined):
+    rows, stats = _profile_rows(bands)
+    kw = {"pbp_for_season": (lambda _s: stats)} if joined else {}
+    mine = compute_player_season_scores(rows, LIVE_CARDS["dynasty_main"], season=2025, **kw)
+    base = compute_player_season_scores(rows, LIVE_CARDS["baseline"], season=2025, **kw)
+    return mine[0].total_points / base[0].total_points
+
+
+CHECKDOWN = {"rec_0_4": 4, "rec_5_9": 2}
+BALANCED = {"rec_0_4": 1, "rec_5_9": 2, "rec_10_19": 2, "rec_20_29": 1}
+DEEP = {"rec_30_39": 3, "rec_40p": 3}
+
+
+def test_without_the_supplement_the_scoring_fit_measurement_cannot_discriminate():
+    """The measurement's whole purpose, absent.
+
+    `scoring_fit` asks how differently two cards price the same
+    production. `dynasty_main` bands receptions 0.17→1.92; the baseline
+    pays a flat 0.75 and **0.0 for every band**. With the bands unscored
+    the difference between a checkdown back and a deep threat vanishes —
+    and it does NOT cancel between the arms, because only one arm has
+    anything to lose.
+    """
+    ratios = {
+        p: _ratio(b, joined=False)
+        for p, b in (("checkdown", CHECKDOWN), ("balanced", BALANCED), ("deep", DEEP))
+    }
+    assert len(set(round(r, 6) for r in ratios.values())) == 1, ratios
+    assert ratios["checkdown"] == pytest.approx(0.678, abs=0.001)
+
+
+def test_with_the_supplement_the_catch_profile_moves_the_ratio_the_right_way():
+    checkdown = _ratio(CHECKDOWN, joined=True)
+    balanced = _ratio(BALANCED, joined=True)
+    deep = _ratio(DEEP, joined=True)
+    assert checkdown < balanced < deep
+    assert checkdown == pytest.approx(0.800, abs=0.002)
+    assert deep == pytest.approx(1.420, abs=0.002)
+
+
+def test_the_baseline_card_bands_nothing_which_is_why_gameplan_barely_moves():
+    """Pins the correction, not just the fix.
+
+    A review draft placed the sharpest effect on `gameplan.py`'s
+    reception-share ratio (5.66% → 30.43%). That share is measured under
+    the BASELINE card, and this is the fact that makes the number wrong:
+    the baseline pays 0.0 for every band, so joining the supplement moves
+    a pure receiver's share by exactly nothing. If a future card change
+    makes this false, the justification written beside that call site
+    stops being true and this test says so.
+    """
+    baseline = LIVE_CARDS["baseline"]
+    assert all(
+        float(baseline.get(b, 0) or 0) == 0.0
+        for b in ("rec_0_4", "rec_5_9", "rec_10_19", "rec_20_29", "rec_30_39", "rec_40p")
+    )
+    assert float(baseline["rec"]) > 0.0, "it pays a flat rate instead — that is the difference"
