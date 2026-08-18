@@ -299,7 +299,7 @@ Projections · **L4** Market / FAAB / Analyst · **L5** Integration / QA / CI / 
 | V1-117 | One intake mechanism for owner instructions | `C0-GOV-05` | L5 | `NOT STARTED` | L1 | governance; 65 binding decisions sit in a doc the index calls superseded |
 | V1-118 | Governance index names every planning doc | `C0-GOV-06` | L5 | `IN PROGRESS` | L1 | governance |
 | V1-119 | Planning-integrity validation in CI | `C0-GOV-07` | L5 | `IMPLEMENTED_UNVERIFIED` | L1 | CI |
-| V1-120 | Governance / directive reconciliation | `C0-R` | L5 | `IMPLEMENTED_UNVERIFIED` | L3 | production verification. §7.2 checklist **executed 2026-08-18** against the deployed SHA `8ec1978e` (§7.2a): **6 of 7 PASS**, incl. ancestry, both governance gates and the census figures. Item 5 PARTIAL — `tests/docs/test_governance_census_consistency` imports `pytest`, absent from this session's interpreter, so it is recorded UNRUN rather than passed. Not `VERIFIED`: the checklist requires all seven |
+| V1-120 | Governance / directive reconciliation | `C0-R` | L5 | `VERIFIED` | L3 | production verification. **§7.2 checklist re-run 2026-08-18 against the post-#910 deployed SHA `92469d32` (§7.2b): 7 of 7 PASS.** The earlier 6-of-7 at `8ec1978e` recorded item 5 as UNRUN because `pytest` was believed absent from this session; it was installed as a `uv` tool binary, so `python -m pytest` failed while `pytest` worked — the verifier tested a proxy for the question instead of the question. Re-run on a worktree at the deployed SHA: `pytest tests/docs/ -q` → **22 passed**, all three modules. Ancestry, both governance gates, the census figures and the reserved-phrase check all hold there, and the deploy itself was green end to end including the post-deploy smoke test and the live data-contract validation |
 | V1-121 | Release-gate classification: every check has a category | release discipline | L5 | `NOT STARTED` | L1 | CI. A real blocker must not be treated as noise, nor a detector block releases |
 | V1-122 | Structural / source-health CI lanes stay separated | `docs/ops/STABILIZATION_2026-08-16.md` | L5 | `VERIFIED` | L1 | CI correctness |
 | V1-123 | Browser / workflow matrix | `C10-CLOSE-03` | L5 | `NOT STARTED` | L4 | production verification |
@@ -316,16 +316,16 @@ from the §3 table itself rather than by editing this block.
 
 | status | count |
 |---|---|
-| `VERIFIED` | 38 |
-| `IMPLEMENTED_UNVERIFIED` | 19 |
+| `VERIFIED` | 39 |
+| `IMPLEMENTED_UNVERIFIED` | 18 |
 | `IN PROGRESS` | 38 |
 | `NOT STARTED` | 35 |
 | `BLOCKED` | 2 |
 | **denominator** | **132** |
 
-**V1 completion: 38 / 132 = 28.8%.**
+**V1 completion: 39 / 132 = 29.5%.**
 
-**Up three, and every one of them on deployed evidence rather than on a merge.**
+**Up four, and every one of them on deployed evidence rather than on a merge.**
 #910 merged at 21:29 UTC; the deploy that carried it completed at ~22:50 and the
 2-hourly scrape at 22:55 produced the first board built entirely by post-#910
 code. Measured against `chaseupside.com` at 23:00:
@@ -341,6 +341,17 @@ code. Measured against `chaseupside.com` at 23:00:
   because the fourth of its four stated conditions is now satisfied. The
   round trip is the mechanism working: it left `VERIFIED` on a measured live
   failure and came back on a measured live pass, not on a merge.
+
+The fourth is `V1-120` (`C0-R`), and it moved for an uncomfortable reason: **the earlier
+verification was wrong about its own tooling.** Item 5 of that checklist was recorded UNRUN
+because `pytest` was believed absent from this session's interpreter. It was installed as a
+`uv` tool binary — `python -m pytest` failed while `pytest` worked — so the verifier tested a
+proxy for the question instead of the question. Re-run on a worktree at the post-`#910`
+deployed SHA `92469d32`: `pytest tests/docs/ -q` → **22 passed**, and all seven checks pass
+(§7.2b of the reconciliation record). This failed in the direction of **under**-reporting
+verification, which is the safer direction and still a false statement in a verification
+record. §7.2a is left standing rather than rewritten, because it accurately records what was
+measured with the tooling the verifier believed they had.
 
 `V1-128` (`F-28`) deliberately stays `IMPLEMENTED_UNVERIFIED`. Its own stated bar
 is "a deployed scrape showing a positive age **tracking the 2-hourly cadence**",
