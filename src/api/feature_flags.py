@@ -8,13 +8,18 @@ proves itself.
 enabled.**  This docstring, ``README.md`` and ``docs/ARCHITECTURE.md``
 all used to assert a blanket disabled-by-default rule, and
 ARCHITECTURE built a stronger claim on top of it about production
-behaviour being frozen until a flag was flipped.  Both were false: 8 of
-the 16 entries in ``_DEFAULTS`` below are ``True`` — ``bdvm_engine``,
+behaviour being frozen until a flag was flipped.  Both were false: 9 of
+the 17 entries in ``_DEFAULTS`` below are ``True`` — ``bdvm_engine``,
 ``te_basis_conversion`` (which reprices every tight end on the live
 board), ``monte_carlo_trade``, ``idp_scoring_fit``,
-``reception_scoring_fit``, ``nfl_data_ingest``, ``realized_points_api``
-and ``perfect_draft`` — several with comments recording that the
-enabled default is deliberate.
+``reception_scoring_fit``, ``nfl_data_ingest``, ``realized_points_api``,
+``perfect_draft`` and ``ledger_rank_change`` — several with comments
+recording that the enabled default is deliberate.
+
+``ledger_rank_change`` is the newest, registered 2026-08-18 by audit
+F-24 — and it was LIVE before it was registered, read straight from the
+environment and therefore absent from every operator surface.  It is the
+literal case this docstring warns about.
 
 For a flag that ships enabled, the env var is a ROLLBACK lever, not an
 opt-in.  Read ``_DEFAULTS`` for the flag you care about rather than
@@ -441,6 +446,15 @@ _GATE_STATUS: Final[dict[str, str]] = {
     # consensus_edge gates the /api/consensus-edge/* router mounted in
     # server.py: off → 503 feature_disabled, on → the board.
     "consensus_edge": LIVE,
+    # ledger_rank_change gates the C1-U4 ledger-derived ``rankChange``
+    # stamp in ``data_contract._stamp_rank_changes``, which runs on every
+    # contract build and therefore on every ``/api/data`` response: off →
+    # ``None`` everywhere (honest missing, NOT the retired cache), on →
+    # the derived stamps.  Registered by audit F-24; it was live and
+    # defaulted ON for its whole existence while being read straight from
+    # the environment, so it appeared in no operator surface and this
+    # table could not classify it.
+    "ledger_rank_change": LIVE,
     # ── Gate exists, module is stranded ──
     #
     # ``src/nfl_data/injury_feed.py`` and ``src/news/usage_signals.py``
