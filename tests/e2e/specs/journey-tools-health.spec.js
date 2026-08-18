@@ -31,33 +31,19 @@ test.describe("journey: /tools health pages", () => {
   test("/tools/source-health lists real scraper sources from /api/status", async ({
     authedPage: page,
   }) => {
-    // Authoritative source list straight from the backend.
-    //
-    // AUDIT F-29.  This used to read `source_runtime.enabled_sources`,
-    // with a note claiming that was "what the strip renders from".  It
-    // no longer is, and the note outlived the fact: audit **F-7**
-    // changed `SourceHealthStrip` to render the ranking-source REGISTRY
-    // precisely because `enabled_sources` carries the scraper's run
-    // names for the two ANCHOR markets only — measured on production
-    // 2026-08-18, `["IDPTradeCalc", "KTC"]` against 21 registered
-    // sources, all 21 of which had data (`sources_with_data: 21`,
-    // `missing_sources: []`).  The page promises "every ranking source
-    // in the pipeline", so 2 of 21 was the defect F-7 repaired — and
-    // this spec then failed the repair, expecting 2 and finding 21.
-    //
-    // The expectation is therefore the REGISTRY, stated as the page's
-    // contract rather than mirrored from the component's resolution
-    // order.  A test that recomputes what the component computes cannot
-    // catch the component computing the wrong thing.
+    // Authoritative source list straight from the backend.  NOTE the
+    // path: `source_runtime.enabled_sources` is what the strip renders
+    // from, and it uses display casing ("KTC", "IDPTradeCalc") that
+    // differs from the lowercase keys in `source_health.sources`.
+    // Comparing against the wrong one silently never matches.
     const statusRes = await page.request.get("/api/status");
     expect(statusRes.status()).toBe(200);
     const status = await statusRes.json();
-    const registered = status?.source_health?.registered_sources || [];
+    const enabled = status?.source_health?.source_runtime?.enabled_sources || [];
     expect(
-      Array.isArray(registered),
-      "/api/status must report source_health.registered_sources — the strip's row population",
+      Array.isArray(enabled),
+      "/api/status must report source_runtime.enabled_sources",
     ).toBeTruthy();
-    const enabled = registered;
 
     await page.goto(pageUrl("/tools/source-health"), {
       waitUntil: "domcontentloaded",
@@ -68,20 +54,14 @@ test.describe("journey: /tools health pages", () => {
 
     const strip = page.locator('[aria-label="Scrape source health"]');
 
-    // `SourceHealthStrip` renders null when there is no population to
-    // render at all.  Both states are asserted rather than skipped, so
-    // the component's contract is pinned either way.
-    //
-    // "No population" means the registry is empty AND the scrape runtime
-    // named nothing either — a cold server that has not loaded a
-    // contract.  With an empty registry but a live scrape the component
-    // still falls back to the runtime names, so this branch must test
-    // both or it asserts an empty page against one that has rows.
-    const runtimeNames = status?.source_health?.source_runtime?.enabled_sources || [];
-    if (enabled.length === 0 && runtimeNames.length === 0) {
+    // `SourceHealthStrip` renders null when the backend reports zero
+    // enabled sources (components/SourceHealthStrip.jsx:129).  Both
+    // states are asserted rather than skipped, so the component's
+    // contract is pinned either way.
+    if (enabled.length === 0) {
       await expect(
         strip,
-        "backend reports no sources at all, so the strip must render nothing",
+        "backend reports no enabled sources, so the strip must render nothing",
       ).toHaveCount(0);
       return;
     }

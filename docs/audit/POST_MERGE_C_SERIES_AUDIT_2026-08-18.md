@@ -1543,11 +1543,25 @@ So the page showing 21 is correct and the spec expecting 2 is the pre-F-7 expect
 **same failure class as F-23**: a guard pinned to a fact it never re-verified, which then reported
 the fix as the fault.
 
-**Repaired** by deriving the expectation from `registered_sources` — the page's stated contract —
-rather than mirroring the component's resolution order, because a test that recomputes what the
-component computes cannot catch the component computing the wrong thing. The zero-state branch now
-requires BOTH the registry and the runtime list to be empty; keyed on the registry alone it would
-have asserted an empty strip against a page that legitimately renders the runtime fallback.
+**Repaired — by LANE 6, in `#912`, not by this lane.** Both lanes reached the same diagnosis
+independently and edited the same file. Integration takes lane 6's version and **withdraws this
+lane's**, for a reason stronger than "the frontend surface is theirs":
+
+*This lane's version was defective, and lane 6's is not.* The withdrawn version derived the
+expectation from `registered_sources` alone, on the principle that a test recomputing what the
+component computes cannot catch the component computing the wrong thing. The principle stands;
+the implementation did not honour it. With an empty registry but a live runtime list — the exact
+case its own comment described — it skipped the zero-state branch and then asserted **0** rendered
+rows against a page that legitimately renders the runtime fallback. Lane 6 mirrors the
+component's ladder (`registered.length ? registered : runtimeEnabled`) and is correct there.
+
+Recorded rather than quietly dropped, because "whoever wrote it first wins" is precisely the
+failure mode this lane exists to police, and the deciding fact must be the code, not the order of
+arrival.
+
+What this lane contributes instead is the half lane 6 does not have: the **`#909` attribution is
+refuted** by the run history above, and the two `/api/status` numbers are **measured on live
+production** rather than reasoned about.
 
 **Still open, and separated rather than folded in:** `journey-settings-overrides:45`. Its retry
 carries a different and more interesting diagnostic than the first failure —
