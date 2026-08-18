@@ -12,6 +12,7 @@ See ``src/packages/construction.py`` for what this owns and what it refuses to.
 """
 
 from src.packages.construction import (
+    MAX_PLAYER_COUNT_DIFFERENCE,
     EligibilityPolicy,
     EnumerationReport,
     PackageAsset,
@@ -22,10 +23,13 @@ from src.packages.construction import (
     enumerate_packages,
     enumerate_sides,
     package_key,
+    player_count,
     side_key,
+    topology_is_allowed,
 )
 
 __all__ = [
+    "MAX_PLAYER_COUNT_DIFFERENCE",
     "EligibilityPolicy",
     "EnumerationReport",
     "PackageAsset",
@@ -36,5 +40,7 @@ __all__ = [
     "enumerate_packages",
     "enumerate_sides",
     "package_key",
+    "player_count",
     "side_key",
+    "topology_is_allowed",
 ]

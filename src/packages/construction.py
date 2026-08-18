@@ -70,6 +70,7 @@ __all__ = [
     "EligibilityPolicy",
     "EnumerationReport",
     "PackageAsset",
+    "MAX_PLAYER_COUNT_DIFFERENCE",
     "PackageShape",
     "SidePair",
     "adapt_assets",
@@ -77,7 +78,9 @@ __all__ = [
     "enumerate_packages",
     "enumerate_sides",
     "package_key",
+    "player_count",
     "side_key",
+    "topology_is_allowed",
 ]
 
 
@@ -267,6 +270,43 @@ class PackageShape:
             raise ValueError("a package must have at least one asset on each side")
 
 
+#: C3-TOPO-01 — the owner's bound on generated-trade topology.
+#:
+#: ``abs(players_A - players_B) <= 1``.  1v1, 2v1, 1v2, 3v2 and 2v3 are
+#: allowed; 3v1, 1v3, 4v2 and 2v4 are not.  This SUPERSEDES the earlier
+#: exact-equal-player-count rule (#841/#842 supersession).
+MAX_PLAYER_COUNT_DIFFERENCE = 1
+
+
+def player_count(side: Sequence[PackageAsset]) -> int:
+    """How many PLAYERS a side contributes.  Picks are not players.
+
+    The distinction is the whole content of C3-TOPO-01: a manager reads
+    "three-for-one" as a lopsided offer whether or not a pick rides along, and
+    reads "two players plus a pick for two players" as even.  Counting assets
+    instead would call the first even and the second lopsided.
+    """
+
+    return sum(1 for asset in side if not asset.is_pick)
+
+
+def topology_is_allowed(
+    send: Sequence[PackageAsset],
+    receive: Sequence[PackageAsset],
+    *,
+    max_difference: int = MAX_PLAYER_COUNT_DIFFERENCE,
+) -> bool:
+    """Whether this package's player counts are close enough to propose.
+
+    A GENERATED-trade rule.  It deliberately does not apply to a trade a user
+    typed in — the simulator answers the question it was asked, and refusing to
+    evaluate a legal 3-for-1 because a generator would not have proposed it is
+    the ``_check_legality`` mistake in a different costume.
+    """
+
+    return abs(player_count(send) - player_count(receive)) <= max_difference
+
+
 def _default_shapes(max_per_side: int, max_side_difference: int) -> list[PackageShape]:
     """Every shape up to ``max_per_side`` within the asymmetry bound.
 
@@ -309,6 +349,9 @@ class EnumerationReport:
     duplicates_suppressed: int = 0
     budget_exhausted: bool = False
     name_keyed_assets: int = 0
+    #: C3-TOPO-01 refusals.  Reported rather than silent: "no 3-for-1 came
+    #: back" and "3-for-1 is not a shape we propose" are different answers.
+    topology_rejected: int = 0
 
     @property
     def truncated(self) -> bool:
@@ -326,6 +369,7 @@ class EnumerationReport:
             "theirExcludedIneligible": self.their_excluded_ineligible,
             "ourExcludedUnpriced": self.our_excluded_unpriced,
             "theirExcludedUnpriced": self.their_excluded_unpriced,
+            "topologyRejected": self.topology_rejected,
             "ourTruncatedTo": self.our_truncated_to,
             "theirTruncatedTo": self.their_truncated_to,
             "shapes": list(self.shapes),
@@ -461,6 +505,8 @@ def enumerate_packages(
     shapes: Sequence[PackageShape] | None = None,
     max_per_side: int = 2,
     max_side_difference: int = 1,
+    enforce_topology: bool = True,
+    max_player_difference: int = MAX_PLAYER_COUNT_DIFFERENCE,
     pool_limit: int | None = None,
     max_packages: int | None = None,
     rank_key: Callable[[PackageAsset], Any] | None = None,
@@ -522,6 +568,11 @@ def enumerate_packages(
                         continue
                     if send_keys & receive_keys:
                         continue  # self-trade: the same asset on both sides
+                    if enforce_topology and not topology_is_allowed(
+                        send, receive, max_difference=max_player_difference
+                    ):
+                        report.topology_rejected += 1
+                        continue
                     pair = SidePair(send=send, receive=receive)
                     if pair.key in seen:
                         report.duplicates_suppressed += 1

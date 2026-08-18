@@ -314,3 +314,162 @@ def test_the_default_pool_order_survives_truncation_correctly():
         pool_limit=1,
     )
     assert {a.name for p in packages for a in p.send} == {"Dear"}
+
+
+# ── C3-TOPO-01 — generated-trade topology ────────────────────────────
+#
+# `abs(players_A - players_B) <= 1`, PICKS EXCLUDED from the count.  1v1, 2v1,
+# 1v2, 3v2, 2v3 allowed; 3v1, 1v3, 4v2, 2v4 not.  This SUPERSEDES the earlier
+# exact-equal-player-count rule (#841/#842).
+#
+# The pick exclusion is the whole content of the rule, and it is what makes it
+# more than a restatement of `max_side_difference` — that bound counts ASSETS
+# and structurally cannot see a pick.
+
+
+def _pa(name: str, position: str = "RB", value: float | None = 100.0):
+    from src.packages import PackageAsset
+
+    return PackageAsset(asset_id=name, name=name, position=position, value=value)
+
+
+@pytest.mark.parametrize(
+    "send_positions,receive_positions,allowed,label",
+    [
+        (["RB"], ["WR"], True, "1v1"),
+        (["RB", "WR"], ["TE"], True, "2v1"),
+        (["RB"], ["WR", "TE"], True, "1v2"),
+        (["RB", "WR", "TE"], ["QB", "RB"], True, "3v2"),
+        (["RB", "WR"], ["QB", "TE", "RB"], True, "2v3"),
+        (["RB", "WR", "TE"], ["QB"], False, "3v1"),
+        (["RB"], ["QB", "WR", "TE"], False, "1v3"),
+        (["RB", "WR", "TE", "QB"], ["RB", "WR"], False, "4v2"),
+        (["RB", "WR"], ["RB", "WR", "TE", "QB"], False, "2v4"),
+    ],
+)
+def test_the_manifest_topology_table_verbatim(send_positions, receive_positions, allowed, label):
+    from src.packages import topology_is_allowed
+
+    send = [_pa(f"s{i}", p) for i, p in enumerate(send_positions)]
+    receive = [_pa(f"r{i}", p) for i, p in enumerate(receive_positions)]
+    assert topology_is_allowed(send, receive) is allowed, label
+
+
+@pytest.mark.parametrize(
+    "send_positions,receive_positions,allowed,why",
+    [
+        # A pick riding along does not make a 2-for-1 into an even trade...
+        (["RB", "WR"], ["TE", "PICK"], True, "2 players vs 1 player = 2v1"),
+        # ...and it does not rescue a 3-for-1 either.
+        (["RB", "WR", "TE"], ["QB", "PICK", "PICK"], False, "3 players vs 1 player = 3v1"),
+        # Picks on both sides are invisible to the count.
+        (["RB", "PICK"], ["WR", "PICK"], True, "1v1 with picks attached"),
+        # An all-pick side has zero players.
+        (["RB"], ["PICK", "PICK", "PICK"], True, "1 player vs 0 players"),
+        (["RB", "WR"], ["PICK"], False, "2 players vs 0 players"),
+        (["PICK"], ["PICK", "PICK"], True, "0 players vs 0 players"),
+    ],
+)
+def test_picks_are_not_players(send_positions, receive_positions, allowed, why):
+    from src.packages import topology_is_allowed
+
+    send = [_pa(f"s{i}", p) for i, p in enumerate(send_positions)]
+    receive = [_pa(f"r{i}", p) for i, p in enumerate(receive_positions)]
+    assert topology_is_allowed(send, receive) is allowed, why
+
+
+def test_counting_assets_instead_of_players_gets_two_of_those_backwards():
+    """The pick exclusion is load-bearing, not cosmetic.
+
+    Recorded as a test because "close enough, just count assets" is the
+    obvious simplification and it is wrong in BOTH directions: it calls a real
+    3-for-1 even, and it refuses a real 2-for-1.
+    """
+    from src.packages import player_count, topology_is_allowed
+
+    # Asset counts 3v3 — an asset-based rule allows it.  Players are 3v1.
+    send = [_pa("a", "RB"), _pa("b", "WR"), _pa("c", "TE")]
+    receive = [_pa("d", "QB"), _pa("e", "PICK"), _pa("f", "PICK")]
+    assert abs(len(send) - len(receive)) == 0  # an asset rule sees parity
+    assert (player_count(send), player_count(receive)) == (3, 1)
+    assert topology_is_allowed(send, receive) is False
+
+    # Asset counts 3v1 — an asset rule refuses it.  Players are 1v1.
+    send = [_pa("a", "RB"), _pa("b", "PICK"), _pa("c", "PICK")]
+    receive = [_pa("d", "QB")]
+    assert abs(len(send) - len(receive)) == 2  # an asset rule refuses
+    assert (player_count(send), player_count(receive)) == (1, 1)
+    assert topology_is_allowed(send, receive) is True
+
+
+def test_enumerate_packages_enforces_topology_and_reports_what_it_refused():
+    from src.packages import PackageShape, enumerate_packages
+
+    ours = [_pa("a", "RB"), _pa("b", "WR"), _pa("c", "TE")]
+    theirs = [_pa("z", "PICK")]  # their only asset is a pick — zero players
+
+    packages, report = enumerate_packages(
+        ours, theirs, shapes=[PackageShape(3, 1), PackageShape(1, 1)]
+    )
+    emitted = list(packages)
+
+    # 3 players for 0 players is 3v0 — refused.  1 player for 0 is 1v0 — kept.
+    for pair in emitted:
+        send, receive = pair.sources()
+        assert len(send) == 1, "the 3-for-1 shape should have been refused"
+    assert report.topology_rejected == 1
+    assert report.to_dict()["topologyRejected"] == 1
+    # "no 3-for-1 came back" and "3-for-1 is not a shape we propose" are
+    # different answers and the report distinguishes them.
+    assert report.emitted == len(emitted)
+
+
+def test_topology_can_be_switched_off_for_a_caller_that_is_not_generating():
+    """A user-typed trade is not a generated one.
+
+    The simulator answers the question it was asked; refusing to evaluate a
+    legal 3-for-1 because a generator would not have proposed it is the
+    `_check_legality` mistake in a different costume.
+    """
+    from src.packages import PackageShape, enumerate_packages
+
+    ours = [_pa("a", "RB"), _pa("b", "WR"), _pa("c", "TE")]
+    theirs = [_pa("z", "QB")]
+
+    strict_packages, strict = enumerate_packages(ours, theirs, shapes=[PackageShape(3, 1)])
+    # The report is filled in AS THE ITERATOR RUNS — draining it is what makes
+    # the counters meaningful.  See the laziness note in `enumerate_packages`.
+    assert list(strict_packages) == []
+    assert strict.emitted == 0
+    assert strict.topology_rejected == 1
+
+    packages, loose = enumerate_packages(
+        ours, theirs, shapes=[PackageShape(3, 1)], enforce_topology=False
+    )
+    assert len(list(packages)) == 1
+    assert loose.topology_rejected == 0
+
+
+def test_the_report_is_only_complete_once_the_iterator_is_drained():
+    """A trap worth pinning: unconsumed counters are zeros, not facts.
+
+    `enumerate_packages` returns a lazy iterator so a product can stop early,
+    and its docstring says the report fills in as it goes.  A caller that
+    serialises `report.to_dict()` without consuming the packages publishes
+    `topologyRejected: 0` and `emitted: 0` for an enumeration that never ran —
+    which reads as "nothing was refused" rather than "nothing was looked at".
+    Pool-level counts are the exception and are final immediately.
+    """
+    from src.packages import PackageShape, enumerate_packages
+
+    ours = [_pa("a", "RB"), _pa("b", "WR"), _pa("c", "TE")]
+    theirs = [_pa("z", "QB")]
+
+    packages, report = enumerate_packages(ours, theirs, shapes=[PackageShape(3, 1)])
+    # Final immediately — these do not depend on the walk.
+    assert (report.our_pool_size, report.their_pool_size) == (3, 1)
+    # Not yet meaningful.
+    assert (report.emitted, report.topology_rejected) == (0, 0)
+
+    list(packages)
+    assert report.topology_rejected == 1
