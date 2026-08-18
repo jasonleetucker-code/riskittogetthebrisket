@@ -201,7 +201,7 @@ def test_tracker_steps_identify_their_own_issue_not_just_the_label() -> None:
     for name in _ISSUE_STEP_NAMES:
         run = _step_named(wf, name)["run"]
 
-        assert '.author.login' in run, (
+        assert ".author.login" in run, (
             f"{name!r} no longer filters the tracker lookup by author. "
             "Selecting on the e2e-failures label alone treats any issue "
             "wearing it as this workflow's own tracker — which closed/"
