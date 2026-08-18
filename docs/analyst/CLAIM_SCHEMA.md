@@ -119,7 +119,7 @@ superseded by another in the set is dropped regardless of date.
 plainly because the repo already carries `src/news/unified_signal_engine.py`,
 which describes itself as the "single entry point for every BUY/SELL/HOLD
 decision" and is imported by nothing in production (see
-`scratchpad/LANE4_SIGNAL_EMITTER_INVENTORY.md`). A module that claims to be
+`docs/lane4/LANE4_SIGNAL_EMITTER_INVENTORY.md`). A module that claims to be
 wired is worse than one that says it is not.
 
 ## 7. What consumes it next
