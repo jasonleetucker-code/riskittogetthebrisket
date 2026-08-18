@@ -299,6 +299,28 @@ capability's whole point is real data. Production verification, on the deployed 
 
 Until those are recorded, the unit is implementation-complete and not closed.
 
+### 8a. Verification attempt — 2026-08-18 · **BLOCKED-EXTERNAL, all seven**
+
+Attempted alongside the other four `CLOSED-PENDING-PROD` checklists. Unlike those, **none** of
+these seven is reachable from the integration session, and the reason is the one §8 already
+states: *"the capability's whole point is real data."*
+
+| what the checks need | availability here |
+|---|---|
+| `data/retention/league_events.sqlite` | **absent** — the directory does not exist |
+| `data/intel/ledger.sqlite3` | **absent** — the directory does not exist |
+| running `scripts/build_acquisition_ledger.py` against live Sleeper for each active league | needs the prod host and its credentials |
+| the nightly backup picking the file up | needs the prod host |
+
+There is no partial credit available: item 1 exists specifically to confirm the builder sees
+**288 existing retained transactions rather than 0**, and on this box it would see 0 for the
+uninteresting reason that the store is not here. Running it and recording "0" would be worse
+than not running it — it manufactures a measurement out of an absent input, which is the
+failure mode this repository keeps finding elsewhere.
+
+Recorded `BLOCKED-EXTERNAL`. Unblocking needs an authenticated production session, not more
+work on the unit; the implementation is not what is missing.
+
 ---
 
 ## 8b. Board and confidence inertness — MEASURED

@@ -1,23 +1,18 @@
 {
-  "attempts": 2,
-  "checkedAt": "2026-08-18T20:54:22.655134+00:00",
+  "attempts": 1,
+  "checkedAt": "2026-08-18T21:30:15.466512+00:00",
   "cohort": {},
-  "deployConclusion": "success",
-  "deployHeadSha": "1055710d70c1c6437f89d15da8adcc76aa32ad81",
-  "deployRunId": "32182797961",
+  "deployConclusion": "pending",
+  "deployHeadSha": "ff1d9dd59530b1f893c4352beb4b46db5173c83a",
+  "deployRunId": "",
   "errors": [
     {
       "attempt": 1,
-      "message": "The read operation timed out",
-      "type": "TimeoutError"
-    },
-    {
-      "attempt": 2,
       "message": "401 from https://chaseupside.com/api/sharp/cohort",
       "type": "Unauthenticated"
     }
   ],
-  "eventName": "workflow_run",
+  "eventName": "push",
   "ffpcMarket": {},
   "status": "unverifiable_unauthenticated"
 }

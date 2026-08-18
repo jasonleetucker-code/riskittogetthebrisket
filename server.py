@@ -1530,6 +1530,20 @@ def _set_latest_data_source(
     )
 
 
+#: How far into the future a board's production stamp may sit before it is
+#: refused as UNKNOWN rather than published as an age (audit F-28).
+#:
+#: Bounded from both sides rather than picked:
+#:
+#: * it must be LARGER than real clock skew between two NTP-synced hosts,
+#:   which is seconds — five minutes is three orders of magnitude of headroom;
+#: * it must be SMALLER than the smallest timezone quantum in use anywhere,
+#:   which is 15 minutes (UTC+05:45, UTC+12:45).  Any tolerance at or above
+#:   that could swallow a genuine timezone misreading, which is the entire
+#:   condition this guard exists to catch.
+_BOARD_AGE_CLOCK_SKEW_TOLERANCE_HOURS = 5.0 / 60.0
+
+
 def _board_age_hours() -> float | None:
     """Hours since the loaded BOARD was produced, or ``None`` if unknown.
 
@@ -1539,14 +1553,28 @@ def _board_age_hours() -> float | None:
     NEVER ZERO, and here zero is the most reassuring number the field can
     carry.
 
-    ``scrapeTimestamp`` is written by ``Dynasty Scraper.py`` with
-    ``datetime.datetime.now()`` and is therefore NAIVE
-    (``"2026-08-18T11:04:55.664246"``).  Subtracting a naive datetime from a
-    tz-aware ``now`` raises ``TypeError``, which every caller here swallows —
-    so without the explicit attach below this function would return ``None``
-    for every real payload and the repair would be silently inert.  Treating
-    a naive stamp as UTC is an ASSUMPTION about where the scraper runs; it is
-    stated here rather than left implicit.
+    ``scrapeTimestamp`` is tz-aware UTC as of audit F-28.  Payloads produced
+    before that — every committed archive, and any board still on disk from an
+    older scraper — are NAIVE (``"2026-08-18T11:04:55.664246"``).  Subtracting
+    a naive datetime from a tz-aware ``now`` raises ``TypeError``, which every
+    caller here swallows, so without the explicit attach below this function
+    would return ``None`` for those payloads and the F-19 repair would be
+    silently inert for them.  Reading a LEGACY naive stamp as UTC remains an
+    assumption; it is stated here rather than left implicit, and it is now
+    confined to legacy payloads instead of describing the live path.
+
+    **A board produced in the FUTURE is UNKNOWN, never a number** (F-28).  A
+    negative age is not a small error to publish and move on from: it is below
+    every staleness threshold by construction, so it reports maximum freshness
+    with maximum confidence at precisely the moment the stamp cannot be
+    trusted.  Production served ``data_age_hours: -1.0`` for a board scraped an
+    hour earlier, which made ``data_stale`` unreachable rather than merely
+    inaccurate.  ``ops_alerts._check_data_freshness`` already treats ``None``
+    as "no opinion" and raises no alert, so UNKNOWN degrades quietly instead of
+    inventing an alarm.
+
+    A small negative tolerance absorbs ordinary clock skew between the
+    producing host and this one; beyond it the stamp is refused.
     """
     produced_at = latest_data_source.get("producedAt")
     if not produced_at:
@@ -1558,9 +1586,12 @@ def _board_age_hours() -> float | None:
     if produced_dt.tzinfo is None:
         produced_dt = produced_dt.replace(tzinfo=timezone.utc)
     try:
-        return (datetime.now(timezone.utc) - produced_dt).total_seconds() / 3600.0
+        age_h = (datetime.now(timezone.utc) - produced_dt).total_seconds() / 3600.0
     except (ValueError, TypeError, OverflowError):
         return None
+    if age_h < -_BOARD_AGE_CLOCK_SKEW_TOLERANCE_HOURS:
+        return None
+    return max(age_h, 0.0)
 
 
 # Identity-keyed cache for live rankDerivedValue lookups used by the
