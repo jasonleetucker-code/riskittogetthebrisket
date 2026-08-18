@@ -48,6 +48,14 @@ V1_KEYS = {
 }
 
 
+def _iso_now(offset_s: float = 0.0) -> str:
+    """An ISO stamp relative to now.  Tests that care about freshness must
+    move with the clock; a hardcoded date silently becomes stale."""
+    import datetime as _dt
+
+    return (_dt.datetime.now(_dt.timezone.utc) + _dt.timedelta(seconds=offset_s)).isoformat()
+
+
 @pytest.fixture
 def faab_env(tmp_path, monkeypatch):
     """Single-league registry + stubbed external inputs."""
@@ -95,11 +103,17 @@ def faab_env(tmp_path, monkeypatch):
     # Trending adapter serves a canned snapshot (primary path).
     from src.adapters import sleeper_trending
 
+    # A FRESH snapshot.  It used to be stamped 2026-07-25, which meant the
+    # suite asserted two contradictory things: ``staleInputs`` contained
+    # "trending" (the stamp was a month old) while the factor row was
+    # asserted present.  That contradiction was the defect, so the fixture
+    # now stamps a genuinely current observation and the stale case is
+    # tested explicitly below.
     monkeypatch.setattr(
         sleeper_trending,
         "get_trending_adds",
         lambda **kwargs: {
-            "fetchedAt": "2026-07-25T12:00:00+00:00",
+            "fetchedAt": _iso_now(),
             "lookbackHours": 24,
             "counts": {"1234": 12000},
         },
@@ -299,8 +313,9 @@ def test_inputs_as_of_and_stale_inputs_reflect_stubbed_sources(faab_env, monkeyp
         res = _post(c, monkeypatch, {"addPlayerName": "Hot Pickup"})
     payload = res.json()
     inputs = payload["inputsAsOf"]
-    # Trending came from the canned adapter snapshot.
-    assert inputs["trending"] == "2026-07-25T12:00:00+00:00"
+    # Trending came from the canned adapter snapshot, which is now stamped
+    # fresh — so it must NOT be reported stale.
+    assert inputs["trending"] is not None
     # Overlay/analytics/intel were stubbed away → no timestamps →
     # flagged stale.
     assert inputs["rosters"] is None
@@ -308,6 +323,7 @@ def test_inputs_as_of_and_stale_inputs_reflect_stubbed_sources(faab_env, monkeyp
     assert inputs["intel"] is None
     stale = set(payload["staleInputs"])
     assert {"rosters", "leagueAnalytics", "intel"} <= stale
+    assert "trending" not in stale
 
 
 def test_trending_adapter_is_primary_signal(faab_env, monkeypatch):
@@ -319,6 +335,82 @@ def test_trending_adapter_is_primary_signal(faab_env, monkeypatch):
     trending_factors = [f for f in payload["factors"] if f["label"].lower().startswith("trending")]
     assert trending_factors, "expected a trending factor row"
     assert all(f["missing"] is False for f in trending_factors)
+    assert "12,000 adds in the last 24h" in trending_factors[0]["contribution"]
+
+
+# ── Stale demand evidence ────────────────────────────────────────────
+#
+# The adapter serves the PREVIOUS snapshot when a fetch fails — deliberately,
+# and with no absolute cap — so an upstream outage keeps one snapshot in front
+# of every request indefinitely.  Age is the only thing separating "12,000 adds
+# in the last 24h" from a claim about a day that has long since passed.
+
+
+def _trending_stamped(monkeypatch, fetched_at):
+    from src.adapters import sleeper_trending
+
+    monkeypatch.setattr(
+        sleeper_trending,
+        "get_trending_adds",
+        lambda **kwargs: {
+            "fetchedAt": fetched_at,
+            "lookbackHours": 24,
+            "counts": {"1234": 12000},
+        },
+    )
+
+
+def _trending_row(payload):
+    return next(f for f in payload["factors"] if f["label"].lower().startswith("trending"))
+
+
+def test_a_stale_trending_snapshot_stops_claiming_the_last_24h(faab_env, monkeypatch):
+    from src.trade.faab_contention import STALENESS_MAX_AGE_S
+
+    _trending_stamped(monkeypatch, _iso_now(-(STALENESS_MAX_AGE_S["trending"] + 3600)))
+    with TestClient(server.app, raise_server_exceptions=True) as c:
+        res = _post(c, monkeypatch, {"addPlayerName": "Hot Pickup"})
+    payload = res.json()
+    row = _trending_row(payload)
+    assert row["missing"] is True
+    assert "last 24h" not in row["contribution"]
+    assert "stale" in row["contribution"]
+    # ...and the two halves of the payload now agree with each other.
+    assert "trending" in payload["staleInputs"]
+
+
+def test_a_stale_snapshot_does_not_hold_confidence_up(faab_env, monkeypatch):
+    """The point of the change.  Asserted as a COMPARISON rather than a
+    hardcoded bucket, so it keeps meaning what it says if the weights move."""
+    from src.trade.faab_contention import STALENESS_MAX_AGE_S
+    from src.trade.faab_recommender import compute_confidence
+
+    order = {"low": 0, "medium": 1, "high": 2}
+
+    with TestClient(server.app, raise_server_exceptions=True) as c:
+        fresh = _post(c, monkeypatch, {"addPlayerName": "Hot Pickup"}).json()
+        _trending_stamped(monkeypatch, _iso_now(-(STALENESS_MAX_AGE_S["trending"] + 3600)))
+        stale = _post(c, monkeypatch, {"addPlayerName": "Hot Pickup"}).json()
+
+    assert order[stale["confidence"]] <= order[fresh["confidence"]]
+    # The realised weight genuinely fell — a bucket comparison alone would
+    # pass vacuously if both landed in the same bucket.
+    assert compute_confidence(stale["factors"]) == stale["confidence"]
+    assert sum(f["weight"] for f in stale["factors"] if not f["missing"]) < sum(
+        f["weight"] for f in fresh["factors"] if not f["missing"]
+    )
+
+
+def test_an_unstamped_snapshot_is_treated_as_stale_not_fresh(faab_env, monkeypatch):
+    """Unmeasurable freshness is not freshness."""
+    _trending_stamped(monkeypatch, None)
+    with TestClient(server.app, raise_server_exceptions=True) as c:
+        res = _post(c, monkeypatch, {"addPlayerName": "Hot Pickup"})
+    payload = res.json()
+    row = _trending_row(payload)
+    assert row["missing"] is True
+    assert "unknown" in row["contribution"]
+    assert "trending" in payload["staleInputs"]
 
 
 def test_unknown_player_still_404s(faab_env, monkeypatch):

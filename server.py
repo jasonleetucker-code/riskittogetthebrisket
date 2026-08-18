@@ -5903,7 +5903,27 @@ async def post_waiver_faab_recommend(request: Request):
         # impossible lookup as "0 trending" would mark the input as
         # present, inflate confidence, and bypass the name-based
         # fallback below, so they take the fallback path instead.
-        trending_for_player = {"count": int(trending_snapshot["counts"].get(add_player_id) or 0)}
+        #
+        # ``asOf`` travels WITH the count.  The adapter serves the previous
+        # snapshot when a fetch fails (deliberately, and with no absolute
+        # cap), so age is the only thing separating "1,200 adds in the last
+        # 24h" from a claim about a day that has long since passed.  Stamping
+        # it into ``inputsAsOf`` alone was not enough: the factor row and the
+        # confidence bucket never saw it and contradicted the sibling field.
+        #
+        # ABSENT FROM THE BOARD IS A REAL ZERO.  The board lists everyone
+        # trending, so not appearing on it IS the observation — written as an
+        # explicit default rather than ``or 0`` so it does not read as a
+        # missing-data coercion, which is the distinction the coercion gate
+        # exists to keep visible.  A MALFORMED count is a different thing
+        # again: not "0 adds" but an unusable observation, so it becomes a
+        # missing input rather than a fabricated zero.
+        observed = trending_snapshot["counts"].get(add_player_id, 0)
+        try:
+            trending_count: int | None = int(observed)
+        except (TypeError, ValueError):
+            trending_count = None
+        trending_for_player = {"count": trending_count, "asOf": trending_as_of}
     else:
         trending_block = latest_contract_data.get("sleeperTrending") or {}
         if isinstance(trending_block, dict):
