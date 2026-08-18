@@ -1,0 +1,22 @@
+{
+  "_doc": [
+    "Canonical Meaningful Roster Core (C2-CORE-01).",
+    "Binding requirement: docs/OWNER_FEATURE_ADDENDUM_2026-08-18_FLEX_STARTER_ASSIGNMENT.md (#899),",
+    "amending #839, mirrored into docs/MASTER_PRODUCT_PLAN.md section 4.1.",
+    "",
+    "reserveMultiplier is the V1 CHAMPION labelled PRIOR, not validated methodology.",
+    "It carries the MATH_MODEL_CALIBRATION_POLICY_2026-08-15.md section 4.3 challenger",
+    "pass (1.25 / 1.50 / 1.75 / a data-derived cutoff) before it may be frozen as",
+    "canonical. Nothing here self-promotes: champion != challenger.",
+    "",
+    "superflexFoldsIntoQb records the OWNER decision (#839 wording) that a Superflex",
+    "slot is real QB demand and is added to QB dedicated demand BEFORE the multiplier.",
+    "It reproduces the owner's own worked example: 1 QB + 1 SF -> base 2 ->",
+    "ceil(1.5 x 2) = 3 meaningful QBs. See the lane doc for the assumption it carries."
+  ],
+  "schemaVersion": 1,
+  "reserveMultiplier": 1.5,
+  "reserveMultiplierStatus": "PRIOR",
+  "reserveMultiplierProvenance": "owner_addendum_839_amended_899",
+  "superflexFoldsIntoQb": true
+}
