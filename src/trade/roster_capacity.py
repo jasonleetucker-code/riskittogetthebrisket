@@ -1,0 +1,594 @@
+"""Roster capacity and forced drops — the canonical owner for trade evaluation.
+
+What this answers
+─────────────────
+"If this trade happens, does the roster still fit — and if not, who has to
+go and what are they worth?"
+
+Nothing in the trade surface could answer that before 2026-08-18.
+``src/api/trade_simulator.py`` accepted ``roster_settings`` and used it only to
+reach ``team_impact`` for starter slots and positional need; ``suggestions.py``,
+``finder.py`` and ``angle.py`` proposed 2-for-1s with no notion of a roster cap
+at all.  The single legality check in the whole repo lives in
+``roster_intel/packages.py::_check_legality`` and is ``/api/gameplan``-only.
+
+That is not an edge case in this league.  Measured on the 2026-08-18 board,
+``dynasty_main`` carries a 58-man cap and its twelve rosters hold
+``[45, 46, 53, 55, 56, 57, 58, 58, 58, 58, 58, 58]`` — **six teams are already
+at the cap**.  For half the league every 2-for-1 costs a release, and until now
+the released value was presented as free.
+
+Reporting, not rejecting
+────────────────────────
+``_check_legality`` REFUSES an over-cap package, and that is right for a
+package *generator* deciding what to put on a Pareto frontier.  It is wrong for
+a simulator answering a question the user typed in, and wrong for a suggestion
+list that would silently shorten.  Both consume the same counting rule; the
+difference is what they do with the answer.  This module only ever *reports*.
+
+Consumed, never rebuilt
+───────────────────────
+Every primitive here already existed, built for Perfect Draft:
+
+* ``src/draft/displacement.py`` — ``build_cut_ladder``, ``effective_cut_cost``,
+  ``waiver_values_by_position``, ``RosterAsset``.  The cut ladder is
+  lineup-validated by the exact solver: a player is only droppable if releasing
+  him does not reduce how many starting slots the roster can fill.
+* ``src/draft/context.py`` — ``build_roster_assets`` (the roster ↔ board join),
+  ``_index_contract_rows``.
+* ``src/ros/lineup.py`` — ``load_league_starter_slots``.  No slot table lives
+  here; that owner is canonical (C2-U1).
+
+One cut ladder, two consumers: ``/api/draft/roster-context`` and this.
+
+Three things that are load-bearing
+──────────────────────────────────
+**Draft picks do not occupy roster spots.**  Verified on the live contract
+rather than assumed: ``rosterSize`` is 58, the largest roster holds exactly 58
+*players*, and the same teams hold 10-23 picks besides.  So capacity counts
+players and ignores picks entirely, and a pick-for-player trade is NOT
+capacity-neutral.
+
+**An unresolved player still occupies a spot.**  Counts come from the roster
+and the request, never from what the board managed to price — dropping an
+unjoinable name would understate roster pressure, which is the direction that
+hides a forced drop.  Their *value* is a separate question and is reported as
+missing.
+
+**An unknown cap is UNKNOWN, never unlimited.**  A league with no
+``rosterSize`` yields ``rosterLimit: None`` and ``overLimitAfter: None`` with a
+note.  Coercing it to "no limit" would make every trade look free, which is the
+optimistic-default failure the coercion gate exists to catch.
+
+Taxi is NOT modelled
+────────────────────
+``draft/context.py`` already records why: Sleeper's per-player taxi assignment
+is not ingested anywhere in this codebase.  A league with taxi slots therefore
+has its open spots UNDERSTATED, and the note says so rather than the model
+inventing taxi relief.
+"""
+
+from __future__ import annotations
+
+from dataclasses import dataclass, field
+from typing import Any, Iterable, Mapping, Sequence
+
+from src.draft.context import _index_contract_rows, _league_scarcity, _norm, build_roster_assets
+from src.draft.displacement import (
+    RosterAsset,
+    build_cut_ladder,
+    waiver_values_by_position,
+)
+
+__all__ = [
+    "CapacityContext",
+    "ForcedDrop",
+    "RosterCapacity",
+    "assess_roster_capacity",
+    "build_capacity_context",
+    "league_roster_limit",
+    "league_taxi_size",
+]
+
+
+# ── League caps — ONE resolver ───────────────────────────────────────
+#
+# ``draft/context._roster_size_for`` and ``api/gameplan._roster_limit`` both
+# read ``rosterSettings.rosterSize`` behind their own try/except.  Two answers
+# to "what is this league's roster cap" is one too many; both now delegate here.
+
+
+def _roster_settings_for(league_key: str | None) -> Mapping[str, Any] | None:
+    try:
+        from src.api.league_registry import (  # noqa: PLC0415
+            get_default_league,
+            get_league_by_key,
+        )
+
+        cfg = get_league_by_key(league_key) if league_key else get_default_league()
+    except Exception:  # noqa: BLE001 — registry problems must not break a caller
+        return None
+    if cfg is None:
+        return None
+    settings = getattr(cfg, "roster_settings", None)
+    return settings if isinstance(settings, Mapping) else None
+
+
+def league_roster_limit(
+    league_key: str | None,
+    roster_settings: Mapping[str, Any] | None = None,
+) -> int | None:
+    """The league's roster-size cap, or ``None`` when it is unknown.
+
+    ``None`` means UNKNOWN.  It does not mean unlimited, and no caller may
+    treat it as such.
+
+    ``roster_settings`` wins over the registry when supplied — the caller
+    already holding the league's settings (``simulate_trade`` does) should not
+    make the resolver go and look them up again, and a test must be able to
+    state a league shape without a live registry.
+    """
+    settings = roster_settings if isinstance(roster_settings, Mapping) else None
+    if settings is None:
+        settings = _roster_settings_for(league_key)
+    if not settings:
+        return None
+    raw = settings.get("rosterSize")
+    try:
+        size = int(raw)
+    except (TypeError, ValueError):
+        return None
+    return size if size > 0 else None
+
+
+def league_taxi_size(
+    league_key: str | None,
+    roster_settings: Mapping[str, Any] | None = None,
+) -> int:
+    """Taxi-squad size, or 0.  See the module docstring: NOT modelled."""
+    settings = roster_settings if isinstance(roster_settings, Mapping) else None
+    if settings is None:
+        settings = _roster_settings_for(league_key)
+    if not settings:
+        return 0
+    raw = settings.get("taxiSize")
+    # An ABSENT taxi setting means the league has no taxi squad — that is the
+    # registry's convention, and both live leagues state the key explicitly.
+    # Written out rather than coerced with ``or 0`` so it is a decision rather
+    # than a default: the number only ever drives a note, because taxi relief
+    # is not modelled at all.
+    if raw is None:
+        return 0
+    try:
+        return max(0, int(raw))
+    except (TypeError, ValueError):
+        return 0
+
+
+# ── Result types ─────────────────────────────────────────────────────
+
+
+@dataclass(frozen=True)
+class ForcedDrop:
+    """One player the roster must release for this trade to be legal."""
+
+    player_id: str
+    name: str
+    position: str
+    #: ``rankDerivedValue``.  ``None`` when the board declined to price him —
+    #: reported, NEVER counted as zero.
+    value: float | None
+    #: Effective Cut Cost: value over replacement at his position, scarcity
+    #: adjusted.  The honest "what does releasing him actually cost".
+    effective_cut_cost: float
+    #: ``"board"`` or ``"assumedWaiver"`` (unranked players sit at waiver level
+    #: by definition).
+    value_basis: str
+    #: 1-based ladder position; rung 1 goes first.
+    rung: int
+    #: True when this player ARRIVED in the trade being evaluated.  Not hidden:
+    #: "this trade forces you to release the player you just acquired" is a
+    #: real signal, and suppressing it would make the cheapest legal path
+    #: invisible.
+    acquired_in_trade: bool = False
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "playerId": self.player_id,
+            "name": self.name,
+            "position": self.position,
+            "value": None if self.value is None else round(self.value, 1),
+            "effectiveCutCost": round(self.effective_cut_cost, 1),
+            "valueBasis": self.value_basis,
+            "rung": self.rung,
+            "acquiredInTrade": self.acquired_in_trade,
+            "valueScale": "rankDerivedValue",
+        }
+
+
+@dataclass(frozen=True)
+class RosterCapacity:
+    """What a trade does to a roster's legality."""
+
+    roster_limit: int | None
+    taxi_size: int
+    size_before: int
+    size_after: int
+    incoming: int
+    outgoing: int
+    open_spots_before: int | None
+    open_spots_after: int | None
+    #: How many players over the cap, or ``None`` when the cap is unknown.
+    over_limit_before: int | None
+    over_limit_after: int | None
+    forced_drops: list[ForcedDrop] = field(default_factory=list)
+    #: Total ``rankDerivedValue`` released.  ``None`` when the cap is unknown;
+    #: excludes unpriced players, whose count is published separately so the
+    #: total is never quietly understated by treating missing as zero.
+    forced_drop_value: float | None = None
+    forced_drop_cut_cost: float | None = None
+    unpriced_forced_drops: int = 0
+    #: True when the cut ladder ran out before the roster reached legal size —
+    #: "no legal path modelled" and "no drops needed" render identically and
+    #: mean opposite things.
+    ladder_exhausted: bool = False
+    notes: list[str] = field(default_factory=list)
+
+    @property
+    def requires_drops(self) -> bool:
+        return bool(self.over_limit_after)
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "rosterLimit": self.roster_limit,
+            "taxiSize": self.taxi_size,
+            "sizeBefore": self.size_before,
+            "sizeAfter": self.size_after,
+            "incoming": self.incoming,
+            "outgoing": self.outgoing,
+            "openSpotsBefore": self.open_spots_before,
+            "openSpotsAfter": self.open_spots_after,
+            "overLimitBefore": self.over_limit_before,
+            "overLimitAfter": self.over_limit_after,
+            "forcedDrops": [d.to_dict() for d in self.forced_drops],
+            "forcedDropValue": (
+                None if self.forced_drop_value is None else round(self.forced_drop_value, 1)
+            ),
+            "forcedDropCutCost": (
+                None if self.forced_drop_cut_cost is None else round(self.forced_drop_cut_cost, 1)
+            ),
+            "unpricedForcedDrops": self.unpriced_forced_drops,
+            "ladderExhausted": self.ladder_exhausted,
+            "notes": list(self.notes),
+            "valueScale": "rankDerivedValue",
+        }
+
+
+@dataclass(frozen=True)
+class CapacityContext:
+    """Everything that is constant for one (team, board) pair.
+
+    Built once and reused across many candidate trades, because the expensive
+    part — joining the roster to the board, measuring waiver level across the
+    league, resolving starter slots — does not depend on which trade is being
+    evaluated.  The cut LADDER does, so it is rebuilt per assessment.
+    """
+
+    league_key: str | None
+    roster_limit: int | None
+    taxi_size: int
+    roster_player_names: tuple[str, ...]
+    assets_by_key: Mapping[str, RosterAsset]
+    starter_slots: tuple[str, ...]
+    waiver_values: Mapping[str, float]
+    scarcity: Mapping[str, Any] | None
+    by_name: Mapping[str, Mapping[str, Any]]
+    by_id: Mapping[str, Mapping[str, Any]]
+    notes: tuple[str, ...] = ()
+
+
+def _asset_key(asset: RosterAsset) -> str:
+    return _norm(asset.player_id) or _norm(asset.name)
+
+
+def build_capacity_context(
+    contract: Mapping[str, Any] | None,
+    league_key: str | None,
+    team: Mapping[str, Any] | None,
+    *,
+    roster_settings: Mapping[str, Any] | None = None,
+) -> CapacityContext:
+    """Assemble the per-(team, board) constants.
+
+    Degrades rather than raises.  A capacity answer with no cut ladder is still
+    worth having — the counts are the load-bearing part — so a missing board,
+    missing starter slots or missing scarcity each produce a note, not an
+    exception.
+    """
+    notes: list[str] = []
+    roster_limit = league_roster_limit(league_key, roster_settings)
+    taxi_size = league_taxi_size(league_key, roster_settings)
+    if roster_limit is None:
+        notes.append("league roster size is not configured — capacity is UNKNOWN, not unlimited")
+    if taxi_size:
+        notes.append(
+            f"league carries {taxi_size} taxi slot(s), but Sleeper's per-player taxi "
+            "assignment is not ingested anywhere in this codebase — taxi relief is "
+            "NOT modelled and open spots may be understated"
+        )
+
+    team = team if isinstance(team, Mapping) else {}
+    names = tuple(str(n) for n in (team.get("players") or []) if str(n or "").strip())
+
+    by_id, by_name = _index_contract_rows(contract)
+    assets: list[RosterAsset] = []
+    unmatched: list[str] = []
+    if team:
+        assets, unmatched = build_roster_assets(team, by_name, by_id)
+    if unmatched:
+        notes.append(
+            f"{len(unmatched)} rostered player(s) did not join to the board — they still "
+            "occupy a roster spot and are still cut candidates, but their value is unknown"
+        )
+
+    # League-wide rostered set: a player on ANY roster is not a waiver option.
+    rostered_keys: set[str] = set()
+    sleeper = contract.get("sleeper") if isinstance(contract, Mapping) else None
+    teams = (sleeper or {}).get("teams") if isinstance(sleeper, Mapping) else None
+    for t in teams if isinstance(teams, list) else []:
+        if not isinstance(t, Mapping):
+            continue
+        for pid in t.get("playerIds") or []:
+            if _norm(pid):
+                rostered_keys.add(_norm(pid))
+        for nm in t.get("players") or []:
+            if _norm(nm):
+                rostered_keys.add(_norm(nm))
+
+    # NOTE: no auction-rookie exclusion here.  That belongs to Perfect Draft,
+    # where the rookies being priced are the lots in the very auction being
+    # optimized.  A trade in August is not bidding against them.
+    waiver_values = waiver_values_by_position(contract, rostered_keys)
+    if not waiver_values:
+        notes.append("no waiver-level values available — cut costs fall back to raw board value")
+
+    # Slot rules have ONE owner (C2-U1); nothing here derives them.  Prefer the
+    # caller's own league settings when it has them, exactly as
+    # ``resolve_starter_slots``' truth ladder does, and fall back to the
+    # registry lookup.
+    from src.ros.lineup import flatten_starter_slots, load_league_starter_slots  # noqa: PLC0415
+
+    starter_slots: tuple[str, ...] = ()
+    try:
+        if isinstance(roster_settings, Mapping) and roster_settings.get("starters"):
+            starter_slots = tuple(flatten_starter_slots(roster_settings.get("starters")))
+        if not starter_slots:
+            starter_slots = tuple(load_league_starter_slots(league_key))
+    except Exception as exc:  # noqa: BLE001 — a missing slot config must not raise
+        starter_slots = ()
+        notes.append(f"starter slots unavailable ({type(exc).__name__}) — cut ladder unguarded")
+    if not starter_slots:
+        notes.append(
+            "no starter slots resolved for this league — the cut ladder is not "
+            "lineup-guarded, so a forced drop may be a player the lineup needs"
+        )
+
+    scarcity, scarcity_note = _league_scarcity(league_key, contract)
+    if scarcity_note:
+        notes.append(scarcity_note)
+
+    return CapacityContext(
+        league_key=league_key,
+        roster_limit=roster_limit,
+        taxi_size=taxi_size,
+        roster_player_names=names,
+        assets_by_key={_asset_key(a): a for a in assets},
+        starter_slots=starter_slots,
+        waiver_values=waiver_values,
+        scarcity=scarcity,
+        by_name=by_name,
+        by_id=by_id,
+        notes=tuple(notes),
+    )
+
+
+def _resolve_incoming(
+    name: str,
+    by_name: Mapping[str, Mapping[str, Any]],
+) -> RosterAsset:
+    """An acquired player as the displacement model sees him.
+
+    Unresolvable names still become assets: they occupy a spot on the
+    post-trade roster whether or not the board knows who they are.
+    """
+    row = by_name.get(_norm(name))
+    if row is None:
+        return RosterAsset(player_id=_norm(name), name=name, position="", board_value=None)
+    value = row.get("rankDerivedValue")
+    fantasy = row.get("fantasyPositions")
+    # ``ros_value`` drives LINEUP FEASIBILITY only, never cost arithmetic
+    # (``src/draft/displacement.RosterAsset``).  A missing one is left to the
+    # dataclass default rather than coerced here: ``src/ros/lineup.py`` draws a
+    # hard line between 0.0 ("assignable, contributes nothing") and unknown,
+    # and manufacturing a 0.0 from an absent field is the coercion C2-U1
+    # removed from the lineup owner.
+    ros = row.get("rosValue")
+    extra = {"ros_value": float(ros)} if isinstance(ros, (int, float)) else {}
+    return RosterAsset(
+        player_id=str(row.get("playerId") or name),
+        name=str(row.get("displayName") or row.get("canonicalName") or name),
+        position=str(row.get("position") or "").strip().upper(),
+        board_value=float(value) if isinstance(value, (int, float)) and value > 0 else None,
+        fantasy_positions=tuple(fantasy) if isinstance(fantasy, (list, tuple)) else (),
+        injured=bool(row.get("injured")),
+        **extra,
+    )
+
+
+def assess_roster_capacity(
+    context: CapacityContext,
+    *,
+    incoming_players: Sequence[str] = (),
+    outgoing_players: Sequence[str] = (),
+) -> RosterCapacity:
+    """What this trade does to this roster's legality.
+
+    ``incoming_players`` / ``outgoing_players`` are PLAYER names only — picks
+    are not passed here and do not affect capacity (see the module docstring).
+
+    Counts come from the names, not from what resolved: an unjoinable player
+    still takes a spot.
+    """
+    incoming = [str(n) for n in incoming_players if str(n or "").strip()]
+    outgoing = [str(n) for n in outgoing_players if str(n or "").strip()]
+    notes = list(context.notes)
+
+    size_before = len(context.roster_player_names)
+    size_after = size_before - len(outgoing) + len(incoming)
+
+    limit = context.roster_limit
+    if limit is None:
+        return RosterCapacity(
+            roster_limit=None,
+            taxi_size=context.taxi_size,
+            size_before=size_before,
+            size_after=size_after,
+            incoming=len(incoming),
+            outgoing=len(outgoing),
+            open_spots_before=None,
+            open_spots_after=None,
+            over_limit_before=None,
+            over_limit_after=None,
+            notes=notes,
+        )
+
+    over_before = max(0, size_before - limit)
+    over_after = max(0, size_after - limit)
+    open_before = max(0, limit - size_before)
+    open_after = max(0, limit - size_after)
+    if over_before:
+        notes.append(
+            f"roster is ALREADY {over_before} over the {limit}-man limit before this "
+            "trade — the drops below include getting back to legal size"
+        )
+
+    if not over_after:
+        return RosterCapacity(
+            roster_limit=limit,
+            taxi_size=context.taxi_size,
+            size_before=size_before,
+            size_after=size_after,
+            incoming=len(incoming),
+            outgoing=len(outgoing),
+            open_spots_before=open_before,
+            open_spots_after=open_after,
+            over_limit_before=over_before,
+            over_limit_after=0,
+            forced_drop_value=0.0,
+            forced_drop_cut_cost=0.0,
+            notes=notes,
+        )
+
+    # ── The post-trade roster, which is what the ladder must be built on ──
+    outgoing_keys = {_norm(n) for n in outgoing}
+    surviving: list[RosterAsset] = []
+    for name in context.roster_player_names:
+        key = _norm(name)
+        if key in outgoing_keys:
+            outgoing_keys.discard(key)  # by multiplicity, not set membership
+            continue
+        asset = context.assets_by_key.get(key)
+        if asset is None:
+            asset = _resolve_incoming(name, context.by_name)
+        surviving.append(asset)
+
+    acquired_keys: set[str] = set()
+    for name in incoming:
+        asset = _resolve_incoming(name, context.by_name)
+        acquired_keys.add(_asset_key(asset))
+        surviving.append(asset)
+
+    # Only as deep as this trade actually needs.  ``build_cut_ladder``
+    # defaults to 30 rungs and re-solves the lineup for each one, so asking
+    # for the whole ladder to read the top of it costs 39 ms where 3 ms will
+    # do — measured on a real 58-man roster.  This is a bound, not an
+    # approximation: rung k is identical whether the ladder stops at k or at
+    # 30, because ECC is a property of the player and the greedy admits
+    # cheapest-first.
+    ladder = build_cut_ladder(
+        surviving,
+        list(context.starter_slots),
+        context.waiver_values,
+        context.scarcity,
+        max_rungs=over_after,
+    )
+    notes.extend(ladder.notes)
+
+    drops: list[ForcedDrop] = []
+    for rung in ladder.rungs[:over_after]:
+        asset = next((a for a in surviving if a.player_id == rung.player_id), None)
+        drops.append(
+            ForcedDrop(
+                player_id=rung.player_id,
+                name=rung.name,
+                position=rung.position,
+                value=(asset.board_value if asset is not None else None),
+                effective_cut_cost=rung.effective_cut_cost,
+                value_basis=rung.value_basis,
+                rung=rung.rung,
+                acquired_in_trade=_norm(rung.player_id) in acquired_keys,
+            )
+        )
+
+    exhausted = len(drops) < over_after
+    if exhausted:
+        notes.append(
+            f"cut ladder offers {len(drops)} release(s) but {over_after} are needed — "
+            "every remaining player is required to fill a starting slot, so no legal "
+            "path back to roster size was modelled"
+        )
+
+    priced = [d.value for d in drops if d.value is not None]
+    return RosterCapacity(
+        roster_limit=limit,
+        taxi_size=context.taxi_size,
+        size_before=size_before,
+        size_after=size_after,
+        incoming=len(incoming),
+        outgoing=len(outgoing),
+        open_spots_before=open_before,
+        open_spots_after=0,
+        over_limit_before=over_before,
+        over_limit_after=over_after,
+        forced_drops=drops,
+        forced_drop_value=float(sum(priced)) if priced else 0.0,
+        forced_drop_cut_cost=float(sum(d.effective_cut_cost for d in drops)),
+        unpriced_forced_drops=sum(1 for d in drops if d.value is None),
+        ladder_exhausted=exhausted,
+        notes=notes,
+    )
+
+
+def player_names_only(assets: Iterable[Any]) -> list[str]:
+    """Names of the PLAYER assets on a trade side, picks excluded.
+
+    Accepts either resolved dicts (the simulator's shape) or objects with
+    ``.name`` / ``.position`` (the engines' ``PlayerAsset``).  Picks are
+    identified by the board position they carry, which is how every other
+    consumer in this repo tells them apart, and they are dropped because a
+    pick does not occupy a roster spot.
+    """
+    out: list[str] = []
+    for asset in assets:
+        if isinstance(asset, Mapping):
+            pos = str(asset.get("pos") or asset.get("position") or "")
+            name = str(asset.get("name") or "")
+        else:
+            pos = str(getattr(asset, "position", "") or "")
+            name = str(getattr(asset, "name", "") or "")
+        if pos.strip().upper() == "PICK":
+            continue
+        name = name.strip()
+        if name:
+            out.append(name)
+    return out

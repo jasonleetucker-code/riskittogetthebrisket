@@ -903,6 +903,7 @@ def find_trades(
     market_top_n: int | None = None,
     ktc_top_n: int | None = None,
     contract: dict[str, Any] | None = None,
+    capacity_context: Any | None = None,
 ) -> dict[str, Any]:
     """
     Find board-arbitrage trades.
@@ -921,6 +922,12 @@ def find_trades(
         Maximum number of results to return.
     ktc_top_n : int
         Only include players ranked in the KTC top N. Set to 0 to disable.
+    capacity_context : CapacityContext, optional
+        Turns on the roster-capacity read (``src/trade/roster_capacity``).
+        Each returned trade then reports what it would cost in forced
+        releases.  **Nothing is filtered on capacity grounds** — a 1-for-2
+        into a full roster is a real trade with a real cost, and dropping it
+        from the list would make the cost invisible rather than explaining it.
 
     Returns
     -------
@@ -1096,8 +1103,33 @@ def find_trades(
 
     capped = ranked[:max_results]
 
+    # Roster capacity, attached to the RETURNED set only.  Scoring every
+    # candidate would pay for a lineup re-solve on thousands of trades nobody
+    # will see; the answer is identical either way because capacity does not
+    # feed the ranking — deliberately, per the "report, never filter" rule
+    # above.
+    trade_dicts = [t.to_dict() for t in capped]
+    if capacity_context is not None:
+        from src.trade.roster_capacity import (  # noqa: PLC0415
+            assess_roster_capacity,
+            player_names_only,
+        )
+
+        for payload, tc in zip(trade_dicts, capped):
+            try:
+                payload["rosterCapacity"] = assess_roster_capacity(
+                    capacity_context,
+                    incoming_players=player_names_only(tc.receive),
+                    outgoing_players=player_names_only(tc.give),
+                ).to_dict()
+            except Exception:  # noqa: BLE001 — an annotation never drops a trade
+                payload["rosterCapacity"] = {
+                    "unavailable": "assessment_failed",
+                    "notes": ["roster capacity could not be computed for this trade"],
+                }
+
     return {
-        "trades": [t.to_dict() for t in capped],
+        "trades": trade_dicts,
         "metadata": {
             "myTeam": my_team,
             "opponentTeams": opponent_teams,

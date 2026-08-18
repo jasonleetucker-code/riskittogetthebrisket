@@ -6943,12 +6943,33 @@ async def post_trade_suggestions(request: Request):
             contract,
             ktc_top_n=ktc_top_n,
         )
+        # Roster capacity for the requesting team, built ONCE and reused
+        # across every proposal — the expensive part (joining the roster to
+        # the board, measuring waiver level league-wide, resolving starter
+        # slots) does not depend on which trade is being scored.  Each
+        # suggestion then reports what it would cost in forced releases;
+        # nothing is filtered out on capacity grounds.
+        capacity_context = None
+        try:
+            from src.trade.roster_capacity import build_capacity_context
+
+            capacity_context = build_capacity_context(
+                contract,
+                getattr(league_cfg, "key", None),
+                {"players": list(roster)},
+                roster_settings=dict(getattr(league_cfg, "roster_settings", None) or {}),
+            )
+        except Exception as exc:  # noqa: BLE001
+            # Suggestions are the product; capacity is an annotation on them.
+            log.warning("roster capacity unavailable for /api/trade/suggestions: %s", exc)
+
         return generate_suggestions_from_pool(
             roster_names=roster,
             pool=pool,
             league_rosters=league_rosters,
             starter_needs=starter_needs,
             ktc_top_n=ktc_top_n,
+            capacity_context=capacity_context,
         )
 
     try:
@@ -7047,6 +7068,27 @@ async def post_trade_finder(request: Request):
         request, body, league_cfg
     )
 
+    # Roster capacity for the requesting team.  Built here rather than inside
+    # the engine because it needs the league config, and reused across every
+    # returned trade.  A failure here annotates nothing and breaks nothing.
+    finder_capacity_context = None
+    try:
+        from src.trade.roster_capacity import build_capacity_context as _build_capacity
+
+        my_team_block = next(
+            (t for t in sleeper_teams if t.get("name") == my_team),
+            None,
+        )
+        if my_team_block is not None:
+            finder_capacity_context = _build_capacity(
+                contract,
+                getattr(league_cfg, "key", None),
+                my_team_block,
+                roster_settings=dict(getattr(league_cfg, "roster_settings", None) or {}),
+            )
+    except Exception as exc:  # noqa: BLE001
+        log.warning("roster capacity unavailable for /api/trade/finder: %s", exc)
+
     try:
         result = await run_in_threadpool(
             find_trades,
@@ -7055,6 +7097,7 @@ async def post_trade_finder(request: Request):
             opponent_teams=opponent_teams,
             sleeper_teams=sleeper_teams,
             ktc_top_n=finder_ktc_top_n,
+            capacity_context=finder_capacity_context,
             # F-6 (audit finding K): the contract carries `playersArray`
             # with `rankDerivedValue` — the board the user actually sees.
             # Without this the finder arbitrages the raw scraper
@@ -12049,6 +12092,7 @@ async def post_trade_simulate(request: Request):
         picks_in=_str_list("picksIn"),
         picks_out=_str_list("picksOut"),
         roster_settings=dict(league_cfg.roster_settings or {}),
+        league_key=league_cfg.key,
     )
     result["leagueKey"] = league_cfg.key
     _stamp_valuation_mode(result, valuation_mode, valuation_note)

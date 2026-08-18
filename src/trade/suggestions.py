@@ -1615,6 +1615,7 @@ def generate_suggestions_from_pool(
     league_rosters: list[dict[str, Any]] | None = None,
     board_top_n: int | None = None,
     ktc_top_n: int | None = None,
+    capacity_context: Any | None = None,
 ) -> dict[str, Any]:
     """Generate trade suggestions against a pre-built asset pool.
 
@@ -1628,6 +1629,15 @@ def generate_suggestions_from_pool(
     the pool is expected to have already had the top-N filter applied
     by the caller.  ``ktc_top_n`` is a deprecated alias; this gate
     never consulted KTC (WS-J F-4).
+
+    ``capacity_context`` (``src.trade.roster_capacity.CapacityContext``) turns
+    on the roster-capacity read.  Every suggestion then carries what it would
+    cost in forced releases — and **nothing is filtered out**.  On a full
+    58-man roster a legality filter would silently shorten these lists, and a
+    proposal that vanishes is invisible rather than explained; that is the same
+    failure mode as a balancer that does not say where it lands.  Refusing
+    over-cap packages is right for ``roster_intel.packages``, which is choosing
+    what to put on a Pareto frontier — a different question.
     """
     if board_top_n is None:
         board_top_n = BOARD_TOP_N_FILTER if ktc_top_n is None else ktc_top_n
@@ -1662,6 +1672,22 @@ def generate_suggestions_from_pool(
         edge, explanation = _edge_for_suggestion(s)
         s.__dict__["edge"] = edge
         s.__dict__["edge_explanation"] = explanation
+
+        # What this trade costs in roster spots.  Attached, never filtered.
+        if capacity_context is not None:
+            from src.trade.roster_capacity import (  # noqa: PLC0415
+                assess_roster_capacity,
+                player_names_only,
+            )
+
+            try:
+                s.__dict__["roster_capacity"] = assess_roster_capacity(
+                    capacity_context,
+                    incoming_players=player_names_only(s.receive),
+                    outgoing_players=player_names_only(s.give),
+                )
+            except Exception:  # noqa: BLE001 — an optional read never drops a suggestion
+                s.__dict__["roster_capacity"] = None
 
         # Balancers for non-even trades
         if s.fairness != "even":
@@ -1820,6 +1846,9 @@ def _serialize_suggestion(
         residuals = s.__dict__.get("balancer_residuals", [])
         if residuals:
             result["balancerResidualGaps"] = [int(r) for r in residuals]
+    capacity = s.__dict__.get("roster_capacity")
+    if capacity is not None:
+        result["rosterCapacity"] = capacity.to_dict()
     edge = s.__dict__.get("edge")
     if edge:
         result["edge"] = edge

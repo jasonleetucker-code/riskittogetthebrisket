@@ -1059,17 +1059,16 @@ def _build_packages(bundle: LeagueBundle, owner_id: str, partner_owner_id: str) 
 
 
 def _roster_limit(league_key: str) -> int | None:
-    """League roster-size cap for the legality rule, or None."""
-    try:
-        from src.api.league_registry import get_league_by_key  # noqa: PLC0415
+    """League roster-size cap for the legality rule, or None.
 
-        cfg = get_league_by_key(league_key)
-        if cfg is None:
-            return None
-        size = (cfg.roster_settings or {}).get("rosterSize")
-        return int(size) if size else None
-    except Exception:  # noqa: BLE001 — a missing cap disables the rule, never errors
-        return None
+    Delegates to ``src/trade/roster_capacity.league_roster_limit`` — the one
+    resolver.  This function and ``src/draft/context._roster_size_for`` both
+    read ``rosterSettings.rosterSize`` behind their own try/except until
+    2026-08-18, which is two answers to a question that has one.
+    """
+    from src.trade.roster_capacity import league_roster_limit  # noqa: PLC0415
+
+    return league_roster_limit(league_key)
 
 
 def get_team_gameplan(

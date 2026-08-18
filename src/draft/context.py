@@ -99,34 +99,23 @@ def _index_contract_rows(
 
 
 def _roster_size_for(league_key: str | None) -> int | None:
-    try:
-        from src.api.league_registry import (  # noqa: PLC0415
-            get_default_league,
-            get_league_by_key,
-        )
+    """The league's roster cap.  Delegates — see ``src/trade/roster_capacity``.
 
-        cfg = get_league_by_key(league_key) if league_key else get_default_league()
-        if cfg is None or not cfg.roster_settings:
-            return None
-        raw = cfg.roster_settings.get("rosterSize")
-        return int(raw) if raw is not None else None
-    except Exception:  # noqa: BLE001 — registry problems must not break the endpoint
-        return None
+    This used to read ``rosterSettings.rosterSize`` behind its own try/except,
+    and so did ``src/api/gameplan.py::_roster_limit``.  Two answers to "what is
+    this league's roster cap" is one too many; both now route through the one
+    resolver.  ``None`` means UNKNOWN, never unlimited.
+    """
+    from src.trade.roster_capacity import league_roster_limit  # noqa: PLC0415
+
+    return league_roster_limit(league_key)
 
 
 def _taxi_size_for(league_key: str | None) -> int:
-    try:
-        from src.api.league_registry import (  # noqa: PLC0415
-            get_default_league,
-            get_league_by_key,
-        )
+    """Taxi-squad size.  Delegates — see :func:`_roster_size_for`."""
+    from src.trade.roster_capacity import league_taxi_size  # noqa: PLC0415
 
-        cfg = get_league_by_key(league_key) if league_key else get_default_league()
-        if cfg is None or not cfg.roster_settings:
-            return 0
-        return int(cfg.roster_settings.get("taxiSize") or 0)
-    except Exception:  # noqa: BLE001
-        return 0
+    return league_taxi_size(league_key)
 
 
 def _league_scarcity(
