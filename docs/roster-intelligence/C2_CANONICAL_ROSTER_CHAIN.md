@@ -307,7 +307,10 @@ PRIOR.
 ## 10. Known limitations
 
 1. **`M = 1.5` and the weakness severity bands are PRIORS.** Both labelled;
-   neither calibrated.
+   neither calibrated. The §4.3 challenger pass has now been RUN (§16): it rules
+   out `M = 1.25` and puts 1.50 inside the defensible band, but does not freeze
+   it — the data-derived cutoff moves between 1.05 and 1.70 depending purely on
+   where the retention target is drawn.
 2. **The Young Core Index weighting is uncalibrated.** §9 discharges #838's
    real-league validation requirement for *behaviour*; the specific weighting
    has not been fitted against outcomes.
@@ -795,3 +798,106 @@ take it:
 lane's to move: `partner` / `targets` / `packages` are reached only from
 `api/gameplan.py` and `intel/`, and `C2-GP-01`'s migration of them waits on
 `C3-PKG-01`.
+
+---
+
+## 16. The §4.3 challenger pass on M — run, and what it does *not* settle
+
+`docs/MATH_MODEL_CALIBRATION_POLICY_2026-08-15.md` §4.3 keeps
+`ceil(1.5 × starter demand)` as the approved V1 champion and requires a
+challenger pass — 1.25× / 1.50× / 1.75× / a data-derived cutoff, evaluated for
+stability across league formats — before it may be frozen as canonical
+long-term methodology, with the explicit warning: *"do not tune merely until a
+few hand-picked rosters look right."*
+
+`scripts/challenge_core_multiplier.py` runs it. **It promotes nothing**, writes
+no config and changes no published number; `config/roster_intel/meaningful_core.json`
+keeps `reserveMultiplier: 1.5` whatever it prints. Evaluation is not activation.
+Raw output and JSON: `docs/roster-intelligence/evidence/C2_CORE_M_CHALLENGER_2026-08-18.*`.
+
+### What "meaningfully drive roster strength" was measured as
+
+The vague half of the requirement is the important half, so it is made explicit:
+
+```
+resilience(S, k) = mean over k-subsets A of starters of optimal_score(S \ A, slots)
+retention        = resilience(core, k) / resilience(full roster, k)
+```
+
+— the average lineup you can still field when *k* starters are out at once,
+solved with the canonical exact solver over the real slot list.
+
+**The first version of this measurement was wrong, and the wrongness is worth
+recording.** At `k = 1` retention reads exactly `100.00%` for every candidate
+*including M = 1.01*, because one absence needs at most one replacement. A
+constant cannot discriminate — the same failure `tests/roster_intel/test_real_rosters.py`
+records for `_positional_coverage`. `k = 1` is still printed so the degeneracy
+stays visible rather than being quietly dropped; read `k ≥ 2`.
+
+### Results — live 12-team board, four format variants
+
+| format | M | ceiling | mean core | k=2 (worst) | k=3 (worst) |
+|---|---|---|---|---|---|
+| live (21 slots) | 1.25 | 29 | 27.8 | 99.93% (99.9) | 99.77% (99.6) |
+| | **1.50** | **33** | **31.2** | **99.99% (100.0)** | **99.95% (99.9)** |
+| | 1.75 | 41 | 37.4 | 100.00% (100.0) | 100.00% (100.0) |
+| no IDP (12) | 1.25 → 1.75 | 17 → 23 | 15.8 → 21.0 | 99.90 → 100.00% | 99.67 → 100.00% |
+| no SF (20) | 1.25 → 1.75 | 28 → 39 | 26.8 → 35.7 | 99.92 → 100.00% | 99.73 → 100.00% |
+| offense 1QB (11) | 1.25 → 1.75 | 16 → 21 | 14.8 → 19.2 | 99.86 → 100.00% | 99.51 → 100.00% |
+
+Retention is **monotone in M in every format**, and 1.50 sits where it should
+between the two challengers. Nothing here is anomalous.
+
+### Three findings, one of them uncomfortable
+
+**1 — The criterion does not uniquely determine M; the target line does.**
+Data-derived cutoffs at `k = 3`, live format:
+
+| retention target | cutoff M | ceiling |
+|---|---|---|
+| 99.00% | 1.05 | 29 |
+| 99.90% | 1.35 | 33 |
+| 99.99% | 1.70 | 41 |
+| 100.00% | 1.70 | 41 |
+
+A 99% bar returns M ≈ 1.05; a 100% bar returns M ≈ 1.70. **Both are "data
+derived", and they disagree by a factor of 1.6.** Reporting one target would
+have made the champion look chosen by evidence when it was chosen by where I
+drew the line — which is exactly the tuning the policy warns against. So all
+four are published.
+
+What the sweep *does* support: **M = 1.50 is inside the defensible band** for
+every format (the 99.9%–99.99% cutoffs land between 1.35 and 1.70), and
+**M = 1.25 is below every strict-target cutoff in all four formats**. The
+champion beats the low challenger on the stated criterion; it is not shown to be
+optimal.
+
+**2 — M = 1.75 buys retention that no ranking notices.** It reaches 100.00% in
+every format, but costs **+8 core players** in the live format (ceiling 33 → 41)
+and changes **0 of 12** Team Strength seats versus M = 1.50. M = 1.25 changes
+**4 of 12**. So the champion is *stable upward and unstable downward* — the risk
+of being wrong is concentrated on the low side, which is an argument for not
+lowering it and a weak one for raising it.
+
+**3 — No single M is retention-maximal across formats.** The 100% cutoff is
+1.70 in the live and no-SF formats but 1.55 in no-IDP. A multiplier that
+saturates every format would have to be the maximum of those, and would carry
+the +8-player cost above into leagues that do not need it.
+
+### What this pass does NOT discharge
+
+* **It is one league.** Twelve real rosters in four synthetic format variants of
+  *their own* slot list is not "stability across league formats" in the sense of
+  several real leagues, and the second live league's rosters are not in this
+  contract. The format variants are a genuine sensitivity check, not a second
+  population.
+* **Resilience is not outcome evidence.** It measures what lineup a roster could
+  still field, not what it scored. A calibration against realized results is a
+  different exercise and needs history this lane does not own (`C1-HIST-01`).
+* **`k = 3` is a seeded 120-subset sample** (exhaustive is 1,330 per team per
+  candidate), so the third-decimal figures carry sampling noise. The ordering is
+  stable; the exact cutoffs are not to that precision.
+
+**M therefore stays 1.50 and stays labelled PRIOR.** The pass narrows the
+defensible band and rules out the low challenger; it does not freeze the
+champion, and §4.3's bar for freezing is not met by this evidence alone.

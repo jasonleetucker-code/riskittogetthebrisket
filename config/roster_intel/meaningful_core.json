@@ -5,9 +5,15 @@
     "amending #839, mirrored into docs/MASTER_PRODUCT_PLAN.md section 4.1.",
     "",
     "reserveMultiplier is the V1 CHAMPION labelled PRIOR, not validated methodology.",
-    "It carries the MATH_MODEL_CALIBRATION_POLICY_2026-08-15.md section 4.3 challenger",
-    "pass (1.25 / 1.50 / 1.75 / a data-derived cutoff) before it may be frozen as",
-    "canonical. Nothing here self-promotes: champion != challenger.",
+    "The MATH_MODEL_CALIBRATION_POLICY_2026-08-15.md section 4.3 challenger pass",
+    "(1.25 / 1.50 / 1.75 / a data-derived cutoff) HAS NOW BEEN RUN -- see",
+    "scripts/challenge_core_multiplier.py and the lane doc section 16. It rules out",
+    "1.25 and places 1.50 inside the defensible band in all four measured formats,",
+    "but it does NOT freeze the champion: the data-derived cutoff moves between 1.05",
+    "and 1.70 depending purely on where the retention target is drawn, so the",
+    "criterion does not uniquely determine M. Status therefore stays PRIOR.",
+    "Nothing here self-promotes: champion != challenger, and the script writes",
+    "no config.",
     "",
     "superflexFoldsIntoQb records the OWNER decision (#839 wording) that a Superflex",
     "slot is real QB demand and is added to QB dedicated demand BEFORE the multiplier.",
@@ -18,5 +24,6 @@
   "reserveMultiplier": 1.5,
   "reserveMultiplierStatus": "PRIOR",
   "reserveMultiplierProvenance": "owner_addendum_839_amended_899",
-  "superflexFoldsIntoQb": true
+  "superflexFoldsIntoQb": true,
+  "reserveMultiplierChallengerPass": "run_2026-08-18_champion_retained_not_frozen"
 }
