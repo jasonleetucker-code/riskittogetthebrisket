@@ -7,9 +7,11 @@ foundations, 7 explicitly out of scope)
 **Binding methodology inputs:** `docs/MATH_MODEL_CALIBRATION_POLICY_2026-08-15.md`,
 `docs/PROJECTION_ENSEMBLE_PLAN_2026-08-15.md` (PR #853)
 **Authorization:** **THIS FILE AUTHORIZES NOTHING.** `docs/EXECUTION_PLAN.md` alone
-answers "what may I build now?" Today that answer is the **continuous C-Series campaign**
-authorized by the owner directive of 2026-08-17; `C1-U1`, `C1-U2`, `C1-U3`, `C1-U4` and
-`C1-U6` are closed. See §18 for what the campaign deliberately does *not* sweep in.
+answers "what may I build now?" Today that answer is **nothing in this map**: a **feature
+freeze** is in force for the post-merge C-Series audit and stability gate (owner directive
+2026-08-17, later the same day), and the continuous C-Series campaign it paused resumes only
+on a fresh owner decision. `C1-U1`, `C1-U2`, `C1-U3`, `C1-U4` and `C1-U6` are closed;
+`C0-R`, `C1-U5`, `C1-U8`, `C1-U9` and `C2-U1` are `CLOSED-PENDING-PROD`. See §18.
 
 ---
 
