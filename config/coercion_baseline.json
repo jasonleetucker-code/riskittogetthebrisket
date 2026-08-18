@@ -193,7 +193,6 @@
     "frontend/lib/trade-logic.js::result[i].net = result[i].received - result[i].given + (stack[i] || 0);",
     "frontend/lib/trade-logic.js::return Number(row.values?.[valueMode] || 0);",
     "frontend/lib/trade-logic.js::sumBoard += Number(mv.board) || 0;",
-    "frontend/lib/trade-retro-value.js::const v = Number(it.val) || 0;",
     "frontend/lib/trade-share.js::const version = Number(parsed.v) || 1;",
     "frontend/lib/value-history.js::const rSpan = rMax - rMin || 1;",
     "frontend/lib/value-history.js::const tSpan = tMax - tMin || 1;",
