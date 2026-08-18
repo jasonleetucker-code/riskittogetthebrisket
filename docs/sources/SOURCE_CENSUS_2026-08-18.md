@@ -66,6 +66,18 @@ to get wrong by reading the source list instead of the family list.
 `votes` = rows carrying a positive `canonicalSiteValues` entry on the built contract.
 `fetch age` = `data/scrape_state/<key>_last_success`.
 
+**Correction, 2026-08-18 — that predicate undercounts sign-bearing sources.** `> 0` drops
+legitimately NEGATIVE vendor values, and DraftSharks IDP publishes them (its `3D Value +` column
+runs down to −38). Measured against `sourceRankMeta` — the sources that actually voted in the
+blend, sign-agnostic — `draftSharksIdp` is **269**, not the 143 in the table below. Every other
+row moves by less, in the same direction: `ktcSfTep` 502 → 421, `idpTradeCalc` 911 → 768,
+`fantasyNavigatorSf` 454 → 367, `dlfRookieSf` 112 → 54.
+
+The two quantities answer different questions — "did this source publish a value here" versus
+"did it vote in the blend here" — and the second is the one source *health* wants, so
+`_build_source_health_snapshot` counts off `sourceRankMeta` (S-1, below). The table is left as
+measured rather than restated, with this note beside it.
+
 | source | scope | game type | family | votes | fetch age | disposition |
 |---|---|---|---|---|---|---|
 | `idpTradeCalc` | overall_idp | DYNASTY | `idpTradeCalc` | 911 | 1.9h | ACTIVE — HEALTHY |
@@ -138,7 +150,7 @@ is deliberately **not** a dynasty voter.
 
 | # | item | state |
 |---|---|---|
-| S-1 | Publish a **21-source** health surface. `check_source_health` already knows the right population; `/api/status`, `/tools/source-health` and the contract do not. Do **not** widen `expectedSites` — it is an anchor-loss detector and 2 is correct for it | **OPEN** |
+| S-1 | Publish a **21-source** health surface. `check_source_health` already knows the right population; `/api/status`, `/tools/source-health` and the contract do not. Do **not** widen `expectedSites` — it is an anchor-loss detector and 2 is correct for it | **REPAIRED 2026-08-18.** Measured first: `/api/status` reported `total_sources: 2` because its denominator was the 2-row `sites` list, and `/tools/source-health` rendered 2 rows because it listed `source_runtime.enabled_sources` (`["KTC", "IDPTradeCalc"]` — the scraper's own run names, which do not case-fold onto registry keys). Population now comes from `get_ranking_source_keys()`; counts from the served board's `sourceRankMeta`; a registered source contributing nothing is named in `missing_sources`, and one we have no measurement for is `unmeasured_sources` rather than accused of silence. `expectedSites` untouched and pinned. Audit finding **F-7** |
 | S-2 | Map scraper-run names ↔ registry keys so a disposition round-trips and a run-level "complete" decomposes into which boards arrived | **OPEN** |
 | S-2b | Collapse the `ktc` / `ktcSfTep` spelling split across `raw.sites`, `expectedSites` and `canonicalSiteValues` | **OPEN** |
 | S-3 | Health vocabulary must distinguish vendor-unchanged / stale / fetch-failed / parser-failed / credential / blocked / retired / future / archive-only | **OPEN** |

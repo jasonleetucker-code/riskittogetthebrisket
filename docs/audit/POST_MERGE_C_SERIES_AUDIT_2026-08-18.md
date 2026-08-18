@@ -346,7 +346,7 @@ answered" from "the file is still there" (census **S-3**), and F-7 below.
 
 ---
 
-### F-7 · The source-health headline counts 2 sources for a board carried by 21 · CONFIRMED · observability
+### F-7 · The source-health headline counts 2 sources for a board carried by 21 · CONFIRMED · observability · **REPAIRED 2026-08-18**
 
 `server.py::_build_source_health_snapshot` derives `total_sources`, `sources_with_data`,
 `source_counts` and `missing_sources` from `payload["sites"]`. Measured on the live export
@@ -374,9 +374,41 @@ say a registered source went silent.
 (`{"offense": ["ktc"], "idp": ["idpTradeCalc"]}`) and **2 is correct for it**. Widening it would
 break the thing it does well. The population belongs to a separate owner.
 
-Tracked as census item **S-1**. Repair: one function answering "which sources are we entitled to
-expect", derived from the registry; both surfaces consume it; a registered source with no
-contribution is reported explicitly rather than omitted.
+**The page symptom is worse than the headline.** `/tools/source-health` — subtitled *"Scraper
+status for every ranking source in the pipeline"* — builds its row list from
+`source_runtime.enabled_sources`, which on the live export is `["KTC", "IDPTradeCalc"]`: the
+scraper's own **run names**, two of them. It then looks each up in `source_counts`, whose keys
+are registry-shaped. `"KTC".toLowerCase()` finds `ktc`; `"IDPTradeCalc".toLowerCase()` is
+`idptradecalc`, which matches nothing. So the page rendered **two rows for a 21-source pipeline,
+one of them showing a dash**.
+
+**REPAIRED.** The population now comes from `data_contract.get_ranking_source_keys()` — the
+registry that already owns it, no new owner invented. Per-source counts come from the served
+board's `sourceRankMeta` (`_compute_served_source_coverage`), so `served_source_coverage` becomes
+the *input* the answer is built from rather than a second competing answer. Measured on the
+golden fixture: **`total_sources` 2 → 21**, every registered voter present with a real count.
+
+Three states are now distinct, because collapsing them is the defect:
+
+| state | field | meaning |
+|---|---|---|
+| contributed | `source_counts[k] > 0` | it voted on N rows |
+| silent | `missing_sources` | registered, measured, voted on **nothing** |
+| unknown | `unmeasured_sources`, count `null` | no served board was supplied — **unknown is not zero** |
+
+The scraper's anchor row counts survive under `anchor_row_counts`, named for what they are; they
+are a different quantity from board contribution and merging them into one map was the defect.
+`coverageAudit.expectedSites` is untouched at 2 entries and is now pinned by a test that fails if
+a future change smuggles the population into it.
+
+Measuring it also corrected the census's own vote figures: counting `canonicalSiteValues > 0`
+drops legitimately **negative** vendor values, so `draftSharksIdp` reads 143 against 269 actual
+votes. Health counts off `sourceRankMeta`, which is sign-agnostic.
+
+Guards: `tests/api/test_source_health_population.py` (4 assertions, mutation-proven against
+"population back to the anchor list" and "count silence as healthy") and two cases in
+`frontend/__tests__/components/source-health-strip.test.jsx` (mutation-proven against reverting
+the row list to `enabled_sources`). Census item **S-1** closes.
 
 ---
 

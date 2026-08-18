@@ -1551,21 +1551,87 @@ def _live_by_name_from_contract(contract: dict | None) -> dict[str, int]:
     return built
 
 
-def _build_source_health_snapshot(data: dict | None) -> dict:
+def _build_source_health_snapshot(
+    data: dict | None, coverage: dict[str, int] | None = None
+) -> dict:
+    """Source health over the population we are ENTITLED TO EXPECT.
+
+    F-7 / census S-1.  The denominator used to be ``payload["sites"]``,
+    which the scraper emits carrying only the two ANCHOR markets —
+    measured on the live 2026-08-18 export it is exactly
+    ``[ktc, idpTradeCalc]``.  So this block reported **2 of 2 healthy,
+    0 missing** for a board carried by 21 registered production voters,
+    and a source that went silent could not appear in
+    ``missing_sources`` because it had never been in the population.
+
+    That is ``MISSING IS NEVER ZERO`` at the health layer, and the
+    repair is the rule ``src/api/confidence.py`` already applies to
+    coverage: the denominator is what COULD have been observed, so
+    silence is permanent missing evidence rather than a smaller
+    population.
+
+    ``coverage`` is the per-source contribution to the SERVED board
+    (``_compute_served_source_coverage``, counted off ``sourceRankMeta``
+    = "voted in the blend").  It is deliberately not the count of
+    positive ``canonicalSiteValues``: DraftSharks IDP publishes real
+    NEGATIVE values, so a ``> 0`` predicate reports 143 of its 269
+    actual votes.  Sign-bearing sources make ">0" the wrong question.
+
+    Without ``coverage`` the per-source contribution is UNKNOWN, and
+    unknown is not zero — the counts come back ``None`` and the keys
+    land in ``unmeasured_sources`` rather than being accused of going
+    silent.  The scraper's own anchor row counts are kept, under a name
+    that says what they are (``anchor_row_counts``), because they are a
+    different quantity from board contribution and merging the two into
+    one map is the defect being repaired.
+
+    NOT ``coverageAudit.expectedSites``: that block is an anchor-loss
+    detector and 2 is correct for it.  Different question, different
+    owner.
+    """
     payload = data or {}
     sites = payload.get("sites")
     if not isinstance(sites, list):
         sites = []
-    source_counts: dict[str, int] = {}
-    missing: list[str] = []
-    available = 0
+    anchor_row_counts: dict[str, int] = {}
     for row in sites:
         if not isinstance(row, dict):
             continue
         key = str(row.get("key") or "").strip()
         if not key:
             continue
-        count = int(row.get("playerCount") or 0)
+        anchor_row_counts[key] = int(row.get("playerCount") or 0)
+
+    # The population owner is the ranking-source registry.  Falling back
+    # to the anchor list would silently restore the defect, so a
+    # registry that cannot be read is reported as such instead.
+    try:
+        from src.api.data_contract import get_ranking_source_keys
+
+        registered = sorted({str(k) for k in get_ranking_source_keys() if k})
+    except Exception:  # pragma: no cover - registry import failure
+        registered = []
+
+    # An EMPTY coverage map is "not measured yet", not "all 21 sources
+    # went silent".  ``served_source_coverage`` is a module global that
+    # starts ``{}`` and is filled at contract promotion, so treating
+    # empty as measured-zero would accuse every source of silence on
+    # every cold boot — the same missing-vs-zero mistake this function
+    # exists to fix, reintroduced one level down.  A genuinely empty
+    # served board cannot coexist with a loaded contract: the contract
+    # is built FROM the sources.
+    measured = bool(coverage)
+
+    source_counts: dict[str, int | None] = {}
+    missing: list[str] = []
+    unmeasured: list[str] = []
+    available = 0
+    for key in registered:
+        if not measured:
+            source_counts[key] = None
+            unmeasured.append(key)
+            continue
+        count = int(coverage.get(key) or 0)
         source_counts[key] = count
         if count > 0:
             available += 1
@@ -1705,10 +1771,21 @@ def _build_source_health_snapshot(data: dict | None) -> dict:
     sources_meta = _per_source_freshness()
 
     return {
-        "total_sources": len(source_counts),
+        # The population we are entitled to expect, not what one run
+        # happened to emit.
+        "total_sources": len(registered),
+        "registered_sources": registered,
         "sources_with_data": available,
         "source_counts": source_counts,
+        # Known to have contributed nothing.  Distinct from
+        # ``unmeasured_sources``, which is "we were not given the
+        # served board and therefore cannot say".
         "missing_sources": sorted(missing),
+        "unmeasured_sources": sorted(unmeasured),
+        # The scraper's own anchor row counts, kept under a name that
+        # says what they are.  A different quantity from board
+        # contribution above.
+        "anchor_row_counts": anchor_row_counts,
         "partial_run": bool(partial_run),
         "source_runtime": source_runtime,
         "source_failures": failures,
@@ -4723,7 +4800,13 @@ async def get_status():
     status_payload = _scrape_status_payload()
     # Prefer full scrape payload for source-health truth (dlfImport/sourceRunSummary).
     # Contract payload is a compatibility fallback when full payload is unavailable.
-    source_health = _build_source_health_snapshot(latest_data or latest_contract_data)
+    # ``served_source_coverage`` is the per-source contribution to the
+    # board we are actually serving; the snapshot is the ANSWER built
+    # from it plus the registry population (F-7).  Owner and input, not
+    # two competing surfaces.
+    source_health = _build_source_health_snapshot(
+        latest_data or latest_contract_data, coverage=served_source_coverage
+    )
     full_bytes = len(latest_data_bytes) if latest_data_bytes else 0
     runtime_bytes = len(latest_runtime_data_bytes) if latest_runtime_data_bytes else 0
     startup_bytes = len(latest_startup_data_bytes) if latest_startup_data_bytes else 0
@@ -4764,8 +4847,12 @@ async def get_status():
             "data_date": (latest_contract_data or {}).get("date"),
             # Real per-source coverage of the served board (see the
             # ``served_source_coverage`` global).  Monitoring asserts on
-            # this; ``source_health`` above is derived from the 3-source
-            # legacy ``sites`` list and cannot detect a degraded board.
+            # this, and it is now also the INPUT ``source_health`` above
+            # counts from — so the two agree by construction rather than
+            # being two answers to one question.  Until 2026-08-18
+            # ``source_health`` took its population from the legacy
+            # ``sites`` list (2 anchor rows, not the 3 this comment
+            # claimed) and so could not detect a degraded board; F-7.
             "served_source_coverage": served_source_coverage,
             # R-4: Scrape success rate tracking
             "scrape_success_rate_24h": _scrape_success_rate_24h(),
