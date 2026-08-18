@@ -197,7 +197,9 @@ def test_an_unknown_cap_is_unknown_and_never_unlimited():
     assert capacity.over_limit_after is None
     assert capacity.open_spots_after is None
     assert capacity.forced_drops == []
-    assert capacity.requires_drops is False
+    # UNKNOWN, and it must say unknown rather than "no drops needed".
+    assert capacity.requires_drops is None
+    assert capacity.certainty == "partial"
     assert any("UNKNOWN, not unlimited" in n for n in capacity.notes)
 
 
@@ -452,14 +454,110 @@ def test_an_unpriced_forced_drop_is_reported_not_counted_as_zero():
 # ── Taxi ─────────────────────────────────────────────────────────────
 
 
-def test_taxi_slots_produce_a_caveat_and_never_silent_relief():
-    context = _ctx(_roster(24), settings=NEW_SETTINGS)
-    assert any("taxi" in n.lower() and "NOT modelled" in n for n in context.notes)
+def test_taxi_slots_make_the_conclusion_partial_not_silently_relieved():
+    """Unknown taxi membership is a RANGE, never an assumption.
 
-    capacity = assess_roster_capacity(context, incoming_players=["In 1"], outgoing_players=[])
-    # 5 taxi slots exist, but no relief is applied: 25 > 24 is still over.
+    Sleeper lists taxi players inside ``players``, so counting every listed
+    player against the active cap **overstates** roster pressure — the opposite
+    of what this module first claimed — and in a 5-slot league it can invent up
+    to five forced drops that are not required.  Assuming full relief would
+    hide real ones.  Neither guess is available, so the answer is bracketed.
+    """
+    # 28 rostered against a 24-man cap with 5 taxi slots: over by 4 if nobody
+    # is on taxi, legal if four or more are.  Genuinely unknown.
+    context = _ctx(_roster(28), settings=NEW_SETTINGS)
+    assert context.taxi_membership_known is False
+    assert any("partial" in n and "taxi" in n for n in context.notes)
+
+    capacity = assess_roster_capacity(context, incoming_players=[], outgoing_players=[])
     assert capacity.taxi_size == 5
+    assert capacity.certainty == "partial"
+    assert capacity.over_limit_after is None  # no point estimate may be published
+    assert capacity.over_limit_after_min == 0
+    assert capacity.over_limit_after_max == 4
+    assert capacity.taxi_occupied_min == 0
+    assert capacity.taxi_occupied_max == 5
+    assert capacity.requires_drops is None  # NOT False
+    payload = capacity.to_dict()
+    assert payload["requiresDrops"] is None
+    assert payload["forcedDropsAreUpperBound"] is True
+
+
+def test_a_partial_conclusion_still_names_the_worst_case_drops():
+    """Bracketed does not mean silent — the upper bound is still actionable."""
+    capacity = assess_roster_capacity(
+        _ctx(_roster(28), settings=NEW_SETTINGS), incoming_players=[], outgoing_players=[]
+    )
+    assert len(capacity.forced_drops) == capacity.over_limit_after_max
+    assert capacity.to_dict()["forcedDropsAreUpperBound"] is True
+
+
+def test_taxi_relief_cannot_rescue_a_roster_that_is_over_even_with_it():
+    """When the bracket does not straddle, the answer is certain again."""
+    # 30 rostered, 24 cap, 5 taxi: over by at least 1 however taxi is assigned.
+    capacity = assess_roster_capacity(
+        _ctx(_roster(30), settings=NEW_SETTINGS), incoming_players=[], outgoing_players=[]
+    )
+    assert capacity.over_limit_after_min == 1
+    assert capacity.over_limit_after_max == 6
+    assert capacity.requires_drops is True
+
+
+def test_a_roster_legal_under_every_taxi_assignment_is_exact():
+    """No bracket is published when it cannot change the answer."""
+    capacity = assess_roster_capacity(
+        _ctx(_roster(20), settings=NEW_SETTINGS), incoming_players=["In 1"], outgoing_players=[]
+    )
+    assert capacity.certainty == "exact"
+    assert capacity.over_limit_after == 0
+    assert capacity.requires_drops is False
+
+
+def test_a_zero_taxi_league_is_never_bracketed():
+    """``dynasty_main`` is unaffected by any of this."""
+    capacity = assess_roster_capacity(
+        _ctx(_roster(58)), incoming_players=["In 1", "In 2"], outgoing_players=["Player 00"]
+    )
+    assert capacity.taxi_size == 0
+    assert capacity.certainty == "exact"
     assert capacity.over_limit_after == 1
+    assert capacity.over_limit_after_min == capacity.over_limit_after_max == 1
+    assert capacity.requires_drops is True
+    assert capacity.to_dict()["forcedDropsAreUpperBound"] is False
+
+
+def test_known_taxi_membership_is_used_and_makes_the_answer_exact():
+    """The bracket exists because membership is invisible, not on principle.
+
+    Hand it a roster that DOES carry ``taxi`` and the range collapses.  No
+    contract-shaped caller supplies this today; the path exists so that adding
+    ``taxi`` to the team block is a data change rather than a code change.
+    """
+    roster = _roster(28)
+    contract, team = _contract(roster, extra_rows=_free_agents())
+    on_taxi = [n for n, _v, _p in roster[:4]]
+    team["taxi"] = on_taxi
+    context = build_capacity_context(contract, None, team, roster_settings=NEW_SETTINGS)
+
+    assert context.taxi_membership_known is True
+    capacity = assess_roster_capacity(context, incoming_players=[], outgoing_players=[])
+    assert capacity.certainty == "exact"
+    assert capacity.taxi_occupied_min == capacity.taxi_occupied_max == 4
+    # 28 rostered − 4 on taxi = 24 active, exactly the cap.
+    assert capacity.over_limit_after == 0
+    assert capacity.requires_drops is False
+
+
+def test_a_traded_away_taxi_player_frees_his_taxi_slot_not_a_roster_spot():
+    roster = _roster(28)
+    contract, team = _contract(roster, extra_rows=_free_agents())
+    team["taxi"] = [n for n, _v, _p in roster[:4]]
+    context = build_capacity_context(contract, None, team, roster_settings=NEW_SETTINGS)
+
+    capacity = assess_roster_capacity(context, incoming_players=[], outgoing_players=[roster[0][0]])
+    # One taxi member left, so 27 rostered − 3 on taxi = 24 active.
+    assert capacity.taxi_occupied_max == 3
+    assert capacity.over_limit_after == 0
 
 
 # ── The acquired player as a cut candidate ───────────────────────────

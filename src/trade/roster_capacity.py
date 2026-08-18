@@ -60,12 +60,38 @@ missing.
 note.  Coercing it to "no limit" would make every trade look free, which is the
 optimistic-default failure the coercion gate exists to catch.
 
-Taxi is NOT modelled
-────────────────────
-``draft/context.py`` already records why: Sleeper's per-player taxi assignment
-is not ingested anywhere in this codebase.  A league with taxi slots therefore
-has its open spots UNDERSTATED, and the note says so rather than the model
-inventing taxi relief.
+Taxi membership is UNKNOWN here, and unknown is not zero
+───────────────────────────────────────────────────────
+Sleeper's ``players`` array is the WHOLE roster — taxi and reserve players are
+members of it as well as of their own arrays (``src/sharp/roster_collect.py``
+documents this, and reads ``taxi`` / ``reserve`` to LABEL those same ids).  The
+canonical contract's ``sleeper.teams[]`` block carries ``players`` /
+``playerIds`` and **not** ``taxi``, so from here we can count the roster but
+cannot tell which of its members occupy taxi slots.
+
+That matters in the direction opposite to the one this module first claimed.
+Counting every listed player against the active cap does not understate open
+spots — it **overstates roster pressure**, and in a taxi league it can invent
+forced drops that the league would not require.  ``dynasty_new`` carries 5 taxi
+slots against a 24-man roster, so the error is up to five players wide.
+
+Neither guess is available:
+
+* assuming taxi occupancy 0 overstates pressure (the old behaviour);
+* assuming full taxi relief understates it and would hide real forced drops.
+
+So the answer is BRACKETED rather than guessed.  With ``taxiSize`` slots and
+unknown membership, active occupancy lies in
+``[size - min(taxiSize, size), size]``, ``overLimitAfter`` is published as a
+MIN/MAX pair, ``certainty`` is ``"partial"``, and ``requiresDrops`` is ``None``
+when the range straddles zero.  ``forcedDrops`` then carries the worst case and
+says so via ``forcedDropsAreUpperBound``.
+
+A league with ``taxiSize == 0`` — ``dynasty_main`` — is unaffected: the range
+collapses and ``certainty`` is ``"exact"``.
+
+Making this exact needs ``taxi`` on the contract's team block, which is the
+contract owner's surface, not this module's.  Recorded rather than reached for.
 """
 
 from __future__ import annotations
@@ -218,9 +244,22 @@ class RosterCapacity:
     outgoing: int
     open_spots_before: int | None
     open_spots_after: int | None
-    #: How many players over the cap, or ``None`` when the cap is unknown.
+    #: How many players over the cap.  ``None`` when the cap is unknown, and
+    #: also ``None`` when taxi membership is unknown and the bracket straddles
+    #: — see ``over_limit_after_min`` / ``_max``.  A point estimate here is a
+    #: claim of certainty and must never be published without one.
     over_limit_before: int | None
     over_limit_after: int | None
+    #: ``"exact"`` when active occupancy is known, ``"partial"`` when taxi
+    #: membership is invisible and the answer is a range.
+    certainty: str = "exact"
+    #: Bounds on ``over_limit_after``.  Equal to it when ``certainty`` is
+    #: ``"exact"``.
+    over_limit_after_min: int | None = None
+    over_limit_after_max: int | None = None
+    #: Bounds on how many roster members could be sitting on taxi slots.
+    taxi_occupied_min: int = 0
+    taxi_occupied_max: int = 0
     forced_drops: list[ForcedDrop] = field(default_factory=list)
     #: Total ``rankDerivedValue`` released.  ``None`` when the cap is unknown;
     #: excludes unpriced players, whose count is published separately so the
@@ -235,8 +274,29 @@ class RosterCapacity:
     notes: list[str] = field(default_factory=list)
 
     @property
-    def requires_drops(self) -> bool:
-        return bool(self.over_limit_after)
+    def requires_drops(self) -> bool | None:
+        """True / False / **None when unknown**.
+
+        ``None`` is reachable and load-bearing: with unknown taxi membership a
+        roster can be over the cap or not depending on how many of its members
+        sit on taxi, and collapsing that to ``False`` hides real forced drops
+        while collapsing it to ``True`` invents them.
+        """
+        if self.over_limit_after is not None:
+            return bool(self.over_limit_after)
+        if self.roster_limit is None:
+            return None
+        lo, hi = self.over_limit_after_min, self.over_limit_after_max
+        if lo is None or hi is None:
+            return None
+        if hi == 0:
+            return False  # legal under every taxi assignment
+        if lo > 0:
+            return True  # over the cap under every taxi assignment; only the
+            # COUNT is uncertain, and that distinction is the point of the
+            # bracket — "how many" being unknown does not make "whether"
+            # unknown.
+        return None  # the range straddles zero — genuinely unknown
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -250,7 +310,17 @@ class RosterCapacity:
             "openSpotsAfter": self.open_spots_after,
             "overLimitBefore": self.over_limit_before,
             "overLimitAfter": self.over_limit_after,
+            "overLimitAfterMin": self.over_limit_after_min,
+            "overLimitAfterMax": self.over_limit_after_max,
+            "certainty": self.certainty,
+            "requiresDrops": self.requires_drops,
+            "taxiOccupiedMin": self.taxi_occupied_min,
+            "taxiOccupiedMax": self.taxi_occupied_max,
             "forcedDrops": [d.to_dict() for d in self.forced_drops],
+            # True when the drops below are the WORST case of a range rather
+            # than a determined set.  A caller that renders them as required
+            # without reading this is overstating what is known.
+            "forcedDropsAreUpperBound": self.certainty != "exact",
             "forcedDropValue": (
                 None if self.forced_drop_value is None else round(self.forced_drop_value, 1)
             ),
@@ -277,6 +347,13 @@ class CapacityContext:
     league_key: str | None
     roster_limit: int | None
     taxi_size: int
+    #: Whether we can tell WHICH roster members occupy taxi slots.  False
+    #: whenever the source we were handed carries no taxi membership, which is
+    #: every contract-shaped caller today.  Never assume a value for it.
+    taxi_membership_known: bool
+    #: Normalised names/ids of the roster members on taxi, when known.  Empty
+    #: and meaningless unless ``taxi_membership_known``.
+    taxi_member_keys: frozenset[str]
     roster_player_names: tuple[str, ...]
     assets_by_key: Mapping[str, RosterAsset]
     starter_slots: tuple[str, ...]
@@ -310,11 +387,16 @@ def build_capacity_context(
     taxi_size = league_taxi_size(league_key, roster_settings)
     if roster_limit is None:
         notes.append("league roster size is not configured — capacity is UNKNOWN, not unlimited")
-    if taxi_size:
+    # Taxi membership: present only if the caller handed us a roster that
+    # carries it.  The canonical contract's team block does not.
+    taxi_members = team.get("taxi") if isinstance(team, Mapping) else None
+    taxi_membership_known = isinstance(taxi_members, (list, tuple))
+    taxi_member_keys = frozenset(_norm(m) for m in (taxi_members or ()) if _norm(m))
+    if taxi_size and not taxi_membership_known:
         notes.append(
-            f"league carries {taxi_size} taxi slot(s), but Sleeper's per-player taxi "
-            "assignment is not ingested anywhere in this codebase — taxi relief is "
-            "NOT modelled and open spots may be understated"
+            f"league carries {taxi_size} taxi slot(s) and this source does not say which "
+            "roster members occupy them — Sleeper lists taxi players inside `players`, so "
+            "active occupancy is a RANGE and the capacity conclusion is partial"
         )
 
     team = team if isinstance(team, Mapping) else {}
@@ -381,6 +463,8 @@ def build_capacity_context(
         league_key=league_key,
         roster_limit=roster_limit,
         taxi_size=taxi_size,
+        taxi_membership_known=taxi_membership_known,
+        taxi_member_keys=taxi_member_keys,
         roster_player_names=names,
         assets_by_key={_asset_key(a): a for a in assets},
         starter_slots=starter_slots,
@@ -425,6 +509,29 @@ def _resolve_incoming(
     )
 
 
+def _surviving_keys(
+    context: CapacityContext,
+    incoming: Sequence[str],
+    outgoing: Sequence[str],
+) -> set[str]:
+    """Normalised keys of the roster AFTER the trade.
+
+    Removal is by MULTIPLICITY, matching the roster rebuild below and the rule
+    ``simulate_trade`` had to learn for picks: two entries sharing a key are
+    two assets, and trading one removes one.
+    """
+    pending = {_norm(n) for n in outgoing}
+    keys: set[str] = set()
+    for name in context.roster_player_names:
+        key = _norm(name)
+        if key in pending:
+            pending.discard(key)
+            continue
+        keys.add(key)
+    keys.update(_norm(n) for n in incoming)
+    return keys
+
+
 def assess_roster_capacity(
     context: CapacityContext,
     *,
@@ -459,20 +566,44 @@ def assess_roster_capacity(
             open_spots_after=None,
             over_limit_before=None,
             over_limit_after=None,
+            certainty="partial",
             notes=notes,
         )
 
-    over_before = max(0, size_before - limit)
-    over_after = max(0, size_after - limit)
-    open_before = max(0, limit - size_before)
-    open_after = max(0, limit - size_after)
+    # ── Taxi bracket ─────────────────────────────────────────────────
+    # Sleeper lists taxi players inside ``players``, so ``size_*`` counts
+    # them.  With membership invisible, the number occupying ACTIVE spots is
+    # bracketed rather than guessed: guessing 0 overstates pressure and
+    # invents forced drops, guessing full relief hides real ones.
+    if context.taxi_size <= 0:
+        taxi_lo = taxi_hi = 0
+        certainty = "exact"
+    elif context.taxi_membership_known:
+        # Count the taxi members that SURVIVE the trade, capped at the number
+        # of slots that exist — a source can list more than the league allows.
+        surviving_keys = _surviving_keys(context, incoming, outgoing)
+        occupied = len(context.taxi_member_keys & surviving_keys)
+        taxi_lo = taxi_hi = min(context.taxi_size, occupied)
+        certainty = "exact"
+    else:
+        taxi_lo = 0
+        taxi_hi = min(context.taxi_size, size_after)
+        certainty = "exact" if taxi_hi == 0 else "partial"
+
+    # Worst case for the roster is the FEWEST players on taxi.
+    over_after_max = max(0, (size_after - taxi_lo) - limit)
+    over_after_min = max(0, (size_after - taxi_hi) - limit)
+    over_before = max(0, (size_before - taxi_lo) - limit)
+    over_after = over_after_max if certainty == "exact" else None
+    open_before = max(0, limit - (size_before - taxi_lo))
     if over_before:
         notes.append(
             f"roster is ALREADY {over_before} over the {limit}-man limit before this "
             "trade — the drops below include getting back to legal size"
         )
 
-    if not over_after:
+    if over_after_max == 0:
+        # Legal under every taxi assignment, so the bracket is moot.
         return RosterCapacity(
             roster_limit=limit,
             taxi_size=context.taxi_size,
@@ -481,9 +612,14 @@ def assess_roster_capacity(
             incoming=len(incoming),
             outgoing=len(outgoing),
             open_spots_before=open_before,
-            open_spots_after=open_after,
+            open_spots_after=max(0, limit - (size_after - taxi_lo)),
             over_limit_before=over_before,
             over_limit_after=0,
+            certainty="exact",
+            over_limit_after_min=0,
+            over_limit_after_max=0,
+            taxi_occupied_min=taxi_lo,
+            taxi_occupied_max=taxi_hi,
             forced_drop_value=0.0,
             forced_drop_cut_cost=0.0,
             notes=notes,
@@ -520,12 +656,12 @@ def assess_roster_capacity(
         list(context.starter_slots),
         context.waiver_values,
         context.scarcity,
-        max_rungs=over_after,
+        max_rungs=over_after_max,
     )
     notes.extend(ladder.notes)
 
     drops: list[ForcedDrop] = []
-    for rung in ladder.rungs[:over_after]:
+    for rung in ladder.rungs[:over_after_max]:
         asset = next((a for a in surviving if a.player_id == rung.player_id), None)
         drops.append(
             ForcedDrop(
@@ -540,10 +676,10 @@ def assess_roster_capacity(
             )
         )
 
-    exhausted = len(drops) < over_after
+    exhausted = len(drops) < over_after_max
     if exhausted:
         notes.append(
-            f"cut ladder offers {len(drops)} release(s) but {over_after} are needed — "
+            f"cut ladder offers {len(drops)} release(s) but {over_after_max} are needed — "
             "every remaining player is required to fill a starting slot, so no legal "
             "path back to roster size was modelled"
         )
@@ -557,9 +693,14 @@ def assess_roster_capacity(
         incoming=len(incoming),
         outgoing=len(outgoing),
         open_spots_before=open_before,
-        open_spots_after=0,
+        open_spots_after=0 if certainty == "exact" else None,
         over_limit_before=over_before,
         over_limit_after=over_after,
+        certainty=certainty,
+        over_limit_after_min=over_after_min,
+        over_limit_after_max=over_after_max,
+        taxi_occupied_min=taxi_lo,
+        taxi_occupied_max=taxi_hi,
         forced_drops=drops,
         forced_drop_value=float(sum(priced)) if priced else 0.0,
         forced_drop_cut_cost=float(sum(d.effective_cut_cost for d in drops)),
