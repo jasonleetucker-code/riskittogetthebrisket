@@ -1578,6 +1578,30 @@ E2E question.
 Status: `journey-tools-health` half **FIXED**; `#909` attribution **REFUTED**; `F-3a` half remains
 open.
 
+**Update 2026-08-18 21:07 — the flaky one failed both attempts, so it is no longer "flaky" by
+observation.** Run `32185117818` reports **3 failed** rather than 2:
+
+```
+[desktop-1366]     journey-settings-overrides.spec.js:45   (F-3a, open)
+[desktop-1366]     journey-tools-health.spec.js:31         (stale spec; #912 owns the fix)
+[mobile-chromium]  public-league.spec.js:193 › deep links via ?tab= land on the right tab
+151 passed, 52 skipped (6.9m)
+```
+
+The third is the spec this entry already classified as **flaky** with a documented cause (React
+19.2 staging a Suspense boundary in `<div hidden>`). It passed on retry in the previous run
+(16.7 s) and failed **both** attempts here — `TimeoutError: page.waitForFunction` on
+`document.body.innerText.includes(needle)`, 15 s.
+
+**Not attributable to the F-30 work, and the reason is a measurement rather than an argument:**
+the pick repair is board-inert (`board_diff --expect-no-value-change` OK, 0 values / 0 ranks / 0
+labels), and `/league` renders public-league snapshots, which carry no pick values at all.
+
+What it does mean is that a spec carrying a "flaky, explained" label has now failed twice in a
+row, which is the point at which that label stops being evidence and becomes an assumption. It
+belongs to the same E2E backlog as `F-3a` and should be re-diagnosed rather than re-labelled —
+recorded here so the next reader does not inherit "known flaky" as a conclusion.
+
 ### F-30 · A truncated pick market exposes a real derivation gap — and my first fix was wrong · CONFIRMED · data integrity · **OPEN (assigned)**
 
 **Symptom.** `idpTradeCalc` dropped from 84 pick anchors to 16 (round 1 only, every year) between
