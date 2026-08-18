@@ -547,12 +547,23 @@ def _angle_pool_assets(entries):
     """Project angle's dict pool entries onto the substrate's asset view."""
     from src.packages import PackageAsset  # noqa: PLC0415
 
+    def _value(entry):
+        # A missing ``my_value`` is UNKNOWN, and a measured 0 is a real zero.
+        # ``float(x or 0.0) or None`` collapsed both to None, which is a
+        # decision-path fabrication in the ordering direction: pool order
+        # decides what survives truncation, so "we have no number" and "the
+        # number is zero" must not become the same thing.
+        raw = entry.get("my_value")
+        if isinstance(raw, bool) or not isinstance(raw, (int, float)):
+            return None
+        return float(raw)
+
     return [
         PackageAsset(
             asset_id="",
             name=str(e.get("name") or ""),
             position=str(e.get("position") or ""),
-            value=float(e.get("my_value") or 0.0) or None,
+            value=_value(e),
             source=e,
         )
         for e in entries

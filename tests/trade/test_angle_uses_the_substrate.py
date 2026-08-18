@@ -92,3 +92,25 @@ def test_angle_keeps_entries_a_generic_eligibility_gate_would_drop():
     sides = list(_angle_sides(_angle_pool_assets(pool), [2]))
     assert len(sides) == 1
     assert {x["name"] for x in sides[0]} == {"2027 Early 1st", "Zero"}
+
+
+def test_a_missing_value_is_unknown_and_a_measured_zero_is_zero():
+    """``float(x or 0.0) or None`` collapsed both to unknown.
+
+    Pool order decides what survives truncation, so "we have no number" and
+    "the number is zero" must not become the same thing — and a known zero
+    must sort ABOVE an unknown, not beside it.
+    """
+    absent = {"name": "No Value", "position": "WR", "row": {}}
+    zero = {"name": "Measured Zero", "position": "WR", "my_value": 0, "row": {}}
+    real = {"name": "Real", "position": "WR", "my_value": 500, "row": {}}
+    projected = {a.name: a for a in _angle_pool_assets([absent, zero, real])}
+    assert projected["No Value"].value is None
+    assert projected["No Value"].value_known is False
+    assert projected["Measured Zero"].value == 0.0
+    assert projected["Measured Zero"].value_known is True
+
+    from src.packages import by_value_desc
+
+    ordered = sorted(_angle_pool_assets([absent, zero, real]), key=by_value_desc)
+    assert [a.name for a in ordered] == ["Real", "Measured Zero", "No Value"]
