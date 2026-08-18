@@ -1529,9 +1529,15 @@ if (typeof window !== "undefined") {
 
 async function _fetchBaseContract() {
   const leagueKey = _readActiveLeagueKey();
-  // Mobile / slow-network callers get the compact view (~500KB vs
-  // ~4MB full) — the frontend materializer tolerates the pruned
-  // fields.  Lazy import so this module stays SSR-safe.
+  // Mobile / slow-network callers get the compact view, desktop the
+  // array view.  Both carry the SAME board: compact prunes only fields
+  // no consumer reads (pinned in
+  // ``tests/api/test_compact_view_consumer_parity.py``), which is a
+  // property it gained on 2026-08-18 — before that it pruned 14 fields
+  // this very materializer reads.  Sizes are recorded at
+  // ``lib/device-profile.js::preferredDataView`` rather than repeated
+  // here, so there is one place for them to go stale.  Lazy import so
+  // this module stays SSR-safe.
   let view = null;
   try {
     const dp = await import("./device-profile.js");

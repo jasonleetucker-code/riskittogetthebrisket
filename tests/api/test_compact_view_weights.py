@@ -170,7 +170,13 @@ class TestSlimSetShipsWeightsTogether(unittest.TestCase):
 
 class TestCompactPayloadCarriesBoth(unittest.TestCase):
     def test_players_dict_entry_keeps_both_weights_unchanged(self) -> None:
-        out = cv.compact_contract(_contract_with_differing_weights())
+        # Exercised on the runtime-view shape (dict only), because the
+        # compact view now drops the legacy dict whenever ``playersArray``
+        # is present — see test_compact_view.py's two dict tests.  The
+        # slimming rule this asserts is the same on both encodings.
+        contract = _contract_with_differing_weights()
+        contract.pop("playersArray", None)
+        out = cv.compact_contract(contract)
         meta = out["players"]["Josh Allen"]["sourceRankMeta"]["dlfSf"]
         self.assertEqual(meta["appliedWeight"], 1.0)
         self.assertEqual(meta["effectiveWeight"], 0.4667)
@@ -192,8 +198,10 @@ class TestCompactPayloadCarriesBoth(unittest.TestCase):
         label that admits it is one — leaving no applied number on the
         screen at all.
         """
+        # Read off ``playersArray``: that is the encoding ``buildRows``
+        # materializes from, so it is the one a mobile reader actually sees.
         out = cv.compact_contract(_contract_with_differing_weights())
-        meta = out["players"]["Josh Allen"]["sourceRankMeta"]["dlfSf"]
+        meta = out["playersArray"][0]["sourceRankMeta"]["dlfSf"]
         rendered = {k: v for k, v in meta.items() if k in _WEIGHT_FIELDS}
         self.assertEqual(
             len(set(rendered.values())),

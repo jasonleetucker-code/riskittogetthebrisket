@@ -3720,11 +3720,23 @@ async def get_data(request: Request):
             payload_obj = latest_array_data
             payload_view_name = "array"
         elif compact_view and latest_contract_data is not None:
-            # Mobile / slow-network view — prune ~20 audit + trust
-            # fields.  ~90% byte reduction.  Additive: a frontend
-            # that doesn't know to ignore pruned fields breaks only
-            # if it READS one of them, which the compact shape test
-            # pins against.
+            # Mobile / slow-network view.  Drops the legacy ``players``
+            # dict (as ``array`` does) and prunes the three per-player
+            # fields no frontend consumer reads.
+            #
+            # Measured 2026-08-18, 1,109-row contract, gzip level 6:
+            # full 1,092.8 KB / array 631.8 KB / compact 491.0 KB.  The
+            # comment here used to claim "~90% byte reduction" against
+            # a view it was in fact 16.3% LARGER than — compact carried
+            # both player encodings while array carried one.
+            #
+            # "Additive" was the other half of that wrong story: pruning
+            # IS safe only while nothing reads a pruned field, and
+            # fourteen of the pruned fields were read by
+            # ``_materializePlayerArrayRow``.  The shape test could not
+            # see it because it pinned the pruned payload's shape, not
+            # the frontend's reads.  That gap is now
+            # ``tests/api/test_compact_view_consumer_parity.py``.
             payload_view_name = "compact"
             if latest_compact_data_bytes is not None:
                 # Fast path: precomputed at refresh time (bytes + gzip +
