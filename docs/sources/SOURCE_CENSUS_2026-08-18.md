@@ -76,7 +76,7 @@ to get wrong by reading the source list instead of the family list.
 | `otcffbSf` | overall_offense | DYNASTY | `otcffbSf` | 425 | 1.9h | ACTIVE — HEALTHY |
 | `flockFantasySf` | overall_offense | DYNASTY | `flockFantasy` | 412 | 1.9h | ACTIVE — HEALTHY |
 | `yahooBoone` | overall_offense | DYNASTY | `yahooBoone` | 402 | 1.9h | ACTIVE — HEALTHY |
-| `draftSharks` | overall_offense | DYNASTY | `draftSharks` | 399 | 303.1h | ACTIVE — DEGRADED |
+| `draftSharks` | overall_offense | DYNASTY | `draftSharks` | 399 | 0.0h | ACTIVE — HEALTHY |
 | `fantasyCalc` | overall_offense | DYNASTY | `fantasyCalc` | 385 | 1.9h | ACTIVE — HEALTHY |
 | `dynastyDaddySf` | overall_offense | DYNASTY | `dynastyDaddySf` | 368 | 1.9h | ACTIVE — HEALTHY |
 | `idpShow` | overall_idp | DYNASTY | `idpShow` | 349 | 0.8h | ACTIVE — HEALTHY |
@@ -85,15 +85,20 @@ to get wrong by reading the source list instead of the family list.
 | `dlfSf` | overall_offense | DYNASTY | `dlf` | 285 | 0.9h | ACTIVE — HEALTHY |
 | `dlfIdp` | overall_idp | DYNASTY | `dlf` | 171 | 0.9h | ACTIVE — HEALTHY |
 | `fantasyProsIdp` | overall_idp | DYNASTY | `fantasyPros` | 148 | 1.9h | ACTIVE — HEALTHY |
-| `draftSharksIdp` | overall_idp | DYNASTY | `draftSharks` | 143 | 303.1h | ACTIVE — DEGRADED |
+| `draftSharksIdp` | overall_idp | DYNASTY | `draftSharks` | 143 | 0.0h | ACTIVE — HEALTHY |
 | `dlfRookieSf` | overall_offense | DYNASTY | `dlf` | 112 | 0.9h | ACTIVE — HEALTHY |
 | `flockFantasySfRookies` | overall_offense | DYNASTY | `flockFantasy` | 76 | 1.9h | ACTIVE — HEALTHY |
 | `dlfRookieIdp` | overall_idp | DYNASTY | `dlf` | 29 | 0.9h | ACTIVE — HEALTHY |
 
-**All 21 are `ACTIVE — HEALTHY` except the two DraftSharks boards**, which are
-`ACTIVE — DEGRADED`: last successful dynasty fetch **303h** (12.6 days). Repair in flight (#894).
-Note `draftSharksRos_last_success` is **1.8h** — the ROS fetch works; only the *dynasty* board is
-broken, which is the evidence the repair's diagnosis rests on.
+**All 21 are now `ACTIVE — HEALTHY`.** The two DraftSharks boards were `ACTIVE — DEGRADED`
+when this census was taken — last successful dynasty fetch **303h** (12.6 days) — and were
+repaired the same day by #894; see S-4 below. The diagnosis rested on
+`draftSharksRos_last_success` being **1.8h** while the dynasty stamps sat at 303h: the ROS
+fetch is a different endpoint and always worked, so "DraftSharks" looked healthy at a glance.
+
+`votes` in the table above are as-measured at census time and are not restated here; the
+refreshed boards moved 418 canonical values (p50 0.2%, p90 1.0%, max 6.9%) — classified in
+`docs/sources/DRAFTSHARKS_DYNASTY_INGESTION_REPAIR.md` §5.
 
 ---
 
@@ -137,7 +142,7 @@ is deliberately **not** a dynasty voter.
 | S-2 | Map scraper-run names ↔ registry keys so a disposition round-trips and a run-level "complete" decomposes into which boards arrived | **OPEN** |
 | S-2b | Collapse the `ktc` / `ktcSfTep` spelling split across `raw.sites`, `expectedSites` and `canonicalSiteValues` | **OPEN** |
 | S-3 | Health vocabulary must distinguish vendor-unchanged / stale / fetch-failed / parser-failed / credential / blocked / retired / future / archive-only | **OPEN** |
-| S-4 | DraftSharks dynasty fetch | repair in flight (#894) |
+| S-4 | DraftSharks dynasty fetch | **CLOSED 2026-08-18** — #894 merged (`77f037ef2`); production `scheduled-refresh` run `32123775865` green, stamps 303.5h → 0.03h, tracking issue #765 auto-closed. Record: `docs/sources/DRAFTSHARKS_DYNASTY_INGESTION_REPAIR.md` |
 | S-5 | Drop orphaned FootballGuys stamps; fix stale `source_gap:` explanations | **OPEN** |
 | S-6 | Freshness policy: is stale evidence still a full-weight vote? | **OWNER DECISION REQUIRED** — no approved rule found in the authority hierarchy; inventing decay during an audit is forbidden (§15) |
 

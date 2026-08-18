@@ -304,6 +304,80 @@ Its signature accepts `str`, but an ISO-8601 *datetime* string produces
 refused with the module's own `ObservationError`. Cosmetic — `value_known_before` is the
 instant API, and it refuses a naive datetime correctly and clearly.
 
+**REPAIRED 2026-08-18 (#903, `274f701cd`).** The string branch now delegates to the datetime
+branch rather than carrying its own narrower parse, so one rule governs both entry points.
+
+---
+
+### F-6 · A production source went unfetched for 12.6 days while every surface called it OK · CONFIRMED · source integrity · **REPAIRED 2026-08-18**
+
+`draftSharks` and `draftSharksIdp` last fetched successfully at **2026-08-05T18:13:02Z** and had
+failed every 2-hourly cycle since — **303.5 h** at measurement. Both boards were still voting in
+the canonical blend at full weight, on twelve-day-old evidence.
+
+**Three surfaces reported it healthy, for three different reasons:**
+
+| surface | what it said | why it was wrong |
+|---|---|---|
+| refresh **scrape sanity** | `draftSharksSf: 454 rows OK` | it counts rows in the file **on disk**. A stale file still has rows |
+| `data/scrape_state` at a glance | `draftSharksRos_last_success` = 1.8 h | the ROS feed is a **different endpoint** and always worked |
+| `/api/status` `source_health` | `total_sources: 2` | its denominator is the 2-row `sites` list — see F-7 |
+
+Only `scripts/watchdog_freshness.py` caught it, and its verdict was the **sole** condition
+failing the scheduled refresh on six consecutive runs.
+
+**Root cause.** The dynasty board is htmx-delivered and parameterised by `#sharedParams`; its
+unfiltered form returns 250 rows and **no IDP at all**. The fetcher read that single pass.
+
+**Repaired** by #894 (`77f037ef2`): traverse the page's own `fantasyPosition` filter on the same
+authenticated league-scored session, union on the vendor's `data-key`, with three fail-closed
+guards (vendor-id union, expected-family completeness, per-pass league-scoring proof) and an
+exact-`Decimal` cross-pass equivalence gate.
+
+**Production proof — green.** `scheduled-refresh` run `32123775865` passed every gate and
+auto-closed tracking issue #765; stamps **303.5 h → 0.03 h**. The production CSVs are
+**byte-identical** to the candidate that was verified beforehand, so the measured board movement
+is the actual production movement: 418 values moved (p50 0.2%, p90 1.0%, max 6.9%), 438 ranks,
+660 tier renumberings, 6 rank-cap boundary crossings, **0 unexpected**. Full record and §25
+classification: `docs/sources/DRAFTSHARKS_DYNASTY_INGESTION_REPAIR.md`.
+
+**What this leaves open:** the scrape-sanity row count still cannot distinguish "the vendor
+answered" from "the file is still there" (census **S-3**), and F-7 below.
+
+---
+
+### F-7 · The source-health headline counts 2 sources for a board carried by 21 · CONFIRMED · observability
+
+`server.py::_build_source_health_snapshot` derives `total_sources`, `sources_with_data`,
+`source_counts` and `missing_sources` from `payload["sites"]`. Measured on the live export
+`exports/latest/dynasty_data_2026-08-18.json`, `sites` has exactly **2 rows** — `ktc` (500) and
+`idpTradeCalc` (900). So `/api/status` reports **2 of 2 healthy, 0 missing** for a board carried
+by **21 registered production voters**, and `/tools/source-health` renders that.
+
+The defect is the **denominator**, not the arithmetic. Twenty voters are absent from the
+population, so a source that stops contributing entirely cannot appear in `missing_sources` — it
+was never counted. This is `MISSING IS NEVER ZERO` at the health layer, and it is the rule the
+confidence gate already gets right ("a family that stops covering a row stays eligible, so its
+silence is permanent missing evidence").
+
+**It is already known in the code, and the response was a second surface rather than a fix.**
+`server.py:4765` says verbatim that `source_health` *"is derived from the 3-source legacy `sites`
+list and cannot detect a degraded board"* — and the payload then adds
+`served_source_coverage` beside it. That is a **second owner of one concept**, and it has the
+same defect from the other direction: it counts `sourceRankMeta` occurrences with no registry
+denominator, so a zero-contribution source is simply an absent key. Two surfaces, neither able to
+say a registered source went silent.
+
+(The comment is also stale by one — the population is 2 today, not 3.)
+
+**Not `coverageAudit.expectedSites`.** That block is an *anchor-loss detector*
+(`{"offense": ["ktc"], "idp": ["idpTradeCalc"]}`) and **2 is correct for it**. Widening it would
+break the thing it does well. The population belongs to a separate owner.
+
+Tracked as census item **S-1**. Repair: one function answering "which sources are we entitled to
+expect", derived from the registry; both surfaces consume it; a registered source with no
+contribution is reported explicitly rather than omitted.
+
 ---
 
 ## 2. Repairs made during the audit
