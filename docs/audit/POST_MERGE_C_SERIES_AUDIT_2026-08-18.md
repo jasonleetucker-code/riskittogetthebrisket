@@ -651,3 +651,24 @@ Phase 3 (performance budgets, accessibility, the remainder of observability), Ph
 independent adversarial pass over all 20 lenses), and Phase 5 (production proof against the
 deployed SHA, the §22 board diff, and the full regression sweep) have not been completed. The
 verdict is withheld until they have.
+
+### Interruption: the 2026-08-18 CI incident
+
+This audit was suspended mid-phase to work a reported seven-workflow CI failure. Record:
+`docs/ops/CI_INCIDENT_2026-08-18.md`. Three of its outcomes belong to this audit's evidence
+base and are carried here so the verdict accounts for them:
+
+* **Scheduled Data Refresh had failed on EVERY run for at least three days** — 30 consecutive
+  failures from 2026-08-16 through 2026-08-18 09:13Z, on the single condition F-6 names.
+  The first green run in that window is the production proof recorded under F-6.
+* **`Audit Rank-Form Curve Drift` is red because an approved pipeline change made the
+  committed rank-form constants obsolete.** Bisected to `2449af9ac` (B2, #787 — "route the
+  Hill master by the rank's coordinate pool"): holding the payload fixed, offense excess goes
+  +7.0 → +44.8 and IDP +4.0 → +30.0. **This is a board-relation change that merged without
+  being measured**, which is precisely what §25 board-diff control exists to catch — and the
+  weekly cron caught it a week later rather than the merge catching it. Repairing the
+  constants is an owner action under ADR-008; the process gap is this audit's to record.
+* **`Retention health` reports `ok=7 stale=1`** — identity-resolution reports last written
+  **2026-04-20 (119 days)**, and `/api/scaffold/identity` serves the newest file, so a halted
+  collector presents a 119-day-old report as current. That is a live
+  missing-is-never-zero surface and is carried as an open production condition.
