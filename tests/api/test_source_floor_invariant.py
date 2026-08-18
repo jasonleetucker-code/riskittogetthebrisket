@@ -133,6 +133,12 @@ _SCRAPER_FLOOR_RESOLVERS = {
     # export now skips the write below its contract-aligned floor so
     # the existing restore-previous pass preserves last-good.
     "ktc": lambda: _module_int_const("Dynasty Scraper.py", "_KTC_SITE_RAW_FLOOR"),
+    # F-10 (2026-08-18) — ``ktcSfTep`` is plucked from the same KTC API
+    # payload as ``ktc`` and is the board's only retail blend source, but
+    # had neither a contract floor nor a site_raw floor.  Both added; the
+    # allowlist below stays empty, per its own instruction to fix the
+    # scraper rather than allowlist the gap.
+    "ktcSfTep": lambda: _module_int_const("Dynasty Scraper.py", "_KTC_TEP_SITE_RAW_FLOOR"),
     "idpTradeCalc": lambda: _module_int_const("Dynasty Scraper.py", "_IDPTC_SITE_RAW_FLOOR"),
 }
 

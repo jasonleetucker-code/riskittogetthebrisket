@@ -1,7 +1,8 @@
 {
-  "description": "Per-source minimum coverage floor across the top-50 offense and top-50 IDP players, used by validate_api_data_contract. Top-50 is computed by sorting each assetClass ('offense' / 'idp') by values.overall descending and taking the first 50 rows. A source whose non-zero canonicalSiteValues count in that slice falls below its floor warns and marks the build as degraded. These floors catch silent regressions where a source still returns enough total rows to pass the row-count floor but loses coverage on the premium tier. Thresholds are tuned to live baseline minus ~5% slack; raise them once coverage stabilises.",
+  "description": "Per-source minimum coverage floor across the top-50 offense and top-50 IDP players, used by validate_api_data_contract. Top-50 is computed by sorting each assetClass ('offense' / 'idp') by values.overall descending and taking the first 50 rows. A source whose non-zero canonicalSiteValues count in that slice falls below its floor warns and marks the build as degraded. These floors catch silent regressions where a source still returns enough total rows to pass the row-count floor but loses coverage on the premium tier. Thresholds are tuned to live baseline minus ~5% slack; raise them once coverage stabilises.  F-10 (2026-08-18): ktcSfTep \u2014 the board's only is_retail source, the TE basis and half the pick anchor set \u2014 was absent from this map, so premium-tier erosion on the one source that matters most was unwatched while its display-only twin ktc was. Live top-50 offense coverage is 50/50, so 48 is the same baseline-minus-5% this file already applies to ktc.",
   "offense": {
     "ktc": 48,
+    "ktcSfTep": 48,
     "idpTradeCalc": 48,
     "dlfSf": 42,
     "dynastyNerdsSfTep": 45
