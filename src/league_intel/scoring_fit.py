@@ -334,10 +334,24 @@ def measure_positional_scoring_fit(
     if not rows:
         return ScoringFitMeasurement(measured=False, reason="no weekly rows supplied")
 
-    # Both cards are scored with the play-by-play supplement or neither is.
-    # This measures how differently two cards price the same production, and
-    # the six reception bands are where they differ most — leaving them at
-    # zero on both sides does not cancel, it deletes the signal.
+    # This measures how differently two cards price the same production,
+    # and the reception bands are the largest difference between the two
+    # live cards: dynasty_main bands 0.17 -> 1.92, the baseline pays a flat
+    # 0.75 and 0.0 for every band.  Leaving the bands unscored does NOT
+    # cancel between the arms — it deletes the signal, because only one arm
+    # has anything to lose.
+    #
+    # Measured over 17 weeks at 6 catches a week, my/baseline season-total
+    # ratio:
+    #
+    #     catch profile        without        with
+    #     checkdown (short)      0.678       0.800
+    #     balanced               0.678       0.940
+    #     deep threat            0.678       1.420
+    #
+    # Without the supplement every profile returns the IDENTICAL 0.678 —
+    # the measurement's entire discriminating power is the thing that was
+    # missing.
     pbp_for_season = SeasonPbpIndex().for_season
     mine = {
         s.player_id: s

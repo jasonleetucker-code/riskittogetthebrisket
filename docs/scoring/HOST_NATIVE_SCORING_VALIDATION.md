@@ -497,14 +497,32 @@ what every test in `test_pbp_supplement_consumers.py` does — only reading the
 call sites answers the question. Mutation-checked (removing one keyword turns
 it RED).
 
-**`gameplan.py` was the sharpest of these**, and it is why "everything is
-uniformly low, so it cancels" does not hold. It measures what share of a
-player's value is reception-driven, and `reception_scoring_keys()` is
-`BAND_KEYS | {"rec"}` — the bands *are* the numerator. Measured on this card
-over 17 weeks at 6 catches / 80 yards a week: **5.66% against a true 30.43%**,
-a 5.4× understatement of a ratio feeding the league-intel multipliers. This
-module's own docstring already records that a partial correction to a relative
-quantity is a directional bias, not a smaller error.
+**Where it mattered most, measured rather than assumed.** A review draft
+placed the sharpest effect at `gameplan.py`'s reception-share ratio and quoted
+5.66% against a true 30.43%. That number does not survive checking, and the
+reason is worth recording: the share is computed under the **baseline** card,
+which pays **0.0 for every reception band**, so joining the supplement moves a
+pure receiver's share by exactly nothing. What it does move there is the
+*denominator*, for players who also play special teams — the baseline card pays
+`st_tkl_solo` 1.25 and `st_ff` 4.0. Measured over 17 weeks at 6 catches / 80
+yards a week: 36.00% unchanged with no ST production, 36.00% → 32.73% at one ST
+tackle a week, 36.00% → 27.69% at three.
+
+The large effect is at **`league_intel/scoring_fit.py`**, where *both* cards are
+scored and only one of them bands. Season-total my/baseline ratio, same probe:
+
+| catch profile | without the supplement | with |
+|---|---|---|
+| checkdown (all short) | 0.678 | 0.800 |
+| balanced | 0.678 | 0.940 |
+| deep threat (all long) | 0.678 | **1.420** |
+
+Every profile returns the **identical** 0.678 without it. The measurement's
+entire discriminating power — the thing the module exists to produce — was the
+part that was missing, and it does not cancel between the arms because only one
+arm has anything to lose. `scoring_coverage`'s own docstring already records
+that a partial correction to a relative quantity is a directional bias rather
+than a smaller error; this is that, and the direction depends on the player.
 
 `scripts/bdvm_build_baseline.py` builds a `SeasonPbpIndex` by default and
 prints which seasons have no artifact; `--no-pbp-supplement` reproduces a
