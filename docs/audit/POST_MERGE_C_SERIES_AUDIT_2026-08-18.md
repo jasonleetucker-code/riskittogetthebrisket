@@ -28,7 +28,7 @@ Two conventions are load-bearing:
 
 ## 1. Findings
 
-### F-1 · 2029 pick tier ordering is inverted on the live board · CONFIRMED · data integrity
+### F-1 · 2029 pick tier ordering is inverted on the live board · CONFIRMED · data integrity · **REPAIRED 2026-08-18**
 
 An earlier pick must be worth more than a later one. On the 2026-08-17 contract it is not,
 for every round of 2029:
@@ -100,6 +100,70 @@ under a freeze. Both were considered and declined.
 **Recommendation.** First authorized unit after the audit: constrain the derived-year surface
 to preserve tier and round ordering, declare the constraint as part of the `PRIOR` family, and
 measure its effect on all 18 cells before and after.
+
+**REPAIRED 2026-08-18** — owner authorised the repair and chose the isotonic method.
+
+*What was done.* Within a round, the year step is projected onto the **non-increasing cone** by
+isotonic regression (pool-adjacent-violators), at config load, in
+`data_contract._project_tier_steps_monotone`. The measured surface is preserved untouched under
+`yearStepByTierRoundMeasured` — the evidence is not overwritten by the model built from it — and
+the constraint is declared in `config/weights/pick_year_discount.json` under
+`derivedYearModel.monotonicityConstraint`, classification **PRIOR** with the rest of the family.
+
+*Why this and not a value-space projection or an output clamp.* It acts on the derivation
+**surface**, so nothing clamps downstream of the blend. And because a **constant ratio applied to
+a strictly ordered template year yields a strictly ordered derived year**, pooling can never
+produce a TIE in value space — ordering holds **by construction**, for every source and every
+template, with no epsilon. A least-squares projection in *value* space would instead sit exactly
+**on** the ordering boundary and produce ties, which is why it was rejected.
+
+*Effect on the surface* — 11 of 12 cells changed; `late.4` already complied:
+
+| round | measured (early / mid / late) | projected |
+|---|---|---|
+| 1 | 0.7138 / 0.8078 / 0.8339 | 0.7852 / 0.7852 / 0.7852 |
+| 2 | 0.8174 / 0.8662 / 0.8760 | 0.8532 / 0.8532 / 0.8532 |
+| 3 | 0.8328 / 0.8399 / 0.8954 | 0.8560 / 0.8560 / 0.8560 |
+| 4 | 0.8633 / 0.8938 / 0.7726 | 0.8786 / 0.8786 / **0.7726** |
+
+*Effect on the board* — **18 of 18 complete tier cells now satisfy Early > Mid > Late; violations
+0.** The denominator is 18, not the 24 an earlier count in this session reported: 2026 rows exist
+but are slot-based rather than complete tier triples, so they were never eligible cells. The
+register's original "6 of 18" was correct.
+
+*Board diff, pinned input, code varied only:*
+
+```
+VALUES: 20 moved, 0 newly priced, 0 newly unpriced   |pct| p50=1.7% p90=5.9% max=10.0%
+RANKS:  130 changed        canonicalTierId: 499 flipped
+```
+
+Classified per §25:
+
+* **EXPECTED REPAIR MOVEMENT** — the 20 value moves. Every one is a 2029 tier row, which is
+  exactly the population the constraint targets. Largest: `2029 Early 1st` 3593 → 3952 (+10.0%),
+  `2029 Late 1st` 3446 → 3243 (−5.9%). No 2027 or 2028 row moved; no player moved.
+* **INCIDENTAL BUT EXPLAINED** — the 130 rank changes (115 on non-pick rows, 88% of them ±1: the
+  ordinal reshuffle as 2029 rows pass other rows) and the 499 `canonicalTierId` flips. Mechanism
+  verified rather than assumed: the board **lost two tiers** (136 → 134) because the repair
+  changed the gap structure the tier cutter reads, and tier ids are **dense ordinals**, so every
+  row below the shallowest affected boundary renumbers by 1–2. The shallowest flipped tier is
+  **21**, and all **113 rows in tiers 1–20 are unchanged**. Tier membership semantics are intact;
+  only the ordinal label shifted.
+* **UNEXPECTED** — none.
+
+*Enforcement, mutation-proven.* `validate_api_data_contract`'s pick census gained a
+`pick_tier_ordering:*` **ERROR** (the gate keys on `ok` and ignores warnings), and
+`tests/picks/test_future_tier_ordering.py` asserts the invariant on both the surface (deterministic)
+and a contract built from an archive fixture (all-of-them, never a count — §3d). Bypassing the
+projection reproduces **6** census errors; projecting the wrong direction reproduces **3**. Both
+also fail the tests; clean restore is green.
+
+*Known characteristic, named rather than smoothed.* The projection constrains ordering; it does
+not denoise. `late.4` (0.7726) survives unpooled and carries the surface's largest cross-provider
+disagreement (**0.086**, 3–8× every other cell), so 2029 R4–R6 show a wide Mid → Late step
+(e.g. R4: 1436 / 1396 / 980). That is the measured value preserved, not an artifact of the
+constraint. Recalibrating it is a separate evidence question, not this repair's.
 
 ### F-2 · The E2E board diagnostic reports a false root cause · CONFIRMED · observability · REPAIRED (#893)
 

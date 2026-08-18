@@ -6,7 +6,7 @@
   "derivedYearModel": {
     "family": "measured_vendor_year_step_v1",
     "classification": "PRIOR",
-    "classificationNote": "measured-anchored: each cell is the median same-day cross-sectional 1-out->2-out ratio (2028/2027 while current=2026) over both vendor pick markets and every archive date; applying it one further year out (2-out->3-out) is an extrapolation no market evidence can test today, so the family stays PRIOR, never MEASURED/VALIDATED",
+    "classificationNote": "measured-anchored: each cell is the median same-day cross-sectional 1-out->2-out ratio (2028/2027 while current=2026) over both vendor pick markets and every archive date; applying it one further year out (2-out->3-out) is an extrapolation no market evidence can test today, so the family stays PRIOR, never MEASURED/VALIDATED. The surface is additionally CONSTRAINED at load time — see monotonicityConstraint — which does not make it measured.",
     "stepByTierRound": {
       "early.1": 0.7138,
       "early.2": 0.8174,
