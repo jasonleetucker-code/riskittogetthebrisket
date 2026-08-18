@@ -1325,7 +1325,7 @@ one that fails if the canonical grammar is ever restated locally again.
 
 No value path touched — `is_valid_pick_name` is a reporting predicate.
 
-### F-28 · F-19's UTC assumption is false in production: the board age is negative · CONFIRMED · observability · **OPEN**
+### F-28 · F-19's UTC assumption is false in production, and `data_stale` can never fire · CONFIRMED · observability · **OPEN**
 
 **Found by verifying the F-19 deploy against production rather than trusting the merge**, which is
 the whole reason that step exists. `#909` deployed at 14:27 UTC on 2026-08-18. Measured minutes
@@ -1338,35 +1338,69 @@ later against `chaseupside.com`:
 | `/api/health.data_age_hours` | **-0.9** | |
 | `/api/health.data_stale` | `false` | |
 
-**A board cannot be produced after the process that loaded it.** `15:20:51` read as local time on a
-**UTC+1** host is `14:20:51Z` — eight minutes before the 14:27:50Z load, which is exactly coherent.
-So the production box writes `scrapeTimestamp` as naive **local** time, and
-`server.py::_board_age_hours` attaches **UTC** to it.
+**A board cannot be produced after the process that loaded it.** The production box writes
+`scrapeTimestamp` as naive **local** time, and `server.py::_board_age_hours` attaches **UTC**.
+
+**The offset is exactly +2 hours (UTC+2 / CEST), measured against the payload's own scrape.**
+The first reading above compared `producedAt` with `loadedAt` and inferred +1h — that was wrong,
+because the payload loaded at 14:27:50Z had been produced by the *previous* scrape, so the
+comparison mixed two different boards. The clean measurement came from the next completed scrape,
+where `/api/status` carries both stamps for the SAME run:
+
+```
+last_scrape (tz-aware)  2026-08-18T14:31:58.928436+00:00
+producedAt  (naive)     2026-08-18T16:31:45.336015
+offset                  1:59:46  ->  UTC+2
+```
+
+The 14-second shortfall is the gap between stamping the payload and recording the run, so the
+offset is two hours exactly. Note that `last_scrape` is already tz-aware UTC while
+`scrapeTimestamp` is naive local — the correct reference is present in the same response.
 
 F-19's own docstring names this precisely — *"Treating a naive stamp as UTC is an ASSUMPTION about
 where the scraper runs; it is stated here rather than left implicit."* The assumption is stated,
 and production says it is false. Stating an assumption is not the same as verifying it.
 
-**Consequence.** `data_age_hours` is understated by the host's UTC offset (one hour here), so:
-`data_stale` fires an hour late and cannot fire at all while the age is negative; `/api/metrics`
-`data_age_seconds` carries the same error; and the ops alerter — the surface F-19 exists to feed —
-keys on this number. With a 2-hourly scrape and a +1h offset the reported age swings roughly
-**-1h to +1h**, i.e. negative about half the time.
+**Consequence — worse than the first assessment, and worth stating precisely.** The scrape
+cadence is 2-hourly, so the TRUE board age ranges 0h..2h. Subtracting a 2-hour offset puts the
+REPORTED age in **-2h..0h — never positive**. `data_stale` fires at
+`age > SCRAPE_INTERVAL_HOURS * 3` (6h), so on this deployment it is **structurally unreachable**:
+no amount of staleness can raise a non-positive number above six.
 
-**This is still a net improvement over what it replaced, and that is why it is not an emergency.**
-The retired measure was *process* age, which returned `0.0` for a 12.74-hour-old payload and reset
-on every deploy — unboundedly wrong. The new error is a constant offset. Better and bounded, but
-wrong.
+Observed twice within half an hour: `data_age_hours` = **-0.9**, then **-1.6**.
+
+`/api/metrics` `data_age_seconds` carries the same error, and the ops alerter — the surface F-19
+exists to feed — keys on this number. So the staleness detector F-19 repaired is, on the box it
+actually runs on, incapable of alarming.
+
+**Is it still an improvement on what it replaced?** Only in a narrow sense, and the honest answer
+is less comfortable than the first draft of this entry. The retired measure was *process* age,
+which returned `0.0` for a 12.74-hour-old payload — wrong, unbounded, and also unable to alarm.
+The new measure is wrong by a constant and *also* unable to alarm. The repair moved the defect
+from "measures the wrong quantity" to "measures the right quantity in the wrong timezone"; it did
+not restore the alarm. That is a smaller win than F-19's merge claimed, and it is recorded here
+rather than left implied.
 
 **Deliberately NOT hot-patched onto the in-flight PR.** The obvious guard — refuse to publish a
-negative age — is honest but turns roughly half of all readings into UNKNOWN, and the alerter's
-handling of `None` would need checking before that is safe. The correct repair is at the source:
+negative age — would now turn EVERY reading into UNKNOWN on this deployment, not half of them, so
+it is not a stopgap: it would replace a silent failure with a loud one, which is better, but it
+needs the alerter's `None` handling checked first. The correct repair is at the source:
 make `scrapeTimestamp` unambiguous (tz-aware UTC in `Dynasty Scraper.py`), which touches every
 consumer of that field including the temporal ledger and the freshness map, plus a guard that a
 board produced in the future is reported UNKNOWN rather than as a number. That is its own unit
 with its own verification, not a rushed addition to an observability PR already in CI.
 
 Owner: lane 5. Carried in the V1 contract as `V1-128`.
+
+**A correction to this session's own verification attempt.** F-10's production check was first
+pointed at `source_health.anchor_row_counts`, which still reads `ktc` after a completed scrape on
+the new code. That is **not** evidence against F-10: `server.py` documents `anchor_row_counts` as
+the scraper's own anchor counts and states explicitly *"NOT `coverageAudit.expectedSites`: that
+block is an anchor-loss detector... Different question, different owner."* `TOP_OFF_EXPECTED_SITE_KEYS`
+feeds `expectedSites`, which `/api/status` does not expose at all. F-10 therefore remains
+**unverified in production** — it needs the contract payload or an export archive, not this
+endpoint — and the watcher aimed at the wrong field was stopped rather than left to report a
+false negative.
 
 ### F-29 · The E2E failure set has grown from 1 to 4, and one of the three is unexplained · CONFIRMED · CI · **OPEN**
 
