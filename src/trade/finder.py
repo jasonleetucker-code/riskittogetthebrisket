@@ -14,9 +14,9 @@ _rawComposite / _canonicalSiteValues fields).
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from itertools import combinations
 from typing import Any
 
+from src import packages as substrate
 from src.trade.finder_value_adjustment import value_adjustment_payload
 from src.utils.name_clean import normalize_position as _norm_pos  # noqa: F401 — re-exported via _norm_pos shim below for back-compat
 
@@ -844,61 +844,77 @@ def _score_trade_on_values(give: list[Asset], receive: list[Asset]) -> TradeCand
     return tc
 
 
-def _generate_1for1(
+#: Pool bound for the ASYMMETRIC shapes.  1-for-1 is a cheap cross product and
+#: is left unbounded, exactly as before; 2-for-1 and 1-for-2 multiply by the
+#: pool size again and are capped.
+_ASYMMETRIC_POOL_LIMIT = 30
+
+
+def _generate_packages(
     my_assets: list[Asset],
     opp_assets: list[Asset],
-) -> list[TradeCandidate]:
-    """Generate all viable 1-for-1 trades."""
+) -> tuple[list[TradeCandidate], dict[str, Any]]:
+    """Enumerate and score every shape this engine offers.
+
+    Construction MECHANICS come from ``src/packages`` (V1-36 /
+    C3-PKG-01) — asset eligibility, side construction, self-trade prevention,
+    cardinality, dedup identity and truncation reporting.  The OBJECTIVE stays
+    here: ``_score_trade`` and its market gates are what make this the
+    arbitrage finder rather than one of the other three products, and none of
+    that moved.
+
+    This replaced three hand-rolled generators (``_generate_1for1`` /
+    ``_generate_2for1`` / ``_generate_1for2``).  Two things changed with them,
+    both deliberate:
+
+    **The pool bound is now by VALUE, not alphabetical.**  The retired code
+    sliced ``[:30]`` off a roster list built in Sleeper's ``players`` order,
+    which is alphabetical — so the 2-for-1 and 1-for-2 search space was
+    "players whose names sort early", and nothing said so.  Measured on the
+    2026-08-18 board across twelve live rosters: two exceed the bound at all,
+    and on the larger of them **7 of the top 30 assets by value were excluded,
+    the highest worth 6,671**.
+
+    **Truncation is reported.**  The slice was silent, so "no 2-for-1 found"
+    and "we never looked past asset 30" rendered identically.
+    """
     results: list[TradeCandidate] = []
-    for mine in my_assets:
-        if mine.model_value < MIN_ASSET_VALUE:
-            continue
-        for theirs in opp_assets:
-            if theirs.model_value < MIN_ASSET_VALUE:
-                continue
-            tc = _score_trade([mine], [theirs])
+
+    def _run(shapes: list[substrate.PackageShape], pool_limit: int | None):
+        packages, report = substrate.enumerate_packages(
+            my_assets,
+            opp_assets,
+            policy=substrate.EligibilityPolicy(
+                min_value=MIN_ASSET_VALUE,
+                # An asset the board declined to price cannot be scored, and
+                # ``build_asset_pool`` has already dropped those; this states
+                # the rule rather than relying on it.
+                allow_unknown_value=False,
+                # The finder's pool carries picks, which have no position in
+                # the legacy players dict.  Position is not a mechanic gate
+                # here — the market gate in ``_score_trade`` is.
+                require_position=False,
+            ),
+            shapes=shapes,
+            pool_limit=pool_limit,
+            rank_key=substrate.by_value_desc,
+        )
+        for pair in packages:
+            give, receive = pair.sources()
+            tc = _score_trade(give, receive)
             if tc is not None:
                 results.append(tc)
-    return results
+        return report
 
-
-def _generate_2for1(
-    my_assets: list[Asset],
-    opp_assets: list[Asset],
-) -> list[TradeCandidate]:
-    """Generate viable 2-for-1 trades (I give 2, get 1)."""
-    results: list[TradeCandidate] = []
-    # Limit combinations for performance
-    my_tradeable = [a for a in my_assets if a.model_value >= MIN_ASSET_VALUE]
-    opp_tradeable = [a for a in opp_assets if a.model_value >= MIN_ASSET_VALUE]
-    if len(my_tradeable) < 2:
-        return results
-
-    for pair in combinations(my_tradeable[:30], 2):
-        for theirs in opp_tradeable[:30]:
-            tc = _score_trade(list(pair), [theirs])
-            if tc is not None:
-                results.append(tc)
-    return results
-
-
-def _generate_1for2(
-    my_assets: list[Asset],
-    opp_assets: list[Asset],
-) -> list[TradeCandidate]:
-    """Generate viable 1-for-2 trades (I give 1, get 2)."""
-    results: list[TradeCandidate] = []
-    my_tradeable = [a for a in my_assets if a.model_value >= MIN_ASSET_VALUE]
-    opp_tradeable = [a for a in opp_assets if a.model_value >= MIN_ASSET_VALUE]
-    if len(opp_tradeable) < 2:
-        return results
-
-    for mine in my_tradeable[:30]:
-        for pair in combinations(opp_tradeable[:30], 2):
-            tc = _score_trade([mine], list(pair))
-            if tc is not None:
-                results.append(tc)
-    return results
+    one_for_one = _run([substrate.PackageShape(1, 1)], None)
+    asymmetric = _run(
+        [substrate.PackageShape(2, 1), substrate.PackageShape(1, 2)],
+        _ASYMMETRIC_POOL_LIMIT,
+    )
+    return results, {
+        "oneForOne": one_for_one.to_dict(),
+        "asymmetric": asymmetric.to_dict(),
+    }
 
 
 def _deduplicate(trades: list[TradeCandidate]) -> list[TradeCandidate]:
@@ -1010,6 +1026,7 @@ def find_trades(
 
     my_names = {a.name for a in my_roster}
     all_trades: list[TradeCandidate] = []
+    enumeration_reports: dict[str, dict[str, Any]] = {}
     opponents_analyzed = 0
     warnings: list[str] = []
 
@@ -1074,10 +1091,11 @@ def find_trades(
             continue
         opponents_analyzed += 1
 
-        # Generate candidates for each trade shape
-        all_trades.extend(_generate_1for1(my_roster, opp_filtered))
-        all_trades.extend(_generate_2for1(my_roster, opp_filtered))
-        all_trades.extend(_generate_1for2(my_roster, opp_filtered))
+        # Generate candidates for every trade shape.  Construction mechanics
+        # are the substrate's; the scoring objective stays in this module.
+        shaped, enum_report = _generate_packages(my_roster, opp_filtered)
+        all_trades.extend(shaped)
+        enumeration_reports[opp_name] = enum_report
 
     # Deduplicate
     all_trades = _deduplicate(all_trades)
@@ -1167,6 +1185,11 @@ def find_trades(
             "valueSource": "rankDerivedValue" if board_values is not None else "rawComposite",
             "assetsUnpricedByBoard": unpriced_by_board,
             "marketTopNFilter": market_top_n,
+            # What the package enumeration looked at, per opponent, including
+            # what it refused to look at.  The retired ``[:30]`` slice reported
+            # neither, so "no 2-for-1 found" and "we stopped looking" rendered
+            # identically.  See src/packages.
+            "packageEnumeration": enumeration_reports,
             "marketCoverage": market_coverage,
             "marketCoveragePercent": round(market_coverage_pct * 100, 1),
             # How many returned trades span both retail markets. Zero

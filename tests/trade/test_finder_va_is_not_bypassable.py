@@ -25,7 +25,6 @@ import subprocess
 import sys
 from pathlib import Path
 
-import pytest
 
 from src.trade.finder import Asset, TradeCandidate, _score_trade, _score_trade_on_values
 from src.trade.ktc_va import ktc_adjust_package
@@ -199,19 +198,22 @@ def test_no_module_installs_a_patch_over_the_finder():
     assert TradeCandidate.to_dict.__code__.co_filename.endswith("finder.py")
 
 
-@pytest.mark.parametrize("generator", ["_generate_1for1", "_generate_2for1", "_generate_1for2"])
-def test_every_generator_routes_through_the_adjusting_scorer(generator):
-    """Parsed, not grepped: each shape generator must call ``_score_trade``.
+def test_the_generator_routes_through_the_adjusting_scorer():
+    """Parsed, not grepped: package generation must call ``_score_trade``.
 
-    A generator calling ``_score_trade_on_values`` directly would produce
-    linearly-scored candidates that look identical in the payload.
+    Calling ``_score_trade_on_values`` directly would produce linearly-scored
+    candidates that look identical in the payload.  This was three parametrised
+    cases against ``_generate_1for1`` / ``_generate_2for1`` / ``_generate_1for2``;
+    those collapsed into one ``_generate_packages`` when construction mechanics
+    moved to ``src/packages`` (V1-36), and the guard followed rather than being
+    dropped.
     """
     source = (_REPO_ROOT / "src" / "trade" / "finder.py").read_text()
     tree = ast.parse(source)
     func = next(
         node
         for node in ast.walk(tree)
-        if isinstance(node, ast.FunctionDef) and node.name == generator
+        if isinstance(node, ast.FunctionDef) and node.name == "_generate_packages"
     )
     called = {
         node.func.id
