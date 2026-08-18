@@ -1547,19 +1547,4 @@ function RosSourceTable({ overrides, onToggle, onWeight, onResetSource }) {
 // prevents the token from leaking via DOM scraping or screenshot
 // later.
 
-function fmtPassExpiry(epoch) {
-  if (!Number.isFinite(Number(epoch)) || Number(epoch) <= 0) return "—";
-  const ms = Number(epoch) * 1000;
-  const d = new Date(ms);
-  const now = Date.now();
-  const remainingMin = Math.round((ms - now) / 60000);
-  if (remainingMin > 0 && remainingMin < 60) return `in ${remainingMin}m`;
-  if (remainingMin > 0 && remainingMin < 60 * 24) {
-    return `in ${Math.round(remainingMin / 60)}h`;
-  }
-  if (remainingMin > 0) {
-    return `in ${Math.round(remainingMin / (60 * 24))}d`;
-  }
-  // Past — show absolute date.
-  return d.toLocaleString();
-}
+

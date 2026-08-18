@@ -9,6 +9,11 @@
 
 import { useCallback, useEffect, useState } from "react";
 
+// Imported, not redefined.  The private copy this component used to
+// rely on lived in app/settings/page.jsx and did not come with it when
+// the component was extracted — see #779 and lib/guest-pass-format.js.
+import { fmtPassExpiry } from "@/lib/guest-pass-format";
+
 export default function GuestPassPanel() {
   const [hours, setHours] = useState(12);
   const [note, setNote] = useState("");
