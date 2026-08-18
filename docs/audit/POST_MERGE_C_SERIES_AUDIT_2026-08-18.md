@@ -1325,6 +1325,49 @@ one that fails if the canonical grammar is ever restated locally again.
 
 No value path touched — `is_valid_pick_name` is a reporting predicate.
 
+### F-28 · F-19's UTC assumption is false in production: the board age is negative · CONFIRMED · observability · **OPEN**
+
+**Found by verifying the F-19 deploy against production rather than trusting the merge**, which is
+the whole reason that step exists. `#909` deployed at 14:27 UTC on 2026-08-18. Measured minutes
+later against `chaseupside.com`:
+
+| field | value | |
+|---|---|---|
+| `data_runtime.last_payload_loaded_at` | `2026-08-18T14:27:50.636651+00:00` | tz-aware, and correct |
+| `data_runtime.last_data_refresh_at` / `active_data_source.producedAt` | `2026-08-18T15:20:51.104768` | **naive, and 53 minutes in the FUTURE** |
+| `/api/health.data_age_hours` | **-0.9** | |
+| `/api/health.data_stale` | `false` | |
+
+**A board cannot be produced after the process that loaded it.** `15:20:51` read as local time on a
+**UTC+1** host is `14:20:51Z` — eight minutes before the 14:27:50Z load, which is exactly coherent.
+So the production box writes `scrapeTimestamp` as naive **local** time, and
+`server.py::_board_age_hours` attaches **UTC** to it.
+
+F-19's own docstring names this precisely — *"Treating a naive stamp as UTC is an ASSUMPTION about
+where the scraper runs; it is stated here rather than left implicit."* The assumption is stated,
+and production says it is false. Stating an assumption is not the same as verifying it.
+
+**Consequence.** `data_age_hours` is understated by the host's UTC offset (one hour here), so:
+`data_stale` fires an hour late and cannot fire at all while the age is negative; `/api/metrics`
+`data_age_seconds` carries the same error; and the ops alerter — the surface F-19 exists to feed —
+keys on this number. With a 2-hourly scrape and a +1h offset the reported age swings roughly
+**-1h to +1h**, i.e. negative about half the time.
+
+**This is still a net improvement over what it replaced, and that is why it is not an emergency.**
+The retired measure was *process* age, which returned `0.0` for a 12.74-hour-old payload and reset
+on every deploy — unboundedly wrong. The new error is a constant offset. Better and bounded, but
+wrong.
+
+**Deliberately NOT hot-patched onto the in-flight PR.** The obvious guard — refuse to publish a
+negative age — is honest but turns roughly half of all readings into UNKNOWN, and the alerter's
+handling of `None` would need checking before that is safe. The correct repair is at the source:
+make `scrapeTimestamp` unambiguous (tz-aware UTC in `Dynasty Scraper.py`), which touches every
+consumer of that field including the temporal ledger and the freshness map, plus a guard that a
+board produced in the future is reported UNKNOWN rather than as a number. That is its own unit
+with its own verification, not a rushed addition to an observability PR already in CI.
+
+Owner: lane 5. Carried in the V1 contract as `V1-128`.
+
 ## 2. Repairs made during the audit
 
 Each is a repair-only PR: exact-head CI, mutation-proven where structural, merged on green.

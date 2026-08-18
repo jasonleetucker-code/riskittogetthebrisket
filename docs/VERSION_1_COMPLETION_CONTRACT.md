@@ -247,6 +247,7 @@ Projections · **L4** Market / FAAB / Analyst · **L5** Integration / QA / CI / 
 | V1-91 | Partial runs cannot report as healthy | `C4-SRC-02` | L5 | `IN PROGRESS` | L2 | false-green repair |
 | V1-92 | Freshness indicators complete | inv 6.8 | L6 | `IN PROGRESS` | L1 | truthful degraded state; W08-F011 |
 | V1-127 | `normalizationHealth` reports the board it actually has | audit `F-27` | L5 | `IMPLEMENTED_UNVERIFIED` | L3 | **added 2026-08-18** — false red in production since C1-U6; see §10 note below |
+| V1-128 | Board age is measured in a timezone that exists | audit `F-28` | L5 | `NOT STARTED` | L3 | **added 2026-08-18** — `data_age_hours` is NEGATIVE in production; the naive `scrapeTimestamp` is local time, read as UTC |
 
 ### 3.7 Truthful degraded states
 
@@ -313,11 +314,11 @@ Measured 2026-08-18 at `main` + PR #909.
 | `VERIFIED` | 36 |
 | `IMPLEMENTED_UNVERIFIED` | 20 |
 | `IN PROGRESS` | 24 |
-| `NOT STARTED` | 45 |
+| `NOT STARTED` | 46 |
 | `BLOCKED` | 2 |
-| **denominator** | **127** |
+| **denominator** | **128** |
 
-**V1 completion: 36 / 127 = 28.3%.**
+**V1 completion: 36 / 128 = 28.1%.**
 
 The percentage went **down** between publication and the first update, and that is
 the contract working rather than failing. One item was added (`V1-127`), two
@@ -540,5 +541,6 @@ as a pass. **An unreachable check is not a green one.**
 
 | date | change | reason |
 |---|---|---|
+| 2026-08-18 | **+1** — `V1-128` added (audit `F-28`) | Found by verifying the `#909` deploy against production: `data_age_hours` is **negative** because the naive `scrapeTimestamp` is the host's local time and `_board_age_hours` attaches UTC. A live measurement defect in the freshness signal the ops alerter reads — squarely "stability / false-green repairs" and "source-health correctness". Recorded the same day it was introduced, by the verification step that exists to catch exactly this. |
 | 2026-08-18 | **+1** — `V1-127` added (audit `F-27`) | A genuine omission from already-approved V1 scope, not a new idea. `normalizationHealth.healthy` had been **false in production since C1-U6** because a stale private pick-name grammar flagged 18 deliberate canonical rows as malformed. That is a live false red on a shipped surface, which the owner's boundary names explicitly under "stability / false-green repairs" and "truthful degraded states". It was found after publication, during the same sweep, and is recorded here rather than folded in silently — the denominator moving is the kind of event this log exists for. |
 
