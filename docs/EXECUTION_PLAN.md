@@ -228,6 +228,42 @@ waiting for the merge**.
 | 9 | no known P0/P1 regression introduced |
 | 10 | shared files (`CLAUDE.md`, governance records, the coercion baseline, major shared API owners) **reconciled**, never first-past-the-post |
 
+**`config/coercion_baseline.json` is never trusted because Git found no conflict.** Discovered by
+lane 4 and reproduced here on real branches. The file stores a derived `count` beside the list it
+counts, and that scalar can go stale through a **clean** merge with nothing to notice:
+
+```
+main   retires entry A and writes count 676
+a lane retires entry B and writes count 676
+the merge keeps BOTH removals; both sides agreed on the scalar, so git reports
+no conflict — and the file now claims 676 over 675.
+```
+
+Measured 2026-08-18 merging two live lane branches in order: `origin/main` 676/676 OK → `+#914`
+673/673 OK → `+#913` **declared 673, actual 670**, both merges reported clean. The old gate
+exited **0** on that tree, because it counts entries and never read the scalar.
+
+So whenever an integrated PR touches this file: reconcile the code first, then **regenerate from
+the merged tree** with `python scripts/check_decision_coercions.py --write-baseline`, run the gate
+against the regenerated result, require declared == actual, and **commit the regenerated
+baseline** rather than hand-resolving the number.
+
+It is now **enforced** rather than remembered: the gate refuses a baseline whose declared `count`
+disagrees with its own `violations` list, and names the regeneration command. Verified to fire —
+injecting a +3 skew gives exit **2** with the remedy, and a consistent tree stays exit **0**.
+
+Regeneration matters even when the merge is clean and the count already agrees. On #911 it swapped
+an entry: `main` carried a different coercion text in `frontend/lib/perfect-draft.js`, so the
+branch held a stale allowance for the old text and none for the current one — invisible to the
+gate, which enforces on changed files and correctly called it "main moved; not this PR's to fix".
+
+**Git-scoped gates must run AFTER the commit exists.** `_changed_files()` is
+`git diff --name-only <base>...HEAD`, so an uncommitted edit is outside the enforced scope.
+Measured on the same new coercion: **uncommitted → exit 0, "clean: no new coercions"; committed →
+exit 1, "NEW (1) — a decision path may not fabricate a number"**. Running such a gate against a
+dirty working tree is not a weaker check, it is a different one — and it answers "clean" for work
+it cannot see.
+
 **Check formatting with the PINNED ruff, not whatever is on your box.** CI pins
 `ruff~=0.6.0` (resolving to 0.6.9); a newer local ruff formats differently and will pass a file
 the gate then rejects — which costs a full validation cycle for one line. It has done so twice in
