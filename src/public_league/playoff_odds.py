@@ -402,6 +402,7 @@ def _standings_from_sim(
     owners: Iterable[str],
     *,
     ties: dict[str, int] | None = None,
+    rng: random.Random | None = None,
 ) -> list[str]:
     """Sort owners by (wins+0.5·ties desc, pointsFor desc).
 
@@ -414,14 +415,45 @@ def _standings_from_sim(
 
     ``ties`` is optional for backward compatibility with callers that
     don't track ties (the default treats everyone as 0-tie).
+
+    THE THIRD KEY IS A RANDOM DRAW, NOT THE ownerId (2026-08-18, W19-F008).
+    It used to be ``o`` — the ownerId string — and the argument above is why
+    that looked safe: integrated over 10,000 varying draws, a crude final
+    tiebreak washes out.  It stops washing out the moment the draws STOP
+    varying, and a placeholder pool upstream made every draw identical.  The
+    lexicographic key then decided every simulation the same way and published
+    the alphabet as certainty (see the removed placeholder in
+    :func:`compute_playoff_odds`).
+
+    A per-simulation ``rng`` draw keeps the tiebreak deterministic under a
+    seed and reproducible, while making it impossible for the ORDER OF THE IDS
+    to become the answer: renaming an owner is not a football event and must
+    not move anybody's odds.  When two teams are genuinely level on wins and
+    points, a coin flip is the honest model of "we cannot separate these",
+    and averaged over the simulation it yields the ~50/50 each deserves rather
+    than 100/0 to whoever sorts first.
+
+    ``rng`` is optional so existing callers and tests keep working; without it
+    the tiebreak falls back to the ownerId for a stable, if arbitrary, order.
+    Production always passes one.
     """
     ties = ties or {}
+    if rng is None:
+        return sorted(
+            owners,
+            key=lambda o: (
+                -(wins.get(o, 0) + 0.5 * ties.get(o, 0)),
+                -points.get(o, 0.0),
+                o,
+            ),
+        )
+    jitter = {o: rng.random() for o in owners}
     return sorted(
         owners,
         key=lambda o: (
             -(wins.get(o, 0) + 0.5 * ties.get(o, 0)),
             -points.get(o, 0.0),
-            o,
+            jitter[o],
         ),
     )
 
@@ -467,6 +499,7 @@ def compute_playoff_odds(
             "weeksPlayed": 0,
             "weeksRemaining": 0,
             "scheduleCertainty": "none",
+            "simulated": False,
             "owners": [],
         }
 
@@ -515,6 +548,7 @@ def compute_playoff_odds(
             "weeksPlayed": 0,
             "weeksRemaining": 0,
             "scheduleCertainty": "none",
+            "simulated": False,
             "owners": [],
         }
 
@@ -567,6 +601,7 @@ def compute_playoff_odds(
                 "weeksPlayed": 0,
                 "weeksRemaining": 0,
                 "scheduleCertainty": "preseason",
+                "simulated": False,
                 "owners": [
                     {
                         "ownerId": o,
@@ -583,8 +618,14 @@ def compute_playoff_odds(
         pf_snapshot = {
             o: float(current_record.get(o, {}).get("pointsFor", 0.0)) for o in owners_in_league
         }
+        # rng=None DELIBERATELY. This is the FINAL-standings path: the season
+        # is over and the ordering is a recorded fact, not a draw, so it must
+        # be deterministic and reproducible. A random tiebreak belongs in the
+        # simulation (where it prevents the ownerId from becoming the answer)
+        # and nowhere near a completed season. Passed explicitly so the choice
+        # is visible at the call site rather than inherited from a default.
         ordered = _standings_from_sim(
-            wins_snapshot, pf_snapshot, owners_in_league, ties=ties_snapshot
+            wins_snapshot, pf_snapshot, owners_in_league, ties=ties_snapshot, rng=None
         )
         made = set(ordered[:spots])
         return {
@@ -594,6 +635,7 @@ def compute_playoff_odds(
             "weeksPlayed": len(played_weeks),
             "weeksRemaining": 0,
             "scheduleCertainty": "final",
+            "simulated": False,
             "owners": [
                 {
                     "ownerId": o,
@@ -636,10 +678,67 @@ def compute_playoff_odds(
     for o in owners_in_league:
         scores = per_owner_scores.get(o, [])
         owner_pool[o] = scores if len(scores) >= MIN_SAMPLED_WEEKS else (scores + league_pool)
-        if not owner_pool[o]:
-            # Nothing at all — use a flat 100-point placeholder so the
-            # sim runs but the distribution is uninformative.
-            owner_pool[o] = [100.0]
+
+    # REMOVED 2026-08-18 (W19-F008 / W30-F002): a flat ``[100.0]`` placeholder
+    # for owners with no sampled scores at all.
+    #
+    # ``_season_weekly_scores`` appends to ``per_owner`` and ``pool`` in the
+    # same pass (:87-102), so an owner's pool is empty IFF the league-wide pool
+    # is empty — the placeholder fired for every owner or for none.  Firing for
+    # every owner made each matchup 100.0 vs 100.0, an exact tie, so every
+    # simulation ended with identical wins, ties and points-for.
+    #
+    # ``_standings_from_sim`` then broke that tie on its third key, the ownerId
+    # STRING.  Its docstring justifies that crude key on the grounds that
+    # advanced tiebreakers "don't matter for probability at num_sims >= 10_000
+    # when integrated over many draws" — true, but the placeholder destroys the
+    # variation being integrated over.  With every draw identical the tiebreak
+    # stops being noise and becomes the answer: the alphabetically-first N
+    # ownerIds got ``playoffProbability: 1.0`` and the rest 0.0, stamped
+    # ``scheduleCertainty: "posted"`` with no null and no warning.
+    #
+    # Measured on the committed production artifact
+    # docs/master-site-audit/evidence/W30/playoff-odds-two-engines.json: the
+    # seven 1.0s are EXACTLY the lexically-first seven Sleeper user ids, and
+    # the probabilities sum to 7.0.
+    #
+    # MISSING IS NEVER ZERO, and it is never 1.0 either.  With no scoring
+    # evidence anywhere in the league there is nothing to simulate, so the
+    # engine says so rather than publishing the alphabet.  Same posture, and
+    # deliberately the same vocabulary, as
+    # ``src/ros/playoff_sim.py``'s ``unsimulable`` block — two engines must not
+    # invent different words for the same state.
+    if not league_pool:
+        return {
+            "season": season.season,
+            "numSims": 0,
+            "playoffSpots": spots,
+            "weeksPlayed": len(played_weeks),
+            "weeksRemaining": len(remaining_weeks),
+            "scheduleCertainty": schedule_certainty,
+            "simulated": False,
+            "unsimulable": {
+                "reason": "no_scored_weeks_in_league",
+                "detail": (
+                    "no regular-season week has been scored for any team, so "
+                    "there is no distribution to draw from and playoff odds "
+                    "cannot be projected. This is not a 0% chance, and it is "
+                    "not a 100% chance."
+                ),
+            },
+            "owners": [
+                {
+                    "ownerId": o,
+                    "displayName": metrics.display_name_for(snapshot, o),
+                    "currentWins": int(current_record.get(o, {}).get("wins", 0)),
+                    "currentPointsFor": round(
+                        float(current_record.get(o, {}).get("pointsFor", 0.0)), 2
+                    ),
+                    "playoffProbability": None,
+                }
+                for o in owners_in_league
+            ],
+        }
 
     # Pre-snapshot current state — wins, ties, PF all carry over.
     base_wins = {o: int(current_record.get(o, {}).get("wins", 0)) for o in owners_in_league}
@@ -670,7 +769,7 @@ def compute_playoff_odds(
                     # 0.5 * ties`` key in ``_standings_from_sim``.
                     sim_ties[a] = sim_ties.get(a, 0) + 1
                     sim_ties[b] = sim_ties.get(b, 0) + 1
-        ordered = _standings_from_sim(sim_wins, sim_pf, owners_in_league, ties=sim_ties)
+        ordered = _standings_from_sim(sim_wins, sim_pf, owners_in_league, ties=sim_ties, rng=rng)
         for o in ordered[:spots]:
             made_counter[o] += 1
 
@@ -686,6 +785,10 @@ def compute_playoff_odds(
         "weeksPlayed": len(played_weeks),
         "weeksRemaining": len(remaining_weeks),
         "scheduleCertainty": schedule_certainty,
+        # Stamped on EVERY return path, not just the refusing ones: absent and
+        # False must not read the same, the rule ``meta.valuationMode`` already
+        # applies elsewhere in this repo.
+        "simulated": True,
         "owners": [
             {
                 "ownerId": o,
