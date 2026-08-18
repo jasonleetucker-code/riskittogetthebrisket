@@ -7,13 +7,23 @@ Auditing call sites?  ``grep cross_market`` LIES
 consensus pipeline marking which ranking sources price both offense
 and IDP.  It has nothing to do with this module.
 
-The honest count of production importers of THIS file is **zero**.
-``value_package`` / ``compare_packages`` are consumed only by
-``tests/league_intel/test_cross_market.py``.  ``src/trade/angle.py``
-is the intended call site and is **not rewired yet** — see "Which call
-site actually matters" below.  So a behaviour change here cannot reach
-a user today, and anyone auditing by grep will conclude the opposite
-unless they read the hits.
+CORRECTED 2026-08-18.  This block used to say the honest count of
+production importers was **zero**.  That was true when it was written
+and is not true now: ``src/roster_intel/packages.py`` imports
+``value_package`` / ``compare_packages`` for the Trade Package
+Generator, and ``src/api/gameplan.py`` calls
+``packages.generate_packages`` from ``GET /api/gameplan?partner=…``.
+``src/api/gameplan.py`` separately imports ``DEFAULT_GATE_PCT``.  **A
+behaviour change here DOES reach a user**, on that endpoint.
+
+The grep warning above still stands for a different reason: the
+``is_cross_market`` hits in ``data_contract.py`` are an unrelated
+source-registry flag, so a grep audit over-counts callers of this file
+while the stale note under-counted them.  Read the hits.
+
+What has NOT changed: ``src/trade/angle.py`` is still **not rewired**,
+and the live defect described below is still live there — see "Which
+call site actually matters".
 
 The live defect
 ───────────────

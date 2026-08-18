@@ -1445,6 +1445,50 @@ def _make_pool_and_roster():
     return pool, roster, roster_set
 
 
+
+def _suggestion_with_gap(gap: int) -> TradeSuggestion:
+    """A 1-for-1 suggestion whose ``_va_gap`` is exactly ``gap``.
+
+    ``_find_balancers`` now simulates the post-add gap, so it needs the
+    actual packages rather than a bare number.  A 1-for-1 is the shape
+    that makes the fixture exact: KTC suppresses Value Adjustment on
+    1-v-1 trades, so ``_va_gap([a], [b]) == a - b`` with no adjustment
+    term in the way.
+    """
+
+    base = 6000
+    give_value = base + max(0, gap)
+    receive_value = base + max(0, -gap)
+    give = PlayerAsset(
+        name="__give_side__",
+        position="RB",
+        display_value=give_value,
+        calibrated_value=give_value,
+        source_count=6,
+    )
+    receive = PlayerAsset(
+        name="__receive_side__",
+        position="WR",
+        display_value=receive_value,
+        calibrated_value=receive_value,
+        source_count=6,
+    )
+    assert _va_gap([give_value], [receive_value]) == gap
+    return TradeSuggestion(
+        type="sell_high",
+        give=[give],
+        receive=[receive],
+        give_total=give_value,
+        receive_total=receive_value,
+        gap=gap,
+        fairness=_fairness_label(gap),
+        rationale="",
+        why_this_helps="",
+        confidence="high",
+        strategy="neutral",
+    )
+
+
 class TestFindBalancersDirection:
     """Balancers should come from the right side depending on gap direction."""
 
@@ -1453,7 +1497,7 @@ class TestFindBalancersDirection:
         pool, roster, roster_set = _make_pool_and_roster()
         # User underpays by ~7300 — their QB depth (Caleb Williams ~9331, Drake Maye ~9721)
         # should be candidates since those are surplus QBs
-        bals, side = _find_balancers(-7300, pool, roster_set, set(), roster)
+        bals, side, _residuals = _find_balancers(_suggestion_with_gap(-7300), pool, roster_set, set(), roster)
         assert side == "you_add"
         # If balancers found, they must be from the user's roster
         for b in bals:
@@ -1462,7 +1506,7 @@ class TestFindBalancersDirection:
     def test_positive_gap_searches_global_pool(self):
         """When user overpays (gap > 0), balancers come from global pool."""
         pool, roster, roster_set = _make_pool_and_roster()
-        bals, side = _find_balancers(3000, pool, roster_set, set(), roster)
+        bals, side, _residuals = _find_balancers(_suggestion_with_gap(3000), pool, roster_set, set(), roster)
         assert side == "they_add"
         # Balancers must NOT be from user's roster
         for b in bals:
@@ -1471,14 +1515,14 @@ class TestFindBalancersDirection:
     def test_small_gap_returns_nothing(self):
         """Gaps under 256 don't need balancers."""
         pool, roster, roster_set = _make_pool_and_roster()
-        bals, side = _find_balancers(100, pool, roster_set, set(), roster)
+        bals, side, _residuals = _find_balancers(_suggestion_with_gap(100), pool, roster_set, set(), roster)
         assert bals == []
         assert side == ""
 
     def test_no_roster_falls_back_to_pool(self):
         """Without roster context, negative gap still uses global pool."""
         pool, _, roster_set = _make_pool_and_roster()
-        bals, side = _find_balancers(-3000, pool, roster_set, set(), None)
+        bals, side, _residuals = _find_balancers(_suggestion_with_gap(-3000), pool, roster_set, set(), None)
         assert side == "you_add"
         # Falls back to pool search since no roster provided
         for b in bals:
@@ -1492,20 +1536,20 @@ class TestBalancerQuality:
         """Never more than MAX_BALANCERS results."""
         assert MAX_BALANCERS == 2
         pool, roster, roster_set = _make_pool_and_roster()
-        bals, _ = _find_balancers(3000, pool, roster_set, set(), roster)
+        bals, _side, _residuals = _find_balancers(_suggestion_with_gap(3000), pool, roster_set, set(), roster)
         assert len(bals) <= 2
 
     def test_no_positionless_balancers(self):
         """Balancers with empty position are filtered out."""
         pool, roster, roster_set = _make_pool_and_roster()
-        bals, _ = _find_balancers(5000, pool, roster_set, set(), roster)
+        bals, _side, _residuals = _find_balancers(_suggestion_with_gap(5000), pool, roster_set, set(), roster)
         for b in bals:
             assert b.position != "", f"{b.name} has empty position"
 
     def test_no_below_min_relevant_value(self):
         """Balancers below MIN_RELEVANT_VALUE (500) are filtered."""
         pool, roster, roster_set = _make_pool_and_roster()
-        bals, _ = _find_balancers(3000, pool, roster_set, set(), roster)
+        bals, _side, _residuals = _find_balancers(_suggestion_with_gap(3000), pool, roster_set, set(), roster)
         for b in bals:
             assert b.display_value >= MIN_RELEVANT_VALUE
 
@@ -1514,7 +1558,7 @@ class TestBalancerQuality:
         pool, roster, roster_set = _make_pool_and_roster()
         assert "QB" in roster.surplus_positions
         # Large negative gap — user needs to add from their roster
-        bals, side = _find_balancers(-7500, pool, roster_set, set(), roster)
+        bals, side, _residuals = _find_balancers(_suggestion_with_gap(-7500), pool, roster_set, set(), roster)
         assert side == "you_add"
         if len(bals) >= 1:
             # First balancer should be from surplus position
@@ -1523,10 +1567,14 @@ class TestBalancerQuality:
     def test_exclude_names_respected(self):
         """Players in exclude_names are never suggested."""
         pool, roster, roster_set = _make_pool_and_roster()
-        bals_all, _ = _find_balancers(5000, pool, roster_set, set(), roster)
+        bals_all, _side, _residuals = _find_balancers(
+            _suggestion_with_gap(5000), pool, roster_set, set(), roster
+        )
         if bals_all:
             excluded_name = bals_all[0].name.lower()
-            bals_without, _ = _find_balancers(5000, pool, roster_set, {excluded_name}, roster)
+            bals_without, _side, _residuals = _find_balancers(
+                _suggestion_with_gap(5000), pool, roster_set, {excluded_name}, roster
+            )
             excluded_names = {b.name.lower() for b in bals_without}
             assert excluded_name not in excluded_names
 
@@ -1540,7 +1588,7 @@ class TestPoolBalancerCandidates:
             PlayerAsset("Real", "WR", 1000, 1000, source_count=4),
             PlayerAsset("Ghost", "", 1000, 1000, source_count=4),
         ]
-        result = _pool_balancer_candidates(1000, pool, set(), set())
+        result = _pool_balancer_candidates(pool, set(), set())
         assert len(result) == 1
         assert result[0].name == "Real"
 
@@ -1550,7 +1598,7 @@ class TestPoolBalancerCandidates:
             PlayerAsset("Scrub", "RB", 200, 200, source_count=4),
             PlayerAsset("Starter", "RB", 1000, 1000, source_count=4),
         ]
-        result = _pool_balancer_candidates(1000, pool, set(), set())
+        result = _pool_balancer_candidates(pool, set(), set())
         assert all(p.display_value >= MIN_RELEVANT_VALUE for p in result)
 
 
@@ -1573,7 +1621,7 @@ class TestRosterBalancerCandidates:
             starter_counts={"QB": 2},
             depth_counts={"QB": 1},
         )
-        result = _roster_balancer_candidates(7000, roster, set())
+        result = _roster_balancer_candidates(roster, set())
         names = {p.name for p in result}
         # QB3 is depth, should be a candidate
         assert "QB3" in names
@@ -1597,7 +1645,7 @@ class TestRosterBalancerCandidates:
             starter_counts={},
             depth_counts={},
         )
-        result = _roster_balancer_candidates(6000, roster, set())
+        result = _roster_balancer_candidates(roster, set())
         assert len(result) == 0
 
 
@@ -1643,8 +1691,8 @@ class TestBalancerDeterminism:
 
     def test_find_balancers_deterministic(self):
         pool, roster, roster_set = _make_pool_and_roster()
-        r1 = _find_balancers(-5000, pool, roster_set, set(), roster)
-        r2 = _find_balancers(-5000, pool, roster_set, set(), roster)
+        r1 = _find_balancers(_suggestion_with_gap(-5000), pool, roster_set, set(), roster)
+        r2 = _find_balancers(_suggestion_with_gap(-5000), pool, roster_set, set(), roster)
         assert r1 == r2
 
     def test_full_pipeline_with_balancers_deterministic(self):
@@ -2137,7 +2185,6 @@ class TestKtcTopNFilter:
         roster_set = set()
         exclude = set()
         candidates = _pool_balancer_candidates(
-            target_value=3000,
             asset_pool=pool,
             roster_names_set=roster_set,
             exclude_names=exclude,

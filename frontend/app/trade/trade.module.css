@@ -341,6 +341,12 @@
   letter-spacing: var(--tracking-wide);
   color: var(--text-tertiary);
 }
+/* The gap this suggestion actually lands on — de-emphasised so it reads
+   as a consequence of the pick rather than a second value for it. */
+.balancerResidual {
+  color: var(--text-tertiary);
+  font-variant-numeric: tabular-nums;
+}
 
 /* ── Suggestion rail ── */
 .railGrid {

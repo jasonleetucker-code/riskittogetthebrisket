@@ -16,7 +16,14 @@ import math
 from pathlib import Path
 
 
-from src.trade.ktc_va import ktc_adjust_package, ktc_process_v
+import pytest
+
+from src.trade.ktc_va import (
+    KtcVAResult,
+    _js_round,
+    ktc_adjust_package,
+    ktc_process_v,
+)
 
 _REPO_ROOT = Path(__file__).resolve().parents[2]
 _FIXTURE_PATH = _REPO_ROOT / "scripts" / "ktc_va_observations.json"
@@ -132,3 +139,71 @@ def test_process_v_canonical_inputs():
         assert (
             abs(got - expected) < tol
         ), f"ktc_process_v({value}) = {got:.2f}, expected {expected} ± {tol}"
+
+
+# ── JS-faithful rounding (one owner, 2026-08-18) ─────────────────────
+#
+# ``src/trade/market_value_adjustment.py`` used to carry a SECOND port
+# of this algorithm.  It rounded with ``floor(x + 0.5)`` (JavaScript
+# ``Math.round``, half-up); this module rounded with Python's built-in
+# ``round``, which is banker's rounding.  The 139-observation fixture
+# above contains no half-integer case, so it never caught the split.
+#
+# Measured over 40,000 random packages against the JS reference
+# (``frontend/lib/trade-logic.js::ktcAdjustPackage``): the retired
+# banker's rule published a different value on **75** of them, always
+# by 1 point.  ``_js_round`` is now the single rule and the same sweep
+# scores **0 / 40,000**.
+#
+# Each case below is one of those 75.  ``expected`` is the JS answer.
+
+_JS_ROUNDING_BOUNDARY_CASES = [
+    ([3751, 4207, 3566, 3426], [9605], (10148, 2)),
+    ([1091, 9140], [6791, 5765], (3468, 1)),
+    ([2080, 2798, 6381, 8653], [4705, 8620, 7869], (3045, 2)),
+    ([2424, 2695, 6705, 945], [8149, 4277], (4418, 2)),
+    ([8241], [2316, 2034, 5003], (5233, 1)),
+    ([8285], [6053, 7443], (1068, 1)),
+]
+
+
+@pytest.mark.parametrize(("team1", "team2", "expected"), _JS_ROUNDING_BOUNDARY_CASES)
+def test_half_integer_boundaries_match_javascript(team1, team2, expected):
+    result = ktc_adjust_package(team1, team2)
+    assert result.displayed is True
+    assert (result.value, result.side) == expected
+
+
+def test_js_round_is_half_up_not_bankers():
+    """The rule itself, stated as a test so it cannot regress quietly."""
+
+    assert _js_round(0.5) == 1  # Python's round() gives 0
+    assert _js_round(1.5) == 2
+    assert _js_round(2.5) == 3  # Python's round() gives 2
+    assert _js_round(-1.5) == -1  # JS Math.round(-1.5) === -1
+    assert _js_round(2.4) == 2
+
+
+# ── One owner ────────────────────────────────────────────────────────
+
+
+def test_market_value_adjustment_is_a_re_export_not_a_second_port():
+    """``market_value_adjustment`` must delegate, never recompute.
+
+    A second Python port is what produced the 75-case divergence above.
+    This pins that the compatibility module holds no algorithm of its
+    own: the result type is literally the same class, and its answers
+    are identical to the owner's on every fixture observation.
+    """
+
+    from src.trade import market_value_adjustment as mva
+
+    assert mva.PackageAdjustment is KtcVAResult
+
+    for observation in _load_observations():
+        team1 = observation.get("team1Values") or []
+        team2 = observation.get("team2Values") or []
+        assert mva.ktc_adjust_package(team1, team2) == ktc_adjust_package(team1, team2)
+
+    for team1, team2, _expected in _JS_ROUNDING_BOUNDARY_CASES:
+        assert mva.ktc_adjust_package(team1, team2) == ktc_adjust_package(team1, team2)

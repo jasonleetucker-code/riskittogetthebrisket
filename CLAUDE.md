@@ -1011,6 +1011,92 @@ offense, IDP and picks on one native 0-9999 scale; of KTC's 500 rows,
 (p10 0.888, p90 1.054, measured 2026-07-26). Both top out at 9999, so
 there is no rescaling to apply between them.
 
+### Trade comparison — raw canonical value vs contextual Value Adjustment
+
+Two quantities, deliberately distinct.  Conflating them is defect **#800**,
+which shipped on two surfaces at once.
+
+* **Raw canonical value** — ``rankDerivedValue``.  One number per asset,
+  owned by ``_compute_unified_rankings``.  Value Adjustment never mutates it;
+  a player is worth the same whatever package he is in.
+* **Adjusted side total** — ``raw + VA − stack``.  The comparison quantity
+  for ONE specific pairing of packages.  It is a property of the trade, not
+  of any asset in it, and it is what every fairness verdict, meter and gap
+  in this repo is measured on.
+
+**The consequence that is easy to get wrong: VA is a function of BOTH sides'
+complete value arrays.**  Adding a piece of raw value *V* does NOT move the
+adjusted gap by *V* — it re-runs ``ktc_adjust_package`` from scratch, so the
+piece count changes, the progressive-nerf ladder shifts, the recipient side
+can flip, and the 1-v-1 / 3.3% display gates snap on or off.  Anything that
+wants to close a gap must **simulate the post-add adjusted gap**, never
+subtract a raw value from it.
+
+Both equalizers used to do exactly that — rank candidates by
+``|candidate raw value − |adjusted gap||``.  Measured over 4,000 seeded
+two-side trades where a near-even landing WAS reachable from the candidate
+pool: the value-matching rule missed it **43.2%** of the time (1,360 of
+3,148) and in **701** of those handed the lead to the other side.  Mean
+residual gap 1,007 against an achievable 50.  After the repair: **0 misses,
+0 flips**, mean residual 50 — the achievable optimum.
+
+Worked example, the whole defect in three lines.  Side A gives one 5,000
+piece, side B gives one 4,000 piece; the gap is 1,000 and B must sweeten.
+The retired rule picks the 1,000 piece, because 1,000 matches 1,000:
+
+| B adds | resulting gap |
+|---|---|
+| 500 | 2,500 — worse |
+| **1,000** (the "perfect" match) | **2,032 — twice as lopsided** |
+| 2,000 | 727 — the only one that helps |
+
+The moment B holds two pieces the consolidation premium fires and credits
+2,032 to side A.
+
+**One representation, every side count.**  Until 2026-08-18 the 2-team meter
+read VA-adjusted side totals while the 3+-team meter read a raw net flow with
+no VA in it at all, so the same trade shape graded differently at 2 teams and
+at 3.  ``computeSideFlows`` is now VA-inclusive: each side's premium is spread
+proportionally across the assets it SENDS, so ``given_i = raw_i + adjustment_i``
+by construction and the premium lands on whichever side receives those pieces.
+``tradeImbalance`` is the single definition of "how far apart is this trade",
+and for N = 2 the identity ``nets[1] === tradeGapAdjusted(A, B)`` holds exactly
+(pinned by test).  Caveat that travels with the number: the multi-side VA is a
+**structural extension** of a 2-side calibration, not a separately fit model.
+
+Known, pre-existing, NOT fixed here: the draft-capital stack term is accounted
+differently by the two paths — ``adjustedSideTotals`` debits both sides' stack
+into the gap while a net flow credits only the side's own.  Zero for every
+trade with no pick routing; it belongs to whoever revisits the stack model.
+
+Owners:
+
+| concept | owner |
+|---|---|
+| Value Adjustment (Python) | ``src/trade/ktc_va.py`` — ``market_value_adjustment.py`` is a re-export |
+| Value Adjustment (JS) | ``frontend/lib/trade-logic.js::ktcAdjustPackage`` |
+| adjusted gap / imbalance | ``tradeGapAdjusted`` + ``tradeImbalance`` (JS), ``_va_gap`` (Python) |
+| equalizer / balancers | ``findBalancers`` (JS), ``suggestions._find_balancers`` (Python) |
+
+``_js_round`` is load-bearing.  The two Python ports disagreed because one
+used ``floor(x + 0.5)`` (JavaScript ``Math.round``) and the other Python's
+``round``, which is banker's rounding.  The 139-observation KTC fixture
+contains no half-integer case and never caught it; over 40,000 random
+packages the banker's copy published a different value on **75**, and it was
+the copy suggestions / angle / monte_carlo all used.  The owner now scores
+**0 / 40,000** against the JS reference.
+
+RETIRED with this work, all dead or duplicated: the V2 scarcity constants and
+the V12/V13 regression fit in ``trade-logic.js``
+(``_vaFromSortedSides`` had no caller and no test), and the second Python
+port.  Deleted rather than deprecated — a complete second VA sitting exported
+beside the live one is what lets a future caller wire it in without anyone
+deciding to.
+
+Rule for new code: need to compare two packages → ``tradeImbalance`` /
+``_va_gap``.  Need to close a gap → simulate, never subtract.  Never publish a
+VA-adjusted number under a raw-value field name, or vice versa.
+
 ### FAAB recommendations — one engine, two separate answers
 ``src/trade/faab_engine.py`` is the ONLY place a FAAB dollar figure is
 derived.  Full reference: ``docs/faab-model.md``.
