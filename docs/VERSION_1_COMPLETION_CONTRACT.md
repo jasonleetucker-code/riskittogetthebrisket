@@ -207,6 +207,7 @@ Projections · **L4** Market / FAAB / Analyst · **L5** Integration / QA / CI / 
 | V1-55 | One FAAB engine (ceiling vs recommended bid) | `F-FAAB-01` / inv 3.1 | L4 | `VERIFIED` | L2 | FAAB core. 247 tests; backtest 166/166 → 0/166 low-value overbids |
 | V1-56 | FAAB league context panel | inv 3.2 | L4 | `IMPLEMENTED_UNVERIFIED` | L4 | FAAB core; owner status "VERIFY ONLY" |
 | V1-57 | FAAB bid-history collection is scheduled, not a manual step | `C4-FAAB-02` | L4 | `NOT STARTED` | L3 | FAAB core trustworthiness — no timer today |
+| V1-132 | The horizon pick year is not a single-vendor dependency | audit `F-34` | L5 | `NOT STARTED` | L2 | **added 2026-08-18** — tracked DEFECT against already-required canonical value + signal independence, not new product scope. Measured: 2026/2027/2028 tier rows blend `idpTradeCalc` + `ktcSfTep`; the horizon year blends `idpTradeCalc` **alone** on all 12 cells, because the injection clones from the RAW payload while `ktcSfTep` pick values arrive via the later CSV enrichment. `F-30` made the horizon *guarantee* independent of this; the blended *value* still is not |
 | V1-129 | External crowd-FAAB evidence is comparable, fresh and position-capable | audit `F-33` / `FAAB_MARKET_SIGNAL_NORMALIZATION_2026-08-14` §3/§5/§7/§10 | L4 | `IN PROGRESS` | L2 | **added 2026-08-18** — a tracked DEFECT against the already-required FAAB core, not new product scope. The KTC crowd pool feeds `rival_bid_cdf` at weight **0.6**, so what it admits moves real recommended bids; it was admitting incomparable leagues, stale ledgers and positions the retained population cannot price. **#911** refuses all three and reports the refusal. Own-league history was already correct and is untouched |
 | V1-58 | Sharp cohort proven populated in production | `C4-SHARP-01` / `C4-U2` | L4 | `IMPLEMENTED_UNVERIFIED` | L3 | Sharp core. Verification artifacts end at 502/401/"unverifiable_unauthenticated" |
 | V1-59 | Sharp bootstrap stops failing | `C4-SHARP-02` | L4 | `IN PROGRESS` | L3 | Sharp core. FFPC timeouts + SQLite locking |
@@ -318,11 +319,11 @@ than by editing this block.
 | `VERIFIED` | 35 |
 | `IMPLEMENTED_UNVERIFIED` | 21 |
 | `IN PROGRESS` | 39 |
-| `NOT STARTED` | 34 |
+| `NOT STARTED` | 35 |
 | `BLOCKED` | 2 |
-| **denominator** | **131** |
+| **denominator** | **132** |
 
-**V1 completion: 35 / 131 = 26.7%.**
+**V1 completion: 35 / 132 = 26.5%.**
 
 Reconciled against every open six-lane PR — #910 (L5), #911 (L4), #912 (L6),
 #913 (L2), #914 (L1), #915 (L3). Thirteen rows moved `NOT STARTED` →
@@ -620,6 +621,7 @@ as a pass. **An unreachable check is not a green one.**
 
 | date | change | reason |
 |---|---|---|
+| 2026-08-18 | **+1** — `V1-132` added (audit `F-34`, surfaced by lane 7 / `#916`) | A tracked **defect against an already-required capability** — canonical value and signal independence — not new product scope. Measured: the horizon pick year blends **one** vendor while every other pick year blends two, because the far-future injection clones from the RAW payload and `ktcSfTep`'s pick values arrive through the later CSV enrichment. `F-30` made the horizon GUARANTEE independent of which raw keys survive; the blended VALUE is still single-source. Filed so it does not disappear when `#916` closes. |
 | 2026-08-18 | **+2** — `V1-130` (§7 A-2) and `V1-131` (§7 A-7) added | **Mechanical consequences of decisions the owner had already made**, resolved under the 2026-08-18 instruction to settle any ambiguity that follows from an existing ruling rather than leave the contract PROPOSED. `V1-130`: `V1-34` is required and `C3-CON-01` is its canonical owner — ONE CONCEPT, ONE CANONICAL OWNER makes excluding the owner incoherent. `V1-131`: "truthful degraded states" is named in the boundary and nav offering an all-503 page is a live instance; the Consensus Edge feature itself stays POST-V1. Neither adds product scope — both are the minimum needed to make an already-required item buildable or honest. |
 | 2026-08-18 | **+1** — `V1-129` added (audit `F-33`, lane 4 / `#911`) | A tracked **defect against an already-required capability**, which the owner's 2026-08-18 direction explicitly permits: *"New defects that violate an already-required V1 capability may be added/tracked without redefining the product scope."* FAAB core is already V1 REQUIRED; this adds no product. The crowd pool feeds `rival_bid_cdf` at weight **0.6**, so admitting incomparable leagues, a stale ledger, or a position the retained population cannot price moves real recommended bids — a trustworthiness defect in a required capability, not a new one. |
 | 2026-08-18 | **+1** — `V1-128` added (audit `F-28`) | Found by verifying the `#909` deploy against production: `data_age_hours` is **negative** because the naive `scrapeTimestamp` is the host's local time and `_board_age_hours` attaches UTC. A live measurement defect in the freshness signal the ops alerter reads — squarely "stability / false-green repairs" and "source-health correctness". Recorded the same day it was introduced, by the verification step that exists to catch exactly this. |

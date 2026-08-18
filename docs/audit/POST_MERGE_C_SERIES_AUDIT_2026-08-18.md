@@ -2014,6 +2014,41 @@ weighting it at 0.6 was the defect.
 Owner: lane 4, fixed in `#911`. Related: `V1-129`, `V1-55`.
 
 
+### F-34 · The horizon year is a single-vendor dependency, on healthy days too · CONFIRMED · canonical value · **OPEN**
+
+Surfaced by lane 7 while diagnosing `F-30` (`#916` names it under "known limitations"), and
+**measured independently here** on the current healthy board:
+
+| pick year | sources voting on each vendor-covered tier row |
+|---|---|
+| 2026 | `idpTradeCalc` + `ktcSfTep` |
+| 2027 | `idpTradeCalc` + `ktcSfTep` |
+| 2028 | `idpTradeCalc` + `ktcSfTep` |
+| **2029 (the horizon)** | **`idpTradeCalc` alone**, on all 12 cells |
+
+**Mechanism.** `_inject_far_future_pick_sources` seeds synthetic far-future rows by cloning the
+template year's entry out of `players_by_name` — the RAW scraper payload. But `ktcSfTep`'s pick
+values do not reach a row that way: they arrive through the **CSV enrichment**, which runs later
+and correctly carries no far-future year to enrich a synthetic row with. So a synthetic row can
+only ever vote on the in-JSON sources, and one of the two pick markets is structurally invisible
+to it.
+
+**Why it matters beyond `F-30`.** `F-30` is now repaired: the horizon guarantee no longer depends
+on which raw keys survived, because completion searches the board. But the *blended* horizon
+value — when the blend does succeed — still rests on one provider. That is a
+signal-independence question on a canonical value, not an observability one: CLAUDE.md's B10
+family rules and the single-source haircut exist precisely because one voter is not a consensus.
+Worth checking explicitly whether the haircut and the confidence gate currently see these rows as
+single-source, since they are.
+
+**Not fixed here, and deliberately.** Making the injection see the enriched source population is
+a change with real blast radius on live 2029 values, and it is not what either `F-30` PR set out
+to do. `#916` was right to name it rather than fold it in. Filed so it does not disappear with
+that PR.
+
+Owner: lane 5 (pick valuation). Tracked as `V1-132`.
+
+
 ### Interruption: the 2026-08-18 CI incident
 
 This audit was suspended mid-phase to work a reported seven-workflow CI failure. Record:
