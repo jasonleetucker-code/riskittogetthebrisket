@@ -123,6 +123,41 @@ refreshed boards moved 418 canonical values (p50 0.2%, p90 1.0%, max 6.9%) — c
 | `ktcCrowd` contract block | **RETIRED** | Appeared in **0 of 173** committed export archives, decompressed. |
 | `ktcIdMap` contract block | **RETIRED** | Also 0 of 173; no consumer in any language. |
 | `src/adapters/ktc_crowd_faab.py` | **SUPERSEDED — RETIRED** | Fed a second recommender input whose only output duplicated a row the live engine already emits. |
+
+### KTC crowd-FAAB — production proof (§11), 2026-08-18
+
+Read-only SSH probe, run
+[`32129757659`](https://github.com/jasonleetucker-code/riskittogetthebrisket/actions/runs/32129757659),
+against the deployed tree. No credential reached the agent; secrets and league names are
+masked in the public log by the workflow.
+
+*(The first dispatch, `32120625936`, was **cancelled** — it collided with the
+`production-deploy` concurrency group. That was repaired in #904; this is the first run that
+produced output.)*
+
+| § | check | measured |
+|---|---|---|
+| 1 | timer unit | **present**, **enabled**, **active** |
+| 1 | last service run / result | **0 (ok)** / **success** |
+| 1 | last trigger · next elapse | 2026-08-18 11:26:12 CEST · 14:27:42 CEST |
+| 2 | `src/sources/ktc_identity.py` on the box | **present** |
+| 2 | producer consumes the owner | **yes** |
+| 2 | retired crowd path removed | **yes** |
+| 3 | identity source | `allPlayerSearchValues` — the search index, not the 500-row value board |
+| 3 | index size | **1,961 players / 36 picks** |
+| 3 | raw feed rows | 200 |
+| 3 | **claims resolved to a player** | **200 / 200** |
+| 3 | rows emitted by the producer | 200 |
+| 3 | rows with an unreadable format | **0** |
+| 4 | `dynasty_main` accumulated history | 702 persisted rows · 199 players priced · **148 $0 bids retained** |
+| 4 | `dynasty_new` accumulated history | 561 persisted rows · 179 players priced · **129 $0 bids retained** |
+
+Verdict: *"timer present, repaired code deployed, every claim resolved"*.
+
+Two details worth keeping. The identity source is the **search index** (1,961 players), not
+the 500-row value board — which is why resolution is 200/200 rather than partial. And the
+retained **$0 bids** confirm the live path is `faab_history`, not `faab_analytics`: the latter
+gates its median on `bid > 0`, and 41–77% of real adds cost nothing.
 | `footballGuys` / `footballGuysSf` / `footballGuysIdp` | **RETIRED — orphaned stamps** | **No registry entry, no CSV, no consumer.** `_last_success` stamps are **2049h** (85 days) old. Survives only in comments and `source_gap:` explanation strings in `data_contract.py`. |
 | `draftSharksRos` | **ACTIVE — NOT A DYNASTY VOTER** | Fetches fine (1.8h). ROS is the seasonal lane and must never enter dynasty valuation (C1-U9 / source-domain boundary). |
 | `sleeper` | **ACTIVE — HEALTHY** | League/roster substrate, not a ranking voter. 1.9h. |
