@@ -8,31 +8,39 @@ production ranking sources, all `game_type: DYNASTY`. No source votes that is no
 
 ---
 
-## 1. The health surfaces disagree with each other and with the truth
+## 1. No surface reports the production population
 
-This is the §14 defect, and it is worse than "one surface is stale" — there are **four**
-populations across four surfaces and **none of them is the real one**:
+Five surfaces publish something source-shaped. **Four of them are correct for their own purpose**,
+and the honest finding is narrower than "they disagree": **none of them is a census of the 21
+production voters**, and two of them speak different vocabularies.
 
-| surface | population it reports | vocabulary |
+| surface | reports | is that right? |
 |---|---|---|
-| `raw.sites` | **2** — `ktc`, `idpTradeCalc` | source keys (legacy `ktc`, not `ktcSfTep`) |
-| `coverageAudit.expectedSites` | **2** — `{offense:['ktc'], idp:['idpTradeCalc']}` | a **hardcoded literal**, not derived |
-| `settings.sourceRunSummary.sources` | **14** | **scraper-run names** — `DLF_LocalCSV`, `Flock`, `DraftSharks_IDP` |
-| `_RANKING_SOURCES` (canonical registry) | **21** | source keys |
-| **actually voting in the contract** | **21** | source keys |
+| `raw.sites` | **2** — `ktc`, `idpTradeCalc` | **Yes** — the inline-scraped sites, with `max` and `playerCount`. The 19 CSV-loaded sources legitimately are not here. |
+| `coverageAudit.expectedSites` | **2** — `{offense:['ktc'], idp:['idpTradeCalc']}` | **Yes.** These are `TOP_OFF_EXPECTED_SITE_KEYS` / `TOP_IDP_EXPECTED_SITE_KEYS` — the two **backbone anchors**. Its consumer `server.py::_missing_expected_sites` (audit O-3) asks *"did we lose an anchor?"*, not *"are all sources healthy?"* |
+| `settings.sourceRunSummary.sources` | **14** | Correct as a record of **scraper runs** — but in a different vocabulary (see below). |
+| `scripts/check_source_health.py` | **21 + sleeper** | **Yes, and this one is the population-correct surface** — measured 20 fresh / 2 stale / 0 soft-stale = 22 = the 21 registry sources plus `sleeper`. |
+| `_RANKING_SOURCES` (canonical) | **21** | the definition |
 
-Two consequences worth stating separately:
+### What is actually wrong
 
-* **Coverage is measured against 2 of 21.** `expectedSites` is a literal naming one offense and
-  one IDP source, so nineteen sources can vanish without moving a coverage number.
-* **The run summary speaks a different language from the registry.** `DLF_LocalCSV` covers four
-  registry keys (`dlfSf`, `dlfRookieSf`, `dlfIdp`, `dlfRookieIdp`); `Flock` covers two;
-  `DraftSharks` and `DraftSharks_IDP` are separate run names but **one** provider family. Nothing
-  maps between the vocabularies, so a per-source disposition cannot round-trip.
+1. **No published surface answers "how are the 21 doing?"** `check_source_health` knows, but it is a
+   CI script writing annotations — not `/api/status`, not `/tools/source-health`, not the contract.
+   A reader of the product's own health surfaces cannot see the production population.
+2. **Two vocabularies, no mapping.** `sourceRunSummary` names *scraper runs*
+   (`DLF_LocalCSV`, `Flock`, `DraftSharks_IDP`); the registry names *source keys*
+   (`dlfSf`, `dlfRookieSf`, `dlfIdp`, `dlfRookieIdp`, `flockFantasySf`, …). One run name covers up
+   to four registry keys. Nothing maps between them, so a per-source disposition cannot round-trip
+   and a run-level "complete" cannot be decomposed into which boards actually arrived.
+3. **The legacy `ktc` alias.** `raw.sites` and `expectedSites` say `ktc`; the registry says
+   `ktcSfTep`; the contract carries **both** (`ktc` appears in `canonicalSiteValues` as a
+   non-registry key). Three spellings of one provider across three surfaces.
 
-Both must be reconciled onto the registry before the audit can claim the health layer is honest.
-
----
+**Correction, recorded rather than quietly fixed.** An earlier draft of this census said *"coverage
+is measured against 2 of 21 — nineteen sources could vanish without moving a coverage number."*
+That reads as a defect in `expectedSites` and it is **wrong**: that surface is an anchor-loss
+detector and 2 is its correct population. The defect is the *absence* of a 21-source surface, not
+the presence of a 2-source one.
 
 ## 2. Independence — 21 sources are 13 families
 
@@ -125,8 +133,9 @@ is deliberately **not** a dynasty voter.
 
 | # | item | state |
 |---|---|---|
-| S-1 | Reconcile the four health populations onto the registry; make `expectedSites` derived, not a literal | **OPEN** |
-| S-2 | Map scraper-run names ↔ registry keys so a disposition round-trips | **OPEN** |
+| S-1 | Publish a **21-source** health surface. `check_source_health` already knows the right population; `/api/status`, `/tools/source-health` and the contract do not. Do **not** widen `expectedSites` — it is an anchor-loss detector and 2 is correct for it | **OPEN** |
+| S-2 | Map scraper-run names ↔ registry keys so a disposition round-trips and a run-level "complete" decomposes into which boards arrived | **OPEN** |
+| S-2b | Collapse the `ktc` / `ktcSfTep` spelling split across `raw.sites`, `expectedSites` and `canonicalSiteValues` | **OPEN** |
 | S-3 | Health vocabulary must distinguish vendor-unchanged / stale / fetch-failed / parser-failed / credential / blocked / retired / future / archive-only | **OPEN** |
 | S-4 | DraftSharks dynasty fetch | repair in flight (#894) |
 | S-5 | Drop orphaned FootballGuys stamps; fix stale `source_gap:` explanations | **OPEN** |
