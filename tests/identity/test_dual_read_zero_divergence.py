@@ -48,10 +48,31 @@ class TestContractJoinIsOwnedByTheEngine(unittest.TestCase):
             "the CSV join must be decided by the canonical owner",
         )
         self.assertTrue(summary["legacyCascadeRetired"])
+        # NON-VACUITY, not a floor (audit 2026-08-17, §3d).
+        #
+        # This asserted ``decisions > 1000``.  ``decisions`` counts the
+        # identity-join decisions made while building the contract, which
+        # is a direct function of how many source rows the last scrape
+        # produced — so a KTC-class outage collapses the population and
+        # fails this test with ``src/identity/resolution.py``
+        # BYTE-IDENTICAL.  In the blocking lane, under ``-x``, that
+        # aborts the whole suite and blocks every open PR over a vendor
+        # timeout.  It is exactly the mechanism
+        # ``docs/ops/STABILIZATION_2026-08-16.md`` §3d was written for,
+        # and exactly the shape already repaired in
+        # ``tests/history/test_temporal_ledger.py`` and
+        # ``tests/api/test_draftsharks_negative_values.py``.
+        #
+        # What the assertion is FOR is proving the loop below is not
+        # vacuous — that the join ran at all rather than being
+        # short-circuited to nothing.  ``> 0`` proves that and is
+        # independent of board size.  The load-bearing assertion in this
+        # test is ``decidedBy`` above: it names the owner, and no source
+        # outage can change it.
         self.assertGreater(
             summary["decisions"],
-            1000,
-            "suspiciously few join decisions — did the join get short-circuited?",
+            0,
+            "the join made no decisions at all — did it get short-circuited?",
         )
         self.assertGreater(summary["matched"], 0, "the join matched nothing at all")
 

@@ -156,6 +156,41 @@ sets. 7,600+ tests each pass.
 one module were **reclassified**, each with the deterministic coverage that replaces them
 named explicitly. Nothing was marked `livedata` to make CI green.
 
+### 3d-bis. Three more of the same class, found by the 2026-08-17 post-merge audit
+
+The 2026-08-16 census was a diff of two payloads, so it could only find sites that the
+19:09 outage actually tripped. It could not find a site whose threshold sat *between* the
+degraded and healthy populations. Three such sites existed and are now repaired:
+
+| site | what it asserted | disposition |
+|---|---|---|
+| `identity/test_dual_read_zero_divergence.py:51` | `assertGreater(summary["decisions"], 1000)` — the identity-join decision count over a board built from `exports/latest` | **repaired** → `> 0`. The count is a direct function of how many source rows the last scrape produced, so an outage fails it with `src/identity/resolution.py` byte-identical. In the blocking lane under `-x` that aborts the whole suite and blocks every open PR. The load-bearing assertion beside it — `decidedBy` names the canonical owner — is board-size independent and untouched. |
+| `api/test_pick_completeness.py:240` | `assertGreater(checked, 100)` — priced picks compared | **repaired** → `> 0`. The real assertion is the per-row `assertEqual` inside the loop; this only proves the loop ran. |
+| `api/test_pick_completeness.py:101` | `assertGreaterEqual(len(future_years), 3)` — the horizon must reach current+3 | **repaired** → the horizon requirement stays in full force whenever the board has *any* published future year, and reports a source condition when it has none. The derivation needs a template (`_inject_far_future_pick_sources` steps the nearest published future year); with no template at all this was a source-coverage claim wearing a code gate. |
+
+**Why there is no automatic detector for this class.** One was attempted during the audit
+and rejected on measurement. A shape-based AST scan (an absolute integer threshold in a
+comparison, inside a hard-gate module that reads `exports/latest`) returns **23** hits, of
+which the overwhelming majority are legitimate — value-scale bounds like
+`assert v <= 8050`, hash lengths, sizes of constants declared in code. Narrowing the left
+operand to count-shaped expressions cuts it to **5**, and all five are still false
+positives: a pinned evidence capture under `docs/`, `len(PRIVATE_VALUE_KEYS)`,
+`len(snap["sha256"]) == 64`, a `len(f["verifiedBy"])` string length, and a `git ls-files`
+non-vacuity guard.
+
+Distinguishing "a count of rows the scrape produced" from "a bound on a value" requires
+knowing what the quantity *is*, which the shape does not carry. A guard that is mostly
+false positives would be maintained by adding allowlist entries, which is the failure mode
+`config/coercion_baseline.json` already demonstrates. So **§3d stays a human-review rule**,
+and the recipe above is recorded so the next reviewer can run the same scan and triage the
+handful of hits by hand rather than rediscovering the method.
+
+Two sites were reviewed and **accepted** rather than repaired:
+`consensus_edge/test_panel.py` and `test_wiring.py` carry absolute counts, but over
+*committed git history* selected by `newest_complete_raw_payload()` — not over
+`exports/latest` — with thresholds an order of magnitude below the observed values, and the
+fixture already refuses a degraded board. Recorded so the next audit does not re-hunt them.
+
 One apparent finding was NOT real: `league_intel/test_te_premium_invariants.py` failed in
 the healthy-payload run because it calls `inspect.getsource(_compute_unified_rankings)` and
 this session was editing that file mid-run. Recorded so nobody re-hunts it.
