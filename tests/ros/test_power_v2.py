@@ -422,7 +422,14 @@ class TestBuildSectionPreseason(unittest.TestCase):
         for component in power_v2._HISTORICAL_RESULTS_COMPONENTS:
             self.assertNotIn(component, eff)
         self.assertIn("team_ros_strength", eff)
-        self.assertIn("roster_health", eff)
+        # ``roster_health`` was REMOVED 2026-08-18: it was
+        # ``healthAvailabilityScore / 100`` republished from the auth-gated
+        # rosTeamStrength section onto the PUBLIC rosPower section, and it was
+        # already counted inside the team_ros_strength composite
+        # (team_strength.WEIGHT_HEALTH). Its 0.03 folded into
+        # team_ros_strength, so preseason is now a single forward-looking
+        # component. See tests/api/test_public_power_leaks_no_private_quantity.py.
+        self.assertNotIn("roster_health", eff)
         # Each row carries a non-empty score (renormalised onto the
         # forward-looking inputs, not deflated by the dropped weights).
         scores = [row["powerScore"] for row in section["currentRanking"]]

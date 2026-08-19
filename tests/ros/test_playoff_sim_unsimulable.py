@@ -35,6 +35,13 @@ class _Harness(unittest.TestCase):
 
     def _run(self, *, record, schedule, **kwargs):
         snap = SimpleNamespace(seasons=[], managers=SimpleNamespace(by_owner_id={}))
+        # This harness has no league settings by construction, and since
+        # V1-51 an unresolvable bracket is its own refusal — which would
+        # fire ahead of the ones under test here. Pinning it explicitly
+        # keeps each test about the thing it names; bracket resolution has
+        # its own tests in tests/public_league/test_playoff_structure.py.
+        kwargs.setdefault("playoff_seeds", 6)
+        kwargs.setdefault("bye_seeds", 2)
         with (
             patch.object(
                 playoff_sim,
