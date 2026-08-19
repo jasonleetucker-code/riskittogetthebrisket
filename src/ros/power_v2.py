@@ -310,122 +310,29 @@ def _streak_score_from_outcomes(outcomes: list[float]) -> float:
     return 0.5  # tie or mixed
 
 
-#: The two lenses this engine publishes, and what separates them.
-#:
-#: They are NOT two formulas.  ``results_only`` is the same weight vector
-#: with ``team_ros_strength`` declared missing, renormalised by the
-#: machinery that already handles an absent team-strength file — so the
-#: relative weighting of every retrospective component is identical in
-#: both, and the only difference is whether the forward-looking input is
-#: in the mix.  That is what makes them lenses rather than engines.
-LENS_FORWARD_LOOKING = "forward_looking"
-LENS_RESULTS_ONLY = "results_only"
-
-#: Why a lens dropped ROS, distinguished from "the file was missing".
-#: A reader must be able to tell a deliberate retrospective view from an
-#: engine that wanted forward-looking strength and could not get it.
-_LENS_DROPPED_ROS = "team_ros_strength (lens: results_only)"
-
-
-def build_section(
-    snapshot: PublicLeagueSnapshot,
+def _score_state(
+    owner_ids: list[str],
+    state: dict[str, Any],
     *,
-    lens: str = LENS_FORWARD_LOOKING,
-) -> dict[str, Any]:
-    """Build the ROS power section for the public contract.
+    snapshot: PublicLeagueSnapshot,
+    ros_pct: dict[str, float],
+    schedule_by_owner: dict[str, float],
+    preseason: bool,
+    results_only: bool,
+) -> tuple[list[dict[str, Any]], list[str], dict[str, float]]:
+    """Score one league state into a ranking.
 
-    Output mirrors the existing ``power.py::build_section`` shape so
-    the frontend can render it side-by-side with no schema fork:
+    Extracted so the current ranking and every week of the trend series
+    run through ONE code path.  A second scoring implementation for the
+    trend is how a "series" ends up being a different quantity from the
+    number it is plotted beside — which is the whole defect V1-52 exists
+    to close, reproduced one layer down.
 
-        {
-            "currentRanking": [...],
-            "weights": { ... },
-            "missingInputs": [...]
-        }
-
-    The historical week-by-week series is intentionally NOT computed
-    here in PR2 — the v1 power section already exposes that, and the
-    ROS-team-strength input only has a single "now" snapshot.  PR3
-    adds historical playoff-odds; the chart on the new tab will hook
-    into that data instead.
+    ``state`` is ``{career, recent, allplay, expected, outcomes}`` as of
+    some point in the season.  Returns ``(rankings, missing_inputs,
+    active_weights)``.
     """
-    registry = snapshot.managers
-    seasons_sorted = sorted(snapshot.seasons, key=lambda s: luck._season_sort_key(s.season))
-    team_strength_rows = _load_team_strength_rows()
-    preseason = _is_preseason(snapshot)
-    if (
-        not seasons_sorted
-        and not team_strength_rows
-        and (snapshot.current_season is None or not (snapshot.current_season.rosters or []))
-    ):
-        return {
-            "currentRanking": [],
-            "lens": lens,
-            "weights": dict(WEIGHTS),
-            "missingInputs": ["snapshot empty"],
-            "rosTeamStrengthAvailable": False,
-        }
-
-    # Career totals across all seasons (matches power.py's accumulator
-    # semantics).  Recent buffer is per-season; the "recent form"
-    # metric is the trailing 3-game average within the current season.
-    career_state: dict[str, dict[str, float | int]] = defaultdict(
-        lambda: {"points": 0.0, "games": 0, "wins": 0.0, "losses": 0.0}
-    )
-    season_outcomes: dict[str, list[float]] = defaultdict(list)
-    last_season_recent: dict[str, list[float]] = defaultdict(list)
-    last_season_allplay_share: dict[str, float] = {}
-
-    for season in seasons_sorted:
-        week_scores = luck._season_weekly_scores(season, registry)
-        if not week_scores:
-            continue
-        if season is seasons_sorted[-1]:
-            recent_buffer: dict[str, list[float]] = defaultdict(list)
-        for wk in sorted(week_scores.keys()):
-            scores = week_scores[wk]
-            actuals, _ = luck._actual_week_results(season, wk, registry)
-            all_play = luck._all_play_week(scores)
-            for oid, pts in scores:
-                s = career_state[oid]
-                s["points"] += pts
-                s["games"] += 1
-                actual_share = actuals.get(oid, 0.0)
-                s["wins"] += actual_share
-                s["losses"] += 1.0 - actual_share
-                season_outcomes[oid].append(actual_share)
-                if season is seasons_sorted[-1]:
-                    rb = recent_buffer[oid]
-                    rb.append(pts)
-                    if len(rb) > _RECENT_WINDOW:
-                        rb.pop(0)
-                    last_season_recent[oid] = list(rb)
-                # Capture the last week's all-play expected share so
-                # the all-play-record percentile reflects current
-                # standings rather than a season-wide average that
-                # would lag mid-season trades.
-                ap = all_play.get(oid) or {}
-                last_season_allplay_share[oid] = float(ap.get("expectedShare", 0.0))
-
-    owner_ids = _enumerate_owner_ids(snapshot, team_strength_rows, sorted(career_state.keys()))
-    if not owner_ids:
-        return {
-            "currentRanking": [],
-            "lens": lens,
-            "weights": dict(WEIGHTS),
-            "missingInputs": ["no owners found"],
-            "rosTeamStrengthAvailable": False,
-        }
-
-    # The results-only lens does not consult team strength at all, rather
-    # than loading it and discarding it — so a reader cannot mistake the
-    # lens for a league whose team-strength file is missing, and so the
-    # schedule-adjusted component (which is derived FROM team strength)
-    # drops with it automatically rather than by a second rule.
-    results_only = lens == LENS_RESULTS_ONLY
-    ros_pct = {} if results_only else _load_team_strength_percentiles()
     ros_available = bool(ros_pct)
-    schedule_by_owner = _schedule_adjusted_scores(snapshot, ros_pct)
     schedule_available = bool(schedule_by_owner)
 
     # Compute per-owner inputs.  ``career_state`` is a defaultdict but
@@ -435,15 +342,15 @@ def build_section(
     # in preseason mode those weights are renormalised away anyway.
     inputs: dict[str, dict[str, float]] = {}
     for oid in owner_ids:
-        s = career_state.get(oid, _EMPTY_CAREER)
+        s = state["career"].get(oid, _EMPTY_CAREER)
         ppg = s["points"] / s["games"] if s["games"] else 0.0
-        rb = last_season_recent.get(oid, [])
+        rb = state["recent"].get(oid, [])
         recent = sum(rb) / len(rb) if rb else 0.0
         wins = s["wins"]
         games = s["games"] or 1
         wl = wins / games  # already in [0, 1]
-        all_play = last_season_allplay_share.get(oid, 0.0)
-        streak = _streak_score_from_outcomes(season_outcomes.get(oid, []))
+        all_play = state["allplay"].get(oid, 0.0)
+        streak = _streak_score_from_outcomes(state["outcomes"].get(oid, []))
         # Luck regression: a team whose actualWins lag expectedWins
         # gets a small boost (regression toward expected).  Clamp to
         # [-0.5, 0.5] then map to [0, 1].
@@ -451,15 +358,7 @@ def build_section(
         # this via build_section but at PR-2 budget we'd rather not
         # invoke the whole section).  Re-use the same all_play share
         # iteration (cheap; same data already in scope).
-        expected_share_running = 0.0
-        for season in seasons_sorted:
-            week_scores = luck._season_weekly_scores(season, registry)
-            for wk in sorted(week_scores.keys()):
-                scores = week_scores[wk]
-                ap_week = luck._all_play_week(scores)
-                if oid in {o for o, _ in scores}:
-                    ap = ap_week.get(oid) or {}
-                    expected_share_running += float(ap.get("expectedShare", 0.0))
+        expected_share_running = state["expected"].get(oid, 0.0)
         luck_delta = (wins - expected_share_running) / games if games else 0.0
         luck_score = max(
             0.0, min(1.0, 0.5 - luck_delta)
@@ -550,9 +449,223 @@ def build_section(
     for rank, row in enumerate(rankings, start=1):
         row["rank"] = rank
 
+    return rankings, missing_inputs, active_weights
+
+
+#: The two lenses this engine publishes, and what separates them.
+#:
+#: They are NOT two formulas.  ``results_only`` is the same weight vector
+#: with ``team_ros_strength`` declared missing, renormalised by the
+#: machinery that already handles an absent team-strength file — so the
+#: relative weighting of every retrospective component is identical in
+#: both, and the only difference is whether the forward-looking input is
+#: in the mix.  That is what makes them lenses rather than engines.
+LENS_FORWARD_LOOKING = "forward_looking"
+LENS_RESULTS_ONLY = "results_only"
+
+#: Why a lens dropped ROS, distinguished from "the file was missing".
+#: A reader must be able to tell a deliberate retrospective view from an
+#: engine that wanted forward-looking strength and could not get it.
+_LENS_DROPPED_ROS = "team_ros_strength (lens: results_only)"
+
+
+def build_section(
+    snapshot: PublicLeagueSnapshot,
+    *,
+    lens: str = LENS_FORWARD_LOOKING,
+) -> dict[str, Any]:
+    """Build the ROS power section for the public contract.
+
+    Output mirrors the existing ``power.py::build_section`` shape so
+    the frontend can render it side-by-side with no schema fork:
+
+        {
+            "currentRanking": [...],
+            "weights": { ... },
+            "missingInputs": [...]
+        }
+
+    The historical week-by-week series is intentionally NOT computed
+    here in PR2 — the v1 power section already exposes that, and the
+    ROS-team-strength input only has a single "now" snapshot.  PR3
+    adds historical playoff-odds; the chart on the new tab will hook
+    into that data instead.
+    """
+    registry = snapshot.managers
+    seasons_sorted = sorted(snapshot.seasons, key=lambda s: luck._season_sort_key(s.season))
+    team_strength_rows = _load_team_strength_rows()
+    preseason = _is_preseason(snapshot)
+    if (
+        not seasons_sorted
+        and not team_strength_rows
+        and (snapshot.current_season is None or not (snapshot.current_season.rosters or []))
+    ):
+        return {
+            "currentRanking": [],
+            "lens": lens,
+            "weights": dict(WEIGHTS),
+            "missingInputs": ["snapshot empty"],
+            "rosTeamStrengthAvailable": False,
+        }
+
+    # Career totals across all seasons (matches power.py's accumulator
+    # semantics).  Recent buffer is per-season; the "recent form"
+    # metric is the trailing 3-game average within the current season.
+    career_state: dict[str, dict[str, float | int]] = defaultdict(
+        lambda: {"points": 0.0, "games": 0, "wins": 0.0, "losses": 0.0}
+    )
+    season_outcomes: dict[str, list[float]] = defaultdict(list)
+    last_season_recent: dict[str, list[float]] = defaultdict(list)
+    last_season_allplay_share: dict[str, float] = {}
+    expected_share_total: dict[str, float] = defaultdict(float)
+    #: ``(season, week, state-as-of-that-week)`` for the trend series.
+    week_states: list[tuple[str, int, dict[str, Any]]] = []
+
+    for season in seasons_sorted:
+        week_scores = luck._season_weekly_scores(season, registry)
+        if not week_scores:
+            continue
+        if season is seasons_sorted[-1]:
+            recent_buffer: dict[str, list[float]] = defaultdict(list)
+        for wk in sorted(week_scores.keys()):
+            scores = week_scores[wk]
+            actuals, _ = luck._actual_week_results(season, wk, registry)
+            all_play = luck._all_play_week(scores)
+            for oid, pts in scores:
+                s = career_state[oid]
+                s["points"] += pts
+                s["games"] += 1
+                actual_share = actuals.get(oid, 0.0)
+                s["wins"] += actual_share
+                s["losses"] += 1.0 - actual_share
+                season_outcomes[oid].append(actual_share)
+                if season is seasons_sorted[-1]:
+                    rb = recent_buffer[oid]
+                    rb.append(pts)
+                    if len(rb) > _RECENT_WINDOW:
+                        rb.pop(0)
+                    last_season_recent[oid] = list(rb)
+                # Capture the last week's all-play expected share so
+                # the all-play-record percentile reflects current
+                # standings rather than a season-wide average that
+                # would lag mid-season trades.
+                ap = all_play.get(oid) or {}
+                last_season_allplay_share[oid] = float(ap.get("expectedShare", 0.0))
+                # Running sum, accumulated HERE rather than re-walked per
+                # owner below.  The re-walk was O(owners x weeks) inside an
+                # owner loop, and the per-week trend would have made it
+                # O(weeks x owners x weeks) for a quantity that is a running
+                # total by construction.
+                expected_share_total[oid] += float(ap.get("expectedShare", 0.0))
+
+            # Snapshot the state AS OF this week, for the trend series.
+            # A copy, because the accumulators keep mutating: a reference
+            # here would make every week's entry show the final standings,
+            # which is a trend line that cannot go down.
+            week_states.append(
+                (
+                    season.season,
+                    wk,
+                    {
+                        "career": {o: dict(v) for o, v in career_state.items()},
+                        "recent": {o: list(v) for o, v in last_season_recent.items()},
+                        "allplay": dict(last_season_allplay_share),
+                        "expected": dict(expected_share_total),
+                        "outcomes": {o: list(v) for o, v in season_outcomes.items()},
+                    },
+                )
+            )
+
+    owner_ids = _enumerate_owner_ids(snapshot, team_strength_rows, sorted(career_state.keys()))
+    if not owner_ids:
+        return {
+            "currentRanking": [],
+            "lens": lens,
+            "weights": dict(WEIGHTS),
+            "missingInputs": ["no owners found"],
+            "rosTeamStrengthAvailable": False,
+        }
+
+    # The results-only lens does not consult team strength at all, rather
+    # than loading it and discarding it — so a reader cannot mistake the
+    # lens for a league whose team-strength file is missing, and so the
+    # schedule-adjusted component (which is derived FROM team strength)
+    # drops with it automatically rather than by a second rule.
+    results_only = lens == LENS_RESULTS_ONLY
+    ros_pct = {} if results_only else _load_team_strength_percentiles()
+    ros_available = bool(ros_pct)
+    schedule_by_owner = _schedule_adjusted_scores(snapshot, ros_pct)
+
+    final_state = {
+        "career": career_state,
+        "recent": last_season_recent,
+        "allplay": last_season_allplay_share,
+        "expected": expected_share_total,
+        "outcomes": season_outcomes,
+    }
+    rankings, missing_inputs, active_weights = _score_state(
+        owner_ids,
+        final_state,
+        snapshot=snapshot,
+        ros_pct=ros_pct,
+        schedule_by_owner=schedule_by_owner,
+        preseason=preseason,
+        results_only=results_only,
+    )
+
+    # ── The trend series ────────────────────────────────────────────
+    #
+    # RESULTS-ONLY at every week, INCLUDING the current one, and that is
+    # deliberate.  ``team_ros_strength`` is a single current snapshot —
+    # ``data/ros/team_strength/latest.json`` — never a per-week history,
+    # so there is no observation of it for any past week.  Back-filling
+    # today's value would be the as-of defect: a number that was not
+    # known then, presented as if it had been.
+    #
+    # Splicing it into only the LAST point would be worse than either
+    # extreme: the line would jump at the final week for a reason that
+    # has nothing to do with how the team played, and no reader could
+    # tell that from a real move.  So the trend is one internally
+    # consistent quantity, and it is NAMED as a different one from the
+    # headline ranking rather than left to be discovered.
+    trend_weeks: list[dict[str, Any]] = []
+    series_by_owner: dict[str, list[dict[str, Any]]] = defaultdict(list)
+    for season_label, wk, wk_state in week_states:
+        wk_rankings, _wk_missing, _wk_weights = _score_state(
+            owner_ids,
+            wk_state,
+            snapshot=snapshot,
+            ros_pct={},
+            schedule_by_owner={},
+            preseason=False,
+            results_only=True,
+        )
+        trend_weeks.append({"season": season_label, "week": wk, "rankings": wk_rankings})
+        for row in wk_rankings:
+            series_by_owner[row["ownerId"]].append(
+                {
+                    "season": season_label,
+                    "week": wk,
+                    "powerScore": row["powerScore"],
+                    "rank": row["rank"],
+                }
+            )
+
     return {
         "currentRanking": rankings,
         "lens": lens,
+        "trend": {
+            "lens": LENS_RESULTS_ONLY,
+            "weeks": trend_weeks,
+            "seriesByOwner": {k: v for k, v in series_by_owner.items()},
+            "note": (
+                "Results only. Forward-looking roster strength is a current "
+                "snapshot with no per-week history, so it is excluded from "
+                "every point rather than back-filled into past weeks or "
+                "spliced into the last one. The headline ranking includes it "
+                "and will differ."
+            ),
+        },
         "weights": dict(WEIGHTS),
         "effectiveWeights": dict(active_weights),
         "missingInputs": sorted(missing_inputs),

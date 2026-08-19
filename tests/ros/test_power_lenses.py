@@ -159,3 +159,156 @@ def test_every_payload_stamps_which_lens_produced_it(lens):
 
     out = power_v2.build_section(_empty_snapshot(), lens=lens)
     assert out["lens"] == lens
+
+
+# ── The trend series ─────────────────────────────────────────────────
+
+
+def _asymmetric_snapshot(through_week: int | None = None):
+    """A league whose weeks actually differ, so a trend can move.
+
+    ``through_week`` truncates the season, so a test can ask what the
+    engine would have said at that point in time."""
+    from src.public_league.identity import Manager, ManagerRegistry
+    from src.public_league.snapshot import PublicLeagueSnapshot, SeasonSnapshot
+
+    rosters = [{"roster_id": i, "owner_id": f"o{i}"} for i in (1, 2, 3, 4)]
+    matchups = {
+        1: [
+            {"roster_id": 1, "matchup_id": 1, "points": 90.0},
+            {"roster_id": 2, "matchup_id": 1, "points": 88.0},
+            {"roster_id": 3, "matchup_id": 2, "points": 140.0},
+            {"roster_id": 4, "matchup_id": 2, "points": 150.0},
+        ],
+        2: [
+            {"roster_id": 1, "matchup_id": 1, "points": 85.0},
+            {"roster_id": 3, "matchup_id": 1, "points": 130.0},
+            {"roster_id": 2, "matchup_id": 2, "points": 70.0},
+            {"roster_id": 4, "matchup_id": 2, "points": 60.0},
+        ],
+        3: [
+            {"roster_id": 1, "matchup_id": 1, "points": 100.0},
+            {"roster_id": 4, "matchup_id": 1, "points": 95.0},
+            {"roster_id": 2, "matchup_id": 2, "points": 115.0},
+            {"roster_id": 3, "matchup_id": 2, "points": 112.0},
+        ],
+    }
+    if through_week is not None:
+        matchups = {w: v for w, v in matchups.items() if w <= through_week}
+    registry = ManagerRegistry()
+    for r in rosters:
+        oid = str(r["owner_id"])
+        registry.by_owner_id[oid] = Manager(owner_id=oid, display_name=oid)
+        registry.roster_to_owner[("L2026", int(r["roster_id"]))] = oid
+    season = SeasonSnapshot(
+        season="2026",
+        league_id="L2026",
+        league={
+            "league_id": "L2026",
+            "season": "2026",
+            "season_type": "regular",
+            "settings": {"playoff_week_start": 15},
+            "total_rosters": 4,
+        },
+        users=[],
+        rosters=rosters,
+        matchups_by_week=matchups,
+        transactions_by_week={},
+        drafts=[],
+        draft_picks_by_draft={},
+        traded_picks=[],
+        winners_bracket=[],
+        losers_bracket=[],
+    )
+    return PublicLeagueSnapshot(
+        root_league_id="L2026",
+        generated_at="2026-04-30T00:00:00Z",
+        seasons=[season],
+        managers=registry,
+    )
+
+
+def test_each_trend_week_reflects_the_state_AS_OF_that_week(monkeypatch):
+    """THE BUG THIS AVOIDS, and it would have been invisible.
+
+    The accumulators keep mutating as the walk proceeds, so storing a
+    REFERENCE per week rather than a copy makes every week's entry show
+    the final standings — a trend line that is flat by construction and
+    cannot go down. Here week 1 and week 3 must differ, and at least one
+    manager's rank must change across the series.
+    """
+    monkeypatch.setattr(power_v2, "_load_team_strength_percentiles", lambda: {})
+    out = power_v2.build_section(_asymmetric_snapshot())
+    weeks = out["trend"]["weeks"]
+
+    assert [w["week"] for w in weeks] == [1, 2, 3]
+
+    # THE property, stated exactly: the trend's week-N point is what the
+    # engine would have said if the season had ended at week N. A weaker
+    # "the weeks differ from each other" check passes even when SOME of
+    # the five accumulators are shared by reference, because the others
+    # still vary — measured, and it is why this is written this way.
+    for n in (1, 2, 3):
+        as_of = power_v2.build_section(_asymmetric_snapshot(through_week=n))
+        expected = {r["ownerId"]: r["powerScore"] for r in as_of["currentRanking"]}
+        got = {r["ownerId"]: r["powerScore"] for r in weeks[n - 1]["rankings"]}
+        assert got == expected, f"week {n} of the trend is not the week-{n} state"
+
+    first = {r["ownerId"]: r["rank"] for r in weeks[0]["rankings"]}
+    last = {r["ownerId"]: r["rank"] for r in weeks[-1]["rankings"]}
+    assert any(first[o] != last[o] for o in first), "no rank moved — the trend is not a trend"
+
+
+def test_the_trend_is_results_only_at_every_point_including_the_last(monkeypatch):
+    """Forward-looking strength is a CURRENT snapshot with no per-week
+    history, so no past week has an observation of it. Back-filling
+    today's value is the as-of defect; splicing it into only the final
+    point is worse, because the line would jump for a reason unrelated to
+    play and no reader could tell that from a real move."""
+    monkeypatch.setattr(power_v2, "_load_team_strength_percentiles", lambda: {"o1": 0.99})
+    out = power_v2.build_section(_asymmetric_snapshot())
+
+    assert out["lens"] == power_v2.LENS_FORWARD_LOOKING
+    assert out["trend"]["lens"] == power_v2.LENS_RESULTS_ONLY
+    for week in out["trend"]["weeks"]:
+        for row in week["rankings"]:
+            assert "team_ros_strength" not in row["weightsApplied"]
+            assert row["rosStrengthPercentile"] is None
+
+
+def test_the_trend_says_it_differs_from_the_headline(monkeypatch):
+    """Named, not left to be discovered. With forward-looking strength
+    available the headline and the final trend point are different
+    quantities, and a reader comparing them needs to be told."""
+    monkeypatch.setattr(
+        power_v2,
+        "_load_team_strength_percentiles",
+        lambda: {"o1": 0.99, "o2": 0.5, "o3": 0.1, "o4": 0.2},
+    )
+    out = power_v2.build_section(_asymmetric_snapshot())
+
+    headline = {r["ownerId"]: r["powerScore"] for r in out["currentRanking"]}
+    final_point = {r["ownerId"]: r["powerScore"] for r in out["trend"]["weeks"][-1]["rankings"]}
+    assert headline != final_point, "fixture failed to make the lenses differ"
+    assert "Results only" in out["trend"]["note"]
+    assert "will differ" in out["trend"]["note"]
+
+
+def test_the_series_and_the_weeks_are_the_same_numbers(monkeypatch):
+    """``seriesByOwner`` is a re-shape for charting, not a second
+    computation — the defect this whole unit exists to close, one layer
+    down."""
+    monkeypatch.setattr(power_v2, "_load_team_strength_percentiles", lambda: {})
+    out = power_v2.build_section(_asymmetric_snapshot())
+
+    from_weeks = {
+        (w["week"], r["ownerId"]): r["powerScore"]
+        for w in out["trend"]["weeks"]
+        for r in w["rankings"]
+    }
+    from_series = {
+        (p["week"], oid): p["powerScore"]
+        for oid, points in out["trend"]["seriesByOwner"].items()
+        for p in points
+    }
+    assert from_weeks == from_series
