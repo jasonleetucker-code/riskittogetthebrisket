@@ -24,6 +24,7 @@ from pathlib import Path
 from typing import Any, Iterable
 
 from src.ros import ROS_DATA_DIR
+from src.ros.aggregate import _evidence_basis as _agg_evidence_basis
 from src.ros.lineup import RosterPlayer, optimize_lineup
 from src.utils.name_clean import resolve_canonical_name
 
@@ -34,6 +35,20 @@ WEIGHT_STARTING = 0.72
 WEIGHT_DEPTH = 0.18
 WEIGHT_COVERAGE = 0.05
 WEIGHT_HEALTH = 0.05
+
+
+def _team_evidence_basis(proxy_value_share: float | None) -> str:
+    """Classify a TEAM by how much of its priced value is a dynasty proxy.
+
+    Reuses the per-row vocabulary from ``aggregate`` so a reader does not
+    have to learn two, and adds one state that only exists here:
+    ``unpriced``, for a roster with nothing priced at all.  That is not
+    ``rest_of_season`` — it is the absence of any evidence, and calling
+    it the clean state would be exactly the coercion this unit removes.
+    """
+    if proxy_value_share is None:
+        return "unpriced"
+    return _agg_evidence_basis(proxy_value_share)
 
 
 def compute_team_strength(
@@ -105,6 +120,9 @@ def compute_team_strength(
     for team in teams:
         roster_players = team.get("players") or []
         roster: list[RosterPlayer] = []
+        # Value-weighted dynasty-proxy exposure for this roster.
+        priced_value = 0.0
+        proxy_value = 0.0
         unmapped: list[str] = []
         for p in roster_players:
             name = p.get("canonicalName") or p.get("displayName") or p.get("name") or ""
@@ -157,18 +175,38 @@ def compute_team_strength(
                     )
                 )
                 continue
+            # V1-53 / C5-ROS-01.  Carry how much of this player's
+            # rest-of-season value rests on a DYNASTY board standing in
+            # for rest-of-season evidence.  Weighted by VALUE below, not
+            # headcount: a dynasty-priced QB1 and a dynasty-priced 30th
+            # man are not the same exposure.
+            _ros_value = float(agg.get("rosValue") or 0.0)
+            _proxy_share = agg.get("dynastyProxyWeightShare")
+            if _proxy_share is not None:
+                priced_value += _ros_value
+                proxy_value += _ros_value * float(_proxy_share)
             roster.append(
                 RosterPlayer(
                     player_id=str(p.get("playerId") or name),
                     canonical_name=name,
                     position=position or (agg.get("position") or "").upper(),
-                    ros_value=float(agg.get("rosValue") or 0.0),
+                    ros_value=_ros_value,
                     confidence=float(agg.get("confidence") or 0.0),
                     injured=bool(p.get("injured")),
                     bye=bool(p.get("bye")),
                     fantasy_positions=fantasy_positions,
                 )
             )
+
+        # Share of the roster's PRICED value that rests on dynasty
+        # proxies.  ``None`` — never 0.0 — when nothing was priced:
+        # "measured, and none of it is dynasty" and "we could not
+        # measure" are different claims, and 0.0 already means the
+        # first.  Unpriced players are in neither numerator nor
+        # denominator; they are reported by ``unmappedPlayerCount``, and
+        # inventing a basis for a player we could not price would be the
+        # original defect under a new name.
+        proxy_value_share = (proxy_value / priced_value) if priced_value > 0 else None
 
         solution = optimize_lineup(roster, starter_slots=starter_slots)
         composite = (
@@ -187,6 +225,12 @@ def compute_team_strength(
                 "benchDepthScore": solution.bench_depth_score,
                 "positionalCoverageScore": solution.positional_coverage_score,
                 "healthAvailabilityScore": solution.health_availability_score,
+                # What this team's rest-of-season number rests on.  It is
+                # a statement ABOUT the composite, and moves none of it.
+                "dynastyProxyValueShare": (
+                    None if proxy_value_share is None else round(proxy_value_share, 4)
+                ),
+                "evidenceBasis": _team_evidence_basis(proxy_value_share),
                 "startingLineup": solution.starting_lineup,
                 "benchDepth": solution.bench_depth,
                 # FULL roster, for consumers that must not read a
