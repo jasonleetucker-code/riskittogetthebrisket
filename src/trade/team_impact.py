@@ -27,6 +27,7 @@ from typing import Any, Sequence
 from src.ros.lineup import (
     RosterPlayer,
     assign_lineup,
+    configured_slot_eligibility,
     resolve_starter_slots,
     slot_demand,
     slot_eligible_positions,
@@ -187,7 +188,15 @@ def project_starters(
         )
 
     starters: dict[str, list[dict[str, Any]]] = {p: [] for p in accepted}
-    assignment = assign_lineup(pool, slots)
+    # The league's CONFIGURED flex rule, from the one resolver.  Without it
+    # this module seats a lineup under the DECLARED defaults while the
+    # capacity/cut path (``src/trade/roster_capacity.py``) uses the
+    # configured rule — two Trade modules disagreeing about one roster the
+    # moment a league narrows a flex.  Same defect class as the one #922
+    # repaired at the cut ladder.
+    assignment = assign_lineup(
+        pool, slots, slot_eligibility=configured_slot_eligibility(roster_settings)
+    )
     # Slot order, so the buckets read the way the league's lineup card
     # does rather than in augmenting-path order.
     for slot_idx in sorted(assignment.assignments):
@@ -379,9 +388,10 @@ def _needed_at(pos: str, roster_settings: dict[str, Any]) -> float:
     Retired the local ``_flex_share`` — one of four independent
     re-derivations of the same even-split rule in the tree.
     """
-    return slot_demand(resolve_starter_slots(roster_settings=roster_settings)[0]).even_split.get(
-        pos.upper(), 0.0
-    )
+    return slot_demand(
+        resolve_starter_slots(roster_settings=roster_settings)[0],
+        eligibility_overrides=configured_slot_eligibility(roster_settings),
+    ).even_split.get(pos.upper(), 0.0)
 
 
 def _avg(values: list[int]) -> float:
