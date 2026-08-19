@@ -30,12 +30,14 @@ Consumed, never rebuilt
 ───────────────────────
 Every primitive here already existed, built for Perfect Draft:
 
-* ``src/draft/displacement.py`` — ``build_cut_ladder``, ``effective_cut_cost``,
-  ``waiver_values_by_position``, ``RosterAsset``.  The cut ladder is
+* ``src/roster_intel/droppability.py`` — ``pool_cut_ladder``, the canonical
+  consumer interface onto ``src/draft/displacement.py``'s ``build_cut_ladder``
+  (C2-DROP-01).  Also ``effective_cut_cost``, ``waiver_values_by_position``
+  and ``RosterAsset`` from that owner directly.  The cut ladder is
   lineup-validated by the exact solver: a player is only droppable if releasing
   him does not reduce how many starting slots the roster can fill.
 * ``src/draft/context.py`` — ``build_roster_assets`` (the roster ↔ board join),
-  ``_index_contract_rows``.
+  ``index_contract_rows``.
 * ``src/ros/lineup.py`` — ``load_league_starter_slots``.  No slot table lives
   here; that owner is canonical (C2-U1).
 
@@ -100,12 +102,13 @@ from dataclasses import dataclass, field
 from collections import Counter
 from typing import Any, Iterable, Mapping, Sequence
 
-from src.draft.context import _index_contract_rows, _league_scarcity, _norm, build_roster_assets
+from src.draft.context import _league_scarcity, _norm, build_roster_assets, index_contract_rows
 from src.draft.displacement import (
     RosterAsset,
-    build_cut_ladder,
     waiver_values_by_position,
 )
+from src.roster_intel import pool_cut_ladder
+from src.ros.lineup import RosterPlayer
 
 __all__ = [
     "CapacityContext",
@@ -452,7 +455,7 @@ def build_capacity_context(
     team = team if isinstance(team, Mapping) else {}
     names = tuple(str(n) for n in (team.get("players") or []) if str(n or "").strip())
 
-    by_id, by_name = _index_contract_rows(contract)
+    by_id, by_name = index_contract_rows(contract)
     assets: list[RosterAsset] = []
     unmatched: list[str] = []
     if team:
@@ -741,11 +744,37 @@ def assess_roster_capacity(
     # approximation: rung k is identical whether the ladder stops at k or at
     # 30, because ECC is a property of the player and the greedy admits
     # cheapest-first.
-    ladder = build_cut_ladder(
-        surviving,
+    #
+    # The ladder itself comes from ``roster_intel.droppability.pool_cut_ladder``
+    # — the adapter #914 §14 names for exactly this call — rather than from
+    # ``draft.displacement.build_cut_ladder`` directly.  Two routes to one
+    # owner is how a third variant starts, and #914 ships a structural guard
+    # (``test_the_cut_ladder_owner_has_exactly_two_callers``) that fails while
+    # this lane keeps its own.
+    #
+    # The adapter takes ``RosterPlayer``, where canonical value lives in
+    # ``ros_value``; it re-splits that into ``RosterAsset.board_value`` (the
+    # COST scale) and a constant feasibility objective.  That round-trip is
+    # exact rather than approximately exact: ``solve_optimal_assignment`` is a
+    # matroid greedy returning a MAXIMUM-CARDINALITY matching whatever the
+    # weights are, and the lineup guard reads only ``len(assignment)`` — so the
+    # objective this lane used to pass could never have changed a rung.
+    ladder = pool_cut_ladder(
+        [
+            RosterPlayer(
+                player_id=a.player_id,
+                canonical_name=a.name,
+                position=a.position,
+                ros_value=a.board_value,
+                injured=a.injured,
+                bye=a.bye,
+                fantasy_positions=a.fantasy_positions,
+            )
+            for a in surviving
+        ],
         list(context.starter_slots),
         context.waiver_values,
-        context.scarcity,
+        scarcity=context.scarcity,
         max_rungs=over_after_max,
     )
     notes.extend(ladder.notes)
