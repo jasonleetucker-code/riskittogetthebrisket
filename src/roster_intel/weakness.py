@@ -68,7 +68,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any, Iterable, Mapping, Sequence
 
-from src.league_intel.replacement import normalize_base_position
+from src.ros.lineup import lineup_position
 from src.roster_intel.core import CoreMember, MeaningfulCore
 
 __all__ = [
@@ -148,7 +148,7 @@ def build_position_ranks(
     for pid, pos, value in players:
         if value is None:
             continue
-        by_pos.setdefault(normalize_base_position(pos), []).append((str(pid), float(value)))
+        by_pos.setdefault(lineup_position(pos), []).append((str(pid), float(value)))
     ranks: dict[str, int] = {}
     total = 0
     for entries in by_pos.values():

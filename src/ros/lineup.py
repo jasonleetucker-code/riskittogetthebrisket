@@ -127,12 +127,18 @@ _IDP_FAMILIES = {
 # Widened past ``_IDP_FAMILIES`` on purpose.  Those sets answer "is this
 # position legal in that slot" and are Sleeper-faithful; this answers
 # "which slot family is this player", and must also absorb the roster
-# spellings the scrapers emit (NT, OLB/ILB, FS/SS).  The two are
+# spellings the scrapers emit (NT, OLB/ILB/MLB, FS/SS).
+#
+# ``MLB`` was missing until 2026-08-19 and that was a real eligibility
+# defect, not a naming one: an MLB-listed player resolved to a family
+# called "MLB", which matches no slot, so a genuine linebacker could not
+# fill LB or IDP_FLEX at all.  Zero of 660 rostered players carry the
+# spelling today, which is why nothing caught it.  The two are
 # reconciled in :func:`lineup_position`, which is the single definition.
 _LINEUP_FAMILY: dict[str, str] = {}
 for _fam, _members in (
     ("DL", ("DL", "DE", "DT", "EDGE", "NT")),
-    ("LB", ("LB", "OLB", "ILB")),
+    ("LB", ("LB", "OLB", "ILB", "MLB")),
     ("DB", ("DB", "CB", "S", "FS", "SS")),
     ("K", ("K", "PK", "P")),
 ):
@@ -652,7 +658,32 @@ def load_league_starter_slots(league_key: str | None = None) -> list[str]:
 
 
 def _eligible_for_slot(slot: str, position: str) -> bool:
-    return (position or "").strip().upper() in slot_eligible_positions(slot)
+    """Is a player of this position legal in this slot?
+
+    Decided on the raw token OR its resolved FAMILY, because those are
+    two spellings of one fact and the tables that hold them are not the
+    same size.  ``_SLOT_ELIGIBLE`` is Sleeper-faithful (``LB`` means
+    ``LB``); ``_LINEUP_FAMILY`` is deliberately wider, absorbing the
+    spellings the scrapers actually emit (``NT``, ``OLB``/``ILB``/``MLB``,
+    ``FS``/``SS``).
+
+    Testing only the raw token left every one of those six spellings
+    eligible for **nothing** — they resolved to a correct family and then
+    matched no slot, so a genuine linebacker listed as ``MLB`` could not
+    start at LB, at IDP_FLEX, or anywhere else.  Measured 2026-08-19:
+    ``NT``, ``OLB``, ``ILB``, ``MLB``, ``FS`` and ``SS`` all False for
+    DL/LB/DB/IDP_FLEX alike.  Zero of 660 rostered players carry one
+    today, which is why nothing caught it.
+
+    Strictly a widening: an ``or`` cannot make an eligible player
+    ineligible, so no lineup that solved before can change except by
+    gaining a candidate that was always legal.
+    """
+    token = (position or "").strip().upper()
+    if not token:
+        return False
+    eligible = slot_eligible_positions(slot)
+    return token in eligible or lineup_position(token) in eligible
 
 
 def _player_eligible_for_slot(slot: str, player: RosterPlayer) -> bool:
