@@ -105,8 +105,25 @@ class TestOutgoingOnlyAsymmetry:
         assert report.outgoing_constrained is True
 
     def test_a_protected_player_is_STILL_a_valid_acquisition_target(self):
-        """§2.2: "MIN players may still appear as INCOMING acquisition targets"."""
-        policy = outgoing_eligibility(OURS, MIN_PROTECTED)
+        """§2.2: "MIN players may still appear as INCOMING acquisition targets".
+
+        The policy here is built over BOTH pools on purpose, and that detail is
+        the whole test. A policy built over our roster alone cannot express the
+        bug: it contains no key for the opponent's Viking, so applying it to
+        their side would remove nothing and this guard would pass whatever the
+        substrate did — GREEN because it was blind, not because the property
+        held. (The mutation harness caught exactly that in the first draft of
+        this file.)
+
+        Built over the union, it is the shape a careless caller would produce,
+        and only the substrate's send/receive split keeps Jordan Addison
+        available.
+        """
+        policy = outgoing_eligibility([*OURS, *THEIRS], MIN_PROTECTED)
+        assert any("addison" in k for k in policy.excluded_keys), (
+            "the fixture policy does not name the opponent's protected player, "
+            "so this test cannot see the bug it exists for"
+        )
         packages, report = _packages(OURS, THEIRS, policy)
 
         received = {name for pkg in packages for name in _names(pkg.receive)}
@@ -116,30 +133,17 @@ class TestOutgoingOnlyAsymmetry:
         )
         assert report.their_excluded_ineligible == 0
 
-    def test_MUTATION_applying_the_policy_to_their_side_breaks_the_second(self, monkeypatch):
-        """Proof the acquisition assertion above is load-bearing.
+    def test_the_owner_scopes_its_policy_to_the_pool_it_was_given(self):
+        """A second, independent line of defence, stated so it is not lost.
 
-        Make the substrate apply the outgoing policy to BOTH pools — the exact
-        bug the side split exists to prevent — and the acquisition target
-        disappears. If this mutation left the assertion green, the assertion
-        would be measuring nothing.
+        `outgoing_eligibility` computes the excluded set against the pool it is
+        handed, so a policy built for our roster carries no key that could match
+        an opponent's asset even if it were misapplied. That is real protection
+        and it is NOT what the test above measures — relying on it would leave
+        the substrate free to drop the side split.
         """
-        import src.packages.construction as construction
-
-        real_eligible = construction._eligible
-
-        def both_sides(assets, policy, report, *, ours, outgoing=None):
-            return real_eligible(assets, policy, report, ours=ours, outgoing=_MUTATED_POLICY[0])
-
-        _MUTATED_POLICY = [outgoing_eligibility([*OURS, *THEIRS], MIN_PROTECTED)]
-        monkeypatch.setattr(construction, "_eligible", both_sides)
-
-        packages, _report = _packages(OURS, THEIRS, _MUTATED_POLICY[0])
-        received = {name for pkg in packages for name in _names(pkg.receive)}
-        assert "Jordan Addison" not in received, (
-            "the mutation did not change the receive side, so the "
-            "acquisition-still-valid guard cannot fail and is not a guard"
-        )
+        ours_only = outgoing_eligibility(OURS, MIN_PROTECTED)
+        assert not any("addison" in k for k in ours_only.excluded_keys)
 
     def test_picks_are_not_swept_up_by_a_team_rule_during_generation(self):
         """A pick has no NFL team; treating that as unknown would block every
