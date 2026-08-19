@@ -187,6 +187,18 @@ def _aggregate_window(
         asset_id = str(row.get("canonicalAssetId") or "")
         if not asset_id:
             continue
+        action = row.get("action")
+        if action not in ("add", "drop"):
+            # A row we cannot count must not MINT a row either.  The
+            # ``setdefault`` used to run before this check, so an asset whose
+            # only movements in the window carried an uncountable action was
+            # emitted with zero buys, zero sells, zero movements — and
+            # ``managerQuality: 1.0`` from the ``qualityObservations == 0``
+            # branch below, which feeds ``signal_strength``.  Unreachable
+            # today because ``intel/ledger.py`` filters actions at ingest, so
+            # this changes no live value; it makes the guarantee structural
+            # instead of borrowed from a filter two modules away.
+            continue
         entry = grouped.setdefault(
             asset_id,
             {
@@ -212,13 +224,10 @@ def _aggregate_window(
                 "byLeague": {},
             },
         )
-        action = row.get("action")
         if action == "add":
             entry["buys"] += 1
-        elif action == "drop":
-            entry["sells"] += 1
         else:
-            continue
+            entry["sells"] += 1
         canonical_manager = str(row.get("canonicalManagerKey") or row.get("managerKey"))
         entry["managerKeys"].add(canonical_manager)
         entry["leagueKeys"].add(str(row.get("leagueKey")))

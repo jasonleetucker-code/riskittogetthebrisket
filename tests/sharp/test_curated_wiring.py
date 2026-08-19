@@ -10,6 +10,7 @@ connections themselves.
 
 from __future__ import annotations
 
+import json
 from types import SimpleNamespace
 
 import pytest
@@ -169,3 +170,101 @@ def test_an_unbuilt_curated_store_degrades_instead_of_breaking_the_board(monkeyp
 
     monkeypatch.setattr(market.curated_model, "curated_cohort_members", explode)
     assert market.curated_industry_members("industry") == []
+
+
+def test_a_zero_voter_asset_reaches_the_api_as_unknown_not_perfect(monkeypatch):
+    """The repaired state must survive the whole path, not just the producer.
+
+    ``/api/sharp/market`` embeds the person view verbatim, so a producer
+    fix that a caller then coerced would publish the same false green. This
+    asserts the served row, and that the field serializes as JSON ``null``
+    rather than being dropped -- an absent key and a present ``1.0`` are
+    both readable as "no problem here", which is the failure mode.
+    """
+    movements = [
+        {
+            "canonicalAssetId": "player:1",
+            "displayName": "Churned Player",
+            "assetType": "player",
+            "managerKey": "sleeper:1",
+            "canonicalManagerKey": "person:a",
+            "action": action,
+            "leagueKey": f"sleeper:L{index}",
+            "transactionKey": f"tx{index}",
+            "movementKey": f"mv{index}",
+            "platform": "sleeper",
+            "timestampMs": 1_000 + index,
+        }
+        for index, action in enumerate(("add", "drop"))
+    ]
+    monkeypatch.setattr(
+        market.platform_ledger, "query_movements", lambda **_kwargs: list(movements)
+    )
+    monkeypatch.setattr(
+        market,
+        "cohort_members",
+        lambda **_kwargs: (
+            [
+                market.CohortMember(
+                    manager_key="sleeper:1",
+                    platform="sleeper",
+                    qualification_method="curated_industry",
+                    quality=0.9,
+                    person_id="person:a",
+                    network="Network A",
+                )
+            ],
+            {},
+        ),
+    )
+
+    payload = market.market_payload(window="30d", now_ms=10_000)
+    row = next(item for item in payload["assets"] if item["assetId"] == "player:1")
+
+    # The movement record is real and stays visible.
+    assert row["movementCount"] == 2
+    person = row["personConsensus"]
+    assert person["personVotes"] == 0
+    assert person["mixedPersonSignals"] == 1
+    # The three quantities that do not exist without a voter.
+    assert person["personManagerQuality"] is None
+    assert person["personAgreement"] is None
+    assert person["networkConcentration"] is None
+
+    encoded = json.loads(json.dumps(person))
+    assert "personManagerQuality" in encoded
+    assert encoded["personManagerQuality"] is None
+
+
+def test_an_uncountable_action_does_not_mint_a_phantom_asset_row(monkeypatch):
+    """A movement we cannot count must not create a row either.
+
+    ``_aggregate_window`` used to ``setdefault`` the asset entry BEFORE
+    checking the action, so an asset whose only movements in the window
+    carried an action that is neither ``add`` nor ``drop`` was emitted with
+    zero buys, zero sells and zero movements — and ``managerQuality: 1.0``
+    out of the ``qualityObservations == 0`` branch, which is an input to
+    ``signal_strength``. Same false-green shape as the zero-voter
+    ``personManagerQuality``, in a field that drives a decision.
+
+    Unreachable in production today: ``src/intel/ledger.py`` refuses any
+    action outside add/drop at ingest, so this changes no live value. The
+    point is that the guarantee is now local instead of borrowed from a
+    filter two modules away.
+    """
+    movements = [
+        {
+            "canonicalAssetId": "player:9",
+            "displayName": "Uncountable",
+            "assetType": "player",
+            "managerKey": "sleeper:1",
+            "canonicalManagerKey": "person:a",
+            "action": "trade_pending",
+            "leagueKey": "sleeper:L1",
+            "transactionKey": "tx0",
+            "movementKey": "mv0",
+            "platform": "sleeper",
+            "timestampMs": 1_000,
+        }
+    ]
+    assert market._aggregate_window(movements, {"sleeper:1": 0.9}) == {}
