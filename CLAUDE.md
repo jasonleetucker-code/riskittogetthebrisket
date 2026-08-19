@@ -1111,10 +1111,23 @@ Rules for new code:
   rows** the previous gate admitted, clearing at a median 0.20% of
   budget against 1.00% for single-copy leagues.  A league whose whole
   FAAB budget is a dollar is excluded too (7 rows, every one 0.00%).
-  Similarity TIERS (A/B/C, from ``is2TE`` and the raw 0-3 ``tep``
-  level the old gate flattened to a bool) are **reported and weight
-  nothing** — the owner spec makes tier weights evidence-gated and no
-  outcome data exists to fit them.
+  Similarity TIERS (A/B/C) are **reported and weight nothing** — the
+  owner spec makes tier weights evidence-gated and no outcome data
+  exists to fit them.  **The 0-3 ``tep`` severity axis is DORMANT, not
+  merely unweighted** (corrected 2026-08-19; this paragraph previously
+  read as though the level participated).  ``TargetFormat`` carries
+  ``tep_level``, but ``from_roster_settings`` sets it to ``None`` as a
+  literal and ``from_registry`` delegates there, so the
+  ``tep_severity_gap`` branch — guarded on ``target.tep_level is not
+  None`` — can never fire on any production path, and the shipped
+  ``crowdComparability.tepSeverityGap`` key decides nothing.  Measured:
+  a source at TE+ and one at TE+++ both classify tier A with no soft
+  reason.  The cause is that our registry records TEP through the
+  scoring-profile LABEL rather than a level; reading it from the actual
+  scoring card is the fix, and it is the same defect as the target's
+  ``tep`` boolean being set from ``"tep" in scoringProfile`` — a label
+  deciding a factual question, which W18-F001 forbids, on an axis that
+  hard-excludes.
 
   **The TARGET league's TEP is a FACT, read from its scoring card**
   (2026-08-19).  It used to be inferred from the ``scoringProfile``

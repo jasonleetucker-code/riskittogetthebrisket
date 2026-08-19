@@ -249,11 +249,37 @@ single fetch, so re-classifying means tightening the policy applies to rows
 already stored instead of requiring the ledger to be thrown away and rebuilt
 over months.
 
-**Legacy rows** persisted before the format evidence was captured carry no
-readable settings. They are retained and labelled `unverified` rather than
-discarded: they are real observations collected under the older, broader gate,
-and `CROWD_RETENTION_DAYS` (120) ages them out on its own. What they may not do
-is pass as verified.
+**Legacy rows — corrected 2026-08-19.** This section previously said legacy
+rows "are retained and labelled `unverified` rather than discarded". That is
+what the `unverified` branch is *for*, but **no row the previous fetcher wrote
+can reach it**, and the sentence made a hard exclusion read as a soft one.
+
+The old fetcher persisted `{leagueId, teams, superflex, tep, ppr, platform}`,
+and its own `comparable()` predicate dropped any row whose `superflex` or `tep`
+was `None`. So every stored legacy row *has* readable format evidence, passes
+the has-evidence check, reaches `classify()` — and is hard-excluded there on
+`budget_unknown` + `roster_exclusivity_unknown`, because it records neither
+`originalBudget` nor `rostersPerPlayer` and both are required, fail-closed.
+
+Measured by replaying the real legacy shape (50 rows):
+
+```
+state 'missing'  rows_total 50  rows_used 0  tierCounts {}
+excludedCounts {'budget_unknown': 50, 'roster_exclusivity_unknown': 50}
+evidence None    refusalReason 'no_crowd_ledger'
+```
+
+**Operational consequence, stated plainly because it is the opposite of what
+§7 used to promise.** With `CROWD_RETENTION_DAYS` at 120, the whole accumulated
+ledger goes unusable at once on deploy, and `/api/faab/recommend` reports
+`crowdMarket.state: "missing"` until the fetcher re-accumulates from its ~5-day
+rolling window. `merge_crowd_rows` is existing-wins, so legacy rows never
+self-heal; re-priming is a fetch, not a policy change.
+
+**The gate is correct and must not be relaxed to fix this.** Refusing evidence
+we cannot prove comparable is the entire purpose of the module, and a refusal
+is not a wrong number — it is the fail-closed direction. What was wrong was
+the description, and only that has been changed.
 
 ---
 
@@ -308,8 +334,10 @@ No UI consumes this yet; that is the UI lane's call.
    them needs Brisket's own realized clearing prices joined to contemporaneous
    crowd observations — `scripts/faab_backtest.py` is the natural home.
 3. **Dynasty is a source-level claim** (§8), not per-league verification.
-4. **Legacy rows stay `unverified`** until the 120-day retention window clears
-   them.
+4. **Legacy rows are hard-EXCLUDED on read, not softly labelled** (§7, corrected
+   2026-08-19) — they lack `originalBudget` and `rostersPerPlayer`, both
+   required. Expect `crowdMarket.state: "missing"` from deploy until the
+   fetcher re-accumulates; the ledger does not self-heal.
 5. **TEP severity is DORMANT, and stays dormant.** `TargetFormat.tep_level` is
    `None` *by construction*, so `tep_severity_gap` and its
    `ComparabilityPolicy.tep_severity_gap` threshold cannot fire in production.

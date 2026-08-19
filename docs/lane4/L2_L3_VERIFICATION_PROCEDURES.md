@@ -51,6 +51,11 @@ The unit is `dynasty-faab-history` (daily, 07:40 UTC, `RandomizedDelaySec=600`,
 `Persistent=true`), installed by `deploy/install-systemd-service.sh` via
 `install_simple_timer "faab-history"`.
 
+#920 moved this row to `IMPLEMENTED_UNVERIFIED`: the scheduler exists and was
+verified in the diff, and what L3 still needs is **the unit installed and
+firing on prod**. That is exactly the checklist below, and it is not claimable
+from a repository.
+
 **Do not confuse it with `dynasty-crowd-faab`.** That one collects what OTHER
 leagues pay; this one collects what THIS league pays, and it is what the market
 priors are fitted from. Verifying one says nothing about the other.
@@ -112,15 +117,30 @@ and a `settings` block. Rows older than that deploy legitimately carry neither.
 
 ### 129b — legacy rows are honestly excluded, not silently counted
 
-The ledger is accumulated, so pre-#911 rows persist. They must classify as
-`unverified` — retained and readable, never passing as verified.
+The ledger is accumulated, so pre-#911 rows persist — and they are **hard
+excluded**, not softly labelled. This is the corrected reading (`main`,
+2026-08-19): the old fetcher's own predicate dropped rows whose `superflex` or
+`tep` was `None`, so every stored legacy row *has* readable format evidence,
+reaches `classify()`, and is refused there on `budget_unknown` +
+`roster_exclusivity_unknown` — it records neither `originalBudget` nor
+`rostersPerPlayer`, and both are required, fail-closed. The `unverified` branch
+exists for a row with no readable settings at all, which no legacy row is.
 
-PASS: `crowdMarket.tierCounts` contains an `unverified` bucket whose size equals
-the pre-deploy row count, and those rows appear in **no** A/B/C tier.
+PASS: the legacy rows appear in `excludedCounts` under `budget_unknown` and
+`roster_exclusivity_unknown`, and in **no** A/B/C tier.
 
-FAIL, and this is the trap worth naming: `unverified` **absent** while
-`rowsUsed == rowsTotal`. That is legacy rows passing as verified, and it looks
-identical to a clean ledger.
+**Expect `crowdMarket.state: "missing"` from deploy, and do not read it as a
+regression.** With `CROWD_RETENTION_DAYS` at 120 the whole accumulated ledger
+goes unusable at once, and `merge_crowd_rows` is existing-wins so it never
+self-heals. Re-priming is a fetch (`dynasty-crowd-faab`), not a policy change,
+and it takes roughly the feed's ~5-day rolling window to rebuild. **The gate is
+correct and must not be relaxed to clear this** — a refusal is not a wrong
+number.
+
+FAIL, and this is the trap worth naming: legacy rows counted in an A/B/C tier,
+or `rowsUsed == rowsTotal` on a ledger that still holds pre-#911 rows. That is
+unprovable evidence passing as verified, and it looks identical to a clean
+ledger.
 
 ### 129c — an offense-only population refuses to price an IDP claim
 
@@ -225,11 +245,15 @@ RED before the fix that made them green:
 plus the consumer guard (no module coerces an undefined person quantity back to
 a number) and its meta-test (the scanner matches the shapes it exists to catch).
 
-**Open against this row, and not closed by the above:** the contract's status is
-`NOT STARTED` against `W15-F009`, "missing field". Nothing here adds a field —
-this repairs the semantics of the fields that exist. Whether `inv 4.6` is
-satisfied by the person-level block or requires a *manager*-level concentration
-figure is an owner/Integration reading, not mine to declare.
+**This row names the defect directly.** #920 moved V1-63 to
+`IMPLEMENTED_UNVERIFIED` with: *"Not VERIFIED: `personManagerQuality` still
+returns `1.0` for zero voters, the same defect two lines away."* That is the
+repair above, so the stated blocker to `VERIFIED` is discharged at this head.
+
+**Open, and not claimed closed:** whether `inv 4.6` is satisfied by the
+person-level block or additionally requires a *manager*-level concentration
+figure is an owner/Integration reading, not mine to declare. Nothing here adds
+a field — this repairs the semantics of fields that exist.
 
 ---
 

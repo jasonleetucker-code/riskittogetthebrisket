@@ -513,11 +513,31 @@ def build_crowd_market(
     rows already stored instead of requiring the ledger to be thrown away and
     rebuilt over months.
 
-    Rows persisted before the format evidence was captured carry no
-    ``comparability`` block and no readable settings.  They are RETAINED and
-    labelled ``unverified`` rather than discarded: they are real observations
-    collected under the older, broader gate, and ``CROWD_RETENTION_DAYS``
-    ages them out on its own.  What they may not do is pass as verified.
+    The ``unverified`` retention branch below is for a row with NO readable
+    settings at all.  **No row the previous fetcher wrote can reach it**, and
+    saying otherwise here was a real defect in this docstring (corrected
+    2026-08-19).  That fetcher persisted ``{leagueId, teams, superflex, tep,
+    ppr, platform}`` and its own ``comparable()`` predicate dropped anything
+    whose ``superflex`` or ``tep`` was ``None`` — so every stored legacy row
+    HAS readable format evidence, passes the has-evidence check, reaches
+    ``classify()``, and is hard-excluded there on ``budget_unknown`` +
+    ``roster_exclusivity_unknown``: it records neither ``originalBudget`` nor
+    ``rostersPerPlayer``, and both are required, fail-closed.
+
+    Measured on the real legacy shape (50 rows): ``state='missing'``,
+    ``rows_used=0``, ``excludedCounts={'budget_unknown': 50,
+    'roster_exclusivity_unknown': 50}``, ``refusalReason='no_crowd_ledger'``.
+
+    So the operational consequence is the opposite of "tightening applies to
+    rows already stored instead of rebuilding over months": with
+    ``CROWD_RETENTION_DAYS`` at 120, the whole accumulated ledger goes
+    unusable at once and ``crowdMarket`` reads ``missing`` until the fetcher
+    re-accumulates from its ~5-day rolling window.  **That is the correct
+    behaviour and must not be relaxed** — refusing evidence we cannot prove
+    comparable is the entire point, and a refusal is not a wrong number.  Only
+    the description was wrong.  ``merge_crowd_rows`` is existing-wins, so
+    legacy rows never self-heal; re-priming the ledger is a fetch, not a
+    policy change.
     """
     pol = policy or _comparability.ComparabilityPolicy()
     market = CrowdMarket(
