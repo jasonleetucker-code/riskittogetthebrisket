@@ -590,6 +590,46 @@ def slot_demand(
     )
 
 
+def configured_slot_eligibility(
+    roster_settings: Mapping[str, Any] | None,
+) -> dict[str, tuple[str, ...]]:
+    """A league's CONFIGURED flex eligibility, in THIS module's vocabulary.
+
+    Sleeper lets a league decide what its flex slots accept, and the
+    registry records that as ``flexEligible`` / ``sflexEligible`` /
+    ``idpFlexEligible``.  Every consumer that solves or measures a lineup
+    needs the same map, and until now each built its own: ``bdvm``'s keys
+    it ``"SFLEX"`` (`league_config.py`), ``trade/suggestions.py`` builds a
+    two-entry variant.  Neither is an owner of slot rules; this module is
+    (see the "one owner" note above), so the resolver belongs here.
+
+    Returns ONLY the slots the league actually configures.  An absent or
+    empty list means "not configured", and the DECLARED default applies —
+    which is different from an empty eligibility set, and the difference
+    matters: an empty set would make the slot unfillable rather than
+    ordinary.
+
+    Keys come back normalized (``SFLEX`` → ``SUPER_FLEX``) and positions
+    in canonical lineup-card order, so the result can be handed straight
+    to :func:`solve_optimal_assignment` or :func:`slot_demand`.
+    """
+    if not isinstance(roster_settings, Mapping):
+        return {}
+    out: dict[str, tuple[str, ...]] = {}
+    for key, slot in (
+        ("flexEligible", "FLEX"),
+        ("sflexEligible", "SUPER_FLEX"),
+        ("idpFlexEligible", "IDP_FLEX"),
+    ):
+        raw = roster_settings.get(key)
+        if not isinstance(raw, (list, tuple)):
+            continue
+        positions = ordered_positions(lineup_position(str(x)) for x in raw if str(x or "").strip())
+        if positions:
+            out[_normalize_slot_name(slot)] = positions
+    return out
+
+
 def load_league_starter_slots(league_key: str | None = None) -> list[str]:
     """Flat starter-slot list for a league, read from the registry.
 

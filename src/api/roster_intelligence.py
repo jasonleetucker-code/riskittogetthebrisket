@@ -66,7 +66,7 @@ import math
 import time
 from typing import Any, Mapping
 
-from src.api.data_contract import contract_roster_pools
+from src.api.data_contract import contract_roster_pools, contract_slot_eligibility
 from src.roster_intel.age_portfolio import (
     build_age_portfolio,
     build_youth_curve,
@@ -225,7 +225,15 @@ def build_league_roster_intelligence(
     # weakness threshold.
     n_teams = int(team_count) if team_count else len(pools)
 
-    cores = {oid: build_meaningful_core(pool, slots) for oid, pool in pools.items()}
+    # The league's CONFIGURED flex eligibility, not the declared
+    # defaults — the same map ``stamp_optimal_lineups`` solves with, so
+    # the endpoint and the contract's own lineup stamp cannot disagree
+    # about who is legal where.
+    eligibility = contract_slot_eligibility(contract) or None
+    cores = {
+        oid: build_meaningful_core(pool, slots, slot_eligibility=eligibility)
+        for oid, pool in pools.items()
+    }
     strengths = rank_team_strengths({oid: build_team_strength(core) for oid, core in cores.items()})
     weaknesses = {
         oid: build_team_weakness(core, ranks, team_count=n_teams) for oid, core in cores.items()

@@ -357,11 +357,7 @@ def _dedicated_demand(core: MeaningfulCore) -> dict[str, int]:
     Flex families are dropped here — see the module docstring for why
     FLEX gets no rung ladder.
     """
-    from src.roster_intel.core import _is_dedicated  # noqa: PLC0415
-
-    return {
-        pos: int(n) for pos, n in core.demand.starter_basis.items() if n > 0 and _is_dedicated(pos)
-    }
+    return {pos: int(n) for pos, n in core.demand.dedicated_basis.items() if n > 0}
 
 
 def _ordered_candidates(members: Sequence[CoreMember]) -> list[CoreMember]:
