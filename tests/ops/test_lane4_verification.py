@@ -608,3 +608,119 @@ class TestTheDocumentItselfNamesRealRoutes:
             n for n in missing if not any(r.startswith(n.rstrip("/") + "/") for r in registered)
         ]
         assert missing == [], f"procedures doc names unregistered routes: {missing}"
+
+
+# ── Adversarial review findings, pinned ────────────────────────────
+
+
+class TestFreshEvidenceIsNotTheSameAsAReadableCard:
+    """C4 could report PASS having observed no card at all.
+
+    `scoring_evidence_state` decides freshness from the snapshot's fetch
+    timestamp and season — it never reads `scoringSettings` — so a snapshot
+    written by a partial fetch is `fresh` while carrying no card. In that
+    state `_tep_from_scoring` correctly returns `None` (fail-closed, so the
+    product is fine), the served value then equalled the derived value
+    trivially (both `None`), and the check reported **pass** with the detail
+    "derived from the fresh card".
+
+    That is a false green in the check whose whole job is to prove TEP is
+    card-derived: Integration could have recorded the capability as observed
+    without a card ever existing.
+    """
+
+    @staticmethod
+    def _run(card, evidence="fresh"):
+        import types
+        from unittest import mock
+
+        from src.api import league_registry
+
+        report = _report()
+        cfg = types.SimpleNamespace(
+            key="dynasty_main", scoring_profile="superflex_tep15_ppr1", idp_enabled=True
+        )
+        with (
+            mock.patch.object(league_registry, "get_league_by_key", return_value=cfg),
+            mock.patch.object(league_registry, "scoring_evidence_state", return_value=evidence),
+            mock.patch.object(league_registry, "scoring_settings_for_league", return_value=card),
+            mock.patch.object(
+                league_registry,
+                "get_league_roster_settings",
+                return_value={"teamCount": 12, "starters": {"QB": 1, "TE": 2, "SFLEX": 1}},
+            ),
+        ):
+            verify.check_tep_is_card_derived(report, "dynasty_main")
+        report.finalize()
+        return report.checks[0]
+
+    @pytest.mark.parametrize("card", [{}, None])
+    def test_a_fresh_snapshot_with_no_card_is_blocked_not_passed(self, card):
+        check = self._run(card)
+        assert check.status == verify.BLOCKED
+        assert check.evidence["cardPresent"] is False
+        assert "no scoringSettings" in check.detail
+
+    def test_a_fresh_snapshot_with_a_real_card_still_passes(self):
+        """The converse, so the repair cannot pass by refusing everything."""
+        check = self._run({"rec": 1.0, "bonus_rec_te": 0.0, "bonus_fd_te": 1.0, "bonus_fd_wr": 1.0})
+        assert check.status == verify.PASS
+        assert check.evidence["cardPresent"] is True
+        assert check.evidence["servedTep"] is False
+
+    def test_c6_already_handled_this_and_still_does(self):
+        """C6 blocked on an absent card from the start. That asymmetry is why
+        C4's omission reads as an oversight rather than a decision, and this
+        keeps the two consistent."""
+        report = _report()
+        verify.check_dynasty_main_is_not_te_premium(report, {"card": None}, "dynasty_main")
+        assert report.checks[0].status == verify.BLOCKED
+
+
+class TestTheRequiredListsCannotBeSilentlyEmptied:
+    """Emptying `REQUIRED_ROUTES` disarmed the route guard with **zero** test
+    failures — the "a verifier test that itself matches nothing" case.
+
+    At runtime `Check.finalize` downgrades the resulting zero-denominator pass
+    to `unmeasurable`, so the verifier itself stays honest. What was missing is
+    that **CI would not tell anyone the guard had been disarmed**: a refactor,
+    a bad merge, or a well-meaning cleanup could empty the list and every test
+    would stay green. `REQUIRED_FIELDS` was already covered by two tests; this
+    closes the asymmetry.
+    """
+
+    def test_the_route_list_is_not_empty(self):
+        assert verify.REQUIRED_ROUTES, "the route guard has been disarmed"
+
+    def test_the_field_list_is_not_empty(self):
+        assert verify.REQUIRED_FIELDS, "the field guard has been disarmed"
+
+    @pytest.mark.parametrize(
+        "route",
+        [
+            ("/api/waiver/faab-recommend", "POST"),
+            ("/api/sharp/market", "GET"),
+            ("/api/sharp/roster-percentage", "GET"),
+            ("/api/sharp/cohort", "GET"),
+            ("/api/status", "GET"),
+        ],
+    )
+    def test_each_route_the_procedures_depend_on_is_still_guarded(self, route):
+        """Named individually, so dropping ONE — which an empty-list check
+        would not catch — fails here."""
+        assert route in verify.REQUIRED_ROUTES
+
+    @pytest.mark.parametrize(
+        "field",
+        [
+            ("roster-percentage", "transparency.cohortCoveragePct"),
+            ("crowd-market", "targetFormatUnknown"),
+            ("crowd-market", "pricesIdp"),
+            ("sharp-market", "coverage.platforms"),
+        ],
+    )
+    def test_each_field_a_correction_depends_on_is_still_guarded(self, field):
+        """These four are precisely the paths the six documented corrections
+        turned on. If one stops being guarded, the correction it protects can
+        silently rot back."""
+        assert field in verify.REQUIRED_FIELDS

@@ -854,6 +854,29 @@ def check_tep_is_card_derived(report: Report, league: str) -> dict[str, Any]:
             "produced to compare. C5 is the check that covers this state."
         )
         return ctx
+    if not isinstance(card, dict) or not card:
+        # FRESH EVIDENCE IS NOT THE SAME AS A READABLE CARD, and conflating
+        # them was a false green found in adversarial review.
+        # ``scoring_evidence_state`` decides freshness from the snapshot's
+        # fetch timestamp and season -- it never reads ``scoringSettings`` --
+        # so a snapshot written by a partial fetch is ``fresh`` while carrying
+        # no card at all.  In that state ``_tep_from_scoring`` correctly
+        # returns ``None`` (fail-closed, so the PRODUCT is fine), and the
+        # served value then equalled the derived value trivially: both
+        # ``None``.  This check reported PASS with the detail "derived from
+        # the fresh card" having observed no card.
+        #
+        # BLOCKED rather than FAIL because nothing is broken -- the evidence
+        # is absent.  C6 already handled this case; C4 did not, which is what
+        # marks it an oversight rather than a decision.
+        check.status = BLOCKED
+        check.detail = (
+            f"scoring evidence is {evidence_state!r} but the snapshot carries no "
+            "scoringSettings, so there is no card to derive from and nothing to "
+            "compare against. Refetch with scripts/fetch_league_scoring.py; do not "
+            "read this as the rule being verified."
+        )
+        return ctx
     if target.tep != card_says_tep:
         check.status = FAIL
         check.detail = (
