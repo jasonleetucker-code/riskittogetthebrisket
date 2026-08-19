@@ -1,23 +1,16 @@
 {
   "_comment": "Lane utilization state, owned by Claude 7 (Lane Dispatcher). NOT an authority on integration sequencing (Claude 5 / docs/EXECUTION_PLAN.md), on V1 status (docs/VERSION_1_COMPLETION_CONTRACT.md) or on canonical ownership (CLAUDE.md). Repository evidence outranks this file: where they disagree, this file is wrong and must be corrected.",
-  "updatedAt": "2026-08-19T17:30:00Z",
-  "dispatchCycle": 3,
+  "updatedAt": "2026-08-19T18:16:00Z",
+  "dispatchCycle": 4,
   "writePolicy": "This file and ASSIGNMENTS.json are written ONLY on a material state transition — new assignment, assignment accepted, completion, blocker, freeze/unfreeze, or a meaningful dependency change. A heartbeat that finds nothing changed produces no commit and no CI run.",
-  "evidenceBasis": "origin/main 033b70cd (#926 merged); all thirteen lane branch tips re-read via git ls-remote and dated at 17:30Z; #929 check runs and changed-file list read live",
-  "cycle3Transitions": [
-    "#929 EXISTS — assignment L2-2026-08-19-01 was delivered manually and accepted. Lane 2 built it on claude/v1-con-01-constraint-owner, #913's head is untouched at c2153eb, and Validate PR is green (13:59:18Z).",
-    "#913 and #929 are now FROZEN_FOR_INTEGRATION.",
-    "#919 MERGED (20eeaedc) — Lane 3's V1-51 playoff bracket is on main. #926 MERGED (033b70cd) — Lane 5's bounded-integration record. Both lane branches deleted.",
-    "Six manual assignments recorded below as each lane's current safe work. No lane is ACTIONABLE_IDLE, so this cycle dispatches nothing.",
-    "Integration chain is now #914 → {#913, #929} → #912. #914 is still the gate."
-  ],
+  "evidenceBasis": "origin/main d7b126d6; #914 merge commit 37d4c5f3 dated 2026-08-19T17:51:26Z; all twelve lane tips diffed against cycle 3 via git ls-remote at 18:16Z; src/roster_intel/ confirmed present on main",
   "assignmentSourceNote": "The six current assignments were made manually by the owner, not by this dispatcher. Recorded here so the durable state matches reality; Claude 7 did not originate them and does not own them.",
   "v1": {
     "requiredRows": 132,
     "verified": 40,
     "percent": 30.3,
-    "source": "docs/VERSION_1_COMPLETION_CONTRACT.md §3 on origin/main 033b70cd",
-    "note": "Unchanged despite #919 merging. V1-51 still reads NOT STARTED on main while its implementation is merged — a reconciliation lag REPORTED to Claude 5, not edited here. Status promotion is Claude 5's alone."
+    "source": "docs/VERSION_1_COMPLETION_CONTRACT.md §3 on origin/main d7b126d6",
+    "note": "Unchanged count despite #914, #919 and #926 all merging. V1-51 still reads NOT STARTED and the eight Roster rows #914 builds still read IN PROGRESS. That is a widening reconciliation lag, REPORTED to Claude 5 — status promotion is Claude 5's alone and Claude 7 does not touch it."
   },
   "lanes": {
     "1": {
@@ -25,32 +18,53 @@
       "state": "ACTIVE",
       "currentTask": "V1-29 rehearsal (one replacement level / PAR owner) + Roster production-verification preparation",
       "assignmentSource": "manual (owner)",
-      "branch": "claude/v1-roster-verification-audit",
-      "chain": [914, 922, 925],
-      "pr": 925,
+      "branch": "claude/v1-roster-intel-hardening-stacked",
+      "chain": [
+        922,
+        925
+      ],
+      "pr": 922,
       "implementationHead": "GREEN",
       "releaseCandidate": "NOT_YET_FROZEN",
-      "evidence": "#914 pushed 11:59Z b617b44f, #922 12:02Z a03d1753, #925 12:04Z 991280ad; comments to 12:18Z",
-      "blockedBy": "#914 awaits Claude 5 and heads the chain; V1-29 itself is IN PROGRESS and rehearsal-safe",
-      "doNotTouch": ["#914", "#922", "#925 while under integration review"],
-      "nextSafeWork": "continue the V1-29 rehearsal and the production-verification pack; do not mutate the frozen chain",
-      "lastMeaningfulActivity": "2026-08-19T12:18:58Z"
+      "evidence": "#914 MERGED 17:51:26Z; #922 re-synced onto merged main 17:51Z d5539f8d (8 ahead); #925 unchanged 991280ad",
+      "blockedBy": null,
+      "doNotTouch": [
+        "#922",
+        "#925 while under integration review"
+      ],
+      "nextSafeWork": "continue the assigned V1-29 rehearsal and the production-verification pack — which is now stronger work, not weaker: the Roster owners are on main, so verification can run against merged code instead of a rehearsal tree",
+      "lastMeaningfulActivity": "2026-08-19T17:52:50Z",
+      "mergedThisCycle": [
+        914
+      ]
     },
     "2": {
       "name": "Trade Intelligence",
-      "state": "ACTIVE",
-      "currentTask": "final Roster/Trade integration rehearsal + Analyze Trade V1 (V1-43) rehearsal",
-      "assignmentSource": "manual (owner)",
+      "state": "ACTIONABLE_IDLE",
+      "currentTask": "assigned rehearsal is superseded — see assignedThisCycle",
+      "assignmentSource": "manual (owner), now overtaken by the #914 merge",
       "branch": "claude/v1-trade-roster-rehearsal",
-      "frozenPrs": [913, 929],
+      "frozenPrs": [
+        913,
+        929
+      ],
       "pr": 929,
       "implementationHead": "GREEN",
       "releaseCandidate": "NOT_YET_FROZEN",
-      "evidence": "#929 created 13:10Z, head 51b11bfb, Validate PR success 13:59:18Z; rehearsal branch b97f7e73 at 10:45Z; #913 unchanged at c2153eb",
-      "blockedBy": "V1-43 cannot LAND until #914 merges — rehearsal is the correct posture in the meantime",
-      "doNotTouch": ["#913 head", "#929 head", "src/roster_intel/**", "src/ros/**", "CLAUDE.md", "frontend/**"],
-      "nextSafeWork": "rehearsal only; replay onto fresh canonical main once #914 lands, and never present rehearsal evidence as production verification",
-      "lastMeaningfulActivity": "2026-08-19T14:19:51Z"
+      "evidence": "#929 51b11bfb and #913 c2153ebe both unchanged and FROZEN; rehearsal branch b97f7e73 unchanged since 10:45Z; last lane activity 14:19Z — 3h57m",
+      "blockedBy": null,
+      "doNotTouch": [
+        "#913 head",
+        "#929 head",
+        "src/roster_intel/**",
+        "src/ros/**",
+        "CLAUDE.md",
+        "frontend/**"
+      ],
+      "nextSafeWork": "V1-43 Analyze Trade V1, stacked on #929 — the lane's OWN declared next unit, now dependency-ready",
+      "lastMeaningfulActivity": "2026-08-19T14:19:51Z",
+      "assignedThisCycle": "L2-2026-08-19-02 (DELIVERY_REQUIRED — not delivered)",
+      "idleMinutes": 237
     },
     "3": {
       "name": "Scoring / Season / Projections / Power",
@@ -58,17 +72,23 @@
       "currentTask": "V1-51 consolidation design + #923 Step-5 verification preparation",
       "assignmentSource": "manual (owner)",
       "branch": "claude/v1-51-championship-bracket-field",
-      "openPrs": [915, 923],
-      "mergedThisCycle": [919],
-      "pr": 923,
+      "openPrs": [
+        915,
+        923,
+        930
+      ],
+      "mergedThisCycle": [],
+      "pr": 930,
       "implementationHead": "GREEN",
       "releaseCandidate": "NOT_YET_FROZEN",
-      "evidence": "637043e4 pushed 16:20Z (1 commit ahead of main, NO open PR yet); #923 comment 17:29Z — the most recent activity of any lane; #915 unchanged since 01:59Z",
+      "evidence": "#930 opened 17:31Z, head 6d0c32d8 pushed 17:49Z (2 ahead of main); #923 comment 17:29Z; #915 unchanged since 01:59Z",
       "blockedBy": null,
-      "doNotTouch": ["#915 head while under integration review"],
-      "nextSafeWork": "finish the consolidation design and the Step-5 verification pack. Per master prompt §28, do NOT open further feature PRs while #915 and #923 await integration — 637043e4 is a V1-51 follow-up on merged work, not a fourth parallel feature.",
-      "observation": "637043e4 is pushed with no pull request open for it. Flagged so it cannot become invisible work.",
-      "lastMeaningfulActivity": "2026-08-19T17:29:22Z"
+      "doNotTouch": [
+        "#915 head while under integration review"
+      ],
+      "nextSafeWork": "drive #930 and finish the #923 Step-5 verification pack; no new feature PR while three await integration",
+      "observation": "CLOSED — 637043e4 now has PR #930. Note Lane 3 now carries THREE open PRs (#915, #923, #930). #930 is a P1 defect follow-up on already-merged work, not a fourth parallel feature, so §28 is satisfied — but a fourth would not be.",
+      "lastMeaningfulActivity": "2026-08-19T18:10:00Z"
     },
     "4": {
       "name": "Market / FAAB / Sharp / Analyst",
@@ -76,36 +96,41 @@
       "currentTask": "#927 / Lane-4 production-verification preparation",
       "assignmentSource": "manual (owner)",
       "branch": "claude/lane4-v1-semantic-states",
-      "openPrs": [921, 927],
+      "openPrs": [
+        921,
+        927
+      ],
       "pr": 927,
       "implementationHead": "UNKNOWN",
       "releaseCandidate": "NOT_YET_FROZEN",
-      "evidence": "tip 07482b9b unchanged since 09:58Z — a 7h32m gap; no check run observed on this head",
+      "evidence": "tip 07482b9b unchanged since 09:58Z — an 8h18m gap, and no comment on #927 since 09:59Z. No check run has ever been observed on this head.",
       "blockedBy": null,
       "doNotTouch": [],
       "nextSafeWork": "the assigned production-verification preparation. #921 (#804 capture) is approved POST-V1 evidence capture and must not outrank open V1 correctness.",
-      "watch": "Longest gap of any assigned lane. If cycle 4 still shows 07482b9b with no comment, ask whether the assignment was received rather than assigning a second one.",
+      "watch": "ESCALATED per the cycle-3 instruction: the question asked is whether the production-verification assignment was RECEIVED. No second task assigned — piling on an unread one is forbidden.",
       "lastMeaningfulActivity": "2026-08-19T09:59:28Z"
     },
     "5": {
       "name": "Integration / Governance / Production",
       "state": "ACTIVE",
-      "currentTask": "integration queue #914 → {#913, #929} → #912; #919 and #926 landed this cycle",
+      "currentTask": "integration queue — #914 landed this cycle; remaining {#922 -> #925}, {#913 -> #929}, #930, #915, #923, #912",
       "assignmentSource": "n/a — sole integration authority, never tasked by this dispatcher",
       "branch": null,
-      "mergedThisCycle": [919, 926],
+      "mergedThisCycle": [
+        914
+      ],
       "implementationHead": "n/a",
       "releaseCandidate": "NOT_YET_FROZEN",
-      "evidence": "main 033b70cd (#926) and 20eeaedc (#919); claude/v1-integration-authority-xaqcv8 deleted after merge",
+      "evidence": "#914 merged 37d4c5f3 at 17:51:26Z; main d7b126d6",
       "blockedBy": null,
       "doNotTouch": [],
       "nextSafeWork": "its own sequencing",
       "reportedToIntegration": [
-        "#914 has been open and green since 01:35Z (re-synced 11:59Z) and gates three lanes: #913/#929 behind it and #912 last in chain.",
-        "V1-51 reads NOT STARTED in the §3 table while #919 is merged — status reconciliation, Claude 5's to make.",
-        "Lane 3's 637043e4 is pushed with no PR."
+        "#914 is merged, so nothing is gated on it any more. #913/#929 and #922/#925 are two independent ordered pairs against merged main; #912 is last in chain.",
+        "Reconciliation lag is widening: V1-51 reads NOT STARTED with #919 merged, and the Roster rows #914 builds still read IN PROGRESS. V1 has not moved off 40/132 through three merges.",
+        "#930 raises a P1 on already-merged #919 work — three of seven playoff qualifiers at a structurally impossible 0.00%."
       ],
-      "lastMeaningfulActivity": "2026-08-19T17:30:00Z"
+      "lastMeaningfulActivity": "2026-08-19T17:51:26Z"
     },
     "6": {
       "name": "Premium UI / Frontend",
@@ -117,17 +142,26 @@
       "implementationHead": "GREEN",
       "releaseCandidate": "NOT_YET_FROZEN",
       "evidence": "tip c025e4f6 unchanged since 02:24Z; both checks green 02:31-02:38Z; last evidence comment 09:39Z",
-      "blockedBy": "last in the integration chain by owner directive — consumes the contracts #914/#913/#929 change",
-      "doNotTouch": ["#912 head"],
-      "nextSafeWork": "rehearsal and migration sequencing only. The consumer migration must land as a materializer over the server-stamped Team Strength — never a frontend re-implementation — and nothing may mutate #912 while it is frozen.",
+      "blockedBy": "last in the integration chain by owner directive; #914 landing removes one of the three PRs it was behind",
+      "doNotTouch": [
+        "#912 head"
+      ],
+      "nextSafeWork": "the assigned /rosters Team Strength consumer-migration rehearsal is now stronger work: canonical Team Strength is ON MAIN, so the migration can be designed against merged code. It must still land as a materializer over the server-stamped value, never a frontend re-implementation, and nothing may mutate #912 while frozen.",
       "lastMeaningfulActivity": "2026-08-19T09:39:11Z"
     }
   },
   "collisionWatch": [
     "config/coercion_baseline.json — #913, #929 and the rehearsal branch all carry a regenerated baseline; two candidates merge cleanly and corrupt silently (measured 673 declared / 670 actual). Each is rebuilt from the tree that exists after the previous one lands.",
-    "src/packages/construction.py + src/trade/{suggestions,finder,angle}.py + server.py — touched by BOTH #913 and #929. #929 is stacked, so this is an ordered release train, not a conflict; it stops being safe if either is merged out of order.",
+    "src/packages/construction.py + src/trade/{suggestions,finder,angle}.py + server.py — touched by #913, #929 and (if raised) the V1-43 unit. That is a three-deep ordered release train; it stops being safe if any is merged out of order.",
     "CLAUDE.md — governance-shared; lanes report needed edits to Claude 5. A recurring uncommitted CLAUDE.md reversion has been seen in three Lane 2 working copies; never `git add -A` there.",
     "docs/VERSION_1_COMPLETION_CONTRACT.md — Claude 5 only.",
     "docs/claude-dispatch/** — Claude 7 only. No lane writes here."
+  ],
+  "cycle4Transitions": [
+    "#914 MERGED at 17:51:26Z (37d4c5f3). The chain gate is cleared and src/roster_intel/ — including simulation.py — is on main. This is the material dependency change three lanes were waiting on.",
+    "#922 is now the head of the Roster chain, re-synced onto merged main at 17:51Z (a03d1753 -> d5539f8d, 8 ahead). #925 still stacked behind it at 991280ad.",
+    "#930 OPENED at 17:31Z for Lane 3's follow-up (637043e4 -> 6d0c32d8). This CLOSES the cycle-3 observation that the branch was pushed with no PR — and its subject is a real P1 on merged work: #919 left three of seven qualifiers at a structurally impossible 0.00%.",
+    "Lane 2's rehearsal assignment is SUPERSEDED by the dependency landing: with #914 on main, V1-43 no longer needs rehearsing against an unmerged interface. New assignment L2-2026-08-19-02 raised, DELIVERY_REQUIRED.",
+    "Integration chain is now {#922 -> #925} and {#913 -> #929} and #912, all against merged main. #914 is no longer a gate on anything."
   ]
 }

@@ -1,12 +1,16 @@
 {
   "_comment": "Durable dispatch ledger written by Claude 7 (Lane Dispatcher). One PRIMARY assignment per lane. An ACTIVE row is never overwritten and a second task is never piled onto an unread one. Claude 7 does not merge, does not implement, and does not change V1 status.",
-  "updatedAt": "2026-08-19T17:30:00Z",
-  "cycle": 3,
+  "updatedAt": "2026-08-19T18:16:00Z",
+  "cycle": 4,
   "writePolicy": "Written only on a material state transition. An unchanged heartbeat produces no commit and no CI run.",
   "_delivery": {
-    "state": "OK — nothing awaiting delivery",
-    "detail": "Cycle 2's DELIVERY_REQUIRED blocker is CLOSED. L2-2026-08-19-01 was delivered manually and accepted: #929 exists. The six current assignments were also made manually by the owner. No agent channel is reachable from this session (ListAgents: 'No reachable agents'), so any FUTURE Claude-7-originated assignment is marked DELIVERY_REQUIRED with a ready-to-send prompt and is never reported as delivered.",
-    "howToDeliver": "Send the `prompt` field of a DELIVERY_REQUIRED row to the lane named in `lane`."
+    "state": "DELIVERY_REQUIRED — one assignment awaiting delivery",
+    "pending": [
+      "L2-2026-08-19-02"
+    ],
+    "detail": "No agent channel is reachable from the dispatcher session (ListAgents: 'No reachable agents'). L2-2026-08-19-02 has NOT been delivered and is NOT claimed as delivered.",
+    "howToDeliver": "Send the `prompt` field of L2-2026-08-19-02 to Lane 2. Then set its status to ACTIVE here, or let the next cycle infer it from claude/v1-43-analyze-trade appearing.",
+    "alsoOutstanding": "A QUESTION for Lane 4, not an assignment — see openQuestions."
   },
   "assignments": [
     {
@@ -18,8 +22,13 @@
       "closedAt": "2026-08-19T17:30:00Z",
       "origin": "Claude 7 dispatch, cycle 1",
       "priority": "P1",
-      "v1Rows": ["V1-130", "V1-34"],
-      "cSeriesUnits": ["C3-CON-01"],
+      "v1Rows": [
+        "V1-130",
+        "V1-34"
+      ],
+      "cSeriesUnits": [
+        "C3-CON-01"
+      ],
       "objective": "Build the ONE canonical recommendation-constraint owner and the untouchable / excluded-player control it serves, applied during generation, fail-closed, stacked on #913 without touching its head.",
       "result": {
         "pr": 929,
@@ -30,23 +39,140 @@
         "notVerifiedByDispatcher": "The proof CONTENT — mutation-tested RED, fail-closed semantics, outgoing-only asymmetry, board byte-identity. Those are Claude 5's to judge at integration; Claude 7 checked scope and boundaries, not correctness."
       },
       "handoffState": "FROZEN_FOR_INTEGRATION — Claude 5 owns #929 and #913 as an ordered pair."
+    },
+    {
+      "id": "L2-2026-08-19-02",
+      "lane": 2,
+      "laneName": "Trade Intelligence",
+      "createdAt": "2026-08-19T18:16:00Z",
+      "status": "DELIVERY_REQUIRED",
+      "origin": "Claude 7 dispatch, cycle 4",
+      "priority": "P1",
+      "v1Rows": [
+        "V1-43"
+      ],
+      "cSeriesUnits": [
+        "C7-DESK-01"
+      ],
+      "supersedes": "the manual rehearsal assignment, which the #914 merge overtook — a rehearsal against an unmerged interface is pointless once the interface is on main",
+      "objective": "Build Analyze Trade V1 (V1-43 / C7-DESK-01 / #792) — the canonical recommendation for ONE specific typed-in trade, consuming the now-merged src.roster_intel rather than rebuilding any part of it, with no double-counting of overlapping signals.",
+      "whyNow": "#914 merged at 17:51:26Z and src/roster_intel/ is on main. This is the lane's OWN declared next unit: #913's body states V1-43 'waits for #914 to merge so it can consume src.roster_intel rather than build against an unmerged interface'. That condition is now satisfied, and the lane has been idle 3h57m with both its PRs frozen.",
+      "ownership": "Lane 2 owns Analyze Trade, the recommendation itself, and how signals are combined into it. Roster Intelligence is CONSUMED.",
+      "hardBoundaries": [
+        "Base on #929's head 51b11bfb, NOT on bare main — V1-43 needs #913's package substrate and #929's constraint owner. This makes a three-deep ordered train (#913 -> #929 -> V1-43); mark the PR as such.",
+        "Do NOT commit to #913 or #929. Both are FROZEN_FOR_INTEGRATION.",
+        "Do NOT reimplement anything now on main: exact lineup, reserve demand, meaningful core, Team Strength, Team Weakness, droppability, replacement level, roster simulation. Import them. A second implementation of a freshly merged canonical owner is the worst possible outcome of this merge.",
+        "No double-counting of overlapping signals — the contract row names this explicitly. A body of evidence affects the recommendation once; declare correlation groups before combining.",
+        "No frontend UI (Lane 6's, and #912 is frozen) — hand the response shape over instead.",
+        "Do NOT edit CLAUDE.md, the V1 contract, EXECUTION_PLAN or the scope manifest; draft that text for Claude 5.",
+        "V1-42 (exact before/apply/re-solve/after roster simulation) is a SEPARATE row. simulation.py is on main now, so state plainly whether V1-43 consumes it or whether V1-42 remains open — do not silently absorb it."
+      ],
+      "requiredProof": [
+        "A signal-independence declaration: every input, its correlation group, and why no evidence is counted twice.",
+        "RED-first with a recorded mutation per guard; a recommendation test that passes with the recommendation code deleted is vacuous.",
+        "Missing is never zero: an unpriceable asset, an unknown roster cap or absent Roster evidence must produce an explicit insufficient/unknown verdict, never a confident-looking number. Pin it.",
+        "Canonical value untouched — rankDerivedValue and _compute_unified_rankings byte-identical; scripts/board_diff.py --expect-no-value-change.",
+        "An import census proving V1-43 consumes src.roster_intel and duplicates none of it."
+      ],
+      "handoff": [
+        "Claude 5: the PR marked as third in the #913 -> #929 -> V1-43 train, plus draft governance text.",
+        "Claude 6: the response shape for the Analyze Trade surface.",
+        "Claude 1: nothing — this consumes Roster, it does not change it."
+      ],
+      "stopCondition": "Stop when Analyze Trade V1 answers one typed-in trade with a canonical recommendation, consuming merged Roster Intelligence, with the five proofs recorded and the PR posted READY FOR INTEGRATION as third in the train. Do not start V1-42, do not touch UI, do not widen into advanced trade-market systems (POST-V1).",
+      "dependsOn": [
+        "#914 (MERGED 17:51:26Z)",
+        "#913 + #929 (stacked base, frozen)"
+      ],
+      "forbiddenTouches": [
+        "claude/v1-trade-intelligence-efstt3",
+        "claude/v1-con-01-constraint-owner",
+        "src/roster_intel/**",
+        "src/ros/**",
+        "CLAUDE.md",
+        "docs/VERSION_1_COMPLETION_CONTRACT.md",
+        "docs/EXECUTION_PLAN.md",
+        "docs/C_SERIES_SCOPE_MANIFEST.md",
+        "frontend/**"
+      ],
+      "prompt": "Lane 2 — Trade Intelligence. #914 merged at 17:51:26Z, so src/roster_intel/ is on main and the condition your own #913 body set for V1-43 is satisfied: Analyze Trade V1 can now consume src.roster_intel instead of building against an unmerged interface. Your rehearsal assignment is superseded by that merge. Take V1-43 / C7-DESK-01 / #792 for real. Base on #929's head 51b11bfb — NOT bare main — because you need #913's package substrate and #929's constraint owner; mark the PR as third in the #913 -> #929 -> V1-43 train, and do not commit to either frozen PR. Build the canonical recommendation for ONE typed-in trade. CONSUME the merged Roster owners — exact lineup, reserve demand, meaningful core, Team Strength, Team Weakness, droppability, replacement level, roster simulation — and reimplement none of them; a second implementation of a freshly merged canonical owner is the worst possible outcome of this merge, so ship an import census proving it. The contract row names no-double-counting explicitly: declare every input with its correlation group and show no body of evidence is counted twice. Missing is never zero — an unpriceable asset, an unknown cap or absent Roster evidence must yield an explicit insufficient/unknown verdict, never a confident-looking number, and that must be pinned. Prove canonical value untouched with scripts/board_diff.py --expect-no-value-change. RED-first with a recorded mutation per guard. V1-42 (exact before/apply/re-solve/after simulation) is a SEPARATE row and simulation.py is now on main: state plainly whether you consume it or whether V1-42 stays open — do not silently absorb it. No frontend UI (Lane 6's, and #912 is frozen) — hand the response shape over. No edits to CLAUDE.md or the contract/plan/manifest; draft that text for Claude 5. Stop when the recommendation works with the five proofs recorded and the PR is posted READY FOR INTEGRATION."
     }
   ],
   "currentAssignmentsManual": {
     "_note": "Made by the owner directly, not by this dispatcher. Recorded so durable state matches reality. Claude 7 does not own or re-scope these; it monitors them and will not assign over them.",
-    "1": { "task": "V1-29 rehearsal (one replacement level / PAR owner) + Roster production-verification preparation", "status": "ACTIVE", "mustNotMutate": ["#914", "#922", "#925"] },
-    "2": { "task": "final Roster/Trade integration rehearsal + Analyze Trade V1 (V1-43) rehearsal", "status": "ACTIVE", "mustNotMutate": ["#913", "#929"], "note": "V1-43 cannot land until #914 merges; rehearsal evidence is never production verification" },
-    "3": { "task": "V1-51 consolidation design + #923 Step-5 verification preparation", "status": "ACTIVE", "mustNotMutate": ["#915"], "note": "no fourth parallel feature PR while #915 and #923 await integration; 637043e4 is pushed with no PR" },
-    "4": { "task": "#927 / Lane-4 production-verification preparation", "status": "ACTIVE", "mustNotMutate": [], "note": "longest activity gap of any assigned lane (since 09:59Z) — confirm receipt at cycle 4 rather than assigning a second task" },
-    "5": { "task": "sole Integration authority — merge sequencing #914 → {#913, #929} → #912", "status": "ACTIVE", "neverTaskedByDispatcher": true },
-    "6": { "task": "/rosters canonical Team Strength consumer-migration rehearsal", "status": "ACTIVE", "mustNotMutate": ["#912"], "note": "must land as a materializer over the server-stamped Team Strength, never a frontend re-implementation" }
+    "1": {
+      "task": "V1-29 rehearsal + Roster production-verification preparation",
+      "status": "ACTIVE",
+      "mustNotMutate": [
+        "#922",
+        "#925"
+      ],
+      "note": "#914 merged — verification can now run against merged code rather than a rehearsal tree"
+    },
+    "2": {
+      "task": "final Roster/Trade integration rehearsal + Analyze Trade V1 rehearsal",
+      "status": "SUPERSEDED",
+      "supersededBy": "L2-2026-08-19-02",
+      "reason": "#914 merged at 17:51:26Z; rehearsing against an interface that is now on main is no longer the useful form of the work"
+    },
+    "3": {
+      "task": "V1-51 consolidation design + #923 Step-5 verification preparation",
+      "status": "ACTIVE",
+      "mustNotMutate": [
+        "#915"
+      ],
+      "note": "637043e4 now has PR #930; three open PRs — a fourth feature PR would breach §28"
+    },
+    "4": {
+      "task": "#927 / Lane-4 production-verification preparation",
+      "status": "ACTIVE",
+      "mustNotMutate": [],
+      "note": "longest activity gap of any assigned lane (since 09:59Z) — confirm receipt at cycle 4 rather than assigning a second task"
+    },
+    "5": {
+      "task": "sole Integration authority — merge sequencing #914 → {#913, #929} → #912",
+      "status": "ACTIVE",
+      "neverTaskedByDispatcher": true
+    },
+    "6": {
+      "task": "/rosters canonical Team Strength consumer-migration rehearsal",
+      "status": "ACTIVE",
+      "mustNotMutate": [
+        "#912"
+      ],
+      "note": "Team Strength is now ON MAIN, so the migration can be designed against merged code. Materializer only, never a frontend re-implementation."
+    }
   },
   "noDispatch": [
-    { "lane": 1, "reason": "ACTIVE on an assigned V1-29 rehearsal + verification pack." },
-    { "lane": 2, "reason": "ACTIVE on an assigned rehearsal; its two PRs are frozen for integration." },
-    { "lane": 3, "reason": "ACTIVE — most recent activity of any lane (17:29Z), assigned consolidation design + Step-5 prep." },
-    { "lane": 4, "reason": "ACTIVE on assigned production-verification preparation. Gap is long but the assignment is live; a second task would be piling on." },
-    { "lane": 5, "reason": "Sole integration authority — never tasked by this dispatcher." },
-    { "lane": 6, "reason": "FROZEN_FOR_INTEGRATION and assigned a non-mutating consumer-migration rehearsal." }
+    {
+      "lane": 1,
+      "reason": "ACTIVE — pushed #922 onto merged main at 17:51Z."
+    },
+    {
+      "lane": 3,
+      "reason": "ACTIVE — opened #930 at 17:31Z and pushed at 17:49Z."
+    },
+    {
+      "lane": 4,
+      "reason": "Live assignment; a receipt QUESTION was raised instead of a second task."
+    },
+    {
+      "lane": 5,
+      "reason": "Sole integration authority — merged #914 this cycle; never tasked by this dispatcher."
+    },
+    {
+      "lane": 6,
+      "reason": "FROZEN_FOR_INTEGRATION with a live non-mutating rehearsal that the #914 merge made stronger, not weaker."
+    }
+  ],
+  "openQuestions": [
+    {
+      "id": "Q4-2026-08-19-01",
+      "lane": 4,
+      "status": "AWAITING_ANSWER",
+      "raisedAt": "2026-08-19T18:16:00Z",
+      "question": "Was the #927 / Lane-4 production-verification assignment received? Lane 4's tip 07482b9b has not moved since 09:58Z and #927 has had no comment since 09:59Z — an 8h18m gap with no check run ever observed on that head.",
+      "whyAQuestionAndNotATask": "The assignment is live. Piling a second task onto an unread one is forbidden, and a long gap is not proof of idleness. If the answer is 'not received', re-deliver the existing assignment rather than writing a new one."
+    }
   ]
 }
