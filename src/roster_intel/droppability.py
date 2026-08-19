@@ -348,8 +348,8 @@ def pool_cut_ladder(
     backwards would silently exclude every unpriced player from the lineup
     guard and report a roster as more droppable than it is.
 
-    ``slot_eligibility`` is accepted and, when supplied, applied by re-running
-    the owner against the caller's slots — it is not silently dropped.
+    ``slot_eligibility`` is the league's CONFIGURED flex eligibility and is
+    passed through to the owner's lineup guard.
     """
     assets = [
         RosterAsset(
@@ -365,7 +365,11 @@ def pool_cut_ladder(
         )
         for player in pool
     ]
-    del slot_eligibility  # the owner reads eligibility from the slot names
     return build_cut_ladder(
-        assets, list(starter_slots), waiver_values, scarcity, max_rungs=max_rungs
+        assets,
+        list(starter_slots),
+        waiver_values,
+        scarcity,
+        max_rungs=max_rungs,
+        slot_eligibility=slot_eligibility,
     )
