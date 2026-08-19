@@ -1302,10 +1302,23 @@ Rules for new code:
   rows** the previous gate admitted, clearing at a median 0.20% of
   budget against 1.00% for single-copy leagues.  A league whose whole
   FAAB budget is a dollar is excluded too (7 rows, every one 0.00%).
-  Similarity TIERS (A/B/C, from ``is2TE`` and the raw 0-3 ``tep``
-  level the old gate flattened to a bool) are **reported and weight
-  nothing** — the owner spec makes tier weights evidence-gated and no
-  outcome data exists to fit them.
+  Similarity TIERS (A/B/C) are **reported and weight nothing** — the
+  owner spec makes tier weights evidence-gated and no outcome data
+  exists to fit them.  **The 0-3 ``tep`` severity axis is DORMANT, not
+  merely unweighted** (corrected 2026-08-19; this paragraph previously
+  read as though the level participated).  ``TargetFormat`` carries
+  ``tep_level``, but ``from_roster_settings`` sets it to ``None`` as a
+  literal and ``from_registry`` delegates there, so the
+  ``tep_severity_gap`` branch — guarded on ``target.tep_level is not
+  None`` — can never fire on any production path, and the shipped
+  ``crowdComparability.tepSeverityGap`` key decides nothing.  Measured:
+  a source at TE+ and one at TE+++ both classify tier A with no soft
+  reason.  The cause is that our registry records TEP through the
+  scoring-profile LABEL rather than a level; reading it from the actual
+  scoring card is the fix, and it is the same defect as the target's
+  ``tep`` boolean being set from ``"tep" in scoringProfile`` — a label
+  deciding a factual question, which W18-F001 forbids, on an axis that
+  hard-excludes.
 
   **The population is offense-only, and that is enforced.**  Across
   all 200 rows the starting slots are exactly QB/RB/WR/TE/PK/Def —
@@ -2281,6 +2294,47 @@ Deliberately bounded: blocking on every base change would chase the 2-hourly
 refresh forever. It makes the race detectable and bounded, not impossible — no
 in-repo gate holds a lock across a human clicking merge, and the deploy's validate
 job remains the backstop.
+
+**The bounded half, made operational (2026-08-19).** The paragraph above was
+already the policy and was still over-applied: an integration session updated PR
+branches and required "0 behind current main" *continuously during review*,
+re-running full `Validate PR` each time an automated refresh landed. `main`
+refreshes roughly every twenty minutes, so that is the unterminating loop this
+section exists to forbid — and it tested nothing the previous run had not.
+
+**A green implementation head stays green unless the PR changes.** Class-C drift
+alone is NEVER a reason to rebase a head, mint a new one, or re-run PR
+Validation. A new full cycle is earned by exactly four things:
+
+1. the PR's own source / test / governance content changes;
+2. integration finds a real defect and the lane repairs it;
+3. a **class-B** change on `main` creates a genuine semantic dependency or
+   collision with this PR;
+4. a dependency PR changes the interface this PR consumes.
+
+**Report two states, never one.** "Current main moved after CI" is not a verdict
+about a PR, and collapsing the two is how routine data churn masquerades as a
+feature regression:
+
+| state | values |
+|---|---|
+| IMPLEMENTATION HEAD | GREEN / RED |
+| RELEASE CANDIDATE | NOT YET FROZEN / VALIDATING / GREEN / BLOCKED |
+
+**Batch into release trains where dependencies permit.** An ordered chain is
+frozen and validated as one candidate tree rather than making each lane chase
+moving data independently. A train is an integration convenience only — it never
+makes independent PRs one conceptual owner.
+
+**If a refresh lands mid-validation**, bring it into the frozen candidate ONCE,
+re-run the bounded validation, and merge. Do not send the lane back through a
+development CI cycle; return to a lane only when integration reveals a real
+defect.
+
+The one sequencing constraint that is NOT relaxed: two PRs that both touch
+`config/coercion_baseline.json` merge cleanly and corrupt silently (measured:
+673 declared / 670 actual, no Git conflict). The second one's candidate is built
+**after** the first lands, and its baseline regenerated from that tree.
 
 ## Non-Negotiable Rules
 

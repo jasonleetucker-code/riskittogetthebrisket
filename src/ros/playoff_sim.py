@@ -56,6 +56,7 @@ from src.ros.lineup import (
     solve_optimal_assignment,
 )
 from src.public_league import luck, metrics, playoff_odds
+from src.public_league.playoff_structure import resolve_playoff_structure
 from src.public_league.snapshot import PublicLeagueSnapshot
 
 LOG = logging.getLogger("ros.playoff_sim")
@@ -665,8 +666,8 @@ def simulate_playoff_odds(
     snapshot: PublicLeagueSnapshot,
     *,
     n_simulations: int | None = None,
-    playoff_seeds: int = 6,
-    bye_seeds: int = 2,
+    playoff_seeds: int | None = None,
+    bye_seeds: int | None = None,
     best_ball: bool | None = None,
     rng: random.Random | None = None,
     min_simulations: int = MIN_SIMULATIONS,
@@ -687,8 +688,26 @@ def simulate_playoff_odds(
           "byeSeeds": int,
           "rosStrengthAvailable": bool,
         }
+
+    ``playoff_seeds`` / ``bye_seeds`` default to **the league's own
+    bracket**, resolved by
+    :func:`src.public_league.playoff_structure.resolve_playoff_structure`.
+    They were hardcoded ``6`` and ``2`` until 2026-08-19 and no caller
+    overrode them, so this engine simulated a six-seed bracket for a
+    league that takes seven (V1-51).  An explicit value still wins —
+    ``simulate_trade_impact`` pins both arms to the same bracket so the
+    A/B is a comparison rather than two different leagues.
+
+    A league that does not publish its bracket yields NO odds and an
+    ``unsimulable`` block naming the reason, rather than odds computed
+    under an assumed format.
     """
     rng = rng or random.Random()
+    structure = resolve_playoff_structure(getattr(snapshot, "current_season", None))
+    if playoff_seeds is None:
+        playoff_seeds = structure.teams
+    if bye_seeds is None:
+        bye_seeds = structure.byes if structure.known else None
     if best_ball is None:
         best_ball = _league_best_ball()
     model = points_model or load_points_model()
@@ -697,6 +716,31 @@ def simulate_playoff_odds(
     # so both arms draw identically); otherwise the loop is adaptive.
     if n_simulations is not None:
         min_simulations = max_simulations = int(n_simulations)
+
+    if playoff_seeds is None:
+        # The league did not publish its bracket, so "made the playoffs"
+        # has no definition here.  Refusing is the honest answer: the
+        # retired default silently answered a question about a six-seed
+        # league that this one is not.
+        return {
+            "playoffOdds": [],
+            "n_simulations": 0,
+            "playoffSeeds": None,
+            "byeSeeds": None,
+            "rosStrengthAvailable": bool(_load_ros_strength_map()),
+            "bestBallVarianceMode": "depth_aware" if best_ball else "off",
+            "pointsModelSource": model.source,
+            "playoffStructure": structure.to_dict(),
+            "unsimulable": {
+                "reason": structure.reason or "playoff_bracket_unknown",
+                "detail": (
+                    "this league's settings do not say how many teams make the "
+                    "playoffs, so qualifying has no definition to simulate "
+                    "against. This is not a 0% chance for anyone, and it is not "
+                    "a six-team bracket."
+                ),
+            },
+        }
 
     ros_map = _load_ros_strength_map()
     pf_by_owner: dict[str, float]
@@ -714,6 +758,7 @@ def simulate_playoff_odds(
             "n_simulations": 0,
             "playoffSeeds": playoff_seeds,
             "byeSeeds": bye_seeds,
+            "playoffStructure": structure.to_dict(),
             "rosStrengthAvailable": bool(ros_map),
             "bestBallVarianceMode": "depth_aware" if best_ball else "off",
             "pointsModelSource": model.source,
@@ -744,6 +789,7 @@ def simulate_playoff_odds(
             "n_simulations": 0,
             "playoffSeeds": playoff_seeds,
             "byeSeeds": bye_seeds,
+            "playoffStructure": structure.to_dict(),
             "rosStrengthAvailable": bool(ros_map),
             "bestBallVarianceMode": "depth_aware" if best_ball else "off",
             "pointsModelSource": model.source,
@@ -873,6 +919,7 @@ def simulate_playoff_odds(
         "oddsSeTolerance": odds_se_tolerance,
         "playoffSeeds": playoff_seeds,
         "byeSeeds": bye_seeds,
+        "playoffStructure": structure.to_dict(),
         "rosStrengthAvailable": bool(ros_map),
         "rosBlend": ROS_BLEND,
         "bestBallVarianceBump": BEST_BALL_VARIANCE_BUMP,
@@ -974,13 +1021,25 @@ def _paired_delta_ci(
     return (d - z * se, d + z * se)
 
 
+#: Stated once so every return path — including the refusals — carries
+#: the same explanation.
+_TRADE_IMPACT_METHODOLOGY = (
+    "Both arms run on one shared RNG seed and an identical simulation "
+    "count, so the reported delta is the trade's effect rather than the "
+    "difference between two independent Monte Carlo runs. Intervals are "
+    "paired (McNemar-style, conservative on the discordant-pair count). "
+    "A delta whose interval spans zero is flagged significant=false and "
+    "must not be presented as a result."
+)
+
+
 def simulate_trade_impact(
     snapshot: PublicLeagueSnapshot,
     *,
     strength_delta: dict[str, float],
     n_simulations: int = DEFAULT_SIMULATIONS,
-    playoff_seeds: int = 6,
-    bye_seeds: int = 2,
+    playoff_seeds: int | None = None,
+    bye_seeds: int | None = None,
     best_ball: bool | None = None,
     seed: int = 20260726,
     points_model: PointsModel | None = None,
@@ -1023,6 +1082,42 @@ def simulate_trade_impact(
     model = points_model or load_points_model()
     ros_map = _load_ros_strength_map()
 
+    # Resolve ONCE and pass to both arms explicitly (V1-51).  Letting each
+    # arm resolve independently would be equivalent today and is exactly
+    # the seam a future league-aware change could split — and two arms on
+    # different brackets would measure the bracket, not the trade.  The
+    # shared-seed argument above applies to the league's rules as much as
+    # to the RNG.
+    structure = resolve_playoff_structure(getattr(snapshot, "current_season", None))
+    if playoff_seeds is None:
+        playoff_seeds = structure.teams
+    if bye_seeds is None:
+        bye_seeds = structure.byes if structure.known else None
+    if playoff_seeds is None:
+        return {
+            "playoff": [],
+            "championship": [],
+            "meaningfulDeltas": 0,
+            "nSimulations": 0,
+            "sharedSeed": seed,
+            "pointsModelSource": model.source,
+            "playoffStructure": structure.to_dict(),
+            # The full envelope, not a stub.  A refusal that drops keys the
+            # normal return carries makes every consumer branch on shape
+            # before it can read anything — and ``methodology`` is exactly
+            # the field a caller reads to explain why there is no result.
+            "note": "playoff bracket unknown",
+            "methodology": _TRADE_IMPACT_METHODOLOGY,
+            "unsimulable": {
+                "reason": structure.reason or "playoff_bracket_unknown",
+                "detail": (
+                    "this league's settings do not say how many teams make the "
+                    "playoffs, so a trade's effect on qualifying has nothing to "
+                    "be measured against. This is not a zero-impact trade."
+                ),
+            },
+        }
+
     base_dists, _ = _build_team_distributions(
         snapshot, ros_map, best_ball=best_ball, points_model=model
     )
@@ -1035,6 +1130,7 @@ def simulate_trade_impact(
             "sharedSeed": seed,
             "pointsModelSource": model.source,
             "note": "no team distributions available",
+            "methodology": _TRADE_IMPACT_METHODOLOGY,
         }
 
     after_dists = {
@@ -1108,14 +1204,7 @@ def simulate_trade_impact(
         "nSimulations": n,
         "sharedSeed": seed,
         "pointsModelSource": model.source,
-        "methodology": (
-            "Both arms run on one shared RNG seed and an identical simulation "
-            "count, so the reported delta is the trade's effect rather than the "
-            "difference between two independent Monte Carlo runs. Intervals are "
-            "paired (McNemar-style, conservative on the discordant-pair count). "
-            "A delta whose interval spans zero is flagged significant=false and "
-            "must not be presented as a result."
-        ),
+        "methodology": _TRADE_IMPACT_METHODOLOGY,
     }
 
 

@@ -10,7 +10,6 @@ Spec formula (in-season):
         + 0.08 * all_play_record_percentile
         + 0.05 * winning_streak_score
         + 0.04 * schedule_adjusted_performance
-        + 0.03 * roster_health_score
         + 0.02 * luck_regression_score
 
 Inputs come from two places:
@@ -62,15 +61,42 @@ LOG = logging.getLogger("ros.power_v2")
 
 
 # ── Formula weights (spec) ────────────────────────────────────────────
+# ``roster_health`` REMOVED 2026-08-18 and its 0.03 folded into
+# ``team_ros_strength``.  Two independent reasons, either sufficient:
+#
+# 1. SIGNAL INDEPENDENCE (CLAUDE.md §3.3 — "a body of evidence affects a
+#    conclusion once").  Health was counted TWICE: ``team_strength.py``
+#    already folds ``healthAvailabilityScore`` into the composite at
+#    ``WEIGHT_HEALTH = 0.05``, and this table then added it again on top of
+#    ``0.38 × percentile(composite)``.  On the preseason weight set the
+#    standalone term was 7.3% of the published score while the composite
+#    retained 4.6% of health influence.
+#
+# 2. PRIVACY (CLAUDE.md §5).  ``components.roster_health`` was
+#    ``healthAvailabilityScore / 100`` exactly — a field listed in
+#    ``tests/api/test_public_league_privacy_boundary.py::PRIVATE_MARKERS``,
+#    sourced from the AUTH-GATED ``rosTeamStrength`` section, republished on
+#    the PUBLIC ``rosPower`` section of an unauthenticated page.  The privacy
+#    guard scans for private field NAMES, so the rename+rescale passed it.
+#    The disclosure was exact rather than fuzzy: the score is
+#    ``healthy_starters / starting_slots``, so at 4dp over this league's 21
+#    slots a public reader recovers a rival's precise count of flagged
+#    starters.
+#
+# This is DE-DUPLICATION, not a weakening of the ranking, and not a
+# declassification: health keeps its designed 0.05 share inside
+# ``teamRosStrength``, whose inclusive PERCENTILE remains a public input by
+# owner decision.  Publishing only that rank is what keeps it safe — the
+# composite is ``0.72S + 0.18D + 0.05C + 0.05H`` and a rank over 12 owners is
+# 11 ordering constraints against 36 unknowns.
 WEIGHTS: dict[str, float] = {
-    "team_ros_strength": 0.38,
+    "team_ros_strength": 0.41,
     "ppg": 0.18,
     "recent": 0.12,
     "wl_record": 0.10,
     "all_play": 0.08,
     "streak": 0.05,
     "schedule_adjusted": 0.04,
-    "roster_health": 0.03,
     "luck_regression": 0.02,
 }
 
@@ -136,25 +162,6 @@ def _load_team_strength_percentiles() -> dict[str, float]:
         scores.append((oid, score))
     score_values = [s for _, s in scores]
     return {oid: _percentile(score_values, score) for oid, score in scores}
-
-
-def _load_roster_health_scores(rows: list[dict[str, Any]]) -> dict[str, float]:
-    """Per-owner roster_health in [0, 1] from team-strength snapshot.
-
-    The team-strength file stores ``healthAvailabilityScore`` already
-    in [0, 100] (share of starting lineup not flagged injured/bye).
-    Divide by 100 so it slots into the unit-scaled formula directly.
-    """
-    out: dict[str, float] = {}
-    for r in rows:
-        oid = str(r.get("ownerId") or "")
-        if not oid:
-            continue
-        out[oid] = max(
-            0.0,
-            min(1.0, float(r.get("healthAvailabilityScore") or 0.0) / 100.0),
-        )
-    return out
 
 
 def _schedule_adjusted_scores(
@@ -389,10 +396,8 @@ def build_section(snapshot: PublicLeagueSnapshot) -> dict[str, Any]:
 
     ros_pct = _load_team_strength_percentiles()
     ros_available = bool(ros_pct)
-    roster_health_by_owner = _load_roster_health_scores(team_strength_rows)
     schedule_by_owner = _schedule_adjusted_scores(snapshot, ros_pct)
     schedule_available = bool(schedule_by_owner)
-    health_available = bool(roster_health_by_owner)
 
     # Compute per-owner inputs.  ``career_state`` is a defaultdict but
     # we read via ``.get`` to avoid mutating it for owners (e.g. new
@@ -439,7 +444,6 @@ def build_section(snapshot: PublicLeagueSnapshot) -> dict[str, Any]:
             "streak": streak,
             "luck_regression": luck_score,
             "schedule_adjusted": schedule_by_owner.get(oid, 0.5),
-            "roster_health": roster_health_by_owner.get(oid, 0.0),
         }
 
     # Convert raw inputs to percentiles (ppg, recent only — the others
@@ -457,8 +461,6 @@ def build_section(snapshot: PublicLeagueSnapshot) -> dict[str, Any]:
         missing_inputs.append("team_ros_strength")
     if not schedule_available:
         missing_inputs.append("schedule_adjusted")
-    if not health_available:
-        missing_inputs.append("roster_health")
     if preseason:
         for component in _HISTORICAL_RESULTS_COMPONENTS:
             if component not in missing_inputs:
@@ -480,7 +482,6 @@ def build_section(snapshot: PublicLeagueSnapshot) -> dict[str, Any]:
         if ros_available:
             components["team_ros_strength"] = ros_pct.get(oid, 0.0)
         components["schedule_adjusted"] = i["schedule_adjusted"] if schedule_available else 0.0
-        components["roster_health"] = i["roster_health"] if health_available else 0.0
 
         # Active weighted score in [0, 1], then scale to 100.
         score_unit = (

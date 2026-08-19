@@ -38,6 +38,7 @@ import random
 from typing import Any
 
 from src.public_league import metrics
+from src.public_league.playoff_structure import resolve_playoff_structure
 from src.public_league.snapshot import PublicLeagueSnapshot
 from src.ros import ROS_DATA_DIR, playoff_sim
 
@@ -65,6 +66,7 @@ def _simulate_bracket(
     distributions: dict[str, playoff_sim._TeamDist],
     *,
     bye_seeds: int,
+    playoff_seeds: int,
     rng: random.Random,
 ) -> dict[str, int]:
     """Simulate one playoff bracket.  Returns finish placement per
@@ -77,7 +79,7 @@ def _simulate_bracket(
 
     # Mark anyone outside the playoff field with a finish equal to
     # their seed (they're "out" in seeding order).
-    playoff_field_size = len([s for s in seeded_owners if seeded_owners.index(s) < 6]) or 6
+    playoff_field_size = min(playoff_seeds, len(seeded_owners))
     for i, owner in enumerate(seeded_owners):
         if i >= playoff_field_size:
             finishes[owner] = i + 1
@@ -162,8 +164,8 @@ def simulate_championship_odds(
     snapshot: PublicLeagueSnapshot,
     *,
     n_simulations: int = playoff_sim.DEFAULT_SIMULATIONS,
-    playoff_seeds: int = 6,
-    bye_seeds: int = 2,
+    playoff_seeds: int | None = None,
+    bye_seeds: int | None = None,
     best_ball: bool | None = None,
     rng: random.Random | None = None,
 ) -> dict[str, Any]:
@@ -171,8 +173,39 @@ def simulate_championship_odds(
 
     Pulls per-team distributions through ``playoff_sim`` so the
     ROS-blended means + per-team variance multiplier are reused.
+
+    ``playoff_seeds`` / ``bye_seeds`` default to the LEAGUE'S OWN bracket
+    (V1-51).  They were hardcoded ``6``/``2`` and its only production
+    caller (``ros/scrape.py``) passes neither, so this simulated a
+    six-seed bracket for a league that takes seven — and a championship
+    simulation is more sensitive to that than playoff odds are, because
+    the bye count decides who skips a round.
     """
     rng = rng or random.Random()
+    structure = resolve_playoff_structure(getattr(snapshot, "current_season", None))
+    if playoff_seeds is None:
+        playoff_seeds = structure.teams
+    if bye_seeds is None:
+        bye_seeds = structure.byes if structure.known else None
+    if playoff_seeds is None:
+        # No bracket, no champion to simulate. Same refusal as
+        # ``playoff_sim.simulate_playoff_odds`` — never a default.
+        return {
+            "championshipOdds": [],
+            "n_simulations": 0,
+            "playoffSeeds": None,
+            "byeSeeds": None,
+            "rosStrengthAvailable": bool(playoff_sim._load_ros_strength_map()),
+            "playoffStructure": structure.to_dict(),
+            "unsimulable": {
+                "reason": structure.reason or "playoff_bracket_unknown",
+                "detail": (
+                    "this league's settings do not say how many teams make the "
+                    "playoffs, so there is no bracket to simulate a champion "
+                    "through. This is not a 0% chance for anyone."
+                ),
+            },
+        }
     if best_ball is None:
         best_ball = playoff_sim._league_best_ball()
     ros_map = playoff_sim._load_ros_strength_map()
@@ -185,6 +218,7 @@ def simulate_championship_odds(
             "n_simulations": n_simulations,
             "playoffSeeds": playoff_seeds,
             "byeSeeds": bye_seeds,
+            "playoffStructure": structure.to_dict(),
             "rosStrengthAvailable": bool(ros_map),
         }
 
@@ -226,6 +260,7 @@ def simulate_championship_odds(
             seeded,
             distributions,
             bye_seeds=bye_seeds,
+            playoff_seeds=playoff_seeds,
             rng=rng,
         )
         for owner, finish in finishes.items():
@@ -262,6 +297,7 @@ def simulate_championship_odds(
         "n_simulations": n_simulations,
         "playoffSeeds": playoff_seeds,
         "byeSeeds": bye_seeds,
+        "playoffStructure": structure.to_dict(),
         "rosStrengthAvailable": bool(ros_map),
     }
 
