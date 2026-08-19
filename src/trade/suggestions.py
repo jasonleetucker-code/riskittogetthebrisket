@@ -776,9 +776,7 @@ def analyze_roster(
         for pos, room in by_position.items()
     }
     sendable_keys = frozenset(
-        str(p.name or "").strip().lower()
-        for room in sendable_by_position.values()
-        for p in room
+        str(p.name or "").strip().lower() for room in sendable_by_position.values() for p in room
     )
 
     return RosterAnalysis(

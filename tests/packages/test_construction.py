@@ -414,7 +414,7 @@ def test_enumerate_packages_enforces_topology_and_reports_what_it_refused():
         ours,
         theirs,
         outgoing_policy=UNCONSTRAINED_OUTGOING,
-        shapes=[PackageShape(3, 1), PackageShape(1, 1)]
+        shapes=[PackageShape(3, 1), PackageShape(1, 1)],
     )
     emitted = list(packages)
 
@@ -454,7 +454,8 @@ def test_topology_can_be_switched_off_for_a_caller_that_is_not_generating():
         ours,
         theirs,
         outgoing_policy=UNCONSTRAINED_OUTGOING,
-        shapes=[PackageShape(3, 1)], enforce_topology=False
+        shapes=[PackageShape(3, 1)],
+        enforce_topology=False,
     )
     assert len(list(packages)) == 1
     assert loose.topology_rejected == 0

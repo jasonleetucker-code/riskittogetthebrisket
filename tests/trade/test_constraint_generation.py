@@ -74,9 +74,7 @@ MIN_PROTECTED = resolve_constraints(persistent={"nflTeams": ["MIN"]})
 
 
 def _packages(ours, theirs, outgoing_policy, **kw):
-    packages, report = enumerate_packages(
-        ours, theirs, outgoing_policy=outgoing_policy, **kw
-    )
+    packages, report = enumerate_packages(ours, theirs, outgoing_policy=outgoing_policy, **kw)
     return list(packages), report
 
 
@@ -118,9 +116,7 @@ class TestOutgoingOnlyAsymmetry:
         )
         assert report.their_excluded_ineligible == 0
 
-    def test_MUTATION_applying_the_policy_to_their_side_breaks_the_second(
-        self, monkeypatch
-    ):
+    def test_MUTATION_applying_the_policy_to_their_side_breaks_the_second(self, monkeypatch):
         """Proof the acquisition assertion above is load-bearing.
 
         Make the substrate apply the outgoing policy to BOTH pools — the exact
@@ -133,9 +129,7 @@ class TestOutgoingOnlyAsymmetry:
         real_eligible = construction._eligible
 
         def both_sides(assets, policy, report, *, ours, outgoing=None):
-            return real_eligible(
-                assets, policy, report, ours=ours, outgoing=_MUTATED_POLICY[0]
-            )
+            return real_eligible(assets, policy, report, ours=ours, outgoing=_MUTATED_POLICY[0])
 
         _MUTATED_POLICY = [outgoing_eligibility([*OURS, *THEIRS], MIN_PROTECTED)]
         monkeypatch.setattr(construction, "_eligible", both_sides)
@@ -298,13 +292,11 @@ def test_a_forbidden_package_is_never_BUILT():
 
 
 def test_the_constrained_count_is_reported_apart_from_the_ineligible_count():
-    """"You told us not to trade him" is an answer; "he is roster clog" is a
+    """ "You told us not to trade him" is an answer; "he is roster clog" is a
     mechanic.  A surface that cannot tell them apart cannot explain itself."""
     ours = [*OURS, Asset("Deep Bench", 10.0, team="DEN")]
     policy = outgoing_eligibility(ours, MIN_PROTECTED)
-    _pkgs, report = _packages(
-        ours, THEIRS, policy, policy=EligibilityPolicy(min_value=1000.0)
-    )
+    _pkgs, report = _packages(ours, THEIRS, policy, policy=EligibilityPolicy(min_value=1000.0))
     assert report.our_excluded_constrained == 1  # the Viking
     assert report.our_excluded_ineligible == 1  # the 10-value bench piece
 
@@ -349,9 +341,9 @@ def test_only_the_owner_mints_a_block_reason():
         for node in ast.walk(tree):
             if isinstance(node, ast.Constant) and node.value in reasons:
                 producers.add(rel)
-    assert producers == {"src/trade/constraints.py"}, (
-        f"a block reason is minted outside the owner: {sorted(producers)}"
-    )
+    assert producers == {
+        "src/trade/constraints.py"
+    }, f"a block reason is minted outside the owner: {sorted(producers)}"
 
 
 def test_every_generating_surface_accepts_constraints():
@@ -372,15 +364,15 @@ def test_every_generating_surface_accepts_constraints():
         (angle.find_acquisition_packages, "angle.find_acquisition_packages"),
     ]
     for fn, label in generating:
-        assert "constraints" in inspect.signature(fn).parameters, (
-            f"{label} generates outgoing assets and cannot be constrained"
-        )
+        assert (
+            "constraints" in inspect.signature(fn).parameters
+        ), f"{label} generates outgoing assets and cannot be constrained"
 
     from src.api import trade_simulator
 
-    assert "constraints" not in inspect.signature(trade_simulator.simulate_trade).parameters, (
-        "the manual Trade Calculator must stay free-form (§5)"
-    )
+    assert (
+        "constraints" not in inspect.signature(trade_simulator.simulate_trade).parameters
+    ), "the manual Trade Calculator must stay free-form (§5)"
 
 
 def test_the_substrate_is_the_only_enforcement_path():

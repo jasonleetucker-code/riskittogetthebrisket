@@ -280,9 +280,9 @@ def test_the_finder_enforces_constraints_INSIDE_enumeration():
     )
 
     gen_src = inspect.getsource(finder._generate_packages)
-    assert "outgoing_policy=outgoing_policy" in gen_src, (
-        "the outgoing policy is not reaching enumerate_packages"
-    )
+    assert (
+        "outgoing_policy=outgoing_policy" in gen_src
+    ), "the outgoing policy is not reaching enumerate_packages"
 
 
 def test_the_substrate_cannot_generate_without_a_constraint_decision():

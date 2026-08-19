@@ -331,7 +331,9 @@ def _resolve_outgoing(policy: Any, *, side: str) -> "EligibilityPolicy | None":
             "acquisition target"
         )
     if not isinstance(policy, EligibilityPolicy):
-        raise ConstraintMisapplied(f"outgoing_policy must be an EligibilityPolicy, got {type(policy).__name__}")
+        raise ConstraintMisapplied(
+            f"outgoing_policy must be an EligibilityPolicy, got {type(policy).__name__}"
+        )
     return policy
 
 
