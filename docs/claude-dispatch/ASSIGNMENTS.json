@@ -1,6 +1,12 @@
 {
   "_comment": "Durable dispatch queue written by Claude 7 (Lane Dispatcher). One PRIMARY assignment per lane at a time. An ACTIVE row is never overwritten. Claude 7 does not merge, does not implement, and does not change V1 status.",
-  "updatedAt": "2026-08-19T10:14:00Z",
+  "updatedAt": "2026-08-19T10:52:00Z",
+  "_delivery": {
+    "state": "NOT DELIVERED",
+    "detail": "No agent channel is reachable from the dispatcher session (ListAgents: 'No reachable agents'), so this queue is durable but nothing consumes it. Verified at 10:52Z: Lane 2 has not created claude/v1-trade-constraints-owner and #913 is still at c2153eb, 9h03m after its last activity.",
+    "howToDeliver": "Send the `prompt` field of each PENDING assignment to the lane named in `lane`. Then set its status to ACTIVE here, or let the next dispatch cycle infer it from the branch appearing.",
+    "doNotAsk": "Claude 7 to implement it. That would create a second owner of Lane 2's unit and a seventh implementation lane."
+  },
   "assignments": [
     {
       "id": "L2-2026-08-19-01",
@@ -8,6 +14,8 @@
       "laneName": "Trade Intelligence",
       "createdAt": "2026-08-19T10:14:00Z",
       "status": "PENDING",
+      "reissuedAtCycle": 2,
+      "notReassigned": "Cycle 2 did NOT write a second Lane 2 assignment. One PRIMARY per lane; an unread assignment is a delivery problem, not a reason to pile on another task.",
       "priority": "P1",
       "kind": "PRIMARY",
       "v1Rows": ["V1-130", "V1-34"],
