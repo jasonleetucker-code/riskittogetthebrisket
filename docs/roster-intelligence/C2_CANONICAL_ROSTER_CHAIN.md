@@ -66,7 +66,7 @@ merging across units would be the defect, not the fix:
 
 | Module | Unit | Question it answers | Disposition |
 |---|---|---|---|
-| `src/league_intel/replacement.py` | canonical dynasty value | "What is a startable/rosterable player worth in THIS league?" | **CANONICAL for this lane.** Everything built here consumes it |
+| `src/league_intel/replacement.py` | **`rosValue` — 0-100 log-rank ROS production index** (corrected; see below) | "What is a startable/rosterable player worth in THIS league?" | **CANONICAL for that unit.** |
 | `src/scoring/replacement_level.py` | fantasy points (VORP) | "Points above replacement" | Different quantity. Consumer: `public_league/awards.py` via a shim |
 | `src/bdvm/replacement.py` | projected PPG | BDVM's dynamic replacement | Different lane; bound by the frozen Appendix-C parity fixture. **Do not touch** |
 | `src/trade/faab_engine.py` (`V_repl`) | board value, *format line* | "What does the league's format make replacement-level?" | Different question, different lane |
@@ -76,6 +76,20 @@ merging across units would be the defect, not the fix:
 So the deliverable here is **no new implementation** and no merge — a
 designation plus this table, so the next session does not "consolidate" two
 different units into one wrong number.
+
+**UNIT CORRECTED 2026-08-19 (V1-29).** This table originally gave
+`src/league_intel/replacement.py`'s unit as *canonical dynasty value*. That was
+wrong. It reads `rosValue` at every value site (`:299`, `:375`, `:386`, `:567`,
+`:618`); its own docstring says so (`:22` — *"runs the optimizer over
+``rosValue``"*); and its production caller supplies ROS rows (`gameplan.py:357`
+loads `data/ros/team_strength/`, handed in at `:486-488`).
+
+The error mattered more than a slip. This table's stated purpose is to prevent a
+cross-unit merge, and that cell invited exactly one — it made the dynasty-value
+replacement questions (`faab_engine.V_repl`, `displacement.waiverValue`) look
+like they belonged to an engine answering in ROS production units. The row now
+says what the code does, and `scripts/replacement_census.py` **enforces** the
+split rather than asserting it.
 
 ---
 
