@@ -59,6 +59,7 @@ import random
 from typing import Any, Iterable
 
 from . import metrics
+from .playoff_structure import PlayoffStructure, resolve_playoff_structure
 from .snapshot import PublicLeagueSnapshot, SeasonSnapshot
 
 # Number of MC runs per invocation.  10_000 is plenty for a 12-team
@@ -69,9 +70,15 @@ DEFAULT_SIMS: int = 10_000
 # distribution.  Below this, fall back to the league-wide pool.
 MIN_SAMPLED_WEEKS: int = 2
 
-# Default playoff spot count when the league settings don't carry an
-# explicit ``playoff_teams`` field.
-DEFAULT_PLAYOFF_SPOTS: int = 6
+# DELETED 2026-08-19 (V1-51): ``DEFAULT_PLAYOFF_SPOTS = 6``.
+#
+# It stood in for the league's own ``playoff_teams`` when the settings did
+# not carry one, and the live league takes SEVEN — so the fallback was
+# wrong for the league it served, and it published probabilities computed
+# under a format nobody verified.  ``playoff_structure`` is the one owner
+# now and an unpublished bracket is a refusal, not a number.  The constant
+# is gone rather than deprecated: a plausible default in scope is how a
+# guess gets re-adopted.
 
 
 def _season_weekly_scores(
@@ -458,6 +465,58 @@ def _standings_from_sim(
     )
 
 
+def _unknown_bracket(
+    snapshot: PublicLeagueSnapshot,
+    season: Any,
+    structure: PlayoffStructure,
+) -> dict[str, Any]:
+    """The league did not publish how many teams make the playoffs.
+
+    Qualifying therefore has no definition to simulate against, so every
+    owner reports ``playoffProbability: None`` rather than a number
+    computed under an assumed bracket. Same shape as the other refusals
+    in this module: the rows are still there, the certainty is not.
+    """
+    registry = snapshot.managers
+    owners_in_league: list[str] = []
+    for roster in season.rosters:
+        try:
+            rid = int(roster.get("roster_id"))
+        except (TypeError, ValueError):
+            continue
+        oid = metrics.resolve_owner(registry, season.league_id, rid)
+        if oid and oid not in owners_in_league:
+            owners_in_league.append(oid)
+    return {
+        "season": season.season,
+        "numSims": 0,
+        "playoffSpots": None,
+        "weeksPlayed": 0,
+        "weeksRemaining": 0,
+        "scheduleCertainty": "unknown_bracket",
+        "simulated": False,
+        "playoffStructure": structure.to_dict(),
+        "unsimulable": {
+            "reason": structure.reason or "playoff_bracket_unknown",
+            "detail": (
+                "this league's settings do not say how many teams make the "
+                "playoffs, so qualifying has no definition to simulate "
+                "against. This is not a 0% chance for anyone."
+            ),
+        },
+        "owners": [
+            {
+                "ownerId": o,
+                "displayName": metrics.display_name_for(snapshot, o),
+                "currentWins": 0,
+                "currentPointsFor": 0.0,
+                "playoffProbability": None,
+            }
+            for o in owners_in_league
+        ],
+    }
+
+
 def compute_playoff_odds(
     snapshot: PublicLeagueSnapshot,
     *,
@@ -520,16 +579,21 @@ def compute_playoff_odds(
     if num_sims < 0:
         num_sims = 0
 
-    # Playoff spot count — honour league settings, else default.
-    settings = season.league.get("settings") or {}
-    cfg_spots = settings.get("playoff_teams") if isinstance(settings, dict) else None
-    try:
-        spots = int(
-            playoff_spots if playoff_spots is not None else cfg_spots or DEFAULT_PLAYOFF_SPOTS
-        )
-    except (TypeError, ValueError):
-        spots = DEFAULT_PLAYOFF_SPOTS
-    spots = max(1, spots)
+    # Playoff spot count — the league's OWN bracket, resolved by the one
+    # owner both simulators share (V1-51).  This used to fall back to
+    # DEFAULT_PLAYOFF_SPOTS when the setting was absent, which published
+    # probabilities computed under a format nobody verified.  An explicit
+    # ``playoff_spots`` still wins, for callers asking a hypothetical.
+    structure = resolve_playoff_structure(season)
+    if playoff_spots is not None:
+        try:
+            spots = max(1, int(playoff_spots))
+        except (TypeError, ValueError):
+            spots = None
+    else:
+        spots = structure.teams
+    if spots is None:
+        return _unknown_bracket(snapshot, season, structure)
 
     owners_in_league: list[str] = []
     for roster in season.rosters:
