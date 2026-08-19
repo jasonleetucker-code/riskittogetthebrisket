@@ -913,3 +913,100 @@ turns 1 red.
 
 Live board unchanged throughout: `optimalLineup` stamp hash
 `a311593a9b7602ac` before and after every change in this unit.
+
+## 18. The eligibility discard — F1 did not reach the droppability chain
+
+Found in review of the hardening unit and repaired in the same PR.
+
+**F1's claim was too broad.** It threaded the league's configured flex
+eligibility into the lineup stamp and `/api/roster/intelligence`, and the
+chain doc said the chain consumed it. The *droppability* branch did not.
+The parameter was accepted, documented as applied, and discarded:
+
+```python
+# src/roster_intel/droppability.py, before
+``slot_eligibility`` is accepted and, when supplied, applied by re-running
+the owner against the caller's slots — it is not silently dropped.
+...
+del slot_eligibility  # the owner reads eligibility from the slot names
+```
+
+Three lines apart. The comment justifying the `del` was also wrong: the
+owner reads `slot_eligibility` when it is given one and falls back to slot
+names only when it is `None`.
+
+**The measured chain**, all four hops:
+
+| hop | file | carried it? |
+|---|---|---|
+| `pool_cut_ladder` | `roster_intel/droppability.py` | accepted, then `del` |
+| `build_cut_ladder` | `draft/displacement.py` | **no parameter** |
+| `_filled_slot_count` | `draft/displacement.py` | **no parameter** |
+| `solve_optimal_assignment` | `ros/lineup.py` | **already accepted it** |
+
+The terminus supported it all along; two intermediate hops dropped it.
+
+**Why it survived F1's review.** `pool_cut_ladder` has no production and no
+test caller — it is the entry point `C3-CAP-01` (#913) is built to consume,
+and #913 has not consumed it yet. A latent defect in an unconsumed export
+is invisible to every test that exercises the live board, which is the same
+reason F4's six dead position spellings survived: *the live league does not
+exercise the path*. #913 must not consume this entry point until this repair
+lands.
+
+### What it would have done
+
+Slots `["RB", "FLEX"]`, roster `RB1`/`RB2`/`WR1`, in a league whose FLEX
+admits only WR:
+
+* the WR is the only player who can fill FLEX;
+* the discarded rule left the ladder scoring him against the default
+  RB/WR/TE FLEX, where `RB2` covers the slot;
+* so the engine offered **releasing the one player holding the lineup
+  together** as a legal cut.
+
+That is a safety property, not a cosmetic one — the ladder's entire purpose
+is to refuse cuts that break the lineup.
+
+### The repair
+
+* `draft/displacement.py` — `_filled_slot_count` and `build_cut_ladder` gain
+  and forward `slot_eligibility`. **Plumbing only**: no eligibility table and
+  no interpretation lives here, so `src/ros/lineup.py` remains the single
+  owner. *(Cross-lane: this file belongs to the Perfect Draft lane. The
+  change is an optional keyword defaulting to today's behaviour — flagged for
+  integration rather than folded in silently.)*
+* `roster_intel/droppability.py` — the `del` is gone and the value is passed
+  through; the false docstring paragraph is replaced with what the code does.
+* `team_droppability` now derives eligibility from the contract via
+  `contract_slot_eligibility(contract) or None`, the same helper the lineup
+  stamp and the endpoint use. Without this the cut ladder would score a
+  custom-flex league against built-in defaults while `optimalLineup` used the
+  configured ones — two answers to "who can fill this slot" inside one league.
+
+`or None` is load-bearing in both places: an empty map means *nothing
+configured*, not *no slot admits anything*. Passing `{}` through would empty
+every ladder.
+
+### Evidence
+
+* **RED first** — 3 of the 4 new tests fail at the unrepaired head
+  (`fd70515`); the fourth is the behaviour-preservation test, which must pass
+  on both sides and does.
+* **Mutation-proven** — re-introducing the discard turns the adversarial case
+  *and* the structural guard red. The guard is an **AST** check for a real
+  `Delete` node, not a substring search: the docstring above now quotes the
+  retired statement, and a text match would fire on the history note while
+  missing a discard written any other way.
+* **Inert on the live board** — `league_droppability` over the real contract,
+  before and after: **12/12 teams byte-identical** on `cutLadder` and
+  `waiverValues` (95,414 bytes, sha256 `ee00e1f6e9f08410` both sides). The
+  live league declares no custom flex eligibility —
+  `contract_slot_eligibility` returns `{}` — so the derivation resolves to
+  `None` and the defaults are unchanged. The repair is provably free for
+  today's leagues and correct for a configured one.
+* **The hardening unit still holds** — 68 passed across the adversarial,
+  demand-chain, vocabulary, unpriced and identity suites; both double-count
+  mutations still bite (reserve pass over the full pool → 3 red; Team
+  Strength counting reserves twice → 1 red in the adversarial suite plus 4 in
+  the strength suite).

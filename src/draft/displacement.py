@@ -70,7 +70,7 @@ must never be added to a ``rankDerivedValue``.
 
 from __future__ import annotations
 
-from collections.abc import Iterable, Mapping, Sequence
+from collections.abc import Collection, Iterable, Mapping, Sequence
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -384,10 +384,18 @@ def effective_cut_cost(
     return ecc, base, basis, waiver, mult
 
 
-def _filled_slot_count(pool: Sequence[RosterAsset], slots: Sequence[str]) -> int:
+def _filled_slot_count(
+    pool: Sequence[RosterAsset],
+    slots: Sequence[str],
+    slot_eligibility: Mapping[str, Collection[str]] | None = None,
+) -> int:
     if not slots:
         return 0
-    assignment = solve_optimal_assignment([a.to_lineup_player() for a in pool], list(slots))
+    assignment = solve_optimal_assignment(
+        [a.to_lineup_player() for a in pool],
+        list(slots),
+        slot_eligibility=slot_eligibility or None,
+    )
     return len(assignment)
 
 
@@ -397,6 +405,7 @@ def build_cut_ladder(
     waiver_values: Mapping[str, float],
     scarcity: Mapping[str, ScarcityComponents] | None = None,
     *,
+    slot_eligibility: Mapping[str, Collection[str]] | None = None,
     max_rungs: int = MAX_LADDER_RUNGS,
 ) -> CutLadder:
     """Cheapest-first ladder of players this team would actually release.
@@ -409,6 +418,14 @@ def build_cut_ladder(
     starters exceed what the team rosters) would otherwise have an empty
     ladder, which would read as "nobody is droppable" when the truth is
     "nothing gets worse".
+
+    ``slot_eligibility`` is the league's CONFIGURED flex rule, forwarded
+    verbatim to the canonical solver.  It is threaded, never interpreted —
+    ``src/ros/lineup.py`` remains the single owner of what a slot admits, and
+    this module holds no eligibility table of its own.  ``None`` (and an empty
+    map, which means "nothing configured", not "nothing is eligible") leaves
+    the owner on its built-in defaults, so callers that supply nothing are
+    unaffected.
 
     Greedy is exactly optimal here; see the module docstring for the matroid
     argument.  It is also cheap: the cheapest candidate is almost always
@@ -438,7 +455,7 @@ def build_cut_ladder(
     costed.sort(key=lambda t: (t[0], t[1]))
 
     remaining = list(pool)
-    baseline_filled = _filled_slot_count(remaining, slots) if slots else 0
+    baseline_filled = _filled_slot_count(remaining, slots, slot_eligibility) if slots else 0
     ladder.unfilled_slots_at_baseline = max(0, len(slots) - baseline_filled)
     if ladder.unfilled_slots_at_baseline:
         ladder.notes.append(
@@ -456,7 +473,7 @@ def build_cut_ladder(
                 continue
             if slots:
                 survivors = [a for a in remaining if a.player_id != asset.player_id]
-                if _filled_slot_count(survivors, slots) < baseline_filled:
+                if _filled_slot_count(survivors, slots, slot_eligibility) < baseline_filled:
                     # Releasing him breaks the lineup — never offer this cut.
                     blocked.add(asset.player_id)
                     ladder.undroppable.append(

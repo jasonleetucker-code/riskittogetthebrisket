@@ -96,6 +96,7 @@ from __future__ import annotations
 
 from typing import Any, Collection, Iterable, Mapping, Sequence
 
+from src.api.data_contract import contract_slot_eligibility
 from src.draft.context import (
     build_roster_assets,
     contract_teams,
@@ -234,7 +235,22 @@ def team_droppability(
     waiver_values = waiver_values_by_position(contract, rostered, excluded)
 
     slots, slot_source = _slots_for(contract, starter_slots)
-    ladder = build_cut_ladder(assets, slots, waiver_values, scarcity, max_rungs=max_rungs)
+
+    # The league's OWN flex rule, from the same helper the lineup stamp and
+    # ``/api/roster/intelligence`` use (F1).  Without it this ladder would
+    # score a custom-flex league against the built-in defaults while the
+    # contract's ``optimalLineup`` used the configured ones — two answers to
+    # "who can fill this slot" inside one league.  ``or None`` for the reason
+    # ``pool_cut_ladder`` states.
+    eligibility = contract_slot_eligibility(contract) or None
+    ladder = build_cut_ladder(
+        assets,
+        slots,
+        waiver_values,
+        scarcity,
+        slot_eligibility=eligibility,
+        max_rungs=max_rungs,
+    )
 
     notes = list(ladder.notes)
     if not waiver_values:
@@ -348,8 +364,20 @@ def pool_cut_ladder(
     backwards would silently exclude every unpriced player from the lineup
     guard and report a roster as more droppable than it is.
 
-    ``slot_eligibility`` is accepted and, when supplied, applied by re-running
-    the owner against the caller's slots — it is not silently dropped.
+    ``slot_eligibility`` is the caller's CONFIGURED flex rule and is forwarded
+    to the canonical solver through :func:`build_cut_ladder`, so it reaches the
+    lineup-feasibility check that decides which cuts are legal.  ``None`` — and
+    an empty map, which means "nothing configured" rather than "nothing is
+    eligible" — leaves ``src/ros/lineup.py`` on its built-in defaults.
+
+    *(Repaired 2026-08-19.  This paragraph previously claimed the parameter was
+    "applied by re-running the owner against the caller's slots … not silently
+    dropped", three lines above a ``del slot_eligibility``.  Neither
+    ``build_cut_ladder`` nor its feasibility check carried the parameter, so a
+    league whose FLEX admits only WR was scored against the default RB/WR/TE
+    rule and could be told to release the one player holding its lineup
+    together.  Latent because this entry point has no consumer yet — it exists
+    for ``C3-CAP-01`` (#913), which must not consume it until this is in.)*
     """
     assets = [
         RosterAsset(
@@ -365,7 +393,13 @@ def pool_cut_ladder(
         )
         for player in pool
     ]
-    del slot_eligibility  # the owner reads eligibility from the slot names
     return build_cut_ladder(
-        assets, list(starter_slots), waiver_values, scarcity, max_rungs=max_rungs
+        assets,
+        list(starter_slots),
+        waiver_values,
+        scarcity,
+        # ``or None``: an empty map is "nothing configured", not "no slot
+        # admits anything".  Passing ``{}`` through would empty every ladder.
+        slot_eligibility=slot_eligibility or None,
+        max_rungs=max_rungs,
     )
