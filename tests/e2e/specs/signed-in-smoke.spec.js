@@ -151,7 +151,7 @@ test.describe("signed-in: basic navigation + UI render", () => {
     ).toBeVisible();
   });
 
-  test("rosters page power-ranks every team in the contract", async ({
+  test("rosters page shows one canonical rank and one portfolio, both complete", async ({
     authedPage,
   }) => {
     const { teamNames } = await contractFixture(authedPage);
@@ -162,29 +162,96 @@ test.describe("signed-in: basic navigation + UI render", () => {
       timeout: 60_000,
     });
 
-    // One ranked row per Sleeper team, and the names must be the real
-    // ones.  A blank table, a partial roster load, or a rename in the
-    // pipeline all fail here; "the word Roster is on the page" — the
-    // assertion this replaced — catches none of them.
-    const teamCells = authedPage.locator(
-      ".table-wrap table tbody tr td:nth-child(2)",
+    // ── The portfolio table ──────────────────────────────────────────
+    // One row per Sleeper team, real names. A blank table, a partial
+    // roster load, or a rename in the pipeline all fail here; "the word
+    // Roster is on the page" — the assertion this replaced — catches
+    // none of them.
+    //
+    // Scoped to `.roster-portfolio-table` rather than to
+    // `.table-wrap table`: the page now carries three tables, and an
+    // unscoped `>= teamNames.length` count could be satisfied by
+    // summing rows across all of them.
+    const portfolioNames = authedPage.locator(
+      ".roster-portfolio-table tbody tr td:nth-child(1)",
     );
     await expect
-      .poll(() => teamCells.count(), {
-        message: `rosters table should render one row per contract team (${teamNames.length})`,
+      .poll(() => portfolioNames.count(), {
+        message: `portfolio table should render one row per contract team (${teamNames.length})`,
         timeout: 60_000,
       })
       .toBeGreaterThanOrEqual(teamNames.length);
 
-    const rendered = (await teamCells.allInnerTexts()).map((t) =>
+    const rendered = (await portfolioNames.allInnerTexts()).map((t) =>
       t.split("\n")[0].trim(),
     );
     for (const name of teamNames) {
       expect(
         rendered,
-        `team "${name}" missing from the roster power rankings`,
+        `team "${name}" missing from the roster value portfolio`,
       ).toContain(name);
     }
+
+    // The portfolio order is a SORT, not a rank. It used to print its
+    // own "#" ordinal while the retired tier card printed a different
+    // one from a frontend score — two rankings of the same teams,
+    // disagreeing for ten of twelve, on one screen.
+    await expect(
+      authedPage.locator(".roster-portfolio-table thead th", {
+        hasText: /^#$/,
+      }),
+    ).toHaveCount(0);
+
+    // ── The canonical Team Strength ladder ───────────────────────────
+    // Needs a team: the endpoint measures ONE team against the league
+    // and the E2E session carries no Sleeper user id, so it answers
+    // `team_required` until one is chosen. That refusal is itself the
+    // correct behaviour and is asserted first.
+    await expect(authedPage.getByText(/Choose a team/)).toBeVisible({
+      timeout: 30_000,
+    });
+
+    await authedPage.selectOption('select[aria-label="My team"]', teamNames[0]);
+
+    const ladderRows = authedPage.locator(".team-strength-ladder tbody tr");
+    await expect
+      .poll(() => ladderRows.count(), {
+        message:
+          "canonical Team Strength ladder should carry every team in the league",
+        timeout: 60_000,
+      })
+      .toBeGreaterThanOrEqual(teamNames.length);
+
+    const ladderNames = (
+      await authedPage
+        .locator(".team-strength-ladder tbody tr td:nth-child(2)")
+        .allInnerTexts()
+    ).map((t) => t.split("\n")[0].trim());
+    for (const name of teamNames) {
+      expect(
+        ladderNames,
+        `team "${name}" missing from the canonical Team Strength ladder`,
+      ).toContain(name);
+    }
+
+    // The rank a user sees comes from the backend. Every rank token on
+    // the page belongs to Team Strength — its ladder, its position
+    // groups, and the headline — so a re-introduced frontend ranking
+    // would show up as a rank outside those regions.
+    const strayRanks = await authedPage
+      .locator("td")
+      .evaluateAll(
+        (cells) =>
+          cells.filter(
+            (c) =>
+              /^#\d+$/.test(c.textContent.trim()) &&
+              !c.closest(".team-strength-card"),
+          ).length,
+      );
+    expect(
+      strayRanks,
+      "a rank rendered outside the canonical Team Strength card",
+    ).toBe(0);
   });
 
   test("settings page lists the real ranking-source registry", async ({

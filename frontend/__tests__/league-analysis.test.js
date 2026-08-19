@@ -8,7 +8,6 @@ import {
   analyzeTradeTendencies,
   buildCombinedPairTrade,
   buildSleeperIdentityMaps,
-  scoreTeamTiers,
 } from "@/lib/league-analysis";
 
 // Fake dynasty rows — just enough to resolve a single player value so
@@ -668,146 +667,20 @@ describe("buildCombinedPairTrade — two-team net history", () => {
   });
 });
 
-// ── Contender / rebuilder tiers ────────────────────────────────────────
+// ── Contender / rebuilder tiers: RETIRED ──────────────────────────────
 //
-// Regression pins for the math audit's H5(a): pick capital used to be
-// counted TWICE — once inside `depthValue` (which was
-// `totalValue − starterValue`, and totalValue includes picks) at +0.2,
-// and once in its own term at −0.1 — so every pick dollar was a NET
-// +0.1 REWARD under a docstring that called it a penalty.
+// `scoreTeamTiers` and its eight regression pins are deleted with the
+// function.  They pinned a frontend Team Strength formula — including
+// the exact coefficients `0.7 / 0.2 / -0.1` — so keeping them would
+// have kept the methodology in the repository under a different file
+// name, and would have failed the structural guard that replaced them.
 //
-// Numbers below are hand-computed from
-// `score = 0.7 × starterValue + 0.2 × depthValue − 0.1 × pickValue`.
-
-const tierRosterPositions = ["QB", "WR", "LB", "BN", "BN"];
-
-// Since C2-U1 the SERVER solves each lineup and stamps it on the team;
-// `scoreTeamTiers` renders that stamp rather than filling slots itself.
-// These stamps are what `src/ros/lineup.py` produces for a QB/WR/LB
-// lineup over each roster below — hand-written here because recomputing
-// them in JavaScript is the second implementation this unit deleted.
-const tierLineups = {
-  "Win Now": ["Star QB", "Star WR", "Star LB"],
-  Balanced: ["Solid QB", "Solid WR", "Depth LB"],
-  // Only the WR slot can be filled; QB and LB go unfilled.
-  "Pick Hoard": ["Lone WR"],
-};
-
-function tierStamp(name, starters) {
-  const slots = ["QB", "WR", "LB"];
-  return {
-    available: true,
-    slotSource: "sleeper_roster_positions",
-    slots,
-    assignments: starters.map((player, i) => ({ slotIndex: i, slot: slots[i], player })),
-    starters,
-    bench: [],
-    unpriced: [],
-    unfilledSlots: slots.slice(starters.length),
-  };
-}
-
-const tierPlayerMeta = {
-  "star qb": { name: "Star QB", pos: "QB", group: "QB", meta: 5000 },
-  "star wr": { name: "Star WR", pos: "WR", group: "WR", meta: 4000 },
-  "star lb": { name: "Star LB", pos: "LB", group: "LB", meta: 3000 },
-  "bench wr": { name: "Bench WR", pos: "WR", group: "WR", meta: 2000 },
-  "solid qb": { name: "Solid QB", pos: "QB", group: "QB", meta: 3000 },
-  "solid wr": { name: "Solid WR", pos: "WR", group: "WR", meta: 2000 },
-  "depth lb": { name: "Depth LB", pos: "LB", group: "LB", meta: 1000 },
-  "spare wr": { name: "Spare WR", pos: "WR", group: "WR", meta: 1500 },
-  "lone wr": { name: "Lone WR", pos: "WR", group: "WR", meta: 1000 },
-};
-
-// Six premium firsts at 8000 apiece — the pick-hoarding rebuilder's
-// entire portfolio.
-const tierPickNames = [
-  "2026 Early 1st",
-  "2026 Mid 1st",
-  "2026 Late 1st",
-  "2027 Early 1st",
-  "2027 Mid 1st",
-  "2027 Late 1st",
-];
-
-const tierRows = tierPickNames.map((name) => ({
-  name,
-  pos: "PICK",
-  values: { full: 8000, raw: 8000 },
-}));
-
-const tierTeams = [
-  {
-    name: "Win Now",
-    players: ["Star QB", "Star WR", "Star LB", "Bench WR"],
-    picks: [],
-    optimalLineup: tierStamp("Win Now", tierLineups["Win Now"]),
-  },
-  {
-    name: "Balanced",
-    players: ["Solid QB", "Solid WR", "Depth LB", "Spare WR"],
-    picks: [],
-    optimalLineup: tierStamp("Balanced", tierLineups["Balanced"]),
-  },
-  {
-    name: "Pick Hoard",
-    players: ["Lone WR"],
-    picks: tierPickNames,
-    optimalLineup: tierStamp("Pick Hoard", tierLineups["Pick Hoard"]),
-  },
-];
-
-function tiersByName() {
-  const out = {};
-  for (const t of scoreTeamTiers(
-    tierTeams,
-    tierPlayerMeta,
-    tierRows,
-    null,
-    tierRosterPositions,
-  )) {
-    out[t.name] = t;
-  }
-  return out;
-}
-
-describe("scoreTeamTiers", () => {
-  it("counts each roster dollar once — picks are NOT also depth", () => {
-    const hoard = tiersByName()["Pick Hoard"];
-    // 1000 (Lone WR) + 6 × 8000 picks.
-    expect(hoard.totalValue).toBe(49000);
-    expect(hoard.pickValue).toBe(48000);
-    // Lone WR fills the WR slot; QB and LB slots go unfilled.
-    expect(hoard.starterValue).toBe(1000);
-    // Everything else this team owns IS the picks, so nothing is left
-    // over as depth.  This read 48000 while picks lived inside depth.
-    expect(hoard.depthValue).toBe(0);
-    // 0.7 × 1000 − 0.1 × 48000 = 700 − 4800.
-    expect(hoard.score).toBe(-4100);
-  });
-
-  it("still counts non-starting PLAYERS as depth", () => {
-    const winNow = tiersByName()["Win Now"];
-    // Star QB/WR/LB start (12000); Bench WR is the only depth piece.
-    expect(winNow.starterValue).toBe(12000);
-    expect(winNow.depthValue).toBe(2000);
-    // 0.7 × 12000 + 0.2 × 2000 = 8400 + 400.
-    expect(winNow.score).toBe(8800);
-  });
-
-  it("tiers a pick-hoarding team as a rebuilder, not a mid-tier team", () => {
-    const tiers = tiersByName();
-    // Balanced: starters 3000+2000+1000 = 6000, depth 1500.
-    // 0.7 × 6000 + 0.2 × 1500 = 4200 + 300 = 4500.
-    expect(tiers["Balanced"].score).toBe(4500);
-    // With picks double-counted the hoarder scored 700 + 9600 − 4800 =
-    // 5500 and OUTRANKED Balanced, taking the mid-tier slot and pushing
-    // a deeper roster into the rebuilder bucket.
-    expect(tiers["Pick Hoard"].rank).toBe(3);
-    expect(tiers["Pick Hoard"].tier).toBe("rebuilder");
-    expect(tiers["Balanced"].rank).toBe(2);
-    expect(tiers["Balanced"].tier).toBe("middle");
-    expect(tiers["Win Now"].rank).toBe(1);
-    expect(tiers["Win Now"].tier).toBe("contender");
-  });
-});
+// What replaces the coverage:
+//   * `__tests__/no-frontend-team-strength-methodology.test.js` — the
+//     formula, the tier cut and the export may not come back.
+//   * `__tests__/roster-intelligence-lib.test.js` +
+//     `__tests__/components/team-strength-card.test.jsx` — the canonical
+//     numbers are rendered verbatim and their absences stay absences.
+//
+// The defect those pins guarded (H5(a): pick capital counted twice)
+// cannot recur, because no frontend code scores a team any more.
