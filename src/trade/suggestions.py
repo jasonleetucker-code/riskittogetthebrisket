@@ -286,6 +286,35 @@ class RosterAnalysis:
     sendable_keys: frozenset[str] = frozenset()
     #: ``[(asset, reason), ...]`` — why the sendable view is shorter.
     constrained_out: tuple[tuple[PlayerAsset, str], ...] = ()
+    #: Whether a constraint set was consulted at all.  "Nothing is protected"
+    #: and "nobody asked" are different claims and this keeps them apart.
+    constraints_applied: bool = False
+
+    def __post_init__(self) -> None:
+        """An analysis built without constraints has consulted none.
+
+        The sendable view then MIRRORS the full rooms, and that default is
+        deliberate rather than convenient.  Defaulting the other way — empty,
+        so nothing is sendable — reads as fail-closed and is not: it silently
+        returns zero suggestions for any caller that constructs this dataclass
+        directly, which is a shorter list with no explanation, the failure §4
+        forbids.  Fail-closed belongs at the OWNER, where ``UNRESOLVED``
+        expresses "we could not check"; this object cannot tell the difference
+        and must not pretend to.  ``constraints_applied`` records which
+        happened, and ``analyze_roster`` — the only production constructor —
+        always supplies the real answer.
+        """
+        if not self.constraints_applied and not self.sendable_by_position:
+            object.__setattr__(self, "sendable_by_position", dict(self.by_position))
+            object.__setattr__(
+                self,
+                "sendable_keys",
+                frozenset(
+                    str(p.name or "").strip().lower()
+                    for room in self.by_position.values()
+                    for p in room
+                ),
+            )
 
     def sendable(self, position: str) -> list[PlayerAsset]:
         """The room's assets we may put on the outgoing side."""
@@ -789,6 +818,7 @@ def analyze_roster(
         sendable_by_position=sendable_by_position,
         sendable_keys=sendable_keys,
         constrained_out=tuple(blocked),
+        constraints_applied=True,
     )
 
 

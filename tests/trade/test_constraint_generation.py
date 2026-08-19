@@ -466,3 +466,40 @@ def test_MUTATION_a_repricing_constraint_would_be_caught():
         "require_position",
         "excluded_keys",
     }
+
+
+def test_a_roster_analysis_built_without_constraints_says_so():
+    """ "Nothing is protected" and "nobody asked" are different claims.
+
+    The sendable view defaults to MIRRORING the full rooms, which looks like
+    failing open and is not — fail-closed lives at the owner, where `UNRESOLVED`
+    can express "we could not check". A `RosterAnalysis` cannot tell the
+    difference between an unconstrained league and an unread constraint store,
+    so it must not pretend to; defaulting the other way silently returned zero
+    suggestions for every caller that built the dataclass directly, which is a
+    shorter list with no explanation.
+    """
+    from src.trade.suggestions import PlayerAsset, RosterAnalysis, analyze_roster
+
+    hand_built = RosterAnalysis(
+        roster_size=1,
+        by_position={"QB": [PlayerAsset("QB1", "QB", 9000, 9000)]},
+        surplus_positions=[],
+        need_positions=[],
+        starter_counts={},
+        depth_counts={},
+    )
+    assert hand_built.constraints_applied is False
+    assert hand_built.can_send(PlayerAsset("QB1", "QB", 9000, 9000))
+
+    resolved = analyze_roster(["QB1"], [PlayerAsset("QB1", "QB", 9000, 9000)], constraints=None)
+    assert resolved.constraints_applied is True
+
+    protected = analyze_roster(
+        ["QB1"],
+        [PlayerAsset("QB1", "QB", 9000, 9000)],
+        constraints=resolve_constraints(persistent={"untouchables": ["QB1"]}),
+    )
+    assert protected.constraints_applied is True
+    assert not protected.can_send(PlayerAsset("QB1", "QB", 9000, 9000))
+    assert protected.by_position["QB"], "the ANALYSIS still counts him"
