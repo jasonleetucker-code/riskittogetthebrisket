@@ -100,12 +100,13 @@ from dataclasses import dataclass, field
 from collections import Counter
 from typing import Any, Iterable, Mapping, Sequence
 
-from src.draft.context import _index_contract_rows, _league_scarcity, _norm, build_roster_assets
+from src.draft.context import _league_scarcity, _norm, build_roster_assets, index_contract_rows
 from src.draft.displacement import (
     RosterAsset,
-    build_cut_ladder,
     waiver_values_by_position,
 )
+from src.roster_intel import pool_cut_ladder, simulate_roster_change
+from src.ros.lineup import RosterPlayer
 
 __all__ = [
     "CapacityContext",
@@ -411,6 +412,11 @@ class CapacityContext:
     scarcity: Mapping[str, Any] | None
     by_name: Mapping[str, Mapping[str, Any]]
     by_id: Mapping[str, Mapping[str, Any]]
+    #: The league's CONFIGURED flex rule, resolved once from the contract by
+    #: ``data_contract.contract_slot_eligibility`` — the same helper the
+    #: lineup stamp, ``/api/roster/intelligence`` and ``team_droppability``
+    #: use.  ``None`` means nothing configured, NOT nothing eligible.
+    slot_eligibility: Mapping[str, Any] | None = None
     notes: tuple[str, ...] = ()
 
 
@@ -452,7 +458,7 @@ def build_capacity_context(
     team = team if isinstance(team, Mapping) else {}
     names = tuple(str(n) for n in (team.get("players") or []) if str(n or "").strip())
 
-    by_id, by_name = _index_contract_rows(contract)
+    by_id, by_name = index_contract_rows(contract)
     assets: list[RosterAsset] = []
     unmatched: list[str] = []
     if team:
@@ -505,6 +511,16 @@ def build_capacity_context(
             "lineup-guarded, so a forced drop may be a player the lineup needs"
         )
 
+    # C2-U1 / #922 F1: one answer to "who can fill this slot" per league.
+    # Without this the cut ladder would score a custom-flex league against
+    # built-in defaults while ``optimalLineup`` used the configured ones.
+    from src.api.data_contract import contract_slot_eligibility  # noqa: PLC0415
+
+    try:
+        slot_eligibility = contract_slot_eligibility(contract) or None
+    except Exception:  # noqa: BLE001 — an optional rule must not fail capacity
+        slot_eligibility = None
+
     scarcity, scarcity_note = _league_scarcity(league_key, contract)
     if scarcity_note:
         notes.append(scarcity_note)
@@ -520,6 +536,7 @@ def build_capacity_context(
         starter_slots=starter_slots,
         waiver_values=waiver_values,
         scarcity=scarcity,
+        slot_eligibility=slot_eligibility,
         by_name=by_name,
         by_id=by_id,
         notes=tuple(notes),
@@ -611,6 +628,114 @@ def _surviving_keys(
         keys.add(key)
     keys.update(_norm(n) for n in incoming)
     return keys
+
+
+def _as_roster_players(assets: Iterable[RosterAsset]) -> list[RosterPlayer]:
+    """``RosterAsset`` -> the canonical owners' input type.
+
+    ``board_value`` (``rankDerivedValue``) becomes ``ros_value``, which is what
+    ``contract_roster_pools`` puts there and what every ``roster_intel`` entry
+    point reads.  ``None`` stays ``None``: the owner excludes an unpriced player
+    from the solve and REPORTS him, a third state that is neither 0.0 nor
+    silent omission.
+    """
+    return [
+        RosterPlayer(
+            player_id=a.player_id,
+            canonical_name=a.name,
+            position=a.position,
+            ros_value=a.board_value,
+            injured=a.injured,
+            bye=a.bye,
+            fantasy_positions=a.fantasy_positions,
+        )
+        for a in assets
+    ]
+
+
+def simulate_final_legal_roster(
+    context: CapacityContext,
+    capacity: RosterCapacity,
+    *,
+    incoming_players: Sequence[str] = (),
+    outgoing_players: Sequence[str] = (),
+) -> dict[str, Any]:
+    """Roster intelligence for the FINAL LEGAL roster, cleanup included.
+
+    ``C3-CAP-01`` names the sequence and this is its last two steps:
+
+        before -> apply -> capacity/overage -> required legal cleanup ->
+        **apply optimal cleanup -> rerun roster intelligence** -> evaluate
+
+    :func:`assess_roster_capacity` stops at "overage".  It reports WHO must go;
+    it cannot say what the roster looks like once they have, because roster
+    effects are set-dependent — that is C2-SIM-01's premise, and it applies to
+    the cleanup exactly as it applies to the trade.  Releasing the cheapest
+    legal body can still vacate a FLEX seat and promote a player the trade never
+    mentioned.
+
+    The re-solve belongs to ``roster_intel.simulation.simulate_roster_change``.
+    Nothing here solves a lineup, computes a strength, or picks a cut.
+    """
+    if not context.starter_slots:
+        return {
+            "available": False,
+            "unavailableReason": "starter_slots_unresolved",
+            "notes": ["the league's starting slots did not resolve, so no lineup can be solved"],
+        }
+
+    before_assets = [
+        context.assets_by_key.get(_norm(name)) or _resolve_incoming(name, context.by_name)
+        for name in context.roster_player_names
+    ]
+    before_pool = _as_roster_players(before_assets)
+    on_roster = {p.player_id for p in before_pool}
+
+    incoming_assets = [_resolve_incoming(n, context.by_name) for n in incoming_players]
+    incoming_pool = _as_roster_players(incoming_assets)
+
+    # The cleanup IS the capacity answer's own forced drops — not a second
+    # selection.  A drop the trade acquired leaves from the INCOMING side
+    # instead, because he was never on the before-roster to leave it.
+    drop_ids = {d.player_id for d in capacity.forced_drops}
+    acquired_drop_ids = {d.player_id for d in capacity.forced_drops if d.acquired_in_trade}
+    incoming_pool = [p for p in incoming_pool if p.player_id not in acquired_drop_ids]
+
+    outgoing_ids = sorted(
+        {
+            a.player_id
+            for a in (
+                context.assets_by_key.get(_norm(n)) or _resolve_incoming(n, context.by_name)
+                for n in outgoing_players
+            )
+        }
+        | (drop_ids - acquired_drop_ids)
+    )
+
+    simulation = simulate_roster_change(
+        before_pool,
+        list(context.starter_slots),
+        incoming=incoming_pool,
+        outgoing_ids=[i for i in outgoing_ids if i in on_roster],
+        slot_eligibility=context.slot_eligibility,
+    )
+
+    notes: list[str] = []
+    if capacity.certainty != "exact":
+        notes.append(
+            "the forced drops this was solved against are an UPPER BOUND "
+            f"({capacity.certainty} capacity certainty), so the final roster is one "
+            "of a range rather than a determined set"
+        )
+
+    payload = simulation.to_dict()
+    payload["cleanupApplied"] = [d.to_dict() for d in capacity.forced_drops]
+    payload["cleanupIsUpperBound"] = capacity.certainty != "exact"
+    payload["notes"] = notes
+    # Named for the same reason ``isValueDelta`` is: this block reports what the
+    # roster IS afterwards, and grades nothing.
+    payload["isVerdict"] = False
+    return payload
 
 
 def assess_roster_capacity(
@@ -741,11 +866,28 @@ def assess_roster_capacity(
     # approximation: rung k is identical whether the ladder stops at k or at
     # 30, because ECC is a property of the player and the greedy admits
     # cheapest-first.
-    ladder = build_cut_ladder(
-        surviving,
+    # The ladder is the canonical owner's, reached through the adapter #914 §14
+    # names for C3-CAP-01 — not ``build_cut_ladder`` directly, which would be a
+    # second route to one owner.  The league's configured flex rule travels with
+    # it, so this ladder and ``optimalLineup`` cannot disagree about who fills a
+    # slot (#922 `a03d175`).
+    ladder = pool_cut_ladder(
+        [
+            RosterPlayer(
+                player_id=a.player_id,
+                canonical_name=a.name,
+                position=a.position,
+                ros_value=a.board_value,
+                injured=a.injured,
+                bye=a.bye,
+                fantasy_positions=a.fantasy_positions,
+            )
+            for a in surviving
+        ],
         list(context.starter_slots),
         context.waiver_values,
-        context.scarcity,
+        scarcity=context.scarcity,
+        slot_eligibility=context.slot_eligibility,
         max_rungs=over_after_max,
     )
     notes.extend(ladder.notes)
