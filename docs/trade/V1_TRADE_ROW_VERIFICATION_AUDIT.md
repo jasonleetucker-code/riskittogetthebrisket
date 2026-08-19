@@ -20,7 +20,7 @@ SHA · **L4** L3 plus proof the user-facing surface consumes it.
 
 ## The ranking
 
-### Tier 1 — merge-gated. Zero further Trade work. **6 rows.**
+### Tier 1 — merge-gated. Zero further Trade work. **5 rows.**
 
 Every one is implemented, tested RED→GREEN, mutation-proven, and sitting in a
 PR that is green and frozen. The hours are already spent; the only thing
@@ -32,10 +32,30 @@ between them and `VERIFIED` is Integration merging two PRs.
 | **V1-44** equalizers rank on the post-VA gap | L1 | #913 | 24 tests; mutations 3/5/7 RED; 4,000 seeded trades — 1,360 misses and 701 lead-flips → **0**, mean residual 1,007 → 50 |
 | **V1-37** ONE Value Adjustment, parity proven | L2 | #913 | `ktc_va.py` scores **0 / 40,000** against the JS reference; three duplicate implementations deleted; **board byte-identical** — the L2 measurement is the 0 |
 | **V1-36** ONE shared package generator | L2 | #913 | `src/packages/construction.py`; 42 tests; L2 measurement is recorded — the finder's asymmetric search went value-ordered, **20 of the returned top 40 changed**, candidates 8,010 → 10,490 |
-| **V1-34** untouchable / excluded-player control | L1 | #929 | 22 tests, outgoing-only asymmetry pinned in both directions, UNKNOWN fails closed |
 | **V1-130** one recommendation-constraint owner | L2 | #929 | same suite; 8/8 mutations RED; **canonical board byte-identical, 1111 rows, 0 moved** — the L2 measurement |
 
-**Rows per hour: unbounded — the numerator is 6 and the remaining Trade
+> **CORRECTED 2026-08-19 after owner review on #929.** This tier originally
+> listed **V1-34** as a sixth merge-gated row. That was wrong, and the error was
+> mine — #929's own docstring already said so.
+>
+> `V1-34` is *"Untouchable / excluded-player control"* — an operable **user
+> control**. #929 delivers the **owner**, not the control:
+> `tradeConstraintsByLeague` is READ from `user_kv` at `server.py:7951` and
+> **written nowhere** — verified, one read and zero writes across the entire
+> repository. So every real user resolves to "nothing configured", which is a
+> legitimate answer and not a failure, but it is also not a capability anyone
+> can use. Under the contract's own false-green test there is no production
+> consumer, because there is no path by which a user configures a protection.
+>
+> `V1-130` is a different claim — that ONE canonical recommendation-constraint
+> owner exists and every generated-trade surface routes through it — and #929
+> does discharge that, with the board-inert measurement its L2 bar needs. The
+> two rows must stay separated through V1 reconciliation.
+>
+> The writer seam is `C3-CON-02` / `C3-CON-03`, separate rows, and both are
+> explicitly out of scope under the current speed-run rule.
+
+**Rows per hour: unbounded — the numerator is 5 and the remaining Trade
 denominator is 0 hours.** Nothing else in this lane comes close, which is why
 the dependency train is the whole priority.
 
@@ -74,6 +94,7 @@ same pass that closes the six above.
 
 | row | level | what is actually missing |
 |---|---|---|
+| **V1-34** untouchable / excluded-player control | L1 | the storage / control seam. The owner is in #929; nothing writes `tradeConstraintsByLeague`, so no user can configure a protection. `C3-CON-02` / `C3-CON-03` |
 | **V1-41** "Use Team Context" toggle, ON by default | L1 | everything. `#842`'s contract exists as a spec; no `teamContext` field is parsed anywhere |
 | **V1-43** Analyze Trade canonical recommendation | L1 | everything but the design. The contract is drafted (`docs/trade/V1_43_ANALYZE_TRADE_REHEARSAL_CONTRACT.md`) and names three dimensions that have no canonical owner yet, so its honest V1 ceiling is `confidence: medium` |
 
@@ -91,7 +112,7 @@ contract applied, and writing V1-43 first would mint a second copy of it.
 
 ## Consolidated answer
 
-**Six rows convert on merge alone. A seventh converts on the one
+**Five rows convert on merge alone. A sixth converts on the one
 reconciliation pass. Two more are Roster-gated. Only two need real building,
 and two are evidence-blocked.**
 
@@ -101,9 +122,11 @@ build anything:
 ```
 #922 merges → #913 reconciled ONCE → #913 merges → #929 rebased → #929 merges
    ↓                ↓                     ↓                          ↓
-  V1-40           V1-42               V1-36/37/39/44            V1-34/130
+  V1-40           V1-42               V1-36/37/39/44            V1-130
                                        (+V1-97 at L1)
 ```
 
-Nine rows move on that sequence. `V1-41` and `V1-43` are the only Trade rows
-where writing code is the bottleneck, and both are correctly behind it.
+Eight rows move on that sequence. `V1-34`, `V1-41` and `V1-43` are the Trade
+rows where writing code is the bottleneck, and all three are correctly behind
+it — `V1-34` needs only the storage / control seam, since #929 already supplies
+the owner it would write to.
