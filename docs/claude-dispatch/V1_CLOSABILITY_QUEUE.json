@@ -1,6 +1,6 @@
 {
   "_comment": "Live V1 Closability Queue, owned by Claude 7 as independent V1 traffic controller / adversarial auditor. Ranks IMPLEMENTED_UNVERIFIED rows by verification effort per row gained. NOT an authority on V1 status — only Claude 5 promotes a row, and no percentage here is claimed as achieved.",
-  "updatedAt": "2026-08-19T22:45:00Z",
+  "updatedAt": "2026-08-19T23:30:00Z",
   "auditCycle": 2,
   "evidenceBasis": {
     "contract": "docs/VERSION_1_COMPLETION_CONTRACT.md §3 read on origin/main e3b387ca5",
@@ -22,7 +22,7 @@
       "L3": 12,
       "L4": 3
     },
-    "note": "Re-counted on merged main after #922: STILL 40/132. Five merges today (#914, #919, #922, #926, #930) with no §3 movement. This is now the largest gap between work completed and work counted, and it is escalated rather than edited."
+    "note": "Sixth consecutive recount: still 40/132. Five merges (#914, #919, #922, #926, #930) with no §3 movement."
   },
   "deployState": {
     "correctionAccepted": "Cycle 1 collapsed four distinct facts into 'main is deployed'. Separated below.",
@@ -292,5 +292,22 @@
     ],
     "authPosture": "the consuming surface is /api/gameplan (server.py:6797), a private session-gated endpoint. So this needs the authenticated session, and it belongs in BATCH-2, not BATCH-1.",
     "additionalContext": "F-26 separately recorded that /api/gameplan has ZERO frontend consumers — the string appears once in the whole frontend, in a comment (Scope Manifest C2-GP-01 DISCONNECTED). So an L4-style production-consumer claim is not available for this surface at all; L3 is the ceiling until that row is resolved."
-  }
+  },
+  "newFindingsCycle11": [
+    {
+      "id": "F11-1",
+      "row": "V1-42",
+      "finding": "C2-SIM-01 merged with #914 and simulate_roster_change had ZERO consumers — reachable from no HTTP route. That is the V1 contract's own first-named false-green precedent (an owner exists, nothing consumes it). #913's W3 supplies a consumer on /api/trade/simulate. V1-42 must not be counted before that consumer lands.",
+      "reportedTo": "Claude 5"
+    },
+    {
+      "id": "F11-2",
+      "rows": [
+        "V1-34",
+        "V1-130"
+      ],
+      "finding": "CORRECTION: #929 supports V1-130 only. The constraint owner ships with no writer for tradeConstraintsByLeague, so there is no operable user control and V1-34 stays open. Any projection counting both rows from this stack is wrong by one.",
+      "reportedTo": "Claude 5"
+    }
+  ]
 }

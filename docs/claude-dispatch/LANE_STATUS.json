@@ -1,9 +1,9 @@
 {
   "_comment": "Lane utilization state, owned by Claude 7 (Lane Dispatcher). NOT an authority on integration sequencing (Claude 5 / docs/EXECUTION_PLAN.md), on V1 status (docs/VERSION_1_COMPLETION_CONTRACT.md) or on canonical ownership (CLAUDE.md). Repository evidence outranks this file: where they disagree, this file is wrong and must be corrected.",
-  "updatedAt": "2026-08-19T22:45:00Z",
-  "dispatchCycle": 10,
+  "updatedAt": "2026-08-19T23:30:00Z",
+  "dispatchCycle": 11,
   "writePolicy": "This file and ASSIGNMENTS.json are written ONLY on a material state transition — new assignment, assignment accepted, completion, blocker, freeze/unfreeze, or a meaningful dependency change. A heartbeat that finds nothing changed produces no commit and no CI run.",
-  "evidenceBasis": "origin/main 5aeb7f7c9 with #922 MERGED as b3739f095 (22:26:04Z); full remote-ref sweep at 22:43Z caught NEW branch claude/v1-95-awards-need-games; per-PR check runs read live; V1 §3 recounted on merged main; #913 conflict reproduced a sixth time",
+  "evidenceBasis": "origin/main e3f4a225c (no merges since #922); full remote-ref sweep at 23:28Z; B5 RE-TESTED against the CURRENT heads after discovering the recheck SHA had gone stale; baseline counts read from all three trees; V1 §3 recounted",
   "assignmentSourceNote": "The six current assignments were made manually by the owner, not by this dispatcher. Recorded here so the durable state matches reality; Claude 7 did not originate them and does not own them.",
   "v1": {
     "requiredRows": 132,
@@ -44,30 +44,29 @@
     "2": {
       "name": "Trade Intelligence",
       "state": "ACTIVE",
-      "currentTask": "V1-43 rehearsal on claude/v1-trade-roster-rehearsal-2 (evidence only, no PR) + integration diagnosis handed to Claude 5",
+      "currentTask": "reconciled #913 onto the finalized Roster mainline; #929 rebased on top; V1-43 now released",
       "assignmentSource": "manual (owner) rehearsal + Claude 7's L2-2026-08-19-02 held",
-      "branch": "claude/v1-trade-roster-rehearsal-2",
-      "frozenPrs": [
-        913,
-        929
-      ],
-      "pr": 929,
-      "implementationHead": "GREEN at c2153eb / 51b11bfb, but the RELEASE CANDIDATE is BLOCKED — neither can merge until the baseline is regenerated on the merged tree",
-      "releaseCandidate": "BLOCKED",
-      "evidence": "rehearsal-2 pushed 21:46Z; #929 comment 21:47:16Z; #913 c2153ebe and #929 51b11bfb untouched and frozen; conflict reproduced a fifth time at 21:59Z",
-      "blockedBy": "#913/#929 conflict on config/coercion_baseline.json against post-#914 main. Claude 5's to resolve — a generated census, so the fix is to regenerate on the merged tree, never to take a side.",
+      "branch": "claude/v1-trade-intelligence-efstt3",
+      "frozenPrs": [],
+      "pr": 913,
+      "implementationHead": "#913 head 6e7c2457 — CI in flight since 23:17:18Z; #929 head e057c55a rebased on it",
+      "releaseCandidate": "UNBLOCKED — both merge clean against main at baseline 664",
+      "evidence": "#913 6e7c2457 merges clean; #929 e057c55a merges clean; baselines 664/664 against main's 670; lane reports 8922 passed at exact head and a byte-identical canonical board on one tree state",
+      "blockedBy": null,
       "doNotTouch": [
-        "#913 head",
-        "#929 head",
         "src/roster_intel/**",
         "src/ros/**",
         "CLAUDE.md",
         "frontend/**"
       ],
-      "nextSafeWork": "V1-43 Analyze Trade V1, stacked on #929 — the lane's OWN declared next unit, now dependency-ready",
-      "lastMeaningfulActivity": "2026-08-19T21:47:16Z",
-      "assignedThisCycle": "L2-2026-08-19-02 HELD (base conflicted)",
-      "idleMinutes": 0
+      "nextSafeWork": "V1-43 Analyze Trade V1 on top of #929's new head e057c55a — assignment L2-2026-08-19-02 is RELEASED",
+      "lastMeaningfulActivity": "2026-08-19T23:26:33Z",
+      "assignedThisCycle": "L2-2026-08-19-02 RELEASED (DELIVERY_REQUIRED, base amended to e057c55a)",
+      "idleMinutes": 0,
+      "openPrs": [
+        913,
+        929
+      ]
     },
     "3": {
       "name": "Scoring / Season / Projections / Power",
@@ -122,7 +121,7 @@
     "5": {
       "name": "Integration / Governance / Production",
       "state": "ACTIVE",
-      "currentTask": "integration queue — #922 landed; {#913 -> #929} blocked a sixth cycle; the bounded release candidate is still outstanding",
+      "currentTask": "integration queue — B5 cleared, so {#913 -> #929} is now a mergeable ordered pair; the bounded release candidate for #927/#932 is still outstanding",
       "assignmentSource": "n/a — sole integration authority, never tasked by this dispatcher",
       "branch": null,
       "mergedThisCycle": [
@@ -130,20 +129,20 @@
       ],
       "implementationHead": "n/a",
       "releaseCandidate": "NOT_YET_FROZEN",
-      "evidence": "#922 merged b3739f095; main 5aeb7f7c9",
+      "evidence": "main e3f4a225c; no merges since #922",
       "blockedBy": null,
       "doNotTouch": [],
       "nextSafeWork": "its own sequencing",
       "reportedToIntegration": [
-        "SIXTH cycle blocked: #913 conflicts on config/coercion_baseline.json; #929 inherits. Regenerate on the merged tree (--write-baseline).",
-        "STILL OUTSTANDING and not a developer task: ONE bounded release candidate on current main via release-candidate.yml, for #927/#932. Per #926 the lanes must NOT rebase for it.",
-        "#936 is GREEN and is the cheapest V1 row available (L1, one deterministic test closing a measured gap). It should not queue behind larger units. Promotion still needs YOUR check of the assertions plus merge-tree CI — the auditor deliberately did not read them.",
-        "#925 is now Lane 1's chain head, clean against post-#922 main.",
-        "#935 has a FAILING Boot stack; do not merge on the strength of its green Validate PR alone.",
-        "V1 STILL 40/132 after FIVE merges. V1-51 reads NOT STARTED with #919 and #930 merged; the Roster rows #914/#922 build still read IN PROGRESS. This is the largest single gap between work done and work counted.",
-        "#930's production closure needs a POST-DEPLOY ROS SCRAPE — the championship payload is written by src/ros/scrape.py:372, not computed per request."
+        "B5 CLEARED. #913 (6e7c2457) then #929 (e057c55a), in that order — the lane's declared sequence. Both clean at baseline 664; main is 670, so whichever lands second must have its baseline regenerated from the tree that then exists.",
+        "STILL OUTSTANDING: ONE bounded release candidate on current main for #927/#932. Per #926 the lanes must NOT rebase for it.",
+        "#936 is GREEN and remains the cheapest V1 row (L1). Promotion needs YOUR read of the assertions plus merge-tree CI.",
+        "#935 has a FAILING Boot stack (B10) — do not merge on its green Validate PR alone.",
+        "CORRECTION TO CARRY: the owner's note on #929 states the stack supports V1-130 ONLY, not V1-34 — the constraint owner ships with no writer for tradeConstraintsByLeague, so there is no operable user control yet. Claude 7's cycle-1 assignment scoped both rows; only one is closable by this stack.",
+        "V1-42 / C2-SIM-01 was merged with #914 with zero consumers. #913's W3 supplies one. Worth a look before V1-42 is ever called done.",
+        "V1 still 40/132 across a sixth consecutive recount."
       ],
-      "lastMeaningfulActivity": "2026-08-19T22:26:04Z"
+      "lastMeaningfulActivity": "2026-08-19T23:08:43Z"
     },
     "6": {
       "name": "Premium UI / Frontend",
@@ -175,12 +174,13 @@
     "docs/VERSION_1_COMPLETION_CONTRACT.md — Claude 5 only.",
     "docs/claude-dispatch/** — Claude 7 only. No lane writes here."
   ],
-  "cycle10Transitions": [
-    "#922 MERGED (b3739f095, 22:26:04Z) — the fifth merge today. Its attempt-2 validation resolved and Claude 5 took it, so blocker B8 is CLOSED. #925 is now Lane 1's chain head and merges clean against post-#922 main.",
-    "#936 GREEN on exact head ef7c3d28 at 22:03:39Z — the V1-64 deterministic L1 pin. This is the cheapest V1 row on the board. NOT promoted here: Claude 5 must confirm the assertions genuinely pin oldestCrawlMs, plus green CI on the merge tree.",
-    "#935 Boot stack + run journeys FAILED at 22:17:20Z (job 96241817417) while its Validate PR stays green from 21:33:00Z. This is a RED and it belongs to Lane 6.",
-    "#937 OPENED 22:01:38Z (claude/v1-95-awards-need-games, 001ec865) — V1-95 'awards do not exist before games are played', a live production defect where eight awards were manufactured with zero games. Contract row is NOT STARTED at level L2, so it is numerator-relevant and needs no production auth.",
-    "BLOCKER B5-2026-08-19-01 open for a SIXTH cycle. L2-2026-08-19-02 stays HELD.",
-    "V1 recounted on merged main: STILL 40/132. Five merges (#914, #919, #922, #926, #930) with no movement in the §3 table."
+  "cycle11Transitions": [
+    "BLOCKER B5-2026-08-19-01 IS CLEARED after six cycles. #913's head moved c2153ebe -> 6e7c2457 and now merges CLEAN against main; #929 was rebased onto it (51b11bfb -> e057c55a) and is also clean. config/coercion_baseline.json regenerated to 664 on both, exactly the 674-4-6 arithmetic Lane 2 predicted six cycles ago, against main's 670.",
+    "METHOD CATCH, this auditor's own: the scheduled B5 recheck named the SHA c2153ebe literally. That SHA is no longer #913's head, so the test would have reported 'STILL CONFLICTED' about a commit nobody is trying to merge. Re-tested against the live heads instead. A blocker recheck must resolve the ref, never a remembered SHA.",
+    "The two #914-induced breaks are also fixed, and they were the substantive ones: W0 repaired the _index_contract_rows -> index_contract_rows rename that left the merged tree unable to import AT ALL, and W1 routed the cut ladder through roster_intel.pool_cut_ladder — turning #914's exact-caller-set test from RED to green and threading the league's configured flex rule.",
+    "NOT a freeze breach. Lane 2 reconciled onto the FINALIZED Roster mainline exactly once, after #922 merged — which is one of the four legitimate triggers #926 names (a dependency PR changed the interface this PR consumes). Reconciling once at the boundary is the bounded discipline; refresh-chasing is what the freeze forbids.",
+    "A FALSE-GREEN worth recording beyond Trade: V1-42 / C2-SIM-01 merged with #914 and simulate_roster_change had ZERO consumers — reachable from no HTTP route. A merged owner nothing consumes cannot pass the V1 contract's own false-green test, and that test names this exact shape as its first precedent. Lane 2's W3 gives it a consumer on /api/trade/simulate.",
+    "Integration order declared by the lane: #913 then #929. CI in flight on #913's new head since 23:17:18Z.",
+    "V1 recounted a SIXTH time: still 40/132. No merges this cycle."
   ]
 }

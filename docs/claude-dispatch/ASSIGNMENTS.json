@@ -1,13 +1,15 @@
 {
   "_comment": "Durable dispatch ledger written by Claude 7 (Lane Dispatcher). One PRIMARY assignment per lane. An ACTIVE row is never overwritten and a second task is never piled onto an unread one. Claude 7 does not merge, does not implement, and does not change V1 status.",
-  "updatedAt": "2026-08-19T22:45:00Z",
-  "cycle": 10,
+  "updatedAt": "2026-08-19T23:30:00Z",
+  "cycle": 11,
   "writePolicy": "Written only on a material state transition. An unchanged heartbeat produces no commit and no CI run.",
   "_delivery": {
-    "state": "HELD — nothing to deliver right now",
-    "detail": "L2-2026-08-19-02 is STILL HELD: blocker B5-2026-08-19-01 has been open SIX cycles and #913's base remains conflicted. Delivering it as written would stack a third PR on a broken base. No agent channel is reachable in any case, so it has never been claimed as delivered.",
-    "releaseCondition": "Deliver it once Claude 5 has resolved the #913/#929 baseline conflict and the two #914-induced breaks — or re-scope it onto merged main if Claude 5 sequences those PRs differently.",
-    "howToDeliver": "Send the `prompt` field of L2-2026-08-19-02 to Lane 2, after amending its base instruction to whatever head exists post-resolution."
+    "state": "DELIVERY_REQUIRED — one assignment released and awaiting delivery",
+    "pending": [
+      "L2-2026-08-19-02"
+    ],
+    "detail": "Blocker B5 cleared at cycle 11, so the hold is lifted. The base is amended from #929's old head 51b11bfb to its CURRENT head e057c55a. No agent channel is reachable from this session, so this is NOT claimed as delivered.",
+    "howToDeliver": "Send the `prompt` field of L2-2026-08-19-02 to Lane 2."
   },
   "assignments": [
     {
@@ -42,7 +44,7 @@
       "lane": 2,
       "laneName": "Trade Intelligence",
       "createdAt": "2026-08-19T18:16:00Z",
-      "status": "HELD",
+      "status": "DELIVERY_REQUIRED",
       "origin": "Claude 7 dispatch, cycle 4",
       "priority": "P1",
       "v1Rows": [
@@ -56,8 +58,8 @@
       "whyNow": "#914 merged at 17:51:26Z and src/roster_intel/ is on main. This is the lane's OWN declared next unit: #913's body states V1-43 'waits for #914 to merge so it can consume src.roster_intel rather than build against an unmerged interface'. That condition is now satisfied, and the lane has been idle 3h57m with both its PRs frozen.",
       "ownership": "Lane 2 owns Analyze Trade, the recommendation itself, and how signals are combined into it. Roster Intelligence is CONSUMED.",
       "hardBoundaries": [
-        "Base on #929's head 51b11bfb, NOT on bare main — V1-43 needs #913's package substrate and #929's constraint owner. This makes a three-deep ordered train (#913 -> #929 -> V1-43); mark the PR as such.",
-        "Do NOT commit to #913 or #929. Both are FROZEN_FOR_INTEGRATION.",
+        "Base on #929's CURRENT head e057c55a (the old 51b11bfb is retired), NOT on bare main — V1-43 needs #913's package substrate and #929's constraint owner. Train is #913 -> #929 -> V1-43; mark the PR as such.",
+        "Do NOT commit to #913 or #929. They are no longer frozen for the baseline repair, but they are Claude 5's ordered integration pair and the lane has declared them ready.",
         "Do NOT reimplement anything now on main: exact lineup, reserve demand, meaningful core, Team Strength, Team Weakness, droppability, replacement level, roster simulation. Import them. A second implementation of a freshly merged canonical owner is the worst possible outcome of this merge.",
         "No double-counting of overlapping signals — the contract row names this explicitly. A body of evidence affects the recommendation once; declare correlation groups before combining.",
         "No frontend UI (Lane 6's, and #912 is frozen) — hand the response shape over instead.",
@@ -78,8 +80,9 @@
       ],
       "stopCondition": "Stop when Analyze Trade V1 answers one typed-in trade with a canonical recommendation, consuming merged Roster Intelligence, with the five proofs recorded and the PR posted READY FOR INTEGRATION as third in the train. Do not start V1-42, do not touch UI, do not widen into advanced trade-market systems (POST-V1).",
       "dependsOn": [
-        "#914 (MERGED 17:51:26Z)",
-        "#913 + #929 (stacked base, frozen)"
+        "#914 (MERGED)",
+        "#922 (MERGED — the finalized Roster mainline)",
+        "#913 6e7c2457 + #929 e057c55a (stacked base, both clean at baseline 664)"
       ],
       "forbiddenTouches": [
         "claude/v1-trade-intelligence-efstt3",
@@ -92,7 +95,7 @@
         "docs/C_SERIES_SCOPE_MANIFEST.md",
         "frontend/**"
       ],
-      "prompt": "Lane 2 — Trade Intelligence. #914 merged at 17:51:26Z, so src/roster_intel/ is on main and the condition your own #913 body set for V1-43 is satisfied: Analyze Trade V1 can now consume src.roster_intel instead of building against an unmerged interface. Your rehearsal assignment is superseded by that merge. Take V1-43 / C7-DESK-01 / #792 for real. Base on #929's head 51b11bfb — NOT bare main — because you need #913's package substrate and #929's constraint owner; mark the PR as third in the #913 -> #929 -> V1-43 train, and do not commit to either frozen PR. Build the canonical recommendation for ONE typed-in trade. CONSUME the merged Roster owners — exact lineup, reserve demand, meaningful core, Team Strength, Team Weakness, droppability, replacement level, roster simulation — and reimplement none of them; a second implementation of a freshly merged canonical owner is the worst possible outcome of this merge, so ship an import census proving it. The contract row names no-double-counting explicitly: declare every input with its correlation group and show no body of evidence is counted twice. Missing is never zero — an unpriceable asset, an unknown cap or absent Roster evidence must yield an explicit insufficient/unknown verdict, never a confident-looking number, and that must be pinned. Prove canonical value untouched with scripts/board_diff.py --expect-no-value-change. RED-first with a recorded mutation per guard. V1-42 (exact before/apply/re-solve/after simulation) is a SEPARATE row and simulation.py is now on main: state plainly whether you consume it or whether V1-42 stays open — do not silently absorb it. No frontend UI (Lane 6's, and #912 is frozen) — hand the response shape over. No edits to CLAUDE.md or the contract/plan/manifest; draft that text for Claude 5. Stop when the recommendation works with the five proofs recorded and the PR is posted READY FOR INTEGRATION.",
+      "prompt": "Lane 2 — Trade Intelligence. #914 merged at 17:51:26Z, so src/roster_intel/ is on main and the condition your own #913 body set for V1-43 is satisfied: Analyze Trade V1 can now consume src.roster_intel instead of building against an unmerged interface. Your rehearsal assignment is superseded by that merge. Take V1-43 / C7-DESK-01 / #792 for real. Base on #929's CURRENT head e057c55a (the old 51b11bfb is retired) — NOT bare main — because you need #913's package substrate and #929's constraint owner; mark the PR as third in the #913 -> #929 -> V1-43 train, and do not commit to either frozen PR. Build the canonical recommendation for ONE typed-in trade. CONSUME the merged Roster owners — exact lineup, reserve demand, meaningful core, Team Strength, Team Weakness, droppability, replacement level, roster simulation — and reimplement none of them; a second implementation of a freshly merged canonical owner is the worst possible outcome of this merge, so ship an import census proving it. The contract row names no-double-counting explicitly: declare every input with its correlation group and show no body of evidence is counted twice. Missing is never zero — an unpriceable asset, an unknown cap or absent Roster evidence must yield an explicit insufficient/unknown verdict, never a confident-looking number, and that must be pinned. Prove canonical value untouched with scripts/board_diff.py --expect-no-value-change. RED-first with a recorded mutation per guard. V1-42 (exact before/apply/re-solve/after simulation) is a SEPARATE row and simulation.py is now on main: state plainly whether you consume it or whether V1-42 stays open — do not silently absorb it. No frontend UI (Lane 6's, and #912 is frozen) — hand the response shape over. No edits to CLAUDE.md or the contract/plan/manifest; draft that text for Claude 5. Stop when the recommendation works with the five proofs recorded and the PR is posted READY FOR INTEGRATION.",
       "heldAt": "2026-08-19T19:01:00Z",
       "heldReason": "Its base (#929 on #913) is conflicted against post-#914 main. Claude 7's own instruction to 'base on #929's head 51b11bfb' was correct when written at 18:16Z and is not correct now — recorded rather than quietly edited.",
       "laneIsNotIdle": "Lane 2 pushed rehearsal-2 at 20:19Z (finalized Roster reconciliation map) and has added nothing to either frozen PR. Correct posture; nothing needs dispatching.",
@@ -103,7 +106,19 @@
         8,
         9,
         10
-      ]
+      ],
+      "releasedAt": "2026-08-19T23:30:00Z",
+      "heldForCycles": [
+        5,
+        6,
+        7,
+        8,
+        9,
+        10
+      ],
+      "releaseReason": "B5 cleared: #913 reconciled onto the finalized Roster mainline (6e7c2457) and #929 rebased on top (e057c55a); both merge clean at baseline 664.",
+      "baseAmended": "Base on #929's CURRENT head e057c55a, NOT the retired 51b11bfb. The train is #913 -> #929 -> V1-43, in the order the lane declared.",
+      "newCaveat": "#913's CI is in flight on 6e7c2457 as of 23:17:18Z. The base is textually clean but not yet re-validated, so treat a red there as a stop signal before building on it. Also: the owner's note on #929 says the stack supports V1-130 only, NOT V1-34 — do not treat V1-34 as closed by it."
     }
   ],
   "currentAssignmentsManual": {
@@ -213,7 +228,7 @@
     {
       "id": "B5-2026-08-19-01",
       "raisedAt": "2026-08-19T19:01:00Z",
-      "status": "OPEN",
+      "status": "CLEARED",
       "owner": "Claude 5 (Integration)",
       "affects": [
         913,
@@ -224,7 +239,9 @@
       "notClaude7s": "Resolution is integration work on frozen candidates. Claude 7 reported it and did not touch either branch.",
       "stillOpenAtCycle": 10,
       "openForCycles": 6,
-      "recheck": "Reproduced a sixth time at 22:43Z."
+      "recheck": "Reproduced a sixth time at 22:43Z.",
+      "clearedAt": "2026-08-19T23:30:00Z",
+      "resolution": "Lane 2 reconciled #913 onto the finalized post-#922 Roster mainline exactly once. Baseline regenerated to 664 rather than hand-merged; the _index_contract_rows rename and the cut-ladder caller-set test both repaired. #929 rebased on top. Both merge clean. Exactly the recipe recorded at cycle 5, applied once at the boundary rather than chased."
     },
     {
       "id": "B8-2026-08-19-01",
@@ -253,6 +270,19 @@
       "problem": "#935's Boot stack + run journeys FAILED at 22:17:20Z (job 96241817417) while its Validate PR is green. A PR with one green and one red check is not green.",
       "whyNotAutomaticallyTheKnownFlake": "Lane 6 has correctly argued before that journey-settings-overrides fails on main and on every branch cut from it. That defence does NOT transfer automatically here, because #935 itself modified tests/e2e/specs/signed-in-smoke.spec.js. A main control run is needed before attributing this to the pre-existing failure.",
       "notClaude7s": "diagnosis belongs to the lane; reported only."
+    }
+  ],
+  "corrections": [
+    {
+      "id": "C11-1",
+      "raisedAt": "2026-08-19T23:30:00Z",
+      "correction": "Assignment L2-2026-08-19-01 was scoped 'V1-130 + V1-34'. The owner's note on #929 states the resulting stack supports V1-130 ONLY: the constraint owner ships without a writer for tradeConstraintsByLeague, so no operable user control exists yet. V1-34 (untouchable/excluded-player control) is NOT closed by #929.",
+      "consequence": "the closability queue and any projection must count one row here, not two"
+    },
+    {
+      "id": "C11-2",
+      "raisedAt": "2026-08-19T23:30:00Z",
+      "correction": "This auditor's own scheduled B5 recheck hardcoded the SHA c2153ebe. Once #913's head moved, that test described a commit nobody was merging and would have reported a cleared blocker as still open. Blocker rechecks must resolve the ref, not a remembered SHA."
     }
   ]
 }
