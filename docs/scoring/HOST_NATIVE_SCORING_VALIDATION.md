@@ -45,7 +45,11 @@ That work is not repeated here.
 These are unflagged, so they take effect **as soon as this PR is deployed** —
 but they are not live today. #915 is unmerged.
 
-### 2a. Safeties scored zero — 10,842.88 points
+### 2a. Safeties scored zero — an engine defect of 10,842.89 points, of which 0.00 was consumer-reachable
+
+**Two magnitudes, and they are not the same number.** Stating only the larger one
+overstates what any user or downstream consumer could have seen; stating only the
+smaller one hides a real defect in the canonical engine. Both are recorded here.
 
 `SAF` is the spelling the 2025 unified nflverse release uses for a safety. It was
 in **neither** `POSITION_ALIASES` — which CLAUDE.md names the single source of
@@ -55,34 +59,84 @@ truth for position families — nor `realized_points._IDP_POSITIONS`.
 skipped and every safety scored a well-formed **0.000** with no reason and no
 flag.
 
-| measure | value |
+#### The engine defect — 10,842.89 points
+
+Hand the canonical engine the raw `SAF` spelling, with no consumer normalization
+in front of it, over 2025 REG (1,455 SAF player-weeks, `dynasty_main` card):
+
+| | 2025 REG points |
 |---|---|
-| affected player-weeks (2025 REG) | 1,429 |
-| points never awarded | **10,842.88** |
-| mean per affected player-week | 7.59 |
-| worst affected | Talanoa Hufanga 222.70, Tre'von Moehrig 222.31, Nick Emmanwori 219.15 |
+| pre-fix (`origin/main`), raw `SAF` | **3.37** |
+| post-fix (this PR), raw `SAF` | **10,846.26** |
+| **engine defect** | **10,842.89** |
 
-For scale: this is **4.8×** the entire return-yards repair above. After the fix
-safeties contribute 10,846 points across 2025 REG — 8.3% of the 130,704-point
-board — where they previously contributed none.
+The residual 3.37 is the handful of offensive keys a safety can register
+(a reception, a rushing attempt on a fake) — the IDP block contributed nothing.
 
-Two consumers had already found this and patched it **locally**
-(`league_comparison.scoring_engine._canonical_position`, whose comment records
-that it "was in neither POSITION_ALIASES nor this table", and
-`bdvm.context.TRUE_POSITION_MAP`). That is why it never surfaced in their output,
-and exactly why a third private copy in the scoring engine kept the bug.
+#### The consumer-reachable delta — 0.00 points from this repair
+
+**Both production consumers of the engine already normalized `SAF` before
+calling it**, each with its own private table:
+`league_comparison.scoring_engine._canonical_position` → `DB` (its comment
+records that `SAF` "was in neither POSITION_ALIASES nor this table") and
+`bdvm.context.TRUE_POSITION_MAP` → `S`. Measured on the same rows, either
+normalization yields **10,803.70** pre-fix. So no consumer was serving zeros,
+and the SAF repair on its own moves **no** consumer-visible number.
+
+That those local patches existed is not mitigation — it is the finding. Two
+private position tables were carrying a correction the canonical owner did not
+have, which is exactly the second-owner condition CLAUDE.md forbids, and it is
+why the defect survived in the engine unseen. The next consumer to arrive without
+its own patch would have scored safeties at zero.
+
+#### What a consumer actually sees change
+
+Running the **whole** `league_comparison` path — the same rows, the same card,
+the same call shape — on `origin/main` versus this PR:
+
+| | 2025 REG, tracked positions |
+|---|---|
+| `origin/main` | 125,431.69 |
+| this PR | 125,649.81 |
+| **delta** | **+218.12** (0.174% of the tracked total; **0.167%** of the 130,704-point board) |
+
+36 of 1,644 players move, and **every single move is an exact multiple of 5.32**
+— the `idp_blk_kick` rate. The entire consumer-reachable historical delta of the
+champion repairs is **blocked kicks** (41 blocks × 5.32 = 218.12: the 33
+non-safety player-weeks of §2b at 175.56, plus 8 safety blocks at 42.56 that
+§2b's repair could only reach once §2a let the IDP block run for `SAF` at all).
+By position: DL +133.00, DB +53.20, LB +31.92.
+
+So the two repairs compose in one direction only: **§2a is a precondition for
+part of §2b's delta, and contributes nothing of its own to any consumer today.**
+
+#### Why the engine defect is still worth fixing
+
+It is latent, not harmless. It sits in the canonical owner, it is invisible in
+every consumer's output precisely because each one worked around it, and the
+scale of what it suppresses is 8.3% of the board — 10,846 points across 2025 REG.
 
 **Fixed at the owner:** `SAF` added to `POSITION_ALIASES`, and `_IDP_POSITIONS`
 is now *derived* from it rather than restated, so the next spelling the owner
 learns is scored automatically. A position table that is not derived from the
 owner is a second owner.
 
+Reproduce both arms, both trees:
+
+```bash
+git worktree add --detach /tmp/wt-main origin/main
+python3 scripts/measure_saf_defect.py --root /tmp/wt-main \
+    --weekly-csv <stats_player_week_2025.csv> --out /tmp/main.json
+python3 scripts/measure_saf_defect.py \
+    --weekly-csv <stats_player_week_2025.csv> --out /tmp/head.json
+```
+
 Position-scoped understatement is a **relative** bias, not merely a magnitude
 error: crushing the DB group against DL and LB tilts every comparison between
 them — the same argument `scoring_coverage`'s module header makes about partial
 corrections.
 
-### 2b. Blocked kicks were a GAP recorded as impossible — 175.56 points
+### 2b. Blocked kicks were a GAP recorded as impossible — 218.12 points, and this is the whole consumer-visible delta
 
 `UNSCORABLE_REASONS` declared `idp_blk_kick` (5.32/event) unscorable because
 "blocked kicks are not a column on the weekly defensive feed", while
@@ -93,11 +147,16 @@ very feed the engine already reads.
 field-goal blocks are more than half, which is what a first-present candidate
 lookup would have dropped — hence `_IDP_SUM_KEYS`, which sums.
 
-Now scored: **33 player-weeks, 175.56 points** (DE 12, DT 11, LB 6, CB 2, NT 1,
-DL 1). The 11 remaining blocks belong to SAF (8, now scored via 2a) and to an RB,
-a TE and an OT — deliberately not paid, because `idp_blk_kick` is Sleeper's IDP
-rule and those players occupy no IDP slot. The team `blk_kick` rule stays
-NOT_APPLICABLE.
+Now scored: **41 player-weeks, 218.12 points** — 33 at non-safety IDP positions
+(175.56: DE 12, DT 11, LB 6, CB 2, NT 1, DL 1) plus 8 at `SAF` (42.56), which
+this rule can only reach because §2a lets the IDP block run for that spelling at
+all. The 3 remaining blocks belong to an RB, a TE and an OT — deliberately not
+paid, because `idp_blk_kick` is Sleeper's IDP rule and those players occupy no
+IDP slot. The team `blk_kick` rule stays NOT_APPLICABLE.
+
+**This 218.12 is the entire consumer-reachable historical delta of §2a + §2b**
+(§2a §"What a consumer actually sees change"): 36 of 1,644 players move on the
+league-comparison path and every move is an exact multiple of the 5.32 rate.
 
 ### 2c. "Unscorable" was stated as a property of the universe
 
