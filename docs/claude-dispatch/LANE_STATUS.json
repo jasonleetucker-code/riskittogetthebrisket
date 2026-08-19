@@ -1,9 +1,9 @@
 {
   "_comment": "Lane utilization state, owned by Claude 7 (Lane Dispatcher). NOT an authority on integration sequencing (Claude 5 / docs/EXECUTION_PLAN.md), on V1 status (docs/VERSION_1_COMPLETION_CONTRACT.md) or on canonical ownership (CLAUDE.md). Repository evidence outranks this file: where they disagree, this file is wrong and must be corrected.",
-  "updatedAt": "2026-08-19T22:00:00Z",
-  "dispatchCycle": 9,
+  "updatedAt": "2026-08-19T22:45:00Z",
+  "dispatchCycle": 10,
   "writePolicy": "This file and ASSIGNMENTS.json are written ONLY on a material state transition — new assignment, assignment accepted, completion, blocker, freeze/unfreeze, or a meaningful dependency change. A heartbeat that finds nothing changed produces no commit and no CI run.",
-  "evidenceBasis": "origin/main e3b387ca (no merges since #930); full remote-ref sweep by committerdate at 21:59Z, which caught NEW branch claude/v1-64-oldest-crawl-pin; per-PR check runs read live; #913 conflict reproduced a fifth time",
+  "evidenceBasis": "origin/main 5aeb7f7c9 with #922 MERGED as b3739f095 (22:26:04Z); full remote-ref sweep at 22:43Z caught NEW branch claude/v1-95-awards-need-games; per-PR check runs read live; V1 §3 recounted on merged main; #913 conflict reproduced a sixth time",
   "assignmentSourceNote": "The six current assignments were made manually by the owner, not by this dispatcher. Recorded here so the durable state matches reality; Claude 7 did not originate them and does not own them.",
   "v1": {
     "requiredRows": 132,
@@ -18,27 +18,25 @@
       "state": "ACTIVE",
       "currentTask": "V1-29 delivered as #933 — the assigned rehearsal became an implementation PR",
       "assignmentSource": "manual (owner)",
-      "branch": "claude/v1-29-replacement-owner",
+      "branch": "claude/v1-roster-verification-audit",
       "chain": [
-        922,
         925
       ],
-      "pr": 933,
-      "implementationHead": "#933 GREEN (20:48:46Z); #922 head 5885796 attempt 2 IN PROGRESS since 21:55:47Z — verdict pending; #925 unchanged",
+      "pr": 925,
+      "implementationHead": "#933 GREEN (20:48:46Z); #925 is now chain head and merges clean post-#922",
       "releaseCandidate": "NOT_YET_FROZEN",
-      "evidence": "#933 4e0c30e0 green; #922 pushed 21:32Z to 5885796, run 32304436677 attempt 1 cancelled 21:54:13Z, attempt 2 running; #925 991280ad",
+      "evidence": "#922 MERGED b3739f095 22:26:04Z; #925 991280ad clean against new main; #933 4e0c30e0 green",
       "blockedBy": null,
       "doNotTouch": [
         "#922",
         "#925 while under integration review"
       ],
-      "nextSafeWork": "let #922's attempt 2 finish UNTOUCHED — pr-validation.yml declares concurrency pr-<number> with cancel-in-progress: true, so any further push or re-run while it is in flight cancels it again",
-      "lastMeaningfulActivity": "2026-08-19T21:55:47Z",
+      "nextSafeWork": "#925 is now the integration candidate — hand it over rather than stacking further; continue #933",
+      "lastMeaningfulActivity": "2026-08-19T22:26:04Z",
       "mergedThisCycle": [
-        914
+        922
       ],
       "openPrs": [
-        922,
         925,
         933
       ]
@@ -74,26 +72,27 @@
     "3": {
       "name": "Scoring / Season / Projections / Power",
       "state": "ACTIVE",
-      "currentTask": "V1-51 consolidation delivered as #934 — the assigned design became an implementation PR",
+      "currentTask": "V1-95 delivered as #937 (awards may not exist before games are played) + #934 V1-51 tiebreak",
       "assignmentSource": "manual (owner)",
       "branch": "claude/v1-51-ros-standings-tiebreak",
       "openPrs": [
         915,
         923,
-        934
+        934,
+        937
       ],
       "mergedThisCycle": [],
-      "pr": 934,
+      "pr": 937,
       "implementationHead": "#934 GREEN 21:00:43Z on b09d1f84",
       "releaseCandidate": "NOT_YET_FROZEN",
-      "evidence": "#934 opened 20:44Z head b09d1f84 (1 ahead of main); #923 e4ecb8cf and #915 2b65ac07 unchanged",
+      "evidence": "#937 opened 22:01:38Z head 001ec865 (1 ahead of main); #934 green 21:00:43Z; #923/#915 unchanged",
       "blockedBy": null,
       "doNotTouch": [
         "#915 head while under integration review"
       ],
-      "nextSafeWork": "drive #934 and finish the #923 Step-5 verification pack",
-      "observation": "Back to three open PRs (#915, #923, #934), but #934 is the next step of the assigned V1-51 consolidation on merged ground rather than a new parallel feature, so §28 holds.",
-      "lastMeaningfulActivity": "2026-08-19T21:00:43Z"
+      "nextSafeWork": "drive #934 and #937; open nothing further until some of the four land",
+      "observation": "FOUR open PRs now (#915, #923, #934, #937). #937 is a live production defect on a NOT STARTED V1 row at level L2 — cheap and numerator-relevant — but this is the count at which master-prompt §28 starts to bite: no fifth.",
+      "lastMeaningfulActivity": "2026-08-19T22:01:38Z"
     },
     "4": {
       "name": "Market / FAAB / Sharp / Analyst",
@@ -108,14 +107,14 @@
         936
       ],
       "pr": 936,
-      "implementationHead": "#932 GREEN 20:33:19Z on c795381b; #936 CI in flight since 21:48:14Z",
+      "implementationHead": "#936 GREEN 22:03:39Z on ef7c3d28; #932 GREEN 20:33:19Z on c795381b",
       "releaseCandidate": "NOT_YET_FROZEN",
-      "evidence": "#936 opened 21:48:08Z head ef7c3d28; #932 c795381b green; #927 07482b9b unchanged",
+      "evidence": "#936 green 22:03:39Z — the V1-64 L1 pin, delivered against the auditor's Tier B finding and now passing on its exact head",
       "blockedBy": null,
       "doNotTouch": [],
-      "nextSafeWork": "drive #936 to green — it is the single cheapest V1 row on the board and closes a gap the auditor found rather than one it invented",
+      "nextSafeWork": "hand #936 to Claude 5 as the cheapest available V1 row; it must not queue behind larger units",
       "watch": "CLOSED — Q4-2026-08-19-01 is answered by action. No second task was ever assigned, which was the right call.",
-      "lastMeaningfulActivity": "2026-08-19T21:48:14Z",
+      "lastMeaningfulActivity": "2026-08-19T22:05:52Z",
       "closedPrs": [
         931
       ]
@@ -123,25 +122,28 @@
     "5": {
       "name": "Integration / Governance / Production",
       "state": "ACTIVE",
-      "currentTask": "integration queue — 13 open lane PRs, the BLOCKED pair {#913 -> #929} into a fifth cycle, and one bounded release candidate outstanding",
+      "currentTask": "integration queue — #922 landed; {#913 -> #929} blocked a sixth cycle; the bounded release candidate is still outstanding",
       "assignmentSource": "n/a — sole integration authority, never tasked by this dispatcher",
       "branch": null,
-      "mergedThisCycle": [],
+      "mergedThisCycle": [
+        922
+      ],
       "implementationHead": "n/a",
       "releaseCandidate": "NOT_YET_FROZEN",
-      "evidence": "main e3b387ca, no merge commits since #930 (ef95cc339)",
+      "evidence": "#922 merged b3739f095; main 5aeb7f7c9",
       "blockedBy": null,
       "doNotTouch": [],
       "nextSafeWork": "its own sequencing",
       "reportedToIntegration": [
-        "STILL BLOCKING, FIFTH cycle: #913 conflicts with main on config/coercion_baseline.json. Regenerate on the merged tree (674-4-6 = 664; the flag is --write-baseline). #929 inherits it.",
-        "REQUIRED, and it is not a developer task: ONE bounded release candidate on current main via release-candidate.yml. #927/#932's heads remain previously green; what is unvalidated is the semantic merge tree after #914/#919/#926/#930. Per #926 the lanes must NOT rebase for this.",
-        "#912 green on both checks, mergeable clean, handed over. #935 now touches the same area, so merge order matters.",
-        "#936 is the cheapest V1 row available (L1, one deterministic test) and should not queue behind larger units.",
-        "V1 still 40/132. V1-51 reads NOT STARTED with #919 AND #930 merged.",
-        "#930's production closure needs a POST-DEPLOY ROS SCRAPE, not just the deploy: the championship payload is written by src/ros/scrape.py:372, not computed per request."
+        "SIXTH cycle blocked: #913 conflicts on config/coercion_baseline.json; #929 inherits. Regenerate on the merged tree (--write-baseline).",
+        "STILL OUTSTANDING and not a developer task: ONE bounded release candidate on current main via release-candidate.yml, for #927/#932. Per #926 the lanes must NOT rebase for it.",
+        "#936 is GREEN and is the cheapest V1 row available (L1, one deterministic test closing a measured gap). It should not queue behind larger units. Promotion still needs YOUR check of the assertions plus merge-tree CI — the auditor deliberately did not read them.",
+        "#925 is now Lane 1's chain head, clean against post-#922 main.",
+        "#935 has a FAILING Boot stack; do not merge on the strength of its green Validate PR alone.",
+        "V1 STILL 40/132 after FIVE merges. V1-51 reads NOT STARTED with #919 and #930 merged; the Roster rows #914/#922 build still read IN PROGRESS. This is the largest single gap between work done and work counted.",
+        "#930's production closure needs a POST-DEPLOY ROS SCRAPE — the championship payload is written by src/ros/scrape.py:372, not computed per request."
       ],
-      "lastMeaningfulActivity": "2026-08-19T21:07:30Z"
+      "lastMeaningfulActivity": "2026-08-19T22:26:04Z"
     },
     "6": {
       "name": "Premium UI / Frontend",
@@ -150,15 +152,15 @@
       "assignmentSource": "manual (owner)",
       "branch": "claude/rosters-canonical-team-strength",
       "pr": 935,
-      "implementationHead": "#935 head 7c61e09f, Validate PR GREEN 21:33:00Z; Boot stack in flight. #912 GREEN and frozen.",
+      "implementationHead": "#935 head 7c61e09f — Validate PR GREEN 21:33:00Z but Boot stack + run journeys FAILED 22:17:20Z. Mixed, therefore NOT green.",
       "releaseCandidate": "NOT_YET_FROZEN",
-      "evidence": "#935 pushed 21:16Z to 7c61e09f, green 21:33:00Z; #912 untouched at c025e4f6",
-      "blockedBy": "#912 still awaits Claude 5; #935 is independent of it and off main",
+      "evidence": "#935 Boot stack job 96241817417 conclusion=failure at 22:17:20Z; #912 untouched at c025e4f6 and still green on both checks",
+      "blockedBy": null,
       "doNotTouch": [
         "#912 head"
       ],
-      "nextSafeWork": "drive #935. It must stay a materializer over the server-stamped Team Strength — the PR title says it consumes rather than computes, which is the right shape; verify no scoring logic moved into the client.",
-      "lastMeaningfulActivity": "2026-08-19T21:33:00Z",
+      "nextSafeWork": "diagnose the #935 E2E failure. Note it may well be its OWN: #935 modified tests/e2e/specs/signed-in-smoke.spec.js, so the usual 'journey-settings-overrides fails on main too' defence does not automatically apply here. Establish a main control run before attributing it to the known flake.",
+      "lastMeaningfulActivity": "2026-08-19T22:27:19Z",
       "watch": "CLOSED — the lane is demonstrably active and its next unit is a separate PR, exactly as it scoped.",
       "openPrs": [
         912,
@@ -173,12 +175,12 @@
     "docs/VERSION_1_COMPLETION_CONTRACT.md — Claude 5 only.",
     "docs/claude-dispatch/** — Claude 7 only. No lane writes here."
   ],
-  "cycle9Transitions": [
-    "#936 OPENED 21:48Z (claude/v1-64-oldest-crawl-pin, head ef7c3d28) — 'V1-64 micro-unit: deterministic L1 pin for oldestCrawlMs'. This is the exact Tier B gap the corrected closability queue identified an hour earlier: the property was implemented at record_queue.py:110 with NO test asserting it. Claude 4 owned it and delivered it. CI in flight since 21:48:14Z.",
-    "#922 is NOT cancelled any more — it is on ATTEMPT 2. Run 32304436677 job 96234016882 was cancelled 21:54:13Z; job 96239812680 started 21:55:47Z on head 5885796 and is IN PROGRESS. Verdict pending: neither cancelled nor green. Blocker B8 downgraded from 'no verdict, cause unknown' to 'verdict pending, cause known'.",
-    "#935 head moved c0497cc1 -> 7c61e09f (21:16Z); Validate PR GREEN 21:33:00Z on the new head; Boot stack + run journeys still in flight.",
-    "#934 GREEN 21:00:43Z; #933 GREEN 20:48:46Z. Both new implementation PRs have clean exact-head verdicts.",
-    "BLOCKER B5-2026-08-19-01 open for a FIFTH cycle — #913 still conflicts on config/coercion_baseline.json. L2-2026-08-19-02 stays HELD.",
-    "No merges. V1 unchanged at 40/132."
+  "cycle10Transitions": [
+    "#922 MERGED (b3739f095, 22:26:04Z) — the fifth merge today. Its attempt-2 validation resolved and Claude 5 took it, so blocker B8 is CLOSED. #925 is now Lane 1's chain head and merges clean against post-#922 main.",
+    "#936 GREEN on exact head ef7c3d28 at 22:03:39Z — the V1-64 deterministic L1 pin. This is the cheapest V1 row on the board. NOT promoted here: Claude 5 must confirm the assertions genuinely pin oldestCrawlMs, plus green CI on the merge tree.",
+    "#935 Boot stack + run journeys FAILED at 22:17:20Z (job 96241817417) while its Validate PR stays green from 21:33:00Z. This is a RED and it belongs to Lane 6.",
+    "#937 OPENED 22:01:38Z (claude/v1-95-awards-need-games, 001ec865) — V1-95 'awards do not exist before games are played', a live production defect where eight awards were manufactured with zero games. Contract row is NOT STARTED at level L2, so it is numerator-relevant and needs no production auth.",
+    "BLOCKER B5-2026-08-19-01 open for a SIXTH cycle. L2-2026-08-19-02 stays HELD.",
+    "V1 recounted on merged main: STILL 40/132. Five merges (#914, #919, #922, #926, #930) with no movement in the §3 table."
   ]
 }

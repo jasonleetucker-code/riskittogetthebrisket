@@ -1,6 +1,6 @@
 {
   "_comment": "Live V1 Closability Queue, owned by Claude 7 as independent V1 traffic controller / adversarial auditor. Ranks IMPLEMENTED_UNVERIFIED rows by verification effort per row gained. NOT an authority on V1 status — only Claude 5 promotes a row, and no percentage here is claimed as achieved.",
-  "updatedAt": "2026-08-19T22:00:00Z",
+  "updatedAt": "2026-08-19T22:45:00Z",
   "auditCycle": 2,
   "evidenceBasis": {
     "contract": "docs/VERSION_1_COMPLETION_CONTRACT.md §3 read on origin/main e3b387ca5",
@@ -22,7 +22,7 @@
       "L3": 12,
       "L4": 3
     },
-    "note": "Unchanged. This auditor does not promote rows or touch the contract."
+    "note": "Re-counted on merged main after #922: STILL 40/132. Five merges today (#914, #919, #922, #926, #930) with no §3 movement. This is now the largest gap between work completed and work counted, and it is escalated rather than edited."
   },
   "deployState": {
     "correctionAccepted": "Cycle 1 collapsed four distinct facts into 'main is deployed'. Separated below.",
@@ -38,7 +38,8 @@
     },
     "fact3_actualRunningHostSha": "NOT ESTABLISHED. This auditor has no production access and found no git-SHA field on /api/status to read even if it did. Running-SHA provenance therefore requires either the deploy run's own log output or an on-box `git rev-parse` — neither is in this auditor's hands. A successful deploy run is evidence that a deployment was ATTEMPTED AND REPORTED SUCCESS, not proof of what is serving traffic now.",
     "fact4_pr930FreshUncachedVerification": "NOT PERFORMED. Not performable from here.",
-    "revisedClaim": "There is no evidence of a merged-but-not-deployed BACKLOG: every merge today has a corresponding successful Deploy Production run. That is a weaker and more accurate claim than 'main is deployed'."
+    "revisedClaim": "There is no evidence of a merged-but-not-deployed BACKLOG: every merge today has a corresponding successful Deploy Production run. That is a weaker and more accurate claim than 'main is deployed'.",
+    "fact5_postPr922": "#922 merged at 22:26:04Z; a Deploy Production run for the resulting main was not yet confirmed at 22:45Z. Do not assume it deployed."
   },
   "staleGreenFindings": [
     {
@@ -107,7 +108,7 @@
       "whyItMatters": "L1 requires RED->GREEN deterministic evidence. Production log output in data/ops/sharp-force-production-live.json showing `oldestCrawlMs: null` is real-world corroboration, not a deterministic test, and cycle 1 leaned on it too heavily.",
       "ownedBy": "Claude 4 — already authorized to produce the micro-PR. DO NOT DUPLICATE.",
       "rowsGained": 1,
-      "deliveryStatus": "#936 OPENED 21:48:08Z (claude/v1-64-oldest-crawl-pin, head ef7c3d28): 'V1-64 micro-unit: deterministic L1 pin for oldestCrawlMs'. CI in flight from 21:48:14Z. Not verified by this auditor — the test's assertions have not been read, and L1 also needs green CI on the merge tree."
+      "deliveryStatus": "#936 GREEN on exact head ef7c3d28 at 22:03:39Z. STILL NOT PROMOTABLE BY THIS AUDITOR: the assertions have not been read, and L1 also requires green CI on the merge tree. Claude 5 owns both checks."
     },
     {
       "row": "V1-88",
