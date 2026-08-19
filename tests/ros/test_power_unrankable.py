@@ -67,10 +67,12 @@ def _preseason_snapshot():
     return _make_snapshot(rosters, {})
 
 
-def test_results_only_in_preseason_refuses_rather_than_ordering_by_id():
-    """The structural case: this lens ALWAYS loses every component here."""
+def test_forward_looking_with_nothing_to_look_forward_to_refuses():
+    """The reachable case: preseason drops every historical component
+    from THIS lens by design, and a deploy without a team-strength file
+    drops the only forward-looking one. Nothing is left."""
     snapshot = _preseason_snapshot()
-    section = power_v2.build_section(snapshot, lens=power_v2.LENS_RESULTS_ONLY)
+    section = power_v2.build_section(snapshot, lens=power_v2.LENS_FORWARD_LOOKING)
 
     assert section["preseason"] is True
     assert section["effectiveWeights"] == {}, (
@@ -100,7 +102,7 @@ def test_the_owners_are_still_listed_when_it_refuses():
     """Withhold the certainty, not the league. A blank tab is a worse
     answer than an honest one, and the same posture playoff_structure
     already takes for an unknown bracket."""
-    section = power_v2.build_section(_preseason_snapshot(), lens=power_v2.LENS_RESULTS_ONLY)
+    section = power_v2.build_section(_preseason_snapshot(), lens=power_v2.LENS_FORWARD_LOOKING)
     owners = {r["ownerId"] for r in section["currentRanking"]}
     assert owners == {"o1", "o2", "o3", "o4"}
 
@@ -158,9 +160,14 @@ def test_the_trend_is_unaffected_because_it_is_never_preseason():
             assert row["rank"] is not None
 
 
-def test_the_committed_dev_snapshot_reproduces_the_defect_shape():
+def test_the_committed_dev_snapshot_shows_both_halves():
     """The measurement quoted in this module's docstring, pinned so the
-    claim cannot quietly stop being true."""
+    claim cannot quietly stop being true — and its repaired twin.
+
+    ``owner-B`` is the whole argument in one row. Under the defect it
+    scored 0.0 and was handed rank 2 while leading ``owner-A`` on five
+    of seven components. Under the results-only lens it is now first.
+    """
     path = REPO / "data" / "public_league" / "snapshot.json"
     if not path.exists():  # pragma: no cover - data/ is gitignored
         import pytest
@@ -170,8 +177,122 @@ def test_the_committed_dev_snapshot_reproduces_the_defect_shape():
     from src.public_league.snapshot_store import snapshot_from_dict
 
     snapshot = snapshot_from_dict(json.loads(path.read_text()))
+
+    # Forward-looking: preseason, and no team-strength file in this
+    # environment, so there is genuinely nothing to say. It refuses.
+    fwd = power_v2.build_section(snapshot, lens=power_v2.LENS_FORWARD_LOOKING)
+    assert fwd["preseason"] is True
+    assert fwd["effectiveWeights"] == {}
+    assert fwd.get("unrankable")
+    assert all(r["rank"] is None for r in fwd["currentRanking"])
+
+    # Results-only: the completed seasons are exactly its subject, so it
+    # ranks — and it puts the component leader on top.
+    res = power_v2.build_section(snapshot, lens=power_v2.LENS_RESULTS_ONLY)
+    assert not res.get("unrankable")
+    top = res["currentRanking"][0]
+    assert top["ownerId"] == "owner-B", (
+        "the row that exposed the defect must now rank first; it led "
+        "owner-A on five of seven components while ranked below it"
+    )
+    assert top["rank"] == 1 and top["powerScore"] > 0
+
+
+# ── The suppression rule belongs to ONE lens ─────────────────────────
+#
+# ``_is_preseason`` drops all seven ``_HISTORICAL_RESULTS_COMPONENTS``,
+# and its own docstring gives the reason: *"the historical-results
+# components describe a finished season and don't project the upcoming
+# year ... so the score reflects only forward-looking inputs"*.
+#
+# That is an argument about the FORWARD-LOOKING lens, and it is correct
+# there. It is exactly backwards for the retrospective one, whose entire
+# content IS the finished season. The results-only lens was added in
+# V1-52 step 1 and silently inherited a suppression written for the
+# other lens — my own defect, one step earlier.
+#
+# Measured consequence on the committed audit capture
+# ``docs/master-site-audit/evidence/W30/power-two-engines.json``:
+# ``preseason: true`` with ``effectiveWeights`` of just
+# ``{team_ros_strength: 0.38, roster_health: 0.03}``. After the
+# roster-health de-double-count in this same branch, forward-looking
+# preseason carries ONE component; results-only carries NONE, which is
+# the all-zero state the refusal above catches. So for the whole
+# offseason the retrospective lens had nothing to say, while the data it
+# is made of was sitting in the accumulators the entire time.
+
+
+def _completed_season_snapshot():
+    """A finished season and no current-season games — the live state of
+    every league between February and September."""
+    from tests.ros.test_power_v2 import _make_snapshot
+
+    rosters = [{"roster_id": i, "owner_id": f"o{i}"} for i in (1, 2, 3, 4)]
+    matchups = {
+        wk: [
+            {"roster_id": 1, "matchup_id": 1, "points": 130.0 + wk},
+            {"roster_id": 2, "matchup_id": 1, "points": 110.0 + wk},
+            {"roster_id": 3, "matchup_id": 2, "points": 95.0 - wk},
+            {"roster_id": 4, "matchup_id": 2, "points": 80.0 - wk},
+        ]
+        for wk in (1, 2, 3, 4)
+    }
+    return _make_snapshot(rosters, matchups, is_complete=True)
+
+
+def test_results_only_keeps_the_finished_season_it_is_made_of():
+    """The retrospective lens must not suppress the results."""
+    snapshot = _completed_season_snapshot()
     section = power_v2.build_section(snapshot, lens=power_v2.LENS_RESULTS_ONLY)
+
+    assert section["preseason"] is True, "fixture must reach the preseason branch"
+    assert not section.get("unrankable"), (
+        "a completed season is exactly what a results-only ranking is for; "
+        "refusing here means the lens has nothing to say all offseason"
+    )
+    kept = set(section["effectiveWeights"])
+    assert {
+        "ppg",
+        "recent",
+        "wl_record",
+        "all_play",
+    } <= kept, f"results-only dropped its own subject matter: kept {sorted(kept)}"
+    scores = [r["powerScore"] for r in section["currentRanking"]]
+    assert all(s is not None for s in scores)
+    assert len(set(scores)) > 1, "the finished season discriminates; the lens must too"
+
+
+def test_forward_looking_still_suppresses_them():
+    """NON-VACUITY, and the half that must NOT change. Last season's
+    results do not project the upcoming year, so the forward-looking
+    lens keeps dropping them — that rule was right for its own lens."""
+    section = power_v2.build_section(
+        _completed_season_snapshot(), lens=power_v2.LENS_FORWARD_LOOKING
+    )
     assert section["preseason"] is True
-    assert section["effectiveWeights"] == {}
-    assert section.get("unrankable")
-    assert all(r["rank"] is None for r in section["currentRanking"])
+    kept = set(section["effectiveWeights"])
+    assert not (
+        {"ppg", "recent", "wl_record", "all_play"} & kept
+    ), f"forward-looking must not price a finished season: kept {sorted(kept)}"
+
+
+def test_an_in_progress_season_is_unchanged_for_both_lenses():
+    """The suppression only ever applied in preseason; nothing about a
+    live season moves."""
+    from tests.ros.test_power_v2 import _make_snapshot
+
+    rosters = [{"roster_id": i, "owner_id": f"o{i}"} for i in (1, 2, 3, 4)]
+    matchups = {
+        wk: [
+            {"roster_id": 1, "matchup_id": 1, "points": 130.0 + wk},
+            {"roster_id": 2, "matchup_id": 1, "points": 110.0 + wk},
+            {"roster_id": 3, "matchup_id": 2, "points": 95.0 - wk},
+            {"roster_id": 4, "matchup_id": 2, "points": 80.0 - wk},
+        ]
+        for wk in (1, 2, 3)
+    }
+    snapshot = _make_snapshot(rosters, matchups)
+    for lens in (power_v2.LENS_RESULTS_ONLY, power_v2.LENS_FORWARD_LOOKING):
+        section = power_v2.build_section(snapshot, lens=lens)
+        assert section["preseason"] is False, lens
+        assert {"ppg", "recent"} <= set(section["effectiveWeights"]), lens
