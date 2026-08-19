@@ -19,6 +19,8 @@ labelled as such rather than estimated.
 | Every tunable | `config/trade/faab.json` |
 | Endpoint ↔ engine translation | `src/trade/faab_recommender.py::recommend_faab` |
 | Historical bid fetch + fit | `src/trade/faab_history.py`, `scripts/fetch_faab_history.py` |
+| External-league comparability, freshness, $-basis normalization | `src/trade/faab_comparability.py` — see [faab-external-market-comparability.md](faab-external-market-comparability.md) |
+| Cross-league crowd feed | `scripts/fetch_crowd_faab.py` → `faab_history.build_crowd_market` |
 | OLD-vs-NEW replay | `scripts/faab_backtest.py` |
 | Back-compat shim (no math of its own) | `src/trade/waiver.py::_compute_faab_bid` |
 | Endpoints | `POST /api/waiver/faab-recommend`, `POST /api/waiver/suggestions` |
@@ -721,6 +723,60 @@ that was already 21% of budget.
 | KTC crowd bid blend | `_ktc_crowd_blend` | **Demoted to evidence.** Reported, not multiplied. |
 | Pacing warning | `_PACING_WARN_SHARE 0.40` | **Superseded.** The engine warns from the actual numbers (`objectiveDollars > remaining`), not from a share threshold. |
 | `max` = team's `faabRemaining` | — | **Replaced** by `maxRational` = `min(remaining, floor(max(rawCeiling, displayedCeiling)))`, bounded by both the player's worth *and* the balance. |
+
+### Stale demand evidence is not present evidence
+
+`src/adapters/sleeper_trending.py` serves the **previous** snapshot when a fetch
+fails — deliberately, and with no absolute cap, so an upstream outage keeps one
+snapshot in front of every request indefinitely. That adapter behaviour is
+right; what consumed it was not.
+
+Until 2026-08-18 the factor row asserted `"N adds in the last 24h"` however old
+the snapshot was, and counted as **realised** evidence — so a dead upstream held
+`compute_confidence` up. `faab_contention.stale_inputs` flagged the same input
+as stale in a sibling field, which meant the payload contradicted itself. The
+test suite contained the contradiction too: one test asserted the row was
+present while the fixture's stamp was a month old and `staleInputs` already
+listed `trending`.
+
+Three states now, deliberately distinct:
+
+| state | row |
+|---|---|
+| fresh | `"12,000 adds in the last 24h"`, realised |
+| stale, or age unmeasurable | `missing`, and it names *when* the observation was made instead of asserting a window that has passed |
+| absent | `missing`, `"missing"` |
+
+The confidence drop falls out of the existing mechanism — `compute_confidence`
+already excludes `missing` rows — rather than needing a second staleness rule.
+
+**The ceiling has one owner.** It is
+`faab_contention.STALENESS_MAX_AGE_S["trending"]` (3h), the same budget
+`stale_inputs` uses, reached through `input_is_stale()`. A literal copied into
+the recommender is exactly how the two came to disagree, so its absence is
+asserted structurally by
+`test_faab_recommender.py::test_the_ceiling_is_not_duplicated_in_the_recommender`.
+
+**Zero adds is a real observation.** Not-trending is signal; only an unusable
+*observation* is missing, never a real count of zero.
+
+#### What is deliberately NOT implemented
+
+The owner spec (`FAAB_MARKET_SIGNAL_NORMALIZATION_2026-08-14.md` §4) asks for a
+velocity/acceleration view of Most Added — 6h/12h/24h/48h deltas behind a
+COLD…SURGING label — and states that the exact production transform is
+**evidence-gated**. Two things block it, and neither is a matter of effort:
+
+1. no backtest exists to justify a transform, and §4 caps the net upward effect
+   of Sleeper heat at roughly 10% of the pre-heat bid absent one;
+2. the persisted series that would supply velocity is
+   `src/retention/evidence_store.py::trending_series`, and that package's
+   docstring forbids decision-path reads outright — *"Nothing here may be read
+   by a decision path… a value that fed back into the thing it records would
+   make every measurement taken from it circular."*
+
+Moving that boundary is a separate, owned decision. Until then trending stays
+what it is here: reported evidence, honest about its age.
 
 ---
 

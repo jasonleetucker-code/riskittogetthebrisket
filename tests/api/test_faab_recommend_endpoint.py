@@ -48,6 +48,14 @@ V1_KEYS = {
 }
 
 
+def _iso_now(offset_s: float = 0.0) -> str:
+    """An ISO stamp relative to now.  Tests that care about freshness must
+    move with the clock; a hardcoded date silently becomes stale."""
+    import datetime as _dt
+
+    return (_dt.datetime.now(_dt.timezone.utc) + _dt.timedelta(seconds=offset_s)).isoformat()
+
+
 @pytest.fixture
 def faab_env(tmp_path, monkeypatch):
     """Single-league registry + stubbed external inputs."""
@@ -95,11 +103,17 @@ def faab_env(tmp_path, monkeypatch):
     # Trending adapter serves a canned snapshot (primary path).
     from src.adapters import sleeper_trending
 
+    # A FRESH snapshot.  It used to be stamped 2026-07-25, which meant the
+    # suite asserted two contradictory things: ``staleInputs`` contained
+    # "trending" (the stamp was a month old) while the factor row was
+    # asserted present.  That contradiction was the defect, so the fixture
+    # now stamps a genuinely current observation and the stale case is
+    # tested explicitly below.
     monkeypatch.setattr(
         sleeper_trending,
         "get_trending_adds",
         lambda **kwargs: {
-            "fetchedAt": "2026-07-25T12:00:00+00:00",
+            "fetchedAt": _iso_now(),
             "lookbackHours": 24,
             "counts": {"1234": 12000},
         },
@@ -299,8 +313,9 @@ def test_inputs_as_of_and_stale_inputs_reflect_stubbed_sources(faab_env, monkeyp
         res = _post(c, monkeypatch, {"addPlayerName": "Hot Pickup"})
     payload = res.json()
     inputs = payload["inputsAsOf"]
-    # Trending came from the canned adapter snapshot.
-    assert inputs["trending"] == "2026-07-25T12:00:00+00:00"
+    # Trending came from the canned adapter snapshot, which is now stamped
+    # fresh — so it must NOT be reported stale.
+    assert inputs["trending"] is not None
     # Overlay/analytics/intel were stubbed away → no timestamps →
     # flagged stale.
     assert inputs["rosters"] is None
@@ -308,6 +323,7 @@ def test_inputs_as_of_and_stale_inputs_reflect_stubbed_sources(faab_env, monkeyp
     assert inputs["intel"] is None
     stale = set(payload["staleInputs"])
     assert {"rosters", "leagueAnalytics", "intel"} <= stale
+    assert "trending" not in stale
 
 
 def test_trending_adapter_is_primary_signal(faab_env, monkeypatch):
@@ -319,6 +335,82 @@ def test_trending_adapter_is_primary_signal(faab_env, monkeypatch):
     trending_factors = [f for f in payload["factors"] if f["label"].lower().startswith("trending")]
     assert trending_factors, "expected a trending factor row"
     assert all(f["missing"] is False for f in trending_factors)
+    assert "12,000 adds in the last 24h" in trending_factors[0]["contribution"]
+
+
+# ── Stale demand evidence ────────────────────────────────────────────
+#
+# The adapter serves the PREVIOUS snapshot when a fetch fails — deliberately,
+# and with no absolute cap — so an upstream outage keeps one snapshot in front
+# of every request indefinitely.  Age is the only thing separating "12,000 adds
+# in the last 24h" from a claim about a day that has long since passed.
+
+
+def _trending_stamped(monkeypatch, fetched_at):
+    from src.adapters import sleeper_trending
+
+    monkeypatch.setattr(
+        sleeper_trending,
+        "get_trending_adds",
+        lambda **kwargs: {
+            "fetchedAt": fetched_at,
+            "lookbackHours": 24,
+            "counts": {"1234": 12000},
+        },
+    )
+
+
+def _trending_row(payload):
+    return next(f for f in payload["factors"] if f["label"].lower().startswith("trending"))
+
+
+def test_a_stale_trending_snapshot_stops_claiming_the_last_24h(faab_env, monkeypatch):
+    from src.trade.faab_contention import STALENESS_MAX_AGE_S
+
+    _trending_stamped(monkeypatch, _iso_now(-(STALENESS_MAX_AGE_S["trending"] + 3600)))
+    with TestClient(server.app, raise_server_exceptions=True) as c:
+        res = _post(c, monkeypatch, {"addPlayerName": "Hot Pickup"})
+    payload = res.json()
+    row = _trending_row(payload)
+    assert row["missing"] is True
+    assert "last 24h" not in row["contribution"]
+    assert "stale" in row["contribution"]
+    # ...and the two halves of the payload now agree with each other.
+    assert "trending" in payload["staleInputs"]
+
+
+def test_a_stale_snapshot_does_not_hold_confidence_up(faab_env, monkeypatch):
+    """The point of the change.  Asserted as a COMPARISON rather than a
+    hardcoded bucket, so it keeps meaning what it says if the weights move."""
+    from src.trade.faab_contention import STALENESS_MAX_AGE_S
+    from src.trade.faab_recommender import compute_confidence
+
+    order = {"low": 0, "medium": 1, "high": 2}
+
+    with TestClient(server.app, raise_server_exceptions=True) as c:
+        fresh = _post(c, monkeypatch, {"addPlayerName": "Hot Pickup"}).json()
+        _trending_stamped(monkeypatch, _iso_now(-(STALENESS_MAX_AGE_S["trending"] + 3600)))
+        stale = _post(c, monkeypatch, {"addPlayerName": "Hot Pickup"}).json()
+
+    assert order[stale["confidence"]] <= order[fresh["confidence"]]
+    # The realised weight genuinely fell — a bucket comparison alone would
+    # pass vacuously if both landed in the same bucket.
+    assert compute_confidence(stale["factors"]) == stale["confidence"]
+    assert sum(f["weight"] for f in stale["factors"] if not f["missing"]) < sum(
+        f["weight"] for f in fresh["factors"] if not f["missing"]
+    )
+
+
+def test_an_unstamped_snapshot_is_treated_as_stale_not_fresh(faab_env, monkeypatch):
+    """Unmeasurable freshness is not freshness."""
+    _trending_stamped(monkeypatch, None)
+    with TestClient(server.app, raise_server_exceptions=True) as c:
+        res = _post(c, monkeypatch, {"addPlayerName": "Hot Pickup"})
+    payload = res.json()
+    row = _trending_row(payload)
+    assert row["missing"] is True
+    assert "unknown" in row["contribution"]
+    assert "trending" in payload["staleInputs"]
 
 
 def test_unknown_player_still_404s(faab_env, monkeypatch):
@@ -610,3 +702,182 @@ def test_matching_league_snapshot_consumed_normally(faab_env, monkeypatch):
     # o1: avgBid 20 vs median 10 → aggression 2.0, real sample.
     assert per["o1"]["aggression"] == 2.0
     assert per["o1"]["lowSample"] is False
+
+
+# ── Crowd market provenance ──────────────────────────────────────────
+#
+# The external-league lane fails closed (stale ledger, or a population that
+# cannot price the position asked about).  A refusal must be VISIBLE — "we
+# have no crowd price for this player" and "we declined to quote one" must
+# not read the same on the wire.
+
+
+def _crowd_payload(updated_at, *, has_idp=False, name="Hot Pickup", pct=12.0):
+    """A crowd ledger whose format matches this fixture's league.
+
+    ``faab_env`` registers a bare ``{"teamCount": 12}`` league — no superflex,
+    no TEP, one TE — so the rows must match THAT shape to survive the gate.
+    That is the point of the gate: comparability is measured against the
+    target league, not against Brisket's hard-coded settings.
+    """
+    return {
+        "schemaVersion": 1,
+        "updatedAt": updated_at,
+        "rows": [
+            {
+                "id": i,
+                "date": "2026-07-25T00:00:00",
+                "added": name,
+                "bidPct": pct,
+                "settings": {
+                    "leagueId": f"L{i}",
+                    "superflex": False,
+                    "tepLevel": 0,
+                    "is2TE": False,
+                    "teams": 12,
+                    "rostersPerPlayer": 1,
+                    "hasIdpSlots": has_idp,
+                    "originalBudget": 200.0,
+                },
+            }
+            for i in range(4)
+        ],
+    }
+
+
+def _with_crowd(monkeypatch, payload):
+    from src.trade import faab_history
+
+    monkeypatch.setattr(faab_history, "load_crowd_history", lambda key: payload)
+
+
+#: A fully-stated league format.  ``faab_env`` registers only
+#: ``{"teamCount": 12}``, and an underspecified target now fails closed by
+#: design (see ``test_an_underspecified_target_league_admits_nothing``), so
+#: the tests that exercise the crowd path have to state a real format.
+_FULL_FORMAT = {
+    "teamCount": 12,
+    # 1QB, single TE, no TE premium — matching the crowd rows below, so the
+    # tests exercise the crowd path rather than the format gate.
+    "starters": {"QB": 1, "RB": 2, "WR": 3, "TE": 1, "FLEX": 2},
+}
+
+
+def _with_stated_format(monkeypatch):
+    monkeypatch.setattr(
+        server._league_registry,
+        "get_league_roster_settings",
+        lambda key: dict(_FULL_FORMAT),
+    )
+
+
+def _now():
+    import datetime as _dt
+
+    return _dt.datetime.now(_dt.timezone.utc).isoformat()
+
+
+def test_crowd_market_provenance_is_reported_when_fresh(faab_env, monkeypatch):
+    _with_stated_format(monkeypatch)
+    with TestClient(server.app) as c:
+        _with_crowd(monkeypatch, _crowd_payload(_now()))
+        res = _post(c, monkeypatch, {"addPlayerName": "Hot Pickup"})
+    assert res.status_code == 200
+    block = res.json()["crowdMarket"]
+    assert block["state"] == "fresh"
+    assert block["refusalReason"] is None
+    assert block["playerHasEvidence"] is True
+    assert block["rowsUsed"] == 4
+    assert block["dynastyProvenance"].startswith("source_level_claim")
+
+
+def test_incomparable_rows_are_dropped_on_read(faab_env, monkeypatch):
+    """The ledger is accumulated, so a tightened policy has to apply to rows
+    already stored — not only to the next fetch."""
+    _with_stated_format(monkeypatch)
+    payload = _crowd_payload(_now())
+    payload["rows"][0]["settings"]["rostersPerPlayer"] = 3
+    payload["rows"][1]["settings"]["originalBudget"] = 1.0
+    with TestClient(server.app) as c:
+        _with_crowd(monkeypatch, payload)
+        res = _post(c, monkeypatch, {"addPlayerName": "Hot Pickup"})
+    block = res.json()["crowdMarket"]
+    assert block["rowsTotal"] == 4 and block["rowsUsed"] == 2
+    assert block["excludedCounts"] == {"multi_copy_league": 1, "degenerate_budget": 1}
+
+
+def test_a_stale_crowd_ledger_is_refused_and_says_so(faab_env, monkeypatch):
+    _with_stated_format(monkeypatch)
+    with TestClient(server.app) as c:
+        _with_crowd(monkeypatch, _crowd_payload("2026-01-01T00:00:00+00:00"))
+        res = _post(c, monkeypatch, {"addPlayerName": "Hot Pickup"})
+    block = res.json()["crowdMarket"]
+    assert block["state"] == "stale"
+    assert block["refusalReason"] == "crowd_ledger_stale"
+    assert block["playerHasEvidence"] is False
+
+
+def test_an_offense_only_population_refuses_to_price_a_defender(faab_env, monkeypatch):
+    """Measured on the live feed: no external league in it starts an
+    individual defender, so its median is offense-only evidence and may not
+    price an IDP claim."""
+
+    _with_stated_format(monkeypatch)
+
+    def add_lb(contract):
+        contract["playersArray"].append(_row("Free Lb", "LB", 3000))
+
+    with TestClient(server.app) as c:
+        _with_crowd(monkeypatch, _crowd_payload(_now(), name="Free Lb"))
+        res = _post(c, monkeypatch, {"addPlayerName": "Free Lb"}, mutate=add_lb)
+    assert res.status_code == 200
+    block = res.json()["crowdMarket"]
+    assert block["pricesIdp"] is False
+    assert block["refusalReason"] == "population_cannot_price_idp"
+    assert block["playerHasEvidence"] is False
+
+
+def test_an_idp_league_in_the_population_unlocks_idp_pricing(faab_env, monkeypatch):
+    _with_stated_format(monkeypatch)
+
+    def add_lb(contract):
+        contract["playersArray"].append(_row("Free Lb", "LB", 3000))
+
+    with TestClient(server.app) as c:
+        _with_crowd(monkeypatch, _crowd_payload(_now(), name="Free Lb", has_idp=True))
+        res = _post(c, monkeypatch, {"addPlayerName": "Free Lb"}, mutate=add_lb)
+    block = res.json()["crowdMarket"]
+    assert block["pricesIdp"] is True
+    assert block["refusalReason"] is None
+    assert block["playerHasEvidence"] is True
+
+
+def test_no_ledger_reports_missing_rather_than_omitting_the_block(faab_env, monkeypatch):
+    with TestClient(server.app) as c:
+        _with_crowd(monkeypatch, None)
+        res = _post(c, monkeypatch, {"addPlayerName": "Hot Pickup"})
+    block = res.json()["crowdMarket"]
+    assert block["state"] == "missing"
+    assert block["refusalReason"] == "no_crowd_ledger"
+
+
+def test_an_underspecified_target_league_admits_nothing(faab_env, monkeypatch):
+    """``faab_env`` registers a league with a team count and no starters, so
+    its superflex and TE-premium settings are UNKNOWN.
+
+    Comparability is measured against the target.  Defaulting the unknown
+    half to a generic 12-team 1QB non-TEP shape would judge real external
+    evidence against a league nobody configured — so the gate refuses, and
+    says which setting it was missing.  Fixable in the registry, visible in
+    the census, and never silent.
+    """
+    with TestClient(server.app) as c:
+        _with_crowd(monkeypatch, _crowd_payload(_now()))
+        res = _post(c, monkeypatch, {"addPlayerName": "Hot Pickup"})
+    block = res.json()["crowdMarket"]
+    assert block["state"] == "missing"
+    assert block["rowsTotal"] == 4 and block["rowsUsed"] == 0
+    assert set(block["excludedCounts"]) == {
+        "target_format_unknown:superflex",
+        "target_format_unknown:tep",
+    }

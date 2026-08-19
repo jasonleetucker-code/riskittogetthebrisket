@@ -478,6 +478,34 @@ def _parse_iso_ts(value: Any) -> float | None:
         return None
 
 
+def input_age_seconds(as_of: Any, *, now: float | None = None) -> float | None:
+    """Age of one stamped input in seconds, or ``None`` when unmeasurable.
+
+    ``None`` covers a missing stamp and an unparsable one alike, and callers
+    must treat it as NOT FRESH — unmeasurable freshness is not freshness.
+    Kept distinct from a large age so a caller can say *when* an observation
+    was made rather than implying it knows.
+    """
+    ts = _parse_iso_ts(as_of)
+    if ts is None:
+        return None
+    return max(0.0, (time.time() if now is None else float(now)) - ts)
+
+
+def input_is_stale(key: str, as_of: Any, *, now: float | None = None) -> bool:
+    """Is this input past the ceiling ``STALENESS_MAX_AGE_S`` sets for it?
+
+    THE one staleness rule for FAAB inputs, so a consumer of a stamped input
+    never invents its own budget.  A key with no configured ceiling is never
+    stale (same rule ``stale_inputs`` applies); an unmeasurable age always is.
+    """
+    max_age = STALENESS_MAX_AGE_S.get(str(key))
+    if max_age is None:
+        return False
+    age = input_age_seconds(as_of, now=now)
+    return age is None or age > float(max_age)
+
+
 def stale_inputs(
     inputs_as_of: dict[str, Any],
     *,
@@ -486,12 +514,8 @@ def stale_inputs(
     """Names of inputs whose timestamp is missing or older than its
     ceiling in ``STALENESS_MAX_AGE_S``.  Keys without a configured
     ceiling are ignored."""
-    now_s = time.time() if now is None else float(now)
-    stale: list[str] = []
-    for key, max_age in STALENESS_MAX_AGE_S.items():
-        if key not in inputs_as_of:
-            continue
-        ts = _parse_iso_ts(inputs_as_of.get(key))
-        if ts is None or (now_s - ts) > max_age:
-            stale.append(key)
-    return stale
+    return [
+        key
+        for key in STALENESS_MAX_AGE_S
+        if key in inputs_as_of and input_is_stale(key, inputs_as_of.get(key), now=now)
+    ]

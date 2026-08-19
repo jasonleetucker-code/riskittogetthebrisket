@@ -1,0 +1,59 @@
+[Unit]
+Description=Dynasty Trade Calculator own-league FAAB bid-history collection (__SERVICE_NAME__)
+After=network-online.target
+Wants=network-online.target
+
+# Builds data/faab/bid_history_<leagueKey>.json by walking THIS league's
+# Sleeper chain backwards through previous_league_id and recording every
+# completed waiver / free-agent add with its winning bid.
+#
+# NOT THE SAME THING AS dynasty-crowd-faab, and the two must not be
+# confused because they answer different questions:
+#
+#   dynasty-crowd-faab   what OTHER leagues pay — the external market,
+#                        from KTC's public waiver database.
+#   this unit            what THIS league pays — its own bidding
+#                        culture, from Sleeper's own transactions.
+#
+# The engine fits its market priors (median / p75 / p90 / zero-bid share
+# and per-manager aggression) from the second, via
+# faab_history.summarize_bid_history.  Without the file the engine falls
+# back to configured priors and SAYS SO in contention.notes — so the
+# absence has always been reported and never fixed.  That is what this
+# timer closes.
+#
+# WHY A PROD-SIDE TIMER AND NOT CI: the endpoint reads a LOCAL file and
+# data/ is gitignored repo-wide, so a history built on a CI runner never
+# reaches the VPS.  Same reasoning as crowd-faab, BDVM and player-context.
+#
+# WHY THE FULL WALK EACH RUN: Sleeper keeps transactions indefinitely, so
+# there is no rolling window to miss and no accumulation to protect — the
+# run is idempotent and the file is rewritten from a complete read.  An
+# incremental fetch would be cheaper and is not worth the correctness risk
+# at this cadence.
+#
+# Exit codes (scripts/fetch_faab_history.py):
+#   0 - fetched and written
+#   1 - hard error (registry unreadable)
+#   2 - nothing fetched; the previous file is left untouched
+# On 1/2 the last good history stays live: stale own-league priors beat
+# none, and a missing file degrades to configured priors rather than
+# failing the waiver page.
+
+[Service]
+Type=oneshot
+User=__APP_USER__
+Group=__APP_USER__
+WorkingDirectory=__APP_DIR__
+EnvironmentFile=-__APP_DIR__/.env
+ExecStart=__VENV_DIR__/bin/python __APP_DIR__/scripts/fetch_faab_history.py
+StandardOutput=journal
+StandardError=journal
+# One request per league-week across the whole chain, so this is the
+# slowest of the FAAB producers — and it is never on a request path.
+Nice=10
+IOSchedulingClass=idle
+TimeoutStartSec=1800
+
+[Install]
+WantedBy=multi-user.target
