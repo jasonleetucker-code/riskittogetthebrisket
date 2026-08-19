@@ -62,10 +62,29 @@ export default function PlayoffOddsChart({
   // Replace that visualisation with an explicit preseason panel that
   // names the state, so it's unambiguously "not yet computable" vs.
   // "something is wrong."
-  const isPreseason =
-    data?.scheduleCertainty === "preseason" ||
-    (owners.length > 0 && owners.every((o) => o?.playoffProbability == null));
-  if (isPreseason) {
+  //
+  // There is more than one way for every probability to be null, and they
+  // must not read the same (V1-51).  "Preseason" is a promise that the
+  // numbers arrive on their own; an unknown playoff bracket is not — the
+  // league has not published how many teams qualify, so nothing will
+  // populate until it does.  The backend says which via
+  // ``scheduleCertainty`` and an ``unsimulable`` block; rendering the
+  // preseason copy for both would tell a manager to wait for something
+  // that is not coming.
+  const allNull = owners.length > 0 && owners.every((o) => o?.playoffProbability == null);
+  const unsimulable = data?.unsimulable;
+  const isUnknownBracket =
+    data?.scheduleCertainty === "unknown_bracket" ||
+    (allNull && data?.playoffSpots == null && unsimulable);
+  const isPreseason = !isUnknownBracket && (data?.scheduleCertainty === "preseason" || allNull);
+  if (isUnknownBracket || isPreseason) {
+    const title = isUnknownBracket
+      ? "Playoff format not published"
+      : "Preseason — odds not yet simulated";
+    const detail = isUnknownBracket
+      ? unsimulable?.detail ||
+        "This league's settings do not say how many teams make the playoffs, so qualifying has no definition to simulate against."
+      : "Playoff probabilities populate once Sleeper posts a schedule and Week 1 begins.";
     return (
       <div
         className="chart-empty"
@@ -76,13 +95,12 @@ export default function PlayoffOddsChart({
           lineHeight: 1.5,
         }}
       >
-        <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 4 }}>
-          Preseason — odds not yet simulated
-        </div>
+        <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 4 }}>{title}</div>
         <div style={{ fontSize: 11 }}>
-          Playoff probabilities populate once Sleeper posts a schedule and Week 1 begins.
+          {detail}
           {" "}
-          {owners.length} owners · top {data?.playoffSpots ?? "?"} make playoffs.
+          {owners.length} owners
+          {isUnknownBracket ? "." : ` · top ${data?.playoffSpots ?? "?"} make playoffs.`}
         </div>
       </div>
     );
