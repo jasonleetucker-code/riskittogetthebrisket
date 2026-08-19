@@ -43,11 +43,10 @@ import ast
 import dataclasses
 from pathlib import Path
 
-import pytest
 
 from src.draft.displacement import CutCandidate, CutLadder
 from src.ros.lineup import RosterPlayer, configured_slot_eligibility
-from src.roster_intel import build_meaningful_core, pool_cut_ladder, simulate_roster_change
+from src.roster_intel import pool_cut_ladder, simulate_roster_change
 from src.trade import roster_capacity as rc
 
 REPO = Path(__file__).resolve().parents[2]
@@ -61,8 +60,16 @@ MAIN_SETTINGS = {
     "rosterSize": 58,
     "taxiSize": 0,
     "starters": {
-        "QB": 1, "RB": 2, "WR": 3, "TE": 2, "FLEX": 2,
-        "SFLEX": 1, "K": 1, "DL": 3, "LB": 3, "DB": 3,
+        "QB": 1,
+        "RB": 2,
+        "WR": 3,
+        "TE": 2,
+        "FLEX": 2,
+        "SFLEX": 1,
+        "K": 1,
+        "DL": 3,
+        "LB": 3,
+        "DB": 3,
     },
 }
 #: 5 taxi slots and no taxi membership in the source — the bracketed case.
@@ -121,12 +128,16 @@ def _contract(roster, extra_rows=(), opponent=()):
     }
     teams = [team]
     if opponent:
-        teams.append({
-            "name": "Opponent", "ownerId": "owner-2", "roster_id": 2,
-            "players": list(opponent),
-            "playerIds": [n.lower().replace(" ", "_") for n in opponent],
-            "picks": [],
-        })
+        teams.append(
+            {
+                "name": "Opponent",
+                "ownerId": "owner-2",
+                "roster_id": 2,
+                "players": list(opponent),
+                "playerIds": [n.lower().replace(" ", "_") for n in opponent],
+                "picks": [],
+            }
+        )
     return {"playersArray": rows, "sleeper": {"teams": teams}}, team
 
 
@@ -402,10 +413,14 @@ def test_5_a_bench_promotion_is_reported_even_when_value_barely_moves():
     C2-SIM-01's whole premise: acquiring a player can move a DIFFERENT player's
     seat, by a transaction that never mentioned him.
     """
-    pool = _players([
-        ("Star RB", 900.0, "RB"), ("Solid RB", 700.0, "RB"),
-        ("Star WR", 950.0, "WR"), ("Bench RB", 400.0, "RB"),
-    ])
+    pool = _players(
+        [
+            ("Star RB", 900.0, "RB"),
+            ("Solid RB", 700.0, "RB"),
+            ("Star WR", 950.0, "WR"),
+            ("Bench RB", 400.0, "RB"),
+        ]
+    )
     slots = ["RB", "WR", "FLEX"]
     incoming = _players([("New RB", 800.0, "RB")])
 
@@ -461,8 +476,11 @@ def test_8_forced_drops_are_ladder_rungs_not_the_lowest_raw_value():
 
     surviving = [
         RosterPlayer(
-            player_id=a.player_id, canonical_name=a.name, position=a.position,
-            ros_value=a.board_value, injured=a.injured,
+            player_id=a.player_id,
+            canonical_name=a.name,
+            position=a.position,
+            ros_value=a.board_value,
+            injured=a.injured,
             fantasy_positions=a.fantasy_positions,
         )
         for a in ctx.assets_by_key.values()
@@ -472,9 +490,9 @@ def test_8_forced_drops_are_ladder_rungs_not_the_lowest_raw_value():
         surviving, list(ctx.starter_slots), dict(ctx.waiver_values), scarcity=ctx.scarcity
     )
     assert ladder.rungs
-    assert cap.forced_drops[0].name == ladder.rungs[0].name, (
-        "the forced drop is not the canonical ladder's rung 1"
-    )
+    assert (
+        cap.forced_drops[0].name == ladder.rungs[0].name
+    ), "the forced drop is not the canonical ladder's rung 1"
 
     # And it is not merely the cheapest body: the ladder's lineup guard keeps
     # players the surviving roster needs, which a raw-value rule cannot see.
@@ -555,6 +573,5 @@ def test_11b_a_posture_over_an_entirely_unpriced_roster_is_not_balanced():
 
     all_unpriced = [{"value": None} for _ in range(12)]
     assert _classify_window(all_unpriced, {}) != "balanced", (
-        "a roster with nothing priced was classified 'balanced'; unknown is "
-        "not a posture"
+        "a roster with nothing priced was classified 'balanced'; unknown is " "not a posture"
     )

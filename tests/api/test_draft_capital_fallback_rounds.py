@@ -257,7 +257,6 @@ def test_idp_rookies_are_kept_off_a_non_idp_league_board(monkeypatch):  # noqa: 
     kept = [
         r
         for r in pool
-        if str(r.get("assetClass") or "").lower() != "idp"
-        and not is_idp_position(r.get("pos"))
+        if str(r.get("assetClass") or "").lower() != "idp" and not is_idp_position(r.get("pos"))
     ]
     assert [r["name"] for r in kept] == ["Offense Rookie"]

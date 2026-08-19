@@ -59,10 +59,9 @@ from typing import Any
 #: and a hand-written literal missed can no longer read an IDP league as
 #: offense-only.  ``DP`` and ``IL`` stay explicit: they are feed-specific
 #: slot LABELS, not positions, and no position table knows them.
-_IDP_SLOT_NAMES = (
-    {p for p in POSITION_ALIASES if canonical_position_group(p) == POSITION_GROUP_IDP}
-    | {"IDP", "IDP_FLEX", "DP", "IL"}
-)
+_IDP_SLOT_NAMES = {
+    p for p in POSITION_ALIASES if canonical_position_group(p) == POSITION_GROUP_IDP
+} | {"IDP", "IDP_FLEX", "DP", "IL"}
 _TEAM_DEFENSE_SLOT_NAMES = {"DEF", "DST", "D/ST", "D", "TEAM DEF", "TEAMDEF"}
 
 #: Position families this population can only price if it contains IDP leagues.

@@ -166,6 +166,7 @@ CONFIDENCE_SOURCE_BASELINE = 5  # Expected source count for full confidence
 ROSTER_SURPLUS_THRESHOLD = 4  # ≥4 at a position = surplus (light fit bonus)
 ROSTER_WEAK_THRESHOLD = 1  # ≤1 at a position = weakness (light fit bonus)
 
+
 def is_idp_position(position: object) -> bool:
     """One vocabulary.  Replaces ``IDP_POSITIONS = {"DL", "LB", "DB"}``.
 

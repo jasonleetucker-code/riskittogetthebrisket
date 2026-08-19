@@ -31,7 +31,6 @@ the very answer the unit exists to compute.
 
 from __future__ import annotations
 
-import pytest
 
 from src.roster_intel import simulate_roster_change
 from src.ros.lineup import resolve_starter_slots
@@ -150,15 +149,18 @@ def test_it_publishes_no_value_delta():
     for bucket in ("arrived", "promoted", "departed", "displaced", "demoted", "movedSlot"):
         for row in out[bucket]:
             assert set(row) == {
-                "name", "position", "slotBefore", "slotAfter", "value", "valueScale",
+                "name",
+                "position",
+                "slotBefore",
+                "slotAfter",
+                "value",
+                "valueScale",
             }
 
 
 def test_an_unpriced_starter_reports_a_null_value_not_zero():
     """And an unpriced ARRIVAL is not seated at all — it is reported."""
-    out = _displacement(
-        [_asset("Priced", "RB", 5000)], incoming=[_asset("Unknown", "RB", None)]
-    )
+    out = _displacement([_asset("Priced", "RB", 5000)], incoming=[_asset("Unknown", "RB", None)])
     assert out["arrived"] == [], "an unpriced player must not win a starting slot"
     assert out["unpricedIncoming"], "and his absence must be reported, not silent"
 

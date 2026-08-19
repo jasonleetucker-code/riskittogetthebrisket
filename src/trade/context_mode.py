@@ -120,9 +120,9 @@ ASSET_ONLY_DIMENSIONS: frozenset[str] = frozenset(
 
 ALL_DIMENSIONS: frozenset[str] = TEAM_CONTEXT_DIMENSIONS | ASSET_ONLY_DIMENSIONS
 
-assert not (TEAM_CONTEXT_DIMENSIONS & ASSET_ONLY_DIMENSIONS), (
-    "a dimension cannot be both team context and asset-only"
-)
+assert not (
+    TEAM_CONTEXT_DIMENSIONS & ASSET_ONLY_DIMENSIONS
+), "a dimension cannot be both team context and asset-only"
 
 
 class UnknownDimension(KeyError):
@@ -186,8 +186,12 @@ class TradeContextMode:
             return self
         return TradeContextMode(
             mode=self.mode,
-            degraded=tuple(sorted([*self.degraded, DegradedDimension(dimension, reason)],
-                                  key=lambda d: d.dimension)),
+            degraded=tuple(
+                sorted(
+                    [*self.degraded, DegradedDimension(dimension, reason)],
+                    key=lambda d: d.dimension,
+                )
+            ),
         )
 
     def excluded_dimensions(self) -> tuple[str, ...]:
@@ -233,8 +237,10 @@ def resolve_context_mode(
     say so.
     """
     raw = ""
-    for source, keys in ((body, ("useTeamContext", "teamContext", "contextMode")),
-                         (query, ("useTeamContext", "teamContext", "contextMode"))):
+    for source, keys in (
+        (body, ("useTeamContext", "teamContext", "contextMode")),
+        (query, ("useTeamContext", "teamContext", "contextMode")),
+    ):
         if not isinstance(source, Mapping):
             continue
         for key in keys:
@@ -258,6 +264,4 @@ def assert_asset_only(mode: TradeContextMode, dimensions: Iterable[str]) -> None
     """
     bad = sorted(d for d in dimensions if not admits(mode.mode, d))
     if bad:
-        raise ValueError(
-            f"{mode.mode} may not consume team-context evidence: {', '.join(bad)}"
-        )
+        raise ValueError(f"{mode.mode} may not consume team-context evidence: {', '.join(bad)}")

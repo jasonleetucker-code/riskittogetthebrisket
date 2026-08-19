@@ -37,8 +37,6 @@ from src.api.terminal import (
 )
 
 
-
-
 def _resolve_asset(
     name: str,
     *,

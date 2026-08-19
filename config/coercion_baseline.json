@@ -1,6 +1,6 @@
 {
  "note": "Known missing-data coercions on decision paths, recorded so the gate can block NEW ones while the remediation batches burn these down. Each batch deletes its findings' entries. Do not add to this file to make a build pass.",
- "count": 665,
+ "count": 660,
  "violations": [
   "frontend/lib/auction-power.js::const raw = names.map((n) => Number(totalsObj[n]) || 0);",
   "frontend/lib/bdvm.js::assetCount: _num(r?.assetCount) ?? 0,",
@@ -659,11 +659,6 @@
   "src/trade/suggestions.py::target = max(s.receive, key=lambda p: p.dispersion_cv or 0)",
   "src/trade/symmetrize.py::total = sum(p.p50 for p in side) or 1.0",
   "src/trade/symmetrize.py::va_val = float(va_adj.get(\"effectiveValue\") or va_adj.get(\"value\") or 0)",
-  "src/trade/team_impact.py::by_value = sorted(win_now, key=lambda a: int(a.get(\"value\") or 0), reverse=True)",
-  "src/trade/team_impact.py::int(a.get(\"value\") or 0) for a in before_assets if not _is_pick(a) and _is_young(a)",
-  "src/trade/team_impact.py::pick_value = sum(int(a.get(\"value\") or 0) for a in before_assets if _is_pick(a))",
-  "src/trade/team_impact.py::top10_value = sum(int(a.get(\"value\") or 0) for a in by_value[:10])",
-  "src/trade/team_impact.py::total_value = sum(int(a.get(\"value\") or 0) for a in before_assets) or 1",
   "src/trade/waiver.py::budget = int(league_budget or 0)",
   "src/trade/waiver.py::items.sort(key=lambda c: -int(c.get(\"adjustedValue\") or 0))",
   "src/trade/waiver.py::source_count = int(row.get(\"sourceCount\") or 0)"

@@ -130,7 +130,7 @@ class TestDegradation:
         ]
 
     def test_degraded_and_inadmissible_are_different_states(self):
-        """"ON but unavailable" and "OFF so not consulted" must not read alike."""
+        """ "ON but unavailable" and "OFF so not consulted" must not read alike."""
         on = resolve_context_mode().degrade("playoffOdds", "ros_snapshot_missing")
         off = resolve_context_mode({"useTeamContext": False})
 

@@ -26,7 +26,7 @@ from typing import Any
 
 from src.trade.suggestions import _rookies_eligible_today
 from src.utils.name_clean import POSITION_GROUP_IDP, canonical_position_group
-from src.utils.name_clean import POSITION_GROUP_IDP, POSITION_GROUP_OFFENSE, canonical_position_group
+from src.utils.name_clean import POSITION_GROUP_OFFENSE
 from src.utils.name_clean import normalize_position
 
 _LOGGER = logging.getLogger(__name__)
@@ -369,5 +369,3 @@ def find_waiver_targets(
         "total": total,
         "rookies_excluded": not rookies_eligible,
     }
-
-

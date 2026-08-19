@@ -99,7 +99,6 @@ from src.trade.ktc_va import (
     adjusted_pair_totals as _adjusted_pair_totals,  # noqa: F401
     ktc_adjust_package,
 )
-from src.utils.name_clean import normalize_position as _normalize_position
 from src.utils.name_clean import POSITION_GROUP_IDP, canonical_position_group
 
 # RETIRED: a 14-spelling ``_IDP_POSITIONS`` and a 3-family ``_IDP_FAMILIES``

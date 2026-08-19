@@ -548,9 +548,7 @@ def _classify_window(
     by_value = sorted(win_now, key=_value, reverse=True)
     top10_share = sum(_value(a) for a in by_value[:10]) / total_value
     pick_share = sum(_value(a) for a in priced if _is_pick(a)) / total_value
-    young_share = (
-        sum(_value(a) for a in priced if not _is_pick(a) and _is_young(a)) / total_value
-    )
+    young_share = sum(_value(a) for a in priced if not _is_pick(a) and _is_young(a)) / total_value
 
     contend_index = top10_share - (pick_share + young_share)
     if contend_index > threshold:

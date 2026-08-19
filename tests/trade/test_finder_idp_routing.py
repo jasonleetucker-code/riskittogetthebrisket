@@ -54,7 +54,6 @@ from src.trade.finder import (
     find_trades,
     positions_from_contract,
 )
-from src.utils.name_clean import normalize_position as _norm_pos
 
 
 def _contract() -> dict[str, Any]:

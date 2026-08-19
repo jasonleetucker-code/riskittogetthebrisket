@@ -221,7 +221,6 @@ def test_resolution_never_reads_or_writes_a_canonical_value():
     resolution path. `rankDerivedValue` appears in these fixtures precisely so
     a change that started consulting it would have something to consult.
     """
-    import ast
 
     from src.trade import constraints as module
 
@@ -310,7 +309,6 @@ def test_there_is_exactly_one_constraint_owner():
     which would have pushed the next consumer into wording around the guard
     rather than calling the owner.
     """
-    import ast
     from pathlib import Path
 
     root = Path(__file__).resolve().parents[2]
@@ -331,9 +329,9 @@ def test_there_is_exactly_one_constraint_owner():
         for node in ast.walk(tree):
             if isinstance(node, ast.Constant) and node.value in reasons:
                 producers.add(rel)
-    assert producers == {"src/trade/constraints.py"}, (
-        f"a block reason is minted outside the owner: {sorted(producers)}"
-    )
+    assert producers == {
+        "src/trade/constraints.py"
+    }, f"a block reason is minted outside the owner: {sorted(producers)}"
 
 
 def test_every_generator_reaches_the_owner():
@@ -344,7 +342,6 @@ def test_every_generator_reaches_the_owner():
     without one.  A generator that accepts `constraints` and never partitions
     would satisfy the signature and none of the requirement.
     """
-    import ast
     from pathlib import Path
 
     root = Path(__file__).resolve().parents[2]
@@ -365,9 +362,10 @@ def test_every_generator_reaches_the_owner():
             for n in ast.walk(tree)
             if isinstance(n, ast.Call) and isinstance(n.func, ast.Name)
         }
-        assert called & {"partition_sendable", "_sendable_names"}, (
-            f"{rel} never partitions its outgoing side through the owner"
-        )
+        assert called & {
+            "partition_sendable",
+            "_sendable_names",
+        }, f"{rel} never partitions its outgoing side through the owner"
         for fn in functions:
             node = next(
                 (n for n in ast.walk(tree) if isinstance(n, ast.FunctionDef) and n.name == fn),

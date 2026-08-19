@@ -235,6 +235,7 @@ KTC_TOP_N_FILTER = BOARD_TOP_N_FILTER
 
 # ── Data structures ─────────────────────────────────────────────────
 
+
 def _is_idp(position: object) -> bool:
     """One vocabulary (CLAUDE.md: POSITION_ALIASES is the single source).
 
