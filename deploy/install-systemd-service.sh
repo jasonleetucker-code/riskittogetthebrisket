@@ -1086,6 +1086,11 @@ main() {
   # shipped templates that NOTHING installed until 2026-08-05; see the
   # helper's comment for why that was worse than simply not running.
   install_simple_timer "crowd-faab" "cross-league FAAB crowd accumulation"
+  # Sibling of crowd-faab, and deliberately a SEPARATE unit: crowd-faab
+  # collects what OTHER leagues pay, this collects what THIS league pays.
+  # The engine fits its market priors from the second and has been falling
+  # back to configured priors — and saying so — for want of a cadence.
+  install_simple_timer "faab-history" "own-league FAAB bid-history collection"
   install_simple_timer "sharp-activity" "qualified-manager Sleeper activity crawl"
   install_simple_timer "board-snapshot" "canonical board as-of snapshot"
   install_simple_timer "sharp-cohort-snapshot" "daily sharp-cohort baseline"

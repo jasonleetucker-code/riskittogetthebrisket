@@ -32,10 +32,11 @@ import logging
 import statistics
 import urllib.request
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import Any, Iterable
+from typing import Any, Iterable, Sequence
 
+from src.trade import faab_comparability as _comparability
 from src.utils.config_loader import repo_root, save_json
 
 log = logging.getLogger(__name__)
@@ -434,21 +435,269 @@ def save_crowd_history(league_key: str, payload: dict[str, Any]) -> Path:
     return path
 
 
-def crowd_bid_index(payload: dict[str, Any] | None) -> dict[str, dict[str, Any]]:
-    """``compact_name_key → {medianPct, maxPct, claims, leagues}``.
+@dataclass
+class CrowdMarket:
+    """The external waiver market, as far as we can honestly read it.
 
-    Median rather than mean, and **zeros retained**: a $0 add is the
-    modal outcome and the single most informative thing the feed says
-    about a player — dropping zeros is what made the legacy analytics
-    read a quiet wire as a contested one.
+    Holds the per-player index AND the provenance a consumer needs to know
+    whether it may use it: how fresh the ledger is, which comparability tiers
+    the retained rows came from, what was excluded and why, and whether the
+    population contains any IDP league at all.
+
+    ``state`` is one of:
+
+    ``fresh``    the ledger was updated inside ``maxFileAgeDays``.
+    ``stale``    it exists but has not been refreshed inside that budget.  A
+                 snapshot proves when it was taken, not that it is still true
+                 (the same posture ``league_registry.scoring_evidence_state``
+                 takes), so stale evidence is RETAINED and readable — only its
+                 authority expires.
+    ``missing``  no ledger, or nothing in it survived classification.
+
+    Only ``fresh`` authorises pricing today's market.
+    """
+
+    index: dict[str, dict[str, Any]] = field(default_factory=dict)
+    state: str = "missing"
+    as_of: str | None = None
+    age_days: float | None = None
+    rows_total: int = 0
+    rows_used: int = 0
+    tier_counts: dict[str, int] = field(default_factory=dict)
+    excluded_counts: dict[str, int] = field(default_factory=dict)
+    prices_idp: bool = False
+    target_budget: float | None = None
+
+    @property
+    def usable(self) -> bool:
+        return self.state == "fresh" and bool(self.index)
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "state": self.state,
+            "asOf": self.as_of,
+            "ageDays": round(self.age_days, 2) if self.age_days is not None else None,
+            "rowsTotal": self.rows_total,
+            "rowsUsed": self.rows_used,
+            "tierCounts": dict(sorted(self.tier_counts.items())),
+            "excludedCounts": dict(sorted(self.excluded_counts.items())),
+            "pricesIdp": self.prices_idp,
+            "pricedPlayers": len(self.index),
+            # Dynasty status of this feed is asserted by the SOURCE, not
+            # verified per league — recorded so a consumer can see which kind
+            # of evidence it holds (owner spec section 5).
+            "dynastyProvenance": _comparability.DYNASTY_PROVENANCE_SOURCE_LEVEL,
+        }
+
+
+def build_crowd_market(
+    payload: dict[str, Any] | None,
+    *,
+    target: "_comparability.TargetFormat | None" = None,
+    now_iso: str | None = None,
+    policy: "_comparability.ComparabilityPolicy | None" = None,
+) -> CrowdMarket:
+    """Read the accumulated ledger into a usable, self-describing market.
+
+    Classification runs HERE as well as at fetch time, deliberately.  The feed
+    is a rolling window that has to be accumulated, so the ledger outlives any
+    single fetch; re-classifying on read means tightening the policy applies to
+    rows already stored instead of requiring the ledger to be thrown away and
+    rebuilt over months.
+
+    Rows persisted before the format evidence was captured carry no
+    ``comparability`` block and no readable settings.  They are RETAINED and
+    labelled ``unverified`` rather than discarded: they are real observations
+    collected under the older, broader gate, and ``CROWD_RETENTION_DAYS``
+    ages them out on its own.  What they may not do is pass as verified.
+    """
+    pol = policy or _comparability.ComparabilityPolicy()
+    market = CrowdMarket(
+        target_budget=(target.original_budget if target else None),
+    )
+    if not isinstance(payload, dict):
+        return market
+
+    rows = payload.get("rows")
+    rows = rows if isinstance(rows, list) else []
+    market.rows_total = len(rows)
+    market.as_of = str(payload.get("updatedAt") or "") or None
+    market.age_days = _age_days(market.as_of, now_iso)
+
+    kept: list[tuple[dict[str, Any], str]] = []
+    for row in rows:
+        if not isinstance(row, dict):
+            continue
+        tier, reasons = _row_tier(row, target, pol)
+        if tier == _comparability.EXCLUDED:
+            # ALL failing reasons, matching the fetch-time census.  A row can
+            # fail several rules, so these counts can exceed the number of
+            # excluded rows — the alternative, reporting only the first, hides
+            # the second thing that is wrong with a league.
+            for reason in reasons or ("excluded",):
+                market.excluded_counts[reason] = market.excluded_counts.get(reason, 0) + 1
+            continue
+        market.tier_counts[tier] = market.tier_counts.get(tier, 0) + 1
+        kept.append((row, tier))
+
+    market.rows_used = len(kept)
+    market.prices_idp = any(
+        _comparability.source_format_from_settings(r.get("settings")).has_idp_slots is True
+        for r, _ in kept
+    )
+    market.index = _index_rows(kept, target_budget=market.target_budget)
+
+    if not market.index:
+        market.state = "missing"
+    elif market.age_days is None:
+        # No ``updatedAt`` at all: unmeasurable freshness is NOT freshness.
+        market.state = "stale"
+    else:
+        market.state = "fresh" if market.age_days <= pol.max_file_age_days else "stale"
+    return market
+
+
+def _row_tier(
+    row: dict[str, Any],
+    target: "_comparability.TargetFormat | None",
+    policy: "_comparability.ComparabilityPolicy",
+) -> tuple[str, tuple[str, ...]]:
+    """``(tier, exclusion_reasons)`` for one stored row."""
+    stamped = row.get("comparability")
+    settings = row.get("settings")
+    fmt = _comparability.source_format_from_settings(settings)
+    has_evidence = any(
+        v is not None
+        for v in (fmt.superflex, fmt.tep_level, fmt.rosters_per_player, fmt.original_budget)
+    )
+    if target is None or not has_evidence:
+        # Nothing to judge against, or a pre-stamp row.  Trust an explicit
+        # stored exclusion if one exists; otherwise carry it as unverified.
+        if isinstance(stamped, dict) and stamped.get("excluded"):
+            reasons = stamped.get("reasons") or ["excluded_at_fetch"]
+            return _comparability.EXCLUDED, tuple(str(r) for r in reasons)
+        return _comparability.TIER_UNVERIFIED, ()
+    verdict = _comparability.classify(fmt, target, policy=policy)
+    if verdict.excluded:
+        return _comparability.EXCLUDED, verdict.reasons or ("excluded",)
+    return verdict.tier, ()
+
+
+def _age_days(as_of: str | None, now_iso: str | None) -> float | None:
+    """Age of the ledger in days, or ``None`` when it cannot be measured.
+
+    Unmeasurable is a distinct state from fresh — the caller must not read a
+    missing timestamp as a recent one.
+    """
+    if not as_of:
+        return None
+    try:
+        then = datetime.fromisoformat(str(as_of).replace("Z", "+00:00"))
+        now = (
+            datetime.fromisoformat(str(now_iso).replace("Z", "+00:00"))
+            if now_iso
+            else datetime.now(timezone.utc)
+        )
+    except ValueError:
+        return None
+    if then.tzinfo is None:
+        then = then.replace(tzinfo=timezone.utc)
+    if now.tzinfo is None:
+        now = now.replace(tzinfo=timezone.utc)
+    return max(0.0, (now - then).total_seconds() / 86400.0)
+
+
+def crowd_evidence_for(
+    market: CrowdMarket,
+    name: str,
+    position: str | None = None,
+) -> dict[str, Any] | None:
+    """The one accessor the recommender should use.  Fails closed.
+
+    Returns ``None`` — with the reason recorded on the returned market dict by
+    the caller, never a silent absence — when:
+
+    * the ledger is stale or missing (owner spec section 10: a stale source is
+      never current);
+    * the retained population cannot price this position.  Measured on the live
+      feed, **no** external league in it starts an individual defensive player,
+      so its median is offense-only evidence and section 7 forbids using it as
+      an IDP clearing-price comp.
+
+    A refusal is an answer.  Returning a number drawn from the wrong population
+    would be indistinguishable from a right one.
     """
     from src.utils.name_clean import compact_name_key  # noqa: PLC0415
 
+    if not isinstance(market, CrowdMarket) or not market.usable:
+        return None
+    if not _comparability.population_prices_position(position, any_idp_source=market.prices_idp):
+        return None
+    key = compact_name_key(str(name or ""))
+    if not key:
+        return None
+    return market.index.get(key)
+
+
+def crowd_refusal_reason(market: CrowdMarket, position: str | None = None) -> str | None:
+    """Why ``crowd_evidence_for`` would decline, for the response provenance.
+
+    "We have no crowd price for this player" and "we refuse to quote one from
+    the wrong population" must not read the same.
+    """
+    if not isinstance(market, CrowdMarket):
+        return "market_unavailable"
+    if market.state == "missing":
+        return "no_crowd_ledger"
+    if market.state == "stale":
+        return "crowd_ledger_stale"
+    if not _comparability.population_prices_position(position, any_idp_source=market.prices_idp):
+        return "population_cannot_price_idp"
+    return None
+
+
+def crowd_bid_index(payload: dict[str, Any] | None) -> dict[str, dict[str, Any]]:
+    """``compact_name_key -> {medianPct, maxPct, claims, leagues}``.
+
+    Compatibility wrapper over :func:`build_crowd_market` for callers that want
+    the raw per-player index with no target league to classify against and no
+    freshness judgement.  New code should use ``build_crowd_market`` +
+    ``crowd_evidence_for``, which fail closed on a stale ledger and on a
+    population that cannot price the position asked about.
+    """
     if not isinstance(payload, dict):
         return {}
+    rows = payload.get("rows")
+    rows = rows if isinstance(rows, list) else []
+    return _index_rows(
+        [(r, _comparability.TIER_UNVERIFIED) for r in rows if isinstance(r, dict)],
+        target_budget=None,
+    )
+
+
+def _index_rows(
+    rows: Sequence[tuple[dict[str, Any], str]],
+    *,
+    target_budget: float | None,
+) -> dict[str, dict[str, Any]]:
+    """Aggregate retained crowd rows into a per-player market read.
+
+    Median rather than mean, and **zeros retained**: a $0 add is the modal
+    outcome and the single most informative thing the feed says about a player
+    — dropping zeros is what made the legacy analytics read a quiet wire as a
+    contested one.
+
+    Every retained row contributes on the same footing.  Tiers are carried
+    through as a COMPOSITION, not as weights: the owner spec is explicit that
+    tier weights are evidence-gated, and no outcome data exists to fit them, so
+    inventing one here would be a number nobody validated.
+    """
+    from src.utils.name_clean import compact_name_key  # noqa: PLC0415
+
     buckets: dict[str, list[float]] = {}
     leagues: dict[str, set[str]] = {}
-    for row in payload.get("rows") or []:
+    tiers: dict[str, dict[str, int]] = {}
+    for row, tier in rows:
         if not isinstance(row, dict):
             continue
         name = row.get("added")
@@ -463,6 +712,8 @@ def crowd_bid_index(payload: dict[str, Any] | None) -> dict[str, dict[str, Any]]
         if not key:
             continue
         buckets.setdefault(key, []).append(float(pct))
+        counts = tiers.setdefault(key, {})
+        counts[tier] = counts.get(tier, 0) + 1
         lid = str((row.get("settings") or {}).get("leagueId") or "")
         if lid:
             leagues.setdefault(key, set()).add(lid)
@@ -470,8 +721,9 @@ def crowd_bid_index(payload: dict[str, Any] | None) -> dict[str, dict[str, Any]]
     total_claims = sum(len(v) for v in buckets.values()) or 1
     out: dict[str, dict[str, Any]] = {}
     for key, pcts in buckets.items():
-        out[key] = {
-            "medianPct": round(statistics.median(pcts), 2),
+        median_pct = round(statistics.median(pcts), 2)
+        entry: dict[str, Any] = {
+            "medianPct": median_pct,
             "maxPct": round(max(pcts), 2),
             "claims": len(pcts),
             "leagues": len(leagues.get(key, ())),
@@ -481,7 +733,14 @@ def crowd_bid_index(payload: dict[str, Any] | None) -> dict[str, dict[str, Any]]
             # comparable leagues is demonstrably in demand, however our
             # own board grades him.
             "shareOfClaims": round(len(pcts) / total_claims, 4),
+            "tierCounts": dict(sorted(tiers.get(key, {}).items())),
         }
+        # The same observation expressed on the asking league's own budget, so
+        # a consumer never has to re-derive the conversion (spec section 3).
+        equiv = _comparability.equivalent_on_budget(median_pct / 100.0, target_budget)
+        if equiv is not None:
+            entry["medianEquivalentDollars"] = round(equiv, 2)
+        out[key] = entry
     return out
 
 

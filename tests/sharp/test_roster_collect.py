@@ -584,6 +584,64 @@ class TestFFPC:
         assert result.rosters_recorded == 0
 
 
+class TestALaneThatDidNotRunNeverReadsAsAnEmptyOne:
+    """V1: the FFPC roster lane must be real or explicitly unavailable —
+    never a silent zero.
+
+    Every counter on ``CollectResult`` is 0 in two completely different
+    situations: the lane ran and legitimately found nothing, and the lane
+    never ran at all. Those serialise identically unless something says
+    which it was, and "0 rosters, 0 errors" reads as a healthy platform
+    with an empty wire.
+    """
+
+    def test_a_real_empty_pass_is_ok(self):
+        """A lane that ran and found nothing is NOT unavailable — the
+        distinction only works if both directions hold."""
+        payload = rc.CollectResult().to_dict()
+        assert payload["status"] == rc.STATUS_OK
+        assert payload["unavailableReason"] == ""
+
+    def test_ffpc_with_no_cohort_managers_is_unavailable_not_zero(self, ledger):
+        result = rc.collect_ffpc_rosters(manager_keys=["sleeper:u1"], ledger_path=ledger)
+        assert result.status == rc.STATUS_UNAVAILABLE
+        assert result.unavailable_reason == rc.UNAVAILABLE_NO_MANAGERS
+        assert result.rosters_recorded == 0
+
+    def test_the_reason_survives_serialisation(self, ledger):
+        payload = rc.collect_ffpc_rosters(manager_keys=[], ledger_path=ledger).to_dict()
+        assert payload["status"] == "unavailable"
+        assert payload["unavailableReason"] == "no_cohort_managers_on_platform"
+
+    @pytest.mark.parametrize("lane", ["sleeper", "ffpc"])
+    def test_a_skipped_lane_says_it_was_skipped(self, ledger, monkeypatch, lane):
+        monkeypatch.setattr(rc.sharp_cohort, "cohort_members", lambda **kw: ([], {"note": "empty"}))
+        summary = rc.collect_all(
+            ledger_path=ledger,
+            run_id="r1",
+            skip_sleeper=(lane == "sleeper"),
+            skip_ffpc=(lane == "ffpc"),
+        )
+        assert summary[lane]["status"] == rc.STATUS_UNAVAILABLE
+        assert summary[lane]["unavailableReason"] == rc.UNAVAILABLE_SKIPPED
+
+    def test_skipping_one_lane_does_not_mark_the_other_unavailable(self, ledger, monkeypatch):
+        monkeypatch.setattr(rc.sharp_cohort, "cohort_members", lambda **kw: ([], {"note": "empty"}))
+        summary = rc.collect_all(ledger_path=ledger, run_id="r1", skip_sleeper=True)
+        assert summary["sleeper"]["status"] == rc.STATUS_UNAVAILABLE
+        # FFPC genuinely ran; it reports its own reason for contributing
+        # nothing rather than inheriting the skip.
+        assert summary["ffpc"]["unavailableReason"] == rc.UNAVAILABLE_NO_MANAGERS
+
+    def test_unavailable_is_distinguishable_from_ok_by_status_alone(self):
+        """A consumer must not have to infer availability from the counters,
+        which is what made the silent zero possible."""
+        ran = rc.CollectResult(rosters_recorded=0)
+        never = rc.CollectResult.unavailable(rc.UNAVAILABLE_SKIPPED)
+        assert ran.to_dict()["rostersRecorded"] == never.to_dict()["rostersRecorded"] == 0
+        assert ran.to_dict()["status"] != never.to_dict()["status"]
+
+
 def test_collection_run_is_filed_under_its_own_pseudo_platform(ledger):
     """Must not overwrite the Buy/Sell Tracker's freshness reading."""
     rc.record_collection_run(

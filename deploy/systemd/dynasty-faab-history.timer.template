@@ -1,0 +1,31 @@
+[Unit]
+Description=Daily own-league FAAB bid-history collection for __SERVICE_NAME__
+# No Requires= here: [Timer] Unit= already binds the service, and a
+# [Unit] Requires= would start it on every boot regardless of OnCalendar
+# and let a service failure stop the timer itself.  Persistent=true below
+# is the intended catch-up.
+
+[Timer]
+# DAILY, and the cadence is set by how often the underlying facts change
+# rather than by how cheap the fetch is.  Waivers process weekly in
+# season, so a day-old history is never more than one processing cycle
+# behind — while the walk itself is one HTTP request per league-week
+# across the full chain, which is far too heavy to repeat hourly for
+# facts that move once a week.
+#
+# Nothing is lost by the gap: Sleeper retains transactions indefinitely,
+# so unlike the crowd feed's five-day rolling window there is no
+# observation that expires unrecorded.  A missed day is caught up by
+# Persistent=true; a missed week costs nothing but freshness.
+#
+# 07:40 UTC is clear of the 2-hourly scrape (:25 past), the crowd-FAAB
+# accumulation (00/3:25) and the sharp discovery/records/roster chain
+# (04:20 / 04:50 / 05:50).
+OnCalendar=*-*-* 07:40:00 UTC
+RandomizedDelaySec=600
+Persistent=true
+AccuracySec=1min
+Unit=__SERVICE_NAME__-faab-history.service
+
+[Install]
+WantedBy=timers.target

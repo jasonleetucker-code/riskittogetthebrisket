@@ -129,6 +129,27 @@ Rosters not yet observed at the baseline are **absent** from it, not
 present-and-empty — present-and-empty would turn every later discovery
 into a fake ownership gain.
 
+### The published windows
+
+`sevenDay`, `fourteenDay`, `thirtyDay`, `seasonToDate`. The first three are the
+owner's stated windows; season-to-date is kept beside them because it answers a
+different question — how ownership moved across the whole season rather than
+across a recent window.
+
+`fourteenDay` was added 2026-08-18; it had simply been absent while the
+Buy/Sell tracker already spoke `14d`. Adding a window costs one
+`holdings_as_of` read and nothing else: the population-overlap guard above is
+per-baseline, so the new window inherits the protection against a grown cohort
+reading as ownership gain rather than needing a rule of its own. Pinned by
+`test_roster_percentage.py::test_the_fourteen_day_window_withholds_on_a_moved_population_too`,
+and by a test that the 14-day window sees a move the 7-day one cannot — a
+window that duplicates a neighbour does not earn its place.
+
+The frontend renders trend columns from an explicit key list
+(`frontend/app/market/sharp-roster-percentage/page.jsx`), so a new backend
+window is additive and surfaces only when that list is extended. That is the UI
+lane's call, not this module's.
+
 ## Sample-size policy
 
 | Eligible rosters | Behaviour |

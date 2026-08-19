@@ -1,6 +1,6 @@
 {
-  "count": 670,
   "note": "Known missing-data coercions on decision paths, recorded so the gate can block NEW ones while the remediation batches burn these down. Each batch deletes its findings' entries. Do not add to this file to make a build pass.",
+  "count": 668,
   "violations": [
     "frontend/lib/auction-power.js::const raw = names.map((n) => Number(totalsObj[n]) || 0);",
     "frontend/lib/bdvm.js::assetCount: _num(r?.assetCount) ?? 0,",
@@ -120,7 +120,7 @@
     "frontend/lib/news-service.js::const ta = Date.parse(a) || 0;",
     "frontend/lib/news-service.js::const tb = Date.parse(b) || 0;",
     "frontend/lib/perfect-draft.js::.map((p, i) => [i, Number(p.surplus) || 0])",
-    "frontend/lib/perfect-draft.js::.reduce((s, r) => s + (Number(r?.effectiveCutCost) || 0), 0);",
+    "frontend/lib/perfect-draft.js::.reduce((s, r) => s + (ladder ? releaseCost(r) : Number(r?.effectiveCutCost) || 0), 0);",
     "frontend/lib/perfect-draft.js::budgetRemaining: budget - (bestPlan.spend || 0),",
     "frontend/lib/perfect-draft.js::const B = Math.max(0, Math.floor(Number(budget) || 0));",
     "frontend/lib/perfect-draft.js::const B = Math.max(0, Math.floor(Number(input?.budget) || 0));",
@@ -229,7 +229,6 @@
     "server.py::r = float(row.get(\"canonicalConsensusRank\") or row.get(\"rank\") or 0)",
     "server.py::roster_size = int(roster_settings.get(\"rosterSize\") or 0)",
     "server.py::sum(int(v or 0) for k, v in starters_map.items() if str(k).upper() != \"K\") or 20",
-    "server.py::trending_for_player = {\"count\": int(trending_snapshot[\"counts\"].get(add_player_id) or 0)}",
     "src/api/bdvm_api.py::v = float(((asset.get(\"distribution\") or {}).get(s) or {}).get(\"ev\") or 0.0)",
     "src/api/bdvm_api.py::v = float((asset.get(\"tradeValue\") or {}).get(s) or 0.0)",
     "src/api/bdvm_signal_alerts.py::prev_notified_at = int(prev.get(\"notifiedAt\") or 0)",
@@ -539,7 +538,6 @@
     "src/sharp/cohort.py::quality=max(0.0, min(1.0, float(item.score or 0.0) / 100.0)),",
     "src/sharp/cohort.py::quality=max(0.0, min(1.0, float(row.quality or 0.0))),",
     "src/sharp/consensus.py::float(person[\"quality\"] or 0.0),",
-    "src/sharp/consensus.py::quality = float(person[\"quality\"] or 1.0)",
     "src/sharp/curated.py::\"totalActivityEventsImported\": int(summary[\"activity\"].get(\"activity_events\") or 0),",
     "src/sharp/curated.py::\"totalImportedAsCuratedSharps\": int(membership.get(\"curated_people\") or 0),",
     "src/sharp/curated.py::\"totalImportedAsResearchCandidates\": int(statuses.get(\"research_candidate\") or 0)",

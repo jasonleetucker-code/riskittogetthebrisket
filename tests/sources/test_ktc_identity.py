@@ -557,19 +557,39 @@ class TestFormatFilteringCannotYieldAHealthyZero(unittest.TestCase):
             self._rows_from(rename)
         self.assertIn("unreadable format", str(ctx.exception))
 
+    # ``producer.comparable`` was replaced by the one owner,
+    # ``src.trade.faab_comparability.classify`` (2026-08-18), so these two
+    # invariants are asserted through it.  Same statements, same call site,
+    # judged by the module that now decides them everywhere.
+
+    @staticmethod
+    def _verdict(settings, *, superflex, tep):
+        from src.trade import faab_comparability as FC
+
+        # Fill the fields this test is NOT about, so the verdict isolates the
+        # format question rather than tripping over budget or exclusivity.
+        base = {"rostersPerPlayer": 1, "originalBudget": 200.0}
+        target = FC.TargetFormat(teams=12, superflex=superflex, tep=tep, is_2te=False)
+        return FC.classify(FC.source_format_from_settings({**base, **settings}), target)
+
     def test_an_unstated_format_is_never_counted_as_comparable(self):
         """Fails closed: a league we cannot classify must not be priced
         as though it matched."""
-        import scripts.fetch_crowd_faab as producer
-
-        unknown = {"settings": {"teams": 12, "superflex": None, "tep": None}}
-        self.assertFalse(producer.comparable(unknown, teams=12, superflex=True, tep=True))
-        self.assertFalse(producer.comparable(unknown, teams=12, superflex=False, tep=False))
+        unknown = {"teams": 12, "superflex": None, "tep": None}
+        for sf, tep in ((True, True), (False, False)):
+            verdict = self._verdict(unknown, superflex=sf, tep=tep)
+            self.assertTrue(verdict.excluded)
+            self.assertIn("superflex_unknown", verdict.reasons)
+            self.assertIn("tep_unknown", verdict.reasons)
 
     def test_an_explicit_zero_is_not_the_same_as_an_absent_key(self):
         """``tep: 0`` is a real statement (no TE premium); a missing
         ``tep`` is not."""
-        import scripts.fetch_crowd_faab as producer
-
-        stated = {"settings": {"teams": 12, "superflex": False, "tep": 0}}
-        self.assertTrue(producer.comparable(stated, teams=12, superflex=False, tep=False))
+        stated = {"teams": 12, "superflex": False, "tep": 0}
+        self.assertFalse(self._verdict(stated, superflex=False, tep=False).excluded)
+        # ...and the same explicit zero is a real MISMATCH against a TEP
+        # league, rather than an unknown.
+        mismatch = self._verdict(stated, superflex=False, tep=True)
+        self.assertTrue(mismatch.excluded)
+        self.assertIn("tep_mismatch", mismatch.reasons)
+        self.assertNotIn("tep_unknown", mismatch.reasons)

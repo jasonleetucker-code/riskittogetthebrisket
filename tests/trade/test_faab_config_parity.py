@@ -25,7 +25,13 @@ from src.utils.config_loader import repo_root
 
 
 ENGINE_PATH = repo_root() / "src" / "trade" / "faab_engine.py"
+COMPARABILITY_PATH = repo_root() / "src" / "trade" / "faab_comparability.py"
 CONFIG_PATH = repo_root() / "config" / "trade" / "faab.json"
+
+#: Every module that reads ``faab.json`` through the substituting accessor.
+#: A module added here is scanned; a module NOT added here can drift silently,
+#: which is the whole failure mode this file exists to prevent.
+SCANNED_PATHS = (ENGINE_PATH, COMPARABILITY_PATH)
 
 
 def _literal(node: ast.AST):
@@ -40,12 +46,19 @@ def _literal(node: ast.AST):
 _NOT_LITERAL = object()
 
 
-def _config_defaults() -> list[tuple[str, str, object, int]]:
-    """``(section, key, in_code_default, lineno)`` for every
-    ``self.num(...)`` / ``cfg.num(...)`` / ``config.num(...)`` call in
-    the engine that passes three literal arguments."""
-    tree = ast.parse(ENGINE_PATH.read_text(encoding="utf-8"))
-    found: list[tuple[str, str, object, int]] = []
+def _config_defaults() -> list[tuple[str, str, object, int, str]]:
+    """``(section, key, in_code_default, lineno, filename)`` for every
+    ``self.num(...)`` / ``cfg.num(...)`` / ``config.num(...)`` call in a
+    scanned module that passes three literal arguments."""
+    found: list[tuple[str, str, object, int, str]] = []
+    for path in SCANNED_PATHS:
+        found.extend(_defaults_in(path))
+    return found
+
+
+def _defaults_in(path) -> list[tuple[str, str, object, int, str]]:
+    tree = ast.parse(path.read_text(encoding="utf-8"))
+    found: list[tuple[str, str, object, int, str]] = []
     for node in ast.walk(tree):
         if not isinstance(node, ast.Call):
             continue
@@ -59,7 +72,7 @@ def _config_defaults() -> list[tuple[str, str, object, int]]:
             continue
         if default is _NOT_LITERAL:
             continue
-        found.append((section, key, default, node.lineno))
+        found.append((section, key, default, node.lineno, path.name))
     return found
 
 
@@ -70,29 +83,36 @@ def test_the_scanner_actually_finds_calls():
 
 
 @pytest.mark.parametrize(
-    "section,key,default,lineno",
+    "section,key,default,lineno,filename",
     _config_defaults(),
     ids=lambda v: str(v) if not isinstance(v, int) else f"L{v}",
 )
-def test_in_code_default_matches_shipped_config(section, key, default, lineno):
+def test_in_code_default_matches_shipped_config(section, key, default, lineno, filename):
     raw = load_faab_config()
     block = raw.get(section)
     assert isinstance(block, dict), (
-        f"{ENGINE_PATH.name}:{lineno} reads section {section!r}, "
+        f"{filename}:{lineno} reads section {section!r}, "
         f"which is missing from {CONFIG_PATH.name}"
     )
     assert key in block, (
-        f"{ENGINE_PATH.name}:{lineno} reads {section}.{key!r} with an in-code "
+        f"{filename}:{lineno} reads {section}.{key!r} with an in-code "
         f"default of {default!r}, but that key is absent from {CONFIG_PATH.name}. "
         "Either add it to the config or drop the fallback."
     )
     shipped = block[key]
     expected = pytest.approx(default) if isinstance(default, (int, float)) else default
     assert shipped == expected, (
-        f"{ENGINE_PATH.name}:{lineno} defaults {section}.{key} to {default!r} "
+        f"{filename}:{lineno} defaults {section}.{key} to {default!r} "
         f"but {CONFIG_PATH.name} ships {shipped!r}.  A missing config would "
         "silently change the model."
     )
+
+
+def test_the_comparability_owner_is_actually_scanned():
+    """The scanner must reach every module that reads the config, not just
+    the engine — an unscanned reader is exactly the silent second source of
+    truth this file exists to prevent."""
+    assert any(row[4] == COMPARABILITY_PATH.name for row in _config_defaults())
 
 
 def test_config_is_valid_json_and_versioned():
@@ -108,6 +128,7 @@ def test_config_is_valid_json_and_versioned():
         "bidPolicy",
         "leagueRules",
         "confidence",
+        "crowdComparability",
     ):
         assert isinstance(raw.get(required), dict), f"missing config section {required}"
 
