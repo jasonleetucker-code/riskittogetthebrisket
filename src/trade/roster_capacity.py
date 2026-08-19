@@ -105,7 +105,7 @@ from src.draft.displacement import (
     RosterAsset,
     waiver_values_by_position,
 )
-from src.roster_intel import pool_cut_ladder
+from src.roster_intel import pool_cut_ladder, simulate_roster_change
 from src.ros.lineup import RosterPlayer
 
 __all__ = [
@@ -628,6 +628,114 @@ def _surviving_keys(
         keys.add(key)
     keys.update(_norm(n) for n in incoming)
     return keys
+
+
+def _as_roster_players(assets: Iterable[RosterAsset]) -> list[RosterPlayer]:
+    """``RosterAsset`` -> the canonical owners' input type.
+
+    ``board_value`` (``rankDerivedValue``) becomes ``ros_value``, which is what
+    ``contract_roster_pools`` puts there and what every ``roster_intel`` entry
+    point reads.  ``None`` stays ``None``: the owner excludes an unpriced player
+    from the solve and REPORTS him, a third state that is neither 0.0 nor
+    silent omission.
+    """
+    return [
+        RosterPlayer(
+            player_id=a.player_id,
+            canonical_name=a.name,
+            position=a.position,
+            ros_value=a.board_value,
+            injured=a.injured,
+            bye=a.bye,
+            fantasy_positions=a.fantasy_positions,
+        )
+        for a in assets
+    ]
+
+
+def simulate_final_legal_roster(
+    context: CapacityContext,
+    capacity: RosterCapacity,
+    *,
+    incoming_players: Sequence[str] = (),
+    outgoing_players: Sequence[str] = (),
+) -> dict[str, Any]:
+    """Roster intelligence for the FINAL LEGAL roster, cleanup included.
+
+    ``C3-CAP-01`` names the sequence and this is its last two steps:
+
+        before -> apply -> capacity/overage -> required legal cleanup ->
+        **apply optimal cleanup -> rerun roster intelligence** -> evaluate
+
+    :func:`assess_roster_capacity` stops at "overage".  It reports WHO must go;
+    it cannot say what the roster looks like once they have, because roster
+    effects are set-dependent — that is C2-SIM-01's premise, and it applies to
+    the cleanup exactly as it applies to the trade.  Releasing the cheapest
+    legal body can still vacate a FLEX seat and promote a player the trade never
+    mentioned.
+
+    The re-solve belongs to ``roster_intel.simulation.simulate_roster_change``.
+    Nothing here solves a lineup, computes a strength, or picks a cut.
+    """
+    if not context.starter_slots:
+        return {
+            "available": False,
+            "unavailableReason": "starter_slots_unresolved",
+            "notes": ["the league's starting slots did not resolve, so no lineup can be solved"],
+        }
+
+    before_assets = [
+        context.assets_by_key.get(_norm(name)) or _resolve_incoming(name, context.by_name)
+        for name in context.roster_player_names
+    ]
+    before_pool = _as_roster_players(before_assets)
+    on_roster = {p.player_id for p in before_pool}
+
+    incoming_assets = [_resolve_incoming(n, context.by_name) for n in incoming_players]
+    incoming_pool = _as_roster_players(incoming_assets)
+
+    # The cleanup IS the capacity answer's own forced drops — not a second
+    # selection.  A drop the trade acquired leaves from the INCOMING side
+    # instead, because he was never on the before-roster to leave it.
+    drop_ids = {d.player_id for d in capacity.forced_drops}
+    acquired_drop_ids = {d.player_id for d in capacity.forced_drops if d.acquired_in_trade}
+    incoming_pool = [p for p in incoming_pool if p.player_id not in acquired_drop_ids]
+
+    outgoing_ids = sorted(
+        {
+            a.player_id
+            for a in (
+                context.assets_by_key.get(_norm(n)) or _resolve_incoming(n, context.by_name)
+                for n in outgoing_players
+            )
+        }
+        | (drop_ids - acquired_drop_ids)
+    )
+
+    simulation = simulate_roster_change(
+        before_pool,
+        list(context.starter_slots),
+        incoming=incoming_pool,
+        outgoing_ids=[i for i in outgoing_ids if i in on_roster],
+        slot_eligibility=context.slot_eligibility,
+    )
+
+    notes: list[str] = []
+    if capacity.certainty != "exact":
+        notes.append(
+            "the forced drops this was solved against are an UPPER BOUND "
+            f"({capacity.certainty} capacity certainty), so the final roster is one "
+            "of a range rather than a determined set"
+        )
+
+    payload = simulation.to_dict()
+    payload["cleanupApplied"] = [d.to_dict() for d in capacity.forced_drops]
+    payload["cleanupIsUpperBound"] = capacity.certainty != "exact"
+    payload["notes"] = notes
+    # Named for the same reason ``isValueDelta`` is: this block reports what the
+    # roster IS afterwards, and grades nothing.
+    payload["isVerdict"] = False
+    return payload
 
 
 def assess_roster_capacity(
