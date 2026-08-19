@@ -22,11 +22,13 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Any, Sequence
+from typing import Any, Collection, Mapping, Sequence
 
+from src.roster_intel import RosterSimulation, SlotMovement, simulate_roster_change
 from src.ros.lineup import (
     RosterPlayer,
     assign_lineup,
+    configured_slot_eligibility,
     resolve_starter_slots,
     slot_demand,
     slot_eligible_positions,
@@ -129,6 +131,53 @@ def _starter_slots(roster_settings: dict[str, Any]) -> dict[str, int]:
     return {str(k).upper(): int(v) for k, v in s.items() if isinstance(v, (int, float))}
 
 
+def roster_players(
+    assets: Sequence[dict[str, Any]],
+    accepted: Sequence[str],
+    *,
+    id_prefix: str = "",
+) -> tuple[list[RosterPlayer], dict[str, dict[str, Any]]]:
+    """``(pool, {player_id: asset})`` for the canonical lineup / simulation owners.
+
+    Extracted from :func:`project_starters` so the starter projection and the
+    C2-SIM-01 simulation build their pools the same way; two conversions of one
+    asset list into one owner's input type is how two answers start.
+
+    Ids are INDEX-keyed and prefixed.  These dicts carry no stable identifier
+    and two roster picks can legitimately share a display name, so an id minted
+    from the name would collapse them — the defect class C1-U3 exists to
+    prevent.  ``id_prefix`` keeps the before-roster and the incoming package in
+    disjoint id spaces, which is also what lets this lane hand
+    ``simulate_roster_change`` a set of ``outgoing_ids`` safely: the owner
+    removes by SET membership (**R3**), so unique ids are the adapter that
+    makes multiplicity a non-question rather than a silent double-removal.
+    """
+    pool: list[RosterPlayer] = []
+    by_id: dict[str, dict[str, Any]] = {}
+    for idx, asset in enumerate(assets):
+        base = (asset.get("basePos") or asset.get("pos") or "").upper()
+        if base not in accepted:
+            continue
+        key = f"{id_prefix}{idx}"
+        by_id[key] = asset
+        value = asset.get("value")
+        pool.append(
+            RosterPlayer(
+                player_id=key,
+                canonical_name=str(asset.get("name") or key),
+                position=base,
+                # ``None`` stays ``None``: an asset the board declined to
+                # price is UNPRICED, not worth zero, and must not win a
+                # starting slot ahead of one we can price.
+                ros_value=None if value is None else float(value),
+                fantasy_positions=tuple(
+                    str(fp).upper() for fp in (asset.get("fantasyPositions") or ()) if fp
+                ),
+            )
+        )
+    return pool, by_id
+
+
 def project_starters(
     assets: list[dict[str, Any]],
     roster_settings: dict[str, Any],
@@ -160,34 +209,16 @@ def project_starters(
     if not slots:
         return {p: [] for p in accepted}
 
-    pool: list[RosterPlayer] = []
-    by_id: dict[str, dict[str, Any]] = {}
-    for idx, asset in enumerate(assets):
-        base = (asset.get("basePos") or asset.get("pos") or "").upper()
-        if base not in accepted:
-            continue
-        # Index-keyed: these dicts have no stable identifier, and two
-        # roster picks can legitimately share a display name.
-        key = f"{idx}"
-        by_id[key] = asset
-        value = asset.get("value")
-        pool.append(
-            RosterPlayer(
-                player_id=key,
-                canonical_name=str(asset.get("name") or key),
-                position=base,
-                # ``None`` stays ``None``: an asset the board declined to
-                # price is UNPRICED, not worth zero, and must not win a
-                # starting slot ahead of one we can price.
-                ros_value=None if value is None else float(value),
-                fantasy_positions=tuple(
-                    str(fp).upper() for fp in (asset.get("fantasyPositions") or ()) if fp
-                ),
-            )
-        )
+    pool, by_id = roster_players(assets, accepted)
 
     starters: dict[str, list[dict[str, Any]]] = {p: [] for p in accepted}
-    assignment = assign_lineup(pool, slots)
+    # The league's OWN flex rules, not the declared defaults (#922 F1).  A
+    # measured no-op on both live leagues today — they configure exactly the
+    # defaults — and not a no-op the day either narrows one, at which point a
+    # lineup solved without it seats a player the league does not allow.
+    assignment = assign_lineup(
+        pool, slots, slot_eligibility=configured_slot_eligibility(roster_settings) or None
+    )
     # Slot order, so the buckets read the way the league's lineup card
     # does rather than in augmenting-path order.
     for slot_idx in sorted(assignment.assignments):
@@ -284,11 +315,11 @@ def _starter_row(asset: dict[str, Any], position: str) -> dict[str, Any]:
 
 
 def lineup_displacement(
-    before_starters: dict[str, list[dict[str, Any]]],
-    after_starters: dict[str, list[dict[str, Any]]],
+    simulation: RosterSimulation,
     *,
-    incoming: Sequence[dict[str, Any]] = (),
-    outgoing: Sequence[dict[str, Any]] = (),
+    incoming_ids: Collection[str] = (),
+    outgoing_ids: Collection[str] = (),
+    assets_by_id: Mapping[str, dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
     """Who starts now who did not, and who lost a slot — as ROSTER information.
 
@@ -296,71 +327,118 @@ def lineup_displacement(
     *separate roster information, never a value subtraction*.  Nothing here
     returns a delta; every field names players and slots.
 
-    **Four categories, deliberately not two.**  Collapsing them is the error
-    this function exists to avoid — "your starting RB is gone" and "your
-    starting RB got benched by the guy you just acquired" are different
-    sentences, and only the second is displacement:
+    **This is a REFINEMENT of the canonical owner, not a second one.**  The
+    before → apply → re-solve → after primitive is
+    ``roster_intel.simulation.simulate_roster_change`` (lane ``roster``); this
+    function does no solving of its own and receives its ``RosterSimulation``.
+    What it adds is the one distinction the owner structurally cannot make:
+    ``SlotMovement.kind`` reports a departing starter and a benched starter
+    both as ``displaced``, because the owner never receives the trade's
+    incoming/outgoing sets as identities.  Those are different sentences —
 
     ``arrived``    starting now, came IN with this trade
     ``promoted``   starting now, was ALREADY on the roster and was not starting
     ``departed``   was starting, LEFT in this trade — not displaced, gone
     ``displaced``  was starting, is STILL on the roster, no longer starts
 
-    ``displaced`` is the one that answers "what did this trade cost me that the
-    value delta does not show".
+    — and only ``displaced`` answers "what did this trade cost me that the
+    value delta does not show".  Reported to Roster as **R2**.
 
-    An unpriced player is not assignable by the canonical solver, so he appears
-    in neither state's starters and therefore in no category — reported by the
-    solver as unpriced rather than silently counted as a bench player who was
-    never promoted.
+    Consuming the owner also buys two states the retired starters-only diff
+    could not see, because it compared starting lineups while the owner
+    measures the whole MEANINGFUL CORE (starters ∪ reserves):
+
+    ``demoted``    still in the core, dropped from starter to reserve
+    ``movedSlot``  still a starter, in a different slot (RB → FLEX)
+
+    An unpriced player is not assignable by the canonical solver, so he is in
+    neither state's core and therefore in no category — reported by the owner
+    in ``unpriced_incoming`` rather than silently counted as a bench player who
+    was never promoted.
+
+    Identity is the owner's ``player_id``, which the caller mints uniquely per
+    asset (``b{i}`` / ``i{n}``).  The retired implementation keyed on display
+    NAME and had to raise rather than guess when two starters collided; unique
+    ids remove the collision instead of detecting it, which is why the guard is
+    an assertion here rather than a runtime refusal.
     """
 
-    before_map = _flatten_starters(before_starters)
-    after_map = _flatten_starters(after_starters)
-
-    for label, starters in (("before", before_starters), ("after", after_starters)):
-        seen: set[str] = set()
-        for assets in starters.values():
-            for asset in assets:
-                key = _starter_identity(asset)
-                if key and key in seen:
-                    raise ValueError(
-                        f"two {label}-state starters share the identity {key!r}; the "
-                        "before/after diff would silently merge them"
-                    )
-                if key:
-                    seen.add(key)
-
-    incoming_keys = {_starter_identity(a) for a in incoming if _starter_identity(a)}
-    outgoing_keys = {_starter_identity(a) for a in outgoing if _starter_identity(a)}
+    incoming = {str(x) for x in incoming_ids}
+    outgoing = {str(x) for x in outgoing_ids}
+    by_id = dict(assets_by_id or {})
 
     arrived: list[dict[str, Any]] = []
     promoted: list[dict[str, Any]] = []
     departed: list[dict[str, Any]] = []
     displaced: list[dict[str, Any]] = []
+    demoted: list[dict[str, Any]] = []
+    moved_slot: list[dict[str, Any]] = []
 
-    for key, asset in after_map.items():
-        if key in before_map:
-            continue
-        row = _starter_row(asset, asset["startingAt"])
-        (arrived if key in incoming_keys else promoted).append(row)
+    def _row(movement: SlotMovement) -> dict[str, Any]:
+        asset = by_id.get(movement.player_id) or {}
+        value = asset.get("value")
+        return {
+            "name": asset.get("name") or movement.canonical_name,
+            "position": movement.position,
+            "slotBefore": movement.slot_before,
+            "slotAfter": movement.slot_after,
+            # ``None`` stays ``None``.  An unpriced player is UNPRICED, and this
+            # block is roster information — publishing 0 here would read as
+            # "worth nothing" on the one surface whose whole point is that it is
+            # not a value statement.
+            "value": None if value is None else int(value),
+            "valueScale": "rankDerivedValue",
+        }
 
-    for key, asset in before_map.items():
-        if key in after_map:
-            continue
-        row = _starter_row(asset, asset["startingAt"])
-        (departed if key in outgoing_keys else displaced).append(row)
+    seen: set[str] = set()
+    for movement in simulation.movements:
+        assert movement.player_id not in seen, (
+            f"two movements share the id {movement.player_id!r}; the caller must "
+            "mint one id per asset"
+        )
+        seen.add(movement.player_id)
+
+        started_before = movement.role_before == "starter"
+        started_after = movement.role_after == "starter"
+        row = _row(movement)
+
+        if started_after and not started_before:
+            (arrived if movement.player_id in incoming else promoted).append(row)
+        elif started_before and not started_after:
+            if movement.player_id in outgoing:
+                departed.append(row)
+            else:
+                displaced.append(row)
+                if movement.role_after == "reserve":
+                    demoted.append(row)
+        elif started_before and started_after and movement.slot_before != movement.slot_after:
+            moved_slot.append(row)
 
     def _by_position_then_name(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
         return sorted(rows, key=lambda r: (r["position"], str(r["name"] or "")))
+
+    def _starters(core) -> int:
+        return sum(1 for m in core.members if m.role == "starter")
 
     return {
         "arrived": _by_position_then_name(arrived),
         "promoted": _by_position_then_name(promoted),
         "departed": _by_position_then_name(departed),
         "displaced": _by_position_then_name(displaced),
-        "startersBefore": len(before_map),
-        "startersAfter": len(after_map),
+        # New with the canonical owner: core-level states a starters-only diff
+        # could not distinguish.  ``demoted`` is a SUBSET of ``displaced``, not
+        # a sibling — he lost his slot AND is still meaningful.
+        "demoted": _by_position_then_name(demoted),
+        "movedSlot": _by_position_then_name(moved_slot),
+        "startersBefore": _starters(simulation.core_before),
+        "startersAfter": _starters(simulation.core_after),
+        "coreBefore": len(simulation.core_before.members),
+        "coreAfter": len(simulation.core_after.members),
+        # Players the board could not price. Excluded from the solve by the
+        # canonical owner and reported here, never seated and never zeroed.
+        "unpricedIncoming": sorted(simulation.unpriced_incoming),
+        "available": simulation.available,
+        "unavailableReason": simulation.unavailable_reason,
         # Named so a consumer cannot mistake this block for a value statement.
         "isValueDelta": False,
     }
@@ -608,14 +686,41 @@ def compute(
     active = _league_active_positions(roster_settings)
 
     # C2-SIM-01 / V1-42.  The exact before -> apply -> re-solve -> after
-    # lineup, published as NAMES rather than as another number.  Both states
-    # are already solved above by the canonical assignment owner, so this adds
-    # no second lineup engine — it reads the two solutions.
+    # roster, published as NAMES rather than as another number.
+    #
+    # The re-solve belongs to ``roster_intel.simulation.simulate_roster_change``
+    # (lane ``roster``); this lane supplies the two populations and refines the
+    # owner's four movement KINDS into the arrived/departed split it cannot
+    # express (R2).  Nothing here solves a lineup.
+    #
+    # ``after_assets`` is built by the caller with a two-level multiplicity rule
+    # (exact package label, then board identity) that the owner's set-membership
+    # ``outgoing_ids`` cannot express — so the identity diff is taken HERE, on
+    # object identity, and the owner is handed ids that are unique by
+    # construction.  That is an adapter at the boundary, not a second rule.
+    accepted_positions = _positions_for(roster_settings)
+    before_pool, before_by_id = roster_players(before_assets, accepted_positions, id_prefix="b")
+    before_ids = {id(a): key for key, a in before_by_id.items()}
+    survived = {id(a) for a in after_assets}
+    departed_ids = [key for oid, key in before_ids.items() if oid not in survived]
+    incoming_assets = [a for a in after_assets if id(a) not in before_ids]
+    incoming_pool, incoming_by_id = roster_players(
+        incoming_assets, accepted_positions, id_prefix="i"
+    )
+
+    slots, _slot_source = resolve_starter_slots(roster_settings=roster_settings)
+    simulation = simulate_roster_change(
+        before_pool,
+        slots,
+        incoming=incoming_pool,
+        outgoing_ids=departed_ids,
+        slot_eligibility=configured_slot_eligibility(roster_settings) or None,
+    )
     displacement = lineup_displacement(
-        before["starters"],
-        after["starters"],
-        incoming=receiving,
-        outgoing=sending,
+        simulation,
+        incoming_ids=incoming_by_id.keys(),
+        outgoing_ids=departed_ids,
+        assets_by_id={**before_by_id, **incoming_by_id},
     )
 
     accepted = _positions_for(roster_settings)

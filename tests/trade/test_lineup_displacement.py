@@ -17,16 +17,25 @@ The four categories are the substance of this unit.  Two would not do:
 Merging `departed` into `displaced` would report a player you traded away as
 having been benched, which is the reading that makes the block useless.
 
-No second lineup engine: both states are solved by the canonical assignment
-owner (`src/ros/lineup.py`, C2-U1) inside `_aggregate_state`, and
-`lineup_displacement` reads those two solutions.
+**No second simulator.**  The re-solve is
+`roster_intel.simulation.simulate_roster_change` (C2-SIM-01, lane `roster`);
+`lineup_displacement` receives its `RosterSimulation` and refines the owner's
+movement KINDS into the arrived/departed split the owner structurally cannot
+make, because it never receives the trade's incoming/outgoing sets as
+identities (reported to Roster as R2).
+
+These tests therefore state ROSTERS and a trade, and let the canonical solver
+decide the lineup — rather than hand-feeding a starter dict, which pre-supposed
+the very answer the unit exists to compute.
 """
 
 from __future__ import annotations
 
 import pytest
 
-from src.trade.team_impact import compute, lineup_displacement
+from src.roster_intel import simulate_roster_change
+from src.ros.lineup import resolve_starter_slots
+from src.trade.team_impact import compute, lineup_displacement, roster_players
 
 SETTINGS = {
     "teamCount": 12,
@@ -34,6 +43,8 @@ SETTINGS = {
     "taxiSize": 0,
     "starters": {"QB": 1, "RB": 2, "WR": 2, "TE": 1},
 }
+
+ACCEPTED = ("QB", "RB", "WR", "TE", "DL", "LB", "DB", "K")
 
 
 def _asset(name: str, pos: str, value: int | None):
@@ -47,30 +58,48 @@ def _asset(name: str, pos: str, value: int | None):
     }
 
 
-def _starters(**by_position):
-    return {pos: list(assets) for pos, assets in by_position.items()}
+def _displacement(before, *, incoming=(), outgoing=(), settings=SETTINGS):
+    """Solve the transaction through the canonical owner, then refine it.
+
+    Mirrors exactly what ``team_impact.compute`` does, so these tests exercise
+    the production path rather than a parallel one.  ``outgoing`` names assets
+    by object identity, the same rule the caller's multiplicity resolution uses.
+    """
+    before_pool, before_by_id = roster_players(list(before), ACCEPTED, id_prefix="b")
+    incoming_pool, incoming_by_id = roster_players(list(incoming), ACCEPTED, id_prefix="i")
+    going = {id(a) for a in outgoing}
+    outgoing_ids = [k for k, a in before_by_id.items() if id(a) in going]
+    slots, _ = resolve_starter_slots(roster_settings=settings)
+    simulation = simulate_roster_change(
+        before_pool, slots, incoming=incoming_pool, outgoing_ids=outgoing_ids
+    )
+    return lineup_displacement(
+        simulation,
+        incoming_ids=incoming_by_id.keys(),
+        outgoing_ids=outgoing_ids,
+        assets_by_id={**before_by_id, **incoming_by_id},
+    )
 
 
 def test_the_four_categories_are_distinguished():
-    before = _starters(
-        QB=[_asset("Passer", "QB", 9000)],
-        RB=[_asset("Keeper", "RB", 7000), _asset("Benched Later", "RB", 4000)],
-    )
-    after = _starters(
-        QB=[_asset("Passer", "QB", 9000)],
-        RB=[_asset("Keeper", "RB", 7000), _asset("New Star", "RB", 8000)],
-    )
-    out = lineup_displacement(
-        before,
-        after,
-        incoming=[_asset("New Star", "RB", 8000)],
-        outgoing=[_asset("Traded Away", "RB", 3000)],
-    )
+    """One trade producing all four states at once."""
+    keeper = _asset("Keeper", "RB", 7000)
+    benched = _asset("Benched Later", "RB", 4000)
+    sold = _asset("Traded Away", "RB", 3000)
+    passer = _asset("Passer", "QB", 9000)
+    star = _asset("New Star", "RB", 8000)
+    roster = [passer, keeper, benched, sold]
+
+    out = _displacement(roster, incoming=[star], outgoing=[sold])
+
     assert [r["name"] for r in out["arrived"]] == ["New Star"]
-    assert out["promoted"] == []
-    assert out["departed"] == []
-    # The player who lost his slot is DISPLACED — still rostered, benched.
+    # The incumbent who lost his slot is DISPLACED — still rostered, benched.
     assert [r["name"] for r in out["displaced"]] == ["Benched Later"]
+    assert out["promoted"] == []
+    # ``sold`` never started (RB3 behind Keeper and Benched Later), so he is
+    # not "departed" from a lineup he was not in — the block reports slots,
+    # not transactions.
+    assert out["departed"] == []
 
 
 def test_a_traded_away_starter_is_departed_not_displaced():
@@ -80,10 +109,12 @@ def test_a_traded_away_starter_is_departed_not_displaced():
     tells the user their lineup lost a slot to competition when in fact they
     sold it.
     """
-    before = _starters(RB=[_asset("Sold", "RB", 6000), _asset("Kept", "RB", 5000)])
-    after = _starters(RB=[_asset("Kept", "RB", 5000), _asset("Bench Guy", "RB", 3000)])
+    sold = _asset("Sold", "RB", 6000)
+    kept = _asset("Kept", "RB", 5000)
+    bench = _asset("Bench Guy", "RB", 3000)
 
-    out = lineup_displacement(before, after, incoming=[], outgoing=[_asset("Sold", "RB", 6000)])
+    out = _displacement([sold, kept, bench], outgoing=[sold])
+
     assert [r["name"] for r in out["departed"]] == ["Sold"]
     assert out["displaced"] == []
     # And the man who took the vacated slot was already here — a promotion,
@@ -94,21 +125,12 @@ def test_a_traded_away_starter_is_departed_not_displaced():
 
 def test_an_incoming_player_who_does_not_crack_the_lineup_appears_nowhere():
     """Acquiring depth is not a promotion, and the block must not invent one."""
-    before = _starters(RB=[_asset("Star", "RB", 9000), _asset("Solid", "RB", 6000)])
-    after = _starters(RB=[_asset("Star", "RB", 9000), _asset("Solid", "RB", 6000)])
+    roster = [_asset("Star", "RB", 9000), _asset("Solid", "RB", 6000)]
+    out = _displacement(roster, incoming=[_asset("Depth Piece", "RB", 900)])
 
-    out = lineup_displacement(
-        before, after, incoming=[_asset("Depth Piece", "RB", 900)], outgoing=[]
-    )
-    assert out == {
-        "arrived": [],
-        "promoted": [],
-        "departed": [],
-        "displaced": [],
-        "startersBefore": 2,
-        "startersAfter": 2,
-        "isValueDelta": False,
-    }
+    for bucket in ("arrived", "promoted", "departed", "displaced", "movedSlot"):
+        assert out[bucket] == [], bucket
+    assert out["startersBefore"] == out["startersAfter"] == 2
 
 
 def test_it_publishes_no_value_delta():
@@ -117,37 +139,49 @@ def test_it_publishes_no_value_delta():
     Owner decision 26 says this is roster information. Every field names
     players and slots; nothing here subtracts one value from another.
     """
-    before = _starters(RB=[_asset("A", "RB", 5000), _asset("B", "RB", 4000)])
-    after = _starters(RB=[_asset("A", "RB", 5000), _asset("C", "RB", 8000)])
-    out = lineup_displacement(before, after, incoming=[_asset("C", "RB", 8000)], outgoing=[])
+    a = _asset("A", "RB", 5000)
+    b = _asset("B", "RB", 4000)
+    out = _displacement([a, b], incoming=[_asset("C", "RB", 8000)])
 
     assert out["isValueDelta"] is False
     numeric = {k: v for k, v in out.items() if isinstance(v, int) and not isinstance(v, bool)}
-    # The only bare numbers are counts of starters, not differences of value.
-    assert set(numeric) == {"startersBefore", "startersAfter"}
-    for bucket in ("arrived", "promoted", "departed", "displaced"):
+    # The only bare numbers are counts of players, never differences of value.
+    assert set(numeric) == {"startersBefore", "startersAfter", "coreBefore", "coreAfter"}
+    for bucket in ("arrived", "promoted", "departed", "displaced", "demoted", "movedSlot"):
         for row in out[bucket]:
-            assert set(row) == {"name", "position", "value", "valueScale"}
+            assert set(row) == {
+                "name", "position", "slotBefore", "slotAfter", "value", "valueScale",
+            }
 
 
 def test_an_unpriced_starter_reports_a_null_value_not_zero():
-    before = _starters(RB=[_asset("Priced", "RB", 5000)])
-    after = _starters(RB=[_asset("Priced", "RB", 5000), _asset("Unknown", "RB", None)])
-    out = lineup_displacement(before, after, incoming=[_asset("Unknown", "RB", None)], outgoing=[])
-    assert out["arrived"][0]["value"] is None
+    """And an unpriced ARRIVAL is not seated at all — it is reported."""
+    out = _displacement(
+        [_asset("Priced", "RB", 5000)], incoming=[_asset("Unknown", "RB", None)]
+    )
+    assert out["arrived"] == [], "an unpriced player must not win a starting slot"
+    assert out["unpricedIncoming"], "and his absence must be reported, not silent"
 
 
-def test_colliding_starter_identities_refuse_rather_than_merge():
-    """A name key is sound for players and this says so out loud.
+def test_two_roster_entries_sharing_a_name_stay_two_players():
+    """The collision the retired name-keyed diff had to REFUSE rather than merge.
 
-    Picks never reach here, which is what makes the key safe — a pick is the
-    one asset class where two roster entries legitimately share a board row.
-    If two starters ever collide anyway, merging them silently would drop a
-    real player from the diff.
+    Unique per-asset ids remove the collision instead of detecting it: two
+    entries with one display name are two rows in the pool, so one cannot
+    silently overwrite the other in the before/after diff.
     """
-    before = _starters(RB=[_asset("Same Name", "RB", 5000), _asset("Same Name", "RB", 4000)])
-    with pytest.raises(ValueError, match="share the identity"):
-        lineup_displacement(before, _starters(), incoming=[], outgoing=[])
+    first = _asset("Same Name", "RB", 5000)
+    second = _asset("Same Name", "RB", 4000)
+    pool, by_id = roster_players([first, second], ACCEPTED, id_prefix="b")
+
+    assert len(pool) == 2
+    assert len({p.player_id for p in pool}) == 2
+    assert {id(a) for a in by_id.values()} == {id(first), id(second)}
+
+    # And the diff survives it: selling one leaves the other starting.
+    out = _displacement([first, second, _asset("Filler", "RB", 100)], outgoing=[first])
+    assert [r["name"] for r in out["departed"]] == ["Same Name"]
+    assert len(out["departed"]) == 1
 
 
 # ── End to end, through the real solver ───────────────────────────────
