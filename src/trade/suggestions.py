@@ -27,6 +27,7 @@ from src.canonical.calibration import to_display_value
 from src.trade.ktc_va import adjusted_pair_totals
 from src.utils.name_clean import normalize_position as _norm_pos  # noqa: F401 — see _norm_pos shim removal below (audit S2)
 from src.ros.lineup import resolve_starter_slots, slot_demand
+from src.utils.name_clean import POSITION_GROUP_IDP, canonical_position_group
 
 
 # ── Configuration ────────────────────────────────────────────────────
@@ -234,7 +235,14 @@ KTC_TOP_N_FILTER = BOARD_TOP_N_FILTER
 
 # ── Data structures ─────────────────────────────────────────────────
 
-_IDP_BASE_POSITIONS = frozenset({"DL", "LB", "DB"})
+def _is_idp(position: object) -> bool:
+    """One vocabulary (CLAUDE.md: POSITION_ALIASES is the single source).
+
+    Replaces a private ``frozenset({"DL", "LB", "DB"})`` that saw only the
+    three FAMILY spellings, so a row arriving as ``EDGE`` / ``CB`` / ``MLB``
+    — every spelling the scrapers actually emit — read as offense.
+    """
+    return canonical_position_group(str(position or "")) == POSITION_GROUP_IDP
 
 
 @dataclass
@@ -447,7 +455,7 @@ def _universe_from_row(row: dict[str, Any]) -> str:
         return "picks"
     pos = _norm_pos(str(row.get("position") or ""))
     is_rookie = bool(row.get("rookie"))
-    if pos in {"DL", "LB", "DB"}:
+    if _is_idp(pos):
         return "idp_rookie" if is_rookie else "idp_vet"
     return "offense_rookie" if is_rookie else "offense_vet"
 
@@ -770,7 +778,7 @@ def _trade_is_idp_free(give: list[PlayerAsset], receive: list[PlayerAsset]) -> b
     one player worth two different numbers in one league on one day
     (W29-F001).
     """
-    return all(p.position not in _IDP_BASE_POSITIONS for p in [*give, *receive])
+    return all(not _is_idp(p.position) for p in [*give, *receive])
 
 
 def _va_gap(give_vals: list[int], recv_vals: list[int]) -> int:
@@ -1184,7 +1192,7 @@ def _generate_consolidation(
                     if a.name.lower() not in roster_names_set
                     and min_target <= a.display_value <= max_target
                     and a.display_value > give_max
-                    and (not pair_is_offense_only or a.position not in _IDP_BASE_POSITIONS)
+                    and (not pair_is_offense_only or not _is_idp(a.position))
                     and (not prefer_need or a.position in roster.need_positions)
                 ]
                 if not targets:

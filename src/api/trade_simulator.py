@@ -37,7 +37,6 @@ from src.api.terminal import (
 )
 
 
-_IDP_BASE_POSITIONS = frozenset({"DL", "LB", "DB"})
 
 
 def _resolve_asset(

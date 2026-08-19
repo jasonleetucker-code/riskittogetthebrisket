@@ -246,7 +246,7 @@ def test_idp_rookies_are_kept_off_a_non_idp_league_board(monkeypatch):  # noqa: 
     assert main.idp_enabled is True
     assert new.idp_enabled is False
 
-    from src.trade.angle import _IDP_POSITIONS
+    from src.trade.angle import is_idp_position
 
     pool = [
         {"name": "Offense Rookie", "pos": "WR", "value": 5000, "assetClass": "offense"},
@@ -258,6 +258,6 @@ def test_idp_rookies_are_kept_off_a_non_idp_league_board(monkeypatch):  # noqa: 
         r
         for r in pool
         if str(r.get("assetClass") or "").lower() != "idp"
-        and str(r.get("pos") or "").upper() not in _IDP_POSITIONS
+        and not is_idp_position(r.get("pos"))
     ]
     assert [r["name"] for r in kept] == ["Offense Rookie"]

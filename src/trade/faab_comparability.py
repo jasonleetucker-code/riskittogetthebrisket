@@ -44,6 +44,7 @@ Full record: ``docs/faab-external-market-comparability.md``.
 """
 
 from __future__ import annotations
+from src.utils.name_clean import POSITION_ALIASES, POSITION_GROUP_IDP, canonical_position_group
 
 from dataclasses import dataclass
 from typing import Any
@@ -52,28 +53,25 @@ from typing import Any
 # ``Def`` / ``DST`` slot is a TEAM defense and proves the opposite — measured,
 # every non-offense slot in the live feed is one of those.  Getting this
 # backwards would let offense-only leagues price linebackers.
-_IDP_SLOT_NAMES = {
-    "DL",
-    "DE",
-    "DT",
-    "EDGE",
-    "LB",
-    "ILB",
-    "OLB",
-    "DB",
-    "CB",
-    "S",
-    "SS",
-    "FS",
-    "IDP",
-    "IDP_FLEX",
-    "DP",
-    "IL",
-}
+#: Slot names that name an INDIVIDUAL defensive position, plus the two
+#: IDP-flex spellings the external feed uses.  The position half is derived
+#: from ``POSITION_ALIASES`` instead of listed, so a spelling the feed emits
+#: and a hand-written literal missed can no longer read an IDP league as
+#: offense-only.  ``DP`` and ``IL`` stay explicit: they are feed-specific
+#: slot LABELS, not positions, and no position table knows them.
+_IDP_SLOT_NAMES = (
+    {p for p in POSITION_ALIASES if canonical_position_group(p) == POSITION_GROUP_IDP}
+    | {"IDP", "IDP_FLEX", "DP", "IL"}
+)
 _TEAM_DEFENSE_SLOT_NAMES = {"DEF", "DST", "D/ST", "D", "TEAM DEF", "TEAMDEF"}
 
 #: Position families this population can only price if it contains IDP leagues.
-IDP_POSITION_FAMILIES = {"DL", "LB", "DB"}
+#:
+#: Derived from the canonical grouping rather than restated, so this gate and
+#: the rest of the platform cannot disagree about what an IDP is.
+IDP_POSITION_FAMILIES = frozenset(
+    fam for fam in POSITION_ALIASES.values() if canonical_position_group(fam) == POSITION_GROUP_IDP
+)
 
 TIER_A = "A"
 TIER_B = "B"

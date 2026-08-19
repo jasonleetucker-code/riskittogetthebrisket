@@ -100,22 +100,20 @@ from src.trade.ktc_va import (
     ktc_adjust_package,
 )
 from src.utils.name_clean import normalize_position as _normalize_position
+from src.utils.name_clean import POSITION_GROUP_IDP, canonical_position_group
 
-# Raw spellings, kept as-is because ``server.py`` imports this set to
-# decide whether a caller's ``positions`` request implies an IDP
-# opt-in, and that check runs against un-normalized request tokens.
-# Position DECISIONS inside this module go through
-# :func:`_is_idp_position`, which normalizes first, so a spelling
-# missing from this literal can no longer route a defender to a board
-# that prices no defenders (the #556 defect in ``finder.py``).
-_IDP_POSITIONS: frozenset[str] = frozenset(
-    {"DL", "DE", "DT", "EDGE", "NT", "LB", "ILB", "OLB", "MLB", "DB", "CB", "S", "SS", "FS"}
-)
-
-# The three canonical buckets ``POSITION_ALIASES`` collapses IDP
-# spellings to — same set ``cross_market`` tests against, so routing
-# here and valuation there cannot disagree about what an IDP is.
-_IDP_FAMILIES: frozenset[str] = frozenset({"DL", "LB", "DB"})
+# RETIRED: a 14-spelling ``_IDP_POSITIONS`` and a 3-family ``_IDP_FAMILIES``
+# side by side, reconciled by hand inside :func:`is_idp_position`.  Both asked
+# the question ``canonical_position_group`` already answers from
+# ``POSITION_ALIASES``, which CLAUDE.md names as the single source of truth for
+# position normalization.
+#
+# ``server.py`` imported the raw-spelling set to decide whether a caller's
+# ``positions`` request implies an IDP opt-in, and the note here used to say
+# the literal had to stay because that check runs on un-normalized tokens.
+# It does — and normalizing them is what the check WANTED: a request for
+# ``EDGE`` or ``FS`` is an IDP opt-in, and the literal happened to list those
+# two while missing others.  Both server call sites now take the predicate.
 
 
 def _value_adjustment(small: Sequence[float], large: Sequence[float]) -> float:
@@ -141,7 +139,7 @@ def _value_adjustment(small: Sequence[float], large: Sequence[float]) -> float:
     return float(result.value)
 
 
-def _is_idp_position(position: Any) -> bool:
+def is_idp_position(position: Any) -> bool:
     """True for any spelling of a defensive position.
 
     Normalizes before testing so ``"EDGE"``/``"CB"``/``"MLB"`` and any
@@ -152,7 +150,7 @@ def _is_idp_position(position: Any) -> bool:
     raw = str(position or "").strip().upper()
     if not raw:
         return False
-    return _normalize_position(raw) in _IDP_FAMILIES or raw in _IDP_POSITIONS
+    return canonical_position_group(raw) == POSITION_GROUP_IDP
 
 
 def _market_source_for(position: str | None) -> str:
@@ -166,7 +164,7 @@ def _market_source_for(position: str | None) -> str:
     fixture only carries the standard board, so callers that
     haven't been migrated keep working.
     """
-    if _is_idp_position(position):
+    if is_idp_position(position):
         return "idpTradeCalc"
     return "ktcSfTep"
 
@@ -887,7 +885,7 @@ def find_angle_packages(
             row_pos = str(row.get("position") or "").strip().upper()
             if position_filter is not None and row_pos not in position_filter:
                 continue
-            if not include_idp and _is_idp_position(row_pos):
+            if not include_idp and is_idp_position(row_pos):
                 continue
             if my_v < min_my_value_floor:
                 continue
@@ -1405,7 +1403,7 @@ def find_acquisition_packages(
         # IDP gate — see docstring on find_angle_packages. Fixed side
         # (desired players) is never filtered; this only restricts the
         # offer-side pool built from the user's own roster.
-        if not include_idp and _is_idp_position(row_pos):
+        if not include_idp and is_idp_position(row_pos):
             continue
         if my_v < min_my_value_floor:
             continue

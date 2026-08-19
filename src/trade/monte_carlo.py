@@ -49,6 +49,7 @@ available"), but the module has never imported numpy.
 """
 
 from __future__ import annotations
+from src.utils.name_clean import POSITION_GROUP_IDP, POSITION_GROUP_PICK, canonical_position_group
 
 import math
 import random
@@ -428,9 +429,18 @@ def build_trade_player(
         return None
     team = str(row.get("team") or "").strip().upper()
     pos = str(row.get("pos") or row.get("position") or "").upper()
-    group = (
-        "idp" if pos in ("DL", "LB", "DB", "CB", "S") else ("pick" if pos == "PICK" else "offense")
-    )
+    # One vocabulary.  The retired literal was ``("DL", "LB", "DB", "CB", "S")``
+    # — five spellings admitting CB and S while silently classifying DE, DT,
+    # EDGE, NT, ILB, OLB, MLB, FS and SS as OFFENSE, which routed them to the
+    # offense band source and the offense scoring-fit path.  Not merely a
+    # duplicate table: a WRONG one.
+    canonical_group = canonical_position_group(pos)
+    if canonical_group == POSITION_GROUP_PICK:
+        group = "pick"
+    elif canonical_group == POSITION_GROUP_IDP:
+        group = "idp"
+    else:
+        group = "offense"
 
     # Scoring-fit shift: a single additive offset on the entire band.
     # Computed once here so both the valueBand and fallback paths use

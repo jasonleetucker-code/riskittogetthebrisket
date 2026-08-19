@@ -19,6 +19,7 @@ from typing import Any
 from src import packages as substrate
 from src.trade.finder_value_adjustment import value_adjustment_payload
 from src.utils.name_clean import normalize_position as _norm_pos  # noqa: F401 — re-exported via _norm_pos shim below for back-compat
+from src.utils.name_clean import POSITION_GROUP_IDP, canonical_position_group
 
 # ── Thresholds ──────────────────────────────────────────────────────────
 #
@@ -165,7 +166,15 @@ CONFIDENCE_SOURCE_BASELINE = 5  # Expected source count for full confidence
 ROSTER_SURPLUS_THRESHOLD = 4  # ≥4 at a position = surplus (light fit bonus)
 ROSTER_WEAK_THRESHOLD = 1  # ≤1 at a position = weakness (light fit bonus)
 
-IDP_POSITIONS = {"DL", "LB", "DB"}
+def is_idp_position(position: object) -> bool:
+    """One vocabulary.  Replaces ``IDP_POSITIONS = {"DL", "LB", "DB"}``.
+
+    The market routing at ``_market_keys_for`` turns on this answer, and the
+    retired set matched only the three family spellings — so a defender
+    arriving as ``EDGE`` or ``CB`` was routed to the OFFENSE market, which
+    prices no defenders.  That is #556 by another door.
+    """
+    return canonical_position_group(str(position or "")) == POSITION_GROUP_IDP
 
 
 @dataclass
@@ -521,7 +530,7 @@ def build_asset_pool(
         # 2026-04-28 when standard ``ktc`` was retired from the blend,
         # falling back to standard ``ktc`` for fixtures that predate
         # the supersession.
-        market_keys = IDP_MARKET_KEYS if pos in IDP_POSITIONS else OFFENSE_MARKET_KEYS
+        market_keys = IDP_MARKET_KEYS if is_idp_position(pos) else OFFENSE_MARKET_KEYS
         csv = pdata.get("_canonicalSiteValues")
         market_value: int | None = None
         market_source: str | None = None
@@ -1114,7 +1123,7 @@ def find_trades(
     # input is not a detector.
     _positions = positions or {}
     league_has_idp = any(
-        _norm_pos(_positions.get(name) or str((p or {}).get("position", "")) or "") in IDP_POSITIONS
+        is_idp_position(_positions.get(name) or str((p or {}).get("position", "")) or "")
         for name, p in players.items()
         if isinstance(p, dict)
     )

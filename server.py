@@ -7662,11 +7662,9 @@ async def post_angle_packages(request: Request):
     # scripts predating the toggle), treat that as an implicit opt-in.
     # Otherwise ``positions=["DL"]`` alone would filter the pool down
     # to zero candidates, which silently breaks those callers.
-    from src.trade.angle import _IDP_POSITIONS as _ANGLE_IDP_POSITIONS
+    from src.trade.angle import is_idp_position as _is_idp_position
 
-    if not include_idp and any(
-        str(p).strip().upper() in _ANGLE_IDP_POSITIONS for p in positions_req
-    ):
+    if not include_idp and any(_is_idp_position(p) for p in positions_req):
         include_idp = True
 
     # Same asymmetry as /api/angle/find: our side follows the lens, the
@@ -9611,7 +9609,7 @@ async def get_draft_capital(request: Request, refresh: str = ""):
             # scoring was never proven to match is the defect in
             # miniature — priced rookies under the wrong rules.
             if loaded_key and _scoring_identity_error(latest_contract_data, league_cfg) is None:
-                from src.trade.angle import _IDP_POSITIONS as _ANGLE_IDP_POSITIONS  # noqa: PLC0415
+                from src.trade.angle import is_idp_position  # noqa: PLC0415
 
                 pool = _our_rookie_pool(_KTC_TOTAL_PICKS)
                 if pool and not getattr(league_cfg, "idp_enabled", True):
@@ -9619,7 +9617,7 @@ async def get_draft_capital(request: Request, refresh: str = ""):
                         r
                         for r in pool
                         if str(r.get("assetClass") or "").lower() != "idp"
-                        and str(r.get("pos") or "").upper() not in _ANGLE_IDP_POSITIONS
+                        and not is_idp_position(r.get("pos"))
                     ]
                 if pool:
                     dollars = _rookie_dollars_from_values(

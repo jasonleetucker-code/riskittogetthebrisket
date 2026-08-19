@@ -33,7 +33,7 @@ before coverage was computed.
 And the detector written to catch precisely this failure read the SAME
 absent key::
 
-    league_has_idp = any(_norm_pos(p.get("position", "")) in IDP_POSITIONS ...)
+    league_has_idp = any(is_idp_position(p.get("position", "")) ...)
 
 so it was permanently ``False`` and could never fire.  That is the part
 worth keeping a test on: a detector fed the broken input is not a
@@ -48,7 +48,7 @@ import unittest
 from typing import Any
 
 from src.trade.finder import (
-    IDP_POSITIONS,
+    is_idp_position,
     build_asset_pool,
     board_values_from_contract,
     find_trades,
@@ -146,7 +146,7 @@ class TestIdpReachesThePool(unittest.TestCase):
             board_values=board_values_from_contract(contract),
             positions=positions_from_contract(contract),
         )
-        idp = [a for a in pool if _norm_pos(str(a.position or "")) in IDP_POSITIONS]
+        idp = [a for a in pool if is_idp_position(a.position)]
         self.assertTrue(idp, "no IDP asset survived into the pool")
         self.assertTrue(
             all(a.has_market for a in idp),
@@ -170,7 +170,7 @@ class TestIdpReachesThePool(unittest.TestCase):
             board_values=board_values_from_contract(contract),
             positions=positions_from_contract(contract),
         )
-        off = [a for a in pool if _norm_pos(str(a.position or "")) not in IDP_POSITIONS]
+        off = [a for a in pool if not is_idp_position(a.position)]
         self.assertTrue(off)
         self.assertEqual({a.market_source for a in off}, {"ktcSfTep"})
 

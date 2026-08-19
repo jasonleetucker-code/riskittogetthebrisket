@@ -144,7 +144,14 @@ class TestStarterSlots:
         )
 
     def test_a_position_the_lineup_never_starts_needs_nothing(self):
-        assert FE.starter_slots_for_position("P", STARTERS) == 0.0
+        # ``LS``, not ``P``.  The family roll-up is now ``POSITION_ALIASES``
+        # rather than this module's private copy, and the canonical table maps
+        # ``P -> K`` — so a punter DOES have a slot in a league that starts a
+        # kicker.  (It does not map ``PK``, which ``src/ros/lineup.py`` does:
+        # the two vocabularies disagree in opposite directions on the two
+        # kicker spellings.  Reported, not reconciled here — ``name_clean``
+        # owns one and the lineup module owns the other.)
+        assert FE.starter_slots_for_position("LS", STARTERS) == 0.0
 
     def test_missing_settings_are_survivable(self):
         assert FE.starter_slots_for_position("RB", None) == 0.0
@@ -183,7 +190,8 @@ class TestClassifyNeed:
 
     def test_a_position_with_no_lineup_slot_is_neutral(self):
         a = _anchors()
-        assert classify(a, "P", [a.v_repl + 500] * 9) == "neutral"
+        # ``LS`` rather than ``P`` — see the note in TestStarterSlots.
+        assert classify(a, "LS", [a.v_repl + 500] * 9) == "neutral"
 
 
 def classify(anchors, position, values):

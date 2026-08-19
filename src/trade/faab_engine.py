@@ -87,6 +87,7 @@ from pathlib import Path
 from typing import Any, Iterable, Sequence
 
 from src.utils.config_loader import load_json, repo_root
+from src.utils.name_clean import normalize_position
 
 __all__ = [
     "current_nfl_week",
@@ -402,7 +403,7 @@ def position_family(position: str | None) -> str:
     slots a lineup actually has.
     """
     pos = str(position or "").upper()
-    return _POSITION_FAMILY.get(pos, pos)
+    return normalize_position(pos) or pos
 
 
 def starter_slots_for_position(
@@ -436,19 +437,9 @@ def starter_slots_for_position(
     )
 
 
-_POSITION_FAMILY = {
-    "DT": "DL",
-    "DE": "DL",
-    "EDGE": "DL",
-    "NT": "DL",
-    "ILB": "LB",
-    "OLB": "LB",
-    "MLB": "LB",
-    "CB": "DB",
-    "S": "DB",
-    "FS": "DB",
-    "SS": "DB",
-}
+#: Retired.  This dict was byte-identical to ``waiver.py``'s inline
+#: ``family_map`` — two private copies of ``POSITION_ALIASES``, in one lane,
+#: neither aware of the other.  The roll-up now comes from the owner.
 
 
 def classify_need(
