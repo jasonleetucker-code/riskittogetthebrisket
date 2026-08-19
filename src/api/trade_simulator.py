@@ -215,6 +215,9 @@ def simulate_trade(
           "unresolvedOut": [str, ...],
           "equity":        int,          # net value to team (positive = good)
           "rosterCapacity":{...},         # see src/trade/roster_capacity
+          "finalLegalRoster":{...},       # C3-CAP-01 step 5-6: cleanup applied,
+                                          #   roster intelligence rerun on the
+                                          #   roster that actually results
         }
 
     Never mutates the contract or persists.  Pure function over the
@@ -383,7 +386,9 @@ def simulate_trade(
             from src.trade.roster_capacity import (  # noqa: PLC0415
                 assess_roster_capacity,
                 build_capacity_context,
+                simulate_final_legal_roster,
             )
+            from src.ros.lineup import configured_slot_eligibility  # noqa: PLC0415
 
             capacity_context = build_capacity_context(
                 contract,
@@ -391,11 +396,27 @@ def simulate_trade(
                 resolved_team,
                 roster_settings=roster_settings,
             )
-            response["rosterCapacity"] = assess_roster_capacity(
+            capacity = assess_roster_capacity(
                 capacity_context,
                 incoming_players=players_in,
                 outgoing_players=players_out,
-            ).to_dict()
+            )
+            response["rosterCapacity"] = capacity.to_dict()
+
+            # C3-CAP-01's last two steps: apply the optimal cleanup, then rerun
+            # roster intelligence on the roster that actually results.  The
+            # capacity block above says WHO must go; it cannot say what the
+            # lineup looks like once they have, because roster effects are
+            # set-dependent.  Opt-in and single-trade only — 9 ms measured on a
+            # 58-man roster, which is cheap here and is not cheap multiplied by
+            # a generator's candidate list.
+            response["finalLegalRoster"] = simulate_final_legal_roster(
+                capacity_context,
+                capacity,
+                incoming_players=players_in,
+                outgoing_players=players_out,
+                slot_eligibility=configured_slot_eligibility(roster_settings) or None,
+            )
         except Exception as exc:  # noqa: BLE001
             # Degrade, never fail: the value delta above is the primary
             # answer and must not be taken down by an optional capacity
@@ -404,6 +425,11 @@ def simulate_trade(
             response["rosterCapacity"] = {
                 "unavailable": f"{type(exc).__name__}",
                 "notes": ["roster capacity could not be computed for this trade"],
+            }
+            response["finalLegalRoster"] = {
+                "available": False,
+                "unavailableReason": f"{type(exc).__name__}",
+                "notes": ["the final legal post-trade roster could not be solved"],
             }
 
     return response
