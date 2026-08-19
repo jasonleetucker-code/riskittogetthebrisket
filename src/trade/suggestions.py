@@ -26,7 +26,7 @@ from typing import Any
 from src.canonical.calibration import to_display_value
 from src.trade.ktc_va import adjusted_pair_totals
 from src.utils.name_clean import normalize_position as _norm_pos  # noqa: F401 — see _norm_pos shim removal below (audit S2)
-from src.ros.lineup import resolve_starter_slots, slot_demand
+from src.ros.lineup import configured_slot_eligibility, resolve_starter_slots, slot_demand
 
 
 # ── Configuration ────────────────────────────────────────────────────
@@ -103,12 +103,14 @@ def starter_needs_for_league(league_key: str | None = None) -> dict[str, int]:
     if not slots:
         return dict(DEFAULT_STARTER_NEEDS)
 
-    overrides = {
-        slot: settings[key]
-        for slot, key in (("FLEX", "flexEligible"), ("IDP_FLEX", "idpFlexEligible"))
-        if settings.get(key)
-    }
-    demand = slot_demand(slots, eligibility_overrides=overrides).flex_priority
+    # The one resolver, not a local two-entry copy.  The retired map here
+    # omitted ``sflexEligible`` entirely, so a league that narrows its
+    # Superflex was measured against the declared default — and C2-U1's
+    # ``configured_slot_eligibility`` docstring names this very module as the
+    # "two-entry variant" it exists to replace.
+    demand = slot_demand(
+        slots, eligibility_overrides=configured_slot_eligibility(settings)
+    ).flex_priority
     needs = {pos: n for pos, n in demand.items() if pos not in _NON_DEMAND_SLOTS}
     return needs or dict(DEFAULT_STARTER_NEEDS)
 
