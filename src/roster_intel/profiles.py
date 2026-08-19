@@ -40,7 +40,7 @@ from src.roster_intel.marginal import (
     absence_impacts,
     position_marginals,
 )
-from src.ros.lineup import RosterPlayer
+from src.ros.lineup import RosterPlayer, is_priced, priced_players
 
 __all__ = [
     "ELITE_PERCENTILE",
@@ -325,6 +325,9 @@ def build_position_profiles(
 
         tier_counts = {t: 0 for t in TIER_ORDER}
         for p in players:
+            # A tier is a claim about value; UNKNOWN makes none.
+            if not is_priced(p):
+                continue
             tier_counts[classify_tier(p.ros_value, rep, elite=elite_cut)] += 1
 
         ages = [
@@ -345,7 +348,10 @@ def build_position_profiles(
         surplus = [
             p
             for p in players
-            if p.ros_value > 0 and p.player_id not in entered_ids and p.ros_value >= floor
+            if is_priced(p)
+            and p.ros_value > 0
+            and p.player_id not in entered_ids
+            and p.ros_value >= floor
         ]
 
         # Need: the optimizer could not fill this position's dedicated
@@ -379,7 +385,7 @@ def build_position_profiles(
             injured_starters=len(injured_starters),
             bye_concentration=_bye_concentration(byes),
             replacement_level=(rep.value("starter") if rep else None),
-            tradeable_surplus=float(sum(p.ros_value for p in surplus)),
+            tradeable_surplus=float(sum(p.ros_value for p in priced_players(surplus))),
             surplus_players=tuple(sorted(p.canonical_name or p.player_id for p in surplus)),
             urgent_need=bool(need_reasons),
             need_reasons=tuple(need_reasons),

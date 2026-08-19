@@ -11217,6 +11217,37 @@ def roster_pool_key(teams: list[Any], index: int, team: Any) -> str:
     return f"__roster_{index}"
 
 
+def contract_slot_eligibility(contract: Mapping[str, Any] | None) -> dict[str, tuple[str, ...]]:
+    """This contract's league's CONFIGURED flex eligibility, or ``{}``.
+
+    The PLUMBING half — contract → registry → the rule.  The rule itself
+    is ``lineup.configured_slot_eligibility``, which is the slot-rules
+    owner; this only knows how to find the settings.
+
+    Separate from :func:`contract_roster_pools` rather than bolted onto
+    its return, because that tuple has twelve unpack sites and widening
+    it would churn every one of them to thread a value most do not want.
+    Cheap to call: the registry read is cached.
+
+    ``{}`` means "not configured", so the DECLARED defaults apply.  Both
+    live leagues currently configure exactly the defaults, which is why
+    threading this is a measured no-op today — and why it must be
+    threaded anyway, since the day one of them narrows a flex, every
+    surface that skipped it seats a player the league does not allow.
+    """
+    try:
+        from src.api.league_registry import (  # noqa: PLC0415
+            get_league_roster_settings,
+        )
+
+        settings = get_league_roster_settings(
+            str(((contract or {}).get("meta") or {}).get("leagueKey") or "") or None
+        )
+    except Exception:  # noqa: BLE001 — the registry is optional here
+        return {}
+    return lineup_owner.configured_slot_eligibility(settings)
+
+
 def contract_roster_pools(
     contract: dict[str, Any],
     *,
@@ -11394,6 +11425,10 @@ def stamp_optimal_lineups(
     # rule all live there, so this stamp and the roster chain cannot
     # drift apart.
     pools, slots, slot_source = contract_roster_pools(contract, rows=rows)
+    # The league's OWN flex rules, not the declared defaults.  A no-op on
+    # both live leagues today (they configure exactly the defaults) and
+    # not a no-op the day either narrows one.
+    eligibility = contract_slot_eligibility(contract) or None
 
     stamped: list[Any] = []
     for index, original in enumerate(teams):
@@ -11413,7 +11448,7 @@ def stamp_optimal_lineups(
             continue
         pool = pools.get(roster_pool_key(teams, index, original), [])
         try:
-            solved = lineup_owner.assign_lineup(pool, slots)
+            solved = lineup_owner.assign_lineup(pool, slots, slot_eligibility=eligibility)
         except Exception:  # noqa: BLE001 — an optional stamp must not fail a build
             team["optimalLineup"] = {
                 "available": False,
