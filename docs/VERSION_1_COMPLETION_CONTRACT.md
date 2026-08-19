@@ -206,17 +206,17 @@ Projections · **L4** Market / FAAB / Analyst · **L5** Integration / QA / CI / 
 |---|---|---|---|---|---|---|
 | V1-55 | One FAAB engine (ceiling vs recommended bid) | `F-FAAB-01` / inv 3.1 | L4 | `VERIFIED` | L2 | FAAB core. 247 tests; backtest 166/166 → 0/166 low-value overbids |
 | V1-56 | FAAB league context panel | inv 3.2 | L4 | `IMPLEMENTED_UNVERIFIED` | L4 | FAAB core; owner status "VERIFY ONLY" |
-| V1-57 | FAAB bid-history collection is scheduled, not a manual step | `C4-FAAB-02` | L4 | `NOT STARTED` | L3 | FAAB core trustworthiness — no timer today |
+| V1-57 | FAAB bid-history collection is scheduled, not a manual step | `C4-FAAB-02` | L4 | `IMPLEMENTED_UNVERIFIED` | L3 | **#911 merged 2026-08-19 (`edc726ef1`).** The scheduler exists: `deploy/systemd/dynasty-faab-history.{service,timer}.template` plus the `install_simple_timer "faab-history"` line, verified in the diff and verified to match the installer's own naming convention (`dynasty-${stem}.{service,timer}.template`, unit `${SERVICE_NAME}-${stem}`). Fires 07:40 UTC, clear of the 2-hourly scrape, the crowd-FAAB pass and the sharp discovery/records/roster chain. **L3 needs the unit installed and firing on prod** — not claimable from here |
 | V1-132 | The horizon pick year is not a single-vendor dependency | audit `F-34` | L5 | `NOT STARTED` | L2 | **added 2026-08-18** — tracked DEFECT against already-required canonical value + signal independence, not new product scope. Measured: 2026/2027/2028 tier rows blend `idpTradeCalc` + `ktcSfTep`; the horizon year blends `idpTradeCalc` **alone** on all 12 cells, because the injection clones from the RAW payload while `ktcSfTep` pick values arrive via the later CSV enrichment. `F-30` made the horizon *guarantee* independent of this; the blended *value* still is not |
-| V1-129 | External crowd-FAAB evidence is comparable, fresh and position-capable | audit `F-33` / `FAAB_MARKET_SIGNAL_NORMALIZATION_2026-08-14` §3/§5/§7/§10 | L4 | `IN PROGRESS` | L2 | **added 2026-08-18** — a tracked DEFECT against the already-required FAAB core, not new product scope. The KTC crowd pool feeds `rival_bid_cdf` at weight **0.6**, so what it admits moves real recommended bids; it was admitting incomparable leagues, stale ledgers and positions the retained population cannot price. **#911** refuses all three and reports the refusal. Own-league history was already correct and is untouched |
+| V1-129 | External crowd-FAAB evidence is comparable, fresh and position-capable | audit `F-33` / `FAAB_MARKET_SIGNAL_NORMALIZATION_2026-08-14` §3/§5/§7/§10 | L4 | `IMPLEMENTED_UNVERIFIED` | L2 | **#911 merged 2026-08-19.** `src/trade/faab_comparability.py` is the single owner, called at fetch AND read time; multi-copy and degenerate-budget leagues excluded; IDP refused against an offense-only population; stale ledgers refused. Adversarial review confirmed the headline invariant across 30 (crowd pct × value) combinations with every leaf key diffed, and `faab_engine.py` has a zero-byte diff. **L2 needs the crowd ledger, which is prod-only (gitignored)** — and see the deploy note: the accumulated legacy ledger hard-excludes on read, so `crowdMarket` reports `missing` until the fetcher re-accumulates |
 | V1-58 | Sharp cohort proven populated in production | `C4-SHARP-01` / `C4-U2` | L4 | `IMPLEMENTED_UNVERIFIED` | L3 | Sharp core. Verification artifacts end at 502/401/"unverifiable_unauthenticated" |
 | V1-59 | Sharp bootstrap stops failing | `C4-SHARP-02` | L4 | `IN PROGRESS` | L3 | Sharp core. FFPC timeouts + SQLite locking |
-| V1-60 | FFPC roster lane real or honestly empty | `C4-SHARP-03` | L4 | `IN PROGRESS` | L2 | truthful degraded state — must not read as zero rosters silently |
+| V1-60 | FFPC roster lane real or honestly empty | `C4-SHARP-03` | L4 | `IMPLEMENTED_UNVERIFIED` | L2 | **#911 merged 2026-08-19.** `CollectResult` gains `status` / `unavailable_reason` with an explicit `unavailable()` constructor, and the FFPC lane returns `no_cohort_managers_on_platform` instead of an empty success — so "the lane ran and found nothing" and "the lane did not run" are structurally distinct and both published. Verified in the diff. **L2 board measurement is prod-side** (FFPC contributes zero rosters today) |
 | V1-61 | Sharp Roster Percentage | inv 4.5 | L4 | `IMPLEMENTED_UNVERIFIED` | L4 | Sharp core; owner status "VERIFY ONLY" |
 | V1-62 | Sharp Tracker | inv 4.4 | L4 | `IN PROGRESS` | L4 | Sharp core; live but W15-F017 no memoization |
-| V1-63 | Manager-level Sharp concentration | inv 4.6 | L4 | `NOT STARTED` | L1 | Sharp core; missing field, W15-F009 P1 |
-| V1-64 | Sharp event ledger surfaces adds/drops | inv 4.7 | L4 | `IN PROGRESS` | L1 | Sharp core; W15-F013 |
-| V1-65 | Insider Trading / cross-league ownership | `C4-INS-01` / inv 4.8 | L4 | `IN PROGRESS` | L2 | Sharp core; complete, consolidation pending |
+| V1-63 | Manager-level Sharp concentration | inv 4.6 | L4 | `IMPLEMENTED_UNVERIFIED` | L1 | **#911 merged 2026-08-19.** Concentration design confirmed (capped weights bounded 0.34/manager and /league, `concentrationCapped` flagged) and two coercion defects fixed underneath it: `float(person["quality"] or 1.0)` promoted a manager scored **0.0** — the lowest quality — to **1.0**, the highest, into both the consensus and the cap; and `networkConcentration` published `0.0` for an undefined ratio. Now `isinstance(raw_quality, (int, float))` and `None`. 52 deterministic tests pass on the merged tree. **Not VERIFIED**: `personManagerQuality` still returns `1.0` for zero voters, the same defect two lines away |
+| V1-64 | Sharp event ledger surfaces adds/drops | inv 4.7 | L4 | `IMPLEMENTED_UNVERIFIED` | L1 | **#911 merged 2026-08-19.** Confirmed rather than changed: `crawl_coverage` publishes `sharpEligibleLeagues` beside `leaguesCrawled` (`transactions.py:367`) so a zero is explained by its own denominator, and `oldestCrawlMs` is `min(timestamps) if timestamps else None` (`record_queue.py:110`) — `None`, never 0. A pre-existing property verified, not added |
+| V1-65 | Insider Trading / cross-league ownership | `C4-INS-01` / inv 4.8 | L4 | `IMPLEMENTED_UNVERIFIED` | L2 | **#911 merged 2026-08-19.** The consolidation already existed (ledger / signals / two products); what was missing was the guarantee. `tests/intel/test_insider_never_claims_sharp.py` AST-scans the three insider modules for non-docstring "sharp" literals, with a **positive control** so it cannot pass by matching nothing and a negative control so docstrings stay allowed. The boundary is real: Sharp is a SKILL claim (dynasty, ≥2 seasons); Insider admits keeper leagues with no age floor |
 
 ### 3.6 Source-health correctness and stability / false-green repairs
 
@@ -251,7 +251,7 @@ Projections · **L4** Market / FAAB / Analyst · **L5** Integration / QA / CI / 
 | V1-92 | Freshness indicators complete | inv 6.8 | L6 | `IN PROGRESS` | L1 | truthful degraded state; W08-F011 |
 | V1-131 | Nav does not offer a page whose endpoints all 503 | audit `F-25` / `C6-EDGE-01` (gating only) | L6 | `NOT STARTED` | L3 | **added 2026-08-18, §7.1 A-7** — follows mechanically from "truthful degraded states", which the boundary names. Nav currently offers Consensus Edge while its three endpoints 503. **Gating only**: the Consensus Edge FEATURE stays POST-V1 |
 | V1-127 | `normalizationHealth` reports the board it actually has | audit `F-27` | L5 | `VERIFIED` | L3 | **added 2026-08-18** — false red in production since C1-U6; see §10 note below. **Production-verified 2026-08-18** on the deployed SHA: `playersArray.pickNameMalformed` **18 → 0** and `healthy` **false → true**, with the 18 generic-grade pick rows (`2027 Round 1` … `2029 Round 6`) still present on the board — the rows were never wrong, the grammar reading them was |
-| V1-128 | Board age is measured in a timezone that exists | audit `F-28` | L5 | `IMPLEMENTED_UNVERIFIED` | L3 | **added 2026-08-18** — host is UTC+2, so reported age is always ≤ 0 and `data_stale` is structurally unreachable. Fixed at the source (tz-aware `scrapeTimestamp`) plus a future-board UNKNOWN guard; L3 needs a deployed scrape showing a positive age tracking the 2-hourly cadence |
+| V1-128 | Board age is measured in a timezone that exists | audit `F-28` | L5 | `VERIFIED` | L3 | **added 2026-08-18** — host is UTC+2, so reported age was always ≤ 0 and `data_stale` structurally unreachable. Fixed at the source (tz-aware `scrapeTimestamp`) plus a future-board UNKNOWN guard. **Production-verified 2026-08-18 on the deployed SHA `92469d32`.** The 22:55 scrape is the first board built by the repaired scraper and stamps `producedAt: 2026-08-18T22:55:34.252784+00:00` — tz-aware, and earlier than both `loadedAt` and `last_scrape` rather than two hours later. Three samples against that instant: 23:00:04 → `0.1` (true 0.075 h), 23:14 → `0.3`, 23:20:28 → `0.4` (true 0.415 h). Monotonic, each matching the true elapsed time to the published rounding, so the age tracks the clock and the 6 h `data_stale` threshold is reachable — which is the property `V1-82`/`F-19` needed and this defect was blocking. Was `-1.0`, i.e. below every threshold by construction |
 
 ### 3.7 Truthful degraded states
 
@@ -316,16 +316,16 @@ from the §3 table itself rather than by editing this block.
 
 | status | count |
 |---|---|
-| `VERIFIED` | 39 |
-| `IMPLEMENTED_UNVERIFIED` | 18 |
-| `IN PROGRESS` | 38 |
-| `NOT STARTED` | 35 |
+| `VERIFIED` | 40 |
+| `IMPLEMENTED_UNVERIFIED` | 23 |
+| `IN PROGRESS` | 34 |
+| `NOT STARTED` | 33 |
 | `BLOCKED` | 2 |
 | **denominator** | **132** |
 
-**V1 completion: 39 / 132 = 29.5%.**
+**V1 completion: 40 / 132 = 30.3%.**
 
-**Up four, and every one of them on deployed evidence rather than on a merge.**
+**Up five, and every one of them on deployed evidence rather than on a merge.**
 #910 merged at 21:29 UTC; the deploy that carried it completed at ~22:50 and the
 2-hourly scrape at 22:55 produced the first board built entirely by post-#910
 code. Measured against `chaseupside.com` at 23:00:
@@ -353,13 +353,15 @@ verification, which is the safer direction and still a false statement in a veri
 record. §7.2a is left standing rather than rewritten, because it accurately records what was
 measured with the tooling the verifier believed they had.
 
-`V1-128` (`F-28`) deliberately stays `IMPLEMENTED_UNVERIFIED`. Its own stated bar
+`V1-128` (`F-28`) was held back at first and is the fifth to move. Its stated bar
 is "a deployed scrape showing a positive age **tracking the 2-hourly cadence**",
 and one 0.1 h reading taken five minutes after a scrape shows a positive age but
-not yet that it tracks. A second sample later in the cycle settles it. The fix is
-demonstrably live — the naive local `scrapeTimestamp` is gone — but "the defect is
-fixed" and "the row's evidence bar is met" are different statements, and this
-contract only counts the second.
+not yet that it tracks — so it stayed `IMPLEMENTED_UNVERIFIED` while the fix was
+already demonstrably live. Two further samples settled it: 0.3 at 23:14 and 0.4 at
+23:20:28, against a board produced at 22:55:34, which is the true elapsed time at
+the published rounding on all three. "The defect is fixed" and "the row's evidence
+bar is met" are different statements, and holding the row for twenty minutes
+between them is what the difference is worth.
 
 Reconciled against every open six-lane PR — #910 (L5), #911 (L4), #912 (L6),
 #913 (L2), #914 (L1), #915 (L3). Thirteen rows moved `NOT STARTED` →
@@ -657,6 +659,7 @@ as a pass. **An unreachable check is not a green one.**
 
 | date | change | reason |
 |---|---|---|
+| 2026-08-18 | **0** — audit `F-35` filed and deliberately NOT added | A false GREEN, and by the same reasoning that admitted `V1-127` it would qualify — except that it fails the other half of the test. `idMappingCoverage.coverage_pct` reports **1.0 from 0 resolve attempts**, by explicit design (*"so a silent app doesn't look like a broken mapper"*), and will report it forever because `unified_mapper.resolve_player` has no production consumers after `C1-ID-01` and CLAUDE.md forbids adding any. So the surface is real and the defect is real, but the metric is **vestigial** and the blast radius is one admin panel — no canonical value, rank or contract field depends on it. Recording the decision rather than making it silently: the denominator is frozen, and "it is the same class as something already in" is not on its own a reason to enlarge it. If the panel is ever repointed at the live identity owner that is a unit with an owner decision in it, and it can be scoped then. |
 | 2026-08-18 | **+1** — `V1-132` added (audit `F-34`, surfaced by lane 7 / `#916`) | A tracked **defect against an already-required capability** — canonical value and signal independence — not new product scope. Measured: the horizon pick year blends **one** vendor while every other pick year blends two, because the far-future injection clones from the RAW payload and `ktcSfTep`'s pick values arrive through the later CSV enrichment. `F-30` made the horizon GUARANTEE independent of which raw keys survive; the blended VALUE is still single-source. Filed so it does not disappear when `#916` closes. |
 | 2026-08-18 | **+2** — `V1-130` (§7 A-2) and `V1-131` (§7 A-7) added | **Mechanical consequences of decisions the owner had already made**, resolved under the 2026-08-18 instruction to settle any ambiguity that follows from an existing ruling rather than leave the contract PROPOSED. `V1-130`: `V1-34` is required and `C3-CON-01` is its canonical owner — ONE CONCEPT, ONE CANONICAL OWNER makes excluding the owner incoherent. `V1-131`: "truthful degraded states" is named in the boundary and nav offering an all-503 page is a live instance; the Consensus Edge feature itself stays POST-V1. Neither adds product scope — both are the minimum needed to make an already-required item buildable or honest. |
 | 2026-08-18 | **+1** — `V1-129` added (audit `F-33`, lane 4 / `#911`) | A tracked **defect against an already-required capability**, which the owner's 2026-08-18 direction explicitly permits: *"New defects that violate an already-required V1 capability may be added/tracked without redefining the product scope."* FAAB core is already V1 REQUIRED; this adds no product. The crowd pool feeds `rival_bid_cdf` at weight **0.6**, so admitting incomparable leagues, a stale ledger, or a position the retained population cannot price moves real recommended bids — a trustworthiness defect in a required capability, not a new one. |

@@ -1325,7 +1325,7 @@ one that fails if the canonical grammar is ever restated locally again.
 
 No value path touched — `is_valid_pick_name` is a reporting predicate.
 
-### F-28 · F-19's UTC assumption is false in production, and `data_stale` can never fire · CONFIRMED · observability · **FIXED — source repair PRODUCTION-VERIFIED 2026-08-18; the cadence sample is still owed**
+### F-28 · F-19's UTC assumption is false in production, and `data_stale` can never fire · CONFIRMED · observability · **REPAIRED AND PRODUCTION-VERIFIED 2026-08-18**
 
 **Found by verifying the F-19 deploy against production rather than trusting the merge**, which is
 the whole reason that step exists. `#909` deployed at 14:27 UTC on 2026-08-18. Measured minutes
@@ -2016,6 +2016,21 @@ Three properties, each the thing its finding actually claimed:
   `structuralErrors` on a live board carrying 2029 rows is the census passing:
   every valid pick through the horizon priced, with provenance, in production.
 
+**F-28's cadence, measured rather than assumed.** A single reading five minutes
+after a scrape proves a positive age, not that the age tracks. Three samples
+against a board produced at `22:55:34+00:00`:
+
+| sample (UTC) | true elapsed | `data_age_hours` |
+|---|---|---|
+| 23:00:04 | 4m30s = 0.075 h | **0.1** |
+| 23:14 | ~18m = 0.30 h | **0.3** |
+| 23:20:28 | 24m54s = 0.415 h | **0.4** |
+
+Monotonic, and each matches the true elapsed time at the published rounding. So
+the age advances with the clock against the board's own production instant, the
+6 h `data_stale` threshold is reachable, and the alarm `F-19` exists to feed can
+fire. It read `-1.0` before the repair — below every threshold by construction.
+
 ### F-31 · C2-U1's "unpriced" third state is unreachable on the live snapshot path · CONFIRMED · false green · **OPEN (assigned: lane 1)**
 
 **Found by reviewing `#914`, and disclosed BY `#914` rather than caught in spite of it.** Lane 1's
@@ -2153,6 +2168,65 @@ to do. `#916` was right to name it rather than fold it in. Filed so it does not 
 that PR.
 
 Owner: lane 5 (pick valuation). Tracked as `V1-132`.
+
+
+### F-35 · The identity-coverage panel reports 100% from zero observations · CONFIRMED · observability · **OPEN**
+
+Measured on production 2026-08-18 23:00, deployed SHA `92469d32` (`/api/status`):
+
+```json
+"idMappingCoverage": {
+  "metrics": {"resolve_attempts": 0, "resolved_exact_id": 0, "resolved_name_team_pos": 0,
+              "resolved_name_pos": 0, "resolved_fuzzy": 0, "resolved_override": 0,
+              "unresolved": 0},
+  "coverage_pct": 1.0
+}
+```
+
+`src/identity/unified_mapper.py::mapping_coverage_snapshot` is
+
+```python
+pct = (resolved / attempts) if attempts else 1.0
+```
+
+and its docstring states the intent outright: *"Returns 1.0 when no attempts have been logged
+yet (so a silent app doesn't look like a broken mapper)."*
+
+**100% of nothing is not 100%; it is UNKNOWN.** This is MISSING IS NEVER ZERO inverted — the
+number is chosen to be maximally reassuring at exactly the moment there is no evidence. It is
+the same shape as `F-28` (a negative age reading as maximum freshness) and the mirror image of
+`F-27` (a permanent false red), and it is rendered to an operator: `frontend/app/admin/page.jsx`
+prints the block verbatim.
+
+**The metric is dead, which makes the 1.0 permanent.** `unified_mapper.resolve_player` has no
+production consumers — `grep` finds it only under `tests/identity/` and in a docstring reference
+from `src/identity/resolution.py`. That is CORRECT after `C1-ID-01`: the cutover moved both sites
+to the owner, and CLAUDE.md's rule for new code is *"never add consumers to
+`unified_mapper.resolve_player` (legacy-V1 compat only)"*. So `resolve_attempts` stays 0 forever
+and the panel reports perfect identity coverage forever.
+
+`src/ros/mapping.py::resolve_player` is a DIFFERENT function with live consumers
+(`src/ros/scrape.py:552`) and does not feed these metrics. Do not conflate them.
+
+**Same family as the retention-health condition recorded under the CI-incident interruption
+below** — identity observability presenting absent or stale evidence as current — but a distinct
+mechanism, so it is filed separately rather than folded in.
+
+**Not a value defect.** No canonical value, rank or contract field depends on it; the blast
+radius is one admin panel. It is filed because that panel's whole job is to say whether identity
+resolution is healthy, and it currently cannot say anything else.
+
+Two candidate repairs, and the choice is a real one:
+
+1. Report the state instead of a number — `coverage_pct: null` plus an explicit `no_attempts`,
+   so unknown is distinguishable from perfect. A defect repair; leaves the panel empty.
+2. Point the panel at the LIVE owner. `src/identity/resolution.py` is what resolves identity now,
+   the dual-read gap is measured every cycle into `data/scrape_state/identity_dual_read.json` as
+   `v2WouldChange`, and the contract already stamps `identityJoin` naming the deciding owner.
+   That would make the panel measure the thing it claims to measure — a small unit with an owner
+   decision in it, not a repair.
+
+Pre-existing; introduced by neither `#910` nor any open lane PR. Owner: lane 5 (observability).
 
 
 ### Interruption: the 2026-08-18 CI incident
