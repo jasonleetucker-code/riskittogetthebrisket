@@ -53,7 +53,7 @@ import { normalizePos } from "@/lib/dynasty-data";
  */
 
 const DL_FAMILY = new Set(["DL", "DE", "DT", "EDGE", "NT"]);
-const LB_FAMILY = new Set(["LB", "OLB", "ILB"]);
+const LB_FAMILY = new Set(["LB", "OLB", "ILB", "MLB"]);
 const DB_FAMILY = new Set(["DB", "CB", "S", "FS", "SS"]);
 
 /**
