@@ -1,0 +1,110 @@
+{
+  "_comment": "Lane utilization state, owned by Claude 7 (Lane Dispatcher). NOT an authority on integration sequencing (Claude 5 / docs/EXECUTION_PLAN.md), on V1 status (docs/VERSION_1_COMPLETION_CONTRACT.md) or on canonical ownership (CLAUDE.md). Repository evidence outranks this file: where they disagree, this file is wrong and must be corrected.",
+  "updatedAt": "2026-08-19T10:14:00Z",
+  "dispatchCycle": 1,
+  "evidenceBasis": "origin/main 2203f09; open-PR listing, per-branch last-commit times and per-PR check runs read live at 2026-08-19T10:00-10:14Z",
+  "v1": {
+    "requiredRows": 132,
+    "verified": 40,
+    "percent": 30.3,
+    "source": "docs/VERSION_1_COMPLETION_CONTRACT.md §3 (denominator = §3 only)",
+    "note": "Counted by Claude 7 for prioritization. Claude 5 owns the reconciliation; no status was changed."
+  },
+  "lanes": {
+    "1": {
+      "name": "Roster Intelligence",
+      "state": "ACTIVE",
+      "currentTask": "#925 Roster V1 verification pack + V1-35 metric-separation audit",
+      "branch": "claude/v1-roster-verification-audit",
+      "chain": [914, 922, 925],
+      "pr": 925,
+      "implementationHead": "GREEN",
+      "releaseCandidate": "NOT_YET_FROZEN",
+      "evidence": "push 09:39Z a405aef; Validate PR success 09:55:38Z",
+      "blockedBy": null,
+      "doNotTouch": ["#914", "#922"],
+      "nextSafeWork": "continue the verification pack; #914 and #922 stay frozen for Claude 5",
+      "lastMeaningfulActivity": "2026-08-19T09:55:38Z"
+    },
+    "2": {
+      "name": "Trade Intelligence",
+      "state": "ACTIONABLE_IDLE",
+      "currentTask": null,
+      "branch": "claude/v1-trade-intelligence-efstt3",
+      "pr": 913,
+      "implementationHead": "GREEN",
+      "releaseCandidate": "NOT_YET_FROZEN",
+      "evidence": "last push 01:45Z c2153eb; last comment 01:49Z; Validate PR success 02:02:27Z; no activity for 8h25m",
+      "blockedBy": "V1-43 Analyze Trade V1 waits on #914 merge (stated in the PR body) — but that blocks ONE unit, not the lane",
+      "doNotTouch": ["#913 head", "src/roster_intel/**", "src/ros/**", "CLAUDE.md", "frontend UI surfaces"],
+      "nextSafeWork": "V1-130 + V1-34 — the recommendation-constraint owner (C3-CON-01), on a branch stacked on #913",
+      "assignedThisCycle": "L2-2026-08-19-01",
+      "lastMeaningfulActivity": "2026-08-19T02:02:27Z"
+    },
+    "3": {
+      "name": "Scoring / Season / Projections / Power",
+      "state": "ACTIVE",
+      "currentTask": "#919 playoff bracket from league config; #923 V1-52/V1-53 power lenses; #915 exact scoring awaiting integration",
+      "branch": "claude/v1-playoff-power-consolidation",
+      "openPrs": [915, 919, 923],
+      "pr": 919,
+      "implementationHead": "GREEN",
+      "releaseCandidate": "NOT_YET_FROZEN",
+      "evidence": "push 09:44Z 1ed7a3b (#919); push 08:27Z (#923); #915 comment 09:28Z",
+      "blockedBy": null,
+      "doNotTouch": ["#915 head while under integration review"],
+      "nextSafeWork": "per master prompt §28 — no new feature PR while three Scoring/Playoff/Power PRs await integration; post-deploy proof and consumer evidenceBasis audits only",
+      "lastMeaningfulActivity": "2026-08-19T09:45:05Z"
+    },
+    "4": {
+      "name": "Market / FAAB / Sharp / Analyst",
+      "state": "ACTIVE",
+      "currentTask": "#927 absent evidence stops reporting as a confident answer (V1 correctness)",
+      "branch": "claude/lane4-v1-semantic-states",
+      "openPrs": [921, 927],
+      "pr": 927,
+      "implementationHead": "UNKNOWN",
+      "releaseCandidate": "NOT_YET_FROZEN",
+      "evidence": "push 09:58Z 07482b9 — 16 minutes before this cycle; #921 comment 09:52Z",
+      "blockedBy": null,
+      "doNotTouch": [],
+      "nextSafeWork": "finish #927; #921 (#804 capture) is approved POST-V1 evidence capture and must not outrank open V1 correctness",
+      "lastMeaningfulActivity": "2026-08-19T09:59:28Z"
+    },
+    "5": {
+      "name": "Integration / Governance / Production",
+      "state": "ACTIVE",
+      "currentTask": "#926 record the bounded-integration interpretation; integration queue for #914 / #913 / #912",
+      "branch": "claude/v1-integration-authority-xaqcv8",
+      "pr": 926,
+      "implementationHead": "UNKNOWN",
+      "releaseCandidate": "NOT_YET_FROZEN",
+      "evidence": "push 09:46Z ced777a, PR opened 09:47Z",
+      "blockedBy": null,
+      "doNotTouch": [],
+      "nextSafeWork": "sole integration authority — not to be given implementation work by this dispatcher",
+      "declaredChainOrder": "#910 → #914 → #913 → #912 (owner directive on #912, 2026-08-18)",
+      "lastMeaningfulActivity": "2026-08-19T09:47:17Z"
+    },
+    "6": {
+      "name": "Premium UI / Frontend",
+      "state": "FROZEN_FOR_INTEGRATION",
+      "currentTask": "non-mutating V1-106 scroll-performance re-measurement (evidence-only, posted 09:39Z, head unchanged)",
+      "branch": "claude/premium-ui-migration-ltldy0",
+      "pr": 912,
+      "implementationHead": "GREEN",
+      "releaseCandidate": "NOT_YET_FROZEN",
+      "evidence": "last push 02:24Z c025e4f6; Validate PR + Boot stack both success 02:31-02:38Z; evidence comment 09:39Z with no commit",
+      "blockedBy": "last in the integration chain by owner directive — consumes contracts #914/#913 change",
+      "doNotTouch": ["#912 head"],
+      "nextSafeWork": "already doing it — verification/measurement without mutating the frozen candidate",
+      "lastMeaningfulActivity": "2026-08-19T09:39:11Z"
+    }
+  },
+  "collisionWatch": [
+    "config/coercion_baseline.json — two candidates merge cleanly and corrupt silently (measured 673 declared / 670 actual). Second candidate's baseline is regenerated after the first lands.",
+    "src/trade/{suggestions,finder,angle}.py + server.py — heavily rewritten by #913. Any new Trade work stacks on #913 rather than branching from main.",
+    "CLAUDE.md — governance-shared; lanes report needed edits to Claude 5 instead of making them. A recurring uncommitted CLAUDE.md reversion has been observed in three Lane 2 working copies; never `git add -A` there.",
+    "docs/VERSION_1_COMPLETION_CONTRACT.md — Claude 5 only."
+  ]
+}
