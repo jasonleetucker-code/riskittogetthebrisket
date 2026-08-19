@@ -57,13 +57,17 @@ user names one.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from typing import Any, Iterable, Mapping, Sequence
 
 __all__ = [
     "ConstraintResolutionError",
     "TradeConstraints",
+    "UNRESOLVED",
+    "blocked_outgoing",
     "constraint_key",
+    "outgoing_eligibility",
+    "partition_sendable",
     "resolve_constraints",
 ]
 
@@ -320,3 +324,75 @@ def partition_sendable(
         else:
             blocked.append((asset, reason))
     return sendable, blocked
+
+
+# ── The substrate seam (C3-CON-01 §6) ────────────────────────────────────
+
+
+def blocked_outgoing(
+    pool: Sequence[Any],
+    constraints: TradeConstraints | None,
+) -> list[tuple[Any, str]]:
+    """``[(asset, reason), ...]`` for every pool asset that may not be sent.
+
+    The same decision :meth:`TradeConstraints.block_reason` makes, evaluated
+    over a whole pool.  Returned WITH the reasons rather than as a bare key set
+    so a surface can say *"withheld: you protect MIN players"* instead of
+    publishing a shorter list and letting the user infer why.
+    """
+    if constraints is None or not constraints.active:
+        return []
+    out: list[tuple[Any, str]] = []
+    for asset in pool:
+        reason = constraints.block_reason(asset)
+        if reason is not None:
+            out.append((asset, reason))
+    return out
+
+
+def outgoing_eligibility(
+    pool: Sequence[Any],
+    constraints: TradeConstraints | None,
+    *,
+    base: Any = None,
+) -> Any:
+    """Constraints as the canonical substrate's SEND-side eligibility.
+
+    This is the seam the module docstring promises: constraints become an
+    ``EligibilityPolicy`` the shared generator consumes **during** enumeration,
+    not a list the caller shortens afterwards.  §6 forbids the second shape by
+    name, because generating everything and hiding the forbidden results can
+    return the wrong *best* package — the real best was removed after ranking.
+
+    Returns the substrate's ``UNCONSTRAINED_OUTGOING`` sentinel when nothing
+    constrains this roster, so "we checked and nothing is protected" travels to
+    the generator as a claim rather than as an absent argument.
+
+    The excluded set is computed against THIS pool rather than stored, which is
+    what makes §2.2's dynamic NFL-team rule hold: a player who joined the
+    protected team is protected on the next call with no state to migrate.
+    ``base`` lets a product keep its own mechanical eligibility (min value,
+    already-in-the-trade exclusions) and have the constraints added to it —
+    the two are different questions and neither replaces the other.
+    """
+    from src.packages import (  # noqa: PLC0415 — import direction: trade -> packages
+        EligibilityPolicy,
+        UNCONSTRAINED_OUTGOING,
+        adapt_assets,
+    )
+
+    if constraints is None or not constraints.active:
+        return UNCONSTRAINED_OUTGOING
+
+    adapted = adapt_assets(pool)
+    excluded: set[str] = set()
+    for view in adapted:
+        # Decide on the CALLER's object where there is one: it carries the NFL
+        # team, and the substrate's projection deliberately does not.  The
+        # owner's key resolution accepts either.
+        subject = view.source if view.source is not None else view
+        if constraints.block_reason(subject) is not None:
+            excluded.add(view.key)
+
+    policy = base if isinstance(base, EligibilityPolicy) else EligibilityPolicy()
+    return replace(policy, excluded_keys=frozenset(policy.excluded_keys) | excluded)

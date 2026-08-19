@@ -67,12 +67,16 @@ from itertools import combinations
 from typing import Any, Callable, Iterable, Iterator, Protocol, Sequence
 
 __all__ = [
+    "ConstraintMisapplied",
     "EligibilityPolicy",
     "EnumerationReport",
     "PackageAsset",
     "MAX_PLAYER_COUNT_DIFFERENCE",
     "PackageShape",
+    "RECEIVE",
+    "SEND",
     "SidePair",
+    "UNCONSTRAINED_OUTGOING",
     "adapt_assets",
     "by_value_desc",
     "enumerate_packages",
@@ -258,6 +262,79 @@ class EligibilityPolicy:
 # ── Shapes ───────────────────────────────────────────────────────────
 
 
+# ── Outgoing constraints (C3-CON-01) ─────────────────────────────────
+#
+# Recommendation constraints are OUTGOING-ONLY: a protected player may not be
+# put on the side the user gives away, and stays a perfectly valid acquisition
+# target on the side they receive (spec §2.2).  That asymmetry is a property of
+# the SUBSTRATE rather than of each product, because §2.3 forbids page-local
+# copies and §6 forbids post-filtering — and because a rule enforced in one
+# place cannot be forgotten by the ninth consumer.
+
+SEND = "send"
+RECEIVE = "receive"
+
+
+class _Unconstrained:
+    """Sentinel: this caller has DECIDED that no outgoing constraint applies.
+
+    Not ``None``.  ``outgoing_policy`` is a required argument precisely so a
+    consumer cannot omit it, and accepting ``None`` would hand back the omission
+    it exists to prevent — an unset variable and a considered "nothing protects
+    this roster" would look identical at the call site and in review.
+    """
+
+    __slots__ = ()
+
+    def __repr__(self) -> str:  # pragma: no cover - debugging aid
+        return "UNCONSTRAINED_OUTGOING"
+
+
+#: Pass this when the caller has established that nothing constrains the
+#: outgoing side.  It is a claim, and it reads like one.
+UNCONSTRAINED_OUTGOING = _Unconstrained()
+
+OutgoingPolicy = "EligibilityPolicy | _Unconstrained"
+
+
+class ConstraintMisapplied(ValueError):
+    """An outgoing constraint was aimed at something that is not outgoing.
+
+    Two forbidden states, and they are opposite halves of the same rule:
+
+    * an outgoing policy handed to a RECEIVE-side enumeration — that would
+      block a protected player from being ACQUIRED, which inverts §2.2;
+    * a ``required`` asset that the outgoing policy excludes — §3.3's
+      "persistent protection outranks temporary refinement", which a
+      ``required`` list would otherwise bypass silently, since required assets
+      deliberately do not face the ordinary policy.
+
+    Raised rather than silently corrected.  §6 step 4 is "reject
+    contradictory/forbidden state"; a caller catches this and renders an honest
+    no-result.
+    """
+
+
+def _resolve_outgoing(policy: Any, *, side: str) -> "EligibilityPolicy | None":
+    """Validate the outgoing policy against the side it is being applied to."""
+    if policy is None:
+        raise ConstraintMisapplied(
+            "outgoing_policy is required and must not be None — pass "
+            "UNCONSTRAINED_OUTGOING to state that nothing constrains this side"
+        )
+    if isinstance(policy, _Unconstrained):
+        return None
+    if side == RECEIVE:
+        raise ConstraintMisapplied(
+            "an outgoing constraint policy was applied to the RECEIVE side; "
+            "protection is outgoing-only and a protected player stays a valid "
+            "acquisition target"
+        )
+    if not isinstance(policy, EligibilityPolicy):
+        raise ConstraintMisapplied(f"outgoing_policy must be an EligibilityPolicy, got {type(policy).__name__}")
+    return policy
+
+
 @dataclass(frozen=True)
 class PackageShape:
     """How many assets each side may contribute."""
@@ -352,6 +429,15 @@ class EnumerationReport:
     #: C3-TOPO-01 refusals.  Reported rather than silent: "no 3-for-1 came
     #: back" and "3-for-1 is not a shape we propose" are different answers.
     topology_rejected: int = 0
+    #: C3-CON-01: outgoing assets the recommendation constraints withheld.
+    #: Counted separately from ``our_excluded_ineligible`` because they are a
+    #: different sentence — "you told us not to trade him" is an answer, and
+    #: "he is roster clog" is a mechanic.  A surface that cannot tell them
+    #: apart cannot explain a short list.
+    our_excluded_constrained: int = 0
+    #: True once an outgoing policy was actually applied, so an empty result
+    #: under constraints is distinguishable from an empty result without any.
+    outgoing_constrained: bool = False
 
     @property
     def truncated(self) -> bool:
@@ -370,6 +456,8 @@ class EnumerationReport:
             "ourExcludedUnpriced": self.our_excluded_unpriced,
             "theirExcludedUnpriced": self.their_excluded_unpriced,
             "topologyRejected": self.topology_rejected,
+            "ourExcludedConstrained": self.our_excluded_constrained,
+            "outgoingConstrained": self.outgoing_constrained,
             "ourTruncatedTo": self.our_truncated_to,
             "theirTruncatedTo": self.their_truncated_to,
             "shapes": list(self.shapes),
@@ -403,6 +491,8 @@ def enumerate_sides(
     assets: Iterable[Any],
     sizes: Sequence[int],
     *,
+    side: str,
+    outgoing_policy: Any,
     policy: EligibilityPolicy | None = None,
     required: Sequence[Any] = (),
     pool_limit: int | None = None,
@@ -422,18 +512,42 @@ def enumerate_sides(
     ``policy`` — a caller that has already decided an asset is in the package
     is not asking whether it is eligible.  They DO count against ``sizes``, so
     asking for 2-asset sides with one required asset enumerates one filler.
+
+    ``side`` says which half of the trade this is (:data:`SEND` or
+    :data:`RECEIVE`), and ``outgoing_policy`` carries the C3-CON-01
+    recommendation constraints — both REQUIRED, because this function is used
+    for both directions (Angle fixes the offer and enumerates what we receive
+    in one mode, and fixes the target and enumerates what we send in the other)
+    so the substrate cannot infer which side it is looking at.  A caller with
+    nothing to enforce passes :data:`UNCONSTRAINED_OUTGOING`, which is a claim
+    rather than an omission.
+
+    ``required`` does NOT escape the outgoing policy, even though it escapes
+    ``policy``: §3.3 says persistent protection outranks temporary refinement,
+    so forcing a protected player in through the required list raises
+    :class:`ConstraintMisapplied` instead of quietly succeeding.
     """
+    outgoing = _resolve_outgoing(outgoing_policy, side=side)
     policy = policy or EligibilityPolicy()
     report = EnumerationReport()
+    report.outgoing_constrained = outgoing is not None
 
     pool = adapt_assets(assets) if adapt else list(assets)
     fixed = tuple(adapt_assets(required) if adapt else list(required))
     report.our_pool_size = len(pool)
     report.name_keyed_assets = sum(1 for a in (*pool, *fixed) if a.key_is_name_fallback)
 
+    if outgoing is not None:
+        forced = [a for a in fixed if not outgoing.admits(a)]
+        if forced:
+            raise ConstraintMisapplied(
+                "required outgoing asset(s) are constrained and cannot be forced "
+                f"into a recommendation: {', '.join(sorted(a.name for a in forced))}"
+            )
+
     fixed_keys = {a.key for a in fixed}
     pool = [a for a in pool if a.key not in fixed_keys]
-    pool = _eligible(pool, policy, report, ours=True)
+    pool = _eligible(pool, policy, report, ours=True, outgoing=outgoing)
 
     order = rank_key or by_value_desc
     pool.sort(key=order)
@@ -476,11 +590,24 @@ def _eligible(
     report: EnumerationReport,
     *,
     ours: bool,
+    outgoing: EligibilityPolicy | None = None,
 ) -> list[PackageAsset]:
+    """Filter one pool.
+
+    ``outgoing`` is the recommendation-constraint policy and is only ever
+    supplied for the side the user GIVES AWAY.  It is checked before the
+    ordinary mechanics so the count is attributable: an asset withheld because
+    the user protects him is not "ineligible", and reporting it as such would
+    make a deliberate refusal look like roster clog.
+    """
     kept: list[PackageAsset] = []
     ineligible = 0
     unpriced = 0
+    constrained = 0
     for asset in assets:
+        if outgoing is not None and not outgoing.admits(asset):
+            constrained += 1
+            continue
         if not asset.value_known and not policy.allow_unknown_value:
             unpriced += 1
             continue
@@ -491,6 +618,7 @@ def _eligible(
     if ours:
         report.our_excluded_ineligible = ineligible
         report.our_excluded_unpriced = unpriced
+        report.our_excluded_constrained = constrained
     else:
         report.their_excluded_ineligible = ineligible
         report.their_excluded_unpriced = unpriced
@@ -501,6 +629,7 @@ def enumerate_packages(
     our_assets: Iterable[Any],
     their_assets: Iterable[Any],
     *,
+    outgoing_policy: Any,
     policy: EligibilityPolicy | None = None,
     shapes: Sequence[PackageShape] | None = None,
     max_per_side: int = 2,
@@ -522,9 +651,20 @@ def enumerate_packages(
     This owns mechanics ONLY.  It does not score, rank by quality, or decide
     which package is good; ``rank_key`` orders the POOLS so that a truncation
     keeps the assets a product cares about, and defaults to descending value.
+
+    ``outgoing_policy`` is REQUIRED and carries the C3-CON-01 recommendation
+    constraints.  It is applied to ``our_assets`` and **never** to
+    ``their_assets`` — the asymmetry is the rule, not an implementation detail
+    (§2.2: a protected player is blocked outgoing and stays a valid incoming
+    target).  A caller with nothing to enforce passes
+    :data:`UNCONSTRAINED_OUTGOING`; there is no default, so the ninth consumer
+    of this substrate cannot generate an unconstrained recommendation by
+    forgetting a keyword.
     """
+    outgoing = _resolve_outgoing(outgoing_policy, side=SEND)
     policy = policy or EligibilityPolicy()
     report = EnumerationReport()
+    report.outgoing_constrained = outgoing is not None
 
     ours = adapt_assets(our_assets) if adapt else list(our_assets)
     theirs = adapt_assets(their_assets) if adapt else list(their_assets)
@@ -532,7 +672,8 @@ def enumerate_packages(
     report.their_pool_size = len(theirs)
     report.name_keyed_assets = sum(1 for a in (*ours, *theirs) if a.key_is_name_fallback)
 
-    ours = _eligible(ours, policy, report, ours=True)
+    ours = _eligible(ours, policy, report, ours=True, outgoing=outgoing)
+    # No ``outgoing=`` here, and that is the whole of §2.2.
     theirs = _eligible(theirs, policy, report, ours=False)
 
     order = rank_key or by_value_desc
