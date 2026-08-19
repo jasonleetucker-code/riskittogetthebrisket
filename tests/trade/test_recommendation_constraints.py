@@ -241,31 +241,68 @@ def test_resolution_never_reads_or_writes_a_canonical_value():
 # ── §6 / acceptance 14 — applied during generation, by ONE owner ──────
 
 
-def test_the_finder_applies_constraints_before_enumeration():
+def test_the_finder_enforces_constraints_INSIDE_enumeration():
     """§6: reject forbidden state and generate only feasible packages.
 
-    Proven by the pool, not by the output: a post-filter would still have
-    enumerated the forbidden combinations. `find_trades` reports how many
-    outgoing assets the constraints removed, and that number comes from the
-    partition that happens before any shape is built.
+    This guard used to pin a WEAKER property — that `find_trades` called
+    `partition_sendable(my_roster)` textually before `_generate_packages`, i.e.
+    that the caller shortened its own pool first. That satisfies §6's letter and
+    misses §2.3's point: a pool pre-filter is a page-local rule, and the ninth
+    surface to be written will have its own or none.
+
+    What is pinned now is that the constraint reaches the SHARED GENERATOR as
+    eligibility. `find_trades` builds an outgoing policy from the owner and
+    hands it to `substrate.enumerate_packages`, which refuses to enumerate at
+    all without one — so a forbidden package is never constructed, rather than
+    constructed and then dropped.
     """
+    import ast
     import inspect
 
     from src.trade import finder
 
-    source = inspect.getsource(finder.find_trades)
-    partition_at = source.find("partition_sendable(my_roster")
-    enumerate_at = source.find("_generate_packages")
-    # Named separately so a REMOVED call and a MISORDERED one read differently.
-    assert partition_at != -1, (
-        "`find_trades` no longer partitions its outgoing pool through the "
-        "constraint owner — recommendations are unconstrained"
+    source = inspect.getsource(finder)
+    tree = ast.parse(source)
+    called = {
+        n.func.id
+        for n in ast.walk(tree)
+        if isinstance(n, ast.Call) and isinstance(n.func, ast.Name)
+    }
+    assert "outgoing_eligibility" in called, (
+        "`finder` no longer builds an outgoing policy from the constraint owner "
+        "— recommendations are unconstrained"
     )
-    assert enumerate_at != -1, "enumeration moved; this guard needs rewriting"
-    assert partition_at < enumerate_at, (
-        "constraints are applied after enumeration — that is the post-filter "
-        "the spec forbids (§6: generate only feasible packages)"
+
+    find_src = inspect.getsource(finder.find_trades)
+    assert "partition_sendable(my_roster" not in find_src, (
+        "the retired pool pre-filter is back; enforcement belongs to the "
+        "substrate so every consumer inherits it"
     )
+
+    gen_src = inspect.getsource(finder._generate_packages)
+    assert "outgoing_policy=outgoing_policy" in gen_src, (
+        "the outgoing policy is not reaching enumerate_packages"
+    )
+
+
+def test_the_substrate_cannot_generate_without_a_constraint_decision():
+    """The property that makes "1 owner, N consumers" hold for consumer N+1.
+
+    Not a convention and not a review checklist: `outgoing_policy` has no
+    default, so a new product that forgets it gets a TypeError rather than an
+    unconstrained recommendation. `None` is refused too — an unset variable and
+    a considered "nothing protects this roster" must not look the same.
+    """
+    import pytest as _pytest
+
+    from src.packages import ConstraintMisapplied, enumerate_packages, enumerate_sides
+
+    with _pytest.raises(TypeError, match="outgoing_policy"):
+        enumerate_packages([], [])
+    with _pytest.raises(TypeError, match="outgoing_policy"):
+        enumerate_sides([], [1], side="send")
+    with _pytest.raises(ConstraintMisapplied, match="must not be None"):
+        enumerate_packages([], [], outgoing_policy=None)
 
 
 def test_every_outgoing_asset_constrained_is_an_honest_no_result():

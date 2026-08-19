@@ -853,6 +853,7 @@ _ASYMMETRIC_POOL_LIMIT = 30
 def _generate_packages(
     my_assets: list[Asset],
     opp_assets: list[Asset],
+    outgoing_policy: Any,
 ) -> tuple[list[TradeCandidate], dict[str, Any]]:
     """Enumerate and score every shape this engine offers.
 
@@ -884,6 +885,11 @@ def _generate_packages(
         packages, report = substrate.enumerate_packages(
             my_assets,
             opp_assets,
+            # C3-CON-01.  Applied to OUR side inside the enumeration, never to
+            # theirs — a protected player is blocked outgoing and stays a valid
+            # acquisition target (§2.2).  Passed rather than pre-filtered so the
+            # rule is the generator's, not this product's.
+            outgoing_policy=outgoing_policy,
             policy=substrate.EligibilityPolicy(
                 min_value=MIN_ASSET_VALUE,
                 # An asset the board declined to price cannot be scored, and
@@ -1034,10 +1040,24 @@ def find_trades(
     # Only OUR side is constrained.  A protected player stays a valid incoming
     # target and keeps his ordinary canonical value — this is a recommendation
     # rule, not a valuation rule.
-    from src.trade.constraints import partition_sendable  # noqa: PLC0415
+    from src.trade.constraints import blocked_outgoing as _blocked_outgoing  # noqa: PLC0415
+    from src.trade.constraints import outgoing_eligibility  # noqa: PLC0415
 
-    my_roster, blocked_outgoing = partition_sendable(my_roster, constraints)
-    if not my_roster:
+    # ENFORCEMENT is the substrate's: ``outgoing_policy`` is applied to our pool
+    # inside ``enumerate_packages``, so a forbidden package is never built.  The
+    # partition here is REPORTING only — it answers "why is this list short",
+    # which the enumeration's counts cannot, because a count is not a reason.
+    #
+    # Not two mechanisms: both are the same owner answering the same question
+    # (``block_reason``), and a test pins that the set they agree on is
+    # identical.  What is deliberately NOT done is filtering the pool and then
+    # enumerating the remainder — that is a caller-side rule, and §2.3 forbids
+    # page-local copies of it.
+    blocked_outgoing = _blocked_outgoing(my_roster, constraints)
+    outgoing_policy = outgoing_eligibility(my_roster, constraints)
+    # ``my_roster`` is already known non-empty above; the guard is explicit so
+    # an empty roster can never read as 'everything is protected'.
+    if my_roster and len(blocked_outgoing) >= len(my_roster):
         # Honest no-result: every asset we could send is constrained.  An empty
         # list with no explanation reads as "no trades exist".
         return {
@@ -1123,7 +1143,7 @@ def find_trades(
 
         # Generate candidates for every trade shape.  Construction mechanics
         # are the substrate's; the scoring objective stays in this module.
-        shaped, enum_report = _generate_packages(my_roster, opp_filtered)
+        shaped, enum_report = _generate_packages(my_roster, opp_filtered, outgoing_policy)
         all_trades.extend(shaped)
         enumeration_reports[opp_name] = enum_report
 

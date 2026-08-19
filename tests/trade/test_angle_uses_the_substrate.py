@@ -13,7 +13,20 @@ from itertools import combinations
 
 import pytest
 
+from src.packages import SEND, UNCONSTRAINED_OUTGOING
 from src.trade.angle import _angle_pool_assets, _angle_sides
+
+
+def _sides(pool, sizes, **kw):
+    """``_angle_sides`` with the substrate's required side declaration.
+
+    These tests are about MECHANICS (which sides come out), so they declare
+    the SEND side and no outgoing constraint — the C3-CON-01 behaviour has
+    its own file.  The declaration is required rather than defaulted, which
+    is the point: a caller cannot enumerate without saying which side it is
+    looking at.
+    """
+    return _angle_sides(pool, sizes, side=SEND, outgoing_policy=UNCONSTRAINED_OUTGOING, **kw)
 
 
 def _pool(n: int = 8):
@@ -37,27 +50,27 @@ def _retired(pool, sizes):
 @pytest.mark.parametrize("sizes", [[1], [2], [1, 2], [1, 2, 3], [2, 3]])
 def test_produces_exactly_the_sides_the_retired_loops_did(sizes):
     pool = _pool()
-    got = list(_angle_sides(_angle_pool_assets(pool), sizes))
+    got = list(_sides(_angle_pool_assets(pool), sizes))
     assert got == _retired(pool, sizes)
 
 
 def test_the_pool_entries_come_back_unchanged():
     """``_make_candidate`` reads the caller's dicts, not a projection."""
     pool = _pool(3)
-    (side,) = [s for s in _angle_sides(_angle_pool_assets(pool), [3])]
+    (side,) = [s for s in _sides(_angle_pool_assets(pool), [3])]
     assert [x is y for x, y in zip(side, pool)] == [True, True, True]
 
 
 def test_a_size_larger_than_the_pool_is_skipped():
     pool = _pool(2)
-    assert list(_angle_sides(_angle_pool_assets(pool), [5])) == []
+    assert list(_sides(_angle_pool_assets(pool), [5])) == []
 
 
 def test_seeds_appear_in_every_side_and_count_against_the_size():
     """The seed/filler split, which was its own third enumeration."""
     pool = _pool(5)
     seeds, fillers = pool[:1], pool[1:]
-    sides = list(_angle_sides(_angle_pool_assets(fillers), [3], required=_angle_pool_assets(seeds)))
+    sides = list(_sides(_angle_pool_assets(fillers), [3], required=_angle_pool_assets(seeds)))
     assert sides, "expected some sides"
     for side in sides:
         assert len(side) == 3
@@ -73,7 +86,7 @@ def test_a_seed_is_never_duplicated_by_also_being_in_the_pool():
     a stronger one when two entries share a name.
     """
     pool = _pool(4)
-    sides = list(_angle_sides(_angle_pool_assets(pool), [2], required=_angle_pool_assets(pool[:1])))
+    sides = list(_sides(_angle_pool_assets(pool), [2], required=_angle_pool_assets(pool[:1])))
     for side in sides:
         assert len({id(x) for x in side}) == 2
         assert [x["name"] for x in side].count(pool[0]["name"]) == 1
@@ -89,7 +102,7 @@ def test_angle_keeps_entries_a_generic_eligibility_gate_would_drop():
         {"name": "2027 Early 1st", "position": "", "my_value": 4000, "row": {}},
         {"name": "Zero", "position": "WR", "my_value": 0, "row": {}},
     ]
-    sides = list(_angle_sides(_angle_pool_assets(pool), [2]))
+    sides = list(_sides(_angle_pool_assets(pool), [2]))
     assert len(sides) == 1
     assert {x["name"] for x in sides[0]} == {"2027 Early 1st", "Zero"}
 
