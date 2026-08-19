@@ -30,18 +30,88 @@ Levels, quoted from the contract §2 so this file cannot drift from it:
 
 ---
 
+## Corrected 2026-08-19, and now executable
+
+This document shipped with **four wrong references**, found by deriving every
+endpoint and field from the actual route registrations and response producers
+rather than from memory. Each is corrected in place below and called out where
+it occurs, because a superseding document leaves the wrong one in circulation.
+
+| # | this document said | reality |
+|---|---|---|
+| 1 | `POST /api/faab/recommend` (×2) | **`POST /api/waiver/faab-recommend`** — there is no `/api/faab/*` prefix at all, so **every crowd-market step was unrunnable** |
+| 2 | roster-percentage → `sources.ffpc.status` | **`coverage.platforms.ffpc.status`**, and it is on **`/api/sharp/market`** — wrong field *and* wrong endpoint |
+| 3 | `cohortCoveragePct` (under `cohort`) | **`transparency.cohortCoveragePct`** |
+| 4 | roster-percentage → `rostersObserved` | **does not exist**; the count is `transparency.eligibleRosters` (also `sample.eligibleRosters`) |
+
+Correct and left alone: `cohort.selectedManagers` (present on **both** boards),
+`crowdMarket.{state,refusalReason,excludedCounts,tierCounts,pricesIdp,rowsUsed,rowsTotal,targetFormatUnknown,playerHasEvidence}`,
+`contention.notes`, and `CollectResult.status`. Two further values were wrong
+and are fixed at their rows: the `/api/status` SHA fields (next section) and the
+`unavailable_reason` literals (V1-60).
+
+**The reason this happened is worth keeping.** A prose checklist's paths are
+checked by a reader's goodwill; nothing fails when one is wrong, and an
+unrunnable procedure reads exactly like a runnable one until someone with
+production credentials wastes an evening on it.
+
+So the checklist is no longer the only artifact. **`scripts/verify_lane4_production.py`**
+resolves every route and field against the deployed code at run time, and
+`tests/ops/test_lane4_verification.py` asserts — against the real producers, at
+every CI run — that each route this package names is registered and each field
+path exists. One of those tests scans **this document** and fails if it names a
+route that does not exist. That is what would have caught all four.
+
+The verifier reports five states, and three of them are not passes:
+
+| status | meaning |
+|---|---|
+| `pass` | the case arose and behaved correctly |
+| `fail` | the case arose and behaved incorrectly |
+| `unmeasurable` | the input was read; the case did not arise |
+| `blocked` | a required input does not exist here |
+| `unverifiable_unauthenticated` | 401/403 — insufficient evidence |
+
+**Exit `0` is reserved for a COMPLETE run.** Any blocked, unmeasurable or
+unauthenticated check caps the run at exit `3`, however many others passed, and
+a `pass` whose denominator is `0` is downgraded automatically — a check that
+inspected nothing cannot report success.
+
+---
+
 ## Deployed-SHA preamble (every L3 procedure)
 
-An L3 result is only meaningful against a known commit. Record this first; if
-the SHA does not match the head being claimed, stop — the run proves something
-about a different tree.
+An L3 result is only meaningful against a known commit.
+
+> **CORRECTED 2026-08-19 — the deployed SHA is NOT observable over HTTP.**
+> This section previously said to record a `commit` field and a `startedAt`
+> field from `/api/status`. **Neither exists.** Verified against the producer
+> (`server.py::get_status` + `_scrape_status_payload`): the payload carries
+> `contract`, `data_runtime`, `health`, `sources`, `source_failures` and the
+> payload-size block, and its `contract.version` is the **API data-contract**
+> version (e.g. `2026-03-10.v2`) — the payload's shape, not the commit that
+> produced it. **No endpoint publishes a git SHA or build identifier.**
+
+So an L3 run's tree identity must come from the box, not the API:
 
 ```bash
+# ON THE BOX — the only place the SHA is knowable
+git -C "$APP_DIR" rev-parse HEAD
+git -C "$APP_DIR" log -1 --format='%H %ci %s'
+
+# from anywhere — useful context, but NOT a tree identity
 curl -s https://chaseupside.com/api/status | python -m json.tool | head -40
 ```
 
-Record: `commit`/`version` field, `startedAt`, and the wall-clock time of the
-call. Every artifact below is filed under that SHA.
+Record: the `git rev-parse HEAD` output, `contract.version`,
+`data_runtime.last_data_refresh_at`, and the wall-clock time of the call. Every
+artifact below is filed under that SHA.
+
+**`scripts/verify_lane4_production.py` encodes this gap rather than papering
+over it:** in `--mode remote` it stamps `headSha: null` with
+`headShaSource: "unavailable_over_http"`, and only `--mode onbox` can answer it.
+Closing the gap properly means publishing a build identifier, which is a Lane 5
+change and is not proposed here.
 
 ---
 
@@ -72,11 +142,11 @@ ls -la /opt/dynasty/data/faab/          # path per the deployed APP_DIR
 
 | assertion | pass |
 |---|---|
-| the timer is installed and enabled | `LOAD=loaded`, `ACTIVE=active`, `UNIT=dynasty-faab-history.timer` in `list-timers` |
+| the timer is installed and enabled | `LOAD=loaded`, `ACTIVE=active`, and a `list-timers` row whose `UNIT` ends `-faab-history.timer`. The prefix is `$SERVICE_NAME` from `install-systemd-service.sh` (`install_simple_timer` builds `${SERVICE_NAME}-${stem}`), so match on the **suffix** rather than assuming `dynasty-` |
 | it has actually fired | `LAST` is populated and within ~25 h of now |
 | the run succeeded | the most recent journal entry exits **0** (1 = registry unreadable, 2 = nothing fetched) |
 | it produced the artifact | `data/faab/bid_history_<leagueKey>.json` exists per active league, `mtime` inside 25 h |
-| the artifact is used | `POST /api/faab/recommend` → `contention.notes` does **not** carry the configured-priors fallback note |
+| the artifact is used | `POST /api/waiver/faab-recommend` → `contention.notes` does **not** carry the configured-priors fallback note |
 
 **Exit 2 is not a pass and not a failure.** It means nothing was fetched and the
 previous file was left untouched. Record it as `DEGRADED` with the prior file's
@@ -145,11 +215,17 @@ ledger.
 ### 129c — an offense-only population refuses to price an IDP claim
 
 ```bash
-curl -s -X POST https://chaseupside.com/api/faab/recommend \
+curl -s -X POST https://chaseupside.com/api/waiver/faab-recommend \
   -H 'content-type: application/json' -b "$SESSION_COOKIE" \
   -d '{"leagueKey":"dynasty_main","addPlayerName":"<a rostered LB>"}' \
 | python -c 'import json,sys; d=json.load(sys.stdin); print(json.dumps(d["crowdMarket"], indent=2))'
 ```
+
+> **CORRECTED 2026-08-19.** This block said `POST /api/faab/recommend`, which is
+> not a route — there is no `/api/faab/*` prefix at all. The real registration
+> is `@app.post("/api/waiver/faab-recommend")` in `server.py`. Both occurrences
+> in this document were wrong, so **every crowd-market step here was
+> unrunnable**.
 
 PASS: `pricesIdp: false` **and** `refusalReason: "population_cannot_price_idp"`
 **and** `playerHasEvidence: false`.
@@ -202,17 +278,32 @@ The requirement is a **truthful degraded state**. Zero rosters because FFPC is
 switched off and zero rosters because the collection broke must not render
 identically, and neither may read as "we looked and nobody owns him".
 
+> **CORRECTED 2026-08-19 — three field paths here were wrong, and one field
+> did not exist.** Verified by building both real payloads and walking them:
+> the FFPC status block is on **`/api/sharp/market`**, not this board; the
+> population counts live under **`transparency`**, not `cohort`; and
+> `rostersObserved` (named elsewhere in this file's V1-65 step) exists nowhere.
+> `cohort.selectedManagers` is correct and is present on **both** boards.
+
+Two payloads, because the two facts live on different endpoints:
+
 ```bash
+# population counts + coverage
 curl -s 'https://chaseupside.com/api/sharp/roster-percentage' -b "$SESSION_COOKIE" \
-| python -c 'import json,sys; d=json.load(sys.stdin); print(json.dumps({k:v for k,v in d.items() if k!="assets"}, indent=2))'
+| python -c 'import json,sys; d=json.load(sys.stdin); print(json.dumps({"status": d.get("status"), "cohort": d.get("cohort"), "transparency": d.get("transparency"), "sample": d.get("sample")}, indent=2))'
+
+# per-platform lane status
+curl -s 'https://chaseupside.com/api/sharp/market?window=30d&limit=1' -b "$SESSION_COOKIE" \
+| python -c 'import json,sys; d=json.load(sys.stdin); print(json.dumps(d["coverage"]["platforms"], indent=2))'
 ```
 
 | assertion | pass |
 |---|---|
-| the source block states FFPC's status | `sources.ffpc.status` ∈ `disabled` / `degraded` / `no_data` / `ok`, never absent |
-| a disabled lane says disabled | `enabled: false` when no roster-bearing URL is configured |
-| coverage is unavailable, not zero | `cohortCoveragePct` is `null` — never `0` — when no roster was observed |
-| a skipped collection names itself | `CollectResult.status == "unavailable"` with an `unavailable_reason` of `skipped` / `no_managers` |
+| the platform block states FFPC's status | **`coverage.platforms.ffpc.status`** (on `/api/sharp/market`) ∈ `disabled` / `degraded` / `no_data` / `ok`, never absent. **Not** `sources.ffpc.status`, and **not** on the roster-percentage board |
+| a disabled lane says disabled | `coverage.platforms.ffpc.enabled: false` when no roster-bearing URL is configured |
+| coverage is unavailable, not zero | **`transparency.cohortCoveragePct`** is `null` — never `0` — when no roster was observed. It is **not** under `cohort` |
+| the population is stated beside it | `transparency.cohortManagers`, `transparency.cohortManagersRepresented`, `transparency.eligibleRosters`, `transparency.ffpcRosters`, `transparency.sleeperRosters` |
+| a skipped collection names itself | `CollectResult.status == "unavailable"` (the constant is `roster_collect.STATUS_UNAVAILABLE`) with an `unavailable_reason` of **`skipped_by_caller`** or **`no_cohort_managers_on_platform`** — the literal values of `UNAVAILABLE_SKIPPED` / `UNAVAILABLE_NO_MANAGERS`. This row previously named them `skipped` / `no_managers`, which match nothing |
 
 FAIL: a `0` or `0.0` anywhere a lane was not actually measured. That is the
 whole defect this row tracks.
@@ -293,7 +384,10 @@ it, and none applies a qualification rule of its own.
 
 Measured statement required for L2: the number of cohort members and the number
 of roster observations behind the live board, from
-`/api/sharp/roster-percentage` (`cohort.selectedManagers`, `rostersObserved`).
+`/api/sharp/roster-percentage` — **`cohort.selectedManagers`** and
+**`transparency.eligibleRosters`**. (`rostersObserved`, which this line used to
+name, does not exist in the payload; `sample.eligibleRosters` carries the same
+count beside the 8-roster ranking minimum.)
 If both are `0`, that is the honest answer and V1-58 is the blocker — record it
 as such rather than as a V1-65 failure.
 
