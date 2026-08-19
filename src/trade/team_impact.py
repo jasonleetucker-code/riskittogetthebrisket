@@ -479,6 +479,14 @@ def _clamp(v: float, lo: float, hi: float) -> float:
     return max(lo, min(hi, v))
 
 
+#: Posture could not be measured — NOT the neutral answer.
+#:
+#: "balanced" is a real reading of a real roster; this is the absence of
+#: one, and a window-fit term computed against it would be a number
+#: invented from nothing.  Consumers treat it as no signal.
+WINDOW_UNKNOWN = "unknown"
+
+
 def _classify_window(
     before_assets: list[dict[str, Any]],
     config: dict[str, Any],
@@ -513,20 +521,36 @@ def _classify_window(
     def _is_young(asset: dict[str, Any]) -> bool:
         return isinstance(asset.get("age"), int) and asset["age"] <= young_max
 
-    total_value = sum(int(a.get("value") or 0) for a in before_assets) or 1
+    def _value(asset: dict[str, Any]) -> int:
+        return int(asset["value"])
 
-    win_now = [a for a in before_assets if not _is_pick(a) and not _is_young(a)]
-    by_value = sorted(win_now, key=lambda a: int(a.get("value") or 0), reverse=True)
-    top10_value = sum(int(a.get("value") or 0) for a in by_value[:10])
-    top10_share = top10_value / total_value
+    # Unpriced assets are EXCLUDED, explicitly, rather than coerced.
+    #
+    # The retired ``int(a.get("value") or 0)`` — five of them in this function —
+    # was arithmetically equivalent to this exclusion, because numerator and
+    # denominator dropped the same players, so the ratio it produced was sound.
+    # Two things about it were not:
+    #
+    # 1. the narrowing was SILENT.  On a board measured 12.6% unpriced the
+    #    posture is decided over ~87% of the roster and nothing said so;
+    # 2. ``or 1`` on the denominator FABRICATED a verdict.  A roster whose
+    #    assets are entirely unpriced produced ``"balanced"`` — the same answer
+    #    as an empty roster — which is an unknown published as a classification.
+    #
+    # So an unmeasurable roster returns ``"unknown"``, which every consumer
+    # treats as "no window signal" rather than as the neutral one.
+    priced = [a for a in before_assets if isinstance(a.get("value"), (int, float))]
+    total_value = sum(_value(a) for a in priced)
+    if not priced or total_value <= 0:
+        return WINDOW_UNKNOWN
 
-    pick_value = sum(int(a.get("value") or 0) for a in before_assets if _is_pick(a))
-    pick_share = pick_value / total_value
-
-    young_value = sum(
-        int(a.get("value") or 0) for a in before_assets if not _is_pick(a) and _is_young(a)
+    win_now = [a for a in priced if not _is_pick(a) and not _is_young(a)]
+    by_value = sorted(win_now, key=_value, reverse=True)
+    top10_share = sum(_value(a) for a in by_value[:10]) / total_value
+    pick_share = sum(_value(a) for a in priced if _is_pick(a)) / total_value
+    young_share = (
+        sum(_value(a) for a in priced if not _is_pick(a) and _is_young(a)) / total_value
     )
-    young_share = young_value / total_value
 
     contend_index = top10_share - (pick_share + young_share)
     if contend_index > threshold:
@@ -548,6 +572,11 @@ def _window_fit_for_asset(
     ``sign=+1`` for receiving, ``sign=-1`` for sending.  Returns a
     float in roughly [-1, +1] before averaging.
     """
+    if posture == WINDOW_UNKNOWN:
+        # No posture, no fit.  Falling through to the "balanced" arithmetic
+        # would publish a window-fit score for a window nobody measured.
+        return 0.0
+
     wf = config.get("windowFit", {})
     prime_min = int(wf.get("primeStarterMinAge", 24))
     prime_max = int(wf.get("primeStarterMaxAge", 29))
@@ -795,6 +824,10 @@ def compute(
     composite = cw_fit * fit_score + cw_eq * equity_score
 
     posture = _classify_window(before_assets, cfg)
+    # How much of the roster the posture could NOT see.  Published because the
+    # exclusion is real and was previously invisible: a posture decided over
+    # 87% of a roster and one decided over all of it read identically.
+    posture_unpriced = sum(1 for a in before_assets if not isinstance(a.get("value"), (int, float)))
     window_score = 0.0
     moving = []
     for a in receiving:
@@ -844,6 +877,9 @@ def compute(
         "compositeScore": round(composite, 1),
         "verdict": _verdict(composite, thresholds),
         "posture": posture,
+        # Assets the posture could not read.  ``posture: "unknown"`` means it
+        # could not be measured at all — not that the roster is balanced.
+        "postureUnpricedExcluded": posture_unpriced,
         "starterDelta": {p: starter_delta[p] for p in active},
         "starterValueDelta": {p: starter_value_delta[p] for p in active},
         "depthDelta": {p: depth_delta[p] for p in active},
