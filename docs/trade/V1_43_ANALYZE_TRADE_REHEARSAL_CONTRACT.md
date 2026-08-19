@@ -362,7 +362,7 @@ disagreeing engines.
 
 | dimension | blocker | required behaviour until it lands |
 |---|---|---|
-| `playoffImpact` | `C5-PLAY-01` / `V1-51` NOT STARTED. **Two engines**: `src/public_league/playoff_odds.py` (empirical) and `src/ros/playoff_sim.py` (ROS-blended). They disagree by 7 vs 6 spots. | `state: "unavailable"`, `reason: "no_canonical_owner"` — **never** a coin-flip between them |
+| `playoffImpact` | `C5-PLAY-01` / `V1-51` still `NOT STARTED` in the completion contract. **Two engines remain**: `src/public_league/playoff_odds.py` (empirical) and `src/ros/playoff_sim.py` (ROS-blended). *(Corrected 2026-08-19: the 7-vs-6-seed disagreement this row originally cited is CLOSED — #919 landed `src/public_league/playoff_structure.py` as the one bracket owner and both simulators consume it. That resolves the league RULE, not the question of which engine owns the PROBABILITY, so the conclusion is unchanged and its evidence is now this sentence rather than the retired one.)* | `state: "unavailable"`, `reason: "no_canonical_owner"` — **never** a coin-flip between them |
 | `championshipImpact` | `src/ros/championship.py` extends `ros/playoff_sim` and declares its own bracket model "intentionally simple" | same |
 | `posture` (PUSH / HOLD / RETOOL / REBUILD) | `C7-POST-01` ABSENT | same. `team_impact._classify_window` is a **local** window classifier and is **not** the posture owner — consuming it would mint a second one |
 
