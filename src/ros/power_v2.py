@@ -209,10 +209,21 @@ def _is_preseason(snapshot: PublicLeagueSnapshot) -> bool:
         games have been played yet" and "the prior year is complete
         and we're between seasons".
 
-    In this state the historical-results components describe a finished
-    season and don't project the upcoming year.  The build pipeline
-    drops them via ``missing_inputs`` so the score reflects only
-    forward-looking inputs (ROS strength, roster health, SOS).
+    This predicate answers only "is there an in-progress regular
+    season".  What that IMPLIES depends on the lens, and conflating the
+    two is what made this function's old docstring wrong:
+
+    * FORWARD-LOOKING — the historical-results components describe a
+      finished year and don't project the upcoming one, so the build
+      drops them via ``missing_inputs`` and the score reflects only
+      forward-looking inputs (ROS strength, SOS).
+    * RESULTS-ONLY — the finished year IS the answer.  Nothing is
+      dropped, or the lens would have nothing to say for the whole
+      offseason.
+
+    ``roster_health`` is not in that forward-looking list any more: it
+    was double-counted against ``team_ros_strength`` and was folded into
+    it (0.38 -> 0.41) earlier in V1-52.
     """
     current = snapshot.current_season
     if current is None:
@@ -381,15 +392,35 @@ def _score_state(
 
     # Renormalise weights when missing inputs are present so the score
     # stays in [0, 100] instead of being deflated by the unfilled
-    # weight budget.  Preseason / between-seasons drops the historical
-    # results components — they describe a finished year and don't
-    # project the upcoming one (see ``_is_preseason``).
+    # weight budget.
     missing_inputs: list[str] = []
     if not ros_available:
         missing_inputs.append(_LENS_DROPPED_ROS if results_only else "team_ros_strength")
     if not schedule_available:
         missing_inputs.append("schedule_adjusted")
-    if preseason:
+
+    # THE PRESEASON SUPPRESSION BELONGS TO ONE LENS, NOT BOTH.
+    #
+    # ``_is_preseason``'s own reason for dropping the historical-results
+    # components is that they "describe a finished year and don't project
+    # the upcoming one ... so the score reflects only forward-looking
+    # inputs".  That argument is correct — for the FORWARD-LOOKING lens.
+    # It is exactly backwards for the retrospective one, whose entire
+    # subject matter IS the finished year.
+    #
+    # The results-only lens was added in V1-52 and inherited this rule
+    # unexamined.  The consequence was not subtle: results-only already
+    # drops ``team_ros_strength`` by definition, so preseason left it
+    # with NOTHING — the every-component-missing state the refusal below
+    # exists for — while the completed seasons it is made of sat in the
+    # accumulators untouched, for every day of the offseason.
+    #
+    # Measured on ``evidence/W30/power-two-engines.json``:
+    # ``preseason: true``, ``effectiveWeights`` just
+    # ``{team_ros_strength: 0.38, roster_health: 0.03}``.  After the
+    # roster-health de-double-count, forward-looking preseason carries
+    # ONE component and results-only carries none.
+    if preseason and not results_only:
         for component in _HISTORICAL_RESULTS_COMPONENTS:
             if component not in missing_inputs:
                 missing_inputs.append(component)
@@ -523,20 +554,33 @@ def build_section(
 ) -> dict[str, Any]:
     """Build the ROS power section for the public contract.
 
-    Output mirrors the existing ``power.py::build_section`` shape so
-    the frontend can render it side-by-side with no schema fork:
-
         {
-            "currentRanking": [...],
-            "weights": { ... },
-            "missingInputs": [...]
+            "currentRanking": [...],   # rank/powerScore None when unrankable
+            "lens": "...",
+            "unrankable": {...} | None,
+            "trend": {"weeks": [...], "seriesByOwner": {...}},
+            "weights": {...},          # the spec vector
+            "effectiveWeights": {...}, # what actually applied, renormalised
+            "missingInputs": [...],
+            "preseason": bool,
         }
 
-    The historical week-by-week series is intentionally NOT computed
-    here in PR2 — the v1 power section already exposes that, and the
-    ROS-team-strength input only has a single "now" snapshot.  PR3
-    adds historical playoff-odds; the chart on the new tab will hook
-    into that data instead.
+    Two fields carry the honesty of the thing and are easy to drop:
+
+    * ``effectiveWeights`` is what the score was ACTUALLY computed from.
+      It differs from ``weights`` whenever an input is unavailable, and
+      a surface that renders the spec vector instead will describe a
+      formula the number did not come from.
+    * ``unrankable`` is non-None when NO component survived.  Then
+      ``powerScore`` and ``rank`` are ``None`` — never ``0.0``, never
+      ``1..N`` — because ranking on identically-zero scores publishes
+      the ``owner_ids`` order as if it were a result.
+
+    This docstring used to say the week-by-week series was "intentionally
+    NOT computed here in PR2" and that the v1 power section exposes it
+    instead.  Both halves are now false: ``trend`` is computed here (so
+    the table and the chart beside it are one quantity rather than two
+    formulas), and V1-52 is retiring the v1 section as an engine.
     """
     registry = snapshot.managers
     seasons_sorted = sorted(snapshot.seasons, key=lambda s: luck._season_sort_key(s.season))
