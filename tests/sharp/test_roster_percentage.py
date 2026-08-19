@@ -526,6 +526,72 @@ def test_a_dropped_player_shows_a_negative_trend(ledger, cohort_of):
     assert trend["rosterPctChange"] == pytest.approx(-0.5)
 
 
+def test_every_owner_stated_window_is_published(ledger, cohort_of):
+    """The owner's windows are 7 / 14 / 30 day.  The 14-day baseline was
+    simply absent; season-to-date is kept alongside them because it answers
+    a different question."""
+    keys = [f"sleeper:u{i}" for i in range(1, 11)]
+    cohort_of(keys)
+    rs.record_rosters(
+        [roster(k, f"sleeper:L{i}", assets=["wr1"]) for i, k in enumerate(keys)], path=ledger
+    )
+    trend = row_for(board(ledger), "Star Receiver")["trend"]
+    assert {"sevenDay", "fourteenDay", "thirtyDay", "seasonToDate"} <= set(trend)
+
+
+def test_the_fourteen_day_window_sees_a_change_the_seven_day_one_cannot(ledger, cohort_of):
+    """A window has to actually LOOK BACK that far to be worth publishing.
+    A move 10 days old is inside 14 days and outside 7."""
+    keys = [f"sleeper:u{i}" for i in range(1, 11)]
+    cohort_of(keys)
+    # Nobody holds the back 20 days ago; four managers hold him from 10 days
+    # ago onward.  That move is INSIDE 14 days and OUTSIDE 7.
+    rs.record_rosters(
+        [
+            roster(k, f"sleeper:L{i}", assets=["wr1"], observed=NOW - 20 * DAY)
+            for i, k in enumerate(keys)
+        ],
+        path=ledger,
+    )
+    rs.record_rosters(
+        [
+            roster(
+                k,
+                f"sleeper:L{i}",
+                assets=["wr1"] + (["rb1"] if i < 4 else []),
+                observed=NOW - 10 * DAY,
+            )
+            for i, k in enumerate(keys)
+        ],
+        path=ledger,
+    )
+    trend = row_for(board(ledger), "Good Back")["trend"]
+    assert trend["fourteenDay"]["available"] is True
+    assert trend["fourteenDay"]["rostersAdded"] == 4
+    assert trend["fourteenDay"]["rosterPctChange"] == pytest.approx(0.4)
+    # The 7-day baseline already sees him held, so the shorter window
+    # reports no change — which is the whole reason the 14-day one earns
+    # its place rather than duplicating a neighbour.
+    assert trend["sevenDay"]["available"] is True
+    assert trend["sevenDay"]["rosterPctChange"] == pytest.approx(0.0)
+
+
+def test_the_fourteen_day_window_withholds_on_a_moved_population_too(ledger, cohort_of):
+    """The population-overlap guard is per-baseline, so the new window
+    inherits it rather than needing its own rule."""
+    keys = [f"sleeper:u{i}" for i in range(1, 11)]
+    cohort_of(keys)
+    rs.record_rosters(
+        [roster("sleeper:u1", "sleeper:L1", assets=["wr1"], observed=NOW - 12 * DAY)], path=ledger
+    )
+    rs.record_rosters(
+        [roster(k, f"sleeper:L{i}", assets=["wr1"]) for i, k in enumerate(keys)], path=ledger
+    )
+    trend = row_for(board(ledger), "Star Receiver")["trend"]["fourteenDay"]
+    assert trend["available"] is False
+    assert trend["reason"] == "roster_population_changed"
+
+
 # ── market comparison ────────────────────────────────────────────────
 
 

@@ -18,9 +18,13 @@ from __future__ import annotations
 import pytest
 
 from src.trade import faab_engine as FE
+from src.trade import faab_comparability as FC
 from src.trade.faab_history import (
     CROWD_RETENTION_DAYS,
+    build_crowd_market,
     crowd_bid_index,
+    crowd_evidence_for,
+    crowd_refusal_reason,
     merge_crowd_rows,
 )
 
@@ -235,3 +239,224 @@ class TestMarketCalibration:
 
     def test_an_empty_crowd_entry_is_survivable(self):
         assert _rec(2400, crowd={})["bids"]["recommended"] >= 0
+
+
+# ── The ledger describes itself: freshness, tiers, refusals ──────────
+
+
+TARGET = FC.TargetFormat(
+    teams=12, superflex=True, tep=True, is_2te=True, idp=True, original_budget=100.0
+)
+
+
+def _crowd_settings(**kw):
+    base = dict(
+        leagueId="L1",
+        superflex=True,
+        tepLevel=1,
+        is2TE=True,
+        teams=12,
+        rostersPerPlayer=1,
+        hasIdpSlots=False,
+        originalBudget=200.0,
+    )
+    base.update(kw)
+    return base
+
+
+def _stamped(rid, name, pct, *, date="2026-08-01T00:00:00", **settings):
+    return {
+        "id": rid,
+        "date": date,
+        "added": name,
+        "bidPct": pct,
+        "settings": _crowd_settings(**settings),
+    }
+
+
+class TestLedgerFreshness:
+    """A snapshot proves when it was taken, not that it is still true."""
+
+    def _payload(self, updated_at):
+        payload = merge_crowd_rows(None, [_stamped(1, "Target", 6.0)], now_iso=NOW)
+        payload["updatedAt"] = updated_at
+        return payload
+
+    def test_a_recent_ledger_is_fresh_and_usable(self):
+        market = build_crowd_market(self._payload(NOW), target=TARGET, now_iso=NOW)
+        assert market.state == "fresh" and market.usable
+        assert crowd_evidence_for(market, "Target", "WR") is not None
+        assert crowd_refusal_reason(market, "WR") is None
+
+    def test_a_stale_ledger_is_refused_not_served_as_current(self):
+        market = build_crowd_market(
+            self._payload("2026-07-01T00:00:00+00:00"), target=TARGET, now_iso=NOW
+        )
+        assert market.state == "stale" and not market.usable
+        assert crowd_evidence_for(market, "Target", "WR") is None
+        assert crowd_refusal_reason(market, "WR") == "crowd_ledger_stale"
+
+    def test_stale_evidence_is_retained_and_readable_only_its_authority_expires(self):
+        market = build_crowd_market(
+            self._payload("2026-07-01T00:00:00+00:00"), target=TARGET, now_iso=NOW
+        )
+        assert market.rows_used == 1 and "target" in market.index
+        assert market.age_days is not None and market.age_days > 7
+
+    def test_unmeasurable_freshness_is_not_freshness(self):
+        """No ``updatedAt`` at all must not read as recently updated."""
+        payload = self._payload(NOW)
+        payload.pop("updatedAt")
+        market = build_crowd_market(payload, target=TARGET, now_iso=NOW)
+        assert market.state == "stale" and market.age_days is None
+
+    def test_an_absent_ledger_says_so(self):
+        market = build_crowd_market(None, target=TARGET, now_iso=NOW)
+        assert market.state == "missing"
+        assert crowd_refusal_reason(market, "WR") == "no_crowd_ledger"
+
+    def test_the_budget_comes_from_config_not_a_literal(self):
+        from src.trade.faab_engine import FaabConfig
+
+        policy = FC.ComparabilityPolicy.from_config(FaabConfig())
+        payload = self._payload(NOW)
+        assert (
+            build_crowd_market(payload, target=TARGET, now_iso=NOW, policy=policy).state == "fresh"
+        )
+
+
+class TestLedgerClassification:
+    def test_incomparable_rows_are_dropped_on_read_not_only_at_fetch(self):
+        """The feed is a rolling window that must be accumulated, so the
+        ledger outlives any single fetch.  Tightening the policy has to apply
+        to rows already stored, or a fix would take months to take effect."""
+        rows = [
+            _stamped(1, "Keep", 6.0),
+            _stamped(2, "MultiCopy", 0.0, rostersPerPlayer=3),
+            _stamped(3, "TinyBudget", 0.0, originalBudget=1.0),
+            _stamped(4, "OneQb", 9.0, superflex=False),
+        ]
+        market = build_crowd_market(
+            merge_crowd_rows(None, rows, now_iso=NOW), target=TARGET, now_iso=NOW
+        )
+        assert set(market.index) == {"keep"}
+        assert market.excluded_counts["multi_copy_league"] == 1
+        assert market.excluded_counts["degenerate_budget"] == 1
+        assert market.excluded_counts["superflex_mismatch"] == 1
+        assert market.rows_total == 4 and market.rows_used == 1
+
+    def test_tier_composition_is_reported(self):
+        rows = [_stamped(1, "A", 5.0), _stamped(2, "B", 5.0, is2TE=False)]
+        market = build_crowd_market(
+            merge_crowd_rows(None, rows, now_iso=NOW), target=TARGET, now_iso=NOW
+        )
+        assert market.tier_counts == {FC.TIER_A: 1, FC.TIER_B: 1}
+
+    def test_a_tier_changes_no_number(self):
+        """Tier weights are evidence-gated by the owner spec and no outcome
+        data exists to fit them, so a demoted row still votes in full."""
+        a_only = build_crowd_market(
+            merge_crowd_rows(None, [_stamped(1, "X", 4.0), _stamped(2, "X", 8.0)], now_iso=NOW),
+            target=TARGET,
+            now_iso=NOW,
+        )
+        mixed = build_crowd_market(
+            merge_crowd_rows(
+                None,
+                [_stamped(1, "X", 4.0), _stamped(2, "X", 8.0, is2TE=False, teams=14)],
+                now_iso=NOW,
+            ),
+            target=TARGET,
+            now_iso=NOW,
+        )
+        assert a_only.index["x"]["medianPct"] == mixed.index["x"]["medianPct"]
+
+    def test_legacy_rows_are_retained_as_unverified_not_discarded(self):
+        """Rows persisted before the format evidence was captured are real
+        observations collected under the older gate.  They may not pass as
+        verified — but discarding them would throw away months of accumulated
+        market evidence, and the retention window ages them out anyway."""
+        market = build_crowd_market(
+            merge_crowd_rows(None, [_row(1, "Legacy", 5.0)], now_iso=NOW),
+            target=TARGET,
+            now_iso=NOW,
+        )
+        assert market.tier_counts == {FC.TIER_UNVERIFIED: 1}
+        assert "legacy" in market.index
+
+    def test_the_dollar_equivalent_is_published_on_the_target_budget(self):
+        market = build_crowd_market(
+            merge_crowd_rows(None, [_stamped(1, "Target", 20.0)], now_iso=NOW),
+            target=TARGET,
+            now_iso=NOW,
+        )
+        assert market.index["target"]["medianEquivalentDollars"] == pytest.approx(20.0)
+
+    def test_provenance_names_dynasty_as_a_source_level_claim(self):
+        """``dynastyPlatformType`` is 1 on every row measured — it is the
+        platform, not proof of format.  Dynasty here is asserted by the feed,
+        and the payload says so rather than implying per-league verification."""
+        market = build_crowd_market(
+            merge_crowd_rows(None, [_stamped(1, "Target", 5.0)], now_iso=NOW),
+            target=TARGET,
+            now_iso=NOW,
+        )
+        assert market.to_dict()["dynastyProvenance"].startswith("source_level_claim")
+
+
+class TestIdpPopulationGate:
+    """Measured on the live feed: no external league in it starts an
+    individual defender, so its median is offense-only evidence."""
+
+    def _market(self, *, idp_source):
+        rows = [_stamped(1, "Defender", 12.0, hasIdpSlots=idp_source)]
+        return build_crowd_market(
+            merge_crowd_rows(None, rows, now_iso=NOW), target=TARGET, now_iso=NOW
+        )
+
+    def test_an_offense_only_population_may_not_price_a_defender(self):
+        market = self._market(idp_source=False)
+        assert market.prices_idp is False
+        assert crowd_evidence_for(market, "Defender", "LB") is None
+        assert crowd_refusal_reason(market, "LB") == "population_cannot_price_idp"
+
+    def test_it_still_prices_offense(self):
+        market = self._market(idp_source=False)
+        assert crowd_evidence_for(market, "Defender", "WR") is not None
+
+    def test_an_idp_league_in_the_population_unlocks_it(self):
+        market = self._market(idp_source=True)
+        assert market.prices_idp is True
+        assert crowd_evidence_for(market, "Defender", "LB") is not None
+
+    def test_an_unknown_position_is_not_treated_as_idp(self):
+        market = self._market(idp_source=False)
+        assert crowd_evidence_for(market, "Defender", None) is not None
+
+
+class TestTheInvariantSurvivesTheRewire:
+    """The headline invariant, re-asserted through the new accessor: crowd
+    evidence prices the MARKET and never the PLAYER."""
+
+    def test_evidence_from_the_ledger_cannot_move_the_objective_ceiling(self):
+        market = build_crowd_market(
+            merge_crowd_rows(None, [_stamped(i, "Target", 40.0) for i in range(20)], now_iso=NOW),
+            target=TARGET,
+            now_iso=NOW,
+        )
+        evidence = crowd_evidence_for(market, "Target", "WR")
+        assert evidence is not None
+        with_crowd = _rec(2000, crowd=evidence)
+        without = _rec(2000)
+        assert with_crowd["objective"] == without["objective"]
+        assert with_crowd["bids"]["maxRational"] == without["bids"]["maxRational"]
+
+    def test_a_refused_population_leaves_the_recommendation_crowd_free(self):
+        market = build_crowd_market(
+            merge_crowd_rows(None, [_stamped(i, "Target", 40.0) for i in range(20)], now_iso=NOW),
+            target=TARGET,
+            now_iso=NOW,
+        )
+        refused = crowd_evidence_for(market, "Target", "LB")
+        assert refused is None
+        assert _rec(2000, crowd=refused) == _rec(2000)

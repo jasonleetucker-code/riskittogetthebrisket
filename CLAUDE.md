@@ -1099,6 +1099,41 @@ Rules for new code:
   of budget with a p90 of 8.5%, which brackets this league's own 0% /
   6% — the two markets agree.
 
+  **Which external leagues may contribute is decided by ONE owner**,
+  ``src/trade/faab_comparability.py`` (2026-08-18), called both at
+  fetch time and on read — the ledger is accumulated, so
+  re-classifying on read means a tightened policy applies to rows
+  already stored instead of needing months to rebuild.  It fails
+  closed: a multi-copy league (MyFantasyLeague ``rostersPerPlayer``
+  > 1 — the same player on several rosters, so no waiver scarcity)
+  is EXCLUDED, and so is one that does not state its exclusivity.
+  Measured on the live feed 2026-08-18, those were **39 of the 106
+  rows** the previous gate admitted, clearing at a median 0.20% of
+  budget against 1.00% for single-copy leagues.  A league whose whole
+  FAAB budget is a dollar is excluded too (7 rows, every one 0.00%).
+  Similarity TIERS (A/B/C, from ``is2TE`` and the raw 0-3 ``tep``
+  level the old gate flattened to a bool) are **reported and weight
+  nothing** — the owner spec makes tier weights evidence-gated and no
+  outcome data exists to fit them.
+
+  **The population is offense-only, and that is enforced.**  Across
+  all 200 rows the starting slots are exactly QB/RB/WR/TE/PK/Def —
+  ``Def`` is a team D/ST and NO league in the feed starts an
+  individual defender.  ``crowd_evidence_for`` therefore REFUSES a
+  DL/LB/DB claim (``population_cannot_price_idp``) rather than
+  quoting a median from leagues that do not roster the position.  The
+  gate reads what the retained rows contain, so it self-corrects if
+  an IDP league ever appears.  Freshness is likewise a gate, not a
+  decoration: a ledger past ``maxFileAgeDays``, or one with no
+  ``updatedAt`` at all, is ``stale`` and refused — unmeasurable
+  freshness is not freshness.  ``/api/faab/recommend`` stamps
+  ``crowdMarket`` (state, asOf, tier counts, exclusion census,
+  refusal reason) so "no price for this player" and "we declined to
+  quote one" cannot read the same.  Dynasty status of this feed is a
+  SOURCE-LEVEL claim (``dynastyPlatformType`` is 1 on every row — the
+  platform, not the format) and is stamped as such.  Full record:
+  ``docs/faab-external-market-comparability.md``.
+
   It is an anonymous crowd, NOT experts; no ranking source in the
   pipeline is attached to a league at all.  **It prices the MARKET,
   never the PLAYER**: crowd evidence raises rival engagement and the
@@ -1115,17 +1150,32 @@ Rules for new code:
 
 Bid history lives in ``data/faab/bid_history_<leagueKey>.json``
 (gitignored like the rest of ``data/``), written by
-``scripts/fetch_faab_history.py``; run it on prod.  Without it the
-engine falls back to configured priors plus the live analytics block
-and says so in ``contention.notes``.  Note
-``src/api/faab_analytics.py`` gates its median on ``bid > 0`` and so
-reports 2.00% of budget where the true median is 0.00% — measured
-2026-08-04, 41-77% of adds cost nothing per season (combined 56.6% in
-``dynasty_main``, 50.3% in ``dynasty_new``).  ``src/trade/faab_history.py``
-keeps zero bids for exactly that reason; prefer it for anything
-market-facing.  ``faab_analytics.py`` is unchanged and still powers the
-history panel, so anything reading ``leagueMedianWinningBid`` is reading
-a nonzero-only median.
+``scripts/fetch_faab_history.py``, which runs daily on prod via the
+``dynasty-faab-history`` timer (V1-57).  Distinct from
+``dynasty-crowd-faab``, which collects what OTHER leagues pay: this one
+collects what THIS league pays, and it is what the market priors are
+fitted from.  Without the file the engine falls back to configured
+priors plus the live analytics block and says so in
+``contention.notes``.
+
+**CORRECTED 2026-08-18.**  This section used to say
+``src/api/faab_analytics.py`` "gates its median on ``bid > 0``" and that
+"anything reading ``leagueMedianWinningBid`` is reading a nonzero-only
+median".  That is **no longer true and had become actively misleading**
+— it told a reader to distrust a number that is now correct, and to
+prefer a different module on grounds that no longer hold.
+``faab_analytics.py`` KEEPS $0 bids (see the comment at its
+``all_bids.append(bid)``) and computes both the mean and the median over
+the full set, pinned by
+``tests/api/test_faab_analytics.py::test_zero_bid_free_agents_are_counted``.
+
+The measurement that motivated the fix still stands and is why it
+mattered: 41-77% of adds cost nothing per season (combined 56.6% in
+``dynasty_main``, 50.3% in ``dynasty_new``), so a nonzero-only median
+reported ~2% of budget where the true median is 0% — roughly a 200x
+overstatement of the single most important number in the market model.
+``src/trade/faab_history.py`` keeps zero bids for the same reason; the
+two now agree rather than one being preferred over the other.
 
 Did it work?  ``scripts/faab_backtest.py`` replays this league's real
 claims through both models (384 of 695 join to a canonical value today).
