@@ -310,7 +310,28 @@ def _streak_score_from_outcomes(outcomes: list[float]) -> float:
     return 0.5  # tie or mixed
 
 
-def build_section(snapshot: PublicLeagueSnapshot) -> dict[str, Any]:
+#: The two lenses this engine publishes, and what separates them.
+#:
+#: They are NOT two formulas.  ``results_only`` is the same weight vector
+#: with ``team_ros_strength`` declared missing, renormalised by the
+#: machinery that already handles an absent team-strength file — so the
+#: relative weighting of every retrospective component is identical in
+#: both, and the only difference is whether the forward-looking input is
+#: in the mix.  That is what makes them lenses rather than engines.
+LENS_FORWARD_LOOKING = "forward_looking"
+LENS_RESULTS_ONLY = "results_only"
+
+#: Why a lens dropped ROS, distinguished from "the file was missing".
+#: A reader must be able to tell a deliberate retrospective view from an
+#: engine that wanted forward-looking strength and could not get it.
+_LENS_DROPPED_ROS = "team_ros_strength (lens: results_only)"
+
+
+def build_section(
+    snapshot: PublicLeagueSnapshot,
+    *,
+    lens: str = LENS_FORWARD_LOOKING,
+) -> dict[str, Any]:
     """Build the ROS power section for the public contract.
 
     Output mirrors the existing ``power.py::build_section`` shape so
@@ -339,6 +360,7 @@ def build_section(snapshot: PublicLeagueSnapshot) -> dict[str, Any]:
     ):
         return {
             "currentRanking": [],
+            "lens": lens,
             "weights": dict(WEIGHTS),
             "missingInputs": ["snapshot empty"],
             "rosTeamStrengthAvailable": False,
@@ -389,12 +411,19 @@ def build_section(snapshot: PublicLeagueSnapshot) -> dict[str, Any]:
     if not owner_ids:
         return {
             "currentRanking": [],
+            "lens": lens,
             "weights": dict(WEIGHTS),
             "missingInputs": ["no owners found"],
             "rosTeamStrengthAvailable": False,
         }
 
-    ros_pct = _load_team_strength_percentiles()
+    # The results-only lens does not consult team strength at all, rather
+    # than loading it and discarding it — so a reader cannot mistake the
+    # lens for a league whose team-strength file is missing, and so the
+    # schedule-adjusted component (which is derived FROM team strength)
+    # drops with it automatically rather than by a second rule.
+    results_only = lens == LENS_RESULTS_ONLY
+    ros_pct = {} if results_only else _load_team_strength_percentiles()
     ros_available = bool(ros_pct)
     schedule_by_owner = _schedule_adjusted_scores(snapshot, ros_pct)
     schedule_available = bool(schedule_by_owner)
@@ -458,14 +487,20 @@ def build_section(snapshot: PublicLeagueSnapshot) -> dict[str, Any]:
     # project the upcoming one (see ``_is_preseason``).
     missing_inputs: list[str] = []
     if not ros_available:
-        missing_inputs.append("team_ros_strength")
+        missing_inputs.append(_LENS_DROPPED_ROS if results_only else "team_ros_strength")
     if not schedule_available:
         missing_inputs.append("schedule_adjusted")
     if preseason:
         for component in _HISTORICAL_RESULTS_COMPONENTS:
             if component not in missing_inputs:
                 missing_inputs.append(component)
-    active_weights = {k: v for k, v in WEIGHTS.items() if k not in missing_inputs}
+    # ``missing_inputs`` is a human-readable list; the weight lookup keys
+    # on component NAMES, so the lens marker is normalised back before it
+    # is used to drop a weight.  Without this the lens would leave
+    # ``team_ros_strength`` weighted at 0.41 against a component of 0.0 —
+    # a silent 41% deflation of every score rather than a renormalisation.
+    dropped_components = {m.split(" (")[0] for m in missing_inputs}
+    active_weights = {k: v for k, v in WEIGHTS.items() if k not in dropped_components}
     weight_total = sum(active_weights.values()) or 1.0
 
     rankings: list[dict[str, Any]] = []
@@ -517,6 +552,7 @@ def build_section(snapshot: PublicLeagueSnapshot) -> dict[str, Any]:
 
     return {
         "currentRanking": rankings,
+        "lens": lens,
         "weights": dict(WEIGHTS),
         "effectiveWeights": dict(active_weights),
         "missingInputs": sorted(missing_inputs),
