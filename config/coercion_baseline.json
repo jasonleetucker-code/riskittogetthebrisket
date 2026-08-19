@@ -1,6 +1,6 @@
 {
  "note": "Known missing-data coercions on decision paths, recorded so the gate can block NEW ones while the remediation batches burn these down. Each batch deletes its findings' entries. Do not add to this file to make a build pass.",
- "count": 673,
+ "count": 672,
  "violations": [
   "frontend/lib/auction-power.js::const raw = names.map((n) => Number(totalsObj[n]) || 0);",
   "frontend/lib/bdvm.js::assetCount: _num(r?.assetCount) ?? 0,",
@@ -487,7 +487,6 @@
   "src/ros/playoff_sim.py::str(r.get(\"ownerId\") or \"\"): float(r.get(\"teamRosStrength\") or 0.0)",
   "src/ros/power_v2.py::games = s[\"games\"] or 1",
   "src/ros/power_v2.py::score = float(r.get(\"teamRosStrength\") or 0.0)",
-  "src/ros/power_v2.py::weight_total = sum(active_weights.values()) or 1.0",
   "src/ros/scrape.py::base_weight=float(src_meta.get(\"base_weight\") or 0.0),",
   "src/ros/scrape.py::confidence=float(row.get(\"confidence\") or 1.0),",
   "src/ros/scrape.py::existing = float(row.get(\"confidence\") or 1.0)",

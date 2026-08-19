@@ -127,6 +127,42 @@ export default function RosPowerSection() {
     );
   }
   const rankings = data?.currentRanking || [];
+
+  // The engine refused to rank, and that is a DIFFERENT state from
+  // "not ready yet".  Every weighted component was unavailable, so
+  // there is no quantity to rank on — the backend withholds the score
+  // and the rank rather than publishing zeros in owner-id order.
+  //
+  // Rendering that as an empty table, or as a column of "—", would let
+  // the reader assume the data is still loading and will arrive. It is
+  // not loading: for the results-only lens in the offseason this state
+  // is structural and persists until the season starts. Say which one
+  // it is, and show the reason the backend gave.
+  const unrankable = data?.unrankable;
+  if (unrankable) {
+    return (
+      <Card title="ROS Power Rankings">
+        <EmptyState
+          title="Not enough to rank on"
+          message={
+            unrankable.explanation ||
+            "Every weighted component is unavailable, so no ranking is published."
+          }
+        />
+        {(unrankable.missingInputs || []).length > 0 && (
+          <div style={{ fontSize: "0.7rem", color: "var(--subtext)", marginTop: 8 }}>
+            Missing: {unrankable.missingInputs.join(", ")}
+          </div>
+        )}
+        {rankings.length > 0 && (
+          <div style={{ fontSize: "0.7rem", color: "var(--subtext)", marginTop: 8 }}>
+            {rankings.length} managers listed without a score.
+          </div>
+        )}
+      </Card>
+    );
+  }
+
   if (!rankings.length) {
     return (
       <Card>
