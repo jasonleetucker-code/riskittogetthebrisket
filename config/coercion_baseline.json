@@ -483,7 +483,6 @@
   "src/ros/playoff_sim.py::str(r.get(\"ownerId\") or \"\"): float(r.get(\"teamRosStrength\") or 0.0)",
   "src/ros/power_v2.py::games = s[\"games\"] or 1",
   "src/ros/power_v2.py::score = float(r.get(\"teamRosStrength\") or 0.0)",
-  "src/ros/power_v2.py::weight_total = sum(active_weights.values()) or 1.0",
   "src/ros/scrape.py::base_weight=float(src_meta.get(\"base_weight\") or 0.0),",
   "src/ros/scrape.py::confidence=float(row.get(\"confidence\") or 1.0),",
   "src/ros/scrape.py::existing = float(row.get(\"confidence\") or 1.0)",

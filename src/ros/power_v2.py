@@ -400,7 +400,54 @@ def _score_state(
     # a silent 41% deflation of every score rather than a renormalisation.
     dropped_components = {m.split(" (")[0] for m in missing_inputs}
     active_weights = {k: v for k, v in WEIGHTS.items() if k not in dropped_components}
-    weight_total = sum(active_weights.values()) or 1.0
+
+    # NOTHING SURVIVED -> NOTHING TO RANK ON.
+    #
+    # The renormalisation above is what makes the two lenses one engine,
+    # but it has a floor: when EVERY component is dropped there is no
+    # weighted score left to compute.  The old fallback made
+    # ``weight_total`` 1.0 against an empty numerator, so every owner
+    # scored exactly 0.0 — and the sort below, being stable over equal
+    # keys, then handed out ranks 1..N in ``owner_ids`` order.  An
+    # identifier ordering, published as a power ranking, contradicting
+    # the components printed beside it.
+    #
+    # This is reachable structurally rather than rarely: the
+    # results-only lens drops ``team_ros_strength`` BY DEFINITION and
+    # ``preseason`` drops all seven historical-results components, so
+    # the state is guaranteed for the whole offseason.
+    #
+    # Same failure family as the playoff-odds defect fixed in V1-51 — a
+    # placeholder made every entry tie and the tiebreak leaked an id
+    # ordering into a user-facing ranking.  Refuse instead: the owners
+    # are still listed and their components still published, but the
+    # score and the rank are ``None``.  ``None`` and not ``0.0``,
+    # because 0.0 is a real score a team can earn.
+    unrankable: list[dict[str, Any]] = []
+    if not active_weights:
+        for oid in owner_ids:
+            i = inputs[oid]
+            unrankable.append(
+                {
+                    "ownerId": oid,
+                    "displayName": _metrics.display_name_for(snapshot, oid),
+                    "powerScore": None,
+                    "rank": None,
+                    "components": {
+                        "ppg": round(_percentile(ppg_values, i["ppg"]), 4),
+                        "recent": round(_percentile(recent_values, i["recent"]), 4),
+                        "wl_record": round(i["wl_record"], 4),
+                        "all_play": round(i["all_play"], 4),
+                        "streak": round(i["streak"], 4),
+                        "luck_regression": round(i["luck_regression"], 4),
+                    },
+                    "rosStrengthPercentile": None,
+                    "weightsApplied": {},
+                }
+            )
+        return unrankable, missing_inputs, active_weights
+
+    weight_total = sum(active_weights.values())
 
     rankings: list[dict[str, Any]] = []
     for oid in owner_ids:
@@ -651,9 +698,31 @@ def build_section(
                 }
             )
 
+    # The refusal, surfaced. ``_score_state`` returns rows whose score and
+    # rank are None when no component survived; the section must SAY so
+    # rather than leave a consumer to infer it from null fields, which is
+    # how a refusal gets rendered as an empty table or a zero.
+    unrankable: dict[str, Any] | None = None
+    if not active_weights:
+        unrankable = {
+            "reason": (
+                "no_scoring_component_available"
+                if not preseason
+                else "preseason_and_no_forward_looking_input"
+            ),
+            "missingInputs": sorted(missing_inputs),
+            "explanation": (
+                "Every weighted component is unavailable, so there is no "
+                "quantity to rank on. The owners and their raw component "
+                "values are listed; the score and the rank are withheld "
+                "rather than published as zeros in identifier order."
+            ),
+        }
+
     return {
         "currentRanking": rankings,
         "lens": lens,
+        "unrankable": unrankable,
         "trend": {
             "lens": LENS_RESULTS_ONLY,
             "weeks": trend_weeks,
