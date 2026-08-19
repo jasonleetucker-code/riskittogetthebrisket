@@ -7157,6 +7157,13 @@ async def post_trade_suggestions(request: Request):
         request, body, league_cfg
     )
 
+    # C3-CON-01 — resolved on the request thread (it reads the session and the
+    # user store) and handed to the generator, which applies it during
+    # enumeration.
+    constraints = _constraints_for_request(
+        request, contract, league_cfg, surface="/api/trade/suggestions"
+    )
+
     # Pool build + suggestion generation are heavy CPU passes over the
     # full playersArray × league rosters — run them on a worker thread
     # exactly like /api/trade/finder already does, instead of stalling
@@ -7188,6 +7195,7 @@ async def post_trade_suggestions(request: Request):
             starter_needs=starter_needs,
             ktc_top_n=ktc_top_n,
             capacity_context=capacity_context,
+            constraints=constraints,
         )
 
     try:
@@ -7296,6 +7304,13 @@ async def post_trade_finder(request: Request):
         surface="/api/trade/finder",
     )
 
+    # C3-CON-01 — the finder was the only engine that already accepted
+    # `constraints`, and this route never passed any, so it ran unconstrained in
+    # production while the parameter looked wired.
+    finder_constraints = _constraints_for_request(
+        request, contract, league_cfg, surface="/api/trade/finder"
+    )
+
     try:
         result = await run_in_threadpool(
             find_trades,
@@ -7305,6 +7320,7 @@ async def post_trade_finder(request: Request):
             sleeper_teams=sleeper_teams,
             ktc_top_n=finder_ktc_top_n,
             capacity_context=finder_capacity_context,
+            constraints=finder_constraints,
             # F-6 (audit finding K): the contract carries `playersArray`
             # with `rankDerivedValue` — the board the user actually sees.
             # Without this the finder arbitrages the raw scraper
@@ -7688,6 +7704,13 @@ async def post_angle_packages(request: Request):
     if mode == "acquire":
         from src.trade.angle import find_acquisition_packages
 
+        # C3-CON-01.  Acquire mode is the one Angle mode that CHOOSES outgoing
+        # assets — the other two enumerate what we would receive against a send
+        # side the user typed — so it is the one that carries constraints.
+        angle_constraints = _constraints_for_request(
+            request, contract, league_cfg, surface="/api/angle/packages"
+        )
+
         try:
             result = await run_in_threadpool(
                 find_acquisition_packages,
@@ -7703,6 +7726,7 @@ async def post_angle_packages(request: Request):
                 min_player_my_value=min_player,
                 include_idp=include_idp,
                 capacity_context=angle_capacity_context,
+                constraints=angle_constraints,
             )
         except Exception as exc:  # noqa: BLE001
             log.error(f"Angle acquire failed: {exc}")
@@ -8020,6 +8044,53 @@ def _stamp_valuation_mode(result: Any, mode: str, note: str | None) -> None:
             warnings.append(note)
         else:
             result["warnings"] = [note]
+
+
+def _constraints_for_request(
+    request: "Request",
+    contract: dict | None,
+    league_cfg: Any,
+    *,
+    surface: str,
+) -> Any:
+    """Recommendation constraints for one (user, league), or the fail-closed set.
+
+    ONE place, because C3-CON-01 is consumed by every automatically generated
+    trade surface and §2.3 forbids page-local copies.  The canonical owner is
+    ``src/trade/constraints``; this only resolves its inputs.
+
+    **Read-only plumbing.**  It reads a stored per-(user, league) protection
+    block if one exists and never writes one — the storage service and the UI
+    that would populate it are ``C3-CON-02`` / ``C3-CON-03``, separate rows.
+    Until those land this resolves to "nothing configured" for every user, which
+    is a legitimate answer and NOT a failure: §7 acceptance 12 and the owner's
+    own ``test_no_configured_preference_is_not_a_failure`` both turn on that
+    distinction.
+
+    Fail-closed is reserved for genuinely not knowing.  An anonymous request has
+    no protections, which is knowable; a store that RAISES is not, and returns
+    ``UNRESOLVED`` so every generator refuses rather than recommending under
+    constraints it could not read.
+    """
+    from src.trade.constraints import UNRESOLVED, resolve_constraints
+
+    league_key = getattr(league_cfg, "key", None)
+    try:
+        persistent: dict | None = None
+        session = _get_auth_session(request)
+        if session:
+            username = str(session.get("username") or "").strip()
+            if username:
+                state = _user_kv.get_user_state(username) or {}
+                by_league = state.get("tradeConstraintsByLeague") or {}
+                if isinstance(by_league, dict) and league_key:
+                    block = by_league.get(league_key)
+                    if isinstance(block, dict):
+                        persistent = block
+        return resolve_constraints(contract=contract, persistent=persistent)
+    except Exception as exc:  # noqa: BLE001 — unknown must not become unconstrained
+        log.warning("recommendation constraints unresolved for %s: %s", surface, exc)
+        return UNRESOLVED
 
 
 def _capacity_context_for(
