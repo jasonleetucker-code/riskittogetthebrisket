@@ -66,6 +66,7 @@ def _simulate_bracket(
     distributions: dict[str, playoff_sim._TeamDist],
     *,
     bye_seeds: int,
+    playoff_seeds: int,
     rng: random.Random,
 ) -> dict[str, int]:
     """Simulate one playoff bracket.  Returns finish placement per
@@ -78,7 +79,7 @@ def _simulate_bracket(
 
     # Mark anyone outside the playoff field with a finish equal to
     # their seed (they're "out" in seeding order).
-    playoff_field_size = len([s for s in seeded_owners if seeded_owners.index(s) < 6]) or 6
+    playoff_field_size = min(playoff_seeds, len(seeded_owners))
     for i, owner in enumerate(seeded_owners):
         if i >= playoff_field_size:
             finishes[owner] = i + 1
@@ -259,6 +260,7 @@ def simulate_championship_odds(
             seeded,
             distributions,
             bye_seeds=bye_seeds,
+            playoff_seeds=playoff_seeds,
             rng=rng,
         )
         for owner, finish in finishes.items():

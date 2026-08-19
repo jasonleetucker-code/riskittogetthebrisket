@@ -101,6 +101,13 @@ class TestSimulateBracket(unittest.TestCase):
                 list(distributions.keys()),
                 distributions,
                 bye_seeds=2,
+                # V1-51 follow-up: the field size is no longer a literal
+                # inside the function, and ``playoff_seeds`` has no
+                # default — a plausible default is how the six-team
+                # bracket survived for a seven-team league. All six of
+                # these owners qualify, which is what the bye_seeds=2
+                # above already assumed.
+                playoff_seeds=6,
                 rng=rng,
             )
             if out.get("o0") == 1:

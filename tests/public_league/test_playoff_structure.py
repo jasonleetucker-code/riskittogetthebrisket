@@ -270,3 +270,196 @@ def test_no_production_module_still_hardcodes_a_six_team_bracket():
     assert not offenders, (
         "a default bracket is back — resolve it from the league instead:\n" + "\n".join(offenders)
     )
+
+
+# ── The bracket the championship engine actually PLAYS ───────────────
+#
+# V1-51 unified where the bracket comes FROM. It did not check that the
+# championship simulator uses it, and the two tests above could not: one
+# asserts the *stamped* pair ``(7, 1)``, the other walks kwarg defaults,
+# and the defect was an integer literal in a function body.
+#
+# ``_simulate_bracket`` capped the field at six while ``bye_seeds`` came
+# through as the league's real 1, which leaves five wildcard teams. The
+# pairing loop runs ``while len(wildcard) >= 2``, so one is stranded,
+# three reach the semis, one survives, and ``if len(semis_advance) >= 2``
+# is False — **the final is never played**. The champion then falls out
+# of the defensive placement block in seed order.
+#
+# Measured on 12 identical teams before the repair: seed 1 took 49.86% of
+# championships and seeds 5, 6 and 7 took 0.00% — not a low probability,
+# a structurally impossible one, published beside a payload stamping
+# ``playoffSeeds: 7``.
+
+
+def _identical_field(n_owners: int):
+    """N owners the simulator cannot tell apart. Any asymmetry in the
+    result is therefore the bracket's, not the teams'."""
+    owners = [f"o{i:02d}" for i in range(1, n_owners + 1)]
+    dists = {
+        o: playoff_sim._TeamDist(owner_id=o, mean=100.0, sd=15.0, pf_to_date=0.0) for o in owners
+    }
+    return owners, dists
+
+
+def _championship_counts(
+    *, playoff_seeds: int, bye_seeds: int, n_owners: int = 12, runs: int = 600
+):
+    from src.ros import championship
+
+    owners, dists = _identical_field(n_owners)
+    rng = random.Random(7)
+    champions: dict[str, int] = {o: 0 for o in owners}
+    runners_up = 0
+    for _ in range(runs):
+        finishes = championship._simulate_bracket(
+            list(owners),
+            dists,
+            bye_seeds=bye_seeds,
+            playoff_seeds=playoff_seeds,
+            rng=rng,
+        )
+        won = [o for o, place in finishes.items() if place == 1]
+        assert len(won) == 1, f"a bracket produced {len(won)} champions: {finishes}"
+        champions[won[0]] += 1
+        runners_up += sum(1 for place in finishes.values() if place == 2)
+    return owners, champions, runners_up, runs
+
+
+def test_every_qualifier_can_win_the_live_seven_team_bracket():
+    """The defect, stated as the property it broke. Seven teams qualify,
+    so all seven must be able to win it — and only those seven."""
+    owners, champions, _, _ = _championship_counts(playoff_seeds=7, bye_seeds=1)
+
+    qualifiers = owners[:7]
+    impossible = [o for o in qualifiers if champions[o] == 0]
+    assert not impossible, (
+        "seeds with a structurally impossible championship: "
+        f"{impossible} — counts {[champions[o] for o in qualifiers]}"
+    )
+
+    eliminated = [o for o in owners[7:] if champions[o]]
+    assert not eliminated, f"a non-qualifier won the bracket: {eliminated}"
+
+
+@pytest.mark.parametrize("seeds,byes", [(4, 0), (6, 2), (7, 1), (8, 0)])
+def test_the_bracket_plays_every_game_it_owes(monkeypatch, seeds, byes):
+    """The mechanism, pinned separately from its consequence — and pinned
+    on the games PLAYED, not on the finishes emitted.
+
+    My first version of this test asserted that exactly one owner is
+    stamped runner-up, and it passed under the defect: when the final is
+    never played, the defensive placement block at the end of
+    ``_simulate_bracket`` still hands out finishes 1 and 2 in seed order,
+    so the payload looks identical. Counting games is what actually
+    distinguishes them.
+
+    A single-elimination bracket of N qualifiers plays exactly N-1
+    games, whatever the bye count. Under the defect the live 7/1 bracket
+    played 3 of its 6: an odd wildcard round strands a team, three reach
+    the semis, one survives, and ``len(semis_advance) >= 2`` is False."""
+    from src.ros import championship
+
+    played = []
+    real = championship._simulate_matchup
+    monkeypatch.setattr(
+        championship,
+        "_simulate_matchup",
+        lambda a, b, d, r: played.append((a, b)) or real(a, b, d, r),
+    )
+
+    owners, dists = _identical_field(12)
+    championship._simulate_bracket(
+        list(owners), dists, bye_seeds=byes, playoff_seeds=seeds, rng=random.Random(7)
+    )
+    assert len(played) == seeds - 1, (
+        f"a {seeds}-team bracket played {len(played)} games, not {seeds - 1}: {played}"
+    )
+
+
+def test_the_top_seed_does_not_absorb_the_stranded_teams_odds():
+    """One bye among seven teams is worth roughly a doubled share, not a
+    quadrupled one. Under the defect the top seed took 49.86% because it
+    inherited every bracket that failed to reach a final."""
+    owners, champions, _, runs = _championship_counts(playoff_seeds=7, bye_seeds=1)
+    top_seed_share = champions[owners[0]] / runs
+    assert 0.18 <= top_seed_share <= 0.34, f"top seed took {top_seed_share:.2%} of championships"
+
+
+def test_the_six_seed_bracket_is_unchanged():
+    """Non-vacuity in the other direction: this repair generalises the
+    bracket the code already played rather than changing it. Six seeds
+    and two byes must still produce two bye-sized shares and four equal
+    ones, exactly as before."""
+    owners, champions, _, runs = _championship_counts(playoff_seeds=6, bye_seeds=2)
+
+    assert all(champions[o] == 0 for o in owners[6:])
+    byes = sorted(champions[o] / runs for o in owners[:2])
+    rest = sorted(champions[o] / runs for o in owners[2:6])
+    assert all(0.18 <= s <= 0.34 for s in byes), byes
+    assert all(0.06 <= s <= 0.20 for s in rest), rest
+    assert min(byes) > max(rest), f"a bye stopped being worth more: {byes} vs {rest}"
+
+
+def test_the_championship_engine_receives_the_leagues_field_size(monkeypatch):
+    """The wiring, not the arithmetic. ``playoff_seeds`` was in scope at
+    the call site — used two lines later — and simply was not passed."""
+    from src.ros import championship
+
+    seen: dict[str, int] = {}
+    real = championship._simulate_bracket
+
+    def _spy(seeded_owners, distributions, **kwargs):
+        seen.update(playoff_seeds=kwargs["playoff_seeds"], bye_seeds=kwargs["bye_seeds"])
+        return real(seeded_owners, distributions, **kwargs)
+
+    monkeypatch.setattr(championship, "_simulate_bracket", _spy)
+    monkeypatch.setattr(playoff_sim, "_load_ros_strength_map", lambda: {})
+    monkeypatch.setattr(playoff_sim, "_league_best_ball", lambda: False)
+
+    owners, dists = _identical_field(12)
+    monkeypatch.setattr(playoff_sim, "_build_team_distributions", lambda *a, **k: (dists, {}))
+    monkeypatch.setattr(playoff_sim, "_current_record", lambda *a, **k: {})
+    monkeypatch.setattr(playoff_sim, "_remaining_schedule", lambda *a, **k: [])
+
+    out = championship.simulate_championship_odds(_snapshot(playoff_teams=7), n_simulations=5)
+    assert seen == {"playoff_seeds": 7, "bye_seeds": 1}
+    assert (out["playoffSeeds"], out["byeSeeds"]) == (7, 1)
+
+
+def test_no_bracket_function_sizes_its_field_from_a_literal():
+    """The guard above walks kwarg DEFAULTS, so it could not see an
+    integer literal inside a function BODY — which is where this defect
+    lived.
+
+    Scoped to assignments that name a field size rather than to every
+    integer in the function. The first version of this test flagged
+    ``for _ in range(8)`` in ``playoff_sim._simulate_bracket``, which is
+    the tie re-draw cap and has nothing to do with the bracket — a guard
+    that cries wolf gets its assertion loosened, which is how the
+    original one ended up unable to see anything."""
+    import ast
+    import pathlib
+
+    root = pathlib.Path(__file__).resolve().parents[2]
+    watched_files = ("src/ros/championship.py", "src/ros/playoff_sim.py")
+    sizing = ("field_size", "playoff_seeds", "bye_seeds", "field", "seeds")
+    offenders = []
+    for rel in watched_files:
+        path = root / rel
+        tree = ast.parse(path.read_text(encoding="utf-8"))
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.Assign):
+                continue
+            names = [t.id for t in node.targets if isinstance(t, ast.Name)]
+            if not any(any(k in n for k in sizing) for n in names):
+                continue
+            for sub in ast.walk(node.value):
+                if isinstance(sub, ast.Constant) and isinstance(sub.value, int):
+                    offenders.append(
+                        f"{rel}:{node.lineno}: {'/'.join(names)} sized from literal {sub.value}"
+                    )
+    assert not offenders, (
+        "a bracket field size is hardcoded again — take it from the "
+        "resolved structure instead:\n" + "\n".join(offenders)
+    )
