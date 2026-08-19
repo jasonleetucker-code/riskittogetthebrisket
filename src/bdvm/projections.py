@@ -1,9 +1,36 @@
 """Projection ingestion, snapshots, and robust consensus.
 
-This is the swappable layer (BDVM module 1).  The platform currently has
-**zero** forward-looking statistical projection sources (Phase-0 audit:
-the ROS pipeline's ``projection`` column is empty in 100% of rows and is
-deliberately not consumed).  So v1 ships:
+This is the swappable layer (BDVM module 1).
+
+The Phase-0 audit's finding that the ROS pipeline's ``projection`` column
+is empty still holds — re-measured 2026-08-19 at **0 of 2,168 rows**
+across all five cached ROS boards.  But "the platform has **zero**
+forward-looking statistical projection sources", which this docstring
+used to say, is **not** the same statement and is no longer true.
+
+``CSVs/site_raw/draftSharksSf.csv`` and ``draftSharksIdp.csv`` publish
+``1yr. Proj`` — 412 of 439 offensive rows and 375 of 410 IDP rows
+populated, with the season-total shape you would expect (QB max 403,
+RB1 309, WR1 257, TE1 214).  It is fetched, committed, and consumed by
+nothing.
+
+Two properties stop it being a drop-in, and both are the source's shape
+rather than a wiring gap:
+
+* it publishes **totals, not stat lines**, so there is nothing to score
+  under this league's card; and
+* it publishes **no scoring metadata**, so the basis those totals are
+  denominated in cannot be verified — and an unverified basis fails
+  closed here exactly as an unverified game type does in the dynasty
+  lane.
+
+Ingesting it therefore means ``fpts`` with ``scoring_native=False``,
+which ``blend_consensus`` now excludes from a mixed-basis mean rather
+than averaging across scoring systems.  Using its numbers as league
+points would need either a stat line or a validated conversion, and
+neither exists.
+
+So v1 still ships:
 
 * a snapshot store with mandatory ``as_of`` stamps (never overwritten);
 * a manual-CSV adapter — the moment a real projection feed lands it
@@ -132,6 +159,11 @@ class ConsensusProjection:
     # Sources down-weighted because their stat line's league-scored IDP
     # categories are a strict subset of a peer's (vocabulary-dominated).
     vocabulary_limited: tuple[str, ...] = ()
+    # Sources EXCLUDED from the mean because their points are denominated
+    # in a scoring basis this league cannot verify.  Excluded rather than
+    # down-weighted: a weight says "less reliable", and this is
+    # "different unit".  See ``blend_consensus``.
+    excluded_foreign_basis: tuple[str, ...] = ()
 
 
 # ---------------------------------------------------------------------------
@@ -253,6 +285,42 @@ def blend_consensus(
             stale.append(r.source)
         scored.append((r, fpg, w, native))
 
+    # ONE CONSENSUS, ONE SCORING BASIS.
+    #
+    # ``resolve_fpg`` returns ``native=False`` when the value is a points
+    # total the source published under ITS OWN scoring rather than a stat
+    # line this league can score.  Averaging those with league-scored
+    # points is a category error, not an imprecision: the two are not the
+    # same quantity, so their mean is not a quantity at all.
+    #
+    # ``all_scoring_native`` recorded this and nothing read it — written
+    # in one place, consumed in none — so a foreign-denominated
+    # projection landed in ``mu_fpg`` beside a league-scored one with no
+    # consumer able to tell.  The manual-CSV adapter, which the module
+    # docstring names as the drop-in for a real feed, sets
+    # ``scoring_native=False`` unconditionally, so the path was the
+    # documented one rather than an edge case.
+    #
+    # EXCLUDED, not down-weighted, and named in the result: a weight
+    # expresses lower confidence in the same quantity.
+    #
+    # When EVERY record is non-native there is nothing native to protect
+    # and nothing to verify against.  Excluding them all would report the
+    # player as UNPRICED, which is a different and false claim — a
+    # projection does exist.  So they blend and the consensus carries
+    # ``all_scoring_native=False`` for the caller to act on.
+    excluded_foreign: list[str] = []
+    if any(native for (_, _, _, native) in scored) and not all(
+        native for (_, _, _, native) in scored
+    ):
+        kept: list[tuple[ProjectionRecord, float, float, bool]] = []
+        for entry in scored:
+            if entry[3]:
+                kept.append(entry)
+            else:
+                excluded_foreign.append(entry[0].source)
+        scored = kept
+
     # Vocabulary-aware down-weighting.  A stat-line record whose
     # league-scored IDP categories are a STRICT SUBSET of a peer's is
     # known-incomplete under THIS league's scoring — e.g. a source
@@ -316,6 +384,7 @@ def blend_consensus(
         sources=tuple(r.source for (r, _, _, _) in scored),
         any_proxy=any(r.is_proxy for (r, _, _, _) in scored),
         all_scoring_native=all(native for (_, _, _, native) in scored),
+        excluded_foreign_basis=tuple(excluded_foreign),
         stale_sources=tuple(stale),
         vocabulary_limited=tuple(vocab_limited),
     )

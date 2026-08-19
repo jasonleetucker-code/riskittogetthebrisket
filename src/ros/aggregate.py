@@ -60,10 +60,23 @@ class RankedRow:
     total_ranked: int
     # Optional projection signal from the source.  CARRIED BUT NOT
     # CONSUMED — ``aggregate()`` rank-scores every row, this one
-    # included.  The field is populated (``scrape.py``) from a real
-    # parsed projection (``sources/draftsharks_ros.py``), and DraftSharks
-    # is the highest-weighted ROS source, so this is a live signal being
-    # dropped rather than an unused hook.
+    # included.
+    #
+    # CORRECTED 2026-08-19.  This comment used to say the field was
+    # populated from a real parsed projection and that DraftSharks being
+    # the highest-weighted ROS source made it "a live signal being
+    # dropped rather than an unused hook".  Measured across every cached
+    # ROS source board — draftSharksRosSf, fantasyProsRosSf,
+    # fantasyProsRosIdp, fantasyProsRosOverall, footballGuysRosIdp —
+    # **0 of 2,168 rows carry a projection**.  It is an unused hook.
+    #
+    # The claim was not baseless, it was mislocated: DraftSharks DOES
+    # publish projections, in its DYNASTY feed
+    # (``CSVs/site_raw/draftSharksSf.csv`` / ``draftSharksIdp.csv``,
+    # column ``1yr. Proj``, 412/439 and 375/410 rows populated), not in
+    # the ROS-format board this pipeline reads.  Telling a reader there
+    # is a live signal here sends them looking for a conversion for
+    # something that never arrives.
     #
     # Consuming it is a change to every ROS value and to the meaning of
     # the 0-100 scale — projections are points, rank scores are not, and
