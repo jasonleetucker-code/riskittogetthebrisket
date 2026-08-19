@@ -143,6 +143,24 @@ IDP_MARKET_KEYS = ("idpTradeCalc",)
 ELITE_THRESHOLD = 6600  # was 7500 on the composite scale; see the F-6 note above
 ELITE_MULTI_MIN_RATIO = 0.65  # Tighter ratio for elite targets in multi-for-one
 PACKAGE_ANCHOR_MIN_PCT = 0.35  # Best give piece must be ≥35% of best receive piece
+#: What a trade product carries when no capacity context was supplied.
+#:
+#: ``server.py::_capacity_context_for`` returns ``None`` for BOTH "no team block
+#: resolved" and "building the context raised" — the second is logged
+#: server-side and invisible to the caller.  The guards that consumed it were
+#: bare ``if capacity_context is not None:``, so both arrived at the client as
+#: NO ``rosterCapacity`` key, indistinguishable from a trade that fits.  That is
+#: the condition ``trade_simulator`` already names out loud ("absent and zero
+#: must not read the same"), and it is the MOST likely degradation rather than
+#: the least.
+_CAPACITY_NOT_REQUESTED = {
+    "unavailable": "no_capacity_context",
+    "notes": [
+        "roster capacity was not evaluated — no league/team context was "
+        "supplied, so whether this fits is UNKNOWN, not unconstrained"
+    ],
+}
+
 CONFIDENCE_SOURCE_BASELINE = 5  # Expected source count for full confidence
 ROSTER_SURPLUS_THRESHOLD = 4  # ≥4 at a position = surplus (light fit bonus)
 ROSTER_WEAK_THRESHOLD = 1  # ≤1 at a position = weakness (light fit bonus)
@@ -1181,7 +1199,10 @@ def find_trades(
     # feed the ranking — deliberately, per the "report, never filter" rule
     # above.
     trade_dicts = [t.to_dict() for t in capped]
-    if capacity_context is not None:
+    if capacity_context is None:
+        for payload in trade_dicts:
+            payload["rosterCapacity"] = dict(_CAPACITY_NOT_REQUESTED)
+    else:
         from src.trade.roster_capacity import (  # noqa: PLC0415
             assess_roster_capacity,
             player_names_only,

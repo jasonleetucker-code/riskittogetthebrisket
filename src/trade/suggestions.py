@@ -686,6 +686,25 @@ def _apply_board_top_n_filter(
 _apply_ktc_top_n_filter = _apply_board_top_n_filter
 
 
+#: What a trade product carries when no capacity context was supplied.
+#:
+#: ``server.py::_capacity_context_for`` returns ``None`` for BOTH "no team block
+#: resolved" and "building the context raised" — the second is logged
+#: server-side and invisible to the caller.  The guards that consumed it were
+#: bare ``if capacity_context is not None:``, so both arrived at the client as
+#: NO ``rosterCapacity`` key, indistinguishable from a trade that fits.  That is
+#: the condition ``trade_simulator`` already names out loud ("absent and zero
+#: must not read the same"), and it is the MOST likely degradation rather than
+#: the least.
+_CAPACITY_NOT_REQUESTED = {
+    "unavailable": "no_capacity_context",
+    "notes": [
+        "roster capacity was not evaluated — no league/team context was "
+        "supplied, so whether this fits is UNKNOWN, not unconstrained"
+    ],
+}
+
+
 def analyze_roster(
     roster_names: list[str],
     asset_pool: list[PlayerAsset],
@@ -1673,8 +1692,12 @@ def generate_suggestions_from_pool(
         s.__dict__["edge"] = edge
         s.__dict__["edge_explanation"] = explanation
 
-        # What this trade costs in roster spots.  Attached, never filtered.
-        if capacity_context is not None:
+        # What this trade costs in roster spots.  Attached, never filtered —
+        # and attached in every state, including the two where it could not be
+        # measured (see ``_CAPACITY_NOT_REQUESTED``).
+        if capacity_context is None:
+            s.__dict__["roster_capacity_block"] = dict(_CAPACITY_NOT_REQUESTED)
+        else:
             from src.trade.roster_capacity import (  # noqa: PLC0415
                 assess_roster_capacity,
                 player_names_only,
@@ -1687,7 +1710,10 @@ def generate_suggestions_from_pool(
                     outgoing_players=player_names_only(s.give),
                 )
             except Exception:  # noqa: BLE001 — an optional read never drops a suggestion
-                s.__dict__["roster_capacity"] = None
+                s.__dict__["roster_capacity_block"] = {
+                    "unavailable": "assessment_failed",
+                    "notes": ["roster capacity could not be computed for this suggestion"],
+                }
 
         # Balancers for non-even trades
         if s.fairness != "even":
@@ -1849,6 +1875,8 @@ def _serialize_suggestion(
     capacity = s.__dict__.get("roster_capacity")
     if capacity is not None:
         result["rosterCapacity"] = capacity.to_dict()
+    elif s.__dict__.get("roster_capacity_block") is not None:
+        result["rosterCapacity"] = s.__dict__["roster_capacity_block"]
     edge = s.__dict__.get("edge")
     if edge:
         result["edge"] = edge

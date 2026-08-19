@@ -282,17 +282,25 @@ def test_an_already_over_limit_roster_does_not_lose_its_suggestions(full_roster_
     assert saw_drops, "an over-cap roster must name the releases it needs"
 
 
-def test_suggestions_without_a_context_carry_no_capacity_block(full_roster_setup):
-    """Silent-vanish, not a fabricated zero.
+def test_suggestions_without_a_context_say_so_rather_than_omitting_the_block(
+    full_roster_setup,
+):
+    """Named, not silent — and still never a fabricated zero.
 
     A surface with no league context must not publish ``forcedDrops: []``,
     which reads as "this trade costs nothing" rather than "we did not check".
+    This file used to pin the OTHER extreme: omit the key entirely.  That is
+    equally unreadable, because ``server.py::_capacity_context_for`` returns
+    ``None`` for two different things — no team block resolved, and building
+    the context RAISED (logged server-side, invisible here) — so the client
+    could not tell "we did not check" from "it fits".  The honest answer names
+    itself: ``unavailable: no_capacity_context``.
     """
     pool, roster, _context = full_roster_setup
     result = generate_suggestions_from_pool(roster_names=roster, pool=pool)
     for category in _CATEGORIES:
         for suggestion in result.get(category) or []:
-            assert "rosterCapacity" not in suggestion
+            assert suggestion["rosterCapacity"]["unavailable"] == "no_capacity_context"
 
 
 # ── /api/trade/finder ────────────────────────────────────────────────
@@ -339,7 +347,7 @@ def test_finder_results_are_not_filtered_by_capacity():
 
     assert with_capacity["trades"], "fixture produced no arbitrage trades — it proves nothing"
     for trade, plain in zip(with_capacity["trades"], without["trades"]):
-        assert "rosterCapacity" not in plain
+        assert plain["rosterCapacity"]["unavailable"] == "no_capacity_context"
         capacity = trade["rosterCapacity"]
         assert capacity["rosterLimit"] == ROSTER_SIZE
         assert capacity["sizeAfter"] == ROSTER_SIZE - len(trade["give"]) + len(trade["receive"])
@@ -410,7 +418,7 @@ def test_angle_find_is_not_filtered_by_capacity(angle_setup):
     ]
 
     for plain, annotated in zip(without["candidates"], with_capacity["candidates"]):
-        assert "rosterCapacity" not in plain
+        assert plain["rosterCapacity"]["unavailable"] == "no_capacity_context"
         capacity = annotated["rosterCapacity"]
         assert capacity["rosterLimit"] == ROSTER_SIZE
         # 1-for-1 out of a roster that holds the selected player: size-neutral.
@@ -484,7 +492,7 @@ def test_angle_packages_offer_mode_is_not_filtered_by_capacity(angle_setup):
     ]
 
     for plain, annotated in zip(without["candidates"], with_capacity["candidates"]):
-        assert "rosterCapacity" not in plain
+        assert plain["rosterCapacity"]["unavailable"] == "no_capacity_context"
         capacity = annotated["rosterCapacity"]
         assert capacity["outgoing"] == len(offer)
         assert capacity["incoming"] == len(annotated["players"])
@@ -540,7 +548,7 @@ def test_angle_packages_acquire_mode_is_not_filtered_by_capacity(angle_setup):
     assert len(without["candidates"]) == len(with_capacity["candidates"])
 
     for plain, annotated in zip(without["candidates"], with_capacity["candidates"]):
-        assert "rosterCapacity" not in plain
+        assert plain["rosterCapacity"]["unavailable"] == "no_capacity_context"
         capacity = annotated["rosterCapacity"]
         # Mirror image: the DESIRED side comes in, the candidate goes out.
         assert capacity["incoming"] == len(desired)
@@ -548,8 +556,8 @@ def test_angle_packages_acquire_mode_is_not_filtered_by_capacity(angle_setup):
         assert capacity["sizeAfter"] == ROSTER_SIZE - len(annotated["players"]) + len(desired)
 
 
-def test_angle_without_a_context_carries_no_capacity_block(angle_setup):
-    """Silent-vanish, not a fabricated zero — same rule as suggestions."""
+def test_angle_without_a_context_says_so_rather_than_omitting_the_block(angle_setup):
+    """Named, not silent — same rule as suggestions, on all three angle modes."""
     from src.trade.angle import find_acquisition_packages, find_angle_packages, find_angles
 
     pool, roster, _context, rows, teams = angle_setup
@@ -572,7 +580,7 @@ def test_angle_without_a_context_carries_no_capacity_block(angle_setup):
     )
     for result in (a, b, c):
         for candidate in result["candidates"]:
-            assert "rosterCapacity" not in candidate
+            assert candidate["rosterCapacity"]["unavailable"] == "no_capacity_context"
 
 
 def test_angle_picks_do_not_consume_a_roster_spot(angle_setup):

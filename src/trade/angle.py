@@ -384,6 +384,44 @@ def _capacity_block(
         }
 
 
+#: What a candidate carries when no capacity context was supplied.
+#:
+#: ``server.py::_capacity_context_for`` returns ``None`` for BOTH "no team block
+#: resolved" and "building the context raised" — the second is logged
+#: server-side and invisible to the caller.  The three attachment sites below
+#: were guarded by a bare ``if capacity_context is not None:``, so both arrived
+#: at the client as NO ``rosterCapacity`` key, indistinguishable from a
+#: candidate that fits — while the same condition inside :func:`_capacity_block`
+#: publishes an explicit reason, and ``trade_simulator`` publishes one too, for
+#: the stated reason that "absent and zero must not read the same".  Missing
+#: context is the MOST likely degradation, not the least, so it was the one mode
+#: with no name.  Now it has one.
+_CAPACITY_NOT_REQUESTED = {
+    "unavailable": "no_capacity_context",
+    "notes": [
+        "roster capacity was not evaluated — no league/team context was "
+        "supplied, so whether this fits is UNKNOWN, not unconstrained"
+    ],
+}
+
+
+def _attach_capacity(
+    candidates: list[dict[str, Any]],
+    context: Any,
+    *,
+    incoming_for,
+    outgoing_for,
+) -> None:
+    """Stamp every candidate, whether or not capacity could be measured."""
+    for c in candidates:
+        if context is None:
+            c["rosterCapacity"] = dict(_CAPACITY_NOT_REQUESTED)
+            continue
+        c["rosterCapacity"] = _capacity_block(
+            context, incoming=incoming_for(c), outgoing=outgoing_for(c)
+        )
+
+
 def find_angles(
     players_array: list[dict[str, Any]],
     selected_player_name: str,
@@ -538,19 +576,18 @@ def find_angles(
     # reason to omit it.  It is NOT neutral by construction: an already
     # over-limit roster, or a selected name the roster does not carry, both
     # move the count, and the owner counts from the names rather than assuming.
-    if capacity_context is not None:
-        outgoing = [
-            {
-                "name": selected_player_name,
-                "position": str(selected_row.get("position") or ""),
-            }
-        ]
-        for c in candidates:
-            c["rosterCapacity"] = _capacity_block(
-                capacity_context,
-                incoming=[{"name": c["name"], "position": c["position"]}],
-                outgoing=outgoing,
-            )
+    outgoing = [
+        {
+            "name": selected_player_name,
+            "position": str(selected_row.get("position") or ""),
+        }
+    ]
+    _attach_capacity(
+        candidates,
+        capacity_context,
+        incoming_for=lambda c: [{"name": c["name"], "position": c["position"]}],
+        outgoing_for=lambda _c: outgoing,
+    )
 
     return {
         "selected": {
@@ -1123,13 +1160,12 @@ def find_angle_packages(
     # Attached to the RETURNED set only — capacity feeds no ranking (that is
     # the "report, never filter" rule), so scoring the discarded combos would
     # buy a lineup re-solve per combo and change nothing.
-    if capacity_context is not None:
-        for c in candidates:
-            c["rosterCapacity"] = _capacity_block(
-                capacity_context,
-                incoming=c.get("players") or [],
-                outgoing=offer_players,
-            )
+    _attach_capacity(
+        candidates,
+        capacity_context,
+        incoming_for=lambda c: c.get("players") or [],
+        outgoing_for=lambda _c: offer_players,
+    )
 
     warnings.extend(_diagnostic_warnings(diag))
 
@@ -1485,13 +1521,12 @@ def find_acquisition_packages(
 
     # Mirror image of the offer mode: here the INCOMING side is fixed (the
     # players the user asked to acquire) and each candidate is what leaves.
-    if capacity_context is not None:
-        for c in candidates:
-            c["rosterCapacity"] = _capacity_block(
-                capacity_context,
-                incoming=desired_players,
-                outgoing=c.get("players") or [],
-            )
+    _attach_capacity(
+        candidates,
+        capacity_context,
+        incoming_for=lambda _c: desired_players,
+        outgoing_for=lambda c: c.get("players") or [],
+    )
 
     warnings.extend(_diagnostic_warnings(diag))
 
