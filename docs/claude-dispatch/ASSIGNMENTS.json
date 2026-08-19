@@ -1,11 +1,12 @@
 {
-  "_comment": "Durable dispatch queue written by Claude 7 (Lane Dispatcher). One PRIMARY assignment per lane at a time. An ACTIVE row is never overwritten. Claude 7 does not merge, does not implement, and does not change V1 status.",
-  "updatedAt": "2026-08-19T10:52:00Z",
+  "_comment": "Durable dispatch ledger written by Claude 7 (Lane Dispatcher). One PRIMARY assignment per lane. An ACTIVE row is never overwritten and a second task is never piled onto an unread one. Claude 7 does not merge, does not implement, and does not change V1 status.",
+  "updatedAt": "2026-08-19T17:30:00Z",
+  "cycle": 3,
+  "writePolicy": "Written only on a material state transition. An unchanged heartbeat produces no commit and no CI run.",
   "_delivery": {
-    "state": "NOT DELIVERED",
-    "detail": "No agent channel is reachable from the dispatcher session (ListAgents: 'No reachable agents'), so this queue is durable but nothing consumes it. Verified at 10:52Z: Lane 2 has not created claude/v1-trade-constraints-owner and #913 is still at c2153eb, 9h03m after its last activity.",
-    "howToDeliver": "Send the `prompt` field of each PENDING assignment to the lane named in `lane`. Then set its status to ACTIVE here, or let the next dispatch cycle infer it from the branch appearing.",
-    "doNotAsk": "Claude 7 to implement it. That would create a second owner of Lane 2's unit and a seventh implementation lane."
+    "state": "OK — nothing awaiting delivery",
+    "detail": "Cycle 2's DELIVERY_REQUIRED blocker is CLOSED. L2-2026-08-19-01 was delivered manually and accepted: #929 exists. The six current assignments were also made manually by the owner. No agent channel is reachable from this session (ListAgents: 'No reachable agents'), so any FUTURE Claude-7-originated assignment is marked DELIVERY_REQUIRED with a ready-to-send prompt and is never reported as delivered.",
+    "howToDeliver": "Send the `prompt` field of a DELIVERY_REQUIRED row to the lane named in `lane`."
   },
   "assignments": [
     {
@@ -13,62 +14,39 @@
       "lane": 2,
       "laneName": "Trade Intelligence",
       "createdAt": "2026-08-19T10:14:00Z",
-      "status": "PENDING",
-      "reissuedAtCycle": 2,
-      "notReassigned": "Cycle 2 did NOT write a second Lane 2 assignment. One PRIMARY per lane; an unread assignment is a delivery problem, not a reason to pile on another task.",
+      "status": "COMPLETED",
+      "closedAt": "2026-08-19T17:30:00Z",
+      "origin": "Claude 7 dispatch, cycle 1",
       "priority": "P1",
-      "kind": "PRIMARY",
       "v1Rows": ["V1-130", "V1-34"],
       "cSeriesUnits": ["C3-CON-01"],
-      "objective": "Build the ONE canonical recommendation-constraint owner (C3-CON-01) and the untouchable / excluded-player control it exists to serve (V1-34), so that a player the owner has marked untouchable is never proposed as outgoing by any trade surface — applied during generation, fail-closed, on a branch stacked on #913 that does not touch #913's head.",
-      "whyNow": "Lane 2's head #913 is GREEN (Validate PR success 02:02Z) and has been idle 8h25m awaiting integration. Analyze Trade V1 (V1-43) legitimately waits for #914 to merge, but that blocks one unit, not the lane. V1-130 and V1-34 are both V1 REQUIRED, both NOT STARTED, both L2-owned, and their only dependency is C3-PKG-01 — which #913 itself just built as src/packages/construction.py. The manifest measures C3-CON-01 at 'ABSENT — 0% implemented, no mechanism of any kind', so there is no existing owner to duplicate and no other lane to collide with.",
-      "ownership": "Lane 2 owns recommendation constraints, untouchable/excluded-player semantics, and their application inside package generation and the trade request contracts. The new owner is a user+league-scoped constraint service consumed by suggestions, finder, angle and simulate.",
-      "hardBoundaries": [
-        "Do NOT commit to claude/v1-trade-intelligence-efstt3 (#913). Branch FROM its head c2153eb as claude/v1-trade-constraints-owner and open a separate PR marked STACKED ON #913. Claude 5 handles ordered chains as a release train.",
-        "Do NOT rebase, re-merge or otherwise mint a new head on #913 for automated data refreshes on main. A green implementation head stays green (CLAUDE.md HEAD FREEZE; #926).",
-        "Do NOT implement Analyze Trade V1 (V1-43) or anything that imports src.roster_intel — that waits for #914 to merge, exactly as the #913 body states.",
-        "Do NOT re-implement or wrap anything Roster owns: exact lineup, reserve demand, meaningful core, Team Strength/Weakness, droppability or replacement level. Consume src/ros/lineup.py and the existing cut-ladder helpers.",
-        "Do NOT build C3-CON-03 (temporary LOCK / EXCLUDE package refinement) or C7-BEST-TRADE. The V1 contract admits the OWNER and the untouchable control; the wider constraint feature set is explicitly out of the denominator (§7.1 A-2). Leave the seam, name what you did not build.",
-        "Do NOT build frontend UI. Lane 6 owns that and #912 is frozen. Backend owner + request contract + persistence only; hand the surface to Lane 6.",
-        "Do NOT edit CLAUDE.md, docs/VERSION_1_COMPLETION_CONTRACT.md, docs/EXECUTION_PLAN.md or docs/C_SERIES_SCOPE_MANIFEST.md. Draft the text these need and hand it to Claude 5.",
-        "Regenerate config/coercion_baseline.json only from your own tree, and expect Claude 5 to rebuild it after the earlier candidate lands — two PRs editing it merge cleanly and corrupt silently (673 declared / 670 actual, measured).",
-        "In this lane's working copy, check `git status` before staging: an uncommitted CLAUDE.md reversion has appeared in three separate Lane 2 checkouts. Never `git add -A` there."
-      ],
-      "requiredProof": [
-        "A written census FIRST of every place a constraint could already live (src/api/terminal.py, src/roster_intel/packages.py and frontend/components/terminal/TeamCommandHeader.jsx all carry exclude-shaped vocabulary today) — if any of them is a second owner in embryo, say so and route it through the new one rather than leaving two.",
-        "RED-first: a failing test per claim before the repair, and a recorded mutation that turns each new guard red. A constraint test that passes with the constraint code deleted is vacuous.",
-        "Applied DURING generation, not filtered after: prove with a test that a constrained player never enters a candidate side, so a constrained package cannot be silently truncated out of a returned list.",
-        "Fail-closed: an unreadable or unresolvable constraint set must refuse to relax protection. An unknown constraint state is never 'no constraints'. Pin it.",
-        "Outgoing-only asymmetry: protection blocks the player leaving; incoming proposals for the same player stay valid. Pin both directions.",
-        "Scoping: user + league. Prove one user's constraints do not alter another user's recommendations and do not alter any canonical value — rankDerivedValue and _compute_unified_rankings stay byte-identical; run scripts/board_diff.py --expect-no-value-change.",
-        "Every trade surface that can propose an outgoing player is covered, and the coverage is pinned by a census test that fails when a new generator appears unconstrained."
-      ],
-      "handoff": [
-        "Claude 5 (integration): the PR marked STACKED ON #913, plus draft text for the CLAUDE.md and contract rows you may not edit yourself.",
-        "Claude 6 (UI): the request-contract shape and the response field naming, so the control can be rendered after #912 lands.",
-        "Claude 1: nothing — this unit consumes no Roster output."
-      ],
-      "stopCondition": "Stop when the owner exists, every outgoing-proposing surface routes through it with the seven proofs above recorded, and the PR is posted as READY FOR INTEGRATION stacked on #913. Do not proceed into C3-CON-02/03, Analyze Trade, or any UI. If #914 merges while you are working, finish this unit and report before starting V1-43.",
-      "dependsOn": ["#913 (own head, stacked)"],
-      "forbiddenTouches": [
-        "claude/v1-trade-intelligence-efstt3",
-        "src/roster_intel/**",
-        "src/ros/**",
-        "CLAUDE.md",
-        "docs/VERSION_1_COMPLETION_CONTRACT.md",
-        "docs/EXECUTION_PLAN.md",
-        "docs/C_SERIES_SCOPE_MANIFEST.md",
-        "frontend/app/**",
-        "frontend/components/**"
-      ],
-      "prompt": "Lane 2 — Trade Intelligence. Your #913 is GREEN and awaiting Claude 5; do not touch its head. Analyze Trade V1 still waits on #914, so take the dependency-ready unit instead: V1-130 + V1-34 — the ONE canonical recommendation-constraint owner, C3-CON-01, which docs/C_SERIES_SCOPE_MANIFEST.md measures as 'ABSENT — 0% implemented, no mechanism of any kind'. Branch from #913's head c2153eb as claude/v1-trade-constraints-owner and open a PR titled as STACKED ON #913. Build a user+league-scoped constraint service that makes a player marked untouchable un-proposable as OUTGOING by every trade surface — suggestions, finder, angle, simulate — applied DURING generation via src/packages/construction.py, never as a post-filter that silently shortens a list. Rules: outgoing-only (incoming proposals for the same player stay valid); an unknown or unreadable constraint state fails CLOSED and never reads as 'no constraints'; one user's constraints never touch another user's recommendations and never touch canonical value (prove the board byte-identical with scripts/board_diff.py --expect-no-value-change). Census first: src/api/terminal.py, src/roster_intel/packages.py and frontend/components/terminal/TeamCommandHeader.jsx already carry exclude-shaped vocabulary — if any is a second owner forming, route it through yours or say why not. RED-first with a recorded mutation per guard; a test that passes with your code deleted is vacuous. Do NOT build C3-CON-03 LOCK/EXCLUDE refinement or C7-BEST-TRADE (out of the V1 denominator per §7.1 A-2), do NOT import src.roster_intel, do NOT write frontend UI (hand the contract shape to Lane 6), and do NOT edit CLAUDE.md or the contract/plan/manifest docs — draft that text for Claude 5. Check git status before staging: a CLAUDE.md reversion has shown up uncommitted in three Lane 2 checkouts; never git add -A. Stop when the owner exists, every outgoing-proposing surface routes through it with the proofs recorded, and the PR is posted READY FOR INTEGRATION."
+      "objective": "Build the ONE canonical recommendation-constraint owner and the untouchable / excluded-player control it serves, applied during generation, fail-closed, stacked on #913 without touching its head.",
+      "result": {
+        "pr": 929,
+        "branch": "claude/v1-con-01-constraint-owner",
+        "head": "51b11bfb",
+        "ci": "Validate PR success 2026-08-19T13:59:18Z",
+        "verifiedByDispatcher": "Changed-file list read live (14 files). Every hard boundary held: src/trade/constraints.py is the new single owner; enforcement runs inside src/packages/construction.py (during generation, not a post-filter); all four outgoing-proposing surfaces covered (suggestions, finder, angle, server.py); ZERO frontend/** files, ZERO src/roster_intel/** or src/ros/** files, ZERO edits to CLAUDE.md or the contract/plan/manifest; #913's head unchanged at c2153eb. Four constraint test suites present including test_constraint_generation.py.",
+        "notVerifiedByDispatcher": "The proof CONTENT — mutation-tested RED, fail-closed semantics, outgoing-only asymmetry, board byte-identity. Those are Claude 5's to judge at integration; Claude 7 checked scope and boundaries, not correctness."
+      },
+      "handoffState": "FROZEN_FOR_INTEGRATION — Claude 5 owns #929 and #913 as an ordered pair."
     }
   ],
+  "currentAssignmentsManual": {
+    "_note": "Made by the owner directly, not by this dispatcher. Recorded so durable state matches reality. Claude 7 does not own or re-scope these; it monitors them and will not assign over them.",
+    "1": { "task": "V1-29 rehearsal (one replacement level / PAR owner) + Roster production-verification preparation", "status": "ACTIVE", "mustNotMutate": ["#914", "#922", "#925"] },
+    "2": { "task": "final Roster/Trade integration rehearsal + Analyze Trade V1 (V1-43) rehearsal", "status": "ACTIVE", "mustNotMutate": ["#913", "#929"], "note": "V1-43 cannot land until #914 merges; rehearsal evidence is never production verification" },
+    "3": { "task": "V1-51 consolidation design + #923 Step-5 verification preparation", "status": "ACTIVE", "mustNotMutate": ["#915"], "note": "no fourth parallel feature PR while #915 and #923 await integration; 637043e4 is pushed with no PR" },
+    "4": { "task": "#927 / Lane-4 production-verification preparation", "status": "ACTIVE", "mustNotMutate": [], "note": "longest activity gap of any assigned lane (since 09:59Z) — confirm receipt at cycle 4 rather than assigning a second task" },
+    "5": { "task": "sole Integration authority — merge sequencing #914 → {#913, #929} → #912", "status": "ACTIVE", "neverTaskedByDispatcher": true },
+    "6": { "task": "/rosters canonical Team Strength consumer-migration rehearsal", "status": "ACTIVE", "mustNotMutate": ["#912"], "note": "must land as a materializer over the server-stamped Team Strength, never a frontend re-implementation" }
+  },
   "noDispatch": [
-    { "lane": 1, "reason": "ACTIVE — pushed #925 at 09:39Z, CI green 09:55Z. #914 and #922 are frozen for Claude 5." },
-    { "lane": 3, "reason": "ACTIVE — pushed #919 at 09:44Z. Three Scoring/Playoff/Power PRs already await integration; master prompt §28 forbids opening a fourth." },
-    { "lane": 4, "reason": "ACTIVE — pushed #927 at 09:58Z, 16 minutes before this cycle." },
-    { "lane": 5, "reason": "ACTIVE and sole integration authority — opened #926 at 09:47Z. Not this dispatcher's to task." },
-    { "lane": 6, "reason": "FROZEN_FOR_INTEGRATION and correctly doing non-mutating work — posted a V1-106 re-measurement at 09:39Z with the head unchanged. Nothing to add." }
+    { "lane": 1, "reason": "ACTIVE on an assigned V1-29 rehearsal + verification pack." },
+    { "lane": 2, "reason": "ACTIVE on an assigned rehearsal; its two PRs are frozen for integration." },
+    { "lane": 3, "reason": "ACTIVE — most recent activity of any lane (17:29Z), assigned consolidation design + Step-5 prep." },
+    { "lane": 4, "reason": "ACTIVE on assigned production-verification preparation. Gap is long but the assignment is live; a second task would be piling on." },
+    { "lane": 5, "reason": "Sole integration authority — never tasked by this dispatcher." },
+    { "lane": 6, "reason": "FROZEN_FOR_INTEGRATION and assigned a non-mutating consumer-migration rehearsal." }
   ]
 }
