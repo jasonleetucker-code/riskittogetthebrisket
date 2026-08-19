@@ -34,8 +34,8 @@ Rank,Team,Player,Fantasy Position,ADP,Bye,Age,1yr. Proj,3yr. Proj,5yr. Proj,10yr
 33,,DeMarvion Overshown,LB,N/A,14,26,204,380,602,1025,,14
 34,,Patrick Queen,LB,N/A,9,27,176,392,614,1011,,14
 35,,Kyle Hamilton,DB,N/A,13,25.4,205,380,602,1041,,13
-36,,Kamari Lassiter,DB,N/A,8,23.5,177,379,610,1079,,13
-37,,Xavier Watts,DB,N/A,11,24.7,173,378,611,1102,,13
+36,,Xavier Watts,DB,N/A,11,24.7,173,378,611,1102,,13
+37,,Kamari Lassiter,DB,N/A,8,23.5,174,379,610,1079,,13
 38,,Terrel Bernard,LB,N/A,7,27.3,186,363,568,936,,12
 39,,Foyesade Oluokun,LB,N/A,7,31,227,371,542,774,,11
 40,,Roquan Smith,LB,N/A,13,29.3,206,362,551,836,,11
@@ -103,12 +103,12 @@ Rank,Team,Player,Fantasy Position,ADP,Bye,Age,1yr. Proj,3yr. Proj,5yr. Proj,10yr
 102,,Quinnen Williams,DL,N/A,14,28.6,145,272,415,601,,3
 103,,A.J. Haulcy,DB,N/A,13,22.6,114,311,507,950,,3
 104,,Travon Walker,DL,N/A,7,25.7,128,275,462,758,,3
-105,,Calen Bullock,DB,N/A,8,23.3,126,304,499,929,,3
-106,,Avieon Terrell,DB,N/A,11,21.6,125,309,494,912,,3
-107,,Trevon Moehrig,DB,N/A,5,27.2,185,305,475,767,,3
-108,,Christian Gonzalez,DB,N/A,11,24.1,167,302,473,839,,3
-109,,Yaya Diaby,DL,N/A,10,27.2,145,260,404,577,,3
-110,,Jessie Bates,DB,N/A,11,29.4,201,291,459,777,,3
+105,,Avieon Terrell,DB,N/A,11,21.6,125,309,494,912,,3
+106,,Trevon Moehrig,DB,N/A,5,27.2,185,305,475,767,,3
+107,,Christian Gonzalez,DB,N/A,11,24.1,167,302,473,839,,3
+108,,Yaya Diaby,DL,N/A,10,27.2,145,260,404,577,,3
+109,,Jessie Bates,DB,N/A,11,29.4,201,291,459,777,,3
+110,,Calen Bullock,DB,N/A,8,23.3,120,304,499,929,,3
 111,,Emmanuel McNeil-Warren,DB,N/A,11,22.6,91,312,510,955,,3
 112,,Bryan Bresee,DL,N/A,8,24.8,0,294,472,790,,3
 113,,Jalon Walker,LB,N/A,11,22.4,0,272,452,889,,3
@@ -119,9 +119,9 @@ Rank,Team,Player,Fantasy Position,ADP,Bye,Age,1yr. Proj,3yr. Proj,5yr. Proj,10yr
 118,,Drue Tranquill,LB,N/A,5,31,171,283,414,591,,3
 119,,Walter Nolen,DL,N/A,14,22.8,78,241,408,756,,2
 120,,Derrick Brown,DL,N/A,5,28.3,146,249,381,552,,2
-121,,Derek Stingley,DB,N/A,8,25.1,170,302,467,803,,2
-122,,Shavon Revel Jr.,DB,N/A,14,25.3,167,302,462,799,,2
-123,,Jonathon Cooper,DL,N/A,10,28.6,132,264,379,530,,2
+121,,Shavon Revel Jr.,DB,N/A,14,25.3,167,302,462,799,,2
+122,,Jonathon Cooper,DL,N/A,10,28.6,132,264,379,530,,2
+123,,Derek Stingley,DB,N/A,8,25.1,161,302,467,803,,2
 124,,Henry To'oto'o,LB,N/A,8,25.6,138,258,415,727,,2
 125,,Evan Williams,DB,N/A,11,25,158,293,468,813,,2
 126,,Carl Granderson,DL,N/A,8,29.7,139,263,354,494,,2
@@ -217,12 +217,12 @@ Rank,Team,Player,Fantasy Position,ADP,Bye,Age,1yr. Proj,3yr. Proj,5yr. Proj,10yr
 216,,Derick Hall,DL,N/A,11,25.4,85,145,244,399,,-3
 217,,Micah McFadden,LB,N/A,8,26.6,121,215,340,579,,-3
 218,,Alex Wright,DL,N/A,11,25.9,84,149,245,374,,-3
-219,,DaRon Bland,DB,N/A,14,27.1,179,246,389,640,,-3
-220,,Marlon Humphrey,DB,N/A,13,30.1,178,266,395,561,,-3
-221,,John Franklin-Myers,DL,N/A,9,29.8,106,160,207,300,,-3
-222,,Cashius Howell,DL,N/A,6,23.3,63,145,241,453,,-3
-223,,Tyler Nubin,DB,N/A,8,25.2,132,258,412,716,,-3
-224,,Reed Blankenship,DB,N/A,8,27.4,166,254,397,644,,-3
+219,,Reed Blankenship,DB,N/A,8,27.4,169,254,397,644,,-3
+220,,DaRon Bland,DB,N/A,14,27.1,179,246,389,640,,-3
+221,,Marlon Humphrey,DB,N/A,13,30.1,178,266,395,561,,-3
+222,,John Franklin-Myers,DL,N/A,9,29.8,106,160,207,300,,-3
+223,,Cashius Howell,DL,N/A,6,23.3,63,145,241,453,,-3
+224,,Tyler Nubin,DB,N/A,8,25.2,132,258,412,716,,-3
 225,,Daron Payne,DL,N/A,7,29.2,93,155,229,319,,-3
 226,,Andru Phillips,DB,N/A,8,24.7,125,261,406,713,,-3
 227,,Ronnie Hickman,DB,N/A,11,24.8,143,253,404,702,,-3
@@ -238,12 +238,12 @@ Rank,Team,Player,Fantasy Position,ADP,Bye,Age,1yr. Proj,3yr. Proj,5yr. Proj,10yr
 237,,Jonathan Allen,DL,N/A,6,31.6,96,150,198,278,,-4
 238,,R Mason Thomas,DL,N/A,5,21.9,51,132,218,427,,-4
 239,,Maliek Collins,DL,N/A,11,31.3,95,145,192,270,,-4
-240,,Jalen Pitre,DB,N/A,8,27.2,182,242,377,609,,-4
-241,,Leonard Williams,DL,N/A,11,32.1,161,112,147,219,,-4
-242,,Oluwafemi Oladejo,LB,N/A,9,22.8,68,119,202,387,,-4
-243,,Omar Speights,LB,N/A,11,25.4,97,201,324,598,,-4
-244,,Vita Vea,DL,N/A,10,31.5,98,136,180,253,,-4
-245,,Josh Metellus,DB,N/A,6,28.5,168,250,387,594,,-4
+240,,Leonard Williams,DL,N/A,11,32.1,161,112,147,219,,-4
+241,,Oluwafemi Oladejo,LB,N/A,9,22.8,68,119,202,387,,-4
+242,,Omar Speights,LB,N/A,11,25.4,97,201,324,598,,-4
+243,,Vita Vea,DL,N/A,10,31.5,98,136,180,253,,-4
+244,,Josh Metellus,DB,N/A,6,28.5,168,250,387,594,,-4
+245,,Jalen Pitre,DB,N/A,8,27.2,176,242,377,609,,-4
 246,,DJ Turner II,DB,N/A,6,25.8,159,242,376,650,,-4
 247,,Rashan Gary,DL,N/A,14,28.7,120,232,312,436,,-4
 248,,Jordan Burch,DL,N/A,14,24.8,49,133,214,357,,-4

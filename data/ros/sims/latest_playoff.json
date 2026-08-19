@@ -1,9 +1,16 @@
 {
-  "computedAt": "2026-08-19T11:06:08.681713+00:00",
+  "computedAt": "2026-08-19T17:07:22.291913+00:00",
   "playoffOdds": [],
   "n_simulations": 0,
-  "playoffSeeds": 6,
-  "byeSeeds": 2,
+  "playoffSeeds": 7,
+  "byeSeeds": 1,
+  "playoffStructure": {
+    "playoffTeams": 7,
+    "byeTeams": 1,
+    "playoffWeekStart": 15,
+    "source": "league_settings",
+    "reason": ""
+  },
   "rosStrengthAvailable": true,
   "bestBallVarianceMode": "depth_aware",
   "pointsModelSource": "fallback-constants"
