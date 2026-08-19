@@ -1,9 +1,9 @@
 {
   "_comment": "Lane utilization state, owned by Claude 7 (Lane Dispatcher). NOT an authority on integration sequencing (Claude 5 / docs/EXECUTION_PLAN.md), on V1 status (docs/VERSION_1_COMPLETION_CONTRACT.md) or on canonical ownership (CLAUDE.md). Repository evidence outranks this file: where they disagree, this file is wrong and must be corrected.",
-  "updatedAt": "2026-08-19T21:15:00Z",
-  "dispatchCycle": 8,
+  "updatedAt": "2026-08-19T22:00:00Z",
+  "dispatchCycle": 9,
   "writePolicy": "This file and ASSIGNMENTS.json are written ONLY on a material state transition — new assignment, assignment accepted, completion, blocker, freeze/unfreeze, or a meaningful dependency change. A heartbeat that finds nothing changed produces no commit and no CI run.",
-  "evidenceBasis": "origin/main e3b387ca (no merges since #930); git for-each-ref over ALL remote branches by committerdate, which caught three NEW branches a fixed tip list would have missed; per-PR check runs read live; #913 conflict reproduced again",
+  "evidenceBasis": "origin/main e3b387ca (no merges since #930); full remote-ref sweep by committerdate at 21:59Z, which caught NEW branch claude/v1-64-oldest-crawl-pin; per-PR check runs read live; #913 conflict reproduced a fifth time",
   "assignmentSourceNote": "The six current assignments were made manually by the owner, not by this dispatcher. Recorded here so the durable state matches reality; Claude 7 did not originate them and does not own them.",
   "v1": {
     "requiredRows": 132,
@@ -24,16 +24,16 @@
         925
       ],
       "pr": 933,
-      "implementationHead": "#933 NEW (CI in flight); #922 head 1f6a877e has a CANCELLED Validate PR — UNKNOWN, not green; #925 unchanged",
+      "implementationHead": "#933 GREEN (20:48:46Z); #922 head 5885796 attempt 2 IN PROGRESS since 21:55:47Z — verdict pending; #925 unchanged",
       "releaseCandidate": "NOT_YET_FROZEN",
-      "evidence": "#933 opened 20:38Z head 4e0c30e0 (1 ahead of main); #922 CI cancelled 20:42:14Z on 1f6a877e; #925 unchanged 991280ad",
+      "evidence": "#933 4e0c30e0 green; #922 pushed 21:32Z to 5885796, run 32304436677 attempt 1 cancelled 21:54:13Z, attempt 2 running; #925 991280ad",
       "blockedBy": null,
       "doNotTouch": [
         "#922",
         "#925 while under integration review"
       ],
-      "nextSafeWork": "drive #933; and re-run or re-push #922 so its current head has a real verdict — a cancelled run must not be read as a pass",
-      "lastMeaningfulActivity": "2026-08-19T20:38:23Z",
+      "nextSafeWork": "let #922's attempt 2 finish UNTOUCHED — pr-validation.yml declares concurrency pr-<number> with cancel-in-progress: true, so any further push or re-run while it is in flight cancels it again",
+      "lastMeaningfulActivity": "2026-08-19T21:55:47Z",
       "mergedThisCycle": [
         914
       ],
@@ -56,7 +56,7 @@
       "pr": 929,
       "implementationHead": "GREEN at c2153eb / 51b11bfb, but the RELEASE CANDIDATE is BLOCKED — neither can merge until the baseline is regenerated on the merged tree",
       "releaseCandidate": "BLOCKED",
-      "evidence": "rehearsal-2 head 1b99f309 (20:19Z) unchanged this cycle; #913 c2153ebe and #929 51b11bfb both untouched and frozen; conflict reproduced again at 21:15Z",
+      "evidence": "rehearsal-2 pushed 21:46Z; #929 comment 21:47:16Z; #913 c2153ebe and #929 51b11bfb untouched and frozen; conflict reproduced a fifth time at 21:59Z",
       "blockedBy": "#913/#929 conflict on config/coercion_baseline.json against post-#914 main. Claude 5's to resolve — a generated census, so the fix is to regenerate on the merged tree, never to take a side.",
       "doNotTouch": [
         "#913 head",
@@ -67,7 +67,7 @@
         "frontend/**"
       ],
       "nextSafeWork": "V1-43 Analyze Trade V1, stacked on #929 — the lane's OWN declared next unit, now dependency-ready",
-      "lastMeaningfulActivity": "2026-08-19T20:19:00Z",
+      "lastMeaningfulActivity": "2026-08-19T21:47:16Z",
       "assignedThisCycle": "L2-2026-08-19-02 HELD (base conflicted)",
       "idleMinutes": 0
     },
@@ -84,7 +84,7 @@
       ],
       "mergedThisCycle": [],
       "pr": 934,
-      "implementationHead": "GREEN",
+      "implementationHead": "#934 GREEN 21:00:43Z on b09d1f84",
       "releaseCandidate": "NOT_YET_FROZEN",
       "evidence": "#934 opened 20:44Z head b09d1f84 (1 ahead of main); #923 e4ecb8cf and #915 2b65ac07 unchanged",
       "blockedBy": null,
@@ -93,28 +93,29 @@
       ],
       "nextSafeWork": "drive #934 and finish the #923 Step-5 verification pack",
       "observation": "Back to three open PRs (#915, #923, #934), but #934 is the next step of the assigned V1-51 consolidation on merged ground rather than a new parallel feature, so §28 holds.",
-      "lastMeaningfulActivity": "2026-08-19T20:44:30Z"
+      "lastMeaningfulActivity": "2026-08-19T21:00:43Z"
     },
     "4": {
       "name": "Market / FAAB / Sharp / Analyst",
       "state": "ACTIVE",
-      "currentTask": "#927 / Lane-4 production-verification preparation",
+      "currentTask": "#936 V1-64 micro-unit (deterministic L1 pin for oldestCrawlMs) + #932 verification tooling",
       "assignmentSource": "manual (owner)",
       "branch": "claude/lane4-verification-stacked",
       "openPrs": [
         921,
         927,
-        932
+        932,
+        936
       ],
-      "pr": 932,
-      "implementationHead": "GREEN — Validate PR success 20:33:19Z on c795381b",
+      "pr": 936,
+      "implementationHead": "#932 GREEN 20:33:19Z on c795381b; #936 CI in flight since 21:48:14Z",
       "releaseCandidate": "NOT_YET_FROZEN",
-      "evidence": "#932 head c795381b green 20:33:19Z; #927 unchanged 07482b9b; #921 unchanged",
+      "evidence": "#936 opened 21:48:08Z head ef7c3d28; #932 c795381b green; #927 07482b9b unchanged",
       "blockedBy": null,
       "doNotTouch": [],
-      "nextSafeWork": "drive #932; its own audit found nine of fourteen L4 rows are IMPLEMENTED_UNVERIFIED and blocked on admissible production evidence rather than on more code — the bearer-gated verification endpoint it proposes needs Claude 5's sign-off because it touches the auth surface",
+      "nextSafeWork": "drive #936 to green — it is the single cheapest V1 row on the board and closes a gap the auditor found rather than one it invented",
       "watch": "CLOSED — Q4-2026-08-19-01 is answered by action. No second task was ever assigned, which was the right call.",
-      "lastMeaningfulActivity": "2026-08-19T20:38:12Z",
+      "lastMeaningfulActivity": "2026-08-19T21:48:14Z",
       "closedPrs": [
         931
       ]
@@ -122,22 +123,23 @@
     "5": {
       "name": "Integration / Governance / Production",
       "state": "ACTIVE",
-      "currentTask": "integration queue — nothing merged this cycle; the BLOCKED pair {#913 -> #929} is into a fourth cycle and three new PRs have arrived",
+      "currentTask": "integration queue — 13 open lane PRs, the BLOCKED pair {#913 -> #929} into a fifth cycle, and one bounded release candidate outstanding",
       "assignmentSource": "n/a — sole integration authority, never tasked by this dispatcher",
       "branch": null,
       "mergedThisCycle": [],
       "implementationHead": "n/a",
       "releaseCandidate": "NOT_YET_FROZEN",
-      "evidence": "main e3b387ca, no merge commits since #930",
+      "evidence": "main e3b387ca, no merge commits since #930 (ef95cc339)",
       "blockedBy": null,
       "doNotTouch": [],
       "nextSafeWork": "its own sequencing",
       "reportedToIntegration": [
-        "STILL BLOCKING after FOUR cycles: #913 conflicts with main on config/coercion_baseline.json. Regenerate on the merged tree (674-4-6 = 664; the flag is --write-baseline, not --rebuild). #929 inherits it. Lane 2 has correctly pushed nothing and verified the recipe in a throwaway worktree.",
-        "#912 is green on both checks, mergeable clean, 0 review threads, and Lane 6 has explicitly handed it to you. #935 now builds on the same area, so merge order between them matters.",
-        "#922's current head 1f6a877e has a CANCELLED Validate PR, so the head of the Roster chain has no green run. Cancelled is not a pass — it needs a real verdict before it is treated as a candidate.",
-        "Queue is now eight open lane PRs: #912, #913, #915, #922, #923, #925, #927, #929, plus new #932, #933, #934, #935.",
-        "V1 still 40/132 after four merges; V1-51 still reads NOT STARTED with #919 and #930 both merged."
+        "STILL BLOCKING, FIFTH cycle: #913 conflicts with main on config/coercion_baseline.json. Regenerate on the merged tree (674-4-6 = 664; the flag is --write-baseline). #929 inherits it.",
+        "REQUIRED, and it is not a developer task: ONE bounded release candidate on current main via release-candidate.yml. #927/#932's heads remain previously green; what is unvalidated is the semantic merge tree after #914/#919/#926/#930. Per #926 the lanes must NOT rebase for this.",
+        "#912 green on both checks, mergeable clean, handed over. #935 now touches the same area, so merge order matters.",
+        "#936 is the cheapest V1 row available (L1, one deterministic test) and should not queue behind larger units.",
+        "V1 still 40/132. V1-51 reads NOT STARTED with #919 AND #930 merged.",
+        "#930's production closure needs a POST-DEPLOY ROS SCRAPE, not just the deploy: the championship payload is written by src/ros/scrape.py:372, not computed per request."
       ],
       "lastMeaningfulActivity": "2026-08-19T21:07:30Z"
     },
@@ -148,15 +150,15 @@
       "assignmentSource": "manual (owner)",
       "branch": "claude/rosters-canonical-team-strength",
       "pr": 935,
-      "implementationHead": "#935 NEW (CI in flight); #912 GREEN and frozen at c025e4f6",
+      "implementationHead": "#935 head 7c61e09f, Validate PR GREEN 21:33:00Z; Boot stack in flight. #912 GREEN and frozen.",
       "releaseCandidate": "NOT_YET_FROZEN",
-      "evidence": "#935 opened 21:10:53Z head c0497cc1 (1 ahead of main); #912 untouched at c025e4f6",
+      "evidence": "#935 pushed 21:16Z to 7c61e09f, green 21:33:00Z; #912 untouched at c025e4f6",
       "blockedBy": "#912 still awaits Claude 5; #935 is independent of it and off main",
       "doNotTouch": [
         "#912 head"
       ],
       "nextSafeWork": "drive #935. It must stay a materializer over the server-stamped Team Strength — the PR title says it consumes rather than computes, which is the right shape; verify no scoring logic moved into the client.",
-      "lastMeaningfulActivity": "2026-08-19T21:10:53Z",
+      "lastMeaningfulActivity": "2026-08-19T21:33:00Z",
       "watch": "CLOSED — the lane is demonstrably active and its next unit is a separate PR, exactly as it scoped.",
       "openPrs": [
         912,
@@ -171,11 +173,12 @@
     "docs/VERSION_1_COMPLETION_CONTRACT.md — Claude 5 only.",
     "docs/claude-dispatch/** — Claude 7 only. No lane writes here."
   ],
-  "cycle8Transitions": [
-    "THREE new PRs, and all three are assigned safe work turning into deliverables — the utilization point of this role: #933 (Lane 1, V1-29 'enforce the replacement-level split; retire the one genuinely dead duplicate'), #934 (Lane 3, V1-51 'both ROS simulators take the canonical standings tiebreak — a level league was resolved by the alphabet'), #935 (Lane 6, V1-35 '/rosters consumes canonical Team Strength instead of scoring teams itself'). Each is 1 commit off main.",
-    "Lane 6 did exactly what it said it would: a NEW small PR for the V1-35 consumer gap, with frozen #912 untouched at c025e4f6. And the shape is right — it retires a frontend duplicate in favour of the canonical owner rather than porting the calculation.",
-    "FINDING — #922's Validate PR on its current head 1f6a877e was CANCELLED at 20:42:14Z, not passed. Cycle 7 recorded that head as GREEN on the strength of the previous head's run; that is now corrected to UNKNOWN. A cancelled run is neither a pass nor a failure, and the head of the Roster chain currently has no green run of its own.",
-    "BLOCKER B5-2026-08-19-01 is open for a FOURTH cycle: #913 still conflicts with main on config/coercion_baseline.json. L2-2026-08-19-02 stays HELD.",
-    "No merges this cycle. #912 remains green, clean and explicitly handed over for merge."
+  "cycle9Transitions": [
+    "#936 OPENED 21:48Z (claude/v1-64-oldest-crawl-pin, head ef7c3d28) — 'V1-64 micro-unit: deterministic L1 pin for oldestCrawlMs'. This is the exact Tier B gap the corrected closability queue identified an hour earlier: the property was implemented at record_queue.py:110 with NO test asserting it. Claude 4 owned it and delivered it. CI in flight since 21:48:14Z.",
+    "#922 is NOT cancelled any more — it is on ATTEMPT 2. Run 32304436677 job 96234016882 was cancelled 21:54:13Z; job 96239812680 started 21:55:47Z on head 5885796 and is IN PROGRESS. Verdict pending: neither cancelled nor green. Blocker B8 downgraded from 'no verdict, cause unknown' to 'verdict pending, cause known'.",
+    "#935 head moved c0497cc1 -> 7c61e09f (21:16Z); Validate PR GREEN 21:33:00Z on the new head; Boot stack + run journeys still in flight.",
+    "#934 GREEN 21:00:43Z; #933 GREEN 20:48:46Z. Both new implementation PRs have clean exact-head verdicts.",
+    "BLOCKER B5-2026-08-19-01 open for a FIFTH cycle — #913 still conflicts on config/coercion_baseline.json. L2-2026-08-19-02 stays HELD.",
+    "No merges. V1 unchanged at 40/132."
   ]
 }

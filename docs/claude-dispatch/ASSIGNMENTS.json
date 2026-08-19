@@ -1,11 +1,11 @@
 {
   "_comment": "Durable dispatch ledger written by Claude 7 (Lane Dispatcher). One PRIMARY assignment per lane. An ACTIVE row is never overwritten and a second task is never piled onto an unread one. Claude 7 does not merge, does not implement, and does not change V1 status.",
-  "updatedAt": "2026-08-19T21:15:00Z",
-  "cycle": 8,
+  "updatedAt": "2026-08-19T22:00:00Z",
+  "cycle": 9,
   "writePolicy": "Written only on a material state transition. An unchanged heartbeat produces no commit and no CI run.",
   "_delivery": {
     "state": "HELD — nothing to deliver right now",
-    "detail": "L2-2026-08-19-02 is STILL HELD: blocker B5-2026-08-19-01 has been open four cycles and #913's base remains conflicted. Delivering it as written would stack a third PR on a broken base. No agent channel is reachable in any case, so it has never been claimed as delivered.",
+    "detail": "L2-2026-08-19-02 is STILL HELD: blocker B5-2026-08-19-01 has been open FIVE cycles and #913's base remains conflicted. Delivering it as written would stack a third PR on a broken base. No agent channel is reachable in any case, so it has never been claimed as delivered.",
     "releaseCondition": "Deliver it once Claude 5 has resolved the #913/#929 baseline conflict and the two #914-induced breaks — or re-scope it onto merged main if Claude 5 sequences those PRs differently.",
     "howToDeliver": "Send the `prompt` field of L2-2026-08-19-02 to Lane 2, after amending its base instruction to whatever head exists post-resolution."
   },
@@ -100,7 +100,8 @@
         5,
         6,
         7,
-        8
+        8,
+        9
       ]
     }
   ],
@@ -136,13 +137,14 @@
       "note": "both ROS simulators take the canonical standings tiebreak — a level league had been resolved by the alphabet"
     },
     "4": {
-      "task": "#927 / Lane-4 production-verification preparation",
-      "status": "ACTIVE",
+      "task": "#927/#932 verification tooling + #936 V1-64 micro-unit",
+      "status": "DELIVERED_AS_PR",
+      "pr": 936,
       "mustNotMutate": [
         "#927",
         "#921"
       ],
-      "note": "receipt confirmed by action — #931 opened then closed, #932 stacked. Its next unit needs Claude 5's auth-surface sign-off."
+      "note": "#936 closes the exact Tier B gap the corrected closability queue identified — the oldestCrawlMs property had no deterministic test"
     },
     "5": {
       "task": "sole Integration authority — merge sequencing #914 → {#913, #929} → #912",
@@ -156,33 +158,33 @@
       "mustNotMutate": [
         "#912"
       ],
-      "note": "new small PR off main as it scoped; frozen #912 untouched. Consumes rather than computes — verify no scoring logic moved client-side."
+      "note": "head 7c61e09f green 21:33Z; Boot stack in flight. Consumes rather than computes; carries a no-frontend-methodology guard test."
     }
   },
   "noDispatch": [
     {
       "lane": 1,
-      "reason": "ACTIVE — opened #933 for V1-29 at 20:38Z."
+      "reason": "ACTIVE — #933 green, #922 attempt 2 running. Must be left untouched or concurrency cancels it again."
     },
     {
       "lane": 2,
-      "reason": "ACTIVE on rehearsal; its Claude-7 assignment is HELD on a conflicted base, not on idleness."
+      "reason": "ACTIVE — rehearsal-2 21:46Z, #929 comment 21:47Z. Its Claude-7 assignment is HELD on a conflicted base, fifth cycle."
     },
     {
       "lane": 3,
-      "reason": "ACTIVE — opened #934 for the V1-51 consolidation at 20:44Z."
+      "reason": "ACTIVE — #934 green 21:00Z."
     },
     {
       "lane": 4,
-      "reason": "ACTIVE — #932 green at 20:33Z on its new head."
+      "reason": "ACTIVE — opened #936 at 21:48Z, the cheapest V1 row on the board."
     },
     {
       "lane": 5,
-      "reason": "Sole integration authority; owns two open blockers and a twelve-PR queue."
+      "reason": "Sole integration authority; owns B5 and the outstanding bounded release candidate."
     },
     {
       "lane": 6,
-      "reason": "ACTIVE — opened #935 for V1-35 at 21:10Z, exactly as it scoped, with frozen #912 untouched."
+      "reason": "ACTIVE — #935 green on its new head at 21:33Z."
     }
   ],
   "openQuestions": [
@@ -220,14 +222,14 @@
       "problem": "#913 conflicts with post-#914 main on config/coercion_baseline.json; #929 inherits it. Plus two #914-induced breaks: the _index_contract_rows -> index_contract_rows rename leaves the merged tree unable to import, and #914's exact-caller-set cut-ladder test goes red on roster_capacity's direct call.",
       "verifiedByDispatcher": "Conflict reproduced locally with git merge-tree against origin/main — the single conflicted path is config/coercion_baseline.json.",
       "notClaude7s": "Resolution is integration work on frozen candidates. Claude 7 reported it and did not touch either branch.",
-      "stillOpenAtCycle": 8,
-      "openForCycles": 4,
-      "recheck": "Reproduced again at 21:15Z. Four cycles open; nothing has changed on either frozen branch."
+      "stillOpenAtCycle": 9,
+      "openForCycles": 5,
+      "recheck": "Reproduced a fifth time at 21:59Z. Nothing has changed on either frozen branch."
     },
     {
       "id": "B8-2026-08-19-01",
       "raisedAt": "2026-08-19T21:15:00Z",
-      "status": "OPEN",
+      "status": "DOWNGRADED — verdict pending, cause known",
       "owner": "Lane 1, then Claude 5",
       "affects": [
         922
@@ -235,7 +237,8 @@
       "problem": "#922's Validate PR on its current head 1f6a877e was CANCELLED at 20:42:14Z. The head of the Roster chain therefore has no green run of its own.",
       "whyItMatters": "Cancelled is neither a pass nor a failure. Cycle 7 recorded this head as GREEN by inheriting the previous head's verdict, which is exactly the missing-read-as-passing mistake this project treats as a defect class. Corrected here.",
       "fix": "Re-run the workflow, or push so a fresh run is scheduled. Do not treat the cancelled run as a verdict.",
-      "notClaude7s": "Neither re-running someone else's CI nor pushing to a frozen candidate is the dispatcher's to do — reported."
+      "notClaude7s": "Neither re-running someone else's CI nor pushing to a frozen candidate is the dispatcher's to do — reported.",
+      "update": "#922's head is now 5885796. Run 32304436677 attempt 1 (job 96234016882) cancelled 21:54:13Z; attempt 2 (job 96239812680) IN PROGRESS from 21:55:47Z. Root cause of the repeated cancellations is structural, not mysterious: pr-validation.yml:41-43 sets concurrency group pr-<number> with cancel-in-progress: true, so any push or re-run during validation cancels it. The fix is to leave attempt 2 alone."
     }
   ]
 }
