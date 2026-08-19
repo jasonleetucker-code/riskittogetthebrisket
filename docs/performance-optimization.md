@@ -995,6 +995,221 @@ One known tail: `/draft` hits ~0.18 in roughly 1 run in 5, attributed
 to a `DIV.muted` block collapsing 361×166 → 0 at ~900ms.  Pre-existing,
 not round 6's doing, and not yet fixed.
 
+## 2026-08-06 — RETRACTION: row windowing DOES fix it, and the harness lied
+
+**The section immediately below is wrong and is kept only as a record.**
+Its conclusion — "row count is not what makes the board scroll slowly" —
+was produced by a harness that measured its own scroll loop. Fixing the
+harness reverses the finding completely.
+
+### The defect in the instrument
+
+`measure-board-fps.mjs` drove the page with `window.scrollBy()` +
+`await new Promise(r => setTimeout(r, 16))`, 30 times. That is not a
+scroll; it is 30 jumps paced by a timer, and the frame counter therefore
+measured how fast that loop could turn over — bounded **above** by the
+timer at ~60/s regardless of how fast the page was. Every absolute number
+below is a property of the loop as much as of the board, which is exactly
+why the 65-row board (32.1) and the 964-row board (28.6) came out
+indistinguishable. They are not.
+
+Rewritten to drive the scroll with CDP `Input.synthesizeScrollGesture`
+and sample `requestAnimationFrame` timestamps with **no timer anywhere in
+the loop**, 9000 px at 2400 px/s, 3 runs each, median:
+
+| board | rows | DOM nodes | 1× | 4× | 6× |
+|---|---|---|---|---|---|
+| capped | 200 | 6,597 | 32.8 | 9.0 | — |
+| "Show all" | 964 | 30,501 | **22–27** | **5.7–6.5** | **4.1** |
+| *control: trivial 600-div page* | — | ~1,800 | **60.0** | **60.0** | **59.7** |
+
+The control is the part that makes the rest readable, and it is new: a
+trivial page holds **60 FPS at every throttle rate, including 6×**. So
+the harness can produce 60 here, CPU throttling alone does not degrade
+it, and the board's collapse is entirely the board's.
+
+### Windowing reaches the 1× target outright
+
+Simulated by removing all but ~60 rows from layout on the live board
+(`display:none` on `:nth-child(n+61)`) — the same thing a window achieves
+by unmounting, without needing the implementation:
+
+| arm | 1× | 4× | 6× |
+|---|---|---|---|
+| baseline, 964 rows | 22.2 | 6.0 | 4.1 |
+| **~60 rows laid out** | **59.5** | **23.3** | **15.0** |
+| ~200 rows laid out | 36.6 | 9.9 | — |
+
+**1×: 22 → 59.5, which MEETS the ≥50 target.** 4×: 6.0 → 23.3, still
+short of ≥30 but a ~4× improvement. 6×: 4.1 → 15.0.
+
+The old table's "windowing bought ~2 FPS" was the timer floor absorbing
+the entire effect.
+
+### It is LAYOUT, not paint — and that is why the CSS fixes all failed
+
+Every cheap intervention was ablated on the live board, `!important`
+overrides, same driver, with the baseline re-measured first and last so
+drift is visible (it is ~10%, and every arm below sits inside it):
+
+| suspect removed | 1× | 4× |
+|---|---|---|
+| baseline | 26.5 / 22.8 (drift) | 6.5 / 5.4 |
+| `tr:hover .sticky-name` (cursor parked off-table) | 23.4 | 6.3 |
+| `.sticky-name` `box-shadow` | 25.2 | 5.2 |
+| `.sticky-name` `position: sticky` | 22.4 | 6.2 |
+| `thead th` `position: sticky` | 21.4 | 4.4 |
+| all sticky, everywhere | 20.6 | 4.7 |
+| `table-layout: fixed` | 24.2 | 6.0 |
+| `content-visibility: auto` on rows | 22.7 | 6.5 |
+| `contain: layout paint style` on rows | 23.4 | 5.7 |
+| **`visibility: hidden` on rows 61+** (skips PAINT, keeps layout) | **29.5** | **9.4** |
+| **`display: none` on rows 61+** (skips LAYOUT too) | **59.5** | **23.3** |
+
+The last two rows are the finding. Skipping *paint* for 900 rows buys
+~3 FPS. Skipping *layout* as well buys 33. **The cost is table layout,
+and it is not reachable by any containment property** — which is why
+`content-visibility` and `contain` did nothing: neither is honoured on
+`<tr>` the way it is on a block element.
+
+That closes the "can we avoid virtualization with CSS" question with a
+measured no.
+
+### And it is not JavaScript
+
+The live board's rendered HTML was snapshotted with every stylesheet
+inlined and every `<script>` stripped, then reloaded as a static
+document and scrolled with the identical driver:
+
+| | rows | nodes | 1× | 4× |
+|---|---|---|---|---|
+| live board (React, hydrated) | 964 | 30,501 | 27.9 | 6.2 |
+| static snapshot, **no JS at all** | 964 | 30,475 | 27.5 | 6.9 |
+
+Identical. Nothing runs during the scroll — no listener, no observer, no
+React work. (The one rAF+ResizeObserver pair in the tree,
+`ds/DataTable.jsx:294-310`, does not fire on scroll; the old claim of
+"zero rAF/ResizeObserver in the frontend" was false, but the conclusion
+it supported survives.) So there is no JS to optimise here, and the old
+section's advice — "start by profiling what the page does per frame" —
+would have led straight to a dead end.
+
+### What this means for planned item #2
+
+It is **live again**, and the reverted implementation on this branch's
+history is the right starting point. The two things that were true about
+it remain true and must be re-solved, not skipped:
+
+* `journey-rankings.spec.js:81` counts rows before/after filtering and
+  asserts the count drops. Under windowing both counts pin to the window
+  size. This doc's standing rule against loosening board assertions still
+  applies — but the trade has changed, because the change now delivers
+  its goal. Re-point that assertion at `aria-rowcount`, which is the
+  honest observable once a window exists, rather than deleting it.
+* The 4× target is still missed (23.3 vs ≥30). Windowing is necessary and
+  not sufficient; per-row node reduction (~32 nodes/row today) is the
+  complement, and it now has a measured reason to exist.
+
+### The superseded section follows
+
+Planned item #2 ("the rankings board past the row cap") was implemented
+in full and then backed out, because the measurement says its premise is
+wrong. **Row count is not what makes the board scroll slowly.**
+
+This section exists so nobody builds it a second time. The instrument
+that produced the numbers is committed —
+`frontend/scripts/measure-board-fps.mjs` — so every line below is
+re-runnable rather than remembered.
+
+### The premise, and the measurement that refutes it
+
+This doc said: "Getting 500+ rows to 30 FPS is the windowing work",
+i.e. only rendering fewer rows reaches the target. Measured on one
+machine, one session, same harness, 3 runs each (median):
+
+| board | rows | DOM nodes | FPS @1× |
+|---|---|---|---|
+| capped | 65 | 2,305 | **32.1** |
+| "Show all", no window | 964 | 30,553 | **28.6** |
+| "Show all", windowed | 964 | **3,763** | **30.9** |
+| *control: trivial page* | — | 204 | **59.5** |
+
+Read the first two rows together: a **15× increase in rows and a 13×
+increase in DOM nodes costs about 11% of the frame rate.** Then read the
+control: this machine renders a bare scrolling page at 59.5 FPS, so the
+~30 the board sits at is not a hardware ceiling.
+
+The board is ~30 FPS at *any* size. Whatever costs the other half of the
+frame budget is **page-level, not row-level** — so windowing, which is
+purely a row-count intervention, cannot fix it. It did exactly what it
+promised (30,553 → 3,763 nodes, an 8× cut) and bought ~2 FPS.
+
+### What was ruled out
+
+Injected `!important` overrides on the live board, same scroll loop:
+
+| suspect disabled | FPS |
+|---|---|
+| nothing (baseline) | 38.1 |
+| `backdrop-filter` | 39.5 |
+| `position: sticky` | 40.0 |
+| `box-shadow` | 38.7 |
+
+None of them. Note also the spread — this baseline read 38.1 where the
+same board read 32.1 minutes earlier. **These FPS numbers carry roughly
+20% run-to-run variance**, which is wide enough that the 28.6 / 30.9 /
+32.1 trio should be treated as one number, not three. The 59.5 control
+sits well outside that band, which is why the page-level conclusion
+holds while finer distinctions do not.
+
+### The second, independent reason it was reverted
+
+Windowing makes the mounted row count stop tracking the board size, and
+a journey spec legitimately depends on that. `journey-rankings.spec.js:81`
+("position filter narrows the board to one position") counts rows before
+and after filtering and asserts the count drops. Under windowing both
+counts pin to the window size and the assertion fails — not because
+filtering broke, but because a real user-visible behaviour stopped being
+observable through the DOM.
+
+That test could have been rewritten against `aria-rowcount`. It was not,
+because doing so trades away a working detector to accommodate a change
+that does not deliver its goal — and this doc has a standing rule against
+loosening board assertions to make a change fit.
+
+### If someone picks this up again
+
+* ~~**Do not start from row count.** Start by profiling what the page
+  does per frame during a scroll~~ — **REVERSED by the retraction above.**
+  Row count is exactly where to start, and the per-frame profile is a
+  dead end: a static snapshot of the board with every script stripped
+  scrolls at the same speed as the live page, so there is nothing running
+  per frame to find.
+* ~~The windowing implementation worked and is recoverable from this
+  branch's history~~ — **FALSE, corrected 2026-08-06.** It is not
+  recoverable and never was: `git log --all -S windowRows` returns
+  nothing, the branch has exactly one pre-retraction commit (the
+  measurement), and no dangling object holds it. It was built in a
+  working tree and reverted without ever being committed. Anyone acting
+  on the retraction above is **writing it from scratch**, and should
+  budget accordingly. What survives is the design, which was sound and is
+  worth re-using: opt-in `windowRows` prop (default off, rankings only —
+  `DataTable` has 12 consumers), document-scroll rather than a new scroll
+  container, spacer rows to preserve scroll height, data-driven zebra
+  parity, absolute-index callbacks through `renderBeforeRow` /
+  `renderAfterRow` / `col.render`, and a full-render fallback when
+  geometry is unmeasurable (jsdom reports 0 rects and all 28 DataTable
+  tests depend on that fallback).
+* One trap it hit, worth keeping: measure row height from a row the table
+  itself renders (`data-ds-row`), never `tbody tr`. The first `tr` can be
+  a caller-authored tier separator, and measuring one collapses the window
+  to its floor.
+
+### Also corrected here
+
+The row counts in this doc are stale: "Show all" is **964 rows** today,
+not the ~632 or ~1,095 quoted elsewhere, at ~32 DOM nodes per row.
+
 ## Rejected (attempted, reverted)
 
 ### Browser revalidation via `If-None-Match`/`304` — **not safe as-is**
