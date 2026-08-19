@@ -54,6 +54,7 @@ from collections import defaultdict
 from typing import Any, Iterable
 
 from src.ros import ROS_DATA_DIR
+from src.ros.aggregate import _evidence_basis as _agg_evidence_basis
 from src.public_league import luck, metrics as _metrics
 from src.public_league.snapshot import PublicLeagueSnapshot
 
@@ -162,6 +163,83 @@ def _load_team_strength_percentiles() -> dict[str, float]:
         scores.append((oid, score))
     score_values = [s for _, s in scores]
     return {oid: _percentile(score_values, score) for oid, score in scores}
+
+
+def ros_strength_evidence() -> dict[str, Any]:
+    """What the dominant power-ranking input rests on, league-wide.
+
+    ``team_ros_strength`` is 0.41 of the composite and, in preseason,
+    the ONLY surviving component — so when the seasonal board behind it
+    is largely dynasty-derived (V1-53 measured 18.1% of players priced
+    by nothing else, 31.4% of contributing weight) the published
+    ordering is largely a dynasty ordering, labelled rest-of-season.
+
+    Reported at the SECTION level and never per owner, deliberately.
+    This module publishes only ``teamRosStrength``'s inclusive
+    percentile precisely because the composite stays private — a rank
+    over 12 owners is 11 ordering constraints against 36 unknowns, and
+    twelve per-team shares would add constraints to that system.
+    "Which sources could price your roster" is also a roster-weakness
+    signal, which is the private side of the §5 boundary. The share of
+    the RANKING that is dynasty-derived is neither.
+
+    Weighted by team strength rather than by team count: one dominant
+    dynasty-priced roster is a different exposure from one trivial one.
+
+    ``None`` — never 0.0 — when no snapshot exists or when its rows
+    predate the stamp. A snapshot written before V1-53 carries no share,
+    and reading that absence as 0.0 would report a dynasty-derived board
+    as pure rest-of-season, which is the silence this exists to remove.
+    """
+    rows = _load_team_strength_rows()
+    total = 0.0
+    weighted = 0.0
+    with_proxy = 0
+    counted = 0
+    for row in rows:
+        share = row.get("dynastyProxyValueShare")
+        if share is None:
+            continue
+        # Two distinct skips, written as two. ``or 0.0`` would collapse
+        # "this row records no strength" into "its strength is zero" —
+        # both skip, but only one of them is a measurement.
+        raw_strength = row.get("teamRosStrength")
+        if raw_strength is None:
+            continue
+        strength = float(raw_strength)
+        if strength <= 0:
+            continue
+        counted += 1
+        total += strength
+        weighted += strength * float(share)
+        if float(share) > 0:
+            with_proxy += 1
+
+    if not counted or total <= 0:
+        return {
+            "basis": "unavailable",
+            "dynastyProxyValueShare": None,
+            "teamsWithAnyDynastyProxy": 0,
+            "teamCount": counted,
+            "note": (
+                "No team-strength snapshot carries an evidence basis. This is "
+                "not a claim that the board is free of dynasty proxies — it is "
+                "that we cannot say."
+            ),
+        }
+
+    share = weighted / total
+    return {
+        "basis": _agg_evidence_basis(share),
+        "dynastyProxyValueShare": round(share, 4),
+        "teamsWithAnyDynastyProxy": with_proxy,
+        "teamCount": counted,
+        "note": (
+            "Share of this ranking's rest-of-season strength input that rests "
+            "on dynasty boards standing in for rest-of-season evidence, "
+            "weighted by team strength. Reported league-wide only."
+        ),
+    }
 
 
 def _schedule_adjusted_scores(
@@ -783,5 +861,6 @@ def build_section(
         "effectiveWeights": dict(active_weights),
         "missingInputs": sorted(missing_inputs),
         "rosTeamStrengthAvailable": ros_available,
+        "rosStrengthEvidence": ros_strength_evidence(),
         "preseason": preseason,
     }
