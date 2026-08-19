@@ -72,7 +72,6 @@ single assets, so there is no cross-market sum to constrain.
 from __future__ import annotations
 
 from dataclasses import replace
-from itertools import combinations
 from typing import Any, Iterable, Sequence
 
 from src.league_intel.cross_market import (
@@ -95,6 +94,7 @@ from src.league_intel.cross_market import (
 # VA injects the consolidation premium on the SMALLER side — so the
 # side receiving more studs sees its effective total climb, and the
 # thresholds get evaluated on the adjusted numbers.
+from src.packages import EligibilityPolicy as _EligibilityPolicy
 from src.trade.ktc_va import (
     adjusted_pair_totals as _adjusted_pair_totals,  # noqa: F401
     ktc_adjust_package,
@@ -343,6 +343,47 @@ def _value_pair(row: dict[str, Any]) -> tuple[float, float, str] | None:
     return my_num, market_num, source
 
 
+# ── Roster capacity — REPORTED, never filtered ────────────────────────
+#
+# Angle proposes N-for-M packages, and on a full roster a great many of them
+# force a release.  The canonical owner of that question is
+# ``src/trade/roster_capacity``; this module reads it and attaches the answer,
+# exactly as ``finder.py`` and ``suggestions.py`` do.  Nothing is dropped on
+# capacity grounds — a proposal that vanishes is invisible rather than
+# explained, and the cost is the thing worth showing.
+#
+# Picks are excluded by ``player_names_only``: a pick does not occupy a roster
+# spot, which the owner VERIFIED against the live league rather than assumed.
+def _capacity_block(
+    context: Any,
+    *,
+    incoming: Sequence[Any],
+    outgoing: Sequence[Any],
+) -> dict[str, Any]:
+    """One capacity read for one candidate, degraded to a NAMED unavailable.
+
+    ``incoming`` / ``outgoing`` are this module's player-row dicts (``name`` +
+    ``position``); the owner does the pick filtering and the counting.
+    """
+
+    from src.trade.roster_capacity import (  # noqa: PLC0415
+        assess_roster_capacity,
+        player_names_only,
+    )
+
+    try:
+        return assess_roster_capacity(
+            context,
+            incoming_players=player_names_only(incoming),
+            outgoing_players=player_names_only(outgoing),
+        ).to_dict()
+    except Exception:  # noqa: BLE001 — an annotation never drops a candidate
+        return {
+            "unavailable": "assessment_failed",
+            "notes": ["roster capacity could not be computed for this candidate"],
+        }
+
+
 def find_angles(
     players_array: list[dict[str, Any]],
     selected_player_name: str,
@@ -353,6 +394,7 @@ def find_angles(
     max_market_gain_pct: float = 5.0,
     limit: int = 50,
     target_team_owner_id: str | None = None,
+    capacity_context: Any | None = None,
 ) -> dict[str, Any]:
     """Find trade-target candidates that lean in the user's favour.
 
@@ -375,6 +417,13 @@ def find_angles(
         to still look "plausible" to the counterparty. Default 5%.
     limit
         Cap on returned candidates (sorted by arbitrage score desc).
+    capacity_context
+        Optional ``src.trade.roster_capacity.CapacityContext`` for the
+        REQUESTING team.  When supplied, every returned candidate carries a
+        ``rosterCapacity`` block naming the roster consequence of that
+        specific package — size after, open spots, over-limit state and the
+        forced drops with their value.  **Nothing is filtered on capacity
+        grounds.**
 
     Returns
     -------
@@ -484,6 +533,25 @@ def find_angles(
     candidates.sort(key=lambda c: c["arb_score"], reverse=True)
     candidates = candidates[: max(1, int(limit))]
 
+    # A 1-for-1 is size-neutral for a roster that actually holds the selected
+    # player, so most of these read "no drops" — which is the answer, not a
+    # reason to omit it.  It is NOT neutral by construction: an already
+    # over-limit roster, or a selected name the roster does not carry, both
+    # move the count, and the owner counts from the names rather than assuming.
+    if capacity_context is not None:
+        outgoing = [
+            {
+                "name": selected_player_name,
+                "position": str(selected_row.get("position") or ""),
+            }
+        ]
+        for c in candidates:
+            c["rosterCapacity"] = _capacity_block(
+                capacity_context,
+                incoming=[{"name": c["name"], "position": c["position"]}],
+                outgoing=outgoing,
+            )
+
     return {
         "selected": {
             "name": selected_player_name,
@@ -504,6 +572,72 @@ def find_angles(
     }
 
 
+#: Angle decides eligibility upstream; the substrate must not re-filter.
+_ANGLE_POLICY = _EligibilityPolicy(min_value=None, allow_unknown_value=True, require_position=False)
+
+
+# ── Package construction mechanics — DELEGATED (V1-36 / C3-PKG-01) ────
+#
+# This module had three hand-rolled ``combinations`` enumerations: the
+# seed/filler split and the per-team default in ``find_angle_packages``, and
+# the pool sweep in ``find_acquisition_packages``.  They are the same mechanic
+# — build every side of size N from a pool, without repeating an asset and
+# without emitting the same side twice — and it now has one owner in
+# ``src/packages``.
+#
+# What did NOT move: the eligibility filters above (IDP inclusion, value
+# floors, team scoping), the pool sort, the per-team cap, ``_make_candidate``
+# and the arbitrage objective.  Those are this product's question.
+#
+# Angle's pool entries are plain dicts, so the accessors are explicit.  They
+# carry no canonical asset id, which means the dedup identity here falls back
+# to names — the substrate reports that rather than letting it pass as an id
+# key.
+def _angle_sides(pool, sizes, *, required=()):
+    """Every candidate package side, via the canonical substrate."""
+    from src.packages import enumerate_sides  # noqa: PLC0415
+
+    sides, _report = enumerate_sides(
+        pool,
+        sizes,
+        required=required,
+        # Eligibility is already decided upstream by this module's own
+        # filters; re-applying a generic one here would silently drop
+        # entries angle deliberately kept (a positionless pick row, say).
+        policy=_ANGLE_POLICY,
+        adapt=False,
+    )
+    for side in sides:
+        yield tuple(a.source for a in side)
+
+
+def _angle_pool_assets(entries):
+    """Project angle's dict pool entries onto the substrate's asset view."""
+    from src.packages import PackageAsset  # noqa: PLC0415
+
+    def _value(entry):
+        # A missing ``my_value`` is UNKNOWN, and a measured 0 is a real zero.
+        # ``float(x or 0.0) or None`` collapsed both to None, which is a
+        # decision-path fabrication in the ordering direction: pool order
+        # decides what survives truncation, so "we have no number" and "the
+        # number is zero" must not become the same thing.
+        raw = entry.get("my_value")
+        if isinstance(raw, bool) or not isinstance(raw, (int, float)):
+            return None
+        return float(raw)
+
+    return [
+        PackageAsset(
+            asset_id="",
+            name=str(e.get("name") or ""),
+            position=str(e.get("position") or ""),
+            value=_value(e),
+            source=e,
+        )
+        for e in entries
+    ]
+
+
 def find_angle_packages(
     players_array: list[dict[str, Any]],
     selected_player_names: list[str],
@@ -520,6 +654,7 @@ def find_angle_packages(
     target_team_owner_ids: list[str] | None = None,
     seed_player_names: list[str] | None = None,
     include_idp: bool = False,
+    capacity_context: Any | None = None,
 ) -> dict[str, Any]:
     """Find multi-player counter-packages for a user-built offer.
 
@@ -558,6 +693,13 @@ def find_angle_packages(
         the offer / seeds) to allow IDP candidates. Offer-side and
         user-selected seeds are never filtered — the user's explicit
         choices always win.
+    capacity_context
+        Optional ``src.trade.roster_capacity.CapacityContext`` for the
+        REQUESTING team.  When supplied, every returned candidate carries a
+        ``rosterCapacity`` block naming the roster consequence of that
+        specific package — size after, open spots, over-limit state and the
+        forced drops with their value.  **Nothing is filtered on capacity
+        grounds.**
 
     Returns
     -------
@@ -934,8 +1076,11 @@ def find_angle_packages(
                 continue
             if len(non_seed_pool) < free_slots:
                 continue
-            for fillers in combinations(non_seed_pool, free_slots):
-                combo = tuple(seed_entries) + fillers
+            for combo in _angle_sides(
+                _angle_pool_assets(non_seed_pool),
+                [size],
+                required=_angle_pool_assets(seed_entries),
+            ):
                 cand = _make_candidate(combo, team_label, owner_label)
                 if cand is not None:
                     candidates.append(cand)
@@ -944,17 +1089,14 @@ def find_angle_packages(
         # This is the existing behaviour — each opposing team
         # contributes its own packages independently.
         for team, pool in teams_pool:
-            for size in target_sizes:
-                if len(pool) < size:
-                    continue
-                for combo in combinations(pool, size):
-                    cand = _make_candidate(
-                        combo,
-                        str(team.get("name") or ""),
-                        str(team.get("ownerId") or ""),
-                    )
-                    if cand is not None:
-                        candidates.append(cand)
+            for combo in _angle_sides(_angle_pool_assets(pool), target_sizes):
+                cand = _make_candidate(
+                    combo,
+                    str(team.get("name") or ""),
+                    str(team.get("ownerId") or ""),
+                )
+                if cand is not None:
+                    candidates.append(cand)
 
     # Per-team cap first — prevents a single opposing roster from
     # swamping the results with 50 near-identical variations of the
@@ -976,6 +1118,19 @@ def find_angle_packages(
     candidates = candidates[: max(1, int(limit))]
 
     offer_players = _package_players(offer_entries, offer_pkg)
+
+    # The offer side is fixed across every candidate; the counter side is not.
+    # Attached to the RETURNED set only — capacity feeds no ranking (that is
+    # the "report, never filter" rule), so scoring the discarded combos would
+    # buy a lineup re-solve per combo and change nothing.
+    if capacity_context is not None:
+        for c in candidates:
+            c["rosterCapacity"] = _capacity_block(
+                capacity_context,
+                incoming=c.get("players") or [],
+                outgoing=offer_players,
+            )
+
     warnings.extend(_diagnostic_warnings(diag))
 
     return {
@@ -1021,6 +1176,7 @@ def find_acquisition_packages(
     positions: list[str] | None = None,
     min_player_my_value: float = 0.0,
     include_idp: bool = False,
+    capacity_context: Any | None = None,
 ) -> dict[str, Any]:
     """Find offer-side packages from the user's roster that acquire a
     fixed set of desired players from other teams.
@@ -1315,13 +1471,10 @@ def find_acquisition_packages(
         }
 
     candidates: list[dict[str, Any]] = []
-    for size in target_sizes:
-        if len(pool) < size:
-            continue
-        for combo in combinations(pool, size):
-            cand = _make_candidate(combo)
-            if cand is not None:
-                candidates.append(cand)
+    for combo in _angle_sides(_angle_pool_assets(pool), target_sizes):
+        cand = _make_candidate(combo)
+        if cand is not None:
+            candidates.append(cand)
 
     candidates.sort(key=lambda c: c["arb_score"], reverse=True)
     candidates = candidates[: max(1, int(limit))]
@@ -1329,6 +1482,17 @@ def find_acquisition_packages(
     desired_players = _package_players(desired_entries, desired_pkg)
     for p in desired_players:
         p["owner_id"] = desired_owners.get(p["name"], "")
+
+    # Mirror image of the offer mode: here the INCOMING side is fixed (the
+    # players the user asked to acquire) and each candidate is what leaves.
+    if capacity_context is not None:
+        for c in candidates:
+            c["rosterCapacity"] = _capacity_block(
+                capacity_context,
+                incoming=desired_players,
+                outgoing=c.get("players") or [],
+            )
+
     warnings.extend(_diagnostic_warnings(diag))
 
     # Deduplicated list of target teams the desired players come from.

@@ -7,26 +7,61 @@ Auditing call sites?  ``grep cross_market`` LIES
 consensus pipeline marking which ranking sources price both offense
 and IDP.  It has nothing to do with this module.
 
-The honest count of production importers of THIS file is **zero**.
-``value_package`` / ``compare_packages`` are consumed only by
-``tests/league_intel/test_cross_market.py``.  ``src/trade/angle.py``
-is the intended call site and is **not rewired yet** — see "Which call
-site actually matters" below.  So a behaviour change here cannot reach
-a user today, and anyone auditing by grep will conclude the opposite
-unless they read the hits.
+CORRECTED 2026-08-18.  This block used to say the honest count of
+production importers was **zero**.  That has not been true for some
+time.  Measured at HEAD there are **three**, and two of them are
+reachable from a user request:
 
-The live defect
-───────────────
+============================  ==========================  ==============
+importer                      what it takes               reached from
+============================  ==========================  ==============
+``src/roster_intel/packages`` ``value_package``,          ``GET /api/gameplan?partner=…``
+                              ``compare_packages``
+``src/trade/angle``           ``value_package``,          ``POST /api/angle/find``,
+                              ``compare_packages``,       ``POST /api/angle/packages``
+                              ``PackageValuation``,
+                              ``NORMALIZATION_VERSION``
+``src/api/gameplan``          ``DEFAULT_GATE_PCT``        (constant only)
+============================  ==========================  ==============
+
+**A behaviour change here DOES reach a user.**  This module is live,
+not dead code awaiting a caller.
+
+Two corrections layered on top of each other here, and the second was
+mine: the ORIGINAL note said zero importers, and the first correction
+then said ``src/trade/angle.py`` was "still not rewired" with the
+mixed-market defect "still live there".  That was also wrong — angle
+was rewired before either note, and the defect below is CLOSED on both
+of its sides.  Recorded rather than quietly deleted, because a stale
+"still broken" note is worse than a stale "no callers" note: it invites
+someone to re-fix something already fixed, in a file whose whole
+subject is not double-counting evidence.
+
+The grep warning above still stands for a different reason: the
+``is_cross_market`` hits in ``data_contract.py`` are an unrelated
+source-registry flag, so a grep audit over-counts callers of this file
+while both stale notes under-counted them.  Read the hits.
+
+The defect this module exists for — now CLOSED
+──────────────────────────────────────────────
 ``src/trade/angle.py::_market_source_for`` routes each PLAYER to the
 right board — IDP to ``idpTradeCalc``, everything else to
-``ktcSfTep``.  But ``_make_candidate`` then does::
+``ktcSfTep``.  ``_make_candidate`` then used to do::
 
     counter_market_values = [p["market_value"] for p in combo]
     market_sum = sum(counter_market_values)
 
-over a combo that is never constrained to one market.  A mixed
-offense/IDP package therefore adds KTC points to IDPTC points, and
-``market_gain_pct`` gates candidate visibility on that sum.
+over a combo that was never constrained to one market.  A mixed
+offense/IDP package added KTC points to IDPTC points, and
+``market_gain_pct`` gated candidate visibility on that sum.
+
+Both sides now route through :func:`value_package`: the counter side at
+``counter_pkg = value_package([p["row"] for p in combo])`` and the
+offer side at ``offer_pkg = value_package(offer_rows)``, with
+:func:`compare_packages` deciding whether the verdict survives its own
+uncertainty.  No sum over per-asset ``market_value`` survives anywhere
+in that module — the only remaining occurrence of that expression is
+inside its docstring, quoted to explain what was removed.
 
 What the evidence actually says
 ───────────────────────────────
@@ -128,14 +163,20 @@ Suppression is always LABELLED, never silent: every withheld result
 carries a caller-renderable ``label`` and ``suppressed_reason``, so a
 reader can tell "withheld because uncertain" from "data missing".
 
-Which call site actually matters
-────────────────────────────────
+Which call site mattered most, and why both were fixed
+─────────────────────────────────────────────────────
 The counter-side pool in ``angle.py`` is IDP-gated (``include_idp``
 defaults False and the frontend never sends it), so counter combos are
-offense-only in practice.  **The reachable mixed-market path is the
-OFFER side**: ``offer_rows`` is built from user-selected names with no
-IDP filter, so ``offer_market_values`` can mix boards today.  Any
-rewire must cover that side first.
+offense-only in practice — which made the counter side the LESS urgent
+half.  **The reachable mixed-market path was the OFFER side**:
+``offer_rows`` is built from user-selected names with no IDP filter, so
+it could mix boards with no opt-in anywhere in the UI.  Both are now
+priced by :func:`value_package`; the offer side is the one that had to
+be, and it is.
+
+That asymmetry is worth keeping in mind for anything added here later:
+a default-off IDP gate makes a mixed-market path look unreachable in
+testing while a second, ungated path next to it is wide open.
 """
 
 from __future__ import annotations

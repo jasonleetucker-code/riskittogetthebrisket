@@ -356,10 +356,34 @@ def label_frontier(frontier: Sequence[PackageCandidate]) -> dict[str, Any]:
 
 
 def _package_key(c: PackageCandidate) -> str:
-    return (
-        "+".join(sorted(a.asset_id for a in c.send))
-        + "->"
-        + "+".join(sorted(a.asset_id for a in c.receive))
+    """Package identity — DELEGATED, not defined here (V1-36 / C3-PKG-01).
+
+    This module and ``src/trade/finder.py`` both had one of these, and they
+    disagreed: this one keys on ``asset_id`` (correct), the finder's keyed on
+    display names and so collapsed two assets that share a board row.  Having
+    the right answer twice is still two answers, so the identity now has one
+    owner in ``src/packages`` and this is its string form for
+    the dict keys and stable sorts already built on it.
+    """
+    from src.packages import package_key  # noqa: PLC0415
+
+    send, receive = package_key(
+        [_substrate_view(a) for a in c.send],
+        [_substrate_view(a) for a in c.receive],
+    )
+    return "+".join(send) + "->" + "+".join(receive)
+
+
+def _substrate_view(asset: TradeAsset):
+    """Project a ``TradeAsset`` onto the substrate's asset view."""
+    from src.packages import PackageAsset  # noqa: PLC0415
+
+    return PackageAsset(
+        asset_id=asset.asset_id,
+        name=getattr(asset, "name", "") or asset.asset_id,
+        position=getattr(asset, "position", "") or "",
+        value=getattr(asset, "market_value", None),
+        source=asset,
     )
 
 

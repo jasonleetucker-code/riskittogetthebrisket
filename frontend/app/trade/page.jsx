@@ -763,9 +763,26 @@ export default function TradePage() {
       pool = rows.filter((r) => !allInTrade.has(r.name) && !excluded(r));
       teamName = null;
     }
-    const list = findBalancers(pwGap, pool, valueMode);
+    // The gap is NOT passed in.  ``findBalancers`` takes the trade and
+    // measures the post-add gap through the same path the meter renders,
+    // so a raw value can never be matched against an adjusted target
+    // (defect #800).
+    const list = findBalancers(sidesWithOverrides, behindSideIdx, pool, valueMode, {
+      settings,
+      stackContext,
+    });
     return { list, teamName };
-  }, [pwGap, rows, sides, valueMode, inferTeamForSide, teamRosterNames]);
+  }, [
+    pwGap,
+    rows,
+    sides,
+    sidesWithOverrides,
+    settings,
+    stackContext,
+    valueMode,
+    inferTeamForSide,
+    teamRosterNames,
+  ]);
 
   // For 3+ teams, find balancers for the team getting the best deal
   // (they should add more to their give to even things out).  Uses
@@ -804,7 +821,11 @@ export default function TradePage() {
       pool = rows.filter((r) => !allInTrade.has(r.name) && !excluded(r));
       teamName = null;
     }
-    const suggestions = findBalancers(gap, pool, valueMode);
+    const suggestions = findBalancers(sidesWithOverrides, bestIdx, pool, valueMode, {
+      settings,
+      stackContext,
+      toSideIdx: worstIdx,
+    });
     return {
       overpayingIdx: worstIdx,
       underpayingIdx: bestIdx, // panel rendered on the side that needs to give more
@@ -812,7 +833,17 @@ export default function TradePage() {
       suggestions,
       teamName,
     };
-  }, [sides, sideFlows, rows, valueMode, inferTeamForSide, teamRosterNames]);
+  }, [
+    sides,
+    sidesWithOverrides,
+    sideFlows,
+    rows,
+    settings,
+    stackContext,
+    valueMode,
+    inferTeamForSide,
+    teamRosterNames,
+  ]);
 
   // All assets currently in any side (for picker exclusion)
   const allTradeNames = useMemo(() => {

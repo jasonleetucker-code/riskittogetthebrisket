@@ -12,9 +12,7 @@ from src.trade.finder import (
     build_asset_pool,
     find_trades,
     _score_trade,
-    _generate_1for1,
-    _generate_2for1,
-    _generate_1for2,
+    _generate_packages,
     _deduplicate,
     _norm_pos,
     _resolve_roster,
@@ -423,49 +421,103 @@ class TestStrictPositiveOpponentKtc:
 # ── Candidate generation ─────────────────────────────────────────────────
 
 
-class TestGenerate1for1:
-    def test_generates_viable_trades(self):
+def _shapes(trades):
+    return sorted((len(t.give), len(t.receive)) for t in trades)
+
+
+class TestPackageGeneration:
+    """``_generate_packages`` replaced three hand-rolled generators.
+
+    Shapes are asserted rather than call sites: the mechanics now live in
+    ``src/trade/package_substrate`` and the point of these tests is that this
+    engine still emits the shapes it is supposed to, scored by its own
+    objective.
+    """
+
+    def test_generates_one_for_one(self):
         my = [_make_asset("Mine1", 4000, 5500), _make_asset("Mine2", 3000, 4000)]
         opp = [_make_asset("Theirs1", 5000, 4500), _make_asset("Theirs2", 4000, 3500)]
-        trades = _generate_1for1(my, opp)
+        trades, report = _generate_packages(my, opp)
         assert len(trades) > 0
-        for t in trades:
-            assert len(t.give) == 1
-            assert len(t.receive) == 1
+        assert (1, 1) in _shapes(trades)
+        assert report["oneForOne"]["ourPoolSize"] == 2
 
     def test_skips_low_value(self):
         my = [_make_asset("Low", 100, 100)]
         opp = [_make_asset("Also Low", 200, 200)]
-        trades = _generate_1for1(my, opp)
-        assert len(trades) == 0
+        trades, report = _generate_packages(my, opp)
+        assert trades == []
+        # Excluded by the eligibility policy, and the count says so rather
+        # than the pool quietly being empty.
+        assert report["oneForOne"]["ourExcludedIneligible"] == 1
 
-
-class TestGenerate2for1:
-    def test_generates_packages(self):
+    def test_generates_two_for_one(self):
         my = [
             _make_asset("A", 2500, 3500),
             _make_asset("B", 2000, 3000),
             _make_asset("C", 1500, 2000),
         ]
         opp = [_make_asset("Star", 5000, 4500)]
-        trades = _generate_2for1(my, opp)
-        # At least some 2-for-1 combos should be viable
-        for t in trades:
-            assert len(t.give) == 2
-            assert len(t.receive) == 1
+        trades, _report = _generate_packages(my, opp)
+        for shape in _shapes(trades):
+            assert shape in {(1, 1), (2, 1), (1, 2)}
 
-
-class TestGenerate1for2:
-    def test_generates_packages(self):
+    def test_generates_one_for_two(self):
         my = [_make_asset("BigPiece", 6000, 7000)]
         opp = [
             _make_asset("Part1", 3500, 3000),
             _make_asset("Part2", 3000, 2500),
         ]
-        trades = _generate_1for2(my, opp)
+        trades, _report = _generate_packages(my, opp)
         for t in trades:
-            assert len(t.give) == 1
-            assert len(t.receive) == 2
+            assert len(t.give) in (1,)
+            assert len(t.receive) in (1, 2)
+
+    def test_never_emits_a_shape_this_engine_does_not_offer(self):
+        """No 2-for-2, no 3-for-anything — the shape plan is explicit."""
+        my = [_make_asset(f"M{i}", 3000 + i * 100, 3500 + i * 100) for i in range(4)]
+        opp = [_make_asset(f"T{i}", 3000 + i * 100, 3400 + i * 100) for i in range(4)]
+        trades, _report = _generate_packages(my, opp)
+        assert set(_shapes(trades)) <= {(1, 1), (2, 1), (1, 2)}
+
+    def test_an_asset_never_appears_on_both_sides(self):
+        shared = _make_asset("Shared", 4000, 4200)
+        trades, _report = _generate_packages([shared], [shared])
+        assert trades == []
+
+    def test_truncation_is_reported_not_silent(self):
+        """The retired ``[:30]`` slice reported nothing."""
+        my = [_make_asset(f"M{i:03d}", 5000 - i, 5200 - i) for i in range(40)]
+        opp = [_make_asset(f"T{i:03d}", 5000 - i, 4800 - i) for i in range(40)]
+        _trades, report = _generate_packages(my, opp)
+        assert report["asymmetric"]["ourTruncatedTo"] == 30
+        assert report["asymmetric"]["truncated"] is True
+        # 1-for-1 is deliberately unbounded, exactly as before.
+        assert report["oneForOne"]["ourTruncatedTo"] is None
+        assert report["oneForOne"]["truncated"] is False
+
+    def test_the_pool_bound_keeps_the_most_valuable_assets(self):
+        """It used to keep whichever names sorted first.
+
+        ``_resolve_roster`` returns assets in Sleeper's ``players`` order,
+        which is alphabetical, so the old ``[:30]`` slice bounded the
+        asymmetric search to early-alphabet players.  Measured on the
+        2026-08-18 board, one live roster lost 7 of its top 30 by value that
+        way, the highest worth 6,671.
+        """
+        # 35 low-value fillers that sort EARLY alphabetically, plus one
+        # high-value asset that sorts LAST.  The retired bound kept the 35.
+        my = [_make_asset(f"Aaa Filler {i:03d}", 800 + i, 900 + i) for i in range(35)]
+        # Economics chosen so a trade containing it actually clears the
+        # engine's own gates — otherwise this would pass or fail on the
+        # scoring rules rather than on the pool bound it is testing.
+        crown = _make_asset("Zzz Crown", 4000, 9999)
+        my.append(crown)
+        opp = [_make_asset("Target", 4500, 5000)]
+        trades, _report = _generate_packages(my, opp)
+        assert any(
+            any(a.name == "Zzz Crown" for a in t.give) for t in trades
+        ), "the most valuable asset must survive the pool bound"
 
 
 # ── Deduplication ────────────────────────────────────────────────────────

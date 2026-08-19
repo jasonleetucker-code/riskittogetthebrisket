@@ -14,9 +14,10 @@ _rawComposite / _canonicalSiteValues fields).
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from itertools import combinations
 from typing import Any
 
+from src import packages as substrate
+from src.trade.finder_value_adjustment import value_adjustment_payload
 from src.utils.name_clean import normalize_position as _norm_pos  # noqa: F401 — re-exported via _norm_pos shim below for back-compat
 
 # ── Thresholds ──────────────────────────────────────────────────────────
@@ -282,6 +283,10 @@ class TradeCandidate:
             "rankingFactors": self.ranking_factors,
             "flags": list(self.flags),
             "packageSize": f"{len(self.give)}-for-{len(self.receive)}",
+            # KTC package Value Adjustment.  These used to be spliced in by a
+            # wrapper installed over this method at import time; they are part
+            # of the payload now, so the shape is readable here.
+            **value_adjustment_payload(self),
         }
 
 
@@ -606,7 +611,26 @@ def _resolve_roster(
 
 
 def _score_trade(give: list[Asset], receive: list[Asset]) -> TradeCandidate | None:
-    """Score a candidate trade. Returns None if the trade is nonsensical."""
+    """Score a candidate trade on KTC-ADJUSTED side totals.
+
+    This is the scorer every generator calls.  Until 2026-08-18 it was the
+    value-only scorer below, and the Value Adjustment was bolted on by a
+    monkeypatch that ``src/trade/__init__.py`` installed at package-import
+    time — so reading this file told you the finder scored linearly, which it
+    did not.  The call is explicit now; see
+    ``src/trade/finder_value_adjustment`` for why the patch is gone.
+    """
+
+    from src.trade.finder_value_adjustment import (  # noqa: PLC0415
+        score_with_value_adjustment,
+    )
+
+    return score_with_value_adjustment(give, receive, _score_trade_on_values)
+
+
+def _score_trade_on_values(give: list[Asset], receive: list[Asset]) -> TradeCandidate | None:
+    """Score a candidate trade on the values passed in, with no package
+    adjustment of its own.  Callers want :func:`_score_trade`."""
     if not give or not receive:
         return None
 
@@ -820,61 +844,77 @@ def _score_trade(give: list[Asset], receive: list[Asset]) -> TradeCandidate | No
     return tc
 
 
-def _generate_1for1(
+#: Pool bound for the ASYMMETRIC shapes.  1-for-1 is a cheap cross product and
+#: is left unbounded, exactly as before; 2-for-1 and 1-for-2 multiply by the
+#: pool size again and are capped.
+_ASYMMETRIC_POOL_LIMIT = 30
+
+
+def _generate_packages(
     my_assets: list[Asset],
     opp_assets: list[Asset],
-) -> list[TradeCandidate]:
-    """Generate all viable 1-for-1 trades."""
+) -> tuple[list[TradeCandidate], dict[str, Any]]:
+    """Enumerate and score every shape this engine offers.
+
+    Construction MECHANICS come from ``src/packages`` (V1-36 /
+    C3-PKG-01) — asset eligibility, side construction, self-trade prevention,
+    cardinality, dedup identity and truncation reporting.  The OBJECTIVE stays
+    here: ``_score_trade`` and its market gates are what make this the
+    arbitrage finder rather than one of the other three products, and none of
+    that moved.
+
+    This replaced three hand-rolled generators (``_generate_1for1`` /
+    ``_generate_2for1`` / ``_generate_1for2``).  Two things changed with them,
+    both deliberate:
+
+    **The pool bound is now by VALUE, not alphabetical.**  The retired code
+    sliced ``[:30]`` off a roster list built in Sleeper's ``players`` order,
+    which is alphabetical — so the 2-for-1 and 1-for-2 search space was
+    "players whose names sort early", and nothing said so.  Measured on the
+    2026-08-18 board across twelve live rosters: two exceed the bound at all,
+    and on the larger of them **7 of the top 30 assets by value were excluded,
+    the highest worth 6,671**.
+
+    **Truncation is reported.**  The slice was silent, so "no 2-for-1 found"
+    and "we never looked past asset 30" rendered identically.
+    """
     results: list[TradeCandidate] = []
-    for mine in my_assets:
-        if mine.model_value < MIN_ASSET_VALUE:
-            continue
-        for theirs in opp_assets:
-            if theirs.model_value < MIN_ASSET_VALUE:
-                continue
-            tc = _score_trade([mine], [theirs])
+
+    def _run(shapes: list[substrate.PackageShape], pool_limit: int | None):
+        packages, report = substrate.enumerate_packages(
+            my_assets,
+            opp_assets,
+            policy=substrate.EligibilityPolicy(
+                min_value=MIN_ASSET_VALUE,
+                # An asset the board declined to price cannot be scored, and
+                # ``build_asset_pool`` has already dropped those; this states
+                # the rule rather than relying on it.
+                allow_unknown_value=False,
+                # The finder's pool carries picks, which have no position in
+                # the legacy players dict.  Position is not a mechanic gate
+                # here — the market gate in ``_score_trade`` is.
+                require_position=False,
+            ),
+            shapes=shapes,
+            pool_limit=pool_limit,
+            rank_key=substrate.by_value_desc,
+        )
+        for pair in packages:
+            give, receive = pair.sources()
+            tc = _score_trade(give, receive)
             if tc is not None:
                 results.append(tc)
-    return results
+        return report
 
-
-def _generate_2for1(
-    my_assets: list[Asset],
-    opp_assets: list[Asset],
-) -> list[TradeCandidate]:
-    """Generate viable 2-for-1 trades (I give 2, get 1)."""
-    results: list[TradeCandidate] = []
-    # Limit combinations for performance
-    my_tradeable = [a for a in my_assets if a.model_value >= MIN_ASSET_VALUE]
-    opp_tradeable = [a for a in opp_assets if a.model_value >= MIN_ASSET_VALUE]
-    if len(my_tradeable) < 2:
-        return results
-
-    for pair in combinations(my_tradeable[:30], 2):
-        for theirs in opp_tradeable[:30]:
-            tc = _score_trade(list(pair), [theirs])
-            if tc is not None:
-                results.append(tc)
-    return results
-
-
-def _generate_1for2(
-    my_assets: list[Asset],
-    opp_assets: list[Asset],
-) -> list[TradeCandidate]:
-    """Generate viable 1-for-2 trades (I give 1, get 2)."""
-    results: list[TradeCandidate] = []
-    my_tradeable = [a for a in my_assets if a.model_value >= MIN_ASSET_VALUE]
-    opp_tradeable = [a for a in opp_assets if a.model_value >= MIN_ASSET_VALUE]
-    if len(opp_tradeable) < 2:
-        return results
-
-    for mine in my_tradeable[:30]:
-        for pair in combinations(opp_tradeable[:30], 2):
-            tc = _score_trade([mine], list(pair))
-            if tc is not None:
-                results.append(tc)
-    return results
+    one_for_one = _run([substrate.PackageShape(1, 1)], None)
+    asymmetric = _run(
+        [substrate.PackageShape(2, 1), substrate.PackageShape(1, 2)],
+        _ASYMMETRIC_POOL_LIMIT,
+    )
+    return results, {
+        "oneForOne": one_for_one.to_dict(),
+        "asymmetric": asymmetric.to_dict(),
+    }
 
 
 def _deduplicate(trades: list[TradeCandidate]) -> list[TradeCandidate]:
@@ -903,6 +943,8 @@ def find_trades(
     market_top_n: int | None = None,
     ktc_top_n: int | None = None,
     contract: dict[str, Any] | None = None,
+    capacity_context: Any | None = None,
+    constraints: Any | None = None,
 ) -> dict[str, Any]:
     """
     Find board-arbitrage trades.
@@ -921,6 +963,12 @@ def find_trades(
         Maximum number of results to return.
     ktc_top_n : int
         Only include players ranked in the KTC top N. Set to 0 to disable.
+    capacity_context : CapacityContext, optional
+        Turns on the roster-capacity read (``src/trade/roster_capacity``).
+        Each returned trade then reports what it would cost in forced
+        releases.  **Nothing is filtered on capacity grounds** — a 1-for-2
+        into a full roster is a real trade with a real cost, and dropping it
+        from the list would make the cost invisible rather than explaining it.
 
     Returns
     -------
@@ -977,8 +1025,38 @@ def find_trades(
             "metadata": {},
         }
 
+    # C3-CON-01 / V1-130 — recommendation constraints, applied to the OUTGOING
+    # pool BEFORE enumeration.  Spec §6: generate only feasible packages; never
+    # generate everything and hide the forbidden ones afterwards, which wastes
+    # the search budget and can return the wrong *best* result because the real
+    # best was removed after ranking.
+    #
+    # Only OUR side is constrained.  A protected player stays a valid incoming
+    # target and keeps his ordinary canonical value — this is a recommendation
+    # rule, not a valuation rule.
+    from src.trade.constraints import partition_sendable  # noqa: PLC0415
+
+    my_roster, blocked_outgoing = partition_sendable(my_roster, constraints)
+    if not my_roster:
+        # Honest no-result: every asset we could send is constrained.  An empty
+        # list with no explanation reads as "no trades exist".
+        return {
+            "trades": [],
+            "metadata": {
+                "myTeam": my_team,
+                "constraintsBlockedOutgoing": len(blocked_outgoing),
+                "constraintsBlockedReasons": sorted({r for _, r in blocked_outgoing}),
+                "noResultReason": "all_outgoing_assets_constrained",
+            },
+            "warnings": [
+                "Every asset on your roster is protected or excluded from outgoing "
+                "recommendations, so no trade could be generated."
+            ],
+        }
+
     my_names = {a.name for a in my_roster}
     all_trades: list[TradeCandidate] = []
+    enumeration_reports: dict[str, dict[str, Any]] = {}
     opponents_analyzed = 0
     warnings: list[str] = []
 
@@ -1043,10 +1121,11 @@ def find_trades(
             continue
         opponents_analyzed += 1
 
-        # Generate candidates for each trade shape
-        all_trades.extend(_generate_1for1(my_roster, opp_filtered))
-        all_trades.extend(_generate_2for1(my_roster, opp_filtered))
-        all_trades.extend(_generate_1for2(my_roster, opp_filtered))
+        # Generate candidates for every trade shape.  Construction mechanics
+        # are the substrate's; the scoring objective stays in this module.
+        shaped, enum_report = _generate_packages(my_roster, opp_filtered)
+        all_trades.extend(shaped)
+        enumeration_reports[opp_name] = enum_report
 
     # Deduplicate
     all_trades = _deduplicate(all_trades)
@@ -1096,13 +1175,43 @@ def find_trades(
 
     capped = ranked[:max_results]
 
+    # Roster capacity, attached to the RETURNED set only.  Scoring every
+    # candidate would pay for a lineup re-solve on thousands of trades nobody
+    # will see; the answer is identical either way because capacity does not
+    # feed the ranking — deliberately, per the "report, never filter" rule
+    # above.
+    trade_dicts = [t.to_dict() for t in capped]
+    if capacity_context is not None:
+        from src.trade.roster_capacity import (  # noqa: PLC0415
+            assess_roster_capacity,
+            player_names_only,
+        )
+
+        for payload, tc in zip(trade_dicts, capped):
+            try:
+                payload["rosterCapacity"] = assess_roster_capacity(
+                    capacity_context,
+                    incoming_players=player_names_only(tc.receive),
+                    outgoing_players=player_names_only(tc.give),
+                ).to_dict()
+            except Exception:  # noqa: BLE001 — an annotation never drops a trade
+                payload["rosterCapacity"] = {
+                    "unavailable": "assessment_failed",
+                    "notes": ["roster capacity could not be computed for this trade"],
+                }
+
     return {
-        "trades": [t.to_dict() for t in capped],
+        "trades": trade_dicts,
         "metadata": {
             "myTeam": my_team,
             "opponentTeams": opponent_teams,
             "opponentsAnalyzed": opponents_analyzed,
             "myRosterSize": len(my_roster),
+            # Why the outgoing pool may be smaller than the roster.  Published
+            # unconditionally: "you protect 22 players" and "no trade exists"
+            # must not render identically.
+            "constraintsBlockedOutgoing": len(blocked_outgoing),
+            "constraintsBlockedReasons": sorted({r for _, r in blocked_outgoing}),
             "totalCandidatesEvaluated": len(all_trades),
             "totalQualified": len(ranked),
             "returned": len(capped),
@@ -1111,6 +1220,11 @@ def find_trades(
             "valueSource": "rankDerivedValue" if board_values is not None else "rawComposite",
             "assetsUnpricedByBoard": unpriced_by_board,
             "marketTopNFilter": market_top_n,
+            # What the package enumeration looked at, per opponent, including
+            # what it refused to look at.  The retired ``[:30]`` slice reported
+            # neither, so "no 2-for-1 found" and "we stopped looking" rendered
+            # identically.  See src/packages.
+            "packageEnumeration": enumeration_reports,
             "marketCoverage": market_coverage,
             "marketCoveragePercent": round(market_coverage_pct * 100, 1),
             # How many returned trades span both retail markets. Zero

@@ -37,16 +37,21 @@ import styles from "./trades.module.css";
 // lib/league-analysis + lib/trade-retro-value + lib/value-history; this
 // file only arranges the results.
 
+// ``unknown`` is a rendered state, not an omission.  A trade whose
+// at-the-time value could not be established must not silently look like a
+// trade nobody graded — and it must never borrow one of the three verdicts.
 const RETRO_LABEL = {
   aged_well: "Aged well",
   aged_poorly: "Aged poorly",
   stable: "Stable",
+  unknown: "Aging unknown",
 };
 
 const RETRO_TONE = {
   aged_well: "positive",
   aged_poorly: "negative",
   stable: "neutral",
+  unknown: "neutral",
 };
 
 function fmtSigned(n) {
@@ -403,8 +408,14 @@ export default function TradesPage() {
     if (!analysis?.analyzed?.length) return new Map();
     const out = new Map();
     for (const a of analysis.analyzed) {
-      const ts =
-        Number(a.trade?._statusUpdatedMs) || Date.parse(a.date) || Date.now();
+      // NOT ``|| Date.now()``.  An undated trade graded "as of now" makes the
+      // at-trade total equal the current total, so verdictDelta is 0 by
+      // construction and the badge reads "Stable" — a measured finding where
+      // there is no measurement.  Non-finite reaches gradeRetro, which
+      // refuses.
+      const explicit = Number(a.trade?._statusUpdatedMs);
+      const parsed = Date.parse(a.date);
+      const ts = Number.isFinite(explicit) && explicit > 0 ? explicit : parsed;
       out.set(
         a.id,
         (a.sides || []).map((side) =>

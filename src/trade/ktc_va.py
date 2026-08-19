@@ -15,6 +15,35 @@ Parity with the JS port is verified by
 ``tests/trade/test_ktc_va_python_port.py``, which runs the 139-trade
 fixture (``scripts/ktc_va_observations.json``) through both the
 Python and JS implementations and asserts agreement to ±1.
+
+──────────────────────────────────────────────────────────────────────
+Raw canonical value vs contextual Value Adjustment
+──────────────────────────────────────────────────────────────────────
+Two quantities, deliberately distinct, and conflating them is defect
+#800:
+
+* **raw canonical value** — ``rankDerivedValue``, the one number the
+  board publishes for an asset.  VA never mutates it.  A player is
+  worth the same whatever package he is in.
+* **adjusted side total** — ``raw + VA``, the comparison quantity for
+  ONE specific pairing of packages.  It is a property of the trade,
+  not of any asset in it, and it is what every fairness verdict,
+  meter and gap in this repo is measured on.
+
+The consequence that matters: **VA is a function of BOTH sides'
+complete value arrays**, so adding a piece of raw value ``V`` to a side
+does NOT move the adjusted gap by ``V``.  Adding a piece re-runs
+:func:`ktc_adjust_package` from scratch — the piece count changes, the
+progressive-nerf ladder shifts, the recipient side can flip, and the
+1-v-1 / 3.3% display gates snap on or off.  Anything that wants to
+close a gap must therefore **simulate the post-add adjusted gap**, not
+subtract a raw value from it.  See
+``suggestions._find_balancers`` and
+``frontend/lib/trade-logic.js::findBalancers``.
+
+ONE OWNER.  This module is the only Python implementation of KTC's VA.
+``src/trade/market_value_adjustment.py`` is a compatibility re-export of
+this file and computes nothing of its own.
 """
 
 from __future__ import annotations
@@ -28,6 +57,27 @@ KTC_MAX_PLAYER_VAL = 10000
 KTC_T_REFERENCE = 10041
 KTC_VARIANCE_PCT = 5
 
+# Aliases kept for the callers that grew up against the (now retired)
+# second port in ``market_value_adjustment``.
+KTC_MAX_PLAYER_VALUE = KTC_MAX_PLAYER_VAL
+KTC_TOP_REFERENCE = KTC_T_REFERENCE
+KTC_VARIANCE_PERCENT = KTC_VARIANCE_PCT
+
+
+def _js_round(value: float) -> int:
+    """JavaScript ``Math.round``: half rounds UP, never to even.
+
+    Python's built-in ``round`` is banker's rounding, which disagrees
+    with the JS original on exact halves.  Measured over 30,000 random
+    packages the two rounding rules produced different published VAs on
+    **60** of them (always by 1 point).  The frontend is the reference
+    implementation KTC's numbers are matched against, so half-up is the
+    correct rule and this helper is used everywhere a value crosses out
+    of the algorithm.
+    """
+
+    return math.floor(value + 0.5)
+
 
 @dataclass(frozen=True)
 class KtcVAResult:
@@ -37,13 +87,19 @@ class KtcVAResult:
     KTC's 1-indexed team identifier (1 = team1, 2 = team2, 0 = no VA).
     """
 
-    value: int
-    side: int
-    displayed: bool
+    value: int = 0
+    side: int = 0
+    displayed: bool = False
 
     @classmethod
     def empty(cls) -> "KtcVAResult":
         return cls(value=0, side=0, displayed=False)
+
+
+#: Compatibility alias.  ``market_value_adjustment`` named the same
+#: concept ``PackageAdjustment``; it is the SAME class, so results from
+#: either import path compare equal.
+PackageAdjustment = KtcVAResult
 
 
 def ktc_process_v(value: float, max_in_trade: float, t: float, nerf_index: int) -> float:
@@ -113,7 +169,7 @@ def ktc_reverse_adjust(raw_diff: float, max_in_trade: float, t: float, nerf_coun
                 f += 1
             l = best_l
         u += 1
-    return int(round(l))
+    return _js_round(l)
 
 
 def _ktc_check_equality(a: float, b: float, variance_pct: float) -> bool:
@@ -122,7 +178,7 @@ def _ktc_check_equality(a: float, b: float, variance_pct: float) -> bool:
     if s <= 0:
         return True
     pct = min(100.0, abs(a - b) / s * 100)
-    return float(round(10 * pct) / 10) <= variance_pct
+    return _js_round(10 * pct) / 10 <= variance_pct
 
 
 def _build_side_adj(values: Sequence[float], max_in_trade: float, t: float):
@@ -316,7 +372,7 @@ def ktc_adjust_package(
         displayed = False
     if not displayed:
         return KtcVAResult.empty()
-    return KtcVAResult(value=int(round(value)), side=side, displayed=True)
+    return KtcVAResult(value=_js_round(value), side=side, displayed=True)
 
 
 def adjusted_pair_totals(
