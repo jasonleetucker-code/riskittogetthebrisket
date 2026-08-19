@@ -68,7 +68,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field, replace
 from typing import Any, Iterable, Mapping
 
-from src.league_intel.replacement import normalize_base_position
+from src.ros.lineup import lineup_position
 from src.roster_intel.core import CoreMember, MeaningfulCore
 from src.roster_intel.strength import POSITION_GROUPS
 
@@ -155,7 +155,7 @@ class YouthCurve:
         league"."""
         if age is None:
             return None
-        pool = self.by_position.get(normalize_base_position(position))
+        pool = self.by_position.get(lineup_position(position))
         if not pool:
             return None
         if len(pool) == 1:
@@ -180,7 +180,7 @@ def build_youth_curve(
     for position, age in players:
         if age is None:
             continue
-        buckets.setdefault(normalize_base_position(position), []).append(float(age))
+        buckets.setdefault(lineup_position(position), []).append(float(age))
     return YouthCurve(by_position={k: tuple(sorted(v)) for k, v in buckets.items()})
 
 

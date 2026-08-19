@@ -62,10 +62,22 @@ Two inputs are named, never invented
   within a factor of 1.15/0.85 ≈ 1.353.  Beyond that ratio the two
   ladders agree on order whatever the scarcity signals say.
 * **``unavailable_keys``** removes players who are not actually
-  signable.  The draft surface passes the rookies in the live auction
-  (without it, the board's best "free agent" TE was lot number one).
-  There is no auction outside a draft, so it defaults to empty — a
-  named input difference, not a second rule.
+  signable, and its DEFAULT is no longer "nobody".  It was ``()``, which
+  is the claim that every unrostered player can be signed — false for
+  every lot in a live rookie auction, and false in the direction that
+  matters: counting the auction's own rookies as free agents RAISES the
+  replacement bar, so every cut looks CHEAPER.  Measured against the
+  draft surface on the live board, WR waiver level ran **25.4% high**
+  (2036.0 vs 1519.0), DL 8.1% and TE 7.1%.  That is the defect
+  ``src/draft/rookie_pool.py`` exists to prevent, arriving by a
+  different door.
+
+  ``None`` now asks the contract (the same ``auction_rookie_keys`` the
+  draft surface passes); ``()`` still asserts that nobody is unavailable.
+  Missing and explicitly-empty are different claims.  Either way
+  ``waiverPopulation`` stamps which was used, because a silently smaller
+  free-agent pool and a genuinely empty wire look identical in the
+  numbers.
 
 Missing is never zero
 =====================
@@ -84,6 +96,7 @@ from __future__ import annotations
 
 from typing import Any, Collection, Iterable, Mapping, Sequence
 
+from src.api.data_contract import contract_slot_eligibility
 from src.draft.context import (
     build_roster_assets,
     contract_teams,
@@ -91,8 +104,10 @@ from src.draft.context import (
     league_rostered_keys,
     match_team,
 )
+from src.draft.rookie_pool import auction_rookie_keys
 from src.draft.displacement import (
     FEASIBILITY_OBJECTIVE,
+    count_free_agents,
     MAX_LADDER_RUNGS,
     CutLadder,
     RosterAsset,
@@ -185,7 +200,7 @@ def team_droppability(
     team_name: str | None = None,
     starter_slots: Sequence[str] | None = None,
     scarcity: Mapping[str, Any] | None = None,
-    unavailable_keys: Iterable[str] = (),
+    unavailable_keys: Iterable[str] | None = None,
     max_rungs: int = MAX_LADDER_RUNGS,
 ) -> dict[str, Any]:
     """One team's cut ladder, from the canonical owner.
@@ -205,11 +220,37 @@ def team_droppability(
     by_id, by_name = index_contract_rows(contract)
     assets, unmatched = build_roster_assets(team, by_name, by_id)
 
-    excluded: Collection[str] = [str(k) for k in unavailable_keys]
-    waiver_values = waiver_values_by_position(contract, league_rostered_keys(contract), excluded)
+    # ``None`` asks the contract who is unsignable; ``()`` asserts nobody
+    # is.  Missing and explicitly-empty are different claims and stay
+    # distinguishable, which is the same discipline the rest of this
+    # chain applies to a missing value.
+    if unavailable_keys is None:
+        excluded = sorted(auction_rookie_keys(contract))
+        waiver_source = "contract_auction_rookies"
+    else:
+        excluded = [str(k) for k in unavailable_keys]
+        waiver_source = "caller"
+
+    rostered = league_rostered_keys(contract)
+    waiver_values = waiver_values_by_position(contract, rostered, excluded)
 
     slots, slot_source = _slots_for(contract, starter_slots)
-    ladder = build_cut_ladder(assets, slots, waiver_values, scarcity, max_rungs=max_rungs)
+
+    # The league's OWN flex rule, from the same helper the lineup stamp and
+    # ``/api/roster/intelligence`` use (F1).  Without it this ladder would
+    # score a custom-flex league against the built-in defaults while the
+    # contract's ``optimalLineup`` used the configured ones — two answers to
+    # "who can fill this slot" inside one league.  ``or None`` for the reason
+    # ``pool_cut_ladder`` states.
+    eligibility = contract_slot_eligibility(contract) or None
+    ladder = build_cut_ladder(
+        assets,
+        slots,
+        waiver_values,
+        scarcity,
+        slot_eligibility=eligibility,
+        max_rungs=max_rungs,
+    )
 
     notes = list(ladder.notes)
     if not waiver_values:
@@ -239,6 +280,14 @@ def team_droppability(
         "slotSource": slot_source,
         "scarcityApplied": scarcity is not None,
         "waiverValues": {k: round(v, 1) for k, v in sorted(waiver_values.items())},
+        # Who was treated as signable, and who was not.  A silently
+        # smaller free-agent pool and a genuinely empty wire look
+        # identical in the numbers, so the population is stamped.
+        "waiverPopulation": {
+            "source": waiver_source,
+            "excludedKeys": len(excluded),
+            "freeAgents": count_free_agents(contract, rostered, excluded),
+        },
         "cutLadder": ladder.to_dict(),
         "counts": {
             "rosterPlayers": len(assets),
@@ -257,7 +306,7 @@ def league_droppability(
     *,
     starter_slots: Sequence[str] | None = None,
     scarcity: Mapping[str, Any] | None = None,
-    unavailable_keys: Iterable[str] = (),
+    unavailable_keys: Iterable[str] | None = None,
     max_rungs: int = MAX_LADDER_RUNGS,
 ) -> dict[str, dict[str, Any]]:
     """``{ownerId: team_droppability(...)}`` for every team in the league.
@@ -315,8 +364,20 @@ def pool_cut_ladder(
     backwards would silently exclude every unpriced player from the lineup
     guard and report a roster as more droppable than it is.
 
-    ``slot_eligibility`` is accepted and, when supplied, applied by re-running
-    the owner against the caller's slots — it is not silently dropped.
+    ``slot_eligibility`` is the caller's CONFIGURED flex rule and is forwarded
+    to the canonical solver through :func:`build_cut_ladder`, so it reaches the
+    lineup-feasibility check that decides which cuts are legal.  ``None`` — and
+    an empty map, which means "nothing configured" rather than "nothing is
+    eligible" — leaves ``src/ros/lineup.py`` on its built-in defaults.
+
+    *(Repaired 2026-08-19.  This paragraph previously claimed the parameter was
+    "applied by re-running the owner against the caller's slots … not silently
+    dropped", three lines above a ``del slot_eligibility``.  Neither
+    ``build_cut_ladder`` nor its feasibility check carried the parameter, so a
+    league whose FLEX admits only WR was scored against the default RB/WR/TE
+    rule and could be told to release the one player holding its lineup
+    together.  Latent because this entry point has no consumer yet — it exists
+    for ``C3-CAP-01`` (#913), which must not consume it until this is in.)*
     """
     assets = [
         RosterAsset(
@@ -332,7 +393,13 @@ def pool_cut_ladder(
         )
         for player in pool
     ]
-    del slot_eligibility  # the owner reads eligibility from the slot names
     return build_cut_ladder(
-        assets, list(starter_slots), waiver_values, scarcity, max_rungs=max_rungs
+        assets,
+        list(starter_slots),
+        waiver_values,
+        scarcity,
+        # ``or None``: an empty map is "nothing configured", not "no slot
+        # admits anything".  Passing ``{}`` through would empty every ladder.
+        slot_eligibility=slot_eligibility or None,
+        max_rungs=max_rungs,
     )

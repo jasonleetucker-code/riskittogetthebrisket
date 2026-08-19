@@ -68,7 +68,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any, Iterable, Mapping, Sequence
 
-from src.league_intel.replacement import normalize_base_position
+from src.ros.lineup import lineup_position
 from src.roster_intel.core import CoreMember, MeaningfulCore
 
 __all__ = [
@@ -148,7 +148,7 @@ def build_position_ranks(
     for pid, pos, value in players:
         if value is None:
             continue
-        by_pos.setdefault(normalize_base_position(pos), []).append((str(pid), float(value)))
+        by_pos.setdefault(lineup_position(pos), []).append((str(pid), float(value)))
     ranks: dict[str, int] = {}
     total = 0
     for entries in by_pos.values():
@@ -357,11 +357,7 @@ def _dedicated_demand(core: MeaningfulCore) -> dict[str, int]:
     Flex families are dropped here — see the module docstring for why
     FLEX gets no rung ladder.
     """
-    from src.roster_intel.core import _is_dedicated  # noqa: PLC0415
-
-    return {
-        pos: int(n) for pos, n in core.demand.starter_basis.items() if n > 0 and _is_dedicated(pos)
-    }
+    return {pos: int(n) for pos, n in core.demand.dedicated_basis.items() if n > 0}
 
 
 def _ordered_candidates(members: Sequence[CoreMember]) -> list[CoreMember]:
