@@ -1,9 +1,9 @@
 {
   "_comment": "Lane utilization state, owned by Claude 7 (Lane Dispatcher). NOT an authority on integration sequencing (Claude 5 / docs/EXECUTION_PLAN.md), on V1 status (docs/VERSION_1_COMPLETION_CONTRACT.md) or on canonical ownership (CLAUDE.md). Repository evidence outranks this file: where they disagree, this file is wrong and must be corrected.",
-  "updatedAt": "2026-08-19T18:16:00Z",
-  "dispatchCycle": 4,
+  "updatedAt": "2026-08-19T19:01:00Z",
+  "dispatchCycle": 5,
   "writePolicy": "This file and ASSIGNMENTS.json are written ONLY on a material state transition — new assignment, assignment accepted, completion, blocker, freeze/unfreeze, or a meaningful dependency change. A heartbeat that finds nothing changed produces no commit and no CI run.",
-  "evidenceBasis": "origin/main d7b126d6; #914 merge commit 37d4c5f3 dated 2026-08-19T17:51:26Z; all twelve lane tips diffed against cycle 3 via git ls-remote at 18:16Z; src/roster_intel/ confirmed present on main",
+  "evidenceBasis": "origin/main 3f1d3736 (automated commits only, no merges since d7b126d6); all cycle-4 tips diffed via git ls-remote at 19:00Z; three NEW branches found that the tip diff could not see; #913 conflict reproduced locally with git merge-tree; check runs read live",
   "assignmentSourceNote": "The six current assignments were made manually by the owner, not by this dispatcher. Recorded here so the durable state matches reality; Claude 7 did not originate them and does not own them.",
   "v1": {
     "requiredRows": 132,
@@ -26,33 +26,33 @@
       "pr": 922,
       "implementationHead": "GREEN",
       "releaseCandidate": "NOT_YET_FROZEN",
-      "evidence": "#914 MERGED 17:51:26Z; #922 re-synced onto merged main 17:51Z d5539f8d (8 ahead); #925 unchanged 991280ad",
+      "evidence": "#922 d5539f8d, Validate PR success 18:09:34Z; #925 unchanged 991280ad; no push since 17:51Z",
       "blockedBy": null,
       "doNotTouch": [
         "#922",
         "#925 while under integration review"
       ],
       "nextSafeWork": "continue the assigned V1-29 rehearsal and the production-verification pack — which is now stronger work, not weaker: the Roster owners are on main, so verification can run against merged code instead of a rehearsal tree",
-      "lastMeaningfulActivity": "2026-08-19T17:52:50Z",
+      "lastMeaningfulActivity": "2026-08-19T18:09:34Z",
       "mergedThisCycle": [
         914
       ]
     },
     "2": {
       "name": "Trade Intelligence",
-      "state": "ACTIONABLE_IDLE",
-      "currentTask": "assigned rehearsal is superseded — see assignedThisCycle",
-      "assignmentSource": "manual (owner), now overtaken by the #914 merge",
-      "branch": "claude/v1-trade-roster-rehearsal",
+      "state": "ACTIVE",
+      "currentTask": "V1-43 rehearsal on claude/v1-trade-roster-rehearsal-2 (evidence only, no PR) + integration diagnosis handed to Claude 5",
+      "assignmentSource": "manual (owner) rehearsal + Claude 7's L2-2026-08-19-02 held",
+      "branch": "claude/v1-trade-roster-rehearsal-2",
       "frozenPrs": [
         913,
         929
       ],
       "pr": 929,
-      "implementationHead": "GREEN",
-      "releaseCandidate": "NOT_YET_FROZEN",
-      "evidence": "#929 51b11bfb and #913 c2153ebe both unchanged and FROZEN; rehearsal branch b97f7e73 unchanged since 10:45Z; last lane activity 14:19Z — 3h57m",
-      "blockedBy": null,
+      "implementationHead": "GREEN at c2153eb / 51b11bfb, but the RELEASE CANDIDATE is BLOCKED — neither can merge until the baseline is regenerated on the merged tree",
+      "releaseCandidate": "BLOCKED",
+      "evidence": "#913 comment 18:32Z with the reproduced conflict, the 674-4-6=664 arithmetic and the resolution recipe; rehearsal-2 pushed 18:31Z; no commit added to either frozen PR",
+      "blockedBy": "#913/#929 conflict on config/coercion_baseline.json against post-#914 main. Claude 5's to resolve — a generated census, so the fix is to regenerate on the merged tree, never to take a side.",
       "doNotTouch": [
         "#913 head",
         "#929 head",
@@ -62,9 +62,9 @@
         "frontend/**"
       ],
       "nextSafeWork": "V1-43 Analyze Trade V1, stacked on #929 — the lane's OWN declared next unit, now dependency-ready",
-      "lastMeaningfulActivity": "2026-08-19T14:19:51Z",
-      "assignedThisCycle": "L2-2026-08-19-02 (DELIVERY_REQUIRED — not delivered)",
-      "idleMinutes": 237
+      "lastMeaningfulActivity": "2026-08-19T18:32:08Z",
+      "assignedThisCycle": "L2-2026-08-19-02 HELD (base conflicted)",
+      "idleMinutes": 0
     },
     "3": {
       "name": "Scoring / Season / Projections / Power",
@@ -81,56 +81,59 @@
       "pr": 930,
       "implementationHead": "GREEN",
       "releaseCandidate": "NOT_YET_FROZEN",
-      "evidence": "#930 opened 17:31Z, head 6d0c32d8 pushed 17:49Z (2 ahead of main); #923 comment 17:29Z; #915 unchanged since 01:59Z",
+      "evidence": "#930 head 6d0c32d8, Validate PR success 18:04:58Z; #923 comment 18:37:13Z; #915 unchanged since 01:59Z",
       "blockedBy": null,
       "doNotTouch": [
         "#915 head while under integration review"
       ],
       "nextSafeWork": "drive #930 and finish the #923 Step-5 verification pack; no new feature PR while three await integration",
       "observation": "CLOSED — 637043e4 now has PR #930. Note Lane 3 now carries THREE open PRs (#915, #923, #930). #930 is a P1 defect follow-up on already-merged work, not a fourth parallel feature, so §28 is satisfied — but a fourth would not be.",
-      "lastMeaningfulActivity": "2026-08-19T18:10:00Z"
+      "lastMeaningfulActivity": "2026-08-19T18:37:13Z"
     },
     "4": {
       "name": "Market / FAAB / Sharp / Analyst",
       "state": "ACTIVE",
       "currentTask": "#927 / Lane-4 production-verification preparation",
       "assignmentSource": "manual (owner)",
-      "branch": "claude/lane4-v1-semantic-states",
+      "branch": "claude/lane4-verification-stacked",
       "openPrs": [
         921,
-        927
+        927,
+        932
       ],
-      "pr": 927,
+      "pr": 932,
       "implementationHead": "UNKNOWN",
       "releaseCandidate": "NOT_YET_FROZEN",
-      "evidence": "tip 07482b9b unchanged since 09:58Z — an 8h18m gap, and no comment on #927 since 09:59Z. No check run has ever been observed on this head.",
+      "evidence": "#931 opened 18:25Z and closed 18:43Z; #932 head e7e8c189 pushed 18:40Z (5 ahead); #927 comment 18:42:35Z",
       "blockedBy": null,
       "doNotTouch": [],
-      "nextSafeWork": "the assigned production-verification preparation. #921 (#804 capture) is approved POST-V1 evidence capture and must not outrank open V1 correctness.",
-      "watch": "ESCALATED per the cycle-3 instruction: the question asked is whether the production-verification assignment was RECEIVED. No second task assigned — piling on an unread one is forbidden.",
-      "lastMeaningfulActivity": "2026-08-19T09:59:28Z"
+      "nextSafeWork": "drive #932; its own audit found nine of fourteen L4 rows are IMPLEMENTED_UNVERIFIED and blocked on admissible production evidence rather than on more code — the bearer-gated verification endpoint it proposes needs Claude 5's sign-off because it touches the auth surface",
+      "watch": "CLOSED — Q4-2026-08-19-01 is answered by action. No second task was ever assigned, which was the right call.",
+      "lastMeaningfulActivity": "2026-08-19T18:42:35Z",
+      "closedPrs": [
+        931
+      ]
     },
     "5": {
       "name": "Integration / Governance / Production",
       "state": "ACTIVE",
-      "currentTask": "integration queue — #914 landed this cycle; remaining {#922 -> #925}, {#913 -> #929}, #930, #915, #923, #912",
+      "currentTask": "integration queue — and it now has a BLOCKED pair to unblock: {#913 -> #929}",
       "assignmentSource": "n/a — sole integration authority, never tasked by this dispatcher",
       "branch": null,
-      "mergedThisCycle": [
-        914
-      ],
+      "mergedThisCycle": [],
       "implementationHead": "n/a",
       "releaseCandidate": "NOT_YET_FROZEN",
-      "evidence": "#914 merged 37d4c5f3 at 17:51:26Z; main d7b126d6",
+      "evidence": "no merge this cycle; main 3f1d3736 is automated commits only",
       "blockedBy": null,
       "doNotTouch": [],
       "nextSafeWork": "its own sequencing",
       "reportedToIntegration": [
-        "#914 is merged, so nothing is gated on it any more. #913/#929 and #922/#925 are two independent ordered pairs against merged main; #912 is last in chain.",
-        "Reconciliation lag is widening: V1-51 reads NOT STARTED with #919 merged, and the Roster rows #914 builds still read IN PROGRESS. V1 has not moved off 40/132 through three merges.",
-        "#930 raises a P1 on already-merged #919 work — three of seven playoff qualifiers at a structurally impossible 0.00%."
+        "BLOCKING: #913 conflicts with main on config/coercion_baseline.json (674-4-6 = 664 on the merged tree). Lane 2 supplied the mechanical recipe and verified it in a throwaway worktree (106 passed); note the flag is --write-baseline, not --rebuild. #929 inherits transitively.",
+        "Two more #914-induced breaks on #913: the index_contract_rows rename means the merged tree does not import, and the cut-ladder exact-caller-set test goes red. Both rehearsed on claude/v1-trade-roster-rehearsal-2 (evidence only, no PR).",
+        "#932 proposes a bearer-gated read-only Lane 4 verification endpoint and explicitly waits on your sign-off — it touches the authentication surface. 80/80 recorded verification attempts have 401'd across 79 runs.",
+        "Reconciliation lag unchanged: V1 still 40/132 through three merges."
       ],
-      "lastMeaningfulActivity": "2026-08-19T17:51:26Z"
+      "lastMeaningfulActivity": "2026-08-19T19:01:00Z"
     },
     "6": {
       "name": "Premium UI / Frontend",
@@ -151,17 +154,19 @@
     }
   },
   "collisionWatch": [
-    "config/coercion_baseline.json — #913, #929 and the rehearsal branch all carry a regenerated baseline; two candidates merge cleanly and corrupt silently (measured 673 declared / 670 actual). Each is rebuilt from the tree that exists after the previous one lands.",
+    "config/coercion_baseline.json — NOW AN ACTIVE BLOCKER, not a hypothetical. #914 deleted 4 entries and #913 deleted 6 DISJOINT ones, so no three-way text merge can be right and the merged tree must be regenerated (664). This is the exact failure the watchlist predicted.",
     "src/packages/construction.py + src/trade/{suggestions,finder,angle}.py + server.py — touched by #913, #929 and (if raised) the V1-43 unit. That is a three-deep ordered release train; it stops being safe if any is merged out of order.",
     "CLAUDE.md — governance-shared; lanes report needed edits to Claude 5. A recurring uncommitted CLAUDE.md reversion has been seen in three Lane 2 working copies; never `git add -A` there.",
     "docs/VERSION_1_COMPLETION_CONTRACT.md — Claude 5 only.",
     "docs/claude-dispatch/** — Claude 7 only. No lane writes here."
   ],
-  "cycle4Transitions": [
-    "#914 MERGED at 17:51:26Z (37d4c5f3). The chain gate is cleared and src/roster_intel/ — including simulation.py — is on main. This is the material dependency change three lanes were waiting on.",
-    "#922 is now the head of the Roster chain, re-synced onto merged main at 17:51Z (a03d1753 -> d5539f8d, 8 ahead). #925 still stacked behind it at 991280ad.",
-    "#930 OPENED at 17:31Z for Lane 3's follow-up (637043e4 -> 6d0c32d8). This CLOSES the cycle-3 observation that the branch was pushed with no PR — and its subject is a real P1 on merged work: #919 left three of seven qualifiers at a structurally impossible 0.00%.",
-    "Lane 2's rehearsal assignment is SUPERSEDED by the dependency landing: with #914 on main, V1-43 no longer needs rehearsing against an unmerged interface. New assignment L2-2026-08-19-02 raised, DELIVERY_REQUIRED.",
-    "Integration chain is now {#922 -> #925} and {#913 -> #929} and #912, all against merged main. #914 is no longer a gate on anything."
-  ]
+  "cycle5Transitions": [
+    "BLOCKER — #913 no longer merges. After #914 landed, `git merge-tree origin/main c2153eb` conflicts on config/coercion_baseline.json. Reproduced independently by this dispatcher, not taken on report. #929 inherits it transitively. Lane 2 diagnosed it at 18:32Z and correctly pushed NOTHING: the PR is frozen and Claude 5 owns its integration path.",
+    "Two further #914-induced breaks named on #913, both for the integrator: src/draft/context.py renamed _index_contract_rows -> index_contract_rows so the merged tree does not import at all (one line in src/trade/roster_capacity.py), and #914's test_the_cut_ladder_owner_has_exactly_two_callers goes red because roster_capacity makes a fourth caller (intended repair: consume roster_intel.pool_cut_ladder).",
+    "Q4-2026-08-19-01 ANSWERED BY ACTION — the Lane 4 assignment WAS received. Lane 4 opened #931 at 18:25Z (production-verification package off main), closed it at 18:43Z, and opened #932 (claude/lane4-verification-stacked, e7e8c189, 18:40Z) as a stacked branch instead.",
+    "Claude 7's own cycle-4 assignment L2-2026-08-19-02 is HELD, not withdrawn: it directed basing V1-43 on #929's head, and that base is now conflicted. Lane 2 is instead rehearsing V1-43 on claude/v1-trade-roster-rehearsal-2 (18:31Z), which is the correct posture while the base is broken.",
+    "CI green on all three heads that moved at cycle 4: #930 18:04:58Z, #922 18:09:34Z, #928 18:36:36Z.",
+    "NO merges this cycle. main took automated commits only."
+  ],
+  "methodNote": "Cycle 5's branch-tip diff reported 'nothing moved' and was WRONG about the lanes — it can only see branches it already knows. Three new branches (two Lane 4, one Lane 2) and four PR comment threads were the real activity. Future cycles must diff the full claude/ branch listing and PR updated_at, not a fixed tip list."
 }

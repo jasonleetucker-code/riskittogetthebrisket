@@ -1,16 +1,13 @@
 {
   "_comment": "Durable dispatch ledger written by Claude 7 (Lane Dispatcher). One PRIMARY assignment per lane. An ACTIVE row is never overwritten and a second task is never piled onto an unread one. Claude 7 does not merge, does not implement, and does not change V1 status.",
-  "updatedAt": "2026-08-19T18:16:00Z",
-  "cycle": 4,
+  "updatedAt": "2026-08-19T19:01:00Z",
+  "cycle": 5,
   "writePolicy": "Written only on a material state transition. An unchanged heartbeat produces no commit and no CI run.",
   "_delivery": {
-    "state": "DELIVERY_REQUIRED — one assignment awaiting delivery",
-    "pending": [
-      "L2-2026-08-19-02"
-    ],
-    "detail": "No agent channel is reachable from the dispatcher session (ListAgents: 'No reachable agents'). L2-2026-08-19-02 has NOT been delivered and is NOT claimed as delivered.",
-    "howToDeliver": "Send the `prompt` field of L2-2026-08-19-02 to Lane 2. Then set its status to ACTIVE here, or let the next cycle infer it from claude/v1-43-analyze-trade appearing.",
-    "alsoOutstanding": "A QUESTION for Lane 4, not an assignment — see openQuestions."
+    "state": "HELD — nothing to deliver right now",
+    "detail": "L2-2026-08-19-02 is HELD rather than delivered: it directs basing V1-43 on #929's head, and that base is conflicted against main since #914 landed. Delivering it as written would stack a third PR on a broken base. No agent channel is reachable in any case, so it was never claimed as delivered.",
+    "releaseCondition": "Deliver it once Claude 5 has resolved the #913/#929 baseline conflict and the two #914-induced breaks — or re-scope it onto merged main if Claude 5 sequences those PRs differently.",
+    "howToDeliver": "Send the `prompt` field of L2-2026-08-19-02 to Lane 2, after amending its base instruction to whatever head exists post-resolution."
   },
   "assignments": [
     {
@@ -45,7 +42,7 @@
       "lane": 2,
       "laneName": "Trade Intelligence",
       "createdAt": "2026-08-19T18:16:00Z",
-      "status": "DELIVERY_REQUIRED",
+      "status": "HELD",
       "origin": "Claude 7 dispatch, cycle 4",
       "priority": "P1",
       "v1Rows": [
@@ -95,7 +92,10 @@
         "docs/C_SERIES_SCOPE_MANIFEST.md",
         "frontend/**"
       ],
-      "prompt": "Lane 2 — Trade Intelligence. #914 merged at 17:51:26Z, so src/roster_intel/ is on main and the condition your own #913 body set for V1-43 is satisfied: Analyze Trade V1 can now consume src.roster_intel instead of building against an unmerged interface. Your rehearsal assignment is superseded by that merge. Take V1-43 / C7-DESK-01 / #792 for real. Base on #929's head 51b11bfb — NOT bare main — because you need #913's package substrate and #929's constraint owner; mark the PR as third in the #913 -> #929 -> V1-43 train, and do not commit to either frozen PR. Build the canonical recommendation for ONE typed-in trade. CONSUME the merged Roster owners — exact lineup, reserve demand, meaningful core, Team Strength, Team Weakness, droppability, replacement level, roster simulation — and reimplement none of them; a second implementation of a freshly merged canonical owner is the worst possible outcome of this merge, so ship an import census proving it. The contract row names no-double-counting explicitly: declare every input with its correlation group and show no body of evidence is counted twice. Missing is never zero — an unpriceable asset, an unknown cap or absent Roster evidence must yield an explicit insufficient/unknown verdict, never a confident-looking number, and that must be pinned. Prove canonical value untouched with scripts/board_diff.py --expect-no-value-change. RED-first with a recorded mutation per guard. V1-42 (exact before/apply/re-solve/after simulation) is a SEPARATE row and simulation.py is now on main: state plainly whether you consume it or whether V1-42 stays open — do not silently absorb it. No frontend UI (Lane 6's, and #912 is frozen) — hand the response shape over. No edits to CLAUDE.md or the contract/plan/manifest; draft that text for Claude 5. Stop when the recommendation works with the five proofs recorded and the PR is posted READY FOR INTEGRATION."
+      "prompt": "Lane 2 — Trade Intelligence. #914 merged at 17:51:26Z, so src/roster_intel/ is on main and the condition your own #913 body set for V1-43 is satisfied: Analyze Trade V1 can now consume src.roster_intel instead of building against an unmerged interface. Your rehearsal assignment is superseded by that merge. Take V1-43 / C7-DESK-01 / #792 for real. Base on #929's head 51b11bfb — NOT bare main — because you need #913's package substrate and #929's constraint owner; mark the PR as third in the #913 -> #929 -> V1-43 train, and do not commit to either frozen PR. Build the canonical recommendation for ONE typed-in trade. CONSUME the merged Roster owners — exact lineup, reserve demand, meaningful core, Team Strength, Team Weakness, droppability, replacement level, roster simulation — and reimplement none of them; a second implementation of a freshly merged canonical owner is the worst possible outcome of this merge, so ship an import census proving it. The contract row names no-double-counting explicitly: declare every input with its correlation group and show no body of evidence is counted twice. Missing is never zero — an unpriceable asset, an unknown cap or absent Roster evidence must yield an explicit insufficient/unknown verdict, never a confident-looking number, and that must be pinned. Prove canonical value untouched with scripts/board_diff.py --expect-no-value-change. RED-first with a recorded mutation per guard. V1-42 (exact before/apply/re-solve/after simulation) is a SEPARATE row and simulation.py is now on main: state plainly whether you consume it or whether V1-42 stays open — do not silently absorb it. No frontend UI (Lane 6's, and #912 is frozen) — hand the response shape over. No edits to CLAUDE.md or the contract/plan/manifest; draft that text for Claude 5. Stop when the recommendation works with the five proofs recorded and the PR is posted READY FOR INTEGRATION.",
+      "heldAt": "2026-08-19T19:01:00Z",
+      "heldReason": "Its base (#929 on #913) is conflicted against post-#914 main. Claude 7's own instruction to 'base on #929's head 51b11bfb' was correct when written at 18:16Z and is not correct now — recorded rather than quietly edited.",
+      "laneIsNotIdle": "Lane 2 is rehearsing V1-43 on claude/v1-trade-roster-rehearsal-2 (18:31Z) and diagnosed the #913 conflict at 18:32Z without pushing to a frozen PR. That is the right posture; nothing needs dispatching."
     }
   ],
   "currentAssignmentsManual": {
@@ -110,10 +110,13 @@
       "note": "#914 merged — verification can now run against merged code rather than a rehearsal tree"
     },
     "2": {
-      "task": "final Roster/Trade integration rehearsal + Analyze Trade V1 rehearsal",
-      "status": "SUPERSEDED",
-      "supersededBy": "L2-2026-08-19-02",
-      "reason": "#914 merged at 17:51:26Z; rehearsing against an interface that is now on main is no longer the useful form of the work"
+      "task": "V1-43 rehearsal + integration diagnosis for the frozen pair",
+      "status": "ACTIVE",
+      "mustNotMutate": [
+        "#913",
+        "#929"
+      ],
+      "note": "release candidate BLOCKED on the coercion-baseline conflict; rehearsal-2 is evidence only and must never become a merge candidate"
     },
     "3": {
       "task": "V1-51 consolidation design + #923 Step-5 verification preparation",
@@ -126,8 +129,11 @@
     "4": {
       "task": "#927 / Lane-4 production-verification preparation",
       "status": "ACTIVE",
-      "mustNotMutate": [],
-      "note": "longest activity gap of any assigned lane (since 09:59Z) — confirm receipt at cycle 4 rather than assigning a second task"
+      "mustNotMutate": [
+        "#927",
+        "#921"
+      ],
+      "note": "receipt confirmed by action — #931 opened then closed, #932 stacked. Its next unit needs Claude 5's auth-surface sign-off."
     },
     "5": {
       "task": "sole Integration authority — merge sequencing #914 → {#913, #929} → #912",
@@ -146,33 +152,54 @@
   "noDispatch": [
     {
       "lane": 1,
-      "reason": "ACTIVE — pushed #922 onto merged main at 17:51Z."
+      "reason": "ACTIVE — #922 green at 18:09Z, assigned V1-29 rehearsal + verification pack live."
+    },
+    {
+      "lane": 2,
+      "reason": "ACTIVE — rehearsing V1-43 and diagnosing the frozen pair. Its Claude-7 assignment is HELD because the base is conflicted, not because the lane is idle."
     },
     {
       "lane": 3,
-      "reason": "ACTIVE — opened #930 at 17:31Z and pushed at 17:49Z."
+      "reason": "ACTIVE — #930 green 18:04Z, #923 comment 18:37Z."
     },
     {
       "lane": 4,
-      "reason": "Live assignment; a receipt QUESTION was raised instead of a second task."
+      "reason": "ACTIVE — #932 opened 18:40Z. Receipt question answered by action."
     },
     {
       "lane": 5,
-      "reason": "Sole integration authority — merged #914 this cycle; never tasked by this dispatcher."
+      "reason": "Sole integration authority, and it now owns an OPEN blocker on {#913 -> #929}."
     },
     {
       "lane": 6,
-      "reason": "FROZEN_FOR_INTEGRATION with a live non-mutating rehearsal that the #914 merge made stronger, not weaker."
+      "reason": "FROZEN_FOR_INTEGRATION with a live non-mutating rehearsal. Quiet since 09:39Z but last seen doing correct evidence work; watch at cycle 6."
     }
   ],
   "openQuestions": [
     {
       "id": "Q4-2026-08-19-01",
       "lane": 4,
-      "status": "AWAITING_ANSWER",
+      "status": "ANSWERED",
       "raisedAt": "2026-08-19T18:16:00Z",
       "question": "Was the #927 / Lane-4 production-verification assignment received? Lane 4's tip 07482b9b has not moved since 09:58Z and #927 has had no comment since 09:59Z — an 8h18m gap with no check run ever observed on that head.",
-      "whyAQuestionAndNotATask": "The assignment is live. Piling a second task onto an unread one is forbidden, and a long gap is not proof of idleness. If the answer is 'not received', re-deliver the existing assignment rather than writing a new one."
+      "whyAQuestionAndNotATask": "The assignment is live. Piling a second task onto an unread one is forbidden, and a long gap is not proof of idleness. If the answer is 'not received', re-deliver the existing assignment rather than writing a new one.",
+      "answeredAt": "2026-08-19T19:01:00Z",
+      "answer": "Received. Lane 4 opened #931 at 18:25Z, closed it at 18:43Z, and opened #932 as a stacked verification branch, with a comment on #927 at 18:42Z. Asking rather than assigning was correct: a second task would have collided with work already in flight."
+    }
+  ],
+  "blockers": [
+    {
+      "id": "B5-2026-08-19-01",
+      "raisedAt": "2026-08-19T19:01:00Z",
+      "status": "OPEN",
+      "owner": "Claude 5 (Integration)",
+      "affects": [
+        913,
+        929
+      ],
+      "problem": "#913 conflicts with post-#914 main on config/coercion_baseline.json; #929 inherits it. Plus two #914-induced breaks: the _index_contract_rows -> index_contract_rows rename leaves the merged tree unable to import, and #914's exact-caller-set cut-ladder test goes red on roster_capacity's direct call.",
+      "verifiedByDispatcher": "Conflict reproduced locally with git merge-tree against origin/main — the single conflicted path is config/coercion_baseline.json.",
+      "notClaude7s": "Resolution is integration work on frozen candidates. Claude 7 reported it and did not touch either branch."
     }
   ]
 }
