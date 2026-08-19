@@ -68,6 +68,20 @@ MIN_IDENTITY_CONFIDENCE = 0.5
 
 HttpGet = Callable[[str], Any]
 
+# ── lane availability ────────────────────────────────────────────────
+#
+# Distinct from the exclusion vocabulary below: an EXCLUSION is a roster
+# the lane looked at and rejected, which is a measurement.  UNAVAILABLE is
+# the lane not producing a measurement at all.
+STATUS_OK = "ok"
+STATUS_UNAVAILABLE = "unavailable"
+
+#: The lane was switched off by its caller (``--skip-*``).
+UNAVAILABLE_SKIPPED = "skipped_by_caller"
+#: No cohort member plays on this platform, so it cannot contribute — a
+#: fact about the COHORT, not about the platform's health.
+UNAVAILABLE_NO_MANAGERS = "no_cohort_managers_on_platform"
+
 # ── exclusion reasons (the audit vocabulary) ─────────────────────────
 REASON_LEAGUE_NOT_SHARP_ELIGIBLE = "league_not_sharp_eligible"
 REASON_INCOMPATIBLE_FORMAT = "incompatible_league_format"
@@ -108,6 +122,25 @@ class CollectResult:
     leagues_remaining: int = 0
     exclusion_reasons: dict[str, int] = field(default_factory=dict)
     errors: list[str] = field(default_factory=list)
+    # DID THIS LANE RUN AT ALL?
+    #
+    # Every counter above is 0 in two completely different situations: the
+    # lane ran and legitimately found nothing, and the lane never ran.  A
+    # bare ``CollectResult()`` serialises identically to a real empty pass —
+    # "0 rosters, 0 errors" — so a platform that is switched off, or that no
+    # cohort member plays on, reads as a platform in perfect health with an
+    # empty wire.
+    #
+    # ``status`` separates them and ``unavailable_reason`` says which case it
+    # is.  A zero that is REPORTED as unavailable can be acted on; a silent
+    # one cannot be distinguished from success by any consumer.
+    status: str = STATUS_OK
+    unavailable_reason: str = ""
+
+    @classmethod
+    def unavailable(cls, reason: str) -> "CollectResult":
+        """A lane that did not run.  Never an empty success."""
+        return cls(status=STATUS_UNAVAILABLE, unavailable_reason=str(reason))
 
     def note_exclusions(self, reasons: Sequence[str]) -> None:
         for reason in reasons:
@@ -126,6 +159,8 @@ class CollectResult:
             "leaguesRemaining": self.leagues_remaining,
             "exclusionReasons": dict(sorted(self.exclusion_reasons.items())),
             "errors": self.errors[:20],
+            "status": self.status,
+            "unavailableReason": self.unavailable_reason,
         }
 
 
@@ -586,7 +621,11 @@ def collect_ffpc_rosters(
     result = CollectResult()
     ffpc_keys = [k for k in manager_keys if str(k).startswith("ffpc:")]
     if not ffpc_keys:
-        return result
+        # NOT an empty success.  No cohort member is on FFPC, so the lane
+        # cannot contribute — which is a different statement from "FFPC
+        # rosters were collected and there were none", and the roster
+        # percentage denominator depends on knowing which.
+        return CollectResult.unavailable(UNAVAILABLE_NO_MANAGERS)
     now = int(now_ms if now_ms is not None else time.time() * 1000)
 
     conn = roster_store.ensure_roster_schema(ledger_path)
@@ -729,7 +768,7 @@ def collect_all(
     manager_keys = [m.manager_key for m in members]
 
     sleeper = (
-        CollectResult()
+        CollectResult.unavailable(UNAVAILABLE_SKIPPED)
         if skip_sleeper
         else collect_sleeper_rosters(
             manager_keys=manager_keys,
@@ -743,7 +782,7 @@ def collect_all(
         )
     )
     ffpc = (
-        CollectResult()
+        CollectResult.unavailable(UNAVAILABLE_SKIPPED)
         if skip_ffpc
         else collect_ffpc_rosters(
             manager_keys=manager_keys,
