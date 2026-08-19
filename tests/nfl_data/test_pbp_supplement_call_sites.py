@@ -41,9 +41,11 @@ SUPPLEMENT_AWARE: dict[str, str] = {
 #: Call sites that deliberately do NOT join, with the reason. Anything
 #: else must pass the keyword.
 DECLARED_EXEMPT: dict[str, str] = {
-    "src/nfl_data/scoring_coverage.py": (
-        "the coverage probe answers 'what does the bare nflverse path score'; "
-        "it opts in explicitly via its own pbp_supplement parameter"
+    "scripts/measure_saf_defect.py": (
+        "it measures the SAME call shape against two trees — this one and a "
+        "worktree at origin/main, which has no supplement to pass. Joining it "
+        "here would make the two arms incomparable and turn a before/after "
+        "into a before/after-plus-a-new-feature"
     ),
 }
 
@@ -107,4 +109,20 @@ def test_every_production_call_site_joins_the_play_by_play_supplement(site):
         f"player special-teams rules and pass_int_td all score zero there. "
         f"Pass a resolver (src.nfl_data.pbp_weekly.SeasonPbpIndex().for_season), "
         f"or add this file to DECLARED_EXEMPT with the reason."
+    )
+
+
+def test_no_exemption_is_stale():
+    """An exemption for a file with no call site asserts nothing.
+
+    Left in place it reads as a reviewed decision about live code, and
+    the next person to add a call there inherits a silent pass. Same
+    posture as ``check_decision_coercions.py``, which fails on stale
+    allowances rather than only on new debt.
+    """
+    called = {rel for rel, _lineno, _name, _passes in _call_sites()}
+    stale = sorted(set(DECLARED_EXEMPT) - called)
+    assert not stale, (
+        f"DECLARED_EXEMPT names {stale}, which no longer call a "
+        f"supplement-aware function — drop the entries"
     )
