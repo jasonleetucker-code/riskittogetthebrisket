@@ -299,16 +299,35 @@ class TestSimulateTradeImpact:
         assert champ_total == pytest.approx(1.0, abs=0.02)
 
     def test_methodology_states_the_significance_rule(self):
-        out = simulate_trade_impact(snapshot=None, strength_delta={}, n_simulations=800)
+        out = simulate_trade_impact(
+            snapshot=None, strength_delta={}, n_simulations=800, playoff_seeds=4, bye_seeds=0
+        )
         assert "shared RNG seed" in out["methodology"]
         assert "significant=false" in out["methodology"]
 
     def test_no_distributions_returns_an_explicit_empty(self, monkeypatch):
         monkeypatch.setattr(playoff_sim, "_build_team_distributions", lambda *a, **k: ({}, {}))
-        out = simulate_trade_impact(snapshot=None, strength_delta={"o1": 5.0})
+        # The bracket is pinned so this exercises the NO-DISTRIBUTIONS
+        # refusal it is named for. Since V1-51 a ``snapshot=None`` has no
+        # resolvable bracket either, and that refusal fires first — the
+        # test would pass for the wrong reason without this.
+        out = simulate_trade_impact(
+            snapshot=None, strength_delta={"o1": 5.0}, playoff_seeds=4, bye_seeds=0
+        )
         assert out["playoff"] == []
         assert out["meaningfulDeltas"] == 0
-        assert "note" in out
+        assert out["note"] == "no team distributions available"
+
+    def test_an_unknown_bracket_refuses_with_the_full_envelope(self):
+        """V1-51. A refusal that drops keys the normal return carries makes
+        every consumer branch on shape before it can read anything — and
+        ``methodology`` is the field a caller reads to explain why there is
+        no result."""
+        out = simulate_trade_impact(snapshot=None, strength_delta={"o1": 5.0})
+        assert out["playoff"] == [] and out["championship"] == []
+        assert out["unsimulable"]["reason"] == "no_current_season"
+        assert "shared RNG seed" in out["methodology"]
+        assert out["note"] == "playoff bracket unknown"
 
 
 # ── Bracket ────────────────────────────────────────────────────────

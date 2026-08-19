@@ -279,7 +279,7 @@ LEAGUE_2025 = {
     "status": "complete",
     "total_rosters": 4,
     "previous_league_id": "L2024",
-    "settings": {"playoff_week_start": 15, "draft_rounds": 4},
+    "settings": {"playoff_week_start": 15, "draft_rounds": 4, "playoff_teams": 6},
 }
 LEAGUE_2024 = {
     "league_id": "L2024",
@@ -289,7 +289,7 @@ LEAGUE_2024 = {
     "status": "complete",
     "total_rosters": 4,
     "previous_league_id": None,
-    "settings": {"playoff_week_start": 15, "draft_rounds": 4},
+    "settings": {"playoff_week_start": 15, "draft_rounds": 4, "playoff_teams": 6},
 }
 
 WINNERS_BRACKET_2025 = [
