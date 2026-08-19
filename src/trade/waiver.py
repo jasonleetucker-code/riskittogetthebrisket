@@ -5,9 +5,16 @@ Finds players currently NOT on any roster in the league, sorted by
 suppresses rookies via the ``_rookies_eligible_today`` gate from
 ``src.trade.suggestions``.
 
-Companion ``find_drop_candidates`` returns the lowest-value players
-on the user's roster — best-ball-native: when adding a FA, you have
-to drop someone, and this surfaces who first.
+**No drop side lives here.**  ``find_drop_candidates`` used to, ranking
+the roster by ascending ``rankDerivedValue`` with no lineup guard, no
+effective cut cost and no scarcity — which is the
+``lowest raw player value`` rule ``C3-CAP-01`` forbids by name.  It was
+DEAD (no production caller, tests only), and a dead function naming
+itself the answer to the cut question is precisely how a future surface
+gets wired to the wrong owner.  ``C7-WAIV-01`` (Perfect Waivers) is that
+surface, and its answer is
+``src/roster_intel/droppability.py`` — ``team_droppability`` for a
+contract-held roster, ``pool_cut_ladder`` for one that is not.
 """
 
 from __future__ import annotations
@@ -18,6 +25,9 @@ from dataclasses import dataclass
 from typing import Any
 
 from src.trade.suggestions import _rookies_eligible_today
+from src.utils.name_clean import POSITION_GROUP_IDP, canonical_position_group
+from src.utils.name_clean import POSITION_GROUP_IDP, POSITION_GROUP_OFFENSE, canonical_position_group
+from src.utils.name_clean import normalize_position
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -41,28 +51,18 @@ _LOGGER = logging.getLogger(__name__)
 MIN_WAIVER_VALUE = 500
 DEFAULT_PER_POSITION_LIMIT = 6
 
-_BASE_POSITIONS = frozenset(
-    {
-        "QB",
-        "RB",
-        "WR",
-        "TE",
-        "DL",
-        "DT",
-        "DE",
-        "EDGE",
-        "NT",
-        "LB",
-        "ILB",
-        "OLB",
-        "MLB",
-        "DB",
-        "CB",
-        "S",
-        "FS",
-        "SS",
-    }
-)
+#: Positions this surface lists free agents at.
+#:
+#: Was an 18-member frozenset of raw spellings — a private position
+#: vocabulary, and one that shared its NAME with a different object in
+#: ``team_impact`` (a 7-tuple).  Derived from the canonical groups instead,
+#: so a spelling the scrapers emit and this literal missed can no longer
+#: drop a real free agent off the wire.
+_LISTED_GROUPS = frozenset({POSITION_GROUP_OFFENSE, POSITION_GROUP_IDP})
+
+
+def _is_listed_position(position: object) -> bool:
+    return canonical_position_group(str(position or "")) in _LISTED_GROUPS
 
 
 @dataclass
@@ -239,9 +239,10 @@ def find_waiver_targets(
             rostered.add(_normalize_name(n))
 
     rookies_eligible = _rookies_eligible_today()
-    positions = set(_BASE_POSITIONS)
-    if include_kicker_def:
-        positions.update({"K", "DEF"})
+    extra_positions = {"K", "DEF"} if include_kicker_def else set()
+
+    def _listed(pos: str) -> bool:
+        return _is_listed_position(pos) or pos in extra_positions
 
     candidates_by_position: dict[str, list[WaiverCandidate]] = {}
 
@@ -249,7 +250,7 @@ def find_waiver_targets(
         if not isinstance(row, dict):
             continue
         pos = str(row.get("position") or "").upper()
-        if pos not in positions:
+        if not _listed(pos):
             continue
 
         name = str(row.get("displayName") or row.get("canonicalName") or "")
@@ -351,25 +352,12 @@ def find_waiver_targets(
         out_by_position[pos] = [c.to_dict() for c in capped]
         total += len(capped)
 
-    family_map = {
-        "DL": "DL",
-        "DT": "DL",
-        "DE": "DL",
-        "EDGE": "DL",
-        "NT": "DL",
-        "LB": "LB",
-        "ILB": "LB",
-        "OLB": "LB",
-        "MLB": "LB",
-        "DB": "DB",
-        "CB": "DB",
-        "S": "DB",
-        "FS": "DB",
-        "SS": "DB",
-    }
+    # Family roll-up comes from POSITION_ALIASES, not a private copy: this
+    # dict was byte-identical to ``faab_engine._POSITION_FAMILY`` two modules
+    # away, and neither knew about the other.
     by_family: dict[str, list[dict[str, Any]]] = {}
     for pos, items in out_by_position.items():
-        fam = family_map.get(pos, pos)
+        fam = normalize_position(pos) or pos
         by_family.setdefault(fam, []).extend(items)
     for fam, items in by_family.items():
         items.sort(key=lambda c: -int(c.get("adjustedValue") or 0))
@@ -383,55 +371,3 @@ def find_waiver_targets(
     }
 
 
-def find_drop_candidates(
-    contract: dict[str, Any],
-    user_team_players: list[str],
-    *,
-    limit: int = 5,
-) -> list[dict[str, Any]]:
-    """Return the lowest-value players on the user's roster, ranked
-    bottom-up.  Best-ball companion to ``find_waiver_targets``."""
-    arr = contract.get("playersArray") or []
-    if not isinstance(arr, list):
-        return []
-
-    roster_lower = {_normalize_name(n) for n in (user_team_players or [])}
-    if not roster_lower:
-        return []
-
-    candidates: list[tuple[float, dict[str, Any]]] = []
-
-    for row in arr:
-        if not isinstance(row, dict):
-            continue
-        name = str(row.get("displayName") or row.get("canonicalName") or "")
-        if _normalize_name(name) not in roster_lower:
-            continue
-
-        consensus = row.get("rankDerivedValue")
-        if not isinstance(consensus, (int, float)) or consensus <= 0:
-            continue
-
-        rank = row.get("canonicalConsensusRank")
-        rationale_parts: list[str] = []
-        if isinstance(rank, int) and rank > 200:
-            rationale_parts.append(f"rank #{rank} on consensus")
-        if not rationale_parts:
-            rationale_parts.append("low value vs roster average")
-
-        candidates.append(
-            (
-                float(consensus),
-                {
-                    "name": name,
-                    "position": str(row.get("position") or "").upper(),
-                    "consensusValue": int(round(float(consensus))),
-                    "adjustedValue": int(round(float(consensus))),  # alias
-                    "rank": rank if isinstance(rank, int) else None,
-                    "rationale": " · ".join(rationale_parts),
-                },
-            )
-        )
-
-    candidates.sort(key=lambda x: x[0])
-    return [c[1] for c in candidates[:limit]]

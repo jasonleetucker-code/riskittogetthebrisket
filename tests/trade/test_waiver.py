@@ -345,51 +345,27 @@ class TestDegradedInputs:
         assert out["total"] == 1
 
 
-# ── Drop candidates ──────────────────────────────────────────────────
+# ── Drop candidates: NOT this module's question ──────────────────────
 
 
-class TestDropCandidates:
-    def test_returns_lowest_value_roster_players_bottom_up(self):
-        out = w.find_drop_candidates(
-            _contract(
-                _player("Stud", "WR", 9000),
-                _player("Mid", "RB", 4000),
-                _player("Scrub", "TE", 300),
-                _player("Not Mine", "WR", 100),
-            ),
-            user_team_players=["Stud", "Mid", "Scrub"],
-            limit=2,
-        )
-        assert [c["name"] for c in out] == ["Scrub", "Mid"]
+class TestNoSecondDropOwner:
+    """``find_drop_candidates`` is gone, and this is the guard that keeps it gone.
 
-    def test_empty_roster_returns_nothing(self):
-        assert w.find_drop_candidates(_contract(_player("A", "WR", 100)), []) == []
+    It ranked the roster by ascending ``rankDerivedValue`` with no lineup
+    guard, no effective cut cost and no scarcity — the ``lowest raw player
+    value`` rule ``C3-CAP-01`` forbids by name — and it silently skipped every
+    unpriced player, so an unjoinable roster name could never be a drop
+    candidate at all.  It had no production caller.
 
-    def test_missing_players_array_returns_empty(self):
-        assert w.find_drop_candidates({}, ["Anyone"]) == []
-        assert w.find_drop_candidates({"playersArray": "nope"}, ["Anyone"]) == []
+    The owner is ``src/roster_intel/droppability.py``: ``team_droppability``
+    for a roster the contract holds, ``pool_cut_ladder`` for one it does not.
+    """
 
-    def test_deep_rank_gets_an_explicit_rationale(self):
-        out = w.find_drop_candidates(
-            _contract(_player("Deep Guy", "WR", 400, rank=250)),
-            user_team_players=["Deep Guy"],
-        )
-        assert out[0]["rationale"] == "rank #250 on consensus"
+    def test_the_module_publishes_no_drop_selection(self):
+        assert not hasattr(w, "find_drop_candidates")
 
-    def test_shallow_rank_falls_back_to_generic_rationale(self):
-        out = w.find_drop_candidates(
-            _contract(_player("Shallow Guy", "WR", 400, rank=12)),
-            user_team_players=["Shallow Guy"],
-        )
-        assert out[0]["rationale"] == "low value vs roster average"
+    def test_the_canonical_owner_answers_it_instead(self):
+        from src.roster_intel import pool_cut_ladder, team_droppability
 
-    def test_zero_and_negative_values_are_skipped(self):
-        out = w.find_drop_candidates(
-            _contract(
-                _player("Zero Guy", "WR", 0),
-                _player("Neg Guy", "WR", -50),
-                _player("Real Guy", "WR", 100),
-            ),
-            user_team_players=["Zero Guy", "Neg Guy", "Real Guy"],
-        )
-        assert [c["name"] for c in out] == ["Real Guy"]
+        assert callable(pool_cut_ladder)
+        assert callable(team_droppability)
