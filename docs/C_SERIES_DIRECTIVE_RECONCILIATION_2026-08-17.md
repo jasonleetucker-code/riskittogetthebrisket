@@ -310,6 +310,40 @@ who writes their own parser has added a competing owner, not checked one.
 Outstanding: item 5's third module needs an interpreter with `pytest`. Everything else on this
 checklist is satisfied at the deployed SHA.
 
+**The reason given for item 5 was wrong, and §7.2b corrects it.** `pytest` was not absent; it
+was installed as a `uv` tool binary at `/root/.local/bin/pytest`, so `python -m pytest` failed
+while `pytest` itself worked. The verifier tested for the module and concluded about the tool.
+That is the same class of error as item 6's near-miss — checking a proxy for the question
+instead of the question — and it failed in the direction of **under**-reporting verification,
+which is the less dangerous direction but is still a false statement in a verification record.
+
+## 7.2b Verification record — 2026-08-18, re-run at the post-`#910` deployed SHA
+
+**Deployed SHA: `92469d32`.** Read the way §7.2 allows: `Deploy Production` run `32192795382`
+(22:27:32Z) is the last successful one — `Validate Build Inputs` green on every step including
+the FULL contract lane and the bundle gate, and `Deploy To Production` green including the
+post-deploy smoke test and the live data-contract validation, finishing 22:52:42Z. Production
+had been stuck on `8ec1978e` because audit `F-30` skipped the intervening deploy; that is
+resolved, and `92469d32` is what served the board measured at 22:55.
+
+| # | check | result | evidence |
+|---|---|---|---|
+| 1 | deployed SHA contains this unit | **PASS** | `git merge-base --is-ancestor 24759f8 92469d32` → exit 0 |
+| 2 | deploy not degraded by it | **PASS** | run `32192795382`: both jobs `success`, every step green |
+| 3 | authorization record shipped intact | **PASS** | worktree at `92469d32`: *exactly one authorization record* |
+| 4 | governance invariants hold on the deployed tree | **PASS** | same worktree: `check_planning_integrity.py` exit 0, `check_product_plan_governance.py` exit 0 |
+| 5 | this unit's standing tests hold there | **PASS** | same worktree: `pytest tests/docs/ -q` → **22 passed**. All three modules, including the one recorded unrun in §7.2a |
+| 6 | the repaired census figures are the shipped ones | **PASS** | same run reports, by name: *declared manifest row count agrees with the measured one*, *source-family count agrees with the traceability table*, *declared RET-row count matches the rows actually flagged* |
+| 7 | reserved completion phrase still unclaimed | **PASS** | same run: *reserved completion phrase not claimed* |
+
+**7 of 7.** `C0-R` moves `CLOSED-PENDING-PROD` → production-verified, and `V1-120` moves to
+`VERIFIED` (L3).
+
+§7.2a is left standing rather than rewritten. It is an accurate record of what was measured at
+`8ec1978e` with the tooling the verifier believed they had; correcting it in place would erase
+the evidence that the checklist caught its own verifier twice — once on the regex, once on the
+interpreter — which is the strongest thing this unit can say about itself.
+
 ## 7.3 What would falsify it
 
 Item 4 or 5 failing on the deployed tree means the records shipped in a state the gates

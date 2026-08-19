@@ -162,7 +162,7 @@ class TestDemandSignalsAreNotMultipliers:
         assert cold["objective"]["dollars"] == hot["objective"]["dollars"]
 
     def test_trending_is_reported_as_a_factor(self):
-        rec = _rec(sleeper_trending={"count": 12000})
+        rec = _rec(sleeper_trending={"count": 12000, "asOf": _fresh_stamp()})
         row = next(f for f in rec["factors"] if f["label"] == "Trending adds")
         assert not row["missing"]
         assert "12,000" in row["contribution"]
@@ -171,6 +171,92 @@ class TestDemandSignalsAreNotMultipliers:
         rec = _rec(sleeper_trending=None)
         row = next(f for f in rec["factors"] if f["label"] == "Trending adds")
         assert row["missing"] is True
+
+
+def _fresh_stamp(age_s: float = 0.0) -> str:
+    import datetime as _dt
+
+    return (_dt.datetime.now(_dt.timezone.utc) - _dt.timedelta(seconds=age_s)).isoformat()
+
+
+class TestStaleTrendingIsNotPresentEvidence:
+    """``sleeper_trending`` serves the previous snapshot when a fetch fails,
+    deliberately and with no absolute cap.  A consumer that ignores the age
+    reports a claim about "the last 24h" that can be arbitrarily old, and —
+    worse — counts it as realised evidence, so a dead upstream holds the
+    reported confidence up.
+    """
+
+    @staticmethod
+    def _row(trending, **kw):
+        from src.trade.faab_recommender import _demand_evidence_factors
+
+        rows = _demand_evidence_factors(trending, "Target", **kw)
+        return next(r for r in rows if r["label"] == "Trending adds")
+
+    def test_a_fresh_observation_still_states_the_count(self):
+        row = self._row({"count": 1200, "asOf": _fresh_stamp(60)})
+        assert row.get("missing") is not True
+        assert "1,200 adds in the last 24h" == row["contribution"]
+
+    def test_a_stale_observation_is_missing_evidence(self):
+        from src.trade.faab_contention import STALENESS_MAX_AGE_S
+
+        row = self._row({"count": 1200, "asOf": _fresh_stamp(STALENESS_MAX_AGE_S["trending"] + 60)})
+        assert row["missing"] is True
+        assert "last 24h" not in row["contribution"]
+
+    def test_a_stale_observation_says_when_it_was_observed(self):
+        """Naming the observation time is the honest replacement for an
+        assertion about a window that has passed."""
+        row = self._row({"count": 1200, "asOf": _fresh_stamp(36 * 3600)})
+        assert "36h ago" in row["contribution"]
+
+    def test_an_unmeasurable_age_is_stale_not_fresh(self):
+        assert self._row({"count": 1200})["missing"] is True
+        assert self._row({"count": 1200, "asOf": None})["missing"] is True
+        assert self._row({"count": 1200, "asOf": "not-a-date"})["missing"] is True
+
+    def test_the_boundary_is_the_shared_ceiling_not_a_local_literal(self):
+        from src.trade.faab_contention import STALENESS_MAX_AGE_S
+
+        budget = STALENESS_MAX_AGE_S["trending"]
+        assert self._row({"count": 1, "asOf": _fresh_stamp(budget - 60)}).get("missing") is not True
+        assert self._row({"count": 1, "asOf": _fresh_stamp(budget + 60)})["missing"] is True
+
+    def test_the_ceiling_is_not_duplicated_in_the_recommender(self):
+        """One owner for the budget.  A literal copied into the recommender
+        is how the factor row and ``stale_inputs`` came to disagree in the
+        first place, so the absence of one is asserted structurally."""
+        import ast
+
+        from src.utils.config_loader import repo_root
+
+        src = (repo_root() / "src" / "trade" / "faab_recommender.py").read_text(encoding="utf-8")
+        tree = ast.parse(src)
+        fn = next(
+            n
+            for n in ast.walk(tree)
+            if isinstance(n, ast.FunctionDef) and n.name == "_demand_evidence_factors"
+        )
+        numbers = {
+            n.value
+            for n in ast.walk(fn)
+            # ``bool`` is an ``int`` subclass — ``missing: True`` is a flag,
+            # not a tunable.
+            if isinstance(n, ast.Constant)
+            and isinstance(n.value, (int, float))
+            and not isinstance(n.value, bool)
+        }
+        # 0.08 is the factor weight, which is not a staleness budget.
+        assert not (numbers - {0.08}), f"unexpected numeric literal(s) in the row: {numbers}"
+
+    def test_zero_adds_is_a_real_observation_when_fresh(self):
+        """Not-trending is signal.  Only an unusable OBSERVATION is missing,
+        never a real count of zero."""
+        row = self._row({"count": 0, "asOf": _fresh_stamp(60)})
+        assert row.get("missing") is not True
+        assert "0 adds" in row["contribution"]
 
     def test_the_dead_crowd_input_is_not_reachable(self):
         """The recommender's ``ktc_crowd_bids`` parameter was a SECOND

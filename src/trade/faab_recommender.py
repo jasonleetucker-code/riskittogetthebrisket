@@ -55,6 +55,7 @@ from __future__ import annotations
 
 from typing import Any, Sequence
 
+from src.trade import faab_contention
 from src.trade import faab_engine as engine
 
 __all__ = ["recommend_faab", "compute_confidence", "build_rivals"]
@@ -255,6 +256,8 @@ def build_rivals(
 def _demand_evidence_factors(
     sleeper_trending: dict[str, Any] | None,
     player_name: str | None,
+    *,
+    now: float | None = None,
 ) -> list[dict[str, Any]]:
     """Trending + crowd signals as REPORTED EVIDENCE, not multipliers.
 
@@ -263,18 +266,59 @@ def _demand_evidence_factors(
     are already reflected in the market layer's demand term.  They no
     longer scale the bid directly — doing that on top of the market
     model would count the same demand twice.
+
+    STALE EVIDENCE IS NOT PRESENT EVIDENCE
+    ──────────────────────────────────────
+    ``src/adapters/sleeper_trending.py`` serves the previous snapshot when a
+    fetch fails, deliberately and with no absolute cap — so an upstream
+    outage keeps one snapshot in front of every request indefinitely.  Two
+    consequences had to be answered here rather than upstream, because the
+    adapter is right and the consumer was wrong:
+
+    * the row used to assert ``"N adds in the last 24h"`` however old the
+      snapshot was — a claim about the last 24 hours that can be arbitrarily
+      stale;
+    * it counted as REALISED evidence, so ``compute_confidence`` reported a
+      stale input as though it were current.  ``stale_inputs`` already
+      flagged it in a sibling field, which meant the payload contradicted
+      itself.
+
+    A stale or unmeasurably-aged observation is therefore reported as
+    ``missing`` and says WHEN it was observed instead.  The confidence drop
+    then falls out of the existing mechanism, which already excludes missing
+    rows — no second staleness rule.
+
+    The ceiling is NOT redefined here: it comes from
+    ``faab_contention.STALENESS_MAX_AGE_S["trending"]``, the same budget
+    ``stale_inputs`` uses, so the two can never disagree again.
     """
     rows: list[dict[str, Any]] = []
 
     count: int | None = None
+    as_of: Any = None
     if isinstance(sleeper_trending, dict):
         try:
             count = int(sleeper_trending.get("count"))
         except (TypeError, ValueError):
             count = None
+        as_of = sleeper_trending.get("asOf")
+
     if count is None:
         rows.append(
             {"label": "Trending adds", "contribution": "missing", "weight": 0.08, "missing": True}
+        )
+    elif faab_contention.input_is_stale(_TRENDING_INPUT_KEY, as_of, now=now):
+        age = faab_contention.input_age_seconds(as_of, now=now)
+        when = (
+            f"last observed {_age_phrase(age)}" if age is not None else "observation time unknown"
+        )
+        rows.append(
+            {
+                "label": "Trending adds",
+                "contribution": f"stale — {when}",
+                "weight": 0.08,
+                "missing": True,
+            }
         )
     else:
         rows.append(
@@ -286,6 +330,23 @@ def _demand_evidence_factors(
         )
 
     return rows
+
+
+#: The key this input is stamped under in ``inputsAsOf`` — and therefore the
+#: key its staleness ceiling is registered under.  Named once so the factor
+#: row and ``stale_inputs`` cannot drift onto different budgets.
+_TRENDING_INPUT_KEY = "trending"
+
+
+def _age_phrase(age_s: float) -> str:
+    """A coarse human age.  Coarse on purpose: the point is that the number
+    is old, not exactly how old."""
+    hours = age_s / 3600.0
+    if hours < 1:
+        return f"{int(age_s // 60)}m ago"
+    if hours < 48:
+        return f"{int(hours)}h ago"
+    return f"{int(hours // 24)}d ago"
 
 
 def recommend_faab(

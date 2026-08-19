@@ -602,8 +602,17 @@ def build_board(
         now_ms=now,
     )
 
+    # The owner's stated windows are 7 / 14 / 30 day; season-to-date is kept
+    # alongside them because it answers a different question (how ownership
+    # moved over the whole season, not over a recent window).
+    #
+    # Adding a window costs one ``holdings_as_of`` read and NOTHING else: the
+    # population-overlap guard in ``_trend`` applies to every baseline
+    # identically, so a cohort that grew between the endpoints still cannot
+    # masquerade as players gaining ownership on the new window either.
     baselines = {
         "sevenDay": now - 7 * DAY_MS,
+        "fourteenDay": now - 14 * DAY_MS,
         "thirtyDay": now - 30 * DAY_MS,
         "seasonToDate": _season_start_ms(now),
     }
