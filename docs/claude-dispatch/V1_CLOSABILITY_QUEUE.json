@@ -1,7 +1,7 @@
 {
   "_comment": "Live V1 Closability Queue, owned by Claude 7 as independent V1 traffic controller / adversarial auditor. Ranks IMPLEMENTED_UNVERIFIED rows by verification effort per row gained. NOT an authority on V1 status — only Claude 5 promotes a row, and no percentage here is claimed as achieved.",
-  "updatedAt": "2026-08-19T21:33:00Z",
-  "auditCycle": 1,
+  "updatedAt": "2026-08-19T22:00:00Z",
+  "auditCycle": 2,
   "evidenceBasis": {
     "contract": "docs/VERSION_1_COMPLETION_CONTRACT.md §3 read on origin/main e3b387ca5",
     "deployedSha": "e3b387ca5",
@@ -9,35 +9,73 @@
     "method": "per-PR exact-head check runs, git merge-tree mergeability, git grep against origin/main for the claimed properties"
   },
   "v1Status": {
-    "verified": 40, "denominator": 132, "percent": 30.3,
-    "implementedUnverified": 23, "inProgress": 34, "notStarted": 33, "blocked": 2,
-    "unverifiedByRequiredLevel": { "L1": 4, "L2": 4, "L3": 12, "L4": 3 }
+    "verified": 40,
+    "denominator": 132,
+    "percent": 30.3,
+    "implementedUnverified": 23,
+    "inProgress": 34,
+    "notStarted": 33,
+    "blocked": 2,
+    "unverifiedByRequiredLevel": {
+      "L1": 4,
+      "L2": 4,
+      "L3": 12,
+      "L4": 3
+    },
+    "note": "Unchanged. This auditor does not promote rows or touch the contract."
   },
   "deployState": {
-    "mergedNotDeployed": "NONE — main is deployed. #914, #919, #926, #930 are all in the deployed SHA.",
-    "deployedNotVerified": "12 L3 rows. This is the actual bottleneck: the implementations are live and their named checklists have not been executed against the deployed SHA."
+    "correctionAccepted": "Cycle 1 collapsed four distinct facts into 'main is deployed'. Separated below.",
+    "fact1_currentMainSha": "e3b387ca5 (origin/main at the time of this audit)",
+    "fact2_deployRunIdentity": {
+      "workflow": "Deploy Production",
+      "runId": "32302248722",
+      "headSha": "e3b387ca5",
+      "conclusion": "success",
+      "createdAt": "2026-08-19T21:07:35Z",
+      "url": "https://github.com/jasonleetucker-code/riskittogetthebrisket/actions/runs/32302248722",
+      "note": "RECORDED EXPLICITLY so the independent auditor can inspect it. This is the strongest deployment evidence this auditor holds."
+    },
+    "fact3_actualRunningHostSha": "NOT ESTABLISHED. This auditor has no production access and found no git-SHA field on /api/status to read even if it did. Running-SHA provenance therefore requires either the deploy run's own log output or an on-box `git rev-parse` — neither is in this auditor's hands. A successful deploy run is evidence that a deployment was ATTEMPTED AND REPORTED SUCCESS, not proof of what is serving traffic now.",
+    "fact4_pr930FreshUncachedVerification": "NOT PERFORMED. Not performable from here.",
+    "revisedClaim": "There is no evidence of a merged-but-not-deployed BACKLOG: every merge today has a corresponding successful Deploy Production run. That is a weaker and more accurate claim than 'main is deployed'."
   },
   "staleGreenFindings": [
     {
-      "id": "SG-1", "prs": [927, 932], "severity": "blocks an L1 claim",
-      "finding": "Green CI on both was measured against merge-base 162a7c44f (09:45Z), before #914, #919, #926 and #930 landed. Heads are unchanged, so GitHub shows green — but the base moved by four merges including canonical roster intelligence. The contract's L1 requires 'green CI on the merge tree', and this green does not describe that tree.",
-      "requiredAction": "One fresh validation on the integrated tree before any L1 promotion rests on it. Both merge clean today (verified with git merge-tree)."
+      "id": "SG-1",
+      "prs": [
+        927,
+        932
+      ],
+      "severity": "blocks an L1 promotion resting on it",
+      "preciseStatement": "Their unchanged implementation heads REMAIN PREVIOUSLY GREEN. Nothing has invalidated those runs. What is unvalidated is the CURRENT SEMANTIC MERGE TREE — the tree that results from combining these heads with a main that has since absorbed #914, #919, #926 and #930.",
+      "correctionOfCycle1": "Cycle 1 wrote that their green 'does not qualify', which reads as an accusation against the developer heads. It is not: the heads are fine and the developers did nothing wrong.",
+      "requiredAction": "ONE bounded Integration release candidate on current main via .github/workflows/release-candidate.yml. NOT another developer-head freshness cycle.",
+      "explicitProhibition": "Per #926, developers must NOT rebase or chase main for this. Asking #927/#932 to re-sync would re-create precisely the refresh-chase loop #926 was written to end.",
+      "mergeability": "both merge clean into current main (git merge-tree, verified this cycle)"
     },
     {
-      "id": "SG-2", "prs": [922], "severity": "no verdict at all",
-      "finding": "Validate PR on head 1f6a877e was CANCELLED at 20:42:14Z. Carried from dispatch cycle 8, where it also corrected this auditor's own earlier record of that head as GREEN.",
-      "requiredAction": "Re-run or re-push. A cancelled run is neither a pass nor a failure and must not be inherited from the previous head."
+      "id": "SG-2",
+      "prs": [
+        922
+      ],
+      "severity": "no verdict on the current head",
+      "statement": "See pr922State. Superseded in detail; the concurrency root cause is new."
     }
   ],
   "p0p1": [
     {
-      "id": "P1-A", "severity": "P1", "state": "LIVE ON THE DEPLOYED SHA",
+      "id": "P1-A",
+      "severity": "P1",
+      "state": "LIVE ON THE DEPLOYED SHA",
       "finding": "src/sharp/consensus.py:111 — `\"personManagerQuality\": quality_total / voters if voters else 1.0`. Zero voters returns 1.0, the HIGHEST quality. Missing evidence read as the best possible answer, on a decision surface, in production.",
       "fixExists": "YES, unmerged: #927 changes it to `else None`. Verified by diffing origin/claude/lane4-v1-semantic-states.",
       "blocks": "V1-63 (its named blocker to VERIFIED, per the contract row itself)"
     },
     {
-      "id": "P1-B", "severity": "P1", "state": "OPEN 4+ dispatch cycles",
+      "id": "P1-B",
+      "severity": "P1",
+      "state": "OPEN 4+ dispatch cycles",
       "finding": "#913 conflicts with main on config/coercion_baseline.json; #929 inherits it. Reproduced repeatedly with git merge-tree. Plus two #914-induced breaks: the _index_contract_rows -> index_contract_rows rename leaves the merged tree unable to import, and #914's exact-caller-set cut-ladder test goes red.",
       "blocks": "V1-36, V1-37, V1-39, V1-44 progress and V1-43 entirely. Lane 2's marginal V1 contribution is ~0 until Claude 5 clears it.",
       "owner": "Claude 5 — both PRs are frozen"
@@ -45,88 +83,171 @@
   ],
   "tierA_integrationOrEvidenceOnly": [
     {
-      "row": "V1-64", "requirement": "Sharp event ledger surfaces adds/drops", "level": "L1", "lane": "L4",
-      "implementation": "#911 (MERGED, deployed)",
+      "row": "V1-119",
+      "requirement": "Planning-integrity validation in CI",
+      "level": "L1",
+      "lane": "L5",
+      "status": "HIGHEST-PRIORITY EXISTING-EVIDENCE CANDIDATE — not self-promotable",
+      "implementation": "merged (C0-GOV-07), on the deployed SHA",
       "integrationDependency": "none",
-      "evidenceRequired": "Cite the deterministic property + its test. Confirmed present on deployed main: src/sharp/record_queue.py:110 `min(timestamps) if timestamps else None`; tests/sharp/test_transactions.py covers it; and data/ops/sharp-force-production-live.json shows real production output publishing `oldestCrawlMs: null` with `sharpEligibleLeagues: 1096` beside `crawledLeagues: 0` — a zero explained by its own denominator.",
+      "evidenceObserved": ".github/workflows/pr-validation.yml:181 runs scripts/check_planning_integrity.py; tests/docs/test_governance_census_consistency.py present.",
+      "whatClaude5MustStillVerify": "the RED->GREEN history of that test (did it ever fail without the check?) AND current merge-tree CI. This auditor confirmed the CI step and test file EXIST; it did not read the assertions or establish a RED state.",
       "productionAuthRequired": false,
-      "grouping": "promote alongside V1-88 and V1-119 in one governance pass — all three are L1 with evidence already on the merged tree",
-      "residualRisk": "none identified; this is a pre-existing property being recorded, not new code"
-    },
-    {
-      "row": "V1-88", "requirement": "Flag documentation names the endpoint it actually gates", "level": "L1", "lane": "L5",
-      "implementation": "merged (audit F-26)",
-      "integrationDependency": "none",
-      "evidenceRequired": "Cite tests/api/test_feature_flag_docs_match_registry.py and tests/api/test_feature_flag_reachability.py (both present on deployed main) as the RED->GREEN pair, plus green CI on the merge tree.",
-      "productionAuthRequired": false,
-      "grouping": "with V1-64 and V1-119",
-      "residualRisk": "auditor confirmed the test FILES exist but did not read their assertions — Claude 5 should confirm they assert the doc/endpoint agreement rather than something adjacent"
-    },
-    {
-      "row": "V1-119", "requirement": "Planning-integrity validation in CI", "level": "L1", "lane": "L5",
-      "implementation": "merged (C0-GOV-07)",
-      "integrationDependency": "none",
-      "evidenceRequired": "The CI step is present on deployed main: .github/workflows/pr-validation.yml:181 runs scripts/check_planning_integrity.py, with tests/docs/test_governance_census_consistency.py as the companion guard. Cite both plus a green run.",
-      "productionAuthRequired": false,
-      "grouping": "with V1-64 and V1-88",
-      "residualRisk": "same caveat — file presence confirmed, assertion content not read by this auditor"
-    },
-    {
-      "row": "V1-63", "requirement": "Manager-level Sharp concentration", "level": "L1", "lane": "L4",
-      "implementation": "#911 merged + the blocking one-line fix in #927 (UNMERGED)",
-      "integrationDependency": "MERGE #927, then a fresh Validate PR on the integrated tree (see SG-1)",
-      "evidenceRequired": "After merge: the zero-voter case returns None rather than 1.0, with the RED->GREEN test, plus green CI on the merge tree. The contract row names this exact defect as the blocker.",
-      "productionAuthRequired": false,
-      "grouping": "arrives free with the recommended #927+#932 release",
-      "classification": "Tier A conditional on one merge — strictly a Tier B by the queue's own rule, listed here because zero implementation work remains"
+      "grouping": "stands alone now — its two former companions are demoted"
     }
   ],
   "tierB_smallFix": [
-    { "row": "V1-19", "level": "L3", "issue": "Items 1-2 PASS at L3 on live production (21/21 DYNASTY with evidence); item 3 PARTIAL because strict inertness needs a PRE-DEPLOY snapshot nobody captured. That artifact is irrecoverable — no work closes it. This needs an OWNER RULING on whether item 3 PARTIAL blocks the row, not engineering.", "escalate": true },
-    { "row": "V1-87", "level": "L2", "issue": "BLOCKED: a defaulted-ON flag absent from /api/status. Small surfacing fix, then L2 measurement." }
+    {
+      "row": "V1-64",
+      "level": "L1",
+      "lane": "L4",
+      "classification": "TIER B — one tiny deterministic test missing",
+      "correctionOfCycle1": "Cycle 1 called this Tier A and cited tests/sharp/test_transactions.py. INDEPENDENTLY RE-VERIFIED AND THE CORRECTION IS RIGHT: that file asserts only `cov['sharpEligibleLeagues'] == 2` and `cov['leaguesCrawled'] == 1` (lines 254-255) — the eligible/crawled DENOMINATOR. `git grep -ln oldestCrawlMs -- tests/` returns NOTHING: no test anywhere deterministically asserts oldestCrawlMs.",
+      "implementationIsReal": "src/sharp/record_queue.py:110 does implement `min(timestamps) if timestamps else None`. The property holds; the PROOF is missing.",
+      "whyItMatters": "L1 requires RED->GREEN deterministic evidence. Production log output in data/ops/sharp-force-production-live.json showing `oldestCrawlMs: null` is real-world corroboration, not a deterministic test, and cycle 1 leaned on it too heavily.",
+      "ownedBy": "Claude 4 — already authorized to produce the micro-PR. DO NOT DUPLICATE.",
+      "rowsGained": 1
+    },
+    {
+      "row": "V1-88",
+      "level": "L1",
+      "lane": "L5",
+      "classification": "NEEDS EXACT L1 PROOF — NOT PROMOTABLE",
+      "correctionOfCycle1": "Cycle 1 cited test_feature_flag_docs_match_registry.py and test_feature_flag_reachability.py. Neither proves the V1-88/F-26 invariant, and the correction is right.",
+      "f26Located": "docs/audit/POST_MERGE_C_SERIES_AUDIT_2026-08-18.md:1273. The defect: src/api/feature_flags.py said reception_scoring_fit reaches `/api/gameplan`; measured, the gates at gameplan.py:1157/:1253 are called only from get_league_adjusted_values, which backs `/api/valuation/league-adjusted`. The repair was a CORRECTED PROSE COMMENT (now at feature_flags.py:228-238).",
+      "closestCandidateExaminedAndREJECTED": "tests/league_intel/test_flag_docs_match_reality.py is the nearest thing and it disqualifies itself in its own docstring: 'Deliberately narrow. It does not police prose. It checks one thing — that a module claiming a flag is ON/OFF agrees with _DEFAULTS.' That is the DEFAULT invariant, not the ENDPOINT invariant.",
+      "structuralObstacle": "The registry holds the gated endpoint as a PROSE COMMENT, not a structured field. So no test can compare 'documented endpoint' against 'actually gated endpoint' without either parsing prose or introducing a structured `gates:` field.",
+      "twoHonestRoutes": [
+        "Tier B implementation: give each registry entry a structured `gates` value and assert it against the real gate call site — then L1 is genuinely provable.",
+        "Owner/Claude-5 ruling: F-26's repair is inherently a documentation correction, so re-level the row rather than test prose."
+      ],
+      "explicitlyRefused": "No proxy test will be proposed or manufactured to make this row appear closable.",
+      "rowsGained": 0
+    },
+    {
+      "row": "V1-19",
+      "level": "L3",
+      "classification": "OWNER RULING, not engineering",
+      "issue": "Items 1-2 PASS at L3 on live production (21/21 DYNASTY with evidence); item 3 PARTIAL because strict inertness needs a PRE-DEPLOY snapshot nobody captured. Irrecoverable — no amount of work closes it.",
+      "escalate": true
+    },
+    {
+      "row": "V1-87",
+      "level": "L2",
+      "issue": "BLOCKED: a defaulted-ON flag absent from /api/status. Small surfacing fix, then L2 measurement."
+    }
   ],
   "tierC_significantImplementation": [
-    { "rows": ["V1-45", "V1-56", "V1-61"], "level": "L4", "issue": "L4 needs proof the user-facing surface consumes the canonical implementation with truthful semantics — a UI consumer proof on top of L3. Lane 4's own audit names V1-56/61/62 as UI-consumer-blocked." },
-    { "rows": ["V1-65", "V1-81"], "level": "L2", "issue": "Guarantee exists; the measured board/contract statement has not been produced." }
+    {
+      "rows": [
+        "V1-45",
+        "V1-56",
+        "V1-61"
+      ],
+      "level": "L4",
+      "issue": "L4 needs proof the user-facing surface consumes the canonical implementation with truthful semantics — a UI consumer proof on top of L3. Lane 4's own audit names V1-56/61/62 as UI-consumer-blocked."
+    },
+    {
+      "rows": [
+        "V1-65",
+        "V1-81"
+      ],
+      "level": "L2",
+      "issue": "Guarantee exists; the measured board/contract statement has not been produced."
+    }
   ],
   "tierD_externallyBlocked": [
-    { "rows": ["V1-58", "V1-60", "V1-61", "V1-129", "V1-11", "V1-27"], "blocker": "authenticated production access. Lane 4 measured 80/80 verification attempts returning 401 across 79 runs. /api/sharp/* is session-gated correctly and test_public_api_allowlist.py pins that — the gate must NOT be relaxed.", "unblockedBy": "either (a) an operator-supplied RISKIT_SESSION_COOKIE for one session, or (b) the bearer-gated read-only verification endpoint #932 proposes, which needs Claude 5's auth-surface sign-off because it touches authentication." },
-    { "rows": ["V1-89"], "blocker": "owner decision OD-04 — re-mint / accept / retire DraftSharks." }
+    {
+      "rows": [
+        "V1-58",
+        "V1-60",
+        "V1-61",
+        "V1-129",
+        "V1-11",
+        "V1-27"
+      ],
+      "blocker": "authenticated production access. Lane 4 measured 80/80 verification attempts returning 401 across 79 runs. /api/sharp/* is session-gated correctly and test_public_api_allowlist.py pins that — the gate must NOT be relaxed.",
+      "unblockedBy": "either (a) an operator-supplied RISKIT_SESSION_COOKIE for one session, or (b) the bearer-gated read-only verification endpoint #932 proposes, which needs Claude 5's auth-surface sign-off because it touches authentication."
+    },
+    {
+      "rows": [
+        "V1-89"
+      ],
+      "blocker": "owner decision OD-04 — re-mint / accept / retire DraftSharks."
+    }
   ],
   "recommendedNextDeployment": {
     "release": "#927 + #932 as one ordered train",
     "why": "#927 carries the one-line repair of P1-A, a false-green live on the deployed SHA, and unblocks V1-63. #932 carries scripts/verify_lane4_production.py — the EXECUTABLE verifier that replaces a prose checklist which named endpoints that do not exist (POST /api/faab/recommend; the real route is /api/waiver/faab-recommend). Deploying it puts the verification instrument on the box, which is what converts every future L3 attempt from prose into execution.",
-    "precondition": "fresh CI on the integrated tree (SG-1). Both merge clean today.",
-    "rowsUnlocked": ["V1-63 directly", "the instrument for V1-57/58/60/129 and the C1-C9 checks"]
+    "precondition": "ONE bounded Integration release candidate on CURRENT main (release-candidate.yml), per #926 — not a developer-head freshness cycle, and not a rebase request to either lane.",
+    "rowsUnlocked": [
+      "V1-63 directly",
+      "the instrument for V1-57/58/60/129 and the C1-C9 checks"
+    ]
   },
   "recommendedVerificationBatches": [
     {
-      "id": "BATCH-1", "kind": "on-box session against the deployed SHA", "authRequired": "host access, NOT an HTTP session",
-      "rows": ["V1-57", "V1-129", "V1-60", "V1-15", "V1-16", "V1-17"],
+      "id": "BATCH-1",
+      "kind": "on-box session against the deployed SHA",
+      "authRequired": "host access, NOT an HTTP session",
+      "rows": [
+        "V1-57",
+        "V1-129",
+        "V1-60",
+        "V1-15",
+        "V1-16",
+        "V1-17"
+      ],
       "why": "every one of these is blocked on reading something that exists only on production and is gitignored — the FAAB bid-history timer and its artifact, the crowd ledger, the FFPC lane's unavailable_reason, and the acquisition ledger. No HTTP auth is involved, so it does NOT wait on the auth decision.",
       "maxRowsGained": 6,
       "caveat": "V1-129's own note warns the accumulated legacy ledger hard-excludes on read, so crowdMarket reports `missing` until the fetcher re-accumulates. Do not read that as a failure, and do not close the row on a `missing`."
     },
     {
-      "id": "BATCH-2", "kind": "one authenticated production session", "authRequired": true,
-      "rows": ["V1-11", "V1-27", "V1-58"],
+      "id": "BATCH-2",
+      "kind": "one authenticated production session",
+      "authRequired": true,
+      "rows": [
+        "V1-11",
+        "V1-27",
+        "V1-58"
+      ],
       "why": "each has already reached L2 and is short exactly the items that 401'd. V1-11 has 2 BLOCKED-EXTERNAL items; V1-27 has items 2-3. One cookie closes the same gap for all of them.",
       "maxRowsGained": 3,
       "constraint": "the session gate must not be relaxed to achieve this. A cookie the operator exports, or the bearer endpoint — never an allowlist edit or a test-mode header."
     }
   ],
   "projection": {
-    "rule": "CONDITIONAL ONLY. No row moves without evidence, and this auditor does not promote rows.",
-    "tierA_only": "40 -> 43 (32.6%) if V1-64, V1-88, V1-119 are promoted on existing evidence",
-    "plus_927_train": "-> 44 (33.3%) with V1-63",
-    "plus_batch1_bestCase": "-> 50 (37.9%) if all six on-box rows clear",
-    "plus_batch2_bestCase": "-> 53 (40.2%)",
-    "honestNote": "The tail is not reachable this way: 33 rows are NOT STARTED and 34 IN PROGRESS. Verification batching converts an already-earned 30.3% into a truthful ~40%; it does not build the remaining half."
+    "rule": "CONDITIONAL ONLY, and every figure below is recalculated from the CORRECTED queue. V1-64 and V1-88 are removed from immediately-promotable. No row moves without evidence; this auditor promotes nothing.",
+    "baseline": "40 / 132 = 30.3%",
+    "step1_tierA": "41 (31.1%) — V1-119 ALONE, and only after Claude 5 verifies its RED->GREEN history and current merge-tree CI. If that check fails, the step is 0.",
+    "step2_tierB_micro": "42 (31.8%) — adds V1-64 once Claude 4's authorized one-test micro-PR lands and is green.",
+    "step3_927_train": "43 (32.6%) — adds V1-63, via the bounded release candidate that also repairs the live P1 false-green.",
+    "step4_batch1_onbox_bestCase": "49 (37.1%) — adds V1-57, V1-129, V1-60, V1-15, V1-16, V1-17 if all six clear.",
+    "step5_batch2_auth_bestCase": "52 (39.4%) — adds V1-11, V1-27, V1-58. #930's production closure also sits in this batch but is not a V1 row.",
+    "notCounted": [
+      "V1-88 — no exact L1 proof exists or is currently constructible without either a structured registry field or a re-levelling ruling",
+      "V1-19 — item 3 needs an irrecoverable artifact; owner ruling only"
+    ],
+    "deltaVsCycle1": "cycle 1 projected 43 at the Tier A step and 53 at the end. Corrected: 41 and 52. The Tier A over-count was the substantive error.",
+    "honestTail": "33 rows NOT STARTED and 34 IN PROGRESS. Verification batching converts an already-earned 30.3% into a truthful ~39%; it does not build the remaining half."
   },
-  "continue": ["Lane 4 — #932 is the verification instrument and has the highest V1 leverage of any open work", "Lane 5 — clear P1-B, merge the #927+#932 train, promote the three Tier A rows", "Lane 1 — #933 (V1-29) and get #922 a real CI verdict", "Lane 6 — #935 retires a frontend duplicate owner"],
+  "continue": [
+    "Lane 4 — #932 is the verification instrument and has the highest V1 leverage of any open work",
+    "Lane 5 — clear P1-B, merge the #927+#932 train, promote the three Tier A rows",
+    "Lane 1 — #933 (V1-29) and get #922 a real CI verdict",
+    "Lane 6 — #935 retires a frontend duplicate owner"
+  ],
   "pause": [
-    { "what": "#921 — #804 per-source rank capture", "lane": 4, "why": "explicitly approved POST-V1 evidence capture. It adds 0 to the numerator while nine L4 rows sit unverified. Lane 4's own audit says the scarce resource is admissible evidence, not implementation." },
-    { "what": "further V1-43 rehearsal elaboration", "lane": 2, "why": "rehearsal-2 already carries the compatibility result and the finalized reconciliation map. More rehearsal depth cannot raise the numerator while the base is conflicted; the binding constraint is P1-B, which only Claude 5 can clear." }
+    {
+      "what": "#921 — #804 per-source rank capture",
+      "lane": 4,
+      "why": "explicitly approved POST-V1 evidence capture. It adds 0 to the numerator while nine L4 rows sit unverified. Lane 4's own audit says the scarce resource is admissible evidence, not implementation."
+    },
+    {
+      "what": "further V1-43 rehearsal elaboration",
+      "lane": 2,
+      "why": "rehearsal-2 already carries the compatibility result and the finalized reconciliation map. More rehearsal depth cannot raise the numerator while the base is conflicted; the binding constraint is P1-B, which only Claude 5 can clear."
+    }
   ],
   "duplicateOwnerScan": {
     "newDuplicatesFound": "none this cycle",
@@ -134,8 +255,40 @@
     "scope": "this scan covered the four PRs opened or pushed in the last three hours, not the whole tree"
   },
   "correctionsPreserved": [
-    "Dispatch cycle 7 recorded #922's head as GREEN by inheriting the previous head's verdict; cycle 8 corrected it to CANCELLED. The correction stands and is SG-2.",
-    "The cycle-4 assignment L2-2026-08-19-02 instructed basing V1-43 on #929's head. Correct when written, wrong once #913 conflicted. HELD, not silently rewritten.",
-    "WITHIN THIS AUDIT: the first extraction read contract column 6 as a verifier LANE. It is the required verification LEVEL (L1-L4). That error would have mis-ranked every row by effort; the ranking above uses the corrected reading."
-  ]
+    "Dispatch cycle 7 recorded #922's head as GREEN by inheriting the prior head's verdict; cycle 8 corrected it to CANCELLED. Cycle 2 supersedes the HEAD (now 5885796) while keeping that history, and adds the concurrency root cause.",
+    "Cycle-4 assignment L2-2026-08-19-02 instructed basing V1-43 on #929's head — correct when written, wrong once #913 conflicted. HELD, never silently rewritten.",
+    "AUDIT CYCLE 1 internal: the first extraction read contract column 6 as a verifier LANE when it is the required verification LEVEL. Caught and corrected inside that cycle.",
+    "AUDIT CYCLE 1, corrected by independent audit and re-verified here: V1-64 was wrongly Tier A (its cited test proves only the denominator; nothing tests oldestCrawlMs) and V1-88 was wrongly Tier A (the cited tests prove flag defaults and gate reachability, not the endpoint-naming invariant). Both demoted. The lesson recorded against this auditor: 'a test file with a plausible name exists' is the same class of false-green the contract's own §2 forbids, and citing file NAMES rather than assertions is how it got in."
+  ],
+  "revisionNote": "Cycle 1 was corrected by an independent audit BEFORE becoming the standing queue. Two Tier A rows were wrong and are demoted; #922's state advanced; the stale-green wording was imprecise; and the deployment claim was collapsing four separate facts. Every correction below was re-verified against the repository by this auditor rather than accepted on assertion.",
+  "pr922State": {
+    "correctionAccepted": "Cycle 1 reported #922 as 'presently cancelled' on the stale head 1f6a877e. That is superseded.",
+    "currentHead": "588579642a5c55782dcc652a6c33bff1f458479f (confirmed by git rev-parse against origin — matches the head the independent auditor supplied)",
+    "runCited": "32304436677",
+    "stateAtIndependentCheck": "IN PROGRESS",
+    "stateAtThisAuditorsCheck": "COMPLETED / conclusion=cancelled, started 21:33:00Z, completed 21:54:13Z. Newer evidence than the independent check, not a contradiction of it.",
+    "historicalOnly": "the 1f6a877e run cancelled at 20:42:14Z is preserved as history and is NOT the current verdict",
+    "newFinding": "TWO consecutive cancellations on two different heads is a pattern, and the cause is structural: .github/workflows/pr-validation.yml:41-43 declares `concurrency: group: pr-${{ github.event.pull_request.number }}` with `cancel-in-progress: true`. Any new push or re-run on PR 922 cancels the in-flight validation. A lane that keeps touching the PR while validation runs will keep producing cancellations and can never obtain a verdict.",
+    "actionableFix": "let ONE run finish untouched on 5885796. This is not a CI defect and needs no workflow change.",
+    "verdictForQueuePurposes": "#922's current head still has NO passing verdict — but the reason is now known and self-inflicted rather than mysterious."
+  },
+  "pr930ProductionVerification": {
+    "status": "OPEN — not verified",
+    "whyItMattersMore": "#930 was a P1: src/ros/championship.py's playoff field was `len([s for s in seeded_owners if seeded_owners.index(s) < 6]) or 6`, now `min(playoff_seeds, len(seeded_owners))`. In a 7-seed league three real qualifiers were assigned an 'out' finish, i.e. structurally incapable of winning.",
+    "requiredContract": {
+      "playoffSeeds": 7,
+      "byeSeeds": 1,
+      "cached": false,
+      "zeroOddsTeams": "exactly 5, all nonqualifiers",
+      "qualifiers": "all 7 structurally capable of winning"
+    },
+    "blockerThisAuditorFound": "THE DEPLOY ALONE DOES NOT CLOSE IT. The championship payload is not computed per-request: `src/ros/scrape.py:372` calls `championship.simulate_championship_odds(...)` and writes the payload as a pipeline artifact. So the corrected code only reaches served numbers after a POST-DEPLOY ROS SCRAPE regenerates it. Until that scrape runs, production can be correctly deployed and still be serving the pre-fix bracket — a deployed-but-not-yet-EFFECTIVE state, distinct from deployed-but-not-verified.",
+    "sequenceRequired": [
+      "confirm the running host SHA contains ef95cc339",
+      "confirm a ROS scrape has run SINCE that deploy",
+      "fetch the championship contract with cache bypassed (`cached: false`) and assert the five conditions"
+    ],
+    "authPosture": "the consuming surface is /api/gameplan (server.py:6797), a private session-gated endpoint. So this needs the authenticated session, and it belongs in BATCH-2, not BATCH-1.",
+    "additionalContext": "F-26 separately recorded that /api/gameplan has ZERO frontend consumers — the string appears once in the whole frontend, in a comment (Scope Manifest C2-GP-01 DISCONNECTED). So an L4-style production-consumer claim is not available for this surface at all; L3 is the ceiling until that row is resolved."
+  }
 }
