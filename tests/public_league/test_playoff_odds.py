@@ -111,12 +111,18 @@ class RoundRobinFallback(unittest.TestCase):
 
 
 class Thresholds(unittest.TestCase):
-    def test_min_sampled_weeks_and_default_spots_exist(self) -> None:
-        # Sanity: if these constants ever change, the tests above
-        # need revisiting.  Assertion is deliberately loose — just
-        # that they're set to sensible positive integers.
+    def test_min_sampled_weeks_is_a_sensible_positive_integer(self) -> None:
+        # Sanity: if this constant ever changes, the tests above need
+        # revisiting.  Assertion is deliberately loose.
         self.assertGreaterEqual(playoff_odds.MIN_SAMPLED_WEEKS, 1)
-        self.assertGreaterEqual(playoff_odds.DEFAULT_PLAYOFF_SPOTS, 1)
+
+    def test_there_is_no_default_playoff_spot_count_any_more(self) -> None:
+        """V1-51. ``DEFAULT_PLAYOFF_SPOTS = 6`` stood in for the league's
+        own ``playoff_teams``, and the live league takes SEVEN — so the
+        fallback was wrong for the league it served. Its absence is
+        asserted rather than assumed, because a plausible default back in
+        scope is how a guess gets re-adopted."""
+        self.assertFalse(hasattr(playoff_odds, "DEFAULT_PLAYOFF_SPOTS"))
         self.assertGreaterEqual(playoff_odds.DEFAULT_SIMS, 1000)
 
 
@@ -357,7 +363,7 @@ class PreseasonState(unittest.TestCase):
         class _Season:
             season = "2027"
             league_id = "L_PRE"
-            league = {"settings": {}}
+            league = {"settings": {"playoff_teams": 6}}
             rosters = [{"roster_id": 1}, {"roster_id": 2}]
             matchups_by_week: dict = {}
 
@@ -533,7 +539,7 @@ class ScheduleInferenceFromPosted(unittest.TestCase):
 
         class _Season:
             league_id = "L1"
-            league = {"settings": {"playoff_week_start": cutoff}}
+            league = {"settings": {"playoff_week_start": cutoff, "playoff_teams": 6}}
             matchups_by_week = entries
 
             @property

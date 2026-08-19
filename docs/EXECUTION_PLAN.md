@@ -207,11 +207,42 @@ everything from `READY FOR INTEGRATION` through merge. This is a division of lab
 quality gate on the lanes: it exists so implementation lanes spend essentially all their time
 implementing and verifying rather than babysitting a merge queue.
 
-**A lane's responsibility ends at a genuinely ready PR:** implement; keep the branch synchronised
-with current `origin/main`; fix lane-owned defects; run the deterministic, integration and
-exact-head checks; **document limitations and required post-deploy verification honestly**; mark
-it `READY FOR INTEGRATION`; then **immediately take the next dependency-ready unit rather than
-waiting for the merge**.
+**A lane's responsibility ends at a genuinely ready PR:** implement; fix lane-owned defects; run
+the deterministic, integration and exact-head checks; **document limitations and required
+post-deploy verification honestly**; mark it `READY FOR INTEGRATION`; then **immediately take the
+next dependency-ready unit rather than waiting for the merge**.
+
+**Corrected 2026-08-19 — this bullet used to say "keep the branch synchronised with current
+`origin/main`", and that instruction is what produced an unterminating rebase loop.** `main` takes
+an automated data refresh roughly every twenty minutes, so "synchronised with current `main`" is a
+condition no branch can hold. A lane synchronises when it has a REASON to — see the four triggers
+in CLAUDE.md's HEAD FREEZE section — and Integration performs the final base integration ONCE, at
+the release moment, on the candidate tree. Keeping a branch current is Integration's job at the
+boundary, not a standing obligation on the lane.
+
+### The two-state reporting contract (2026-08-19)
+
+Integration reports these separately, and a lane should expect to be asked for the first only:
+
+| state | values | owner |
+|---|---|---|
+| **IMPLEMENTATION HEAD** | GREEN / RED | the lane |
+| **RELEASE CANDIDATE** | NOT YET FROZEN / VALIDATING / GREEN / BLOCKED | Integration |
+
+"Current `main` moved after your CI ran" is a statement about the release candidate, **never** a
+verdict on the implementation head. Collapsing the two is how routine generated-data churn
+masquerades as a feature regression, and it sends lanes back to re-run CI that would test nothing
+new.
+
+A green implementation head therefore stays green until the PR itself changes. The four things
+that earn a fresh full cycle are in CLAUDE.md; class-C data drift is not among them.
+
+**Release trains.** Where an ordered dependency chain exists, Integration freezes the approved
+heads and validates the combined candidate tree once rather than making each lane chase moving
+data independently. A train is an integration convenience and never makes independent PRs one
+conceptual owner. The single constraint it cannot batch away: two PRs that both touch
+`config/coercion_baseline.json` merge cleanly and corrupt silently, so the second candidate is
+built after the first lands and its baseline regenerated from that tree.
 
 **What this lane independently verifies before merging** — every one of these, every time:
 
