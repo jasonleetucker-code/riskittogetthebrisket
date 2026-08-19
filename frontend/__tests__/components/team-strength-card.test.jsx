@@ -152,6 +152,19 @@ describe("TeamStrengthCard — position groups", () => {
     expect(within(table).queryByText("SUPER_FLEX")).toBeNull();
   });
 
+  it("omits a count it was not given, rather than printing (0)", () => {
+    const gappy = clone(fixture);
+    gappy.team.strength.positionOrder = ["QB"];
+    gappy.team.strength.byPosition = [
+      { position: "QB", value: 19082, starterValue: 17113, reserveValue: 1969, leagueRank: 3 },
+    ];
+    renderCard({ data: gappy });
+    const row = screen.getByText("QB").closest("tr");
+    expect(row.textContent).toContain("17,113");
+    expect(row.textContent).not.toContain("(0)");
+    expect(row.textContent).not.toContain("(null)");
+  });
+
   it("renders a group the frontend has never heard of", () => {
     const exotic = clone(fixture);
     exotic.team.strength.positionOrder = ["QB", "PK"];

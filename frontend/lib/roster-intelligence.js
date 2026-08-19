@@ -140,11 +140,15 @@ export function teamStrengthDetail(payload) {
       return {
         position: String(p?.position ?? ""),
         value: num(p?.value),
-        count: num(p?.count) ?? 0,
+        // Counts are `null` when the payload does not carry them, NOT
+        // 0.  `0` is a real answer here — a group with no reserves —
+        // so coercing an absent count into it would publish "this team
+        // has no reserve at RB" on the strength of a missing field.
+        count: num(p?.count),
         starterValue: num(p?.starterValue),
-        starterCount: num(p?.starterCount) ?? 0,
+        starterCount: num(p?.starterCount),
         reserveValue: num(p?.reserveValue),
-        reserveCount: num(p?.reserveCount) ?? 0,
+        reserveCount: num(p?.reserveCount),
         rank,
         rankLabel: rank === null ? NOT_MEASURED : `#${rank}`,
       };
@@ -172,7 +176,11 @@ export function teamStrengthDetail(payload) {
     // Named separately from `total` everywhere it is shown.
     fullRosterValue: num(strength.fullRosterValue),
     positions,
-    unpricedCount: num(strength.unpricedCount) ?? 0,
+    // Same rule: `0` means "we read the roster and everything is
+    // priced", `null` means the payload never said.  The caveat below
+    // fires on `> 0`, so an unknown count makes no claim either way
+    // rather than asserting a clean roster.
+    unpricedCount: num(strength.unpricedCount),
     unfilledStarterSlots,
     unfilledReserveSlots,
     isComplete: strength.isComplete === true,

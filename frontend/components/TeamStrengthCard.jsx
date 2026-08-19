@@ -233,10 +233,16 @@ export default function TeamStrengthCard({ loading, data, failure }) {
                         {formatStrengthValue(p.value)}
                       </td>
                       <td style={{ textAlign: "right", fontFamily: "var(--mono)" }}>
-                        {formatStrengthValue(p.starterValue)} ({p.starterCount})
+                        {formatStrengthValue(p.starterValue)}
+                        {/* The count is omitted when the payload did not
+                            carry one. `(0)` is a real statement — no
+                            starters at this position — so it may not
+                            stand in for a missing field. */}
+                        {p.starterCount === null ? null : ` (${p.starterCount})`}
                       </td>
                       <td style={{ textAlign: "right", fontFamily: "var(--mono)" }}>
-                        {formatStrengthValue(p.reserveValue)} ({p.reserveCount})
+                        {formatStrengthValue(p.reserveValue)}
+                        {p.reserveCount === null ? null : ` (${p.reserveCount})`}
                       </td>
                       <td style={{ textAlign: "right", fontFamily: "var(--mono)" }}>
                         {p.rankLabel}

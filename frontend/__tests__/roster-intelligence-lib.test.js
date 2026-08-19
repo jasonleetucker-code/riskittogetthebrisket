@@ -183,6 +183,34 @@ describe("teamStrengthDetail", () => {
     expect(out2.positions[1].rankLabel).toBe(NOT_MEASURED);
   });
 
+  it("does not coerce a missing count to zero", () => {
+    // `0` is a REAL answer for a count — a group with no reserves — so
+    // an absent field may not borrow it. This is the pattern the
+    // repo-wide decision-coercion gate exists for, and it caught these
+    // four `?? 0`s on this very file's first CI run.
+    const gappy = clone(fixture);
+    gappy.team.strength.unpricedCount = undefined;
+    gappy.team.strength.byPosition = [
+      {
+        position: "QB",
+        value: 19082,
+        starterValue: 17113,
+        reserveValue: 1969,
+        leagueRank: 3,
+      },
+    ];
+    gappy.team.strength.positionOrder = ["QB"];
+    const out = teamStrengthDetail(gappy);
+    expect(out.unpricedCount).toBeNull();
+    expect(out.positions[0].count).toBeNull();
+    expect(out.positions[0].starterCount).toBeNull();
+    expect(out.positions[0].reserveCount).toBeNull();
+    // A real zero still reads as zero.
+    const zeroed = clone(fixture);
+    zeroed.team.strength.unpricedCount = 0;
+    expect(teamStrengthDetail(zeroed).unpricedCount).toBe(0);
+  });
+
   it("returns null when there is no team at all", () => {
     expect(teamStrengthDetail({ leagueContext: [] })).toBeNull();
     expect(teamStrengthDetail(null)).toBeNull();
@@ -201,6 +229,15 @@ describe("strengthCaveats", () => {
     const caveats = strengthCaveats(teamStrengthDetail(fixture));
     expect(caveats.join(" ")).toContain("12 rostered players");
     expect(caveats.join(" ")).toContain("rather than counted as zero");
+  });
+
+  it("makes no unpriced claim when the count is missing", () => {
+    // "0 players are unpriced" and "we were not told" are different
+    // statements; only the first belongs in prose.
+    const gappy = clone(fixture);
+    gappy.team.strength.unpricedCount = undefined;
+    const caveats = strengthCaveats(teamStrengthDetail(gappy));
+    expect(caveats.join(" ")).not.toContain("no canonical value");
   });
 
   it("is empty for a complete roster", () => {
