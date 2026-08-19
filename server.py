@@ -73,6 +73,7 @@ from src.api.data_contract import (
     validate_api_data_contract,
 )
 from src.api import gameplan as _gameplan
+from src.api import roster_intelligence as _roster_intelligence
 from src.api import guest_passes as _guest_passes
 from src.api import rank_history as _rank_history
 from src.api import source_history as _source_history
@@ -6909,6 +6910,139 @@ async def get_gameplan(request: Request):
             },
         )
     except _gameplan.TeamNotInLeague:
+        return JSONResponse(
+            status_code=404,
+            content={
+                "error": "team_not_found",
+                "message": f"No roster for owner {owner_id!r} in league {league_cfg.key!r}.",
+                "leagueKey": league_cfg.key,
+            },
+        )
+
+    # Private roster intelligence — never cached by a shared proxy.
+    return JSONResponse(content=payload, headers={"Cache-Control": "no-store"})
+
+
+@app.get("/api/roster/intelligence")
+async def get_roster_intelligence(request: Request):
+    """Canonical roster intelligence for one team: core, strength,
+    weakness, age/value portfolio.
+
+    The transport shell over ``src/roster_intel/`` via
+    ``src/api/roster_intelligence.py``.  Everything it returns is
+    computed by the canonical owners — meaningful core (C2-CORE-01),
+    Team Strength (inventory row 1.1), Team Weakness (1.2) and the
+    age-value portfolio (1.6) — so a consumer that reads this endpoint
+    and a consumer that imports ``src.roster_intel`` get the same
+    numbers by construction.
+
+    Query parameters::
+
+        leagueKey   optional — standard resolver (explicit key, else the
+                    user's activeLeagueKey, else the registry default)
+        team        optional — ownerId. Defaults to the session's
+                    Sleeper user id, then the league's default_team_map.
+        droppability  optional — "1"/"true" adds this team's canonical cut
+                    ladder (C2-DROP-01) from ``src/draft/displacement.py``.
+                    OFF by default: it re-runs the exact assignment solver
+                    once per rung, which costs ~55 ms for one team against
+                    ~69 ms for everything else on the live board.
+
+    LEAGUE-SCOPED, and necessarily so: rosters, starter slots and every
+    league-relative rank resolve through ``leagueKey``.  Only the
+    canonical values and ages follow the scoring profile.  So this 503s
+    ``data_not_ready`` on a contract loaded for a different league,
+    matching ``/api/gameplan``, ``/api/terminal`` and ``/api/trade/*``.
+
+    Reads the canonical contract directly.  It does NOT route through
+    ``gameplan.get_league_bundle``: that bundle's rosters come from the
+    ROS team-strength snapshot, which carries a 0-100 production index
+    rather than canonical dynasty value and drops unpriced players
+    before any consumer can see them.
+    """
+    try:
+        league_cfg = _resolve_league_for_request(request)
+    except LeagueResolutionError as err:
+        body = {"error": err.code, "message": err.message}
+        requested = (request.query_params.get("leagueKey") or "").strip()
+        if requested:
+            body["leagueKey"] = requested
+        return JSONResponse(status_code=err.status, content=body)
+
+    contract = latest_contract_data
+    if not contract:
+        return JSONResponse(
+            status_code=503,
+            content={
+                "error": "data_not_ready",
+                "message": "No data available yet. First scrape may still be running.",
+                "leagueKey": league_cfg.key,
+            },
+        )
+
+    loaded_meta = (contract.get("meta") or {}) if isinstance(contract, dict) else {}
+    loaded_league = loaded_meta.get("leagueKey")
+    if loaded_league and loaded_league != league_cfg.key:
+        return JSONResponse(
+            status_code=503,
+            content={
+                "error": "data_not_ready",
+                "message": (
+                    f"No data loaded for league {league_cfg.key!r} yet "
+                    f"(server holds {loaded_league!r})."
+                ),
+                "leagueKey": league_cfg.key,
+            },
+        )
+
+    owner_id = (request.query_params.get("team") or "").strip()
+    if not owner_id:
+        session = _get_auth_session(request) or {}
+        owner_id = str(session.get("sleeper_user_id") or "").strip()
+        if not owner_id:
+            username = str(session.get("username") or "").strip().lower()
+            mapped = (league_cfg.default_team_map or {}).get(username) or {}
+            owner_id = str(mapped.get("ownerId") or "").strip()
+    if not owner_id:
+        return JSONResponse(
+            status_code=400,
+            content={
+                "error": "team_required",
+                "message": (
+                    "Pass ?team=<ownerId>. It could not be inferred: this session "
+                    "carries no Sleeper user id and the league has no default team "
+                    "mapping for it."
+                ),
+                "leagueKey": league_cfg.key,
+            },
+        )
+
+    # The league's DECLARED size, not the roster count: a snapshot
+    # missing one roster must not shrink every weakness threshold.
+    declared_teams = None
+    try:
+        settings = _league_registry.get_league_roster_settings(league_cfg.key) or {}
+        raw = settings.get("teamCount")
+        if isinstance(raw, int) and raw > 0:
+            declared_teams = raw
+    except Exception:  # noqa: BLE001 — the registry is optional here
+        declared_teams = None
+
+    want_drops = (request.query_params.get("droppability") or "").strip().lower() in {
+        "1",
+        "true",
+        "yes",
+    }
+
+    try:
+        payload = await run_in_threadpool(
+            _roster_intelligence.get_team_roster_intelligence,
+            contract,
+            owner_id,
+            team_count=declared_teams,
+            include_droppability=want_drops,
+        )
+    except _roster_intelligence.TeamNotInLeague:
         return JSONResponse(
             status_code=404,
             content={

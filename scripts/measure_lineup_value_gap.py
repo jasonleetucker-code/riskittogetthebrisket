@@ -103,8 +103,8 @@ def main(argv: list[str] | None = None) -> int:
         import server  # noqa: PLC0415
 
         from src.draft.context import (  # noqa: PLC0415
-            _index_contract_rows,
-            _teams,
+            index_contract_rows,
+            contract_teams,
             build_roster_assets,
         )
         from src.draft.displacement import RosterAsset  # noqa: PLC0415
@@ -124,7 +124,7 @@ def main(argv: list[str] | None = None) -> int:
         return EXIT_SKIPPED
 
     league_key = (contract.get("meta") or {}).get("leagueKey")
-    teams = _teams(contract)
+    teams = contract_teams(contract)
     if not teams:
         print("SKIPPED: contract carries no rosters.", file=sys.stderr)
         return EXIT_SKIPPED
@@ -133,7 +133,7 @@ def main(argv: list[str] | None = None) -> int:
         print(f"ERROR: no team named {args.team!r}.", file=sys.stderr)
         return EXIT_ERROR
 
-    by_id, by_name = _index_contract_rows(contract)
+    by_id, by_name = index_contract_rows(contract)
     assets, _unmatched = build_roster_assets(team, by_name, by_id)
     slots = load_league_starter_slots(league_key)
 
