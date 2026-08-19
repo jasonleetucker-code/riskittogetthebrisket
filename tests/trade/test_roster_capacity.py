@@ -808,3 +808,61 @@ def test_an_above_replacement_drop_still_reports_both_costs():
                 "net out the waiver level"
             )
             break
+
+
+# ── Rung order when every cut costs the same ──────────────────────────
+#
+# `build_cut_ladder` picks cheapest-ECC-first with a lineup guard. When the
+# ECCs TIE its greedy falls back to insertion order — the roster's own order,
+# which Sleeper returns alphabetically. Measured on the 2026-08-18 board every
+# ECC on every forced drop is 0.0 (see the release-cost block above), so on all
+# twelve rosters the published order was purely alphabetical while `rung: 1`
+# reads as "release this one first". On the fullest roster that named Bobby
+# Wagner (1,312) ahead of Jaleel McLaughlin (1,205) — strictly more expensive,
+# listed first.
+#
+# The SET stays the ladder's; only the presentation order changes.
+
+
+def test_tied_cut_costs_are_reordered_by_release_cost_and_disclosed():
+    roster = _roster(58)
+    contract, team = _contract(roster, extra_rows=_free_agents())
+    context = build_capacity_context(contract, None, team, roster_settings=MAIN_SETTINGS)
+    capacity = assess_roster_capacity(
+        context, incoming_players=["Free Agent 00", "Free Agent 01", "Free Agent 02"]
+    )
+    drops = capacity.forced_drops
+    if len(drops) < 2:
+        pytest.skip("fixture produced fewer than two forced drops")
+
+    if capacity.rung_order_was_tied:
+        costs = [d.release_cost for d in drops]
+        assert costs == sorted(costs), "tied drops must be ordered by real cost"
+        assert any(
+            "carried no priority" in n for n in capacity.notes
+        ), "a reordering the caller cannot see is worse than the arbitrary order"
+    assert capacity.to_dict()["rungOrderWasTied"] == capacity.rung_order_was_tied
+
+
+def test_reordering_draws_only_from_the_post_trade_roster():
+    """Reordering must not change WHO is dropped.
+
+    The ladder is built over the POST-trade roster, so an incoming player is
+    legitimately droppable — that is what `acquiredInTrade` marks. The property
+    that holds is therefore membership in (surviving roster + incoming), never
+    a name the ladder could not have produced.
+    """
+    roster = _roster(58)
+    contract, team = _contract(roster, extra_rows=_free_agents())
+    context = build_capacity_context(contract, None, team, roster_settings=MAIN_SETTINGS)
+    incoming = ["Free Agent 00", "Free Agent 01"]
+    capacity = assess_roster_capacity(context, incoming_players=incoming)
+    if not capacity.forced_drops:
+        pytest.skip("fixture forced no drops")
+
+    legal = {str(r[0]).strip().lower() for r in roster} | {n.strip().lower() for n in incoming}
+    for drop in capacity.forced_drops:
+        assert drop.name.strip().lower() in legal, (
+            f"{drop.name!r} is on neither the roster nor the incoming side — "
+            "the reordering invented a drop"
+        )

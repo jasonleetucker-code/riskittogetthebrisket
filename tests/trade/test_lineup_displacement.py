@@ -269,3 +269,84 @@ def test_the_verdict_is_unchanged_by_whether_a_displacement_happened():
     # what makes the comparison meaningful rather than coincidental.
     assert a["starterDelta"] == b["starterDelta"]
     assert a["depthDelta"] == b["depthDelta"]
+
+
+# ── Which positions a league actually starts (rehearsal finding A) ────
+#
+# `_BASE_POSITIONS` was both a report ORDER and an eligibility FILTER, and as a
+# filter it was wrong: `dynasty_main` starts `K: 1`, `resolve_starter_slots`
+# duly returns a `K` slot, and `project_starters` dropped every kicker — so the
+# K slot could never be filled, `K` was not even a key in the output, and a
+# traded kicker was invisible to the whole team-impact payload including the
+# lineup delta above.
+#
+# Measured on the same roster: the capacity path (`build_cut_ladder` ->
+# `assign_lineup`) SEATS the kicker while this module modelled one slot fewer.
+# Two Trade modules disagreeing about one roster.
+
+
+K_SETTINGS = {"teamCount": 12, "rosterSize": 40, "starters": {"QB": 1, "RB": 1, "K": 1}}
+
+
+def test_a_league_that_starts_a_kicker_seats_one():
+    from src.trade.team_impact import project_starters
+
+    out = project_starters(
+        [_asset("QB1", "QB", 9000), _asset("RB1", "RB", 7000), _asset("Kicker", "K", 500)],
+        K_SETTINGS,
+    )
+    assert [a["name"] for a in out.get("K", [])] == ["Kicker"]
+
+
+def test_the_capacity_path_and_team_impact_agree_on_the_same_roster():
+    """The inconsistency that motivated the fix, pinned so it cannot return."""
+    from src.draft.displacement import RosterAsset
+    from src.ros.lineup import assign_lineup, resolve_starter_slots
+    from src.trade.team_impact import project_starters
+
+    slots, _ = resolve_starter_slots(roster_settings=K_SETTINGS)
+    assets = [
+        RosterAsset(player_id="q", name="QB1", position="QB", board_value=9000),
+        RosterAsset(player_id="r", name="RB1", position="RB", board_value=7000),
+        RosterAsset(player_id="k", name="Kicker", position="K", board_value=500),
+    ]
+    capacity_seated = {
+        p.canonical_name
+        for p in assign_lineup([a.to_lineup_player() for a in assets], slots).assignments.values()
+    }
+
+    impact = project_starters(
+        [_asset("QB1", "QB", 9000), _asset("RB1", "RB", 7000), _asset("Kicker", "K", 500)],
+        K_SETTINGS,
+    )
+    impact_seated = {a["name"] for bucket in impact.values() for a in bucket}
+    assert capacity_seated == impact_seated
+
+
+def test_a_league_that_starts_no_kicker_reports_none():
+    """Derived per league, not a constant — `dynasty_new` starts no K and no IDP."""
+    from src.trade.team_impact import _positions_for
+
+    assert _positions_for(K_SETTINGS) == ("QB", "RB", "K")
+    assert _positions_for(SETTINGS) == ("QB", "RB", "WR", "TE")
+
+
+def test_an_unscalable_position_contributes_no_fabricated_baseline():
+    """Rehearsal finding B: `_avg(combined) or 1500.0` invented a scale.
+
+    A position with no priced starter has no measurable scale. It now
+    contributes no depth/overflow term and is named in `unscalablePositions`,
+    rather than being weighted by a number nobody observed.
+    """
+    roster = [_asset("QB1", "QB", 8000), _asset("RB1", "RB", 7000)]
+    impact = compute(
+        before_assets=roster,
+        after_assets=roster + [_asset("RB2", "RB", 3000)],
+        receiving=[_asset("RB2", "RB", 3000)],
+        sending=[],
+        equity=3000,
+        roster_settings=SETTINGS,
+    )
+    assert impact is not None
+    # WR and TE are startable in this league but nobody is rostered there.
+    assert set(impact["unscalablePositions"]) >= {"WR", "TE"}

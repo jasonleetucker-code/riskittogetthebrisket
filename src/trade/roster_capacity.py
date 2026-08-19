@@ -292,6 +292,10 @@ class RosterCapacity:
     #: ``"exact"``.
     over_limit_after_min: int | None = None
     over_limit_after_max: int | None = None
+    #: True when every forced drop tied on effective cut cost, so the cut
+    #: ladder's rung order carried no priority and the drops below are ordered
+    #: by ``release_cost`` instead.  See the note in ``assess_roster_capacity``.
+    rung_order_was_tied: bool = False
     #: Bounds on how many roster members could be sitting on taxi slots.
     taxi_occupied_min: int = 0
     taxi_occupied_max: int = 0
@@ -361,6 +365,7 @@ class RosterCapacity:
             # than a determined set.  A caller that renders them as required
             # without reading this is overstating what is known.
             "forcedDropsAreUpperBound": self.certainty != "exact",
+            "rungOrderWasTied": self.rung_order_was_tied,
             "forcedDropValue": (
                 None if self.forced_drop_value is None else round(self.forced_drop_value, 1)
             ),
@@ -764,6 +769,30 @@ def assess_roster_capacity(
             )
         )
 
+    # ── Ordering: the ladder's rung order is not always a priority ────────
+    #
+    # ``build_cut_ladder`` picks cheapest-ECC-first with a lineup guard. When
+    # the ECCs TIE the greedy falls back to insertion order, which is the
+    # roster's own order — alphabetical, as Sleeper returns it. Measured on the
+    # 2026-08-18 board: every ECC on every forced drop is 0.0 (see
+    # ``ForcedDrop.release_cost``), so on all twelve rosters the rung order was
+    # purely alphabetical while ``rung: 1`` reads as "release this one first".
+    # On the fullest roster that named Bobby Wagner (1,312) ahead of Jaleel
+    # McLaughlin (1,205) — strictly more expensive, listed first.
+    #
+    # The SET is the ladder's and stays the ladder's: membership is what the
+    # per-rung lineup re-solve establishes, and re-deriving it here would be a
+    # second cut ladder. Only the PRESENTATION order changes, to the honest
+    # cost, and ``rungOrderWasTied`` says when the ladder's own order carried
+    # no information.
+    tied = len({round(d.effective_cut_cost, 6) for d in drops}) <= 1 and len(drops) > 1
+    if tied:
+        drops = sorted(drops, key=lambda d: (d.release_cost, d.name))
+        notes.append(
+            "every forced drop scored the same effective cut cost, so the cut ladder's "
+            "own rung order carried no priority — these are ordered by release cost instead"
+        )
+
     exhausted = len(drops) < over_after_max
     if exhausted:
         notes.append(
@@ -794,6 +823,7 @@ def assess_roster_capacity(
         forced_drop_value=float(sum(priced)) if priced else 0.0,
         forced_drop_cut_cost=float(sum(d.effective_cut_cost for d in drops)),
         forced_drop_release_cost=float(sum(d.release_cost for d in drops)),
+        rung_order_was_tied=tied,
         unpriced_forced_drops=sum(1 for d in drops if d.value is None),
         ladder_exhausted=exhausted,
         notes=notes,
