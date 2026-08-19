@@ -48,7 +48,6 @@ from src.nfl_data import cache as _nfl_cache
 from . import historical_stats as _stats
 from . import idp as _idp
 from . import metrics as _m
-from . import season_scoring as _season_scoring
 from . import sleeper_scoring as _sleeper
 from src.nfl_data import pbp_weekly as _pbp_weekly
 
@@ -57,6 +56,21 @@ from .scoring_engine import PlayerSeasonScore, compute_player_season_scores
 _LOGGER = logging.getLogger(__name__)
 
 _CACHE_TTL_SEC = 7 * 24 * 3600
+
+#: Bumped whenever a change alters the NUMBERS this service produces.
+#:
+#: The cache key already carried the CONFIG version (``config.version``),
+#: which moves when the leagues or seasons change — and never when the
+#: code does.  With a 7-day TTL that meant a methodology repair could ship
+#: and a user could still be served the pre-repair answer for a week, and
+#: a user-triggered recalculation would return the cached one immediately.
+#: A cache that outlives the arithmetic it cached is a way to keep serving
+#: a defect after it has been fixed.
+#:
+#: 2026-08-19 — season-card symmetry repair: the two arms were averaged
+#: over different season windows (four against one on the live config).
+#: Every cached comparison written before this predates the fix.
+_CACHE_METHODOLOGY_VERSION = "2026-08-19.symmetric-counterfactual"
 _CACHE_SUBDIR = "league_comparison_cache"
 
 
@@ -96,6 +110,9 @@ def _cache_key(
 ) -> str:
     parts = [
         version,
+        # The CODE's version, not just the config's.  Without this a
+        # methodology change cannot evict its own stale results.
+        _CACHE_METHODOLOGY_VERSION,
         my_id,
         my_hash,
         baseline_id,
@@ -105,37 +122,26 @@ def _cache_key(
     return "league_compare:" + hashlib.sha1(":".join(parts).encode("utf-8")).hexdigest()
 
 
-def _resolve_season_cards_or_none(
-    league_id: str, seasons: list[int]
-) -> _season_scoring.SeasonScoringChain | None:
-    """Resolve the season -> card chain, or ``None`` if the walk failed.
-
-    ``None`` and "resolved but with unresolved seasons" are different states
-    and are reported differently upstream: the first means we never learned
-    anything about this league's history, the second means we learned it and
-    those particular seasons are genuinely absent.
-
-    **A walk that resolved NOTHING counts as the first case.**  The chain
-    walker degrades internally rather than raising — a dead network ends the
-    walk and yields an empty map — so an empty result is indistinguishable
-    from "this league has no history", and treating it as authoritative would
-    mark every season unavailable and blank the whole comparison on a
-    transient outage.  One or more resolved cards is what makes the chain
-    trustworthy enough for its gaps to mean something.
-    """
-    try:
-        chain = _season_scoring.resolve_season_cards(league_id, seasons)
-    except Exception as exc:  # noqa: BLE001 — an optional refinement must not 500
-        _LOGGER.warning(
-            "league_compare.season_cards_unresolved league_id=%s err=%r", league_id, exc
-        )
-        return None
-    if not chain.cards:
-        _LOGGER.warning(
-            "league_compare.season_chain_empty league_id=%s seasons=%s", league_id, seasons
-        )
-        return None
-    return chain
+#: The basis this comparison scores on, stamped on every season of BOTH
+#: arms.
+#:
+#: WHY COUNTERFACTUAL, AND WHY IT IS NOT THE DEFECT IT LOOKS LIKE.
+#: ``config/league_comparison.json`` points at two leagues created for
+#: 2026 — "Scoring" (``1312736351547850752``, no ``previous_league_id``
+#: at all) and "Standard" (``1328545898812170240``, one hop back to
+#: 2025) — and asks for seasons 2022-2025.  **Neither league played any
+#: of them.**  They are vessels carrying two scoring cards, and the
+#: season loop varies the NFL production, not the league's rules.  So
+#: "what did this league pay in 2023" is not the question here, and
+#: answering it is not available: there is no such card to find.
+#:
+#: The as-of resolver (``season_scoring``) is still the right owner where
+#: the question really IS as-of — ``bdvm.baseline`` rescores a real
+#: league's own realized history and resolves per season there.  What it
+#: must never do is decide, PER ARM, how many seasons survive into a
+#: two-arm average.  That is what it was doing here, and it is the defect
+#: this constant closes: one declared basis, both arms, every season.
+CARD_BASIS_COUNTERFACTUAL = "current_card_counterfactual"
 
 
 # ── Per-position pipeline ─────────────────────────────────────────────
@@ -177,7 +183,6 @@ def _build_league_block(
     league_info: _sleeper.LeagueScoringInfo,
     seasons_map: dict[int, list[dict[str, Any]] | None],
     sample_sizes: dict[str, int],
-    season_cards: _season_scoring.SeasonScoringChain | None = None,
 ) -> dict[str, Any]:
     """Compute per-season per-position metrics for one league across
     every available season.
@@ -187,29 +192,31 @@ def _build_league_block(
         "topPlayers":[...]}},
        "combined": {"positions":{...}, "flex":{...}}}``
 
-    **Each season is scored under ITS OWN card.**  This loop used to pass
-    ``league_info.scoring_settings`` — today's card — into every season, so a
-    league that changed its rules had every prior year rewritten under rules
-    nobody played.  ``season_cards`` resolves the real card per season from
-    the ``previous_league_id`` chain (see ``season_scoring``).
+    **Every season is scored under this league's current card, on BOTH
+    arms, and the basis is stamped** — see
+    :data:`CARD_BASIS_COUNTERFACTUAL` for why that is the right question
+    for this comparison and not a silent substitution.
 
-    A season whose card cannot be resolved is marked UNAVAILABLE rather than
-    scored with today's card: substituting the current rules is the defect,
-    and doing it silently is what let the defect survive.  Callers already
-    handle an unavailable season — it is the same shape as "no stat rows".
+    This briefly took a ``season_cards`` chain and resolved a card per
+    season.  That is correct for a league being rescored against its own
+    history and WRONG here, and the way it was wrong is worth keeping in
+    view: the chain was resolved independently per arm, so an arm whose
+    walk returned nothing fell back to today's card with every season
+    ``available``, while an arm whose walk returned something dropped its
+    unresolved seasons.  ``combined`` averages the available seasons
+    equally, so the two arms were averaged over different windows and
+    compared as though they were the same measurement — measured live at
+    four seasons against one.
+
+    A season with no STAT ROWS is still unavailable.  Symmetry is about
+    the card, not about inventing data.
     """
     per_season: dict[int, dict[str, Any]] = {}
     for season, rows in seasons_map.items():
-        scoring_for_season: dict[str, float] | None
-        if season_cards is None:
-            # No chain resolved (offline, or a caller that predates this):
-            # fall back to the league's current card, and SAY SO on the
-            # season block rather than presenting it as the season's rules.
-            scoring_for_season = league_info.scoring_settings
-            card_basis = "current_card_unverified"
-        else:
-            scoring_for_season = season_cards.settings_for(season)
-            card_basis = "season_card" if scoring_for_season is not None else "unresolved"
+        # ONE basis, both arms, every season.  No per-arm branch, because a
+        # per-arm branch is exactly how the windows diverged.
+        scoring_for_season = league_info.scoring_settings
+        card_basis = CARD_BASIS_COUNTERFACTUAL
         if not rows or scoring_for_season is None:
             per_season[season] = {
                 "positions": {
@@ -222,7 +229,7 @@ def _build_league_block(
                 # "no stat rows" and "we do not know this season's rules" are
                 # different reasons to show nothing, and a user deserves to
                 # know which one they hit.
-                "unavailableReason": ("no_stat_rows" if not rows else "scoring_card_unresolved"),
+                "unavailableReason": ("no_stat_rows" if not rows else "no_scoring_card"),
                 "cardBasis": card_basis,
             }
             continue
@@ -554,32 +561,31 @@ def build_comparison(*, refresh: bool = False) -> dict[str, Any]:
                 + " ".join(d for d in detail if d.startswith(tuple(unscorable)))
             )
 
-    # Resolve each league's ACTUAL card per season from its
-    # ``previous_league_id`` chain, so a season is scored under the rules it
-    # was played under rather than under today's (#802 as-of correctness).
-    # Degrades rather than fails: a chain that cannot be walked leaves
-    # ``season_cards`` None and every season is stamped
-    # ``cardBasis: current_card_unverified``, which is an honest label on a
-    # weaker number — not a silent claim that these are the season's rules.
+    # ONE basis, declared, on both arms — see CARD_BASIS_COUNTERFACTUAL.
+    #
+    # This used to resolve each league's ``previous_league_id`` chain and
+    # pick a card per season.  Resolving it INDEPENDENTLY PER ARM is what
+    # made the two combined averages incomparable: an arm whose walk
+    # returned nothing kept every season on today's card, an arm whose
+    # walk returned something dropped its unresolved seasons, and
+    # ``combined`` averages whatever is available.  Measured live at four
+    # seasons against one.
+    #
+    # The walk is gone rather than ignored: keeping it to produce a
+    # warning would cost a Sleeper round-trip per arm per request for a
+    # question this comparison does not ask.
     requested_seasons = sorted(seasons_map)
-    my_cards = _resolve_season_cards_or_none(my_info.league_id, requested_seasons)
-    base_cards = _resolve_season_cards_or_none(base_info.league_id, requested_seasons)
-    for label, chain in (("your league", my_cards), ("the baseline league", base_cards)):
-        if chain is None:
-            warnings.append(
-                f"Could not resolve historical scoring settings for {label}; "
-                "seasons are scored under its CURRENT card, which may differ "
-                "from the rules those seasons were played under."
-            )
-        elif chain.unresolved:
-            warnings.append(
-                f"No scoring card found for {label} in "
-                f"{', '.join(str(s) for s in sorted(chain.unresolved))} — "
-                "those seasons are excluded rather than scored under today's rules."
-            )
+    warnings.append(
+        "Seasons "
+        f"{', '.join(str(s) for s in requested_seasons)} are scored under each "
+        "league's CURRENT scoring card. This compares the two scoring systems "
+        "across several years of real NFL production; it is not a record of "
+        "what either league paid in those years, and neither league existed "
+        "in them."
+    )
 
-    my_block = _build_league_block(my_info, seasons_map, sample_sizes, my_cards)
-    base_block = _build_league_block(base_info, seasons_map, sample_sizes, base_cards)
+    my_block = _build_league_block(my_info, seasons_map, sample_sizes)
+    base_block = _build_league_block(base_info, seasons_map, sample_sizes)
 
     positions, my_sl, my_si, base_sl, base_si = _build_position_comparisons(
         my_block,

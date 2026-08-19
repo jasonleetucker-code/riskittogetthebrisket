@@ -291,81 +291,36 @@ def _rows(season):
     ]
 
 
-def test_the_service_scores_each_season_under_its_own_card(monkeypatch):
-    """End-to-end at the seam that had the defect: identical production in
-    two seasons must score differently when the league's rules changed."""
-    from src.league_comparison import service as _svc
-
-    info = _Info("L2025", CHAIN["L2025"]["scoring_settings"])
-    chain = _ss.resolve_season_cards("L2025", [2023, 2025], fetcher=_fetcher(CHAIN))
-    block = _svc._build_league_block(
-        info,
-        {2023: _rows(2023), 2025: _rows(2025)},
-        {"WR": 5, "FLEX": 5},
-        chain,
-    )
-    got_2023 = block["perSeason"]["2023"]
-    got_2025 = block["perSeason"]["2025"]
-    assert got_2023["cardBasis"] == "season_card"
-    assert got_2025["cardBasis"] == "season_card"
-    # 2023 pays rec 0.0, 2025 pays rec 1.0 — same 8 catches, different points.
-    assert got_2023["topPlayers"][0]["totalPoints"] != got_2025["topPlayers"][0]["totalPoints"]
-
-
-def test_an_unresolved_season_is_excluded_not_scored_with_todays_card():
-    from src.league_comparison import service as _svc
-
-    info = _Info("L2025", CHAIN["L2025"]["scoring_settings"])
-    chain = _ss.resolve_season_cards("L2025", [2019, 2025], fetcher=_fetcher(CHAIN))
-    block = _svc._build_league_block(
-        info, {2019: _rows(2019), 2025: _rows(2025)}, {"WR": 5, "FLEX": 5}, chain
-    )
-    assert block["perSeason"]["2019"]["available"] is False
-    assert block["perSeason"]["2019"]["unavailableReason"] == "scoring_card_unresolved"
-    assert block["perSeason"]["2025"]["available"] is not False
-
-
-def test_no_chain_falls_back_but_says_so():
-    """Degradation must be labelled.  Blanking the whole comparison on a
-    transient outage would be worse than a weaker number — but an unlabelled
-    weaker number is exactly the silence this work removes."""
-    from src.league_comparison import service as _svc
-
-    info = _Info("L2025", CHAIN["L2025"]["scoring_settings"])
-    block = _svc._build_league_block(info, {2023: _rows(2023)}, {"WR": 5, "FLEX": 5}, None)
-    assert block["perSeason"]["2023"]["cardBasis"] == "current_card_unverified"
-
-
-def test_a_totally_failed_walk_degrades_rather_than_blanking(monkeypatch):
-    """The walker degrades internally, so an empty map is indistinguishable
-    from 'no network' — it must not be treated as authoritative absence."""
-    from src.league_comparison import service as _svc
-
-    monkeypatch.setattr(
-        _svc._season_scoring,
-        "resolve_season_cards",
-        lambda lid, seasons, **kw: _ss.SeasonScoringChain(
-            start_league_id=lid, unresolved={s: _ss.REASON_FETCH_FAILED for s in seasons}
-        ),
-    )
-    assert _svc._resolve_season_cards_or_none("L2025", [2023, 2025]) is None
-
-
-def test_a_partially_resolved_walk_is_trusted():
-    """Non-vacuity for the rule above: once ANY card resolves, the chain's
-    gaps are real and must be honoured."""
-    from src.league_comparison import service as _svc
-
-    import src.league_comparison.season_scoring as real
-
-    original = real.resolve_season_cards
-    try:
-        real.resolve_season_cards = lambda lid, seasons, **kw: original(
-            lid, seasons, fetcher=_fetcher(CHAIN), **kw
-        )
-        chain = _svc._resolve_season_cards_or_none("L2025", [2019, 2025])
-    finally:
-        real.resolve_season_cards = original
-    assert chain is not None
-    assert 2019 in chain.unresolved
-    assert chain.card_for(2025) is not None
+# ── RETIRED 2026-08-19: the five service-level as-of tests ──────────
+#
+# ``test_the_service_scores_each_season_under_its_own_card``,
+# ``test_an_unresolved_season_is_excluded_not_scored_with_todays_card``
+# and ``test_no_chain_falls_back_but_says_so`` pinned per-season card
+# resolution inside ``league_comparison.service``.  Integration review
+# reproduced the defect that shape produced: the chain is resolved
+# INDEPENDENTLY PER ARM, so an arm whose walk returned nothing kept every
+# season on today's card while an arm whose walk returned something
+# dropped its unresolved seasons — four seasons against one on the live
+# configuration, averaged and compared as one measurement.
+#
+# The tests were not wrong about as-of correctness; they were asserting
+# it in the wrong place.  Neither configured league played any compared
+# season (both are 2026 vessels), so that arm has no as-of question to
+# answer.  Its symmetry contract is now
+# ``tests/league_comparison/test_season_card_symmetry.py``.
+#
+# Two more went with them —
+# ``test_a_totally_failed_walk_degrades_rather_than_blanking`` and
+# ``test_a_partially_resolved_walk_is_trusted`` — because they pinned
+# ``service._resolve_season_cards_or_none``, which is deleted.  Deleted
+# rather than left unreferenced: an unused chain resolver sitting in the
+# comparison service is a ready-made seam for re-threading the per-arm
+# branch by accident, the same reason ``apply_valuation_factors`` was
+# removed outright rather than orphaned.  ``service`` no longer imports
+# ``season_scoring`` at all, and
+# ``test_season_card_symmetry.py`` asserts that structurally.
+#
+# The as-of contract itself is unchanged and still tested where the
+# question really is as-of: ``tests/bdvm/test_baseline_season_cards.py``
+# rescores a real league's own realized history, and the resolver's own
+# fail-closed behaviour is pinned above in this file.

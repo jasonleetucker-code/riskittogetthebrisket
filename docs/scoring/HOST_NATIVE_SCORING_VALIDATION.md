@@ -288,12 +288,12 @@ gate, not a permanent second scoring system**.
 | historical player-weeks reconcile to independent totals | **done** — §3d, 16/16 vs host-awarded |
 | offense and IDP stacking semantics correct | **done** — §3d IDP archetypes; §3e(1) |
 | no future-week / future-stat leakage | **done** — REG-only, week 18 excluded, no future week selectable (§5) |
-| historical scoring-card / as-of configuration correctness | **partly closed** — resolver landed, promotion still needs a live chain walk (§5) |
+| historical scoring-card / as-of configuration correctness | **done (2026-08-19)** — resolver landed for the as-of consumer (`bdvm.baseline`); the comparison path's first repair was itself defective (asymmetric per-arm windows, four seasons against one on the live config) and is now one declared counterfactual basis on both arms, with the seam deleted and the cache versioned (§5b) |
 | downstream consumers identified | **done** — §6 |
 | performance / caching measured | **done** — §7 |
 | regression tests cover corrected categories | **done** — §8 |
 | BDVM rerun against challenger output | **OPEN** — needs a prod box with snapshots |
-| league-comparison rerun and measured | **OPEN** — needs live Sleeper fetch |
+| league-comparison rerun and measured | **partly closed** — the season-card symmetry repair is recomputed both ways on 72,457 real weekly rows (§5b: similarity 69→72, FLEX deviation 26.77%→21.54%). Rerunning it against *challenger* scoring still needs a live Sleeper fetch. |
 | historical backtests rerun | **OPEN** — needs the above |
 | play-by-play artifact built and joined in production | **OPEN** — `scripts/build_pbp_weekly.py` must run on prod, and the resulting movement in BDVM baselines and league comparison must be measured, not assumed (§4a) |
 
@@ -639,7 +639,7 @@ open one. They are split now.
 * No future week is selectable; the challenger changes *which rules* score,
   never *which weeks* are visible.
 
-### 5b. Historical scoring-card correctness — was OPEN, now largely closed
+### 5b. Historical scoring-card correctness — CLOSED, and its first repair was itself defective
 
 The original text of this section conceded that historical rescoring applied
 **today's** card to every season, and the gate table still marked leakage
@@ -654,23 +654,13 @@ Measured, two independent consumers had it:
 * `bdvm/baseline.py::realized_ppg_history` applied one card across its whole
   multi-season window.
 
-**Now resolved by `src/league_comparison/season_scoring.py`**, which walks the
-Sleeper `previous_league_id` chain and indexes each hop by **its own `season`**
-— so a chain that skips a year cannot shift every earlier card by one. Both
-consumers resolve per season through it.
+#### The owner — `src/league_comparison/season_scoring.py`
 
-It **fails closed**: a season whose card cannot be resolved is reported
-`unresolved` and excluded, never scored with today's card, because that
-substitution *is* the defect and doing it silently is what let it survive.
-`cardBasis` is stamped on every season block — `season_card` when the real card
-was resolved, `current_card_unverified` when the whole chain walk failed and the
-result is a labelled weaker number rather than a silent one.
-
-One deliberate nuance: a walk that resolves **nothing** is treated as "we
-learned nothing", not as "this league has no history". The walker degrades
-internally rather than raising, so an empty result is indistinguishable from a
-dead network, and treating it as authoritative absence would blank an entire
-comparison during a transient outage.
+It walks the Sleeper `previous_league_id` chain and indexes each hop by **its
+own `season`**, so a chain that skips a year cannot shift every earlier card by
+one. It **fails closed**: a season whose card cannot be resolved is reported
+`unresolved`, never scored with today's card, because that substitution *is* the
+defect and doing it silently is what let it survive.
 
 Pinned by `tests/league_comparison/test_season_scoring.py` and
 `tests/bdvm/test_baseline_season_cards.py`, including the property the audit
@@ -678,9 +668,117 @@ asked for — *changing a later season's card cannot move an earlier season's
 points* — and its non-vacuity twin, *the earlier season IS moved by its own
 card*, because a resolver returning nothing would satisfy the first perfectly.
 
-**Still open for promotion:** the resolver has only ever been exercised against
-synthetic chains. Walking the real `dynasty_main` chain and recording which
-seasons resolve is production work, and belongs with the other three gates.
+#### The first repair to `league_comparison` was wrong, and integration review caught it
+
+Threading that resolver into the comparison service introduced a **reachable
+asymmetry** on an unflagged, nav-reachable route. The two arms resolved their
+chains **independently**, and the two failure modes are not the same shape:
+
+| chain walk returns | what the arm did |
+|---|---|
+| nothing (empty, or the walk failed) | fell back to today's card, **every season available** |
+| one or more cards | **dropped** every season it could not resolve |
+
+`combined` averages the available seasons equally, so the arms were averaged
+over **different windows** and then compared as though they were one
+measurement. On the live configuration that was a four-season average against a
+one-season average — my_league `2022, 2023, 2024, 2025` versus baseline `2025`
+— reaching the similarity score, the per-position share deviations and the
+recommendations built on them.
+
+Reproduced RED first
+(`tests/league_comparison/test_season_card_symmetry.py`), which failed with
+exactly the live shape before any repair:
+
+```
+AssertionError: asymmetric window: my_league ['2022','2023','2024','2025'] vs baseline ['2025']
+```
+
+#### Why the fix is not "resolve harder"
+
+The two leagues `config/league_comparison.json` points at were both **created for
+2026** — "Scoring" (`1312736351547850752`) has no `previous_league_id` at all,
+and "Standard" (`1328545898812170240`) hops back exactly one year. **Neither
+played any of the four configured seasons.** They are vessels carrying two
+scoring cards, and the season loop varies the *NFL production*, not the league's
+rules.
+
+So there is no historical card to find, and a strict as-of intersection would
+empty the feature rather than repair it. What this comparison actually asks is
+counterfactual — *how would these two scoring systems price the same several
+years of real production* — and the honest fix is to say so:
+
+* **one declared basis, both arms, every season** —
+  `CARD_BASIS_COUNTERFACTUAL = "current_card_counterfactual"`, stamped on every
+  season block of both arms;
+* the `season_cards` parameter is **removed** from `_build_league_block`, so
+  there is no parameter that can differ between the arms;
+* `service.py` no longer imports `season_scoring` **at all**, and
+  `_resolve_season_cards_or_none` is **deleted** rather than orphaned — an
+  unused per-arm chain resolver is a seam one line from being rewired, the same
+  argument CLAUDE.md makes for deleting `apply_valuation_factors`;
+* a warning states plainly that these are current cards over historical
+  production and that neither league existed in those seasons;
+* a season with **no stat rows** is still unavailable. Symmetry is about the
+  card, not about inventing data.
+
+The as-of resolver keeps its owner and its consumer: `bdvm.baseline` rescores a
+real league's own realized history and resolves per season through it. What it
+must never do is decide, per arm, how many seasons survive into a two-arm
+average.
+
+#### Recomputed outputs, before and after
+
+`scripts/measure_season_card_symmetry.py` runs the service's own
+`_build_league_block` / `_build_position_comparisons` / `similarity_score` both
+ways. Inputs named, because the absolutes depend on them: the live
+`config/league_comparison.json` (seasons 2022-2025, its sample sizes) and the
+**committed** card pair at
+`tests/nfl_data/fixtures/live_scoring_cards_2026-07-28.json`, over 72,457 real
+REG weekly rows. It needs no Sleeper fetch, so a reviewer can reproduce it.
+
+| output | before (asymmetric) | after (symmetric) |
+|---|---|---|
+| seasons averaged, my_league / baseline | 4 / **1** | 4 / **4** |
+| similarity score | 69 | **72** |
+| FLEX share deviation | 26.77% | **21.54%** |
+| total share deviation | 2.63 pp | 3.07 pp |
+
+Baseline position shares move QB −0.11 pp, RB −0.92 pp, TE −0.29 pp, WR
++1.32 pp — the four-season average is a different, and comparable, number.
+
+An earlier run against **live-fetched** cards rather than the committed fixture
+gave different absolutes (similarity 66 → 68, FLEX 23.31% → 18.95%) and the same
+direction on every axis. Only the reproducible run is quoted above; the live one
+is recorded here so the two are not mistaken for a discrepancy in the repair.
+
+#### Cache invalidation
+
+The 7-day cache key carried `config.version`, which moves when the **leagues or
+seasons** change and never when the **code** does. A methodology repair could
+therefore ship and a user still be served the pre-repair answer for a week, with
+a manual recalculation returning the cached one instantly.
+`_CACHE_METHODOLOGY_VERSION = "2026-08-19.symmetric-counterfactual"` is now part
+of the key, so every comparison cached before this repair is evicted by
+construction. Pinned by
+`test_the_cache_key_moves_when_the_methodology_does`.
+
+#### Coverage
+
+`tests/league_comparison/test_season_card_symmetry.py` — 13 tests:
+
+* the live four-vs-one shape (RED first);
+* all four chain states — neither resolves, mine only, baseline only, both —
+  parameterised, because the defect was that these states disagreed;
+* a missing-middle / skipped-year chain;
+* both arms declare the same basis;
+* **non-vacuity** — the seasons still contribute nonzero samples and averages, so
+  a repair that made everything unavailable cannot pass;
+* no season is labelled `season_card` or `current_card_unverified` on this path;
+* a season with no stat rows is still unavailable;
+* structural: `season_cards` is not a parameter, `_resolve_season_cards_or_none`
+  does not exist, and `season_scoring` is not imported;
+* the cache key moves with the methodology version.
 
 ## 6. Consumers
 
