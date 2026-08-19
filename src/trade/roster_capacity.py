@@ -100,12 +100,13 @@ from dataclasses import dataclass, field
 from collections import Counter
 from typing import Any, Iterable, Mapping, Sequence
 
-from src.draft.context import _index_contract_rows, _league_scarcity, _norm, build_roster_assets
+from src.draft.context import _league_scarcity, _norm, build_roster_assets, index_contract_rows
 from src.draft.displacement import (
     RosterAsset,
-    build_cut_ladder,
     waiver_values_by_position,
 )
+from src.roster_intel import pool_cut_ladder
+from src.ros.lineup import RosterPlayer
 
 __all__ = [
     "CapacityContext",
@@ -411,6 +412,11 @@ class CapacityContext:
     scarcity: Mapping[str, Any] | None
     by_name: Mapping[str, Mapping[str, Any]]
     by_id: Mapping[str, Mapping[str, Any]]
+    #: The league's CONFIGURED flex rule, resolved once from the contract by
+    #: ``data_contract.contract_slot_eligibility`` — the same helper the
+    #: lineup stamp, ``/api/roster/intelligence`` and ``team_droppability``
+    #: use.  ``None`` means nothing configured, NOT nothing eligible.
+    slot_eligibility: Mapping[str, Any] | None = None
     notes: tuple[str, ...] = ()
 
 
@@ -452,7 +458,7 @@ def build_capacity_context(
     team = team if isinstance(team, Mapping) else {}
     names = tuple(str(n) for n in (team.get("players") or []) if str(n or "").strip())
 
-    by_id, by_name = _index_contract_rows(contract)
+    by_id, by_name = index_contract_rows(contract)
     assets: list[RosterAsset] = []
     unmatched: list[str] = []
     if team:
@@ -505,6 +511,16 @@ def build_capacity_context(
             "lineup-guarded, so a forced drop may be a player the lineup needs"
         )
 
+    # C2-U1 / #922 F1: one answer to "who can fill this slot" per league.
+    # Without this the cut ladder would score a custom-flex league against
+    # built-in defaults while ``optimalLineup`` used the configured ones.
+    from src.api.data_contract import contract_slot_eligibility  # noqa: PLC0415
+
+    try:
+        slot_eligibility = contract_slot_eligibility(contract) or None
+    except Exception:  # noqa: BLE001 — an optional rule must not fail capacity
+        slot_eligibility = None
+
     scarcity, scarcity_note = _league_scarcity(league_key, contract)
     if scarcity_note:
         notes.append(scarcity_note)
@@ -520,6 +536,7 @@ def build_capacity_context(
         starter_slots=starter_slots,
         waiver_values=waiver_values,
         scarcity=scarcity,
+        slot_eligibility=slot_eligibility,
         by_name=by_name,
         by_id=by_id,
         notes=tuple(notes),
@@ -741,11 +758,28 @@ def assess_roster_capacity(
     # approximation: rung k is identical whether the ladder stops at k or at
     # 30, because ECC is a property of the player and the greedy admits
     # cheapest-first.
-    ladder = build_cut_ladder(
-        surviving,
+    # The ladder is the canonical owner's, reached through the adapter #914 §14
+    # names for C3-CAP-01 — not ``build_cut_ladder`` directly, which would be a
+    # second route to one owner.  The league's configured flex rule travels with
+    # it, so this ladder and ``optimalLineup`` cannot disagree about who fills a
+    # slot (#922 `a03d175`).
+    ladder = pool_cut_ladder(
+        [
+            RosterPlayer(
+                player_id=a.player_id,
+                canonical_name=a.name,
+                position=a.position,
+                ros_value=a.board_value,
+                injured=a.injured,
+                bye=a.bye,
+                fantasy_positions=a.fantasy_positions,
+            )
+            for a in surviving
+        ],
         list(context.starter_slots),
         context.waiver_values,
-        context.scarcity,
+        scarcity=context.scarcity,
+        slot_eligibility=context.slot_eligibility,
         max_rungs=over_after_max,
     )
     notes.extend(ladder.notes)
