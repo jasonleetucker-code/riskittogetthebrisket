@@ -403,8 +403,8 @@ def _round_robin_schedule(
     return schedule
 
 
-def _standings_from_sim(
-    wins: dict[str, int],
+def standings_from_sim(
+    wins: dict[str, float],
     points: dict[str, float],
     owners: Iterable[str],
     *,
@@ -688,7 +688,7 @@ def compute_playoff_odds(
         # simulation (where it prevents the ownerId from becoming the answer)
         # and nowhere near a completed season. Passed explicitly so the choice
         # is visible at the call site rather than inherited from a default.
-        ordered = _standings_from_sim(
+        ordered = standings_from_sim(
             wins_snapshot, pf_snapshot, owners_in_league, ties=ties_snapshot, rng=None
         )
         made = set(ordered[:spots])
@@ -752,7 +752,7 @@ def compute_playoff_odds(
     # every owner made each matchup 100.0 vs 100.0, an exact tie, so every
     # simulation ended with identical wins, ties and points-for.
     #
-    # ``_standings_from_sim`` then broke that tie on its third key, the ownerId
+    # ``standings_from_sim`` then broke that tie on its third key, the ownerId
     # STRING.  Its docstring justifies that crude key on the grounds that
     # advanced tiebreakers "don't matter for probability at num_sims >= 10_000
     # when integrated over many draws" — true, but the placeholder destroys the
@@ -830,10 +830,10 @@ def compute_playoff_odds(
                     # Exact-tie simulation branch.  Both sides get a
                     # tie credited so downstream standings correctly
                     # rank (0-0-1) above (0-1-0) via the ``wins +
-                    # 0.5 * ties`` key in ``_standings_from_sim``.
+                    # 0.5 * ties`` key in ``standings_from_sim``.
                     sim_ties[a] = sim_ties.get(a, 0) + 1
                     sim_ties[b] = sim_ties.get(b, 0) + 1
-        ordered = _standings_from_sim(sim_wins, sim_pf, owners_in_league, ties=sim_ties, rng=rng)
+        ordered = standings_from_sim(sim_wins, sim_pf, owners_in_league, ties=sim_ties, rng=rng)
         for o in ordered[:spots]:
             made_counter[o] += 1
 

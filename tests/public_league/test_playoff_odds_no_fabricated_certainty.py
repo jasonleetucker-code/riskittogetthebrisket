@@ -8,7 +8,7 @@ individually-defensible decisions then composed into a fabricated answer:
 
 1. every simulated matchup became ``100.0 vs 100.0`` — an exact tie, so every
    owner finished every simulation with identical wins, ties and points-for;
-2. ``_standings_from_sim`` breaks ties on ``(-(wins + 0.5*ties), -pointsFor,
+2. ``standings_from_sim`` breaks ties on ``(-(wins + 0.5*ties), -pointsFor,
    ownerId)`` — and its docstring justifies that crude third key on the
    grounds that advanced tiebreakers "don't matter for probability at
    num_sims >= 10_000 when integrated over many draws";
@@ -72,7 +72,7 @@ def test_identical_records_do_not_resolve_to_alphabetical_order():
     seen = set()
     rng = random.Random(11)
     for _ in range(50):
-        seen.add(tuple(_po._standings_from_sim(wins, points, owners, ties=ties, rng=rng)[:3]))
+        seen.add(tuple(_po.standings_from_sim(wins, points, owners, ties=ties, rng=rng)[:3]))
     assert len(seen) > 1, (
         "the top-3 was identical across 50 draws of an exactly-level league — "
         "the tiebreak is deterministic and has become the answer"
@@ -96,8 +96,8 @@ def test_relabelling_owners_does_not_change_who_qualifies():
     # Same seed, same records: reversing the ITERATION ORDER of the ids must
     # not change which of them qualifies. Renaming or reordering owners is not
     # a football event.
-    a = _po._standings_from_sim(wins, pts, list(ids), ties=ties, rng=random.Random(7))
-    b = _po._standings_from_sim(wins, pts, list(reversed(ids)), ties=ties, rng=random.Random(7))
+    a = _po.standings_from_sim(wins, pts, list(ids), ties=ties, rng=random.Random(7))
+    b = _po.standings_from_sim(wins, pts, list(reversed(ids)), ties=ties, rng=random.Random(7))
     assert sorted(a) == sorted(b), "the owner set itself changed"
     # Non-vacuity: an exactly-level league must not resolve to the id order.
     assert (
@@ -214,7 +214,7 @@ def test_the_recorded_production_output_is_the_alphabet():
 def test_the_simulation_loop_passes_an_rng_to_the_tiebreak():
     """Structural guard, in the repo's own idiom.
 
-    ``_standings_from_sim`` keeps an ownerId fallback for callers that pass no
+    ``standings_from_sim`` keeps an ownerId fallback for callers that pass no
     rng, so a future edit could silently drop the argument at the ONE call
     site that matters and reinstate the defect with every test still green.
     An AST check is how this repo pins that class of regression elsewhere
@@ -228,13 +228,13 @@ def test_the_simulation_loop_passes_an_rng_to_the_tiebreak():
     calls = [
         n
         for n in ast.walk(tree)
-        if isinstance(n, ast.Call) and getattr(n.func, "id", None) == "_standings_from_sim"
+        if isinstance(n, ast.Call) and getattr(n.func, "id", None) == "standings_from_sim"
     ]
-    assert calls, "no call to _standings_from_sim found — did it get renamed?"
+    assert calls, "no call to standings_from_sim found — did it get renamed?"
     for call in calls:
         kwargs = {k.arg for k in call.keywords}
         assert "rng" in kwargs, (
-            f"_standings_from_sim called without an explicit rng= at line "
+            f"standings_from_sim called without an explicit rng= at line "
             f"{call.lineno}. Every call site must STATE its tiebreak choice: a "
             "simulation passes the rng so the ownerId cannot become the "
             "answer; the final-standings path passes None because a completed "

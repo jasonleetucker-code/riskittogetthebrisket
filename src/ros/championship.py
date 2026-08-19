@@ -37,7 +37,7 @@ import logging
 import random
 from typing import Any
 
-from src.public_league import metrics
+from src.public_league import metrics, playoff_odds
 from src.public_league.playoff_structure import resolve_playoff_structure
 from src.public_league.snapshot import PublicLeagueSnapshot
 from src.ros import ROS_DATA_DIR, playoff_sim
@@ -252,10 +252,12 @@ def simulate_championship_odds(
                 sim_wins[owner_a] = sim_wins.get(owner_a, 0.0) + 0.5
                 sim_wins[owner_b] = sim_wins.get(owner_b, 0.0) + 0.5
 
-        seeded = sorted(
-            owners,
-            key=lambda o: (-sim_wins.get(o, 0.0), -sim_pf.get(o, 0.0)),
-        )
+        # Seeding order comes from the CANONICAL owner — same rule the public
+        # engine and playoff_sim use, so three surfaces cannot disagree about
+        # who the 4-seed is.  The retired local sort resolved exact ties in
+        # alphabetical ownerId order (stable sort over a sorted owner list),
+        # which on a level league handed one owner 100% of championships.
+        seeded = playoff_odds.standings_from_sim(sim_wins, sim_pf, owners, rng=rng)
         finishes = _simulate_bracket(
             seeded,
             distributions,
