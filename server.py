@@ -77,6 +77,7 @@ from src.api import guest_passes as _guest_passes
 from src.api import rank_history as _rank_history
 from src.api import source_history as _source_history
 from src.history import record as _history_record
+from src.history import source_rank as _history_source_rank
 from src.api import push_delivery as _push_delivery
 from src.api import signal_alerts as _signal_alerts
 from src.api import terminal as _terminal
@@ -2442,6 +2443,29 @@ def _prime_latest_payload(data: dict | None, *, is_fresh_scrape: bool = False) -
                     )
                 except Exception as inner_exc:  # noqa: BLE001
                     log.warning("temporal_ledger: record failed: %s", inner_exc)
+                # #804 per-source RANK capture into the same canonical
+                # ledger, in its own ``source_rank`` lane.  CAPTURE ONLY:
+                # nothing reads the lane, and this call cannot influence
+                # the contract — it runs AFTER the payload is built and
+                # only ever writes.  Default OFF; the flag exists because
+                # the lane costs ~38.8 MB/day at this cadence, which is an
+                # owner's disk decision, not a code one.  Isolated like
+                # its siblings so a capture failure cannot nuke them.
+                from src.api import feature_flags as _ff_capture  # noqa: PLC0415
+
+                if _ff_capture.is_enabled("source_rank_capture"):
+                    try:
+                        rank_result = _history_source_rank.record_source_ranks(contract_payload)
+                        log.info(
+                            "source_rank_capture: recorded %d observations "
+                            "across %d sources for %s (%d duplicate)",
+                            rank_result.get("written", 0),
+                            rank_result.get("distinctSources", 0),
+                            rank_result.get("boardDate"),
+                            rank_result.get("duplicates", 0),
+                        )
+                    except Exception as inner_exc:  # noqa: BLE001
+                        log.warning("source_rank_capture: record failed: %s", inner_exc)
             stamped = _rank_history.stamp_contract_with_history(contract_payload)
             if stamped:
                 log.info("rank_history: stamped %d rows with history series", stamped)

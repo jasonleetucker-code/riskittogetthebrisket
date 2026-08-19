@@ -66,6 +66,21 @@ _DEFAULTS: Final[dict[str, bool]] = {
     # gated it.  OFF so the registry stops reporting a switch that does
     # not exist; the mapper itself is unaffected either way.
     "unified_id_mapper": False,
+    # #804 per-source RANK capture into the canonical temporal ledger
+    # (src/history/source_rank.py).  CAPTURE ONLY — it writes a new
+    # ``source_rank`` lane and nothing reads it; no weighting, no
+    # correlation scoring, no canonical value or ranking movement.
+    #
+    # DEFAULT OFF, and the reason is storage rather than risk.  Measured
+    # on a real board: 7,245 observations per build across 21 sources at
+    # ~446 B/row (index overhead on the shared observations table, not
+    # payload — stripping every denormalized string saves only 4-7%).
+    # At the 2-hourly scrape that is ~38.8 MB/day and ~14.2 GB/year, which
+    # is a production disk commitment an owner has to make deliberately.
+    # Enable with RISKIT_FEATURE_SOURCE_RANK_CAPTURE=1 once a cadence and
+    # a retention posture are chosen; see
+    # docs/history/SOURCE_RANK_CAPTURE.md for the per-cadence table.
+    "source_rank_capture": False,
     # Phase 2 — nfl_data_py pipeline
     # Activated with the 2026-04-25 deploy that adds nfl_data_py to
     # requirements.txt.  Safe: every fetch is guarded so an import
@@ -414,6 +429,11 @@ UNREACHABLE: Final[str] = "UNREACHABLE"
 NO_GATE: Final[str] = "NO_GATE"
 
 _GATE_STATUS: Final[dict[str, str]] = {
+    # source_rank_capture gates a WRITE, not a response: on, the
+    # fresh-scrape path records per-source ranks into the temporal
+    # ledger; off, it records nothing.  No response body changes either
+    # way, which is the point of a capture-only unit.
+    "source_rank_capture": LIVE,
     # ── Reachable from server.py; toggling changes a response ──
     "nfl_data_ingest": LIVE,
     "realized_points_api": LIVE,

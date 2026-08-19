@@ -70,7 +70,7 @@ from src.history.keys import is_valid_asset_key
 
 DB_PATH: Path = Path(__file__).resolve().parents[2] / "data" / "temporal_ledger.sqlite"
 
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
 
 # The permanent history boundary.  Retained evidence starts here; the
 # gap before it is PERMANENT and is represented as missing, never
@@ -82,7 +82,13 @@ HISTORY_FLOOR: str = "2026-07-14"
 LANE_CANONICAL = "canonical_board"
 LANE_SOURCE = "source_value"
 LANE_SCRAPER = "scraper_blend"
-VALID_LANES = frozenset({LANE_CANONICAL, LANE_SOURCE, LANE_SCRAPER})
+#: Per-source RANK observations (#804 capture unit).  Deliberately NOT
+#: ``source_value``: a rank is an ordering position and a value is a price,
+#: they are not convertible, and storing one under the other's lane would
+#: make every later query ask a question it cannot answer.  Capture only —
+#: no consumer, no weighting, no influence on any published number.
+LANE_SOURCE_RANK = "source_rank"
+VALID_LANES = frozenset({LANE_CANONICAL, LANE_SOURCE, LANE_SCRAPER, LANE_SOURCE_RANK})
 
 # Deterministic cross-origin preference for queries: when the same
 # fact was recorded by more than one producer, the earlier entry in
@@ -124,7 +130,31 @@ CREATE TABLE IF NOT EXISTS observations (
     pipeline_version TEXT,
     origin           TEXT NOT NULL,
     recorded_at      TEXT NOT NULL,
-    content_hash     TEXT NOT NULL
+    content_hash     TEXT NOT NULL,
+    -- ── source_rank lane extension (#804 capture) ──────────────────
+    -- Nullable and unused by every other lane.  They exist because the
+    -- question #804 must be able to ask later — "do these two sources
+    -- move together, and are they even independent?" — is unanswerable
+    -- from an effective rank alone.
+    --
+    -- raw_rank                 what the source PUBLISHED, before ladder
+    --                          translation.  REAL because vendor ranks
+    --                          are not always integral (a translated
+    --                          rookie board lands on 39.86).
+    -- rank_method              how the effective rank was derived
+    --                          ("direct", a ladder translation, ...).
+    -- rank_pool                the coordinate pool the effective rank
+    --                          lives in; ranks from different pools are
+    --                          not comparable and must not be correlated.
+    -- shared_market_translated whether this source was projected onto
+    --                          another market's backbone — which is
+    --                          shared lineage BY CONSTRUCTION and the
+    --                          single most important thing a later
+    --                          independence analysis needs to know.
+    raw_rank                 REAL,
+    rank_method              TEXT,
+    rank_pool                TEXT,
+    shared_market_translated INTEGER
 );
 
 -- Identity uniqueness lives in an EXPRESSION index rather than an
@@ -153,6 +183,28 @@ CREATE TABLE IF NOT EXISTS corrections (
 """
 
 
+#: Columns added after the first shipped schema.  ``CREATE TABLE IF NOT
+#: EXISTS`` cannot add a column to a table that already exists, so an
+#: already-deployed ledger needs an explicit, idempotent ALTER — without
+#: this the new lane would insert into columns that are not there.
+_EXTENSION_COLUMNS: tuple[tuple[str, str], ...] = (
+    ("raw_rank", "REAL"),
+    ("rank_method", "TEXT"),
+    ("rank_pool", "TEXT"),
+    ("shared_market_translated", "INTEGER"),
+)
+
+
+def _apply_column_extensions(conn: sqlite3.Connection) -> None:
+    """Add any missing extension column.  Additive only — this never
+    drops, renames or rewrites a column, so it cannot touch a recorded
+    observation."""
+    present = {row[1] for row in conn.execute("PRAGMA table_info(observations)")}
+    for name, decl in _EXTENSION_COLUMNS:
+        if name not in present:
+            conn.execute(f"ALTER TABLE observations ADD COLUMN {name} {decl}")
+
+
 def _ensure_schema(path: Path) -> None:
     key = str(path)
     if _SETUP_DONE.get(key):
@@ -166,6 +218,7 @@ def _ensure_schema(path: Path) -> None:
             conn.execute("PRAGMA journal_mode=WAL;")
             conn.execute("PRAGMA synchronous=NORMAL;")
             conn.executescript(_SCHEMA)
+            _apply_column_extensions(conn)
             conn.execute(
                 "INSERT OR REPLACE INTO meta(key, value) VALUES ('schema_version', ?)",
                 (str(SCHEMA_VERSION),),
@@ -215,7 +268,26 @@ _IDENTITY_FIELDS = (
     "origin",
 )
 
-_ALL_FIELDS = _IDENTITY_FIELDS + ("asset_class", "observed_at_zone") + _CONTENT_FIELDS
+#: Content carried only by the ``source_rank`` lane.  Kept OUT of
+#: :data:`_CONTENT_FIELDS` on purpose: ``content_hash`` folds these in only
+#: when they are actually present, so an observation from any pre-existing
+#: lane hashes to exactly the byte it hashed to before this lane existed.
+#: Without that, every already-stored row would re-ingest as a content
+#: CONFLICT instead of a duplicate, and backfill/migration idempotency —
+#: which the whole store is built on — would break on contact.
+_EXTENDED_CONTENT_FIELDS = (
+    "raw_rank",
+    "rank_method",
+    "rank_pool",
+    "shared_market_translated",
+)
+
+_ALL_FIELDS = (
+    _IDENTITY_FIELDS
+    + ("asset_class", "observed_at_zone")
+    + _CONTENT_FIELDS
+    + _EXTENDED_CONTENT_FIELDS
+)
 
 
 def content_hash(obs: dict[str, Any]) -> str:
@@ -226,6 +298,12 @@ def content_hash(obs: dict[str, Any]) -> str:
     path must surface rather than resolve silently.
     """
     payload = {k: obs.get(k) for k in _CONTENT_FIELDS}
+    # Present-only, so the hash of a row from any other lane is unchanged
+    # by this lane's existence.  See ``_EXTENDED_CONTENT_FIELDS``.
+    for key in _EXTENDED_CONTENT_FIELDS:
+        extra = obs.get(key)
+        if extra is not None:
+            payload[key] = extra
     blob = json.dumps(payload, sort_keys=True, separators=(",", ":"))
     return hashlib.sha256(blob.encode("utf-8")).hexdigest()[:16]
 
@@ -308,6 +386,37 @@ def validate_observation(obs: dict[str, Any]) -> None:
         raise ObservationError("origin is required")
     if obs.get("value") is None and obs.get("rank") is None:
         raise ObservationError("observation carries neither value nor rank")
+    if lane == LANE_SOURCE_RANK:
+        _validate_source_rank(obs)
+
+
+def _validate_source_rank(obs: dict[str, Any]) -> None:
+    """Extra guards the rank lane needs and the value lanes do not.
+
+    MISSING RANK IS NOT RANK ZERO, and it is not rank anything.  A source
+    that did not rank an asset contributes NO ROW — absence is the honest
+    encoding, and it is the only one a later correlation pass can read
+    correctly.  So a rank of 0, a negative rank, or a null rank is refused
+    outright rather than stored as a position on a board.
+    """
+    if not str(obs.get("source_key") or "").strip():
+        raise ObservationError("source_rank observation requires a source_key")
+    rank = obs.get("rank")
+    if not isinstance(rank, int) or isinstance(rank, bool):
+        raise ObservationError(f"source_rank requires an integer rank, got {rank!r}")
+    if rank < 1:
+        raise ObservationError(
+            f"source_rank requires rank >= 1, got {rank!r} — a missing rank is an "
+            "absent row, never position zero"
+        )
+    if obs.get("value") is not None:
+        raise ObservationError(
+            "source_rank carries a rank, never a value — a rank is an ordering "
+            "position and a value is a price; use the source_value lane"
+        )
+    raw = obs.get("raw_rank")
+    if raw is not None and (not isinstance(raw, (int, float)) or raw <= 0):
+        raise ObservationError(f"raw_rank must be a positive number when present, got {raw!r}")
 
 
 _INSERT = (
