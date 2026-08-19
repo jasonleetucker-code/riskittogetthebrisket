@@ -64,7 +64,7 @@ from __future__ import annotations
 
 import math
 import time
-from typing import Any, Mapping
+from typing import Any, Collection, Mapping
 
 from src.api.data_contract import contract_roster_pools, contract_slot_eligibility
 from src.roster_intel.age_portfolio import (
@@ -104,7 +104,11 @@ class TeamNotInLeague(Exception):
     """The requested owner has no roster in this league."""
 
 
-def _board_players(contract: Mapping[str, Any] | None) -> list[tuple[str, str, float | None]]:
+def _board_players(
+    contract: Mapping[str, Any] | None,
+    *,
+    pool_keys: Collection[str] | None = None,
+) -> list[tuple[str, str, float | None]]:
     """``(playerKey, position, value)`` for every non-pick board row.
 
     ``playerKey`` is the CANONICAL NAME, not the Sleeper id, because
@@ -129,6 +133,8 @@ def _board_players(contract: Mapping[str, Any] | None) -> list[tuple[str, str, f
     rows: list[tuple[str, str, float | None]] = []
     if not isinstance(contract, Mapping):
         return rows
+    known = {str(k) for k in (pool_keys or ())}
+    seen: set[str] = set()
     for row in contract.get("playersArray") or []:
         if not isinstance(row, Mapping) or row.get("assetClass") == "pick":
             continue
@@ -137,10 +143,24 @@ def _board_players(contract: Mapping[str, Any] | None) -> list[tuple[str, str, f
             continue
         value = row.get("rankDerivedValue")
         priced = float(value) if isinstance(value, (int, float)) else None
-        for key in (row.get("canonicalName"), row.get("displayName")):
-            if key:
-                rows.append((str(key), position, priced))
-                break
+        names = [str(n) for n in (row.get("canonicalName"), row.get("displayName")) if n]
+        if not names:
+            # No name is no key.  Falling back to ``playerId`` would mint
+            # a key that looks valid and matches nothing the pool holds —
+            # the exact silent failure this join already had once.
+            continue
+        # ONE row per player, keyed the way the POOL keys them.  The pool
+        # is keyed by whatever string ``sleeper.teams[].players`` carries
+        # and matches it against either name, so a player whose roster
+        # entry only matches ``displayName`` must be ranked under THAT.
+        # Emitting both names instead — the way ``_ages`` legitimately
+        # can, because a dict lookup is idempotent — would give one
+        # player two ranks and inflate every threshold below him.
+        key = next((n for n in names if n in known), names[0])
+        if key in seen:
+            continue
+        seen.add(key)
+        rows.append((key, position, priced))
     return rows
 
 
@@ -216,7 +236,9 @@ def build_league_roster_intelligence(
     team_names = _team_names(contract)
     ages = _ages(contract)
 
-    board = _board_players(contract)
+    board = _board_players(
+        contract, pool_keys={p.player_id for pool in pools.values() for p in pool}
+    )
     ranks = build_position_ranks(board, population=_RANK_POPULATION)
     youth = build_youth_curve([(position, ages.get(pid)) for pid, position, _ in board])
 

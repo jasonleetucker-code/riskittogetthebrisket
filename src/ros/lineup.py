@@ -272,6 +272,35 @@ def roster_player_from_row(row: Mapping[str, Any]) -> RosterPlayer:
     )
 
 
+def is_priced(player: RosterPlayer) -> bool:
+    """Does this player carry a KNOWN objective?
+
+    ``ros_value is None`` is UNKNOWN; ``0.0`` is a real value meaning
+    assignable and contributing nothing.  The distinction is the whole
+    point of widening the field, and every consumer that does value
+    arithmetic needs the same test — so it is stated once here rather
+    than as ten inline ``is not None`` checks that can each drift.
+    """
+    return player.ros_value is not None
+
+
+def priced_players(pool: Iterable[RosterPlayer]) -> list[RosterPlayer]:
+    """The players a value aggregate may include.
+
+    Excluding the unpriced is NOT the same as valuing them at zero: the
+    retired ``float(p.ros_value or 0.0)`` produced an identical SUM
+    either way, which is exactly why nothing that only summed values
+    could catch it.  Callers that need to report who was left out use
+    :func:`unpriced_player_ids`.
+    """
+    return [p for p in pool if is_priced(p)]
+
+
+def unpriced_player_ids(pool: Iterable[RosterPlayer]) -> frozenset[str]:
+    """Who a value aggregate had to leave out.  Reported, never zeroed."""
+    return frozenset(p.player_id for p in pool if not is_priced(p))
+
+
 def roster_players_from_rows(rows: Iterable[Mapping[str, Any]]) -> list[RosterPlayer]:
     """:func:`roster_player_from_row` over a sequence."""
     return [roster_player_from_row(r) for r in rows]

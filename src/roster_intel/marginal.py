@@ -39,7 +39,12 @@ from dataclasses import dataclass, field
 from typing import Any, Iterable, Mapping, Sequence
 
 from src.league_intel.replacement import normalize_base_position
-from src.ros.lineup import RosterPlayer, roster_players_from_rows, solve_optimal_assignment
+from src.ros.lineup import (
+    RosterPlayer,
+    priced_players,
+    roster_players_from_rows,
+    solve_optimal_assignment,
+)
 
 __all__ = [
     "AbsenceImpact",
@@ -102,7 +107,9 @@ def solve_summary(
             total_slots=len(slots_list),
         )
     assignment = solve_optimal_assignment(list(pool), slots_list)
-    score = float(sum(p.ros_value for p in assignment.values()))
+    # The solver already refuses to seat an unpriced player; filtering
+    # here states that rather than relying on it.
+    score = float(sum(p.ros_value for p in priced_players(assignment.values())))
     slot_map: dict[str, str] = {}
     for slot_idx, player in assignment.items():
         # Key by index-qualified slot so duplicate slot labels (RB, RB)
@@ -223,7 +230,7 @@ def position_marginals(
                 if pid in {p.player_id for p in entered}
             )
         )
-        priced = [p for p in players if p.ros_value > 0]
+        priced = [p for p in priced_players(players) if p.ros_value > 0]
         non_entering = [p for p in priced if p.player_id not in full.assigned_ids]
 
         out[pos] = PositionMarginal(
@@ -236,7 +243,7 @@ def position_marginals(
             entry_rate=(len(entered) / len(players)) if players else 0.0,
             slots_filled=slots_filled,
             non_entering_priced=len(non_entering),
-            clogger_value=float(sum(p.ros_value for p in non_entering)),
+            clogger_value=float(sum(p.ros_value for p in priced_players(non_entering))),
         )
 
     return RosterMarginals(
@@ -320,7 +327,16 @@ def absence_impacts(
             continue
         mean_drop = sum(drops) / len(drops)
         worst = max(drops)
-        mean_entrant_value = sum(p.ros_value for p in entrants) / len(entrants)
+        valued_entrants = priced_players(entrants)
+        # An UNKNOWN carries no value into the mean.  With nobody priced
+        # the mean is genuinely unmeasured; 0.0 is the pre-existing
+        # convention of this (different-owner) module and is left alone
+        # rather than changed on a hardening unit's authority.
+        mean_entrant_value = (
+            sum(p.ros_value for p in valued_entrants) / len(valued_entrants)
+            if valued_entrants
+            else 0.0
+        )
         out[pos] = AbsenceImpact(
             position=pos,
             starters_tested=len(drops),

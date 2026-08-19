@@ -255,3 +255,34 @@ def test_a_player_with_an_empty_position_is_eligible_for_nothing():
         assert not _eligible_for_slot(slot, "")
         assert not _eligible_for_slot(slot, "   ")
     assert not player_eligible_for_slot("FLEX", P("x", "", 10.0))
+
+
+# ══ F5 — two concepts, two names ═══════════════════════════════════
+
+
+def test_position_need_and_position_deficit_are_different_questions():
+    """Integration's finding 7. ``weakness.PositionNeed`` is a rung
+    ladder against ``k × teamCount``; ``engine.PositionDeficit`` is
+    distance below replacement plus concentration risk. They were both
+    called ``PositionNeed`` inside a package whose ``__init__`` calls
+    itself "THE stable interface".
+
+    NOT consolidated — the brief's test is whether they answer the same
+    question, and they do not. Renamed so the trap is gone."""
+    from src.roster_intel.engine import PositionDeficit
+    from src.roster_intel.weakness import PositionNeed
+
+    assert PositionDeficit is not PositionNeed
+    need_fields = set(PositionNeed.__dataclass_fields__)
+    deficit_fields = set(PositionDeficit.__dataclass_fields__)
+    assert "rungs" in need_fields and "rungs" not in deficit_fields
+    assert "concentration_risk" in deficit_fields
+    assert deficit_fields & need_fields == {"position", "reasons"}
+
+
+def test_the_package_exports_exactly_one_position_need_and_it_is_canonical():
+    import src.roster_intel as ri
+    from src.roster_intel.weakness import PositionNeed
+
+    assert ri.PositionNeed is PositionNeed
+    assert not hasattr(ri, "PositionDeficit")  # engine is not part of the C2 interface
