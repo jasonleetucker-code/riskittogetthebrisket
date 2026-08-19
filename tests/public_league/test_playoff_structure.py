@@ -372,9 +372,9 @@ def test_the_bracket_plays_every_game_it_owes(monkeypatch, seeds, byes):
     championship._simulate_bracket(
         list(owners), dists, bye_seeds=byes, playoff_seeds=seeds, rng=random.Random(7)
     )
-    assert len(played) == seeds - 1, (
-        f"a {seeds}-team bracket played {len(played)} games, not {seeds - 1}: {played}"
-    )
+    assert (
+        len(played) == seeds - 1
+    ), f"a {seeds}-team bracket played {len(played)} games, not {seeds - 1}: {played}"
 
 
 def test_the_top_seed_does_not_absorb_the_stranded_teams_odds():
