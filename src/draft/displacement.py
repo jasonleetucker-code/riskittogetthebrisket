@@ -78,6 +78,7 @@ from src.league_intel.replacement import ScarcityComponents
 from src.ros.lineup import RosterPlayer, solve_optimal_assignment
 
 __all__ = [
+    "FEASIBILITY_OBJECTIVE",
     "CutCandidate",
     "RosterAsset",
     "build_cut_ladder",
@@ -101,6 +102,21 @@ MAX_LADDER_RUNGS = 30
 # replaceable, 1.15x when nothing is available.
 _SCARCITY_BASE = 0.85
 _SCARCITY_GAIN = 0.30
+
+
+#: The assignment objective handed to the lineup solver for FEASIBILITY
+#: questions — "how many starting slots can the surviving roster fill".
+#:
+#: Any constant works, and that is the point: ``solve_optimal_assignment`` is
+#: a matroid greedy with augmenting paths, which never evicts an assigned
+#: player, so it returns a MAXIMUM-CARDINALITY matching whatever the weights
+#: are.  Weights decide WHO starts; they cannot decide HOW MANY.
+#:
+#: ``0.0`` and not ``None`` on purpose: ``None`` is UNKNOWN and the solver
+#: excludes it, but a player the board could not price still occupies a body
+#: that can legally fill a slot.  Cost arithmetic uses ``board_value``
+#: (``rankDerivedValue``) and never this field.
+FEASIBILITY_OBJECTIVE = 0.0
 
 
 def _clamp(x: float, lo: float, hi: float) -> float:

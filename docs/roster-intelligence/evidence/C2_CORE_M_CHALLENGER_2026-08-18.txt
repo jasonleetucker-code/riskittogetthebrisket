@@ -1,0 +1,65 @@
+[core-M] source=/tmp/contract.json teams=12 slots=21 (sleeper_roster_positions)
+[core-M] EVALUATION ONLY — this script promotes nothing and writes no config.
+
+── format live (21 slots) ──────────────────────────────
+     M  ceiling  coreSize               k=1               k=2               k=3
+  1.25       29      27.8     100.00% 100.0      99.93%  99.9      99.77%  99.6
+  1.50       33      31.2     100.00% 100.0      99.99% 100.0      99.95%  99.9
+  1.75       41      37.4     100.00% 100.0     100.00% 100.0     100.00% 100.0
+   (each cell: mean retention %, worst team)
+  cutoff @ 99.00% (k=3): M=1.05  ceiling 29, core 27.8
+  cutoff @ 99.90% (k=3): M=1.35  ceiling 33, core 31.2
+  cutoff @ 99.99% (k=3): M=1.70  ceiling 41, core 37.4
+  cutoff @ 100.00% (k=3): M=1.70  ceiling 41, core 37.4
+  strength order vs M=1.50 at M=1.25: 4 of 12 seats differ
+  strength order vs M=1.50 at M=1.75: 0 of 12 seats differ
+
+── format no_idp (12 slots) ────────────────────────────
+     M  ceiling  coreSize               k=1               k=2               k=3
+  1.25       17      15.8     100.00% 100.0      99.90%  99.7      99.67%  99.3
+  1.50       18      16.8     100.00% 100.0      99.94%  99.9      99.79%  99.5
+  1.75       23      21.0     100.00% 100.0     100.00% 100.0     100.00% 100.0
+   (each cell: mean retention %, worst team)
+  cutoff @ 99.00% (k=3): M=1.05  ceiling 17, core 15.8
+  cutoff @ 99.90% (k=3): M=1.55  ceiling 22, core 20.2
+  cutoff @ 99.99% (k=3): M=1.55  ceiling 22, core 20.2
+  cutoff @ 100.00% (k=3): M=1.55  ceiling 22, core 20.2
+  strength order vs M=1.50 at M=1.25: 0 of 12 seats differ
+  strength order vs M=1.50 at M=1.75: 0 of 12 seats differ
+
+── format no_superflex (20 slots) ──────────────────────
+     M  ceiling  coreSize               k=1               k=2               k=3
+  1.25       28      26.8     100.00% 100.0      99.92%  99.8      99.73%  99.4
+  1.50       32      30.2     100.00% 100.0      99.99% 100.0      99.96%  99.9
+  1.75       39      35.7     100.00% 100.0     100.00% 100.0     100.00% 100.0
+   (each cell: mean retention %, worst team)
+  cutoff @ 99.00% (k=3): M=1.05  ceiling 28, core 26.8
+  cutoff @ 99.90% (k=3): M=1.55  ceiling 35, core 32.8
+  cutoff @ 99.99% (k=3): M=1.70  ceiling 39, core 35.7
+  cutoff @ 100.00% (k=3): M=1.70  ceiling 39, core 35.7
+  strength order vs M=1.50 at M=1.25: 4 of 12 seats differ
+  strength order vs M=1.50 at M=1.75: 0 of 12 seats differ
+
+── format offense_1qb (11 slots) ───────────────────────
+     M  ceiling  coreSize               k=1               k=2               k=3
+  1.25       16      14.8     100.00% 100.0      99.86%  99.6      99.51%  98.9
+  1.50       17      15.8     100.00% 100.0      99.92%  99.8      99.72%  99.4
+  1.75       21      19.2     100.00% 100.0     100.00% 100.0     100.00% 100.0
+   (each cell: mean retention %, worst team)
+  cutoff @ 99.00% (k=3): M=1.35  ceiling 17, core 15.8
+  cutoff @ 99.90% (k=3): M=1.55  ceiling 20, core 18.4
+  cutoff @ 99.99% (k=3): M=1.70  ceiling 21, core 19.2
+  cutoff @ 100.00% (k=3): M=1.70  ceiling 21, core 19.2
+  strength order vs M=1.50 at M=1.25: 2 of 12 seats differ
+  strength order vs M=1.50 at M=1.75: 2 of 12 seats differ
+
+── reading ──────────────────────────────────────────────
+  Retention is resilience-of-core / resilience-of-full-roster,
+  where resilience is the mean optimal lineup with k starters
+  removed at once.  A core at 100% loses nothing a full roster
+  could have covered; below that, the core omits players the
+  roster would actually have leaned on.
+  k=1 is DEGENERATE — one absence needs one replacement, so it
+  reads 100% for every candidate including M=1.01.  Read k>=2.
+  M is NOT changed by this script.  config keeps 1.5.
+  evidence written to /tmp/core_m.json

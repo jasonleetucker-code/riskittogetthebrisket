@@ -1,5 +1,36 @@
 """Roster assembly — join names, values, and SLOT ELIGIBILITY.
 
+SUPERSEDED, and unreachable from production (2026-08-18, C2-GP-01 audit)
+────────────────────────────────────────────────────────────────────────
+``src/api/data_contract.py::contract_roster_pools`` now answers this
+module's question — who is on a roster, what are they worth, and what
+slots are they legal in — for every consumer in the canonical roster
+chain and for the ``optimalLineup`` stamp.  This module has **zero
+production importers** and is not reachable transitively from any; only
+tests import it.
+
+Its motivating defect is also structurally gone on that path rather than
+merely avoided.  The reason given below is that the ROS aggregate
+carries no ``fantasy_positions``, so a roster joined to it alone hands
+the optimizer position-only rows.  That is a property of the ROS
+snapshot, which the canonical chain moved OFF (see
+``docs/roster-intelligence/C2_CANONICAL_ROSTER_CHAIN.md`` §8).  The
+contract carries ``sleeper.fantasyPositions``: measured on the live
+board, **660 of 660 rostered players carry it and 43 are hybrids**, and
+the behaviour is pinned by
+``tests/api/test_roster_intelligence.py::test_a_hybrid_idp_keeps_every_slot_he_is_legally_eligible_for``.
+
+**Left in place rather than deleted, deliberately.**  Retiring it is a
+deletion whose absorption claim deserves the integration lane's review,
+and ``C2-GP-01`` is a MIGRATE row with a dependency this lane does not
+own.  The exact retirement plan is in that document, §15.  What this
+notice exists to prevent is the other failure: a future session picking
+this up as a live owner and reintroducing a second definition of who is
+on a roster.
+
+The rest of this docstring is the ORIGINAL rationale, preserved because
+it records why the eligibility argument is load-bearing at all.
+
 Why this module exists
 ──────────────────────
 ADR-007 recorded that Sleeper evaluates slot eligibility against

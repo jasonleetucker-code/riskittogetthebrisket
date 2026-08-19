@@ -11183,6 +11183,158 @@ def build_api_data_contract(
     return contract_payload
 
 
+def roster_pool_key(teams: list[Any], index: int, team: Any) -> str:
+    """UNIQUE identity for one team's roster pool, shared by every consumer.
+
+    ``ownerId`` alone is not an identity.  ``Dynasty Scraper.py`` writes
+    ``str(owner_id) if owner_id else ""`` and ``sleeper_overlay`` writes
+    ``str(r.get("owner_id") or "")``, so Sleeper's ``owner_id: null`` — an
+    unclaimed or orphaned roster, which the scraper's own comment anticipates —
+    arrives as ``""`` for EVERY such team.  Keying a dict on that silently
+    collapses them, and the survivor's roster is then published as the others'
+    ``optimalLineup`` with ``available: true``.  A chimera presented as fact is
+    worse than a refusal; ``src/api/gameplan.py`` already excludes an empty
+    ownerId rather than merging on it.
+
+    So: the ownerId is the key only when it is non-empty AND unambiguous across
+    this team list.  Otherwise the key is positional, which is unique by
+    construction.  The function is PURE in ``(teams, index, team)``, which is
+    what lets the builder and every consumer derive the same key from the same
+    list without threading state — and the index must be taken with
+    ``enumerate(teams)`` BEFORE any ``isinstance`` skip, or the two desync on a
+    malformed entry.
+    """
+    if isinstance(team, dict):
+        owner_id = str(team.get("ownerId") or "").strip()
+        if owner_id:
+            same = sum(
+                1
+                for other in teams
+                if isinstance(other, dict) and str(other.get("ownerId") or "").strip() == owner_id
+            )
+            if same == 1:
+                return owner_id
+    return f"__roster_{index}"
+
+
+def contract_roster_pools(
+    contract: dict[str, Any],
+    *,
+    rows: list[dict[str, Any]] | None = None,
+) -> tuple[dict[str, list[Any]], list[str], str | None]:
+    """THE contract → per-team ``RosterPlayer`` pool builder.
+
+    Returns ``({rosterPoolKey: pool}, slots, slot_source)`` — see
+    :func:`roster_pool_key` for why that key is not simply ``ownerId``.
+
+    Extracted from :func:`stamp_optimal_lineups`, which was its only
+    caller and is now one of two — the other being roster intelligence.
+    One builder means the lineup stamp and the roster chain cannot
+    disagree about who is on a roster or what a player is worth.
+
+    **Full membership, canonical value, unpriced preserved.**
+    Membership is ``sleeper.teams[].players`` — every rostered player,
+    not a filtered subset — and the value is ``rankDerivedValue``, the
+    canonical 1-9999 dynasty board.  A rostered player the board did
+    not price gets ``ros_value=None``, so the solver excludes them and
+    reports them in ``unpriced_ids`` rather than seating a real player
+    who merely looks worthless.
+
+    That combination is why this is the right source for roster
+    intelligence and the ROS team-strength snapshot is not.  That
+    snapshot carries ``rosValue`` — "a normalized log-rank index on
+    0-100, not points, and not projection-aware"
+    (``src/ros/aggregate.py``) — a REST-OF-SEASON PRODUCTION quantity,
+    while ``MASTER_PRODUCT_PLAN`` §4.1 says Team Strength "is not Power
+    Ranking, Playoff Odds, or ROS production".  It also COERCES every
+    unmatched row to ``ros_value=0.0`` before writing
+    (``ros/team_strength.py``), so unpriced roster membership arrives
+    indistinguishable from a real zero.  (Corrected 2026-08-19: this
+    said the writer DROPPED those rows.  It does not — it appends them
+    at 0.0, and its own comment names that as a deliberate
+    missing-is-zero boundary.  The consequence for a consumer is the
+    same, but a coercion and a deletion need different repairs, so the
+    description matters.)  Two separate defects, one source; the
+    contract has neither.
+
+    ``rows`` supplies the value source explicitly for the same reason
+    :func:`stamp_optimal_lineups` takes it: some payload views strip
+    ``playersArray``, and reading a reduced view would price every
+    player as UNKNOWN.
+    """
+    sleeper = contract.get("sleeper")
+    if not isinstance(sleeper, dict):
+        return {}, [], None
+    teams = sleeper.get("teams")
+    if not isinstance(teams, list) or not teams:
+        return {}, [], None
+
+    # THE truth ladder, not just its first rung: live host
+    # ``rosterPositions`` → registry ``starters`` → refuse.  Reading only
+    # the first rung made the second unreachable from the ONLY producer
+    # of the lineup stamp, so ``slotSource: "registry_starters"`` was a
+    # state the server had no code path to emit while the frontend
+    # rendered a message for it — and a partial Sleeper fetch (lineup
+    # endpoint times out, rosters succeed) would have refused a lineup
+    # the registry could answer.
+    registry_settings: dict[str, Any] | None = None
+    try:
+        from src.api.league_registry import (  # noqa: PLC0415
+            get_league_roster_settings,
+        )
+
+        registry_settings = get_league_roster_settings(
+            str((contract.get("meta") or {}).get("leagueKey") or "") or None
+        )
+    except Exception:  # noqa: BLE001 — the registry is optional here
+        registry_settings = None
+    slots, slot_source = lineup_owner.resolve_starter_slots(
+        roster_positions=sleeper.get("rosterPositions"),
+        roster_settings=registry_settings,
+    )
+
+    positions = sleeper.get("positions") if isinstance(sleeper.get("positions"), dict) else {}
+    eligibility = (
+        sleeper.get("fantasyPositions") if isinstance(sleeper.get("fantasyPositions"), dict) else {}
+    )
+    value_by_name: dict[str, float | None] = {}
+    for row in (rows if rows is not None else contract.get("playersArray")) or []:
+        if row.get("assetClass") == "pick":
+            continue
+        for key in (row.get("canonicalName"), row.get("displayName")):
+            if key:
+                value_by_name.setdefault(str(key), row.get("rankDerivedValue"))
+
+    pools: dict[str, list[Any]] = {}
+    for index, team in enumerate(teams):
+        if not isinstance(team, dict):
+            continue
+        pool: list[Any] = []
+        for name in team.get("players") or []:
+            key = str(name)
+            raw = value_by_name.get(key)
+            pool.append(
+                lineup_owner.RosterPlayer(
+                    player_id=key,
+                    canonical_name=key,
+                    # ``lineup_position`` is the ONE vocabulary a slot is
+                    # named in — the frontend's ``lineupPosition`` twin.
+                    position=lineup_owner.lineup_position(str(positions.get(key) or "")),
+                    # Unpriced stays unpriced.  A player the board
+                    # declined to price must not win a starting slot over
+                    # one it did.
+                    ros_value=None if raw is None else float(raw),
+                    fantasy_positions=tuple(
+                        lineup_owner.lineup_position(str(fp))
+                        for fp in (eligibility.get(key) or ())
+                        if str(fp).strip()
+                    ),
+                )
+            )
+        pools[roster_pool_key(teams, index, team)] = pool
+    return pools, list(slots), slot_source
+
+
 def stamp_optimal_lineups(
     contract: dict[str, Any],
     *,
@@ -11236,44 +11388,15 @@ def stamp_optimal_lineups(
     if not isinstance(teams, list) or not teams:
         return
 
-    # THE truth ladder, not just its first rung: live host
-    # ``rosterPositions`` → registry ``starters`` → refuse.  Reading only
-    # the first rung here made the second unreachable from the ONLY
-    # producer of this stamp, so ``slotSource: "registry_starters"`` was
-    # a state the server had no code path to emit while the frontend
-    # rendered a message for it — and a partial Sleeper fetch (lineup
-    # endpoint times out, rosters succeed) would have refused a lineup
-    # the registry could answer.
-    registry_settings: dict[str, Any] | None = None
-    try:
-        from src.api.league_registry import (  # noqa: PLC0415
-            get_league_roster_settings,
-        )
-
-        registry_settings = get_league_roster_settings(
-            str((contract.get("meta") or {}).get("leagueKey") or "") or None
-        )
-    except Exception:  # noqa: BLE001 — the registry is optional here
-        registry_settings = None
-    slots, slot_source = lineup_owner.resolve_starter_slots(
-        roster_positions=sleeper.get("rosterPositions"),
-        roster_settings=registry_settings,
-    )
-
-    positions = sleeper.get("positions") if isinstance(sleeper.get("positions"), dict) else {}
-    eligibility = (
-        sleeper.get("fantasyPositions") if isinstance(sleeper.get("fantasyPositions"), dict) else {}
-    )
-    value_by_name: dict[str, float | None] = {}
-    for row in (rows if rows is not None else contract.get("playersArray")) or []:
-        if row.get("assetClass") == "pick":
-            continue
-        for key in (row.get("canonicalName"), row.get("displayName")):
-            if key:
-                value_by_name.setdefault(str(key), row.get("rankDerivedValue"))
+    # ONE pool builder, shared with roster intelligence — see
+    # :func:`contract_roster_pools`.  The slot truth ladder, the
+    # position/eligibility vocabulary and the unpriced-stays-unpriced
+    # rule all live there, so this stamp and the roster chain cannot
+    # drift apart.
+    pools, slots, slot_source = contract_roster_pools(contract, rows=rows)
 
     stamped: list[Any] = []
-    for original in teams:
+    for index, original in enumerate(teams):
         if not isinstance(original, dict):
             stamped.append(original)
             continue
@@ -11288,28 +11411,7 @@ def stamp_optimal_lineups(
                 "slotSource": None,
             }
             continue
-        pool: list[lineup_owner.RosterPlayer] = []
-        for name in team.get("players") or []:
-            key = str(name)
-            raw = value_by_name.get(key)
-            pool.append(
-                lineup_owner.RosterPlayer(
-                    player_id=key,
-                    canonical_name=key,
-                    # ``lineup_position`` is the ONE vocabulary a slot is
-                    # named in — the frontend's ``lineupPosition`` twin.
-                    position=lineup_owner.lineup_position(str(positions.get(key) or "")),
-                    # Unpriced stays unpriced.  A player the board
-                    # declined to price must not win a starting slot over
-                    # one it did.
-                    ros_value=None if raw is None else float(raw),
-                    fantasy_positions=tuple(
-                        lineup_owner.lineup_position(str(fp))
-                        for fp in (eligibility.get(key) or ())
-                        if str(fp).strip()
-                    ),
-                )
-            )
+        pool = pools.get(roster_pool_key(teams, index, original), [])
         try:
             solved = lineup_owner.assign_lineup(pool, slots)
         except Exception:  # noqa: BLE001 — an optional stamp must not fail a build
