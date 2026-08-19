@@ -1643,6 +1643,7 @@ def generate_suggestions_from_pool(
     board_top_n: int | None = None,
     ktc_top_n: int | None = None,
     capacity_context: Any | None = None,
+    constraints: Any | None = None,
 ) -> dict[str, Any]:
     """Generate trade suggestions against a pre-built asset pool.
 
@@ -1678,6 +1679,20 @@ def generate_suggestions_from_pool(
     # TARGETS.  Re-enabled May 12 each year.
     if not _rookies_eligible_today():
         pool = [p for p in pool if not p.rookie]
+
+    # C3-CON-01 / V1-130 — one constraint owner, applied to the OUTGOING side
+    # BEFORE generation.  Generating everything and hiding the forbidden ones
+    # afterwards can return the wrong *best* result, because the real best was
+    # removed after ranking.
+    from src.trade.constraints import partition_sendable  # noqa: PLC0415
+
+    sendable_names, blocked_outgoing = partition_sendable(
+        [p for p in pool if p.name.lower().strip() in {n.lower().strip() for n in roster_names}],
+        constraints,
+    )
+    if blocked_outgoing:
+        blocked_keys = {a.name.lower().strip() for a, _ in blocked_outgoing}
+        roster_names = [n for n in roster_names if n.lower().strip() not in blocked_keys]
 
     roster = analyze_roster(roster_names, pool, starter_needs)
     roster_set = {n.lower().strip() for n in roster_names}
@@ -1782,6 +1797,10 @@ def generate_suggestions_from_pool(
             "ktcTopNFilter": board_top_n,
             "rosterMatched": roster.roster_size,
             "rosterProvided": len(roster_names),
+            # What the constraint owner removed, and why.  An empty list
+            # with no explanation reads as "no trades exist".
+            "constraintsBlockedOutgoing": len(blocked_outgoing),
+            "constraintsBlockedReasons": sorted({r for _, r in blocked_outgoing}),
             "starterNeeds": starter_needs or DEFAULT_STARTER_NEEDS,
             "opponentRostersProvided": len(league_rosters) if league_rosters else 0,
             "opponentRostersAnalyzed": len(opponent_analyses),

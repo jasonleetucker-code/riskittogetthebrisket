@@ -16,6 +16,9 @@ generated recommendations are constrained, and only on the side you give away.
 
 from __future__ import annotations
 
+import ast
+import inspect
+
 from src.trade.constraints import (
     UNRESOLVED,
     TradeConstraints,
@@ -219,7 +222,6 @@ def test_resolution_never_reads_or_writes_a_canonical_value():
     a change that started consulting it would have something to consult.
     """
     import ast
-    import inspect
 
     from src.trade import constraints as module
 
@@ -249,7 +251,6 @@ def test_the_finder_applies_constraints_before_enumeration():
     outgoing assets the constraints removed, and that number comes from the
     partition that happens before any shape is built.
     """
-    import inspect
 
     from src.trade import finder
 
@@ -302,19 +303,76 @@ def test_there_is_exactly_one_constraint_owner():
     """Acceptance 14: no page-local copies.
 
     A second module deciding "may this player be recommended outgoing" is the
-    duplication this row exists to prevent.
+    duplication this row exists to prevent.  The test is on the DECISION, not
+    on the vocabulary: a consumer is allowed to name "untouchable" in a comment
+    or a warning string — what it may not do is produce a block reason of its
+    own.  Keying on the word alone made a docstring look like a second owner,
+    which would have pushed the next consumer into wording around the guard
+    rather than calling the owner.
     """
-    import re
+    import ast
     from pathlib import Path
 
     root = Path(__file__).resolve().parents[2]
-    pattern = re.compile(r"\b(untouchable|protected_nfl_team|excluded_outgoing)\b", re.I)
-    owners = set()
+    reasons = {
+        "protected_individual",
+        "excluded_temporary",
+        "protected_nfl_team",
+        "protected_nfl_team_unknown",
+        "constraints_unresolved",
+    }
+    producers = set()
     for path in (root / "src").rglob("*.py"):
         rel = path.relative_to(root).as_posix()
-        if pattern.search(path.read_text(encoding="utf-8", errors="ignore")):
-            owners.add(rel)
-    assert owners <= {
-        "src/trade/constraints.py",
-        "src/trade/finder.py",
-    }, f"constraint vocabulary appears outside the owner and its consumers: {sorted(owners)}"
+        try:
+            tree = ast.parse(path.read_text(encoding="utf-8", errors="ignore"))
+        except SyntaxError:  # pragma: no cover
+            continue
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Constant) and node.value in reasons:
+                producers.add(rel)
+    assert producers == {"src/trade/constraints.py"}, (
+        f"a block reason is minted outside the owner: {sorted(producers)}"
+    )
+
+
+def test_every_generator_reaches_the_owner():
+    """One owner is only one owner if all four consumers actually call it.
+
+    `V1-130`: the owner is in scope precisely because `V1-34` is required and
+    ONE CONCEPT, ONE CANONICAL OWNER forbids building a required capability
+    without one.  A generator that accepts `constraints` and never partitions
+    would satisfy the signature and none of the requirement.
+    """
+    import ast
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[2]
+    consumers = {
+        "src/trade/finder.py": ["find_trades"],
+        "src/trade/suggestions.py": ["generate_suggestions_from_pool"],
+        "src/trade/angle.py": [
+            "find_angles",
+            "find_angle_packages",
+            "find_acquisition_packages",
+        ],
+    }
+    for rel, functions in consumers.items():
+        src = (root / rel).read_text(encoding="utf-8")
+        tree = ast.parse(src)
+        called = {
+            n.func.id
+            for n in ast.walk(tree)
+            if isinstance(n, ast.Call) and isinstance(n.func, ast.Name)
+        }
+        assert called & {"partition_sendable", "_sendable_names"}, (
+            f"{rel} never partitions its outgoing side through the owner"
+        )
+        for fn in functions:
+            node = next(
+                (n for n in ast.walk(tree) if isinstance(n, ast.FunctionDef) and n.name == fn),
+                None,
+            )
+            assert node is not None, f"{rel}::{fn} not found"
+            names = {a.arg for a in node.args.kwonlyargs} | {a.arg for a in node.args.args}
+            assert "constraints" in names, f"{rel}::{fn} does not accept constraints"

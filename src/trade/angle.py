@@ -420,6 +420,33 @@ def _attach_capacity(
         )
 
 
+#: C3-CON-01 / V1-130 — one recommendation-constraint owner.
+#:
+#: Applied to the OUTGOING side only, and BEFORE generation.  A protected
+#: player stays a valid incoming target and keeps his ordinary canonical value:
+#: this is a recommendation rule, not a valuation rule.  Generating everything
+#: and hiding the forbidden ones afterwards can return the wrong *best*
+#: candidate, because the real best was removed after ranking.
+#:
+#: The same ``partition_sendable`` call ``finder.py`` and ``suggestions.py``
+#: make, so the three generators cannot disagree about what "untouchable"
+#: means.
+
+
+def _sendable_names(names, constraints) -> tuple[list[str], list[tuple[str, str]]]:
+    """Split caller-named outgoing players through the constraint owner."""
+    from src.trade.constraints import partition_sendable  # noqa: PLC0415
+
+    class _Named:
+        __slots__ = ("name",)
+
+        def __init__(self, name: str) -> None:
+            self.name = name
+
+    ok, blocked = partition_sendable([_Named(str(n)) for n in names], constraints)
+    return [a.name for a in ok], [(a.name, r) for a, r in blocked]
+
+
 def find_angles(
     players_array: list[dict[str, Any]],
     selected_player_name: str,
@@ -431,6 +458,7 @@ def find_angles(
     limit: int = 50,
     target_team_owner_id: str | None = None,
     capacity_context: Any | None = None,
+    constraints: Any | None = None,
 ) -> dict[str, Any]:
     """Find trade-target candidates that lean in the user's favour.
 
@@ -475,6 +503,21 @@ def find_angles(
         name = str(row.get("canonicalName") or row.get("displayName") or "")
         if name and name not in by_name:
             by_name[name] = row
+
+    _ok, _blocked = _sendable_names([selected_player_name], constraints)
+    if _blocked:
+        # An honest refusal.  Returning an empty candidate list would read as
+        # "no angles exist for this player".
+        return {
+            "candidates": [],
+            "constraintsBlockedOutgoing": 1,
+            "constraintsBlockedReasons": sorted({r for _n, r in _blocked}),
+            "noResultReason": "selected_player_is_constrained",
+            "warnings": [
+                f"{selected_player_name!r} is protected or excluded from outgoing "
+                "recommendations, so no angle was generated."
+            ],
+        }
 
     selected_row = by_name.get(selected_player_name)
     if not selected_row:
@@ -690,6 +733,7 @@ def find_angle_packages(
     seed_player_names: list[str] | None = None,
     include_idp: bool = False,
     capacity_context: Any | None = None,
+    constraints: Any | None = None,
 ) -> dict[str, Any]:
     """Find multi-player counter-packages for a user-built offer.
 
@@ -761,6 +805,13 @@ def find_angle_packages(
             by_name[name] = row
 
     # Resolve offer-side rows; drop any with missing values and warn.
+    selected_player_names, _blocked_out = _sendable_names(selected_player_names, constraints)
+    if _blocked_out:
+        warnings.append(
+            f"{len(_blocked_out)} offered player(s) are protected or excluded from "
+            "outgoing recommendations and were not used: "
+            + ", ".join(n for n, _r in _blocked_out[:5])
+        )
     offer_rows: list[dict[str, Any]] = []
     missing: list[str] = []
     for name in selected_player_names:
@@ -1211,6 +1262,7 @@ def find_acquisition_packages(
     min_player_my_value: float = 0.0,
     include_idp: bool = False,
     capacity_context: Any | None = None,
+    constraints: Any | None = None,
 ) -> dict[str, Any]:
     """Find offer-side packages from the user's roster that acquire a
     fixed set of desired players from other teams.
