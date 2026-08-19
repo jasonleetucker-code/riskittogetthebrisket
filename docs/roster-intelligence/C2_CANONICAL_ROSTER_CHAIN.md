@@ -835,3 +835,81 @@ the +8-player cost above into leagues that do not need it.
 **M therefore stays 1.50 and stays labelled PRIOR.** The pass narrows the
 defensible band and rules out the low challenger; it does not freeze the
 champion, and §4.3's bar for freezing is not met by this evidence alone.
+
+---
+
+## 17. Hardening unit — integration's non-blocking findings (stacked on #914)
+
+#914 is frozen for integration. This section records the follow-up unit
+delivered on a branch stacked on its head, closing the eight Roster-owned
+findings from the integration review. Everything here is *correctness or
+ownership*; none of it is cosmetic.
+
+### What changed, and what it was
+
+| # | finding | repair |
+|---|---|---|
+| F2/F3 | `reserve_demand` re-derived slot demand; needed a private flex table and two private cross-module imports to agree with the owner | consumes `lineup.slot_demand`; `_RESERVE_FLEX_SLOTS` deleted; `ReserveDemand` publishes `flex_slots` / `dedicated_basis` |
+| F1 | the league's configured flex eligibility reached no solve | `lineup.configured_slot_eligibility` (the rule) + `data_contract.contract_slot_eligibility` (the plumbing), threaded into the stamp *and* the endpoint |
+| F4 | two position vocabularies; **and six spellings eligible for nothing** | one vocabulary in the chain; eligibility decided on token *or* family |
+| F5 | `PositionNeed` was two types in one package | different questions → renamed `engine.PositionDeficit`, not merged |
+| F6 | the board join keyed by `canonicalName` while the pool keyed by either name | keyed the way the pool keys, one row per player |
+| F7 | ~10 sites raised `TypeError` on `ros_value is None` | `lineup.is_priced` / `priced_players`; exclude and report, never coerce |
+| F8 | droppability counted the live auction's own rookies as free agents | default resolves them from the contract; `waiverPopulation` stamps it |
+
+### Three things worth reading past the table
+
+**F4 was bigger than the finding said.** Chasing the MLB grouping
+mismatch turned up that `NT`, `OLB`, `ILB`, `MLB`, `FS` and `SS` all
+resolved to a correct *family* and then matched **no slot at all** —
+eligibility was tested on the raw token against the Sleeper-faithful
+table. A genuine linebacker listed as `MLB` could not start. Fixed at the
+rule (token **or** family), which is strictly a widening; the delta is
+frozen in a test at 14 gained pairs and **zero lost**.
+
+**F8's direction is the point.** Counting the auction's own rookies as
+free agents *raises* the replacement bar, so every cut looks *cheaper* —
+the defect `src/draft/rookie_pool.py` exists to prevent, arriving by a
+different door. On defaults the two surfaces now agree 12/12 on both
+`waiverValues` and `cutLadder` without being handed matched inputs.
+
+**F5 was not consolidated, on purpose.** The brief's test is whether two
+things answer the same question. A rung ladder against `k × teamCount`
+and a distance below replacement do not, so they got two names rather
+than one implementation.
+
+### The pipeline is proved, not described
+
+180 seeded rosters × 5 league shapes × 4 eligibility configurations —
+including a non-laminar flex set and ~12% unpriced players — over the
+real chain. No player counted twice (membership, starter/reserve
+disjointness, the ceiling, Team Strength's sum and its position
+re-sum, weakness rungs, and the Superflex fold as its own case). No
+bypass path (one lineup solver, one `math.ceil`, no private top-N, and
+every chain output takes a `MeaningfulCore` as its first parameter).
+
+Both double-count guards are mutation-proven: letting the reserve pass
+see the full pool turns 3 red, making Team Strength count reserves twice
+turns 1 red.
+
+### Boundaries held
+
+* **`C3-CAP-01` stays trade-owned.** Nothing here touches capacity or
+  forced-drop accounting; §14 records the ruling and what this lane
+  publishes for #913 to consume.
+* **`marginal` / `profiles` / `targets` keep the replacement vocabulary.**
+  They are the older WS-J engine behind `/api/gameplan` and group for
+  replacement-level purposes; re-grouping them would move a different
+  owner's live numbers. The vocabulary guard names its exclusions rather
+  than quietly covering seven of ten modules.
+* **`engine`'s unpriced counter keeps its pre-existing conflation** of a
+  real `0.0` with an unpriced player, and `marginal`'s mean-entrant value
+  keeps its `0.0`-when-empty convention. Both are published numbers owned
+  elsewhere; a hardening unit gets to stop them crashing, not to redefine
+  them.
+* **One frontend line** — `starter-slots.js`'s `LB_FAMILY` gains `MLB`,
+  required by the lockstep guard the moment Python moved. Not
+  presentation work.
+
+Live board unchanged throughout: `optimalLineup` stamp hash
+`a311593a9b7602ac` before and after every change in this unit.
