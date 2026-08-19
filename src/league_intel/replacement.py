@@ -63,7 +63,7 @@ import statistics
 from dataclasses import dataclass, field
 from typing import Any, Iterable, Mapping, Sequence
 
-from src.ros.lineup import RosterPlayer, optimize_lineup
+from src.ros.lineup import RosterPlayer, optimize_lineup, roster_players_from_rows
 
 __all__ = [
     "REPLACEMENT_SCHEMA_VERSION",
@@ -202,23 +202,10 @@ class ScarcityComponents:
 
 
 def _to_roster_players(players: Iterable[Mapping[str, Any]]) -> list[RosterPlayer]:
-    out: list[RosterPlayer] = []
-    for p in players:
-        out.append(
-            RosterPlayer(
-                player_id=str(p.get("playerId") or p.get("canonicalName") or ""),
-                canonical_name=str(p.get("canonicalName") or p.get("name") or ""),
-                position=str(p.get("position") or "").upper(),
-                ros_value=float(p.get("rosValue") or 0.0),
-                confidence=float(p.get("confidence") or 0.0),
-                injured=bool(p.get("injured")),
-                bye=bool(p.get("bye")),
-                fantasy_positions=tuple(
-                    str(fp).upper() for fp in (p.get("fantasyPositions") or ())
-                ),
-            )
-        )
-    return out
+    """Delegates to the canonical adapter — see
+    ``ros.lineup.roster_player_from_row`` for why this is no longer
+    written out here."""
+    return roster_players_from_rows(players)
 
 
 @dataclass(frozen=True)

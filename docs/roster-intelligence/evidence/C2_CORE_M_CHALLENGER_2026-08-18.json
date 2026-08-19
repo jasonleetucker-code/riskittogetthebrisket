@@ -1,0 +1,495 @@
+{
+  "source": "/tmp/contract.json",
+  "targets": [
+    0.99,
+    0.999,
+    0.9999,
+    1.0
+  ],
+  "formats": {
+    "live": {
+      "slots": 21,
+      "candidates": [
+        {
+          "multiplier": 1.25,
+          "ceiling": 29,
+          "meanCoreSize": 27.75,
+          "byK": {
+            "1": {
+              "meanRetention": 1.0,
+              "minRetention": 1.0,
+              "teamsBelowTarget": null
+            },
+            "2": {
+              "meanRetention": 0.9993329410098736,
+              "minRetention": 0.9986780948943964,
+              "teamsBelowTarget": null
+            },
+            "3": {
+              "meanRetention": 0.9976716871910525,
+              "minRetention": 0.9955268869471938,
+              "teamsBelowTarget": null
+            }
+          }
+        },
+        {
+          "multiplier": 1.5,
+          "ceiling": 33,
+          "meanCoreSize": 31.166666666666668,
+          "byK": {
+            "1": {
+              "meanRetention": 1.0,
+              "minRetention": 1.0,
+              "teamsBelowTarget": null
+            },
+            "2": {
+              "meanRetention": 0.9998808747748215,
+              "minRetention": 0.999724514196634,
+              "teamsBelowTarget": null
+            },
+            "3": {
+              "meanRetention": 0.999543204569464,
+              "minRetention": 0.999063310272419,
+              "teamsBelowTarget": null
+            }
+          }
+        },
+        {
+          "multiplier": 1.75,
+          "ceiling": 41,
+          "meanCoreSize": 37.416666666666664,
+          "byK": {
+            "1": {
+              "meanRetention": 1.0,
+              "minRetention": 1.0,
+              "teamsBelowTarget": null
+            },
+            "2": {
+              "meanRetention": 1.0,
+              "minRetention": 1.0,
+              "teamsBelowTarget": null
+            },
+            "3": {
+              "meanRetention": 1.0,
+              "minRetention": 1.0,
+              "teamsBelowTarget": null
+            }
+          }
+        }
+      ],
+      "derivedByTarget": {
+        "0.9900": {
+          "multiplier": 1.05,
+          "ceiling": 29,
+          "meanCoreSize": 27.75,
+          "byK": {
+            "3": {
+              "meanRetention": 0.9976716871910525,
+              "minRetention": 0.9955268869471938,
+              "teamsBelowTarget": null
+            }
+          }
+        },
+        "0.9990": {
+          "multiplier": 1.35,
+          "ceiling": 33,
+          "meanCoreSize": 31.166666666666668,
+          "byK": {
+            "3": {
+              "meanRetention": 0.999543204569464,
+              "minRetention": 0.999063310272419,
+              "teamsBelowTarget": null
+            }
+          }
+        },
+        "0.9999": {
+          "multiplier": 1.7,
+          "ceiling": 41,
+          "meanCoreSize": 37.416666666666664,
+          "byK": {
+            "3": {
+              "meanRetention": 1.0,
+              "minRetention": 1.0,
+              "teamsBelowTarget": null
+            }
+          }
+        },
+        "1.0000": {
+          "multiplier": 1.7,
+          "ceiling": 41,
+          "meanCoreSize": 37.416666666666664,
+          "byK": {
+            "3": {
+              "meanRetention": 1.0,
+              "minRetention": 1.0,
+              "teamsBelowTarget": null
+            }
+          }
+        }
+      }
+    },
+    "no_idp": {
+      "slots": 12,
+      "candidates": [
+        {
+          "multiplier": 1.25,
+          "ceiling": 17,
+          "meanCoreSize": 15.75,
+          "byK": {
+            "1": {
+              "meanRetention": 1.0,
+              "minRetention": 1.0,
+              "teamsBelowTarget": null
+            },
+            "2": {
+              "meanRetention": 0.9990027941071761,
+              "minRetention": 0.9974762322061219,
+              "teamsBelowTarget": null
+            },
+            "3": {
+              "meanRetention": 0.9966661771834021,
+              "minRetention": 0.9933996025734727,
+              "teamsBelowTarget": null
+            }
+          }
+        },
+        {
+          "multiplier": 1.5,
+          "ceiling": 18,
+          "meanCoreSize": 16.75,
+          "byK": {
+            "1": {
+              "meanRetention": 1.0,
+              "minRetention": 1.0,
+              "teamsBelowTarget": null
+            },
+            "2": {
+              "meanRetention": 0.9993786916426771,
+              "minRetention": 0.9986255913807435,
+              "teamsBelowTarget": null
+            },
+            "3": {
+              "meanRetention": 0.9979262623360229,
+              "minRetention": 0.9954604933904861,
+              "teamsBelowTarget": null
+            }
+          }
+        },
+        {
+          "multiplier": 1.75,
+          "ceiling": 23,
+          "meanCoreSize": 21.0,
+          "byK": {
+            "1": {
+              "meanRetention": 1.0,
+              "minRetention": 1.0,
+              "teamsBelowTarget": null
+            },
+            "2": {
+              "meanRetention": 1.0,
+              "minRetention": 1.0,
+              "teamsBelowTarget": null
+            },
+            "3": {
+              "meanRetention": 1.0,
+              "minRetention": 1.0,
+              "teamsBelowTarget": null
+            }
+          }
+        }
+      ],
+      "derivedByTarget": {
+        "0.9900": {
+          "multiplier": 1.05,
+          "ceiling": 17,
+          "meanCoreSize": 15.75,
+          "byK": {
+            "3": {
+              "meanRetention": 0.9966661771834021,
+              "minRetention": 0.9933996025734727,
+              "teamsBelowTarget": null
+            }
+          }
+        },
+        "0.9990": {
+          "multiplier": 1.55,
+          "ceiling": 22,
+          "meanCoreSize": 20.166666666666668,
+          "byK": {
+            "3": {
+              "meanRetention": 1.0,
+              "minRetention": 1.0,
+              "teamsBelowTarget": null
+            }
+          }
+        },
+        "0.9999": {
+          "multiplier": 1.55,
+          "ceiling": 22,
+          "meanCoreSize": 20.166666666666668,
+          "byK": {
+            "3": {
+              "meanRetention": 1.0,
+              "minRetention": 1.0,
+              "teamsBelowTarget": null
+            }
+          }
+        },
+        "1.0000": {
+          "multiplier": 1.55,
+          "ceiling": 22,
+          "meanCoreSize": 20.166666666666668,
+          "byK": {
+            "3": {
+              "meanRetention": 1.0,
+              "minRetention": 1.0,
+              "teamsBelowTarget": null
+            }
+          }
+        }
+      }
+    },
+    "no_superflex": {
+      "slots": 20,
+      "candidates": [
+        {
+          "multiplier": 1.25,
+          "ceiling": 28,
+          "meanCoreSize": 26.833333333333332,
+          "byK": {
+            "1": {
+              "meanRetention": 1.0,
+              "minRetention": 1.0,
+              "teamsBelowTarget": null
+            },
+            "2": {
+              "meanRetention": 0.9992015254403602,
+              "minRetention": 0.9983556101722498,
+              "teamsBelowTarget": null
+            },
+            "3": {
+              "meanRetention": 0.9973259379479703,
+              "minRetention": 0.9938104354117896,
+              "teamsBelowTarget": null
+            }
+          }
+        },
+        {
+          "multiplier": 1.5,
+          "ceiling": 32,
+          "meanCoreSize": 30.25,
+          "byK": {
+            "1": {
+              "meanRetention": 1.0,
+              "minRetention": 1.0,
+              "teamsBelowTarget": null
+            },
+            "2": {
+              "meanRetention": 0.9998588093154704,
+              "minRetention": 0.9996789564819849,
+              "teamsBelowTarget": null
+            },
+            "3": {
+              "meanRetention": 0.9995710805270318,
+              "minRetention": 0.9986322904276972,
+              "teamsBelowTarget": null
+            }
+          }
+        },
+        {
+          "multiplier": 1.75,
+          "ceiling": 39,
+          "meanCoreSize": 35.666666666666664,
+          "byK": {
+            "1": {
+              "meanRetention": 1.0,
+              "minRetention": 1.0,
+              "teamsBelowTarget": null
+            },
+            "2": {
+              "meanRetention": 1.0,
+              "minRetention": 1.0,
+              "teamsBelowTarget": null
+            },
+            "3": {
+              "meanRetention": 1.0,
+              "minRetention": 1.0,
+              "teamsBelowTarget": null
+            }
+          }
+        }
+      ],
+      "derivedByTarget": {
+        "0.9900": {
+          "multiplier": 1.05,
+          "ceiling": 28,
+          "meanCoreSize": 26.833333333333332,
+          "byK": {
+            "3": {
+              "meanRetention": 0.9973259379479703,
+              "minRetention": 0.9938104354117896,
+              "teamsBelowTarget": null
+            }
+          }
+        },
+        "0.9990": {
+          "multiplier": 1.55,
+          "ceiling": 35,
+          "meanCoreSize": 32.833333333333336,
+          "byK": {
+            "3": {
+              "meanRetention": 0.9999712843401838,
+              "minRetention": 0.9998241474937766,
+              "teamsBelowTarget": null
+            }
+          }
+        },
+        "0.9999": {
+          "multiplier": 1.7,
+          "ceiling": 39,
+          "meanCoreSize": 35.666666666666664,
+          "byK": {
+            "3": {
+              "meanRetention": 1.0,
+              "minRetention": 1.0,
+              "teamsBelowTarget": null
+            }
+          }
+        },
+        "1.0000": {
+          "multiplier": 1.7,
+          "ceiling": 39,
+          "meanCoreSize": 35.666666666666664,
+          "byK": {
+            "3": {
+              "meanRetention": 1.0,
+              "minRetention": 1.0,
+              "teamsBelowTarget": null
+            }
+          }
+        }
+      }
+    },
+    "offense_1qb": {
+      "slots": 11,
+      "candidates": [
+        {
+          "multiplier": 1.25,
+          "ceiling": 16,
+          "meanCoreSize": 14.833333333333334,
+          "byK": {
+            "1": {
+              "meanRetention": 1.0,
+              "minRetention": 1.0,
+              "teamsBelowTarget": null
+            },
+            "2": {
+              "meanRetention": 0.9986456904968274,
+              "minRetention": 0.9963855623412012,
+              "teamsBelowTarget": null
+            },
+            "3": {
+              "meanRetention": 0.9951223331339466,
+              "minRetention": 0.989032812938003,
+              "teamsBelowTarget": null
+            }
+          }
+        },
+        {
+          "multiplier": 1.5,
+          "ceiling": 17,
+          "meanCoreSize": 15.833333333333334,
+          "byK": {
+            "1": {
+              "meanRetention": 1.0,
+              "minRetention": 1.0,
+              "teamsBelowTarget": null
+            },
+            "2": {
+              "meanRetention": 0.9991626913914379,
+              "minRetention": 0.998190901783528,
+              "teamsBelowTarget": null
+            },
+            "3": {
+              "meanRetention": 0.9972258155103854,
+              "minRetention": 0.9942802750927873,
+              "teamsBelowTarget": null
+            }
+          }
+        },
+        {
+          "multiplier": 1.75,
+          "ceiling": 21,
+          "meanCoreSize": 19.25,
+          "byK": {
+            "1": {
+              "meanRetention": 1.0,
+              "minRetention": 1.0,
+              "teamsBelowTarget": null
+            },
+            "2": {
+              "meanRetention": 1.0,
+              "minRetention": 1.0,
+              "teamsBelowTarget": null
+            },
+            "3": {
+              "meanRetention": 1.0,
+              "minRetention": 1.0,
+              "teamsBelowTarget": null
+            }
+          }
+        }
+      ],
+      "derivedByTarget": {
+        "0.9900": {
+          "multiplier": 1.35,
+          "ceiling": 17,
+          "meanCoreSize": 15.833333333333334,
+          "byK": {
+            "3": {
+              "meanRetention": 0.9972258155103854,
+              "minRetention": 0.9942802750927873,
+              "teamsBelowTarget": null
+            }
+          }
+        },
+        "0.9990": {
+          "multiplier": 1.55,
+          "ceiling": 20,
+          "meanCoreSize": 18.416666666666668,
+          "byK": {
+            "3": {
+              "meanRetention": 0.9999752929384451,
+              "minRetention": 0.9997035152613405,
+              "teamsBelowTarget": null
+            }
+          }
+        },
+        "0.9999": {
+          "multiplier": 1.7,
+          "ceiling": 21,
+          "meanCoreSize": 19.25,
+          "byK": {
+            "3": {
+              "meanRetention": 1.0,
+              "minRetention": 1.0,
+              "teamsBelowTarget": null
+            }
+          }
+        },
+        "1.0000": {
+          "multiplier": 1.7,
+          "ceiling": 21,
+          "meanCoreSize": 19.25,
+          "byK": {
+            "3": {
+              "meanRetention": 1.0,
+              "minRetention": 1.0,
+              "teamsBelowTarget": null
+            }
+          }
+        }
+      }
+    }
+  }
+}
