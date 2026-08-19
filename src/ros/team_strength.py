@@ -180,7 +180,14 @@ def compute_team_strength(
             # for rest-of-season evidence.  Weighted by VALUE below, not
             # headcount: a dynasty-priced QB1 and a dynasty-priced 30th
             # man are not the same exposure.
-            _ros_value = float(agg.get("rosValue") or 0.0)
+            # No ``or 0.0`` here, and that is a retirement rather than a
+            # move.  The guard above already ``continue``s on
+            # ``agg.get("rosValue", 0) <= 0``, so by this line the key is
+            # present and positive and the coercion was unreachable
+            # defensive code.  Hoisting it out of the ``RosterPlayer(...)``
+            # call is what made that visible — the baseline had carried it
+            # as accepted debt inline.
+            _ros_value = float(agg["rosValue"])
             _proxy_share = agg.get("dynastyProxyWeightShare")
             if _proxy_share is not None:
                 priced_value += _ros_value

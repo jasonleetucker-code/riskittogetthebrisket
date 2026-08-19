@@ -1,6 +1,6 @@
 {
  "note": "Known missing-data coercions on decision paths, recorded so the gate can block NEW ones while the remediation batches burn these down. Each batch deletes its findings' entries. Do not add to this file to make a build pass.",
- "count": 672,
+ "count": 671,
  "violations": [
   "frontend/lib/auction-power.js::const raw = names.map((n) => Number(totalsObj[n]) || 0);",
   "frontend/lib/bdvm.js::assetCount: _num(r?.assetCount) ?? 0,",
@@ -496,7 +496,6 @@
   "src/ros/sources/fantasypros_ros_sf.py::rank = int(entry.get(\"rank_ecr\") or 0)",
   "src/ros/team_strength.py::confidence=float(agg.get(\"confidence\") or 0.0),",
   "src/ros/team_strength.py::out.sort(key=lambda t: -float(t.get(\"teamRosStrength\") or 0.0))",
-  "src/ros/team_strength.py::ros_value=float(agg.get(\"rosValue\") or 0.0),",
   "src/ros/trade_deadline.py::rank = float(strength_row.get(\"rank\") or 0.0)",
   "src/ros/trade_deadline.py::total = max(1.0, float(len(strengths) or 1))",
   "src/roster_intel/engine.py::adjusted += float(row.get(\"leagueAdjustedDynastyValue\") or row.get(\"consensusValue\") or 0.0)",
