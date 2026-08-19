@@ -757,17 +757,33 @@ def _with_crowd(monkeypatch, payload):
 #: the tests that exercise the crowd path have to state a real format.
 _FULL_FORMAT = {
     "teamCount": 12,
-    # 1QB, single TE, no TE premium — matching the crowd rows below, so the
-    # tests exercise the crowd path rather than the format gate.
+    # 1QB, single TE — matching the crowd rows below, so the tests exercise
+    # the crowd path rather than the format gate.
     "starters": {"QB": 1, "RB": 2, "WR": 3, "TE": 1, "FLEX": 2},
 }
 
+#: TEP is read from the league's REAL scoring card, never from the profile
+#: label, so stating a format now means stating scoring too.  This card grants
+#: TEs nothing over WRs, matching the non-TEP crowd rows below.
+_FULL_SCORING = {"rec": 1.0, "bonus_rec_te": 0.0, "bonus_fd_te": 1.0, "bonus_fd_wr": 1.0}
 
-def _with_stated_format(monkeypatch):
+
+def _with_stated_format(monkeypatch, *, scoring=None, evidence="fresh"):
     monkeypatch.setattr(
         server._league_registry,
         "get_league_roster_settings",
         lambda key: dict(_FULL_FORMAT),
+    )
+    card = dict(_FULL_SCORING) if scoring is None else scoring
+    monkeypatch.setattr(
+        server._league_registry,
+        "scoring_settings_for_league",
+        lambda cfg: (dict(card) if card else None),
+    )
+    monkeypatch.setattr(
+        server._league_registry,
+        "scoring_evidence_state",
+        lambda cfg: evidence,
     )
 
 
@@ -853,6 +869,7 @@ def test_an_idp_league_in_the_population_unlocks_idp_pricing(faab_env, monkeypat
 
 
 def test_no_ledger_reports_missing_rather_than_omitting_the_block(faab_env, monkeypatch):
+    _with_stated_format(monkeypatch)
     with TestClient(server.app) as c:
         _with_crowd(monkeypatch, None)
         res = _post(c, monkeypatch, {"addPlayerName": "Hot Pickup"})
@@ -881,3 +898,44 @@ def test_an_underspecified_target_league_admits_nothing(faab_env, monkeypatch):
         "target_format_unknown:superflex",
         "target_format_unknown:tep",
     }
+    # ...and the refusal names OUR side, not the feed's. A fresh ledger that
+    # admitted nothing because we cannot describe our own league must not
+    # read as "no crowd ledger" -- the fix is in the registry, not the feed.
+    assert block["refusalReason"] == "target_format_unverifiable:superflex,tep"
+    assert block["targetFormatUnknown"] == ["superflex", "tep"]
+
+
+def test_an_unproven_scoring_card_leaves_tep_unknown_and_says_so(faab_env, monkeypatch):
+    """A card proves when it was taken, not that it is still true.
+
+    Stale scoring is UNKNOWN TEP, and unknown must not quietly become "no TE
+    premium" -- that would silently admit a whole population of offense-scoring
+    leagues as comparable. It fails closed and reports which setting failed.
+    """
+    _with_stated_format(monkeypatch, evidence="stale")
+    with TestClient(server.app) as c:
+        _with_crowd(monkeypatch, _crowd_payload(_now()))
+        res = _post(c, monkeypatch, {"addPlayerName": "Hot Pickup"})
+    block = res.json()["crowdMarket"]
+    assert block["rowsTotal"] == 4 and block["rowsUsed"] == 0
+    assert block["targetFormatUnknown"] == ["tep"]
+    assert block["refusalReason"] == "target_format_unverifiable:tep"
+
+
+def test_a_proven_te_premium_is_read_from_the_card_not_the_label(faab_env, monkeypatch):
+    """The same league, same label, different card -> different market.
+
+    This is the whole point of the repair: ``dynasty_main`` carries a
+    ``superflex_tep15_ppr1`` label while its real 2026 card grants TEs no
+    premium at all, so the label admitted TE-premium leagues as comparable and
+    excluded the ones that actually match.
+    """
+    _with_stated_format(monkeypatch, scoring={"rec": 1.0, "bonus_rec_te": 0.5})
+    with TestClient(server.app) as c:
+        _with_crowd(monkeypatch, _crowd_payload(_now()))
+        res = _post(c, monkeypatch, {"addPlayerName": "Hot Pickup"})
+    block = res.json()["crowdMarket"]
+    # The crowd rows are non-TEP leagues; a proven TE premium now excludes them.
+    assert block["targetFormatUnknown"] == []
+    assert block["rowsUsed"] == 0
+    assert block["excludedCounts"] == {"tep_mismatch": 4}

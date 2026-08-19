@@ -6101,11 +6101,9 @@ async def post_waiver_faab_recommend(request: Request):
     crowd_for_player: dict | None = None
     crowd_market_block: dict | None = None
     try:
-        crowd_target = _faab_comparability.TargetFormat.from_roster_settings(
-            roster_settings,
-            league_key=league_cfg.key,
-            scoring_profile=getattr(league_cfg, "scoring_profile", "") or "",
-            idp_enabled=getattr(league_cfg, "idp_enabled", None),
+        crowd_target = _faab_comparability.TargetFormat.from_league_config(
+            league_cfg,
+            roster_settings=roster_settings,
             original_budget=float(league_budget),
         )
         crowd_policy = _faab_comparability.ComparabilityPolicy.from_config(

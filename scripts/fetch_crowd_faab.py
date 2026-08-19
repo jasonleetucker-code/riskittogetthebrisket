@@ -300,11 +300,9 @@ def main() -> int:
         # The comparator profile comes from the TARGET league's own canonical
         # settings, never a hardcoded Brisket shape — the product is expected
         # to serve other people's dynasty leagues later (owner spec section 7).
-        target = FC.TargetFormat.from_roster_settings(
-            league_registry.get_league_roster_settings(cfg.key) or {},
-            league_key=cfg.key,
-            scoring_profile=getattr(cfg, "scoring_profile", "") or "",
-            idp_enabled=getattr(cfg, "idp_enabled", None),
+        target = FC.TargetFormat.from_league_config(
+            cfg,
+            roster_settings=league_registry.get_league_roster_settings(cfg.key) or {},
             original_budget=league_budget_for(cfg.key),
         )
 
