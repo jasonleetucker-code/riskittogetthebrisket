@@ -222,9 +222,17 @@ describe("SourceHealthStrip · run failures it cannot attribute (F-12)", () => {
         idpTradeCalc: { lastFetched: new Date().toISOString(), ageHours: 0.2 },
         dlfSf: { lastFetched: new Date().toISOString(), ageHours: 0.2 },
       },
+      // SHAPE TAKEN FROM THE SERVER, not invented. `_push_failure`
+      // (server.py) appends `{source, reason, details}` — there is no
+      // `kind`. The first version of this fixture used `kind`, the
+      // component read `kind`, and the two agreed with each other while
+      // both disagreeing with production: every real failure fell through
+      // to the "failed" default, so a PARTIAL source rendered hard-red.
+      // A fixture that mirrors the code instead of the payload cannot
+      // catch that, which is exactly what happened.
       source_failures: [
-        { source: "KTC", kind: "failed", details: { message: "KTC blocked: cloudflare challenge" } },
-        { source: "DLF_LocalCSV", kind: "partial", details: { message: "source completed with zero mapped values" } },
+        { source: "KTC", reason: "failed", details: { message: "KTC blocked: cloudflare challenge" } },
+        { source: "DLF_LocalCSV", reason: "partial", details: { message: "source completed with zero mapped values" } },
       ],
       missing_sources: [],
     },
@@ -246,7 +254,7 @@ describe("SourceHealthStrip · run failures it cannot attribute (F-12)", () => {
     );
     const names = [
       ...container.querySelectorAll(
-        ".source-health-unattributed-row .source-health-name",
+        ".source-health-unattributed-row .source-health-unattributed-name",
       ),
     ].map((n) => n.textContent);
     expect(names).toEqual(["KTC", "DLF_LocalCSV"]);
@@ -292,6 +300,32 @@ describe("SourceHealthStrip · run failures it cannot attribute (F-12)", () => {
     expect(container.querySelectorAll(".source-health-row--down").length).toBe(0);
   });
 
+  it("a PARTIAL source does not render as a hard failure", async () => {
+    // The `kind`-vs-`reason` bug made every unattributed row red. A
+    // source that completed with zero mapped values and a source whose
+    // fetch died are different facts, and the strip must keep them apart.
+    mockStatus({ body: VOCABULARY_SPLIT });
+    const { container } = render(<SourceHealthStrip variant="page" />);
+    await waitFor(() => expect(screen.getByRole("region")).toBeTruthy());
+    screen.getByRole("button").click();
+
+    await waitFor(() =>
+      expect(
+        container.querySelectorAll(".source-health-unattributed-row").length,
+      ).toBe(2),
+    );
+    // KTC failed -> down. DLF_LocalCSV was partial -> warn, not down.
+    expect(
+      container.querySelectorAll(".source-health-unattributed-row--warn").length,
+      "the partial source must render as a warning, not a failure",
+    ).toBe(1);
+    expect(
+      container.querySelectorAll(".source-health-unattributed-row--down").length,
+    ).toBe(1);
+    // ...and the row must say which it was.
+    expect(document.body.textContent).toMatch(/partial/);
+  });
+
   it("still attributes a failure when the names DO line up", async () => {
     // Forward compatibility: if the backend ever publishes run state in
     // registry keys, the per-row path must light up on its own rather
@@ -301,7 +335,7 @@ describe("SourceHealthStrip · run failures it cannot attribute (F-12)", () => {
     body.source_health.source_runtime.failed_sources = ["ktcSfTep"];
     body.source_health.source_runtime.partial_sources = [];
     body.source_health.source_failures = [
-      { source: "ktcSfTep", kind: "failed", details: { message: "matched by key" } },
+      { source: "ktcSfTep", reason: "failed", details: { message: "matched by key" } },
     ];
     mockStatus({ body });
 

@@ -109,10 +109,18 @@ function attributionSplit(health, runtime, rowSources) {
   for (const f of failures) {
     const name = f?.source;
     if (!name || known.has(name) || seen.has(name)) continue;
+    // The field is ``reason``, not ``kind``.  ``server._push_failure``
+    // appends ``{source, reason, details}`` — reading ``kind`` meant the
+    // fallback fired on EVERY row, so a PARTIAL source rendered as a hard
+    // red failure.  "Completed with zero mapped values" and "the fetch
+    // died" are different facts and the strip has to keep them apart;
+    // collapsing them is the same missing-is-never-zero mistake in the
+    // other direction.  ``kind`` is still accepted so a future payload
+    // that adopts that name keeps working.
     seen.add(name);
     unattributed.push({
       source: name,
-      kind: f?.kind || "failed",
+      kind: f?.reason || f?.kind || "failed",
       reason: f?.details?.message || f?.details?.error || null,
     });
   }
@@ -362,7 +370,13 @@ export default function SourceHealthStrip({ variant = "inline" }) {
                     }`}
                     aria-hidden="true"
                   />
-                  <span className="source-health-name">{u.source}</span>
+                  {/* Deliberately NOT ``source-health-name``: these are not
+                      registered sources, and a spec counting that class
+                      would add the two populations together. The row class
+                      is already distinct; the name has to be too. */}
+                  <span className="source-health-unattributed-name">
+                    {u.source}
+                  </span>
                   <span className="source-health-count">{u.kind}</span>
                   {u.reason && (
                     <span className="source-health-reason" title={u.reason}>

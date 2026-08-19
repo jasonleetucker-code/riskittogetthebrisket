@@ -5969,5 +5969,9 @@ input[type="range"]:focus-visible::-moz-range-thumb {
   font-size: 0.7rem;
   padding: 3px 0;
 }
+.source-health-unattributed-name {
+  font-weight: 600;
+  color: var(--text);
+}
 .source-health-unattributed-row--down { color: var(--red); }
 .source-health-unattributed-row--warn { color: var(--amber, var(--accent)); }

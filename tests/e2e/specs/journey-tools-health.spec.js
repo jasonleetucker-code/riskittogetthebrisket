@@ -94,7 +94,13 @@ test.describe("journey: /tools health pages", () => {
 
     await page.locator(".source-health-toggle").click();
 
-    const names = page.locator(".source-health-name");
+    // Scoped to registry ROWS. `.source-health-name` alone also matches
+    // the unattributed-failure block the strip renders when a scrape
+    // reports a source it cannot map to a registry key, so an unscoped
+    // count silently adds two different populations and this assertion
+    // — `=== enabled.length` — breaks on the first partial scrape. It
+    // passes today only because the committed snapshot reports none.
+    const names = page.locator(".source-health-row .source-health-name");
     await expect
       .poll(() => names.count(), {
         message: `expanding the strip should reveal ${enabled.length} per-source rows`,
