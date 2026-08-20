@@ -487,6 +487,14 @@ _GATE_STATUS: Final[dict[str, str]] = {
     # consensus_edge gates the /api/consensus-edge/* router mounted in
     # server.py: off → 503 feature_disabled, on → the board.
     "consensus_edge": LIVE,
+    # multi_bridge_ladder gates how many QUALIFIED cross-position bridges
+    # seed the shared-market ladder in
+    # ``data_contract._compute_unified_rankings`` (Phase 0), which reaches a
+    # request through ``/api/data`` and every engine that reads the board:
+    # off → the first usable bridge only, reproducing the incumbent ladder
+    # integer for integer, on → all of them combined.  Measured on the
+    # 2026-08-20 board, flipping it moves 337 of 1,111 values.
+    "multi_bridge_ladder": LIVE,
     # host_native_scoring gates the stat vocabulary
     # ``league_comparison.sleeper_stats.fetch_sleeper_weekly_stats``
     # emits, which reaches a request through ``historical_stats`` →
