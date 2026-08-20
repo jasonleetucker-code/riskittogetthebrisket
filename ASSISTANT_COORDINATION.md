@@ -43,6 +43,14 @@ your work goes, not what someone else is already doing. See
 `docs/WORK_CLAIMS.md` for the full record and the claim format. Add your row
 in your first commit; set it `done` in your last.
 
+## Which lane am I, and what may I build?
+
+`docs/EXECUTION_PLAN.md` §0 is the **only** record that answers that, and it is the only place
+the lane map lives. As of 2026-08-20 it authorizes the POST-V1 C-Series mass-build campaign —
+Claude 9-13 on isolated branches, **execution timing only**, with Claude 5 the sole integration
+and merge authority. Do not infer authorization from this file, from a scope manifest, or from a
+capability being approved in the long-term plan.
+
 ## Branch Rules
 
 - Codex work goes on `codex/<task-name>`.
