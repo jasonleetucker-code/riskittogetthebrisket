@@ -16,10 +16,11 @@ blend beside (or replace) this baseline through the same consensus.
 from __future__ import annotations
 
 import logging
-from typing import Any, Iterable, Mapping
+from typing import Any, Callable, Iterable, Mapping
 
 from src.bdvm.context import TRUE_POSITION_MAP
 from src.bdvm.projections import ProjectionRecord, RealizedSeason, build_reconstructed_baseline
+from src.nfl_data.pbp_weekly import attach_supplement
 from src.nfl_data.realized_points import compute_weekly_points
 
 _LOGGER = logging.getLogger(__name__)
@@ -66,11 +67,38 @@ def realized_ppg_history(
     *,
     name_normalizer,
     regular_season_only: bool = True,
+    scoring_for_season: Callable[[int], Mapping[str, Any] | None] | None = None,
+    pbp_for_season: Callable[[int], Any] | None = None,
 ) -> dict[str, tuple[str, list[RealizedSeason]]]:
-    """player_key → (true position, [RealizedSeason...]) under league scoring."""
+    """player_key → (true position, [RealizedSeason...]) under league scoring.
+
+    ``scoring_for_season`` resolves the card that season was actually played
+    under — see ``src.league_comparison.season_scoring`` (#802 as-of
+    correctness).  Without it this function applies ONE card to every season
+    in ``weekly_rows``, which for a league that changed its rules rewrites
+    each prior year under rules nobody played.  The reconstructed baseline
+    spans several seasons, so that is not hypothetical here.
+
+    When a resolver is supplied and returns ``None`` for a season, that
+    season's rows are SKIPPED rather than scored under the fallback card: an
+    unknown rule set is unknown, not "presumably the current one".  Callers
+    that want the old single-card behaviour simply omit the resolver, which
+    keeps it explicit at the call site instead of implicit in here.
+
+    ``pbp_for_season`` resolves the play-by-play supplement for a season —
+    see :class:`src.nfl_data.pbp_weekly.SeasonPbpIndex`.  Without it the ten
+    rules only play-by-play can supply score at nothing, which on this
+    league's card is roughly two thirds of every receiver's reception
+    points; the per-week result reports them in ``unscored`` either way, so
+    the shortfall is visible rather than silent.  A season the producer has
+    not built is left alone rather than zeroed — unlike the card resolver,
+    the season is NOT skipped, because a partial line is still a real lower
+    bound while an unknown rule set makes the whole line meaningless.
+    """
     totals: dict[tuple[str, int], float] = {}
     games: dict[tuple[str, int], int] = {}
     latest_pos: dict[str, tuple[int, str]] = {}
+    unscored: dict[tuple[str, int], dict[str, float]] = {}
 
     for raw in weekly_rows:
         if regular_season_only and str(raw.get("season_type") or "REG").upper() != "REG":
@@ -82,12 +110,34 @@ def realized_ppg_history(
         season = int(_num(raw.get("season")))
         listing = str(raw.get("position") or "").upper()
         pos = TRUE_POSITION_MAP.get(listing, listing)
+        if scoring_for_season is not None:
+            card = scoring_for_season(season)
+            if card is None:
+                # This season's rules are unknown. Scoring it under another
+                # season's card would manufacture a number, so the season is
+                # dropped from the history instead.
+                continue
+        else:
+            card = scoring_settings
         row = normalize_weekly_row(raw)
-        rp = compute_weekly_points(row, dict(scoring_settings), position=pos)
+        if pbp_for_season is not None and str(raw.get("source") or "nflverse") == "nflverse":
+            # Host-native rows already carry these ten keys, and
+            # ``compute_weekly_points`` refuses the combination outright.
+            # The gate exists in all three consumers rather than only in
+            # the one that happens to see host rows today.
+            row = attach_supplement(row, pbp_for_season(season))
+        rp = compute_weekly_points(row, dict(card), position=pos)
         if rp is None:
             continue
         totals[(key, season)] = totals.get((key, season), 0.0) + rp.fantasy_points
         games[(key, season)] = games.get((key, season), 0) + 1
+        # Union across weeks — one week that could not supply a rule makes
+        # the season's PPG a lower bound, and that has to survive the
+        # roll-up or the caller sees a complete-looking rate.
+        if rp.unscored:
+            bucket = unscored.setdefault((key, season), {})
+            for unscored_key, rate in rp.unscored:
+                bucket[unscored_key] = rate
         prev = latest_pos.get(key)
         if prev is None or season >= prev[0]:
             latest_pos[key] = (season, pos)
@@ -98,7 +148,12 @@ def realized_ppg_history(
         if g <= 0:
             continue
         by_player.setdefault(key, []).append(
-            RealizedSeason(season=season, ppg=pts / g, games=float(g))
+            RealizedSeason(
+                season=season,
+                ppg=pts / g,
+                games=float(g),
+                unscored=tuple(sorted(unscored.get((key, season), {}).items())),
+            )
         )
     return {
         key: (latest_pos[key][1], sorted(seasons, key=lambda s: s.season))
@@ -135,9 +190,17 @@ def build_baseline_records(
     weekly_rows: Iterable[Mapping[str, Any]],
     scoring_settings: Mapping[str, Any],
     name_normalizer,
+    scoring_for_season: Callable[[int], Mapping[str, Any] | None] | None = None,
+    pbp_for_season: Callable[[int], Any] | None = None,
 ) -> tuple[list[ProjectionRecord], dict[str, Any]]:
     """weekly rows → proxy projection records + a build summary."""
-    history = realized_ppg_history(weekly_rows, scoring_settings, name_normalizer=name_normalizer)
+    history = realized_ppg_history(
+        weekly_rows,
+        scoring_settings,
+        name_normalizer=name_normalizer,
+        scoring_for_season=scoring_for_season,
+        pbp_for_season=pbp_for_season,
+    )
     means = positional_means(history)
     records = build_reconstructed_baseline(
         history, season=season, as_of=as_of, positional_means=means
@@ -147,6 +210,8 @@ def build_baseline_records(
         "recordsBuilt": len(records),
         "positionalMeans": {k: round(v, 2) for k, v in sorted(means.items())},
         "seasonsSeen": sorted({s.season for _, seasons in history.values() for s in seasons}),
+        "pbpSupplementJoined": pbp_for_season is not None,
+        "seasonCardsResolved": scoring_for_season is not None,
     }
     return records, summary
 
@@ -262,12 +327,17 @@ def fetch_and_build_baseline(
     seasons_back: int = 3,
     name_normalizer=None,
     include_rookie_priors: bool = True,
+    scoring_for_season: Callable[[int], Mapping[str, Any] | None] | None = None,
+    pbp_for_season: Callable[[int], Any] | None = None,
 ) -> tuple[list[ProjectionRecord], dict[str, Any]]:
     """Network variant: fetch the last ``seasons_back`` completed seasons.
 
     Rookie priors use the full context (id map) so incoming draftees get
     a draft-slot µ(0); veterans-with-history come from the realized
     baseline.  A player never gets both (rookies have no history).
+
+    Both resolvers pass straight through to :func:`realized_ppg_history`;
+    see it for what each one refuses to guess.
     """
     if name_normalizer is None:
         from src.utils.name_clean import normalize_player_name as name_normalizer  # noqa: PLC0415
@@ -282,6 +352,8 @@ def fetch_and_build_baseline(
         weekly_rows=weekly,
         scoring_settings=scoring_settings,
         name_normalizer=name_normalizer,
+        scoring_for_season=scoring_for_season,
+        pbp_for_season=pbp_for_season,
     )
     if include_rookie_priors:
         from src.bdvm.context import fetch_and_build_context  # noqa: PLC0415
@@ -289,7 +361,13 @@ def fetch_and_build_baseline(
         context = fetch_and_build_context(
             season, seasons_back=0, include_snaps=False, name_normalizer=name_normalizer
         )
-        history = realized_ppg_history(weekly, scoring_settings, name_normalizer=name_normalizer)
+        history = realized_ppg_history(
+            weekly,
+            scoring_settings,
+            name_normalizer=name_normalizer,
+            scoring_for_season=scoring_for_season,
+            pbp_for_season=pbp_for_season,
+        )
         rookie_records, rookie_summary = build_rookie_prior_records(
             season=season,
             as_of=as_of,

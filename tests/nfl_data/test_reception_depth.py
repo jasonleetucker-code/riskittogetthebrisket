@@ -51,7 +51,6 @@ def _lines(*plays):
 @pytest.mark.parametrize(
     "yards,expected",
     [
-        (-6, "rec_0_4"),  # negative catch: no band below rec_0_4 exists
         (0, "rec_0_4"),
         (4, "rec_0_4"),
         (4.9, "rec_0_4"),
@@ -71,6 +70,24 @@ def test_every_band_boundary(yards, expected):
     """Each edge is worth real money: a catch that slides from
     rec_10_19 (0.75) to rec_20_29 (1.00) is a 33% per-catch swing."""
     assert band_for_yards(yards) == expected
+
+
+@pytest.mark.parametrize("yards", [-1, -2, -6, -0.5])
+def test_a_lost_yardage_catch_belongs_to_no_band(yards):
+    """Measured against the host, not assumed.
+
+    This asserted ``rec_0_4`` until 2026-08-18, when it was checked
+    against Sleeper's own weekly dumps for 2025 REG weeks 1, 3, 5, 8, 11,
+    14 and 17. Week 14: play-by-play has 537 completed passes, the host
+    reports ``rec`` 537 and bands totalling 523, and the difference is
+    exactly that week's 14 negative-yard receptions. Aaron Rodgers is
+    credited ``rec: 1`` / ``rec_yd: -9`` with no ``rec_0_4`` key at all.
+
+    Excluding them makes all six bands reconcile to the host exactly on
+    every sampled week; including them paid a band the host does not pay,
+    to two quarterbacks among others.
+    """
+    assert band_for_yards(yards) is None
 
 
 def test_the_bands_partition_without_gaps_or_overlap():

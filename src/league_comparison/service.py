@@ -49,11 +49,28 @@ from . import historical_stats as _stats
 from . import idp as _idp
 from . import metrics as _m
 from . import sleeper_scoring as _sleeper
+from src.nfl_data import pbp_weekly as _pbp_weekly
+
 from .scoring_engine import PlayerSeasonScore, compute_player_season_scores
 
 _LOGGER = logging.getLogger(__name__)
 
 _CACHE_TTL_SEC = 7 * 24 * 3600
+
+#: Bumped whenever a change alters the NUMBERS this service produces.
+#:
+#: The cache key already carried the CONFIG version (``config.version``),
+#: which moves when the leagues or seasons change — and never when the
+#: code does.  With a 7-day TTL that meant a methodology repair could ship
+#: and a user could still be served the pre-repair answer for a week, and
+#: a user-triggered recalculation would return the cached one immediately.
+#: A cache that outlives the arithmetic it cached is a way to keep serving
+#: a defect after it has been fixed.
+#:
+#: 2026-08-19 — season-card symmetry repair: the two arms were averaged
+#: over different season windows (four against one on the live config).
+#: Every cached comparison written before this predates the fix.
+_CACHE_METHODOLOGY_VERSION = "2026-08-19.symmetric-counterfactual"
 _CACHE_SUBDIR = "league_comparison_cache"
 
 
@@ -93,6 +110,9 @@ def _cache_key(
 ) -> str:
     parts = [
         version,
+        # The CODE's version, not just the config's.  Without this a
+        # methodology change cannot evict its own stale results.
+        _CACHE_METHODOLOGY_VERSION,
         my_id,
         my_hash,
         baseline_id,
@@ -100,6 +120,28 @@ def _cache_key(
         ",".join(str(s) for s in sorted(seasons)),
     ]
     return "league_compare:" + hashlib.sha1(":".join(parts).encode("utf-8")).hexdigest()
+
+
+#: The basis this comparison scores on, stamped on every season of BOTH
+#: arms.
+#:
+#: WHY COUNTERFACTUAL, AND WHY IT IS NOT THE DEFECT IT LOOKS LIKE.
+#: ``config/league_comparison.json`` points at two leagues created for
+#: 2026 — "Scoring" (``1312736351547850752``, no ``previous_league_id``
+#: at all) and "Standard" (``1328545898812170240``, one hop back to
+#: 2025) — and asks for seasons 2022-2025.  **Neither league played any
+#: of them.**  They are vessels carrying two scoring cards, and the
+#: season loop varies the NFL production, not the league's rules.  So
+#: "what did this league pay in 2023" is not the question here, and
+#: answering it is not available: there is no such card to find.
+#:
+#: The as-of resolver (``season_scoring``) is still the right owner where
+#: the question really IS as-of — ``bdvm.baseline`` rescores a real
+#: league's own realized history and resolves per season there.  What it
+#: must never do is decide, PER ARM, how many seasons survive into a
+#: two-arm average.  That is what it was doing here, and it is the defect
+#: this constant closes: one declared basis, both arms, every season.
+CARD_BASIS_COUNTERFACTUAL = "current_card_counterfactual"
 
 
 # ── Per-position pipeline ─────────────────────────────────────────────
@@ -118,7 +160,12 @@ def _per_season_metrics_for_league(
     so callers can build a "top players used" breakdown for the
     year-by-year UI section without recomputing.
     """
-    scores = compute_player_season_scores(rows, scoring, season=season)
+    # Play-by-play supplies the six reception bands and the player
+    # special-teams rules; both cards in a comparison are scored with it
+    # or neither is (src/nfl_data/pbp_weekly.py).
+    scores = compute_player_season_scores(
+        rows, scoring, season=season, pbp_for_season=_pbp_weekly.SeasonPbpIndex().for_season
+    )
     per_pos: dict[str, _m.PositionMetrics] = {}
     sample_union: list[PlayerSeasonScore] = []
     for pos in _m.OFFENSE_POSITIONS:
@@ -144,10 +191,33 @@ def _build_league_block(
     ``{"perSeason": {season: {"positions":{...}, "flex":{...},
         "topPlayers":[...]}},
        "combined": {"positions":{...}, "flex":{...}}}``
+
+    **Every season is scored under this league's current card, on BOTH
+    arms, and the basis is stamped** — see
+    :data:`CARD_BASIS_COUNTERFACTUAL` for why that is the right question
+    for this comparison and not a silent substitution.
+
+    This briefly took a ``season_cards`` chain and resolved a card per
+    season.  That is correct for a league being rescored against its own
+    history and WRONG here, and the way it was wrong is worth keeping in
+    view: the chain was resolved independently per arm, so an arm whose
+    walk returned nothing fell back to today's card with every season
+    ``available``, while an arm whose walk returned something dropped its
+    unresolved seasons.  ``combined`` averages the available seasons
+    equally, so the two arms were averaged over different windows and
+    compared as though they were the same measurement — measured live at
+    four seasons against one.
+
+    A season with no STAT ROWS is still unavailable.  Symmetry is about
+    the card, not about inventing data.
     """
     per_season: dict[int, dict[str, Any]] = {}
     for season, rows in seasons_map.items():
-        if not rows:
+        # ONE basis, both arms, every season.  No per-arm branch, because a
+        # per-arm branch is exactly how the windows diverged.
+        scoring_for_season = league_info.scoring_settings
+        card_basis = CARD_BASIS_COUNTERFACTUAL
+        if not rows or scoring_for_season is None:
             per_season[season] = {
                 "positions": {
                     pos: _m.PositionMetrics(0, 0, 0, 0, 0, 0, 0, 0).to_dict()
@@ -156,11 +226,16 @@ def _build_league_block(
                 "flex": _m.PositionMetrics(0, 0, 0, 0, 0, 0, 0, 0).to_dict(),
                 "topPlayers": [],
                 "available": False,
+                # "no stat rows" and "we do not know this season's rules" are
+                # different reasons to show nothing, and a user deserves to
+                # know which one they hit.
+                "unavailableReason": ("no_stat_rows" if not rows else "no_scoring_card"),
+                "cardBasis": card_basis,
             }
             continue
         per_pos, flex_metrics, sample_union = _per_season_metrics_for_league(
             rows,
-            league_info.scoring_settings,
+            scoring_for_season,
             sample_sizes,
             season,
         )
@@ -174,6 +249,11 @@ def _build_league_block(
         per_season[season] = {
             "positions": {pos: m.to_dict() for pos, m in per_pos.items()},
             "flex": flex_metrics.to_dict(),
+            # Which card produced these numbers.  Stamped on EVERY season,
+            # including the resolved ones: "scored under the season's own
+            # rules" and "scored under whatever we had" must not read the
+            # same, and only one of them supports an as-of claim.
+            "cardBasis": card_basis,
             "topPlayers": [
                 {
                     "playerId": s.player_id,
@@ -480,6 +560,29 @@ def build_comparison(*, refresh: bool = False) -> dict[str, Any]:
                 "players are understated. "
                 + " ".join(d for d in detail if d.startswith(tuple(unscorable)))
             )
+
+    # ONE basis, declared, on both arms — see CARD_BASIS_COUNTERFACTUAL.
+    #
+    # This used to resolve each league's ``previous_league_id`` chain and
+    # pick a card per season.  Resolving it INDEPENDENTLY PER ARM is what
+    # made the two combined averages incomparable: an arm whose walk
+    # returned nothing kept every season on today's card, an arm whose
+    # walk returned something dropped its unresolved seasons, and
+    # ``combined`` averages whatever is available.  Measured live at four
+    # seasons against one.
+    #
+    # The walk is gone rather than ignored: keeping it to produce a
+    # warning would cost a Sleeper round-trip per arm per request for a
+    # question this comparison does not ask.
+    requested_seasons = sorted(seasons_map)
+    warnings.append(
+        "Seasons "
+        f"{', '.join(str(s) for s in requested_seasons)} are scored under each "
+        "league's CURRENT scoring card. This compares the two scoring systems "
+        "across several years of real NFL production; it is not a record of "
+        "what either league paid in those years, and neither league existed "
+        "in them."
+    )
 
     my_block = _build_league_block(my_info, seasons_map, sample_sizes)
     base_block = _build_league_block(base_info, seasons_map, sample_sizes)

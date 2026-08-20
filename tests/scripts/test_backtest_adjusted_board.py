@@ -10,6 +10,16 @@ script could quietly produce a wrong verdict without ever failing:
   axes corrects for;
 * double-counting the flat ``rec`` rate on top of it;
 * deriving the replacement baseline from the module under test.
+
+The first two used to be pinned against this script's own
+``_banded_reception_points``, which bolted band points onto season totals
+from the depth histogram. That helper is **deleted**: it made this script
+a third owner of what a band is worth, and it carried none of the player
+special-teams rules or the pick-six penalty at all. The realized target
+now comes from the canonical play-by-play supplement
+(``src/nfl_data/pbp_weekly.py``), so the same two failure modes are
+pinned against that path instead — the double count is structural there,
+because the supplement is an allow-list that cannot write ``rec``.
 """
 
 from __future__ import annotations
@@ -43,40 +53,78 @@ _SCORING = {
 # ── banded receptions ───────────────────────────────────────────────────
 
 
-def test_band_points_add_only_the_band_rate_not_the_flat_rate():
+def _weekly_rows(gsis, receptions, week=1):
+    return [
+        {
+            "player_id": gsis,
+            "player_display_name": gsis,
+            "position": "WR",
+            "season": 2025,
+            "week": week,
+            "season_type": "REG",
+            "receptions": receptions,
+            "receiving_yards": 10 * receptions,
+        }
+    ]
+
+
+def _patched_realized(monkeypatch, rows, stats):
+    """Run ``_realized_points`` against fixed rows and a fixed artifact."""
+    from src.nfl_data import ingest, pbp_weekly
+
+    monkeypatch.setattr(ingest, "fetch_weekly_stats", lambda years: rows)
+    monkeypatch.setattr(pbp_weekly.SeasonPbpIndex, "for_season", lambda self, season: stats)
+    return backtest._realized_points(2025, _SCORING)
+
+
+def test_the_realized_target_pays_the_band_rate_and_not_a_second_flat_rate(monkeypatch):
     """THE DOUBLE-COUNT GUARD.
 
-    The weekly engine already paid ``rec`` for every catch.  Adding
-    ``rec + band`` here would pay it twice, inflating every receiver by
-    his reception count times 0.08 — a shift large enough to move the
-    verdict and invisible in the output.
+    The weekly engine already paid ``rec`` for every catch.  Paying
+    ``rec + band`` would pay it twice, inflating every receiver by his
+    reception count times 0.08 — a shift large enough to move the verdict
+    and invisible in the output.
+
+    Structural now rather than by arithmetic care: the supplement is an
+    allow-list of the ten play-by-play-only keys, so it cannot write
+    ``rec`` even when handed one.
     """
-    depth = {"players": {"g1": {"bands": {"rec_0_4": 10, "rec_40p": 5}}}}
-    got = backtest._banded_reception_points(depth, _SCORING)
-    assert got["g1"] == pytest.approx(10 * 0.17 + 5 * 1.92)
+    from src.nfl_data.pbp_weekly import PbpWeeklyStats
+
+    stats = PbpWeeklyStats(2025, {"g1": {1: {"rec_0_4": 10, "rec_40p": 5, "rec": 999}}}, [1])
+    realized, _rows, players = _patched_realized(monkeypatch, _weekly_rows("g1", 15), stats)
+
+    assert realized["g1"]["points"] == pytest.approx(15 * 0.08 + 10 * 0.17 + 5 * 1.92)
+    assert players == 1
 
 
-def test_a_missing_depth_file_yields_no_bonus_rather_than_an_error():
-    assert backtest._banded_reception_points(None, _SCORING) == {}
-    assert backtest._banded_reception_points({"players": {}}, _SCORING) == {}
+def test_a_missing_artifact_yields_no_bonus_rather_than_an_error(monkeypatch):
+    realized, _rows, players = _patched_realized(monkeypatch, _weekly_rows("g1", 15), None)
+    assert realized["g1"]["points"] == pytest.approx(15 * 0.08)
+    assert players == 0, "a zero here is what makes a missing artifact visible in the run log"
 
 
-def test_bands_the_league_does_not_pay_for_contribute_nothing():
-    depth = {"players": {"g1": {"bands": {"rec_0_4": 10}}}}
-    assert backtest._banded_reception_points(depth, {"rec": 1.0})["g1"] == 0.0
+def test_bands_the_league_does_not_pay_for_contribute_nothing(monkeypatch):
+    from src.nfl_data.pbp_weekly import PbpWeeklyStats
+
+    stats = PbpWeeklyStats(2025, {"g1": {1: {"rec_0_4": 10}}}, [1])
+    from src.nfl_data import ingest, pbp_weekly
+
+    monkeypatch.setattr(ingest, "fetch_weekly_stats", lambda years: _weekly_rows("g1", 10))
+    monkeypatch.setattr(pbp_weekly.SeasonPbpIndex, "for_season", lambda self, season: stats)
+    realized, _rows, _players = backtest._realized_points(2025, {"rec": 1.0})
+    assert realized["g1"]["points"] == pytest.approx(10 * 1.0)
 
 
-def test_a_deep_receiver_earns_more_than_a_short_one_at_equal_volume():
+def test_a_deep_receiver_earns_more_than_a_short_one_at_equal_volume(monkeypatch):
     """The whole point of the banded component, as a sanity check that
     the rates are being read per band and not pooled."""
-    depth = {
-        "players": {
-            "deep": {"bands": {"rec_40p": 40}},
-            "short": {"bands": {"rec_0_4": 40}},
-        }
-    }
-    got = backtest._banded_reception_points(depth, _SCORING)
-    assert got["deep"] > got["short"]
+    from src.nfl_data.pbp_weekly import PbpWeeklyStats
+
+    stats = PbpWeeklyStats(2025, {"deep": {1: {"rec_40p": 40}}, "short": {1: {"rec_0_4": 40}}}, [1])
+    rows = _weekly_rows("deep", 40) + _weekly_rows("short", 40)
+    realized, _rows, _players = _patched_realized(monkeypatch, rows, stats)
+    assert realized["deep"]["points"] > realized["short"]["points"]
 
 
 # ── replacement baselines ───────────────────────────────────────────────

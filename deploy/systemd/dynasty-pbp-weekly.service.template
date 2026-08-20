@@ -1,0 +1,65 @@
+[Unit]
+Description=Dynasty Trade Calculator play-by-play weekly stat build (__SERVICE_NAME__)
+After=network-online.target
+Wants=network-online.target
+
+# Produces per-player-WEEK stats under
+# data/nfl_data/actuals/pbp_weekly_<season>.jsonl by streaming nflverse
+# play-by-play.
+#
+# WHY THIS EXISTS: ten rules this league actively pays have no column on
+# the nflverse WEEKLY feed — the six reception-depth bands, st_tkl_solo,
+# st_ff, st_fum_rec and pass_int_td.  Measured against the league host's
+# own week-14 2025 line at dynasty_main's rates that is 435.57 points in
+# ONE week, about 7,405 a season, roughly two thirds of it the bands.
+# Without this file those rules score nothing: realized_points reports
+# them in ``unscored`` rather than silently zeroing them, so the
+# shortfall is visible either way, but only this build closes it.
+#
+# Consumers: src/bdvm/baseline.py (the reconstructed baseline),
+# src/bdvm/actuals.py (the in-season posterior blend),
+# src/league_comparison/scoring_engine.py (both cards in a comparison),
+# and through them /api/gameplan's reception-fit overlay and
+# scripts/backtest_adjusted_board.py.
+#
+# WHY COMPLETED SEASONS ONLY: nflverse republishes the CURRENT season's
+# play-by-play mid-week, so a Thursday-night build contains week N and
+# almost none of it — every player whose game is on Sunday would be
+# recorded as "consulted, recorded nothing", a fabricated zero that also
+# suppresses the flag that would have said the week was not knowable.
+# --completed-seasons-back can never select such a season.  An in-season
+# build is an explicit operator action with --complete-through-week.
+#
+# WHY PROD-SIDE AND NOT CI: the readers load a LOCAL file and data/ is
+# gitignored repo-wide, so an artifact built on a CI runner never reaches
+# the VPS.  Same reasoning as the reception-depth and BDVM refreshes.
+#
+# Exit codes (scripts/build_pbp_weekly.py):
+#   0 - built at least one season
+#   1 - a season that SHOULD exist produced no plays (release path
+#       likely moved) — this is the one worth investigating
+#   2 - nothing to do: every completed season is already on disk at the
+#       current schema, or the run was refused
+#
+# 2 is the NORMAL state of this timer, because completed seasons do not
+# change.  SuccessExitStatus keeps those weeks green so a genuine 1 is
+# the only thing that turns the unit red.
+
+[Service]
+Type=oneshot
+User=__APP_USER__
+Group=__APP_USER__
+WorkingDirectory=__APP_DIR__
+EnvironmentFile=-__APP_DIR__/.env
+ExecStart=__VENV_DIR__/bin/python __APP_DIR__/scripts/build_pbp_weekly.py --completed-seasons-back 5 --skip-existing
+SuccessExitStatus=0 2
+StandardOutput=journal
+StandardError=journal
+# Streams one ~98 MB CSV per season and keeps only counts in memory.
+# Background enrichment — never user-facing.
+Nice=10
+IOSchedulingClass=idle
+TimeoutStartSec=3600
+
+[Install]
+WantedBy=multi-user.target

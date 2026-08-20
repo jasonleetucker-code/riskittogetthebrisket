@@ -44,6 +44,7 @@ sys.path.insert(0, str(REPO_ROOT))
 
 from src.bdvm import projections as _proj  # noqa: E402
 from src.bdvm.baseline import fetch_and_build_baseline  # noqa: E402
+from src.nfl_data.pbp_weekly import SeasonPbpIndex  # noqa: E402
 from src.bdvm.projections import (  # noqa: E402
     ProjectionError,
     latest_snapshot_path,
@@ -91,6 +92,14 @@ def main() -> int:
     parser.add_argument("--seasons-back", type=int, default=3)
     parser.add_argument("--label", default="baseline")
     parser.add_argument("--dry-run", action="store_true", help="build but do not write")
+    parser.add_argument(
+        "--no-pbp-supplement",
+        action="store_true",
+        help="do NOT join the play-by-play artifact. The six reception bands "
+        "and the player special-teams rules then score nothing — roughly two "
+        "thirds of a receiver's reception points on this card. Reported as "
+        "unscored either way; use only to reproduce a pre-2026-08-18 build.",
+    )
     args = parser.parse_args()
 
     as_of = datetime.now(timezone.utc).date().isoformat()
@@ -111,18 +120,40 @@ def main() -> int:
         print(f"ERROR: {contract_path} has no sleeper.scoringSettings", file=sys.stderr)
         return 2
 
+    pbp_for_season = None
+    if not args.no_pbp_supplement:
+        # Built by scripts/build_pbp_weekly.py.  A season with no artifact
+        # resolves to None and its ten play-by-play rules stay UNAVAILABLE
+        # rather than zero — the index reports which seasons those were.
+        pbp_index = SeasonPbpIndex()
+        pbp_for_season = pbp_index.for_season
+
     try:
         records, summary = fetch_and_build_baseline(
             season=args.season,
             as_of=as_of,
             scoring_settings=scoring,
             seasons_back=args.seasons_back,
+            pbp_for_season=pbp_for_season,
         )
     except Exception as exc:  # noqa: BLE001
         print(f"ERROR: baseline build failed: {exc}", file=sys.stderr)
         return 2
 
     print(f"scoring settings: {len(scoring)} keys from {contract_path.name}")
+    if pbp_for_season is None:
+        print("play-by-play supplement: NOT joined (--no-pbp-supplement)")
+    else:
+        missing = pbp_index.seasons_missing
+        print(
+            "play-by-play supplement: joined"
+            + (
+                f"; NO artifact for {list(missing)} — run scripts/build_pbp_weekly.py "
+                f"--seasons {' '.join(str(s) for s in missing)}"
+                if missing
+                else ""
+            )
+        )
     for k, v in summary.items():
         print(f"{k}: {v}")
     if not records:

@@ -1172,6 +1172,7 @@ def _resolve_reception_fit(league_key: str) -> dict[str, float] | None:
             reception_scoring_keys,
         )
         from src.nfl_data.ingest import fetch_weekly_stats  # noqa: PLC0415
+        from src.nfl_data.pbp_weekly import SeasonPbpIndex  # noqa: PLC0415
         from src.nfl_data.reception_depth import load_reception_depth  # noqa: PLC0415
         from src.utils.name_clean import resolve_canonical_name  # noqa: PLC0415
 
@@ -1192,13 +1193,33 @@ def _resolve_reception_fit(league_key: str) -> dict[str, float] | None:
                 # right denominator for "how much of this player's
                 # market value is reception-driven".
                 stripped = {k: v for k, v in baseline.items() if k not in reception_scoring_keys()}
+                # The supplement corrects the DENOMINATOR here, not the
+                # numerator, and it is worth being precise about which:
+                # this share is measured under the BASELINE card, which
+                # pays 0.0 for every reception band, so joining it moves a
+                # pure receiver's share by exactly nothing.  What it does
+                # move is a player who also plays special teams — the
+                # baseline card pays st_tkl_solo 1.25 and st_ff 4.0, and
+                # those points belong in his total.  Measured over 17
+                # weeks at 6 catches / 80 yards a week: 36.00% with no ST
+                # production either way, 36.00% -> 32.73% at one ST tackle
+                # a week, 36.00% -> 27.69% at three.
+                #
+                # Overstating this was tempting and would have been wrong:
+                # the large effect is in league_intel/scoring_fit.py, where
+                # BOTH cards are scored and only one of them bands.
+                pbp_for_season = SeasonPbpIndex().for_season
                 full = {
                     s.player_id: s
-                    for s in compute_player_season_scores(rows, baseline, season=season)
+                    for s in compute_player_season_scores(
+                        rows, baseline, season=season, pbp_for_season=pbp_for_season
+                    )
                 }
                 norec = {
                     s.player_id: s
-                    for s in compute_player_season_scores(rows, stripped, season=season)
+                    for s in compute_player_season_scores(
+                        rows, stripped, season=season, pbp_for_season=pbp_for_season
+                    )
                 }
                 shares = {
                     pid: (s.total_points - (norec[pid].total_points if pid in norec else 0.0))

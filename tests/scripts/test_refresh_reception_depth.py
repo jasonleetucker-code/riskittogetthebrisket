@@ -73,10 +73,36 @@ def test_completed_seasons_on_disk_are_not_refetched(script, monkeypatch):
     monkeypatch.setattr(script, "season_has_plausibly_started", lambda s, **k: True)
     monkeypatch.setattr(script, "_current_season", lambda now=None: 2026)
     monkeypatch.setattr(script, "depth_path", lambda s, **k: Path(__file__))  # "exists"
+    # Readable at the CURRENT schema — which is what "already on disk"
+    # has to mean since v2 changed what a band means (see below).
+    monkeypatch.setattr(script, "load_reception_depth", lambda s, **k: {"players": {}})
     called = []
     monkeypatch.setattr(script, "persist_reception_depth", lambda s: called.append(s) or {})
     assert script.main(["--seasons", "2024"]) == 2
     assert called == []
+
+
+def test_a_completed_season_at_a_STALE_schema_is_rebuilt(script, monkeypatch):
+    """ "Already on disk" is not enough, and this is the half that bit.
+
+    v2 moved lost-yardage catches out of ``rec_0_4``, so a v1 file carries
+    a DIFFERENT measurement under the same field names.
+    ``load_reception_depth`` refuses it, and without this check the season
+    would keep that refusal forever — the overlay silently absent rather
+    than the file rebuilt.
+    """
+    monkeypatch.setattr(script, "season_has_plausibly_started", lambda s, **k: True)
+    monkeypatch.setattr(script, "_current_season", lambda now=None: 2026)
+    monkeypatch.setattr(script, "depth_path", lambda s, **k: Path(__file__))  # "exists"
+    monkeypatch.setattr(script, "load_reception_depth", lambda s, **k: None)  # refused
+    called = []
+    monkeypatch.setattr(
+        script,
+        "persist_reception_depth",
+        lambda s: called.append(list(s)) or {"seasons": list(s), "players": 1, "receptions": 1},
+    )
+    assert script.main(["--seasons", "2024"]) == 0
+    assert called == [[2024]]
 
 
 def test_force_overrides_the_skip(script, monkeypatch):

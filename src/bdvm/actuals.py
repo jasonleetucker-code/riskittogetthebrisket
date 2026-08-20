@@ -25,12 +25,16 @@ explicit meta stamp, never a fabricated update.  An empty result is
 
 from __future__ import annotations
 
+import logging
 from datetime import date, datetime, timezone
 from typing import Any, Callable, Mapping
 
 from src.bdvm.baseline import normalize_weekly_row
 from src.bdvm.context import TRUE_POSITION_MAP
+from src.nfl_data.pbp_weekly import attach_supplement
 from src.nfl_data.realized_points import compute_weekly_points
+
+_LOGGER = logging.getLogger(__name__)
 
 
 def current_nfl_season(today: date | None = None) -> int | None:
@@ -79,6 +83,7 @@ def weekly_points_from_rows(
     *,
     season: int,
     name_normalizer: Callable[[str], str],
+    pbp_stats: Any | None = None,
 ) -> tuple[int | None, dict[str, list[tuple[int, float]]]]:
     """(current_week, player_key → [(week, points), ...]) from raw rows.
 
@@ -94,9 +99,17 @@ def weekly_points_from_rows(
     over two different players is a chimera biased high by
     construction, and moving a player's µ on production that isn't his
     is worse than leaving him on the preseason prior.
+
+    ``pbp_stats`` is this season's
+    :class:`src.nfl_data.pbp_weekly.PbpWeeklyStats`, supplying the ten
+    rules the weekly feed does not publish.  ``None`` leaves them
+    unavailable rather than zero — the per-week result says so in
+    ``unscored`` — which matters most here, because the in-season blend
+    moves a player's posterior toward whatever these weeks measured.
     """
     samples: dict[str, dict[int, float]] = {}
     ids_by_key: dict[str, set[str]] = {}
+    unscored_rules: dict[str, float] = {}
     max_week = 0
     for raw in weekly_rows or []:
         try:
@@ -112,6 +125,8 @@ def weekly_points_from_rows(
         listing = str(raw.get("position") or "").upper()
         position = TRUE_POSITION_MAP.get(listing, listing)
         row = normalize_weekly_row(raw)
+        if pbp_stats is not None and str(raw.get("source") or "nflverse") == "nflverse":
+            row = attach_supplement(row, pbp_stats)
         rp = compute_weekly_points(row, dict(scoring_settings), position=position)
         if rp is None:
             continue
@@ -125,6 +140,20 @@ def weekly_points_from_rows(
         pid = str(raw.get("player_id") or raw.get("gsis_id") or "").strip()
         if pid:
             ids_by_key.setdefault(key, set()).add(pid)
+        if rp.unscored:
+            # A week whose play-by-play rules had no source is a LOWER
+            # BOUND, and this feeds the in-season posterior blend — a
+            # low-but-plausible week pulls a player's mean down exactly as
+            # convincingly as a real one.
+            #
+            # It is KEPT rather than dropped: without the artifact every
+            # week would qualify, and refusing all of them would silently
+            # switch the whole in-season update off, which is a bigger
+            # untruth than an understated week.  What must not happen is
+            # that the understatement is invisible, hence the warning
+            # below.
+            for unscored_key, rate in rp.unscored:
+                unscored_rules[unscored_key] = rate
         # The same player can appear once per week; if a source ever
         # duplicates that row, keep the larger line rather than
         # double-counting.  (Cross-PLAYER merges are handled by the
@@ -137,6 +166,18 @@ def weekly_points_from_rows(
     for key, ids in ids_by_key.items():
         if len(ids) > 1:
             samples.pop(key, None)
+    if unscored_rules:
+        # Loud, because the number this returns feeds the in-season
+        # posterior blend and is a LOWER BOUND whenever this fires.
+        _LOGGER.warning(
+            "bdvm actuals: season %s scored WITHOUT %s — at least one week "
+            "had no play-by-play evidence for these rules (no artifact, or a "
+            "week it marks unfinished), so weekly points are understated. "
+            "Build or extend it with scripts/build_pbp_weekly.py --seasons %s.",
+            season,
+            ", ".join(sorted(unscored_rules)),
+            season,
+        )
     current_week = max_week + 1
     return current_week, {key: sorted(by_week.items()) for key, by_week in samples.items()}
 
@@ -166,8 +207,18 @@ def fetch_current_season_actuals(
     if season is None:
         return None, {}
     from src.nfl_data import ingest  # noqa: PLC0415
+    from src.nfl_data.pbp_weekly import default_pbp_stats  # noqa: PLC0415
 
     rows = ingest.fetch_weekly_stats([int(season)]) or []
     return weekly_points_from_rows(
-        rows, scoring_settings, season=season, name_normalizer=name_normalizer
+        rows,
+        scoring_settings,
+        season=season,
+        name_normalizer=name_normalizer,
+        # Joined by default: without it the six reception bands and the
+        # player special-teams rules score nothing, and this is the path
+        # that moves a player's posterior toward what the season measured.
+        # An absent artifact resolves to None and is warned about, not
+        # silently zeroed.
+        pbp_stats=default_pbp_stats(int(season)),
     )

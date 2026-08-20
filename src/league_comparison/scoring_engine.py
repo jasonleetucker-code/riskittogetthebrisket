@@ -15,8 +15,9 @@ from __future__ import annotations
 import logging
 from collections import defaultdict
 from dataclasses import dataclass
-from typing import Any, Iterable
+from typing import Any, Callable, Iterable
 
+from src.nfl_data import pbp_weekly as _pbp_weekly
 from src.nfl_data import realized_points as _rp
 from src.utils.name_clean import POSITION_ALIASES
 
@@ -88,6 +89,16 @@ class PlayerSeasonScore:
     total_points: float
     games_played: int
 
+    unscored: tuple[tuple[str, float], ...] = ()
+    """Configured NONZERO rules no source supplied for this season.
+
+    Non-empty means :attr:`total_points` is a LOWER BOUND. Carried rather
+    than dropped because a season total that silently omits a rule the
+    league pays reads exactly like a season total that does not — which
+    is the whole failure this engine's realized-points source exists to
+    close, and dropping it here would reintroduce it one layer up.
+    """
+
     @property
     def blended_score(self) -> float:
         """The volume+pace composite used for ranking and metrics."""
@@ -140,6 +151,7 @@ def compute_player_season_scores(
     scoring_settings: dict[str, Any],
     *,
     season: int | None = None,
+    pbp_for_season: Callable[[int], Any] | None = None,
 ) -> list[PlayerSeasonScore]:
     """Aggregate weekly rows to season totals under one league's scoring.
 
@@ -148,6 +160,15 @@ def compute_player_season_scores(
     ``LeagueScoringInfo.scoring_settings``.
 
     ``season`` is informational; if None we infer it from the rows.
+
+    ``pbp_for_season`` resolves the play-by-play supplement — see
+    :class:`src.nfl_data.pbp_weekly.SeasonPbpIndex`.  It is what makes the
+    six reception bands and the player special-teams rules count here;
+    without it they score nothing, and this function's whole purpose is
+    comparing two cards, so a rule that is silently missing from BOTH
+    sides still moves the comparison whenever the two price it
+    differently.  Host-native rows never take a supplement (the host
+    publishes these keys itself) and are skipped.
     """
     if not scoring_settings:
         return []
@@ -162,6 +183,7 @@ def compute_player_season_scores(
             "canonical": None,
             "total": 0.0,
             "games": 0,
+            "unscored": {},
         }
     )
 
@@ -184,7 +206,20 @@ def compute_player_season_scores(
         if row_season <= 0:
             continue
 
-        rp = _rp.compute_weekly_points(row, scoring_settings, position=canonical)
+        # The row says which vocabulary it is written in (#802).  Rows from
+        # nflverse are normalized; rows the LEAGUE HOST produced are already
+        # in the scoring card's own vocabulary and are scored as-is, so no
+        # rule is lost to a rename that has no target.  Absent stamp →
+        # nflverse, which is every pre-existing producer.
+        row_source = str(row.get("source") or "nflverse")
+        if pbp_for_season is not None and row_source == "nflverse":
+            row = _pbp_weekly.attach_supplement(row, pbp_for_season(row_season))
+        rp = _rp.compute_weekly_points(
+            row,
+            scoring_settings,
+            position=canonical,
+            source=row_source,
+        )
         if rp is None:
             continue
         pts = float(rp.fantasy_points)
@@ -197,6 +232,10 @@ def compute_player_season_scores(
             b["raw_position"] = raw_pos
         b["canonical"] = canonical
         b["total"] += pts
+        # Union across weeks: one week that could not supply a rule makes
+        # the season total a lower bound.
+        for key, rate in rp.unscored:
+            b["unscored"][key] = rate
         # Count any game where the player had a stat row, regardless
         # of whether they scored — matches the "games played" intuition
         # for sample sizes.
@@ -215,6 +254,7 @@ def compute_player_season_scores(
                 season=yr,
                 total_points=round(float(b["total"]), 2),
                 games_played=int(b["games"]),
+                unscored=tuple(sorted(b["unscored"].items())),
             )
         )
 

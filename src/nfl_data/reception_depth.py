@@ -55,12 +55,27 @@ two agree on ordinary plays; they diverge on laterals, where
 ``yards_gained`` includes yardage the receiver was not credited with, so
 the receiving column is preferred.
 
-**Negative and zero-yard receptions fall in the 0-4 band.** Sleeper's
-lowest band is named ``rec_0_4`` and there is no key below it, so a
-2-yard loss on a catch scores as the shortest band. That is an
-interpretation of an undocumented boundary rather than a measurement,
-and it is called out here because it is the one judgement call in the
-mapping. It affects a small number of plays.
+**A zero-yard reception is in ``rec_0_4``; a NEGATIVE one is in no band
+at all.** That was an open judgement call until 2026-08-18, when it was
+measured against the host's own weekly dumps for 2025 weeks 1, 3, 5, 8,
+11, 14 and 17. Sleeper counts a lost-yardage catch as a reception and
+gives it no depth band:
+
+* week 14 — 537 completed passes in play-by-play, host ``rec`` 537.0,
+  host band total **523**. The difference is exactly the 14 negative
+  receptions that week;
+* Aaron Rodgers carries ``rec: 1``, ``rec_yd: -9`` and **no**
+  ``rec_0_4`` key; Deebo Samuel caught one for -1 and three others, and
+  is credited ``rec: 4`` with ``rec_0_4: 1``;
+* with negatives excluded, all six bands then reconcile to the host
+  **exactly** — player counts and reception counts, all six bands, all
+  seven sampled weeks (42 of 42 cells).
+
+The earlier reading put those catches in ``rec_0_4`` and would have paid
+a band that the host does not pay — including to two quarterbacks who
+caught their own deflected passes. So :func:`band_for_yards` returns
+``None`` for a loss, and a caller that treats ``None`` as a band name
+gets a ``KeyError`` rather than a wrong band.
 """
 
 from __future__ import annotations
@@ -79,16 +94,21 @@ _LOGGER = logging.getLogger(__name__)
 
 __all__ = [
     "BAND_KEYS",
+    "PBP_URL_TEMPLATE",
     "RECEPTION_DEPTH_SCHEMA_VERSION",
     "band_for_yards",
     "default_depth_dir",
     "depth_path",
+    "TRUTHY_CELLS",
+    "is_truthy",
     "load_reception_depth",
+    "open_pbp",
+    "reception_from_play",
     "persist_reception_depth",
     "summarise_histogram",
 ]
 
-RECEPTION_DEPTH_SCHEMA_VERSION = "2026-07-27.v1"
+RECEPTION_DEPTH_SCHEMA_VERSION = "2026-08-18.v2"
 
 #: Sleeper's reception-distance scoring keys, shortest first. These are
 #: the exact key names on the league's ``scoring_settings``, so a
@@ -106,7 +126,14 @@ BAND_KEYS: tuple[str, ...] = (
 #: band is open-ended.
 _BAND_LOWER: tuple[int, ...] = (0, 5, 10, 20, 30, 40)
 
-_PBP_URL = "https://github.com/nflverse/nflverse-data/releases/download/pbp/play_by_play_{year}.csv"
+#: nflverse's play-by-play release. Public because it is the ONE place
+#: this package reaches play-by-play for scoring purposes — see
+#: :mod:`src.nfl_data.pbp_weekly`, which streams the same file through
+#: :func:`open_pbp` rather than opening a second connection of its own.
+PBP_URL_TEMPLATE = (
+    "https://github.com/nflverse/nflverse-data/releases/download/pbp/play_by_play_{year}.csv"
+)
+_PBP_URL = PBP_URL_TEMPLATE
 
 _HTTP_TIMEOUT_SEC = 180.0
 _USER_AGENT = "brisket-reception-depth/1.0"
@@ -138,14 +165,63 @@ def season_has_plausibly_started(season: int, *, now: datetime | None = None) ->
     return now.month >= _SEASON_START_MONTH
 
 
-def band_for_yards(yards: float) -> str:
-    """Which Sleeper band a reception of ``yards`` falls in.
+#: Spellings nflverse uses for a true boolean-ish cell. One definition,
+#: because two nearly-identical ones is how the two producers of the
+#: reception fact came to disagree on ``"TRUE"`` and on a leading space.
+TRUTHY_CELLS: frozenset[str] = frozenset({"1", "1.0", "True", "true", "TRUE"})
 
-    Anything below 5 — including zero and negative — lands in
-    ``rec_0_4``; see the module docstring for why that is an
-    interpretation rather than a measurement.
+
+def is_truthy(cell: Any) -> bool:
+    return str(cell or "").strip() in TRUTHY_CELLS
+
+
+def reception_from_play(
+    complete_pass: Any,
+    receiver_player_id: Any,
+    receiving_yards: Any,
+    yards_gained: Any,
+) -> tuple[str, float] | None:
+    """``(receiver gsis, yards)`` for a completed pass, else ``None``.
+
+    THE definition of "a reception of N yards", extracted so the season
+    histogram in this module and the per-week producer in
+    :mod:`src.nfl_data.pbp_weekly` cannot drift apart. They did: before
+    this existed, one accepted ``complete_pass="TRUE"`` and a
+    leading-space ``" 1"`` and the other did not, so the same play was a
+    catch to one and nothing to the other.
+
+    ``receiving_yards`` wins over ``yards_gained`` where present. They
+    agree on ordinary plays and diverge on laterals, where
+    ``yards_gained`` includes yardage the receiver was not credited with.
+    """
+    if not is_truthy(complete_pass):
+        return None
+    receiver = str(receiver_player_id or "").strip()
+    if not receiver or receiver == "NA":
+        return None
+    raw = str(receiving_yards or "").strip()
+    if raw in ("", "NA"):
+        raw = str(yards_gained or "").strip()
+    if raw in ("", "NA"):
+        return None
+    try:
+        return receiver, float(raw)
+    except (TypeError, ValueError):
+        return None
+
+
+def band_for_yards(yards: float) -> str | None:
+    """Which Sleeper band a reception of ``yards`` falls in, or ``None``.
+
+    ``None`` means the catch belongs to no band — it lost yardage. That
+    is the host's own behaviour, measured over seven 2025 weeks; see the
+    module docstring. It is deliberately not ``rec_0_4`` and deliberately
+    not an exception: an unbanded reception is a real, countable event,
+    it just does not pay a depth rule.
     """
     y = float(yards)
+    if y < _BAND_LOWER[0]:
+        return None
     band = BAND_KEYS[0]
     for key, lower in zip(BAND_KEYS, _BAND_LOWER):
         if y >= lower:
@@ -166,10 +242,20 @@ def depth_path(season: int, *, depth_dir: Path | None = None) -> Path:
     return (depth_dir or default_depth_dir()) / f"reception_depth_{int(season)}.jsonl"
 
 
-def _open_pbp(season: int, url_template: str = _PBP_URL):
+def open_pbp(season: int, url_template: str = PBP_URL_TEMPLATE):
+    """Open the raw play-by-play response for ``season``.
+
+    Returns the live response object; the caller owns closing it and is
+    expected to STREAM it. Materialising the whole file is what
+    :func:`src.nfl_data.nflverse_direct.fetch_pbp` does and why this
+    package does not use it — 2025 is 98 MB over 372 columns.
+    """
     url = url_template.format(year=int(season))
     req = urllib.request.Request(url, headers={"User-Agent": _USER_AGENT})
     return urllib.request.urlopen(req, timeout=_HTTP_TIMEOUT_SEC)
+
+
+_open_pbp = open_pbp
 
 
 def _iter_receptions(
@@ -206,23 +292,20 @@ def _iter_receptions(
     if i_recyd < 0 and i_gained < 0:
         raise ValueError("play-by-play carries neither receiving_yards nor yards_gained")
 
+    def _cell(row, i):
+        return row[i] if 0 <= i < len(row) else ""
+
     for row in reader:
-        if len(row) <= i_complete:
+        # One owner for what a reception IS — see ``reception_from_play``.
+        caught = reception_from_play(
+            _cell(row, i_complete),
+            _cell(row, i_rid),
+            _cell(row, i_recyd),
+            _cell(row, i_gained),
+        )
+        if caught is None:
             continue
-        if row[i_complete] not in ("1", "1.0", "True", "true"):
-            continue
-        gsis = row[i_rid] if i_rid < len(row) else ""
-        if not gsis:
-            continue
-        raw = ""
-        if i_recyd >= 0 and i_recyd < len(row):
-            raw = row[i_recyd]
-        if raw in ("", "NA") and i_gained >= 0 and i_gained < len(row):
-            raw = row[i_gained]
-        try:
-            yards = float(raw)
-        except (TypeError, ValueError):
-            continue
+        gsis, yards = caught
         try:
             week = int(float(row[i_week]))
         except (TypeError, ValueError):
@@ -248,6 +331,7 @@ def _accumulate(
                 "name": name,
                 "receptions": 0,
                 "receivingYards": 0.0,
+                "unbandedReceptions": 0,
                 "bands": dict.fromkeys(BAND_KEYS, 0),
             }
             out[gsis] = rec
@@ -255,7 +339,15 @@ def _accumulate(
             rec["name"] = name
         rec["receptions"] += 1
         rec["receivingYards"] += yards
-        rec["bands"][band_for_yards(yards)] += 1
+        band = band_for_yards(yards)
+        if band is None:
+            # A lost-yardage catch: a reception, and no depth band. Counted
+            # separately so ``receptions`` minus the band total is never an
+            # unexplained shortfall — the host's own line balances the same
+            # way (week 14: rec 537, bands 523, negatives 14).
+            rec["unbandedReceptions"] += 1
+        else:
+            rec["bands"][band] += 1
     return out
 
 
@@ -362,6 +454,7 @@ def persist_reception_depth(
             continue
 
         total_rec = sum(int(r["receptions"]) for r in histogram.values())
+        total_unbanded = sum(int(r["unbandedReceptions"]) for r in histogram.values())
         entry = {
             "schemaVersion": RECEPTION_DEPTH_SCHEMA_VERSION,
             "season": season,
@@ -369,12 +462,14 @@ def persist_reception_depth(
             "capturedAt": _now_utc(),
             "playerCount": len(histogram),
             "receptionCount": total_rec,
+            "unbandedReceptionCount": total_unbanded,
             "bandKeys": list(BAND_KEYS),
             "players": {
                 gsis: {
                     "name": rec["name"],
                     "receptions": rec["receptions"],
                     "receivingYards": round(float(rec["receivingYards"]), 1),
+                    "unbandedReceptions": rec["unbandedReceptions"],
                     "bands": rec["bands"],
                 }
                 for gsis, rec in sorted(histogram.items())
@@ -415,7 +510,28 @@ def load_reception_depth(season: int, *, depth_dir: Path | None = None) -> dict[
     if not text:
         return None
     try:
-        return json.loads(text.splitlines()[0])
+        payload = json.loads(text.splitlines()[0])
     except json.JSONDecodeError:
         _LOGGER.warning("reception_depth: unparseable file at %s", path)
         return None
+    stamped = str((payload or {}).get("schemaVersion") or "")
+    if stamped != RECEPTION_DEPTH_SCHEMA_VERSION:
+        # REFUSE, do not adapt.  v2 changed what a band MEANS — a
+        # lost-yardage catch left ``rec_0_4`` — so a v1 file is not a
+        # v1-shaped v2, it is a different measurement wearing the same
+        # field names.  The refresh script skips completed seasons on file
+        # existence, so without this check every season written before
+        # 2026-08-18 would be consumed as though it had been rebuilt.
+        #
+        # Every consumer already handles ``None`` by serving no overlay
+        # (the silent-vanish posture the /rankings gap column and the
+        # BDVM panels use), so refusing degrades rather than breaks.
+        _LOGGER.warning(
+            "reception_depth: %s is schema %r, expected %r — refusing it. "
+            "Rebuild with scripts/refresh_reception_depth.py --force.",
+            path,
+            stamped or "(unstamped)",
+            RECEPTION_DEPTH_SCHEMA_VERSION,
+        )
+        return None
+    return payload

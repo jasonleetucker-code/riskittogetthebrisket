@@ -328,17 +328,42 @@ def measure_positional_scoring_fit(
     from src.league_comparison.scoring_engine import (  # noqa: PLC0415 - heavy import
         compute_player_season_scores,
     )
+    from src.nfl_data.pbp_weekly import SeasonPbpIndex  # noqa: PLC0415
 
     rows = list(weekly_rows or [])
     if not rows:
         return ScoringFitMeasurement(measured=False, reason="no weekly rows supplied")
 
+    # This measures how differently two cards price the same production,
+    # and the reception bands are the largest difference between the two
+    # live cards: dynasty_main bands 0.17 -> 1.92, the baseline pays a flat
+    # 0.75 and 0.0 for every band.  Leaving the bands unscored does NOT
+    # cancel between the arms — it deletes the signal, because only one arm
+    # has anything to lose.
+    #
+    # Measured over 17 weeks at 6 catches a week, my/baseline season-total
+    # ratio:
+    #
+    #     catch profile        without        with
+    #     checkdown (short)      0.678       0.800
+    #     balanced               0.678       0.940
+    #     deep threat            0.678       1.420
+    #
+    # Without the supplement every profile returns the IDENTICAL 0.678 —
+    # the measurement's entire discriminating power is the thing that was
+    # missing.
+    pbp_for_season = SeasonPbpIndex().for_season
     mine = {
-        s.player_id: s for s in compute_player_season_scores(rows, dict(my_scoring), season=season)
+        s.player_id: s
+        for s in compute_player_season_scores(
+            rows, dict(my_scoring), season=season, pbp_for_season=pbp_for_season
+        )
     }
     base = {
         s.player_id: s
-        for s in compute_player_season_scores(rows, dict(baseline_scoring), season=season)
+        for s in compute_player_season_scores(
+            rows, dict(baseline_scoring), season=season, pbp_for_season=pbp_for_season
+        )
     }
 
     cohorts: dict[str, list[tuple[float, float]]] = {p: [] for p in TRACKED_POSITIONS}
