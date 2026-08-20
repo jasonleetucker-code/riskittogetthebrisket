@@ -195,9 +195,74 @@ C2-SIM-01 primitive, this lane's own `C3-CAP-01`).
 
 **Blocker:** none. Unit is complete for its declared scope.
 
-**Commit SHA:** *(recorded after commit)*
+**Commit SHA:** `63138600`
 
 **PR-ready status:** READY_FOR_INTEGRATION — small, self-contained, fully tested, zero regression on any existing
 field, additive-only production impact.
+
+---
+
+### Unit 3 — Documentation repair: stale `C2-STR-01` / `C2-SIM-01` / `C3-PKG-01` / `C3-VA-01` / `C3-XMKT-01` rows
+
+**Manifest rows:** the canonical-owner map and detailed rows for `C2-STR-01`, `C2-SIM-01`, `C3-PKG-01`,
+`C3-VA-01`, `C3-XMKT-01` in `docs/C_SERIES_SCOPE_MANIFEST.md`, plus the mirrored unit descriptions in
+`docs/C_SERIES_EXECUTION_MAP.md` §4 (`C2-U4`) and §5 (`C3-U1`, `C3-U2`, `C3-U6`).
+
+**Why:** the deep exploration pass that grounded Units 1/2/4 (three research agents + extensive direct
+verification with Grep/Read of exact line numbers, corroborated against `docs/roster-intelligence/
+C2_CANONICAL_ROSTER_CHAIN.md` §14, which lane 1 had already written) found that these five rows significantly
+**understate** what already exists on `main` — consistent with the campaign's own repeated lesson to re-measure
+at HEAD rather than trust the doc. Leaving them stale risks a future session re-verifying or re-building
+already-done work, which is exactly the waste this repair prevents.
+
+**What was corrected, and what was deliberately NOT overclaimed:**
+- **`C2-STR-01`** (Team Strength): owner cell corrected from `src/ros/team_strength.py` (a legitimately
+  distinct ROS 0-100 production composite, still validly imported elsewhere — NOT one of the "4 competing
+  notions" this row is about) to `src/roster_intel/strength.py` (built by lane 1's `#914`, self-declared sole
+  owner, confirmed on disk and confirmed via its real importers). **Left as `PARTIAL`, not flipped to
+  `COMPLETE`** — whether all 4 originally-competing notions have actually been retired in the new owner's favor
+  was not independently re-audited by this correction, and overclaiming that would be its own governance
+  defect.
+- **`C2-SIM-01`** (roster simulation): "WRONG-OWNER... NOT STARTED" corrected to reflect that
+  `src/roster_intel/simulation.py::simulate_roster_change` is a real, tested, lane-1-owned primitive, already
+  correctly composed by this lane's own `C3-CAP-01` (`roster_capacity.simulate_final_legal_roster`, proven by a
+  9-property structural test), and now also surfaced at `/api/trade/simulate` (Unit 2, this session). Status
+  changed `WRONG-OWNER` → `PARTIAL` — not `COMPLETE`, since this is formally a lane-1-owned row and its full
+  closure checklist is not this lane's call to make.
+- **`C3-PKG-01`** (package generator): owner cell corrected from "*(to create)*" to `src/packages/
+  construction.py`, which already exists and is already consumed by 3 of 4 historical generators. Status
+  changed from "4 independent generators" to `PARTIAL`, explicitly naming which generator is genuinely
+  consolidated (`finder.py`, `angle.py`), which is a real remaining gap (`roster_intel/packages.py` — addressed
+  by Unit 4 below), and which is deliberately NOT touched this session (`suggestions.py`, carrying tuned,
+  in-code-flagged product logic on a live endpoint).
+- **`C3-VA-01`** (Value Adjustment): status changed `DUPLICATED` → `COMPLETE`, since this lane's own Unit 1
+  closed the one genuine remaining duplicate this session — this is the one row where `COMPLETE` is warranted
+  because the work was done and verified in this same session, not merely discovered.
+- **`C3-XMKT-01`** (whole-package market coverage): status changed `DISCONNECTED` → `COMPLETE`, confirmed by
+  direct grep of `angle.py`'s imports and the existing AST guard test — no implementation work needed, the prior
+  "not rewired" claim simply predated the actual wiring.
+- Two prose references in the `C7-BEST-TRADE` external-approval discussion (manifest, ~line 368) that repeated
+  the stale "`C3-XMKT-01` disconnected" / "`C3-VA-01` five implementations" claims were also corrected to point
+  at the manifest rows above, so a reader following the prose doesn't land on outdated framing after finding the
+  corrected table.
+
+**Verification:** documentation-only; no executable test changes behavior. Ran `scripts/
+check_planning_integrity.py` (PLANNING INTEGRITY: OK — manifest row count, dependency resolution, evidence
+presence, source-family/traceability counts all still consistent), `tests/docs/` (22 passed), and
+`scripts/check_product_plan_governance.py` (clean) after the edits to confirm no structural/governance
+invariant was broken by the corrections.
+
+**Production impact:** none — text only.
+
+**Duplicates retired:** 0 (this unit corrects records of duplicates already retired by Units 1/2 and by lane 1's
+own prior work; it creates no new duplicates and retires none itself).
+
+**Dependencies:** none.
+
+**Blocker:** none.
+
+**Commit SHA:** *(recorded after commit)*
+
+**PR-ready status:** READY_FOR_INTEGRATION — documentation-only, governance checks green, no code touched.
 
 ---
