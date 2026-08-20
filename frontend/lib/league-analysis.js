@@ -1144,105 +1144,27 @@ export function analyzeTradeTendencies(rawData, rows) {
     .sort((a, b) => b.trades - a.trades);
 }
 
-// ── Contender / Rebuilder Tiers ─────────────────────────────────────────
-/**
- * Score and tier all teams: contender / mid-tier / rebuilder.
- *
- *   score = 0.7 × starterValue + 0.2 × depthValue − 0.1 × pickValue
- *
- * Starter value = the players who fill the league's real lineup.
- * Depth        = every other player the team owns — picks excluded.
- * Picks        = pick capital, penalized at −10% (rebuild signal).
- *
- * Two separate defects were fixed here, and both corrections are live.
- *
- * Starter value was the top 10 OFFENSIVE players, flat, until
- * 2026-07-30.  In a league that starts 9 IDP alongside 12 offensive
- * slots that read a defense-heavy contender as a rebuilder, and it was
- * a second single-league constant on a page that serves two leagues
- * with different lineups.  It now fills the real lineup via the shared
- * `fillLineup`, across every group.
- *
- * Picks sit OUTSIDE depthValue deliberately (math audit 2026-08-04,
- * H5).  Depth was `totalValue − starterValue`, and totalValue includes
- * pick capital, so every pick dollar earned +0.2 as depth and paid
- * −0.1 as pick surplus for a NET +0.1: the "penalty" REWARDED hoarding
- * picks, the opposite of the documented intent, and a pick-rich
- * rebuilder could out-score a contender.  Each dollar of a roster now
- * feeds exactly one term.
- *
- * The three coefficients do not sum to 1 and don't need to — the score
- * is an ordinal ranking key (the sorted list is cut into thirds), so
- * only the RATIOS between the terms move a team's tier.
- *
- * @param {string[]} [rosterPositions] - ACCEPTED AND UNUSED since C2-U1;
- *   the lineup arrives on `team.optimalLineup`.  A team the server could
- *   not solve scores as pure depth, which is what an unknown lineup
- *   honestly means here.
- */
-export function scoreTeamTiers(
-  sleeperTeams,
-  playerMeta,
-  rows,
-  pickAliases = null,
-  rosterPositions = null,
-) {
-  const rowLookup = buildRowLookup(rows);
-
-  const scored = (sleeperTeams || []).map((team) => {
-    let totalValue = 0;
-    const lineupPool = [];
-    let pickValue = 0;
-
-    for (const pName of team.players || []) {
-      if (parsePickToken(pName)) continue;
-      const pm = playerMeta[(pName || "").toLowerCase()];
-      if (!pm) continue;
-      totalValue += pm.meta;
-      if (PLAYER_GROUPS.includes(pm.group)) {
-        lineupPool.push({ ...pm, sleeperName: pName });
-      }
-    }
-
-    // Picks — use multi-candidate lookup so Sleeper labels resolve
-    // against canonical rankings rows.
-    for (const pickName of team.picks || []) {
-      const row = resolvePickRow(pickName, rowLookup, pickAliases);
-      const val = row ? (row.values?.full || 0) : 0;
-      totalValue += val;
-      pickValue += val;
-    }
-
-    const { starters } = fillLineup({
-      assets: lineupPool,
-      keyOf: (p) => p.sleeperName ?? p.name,
-      optimalLineup: team?.optimalLineup,
-    });
-    const starterValue = starters.reduce((s, p) => s + p.meta, 0);
-    // Players only: totalValue carries pick capital too, and picks are
-    // scored by their own term below.
-    const depthValue = totalValue - starterValue - pickValue;
-    const score = starterValue * 0.7 + depthValue * 0.2 + (pickValue > 0 ? -pickValue * 0.1 : 0);
-
-    return {
-      name: team.name,
-      score,
-      totalValue,
-      starterValue,
-      depthValue,
-      pickValue,
-    };
-  });
-
-  scored.sort((a, b) => b.score - a.score);
-  const n = scored.length;
-  const top = Math.ceil(n / 3);
-  const bot = n - top;
-
-  return scored.map((t, i) => ({
-    ...t,
-    tier: i < top ? "contender" : i >= bot ? "rebuilder" : "middle",
-    tierLabel: i < top ? "Contender" : i >= bot ? "Rebuilder" : "Mid-Tier",
-    rank: i + 1,
-  }));
-}
+// ── RETIRED: scoreTeamTiers ─────────────────────────────────
+//
+// This file used to export `scoreTeamTiers`, which scored every team as
+// a weighted blend of starter value, depth and pick capital and cut the
+// sorted list into contender / mid-tier / rebuilder thirds.  It was a
+// Team Strength methodology living in the browser, and /rosters rendered
+// its rank beside a second, differently-ordered rank from the portfolio
+// table on the same screen.
+//
+// Deleted rather than deprecated.  The canonical owner is
+// `src/roster_intel/strength.py` (feature inventory row 1.1), served by
+// `GET /api/roster/intelligence` and consumed by
+// `components/TeamStrengthCard.jsx`.  Leaving an unused export here
+// would leave a working second engine one import away, which is how the
+// first one acquired its callers.
+//
+// Its contender/rebuilder CLASSIFICATION has a canonical owner too
+// (`src/roster_intel/window.py`), but that owner is published per-team
+// by `/api/gameplan` and not league-wide by the roster-intelligence
+// endpoint, so no league-wide tier card is rendered today.  Restoring
+// one is a backend/API question, not a frontend one — see
+// `docs/rosters/ROSTERS_TEAM_STRENGTH_MIGRATION.md`.
+//
+// Guarded by `__tests__/no-frontend-team-strength-methodology.test.js`.

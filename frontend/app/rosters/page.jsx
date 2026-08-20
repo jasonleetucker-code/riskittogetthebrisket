@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { useApp } from "@/components/AppShell";
 import { useSettings } from "@/components/useSettings";
 import { PageHeader, LoadingState, EmptyState, PlayerImage } from "@/components/ui";
+import { FailureState } from "@/components/ds";
 import { InfoTip, PlayerNameButton } from "@/components/ds";
 import { ValueBasisNote } from "@/components/ds";
 import {
@@ -16,10 +17,30 @@ import {
   computeGroupAverages,
   findWaiverWireGems,
   buildLeagueEdgeMap,
-  scoreTeamTiers,
   ordinal,
 } from "@/lib/league-analysis";
+import { readableTextOn, textSafe } from "@/lib/contrast";
+
+// The surface these labels sit on.  `--card` / `--bg-soft` (#131519),
+// NOT the page `--bg` (#0b0d10): the labels live inside panels, and
+// panels are one step LIGHTER, so computing against the page would
+// clear the floor on paper and miss it on screen — which is exactly
+// what the first pass did, leaving LB at 4.36:1.  Passed explicitly
+// rather than sniffed from the DOM so the value is identical on the
+// server render and in the test that asserts it.
+const PAGE_SURFACE = "#131519";
+// Mark colours are chosen to be legible as SWATCHES (>=3:1).  Reused
+// as words they fell short — DL at 3.91:1, LB at 3.11:1 — so the
+// text variant is derived once here.  Six of the eight are returned
+// unchanged; this is a floor, not a restyle.
+const POS_TEXT_COLORS = Object.fromEntries(
+  Object.entries(POS_GROUP_COLORS).map(([g, c]) => [g, textSafe(c, PAGE_SURFACE)]),
+);
 import AgeCurveOverlay from "@/components/graphs/AgeCurveOverlay";
+import TeamStrengthCard from "@/components/TeamStrengthCard";
+import { useRosterIntelligence } from "@/components/useRosterIntelligence";
+import { ownerIdForTeamName } from "@/lib/roster-intelligence";
+import "./rosters.css";
 
 /**
  * WHICH ASSETS to count in a team total — NOT which valuation to use.
@@ -46,7 +67,8 @@ const ASSET_SCOPES = [
 ];
 
 export default function RostersPage() {
-  const { rows, rawData, loading, error, openPlayerPopup } = useApp();
+  const { rows, rawData, loading, error, failure, retry, openPlayerPopup } =
+    useApp();
   const { settings, update } = useSettings();
   const [assetScope, setAssetScope] = useState("full");
   const [activeGroups, setActiveGroups] = useState(new Set(POS_GROUPS));
@@ -109,10 +131,25 @@ export default function RostersPage() {
     [rows, sleeperTeams, myTeam],
   );
 
-  const teamTiers = useMemo(
-    () => scoreTeamTiers(sleeperTeams, playerMeta, rows, pickAliases, rosterPositions),
-    [sleeperTeams, playerMeta, rows, pickAliases, rosterPositions],
+  // Canonical Team Strength.  Fetched, never computed: the owner is
+  // `src/roster_intel/strength.py` behind `GET /api/roster/intelligence`.
+  // This page used to score teams itself — 0.7 x starters + 0.2 x depth
+  // - 0.1 x picks, cut into contender / mid-tier / rebuilder thirds —
+  // which put a second, contradictory ranking of the same twelve teams
+  // on the same screen as the portfolio table below.
+  //
+  // An empty ownerId is not an error: the endpoint then answers for the
+  // session's own team, which is the right default for a signed-in user
+  // who has not picked one.
+  const myOwnerId = useMemo(
+    () => ownerIdForTeamName(sleeperTeams, myTeam),
+    [sleeperTeams, myTeam],
   );
+  const {
+    loading: strengthLoading,
+    data: strengthData,
+    failure: strengthFailure,
+  } = useRosterIntelligence({ ownerId: myOwnerId });
 
   function toggleGroup(g) {
     setActiveGroups((prev) => {
@@ -124,7 +161,31 @@ export default function RostersPage() {
   }
 
   if (loading) return <LoadingState message="Loading roster data..." />;
-  if (error) return <div className="card"><EmptyState title="Error" message={error} /></div>;
+  // A failure is not an absence.  `EmptyState title="Error"` told a screen
+  // reader "nothing here", offered no retry, and printed the raw thrown
+  // string — which since contract failures carry their body is a JSON 503
+  // payload rendered into the page.  FailureState classifies instead:
+  // degraded reads as degraded, 403 offers no pointless retry, and the
+  // server's own message leads.
+  if (error) {
+    // `failure` is set alongside `error` by useDynastyData, but a caller
+    // that surfaces an error string without one must not render a blank
+    // card — FailureState returns null on a falsy failure. So an
+    // unclassified error becomes an explicit generic one rather than
+    // disappearing, which is the same missing-is-never-zero rule the
+    // contract applies to values.
+    const state = failure || {
+      kind: "error",
+      code: null,
+      message: error,
+      retryable: true,
+    };
+    return (
+      <div className="card">
+        <FailureState failure={state} onRetry={retry} />
+      </div>
+    );
+  }
 
   if (!sleeperTeams.length) {
     return (
@@ -140,7 +201,7 @@ export default function RostersPage() {
       <div className="card">
         <PageHeader
           title="Team Strength"
-          subtitle="Power rankings, position breakdowns, waiver wire, and trade targets."
+          subtitle="Canonical team strength, roster value portfolio, waiver wire, and trade targets."
           actions={
             <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
               <select
@@ -171,7 +232,22 @@ export default function RostersPage() {
         />
 
         <ValueBasisNote contract={rawData} />
+      </div>
 
+      {/* Canonical Team Strength — rendered from the backend owner.
+          There is no client-side fallback on failure: a fallback score
+          would be a second owner that only runs when nobody is looking. */}
+      <TeamStrengthCard
+        loading={strengthLoading}
+        data={strengthData}
+        failure={strengthFailure}
+      />
+
+      {/* Roster value portfolio — its own card, BELOW Team Strength.
+          The order is the argument: the canonical measurement first,
+          then the portfolio that answers a different question, with the
+          filters that shape it. */}
+      <div className="card" style={{ marginTop: "var(--space-md)" }}>
         {/* "Starters only" needs the league's lineup-slot array, and
             there is no honest default for it: this board ranks every
             team against every other, so a guessed slot table reorders
@@ -218,7 +294,14 @@ export default function RostersPage() {
                 aria-pressed={active}
                 title={`Toggle ${g}`}
                 style={{
-                  color: active ? "#fff" : color,
+                  // Computed, not hardcoded "#fff": axe measured 57
+                  // contrast failures here, down to 2.85:1 on TE, because
+                  // white was assumed to work on every saturated
+                  // background. `readableTextOn` picks whichever of black
+                  // or white the colour actually supports — which also
+                  // means a future palette change cannot silently
+                  // reintroduce this. See lib/contrast.js.
+                  color: active ? readableTextOn(color) : color,
                   background: active ? color : "transparent",
                   borderColor: color,
                 }}
@@ -239,23 +322,49 @@ export default function RostersPage() {
           ))}
         </div>
 
-        {/* Team rankings table */}
-        <div className="table-wrap">
-          <table>
+        {/* Roster value PORTFOLIO, by position.  A different question
+            from Team Strength above and deliberately kept separate
+            (V1-35): this counts every asset the filters admit, at full
+            market value, including bench depth and pick capital.
+
+            It carries no "#" column any more.  It used to, sorted on
+            the portfolio total, while the retired tier card printed a
+            different "#rank" from a frontend score — two rankings of
+            the same twelve teams, disagreeing for ten of them, four
+            hundred pixels apart.  The order here is a sort of the
+            column the user chose; the rank is the canonical one, in the
+            Team Strength card above. */}
+        <h3 className="team-strength-subtitle">Roster value portfolio</h3>
+        <p className="roster-portfolio-note">
+          Every asset the filters below admit, at full market value. Ordered by
+          that total &mdash; a sort, not a rank. Team Strength is a different
+          measurement, over the meaningful core, and is the card above.
+        </p>
+        {/* A horizontally-scrollable region has to be reachable without a
+            pointer.  This table scrolls sideways on narrow viewports and had
+            no way in from the keyboard at all — axe's
+            `scrollable-region-focusable`.  `tabIndex={0}` makes it a tab stop
+            so arrow keys can scroll it; `role="group"` + a name keep that stop
+            from being an unlabelled one. */}
+        <div
+          className="table-wrap"
+          tabIndex={0}
+          role="group"
+          aria-label="Roster value portfolio table, scrolls horizontally"
+        >
+          <table className="roster-portfolio-table">
             <thead>
               <tr>
-                <th style={{ width: 28 }}>#</th>
                 <th style={{ width: 140 }}>Team</th>
-                <th style={{ width: 65, textAlign: "right" }}>Total</th>
+                <th style={{ width: 90, textAlign: "right" }}>Portfolio value</th>
                 <th>Position Breakdown</th>
               </tr>
             </thead>
             <tbody>
-              {sortedTeams.map((team, idx) => {
+              {sortedTeams.map((team) => {
                 const isMe = team.name === myTeam;
                 return (
                   <tr key={team.name} style={isMe ? { background: "rgba(200, 56, 3, 0.06)" } : undefined}>
-                    <td style={{ fontFamily: "var(--mono)", fontWeight: 700, color: "var(--subtext)" }}>{idx + 1}</td>
                     <td style={{ fontWeight: 700, ...(isMe ? { color: "var(--cyan)" } : {}) }}>
                       {team.name}
                       <div style={{ fontSize: "0.58rem", color: "var(--subtext)", fontWeight: 400 }}>
@@ -282,7 +391,11 @@ export default function RostersPage() {
                                 alignItems: "center",
                                 justifyContent: "center",
                                 fontSize: "0.56rem",
-                                color: "#fff",
+                                // Same rule as the chips above: the label
+                                // sits ON the mark colour, so the readable
+                                // foreground is computed rather than
+                                // assumed white (PICKS was 2.19:1).
+                                color: readableTextOn(POS_GROUP_COLORS[g]),
                                 fontWeight: 700,
                                 overflow: "hidden",
                                 whiteSpace: "nowrap",
@@ -301,9 +414,6 @@ export default function RostersPage() {
           </table>
         </div>
       </div>
-
-      {/* Contender / Rebuilder Tiers */}
-      {teamTiers.length > 0 && <TeamTiersCard tiers={teamTiers} myTeam={myTeam} />}
 
       {/* League Edge Map */}
       {leagueEdge.length > 0 && <LeagueEdgeCard edges={leagueEdge} />}
@@ -428,10 +538,10 @@ function TradeTargetsCard({ myTeam, teams, groupAvg, onPlayerClick }) {
 
       {/* Strength summary */}
       <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 14 }}>
-        <span className="badge" style={{ background: "var(--green-soft)", color: POS_GROUP_COLORS[strongest[0]] }}>
+        <span className="badge" style={{ background: "var(--green-soft)", color: POS_TEXT_COLORS[strongest[0]] }}>
           Strongest: {strongest[0]} ({(myStrengths[strongest[0]] * 100).toFixed(0)}%)
         </span>
-        <span className="badge" style={{ background: "var(--red-soft, rgba(220,50,50,0.1))", color: POS_GROUP_COLORS[weakest[0]] }}>
+        <span className="badge" style={{ background: "var(--red-soft, rgba(220,50,50,0.1))", color: POS_TEXT_COLORS[weakest[0]] }}>
           Weakest: {weakest[0]} ({(myStrengths[weakest[0]] * 100).toFixed(0)}%)
         </span>
       </div>
@@ -459,7 +569,7 @@ function TradeTargetsCard({ myTeam, teams, groupAvg, onPlayerClick }) {
                   name={t.name}
                   size={22}
                 />
-                <span style={{ color: POS_GROUP_COLORS[needPos], fontFamily: "var(--mono)", fontWeight: 700, width: 28, fontSize: "0.62rem" }}>
+                <span style={{ color: POS_TEXT_COLORS[needPos], fontFamily: "var(--mono)", fontWeight: 700, width: 28, fontSize: "0.62rem" }}>
                   {t.pos}
                 </span>
                 <PlayerNameButton
@@ -496,7 +606,7 @@ function TradeTargetsCard({ myTeam, teams, groupAvg, onPlayerClick }) {
                 name={p.name}
                 size={22}
               />
-              <span style={{ color: POS_GROUP_COLORS[p.group], fontFamily: "var(--mono)", fontWeight: 700, width: 28, fontSize: "0.62rem" }}>
+              <span style={{ color: POS_TEXT_COLORS[p.group], fontFamily: "var(--mono)", fontWeight: 700, width: 28, fontSize: "0.62rem" }}>
                 {p.pos}
               </span>
               <span style={{ flex: 1, fontWeight: 600 }}>{p.name}</span>
@@ -506,60 +616,6 @@ function TradeTargetsCard({ myTeam, teams, groupAvg, onPlayerClick }) {
           ))}
         </div>
       )}
-    </div>
-  );
-}
-
-function TeamTiersCard({ tiers, myTeam }) {
-  const TIER_COLORS = { contender: "var(--green)", middle: "var(--amber)", rebuilder: "var(--red)" };
-  const TIER_BG = { contender: "rgba(39,174,96,0.08)", middle: "transparent", rebuilder: "rgba(231,76,60,0.06)" };
-
-  return (
-    <div className="card" style={{ marginTop: "var(--space-md)" }}>
-      <div style={{ fontWeight: 700, fontSize: "0.82rem", marginBottom: 10 }}>
-        Contender / Rebuilder Tiers
-        <InfoTip label="contender and rebuilder tiers">
-          <p>
-            Teams are scored on starter quality (70%), roster depth (20%), and a
-            pick-surplus penalty (-10%).
-          </p>
-        </InfoTip>
-      </div>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))", gap: 8 }}>
-        {tiers.map((t) => {
-          const isMe = t.name === myTeam;
-          return (
-            <div
-              key={t.name}
-              style={{
-                border: "1px solid var(--border)",
-                borderLeft: `3px solid ${TIER_COLORS[t.tier]}`,
-                borderRadius: 6,
-                padding: "10px 14px",
-                background: isMe ? "rgba(200,56,3,0.06)" : TIER_BG[t.tier],
-              }}
-            >
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                <span style={{ fontWeight: 700, fontSize: "0.78rem" }}>
-                  {isMe ? <span style={{ color: "var(--cyan)" }}>{t.name}</span> : t.name}
-                </span>
-                <span style={{ fontFamily: "var(--mono)", fontSize: "0.62rem", color: "var(--subtext)" }}>#{t.rank}</span>
-              </div>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 4 }}>
-                <span style={{ fontSize: "0.68rem", fontWeight: 700, color: TIER_COLORS[t.tier] }}>{t.tierLabel}</span>
-                <span style={{ fontFamily: "var(--mono)", fontSize: "0.66rem", color: "var(--subtext)" }}>
-                  {Math.round(t.totalValue).toLocaleString()} total
-                </span>
-              </div>
-              <div style={{ display: "flex", gap: 10, marginTop: 4, fontSize: "0.6rem", color: "var(--subtext)" }}>
-                <span>Starters: {Math.round(t.starterValue).toLocaleString()}</span>
-                <span>Depth: {Math.round(t.depthValue).toLocaleString()}</span>
-                {t.pickValue > 0 && <span>Picks: {Math.round(t.pickValue).toLocaleString()}</span>}
-              </div>
-            </div>
-          );
-        })}
-      </div>
     </div>
   );
 }
@@ -676,7 +732,7 @@ function WaiverWireCard({ gems, onPlayerClick }) {
               name={p.name}
               size={20}
             />
-            <span style={{ color: POS_GROUP_COLORS[p.pos] || "var(--subtext)", fontWeight: 700, fontFamily: "var(--mono)", fontSize: "0.62rem" }}>
+            <span style={{ color: POS_TEXT_COLORS[p.pos] || "var(--subtext)", fontWeight: 700, fontFamily: "var(--mono)", fontSize: "0.62rem" }}>
               {p.pos}
             </span>
             <PlayerNameButton

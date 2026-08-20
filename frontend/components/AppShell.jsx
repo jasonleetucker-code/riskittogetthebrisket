@@ -102,10 +102,15 @@ const AppContext = createContext({
   rawData: null,
   loading: true,
   error: "",
+  // null means "no classified failure", which is NOT the same as a
+  // failure of unknown kind — consumers must be able to tell those apart.
+  failure: null,
+  retry: () => {},
   openPlayerPopup: () => {},
   openSearch: () => {},
   registerAddToTrade: () => {},
   privateDataEnabled: true,
+  searchEnabled: false,
 });
 
 export function useApp() {
@@ -127,6 +132,49 @@ function isPublicOnlyRoute(pathname) {
   );
 }
 
+// Routes that are PRIVATE but have no use for player data.  Deliberately
+// a SECOND list rather than more entries in PUBLIC_ONLY_ROUTE_PREFIXES:
+// that constant is a privacy boundary ("public visitors must not see the
+// contract"), and every route below is one only a signed-in user reaches.
+// Folding them together would make the next person auditing "what is
+// public" read `/admin` off the public list and get a wrong answer.
+//
+// The win is real rather than bookkeeping: `prefetchBaseContract()` is
+// called INSIDE useDynastyData (useDynastyData.js:111), which only
+// PrivateAppShell mounts, so skipping that branch skips the multi-MB
+// GET itself — not merely the ~1,100-row buildRows pass.
+//
+// Every entry was checked for `useApp()` / `useDynastyData()` consumers
+// in its tree.  Two candidates were REJECTED and must stay off this list:
+//   /settings              — calls useDynastyData() directly (page.jsx),
+//                            so gating the shell would not even stop its
+//                            fetch; it would only strip its search.
+//   /tools/trade-coverage  — reads useApp().rawData to build the audit.
+const NO_PLAYER_DATA_ROUTE_PREFIXES = [
+  "/login",
+  "/more",
+  "/design",
+  "/admin",
+  "/tools/source-health",
+  "/tools/ros-data-health",
+];
+
+function isNoPlayerDataRoute(pathname) {
+  if (!pathname) return false;
+  return NO_PLAYER_DATA_ROUTE_PREFIXES.some(
+    (prefix) => pathname === prefix || pathname.startsWith(prefix + "/"),
+  );
+}
+
+// Exported for direct unit testing — these are pure functions and cheap
+// to pin, and a wrong entry breaks a page rather than slowing it.
+export const __routeGates = {
+  PUBLIC_ONLY_ROUTE_PREFIXES,
+  NO_PLAYER_DATA_ROUTE_PREFIXES,
+  isPublicOnlyRoute,
+  isNoPlayerDataRoute,
+};
+
 /**
  * AppShell provides app-wide data, player popup, and global search.
  * Wrap children in layout.jsx.
@@ -136,21 +184,35 @@ function isPublicOnlyRoute(pathname) {
  */
 export default function AppShell({ children, authenticated = false }) {
   const pathname = usePathname();
-  const privateDataEnabled = !isPublicOnlyRoute(pathname);
+  // Two INDEPENDENT reasons to skip the player pipeline, composed rather
+  // than merged: one is a privacy boundary, one is "this page has no use
+  // for it".  Each stays readable on its own.
+  //
+  // Gating on `authenticated` instead of a route list was considered and
+  // rejected: useAuth is tri-state and AppShellWrapper passes
+  // `authenticated === true`, so it is `false` during the auth probe.
+  // That would serialize the contract fetch behind an auth round-trip on
+  // EVERY page — trading a wasted fetch on /login for a slower first
+  // paint everywhere.
+  const privateDataEnabled =
+    !isPublicOnlyRoute(pathname) && !isNoPlayerDataRoute(pathname);
 
   return privateDataEnabled ? (
     <PrivateAppShell authenticated={authenticated}>{children}</PrivateAppShell>
   ) : (
-    <PublicAppShell authenticated={authenticated}>{children}</PublicAppShell>
+    <NoPlayerDataAppShell authenticated={authenticated}>{children}</NoPlayerDataAppShell>
   );
 }
 
 function PrivateAppShell({ children, authenticated }) {
-  const { loading, error, rows, siteKeys, rawData } = useDynastyData();
+  const { loading, error, failure, retry, rows, siteKeys, rawData } =
+    useDynastyData();
   return (
     <InnerAppShell
       loading={loading}
       error={error}
+      failure={failure}
+      retry={retry}
       rows={rows}
       siteKeys={siteKeys}
       rawData={rawData}
@@ -162,7 +224,11 @@ function PrivateAppShell({ children, authenticated }) {
   );
 }
 
-function PublicAppShell({ children, authenticated }) {
+// Serves BOTH reasons above: the public /league subtree, where hydrating
+// /api/data would leak private data, and private routes that simply have
+// no player data to show.  Named for what it does (no player data) rather
+// than for either reason, since it now answers to two.
+function NoPlayerDataAppShell({ children, authenticated }) {
   // No useDynastyData call — the public page pipeline must never
   // hydrate from /api/data.  The search + popup components render
   // against an empty rows list so they simply no-op rather than
@@ -171,6 +237,8 @@ function PublicAppShell({ children, authenticated }) {
     <InnerAppShell
       loading={false}
       error=""
+      failure={null}
+      retry={() => {}}
       rows={[]}
       siteKeys={[]}
       rawData={null}
@@ -182,7 +250,7 @@ function PublicAppShell({ children, authenticated }) {
   );
 }
 
-function InnerAppShell({ loading, error, rows, siteKeys, rawData, privateDataEnabled, authenticated, children }) {
+function InnerAppShell({ loading, error, failure, retry, rows, siteKeys, rawData, privateDataEnabled, authenticated, children }) {
   // Player search requires an authenticated session.  Search against
   // the private contract leaks ranking data and private identifiers
   // to logged-out visitors on otherwise-public surfaces.
@@ -291,10 +359,29 @@ function InnerAppShell({ loading, error, rows, siteKeys, rawData, privateDataEna
         rawData,
         loading,
         error,
+        // `error` is the message string, kept because every existing
+        // consumer reads it.  `failure` is the CLASSIFIED state — kind,
+        // code, retryable — and `retry` the affordance that goes with it.
+        // Both were added to useDynastyData when contract failures were
+        // classified, and then stopped here: the context forwarded only
+        // the string, so /rosters, /league and the player pages could not
+        // tell a 503 from a 403 however well the hook classified it, and
+        // kept rendering failures through the EMPTY primitive.
+        failure,
+        retry,
         openPlayerPopup,
         openSearch,
         registerAddToTrade,
         privateDataEnabled,
+        // Exposed so the chrome can HIDE the search affordance rather
+        // than render one that no-ops.  openSearch() returns early when
+        // this is false, but TopBar/MobileTopBar gated the button on
+        // `authenticated` alone — so a signed-in user on /league has been
+        // seeing a dead search button, and gating more routes would have
+        // spread that.  Search genuinely cannot work without the
+        // contract (it searches players), so hiding it is the honest
+        // outcome, not a compromise.
+        searchEnabled,
       }}
     >
       {children}

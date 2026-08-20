@@ -1,0 +1,156 @@
+/* /rosters — canonical Team Strength surface.
+ *
+ * A plain stylesheet rather than a CSS module for the same reason
+ * `draft.css` is one: the markup it styles is split across the route
+ * and a shared component (`components/TeamStrengthCard.jsx`), and a
+ * module's generated class names cannot be shared across that seam
+ * without threading a `styles` object through props.
+ *
+ * Colours come from the design tokens only. `--subtext` on `--panel`
+ * is the pairing the rest of the app already uses for secondary text;
+ * nothing here introduces a new colour value. */
+
+.team-strength-title {
+  font-weight: 700;
+  font-size: 0.82rem;
+  margin-bottom: 10px;
+}
+
+.team-strength-subtitle {
+  font-weight: 700;
+  font-size: 0.76rem;
+  margin: 16px 0 8px;
+}
+
+.team-strength-unavailable {
+  border-left: 3px solid var(--amber);
+  padding: 8px 12px;
+  font-size: 0.72rem;
+  line-height: 1.5;
+  background: rgba(243, 156, 18, 0.06);
+  border-radius: 4px;
+}
+
+.team-strength-headline {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
+}
+
+.team-strength-headline-label {
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.team-strength-headline-scope {
+  font-weight: 400;
+  text-transform: none;
+  letter-spacing: 0;
+  color: var(--subtext);
+}
+
+.team-strength-headline-value {
+  font-family: var(--mono);
+  font-size: 1.5rem;
+  font-weight: 700;
+}
+
+.team-strength-headline-rank {
+  font-family: var(--mono);
+  font-size: 0.78rem;
+  color: var(--subtext);
+}
+
+/* Three named quantities side by side.  They wrap rather than scroll on
+   a phone: the whole point of showing them together is that they are
+   comparable, and a horizontally scrolled row hides that. */
+.team-strength-facets {
+  display: flex;
+  gap: 18px;
+  flex-wrap: wrap;
+  margin: 0 0 10px;
+}
+
+.team-strength-facets > div {
+  min-width: 110px;
+}
+
+.team-strength-facets dt {
+  font-size: 0.62rem;
+  color: var(--subtext);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.team-strength-facets dd {
+  margin: 2px 0 0;
+  font-family: var(--mono);
+  font-size: 0.92rem;
+  font-weight: 600;
+}
+
+.team-strength-caveats {
+  margin: 0 0 12px;
+  padding-left: 18px;
+  font-size: 0.68rem;
+  line-height: 1.55;
+  color: var(--subtext);
+}
+
+/* A row header is not a column header.  The global `th` rule is written
+   for `thead` — sticky to the top, muted, uppercase, `cursor: pointer`
+   for sortable columns — and a `<th scope="row">` inherits all of it,
+   which rendered the position labels as faint sticky pseudo-headers
+   with a sort cursor over them.  Reset to a body cell that happens to
+   be a header, which is what it is. */
+.team-strength-positions tbody th[scope="row"] {
+  position: static;
+  background: transparent;
+  color: var(--text);
+  font-family: var(--mono);
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-transform: none;
+  letter-spacing: 0;
+  cursor: default;
+  z-index: auto;
+}
+
+.team-strength-me {
+  background: rgba(200, 56, 3, 0.06);
+}
+
+.team-strength-unranked {
+  color: var(--subtext);
+}
+
+.team-strength-unranked-note {
+  font-size: 0.58rem;
+  font-weight: 400;
+  color: var(--subtext);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+/* The portfolio table's order is a SORT, not a rank.  The note is part
+   of the repair, not decoration: the page used to print a `#` here that
+   contradicted the Team Strength rank four hundred pixels above. */
+.roster-portfolio-note {
+  font-size: 0.66rem;
+  color: var(--subtext);
+  line-height: 1.5;
+  margin: 0 0 10px;
+}
+
+@media (max-width: 640px) {
+  .team-strength-headline-value {
+    font-size: 1.25rem;
+  }
+  .team-strength-facets {
+    gap: 12px;
+  }
+}

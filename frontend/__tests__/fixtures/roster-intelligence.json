@@ -1,0 +1,272 @@
+{
+  "contractVersion": "roster-intelligence/2026-08-18.v1",
+  "leagueKey": null,
+  "teamCount": 12,
+  "starterSlots": [
+    "QB",
+    "RB",
+    "RB",
+    "WR",
+    "WR",
+    "WR"
+  ],
+  "slotSource": "sleeper_roster_positions",
+  "team": {
+    "ownerId": "1303549304882892800",
+    "teamName": "Blaine",
+    "rosteredCount": 53,
+    "strength": {
+      "available": true,
+      "unavailableReason": null,
+      "total": 79994.0,
+      "starterValue": 60431.0,
+      "reserveValue": 19563.0,
+      "byPosition": [
+        {
+          "position": "QB",
+          "value": 19082.0,
+          "count": 3,
+          "starterValue": 17113.0,
+          "starterCount": 2,
+          "reserveValue": 1969.0,
+          "reserveCount": 1,
+          "members": [
+            "Josh Allen",
+            "Jalen Hurts",
+            "Aaron Rodgers"
+          ],
+          "leagueRank": 3,
+          "leaguePercentile": 0.8182
+        },
+        {
+          "position": "RB",
+          "value": 8752.0,
+          "count": 3,
+          "starterValue": 7108.0,
+          "starterCount": 2,
+          "reserveValue": 1644.0,
+          "reserveCount": 1,
+          "members": [
+            "Saquon Barkley",
+            "Tank Bigsby",
+            "Adam Randall"
+          ],
+          "leagueRank": 11,
+          "leaguePercentile": 0.0909
+        },
+        {
+          "position": "WR",
+          "value": 11232.0,
+          "count": 5,
+          "starterValue": 8603.0,
+          "starterCount": 3,
+          "reserveValue": 2629.0,
+          "reserveCount": 2,
+          "members": [
+            "Tee Higgins",
+            "Tory Horton",
+            "Chris Brazzell",
+            "Zavion Thomas",
+            "Kendrick Bourne"
+          ],
+          "leagueRank": 11,
+          "leaguePercentile": 0.0909
+        },
+        {
+          "position": "TE",
+          "value": 12209.0,
+          "count": 6,
+          "starterValue": 8634.0,
+          "starterCount": 4,
+          "reserveValue": 3575.0,
+          "reserveCount": 2,
+          "members": [
+            "David Njoku",
+            "Jake Tonges",
+            "Cole Kmet",
+            "Erick All",
+            "Cade Stover",
+            "Nate Boerkircher"
+          ],
+          "leagueRank": 8,
+          "leaguePercentile": 0.3636
+        },
+        {
+          "position": "DL",
+          "value": 12565.0,
+          "count": 6,
+          "starterValue": 7361.0,
+          "starterCount": 3,
+          "reserveValue": 5204.0,
+          "reserveCount": 3,
+          "members": [
+            "Abdul Carter",
+            "James Pearce",
+            "Kobie Turner",
+            "Calijah Kancey",
+            "Keldric Faulk",
+            "Jalon Walker"
+          ],
+          "leagueRank": 7,
+          "leaguePercentile": 0.4545
+        },
+        {
+          "position": "LB",
+          "value": 7879.0,
+          "count": 4,
+          "starterValue": 6122.0,
+          "starterCount": 3,
+          "reserveValue": 1757.0,
+          "reserveCount": 1,
+          "members": [
+            "Payton Wilson",
+            "Terrel Bernard",
+            "Divine Deablo",
+            "Dee Winters"
+          ],
+          "leagueRank": 9,
+          "leaguePercentile": 0.2727
+        },
+        {
+          "position": "DB",
+          "value": 8275.0,
+          "count": 5,
+          "starterValue": 5490.0,
+          "starterCount": 3,
+          "reserveValue": 2785.0,
+          "reserveCount": 2,
+          "members": [
+            "AJ Haulcy",
+            "Cole Bishop",
+            "Tyler Nubin",
+            "Billy Bowman",
+            "Dax Hill"
+          ],
+          "leagueRank": 6,
+          "leaguePercentile": 0.5455
+        }
+      ],
+      "positionOrder": [
+        "QB",
+        "RB",
+        "WR",
+        "TE",
+        "DL",
+        "LB",
+        "DB"
+      ],
+      "fullRosterValue": null,
+      "unpricedIds": [
+        "Bryan Thompson",
+        "Caden Curry",
+        "Colton Hood"
+      ],
+      "unpricedCount": 12,
+      "unfilledStarterSlots": [
+        "K"
+      ],
+      "unfilledReserveSlots": [],
+      "isComplete": false,
+      "leagueRank": 9,
+      "leaguePercentile": 0.2727
+    }
+  },
+  "leagueContext": [
+    {
+      "ownerId": "468418790212759552",
+      "teamName": "Jason",
+      "strengthTotal": 146487.0,
+      "strengthRank": 1,
+      "youngCoreIndex": 100.0,
+      "valueWeightedCoreAge": 24.45
+    },
+    {
+      "ownerId": "1002085133723299840",
+      "teamName": "Brent",
+      "strengthTotal": 146146.0,
+      "strengthRank": 2,
+      "youngCoreIndex": 9.1,
+      "valueWeightedCoreAge": 26.58
+    },
+    {
+      "ownerId": "1012114412049731584",
+      "teamName": "Joey",
+      "strengthTotal": 121398.0,
+      "strengthRank": 3,
+      "youngCoreIndex": 90.9,
+      "valueWeightedCoreAge": 24.91
+    },
+    {
+      "ownerId": "609821340567941120",
+      "teamName": "Eric",
+      "strengthTotal": 117987.0,
+      "strengthRank": 4,
+      "youngCoreIndex": 81.8,
+      "valueWeightedCoreAge": 25.34
+    },
+    {
+      "ownerId": "714912789268865024",
+      "teamName": "MaKayla",
+      "strengthTotal": 116498.0,
+      "strengthRank": 5,
+      "youngCoreIndex": 72.7,
+      "valueWeightedCoreAge": 25.13
+    },
+    {
+      "ownerId": "831633191830933504",
+      "teamName": "Collin",
+      "strengthTotal": 105871.0,
+      "strengthRank": 6,
+      "youngCoreIndex": 63.6,
+      "valueWeightedCoreAge": 25.31
+    },
+    {
+      "ownerId": "711452264774041600",
+      "teamName": "Ed",
+      "strengthTotal": 98168.0,
+      "strengthRank": 7,
+      "youngCoreIndex": 45.5,
+      "valueWeightedCoreAge": 25.43
+    },
+    {
+      "ownerId": "473973924808355840",
+      "teamName": "Ty",
+      "strengthTotal": 86764.0,
+      "strengthRank": 8,
+      "youngCoreIndex": 27.3,
+      "valueWeightedCoreAge": 26.29
+    },
+    {
+      "ownerId": "1303549304882892800",
+      "teamName": "Blaine",
+      "strengthTotal": 79994.0,
+      "strengthRank": 9,
+      "youngCoreIndex": 36.4,
+      "valueWeightedCoreAge": 26.42
+    },
+    {
+      "ownerId": "1208452010173538304",
+      "teamName": "Kich",
+      "strengthTotal": 79621.0,
+      "strengthRank": 10,
+      "youngCoreIndex": 0.0,
+      "valueWeightedCoreAge": 28.44
+    },
+    {
+      "ownerId": "712035316776669184",
+      "teamName": "jstuedle",
+      "strengthTotal": 75669.0,
+      "strengthRank": 11,
+      "youngCoreIndex": 54.5,
+      "valueWeightedCoreAge": 26.05
+    },
+    {
+      "ownerId": "472206636534984704",
+      "teamName": "Roy",
+      "strengthTotal": 55520.0,
+      "strengthRank": 12,
+      "youngCoreIndex": 18.2,
+      "valueWeightedCoreAge": 26.8
+    }
+  ]
+}

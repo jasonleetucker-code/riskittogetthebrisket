@@ -1529,9 +1529,15 @@ if (typeof window !== "undefined") {
 
 async function _fetchBaseContract() {
   const leagueKey = _readActiveLeagueKey();
-  // Mobile / slow-network callers get the compact view (~500KB vs
-  // ~4MB full) — the frontend materializer tolerates the pruned
-  // fields.  Lazy import so this module stays SSR-safe.
+  // Mobile / slow-network callers get the compact view, desktop the
+  // array view.  Both carry the SAME board: compact prunes only fields
+  // no consumer reads (pinned in
+  // ``tests/api/test_compact_view_consumer_parity.py``), which is a
+  // property it gained on 2026-08-18 — before that it pruned 14 fields
+  // this very materializer reads.  Sizes are recorded at
+  // ``lib/device-profile.js::preferredDataView`` rather than repeated
+  // here, so there is one place for them to go stale.  Lazy import so
+  // this module stays SSR-safe.
   let view = null;
   try {
     const dp = await import("./device-profile.js");
@@ -1583,10 +1589,36 @@ async function _fetchBaseContractNetwork(leagueKey, view, cacheKey) {
   // buys over ``no-store``: an unchanged contract answers with a
   // zero-body 304 instead of a multi-MB re-download on every
   // navigation past the in-memory TTL.
-  const res = await fetch(url, { cache: "no-cache" });
+  let res;
+  try {
+    res = await fetch(url, { cache: "no-cache" });
+  } catch (netErr) {
+    // No status at all: the request never reached a server. That is a
+    // DIFFERENT state from every HTTP failure below and used to be
+    // indistinguishable from them once the message was the only channel.
+    const err = new Error(
+      `Could not reach the server: ${netErr?.message || "network error"}`,
+    );
+    err.status = null;
+    err.body = null;
+    throw err;
+  }
   if (!res.ok) {
     const txt = await res.text();
-    throw new Error(`Failed to load dynasty data: ${res.status} ${txt}`);
+    // Carry the STATUS on the error, not just inside its message.
+    // `useDynastyData` used to recover it with `/\b401\b/.test(message)`,
+    // which cannot tell a 503 from a 500 from a timeout — and would have
+    // matched a player named "401" in the body. See lib/contract-failure.js.
+    let body = null;
+    try {
+      body = JSON.parse(txt);
+    } catch {
+      body = txt || null;
+    }
+    const err = new Error(`Failed to load dynasty data: ${res.status} ${txt}`);
+    err.status = res.status;
+    err.body = body;
+    throw err;
   }
   const json = await res.json();
 

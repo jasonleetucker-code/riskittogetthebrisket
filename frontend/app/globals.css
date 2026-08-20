@@ -59,8 +59,16 @@
      The Vikings hexes are DELETED, not re-pointed: a stray
      `var(--vikings-purple)` should fail loudly rather than quietly render
      something plausible. `--cyan` and `--amber` keep their (misleading)
-     names because ~200 call sites use them; both now resolve to the
-     accent, and renaming them is a separate mechanical pass. */
+     names because ~200 call sites use them; renaming them is a separate
+     mechanical pass.
+
+     OD-05 (2026-08-18): `--cyan` follows the accent, because it IS the
+     accent for those ~200 call sites — buttons, focus rings, chips,
+     active sort. Leaving it blue while `tokens.css` went gold would not
+     have been a partial migration, it would have been an application
+     rendered in two accents at once. `--amber` deliberately does NOT
+     follow: it is the state/warning flavour, and the gold's discipline
+     depends on it staying a separate role. */
   --bg: #0b0d10;
   --bg-soft: #131519;
   --card: #131519;
@@ -68,7 +76,7 @@
   --text: #eceef2;
   --subtext: #a8b0be;
   --muted: #8b93a5;
-  --cyan: #4f9bec; /* legacy name; now the signal-blue accent */
+  --cyan: #ffc704; /* legacy name; IS the franchise accent — see OD-05 above */
   --green: #5fcf9b;
   --red: #f2848d;
   --amber: #e8b25e;
@@ -5937,3 +5945,33 @@ input[type="range"]:focus-visible::-moz-range-thumb {
   font-size: 0.66rem;
   color: var(--red);
 }
+/* F-12 — failures the scrape run reported that name no registered
+   source.  Set apart from the rows above rather than mixed into them:
+   these are the run's own vocabulary, and presenting them as if they
+   were registry rows would be the fabrication the finding is about. */
+.source-health-unattributed {
+  margin-top: 6px;
+  padding-top: 6px;
+  border-top: 1px dashed var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.source-health-unattributed-head {
+  font-size: 0.66rem;
+  color: var(--amber, var(--accent));
+}
+.source-health-unattributed-row {
+  display: grid;
+  grid-template-columns: 10px 120px 80px minmax(0, 1fr);
+  gap: 8px;
+  align-items: center;
+  font-size: 0.7rem;
+  padding: 3px 0;
+}
+.source-health-unattributed-name {
+  font-weight: 600;
+  color: var(--text);
+}
+.source-health-unattributed-row--down { color: var(--red); }
+.source-health-unattributed-row--warn { color: var(--amber, var(--accent)); }
