@@ -22,17 +22,13 @@ transcribed copy would.
 
 from __future__ import annotations
 
-import re
 from pathlib import Path
 
 import pytest
 import yaml
 
 WORKFLOW = (
-    Path(__file__).resolve().parents[2]
-    / ".github"
-    / "workflows"
-    / "verify-sharp-production.yml"
+    Path(__file__).resolve().parents[2] / ".github" / "workflows" / "verify-sharp-production.yml"
 )
 
 
@@ -55,8 +51,11 @@ def classify(event_name: str, deploy_conclusion: str) -> str:
     start = script.index('if event_name == "workflow_run"')
     end = script.index("\nelse:", start)
     block = script[start:end]
-    ns = {"event_name": event_name, "deploy_conclusion": deploy_conclusion,
-          "result": {"status": "waiting"}}
+    ns = {
+        "event_name": event_name,
+        "deploy_conclusion": deploy_conclusion,
+        "result": {"status": "waiting"},
+    }
     exec(compile(block, "<gate>", "exec"), ns)  # noqa: S102 — the shipped logic is the subject
     return ns["result"]["status"]
 
