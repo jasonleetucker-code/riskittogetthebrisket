@@ -105,27 +105,22 @@ PRESIM_CHECK_EVERY = 40
 # 1% of itself.
 PRESIM_MEAN_TOLERANCE = 0.01
 
-# Coefficient of variation per position for per-player weekly scores.
-# Calibrated from public weekly-scoring datasets — high-variance
-# positions (RB workload swings, WR target volatility) get larger
-# CVs, while QBs are tighter week-to-week.  These coefficients
-# combine with each player's rosValue to produce a per-player
-# Gaussian (mean = rosValue/17 × game-mean scale, sd = mean × cv).
-_PLAYER_CV_BY_POSITION: dict[str, float] = {
-    "QB": 0.32,
-    "RB": 0.55,
-    "WR": 0.60,
-    "TE": 0.65,
-    "DL": 0.55,
-    "DE": 0.55,
-    "DT": 0.55,
-    "EDGE": 0.55,
-    "LB": 0.45,
-    "DB": 0.50,
-    "S": 0.50,
-    "CB": 0.55,
-}
-_DEFAULT_PLAYER_CV = 0.55
+# The rosValue -> weekly-points conversion and its per-position CV table
+# belong to ``src/league_intel/sim_calibration.py``, which owns the
+# ``PointsModel`` this module already draws through
+# (``model.draw(ros, pos, rng)``).  This module used to restate that
+# table verbatim — byte-identical to
+# ``sim_calibration.FALLBACK_CV_BY_POSITION`` — and read it nowhere; its
+# only consumer was a second ``draw()`` implementation in the dormant
+# ``league_intel/sim.py``.  Three copies of three numbers.
+#
+# The comment that stood here also described arithmetic this module has
+# not performed for some time: "mean = rosValue/17 x game-mean scale".
+# The model divides by ``ros_value_per_point`` (2.7 as the documented
+# fallback, or whatever a calibrated ``sim_points_model.json`` supplies)
+# — a points-per-rosValue-unit conversion, not a season total spread
+# over 17 games.  A stale formula in a comment is worse than none: it is
+# the number a reader will quote.
 
 
 def _mean_is_converged(samples: list[float], rel_tolerance: float) -> bool:
