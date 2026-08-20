@@ -113,10 +113,10 @@ except the one guard extension described above.
 - `C4-FAAB-01` (FAAB Market Heat) — depends on `C4-MTL-01`; existing canonical FAAB owner
   (`src/trade/faab_engine.py`) is unmodified and un-extended this batch, per the no-new-FAAB-
   formula rule.
-- Any frontend or `/api/*` route surfacing either ledger. Both ship as canonical owner modules
-  with tests only this pass — deliberately, so the read contract (field names, grouping rules,
-  privacy posture) is settled and reviewed before a consumer locks against it. A minimal read
-  endpoint is a reasonable next bounded unit once this is integrated.
+- Any *frontend* surfacing either ledger — `/api/*` read endpoints landed in Batch 3 below, but no
+  `/waivers` or `/trades` UI panel consumes them yet. Both ship as canonical owner modules with
+  tests only this pass — deliberately, so the read contract (field names, grouping rules, privacy
+  posture) is settled and reviewed before a UI consumer locks against it.
 - `C4-SHARP-01/02/03` (Sharp cohort/bootstrap/FFPC hardening) — real, in scope for this lane, not
   started this batch. `C4-SHARP-01` and part of `C4-SHARP-03`'s L2 measurement are
   production-proof-gated and cannot be closed from this sandbox regardless.
@@ -175,6 +175,36 @@ to call out anything already blocked/covered.
 python3 -m pytest tests/trade/test_comparable_trades.py tests/acquisition/ tests/trade/ -q
 ```
 → 865 passed. `ruff check` + `ruff format --check` clean.
+
+## Batch 3 — read endpoints for the two Batch-1 ledgers
+
+**Units:** minimal `GET` surfaces for `C4-WAIV-01` and `C4-MTL-01`, the follow-up Batch 1
+explicitly deferred.
+
+- **`GET /api/market/waivers`** and **`GET /api/market/trades`** — added to `server.py`
+  immediately after the FAAB-recommend endpoint. Both follow `/api/draft/roster-context`'s
+  established shape exactly: `_resolve_league_for_request` for league scoping (400
+  `unknown_league`/`inactive_league`, 404 `no_leagues_configured`), no per-route auth check
+  because — discovered while writing the first test, which came back 401 unauthenticated — auth
+  on `/api/*` is enforced once, globally, by the `_private_api_gate` middleware rather than
+  per-route; there is nothing for an individual private endpoint to add. Each returns
+  `{leagueKey, summary, recent<Claims|Trades>, recent<...>Truncated}`, capped at
+  `_MARKET_LEDGER_RECENT_LIMIT` (100) most-recent rows — a browsing endpoint, not an export, so an
+  unbounded response was never on the table. Neither endpoint touches `latest_contract_data`;
+  both read the acquisition ledger directly through Batch 1's modules.
+- 8 new tests in `tests/api/test_market_ledger_endpoints.py`: default-league resolution, seeded
+  data round-tripping through the real HTTP layer (not just the library functions Batch 1 already
+  covers), unknown-league 400s, the recent-window truncation flag, and cross-league isolation at
+  the HTTP boundary.
+
+### Verification (Batch 3)
+
+```
+python3 -m pytest tests/api/test_market_ledger_endpoints.py tests/api/test_faab_recommend_endpoint.py \
+  tests/api/test_league_registry.py tests/acquisition/ tests/trade/ -q
+```
+→ 922 passed, 0 failed. `ruff check` clean; `ruff format --diff` shows only one pre-existing,
+unrelated hunk at `server.py:10535` (untouched by this diff, not introduced here).
 
 ### Next candidate batches (not started)
 
