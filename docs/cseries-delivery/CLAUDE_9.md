@@ -368,10 +368,12 @@ already-existing `src/packages` substrate.
 **Commit SHA:** *(recorded after commit — see git log)*
 
 **PR-ready status:** READY_FOR_INTEGRATION — small, self-contained, fully tested (including a mutation-proven
-test repair), near-zero production risk proven by a golden-fixture equality test. A broader cross-package
-regression sweep (`tests/roster_intel/` + `tests/trade/` + `tests/league_intel/` + `tests/api/`, several thousand
-tests) was still running in the background at commit time; its full result is recorded in a follow-up note below
-if it surfaced anything, otherwise treat its absence as confirmation it passed clean.
+test repair), near-zero production risk proven by a golden-fixture equality test.
+
+**Follow-up — broader cross-package sweep result (completed after commit):** `tests/roster_intel/` +
+`tests/trade/` + `tests/league_intel/` + `tests/api/` — **4,180 passed, 43 skipped (all pre-existing), 582
+subtests passed, 0 failed**, 518.89s. Zero regressions anywhere in the four directories most plausibly touched
+by this unit's change.
 
 ---
 
