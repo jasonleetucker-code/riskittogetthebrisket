@@ -20,6 +20,18 @@
 > qualification against the offensive `current_value` basis. **No production
 > weighting or voting is authorized by this correction.**
 
+> **SECOND CORRECTION, 2026-08-20 (Integration review on #950).** §15a(a) as
+> first written over-generalized a negative result on one untried API
+> parameter into a claim about the vendor's dynasty board. Owner-observed live
+> UI evidence shows Dynasty Dealer's dynasty rankings materially respond to
+> Superflex and TE-premium toggles. §15a(a) is now retitled and rewritten to
+> scope the finding to the tested acquisition path only; the "1QB basis"
+> inference is withdrawn as corroboration. Net effect: the same-basis gate now
+> has **one** remaining blocker (temporal — a static IDP snapshot vs. live
+> offense), not two, and the IDP scoring-variant question is answered (all
+> three declared in-payload). Bridge status is unchanged: **`PENDING`, does
+> not vote.**
+
 Every number below was produced by rebuilding the real contract (1,109 rows,
 all 21 registered sources) in-process. Nothing is quoted from prior documents
 without re-verification; where a canonical document is stale, that is recorded
@@ -722,17 +734,58 @@ The durable record is therefore:
 > Bridge eligibility now depends on demonstrating that those defensive values
 > share the same valuation basis as the offensive `current_value` API.
 
-### The same-basis gate does NOT pass — two measured blockers
+### The same-basis gate does NOT pass — one remaining measured blocker
+(originally two; see the 2026-08-20 correction to (a) below)
 
-**(a) The format flags are echo-only.** `scoringSettings` in the response
-reflects the *request*, not the data. `isSuperflex=true&isTePremium=true`
-changes **0 of 1,338 values**. An adapter trusting that field would believe it
-held a Superflex/TE-premium board while holding one unlabelled board — the same
-class of error as W18-F001, a label deciding a factual question. Corroborating
-evidence that the board is 1QB basis: QB1 Josh Allen 9,495 sits *below* RB1
-Bijan Robinson 10,000. This league is Superflex + TEP.
+**(a) CORRECTED, 2026-08-20 — the tested API parameters did not change the
+returned values.** This is a finding about the one acquisition-path
+experiment that was tried, not a finding about Dynasty Dealer's dynasty
+board. `isSuperflex=true&isTePremium=true` against `/api/player-values`
+changes **0 of 1,338 values**, and `scoringSettings` in the response reflects
+the *request*, not the data — so those two query parameters are inert on this
+endpoint. That is all the experiment showed.
 
-**(b) Offense and IDP are not the same quantity in time.**
+It does **not** show that Dynasty Dealer lacks dynasty Superflex/TE-premium
+support. The owner independently observed the *live UI* materially responding
+to Superflex and Tight End Premium toggles, and that observation is what
+resolves the question the failed parameters could not: the **default**
+`/api/player-values` payload (no parameters at all) already *is* the
+Superflex + TE-premium board. Measured against the owner's live-UI figures:
+
+| player | owner-observed (live UI, SF+TEP) | default API payload |
+|---|---|---|
+| Josh Allen | ~#4 overall, ~9,495 | **#4 overall, 9,495** |
+| Brock Bowers | ~#8, high 8,000s | **#8 overall, 8,611** |
+
+Exact on both rank and value. `sf` is a real parameter, but on the
+`?format=redraft` endpoint, not the dynasty one — there it changes 623 of
+1,000 values. The withdrawn inference below rested on treating a negative
+result on the wrong endpoint as evidence about the vendor's board; that was a
+label (or in this case an absent one) deciding a factual question, the same
+class of error as W18-F001 in the direction this lane exists to prevent.
+
+The live-UI format adjustment is applied **client-side**, not via a
+documented query parameter: every IDP row already carries
+`idp_formats: {tackle, balanced, bigplay}` with per-variant values in the
+payload (mechanism C), and the site's own bundle recomputes offense values in
+a `useEffect` keyed on `[isSuperflex, isTePremium]`, cached per format key
+(mechanism D). This does not block acquisition — our league *is* SF+TEP, so
+the unparameterized default payload already is the basis this lane needs; the
+transform is only the path to formats we do not use. The exact transform
+coefficients were not extracted (static analysis reached the call site, not
+the minified definition; the live UI itself could not be driven from this
+environment — see the acquisition-verdicts note below). No access control was
+bypassed or attempted in reaching either conclusion.
+
+**Withdrawn, not corroboration:** the earlier "QB1 sits below RB1, therefore
+1QB" inference. Restated as what it actually shows — the *default endpoint's*
+Josh Allen/Bijan Robinson ordering is now understood to be measurements of the
+Superflex + TE-premium board itself (see the table above), not evidence of a
+1QB basis.
+
+**(b) Offense and IDP are not the same quantity in time.** This blocker is
+**unaffected** by the (a) correction above and is, on its own, sufficient to
+keep the bridge `PENDING`.
 
 | | offense | IDP |
 |---|---|---|
@@ -742,13 +795,34 @@ Bijan Robinson 10,000. This league is Superflex + TEP.
 | range | max 10,000 · p50 16 · **min 0** | max 5,121 · p50 1,476 · min 73 |
 
 Live, crowd-vote-adjusted offense against a static 36-day-old un-voted IDP
-snapshot. The vendor's IDP page also offers tackle-heavy / balanced / big-play
-variants and the payload declares none, so the scoring variant is **UNKNOWN**.
+snapshot.
 
-**Bridge status: `PENDING`. It does not vote.** Qualification needs the format
-basis proven independently of the echoed flags, the IDP scoring variant
-identified, and an owner decision on whether a static IDP snapshot may bridge
-against live offense values.
+**IDP same-basis, re-measured after the (a) correction:**
+
+| question | answer |
+|---|---|
+| Cardinal IDP values? | **YES** — 338 rows, same `current_value` field as offense |
+| Same 0–10,000 axis as offense? | **YES** — offense max 10,000, IDP max 5,121, one scale |
+| Do SF/TE-premium alter IDP? | **NO** — 0 of 1,338 (correct: those are offense-format axes; IDP has no positional analogue to Superflex or TE premium) |
+| Does `includeIdp=true` alter offense? | **NO** — purely additive to the payload |
+| tackle-heavy / balanced / big-play variants declared? | **YES — all three ship in the payload**, keyed `idp_formats: {tackle, balanced, bigplay}`; the served default is `balanced` |
+| Variant provenance | uneven, and it travels with any future ingestion: `balanced` is `market`-sourced on 327/338 rows, but `bigplay` is `derived` on 230/338 and `tackle` on 194/338; `idp_confidence` is high on 134, medium 59, low 145 |
+| Does qualifying this bridge require syncing a Sleeper league? | **NO** — `/api/player-values` is a plain public GET, no authentication |
+
+So the scoring-variant question from the original blocker (b) is now
+answered — all three variants are present and labelled — and the format
+half of same-basis is resolved. **What remains is temporal, not
+format-related or scoring-related**: a live, crowd-adjusted offense book
+against an IDP snapshot frozen five weeks earlier with zero votes recorded.
+Also unanswered by the payload: whether the IDP trades backing those values
+come from Superflex/TEP leagues specifically, or a mixed-format crowd.
+
+**Bridge status: `PENDING` on one blocker, not two. It does not vote.**
+Qualification now needs only an owner decision on whether a static,
+un-voted IDP snapshot may bridge against live-adjusted offense values, and
+(if so) which of the three declared IDP variants this league's scoring
+should select. No production weighting or voting is authorized by this
+correction.
 
 ### Why it is worth qualifying
 
@@ -766,7 +840,7 @@ exactly the disagreement §10 identified as the hardest:
 Note also `min = 0` on the offense side: under MISSING IS NEVER ZERO those rows
 must be treated as unpriced at the adapter, never as zero-valued.
 
-Full working record: `docs/sources/C8_PR_A_BRIDGE_FOUNDATION.md` §7a
+Full working record: `docs/sources/LANE8_PR_A_BRIDGE_FOUNDATION.md` §7a
 (implementation lane **Claude 8 / Lane 8**, per the owner's designation of
 2026-08-20).
 
@@ -1255,7 +1329,7 @@ Reported, not fixed.
 | 8 | Can genuine combined sources remain unconstrained? | **Yes, structurally** — Type 1/2 sources never enter the translation seam. Live proof: `draftSharksIdp` contributes 6,485, above the proposed ceiling |
 | 9 | Can IDP Show Combined be acquired? | **Unproven** — paywalled, no repo evidence it exists. Owner action |
 | 10 | Can synced Draft Sharks 3D+ be acquired? | **Already acquired**, league 995704, and proven cross-position (ratio 0.9976) |
-| 11 | Are Dynasty Dealer IDP values available without Pro? | **Yes — no Pro needed.** Corrected in §15a: `?includeIdp=true` returns 338 cardinal IDP rows. Bridge status **PENDING** on two measured same-basis blockers |
+| 11 | Are Dynasty Dealer IDP values available without Pro? | **Yes — no Pro needed.** Corrected in §15a: `?includeIdp=true` returns 338 cardinal IDP rows, all three scoring variants declared. Bridge status **PENDING** on one remaining same-basis blocker (temporal: static IDP snapshot vs. live offense) |
 | 12 | Is Dynasty Nerds Premium necessary? | **No.** Public IDP Top-275 is ranks/tiers only; Premium unproven and unjustified |
 | 13 | How should specialists and bridges interact? | §20 — specialists order within domain, bridges price the domain, bridge layer aggregates and never selects |
 | 14 | What is the exact implementation plan? | §24 order, §25 files, §28 prompt. **Nothing authorized by this document** |
