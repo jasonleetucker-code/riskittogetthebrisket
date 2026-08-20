@@ -71,11 +71,11 @@ export default function TopBar({
   const systemItems = systemItemsFor({ isAdmin });
 
   return (
-    <header className="shell-topbar" data-html2canvas-ignore>
+    <header className="shell-topbar psi-editorial" data-html2canvas-ignore>
       <div className="shell-topbar-inner">
         <Link href="/" className="shell-brand">
           <span className="shell-brand-mark" aria-hidden="true">
-            ▪
+            CU
           </span>
           Chase Upside
         </Link>

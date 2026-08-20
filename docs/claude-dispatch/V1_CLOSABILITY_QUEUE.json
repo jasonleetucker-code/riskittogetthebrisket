@@ -1,21 +1,12 @@
 {
   "_comment": "Live V1 Closability Queue, owned by Claude 7 as independent V1 traffic controller / adversarial auditor. Ranks IMPLEMENTED_UNVERIFIED rows by verification effort per row gained. NOT an authority on V1 status — only Claude 5 promotes a row, and no percentage here is claimed as achieved.",
-  "updatedAt": "2026-08-20T03:57:00Z",
-  "auditCycle": 2,
+  "updatedAt": "2026-08-20T15:45:00Z",
+  "auditCycle": 38,
   "evidenceBasis": {
     "contract": "docs/VERSION_1_COMPLETION_CONTRACT.md §3 read on origin/main e3b387ca5",
     "deployedSha": "e3b387ca5",
     "deployProof": "Deploy Production run completed SUCCESS 2026-08-19T21:07:35Z on head e3b387ca5 — identical to current main",
     "method": "per-PR exact-head check runs, git merge-tree mergeability, git grep against origin/main for the claimed properties"
-  },
-  "v1Status": {
-    "verified": 47,
-    "denominator": 132,
-    "percent": 35.6,
-    "note": "47/132 (35.6%) on main, row-diffed. Session net: 40 -> 47. V1-34 (L1) and V1-130 (L2) promoted via #941; V1-51 and V1-95 corrected upward in status without being promoted.",
-    "implementedUnverified": 22,
-    "inProgress": 32,
-    "notStarted": 29
   },
   "deployState": {
     "correctionAccepted": "Cycle 1 collapsed four distinct facts into 'main is deployed'. Separated below.",
@@ -224,7 +215,8 @@
       "V1-19 — item 3 needs an irrecoverable artifact; owner ruling only"
     ],
     "deltaVsCycle1": "cycle 1 projected 43 at the Tier A step and 53 at the end. Corrected: 41 and 52. The Tier A over-count was the substantive error.",
-    "honestTail": "33 rows NOT STARTED and 34 IN PROGRESS. Verification batching converts an already-earned 30.3% into a truthful ~39%; it does not build the remaining half."
+    "honestTail": "33 rows NOT STARTED and 34 IN PROGRESS. Verification batching converts an already-earned 30.3% into a truthful ~39%; it does not build the remaining half.",
+    "_authority": "Projections are conditional arithmetic over the DERIVED observation above, not statements of V1 status. Only Claude 5 promotes a row, and no figure here counts until the contract on main changes."
   },
   "continue": [
     "Lane 4 — #932 is the verification instrument and has the highest V1 leverage of any open work",
@@ -387,6 +379,63 @@
       "constraint": "the session gate must not be relaxed to achieve this"
     },
     "notAssignable": "Claude 7 cannot dispatch either batch: both need production access this dispatcher does not have and must not fabricate.",
-    "statusAtCycle18": "STILL UNRUN. This is now the single largest identified lever on the numerator and it has been available since #932 merged. It needs an operator on the box; no lane and no dispatcher can supply that."
+    "statusAtCycle18": "STILL UNRUN. This is now the single largest identified lever on the numerator and it has been available since #932 merged. It needs an operator on the box; no lane and no dispatcher can supply that.",
+    "statusAtCycle19": "STILL UNRUN, ~2.5h after becoming executable. Nothing else on the board converts as cheaply."
+  },
+  "queueScorecard": {
+    "rowsThisQueueRankedThatAreNowVERIFIED": [
+      "V1-119 (its sole Tier A)",
+      "V1-64 (its Tier B micro-PR)",
+      "V1-81 (one of its four L2 rows)"
+    ],
+    "rowsThisQueueRefusedThatRemainUnpromoted": [
+      "V1-88 — refused for want of an exact endpoint-naming proof; has now survived THREE promotion passes unpromoted"
+    ],
+    "coverageGapAcknowledged": "Rows that go IN PROGRESS -> VERIFIED in one motion (V1-28, V1-30, V1-33, V1-39, V1-44, V1-114..V1-118) were never ranked here, because the queue ranked IMPLEMENTED_UNVERIFIED rows. That is most of the +15.",
+    "standingRecommendationStillUnactioned": "the on-box batch (V1-57, V1-129, V1-60)"
+  },
+  "v1DerivedObservation": {
+    "_authority": "NOT AUTHORITATIVE. docs/VERSION_1_COMPLETION_CONTRACT.md §3 is the sole owner of the V1 numerator and denominator. This block is a DERIVED READING of that file, kept only so the dispatcher can rank work by effort-per-row.",
+    "_staleByConstruction": true,
+    "_ifTheyDisagree": "the contract wins, always, and this block is the thing that is wrong.",
+    "_doNotQuote": "Do not cite this block as the V1 status. Read the contract on current main instead.",
+    "observedVerifiedRows": 60,
+    "observedRequiredRows": 136,
+    "observedAtSha": "0c6f1fdcd",
+    "observedAt": "2026-08-20T15:42:00Z",
+    "howObserved": "counted `VERIFIED` in the §3 table of the contract as it exists at that exact SHA",
+    "note": "VERIFIED unchanged at 60/136. No promotion pass since #988 (cycle 36)."
+  },
+  "_authorityNote": "This queue RANKS work by verification effort. It does not own, publish or restate V1 status. docs/VERSION_1_COMPLETION_CONTRACT.md §3 owns that, and every count in this file is a derived reading stamped with the SHA it came from.",
+  "cycle38": {
+    "promotionPassRan": "NO. V1-52 moved NOT STARTED -> IN PROGRESS as a status correction (#994), not a promotion.",
+    "tierB": {
+      "V1-106": "EIGHTEENTH cycle. Still IN PROGRESS, still citing only PR #760, still the ONLY standing item with no PR or fix in flight anywhere.",
+      "V1-108": "Implementation merged (#989, cycle 36). Promotion still pending, two cycles later.",
+      "V1-88": "Implementation open (#991). Still unmerged."
+    },
+    "standingItems": [
+      {
+        "item": "Lane 2 ACTIONABLE_IDLE",
+        "elapsed": "~23h; branch still 9e9d8e8ec",
+        "row": "V1-43 NOT STARTED, target L1, unblocked on plain main",
+        "blocker": "ASSIGNMENT DELIVERY of L2-2026-08-19-02",
+        "dispatcherAction": "Surfaced only. No second assignment written."
+      },
+      {
+        "item": "Lane 4 on-box verification batch",
+        "rows": "V1-57, V1-129, V1-60 — IMPLEMENTED_UNVERIFIED",
+        "elapsed": "~23.5h; branch still 66fb1a053"
+      },
+      {
+        "item": "Abandoned refs, verified by name",
+        "present": [
+          "v1/premium-ui c025e4f68",
+          "integration/rc-937 80b7b948d",
+          "integration/rc-wave-a 213f91513"
+        ]
+      }
+    ],
+    "stalePRsUnacted": "#759 and #760 still open against landed code. Fourteenth cycle."
   }
 }

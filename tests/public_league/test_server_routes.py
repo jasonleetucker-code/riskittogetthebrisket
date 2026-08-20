@@ -81,6 +81,42 @@ class PublicLeagueRouteTests(unittest.TestCase):
         r = self.client.get("/api/public/league/nope")
         self.assertEqual(r.status_code, 404)
 
+    def test_ros_power_default_lens_is_forward_looking(self) -> None:
+        from src.ros import power_v2
+
+        r = self.client.get("/api/public/league/rosPower")
+        self.assertEqual(r.status_code, 200)
+        body = r.json()
+        self.assertEqual(body["data"]["lens"], power_v2.LENS_FORWARD_LOOKING)
+
+    def test_ros_power_results_only_lens_is_reachable_over_http(self) -> None:
+        """V1-52 step 1 shipped the results-only lens inside power_v2, but
+        nothing threaded it through the HTTP route — the query param did
+        not exist. This is the plumbing that closes that gap."""
+        from src.ros import power_v2
+
+        r = self.client.get("/api/public/league/rosPower?lens=results_only")
+        self.assertEqual(r.status_code, 200)
+        body = r.json()
+        self.assertEqual(body["data"]["lens"], power_v2.LENS_RESULTS_ONLY)
+        # A real ranking, not a passthrough of the default payload — the
+        # fixture has real weekly matchups so results-only components
+        # (wl_record, ppg, all_play, streak) survive without a team
+        # strength file.
+        self.assertTrue(body["data"]["currentRanking"])
+
+    def test_ros_power_unknown_lens_rejected(self) -> None:
+        r = self.client.get("/api/public/league/rosPower?lens=bogus")
+        self.assertEqual(r.status_code, 400)
+        self.assertIn("availableLenses", r.json())
+
+    def test_lens_param_is_a_noop_outside_ros_power(self) -> None:
+        # The lens only means something for rosPower; every other section
+        # must ignore it silently rather than erroring on an unrecognized
+        # query param that happens to be present.
+        r = self.client.get("/api/public/league/overview?lens=results_only")
+        self.assertEqual(r.status_code, 200)
+
     def test_full_contract_never_leaks_private_field_names(self) -> None:
         r = self.client.get("/api/public/league")
         self.assertEqual(r.status_code, 200)

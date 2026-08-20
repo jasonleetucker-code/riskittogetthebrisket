@@ -61,7 +61,7 @@ function DrawerGroup({ label, items, pathname, onNavigate }) {
 export function MobileTopBar({ authenticated, onSearch, searchEnabled = true }) {
   const pathname = usePathname();
   return (
-    <header className="shell-mobile-topbar" data-html2canvas-ignore>
+    <header className="shell-mobile-topbar psi-editorial" data-html2canvas-ignore>
       <span className="shell-mobile-title">{pageTitleFor(pathname)}</span>
       <div className="shell-mobile-actions">
         {authenticated && <LeagueSwitcher variant="mobile" />}
@@ -115,7 +115,7 @@ export function MobileTabBar({ authenticated, isAdmin, isPublic, onLogout }) {
 
   return (
     <>
-      <nav className="shell-tabbar" aria-label="Primary" data-html2canvas-ignore>
+      <nav className="shell-tabbar psi-editorial" aria-label="Primary" data-html2canvas-ignore>
         {tabs.map((tab) => (
           <Link
             key={tab.href}
@@ -139,7 +139,12 @@ export function MobileTabBar({ authenticated, isAdmin, isPublic, onLogout }) {
         </button>
       </nav>
 
-      <Drawer open={menuOpen} onClose={() => setMenuOpen(false)} title="Menu">
+      <Drawer
+        open={menuOpen}
+        onClose={() => setMenuOpen(false)}
+        title="Menu"
+        className="psi-editorial"
+      >
         {groups.map((group) => (
           <DrawerGroup
             key={group.key}

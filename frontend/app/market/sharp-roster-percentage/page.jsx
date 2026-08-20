@@ -26,6 +26,7 @@ import {
   buildTransparencyTiles,
   classifyEmptyState,
   describeBuySell,
+  describeManagerConcentration,
   describeTrend,
   formatCount,
   formatDelta,
@@ -246,8 +247,14 @@ export default function SharpRosterPercentagePage() {
       {
         key: "sample",
         header: "Sample",
-        headerInfo: "Rosters holding the player / eligible rosters in his calculation.",
-        render: (row) => <span className="muted">{formatSample(row)}</span>,
+        headerInfo:
+          "Rosters holding the player / eligible rosters in his calculation. " +
+          "A manager count in parens means those rosters are not all independent opinions.",
+        render: (row) => (
+          <span className="muted" title={describeManagerConcentration(row)}>
+            {formatSample(row)}
+          </span>
+        ),
         sortAccessor: (row) => row.eligibleRosters,
       },
       {

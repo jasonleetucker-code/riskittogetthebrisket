@@ -45,6 +45,7 @@ from __future__ import annotations
 
 import logging
 import time
+from collections import Counter
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable, Iterable, Sequence
@@ -592,6 +593,11 @@ def build_board(
     roster_keys = {str(r["rosterKey"]) for r in filtered}
     holders, slot_counts = _tally(filtered)
     denominators, unknown_format = _denominators(filtered)
+    # W15-F009 (inv 4.6): every ``filtered`` roster already passed the
+    # cohort-membership gate in ``eligible_rosters``, so its ``managerKey``
+    # is guaranteed present — this map is total over ``roster_keys``, not
+    # a best-effort join, and needs no "unknown manager" fallback bucket.
+    roster_manager = {str(r["rosterKey"]): str(r["managerKey"]) for r in filtered}
 
     player_index = build_player_index(contract)
     asset_catalog = _catalog_metadata(ledger_path)
@@ -652,6 +658,15 @@ def build_board(
         if meta.get("value") is None:
             unpriced += 1
 
+        # W15-F009 (inv 4.6): a player rostered by five teams belonging to
+        # one manager is not five independent opinions. ``counted`` is
+        # never empty here (every asset_id in ``holders`` has at least one
+        # holding roster), so this is always a real measurement, never an
+        # undefined ratio standing in for a missing one.
+        manager_counts = Counter(roster_manager[rk] for rk in counted)
+        distinct_managers = len(manager_counts)
+        manager_concentration = max(manager_counts.values()) / len(counted)
+
         market = market_pct.get(asset_id)
         row = {
             "assetId": asset_id,
@@ -663,6 +678,8 @@ def build_board(
             "sharpRosters": len(counted),
             "eligibleRosters": len(applicable),
             "sharpRosterPct": round(pct, 6),
+            "distinctManagers": distinct_managers,
+            "managerConcentration": round(manager_concentration, 6),
             "marketRosterPct": market,
             "sharpRosterAdvantage": (round(pct - market, 6) if market is not None else None),
             "value": meta.get("value"),
