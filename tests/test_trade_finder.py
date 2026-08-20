@@ -6,6 +6,7 @@ for board-arbitrage trades (good for me on our model, plausible
 for the opponent on KTC).
 """
 
+from src.packages import UNCONSTRAINED_OUTGOING
 from src.trade.finder import (
     Asset,
     TradeCandidate,
@@ -437,7 +438,7 @@ class TestPackageGeneration:
     def test_generates_one_for_one(self):
         my = [_make_asset("Mine1", 4000, 5500), _make_asset("Mine2", 3000, 4000)]
         opp = [_make_asset("Theirs1", 5000, 4500), _make_asset("Theirs2", 4000, 3500)]
-        trades, report = _generate_packages(my, opp)
+        trades, report = _generate_packages(my, opp, UNCONSTRAINED_OUTGOING)
         assert len(trades) > 0
         assert (1, 1) in _shapes(trades)
         assert report["oneForOne"]["ourPoolSize"] == 2
@@ -445,7 +446,7 @@ class TestPackageGeneration:
     def test_skips_low_value(self):
         my = [_make_asset("Low", 100, 100)]
         opp = [_make_asset("Also Low", 200, 200)]
-        trades, report = _generate_packages(my, opp)
+        trades, report = _generate_packages(my, opp, UNCONSTRAINED_OUTGOING)
         assert trades == []
         # Excluded by the eligibility policy, and the count says so rather
         # than the pool quietly being empty.
@@ -458,7 +459,7 @@ class TestPackageGeneration:
             _make_asset("C", 1500, 2000),
         ]
         opp = [_make_asset("Star", 5000, 4500)]
-        trades, _report = _generate_packages(my, opp)
+        trades, _report = _generate_packages(my, opp, UNCONSTRAINED_OUTGOING)
         for shape in _shapes(trades):
             assert shape in {(1, 1), (2, 1), (1, 2)}
 
@@ -468,7 +469,7 @@ class TestPackageGeneration:
             _make_asset("Part1", 3500, 3000),
             _make_asset("Part2", 3000, 2500),
         ]
-        trades, _report = _generate_packages(my, opp)
+        trades, _report = _generate_packages(my, opp, UNCONSTRAINED_OUTGOING)
         for t in trades:
             assert len(t.give) in (1,)
             assert len(t.receive) in (1, 2)
@@ -477,19 +478,19 @@ class TestPackageGeneration:
         """No 2-for-2, no 3-for-anything — the shape plan is explicit."""
         my = [_make_asset(f"M{i}", 3000 + i * 100, 3500 + i * 100) for i in range(4)]
         opp = [_make_asset(f"T{i}", 3000 + i * 100, 3400 + i * 100) for i in range(4)]
-        trades, _report = _generate_packages(my, opp)
+        trades, _report = _generate_packages(my, opp, UNCONSTRAINED_OUTGOING)
         assert set(_shapes(trades)) <= {(1, 1), (2, 1), (1, 2)}
 
     def test_an_asset_never_appears_on_both_sides(self):
         shared = _make_asset("Shared", 4000, 4200)
-        trades, _report = _generate_packages([shared], [shared])
+        trades, _report = _generate_packages([shared], [shared], UNCONSTRAINED_OUTGOING)
         assert trades == []
 
     def test_truncation_is_reported_not_silent(self):
         """The retired ``[:30]`` slice reported nothing."""
         my = [_make_asset(f"M{i:03d}", 5000 - i, 5200 - i) for i in range(40)]
         opp = [_make_asset(f"T{i:03d}", 5000 - i, 4800 - i) for i in range(40)]
-        _trades, report = _generate_packages(my, opp)
+        _trades, report = _generate_packages(my, opp, UNCONSTRAINED_OUTGOING)
         assert report["asymmetric"]["ourTruncatedTo"] == 30
         assert report["asymmetric"]["truncated"] is True
         # 1-for-1 is deliberately unbounded, exactly as before.
@@ -514,7 +515,7 @@ class TestPackageGeneration:
         crown = _make_asset("Zzz Crown", 4000, 9999)
         my.append(crown)
         opp = [_make_asset("Target", 4500, 5000)]
-        trades, _report = _generate_packages(my, opp)
+        trades, _report = _generate_packages(my, opp, UNCONSTRAINED_OUTGOING)
         assert any(
             any(a.name == "Zzz Crown" for a in t.give) for t in trades
         ), "the most valuable asset must survive the pool bound"

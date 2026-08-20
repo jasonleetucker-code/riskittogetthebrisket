@@ -14,6 +14,7 @@ from src.packages import (
     PackageAsset,
     PackageShape,
     adapt_assets,
+    UNCONSTRAINED_OUTGOING,
     enumerate_packages,
     package_key,
     side_key,
@@ -25,6 +26,7 @@ def _a(name: str, value: float | None = 1000.0, position: str = "RB", asset_id: 
 
 
 def _run(ours, theirs, **kw):
+    kw.setdefault("outgoing_policy", UNCONSTRAINED_OUTGOING)
     packages, report = enumerate_packages(ours, theirs, adapt=False, **kw)
     return list(packages), report
 
@@ -276,7 +278,7 @@ def test_sources_round_trip_so_products_score_what_was_enumerated():
             self.player_id = n
 
     ours, theirs = [_Thing("A")], [_Thing("B")]
-    packages, _r = enumerate_packages(ours, theirs)
+    packages, _r = enumerate_packages(ours, theirs, outgoing_policy=UNCONSTRAINED_OUTGOING)
     (pair,) = list(packages)
     send, receive = pair.sources()
     assert send[0] is ours[0]
@@ -409,7 +411,10 @@ def test_enumerate_packages_enforces_topology_and_reports_what_it_refused():
     theirs = [_pa("z", "PICK")]  # their only asset is a pick — zero players
 
     packages, report = enumerate_packages(
-        ours, theirs, shapes=[PackageShape(3, 1), PackageShape(1, 1)]
+        ours,
+        theirs,
+        outgoing_policy=UNCONSTRAINED_OUTGOING,
+        shapes=[PackageShape(3, 1), PackageShape(1, 1)],
     )
     emitted = list(packages)
 
@@ -436,7 +441,9 @@ def test_topology_can_be_switched_off_for_a_caller_that_is_not_generating():
     ours = [_pa("a", "RB"), _pa("b", "WR"), _pa("c", "TE")]
     theirs = [_pa("z", "QB")]
 
-    strict_packages, strict = enumerate_packages(ours, theirs, shapes=[PackageShape(3, 1)])
+    strict_packages, strict = enumerate_packages(
+        ours, theirs, outgoing_policy=UNCONSTRAINED_OUTGOING, shapes=[PackageShape(3, 1)]
+    )
     # The report is filled in AS THE ITERATOR RUNS — draining it is what makes
     # the counters meaningful.  See the laziness note in `enumerate_packages`.
     assert list(strict_packages) == []
@@ -444,7 +451,11 @@ def test_topology_can_be_switched_off_for_a_caller_that_is_not_generating():
     assert strict.topology_rejected == 1
 
     packages, loose = enumerate_packages(
-        ours, theirs, shapes=[PackageShape(3, 1)], enforce_topology=False
+        ours,
+        theirs,
+        outgoing_policy=UNCONSTRAINED_OUTGOING,
+        shapes=[PackageShape(3, 1)],
+        enforce_topology=False,
     )
     assert len(list(packages)) == 1
     assert loose.topology_rejected == 0
@@ -465,7 +476,9 @@ def test_the_report_is_only_complete_once_the_iterator_is_drained():
     ours = [_pa("a", "RB"), _pa("b", "WR"), _pa("c", "TE")]
     theirs = [_pa("z", "QB")]
 
-    packages, report = enumerate_packages(ours, theirs, shapes=[PackageShape(3, 1)])
+    packages, report = enumerate_packages(
+        ours, theirs, outgoing_policy=UNCONSTRAINED_OUTGOING, shapes=[PackageShape(3, 1)]
+    )
     # Final immediately — these do not depend on the walk.
     assert (report.our_pool_size, report.their_pool_size) == (3, 1)
     # Not yet meaningful.

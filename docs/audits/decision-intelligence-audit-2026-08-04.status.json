@@ -485,16 +485,16 @@
    "auditEvidence": "suggestions.py:1614 `roster = analyze_roster(roster_names, pool, starter_needs)` is called with the ALREADY-FILTERED pool (server.py:5913 builds it with ktc_top_n=150). Measured on the live contract with dynasty_main starter needs, per team: Blaine roster=53 matched=5 total=0; Collin 58/10 total=0; Ed 57/10 total=0; Joey 58/10 total=0; Kich 58/9 total=0; Roy 51/7 total=0; Ty 56/7 total=0; jstuedle",
    "auditId": "T-9",
    "path": "src/trade/suggestions.py",
-   "signature": "analyze_roster(roster_names, pool, starter_needs)",
+   "signature": "analyze_roster(roster_names, pool",
    "status": "open",
-   "verifiedBy": "Still called with a name list the pool can only partly resolve.",
+   "verifiedBy": "Still called with a name list the pool can only partly resolve.\n\nSIGNATURE RESPELLED 2026-08-19 (C3-CON-01), STATUS DELIBERATELY UNCHANGED. The call site gained a `constraints=` keyword when the recommendation-constraint owner was wired in, so the old needle `analyze_roster(roster_names, pool, starter_needs)` stopped matching and the probe flipped to signature_absent. That is the case this module's own docstring warns about: an absent signature means the cited MECHANISM changed, not that the defect is fixed. It is not fixed \u2014 C3-CON-01 decides which resolved assets may be OFFERED and does nothing whatever about resolution, which is what T-9 is about. The needle is respelled to the part that IS the defect (the name list reaching `analyze_roster`) rather than to the full argument list, so a further keyword cannot flip it again and invite a second close-on-a-respelling.",
    "closedBy": null,
    "measuredEffect": null,
    "batch": null,
    "probe": {
     "result": "signature_present",
     "path": "src/trade/suggestions.py",
-    "needle": "analyze_roster(roster_names, pool, starter_needs)"
+    "needle": "analyze_roster(roster_names, pool"
    }
   },
   {
