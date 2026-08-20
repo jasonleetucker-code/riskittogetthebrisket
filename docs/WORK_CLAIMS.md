@@ -19,6 +19,30 @@ branches are evidence.
 
 ---
 
+## What an active claim blocks — and what it does not (2026-08-20)
+
+Added when the owner authorized the POST-V1 C-Series mass-build campaign
+(`docs/EXECUTION_PLAN.md` §0), which puts five lanes through this list at once.
+
+A claim blocks **concurrent edits to the files and defect scope it names.** It does **not**
+block an entire lane.
+
+When a lane reaches a unit whose files are actively claimed:
+
+1. mark that **unit** `BLOCKED_BY_ACTIVE_CLAIM`, naming the claim it collided with;
+2. **move to the next dependency-ready unit** — do not stop the session;
+3. do **not** fork the file, and do **not** build a parallel implementation to route around the
+   claim. That turns a scheduling conflict into a permanent second owner, which costs far more
+   than waiting.
+
+**A claim's scope is what it wrote down, not the area it sits in.** A repair-only claim naming
+specific frontend defects does not reserve all of C8/C9/C10; a claim on one trade file does not
+reserve the trade substrate. Read the row's `Paths` and `Defect ids` — those are the boundary.
+
+**Stale rows are a real cost now.** A claim left `open` after its work merged reports a live
+editor who is not there, and under a five-lane campaign that manufactures false blocks. Set your
+row `done` in your last commit.
+
 ## Open claims
 
 | Claim | Paths | Defect ids | Branch | Status |
