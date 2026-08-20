@@ -33,7 +33,7 @@ there is no code path where a missing ``discovered_at`` degrades into
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import datetime
 from pathlib import Path
 
 from src.analyst.claim import AnalystClaim, independent_claims
