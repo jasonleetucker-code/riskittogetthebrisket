@@ -128,8 +128,7 @@ def test_the_guard_catches_an_undeclared_second_weakness_owner():
     """Positive control, Team Weakness side (V1-32)."""
     probe = REPO / "src" / "roster_intel" / "_v132_dup_probe.py"
     probe.write_text(
-        "def build_team_weakness(core, ranks, *, team_count):\n"
-        "    return None\n",
+        "def build_team_weakness(core, ranks, *, team_count):\n" "    return None\n",
         encoding="utf-8",
     )
     try:
@@ -164,5 +163,7 @@ def test_engine_py_renamed_rather_than_redefined_position_need():
     src = (REPO / "src" / "roster_intel" / "engine.py").read_text(encoding="utf-8")
     tree = ast.parse(src)
     defined = {n.name for n in ast.walk(tree) if isinstance(n, ast.ClassDef)}
-    assert "PositionNeed" not in defined, "engine.py redefines PositionNeed — collides with weakness.PositionNeed"
+    assert (
+        "PositionNeed" not in defined
+    ), "engine.py redefines PositionNeed — collides with weakness.PositionNeed"
     assert "PositionDeficit" in defined
