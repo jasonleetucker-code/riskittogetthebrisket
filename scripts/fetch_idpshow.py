@@ -171,6 +171,50 @@ def _extract_chart_id(html: str) -> str | None:
     return m.group(1)
 
 
+def _extract_all_chart_ids(html: str) -> list[str]:
+    """Every distinct Datawrapper chart embedded in the article, in order.
+
+    :func:`_extract_chart_id` returns the FIRST iframe, which is right for
+    the IDP-only post (one chart) and WRONG for the combined post, which
+    embeds two: a top-250 excerpt and the full 700+ board.  Taking the
+    first silently ingests the excerpt — measured 2026-08-20, that cost
+    277 of the 350 IDP players their cross-market placement.
+    """
+    seen: list[str] = []
+    for m in re.finditer(r"datawrapper\.dwcdn\.net/([A-Za-z0-9]+)/", html):
+        cid = m.group(1)
+        if cid not in seen:
+            seen.append(cid)
+    return seen
+
+
+def _pick_widest_chart(session, chart_ids: list[str]) -> tuple[str, str, str] | None:
+    """Choose the chart with the MOST data rows, and say why.
+
+    Selection is on measured row count rather than on document order or a
+    hardcoded id, for two reasons: the author can reorder the embeds, and a
+    hardcoded id silently breaks the day the chart is republished under a
+    new one.  Ties and empty responses lose - a truncated fetch must never
+    win by default, which is the same fail-closed posture as the 0-rows
+    guard in :func:`main`.
+    """
+    best: tuple[str, str, str] | None = None
+    best_rows = 0
+    for cid in chart_ids:
+        version = _resolve_latest_version(session, cid)
+        if not version:
+            continue
+        try:
+            csv_text = _fetch_dataset_csv(session, cid, version)
+        except RuntimeError:
+            continue
+        rows = max(0, len(csv_text.splitlines()) - 1)
+        print(f"[idpshow]   candidate {cid} v{version}: {rows} rows")
+        if rows > best_rows:
+            best, best_rows = (cid, version, csv_text), rows
+    return best
+
+
 def _resolve_latest_version(session, chart_id: str) -> str | None:
     """Follow Datawrapper's JS/meta-refresh redirects to find the
     current published version of a chart.
@@ -380,6 +424,33 @@ def main(argv: list[str] | None = None) -> int:
             file=sys.stderr,
         )
         return 1
+
+    if args.combined:
+        # The combined post embeds a top-250 excerpt AND the full 700+
+        # board.  Pick by measured width, never by document order.
+        candidates = _extract_all_chart_ids(html)
+        print(f"[idpshow] combined post embeds {len(candidates)} chart(s): {candidates}")
+        picked = _pick_widest_chart(session, candidates)
+        if not picked:
+            print(
+                "[idpshow] ERROR: no Datawrapper chart in the combined post "
+                "returned a usable dataset.",
+                file=sys.stderr,
+            )
+            return 1
+        chart_id, version, csv_text = picked
+        print(f"[idpshow] chart_id={chart_id} version={version} (widest of {len(candidates)})")
+        rows = _parse_dataset(csv_text)
+        print(f"[idpshow] parsed {len(rows)} rows")
+        if not rows:
+            print("[idpshow] ERROR: 0 rows parsed — refusing to overwrite.", file=sys.stderr)
+            return 1
+        if args.dry_run:
+            print("[idpshow] dry run — not writing")
+            return 0
+        count = _write_csv(out_path, rows)
+        print(f"[idpshow] wrote {count} rows → {out_path.relative_to(REPO)}")
+        return 0
 
     chart_id = _extract_chart_id(html)
     if not chart_id:
