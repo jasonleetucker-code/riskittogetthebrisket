@@ -50,7 +50,7 @@ function toLeagueSet(sleeperTeams) {
  * @param {Array}  args.sleeperTeams Full sleeper.teams[] from rawData
  * @param {string} args.scope        "roster" | "league" | "top150"
  * @param {number} args.limit        max items (default 20)
- * @returns {Array<{name, pos, value, rank, change, onRoster, key}>}
+ * @returns {Array<{name, pos, value, rank, change, onRoster, confidence, key}>}
  */
 export function computeMovers({
   rows,
@@ -89,6 +89,15 @@ export function computeMovers({
       rank: Number(r.canonicalConsensusRank) || null,
       change: Number(r.rankChange),
       onRoster: rosterSet.has(String(r.name).toLowerCase()),
+      // Pass-through of the row's own canonical evidence-breadth score
+      // (0..1, null when unmeasured — never coerced to 0). Same field
+      // ds/Badge's <Movement>/<Confidence> already expect elsewhere.
+      // `r.confidence == null` guards BEFORE the Number() coercion:
+      // Number(null) is 0, so checking Number.isFinite() after coercion
+      // would turn "unmeasured" into a confident zero.
+      confidence: r.confidence == null || !Number.isFinite(Number(r.confidence))
+        ? null
+        : Number(r.confidence),
     }));
 
   // Sort by magnitude of change, descending.  Ties resolved by
@@ -101,13 +110,4 @@ export function computeMovers({
   });
 
   return moved.slice(0, limit);
-}
-
-/**
- * Render-friendly delta label, e.g. "▲ 12" or "▼ 3".
- */
-export function formatChange(change) {
-  if (!Number.isFinite(change) || change === 0) return "·";
-  const abs = Math.abs(change);
-  return change > 0 ? `▲ ${abs}` : `▼ ${abs}`;
 }

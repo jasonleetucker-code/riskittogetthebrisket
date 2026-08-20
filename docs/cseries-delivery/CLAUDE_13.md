@@ -72,8 +72,67 @@ its status.
 _(Updated at the end of each batch — what shipped, what was verified, what's deliberately not
 claimed.)_
 
-### Setup — in progress
+### Setup — done
 
 - Branch `claude/cseries-premium-public-closure` created from `origin/main` @ `daf3c981`.
-- This delivery doc created.
-- `docs/WORK_CLAIMS.md` row to follow in the same commit as Batch 1's first change.
+- This delivery doc created; `docs/WORK_CLAIMS.md` row added for Batch 1.
+
+### Batch 1 (C8-PSI-01 / C8-A11Y-01) — Chase Upside Market Ticker — `FEATURE_GREEN`, `READY_FOR_INTEGRATION`
+
+Elevated the existing `frontend/components/terminal/MarketTicker.jsx` (live on `/`) to Premium
+Sports Intelligence quality, rather than forking a second ticker — building a parallel surface
+would itself be the "two competing Premium UI implementations" defect this campaign is told to
+avoid.
+
+**Plan revision, recorded honestly:** the original plan (see the approved plan file) assumed
+switching the ticker's data source to `/api/terminal`'s server-computed `movers.*` block and
+threading `confidenceBucket` through `src/api/terminal.py::_compute_movers()`. Reading the actual
+code first (this repo's own non-negotiable rule) found that unnecessary: `MarketTicker.jsx` already
+reads the full materialized contract (`rows` from `useApp()`), and every row already carries
+`confidence` (`marketBreadthAgreementIndex ?? marketConfidence`, null-safe) — the exact field
+`ds/Badge`'s `Movement`/`Confidence` components are built to consume. So the whole batch stayed
+frontend-only, with a smaller diff than planned and zero backend changes.
+
+**What shipped:**
+- `frontend/lib/market-movers.js::computeMovers()` passes `confidence` through per mover, guarded
+  against `Number(null) === 0` silently coercing an unmeasured row into a confident zero (caught by
+  a RED test before the fix — `frontend/__tests__/market-movers.test.js`).
+- `frontend/components/terminal/MarketTicker.jsx`: scope switch moved from a hand-rolled
+  `role="tablist"` to `ds/SegmentedControl` (a filter over one list, not tabpanels — this repo's own
+  documented rule); raw colored deltas moved to `ds/Badge`'s `<Movement>` (arrow + magnitude +
+  confidence ticks, `--data-up`/`--data-down` tokens); added a freshness affordance from the
+  contract's own `generatedAt`, formatted with the existing `timeAgo()` helper
+  (`frontend/lib/news-service.js`) rather than a new one.
+- `frontend/components/terminal/market-ticker.module.css` (new): structural/layout rules only —
+  delta color and scope-switch styling now live in `ds.css` via the primitives, so nothing
+  duplicates `globals.css` (which is untouched — it's the active Lane 6 claim's file).
+- `frontend/__tests__/a11y-tab-roles.test.js`: de-listed `MarketTicker.jsx` from its baseline
+  (2 → 0 `role="tab"` sites), per that test's own designed ratchet — leaving a fixed file's stale
+  entry in place is what the test exists to catch.
+
+**Verified:**
+- New test suite green (5 tests): confidence pass-through, null-not-zero, filtering, sort order.
+- Full frontend suite green: 143 test files / 2,245 tests (including the new file), zero
+  regressions.
+- `next build` completes cleanly (the three `TypeError`s in the build log are pre-existing static
+  pre-render attempts against `/api/public/league*` with no backend running in this sandbox — not
+  from this change; unaffected by anything in this batch).
+
+**Deliberately NOT claiming:**
+- `src/api/terminal.py` / `/api/terminal`'s `movers.*` block. The research that informed this
+  campaign flagged `computeMovers()` as a client-side duplicate of `_compute_movers()` — that
+  observation still stands and is worth fixing, but this batch didn't need to touch it to close the
+  ticker's real gaps, so it's left as a named follow-up rather than an unnecessary risk.
+- Any change to `frontend/app/globals.css` (Lane 6-claimed) — the now-orphaned `.ticker*` rules
+  there are dead CSS after this change but are left in place; whoever next has clearance to touch
+  `globals.css` should remove them.
+- A manual browser check. Attempted: this sandbox has no Python backend environment prepared at
+  all (no `fastapi`/`uvicorn`/`pytest` installed — matches the SessionStart health check's own
+  "pytest collection failed"), and `pip install -r requirements.txt` fails independently of this
+  change on a native-build error in the `http-ece` package (a `setuptools`/`distutils`
+  `install_layout` incompatibility, unrelated to anything in this batch). Did not spend further
+  budget fighting an unrelated packaging failure to visually verify a CSS/component change already
+  covered by 5 targeted + 2,240 existing automated tests and a clean production `next build`. This
+  is a real gap, not a silent claim of success — flagging it per CLAUDE.md's own instruction to say
+  so explicitly rather than claim a UI verification that didn't happen. A `run`-skill pass in an
+  environment with a working Python install would close it before this ships.
