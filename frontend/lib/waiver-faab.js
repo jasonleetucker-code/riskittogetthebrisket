@@ -150,3 +150,68 @@ export function waiverBidForRow(index, row) {
   if (index.ambiguous.has(name)) return null;
   return index.byName.get(name) || null;
 }
+
+/**
+ * Why a row has no bid. Reported, never inferred by the caller from a
+ * null — the four situations below are genuinely different and the
+ * board used to render all of them as one `—`.
+ *
+ *   `unavailable`  no index at all: no team picked, a league mismatch,
+ *                  or the suggestions endpoint did not answer. Nothing
+ *                  is wrong with the player.
+ *   `unpriced`     the index exists and this player is not priced in
+ *                  it — either the engine declined him (`bid: null`)
+ *                  or he is off the backend's per-position board.
+ *   `ambiguous`    two candidates share this display name at different
+ *                  positions, so no bid can be attributed to this row.
+ *   `priced`       the backend stamped a figure.
+ *
+ * `unpriced` deliberately covers both "priced nothing" and "not on the
+ * board": from the reader's seat they are the same fact — the backend
+ * has no bid for this player — and splitting them would put a
+ * distinction on screen that the payload cannot actually support (an
+ * absent candidate and a `bid: null` candidate are indistinguishable
+ * once `_entryFor` has dropped both).
+ */
+const BID_STATE_COPY = {
+  unavailable: {
+    label: "No bids",
+    reason:
+      "FAAB bids have not loaded for this board. Pick your team above — bids are " +
+      "scaled to a specific manager's budget, so there is nothing to show until one " +
+      "is selected.",
+  },
+  unpriced: {
+    label: "Not priced",
+    reason:
+      "The backend FAAB engine published no bid for this player. Its board is capped " +
+      "per position, so players outside the cap are unpriced rather than worth zero.",
+  },
+  ambiguous: {
+    label: "Ambiguous",
+    reason:
+      "Two different players share this name at different positions, so no bid can be " +
+      "attributed to this row without guessing which one you mean.",
+  },
+};
+
+/**
+ * Like :func:`waiverBidForRow`, but says WHY when there is no bid.
+ *
+ * Returns ``{state, bid, label, reason}``. Computes nothing: the bid
+ * object is the backend's, and every other field is a fixed string
+ * chosen by ``state``.
+ */
+export function waiverBidStateForRow(index, row) {
+  const withCopy = (state) => ({ state, bid: null, ...BID_STATE_COPY[state] });
+  if (!index) return withCopy("unavailable");
+  if (!row) return withCopy("unpriced");
+  const name = normalizeName(row?.name || row?.displayName);
+  if (!name) return withCopy("unpriced");
+  const hit = index.byNamePos.get(`${name}|${familyOf(row?.pos || row?.position)}`);
+  if (hit) return { state: "priced", bid: hit, label: "", reason: "" };
+  if (index.ambiguous.has(name)) return withCopy("ambiguous");
+  const byName = index.byName.get(name);
+  if (byName) return { state: "priced", bid: byName, label: "", reason: "" };
+  return withCopy("unpriced");
+}
