@@ -254,9 +254,7 @@ class TestMissingRankOrValueIsNeverCoerced:
             {"displayName": "Unpriced Off", "position": "QB", "canonicalSiteValues": {}},
             {"displayName": "Unpriced Def", "position": "LB", "canonicalSiteValues": {}},
         ]
-        cap = measure_capability(
-            _descriptor(), rows, offense_positions=OFFENSE, idp_positions=IDP
-        )
+        cap = measure_capability(_descriptor(), rows, offense_positions=OFFENSE, idp_positions=IDP)
         # Unchanged from the six-row fixture: the two unpriced rows contribute
         # to neither offense_values nor idp_values nor the ladder.
         assert cap.offense_values == 3
@@ -265,11 +263,13 @@ class TestMissingRankOrValueIsNeverCoerced:
 
     def test_an_explicit_none_value_is_excluded_not_zeroed(self) -> None:
         rows = _two_key_board() + [
-            {"displayName": "Null Def", "position": "DL", "canonicalSiteValues": {"vendorIdp": None}},
+            {
+                "displayName": "Null Def",
+                "position": "DL",
+                "canonicalSiteValues": {"vendorIdp": None},
+            },
         ]
-        cap = measure_capability(
-            _descriptor(), rows, offense_positions=OFFENSE, idp_positions=IDP
-        )
+        cap = measure_capability(_descriptor(), rows, offense_positions=OFFENSE, idp_positions=IDP)
         assert cap.idp_values == 3
         assert cap.combined_depth == 6
 
@@ -282,11 +282,13 @@ class TestMissingRankOrValueIsNeverCoerced:
         nothing", so it must not manufacture a ladder rank for either.
         """
         rows = _two_key_board() + [
-            {"displayName": "Zero Def", "position": "DB", "canonicalSiteValues": {"vendorIdp": 0.0}},
+            {
+                "displayName": "Zero Def",
+                "position": "DB",
+                "canonicalSiteValues": {"vendorIdp": 0.0},
+            },
         ]
-        cap = measure_capability(
-            _descriptor(), rows, offense_positions=OFFENSE, idp_positions=IDP
-        )
+        cap = measure_capability(_descriptor(), rows, offense_positions=OFFENSE, idp_positions=IDP)
         assert cap.idp_values == 3
         assert cap.combined_depth == 6
 
