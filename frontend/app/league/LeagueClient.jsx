@@ -86,14 +86,12 @@ const SuperlativesSection = lazySection(() => import("./sections/superlatives.js
 const ArchivesSection = lazySection(() => import("./sections/archives.jsx"));
 const LuckSection = lazySection(() => import("./sections/luck.jsx"));
 const StreaksSection = lazySection(() => import("./sections/streaks.jsx"));
-const PowerSection = lazySection(() => import("./sections/power.jsx"));
 const RosTeamStrengthSection = lazySection(() => import("./sections/ros-team-strength.jsx"));
 const RosPowerSection = lazySection(() => import("./sections/ros-power.jsx"));
 const RosChampionshipSection = lazySection(() => import("./sections/ros-championship.jsx"));
 const RosTradeDeadlineSection = lazySection(() => import("./sections/ros-trade-deadline.jsx"));
 const ArticlesSection = lazySection(() => import("./sections/articles.jsx"));
 const TeamAssignmentSection = lazySection(() => import("./sections/team-assignment.jsx"));
-import { useSettings } from "@/components/useSettings";
 
 // SUB_TABS / VALID_TABS / DEFAULT_TAB / normalizeTabKey / SECTION_FOR_TAB
 // now live in ./tabs.js so ./page.jsx (a server component) can read the
@@ -118,15 +116,6 @@ function LeaguePage({ initialContract = null, initialTab = DEFAULT_TAB }) {
   const urlTab = normalizeTabKey(searchParams.get("tab"));
   const urlOwner = searchParams.get("owner") || "";
   const urlWeek = searchParams.get("week") || "";
-  // Read the ROS feature flags so the Power tab can swap between the
-  // canonical engine's two lenses.  The registry in
-  // ``components/useSettings.js`` defaults ``useRosPowerRankings`` to
-  // TRUE — this comment said "false until validated per-user" until
-  // 2026-08-19, which was backwards and mattered: it meant anyone
-  // reasoning about which ranking the public /league Power tab shows
-  // got the answer wrong. It shows the forward-looking one.
-  const { settings } = useSettings();
-  const useRosPower = !!settings?.useRosPowerRankings;
 
   const [activeTab, setActiveTabState] = useState(
     urlTab && VALID_TABS.has(urlTab)
@@ -220,11 +209,8 @@ function LeaguePage({ initialContract = null, initialTab = DEFAULT_TAB }) {
   const league = contract?.league || null;
 
   // Which section the active tab needs, or null when the tab fetches
-  // its own data (articles, the ROS tabs, draft-capital).  The Power
-  // tab is the one conditional: under the ROS flag it renders
-  // RosPowerSection, which reads nothing from the contract.
-  const neededSection =
-    activeTab === "power" && useRosPower ? null : SECTION_FOR_TAB[activeTab] || null;
+  // its own data (articles, Power, the other ROS tabs, draft-capital).
+  const neededSection = SECTION_FOR_TAB[activeTab] || null;
   const haveSection = !neededSection || sections[neededSection] !== undefined;
 
   // Lazily pull the section the visitor just opened.  ``inflightRef``
@@ -413,11 +399,7 @@ function LeaguePage({ initialContract = null, initialTab = DEFAULT_TAB }) {
       {activeTab === "streaks" && (
         <StreaksSection data={sections.streaks} managers={managers} />
       )}
-      {activeTab === "power" && (
-        useRosPower
-          ? <RosPowerSection />
-          : <PowerSection data={sections.power} managers={managers} />
-      )}
+      {activeTab === "power" && <RosPowerSection managers={managers} />}
       {activeTab === "rosTeamStrength" && <RosTeamStrengthSection />}
       {activeTab === "rosChampionship" && <RosChampionshipSection />}
       {activeTab === "rosTradeDeadline" && <RosTradeDeadlineSection />}

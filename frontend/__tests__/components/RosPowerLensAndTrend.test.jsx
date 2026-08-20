@@ -90,7 +90,11 @@ describe("RosPowerSection — lens toggle and trend", () => {
     });
     const RosPowerSection = await renderFresh();
     render(<RosPowerSection />);
-    await waitFor(() => expect(screen.getByText("Alice")).toBeTruthy());
+    // "Alice" legitimately appears twice once the trend history is long
+    // enough to render the power-score chart (the table row + the
+    // chart's own line label) -- this is a readiness gate, not a
+    // structural assertion, so it doesn't care which one it finds.
+    await waitFor(() => expect(screen.getAllByText("Alice").length).toBeGreaterThan(0));
     expect(calls[0]).toBe("/api/public/league/rosPower");
   });
 
@@ -106,7 +110,7 @@ describe("RosPowerSection — lens toggle and trend", () => {
     });
     const RosPowerSection = await renderFresh();
     render(<RosPowerSection />);
-    await waitFor(() => expect(screen.getByText("Alice")).toBeTruthy());
+    await waitFor(() => expect(screen.getAllByText("Alice").length).toBeGreaterThan(0));
 
     fireEvent.click(screen.getByRole("button", { name: /results only/i }));
 
@@ -125,7 +129,7 @@ describe("RosPowerSection — lens toggle and trend", () => {
     );
     const RosPowerSection = await renderFresh();
     const { container } = render(<RosPowerSection />);
-    await waitFor(() => expect(screen.getByText("Alice")).toBeTruthy());
+    await waitFor(() => expect(screen.getAllByText("Alice").length).toBeGreaterThan(0));
     expect(container.textContent).toContain("▲");
     expect(container.textContent).toContain("4");
   });
@@ -158,7 +162,7 @@ describe("RosPowerSection — lens toggle and trend", () => {
     );
     const RosPowerSection = await renderFresh();
     const { container } = render(<RosPowerSection />);
-    await waitFor(() => expect(screen.getByText("Alice")).toBeTruthy());
+    await waitFor(() => expect(screen.getAllByText("Alice").length).toBeGreaterThan(0));
     expect(container.textContent).not.toContain("▲");
     expect(container.textContent).not.toContain("▼");
   });

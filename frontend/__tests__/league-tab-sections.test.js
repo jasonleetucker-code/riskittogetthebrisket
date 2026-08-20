@@ -33,6 +33,7 @@ import { PUBLIC_SECTION_KEYS } from "@/lib/public-league-data";
 const SELF_FETCHING_TABS = [
   "previews",
   "recaps",
+  "power",
   "rosTeamStrength",
   "rosChampionship",
   "rosTradeDeadline",
