@@ -25,11 +25,12 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from src.source_archive.records import ArchivedRow
 from src.utils.config_loader import repo_root
 
 DB_PATH: Path = repo_root() / "data" / "source_archive" / "boards.sqlite"
 
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
 
 #: Format variants we ARCHIVE. Deliberately a different set from
 #: :data:`PRODUCTION_ELIGIBLE` — see the package docstring. Nothing in
@@ -82,6 +83,12 @@ CREATE TABLE IF NOT EXISTS archived_boards (
     source_as_of    TEXT,
     row_count       INTEGER NOT NULL,
     rows_json       TEXT NOT NULL,
+    -- Lane 8 / schema v2.  Per-row source-native records: rank, positional
+    -- rank, tier, cardinal value, native unit, vendor id, position.
+    -- ``rows_json`` above is one float per name and can hold none of
+    -- those, which is fatal for a rank/tier-only source.  ADDITIVE:
+    -- nullable, and every v1 reader keeps working off ``rows_json``.
+    records_json    TEXT,
     content_hash    TEXT NOT NULL,
     first_seen_at   TEXT NOT NULL,
 
@@ -109,22 +116,42 @@ class ArchivedBoard:
     captured_at: str = ""
     source_as_of: str | None = None
     content_hash: str = field(default="", compare=False)
+    #: Source-native per-row records (schema v2).  Empty for a v1 board and
+    #: for any source whose whole content really is one number per name.
+    records: tuple[ArchivedRow, ...] = ()
 
     @property
     def captured_date(self) -> str:
         return (self.captured_at or _utc_now())[:10]
 
     def compute_hash(self) -> str:
-        blob = json.dumps(
-            {"rows": self.rows, "format_key": self.format_key, "game_type": self.game_type},
-            sort_keys=True,
-            separators=(",", ":"),
-        )
+        payload: dict[str, Any] = {
+            "rows": self.rows,
+            "format_key": self.format_key,
+            "game_type": self.game_type,
+        }
+        # Only present for v2 boards, so a v1 board's hash is unchanged and
+        # re-archiving one stays the no-op it was.
+        if self.records:
+            payload["records"] = [r.to_dict() for r in self.records]
+        blob = json.dumps(payload, sort_keys=True, separators=(",", ":"))
         return hashlib.sha256(blob.encode("utf-8")).hexdigest()[:32]
 
 
 class ArchiveRefused(ValueError):
     """A board that must not enter the archive (fail closed)."""
+
+
+def _migrate_v1_to_v2(conn: sqlite3.Connection) -> None:
+    """Add ``records_json`` to a database created under schema v1.
+
+    Additive and idempotent.  ``CREATE TABLE IF NOT EXISTS`` will not alter an
+    existing table, so a v1 archive would otherwise keep its old shape while
+    reporting ``schema_version = 2``.
+    """
+    existing = {row[1] for row in conn.execute("PRAGMA table_info(archived_boards)")}
+    if existing and "records_json" not in existing:
+        conn.execute("ALTER TABLE archived_boards ADD COLUMN records_json TEXT")
 
 
 def _utc_now() -> str:
@@ -143,6 +170,7 @@ def _ensure_schema(path: Path) -> None:
         try:
             conn.execute("PRAGMA journal_mode=WAL;")
             conn.executescript(_SCHEMA)
+            _migrate_v1_to_v2(conn)
             conn.execute(
                 "INSERT OR REPLACE INTO meta(key, value) VALUES ('schema_version', ?)",
                 (str(SCHEMA_VERSION),),
@@ -210,8 +238,8 @@ def archive_board(board: ArchivedBoard, *, path: Path | None = None) -> dict[str
         conn.execute(
             "INSERT INTO archived_boards (provider, provider_family, endpoint, format_key, "
             "game_type, run_id, captured_date, captured_at, source_as_of, row_count, "
-            "rows_json, content_hash, first_seen_at) "
-            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            "rows_json, records_json, content_hash, first_seen_at) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
             (
                 board.provider,
                 board.provider_family,
@@ -224,6 +252,15 @@ def archive_board(board: ArchivedBoard, *, path: Path | None = None) -> dict[str
                 board.source_as_of,
                 len(board.rows),
                 json.dumps(board.rows, sort_keys=True, separators=(",", ":")),
+                (
+                    json.dumps(
+                        [r.to_dict() for r in board.records],
+                        sort_keys=True,
+                        separators=(",", ":"),
+                    )
+                    if board.records
+                    else None
+                ),
                 digest,
                 now,
             ),
@@ -251,9 +288,8 @@ def read_boards(
     try:
         rows = conn.execute(
             "SELECT provider, provider_family, endpoint, format_key, game_type, run_id, "
-            "captured_at, source_as_of, rows_json, content_hash FROM archived_boards"
-            + clause
-            + " ORDER BY captured_at DESC, format_key ASC",
+            "captured_at, source_as_of, rows_json, records_json, content_hash "
+            "FROM archived_boards" + clause + " ORDER BY captured_at DESC, format_key ASC",
             params,
         ).fetchall()
     finally:
@@ -270,7 +306,8 @@ def read_boards(
             captured_at=r[6],
             source_as_of=r[7],
             rows=json.loads(r[8]),
-            content_hash=r[9],
+            records=tuple(ArchivedRow.from_dict(d) for d in json.loads(r[9] or "[]")),
+            content_hash=r[10],
         )
         for r in rows
     ]
