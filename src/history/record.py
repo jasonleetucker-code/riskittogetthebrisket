@@ -85,6 +85,32 @@ def contract_board_date(contract: dict[str, Any]) -> str:
     return datetime.now(timezone.utc).date().isoformat()
 
 
+def contract_observed_instant(contract: dict[str, Any]) -> tuple[str | None, str | None]:
+    """``(observed_at, zone)`` for one board — the ONE reading of the
+    producer's instant claim, shared by every lane that records from a
+    contract.
+
+    ``scrapeTimestamp`` is tz-aware UTC as of audit F-28, so live rows
+    record ``zone="utc"`` on the producer's own statement rather than on
+    an assumption about the host.
+
+    The naive branch survives for LEGACY payloads (committed archives, a
+    board left on disk by an older scraper), and for those the stamp's
+    zone is genuinely unrecorded — which is why it is stamped "naive"
+    instead of being silently normalized to UTC.  The distinction is
+    load-bearing: rows written before F-28 by the production VPS are two
+    hours ahead of the instant they claim, and the zone column is what
+    makes that recoverable rather than invisible.  This is an append-only
+    store, so those rows are not rewritten; a correction, if one is ever
+    authorized, is an explicit correction row.
+    """
+    observed_at = str(contract.get("scrapeTimestamp") or "") or None
+    if not observed_at:
+        return None, None
+    zone = "utc" if ("+" in observed_at or observed_at.endswith("Z")) else "naive"
+    return observed_at, zone
+
+
 def observations_from_contract(
     contract: dict[str, Any],
     *,
@@ -99,23 +125,7 @@ def observations_from_contract(
     """
     rows = _players_array(contract)
     date_s = observed_date or contract_board_date(contract)
-    observed_at = str(contract.get("scrapeTimestamp") or "") or None
-    # ``scrapeTimestamp`` is tz-aware UTC as of audit F-28, so live rows
-    # record ``zone="utc"`` on the producer's own statement rather than on
-    # an assumption about the host.
-    #
-    # The naive branch survives for LEGACY payloads (committed archives, a
-    # board left on disk by an older scraper), and for those the stamp's
-    # zone is genuinely unrecorded — which is why it is stamped "naive"
-    # here instead of being silently normalized to UTC.  The distinction is
-    # load-bearing: rows written before F-28 by the production VPS are two
-    # hours ahead of the instant they claim, and the zone column is what
-    # makes that recoverable rather than invisible.  This is an append-only
-    # store, so those rows are not rewritten; a correction, if one is ever
-    # authorized, is an explicit correction row.
-    zone = None
-    if observed_at:
-        zone = "utc" if ("+" in observed_at or observed_at.endswith("Z")) else "naive"
+    observed_at, zone = contract_observed_instant(contract)
     pv = pipeline_version(contract)
     scope = None
     meta = contract.get("meta")
