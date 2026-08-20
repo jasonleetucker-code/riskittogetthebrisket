@@ -64,6 +64,7 @@ TRADE = "TRADE"
 TRADE_AWAY = "TRADE_AWAY"
 _TRADE_EVENT_TYPES = (TRADE, TRADE_AWAY)
 
+
 def _asset_ref(ev: dict[str, Any]) -> dict[str, Any]:
     return {"assetId": ev["asset_id"], "assetKind": ev["asset_kind"]}
 
