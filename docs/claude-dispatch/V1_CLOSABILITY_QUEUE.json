@@ -1,6 +1,6 @@
 {
   "_comment": "Live V1 Closability Queue, owned by Claude 7 as independent V1 traffic controller / adversarial auditor. Ranks IMPLEMENTED_UNVERIFIED rows by verification effort per row gained. NOT an authority on V1 status — only Claude 5 promotes a row, and no percentage here is claimed as achieved.",
-  "updatedAt": "2026-08-19T23:30:00Z",
+  "updatedAt": "2026-08-20T00:15:00Z",
   "auditCycle": 2,
   "evidenceBasis": {
     "contract": "docs/VERSION_1_COMPLETION_CONTRACT.md §3 read on origin/main e3b387ca5",
@@ -39,7 +39,7 @@
     "fact3_actualRunningHostSha": "NOT ESTABLISHED. This auditor has no production access and found no git-SHA field on /api/status to read even if it did. Running-SHA provenance therefore requires either the deploy run's own log output or an on-box `git rev-parse` — neither is in this auditor's hands. A successful deploy run is evidence that a deployment was ATTEMPTED AND REPORTED SUCCESS, not proof of what is serving traffic now.",
     "fact4_pr930FreshUncachedVerification": "NOT PERFORMED. Not performable from here.",
     "revisedClaim": "There is no evidence of a merged-but-not-deployed BACKLOG: every merge today has a corresponding successful Deploy Production run. That is a weaker and more accurate claim than 'main is deployed'.",
-    "fact5_postPr922": "#922 merged at 22:26:04Z; a Deploy Production run for the resulting main was not yet confirmed at 22:45Z. Do not assume it deployed."
+    "fact5_postPr922": "CONFIRMED: Deploy Production run 32308795433, head b3739f095 (#922's merge commit), conclusion success 22:26:07Z. Later successful runs: 32308903919 (d0b6305db) and 32311808782 (8fd35fca9); one in progress on 25bb6b4bd at 00:13:41Z. No merged-but-not-deployed backlog."
   },
   "staleGreenFindings": [
     {
@@ -291,7 +291,8 @@
       "fetch the championship contract with cache bypassed (`cached: false`) and assert the five conditions"
     ],
     "authPosture": "the consuming surface is /api/gameplan (server.py:6797), a private session-gated endpoint. So this needs the authenticated session, and it belongs in BATCH-2, not BATCH-1.",
-    "additionalContext": "F-26 separately recorded that /api/gameplan has ZERO frontend consumers — the string appears once in the whole frontend, in a comment (Scope Manifest C2-GP-01 DISCONNECTED). So an L4-style production-consumer claim is not available for this surface at all; L3 is the ceiling until that row is resolved."
+    "additionalContext": "F-26 separately recorded that /api/gameplan has ZERO frontend consumers — the string appears once in the whole frontend, in a comment (Scope Manifest C2-GP-01 DISCONNECTED). So an L4-style production-consumer claim is not available for this surface at all; L3 is the ceiling until that row is resolved.",
+    "rosScrapeSincDeploy": "STILL NOT CONFIRMED. Deployment is keeping pace with main, but #930's closure depends on a post-deploy ROS scrape regenerating the championship payload — a different question from whether the code deployed, and unanswered as of 00:15Z."
   },
   "newFindingsCycle11": [
     {

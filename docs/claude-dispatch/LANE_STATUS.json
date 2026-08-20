@@ -1,9 +1,9 @@
 {
   "_comment": "Lane utilization state, owned by Claude 7 (Lane Dispatcher). NOT an authority on integration sequencing (Claude 5 / docs/EXECUTION_PLAN.md), on V1 status (docs/VERSION_1_COMPLETION_CONTRACT.md) or on canonical ownership (CLAUDE.md). Repository evidence outranks this file: where they disagree, this file is wrong and must be corrected.",
-  "updatedAt": "2026-08-19T23:30:00Z",
-  "dispatchCycle": 11,
+  "updatedAt": "2026-08-20T00:15:00Z",
+  "dispatchCycle": 12,
   "writePolicy": "This file and ASSIGNMENTS.json are written ONLY on a material state transition — new assignment, assignment accepted, completion, blocker, freeze/unfreeze, or a meaningful dependency change. A heartbeat that finds nothing changed produces no commit and no CI run.",
-  "evidenceBasis": "origin/main e3f4a225c (no merges since #922); full remote-ref sweep at 23:28Z; B5 RE-TESTED against the CURRENT heads after discovering the recheck SHA had gone stale; baseline counts read from all three trees; V1 §3 recounted",
+  "evidenceBasis": "origin/main e3f4a225c at fetch time (a newer main commit landed ~38s later, visible via its own deploy run); refs resolved LIVE per the cycle-11 rule; per-PR check runs and deploy runs read live",
   "assignmentSourceNote": "The six current assignments were made manually by the owner, not by this dispatcher. Recorded here so the durable state matches reality; Claude 7 did not originate them and does not own them.",
   "v1": {
     "requiredRows": 132,
@@ -49,9 +49,9 @@
       "branch": "claude/v1-trade-intelligence-efstt3",
       "frozenPrs": [],
       "pr": 913,
-      "implementationHead": "#913 head 6e7c2457 — CI in flight since 23:17:18Z; #929 head e057c55a rebased on it",
-      "releaseCandidate": "UNBLOCKED — both merge clean against main at baseline 664",
-      "evidence": "#913 6e7c2457 merges clean; #929 e057c55a merges clean; baselines 664/664 against main's 670; lane reports 8922 passed at exact head and a byte-identical canonical board on one tree state",
+      "implementationHead": "#913 6e7c2457 GREEN 23:33:20Z; #929 e057c55a rebased on it — both clean at baseline 664",
+      "releaseCandidate": "READY — green, clean, ordered #913 then #929",
+      "evidence": "#913 Validate PR success 23:33:20Z; mergeability re-tested against live refs at 00:13Z, both clean; no V1-43 branch yet",
       "blockedBy": null,
       "doNotTouch": [
         "src/roster_intel/**",
@@ -60,7 +60,7 @@
         "frontend/**"
       ],
       "nextSafeWork": "V1-43 Analyze Trade V1 on top of #929's new head e057c55a — assignment L2-2026-08-19-02 is RELEASED",
-      "lastMeaningfulActivity": "2026-08-19T23:26:33Z",
+      "lastMeaningfulActivity": "2026-08-19T23:33:20Z",
       "assignedThisCycle": "L2-2026-08-19-02 RELEASED (DELIVERY_REQUIRED, base amended to e057c55a)",
       "idleMinutes": 0,
       "openPrs": [
@@ -82,16 +82,16 @@
       ],
       "mergedThisCycle": [],
       "pr": 937,
-      "implementationHead": "#934 GREEN 21:00:43Z on b09d1f84",
+      "implementationHead": "#934 GREEN 21:00:43Z; #937 GREEN 00:00:45Z",
       "releaseCandidate": "NOT_YET_FROZEN",
-      "evidence": "#937 opened 22:01:38Z head 001ec865 (1 ahead of main); #934 green 21:00:43Z; #923/#915 unchanged",
+      "evidence": "#937 head pushed 23:44Z, Validate PR success 00:00:45Z; #934 green; #923/#915 unchanged",
       "blockedBy": null,
       "doNotTouch": [
         "#915 head while under integration review"
       ],
       "nextSafeWork": "drive #934 and #937; open nothing further until some of the four land",
       "observation": "FOUR open PRs now (#915, #923, #934, #937). #937 is a live production defect on a NOT STARTED V1 row at level L2 — cheap and numerator-relevant — but this is the count at which master-prompt §28 starts to bite: no fifth.",
-      "lastMeaningfulActivity": "2026-08-19T22:01:38Z"
+      "lastMeaningfulActivity": "2026-08-20T00:00:45Z"
     },
     "4": {
       "name": "Market / FAAB / Sharp / Analyst",
@@ -129,38 +129,37 @@
       ],
       "implementationHead": "n/a",
       "releaseCandidate": "NOT_YET_FROZEN",
-      "evidence": "main e3f4a225c; no merges since #922",
+      "evidence": "main e3f4a225c; no merges since #922; post-#922 deploy confirmed as run 32308795433 on b3739f095",
       "blockedBy": null,
       "doNotTouch": [],
       "nextSafeWork": "its own sequencing",
       "reportedToIntegration": [
-        "B5 CLEARED. #913 (6e7c2457) then #929 (e057c55a), in that order — the lane's declared sequence. Both clean at baseline 664; main is 670, so whichever lands second must have its baseline regenerated from the tree that then exists.",
+        "READY AND WAITING: #913 (6e7c2457) is GREEN, clean, baseline 664 — then #929 (e057c55a). Whichever lands second needs its baseline regenerated from the tree that then exists (main is 670).",
         "STILL OUTSTANDING: ONE bounded release candidate on current main for #927/#932. Per #926 the lanes must NOT rebase for it.",
-        "#936 is GREEN and remains the cheapest V1 row (L1). Promotion needs YOUR read of the assertions plus merge-tree CI.",
-        "#935 has a FAILING Boot stack (B10) — do not merge on its green Validate PR alone.",
-        "CORRECTION TO CARRY: the owner's note on #929 states the stack supports V1-130 ONLY, not V1-34 — the constraint owner ships with no writer for tradeConstraintsByLeague, so there is no operable user control yet. Claude 7's cycle-1 assignment scoped both rows; only one is closable by this stack.",
-        "V1-42 / C2-SIM-01 was merged with #914 with zero consumers. #913's W3 supplies one. Worth a look before V1-42 is ever called done.",
-        "V1 still 40/132 across a sixth consecutive recount."
+        "#936 GREEN — still the cheapest V1 row (L1). #937 GREEN — V1-95, a live production defect at level L2.",
+        "#935 Boot stack still FAILING and unaddressed for two hours (B10). Do not merge on its green Validate PR alone.",
+        "Deployment is keeping pace: #922's merge commit deployed successfully at 22:26:07Z. #930's closure still needs a post-deploy ROS SCRAPE, which is a separate question from deployment and is not yet confirmed.",
+        "V1 still 40/132 — seventh recount."
       ],
-      "lastMeaningfulActivity": "2026-08-19T23:08:43Z"
+      "lastMeaningfulActivity": "2026-08-20T00:13:41Z"
     },
     "6": {
       "name": "Premium UI / Frontend",
-      "state": "ACTIVE",
+      "state": "ACTIVE_WITH_UNADDRESSED_RED",
       "currentTask": "V1-35 delivered as #935 — /rosters consumes canonical Team Strength instead of scoring teams itself",
       "assignmentSource": "manual (owner)",
       "branch": "claude/rosters-canonical-team-strength",
       "pr": 935,
       "implementationHead": "#935 head 7c61e09f — Validate PR GREEN 21:33:00Z but Boot stack + run journeys FAILED 22:17:20Z. Mixed, therefore NOT green.",
       "releaseCandidate": "NOT_YET_FROZEN",
-      "evidence": "#935 Boot stack job 96241817417 conclusion=failure at 22:17:20Z; #912 untouched at c025e4f6 and still green on both checks",
+      "evidence": "#935 Boot stack failure 22:17:20Z UNCHANGED — no new run, no diagnosis comment; last lane activity 22:27:19Z, roughly two hours ago",
       "blockedBy": null,
       "doNotTouch": [
         "#912 head"
       ],
       "nextSafeWork": "diagnose the #935 E2E failure. Note it may well be its OWN: #935 modified tests/e2e/specs/signed-in-smoke.spec.js, so the usual 'journey-settings-overrides fails on main too' defence does not automatically apply here. Establish a main control run before attributing it to the known flake.",
       "lastMeaningfulActivity": "2026-08-19T22:27:19Z",
-      "watch": "CLOSED — the lane is demonstrably active and its next unit is a separate PR, exactly as it scoped.",
+      "watch": "ESCALATED: a lane sitting on its own failing check for two hours. Not idle-by-gap alone — the red is the reason this matters. Ask whether B10 was seen; do NOT assign anything else, which would pull the lane off a failing check.",
       "openPrs": [
         912,
         935
@@ -174,13 +173,11 @@
     "docs/VERSION_1_COMPLETION_CONTRACT.md — Claude 5 only.",
     "docs/claude-dispatch/** — Claude 7 only. No lane writes here."
   ],
-  "cycle11Transitions": [
-    "BLOCKER B5-2026-08-19-01 IS CLEARED after six cycles. #913's head moved c2153ebe -> 6e7c2457 and now merges CLEAN against main; #929 was rebased onto it (51b11bfb -> e057c55a) and is also clean. config/coercion_baseline.json regenerated to 664 on both, exactly the 674-4-6 arithmetic Lane 2 predicted six cycles ago, against main's 670.",
-    "METHOD CATCH, this auditor's own: the scheduled B5 recheck named the SHA c2153ebe literally. That SHA is no longer #913's head, so the test would have reported 'STILL CONFLICTED' about a commit nobody is trying to merge. Re-tested against the live heads instead. A blocker recheck must resolve the ref, never a remembered SHA.",
-    "The two #914-induced breaks are also fixed, and they were the substantive ones: W0 repaired the _index_contract_rows -> index_contract_rows rename that left the merged tree unable to import AT ALL, and W1 routed the cut ladder through roster_intel.pool_cut_ladder — turning #914's exact-caller-set test from RED to green and threading the league's configured flex rule.",
-    "NOT a freeze breach. Lane 2 reconciled onto the FINALIZED Roster mainline exactly once, after #922 merged — which is one of the four legitimate triggers #926 names (a dependency PR changed the interface this PR consumes). Reconciling once at the boundary is the bounded discipline; refresh-chasing is what the freeze forbids.",
-    "A FALSE-GREEN worth recording beyond Trade: V1-42 / C2-SIM-01 merged with #914 and simulate_roster_change had ZERO consumers — reachable from no HTTP route. A merged owner nothing consumes cannot pass the V1 contract's own false-green test, and that test names this exact shape as its first precedent. Lane 2's W3 gives it a consumer on /api/trade/simulate.",
-    "Integration order declared by the lane: #913 then #929. CI in flight on #913's new head since 23:17:18Z.",
-    "V1 recounted a SIXTH time: still 40/132. No merges this cycle."
+  "cycle12Transitions": [
+    "#913 Validate PR GREEN 23:33:20Z on 6e7c2457. The B5 reconciliation is now COMPLETE with evidence: green, clean against main, baseline 664. Cycle 11 recorded this head as 'CI in flight'; leaving that stale would have told Claude 5 'unknown' about the head of its ordered pair.",
+    "#937 GREEN 00:00:45Z on its new head (V1-95, awards-before-games).",
+    "POST-#922 DEPLOY CONFIRMED — the cycle-10 caution is answered, not assumed: Deploy Production run 32308795433, head b3739f095 (the #922 merge commit itself), conclusion success at 22:26:07Z. Two further successful deploys followed (32308903919 on d0b6305db, 32311808782 on 8fd35fca9) and one was in progress on 25bb6b4bd at 00:13:41Z. There is no merged-but-not-deployed backlog.",
+    "BLOCKER B10 UNCHANGED and now ~2 hours old: #935's Boot stack failure from 22:17:20Z has had no new run and no diagnosis. Lane 6 has not acted since 22:27Z — the only lane sitting on its own red.",
+    "No merges. No release candidate run. No V1-43 branch yet, so L2-2026-08-19-02 remains DELIVERY_REQUIRED and undelivered. V1 unchanged at 40/132."
   ]
 }
