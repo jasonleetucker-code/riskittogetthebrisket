@@ -1,7 +1,7 @@
 {
   "_comment": "Lane utilization state, owned by Claude 7 (Lane Dispatcher). NOT an authority on integration sequencing (Claude 5 / docs/EXECUTION_PLAN.md), on V1 status (docs/VERSION_1_COMPLETION_CONTRACT.md) or on canonical ownership (CLAUDE.md). Repository evidence outranks this file: where they disagree, this file is wrong and must be corrected.",
-  "updatedAt": "2026-08-20T12:15:00Z",
-  "dispatchCycle": 31,
+  "updatedAt": "2026-08-20T12:45:00Z",
+  "dispatchCycle": 32,
   "writePolicy": "This file and ASSIGNMENTS.json are written ONLY on a material state transition — new assignment, assignment accepted, completion, blocker, freeze/unfreeze, or a meaningful dependency change. A heartbeat that finds nothing changed produces no commit and no CI run.",
   "evidenceBasis": "origin/main 079fc9e4a; §3 diffed row-by-row from cycle-19 main (c5a367266); all refs resolved live; #945 CI green 04:57:35Z",
   "assignmentSourceNote": "Lanes 1-6 carry the owner's original six manual assignments, tracked in detail by this dispatcher. Lanes 8-13 are five additional owner-authorized campaign lanes (Claude 8 chartered 2026-08-20; Claude 9-13 chartered the same day under the POST-V1 C-Series mass-build campaign, EXECUTION_PLAN.md §0). This dispatcher did not originate any of these eleven assignments and does not own or re-scope them. Lanes 8-13 are tracked here only lightly — ownership boundaries and authorization citation — because they are self-directed under their own charter, unlike lanes 1-6 which this dispatcher actively monitors for idleness and dispatches follow-on work to. There is no lane 7: Claude 7 is the dispatcher identity, per dispatcherIdentity above.",
@@ -251,11 +251,11 @@
     "_staleByConstruction": true,
     "_ifTheyDisagree": "the contract wins, always, and this block is the thing that is wrong.",
     "_doNotQuote": "Do not cite this block as the V1 status. Read the contract on current main instead.",
-    "observedVerifiedRows": 58,
+    "observedVerifiedRows": 59,
     "observedRequiredRows": 136,
-    "observedAtSha": "113a29311",
-    "observedAt": "2026-08-20T10:22:00Z",
-    "howObserved": "counted `VERIFIED` in the §3 table of the contract as it exists at that exact SHA; independently summed all statuses to 136 and confirmed the contract’s own table and completion line agree",
+    "observedAtSha": "45d5cdac1",
+    "observedAt": "2026-08-20T12:42:00Z",
+    "howObserved": "counted VERIFIED in the §3 table at that exact SHA; independently summed all statuses to 136 and confirmed the contract’s own table and completion line agree",
     "denominatorChangedAtThisSha": "YES — 132 -> 136. See cycle26Transitions."
   },
   "canonicalOwnerRule": "This dispatcher previously carried a `v1` block with verified/percent fields that read as authoritative, and it DRIFTED — PR #945 declared 48/132 while the contract on main said 55/132. That is a second owner of the numerator forming inside a coordination record, which is the exact defect class this dispatcher has spent the session flagging in other lanes. Corrected on integration review: the fields are renamed to name themselves derived, carry the SHA they were read at, and declare the contract the winner in any disagreement.",
@@ -354,6 +354,31 @@
       "integrationState": "READY_FOR_INTEGRATION",
       "freeze": "This slice is FROZEN at 40509bc5a per #940/EXECUTION_PLAN.md's anti-thrashing rule. No further edits to it, no chasing main for ordinary data-refresh movement. Handed to Claude 5 (Integration Authority) for freshness reconciliation and shipping-tree merge at Integration's discretion.",
       "handoff": "exact head 40509bc5a on claude/lane-dispatcher-orchestrator-u5hpca (#945)"
+    }
+  },
+  "cycle32Transitions": {
+    "mainTip": "45d5cdac1 (was 31724a8d4)",
+    "myOwnPr": {
+      "pr": "#945",
+      "head": "493e1b014",
+      "verdict": "Validate PR SUCCESS, job 96421927245, 12:17:09Z -> 12:30:38Z",
+      "runDuration": "13m29s — shorter than the two prior 17m runs, comfortably inside the 22-minute interval."
+    },
+    "merged": [
+      "#950 — Lane 8 docs (cross-position bridge / IDP ceiling audit)",
+      "#964 — Lane 12 implementation (V1-53: widen canonical-alias write guard to cover the seasonal lane)",
+      "#968 — Integration's own closure work (#958 closed by production evidence; #948 suppression holds at 3h)",
+      "#972 — Integration promotion pass (V1-53 VERIFIED at L1 — 59/136)"
+    ],
+    "promotionPassRan": "YES — #972, the third promotion pass of the session (after #947, #963).",
+    "rowDiff": {
+      "method": "§3 row-diffed 113a29311 -> 45d5cdac1",
+      "result": "EXACTLY ONE row changed: V1-53 IN PROGRESS -> VERIFIED (L1). Denominator held at 136.",
+      "selfConsistency": "Independent count 59+21+21+33+2 = 136; contract's own table and completion line read 59/136 = 43.4%, agreeing."
+    },
+    "rule_n_appliedCorrectly": {
+      "observation": "Three of the four merges (#950, #964, #968) moved zero §3 rows. Checked each against its lane's charter before drawing any conclusion, per rule (n).",
+      "finding": "All three are non-promotion by charter or by role: #950 is Lane 8 (forbidden from touching §3), #964 is Lane 12's IMPLEMENTATION of V1-53 (mass-build lanes mark nothing VERIFIED), #968 is Integration's own operational closure work, not a §3 edit. The ONE row that moved came from #972, which IS Integration exercising its sole promotion authority. This is the pattern working exactly as chartered — implementation and promotion cleanly separated across four merges in one cycle, with the row-diff proving it rather than assuming it."
     }
   }
 }
