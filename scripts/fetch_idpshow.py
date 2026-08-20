@@ -63,6 +63,27 @@ SESSION_PATH = REPO / "idpshow_session.json"
 ARTICLE_URL = "https://www.theidpshow.com/p/idp-dynasty-rankings"
 OUT_PATH = REPO / "CSVs" / "site_raw" / "idpShow.csv"
 
+# The SAME publisher also runs a COMBINED offense+IDP dynasty board.  It is a
+# different QUANTITY from the IDP-only board above — a cross-market ordering
+# that ranks Bijan Robinson against Patrick Queen — not a re-cut of it.
+#
+# Acquired and preserved; it votes NOTHING.  Two reasons, both load-bearing:
+#
+#   * It is the same PROVIDER, so admitting both as independent votes would
+#     manufacture agreement out of one opinion — the KTC Off/TE+/TE++/TE+++
+#     defect family CLAUDE.md names explicitly.
+#   * Measured 2026-08-20, the swap is not a free upgrade: the combined board
+#     carries 250 players (170 offense / 80 IDP) against the IDP board's 350,
+#     and only 79 of our current IDP players appear on it.  Switching wholesale
+#     would strip an IDP Show vote from 278 defenders to gain 170 offense rows.
+#
+# Which board should VOTE is an owner decision with a measured cost, not a URL
+# swap.  This fetcher's job is to make the evidence available either way.
+COMBINED_ARTICLE_URL = (
+    "https://www.theidpshow.com/p/combined-idp-offense-dynasty-rankings-fantasy-football"
+)
+COMBINED_OUT_PATH = REPO / "CSVs" / "site_raw" / "idpShowCombined.csv"
+
 # Position normalization.  The IDP Show groups pass rushers as ``ED``
 # (edge) and interior linemen as ``IDL`` — both fall under the DL
 # family in our registry.  ``S`` and ``CB`` fold into the DB family.
@@ -123,10 +144,10 @@ def _build_session():
     return session
 
 
-def _fetch_article_html(session) -> str:
-    r = session.get(ARTICLE_URL, timeout=45)
+def _fetch_article_html(session, url: str = ARTICLE_URL) -> str:
+    r = session.get(url, timeout=45)
     if r.status_code != 200:
-        raise RuntimeError(f"GET {ARTICLE_URL} failed: HTTP {r.status_code}")
+        raise RuntimeError(f"GET {url} failed: HTTP {r.status_code}")
     return r.text
 
 
@@ -241,21 +262,34 @@ def _parse_dataset(csv_text: str) -> list[dict]:
     silently re-break the feed (the 0-rows guard in :func:`main`
     would still catch a *third* unknown schema).
     """
-    reader = csv.DictReader(csv_text.splitlines())
+    # The IDP-only chart is comma-separated; the COMBINED board is
+    # tab-separated with `Rank / Name / Position / Team / Change`.  Sniff on
+    # the header rather than on the flag, so a future format flip on either
+    # board is handled by the same code path instead of by a second parser.
+    first = csv_text.splitlines()[0] if csv_text.splitlines() else ""
+    delimiter = "\t" if first.count("\t") > first.count(",") else ","
+    reader = csv.DictReader(csv_text.splitlines(), delimiter=delimiter)
     rows_out: list[dict] = []
     for row in reader:
-        name = str(row.get("PLAYER") or "").strip()
+        # "Name"/"Position"/"Rank" are the COMBINED board's headers.
+        name = str(row.get("PLAYER") or row.get("Name") or "").strip()
         if not name:
             continue
         # Position: old ``POS`` is a bare code; new ``POSITION RANK``
         # is the code with the positional rank concatenated
         # (``ED1``).  Strip everything from the first digit on.
-        pos_src = str(row.get("POS") or row.get("POSITION RANK") or "").strip().upper()
+        pos_src = (
+            str(row.get("POS") or row.get("POSITION RANK") or row.get("Position") or "")
+            .strip()
+            .upper()
+        )
         m = re.match(r"[A-Z]+", pos_src)
         pos_raw = m.group(0) if m else pos_src
         pos_norm = _POS_NORM.get(pos_raw, pos_raw)
         # Overall rank: old ``OVR`` → new ``OVERALL``.
-        ovr_raw = str(row.get("OVR") or row.get("OVERALL") or "").strip().lstrip("0")
+        ovr_raw = (
+            str(row.get("OVR") or row.get("OVERALL") or row.get("Rank") or "").strip().lstrip("0")
+        )
         try:
             rank = int(ovr_raw) if ovr_raw else None
         except (TypeError, ValueError):
@@ -308,7 +342,19 @@ def main(argv: list[str] | None = None) -> int:
         action="store_true",
         help="Scrape but don't write the CSV.",
     )
+    parser.add_argument(
+        "--combined",
+        action="store_true",
+        help=(
+            "Fetch the publisher's COMBINED offense+IDP dynasty board into "
+            "idpShowCombined.csv instead of the IDP-only board.  Acquisition "
+            "only — nothing in the registry reads that file, so it cannot "
+            "vote.  See COMBINED_ARTICLE_URL for why."
+        ),
+    )
     args = parser.parse_args(argv)
+    article_url = COMBINED_ARTICLE_URL if args.combined else ARTICLE_URL
+    out_path = COMBINED_OUT_PATH if args.combined else OUT_PATH
 
     if not SESSION_PATH.exists():
         print(
@@ -322,7 +368,7 @@ def main(argv: list[str] | None = None) -> int:
     session = _build_session()
 
     try:
-        html = _fetch_article_html(session)
+        html = _fetch_article_html(session, article_url)
     except RuntimeError as exc:
         print(f"[idpshow] article fetch failed: {exc}", file=sys.stderr)
         return 1
@@ -405,8 +451,8 @@ def main(argv: list[str] | None = None) -> int:
             print(f"  #{r['rank']:<4} {r['position']:<4} {r['name']}")
         return 0
 
-    count = _write_csv(OUT_PATH, rows)
-    print(f"[idpshow] wrote {count} rows → {OUT_PATH.relative_to(REPO)}")
+    count = _write_csv(out_path, rows)
+    print(f"[idpshow] wrote {count} rows → {out_path.relative_to(REPO)}")
     return 0
 
 
