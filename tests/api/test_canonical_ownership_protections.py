@@ -41,11 +41,26 @@ from src.league_intel import overlay
 
 REPO = Path(__file__).resolve().parents[2]
 
-#: Assignment to the canonical value field, in Python or JS.
+#: Assignment to the canonical value field OR one of its three proven-
+#: identical aliases, in Python or JS. Widened 2026-08-20 (V1-53 /
+#: C5-ROS-01): the scan below only ever matched ``rankDerivedValue``
+#: itself, so an unapproved module assigning ``values["overall"]``,
+#: ``["finalAdjusted"]`` or ``["displayValue"]`` directly — the exact
+#: three fields ``test_the_aliases_are_intentional_and_pinned`` proves
+#: equal ``rankDerivedValue`` on every row — passed this gate silently.
+#: Measured: only ``src/api/data_contract.py`` (the approved producer)
+#: assigns any of the three across every tracked production `.py`/`.js`/
+#: `.jsx` file, so widening the pattern introduces no false positive.
 _CANONICAL_WRITE = re.compile(
     r"""(
         \[\s*["']rankDerivedValue["']\s*\]\s*=(?!=)   # d["rankDerivedValue"] =
       | \.rankDerivedValue\s*=(?!=)                    # obj.rankDerivedValue =
+      | \[\s*["']overall["']\s*\]\s*=(?!=)             # values["overall"] =        (alias)
+      | \.overall\s*=(?!=)                              # obj.overall =              (alias)
+      | \[\s*["']finalAdjusted["']\s*\]\s*=(?!=)       # values["finalAdjusted"] =  (alias)
+      | \.finalAdjusted\s*=(?!=)                        # obj.finalAdjusted =        (alias)
+      | \[\s*["']displayValue["']\s*\]\s*=(?!=)        # values["displayValue"] =   (alias)
+      | \.displayValue\s*=(?!=)                         # obj.displayValue =         (alias)
       | \[\s*EXPERIMENTAL_VALUE_FIELD\s*\]\s*=(?!=)    # never canonical, see below
     )""",
     re.VERBOSE,
@@ -97,9 +112,10 @@ def test_only_approved_modules_assign_the_canonical_value_field():
 
     assert not offenders, (
         "a module outside the approved canonical producers assigns "
-        "rankDerivedValue. Canonical value has one owner; an experimental, "
-        "custom or page-local writer is how one player came to have two "
-        "values:\n" + "\n".join(f"  {rel}: {n} assignment(s)" for rel, n in offenders)
+        "rankDerivedValue or one of its overall/finalAdjusted/displayValue "
+        "aliases. Canonical value has one owner; an experimental, custom, "
+        "page-local or seasonal-lane writer is how one player came to have "
+        "two values:\n" + "\n".join(f"  {rel}: {n} assignment(s)" for rel, n in offenders)
     )
 
 
@@ -112,8 +128,42 @@ def test_the_writer_scan_is_not_vacuous():
     )
     assert _CANONICAL_WRITE.findall('row["rankDerivedValue"] = 1')
     assert _CANONICAL_WRITE.findall("next.rankDerivedValue = scale(v, f)")
+    # The three aliases must be caught exactly as the canonical field is.
+    assert _CANONICAL_WRITE.findall('vals["overall"] = rdv')
+    assert _CANONICAL_WRITE.findall('vals["finalAdjusted"] = rdv')
+    assert _CANONICAL_WRITE.findall('vals["displayValue"] = rdv')
+    assert _CANONICAL_WRITE.findall("row.displayValue = seasonal_value")
     # An equality comparison is not a write.
     assert not _CANONICAL_WRITE.findall('if row["rankDerivedValue"] == 1:')
+    assert not _CANONICAL_WRITE.findall('if vals["overall"] == 1:')
+
+
+def test_no_seasonal_lane_module_assigns_a_canonical_alias():
+    """V1-53 / C5-ROS-01 — the redraft/ROS seasonal lane must never write
+    canonical dynasty value, and that includes the three aliases the write
+    scan above widened to cover, not only ``rankDerivedValue`` by name.
+
+    ``tests/ros/test_isolation.py`` already proves the seasonal lane cannot
+    mutate ``_RANKING_SOURCES``/etc. by import side effect. This is the
+    complementary direction: a direct write to the canonical field or an
+    alias from inside the lane itself. Scoped narrowly to ``src/ros/``
+    (plus its API surface) rather than repeating the whole-repo scan, so a
+    failure here names the seasonal lane specifically rather than pointing
+    back at the same generic assertion.
+    """
+    offenders: list[tuple[str, int]] = []
+    for rel in _production_sources():
+        if not rel.startswith("src/ros/"):
+            continue
+        body = (REPO / rel).read_text(encoding="utf-8", errors="ignore")
+        hits = len(_CANONICAL_WRITE.findall(body))
+        if hits:
+            offenders.append((rel, hits))
+    assert not offenders, (
+        f"seasonal (redraft/ROS) module(s) assign canonical dynasty value or "
+        f"an alias, breaching the source-domain boundary "
+        f"(docs/REDRAFT_ROS_INTELLIGENCE_SPEC.md §3): {offenders}"
+    )
 
 
 def test_the_approved_list_names_its_reasons():
