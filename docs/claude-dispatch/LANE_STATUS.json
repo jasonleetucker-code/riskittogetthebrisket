@@ -1,7 +1,7 @@
 {
   "_comment": "Lane utilization state, owned by Claude 7 (Lane Dispatcher). NOT an authority on integration sequencing (Claude 5 / docs/EXECUTION_PLAN.md), on V1 status (docs/VERSION_1_COMPLETION_CONTRACT.md) or on canonical ownership (CLAUDE.md). Repository evidence outranks this file: where they disagree, this file is wrong and must be corrected.",
-  "updatedAt": "2026-08-20T12:05:00Z",
-  "dispatchCycle": 30,
+  "updatedAt": "2026-08-20T12:15:00Z",
+  "dispatchCycle": 31,
   "writePolicy": "This file and ASSIGNMENTS.json are written ONLY on a material state transition — new assignment, assignment accepted, completion, blocker, freeze/unfreeze, or a meaningful dependency change. A heartbeat that finds nothing changed produces no commit and no CI run.",
   "evidenceBasis": "origin/main 079fc9e4a; §3 diffed row-by-row from cycle-19 main (c5a367266); all refs resolved live; #945 CI green 04:57:35Z",
   "assignmentSourceNote": "Lanes 1-6 carry the owner's original six manual assignments, tracked in detail by this dispatcher. Lanes 8-13 are five additional owner-authorized campaign lanes (Claude 8 chartered 2026-08-20; Claude 9-13 chartered the same day under the POST-V1 C-Series mass-build campaign, EXECUTION_PLAN.md §0). This dispatcher did not originate any of these eleven assignments and does not own or re-scope them. Lanes 8-13 are tracked here only lightly — ownership boundaries and authorization citation — because they are self-directed under their own charter, unlike lanes 1-6 which this dispatcher actively monitors for idleness and dispatches follow-on work to. There is no lane 7: Claude 7 is the dispatcher identity, per dispatcherIdentity above.",
@@ -343,6 +343,17 @@
       "VERSION_1_COMPLETION_CONTRACT.md, EXECUTION_PLAN.md, product source, CE registry — none touched by this dispatcher, per its standing scope",
       "the v1DerivedObservation block, which still carries the last SHA-stamped independent reading (58/136 at 31724a8d4) and is still explicitly marked non-authoritative"
     ],
-    "selfCheck": "This is the second time this session a governance send-back has asked this dispatcher to correct its own coordination record for the same underlying class of defect: #945's send-back (cycle 20) was 'you formed a second owner of the V1 numerator'; this one is 'your lane model went stale against a canonical record that superseded it.' Both are the same root cause — a derived/cached reading that nobody forced to reconcile against its source. Recording it here rather than treating it as a one-off, because the fix in both cases was the same: mark the block as derived and dated, and don't let convenience make it read as authoritative."
+    "selfCheck": "This is the second time this session a governance send-back has asked this dispatcher to correct its own coordination record for the same underlying class of defect: #945's send-back (cycle 20) was 'you formed a second owner of the V1 numerator'; this one is 'your lane model went stale against a canonical record that superseded it.' Both are the same root cause — a derived/cached reading that nobody forced to reconcile against its source. Recording it here rather than treating it as a one-off, because the fix in both cases was the same: mark the block as derived and dated, and don't let convenience make it read as authoritative.",
+    "validated": {
+      "ci": "Validate PR SUCCESS on head 40509bc5a — job 96415462467, 11:52:57Z -> 12:10:01Z, 17m4s",
+      "check1_oneDispatcherIdentity": "CONFIRMED — dispatcherIdentity block present, states Claude 7 = dispatcher, not a product lane",
+      "check2_lanes8to13Present": "CONFIRMED — LANE_STATUS.json lanes keys = ['1','2','3','4','5','6','8','9','10','11','12','13']",
+      "check3_noProductLane7Invented": "CONFIRMED — no '7' key in lanes{}; no 'lane: 7' entry in ASSIGNMENTS.json",
+      "check4_noV1StatusChanged": "CONFIRMED — diffed the correction commit against its parent: only docs/claude-dispatch/ASSIGNMENTS.json and LANE_STATUS.json touched, zero product/source/governance files, no observedVerifiedRows/observedRequiredRows/denominator value altered",
+      "verdict": "FEATURE_GREEN",
+      "integrationState": "READY_FOR_INTEGRATION",
+      "freeze": "This slice is FROZEN at 40509bc5a per #940/EXECUTION_PLAN.md's anti-thrashing rule. No further edits to it, no chasing main for ordinary data-refresh movement. Handed to Claude 5 (Integration Authority) for freshness reconciliation and shipping-tree merge at Integration's discretion.",
+      "handoff": "exact head 40509bc5a on claude/lane-dispatcher-orchestrator-u5hpca (#945)"
+    }
   }
 }
