@@ -49,7 +49,7 @@ from dataclasses import dataclass, field
 from typing import Any, Mapping, Sequence
 
 from src.roster_intel.marginal import solve_summary
-from src.ros.lineup import RosterPlayer
+from src.ros.lineup import RosterPlayer, is_priced
 
 __all__ = [
     "COMPETITIVE_STATES",
@@ -270,6 +270,8 @@ def trajectory_score(
         age = (meta.get(p.player_id) or {}).get("age")
         if age is None:
             continue
+        if not is_priced(p):
+            continue  # UNKNOWN carries no weight; it is not weight zero
         w = max(0.0, p.ros_value)
         if w <= 0:
             continue

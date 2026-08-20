@@ -36,119 +36,34 @@ const VERDICT_STRONG_LEAN = 1800;
 // consolidation premium can't be attributed after the fact.
 export const TRADE_ALPHA = 1.65;
 
-// ── KTC-Style Value Adjustment (V12 — KTC's actual published formula) ───
+// ── Value Adjustment: ONE owner, and it is ktcAdjustPackage ─────────────
 //
-// V12 is the EXACT algorithm KTC uses, reverse-engineered from KTC's
-// client-side JavaScript and corroborated by KTC's own Reddit
-// explanation.  It supersedes the previous hand-tuned V2 formula.
+// RETIRED 2026-08-18: the V2 scarcity constants (VA_SCARCITY_SLOPE,
+// VA_SCARCITY_INTERCEPT, VA_SCARCITY_CAP, VA_PER_EXTRA_BOOST,
+// VA_EFFECTIVE_CAP, VA_POSITION_DECAY), the V12 regression fit
+// (`ktcRawAdjustment`, `ktcSolveForAddedValue`, `KTC_V_OVERALL_MAX`) and
+// the V13 suppression rules (`_vaFromSortedSides`,
+// V13_SUPPRESS_RAW_DIFF, V13_SUPPRESS_SAME_SIDE_RAW_DIFF).
 //
-// Per-player raw adjustment:
+// They were superseded on 2026-04-26 by the direct port of KTC's own
+// algorithm below (`ktcProcessV` / `ktcReverseAdjust` /
+// `ktcAdjustPackage`), and at that point every entry point was rewired.
+// What was left behind was a complete second VA implementation —
+// `_vaFromSortedSides` had **no caller anywhere in the app and no
+// test**, and the V2 constants were imported by exactly one test file
+// which never read them.
 //
-//   raw(p, t, v) = p · (0.1
-//                       + 0.04 · (p / v)^8
-//                       + 0.11 · (p / t)^1.3
-//                       + 0.22 · (p / (v + 2000))^1.28)
+// Deleted rather than deprecated.  A whole second VA sitting exported
+// beside the live one is what lets a future caller wire it in without
+// anyone deciding to, and this repo has already paid for that once
+// (W29-F001: a second canonical board on every row that three engines
+// picked up).  The deprecation note that used to sit here promised
+// removal after 2026-Q3; the reason to remove it is that it is dead,
+// not that a date passed.
 //
-// where:
-//   p = this player's KTC value
-//   t = max KTC value among players IN the trade
-//   v = max KTC value overall (~9999, e.g. Josh Allen)
-//
-// Algorithm to compute the displayed Value Adjustment:
-//   1. Compute raw(p, t, v) for every player on each side.
-//   2. Sum raw per side.  Side with bigger raw_sum has the bigger studs.
-//   3. Compute raw_diff = bigger_raw - smaller_raw.
-//   4. Solve for player value X such that raw(X, t, v) ≈ raw_diff
-//      (the smaller-raw side needs a virtual player worth X to even).
-//   5. Displayed VA = (smaller_raw_side_total + X) - bigger_raw_side_total,
-//      applied to the side with the bigger raw_sum.
-//
-// Special cases:
-//   - 1v1 trades → VA = 0 (KTC empirically suppresses VA for these,
-//     even when the formula would produce one).
-//   - Equal raw_sum → VA = 0.
-//   - Cases where small (DataPoint convention) doesn't have the
-//     bigger raw → VA on small = 0; the trade favors large.
-//
-// Calibration on 100 fresh KTC captures (2026-04-25, 15 topologies):
-//
-//   V2 prod (replaced):  rms = 69.6%   mean = 58.4%   max = 112%
-//   V12 KTC actual:      rms = 39.3%   mean = 24.7%   max = 100%
-//
-// V12 cuts RMS by 44% and mean error by 58% on current KTC behavior.
-// The script ``scripts/calibrate_va_formula.py`` runs the comparison
-// against the captured fixture in ``scripts/ktc_va_observations.json``.
-//
-// V12 is closed-form — no parameters to tune.  The constants 0.1 /
-// 0.04 / 0.11 / 0.22 and exponents 8 / 1.3 / 1.28 are KTC's own.
-
-// Max KTC value overall — Josh Allen sits here.  Effectively constant
-// across the lifetime of any deployed build; refresh if the top
-// player's value drifts more than ±5%.
-export const KTC_V_OVERALL_MAX = 9999;
-
-// Backward-compat exports — kept so any test file or downstream
-// consumer that imports these by name still resolves.  The values are
-// unused at runtime now that V12 replaces V2.  Will be removed once
-// the 2026-Q3 deprecation window passes.
-export const VA_SCARCITY_SLOPE = 3.75;
-export const VA_SCARCITY_INTERCEPT = 0.45;
-export const VA_SCARCITY_CAP = 0.55;
-export const VA_PER_EXTRA_BOOST = 1.4;
-export const VA_EFFECTIVE_CAP = 1.0;
-export const VA_POSITION_DECAY = 0.35;
-
-/**
- * KTC's per-player raw adjustment, the inner term of V12.
- *
- * Pure function — same inputs always produce the same output, no
- * hidden state.  ``Math.pow`` handles the fractional exponents fine
- * for the value ranges we deal with (0–9999).
- *
- * @param {number} p - this player's KTC value
- * @param {number} t - max KTC value among players in the trade
- * @param {number} [v=KTC_V_OVERALL_MAX] - max KTC value overall
- * @returns {number} the player's raw adjustment contribution
- */
-export function ktcRawAdjustment(p, t, v = KTC_V_OVERALL_MAX) {
-  if (!(p > 0)) return 0;
-  const pv = v > 0 ? p / v : 0;
-  const ptRatio = t > 0 ? p / t : 0;
-  const pv2k = p / (v + 2000);
-  return p * (
-    0.1
-    + 0.04 * Math.pow(pv, 8)
-    + 0.11 * Math.pow(ptRatio, 1.3)
-    + 0.22 * Math.pow(pv2k, 1.28)
-  );
-}
-
-/**
- * Find player value X such that ``ktcRawAdjustment(X, t, v) ≈ target``.
- *
- * Binary search.  ``ktcRawAdjustment`` is monotonically increasing in
- * p when t and v are fixed (every term inside the parens is
- * non-decreasing in p, and p multiplies the whole thing), so
- * bisection converges fast.  60 iterations bring the bracket
- * width to ~10⁻¹⁸ — way past floating-point precision.
- *
- * @param {number} target - target raw adjustment value
- * @param {number} t - max KTC value in the trade (drives the formula)
- * @param {number} [v=KTC_V_OVERALL_MAX]
- * @returns {number} player value X
- */
-export function ktcSolveForAddedValue(target, t, v = KTC_V_OVERALL_MAX) {
-  if (!(target > 0)) return 0;
-  let lo = 0;
-  let hi = Math.max(t || 0, KTC_V_OVERALL_MAX);
-  if (ktcRawAdjustment(hi, t, v) < target) return hi;
-  for (let i = 0; i < 60; i++) {
-    const mid = (lo + hi) / 2;
-    if (ktcRawAdjustment(mid, t, v) < target) lo = mid;
-    else hi = mid;
-  }
-  return (lo + hi) / 2;
-}
+// `TRADE_ALPHA` above is NOT part of this and is still live — it grades
+// past trades on /trades, where a consolidation premium cannot be
+// attributed after the fact.
 
 // ── Pick Year Discount: backend-owned ───────────────────────────────────
 // The future-year pick discount is applied ONCE, in the backend
@@ -584,78 +499,6 @@ export function ktcAdjustPackage(team1Vals, team2Vals, opts = {}) {
   if (tOne.length === 1 && tTwo.length === 1) displayed = false;
   if (!displayed) return { value: 0, side: 0, displayed: false };
   return { value: Math.round(value), side, displayed: true };
-}
-
-// ── Legacy V13 path (deprecated; retained for backwards-compat) ────────
-//
-// V13 was a regression-fit approximation of KTC's algorithm.  As of
-// 2026-04-26 the entry points (computeValueAdjustment,
-// computeMultiSideAdjustments, valueAdjustmentFromSideArrays) route
-// through ktcAdjustPackage above.  The V13 functions below are kept
-// exported because tests and external consumers may import them by
-// name; they are no longer on the live VA path.
-const V13_SUPPRESS_RAW_DIFF = 100;
-const V13_SUPPRESS_SAME_SIDE_RAW_DIFF = 400;
-
-function _vaFromSortedSides(small, large) {
-  if (small.length === 0 || small[0] <= 0) return 0;
-  if (large.length === 0) return 0;
-
-  // V12 + V13: KTC's published formula plus empirical suppression rules.
-  //
-  // KTC observation 1: 1v1 trades never display a VA, even when the
-  // formula would produce one.  KTC's UI gates the row off.
-  if (small.length === 1 && large.length === 1) return 0;
-
-  const all = small.concat(large);
-  const t = Math.max(...all);
-  const v = KTC_V_OVERALL_MAX;
-
-  let rawSmall = 0;
-  for (const x of small) rawSmall += ktcRawAdjustment(x, t, v);
-  let rawLarge = 0;
-  for (const x of large) rawLarge += ktcRawAdjustment(x, t, v);
-
-  // KTC convention: VA displayed on the bigger raw_sum side.  Our
-  // caller convention is that ``small`` is the recipient — so we only
-  // return a non-zero VA when small actually has the bigger raw_sum.
-  const rawDiff = rawSmall - rawLarge;
-  if (rawDiff <= 0) return 0;
-
-  // V13 suppression rule 1 — "trade is too close to fire".  When
-  // raw_diff is small in absolute terms, KTC's UI shows "Fair Trade"
-  // and suppresses the VA row.  Threshold tuned from 4 captured cases
-  // where V12 over-predicted by 200-1100 but KTC reported 0.
-  if (rawDiff < V13_SUPPRESS_RAW_DIFF) return 0;
-
-  // V13 suppression rule 2 — KTC article hint: "The value adjustment
-  // isn't necessarily applied to the side with the best player; it
-  // tends to be applied to the side with less junk."  When the
-  // single best AND single worst piece in the trade are on the same
-  // side AND the raw gap is moderate, KTC tends to suppress.  This
-  // is the rule that caught the user-reported "fair trade" where
-  // Justin Jefferson (best) and Germie Bernard (worst) were both on
-  // the same side and KTC showed VA=0 despite V12 computing 1028.
-  const allMin = Math.min(...all);
-  const bestInSmall = small.includes(t);
-  const worstInSmall = small.includes(allMin);
-  if (
-    bestInSmall === worstInSmall &&
-    rawDiff < V13_SUPPRESS_SAME_SIDE_RAW_DIFF
-  ) {
-    return 0;
-  }
-
-  const sumSmall = small.reduce((s, x) => s + x, 0);
-  const sumLarge = large.reduce((s, x) => s + x, 0);
-
-  // Solve for the virtual player value that closes the raw gap on the
-  // large side, then displayed VA = (large_total + virtual) -
-  // small_total — which is the "show this much extra to make the
-  // sides equal" quantity KTC's UI displays.
-  const virtual = ktcSolveForAddedValue(rawDiff, t, v);
-  const va = (sumLarge + virtual) - sumSmall;
-  return Math.max(0, va);
 }
 
 /**
@@ -1372,22 +1215,111 @@ export function isAssetInTrade(sideA, sideB, name) {
 
 // ── Balancing Suggestions ────────────────────────────────────────────────
 /**
- * Find players from a roster that could balance a trade gap.
- * @param {number} gap - Current trade gap (positive = Side A ahead)
- * @param {object[]} rosterRows - Available rows from the behind team's roster
- * @param {string} valueMode - Current value mode
- * @param {number} maxResults - Max suggestions to return
- * @returns {object[]} Sorted array of { name, pos, value } that best fill the gap
+ * Find add-ons that actually close the gap the user is being shown.
+ *
+ * ──────────────────────────────────────────────────────────────────────
+ * Why this simulates instead of matching a value (defect #800)
+ * ──────────────────────────────────────────────────────────────────────
+ * The gap on screen is the ADJUSTED gap — ``raw + Value Adjustment −
+ * stack``, from ``adjustedSideTotals`` / ``tradeImbalance``.  This
+ * function used to be handed that number and then rank candidates by
+ * ``Math.abs(candidate.rawValue − |gap|)``: a RAW player value matched
+ * against an ADJUSTED target.
+ *
+ * That arithmetic is only valid if adding a piece worth ``V`` moves the
+ * adjusted gap by ``V``, and it does not.  VA is a function of BOTH
+ * sides' complete value arrays, so adding a piece re-runs
+ * ``ktcAdjustPackage`` from scratch — the piece count changes, the
+ * progressive-nerf ladder shifts, the recipient side can flip, and the
+ * 1-v-1 / 3.3% display gates snap on or off.
+ *
+ * Measured over 4,000 seeded two-side trades in which a near-even
+ * landing WAS reachable from the candidate pool, the value-matching
+ * rule missed it **43.2%** of the time, and in **701** of those cases it
+ * handed the lead to the other side.  Mean residual gap 1,007 against an
+ * achievable 50.
+ *
+ * So the signature takes the TRADE, not a pre-computed number: a caller
+ * cannot hand this function a gap from one representation and a pool
+ * priced in another.  Every candidate is scored by rebuilding the trade
+ * with that candidate on the sweetening side and re-measuring through
+ * ``tradeImbalance`` — the same path the meter renders.
+ *
+ * @param {object[]} sides       — side objects (``{ assets, destinations }``)
+ * @param {number} behindIdx     — index of the side that must sweeten
+ * @param {object[]} rosterRows  — candidate rows to choose from
+ * @param {string} valueMode
+ * @param {object}  [opts]
+ * @param {object}  [opts.settings]
+ * @param {object}  [opts.stackContext]
+ * @param {number}  [opts.maxResults=5]
+ * @param {number}  [opts.toSideIdx] — destination for the added asset in
+ *        N >= 3 trades; defaults to the side netting the least.
+ * @returns {{name: string, pos: string, value: number, gapBefore: number|null,
+ *            gapAfter: number|null, imbalanceBefore: number,
+ *            imbalanceAfter: number}[]}
+ *        Sorted best-first.  Empty when the trade is already near even or
+ *        nothing in the pool improves it.
  */
-export function findBalancers(gap, rosterRows, valueMode, maxResults = 5) {
-  const target = Math.abs(gap);
-  if (target < VERDICT_NEAR_EVEN) return [];
+export function findBalancers(sides, behindIdx, rosterRows, valueMode, opts = {}) {
+  const { settings = null, stackContext = null, maxResults = 5 } = opts;
+  if (!Array.isArray(sides) || sides.length < 2) return [];
+  if (!Number.isInteger(behindIdx) || behindIdx < 0 || behindIdx >= sides.length) {
+    return [];
+  }
 
-  return rosterRows
-    .map((r) => ({ name: r.name, pos: r.pos, value: Number(r.values?.[valueMode] || 0) }))
-    .filter((r) => r.value > 0 && r.value <= target * 1.3)
-    .sort((a, b) => Math.abs(a.value - target) - Math.abs(b.value - target))
-    .slice(0, maxResults);
+  const before = tradeImbalance(sides, valueMode, settings, stackContext);
+  if (before.imbalance < VERDICT_NEAR_EVEN) return [];
+
+  // In an N >= 3 trade an added asset needs somewhere to go.  Default to
+  // the side currently netting the least — the team this side is
+  // shorting — rather than the circular default, which would route the
+  // sweetener to whoever happens to sit next in the list.
+  let toSideIdx = opts.toSideIdx;
+  if (!Number.isInteger(toSideIdx) || toSideIdx === behindIdx) {
+    toSideIdx = before.nets.indexOf(Math.min(...before.nets));
+    if (toSideIdx === behindIdx) {
+      toSideIdx = behindIdx === 0 ? 1 : 0;
+    }
+  }
+
+  const withCandidate = (row) => {
+    const next = sides.map((side, i) => {
+      if (i !== behindIdx) return side;
+      const assets = [...(Array.isArray(side?.assets) ? side.assets : []), row];
+      if (sides.length === 2) return { ...side, assets };
+      return {
+        ...side,
+        assets,
+        destinations: { ...(side?.destinations || {}), [row.name]: toSideIdx },
+      };
+    });
+    return tradeImbalance(next, valueMode, settings, stackContext);
+  };
+
+  const scored = [];
+  for (const row of rosterRows || []) {
+    // Unpriced rows cannot be shown to close anything, so they are
+    // SKIPPED rather than coerced to zero.  A zero-value candidate would
+    // let "we do not know what this is worth" render as "this changes
+    // nothing" — MISSING IS NEVER ZERO.
+    const value = Number(row?.values?.[valueMode]);
+    if (!Number.isFinite(value) || value <= 0) continue;
+    const after = withCandidate(row);
+    if (!(after.imbalance < before.imbalance)) continue;
+    scored.push({
+      name: row.name,
+      pos: row.pos,
+      value,
+      gapBefore: before.gap,
+      gapAfter: after.gap,
+      imbalanceBefore: before.imbalance,
+      imbalanceAfter: after.imbalance,
+    });
+  }
+
+  scored.sort((a, b) => a.imbalanceAfter - b.imbalanceAfter || a.name.localeCompare(b.name));
+  return scored.slice(0, maxResults);
 }
 
 // ── Multi-Team Verdict Helpers ───────────────────────────────────────────
@@ -1511,15 +1443,41 @@ export function computeSideFlows(
 ) {
   const n = Array.isArray(sides) ? sides.length : 0;
   const result = [];
-  for (let i = 0; i < n; i++) result.push({ given: 0, received: 0, net: 0 });
+  for (let i = 0; i < n; i++) result.push({ given: 0, received: 0, net: 0, adjustment: 0 });
   if (n < 2) return result;
 
+  const sideAssets = sides.map((side) =>
+    Array.isArray(side?.assets) ? side.assets : [],
+  );
+  // Value Adjustment is a property of the PACKAGE, so it has to travel
+  // with the assets when they are routed.  Each side's premium is
+  // spread proportionally across the assets it sends, which makes
+  // ``given_i = raw_i + adjustment_i`` by construction and lets the
+  // premium land on whichever side actually receives those pieces.
+  const adjustments = computeMultiSideAdjustments(sideAssets, valueMode, settings);
+
   for (let i = 0; i < n; i++) {
-    const side = sides[i];
-    const assets = Array.isArray(side?.assets) ? side.assets : [];
-    const destinations = side?.destinations || {};
+    const assets = sideAssets[i];
+    const destinations = sides[i]?.destinations || {};
+    let rawTotal = 0;
     for (const asset of assets) {
-      const value = Math.max(0, effectiveValue(asset, valueMode, settings));
+      rawTotal += Math.max(0, effectiveValue(asset, valueMode, settings));
+    }
+    const rawAdjustment = Number(adjustments[i]);
+    // A non-finite premium means the VA could not be computed for this
+    // side, which is "no premium to attribute", not "a premium of zero
+    // that we measured".  Both land on 0 here because the arithmetic
+    // neutral is the same, but the distinction is why this is written
+    // out rather than coerced with ``|| 0``.
+    const adjustment = Number.isFinite(rawAdjustment) && rawAdjustment > 0 ? rawAdjustment : 0;
+    // A side whose pieces are all unpriced has nothing to scale, so the
+    // premium is dropped rather than divided by zero.  The assets are
+    // still counted; they just carry no premium nobody can attribute.
+    const scale = rawTotal > 0 ? (rawTotal + adjustment) / rawTotal : 1;
+    result[i].adjustment = rawTotal > 0 ? adjustment : 0;
+
+    for (const asset of assets) {
+      const value = Math.max(0, effectiveValue(asset, valueMode, settings)) * scale;
       result[i].given += value;
 
       let dest;
@@ -1551,6 +1509,59 @@ export function computeSideFlows(
     result[i].net = result[i].received - result[i].given + (stack[i] || 0);
   }
   return result;
+}
+
+/**
+ * The single imbalance number for a trade of ANY side count.
+ *
+ * ONE REPRESENTATION, EVERY N.  Before 2026-08-18 the 2-team meter read
+ * VA-adjusted side totals while the 3+-team meter read a raw net flow
+ * with no Value Adjustment in it at all, so the same trade shape graded
+ * differently at 2 teams and at 3.  ``computeSideFlows`` is now
+ * VA-inclusive and this is the one place the imbalance is defined.
+ *
+ * Returns ``{ imbalance, nets, gap }``:
+ *   - ``nets``  — per-side net flow (received − given + stack)
+ *   - ``gap``   — the signed 2-team gap (side A minus side B), or
+ *                 ``null`` for N >= 3 where "which side is ahead" is not
+ *                 a single signed number
+ *   - ``imbalance`` — magnitude, comparable across N: ``|gap|`` for
+ *                 N = 2, ``max(net) - min(net)`` for N >= 3.
+ *
+ * KNOWN, PRE-EXISTING, OUT OF SCOPE: the draft-capital stack term is
+ * accounted differently by the two paths — ``adjustedSideTotals``
+ * debits BOTH sides' stack into the gap while a net flow credits only
+ * the side's own.  That difference predates this function, is zero for
+ * every trade with no pick routing, and belongs to whoever revisits the
+ * stack model.  With no ``stackContext`` the N = 2 identity
+ * ``nets[1] === tradeGapAdjusted(A, B)`` holds exactly, and a test pins it.
+ */
+export function tradeImbalance(
+  sides,
+  valueMode,
+  settings = null,
+  stackContext = null,
+) {
+  const n = Array.isArray(sides) ? sides.length : 0;
+  if (n < 2) return { imbalance: 0, nets: [], gap: null };
+  const nets = computeSideFlows(sides, valueMode, settings, stackContext).map(
+    (f) => f.net,
+  );
+  if (n === 2) {
+    const gap = tradeGapAdjusted(
+      Array.isArray(sides[0]?.assets) ? sides[0].assets : [],
+      Array.isArray(sides[1]?.assets) ? sides[1].assets : [],
+      valueMode,
+      settings,
+      stackContext,
+    );
+    return { imbalance: Math.abs(gap), nets, gap };
+  }
+  return {
+    imbalance: Math.max(...nets) - Math.min(...nets),
+    nets,
+    gap: null,
+  };
 }
 
 /**

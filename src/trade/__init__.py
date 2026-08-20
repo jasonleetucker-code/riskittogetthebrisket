@@ -1,13 +1,15 @@
-"""Trade-engine package initialization.
+"""Trade-engine package.
 
-The arbitrage finder is patched at package import so every caller—API,
-CLI, tests, and audit scripts—uses the same KTC package Value Adjustment
-as the frontend trade calculator.
+This module used to MONKEYPATCH the arbitrage finder at import time —
+``finder_value_adjustment.install(finder)`` rebound ``finder._score_trade`` and
+``finder.TradeCandidate.to_dict`` so every caller got KTC's package Value
+Adjustment.  It is gone: ``src/trade/finder.py`` calls those helpers directly,
+so the behaviour is visible in the file that has it and cannot be lost by a
+refactor that changes import order.  See ``finder_value_adjustment`` for the
+full reasoning and ``tests/trade/test_finder_va_is_not_bypassable.py`` for the
+guard.
+
+Deliberately empty otherwise.  A package ``__init__`` that changes a sibling
+module's behaviour is action at a distance, and this one is where that pattern
+lived.
 """
-
-from . import finder as _finder
-from .finder_value_adjustment import install as _install_value_adjustment
-
-_install_value_adjustment(_finder)
-
-del _finder, _install_value_adjustment

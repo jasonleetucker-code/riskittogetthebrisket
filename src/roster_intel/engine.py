@@ -28,7 +28,7 @@ is close.  Multiplying those reports the roster's greatest STRENGTH as
 its greatest need.
 
 Deficiency is a different measurement and is provided here as
-``PositionNeed.deficit`` so consumers stop deriving it: it is the gap
+``PositionDeficit.deficit`` so consumers stop deriving it: it is the gap
 between what the position contributes and what a replacement-level
 occupant of the same slots would contribute.  Low contribution relative
 to replacement is a deficit; high concentration is a RISK, and the two
@@ -47,10 +47,10 @@ from src.league_intel.replacement import PositionReplacement
 from src.roster_intel.marginal import position_marginals, solve_summary
 from src.roster_intel.profiles import RosterProfile, build_position_profiles
 from src.roster_intel.window import CompetitiveWindow, compute_window
-from src.ros.lineup import RosterPlayer
+from src.ros.lineup import RosterPlayer, is_priced
 
 __all__ = [
-    "PositionNeed",
+    "PositionDeficit",
     "RosterIntel",
     "RosterValues",
     "analyze_roster",
@@ -105,8 +105,18 @@ class RosterValues:
 
 
 @dataclass(frozen=True)
-class PositionNeed:
+class PositionDeficit:
     """Deficiency and risk, kept SEPARATE (see module docstring).
+
+    Renamed from ``PositionNeed`` (2026-08-19).  ``weakness.PositionNeed``
+    is the canonical C2-WEAK-01 need — a rung ladder against
+    ``k × teamCount`` thresholds — and this is a different question:
+    how far below replacement a position sits, plus how badly one
+    absence would hurt.  Two concepts sharing one name inside a package
+    whose ``__init__`` calls itself "THE stable interface" is a trap for
+    the next caller, so the canonical one keeps the canonical name and
+    this one is named for what it measures.  Nothing outside this module
+    referenced it, so the rename costs nothing.
 
     ``deficit`` answers "am I below replacement here" — acquire a
     starter.  ``concentration_risk`` answers "would one absence hurt" —
@@ -146,7 +156,7 @@ class PositionNeed:
 def position_needs(
     profile: RosterProfile,
     replacement: Mapping[str, PositionReplacement] | None = None,
-) -> dict[str, PositionNeed]:
+) -> dict[str, PositionDeficit]:
     """Deficit and concentration risk per position.
 
     ``deficit`` = what a replacement-level occupant of this position's
@@ -157,7 +167,7 @@ def position_needs(
     concentration, and a strong concentrated room would invert into a
     phantom need (the exact defect a consumer hit).
     """
-    out: dict[str, PositionNeed] = {}
+    out: dict[str, PositionDeficit] = {}
     for pos, prof in profile.positions.items():
         rep = (replacement or {}).get(pos)
         baseline_per_slot = rep.value("starter") if rep else None
@@ -177,7 +187,7 @@ def position_needs(
                 f"{baseline:.0f} across {req} dedicated slot(s)"
             )
 
-        out[pos] = PositionNeed(
+        out[pos] = PositionDeficit(
             position=pos,
             deficit=deficit,
             concentration_risk=prof.fragility,
@@ -199,7 +209,7 @@ class RosterIntel:
     filled_slots: int
     total_slots: int
     profile: RosterProfile
-    needs: dict[str, PositionNeed]
+    needs: dict[str, PositionDeficit]
     window: CompetitiveWindow
     playoff_odds: float | None = None
     championship_odds: float | None = None
@@ -245,6 +255,11 @@ def _rollup_values(
     market = consensus = adjusted = ros = starters = bench = 0.0
     priced = unpriced = 0
     for p in pool:
+        if not is_priced(p):
+            # UNKNOWN, not zero: no value arithmetic, still counted as a
+            # body the board could not price.
+            unpriced += 1
+            continue
         ros += max(0.0, p.ros_value)
         if p.ros_value > 0:
             priced += 1
@@ -282,7 +297,7 @@ def _unpriced_note(pool: Sequence[RosterPlayer]) -> str | None:
     which builder produced the pool from the number alone, so say so
     rather than let 0 be read as full coverage.
     """
-    if any(p.ros_value <= 0 for p in pool):
+    if any(is_priced(p) and p.ros_value <= 0 for p in pool) or any(not is_priced(p) for p in pool):
         return None
     return (
         "unpricedPlayers is 0 because every player IN the pool carries a value; "

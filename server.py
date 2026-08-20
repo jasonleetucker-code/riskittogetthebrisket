@@ -378,13 +378,18 @@ _OVERLAY_RESPONSE_CACHE_MAX = 32
 # between scrapes.  Same shape as the overlay cache above:
 # ``key -> (raw_bytes, gzip_bytes, version)`` where ``version`` is the
 # ``latest_data_etag`` generation the entry was built from.  Key =
-# (canonical body JSON hash, delta_view, league key, sleeper_matches) —
-# everything that can alter the response body.  Entries whose version
-# no longer matches are rebuilt in place (one generation per slot);
-# ``_prime_latest_payload`` clears the dict outright on scrape
-# promotion.  The leagueAdjusted path is deliberately NOT cached (its
-# factors come from the gameplan module with its own freshness) but
-# still builds off the event loop.
+# (hash of the NORMALIZED build inputs — override map, tep knobs,
+# valuation mode, warnings — plus delta_view, league key,
+# sleeper_matches): everything that can alter the response body, and
+# nothing that cannot.  It used to hash the raw posted body, which with
+# custom source weighting withdrawn (#875) meant every distinct
+# source-toggle body paid a full pipeline rebuild for a byte-identical
+# response; ``normalize_source_overrides`` maps them all to the same
+# empty map.  Entries whose version no longer matches are rebuilt in
+# place (one generation per slot); ``_prime_latest_payload`` clears the
+# dict outright on scrape promotion.  The leagueAdjusted path is cached
+# like any other since B9a withdrew the lens (no gameplan factors left
+# to go stale).
 _OVERRIDES_RESPONSE_CACHE: dict = {}
 _OVERRIDES_ENCODE_LOCKS: dict = {}
 _OVERRIDES_RESPONSE_CACHE_MAX = 16
@@ -4567,25 +4572,45 @@ async def post_rankings_overrides(request: Request):
         return raw, gz
 
     # ── Response memo ────────────────────────────────────────────────
-    # Cache key: everything that can change the response body.  The
-    # canonical body JSON covers overrides + tep knobs + any unknown
-    # keys (which produce per-body warnings), and it includes
-    # ``valuation_mode``, so a request carrying the withdrawn lens keys
-    # separately from one that does not — which is what the differing
-    # ``valuationNote`` needs.  ``valuation_mode`` requests used to be
-    # excluded because their factors came from the gameplan module whose
-    # freshness this cache cannot see; with the lens withdrawn there are
-    # no factors and nothing unseeable left to exclude.  Entries are
-    # versioned on ``latest_data_etag`` (the contract generation) and
-    # rebuilt in place when stale; ``_prime_latest_payload`` clears the
-    # whole dict on scrape promotion.
+    # Cache key: everything that can change the response body, and
+    # nothing that cannot.  The build consumes the NORMALIZED inputs —
+    # the override map from ``normalize_source_overrides`` (always ``{}``
+    # while ``_SOURCE_OVERRIDES_DISABLED``), the two tep knobs, and
+    # ``valuation_mode`` (→ ``valuationNote``) — plus the ``warnings``
+    # that get stamped onto the payload, so the key is derived from
+    # exactly those.  Hashing the raw posted body instead (the previous
+    # key) made every distinct source-toggle body pay a full pipeline
+    # rebuild for a byte-identical response.  ``warnings`` rides the key
+    # so this stays response-equivalence-complete even if the withdrawal
+    # flag is ever flipped back (per-body unknown-key warnings would key
+    # separately), and it distinguishes ``body=None`` (no withdrawal
+    # warning — ``normalize_source_overrides`` early-returns before the
+    # disabled check) from ``body={}`` (warning present).
+    # ``valuation_mode`` requests used to be excluded because their
+    # factors came from the gameplan module whose freshness this cache
+    # cannot see; with the lens withdrawn there are no factors and
+    # nothing unseeable left to exclude.  Entries are versioned on
+    # ``latest_data_etag`` (the contract generation) and rebuilt in
+    # place when stale; ``_prime_latest_payload`` clears the whole dict
+    # on scrape promotion.
     cacheable = contract_version is not None
     cache_key = None
     if cacheable:
-        canonical_body = json.dumps(body, sort_keys=True, separators=(",", ":"), default=str)
+        normalized_inputs = json.dumps(
+            {
+                "overrides": overrides,
+                "tep": tep_multiplier,
+                "tepNative": tep_native_multiplier,
+                "valuationMode": valuation_mode,
+                "warnings": warnings,
+            },
+            sort_keys=True,
+            separators=(",", ":"),
+            default=str,
+        )
         cache_key = (
             "overrides",
-            hashlib.sha1(canonical_body.encode("utf-8")).hexdigest(),
+            hashlib.sha1(normalized_inputs.encode("utf-8")).hexdigest(),
             delta_view,
             league_cfg.key,
             sleeper_matches,
@@ -7166,12 +7191,28 @@ async def post_trade_suggestions(request: Request):
             contract,
             ktc_top_n=ktc_top_n,
         )
+        # Roster capacity for the requesting team, built ONCE and reused
+        # across every proposal — the expensive part (joining the roster to
+        # the board, measuring waiver level league-wide, resolving starter
+        # slots) does not depend on which trade is being scored.  Each
+        # suggestion then reports what it would cost in forced releases;
+        # nothing is filtered out on capacity grounds.
+        # Suggestions are the product; capacity is an annotation on them, so a
+        # failure here degrades to no annotation rather than no suggestions.
+        capacity_context = _capacity_context_for(
+            contract,
+            league_cfg,
+            {"players": list(roster)},
+            surface="/api/trade/suggestions",
+        )
+
         return generate_suggestions_from_pool(
             roster_names=roster,
             pool=pool,
             league_rosters=league_rosters,
             starter_needs=starter_needs,
             ktc_top_n=ktc_top_n,
+            capacity_context=capacity_context,
         )
 
     try:
@@ -7270,6 +7311,16 @@ async def post_trade_finder(request: Request):
         request, body, league_cfg
     )
 
+    # Roster capacity for the requesting team.  Built here rather than inside
+    # the engine because it needs the league config, and reused across every
+    # returned trade.  A failure here annotates nothing and breaks nothing.
+    finder_capacity_context = _capacity_context_for(
+        contract,
+        league_cfg,
+        next((t for t in sleeper_teams if t.get("name") == my_team), None),
+        surface="/api/trade/finder",
+    )
+
     try:
         result = await run_in_threadpool(
             find_trades,
@@ -7278,6 +7329,7 @@ async def post_trade_finder(request: Request):
             opponent_teams=opponent_teams,
             sleeper_teams=sleeper_teams,
             ktc_top_n=finder_ktc_top_n,
+            capacity_context=finder_capacity_context,
             # F-6 (audit finding K): the contract carries `playersArray`
             # with `rankDerivedValue` — the board the user actually sees.
             # Without this the finder arbitrages the raw scraper
@@ -7479,6 +7531,15 @@ async def post_angle_find(request: Request):
     contract, valuation_mode, valuation_note = await _valuation_scoped_contract(
         request, body, league_cfg
     )
+    # Roster capacity for the REQUESTING team.  Angle already knows which team
+    # is asking (``ownerId``), and each returned candidate reports what the
+    # swap would cost in forced releases.  Nothing is filtered on it.
+    angle_capacity_context = _capacity_context_for(
+        contract,
+        league_cfg,
+        _team_block_by_owner_id(sleeper_teams, owner_id),
+        surface="/api/angle/find",
+    )
     try:
         result = await run_in_threadpool(
             find_angles,
@@ -7490,6 +7551,7 @@ async def post_angle_find(request: Request):
             max_market_gain_pct=max_market,
             limit=limit,
             target_team_owner_id=target_team_owner_id,
+            capacity_context=angle_capacity_context,
         )
     except Exception as exc:  # noqa: BLE001
         log.error(f"Angle find failed: {exc}")
@@ -7639,6 +7701,15 @@ async def post_angle_packages(request: Request):
     )
     lens_rows = (contract or {}).get("playersArray") or players_array
 
+    # One context for both modes — the requesting team is the same either way,
+    # and only which SIDE it appears on changes.
+    angle_capacity_context = _capacity_context_for(
+        contract,
+        league_cfg,
+        _team_block_by_owner_id(sleeper_teams, owner_id),
+        surface="/api/angle/packages",
+    )
+
     if mode == "acquire":
         from src.trade.angle import find_acquisition_packages
 
@@ -7656,6 +7727,7 @@ async def post_angle_packages(request: Request):
                 positions=positions_req or None,
                 min_player_my_value=min_player,
                 include_idp=include_idp,
+                capacity_context=angle_capacity_context,
             )
         except Exception as exc:  # noqa: BLE001
             log.error(f"Angle acquire failed: {exc}")
@@ -7696,6 +7768,7 @@ async def post_angle_packages(request: Request):
             target_team_owner_ids=target_teams_req or None,
             seed_player_names=seeds_req or None,
             include_idp=include_idp,
+            capacity_context=angle_capacity_context,
         )
     except Exception as exc:  # noqa: BLE001
         log.error(f"Angle packages failed: {exc}")
@@ -7972,6 +8045,50 @@ def _stamp_valuation_mode(result: Any, mode: str, note: str | None) -> None:
             warnings.append(note)
         else:
             result["warnings"] = [note]
+
+
+def _capacity_context_for(
+    contract: dict | None,
+    league_cfg: Any,
+    team_block: dict | None,
+    *,
+    surface: str,
+) -> Any:
+    """Roster-capacity context for one team, or ``None`` with a log line.
+
+    ONE place, because capacity is an ANNOTATION on four different trade
+    products (suggestions, finder, angle offer, angle acquire) and a failure to
+    compute it must never take any of them down.  The canonical owner is
+    ``src/trade/roster_capacity``; this resolves the arguments and swallows
+    nothing else.
+    """
+
+    if team_block is None:
+        return None
+    try:
+        from src.trade.roster_capacity import build_capacity_context
+
+        return build_capacity_context(
+            contract,
+            getattr(league_cfg, "key", None),
+            team_block,
+            roster_settings=dict(getattr(league_cfg, "roster_settings", None) or {}),
+        )
+    except Exception as exc:  # noqa: BLE001
+        log.warning("roster capacity unavailable for %s: %s", surface, exc)
+        return None
+
+
+def _team_block_by_owner_id(sleeper_teams: list, owner_id: str) -> dict | None:
+    """The Sleeper team dict for one ``ownerId``, or ``None``."""
+
+    wanted = str(owner_id or "").strip()
+    if not wanted:
+        return None
+    for team in sleeper_teams or []:
+        if isinstance(team, dict) and str(team.get("ownerId") or "") == wanted:
+            return team
+    return None
 
 
 _KTC_TOTAL_PICKS = 72  # fill rookie data for all 6 rounds (12 teams × 6 rounds)
@@ -12272,6 +12389,7 @@ async def post_trade_simulate(request: Request):
         picks_in=_str_list("picksIn"),
         picks_out=_str_list("picksOut"),
         roster_settings=dict(league_cfg.roster_settings or {}),
+        league_key=league_cfg.key,
     )
     result["leagueKey"] = league_cfg.key
     _stamp_valuation_mode(result, valuation_mode, valuation_note)

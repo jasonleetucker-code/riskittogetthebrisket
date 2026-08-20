@@ -22,11 +22,68 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Any
+from typing import Any, Sequence
 
-from src.ros.lineup import RosterPlayer, assign_lineup, resolve_starter_slots, slot_demand
+from src.ros.lineup import (
+    RosterPlayer,
+    assign_lineup,
+    configured_slot_eligibility,
+    resolve_starter_slots,
+    slot_demand,
+    slot_eligible_positions,
+)
 
-_BASE_POSITIONS = ("QB", "RB", "WR", "TE", "DL", "LB", "DB")
+#: Display/report order for the offence+IDP families this module aggregates.
+#:
+#: **An ORDER, not a filter.**  It used to be both, and that was a defect:
+#: ``dynasty_main`` starts ``K: 1``, ``resolve_starter_slots`` duly returns a
+#: ``K`` slot, and ``project_starters`` then dropped every kicker because ``K``
+#: is not in this tuple — so the K slot could never be filled, ``K`` was not
+#: even a key in the output, and a traded kicker was invisible to the whole
+#: team-impact payload including the C2-SIM-01 lineup delta.
+#:
+#: Measured on the same roster: the capacity path (``build_cut_ladder`` ->
+#: ``assign_lineup``) SEATS the kicker while this module modelled a lineup with
+#: one fewer slot.  Two Trade modules disagreeing about one roster.
+#:
+#: Which positions may play is now asked of the canonical owner per league —
+#: see :func:`_positions_for`.  This tuple only decides what order the buckets
+#: are reported in.
+_REPORT_POSITION_ORDER = ("QB", "RB", "WR", "TE", "DL", "LB", "DB")
+
+#: Deprecated alias.  ``src/trade/waiver.py`` also defines ``_BASE_POSITIONS``
+#: as an 18-member frozenset of RAW spellings — the same name for a different
+#: object, in the same package.  Kept only so an external reader is not
+#: silently broken; new code uses the two names above.
+_BASE_POSITIONS = _REPORT_POSITION_ORDER
+
+
+def _positions_for(roster_settings: dict[str, Any]) -> tuple[str, ...]:
+    """Positions this league can actually start, in report order.
+
+    Derived from the league's OWN resolved slots via the canonical eligibility
+    owner (C2-U1), so a league that starts a K reports a K and one that does
+    not, does not.  ``dynasty_new`` starts no kicker and no IDP; ``dynasty_main``
+    starts both.
+    """
+
+    from src.utils.name_clean import normalize_position  # noqa: PLC0415
+
+    slots, _source = resolve_starter_slots(roster_settings=roster_settings)
+    eligible: set[str] = set()
+    for slot in slots:
+        # ``slot_eligible_positions`` answers in RAW spellings (CB, DE, EDGE…)
+        # because that is what eligibility is expressed in.  The assets this
+        # module buckets carry ``basePos``, already folded by the canonical
+        # normalizer, so fold to the same vocabulary rather than keeping a
+        # third one.
+        for raw in slot_eligible_positions(slot):
+            folded = normalize_position(raw)
+            if folded:
+                eligible.add(folded)
+    ordered = [p for p in _REPORT_POSITION_ORDER if p in eligible]
+    ordered += sorted(eligible - set(_REPORT_POSITION_ORDER))
+    return tuple(ordered)
 
 
 def _load_default_weights() -> dict[str, Any]:
@@ -100,14 +157,15 @@ def project_starters(
     fabricated to fill the gap.
     """
     slots, _source = resolve_starter_slots(roster_settings=roster_settings)
+    accepted = _positions_for(roster_settings)
     if not slots:
-        return {p: [] for p in _BASE_POSITIONS}
+        return {p: [] for p in accepted}
 
     pool: list[RosterPlayer] = []
     by_id: dict[str, dict[str, Any]] = {}
     for idx, asset in enumerate(assets):
         base = (asset.get("basePos") or asset.get("pos") or "").upper()
-        if base not in _BASE_POSITIONS:
+        if base not in accepted:
             continue
         # Index-keyed: these dicts have no stable identifier, and two
         # roster picks can legitimately share a display name.
@@ -129,8 +187,16 @@ def project_starters(
             )
         )
 
-    starters: dict[str, list[dict[str, Any]]] = {p: [] for p in _BASE_POSITIONS}
-    assignment = assign_lineup(pool, slots)
+    starters: dict[str, list[dict[str, Any]]] = {p: [] for p in accepted}
+    # The league's CONFIGURED flex rule, from the one resolver.  Without it
+    # this module seats a lineup under the DECLARED defaults while the
+    # capacity/cut path (``src/trade/roster_capacity.py``) uses the
+    # configured rule — two Trade modules disagreeing about one roster the
+    # moment a league narrows a flex.  Same defect class as the one #922
+    # repaired at the cut ladder.
+    assignment = assign_lineup(
+        pool, slots, slot_eligibility=configured_slot_eligibility(roster_settings)
+    )
     # Slot order, so the buckets read the way the league's lineup card
     # does rather than in augmenting-path order.
     for slot_idx in sorted(assignment.assignments):
@@ -152,20 +218,160 @@ def _aggregate_state(
     starterValue per base position.
     """
     starters = project_starters(assets, roster_settings)
-    starter_count = {p: len(starters[p]) for p in _BASE_POSITIONS}
-    starter_value = {p: sum(int(a.get("value") or 0) for a in starters[p]) for p in _BASE_POSITIONS}
-    total_count: dict[str, int] = {p: 0 for p in _BASE_POSITIONS}
+    accepted = _positions_for(roster_settings)
+    starter_count = {p: len(starters[p]) for p in accepted}
+    # Sum the starters we can PRICE.  ``int(a.get("value") or 0)`` counted an
+    # unpriced starter as worth zero, which is the coercion the module's own
+    # `_starter_row` refuses three functions away — and it silently dragged
+    # `starterValue`, and therefore `starterValueDelta` and `fitScore`, down in
+    # proportion to how much of the roster the board failed to price.
+    starter_value = {
+        p: sum(
+            float(a["value"])
+            for a in starters[p]
+            if isinstance(a.get("value"), (int, float)) and not isinstance(a.get("value"), bool)
+        )
+        for p in accepted
+    }
+    total_count: dict[str, int] = {p: 0 for p in accepted}
     for a in assets:
         pos = (a.get("basePos") or a.get("pos") or "").upper()
         if pos in total_count:
             total_count[pos] += 1
-    depth_count = {p: max(0, total_count[p] - starter_count[p]) for p in _BASE_POSITIONS}
+    depth_count = {p: max(0, total_count[p] - starter_count[p]) for p in accepted}
     return {
         "starters": starters,
         "starterCount": starter_count,
         "starterValue": starter_value,
         "totalCount": total_count,
         "depthCount": depth_count,
+    }
+
+
+def _starter_identity(asset: dict[str, Any]) -> str:
+    """Identity for the before/after starter diff.
+
+    Board display name, lowercased.  Picks never reach here — ``project_starters``
+    keeps only ``_BASE_POSITIONS`` — which matters, because a pick is the one
+    asset class where two roster entries legitimately share a board row
+    ("2027 Mid 1st" own vs acquired) and a name key would collapse them.  For
+    PLAYERS the canonical board carries one row per identity, so the name is a
+    sound key; :func:`lineup_displacement` refuses rather than guesses if that
+    ever stops being true.
+    """
+
+    return str(asset.get("name") or asset.get("sourceLabel") or "").strip().lower()
+
+
+def _flatten_starters(starters: dict[str, list[dict[str, Any]]]) -> dict[str, dict[str, Any]]:
+    """``identity -> asset`` across every base position."""
+
+    out: dict[str, dict[str, Any]] = {}
+    for position, assets in starters.items():
+        for asset in assets:
+            key = _starter_identity(asset)
+            if not key:
+                continue
+            enriched = dict(asset)
+            enriched["startingAt"] = position
+            out[key] = enriched
+    return out
+
+
+def _starter_row(asset: dict[str, Any], position: str) -> dict[str, Any]:
+    value = asset.get("value")
+    return {
+        "name": asset.get("name"),
+        "position": position,
+        # ``None`` stays ``None``.  An unpriced player is UNPRICED, and this
+        # block is roster information — publishing 0 here would read as "worth
+        # nothing" on the one surface whose whole point is that it is not a
+        # value statement.
+        "value": None if value is None else int(value),
+        "valueScale": "rankDerivedValue",
+    }
+
+
+def lineup_displacement(
+    before_starters: dict[str, list[dict[str, Any]]],
+    after_starters: dict[str, list[dict[str, Any]]],
+    *,
+    incoming: Sequence[dict[str, Any]] = (),
+    outgoing: Sequence[dict[str, Any]] = (),
+) -> dict[str, Any]:
+    """Who starts now who did not, and who lost a slot — as ROSTER information.
+
+    C2-SIM-01 / V1-42, and owner decision 26: promotions and displacements are
+    *separate roster information, never a value subtraction*.  Nothing here
+    returns a delta; every field names players and slots.
+
+    **Four categories, deliberately not two.**  Collapsing them is the error
+    this function exists to avoid — "your starting RB is gone" and "your
+    starting RB got benched by the guy you just acquired" are different
+    sentences, and only the second is displacement:
+
+    ``arrived``    starting now, came IN with this trade
+    ``promoted``   starting now, was ALREADY on the roster and was not starting
+    ``departed``   was starting, LEFT in this trade — not displaced, gone
+    ``displaced``  was starting, is STILL on the roster, no longer starts
+
+    ``displaced`` is the one that answers "what did this trade cost me that the
+    value delta does not show".
+
+    An unpriced player is not assignable by the canonical solver, so he appears
+    in neither state's starters and therefore in no category — reported by the
+    solver as unpriced rather than silently counted as a bench player who was
+    never promoted.
+    """
+
+    before_map = _flatten_starters(before_starters)
+    after_map = _flatten_starters(after_starters)
+
+    for label, starters in (("before", before_starters), ("after", after_starters)):
+        seen: set[str] = set()
+        for assets in starters.values():
+            for asset in assets:
+                key = _starter_identity(asset)
+                if key and key in seen:
+                    raise ValueError(
+                        f"two {label}-state starters share the identity {key!r}; the "
+                        "before/after diff would silently merge them"
+                    )
+                if key:
+                    seen.add(key)
+
+    incoming_keys = {_starter_identity(a) for a in incoming if _starter_identity(a)}
+    outgoing_keys = {_starter_identity(a) for a in outgoing if _starter_identity(a)}
+
+    arrived: list[dict[str, Any]] = []
+    promoted: list[dict[str, Any]] = []
+    departed: list[dict[str, Any]] = []
+    displaced: list[dict[str, Any]] = []
+
+    for key, asset in after_map.items():
+        if key in before_map:
+            continue
+        row = _starter_row(asset, asset["startingAt"])
+        (arrived if key in incoming_keys else promoted).append(row)
+
+    for key, asset in before_map.items():
+        if key in after_map:
+            continue
+        row = _starter_row(asset, asset["startingAt"])
+        (departed if key in outgoing_keys else displaced).append(row)
+
+    def _by_position_then_name(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        return sorted(rows, key=lambda r: (r["position"], str(r["name"] or "")))
+
+    return {
+        "arrived": _by_position_then_name(arrived),
+        "promoted": _by_position_then_name(promoted),
+        "departed": _by_position_then_name(departed),
+        "displaced": _by_position_then_name(displaced),
+        "startersBefore": len(before_map),
+        "startersAfter": len(after_map),
+        # Named so a consumer cannot mistake this block for a value statement.
+        "isValueDelta": False,
     }
 
 
@@ -182,9 +388,10 @@ def _needed_at(pos: str, roster_settings: dict[str, Any]) -> float:
     Retired the local ``_flex_share`` — one of four independent
     re-derivations of the same even-split rule in the tree.
     """
-    return slot_demand(resolve_starter_slots(roster_settings=roster_settings)[0]).even_split.get(
-        pos.upper(), 0.0
-    )
+    return slot_demand(
+        resolve_starter_slots(roster_settings=roster_settings)[0],
+        eligibility_overrides=configured_slot_eligibility(roster_settings),
+    ).even_split.get(pos.upper(), 0.0)
 
 
 def _avg(values: list[int]) -> float:
@@ -197,7 +404,7 @@ def _league_active_positions(roster_settings: dict[str, Any]) -> list[str]:
     guard that prevents IDP redundancy false-positives in non-IDP
     leagues.
     """
-    return [p for p in _BASE_POSITIONS if _needed_at(p, roster_settings) > 0]
+    return [p for p in _positions_for(roster_settings) if _needed_at(p, roster_settings) > 0]
 
 
 def _clamp(v: float, lo: float, hi: float) -> float:
@@ -410,29 +617,59 @@ def compute(
     after = _aggregate_state(after_assets, roster_settings)
     active = _league_active_positions(roster_settings)
 
-    starter_delta = {
-        p: after["starterCount"][p] - before["starterCount"][p] for p in _BASE_POSITIONS
-    }
+    # C2-SIM-01 / V1-42.  The exact before -> apply -> re-solve -> after
+    # lineup, published as NAMES rather than as another number.  Both states
+    # are already solved above by the canonical assignment owner, so this adds
+    # no second lineup engine — it reads the two solutions.
+    displacement = lineup_displacement(
+        before["starters"],
+        after["starters"],
+        incoming=receiving,
+        outgoing=sending,
+    )
+
+    accepted = _positions_for(roster_settings)
+    starter_delta = {p: after["starterCount"][p] - before["starterCount"][p] for p in accepted}
     starter_value_delta = {
-        p: after["starterValue"][p] - before["starterValue"][p] for p in _BASE_POSITIONS
+        p: after["starterValue"][p] - before["starterValue"][p] for p in accepted
     }
-    depth_delta = {p: after["depthCount"][p] - before["depthCount"][p] for p in _BASE_POSITIONS}
+    depth_delta = {p: after["depthCount"][p] - before["depthCount"][p] for p in accepted}
 
     # Overflow detection — anything above (needed + 1) is bench bloat.
     overflow_delta: dict[str, int] = {}
-    for p in _BASE_POSITIONS:
+    for p in accepted:
         cap = int(_needed_at(p, roster_settings)) + 1
         before_over = max(0, before["totalCount"][p] - cap)
         after_over = max(0, after["totalCount"][p] - cap)
         overflow_delta[p] = after_over - before_over
 
-    # Average starter value per pos, for normalization.
-    avg_starter_val: dict[str, float] = {}
-    for p in _BASE_POSITIONS:
-        combined = [int(a.get("value") or 0) for a in before["starters"][p]] + [
-            int(a.get("value") or 0) for a in after["starters"][p]
+    # Average starter value per position — the SCALE the depth and overflow
+    # terms are expressed in.
+    #
+    # Two coercions used to live in these four lines and both fabricated a
+    # number the roster never showed us:
+    #
+    # * ``int(a.get("value") or 0)`` counted an UNPRICED starter as worth zero,
+    #   dragging the scale down in proportion to how much of the roster the
+    #   board failed to price (12.6% of rostered players on a measured board);
+    # * ``or 1500.0`` then invented a scale outright for a position with no
+    #   starters — and fired again whenever the average came out at exactly
+    #   0.0, which the first coercion made reachable.
+    #
+    # Now: average the starters we can actually price, and when there are none
+    # the scale is UNKNOWN (``None``) rather than 1500.  A position with no
+    # measurable scale contributes no depth or overflow term at all — we cannot
+    # weigh it, so we do not pretend to — and it is reported in
+    # ``unscalablePositions`` so the omission is visible instead of silent.
+    avg_starter_val: dict[str, float | None] = {}
+    for p in accepted:
+        priced = [
+            float(a["value"])
+            for a in (*before["starters"][p], *after["starters"][p])
+            if isinstance(a.get("value"), (int, float)) and not isinstance(a.get("value"), bool)
         ]
-        avg_starter_val[p] = _avg(combined) or 1500.0
+        avg_starter_val[p] = _avg(priced) if priced else None
+    unscalable = tuple(p for p in accepted if avg_starter_val[p] is None)
 
     w_fill = float(weights.get("fillStarter", 1.0))
     w_depth = float(weights.get("depth", 0.25))
@@ -445,8 +682,14 @@ def compute(
         # Diminishing depth: only the first depth piece earns a bonus.
         before_first_depth = 1 if before["depthCount"][p] >= 1 else 0
         after_first_depth = 1 if after["depthCount"][p] >= 1 else 0
-        fit_raw += w_depth * (after_first_depth - before_first_depth) * avg_starter_val[p]
-        fit_raw -= w_overflow * max(0, overflow_delta[p]) * avg_starter_val[p]
+        scale = avg_starter_val[p]
+        if scale is None:
+            # No priced starter at this position in either state — no scale, so
+            # no depth/overflow contribution.  The starter-value delta above is
+            # still counted: it is measured in board points, not in this scale.
+            continue
+        fit_raw += w_depth * (after_first_depth - before_first_depth) * scale
+        fit_raw -= w_overflow * max(0, overflow_delta[p]) * scale
 
     fit_score = _clamp(100.0 * fit_raw / fit_norm, -100.0, 100.0)
     equity_norm = float(weights.get("equityNormalization", 2500)) or 2500.0
@@ -514,4 +757,11 @@ def compute(
         "scarcityDelta": scarcity_delta,
         "redundancy": redundancy,
         "rationale": rationale,
+        # Positions whose depth/overflow terms were skipped for want of a
+        # measurable scale.  Empty on a normally-priced roster.
+        "unscalablePositions": list(unscalable),
+        # Roster information, NOT a value statement — see `lineup_displacement`.
+        # It sits beside the scores rather than inside them: nothing above reads
+        # it, and no verdict moves because of it.
+        "lineupDisplacement": displacement,
     }

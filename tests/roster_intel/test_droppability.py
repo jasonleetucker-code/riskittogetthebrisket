@@ -393,3 +393,160 @@ def test_it_does_not_mutate_the_contract_it_was_given():
     team_droppability(contract, owner_id="owner-a")
     league_droppability(contract)
     assert json.dumps(contract, sort_keys=True) == before
+
+
+# ---------------------------------------------------------------------------
+# Caller-supplied slot eligibility must reach the solver (#922 follow-up).
+#
+# ``pool_cut_ladder`` accepted ``slot_eligibility``, its docstring promised it
+# was "not silently dropped", and the next statement was ``del
+# slot_eligibility``.  Neither ``build_cut_ladder`` nor ``_filled_slot_count``
+# carried the parameter either, so a caller's configured FLEX rule never
+# reached ``solve_optimal_assignment`` — which has accepted it all along.
+#
+# It went unnoticed because ``pool_cut_ladder`` has no production caller yet:
+# it is the entry point ``C3-CAP-01`` (#913) is meant to consume.  Latent by
+# construction, which is exactly why #913 must not consume it until repaired.
+# ---------------------------------------------------------------------------
+
+
+def _lineup_pool():
+    """Two RBs and one WR — the shape where the FLEX rule decides a cut.
+
+    Deliberately small: the property is about which cuts are LEGAL, and a
+    bigger roster would let some other player absorb the broken slot and hide
+    the difference the test exists to show.
+    """
+    from src.ros.lineup import RosterPlayer
+
+    return [
+        RosterPlayer(player_id="rb1", canonical_name="Lead RB", position="RB", ros_value=8000.0),
+        RosterPlayer(player_id="rb2", canonical_name="Backup RB", position="RB", ros_value=3000.0),
+        RosterPlayer(player_id="wr1", canonical_name="Slot WR", position="WR", ros_value=2000.0),
+    ]
+
+
+_ELIGIBILITY_SLOTS = ["RB", "FLEX"]
+_ELIGIBILITY_WAIVERS = {"RB": 500.0, "WR": 500.0}
+
+
+def _rung_ids(ladder):
+    return {r.player_id for r in ladder.rungs}
+
+
+def test_configured_flex_eligibility_changes_which_cuts_are_legal():
+    """The adversarial case: same roster, same slots, different FLEX rule.
+
+    Under the DEFAULT FLEX (RB/WR/TE) the roster fills both slots without the
+    WR — ``rb1``→RB, ``rb2``→FLEX — so releasing him breaks nothing and he is
+    a legal cut.
+
+    Under a league whose FLEX admits **only WR**, he is the sole player who can
+    fill it.  Releasing him drops the lineup from two filled slots to one, and
+    the ladder must refuse the cut.
+
+    With the eligibility discarded both calls returned the identical ladder, so
+    the engine would have recommended releasing the one player holding the
+    lineup together.  That is a safety property, not a cosmetic one.
+    """
+    from src.roster_intel.droppability import pool_cut_ladder
+
+    default = pool_cut_ladder(_lineup_pool(), _ELIGIBILITY_SLOTS, _ELIGIBILITY_WAIVERS)
+    narrowed = pool_cut_ladder(
+        _lineup_pool(),
+        _ELIGIBILITY_SLOTS,
+        _ELIGIBILITY_WAIVERS,
+        slot_eligibility={"FLEX": ("WR",)},
+    )
+
+    # Non-vacuity: if the WR ever stops being a candidate under the default
+    # rule, this test would pass while measuring nothing.
+    assert "wr1" in _rung_ids(default), (
+        "fixture no longer exercises the path: the WR is not a legal cut even "
+        "under the default FLEX rule, so narrowing it cannot demonstrate anything"
+    )
+    assert "wr1" not in _rung_ids(narrowed), (
+        "caller-supplied slot_eligibility did not reach the lineup-feasibility "
+        "check: releasing the only FLEX-eligible player was still offered as a cut"
+    )
+
+
+def test_narrowed_eligibility_reports_the_refusal_rather_than_hiding_it():
+    """A blocked cut is REPORTED, not just absent.
+
+    "We looked and he is undroppable" and "he never came up" must not read the
+    same to a consumer — the same discipline the rest of this chain applies to
+    a missing value.
+    """
+    from src.roster_intel.droppability import pool_cut_ladder
+
+    narrowed = pool_cut_ladder(
+        _lineup_pool(),
+        _ELIGIBILITY_SLOTS,
+        _ELIGIBILITY_WAIVERS,
+        slot_eligibility={"FLEX": ("WR",)},
+    )
+    blocked = {str(u.get("playerId") or u.get("player_id")) for u in narrowed.undroppable}
+    assert (
+        "wr1" in blocked
+    ), f"the WR was neither offered nor reported undroppable: {narrowed.undroppable}"
+
+
+def test_no_eligibility_supplied_preserves_existing_behaviour():
+    """Requirement 4, as an identity rather than a promise.
+
+    ``None`` must resolve to the owner's built-in defaults.  Passing an EMPTY
+    map is the trap: ``{}`` reaching the solver as a literal would mean "no
+    slot admits anything" and empty every ladder, so it must be treated as
+    absent, not as a rule.
+    """
+    from src.roster_intel.droppability import pool_cut_ladder
+
+    baseline = pool_cut_ladder(_lineup_pool(), _ELIGIBILITY_SLOTS, _ELIGIBILITY_WAIVERS)
+    explicit_none = pool_cut_ladder(
+        _lineup_pool(), _ELIGIBILITY_SLOTS, _ELIGIBILITY_WAIVERS, slot_eligibility=None
+    )
+    empty_map = pool_cut_ladder(
+        _lineup_pool(), _ELIGIBILITY_SLOTS, _ELIGIBILITY_WAIVERS, slot_eligibility={}
+    )
+
+    assert baseline.to_dict() == explicit_none.to_dict()
+    assert (
+        baseline.to_dict() == empty_map.to_dict()
+    ), "an empty eligibility map was treated as a rule rather than as absent"
+    assert baseline.rungs, "fixture produced no rungs at all — nothing was compared"
+
+
+def test_the_eligibility_parameter_cannot_be_discarded_again():
+    """Structural guard against the exact regression.
+
+    Two halves, because either alone can be satisfied while the value is still
+    thrown away: the discard must be gone from the roster module, AND the
+    downstream owner must actually carry the parameter.
+    """
+    # AST, not a substring search.  The module docstring now quotes the retired
+    # statement while explaining the defect, so a text match would fire on that
+    # history note — and it would equally miss a real discard written any other
+    # way.  Ask the parser for an actual delete, the way
+    # ``tests/lineup/test_single_owner.py`` asks about real call sites.
+    tree = ast.parse((REPO / "src" / "roster_intel" / "droppability.py").read_text())
+    discards = [
+        node
+        for node in ast.walk(tree)
+        if isinstance(node, ast.Delete)
+        for target in node.targets
+        if isinstance(target, ast.Name) and target.id == "slot_eligibility"
+    ]
+    assert not discards, (
+        "slot_eligibility is being discarded again in the roster chain "
+        f"(line {discards[0].lineno})"
+    )
+
+    import inspect
+
+    from src.draft.displacement import build_cut_ladder
+
+    assert "slot_eligibility" in inspect.signature(build_cut_ladder).parameters, (
+        "build_cut_ladder does not carry slot_eligibility, so pool_cut_ladder "
+        "has nowhere to forward it and the discard has merely moved downstream"
+    )

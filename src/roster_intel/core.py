@@ -86,7 +86,8 @@ from src.ros.lineup import (
     RosterPlayer,
     assign_lineup,
     lineup_position,
-    normalize_slot as _normalize_slot,
+    normalize_slot,
+    slot_demand,
 )
 
 __all__ = [
@@ -116,23 +117,15 @@ _DEFAULT_CONFIG: dict[str, Any] = {
 
 SUPERFLEX_SLOT = "SUPER_FLEX"
 
-#: Flex slot names whose reserve demand is computed on the slot itself.
-#: SUPER_FLEX is deliberately absent: its demand folds into QB (#839),
-#: so giving it a reserve group too would count it twice.
-_RESERVE_FLEX_SLOTS: tuple[str, ...] = (
-    "FLEX",
-    "WR_RB_FLEX",
-    "REC_FLEX",
-    "IDP_FLEX",
-    "DL_LB",
-    "DB_LB",
-    "DL_DB",
-)
-
-#: Slots that exist in a lineup but generate no meaningful-core demand.
-#: A kicker is a real starter and is assigned as one; nobody carries a
-#: backup kicker as portfolio value, and counting one would put a K in
-#: the population Team Strength sums.
+#: Slots that exist in a lineup but generate no RESERVE demand.
+#:
+#: A reserve POLICY, not a slot classification — which is why it is the
+#: only slot-shaped constant left here.  A kicker is a real starter and
+#: is assigned as one; nobody carries a backup kicker as portfolio
+#: value, and counting one would put a K in the population Team
+#: Strength sums.  Whether ``K`` is a lineup slot at all is the lineup
+#: owner's question and it answers yes; whether it earns a backup is
+#: this module's, and it answers no.
 _NO_RESERVE_SLOTS: frozenset[str] = frozenset({"K", "DEF"})
 
 
@@ -169,10 +162,18 @@ class ReserveDemand:
     ``starter_basis`` records the slot count the multiplier was applied
     to — including the Superflex fold into QB — so a consumer can audit
     the arithmetic without re-deriving it.
+
+    ``flex_slots`` names which of those basis keys are FLEX SLOTS rather
+    than positions, read from the canonical owner's own
+    ``slot_demand().flex_capacity``.  It is published because consumers
+    genuinely need the split — Team Weakness ranks players within a
+    POSITION and a flex slot is not one — and publishing it is what let
+    ``weakness.py`` stop importing ``core._is_dedicated``.
     """
 
     by_slot: dict[str, int] = field(default_factory=dict)
     starter_basis: dict[str, int] = field(default_factory=dict)
+    flex_slots: frozenset[str] = frozenset()
     multiplier: float = 1.5
     multiplier_status: str = "PRIOR"
     multiplier_provenance: str = "owner_addendum_839_amended_899"
@@ -181,10 +182,22 @@ class ReserveDemand:
     def total(self) -> int:
         return sum(self.by_slot.values())
 
+    @property
+    def dedicated_basis(self) -> dict[str, int]:
+        """The basis entries that name a POSITION, not a flex slot.
+
+        The question Team Weakness asks — "how many real QBs does this
+        league start" — and the reason it no longer reaches into this
+        module's privates to answer it.
+        """
+        return {k: v for k, v in self.starter_basis.items() if k not in self.flex_slots}
+
     def to_dict(self) -> dict[str, Any]:
         return {
             "bySlot": dict(sorted(self.by_slot.items())),
             "starterBasis": dict(sorted(self.starter_basis.items())),
+            "dedicatedBasis": dict(sorted(self.dedicated_basis.items())),
+            "flexSlots": sorted(self.flex_slots),
             "total": self.total(),
             "multiplier": self.multiplier,
             "multiplierStatus": self.multiplier_status,
@@ -291,6 +304,7 @@ def reserve_demand(
     starter_slots: Sequence[str],
     *,
     config: Mapping[str, Any] | None = None,
+    slot_eligibility: Mapping[str, Collection[str]] | None = None,
 ) -> ReserveDemand:
     """Reserve demand per slot family, from the league's REAL slot list.
 
@@ -303,60 +317,70 @@ def reserve_demand(
     ``M = 1.5`` on a single dedicated slot yields ``ceil(1.5) − 1 = 1``,
     so every real starting position gets at least one backup, and a
     2-slot position gets one rather than two.
+
+    **The basis IS the canonical owner's answer.**  ``lineup.slot_demand``
+    already publishes ``dedicated`` (per position) and ``flex_capacity``
+    (per flex slot name) as separate named quantities, and this consumes
+    both rather than counting the slot list again.  The re-derivation it
+    replaces was wrong in a way nothing caught: it never consulted
+    ``lineup.NON_LINEUP_SLOTS``, so fed a league's raw ``rosterPositions``
+    it reported ``BN: 37, IR: 1, TAXI: 1`` as positions with reserve
+    demand, and ``weakness`` carried that through into rungs.  Not
+    reachable from production — every traced caller passed
+    already-filtered slots — which is exactly how it survived.
+
+    It also needed a private list of flex slot names to decide which
+    slots got per-slot demand.  That list is gone: a flex slot is one
+    the owner reports in ``flex_capacity``, so a slot added there can no
+    longer be silently zeroed here by omission.
+
+    ``slot_eligibility`` is the league's CONFIGURED flex eligibility
+    (``flexEligible`` / ``sflexEligible`` / ``idpFlexEligible``).  It is
+    threaded through for the same reason :func:`build_meaningful_core`
+    threads it into the solve: a core that seats starters under the
+    league's own rules and computes reserves under the defaults is
+    internally inconsistent.
     """
     cfg = dict(_DEFAULT_CONFIG)
     cfg.update(config or load_core_config())
     multiplier = float(cfg["reserveMultiplier"])
     fold_sf = bool(cfg["superflexFoldsIntoQb"])
 
-    counts: dict[str, int] = {}
-    for raw in starter_slots:
-        slot = _normalize_slot(str(raw))
-        if not slot:
-            continue
-        counts[slot] = counts.get(slot, 0) + 1
+    canonical = slot_demand(starter_slots, eligibility_overrides=slot_eligibility)
 
-    # The demand basis: dedicated positions and reserve-bearing flexes.
-    basis: dict[str, int] = {}
-    for slot, n in counts.items():
-        if slot in _NO_RESERVE_SLOTS:
+    # Dedicated positions, minus the ones that earn no backup.
+    basis: dict[str, int] = {
+        pos: int(n) for pos, n in canonical.dedicated.items() if pos not in _NO_RESERVE_SLOTS
+    }
+    # Flex slots carry demand on the SLOT, not split across the positions
+    # it accepts — a FLEX reserve is "one more flex body", and splitting
+    # it would put fractional demand on positions the league may not even
+    # be short of.  SUPER_FLEX is excluded here and folded below.
+    for slot, n in canonical.flex_capacity.items():
+        if slot in _NO_RESERVE_SLOTS or slot == SUPERFLEX_SLOT:
             continue
-        if slot == SUPERFLEX_SLOT:
-            # Folded below (or dropped entirely when the fold is off —
-            # SF then generates no reserve demand of its own, which is
-            # the alternative the owner did not pick).
-            continue
-        if slot in _RESERVE_FLEX_SLOTS or _is_dedicated(slot):
-            basis[slot] = basis.get(slot, 0) + n
+        basis[slot] = basis.get(slot, 0) + int(n)
 
-    sf_slots = counts.get(SUPERFLEX_SLOT, 0)
+    sf_slots = int(canonical.flex_capacity.get(SUPERFLEX_SLOT, 0))
     if fold_sf and sf_slots:
         # #839: a Superflex slot IS real QB demand.  Added before the
         # multiplier, which is what makes 1 QB + 1 SF produce three
-        # meaningful QBs rather than two.
+        # meaningful QBs rather than two.  With the fold off, SF
+        # generates no reserve demand of its own — the alternative the
+        # owner did not pick.
         basis["QB"] = basis.get("QB", 0) + sf_slots
 
-    by_slot = {slot: math.ceil(multiplier * n) - n for slot, n in basis.items() if n > 0}
+    basis = {k: v for k, v in basis.items() if v > 0}
+    by_slot = {slot: math.ceil(multiplier * n) - n for slot, n in basis.items()}
     return ReserveDemand(
         by_slot={k: v for k, v in by_slot.items() if v > 0},
         starter_basis=basis,
+        flex_slots=frozenset(canonical.flex_capacity) - {SUPERFLEX_SLOT},
         multiplier=multiplier,
         multiplier_status=str(cfg["reserveMultiplierStatus"]),
         multiplier_provenance=str(cfg["reserveMultiplierProvenance"]),
         superflex_folded_into_qb=fold_sf,
     )
-
-
-def _is_dedicated(slot: str) -> bool:
-    """A slot that names exactly one position family.
-
-    Derived from the canonical owner's own flex table rather than from a
-    local list, so a flex slot added there can never start generating
-    per-position reserve demand here by omission.
-    """
-    from src.ros.lineup import _FLEX_SLOT_DEMAND_KEYS  # noqa: PLC0415
-
-    return slot not in _FLEX_SLOT_DEMAND_KEYS
 
 
 def reserve_slot_list(demand: ReserveDemand) -> list[str]:
@@ -398,8 +422,8 @@ def build_meaningful_core(
             passed through to both solves unchanged.
     """
     pool_list = list(pool)
-    slots = [_normalize_slot(str(s)) for s in starter_slots if str(s).strip()]
-    demand = reserve_demand(slots, config=config)
+    slots = [normalize_slot(str(s)) for s in starter_slots if str(s).strip()]
+    demand = reserve_demand(slots, config=config, slot_eligibility=slot_eligibility)
 
     if not slots:
         return MeaningfulCore(

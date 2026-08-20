@@ -15,13 +15,9 @@ import {
   adjustedSideTotals,
   multiAdjustedSideTotals,
   computeStackAdjustments,
+  computeSideFlows,
+  tradeImbalance,
   tradeGapAdjusted,
-  VA_SCARCITY_SLOPE,
-  VA_SCARCITY_INTERCEPT,
-  VA_SCARCITY_CAP,
-  VA_POSITION_DECAY,
-  VA_PER_EXTRA_BOOST,
-  VA_EFFECTIVE_CAP,
   effectiveValue,
   addAssetToSide,
   removeAssetFromSide,
@@ -41,7 +37,6 @@ import {
   multiTeamAnalysis,
   createSide,
   defaultDestination,
-  computeSideFlows,
   computeSideFlowAssets,
   serializeWorkspaceMulti,
   deserializeWorkspaceMulti,
@@ -1132,19 +1127,196 @@ describe("parsePickToken round 6", () => {
 });
 
 describe("findBalancers", () => {
-  it("returns players that could fill the gap", () => {
+  // ``findBalancers`` takes the TRADE, not a pre-computed gap, so a raw
+  // value can never be matched against an adjusted target (defect #800).
+  const pool = (step = 50, lo = 150, hi = 9500) => {
+    const out = [];
+    for (let v = lo; v <= hi; v += step) {
+      out.push({ name: `P${v}`, pos: "RB", values: { full: v } });
+    }
+    return out;
+  };
+  const sidesOf = (a, b) => [
+    { assets: a.map((v, i) => ({ name: `a${i}`, pos: "RB", values: { full: v } })) },
+    { assets: b.map((v, i) => ({ name: `b${i}`, pos: "WR", values: { full: v } })) },
+  ];
+
+  it("returns players that actually close the gap — which is not the one whose value matches it", () => {
     const rosterRows = [
       { name: "P1", pos: "WR", values: { full: 500 } },
       { name: "P2", pos: "RB", values: { full: 1000 } },
       { name: "P3", pos: "QB", values: { full: 2000 } },
     ];
-    const result = findBalancers(1000, rosterRows, "full");
-    expect(result.length).toBeGreaterThan(0);
-    expect(result[0].name).toBe("P2"); // closest to gap of 1000
+    // Side B is behind by exactly 1,000 on a 1-for-1 (KTC suppresses VA
+    // on 1v1, so raw and adjusted coincide at the start).
+    const sides = sidesOf([5000], [4000]);
+    const result = findBalancers(sides, 1, rosterRows, "full");
+
+    // The retired rule matched raw value to the gap and would have
+    // picked P2 (1,000 against a 1,000 gap).  But the moment side B
+    // holds two pieces the consolidation premium fires and credits
+    // 2,032 to side A: the gap goes 1,000 → 2,032.  The "perfect" match
+    // makes the trade twice as lopsided.
+    //
+    //   P1 (500)  → gap 2,500   worse
+    //   P2 (1000) → gap 2,032   worse
+    //   P3 (2000) → gap   727   better
+    expect(result.map((r) => r.name)).toEqual(["P3"]);
+    expect(Math.round(result[0].gapBefore)).toBe(1000);
+    expect(Math.round(result[0].gapAfter)).toBe(727);
   });
 
-  it("returns empty for small gap", () => {
-    expect(findBalancers(100, [], "full")).toEqual([]);
+  it("returns empty for a near-even trade", () => {
+    expect(findBalancers(sidesOf([5000], [4900]), 1, pool(), "full")).toEqual([]);
+  });
+
+  it("returns empty for malformed input", () => {
+    expect(findBalancers(null, 1, pool(), "full")).toEqual([]);
+    expect(findBalancers(sidesOf([5000], [1000]), 7, pool(), "full")).toEqual([]);
+  });
+
+  it("scores against the ADJUSTED gap, not the raw value (defect #800)", () => {
+    // A single 8,000 stud against 3,000 + 2,500.  Raw gap is 2,500 but
+    // the consolidation premium pushes the ADJUSTED gap to 6,130, and
+    // the piece that lands nearest zero is NOT the one whose raw value
+    // is nearest 6,130.
+    const sides = sidesOf([8000], [3000, 2500]);
+    const [best] = findBalancers(sides, 1, pool(), "full", { maxResults: 1 });
+    expect(best.gapBefore).toBe(tradeGapAdjusted(sides[0].assets, sides[1].assets, "full"));
+    expect(Math.abs(best.gapAfter)).toBeLessThan(350);
+
+    // The retired rule — nearest raw value to |gap| — overshoots here.
+    const target = Math.abs(best.gapBefore);
+    const retired = pool().reduce((acc, r) =>
+      Math.abs(r.values.full - target) < Math.abs(acc.values.full - target) ? r : acc,
+    );
+    const retiredGap = tradeGapAdjusted(
+      sides[0].assets,
+      [...sides[1].assets, retired],
+      "full",
+    );
+    expect(Math.abs(best.gapAfter)).toBeLessThan(Math.abs(retiredGap));
+  });
+
+  it("never leaves the trade further apart than it started", () => {
+    for (const [a, b] of [
+      [[8000], [3000, 2500]],
+      [[3000, 2500], [8000]],
+      [[9500], [3500, 2000, 1200]],
+      [[6400, 3100, 1800], [7900, 2200]],
+      [[428, 3420], [2808, 6451, 4484]],
+    ]) {
+      const sides = sidesOf(a, b);
+      const gap = tradeGapAdjusted(sides[0].assets, sides[1].assets, "full");
+      const behind = gap > 0 ? 1 : 0;
+      for (const s of findBalancers(sides, behind, pool(), "full")) {
+        expect(s.imbalanceAfter).toBeLessThan(s.imbalanceBefore);
+      }
+    }
+  });
+
+  it("picks the best available candidate, not merely a better one", () => {
+    const sides = sidesOf([428, 3420], [2808, 6451, 4484]);
+    const gap = tradeGapAdjusted(sides[0].assets, sides[1].assets, "full");
+    const behind = gap > 0 ? 1 : 0;
+    const rows = pool();
+    const [best] = findBalancers(sides, behind, rows, "full", { maxResults: 1 });
+    const exhaustive = Math.min(
+      ...rows.map((r) => {
+        const next = sides.map((side, i) =>
+          i === behind ? { ...side, assets: [...side.assets, r] } : side,
+        );
+        return Math.abs(tradeGapAdjusted(next[0].assets, next[1].assets, "full"));
+      }),
+    );
+    expect(best.imbalanceAfter).toBeCloseTo(exhaustive, 6);
+  });
+
+  it("never proposes an asset the board declined to price", () => {
+    // MISSING IS NEVER ZERO: an unpriced row must not read as a
+    // suggestion that changes nothing.
+    const rows = [
+      { name: "Unpriced", pos: "WR", values: {} },
+      { name: "Zeroed", pos: "RB", values: { full: 0 } },
+    ];
+    expect(findBalancers(sidesOf([8000], [3000, 2500]), 1, rows, "full")).toEqual([]);
+  });
+
+  it("routes the sweetener to the most-shorted side in a 3-team trade", () => {
+    const sides = [
+      { assets: [{ name: "a0", pos: "QB", values: { full: 9000 } }], destinations: { a0: 1 } },
+      { assets: [{ name: "b0", pos: "WR", values: { full: 2000 } }], destinations: { b0: 2 } },
+      { assets: [{ name: "c0", pos: "RB", values: { full: 2200 } }], destinations: { c0: 0 } },
+    ];
+    const nets = computeSideFlows(sides, "full").map((f) => f.net);
+    const bestIdx = nets.indexOf(Math.max(...nets));
+    const worstIdx = nets.indexOf(Math.min(...nets));
+    const out = findBalancers(sides, bestIdx, pool(), "full", { toSideIdx: worstIdx });
+    expect(out.length).toBeGreaterThan(0);
+    expect(out[0].gapAfter).toBeNull(); // no single signed gap for N >= 3
+    expect(out[0].imbalanceAfter).toBeLessThan(out[0].imbalanceBefore);
+  });
+});
+
+describe("tradeImbalance — one representation for every side count", () => {
+  it("N = 2: the net flow IS the adjusted gap", () => {
+    // The 2-team meter reads adjusted side totals and the multi-team
+    // meter reads net flow.  Since 2026-08-18 both include Value
+    // Adjustment, so for N = 2 they must be the same number.  Before
+    // that, computeSideFlows carried no VA at all and this failed by
+    // the entire adjustment.
+    for (const [a, b] of [
+      [[8000], [3000, 2500]],
+      [[9000], [4000, 2000]],
+      [[7000, 1200], [4500, 1500]],
+      [[6400, 3100, 1800], [7900, 2200]],
+      [[5000], [4900]],
+    ]) {
+      const sides = [
+        { assets: a.map((v, i) => ({ name: `a${i}`, pos: "RB", values: { full: v } })) },
+        { assets: b.map((v, i) => ({ name: `b${i}`, pos: "WR", values: { full: v } })) },
+      ];
+      const flows = computeSideFlows(sides, "full");
+      const gap = tradeGapAdjusted(sides[0].assets, sides[1].assets, "full");
+      expect(flows[1].net).toBeCloseTo(gap, 6);
+      expect(tradeImbalance(sides, "full").imbalance).toBeCloseTo(Math.abs(gap), 6);
+    }
+  });
+
+  it("a side's given total is its raw total plus its own premium", () => {
+    const sides = [
+      { assets: [{ name: "a0", pos: "QB", values: { full: 9000 } }], destinations: { a0: 2 } },
+      { assets: [{ name: "b0", pos: "WR", values: { full: 8500 } }], destinations: { b0: 0 } },
+      { assets: [{ name: "c0", pos: "LB", values: { full: 5000 } }], destinations: { c0: 1 } },
+    ];
+    const flows = computeSideFlows(sides, "full");
+    expect(flows[0].given).toBeCloseTo(9000 + flows[0].adjustment, 6);
+    expect(flows[1].given).toBeCloseTo(8500 + flows[1].adjustment, 6);
+    expect(flows[2].given).toBeCloseTo(5000 + flows[2].adjustment, 6);
+  });
+
+  it("nothing is created or destroyed: total given equals total received", () => {
+    const sides = [
+      { assets: [{ name: "a0", pos: "QB", values: { full: 9000 } }], destinations: { a0: 2 } },
+      { assets: [{ name: "b0", pos: "WR", values: { full: 4000 } },
+                 { name: "b1", pos: "TE", values: { full: 2500 } }], destinations: { b0: 0, b1: 2 } },
+      { assets: [{ name: "c0", pos: "LB", values: { full: 5000 } }], destinations: { c0: 1 } },
+    ];
+    const flows = computeSideFlows(sides, "full");
+    const given = flows.reduce((t, f) => t + f.given, 0);
+    const received = flows.reduce((t, f) => t + f.received, 0);
+    expect(given).toBeCloseTo(received, 6);
+    expect(flows.reduce((t, f) => t + f.net, 0)).toBeCloseTo(0, 6);
+  });
+
+  it("a side whose pieces are all unpriced carries no premium", () => {
+    const sides = [
+      { assets: [{ name: "a0", pos: "WR", values: {} }] },
+      { assets: [{ name: "b0", pos: "RB", values: { full: 4000 } }] },
+    ];
+    const flows = computeSideFlows(sides, "full");
+    expect(flows[0].given).toBe(0);
+    expect(flows[0].adjustment).toBe(0);
   });
 });
 
@@ -1369,9 +1541,11 @@ describe("computeSideFlows", () => {
       { id: 1, label: "B", assets: [CHASE], destinations: {} },
     ];
     const flows = computeSideFlows(sides, "full");
+    // 1-for-1: KTC suppresses Value Adjustment, so the VA-inclusive
+    // flow is identical to the raw one here.
     expect(flows).toEqual([
-      { given: 9000, received: 8500, net: -500 },
-      { given: 8500, received: 9000, net: 500 },
+      { given: 9000, received: 8500, net: -500, adjustment: 0 },
+      { given: 8500, received: 9000, net: 500, adjustment: 0 },
     ]);
   });
 
@@ -1394,9 +1568,14 @@ describe("computeSideFlows", () => {
       { id: 2, label: "C", assets: [PARSONS], destinations: { "Micah Parsons": 1 } },
     ];
     const flows = computeSideFlows(sides, "full");
-    expect(flows[0]).toEqual({ given: 9000, received: 8500, net: -500 });
-    expect(flows[1]).toEqual({ given: 8500, received: 5000, net: -3500 });
-    expect(flows[2]).toEqual({ given: 5000, received: 9000, net: 4000 });
+    // Side A consolidates one 9,000 piece against 8,500 + 5,000 across
+    // the rest of the trade, so it earns a 1,005 package premium that
+    // travels with Allen to side C.  Before 2026-08-18 the multi-team
+    // flow carried no Value Adjustment at all and these were the raw
+    // totals — the same shape graded differently at 2 teams and at 3.
+    expect(flows[0]).toEqual({ given: 10005, received: 8500, net: -1505, adjustment: 1005 });
+    expect(flows[1]).toEqual({ given: 8500, received: 5000, net: -3500, adjustment: 0 });
+    expect(flows[2]).toEqual({ given: 5000, received: 10005, net: 5005, adjustment: 1005 - 1005 });
   });
 
   it("3-team trade: missing destination falls back to next-side default", () => {
@@ -1407,7 +1586,7 @@ describe("computeSideFlows", () => {
     ];
     const flows = computeSideFlows(sides, "full");
     expect(flows[0].received).toBe(5000); // Parsons from C
-    expect(flows[1].received).toBe(9000); // Allen from A
+    expect(flows[1].received).toBe(10005); // Allen from A, carrying A's premium
     expect(flows[2].received).toBe(8500); // Chase from B
   });
 
@@ -1420,14 +1599,14 @@ describe("computeSideFlows", () => {
     const flows = computeSideFlows(sides, "full");
     // All fall back to defaults: A→1, B→2, C→0
     expect(flows[0].received).toBe(5000); // Parsons from C
-    expect(flows[1].received).toBe(9000); // Allen from A
+    expect(flows[1].received).toBe(10005); // Allen from A, carrying A's premium
     expect(flows[2].received).toBe(8500); // Chase from B
   });
 
   it("returns zero-shaped arrays for empty / single-side inputs", () => {
     expect(computeSideFlows([], "full")).toEqual([]);
     expect(computeSideFlows([{ assets: [ALLEN] }], "full")).toEqual([
-      { given: 0, received: 0, net: 0 },
+      { given: 0, received: 0, net: 0, adjustment: 0 },
     ]);
   });
 
@@ -1438,9 +1617,11 @@ describe("computeSideFlows", () => {
       { id: 2, label: "C", assets: [], destinations: {} },
     ];
     const flows = computeSideFlows(sides, "full");
-    expect(flows[0]).toEqual({ given: 9000, received: 0, net: -9000 });
-    expect(flows[1]).toEqual({ given: 0, received: 9000, net: 9000 });
-    expect(flows[2]).toEqual({ given: 0, received: 0, net: 0 });
+    // Only one side has anything on the table, so there is no package
+    // to price a consolidation premium against.
+    expect(flows[0]).toEqual({ given: 9000, received: 0, net: -9000, adjustment: 0 });
+    expect(flows[1]).toEqual({ given: 0, received: 9000, net: 9000, adjustment: 0 });
+    expect(flows[2]).toEqual({ given: 0, received: 0, net: 0, adjustment: 0 });
   });
 
   it("folds the stack premium into net (3-team, stack-aware verdict)", () => {

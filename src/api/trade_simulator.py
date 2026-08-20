@@ -198,6 +198,7 @@ def simulate_trade(
     picks_in: list[str] | None = None,
     picks_out: list[str] | None = None,
     roster_settings: dict[str, Any] | None = None,
+    league_key: str | None = None,
 ) -> dict[str, Any]:
     """Build the simulator payload for a single hypothetical trade.
 
@@ -213,6 +214,7 @@ def simulate_trade(
           "unresolvedIn":  [str, ...],   # names we couldn't match
           "unresolvedOut": [str, ...],
           "equity":        int,          # net value to team (positive = good)
+          "rosterCapacity":{...},         # see src/trade/roster_capacity
         }
 
     Never mutates the contract or persists.  Pure function over the
@@ -362,5 +364,46 @@ def simulate_trade(
         )
         if impact is not None:
             response["teamImpact"] = impact
+
+    # Roster capacity: does the roster still fit, and if not, who goes?
+    #
+    # REPORTED, never enforced.  ``roster_intel.packages._check_legality``
+    # REFUSES an over-cap package, which is right for a generator choosing what
+    # to propose and wrong here — this endpoint answers a question the user
+    # typed in, and "your trade is illegal so here is nothing" is a worse
+    # answer than "your trade is legal once you release these two, worth
+    # 3,021".  Both consume the same counting rule.
+    #
+    # PLAYERS only.  Draft picks do not occupy Sleeper roster spots: measured
+    # on the live board, ``rosterSize`` is 58, the largest roster holds exactly
+    # 58 players, and those same teams hold 10-23 picks besides.  So
+    # ``picks_in`` / ``picks_out`` are deliberately not passed.
+    if resolved_team:
+        try:
+            from src.trade.roster_capacity import (  # noqa: PLC0415
+                assess_roster_capacity,
+                build_capacity_context,
+            )
+
+            capacity_context = build_capacity_context(
+                contract,
+                league_key,
+                resolved_team,
+                roster_settings=roster_settings,
+            )
+            response["rosterCapacity"] = assess_roster_capacity(
+                capacity_context,
+                incoming_players=players_in,
+                outgoing_players=players_out,
+            ).to_dict()
+        except Exception as exc:  # noqa: BLE001
+            # Degrade, never fail: the value delta above is the primary
+            # answer and must not be taken down by an optional capacity
+            # read.  Absent and zero must not read the same, so the reason
+            # is published rather than the block silently vanishing.
+            response["rosterCapacity"] = {
+                "unavailable": f"{type(exc).__name__}",
+                "notes": ["roster capacity could not be computed for this trade"],
+            }
 
     return response

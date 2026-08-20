@@ -127,12 +127,18 @@ _IDP_FAMILIES = {
 # Widened past ``_IDP_FAMILIES`` on purpose.  Those sets answer "is this
 # position legal in that slot" and are Sleeper-faithful; this answers
 # "which slot family is this player", and must also absorb the roster
-# spellings the scrapers emit (NT, OLB/ILB, FS/SS).  The two are
+# spellings the scrapers emit (NT, OLB/ILB/MLB, FS/SS).
+#
+# ``MLB`` was missing until 2026-08-19 and that was a real eligibility
+# defect, not a naming one: an MLB-listed player resolved to a family
+# called "MLB", which matches no slot, so a genuine linebacker could not
+# fill LB or IDP_FLEX at all.  Zero of 660 rostered players carry the
+# spelling today, which is why nothing caught it.  The two are
 # reconciled in :func:`lineup_position`, which is the single definition.
 _LINEUP_FAMILY: dict[str, str] = {}
 for _fam, _members in (
     ("DL", ("DL", "DE", "DT", "EDGE", "NT")),
-    ("LB", ("LB", "OLB", "ILB")),
+    ("LB", ("LB", "OLB", "ILB", "MLB")),
     ("DB", ("DB", "CB", "S", "FS", "SS")),
     ("K", ("K", "PK", "P")),
 ):
@@ -264,6 +270,35 @@ def roster_player_from_row(row: Mapping[str, Any]) -> RosterPlayer:
         bye=bool(row.get("bye")),
         fantasy_positions=tuple(str(fp).upper() for fp in (row.get("fantasyPositions") or ())),
     )
+
+
+def is_priced(player: RosterPlayer) -> bool:
+    """Does this player carry a KNOWN objective?
+
+    ``ros_value is None`` is UNKNOWN; ``0.0`` is a real value meaning
+    assignable and contributing nothing.  The distinction is the whole
+    point of widening the field, and every consumer that does value
+    arithmetic needs the same test — so it is stated once here rather
+    than as ten inline ``is not None`` checks that can each drift.
+    """
+    return player.ros_value is not None
+
+
+def priced_players(pool: Iterable[RosterPlayer]) -> list[RosterPlayer]:
+    """The players a value aggregate may include.
+
+    Excluding the unpriced is NOT the same as valuing them at zero: the
+    retired ``float(p.ros_value or 0.0)`` produced an identical SUM
+    either way, which is exactly why nothing that only summed values
+    could catch it.  Callers that need to report who was left out use
+    :func:`unpriced_player_ids`.
+    """
+    return [p for p in pool if is_priced(p)]
+
+
+def unpriced_player_ids(pool: Iterable[RosterPlayer]) -> frozenset[str]:
+    """Who a value aggregate had to leave out.  Reported, never zeroed."""
+    return frozenset(p.player_id for p in pool if not is_priced(p))
 
 
 def roster_players_from_rows(rows: Iterable[Mapping[str, Any]]) -> list[RosterPlayer]:
@@ -590,6 +625,46 @@ def slot_demand(
     )
 
 
+def configured_slot_eligibility(
+    roster_settings: Mapping[str, Any] | None,
+) -> dict[str, tuple[str, ...]]:
+    """A league's CONFIGURED flex eligibility, in THIS module's vocabulary.
+
+    Sleeper lets a league decide what its flex slots accept, and the
+    registry records that as ``flexEligible`` / ``sflexEligible`` /
+    ``idpFlexEligible``.  Every consumer that solves or measures a lineup
+    needs the same map, and until now each built its own: ``bdvm``'s keys
+    it ``"SFLEX"`` (`league_config.py`), ``trade/suggestions.py`` builds a
+    two-entry variant.  Neither is an owner of slot rules; this module is
+    (see the "one owner" note above), so the resolver belongs here.
+
+    Returns ONLY the slots the league actually configures.  An absent or
+    empty list means "not configured", and the DECLARED default applies —
+    which is different from an empty eligibility set, and the difference
+    matters: an empty set would make the slot unfillable rather than
+    ordinary.
+
+    Keys come back normalized (``SFLEX`` → ``SUPER_FLEX``) and positions
+    in canonical lineup-card order, so the result can be handed straight
+    to :func:`solve_optimal_assignment` or :func:`slot_demand`.
+    """
+    if not isinstance(roster_settings, Mapping):
+        return {}
+    out: dict[str, tuple[str, ...]] = {}
+    for key, slot in (
+        ("flexEligible", "FLEX"),
+        ("sflexEligible", "SUPER_FLEX"),
+        ("idpFlexEligible", "IDP_FLEX"),
+    ):
+        raw = roster_settings.get(key)
+        if not isinstance(raw, (list, tuple)):
+            continue
+        positions = ordered_positions(lineup_position(str(x)) for x in raw if str(x or "").strip())
+        if positions:
+            out[_normalize_slot_name(slot)] = positions
+    return out
+
+
 def load_league_starter_slots(league_key: str | None = None) -> list[str]:
     """Flat starter-slot list for a league, read from the registry.
 
@@ -612,7 +687,32 @@ def load_league_starter_slots(league_key: str | None = None) -> list[str]:
 
 
 def _eligible_for_slot(slot: str, position: str) -> bool:
-    return (position or "").strip().upper() in slot_eligible_positions(slot)
+    """Is a player of this position legal in this slot?
+
+    Decided on the raw token OR its resolved FAMILY, because those are
+    two spellings of one fact and the tables that hold them are not the
+    same size.  ``_SLOT_ELIGIBLE`` is Sleeper-faithful (``LB`` means
+    ``LB``); ``_LINEUP_FAMILY`` is deliberately wider, absorbing the
+    spellings the scrapers actually emit (``NT``, ``OLB``/``ILB``/``MLB``,
+    ``FS``/``SS``).
+
+    Testing only the raw token left every one of those six spellings
+    eligible for **nothing** — they resolved to a correct family and then
+    matched no slot, so a genuine linebacker listed as ``MLB`` could not
+    start at LB, at IDP_FLEX, or anywhere else.  Measured 2026-08-19:
+    ``NT``, ``OLB``, ``ILB``, ``MLB``, ``FS`` and ``SS`` all False for
+    DL/LB/DB/IDP_FLEX alike.  Zero of 660 rostered players carry one
+    today, which is why nothing caught it.
+
+    Strictly a widening: an ``or`` cannot make an eligible player
+    ineligible, so no lineup that solved before can change except by
+    gaining a candidate that was always legal.
+    """
+    token = (position or "").strip().upper()
+    if not token:
+        return False
+    eligible = slot_eligible_positions(slot)
+    return token in eligible or lineup_position(token) in eligible
 
 
 def _player_eligible_for_slot(slot: str, player: RosterPlayer) -> bool:

@@ -892,8 +892,24 @@ export function SideCard({
               variant="ghost"
               size="sm"
               onClick={() => onAddBalancer(b.name, sideIdx)}
+              /* The suggestion says what it LANDS ON, not just what it
+                 is worth.  ``imbalanceAfter`` is measured through the
+                 same adjusted-gap path the meter renders, so the number
+                 here is checkable against the meter after the click
+                 (defect #800). */
+              title={
+                Number.isFinite(b.imbalanceAfter)
+                  ? `Leaves a gap of ${Math.round(b.imbalanceAfter).toLocaleString()} (now ${Math.round(b.imbalanceBefore).toLocaleString()})`
+                  : undefined
+              }
             >
               {b.name} ({b.pos}) · {b.value.toLocaleString()}
+              {Number.isFinite(b.imbalanceAfter) ? (
+                <span className={styles.balancerResidual}>
+                  {" "}
+                  → {Math.round(b.imbalanceAfter).toLocaleString()}
+                </span>
+              ) : null}
             </Button>
           ))}
         </div>
