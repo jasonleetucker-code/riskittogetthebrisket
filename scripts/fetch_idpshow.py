@@ -56,12 +56,67 @@ import csv
 import json
 import re
 import sys
+from datetime import datetime, timezone
 from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+
+from src.sources.acquisition_state import (  # noqa: E402
+    AUTH_REQUIRED,
+    HEALTHY,
+    PARSE_FAILED,
+    SCHEMA_CHANGED,
+    UNAVAILABLE,
+    AcquisitionOutcome,
+)
 
 REPO = Path(__file__).resolve().parents[1]
 SESSION_PATH = REPO / "idpshow_session.json"
 ARTICLE_URL = "https://www.theidpshow.com/p/idp-dynasty-rankings"
 OUT_PATH = REPO / "CSVs" / "site_raw" / "idpShow.csv"
+#: Companion to data/scrape_state/idpShow_last_success (written by
+#: deploy/idpshow_fetch_and_push.sh only on a truly successful run).  This
+#: file is written by THIS script, on every real (non-dry-run) invocation,
+#: success or failure, so a failed run's FAILURE CLASS survives — not just
+#: the fact that the freshness stamp didn't advance.  Never contains a
+#: cookie name or value: AcquisitionOutcome's fields are outcome metadata
+#: only (state/reason/detail/rowCount), and nothing here reads the cookie
+#: jar's contents into a message.
+STATUS_PATH = REPO / "data" / "scrape_state" / "idpShow_last_status.json"
+SOURCE_KEY = "idpShow"
+
+#: The repo-wide 0/1/2 exit-code convention (src/sources/acquisition_state.py
+#: ::state_from_exit_code) stays the external contract so
+#: deploy/idpshow_fetch_and_push.sh's `if ! ...; then` check is unaffected —
+#: this instrumentation is additive, not a taxonomy change.  SCHEMA_CHANGED
+#: keeps exit 2; every other non-HEALTHY state keeps exit 1, with the real
+#: distinction now recorded in STATUS_PATH instead of collapsed away.
+_EXIT_CODE_BY_STATE = {HEALTHY: 0, SCHEMA_CHANGED: 2}
+
+
+def _persist_outcome(outcome: AcquisitionOutcome) -> int:
+    """Print the outcome as JSON (no secret values — see STATUS_PATH's
+    comment) and persist it to STATUS_PATH.  Returns the exit code for
+    ``main`` to propagate, unifying every return point in one place so a
+    caller can't add a new failure branch without also classifying it."""
+    payload = outcome.to_dict()
+    print(json.dumps(payload, indent=2))
+    STATUS_PATH.parent.mkdir(parents=True, exist_ok=True)
+    STATUS_PATH.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+    return _EXIT_CODE_BY_STATE.get(outcome.state, 1)
+
+
+def _now() -> str:
+    return datetime.now(timezone.utc).isoformat()
+
+
+def _rel(path: Path) -> str:
+    """Display-only: relative to REPO when possible, absolute otherwise (a
+    test double may point these paths outside REPO)."""
+    try:
+        return str(path.relative_to(REPO))
+    except ValueError:
+        return str(path)
 
 # Position normalization.  The IDP Show groups pass rushers as ``ED``
 # (edge) and interior linemen as ``IDL`` — both fall under the DL
@@ -312,12 +367,20 @@ def main(argv: list[str] | None = None) -> int:
 
     if not SESSION_PATH.exists():
         print(
-            f"[idpshow] ERROR: {SESSION_PATH.relative_to(REPO)} missing.  "
+            f"[idpshow] ERROR: {_rel(SESSION_PATH)} missing.  "
             f"Paste browser cookies into that file (see the script's "
             f"module docstring for the refresh flow).",
             file=sys.stderr,
         )
-        return 1
+        return _persist_outcome(
+            AcquisitionOutcome(
+                source_key=SOURCE_KEY,
+                state=AUTH_REQUIRED,
+                reason="session_file_missing",
+                detail=f"{_rel(SESSION_PATH)} not present",
+                observed_at=_now(),
+            )
+        )
 
     session = _build_session()
 
@@ -325,7 +388,15 @@ def main(argv: list[str] | None = None) -> int:
         html = _fetch_article_html(session)
     except RuntimeError as exc:
         print(f"[idpshow] article fetch failed: {exc}", file=sys.stderr)
-        return 1
+        return _persist_outcome(
+            AcquisitionOutcome(
+                source_key=SOURCE_KEY,
+                state=UNAVAILABLE,
+                reason="article_fetch_failed",
+                detail=str(exc),
+                observed_at=_now(),
+            )
+        )
 
     if _looks_paywalled(html):
         print(
@@ -333,7 +404,15 @@ def main(argv: list[str] | None = None) -> int:
             "Refresh cookies in idpshow_session.json.",
             file=sys.stderr,
         )
-        return 1
+        return _persist_outcome(
+            AcquisitionOutcome(
+                source_key=SOURCE_KEY,
+                state=AUTH_REQUIRED,
+                reason="session_expired_paywalled",
+                detail="article still shows the paywall sentinel with cookies attached",
+                observed_at=_now(),
+            )
+        )
 
     chart_id = _extract_chart_id(html)
     if not chart_id:
@@ -342,7 +421,15 @@ def main(argv: list[str] | None = None) -> int:
             "The author may have removed the chart or switched platforms.",
             file=sys.stderr,
         )
-        return 1
+        return _persist_outcome(
+            AcquisitionOutcome(
+                source_key=SOURCE_KEY,
+                state=PARSE_FAILED,
+                reason="chart_id_not_found",
+                detail="no datawrapper.dwcdn.net iframe reference in article HTML",
+                observed_at=_now(),
+            )
+        )
     version = _resolve_latest_version(session, chart_id)
     if not version:
         print(
@@ -350,14 +437,30 @@ def main(argv: list[str] | None = None) -> int:
             f"version for chart {chart_id} — redirect chain broke.",
             file=sys.stderr,
         )
-        return 1
+        return _persist_outcome(
+            AcquisitionOutcome(
+                source_key=SOURCE_KEY,
+                state=UNAVAILABLE,
+                reason="version_resolution_http_error",
+                detail=f"chart {chart_id}: redirect chain returned a non-200 hop",
+                observed_at=_now(),
+            )
+        )
     print(f"[idpshow] chart_id={chart_id} version={version}")
 
     try:
         csv_text = _fetch_dataset_csv(session, chart_id, version)
     except RuntimeError as exc:
         print(f"[idpshow] dataset fetch failed: {exc}", file=sys.stderr)
-        return 1
+        return _persist_outcome(
+            AcquisitionOutcome(
+                source_key=SOURCE_KEY,
+                state=UNAVAILABLE,
+                reason="dataset_fetch_failed",
+                detail=str(exc),
+                observed_at=_now(),
+            )
+        )
 
     rows = _parse_dataset(csv_text)
     print(f"[idpshow] parsed {len(rows)} rows")
@@ -378,7 +481,15 @@ def main(argv: list[str] | None = None) -> int:
             f"  Check whether PLAYER / POS / OVR column names changed.",
             file=sys.stderr,
         )
-        return 1
+        return _persist_outcome(
+            AcquisitionOutcome(
+                source_key=SOURCE_KEY,
+                state=PARSE_FAILED,
+                reason="no_rows_extracted",
+                detail=f"csv header: {first_line!r}",
+                observed_at=_now(),
+            )
+        )
 
     # Hard floor aligned with the downstream contract guard
     # ``_DEFAULT_SOURCE_ROW_FLOORS["idpShow"]`` (150).  Previously a
@@ -397,17 +508,34 @@ def main(argv: list[str] | None = None) -> int:
             f"scrape; preserving last-good CSV, not overwriting.",
             file=sys.stderr,
         )
-        return 2
+        return _persist_outcome(
+            AcquisitionOutcome(
+                source_key=SOURCE_KEY,
+                state=SCHEMA_CHANGED,
+                reason="row_count_below_floor",
+                detail=f"{len(rows)} rows parsed, floor is {_IDPSHOW_ROW_FLOOR}",
+                observed_at=_now(),
+            )
+        )
 
     if args.dry_run:
         print("[idpshow] dry-run — top 5:")
         for r in rows[:5]:
             print(f"  #{r['rank']:<4} {r['position']:<4} {r['name']}")
+        # Deliberately not persisted: a dry-run writes no CSV, so recording
+        # HEALTHY here would claim an acquisition that didn't happen.
         return 0
 
     count = _write_csv(OUT_PATH, rows)
-    print(f"[idpshow] wrote {count} rows → {OUT_PATH.relative_to(REPO)}")
-    return 0
+    print(f"[idpshow] wrote {count} rows → {_rel(OUT_PATH)}")
+    return _persist_outcome(
+        AcquisitionOutcome(
+            source_key=SOURCE_KEY,
+            state=HEALTHY,
+            row_count=count,
+            observed_at=_now(),
+        )
+    )
 
 
 if __name__ == "__main__":
