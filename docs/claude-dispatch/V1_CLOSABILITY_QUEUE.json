@@ -1,7 +1,7 @@
 {
   "_comment": "Live V1 Closability Queue, owned by Claude 7 as independent V1 traffic controller / adversarial auditor. Ranks IMPLEMENTED_UNVERIFIED rows by verification effort per row gained. NOT an authority on V1 status — only Claude 5 promotes a row, and no percentage here is claimed as achieved.",
-  "updatedAt": "2026-08-20T05:25:00Z",
-  "auditCycle": 2,
+  "updatedAt": "2026-08-20T06:15:00Z",
+  "auditCycle": 21,
   "evidenceBasis": {
     "contract": "docs/VERSION_1_COMPLETION_CONTRACT.md §3 read on origin/main e3b387ca5",
     "deployedSha": "e3b387ca5",
@@ -401,9 +401,44 @@
     "_doNotQuote": "Do not cite this block as the V1 status. Read the contract on current main instead.",
     "observedVerifiedRows": 55,
     "observedRequiredRows": 132,
-    "observedAtSha": "079fc9e4a",
-    "observedAt": "2026-08-20T05:25:00Z",
-    "howObserved": "counted `VERIFIED` in the §3 table of the contract as it exists at that exact SHA"
+    "observedAtSha": "64769555a",
+    "observedAt": "2026-08-20T06:12:00Z",
+    "howObserved": "counted `VERIFIED` in the §3 table of the contract as it exists at that exact SHA",
+    "note": "Unchanged across the #912 merge. #947 (open) proposes 57; a proposal is not the contract."
   },
-  "_authorityNote": "This queue RANKS work by verification effort. It does not own, publish or restate V1 status. docs/VERSION_1_COMPLETION_CONTRACT.md §3 owns that, and every count in this file is a derived reading stamped with the SHA it came from."
+  "_authorityNote": "This queue RANKS work by verification effort. It does not own, publish or restate V1 status. docs/VERSION_1_COMPLETION_CONTRACT.md §3 owns that, and every count in this file is a derived reading stamped with the SHA it came from.",
+  "cycle21": {
+    "standingItemsUnchanged": [
+      {
+        "item": "Lane 2 ACTIONABLE_IDLE",
+        "elapsed": "~9h since 9e9d8e8ec (2026-08-19 21:46Z)",
+        "row": "V1-43 still `NOT STARTED`, level L1, unblocked on plain main, no branch",
+        "blocker": "ASSIGNMENT DELIVERY. L2-2026-08-19-02 remains DELIVERY_REQUIRED — no reachable channel from this session.",
+        "dispatcherAction": "NONE beyond surfacing. No second assignment written, per the standing instruction not to pile onto an unread one."
+      },
+      {
+        "item": "Lane 4 on-box verification batch",
+        "rows": "V1-57 (L3), V1-129, V1-60 (L2) — all still `IMPLEMENTED_UNVERIFIED` at 64769555a",
+        "elapsed": "~12h since 66fb1a053",
+        "whyItMatters": "Still the cheapest remaining numerator conversion: host access only, no HTTP auth, verifier already on main.",
+        "dispatcherAction": "NONE. Cannot execute on-box verification from this session."
+      },
+      {
+        "item": "Abandoned refs, #940 rule 7",
+        "stillPresent": [
+          "integration/rc-937 (80b7b948d)",
+          "integration/rc-wave-a (213f91513)",
+          "v1/premium-ui (c025e4f68)"
+        ],
+        "changeThisCycle": "v1/premium-ui is now DEFINITIVELY dead: c025e4f68 is an ancestor of merge b3ea4cf5a, so the ref holds nothing main lacks. claude/premium-ui-migration-ltldy0, its live twin, was correctly deleted on merge — this one was not.",
+        "dispatcherAction": "NONE. Ref deletion is not dispatcher authority."
+      }
+    ],
+    "rowsStillOpenAndReported": {
+      "V1-42": "`NOT STARTED` for a fifth consecutive cycle, though #913's W3 supplied the consumer simulate_roster_change lacked.",
+      "V1-88": "`IMPLEMENTED_UNVERIFIED`, unpromotable absent a structured `gates` field on the flag registry or an owner re-levelling ruling. Fourth promotion pass survived.",
+      "V1-108": "Newly decomposed by Integration in #947 with an exact close condition — commit the transitive import-graph scan as a guard. That is a Tier B item now rather than an unanalysed IN PROGRESS row.",
+      "pr930PostDeployScrape": "Still unconfirmed."
+    }
+  }
 }
