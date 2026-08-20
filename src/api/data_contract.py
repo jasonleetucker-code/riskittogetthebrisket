@@ -8318,6 +8318,8 @@ def _compute_unified_rankings(
             idp_positions=bridge_idp_positions,
             acquisition=bridge_acquisition,
         )
+        from src.api import feature_flags as _feature_flags  # noqa: PLC0415
+
         bridge_ladder = build_bridge_ladder(
             bridge_assessments,
             backbone_rows,
@@ -8326,7 +8328,7 @@ def _compute_unified_rankings(
             # Off by default: admitting a second bridge is a methodology
             # change with measured board movement, and it is separable from
             # the withholding repair, which is unconditional.
-            limit=None if feature_flags.is_enabled("multi_bridge_ladder") else 1,
+            limit=None if _feature_flags.is_enabled("multi_bridge_ladder") else 1,
         )
 
         # ``backbone`` survives for the PER-POSITION ladders the dormant
