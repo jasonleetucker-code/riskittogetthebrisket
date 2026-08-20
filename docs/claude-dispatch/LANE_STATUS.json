@@ -1,10 +1,10 @@
 {
   "_comment": "Lane utilization state, owned by Claude 7 (Lane Dispatcher). NOT an authority on integration sequencing (Claude 5 / docs/EXECUTION_PLAN.md), on V1 status (docs/VERSION_1_COMPLETION_CONTRACT.md) or on canonical ownership (CLAUDE.md). Repository evidence outranks this file: where they disagree, this file is wrong and must be corrected.",
-  "updatedAt": "2026-08-20T11:30:00Z",
-  "dispatchCycle": 29,
+  "updatedAt": "2026-08-20T12:05:00Z",
+  "dispatchCycle": 30,
   "writePolicy": "This file and ASSIGNMENTS.json are written ONLY on a material state transition — new assignment, assignment accepted, completion, blocker, freeze/unfreeze, or a meaningful dependency change. A heartbeat that finds nothing changed produces no commit and no CI run.",
   "evidenceBasis": "origin/main 079fc9e4a; §3 diffed row-by-row from cycle-19 main (c5a367266); all refs resolved live; #945 CI green 04:57:35Z",
-  "assignmentSourceNote": "The six current assignments were made manually by the owner, not by this dispatcher. Recorded here so the durable state matches reality; Claude 7 did not originate them and does not own them.",
+  "assignmentSourceNote": "Lanes 1-6 carry the owner's original six manual assignments, tracked in detail by this dispatcher. Lanes 8-13 are five additional owner-authorized campaign lanes (Claude 8 chartered 2026-08-20; Claude 9-13 chartered the same day under the POST-V1 C-Series mass-build campaign, EXECUTION_PLAN.md §0). This dispatcher did not originate any of these eleven assignments and does not own or re-scope them. Lanes 8-13 are tracked here only lightly — ownership boundaries and authorization citation — because they are self-directed under their own charter, unlike lanes 1-6 which this dispatcher actively monitors for idleness and dispatches follow-on work to. There is no lane 7: Claude 7 is the dispatcher identity, per dispatcherIdentity above.",
   "lanes": {
     "1": {
       "name": "Roster Intelligence",
@@ -167,6 +167,58 @@
       "mergedThisCycle": [
         935
       ]
+    },
+    "8": {
+      "name": "Source Acquisition + Cross-Position Bridge",
+      "chartered": "2026-08-20",
+      "priority": "top-priority V1 (per EXECUTION_PLAN.md — this lane IS V1-scoped, unlike 9-13)",
+      "owns": "new source acquisition; cross-position bridge architecture; Dynasty Nerds integration; Dynasty Dealer bridge qualification; Draft Sharks cross-position qualification; IDP Show / Footballguys acquisition",
+      "assignmentSource": "owner-authorized (EXECUTION_PLAN.md §0); not dispatcher-originated",
+      "dispatcherRole": "monitor only — reported neutrally in cycle notes since cycle 24; not assigned, not idle-clocked the way lanes 1-6 are",
+      "observedActivity": "#954 merged 2026-08-20 (Lane 8 PR A); #950 open; branch churn continuing as of cycle 29",
+      "mayNot": "introduce a second package/lineup/replacement/value engine; own global source-health semantics (lane 5) or source-health frontend surfaces (lane 6); add V1 §3 rows or mark anything VERIFIED"
+    },
+    "9": {
+      "name": "C3 + trade-related C7",
+      "chartered": "2026-08-20 (POST-V1 C-Series mass-build campaign)",
+      "owns": "C3 trade substrate; trade-related C7 decision products",
+      "oneWriter": "sole new mass-build writer for C3 — no other mass-build lane independently modifies the trade substrate",
+      "assignmentSource": "owner-authorized (EXECUTION_PLAN.md §0); not dispatcher-originated",
+      "dispatcherRole": "monitor only",
+      "observedActivity": "#962 (C3-VA-01, Value Adjustment consolidation) open as of cycle 24-29"
+    },
+    "10": {
+      "name": "C4 + waiver/draft-related C7",
+      "chartered": "2026-08-20 (POST-V1 C-Series mass-build campaign)",
+      "owns": "C4 Market / Sharp / FAAB; waiver- and draft-related C7",
+      "assignmentSource": "owner-authorized (EXECUTION_PLAN.md §0); not dispatcher-originated",
+      "dispatcherRole": "monitor only",
+      "observedActivity": "#961 (C4-WAIV-01 / C4-MTL-01 / C4-MTL-03) open as of cycle 24-29"
+    },
+    "11": {
+      "name": "C5 Seasonal Intelligence",
+      "chartered": "2026-08-20 (POST-V1 C-Series mass-build campaign)",
+      "owns": "C5 Seasonal Intelligence",
+      "assignmentSource": "owner-authorized (EXECUTION_PLAN.md §0); not dispatcher-originated",
+      "dispatcherRole": "monitor only",
+      "observedActivity": "claude/c5-proj-a-source-census, claude/c5-war-01-deterministic-core branches active as of cycle 29 (C5-PROJ-A, C5-WAR-01)"
+    },
+    "12": {
+      "name": "C6 + intelligence-related C7",
+      "chartered": "2026-08-20 (POST-V1 C-Series mass-build campaign)",
+      "owns": "C6 Analyst / Signal / Manager / AI intelligence; intelligence-driven C7",
+      "assignmentSource": "owner-authorized (EXECUTION_PLAN.md §0); not dispatcher-originated",
+      "dispatcherRole": "monitor only",
+      "observedActivity": "claude/cseries-seasonal-intelligence-efz837 / claude/cseries-intelligence-data-80btkq branches observed — not yet reconciled to a specific PR by this dispatcher"
+    },
+    "13": {
+      "name": "C8 + C9 + C10",
+      "chartered": "2026-08-20 (POST-V1 C-Series mass-build campaign)",
+      "owns": "C8 Premium/Performance; C9 Public/Storytelling; C10 closure",
+      "boundary": "the existing Claude 6 premium-UI claim is repair-only and protects only its named files/defect scope, not all of C8/C9/C10 — Claude 13 avoids those actively claimed files and continues elsewhere in scope",
+      "assignmentSource": "owner-authorized (EXECUTION_PLAN.md §0); not dispatcher-originated",
+      "dispatcherRole": "monitor only",
+      "observedActivity": "claude/cseries-premium-public-closure -> ada3b1471 (C10-CLOSE-02) observed as of cycle 29"
     }
   },
   "collisionWatch": [
@@ -272,5 +324,25 @@
       "claude/cseries-premium-public-closure",
       "claude/cseries-trade-decision-mrwj7r moved to 08c89e1f3"
     ]
+  },
+  "dispatcherIdentity": {
+    "_authority": "docs/EXECUTION_PLAN.md §0, lines 55-59 and the POST-V1 C-Series section: 'There is no Claude 7 lane. The number is not assigned, and nothing here creates one.'",
+    "statement": "Claude 7 IS the Lane Dispatcher — the author of this record — and is explicitly NOT a seventh product implementation lane. This file's own numbering (lanes 1-6 as product lanes) was briefly read elsewhere as leaving '7' open; EXECUTION_PLAN.md corrected that reading on 2026-08-20 by naming this file and ASSIGNMENTS.json directly as the reason 7 is not a gap.",
+    "doesNotChange": "Nothing about the dispatcher's own conduct rules changes: no merging, no implementing, no V1 status edits, no origination of work for other lanes."
+  },
+  "governanceCorrection_C30": {
+    "trigger": "Issue #967 — 'Dispatch registry is missing lanes 8 and 9-13' — a bounded dispatcher-owned governance correction requested directly, citing head d51910bf5.",
+    "whatWasStale": "LANE_STATUS.json materially listed only lanes 1-6, and assignmentSourceNote said 'The six current assignments were made manually by the owner,' which had been true and was now incomplete against EXECUTION_PLAN.md's Lane 8 charter (cycle 26-29) and the Claude 9-13 mass-build campaign (authorized at #963, cycle 26).",
+    "whatChanged": [
+      "added dispatcherIdentity, citing EXECUTION_PLAN.md's own text that Claude 7 is the dispatcher and no product lane 7 exists",
+      "added lanes 8-13 as lightly-tracked entries (owns/charter-date/citation/observed activity), explicitly NOT given the full assignment-tracking shape lanes 1-6 have, because this dispatcher does not originate or own their work",
+      "rewrote assignmentSourceNote to state eleven total owner-authorized assignments across 1-6 and 8-13, with no lane 7"
+    ],
+    "whatDidNotChange": [
+      "V1 status, denominator or any §3 row — untouched",
+      "VERSION_1_COMPLETION_CONTRACT.md, EXECUTION_PLAN.md, product source, CE registry — none touched by this dispatcher, per its standing scope",
+      "the v1DerivedObservation block, which still carries the last SHA-stamped independent reading (58/136 at 31724a8d4) and is still explicitly marked non-authoritative"
+    ],
+    "selfCheck": "This is the second time this session a governance send-back has asked this dispatcher to correct its own coordination record for the same underlying class of defect: #945's send-back (cycle 20) was 'you formed a second owner of the V1 numerator'; this one is 'your lane model went stale against a canonical record that superseded it.' Both are the same root cause — a derived/cached reading that nobody forced to reconcile against its source. Recording it here rather than treating it as a one-off, because the fix in both cases was the same: mark the block as derived and dated, and don't let convenience make it read as authoritative."
   }
 }

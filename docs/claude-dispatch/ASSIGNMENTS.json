@@ -1,7 +1,7 @@
 {
   "_comment": "Durable dispatch ledger written by Claude 7 (Lane Dispatcher). One PRIMARY assignment per lane. An ACTIVE row is never overwritten and a second task is never piled onto an unread one. Claude 7 does not merge, does not implement, and does not change V1 status.",
-  "updatedAt": "2026-08-20T05:25:00Z",
-  "cycle": 17,
+  "updatedAt": "2026-08-20T12:05:00Z",
+  "cycle": 30,
   "writePolicy": "Written only on a material state transition. An unchanged heartbeat produces no commit and no CI run.",
   "_delivery": {
     "state": "DELIVERY_REQUIRED — one assignment released and awaiting delivery",
@@ -123,7 +123,7 @@
     }
   ],
   "currentAssignmentsManual": {
-    "_note": "Made by the owner directly, not by this dispatcher. Recorded so durable state matches reality. Claude 7 does not own or re-scope these; it monitors them and will not assign over them.",
+    "_note": "Made by the owner directly, not by this dispatcher. Recorded so durable state matches reality. Claude 7 does not own or re-scope these; it monitors them and will not assign over them. This block covers ONLY lanes 1-6 (the original V1 sprint assignments this dispatcher tracks in detail). Five more owner-authorized lanes exist — Claude 8 (Source Acquisition + Cross-Position Bridge, chartered 2026-08-20, V1-scoped) and Claude 9-13 (the POST-V1 C-Series mass-build campaign, chartered 2026-08-20, EXECUTION_PLAN.md §0). Those five are self-directed under their own charter and are tracked lightly in LANE_STATUS.json (lanes 8-13) for awareness, not assignment. There is no lane 7: Claude 7 is this dispatcher, per EXECUTION_PLAN.md's own text ('Lane 7 is not missing... nothing here creates one').",
     "1": {
       "task": "V1-29 (#933) + Roster verification pack (#925, now chain head)",
       "status": "ACTIVE",
@@ -293,5 +293,11 @@
       "whatSurvives": "An argument that V1-34 ought to need a production consumer is an argument to RE-LEVEL the row to L4 — an owner decision — not an argument against the promotion."
     }
   ],
-  "_authorityNote": "This ledger owns dispatch assignments only. It does not own V1 status, integration sequencing or canonical ownership. Any V1 figure appearing in an assignment rationale is a derived reading of docs/VERSION_1_COMPLETION_CONTRACT.md §3 at the SHA named beside it."
+  "_authorityNote": "This ledger owns dispatch assignments only. It does not own V1 status, integration sequencing or canonical ownership. Any V1 figure appearing in an assignment rationale is a derived reading of docs/VERSION_1_COMPLETION_CONTRACT.md §3 at the SHA named beside it.",
+  "governanceCorrection_C30": {
+    "trigger": "Issue #967 — dispatch registry missing lanes 8 and 9-13.",
+    "whatChanged": "currentAssignmentsManual._note rewritten to state the assignment ledger covers lanes 1-6 only and name the five additional owner-authorized lanes without claiming dispatch authority over them. No assignment rows added for 8-13 — this dispatcher does not originate their work.",
+    "companionEdit": "docs/claude-dispatch/LANE_STATUS.json — full detail, including dispatcherIdentity block and lanes 8-13 entries.",
+    "noV1Edit": "This correction touches no V1 status, denominator, or product/governance file outside the two dispatcher-owned records named above."
+  }
 }
