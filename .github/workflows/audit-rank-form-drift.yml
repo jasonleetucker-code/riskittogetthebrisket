@@ -164,9 +164,37 @@ jobs:
             "The weekly drift check found the committed rank-form Hill constants no longer reproduce the served board. The constants to write, and the three files to write them in, are in the output below." \
             "$(cat /tmp/rank_form_drift.txt)" \
             "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}")
-          EXISTING=$(gh issue list --state open --label calibration \
-            --search "in:title Rank-form curve drift" --json number --jq '.[0].number' || true)
-          if [[ -n "${EXISTING}" && "${EXISTING}" != "null" ]]; then
+          # The label must EXIST before it can be a dedup key.  It did
+          # not: run 32114681240 (2026-08-18) logged
+          #   could not add label: 'calibration' not found
+          # so the `--label calibration` create failed, the `|| gh issue
+          # create` fallback filed #898 UNLABELLED, and the lookup below
+          # -- which filtered on that same label -- could never find it
+          # again.  Every subsequent weekly run would have minted a fresh
+          # duplicate.  Not hypothetical: refit-hill-curves.yml shares
+          # this label and its untracked issues are live as #777
+          # (2026-08-11) and #895 (2026-08-18), one week apart.
+          #
+          # Creating it idempotently is the fix scheduled-refresh.yml and
+          # e2e.yml already use for their own labels.
+          gh label create calibration \
+            --color 5319E7 \
+            --description "Model-calibration work items opened by the weekly Hill refit and drift audits" \
+            2>/dev/null || true
+          # DEDUP ON THE TITLE, exactly as the close step below does, and
+          # NOT on the label.  The two halves keyed differently: the close
+          # step matched titles client-side (deliberately -- see its note)
+          # while this one matched a label, so a fallback-created issue was
+          # closable but never findable.  One key, both halves.
+          #
+          # `--search` is fuzzy and would match refit-hill-curves.yml's
+          # issues, which is the hazard the close step already avoids, so
+          # filter client-side on the exact title here too.
+          EXISTING=$(gh issue list --state open --limit 50 \
+                       --json number,title \
+                       --jq ".[] | select(.title == \"${TITLE}\") | .number" \
+                     2>/dev/null | head -n 1 || true)
+          if [[ -n "${EXISTING}" ]]; then
             gh issue comment "${EXISTING}" --body "${BODY}"
           else
             gh issue create --title "${TITLE}" --body "${BODY}" --label calibration \
