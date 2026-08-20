@@ -998,9 +998,15 @@ export default function RankingsPage() {
                 name={row.name}
                 size={28}
               />
+              {/* `rankings-player-name` is a stable E2E hook, not a
+                  style: journey.js::SEL.playerName selects on it, and
+                  five rankings specs plus the mobile popup smoke read
+                  the board through it.  Kept alongside the module class
+                  for the same reason `rankings-controls` and
+                  `rankings-row-clickable` are. */}
               <button
                 type="button"
-                className={`${styles.resetButton} ${styles.playerName}`}
+                className={`rankings-player-name ${styles.resetButton} ${styles.playerName}`}
                 onClick={() => openPlayerPopup?.(row)}
                 title={`Open ${row.name}'s profile`}
               >

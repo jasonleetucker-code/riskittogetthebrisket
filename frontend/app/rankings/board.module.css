@@ -362,22 +362,28 @@
   padding: 0;
   cursor: pointer;
 }
-.playerName {
+/* `.page`-scoped deliberately: the row also carries the literal
+   `rankings-player-name` E2E hook, whose globals.css rule sets
+   font-weight 600 and a --cyan hover.  Equal single-class
+   specificity would leave the winner to stylesheet injection order,
+   which is not a contract.  One extra class settles it in favour of
+   the editorial rule regardless of order. */
+.page .playerName {
   font-weight: 700;
   cursor: pointer;
   transition: color 0.1s;
   -webkit-tap-highlight-color: transparent;
   touch-action: manipulation;
 }
-.playerName:hover,
-.playerName:active {
+.page .playerName:hover,
+.page .playerName:active {
   color: var(--accent);
 }
 .muted {
   color: var(--text-tertiary);
 }
 @media (max-width: 768px) {
-  .playerName {
+  .page .playerName {
     display: inline-block;
     padding: 6px 0;
   }
