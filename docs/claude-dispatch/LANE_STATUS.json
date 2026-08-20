@@ -1,7 +1,7 @@
 {
   "_comment": "Lane utilization state, owned by Claude 7 (Lane Dispatcher). NOT an authority on integration sequencing (Claude 5 / docs/EXECUTION_PLAN.md), on V1 status (docs/VERSION_1_COMPLETION_CONTRACT.md) or on canonical ownership (CLAUDE.md). Repository evidence outranks this file: where they disagree, this file is wrong and must be corrected.",
-  "updatedAt": "2026-08-20T09:55:00Z",
-  "dispatchCycle": 24,
+  "updatedAt": "2026-08-20T10:10:00Z",
+  "dispatchCycle": 25,
   "writePolicy": "This file and ASSIGNMENTS.json are written ONLY on a material state transition — new assignment, assignment accepted, completion, blocker, freeze/unfreeze, or a meaningful dependency change. A heartbeat that finds nothing changed produces no commit and no CI run.",
   "evidenceBasis": "origin/main 079fc9e4a; §3 diffed row-by-row from cycle-19 main (c5a367266); all refs resolved live; #945 CI green 04:57:35Z",
   "assignmentSourceNote": "The six current assignments were made manually by the owner, not by this dispatcher. Recorded here so the durable state matches reality; Claude 7 did not originate them and does not own them.",
@@ -215,38 +215,40 @@
     "newMethodRule": "(j) ABSENCE FROM A TRUNCATED LIST IS NOT EVIDENCE OF DELETION. To claim a ref is gone, name it to git ls-remote or read the [deleted] line from the fetch. Never infer it from a ref falling off the bottom of a sorted head -N.",
     "alsoWorthNaming": "This is the third time this session I have reported a cleaner state than the evidence supported, and each time the mechanism was the same: a convenient reading of an instrument I had narrowed myself."
   },
-  "cycle24Transitions": {
-    "mainTip": "cca488cd7 — UNCHANGED. No merges this cycle.",
-    "contract": "57/132 on main, unchanged by construction (same SHA).",
-    "promotionPassIsRunning": {
-      "pr": "#963 — 'V1-51 VERIFIED at L2 (58/136), and the owner's source-program decision reconciled into the denominator'",
-      "head": "f262003a8",
-      "significance": "This is the cycle-23 reframe confirming itself in the direction predicted: the numerator moves when Integration runs a promotion pass, and one is running. V1-51's implementation merged last cycle via #956 and left the row IN PROGRESS; the pass promotes it on DEPLOYED evidence at L2."
+  "cycle25Transitions": {
+    "mainTip": "a1c6e6ea4 (was cca488cd7)",
+    "merged": "#960 (a1c6e6ea4) — '#958: the tracker stops betting on how gh spells a bot login'. Branch deleted on merge.",
+    "v1Effect": "NONE. Row-diffed §3 cca488cd7 -> a1c6e6ea4: NO row changed. Still 57 VERIFIED of 132, and the contract's own table and completion line agree with my independent count.",
+    "theCyclePatternHolds": "Six merges across cycles 21-25 have produced +2 VERIFIED rows, both from one promotion pass. Verification remains the binding constraint.",
+    "promotionPassStillOpen": {
+      "pr": "#963",
+      "headNow": "115e0c662 (was f262003a8)",
+      "contentUnchanged": "Still exactly V1-51 IN PROGRESS -> VERIFIED plus V1-133..V1-136 added as NOT STARTED. Re-counted on the live head: 58+21+22+33+2 = 136, its own table agrees.",
+      "denominatorWarningStands": "57/132 = 43.2% -> 58/136 = 42.6%. The percentage falls while a row is verified. Scope entering the denominator, not a regression."
     },
-    "THE_DENOMINATOR_IS_MOVING": {
-      "_flag": "FIRST DENOMINATOR CHANGE OF THE SESSION. It has been 132 for every cycle until now.",
-      "from": "132",
-      "to": "136",
-      "cause": "#963 commit f99a5bf2c, 'Reconcile the owner's source-acquisition/bridge decision into the V1 denominator' — four new rows V1-133, V1-134, V1-135, V1-136, all NOT STARTED. This is Lane 8's source-acquisition/bridge program entering V1 scope by owner decision.",
-      "verifiedIndependently": "Read the contract on the Integration branch and counted: 58 + 21 + 22 + 33 + 2 = 136, and its own table and completion line agree. Row-diffed against main: exactly V1-51 IN PROGRESS -> VERIFIED plus the four additions, nothing else.",
-      "THE_ARITHMETIC_THAT_WILL_BE_MISREAD": "57/132 = 43.2% -> 58/136 = 42.6%. THE PERCENTAGE FALLS WHILE A ROW IS VERIFIED. That is scope entering the denominator, not a regression, and nothing was un-verified. Naming it before it lands, because a percentage that drops on a promotion pass is precisely the number someone reads as a lane going backwards.",
-      "consequenceForThisRecord": "Cross-cycle PERCENTAGE comparisons are no longer apples-to-apples once this merges. Compare VERIFIED ROW COUNTS across cycles, and state the denominator with every percentage."
+    "MY_CYCLE_24_FRAMING_WAS_WRONG": {
+      "_severity": "Correction — a framing error, not a fact error.",
+      "whatISaid": "Cycle 24: 'The fleet has outgrown my model… Lane 8 and C-Series Claude 9 are committing, neither in any doNotTouch set, collision watchlist or idle clock here.' The tone implied unmanaged sprawl.",
+      "whatIsActuallyTrue": "#963 carries commit e1a676c95, 'Authorize the POST-V1 C-Series mass-build campaign — execution timing only', and 115e0c662, 'Close two merged claim rows and narrow the freeze row, so the new lanes are not falsely blocked'. The new lanes are an AUTHORIZED campaign with its work claims deliberately unblocked.",
+      "correctReading": "My model was not violated; it was superseded by an owner authorization my records did not yet know about. A coordination record that has not caught up is not evidence that the fleet is uncoordinated — and reporting it that way is the same error as reading a truncated list as deletion: treating the limits of my own instrument as a fact about the world.",
+      "standing": "The lane model here still covers L1-L6 plus Integration. Extending it remains an owner decision. But the collision language is withdrawn: #962's Value Adjustment consolidation is campaign work, not an unclaimed incursion into Lane 2's territory."
     },
-    "fleetHasOutgrownMyModel": {
-      "evidence": [
-        "#954 / #950 — 'Lane 8 PR A', cross-position bridge",
-        "#962 — 'C-Series Claude 9: C3 Trade Substrate — Value Adjustment consolidation (C3-VA-01)'",
-        "#961 — C4-WAIV-01 + C4-MTL-01, waiver ledger and own-league Market Trade Ledger",
-        "#960 — #958 CI tracker identity"
-      ],
-      "status": "Escalated from the cycle-23 note. There are now at least TWO lanes (8 and 9) outside this dispatcher's six-lane model, both committing, neither in any doNotTouch set, collision watchlist or idle clock here.",
-      "collisionRisk": "#962 consolidates the Value Adjustment ports — CLAUDE.md names src/trade/ktc_va.py as the canonical owner and records that a duplicate Python port was already retired once. That is Lane 2 territory by my model, and Lane 2 is idle. Reported, not adjudicated.",
-      "dispatcherAction": "REPORTED. Extending the lane model is an owner decision."
+    "uncappedSweepFinding": {
+      "observation": "Sweeping origin UNCAPPED for the first time (rule j's consequence) shows roughly 85 remote refs, with a long dormant tail reaching back to March. My 'three abandoned refs' framing was itself too narrow a window — the same defect one level up.",
+      "dispatcherAction": "REPORTED, and deliberately NOT turned into work. A mass ref cleanup is not dispatcher authority and nobody asked for one. The three named refs stay named because they are RECENT and integration-owned, which is what made them rule-7 relevant; the March tail is ordinary repository sediment."
+    },
+    "abandonedRefsVerifiedByName": {
+      "method": "git ls-remote origin refs/heads/<ref> — named, not inferred",
+      "v1/premium-ui": "PRESENT c025e4f68",
+      "integration/rc-937": "PRESENT 80b7b948d",
+      "integration/rc-wave-a": "PRESENT 213f91513",
+      "claude/no-player-data-routes (#759)": "PRESENT 82851974f",
+      "claude/rankings-board-windowing (#760)": "PRESENT 4f00f1599"
     },
     "myOwnPr": {
       "pr": "#945",
-      "head": "2cf74ad94",
-      "ci": "last verdict SUCCESS on 0085493ac; 2cf74ad94 pushed 09:37Z",
+      "head": "673fa6f6f",
+      "ci": "Validate PR in_progress, job 96385604645, started 09:53Z",
       "reviewComments": "none new"
     }
   }
