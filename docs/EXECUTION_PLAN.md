@@ -34,7 +34,8 @@ Genuinely new ideas go to the long-term roadmap. A genuine **omission** from alr
 scope is a denominator change, and a denominator change is an owner decision recorded in the
 completion contract §10 — never a silent edit.
 
-**Six parallel lanes are authorized**, with these ownership boundaries. A lane that introduces
+**Seven parallel lanes are authorized** (six on 2026-08-18; lane 7 chartered 2026-08-20 —
+see below), with these ownership boundaries. A lane that introduces
 another lane's canonical math is rejected or refactored — ONE CONCEPT, ONE CANONICAL OWNER
 applies across lanes exactly as it applies across modules.
 
@@ -46,6 +47,46 @@ applies across lanes exactly as it applies across modules.
 | **4 — Market / FAAB / Analyst** | FAAB · market · Sharp · Buy/Sell and analyst systems |
 | **5 — Integration Authority** | governance · integration · CI · cross-cutting QA · global source-health semantics · deployment and production verification · the completion ledger |
 | **6 — Premium UI / Frontend** | UI · frontend · performance · accessibility |
+| **7 — Source Acquisition / Cross-Position Bridge** | source acquisition and preservation · offense↔IDP translation · bridge health, freshness and comparability semantics · source-family / common-mode metadata · bridge-loss resilience · the evidence required to qualify a bridge source |
+
+
+### LANE 7 CHARTERED — OWNER DECISION, 2026-08-20
+
+**Why.** The board's offense↔IDP translation rests on a single source.
+`idpTradeCalc` is the only registered source whose value column spans both pools,
+so it is the only thing that can seed the shared-market ladder. Measured with it
+excluded (PR #950, `docs/sources/CROSS_POSITION_SOURCE_AND_IDP_CEILING_AUDIT_2026-08-20.md`):
+**661 votes cast on untranslated ranks, 310 flagged rows, the top IDP published at
+9,999, and IDP occupancy of the top 100 rising from 8 to 29.** An IDP-only source's
+rank #1 becomes an overall-market rank #1 — a cross-position claim no specialist
+board possesses the evidence to make.
+
+The owner has designated the repair **top-priority V1**. That decision required a
+lane, because the work is a canonical owner in its own right and belongs to none of
+the six: it is not roster, trade, season, market, UI, or integration.
+
+**Boundaries.** Lane 7 owns the concepts listed in the table above. It does **not**
+own global source-health semantics (lane 5), source-health frontend surfaces
+(lane 6), or any valuation methodology outside cross-position translation. It may
+not introduce a second package, lineup, replacement or value engine, and the
+ONE CONCEPT, ONE CANONICAL OWNER rule binds it exactly as it binds the others.
+
+**Two constraints carried over, not relaxed by this charter.**
+
+* **The V1 denominator is unchanged by this section.** Chartering a lane authorizes
+  work; it does not add rows to `VERSION_1_COMPLETION_CONTRACT.md` §3. Lane 7
+  prepares proposed rows with evidence; the Integration Authority records any
+  denominator change under §10, with a date and a reason, as an owner decision.
+  Lane 7 marks nothing `VERIFIED`.
+* **`src/api/data_contract.py`'s pipeline core remains SERIAL — one writer only**
+  (§4 below). Lane 7's translation work touches it and must therefore be scheduled
+  by Integration rather than raced against another lane.
+
+**Explicitly not authorized by this charter:** any IDP value ceiling, any revival of
+the retired market corridor, or any post-consensus clamp. PR #950 measured the
+ceiling family and found it inert in the healthy state and insufficient in the
+degraded one. The authorized direction is multiple qualified bridges feeding one
+canonical translation owner, with truthful refusal when no bridge is valid.
 
 **Lane assignments deliberately extend past V1.** Each lane owns post-V1 continuation work so
 that no lane goes idle after finishing its V1 responsibilities. **That continuation work is not
