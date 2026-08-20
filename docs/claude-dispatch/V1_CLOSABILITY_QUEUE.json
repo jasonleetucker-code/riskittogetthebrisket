@@ -1,7 +1,7 @@
 {
   "_comment": "Live V1 Closability Queue, owned by Claude 7 as independent V1 traffic controller / adversarial auditor. Ranks IMPLEMENTED_UNVERIFIED rows by verification effort per row gained. NOT an authority on V1 status — only Claude 5 promotes a row, and no percentage here is claimed as achieved.",
-  "updatedAt": "2026-08-20T23:20:00Z",
-  "auditCycle": 54,
+  "updatedAt": "2026-08-20T23:50:00Z",
+  "auditCycle": 55,
   "evidenceBasis": {
     "contract": "docs/VERSION_1_COMPLETION_CONTRACT.md §3 read on origin/main e3b387ca5",
     "deployedSha": "e3b387ca5",
@@ -399,23 +399,22 @@
     "_staleByConstruction": true,
     "_ifTheyDisagree": "the contract wins, always, and this block is the thing that is wrong.",
     "_doNotQuote": "Do not cite this block as the V1 status. Read the contract on current main instead.",
-    "observedVerifiedRows": 63,
+    "observedVerifiedRows": 65,
     "observedRequiredRows": 136,
-    "observedAtSha": "22909d780",
-    "observedAt": "2026-08-20T23:17:00Z",
+    "observedAtSha": "00844956d",
+    "observedAt": "2026-08-20T23:47:00Z",
     "howObserved": "counted `VERIFIED` in the §3 table of the contract as it exists at that exact SHA",
-    "note": "V1-88 + V1-108 VERIFIED via #999. Sixth promotion pass this session."
+    "note": "V1-97 + V1-106 VERIFIED via #1010. Seventh promotion pass this session."
   },
   "_authorityNote": "This queue RANKS work by verification effort. It does not own, publish or restate V1 status. docs/VERSION_1_COMPLETION_CONTRACT.md §3 owns that, and every count in this file is a derived reading stamped with the SHA it came from.",
-  "cycle54": {
-    "promotionPassRan": "YES — #999. V1-88 and V1-108 both VERIFIED, 61 -> 63/136. V1-111 bumped NOT STARTED -> IMPLEMENTED_UNVERIFIED.",
-    "bottleneckUpdated": "Session total: cycles 21-54, ten merges directly promoted a row across six dedicated Integration passes (#947 x2, #963, #972, #988, #998, #999 x2) = 9 rows VERIFIED total from those passes (V1-107, V1-113, V1-51, V1-53, V1-63, V1-29, V1-88, V1-108 = 8; V1-63's count already included). The pattern holds exactly as documented all session: implementation lands broadly across many lanes; promotion happens in discrete, attributable Integration passes.",
+  "cycle55": {
+    "promotionPassRan": "YES — #1010. V1-97 and V1-106 both VERIFIED, 63 -> 65/136.",
+    "bottleneckUpdated": "Session total: seven dedicated Integration promotion passes have moved ten rows VERIFIED (V1-107, V1-113, V1-51, V1-53, V1-63, V1-29, V1-88, V1-108, V1-97, V1-106). Pattern held all session: broad implementation, discrete attributable promotion.",
     "tierB": {
-      "V1-88": "CLOSED — VERIFIED.",
-      "V1-108": "CLOSED — VERIFIED.",
-      "V1-106": "Implementation merged (#1003, cycle 51). Row still not updated — watch.",
-      "V1-97": "Implementation merged (#992, cycle 51). Row still not updated — watch.",
-      "V1-111": "Newly IMPLEMENTED_UNVERIFIED, watch for its own promotion pass."
+      "V1-97": "CLOSED — VERIFIED.",
+      "V1-106": "CLOSED — VERIFIED. The longest-standing item this record ever tracked (twenty-plus cycles with zero activity, first PR at cycle 49) is now closed.",
+      "V1-32": "Still IN PROGRESS despite a new guard (#1004) — Integration explicitly refused partial coverage, naming the specific unguarded half rather than promoting on a partial fix.",
+      "V1-111": "Still IMPLEMENTED_UNVERIFIED, unchanged this cycle."
     },
     "standingItems": [
       {
