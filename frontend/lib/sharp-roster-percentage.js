@@ -43,12 +43,52 @@ export function formatTimestamp(ms) {
   }
 }
 
-/** `3 of 12 rosters` — the sample behind one cell, always shown. */
+/**
+ * `3 of 12 rosters` — the sample behind one cell, always shown.
+ *
+ * When the holding rosters concentrate on fewer managers than rosters
+ * (W15-F009 / inv 4.6 — one manager's several teams reading as several
+ * independent opinions), the manager count is appended so the row says
+ * so where the percentage is read, not only in the pool-wide transparency
+ * strip. Equal counts (the common case: one roster per manager) add
+ * nothing, since "N of M (N managers)" would be a redundant restatement.
+ */
 export function formatSample(row) {
   if (!row) return "—";
   const held = formatCount(row.sharpRosters);
   const total = formatCount(row.eligibleRosters);
-  return `${held} of ${total}`;
+  const base = `${held} of ${total}`;
+  if (
+    typeof row.distinctManagers === "number" &&
+    typeof row.sharpRosters === "number" &&
+    row.distinctManagers < row.sharpRosters
+  ) {
+    return `${base} (${row.distinctManagers} manager${row.distinctManagers === 1 ? "" : "s"})`;
+  }
+  return base;
+}
+
+/**
+ * Tooltip note when the rosters behind a player concentrate on one
+ * manager, else `undefined`. Backend-computed (`managerConcentration`);
+ * this only formats it.
+ */
+export function describeManagerConcentration(row) {
+  if (!row) return undefined;
+  const { distinctManagers, sharpRosters, managerConcentration } = row;
+  if (
+    typeof distinctManagers !== "number" ||
+    typeof sharpRosters !== "number" ||
+    typeof managerConcentration !== "number" ||
+    distinctManagers >= sharpRosters
+  ) {
+    return undefined;
+  }
+  const pct = Math.round(managerConcentration * 100);
+  return (
+    `${distinctManagers} distinct manager${distinctManagers === 1 ? "" : "s"} behind these ` +
+    `${sharpRosters} rosters — one manager accounts for ${pct}%.`
+  );
 }
 
 const BUY_SELL_LABELS = {

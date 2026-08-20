@@ -169,6 +169,59 @@ def test_one_manager_many_leagues_contributes_one_roster_each(ledger, cohort_of)
     assert row_for(payload, "Star Receiver")["sharpRosters"] == 5
     assert payload["transparency"]["uniqueSharpManagers"] == 1
     assert payload["transparency"]["rostersPerManager"] == 5.0
+    # W15-F009 (inv 4.6): the pool-level stat above already proves this is
+    # one person, but nothing on the PER-PLAYER row said so until this
+    # field existed — an 83%-style number could read as five independent
+    # opinions with no local signal otherwise.
+    row = row_for(payload, "Star Receiver")
+    assert row["distinctManagers"] == 1
+    assert row["managerConcentration"] == 1.0
+
+
+def test_manager_concentration_reflects_independent_holders_not_just_roster_count(
+    ledger, cohort_of
+):
+    """Four managers, four rosters, one each: concentration is low, not undefined."""
+    cohort_of([f"sleeper:u{i}" for i in range(1, 5)])
+    rs.record_rosters(
+        [
+            roster("sleeper:u1", "sleeper:L1", assets=["wr1", "rb1"]),
+            roster("sleeper:u2", "sleeper:L2", assets=["wr1", "rb1"]),
+            roster("sleeper:u3", "sleeper:L3", assets=["wr1"]),
+            roster("sleeper:u4", "sleeper:L4", assets=["wr1"]),
+        ],
+        path=ledger,
+    )
+    payload = board(ledger)
+    wr = row_for(payload, "Star Receiver")
+    rb = row_for(payload, "Good Back")
+    # wr1: 4 holding rosters, 4 distinct managers, nobody dominates.
+    assert wr["distinctManagers"] == 4
+    assert wr["managerConcentration"] == 0.25
+    # rb1: 2 holding rosters (u1, u2), 2 distinct managers, still even.
+    assert rb["distinctManagers"] == 2
+    assert rb["managerConcentration"] == 0.5
+
+
+def test_manager_concentration_flags_one_person_behind_several_rosters(ledger, cohort_of):
+    """One manager's two leagues plus two independent managers: NOT three opinions."""
+    cohort_of(["sleeper:u1", "sleeper:u2", "sleeper:u3"])
+    rs.record_rosters(
+        [
+            roster("sleeper:u1", "sleeper:L1", assets=["wr1"]),
+            roster("sleeper:u1", "sleeper:L2", assets=["wr1"]),
+            roster("sleeper:u2", "sleeper:L3", assets=["wr1"]),
+            roster("sleeper:u3", "sleeper:L4", assets=["wr1"]),
+        ],
+        path=ledger,
+    )
+    payload = board(ledger)
+    wr = row_for(payload, "Star Receiver")
+    assert wr["sharpRosters"] == 4
+    assert wr["distinctManagers"] == 3
+    # u1 holds 2 of the 4 counted rosters -> the single-manager ceiling is 0.5,
+    # not 0.25 (1/4), which is what a roster-only count would imply.
+    assert wr["managerConcentration"] == 0.5
 
 
 def test_a_player_counts_once_per_roster_even_across_slots(ledger, cohort_of):
