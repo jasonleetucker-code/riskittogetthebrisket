@@ -5,6 +5,30 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { useAuthContext } from "@/app/AppShellWrapper";
 
+/**
+ * What to tell the user, given what the server actually said.
+ *
+ * Split out so the credential answer cannot leak onto a service failure
+ * by accident again — the mapping is visible in one place instead of
+ * being an `||` fallback at the call site.
+ */
+function loginErrorMessage(status, data) {
+  const stated = data && typeof data === "object" ? data.error : "";
+  if (status === 429) {
+    return "Too many sign-in attempts. Wait a moment and try again.";
+  }
+  if (status === 503 || status === 502 || status === 504) {
+    return "The sign-in service is unavailable right now. Try again shortly.";
+  }
+  if (status >= 500) {
+    return "The server hit an error signing you in. Try again shortly.";
+  }
+  if (status === 400 || status === 401 || status === 403) {
+    return stated || "Invalid username or password.";
+  }
+  return stated || `Sign-in failed (HTTP ${status}).`;
+}
+
 export default function LoginPage() {
   const router = useRouter();
   const { onLoginSuccess } = useAuthContext();
@@ -44,16 +68,24 @@ export default function LoginPage() {
           next: redirectPath,
         }),
       });
-      const data = await res.json();
-      if (res.ok && data.ok) {
+      const data = await res.json().catch(() => null);
+      if (res.ok && data?.ok) {
         onLoginSuccess?.();
         router.push(data.redirect || redirectPath);
       } else {
-        setError(data.error || "Invalid username or password.");
+        // "Invalid username or password" is an answer about the
+        // CREDENTIALS, and this branch used to give it for every non-ok
+        // response — so a rate limit, a backend outage and a 500 all told
+        // the user their password was wrong. They then retype a correct
+        // password, fail again, and conclude their account is broken.
+        //
+        // Only 400/401/403 are statements about the credentials. Anything
+        // else is a statement about the service, and says so.
+        setError(loginErrorMessage(res.status, data));
         setSubmitting(false);
       }
     } catch {
-      setError("Login request failed. Please try again.");
+      setError("Could not reach the sign-in service. Check your connection and try again.");
       setSubmitting(false);
     }
   }
@@ -94,7 +126,14 @@ export default function LoginPage() {
             placeholder="Enter password"
           />
 
-          {error ? <p className="login-error">{error}</p> : null}
+          {/* role="alert": the failure message was silent to assistive
+              tech, so a screen-reader user pressed Sign in and was told
+              nothing at all. */}
+          {error ? (
+            <p className="login-error" role="alert">
+              {error}
+            </p>
+          ) : null}
 
           <button className="button login-button" type="submit" disabled={submitting}>
             {submitting ? "Signing in..." : "Sign in"}

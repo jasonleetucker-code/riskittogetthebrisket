@@ -52,7 +52,20 @@ function visibleGroups(authenticated, isPublic) {
   }).filter(Boolean);
 }
 
-export default function TopBar({ authenticated, isAdmin, isPublic, onSearch, onLogout }) {
+// `searchEnabled` is separate from `authenticated` on purpose: global
+// search reads the player contract, and there are signed-in routes that
+// never load one (the public /league subtree, and the no-player-data
+// routes in AppShell).  Gating the button on `authenticated` rendered a
+// control whose onClick returns early — a dead affordance.  Defaults true
+// so any caller that predates the prop keeps its current behaviour.
+export default function TopBar({
+  authenticated,
+  isAdmin,
+  isPublic,
+  onSearch,
+  searchEnabled = true,
+  onLogout,
+}) {
   const pathname = usePathname();
   const groups = visibleGroups(authenticated, isPublic);
   const systemItems = systemItemsFor({ isAdmin });
@@ -93,7 +106,7 @@ export default function TopBar({ authenticated, isAdmin, isPublic, onSearch, onL
         <div className="shell-nav-right">
           {authenticated && <LeagueSwitcher variant="desktop" />}
           {authenticated && <TeamSwitcher variant="desktop" />}
-          {authenticated && (
+          {authenticated && searchEnabled && (
             <button
               type="button"
               className="shell-search-btn"

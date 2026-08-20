@@ -41,6 +41,7 @@ export {
 } from "./Skeleton";
 export { EmptyState } from "./EmptyState";
 export { Banner } from "./Banner";
+export { FailureState } from "./FailureState";
 export { Sparkline, Meter } from "./Sparkline";
 export {
   REQUIRED_TOKENS,

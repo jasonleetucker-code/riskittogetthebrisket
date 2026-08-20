@@ -181,10 +181,29 @@ describe("AppShell public-route gating", () => {
     expect(appShellSource).toMatch(/PUBLIC_ONLY_ROUTE_PREFIXES[^\n]*\/league/);
   });
 
-  it("refuses to hydrate useDynastyData inside the public shell", () => {
-    // PublicAppShell must explicitly not call useDynastyData.
-    const publicShellMatch = appShellSource.match(/function PublicAppShell[\s\S]*?^}/m);
-    expect(publicShellMatch).toBeTruthy();
-    expect(publicShellMatch[0]).not.toMatch(/useDynastyData\(/);
+  it("refuses to hydrate useDynastyData inside the dataless shell", () => {
+    // Renamed from PublicAppShell to NoPlayerDataAppShell when private
+    // routes with no player data (/login, /more, /admin, …) started
+    // taking the same branch. The privacy invariant this test guards is
+    // unchanged: whichever shell serves /league must never call
+    // useDynastyData, because /api/data carries private rankings, edge
+    // signals and trade targets.
+    //
+    // toBeTruthy() on the match is load-bearing — if this component is
+    // renamed again the regex stops matching, and without that assertion
+    // `not.toMatch` on an empty string would PASS and the guard would
+    // silently stop guarding.
+    const shellMatch = appShellSource.match(/function NoPlayerDataAppShell[\s\S]*?^}/m);
+    expect(shellMatch).toBeTruthy();
+    expect(shellMatch[0]).not.toMatch(/useDynastyData\(/);
+  });
+
+  it("routes /league to the dataless shell, not the private one", () => {
+    // The rename above is only safe if the branch still sends /league
+    // there. Pin the composition, so a future edit that gates /league
+    // into PrivateAppShell fails here rather than in production.
+    expect(appShellSource).toMatch(
+      /!isPublicOnlyRoute\(pathname\)\s*&&\s*!isNoPlayerDataRoute\(pathname\)/,
+    );
   });
 });
