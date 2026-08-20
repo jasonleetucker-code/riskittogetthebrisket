@@ -1,7 +1,7 @@
 {
   "_comment": "Lane utilization state, owned by Claude 7 (Lane Dispatcher). NOT an authority on integration sequencing (Claude 5 / docs/EXECUTION_PLAN.md), on V1 status (docs/VERSION_1_COMPLETION_CONTRACT.md) or on canonical ownership (CLAUDE.md). Repository evidence outranks this file: where they disagree, this file is wrong and must be corrected.",
-  "updatedAt": "2026-08-20T10:25:00Z",
-  "dispatchCycle": 26,
+  "updatedAt": "2026-08-20T11:05:00Z",
+  "dispatchCycle": 28,
   "writePolicy": "This file and ASSIGNMENTS.json are written ONLY on a material state transition — new assignment, assignment accepted, completion, blocker, freeze/unfreeze, or a meaningful dependency change. A heartbeat that finds nothing changed produces no commit and no CI run.",
   "evidenceBasis": "origin/main 079fc9e4a; §3 diffed row-by-row from cycle-19 main (c5a367266); all refs resolved live; #945 CI green 04:57:35Z",
   "assignmentSourceNote": "The six current assignments were made manually by the owner, not by this dispatcher. Recorded here so the durable state matches reality; Claude 7 did not originate them and does not own them.",
@@ -216,23 +216,6 @@
     "newMethodRule": "(j) ABSENCE FROM A TRUNCATED LIST IS NOT EVIDENCE OF DELETION. To claim a ref is gone, name it to git ls-remote or read the [deleted] line from the fetch. Never infer it from a ref falling off the bottom of a sorted head -N.",
     "alsoWorthNaming": "This is the third time this session I have reported a cleaner state than the evidence supported, and each time the mechanism was the same: a convenient reading of an instrument I had narrowed myself."
   },
-  "cycle26Transitions": {
-    "mainTip": "113a29311 (was a1c6e6ea4)",
-    "merged": "#963 — merge 113a29311, 'Merge pull request #963 from jasonleetucker-code/claude/v1-integration-authority-xaqcv8'. Branch deleted on merge.",
-    "promotionPassRan": "YES. This is the second promotion pass of the session and the second time the numerator moved at all.",
-    "rowDiff": {
-      "method": "§3 row-diffed a1c6e6ea4 -> 113a29311",
-      "changes": [
-        "V1-51: IN PROGRESS -> VERIFIED (target L2, promoted on DEPLOYED evidence)",
-        "V1-133: added, NOT STARTED",
-        "V1-134: added, NOT STARTED",
-        "V1-135: added, NOT STARTED",
-        "V1-136: added, NOT STARTED"
-      ],
-      "nothingElseMoved": "No other row changed status. Exactly what #963 claimed while open, landing unchanged."
-    },
-    "selfConsistency": "Counted independently: 58 + 21 + 22 + 33 + 2 = 136. The contract's own status table and its completion line both read 58 / 136 = 42.6%. My count and its count agree."
-  },
   "denominatorHistory": {
     "_why": "Recorded durably because a moving denominator silently breaks every percentage comparison in this record's history, and a floating note in one cycle block would be lost the next time a cycle block is rotated out.",
     "132": {
@@ -247,5 +230,36 @@
     },
     "THE_READING_THAT_IS_EASY_TO_GET_WRONG": "43.2% -> 42.6% ACROSS A PASS THAT VERIFIED A ROW. Nothing was un-verified and nothing regressed; four unstarted rows entered the denominator. The verified COUNT went 57 -> 58, which is the honest measure of the pass.",
     "rule": "Compare VERIFIED ROW COUNTS across cycles. Never compare bare percentages across this boundary, and never quote a percentage without its denominator."
+  },
+  "selfFinding_C27_RESOLVED": {
+    "_class": "A defect in this dispatcher's own operation, diagnosed at cycle 27 and closed at cycle 28 with a measurement.",
+    "theDefect": "My commit cadence was SHORTER THAN MY OWN CI. pr-validation.yml uses concurrency group `pr-<number>` with cancel-in-progress: true — the same mechanism I diagnosed as blocker B8 for #922 at cycle 8 — so each cycle's push cancelled the previous cycle's still-running validation.",
+    "theEvidence": {
+      "2cf74ad94 (cycle 23)": "cancelled",
+      "673fa6f6f (cycle 24)": "cancelled",
+      "2303d4d4d (cycle 25)": "cancelled",
+      "lastGreenBeforeTheFix": "0085493ac at 06:36Z, cycle 22",
+      "whatIReportedInstead": "'CI in_progress' for four consecutive cycles, as though in_progress were a state that resolves itself. It was not resolving; I was cancelling it."
+    },
+    "theFix": "Do nothing for longer. Cycle 27 was a no-commit cycle and cycle 28 was armed at 22 minutes instead of 11.",
+    "theMeasurement": "Run 32358703349 on 01cdc43ed: started 10:24:42Z, completed 10:38:35Z — 13 minutes 53 seconds, conclusion SUCCESS. Against an 11-minute cadence, a green verdict was structurally unreachable; the margin was about three minutes.",
+    "standingChange": "Cycle interval stays at 20+ minutes. The dispatcher's own write rate is now bounded by the validation it depends on.",
+    "theLessonAgainstMyself": "I was measuring a system I was perturbing, and the perturbation looked exactly like the system being slow. It took twenty-seven cycles to check whether the anomaly on my own PR was caused by me — and the same defect on someone else's PR took me one cycle to find at #922. Method rule (m) exists because proximity made it invisible."
+  },
+  "cycle28Transitions": {
+    "mainTip": "daf3c981e — UNCHANGED since cycle 27. No merges, no promotion pass, contract untouched at 58 VERIFIED of 136.",
+    "myOwnPr": {
+      "pr": "#945",
+      "head": "01cdc43ed",
+      "verdict": "Validate PR SUCCESS, job 96393703573, completed 10:38:35Z",
+      "note": "First completed verdict since cycle 22."
+    },
+    "newIntegrationBranch": {
+      "ref": "claude/integration-sweep-1048",
+      "head": "09a9322ef",
+      "subject": "'#958 closed by production evidence; #948 suppression holds at 3h'",
+      "readingForThisQueue": "Integration is doing PRODUCTION-EVIDENCE closure work again — the same instrument class that the Lane 4 on-box batch (V1-57 / V1-129 / V1-60) has been waiting on for eighteen hours. Reported, not assigned."
+    },
+    "campaignLaneActivity": "claude/cross-position-bridge-v1 -> 8fba3a9a5 and claude/cseries-seasonal-intelligence-efz837 -> 283ddef16. Authorized lanes, moving normally."
   }
 }
