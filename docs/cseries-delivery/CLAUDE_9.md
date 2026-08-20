@@ -113,3 +113,91 @@ manifest's claim.
 no dependency on any other in-flight unit.
 
 ---
+
+### Unit 2 — `C2-SIM-01`/`C3-CAP-01` wiring: `/api/trade/simulate` surfaces the final legal roster
+
+**Manifest rows:** `C2-SIM-01` (roster-simulation consumer completeness at the trade-simulate surface); adjacent
+to the already-VERIFIED `C3-CAP-01` (V1-39). **Status at start, re-measured at HEAD rather than trusted from the
+manifest:** `docs/C_SERIES_SCOPE_MANIFEST.md` records `C2-SIM-01` as "WRONG-OWNER — trade_simulator is
+value-delta only; team_impact reimplements the lineup", owned by lane 1, `NOT STARTED` per
+`docs/VERSION_1_COMPLETION_CONTRACT.md` V1-42. **Both claims are stale.** Verified directly:
+
+- `src/roster_intel/simulation.py::simulate_roster_change` is a real, tested, correctly-owned primitive (its own
+  docstring opens *"Exact before → apply → re-solve → after roster simulation (C2-SIM-01)"*), built by lane 1.
+- `src/trade/team_impact.py::project_starters` already calls the canonical exact solver
+  (`src.ros.lineup.assign_lineup`) rather than reimplementing it — that manifest charge is also stale (repaired by
+  C2-U1, already CLOSED).
+- `src/trade/roster_capacity.py::simulate_final_legal_roster` (this lane's own module, already VERIFIED as
+  `C3-CAP-01`) already **composes** `simulate_roster_change` correctly, implementing the full
+  `before → apply → capacity/overage → optimal cleanup → re-solve → recompute` sequence from
+  `docs/MATH_MODEL_CALIBRATION_POLICY_2026-08-15.md` §5.3. Proven independently by
+  `tests/trade/test_trade_consumes_roster.py` (9-property structural proof, P1-P9).
+- `docs/roster-intelligence/C2_CANONICAL_ROSTER_CHAIN.md` §14 already records this composition as the intended,
+  closed shape ("`simulation.py` stays… `C3-CAP-01` depends on it").
+
+**The one genuine, narrow gap — confirmed by grep before writing any code:** `src/api/trade_simulator.py`, the
+actual `/api/trade/simulate` HTTP endpoint (squarely this lane's responsibility, not lane 1's), called
+`assess_roster_capacity` (a forced-drop **cost estimate** only) but had **zero** occurrences of
+`simulate_final_legal_roster` or `simulate_roster_change`. So the live endpoint told a user "you'll need to drop
+someone, here's the estimated cost" but never resolved *which* player, never re-solved the final lineup, and never
+reported the Team Strength delta — even though every piece to do so already existed, was already owned correctly,
+and was already tested elsewhere.
+
+**Delivered:** `simulate_trade()` now captures the `RosterCapacity` object it was already computing (previously
+discarded after `.to_dict()`) and, when `capacity.requires_drops` is knowable (`True` or `False` — not the
+taxi-bracket-ambiguous `None`), calls `roster_capacity.simulate_final_legal_roster(capacity_context, capacity,
+incoming_players=players_in, outgoing_players=players_out)`, publishing the result as a new sibling response field
+`finalRosterSimulation` (never nested inside the separately-tested `rosterCapacity` contract). Missing-is-never-zero
+discipline: the field is **absent entirely** (not `null`, not `{}`) when `resolved_team` is falsy or the
+`rosterCapacity` block itself failed; it degrades to `{"available": False, "unavailableReason":
+"capacity_uncertain", ...}` when taxi ambiguity makes the outgoing set itself uncertain (reusing the callee's own
+vocabulary rather than inventing a new one); a failure in the simulate call itself is caught in its **own**
+try/except so it can never erase an already-successful `rosterCapacity` result. A clean-fitting trade (no forced
+drop needed) still gets a populated block with `cleanupApplied: []` — the callee already handles that path for
+free, and a clean trade's Team Strength delta is real information too.
+
+**Single-owner discipline preserved, not re-derived:** this unit adds no lineup solver, no Team Strength formula,
+no replacement/PAR logic and no new roster-impact methodology of its own — it is pure composition of two
+already-owned, already-tested primitives (`simulate_roster_change` at the roster_intel/lane-1 owner,
+`simulate_final_legal_roster` at this lane's own `C3-CAP-01` owner) at one call site that was not yet calling them.
+
+**Verification:**
+- **RED confirmed before GREEN, by direct reversion rather than write-then-check:** `git stash`d the
+  `trade_simulator.py` edit, ran the four new tests against the untouched code — all four failed with
+  `KeyError: 'finalRosterSimulation'`, the exact gap this unit closes. Restored the edit (`git stash pop`) — all
+  four pass.
+- 4 new tests in `tests/api/test_trade_simulator.py`: (1) a roster already at a 6-man cap (fixture mirrors
+  `tests/trade/test_trade_consumes_roster.py`'s `TINY_ROSTER`/`TINY_SETTINGS` exactly, so the same forced-drop
+  outcome — TE1, the cheapest RB/WR/TE-flex-redundant player — is independently reproduced here) receiving one
+  player with none going out: `finalRosterSimulation.cleanupApplied` names the **same** player id(s) as
+  `rosterCapacity.forcedDrops` (proving the cleanup is the capacity answer's own drops, not a second,
+  independently-chosen selection — mirroring `test_trade_consumes_roster.py::test_a_forced_drop_is_never_also_retained`),
+  and the block carries a real `strengthDelta`/`movements`/`isVerdict: False`; (2) no `resolved_team` → both
+  `rosterCapacity` and `finalRosterSimulation` genuinely absent from the response, not `null`; (3) a clean 1-for-1
+  swap (roster size unchanged) → `available: True`, `cleanupApplied: []`; (4) `roster_settings` carrying no
+  `starters` key → `available: False`, `unavailableReason: "starter_slots_unresolved"`, propagated end-to-end from
+  the callee's own refusal vocabulary.
+- Full regression sweep: `tests/api/test_trade_simulator.py` (22/22) + `tests/api/test_trade_simulate_mc.py` +
+  `tests/trade/test_trade_consumes_roster.py` + `tests/trade/` + `tests/roster_intel/` — **1,366 passed, 22
+  skipped** (pre-existing, unrelated skips), 0 failed.
+- `ruff format --check` + `ruff check` (pinned `ruff~=0.6.0`) on both touched files: clean.
+
+**Production impact:** additive only. Every existing response field (`team`, `before`, `after`, `delta`,
+`receiving`, `sending`, `unresolvedIn`, `unresolvedOut`, `equity`, `teamImpact`, `rosterCapacity`) is unchanged in
+presence, shape and value — confirmed by the full pre-existing test suite passing unmodified. Old clients ignore
+the new `finalRosterSimulation` field. This is an intentional new capability at a live endpoint, not a silent
+behavior change; called out explicitly per the reporting requirement.
+
+**Duplicates retired:** 0 (this unit adds no new owner; it wires an existing call site onto existing owners).
+
+**Dependencies:** none blocking — consumes only already-CLOSED/VERIFIED owners (`C2-LINE-01`, the roster_intel
+C2-SIM-01 primitive, this lane's own `C3-CAP-01`).
+
+**Blocker:** none. Unit is complete for its declared scope.
+
+**Commit SHA:** *(recorded after commit)*
+
+**PR-ready status:** READY_FOR_INTEGRATION — small, self-contained, fully tested, zero regression on any existing
+field, additive-only production impact.
+
+---
