@@ -164,12 +164,23 @@ function coverageBound(name, fallback) {
 // lose 39 of the suite's tests and still clear the floor — more than a
 // quarter of it — which is a lot of silence for a guard whose banner
 // says "this green is not trustworthy".  120 keeps 19 tests of headroom
-// for ordinary drift.  The skip ceiling stays at 60 against a measured
-// 49: project gating moves in steps of 2-4 whenever a describe block
-// gains desktopOnly/mobileOnly, and a bound that needs adjusting every
-// quarter stops being believed.
+// for ordinary drift.
+//
+// The skip ceiling is 70, raised from 60 (run 32415289607, job
+// 96574935284, head 357c9410e — passed=184, skipped=62). It had
+// already drifted from the 60-against-49 measurement this comment used
+// to cite: legitimate project-gating growth since then (more
+// desktopOnly/mobileOnly describes) had already spent nearly all of
+// that headroom before V1-106's rankings-windowing.spec.js added 3
+// more (1 mobileOnly + 2 desktopOnly, split across the desktop-1366 /
+// mobile-chromium projects) and tipped it over. 70 restores ~8 tests of
+// headroom above the new measured 62 — deliberately smaller than the
+// original 11, because a ceiling this close to a moving baseline is
+// exactly the "needs adjusting every quarter" trap the old comment
+// warned about; the fix for that is tracking real suite growth here
+// when it happens, not inflating the margin so nobody has to.
 const MIN_EXPECTED_PASSED = coverageBound("E2E_MIN_PASSED", 120);
-const MAX_EXPECTED_SKIPPED = coverageBound("E2E_MAX_SKIPPED", 60);
+const MAX_EXPECTED_SKIPPED = coverageBound("E2E_MAX_SKIPPED", 70);
 
 class StackDeathReporter {
   constructor() {
