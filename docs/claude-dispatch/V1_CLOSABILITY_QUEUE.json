@@ -1,7 +1,7 @@
 {
   "_comment": "Live V1 Closability Queue, owned by Claude 7 as independent V1 traffic controller / adversarial auditor. Ranks IMPLEMENTED_UNVERIFIED rows by verification effort per row gained. NOT an authority on V1 status — only Claude 5 promotes a row, and no percentage here is claimed as achieved.",
-  "updatedAt": "2026-08-20T12:45:00Z",
-  "auditCycle": 32,
+  "updatedAt": "2026-08-20T13:15:00Z",
+  "auditCycle": 33,
   "evidenceBasis": {
     "contract": "docs/VERSION_1_COMPLETION_CONTRACT.md §3 read on origin/main e3b387ca5",
     "deployedSha": "e3b387ca5",
@@ -401,23 +401,22 @@
     "_doNotQuote": "Do not cite this block as the V1 status. Read the contract on current main instead.",
     "observedVerifiedRows": 59,
     "observedRequiredRows": 136,
-    "observedAtSha": "45d5cdac1",
-    "observedAt": "2026-08-20T12:42:00Z",
+    "observedAtSha": "7c826f9c2",
+    "observedAt": "2026-08-20T13:12:00Z",
     "howObserved": "counted `VERIFIED` in the §3 table of the contract as it exists at that exact SHA",
-    "note": "#972 merged: V1-53 promoted VERIFIED at L1. Third promotion pass of the session (after #947, #963)."
+    "note": "Unchanged at 59/136. No promotion pass this cycle."
   },
   "_authorityNote": "This queue RANKS work by verification effort. It does not own, publish or restate V1 status. docs/VERSION_1_COMPLETION_CONTRACT.md §3 owns that, and every count in this file is a derived reading stamped with the SHA it came from.",
-  "cycle32": {
-    "promotionPassRan": "YES — #972. V1-53 VERIFIED at L1, denominator unchanged at 136.",
-    "bottleneckUpdated": "Cycles 21-32: nine merges, +4 VERIFIED rows total, all four from three dedicated promotion passes (#947, #963, #972). Every other merge — now including three more this cycle (#950, #964, #968) — landed implementation or operational work that did not touch §3, correctly by charter. The pattern holds: implementation volume is high across many lanes; promotion happens in discrete, attributable passes.",
+  "cycle33": {
+    "promotionPassRan": "NO — two Integration merges, both governance/checkpoint, zero rows by role.",
     "tierB": {
-      "V1-106": "ELEVENTH cycle. Still IN PROGRESS, still citing only PR #760 while that code is on main, still no named close condition.",
-      "V1-108": "Close: commit the transitive import-graph scan as a guard. Ninth cycle unactioned."
+      "V1-106": "TWELFTH cycle. Still IN PROGRESS, still citing only PR #760, still no named close condition.",
+      "V1-108": "Close: commit the transitive import-graph scan as a guard. Tenth cycle unactioned."
     },
     "standingItems": [
       {
         "item": "Lane 2 ACTIONABLE_IDLE",
-        "elapsed": "~20h; branch still 9e9d8e8ec",
+        "elapsed": "~20.5h; branch still 9e9d8e8ec",
         "row": "V1-43 NOT STARTED, target L1, unblocked on plain main",
         "blocker": "ASSIGNMENT DELIVERY of L2-2026-08-19-02",
         "dispatcherAction": "Surfaced only. No second assignment written."
@@ -425,8 +424,7 @@
       {
         "item": "Lane 4 on-box verification batch",
         "rows": "V1-57, V1-129, V1-60 — IMPLEMENTED_UNVERIFIED",
-        "elapsed": "~20.5h; branch still 66fb1a053",
-        "note": "#968 (this cycle) is Integration running the same production-evidence closure instrument on a different item while this batch continues to wait."
+        "elapsed": "~21h; branch still 66fb1a053"
       },
       {
         "item": "Abandoned refs, verified by name",
@@ -435,9 +433,10 @@
           "integration/rc-937 80b7b948d",
           "integration/rc-wave-a 213f91513"
         ],
-        "hygiene": "claude/cseries-seasonal-intelligence-efz837, claude/idp-ceiling-bridge-audit-zr28tj and claude/integration-sweep-1048 all deleted on merge this cycle — three more lane branches cleaned up."
+        "hygiene": "claude/obs-checkpoint-1210 and claude/psi-migration-authorization both deleted on merge this cycle."
       }
     ],
-    "stalePRsUnacted": "#759 and #760 still open against landed code. Ninth cycle."
+    "newAuthorization": "PSI first production migration authorized (#976) — execution-timing only, V1 denominator unchanged (verified: change-log line reads '+0'). Claude 13 implements, Claude 5 integrates/deploys. Not a V1-scoped item; reported for awareness only.",
+    "stalePRsUnacted": "#759 and #760 still open against landed code. Tenth cycle."
   }
 }
