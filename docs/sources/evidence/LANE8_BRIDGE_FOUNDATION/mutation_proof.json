@@ -1,0 +1,42 @@
+[
+  {
+    "mutation": "M1 failure may carry a row count",
+    "verdict": "CAUGHT (red)",
+    "pytest": "4 failed, 3 passed in 0.05s"
+  },
+  {
+    "mutation": "M2 exit 1 and 2 collapse",
+    "verdict": "CAUGHT (red)",
+    "pytest": "2 failed, 2 passed in 0.05s"
+  },
+  {
+    "mutation": "M3 capability is declared, not measured",
+    "verdict": "CAUGHT (red)",
+    "pytest": "1 failed, 1 passed in 0.05s"
+  },
+  {
+    "mutation": "M4 PENDING is allowed to vote",
+    "verdict": "CAUGHT (red)",
+    "pytest": "2 failed, 3 passed in 0.06s"
+  },
+  {
+    "mutation": "M5 source-family dedup stripped",
+    "verdict": "CAUGHT (red)",
+    "pytest": "1 failed, 2 passed in 0.05s"
+  },
+  {
+    "mutation": "M6 missing rank coerced to zero",
+    "verdict": "CAUGHT (red)",
+    "pytest": "1 failed, 3 passed in 0.06s"
+  },
+  {
+    "mutation": "M7 stale bridge counts as current",
+    "verdict": "CAUGHT (red)",
+    "pytest": "1 failed, 2 passed in 0.05s"
+  },
+  {
+    "mutation": "M8 records dropped from the archive hash",
+    "verdict": "CAUGHT (red)",
+    "pytest": "1 failed, 3 passed in 0.08s"
+  }
+]
