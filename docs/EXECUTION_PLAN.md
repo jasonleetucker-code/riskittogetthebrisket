@@ -1,7 +1,7 @@
 # Chase Upside / Risk It To Get The Brisket — Current Execution Plan
 
 **Status:** CANONICAL SEQUENCING / AUTHORIZATION RECORD
-**Last reconciled:** 2026-08-18 (owner directive: **V1 COMPLETION SPRINT AUTHORIZED**, six parallel lanes, superseding the 2026-08-17 feature freeze for V1-required work only — §0)
+**Last reconciled:** 2026-08-20 (owner directive: **POST-V1 C-SERIES MASS-BUILD CAMPAIGN AUTHORIZED** — five isolated lanes, Claude 9-13, execution timing only; V1 classification and denominator unchanged — §0). Previously 2026-08-18 (owner directive: **V1 COMPLETION SPRINT AUTHORIZED**, six parallel lanes, superseding the 2026-08-17 feature freeze for V1-required work only — §0)
 **Companion:** `docs/MASTER_PRODUCT_PLAN.md` · `docs/C_SERIES_REPLAN_AND_COMPLETION_CONTRACT.md`
 
 This file answers **what implementation work is authorized right now**, and nothing else. It does not define
@@ -128,6 +128,120 @@ stuffed into V1 to make it look larger, and V1 is not to be shrunk to make it lo
 
 **The target date is 2026-08-25, and it is an absolute latest, not a schedule.** If V1 is
 verified earlier, it is declared earlier.
+
+---
+
+
+## POST-V1 C-SERIES MASS-BUILD CAMPAIGN — AUTHORIZED BY THE OWNER, 2026-08-20.
+
+**This changes execution TIMING. It changes no classification.** POST-V1 capabilities stay
+POST-V1, the V1 denominator is untouched, and V1 completion is not blocked, gated or redefined by
+anything built under this section. The single sentence that governs every question below:
+
+> **Build broadly. Integrate narrowly.**
+
+**This supersedes the 2026-08-17 feature freeze for isolated implementation by the mass-build
+lanes named here — and no further.** The freeze's *conditions* survive intact and bind these
+lanes exactly as they bind the V1 sprint: production proof may not be substituted, an unreachable
+check is `BLOCKED-EXTERNAL` and never a pass, and scope may not be expanded under the label of
+repair. What is lifted is the "do not begin any `C3+` implementation" prohibition, and only for
+work that stays off the shipping tree until Claude 5 integrates it.
+
+**Why the freeze could be lifted here without reopening what it protected.** The freeze existed
+to stop unaudited feature work destabilising `main`. These lanes do not touch `main`: they commit
+to isolated branches and hand slices to a single integrator. The thing the freeze protected — the
+shipping tree — is protected by the integration monopoly in §0.4a rather than by the prohibition.
+
+### What is authorized
+
+Claude 9-13 **may implement real functionality now**, on isolated branches, in their assigned
+C-Series scope, without waiting for V1 to reach 100% and **without asking for a further
+owner override**. Specifically they may:
+
+- implement working capability, not scaffolding or stubs;
+- work through **multiple dependency-ready units in one sustained session**;
+- stack bounded logical commits, and open **multiple bounded PRs** if that is clearer;
+- keep building on independent work while Claude 5 processes an earlier slice.
+
+They may **not**: merge to `main`; self-merge any PR; repeatedly chase `main`; rewrite governance
+outside their own claim rows; alter owner methodology without approval; weaken a V1 invariant; or
+destabilise production because future code happens to be ready.
+
+### The lane map
+
+Existing active V1 lanes are unchanged and are **not** superseded by this section — the six-lane
+table in §0 above stands, and lanes 1-4 and 6 keep their V1 responsibilities.
+
+| lane | owns |
+|---|---|
+| **Claude 5 — Integration Authority** | governance · integration · CI · cross-cutting QA · deployment and production verification · the V1 completion ledger. **The only merge authority (§0.4a).** |
+| **Claude 8 — Source Acquisition + Cross-Position Bridge** (top-priority V1) | new source acquisition · cross-position bridge architecture · Dynasty Nerds integration · Dynasty Dealer bridge qualification · Draft Sharks cross-position qualification · IDP Show / Footballguys acquisition |
+| **Claude 9 — C3 + trade C7** | C3 trade substrate · trade-related C7 decision products |
+| **Claude 10 — C4 + waiver/draft C7** | C4 Market / Sharp / FAAB · waiver- and draft-related C7 |
+| **Claude 11 — C5** | C5 Seasonal Intelligence |
+| **Claude 12 — C6 + intelligence C7** | C6 Analyst / Signal / Manager / AI intelligence · intelligence-driven C7 |
+| **Claude 13 — C8 + C9 + C10** | C8 Premium/Performance · C9 Public/Storytelling · C10 closure |
+
+**There is no Claude 7 lane.** The number is not assigned, and nothing here creates one.
+Historical references to "lane 7" in merged records describe work that has already landed; they
+are history, not a live lane.
+
+### One writer, and what that actually forbids
+
+ONE CONCEPT, ONE CANONICAL OWNER applies across these lanes exactly as it applies across modules.
+
+- **Claude 9 is the sole new mass-build writer for C3.** No other mass-build lane independently
+  modifies the trade substrate. This is not new: the execution map already records `trade` as a
+  **SERIAL lane — one writer only**.
+- **Claude 8 owns source acquisition and the bridge architecture outright.** Claude 9-13
+  **consume those interfaces; they do not duplicate them.** A lane that needs a source or a
+  bridge that does not exist yet waits for it or asks for it — it does not build a second one.
+- **Claude 13 owns the C8/C9/C10 mass campaign.** The existing Claude 6 premium-UI claim is
+  **repair-only and protects the exact files and defect scope it names — not all of C8/C9/C10.**
+  Claude 13 avoids the actively claimed files and continues elsewhere in its scope.
+- **Shared one-writer areas, unchanged:** this authorization record · the CE registry and CE
+  numbering · C-Series census reconciliation · `src/api/data_contract.py` pipeline core where
+  policy says one writer · every other repository-declared high-conflict canonical owner.
+
+**No lane may create a duplicate implementation in order to route around a claimed canonical
+file.** That converts a scheduling conflict into a permanent second owner, which is the one
+outcome this whole document exists to prevent.
+
+### What an active work claim does, and does not, block
+
+A claim in `docs/WORK_CLAIMS.md` blocks **concurrent edits to the claimed files and defect
+scope**. It does **not** block a whole mass-build lane while unrelated dependency-ready work
+exists in that lane.
+
+So when a lane reaches a unit whose files are actively claimed: record that **unit**
+`BLOCKED_BY_ACTIVE_CLAIM`, naming the claim, and **move to the next dependency-ready unit**. Do
+not stop the session, and do not fork the file.
+
+### Integration, and V1 shipping priority
+
+**Claude 5 remains the only integration and shipping-tree authority (§0.4a, unchanged).**
+
+**V1 keeps priority in the merge queue.** V1-critical fixes, deployment verification and
+production safety are merged ahead of POST-V1 mass-build PRs, which may queue behind them —
+sometimes for a long time. That is intended, not a backlog failure: **implementation happening
+early does not force deployment happening early**, and a large amount of finished functionality
+may be built and held safely until its integration window opens.
+
+**Anti-thrashing, unchanged.** Once a slice is `FEATURE_GREEN` / `READY_FOR_INTEGRATION` the
+feature lane **freezes that slice** and Claude 5 owns freshness and shipping-tree reconciliation
+from that point. Ordinary data-refresh movement on `main` is never a reason to return a slice to
+its lane (§0.4a, "The two-state reporting contract").
+
+### What this section does NOT do
+
+- It does **not** reclassify any POST-V1 capability as V1 REQUIRED.
+- It does **not** change the V1 denominator. That is an owner scope decision recorded in
+  `VERSION_1_COMPLETION_CONTRACT.md` §10, and this is not one — the change log records it there
+  explicitly as **0**.
+- It does **not** permit Claude 9-13 to mark a V1 row `VERIFIED`. Only Claude 5 edits §3 of the
+  completion contract.
+- It does **not** broaden the completion contract because implementation started early. A
+  capability built ahead of time is still POST-V1 until the owner separately says otherwise.
 
 ---
 
