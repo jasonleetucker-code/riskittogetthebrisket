@@ -54,6 +54,61 @@ in your first commit; set it `done` in your last.
   that policy expired 2026-08-01. Measured: 37 merges landed on 2026-08-04
   alone, against the "~13 merges/day" it claimed to have retired.)
 
+## Main-Movement and Integration Queue Policy
+
+**Main movement alone does not invalidate completed feature evidence.** Once a
+PR has proved its implementation and is ready for integration, the implementation
+agent must stop chasing `main`. Freshness is an Integration responsibility.
+
+Use these states explicitly:
+
+- `FEATURE_GREEN`: the PR's implementation is complete and its feature-scoped
+  validation is green on its own head.
+- `READY_FOR_INTEGRATION`: feature evidence is complete; freeze implementation
+  unless a real defect is found.
+- `INTEGRATION_GREEN`: the PR has been reconciled with the current shipping tree
+  and the required final shipping gate is green on that exact tree.
+
+Rules:
+
+1. **Do not refresh a completed PR merely because `main` moved.** A new base SHA
+   is not, by itself, a reason to rebase, merge `main`, rerun all feature tests,
+   or return work to the implementation agent.
+2. **Integration owns freshness.** The integration owner selects the next PR in
+   dependency/risk order and performs one planned current-`main` reconciliation
+   when that PR reaches the front of the merge queue.
+3. **Preserve feature evidence.** Green feature tests remain valid evidence about
+   the implementation. Final integration validation answers the separate question
+   of compatibility with the current shipping tree.
+4. **Invalidate only for a reason.** Additional reconciliation or retesting after
+   the planned freshness pass requires at least one of: a demonstrated conflict,
+   a dependency changed, a failed integration gate, or material overlap between
+   intervening commits and the PR's dependency/risk surface.
+5. **Merge immediately after final green.** Once the exact integration tree is
+   green and all normal merge gates are satisfied, merge that PR before starting
+   another unrelated `main`-changing merge whenever practical.
+6. **Respect dependency order.** Stacked/dependent PRs must be integrated in their
+   dependency order; never merge a child first merely because GitHub currently
+   labels it mergeable.
+7. **Use a temporary integration branch only when useful.** For bursts of parallel
+   work, Integration may maintain a short-lived rolling integration branch to
+   prove the combined future state. It is staging only, must be refreshed from
+   `main`, must stay small, and must never become a second long-lived source of
+   truth.
+8. **Implementation agents freeze at handoff.** After `READY_FOR_INTEGRATION`, they
+   should not add unrelated cleanup, opportunistic refactors, or freshness-only
+   commits unless Integration sends the PR back for a concrete reason.
+
+The intended flow is:
+
+```text
+implementation -> FEATURE_GREEN -> READY_FOR_INTEGRATION
+               -> Integration freshness pass -> INTEGRATION_GREEN -> merge
+```
+
+This policy supersedes any instruction that treats every movement of `main` as
+automatic invalidation of all open PR evidence.
+
 ## Before You Start: Check Who Else Is In There
 
 The branch rule above is necessary and **not sufficient**. Several sessions run
