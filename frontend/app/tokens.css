@@ -463,11 +463,16 @@
 
   /* ── Text ──
      Ratios (worst surface, surface-2): primary 13.44:1, secondary 7.56:1,
-     tertiary 4.44:1 (still AA at body sizes), disabled 2.04:1 (decorative
-     only, matching the existing --text-disabled convention). */
+     tertiary 4.60:1, disabled 2.04:1 (decorative only, matching the
+     existing --text-disabled convention).
+     tertiary was originally #6e6353 (4.44:1) — "still AA at body sizes"
+     was wrong: WCAG AA's 4.5:1 floor for normal-size text has no
+     small-text exception, and a real axe-core scan of the migrated
+     /rankings page (.playerMeta, using this token) caught the 0.06
+     shortfall. Darkened by one step; role/hue unchanged. */
   --text-primary: #1c1712;
   --text-secondary: #4a4136;
-  --text-tertiary: #6e6353;
+  --text-tertiary: #6b6151;
   --text-disabled: #a89c86;
   --text-inverse: #f2ebdd;
 
@@ -557,4 +562,34 @@
      here. Swap this one declaration for a next/font/local family later
      without touching any consumer, exactly like --font-ui/--font-data. */
   --font-display: Georgia, Cambria, "Times New Roman", Times, serif;
+
+  /* ── Legacy token compatibility ──
+     globals.css's original :root palette (--bg, --cyan, --subtext, …)
+     predates this file's semantic layer and is still what ~200 call
+     sites — badges, tier separators, the rankings value column — read
+     directly; globals.css itself is under an active work claim, so
+     those call sites cannot be migrated to the semantic names here.
+     Left unmapped, they would keep resolving the terminal :root's
+     dark-calibrated values (e.g. --cyan's #ffc704 gold, --subtext's
+     #a8b0be) against this scope's cream surfaces — exactly the
+     .badge-cyan / .rankings-tier-badge / .rankings-value color-contrast
+     failures a real axe-core scan found on this page (verified fixed
+     by this block; re-run to confirm before touching it further).
+     Each maps to the semantic token already carrying the equivalent
+     role and contrast ratio above, per OD-05's own rule that --cyan
+     IS the page's accent rather than literally cyan. */
+  --bg: var(--surface-0);
+  --bg-soft: var(--surface-2);
+  --card: var(--surface-1);
+  --card-hover: var(--surface-2);
+  --text: var(--text-primary);
+  --subtext: var(--text-secondary);
+  --muted: var(--text-tertiary);
+  --blush: var(--text-secondary);
+  --cyan: var(--accent);
+  --green: var(--positive-text);
+  --red: var(--negative-text);
+  --amber: var(--warning-text);
+  --border: var(--border-default);
+  --border-bright: var(--border-strong);
 }
