@@ -1,6 +1,6 @@
 {
   "_comment": "Live V1 Closability Queue, owned by Claude 7 as independent V1 traffic controller / adversarial auditor. Ranks IMPLEMENTED_UNVERIFIED rows by verification effort per row gained. NOT an authority on V1 status — only Claude 5 promotes a row, and no percentage here is claimed as achieved.",
-  "updatedAt": "2026-08-20T04:40:00Z",
+  "updatedAt": "2026-08-20T05:24:00Z",
   "auditCycle": 2,
   "evidenceBasis": {
     "contract": "docs/VERSION_1_COMPLETION_CONTRACT.md §3 read on origin/main e3b387ca5",
@@ -9,12 +9,12 @@
     "method": "per-PR exact-head check runs, git merge-tree mergeability, git grep against origin/main for the claimed properties"
   },
   "v1Status": {
-    "verified": 48,
+    "verified": 55,
     "denominator": 132,
-    "percent": 36.4,
-    "note": "48/132 (36.4%). V1-95 promoted at L2 on the deployed build via #942 — exactly one row moved, row-diffed. Session net 40 -> 48.",
-    "implementedUnverified": 21,
-    "inProgress": 32,
+    "percent": 41.7,
+    "note": "55/132 (41.7%). #944 promoted seven on mutation-proven evidence, row-diffed and matching its stated count. Session net 40 -> 55 with the denominator constant.",
+    "implementedUnverified": 20,
+    "inProgress": 26,
     "notStarted": 29
   },
   "deployState": {
@@ -389,5 +389,17 @@
     "notAssignable": "Claude 7 cannot dispatch either batch: both need production access this dispatcher does not have and must not fabricate.",
     "statusAtCycle18": "STILL UNRUN. This is now the single largest identified lever on the numerator and it has been available since #932 merged. It needs an operator on the box; no lane and no dispatcher can supply that.",
     "statusAtCycle19": "STILL UNRUN, ~2.5h after becoming executable. Nothing else on the board converts as cheaply."
+  },
+  "queueScorecard": {
+    "rowsThisQueueRankedThatAreNowVERIFIED": [
+      "V1-119 (its sole Tier A)",
+      "V1-64 (its Tier B micro-PR)",
+      "V1-81 (one of its four L2 rows)"
+    ],
+    "rowsThisQueueRefusedThatRemainUnpromoted": [
+      "V1-88 — refused for want of an exact endpoint-naming proof; has now survived THREE promotion passes unpromoted"
+    ],
+    "coverageGapAcknowledged": "Rows that go IN PROGRESS -> VERIFIED in one motion (V1-28, V1-30, V1-33, V1-39, V1-44, V1-114..V1-118) were never ranked here, because the queue ranked IMPLEMENTED_UNVERIFIED rows. That is most of the +15.",
+    "standingRecommendationStillUnactioned": "the on-box batch (V1-57, V1-129, V1-60)"
   }
 }
