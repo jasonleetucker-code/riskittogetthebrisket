@@ -246,3 +246,113 @@ def test_every_run_still_reports_even_when_it_leaves_no_commit():
             "that changes nothing would leave neither a commit nor a summary — "
             "invisible, which is how a workflow that stopped firing goes unnoticed"
         )
+
+
+def _workflow_steps() -> dict:
+    """Step name -> runnable script, for the whole workflow."""
+    import yaml
+
+    document = yaml.safe_load(WORKFLOW.read_text(encoding="utf-8"))
+    steps = {}
+    for step in document["jobs"]["verify"]["steps"]:
+        if isinstance(step.get("run"), str):
+            steps[str(step.get("name", "<unnamed>"))] = step
+    return steps
+
+
+def test_a_gate_that_can_never_measure_is_tracked_rather_than_only_warned():
+    """CI reliability lane, 2026-08-20.
+
+    The per-run disposition above is right and is not changed here: a
+    ``::warning`` with ``exit 0``, because failing ~12x a day for a
+    credential CI was never issued is how a gate gets deleted.
+
+    But the CUMULATIVE fact is different from any single run's. This
+    workflow has shown a green tick through every run in its recorded
+    history while measuring nothing at all. Each run was honest; the
+    series is a false green. "Loud once per run into a log nobody reads"
+    does not discharge it.
+
+    So the finding goes where this repository already puts findings CI
+    cannot act on itself — a tracking issue that names the single action
+    that would turn this into a real gate, and that drains itself the day
+    that action is taken.
+    """
+    steps = _workflow_steps()
+    tracker = next(
+        (script for name, script in steps.items() if "Track that the Sharp gate" in name),
+        None,
+    )
+    assert tracker is not None, (
+        "the unmeasurable-gate tracker step is gone. Without it the only record "
+        "that this gate has never measured anything is a per-run warning, and the "
+        "workflow's green tick is the only thing anybody sees"
+    )
+    body = tracker["run"]
+    assert "gh label create sharp-unverifiable" in body, (
+        "the tracker's label is not created idempotently — the same defect that "
+        "left the calibration trackers unable to find their own issues"
+    )
+    assert "_SELF_AUTHED_API_EXACT" in body, (
+        "the tracker no longer names the action that fixes this. An alert that does "
+        "not say what to do is noise"
+    )
+
+
+def test_the_tracker_identifies_its_issue_by_author_and_title():
+    """AUDIT F-23, not re-derived.
+
+    ``gh`` reports this bot's login as ``github-actions`` via GraphQL and
+    ``github-actions[bot]`` via REST, so pinning either spelling is a
+    bet. e2e.yml lost that bet and accumulated 14 undrained trackers.
+    Normalise the suffix away instead.
+    """
+    steps = _workflow_steps()
+    for name, step in steps.items():
+        if "Sharp gate cannot measure" not in name and "unmeasurable-gate" not in name:
+            continue
+        script = step["run"]
+        assert "gh issue list" in script, f"{name}: no lookup, so it cannot dedup"
+        # Compare with backslashes removed.  The jq filter reaches the
+        # shell as `sub(\"\\\\[bot\\\\]\$\"; \"\")`, so the literal
+        # `[bot]` is NOT a substring of the raw script -- the escapes sit
+        # INSIDE the bracket expression.  A needle written against the
+        # readable form silently matches nothing, which is how a guard
+        # ends up asserting that a step it never examined is correct.
+        unescaped = script.replace("\\", "")
+        assert "sub(" in unescaped and "[bot]" in unescaped, (
+            f"{name}: the author clause does not normalise the `[bot]` suffix. "
+            "`gh` reports this bot as `github-actions` via GraphQL and "
+            "`github-actions[bot]` via REST, so pinning either spelling is a bet -- "
+            "and it is the bet e2e.yml lost, leaving 14 undrained trackers (AUDIT F-23)"
+        )
+        assert "github-actions" in unescaped, (
+            f"{name}: the lookup no longer filters by author at all, so it can match "
+            "a human-filed issue that happens to carry the same label"
+        )
+        assert ".title==" in script, (
+            f"{name}: identifies its tracker by label alone. A human can apply a "
+            "plain label to a hand-written issue, and this step would then comment "
+            "on -- or close -- their bug report"
+        )
+
+
+def test_the_tracker_drains_itself_when_the_gate_can_measure_again():
+    """Otherwise the issue outlives the condition and becomes noise."""
+    steps = _workflow_steps()
+    closer = next(
+        (step for name, step in steps.items() if "unmeasurable-gate tracker" in name),
+        None,
+    )
+    assert closer is not None, (
+        "nothing closes the unmeasurable-gate tracker. The day a token is "
+        "provisioned the issue would sit open forever, and a tracker that never "
+        "drains teaches people to ignore trackers"
+    )
+    assert "gh issue close" in closer["run"]
+    condition = str(closer.get("if", ""))
+    assert "measured" in condition, (
+        "the closer does not gate on whether this run actually MEASURED "
+        "production. Closing on anything weaker would retire the issue on a run "
+        "that saw nothing"
+    )

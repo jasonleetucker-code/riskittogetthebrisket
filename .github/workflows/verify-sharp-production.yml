@@ -13,6 +13,11 @@ on:
 
 permissions:
   contents: write
+  # The gate cannot measure production and has not been able to for its
+  # whole recorded history.  A ``::warning`` once per run, into a log
+  # nobody reads, is not loud — so the finding goes where the repository
+  # already puts findings CI cannot act on itself.
+  issues: write
 
 concurrency:
   group: sharp-production-smoke
@@ -286,6 +291,7 @@ jobs:
           fi
 
       - name: Enforce healthy population
+        id: gate
         # This step had never run: the commit above always failed first.
         # Now that it can run, it must distinguish "measured unhealthy"
         # from "could not measure" — reporting the second as the first
@@ -306,6 +312,22 @@ jobs:
               (Path(os.environ["RUNNER_TEMP"]) / "sharp-smoke-current.json").read_text()
           )
           status = result.get("status")
+
+          # Published BEFORE any exit branch, so the tracker steps below
+          # can run on a failing gate too.  A gate that fails and files
+          # nothing is the state this workflow was already in.
+          outputs = os.environ.get("GITHUB_OUTPUT")
+          if outputs:
+              with open(outputs, "a", encoding="utf-8") as handle:
+                  handle.write(f"status={status}\n")
+                  handle.write(f"measured={str(bool(result.get('measured'))).lower()}\n")
+                  handle.write(f"state_since={result.get('stateSince') or ''}\n")
+                  # EMPTY, never the string "None".  The tracker body
+                  # renders this as `${LAST_MEASURED_ON:-never}`, and
+                  # "None" is non-empty — it would print literally and
+                  # read as a date nobody could parse, in the one field
+                  # that says whether this gate has EVER worked.
+                  handle.write(f"last_measured_on={result.get('lastMeasuredOn') or ''}\n")
 
           if status == "healthy":
               print("Sharp production population is healthy.")
@@ -343,3 +365,122 @@ jobs:
 
           raise SystemExit(f"Sharp production smoke is not healthy: {status}")
           PY
+
+      - name: Track that the Sharp gate cannot measure
+        # The gate stays green on `unverifiable_unauthenticated`, and that
+        # is the right per-run disposition: /api/sharp/* sits behind
+        # server.py::_private_api_gate, this workflow holds no credential,
+        # and failing ~12x a day for a token it was never issued is how a
+        # gate gets deleted.  `test_sharp_smoke_commit_order.py` pins that
+        # warning-not-failure behaviour and it is unchanged.
+        #
+        # But "loud once per run into a log" is not loud.  Measured: the
+        # workflow has been GREEN through every run in its recorded
+        # history while measuring nothing at all.  A gate that has never
+        # once evaluated its own invariant, and shows a green tick each
+        # time, is a false green even when each individual run is honest.
+        #
+        # So the finding goes where this repository already puts findings
+        # CI cannot act on itself — a tracking issue — and it names the
+        # single action that turns this into a real gate.  Shape copied
+        # from e2e.yml, including the `[bot]` suffix normalisation it paid
+        # for in AUDIT F-23.
+        #
+        # No mainline guard is needed here: the job's own `if:` already
+        # admits only `push` to main and `workflow_run` whose head_branch
+        # is main.
+        if: ${{ always() && steps.gate.outputs.status == 'unverifiable_unauthenticated' }}
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          STATE_SINCE: ${{ steps.gate.outputs.state_since }}
+          LAST_MEASURED_ON: ${{ steps.gate.outputs.last_measured_on }}
+        run: |
+          set -Eeuo pipefail
+          TRACKER_TITLE="Sharp production gate cannot measure: /api/sharp/* has no credential"
+          gh label create sharp-unverifiable \
+            --color FBCA04 \
+            --description "Auto-opened when the Sharp production smoke cannot measure what it gates on" \
+            2>/dev/null || true
+          BODY=$(cat <<EOF
+          \`Verify Sharp Production Population\` is green, and it has not measured anything.
+
+          - Status: \`unverifiable_unauthenticated\`
+          - In this state since: \`${STATE_SINCE}\`
+          - Last time it could measure: \`${LAST_MEASURED_ON:-never}\`
+          - Run: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}
+
+          \`https://chaseupside.com/api/sharp/cohort\` answers **401**. The site is up
+          and correctly refusing an anonymous caller; this workflow simply holds no
+          credential, so Sharp population health is **not measured**. The per-run
+          disposition is deliberately a warning rather than a failure — failing every
+          run for a token CI was never issued is how a gate gets deleted — but the
+          cumulative fact is that the gate has never evaluated its invariant.
+
+          **The one action that fixes this:** provision a token for the smoke. See
+          \`_SELF_AUTHED_API_EXACT\` in \`server.py\` for the bearer pattern
+          \`/api/signal-alerts/run\` already uses.
+
+          This issue closes itself on the first run that reports \`healthy\`.
+          EOF
+          )
+          # A lookup that FAILS must not read like a lookup that found
+          # nothing — e2e.yml's AUDIT F-23 note has the full account. On
+          # failure: say so loudly, then still file, because losing the
+          # finding is worse than a duplicate.
+          #
+          # The author clause normalises the `[bot]` suffix away rather
+          # than pinning either spelling: `gh` reports the login as
+          # `github-actions` via GraphQL and `github-actions[bot]` via
+          # REST, and pinning one of them is what left 14 undrained
+          # trackers behind in e2e.yml.
+          if ! EXISTING=$(gh issue list --state open --label sharp-unverifiable \
+                            --json number,title,author \
+                            --jq "[.[] | select((.author.login | sub(\"\\\\[bot\\\\]\$\"; \"\")) == \"github-actions\")
+                                       | select(.title==\"${TRACKER_TITLE}\")] | .[0].number"); then
+            echo "::error title=Tracker lookup failed::gh issue list failed; filing without deduplicating against the existing tracker"
+            EXISTING=""
+          fi
+          if [[ -n "$EXISTING" && "$EXISTING" != "null" ]]; then
+            gh issue comment "$EXISTING" --body "$BODY"
+          else
+            gh issue create --title "$TRACKER_TITLE" --body "$BODY" --label sharp-unverifiable
+          fi
+
+      - name: Close the unmeasurable-gate tracker once the smoke can measure
+        # The other half of the pattern.  The day a token is provisioned
+        # this drains itself, so nobody has to remember the issue exists.
+        #
+        # Keyed on author AND title, the same constant the open step uses,
+        # for the reason e2e.yml records: `sharp-unverifiable` is a plain
+        # label and a human can apply it to a hand-written issue, which a
+        # label-only close would then close on their behalf.
+        if: ${{ steps.gate.outputs.measured == 'true' }}
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -Eeuo pipefail
+          TRACKER_TITLE="Sharp production gate cannot measure: /api/sharp/* has no credential"
+          RUN_URL="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+          if ! OPEN=$(gh issue list --state open --label sharp-unverifiable \
+                        --json number,title,author \
+                        --jq "[.[] | select((.author.login | sub(\"\\\\[bot\\\\]\$\"; \"\")) == \"github-actions\")
+                                   | select(.title==\"${TRACKER_TITLE}\")] | .[].number"); then
+            echo "::error title=Tracker lookup failed::gh issue list failed; the green all-clear did NOT run, so an open tracker may be stale"
+            exit 1
+          fi
+          if [[ -z "$OPEN" ]]; then
+            echo "no open unverifiable-gate tracker; nothing to close"
+            exit 0
+          fi
+          for N in $OPEN; do
+            echo "closing #${N}"
+            gh issue close "$N" --reason completed --comment \
+              "The Sharp production smoke measured production successfully — the gate is enforcing again.
+
+          - Workflow run: ${RUN_URL}
+          - Closed: $(date -u +"%Y-%m-%dT%H:%M:%SZ")
+
+          Reopened automatically by the tracker step if the credential is lost again."
+          done
