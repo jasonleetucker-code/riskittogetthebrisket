@@ -1,6 +1,6 @@
 {
   "_comment": "Durable dispatch ledger written by Claude 7 (Lane Dispatcher). One PRIMARY assignment per lane. An ACTIVE row is never overwritten and a second task is never piled onto an unread one. Claude 7 does not merge, does not implement, and does not change V1 status.",
-  "updatedAt": "2026-08-20T03:12:00Z",
+  "updatedAt": "2026-08-20T05:25:00Z",
   "cycle": 17,
   "writePolicy": "Written only on a material state transition. An unchanged heartbeat produces no commit and no CI run.",
   "_delivery": {
@@ -292,5 +292,6 @@
       "correction": "C11-1 said the constraint stack supports V1-130 only and that counting V1-34 too was 'wrong by one'. The observation (no writer for tradeConstraintsByLeague, so no operable user control) stands, but the conclusion was too strong: V1-34's contract level is L1, and L1 requires a deterministic RED->GREEN plus merge-tree green, NOT a production consumer. Claude 5 promoted it on three mutations performed at Integration with six named REDs. My warning was itself wrong by one.",
       "whatSurvives": "An argument that V1-34 ought to need a production consumer is an argument to RE-LEVEL the row to L4 — an owner decision — not an argument against the promotion."
     }
-  ]
+  ],
+  "_authorityNote": "This ledger owns dispatch assignments only. It does not own V1 status, integration sequencing or canonical ownership. Any V1 figure appearing in an assignment rationale is a derived reading of docs/VERSION_1_COMPLETION_CONTRACT.md §3 at the SHA named beside it."
 }

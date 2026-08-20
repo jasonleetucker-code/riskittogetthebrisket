@@ -1,17 +1,10 @@
 {
   "_comment": "Lane utilization state, owned by Claude 7 (Lane Dispatcher). NOT an authority on integration sequencing (Claude 5 / docs/EXECUTION_PLAN.md), on V1 status (docs/VERSION_1_COMPLETION_CONTRACT.md) or on canonical ownership (CLAUDE.md). Repository evidence outranks this file: where they disagree, this file is wrong and must be corrected.",
-  "updatedAt": "2026-08-20T05:24:00Z",
+  "updatedAt": "2026-08-20T05:25:00Z",
   "dispatchCycle": 20,
   "writePolicy": "This file and ASSIGNMENTS.json are written ONLY on a material state transition — new assignment, assignment accepted, completion, blocker, freeze/unfreeze, or a meaningful dependency change. A heartbeat that finds nothing changed produces no commit and no CI run.",
   "evidenceBasis": "origin/main 079fc9e4a; §3 diffed row-by-row from cycle-19 main (c5a367266); all refs resolved live; #945 CI green 04:57:35Z",
   "assignmentSourceNote": "The six current assignments were made manually by the owner, not by this dispatcher. Recorded here so the durable state matches reality; Claude 7 did not originate them and does not own them.",
-  "v1": {
-    "requiredRows": 132,
-    "verified": 55,
-    "percent": 41.7,
-    "source": "docs/VERSION_1_COMPLETION_CONTRACT.md §3 on origin/main 079fc9e4a",
-    "note": "48 -> 55 via #944, on mutation-proven evidence. Row-diffed: EXACTLY SEVEN newly VERIFIED, matching the commit subject's claim — V1-39 (L1), V1-44 (L1), V1-81 (L2), V1-114, V1-115, V1-116, V1-118 (L1). Zero other status changes. SESSION NET: 40 -> 55, and the denominator never moved."
-  },
   "lanes": {
     "1": {
       "name": "Roster Intelligence",
@@ -208,6 +201,19 @@
     "V1-42 IS STILL NOT STARTED, and this is the third cycle reporting it. #913's W3 supplied the consumer that simulate_roster_change lacked — the exact false-green the contract's §2 names as its first precedent — so the row is closer to closable than its status suggests. Escalated again rather than dropped.",
     "MY PR #945 IS GREEN (Validate PR success 04:57:35Z).",
     "THREE ABANDONED REFS STILL PRESENT and still drifting: rc-937 122 behind, rc-wave-a 119 behind, v1/premium-ui 287 behind. Reported for a third cycle.",
-    "LANE 2 STILL ACTIONABLE_IDLE — no V1-43 branch, now roughly 5h. Delivery remains the blocker, and no second assignment has been written."
-  ]
+    "LANE 2 STILL ACTIONABLE_IDLE — no V1-43 branch, now roughly 5h. Delivery remains the blocker, and no second assignment has been written.",
+    "INTEGRATION SENT #945 BACK, and the correction was right on both halves. First: the record declared 48/132 while main already said 55/132 — stale. Second, and sharper: the `v1` block's verified/denominator/percent fields looked authoritative, so they could drift at all. Restructured as `v1DerivedObservation` — explicitly non-authoritative, stamped with the SHA it was read at, stale by construction, and naming the contract as the winner. No product code and no V1 row status touched."
+  ],
+  "v1DerivedObservation": {
+    "_authority": "NOT AUTHORITATIVE. docs/VERSION_1_COMPLETION_CONTRACT.md §3 is the sole owner of the V1 numerator and denominator. This block is a DERIVED READING of that file, kept only so the dispatcher can rank work by effort-per-row.",
+    "_staleByConstruction": true,
+    "_ifTheyDisagree": "the contract wins, always, and this block is the thing that is wrong.",
+    "_doNotQuote": "Do not cite this block as the V1 status. Read the contract on current main instead.",
+    "observedVerifiedRows": 55,
+    "observedRequiredRows": 132,
+    "observedAtSha": "079fc9e4a",
+    "observedAt": "2026-08-20T05:25:00Z",
+    "howObserved": "counted `VERIFIED` in the §3 table of the contract as it exists at that exact SHA"
+  },
+  "canonicalOwnerRule": "This dispatcher previously carried a `v1` block with verified/percent fields that read as authoritative, and it DRIFTED — PR #945 declared 48/132 while the contract on main said 55/132. That is a second owner of the numerator forming inside a coordination record, which is the exact defect class this dispatcher has spent the session flagging in other lanes. Corrected on integration review: the fields are renamed to name themselves derived, carry the SHA they were read at, and declare the contract the winner in any disagreement."
 }
