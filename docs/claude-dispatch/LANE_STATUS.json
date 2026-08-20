@@ -1,7 +1,7 @@
 {
   "_comment": "Lane utilization state, owned by Claude 7 (Lane Dispatcher). NOT an authority on integration sequencing (Claude 5 / docs/EXECUTION_PLAN.md), on V1 status (docs/VERSION_1_COMPLETION_CONTRACT.md) or on canonical ownership (CLAUDE.md). Repository evidence outranks this file: where they disagree, this file is wrong and must be corrected.",
-  "updatedAt": "2026-08-20T13:45:00Z",
-  "dispatchCycle": 34,
+  "updatedAt": "2026-08-20T14:15:00Z",
+  "dispatchCycle": 35,
   "writePolicy": "This file and ASSIGNMENTS.json are written ONLY on a material state transition — new assignment, assignment accepted, completion, blocker, freeze/unfreeze, or a meaningful dependency change. A heartbeat that finds nothing changed produces no commit and no CI run.",
   "evidenceBasis": "origin/main 079fc9e4a; §3 diffed row-by-row from cycle-19 main (c5a367266); all refs resolved live; #945 CI green 04:57:35Z",
   "assignmentSourceNote": "Lanes 1-6 carry the owner's original six manual assignments, tracked in detail by this dispatcher. Lanes 8-13 are five additional owner-authorized campaign lanes (Claude 8 chartered 2026-08-20; Claude 9-13 chartered the same day under the POST-V1 C-Series mass-build campaign, EXECUTION_PLAN.md §0). This dispatcher did not originate any of these eleven assignments and does not own or re-scope them. Lanes 8-13 are tracked here only lightly — ownership boundaries and authorization citation — because they are self-directed under their own charter, unlike lanes 1-6 which this dispatcher actively monitors for idleness and dispatches follow-on work to. There is no lane 7: Claude 7 is the dispatcher identity, per dispatcherIdentity above.",
@@ -253,11 +253,11 @@
     "_doNotQuote": "Do not cite this block as the V1 status. Read the contract on current main instead.",
     "observedVerifiedRows": 59,
     "observedRequiredRows": 136,
-    "observedAtSha": "892df5686",
-    "observedAt": "2026-08-20T13:42:00Z",
+    "observedAtSha": "7901b4733",
+    "observedAt": "2026-08-20T14:12:00Z",
     "howObserved": "counted VERIFIED in the §3 table at that exact SHA; independently summed all statuses to 136 and confirmed the contract’s own table and completion line agree",
     "denominatorChangedAtThisSha": "YES — 132 -> 136. See cycle26Transitions.",
-    "note": "Unchanged at 59/136. One merge this cycle (#961, Claude 10 / Lane 10) — did not touch the contract file at all; zero rows by role."
+    "note": "Unchanged at 59/136. #977 implemented V1-63 but the row correctly stayed IMPLEMENTED_UNVERIFIED (own text: \"NOT promoted 2026-08-20\"); #988 (open, unmerged) is Integration's actual promotion PR for it."
   },
   "canonicalOwnerRule": "This dispatcher previously carried a `v1` block with verified/percent fields that read as authoritative, and it DRIFTED — PR #945 declared 48/132 while the contract on main said 55/132. That is a second owner of the numerator forming inside a coordination record, which is the exact defect class this dispatcher has spent the session flagging in other lanes. Corrected on integration review: the fields are renamed to name themselves derived, carry the SHA they were read at, and declare the contract the winner in any disagreement.",
   "correction_C24": {
@@ -357,22 +357,31 @@
       "handoff": "exact head 40509bc5a on claude/lane-dispatcher-orchestrator-u5hpca (#945)"
     }
   },
-  "cycle34Transitions": {
-    "mainTip": "892df5686 (was 7c826f9c2)",
+  "cycle35Transitions": {
+    "mainTip": "7901b4733 (was 892df5686)",
     "myOwnPr": {
       "pr": "#945",
-      "head": "b89fe75f5",
-      "verdict": "Validate PR SUCCESS, job 96439186866, 13:18:02Z -> 13:35:54Z",
-      "runDuration": "17m52s — inside the 13m29s-18m6s band observed so far, comfortably under the 24-minute interval."
+      "head": "ce66b5374",
+      "verdict": "Validate PR SUCCESS, job 96447771036, 13:45:43Z -> 14:03:25Z",
+      "runDuration": "17m42s — inside the observed band, comfortably under the 24-minute interval."
     },
     "merged": [
-      "#961 — Claude 10 (C4 + waiver/draft-related C7): waiver ledger, own-league Market Trade Ledger, comparable-trade matching (C4-WAIV-01, C4-MTL-01, C4-MTL-03)"
+      "#965 — Claude 13 (PSI/premium public closure): elevate the Chase Upside Market Ticker (C8-PSI-01/C8-A11Y-01)",
+      "#977 — Lane 4 implementation: publish per-player manager concentration on Sharp Roster Percentage (V1-63)"
     ],
     "rowDiff": {
-      "method": "§3 row-diffed 7c826f9c2 -> 892df5686",
+      "method": "§3 row-diffed 892df5686 -> 7901b4733",
       "result": "NO ROW CHANGED. 59 VERIFIED of 136, independent count and contract's own table agree.",
-      "contractFileTouch": "NONE — git diff --stat on VERSION_1_COMPLETION_CONTRACT.md for this range is empty, so rule (o) doesn't even need to activate here; the clean case."
+      "whyV163DidNotMoveDespiteTheMerge": "V1-63's row text reads its own history: 'NOT promoted 2026-08-20, and the previously-named blocker is NOT the real one.' #977 is the IMPLEMENTATION (Lane 4); promotion is a separate Integration act. Confirmed a promotion PR exists and is open, unmerged: #988 'V1-63 VERIFIED (60/136); PSI PR A browser verification and its one blocker'."
     },
-    "rule_n_appliedAgain": "#961 is a Claude 9-13 mass-build lane (Claude 10 / C4), which per EXECUTION_PLAN.md may not mark a §3 row VERIFIED. Zero rows is the designed outcome, fifth consecutive cycle confirming this before drawing any conclusion."
+    "rule_n_generalizes": "This is the first cycle where the zero-row merge came from a PRODUCT lane (Lane 4) rather than a mass-build lane, and the same rule held: only Integration promotes, so implementation from ANY lane is expected to leave the row unpromoted until Integration acts separately. Not limited to lanes 9-13.",
+    "promotionPassInFlightNotLanded": "#988 is open, unmerged, proposing V1-63 -> 60/136. Six cycles without a LANDED promotion pass since #972 (cycle 32), but not six cycles of stall — one is actively queued.",
+    "directResponseToStandingFindings": {
+      "_significance": "Three branches appeared this cycle that implement the EXACT close conditions this dispatcher has named in every cycle report since they were first identified — not similar work, the literal named fix.",
+      "V1-108": "branch claude/v1-108-no-player-data-import-graph-guard, commit 1d62b8682: 'V1-108: commit a transitive import-graph guard for the six no-player-data routes' — this dispatcher's stated close condition verbatim since cycle 24 (eleven cycles). PR #989 open.",
+      "V1-88": "branch claude/v1-88-flag-reachability-guard, commit df925de73: 'test(api): non-vacuous flag-to-route reachability guard (V1-88 / F-26)' — the structured-gates-field fix this dispatcher has named since cycle 26 (nine cycles) as the reason V1-88 stays unpromotable. PR #991 open.",
+      "V1-29 bonus": "branch claude/v1-29-replacement-discovery-guard also appeared, closing a discovery gap on a row this dispatcher has not been tracking directly but which shares the same guard-test shape.",
+      "dispatcherRole": "Both are OPEN PRs, not yet merged or promoted. Reported as movement toward the standing Tier B items, not claimed as closed — the row-diff already confirms neither V1-108 nor V1-88 changed status yet."
+    }
   }
 }
