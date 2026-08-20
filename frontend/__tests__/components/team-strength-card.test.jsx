@@ -184,8 +184,12 @@ describe("TeamStrengthCard — failure states", () => {
     ["team_required", /Choose a team/],
     ["team_not_found", /That team is not in this league/],
     ["not_ready", /Team Strength is not ready yet/],
-    ["league", /League unavailable/],
-    ["unavailable", /Team Strength is unavailable/],
+    // Both of these are FAILURES and now render through `ds/FailureState`
+    // rather than the EMPTY primitive — the `/rosters` defect that
+    // primitive's docstring names.  They stay DISTINCT via `context`,
+    // which is what this table exists to assert.
+    ["league", /Service unavailable — League/],
+    ["unavailable", /Service unavailable — Team Strength/],
     ["error", /Team Strength could not be measured/],
   ];
 

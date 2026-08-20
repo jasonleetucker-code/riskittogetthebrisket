@@ -26,6 +26,7 @@
  */
 
 import { InfoTip } from "@/components/ds";
+import { FailureState } from "@/components/ds/FailureState";
 import { EmptyState, LoadingState } from "@/components/ui";
 import {
   NOT_MEASURED,
@@ -75,13 +76,31 @@ function StrengthFailure({ failure }) {
     );
   }
   if (kind === "league") {
-    return <EmptyState title="League unavailable" message={message} />;
+    // A FAILURE, not an absence.  This used to render through EmptyState,
+    // which is the `/rosters` defect FailureState's own docstring names:
+    // "this league has no data" and "the request failed" looked the same,
+    // and the empty primitive announces with role="status", so a screen
+    // reader was never interrupted for a service that was not answering.
+    return (
+      <FailureState
+        failure={{ kind: "unavailable", message }}
+        context="League"
+        variant="block"
+      />
+    );
   }
   if (kind === "unavailable") {
+    // Same reason as above: the roster intelligence service not answering
+    // is a fault, and must be voiced as one.
     return (
-      <EmptyState
-        title="Team Strength is unavailable"
-        message={message || "The roster intelligence service did not respond."}
+      <FailureState
+        failure={{
+          kind: "unavailable",
+          message:
+            message || "The roster intelligence service did not respond.",
+        }}
+        context="Team Strength"
+        variant="block"
       />
     );
   }
