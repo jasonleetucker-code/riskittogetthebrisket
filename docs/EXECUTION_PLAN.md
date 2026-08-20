@@ -34,7 +34,7 @@ Genuinely new ideas go to the long-term roadmap. A genuine **omission** from alr
 scope is a denominator change, and a denominator change is an owner decision recorded in the
 completion contract §10 — never a silent edit.
 
-**Seven parallel lanes are authorized** (six on 2026-08-18; lane 7 chartered 2026-08-20 —
+**Seven parallel product lanes are authorized** (six on 2026-08-18; lane 8 chartered 2026-08-20 —
 see below), with these ownership boundaries. A lane that introduces
 another lane's canonical math is rejected or refactored — ONE CONCEPT, ONE CANONICAL OWNER
 applies across lanes exactly as it applies across modules.
@@ -47,10 +47,28 @@ applies across lanes exactly as it applies across modules.
 | **4 — Market / FAAB / Analyst** | FAAB · market · Sharp · Buy/Sell and analyst systems |
 | **5 — Integration Authority** | governance · integration · CI · cross-cutting QA · global source-health semantics · deployment and production verification · the completion ledger |
 | **6 — Premium UI / Frontend** | UI · frontend · performance · accessibility |
-| **7 — Source Acquisition / Cross-Position Bridge** | source acquisition and preservation · offense↔IDP translation · bridge health, freshness and comparability semantics · source-family / common-mode metadata · bridge-loss resilience · the evidence required to qualify a bridge source |
+| **8 — Source Acquisition / Cross-Position Bridge** | source acquisition and preservation · offense↔IDP translation · bridge health, freshness and comparability semantics · source-family / common-mode metadata · bridge-loss resilience · the evidence required to qualify a bridge source |
 
 
-### LANE 7 CHARTERED — OWNER DECISION, 2026-08-20
+### LANE 8 CHARTERED — OWNER DECISION, 2026-08-20
+
+**Why the number is 8, and why 7 is not a gap.** The product lanes ran 1–6.
+Lane 7 is **not** missing from this list: `docs/claude-dispatch/LANE_STATUS.json`
+and `ASSIGNMENTS.json` already assign **Claude 7 the Lane Dispatcher role**
+("owned by Claude 7 (Lane Dispatcher)"; "Claude 7 does not merge, does not
+implement"). This lane was briefly mislabelled Lane 7 on 2026-08-20 and the
+owner corrected it the same day. Note also that `C7` and `C8` are **already
+taken** by the C-Series taxonomy in `docs/C_SERIES_EXECUTION_MAP.md` — §9
+Decision products and §10 Performance / Premium design / Accessibility — so this
+lane's durable artefacts use the unambiguous `LANE8_` prefix rather than a
+`C8-` one that would point at Lane 6's units.
+
+**Owner authorization.** Recorded here as the canonical location. On 2026-08-20
+the owner designated this program top-priority V1 and authorized it to alter
+production valuation, subject to the two constraints below. That authorization
+covers the multi-bridge translation owner and the vote-withholding repair; it
+does **not** authorize an IDP value ceiling, a revival of the market corridor,
+or any post-consensus clamp.
 
 **Why.** The board's offense↔IDP translation rests on a single source.
 `idpTradeCalc` is the only registered source whose value column spans both pools,
@@ -65,7 +83,7 @@ The owner has designated the repair **top-priority V1**. That decision required 
 lane, because the work is a canonical owner in its own right and belongs to none of
 the six: it is not roster, trade, season, market, UI, or integration.
 
-**Boundaries.** Lane 7 owns the concepts listed in the table above. It does **not**
+**Boundaries.** Lane 8 owns the concepts listed in the table above. It does **not**
 own global source-health semantics (lane 5), source-health frontend surfaces
 (lane 6), or any valuation methodology outside cross-position translation. It may
 not introduce a second package, lineup, replacement or value engine, and the
@@ -74,12 +92,12 @@ ONE CONCEPT, ONE CANONICAL OWNER rule binds it exactly as it binds the others.
 **Two constraints carried over, not relaxed by this charter.**
 
 * **The V1 denominator is unchanged by this section.** Chartering a lane authorizes
-  work; it does not add rows to `VERSION_1_COMPLETION_CONTRACT.md` §3. Lane 7
+  work; it does not add rows to `VERSION_1_COMPLETION_CONTRACT.md` §3. Lane 8
   prepares proposed rows with evidence; the Integration Authority records any
   denominator change under §10, with a date and a reason, as an owner decision.
-  Lane 7 marks nothing `VERIFIED`.
+  Lane 8 marks nothing `VERIFIED`.
 * **`src/api/data_contract.py`'s pipeline core remains SERIAL — one writer only**
-  (§4 below). Lane 7's translation work touches it and must therefore be scheduled
+  (§4 below). Lane 8's translation work touches it and must therefore be scheduled
   by Integration rather than raced against another lane.
 
 **Explicitly not authorized by this charter:** any IDP value ceiling, any revival of

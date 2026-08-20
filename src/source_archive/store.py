@@ -83,7 +83,7 @@ CREATE TABLE IF NOT EXISTS archived_boards (
     source_as_of    TEXT,
     row_count       INTEGER NOT NULL,
     rows_json       TEXT NOT NULL,
-    -- C7 / schema v2.  Per-row source-native records: rank, positional
+    -- Lane 8 / schema v2.  Per-row source-native records: rank, positional
     -- rank, tier, cardinal value, native unit, vendor id, position.
     -- ``rows_json`` above is one float per name and can hold none of
     -- those, which is fatal for a rank/tier-only source.  ADDITIVE:
