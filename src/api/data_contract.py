@@ -4059,6 +4059,14 @@ _SOURCE_CSV_PARSE_CACHE: dict[
 # 24,024 decisions and the inline cascade was then deleted.
 _LAST_CONTRACT_JOIN_SUMMARY: dict | None = None
 
+# Written by _compute_unified_rankings, stamped into the contract payload as
+# ``crossPositionBridges`` by build_api_data_contract.  Lane 8: names every
+# declared bridge's state (including PENDING / UNAVAILABLE / STALE — a failed
+# or withheld bridge stays represented here rather than disappearing), which
+# bridges actually contributed to the shared-market ladder, and the withheld
+# vote count per source.  ``None`` before any board is built.
+_LAST_CROSS_POSITION_BRIDGE_SUMMARY: dict | None = None
+
 _FP_META_CSV_CACHE: dict[str, tuple[float, dict[str, dict[str, Any]]]] = {}
 
 
@@ -10227,6 +10235,17 @@ def _compute_unified_rankings(
         if row.get("pickRookieAnchor"):
             pdata["pickRookieAnchor"] = row["pickRookieAnchor"]
 
+    global _LAST_CROSS_POSITION_BRIDGE_SUMMARY
+    _LAST_CROSS_POSITION_BRIDGE_SUMMARY = {
+        "bridges": [a.to_dict() for a in bridge_assessments],
+        "ladder": bridge_ladder.to_dict(),
+        # Per source key: how many votes were withheld for want of a usable
+        # bridge, rather than passed through untranslated (Lane 8's repair).
+        # Never silently absent — an empty dict IS the honest "0 withheld".
+        "withheldNoBridge": dict(withheld_no_bridge),
+        "multiBridgeLadderEnabled": _feature_flags.is_enabled("multi_bridge_ladder"),
+    }
+
     return pick_aliases
 
 
@@ -11274,6 +11293,11 @@ def build_api_data_contract(
         # scraper site's twin artifact is data/scrape_state/identity_dual_read.json.
         "identityJoin": _LAST_CONTRACT_JOIN_SUMMARY,
         "hillCurves": _build_hill_curves_block(),
+        # Lane 8: every declared bridge's state, which contributed to the
+        # shared-market ladder, and the per-source withheld-vote count.  A
+        # bridge that is PENDING / UNAVAILABLE / STALE is named here rather
+        # than silently absent from the board it did not translate.
+        "crossPositionBridges": _LAST_CROSS_POSITION_BRIDGE_SUMMARY,
     }
     # Drop internal-only provenance markers before materializing the
     # contract so they don't leak into the public payload.
