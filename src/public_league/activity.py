@@ -25,7 +25,10 @@ Blockbuster tiebreaks (prompt spec):
 from __future__ import annotations
 
 from collections import Counter, defaultdict
-from typing import Any, Callable
+from datetime import datetime
+from typing import Any, Callable, Iterable
+
+from src.api.public_activity_valuation import trade_instant_from_created_at
 
 from . import metrics, trade_grading
 from .snapshot import PublicLeagueSnapshot, SeasonSnapshot
@@ -59,29 +62,76 @@ NOTABLE_POSITIONS = OFFENSIVE_CORE | {"DL", "LB", "DB", "EDGE"}
 # NEVER leave the backend.
 
 
-def _side_values(
-    assets: Any,
-    valuation: Callable[[dict[str, Any]], float],
-) -> list[float]:
-    """Value one side's asset list, tolerating a hostile valuation.
+# A resolver takes an asset and the trade's own instant (``None`` when the
+# trade's timestamp could not be parsed) and answers its historical value
+# at-or-before that instant, or ``None`` when the ledger has no admissible
+# observation.  ``None`` must never be silently treated as 0 — see
+# ``_unavailable_grade``.
+_Resolver = Callable[[dict[str, Any], "datetime | None"], "float | None"]
 
-    A callable that raises, or returns ``float('nan')`` for a missing
-    value (common with dataframe-derived numbers), must not poison the
-    side — ``sanitize_side_values`` drops anything non-finite or
-    non-positive, exactly as the frontend's resolver does.
+# A factory sees every ``(asset, instant)`` pair the whole feed will ever
+# need up front (so it can batch through ``asof.batch_known_before`` once)
+# and returns the resolver above.
+_ResolverFactory = Callable[[Iterable[tuple[dict[str, Any], "datetime | None"]]], _Resolver]
+
+
+def _unavailable_grade(reason: str, missing: list[dict[str, Any]]) -> dict[str, Any]:
+    """The honest "could not grade this side" sentinel.
+
+    Never a partial total computed by silently excluding the assets that
+    failed to resolve — a present-but-wrong grade is worse than an
+    explicit absence, which is the whole point of V1-97 / C3-REPLAY-01.
     """
-    out: list[float] = []
+    return {
+        "grade": None,
+        "color": None,
+        "label": "Insufficient historical evidence",
+        "available": False,
+        "reason": reason,
+        "missingAssets": missing,
+    }
+
+
+def _resolve_side(
+    assets: Any,
+    resolve: _Resolver,
+    instant: datetime,
+) -> tuple[list[float], list[dict[str, Any]]]:
+    """Resolve one side's asset list at ``instant``.
+
+    Returns ``(values, missing)``.  ``missing`` names every asset that
+    could not be resolved — never silently dropped from the total, which
+    would turn "we don't know" into a smaller-but-present number.  A
+    resolver that raises is tolerated the same way a hostile valuation
+    always was here: the asset is counted missing, not allowed to poison
+    the whole side.
+    """
+    values: list[float] = []
+    missing: list[dict[str, Any]] = []
     for asset in assets or []:
         try:
-            out.append(float(valuation(asset) or 0.0))
+            val = resolve(asset, instant)
         except (TypeError, ValueError):
-            out.append(0.0)
-    return trade_grading.sanitize_side_values(out)
+            val = None
+        if val is None:
+            missing.append(
+                {
+                    "kind": asset.get("kind") if isinstance(asset, dict) else None,
+                    "name": (
+                        (asset.get("playerName") or asset.get("label"))
+                        if isinstance(asset, dict)
+                        else None
+                    ),
+                }
+            )
+            continue
+        values.append(val)
+    return values, missing
 
 
 def _apply_trade_grades(
     feed: list[dict[str, Any]],
-    valuation: Callable[[dict[str, Any]], float],
+    resolve: _Resolver,
 ) -> None:
     """Attach a ``grade`` block to each side of every trade in ``feed``.
 
@@ -92,19 +142,32 @@ def _apply_trade_grades(
     happened to receive fewest pieces.  The per-side totals are
     discarded after grading; the public payload surfaces only the
     grade letter, label, and color.
+
+    Values are resolved AS OF the trade's own instant
+    (``trade["createdAt"]``), never against today's board — that is the
+    hindsight leak V1-97 / C3-REPLAY-01 closes.  A trade whose instant
+    cannot be parsed, or a side with any asset the ledger cannot resolve
+    at that instant, gets ``_unavailable_grade`` instead of a grade
+    computed from a partial or substituted total.  One side's missing
+    evidence does not poison another side's grade — each is independent.
     """
     for trade in feed:
         sides = trade.get("sides") or []
         if len(sides) < 2:
             continue
-        graded = trade_grading.grade_trade_sides(
-            (
-                _side_values(side.get("receivedAssets"), valuation),
-                _side_values(side.get("sentAssets"), valuation),
-            )
-            for side in sides
-        )
-        for side, result in zip(sides, graded):
+        instant = trade_instant_from_created_at(trade.get("createdAt"))
+        if instant is None:
+            for side in sides:
+                side["grade"] = _unavailable_grade("invalid_trade_instant", [])
+            continue
+        for side in sides:
+            got_values, got_missing = _resolve_side(side.get("receivedAssets"), resolve, instant)
+            gave_values, gave_missing = _resolve_side(side.get("sentAssets"), resolve, instant)
+            missing = got_missing + gave_missing
+            if missing:
+                side["grade"] = _unavailable_grade("no_historical_evidence", missing)
+                continue
+            (result,) = trade_grading.grade_trade_sides([(got_values, gave_values)])
             side["grade"] = result["grade"]
 
 
@@ -315,17 +378,20 @@ def build_section(
     snapshot: PublicLeagueSnapshot,
     limit: int = 200,
     *,
-    valuation: Callable[[dict[str, Any]], float] | None = None,
+    valuation_factory: _ResolverFactory | None = None,
 ) -> dict[str, Any]:
     """Build the public activity section.
 
-    ``valuation`` is an optional callable that, given a trade-side
-    received-asset dict (``{kind: "player"|"pick", ...}``), returns a
-    numeric value.  When provided, per-side grade badges are attached
-    to every trade in the returned feed — mirroring the private
-    ``/trades`` page letter grades.  The raw values themselves are
-    never written to the output; only the derived ``{grade, color,
-    label}`` object leaves the backend.  When ``valuation`` is None,
+    ``valuation_factory`` is an optional callable that, given every
+    ``(asset, instant)`` pair the feed will need resolved, returns a
+    ``(asset, instant) -> value | None`` resolver — the shape
+    ``src.api.public_activity_valuation.build_asof_valuation`` produces.
+    When provided, per-side grade badges are attached to every trade in
+    the returned feed, each graded AS OF that trade's own timestamp
+    (never today's board — V1-97 / C3-REPLAY-01) — mirroring the private
+    ``/trades`` page letter grades.  The raw values themselves are never
+    written to the output; only the derived ``{grade, color, label}``
+    object leaves the backend.  When ``valuation_factory`` is ``None``,
     the feed has no grade fields (keeps older contract consumers
     unchanged when the private valuation pipeline is offline).
     """
@@ -353,8 +419,17 @@ def build_section(
         )
 
     feed.sort(key=lambda t: -int(t.get("createdAt") or 0))
-    if valuation is not None:
-        _apply_trade_grades(feed, valuation)
+    if valuation_factory is not None:
+        requests: list[tuple[dict[str, Any], datetime | None]] = []
+        for trade in feed:
+            instant = trade_instant_from_created_at(trade.get("createdAt"))
+            for side in trade.get("sides") or []:
+                for asset in side.get("receivedAssets") or []:
+                    requests.append((asset, instant))
+                for asset in side.get("sentAssets") or []:
+                    requests.append((asset, instant))
+        resolve = valuation_factory(requests)
+        _apply_trade_grades(feed, resolve)
     by_manager = _by_manager_counts(feed)
     partner_pairs = _partner_pairs(feed)
     blockbusters = _biggest_blockbusters(feed)

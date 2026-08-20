@@ -163,6 +163,11 @@ class PublicFeedUsesTheCanonicalGrade(unittest.TestCase):
                 # anything but the numbers the fixture declares.
                 trade = {
                     "transactionId": case["id"],
+                    # A valid instant is required — grading now resolves
+                    # each asset AS OF the trade's own timestamp
+                    # (V1-97 / C3-REPLAY-01); an untimestamped trade
+                    # can't be graded at all.
+                    "createdAt": 1752580800000,
                     "sides": [
                         {
                             "receivedAssets": [{"kind": "player", "v": v} for v in side["got"]],
@@ -171,7 +176,22 @@ class PublicFeedUsesTheCanonicalGrade(unittest.TestCase):
                         for side in case["sides"]
                     ],
                 }
-                activity._apply_trade_grades([trade], lambda asset: asset["v"])
+
+                # A real resolver (``build_asof_valuation``) only ever
+                # returns a genuine float, or ``None`` meaning "no
+                # ledger observation" — ``_apply_trade_grades`` now
+                # treats ``None`` as unavailable evidence rather than a
+                # silently-dropped zero (V1-97 / C3-REPLAY-01).  The
+                # fixture's raw non-numeric/null "unpriceable" values
+                # represent a value that WAS resolved to garbage, not a
+                # missing observation, so this test double coerces them
+                # to a resolved (and later sanitized-away) 0.0 rather
+                # than passing them through as ``None``.
+                def _resolver(asset, _instant):
+                    v = asset["v"]
+                    return v if isinstance(v, (int, float)) else 0.0
+
+                activity._apply_trade_grades([trade], _resolver)
                 self.assertEqual(
                     [s["grade"]["grade"] for s in trade["sides"]],
                     [e["grade"] for e in case["expected"]],
