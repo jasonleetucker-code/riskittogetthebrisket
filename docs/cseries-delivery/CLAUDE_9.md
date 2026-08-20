@@ -406,3 +406,39 @@ doesn't have to re-derive the scoping:
   deliberately left for a dedicated unit.
 
 ---
+
+### Unit 5 — Documentation repair: `C3-TOPO-01`'s mechanism/product split
+
+**Manifest row:** `C3-TOPO-01` in `docs/C_SERIES_SCOPE_MANIFEST.md`.
+
+**Why:** while scoping candidate next units (see above), found `tests/packages/test_construction.py` already
+contains a rigorous, complete topology test suite: `test_the_manifest_topology_table_verbatim` pins the exact
+9-cell table this manifest row's own `final` column specifies (1v1/2v1/1v2/3v2/2v3 allowed;
+3v1/1v3/4v2/2v4 disallowed), plus dedicated tests for the pick-exclusion rule (both directions of the trap —
+`test_counting_assets_instead_of_players_gets_two_of_those_backwards`) and `enumerate_packages`'s own
+enforcement + refusal reporting. The manifest's `ABSENT` status was therefore conflating two genuinely different
+claims into one: the MECHANISM (built, and about as rigorously tested as this codebase gets) vs. the PRODUCT
+capability of any live generator actually *offering* a 3-a-side package (verified absent — `finder.py`'s shape
+list is hard-capped at `PackageShape(2,1)`/`PackageShape(1,2)`, read directly from the source).
+
+**Correction:** split the row's owner/status text to state both halves precisely, rather than either
+overclaiming completion or leaving the already-done mechanism work invisible to the next session. Deliberately
+did **not** claim `angle.py` never reaches a 3-a-side shape — its `enumerate_sides` call takes a caller-driven
+size, and auditing every call site for whether it can ever reach 3 was out of scope for a documentation
+correction; said so explicitly rather than guessing.
+
+**Verification:** documentation-only. `scripts/check_planning_integrity.py` (OK), `tests/docs/` (22 passed).
+
+**Production impact:** none — text only.
+
+**Duplicates retired:** 0.
+
+**Dependencies:** none.
+
+**Blocker:** none.
+
+**Commit SHA:** *(recorded after commit)*
+
+**PR-ready status:** READY_FOR_INTEGRATION — documentation-only, governance checks green.
+
+---
