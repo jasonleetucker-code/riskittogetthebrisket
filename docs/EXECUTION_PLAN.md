@@ -169,8 +169,9 @@ destabilise production because future code happens to be ready.
 
 ### The lane map
 
-Existing active V1 lanes are unchanged and are **not** superseded by this section — the six-lane
-table in §0 above stands, and lanes 1-4 and 6 keep their V1 responsibilities.
+Existing active V1 lanes are unchanged and are **not** superseded by this section — the lane
+table in §0 above stands (lanes 1-6 chartered 2026-08-18, lane 8 chartered 2026-08-20), and
+lanes 1-4 and 6 keep their V1 responsibilities.
 
 | lane | owns |
 |---|---|
