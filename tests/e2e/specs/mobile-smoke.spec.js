@@ -22,6 +22,7 @@ const {
   SEL,
   mobileOnly,
   gotoRankingsBoard,
+  boardRowCount,
   attachConsoleGuards,
   pageUrl,
   pageHeading,
@@ -34,7 +35,13 @@ test.describe("mobile smoke (390x844)", () => {
   test("rankings board renders rows on a phone viewport", async ({ authedPage: page }) => {
     const guard = attachConsoleGuards(page);
     const rows = await gotoRankingsBoard(page);
-    expect(await rows.count()).toBeGreaterThanOrEqual(50);
+    // The board HOLDS >= 50 rows; it MOUNTS however many the window
+    // needs.  Counting <tr> here asserted the two together, and the
+    // board is windowed now — see the note in journey.js::gotoRankingsBoard.
+    // Both halves are still checked, because "1,109 rows and none of them
+    // painted" and "40 rows painted out of 40" are different failures.
+    expect(await boardRowCount(page)).toBeGreaterThanOrEqual(50);
+    expect(await rows.count(), "no rows mounted on a phone viewport").toBeGreaterThan(0);
 
     // No horizontal overflow of the page body — the board must scroll
     // inside its own container, not stretch the viewport.

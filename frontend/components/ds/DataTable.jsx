@@ -49,6 +49,15 @@
  *              BEFORE the row (tier/group separators). Not interactive.
  *   renderAfterRow (row,i)=>node — caller-authored <tr>(s) rendered
  *              AFTER the row (expansion panels). Not interactive.
+ *   freezeColumnWidths boolean — measure the widths the browser settled
+ *              on and pin them with a <colgroup> + table-layout: fixed.
+ *   virtualize boolean — mount only the rows near the viewport, with
+ *              spacer rows standing in for the rest. REQUIRES
+ *              freezeColumnWidths (see useRowWindow.js for why that is a
+ *              requirement and not a recommendation) and is IGNORED
+ *              without it — deliberately ignored rather than throwing,
+ *              because a table that renders is a better failure than a
+ *              page that does not, and the console says which.
  *
  * Behavior:
  *   - First activation sorts numeric columns DESC (terminal convention:
@@ -75,6 +84,7 @@ import React, {
 } from "react";
 import { Icon } from "./Icon";
 import { InfoTip } from "./Help";
+import { useRowWindow } from "./useRowWindow";
 
 // useLayoutEffect warns during SSR; the freeze pass is a post-paint
 // measurement that has no server equivalent, so fall back to a no-op.
@@ -167,6 +177,7 @@ export function DataTable({
   renderBeforeRow = null,
   renderAfterRow = null,
   freezeColumnWidths = false,
+  virtualize = false,
 }) {
   const [internalSort, setInternalSort] = useState(defaultSort);
   const sort = controlledSort !== undefined ? controlledSort : internalSort;
@@ -331,17 +342,75 @@ export function DataTable({
     setFrozen(null);
   }, [freezeColumnWidths, columnKeys]);
 
+  // ── Row windowing (opt-in via `virtualize`) ────────────────────────
+  //
+  // Gated on `freezeColumnWidths` because windowing an auto-layout table
+  // reflows every column on every frame — see useRowWindow.js. Ignored
+  // rather than thrown, so a caller who forgets still gets a working
+  // table; the console names the missing prop once.
+  const wrapRef = useRef(null);
+  const virtualizeReady = virtualize && freezeColumnWidths;
+  const warnedRef = useRef(false);
+  if (virtualize && !freezeColumnWidths && !warnedRef.current) {
+    warnedRef.current = true;
+    if (typeof console !== "undefined" && console.warn) {
+      console.warn(
+        "[DataTable] `virtualize` needs `freezeColumnWidths`; rendering all " +
+          "rows instead. Windowing an auto-layout table makes columns resize " +
+          "while scrolling.",
+      );
+    }
+  }
+
+  // Which indices carry caller-authored rows. Derived by CALLING the
+  // render functions — they are pure and return elements without mounting
+  // them, and the predicate lives in the caller, so there is no other way
+  // to know. Memoized on the closures, so an expand/collapse re-derives.
+  const hasBefore = useCallback(
+    (i) => Boolean(renderBeforeRow && renderBeforeRow(sorted[i], i)),
+    [renderBeforeRow, sorted],
+  );
+  const hasAfter = useCallback(
+    (i) => Boolean(renderAfterRow && renderAfterRow(sorted[i], i)),
+    [renderAfterRow, sorted],
+  );
+
+  const rowWindow = useRowWindow({
+    rowCount: sorted.length,
+    // Only once the widths are actually frozen. Before that first
+    // measurement the table is still auto-layout, and windowing it would
+    // freeze the WRONG widths — the ones a 60-row sample happens to need.
+    enabled: virtualizeReady && Boolean(frozen),
+    tableRef,
+    scrollRef: maxHeight ? wrapRef : null,
+    hasBefore,
+    hasAfter,
+  });
+
   if (!rows || rows.length === 0) return emptyState;
 
   const activeCol = sort ? columns.find((c) => c.key === sort.key) : null;
+  const visible = rowWindow.windowed
+    ? sorted.slice(rowWindow.start, rowWindow.end)
+    : sorted;
+  const windowOffset = rowWindow.windowed ? rowWindow.start : 0;
 
   return (
     <div
+      ref={wrapRef}
       className="ds-table-wrap"
       style={maxHeight ? { maxHeight, overflowY: "auto" } : undefined}
     >
       <table
         ref={tableRef}
+        // Windowing removes rows from the accessibility tree along with
+        // the DOM, so without this a screen reader is told the board has
+        // 38 rows when it has 1,109.  `aria-rowcount` is the TRUE total
+        // and each row carries its true `aria-rowindex` (+2: index 0 is
+        // 1-based, and the header occupies row 1).  Absent when not
+        // windowed, because then the DOM already tells the truth and a
+        // redundant count is one more thing to drift.
+        aria-rowcount={rowWindow.windowed ? sorted.length + 1 : undefined}
         className={[
           "ds-table",
           density === "compact" ? "ds-table--compact" : "",
@@ -383,7 +452,9 @@ export function DataTable({
           </colgroup>
         ) : null}
         <thead>
-          <tr>
+          {/* Row 1 of the aria row space when windowed, so the body's
+              1-based indices below line up with what a reader is told. */}
+          <tr aria-rowindex={rowWindow.windowed ? 1 : undefined}>
             {columns.map((col) => {
               const isSorted = sort?.key === col.key;
               const ariaSort = isSorted
@@ -434,14 +505,34 @@ export function DataTable({
           </tr>
         </thead>
         <tbody>
-          {sorted.map((row, i) => {
+          {/* Spacer standing in for the rows above the window.
+              The height goes on the <td>, not the <tr>: browsers treat
+              `height` on a row as a MINIMUM and will happily give it more,
+              which under a fixed layout shows up as a scroll position that
+              drifts as you go. `aria-hidden` because it is geometry, not
+              content — and `aria-rowcount`/`aria-rowindex` on the table
+              below keep the true row count reachable. */}
+          {rowWindow.padTop > 0 ? (
+            <tr aria-hidden="true" className="ds-table__spacer">
+              <td
+                colSpan={columns.length}
+                style={{ height: rowWindow.padTop, padding: 0, border: 0 }}
+              />
+            </tr>
+          ) : null}
+          {visible.map((row, vi) => {
+            const i = vi + windowOffset;
             const interactive = typeof onRowClick === "function";
             const stableIndex = originalIndex.get(row) ?? i;
             const extraClass = rowClassName ? rowClassName(row, i) : "";
+            const beforeNode = renderBeforeRow ? renderBeforeRow(row, i) : null;
+            const afterNode = renderAfterRow ? renderAfterRow(row, i) : null;
             return (
               <Fragment key={getKey(row, stableIndex)}>
-              {renderBeforeRow ? renderBeforeRow(row, i) : null}
+              {beforeNode}
               <tr
+                aria-rowindex={rowWindow.windowed ? i + 2 : undefined}
+                ref={(el) => rowWindow.measure(i, el)}
                 className={
                   [interactive ? "ds-table__row--interactive" : "", extraClass]
                     .filter(Boolean)
@@ -484,10 +575,18 @@ export function DataTable({
                   );
                 })}
               </tr>
-              {renderAfterRow ? renderAfterRow(row, i) : null}
+              {afterNode}
               </Fragment>
             );
           })}
+          {rowWindow.padBottom > 0 ? (
+            <tr aria-hidden="true" className="ds-table__spacer">
+              <td
+                colSpan={columns.length}
+                style={{ height: rowWindow.padBottom, padding: 0, border: 0 }}
+              />
+            </tr>
+          ) : null}
         </tbody>
       </table>
       {/* polite announcement of sort changes for screen readers */}

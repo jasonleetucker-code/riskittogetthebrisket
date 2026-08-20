@@ -59,7 +59,7 @@ const TEXTS = [
   ["--text-disabled", "disabled · decorative"],
 ];
 const ACCENTS = [
-  ["--accent", "accent (signal blue)"],
+  ["--accent", "accent (franchise gold)"],
   ["--accent-hover", "hover"],
   ["--accent-pressed", "pressed"],
   ["--accent-muted", "muted wash"],
@@ -108,9 +108,9 @@ export default function DesignGallery() {
   return (
     <div className={styles.page}>
       <PageHeader
-        eyebrow="Redesign R0"
+        eyebrow="Design system"
         title="Design system"
-        description="Terminal: near-black cool neutrals, one signal-blue accent, market direction on a CVD-validated blue/orange pair, mono everywhere. Every ramp and component state on this page is the live system."
+        description="Premium Sports Intelligence: near-black cool neutrals, ONE franchise-gold accent reserved for interactive and identity roles, market direction on a CVD-validated blue/orange pair, near-zero radii, data in a tabular mono face. Every ramp and component state on this page is the live system — if it renders here, it is what ships."
         actions={<Badge tone="outline">docs/DESIGN-SYSTEM.md</Badge>}
       />
 

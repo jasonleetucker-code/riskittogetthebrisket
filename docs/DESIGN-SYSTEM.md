@@ -1,6 +1,30 @@
-# Design System — Redesign R0 Foundation
+# Design System — Premium Sports Intelligence
 
-**Status:** R0 shipped (tokens + component library + `/design` reference).
+> **DIRECTION RESOLVED — 2026-08-18 (`OD-05`).** This document described the
+> **"War-room terminal"** direction, which
+> `docs/PREMIUM_SPORTS_INTELLIGENCE_DESIGN_NORTH_STAR.md` supersedes "where
+> they conflict", and which `docs/C_SERIES_SCOPE_MANIFEST.md` recorded as an
+> open CONFLICT with the live tokens.
+>
+> Audited, the conflict was **narrow**. Near-zero radii (2/2/3px), thin
+> rules, shadows only for true overlays, elevation by surface lightness,
+> tabular numerals, the disciplined type scale and the CVD-validated chart
+> order are all things the north star asks for and all already shipped — so
+> they are unchanged, and §1 below still describes them accurately.
+>
+> **What changed is the accent.** The terminal pass deleted the franchise
+> colours and installed a structural signal-blue; Premium Sports
+> Intelligence asks for a "premium professional sports identity" with
+> "front-office credibility", so the franchise gold is back as the one
+> accent. That also **ends a doc/code split rather than creating one**: §1
+> below never stopped saying gold, while `tokens.css` shipped blue.
+>
+> Read §1's "War-room terminal" heading as historical framing. Its colour
+> reasoning — gold-on-near-black as the authoritative move, gold reserved
+> for interactive and identity roles and never a content wash, market
+> semantics over casino colours — is the reasoning that is back in force.
+
+**Status:** shipped (tokens + component library + `/design` reference).
 **Territory:** `frontend/app/tokens.css`, `frontend/app/ds.css`,
 `frontend/components/ds/*`, `frontend/app/design/*`, plus two surgical edits
 (font loading in `app/layout.jsx`, imports + font-stack wiring in

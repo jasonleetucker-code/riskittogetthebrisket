@@ -22,6 +22,7 @@ const {
   desktopOnly,
   gotoRankingsBoard,
   attachConsoleGuards,
+  boardRowCount,
   pageUrl,
 } = require("../helpers/journey");
 
@@ -227,7 +228,15 @@ test.describe("journey: settings source toggles", () => {
       .catch(() => null);
 
     const rows = await gotoRankingsBoard(page);
-    expect(await rows.count()).toBeGreaterThan(50);
+    // WINDOWED BOARD: `rows.count()` counts MOUNTED rows, and since #912
+    // the board mounts roughly a viewport's worth (~28) instead of all
+    // ~1,100.  Asserting >50 mounted rows would now fail on a correct
+    // board.  `boardRowCount` reads the table's published `aria-rowcount`,
+    // which is the true logical total — the quantity this assertion was
+    // always about.  `rows.count() > 0` keeps the separate claim that
+    // something is actually on screen.
+    expect(await boardRowCount(page)).toBeGreaterThan(50);
+    expect(await rows.count(), "no board rows mounted").toBeGreaterThan(0);
 
     const rehydrateResponse = await rehydrateOverrides;
     expect(

@@ -392,13 +392,47 @@ async function gotoRankingsBoard(page, { minRows = 50 } = {}) {
     err.message = `${err.message}\n\n[board diagnostic] ${diag}${seen}`;
     throw err;
   }
+  // BOARD SIZE, not mounted-row count.
+  //
+  // These assertions exist to catch a board that came back with two rows
+  // — a broken pipeline, a filtered-to-nothing payload, a fail-fast
+  // materializer.  Counting <tr> elements answered that question only
+  // while every row was mounted.  The board is now windowed, so the DOM
+  // holds ~40 rows at any scroll position by design, and a count-based
+  // assertion would report the FEATURE as the failure.
+  //
+  // `aria-rowcount` is the true total the table publishes for exactly
+  // this reason (screen readers have the same problem).  When it is
+  // absent the table is not windowed and the DOM count is still the
+  // honest answer — so both paths are covered rather than one being
+  // relaxed away.
   await expect
-    .poll(() => rows.count(), {
-      message: `rankings board should render at least ${minRows} rows`,
+    .poll(() => boardRowCount(page), {
+      message: `rankings board should hold at least ${minRows} rows`,
       timeout: 30_000,
     })
     .toBeGreaterThanOrEqual(minRows);
+  // And something must actually be on screen: a correct `aria-rowcount`
+  // over an empty tbody would satisfy the check above.
+  await expect
+    .poll(() => rows.count(), { message: "no board rows are mounted", timeout: 30_000 })
+    .toBeGreaterThan(0);
   return rows;
+}
+
+/**
+ * How many rows the board HOLDS, windowed or not.
+ *
+ * `aria-rowcount` counts the header row, so the body total is one less.
+ */
+async function boardRowCount(page) {
+  return page.evaluate(() => {
+    const table = document.querySelector(".ds-table-wrap table");
+    if (!table) return 0;
+    const declared = table.getAttribute("aria-rowcount");
+    if (declared != null) return Math.max(0, Number(declared) - 1);
+    return table.querySelectorAll("tbody tr.rankings-row-clickable").length;
+  });
 }
 
 /** Visible player names on the board, in render order. */
@@ -571,6 +605,7 @@ module.exports = {
   desktopOnly,
   mobileOnly,
   gotoRankingsBoard,
+  boardRowCount,
   boardPlayerNames,
   pageHeading,
   contractFixture,

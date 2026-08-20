@@ -18,6 +18,7 @@ const {
   desktopOnly,
   gotoRankingsBoard,
   boardPlayerNames,
+  boardRowCount,
   expectNoBadValueTokens,
   attachConsoleGuards,
 } = require("../helpers/journey");
@@ -31,8 +32,16 @@ test.describe("journey: rankings board", () => {
 
     // Structure, not names: every visible row has a non-empty player
     // name and a position token.
+    //
+    // The >= 50 belongs on the board's SIZE, not on the number of names
+    // in the DOM. The table is windowed, so it mounts a viewport's worth
+    // of rows by design — asserting on mounted names would report the
+    // feature as the failure, and quietly lowering the number would stop
+    // this test noticing a board that came back with two rows.
+    // journey.js::boardRowCount reads the table's own `aria-rowcount`.
+    expect(await boardRowCount(page)).toBeGreaterThanOrEqual(50);
     const names = await boardPlayerNames(page);
-    expect(names.length).toBeGreaterThanOrEqual(50);
+    expect(names.length, "no player names rendered").toBeGreaterThan(0);
     expect(names.every((n) => n.trim().length > 0)).toBeTruthy();
 
     // Rank column (#) counts up from 1 on the default sort.
@@ -80,7 +89,12 @@ test.describe("journey: rankings board", () => {
 
   test("position filter narrows the board to one position", async ({ authedPage: page }) => {
     const rows = await gotoRankingsBoard(page);
-    const totalBefore = await rows.count();
+    // Board SIZE on both sides of the comparison. Mounted counts would
+    // compare two viewports rather than two boards: a windowed table
+    // mounts ~30 rows whether the board behind it holds 1,100 or 60, so
+    // "the filter narrowed it" could read as false while the filter
+    // worked perfectly.
+    const totalBefore = await boardRowCount(page);
 
     // The position <select> is the first select in the filter bar.
     await page.locator(SEL.posSelect).first().selectOption("QB");
@@ -95,14 +109,16 @@ test.describe("journey: rankings board", () => {
       }, { message: "QB filter should leave only QB rows", timeout: 15_000 })
       .toMatch(/^qb-only:/);
 
-    const totalAfter = await rows.count();
+    const totalAfter = await boardRowCount(page);
     expect(totalAfter).toBeGreaterThan(0);
     expect(totalAfter).toBeLessThan(totalBefore);
+    // And something is actually painted, which the size alone does not say.
+    expect(await rows.count(), "QB board mounted no rows").toBeGreaterThan(0);
 
     // Reset back to All restores a bigger board.
     await page.locator(SEL.posSelect).first().selectOption("all");
     await expect
-      .poll(() => rows.count(), { timeout: 15_000 })
+      .poll(() => boardRowCount(page), { timeout: 15_000 })
       .toBeGreaterThan(totalAfter);
   });
 
@@ -128,7 +144,11 @@ test.describe("journey: rankings board", () => {
       .toBe("filtered");
 
     await page.locator(SEL.searchInput).fill("");
-    await expect.poll(() => rows.count(), { timeout: 15_000 }).toBeGreaterThan(10);
+    // Board size again: clearing the search restores the whole board,
+    // and ">10 mounted" would also pass on a board of eleven rows.
+    await expect
+      .poll(() => boardRowCount(page), { timeout: 15_000 })
+      .toBeGreaterThan(10);
   });
 
   test("player popup opens with value + source breakdown", async ({ authedPage: page }) => {

@@ -78,7 +78,7 @@ function ShellChrome({ children }) {
   // INSIDE AppShell so the search affordances can reach it.
   return (
     <AppShellSearchBridge>
-      {(openSearch) => (
+      {(openSearch, searchEnabled) => (
         <>
           <a href="#main" className="shell-skip-link">
             Skip to content
@@ -88,9 +88,14 @@ function ShellChrome({ children }) {
             isAdmin={isAdmin}
             isPublic={isPublicRoute}
             onSearch={openSearch}
+            searchEnabled={searchEnabled}
             onLogout={logout}
           />
-          <MobileTopBar authenticated={authenticated} onSearch={openSearch} />
+          <MobileTopBar
+            authenticated={authenticated}
+            onSearch={openSearch}
+            searchEnabled={searchEnabled}
+          />
           <StaleDataBanner />
           <RouteFocusManager mainRef={mainRef} />
           <main
@@ -116,10 +121,13 @@ function ShellChrome({ children }) {
 
 // Small bridge so the chrome (rendered inside AppShell) can hand the
 // context's openSearch down to both nav bars without re-importing
-// useApp in every shell component.
+// useApp in every shell component.  It also carries `searchEnabled`,
+// because whether search WORKS is AppShell's answer to give — the nav
+// bars cannot derive it from `authenticated` alone (a signed-in user on
+// /league is authenticated and still has no contract to search).
 function AppShellSearchBridge({ children }) {
-  const { openSearch } = useApp();
-  return children(openSearch);
+  const { openSearch, searchEnabled } = useApp();
+  return children(openSearch, searchEnabled);
 }
 
 // ── Main shell wrapper ───────────────────────────────────────────────────
