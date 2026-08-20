@@ -45,8 +45,12 @@ def _claim(**kw):
 
 
 def _entry(**kw) -> LedgerEntry:
-    claim_kwargs = {k: v for k, v in kw.items() if k not in ("extraction_confidence", "parser_version")}
-    envelope_kwargs = {k: v for k, v in kw.items() if k in ("extraction_confidence", "parser_version")}
+    claim_kwargs = {
+        k: v for k, v in kw.items() if k not in ("extraction_confidence", "parser_version")
+    }
+    envelope_kwargs = {
+        k: v for k, v in kw.items() if k in ("extraction_confidence", "parser_version")
+    }
     return LedgerEntry(claim=_claim(**claim_kwargs), **envelope_kwargs)
 
 

@@ -175,12 +175,8 @@ class TestIndependenceReuse:
             source=C.SourceRef(analyst_id="analyst:mattie", content_id="yt:1", platform="youtube"),
             said_at=NOW + dt.timedelta(hours=2),
         )
-        write_claims(
-            [LedgerEntry(claim=podcast), LedgerEntry(claim=youtube_cut)], path=path
-        )
-        independent = independent_claims_as_of(
-            "player:4034", NOW + dt.timedelta(days=1), path=path
-        )
+        write_claims([LedgerEntry(claim=podcast), LedgerEntry(claim=youtube_cut)], path=path)
+        independent = independent_claims_as_of("player:4034", NOW + dt.timedelta(days=1), path=path)
         assert len(independent) == 1
 
 
