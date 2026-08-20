@@ -28,7 +28,8 @@ import { useLeague } from "@/components/useLeague";
 import { useTeam } from "@/components/useTeam";
 import { useSettings } from "@/components/useSettings";
 import { useWaiverAnalysis } from "@/components/useWaiverAnalysis";
-import { waiverBidForRow } from "@/lib/waiver-faab";
+import { waiverBidStateForRow } from "@/lib/waiver-faab";
+import WaiverBidFigure from "@/components/waivers/WaiverBidFigure";
 import styles from "./waivers.module.css";
 
 // ── /waivers — the claim desk ─────────────────────────────────────────
@@ -166,14 +167,18 @@ function SummaryTiles({ summary, includeRookies }) {
 }
 
 /**
- * The backend-stamped FAAB bid for a move's add side, or null.
+ * The backend-stamped FAAB bid for a move's add side, as a STATE.
+ *
+ * Returns ``{state, bid, label, reason}`` — never a bare null, because
+ * "no bid" had four distinct causes and the board used to render all
+ * of them as one ``—``.  See ``waiverBidStateForRow``.
  *
  * Bids are produced by ``src/trade/faab_engine.py`` and reach the
  * client on ``/api/waiver/suggestions`` candidate rows as
  * ``bid: {aggressive, reasonable, lowball}`` (see
  * ``WaiverCandidate.to_dict``).  There is deliberately NO fallback
- * computation: this page renders what the backend stamped or renders
- * nothing, per the no-client-side-valuation rule.
+ * computation: this page renders what the backend stamped or says it
+ * has none, per the no-client-side-valuation rule.
  *
  * Two sources, in order:
  *   1. a bid already carried on the move/row — kept because it costs
@@ -185,30 +190,10 @@ function SummaryTiles({ summary, includeRookies }) {
  */
 function backendBid(move, faabIndex) {
   const stamped = move?.bid || move?.add?.bid || move?.add?.raw?.bid;
-  if (stamped && typeof stamped === "object") return stamped;
-  return waiverBidForRow(faabIndex, move?.add);
-}
-
-function fmtBackendBid(dollars) {
-  const n = Number(dollars);
-  return Number.isFinite(n) ? `$${Math.round(n).toLocaleString()}` : "—";
-}
-
-/**
- * Headline the reasonable bid; hold the aggressive/lowball ends in the
- * cell tooltip.  Same density trick the /rankings Fund-gap column
- * uses — a compact numeric column stays one number wide, and the
- * supporting figures are a hover away.
- */
-function FaabBidCell({ bid }) {
-  if (!bid || !Number.isFinite(Number(bid.reasonable))) {
-    return <span className="muted">—</span>;
+  if (stamped && typeof stamped === "object" && Number.isFinite(Number(stamped.reasonable))) {
+    return { state: "priced", bid: stamped, label: "", reason: "" };
   }
-  const title =
-    `Reasonable ${fmtBackendBid(bid.reasonable)} · ` +
-    `aggressive ${fmtBackendBid(bid.aggressive)} · ` +
-    `lowball ${fmtBackendBid(bid.lowball)}`;
-  return <span title={title}>{fmtBackendBid(bid.reasonable)}</span>;
+  return waiverBidStateForRow(faabIndex, move?.add);
 }
 
 function BestMovesPanel({ moves, faabIndex }) {
@@ -225,7 +210,18 @@ function BestMovesPanel({ moves, faabIndex }) {
         key: "add",
         header: "Add",
         accessor: (m) => m.add?.name,
-        render: (m) => <PlayerCell row={m.add} isRookie={m.isRookie} />,
+        // The FAAB column below carries `hideBelow: "md"`, so on a
+        // phone it is `display: none` and the board showed no bid at
+        // all — beside a page that still offers a bid-posture control.
+        // This chip is that breakpoint's surface for the SAME number,
+        // rendered by the same component, and is itself hidden at >= md
+        // so desktop is unchanged and the figure never doubles up.
+        render: (m) => (
+          <>
+            <PlayerCell row={m.add} isRookie={m.isRookie} />
+            <WaiverBidFigure entry={backendBid(m, faabIndex)} inline />
+          </>
+        ),
       },
       {
         key: "drop",
@@ -247,12 +243,12 @@ function BestMovesPanel({ moves, faabIndex }) {
         numeric: true,
         hideBelow: "md",
         accessor: (m) => {
-          const v = Number(backendBid(m, faabIndex)?.reasonable);
+          const v = Number(backendBid(m, faabIndex)?.bid?.reasonable);
           return Number.isFinite(v) ? v : null;
         },
-        render: (m) => <FaabBidCell bid={backendBid(m, faabIndex)} />,
+        render: (m) => <WaiverBidFigure entry={backendBid(m, faabIndex)} />,
         headerInfo:
-          "The recommender's reasonable bid, stamped by the backend FAAB engine — hover a figure for the aggressive and lowball ends. Blank when the backend priced no bid for that player (its board is capped per position); pick the pair in the bid desk above for a full recommendation.",
+          "The FAAB engine's bid ladder for this player, stamped by the backend: the headline is the reasonable rung, with the lowball and aggressive ends alongside. It is derived from the player's objective ceiling — what he is WORTH as a share of the league's original budget — and is not team-specific. For a recommendation that accounts for your balance, your drop side and your bid posture, use the bid desk above; posture shapes that answer, not this ladder. A row with no figure says why instead of going blank.",
       },
       {
         key: "tier",
