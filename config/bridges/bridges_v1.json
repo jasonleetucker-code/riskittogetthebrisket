@@ -1,0 +1,54 @@
+{
+  "_comment": [
+    "DECLARED cross-position bridges. A bridge says what an IDP is worth against",
+    "offense; a specialist says only which IDP is better than which other IDP.",
+    "",
+    "This file declares identity, family and evidence. It confers NO capability:",
+    "whether a bridge can actually seed a ladder is measured from the board that",
+    "arrived (src/bridges/descriptor.py::measure_capability), because the flag it",
+    "replaces could be moved onto a source that cannot seed one -- see",
+    "tests/consensus_edge/test_fair_value.py::TestTheGuardIsACapabilityNotAFlag.",
+    "",
+    "comparability is evidence-gated and fails closed. PENDING never votes.",
+    "",
+    "A bridge is a FAMILY, not a key: a vendor whose offense and IDP halves are",
+    "registered under different keys is still one cross-position source, and the",
+    "single-key rule this replaces made Draft Sharks invisible as a bridge."
+  ],
+  "version": "bridges_v1",
+  "bridges": [
+    {
+      "bridgeKey": "idpTradeCalc",
+      "displayName": "IDP Trade Calculator",
+      "family": "idpTradeCalc",
+      "kind": "CARDINAL",
+      "offenseKeys": ["idpTradeCalc"],
+      "idpKeys": ["idpTradeCalc"],
+      "comparability": "QUALIFIED",
+      "comparabilityEvidence": "One native 0-9999 board. The vendor is a full-roster trade calculator publishing offense, IDP and picks against one another on a single scale, so offense and IDP are the same quantity by construction rather than by comparison. Measured on the 2026-08-20 board: 434 positive offense values and 370 positive IDP values under one key.",
+      "notes": "The incumbent ladder seed, and until this unit the only capable bridge."
+    },
+    {
+      "bridgeKey": "draftSharks",
+      "displayName": "Draft Sharks Dynasty 3D+",
+      "family": "draftSharks",
+      "kind": "CARDINAL",
+      "offenseKeys": ["draftSharks"],
+      "idpKeys": ["draftSharksIdp"],
+      "comparability": "QUALIFIED",
+      "comparabilityEvidence": "Both halves come from ONE league-scored session (league 995704, scripts/fetch_draftsharks.py), split only by the vendor page's own position filter, so they are one board read twice rather than two boards. Tested rather than assumed: regressing 3D Value + on 3yr. Proj within each position family gives an offense mean slope of 0.09610 and an IDP mean of 0.09586, a ratio of 0.9976, with the spread WITHIN each pool (QB 0.074 to TE 0.126; DL 0.058 to DB 0.130) larger than the difference BETWEEN them. One point of projection surplus is worth the same amount of 3D Value + on either side, which is what makes the scale cross-position. Evidence: docs/sources/CROSS_POSITION_SOURCE_AND_IDP_CEILING_AUDIT_2026-08-20.md section 12.",
+      "notes": "Invisible to the retired single-key rule: its IDP key carries zero offense values, so measured alone it yields the identity ladder."
+    },
+    {
+      "bridgeKey": "dynastyDealer",
+      "displayName": "Dynasty Dealer",
+      "family": "dynastyDealer",
+      "kind": "CARDINAL",
+      "offenseKeys": ["dynastyDealer"],
+      "idpKeys": ["dynastyDealerIdp"],
+      "comparability": "PENDING",
+      "comparabilityEvidence": "CORRECTED 2026-08-20 -- the format question is SETTLED, not blocking: the endpoint serves one board and it is already Superflex + TE Premium, confirmed against the live UI (Josh Allen #4 / 9,495, Brock Bowers #8 / 8,611, exact on rank and value). isSuperflex/isTePremium are inert here because sf is a REDRAFT parameter; on ?format=redraft it changes 623 of 1,000 values. The IDP scoring variant is settled too: every IDP row carries idp_formats {tackle, balanced, bigplay} with per-variant trades and source, and the served current_value is idp_format blended. ONE blocker remains, and it is temporal: offense carries 33 distinct updated_at dates with 46.2% of rows voted, while every IDP row shares one 2026-07-15 stamp with 0% voted and base_value identical to current_value. Whether the IDP trade population is Superflex/TEP is not stated in the payload. Full record: docs/sources/LANE8_PR_A_BRIDGE_FOUNDATION.md section 7a.",
+      "notes": "Declared so its refusal is visible and its qualification has somewhere to land. Its source keys are not registered yet (PR D), so it also measures as uncovered."
+    }
+  ]
+}

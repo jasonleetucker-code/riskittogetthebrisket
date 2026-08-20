@@ -237,6 +237,62 @@ class TestAcquisitionGatesTheBridge:
         assert assessment.usable is False
 
 
+class TestMissingRankOrValueIsNeverCoerced:
+    """MISSING IS NEVER ZERO, applied to bridge measurement.
+
+    A row that carries no value under any of the bridge's declared keys — the
+    vendor never priced this player, or the field is ``None`` / a string —
+    must not enter the combined pool at all, and must not be silently
+    treated as worth 0.  Coercing it would let an unpriced row's absence
+    masquerade as the WORST real value, dragging the ladder and possibly
+    manufacturing a ladder depth that does not correspond to anything the
+    vendor actually published.
+    """
+
+    def test_a_row_with_no_declared_key_present_is_excluded_not_zeroed(self) -> None:
+        rows = _two_key_board() + [
+            {"displayName": "Unpriced Off", "position": "QB", "canonicalSiteValues": {}},
+            {"displayName": "Unpriced Def", "position": "LB", "canonicalSiteValues": {}},
+        ]
+        cap = measure_capability(_descriptor(), rows, offense_positions=OFFENSE, idp_positions=IDP)
+        # Unchanged from the six-row fixture: the two unpriced rows contribute
+        # to neither offense_values nor idp_values nor the ladder.
+        assert cap.offense_values == 3
+        assert cap.idp_values == 3
+        assert cap.combined_depth == 6
+
+    def test_an_explicit_none_value_is_excluded_not_zeroed(self) -> None:
+        rows = _two_key_board() + [
+            {
+                "displayName": "Null Def",
+                "position": "DL",
+                "canonicalSiteValues": {"vendorIdp": None},
+            },
+        ]
+        cap = measure_capability(_descriptor(), rows, offense_positions=OFFENSE, idp_positions=IDP)
+        assert cap.idp_values == 3
+        assert cap.combined_depth == 6
+
+    def test_a_zero_value_is_excluded_the_same_way_as_missing(self) -> None:
+        """A vendor-published literal 0 and a missing value look identical here.
+
+        ``measure_capability`` filters on ``> 0.0`` for the same reason the
+        rest of the pipeline treats non-positive as absent: this module has
+        no way to distinguish "the vendor said zero" from "the vendor said
+        nothing", so it must not manufacture a ladder rank for either.
+        """
+        rows = _two_key_board() + [
+            {
+                "displayName": "Zero Def",
+                "position": "DB",
+                "canonicalSiteValues": {"vendorIdp": 0.0},
+            },
+        ]
+        cap = measure_capability(_descriptor(), rows, offense_positions=OFFENSE, idp_positions=IDP)
+        assert cap.idp_values == 3
+        assert cap.combined_depth == 6
+
+
 class TestOneFamilyIsOneOpinion:
     def test_a_second_bridge_from_one_family_does_not_count_twice(self) -> None:
         first = _descriptor(bridge_key="vendorA")
