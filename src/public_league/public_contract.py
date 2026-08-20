@@ -357,26 +357,29 @@ def _build_overview(snapshot: PublicLeagueSnapshot, sections: dict[str, Any]) ->
 
 def _build_activity_section(
     snapshot: PublicLeagueSnapshot,
-    activity_valuation: Callable[[dict[str, Any]], float] | None,
+    activity_valuation: activity._ResolverFactory | None,
 ) -> dict[str, Any]:
     if activity_valuation is None:
         return activity.build_section(snapshot)
-    return activity.build_section(snapshot, valuation=activity_valuation)
+    return activity.build_section(snapshot, valuation_factory=activity_valuation)
 
 
 def build_section_payload(
     snapshot: PublicLeagueSnapshot,
     section: str,
     *,
-    activity_valuation: Callable[[dict[str, Any]], float] | None = None,
+    activity_valuation: activity._ResolverFactory | None = None,
 ) -> dict[str, Any]:
     """Build a single public-section payload, wrapped in the standard header.
 
     ``activity_valuation`` (optional) enables server-side trade-grade
-    computation on the activity feed.  When supplied it must be a
-    callable that takes a received-asset dict and returns a numeric
-    value; only the derived grade letter/label is emitted — raw
-    values never leave the backend.
+    computation on the activity feed, graded AS OF each trade's own
+    timestamp (V1-97 / C3-REPLAY-01) rather than today's board.  When
+    supplied it must be a resolver FACTORY — see
+    ``src.api.public_activity_valuation.build_asof_valuation`` and
+    ``activity.build_section``'s docstring for the exact shape.  Only
+    the derived grade letter/label is emitted — raw values never leave
+    the backend.
 
     Raises ``KeyError`` if ``section`` is unknown.
     """
@@ -421,7 +424,7 @@ def build_section_payload(
 def build_public_contract(
     snapshot: PublicLeagueSnapshot,
     *,
-    activity_valuation: Callable[[dict[str, Any]], float] | None = None,
+    activity_valuation: activity._ResolverFactory | None = None,
 ) -> dict[str, Any]:
     """Assemble the full public contract: every section + header.
 
