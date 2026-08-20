@@ -1,7 +1,7 @@
 {
   "_comment": "Lane utilization state, owned by Claude 7 (Lane Dispatcher). NOT an authority on integration sequencing (Claude 5 / docs/EXECUTION_PLAN.md), on V1 status (docs/VERSION_1_COMPLETION_CONTRACT.md) or on canonical ownership (CLAUDE.md). Repository evidence outranks this file: where they disagree, this file is wrong and must be corrected.",
-  "updatedAt": "2026-08-20T22:50:00Z",
-  "dispatchCycle": 53,
+  "updatedAt": "2026-08-20T23:20:00Z",
+  "dispatchCycle": 54,
   "writePolicy": "This file and ASSIGNMENTS.json are written ONLY on a material state transition — new assignment, assignment accepted, completion, blocker, freeze/unfreeze, or a meaningful dependency change. A heartbeat that finds nothing changed produces no commit and no CI run.",
   "evidenceBasis": "origin/main 079fc9e4a; §3 diffed row-by-row from cycle-19 main (c5a367266); all refs resolved live; #945 CI green 04:57:35Z",
   "assignmentSourceNote": "Lanes 1-6 carry the owner's original six manual assignments, tracked in detail by this dispatcher. Lanes 8-13 are five additional owner-authorized campaign lanes (Claude 8 chartered 2026-08-20; Claude 9-13 chartered the same day under the POST-V1 C-Series mass-build campaign, EXECUTION_PLAN.md §0). This dispatcher did not originate any of these eleven assignments and does not own or re-scope them. Lanes 8-13 are tracked here only lightly — ownership boundaries and authorization citation — because they are self-directed under their own charter, unlike lanes 1-6 which this dispatcher actively monitors for idleness and dispatches follow-on work to. There is no lane 7: Claude 7 is the dispatcher identity, per dispatcherIdentity above.",
@@ -251,13 +251,13 @@
     "_staleByConstruction": true,
     "_ifTheyDisagree": "the contract wins, always, and this block is the thing that is wrong.",
     "_doNotQuote": "Do not cite this block as the V1 status. Read the contract on current main instead.",
-    "observedVerifiedRows": 61,
+    "observedVerifiedRows": 63,
     "observedRequiredRows": 136,
-    "observedAtSha": "04729d7a7",
-    "observedAt": "2026-08-20T22:46:00Z",
+    "observedAtSha": "22909d780",
+    "observedAt": "2026-08-20T23:17:00Z",
     "howObserved": "counted VERIFIED in the §3 table at that exact SHA; independently summed all statuses to 136 and confirmed the contract’s own table and completion line agree",
     "denominatorChangedAtThisSha": "YES — 132 -> 136. See cycle26Transitions.",
-    "note": "Main still 61/136. #999 (open, unmerged) proposes V1-108 + V1-88 VERIFIED -> 63/136."
+    "note": "V1-88 and V1-108 both promoted VERIFIED via #999 (sixth promotion pass this session, after #947/#963/#972/#988/#998). V1-111 bumped to IMPLEMENTED_UNVERIFIED."
   },
   "canonicalOwnerRule": "This dispatcher previously carried a `v1` block with verified/percent fields that read as authoritative, and it DRIFTED — PR #945 declared 48/132 while the contract on main said 55/132. That is a second owner of the numerator forming inside a coordination record, which is the exact defect class this dispatcher has spent the session flagging in other lanes. Corrected on integration review: the fields are renamed to name themselves derived, carry the SHA they were read at, and declare the contract the winner in any disagreement.",
   "correction_C24": {
@@ -365,31 +365,28 @@
     "verifiedTheNewGuardExists": "Confirmed on current main: src/api/flag_reachability.py and tests/api/test_feature_flag_endpoint_reachability.py both present, containing test_reintroducing_the_exact_f26_defect_fails_the_guard among five tests — exactly the guard class the refutation itself specified as what would satisfy L1 ('a guard that resolves flag -> gate call site -> enclosing function -> route handler').",
     "theGap": "The refutation's test list does not include the new file, because it could not have — the new file did not exist on main yet when the refutation was written. Nobody has re-run the row's own check against the post-#991 tree, so the row still reads REFUTED against a fix that has since landed.",
     "dispatcherAction": "REPORTED ONLY. Re-verifying and promoting V1-88 is Integration's act, not this dispatcher's. Flagging precisely so it isn't missed: the row is stale in a specific, checkable way, not merely old.",
-    "theClassOfDefect": "Same shape as every correction logged in this record all session — a snapshot that was true when taken and now reads as current fact. The lesson from #945/#967 applies here too, just to someone else's file: date-stamp a refutation the same way a promotion is date-stamped, or it silently outlives what it refutes."
+    "theClassOfDefect": "Same shape as every correction logged in this record all session — a snapshot that was true when taken and now reads as current fact. The lesson from #945/#967 applies here too, just to someone else's file: date-stamp a refutation the same way a promotion is date-stamped, or it silently outlives what it refutes.",
+    "resolved": {
+      "outcome": "CONFIRMED LANDED. #999 merged as fc35419a9. Row-diffed §3 cycle51-baseline -> 22909d780: V1-88 IMPLEMENTED_UNVERIFIED -> VERIFIED, V1-108 IMPLEMENTED_UNVERIFIED -> VERIFIED (same PR promoted both), V1-111 NOT STARTED -> IMPLEMENTED_UNVERIFIED.",
+      "timeline": "Finding flagged cycle 49 (~20:50Z) -> promotion commit 53d3cdc7b at 20:54:32Z (cycle 53, read directly off the Integration branch) -> #999 merged 2026-08-20 18:44:48 -0400 (cycle 54).",
+      "closingNote": "The stale-refutation class of defect — a snapshot true when taken, read as current fact after its own premise changed — is now demonstrated closing the loop this record predicted for it: flagged, then corrected by the party who owns the file, without this dispatcher touching §3 itself."
+    }
   },
-  "cycle53_v188_resolution": {
-    "_significance": "The V1-88 stale-refutation finding flagged at cycle 49 appears to have been directly acted on.",
-    "evidence": "Commit 53d3cdc7b on the Integration authority branch, 20:54:32Z: 'V1-108 and V1-88 VERIFIED (63/136); repair the Sharp smoke deploy classifier (#995)'. This is chronologically AFTER cycle 49's finding (posted ~20:50Z that same session) and directly promotes both rows this dispatcher had been tracking — V1-88 specifically for the exact reason flagged (the refutation predated the guard that answers it).",
-    "currentState": "NOT YET ON MAIN. The commit lives on PR #999 (open), currently at 3f8390134 — a follow-up commit fixing ruff format/lint failures in the #995 test file, layered on top of the promotion commit. Main remains at 61/136 until #999 merges.",
-    "dispatcherAction": "Reported and tracked, not claimed as landed. Will confirm via row-diff once #999 merges."
-  },
-  "cycle53Transitions": {
-    "mainTip": "04729d7a7 (was c99098552)",
+  "cycle54Transitions": {
+    "mainTip": "22909d780 (was 04729d7a7)",
     "myOwnPr": {
       "pr": "#1000",
-      "head": "6c9a300c0 — unchanged",
-      "verdict": "Validate PR SUCCESS, job 96594148930, 17m45s — re-confirmed, no new comments."
+      "head": "22674023d — unchanged",
+      "verdict": "Validate PR SUCCESS, job 96606890449, 22:44:48Z -> 23:02:46Z (17m58s)."
     },
     "merged": [
-      "#1007 — V1-32: re-verify frontend consumption is not required; refresh L2 evidence (roster verification pack + offline verify script, no frontend code)"
+      "#999 — V1-88 + V1-108 VERIFIED (63/136); Sharp smoke deploy classifier; PSI status truth"
     ],
     "rowDiff": {
-      "method": "§3 diffed for a contract-file touch across c99098552 -> 04729d7a7",
-      "result": "NONE. #1007 touched only evidence docs and a verification script, not §3 itself — V1-32 stays IN PROGRESS on main."
+      "method": "§3 row-diffed cycle-51 baseline -> 22909d780",
+      "result": "THREE changes: V1-88 -> VERIFIED, V1-108 -> VERIFIED, V1-111 NOT STARTED -> IMPLEMENTED_UNVERIFIED (a status bump, not a promotion).",
+      "selfConsistency": "Independent count 63+19+21+31+2=136; contract's own table and completion line read 63/136=46.3%, agreeing."
     },
-    "integrationAuthorityBranchReadDirectly": {
-      "finding": "V1-108 and V1-88 VERIFIED (63/136) written at commit 53d3cdc7b, now PR #999 (open). Also present: 'Fix the ruff format + lint failures in my own #995 test file' (3f8390134) — the same self-correcting discipline this record has practiced all session, applied by Integration to its own promotion PR.",
-      "notYetMerged": "#999 is open; main unaffected until it lands."
-    }
+    "sixthPromotionPassThisSession": "After #947, #963, #972, #988, #998 — this is the sixth Integration promotion pass tracked across the full session, and the second to promote two rows in one PR (after #947)."
   }
 }
