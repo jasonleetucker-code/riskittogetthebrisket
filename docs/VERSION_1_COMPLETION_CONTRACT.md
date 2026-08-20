@@ -178,7 +178,7 @@ Projections · **L4** Market / FAAB / Analyst · **L5** Integration / QA / CI / 
 | V1-36 | ONE shared package generator | `C3-PKG-01` / `C3-U1` | L2 | `NOT STARTED` | L2 | named V1 scope. 4 generators to retire |
 | V1-37 | ONE Value Adjustment per runtime, parity proven | `C3-VA-01` / `C3-U2` / decision 70 | L2 | `NOT STARTED` | L2 | named V1 scope. 5 implementations, one via import-time monkeypatch |
 | V1-38 | KTC VA stays an explicit labelled market lens | `C3-VA-02` | L2 | `VERIFIED` | L1 | truthful semantics; already complete |
-| V1-39 | Roster capacity / forced-drop trade analysis | `C3-CAP-01` / `#843` | L2 | `IN PROGRESS` | L1 | named V1 scope. **#913** adds `src/trade/roster_capacity` as the single resolver and retires the duplicate `rosterSize` lookups in `draft/context.py` and `gameplan.py`; `None` means UNKNOWN, never unlimited |
+| V1-39 | Roster capacity / forced-drop trade analysis | `C3-CAP-01` / `#843` | L2 | `VERIFIED` | L1 | named V1 scope. **VERIFIED 2026-08-20 at Integration.** Target level **L1**. `tests/trade/test_roster_capacity.py`: **50 passed, 0 skipped**. **Single resolver confirmed by reading both former duplicates, not by trusting the claim:** `src/draft/context.py::_roster_size_for` and `src/api/gameplan.py::_roster_limit` both now import and return `src.trade.roster_capacity.league_roster_limit`, so there is one answer to "what is this league's roster cap". **Two mutations on DIFFERENT rules, each confirmed APPLIED with the changed line quoted:** (MR-39a) `roster_capacity.py:332` `return None` → `return False`, i.e. an unknown cap answering "not over the limit" ⇒ RED `test_an_unknown_cap_is_unknown_and_never_unlimited` — UNKNOWN is not unlimited; (MR-39c) `:761` restoring the retired flat subtraction `size_before - len(outgoing)` in place of `- held_out` ⇒ **2 REDs**, `test_an_outgoing_player_the_roster_does_not_hold_frees_no_spot` and `test_a_partly_held_outgoing_multiset_frees_only_what_is_held` — the defect that hid roster pressure by freeing a spot that never existed. **A latent false-green is recorded rather than left to be discovered:** two `pytest.skip` calls survive at `:836` ("fixture produced fewer than two forced drops") and `:861` ("fixture forced no drops"). They do **not** fire today — the run reports 0 skips, so the forced-drop behaviour genuinely executes — but they are conditional on FIXTURE OUTPUT rather than on fixture availability, which is the shape that silently stops testing when a fixture drifts. Unlike the availability skips elsewhere in the suite, these would hide whether the behaviour ran. Worth converting to assertions when the file is next touched |
 | V1-40 | Dropability / cut candidates consolidation | `C2-DROP-01` / `C2-U8` / inv 1.4 | L2 | `IN PROGRESS` | L2 | named V1 scope (forced drops); complete but not consolidated |
 | V1-41 | "Use Team Context" toggle, ON by default | `C3-CTX-01` / `#842` | L2 | `NOT STARTED` | L1 | named V1 scope |
 | V1-42 | Exact before→apply→re-solve→after roster simulation | `C2-SIM-01` / `C2-U3` / inv 1.3 | L2 | `NOT STARTED` | L2 | trade simulation, named V1 scope |
@@ -320,14 +320,14 @@ table already said 47, and on its first real use it caught the same drift again
 
 | status | count |
 |---|---|
-| `VERIFIED` | 54 |
+| `VERIFIED` | 55 |
 | `IMPLEMENTED_UNVERIFIED` | 20 |
-| `IN PROGRESS` | 27 |
+| `IN PROGRESS` | 26 |
 | `NOT STARTED` | 29 |
 | `BLOCKED` | 2 |
 | **denominator** | **132** |
 
-**V1 completion: 54 / 132 = 40.9%.**
+**V1 completion: 55 / 132 = 41.7%.**
 
 **Up five, and every one of them on deployed evidence rather than on a merge.**
 #910 merged at 21:29 UTC; the deploy that carried it completed at ~22:50 and the
