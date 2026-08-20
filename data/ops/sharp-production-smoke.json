@@ -1,13 +1,18 @@
 {
-  "attempts": 1,
-  "checkedAt": "2026-08-20T00:51:30.575990+00:00",
+  "attempts": 2,
+  "checkedAt": "2026-08-20T01:12:34.331449+00:00",
   "cohort": {},
   "deployConclusion": "pending",
-  "deployHeadSha": "ef9d21dac9f4cbb14db50f98d7e34ecb7dcfca08",
+  "deployHeadSha": "5bdee44dbc198fcf7ee0ef62d2a76402764f33af",
   "deployRunId": "",
   "errors": [
     {
       "attempt": 1,
+      "message": "The read operation timed out",
+      "type": "TimeoutError"
+    },
+    {
+      "attempt": 2,
       "message": "401 from https://chaseupside.com/api/sharp/cohort",
       "type": "Unauthenticated"
     }
