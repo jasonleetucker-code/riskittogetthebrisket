@@ -42,6 +42,18 @@ def fetch_schedule_rows(
     signature change that has nothing to do with what they are testing.
 
     ``cache_only=True`` is the REQUEST-PATH mode and never fetches.
+
+    SECOND CONSUMER, named because the reroute changes what it inherits:
+    ``src/playerctx/asof.py::_default_fetch_rows`` calls this WITHOUT
+    ``cache_only`` and always did — it fetched before this change too, so
+    that is not a regression, and it now gains the 24h cache and the
+    cold-cache single-flight it never had.  What is genuinely new is the
+    ``nfl_data_ingest`` feature gate: with that flag OFF this returns
+    ``[]`` where the raw downloader would still have fetched.  That is the
+    correct coupling — bypassing the nflverse flag was part of what made
+    the private downloader a second owner — and ``asof.py`` already
+    degrades softly on empty rows.  Recorded rather than changed here;
+    switching that caller to a materialised read belongs to playerctx.
     """
     from src.nfl_data import ingest  # noqa: PLC0415
 

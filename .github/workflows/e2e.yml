@@ -291,6 +291,23 @@ jobs:
       # instead of adding work, and the poll below is the honest
       # readiness condition: the very path the app uses must actually
       # serve the contract before the suite starts.
+      #
+      # ASSESSED after the durable repair (P1-BDVM-INGEST): the /api/bdvm
+      # loop below is now REDUNDANT for its stated purpose — the request
+      # path is cache-only and loads a materialised context, so a first
+      # BDVM request can no longer start an ingest to move out of the
+      # window (measured 49.9s -> 0.48s, 295,111 rows -> 0). It is left in
+      # place deliberately rather than deleted in the same change: the
+      # stronger replacement is a deterministic test
+      # (tests/bdvm/test_request_path_is_local.py) which lands with the
+      # repair, and removing a CI step here at the same time would make
+      # this suite's result non-comparable to the baseline the repair is
+      # required to hold. Removal belongs to the E2E lane.
+      #
+      # The POLL is NOT redundant and must stay whatever happens to the
+      # loop: "answers /api/status" and "can serve the contract" are
+      # different readiness conditions, and only the second one gates a
+      # journey.
       - name: Warm lazy backend caches, then prove the data path serves
         shell: bash
         run: |

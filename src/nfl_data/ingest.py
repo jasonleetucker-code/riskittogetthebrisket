@@ -578,9 +578,14 @@ def fetch_schedules(
     ``urllib.request.urlopen`` — a second nflverse downloader with no
     TTL cache, no single-flight and no feature gate, reached from the
     live ``/api/bdvm/*`` request path.  It is retired; this is the one
-    owner.  ``nfl_data_py`` has no schedules method in the version this
-    repo pins, so the ladder falls through to ``nflverse_direct``, which
-    is where it was effectively fetching from anyway.
+    owner.
+
+    The ladder is the same one every other feed here uses.
+    ``nfl_data_py`` is deliberately absent from ``requirements.txt`` (it
+    pins ``pandas<2.0``), and ``_try_fetch_with_fallback`` resolves its
+    method with ``getattr``, so in this deployment the rung is skipped
+    and the fetch lands on ``nflverse_direct`` — the same release assets
+    ``schedule.py`` was downloading by hand.
     """
     if not _gated():
         return []

@@ -347,8 +347,14 @@ def fetch_schedules(years: list[int]) -> list[dict[str, Any]]:
 
     Per-season file first, then the combined ``games.csv`` filtered to
     the season — the exact two-rung order the retired
-    ``bdvm/schedule.py`` downloader used, preserved so the rows this
-    returns are the rows that module always saw.
+    ``bdvm/schedule.py`` downloader used.
+
+    One deliberate difference: rows go through ``_coerce_numerics`` like
+    every other feed in this module, where the retired downloader handed
+    back ``csv.DictReader``'s raw strings.  Its only consumer coerces on
+    read anyway (``team_weeks_from_schedule`` does ``int(float(week))``
+    and uppercases the team), and the per-team ``RosWeek`` lists built
+    from both were verified byte-identical on the real 2026 slate.
     """
     out: list[dict[str, Any]] = []
     for year in years:
