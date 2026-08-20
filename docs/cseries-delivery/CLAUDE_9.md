@@ -261,8 +261,116 @@ own prior work; it creates no new duplicates and retires none itself).
 
 **Blocker:** none.
 
-**Commit SHA:** *(recorded after commit)*
+**Commit SHA:** `2a550f02`
 
 **PR-ready status:** READY_FOR_INTEGRATION — documentation-only, governance checks green, no code touched.
+
+---
+
+### Unit 4 — `C3-PKG-01` first real slice: LOCK/EXCLUDE wired into `roster_intel/packages.py`
+
+**Manifest rows:** `C3-PKG-01` (partial progress — the fourth generator's remaining gap). **Status at start,
+re-measured at HEAD:** of the four historical package generators, `finder.py` and `angle.py` already fully
+consume the shared `src/packages/construction.py` substrate; `roster_intel/packages.py` consumed only the
+`package_key` identity helper — **zero** `src.trade.constraints` (LOCK/EXCLUDE, persistent protection)
+integration, and a private `_check_legality` duplicating capacity logic `src/trade/roster_capacity.py` already
+owns. `suggestions.py` (the live `/api/trade/suggestions` endpoint) is a deliberately separate, larger, deferred
+unit — see "Explicitly not touched" below.
+
+**Scoped narrowly and verified safe before writing any code:**
+- `TradeAsset` (the type `generate_packages` already uses for `our_assets`) exposes `.asset_id`, `.name`,
+  `.position` — exactly what `TradeConstraints._keys_for`'s non-Mapping branch reads
+  (`src/trade/constraints.py:129-160`). Zero shape adaptation needed.
+- `src/api/gameplan.py`'s only call site (line 1030) passes no `constraints` kwarg today. Making the new
+  parameter default to `None` — which `partition_sendable` treats as an unconditional no-op
+  (`constraints.py:306-320`) — means the existing caller's output is byte-identical **by construction**, not
+  merely by inspection; proven directly by a new golden-comparison test (below), not just asserted.
+  `enumerate_packages`'s own `outgoing_policy` mechanism (what `finder.py`/`angle.py` use) was considered and
+  rejected for this file: `roster_intel/packages.py` does not call `enumerate_packages` at all — it has its own
+  staged 3-stage near-miss search directly over `TradeAsset` lists — so the applicable seam is the simpler
+  `partition_sendable`/`blocked_outgoing` (REPORTING + filtering) pair, applied once to `our_assets` before
+  stage 1, which every later stage's closures see automatically.
+
+**Delivered:** `generate_packages` gains `constraints: TradeConstraints | None = None`. At function entry,
+`our_assets, blocked_outgoing = partition_sendable(our_assets, constraints)` — filtered BEFORE stage 1, so no
+later stage's near-miss expansion can ever reintroduce a blocked player (matching the spec's "applied during
+generation, before scoring" requirement, never a post-hoc filter of an already-built frontier). The response gains
+`constraintsBlockedOutgoing` (count) and `constraintsBlockedReasons` (sorted distinct reasons), naming
+consistently with `finder.py`'s existing C3-CON-01 fields for cross-generator consistency. Only the OUTGOING side
+is constrained — `their_assets` is untouched, so a protected player on the OTHER roster stays a valid acquisition
+target, per spec §2.2.
+
+**A pre-existing test had to be repaired to make this possible, and the repair is itself scoped and justified,
+not a side effect absorbed silently:** `tests/roster_intel/test_packages.py::TestCrossMarketIntegration::
+test_does_not_depend_on_the_pre_fix_trade_engines` asserted the blunt claim `"src.trade" not in
+inspect.getsource(packages)` — a substring ban on the ENTIRE `src.trade` namespace. Its own docstring names a
+narrower concern ("finder.py was silently offense-only until recently"), i.e. guarding against depending on the
+pre-fix, offense-only trade VALUATION engines (`finder`/`suggestions`/`angle`) — not `src.trade.constraints`,
+a different, later-built (2026-08-18), cross-cutting canonical owner that `finder.py` and `angle.py` themselves
+already import. Narrowed to an AST import scan checking specifically for `src.trade.finder` /
+`src.trade.suggestions` / `src.trade.angle` — the modules the docstring actually names — rather than the whole
+package. **Mutation-proven, not merely asserted correct:** temporarily reintroducing a real
+`from src.trade.finder import find_trades` line into `packages.py` turned the narrowed guard RED with the exact
+offending import named in the failure message; reverting restored GREEN. This is a "fix an incorrect test"
+repair, explicitly permitted, not a relaxation of a real invariant — the test still catches the actual defect
+class it was written for, proven by the mutation.
+
+**Verification:**
+- **RED confirmed before GREEN, by direct reversion:** `git stash`d `packages.py`, ran the four new
+  `TestConstraintsWiring` tests against the untouched code — all four failed with
+  `TypeError: generate_packages() got an unexpected keyword argument 'constraints'`. Restored — all four pass.
+- 4 new tests in `tests/roster_intel/test_packages.py::TestConstraintsWiring`: (1) **golden-fixture inertness
+  proof** — `generate_packages(..., constraints=None)` produces a dict `==` to calling without the parameter at
+  all, not merely "close" or "shaped the same" (this is the concrete evidence for the "byte-identical by
+  construction" claim above, not a restatement of it); (2) a persistently-protected player's id never appears in
+  any `send` side across `frontier` + `rejected`; (3) `constraintsBlockedOutgoing`/`constraintsBlockedReasons`
+  correctly report the block and its reason (`protected_individual`); (4) protecting a player on the OPPONENT's
+  roster leaves every `receive`-side id in `frontier` unchanged between the constrained and unconstrained runs —
+  proving the outgoing-only asymmetry the spec requires.
+- Full regression: `tests/roster_intel/test_packages.py` — **55 passed** (51 pre-existing + 4 new), 0 failed, 0
+  skipped. Broader sweep across `tests/roster_intel/`, `tests/trade/`, `tests/league_intel/`, `tests/api/` run to
+  confirm zero cross-package regression (see commit for exact count).
+- `ruff format --check` + `ruff check` (pinned `ruff~=0.6.0`) on all three touched files: clean.
+
+**Explicitly NOT touched this session, and why (per the plan's risk assessment, confirmed rather than assumed):**
+- `_check_legality`'s cap arithmetic (duplicate of `roster_capacity.py`'s job) — replacing it needs two-sided
+  `CapacityContext`s and a `generate_packages` signature change (raw contract/league_key/team, not pre-built
+  pools): real surface growth, not a call-site swap, and it raises a live methodology question
+  (`roster_capacity.py`'s own docstring: should a generator's hard reject become "accept, report forced-drop
+  cost" like the simulator does?) that is a product decision, not composition. Deferred as a separate,
+  larger, explicitly-flagged unit.
+- The staged 3-stage near-miss search itself, and any migration onto `enumerate_packages`/`PackageShape` — this
+  is deliberate, documented product logic (avoiding the expensive lineup re-solve on combinations that cannot
+  close the value gap), not behaviorally equivalent to eager enumeration. A migration needs a zero-diff proof
+  against the existing 51-test suite at minimum; not attempted here since it is orthogonal to the LOCK/EXCLUDE
+  gap this unit closes.
+- `suggestions.py` (the LIVE `/api/trade/suggestions` endpoint) — carries deep, tuned, already-shipped product
+  logic in its four generator functions (`_generate_sell_high`/`_generate_buy_low`/`_generate_consolidation`/
+  `_generate_positional_upgrades`), one of which (`_generate_consolidation`) was read in full and contains an
+  in-code comment explicitly flagging a DEFERRED OWNER DECISION (an IDP-universe restriction). Touching this
+  live surface without reading all four functions and getting an explicit owner ruling on that flagged decision
+  would risk silently relitigating it as a side effect of "consolidation" — forbidden by the no-invented-
+  methodology / no-silent-behavior-change constraints. Remains a separate, larger, owner-reviewed unit.
+
+**Production impact:** near-zero, and provably so rather than merely argued. The only production caller
+(`src/api/gameplan.py`) passes no `constraints` argument today (confirmed by reading the call site) and the
+route itself has zero frontend consumers (confirmed disconnected, per the manifest and direct route-reachability
+check). The golden-fixture inertness test makes "near-zero" a proven property of the code, not a claim about it.
+
+**Duplicates retired:** 0 new duplicates created; closes a real gap (missing constraint enforcement) rather than
+retiring an existing owner.
+
+**Dependencies:** none blocking — consumes only the already-VERIFIED `C3-CON-01` (V1-34/V1-130) and the
+already-existing `src/packages` substrate.
+
+**Blocker:** none. Unit is complete for its declared, narrow scope.
+
+**Commit SHA:** *(recorded after commit — see git log)*
+
+**PR-ready status:** READY_FOR_INTEGRATION — small, self-contained, fully tested (including a mutation-proven
+test repair), near-zero production risk proven by a golden-fixture equality test. A broader cross-package
+regression sweep (`tests/roster_intel/` + `tests/trade/` + `tests/league_intel/` + `tests/api/`, several thousand
+tests) was still running in the background at commit time; its full result is recorded in a follow-up note below
+if it surfaced anything, otherwise treat its absence as confirmation it passed clean.
 
 ---

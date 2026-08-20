@@ -666,6 +666,7 @@ def generate_packages(
     max_assets_per_side: int = MAX_PACKAGE_ASSETS,
     max_candidates_per_stage: int = 400,
     allow_scalar_fallback: bool = False,
+    constraints: Any | None = None,
 ) -> dict[str, Any]:
     """Generate, filter and return a Pareto frontier of trade packages.
 
@@ -686,11 +687,29 @@ def generate_packages(
         max_candidates_per_stage: search budget. Exceeding it truncates
             and stamps a note rather than silently returning a partial
             frontier as though it were complete.
+        constraints: C3-CON-01 recommendation constraints (persistent
+            protection + temporary LOCK/EXCLUDE). Applied to ``our_assets``
+            BEFORE stage 1 — never a post-hoc filter of an already-built
+            frontier, per the spec's "applied during generation, before
+            scoring" rule — through the same owner every other generator
+            surface consumes (``src.trade.constraints``), not a page-local
+            copy. Only the OUTGOING side is constrained: a protected player
+            stays a valid incoming target. ``None`` (the default) generates
+            exactly as before — every existing caller is unaffected.
 
     Returns:
         ``{"frontier": [...], "bestBy": {...}, "rejected": [...],
-        "stages": [...], "truncated": bool}``
+        "stages": [...], "truncated": bool, "constraintsBlockedOutgoing": int,
+        "constraintsBlockedReasons": [...]}``
     """
+    from src.trade.constraints import partition_sendable  # noqa: PLC0415
+
+    # ``partition_sendable`` is a no-op when ``constraints`` is None or
+    # inactive (src/trade/constraints.py:306-320), so this line changes
+    # nothing for the one production caller today (src/api/gameplan.py),
+    # which passes no constraints argument.
+    our_assets, blocked_outgoing = partition_sendable(our_assets, constraints)
+
     base_lineup = optimal_score(our_pool, slots)
     our_size = len(our_pool)
     their_size = max(len(their_assets), 1)
@@ -857,6 +876,12 @@ def generate_packages(
         "evaluatedTotal": len(evaluated),
         "notes": notes,
         "modelVersion": PACKAGES_MODEL_VERSION,
+        # Naming matches src/trade/finder.py's C3-CON-01 wiring for
+        # cross-generator consistency: a COUNT (not the blocked list itself,
+        # which would leak protected-player identities into a package
+        # response) plus the distinct reasons.
+        "constraintsBlockedOutgoing": len(blocked_outgoing),
+        "constraintsBlockedReasons": sorted({reason for _, reason in blocked_outgoing}),
     }
 
 
