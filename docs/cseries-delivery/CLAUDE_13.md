@@ -91,3 +91,48 @@ keep piling unrelated work onto #965.
 - A licensed display serif font (system stack used instead — see "Design decisions").
 - Any component/page actually USING the new scope yet — that's Batch A2 (shell) and A3
   (Rankings). This batch is tokens only, so it's inert until a page opts in via the class.
+
+### Batch A2 (C8-PSI-01) — Shell restyle — done
+
+**Finding that reshaped this batch:** `frontend/app/shell.css` (the app chrome stylesheet —
+`TopBar`, `MobileChrome`, nav dropdowns, the mobile drawer, the command palette) turned out to
+already consume ONLY semantic token aliases, zero raw hex, matching the same discipline as
+`ds.css`. It is also **not** on the Lane 6 claim's path list (only `globals.css` is). That means
+applying the new `.psi-editorial` class to the shell's root elements re-skins the ENTIRE header —
+brand, nav, search, account menu, mobile tab bar, drawer, dropdowns — automatically, with **zero
+CSS rewrite needed**. This is exactly the payoff the token architecture was built for, so the
+batch became much smaller than planned: no new CSS modules, no shell.css rewrite, just scoping +
+one small monogram tweak.
+
+**What shipped:**
+- `frontend/components/shell/TopBar.jsx`: `.psi-editorial` added to the `<header>` root (covers
+  the nav dropdowns and the System menu too, since they render inline, not via a portal —
+  verified, no `createPortal` anywhere in this tree). Brand mark glyph changed from a bare "▪" to
+  "CU" text (still `aria-hidden`, the accessible name is still "Chase Upside" from the link's own
+  text), to match the screenshot's compact monogram-block treatment.
+- `frontend/components/shell/MobileChrome.jsx`: `.psi-editorial` added to `MobileTopBar`'s
+  `<header>` and `MobileTabBar`'s `<nav>`. The menu `Drawer` is a JSX **sibling** of the tab bar
+  (not a descendant), so it needed the class passed explicitly via its own `className` prop
+  (`Drawer` already supports one) rather than inheriting it.
+- `frontend/app/shell.css`: one small additive rule,
+  `.psi-editorial .shell-brand-mark` — a bordered 22px square rendering "CU" in the new serif
+  display face, scoped so it doesn't touch the terminal shell's existing plain-glyph treatment if
+  the class were ever removed from a route.
+- **This is a global, immediate change**: `TopBar`/`MobileChrome` are the one persistent shell
+  rendered on every route, so every page's header/nav now shows the editorial palette right away,
+  while unmigrated page BODIES stay on the terminal palette until their own route migrates. This
+  is a deliberate, temporary seam — the north star's own "route-by-route, reversible" method says
+  a split state during migration is expected, only says not to leave it split *indefinitely* — and
+  matches the brief's own success condition ("open the app and immediately see the migration has
+  begun").
+
+**Verified:**
+- `TopBar.test.jsx`: 20/20 passing, unchanged (no test asserted the literal "▪" glyph).
+- Full frontend suite: 142 test files / 2,243 tests, zero regressions.
+
+**Deliberately NOT claiming:**
+- Any change to `AppShell.jsx` (claimed by Lane 6, and confirmed not to need touching — it's
+  behavior/context only, no styling lives there).
+- Any change to `globals.css` (claimed).
+- A rewrite of the nav's information architecture — every existing nav item, group, gating rule
+  and keyboard/focus behavior is untouched; only the palette changed.
