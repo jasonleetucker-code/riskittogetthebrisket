@@ -38,6 +38,27 @@ User=__APP_USER__
 Group=__APP_USER__
 WorkingDirectory=__APP_DIR__
 EnvironmentFile=-__APP_DIR__/.env
+# Stage 0 — warm the nflverse inputs the BDVM REQUEST PATH may only
+# READ.  /api/bdvm/* used to fill these caches itself, as a side
+# effect of the first interactive request: six seasons of weekly
+# stats plus six of snap counts, parsed inside the uvicorn process
+# that was simultaneously streaming /api/data.  The split is now
+# "the refresh owner decides when to fetch; the request path decides
+# only whether an artifact exists", and THIS is the refresh owner.
+#
+# Reuses this timer deliberately rather than adding a scheduler: the
+# evidence sits beside the projection snapshots the unit already
+# builds, and it runs first so those stages reuse the cache it fills.
+#
+# The '-' prefix means a warm failure cannot abort the projection
+# refresh below.  Named rather than hidden: the UNIT's success or
+# failure keeps meaning exactly what it meant before — the
+# projections outcome — and the warm's own failures are carried by
+# its WARNING/ERROR journal lines.  Exit 1 from it means at least one
+# input could not be fetched and the last-known-good artifact was
+# LEFT IN PLACE; a failed refresh never deletes evidence that is
+# merely old.
+ExecStart=-__VENV_DIR__/bin/python __APP_DIR__/scripts/refresh_bdvm_inputs.py
 ExecStart=__VENV_DIR__/bin/python __APP_DIR__/scripts/refresh_bdvm_projections.py
 StandardOutput=journal
 StandardError=journal

@@ -65,11 +65,27 @@ def _context_for(season: int) -> Mapping[str, Any]:
         if season in _context_cache:
             return _context_cache[season]
     try:
-        from src.bdvm.context import fetch_and_build_context  # noqa: PLC0415
+        from src.bdvm.context_store import load_snapshot  # noqa: PLC0415
 
-        ctx = fetch_and_build_context(season)
+        # REQUEST PATH: LOAD a materialised snapshot; never fetch, never
+        # build.  Building it here is six seasons of weekly stats plus six
+        # of snap counts — 9.0s of GIL-bound parsing off a 369 MB cache
+        # entry even when nothing is downloaded — which is what starved
+        # /api/data past the Next bridge's 4s idle timeout.  The snapshot
+        # is 6.2 MB and rehydrates in 0.20s.  ``scripts/refresh_bdvm_inputs.py``
+        # writes it; None means it has not, and the engine then runs on the
+        # same neutral priors it has always used when the context was
+        # unavailable.
+        ctx = load_snapshot(season)
     except Exception as exc:  # noqa: BLE001
         _LOGGER.warning("bdvm: context unavailable: %s", exc)
+        ctx = None
+    if ctx is None:
+        _LOGGER.warning(
+            "bdvm: no materialised player context for %s — running on neutral "
+            "priors; run scripts/refresh_bdvm_inputs.py",
+            season,
+        )
         ctx = {}
     with _aux_lock:
         _context_cache[season] = ctx
@@ -83,7 +99,7 @@ def _schedule_for(season: int) -> Mapping[str, Any] | None:
     try:
         from src.bdvm.schedule import fetch_team_weeks  # noqa: PLC0415
 
-        sched = fetch_team_weeks(season) or None
+        sched = fetch_team_weeks(season, cache_only=True) or None
     except Exception as exc:  # noqa: BLE001
         _LOGGER.warning("bdvm: schedule unavailable: %s", exc)
         sched = None
@@ -146,8 +162,19 @@ def _actuals_for(contract: Mapping[str, Any]) -> tuple[int | None, Mapping[str, 
 
         scoring = (contract.get("sleeper") or {}).get("scoringSettings") or {}
         result = fetch_current_season_actuals(
-            scoring, name_normalizer=normalize_player_name, season=nfl_season
+            scoring,
+            name_normalizer=normalize_player_name,
+            season=nfl_season,
+            cache_only=True,
         )
+    # MEASURED RESIDUAL, named rather than left to be discovered: this is the
+    # one heavy read still on the request path.  It is a SINGLE season's
+    # weekly rows — 63.7 MB, 0.78s to read plus 0.87s to score, 1.65s total
+    # on 2025 — memoized per (season, UTC day) per process, and inert outside
+    # the Sept-Jan window.  Not a download, not a multi-season ingest, and
+    # comfortably inside the 4s inter-chunk budget, so it is left alone here.
+    # Materialising SCORED actuals the way the player context now is would
+    # remove it; that is a separate unit because scoring is involved.
     except Exception as exc:  # noqa: BLE001
         _LOGGER.warning("bdvm: in-season actuals unavailable (not cached, will retry): %s", exc)
         return (None, {})
@@ -157,6 +184,94 @@ def _actuals_for(contract: Mapping[str, Any]) -> tuple[int | None, Mapping[str, 
             _actuals_cache.pop(old_key, None)
         _actuals_cache[cache_key] = result
     return result
+
+
+# Operational states for the cache-only auxiliary inputs.  Deliberately
+# the plain words the rest of this repo already uses for evidence, not a
+# new vocabulary: an artifact is there and current, there and old, or not
+# there.  NONE of them means zero — a missing input degrades the engine to
+# the neutral priors it has always used when a fetch failed.
+AUX_AVAILABLE = "available"
+AUX_STALE = "stale"
+AUX_MISSING = "missing"
+
+#: The cadence the context snapshot is PRODUCED on — the weekly
+#: ``dynasty-bdvm-refresh`` timer (``OnCalendar=Tue *-*-* 06:10:00 UTC``).
+#:
+#: It is NOT a freshness ceiling and it withholds nothing: an older snapshot
+#: is still loaded and still served, exactly like a TTL-expired cache entry.
+#: It only decides the LABEL, so that "a scheduled refresh was missed" — the
+#: one thing an operator can act on — is distinguishable from "current".
+#: Reported, never enforced.
+_CONTEXT_REFRESH_CADENCE_SECONDS = 7 * 24 * 3600
+
+
+def _aux_state(feed: str, years: list[int] | None = None) -> dict[str, Any]:
+    """Report one cache-only input's presence and age — never its value.
+
+    The request path may serve a TTL-EXPIRED artifact (the TTL governs
+    when the refresh owner should re-fetch, not whether an older artifact
+    is readable), so ``stale`` must be VISIBLE rather than silently
+    presented as current.  ``fetched_at`` has always been written by
+    ``nfl_data.cache.put``; this only reads it back.
+
+    The key and the TTL both come from ``ingest`` rather than being
+    rebuilt here: a second copy of the key format reports MISSING for an
+    artifact that is present the moment the two drift.
+    """
+    from src.nfl_data import cache as nfl_cache  # noqa: PLC0415
+    from src.nfl_data import ingest  # noqa: PLC0415
+
+    age = nfl_cache.entry_age_seconds(ingest.cache_key(feed, years))
+    if age is None:
+        return {"state": AUX_MISSING, "ageSeconds": None}
+    return {
+        "state": AUX_STALE if age > ingest.CACHE_TTLS[feed] else AUX_AVAILABLE,
+        "ageSeconds": round(age, 1),
+    }
+
+
+def _context_snapshot_state(season: int) -> dict[str, Any]:
+    """Presence + age of the materialised player context.
+
+    The raw nflverse feeds are no longer reported here: the request path
+    does not read them, and naming an input it does not consume would
+    misdirect whoever is diagnosing a degraded board.  Their freshness
+    reaches this number through the snapshot that was built from them,
+    which is the thing the request actually depends on.
+    """
+    from src.bdvm import context_store  # noqa: PLC0415
+
+    age = context_store.snapshot_age_seconds(season)
+    if age is None:
+        return {"state": AUX_MISSING, "ageSeconds": None, "playerCount": None}
+    return {
+        "state": AUX_STALE if age > _CONTEXT_REFRESH_CADENCE_SECONDS else AUX_AVAILABLE,
+        "ageSeconds": round(age, 1),
+        "playerCount": context_store.snapshot_player_count(season),
+    }
+
+
+def _auxiliary_input_report(season: int, actuals_season: int | None) -> dict[str, Any]:
+    """Freshness/provenance for every input the request path reads locally.
+
+    Published so a consumer can tell "BDVM is running on a week-old
+    context" from "BDVM is current" — and both from "the artifact is
+    absent and the engine is on the neutral priors it has always used
+    when a fetch failed".  None of the three states is zero.
+    """
+    report: dict[str, Any] = {
+        "policy": "cache_only_request_path",
+        "refreshOwner": "scripts/refresh_bdvm_inputs.py (scheduled, out of band)",
+        "playerContext": _context_snapshot_state(season),
+        "schedules": _aux_state("schedules", [season]),
+    }
+    if actuals_season is not None:
+        # Its OWN entry: ``bdvm/actuals.py`` fetches ``[season]`` alone so
+        # the in-progress season refreshes without dragging six years of
+        # history with it.
+        report["currentSeasonActuals"] = _aux_state("weekly_stats", [actuals_season])
+    return report
 
 
 def get_bdvm_values(
@@ -215,6 +330,13 @@ def get_bdvm_values(
         schedule_weeks=schedule_weeks,
         actuals=actuals,
     )
+    # Operational metadata only — never a methodology input.  Stamped
+    # here rather than inside ``run_valuation`` so the engine's inputs and
+    # its arithmetic are untouched by this repair: for identical
+    # materialised inputs the payload is byte-equivalent apart from this
+    # block.
+    if isinstance(payload, dict) and isinstance(payload.get("meta"), dict):
+        payload["meta"]["auxiliaryInputs"] = _auxiliary_input_report(season, actuals[0])
     with _lock:
         _values_cache[key] = payload
         _values_cache.move_to_end(key)
