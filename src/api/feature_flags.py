@@ -65,6 +65,28 @@ _DEFAULTS: Final[dict[str, bool]] = {
     # NO_GATE — the mapper is unconditional and this flag has never
     # gated it.  OFF so the registry stops reporting a switch that does
     # not exist; the mapper itself is unaffected either way.
+    # Lane 7 — MULTI-BRIDGE cross-position ladder.  OFF, deliberately.
+    #
+    # The vote-withholding repair beside it is UNCONDITIONAL: with no usable
+    # bridge an IDP-only source now casts no vote instead of asserting that
+    # its #1 is asset #1.  That path fires on 0 rows of the healthy board, so
+    # it moves nothing and needs no flag.
+    #
+    # THIS flag governs whether a SECOND qualified bridge joins the ladder,
+    # and that is a methodology change with measured consequences: enabling it
+    # admits Draft Sharks alongside IDP Trade Calculator and moves 337 of
+    # 1,111 values (294 IDP, 42 picks via the rookie tether, 1 offense; 327
+    # down / 10 up; IDP median 20, p95 544, max 1,623), with top-50 membership
+    # churn 0 and top-100 churn 4.  Those are two markets genuinely disagreeing
+    # about how fast IDP value decays, not a defect — but which of them the
+    # board should publish is an owner decision, so it ships off and is flipped
+    # with RISKIT_FEATURE_MULTI_BRIDGE_LADDER=1.
+    #
+    # OFF is not "single point of failure restored": the ladder still comes
+    # from the bridge owner's MEASURED capability rather than the is_backbone
+    # label, and with the flag off it uses the first usable bridge, which
+    # reproduces the incumbent ladder integer for integer.
+    "multi_bridge_ladder": False,
     "unified_id_mapper": False,
     # Phase 2 — nfl_data_py pipeline
     # Activated with the 2026-04-25 deploy that adds nfl_data_py to
@@ -465,6 +487,14 @@ _GATE_STATUS: Final[dict[str, str]] = {
     # consensus_edge gates the /api/consensus-edge/* router mounted in
     # server.py: off → 503 feature_disabled, on → the board.
     "consensus_edge": LIVE,
+    # multi_bridge_ladder gates how many QUALIFIED cross-position bridges
+    # seed the shared-market ladder in
+    # ``data_contract._compute_unified_rankings`` (Phase 0), which reaches a
+    # request through ``/api/data`` and every engine that reads the board:
+    # off → the first usable bridge only, reproducing the incumbent ladder
+    # integer for integer, on → all of them combined.  Measured on the
+    # 2026-08-20 board, flipping it moves 337 of 1,111 values.
+    "multi_bridge_ladder": LIVE,
     # host_native_scoring gates the stat vocabulary
     # ``league_comparison.sleeper_stats.fetch_sleeper_weekly_stats``
     # emits, which reaches a request through ``historical_stats`` →

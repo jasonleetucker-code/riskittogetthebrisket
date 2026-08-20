@@ -111,28 +111,169 @@ def _imported_module_names(path: pathlib.Path) -> list[str]:
     return names
 
 
-class TestNoProductionConsumerYet(unittest.TestCase):
-    """Tripwire: nothing outside the bridge package's own code reads it."""
+#: The ONE production module approved to consume the bridge layer, and the
+#: exact names it is approved to import.  PR B (#993) made this non-empty on
+#: purpose; before it the approved set was EMPTY and this file's tripwire
+#: said so.  The invariant did not weaken when PR B landed - it changed
+#: shape, from "no consumer" to "exactly this consumer, reaching only for
+#: the gated entry points".
+_APPROVED_CONSUMERS = {
+    "src/api/data_contract.py": {
+        "src.bridges.assess.assess_bridges",
+        "src.bridges.states.QUALIFIED",
+        "src.bridges.ladder.build_bridge_ladder",
+        "src.bridges.registry.load_bridge_descriptors",
+        # Acquisition state is what makes UNAVAILABLE reachable at the gate:
+        # a bridge whose source could not be acquired must not vote, and
+        # data_contract has to be able to say so.  Gated helpers, not raw
+        # measurement.
+        "src.sources.acquisition_state.AcquisitionOutcome",
+        "src.sources.acquisition_state.UNAVAILABLE",
+    },
+}
 
-    def test_no_production_module_imports_the_bridge_layer(self) -> None:
-        offenders: list[str] = []
+#: Ungated primitives.  These exist and are exported, and reaching for one
+#: from production is how the comparability gate gets bypassed without
+#: anyone deciding to.  ``measure_capability`` is the raw measurement with
+#: no PENDING/DISPROVEN/UNAVAILABLE check at all.
+_UNGATED_PRIMITIVES = (
+    "measure_capability",
+    "_measure_capability",
+)
+
+
+class TestExactlyOneApprovedBridgeConsumer(unittest.TestCase):
+    """Post-PR-B boundary: one approved consumer, reaching only for the gate.
+
+    Before #993 the honest invariant was "zero production consumers", and
+    the previous version of this class asserted exactly that, with a comment
+    saying it would become false ON PURPOSE when PR B landed.  PR B has
+    landed.  Rewriting the assertion to match is the point of the tripwire -
+    the failure mode it protects against is a SECOND consumer, or the one
+    approved consumer quietly switching from the gated API to a raw one.
+    """
+
+    def _production_bridge_imports(self):
+        """(file, fully-qualified imported name) for every production import."""
+        found = []
         for root in _PRODUCTION_ROOTS:
             for path in _iter_py_files(root):
-                for module in _imported_module_names(path):
-                    if any(
-                        module == prefix or module.startswith(prefix + ".")
-                        for prefix in _BRIDGE_MODULE_PREFIXES
-                    ):
-                        offenders.append(f"{path.relative_to(REPO)}: {module}")
+                rel = str(path.relative_to(REPO))
+                tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+                for node in ast.walk(tree):
+                    if isinstance(node, ast.ImportFrom) and node.module:
+                        if any(
+                            node.module == pre or node.module.startswith(pre + ".")
+                            for pre in _BRIDGE_MODULE_PREFIXES
+                        ):
+                            for alias in node.names:
+                                found.append((rel, f"{node.module}.{alias.name}"))
+                    elif isinstance(node, ast.Import):
+                        for alias in node.names:
+                            if any(
+                                alias.name == pre or alias.name.startswith(pre + ".")
+                                for pre in _BRIDGE_MODULE_PREFIXES
+                            ):
+                                found.append((rel, alias.name))
+        return found
+
+    def test_the_census_is_non_empty(self) -> None:
+        """Vacuity guard.
+
+        Every assertion below is about the CONTENT of the census.  If the
+        walker silently stopped finding imports - a moved root, a renamed
+        package - they would all pass while proving nothing, which is
+        exactly how the pre-PR-B version of this file could have rotted
+        into a false green.
+        """
+        self.assertNotEqual(
+            self._production_bridge_imports(),
+            [],
+            "the bridge-import census found nothing at all. Since PR B "
+            "(#993) there IS an approved production consumer, so an empty "
+            "census means this test stopped measuring, not that the "
+            "boundary is clean.",
+        )
+
+    def test_there_is_exactly_one_production_bridge_consumer(self) -> None:
+        consumers = sorted({f for f, _ in self._production_bridge_imports()})
+        self.assertEqual(
+            consumers,
+            sorted(_APPROVED_CONSUMERS),
+            "the set of production modules importing the cross-position "
+            "bridge layer changed. Exactly ONE consumer is approved "
+            "(src/api/data_contract.py, the canonical valuation owner). A "
+            "second consumer is a second place cross-position evidence can "
+            "enter canonical value, which is the ONE CONCEPT, ONE CANONICAL "
+            "OWNER rule. If this is deliberate, it needs owner approval and "
+            "an entry in _APPROVED_CONSUMERS naming what it may import.",
+        )
+
+    def test_the_approved_consumer_imports_only_approved_names(self) -> None:
+        by_file: dict[str, set[str]] = {}
+        for f, name in self._production_bridge_imports():
+            by_file.setdefault(f, set()).add(name)
+        for f, approved in _APPROVED_CONSUMERS.items():
+            self.assertEqual(
+                by_file.get(f, set()),
+                approved,
+                f"{f}'s bridge imports changed. The approved set is the "
+                "gated entry point plus the descriptor/ladder/state helpers "
+                "it needs; anything else must be reviewed before it can "
+                "influence canonical value.",
+            )
+
+    def test_no_production_module_reaches_an_ungated_primitive(self) -> None:
+        """The gate is only a gate if nothing routes around it.
+
+        ``assess_bridges()`` applies the PENDING / DISPROVEN / UNAVAILABLE
+        checks; ``measure_capability()`` does not and is separately
+        exported. A consumer calling the raw one would produce a bridge
+        that votes without ever having qualified - the precise defect this
+        file's extreme-value injection tests prove the GATED path is immune
+        to.
+        """
+        offenders = [
+            f"{f}: {name}"
+            for f, name in self._production_bridge_imports()
+            if name.rsplit(".", 1)[-1] in _UNGATED_PRIMITIVES
+        ]
         self.assertEqual(
             offenders,
             [],
-            "a production module now imports the cross-position bridge layer. "
-            "That is expected EVENTUALLY (PR B), but not by accident, and not "
-            "without a corresponding update to this test that names the new "
-            "consumer and confirms it routes through assess_bridges()/"
-            "usable_bridges() rather than the raw, ungated primitives. "
-            f"Found: {offenders}",
+            "a production module imports a bridge primitive that performs "
+            f"no comparability gating. Found: {offenders}",
+        )
+
+    def test_the_approved_consumer_actually_calls_the_gated_entry_point(self) -> None:
+        """Importing the gate and then not using it would pass every check above."""
+        source = (REPO / "src/api/data_contract.py").read_text(encoding="utf-8")
+        self.assertIn(
+            "assess_bridges(",
+            source,
+            "data_contract imports assess_bridges but never calls it - the "
+            "gate is present in the import list and absent from the code "
+            "path, which is indistinguishable from ungated at run time.",
+        )
+
+    def test_the_multi_bridge_ladder_stays_off_by_default(self) -> None:
+        """Admitting a SECOND bridge is a methodology change, not a default.
+
+        The ladder is capped at one bridge unless ``multi_bridge_ladder`` is
+        enabled. That default is load-bearing: the withholding repair is
+        unconditional, but combining two bridges' evidence is an owner
+        decision with measured board movement, and it has not been made.
+        """
+        from src.api import feature_flags
+
+        self.assertIs(
+            feature_flags._DEFAULTS["multi_bridge_ladder"],
+            False,
+            "multi_bridge_ladder is ON by default. Admitting a second "
+            "cross-position bridge into the shared-market ladder is an "
+            "owner-level methodology decision (weighting, cardinal "
+            "precedence, disagreement, confidence, tie-breaker) that has "
+            "not been taken.",
         )
 
 

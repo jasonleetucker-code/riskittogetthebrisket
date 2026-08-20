@@ -14,33 +14,60 @@ import { Card } from "../shared-server.jsx";
 
 // Module-level cache so tab-switching doesn't re-fetch on every mount.
 // Same pattern + 30-min TTL that power.jsx uses for playoff odds.
+//
+// V1-52: the canonical engine answers two lenses (forward-looking,
+// results-only) and they are genuinely different quantities, not a
+// re-sort of the same numbers — so each lens is cached and fetched
+// independently rather than sharing one slot.
 const CACHE_TTL_MS = 30 * 60 * 1000;
-const _cache = { data: null, error: null, inflight: null, fetchedAt: 0 };
+export const LENS_FORWARD_LOOKING = "forward_looking";
+export const LENS_RESULTS_ONLY = "results_only";
+const _caches = {
+  [LENS_FORWARD_LOOKING]: { data: null, error: null, inflight: null, fetchedAt: 0 },
+  [LENS_RESULTS_ONLY]: { data: null, error: null, inflight: null, fetchedAt: 0 },
+};
 
-async function _fetchRosPower() {
-  const fresh = _cache.data && Date.now() - _cache.fetchedAt < CACHE_TTL_MS;
-  if (fresh) return { data: _cache.data, error: null };
-  if (_cache.inflight) return _cache.inflight;
+async function _fetchRosPower(lens) {
+  const cache = _caches[lens] || _caches[LENS_FORWARD_LOOKING];
+  const fresh = cache.data && Date.now() - cache.fetchedAt < CACHE_TTL_MS;
+  if (fresh) return { data: cache.data, error: null };
+  if (cache.inflight) return cache.inflight;
 
-  const promise = fetch("/api/public/league/rosPower")
+  const qs = lens && lens !== LENS_FORWARD_LOOKING ? `?lens=${encodeURIComponent(lens)}` : "";
+  const promise = fetch(`/api/public/league/rosPower${qs}`)
     .then((r) => (r.ok ? r.json() : Promise.reject(new Error(`${r.status}`))))
     .then((payload) => {
       const body = payload?.data || payload?.section || payload;
-      _cache.data = body;
-      _cache.error = null;
-      _cache.fetchedAt = Date.now();
-      _cache.inflight = null;
+      cache.data = body;
+      cache.error = null;
+      cache.fetchedAt = Date.now();
+      cache.inflight = null;
       return { data: body, error: null };
     })
     .catch((err) => {
-      _cache.inflight = null;
+      cache.inflight = null;
       const message = String(err?.message || err);
-      _cache.error = message;
-      return { data: _cache.data, error: message };
+      cache.error = message;
+      return { data: cache.data, error: message };
     });
 
-  _cache.inflight = promise;
+  cache.inflight = promise;
   return promise;
+}
+
+// Rank delta over the last two weeks of the RESULTS-ONLY trend series —
+// never mixed with the currently-selected headline lens. The trend is
+// results-only at every point by construction (see the backend's own
+// comment on why forward-looking has no per-week history to trend), so
+// diffing it against a forward-looking headline would silently compare
+// two different quantities, exactly the bug this unit exists to remove.
+function trendDelta(trend, ownerId) {
+  const series = trend?.seriesByOwner?.[ownerId];
+  if (!Array.isArray(series) || series.length < 2) return null;
+  const last = series[series.length - 1];
+  const prev = series[series.length - 2];
+  if (last?.rank == null || prev?.rank == null) return null;
+  return prev.rank - last.rank; // positive = moved up (lower rank number)
 }
 
 function fmtScore(v) {
@@ -98,14 +125,16 @@ const COMPONENT_LABELS = {
 };
 
 export default function RosPowerSection() {
-  const [data, setData] = useState(() => _cache.data);
-  const [error, setError] = useState(_cache.error);
-  const [loading, setLoading] = useState(!_cache.data);
+  const [lens, setLens] = useState(LENS_FORWARD_LOOKING);
+  const [data, setData] = useState(() => _caches[LENS_FORWARD_LOOKING].data);
+  const [error, setError] = useState(_caches[LENS_FORWARD_LOOKING].error);
+  const [loading, setLoading] = useState(!_caches[LENS_FORWARD_LOOKING].data);
   const [expanded, setExpanded] = useState(null);
 
   useEffect(() => {
     let active = true;
-    _fetchRosPower().then(({ data: d, error: e }) => {
+    setLoading(!_caches[lens]?.data);
+    _fetchRosPower(lens).then(({ data: d, error: e }) => {
       if (!active) return;
       setData(d);
       setError(e);
@@ -114,7 +143,33 @@ export default function RosPowerSection() {
     return () => {
       active = false;
     };
-  }, []);
+  }, [lens]);
+
+  const lensToggle = (
+    <div style={{ display: "flex", gap: 4, marginBottom: 8, fontSize: "0.72rem" }}>
+      {[
+        { key: LENS_FORWARD_LOOKING, label: "Forward-looking" },
+        { key: LENS_RESULTS_ONLY, label: "Results only" },
+      ].map((opt) => (
+        <button
+          key={opt.key}
+          type="button"
+          onClick={() => setLens(opt.key)}
+          aria-pressed={lens === opt.key}
+          style={{
+            padding: "3px 10px",
+            borderRadius: 4,
+            border: "1px solid var(--subtext)",
+            background: lens === opt.key ? "var(--cyan)" : "transparent",
+            color: lens === opt.key ? "#000" : "var(--subtext)",
+            cursor: "pointer",
+          }}
+        >
+          {opt.label}
+        </button>
+      ))}
+    </div>
+  );
 
   if (loading && !data) {
     return <LoadingState message="Loading ROS power rankings..." />;
@@ -127,9 +182,47 @@ export default function RosPowerSection() {
     );
   }
   const rankings = data?.currentRanking || [];
+
+  // The engine refused to rank, and that is a DIFFERENT state from
+  // "not ready yet".  Every weighted component was unavailable, so
+  // there is no quantity to rank on — the backend withholds the score
+  // and the rank rather than publishing zeros in owner-id order.
+  //
+  // Rendering that as an empty table, or as a column of "—", would let
+  // the reader assume the data is still loading and will arrive. It is
+  // not loading: for the results-only lens in the offseason this state
+  // is structural and persists until the season starts. Say which one
+  // it is, and show the reason the backend gave.
+  const unrankable = data?.unrankable;
+  if (unrankable) {
+    return (
+      <Card title="ROS Power Rankings">
+        {lensToggle}
+        <EmptyState
+          title="Not enough to rank on"
+          message={
+            unrankable.explanation ||
+            "Every weighted component is unavailable, so no ranking is published."
+          }
+        />
+        {(unrankable.missingInputs || []).length > 0 && (
+          <div style={{ fontSize: "0.7rem", color: "var(--subtext)", marginTop: 8 }}>
+            Missing: {unrankable.missingInputs.join(", ")}
+          </div>
+        )}
+        {rankings.length > 0 && (
+          <div style={{ fontSize: "0.7rem", color: "var(--subtext)", marginTop: 8 }}>
+            {rankings.length} managers listed without a score.
+          </div>
+        )}
+      </Card>
+    );
+  }
+
   if (!rankings.length) {
     return (
       <Card>
+        {lensToggle}
         <EmptyState
           title="ROS Power not ready"
           message="The league snapshot or ROS roster-strength data is missing. Once the next scheduled scrape lands, this view will populate."
@@ -157,8 +250,11 @@ export default function RosPowerSection() {
         `${COMPONENT_LABELS[key] || key} (${Math.round(Number(w) * 100)}%)`,
     );
 
+  const trend = data.trend || null;
+
   return (
     <Card title="ROS Power Rankings">
+      {lensToggle}
       <div style={{ fontSize: "0.72rem", color: "var(--subtext)", marginBottom: 10 }}>
         {preseason && (
           <span style={{ color: "var(--cyan)" }}>
@@ -193,6 +289,9 @@ export default function RosPowerSection() {
             <th style={{ textAlign: "left", padding: "4px 0" }}>Owner</th>
             <th style={{ textAlign: "right", padding: "4px 8px" }}>Power</th>
             <th style={{ textAlign: "right", padding: "4px 8px" }}>ROS Pct</th>
+            <th style={{ textAlign: "right", padding: "4px 8px" }} title="Results-only rank change, last 2 weeks">
+              Trend
+            </th>
           </tr>
         </thead>
         <tbody>
@@ -203,6 +302,7 @@ export default function RosPowerSection() {
               weights={row.weightsApplied || effectiveWeights}
               expanded={expanded === i}
               onToggle={() => setExpanded(expanded === i ? null : i)}
+              trendDeltaValue={trendDelta(trend, row.ownerId)}
             />
           ))}
         </tbody>
@@ -211,7 +311,40 @@ export default function RosPowerSection() {
   );
 }
 
-function RankingRow({ row, weights, expanded, onToggle }) {
+function TrendCell({ deltaValue }) {
+  // ``null`` covers two distinct cases the reader must not conflate: no
+  // trend history yet (< 2 weeks played) and a week where the owner was
+  // unrankable (results-only lens with nothing to score on). Neither is
+  // "flat" (delta 0), so neither renders an arrow.
+  if (deltaValue == null) {
+    return (
+      <td style={{ textAlign: "right", fontFamily: "var(--mono)", color: "var(--subtext)" }}>
+        —
+      </td>
+    );
+  }
+  if (deltaValue === 0) {
+    return (
+      <td style={{ textAlign: "right", fontFamily: "var(--mono)", color: "var(--subtext)" }}>
+        •
+      </td>
+    );
+  }
+  const up = deltaValue > 0;
+  return (
+    <td
+      style={{
+        textAlign: "right",
+        fontFamily: "var(--mono)",
+        color: up ? "var(--cyan)" : "var(--amber)",
+      }}
+    >
+      {up ? "▲" : "▼"} {Math.abs(deltaValue)}
+    </td>
+  );
+}
+
+function RankingRow({ row, weights, expanded, onToggle, trendDeltaValue }) {
   return (
     <>
       <tr style={{ cursor: "pointer" }} onClick={onToggle} title="Click for component breakdown">
@@ -232,10 +365,11 @@ function RankingRow({ row, weights, expanded, onToggle }) {
         <td style={{ textAlign: "right", fontFamily: "var(--mono)", color: "var(--subtext)" }}>
           {fmtPct(row.rosStrengthPercentile)}
         </td>
+        <TrendCell deltaValue={trendDeltaValue} />
       </tr>
       {expanded && (
         <tr>
-          <td colSpan={4} style={{ background: "rgba(255,255,255,0.02)", padding: "8px 12px" }}>
+          <td colSpan={5} style={{ background: "rgba(255,255,255,0.02)", padding: "8px 12px" }}>
             <div style={{ fontSize: "0.72rem" }}>
               {Object.entries(COMPONENT_LABELS).map(([key, label]) => (
                 <ComponentBar
