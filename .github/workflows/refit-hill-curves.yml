@@ -252,8 +252,39 @@ jobs:
             "${LEAD}" \
             "$(cat refit_report.txt)" \
             "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}")
-          gh issue create --title "${TITLE}" --body "${BODY}" --label calibration \
-            || gh issue create --title "${TITLE}" --body "${BODY}"
+          # CI reliability lane, 2026-08-20.  Two defects, one cause.
+          #
+          # The `calibration` label did not exist in this repository, so
+          # `--label calibration` failed and the `||` fallback filed every
+          # issue UNLABELLED.  And this step had no dedup at all, so the
+          # weekly cron minted a fresh issue each time it fired.  Both are
+          # live and visible: #777 (2026-08-11) and #895 (2026-08-18) are
+          # the same promotion request, one week apart, neither labelled.
+          #
+          # Creating the label idempotently is the pattern
+          # scheduled-refresh.yml and e2e.yml already use.
+          gh label create calibration \
+            --color 5319E7 \
+            --description "Model-calibration work items opened by the weekly Hill refit and drift audits" \
+            2>/dev/null || true
+          # Dedup on the EXACT title, filtered client-side because
+          # `--search` is fuzzy and would match audit-rank-form-drift.yml's
+          # issues -- the same hazard that file's close step documents.
+          #
+          # This adds an OPEN-side dedup only.  The deliberate absence of
+          # an auto-close is untouched: a promotion request is a work item
+          # for a human, and silently closing one is worse than leaving it
+          # open (see the note above and ADR-008).
+          EXISTING=$(gh issue list --state open --limit 50 \
+                       --json number,title \
+                       --jq ".[] | select(.title == \"${TITLE}\") | .number" \
+                     2>/dev/null | head -n 1 || true)
+          if [[ -n "${EXISTING}" ]]; then
+            gh issue comment "${EXISTING}" --body "${BODY}"
+          else
+            gh issue create --title "${TITLE}" --body "${BODY}" --label calibration \
+              || gh issue create --title "${TITLE}" --body "${BODY}"
+          fi
 
       - name: Fail loudly on error or regression
         if: steps.refit.outputs.exit_code == '2' || steps.refit.outputs.exit_code == '3'
