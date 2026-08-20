@@ -254,10 +254,14 @@ class SectionCoverageTests(unittest.TestCase):
         ):
             self.assertIn(block, s)
 
-    def test_power_section(self) -> None:
-        s = self.contract["sections"]["power"]
-        for block in ("weeks", "seriesByOwner", "currentRanking", "methodology", "weights"):
-            self.assertIn(block, s)
+    def test_no_legacy_power_section(self) -> None:
+        """The v1 power engine (``src/public_league/power.py``) is
+        retired.  The aggregate contract no longer builds a ``power``
+        section at all -- the canonical engine lives at the lazy
+        ``rosPower`` section key instead (see test_server_routes.py for
+        HTTP-level coverage of that endpoint)."""
+        self.assertNotIn("power", self.contract["sections"])
+        self.assertNotIn("power", PUBLIC_SECTION_KEYS)
 
     def test_matchup_preview_section(self) -> None:
         s = self.contract["sections"]["matchupPreview"]
