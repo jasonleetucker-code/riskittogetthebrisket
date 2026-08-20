@@ -8245,7 +8245,7 @@ def _compute_unified_rankings(
     # to the combined-pool rank of the best IDP, not treated as if it
     # were the overall rank 1 of the shared offense+IDP board.
     #
-    # C7 / lane 7: the ladder is now built by the CROSS-POSITION BRIDGE OWNER
+    # Lane 8: the ladder is now built by the CROSS-POSITION BRIDGE OWNER
     # (``src/bridges``) from every QUALIFIED bridge that measures capable on
     # this board, not from the first source carrying ``is_backbone``.  That
     # flag is a label — it can be moved onto a source that cannot seed a
@@ -8566,7 +8566,7 @@ def _compute_unified_rankings(
                 if method != TRANSLATION_FALLBACK:
                     rank_pool = RANK_POOL_SHARED_MARKET
                 else:
-                    # ── C7: WITHHOLD, never pass the raw rank through ──
+                    # ── Lane 8: WITHHOLD, never pass the raw rank through ──
                     #
                     # A source flagged ``needs_shared_market_translation``
                     # ranks players within the IDP class only.  With no usable
