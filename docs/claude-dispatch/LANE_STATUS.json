@@ -1,7 +1,7 @@
 {
   "_comment": "Lane utilization state, owned by Claude 7 (Lane Dispatcher). NOT an authority on integration sequencing (Claude 5 / docs/EXECUTION_PLAN.md), on V1 status (docs/VERSION_1_COMPLETION_CONTRACT.md) or on canonical ownership (CLAUDE.md). Repository evidence outranks this file: where they disagree, this file is wrong and must be corrected.",
-  "updatedAt": "2026-08-20T21:55:00Z",
-  "dispatchCycle": 51,
+  "updatedAt": "2026-08-20T22:50:00Z",
+  "dispatchCycle": 53,
   "writePolicy": "This file and ASSIGNMENTS.json are written ONLY on a material state transition — new assignment, assignment accepted, completion, blocker, freeze/unfreeze, or a meaningful dependency change. A heartbeat that finds nothing changed produces no commit and no CI run.",
   "evidenceBasis": "origin/main 079fc9e4a; §3 diffed row-by-row from cycle-19 main (c5a367266); all refs resolved live; #945 CI green 04:57:35Z",
   "assignmentSourceNote": "Lanes 1-6 carry the owner's original six manual assignments, tracked in detail by this dispatcher. Lanes 8-13 are five additional owner-authorized campaign lanes (Claude 8 chartered 2026-08-20; Claude 9-13 chartered the same day under the POST-V1 C-Series mass-build campaign, EXECUTION_PLAN.md §0). This dispatcher did not originate any of these eleven assignments and does not own or re-scope them. Lanes 8-13 are tracked here only lightly — ownership boundaries and authorization citation — because they are self-directed under their own charter, unlike lanes 1-6 which this dispatcher actively monitors for idleness and dispatches follow-on work to. There is no lane 7: Claude 7 is the dispatcher identity, per dispatcherIdentity above.",
@@ -253,11 +253,11 @@
     "_doNotQuote": "Do not cite this block as the V1 status. Read the contract on current main instead.",
     "observedVerifiedRows": 61,
     "observedRequiredRows": 136,
-    "observedAtSha": "8be59e267",
-    "observedAt": "2026-08-20T21:50:00Z",
+    "observedAtSha": "04729d7a7",
+    "observedAt": "2026-08-20T22:46:00Z",
     "howObserved": "counted VERIFIED in the §3 table at that exact SHA; independently summed all statuses to 136 and confirmed the contract’s own table and completion line agree",
     "denominatorChangedAtThisSha": "YES — 132 -> 136. See cycle26Transitions.",
-    "note": "Unchanged at 61/136 despite two more merges (#992 V1-97, #1003 V1-106) — same lag as before: implementation lands, §3 row text is untouched until Integration processes it separately."
+    "note": "Main still 61/136. #999 (open, unmerged) proposes V1-108 + V1-88 VERIFIED -> 63/136."
   },
   "canonicalOwnerRule": "This dispatcher previously carried a `v1` block with verified/percent fields that read as authoritative, and it DRIFTED — PR #945 declared 48/132 while the contract on main said 55/132. That is a second owner of the numerator forming inside a coordination record, which is the exact defect class this dispatcher has spent the session flagging in other lanes. Corrected on integration review: the fields are renamed to name themselves derived, carry the SHA they were read at, and declare the contract the winner in any disagreement.",
   "correction_C24": {
@@ -367,21 +367,29 @@
     "dispatcherAction": "REPORTED ONLY. Re-verifying and promoting V1-88 is Integration's act, not this dispatcher's. Flagging precisely so it isn't missed: the row is stale in a specific, checkable way, not merely old.",
     "theClassOfDefect": "Same shape as every correction logged in this record all session — a snapshot that was true when taken and now reads as current fact. The lesson from #945/#967 applies here too, just to someone else's file: date-stamp a refutation the same way a promotion is date-stamped, or it silently outlives what it refutes."
   },
-  "cycle51Transitions": {
-    "mainTip": "8be59e267 (was 5a87d7120)",
+  "cycle53_v188_resolution": {
+    "_significance": "The V1-88 stale-refutation finding flagged at cycle 49 appears to have been directly acted on.",
+    "evidence": "Commit 53d3cdc7b on the Integration authority branch, 20:54:32Z: 'V1-108 and V1-88 VERIFIED (63/136); repair the Sharp smoke deploy classifier (#995)'. This is chronologically AFTER cycle 49's finding (posted ~20:50Z that same session) and directly promotes both rows this dispatcher had been tracking — V1-88 specifically for the exact reason flagged (the refutation predated the guard that answers it).",
+    "currentState": "NOT YET ON MAIN. The commit lives on PR #999 (open), currently at 3f8390134 — a follow-up commit fixing ruff format/lint failures in the #995 test file, layered on top of the promotion commit. Main remains at 61/136 until #999 merges.",
+    "dispatcherAction": "Reported and tracked, not claimed as landed. Will confirm via row-diff once #999 merges."
+  },
+  "cycle53Transitions": {
+    "mainTip": "04729d7a7 (was c99098552)",
     "myOwnPr": {
       "pr": "#1000",
-      "head": "b89b810f9 — unchanged",
-      "verdict": "Validate PR SUCCESS, job 96580011601, 14m42s — re-confirmed, no new comments."
+      "head": "6c9a300c0 — unchanged",
+      "verdict": "Validate PR SUCCESS, job 96594148930, 17m45s — re-confirmed, no new comments."
     },
     "merged": [
-      "#1003 — V1-106: regression-sensitive windowing evidence + current-tree FPS measurement (post-#984)",
-      "#992 — V1-97 / C3-REPLAY-01: fix hindsight leak in public activity feed trade grading"
+      "#1007 — V1-32: re-verify frontend consumption is not required; refresh L2 evidence (roster verification pack + offline verify script, no frontend code)"
     ],
     "rowDiff": {
-      "method": "§3 row-diffed against the cycle-49 baseline",
-      "result": "NO STATUS CHANGE for either row. V1-106 still reads IN PROGRESS citing only 'PR #760' — the text has not yet incorporated #1003 at all. V1-97 still reads flatly NOT STARTED, not even bumped to IMPLEMENTED_UNVERIFIED — #992's merge has not yet touched the row text either."
+      "method": "§3 diffed for a contract-file touch across c99098552 -> 04729d7a7",
+      "result": "NONE. #1007 touched only evidence docs and a verification script, not §3 itself — V1-32 stays IN PROGRESS on main."
     },
-    "distinctFromTheV1_88_finding": "This is the ORDINARY lag (product-lane implementation merges, Integration has not yet run its promotion/status-update pass over them), not a stale refutation like V1-88. No claim in either row is currently WRONG — they simply have not been updated yet. Watch both for their first §3 edit next."
+    "integrationAuthorityBranchReadDirectly": {
+      "finding": "V1-108 and V1-88 VERIFIED (63/136) written at commit 53d3cdc7b, now PR #999 (open). Also present: 'Fix the ruff format + lint failures in my own #995 test file' (3f8390134) — the same self-correcting discipline this record has practiced all session, applied by Integration to its own promotion PR.",
+      "notYetMerged": "#999 is open; main unaffected until it lands."
+    }
   }
 }

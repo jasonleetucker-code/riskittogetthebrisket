@@ -1,7 +1,7 @@
 {
   "_comment": "Live V1 Closability Queue, owned by Claude 7 as independent V1 traffic controller / adversarial auditor. Ranks IMPLEMENTED_UNVERIFIED rows by verification effort per row gained. NOT an authority on V1 status — only Claude 5 promotes a row, and no percentage here is claimed as achieved.",
-  "updatedAt": "2026-08-20T21:55:00Z",
-  "auditCycle": 51,
+  "updatedAt": "2026-08-20T22:50:00Z",
+  "auditCycle": 53,
   "evidenceBasis": {
     "contract": "docs/VERSION_1_COMPLETION_CONTRACT.md §3 read on origin/main e3b387ca5",
     "deployedSha": "e3b387ca5",
@@ -401,19 +401,20 @@
     "_doNotQuote": "Do not cite this block as the V1 status. Read the contract on current main instead.",
     "observedVerifiedRows": 61,
     "observedRequiredRows": 136,
-    "observedAtSha": "8be59e267",
-    "observedAt": "2026-08-20T21:50:00Z",
+    "observedAtSha": "04729d7a7",
+    "observedAt": "2026-08-20T22:46:00Z",
     "howObserved": "counted `VERIFIED` in the §3 table of the contract as it exists at that exact SHA",
-    "note": "Unchanged at 61/136. #992 (V1-97) and #1003 (V1-106) both merged; neither row updated yet."
+    "note": "Main still 61/136. #999 open, proposes V1-108+V1-88 VERIFIED -> 63/136."
   },
   "_authorityNote": "This queue RANKS work by verification effort. It does not own, publish or restate V1 status. docs/VERSION_1_COMPLETION_CONTRACT.md §3 owns that, and every count in this file is a derived reading stamped with the SHA it came from.",
-  "cycle51": {
-    "promotionPassRan": "NO. Two more implementations merged (V1-97 via #992, V1-106 via #1003) but §3 text for both is untouched — the ordinary implementation/promotion lag, distinct from V1-88's stale refutation.",
+  "cycle53": {
+    "promotionPassQueued": "#999 (open, unmerged): V1-108 + V1-88 VERIFIED, 61 -> 63/136. Watch for merge next cycle.",
     "tierB": {
-      "V1-106": "Implementation now merged (#1003). Row still says IN PROGRESS / 'PR #760' only — watch for Integration's row update.",
-      "V1-97": "Implementation now merged (#992). Row still says NOT STARTED. Watch for Integration's row update.",
-      "V1-88": "Still IMPLEMENTED_UNVERIFIED with the pre-#991 refutation text, unresolved for two cycles now since flagged.",
-      "V1-108": "Still IMPLEMENTED_UNVERIFIED, unchanged for many cycles."
+      "V1-88": "Promotion queued in #999, directly responsive to the stale-refutation finding flagged cycle 49.",
+      "V1-108": "Promotion queued in #999, same PR.",
+      "V1-106": "Implementation merged (#1003, cycle 51). Row not yet updated.",
+      "V1-97": "Implementation merged (#992, cycle 51). Row not yet updated.",
+      "V1-32": "Evidence refreshed (#1007, this cycle). Row stays IN PROGRESS, no promotion claimed."
     },
     "standingItems": [
       {
