@@ -11,6 +11,7 @@ This repository powers dynasty fantasy football valuation, rankings, trade calcu
 - Do not edit OneDrive repo copies unless the user explicitly asks; treat them as backups/archive only.
 - Do not let multiple assistants edit the same branch at the same time.
 - See `ASSISTANT_COORDINATION.md` for the shared start-of-session checklist and handoff rules.
+- Main movement alone does **not** invalidate completed feature evidence. After a PR reaches `READY_FOR_INTEGRATION`, freeze implementation; Integration owns the planned freshness reconciliation, final shipping gate, and dependency-ordered merge. Do not make finished branches continually chase `main`. See `ASSISTANT_COORDINATION.md` → **Main-Movement and Integration Queue Policy**.
 
 ## Non-Negotiables
 - Do not assume a feature works because a helper, component, or file exists.
