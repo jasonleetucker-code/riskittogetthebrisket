@@ -1393,7 +1393,20 @@ export function RookieBoard({
                 rendered.push(
                   <tr
                     key={p.id}
+                    // A row cannot become a <button> without destroying the
+                    // table semantics a screen reader navigates by, so it
+                    // takes the documented fallback instead: focusable, and
+                    // activated by Enter/Space like the control it behaves
+                    // as. Space is preventDefault'd so it selects the row
+                    // rather than scrolling the board out from under it.
+                    tabIndex={0}
                     onClick={() => onSelectRow?.(p.id)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        onSelectRow?.(p.id);
+                      }
+                    }}
                     className={`draft-row${p.drafted ? " draft-row-drafted" : ""}${
                       p.mine ? " draft-row-mine" : ""
                     }${p.userTag === TAG_TARGET ? " draft-row-target" : ""}${
@@ -1988,8 +2001,13 @@ function ParSheet({
                       {enriched.tier}
                     </span>
                   )}
-                  <span
+                  <button
+                    type="button"
                     className="draft-nbt-name"
+                    // Not in the rookie pool means there is nothing to draft.
+                    // Disabling says that to a keyboard and a screen reader,
+                    // where the old cursor:default said it only to a mouse.
+                    disabled={!enriched || drafted}
                     onClick={() => {
                       if (enriched && !drafted) onDraft(enriched);
                     }}
@@ -1998,10 +2016,9 @@ function ParSheet({
                         ? "Open draft modal"
                         : "Not in rookie pool yet — sync rookies to enable quick-draft"
                     }
-                    style={!enriched ? { cursor: "default" } : undefined}
                   >
                     {row.name}
-                  </span>
+                  </button>
                 </span>
                 <span className="draft-money">
                   {isEditing ? (
@@ -2300,13 +2317,14 @@ function TargetBoard({
                   >
                     {p.tier}
                   </span>
-                  <span
+                  <button
+                    type="button"
                     className="draft-nbt-name"
                     onClick={() => onDraft(p)}
                     title="Open draft modal"
                   >
                     {p.name}
-                  </span>
+                  </button>
                 </span>
                 <span className="draft-money">{fmt$(p.preDraft)}</span>
                 <span className="draft-money">{fmt$(p.inflatedFair)}</span>
@@ -2525,9 +2543,13 @@ function NominationCandidates({ stats, onDraft, onCycleTag }) {
               >
                 {player.tier}
               </span>
-              <span className="draft-nbt-name" onClick={() => onDraft(player)}>
+              <button
+                type="button"
+                className="draft-nbt-name"
+                onClick={() => onDraft(player)}
+              >
                 {player.name}
-              </span>
+              </button>
               <span
                 className="muted"
                 style={{ fontSize: "0.68rem" }}
@@ -2638,9 +2660,13 @@ function BestValueOnBoard({ stats, onDraft, onCycleTag }) {
               >
                 {player.tier}
               </span>
-              <span className="draft-nbt-name" onClick={() => onDraft(player)}>
+              <button
+                type="button"
+                className="draft-nbt-name"
+                onClick={() => onDraft(player)}
+              >
                 {player.name}
-              </span>
+              </button>
               <span
                 className="muted"
                 style={{ fontSize: "0.68rem" }}
@@ -2733,9 +2759,13 @@ function NextBestTargets({ stats, onDraft, onCycleTag, workspace }) {
               >
                 {player.tier}
               </span>
-              <span className="draft-nbt-name" onClick={() => onDraft(player)}>
+              <button
+                type="button"
+                className="draft-nbt-name"
+                onClick={() => onDraft(player)}
+              >
                 {player.name}
-              </span>
+              </button>
               <span className="draft-money draft-money-win">
                 {fmt$(player.myWinningBid)}
               </span>

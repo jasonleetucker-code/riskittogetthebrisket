@@ -4,7 +4,7 @@ import { useCallback, useEffect, useId, useMemo, useState } from "react";
 import Link from "next/link";
 import { useDynastyData } from "@/components/useDynastyData";
 import { useAuthContext } from "@/app/AppShellWrapper";
-import { HelpModal, InfoTip } from "@/components/ds";
+import { FailureState, HelpModal, InfoTip } from "@/components/ds";
 import {
   useSettings,
   SETTINGS_DEFAULTS as DEFAULTS,
@@ -103,6 +103,9 @@ function SettingsGroup({ title, description, children }) {
 }
 
 function SliderRow({ label, value, min, max, step, onChange, hint }) {
+  // `useId` rather than a slug of `label`: two rows could share a label,
+  // and a duplicate `id` silently points both labels at the first input.
+  const inputId = useId();
   return (
     <div
       style={{
@@ -112,8 +115,15 @@ function SliderRow({ label, value, min, max, step, onChange, hint }) {
         marginBottom: 8,
       }}
     >
-      <label style={{ minWidth: 100, fontSize: "0.82rem" }}>{label}</label>
+      {/* `htmlFor`, because the label is a SIBLING of the input, not a
+          wrapper.  Without it a screen reader announces "slider, 365" —
+          every valuation control on this page was unnamed, which is the
+          page that changes what every number in the app means. */}
+      <label htmlFor={inputId} style={{ minWidth: 100, fontSize: "0.82rem" }}>
+        {label}
+      </label>
       <input
+        id={inputId}
         type="range"
         min={min}
         max={max}
@@ -170,7 +180,13 @@ function ToggleRow({ label, checked, onChange, hint }) {
 }
 
 export default function SettingsPage() {
-  const { loading, error, rows, rawData } = useDynastyData();
+  const { loading, error, failure, rows, rawData, retry } = useDynastyData();
+  // Stable ids so each sibling <label> can point at its control.  Every
+  // numeric valuation control on this page reached assistive tech
+  // unnamed until 2026-08-18 — the labels were siblings, not wrappers.
+  const tepNonNativeId = useId();
+  const tepNativeId = useId();
+  const sortBasisId = useId();
   // Only to point an operator at where the moved panels went; nothing
   // on this page is gated by it.
   const { isAdmin } = useAuthContext();
@@ -352,8 +368,12 @@ export default function SettingsPage() {
         </button>
       </div>
 
-      {loading && <p>Loading data...</p>}
-      {!!error && <p style={{ color: "var(--red)" }}>{error}</p>}
+      {loading && <p role="status">Loading data…</p>}
+      {/* Was a bare red <p>: no role, so nothing was announced; no
+          primitive, so it looked like nothing else in the app; and no
+          kind, so "you are signed out" and "the backend is down" and
+          "the board is empty" were one sentence in one colour. */}
+      {failure ? <FailureState failure={failure} onRetry={retry} /> : null}
 
       <SettingsGroup
         title="League &amp; scoring"
@@ -361,7 +381,13 @@ export default function SettingsPage() {
       >
       <Section title="League Format" defaultOpen>
         <div style={{ display: "flex", gap: 10, marginBottom: 10 }}>
+          {/* aria-label rather than a visible <label>: this select is
+              the ONLY control in its group and the Section title
+              already names it on screen, so a visible label would be
+              duplicate text — but it was reaching assistive tech as an
+              unnamed combobox. */}
           <select
+            aria-label="League format"
             className="select"
             value={settings.leagueFormat}
             onChange={(e) => update("leagueFormat", e.target.value)}
@@ -378,10 +404,14 @@ export default function SettingsPage() {
             marginBottom: 8,
           }}
         >
-          <label style={{ minWidth: 140, fontSize: "0.82rem" }}>
+          <label
+            htmlFor={tepNonNativeId}
+            style={{ minWidth: 140, fontSize: "0.82rem" }}
+          >
             TEP — non-native
           </label>
           <input
+            id={tepNonNativeId}
             type="number"
             min={1.0}
             max={1.5}
@@ -437,10 +467,14 @@ export default function SettingsPage() {
             marginBottom: 8,
           }}
         >
-          <label style={{ minWidth: 140, fontSize: "0.82rem" }}>
+          <label
+            htmlFor={tepNativeId}
+            style={{ minWidth: 140, fontSize: "0.82rem" }}
+          >
             TEP — native
           </label>
           <input
+            id={tepNativeId}
             type="number"
             min={1.0}
             max={1.5}
@@ -578,6 +612,7 @@ export default function SettingsPage() {
               toggles get the stronger treatment (no highlight at all);
               see the note above `getHydratedSnapshot` in useSettings. */}
           <select
+            aria-label="Valuation mode"
             className="select"
             value={settings.valuationMode}
             disabled={!settingsHydrated}
@@ -651,10 +686,14 @@ export default function SettingsPage() {
 
       <Section title="Rankings Display" defaultOpen>
         <div style={{ marginBottom: 8 }}>
-          <label style={{ fontSize: "0.82rem", marginRight: 8 }}>
+          <label
+            htmlFor={sortBasisId}
+            style={{ fontSize: "0.82rem", marginRight: 8 }}
+          >
             Sort Basis
           </label>
           <select
+            id={sortBasisId}
             className="select"
             value={settings.rankingsSortBasis}
             onChange={(e) => update("rankingsSortBasis", e.target.value)}
@@ -1162,7 +1201,13 @@ function SourceTable({ title, sources, onToggle, onWeight }) {
                       </span>
                       {/* Status dot — visible only on mobile; mirrors the
                           dedicated Status column. */}
+                      {/* role="img": `aria-label` is PROHIBITED on a bare
+                          <span>, which has no role to name — axe flags 21
+                          of these.  The dot carries meaning (it mirrors
+                          the Status column), so it is an image with a
+                          name, not decoration to hide. */}
                       <span
+                        role="img"
                         className="settings-src-status-mobile"
                         aria-label={statusLabel}
                         title={statusLabel}
@@ -1547,19 +1592,4 @@ function RosSourceTable({ overrides, onToggle, onWeight, onResetSource }) {
 // prevents the token from leaking via DOM scraping or screenshot
 // later.
 
-function fmtPassExpiry(epoch) {
-  if (!Number.isFinite(Number(epoch)) || Number(epoch) <= 0) return "—";
-  const ms = Number(epoch) * 1000;
-  const d = new Date(ms);
-  const now = Date.now();
-  const remainingMin = Math.round((ms - now) / 60000);
-  if (remainingMin > 0 && remainingMin < 60) return `in ${remainingMin}m`;
-  if (remainingMin > 0 && remainingMin < 60 * 24) {
-    return `in ${Math.round(remainingMin / 60)}h`;
-  }
-  if (remainingMin > 0) {
-    return `in ${Math.round(remainingMin / (60 * 24))}d`;
-  }
-  // Past — show absolute date.
-  return d.toLocaleString();
-}
+

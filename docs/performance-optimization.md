@@ -513,7 +513,68 @@ single-owner and mixed-free, ~32 KB combined: scouting / portfolio /
 pmm / ticker (terminal components), edge (`/rankings`), watchlist, tc.
 The splitter and the pixel-diff harness make it mechanical.
 
-### Rankings: the board freeze, and why it is not virtualized
+### Rankings: the board IS virtualized now (2026-08-18)
+
+**The section below is history.**  Its prerequisite — pinned column
+widths — landed in round 5 as `freezeColumnWidths`, and the windowing it
+was blocking is now implemented in
+`frontend/components/ds/useRowWindow.js` and opted into by
+`app/rankings/page.jsx`.  Everything it says about *why* CSS cannot
+solve this is still true and is why the implementation exists.
+
+Measured on the live board with `frontend/scripts/measure-board-fps.mjs`
+(CDP `Input.synthesizeScrollGesture`, 9000 px @ 2400 px/s, no timer in
+the loop; 3 runs, median; trivial-page control printed at every rate):
+
+| board | mounted rows | DOM nodes | 1x FPS | p95 frame |
+|---|---|---|---|---|
+| 982 rows, before | 982 | 31,172 | **6.8** | 166.7 ms |
+| 982 rows, windowed | 39 | 1,574 | **35.6** | 33.4 ms |
+| *control: trivial page* | — | ~1,800 | 60.0 | — |
+
+**6.8 → 35.6 FPS at 1x, a 5.2x improvement, with 95% fewer DOM nodes.**
+
+**It does NOT reach the >=50 target, and the reason is measured rather
+than guessed.**  Row count is no longer the driver:
+
+| arm | mounted | DOM nodes | 1x FPS |
+|---|---|---|---|
+| 982-row board, windowed | 39 | 1,574 | 35.6 |
+| **200-row board, windowed** | **27** | **1,209** | **35.9** |
+| 982-row board, no hover | 39 | 1,578 | 35.8 |
+
+A board with 5x the rows scores the same as one with 200.  Before
+windowing those two differed by a factor of five.  So whatever remains
+is a FIXED per-frame cost of the page, and windowing has taken row count
+out of the equation entirely — which is what it was for.
+
+Three cheap suspects were ablated on the live board with `--ablate`
+(injected `!important` overrides, baseline re-measured either side so
+drift is visible).  **None of them is it** — every arm sits inside the
+~6% baseline drift:
+
+| suspect removed | 1x FPS |
+|---|---|
+| baseline | 34.8 |
+| `position: sticky` everywhere | 35.0 |
+| `box-shadow` everywhere | 36.3 |
+| edge rail hidden | 31.6 |
+| baseline again (drift check) | 32.8 |
+
+Naming the residual is open work and a separate unit.  It is NOT row
+count, NOT sticky positioning, NOT shadows and NOT the edge rail.
+
+Consequence for tests: assertions that counted `<tr>` elements as a
+proxy for "the board has data" now read the table's own `aria-rowcount`
+via `journey.js::boardRowCount`.  A windowed board mounts ~40 rows by
+design, so a mounted-count assertion would report the feature as the
+failure — and lowering the threshold instead would stop the test
+noticing a board that genuinely came back with two rows.  Both halves
+are asserted separately.
+
+---
+
+### Rankings: the board freeze, and why it was not virtualized *(historical)*
 
 Measured first, on `/rankings` at 390×844:
 
@@ -566,10 +627,10 @@ Also worth knowing: an **active filter bypasses `rowLimit` entirely**
 (`hasActiveFilter ? ranked : ranked.slice(0, rowLimit)`), so a broad
 filter renders every match with no cap and no transition.
 
-*(Both open items here are closed: round 5 fixed the filter freeze with
-`useDeferredValue` and landed `freezeColumnWidths`; round 6 capped the
-filtered board.  Windowing is still not done — round 6's constraint
-audit is the reason, and the checklist.)*
+*(Every open item here is now closed: round 5 fixed the filter freeze
+with `useDeferredValue` and landed `freezeColumnWidths`; round 6 capped
+the filtered board; 2026-08-18 landed the windowing this section was the
+checklist for.  See the section above for the measurements.)*
 
 ## 2026-07-30 round 5 — the board's two freeze paths, and stable columns
 

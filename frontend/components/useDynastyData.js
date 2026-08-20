@@ -8,6 +8,11 @@ import {
   prefetchBaseContract,
 } from "@/lib/dynasty-data";
 import { useSettings } from "@/components/useSettings";
+import {
+  classifyContractFailure,
+  classifyContractPayload,
+  shouldRedirectToLogin,
+} from "@/lib/contract-failure";
 
 // Shared materialization cache: the hook is mounted by AppShell AND by
 // the page component, and after the fetch-layer dedup both instances
@@ -77,6 +82,14 @@ export function useDynastyData() {
   );
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  // `error` is the message, kept for every existing consumer.  `failure`
+  // is the same event as a STATE — kind, code, retryable — so a page can
+  // tell "you are signed out" from "the pipeline is still warming up"
+  // from "the backend is unreachable" instead of pattern-matching prose.
+  // Both are published because eight routes read `error` today and a
+  // flag-day rename would be a bigger change than the repair.
+  const [failure, setFailure] = useState(null);
+  const [reloadKey, setReloadKey] = useState(0);
   const [source, setSource] = useState("");
   const [rawData, setRawData] = useState(null);
   // Bumped when the active league changes so the fetch effect below
@@ -130,6 +143,7 @@ export function useDynastyData() {
       try {
         setLoading(true);
         setError("");
+        setFailure(null);
         const payload = await fetchDynastyData({
           siteOverrides,
           tepMultiplier,
@@ -142,22 +156,25 @@ export function useDynastyData() {
         setRawData(data);
         setSource(String(payload?.source || ""));
 
-        // Detect structurally-valid but empty payloads that would silently render nothing.
-        if (data && typeof data === "object") {
-          const hasPlayers = Object.keys(data.players || {}).length > 0;
-          const hasPlayersArray =
-            Array.isArray(data.playersArray) && data.playersArray.length > 0;
-          if (!hasPlayers && !hasPlayersArray) {
-            setError(
-              "Data loaded but contains no players. Backend may still be initializing.",
-            );
-          }
-        } else if (!data) {
-          setError("No data received from server. Check backend status.");
+        // A payload that ARRIVED can still be unusable, and the two ways
+        // it can be are different states: nothing came back at all
+        // (`no_data`) versus a well-formed contract with an empty board
+        // (`empty` — usually a backend that has not finished its first
+        // scrape, which resolves on its own and is not a fault to report
+        // as one).
+        const payloadFailure = classifyContractPayload(data);
+        if (payloadFailure) {
+          setFailure(payloadFailure);
+          setError(payloadFailure.message);
         }
       } catch (err) {
         if (!active) return;
-        const message = err?.message || "Failed to load data";
+        // The status now travels ON the error (lib/dynasty-data.js), so
+        // this no longer has to read it back out of the message with a
+        // regex — which could not tell a 503 from a 500 from a timeout,
+        // and would have matched a player named "401" in the body.
+        const classified = classifyContractFailure(err?.status ?? null, err?.body ?? null);
+
         // A 401 here means the server-side session is gone (cookie
         // expired, deploy invalidated, allowlist rotated).  The
         // recovery is targeted at the original stuck-state bug:
@@ -168,7 +185,7 @@ export function useDynastyData() {
         // where ``useDynastyData`` is hydrated but auth isn't
         // required.  Also skip the redirect on /login itself to
         // avoid a self-redirect loop on the login form.
-        if (typeof window !== "undefined" && /\b401\b/.test(message)) {
+        if (typeof window !== "undefined" && classified.kind === "auth") {
           let hadAuthCache = false;
           try {
             hadAuthCache =
@@ -177,15 +194,24 @@ export function useDynastyData() {
           } catch {
             // sessionStorage can throw in private mode — ignore.
           }
-          const path = window.location.pathname || "";
-          const onLogin = path === "/login" || path.startsWith("/login/");
-          if (hadAuthCache && !onLogin) {
-            const next = encodeURIComponent(path + window.location.search);
+          if (
+            shouldRedirectToLogin(classified, {
+              hadAuthCache,
+              pathname: window.location.pathname || "",
+            })
+          ) {
+            const next = encodeURIComponent(
+              (window.location.pathname || "") + window.location.search,
+            );
             window.location.replace(`/login?next=${next}`);
             return;
           }
         }
-        setError(message);
+        setFailure(classified);
+        // The message stays what it always was for anything unclassified,
+        // so a consumer still reading `error` is never handed less than
+        // it had.
+        setError(classified.message || err?.message || "Failed to load data");
       } finally {
         if (active) setLoading(false);
       }
@@ -202,6 +228,7 @@ export function useDynastyData() {
     tepNativeMultiplier,
     valuationMode,
     leagueRefreshKey,
+    reloadKey,
   ]);
 
   const rows = useMemo(() => {
@@ -226,9 +253,14 @@ export function useDynastyData() {
   return {
     loading,
     error,
+    // The classified failure: { kind, code, message, retryable } or null.
+    failure,
     source,
     rawData,
     rows,
     siteKeys,
+    // A retry the UI can offer. `ErrorState` has had a `retry` prop all
+    // along and no route could use it, because nothing here returned one.
+    retry: () => setReloadKey((n) => n + 1),
   };
 }

@@ -89,24 +89,59 @@ def _sample_contract():
 def test_prunes_contract_level_fields():
     out = cv.compact_contract(_sample_contract())
     assert "poolAudit" not in out
-    assert "methodology" not in out
     assert "siteStats" not in out
+    # ``methodology`` is NOT pruned.  It is rendered by
+    # ``app/rankings/page.jsx`` (<MethodologySection methodology=...>), so
+    # pruning it deleted a whole section on mobile and nowhere else — a
+    # board difference, not a byte saving.
+    assert "methodology" in out
     # Meta is preserved + stamped with view.
     assert out["meta"]["view"] == "compact"
     # Sleeper block preserved for team switcher.
     assert "sleeper" in out
 
 
-def test_prunes_player_level_fields():
+def test_drops_the_legacy_players_dict_when_the_array_is_present():
+    """The dict and ``playersArray`` are parallel encodings of the same
+    rows, and ``buildRows`` prefers the array whenever it is present.
+    Carrying both is what made the "compact" mobile view LARGER than the
+    desktop ``array`` view (735.0 KB gz vs 631.8 KB gz on a 1,109-row
+    contract, 2026-08-18)."""
     out = cv.compact_contract(_sample_contract())
+    assert "players" not in out
+    assert isinstance(out["playersArray"], list)
+
+
+def test_keeps_the_dict_when_there_is_no_array_to_replace_it():
+    """A payload carrying the dict ALONE is a legitimate shape — the
+    runtime view strips ``playersArray``.  Dropping the dict there would
+    turn a size optimization into data loss, so the drop is conditional
+    on the array actually being present."""
+    contract = _sample_contract()
+    contract.pop("playersArray")
+    out = cv.compact_contract(contract)
+    assert "players" in out
+    assert out["players"]["Josh Allen"]["rankDerivedValue"] == 9200
+
+
+def test_prunes_player_level_fields():
+    """Applied to the dict encoding, on the runtime-view shape where it is
+    the only encoding present."""
+    contract = _sample_contract()
+    contract.pop("playersArray")
+    out = cv.compact_contract(contract)
     player = out["players"]["Josh Allen"]
     # ``sourceRankMeta`` and ``canonicalSiteValues`` are kept on the
     # compact view — the trade per-source winner card and the
-    # rankings audit popover both read them.  Other audit-only fields
-    # are still pruned.
+    # rankings audit popover both read them.
     assert "sourceRankMeta" in player
     assert "canonicalSiteValues" in player
-    assert "anomalyFlags" not in player
+    # ``anomalyFlags`` is NO LONGER pruned: the materializer reads it and
+    # /edge's "Flagged" stat tile counts it, so pruning made that tile
+    # read 0 on mobile and the real count on desktop.
+    assert "anomalyFlags" in player
+    # Still pruned — no frontend consumer reads it off a player row.
+    assert "pickDetails" not in player
     # Kept fields.
     assert player["name"] == "Josh Allen"
     assert player["rankDerivedValue"] == 9200
@@ -118,7 +153,7 @@ def test_prunes_players_array_fields():
     arr_player = out["playersArray"][0]
     assert "sourceRankMeta" in arr_player
     assert "canonicalSiteValues" in arr_player
-    assert "anomalyFlags" not in arr_player
+    assert "anomalyFlags" in arr_player
     assert arr_player["rankDerivedValue"] == 9200
 
 
@@ -127,7 +162,9 @@ def test_source_rank_meta_is_slimmed():
     entry is reduced to the fields the mobile UI actually consumes —
     valueContribution (drives the trade per-source winner row), both
     weights, method.  Audit-only stamps are dropped."""
-    out = cv.compact_contract(_sample_contract())
+    contract = _sample_contract()
+    contract.pop("playersArray")
+    out = cv.compact_contract(contract)
     player = out["players"]["Josh Allen"]
     ktc_meta = player["sourceRankMeta"]["ktcSfTep"]
     # Kept fields.

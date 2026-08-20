@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { useApp } from "@/components/AppShell";
 import { useSettings } from "@/components/useSettings";
 import { PageHeader, LoadingState, EmptyState, PlayerImage } from "@/components/ui";
+import { FailureState } from "@/components/ds";
 import { InfoTip, PlayerNameButton } from "@/components/ds";
 import { ValueBasisNote } from "@/components/ds";
 import {
@@ -18,6 +19,23 @@ import {
   buildLeagueEdgeMap,
   ordinal,
 } from "@/lib/league-analysis";
+import { readableTextOn, textSafe } from "@/lib/contrast";
+
+// The surface these labels sit on.  `--card` / `--bg-soft` (#131519),
+// NOT the page `--bg` (#0b0d10): the labels live inside panels, and
+// panels are one step LIGHTER, so computing against the page would
+// clear the floor on paper and miss it on screen — which is exactly
+// what the first pass did, leaving LB at 4.36:1.  Passed explicitly
+// rather than sniffed from the DOM so the value is identical on the
+// server render and in the test that asserts it.
+const PAGE_SURFACE = "#131519";
+// Mark colours are chosen to be legible as SWATCHES (>=3:1).  Reused
+// as words they fell short — DL at 3.91:1, LB at 3.11:1 — so the
+// text variant is derived once here.  Six of the eight are returned
+// unchanged; this is a floor, not a restyle.
+const POS_TEXT_COLORS = Object.fromEntries(
+  Object.entries(POS_GROUP_COLORS).map(([g, c]) => [g, textSafe(c, PAGE_SURFACE)]),
+);
 import AgeCurveOverlay from "@/components/graphs/AgeCurveOverlay";
 import TeamStrengthCard from "@/components/TeamStrengthCard";
 import { useRosterIntelligence } from "@/components/useRosterIntelligence";
@@ -49,7 +67,8 @@ const ASSET_SCOPES = [
 ];
 
 export default function RostersPage() {
-  const { rows, rawData, loading, error, openPlayerPopup } = useApp();
+  const { rows, rawData, loading, error, failure, retry, openPlayerPopup } =
+    useApp();
   const { settings, update } = useSettings();
   const [assetScope, setAssetScope] = useState("full");
   const [activeGroups, setActiveGroups] = useState(new Set(POS_GROUPS));
@@ -142,7 +161,31 @@ export default function RostersPage() {
   }
 
   if (loading) return <LoadingState message="Loading roster data..." />;
-  if (error) return <div className="card"><EmptyState title="Error" message={error} /></div>;
+  // A failure is not an absence.  `EmptyState title="Error"` told a screen
+  // reader "nothing here", offered no retry, and printed the raw thrown
+  // string — which since contract failures carry their body is a JSON 503
+  // payload rendered into the page.  FailureState classifies instead:
+  // degraded reads as degraded, 403 offers no pointless retry, and the
+  // server's own message leads.
+  if (error) {
+    // `failure` is set alongside `error` by useDynastyData, but a caller
+    // that surfaces an error string without one must not render a blank
+    // card — FailureState returns null on a falsy failure. So an
+    // unclassified error becomes an explicit generic one rather than
+    // disappearing, which is the same missing-is-never-zero rule the
+    // contract applies to values.
+    const state = failure || {
+      kind: "error",
+      code: null,
+      message: error,
+      retryable: true,
+    };
+    return (
+      <div className="card">
+        <FailureState failure={state} onRetry={retry} />
+      </div>
+    );
+  }
 
   if (!sleeperTeams.length) {
     return (
@@ -251,7 +294,14 @@ export default function RostersPage() {
                 aria-pressed={active}
                 title={`Toggle ${g}`}
                 style={{
-                  color: active ? "#fff" : color,
+                  // Computed, not hardcoded "#fff": axe measured 57
+                  // contrast failures here, down to 2.85:1 on TE, because
+                  // white was assumed to work on every saturated
+                  // background. `readableTextOn` picks whichever of black
+                  // or white the colour actually supports — which also
+                  // means a future palette change cannot silently
+                  // reintroduce this. See lib/contrast.js.
+                  color: active ? readableTextOn(color) : color,
                   background: active ? color : "transparent",
                   borderColor: color,
                 }}
@@ -290,7 +340,18 @@ export default function RostersPage() {
           that total &mdash; a sort, not a rank. Team Strength is a different
           measurement, over the meaningful core, and is the card above.
         </p>
-        <div className="table-wrap">
+        {/* A horizontally-scrollable region has to be reachable without a
+            pointer.  This table scrolls sideways on narrow viewports and had
+            no way in from the keyboard at all — axe's
+            `scrollable-region-focusable`.  `tabIndex={0}` makes it a tab stop
+            so arrow keys can scroll it; `role="group"` + a name keep that stop
+            from being an unlabelled one. */}
+        <div
+          className="table-wrap"
+          tabIndex={0}
+          role="group"
+          aria-label="Roster value portfolio table, scrolls horizontally"
+        >
           <table className="roster-portfolio-table">
             <thead>
               <tr>
@@ -330,7 +391,11 @@ export default function RostersPage() {
                                 alignItems: "center",
                                 justifyContent: "center",
                                 fontSize: "0.56rem",
-                                color: "#fff",
+                                // Same rule as the chips above: the label
+                                // sits ON the mark colour, so the readable
+                                // foreground is computed rather than
+                                // assumed white (PICKS was 2.19:1).
+                                color: readableTextOn(POS_GROUP_COLORS[g]),
                                 fontWeight: 700,
                                 overflow: "hidden",
                                 whiteSpace: "nowrap",
@@ -473,10 +538,10 @@ function TradeTargetsCard({ myTeam, teams, groupAvg, onPlayerClick }) {
 
       {/* Strength summary */}
       <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 14 }}>
-        <span className="badge" style={{ background: "var(--green-soft)", color: POS_GROUP_COLORS[strongest[0]] }}>
+        <span className="badge" style={{ background: "var(--green-soft)", color: POS_TEXT_COLORS[strongest[0]] }}>
           Strongest: {strongest[0]} ({(myStrengths[strongest[0]] * 100).toFixed(0)}%)
         </span>
-        <span className="badge" style={{ background: "var(--red-soft, rgba(220,50,50,0.1))", color: POS_GROUP_COLORS[weakest[0]] }}>
+        <span className="badge" style={{ background: "var(--red-soft, rgba(220,50,50,0.1))", color: POS_TEXT_COLORS[weakest[0]] }}>
           Weakest: {weakest[0]} ({(myStrengths[weakest[0]] * 100).toFixed(0)}%)
         </span>
       </div>
@@ -504,7 +569,7 @@ function TradeTargetsCard({ myTeam, teams, groupAvg, onPlayerClick }) {
                   name={t.name}
                   size={22}
                 />
-                <span style={{ color: POS_GROUP_COLORS[needPos], fontFamily: "var(--mono)", fontWeight: 700, width: 28, fontSize: "0.62rem" }}>
+                <span style={{ color: POS_TEXT_COLORS[needPos], fontFamily: "var(--mono)", fontWeight: 700, width: 28, fontSize: "0.62rem" }}>
                   {t.pos}
                 </span>
                 <PlayerNameButton
@@ -541,7 +606,7 @@ function TradeTargetsCard({ myTeam, teams, groupAvg, onPlayerClick }) {
                 name={p.name}
                 size={22}
               />
-              <span style={{ color: POS_GROUP_COLORS[p.group], fontFamily: "var(--mono)", fontWeight: 700, width: 28, fontSize: "0.62rem" }}>
+              <span style={{ color: POS_TEXT_COLORS[p.group], fontFamily: "var(--mono)", fontWeight: 700, width: 28, fontSize: "0.62rem" }}>
                 {p.pos}
               </span>
               <span style={{ flex: 1, fontWeight: 600 }}>{p.name}</span>
@@ -667,7 +732,7 @@ function WaiverWireCard({ gems, onPlayerClick }) {
               name={p.name}
               size={20}
             />
-            <span style={{ color: POS_GROUP_COLORS[p.pos] || "var(--subtext)", fontWeight: 700, fontFamily: "var(--mono)", fontSize: "0.62rem" }}>
+            <span style={{ color: POS_TEXT_COLORS[p.pos] || "var(--subtext)", fontWeight: 700, fontFamily: "var(--mono)", fontSize: "0.62rem" }}>
               {p.pos}
             </span>
             <PlayerNameButton

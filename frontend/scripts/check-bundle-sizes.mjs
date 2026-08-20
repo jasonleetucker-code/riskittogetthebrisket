@@ -13,9 +13,14 @@
  *
  * Per-page budgets live in ``BUDGETS_KB`` below.  Adjust
  * deliberately — bumping a budget because "the page got
- * bigger" is what this script is meant to catch.  Set the
- * ``--strict`` flag to fail on missing pages too (default
- * behaviour is to skip pages we don't have a budget for).
+ * bigger" is what this script is meant to catch.
+ *
+ * EVERY budgeted page must resolve.  A budget entry whose chunks
+ * are not on disk fails the run: either the route was deleted, in
+ * which case its budget goes with it in the same change, or the
+ * assumption this script makes about Next's output has broken.
+ * Neither is a pass.  There is no flag to opt out of that — see
+ * the note above ``assertEveryBudgetMeasured``.
  *
  * Why a custom script and not the next-bundle-analyzer plugin?
  * The plugin is a great visualisation tool but emits an HTML
@@ -183,10 +188,24 @@ function pageChunks(pageKey) {
 //
 // Every earlier version of this script degraded silently when its
 // assumption about Next's output broke: a missing page logged
-// "no chunks — skipped" and the run still exited 0.  That is fine for
-// ONE removed route and catastrophic when the layout changes wholesale,
-// which is exactly what Next 16 + Turbopack does.  If nothing resolved,
-// something structural is wrong and a green tick would be a lie.
+// "no chunks — skipped" and the run still exited 0.  That was called
+// "fine for ONE removed route", and the header advertised a ``--strict``
+// flag to turn it off.  The flag never existed — the script did not read
+// ``process.argv`` at all — so the documented escape hatch was the only
+// thing that made the default look deliberate.
+//
+// Measured on a synthetic build: delete ``/rankings/page`` from the
+// output entirely and this gate printed "all pages under budget ✓" and
+// exited 0.  That is the densest route in the app and the one the
+// windowing work in #760 is measured against.  Since this is the blocking
+// budget check in PR Validation, every real-board performance assertion
+// in the repo inherited that blindness.
+//
+// So the tolerance is gone rather than made optional.  A budget entry
+// that does not resolve is a fact worth stopping for, in both of its
+// possible causes: a deleted route (delete the budget with it — that is
+// the audit trail ``BUDGETS_KB`` exists to keep) or a broken output
+// assumption.
 function assertGateIsMeasuring(resolvedCount) {
   if (resolvedCount > 0) return;
   console.error(
@@ -201,6 +220,29 @@ function assertGateIsMeasuring(resolvedCount) {
       "makes Turbopack the default builder. Build with ``next build\n" +
       "--webpack`` to restore the per-route layout this gate reads, or\n" +
       "replace this script with a Turbopack-native measurement.",
+  );
+  process.exit(2);
+}
+
+// The partial case.  Kept separate from the zero case above because the
+// causes are different and so is the remedy: nothing resolving means the
+// chunk layout changed wholesale, while some pages resolving means this
+// specific route is gone.  Reported after the size table so the operator
+// can see which pages DID measure.
+function assertEveryBudgetMeasured(unresolved) {
+  if (unresolved.length === 0) return;
+  console.error(
+    `\n[check-bundle-sizes] ${unresolved.length} budgeted page(s) did not resolve:`,
+  );
+  for (const pageKey of unresolved) {
+    console.error(`  ${pageKey}`);
+  }
+  console.error(
+    "\nA budgeted page with no chunks on disk is not a pass — its budget\n" +
+      "went unenforced. Either the route was removed, in which case delete\n" +
+      "its entry from ``BUDGETS_KB`` in the same change, or the build did\n" +
+      "not emit the per-route layout this gate reads (build with ``next\n" +
+      "build --webpack``).",
   );
   process.exit(2);
 }
@@ -225,15 +267,17 @@ function main() {
     process.exit(2);
   }
   const failures = [];
+  const unresolved = [];
   const lines = [];
   let resolvedCount = 0;
+  const budgetedCount = Object.keys(BUDGETS_KB).length;
 
   for (const [pageKey, budgetKb] of Object.entries(BUDGETS_KB)) {
     const chunks = pageChunks(pageKey);
     if (chunks.length === 0) {
-      // Page may not exist (e.g. removed) — skip silently rather
-      // than fail.  ``--strict`` flag below would change this.
-      lines.push(`  ${pageKey.padEnd(22)} (no chunks — skipped)`);
+      // Collected, not skipped — see assertEveryBudgetMeasured.
+      lines.push(`  ${pageKey.padEnd(22)} (no chunks — NOT MEASURED)`);
+      unresolved.push(pageKey);
       continue;
     }
     resolvedCount += 1;
@@ -259,7 +303,14 @@ function main() {
 
   console.log("[check-bundle-sizes] per-page chunk sizes:");
   for (const line of lines) console.log(line);
+  // Say what was measured, every run.  "✓" on its own cannot distinguish
+  // 14 of 14 from 13 of 14 without counting the table by hand, and that
+  // is precisely how the silent skip stayed invisible.
+  console.log(
+    `[check-bundle-sizes] measured ${resolvedCount} of ${budgetedCount} budgeted pages`,
+  );
   assertGateIsMeasuring(resolvedCount);
+  assertEveryBudgetMeasured(unresolved);
 
   if (failures.length > 0) {
     console.error(

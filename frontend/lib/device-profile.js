@@ -81,13 +81,28 @@ export function adjustedPollingMs(baseMs, { when = "foreground" } = {}) {
 /**
  * Which `/api/data` view the contract fetch should request.
  *
- *   Mobile / slow network → "compact" (prunes ~20 audit fields the
- *   mobile UI never renders; materializer tolerates their absence).
- *   Desktop → "array" (full contract minus the LEGACY `players` dict,
- *   which is a parallel encoding of `playersArray` — the branch
- *   `buildRows` prefers whenever present).  Identical board, identical
- *   audit fields, roughly half the bytes and half the client-side
- *   JSON.parse work vs the full view (~5.9MB vs ~11.8MB uncompressed).
+ *   Mobile / slow network → "compact"
+ *   Desktop              → "array"
+ *
+ * BOTH views serve the same board.  That is a property this pair did
+ * not have until 2026-08-18: "compact" pruned 14 fields the
+ * materializer reads, so mobile rendered a different Flagged count, a
+ * different confidence string and a different Consensus sort order
+ * than desktop for the same player.  It now prunes only fields no
+ * frontend consumer reads, pinned by
+ * `tests/api/test_compact_view_consumer_parity.py`.
+ *
+ * Measured on a 1,109-row contract, gzip level 6 (2026-08-18):
+ *
+ *     full      13.09 MB raw   1,092.8 KB gz
+ *     array      7.25 MB raw     631.8 KB gz   ← desktop
+ *     compact    5.24 MB raw     491.0 KB gz   ← mobile
+ *
+ * "compact" was 735.0 KB gz before the repair — the LARGEST of the two
+ * optimized views, because it carried the legacy `players` dict as well
+ * as `playersArray` while "array" dropped it.  The relation is now
+ * pinned by `tests/api/test_compact_view_byte_budget.py`; quoting a
+ * stale absolute here is how a payload budget stops being one.
  *
  * Desktop deliberately does NOT use "app"/"runtime" (drops
  * `playersArray`, losing tier ids, confidence, and the audit fields

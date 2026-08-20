@@ -20,7 +20,7 @@ vi.mock("@/components/LeagueSwitcher", () => ({
 }));
 
 import TopBar from "@/components/shell/TopBar";
-import { MobileTabBar } from "@/components/shell/MobileChrome";
+import { MobileTabBar, MobileTopBar } from "@/components/shell/MobileChrome";
 // The real predicate, not a local copy — a stale duplicate here is how
 // the shell and the middleware drifted apart in the first place.
 import { isPublicPath } from "@/lib/public-routes";
@@ -260,5 +260,56 @@ describe("MobileTabBar", () => {
     expect(screen.getByRole("link", { name: /Sign in/ })).toHaveAttribute("href", "/login");
     expect(screen.getByRole("link", { name: /League/ })).toHaveAttribute("href", "/league");
     expect(screen.queryByRole("link", { name: /Ranks/ })).toBeNull();
+  });
+});
+
+describe("search affordance is gated on searchEnabled, not authenticated", () => {
+  // Regression: global search reads the player contract, and there are
+  // signed-in routes that never load one — the public /league subtree
+  // and AppShell's no-player-data routes. Both nav bars used to render
+  // the button on `authenticated` alone while AppShell's openSearch()
+  // returned early, so a signed-in user on /league saw a search button
+  // that did nothing at all.
+  it("TopBar renders the button when search is available", () => {
+    render(
+      <TopBar
+        authenticated
+        isPublic={isPublic}
+        onSearch={() => {}}
+        searchEnabled
+        onLogout={() => {}}
+      />
+    );
+    expect(screen.getByRole("button", { name: /Search/ })).toBeInTheDocument();
+  });
+
+  it("TopBar hides it when search cannot work, even signed in", () => {
+    render(
+      <TopBar
+        authenticated
+        isPublic={isPublic}
+        onSearch={() => {}}
+        searchEnabled={false}
+        onLogout={() => {}}
+      />
+    );
+    expect(screen.queryByRole("button", { name: /Search/ })).toBeNull();
+  });
+
+  it("MobileTopBar hides it when search cannot work", () => {
+    render(<MobileTopBar authenticated onSearch={() => {}} searchEnabled={false} />);
+    expect(screen.queryByRole("button", { name: /Search/ })).toBeNull();
+  });
+
+  it("MobileTopBar shows it when search is available", () => {
+    render(<MobileTopBar authenticated onSearch={() => {}} searchEnabled />);
+    expect(screen.getByRole("button", { name: /Search/ })).toBeInTheDocument();
+  });
+
+  it("defaults to showing the button, so callers predating the prop are unaffected", () => {
+    render(
+      <TopBar authenticated isPublic={isPublic} onSearch={() => {}} onLogout={() => {}} />
+    );
+    expect(screen.getByRole("button", { name: /Search/ })).toBeInTheDocument();
   });
 });

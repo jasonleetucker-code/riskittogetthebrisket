@@ -1,7 +1,47 @@
 /* ══════════════════════════════════════════════════════════════════════════
-   TOKENS.CSS — Design-token foundation (Redesign R0)
-   "War-room terminal": near-black violet-tinted neutrals, one gold accent,
-   financial-terminal semantic colors, a disciplined 8-step type scale.
+   TOKENS.CSS — Design-token foundation
+   PREMIUM SPORTS INTELLIGENCE (owner direction, 2026-08-12; token
+   direction resolved 2026-08-18 — see OD-05 below).
+
+   Near-black cool neutrals, ONE franchise accent, restrained semantic
+   colours, a disciplined 8-step type scale, near-zero radii.
+
+   ── OD-05: what changed, and what deliberately did not ──────────────
+   `docs/PREMIUM_SPORTS_INTELLIGENCE_DESIGN_NORTH_STAR.md` supersedes the
+   earlier "war-room terminal" direction "where they conflict", and
+   `docs/C_SERIES_SCOPE_MANIFEST.md` recorded the live tokens as being in
+   CONFLICT with it. Audited, the conflict turned out to be NARROW.
+
+   Already aligned, and untouched: near-zero radii (2/2/3px), thin rules,
+   shadows only for true overlays, elevation by surface lightness rather
+   than shadow, tabular numerals on every comparable number, the
+   disciplined type scale, the CVD-validated chart order, and every
+   measured contrast ratio in this file. The north star asks for exactly
+   these, so re-deriving them would have been churn dressed as migration.
+
+   The real conflict was the ACCENT. The terminal pass deleted the
+   franchise colours outright and installed a structural signal-blue,
+   on the reasoning that "the accent is now structural, not a franchise
+   colour". Premium Sports Intelligence asks for the opposite: a
+   "premium professional sports identity" with "front-office
+   credibility" and franchise DNA present rather than removed. So the
+   franchise gold is back as the one accent.
+
+   Note this also ENDS a doc/code split rather than creating one:
+   `docs/DESIGN-SYSTEM.md` never stopped documenting gold as the accent
+   ("ONE accent: the franchise gold"), while the code shipped blue. The
+   light theme had already kept a gold focus ring (#7d6200) beside a
+   blue accent, which is the same drift showing through.
+
+   Gold survives its own discipline unchanged: it is reserved for the
+   primary action, active/selected state, the page eyebrow and active
+   sort, and is NEVER a background wash for content. That role
+   separation is what keeps it distinct from `--warning` amber, which is
+   a state colour and never an interactive one — the two are separated
+   by ROLE, not by hue, and always were.
+
+   RULES
+   ─────
 
    RULES
    ─────
@@ -85,16 +125,25 @@
   --border-default: var(--neutral-750); /* panel outlines            */
   --border-strong: var(--neutral-700); /* interactive rest borders  */
 
-  /* ── Accent (ONE accent: signal blue) ──
-     Structural only: active control, selection, focus. It is NOT a data
-     colour — see the data pair below. Ratios on the four surfaces:
-     6.70 / 6.29 / 5.88 / 5.42, all clear of the 3:1 UI floor. */
-  --accent: #4f9bec;
-  --accent-hover: #6bb0f0;
-  --accent-pressed: #3987e5;
-  --accent-muted: rgba(79, 155, 236, 0.13); /* selected wash / chip bg   */
-  --accent-border: rgba(79, 155, 236, 0.35);
-  --text-on-accent: #06080a; /* 6.91:1 on --accent */
+  /* ── Accent (ONE accent: the franchise gold) ──
+     Interactive and identity, not data: primary action, active/selected
+     state, page eyebrow, active sort. NEVER a background wash for
+     content — that rule is what keeps it distinct from `--warning`
+     amber, which is a state colour and never an interactive one.
+
+     Re-measured 2026-08-18 on surfaces 0/1/2/3:
+       --accent          12.44 / 11.68 / 10.92 / 10.06
+       --accent-hover    13.76 / 12.92 / 12.08 / 11.13
+       --accent-pressed   9.47 /  8.90 /  8.32 /  7.66
+     All far clear of the 3:1 UI floor, and clear of 4.5:1 as text too,
+     which the signal-blue it replaces also managed but with much less
+     headroom (5.42 worst case). */
+  --accent: #ffc704;
+  --accent-hover: #ffd542;
+  --accent-pressed: #e0ae00;
+  --accent-muted: rgba(255, 199, 4, 0.13); /* selected wash / chip bg   */
+  --accent-border: rgba(255, 199, 4, 0.35);
+  --text-on-accent: #06080a; /* 12.82:1 on --accent */
 
   /* ── Semantic: market direction & system state ──
      Restrained terminal palette — desaturated green/coral, never neon.
@@ -317,16 +366,22 @@
   --border-strong: #b9b1cc;
 
   /* The blue accent flips to a text-safe step on light surfaces.
-     Ratios (WCAG, measured): #1a5fb4 on --surface-1 #fdfcfe = 6.15:1,
-     on --surface-2 #efecf5 = 5.39:1, on --surface-0 #f6f4fa = 5.76:1,
-     on --surface-3 #ffffff = 6.29:1; white --text-on-accent on the
-     accent = 6.29:1 — all ≥ 4.5:1. Hover #164f97 ≥ 6.92:1, pressed
-     #123f79 ≥ 8.94:1 (worst surface in each case). */
-  --accent: #1a5fb4;
-  --accent-hover: #164f97;
-  --accent-pressed: #123f79;
-  --accent-muted: rgba(26, 95, 180, 0.1);
-  --accent-border: rgba(26, 95, 180, 0.35);
+     The SAME franchise gold, darkened until it is legible on light
+     surfaces — raw #ffc704 manages 1.34:1 there and would be unusable.
+     #7d6200 is not a new colour to this file: the light theme's focus
+     ring was already this value, sitting beside a blue accent, which is
+     the doc/code drift OD-05 resolves showing through.
+
+     Ratios (WCAG, re-measured 2026-08-18), worst surface in each case:
+       --accent  #7d6200  4.97:1   white --text-on-accent on it  5.80:1
+       --accent-hover  #6f5600  5.98:1
+       --accent-pressed #5c4700  7.63:1
+     All ≥ 4.5:1. */
+  --accent: #7d6200;
+  --accent-hover: #6f5600;
+  --accent-pressed: #5c4700;
+  --accent-muted: rgba(125, 98, 0, 0.1);
+  --accent-border: rgba(125, 98, 0, 0.35);
   --text-on-accent: #ffffff;
 
   --positive: #157f4c;

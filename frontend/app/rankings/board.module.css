@@ -273,7 +273,13 @@
 }
 .posRank {
   margin-left: 4px;
-  opacity: 0.85;
+  /* 0.85 composited the badge's blue toward the surface and landed the
+     result at 4.494:1 — axe reports it as a contrast failure at 4.5.
+     Missing the AA floor by six thousandths is still missing it, and on
+     9px text it is the row least able to afford it.  0.92 keeps the
+     de-emphasis the opacity was for (the position rank is secondary to
+     the position itself) while clearing the floor at 4.99:1. */
+  opacity: 0.92;
   font-family: var(--font-data);
   font-size: 0.85em;
 }
