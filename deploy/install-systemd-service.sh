@@ -1145,6 +1145,12 @@ main() {
   install_simple_timer "sharp-activity" "qualified-manager Sleeper activity crawl"
   install_simple_timer "board-snapshot" "canonical board as-of snapshot"
   install_simple_timer "sharp-cohort-snapshot" "daily sharp-cohort baseline"
+  # C7-DRAFT-02: the pre-auction rookie board + roster snapshot Perfect
+  # Draft's backtest needs. One-shot and non-repeatable per rookie class
+  # (a missed capture before the auction starts can never be recovered),
+  # so this runs daily rather than depending on someone remembering to
+  # trigger it manually before the exact auction date.
+  install_simple_timer "draft-snapshot" "pre-auction rookie draft snapshot"
 
   # ── daemon-reload and enable ────────────────────────────────────────────
   # ce_needs_install was missing from this list. Every other timer's

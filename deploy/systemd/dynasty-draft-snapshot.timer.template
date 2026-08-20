@@ -1,0 +1,26 @@
+[Unit]
+Description=Daily pre-auction rookie draft snapshot for __SERVICE_NAME__
+# No Requires= on the service: [Timer] Unit= already binds it, and a
+# Requires= here would start the service on every boot and let a
+# service failure stop the timer. Persistent=true is the catch-up.
+
+[Timer]
+# Daily, 07:20 UTC — between the canonical board-as-of snapshot (07:10,
+# after the 06:42 scrape has settled) and the consensus-edge snapshot
+# (07:30), so this reads a stable contract without racing either.
+#
+# Persistent=true matters more here than for most timers, for the same
+# reason it matters on dynasty-board-snapshot: the 2026 rookie auction
+# is ONE-SHOT and non-repeatable, and a box that happened to be down at
+# 07:20 on the day the auction started must still capture on boot,
+# late, rather than silently lose the one window that mattered. A late
+# capture still carries its own capturedAt stamp, so lateness is
+# visible rather than hidden.
+OnCalendar=*-*-* 07:20:00 UTC
+RandomizedDelaySec=300
+Persistent=true
+AccuracySec=1min
+Unit=__SERVICE_NAME__-draft-snapshot.service
+
+[Install]
+WantedBy=timers.target

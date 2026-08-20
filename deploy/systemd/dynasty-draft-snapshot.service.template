@@ -1,0 +1,68 @@
+[Unit]
+Description=Pre-auction rookie draft board + roster snapshot for __SERVICE_NAME__ (C7-DRAFT-02)
+After=network-online.target
+Wants=network-online.target
+
+# WHAT THIS CAPTURES AND WHY IT MUST RUN BEFORE THE AUCTION, NOT AFTER
+# ─────────────────────────────────────────────────────────────────────
+# scripts/backtest_perfect_draft.py --record-snapshot writes the rookie
+# board (values, per-source dispersion) and EVERY team's roster context
+# (open spots, cut ladder, waiver levels) together, into a date-stamped
+# file under data/draft_backtest/. That pairing is load-bearing: scoring
+# a Perfect Draft recommendation needs the state the recommendation was
+# made FROM, and the roster context stops being recoverable the moment
+# the first pick lands (open spots and the cut ladder are properties of
+# the pre-auction roster, not something a later snapshot can reconstruct).
+#
+# Until this timer, that capture was a manual, one-shot, easy-to-forget
+# step (docs/perfect-draft.md's own backtest script says so in its own
+# docstring) with a real deadline: the 2026 rookie auction is a one-time,
+# non-repeatable event, and a missed capture means Perfect Draft can
+# NEVER be backtested for that class — no code can recover an observation
+# that was never made (the same reason exports/archive/'s 2026-07-14
+# start permanently blocks any pre-2026 backtest, per that script's own
+# header).
+#
+# WHY DAILY (not one manually-timed run) IS THE RIGHT SHAPE: the capture
+# writes ONE FILE PER UTC DAY (data/draft_backtest/<date>-pre.json) and
+# never overwrites a prior day's file, so running it every day is both
+# idempotent and cheap — it just means "the most recent day's file
+# before the auction actually starts" is always on disk, without anyone
+# having to predict the exact auction date in advance or babysit a
+# manual trigger.
+#
+# WHY A PROD-SIDE TIMER AND NOT CI: --record-snapshot reads the scraped
+# contract from the same on-disk cache the FastAPI lifespan primes from
+# (gitignored, prod-only) and needs whatever `import server` needs on
+# prod (the systemd unit's own .env) — a CI runner has neither.
+#
+# Exit codes (scripts/backtest_perfect_draft.py):
+#   0 - snapshot written
+#   1 - error (could not import the app / load the cached contract)
+#   2 - skipped (no contract cached yet, or the contract carries no
+#       rookie pool — e.g. well outside rookie-draft season)
+# systemd reports 1 and 2 as unit failures so the journal shows them;
+# 2 is expected and harmless outside the draft window.
+
+[Service]
+Type=oneshot
+# User=/Group= are load-bearing, not boilerplate — see the identical
+# note on dynasty-board-snapshot.service.template. Without them the
+# unit runs as root and creates root-owned files under
+# data/draft_backtest/, after which nothing running as __APP_USER__
+# (including a manual --record-snapshot run, or the app itself) can
+# read or overwrite them.
+User=__APP_USER__
+Group=__APP_USER__
+WorkingDirectory=__APP_DIR__
+EnvironmentFile=-__APP_DIR__/.env
+ExecStart=__VENV_DIR__/bin/python __APP_DIR__/scripts/backtest_perfect_draft.py --record-snapshot
+StandardOutput=journal
+StandardError=journal
+TimeoutStartSec=900
+# Background bookkeeping — never user-facing.
+Nice=10
+IOSchedulingClass=idle
+
+[Install]
+WantedBy=multi-user.target
