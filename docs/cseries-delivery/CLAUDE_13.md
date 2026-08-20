@@ -312,3 +312,31 @@ recipe or ask for them to be sent directly.
   spec owns was not touched or updated.
 - Player Profile (PR B) verification — separate batch, not started.
 - The pre-existing Home-page finding named above.
+
+### Batch A5 — PR A handoff — done
+
+**PR opened**: [#984](https://github.com/jasonleetucker-code/riskittogetthebrisket/pull/984),
+base `main`, head `claude/psi-reference-routes`. Ready for review, not a draft. Subscribed to PR
+activity per the standing subscription rule — CI failures and review comments on this PR will be
+investigated and either fixed, escalated, or reported here as they arrive.
+
+**Status: FEATURE_GREEN / READY_FOR_INTEGRATION.** `docs/WORK_CLAIMS.md`'s claim row updated with
+the A4 findings and commit SHAs, status changed to reflect this. Not self-merged, per the owner's
+explicit instruction — Claude 5 remains Integration Authority.
+
+**Commits on this branch** (chronological): editorial token layer → shell restyle → Rankings
+migration → full-bleed background fix → axe-core contrast fixes → delivery-doc/work-claims
+updates. Each batch is its own commit, reviewable independently.
+
+**What Claude 5 (or the owner) still needs to do, not something this session can do itself:**
+- Reconcile `C8-PSI-02` in `docs/VERSION_1_COMPLETION_CONTRACT.md` and §6 of
+  `docs/EXECUTION_PLAN.md` — see the governance-gap note at the top of this file.
+- Visual review of the screenshots against the two reference screenshots (not attached to this
+  repo file; reproducible via the recipe in the A4 section above, or ask this session/a
+  continuation of it to send them directly).
+- Optionally re-run the full `tests/e2e/specs/a11y-axe.spec.js` baseline-ratchet harness with a
+  properly `E2E_TEST_MODE`-provisioned backend, for the baseline-file bookkeeping the direct scan
+  in A4 didn't touch.
+
+**Next**: PR B (Universal Player Profile / "Player File") — stacked on this branch per the
+approved plan, starting from Batch B1 (extracting reusable sections from `PlayerPopup.jsx`).
