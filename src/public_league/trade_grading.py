@@ -33,7 +33,10 @@ This module lives under ``src/public_league`` (rather than somewhere
 more central) because the public activity feed is its only Python
 caller, and the package is forbidden from importing private internals
 (``tests/public_league/test_public_contract.py::ImportSurfaceTests``).
-It has no imports outside the standard library.
+Its only non-stdlib import is ``src.valuation_math.ktc_va_core`` — a
+dependency-free algorithmic module that lives outside every forbidden
+import prefix precisely so this file does not have to re-derive KTC's
+Value Adjustment on its own (see the section below).
 """
 
 from __future__ import annotations
@@ -41,6 +44,8 @@ from __future__ import annotations
 import math
 from typing import Any, Iterable
 
+from src.valuation_math.ktc_va_core import KTC_VARIANCE_PCT as _KTC_VARIANCE_PCT
+from src.valuation_math.ktc_va_core import adjust_package_raw as _adjust_package_raw
 
 # ── Band table ───────────────────────────────────────────────────────────
 # Mirrors ``gradeTradeHistorySide`` in ``frontend/lib/league-analysis.js``
@@ -78,148 +83,28 @@ def grade_from_pct(pct: float, is_winner: bool) -> dict[str, str]:
     return {"grade": "F", "color": "#ff4444", "label": "Fleeced"}
 
 
-# ── KTC value adjustment (port of the JS port of KTC's site.min.js) ──────
+# ── KTC value adjustment ──────────────────────────────────────────────
 #
-# ``frontend/lib/trade-logic.js`` carries a verbatim port of
-# keeptradecut.com's ``processV`` / ``reverseAdjust`` / ``adjustPackage``.
-# This is that port again, in Python, because the public grade has to be
-# computed server-side and the VA is part of the canonical formula — a
-# stud-for-pile trade is not fairly described by its linear sums alone.
+# The public grade has to be computed server-side and the VA is part of
+# the canonical formula — a stud-for-pile trade is not fairly described
+# by its linear sums alone.
 #
-# The constants and branch structure are lifted from the JS one-for-one;
-# see ``frontend/lib/trade-logic.js`` for the annotated mapping back to
-# KTC's single-letter identifiers.  Divergence between the two is a bug,
-# and the shared parity fixture is what catches it.
-
-# KTC's MAXPLAYERVAL — board-wide ceiling used as the asymptotic
-# reference in reverseAdjust's "all-equal" fallback branch.
-_KTC_MAX_PLAYER_VAL = 10000
-# KTC's t = playersArray[0].value + 80 — top-of-board reference.
-_KTC_T_REFERENCE = 10041
-# KTC's tcFilters.variance — the 5% equality threshold.
-_KTC_VARIANCE_PCT = 5
-
-
-def _js_round(x: float) -> int:
-    """JavaScript ``Math.round`` — half rounds toward +Infinity.
-
-    Python's builtin ``round`` is round-half-to-even, so ``round(0.5)``
-    is 0 where JS gives 1.  The VA algorithm rounds twice (once inside
-    ``_ktc_check_equality``, once on the final displayed value), and a
-    half-value landing on a band edge is exactly the kind of one-off
-    divergence the parity fixture exists to prevent.
-    """
-    return math.floor(x + 0.5)
-
-
-def _ktc_process_v(value: float, max_in_trade: float, t: float, nerf_index: int) -> float:
-    """KTC's per-player raw adjustment (``processV``)."""
-    if not (value > 0) or not (max_in_trade > 0) or not (t > 0):
-        return 0.0
-    s = (0.05 * pow(value / t, 1.3) + 0.05 * pow(value / (1.05 * max_in_trade), 6) + 0.1) * value
-    if nerf_index > 0:
-        s *= max(0.6, 1 - 0.15 * nerf_index)
-    if s < 0:
-        s /= 4
-    return s
-
-
-def _ktc_reverse_adjust(raw_diff: float, max_in_trade: float, t: float, nerf_count: int) -> int:
-    """KTC's ``reverseAdjust`` — solve for the value whose raw adj is ``raw_diff``.
-
-    Two-phase iterative search (not bisection): a 10-step coarse pass
-    with step 0.75x the current relative error, then — if convergence is
-    still worse than 5% — a 10-step refinement with step 0.25x.
-
-    ``guess`` is KTC's ``l`` (spelled out because ruff's E741 rejects a
-    bare ``l``); every other single letter keeps KTC's own name.
-    """
-    if not (raw_diff > 0) or not (max_in_trade > 0):
-        return 0
-    seed = _ktc_process_v(max_in_trade, max_in_trade, t, -1)
-    n = max_in_trade
-    if seed < raw_diff:
-        n = max((raw_diff / seed) * max_in_trade * 0.8, max_in_trade)
-    guess = n / 2
-    d = 1.0
-    u = 0
-    best_err = 1.0
-    best_guess = -1.0
-    while d > 0.025 and u <= 10:
-        i = _ktc_process_v(guess, n, t, nerf_count)
-        d = min(1.0, abs(i - raw_diff) / raw_diff)
-        if d > 0.025:
-            o = guess
-            p = d * guess * 0.75
-            guess += p if i <= raw_diff else -p
-            if d < best_err:
-                best_err = d
-                best_guess = o
-                if best_guess > max_in_trade:
-                    n = best_guess
-        elif d < best_err:
-            best_err = d
-            best_guess = guess
-            if best_guess > max_in_trade:
-                n = best_guess
-        if u == 10 and d > 0.05:
-            f = 0
-            guess = max(1.0, best_guess)
-            while d > 0.025 and f <= 10:
-                i2 = _ktc_process_v(guess, n, t, nerf_count)
-                d = min(1.0, abs(i2 - raw_diff) / raw_diff)
-                if d > 0.025:
-                    o = guess
-                    p = d * guess * 0.25
-                    guess += p if i2 <= raw_diff else -p
-                    if d < best_err:
-                        best_err = d
-                        best_guess = o
-                        if best_guess > max_in_trade:
-                            n = best_guess
-                elif d < best_err:
-                    best_err = d
-                    best_guess = guess
-                    if best_guess > max_in_trade:
-                        n = best_guess
-                f += 1
-            guess = best_guess
-        u += 1
-    return _js_round(guess)
-
-
-def _ktc_check_equality(a: float, b: float, variance_pct: float) -> bool:
-    """KTC's ``checkEquality`` — true iff |a-b|/(a+b)*100 rounds to <= variance."""
-    total = max(0.0, a) + max(0.0, b)
-    if total <= 0:
-        return True
-    pct = min(100.0, (abs(a - b) / total) * 100.0)
-    return (_js_round(10 * pct) / 10) <= variance_pct
-
-
-def _ktc_build_side_adj(
-    values: list[float], max_in_trade: float, t: float
-) -> tuple[list[dict[str, Any]], float]:
-    """Per-piece adjustments with KTC's progressive-nerf rule.
-
-    Pieces below ``0.5 * max_in_trade`` are "small"; the FIRST small
-    piece is unnerfed (nerfIndex 0 → multiplier 1.0), each subsequent
-    one steps down 0.85 / 0.70 / 0.60-floor.
-    """
-    half = 0.5 * max_in_trade
-    nerf_index = -1
-    raw_adj_sum = 0.0
-    items: list[dict[str, Any]] = []
-    for v in values:
-        if v < half:
-            nerf_index += 1
-        adj = _ktc_process_v(v, max_in_trade, t, nerf_index)
-        raw_adj_sum += adj
-        items.append({"value": v, "adj": adj, "nerfIndex": nerf_index})
-    # Stable descending sort, matching the JS comparator: Python's
-    # ``reverse=True`` keeps the original order among equal keys.
-    items.sort(key=lambda it: it["adj"], reverse=True)
-    return items, raw_adj_sum
+# Until 2026-08-20 this module carried its OWN full copy of
+# ``processV``/``reverseAdjust``/``adjustPackage`` — a genuine duplicate
+# of ``src/trade/ktc_va.py`` (which itself duplicates the JS port in
+# ``frontend/lib/trade-logic.js``), because this package is structurally
+# forbidden from importing ``src.trade`` at all
+# (``tests/public_league/test_public_contract.py::ImportSurfaceTests``).
+# Two independently-maintained copies of the same algorithm disagreed on
+# rounding for eleven months before that was caught.
+#
+# The algorithm now lives in ONE stdlib-only place,
+# ``src/valuation_math/ktc_va_core.py`` — outside every forbidden import
+# prefix because it has no private business logic in it, only closed-form
+# math over plain numbers.  This module wraps its plain-tuple return in
+# the dict shape this file's own callers already expect.
+# ``tests/valuation_math/test_single_owner.py`` guards against a third
+# copy reappearing here or in ``src/trade``.
 
 
 def ktc_adjust_package(team1_vals: Iterable[float], team2_vals: Iterable[float]) -> dict[str, Any]:
@@ -227,164 +112,13 @@ def ktc_adjust_package(team1_vals: Iterable[float], team2_vals: Iterable[float])
 
     ``side`` is 1 when team1 receives the value adjustment, 2 when
     team2 does, and 0 when KTC would suppress the badge entirely.
+    Thin dict-shaped wrapper over the shared algorithmic core — see the
+    module docstring above.
     """
-    t_one = sorted((float(v) for v in team1_vals if _finite(v) and float(v) > 0), reverse=True)
-    t_two = sorted((float(v) for v in team2_vals if _finite(v) and float(v) > 0), reverse=True)
-    if not t_one or not t_two:
-        return {"value": 0, "side": 0, "displayed": False}
-
-    variance = _KTC_VARIANCE_PCT
-    t = _KTC_T_REFERENCE
-
-    team1_total = sum(t_one)
-    team2_total = sum(t_two)
-    r = max(t_one[0], t_two[0])
-    o = _ktc_process_v(0.5 * r, r, t, -1)
-    s, e = _ktc_build_side_adj(t_one, r, t)
-    n, a = _ktc_build_side_adj(t_two, r, t)
-    h = e / team1_total
-    y = a / team2_total
-    v = math.floor(abs(e - a))
-    k = _ktc_check_equality(team1_total, team2_total, variance)
-    b = _ktc_check_equality(e, a, variance)
-
-    # ``T`` — extra nerf count handed to reverseAdjust: nerfIndex+1 of
-    # the FIRST item on the larger-rawAdj side whose adj falls below the
-    # raw_adj diff.
-    big_t = 0
-    if v < o:
-        for it in n if e > a else s:
-            if it["adj"] < v:
-                big_t = it["nerfIndex"] + 1
-                break
-
-    side = 0
-    value = 0.0
-    w = True
-
-    if k and b:
-        # BRANCH 1: totals AND raw_adjs both within variance.
-        if e > a:
-            side = 1
-            adj = _ktc_reverse_adjust(v, r, t, big_t)
-            gap = team2_total + adj - team1_total
-            if gap > 0:
-                value = gap
-            else:
-                w = False
-                side = 2
-                value = -gap
-        elif a > e:
-            side = 2
-            adj = _ktc_reverse_adjust(v, r, t, big_t)
-            gap = team1_total + adj - team2_total
-            if gap > 0:
-                value = gap
-            else:
-                w = False
-                side = 1
-                value = -gap
-    elif h > y:
-        # BRANCH 2: side1 has higher raw_adj intensity.
-        side = 1
-        if e > a:
-            adj = _ktc_reverse_adjust(v, r, t, big_t)
-            gap = team2_total + adj - team1_total
-            if gap > 0:
-                value = gap
-            else:
-                w = False
-                side = 2
-                value = abs(gap)
-        else:
-            # h > y but e <= a — KTC's "intensity flip" branch.
-            big_v = -1
-            if team1_total < team2_total:
-                big_v = 1
-            elif team2_total < team1_total:
-                big_v = 2
-            m = _ktc_reverse_adjust(abs(e - a), max(t_one + t_two), 10099, big_t)
-            if m > 0 and big_v > 0:
-                side = big_v
-                if big_v == 2:
-                    rr = m - (team1_total - team2_total)
-                    if rr > 0:
-                        value = rr
-                    else:
-                        w = False
-                        value = rr
-                else:
-                    rr = m - (team2_total - team1_total)
-                    if rr > 0:
-                        if rr > _KTC_MAX_PLAYER_VAL:
-                            w = False
-                            value = 0.0
-                            side = 1
-                        else:
-                            side = 2
-                            value = rr
-                    else:
-                        w = True
-                        value = -rr
-            else:
-                w = False
-    else:
-        # BRANCH 3: side2 has higher raw_adj intensity (mirror of 2).
-        side = 2
-        if a > e:
-            adj = _ktc_reverse_adjust(v, r, t, big_t)
-            gap = team1_total + adj - team2_total
-            if gap > 0:
-                value = gap
-            else:
-                w = False
-                side = 1
-                value = abs(gap)
-        else:
-            big_v = -1
-            if team1_total < team2_total:
-                big_v = 1
-            elif team2_total < team1_total:
-                big_v = 2
-            m = _ktc_reverse_adjust(abs(e - a), max(t_one + t_two), 10099, big_t)
-            if m > 0 and big_v > 0:
-                side = big_v
-                if big_v == 1:
-                    rr = m - (team2_total - team1_total)
-                    if rr > 0:
-                        value = rr
-                    else:
-                        w = False
-                        value = rr
-                else:
-                    rr = m - (team1_total - team2_total)
-                    if rr > 0:
-                        if rr > _KTC_MAX_PLAYER_VAL:
-                            w = False
-                            value = 0.0
-                            side = 1
-                        else:
-                            side = 1
-                            value = rr
-                    else:
-                        w = True
-                        value = -rr
-            else:
-                w = False
-
-    # KTC's display gates: sign check, a 3.3%-of-combined-volume floor
-    # ("Fair Trade" zone), and an unconditional 1v1 suppression.
-    displayed = False
-    if value != 0:
-        if w:
-            displayed = True
-        if abs(value / (team1_total + team2_total)) < 0.033:
-            displayed = False
-    if len(t_one) == 1 and len(t_two) == 1:
-        displayed = False
-    if not displayed:
-        return {"value": 0, "side": 0, "displayed": False}
-    return {"value": _js_round(value), "side": side, "displayed": True}
+    t_one = [float(v) for v in team1_vals if _finite(v) and float(v) > 0]
+    t_two = [float(v) for v in team2_vals if _finite(v) and float(v) > 0]
+    value, side, displayed = _adjust_package_raw(t_one, t_two, variance_pct=_KTC_VARIANCE_PCT)
+    return {"value": value, "side": side, "displayed": displayed}
 
 
 def trade_va_net(got_values: list[float], gave_values: list[float]) -> float:
