@@ -1,7 +1,7 @@
 {
   "_comment": "Lane utilization state, owned by Claude 7 (Lane Dispatcher). NOT an authority on integration sequencing (Claude 5 / docs/EXECUTION_PLAN.md), on V1 status (docs/VERSION_1_COMPLETION_CONTRACT.md) or on canonical ownership (CLAUDE.md). Repository evidence outranks this file: where they disagree, this file is wrong and must be corrected.",
-  "updatedAt": "2026-08-20T09:40:00Z",
-  "dispatchCycle": 23,
+  "updatedAt": "2026-08-20T09:55:00Z",
+  "dispatchCycle": 24,
   "writePolicy": "This file and ASSIGNMENTS.json are written ONLY on a material state transition — new assignment, assignment accepted, completion, blocker, freeze/unfreeze, or a meaningful dependency change. A heartbeat that finds nothing changed produces no commit and no CI run.",
   "evidenceBasis": "origin/main 079fc9e4a; §3 diffed row-by-row from cycle-19 main (c5a367266); all refs resolved live; #945 CI green 04:57:35Z",
   "assignmentSourceNote": "The six current assignments were made manually by the owner, not by this dispatcher. Recorded here so the durable state matches reality; Claude 7 did not originate them and does not own them.",
@@ -206,41 +206,47 @@
     "howObserved": "counted `VERIFIED` in the §3 table of the contract as it exists at that exact SHA"
   },
   "canonicalOwnerRule": "This dispatcher previously carried a `v1` block with verified/percent fields that read as authoritative, and it DRIFTED — PR #945 declared 48/132 while the contract on main said 55/132. That is a second owner of the numerator forming inside a coordination record, which is the exact defect class this dispatcher has spent the session flagging in other lanes. Corrected on integration review: the fields are renamed to name themselves derived, carry the SHA they were read at, and declare the contract the winner in any disagreement.",
-  "cycle23Transitions": {
-    "mainTip": "cca488cd7 (was c4431ccba)",
-    "headlineFinding": {
-      "statement": "FOUR PRs MERGED THIS CYCLE AND THE CONTRACT MOVED BY ZERO ROWS.",
-      "merged": [
-        "#946 (015570741) — P1 BDVM ingestion off the request path",
-        "#948 (9e8350960) — CI reliability",
-        "#952 (b5f339d2d) — /waivers FAAB on mobile",
-        "#956 (4157adfe4) — V1-51 championship truthful sims"
-      ],
-      "rowDiff": "§3 row-diffed c4431ccba -> cca488cd7: NO row changed status. Still 57/132, and the contract's own table and completion line agree with my independent count.",
-      "thisIsCorrectBehaviour": "#956 landed the V1-51 IMPLEMENTATION and the row stayed `IN PROGRESS` with a named close condition (give playoff_odds :215 the `unsimulable` shape with n_simulations 0, a RED-without-it test, then re-measure three endpoints for the L2 statement). A merge is not verification, and the lanes are holding that line.",
-      "butTheUtilizationReadingIsTheOppositeOfIdleLanes": "Across cycles 21-23: FIVE merges, +2 VERIFIED rows, and BOTH of those came from ONE promotion PR (#947). The numerator moves only when Integration runs a dedicated verification pass. Implementation throughput and verification throughput have decoupled, and verification is the binding constraint — not lane idleness, which is what this dispatcher has been reporting for a dozen cycles."
+  "correction_C24": {
+    "_severity": "CORRECTION AGAINST MYSELF — a verdict error, not a citation error.",
+    "whatIClaimed": "Cycle 23 reported: 'v1/premium-ui is GONE from origin. One of the three cleared without anyone being told to.' I repeated it in the cycle-23 report and in the cycle-24 prompt as 'v1/premium-ui is CLEARED'.",
+    "theTruth": "git ls-remote origin shows refs/heads/v1/premium-ui STILL PRESENT at c025e4f68. All THREE abandoned refs remain: v1/premium-ui, integration/rc-937, integration/rc-wave-a.",
+    "howIGotItWrong": "My ref sweep is sorted by committerdate and truncated with `head -12`. Three new branches were pushed between cycles, which pushed v1/premium-ui below the cut. I read its absence from a TRUNCATED list as deletion. No fetch line ever said it was deleted — I never checked for one.",
+    "theRuleThisBreaks": "Method rule (a) says sweep ALL remote refs, never a fixed tip list. I obeyed the letter — I did sweep by committerdate — and broke it in spirit by capping the output, which recreates exactly the fixed-window blindness the rule exists to prevent. A truncated sweep is a fixed list that moves.",
+    "newMethodRule": "(j) ABSENCE FROM A TRUNCATED LIST IS NOT EVIDENCE OF DELETION. To claim a ref is gone, name it to git ls-remote or read the [deleted] line from the fetch. Never infer it from a ref falling off the bottom of a sorted head -N.",
+    "alsoWorthNaming": "This is the third time this session I have reported a cleaner state than the evidence supported, and each time the mechanism was the same: a convenient reading of an instrument I had narrowed myself."
+  },
+  "cycle24Transitions": {
+    "mainTip": "cca488cd7 — UNCHANGED. No merges this cycle.",
+    "contract": "57/132 on main, unchanged by construction (same SHA).",
+    "promotionPassIsRunning": {
+      "pr": "#963 — 'V1-51 VERIFIED at L2 (58/136), and the owner's source-program decision reconciled into the denominator'",
+      "head": "f262003a8",
+      "significance": "This is the cycle-23 reframe confirming itself in the direction predicted: the numerator moves when Integration runs a promotion pass, and one is running. V1-51's implementation merged last cycle via #956 and left the row IN PROGRESS; the pass promotes it on DEPLOYED evidence at L2."
     },
-    "abandonedRefUpdate": {
-      "cleared": "v1/premium-ui is GONE from origin. One of the three cleared without anyone being told to.",
-      "stillPresent": [
-        "integration/rc-937 (80b7b948d)",
-        "integration/rc-wave-a (213f91513)"
-      ],
-      "alsoDeletedOnMerge": [
-        "claude/bdvm-nonblocking-ingestion-v2",
-        "claude/ci-reliability-hardening"
-      ],
-      "assessment": "Branch hygiene has gone from zero cleanups in twenty cycles to four in three. The two that remain are integration-owned release-candidate refs, not lane refs."
+    "THE_DENOMINATOR_IS_MOVING": {
+      "_flag": "FIRST DENOMINATOR CHANGE OF THE SESSION. It has been 132 for every cycle until now.",
+      "from": "132",
+      "to": "136",
+      "cause": "#963 commit f99a5bf2c, 'Reconcile the owner's source-acquisition/bridge decision into the V1 denominator' — four new rows V1-133, V1-134, V1-135, V1-136, all NOT STARTED. This is Lane 8's source-acquisition/bridge program entering V1 scope by owner decision.",
+      "verifiedIndependently": "Read the contract on the Integration branch and counted: 58 + 21 + 22 + 33 + 2 = 136, and its own table and completion line agree. Row-diffed against main: exactly V1-51 IN PROGRESS -> VERIFIED plus the four additions, nothing else.",
+      "THE_ARITHMETIC_THAT_WILL_BE_MISREAD": "57/132 = 43.2% -> 58/136 = 42.6%. THE PERCENTAGE FALLS WHILE A ROW IS VERIFIED. That is scope entering the denominator, not a regression, and nothing was un-verified. Naming it before it lands, because a percentage that drops on a promotion pass is precisely the number someone reads as a lane going backwards.",
+      "consequenceForThisRecord": "Cross-cycle PERCENTAGE comparisons are no longer apples-to-apples once this merges. Compare VERIFIED ROW COUNTS across cycles, and state the denominator with every percentage."
     },
-    "newObservation_laneEight": {
-      "evidence": "#954 is titled 'feat(sources): acquisition states, bridge layer, per-row archive preservation (Lane 8 PR A)', with companion #950 and branches claude/cross-position-bridge-v1 and -prb.",
-      "consequence": "This dispatcher's model covers Lanes 1-6 plus Integration. A Lane 8 is committing and is outside every doNotTouch set, collision watchlist and idle clock in these records.",
-      "dispatcherAction": "REPORTED. Extending the lane model is an owner decision, not a dispatcher one. Recording it because a coordination record that silently omits an active lane is the same defect class as a stale tally — it looks complete."
+    "fleetHasOutgrownMyModel": {
+      "evidence": [
+        "#954 / #950 — 'Lane 8 PR A', cross-position bridge",
+        "#962 — 'C-Series Claude 9: C3 Trade Substrate — Value Adjustment consolidation (C3-VA-01)'",
+        "#961 — C4-WAIV-01 + C4-MTL-01, waiver ledger and own-league Market Trade Ledger",
+        "#960 — #958 CI tracker identity"
+      ],
+      "status": "Escalated from the cycle-23 note. There are now at least TWO lanes (8 and 9) outside this dispatcher's six-lane model, both committing, neither in any doNotTouch set, collision watchlist or idle clock here.",
+      "collisionRisk": "#962 consolidates the Value Adjustment ports — CLAUDE.md names src/trade/ktc_va.py as the canonical owner and records that a duplicate Python port was already retired once. That is Lane 2 territory by my model, and Lane 2 is idle. Reported, not adjudicated.",
+      "dispatcherAction": "REPORTED. Extending the lane model is an owner decision."
     },
     "myOwnPr": {
       "pr": "#945",
-      "head": "0085493ac",
-      "ci": "Validate PR SUCCESS — job 96338019518, completed 06:50:03Z",
+      "head": "2cf74ad94",
+      "ci": "last verdict SUCCESS on 0085493ac; 2cf74ad94 pushed 09:37Z",
       "reviewComments": "none new"
     }
   }
