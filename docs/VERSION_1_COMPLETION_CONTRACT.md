@@ -307,7 +307,45 @@ Projections · **L4** Market / FAAB / Analyst · **L5** Integration / QA / CI / 
 | V1-125 | Duplicate owners retired (every `retires` line zero) | `C10-CLOSE-02` | L5 | `NOT STARTED` | L2 | ONE CONCEPT, ONE CANONICAL OWNER |
 | V1-126 | Final V1 regression green | `C10-CLOSE-07` | L5 | `NOT STARTED` | L1 | production verification |
 
-**Denominator: 132 items.** (This line read **127** until 2026-08-18 — stale from before `V1-127`…`V1-132` were added, while §3.11 already said 132. Recounted from the table itself: 132 rows, 132 distinct ids. A contract that disagrees with itself about its own denominator is the failure mode this document exists to prevent, so it is corrected here and the count is derived, never typed forward.)
+### 3.12 Source acquisition and cross-position bridge (owner decision, 2026-08-20)
+
+The owner decided on 2026-08-20 that the **multi-bridge / source-acquisition program** is V1
+and top priority. That is a denominator change, and it is recorded here rather than folded in
+silently — §10 makes adding a V1 REQUIRED item an owner decision, and this is one.
+
+**It is +4, not +6.** The owner named six capabilities; two of them already have owners in this
+contract, and admitting them again would inflate the denominator with work that is already
+counted. Integration's reconciliation, stated so it can be corrected:
+
+| owner-named capability | representation | denominator |
+|---|---|---|
+| multi-bridge cross-position translation | **new** — no row covers the mechanism. `V1-23` names IDP valuation *correctness* (the outcome); `V1-132` names one pick-year vendor dependency. Neither is a bridge | **+1** (`V1-133`) |
+| truthful no-bridge failure | **new** — and it gets its own row for the same reason `V1-20` did: a fail-closed rule folded into a feature row is the half that gets quietly dropped | **+1** (`V1-134`) |
+| source-native ordinal vs cardinal semantics preserved | **new** — nothing covers it, and it is what makes a bridge meaningful rather than a rescale | **+1** (`V1-135`) |
+| secure public / authenticated source acquisition | **new** — §3.6's rows are freshness, coverage and attribution. None is about how a source is *reached* or what credential reaches it | **+1** (`V1-136`) |
+| raw source preservation | **covered** by `V1-19` (`C1-SRC-01` / `C1-U9`, multi-format dynasty source archive, `IMPLEMENTED_UNVERIFIED` at L3). A raw-archive **schema extension** is that capability continuing, not a second one | **0** |
+| source-family / common-mode protection | **covered** by `V1-10` (provider families, one vote each — **`VERIFIED`**, 21 keys → 13 families). The bridge does not need a new row for this; it needs to **hold** the invariant `V1-10` already owns, which is an acceptance criterion of `V1-133`, not a denominator item | **0** |
+
+**Granularity is Integration's judgement and is the part most open to correction.** Four rows is
+the smallest set that keeps each independently verifiable; the owner may prefer three (folding
+`V1-134` into `V1-133`) or five. What is *not* negotiable under §0 is that these are not silently
+absorbed into existing rows — that would report the program as complete when it has not started.
+
+| id | capability | source record | lane | status | required level | note |
+|---|---|---|---|---|---|---|
+| V1-133 | Multi-bridge cross-position translation | owner decision 2026-08-20 / `#954` | L8 | `NOT STARTED` | L2 | canonical value. A bridge translates a source's ordinal or cardinal observations into combined-market space. Acceptance carries `V1-10`'s invariant: bridges from one provider family are **one** vote, not several — the KTC TE+/TE++/TE+++ error in a new population |
+| V1-134 | A missing or unproven bridge fails closed, and says so | owner decision 2026-08-20 / `#954` | L8 | `NOT STARTED` | L2 | truthful degraded state. `PENDING` may not vote. An IDP-only ordinal rank may **never** enter combined-market space untranslated, and an untranslatable source is reported as untranslatable — never defaulted, never ceiling-substituted |
+| V1-135 | Source-native ordinal vs cardinal semantics are preserved | owner decision 2026-08-20 / `#954` | L8 | `NOT STARTED` | L2 | canonical value provenance. A rank is not a value. What a source published is preserved end to end, and any conversion is explicit, named and reversible in the record |
+| V1-136 | Source acquisition is secure and its auth state is explicit | owner decision 2026-08-20 / `#954` | L8 | `NOT STARTED` | L2 | source-health correctness. Public vs authenticated acquisition is a recorded property of a feed, not an accident of which fetcher ran; a credential-dependent source that loses its credential is `UNVERIFIABLE`, never healthy and never zero |
+
+**Explicitly NOT authorized by this section:** any production valuation change. `#954` is
+foundation — acquisition state, bridge lifecycle, family metadata, archive schema, measured
+capability — and is required to leave production values untouched. The production-changing bridge
+work is a separate unit behind the §9 preconditions.
+
+**Denominator: 136 items.** (132 until 2026-08-20, when the owner's source-acquisition /
+cross-position-bridge decision added `V1-133`…`V1-136` — see §3.12 for why that is +4 and not
++6. This line read **127** until 2026-08-18 — stale from before `V1-127`…`V1-132` were added, while §3.11 already said 132. Recounted from the table itself: 132 rows, 132 distinct ids. A contract that disagrees with itself about its own denominator is the failure mode this document exists to prevent, so it is corrected here and the count is derived, never typed forward.)
 
 ### 3.11 Standing tally
 
@@ -323,11 +361,15 @@ table already said 47, and on its first real use it caught the same drift again
 | `VERIFIED` | 57 |
 | `IMPLEMENTED_UNVERIFIED` | 21 |
 | `IN PROGRESS` | 23 |
-| `NOT STARTED` | 29 |
+| `NOT STARTED` | 33 |
 | `BLOCKED` | 2 |
-| **denominator** | **132** |
+| **denominator** | **136** |
 
-**V1 completion: 57 / 132 = 43.2%.**
+**V1 completion: 57 / 136 = 41.9%.**
+
+The percentage went DOWN without any capability regressing, and that is the tally being honest
+rather than flattering: the owner enlarged V1 on 2026-08-20 (§3.12, +4) and the denominator moved
+with it. A completion figure that only ever rises is the first failure mode §0 names.
 
 **Movement to 55 (2026-08-20 04:15 UTC), and the evidence classes differ row by row.**
 55 → 57 (#912, Lane 6): `V1-107` (L2 — payload re-measured independently at Integration) and `V1-113` (L1 — 20/20 axe checks confirmed from the CI run log). `V1-108` was REFUSED in the same pass: its predicate is tested, but the L2 measurement has no committed instrument. `V1-106` stays open per the owner ruling on the FPS harness; `V1-110` is gated on owner decision `OD-05`. Before that, 48 → 55: `V1-81` (L2 — board measured), `V1-44` and `V1-39` (L1 — mutation, `V1-44` in BOTH runtimes), and `V1-114` / `V1-115` / `V1-116` / `V1-118` (L1 — the governance guards mutated against the real tree). Immediately before them, 45 → 48: `V1-34` and `V1-130` (L1/L2 — mutation plus a 0-value/0-rank board diff) and `V1-95` (L2 — **deployed** evidence, read off `/api/public/league/awards` after the `e37d2786e` deploy). Six rows were REFUSED in the same pass on their own measurements (`V1-29`, `V1-51`, `V1-63`, `V1-65`, `V1-88`, `V1-92`).
@@ -670,6 +712,7 @@ as a pass. **An unreachable check is not a green one.**
 
 | date | change | reason |
 |---|---|---|
+| 2026-08-20 | **+4** — `V1-133`…`V1-136` added (owner decision: the multi-bridge / source-acquisition program is V1 and top priority) | An **owner scope decision**, which §10 makes the one legitimate way this number moves. Reconciled rather than taken at face value: the owner named **six** capabilities and two already have owners here — raw source preservation is `V1-19` (`C1-SRC-01` / `C1-U9`) continuing, and source-family / common-mode protection is `V1-10`, already `VERIFIED`, which the bridge must **hold** rather than re-earn. Admitting those twice would have inflated the denominator with work already counted, which is the mirror image of the §0 failure mode. The four that remain — the bridge mechanism, its fail-closed behaviour, ordinal-vs-cardinal preservation, and acquisition security — have no owner in this contract. Granularity is Integration's judgement and is flagged in §3.12 as the part most open to owner correction. **No production valuation change is authorized by this addition.** |
 | 2026-08-18 | **0** — audit `F-35` filed and deliberately NOT added | A false GREEN, and by the same reasoning that admitted `V1-127` it would qualify — except that it fails the other half of the test. `idMappingCoverage.coverage_pct` reports **1.0 from 0 resolve attempts**, by explicit design (*"so a silent app doesn't look like a broken mapper"*), and will report it forever because `unified_mapper.resolve_player` has no production consumers after `C1-ID-01` and CLAUDE.md forbids adding any. So the surface is real and the defect is real, but the metric is **vestigial** and the blast radius is one admin panel — no canonical value, rank or contract field depends on it. Recording the decision rather than making it silently: the denominator is frozen, and "it is the same class as something already in" is not on its own a reason to enlarge it. If the panel is ever repointed at the live identity owner that is a unit with an owner decision in it, and it can be scoped then. |
 | 2026-08-18 | **+1** — `V1-132` added (audit `F-34`, surfaced by lane 7 / `#916`) | A tracked **defect against an already-required capability** — canonical value and signal independence — not new product scope. Measured: the horizon pick year blends **one** vendor while every other pick year blends two, because the far-future injection clones from the RAW payload and `ktcSfTep`'s pick values arrive through the later CSV enrichment. `F-30` made the horizon GUARANTEE independent of which raw keys survive; the blended VALUE is still single-source. Filed so it does not disappear when `#916` closes. |
 | 2026-08-18 | **+2** — `V1-130` (§7 A-2) and `V1-131` (§7 A-7) added | **Mechanical consequences of decisions the owner had already made**, resolved under the 2026-08-18 instruction to settle any ambiguity that follows from an existing ruling rather than leave the contract PROPOSED. `V1-130`: `V1-34` is required and `C3-CON-01` is its canonical owner — ONE CONCEPT, ONE CANONICAL OWNER makes excluding the owner incoherent. `V1-131`: "truthful degraded states" is named in the boundary and nav offering an all-503 page is a live instance; the Consensus Edge feature itself stays POST-V1. Neither adds product scope — both are the minimum needed to make an already-required item buildable or honest. |
