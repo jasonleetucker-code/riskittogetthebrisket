@@ -1,10 +1,30 @@
 # Claude 11 — C5 Seasonal Intelligence — Delivery Log
 
-**Lane:** 3 — Season / Scoring / Projections (per `docs/EXECUTION_PLAN.md` §0)
-**Branch:** `claude/cseries-seasonal-intelligence-efz837`
+**Lane:** 3 — Season / Scoring / Projections; also named directly as **Claude 11 — C5**
+under the POST-V1 C-Series mass-build campaign (`docs/EXECUTION_PLAN.md` §0, owner
+directive 2026-08-20)
+**Branches:** `claude/cseries-seasonal-intelligence-efz837` (V1-53, PR #964),
+`claude/c5-proj-a-source-census` (C5-PROJ-A)
 **Started:** 2026-08-20
 
-## 0. Scope correction — read this first
+## 0.1 UPDATE 2026-08-20 (same day) — the freeze that motivated §0 below has partially lifted
+
+§0 was written against `docs/EXECUTION_PLAN.md` as it read at session start: V1-required
+work only, full C5 (projection ensemble, Game Day, WAR/VORP, player fit/college
+translation) explicitly POST-V1 DEFERRED with no implementation authorized. **That has
+changed.** A fresh owner directive recorded the same day (`docs/EXECUTION_PLAN.md` "POST-V1
+C-SERIES MASS-BUILD CAMPAIGN — AUTHORIZED BY THE OWNER, 2026-08-20") now names **"Claude 11
+— C5: C5 Seasonal Intelligence"** directly as an authorized isolated-branch implementation
+lane. §0's scope table stays correct on the **V1 REQUIRED denominator** — nothing there
+changed, and the four V1-required rows (V1-49/51/52/53) are exactly as described. What
+changed is that the REST of the C5 family (§0's "POST-V1 DEFERRED" column) is now
+authorized for real implementation on isolated branches, **not to be merged to `main` by
+this session** — Claude 5 (Integration Authority) is the sole merge authority. So: build the
+full C5 family for real, hand off bounded PRs, never merge them myself, and never claim a
+V1 row `VERIFIED` (only Claude 5 edits that document).
+
+## 0. Scope correction — read this first (superseded in part by §0.1 above; kept for the
+record of what was true at session start)
 
 The assignment brief for this session names the full C5 family as ownable
 work: the multi-source projection ensemble, Game Day, prediction archive,
@@ -148,6 +168,118 @@ Registered in `docs/WORK_CLAIMS.md` as V1-53 / C5-ROS-01.
 2. `V1-49` and `V1-51` need no further Lane 3 work; if `docs/WORK_CLAIMS.md`'s
    V1-51 row is still marked `open` when picked up again, that is a
    bookkeeping close-out for whoever owns that claim, not new implementation.
-3. Do not begin the POST-V1 items in §0's table without a fresh owner
+3. ~~Do not begin the POST-V1 items in §0's table without a fresh owner
    decision recorded in `docs/EXECUTION_PLAN.md` §0, per that file's own
-   authorization rule.
+   authorization rule.~~ **Superseded by §0.1 — that fresh owner decision
+   landed the same day.** See §6 onward below.
+
+## 6. C5-PROJ-A — projection-source capability / access / lineage census
+
+**Branch:** `claude/c5-proj-a-source-census` (separate branch/PR from V1-53's, since
+this is a genuinely distinct cluster — the first sub-unit of the multi-source
+projection ensemble `C5-U1`, now authorized under §0.1).
+
+Full record: `docs/projections/C5_PROJ_A_SOURCE_CAPABILITY_CENSUS.md`. Summary:
+
+- **Delivered:** `config/projections/source_capability_census.json` (data) +
+  `src/ros/projection_source_census.py` (validating loader, closed-vocabulary
+  enforcement, query helpers) + `tests/ros/test_projection_source_census.py` (17
+  tests: structural validation with non-vacuousness proofs, plus a `TestMeasuredFacts`
+  class pinning the actual findings).
+- **Key finding:** two of the plan's target sources (Mike Clay/ESPN, The IDP Show)
+  already have real, live `PROJECTION_MODEL` implementations — inside `src/bdvm/`,
+  not the ROS/seasonal tree. C5-PROJ-B should reconcile with BDVM's existing
+  `ProjectionRecord` schema rather than building a second one.
+- **Key finding:** five currently-wired ROS sources (three FantasyPros, two
+  DraftSharks) are rankings, not projections, despite one of them
+  (`draftSharksRosSf`) being flagged `is_projection_source: True` in the live
+  `ROS_SOURCES` registry — a discrepancy recorded, not repaired (out of this
+  foundational unit's scope; `ROS_SOURCES` is live and consumed elsewhere).
+- **Key finding:** CBS Sports Fantasy, NFL Fantasy, and FantasyPros' actual
+  projections page are genuinely greenfield — zero existing code. No source URL was
+  invented for any of them; recording "no access path yet" is the correct state per
+  the plan's own "record before automation" instruction.
+- **Key finding:** DFS and sportsbook/player-prop discovery lanes were actively
+  searched (not merely left unexamined) and confirmed to have zero existing
+  infrastructure in this repo.
+- **One-writer boundary respected:** both DraftSharks census entries are stamped
+  `acquisitionOwnerLane: "Claude 8"` per `docs/EXECUTION_PLAN.md` §0's explicit
+  assignment of Draft Sharks cross-position/IDP Show/Footballguys acquisition to
+  Claude 8 — no acquisition code was written for either.
+- **Verification:** `tests/ros/test_projection_source_census.py` 17/17;
+  `tests/ros/` full suite 219 passed / 1 skipped, zero regressions;
+  `scripts/check_planning_integrity.py` OK.
+- **Deliberately NOT claimed:** any fetcher/parser/automation for any censused
+  source; any change to `ROS_SOURCES`; C5-PROJ-B through F.
+
+## 7. Assessed and deferred: Game Day (C5-GD-01) and the xWAR half of C5-WAR-01
+
+Both read in full against their governing specs (`docs/GAME_DAY_PROBABILITY_SPEC.md`,
+`docs/PLAYER_IMPACT_WAR_MVP_SPEC.md`) before deciding not to attempt a rushed partial
+build this session:
+
+- **Game Day** needs ONE joint league-wide weekly-score Monte Carlo simulation
+  feeding both Win-Matchup% and Beat-Median%, explicitly forbids a second
+  matchup/projection model, and carries a 14-item acceptance list including a
+  calibration archive that does not exist yet. A legitimate low-cost path exists
+  (reuse BDVM's per-player mu/sigma projection primitives — not its dynasty value
+  output — as the weekly score-distribution input, since BDVM already has real
+  Clay/IDP Show projections with in-season blending), but the joint simulation +
+  lineup integration + live-state updating + calibration archive is genuinely
+  multi-session scope. Shipping a partial version would violate "implement working
+  capability, not scaffolding or stubs."
+- **xWAR** (the fourth of `C5-WAR-01`'s four metrics) needs "the same archived
+  no-lookahead league-week scoring distribution/simulation" — i.e. the same
+  dependency as Game Day. The other three (Realized Lineup VORP, Actual WAR, Wins
+  Above Bench + Game Changer Points) are fully deterministic — no simulation
+  needed, only realized scores, the replacement-level owner, and the canonical
+  best-ball solver, all of which already exist. See §8.
+
+## 8. Found: an existing but spec-noncompliant VORP calculation in `src/public_league/awards.py`
+
+`src/public_league/awards.py:1441-1444` already computes a per-position playoff VORP
+(`vorp = max(0.0, r["starterPoints"] - replacement_per_game * games)`), consuming the
+canonical `src/scoring/replacement_level.py::replacement_per_game` (the correct owner
+per `scripts/replacement_census.py`'s declared OWNER row `B`). Two measured
+discrepancies against the binding spec (`docs/PLAYER_IMPACT_WAR_MVP_SPEC.md` §2, §11):
+
+1. **Floors at 0.0.** The spec is explicit: "Negative VORP is valid." This
+   implementation cannot express a below-replacement player.
+2. **Season-aggregate, not per-week.** The spec defines `weeklyVORP` per
+   best-ball-counted player-week, summed to `seasonVORP`. This implementation uses
+   season totals divided by games started against a single season-level
+   replacement figure — a different (simpler, less correct under bye weeks /
+   variable per-week replacement) computation.
+
+This is C9-AWARD scope (not mine — C5-WAR-01 is the underlying metric, C9-AWARD-02
+is POST-V1 DEFERRED per contract §4.1 and belongs to Claude 13's C9 lane), so not
+repaired here. Recorded because whoever builds the real `C5-WAR-01` canonical
+Player Impact module (§7) will retire this inline calculation into a call to it, per
+ONE CONCEPT ONE CANONICAL OWNER — and because Claude 13 should not independently
+"fix" the floor/aggregation without knowing the real owner is coming.
+
+## 9. Next steps for a continuing session in this lane
+
+1. `C5-PROJ-B` (canonical projection-stat schema + exact-league rescoring) — build
+   against BDVM's `ProjectionRecord`, do not re-derive it. Start from the two LIVE
+   sources this census found.
+2. `C5-WAR-01` deterministic core (Realized VORP, Actual WAR, WAB, Game Changer) —
+   spec'd, dependencies exist (`src/scoring/replacement_level.py`,
+   `src/ros/lineup.py::solve_optimal_assignment`, closed C1-U4 ledger for
+   provenance). xWAR itself waits on Game Day's joint simulation.
+3. `C5-FIT-01` — the scoring-fit half (decisions 44/46) is **already substantially
+   implemented** at `src/consensus_edge/scoring_fit.py` +
+   `src/league_intel/scoring_fit.py` + `src/league_intel/reception_fit.py`, consumed
+   by `fair_value.py` — the manifest's "ABSENT" status at this row is stale. Do not
+   build a third parallel fit engine (decision 46 explicitly forbids double-counting
+   these as independent votes). The genuinely absent half is **college translation**
+   (decision 45): `src/bdvm/service.py:519` hardcodes `college_score=0.0` with a
+   "no college feed yet" comment; no college-stat ingestion exists anywhere. Building
+   it needs a college stats source (distinct from Claude 8's named vendor list — likely
+   an nflverse-adjacent or CFBD-style feed, not yet identified) and, per decision 45,
+   must not "promote" the signal until historical drafted-cohort transfer is validated
+   without temporal leakage. Recommend flagging this finding to Integration so the
+   manifest's `C5-FIT-01` status can be corrected from ABSENT to PARTIAL.
+4. Watch `C2-U4` for `V1-52` (unchanged from §5 above).
+5. Continue picking dependency-ready C5 units per §0.1's authorization; do not merge
+   any PR — hand green batches to Claude 5.
