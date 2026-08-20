@@ -16,10 +16,13 @@ import {
   computeGroupAverages,
   findWaiverWireGems,
   buildLeagueEdgeMap,
-  scoreTeamTiers,
   ordinal,
 } from "@/lib/league-analysis";
 import AgeCurveOverlay from "@/components/graphs/AgeCurveOverlay";
+import TeamStrengthCard from "@/components/TeamStrengthCard";
+import { useRosterIntelligence } from "@/components/useRosterIntelligence";
+import { ownerIdForTeamName } from "@/lib/roster-intelligence";
+import "./rosters.css";
 
 /**
  * WHICH ASSETS to count in a team total — NOT which valuation to use.
@@ -109,10 +112,25 @@ export default function RostersPage() {
     [rows, sleeperTeams, myTeam],
   );
 
-  const teamTiers = useMemo(
-    () => scoreTeamTiers(sleeperTeams, playerMeta, rows, pickAliases, rosterPositions),
-    [sleeperTeams, playerMeta, rows, pickAliases, rosterPositions],
+  // Canonical Team Strength.  Fetched, never computed: the owner is
+  // `src/roster_intel/strength.py` behind `GET /api/roster/intelligence`.
+  // This page used to score teams itself — 0.7 x starters + 0.2 x depth
+  // - 0.1 x picks, cut into contender / mid-tier / rebuilder thirds —
+  // which put a second, contradictory ranking of the same twelve teams
+  // on the same screen as the portfolio table below.
+  //
+  // An empty ownerId is not an error: the endpoint then answers for the
+  // session's own team, which is the right default for a signed-in user
+  // who has not picked one.
+  const myOwnerId = useMemo(
+    () => ownerIdForTeamName(sleeperTeams, myTeam),
+    [sleeperTeams, myTeam],
   );
+  const {
+    loading: strengthLoading,
+    data: strengthData,
+    failure: strengthFailure,
+  } = useRosterIntelligence({ ownerId: myOwnerId });
 
   function toggleGroup(g) {
     setActiveGroups((prev) => {
@@ -140,7 +158,7 @@ export default function RostersPage() {
       <div className="card">
         <PageHeader
           title="Team Strength"
-          subtitle="Power rankings, position breakdowns, waiver wire, and trade targets."
+          subtitle="Canonical team strength, roster value portfolio, waiver wire, and trade targets."
           actions={
             <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
               <select
@@ -171,7 +189,22 @@ export default function RostersPage() {
         />
 
         <ValueBasisNote contract={rawData} />
+      </div>
 
+      {/* Canonical Team Strength — rendered from the backend owner.
+          There is no client-side fallback on failure: a fallback score
+          would be a second owner that only runs when nobody is looking. */}
+      <TeamStrengthCard
+        loading={strengthLoading}
+        data={strengthData}
+        failure={strengthFailure}
+      />
+
+      {/* Roster value portfolio — its own card, BELOW Team Strength.
+          The order is the argument: the canonical measurement first,
+          then the portfolio that answers a different question, with the
+          filters that shape it. */}
+      <div className="card" style={{ marginTop: "var(--space-md)" }}>
         {/* "Starters only" needs the league's lineup-slot array, and
             there is no honest default for it: this board ranks every
             team against every other, so a guessed slot table reorders
@@ -239,23 +272,38 @@ export default function RostersPage() {
           ))}
         </div>
 
-        {/* Team rankings table */}
+        {/* Roster value PORTFOLIO, by position.  A different question
+            from Team Strength above and deliberately kept separate
+            (V1-35): this counts every asset the filters admit, at full
+            market value, including bench depth and pick capital.
+
+            It carries no "#" column any more.  It used to, sorted on
+            the portfolio total, while the retired tier card printed a
+            different "#rank" from a frontend score — two rankings of
+            the same twelve teams, disagreeing for ten of them, four
+            hundred pixels apart.  The order here is a sort of the
+            column the user chose; the rank is the canonical one, in the
+            Team Strength card above. */}
+        <h3 className="team-strength-subtitle">Roster value portfolio</h3>
+        <p className="roster-portfolio-note">
+          Every asset the filters below admit, at full market value. Ordered by
+          that total &mdash; a sort, not a rank. Team Strength is a different
+          measurement, over the meaningful core, and is the card above.
+        </p>
         <div className="table-wrap">
-          <table>
+          <table className="roster-portfolio-table">
             <thead>
               <tr>
-                <th style={{ width: 28 }}>#</th>
                 <th style={{ width: 140 }}>Team</th>
-                <th style={{ width: 65, textAlign: "right" }}>Total</th>
+                <th style={{ width: 90, textAlign: "right" }}>Portfolio value</th>
                 <th>Position Breakdown</th>
               </tr>
             </thead>
             <tbody>
-              {sortedTeams.map((team, idx) => {
+              {sortedTeams.map((team) => {
                 const isMe = team.name === myTeam;
                 return (
                   <tr key={team.name} style={isMe ? { background: "rgba(200, 56, 3, 0.06)" } : undefined}>
-                    <td style={{ fontFamily: "var(--mono)", fontWeight: 700, color: "var(--subtext)" }}>{idx + 1}</td>
                     <td style={{ fontWeight: 700, ...(isMe ? { color: "var(--cyan)" } : {}) }}>
                       {team.name}
                       <div style={{ fontSize: "0.58rem", color: "var(--subtext)", fontWeight: 400 }}>
@@ -301,9 +349,6 @@ export default function RostersPage() {
           </table>
         </div>
       </div>
-
-      {/* Contender / Rebuilder Tiers */}
-      {teamTiers.length > 0 && <TeamTiersCard tiers={teamTiers} myTeam={myTeam} />}
 
       {/* League Edge Map */}
       {leagueEdge.length > 0 && <LeagueEdgeCard edges={leagueEdge} />}
@@ -506,60 +551,6 @@ function TradeTargetsCard({ myTeam, teams, groupAvg, onPlayerClick }) {
           ))}
         </div>
       )}
-    </div>
-  );
-}
-
-function TeamTiersCard({ tiers, myTeam }) {
-  const TIER_COLORS = { contender: "var(--green)", middle: "var(--amber)", rebuilder: "var(--red)" };
-  const TIER_BG = { contender: "rgba(39,174,96,0.08)", middle: "transparent", rebuilder: "rgba(231,76,60,0.06)" };
-
-  return (
-    <div className="card" style={{ marginTop: "var(--space-md)" }}>
-      <div style={{ fontWeight: 700, fontSize: "0.82rem", marginBottom: 10 }}>
-        Contender / Rebuilder Tiers
-        <InfoTip label="contender and rebuilder tiers">
-          <p>
-            Teams are scored on starter quality (70%), roster depth (20%), and a
-            pick-surplus penalty (-10%).
-          </p>
-        </InfoTip>
-      </div>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))", gap: 8 }}>
-        {tiers.map((t) => {
-          const isMe = t.name === myTeam;
-          return (
-            <div
-              key={t.name}
-              style={{
-                border: "1px solid var(--border)",
-                borderLeft: `3px solid ${TIER_COLORS[t.tier]}`,
-                borderRadius: 6,
-                padding: "10px 14px",
-                background: isMe ? "rgba(200,56,3,0.06)" : TIER_BG[t.tier],
-              }}
-            >
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                <span style={{ fontWeight: 700, fontSize: "0.78rem" }}>
-                  {isMe ? <span style={{ color: "var(--cyan)" }}>{t.name}</span> : t.name}
-                </span>
-                <span style={{ fontFamily: "var(--mono)", fontSize: "0.62rem", color: "var(--subtext)" }}>#{t.rank}</span>
-              </div>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 4 }}>
-                <span style={{ fontSize: "0.68rem", fontWeight: 700, color: TIER_COLORS[t.tier] }}>{t.tierLabel}</span>
-                <span style={{ fontFamily: "var(--mono)", fontSize: "0.66rem", color: "var(--subtext)" }}>
-                  {Math.round(t.totalValue).toLocaleString()} total
-                </span>
-              </div>
-              <div style={{ display: "flex", gap: 10, marginTop: 4, fontSize: "0.6rem", color: "var(--subtext)" }}>
-                <span>Starters: {Math.round(t.starterValue).toLocaleString()}</span>
-                <span>Depth: {Math.round(t.depthValue).toLocaleString()}</span>
-                {t.pickValue > 0 && <span>Picks: {Math.round(t.pickValue).toLocaleString()}</span>}
-              </div>
-            </div>
-          );
-        })}
-      </div>
     </div>
   );
 }

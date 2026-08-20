@@ -121,7 +121,17 @@ const BUDGETS_KB = {
   // — the easy mistake, since it looks like every other import — trips
   // CI instead of quietly putting all 21 back on the page.
   "/league/page": 50,
-  "/rosters/page": 30,
+  // Bumped 30→40 by the canonical Team Strength migration: measured
+  // 25.0 KB before, 34.6 KB after. The page stopped SCORING teams in
+  // the browser (`scoreTeamTiers` — a weighted team formula plus a
+  // tier cut, now deleted) and started rendering the canonical
+  // backend answer, so what grew is the fetch/format/explain layer:
+  // `components/TeamStrengthCard.jsx`, `lib/roster-intelligence.js`
+  // and the extracted `components/useJsonEndpoint.js`. Runtime work
+  // moved OFF the client — no twelve-team lineup fill and score per
+  // render — at the cost of markup and copy. Not headroom for bloat:
+  // 40 is 34.6 + the same ~15% this file uses everywhere.
+  "/rosters/page": 40,
   "/trades/page": 20,
   // Added R4: /waivers was shipping unmeasured. Pinned at the R4
   // rebuild's measured size + headroom so the claim desk can't drift
