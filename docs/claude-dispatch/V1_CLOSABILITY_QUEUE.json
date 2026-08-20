@@ -1,7 +1,7 @@
 {
   "_comment": "Live V1 Closability Queue, owned by Claude 7 as independent V1 traffic controller / adversarial auditor. Ranks IMPLEMENTED_UNVERIFIED rows by verification effort per row gained. NOT an authority on V1 status — only Claude 5 promotes a row, and no percentage here is claimed as achieved.",
-  "updatedAt": "2026-08-20T20:50:00Z",
-  "auditCycle": 49,
+  "updatedAt": "2026-08-20T21:55:00Z",
+  "auditCycle": 51,
   "evidenceBasis": {
     "contract": "docs/VERSION_1_COMPLETION_CONTRACT.md §3 read on origin/main e3b387ca5",
     "deployedSha": "e3b387ca5",
@@ -401,18 +401,19 @@
     "_doNotQuote": "Do not cite this block as the V1 status. Read the contract on current main instead.",
     "observedVerifiedRows": 61,
     "observedRequiredRows": 136,
-    "observedAtSha": "d5b62aed4",
-    "observedAt": "2026-08-20T20:46:00Z",
+    "observedAtSha": "8be59e267",
+    "observedAt": "2026-08-20T21:50:00Z",
     "howObserved": "counted `VERIFIED` in the §3 table of the contract as it exists at that exact SHA",
-    "note": "Unchanged at 61/136. #991 (V1-88 implementation) and #993 (Lane 8 production valuation change) both merged this cycle, neither promotes."
+    "note": "Unchanged at 61/136. #992 (V1-97) and #1003 (V1-106) both merged; neither row updated yet."
   },
   "_authorityNote": "This queue RANKS work by verification effort. It does not own, publish or restate V1 status. docs/VERSION_1_COMPLETION_CONTRACT.md §3 owns that, and every count in this file is a derived reading stamped with the SHA it came from.",
-  "cycle49": {
-    "promotionPassRan": "NO merges directly promoted a row. But V1-88's own implementation (#991) now satisfies the exact test its refutation demanded — see LANE_STATUS cycle49_v188_staleRefutation for the full timeline.",
+  "cycle51": {
+    "promotionPassRan": "NO. Two more implementations merged (V1-97 via #992, V1-106 via #1003) but §3 text for both is untouched — the ordinary implementation/promotion lag, distinct from V1-88's stale refutation.",
     "tierB": {
-      "V1-106": "FIRST movement in twenty-plus cycles — branch claude/v1-106-windowing-evidence (357c9410e), not yet merged. No longer the sole item with nothing in flight.",
-      "V1-88": "Implementation (#991) merged and appears to satisfy its own stated L1 bar, but the contract row's refutation text predates the merge by three hours and has not been re-checked. Flagged for Integration, not resolved here.",
-      "V1-108": "Still IMPLEMENTED_UNVERIFIED, implementation merged eight cycles ago (#989). No movement."
+      "V1-106": "Implementation now merged (#1003). Row still says IN PROGRESS / 'PR #760' only — watch for Integration's row update.",
+      "V1-97": "Implementation now merged (#992). Row still says NOT STARTED. Watch for Integration's row update.",
+      "V1-88": "Still IMPLEMENTED_UNVERIFIED with the pre-#991 refutation text, unresolved for two cycles now since flagged.",
+      "V1-108": "Still IMPLEMENTED_UNVERIFIED, unchanged for many cycles."
     },
     "standingItems": [
       {
