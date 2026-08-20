@@ -210,3 +210,78 @@ correct: `tests/public_league/test_identity_retirement.py` — 8 tests, includin
 - Whether an individual retired owner's OWN franchise page should be directly *linked* from
   anywhere now that it resolves correctly — out of scope; only the underlying data/count defect is
   fixed here.
+
+### Batch 3 (C10-CLOSE-02) — Dead-code / duplicate-owner census re-verification
+
+**Documentation-and-audit batch, not a deletion batch** — the outcome changed direction mid-batch
+on real evidence, recorded honestly below rather than smoothed over.
+
+**Two governance corrections with hard evidence, both improvements to the record:**
+
+1. **`C3-VA-01` / dead-code-map `D-032`** — the manifest and census both described "5
+   implementations" of KTC's Value Adjustment, one installed by an import-time monkeypatch, with a
+   rounding divergence. Direct code read confirms `src/trade/market_value_adjustment.py` is now a
+   0-computation re-export of `src/trade/ktc_va.py` (the second Python port was collapsed
+   2026-08-18, matching what `CLAUDE.md`'s trade-engine section already says), and
+   `tests/public_league/test_trade_grade_parity.py` (8 tests / 50 subtests) passes green,
+   confirming `src/public_league/trade_grading.py`'s remaining separate Python port is
+   parity-guarded against both `ktc_va.py` and the JS port — the monkeypatch, the rounding bug and
+   the dead V12/V13 exports are ALL fixed. Corrected both `docs/C_SERIES_SCOPE_MANIFEST.md`'s
+   `C3-VA-01` row (owner-map summary + detail row) and `dead-code-map.csv`'s `D-032` to state the
+   true current count (2 Python ports, not 5) and explicitly leave the one open question — whether
+   `trade_grading.py` should still collapse into `ktc_va.py` — to Lane 2 (Claude 9, C3 trade
+   substrate), since that is a methodology call outside this campaign's C10 mandate ("do NOT
+   independently activate adaptive source weighting or change model methodology").
+
+2. **A systemic finding about the census itself, discovered by nearly acting on it.** Before
+   deleting anything, I checked each candidate's test suite for a reason it might be intentionally
+   kept — and found real ones on the first two rows checked:
+   - `D-120` (`src/api/chat.py`, disposition "deprecate") — `tests/api/
+     test_chat_layers_are_consistently_wired.py` (added after this census row was written) is a
+     live, passing guard whose own docstring says: "recorded rather than deleted — it becomes
+     valuable the moment the product decision goes the other way." Deleting it would have broken a
+     deliberate, already-implemented decision.
+   - `D-112` (`/draft-capital` nav-title mapping, disposition "deprecate") — `frontend/__tests__/
+     nav-model.test.js` and `public-routes.test.js` document and pin it as a legacy **routing-layer
+     308 redirect** declared in `next.config.mjs` (no page directory needed), kept explicitly
+     public. "No `app/draft-capital/` directory" was never evidence of dead code once a route can
+     be declared outside `app/`.
+
+   **Both corrected in `dead-code-map.csv` with the actual evidence.** Given a 2-for-2 false-positive
+   rate on the first two rows actually re-checked, I stopped attempting deletions in this session —
+   the census (`docs/master-site-audit/evidence/W30/`) is measurably stale relative to work that has
+   landed since it was generated, and its "deprecate"/"replace" dispositions cannot be trusted
+   without the same per-row check (test suite + routing config, not just an import grep) before
+   acting on any of them. Recorded as an explicit warning in both corrected rows so the next person
+   re-verifies rather than deletes on the strength of the old disposition alone.
+
+3. **`CLOSURE_STATUS.md` / `closure.json` (the separate, older W##-F### audit-finding tracker) —
+   regenerated, then reverted.** Ran `tools/verify_closure.py` (its own header says "regenerate
+   rather than hand-edit"); the fresh run reported `open: 269` vs. the committed `268`, with
+   `W11-F006` dropping out of "claimed closed." Investigated rather than trusted: direct code read
+   of `frontend/components/waivers/ManualAddDrop.jsx:300-312` confirms the described defect (wrong
+   envelope-key unwrap) **is fixed** — the code correctly reads `data?.data ?? null` with a comment
+   citing `W11-F006` by name. The drop is a tooling artifact: `verify_closure.py` derives "claimed"
+   status partly from a live `git log origin/main..HEAD` trailer scan, and this sandbox's shallow/
+   narrow git history doesn't contain the historical commit whose trailer previously satisfied it.
+   Regenerating from here would have made the tracker **less** accurate, not more, so I reverted
+   both files (`git checkout --`) rather than commit a worse snapshot. The correct fix — adding
+   `W11-F006` to the frozen `claims-frozen-2026-08-05.json` ledger with its real closing commit — was
+   not completed: this sandbox's shallow clone made the commit sha unreliable to determine, and
+   guessing wrong would corrupt a load-bearing file. Flagged here rather than attempted.
+
+**Deliberately NOT claiming:**
+- Any deletion of dead code — the two candidates checked both turned out to be deliberately kept;
+  no further candidates were attempted this batch given that result.
+- Resolution of any other `C10-CLOSE-02` DUPLICATED row (`C2-REPL-01`, `C2-STR-01`, `C2-WEAK-01`,
+  `C3-PKG-01`, `C3-EQ-01`, `C5-POW-01`, `C5-PLAY-01`, `C6-SIG-01`) — these are live, still-duplicated
+  engines owned by other lanes' methodology, not documentation drift; out of my non-methodology C10
+  mandate.
+- Fixing `W11-F006`'s frozen-ledger entry — flagged for Claude 5 (Integration Authority already owns
+  the audit tooling) with a full, non-shallow git history to determine the real commit sha.
+- The remaining un-rechecked `D-121`–`D-129` dead-module rows — explicitly named as needing the same
+  per-row guard-test check before any action, not verified further in this batch.
+
+**Verified:** the two corrected findings' underlying guard tests re-run green (`test_chat_layers_are_
+consistently_wired.py` 3/3, `test_trade_grade_parity.py` 8/8+50 subtests, `nav-model.test.js` +
+`public-routes.test.js` 42/42). No source code changed in this batch — documentation/CSV only.
