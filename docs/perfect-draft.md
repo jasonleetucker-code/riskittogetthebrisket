@@ -582,5 +582,18 @@ rookie auction itself.
 `--record-snapshot` captures the pre-draft board and every team's roster
 context together, because a recommendation can only be scored against the state
 it was made from — and the roster context stops being recoverable the moment
-the first pick lands. Run it **before** the auction. That is the missing step,
-and it is the only one code can fix.
+the first pick lands. It must run **before** the auction.
+
+**C7-DRAFT-02 (2026-08-20): this is no longer a manual step.** A daily
+`dynasty-draft-snapshot` systemd timer (07:20 UTC, `deploy/systemd/
+dynasty-draft-snapshot.{service,timer}.template`, installed via the shared
+`install_simple_timer` helper) runs `--record-snapshot` every day. The capture
+writes one file per UTC day (`data/draft_backtest/<date>-pre.json`) and never
+overwrites a prior day's, so the daily cadence is purely additive — it just
+guarantees the most recent day's file before the auction actually starts is
+always on disk, without anyone having to predict the exact auction date or
+remember to trigger the capture by hand. `Persistent=true` means a box that was
+down at 07:20 on the day itself still captures late, on boot, rather than
+losing the one window that matters. Manually running `--record-snapshot` is
+still fine (e.g. right before the auction starts, for the freshest possible
+state) — the timer is a safety net, not a replacement for that.
