@@ -110,14 +110,38 @@ jobs:
     name: Production Endpoint Smoke Test
     runs-on: ubuntu-latest
     timeout-minutes: 5
-    if: ${{ vars.PROD_PUBLIC_URL != '' }}
+    # NO `if: ${{ vars.PROD_PUBLIC_URL != '' }}` here.  CI reliability
+    # lane, 2026-08-20.  A job skipped by a job-level `if` reports
+    # neutral, which the checks UI, the merge page and the workflow's
+    # own conclusion all render as SUCCESS.  So an unset or renamed
+    # PROD_PUBLIC_URL would have retired the only scheduled smoke of
+    # production endpoints without a single red tick — the workflow
+    # would keep reporting green having asserted nothing.
+    #
+    # The variable IS set today, so this is a guard against a
+    # configuration regression rather than a live repair.  The
+    # condition is not deleted; it moves into the step below, where
+    # it can refuse.  That is the shape prod-e2e-smoke.yml already
+    # uses for the identical condition.
     steps:
-      - name: Smoke test production endpoints
+      - name: Resolve production URL
+        id: url
         shell: bash
         run: |
           set -Eeuo pipefail
           URL="${{ vars.PROD_PUBLIC_URL }}"
-          URL="${URL%/}"
+          if [[ -z "${URL}" ]]; then
+            echo "::error title=PROD_PUBLIC_URL not set::The production smoke cannot run without a target origin. Set the PROD_PUBLIC_URL repository variable. Refusing rather than skipping: a skipped job reports green, and 'we did not look' must not read as 'we looked and it was fine'."
+            exit 1
+          fi
+          echo "url=${URL%/}" >> "$GITHUB_OUTPUT"
+
+      - name: Smoke test production endpoints
+        shell: bash
+        env:
+          URL: ${{ steps.url.outputs.url }}
+        run: |
+          set -Eeuo pipefail
           PASS=0
           FAIL=0
 
@@ -163,10 +187,10 @@ jobs:
 
       - name: Validate served board via public status
         shell: bash
+        env:
+          URL: ${{ steps.url.outputs.url }}
         run: |
           set -Eeuo pipefail
-          URL="${{ vars.PROD_PUBLIC_URL }}"
-          URL="${URL%/}"
 
           # /api/data is auth-gated (401 for anonymous callers), so the
           # old unauthenticated contract-shape validation can never pass

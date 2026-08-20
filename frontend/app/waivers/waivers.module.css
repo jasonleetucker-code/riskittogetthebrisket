@@ -441,3 +441,65 @@
   font-family: var(--font-data);
   font-variant-numeric: tabular-nums;
 }
+
+/* ── FAAB bid figure (Best add/drop moves) ──────────────────────────
+   One renderer, two surfaces: the desktop column cell and the phone's
+   inline chip.  The column carries `hideBelow: "md"` — below 768px it
+   is `display: none` (app/ds.css `.ds-col-hide-md`), which is what put
+   a FAAB-posture control on a page whose board showed no bid at all on
+   a phone.  `.faabInline` is that breakpoint's replacement surface and
+   uses the SAME 768px boundary, so the two hand over exactly and never
+   overlap or leave a gap. */
+.faabFigure {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+  white-space: nowrap;
+}
+
+.faabAmount {
+  font-family: var(--mono);
+  font-weight: 600;
+}
+
+/* Supporting ends of the ladder.  Hidden in the dense desktop column
+   (they live in the cell's `title` there); shown inline on the phone,
+   where there is no hover to reveal them. */
+.faabDetail {
+  display: none;
+  font-size: 0.58rem;
+  color: var(--subtext);
+}
+
+/* An absence that names itself.  Quiet, but not a bare dash. */
+.faabAbsent {
+  font-size: 0.62rem;
+  color: var(--subtext);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.faabInlineLabel {
+  font-size: 0.55rem;
+  color: var(--subtext);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+/* Desktop keeps the dedicated sortable column; the inline chip must
+   not double the number up there. */
+.faabInline {
+  display: none;
+}
+
+@media (width < 768px) {
+  .faabInline {
+    display: inline-flex;
+    flex-wrap: wrap;
+    gap: 4px 6px;
+    margin-top: 2px;
+  }
+  .faabInline .faabDetail {
+    display: inline;
+  }
+}
