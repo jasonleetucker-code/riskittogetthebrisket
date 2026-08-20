@@ -215,7 +215,7 @@ Projections · **L4** Market / FAAB / Analyst · **L5** Integration / QA / CI / 
 | V1-61 | Sharp Roster Percentage | inv 4.5 | L4 | `IMPLEMENTED_UNVERIFIED` | L4 | Sharp core; owner status "VERIFY ONLY" |
 | V1-62 | Sharp Tracker | inv 4.4 | L4 | `IN PROGRESS` | L4 | Sharp core; live but W15-F017 no memoization |
 | V1-63 | Manager-level Sharp concentration | inv 4.6 | L4 | `IMPLEMENTED_UNVERIFIED` | L1 | **#911 merged 2026-08-19.** Concentration design confirmed (capped weights bounded 0.34/manager and /league, `concentrationCapped` flagged) and two coercion defects fixed underneath it: `float(person["quality"] or 1.0)` promoted a manager scored **0.0** — the lowest quality — to **1.0**, the highest, into both the consensus and the cap; and `networkConcentration` published `0.0` for an undefined ratio. Now `isinstance(raw_quality, (int, float))` and `None`. 52 deterministic tests pass on the merged tree. **Not VERIFIED**: `personManagerQuality` still returns `1.0` for zero voters, the same defect two lines away |
-| V1-64 | Sharp event ledger surfaces adds/drops | inv 4.7 | L4 | `IMPLEMENTED_UNVERIFIED` | L1 | **#911 merged 2026-08-19.** Confirmed rather than changed: `crawl_coverage` publishes `sharpEligibleLeagues` beside `leaguesCrawled` (`transactions.py:367`) so a zero is explained by its own denominator, and `oldestCrawlMs` is `min(timestamps) if timestamps else None` (`record_queue.py:110`) — `None`, never 0. A pre-existing property verified, not added |
+| V1-64 | Sharp event ledger surfaces adds/drops | inv 4.7 | L4 | `VERIFIED` | L1 | **VERIFIED 2026-08-20 on merged `main` (#936, merge `5bdee44db`).** Target level is **L1** — deterministic evidence — and it is now satisfied on BOTH producers, which is what the row was missing. #911 confirmed the behaviour existed; #936 pins it. `tests/sharp/test_record_queue.py` + `tests/sharp/test_transactions.py`: **27 passed** on the shipping tree. **Four mutations re-performed at Integration, each confirmed APPLIED before being counted:** `record_queue.py:110` `min`→`max` ⇒ RED `test_oldest_crawl_is_the_minimum_not_the_most_recent`; `record_queue.py:110` `None`→`0` ⇒ RED `test_no_crawled_league_publishes_none_never_zero`; `transactions.py` SQL `MIN(`→`MAX(` ⇒ RED (minimum test); `transactions.py:363` `else None`→`else 0` ⇒ RED (never-zero test). Restored: 27 pass. So `oldestCrawlMs` is provably the MINIMUM, and provably `None` rather than `0` when nothing was crawled — missing is not zero, on both code paths. A fifth attempt (Python `min(` in `transactions.py`) matched nothing because that producer aggregates in SQL; it applied no change and is NOT counted |
 | V1-65 | Insider Trading / cross-league ownership | `C4-INS-01` / inv 4.8 | L4 | `IMPLEMENTED_UNVERIFIED` | L2 | **#911 merged 2026-08-19.** The consolidation already existed (ledger / signals / two products); what was missing was the guarantee. `tests/intel/test_insider_never_claims_sharp.py` AST-scans the three insider modules for non-docstring "sharp" literals, with a **positive control** so it cannot pass by matching nothing and a negative control so docstrings stay allowed. The boundary is real: Sharp is a SKILL claim (dynasty, ≥2 seasons); Insider admits keeper leagues with no age floor |
 
 ### 3.6 Source-health correctness and stability / false-green repairs
@@ -316,14 +316,14 @@ from the §3 table itself rather than by editing this block.
 
 | status | count |
 |---|---|
-| `VERIFIED` | 44 |
-| `IMPLEMENTED_UNVERIFIED` | 22 |
+| `VERIFIED` | 45 |
+| `IMPLEMENTED_UNVERIFIED` | 21 |
 | `IN PROGRESS` | 31 |
 | `NOT STARTED` | 33 |
 | `BLOCKED` | 2 |
 | **denominator** | **132** |
 
-**V1 completion: 44 / 132 = 33.3%.**
+**V1 completion: 45 / 132 = 34.1%.**
 
 **Up five, and every one of them on deployed evidence rather than on a merge.**
 #910 merged at 21:29 UTC; the deploy that carried it completed at ~22:50 and the
