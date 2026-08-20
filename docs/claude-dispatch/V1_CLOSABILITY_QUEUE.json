@@ -1,7 +1,7 @@
 {
   "_comment": "Live V1 Closability Queue, owned by Claude 7 as independent V1 traffic controller / adversarial auditor. Ranks IMPLEMENTED_UNVERIFIED rows by verification effort per row gained. NOT an authority on V1 status — only Claude 5 promotes a row, and no percentage here is claimed as achieved.",
-  "updatedAt": "2026-08-20T10:10:00Z",
-  "auditCycle": 25,
+  "updatedAt": "2026-08-20T10:25:00Z",
+  "auditCycle": 26,
   "evidenceBasis": {
     "contract": "docs/VERSION_1_COMPLETION_CONTRACT.md §3 read on origin/main e3b387ca5",
     "deployedSha": "e3b387ca5",
@@ -399,41 +399,46 @@
     "_staleByConstruction": true,
     "_ifTheyDisagree": "the contract wins, always, and this block is the thing that is wrong.",
     "_doNotQuote": "Do not cite this block as the V1 status. Read the contract on current main instead.",
-    "observedVerifiedRows": 57,
-    "observedRequiredRows": 132,
-    "observedAtSha": "a1c6e6ea4",
-    "observedAt": "2026-08-20T10:05:00Z",
+    "observedVerifiedRows": 58,
+    "observedRequiredRows": 136,
+    "observedAtSha": "113a29311",
+    "observedAt": "2026-08-20T10:22:00Z",
     "howObserved": "counted `VERIFIED` in the §3 table of the contract as it exists at that exact SHA",
-    "note": "#960 merged and changed no row. #963 (open, head 115e0c662) still proposes 58/136."
+    "note": "#963 MERGED. Denominator moved 132 -> 136 by owner decision; V1-51 promoted. See LANE_STATUS denominatorHistory."
   },
   "_authorityNote": "This queue RANKS work by verification effort. It does not own, publish or restate V1 status. docs/VERSION_1_COMPLETION_CONTRACT.md §3 owns that, and every count in this file is a derived reading stamped with the SHA it came from.",
-  "cycle25": {
-    "reportingRule": "From #963 onward, report VERIFIED ROW COUNT and state the denominator with every percentage. 57 of 132 and 58 of 136 are not comparable as percentages.",
-    "bottleneck": "Unchanged and now measured over five cycles: six merges, +2 VERIFIED rows, both from one promotion pass. Implementation lands honestly and waits.",
+  "cycle26": {
+    "landed": "#963 merged as 113a29311. V1-51 VERIFIED at L2 on deployed evidence; V1-133..V1-136 added NOT STARTED. Verified row count 57 -> 58; denominator 132 -> 136.",
+    "bottleneckMeasuredOverSixCycles": "Cycles 21-26: SEVEN merges, +3 VERIFIED rows, and ALL THREE came from the TWO promotion passes (#947, #963). Every other merge landed implementation that is waiting. The drain works when it runs; it runs rarely.",
+    "newlyOpenedV1Work": "#964 'V1-53: widen canonical-alias write guard to cover the seasonal lane' — a C-Series campaign lane taking a V1 row. Reported neutrally: the authorized campaign is not confined to post-V1 work, which is a fact about where V1 throughput may now come from.",
     "tierB": {
-      "V1-108": "Close: commit the transitive import-graph scan as a guard. Unactioned, third cycle.",
-      "V1-106": "STILL no named close condition; still cites only PR #760 while that code is on main. FIFTH cycle reporting it. This is now the longest-standing unactioned finding in this record."
+      "V1-106": "SIXTH cycle. Still IN PROGRESS, still citing only PR #760 while that code is on main, still no named close condition. Longest-standing unactioned finding in this record.",
+      "V1-108": "Close: commit the transitive import-graph scan as a guard. Fourth cycle unactioned."
     },
     "standingItems": [
       {
         "item": "Lane 2 ACTIONABLE_IDLE",
-        "elapsed": "~16.5h",
+        "elapsed": "~17h; branch still at 9e9d8e8ec",
         "row": "V1-43 NOT STARTED, target L1, unblocked on plain main",
         "blocker": "ASSIGNMENT DELIVERY of L2-2026-08-19-02",
-        "cycle24ComplicationWithdrawn": "#962 is authorized C-Series campaign work, not an incursion. See LANE_STATUS MY_CYCLE_24_FRAMING_WAS_WRONG.",
         "dispatcherAction": "Surfaced only. No second assignment written."
       },
       {
         "item": "Lane 4 on-box verification batch",
-        "rows": "V1-57, V1-129, V1-60 — all IMPLEMENTED_UNVERIFIED at a1c6e6ea4",
-        "elapsed": "~18h"
+        "rows": "V1-57, V1-129, V1-60 — all IMPLEMENTED_UNVERIFIED at 113a29311",
+        "elapsed": "~18.5h; branch still at 66fb1a053",
+        "instrumentExists": "#963 promoted V1-51 on DEPLOYED evidence, which is the same class of instrument this batch needs."
       },
       {
-        "item": "Abandoned refs",
-        "verifiedByName": "All five present — see LANE_STATUS abandonedRefsVerifiedByName.",
-        "scopeNote": "An uncapped sweep shows ~85 refs with a dormant tail to March. The three named refs stay named because they are recent and integration-owned; the tail is sediment, not a work item."
+        "item": "Abandoned refs, verified by name",
+        "present": [
+          "v1/premium-ui c025e4f68",
+          "integration/rc-937 80b7b948d",
+          "integration/rc-wave-a 213f91513"
+        ],
+        "hygieneNote": "claude/v1-integration-authority-xaqcv8 was deleted on merge — the fourth lane branch cleaned up in six cycles."
       }
     ],
-    "stalePRsUnacted": "#759 and #760 open against landed code, branches present. Fifth cycle."
+    "stalePRsUnacted": "#759 (82851974f) and #760 (4f00f1599) still open against landed code, branches present. Sixth cycle."
   }
 }

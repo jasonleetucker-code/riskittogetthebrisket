@@ -1,7 +1,7 @@
 {
   "_comment": "Lane utilization state, owned by Claude 7 (Lane Dispatcher). NOT an authority on integration sequencing (Claude 5 / docs/EXECUTION_PLAN.md), on V1 status (docs/VERSION_1_COMPLETION_CONTRACT.md) or on canonical ownership (CLAUDE.md). Repository evidence outranks this file: where they disagree, this file is wrong and must be corrected.",
-  "updatedAt": "2026-08-20T10:10:00Z",
-  "dispatchCycle": 25,
+  "updatedAt": "2026-08-20T10:25:00Z",
+  "dispatchCycle": 26,
   "writePolicy": "This file and ASSIGNMENTS.json are written ONLY on a material state transition — new assignment, assignment accepted, completion, blocker, freeze/unfreeze, or a meaningful dependency change. A heartbeat that finds nothing changed produces no commit and no CI run.",
   "evidenceBasis": "origin/main 079fc9e4a; §3 diffed row-by-row from cycle-19 main (c5a367266); all refs resolved live; #945 CI green 04:57:35Z",
   "assignmentSourceNote": "The six current assignments were made manually by the owner, not by this dispatcher. Recorded here so the durable state matches reality; Claude 7 did not originate them and does not own them.",
@@ -199,11 +199,12 @@
     "_staleByConstruction": true,
     "_ifTheyDisagree": "the contract wins, always, and this block is the thing that is wrong.",
     "_doNotQuote": "Do not cite this block as the V1 status. Read the contract on current main instead.",
-    "observedVerifiedRows": 55,
-    "observedRequiredRows": 132,
-    "observedAtSha": "079fc9e4a",
-    "observedAt": "2026-08-20T05:25:00Z",
-    "howObserved": "counted `VERIFIED` in the §3 table of the contract as it exists at that exact SHA"
+    "observedVerifiedRows": 58,
+    "observedRequiredRows": 136,
+    "observedAtSha": "113a29311",
+    "observedAt": "2026-08-20T10:22:00Z",
+    "howObserved": "counted `VERIFIED` in the §3 table of the contract as it exists at that exact SHA; independently summed all statuses to 136 and confirmed the contract’s own table and completion line agree",
+    "denominatorChangedAtThisSha": "YES — 132 -> 136. See cycle26Transitions."
   },
   "canonicalOwnerRule": "This dispatcher previously carried a `v1` block with verified/percent fields that read as authoritative, and it DRIFTED — PR #945 declared 48/132 while the contract on main said 55/132. That is a second owner of the numerator forming inside a coordination record, which is the exact defect class this dispatcher has spent the session flagging in other lanes. Corrected on integration review: the fields are renamed to name themselves derived, carry the SHA they were read at, and declare the contract the winner in any disagreement.",
   "correction_C24": {
@@ -215,41 +216,36 @@
     "newMethodRule": "(j) ABSENCE FROM A TRUNCATED LIST IS NOT EVIDENCE OF DELETION. To claim a ref is gone, name it to git ls-remote or read the [deleted] line from the fetch. Never infer it from a ref falling off the bottom of a sorted head -N.",
     "alsoWorthNaming": "This is the third time this session I have reported a cleaner state than the evidence supported, and each time the mechanism was the same: a convenient reading of an instrument I had narrowed myself."
   },
-  "cycle25Transitions": {
-    "mainTip": "a1c6e6ea4 (was cca488cd7)",
-    "merged": "#960 (a1c6e6ea4) — '#958: the tracker stops betting on how gh spells a bot login'. Branch deleted on merge.",
-    "v1Effect": "NONE. Row-diffed §3 cca488cd7 -> a1c6e6ea4: NO row changed. Still 57 VERIFIED of 132, and the contract's own table and completion line agree with my independent count.",
-    "theCyclePatternHolds": "Six merges across cycles 21-25 have produced +2 VERIFIED rows, both from one promotion pass. Verification remains the binding constraint.",
-    "promotionPassStillOpen": {
-      "pr": "#963",
-      "headNow": "115e0c662 (was f262003a8)",
-      "contentUnchanged": "Still exactly V1-51 IN PROGRESS -> VERIFIED plus V1-133..V1-136 added as NOT STARTED. Re-counted on the live head: 58+21+22+33+2 = 136, its own table agrees.",
-      "denominatorWarningStands": "57/132 = 43.2% -> 58/136 = 42.6%. The percentage falls while a row is verified. Scope entering the denominator, not a regression."
+  "cycle26Transitions": {
+    "mainTip": "113a29311 (was a1c6e6ea4)",
+    "merged": "#963 — merge 113a29311, 'Merge pull request #963 from jasonleetucker-code/claude/v1-integration-authority-xaqcv8'. Branch deleted on merge.",
+    "promotionPassRan": "YES. This is the second promotion pass of the session and the second time the numerator moved at all.",
+    "rowDiff": {
+      "method": "§3 row-diffed a1c6e6ea4 -> 113a29311",
+      "changes": [
+        "V1-51: IN PROGRESS -> VERIFIED (target L2, promoted on DEPLOYED evidence)",
+        "V1-133: added, NOT STARTED",
+        "V1-134: added, NOT STARTED",
+        "V1-135: added, NOT STARTED",
+        "V1-136: added, NOT STARTED"
+      ],
+      "nothingElseMoved": "No other row changed status. Exactly what #963 claimed while open, landing unchanged."
     },
-    "MY_CYCLE_24_FRAMING_WAS_WRONG": {
-      "_severity": "Correction — a framing error, not a fact error.",
-      "whatISaid": "Cycle 24: 'The fleet has outgrown my model… Lane 8 and C-Series Claude 9 are committing, neither in any doNotTouch set, collision watchlist or idle clock here.' The tone implied unmanaged sprawl.",
-      "whatIsActuallyTrue": "#963 carries commit e1a676c95, 'Authorize the POST-V1 C-Series mass-build campaign — execution timing only', and 115e0c662, 'Close two merged claim rows and narrow the freeze row, so the new lanes are not falsely blocked'. The new lanes are an AUTHORIZED campaign with its work claims deliberately unblocked.",
-      "correctReading": "My model was not violated; it was superseded by an owner authorization my records did not yet know about. A coordination record that has not caught up is not evidence that the fleet is uncoordinated — and reporting it that way is the same error as reading a truncated list as deletion: treating the limits of my own instrument as a fact about the world.",
-      "standing": "The lane model here still covers L1-L6 plus Integration. Extending it remains an owner decision. But the collision language is withdrawn: #962's Value Adjustment consolidation is campaign work, not an unclaimed incursion into Lane 2's territory."
+    "selfConsistency": "Counted independently: 58 + 21 + 22 + 33 + 2 = 136. The contract's own status table and its completion line both read 58 / 136 = 42.6%. My count and its count agree."
+  },
+  "denominatorHistory": {
+    "_why": "Recorded durably because a moving denominator silently breaks every percentage comparison in this record's history, and a floating note in one cycle block would be lost the next time a cycle block is rotated out.",
+    "132": {
+      "heldFrom": "the start of this dispatcher's involvement",
+      "heldUntil": "main a1c6e6ea4",
+      "finalReading": "57 VERIFIED of 132 = 43.2%"
     },
-    "uncappedSweepFinding": {
-      "observation": "Sweeping origin UNCAPPED for the first time (rule j's consequence) shows roughly 85 remote refs, with a long dormant tail reaching back to March. My 'three abandoned refs' framing was itself too narrow a window — the same defect one level up.",
-      "dispatcherAction": "REPORTED, and deliberately NOT turned into work. A mass ref cleanup is not dispatcher authority and nobody asked for one. The three named refs stay named because they are RECENT and integration-owned, which is what made them rule-7 relevant; the March tail is ordinary repository sediment."
+    "136": {
+      "beganAt": "main 113a29311 (#963, commit f99a5bf2c)",
+      "cause": "the owner's source-acquisition / bridge decision reconciled into V1 scope — V1-133..V1-136 added, all NOT STARTED",
+      "firstReading": "58 VERIFIED of 136 = 42.6%"
     },
-    "abandonedRefsVerifiedByName": {
-      "method": "git ls-remote origin refs/heads/<ref> — named, not inferred",
-      "v1/premium-ui": "PRESENT c025e4f68",
-      "integration/rc-937": "PRESENT 80b7b948d",
-      "integration/rc-wave-a": "PRESENT 213f91513",
-      "claude/no-player-data-routes (#759)": "PRESENT 82851974f",
-      "claude/rankings-board-windowing (#760)": "PRESENT 4f00f1599"
-    },
-    "myOwnPr": {
-      "pr": "#945",
-      "head": "673fa6f6f",
-      "ci": "Validate PR in_progress, job 96385604645, started 09:53Z",
-      "reviewComments": "none new"
-    }
+    "THE_READING_THAT_IS_EASY_TO_GET_WRONG": "43.2% -> 42.6% ACROSS A PASS THAT VERIFIED A ROW. Nothing was un-verified and nothing regressed; four unstarted rows entered the denominator. The verified COUNT went 57 -> 58, which is the honest measure of the pass.",
+    "rule": "Compare VERIFIED ROW COUNTS across cycles. Never compare bare percentages across this boundary, and never quote a percentage without its denominator."
   }
 }
