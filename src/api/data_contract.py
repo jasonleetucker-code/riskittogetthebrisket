@@ -10014,6 +10014,22 @@ def _compute_unified_rankings(
         board_date=board_date,
     )
 
+    # C6-SIG-02 — ticker movement windows, additive-only, read-only
+    # against the same temporal ledger _stamp_rank_changes just used.
+    # Registered (unlike that function's own rollback lever — see
+    # AUDIT F-24 in its docstring) as `signal_reconciler_movement_windows`,
+    # `safe_on`: it writes exactly one new key (`movementWindows`) and
+    # cannot move any existing field.
+    from src.api import feature_flags as _signals_feature_flags
+
+    if _signals_feature_flags.is_enabled("signal_reconciler_movement_windows"):
+        from src.signals.movement import stamp_movement_windows as _stamp_movement_windows
+
+        _stamp_movement_windows(tiered_rows, board_date=board_date)
+    else:
+        for _row in tiered_rows:
+            _row["movementWindows"] = None
+
     # ── Post-compaction disagreement re-stamp ──
     # The depth-aware allowance was computed in Phase 4 from the
     # PROVISIONAL rank/pool-size, but the compact pass above just

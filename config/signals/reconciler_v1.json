@@ -1,0 +1,72 @@
+{
+  "_comment": "Parameters for the Central Buy/Sell Reconciler (C6-SIG-01). Loaded by src/signals/reconciler.py and src/signals/families.py, which contain no numeric literal that decides a verdict or a level. Mirrors config/confidence/gate_v1.json's discipline (every entry records unit + derivedFrom) but is a SEPARATE registry for a SEPARATE canonical concept: src/api/confidence.py decides VALUE confidence, this decides SIGNAL confidence. tests/signals/test_reconciler.py refuses an entry with no derivedFrom.",
+  "version": "2026-08-20.v1",
+  "parameters": {
+    "INDEPENDENCE_HIGH_FAMILIES": {
+      "value": 3,
+      "unit": "firedEvidenceFamilies",
+      "appliesTo": "count of distinct evidence families that fired a direction on this row",
+      "derivedFrom": "This reconciler wires exactly 3 live families in v1 (board_consensus_gap, bdvm_fundamental, sharp_transaction) plus one reserved, never-firing slot (consensus_edge_composite). Requiring ALL 3 live families to fire for HIGH mirrors src/api/confidence.py's rule that a small panel must not automatically read as high confidence, scaled to this panel's actual size (3, not confidence.py's ~15-source pool). A PRIOR, not a fit -- revisit the ladder once consensus_edge_composite is genuinely wired and the panel grows to 4."
+    },
+    "INDEPENDENCE_MEDIUM_FAMILIES": {
+      "value": 2,
+      "unit": "firedEvidenceFamilies",
+      "appliesTo": "count of distinct evidence families that fired a direction on this row",
+      "derivedFrom": "A majority of the 3-family v1 panel. Below it (a single family) cannot exceed LOW on this axis -- one opinion is not independent evidence of anything, the same floor confidence.py sets for its own independence axis."
+    },
+    "EVIDENCE_SHARE_HIGH": {
+      "value": 0.75,
+      "unit": "shareOfEvidence",
+      "appliesTo": "coverage / freshness / agreement share axes",
+      "derivedFrom": "Reused verbatim from config/confidence/gate_v1.json's EVIDENCE_SHARE_HIGH -- the same declared sufficiency ladder (three quarters of the relevant evidence) applied to a second domain, deliberately not re-derived from a different number so the two confidence systems read consistently to an operator. Coverage's denominator includes the reserved consensus_edge_composite slot, so 3-of-4 real families (0.75) is the CEILING coverage can reach in v1 -- structurally honest: full coverage is unreachable until CE is wired, and that is a true statement, not a defect."
+    },
+    "EVIDENCE_SHARE_MEDIUM": {
+      "value": 0.5,
+      "unit": "shareOfEvidence",
+      "appliesTo": "coverage / freshness / agreement share axes",
+      "derivedFrom": "Reused verbatim from config/confidence/gate_v1.json's EVIDENCE_SHARE_MEDIUM -- a simple majority of the relevant evidence."
+    },
+    "MATERIAL_MAGNITUDE_FLOOR": {
+      "value": 0.10,
+      "unit": "normalizedMagnitude0to1",
+      "appliesTo": "per-family normalized magnitude, before a family counts toward a direction vote or a CONFLICTED check",
+      "derivedFrom": "Matches AGREEMENT_VALUE_RATIO in config/confidence/gate_v1.json (0.15's neighbor rung, rounded down for a floor rather than a material-gap ceiling) -- a magnitude below this is noise-adjacent for a board where CLAUDE.md's own documented median signed value-space gaps sit in the 0.01-0.11 range per position. A PRIOR; revisit once this reconciler has live-board magnitude distributions to measure against, the same way AGREEMENT_VALUE_RATIO itself was set from a measured p70, not invented."
+    },
+    "STRONG_MAGNITUDE_THRESHOLD": {
+      "value": 0.30,
+      "unit": "normalizedMagnitude0to1",
+      "appliesTo": "composite magnitude (mean of majority-direction firing families) required for STRONG_BUY/STRONG_SELL",
+      "derivedFrom": "Twice EVIDENCE_SHARE_MEDIUM's complement region and three times MATERIAL_MAGNITUDE_FLOOR -- a PRIOR marking 'clearly outside the noise band on more than one family', not a fit. No live-board STRONG_BUY/STRONG_SELL distribution exists yet to calibrate against; recorded as an explicit follow-up in docs/lane4/C6_SIG_01_RECONCILER.md."
+    },
+    "BDVM_STRONG_SIGNAL_MAGNITUDE": {
+      "value": 0.40,
+      "unit": "normalizedMagnitude0to1",
+      "appliesTo": "bdvm_fundamental family magnitude when src.bdvm.market.buy_hold_sell returns STRONG_BUY or STRONG_SELL",
+      "derivedFrom": "A REPRESENTATIVE magnitude for a ladder BDVM has already computed, not a re-derivation of its underlying alpha -- buy_hold_sell()'s own contract (src/bdvm/market.py) only returns {signal, reason}, so this family does not re-read BDVM's alpha/liquidity thresholds and risk drifting out of step with them. Set above STRONG_MAGNITUDE_THRESHOLD (0.30) so a lone STRONG_BUY/STRONG_SELL from BDVM alone can still reach the STRONG rung on the composite ladder, matching that BDVM already gated STRONG on both magnitude and liquidity before emitting it."
+    },
+    "BDVM_PLAIN_SIGNAL_MAGNITUDE": {
+      "value": 0.20,
+      "unit": "normalizedMagnitude0to1",
+      "appliesTo": "bdvm_fundamental family magnitude when src.bdvm.market.buy_hold_sell returns BUY or SELL (not STRONG)",
+      "derivedFrom": "Above MATERIAL_MAGNITUDE_FLOOR (0.10) so a plain BDVM BUY/SELL still counts as material evidence, below STRONG_MAGNITUDE_THRESHOLD (0.30) so it cannot alone push the composite to a STRONG verdict -- BDVM already distinguished BUY from STRONG_BUY; this preserves that distinction on the shared 0-1 scale instead of erasing it."
+    },
+    "SHARP_SIGNAL_STRENGTH_SCALE": {
+      "value": 100.0,
+      "unit": "signalStrengthUnits",
+      "appliesTo": "sharp_transaction family magnitude normalization: magnitude = min(1.0, abs(signalStrength) / SHARP_SIGNAL_STRENGTH_SCALE)",
+      "derivedFrom": "src/sharp/market.py's own signalStrength is documented as normalized net x sample confidence x manager breadth x asset manager quality on a +/-100-ish scale (see market_payload's own 'signalStrength' methodology note); this divides back onto the reconciler's shared 0-1 magnitude scale without re-deriving Sharp's own normalization."
+    },
+    "SHARP_TRANSACTION_MAX_AGE_HOURS": {
+      "value": 168,
+      "unit": "hours",
+      "appliesTo": "sharp_transaction family freshness: fresh=True when now - lastTs <= this budget, else False",
+      "derivedFrom": "7 days -- matches the '7d' window this unit's own movement field exposes, so a 'fresh' sharp signal and a 'recent' ticker movement mean the same calendar span to a reader. A PRIOR pending measurement against the sharp crawl's own cadence (config/source_staleness.json documents a completely different, source-fetch-freshness concept and is not reused here on purpose -- that budget answers 'did the fetcher run', this one answers 'is the underlying transaction still representative')."
+    },
+    "STASH_CONFIDENCE_CEILING": {
+      "value": "low",
+      "unit": "confidenceBucketLevel",
+      "appliesTo": "a BUY-leaning composite (BUY or STRONG_BUY on the magnitude ladder) demotes to STASH_SPECULATIVE_BUY when the row's overall confidence bucket is exactly this level or below",
+      "derivedFrom": "docs/OWNER_FEATURE_SPEC_RECONCILIATION_2026-08-13.md's ruling that STASH must not create false consensus with true conviction BUY calls -- 'low' is genuine, non-zero evidence (INSUFFICIENT_EVIDENCE is the zero-evidence case, handled separately and earlier in the precedence chain), just evidence too thin or too undiversified to publish as a confident acquisition target."
+    }
+  }
+}

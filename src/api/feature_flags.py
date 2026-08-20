@@ -8,13 +8,14 @@ proves itself.
 enabled.**  This docstring, ``README.md`` and ``docs/ARCHITECTURE.md``
 all used to assert a blanket disabled-by-default rule, and
 ARCHITECTURE built a stronger claim on top of it about production
-behaviour being frozen until a flag was flipped.  Both were false: 8 of
-the 16 entries in ``_DEFAULTS`` below are ``True`` — ``bdvm_engine``,
+behaviour being frozen until a flag was flipped.  Both were false: 10 of
+the 19 entries in ``_DEFAULTS`` below are ``True`` — ``bdvm_engine``,
 ``te_basis_conversion`` (which reprices every tight end on the live
 board), ``monte_carlo_trade``, ``idp_scoring_fit``,
-``reception_scoring_fit``, ``nfl_data_ingest``, ``realized_points_api``
-and ``perfect_draft`` — several with comments recording that the
-enabled default is deliberate.
+``reception_scoring_fit``, ``nfl_data_ingest``, ``realized_points_api``,
+``perfect_draft``, ``signal_reconciler_movement_windows`` and
+``signal_reconciler_market_ticker`` — several with comments recording
+that the enabled default is deliberate.
 
 **One live gate is deliberately NOT in this registry**, and it is the
 sharpest illustration of why the paragraph above matters:
@@ -312,6 +313,32 @@ _DEFAULTS: Final[dict[str, bool]] = {
     # ``scripts/validate_consensus_edge_board.py`` to pass on a re-run,
     # not a judgement call.  See ADR-023.
     "consensus_edge": False,
+    # C6-SIG-02 — market-ticker movement windows on /api/data.  ON.
+    #
+    # Additive in the strict sense this registry requires: it writes
+    # exactly one new key (`movementWindows`) per row, read-only against
+    # the existing temporal ledger (the same store `rankChange` already
+    # reads via `_stamp_rank_changes`, immediately after which it runs).
+    # It cannot move `rankDerivedValue`, `rankChange`, or any other
+    # existing field. OFF stamps `movementWindows: None` on every row —
+    # a field vanishing to null, not a wrong number.
+    #
+    # Rollback: RISKIT_FEATURE_SIGNAL_RECONCILER_MOVEMENT_WINDOWS=0 and
+    # restart (flag reads are cached per process).
+    "signal_reconciler_movement_windows": True,
+    # C6-SIG-01 — GET /api/signals/market-ticker, the Central Buy/Sell
+    # Reconciler's endpoint.  ON.
+    #
+    # A brand-new route with no existing caller, so it cannot regress
+    # anything by construction — registered purely so it appears in
+    # /api/status's flag inventory and carries a visible kill switch,
+    # matching this codebase's stated preference for one over a silently
+    # unguarded new surface.  Does not gate `movementWindows` (see the
+    # flag above) or anything already shipping.
+    #
+    # Rollback: RISKIT_FEATURE_SIGNAL_RECONCILER_MARKET_TICKER=0 and
+    # restart.
+    "signal_reconciler_market_ticker": True,
     # Host-native realized scoring — score the LEAGUE HOST's own weekly
     # stat line directly instead of round-tripping it through nflverse
     # column names.  DEFAULT **OFF**, and off is a validation gate, not a
@@ -474,6 +501,16 @@ _GATE_STATUS: Final[dict[str, str]] = {
     # host's own vocabulary is scored directly.  See
     # docs/scoring/HOST_NATIVE_SCORING_VALIDATION.md.
     "host_native_scoring": LIVE,
+    # signal_reconciler_movement_windows gates the `movementWindows`
+    # stamp inline in data_contract.py's `_compute_unified_rankings`,
+    # immediately after `_stamp_rank_changes`: off -> every row's
+    # `movementWindows` is `None`, on -> the ledger-derived 7d/30d
+    # windows.
+    "signal_reconciler_movement_windows": LIVE,
+    # signal_reconciler_market_ticker gates `GET
+    # /api/signals/market-ticker` inline in server.py: off -> 503
+    # feature_disabled, on -> the reconciled verdict feed.
+    "signal_reconciler_market_ticker": LIVE,
     # ── Gate exists, module is stranded ──
     #
     # ``src/nfl_data/injury_feed.py`` and ``src/news/usage_signals.py``

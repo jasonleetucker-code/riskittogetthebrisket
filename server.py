@@ -4292,6 +4292,178 @@ async def get_movers(request: Request):
     )
 
 
+@app.get("/api/signals/market-ticker")
+async def get_market_ticker(request: Request):
+    """The canonical BUY/SELL/HOLD ticker feed (C6-SIG-01 / C6-SIG-02).
+
+    ONE reconciled verdict per asset, composed from independently
+    declared evidence families rather than any single emitter's opinion
+    — see ``src.signals`` for the full design rationale.  Wires exactly
+    three live families in this unit: ``board_consensus_gap`` (the
+    existing market-gap stamp already on ``/api/data``),
+    ``bdvm_fundamental`` (``src.bdvm.market.buy_hold_sell``, when the
+    ``bdvm_engine`` flag is on), and ``sharp_transaction`` (``src.sharp.
+    market.market_payload``, READ-ONLY).  A fourth slot,
+    ``consensus_edge_composite``, is reserved and never fires — Consensus
+    Edge stays flag-off (ADR-023).
+
+    NOT leagueKey-scoped: verdict / value / movement are scoring-profile
+    -shared, the same rule CLAUDE.md's League-aware routing section
+    applies to ``rankDerivedValue`` itself.  Roster-ownership filtering
+    (the owner's BUY-global / SELL-roster-limited rule) is a downstream,
+    presentation-time concern — this endpoint carries ``playerId`` /
+    ``position`` so a caller can join against ``/api/data``'s
+    ``sleeper.teams`` block for that filter; it does not filter itself.
+
+    Open item, named rather than resolved here: BDVM's fundamental value
+    is genuinely leagueKey-dependent (roster-count-derived).  This
+    endpoint computes it once against the platform's registry-resolved
+    DEFAULT league and publishes it as shared evidence — the same
+    convention already used for the shared TEP anchor.  Whether this
+    materially differs across the platform's live leagues is unmeasured;
+    see docs/lane4/C6_SIG_01_RECONCILER.md.
+
+    Query params: ``limit`` (default 50, max 200), ``position`` (optional
+    filter, e.g. ``WR``).
+
+    Response rows: only assets with >=1 fired evidence family — never the
+    whole board, since an INSUFFICIENT_EVIDENCE row for every unranked
+    bench player would be noise, not signal.
+    """
+    from src.api import feature_flags as _ff  # noqa: PLC0415
+
+    if not _ff.is_enabled("signal_reconciler_market_ticker"):
+        return JSONResponse(
+            status_code=503,
+            content={"error": "feature_disabled", "flag": "signal_reconciler_market_ticker"},
+        )
+
+    contract = latest_contract_data
+    if not contract:
+        return JSONResponse(
+            status_code=503,
+            content={
+                "error": "data_not_ready",
+                "message": "No data available yet. First scrape may still be running.",
+            },
+        )
+
+    try:
+        limit = int(request.query_params.get("limit", 50))
+    except (TypeError, ValueError):
+        limit = 50
+    limit = max(1, min(200, limit))
+    position_filter = (request.query_params.get("position") or "").strip().upper() or None
+
+    from src.api.league_registry import default_league_key as _default_league_key  # noqa: PLC0415
+
+    default_league = _default_league_key()
+
+    bdvm_by_player: dict[str, dict] = {}
+    if _ff.is_enabled("bdvm_engine") and default_league:
+        try:
+            from src.api import bdvm_api as _bdvm_api  # noqa: PLC0415
+
+            bdvm_payload = await run_in_threadpool(_bdvm_api.get_bdvm_values, contract, default_league)
+            for entry in (bdvm_payload or {}).get("players") or []:
+                pid = entry.get("playerId")
+                if pid:
+                    bdvm_by_player[str(pid)] = entry
+        except Exception:  # noqa: BLE001 — the ticker degrades, never crashes
+            bdvm_by_player = {}
+
+    sharp_by_asset: dict[str, dict] = {}
+    try:
+        from src.sharp import market as _sharp_market  # noqa: PLC0415
+
+        sharp_payload = await run_in_threadpool(
+            _sharp_market.market_payload, asset_type="player", limit=500
+        )
+        for asset_row in (sharp_payload or {}).get("assets") or []:
+            asset_id = asset_row.get("assetId")
+            if asset_id:
+                sharp_by_asset[str(asset_id)] = asset_row
+    except Exception:  # noqa: BLE001
+        sharp_by_asset = {}
+
+    from src.signals.families import (  # noqa: PLC0415
+        bdvm_fundamental_family,
+        board_consensus_gap_family,
+        sharp_transaction_family,
+    )
+    from src.signals.reconciler import reconcile_row  # noqa: PLC0415
+
+    board_date = ((contract.get("meta") or {}).get("date")) if isinstance(contract, dict) else None
+    rows_out = []
+    for row in contract.get("playersArray") or []:
+        if position_filter and str(row.get("position") or "").upper() != position_filter:
+            continue
+        player_id = row.get("playerId")
+
+        families = []
+        board_family = board_consensus_gap_family(row)
+        if board_family is not None:
+            families.append(board_family)
+
+        bdvm_entry = bdvm_by_player.get(str(player_id)) if player_id else None
+        bdvm_family = bdvm_fundamental_family(
+            bdvm_entry.get("signal") if bdvm_entry else None,
+            shared_anchor="ktcSfTep" if board_family is not None else None,
+        )
+        if bdvm_family is not None:
+            families.append(bdvm_family)
+
+        sharp_row = sharp_by_asset.get(str(player_id)) if player_id else None
+        sharp_family = sharp_transaction_family(sharp_row)
+        if sharp_family is not None:
+            families.append(sharp_family)
+
+        if not families:
+            continue
+
+        result = reconcile_row(contract_row=row, families=families)
+        if result.verdict == "INSUFFICIENT_EVIDENCE":
+            continue
+
+        rows_out.append(
+            {
+                "name": row.get("displayName") or row.get("canonicalName"),
+                "position": row.get("position"),
+                "playerId": player_id,
+                "assetClass": row.get("assetClass"),
+                "rankDerivedValue": row.get("rankDerivedValue"),
+                "canonicalConsensusRank": row.get("canonicalConsensusRank"),
+                "movement": row.get("movementWindows"),
+                **result.to_dict(),
+            }
+        )
+
+    def _sort_key(r: dict) -> tuple:
+        mag = (r.get("provenance") or {}).get("compositeMagnitude") or 0.0
+        return (-abs(mag), r.get("canonicalConsensusRank") or 10**9)
+
+    rows_out.sort(key=_sort_key)
+
+    return JSONResponse(
+        content={
+            "asOf": board_date,
+            "generatedAt": datetime.now(timezone.utc).isoformat(),
+            "rows": rows_out[:limit],
+            "meta": {
+                "familyRegistry": [
+                    "board_consensus_gap",
+                    "bdvm_fundamental",
+                    "sharp_transaction",
+                    "consensus_edge_composite",
+                ],
+                "consensusEdgeWired": False,
+                "bdvmLeagueKey": default_league,
+            },
+        },
+        headers={"Cache-Control": "private, max-age=60, stale-while-revalidate=300"},
+    )
+
+
 @app.get("/api/data/rank-history")
 async def get_rank_history(request: Request):
     """Per-player rank history series for the last ``days`` days.

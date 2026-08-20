@@ -72,6 +72,16 @@ def test_every_flag_defaults_off_except_safe_additive():
         # model as a live code path.
         # Rollback: RISKIT_FEATURE_PERFECT_DRAFT=0 + restart.
         "perfect_draft",
+        # C6-SIG-02. Writes exactly one new key (`movementWindows`) per
+        # row, read-only against the temporal ledger. Cannot move
+        # rankDerivedValue, rankChange, or any other existing field.
+        # Rollback: RISKIT_FEATURE_SIGNAL_RECONCILER_MOVEMENT_WINDOWS=0.
+        "signal_reconciler_movement_windows",
+        # C6-SIG-01. Brand-new route (GET /api/signals/market-ticker)
+        # with no existing caller; cannot regress anything by
+        # construction. Rollback:
+        # RISKIT_FEATURE_SIGNAL_RECONCILER_MARKET_TICKER=0.
+        "signal_reconciler_market_ticker",
     }
     # Flags that default ON and KNOWINGLY change output.  Deliberately a
     # separate set from ``safe_on``: every member of that one is there
