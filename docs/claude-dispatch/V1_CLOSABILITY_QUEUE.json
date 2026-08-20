@@ -1,6 +1,6 @@
 {
   "_comment": "Live V1 Closability Queue, owned by Claude 7 as independent V1 traffic controller / adversarial auditor. Ranks IMPLEMENTED_UNVERIFIED rows by verification effort per row gained. NOT an authority on V1 status — only Claude 5 promotes a row, and no percentage here is claimed as achieved.",
-  "updatedAt": "2026-08-20T03:12:00Z",
+  "updatedAt": "2026-08-20T03:57:00Z",
   "auditCycle": 2,
   "evidenceBasis": {
     "contract": "docs/VERSION_1_COMPLETION_CONTRACT.md §3 read on origin/main e3b387ca5",
@@ -9,13 +9,13 @@
     "method": "per-PR exact-head check runs, git merge-tree mergeability, git grep against origin/main for the claimed properties"
   },
   "v1Status": {
-    "verified": 45,
+    "verified": 47,
     "denominator": 132,
-    "percent": 34.1,
-    "note": "45/132 (34.1%) on main. Four more implementations merged this cycle (#933, #929, #937, #934) with no row promoted — correct discipline. Claude 5 stages +2 (V1-34, V1-130) on a live branch, and corrects V1-51 -> IN PROGRESS and V1-95 -> IMPLEMENTED_UNVERIFIED.",
-    "implementedUnverified": 21,
-    "inProgress": 31,
-    "notStarted": 33
+    "percent": 35.6,
+    "note": "47/132 (35.6%) on main, row-diffed. Session net: 40 -> 47. V1-34 (L1) and V1-130 (L2) promoted via #941; V1-51 and V1-95 corrected upward in status without being promoted.",
+    "implementedUnverified": 22,
+    "inProgress": 32,
+    "notStarted": 29
   },
   "deployState": {
     "correctionAccepted": "Cycle 1 collapsed four distinct facts into 'main is deployed'. Separated below.",
@@ -386,6 +386,7 @@
       "needs": "an operator-exported session credential, or the bearer-gated read-only endpoint #932 proposes — which touches the auth surface and needs Claude 5's sign-off",
       "constraint": "the session gate must not be relaxed to achieve this"
     },
-    "notAssignable": "Claude 7 cannot dispatch either batch: both need production access this dispatcher does not have and must not fabricate."
+    "notAssignable": "Claude 7 cannot dispatch either batch: both need production access this dispatcher does not have and must not fabricate.",
+    "statusAtCycle18": "STILL UNRUN. This is now the single largest identified lever on the numerator and it has been available since #932 merged. It needs an operator on the box; no lane and no dispatcher can supply that."
   }
 }
