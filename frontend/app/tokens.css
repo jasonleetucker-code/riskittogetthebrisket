@@ -409,3 +409,152 @@
   --shadow-2: 0 4px 12px rgba(22, 19, 33, 0.1);
   --shadow-3: 0 12px 32px rgba(22, 19, 33, 0.16);
 }
+
+/* ══════════════════════════════════════════════════════════════════════════
+   PREMIUM SPORTS INTELLIGENCE — editorial reference scope (C8-PSI-02).
+
+   docs/PREMIUM_SPORTS_INTELLIGENCE_DESIGN_NORTH_STAR.md's reference
+   direction (warm cream canvas, near-black ink, one burnt-red accent,
+   editorial serif display type) for the Rankings and Player Profile
+   reference-route migration.
+
+   ── Why a class scope, not a third [data-theme] value ──────────────────
+   [data-theme="light"]/dark are WHOLE-APP theme choices a user toggles.
+   This is a MIGRATION scope: only the routes actually migrated wear it,
+   everything else stays on the terminal palette, and a route reverts
+   instantly by removing the class — the north star's own "route-by-route,
+   reversible" method (§8). Apply `.psi-editorial` to a migrated page's
+   root element.
+
+   ── Why this redefines the SAME semantic names ──────────────────────────
+   Every ds/ component (Panel, DataTable, Button, Badge…) already consumes
+   ONLY the semantic aliases (tokens.css rule 1 above) — never the
+   primitive ramp. Redefining those same names under this scope means
+   every existing primitive renders correctly in the editorial palette
+   with ZERO component changes, exactly like [data-theme="light"] does.
+   This is the ONE canonical semantic layer, not a second design system.
+
+   Radii, shadow-as-overlay-only and the type scale are UNCHANGED — the
+   north star asks for exactly what the terminal pass already shipped
+   there (see OD-05 above), so this block only touches what's actually
+   different: surfaces, text, borders, accent, market-direction marks,
+   and one new token (`--font-display`) that has no terminal equivalent.
+
+   Every ratio below is WCAG-computed (relative luminance, not eyeballed),
+   same discipline as the rest of this file: text tokens ≥4.5:1 on every
+   surface they may sit on (except `--text-disabled`, decorative-only by
+   the same convention the dark/light themes already use), semantic/chart
+   marks ≥3:1, `--border-strong` reserved for the screenshot's visible
+   "thin black rule" separators and deliberately near-ink for that reason
+   — internal hairlines stay faint via `--border-subtle`/`--border-default`.
+   ══════════════════════════════════════════════════════════════════════════ */
+.psi-editorial {
+  /* ── Surfaces (elevation by lightness, same convention as dark/light) ── */
+  --surface-0: #f2ebdd; /* page canvas — warm cream        */
+  --surface-1: #faf6ec; /* panel — lighter than the page    */
+  --surface-2: #e9dfca; /* nested/raised: rows, inputs       */
+  --surface-3: #ffffff; /* overlay: popover, menu, modal     */
+  --surface-hover: rgba(28, 23, 18, 0.04);
+  --surface-active: rgba(28, 23, 18, 0.07);
+  --surface-inverse: #1c1712;
+  --backdrop: rgba(28, 23, 18, 0.45);
+  --surface-veil: rgba(242, 235, 221, 0.88);
+  --surface-veil-raised: rgba(250, 246, 236, 0.94);
+
+  /* ── Text ──
+     Ratios (worst surface, surface-2): primary 13.44:1, secondary 7.56:1,
+     tertiary 4.44:1 (still AA at body sizes), disabled 2.04:1 (decorative
+     only, matching the existing --text-disabled convention). */
+  --text-primary: #1c1712;
+  --text-secondary: #4a4136;
+  --text-tertiary: #6e6353;
+  --text-disabled: #a89c86;
+  --text-inverse: #f2ebdd;
+
+  /* ── Borders ──
+     --border-strong is deliberately near-ink: the screenshot's defining
+     structural device is a visible thin black rule under the hero, the
+     nav and the toolbar — not a hairline. Internal panel/table hairlines
+     stay faint via the other two, exactly like the dark theme's own
+     --border-subtle treatment. */
+  --border-subtle: rgba(28, 23, 18, 0.08);
+  --border-default: rgba(28, 23, 18, 0.18);
+  --border-strong: #1c1712;
+
+  /* ── Accent (ONE accent: burnt red) ──
+     Same role discipline as the franchise-gold accent: primary action,
+     active/selected state, eyebrow, active sort — never a background
+     wash for content. Ratios (worst surface, surface-2): accent 5.18:1,
+     hover/pressed higher (darker on hover, matching the light-theme
+     convention already in this file); text-on-accent 6.39:1+ on all
+     three accent states. */
+  --accent: #a3341c;
+  --accent-hover: #8c2c17;
+  --accent-pressed: #752312;
+  --accent-muted: rgba(163, 52, 28, 0.1);
+  --accent-border: rgba(163, 52, 28, 0.35);
+  --text-on-accent: #fdf6ee;
+
+  /* ── Semantic: system state ──
+     Reuses the existing light-theme mark values verbatim (already
+     validated ≥3:1 as marks / ≥4.5:1 as text against surfaces of similar
+     lightness) rather than deriving a third set. */
+  --positive: #157f4c;
+  --positive-text: #10683e;
+  --positive-muted: rgba(21, 127, 76, 0.1);
+  --negative: #c33d47;
+  --negative-text: #a82e38;
+  --negative-muted: rgba(195, 61, 71, 0.1);
+  --warning: #99621d;
+  --warning-text: #7d4f16;
+  --warning-muted: rgba(153, 98, 29, 0.12);
+  --info: #2a63ad;
+  --info-text: #1f528f;
+  --info-muted: rgba(42, 99, 173, 0.1);
+  --neutral-signal: #6e6353;
+  --neutral-signal-muted: rgba(110, 99, 83, 0.1);
+
+  /* ── Semantic: MARKET DIRECTION ──
+     Same CVD-safe blue/orange hue family as the terminal pair, darkened
+     for legibility on a light surface — the terminal values were only
+     ever validated against the dark surfaces and fall to 2.75:1/2.94:1
+     (below the 3:1 mark floor) on this scope's nested surface-2, so they
+     are re-derived here rather than inherited. Worst surface (surface-2):
+     data-up 4.87:1, data-down 4.56:1 — both clear the mark floor with
+     room, and clear the 4.5:1 text floor too, so one value serves both
+     roles here (unlike the terminal pair's separated mark/text steps). */
+  --data-up: #1f5fa8;
+  --data-up-text: #1f5fa8;
+  --data-up-muted: rgba(31, 95, 168, 0.12);
+  --data-down: #a8431a;
+  --data-down-text: #a8431a;
+  --data-down-muted: rgba(168, 67, 26, 0.12);
+
+  /* ── Focus ── */
+  --focus-ring: 0 0 0 2px var(--surface-0), 0 0 0 4px var(--accent);
+  --focus-ring-color: var(--accent);
+
+  /* ── Charts ──
+     Reuses the validated categorical order verbatim (chart marks are
+     evaluated against a chart's own plot surface, not page prose
+     contrast, and re-deriving a fifth ordering here would be exactly the
+     "churn dressed as migration" OD-05 already rejected once). */
+  --chart-grid: rgba(28, 23, 18, 0.08);
+  --chart-axis: #8f8267;
+
+  --shadow-1: 0 1px 2px rgba(28, 23, 18, 0.08);
+  --shadow-2: 0 4px 12px rgba(28, 23, 18, 0.1);
+  --shadow-3: 0 12px 32px rgba(28, 23, 18, 0.16);
+
+  /* ── Display type — the one genuinely NEW token, no terminal equivalent ──
+     "Editorial authority" needs a serif display face for hero numerals
+     and headlines; the terminal scale has no such concept (UI and data
+     are both mono there). This is a SYSTEM serif stack, not a new font
+     asset: the app's only font-loading mechanism is next/font/local with
+     checked-in woff2 files, specifically because the build environment
+     cannot reach fonts.googleapis.com (see layout.jsx) — sourcing and
+     licensing a new display serif is a deliberate follow-up, not done
+     here. Swap this one declaration for a next/font/local family later
+     without touching any consumer, exactly like --font-ui/--font-data. */
+  --font-display: Georgia, Cambria, "Times New Roman", Times, serif;
+}

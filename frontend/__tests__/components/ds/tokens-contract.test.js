@@ -15,6 +15,7 @@ import path from "node:path";
 import {
   CHART_SERIES_TOKENS,
   LIGHT_THEME_REQUIRED,
+  PSI_EDITORIAL_REQUIRED,
   REQUIRED_TOKENS,
 } from "@/components/ds/token-contract";
 
@@ -51,6 +52,12 @@ function splitBlocks(css) {
 const { dark, light } = splitBlocks(tokensCss);
 const darkProps = definedProps(dark);
 const lightProps = definedProps(light);
+
+/** The `.psi-editorial` migration scope (C8-PSI-02) — everything from its
+ * selector to end of file, since it's declared last. */
+const psiStart = tokensCss.indexOf(".psi-editorial");
+const psiEditorial = psiStart === -1 ? "" : tokensCss.slice(psiStart);
+const psiProps = definedProps(psiEditorial);
 
 // The legacy globals.css tokens this layer must never touch.
 const LEGACY_TOKENS = [
@@ -128,6 +135,24 @@ describe("tokens.css contract", () => {
     expect(primitives).toEqual([]);
   });
 
+  it("the psi-editorial migration scope defines every required token", () => {
+    expect(tokensCss).toContain(".psi-editorial");
+    const missing = PSI_EDITORIAL_REQUIRED.filter((t) => !psiProps.includes(t));
+    expect(missing).toEqual([]);
+  });
+
+  it("psi-editorial only re-maps semantic aliases, never primitives", () => {
+    const primitives = psiProps.filter(
+      (t) => /^--neutral-\d+$/.test(t) || t.startsWith("--brand-")
+    );
+    expect(primitives).toEqual([]);
+  });
+
+  it("psi-editorial stays additive — never defines a legacy globals.css token", () => {
+    const collisions = psiProps.filter((t) => LEGACY_TOKENS.includes(t));
+    expect(collisions).toEqual([]);
+  });
+
   it("defines all six chart series slots", () => {
     const missing = CHART_SERIES_TOKENS.filter((t) => !darkProps.includes(t));
     expect(missing).toEqual([]);
@@ -176,6 +201,63 @@ describe("light-theme accent contrast", () => {
     const onAccent = lightHex("--text-on-accent");
     expect(onAccent).toBeTruthy();
     expect(contrast(onAccent, accent)).toBeGreaterThanOrEqual(4.5);
+  });
+});
+
+describe("psi-editorial accent + market-direction contrast", () => {
+  const srgb = (c) => {
+    c /= 255;
+    return c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+  };
+  const luminance = (hex) => {
+    const h = hex.replace("#", "");
+    const [r, g, b] = [0, 2, 4].map((i) => parseInt(h.slice(i, i + 2), 16));
+    return 0.2126 * srgb(r) + 0.7152 * srgb(g) + 0.0722 * srgb(b);
+  };
+  const contrast = (a, b) => {
+    const [hi, lo] = [luminance(a), luminance(b)].sort((x, y) => y - x);
+    return (hi + 0.05) / (lo + 0.05);
+  };
+  const psiHex = (name) => {
+    const m = psiEditorial.match(new RegExp(`${name}:\\s*(#[0-9a-fA-F]{6})`));
+    return m ? m[1] : null;
+  };
+
+  it("accent clears 4.5:1 on the worst (nested) surface", () => {
+    const accent = psiHex("--accent");
+    const s2 = psiHex("--surface-2");
+    expect(accent).toBeTruthy();
+    expect(s2).toBeTruthy();
+    expect(contrast(accent, s2)).toBeGreaterThanOrEqual(4.5);
+  });
+
+  it("text-on-accent clears 4.5:1 against the accent", () => {
+    const accent = psiHex("--accent");
+    const onAccent = psiHex("--text-on-accent");
+    expect(onAccent).toBeTruthy();
+    expect(contrast(onAccent, accent)).toBeGreaterThanOrEqual(4.5);
+  });
+
+  it("text-primary clears 4.5:1 on every surface (worst = surface-2)", () => {
+    const textPrimary = psiHex("--text-primary");
+    for (const s of ["--surface-0", "--surface-1", "--surface-2", "--surface-3"]) {
+      expect(contrast(textPrimary, psiHex(s))).toBeGreaterThanOrEqual(4.5);
+    }
+  });
+
+  it("data-up and data-down clear the 3:1 mark floor on every surface", () => {
+    const dataUp = psiHex("--data-up");
+    const dataDown = psiHex("--data-down");
+    for (const s of ["--surface-0", "--surface-1", "--surface-2", "--surface-3"]) {
+      expect(contrast(dataUp, psiHex(s))).toBeGreaterThanOrEqual(3);
+      expect(contrast(dataDown, psiHex(s))).toBeGreaterThanOrEqual(3);
+    }
+  });
+
+  it("border-strong reads as a real rule (>=3:1), not a hairline", () => {
+    const borderStrong = psiHex("--border-strong");
+    const s0 = psiHex("--surface-0");
+    expect(contrast(borderStrong, s0)).toBeGreaterThanOrEqual(3);
   });
 });
 
