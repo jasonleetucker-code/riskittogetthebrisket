@@ -84,7 +84,7 @@ function RailList({ items, emptyText, onPlayerClick, detailFor }) {
           <li key={row.name} className={styles.railItem}>
             <button
               type="button"
-              className={`button-reset ${styles.railName}`}
+              className={`${styles.resetButton} ${styles.railName}`}
               onClick={() => onPlayerClick?.(row)}
             >
               #{item.rank ?? row.rank} {row.name}

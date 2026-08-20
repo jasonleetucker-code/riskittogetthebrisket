@@ -92,7 +92,7 @@ const _ROS_TAG_TONE = {
 };
 const _VET_AGE = { QB: 32, RB: 26, WR: 29, TE: 30, DL: 30, DE: 30, DT: 30, EDGE: 30, LB: 29, DB: 29, S: 29, CB: 29 };
 
-function RosContextSection({ row }) {
+export function RosContextSection({ row }) {
   const { settings } = useSettings();
   const enabled = settings?.showRosTags !== false;
   const [ros, setRos] = useState(null);
@@ -186,7 +186,7 @@ export async function _loadPlayerIntel(playerId, name, leagueKey = "") {
   }
 }
 
-function IntelContextSection({ row }) {
+export function IntelContextSection({ row }) {
   const [intel, setIntel] = useState(null);
   const { selectedLeagueKey } = useLeague();
   const playerId = String(row?.raw?.playerId || row?.playerId || "").trim();
@@ -450,7 +450,7 @@ export function RealizedPointsSection({ row }) {
 }
 
 
-function PlayerNewsSection({ playerName, position, team }) {
+export function PlayerNewsSection({ playerName, position, team }) {
   const { byPlayer, digestByPlayer } = useNews();
   const { rows: liveRows } = useApp();
   // Live-pool meta index: name-only items for a name that is
@@ -541,7 +541,7 @@ function PlayerNewsSection({ playerName, position, team }) {
  * (The λ·MAD volatility penalty and the IDP calibration post-pass were
  * both retired — ``sourceSpread`` renders as a pure diagnostic.)
  */
-function computeValueChain(row) {
+export function computeValueChain(row) {
   if (!row) return [];
 
   const stages = [];
@@ -620,6 +620,164 @@ function computeValueChain(row) {
 }
 
 /**
+ * Ownership: which team holds this player + their depth-chart slot.
+ * ``rawData.sleeper.teams[].name`` is already the owner's first name
+ * (resolved server-side via ``src/utils/owner_names.py``).  Position
+ * rank walks the team's roster restricted to the player's position, by
+ * Sleeper playerId first (avoids the offense/IDP cross-universe
+ * name-collision case), falling back to normalized name.
+ *
+ * Extracted verbatim from the popup's own ``useMemo`` so the Player
+ * Profile page (Universal Player Profile, C8-PSI-02 PR B) can reuse the
+ * exact same derivation rather than re-implementing it — this is
+ * genuine value-bearing logic, not presentation.
+ */
+export function computeOwnership(row, rawData, allRows) {
+  if (!row) return null;
+  const sleeperTeams = rawData?.sleeper?.teams;
+  if (!Array.isArray(sleeperTeams) || sleeperTeams.length === 0) return null;
+  const { byId, byName } = buildTeamByPlayer(sleeperTeams);
+  const playerId = String(row.raw?.playerId || row.playerId || "").trim();
+  let team = playerId ? byId.get(playerId) : null;
+  if (!team) team = byName.get(normalizeName(row.name));
+  if (!team) return null;
+
+  const pos = String(row.pos || "").toUpperCase().split("/")[0];
+  let positionLabel = "";
+  if (pos && Array.isArray(allRows) && allRows.length > 0) {
+    // Build both id and name indexes over the row pool so position
+    // rank uses the same identity disambiguation as the team lookup.
+    const rowsById = new Map();
+    const rowsByName = new Map();
+    for (const r of allRows) {
+      const rid = String(r?.raw?.playerId || r?.playerId || "").trim();
+      if (rid && !rowsById.has(rid)) rowsById.set(rid, r);
+      const rname = normalizeName(r?.name);
+      if (rname && !rowsByName.has(rname)) rowsByName.set(rname, r);
+    }
+    const teamPlayerIds = Array.isArray(team.playerIds) ? team.playerIds : [];
+    const teamPlayerNames = Array.isArray(team.players) ? team.players : [];
+    const resolved = [];
+    // Prefer the id list when the team has one (newer contract); fall
+    // back to names when only the name list is present.
+    const idsToUse = teamPlayerIds.length > 0 ? teamPlayerIds : null;
+    if (idsToUse) {
+      for (const id of idsToUse) {
+        const r = rowsById.get(String(id || "").trim());
+        if (r) resolved.push(r);
+      }
+    } else {
+      for (const n of teamPlayerNames) {
+        const r = rowsByName.get(normalizeName(n));
+        if (r) resolved.push(r);
+      }
+    }
+    const samePositionRanks = resolved
+      .filter((r) => {
+        const p = String(r.pos || "").toUpperCase().split("/")[0];
+        if (p !== pos) return false;
+        const v = Number(r.rankDerivedValue);
+        return Number.isFinite(v) && v > 0;
+      })
+      .sort(
+        (a, b) =>
+          Number(b.rankDerivedValue) - Number(a.rankDerivedValue),
+      );
+    const matchesRow = (r) => {
+      if (playerId) {
+        const rid = String(r?.raw?.playerId || r?.playerId || "").trim();
+        if (rid && rid === playerId) return true;
+      }
+      return normalizeName(r.name) === normalizeName(row.name);
+    };
+    const idx = samePositionRanks.findIndex(matchesRow);
+    if (idx >= 0) positionLabel = `${pos}${idx + 1}`;
+  }
+
+  return {
+    ownerId: String(team.ownerId || ""),
+    ownerLabel: String(team.name || "").trim(),
+    positionLabel,
+  };
+}
+
+/**
+ * Per-source value breakdown for a row — see the inline comments below
+ * for the raw-preferred / retired-key / rank-signal-fallback rules.
+ * Extracted for the same reason as ``computeOwnership`` above.
+ */
+export function computeSiteDetails(row, siteKeys = []) {
+  if (!row) return [];
+  const meta = row.sourceRankMeta || {};
+  const canonicalSites = row.canonicalSites || {};
+  const rawSourceValues = row.rawSourceValues || {};
+  const sourceByKey = Object.fromEntries(
+    RANKING_SOURCES.map((s) => [s.key, s]),
+  );
+  const candidateKeys = Array.from(
+    new Set([
+      ...(siteKeys.length > 0 ? siteKeys : []),
+      ...Object.keys(meta),
+      ...Object.keys(canonicalSites),
+      ...Object.keys(rawSourceValues),
+    ]),
+  );
+  const rows = candidateKeys
+    .map((key) => {
+      if (RETIRED_FROM_CHART_KEYS.has(key)) return null;
+      const src = sourceByKey[key];
+      const label = src?.columnLabel || src?.displayName || key;
+      // Raw-preferred sources: read from rawSourceValues first so
+      // the chip matches the source's published board.
+      if (RAW_VALUE_PREFERRED_KEYS.has(key)) {
+        const raw = Number(rawSourceValues[key]);
+        if (Number.isFinite(raw) && raw > 0) {
+          return { key, label, value: raw };
+        }
+        // Fall through to contribution / canonicalSites if the raw
+        // stamp is missing (legacy payload, partial scrape).
+      }
+      // Vendor-native value for rank-signal sources (FC crowd value,
+      // OTC 0-100, PFK 0-9999, ...).  Display-only annotation — the
+      // bar/value stays on the normalized 9,999 contribution scale.
+      const nativeRaw = Number(row.sourceNativeValues?.[key]);
+      const native = Number.isFinite(nativeRaw) && nativeRaw > 0 ? nativeRaw : null;
+      const contribution = Number(meta[key]?.valueContribution);
+      if (Number.isFinite(contribution) && contribution > 0) {
+        return { key, label, value: contribution, native };
+      }
+      // Legacy payloads may not carry ``valueContribution`` yet.
+      // Fall back to ``canonicalSites`` only for value-based sources
+      // — their raw slot is a monotonic value scale.  Rank-signal
+      // sources skip this path because their canonicalSites entry is
+      // a synthetic rank encoding, not a renderable value.
+      if (src?.isRankSignal) return null;
+      const raw = Number(canonicalSites[key]);
+      if (Number.isFinite(raw) && raw > 0) {
+        return { key, label, value: raw };
+      }
+      return null;
+    })
+    .filter(Boolean);
+  const maxVal = Math.max(1, ...rows.map((r) => r.value));
+  return rows
+    .map((r) => ({ ...r, pct: (r.value / maxVal) * 100 }))
+    .sort((a, b) => b.value - a.value);
+}
+
+/** Consensus narrative based on coefficient of variation across sources. */
+export function computeConsensusText(siteDetails) {
+  if (siteDetails.length <= 1) return siteDetails.length === 1 ? "Only 1 source — speculative" : "";
+  const vals = siteDetails.map((s) => s.value);
+  const mean = vals.reduce((a, b) => a + b, 0) / vals.length;
+  const variance = vals.reduce((a, v) => a + Math.pow(v - mean, 2), 0) / vals.length;
+  const cv = mean > 0 ? Math.sqrt(variance) / mean : 0;
+  if (cv < 0.15) return `Strong consensus (CV ${(cv * 100).toFixed(0)}%) — sources agree closely`;
+  if (cv < 0.30) return `Moderate agreement (CV ${(cv * 100).toFixed(0)}%) — some spread between sources`;
+  return `Sources disagree significantly (CV ${(cv * 100).toFixed(0)}%) — high volatility player`;
+}
+
+/**
  * Player profile drawer — multi-source breakdown, value diagnostics,
  * edge signal, intel, news, and player context.  Triggered by clicking
  * a player name anywhere in the app.
@@ -644,80 +802,13 @@ export default function PlayerPopup({ row, siteKeys = [], onClose, onAddToTrade 
   const valueChain = useMemo(() => computeValueChain(row), [row]);
 
   // ── Ownership: which team holds this player + their depth-chart slot.
-  // ``rawData.sleeper.teams[].name`` is already the owner's first name
-  // (resolved server-side via ``src/utils/owner_names.py``).  Position
-  // rank walks the team's roster restricted to the player's position,
-  // by Sleeper playerId first (avoids the offense/IDP cross-universe
-  // name-collision case), falling back to normalized name.
+  // See computeOwnership() above — extracted so the Player Profile page
+  // (C8-PSI-02 PR B) can reuse the exact same derivation.
   const { rows: allRows, rawData } = useApp();
-  const ownership = useMemo(() => {
-    if (!row) return null;
-    const sleeperTeams = rawData?.sleeper?.teams;
-    if (!Array.isArray(sleeperTeams) || sleeperTeams.length === 0) return null;
-    const { byId, byName } = buildTeamByPlayer(sleeperTeams);
-    const playerId = String(row.raw?.playerId || row.playerId || "").trim();
-    let team = playerId ? byId.get(playerId) : null;
-    if (!team) team = byName.get(normalizeName(row.name));
-    if (!team) return null;
-
-    const pos = String(row.pos || "").toUpperCase().split("/")[0];
-    let positionLabel = "";
-    if (pos && Array.isArray(allRows) && allRows.length > 0) {
-      // Build both id and name indexes over the row pool so position
-      // rank uses the same identity disambiguation as the team lookup.
-      const rowsById = new Map();
-      const rowsByName = new Map();
-      for (const r of allRows) {
-        const rid = String(r?.raw?.playerId || r?.playerId || "").trim();
-        if (rid && !rowsById.has(rid)) rowsById.set(rid, r);
-        const rname = normalizeName(r?.name);
-        if (rname && !rowsByName.has(rname)) rowsByName.set(rname, r);
-      }
-      const teamPlayerIds = Array.isArray(team.playerIds) ? team.playerIds : [];
-      const teamPlayerNames = Array.isArray(team.players) ? team.players : [];
-      const resolved = [];
-      // Prefer the id list when the team has one (newer contract); fall
-      // back to names when only the name list is present.
-      const idsToUse = teamPlayerIds.length > 0 ? teamPlayerIds : null;
-      if (idsToUse) {
-        for (const id of idsToUse) {
-          const r = rowsById.get(String(id || "").trim());
-          if (r) resolved.push(r);
-        }
-      } else {
-        for (const n of teamPlayerNames) {
-          const r = rowsByName.get(normalizeName(n));
-          if (r) resolved.push(r);
-        }
-      }
-      const samePositionRanks = resolved
-        .filter((r) => {
-          const p = String(r.pos || "").toUpperCase().split("/")[0];
-          if (p !== pos) return false;
-          const v = Number(r.rankDerivedValue);
-          return Number.isFinite(v) && v > 0;
-        })
-        .sort(
-          (a, b) =>
-            Number(b.rankDerivedValue) - Number(a.rankDerivedValue),
-        );
-      const matchesRow = (r) => {
-        if (playerId) {
-          const rid = String(r?.raw?.playerId || r?.playerId || "").trim();
-          if (rid && rid === playerId) return true;
-        }
-        return normalizeName(r.name) === normalizeName(row.name);
-      };
-      const idx = samePositionRanks.findIndex(matchesRow);
-      if (idx >= 0) positionLabel = `${pos}${idx + 1}`;
-    }
-
-    return {
-      ownerId: String(team.ownerId || ""),
-      ownerLabel: String(team.name || "").trim(),
-      positionLabel,
-    };
-  }, [row, rawData, allRows]);
+  const ownership = useMemo(
+    () => computeOwnership(row, rawData, allRows),
+    [row, rawData, allRows],
+  );
 
   // Injury impact lookup from the server-side signals block.
   // Only populated for roster players today — non-roster players
@@ -752,93 +843,10 @@ export default function PlayerPopup({ row, siteKeys = [], onClose, onAddToTrade 
     return list.some((x) => String(x).toLowerCase() === name);
   }, [userState?.watchlist, row?.name]);
 
-  const siteDetails = useMemo(() => {
-    if (!row) return [];
-    // Prefer the backend's 9,999-scale ``valueContribution`` stamp —
-    // the same normalized vote each source casts into the blend, and
-    // the same number rendered in the rankings row chips.  Reading
-    // ``canonicalSites`` here (the previous behaviour) mixed value
-    // sources' raw native scale with rank-signal sources' synthetic
-    // rank encoding, so IDP expert boards were either dwarfed to
-    // invisible bars or dropped entirely.  Using
-    // ``sourceRankMeta[key].valueContribution`` keeps the profile in
-    // lockstep with the rankings table.
-    //
-    // Two exceptions to the contribution-first rule:
-    //   * ``RAW_VALUE_PREFERRED_KEYS`` — sources whose published
-    //     0-9999 board is the user-meaningful display number (e.g.
-    //     KTC TE++).  Read raw scrape from ``row.rawSourceValues``
-    //     so users can cross-check against keeptradecut.com.
-    //   * ``RETIRED_FROM_CHART_KEYS`` — sources retired from the
-    //     blend whose canonical replacement covers the same signal.
-    const meta = row.sourceRankMeta || {};
-    const canonicalSites = row.canonicalSites || {};
-    const rawSourceValues = row.rawSourceValues || {};
-    const sourceByKey = Object.fromEntries(
-      RANKING_SOURCES.map((s) => [s.key, s]),
-    );
-    const candidateKeys = Array.from(
-      new Set([
-        ...(siteKeys.length > 0 ? siteKeys : []),
-        ...Object.keys(meta),
-        ...Object.keys(canonicalSites),
-        ...Object.keys(rawSourceValues),
-      ]),
-    );
-    const rows = candidateKeys
-      .map((key) => {
-        if (RETIRED_FROM_CHART_KEYS.has(key)) return null;
-        const src = sourceByKey[key];
-        const label = src?.columnLabel || src?.displayName || key;
-        // Raw-preferred sources: read from rawSourceValues first so
-        // the chip matches the source's published board.
-        if (RAW_VALUE_PREFERRED_KEYS.has(key)) {
-          const raw = Number(rawSourceValues[key]);
-          if (Number.isFinite(raw) && raw > 0) {
-            return { key, label, value: raw };
-          }
-          // Fall through to contribution / canonicalSites if the raw
-          // stamp is missing (legacy payload, partial scrape).
-        }
-        // Vendor-native value for rank-signal sources (FC crowd value,
-        // OTC 0-100, PFK 0-9999, ...).  Display-only annotation — the
-        // bar/value stays on the normalized 9,999 contribution scale.
-        const nativeRaw = Number(row.sourceNativeValues?.[key]);
-        const native = Number.isFinite(nativeRaw) && nativeRaw > 0 ? nativeRaw : null;
-        const contribution = Number(meta[key]?.valueContribution);
-        if (Number.isFinite(contribution) && contribution > 0) {
-          return { key, label, value: contribution, native };
-        }
-        // Legacy payloads may not carry ``valueContribution`` yet.
-        // Fall back to ``canonicalSites`` only for value-based sources
-        // — their raw slot is a monotonic value scale.  Rank-signal
-        // sources skip this path because their canonicalSites entry is
-        // a synthetic rank encoding, not a renderable value.
-        if (src?.isRankSignal) return null;
-        const raw = Number(canonicalSites[key]);
-        if (Number.isFinite(raw) && raw > 0) {
-          return { key, label, value: raw };
-        }
-        return null;
-      })
-      .filter(Boolean);
-    const maxVal = Math.max(1, ...rows.map((r) => r.value));
-    return rows
-      .map((r) => ({ ...r, pct: (r.value / maxVal) * 100 }))
-      .sort((a, b) => b.value - a.value);
-  }, [row, siteKeys]);
-
-  // Consensus narrative based on coefficient of variation
-  const consensusText = useMemo(() => {
-    if (siteDetails.length <= 1) return siteDetails.length === 1 ? "Only 1 source — speculative" : "";
-    const vals = siteDetails.map((s) => s.value);
-    const mean = vals.reduce((a, b) => a + b, 0) / vals.length;
-    const variance = vals.reduce((a, v) => a + Math.pow(v - mean, 2), 0) / vals.length;
-    const cv = mean > 0 ? Math.sqrt(variance) / mean : 0;
-    if (cv < 0.15) return `Strong consensus (CV ${(cv * 100).toFixed(0)}%) — sources agree closely`;
-    if (cv < 0.30) return `Moderate agreement (CV ${(cv * 100).toFixed(0)}%) — some spread between sources`;
-    return `Sources disagree significantly (CV ${(cv * 100).toFixed(0)}%) — high volatility player`;
-  }, [siteDetails]);
+  // See computeSiteDetails()/computeConsensusText() above — extracted
+  // so the Player Profile page (C8-PSI-02 PR B) can reuse them.
+  const siteDetails = useMemo(() => computeSiteDetails(row, siteKeys), [row, siteKeys]);
+  const consensusText = useMemo(() => computeConsensusText(siteDetails), [siteDetails]);
 
   const rank = row ? resolvedRank(row) : Infinity;
   const values = row?.values || {};
@@ -898,6 +906,23 @@ export default function PlayerPopup({ row, siteKeys = [], onClose, onAddToTrade 
           </div>
 
           <div className={styles.identityActions}>
+            {/* Launcher into the full Player Profile page (C8-PSI-02
+                PR B) — this popup stays the quick-view; the full page
+                reuses its exact data plumbing (computeOwnership/
+                computeSiteDetails/computeValueChain/the section
+                components below) rather than duplicating it. Sleeper
+                playerId first (matches the page's own lookup order),
+                name fallback for a row with no id. */}
+            <Button
+              as={Link}
+              href={`/players/${encodeURIComponent(String(row.raw?.playerId || row.playerId || row.name))}`}
+              size="sm"
+              variant="ghost"
+              onClick={() => onClose?.()}
+              aria-label={`Open full profile for ${row.name}`}
+            >
+              Full profile
+            </Button>
             <Button
               size="sm"
               variant={onWatchlist ? "secondary" : "ghost"}
