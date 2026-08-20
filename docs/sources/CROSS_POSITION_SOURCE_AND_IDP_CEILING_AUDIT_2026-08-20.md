@@ -8,6 +8,17 @@
 **Harness:** `scripts/simulate_idp_bridge_policies.py`
 **Evidence:** `docs/sources/evidence/IDP_BRIDGE_2026-08-20/policy_simulation.json`
 
+> **CORRECTION, 2026-08-20 (owner traffic-control on #950).** One verdict in
+> this document is stale **in interpretation**: §15's conclusion that Dynasty
+> Dealer "cannot serve as a cross-position bridge, because it publishes no IDP
+> players at all." The measurement behind it reproduces and is preserved
+> unchanged — both acquisition paths tried here really do return zero IDP rows
+> — but the conclusion drawn from it was wrong. Dynasty Dealer exposes cardinal
+> IDP values behind an undocumented parameter this audit did not try. See §15a.
+> Bridge eligibility is now **PENDING** a same-basis and freshness
+> qualification against the offensive `current_value` basis. **No production
+> weighting or voting is authorized by this correction.**
+
 Every number below was produced by rebuilding the real contract (1,109 rows,
 all 21 registered sources) in-process. Nothing is quoted from prior documents
 without re-verification; where a canonical document is stale, that is recorded
@@ -64,8 +75,10 @@ against IDPTC's 5,667 — Draft Sharks already exceeds the proposed IDPTC ceilin
 by 0.6%, which is precisely the case a naive ceiling must never touch.
 
 **Acquisition verdicts:** Draft Sharks is already acquired and league-specific.
-Dynasty Dealer needs no paid tier but publishes **zero IDP players**, so it
-cannot be a bridge. Dynasty Nerds' public IDP Top-275 is freely available but
+Dynasty Dealer needs no paid tier; the acquisition paths tried here returned
+**zero IDP players**, but that was a limitation of those paths, not of the
+source — see the correction in §15a, where it becomes a **PENDING** bridge
+candidate. Dynasty Nerds' public IDP Top-275 is freely available but
 carries ranks only, so it is a specialist, not a bridge, and Premium is not
 justified. The IDP Show Combined board is paywalled and unproven from here.
 
@@ -659,8 +672,10 @@ years_exp, updated_at, created_at, rating, votes, previous_rating`.
 Probes for `idp_players`, `idp_values`, `rankings` and `player_values` all
 return **404** — no IDP table exists.
 
-**Verdict on usefulness: Dynasty Dealer cannot serve as a cross-position
-bridge, because it publishes no IDP players at all.** The access question is
+**Verdict on usefulness** — ~~Dynasty Dealer cannot serve as a cross-position
+bridge, because it publishes no IDP players at all.~~ **SUPERSEDED by §15a:
+that conclusion was drawn from the acquisition paths tried above, and a third
+path does publish cardinal IDP values.** The access question is
 moot. It is a viable *offense + pick* source on one native 0–10,000 scale with
 excellent Sleeper-ID coverage, and `rating` / `votes` / `previous_rating` show
 it is a crowd-voted market (a distinct population from KTC's crowd, so plausibly
@@ -673,6 +688,84 @@ Two cautions if it is ever ingested:
   those must be treated as unpriced, not as zero-valued, at the fetcher.
 - Attribution and terms of use were not reviewed and must be settled before any
   scheduled ingestion.
+
+
+---
+
+## 15a. Dynasty Dealer — CORRECTION (2026-08-20)
+
+**The measurement in §15 stands. Its interpretation does not.**
+
+§15 tried two acquisition paths and both genuinely return zero IDP rows: the
+Supabase `/rest/v1/players` table (723 rows) and the default
+`/api/player-values` (1,000 rows). Neither was wrong. What was wrong was
+concluding from them that the *source* lacks defensive cardinal values.
+
+The IDP data sits behind an **undocumented query parameter**, recovered from
+the vendor's own JavaScript bundle:
+
+```
+GET /api/player-values?includeIdp=true&limit=5000   →  1,338 rows
+WR 414 · RB 241 · TE 181 · QB 128 · DB 126 · LB 117 · DL 95 · PICK 36
+```
+
+**338 IDP rows**, carrying `current_value` on the same field as offense. The
+top four match the owner-supplied figures exactly: **Myles Garrett 5,121 ·
+Will Anderson 4,601 · Jack Campbell 4,599 · Aidan Hutchinson 4,584.**
+
+The durable record is therefore:
+
+> The previously inspected Dynasty Dealer acquisition paths returned zero IDP
+> rows because they omitted `includeIdp=true`. That was an **acquisition-path
+> limitation, not proof that the source lacks defensive cardinal values.**
+> Bridge eligibility now depends on demonstrating that those defensive values
+> share the same valuation basis as the offensive `current_value` API.
+
+### The same-basis gate does NOT pass — two measured blockers
+
+**(a) The format flags are echo-only.** `scoringSettings` in the response
+reflects the *request*, not the data. `isSuperflex=true&isTePremium=true`
+changes **0 of 1,338 values**. An adapter trusting that field would believe it
+held a Superflex/TE-premium board while holding one unlabelled board — the same
+class of error as W18-F001, a label deciding a factual question. Corroborating
+evidence that the board is 1QB basis: QB1 Josh Allen 9,495 sits *below* RB1
+Bijan Robinson 10,000. This league is Superflex + TEP.
+
+**(b) Offense and IDP are not the same quantity in time.**
+
+| | offense | IDP |
+|---|---|---|
+| distinct `updated_at` | **33**, through 2026-08-20 | **1** — all 2026-07-15 |
+| rows carrying votes | 445 / 964 (46.2%) | **0 / 338 (0.0%)** |
+| `base_value` vs `current_value` | diverge | identical on every row |
+| range | max 10,000 · p50 16 · **min 0** | max 5,121 · p50 1,476 · min 73 |
+
+Live, crowd-vote-adjusted offense against a static 36-day-old un-voted IDP
+snapshot. The vendor's IDP page also offers tackle-heavy / balanced / big-play
+variants and the payload declares none, so the scoring variant is **UNKNOWN**.
+
+**Bridge status: `PENDING`. It does not vote.** Qualification needs the format
+basis proven independently of the echoed flags, the IDP scoring variant
+identified, and an owner decision on whether a static IDP snapshot may bridge
+against live offense values.
+
+### Why it is worth qualifying
+
+Dynasty Dealer is the most consensus-central of the three candidate bridges.
+Joined to 290 board IDP rows by normalized name: Spearman **IDPTC↔DD 0.773**,
+against IDPTC↔DS 0.609 and DS↔DD 0.597. It sits *between* the incumbent pair on
+exactly the disagreement §10 identified as the hardest:
+
+| player | IDPTC | Draft Sharks | Dynasty Dealer |
+|---|---|---|---|
+| Aidan Hutchinson (DL) | 6,444 | 2,116 | **4,584** |
+| Myles Garrett (DL) | 5,414 | 1,924 | **5,121** |
+| Carson Schwesinger (LB) | 5,667 | 6,485 | **4,062** |
+
+Note also `min = 0` on the offense side: under MISSING IS NEVER ZERO those rows
+must be treated as unpriced at the adapter, never as zero-valued.
+
+Full working record: `docs/sources/C7_PR_A_BRIDGE_FOUNDATION.md` §7a.
 
 ---
 
@@ -777,7 +870,7 @@ the rendered string was not.
 |---|---|---|---|---|
 | IDP Show Combined | **`fantasyPros`** (offense half is FantasyPros ECR) | 2 | **No** | authenticated access |
 | `dynastyNerdsIdp` | **`dynastyNerds`** (with the existing offense feed) | 4 | **No** | none — public today |
-| Dynasty Dealer | new singleton `dynastyDealer` | 1 (offense+picks only) | Yes | **fails the bridge test — 0 IDP rows** |
+| Dynasty Dealer | new singleton `dynastyDealer` | 1 (offense + IDP + picks) | Yes | **PENDING same-basis qualification** (§15a) |
 | Footballguys 2026 | new singleton `footballguys` | 1 or 2, unproven | Yes | authenticated access |
 | Draft Sharks **cardinal** reading | `draftSharks` (existing) | 1 | **No — same family** | none; reads a column we already fetch |
 
@@ -1159,7 +1252,7 @@ Reported, not fixed.
 | 8 | Can genuine combined sources remain unconstrained? | **Yes, structurally** — Type 1/2 sources never enter the translation seam. Live proof: `draftSharksIdp` contributes 6,485, above the proposed ceiling |
 | 9 | Can IDP Show Combined be acquired? | **Unproven** — paywalled, no repo evidence it exists. Owner action |
 | 10 | Can synced Draft Sharks 3D+ be acquired? | **Already acquired**, league 995704, and proven cross-position (ratio 0.9976) |
-| 11 | Are Dynasty Dealer IDP values available without Pro? | **No Pro needed, but there are no IDP values at all** — 0 IDP rows of 723 |
+| 11 | Are Dynasty Dealer IDP values available without Pro? | **Yes — no Pro needed.** Corrected in §15a: `?includeIdp=true` returns 338 cardinal IDP rows. Bridge status **PENDING** on two measured same-basis blockers |
 | 12 | Is Dynasty Nerds Premium necessary? | **No.** Public IDP Top-275 is ranks/tiers only; Premium unproven and unjustified |
 | 13 | How should specialists and bridges interact? | §20 — specialists order within domain, bridges price the domain, bridge layer aggregates and never selects |
 | 14 | What is the exact implementation plan? | §24 order, §25 files, §28 prompt. **Nothing authorized by this document** |
