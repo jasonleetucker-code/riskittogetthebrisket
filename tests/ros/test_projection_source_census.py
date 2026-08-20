@@ -134,9 +134,7 @@ class TestMeasuredFacts:
 
     def test_clay_and_idp_show_are_the_only_live_true_projections(self):
         live = [
-            s["key"]
-            for s in census.load_census()["sources"]
-            if s["implementationStatus"] == "LIVE"
+            s["key"] for s in census.load_census()["sources"] if s["implementationStatus"] == "LIVE"
         ]
         assert sorted(live) == ["clayProjections", "idpShowProjections"]
 
@@ -207,7 +205,9 @@ class TestMeasuredFacts:
         assert "clayProjections" in automatable_keys
 
     def test_offense_and_idp_evidence_class_lookup_matches_target_population(self):
-        idp_projection_sources = census.sources_by_evidence_class("PROJECTION_MODEL", population="IDP")
+        idp_projection_sources = census.sources_by_evidence_class(
+            "PROJECTION_MODEL", population="IDP"
+        )
         keys = {s["key"] for s in idp_projection_sources}
         assert "idpShowProjections" in keys
         assert "clayProjections" in keys  # Clay covers a defensive tackle line too

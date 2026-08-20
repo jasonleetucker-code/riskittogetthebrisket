@@ -133,7 +133,9 @@ def validate_census(data: dict[str, Any] | None = None) -> list[str]:
 
         evidence_class = src.get("evidenceClass")
         if evidence_class not in EVIDENCE_CLASSES:
-            errors.append(f"{where}: evidenceClass {evidence_class!r} not in {sorted(EVIDENCE_CLASSES)}")
+            errors.append(
+                f"{where}: evidenceClass {evidence_class!r} not in {sorted(EVIDENCE_CLASSES)}"
+            )
 
         horizons = src.get("horizons")
         if not isinstance(horizons, list) or not horizons:
@@ -160,7 +162,9 @@ def validate_census(data: dict[str, Any] | None = None) -> list[str]:
             errors.append(f"{where}: implementationStatus GREENFIELD but existingModule is set")
 
         if not src.get("providerFamily"):
-            errors.append(f"{where}: missing 'providerFamily' (needed for §6 independence grouping)")
+            errors.append(
+                f"{where}: missing 'providerFamily' (needed for §6 independence grouping)"
+            )
         if not src.get("targetPopulation"):
             errors.append(f"{where}: missing 'targetPopulation'")
         if not src.get("acquisitionOwnerLane"):
@@ -173,7 +177,9 @@ def validate_census(data: dict[str, Any] | None = None) -> list[str]:
     return errors
 
 
-def sources_by_evidence_class(evidence_class: str, *, population: str | None = None) -> list[dict[str, Any]]:
+def sources_by_evidence_class(
+    evidence_class: str, *, population: str | None = None
+) -> list[dict[str, Any]]:
     """Sources carrying ``evidence_class``, optionally filtered to a
     target population ("OFFENSE" or "IDP"). Never includes
     ``RANKINGS_ONLY`` unless explicitly requested — a caller building the
