@@ -336,3 +336,91 @@ or the owner rules otherwise.
 healthy-run tracker closure/reconciliation (no authenticated healthy run has ever
 occurred), and the ≤ 1/day steady state (day-rollover unexecuted). Both are
 *unexercised*, which is a different statement from *failing*.
+
+---
+
+## Checkpoint 2026-08-20T14:40Z — the commits came back, they are NOT churn, and the cause is a misclassification
+
+### Correcting this record's own last checkpoint
+
+The 12:09Z checkpoint says "smoke commits: still zero". That was true when written and is
+**false now**, and the correction matters more than the number: there have been **eight**
+since, and the previous checkpoint's headline would otherwise stand as the last word.
+
+```
+22b6cf540 12:22   6fe287dc5 12:23   59c4ec907 13:02   7c826f9c2 13:08
+d630978ca 13:47   9bd34a519 13:55   7901b4733 13:56   96055e41b 14:23
+```
+
+### They are genuine state transitions. The suppression logic is working perfectly.
+
+Read the committed record at each of the eight:
+
+| commit | status | fingerprint | deployConclusion |
+|---|---|---|---|
+| 22b6cf540 | `deploy_failed` | `b1315fce9ca9` | cancelled |
+| 6fe287dc5 | `unverifiable_unauthenticated` | `f57cf5e6cbe5` | success |
+| 59c4ec907 | `deploy_failed` | `b1315fce9ca9` | cancelled |
+| 7c826f9c2 | `unverifiable_unauthenticated` | `f57cf5e6cbe5` | success |
+| d630978ca | `deploy_failed` | `b1315fce9ca9` | cancelled |
+| 9bd34a519 | `unverifiable_unauthenticated` | `f57cf5e6cbe5` | pending |
+| 7901b4733 | `deploy_failed` | `b1315fce9ca9` | cancelled |
+| 96055e41b | `unverifiable_unauthenticated` | `f57cf5e6cbe5` | pending |
+
+Exactly **two** fingerprints, strictly alternating, **never two consecutive writes of the
+same one**. Zero duplicate writes in eight. The `stateFingerprint` suppression #948 added is
+doing precisely what it was built to do, and misreading these as same-state churn would
+condemn the one mechanism that is working.
+
+The fingerprint is also not the culprit by being too fine: it is taken over
+`(status, cohort, ffpcMarket, lastErrorType)` and **excludes** `deployHeadSha`,
+`deployRunId`, `checkedAt`, `attempts`, `eventName` and the error message by construction.
+Every one of these eight writes recorded a real change of `status`.
+
+### The cause: a CANCELLED deploy is being reported as a FAILED deploy
+
+`.github/workflows/verify-sharp-production.yml:108`:
+
+```python
+if event_name == "workflow_run" and deploy_conclusion != "success":
+    result["status"] = "deploy_failed"
+```
+
+`!= "success"` swallows **cancelled**, **skipped** and empty alike. And a cancelled deploy is
+the *normal* outcome here, not an anomaly: `deploy.yml`'s concurrency group cancels a
+superseded run whenever merges land close together. Every `cancelled` row above is one of
+those — Integration merged four PRs inside forty minutes this afternoon, and each burst
+produced a cancel → success pair, hence a `deploy_failed` → `unverifiable_unauthenticated`
+pair, hence two commits.
+
+**Superseded is not failed.** This is the same error this entire record exists to prevent,
+wearing different clothes: it is why `unverifiable_unauthenticated` is kept distinct from
+`unhealthy`, and why "the gate could not measure" must never render as "the gate measured
+something bad". A run that was cancelled *because a newer one replaced it* produced no
+evidence about production at all. The truthful status for it is an unmeasured one — the
+`waiting` / unverifiable family — not a failure verdict.
+
+Two consequences, both worth stating before tomorrow's read:
+
+1. **The write volume is a symptom, not the disease.** Deduplicating harder, widening the
+   fingerprint, or throttling the writer would all suppress a signal that is currently
+   *correct given its inputs*. The fix is upstream, in the classification.
+2. **≤ 1/day is structurally unreachable during any active merge window** while cancelled
+   maps to `deploy_failed`, because each supersession is a real transition under the
+   current rule. That is not the suppression failing; it is the target being measured
+   against a status that oscillates for reasons unrelated to production health.
+
+Routed to the CI reliability lane as its own unit rather than repaired here — this record is
+an observation, and rewriting the workflow it observes would make it both instrument and
+subject.
+
+### The full-window requirement stands, unchanged
+
+The day-rollover write has still not executed, so the ≤ 1/day steady state remains
+**unexercised** — which is still a different statement from *failing*. The full-window read
+is due **2026-08-21T07:45Z** and nothing here shortens it. What has changed is that the
+window will now be read knowing what the oscillation is, so a high count tomorrow can be
+attributed rather than guessed at.
+
+Open `sharp-unverifiable` trackers: **#951, #953, #955, #957, #959** — five, static, still
+deliberately not drained.
