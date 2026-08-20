@@ -2260,11 +2260,81 @@ def _current_season_races(
     return races
 
 
+#: Reason published when a season exists but has not played a game yet.
+AWARDS_UNAVAILABLE_NO_GAMES = "season_has_not_played_a_game"
+
+
+def _has_played_games(s: SeasonSnapshot) -> bool:
+    """True once any matchup in the season has actually scored points."""
+    for entries in s.matchups_by_week.values():
+        for m in entries:
+            if metrics.matchup_points(m) > 0:
+                return True
+    return False
+
+
+def _has_begun(s: SeasonSnapshot) -> bool:
+    """Has this season ACTUALLY started?
+
+    "Begun" means real games have been played (some matchup scored points)
+    OR the season is complete.  Sleeper flips dynasty leagues to
+    ``in_season`` in the offseason — months before NFL Week 1 — so status
+    alone is NOT a reliable "started" signal.
+
+    This was already the rule for choosing the FEATURED season; it was a
+    closure inside ``build_section`` and therefore governed only which
+    season the page highlights.  It is module-level now so the same single
+    rule also decides whether a season may produce awards at all (V1-95 /
+    ``C9-AWARD-01``).  Deliberately NOT a second season-start rule.
+    """
+    return s.is_complete or _has_played_games(s)
+
+
 def build_section(snapshot: PublicLeagueSnapshot) -> dict[str, Any]:
     by_season: list[dict[str, Any]] = []
     races_by_season: dict[str, list[dict[str, Any]]] = {}
     for idx, season in enumerate(snapshot.seasons):
         prev = snapshot.seasons[idx + 1] if idx + 1 < len(snapshot.seasons) else None
+        row: dict[str, Any] = {
+            "season": season.season,
+            "leagueId": season.league_id,
+            "seasonStatus": str(season.league.get("status") or ""),
+            "isComplete": season.is_complete,
+            # Diagnostic, kept: player-level scoring is a NARROWER signal than
+            # "has begun" (a week can be scored at team level before every
+            # players_points map lands), so it stays reported and decides
+            # nothing.
+            "hasPlayerScoring": _season_has_player_scoring(season),
+        }
+
+        if not _has_begun(season):
+            # V1-95 / C9-AWARD-01. An award is a claim about games that were
+            # played.  ``_season_canonical_awards`` gated only on STANDINGS
+            # being non-empty — that is rosters existing, not games happening —
+            # so a league Sleeper had flipped to ``in_season`` months before
+            # NFL Week 1 published a "Regular-Season Crown, 0-0", a "Points
+            # King, 0.0 PF" and a Manager of the Year whose finish rank was an
+            # artifact of the alphabet.
+            #
+            # Refused EXPLICITLY rather than returned as an empty list: "no
+            # awards because nothing has been played" and "no awards because
+            # the computation found none" are different statements and must
+            # not render identically.  Same posture playoff_structure takes
+            # for an unknown bracket.
+            races_by_season[season.season] = []
+            row["awards"] = []
+            row["finalists"] = {}
+            row["awardsUnavailable"] = {
+                "reason": AWARDS_UNAVAILABLE_NO_GAMES,
+                "detail": (
+                    "this season has not played a game yet, so there is nothing "
+                    "to award. This is not a 0-0 record, a 0.0-point leader or a "
+                    "zero-VORP MVP."
+                ),
+            }
+            by_season.append(row)
+            continue
+
         canonical = _season_canonical_awards(snapshot, season)
         activity_based = _activity_awards_for_season(snapshot, season, prev)
         # Per-season races double as that year's "finalists" board so the
@@ -2272,34 +2342,9 @@ def build_section(snapshot: PublicLeagueSnapshot) -> dict[str, Any]:
         # winner.  Reused below for the featured season's live awardRaces.
         season_races = _current_season_races(snapshot, season)
         races_by_season[season.season] = season_races
-        by_season.append(
-            {
-                "season": season.season,
-                "leagueId": season.league_id,
-                "seasonStatus": str(season.league.get("status") or ""),
-                "isComplete": season.is_complete,
-                "hasPlayerScoring": _season_has_player_scoring(season),
-                "awards": _order_awards(canonical + activity_based),
-                "finalists": {r["key"]: r["leaders"] for r in season_races},
-            }
-        )
-
-    # Featured season = the newest season that has actually *begun*.
-    # "Begun" means real games have been played (some matchup scored
-    # points) OR the season is complete.  Sleeper flips dynasty leagues
-    # to ``in_season`` in the offseason — months before NFL Week 1 — so
-    # status alone is NOT a reliable "started" signal: last season's
-    # full award board must stay featured until the new season actually
-    # plays games.
-    def _has_played_games(s: SeasonSnapshot) -> bool:
-        for entries in s.matchups_by_week.values():
-            for m in entries:
-                if metrics.matchup_points(m) > 0:
-                    return True
-        return False
-
-    def _has_begun(s: SeasonSnapshot) -> bool:
-        return s.is_complete or _has_played_games(s)
+        row["awards"] = _order_awards(canonical + activity_based)
+        row["finalists"] = {r["key"]: r["leaders"] for r in season_races}
+        by_season.append(row)
 
     featured = next(
         (s for s in snapshot.seasons if _has_begun(s)),
