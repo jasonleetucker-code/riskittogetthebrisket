@@ -131,10 +131,62 @@ except the one guard extension described above.
   Nerds / Dynasty Dealer / Draft Sharks bridge qualification, IDP Show / Footballguys
   acquisition, source-family bridge semantics).
 
+### Mid-session correction: `C4-SHARP-*` is already diagnosed and blocked, not open work
+
+Before starting a Sharp-hardening unit, found `docs/lane4/` — a prior lane-4 session's V1-sprint
+working notes, already merged to `main` (2026-08-18, `e7e8c1893`). `docs/lane4/LANE4_V1_
+RECONCILIATION.md` records that `V1-58`/`V1-59` (`C4-SHARP-01`/`C4-SHARP-02`) are **diagnosed and
+BLOCKED on production access** — both need an authenticated admin session cookie for
+`chaseupside.com`, held by the site owner, to observe the live `dynasty-sharp-discovery` →
+`-records` → `-rosters` chain and the FFPC timeout/SQLite-lock behavior it referenced. The doc is
+explicit that they are **not** to be closed with a synthetic cohort ("a manufactured population
+would verify the manufacture") and assigns the blocker to Claude 5 (prod). `C4-SHARP-03` was
+separately closed via #911 (merged 2026-08-19, already on `main`). So there was no undiscovered
+Sharp-hardening gap left for this sandbox to fix — re-attempting it here would have duplicated a
+diagnosis already on record. Recorded here rather than silently dropped, per this lane's mandate
+to call out anything already blocked/covered.
+
+## Batch 2 — in progress
+
+**Unit:** `C4-MTL-03` (comparable-trade matching).
+
+- **`src/trade/comparable_trades.py`** — `comparable_trades_for_asset(asset_id, target_league_key)`
+  searches every OTHER active league's `market_trades()` (from Batch 1's `C4-MTL-01`) for trades
+  touching the asset, classifies each against the target league's format via `TargetFormat`, and
+  returns them newest-first. Implements 4 of the spec's 5 match tiers (`EXACT_NATIVE_COMPARABLE` /
+  `NEAR_COMPARABLE` / `BROAD_MARKET_CONTEXT` / `UNSUPPORTED_UNVERIFIED`); the fifth
+  (`NORMALIZED COMPARABLE`) is deliberately never emitted because it requires an actual
+  cross-format value-conversion model that does not exist in this repository — fabricating that
+  tier without the model would be exactly the false confidence the tier system exists to prevent.
+  An unproven format dimension (e.g. TEP unknown on either side) fails closed to
+  `UNSUPPORTED_UNVERIFIED` rather than defaulting to a weaker-but-assigned tier. 10 new tests: 6
+  direct against the pure `_classify(target, source)` function (every tier, plus the "unknown ≠
+  mismatch" invariant), 3 against the wiring (self-exclusion of the target league, asset
+  filtering, newest-first sort with undated last), 1 empty-registry honesty check.
+
+  Real limitation, stated rather than hidden: with only Batch 1's own-league population live, most
+  real queries today will search at most 1-2 other leagues. The classification machinery is
+  correct and complete against the spec regardless of population size, and grows automatically
+  once `C4-MTL-02` exists.
+
+### Verification (Batch 2)
+
+```
+python3 -m pytest tests/trade/test_comparable_trades.py tests/acquisition/ tests/trade/ -q
+```
+→ 865 passed. `ruff check` + `ruff format --check` clean.
+
 ### Next candidate batches (not started)
 
-In dependency order once Batch 1 integrates: `C4-MTL-03` (comparable-trade matching, format-tier
-classification per spec §4) → `C4-FAAB-01` (FAAB Market Heat, consuming `C4-MTL-01` + the
-existing `faab_engine.py`, no new formula) → a minimal read endpoint for both ledgers →
-`C7-WAIV-01` (Perfect Waivers). In parallel, `C4-SHARP-02` (bootstrap FFPC-timeout / SQLite-
-locking repair) is independently dependency-ready and does not require any of the above.
+`C4-FAAB-01` (FAAB Market Heat) is next in strict dependency order, but is a materially different
+kind of unit from Batches 1-2: it is an approved **extension of the live, 247-test-covered
+canonical FAAB engine** (`src/trade/faab_engine.py`, read by `/api/faab/recommend` and the
+waivers page for every league), not a new standalone module, and its own spec §11 requires
+backtest validation (compare recommendations with/without the signal) that this sandbox cannot
+produce without live Sleeper trending data and real bid outcomes. Attempting it here risks either
+a half-validated change to a heavily-depended-on engine or an unverifiable claim of completeness —
+worse than leaving it explicitly queued. Recommend it run with either live-data access or explicit
+owner sign-off on a synthetic-backtest posture. A minimal read endpoint for the two Batch-1
+ledgers remains a reasonable, fully-sandbox-buildable next unit. `C7-WAIV-01` (Perfect Waivers)
+stays blocked on `C4-FAAB-01` plus two other-lane deps (`C2-DROP-01`, `C3-CON-01`), neither of
+which exists yet.
