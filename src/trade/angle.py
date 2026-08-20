@@ -94,6 +94,9 @@ from src.league_intel.cross_market import (
 # VA injects the consolidation premium on the SMALLER side — so the
 # side receiving more studs sees its effective total climb, and the
 # thresholds get evaluated on the adjusted numbers.
+from src.packages import RECEIVE as _RECEIVE
+from src.packages import SEND as _SEND
+from src.packages import UNCONSTRAINED_OUTGOING as _UNCONSTRAINED_OUTGOING
 from src.packages import EligibilityPolicy as _EligibilityPolicy
 from src.trade.ktc_va import (
     adjusted_pair_totals as _adjusted_pair_totals,  # noqa: F401
@@ -593,13 +596,23 @@ _ANGLE_POLICY = _EligibilityPolicy(min_value=None, allow_unknown_value=True, req
 # carry no canonical asset id, which means the dedup identity here falls back
 # to names — the substrate reports that rather than letting it pass as an id
 # key.
-def _angle_sides(pool, sizes, *, required=()):
-    """Every candidate package side, via the canonical substrate."""
+def _angle_sides(pool, sizes, *, side, outgoing_policy, required=()):
+    """Every candidate package side, via the canonical substrate.
+
+    ``side`` and ``outgoing_policy`` are REQUIRED and are threaded from the
+    caller because this helper serves both directions: offer mode fixes what we
+    send and enumerates what we RECEIVE, acquire mode fixes what we receive and
+    enumerates what we SEND.  The substrate cannot infer that, and guessing
+    would put a C3-CON-01 outgoing constraint on an incoming pool — the §2.2
+    asymmetry inverted, which blocks acquiring a player the user protects.
+    """
     from src.packages import enumerate_sides  # noqa: PLC0415
 
     sides, _report = enumerate_sides(
         pool,
         sizes,
+        side=side,
+        outgoing_policy=outgoing_policy,
         required=required,
         # Eligibility is already decided upstream by this module's own
         # filters; re-applying a generic one here would silently drop
@@ -607,8 +620,8 @@ def _angle_sides(pool, sizes, *, required=()):
         policy=_ANGLE_POLICY,
         adapt=False,
     )
-    for side in sides:
-        yield tuple(a.source for a in side)
+    for side_assets in sides:
+        yield tuple(a.source for a in side_assets)
 
 
 def _angle_pool_assets(entries):
@@ -655,6 +668,7 @@ def find_angle_packages(
     seed_player_names: list[str] | None = None,
     include_idp: bool = False,
     capacity_context: Any | None = None,
+    constraints: Any | None = None,
 ) -> dict[str, Any]:
     """Find multi-player counter-packages for a user-built offer.
 
@@ -1079,6 +1093,10 @@ def find_angle_packages(
             for combo in _angle_sides(
                 _angle_pool_assets(non_seed_pool),
                 [size],
+                # Offer mode enumerates THEIR side: what we would receive.
+                # Outgoing protection has no business here (§2.2).
+                side=_RECEIVE,
+                outgoing_policy=_UNCONSTRAINED_OUTGOING,
                 required=_angle_pool_assets(seed_entries),
             ):
                 cand = _make_candidate(combo, team_label, owner_label)
@@ -1089,7 +1107,12 @@ def find_angle_packages(
         # This is the existing behaviour — each opposing team
         # contributes its own packages independently.
         for team, pool in teams_pool:
-            for combo in _angle_sides(_angle_pool_assets(pool), target_sizes):
+            for combo in _angle_sides(
+                _angle_pool_assets(pool),
+                target_sizes,
+                side=_RECEIVE,
+                outgoing_policy=_UNCONSTRAINED_OUTGOING,
+            ):
                 cand = _make_candidate(
                     combo,
                     str(team.get("name") or ""),
@@ -1177,6 +1200,7 @@ def find_acquisition_packages(
     min_player_my_value: float = 0.0,
     include_idp: bool = False,
     capacity_context: Any | None = None,
+    constraints: Any | None = None,
 ) -> dict[str, Any]:
     """Find offer-side packages from the user's roster that acquire a
     fixed set of desired players from other teams.
@@ -1385,6 +1409,36 @@ def find_acquisition_packages(
     pool.sort(key=lambda p: -p["my_value"])
     pool = pool[: max(1, int(candidate_pool))]
 
+    # C3-CON-01.  The policy is built from the pool that will actually be
+    # enumerated, so §2.2's NFL-team rule resolves against today's board rather
+    # than against stored state.  ENFORCEMENT happens inside the substrate; the
+    # partition here only supplies the reasons, because a count cannot explain a
+    # short list.
+    from src.trade.constraints import blocked_outgoing as _blocked  # noqa: PLC0415
+    from src.trade.constraints import outgoing_eligibility  # noqa: PLC0415
+
+    _blocked_out = _blocked(pool, constraints)
+    _outgoing_policy = outgoing_eligibility(pool, constraints)
+    if pool and len(_blocked_out) >= len(pool):
+        return {
+            "acquire": {
+                "players": [],
+                "size": 0,
+                "my_total": 0,
+                "market_total": 0,
+                "targets": [],
+            },
+            "candidates": [],
+            "constraintsBlockedOutgoing": len(_blocked_out),
+            "constraintsBlockedReasons": sorted({r for _a, r in _blocked_out}),
+            "noResultReason": "all_outgoing_assets_constrained",
+            "warnings": [
+                *warnings,
+                "Every asset on your roster is protected or excluded from outgoing "
+                "recommendations, so no counter-package could be generated.",
+            ],
+        }
+
     # Desired-side value lists (sorted descending) for the VA path.
     desired_my_values = sorted(
         (float(_value_pair(r)[0]) for r in desired_rows),
@@ -1471,7 +1525,15 @@ def find_acquisition_packages(
         }
 
     candidates: list[dict[str, Any]] = []
-    for combo in _angle_sides(_angle_pool_assets(pool), target_sizes):
+    for combo in _angle_sides(
+        _angle_pool_assets(pool),
+        target_sizes,
+        # Acquire mode enumerates OUR side: what we would send.  This is the
+        # one angle entry point that chooses outgoing assets, so it is the one
+        # that carries C3-CON-01.
+        side=_SEND,
+        outgoing_policy=_outgoing_policy,
+    ):
         cand = _make_candidate(combo)
         if cand is not None:
             candidates.append(cand)

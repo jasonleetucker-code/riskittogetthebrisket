@@ -20,7 +20,7 @@ The engine does NOT modify any internal canonical values or calibration.
 from __future__ import annotations
 
 import math
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any
 
 from src.canonical.calibration import to_display_value
@@ -271,6 +271,57 @@ class RosterAnalysis:
     need_positions: list[str]
     starter_counts: dict[str, int]  # above-replacement count
     depth_counts: dict[str, int]  # below-replacement count
+    #: The same rooms with C3-CON-01-constrained assets removed.
+    #:
+    #: A SECOND view rather than a filtered ``by_position``, and the distinction
+    #: is load-bearing.  A protected player still occupies a roster spot and
+    #: still counts toward positional depth: dropping him from the ANALYSIS
+    #: would make the team look thinner than it is, move it into
+    #: ``need_positions`` it does not need, and change what every generator
+    #: thinks it should go and get.  He is excluded from what we may OFFER, and
+    #: from nothing else — which is §2.2 stated as a data shape.
+    sendable_by_position: dict[str, list[PlayerAsset]] = field(default_factory=dict)
+    #: Lowercased names of the assets we may send, for the per-asset checks
+    #: that cannot draw from a room (``weakest_starter``, sweeteners).
+    sendable_keys: frozenset[str] = frozenset()
+    #: ``[(asset, reason), ...]`` — why the sendable view is shorter.
+    constrained_out: tuple[tuple[PlayerAsset, str], ...] = ()
+    #: Whether a constraint set was consulted at all.  "Nothing is protected"
+    #: and "nobody asked" are different claims and this keeps them apart.
+    constraints_applied: bool = False
+
+    def __post_init__(self) -> None:
+        """An analysis built without constraints has consulted none.
+
+        The sendable view then MIRRORS the full rooms, and that default is
+        deliberate rather than convenient.  Defaulting the other way — empty,
+        so nothing is sendable — reads as fail-closed and is not: it silently
+        returns zero suggestions for any caller that constructs this dataclass
+        directly, which is a shorter list with no explanation, the failure §4
+        forbids.  Fail-closed belongs at the OWNER, where ``UNRESOLVED``
+        expresses "we could not check"; this object cannot tell the difference
+        and must not pretend to.  ``constraints_applied`` records which
+        happened, and ``analyze_roster`` — the only production constructor —
+        always supplies the real answer.
+        """
+        if not self.constraints_applied and not self.sendable_by_position:
+            object.__setattr__(self, "sendable_by_position", dict(self.by_position))
+            object.__setattr__(
+                self,
+                "sendable_keys",
+                frozenset(
+                    str(p.name or "").strip().lower()
+                    for room in self.by_position.values()
+                    for p in room
+                ),
+            )
+
+    def sendable(self, position: str) -> list[PlayerAsset]:
+        """The room's assets we may put on the outgoing side."""
+        return self.sendable_by_position.get(position, [])
+
+    def can_send(self, asset: PlayerAsset) -> bool:
+        return str(asset.name or "").strip().lower() in self.sendable_keys
 
 
 @dataclass
@@ -692,8 +743,16 @@ def analyze_roster(
     roster_names: list[str],
     asset_pool: list[PlayerAsset],
     starter_needs: dict[str, int] | None = None,
+    *,
+    constraints: Any | None = None,
 ) -> RosterAnalysis:
-    """Analyze a roster for positional surplus and need."""
+    """Analyze a roster for positional surplus and need.
+
+    ``constraints`` (``src.trade.constraints.TradeConstraints``) is resolved
+    into ``sendable_by_position`` and changes NOTHING else about the analysis.
+    A protected player is still counted, still fills a starting slot and still
+    makes his position a surplus — he is only withheld from what we may offer.
+    """
     needs = starter_needs or DEFAULT_STARTER_NEEDS
 
     pool_by_name: dict[str, PlayerAsset] = {}
@@ -732,6 +791,23 @@ def analyze_roster(
         if len(depth) >= 2:
             surplus_positions.append(pos)
 
+    # C3-CON-01, resolved ONCE for the whole module.  Every generator draws
+    # its outgoing candidates from the sendable view, so there is one call to
+    # the owner rather than one per generator — §2.3 forbids page-local copies,
+    # and five copies inside one file is still five.
+    from src.trade.constraints import blocked_outgoing  # noqa: PLC0415
+
+    everyone = [p for room in by_position.values() for p in room]
+    blocked = blocked_outgoing(everyone, constraints)
+    blocked_names = {str(a.name or "").strip().lower() for a, _r in blocked}
+    sendable_by_position = {
+        pos: [p for p in room if str(p.name or "").strip().lower() not in blocked_names]
+        for pos, room in by_position.items()
+    }
+    sendable_keys = frozenset(
+        str(p.name or "").strip().lower() for room in sendable_by_position.values() for p in room
+    )
+
     return RosterAnalysis(
         roster_size=matched,
         by_position=by_position,
@@ -739,6 +815,10 @@ def analyze_roster(
         need_positions=need_positions,
         starter_counts=starter_counts,
         depth_counts=depth_counts,
+        sendable_by_position=sendable_by_position,
+        sendable_keys=sendable_keys,
+        constrained_out=tuple(blocked),
+        constraints_applied=True,
     )
 
 
@@ -1007,7 +1087,13 @@ def _generate_sell_high(
         if len(players) < 2:
             continue
         need = DEFAULT_STARTER_NEEDS.get(pos, 1)
-        sell_candidates = [p for p in players[need:] if p.display_value >= MIN_RELEVANT_VALUE]
+        # Depth is measured on the FULL room (a protected player is still
+        # depth); the candidates we may offer come from the sendable view.
+        sell_candidates = [
+            p
+            for p in players[need:]
+            if p.display_value >= MIN_RELEVANT_VALUE and roster.can_send(p)
+        ]
         if not sell_candidates:
             continue
 
@@ -1081,7 +1167,11 @@ def _generate_buy_low(
             for surplus_pos in roster.surplus_positions:
                 depth = roster.by_position.get(surplus_pos, [])
                 need = DEFAULT_STARTER_NEEDS.get(surplus_pos, 1)
-                tradeable = [p for p in depth[need:] if p.display_value >= MIN_RELEVANT_VALUE]
+                tradeable = [
+                    p
+                    for p in depth[need:]
+                    if p.display_value >= MIN_RELEVANT_VALUE and roster.can_send(p)
+                ]
                 for sell in tradeable[:2]:
                     give_val = sell.display_value
                     recv_val = target.display_value
@@ -1130,7 +1220,7 @@ def _generate_consolidation(
         players = roster.by_position.get(pos, [])
         need = DEFAULT_STARTER_NEEDS.get(pos, 1)
         for p in players[need:]:
-            if p.display_value >= MIN_RELEVANT_VALUE:
+            if p.display_value >= MIN_RELEVANT_VALUE and roster.can_send(p):
                 tradeable.append(p)
 
     tradeable.sort(key=lambda x: -x.display_value)
@@ -1226,11 +1316,21 @@ def _generate_positional_upgrades(
 
         starters = players[:need]
         # pos is always an offense position in DEFAULT_STARTER_NEEDS; using
-        depth = [p for p in players[need:] if p.display_value >= MIN_RELEVANT_VALUE]
+        depth = [
+            p
+            for p in players[need:]
+            if p.display_value >= MIN_RELEVANT_VALUE and roster.can_send(p)
+        ]
         if not starters or not depth:
             continue
 
         weakest_starter = starters[-1]
+        # The weakest starter is identified on the FULL room — that is who he
+        # is — and then checked.  Promoting the next-weakest into the role
+        # would publish a false claim about the roster to route around a
+        # protection; there is simply no upgrade suggestion at this position.
+        if not roster.can_send(weakest_starter):
+            continue
         ws_ev = weakest_starter.display_value
         upgrade_floor = ws_ev + 500
 
@@ -1417,6 +1517,12 @@ def _roster_balancer_candidates(
         players = roster.by_position.get(pos, [])
         need = DEFAULT_STARTER_NEEDS.get(pos, 1)
         for p in players[need:]:
+            # The equalizer is spec §2.3's "trade equalizers / counteroffer
+            # suggestions" bullet: it puts a FURTHER outgoing asset into the
+            # package after the base suggestion is built, so it is a generating
+            # surface in its own right and consumes the same owner.
+            if not roster.can_send(p):
+                continue
             if (
                 p.name.lower() not in exclude_names
                 and p.position  # skip positionless
@@ -1618,6 +1724,7 @@ def generate_suggestions_from_pool(
     board_top_n: int | None = None,
     ktc_top_n: int | None = None,
     capacity_context: Any | None = None,
+    constraints: Any | None = None,
 ) -> dict[str, Any]:
     """Generate trade suggestions against a pre-built asset pool.
 
@@ -1654,7 +1761,25 @@ def generate_suggestions_from_pool(
     if not _rookies_eligible_today():
         pool = [p for p in pool if not p.rookie]
 
-    roster = analyze_roster(roster_names, pool, starter_needs)
+    roster = analyze_roster(roster_names, pool, starter_needs, constraints=constraints)
+    if roster.roster_size and not roster.sendable_keys:
+        # Every asset we could offer is protected or excluded.  Say so rather
+        # than returning four empty categories, which reads as "nothing to
+        # suggest" — the failure §4 forbids by name.
+        return {
+            **{c: [] for c in ("sell_high", "buy_low", "consolidation", "positional_upgrade")},
+            "warnings": [
+                "Every asset on your roster is protected or excluded from outgoing "
+                "recommendations, so no suggestion could be generated."
+            ],
+            "metadata": {
+                "rosterMatched": roster.roster_size,
+                "rosterProvided": len(roster_names),
+                "constraintsBlockedOutgoing": len(roster.constrained_out),
+                "constraintsBlockedReasons": sorted({r for _a, r in roster.constrained_out}),
+                "noResultReason": "all_outgoing_assets_constrained",
+            },
+        }
     roster_set = {n.lower().strip() for n in roster_names}
 
     sell_high = _generate_sell_high(roster, pool, roster_set)
@@ -1750,6 +1875,10 @@ def generate_suggestions_from_pool(
             "ktcTopNFilter": board_top_n,
             "rosterMatched": roster.roster_size,
             "rosterProvided": len(roster_names),
+            # C3-CON-01.  Published because a shorter list with no explanation
+            # reads as "no trades exist" rather than "you protect these".
+            "constraintsBlockedOutgoing": len(roster.constrained_out),
+            "constraintsBlockedReasons": sorted({r for _a, r in roster.constrained_out}),
             "starterNeeds": starter_needs or DEFAULT_STARTER_NEEDS,
             "opponentRostersProvided": len(league_rosters) if league_rosters else 0,
             "opponentRostersAnalyzed": len(opponent_analyses),

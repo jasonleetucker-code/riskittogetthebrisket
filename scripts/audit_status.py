@@ -432,9 +432,22 @@ _FINDINGS: dict[str, tuple[str, str | None, str | None, str, str]] = {
     "C26": (
         "T-9",
         "src/trade/suggestions.py",
-        "analyze_roster(roster_names, pool, starter_needs)",
+        "analyze_roster(roster_names, pool",
         OPEN,
-        "Still called with a name list the pool can only partly resolve.",
+        "Still called with a name list the pool can only partly resolve.\n\n"
+        "SIGNATURE RESPELLED 2026-08-19 (C3-CON-01), STATUS DELIBERATELY "
+        "UNCHANGED. The call site gained a `constraints=` keyword when the "
+        "recommendation-constraint owner was wired in, so the old needle "
+        "`analyze_roster(roster_names, pool, starter_needs)` stopped matching "
+        "and the probe flipped to signature_absent. That is the case this "
+        "module's own docstring warns about: an absent signature means the "
+        "cited MECHANISM changed, not that the defect is fixed. It is not "
+        "fixed — C3-CON-01 decides which resolved assets may be OFFERED and "
+        "does nothing whatever about resolution, which is what T-9 is about. "
+        "The needle is respelled to the part that IS the defect (the name "
+        "list reaching `analyze_roster`) rather than to the full argument "
+        "list, so a further keyword cannot flip it again and invite a second "
+        "close-on-a-respelling.",
     ),
     "C27": (
         "T-10",

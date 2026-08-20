@@ -13,6 +13,10 @@ See ``src/packages/construction.py`` for what this owns and what it refuses to.
 
 from src.packages.construction import (
     MAX_PLAYER_COUNT_DIFFERENCE,
+    RECEIVE,
+    SEND,
+    UNCONSTRAINED_OUTGOING,
+    ConstraintMisapplied,
     EligibilityPolicy,
     EnumerationReport,
     PackageAsset,
@@ -30,6 +34,10 @@ from src.packages.construction import (
 
 __all__ = [
     "MAX_PLAYER_COUNT_DIFFERENCE",
+    "RECEIVE",
+    "SEND",
+    "UNCONSTRAINED_OUTGOING",
+    "ConstraintMisapplied",
     "EligibilityPolicy",
     "EnumerationReport",
     "PackageAsset",
