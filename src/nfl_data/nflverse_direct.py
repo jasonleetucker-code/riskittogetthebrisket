@@ -84,6 +84,15 @@ _URL_TEMPLATES = {
     "snap_counts": (f"{_RELEASE_BASE}/snap_counts/snap_counts_{{year}}.csv"),
     "id_map": (f"{_RELEASE_BASE}/players/players.csv"),
     "pbp": (f"{_RELEASE_BASE}/pbp/play_by_play_{{year}}.csv"),
+    # Moved here from ``src/bdvm/schedule.py``, which fetched it with its
+    # own ``urllib.request.urlopen`` and therefore had no TTL cache, no
+    # single-flight and no feature gate — a second nflverse downloader
+    # beside this one.  ``schedules_all`` is the combined file and is the
+    # fallback when the per-season file is not published yet (observed:
+    # ``sched_2026.csv`` 404s while ``games.csv`` already carries the
+    # 2026 slate).
+    "schedules": (f"{_RELEASE_BASE}/schedules/sched_{{year}}.csv"),
+    "schedules_all": (f"{_RELEASE_BASE}/schedules/games.csv"),
 }
 
 _HTTP_TIMEOUT_SEC = 30.0
@@ -329,6 +338,24 @@ def fetch_snap_counts(years: list[int]) -> list[dict[str, Any]]:
     for year in years:
         url = _URL_TEMPLATES["snap_counts"].format(year=year)
         rows = _fetch_csv(url, label=f"snap_counts:{year}")
+        out.extend(_coerce_numerics(rows))
+    return out
+
+
+def fetch_schedules(years: list[int]) -> list[dict[str, Any]]:
+    """Schedule rows for the given seasons.
+
+    Per-season file first, then the combined ``games.csv`` filtered to
+    the season — the exact two-rung order the retired
+    ``bdvm/schedule.py`` downloader used, preserved so the rows this
+    returns are the rows that module always saw.
+    """
+    out: list[dict[str, Any]] = []
+    for year in years:
+        rows = _fetch_csv(_URL_TEMPLATES["schedules"].format(year=year), label=f"schedules:{year}")
+        if not rows:
+            combined = _fetch_csv(_URL_TEMPLATES["schedules_all"], label="schedules:all")
+            rows = [r for r in combined if str(r.get("season") or "").strip() == str(year)]
         out.extend(_coerce_numerics(rows))
     return out
 

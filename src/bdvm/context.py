@@ -202,29 +202,40 @@ def fetch_and_build_context(
     seasons_back: int = 6,
     include_snaps: bool = True,
     name_normalizer=None,
+    cache_only: bool = False,
 ) -> dict[str, PlayerContext]:
     """Fetch nflverse data (cached, flag-guarded) and build the context.
 
     Degrades to {} on any fetch failure — the engine then falls back to
     contract ages and neutral priors exactly as before this module
     existed.
+
+    ``cache_only=True`` is the REQUEST-PATH mode: it reads whatever the
+    refresh owner has already materialised and NEVER fetches.  With
+    ``seasons_back=6`` a cold fetch here is six seasons of weekly stats
+    plus six of snap counts — ~270,000 rows — and parsing that inside the
+    serving process is what starved ``/api/data`` past the Next bridge's
+    4s idle timeout.  When nothing is materialised the result is the same
+    empty context this function already returns on failure, so the engine
+    degrades exactly as it always has: neutral priors, never zeroed
+    career load.
     """
     if name_normalizer is None:
         from src.utils.name_clean import normalize_player_name as name_normalizer  # noqa: PLC0415
     try:
         from src.nfl_data import ingest  # noqa: PLC0415
 
-        id_rows = ingest.fetch_id_map()
+        id_rows = ingest.fetch_id_map(cache_only=cache_only)
         years = [y for y in range(season - seasons_back, season)]
         weekly: list[Mapping[str, Any]] = []
         try:
-            weekly = ingest.fetch_weekly_stats(years)
+            weekly = ingest.fetch_weekly_stats(years, cache_only=cache_only)
         except Exception as exc:  # noqa: BLE001
             _LOGGER.warning("bdvm context: weekly stats unavailable: %s", exc)
         snaps: list[Mapping[str, Any]] = []
         if include_snaps:
             try:
-                snaps = ingest.fetch_snap_counts(years)
+                snaps = ingest.fetch_snap_counts(years, cache_only=cache_only)
             except Exception as exc:  # noqa: BLE001
                 _LOGGER.warning("bdvm context: snap counts unavailable: %s", exc)
         return build_player_context(

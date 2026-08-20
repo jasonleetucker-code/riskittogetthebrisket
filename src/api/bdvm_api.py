@@ -67,7 +67,11 @@ def _context_for(season: int) -> Mapping[str, Any]:
     try:
         from src.bdvm.context import fetch_and_build_context  # noqa: PLC0415
 
-        ctx = fetch_and_build_context(season)
+        # REQUEST PATH: cache-only, never a fetch.  A cold call here is
+        # six seasons of weekly stats plus six of snap counts (~270,000
+        # rows); parsing that in the serving process is what starved
+        # /api/data past the Next bridge's 4s idle timeout.
+        ctx = fetch_and_build_context(season, cache_only=True)
     except Exception as exc:  # noqa: BLE001
         _LOGGER.warning("bdvm: context unavailable: %s", exc)
         ctx = {}
@@ -83,7 +87,7 @@ def _schedule_for(season: int) -> Mapping[str, Any] | None:
     try:
         from src.bdvm.schedule import fetch_team_weeks  # noqa: PLC0415
 
-        sched = fetch_team_weeks(season) or None
+        sched = fetch_team_weeks(season, cache_only=True) or None
     except Exception as exc:  # noqa: BLE001
         _LOGGER.warning("bdvm: schedule unavailable: %s", exc)
         sched = None
@@ -146,7 +150,10 @@ def _actuals_for(contract: Mapping[str, Any]) -> tuple[int | None, Mapping[str, 
 
         scoring = (contract.get("sleeper") or {}).get("scoringSettings") or {}
         result = fetch_current_season_actuals(
-            scoring, name_normalizer=normalize_player_name, season=nfl_season
+            scoring,
+            name_normalizer=normalize_player_name,
+            season=nfl_season,
+            cache_only=True,
         )
     except Exception as exc:  # noqa: BLE001
         _LOGGER.warning("bdvm: in-season actuals unavailable (not cached, will retry): %s", exc)
@@ -157,6 +164,62 @@ def _actuals_for(contract: Mapping[str, Any]) -> tuple[int | None, Mapping[str, 
             _actuals_cache.pop(old_key, None)
         _actuals_cache[cache_key] = result
     return result
+
+
+# Operational states for the cache-only auxiliary inputs.  Deliberately
+# the plain words the rest of this repo already uses for evidence, not a
+# new vocabulary: an artifact is there and current, there and old, or not
+# there.  NONE of them means zero — a missing input degrades the engine to
+# the neutral priors it has always used when a fetch failed.
+AUX_AVAILABLE = "available"
+AUX_STALE = "stale"
+AUX_MISSING = "missing"
+
+
+def _aux_state(key: str, ttl_seconds: float) -> dict[str, Any]:
+    """Report one cache-only input's presence and age — never its value.
+
+    The request path may serve a TTL-EXPIRED artifact (the TTL governs
+    when the refresh owner should re-fetch, not whether an older artifact
+    is readable), so "stale" must be visible rather than silently
+    presented as current.  ``fetched_at`` has always been written by
+    ``nfl_data.cache.put``; this only reads it back.
+    """
+    from src.nfl_data import cache as nfl_cache  # noqa: PLC0415
+
+    age = nfl_cache.entry_age_seconds(key)
+    if age is None:
+        return {"state": AUX_MISSING, "ageSeconds": None}
+    return {
+        "state": AUX_STALE if age > ttl_seconds else AUX_AVAILABLE,
+        "ageSeconds": round(age, 1),
+    }
+
+
+def _auxiliary_input_report(season: int, actuals_season: int | None) -> dict[str, Any]:
+    """Freshness/provenance for every input the request path reads locally.
+
+    Published so a consumer can tell "BDVM is running on a week-old
+    player context" from "BDVM is current" — and both from "the artifact
+    is absent and the engine is on neutral priors".
+    """
+    from src.nfl_data import ingest  # noqa: PLC0415
+
+    years = list(range(season - 6, season))
+    year_key = ",".join(str(y) for y in years)
+    report: dict[str, Any] = {
+        "policy": "cache_only_request_path",
+        "refreshOwner": "scripts/refresh_bdvm_inputs.py (scheduled, out of band)",
+        "idMap": _aux_state("id_map", ingest._ROSTERS_TTL),
+        "weeklyStats": _aux_state(f"weekly_stats:{year_key}", ingest._WEEKLY_STATS_TTL),
+        "snapCounts": _aux_state(f"snap_counts:{year_key}", ingest._SNAP_COUNTS_TTL),
+        "schedules": _aux_state(f"schedules:{season}", ingest._SCHEDULES_TTL),
+    }
+    if actuals_season is not None:
+        report["currentSeasonActuals"] = _aux_state(
+            f"weekly_stats:{actuals_season}", ingest._WEEKLY_STATS_TTL
+        )
+    return report
 
 
 def get_bdvm_values(
@@ -215,6 +278,13 @@ def get_bdvm_values(
         schedule_weeks=schedule_weeks,
         actuals=actuals,
     )
+    # Operational metadata only — never a methodology input.  Stamped
+    # here rather than inside ``run_valuation`` so the engine's inputs and
+    # its arithmetic are untouched by this repair: for identical
+    # materialised inputs the payload is byte-equivalent apart from this
+    # block.
+    if isinstance(payload, dict) and isinstance(payload.get("meta"), dict):
+        payload["meta"]["auxiliaryInputs"] = _auxiliary_input_report(season, actuals[0])
     with _lock:
         _values_cache[key] = payload
         _values_cache.move_to_end(key)

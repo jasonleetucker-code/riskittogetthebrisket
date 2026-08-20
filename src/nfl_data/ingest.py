@@ -101,13 +101,41 @@ def _cached_or_fetch(
     ttl_seconds: float,
     cache_dir,
     fetch: Callable[[], list[dict[str, Any]] | None],
+    cache_only: bool = False,
 ) -> list[dict[str, Any]]:
     """Return ``key`` from cache, fetching at most once across threads.
 
     Preserves the previous contract exactly: a fetch that fails returns
     ``[]`` and writes nothing, so the next caller retries.
+
+    ``cache_only`` is the REQUEST-PATH mode and it never fetches.  It
+    reads the newest artifact on disk — INCLUDING a TTL-expired one —
+    and returns ``[]`` when there is none, so the caller degrades
+    instead of crawling.
+
+    Why this exists.  Before it, a cache miss on any of these keys meant
+    a multi-MB nflverse download plus a CSV parse, wherever the caller
+    happened to be.  ``src/api/bdvm_api.py`` calls three of them while
+    serving ``/api/bdvm/*``, so the FIRST interactive BDVM request pulled
+    six seasons of weekly stats and six of snap counts — ~270,000 rows.
+    Parsing that is CPU/GIL-heavy, so it starved ``/api/data``'s response
+    streaming in the same uvicorn process and the Next bridge aborted at
+    its 4s idle timeout (``backend_idle_timeout``), rendering "Rankings
+    unavailable" on a page that had nothing to do with BDVM.
+    ``run_in_threadpool`` did not help and could not: the contention is
+    the GIL, not the event loop.
+
+    The split this enforces: **the refresh owner decides when to fetch;
+    the request path decides only whether an artifact exists, and reports
+    its age honestly.**
     """
     inflight_key = (key, str(cache_dir) if cache_dir is not None else "")
+    if cache_only:
+        # Stale is READABLE here, never relabelled — see ``allow_stale``.
+        # No single-flight: nothing is fetched, so there is nothing to
+        # serialise and no caller to make wait.
+        cached = _cache.get(key, ttl_seconds=ttl_seconds, cache_dir=cache_dir, allow_stale=True)
+        return cached if cached is not None else []
     while True:
         cached = _cache.get(key, ttl_seconds=ttl_seconds, cache_dir=cache_dir)
         if cached is not None:
@@ -412,6 +440,7 @@ def fetch_weekly_stats(
     *,
     _provider: Callable[[list[int]], Any] | None = None,
     cache_dir=None,
+    cache_only: bool = False,
 ) -> list[dict[str, Any]]:
     """Return per-player-per-week stat rows for the given years.
 
@@ -424,6 +453,7 @@ def fetch_weekly_stats(
         key,
         ttl_seconds=_WEEKLY_STATS_TTL,
         cache_dir=cache_dir,
+        cache_only=cache_only,
         fetch=lambda: _try_fetch_with_fallback(
             years,
             _provider,
@@ -439,6 +469,7 @@ def fetch_weekly_defensive_stats(
     *,
     _provider: Callable[[list[int]], Any] | None = None,
     cache_dir=None,
+    cache_only: bool = False,
 ) -> list[dict[str, Any]]:
     """Per-IDP-per-week defensive stat rows for the given years.
 
@@ -458,6 +489,7 @@ def fetch_weekly_defensive_stats(
         key,
         ttl_seconds=_WEEKLY_STATS_TTL,
         cache_dir=cache_dir,
+        cache_only=cache_only,
         fetch=lambda: _try_fetch_with_fallback(
             years,
             _provider,
@@ -476,6 +508,7 @@ def fetch_snap_counts(
     *,
     _provider: Callable[[list[int]], Any] | None = None,
     cache_dir=None,
+    cache_only: bool = False,
 ) -> list[dict[str, Any]]:
     """Return per-player-per-week snap rows for the given years.
 
@@ -489,6 +522,7 @@ def fetch_snap_counts(
         key,
         ttl_seconds=_SNAP_COUNTS_TTL,
         cache_dir=cache_dir,
+        cache_only=cache_only,
         fetch=lambda: _try_fetch_with_fallback(
             years,
             _provider,
@@ -499,10 +533,49 @@ def fetch_snap_counts(
     )
 
 
+_SCHEDULES_TTL = 24 * 3600
+
+
+def fetch_schedules(
+    years: list[int],
+    *,
+    _provider: Callable[[list[int]], Any] | None = None,
+    cache_dir=None,
+    cache_only: bool = False,
+) -> list[dict[str, Any]]:
+    """Schedule rows for the given seasons, cached like every other feed.
+
+    ``src/bdvm/schedule.py`` used to fetch this itself with raw
+    ``urllib.request.urlopen`` — a second nflverse downloader with no
+    TTL cache, no single-flight and no feature gate, reached from the
+    live ``/api/bdvm/*`` request path.  It is retired; this is the one
+    owner.  ``nfl_data_py`` has no schedules method in the version this
+    repo pins, so the ladder falls through to ``nflverse_direct``, which
+    is where it was effectively fetching from anyway.
+    """
+    if not _gated():
+        return []
+    key = f"schedules:{','.join(str(y) for y in sorted(years))}"
+    return _cached_or_fetch(
+        key,
+        ttl_seconds=_SCHEDULES_TTL,
+        cache_dir=cache_dir,
+        cache_only=cache_only,
+        fetch=lambda: _try_fetch_with_fallback(
+            years,
+            _provider,
+            nfl_method="import_schedules",
+            direct_method="fetch_schedules",
+            label="schedules",
+        ),
+    )
+
+
 def fetch_id_map(
     *,
     _provider: Callable[[], Any] | None = None,
     cache_dir=None,
+    cache_only: bool = False,
 ) -> list[dict[str, Any]]:
     """Return nflverse's own ID cross-walk (GSIS ↔ PFR ↔ Sleeper).
 
@@ -517,6 +590,7 @@ def fetch_id_map(
         key,
         ttl_seconds=_ROSTERS_TTL,
         cache_dir=cache_dir,
+        cache_only=cache_only,
         fetch=lambda: _try_fetch_with_fallback(
             None,
             _provider,
