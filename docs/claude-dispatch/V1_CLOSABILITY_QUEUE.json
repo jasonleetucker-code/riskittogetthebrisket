@@ -1,6 +1,6 @@
 {
   "_comment": "Live V1 Closability Queue, owned by Claude 7 as independent V1 traffic controller / adversarial auditor. Ranks IMPLEMENTED_UNVERIFIED rows by verification effort per row gained. NOT an authority on V1 status — only Claude 5 promotes a row, and no percentage here is claimed as achieved.",
-  "updatedAt": "2026-08-20T01:42:00Z",
+  "updatedAt": "2026-08-20T02:28:00Z",
   "auditCycle": 2,
   "evidenceBasis": {
     "contract": "docs/VERSION_1_COMPLETION_CONTRACT.md §3 read on origin/main e3b387ca5",
@@ -9,20 +9,13 @@
     "method": "per-PR exact-head check runs, git merge-tree mergeability, git grep against origin/main for the claimed properties"
   },
   "v1Status": {
-    "verified": 40,
+    "verified": 45,
     "denominator": 132,
-    "percent": 30.3,
-    "implementedUnverified": 23,
-    "inProgress": 34,
-    "notStarted": 33,
-    "blocked": 2,
-    "unverifiedByRequiredLevel": {
-      "L1": 4,
-      "L2": 4,
-      "L3": 12,
-      "L4": 3
-    },
-    "note": "TENTH recount. Authoritative numerator on main: 40/132 (30.3%). Claude 5 has FIVE promotions staged on an unmerged branch (V1-28, V1-30, V1-33, V1-64, V1-119) which would make it 45/132 (34.1%) when that branch lands. An unmerged promotion is not a promotion."
+    "percent": 34.1,
+    "note": "MOVED at last: 40 -> 45 via #939, verified row by row on main (V1-28, V1-30, V1-33, V1-64, V1-119). Sources reconcile: 2 from IMPLEMENTED_UNVERIFIED, 3 from IN PROGRESS.",
+    "implementedUnverified": 21,
+    "inProgress": 31,
+    "notStarted": 33
   },
   "deployState": {
     "correctionAccepted": "Cycle 1 collapsed four distinct facts into 'main is deployed'. Separated below.",
@@ -361,38 +354,36 @@
     ]
   },
   "stagedPromotions": {
-    "branch": "claude/v1-integration-authority-xaqcv8",
-    "head": "83d73a664",
-    "aheadOfMain": 3,
-    "branchCount": "45/132 (34.1%)",
-    "rows": [
-      {
-        "row": "V1-28",
-        "level": "L1",
-        "from": "IN PROGRESS"
-      },
-      {
-        "row": "V1-30",
-        "level": "L2",
-        "from": "IN PROGRESS"
-      },
-      {
-        "row": "V1-33",
-        "level": "L1",
-        "from": "IN PROGRESS"
-      },
-      {
-        "row": "V1-64",
-        "level": "L1",
-        "from": "IMPLEMENTED_UNVERIFIED"
-      },
-      {
-        "row": "V1-119",
-        "level": "L1",
-        "from": "IMPLEMENTED_UNVERIFIED"
-      }
+    "status": "LANDED via #939",
+    "rowsNowVerifiedOnMain": [
+      "V1-28",
+      "V1-30",
+      "V1-33",
+      "V1-64",
+      "V1-119"
     ],
-    "queueCrossCheck": "V1-119 was this queue's single Tier A candidate and V1-64 its Tier B micro-PR; both are in the staged set. V1-88, which this queue refused to call promotable, is NOT — the refusal held. V1-28/V1-30/V1-33 are Roster rows this queue did not rank, since they were IN PROGRESS rather than IMPLEMENTED_UNVERIFIED.",
-    "notCredited": "None of it counts until the branch merges and the §3 table on main changes."
+    "queueCrossCheck": "V1-119 (this queue's sole Tier A) and V1-64 (its Tier B micro-PR) both landed VERIFIED. V1-88, which this queue refused to call promotable, went through the same promotion pass and was NOT promoted — the refusal held against the integration owner's own review. V1-28/V1-30/V1-33 were outside the queue's ranking because they were IN PROGRESS, a coverage gap already recorded."
+  },
+  "batchesNowExecutable": {
+    "change": "#932 MERGED (8b9c28289), so scripts/verify_lane4_production.py is on main and deployable. The verification batches this queue proposed stop being theoretical.",
+    "BATCH-1_onbox": {
+      "rows": [
+        "V1-57",
+        "V1-129",
+        "V1-60"
+      ],
+      "needs": "host access only — gitignored production files plus systemctl. NO HTTP auth, so it does not wait on the auth decision.",
+      "blockedOn": "an operator willing to run it on the box"
+    },
+    "BATCH-2_authenticated": {
+      "rows": [
+        "V1-11",
+        "V1-27",
+        "V1-58"
+      ],
+      "needs": "an operator-exported session credential, or the bearer-gated read-only endpoint #932 proposes — which touches the auth surface and needs Claude 5's sign-off",
+      "constraint": "the session gate must not be relaxed to achieve this"
+    },
+    "notAssignable": "Claude 7 cannot dispatch either batch: both need production access this dispatcher does not have and must not fabricate."
   }
 }
