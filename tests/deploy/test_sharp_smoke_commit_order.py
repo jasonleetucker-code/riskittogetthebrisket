@@ -38,6 +38,23 @@ WORKFLOW = ROOT / ".github" / "workflows" / "verify-sharp-production.yml"
 ARTIFACT = "data/ops/sharp-production-smoke.json"
 
 
+RUN_SCOPED = "sharp-smoke-current.json"
+
+
+def _enforce_step() -> str:
+    """The RUNNABLE lines of the 'Enforce healthy population' step.
+
+    Comments stripped for the same reason ``_commit_step`` strips them —
+    this step's own comments name the tracked artifact while explaining
+    why the gate must NOT read it.
+    """
+    text = WORKFLOW.read_text(encoding="utf-8")
+    start = text.index("Enforce healthy population")
+    return "\n".join(
+        line for line in text[start:].splitlines() if not line.lstrip().startswith("#")
+    )
+
+
 def _commit_step() -> str:
     """The RUNNABLE lines of the 'Commit production smoke result' step.
 
@@ -106,3 +123,56 @@ def test_unverifiable_is_reported_as_a_warning_not_a_pass_or_a_failure():
     assert (
         "Sharp production smoke is not healthy" in gate
     ), "a status that is neither healthy nor unverifiable must still fail the gate"
+
+
+def test_the_gate_grades_this_run_and_not_the_committed_record():
+    """CI reliability lane, 2026-08-20.
+
+    ``data/ops/sharp-production-smoke.json`` is a RECORD.  It is tracked,
+    so it survives between runs, so a gate that reads it grades whatever
+    the last run to write it observed — not what this run measured.
+
+    That was latent while every run rewrote the file unconditionally.  It
+    goes live the moment the artifact stops being rewritten on an
+    unchanged state (which is what the day-quantized heartbeat does), and
+    the failure it produces is the worst kind: a stale ``healthy`` passing
+    a run that measured nothing, invisible in review because the diff only
+    removes a write.
+
+    So the gate reads the run-scoped copy under ``RUNNER_TEMP``, and the
+    tracked path must not appear in the step at all — not as a fallback,
+    not as a second read.  A fallback is the defect with an extra step.
+    """
+    gate = _enforce_step()
+    assert RUN_SCOPED in gate, (
+        "the enforce gate no longer reads this run's own result; it must read "
+        f"$RUNNER_TEMP/{RUN_SCOPED}, written by the smoke step above"
+    )
+    assert ARTIFACT not in gate, (
+        f"the enforce gate reads the tracked record {ARTIFACT!r}. That file "
+        "outlives the run that wrote it, so on any run that does not rewrite it "
+        "the gate grades a previous run's measurement as this one's"
+    )
+
+
+def test_the_smoke_step_writes_the_run_scoped_result_the_gate_reads():
+    """The two halves must agree, or the gate crashes on a missing file.
+
+    Named explicitly because the smoke step and the gate are ~50 lines
+    apart in the same file and nothing else couples them.
+    """
+    text = WORKFLOW.read_text(encoding="utf-8")
+    smoke = text[
+        text.index("Wait for deploy and Sharp population") : text.index(
+            "Commit production smoke result"
+        )
+    ]
+    smoke = "\n".join(line for line in smoke.splitlines() if not line.lstrip().startswith("#"))
+    assert (
+        RUN_SCOPED in smoke
+    ), "the smoke step does not write the run-scoped result the enforce gate reads"
+    assert 'os.environ["RUNNER_TEMP"]' in smoke, (
+        "RUNNER_TEMP must be indexed, not defaulted: a fallback to the working "
+        "directory would let the gate grade a file the runner never scoped to "
+        "this run, which is the failure this pair exists to prevent"
+    )

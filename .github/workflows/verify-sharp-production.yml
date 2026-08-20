@@ -183,8 +183,37 @@ jobs:
                   result["status"] = "degraded_timeout"
 
           result["checkedAt"] = datetime.now(timezone.utc).isoformat()
-          output.write_text(json.dumps(result, indent=2, sort_keys=True) + "\n")
-          print(json.dumps(result, indent=2, sort_keys=True))
+          rendered = json.dumps(result, indent=2, sort_keys=True) + "\n"
+
+          # THIS RUN's evidence, written where only this run can see it.
+          # The gate below reads THIS file and never the tracked artifact.
+          #
+          # The tracked artifact is a durable RECORD, and a record is not a
+          # measurement: it survives between runs, so a gate reading it
+          # grades whatever the last run that wrote it observed.  That is
+          # latent today and becomes live the moment the artifact stops
+          # being rewritten on an unchanged state -- a stale ``healthy``
+          # would then pass a run that measured nothing, which is a worse
+          # false green than the one being removed and is invisible in
+          # review because the diff only removes a write.
+          #
+          # ``RUNNER_TEMP`` is indexed, not ``.get``-ed with a fallback: if
+          # the runner does not provide it the gate must fail loudly rather
+          # than quietly grade a file in the working directory.
+          current = Path(os.environ["RUNNER_TEMP"]) / "sharp-smoke-current.json"
+          current.write_text(rendered)
+
+          output.write_text(rendered)
+          print(rendered)
+
+          summary = os.environ.get("GITHUB_STEP_SUMMARY")
+          if summary:
+              with open(summary, "a", encoding="utf-8") as handle:
+                  handle.write(
+                      f"### Sharp production smoke\n\n"
+                      f"`{result['status']}` after {result['attempts']} attempt(s)"
+                      f" at {result['checkedAt']}\n\n```json\n{rendered}```\n"
+                  )
           PY
 
       - name: Commit production smoke result
@@ -230,12 +259,20 @@ jobs:
         # from "could not measure" — reporting the second as the first
         # would fail every push to main for a credential this workflow
         # was never given, and a gate that cries wolf gets deleted.
+        #
+        # It reads the RUN-SCOPED result, never the tracked artifact.
+        # See the smoke step's own note: the artifact is a record that
+        # outlives the run that wrote it, so grading it would eventually
+        # grade someone else's measurement as this run's.
         run: |
           python - <<'PY'
           import json
+          import os
           from pathlib import Path
 
-          result = json.loads(Path("data/ops/sharp-production-smoke.json").read_text())
+          result = json.loads(
+              (Path(os.environ["RUNNER_TEMP"]) / "sharp-smoke-current.json").read_text()
+          )
           status = result.get("status")
 
           if status == "healthy":
