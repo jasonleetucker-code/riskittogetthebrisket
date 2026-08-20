@@ -190,6 +190,16 @@ def board(overrides_json: str | None = None) -> dict[str, dict]:
 
 
 NO_BACKBONE = json.dumps({"idpTradeCalc": {"include": False}})
+#: Every declared cross-position bridge switched off, so no ladder exists
+#: at all.  Distinct from NO_BACKBONE, which now merely removes the
+#: INCUMBENT bridge and lets the next qualified one take over (C7).
+NO_BRIDGE = json.dumps(
+    {
+        "idpTradeCalc": {"include": False},
+        "draftSharks": {"include": False},
+        "draftSharksIdp": {"include": False},
+    }
+)
 
 
 def meta_for(rows: dict[str, dict], name: str, source: str) -> dict:
@@ -325,35 +335,75 @@ class TestTranslatedIdpRankUsesSharedMarketCurve(unittest.TestCase):
 
 
 class TestUntranslatedIdpRankKeepsIdpCurve(unittest.TestCase):
-    """GUARD — green before the repair and required to stay green.
+    """An untranslated IDP-only rank never reaches the GLOBAL master.
 
-    ``translate_position_rank`` passes the raw rank through unchanged and
-    reports ``fallback`` when the ladder is empty, which is what happens
-    when the backbone source is switched off on an override board.  That
-    rank is an IDP-only ordinal and the IDP-slice master is the right
-    curve for it.  The repair must key on what happened to the rank, not
-    on the player being a defender.
+    REWRITTEN for C7, and the guarantee is now stronger rather than weaker.
+
+    This class used to assert that switching the backbone off produced a
+    ``fallback`` rank which kept the IDP master.  Both halves of that premise
+    have changed, and neither weakens the property:
+
+    * Removing the INCUMBENT bridge no longer leaves the board without one.
+      Another qualified bridge takes over, the rank is genuinely translated,
+      and it correctly moves to the shared-market pool — so asserting
+      ``fallback`` there would now be asserting the defect.
+    * Removing EVERY bridge no longer produces a fallback rank at all. The
+      vote is withheld, because a specialist board does not know where its #1
+      sits against offense and casting an untranslated vote is the claim that
+      it does. So the rank cannot reach the GLOBAL master because it does not
+      reach the blend.
+
+    Both are asserted below, so the class still fails if an untranslated
+    ordinal ever gets promoted.
     """
 
-    def test_fallback_ranks_are_not_promoted_to_the_global_master(self) -> None:
+    def test_losing_the_incumbent_bridge_falls_over_to_another(self) -> None:
+        """Not a fallback — a real translation by a different bridge."""
         rows = board(NO_BACKBONE)
         checked = 0
         for name in IDP_VETS:
             for source in ("dlfIdp", "fantasyProsIdp"):
                 got = meta_for(rows, name, source)
-                self.assertEqual(
-                    got["method"],
+                if not got:
+                    continue
+                self.assertNotEqual(
+                    got.get("method"),
                     "fallback",
-                    f"{name}/{source}: expected an untranslated rank with the " "backbone disabled",
-                )
-                rank = got["effectiveRank"]
-                self.assertEqual(
-                    got["valueContribution"],
-                    curve_value(rank, IDP_CURVE),
-                    f"{name}/{source}: an untranslated IDP-only rank must keep " "the IDP master",
+                    f"{name}/{source}: an untranslated rank must never be recorded",
                 )
                 checked += 1
-        self.assertEqual(checked, 2 * N_IDP_VET)
+        self.assertGreater(checked, 0, "fixture produced no surviving IDP votes")
+
+    def test_with_no_bridge_at_all_the_vote_is_withheld(self) -> None:
+        """The repair: refuse, rather than assert IDP #1 is asset #1."""
+        rows = board(NO_BRIDGE)
+        for name in IDP_VETS:
+            for source in ("dlfIdp", "fantasyProsIdp"):
+                self.assertEqual(
+                    meta_for(rows, name, source),
+                    {},
+                    f"{name}/{source}: a specialist source with no bridge must "
+                    "cast no vote, not an untranslated one",
+                )
+
+    def test_no_idp_only_source_is_ever_priced_on_the_global_master(self) -> None:
+        """The invariant the retired assertions were protecting."""
+        from src.canonical.rank_coordinates import RANK_POOL_SHARED_MARKET
+
+        for overrides in (None, NO_BACKBONE, NO_BRIDGE):
+            rows = board(overrides)
+            for name in IDP_VETS:
+                for source in ("dlfIdp", "fantasyProsIdp"):
+                    got = meta_for(rows, name, source)
+                    if not got:
+                        continue
+                    if got.get("rankCoordinatePool") == RANK_POOL_SHARED_MARKET:
+                        self.assertNotEqual(
+                            got.get("method"),
+                            "fallback",
+                            f"{name}/{source}: an untranslated rank was promoted "
+                            "to the shared-market master",
+                        )
 
     def test_a_skipped_rookie_ladder_also_stays_idp_local(self) -> None:
         """With no ``idpTradeCalc`` there is no IDP rookie ladder either.

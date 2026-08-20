@@ -1181,6 +1181,12 @@ from src.canonical.idp_backbone import (  # noqa: E402
     TRANSLATION_DIRECT,
     TRANSLATION_FALLBACK,
 )
+from src.bridges.assess import assess_bridges  # noqa: E402
+from src.bridges.states import QUALIFIED as BRIDGE_QUALIFIED  # noqa: E402
+from src.bridges.ladder import build_bridge_ladder  # noqa: E402
+from src.bridges.registry import load_bridge_descriptors  # noqa: E402
+from src.sources.acquisition_state import UNAVAILABLE as ACQ_UNAVAILABLE  # noqa: E402
+from src.sources.acquisition_state import AcquisitionOutcome  # noqa: E402
 from src.canonical.rank_coordinates import (  # noqa: E402
     RANK_POOL_IDP,
     RANK_POOL_SHARED_MARKET,
@@ -2782,8 +2788,21 @@ def scale_integrity_lost(excluded_keys: Iterable[str]) -> dict[str, dict[str, st
     }
 
     asset_classes: dict[str, str] = {}
-    # Mirrors the backbone selection in ``_compute_unified_rankings``:
-    # primary scope overall_idp AND is_backbone.
+    # Mirrors the bridge selection in ``_compute_unified_rankings``: does any
+    # QUALIFIED cross-position bridge still have BOTH of its halves?
+    #
+    # This used to ask "does any surviving overall_idp source carry
+    # is_backbone", and the class immediately below in
+    # ``tests/consensus_edge/test_fair_value.py`` existed because that gate
+    # could be satisfied by a one-line registry edit while the board stayed
+    # broken.  It reads the bridge registry now, so a label cannot lift it —
+    # and because a bridge is a FAMILY, losing one half of a two-key vendor
+    # correctly costs that bridge.
+    #
+    # It remains a DECLARATION: it reports what the registry claims, and
+    # ``shared_market_crosswalk_failed`` remains the measurement that should
+    # decide.  A declared bridge can still fail to be capable on a given
+    # board, which is why both exist.
     #
     # This used to carry a comment promising that "registering a second
     # IDP backbone lifts this guard automatically instead of leaving a
@@ -2793,10 +2812,8 @@ def scale_integrity_lost(excluded_keys: Iterable[str]) -> dict[str, dict[str, st
     # stays at median 1.224 / max 3.478.  Measured, not argued —
     # ``tests/consensus_edge/test_fair_value.py`` pins it.
     if not any(
-        str(s.get("key") or "") in surviving
-        and s.get("scope") == SOURCE_SCOPE_OVERALL_IDP
-        and s.get("is_backbone")
-        for s in _RANKING_SOURCES
+        d.comparability == BRIDGE_QUALIFIED and all(k in surviving for k in d.keys)
+        for d in load_bridge_descriptors()
     ):
         asset_classes["idp"] = SCALE_LOST_IDP_BACKBONE
 
@@ -8227,12 +8244,22 @@ def _compute_unified_rankings(
     # this ladder as a crosswalk so their IDP-only rank 1 is translated
     # to the combined-pool rank of the best IDP, not treated as if it
     # were the overall rank 1 of the shared offense+IDP board.
+    #
+    # C7 / lane 7: the ladder is now built by the CROSS-POSITION BRIDGE OWNER
+    # (``src/bridges``) from every QUALIFIED bridge that measures capable on
+    # this board, not from the first source carrying ``is_backbone``.  That
+    # flag is a label — it can be moved onto a source that cannot seed a
+    # ladder, satisfying the guard while leaving the board broken
+    # (``tests/consensus_edge/test_fair_value.py::TestTheGuardIsACapabilityNotAFlag``)
+    # — and it is no longer read here.  Capability is measured; a bridge is a
+    # FAMILY, so a vendor whose offense and IDP halves sit under two registry
+    # keys (Draft Sharks) can seed a ladder for the first time.
+    #
+    # With ONE usable bridge the combined ladder is the incumbent ladder,
+    # integer for integer, so the healthy board cannot move merely because a
+    # second bridge became possible.
     backbone_source_key: str | None = None
-    for src in active_sources:
-        if src["scope"] == SOURCE_SCOPE_OVERALL_IDP and src.get("is_backbone"):
-            backbone_source_key = src["key"]
-            break
-    if backbone_source_key:
+    if True:
         # ── Derived rows are not this vendor's evidence ──────────────
         #
         # The backbone answers ONE question: at which positions in THIS
@@ -8265,15 +8292,64 @@ def _compute_unified_rankings(
                     in synthetic_pick_derivation_map
                 )
             ]
-        # Only seed the shared-market ladder when the backbone source
-        # actually prices both offense + IDP on a shared scale; this is
-        # detected by the registry declaring offense in extra_scopes.
-        backbone_src_def = next(
-            (s for s in active_sources if s["key"] == backbone_source_key),
-            {},
+        # ── Bridge assessment ───────────────────────────────────────
+        # A bridge whose source is switched off by an override is
+        # UNAVAILABLE, not merely uncovered: ``canonicalSiteValues``
+        # still carries a disabled source's numbers, so measuring
+        # capability alone would let a source the caller excluded keep
+        # translating.
+        bridge_offense_positions = frozenset(_OFFENSE_POSITIONS | {"PICK"})
+        bridge_idp_positions = frozenset(_IDP_POSITIONS)
+        bridge_descriptors = load_bridge_descriptors()
+        bridge_acquisition = {
+            key: AcquisitionOutcome(
+                source_key=key,
+                state=ACQ_UNAVAILABLE,
+                reason="source is not active for this build",
+            )
+            for d in bridge_descriptors
+            for key in d.keys
+            if key not in active_keys
+        }
+        bridge_assessments = assess_bridges(
+            bridge_descriptors,
+            backbone_rows,
+            offense_positions=bridge_offense_positions,
+            idp_positions=bridge_idp_positions,
+            acquisition=bridge_acquisition,
         )
-        backbone_extra_scopes = list(backbone_src_def.get("extra_scopes") or [])
-        if SOURCE_SCOPE_OVERALL_OFFENSE in backbone_extra_scopes:
+        bridge_ladder = build_bridge_ladder(
+            bridge_assessments,
+            backbone_rows,
+            offense_positions=bridge_offense_positions,
+            idp_positions=bridge_idp_positions,
+            # Off by default: admitting a second bridge is a methodology
+            # change with measured board movement, and it is separable from
+            # the withholding repair, which is unconditional.
+            limit=None if feature_flags.is_enabled("multi_bridge_ladder") else 1,
+        )
+
+        # ``backbone`` survives for the PER-POSITION ladders the dormant
+        # ``position_idp`` branch reads, and for the depth stamped in
+        # ``sourceRankMeta``.
+        #
+        # It is deliberately NOT gated on bridge capability.  A per-position
+        # ladder ("DL3 sits at overall-IDP rank 5") is an ordering WITHIN the
+        # IDP class; it carries no claim about offense and needs no
+        # cross-position evidence.  Only the shared-market ladder below is a
+        # cross-position statement, and only it is gated.  Collapsing the two
+        # would refuse an intra-IDP translation for want of evidence it never
+        # needed.
+        usable_bridges = [a for a in bridge_assessments if a.usable]
+        if usable_bridges:
+            backbone_source_key = usable_bridges[0].descriptor.idp_keys[0]
+        else:
+            for _d in bridge_descriptors:
+                _seed = next((k for k in _d.idp_keys if k in active_keys), None)
+                if _seed:
+                    backbone_source_key = _seed
+                    break
+        if backbone_source_key:
             backbone = build_backbone_from_rows(
                 backbone_rows,
                 source_key=backbone_source_key,
@@ -8281,13 +8357,7 @@ def _compute_unified_rankings(
                 offense_positions=_OFFENSE_POSITIONS | {"PICK"},
             )
         else:
-            backbone = build_backbone_from_rows(
-                backbone_rows,
-                source_key=backbone_source_key,
-                idp_positions=_IDP_POSITIONS,
-            )
-    else:
-        backbone = IdpBackbone()
+            backbone = IdpBackbone()
 
     # ── Phase 1: Combined-pass ordinal ranking per source ──
     # row_source_ranks[row_idx][source_key] = effective rank (int)
@@ -8296,6 +8366,9 @@ def _compute_unified_rankings(
     row_source_ranks: dict[int, dict[str, int]] = {}
     row_source_meta: dict[int, dict[str, dict[str, Any]]] = {}
     source_pool_sizes: dict[str, int] = {}
+    # {sourceKey: rows whose vote was withheld for want of a usable bridge}.
+    # Reported on the contract; never silently zero.
+    withheld_no_bridge: dict[str, int] = {}
     # row_eligible_families[row_idx] = every provider family that COULD
     # have covered this row.  Filled in Phase 3 beside softFallbackCount
     # (same eligibility test) and read by the B11 confidence gate.
@@ -8305,8 +8378,11 @@ def _compute_unified_rankings(
     row_confidence_inputs: dict[int, tuple[list[FamilyEvidence], set[str]]] = {}
     # For backbone assertion: remember the actual ladder depth used
     backbone_depth = backbone.depth
-    shared_market_ladder = backbone.shared_idp_ladder()
-    shared_market_depth = backbone.shared_market_depth
+    # The combined ladder from every usable bridge.  EMPTY means no bridge
+    # could be qualified, and an empty ladder is a refusal, not a degenerate
+    # ladder — see the withholding branch in Phase 1.
+    shared_market_ladder = list(bridge_ladder.ladder)
+    shared_market_depth = bridge_ladder.reference_depth
 
     # ── Rookie-translation ladders (built lazily on demand) ──
     # Sources flagged ``needs_rookie_translation=True`` (dlfRookieSf /
@@ -8487,6 +8563,28 @@ def _compute_unified_rankings(
                 backbone_depth_meta = shared_market_depth
                 if method != TRANSLATION_FALLBACK:
                     rank_pool = RANK_POOL_SHARED_MARKET
+                else:
+                    # ── C7: WITHHOLD, never pass the raw rank through ──
+                    #
+                    # A source flagged ``needs_shared_market_translation``
+                    # ranks players within the IDP class only.  With no usable
+                    # ladder, ``translate_position_rank`` returns the raw rank,
+                    # and recording it here is the defect this lane exists to
+                    # remove: the vote then asserts that IDP #1 is asset #1.
+                    # Measured with ``idpTradeCalc`` excluded, that was 661
+                    # votes on untranslated ranks and a top IDP published at
+                    # 9,999 — because ``percentile_to_value`` short-circuits an
+                    # effective rank of 1 to ``DISPLAY_SCALE_MAX`` exactly.
+                    #
+                    # A specialist board genuinely does not know where its #1
+                    # sits against offense, so the honest answer is to cast no
+                    # vote rather than to cast a fabricated one.  The row keeps
+                    # every source that CAN be translated; if that leaves it
+                    # with too few, the existing single-source haircut and the
+                    # confidence gate describe it truthfully.
+                    withheld_no_bridge.setdefault(source_key, 0)
+                    withheld_no_bridge[source_key] += 1
+                    continue
             elif needs_rookie_xlate:
                 # Updated framework: rookie sources skip the ladder.
                 # The ROOKIE master curve + native-N percentile
