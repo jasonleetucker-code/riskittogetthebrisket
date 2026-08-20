@@ -1,0 +1,185 @@
+/* Universal Player Profile ("Player File") — C8-PSI-02 PR B.
+   Same .psi-editorial full-bleed pattern as app/rankings/board.module.css
+   (see that file's .page rule for the reasoning) — .main-shell's padding
+   (globals.css, under an active work claim) is cancelled with matching
+   negative margins rather than edited directly. */
+
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  background: var(--surface-0);
+  color: var(--text-primary);
+  min-height: 100vh;
+  margin: calc(-1 * var(--space-lg));
+  padding: var(--space-lg);
+}
+
+@media (max-width: 1024px) {
+  .page {
+    margin: calc(-1 * var(--space-md));
+    padding: var(--space-md);
+  }
+}
+
+@media (max-width: 768px) {
+  .page {
+    margin: calc(-1 * var(--space-sm)) calc(-1 * var(--space-sm))
+      calc(-1 * (var(--mobile-nav-h) + env(safe-area-inset-bottom, 0px) + var(--space-md)));
+    padding: var(--space-sm) var(--space-sm)
+      calc(var(--mobile-nav-h) + env(safe-area-inset-bottom, 0px) + var(--space-md));
+  }
+}
+
+@media (max-width: 420px) {
+  .page {
+    margin: -6px -6px calc(-1 * (var(--mobile-nav-h) + env(safe-area-inset-bottom, 0px) + 10px));
+    padding: 6px 6px calc(var(--mobile-nav-h) + env(safe-area-inset-bottom, 0px) + 10px);
+  }
+}
+
+@media (max-width: 360px) {
+  .page {
+    margin: -4px -4px calc(-1 * (var(--mobile-nav-h) + env(safe-area-inset-bottom, 0px) + 8px));
+    padding: 4px 4px calc(var(--mobile-nav-h) + env(safe-area-inset-bottom, 0px) + 8px);
+  }
+}
+
+/* ── Hero — same serif-display treatment as Rankings' .hero ── */
+.hero :global(.ds-page-header__title) {
+  font-family: var(--font-display);
+  font-size: var(--font-size-3xl);
+  font-style: italic;
+}
+.hero :global(.ds-page-header__eyebrow) {
+  font-family: var(--font-data);
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
+/* ── Identity row ── */
+.identityRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+.identityMeta {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+  font-size: var(--font-size-sm);
+  color: var(--text-secondary);
+}
+
+/* ── Summary strip — same grid-of-tiles pattern as Rankings' trust strip ── */
+.summaryStrip {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: var(--space-2);
+}
+
+.tabs {
+  border-bottom: 1px solid var(--border-default);
+}
+
+.tabStack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  margin-top: var(--space-3);
+}
+
+/* ── Value chain (ported verbatim from PlayerPopup's player-card.module.css
+   — same token usage, new class scope for this page) ── */
+.chainStage {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  padding-bottom: var(--space-2);
+  border-bottom: 1px dashed var(--border-subtle);
+}
+.chainStage:last-child {
+  padding-bottom: 0;
+  border-bottom: none;
+}
+.chainIndex {
+  min-width: 20px;
+  text-align: center;
+  color: var(--accent);
+  font-weight: var(--font-weight-bold);
+  font-size: var(--font-size-xs);
+}
+.chainBody {
+  flex: 1;
+}
+.chainLabel {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+}
+.chainDescription {
+  font-size: var(--font-size-2xs);
+  color: var(--text-tertiary);
+  margin-top: 2px;
+}
+.chainValue {
+  min-width: 72px;
+  text-align: right;
+  font-family: var(--font-data);
+  font-variant-numeric: tabular-nums;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-bold);
+}
+
+/* ── Source breakdown bars (ported verbatim, see above) ── */
+.sourceRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-bottom: var(--space-1);
+}
+.sourceLabel {
+  min-width: 90px;
+  font-size: var(--font-size-2xs);
+  color: var(--text-tertiary);
+}
+.sourceTrack {
+  flex: 1;
+  height: 12px;
+  background: var(--surface-active);
+  border-radius: var(--radius-1);
+  overflow: hidden;
+}
+.sourceFill {
+  height: 100%;
+  border-radius: var(--radius-1);
+  background: var(--chart-1);
+  transition: width var(--motion-slow) var(--ease-out);
+}
+.sourceFillHigh {
+  background: var(--positive);
+}
+.sourceFillMid {
+  background: var(--accent);
+}
+.sourceFillLow {
+  background: var(--negative);
+}
+.sourceValue {
+  min-width: 64px;
+  text-align: right;
+  font-family: var(--font-data);
+  font-variant-numeric: tabular-nums;
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+}
+.sourceNative {
+  font-weight: var(--font-weight-regular);
+  font-size: var(--font-size-2xs);
+  color: var(--text-tertiary);
+}
