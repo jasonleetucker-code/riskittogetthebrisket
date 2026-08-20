@@ -39,6 +39,7 @@ jobs:
           python - <<'PY'
           import json
           import os
+          import sys
           import time
           import urllib.request
           from datetime import datetime, timezone
@@ -182,20 +183,33 @@ jobs:
               else:
                   result["status"] = "degraded_timeout"
 
-          result["checkedAt"] = datetime.now(timezone.utc).isoformat()
-          rendered = json.dumps(result, indent=2, sort_keys=True) + "\n"
+          now = datetime.now(timezone.utc)
+          result["checkedAt"] = now.isoformat()
+
+          # scripts/sharp_smoke_record.py owns what the durable record IS
+          # and when it is worth rewriting.  It lives in a module rather
+          # than in this heredoc so its decision can be unit-tested;
+          # heredoc logic is untestable, and this decision is the one that
+          # was quietly wrong for 42 commits a day.
+          sys.path.insert(0, str(Path("scripts").resolve()))
+          import sharp_smoke_record as smoke_record
+
+          previous = smoke_record.load_previous(
+              output.read_text() if output.exists() else None
+          )
+          record = smoke_record.build_record(
+              previous, result, now_iso=now.isoformat(), today=now.date().isoformat()
+          )
+          rendered = json.dumps(record, indent=2, sort_keys=True) + "\n"
 
           # THIS RUN's evidence, written where only this run can see it.
           # The gate below reads THIS file and never the tracked artifact.
           #
           # The tracked artifact is a durable RECORD, and a record is not a
           # measurement: it survives between runs, so a gate reading it
-          # grades whatever the last run that wrote it observed.  That is
-          # latent today and becomes live the moment the artifact stops
-          # being rewritten on an unchanged state -- a stale ``healthy``
-          # would then pass a run that measured nothing, which is a worse
-          # false green than the one being removed and is invisible in
-          # review because the diff only removes a write.
+          # grades whatever the last run that wrote it observed.  With the
+          # write now conditional that is no longer theoretical -- a stale
+          # ``healthy`` would pass a run that measured nothing.
           #
           # ``RUNNER_TEMP`` is indexed, not ``.get``-ed with a fallback: if
           # the runner does not provide it the gate must fail loudly rather
@@ -203,16 +217,34 @@ jobs:
           current = Path(os.environ["RUNNER_TEMP"]) / "sharp-smoke-current.json"
           current.write_text(rendered)
 
-          output.write_text(rendered)
+          # The tracked record is rewritten only when the STATE changed or
+          # the day rolled over.  Everything else is a commit that says
+          # "still the same", and 42 of those a day is what this replaces.
+          # The heartbeat half is not optional: without it the record
+          # freezes and a workflow that has stopped firing is
+          # indistinguishable from one reporting a stable state.
+          if smoke_record.decide_write(previous, record):
+              output.write_text(rendered)
+              print("recording: state changed or the day rolled over")
+          else:
+              print(
+                  "not recording: same state, same day "
+                  f"(since {record['stateSince']}) — the run summary carries this run"
+              )
+
           print(rendered)
 
+          # EVERY run reports here, written or not.  This is the per-run
+          # heartbeat, and it lives in the run ledger where a stale file
+          # cannot fake it.
           summary = os.environ.get("GITHUB_STEP_SUMMARY")
           if summary:
               with open(summary, "a", encoding="utf-8") as handle:
                   handle.write(
-                      f"### Sharp production smoke\n\n"
-                      f"`{result['status']}` after {result['attempts']} attempt(s)"
-                      f" at {result['checkedAt']}\n\n```json\n{rendered}```\n"
+                      "### Sharp production smoke\n\n"
+                      f"`{record['status']}` — measured: {record['measured']} — "
+                      f"in this state since {record['stateSince']}\n\n"
+                      f"```json\n{rendered}```\n"
                   )
           PY
 
@@ -280,6 +312,23 @@ jobs:
               raise SystemExit(0)
 
           if status == "unverifiable_unauthenticated":
+              # LOSING a capability the record shows we once had is a
+              # regression, and regressions are red.  This is the one
+              # tooth in an otherwise non-enforcing gate, and it is only
+              # computable because the durable record carries
+              # ``lastMeasuredOn`` forward across runs.
+              #
+              # It can only ADD a failure condition, never remove one, so
+              # it cannot manufacture a green.
+              if result.get("credentialRegression"):
+                  raise SystemExit(
+                      "::error title=Sharp smoke lost its credential::"
+                      "/api/sharp/* answered 401, but this check HAS measured "
+                      f"production before (last on {result.get('lastMeasuredOn')}). "
+                      "A capability that used to work and now does not is a "
+                      "regression, not a standing gap."
+                  )
+
               # Insufficient evidence. Loud, not fatal, and specific
               # about what would make it a real check.
               print(
