@@ -110,3 +110,87 @@ claimed.
 `verify-sharp-production.yml` must leave `data/ops/sharp-production-smoke.json`
 byte-identical and produce **no** commit. Full-window read still due
 2026-08-21T07:45Z.
+
+---
+
+## Checkpoint 2026-08-20T08:58Z — the commit suppression works; a different write does not
+
+Window: **07:40:12Z → 08:58:24Z** (78 min), starting from the first post-merge
+write `65bfca4d2`.
+
+### The claim under test: PASSES, at this scale
+
+| quantity | value |
+|---|---|
+| smoke commits written | **0** |
+| `verify-sharp-production.yml` runs in the window | **3** — `32348365941`, `32348564167`, `32350502359` |
+| their conclusions | **success, success, success** |
+| expected at the pre-merge rate (~27 min mean) | ~3 |
+
+**Both halves hold.** Volume fell to zero *and* the workflow demonstrably kept
+running green — so this is suppression, not the silence of a dead workflow, which
+is the distinction that makes the number mean anything.
+
+The mechanism is visible in the run's own environment: run `32350502359` carried
+`STATE_SINCE: 2026-08-20T07:40:06.649789+00:00` — the timestamp written by the
+*first* post-merge run, carried forward unchanged across three subsequent runs.
+The state is being read from the tracked record, recognised as identical, and not
+rewritten. `LAST_MEASURED_ON:` is empty, which is honest: it has never measured.
+
+The warning fires every run and is not suppressed:
+
+> `##[warning]/api/sharp/* requires a session and this workflow holds no credential, so population health was NOT measured.`
+
+**This does not yet establish the ≤ 1/day result.** 78 minutes is not a day, and
+the day-rollover write has not been exercised. Full-window read still due
+**2026-08-21T07:45Z**.
+
+### DEFECT FOUND — the tracker duplicates, one issue per run
+
+The commit churn is gone. **An issue churn replaced it, in a different medium.**
+
+| issue | created |
+|---|---|
+| #951 | 07:40:12Z |
+| #953 | 08:21:20Z |
+| #955 | 08:25:44Z |
+| #957 | 08:47:10Z |
+
+Four **open, identical** issues — same title, same author (`github-actions`), same
+`sharp-unverifiable` label — **one per run, 1:1**. At the observed rate that is
+roughly **85 issues/day**, against the ~48 commits/day it removed.
+
+This is precisely the outcome #948 listed as unproven — *"that the tracker opens
+once and comments rather than duplicating"* — and it is now measured as **failing**.
+It is also the F-23 failure mode the step's own comment cites (*"pinning one of
+them is what left 14 undrained trackers behind in `e2e.yml`"*), reproduced by the
+code written to prevent it.
+
+**What is established about the cause, and what is not:**
+
+* The lookup **did not error**. The `if !` fallback prints
+  `::error title=Tracker lookup failed::` and that line is **absent** from all 634
+  log lines of run `32350502359`. So `gh issue list` exited 0 and `EXISTING`
+  came back empty or `null` — it silently found nothing.
+* **The jq filter is not the bug.** Reconstructing the exact program bash hands to
+  `gh` (`.github/workflows/verify-sharp-production.yml:437-440`) and running it under
+  jq 1.7 against a faithful two-issue fixture returns `951`. The YAML→bash escaping
+  resolves correctly to the regex `\[bot\]$`, and the author normalisation is a
+  no-op on `github-actions`, which is the login the API reports.
+
+So the fault is in **what the lookup receives or how it is invoked at runtime**,
+not in the filter — which is as far as this can be narrowed without a run that
+echoes the raw `gh issue list` output. That one-line debug is the next step and it
+belongs to the CI lane.
+
+**The four duplicates are deliberately NOT drained yet.** Closing them now is
+pointless churn while the workflow still opens one per run; drain once the fix
+lands, as F-23 did.
+
+Routed to the CI reliability lane. Under the anti-thrashing rule this is a
+demonstrated causal defect in #948, which is the condition that unfreezes it.
+
+### Also confirmed this checkpoint
+
+`Deploy Production` run `32345039692` for the #948 merge
+(`9e83509607736f0419dddf3ac00da4110b569f6b`) **completed success** at 08:20:57Z.
