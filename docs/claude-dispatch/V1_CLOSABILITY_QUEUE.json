@@ -1,7 +1,7 @@
 {
   "_comment": "Live V1 Closability Queue, owned by Claude 7 as independent V1 traffic controller / adversarial auditor. Ranks IMPLEMENTED_UNVERIFIED rows by verification effort per row gained. NOT an authority on V1 status — only Claude 5 promotes a row, and no percentage here is claimed as achieved.",
-  "updatedAt": "2026-08-20T15:45:00Z",
-  "auditCycle": 38,
+  "updatedAt": "2026-08-20T17:45:00Z",
+  "auditCycle": 42,
   "evidenceBasis": {
     "contract": "docs/VERSION_1_COMPLETION_CONTRACT.md §3 read on origin/main e3b387ca5",
     "deployedSha": "e3b387ca5",
@@ -399,25 +399,26 @@
     "_staleByConstruction": true,
     "_ifTheyDisagree": "the contract wins, always, and this block is the thing that is wrong.",
     "_doNotQuote": "Do not cite this block as the V1 status. Read the contract on current main instead.",
-    "observedVerifiedRows": 60,
+    "observedVerifiedRows": 61,
     "observedRequiredRows": 136,
-    "observedAtSha": "0c6f1fdcd",
-    "observedAt": "2026-08-20T15:42:00Z",
+    "observedAtSha": "6ce6eb686",
+    "observedAt": "2026-08-20T17:40:00Z",
     "howObserved": "counted `VERIFIED` in the §3 table of the contract as it exists at that exact SHA",
-    "note": "VERIFIED unchanged at 60/136. No promotion pass since #988 (cycle 36)."
+    "note": "V1-29 VERIFIED via #998. Fifth promotion pass this session."
   },
   "_authorityNote": "This queue RANKS work by verification effort. It does not own, publish or restate V1 status. docs/VERSION_1_COMPLETION_CONTRACT.md §3 owns that, and every count in this file is a derived reading stamped with the SHA it came from.",
-  "cycle38": {
-    "promotionPassRan": "NO. V1-52 moved NOT STARTED -> IN PROGRESS as a status correction (#994), not a promotion.",
+  "cycle42": {
+    "promotionPassRan": "YES — #998. V1-29 VERIFIED, 60 -> 61/136. Ends a seven-cycle streak without a landed promotion.",
+    "bottleneckUpdated": "Cycles 21-42: promotion passes remain the sole numerator mover — five now (#947, #963, #972, #988, #998), each arriving after implementation sat merged-but-unpromoted for one to several cycles. V1-108 and V1-88 are the current examples of that lag.",
     "tierB": {
-      "V1-106": "EIGHTEENTH cycle. Still IN PROGRESS, still citing only PR #760, still the ONLY standing item with no PR or fix in flight anywhere.",
-      "V1-108": "Implementation merged (#989, cycle 36). Promotion still pending, two cycles later.",
-      "V1-88": "Implementation open (#991). Still unmerged."
+      "V1-106": "TWENTY-SECOND-plus cycle. Still IN PROGRESS, still citing only PR #760, still the ONLY standing item with no PR or fix in flight anywhere.",
+      "V1-108": "Implementation merged (#989, cycle 36). Still awaiting promotion, six cycles later.",
+      "V1-88": "Implementation still open (#991). Still unmerged."
     },
     "standingItems": [
       {
         "item": "Lane 2 ACTIONABLE_IDLE",
-        "elapsed": "~23h; branch still 9e9d8e8ec",
+        "elapsed": "~25h+; branch still 9e9d8e8ec",
         "row": "V1-43 NOT STARTED, target L1, unblocked on plain main",
         "blocker": "ASSIGNMENT DELIVERY of L2-2026-08-19-02",
         "dispatcherAction": "Surfaced only. No second assignment written."
@@ -425,7 +426,7 @@
       {
         "item": "Lane 4 on-box verification batch",
         "rows": "V1-57, V1-129, V1-60 — IMPLEMENTED_UNVERIFIED",
-        "elapsed": "~23.5h; branch still 66fb1a053"
+        "elapsed": "branch still 66fb1a053"
       },
       {
         "item": "Abandoned refs, verified by name",
@@ -436,6 +437,6 @@
         ]
       }
     ],
-    "stalePRsUnacted": "#759 and #760 still open against landed code. Fourteenth cycle."
+    "stalePRsUnacted": "#759 and #760 still open against landed code."
   }
 }

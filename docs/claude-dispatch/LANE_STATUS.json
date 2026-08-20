@@ -1,7 +1,7 @@
 {
   "_comment": "Lane utilization state, owned by Claude 7 (Lane Dispatcher). NOT an authority on integration sequencing (Claude 5 / docs/EXECUTION_PLAN.md), on V1 status (docs/VERSION_1_COMPLETION_CONTRACT.md) or on canonical ownership (CLAUDE.md). Repository evidence outranks this file: where they disagree, this file is wrong and must be corrected.",
-  "updatedAt": "2026-08-20T15:45:00Z",
-  "dispatchCycle": 38,
+  "updatedAt": "2026-08-20T17:45:00Z",
+  "dispatchCycle": 42,
   "writePolicy": "This file and ASSIGNMENTS.json are written ONLY on a material state transition — new assignment, assignment accepted, completion, blocker, freeze/unfreeze, or a meaningful dependency change. A heartbeat that finds nothing changed produces no commit and no CI run.",
   "evidenceBasis": "origin/main 079fc9e4a; §3 diffed row-by-row from cycle-19 main (c5a367266); all refs resolved live; #945 CI green 04:57:35Z",
   "assignmentSourceNote": "Lanes 1-6 carry the owner's original six manual assignments, tracked in detail by this dispatcher. Lanes 8-13 are five additional owner-authorized campaign lanes (Claude 8 chartered 2026-08-20; Claude 9-13 chartered the same day under the POST-V1 C-Series mass-build campaign, EXECUTION_PLAN.md §0). This dispatcher did not originate any of these eleven assignments and does not own or re-scope them. Lanes 8-13 are tracked here only lightly — ownership boundaries and authorization citation — because they are self-directed under their own charter, unlike lanes 1-6 which this dispatcher actively monitors for idleness and dispatches follow-on work to. There is no lane 7: Claude 7 is the dispatcher identity, per dispatcherIdentity above.",
@@ -251,13 +251,13 @@
     "_staleByConstruction": true,
     "_ifTheyDisagree": "the contract wins, always, and this block is the thing that is wrong.",
     "_doNotQuote": "Do not cite this block as the V1 status. Read the contract on current main instead.",
-    "observedVerifiedRows": 60,
+    "observedVerifiedRows": 61,
     "observedRequiredRows": 136,
-    "observedAtSha": "0c6f1fdcd",
-    "observedAt": "2026-08-20T15:42:00Z",
+    "observedAtSha": "6ce6eb686",
+    "observedAt": "2026-08-20T17:40:00Z",
     "howObserved": "counted VERIFIED in the §3 table at that exact SHA; independently summed all statuses to 136 and confirmed the contract’s own table and completion line agree",
     "denominatorChangedAtThisSha": "YES — 132 -> 136. See cycle26Transitions.",
-    "note": "VERIFIED unchanged at 60/136. V1-52 corrected NOT STARTED -> IN PROGRESS via #994, an accuracy correction, not a promotion."
+    "note": "V1-29 promoted VERIFIED via #998 (fifth promotion pass this session, after #947/#963/#972/#988). Seven-cycle streak without a landed promotion pass ended."
   },
   "canonicalOwnerRule": "This dispatcher previously carried a `v1` block with verified/percent fields that read as authoritative, and it DRIFTED — PR #945 declared 48/132 while the contract on main said 55/132. That is a second owner of the numerator forming inside a coordination record, which is the exact defect class this dispatcher has spent the session flagging in other lanes. Corrected on integration review: the fields are renamed to name themselves derived, carry the SHA they were read at, and declare the contract the winner in any disagreement.",
   "correction_C24": {
@@ -357,24 +357,27 @@
       "handoff": "exact head 40509bc5a on claude/lane-dispatcher-orchestrator-u5hpca (#945)"
     }
   },
-  "cycle38Transitions": {
-    "mainTip": "0c6f1fdcd (was 7a6af1027)",
-    "myOwnPr": {
-      "pr": "#945",
-      "head": "61004e586 — unchanged, no push this cycle since nothing material required one",
-      "verdict": "Validate PR SUCCESS, job 96467482637, 14:45:48Z -> 15:04:33Z (same run reported last cycle; re-confirmed rather than re-reported blind)"
-    },
+  "prContinuity_C42": {
+    "event": "#945 MERGED as afdb6463a. This session's harness auto-unsubscribed from its PR activity and instructed not to reopen it.",
+    "consequence": "A NEW branch and PR are required to continue durable dispatch records — this is a different, ongoing change (cycle 42 onward), not a reopening of #945's content.",
+    "newBranch": "claude/lane-dispatcher-orchestrator-cycle42, created off main at 6ce6eb686 (the exact post-merge tip) immediately after the merge notification, before any further main movement — verified clean, no rebase needed.",
+    "verifiedPostMerge": "All three dispatch JSON files landed on main intact at their cycle-38 state (dispatchCycle 38), confirming #945's content merged without corruption.",
+    "newPr": "to be opened this cycle alongside this commit."
+  },
+  "cycle42Transitions": {
+    "mainTip": "6ce6eb686 (was 27af5969a at cycle 41's last check, then #945 itself merged plus further movement)",
+    "theStalePromptItReceived": "This cycle's dispatcher prompt was queued before #945 merged and referenced it as 'my PR', a head that no longer existed, and a seven-cycle unchanged-main narrative. Per rule (b) resolved everything live rather than trusting the prompt: the wake notification for #945's merge had already arrived and was handled proactively (branch prepared) before this prompt fired.",
     "merged": [
-      "#987 — V1-29: close the discovery gap in the replacement-level single-owner guard",
-      "#971 — Lane 8 PR C: Dynasty Nerds IDP Top-275 acquisition",
-      "#994 — Integration: 'Ledger truth: V1-52 IN PROGRESS, P1-BDVM claim closed, smoke churn root-caused'"
+      "#984 — C8-PSI-02: Premium Sports Intelligence migration, Rankings reference route + Player File",
+      "#945 — this dispatcher's own cycle 21-41 records",
+      "#998 — Integration promotion: V1-29 VERIFIED at L2 (61/136)"
     ],
     "rowDiff": {
-      "method": "§3 row-diffed a9799ef93 -> 0c6f1fdcd (spanning cycles 37-38, since cycle 37 was a no-commit cycle with no row movement)",
-      "result": "ONE change: V1-52 NOT STARTED -> IN PROGRESS. VERIFIED unchanged at 60.",
-      "contractFileTouch": "#994 touched the file (3 insertions/3 deletions) — read the diff per rule (o) rather than assuming: it is a STATUS CORRECTION, the row's own text reads 'Status corrected 2026-08-20 from NOT STARTED', matching the commit title exactly. Not a promotion, not a denominator change — independent count confirms 60+20+22+32+2=136, contract's own table agrees."
+      "method": "§3 row-diffed 0c6f1fdcd (cycle 38 baseline) -> 6ce6eb686",
+      "result": "ONE status change: V1-29 IN PROGRESS -> VERIFIED. Denominator held at 136.",
+      "selfConsistency": "Independent count 61+20+21+32+2=136; contract's own table and completion line read 61/136=44.9%, agreeing.",
+      "streakEnded": "Seven cycles (36 through 41 inclusive of the quiet period) without a landed promotion pass. #998 ends it — the V1-29 promotion this record has been watching sit unmerged at commit f46701d39 since cycle 39 finally landed."
     },
-    "v1_108_and_v1_88_stillPending": "Both still IMPLEMENTED_UNVERIFIED on main. Neither #989 (V1-108, merged 2 cycles ago) nor #991 (V1-88, still open at last check) has been promoted yet.",
-    "branchHygiene": "claude/lane8-dynasty-nerds-acquisition and claude/v1-29-replacement-discovery-guard deleted on merge — both landed and cleaned up in the same cycle their PRs merged."
+    "v1_108_and_v1_88_stillPending": "Both remain IMPLEMENTED_UNVERIFIED. The Integration authority branch (claude/v1-integration-authority-xaqcv8) has moved to a new commit (494608cba) since the V1-29 promotion landed — likely staging the next promotion pass. Not yet examined in detail; will check next cycle."
   }
 }
