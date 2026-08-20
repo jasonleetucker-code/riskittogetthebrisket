@@ -429,16 +429,45 @@ jobs:
           # failure: say so loudly, then still file, because losing the
           # finding is worse than a duplicate.
           #
-          # The author clause normalises the `[bot]` suffix away rather
-          # than pinning either spelling: `gh` reports the login as
-          # `github-actions` via GraphQL and `github-actions[bot]` via
-          # REST, and pinning one of them is what left 14 undrained
-          # trackers behind in e2e.yml.
-          if ! EXISTING=$(gh issue list --state open --label sharp-unverifiable \
-                            --json number,title,author \
-                            --jq "[.[] | select((.author.login | sub(\"\\\\[bot\\\\]\$\"; \"\")) == \"github-actions\")
-                                       | select(.title==\"${TRACKER_TITLE}\")] | .[0].number"); then
+          # ISSUE #958.  The author clause is GONE, and that is the fix.
+          # It has now failed twice on the same guess: F-23 pinned the bare
+          # `github-actions`, then normalised a `[bot]` SUFFIX away.  Neither
+          # was ever reproduced against real `gh` output — F-23's own note
+          # calls the spelling "a bet" — and the bet lost again here, one new
+          # issue per run (#951/#953/#955/#957 in 67 minutes).
+          # `tests/deploy/test_sharp_tracker_dedup.py` runs this shell against
+          # a gh stub and real jq for all three spellings: `github-actions` and
+          # `github-actions[bot]` both PASS the old clause, and
+          # `app/github-actions` — the `app/` prefix gh puts on bot actors in
+          # `--json author` — is the one that fails, which is the behaviour
+          # measured in production.
+          #
+          # Identity is now LABEL + exact TITLE.  `sharp-unverifiable` is
+          # created and applied only by this workflow, and TITLE is the same
+          # constant the create below uses, so a false positive needs a human
+          # to apply this workflow's label AND reuse its exact title.  That is
+          # what the author clause was defending against, and the title
+          # defends it without depending on a spelling nobody has verified.
+          #
+          # OLDEST wins, not `.[0]`.  gh sorts newest-first, so `.[0]` picks
+          # whichever duplicate was filed last — the exact mechanism that let
+          # #753 displace the real tracker #732 in e2e.yml.  min-by-number is
+          # stable and drains the duplicates that already exist onto one.
+          #
+          # The author logins are still FETCHED and echoed once per run, so the
+          # spelling question is settled by evidence in the log rather than by
+          # a third guess.  Nothing branches on it.
+          if ! ROWS=$(gh issue list --state open --label sharp-unverifiable \
+                        --json number,title,author); then
             echo "::error title=Tracker lookup failed::gh issue list failed; filing without deduplicating against the existing tracker"
+            ROWS=""
+          fi
+          if [[ -n "$ROWS" ]]; then
+            echo "::notice title=Tracker author spelling::$(printf '%s' "$ROWS" \
+              | jq -r '[.[].author.login] | unique | join(",")')"
+            EXISTING=$(printf '%s' "$ROWS" \
+              | jq -r "[.[] | select(.title==\"${TRACKER_TITLE}\") | .number] | min // empty")
+          else
             EXISTING=""
           fi
           if [[ -n "$EXISTING" && "$EXISTING" != "null" ]]; then
@@ -451,10 +480,13 @@ jobs:
         # The other half of the pattern.  The day a token is provisioned
         # this drains itself, so nobody has to remember the issue exists.
         #
-        # Keyed on author AND title, the same constant the open step uses,
-        # for the reason e2e.yml records: `sharp-unverifiable` is a plain
-        # label and a human can apply it to a hand-written issue, which a
-        # label-only close would then close on their behalf.
+        # Keyed on LABEL + exact TITLE, the same rule and the same constant
+        # the open step uses — #958.  A label-only close WOULD close a human's
+        # hand-labelled issue on their behalf, which is the risk e2e.yml
+        # records; the exact-title match is what prevents that, and unlike the
+        # retired author clause it does not depend on which spelling gh emits.
+        # Closes EVERY match, so the duplicates that accumulated drain on the
+        # first healthy run.
         if: ${{ steps.gate.outputs.measured == 'true' }}
         shell: bash
         env:
@@ -465,8 +497,7 @@ jobs:
           RUN_URL="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
           if ! OPEN=$(gh issue list --state open --label sharp-unverifiable \
                         --json number,title,author \
-                        --jq "[.[] | select((.author.login | sub(\"\\\\[bot\\\\]\$\"; \"\")) == \"github-actions\")
-                                   | select(.title==\"${TRACKER_TITLE}\")] | .[].number"); then
+                        --jq "[.[] | select(.title==\"${TRACKER_TITLE}\") | .number] | sort | .[]"); then
             echo "::error title=Tracker lookup failed::gh issue list failed; the green all-clear did NOT run, so an open tracker may be stale"
             exit 1
           fi
