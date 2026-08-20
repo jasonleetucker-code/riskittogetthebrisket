@@ -329,7 +329,14 @@ table already said 47, and on its first real use it caught the same drift again
 
 **V1 completion: 55 / 132 = 41.7%.**
 
-**Up five, and every one of them on deployed evidence rather than on a merge.**
+**Movement to 55 (2026-08-20 04:15 UTC), and the evidence classes differ row by row.**
+48 → 55: `V1-81` (L2 — board measured), `V1-44` and `V1-39` (L1 — mutation, `V1-44` in BOTH runtimes), and `V1-114` / `V1-115` / `V1-116` / `V1-118` (L1 — the governance guards mutated against the real tree). Immediately before them, 45 → 48: `V1-34` and `V1-130` (L1/L2 — mutation plus a 0-value/0-rank board diff) and `V1-95` (L2 — **deployed** evidence, read off `/api/public/league/awards` after the `e37d2786e` deploy). Six rows were REFUSED in the same pass on their own measurements (`V1-29`, `V1-51`, `V1-63`, `V1-65`, `V1-88`, `V1-92`).
+
+Each row states the class it was promoted on; nothing here is promoted from a merge or from CI alone. **Only `V1-95` in this batch rests on deployed evidence** — the rest are deterministic or board-measured, which is what their stated levels require.
+
+---
+
+**HISTORICAL — the earlier 40 → 45 movement (2026-08-18/19).** The paragraphs below record that pass and are retained as evidence; they do **not** describe the tally above. At that time the claim *up five, and every one of them on deployed evidence rather than on a merge* was accurate for those five rows.
 #910 merged at 21:29 UTC; the deploy that carried it completed at ~22:50 and the
 2-hourly scrape at 22:55 produced the first board built entirely by post-#910
 code. Measured against `chaseupside.com` at 23:00:
