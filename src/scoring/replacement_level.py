@@ -12,23 +12,27 @@ scoring-fit path, future projection sources in Phase 2+).
 
 What this module owns
 ─────────────────────
-1. ``starter_slot_counts`` — maps a Sleeper ``roster_positions`` list
-   plus team count to ``{position: int}``.  Splits FLEX (RB/WR/TE
-   1/3 each), SUPER_FLEX (QB/RB/WR/TE 1/4 each), REC_FLEX (WR/TE/RB
-   1/3 each), IDP_FLEX (DL/LB/DB 1/3 each).
-2. ``replacement_per_game`` — per-position replacement-level
+1. ``replacement_per_game`` — per-position replacement-level
    points-per-game.  Defined as the average per-game pace of the
    five players ranked just *below* the league's starter cutoff
-   (so injured starters don't anchor the baseline).
-3. ``vorp_table`` — for each player: ``vorp = points - replacement
-   * games``.  Returns sorted descending.
+   (so injured starters don't anchor the baseline).  **This is the
+   canonical owner of the fantasy-points replacement baseline**, and
+   ``public_league/awards.py`` consumes it through a shim.
+2. ``starter_slot_counts`` — maps a Sleeper ``roster_positions`` list
+   plus team count to ``{position: int}``.  The flex split comes from
+   the canonical lineup owner (``src/ros/lineup.slot_demand``), not
+   from a table here; see the function for the REC_FLEX correction
+   that came with it.  Currently unconsumed.
 
 What this module does NOT own
 ─────────────────────────────
 * No Sleeper roster fetch — caller passes already-built rows.
-* No team / owner attribution — the input row is intentionally
-  flat.  ``awards.py`` decorates with team / owner after calling
-  ``vorp_table``.
+* No per-player VORP table.  ``vorp_table`` was retired by V1-29 —
+  it had no production caller and no test, and its stated purpose
+  (reuse by the IDP scoring-fit pipeline) never landed.  The live
+  VORP is ``public_league/awards.py::_vorp_rows``, which is NOT a
+  copy of it: it runs on STARTER-ONLY points and an award-convention
+  slot table, and delegates only the baseline to this module.
 * No fantasy-points computation — caller pre-computes
   ``points`` (e.g. via ``realized_points.compute_cumulative_points``).
 
@@ -64,17 +68,6 @@ class PlayerSeasonRow:
     # Optional metadata — kept here so callers don't have to maintain
     # a parallel lookup; the VORP functions ignore it.
     player_name: str = ""
-
-
-@dataclass(frozen=True)
-class VorpRow:
-    player_id: str
-    position: str
-    player_name: str
-    points: float
-    games: int
-    vorp: float
-    replacement_per_game: float
 
 
 # ── Slot-counting (flex-aware) ────────────────────────────────────
@@ -175,61 +168,3 @@ def replacement_per_game(
     if not band:
         return per_game[-1]
     return sum(band) / len(band)
-
-
-# ── Top-level VORP table ──────────────────────────────────────────
-def vorp_table(
-    rows: Iterable[PlayerSeasonRow],
-    starter_slots_by_pos: dict[str, int],
-    *,
-    band_size: int = 5,
-) -> list[VorpRow]:
-    """Compute VORP per player, grouped by position.
-
-    For each position present in ``rows``:
-
-      * Look up the position's ``starter_slots`` from
-        ``starter_slots_by_pos``.  Positions with no slot
-        configured fall back to ``max(1, len(group)//2)`` so a
-        single-game cameo doesn't outshine real full-season
-        starters.
-      * Compute the per-game replacement baseline via
-        ``replacement_per_game``.
-      * Per player: ``vorp = points - (replacement_per_game * games)``.
-
-    Returns a single flat list of ``VorpRow``s sorted by ``vorp``
-    descending.  Callers that want per-position views can group by
-    ``row.position`` after the fact.
-    """
-    grouped: dict[str, list[PlayerSeasonRow]] = defaultdict(list)
-    for r in rows or []:
-        if not isinstance(r, PlayerSeasonRow):
-            continue
-        if not r.position:
-            continue
-        if r.games <= 0:
-            continue
-        grouped[r.position].append(r)
-
-    out: list[VorpRow] = []
-    for pos, group in grouped.items():
-        slots = starter_slots_by_pos.get(pos, 0)
-        if slots <= 0:
-            slots = max(1, len(group) // 2)
-        rpg = replacement_per_game(group, slots, band_size=band_size)
-        for r in group:
-            replacement_total = rpg * r.games
-            vorp = r.points - replacement_total
-            out.append(
-                VorpRow(
-                    player_id=r.player_id,
-                    position=pos,
-                    player_name=r.player_name,
-                    points=round(r.points, 2),
-                    games=r.games,
-                    vorp=round(vorp, 2),
-                    replacement_per_game=round(rpg, 2),
-                )
-            )
-    out.sort(key=lambda v: -v.vorp)
-    return out
