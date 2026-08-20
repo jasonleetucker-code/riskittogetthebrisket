@@ -1,7 +1,7 @@
 {
   "_comment": "Lane utilization state, owned by Claude 7 (Lane Dispatcher). NOT an authority on integration sequencing (Claude 5 / docs/EXECUTION_PLAN.md), on V1 status (docs/VERSION_1_COMPLETION_CONTRACT.md) or on canonical ownership (CLAUDE.md). Repository evidence outranks this file: where they disagree, this file is wrong and must be corrected.",
-  "updatedAt": "2026-08-20T13:15:00Z",
-  "dispatchCycle": 33,
+  "updatedAt": "2026-08-20T13:45:00Z",
+  "dispatchCycle": 34,
   "writePolicy": "This file and ASSIGNMENTS.json are written ONLY on a material state transition — new assignment, assignment accepted, completion, blocker, freeze/unfreeze, or a meaningful dependency change. A heartbeat that finds nothing changed produces no commit and no CI run.",
   "evidenceBasis": "origin/main 079fc9e4a; §3 diffed row-by-row from cycle-19 main (c5a367266); all refs resolved live; #945 CI green 04:57:35Z",
   "assignmentSourceNote": "Lanes 1-6 carry the owner's original six manual assignments, tracked in detail by this dispatcher. Lanes 8-13 are five additional owner-authorized campaign lanes (Claude 8 chartered 2026-08-20; Claude 9-13 chartered the same day under the POST-V1 C-Series mass-build campaign, EXECUTION_PLAN.md §0). This dispatcher did not originate any of these eleven assignments and does not own or re-scope them. Lanes 8-13 are tracked here only lightly — ownership boundaries and authorization citation — because they are self-directed under their own charter, unlike lanes 1-6 which this dispatcher actively monitors for idleness and dispatches follow-on work to. There is no lane 7: Claude 7 is the dispatcher identity, per dispatcherIdentity above.",
@@ -253,11 +253,11 @@
     "_doNotQuote": "Do not cite this block as the V1 status. Read the contract on current main instead.",
     "observedVerifiedRows": 59,
     "observedRequiredRows": 136,
-    "observedAtSha": "7c826f9c2",
-    "observedAt": "2026-08-20T13:12:00Z",
+    "observedAtSha": "892df5686",
+    "observedAt": "2026-08-20T13:42:00Z",
     "howObserved": "counted VERIFIED in the §3 table at that exact SHA; independently summed all statuses to 136 and confirmed the contract’s own table and completion line agree",
     "denominatorChangedAtThisSha": "YES — 132 -> 136. See cycle26Transitions.",
-    "note": "Unchanged at 59/136. Two merges this cycle (#976, #974) touched EXECUTION_PLAN.md/WORK_CLAIMS.md and added one V1 contract CHANGE-LOG line recording a +0 authorization — verified it is a log entry, not a §3 row edit, by reading the diff directly."
+    "note": "Unchanged at 59/136. One merge this cycle (#961, Claude 10 / Lane 10) — did not touch the contract file at all; zero rows by role."
   },
   "canonicalOwnerRule": "This dispatcher previously carried a `v1` block with verified/percent fields that read as authoritative, and it DRIFTED — PR #945 declared 48/132 while the contract on main said 55/132. That is a second owner of the numerator forming inside a coordination record, which is the exact defect class this dispatcher has spent the session flagging in other lanes. Corrected on integration review: the fields are renamed to name themselves derived, carry the SHA they were read at, and declare the contract the winner in any disagreement.",
   "correction_C24": {
@@ -357,24 +357,22 @@
       "handoff": "exact head 40509bc5a on claude/lane-dispatcher-orchestrator-u5hpca (#945)"
     }
   },
-  "cycle33Transitions": {
-    "mainTip": "7c826f9c2 (was 45d5cdac1)",
+  "cycle34Transitions": {
+    "mainTip": "892df5686 (was 7c826f9c2)",
     "myOwnPr": {
       "pr": "#945",
-      "head": "c6ade23f7",
-      "verdict": "Validate PR SUCCESS, job 96429090356, 12:43:16Z -> 13:01:22Z",
-      "runDuration": "18m6s — a new maximum (prior: 17m11s, 17m4s, 13m29s), still under the 22-minute interval but the margin is narrowing again."
+      "head": "b89fe75f5",
+      "verdict": "Validate PR SUCCESS, job 96439186866, 13:18:02Z -> 13:35:54Z",
+      "runDuration": "17m52s — inside the 13m29s-18m6s band observed so far, comfortably under the 24-minute interval."
     },
     "merged": [
-      "#974 — Integration checkpoint ('#948 checkpoint at 4h29m: 0 commits, 13 runs; tracker repair is 1:1 over 8 runs')",
-      "#976 — Integration governance ('Authorize the first PSI production migration; release two stale claims')"
+      "#961 — Claude 10 (C4 + waiver/draft-related C7): waiver ledger, own-league Market Trade Ledger, comparable-trade matching (C4-WAIV-01, C4-MTL-01, C4-MTL-03)"
     ],
     "rowDiff": {
-      "method": "§3 row-diffed 45d5cdac1 -> 7c826f9c2",
+      "method": "§3 row-diffed 7c826f9c2 -> 892df5686",
       "result": "NO ROW CHANGED. 59 VERIFIED of 136, independent count and contract's own table agree.",
-      "theOneLineChangeInTheContractFile": "#976 added ONE line to VERSION_1_COMPLETION_CONTRACT.md's §10 change log: a '+0' entry recording the PSI production-migration authorization as execution-timing only. Read the diff directly rather than trusting the file-touched signal — confirmed it is a change-log addition, not a §3 status edit, consistent with the row-diff finding nothing moved."
+      "contractFileTouch": "NONE — git diff --stat on VERSION_1_COMPLETION_CONTRACT.md for this range is empty, so rule (o) doesn't even need to activate here; the clean case."
     },
-    "rule_n_appliedAgain": "Both merges are Integration governance/operational work (a checkpoint record and an authorization record), correctly zero-row. Fourth consecutive cycle where this dispatcher has verified a zero-row merge against the merging lane's role before treating it as anything other than the designed outcome.",
-    "noteworthy": "#976's own text names a defect this dispatcher's earlier framing could have caused: '#965 records avoiding globals.css because this row still read open' — a stale claim (claude/premium-ui-migration-ltldy0, done via #912) was costing another lane real avoidance behavior until Integration released it this cycle. Not this dispatcher's record, but the same failure shape as the lane-numbering and V1-tally corrections already logged here: a stale record outliving the event it described."
+    "rule_n_appliedAgain": "#961 is a Claude 9-13 mass-build lane (Claude 10 / C4), which per EXECUTION_PLAN.md may not mark a §3 row VERIFIED. Zero rows is the designed outcome, fifth consecutive cycle confirming this before drawing any conclusion."
   }
 }
