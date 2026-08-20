@@ -1,9 +1,9 @@
 {
   "_comment": "Lane utilization state, owned by Claude 7 (Lane Dispatcher). NOT an authority on integration sequencing (Claude 5 / docs/EXECUTION_PLAN.md), on V1 status (docs/VERSION_1_COMPLETION_CONTRACT.md) or on canonical ownership (CLAUDE.md). Repository evidence outranks this file: where they disagree, this file is wrong and must be corrected.",
-  "updatedAt": "2026-08-20T01:00:00Z",
-  "dispatchCycle": 13,
+  "updatedAt": "2026-08-20T01:35:00Z",
+  "dispatchCycle": 14,
   "writePolicy": "This file and ASSIGNMENTS.json are written ONLY on a material state transition — new assignment, assignment accepted, completion, blocker, freeze/unfreeze, or a meaningful dependency change. A heartbeat that finds nothing changed produces no commit and no CI run.",
-  "evidenceBasis": "origin/main 547e51bc6 with #913 (25bb6b4bd) and #938 (ef9d21dac) both MERGED; refs resolved LIVE; integration/rc-wave-a contents enumerated by merge-commit walk; V1 §3 recounted; coercion baselines read from both trees",
+  "evidenceBasis": "origin/main 42e0cf999; #936 (5bdee44db) and the #940 policy (fb1245bd6, SQUASH-merged) both on main; refs resolved live; V1 §3 recounted; rc-wave-a ahead/behind measured",
   "assignmentSourceNote": "The six current assignments were made manually by the owner, not by this dispatcher. Recorded here so the durable state matches reality; Claude 7 did not originate them and does not own them.",
   "v1": {
     "requiredRows": 132,
@@ -31,7 +31,7 @@
         "#922",
         "#925 while under integration review"
       ],
-      "nextSafeWork": "#933 is in the wave; #925 remains a separate candidate to hand over",
+      "nextSafeWork": "none required. Frozen per policy rule 8; this is NO_SAFE_WORK, not idleness.",
       "lastMeaningfulActivity": "2026-08-19T22:26:04Z",
       "mergedThisCycle": [
         922
@@ -39,7 +39,9 @@
       "openPrs": [
         925,
         933
-      ]
+      ],
+      "policyState": "READY_FOR_INTEGRATION",
+      "policyStateDetail": "#933 FEATURE_GREEN and inside rc-wave-a; #925 FEATURE_GREEN and clean. Both frozen at handoff — no further implementation unless Integration returns them."
     },
     "2": {
       "name": "Trade Intelligence",
@@ -59,7 +61,7 @@
         "CLAUDE.md",
         "frontend/**"
       ],
-      "nextSafeWork": "V1-43 on top of #929 — but note #929 is now inside a release candidate, so confirm the final base with Claude 5 before branching",
+      "nextSafeWork": "V1-43 remains the only dependency-ready unit, and its base is inside the wave — confirm the final base with Integration before branching. Do NOT refresh #929 for main movement.",
       "lastMeaningfulActivity": "2026-08-20T00:18:00Z",
       "assignedThisCycle": "L2-2026-08-19-02 RELEASED (DELIVERY_REQUIRED, base amended to e057c55a)",
       "idleMinutes": 0,
@@ -68,7 +70,9 @@
       ],
       "mergedThisCycle": [
         913
-      ]
+      ],
+      "policyState": "READY_FOR_INTEGRATION",
+      "policyStateDetail": "#929 FEATURE_GREEN, clean, inside rc-wave-a. Frozen at handoff."
     },
     "3": {
       "name": "Scoring / Season / Projections / Power",
@@ -91,9 +95,11 @@
       "doNotTouch": [
         "#915 head while under integration review"
       ],
-      "nextSafeWork": "drive #934 and #937; open nothing further until some of the four land",
+      "nextSafeWork": "none required — four PRs already handed off. Frozen per rule 8.",
       "observation": "#937 is in the release candidate, so the four-PR count should fall as the wave lands. Still no fifth until it does.",
-      "lastMeaningfulActivity": "2026-08-20T00:17:57Z"
+      "lastMeaningfulActivity": "2026-08-20T00:17:57Z",
+      "policyState": "READY_FOR_INTEGRATION",
+      "policyStateDetail": "#937 and #934 FEATURE_GREEN; #937 inside rc-wave-a. #915/#923 awaiting integration."
     },
     "4": {
       "name": "Market / FAAB / Sharp / Analyst",
@@ -104,8 +110,7 @@
       "openPrs": [
         921,
         927,
-        932,
-        936
+        932
       ],
       "pr": 936,
       "implementationHead": "#936 GREEN 22:03:39Z on ef7c3d28; #932 GREEN 20:33:19Z on c795381b",
@@ -113,22 +118,26 @@
       "evidence": "#936 GREEN and now carried in the release candidate; #932/#927/#921 still open",
       "blockedBy": null,
       "doNotTouch": [],
-      "nextSafeWork": "#936 is in the wave — the cheapest V1 row is now moving; keep #932 ready behind it",
+      "nextSafeWork": "none required. The #927/#932 freshness pass belongs to Integration, not to Lane 4.",
       "watch": "CLOSED — Q4-2026-08-19-01 is answered by action. No second task was ever assigned, which was the right call.",
       "lastMeaningfulActivity": "2026-08-20T00:40:32Z",
       "closedPrs": [
         931
-      ]
+      ],
+      "policyState": "READY_FOR_INTEGRATION",
+      "mergedThisCycle": [
+        936
+      ],
+      "policyStateDetail": "#936 MERGED. #932 FEATURE_GREEN and handed off; #927 green on an older base and explicitly must NOT be refreshed for main movement (rule 1)."
     },
     "5": {
       "name": "Integration / Governance / Production",
       "state": "ACTIVE",
-      "currentTask": "release candidate integration/rc-wave-a is BUILT and clean, carrying #933/#936/#937/#929",
+      "currentTask": "integration queue under the #940 policy; rc-wave-a needs the planned freshness pass",
       "assignmentSource": "n/a — sole integration authority, never tasked by this dispatcher",
       "branch": null,
       "mergedThisCycle": [
-        913,
-        938
+        936
       ],
       "implementationHead": "n/a",
       "releaseCandidate": "NOT_YET_FROZEN",
@@ -137,13 +146,15 @@
       "doNotTouch": [],
       "nextSafeWork": "its own sequencing",
       "reportedToIntegration": [
-        "rc-wave-a is the highest-payoff event of the night: FOUR V1 rows in one candidate — V1-64 (level L1), V1-29 (L2), V1-95 (L2), V1-130 (L2). The L1 row is satisfiable by this candidate's own green merge-tree CI; the three L2 rows each need a measured board/contract statement, which is the cheapest evidence class after L1.",
-        "V1-34 is NOT in this wave and must not be counted with V1-130 — #929 ships the constraint owner with no writer for tradeConstraintsByLeague (correction C11-1).",
-        "#925 (Roster verification pack) and #932 (Lane 4 verification tooling) are NOT in the wave and remain separate candidates.",
-        "#935 has merged the stabilized gate in and needs a fresh Boot stack verdict before any merge decision.",
-        "V1 still 40/132 — eighth recount. The wave is the first thing all night that can move it."
+        "rc-wave-a is 14 commits BEHIND main and carries #936 content that has already merged directly. Policy rule 7 wants it refreshed and small; rule 2 makes that yours, not the lanes'.",
+        "Wave PRs still open: #933 (V1-29, L2), #937 (V1-95, L2), #929 (V1-130, L2). #936 (V1-64, L1) has landed on its own.",
+        "V1-64's L1 evidence is now on main (tests/sharp/test_record_queue.py asserts oldestCrawlMs). The row still reads IMPLEMENTED_UNVERIFIED — the promotion is available to you and needs only your read of the assertions plus the merge-tree green that landing already provided.",
+        "Rule 6 check: nothing has been merged child-first so far. #936 was standalone off main.",
+        "#927/#932 must NOT be sent back to Lane 4 for freshness — rule 1. One planned reconciliation when they reach the front of the queue.",
+        "V1 still 40/132 — ninth recount."
       ],
-      "lastMeaningfulActivity": "2026-08-20T00:51:31Z"
+      "lastMeaningfulActivity": "2026-08-20T00:51:31Z",
+      "policyState": "INTEGRATION_OWNER"
     },
     "6": {
       "name": "Premium UI / Frontend",
@@ -159,13 +170,15 @@
       "doNotTouch": [
         "#912 head"
       ],
-      "nextSafeWork": "diagnose the #935 E2E failure. Note it may well be its OWN: #935 modified tests/e2e/specs/signed-in-smoke.spec.js, so the usual 'journey-settings-overrides fails on main too' defence does not automatically apply here. Establish a main control run before attributing it to the known flake.",
+      "nextSafeWork": "obtain the fresh Boot stack verdict on #935. That is a missing verdict, not a freshness refresh, so it is permitted.",
       "lastMeaningfulActivity": "2026-08-20T00:54:34Z",
       "watch": "B10 downgraded — the lane acted, and in the right order: bring in the repaired gate, then re-measure. Do not read the old 22:17:20Z failure as the current verdict.",
       "openPrs": [
         912,
         935
-      ]
+      ],
+      "policyState": "FEATURE_GREEN_PENDING_VERDICT",
+      "policyStateDetail": "#935 head 051753d4 — Validate green, fresh Boot stack verdict pending after pulling in #938's repaired gate. NOT yet FEATURE_GREEN as a whole. #912 FEATURE_GREEN and frozen."
     }
   },
   "collisionWatch": [
@@ -175,11 +188,20 @@
     "docs/VERSION_1_COMPLETION_CONTRACT.md — Claude 5 only.",
     "docs/claude-dispatch/** — Claude 7 only. No lane writes here."
   ],
-  "cycle13Transitions": [
-    "#913 MERGED (25bb6b4bd). The six-cycle B5 blocker is fully resolved AND landed; its branch is deleted, which is also why a hardcoded-SHA check would now fail outright rather than merely mislead. main's coercion baseline is now 664, so the divergence class that caused B5 is closed at the source.",
-    "#938 MERGED (ef9d21dac) — 'E2E Safety Net stabilization: the blocking gate is trustworthy again'. Verified at exact head before merge: Validate PR green 00:49:06Z, Boot stack green 00:37:55Z, Playwright 154 passed / 52 skipped with ZERO flaky retries. It repaired journey-settings-overrides, journey-tools-health and public-league plus server.py. I never saw this PR open — it was opened and merged inside one 40-minute window, so no dispatch cycle observed it; recorded rather than glossed.",
-    "THE BOUNDED RELEASE CANDIDATE EXISTS: integration/rc-wave-a, created 00:18Z, 17 commits ahead, merges CLEAN onto current main with baseline 664 == main's 664. It carries FOUR lane PRs: #933 (V1-29), #936 (V1-64), #937 (V1-95), #929 (V1-130). This is the verification-batch shape the closability queue asked for — one candidate carrying four V1 rows.",
-    "B10 is being addressed correctly rather than argued away: Lane 6 merged main into #935 at 00:52 (head 051753d4), which pulls #938's stabilized E2E gate in. That is the right sequence — fix the instrument, then re-measure. A fresh Boot stack verdict is now the thing to watch.",
-    "V1 recounted an EIGHTH time: still 40/132. #913 merging did not move it, which is expected — its rows are IN PROGRESS/NOT STARTED and promotion is Claude 5's alone."
+  "policy": {
+    "adopted": "Main-Movement and Integration Queue Policy — AGENTS.md line 14 + ASSISTANT_COORDINATION.md, squash-merged as fb1245bd6 (#940) at 01:29:55Z.",
+    "stateVocabulary": "This file now uses the policy's three states — FEATURE_GREEN, READY_FOR_INTEGRATION, INTEGRATION_GREEN — in place of the ad-hoc implementationHead/releaseCandidate pair.",
+    "changesToDispatcherBehaviour": [
+      "ACTIONABLE_IDLE IS REDEFINED. A lane frozen at READY_FOR_INTEGRATION with no other dependency-ready unit is NO_SAFE_WORK, not idle. Policy rule 8 freezes implementation agents at handoff, so filling that quiet with work would breach it. The 10-minute rule now applies only to lanes with an unstarted dependency-ready unit.",
+      "NEVER dispatch a refresh. Rule 1 forbids rebasing, merging main, or rerunning feature tests merely because main moved — and rule 2 puts freshness on Integration. This dispatcher does not ask a lane to re-sync, and does not treat a moved base as a lane defect.",
+      "CORRECTION TO MY OWN PRIOR GUIDANCE: at cycle 8 I recorded Lane 1's next safe step as 're-run OR RE-PUSH #922 so its current head has a real verdict'. Re-pushing for freshness is exactly what rule 1 forbids. Re-RUNNING to obtain a missing verdict is legitimate — a cancelled run is not evidence — but the re-push half was wrong and is withdrawn. #922 has since merged, so nothing was harmed.",
+      "Integration branches are legitimate but bounded (rule 7): staging only, refreshed from main, kept small, never a second source of truth. rc-wave-a is now measured against that bar."
+    ]
+  },
+  "cycle14Transitions": [
+    "POLICY ADOPTED — #940 squash-merged as fb1245bd6 at 01:29:55Z. Note for my own method: it has no 'Merge pull request' line, so my standing merge-detection grep missed it. Squash merges must be detected by path (git log -- <file>), not by merge-commit subject.",
+    "#936 MERGED (5bdee44db). V1-64's deterministic L1 evidence is now ON MAIN: tests/sharp/test_record_queue.py asserts oldestCrawlMs, which is the exact gap the corrected closability queue identified and the row's contract note still describes as missing. The row itself still reads IMPLEMENTED_UNVERIFIED — promotion remains Claude 5's.",
+    "rc-wave-a IS NOW STALE: 16 ahead of main but 14 BEHIND it, and its #936 content is redundant now that #936 merged directly. Policy rule 7 requires an integration branch to be refreshed from main and kept small. This is an INTEGRATION action, explicitly not a lane action (rule 2).",
+    "V1 recounted a NINTH time: still 40/132, now across seven merges plus #938 and #940."
   ]
 }

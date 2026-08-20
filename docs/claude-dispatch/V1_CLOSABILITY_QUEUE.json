@@ -1,6 +1,6 @@
 {
   "_comment": "Live V1 Closability Queue, owned by Claude 7 as independent V1 traffic controller / adversarial auditor. Ranks IMPLEMENTED_UNVERIFIED rows by verification effort per row gained. NOT an authority on V1 status — only Claude 5 promotes a row, and no percentage here is claimed as achieved.",
-  "updatedAt": "2026-08-20T01:00:00Z",
+  "updatedAt": "2026-08-20T01:35:00Z",
   "auditCycle": 2,
   "evidenceBasis": {
     "contract": "docs/VERSION_1_COMPLETION_CONTRACT.md §3 read on origin/main e3b387ca5",
@@ -22,7 +22,7 @@
       "L3": 12,
       "L4": 3
     },
-    "note": "Eighth consecutive recount: still 40/132. Six merges now (#913, #914, #919, #922, #926, #930) plus #938, with no §3 movement. rc-wave-a is the first candidate all night that can move the numerator."
+    "note": "Ninth consecutive recount: still 40/132, across seven merges plus #938 and #940. V1-64's evidence is now on main but its row is unpromoted and its note is stale."
   },
   "deployState": {
     "correctionAccepted": "Cycle 1 collapsed four distinct facts into 'main is deployed'. Separated below.",
@@ -108,7 +108,7 @@
       "whyItMatters": "L1 requires RED->GREEN deterministic evidence. Production log output in data/ops/sharp-force-production-live.json showing `oldestCrawlMs: null` is real-world corroboration, not a deterministic test, and cycle 1 leaned on it too heavily.",
       "ownedBy": "Claude 4 — already authorized to produce the micro-PR. DO NOT DUPLICATE.",
       "rowsGained": 1,
-      "deliveryStatus": "#936 GREEN on exact head ef7c3d28 at 22:03:39Z. STILL NOT PROMOTABLE BY THIS AUDITOR: the assertions have not been read, and L1 also requires green CI on the merge tree. Claude 5 owns both checks."
+      "deliveryStatus": "#936 MERGED as 5bdee44db. The deterministic pin is ON MAIN — tests/sharp/test_record_queue.py asserts oldestCrawlMs, closing the gap this queue identified. The contract row still reads IMPLEMENTED_UNVERIFIED and its note still describes the test as absent; that note is now stale. PROMOTION IS CLAUDE 5'S: it needs a read of the assertions plus the merge-tree green that landing supplied. This auditor still has not read the assertions and still does not promote."
     },
     {
       "row": "V1-88",
@@ -325,12 +325,6 @@
         "priorStatus": "IN PROGRESS"
       },
       {
-        "pr": 936,
-        "row": "V1-64",
-        "level": "L1",
-        "priorStatus": "IMPLEMENTED_UNVERIFIED"
-      },
-      {
         "pr": 937,
         "row": "V1-95",
         "level": "L2",
@@ -355,6 +349,15 @@
       921,
       927
     ],
-    "projectionIfWaveLandsAndVerifies": "40 -> up to 44 (33.3%). CONDITIONAL: each row still needs its own level satisfied and only Claude 5 promotes. This auditor promotes nothing."
+    "projectionIfWaveLandsAndVerifies": "40 -> up to 43 (32.6%) from the three remaining wave rows (V1-29, V1-95, V1-130), plus V1-64 separately once promoted = up to 44 (33.3%). CONDITIONAL; only Claude 5 promotes.",
+    "staleness": "As of 01:35Z: 16 ahead of main, 14 BEHIND. #936 has merged directly, so its content in the wave is redundant. Policy rule 7 requires refresh-from-main and smallness; rule 2 makes that Integration's job.",
+    "landedSeparately": [
+      {
+        "pr": 936,
+        "row": "V1-64",
+        "level": "L1",
+        "mergedAs": "5bdee44db"
+      }
+    ]
   }
 }
