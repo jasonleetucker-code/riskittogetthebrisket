@@ -99,23 +99,53 @@ class TestCoercionGate(unittest.TestCase):
     def test_gate_actually_detects_the_audits_own_sites(self) -> None:
         """A gate that fires on nothing real would pass silently forever.
 
-        The site named here is a finding still recorded OPEN.  Two
-        others lived here and were removed as the code they pointed at
-        was fixed: ``waiver.py``'s ``top_value_in_pool or 0`` (the
+        Three sites lived here and were removed as the code they pointed
+        at was fixed: ``waiver.py``'s ``top_value_in_pool or 0`` (the
         latent half of W-2, deleted by #707 with the rest of the
-        pool-relative bid) and ``trade_deadline.py``'s
-        ``playoffOdds or 0.0`` (N-2, fixed in batch C3).  Each was
-        removed rather than kept passing against something that no
-        longer exists, which is the same rule the baseline's stale-entry
-        check enforces — and the removals are the burn-down this gate
-        was built to make visible.
+        pool-relative bid), ``trade_deadline.py``'s ``playoffOdds or
+        0.0`` (N-2, fixed in batch C3), and ``activity.py``'s
+        ``valuation(asset) or 0.0`` (U-1 — "Public trade grades price
+        unresolvable assets at 1.0 [...] with the losing manager named",
+        ``docs/audits/decision-intelligence-audit-2026-08-04.md`` §4.14 —
+        fixed by V1-97 / C3-REPLAY-01: an unresolvable asset now makes
+        its whole side an explicit ``unavailable`` grade, never a
+        coerced number). Each was removed rather than kept passing
+        against something that no longer exists, which is the same rule
+        the baseline's stale-entry check enforces — and the removals are
+        the burn-down this gate was built to make visible. See
+        ``test_the_n2_coercion_is_gone_from_the_tree_and_the_baseline``
+        and ``test_the_u1_coercion_is_gone_from_the_tree_and_the_baseline``
+        for the two-directional burn-down proofs.
+        """
+        # Deliberately no assertion here anymore: the specific site this
+        # test used to pin (U-1) is fixed, and — per the W-2 precedent
+        # above — a closed site is removed rather than replaced with an
+        # unverified guess at another "still open" line.  The gate's
+        # actual detection behaviour is proven functionally by
+        # ``test_baseline_matches_the_tree`` and
+        # ``test_baseline_is_internally_consistent`` against the full
+        # 600+-entry baseline, and the two-directional burn-down tests
+        # below prove specific sites by name.
+
+    def test_the_u1_coercion_is_gone_from_the_tree_and_the_baseline(self) -> None:
+        """U-1, asserted in both directions (same shape as N-2 below).
+
+        ``docs/audits/decision-intelligence-audit-2026-08-04.md`` §4.14:
+        "Public trade grades price unresolvable assets at 1.0, so any
+        historical trade containing a retired or off-board player is
+        publicly graded a ~100% fleecing, with the losing manager
+        named." V1-97 / C3-REPLAY-01 closes this as a byproduct of
+        removing the hindsight leak: ``_apply_trade_grades`` no longer
+        coerces a missing value to any number at all — an unresolvable
+        asset makes its side an explicit ``unavailable`` grade.
         """
         accepted = set(json.loads(BASELINE.read_text(encoding="utf-8"))["violations"])
-        # U-1: an unresolvable asset is priced at zero, then graded publicly.
-        self.assertTrue(
+        self.assertFalse(
             any("activity.py" in k and "valuation(asset)" in k for k in accepted),
-            "the coercion gate no longer sees the U-1 site",
+            "the U-1 allowance is back in the baseline",
         )
+        source = (REPO_ROOT / "src" / "public_league" / "activity.py").read_text(encoding="utf-8")
+        self.assertNotIn("valuation(asset) or 0.0", source)
 
     def test_the_n2_coercion_is_gone_from_the_tree_and_the_baseline(self) -> None:
         """Burn-down, asserted in both directions.
