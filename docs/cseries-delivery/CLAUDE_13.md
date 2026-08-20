@@ -195,12 +195,10 @@ correct: `tests/public_league/test_identity_retirement.py` — 8 tests, includin
   skips), zero regressions.
 - `ruff check` clean on every touched file; `ruff format` applied to the one file it flagged
   (whitespace only).
-- Full `pytest tests/ -m "not livedata"` sweep kicked off as an extra safety net beyond the
-  directly-relevant suites above and was still running at commit time (this sandbox runs it slower
-  than CI's ~700s). Not blocking the commit — the targeted suites already exercise every call site
-  the diff touches or that reads its APIs (identity.py, matchup_recap.py, power_v2.py, and every
-  test file under tests/public_league/). Will report the full-sweep result in a follow-up note if
-  it surfaces anything the targeted runs didn't.
+- Full `pytest tests/ -m "not livedata"` sweep (started before the commit, finished after):
+  **9,537 passed, 53 skipped, 0 failures**, 16m7s. Confirms zero regressions across the whole
+  backend from both Batch 2 and Batch 3's changes (this log covers commits through Batch 3, since
+  they landed while the sweep was still running).
 
 **Deliberately NOT claiming:**
 - Any UI/frontend surface for this (that's `/league`'s existing rendering of these same backend
