@@ -97,21 +97,24 @@ def _side_block(
     # recap — `build_matchup_recap` bails when either side is None, so
     # `server.py` 404s.  That silently broke 28 of 158 public recap links
     # (measured against live Sleeper 2026-08-05; all 2024, roster_ids 9 and
-    # 10), because `identity.py` deliberately does not register rosters
-    # whose owner is orphaned or retired.
+    # 10), because at the time `identity.py` dropped every roster whose
+    # owner was orphaned OR retired from `roster_to_owner`.
     #
     # The index never applied the same rule: `list_matchups` admits a pair
     # on "two entries and either side scored", with no owner check.  So the
     # archive advertised 28 links that could not be built — the asymmetry
-    # is the defect, not the retirement list.  `identity.py`'s own comment
-    # says such data "falls through to the same '' attribution path ... and
-    # filtered out"; nothing filtered it.
+    # was the defect, not the retirement list.
     #
     # Resolved by making the DETAIL tolerant rather than making the index
     # hide games: a real 2024 matchup between real teams stays reachable,
-    # attributed to the roster instead of to a person.  The retirement list
-    # keeps doing its actual job — retired managers stay out of dropdowns
-    # and franchise pages — because that filtering lives in identity.py,
+    # attributed to the roster instead of to a person.  This fallback still
+    # matters for GENUINE orphans (no `owner_id` at all in that season's
+    # roster data) — C9-HIST-01 (2026-08-20) narrowed the retirement filter
+    # so it no longer also blanks a retired owner's historical
+    # `roster_to_owner` entry, so their own past matchups now resolve to
+    # their real name instead of this fallback.  Retired managers still stay
+    # out of dropdowns and franchise-listing directories — that filtering
+    # lives in `identity.py`'s `ordered_managers()` / `to_public_list()`,
     # not here.
     #
     # The synthetic id is unique per roster ON PURPOSE.  The frontend marks

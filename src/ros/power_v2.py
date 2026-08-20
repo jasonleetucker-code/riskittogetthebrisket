@@ -237,12 +237,15 @@ def _enumerate_owner_ids(
 ) -> list[str]:
     """Canonical owner list for the rankings table.
 
-    Every source is filtered through ``snapshot.managers.by_owner_id``,
-    which is the authoritative active-owner registry: it's built from
-    the rosters the snapshot actually fetched and excludes the
-    operator-maintained retirement list.  The registry gate matters at
-    every step because each upstream source can carry a stale owner
-    around the season-transition window:
+    Every source is filtered through the registry's non-retired owner
+    ids (``ManagerRegistry.ordered_managers()``, NOT the raw
+    ``by_owner_id`` dict — that dict is keyed by ALL owners including
+    retired ones since C9-HIST-01, because a retired owner's real past
+    seasons stay real history for standings/archives/franchise pages;
+    this table is a CURRENT view, so it is one of the call sites that
+    still needs the retirement exclusion applied).  The registry gate
+    matters at every step because each upstream source can carry a
+    stale owner around the season-transition window:
 
       * the team-strength snapshot is written by a scheduled scrape
         and lags live rosters by a refresh cycle;
@@ -264,7 +267,7 @@ def _enumerate_owner_ids(
     """
     ordered: list[str] = []
     seen: set[str] = set()
-    registry_ids = snapshot.managers.by_owner_id
+    registry_ids = {m.owner_id for m in snapshot.managers.ordered_managers()}
 
     def _add(oid: str | None) -> None:
         if not oid:
