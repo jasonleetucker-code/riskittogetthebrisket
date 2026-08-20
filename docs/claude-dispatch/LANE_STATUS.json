@@ -1,16 +1,16 @@
 {
   "_comment": "Lane utilization state, owned by Claude 7 (Lane Dispatcher). NOT an authority on integration sequencing (Claude 5 / docs/EXECUTION_PLAN.md), on V1 status (docs/VERSION_1_COMPLETION_CONTRACT.md) or on canonical ownership (CLAUDE.md). Repository evidence outranks this file: where they disagree, this file is wrong and must be corrected.",
-  "updatedAt": "2026-08-20T03:57:00Z",
-  "dispatchCycle": 18,
+  "updatedAt": "2026-08-20T04:40:00Z",
+  "dispatchCycle": 19,
   "writePolicy": "This file and ASSIGNMENTS.json are written ONLY on a material state transition — new assignment, assignment accepted, completion, blocker, freeze/unfreeze, or a meaningful dependency change. A heartbeat that finds nothing changed produces no commit and no CI run.",
-  "evidenceBasis": "origin/main 21b4db386; V1 §3 diffed main-to-main (b8ca95f4f -> 21b4db386) per row; all refs resolved live",
+  "evidenceBasis": "origin/main c5a367266; §3 diffed row-by-row from cycle-18 main (21b4db386); all refs resolved live; dispatcher branch rotated after #928 merged",
   "assignmentSourceNote": "The six current assignments were made manually by the owner, not by this dispatcher. Recorded here so the durable state matches reality; Claude 7 did not originate them and does not own them.",
   "v1": {
     "requiredRows": 132,
-    "verified": 47,
-    "percent": 35.6,
-    "source": "docs/VERSION_1_COMPLETION_CONTRACT.md §3 on origin/main 21b4db386",
-    "note": "45 -> 47 via #941. Row-diffed rather than assumed: V1-34 NOT STARTED -> VERIFIED (L1) and V1-130 NOT STARTED -> VERIFIED (L2), plus two corrections in the honest direction — V1-51 -> IN PROGRESS and V1-95 -> IMPLEMENTED_UNVERIFIED. Net since the session began: 40 -> 47."
+    "verified": 48,
+    "percent": 36.4,
+    "source": "docs/VERSION_1_COMPLETION_CONTRACT.md §3 on origin/main c5a367266",
+    "note": "47 -> 48 via #942. EXACTLY ONE row changed and it was verified in the table: V1-95 IMPLEMENTED_UNVERIFIED -> VERIFIED at L2. Its note carries both halves the level demands — L1 with two mutations each confirmed APPLIED and the changed line quoted, plus a measured statement on the DEPLOYED build. Session net: 40 -> 48."
   },
   "lanes": {
     "1": {
@@ -50,7 +50,7 @@
       "pr": null,
       "implementationHead": "n/a — nothing in flight",
       "releaseCandidate": "n/a",
-      "evidence": "no V1-43 branch exists; last Lane 2 activity 00:18Z",
+      "evidence": "still no V1-43 branch at 04:38Z; last Lane 2 activity 00:18Z — ~4h20m",
       "blockedBy": "ASSIGNMENT DELIVERY. L2-2026-08-19-02 is DELIVERY_REQUIRED and no agent channel is reachable from this dispatcher.",
       "doNotTouch": [
         "src/roster_intel/**",
@@ -61,13 +61,13 @@
       "nextSafeWork": "V1-43 Analyze Trade V1, branching from PLAIN MAIN — the stacked base is gone because #913 and #929 both merged. Assignment L2-2026-08-19-02 amended.",
       "lastMeaningfulActivity": "2026-08-20T00:18:00Z",
       "assignedThisCycle": "L2-2026-08-19-02 re-amended (base = main) — still DELIVERY_REQUIRED",
-      "idleMinutes": 217,
+      "idleMinutes": 260,
       "openPrs": [],
       "mergedThisCycle": [
         929
       ],
       "policyState": "ACTIONABLE_IDLE — holds an unstarted dependency-ready unit",
-      "policyStateDetail": "No open PR, nothing frozen, V1-43 unstarted and unblocked on plain main. Rule 8's freeze does not apply because there is nothing handed off. This is the one lane the 10-minute rule covers, and it has been idle ~3h37m."
+      "policyStateDetail": "No open PR, nothing frozen, V1-43 unstarted and unblocked on plain main. Rule 8's freeze does not apply. Idle ~4h20m and the cause is delivery, not the lane."
     },
     "3": {
       "name": "Scoring / Season / Projections / Power",
@@ -130,25 +130,22 @@
       "assignmentSource": "n/a — sole integration authority, never tasked by this dispatcher",
       "branch": null,
       "mergedThisCycle": [
-        915,
-        925,
-        935,
-        941
+        928,
+        942
       ],
       "implementationHead": "n/a",
       "releaseCandidate": "NOT_YET_FROZEN",
-      "evidence": "main 47/132; Lane 5 branch live again at f8060ef1e (5 ahead, 3 behind)",
+      "evidence": "main 48/132; Lane 5 branch live at ddf42e271 (25 behind main)",
       "blockedBy": null,
       "doNotTouch": [],
       "nextSafeWork": "its own sequencing",
       "reportedToIntegration": [
-        "V1 is 47/132 (35.6%), row-verified. Net +7 since this session began.",
-        "RULE 7 IS NOW BEING BREACHED, not just strained: rc-937 is 79 behind main and rc-wave-a 76 behind. Retire both — their content merged individually and they are now exactly the second long-lived source of truth the rule forbids.",
-        "THE BIGGEST REMAINING LEVER IS STILL UNRUN: the Lane-4 on-box verification batch (V1-57, V1-129, V1-60). The verifier is on main, needs host access only, no HTTP auth. It is worth more numerator than any remaining implementation and nobody has run it.",
-        "Lane 2 is idle with V1-43 unstarted and unblocked. The blocker is assignment delivery, not the lane.",
-        "V1-42 still reads NOT STARTED although #913's W3 supplied the consumer it lacked.",
-        "V1-88 remains correctly unpromoted.",
-        "origin/v1/premium-ui duplicates #912's head SHA exactly — worth deleting so branch attribution stays unambiguous."
+        "V1 is 48/132 (36.4%), row-verified. Session net +8. V1-95's promotion is the cleanest of the night: L1 mutations each confirmed applied with the line quoted, plus an L2 measured statement on the DEPLOYED build.",
+        "THREE ABANDONED REFS now, and rule 7 names this failure exactly: rc-937 110 behind, rc-wave-a 107 behind, v1/premium-ui 275 behind and an exact duplicate of #912's head. Deleting them costs nothing and removes three wrong answers to 'what is the current state'.",
+        "STILL THE LARGEST UNPULLED LEVER: the Lane-4 on-box batch (V1-57, V1-129, V1-60). Verifier on main, host access only, no HTTP auth, unrun since #932 landed.",
+        "Lane 2 is idle ~4h20m with V1-43 unstarted and unblocked. Delivery is the blocker.",
+        "V1-42 still reads NOT STARTED although #913's W3 supplied its missing consumer.",
+        "V1-88 remains correctly unpromoted."
       ],
       "lastMeaningfulActivity": "2026-08-20T02:23:00Z",
       "policyState": "INTEGRATION_OWNER"
@@ -205,11 +202,11 @@
     "consequence": "My 'wrong by one' warning was itself wrong by one. The level the contract sets is the contract's to set, and it says L1.",
     "whatSurvives": "If anyone believes V1-34 should require a production consumer, that is an argument for RE-LEVELLING the row to L4 — an owner decision — not an argument against this promotion. Recorded that way rather than quietly dropped."
   },
-  "cycle18Transitions": [
-    "V1 = 47/132 (35.6%). #941 landed the promotions Lane 5 staged. Verified by diffing main against main per row: V1-34 -> VERIFIED (L1), V1-130 -> VERIFIED (L2), and NOT STARTED -> IN PROGRESS for V1-51, NOT STARTED -> IMPLEMENTED_UNVERIFIED for V1-95.",
-    "THREE more merges: #925 (Roster V1 verification pack + V1-35 audit), #935 (/rosters consumes canonical Team Strength), #915 (exact league scoring, #802). The open-PR queue has collapsed from fourteen to four: #912, #921 (paused POST-V1), #923, #928 (this dispatcher's).",
-    "LANE 2 IS GENUINELY ACTIONABLE_IDLE — the first time that classification is correct under the #940 policy. It holds no open PR, V1-43 is unstarted and unblocked on plain main, and it has been quiet since 00:18Z, about 3h37m. It is NOT frozen-at-handoff, so rule 8 does not cover it. The bottleneck is ASSIGNMENT DELIVERY, not the lane: L2-2026-08-19-02 has been DELIVERY_REQUIRED for hours and no channel exists to send it.",
-    "Both integration branches are now abandoned rather than merely stale: rc-937 is 79 behind main, rc-wave-a 76 behind. Rule 7 says an integration branch must stay small and refreshed and must never become a second long-lived source of truth. These are neither refreshed nor retired.",
-    "Branch hygiene: origin/v1/premium-ui points at EXACTLY the same SHA as origin/claude/premium-ui-migration-ltldy0 (c025e4f68). Not a second line of work — a duplicate ref for #912's head. Harmless today, but it breaks branch-based attribution, which the '— <title>' merge format already weakens."
+  "cycle19Transitions": [
+    "V1 = 48/132 (36.4%). #942 promoted V1-95 on the deployed build. Row-diffed: exactly one row moved, which is what the commit subject claimed — checked rather than trusted.",
+    "#928 MERGED (231468bb4), so these dispatch records are now canonical on main rather than living on a review branch. The dispatcher branch was rotated onto the latest main per the merged-PR rule: every prior commit was already contained in main (verified with merge-base --is-ancestor before touching anything) and the remote branch had been deleted. Nothing was lost, and no commit was spent marking the rotation — it rides along here.",
+    "LANE 2 STILL ACTIONABLE_IDLE, now about 4h20m. No V1-43 branch exists. The blocker has not changed and is not the lane's: L2-2026-08-19-02 is DELIVERY_REQUIRED and no channel reaches Lane 2. No second assignment written.",
+    "THE LANE-4 ON-BOX BATCH IS STILL UNRUN (V1-57, V1-129, V1-60). Available since #932 merged, host access only, no HTTP auth. It remains the largest identified lever on the numerator that nobody has pulled.",
+    "RULE 7 BREACH IS WORSENING, not holding: rc-937 is now 110 commits behind main, rc-wave-a 107 behind, and origin/v1/premium-ui — the exact-duplicate ref for #912's head — is 275 behind. None retired. Three abandoned refs is past the point where 'stale' describes it."
   ]
 }
