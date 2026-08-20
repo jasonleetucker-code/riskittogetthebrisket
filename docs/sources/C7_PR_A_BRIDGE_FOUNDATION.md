@@ -224,6 +224,82 @@ scheduled rather than raced.
 | Source acquisition states — a failed or unauthenticated acquisition cannot report as a healthy empty source | `C7-SRC-04` | L1 | false-green repair (**this unit**) |
 | Common-mode protection — derivative sources cannot masquerade as independent bridge evidence | `C7-SRC-05` | L1 | signal independence (**this unit**) |
 
+## 7a. Research-record correction — Dynasty Dealer
+
+Recorded here rather than by rewriting PR #950, which is frozen research
+evidence. **The measurement stands; its interpretation was wrong.**
+
+PR #950 reported that Dynasty Dealer "publishes **0 IDP rows of 723**, so it
+cannot be a bridge." Both halves of that measurement are reproducible — the
+Supabase `/rest/v1/players` table returns 723 rows with zero IDP, and the
+default `/api/player-values` returns 1,000 rows with zero IDP. What was wrong
+was the conclusion drawn from them.
+
+The IDP data sits behind an **undocumented query parameter**, recovered from
+the site's own JavaScript bundle:
+
+```
+GET /api/player-values?includeIdp=true&limit=5000   →  1,338 rows
+WR 414 · RB 241 · TE 181 · QB 128 · DB 126 · LB 117 · DL 95 · PICK 36
+```
+
+338 IDP rows, carrying `current_value` on the same field as offense. The top
+four match the owner-supplied figures exactly: **Myles Garrett 5,121 · Will
+Anderson 4,601 · Jack Campbell 4,599 · Aidan Hutchinson 4,584**.
+
+So the durable record is:
+
+> The previously inspected Dynasty Dealer acquisition paths returned zero IDP
+> rows because they omitted `includeIdp=true`. That was an **acquisition-path
+> limitation, not proof that the source lacks defensive cardinal values.**
+> Bridge eligibility now depends on demonstrating that those defensive values
+> share the same valuation basis as the offensive `current_value` API.
+
+**The same-basis question is open, and two blockers are measured.**
+
+*Format flags are echo-only.* `scoringSettings` in the response reflects the
+*request*, not the data: `isSuperflex=true&isTePremium=true` changes **0 of
+1,338 values**. An adapter trusting that field would believe it held a
+Superflex/TE-premium board while holding one unlabelled board — the same
+class of error as W18-F001, a label deciding a factual question. Corroborating
+evidence that the board is 1QB basis: QB1 Josh Allen 9,495 sits *below* RB1
+Bijan Robinson 10,000. This league is Superflex + TEP.
+
+*Offense and IDP are not the same quantity in time.*
+
+| | offense | IDP |
+|---|---|---|
+| distinct `updated_at` | **33**, through 2026-08-20 | **1** — all 2026-07-15 |
+| rows carrying votes | 445 / 964 (46.2%) | **0 / 338 (0.0%)** |
+| `base_value` vs `current_value` | diverge | identical on every row |
+| range | max 10,000 · p50 16 · **min 0** | max 5,121 · p50 1,476 · min 73 |
+
+Live, crowd-vote-adjusted offense against a static 36-day-old un-voted IDP
+snapshot. Also note offense `min = 0`: under MISSING IS NEVER ZERO those rows
+must be treated as unpriced at the adapter, never as zero-valued.
+
+**Bridge status: `PENDING`.** It does not vote. Qualification needs the format
+basis proven independently of the echoed flags, the IDP scoring variant
+identified (the payload declares none, and the vendor's IDP page offers
+tackle-heavy / balanced / big-play), and an owner decision on whether a static
+IDP snapshot may bridge against live offense values.
+
+**Why it is worth qualifying.** Dynasty Dealer is the most consensus-central
+of the three candidate bridges. Joined to 290 board IDP rows: Spearman
+**IDPTC↔DD 0.773** against IDPTC↔DS 0.609 and DS↔DD 0.597 — and it sits
+*between* the incumbent pair on exactly the disagreement that matters most:
+
+| player | IDPTC | Draft Sharks | Dynasty Dealer |
+|---|---|---|---|
+| Aidan Hutchinson (DL) | 6,444 | 2,116 | **4,584** |
+| Myles Garrett (DL) | 5,414 | 1,924 | **5,121** |
+| Carson Schwesinger (LB) | 5,667 | 6,485 | **4,062** |
+
+Attribution requirement, verbatim from the vendor's own API documentation:
+*"free for any use — personal, commercial, or content — on one condition:
+display a visible link to dynastydealer.com."* Preserved as source metadata,
+not as a one-time research note.
+
 ## 8. Next units
 
 **PR B** multi-bridge translation owner (SERIAL; needs the charter above).
