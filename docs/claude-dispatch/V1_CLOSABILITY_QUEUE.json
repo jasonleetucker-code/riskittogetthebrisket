@@ -1,6 +1,6 @@
 {
   "_comment": "Live V1 Closability Queue, owned by Claude 7 as independent V1 traffic controller / adversarial auditor. Ranks IMPLEMENTED_UNVERIFIED rows by verification effort per row gained. NOT an authority on V1 status — only Claude 5 promotes a row, and no percentage here is claimed as achieved.",
-  "updatedAt": "2026-08-20T02:28:00Z",
+  "updatedAt": "2026-08-20T03:12:00Z",
   "auditCycle": 2,
   "evidenceBasis": {
     "contract": "docs/VERSION_1_COMPLETION_CONTRACT.md §3 read on origin/main e3b387ca5",
@@ -12,7 +12,7 @@
     "verified": 45,
     "denominator": 132,
     "percent": 34.1,
-    "note": "MOVED at last: 40 -> 45 via #939, verified row by row on main (V1-28, V1-30, V1-33, V1-64, V1-119). Sources reconcile: 2 from IMPLEMENTED_UNVERIFIED, 3 from IN PROGRESS.",
+    "note": "45/132 (34.1%) on main. Four more implementations merged this cycle (#933, #929, #937, #934) with no row promoted — correct discipline. Claude 5 stages +2 (V1-34, V1-130) on a live branch, and corrects V1-51 -> IN PROGRESS and V1-95 -> IMPLEMENTED_UNVERIFIED.",
     "implementedUnverified": 21,
     "inProgress": 31,
     "notStarted": 33
@@ -253,7 +253,8 @@
     "Dispatch cycle 7 recorded #922's head as GREEN by inheriting the prior head's verdict; cycle 8 corrected it to CANCELLED. Cycle 2 supersedes the HEAD (now 5885796) while keeping that history, and adds the concurrency root cause.",
     "Cycle-4 assignment L2-2026-08-19-02 instructed basing V1-43 on #929's head — correct when written, wrong once #913 conflicted. HELD, never silently rewritten.",
     "AUDIT CYCLE 1 internal: the first extraction read contract column 6 as a verifier LANE when it is the required verification LEVEL. Caught and corrected inside that cycle.",
-    "AUDIT CYCLE 1, corrected by independent audit and re-verified here: V1-64 was wrongly Tier A (its cited test proves only the denominator; nothing tests oldestCrawlMs) and V1-88 was wrongly Tier A (the cited tests prove flag defaults and gate reachability, not the endpoint-naming invariant). Both demoted. The lesson recorded against this auditor: 'a test file with a plausible name exists' is the same class of false-green the contract's own §2 forbids, and citing file NAMES rather than assertions is how it got in."
+    "AUDIT CYCLE 1, corrected by independent audit and re-verified here: V1-64 was wrongly Tier A (its cited test proves only the denominator; nothing tests oldestCrawlMs) and V1-88 was wrongly Tier A (the cited tests prove flag defaults and gate reachability, not the endpoint-naming invariant). Both demoted. The lesson recorded against this auditor: 'a test file with a plausible name exists' is the same class of false-green the contract's own §2 forbids, and citing file NAMES rather than assertions is how it got in.",
+    "C17-1 supersedes C11-1: V1-34's level is L1, which does not require a production consumer, so promoting it on Integration-performed mutation evidence is sound. My 'wrong by one' warning was itself wrong by one. The underlying observation — no operable user control exists — survives only as an argument for re-levelling the row, which is an owner decision."
   ],
   "revisionNote": "Cycle 1 was corrected by an independent audit BEFORE becoming the standing queue. Two Tier A rows were wrong and are demoted; #922's state advanced; the stale-green wording was imprecise; and the deployment claim was collapsing four separate facts. Every correction below was re-verified against the repository by this auditor rather than accepted on assertion.",
   "pr922State": {
@@ -351,7 +352,8 @@
         "level": "L1",
         "mergedAs": "5bdee44db"
       }
-    ]
+    ],
+    "outcome": "SUPERSEDED. Claude 5 merged #933/#929/#937 individually rather than landing the wave. rc-937 is now 45 behind main and rc-wave-a 42 behind; both are spent and should be retired under rule 7."
   },
   "stagedPromotions": {
     "status": "LANDED via #939",

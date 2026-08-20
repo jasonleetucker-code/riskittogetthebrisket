@@ -1,14 +1,14 @@
 {
   "_comment": "Durable dispatch ledger written by Claude 7 (Lane Dispatcher). One PRIMARY assignment per lane. An ACTIVE row is never overwritten and a second task is never piled onto an unread one. Claude 7 does not merge, does not implement, and does not change V1 status.",
-  "updatedAt": "2026-08-19T23:30:00Z",
-  "cycle": 11,
+  "updatedAt": "2026-08-20T03:12:00Z",
+  "cycle": 17,
   "writePolicy": "Written only on a material state transition. An unchanged heartbeat produces no commit and no CI run.",
   "_delivery": {
     "state": "DELIVERY_REQUIRED — one assignment released and awaiting delivery",
     "pending": [
       "L2-2026-08-19-02"
     ],
-    "detail": "Blocker B5 cleared at cycle 11, so the hold is lifted. The base is amended from #929's old head 51b11bfb to its CURRENT head e057c55a. No agent channel is reachable from this session, so this is NOT claimed as delivered.",
+    "detail": "Base is now PLAIN MAIN: #913 and #929 both merged, so the stacked train no longer exists. Earlier base instructions (51b11bfb, then e057c55a) are superseded. No agent channel is reachable from this session, so this is NOT claimed as delivered.",
     "howToDeliver": "Send the `prompt` field of L2-2026-08-19-02 to Lane 2."
   },
   "assignments": [
@@ -58,8 +58,8 @@
       "whyNow": "#914 merged at 17:51:26Z and src/roster_intel/ is on main. This is the lane's OWN declared next unit: #913's body states V1-43 'waits for #914 to merge so it can consume src.roster_intel rather than build against an unmerged interface'. That condition is now satisfied, and the lane has been idle 3h57m with both its PRs frozen.",
       "ownership": "Lane 2 owns Analyze Trade, the recommendation itself, and how signals are combined into it. Roster Intelligence is CONSUMED.",
       "hardBoundaries": [
-        "Base on #929's CURRENT head e057c55a (the old 51b11bfb is retired), NOT on bare main — V1-43 needs #913's package substrate and #929's constraint owner. Train is #913 -> #929 -> V1-43; mark the PR as such.",
-        "Do NOT commit to #913 or #929. They are no longer frozen for the baseline repair, but they are Claude 5's ordered integration pair and the lane has declared them ready.",
+        "Branch from PLAIN MAIN. Both #913 and #929 are merged, so the package substrate and the constraint owner are already on main — import them, do not restack.",
+        "Do NOT refresh anything for main movement (#940 policy rule 1). If main moves while you work, keep going.",
         "Do NOT reimplement anything now on main: exact lineup, reserve demand, meaningful core, Team Strength, Team Weakness, droppability, replacement level, roster simulation. Import them. A second implementation of a freshly merged canonical owner is the worst possible outcome of this merge.",
         "No double-counting of overlapping signals — the contract row names this explicitly. A body of evidence affects the recommendation once; declare correlation groups before combining.",
         "No frontend UI (Lane 6's, and #912 is frozen) — hand the response shape over instead.",
@@ -74,19 +74,19 @@
         "An import census proving V1-43 consumes src.roster_intel and duplicates none of it."
       ],
       "handoff": [
-        "Claude 5: the PR marked as third in the #913 -> #929 -> V1-43 train, plus draft governance text.",
+        "Claude 5: a standalone PR off main (no train — both stack members merged), plus draft governance text.",
         "Claude 6: the response shape for the Analyze Trade surface.",
         "Claude 1: nothing — this consumes Roster, it does not change it."
       ],
-      "stopCondition": "Stop when Analyze Trade V1 answers one typed-in trade with a canonical recommendation, consuming merged Roster Intelligence, with the five proofs recorded and the PR posted READY FOR INTEGRATION as third in the train. Do not start V1-42, do not touch UI, do not widen into advanced trade-market systems (POST-V1).",
+      "stopCondition": "Stop when Analyze Trade V1 answers one typed-in trade with a canonical recommendation, consuming merged Roster Intelligence, with the five proofs recorded and the PR posted READY_FOR_INTEGRATION. Then FREEZE per #940 rule 8. Do not start V1-42, do not touch UI, do not widen into advanced trade-market systems (POST-V1).",
       "dependsOn": [
         "#914 (MERGED)",
-        "#922 (MERGED — the finalized Roster mainline)",
-        "#913 6e7c2457 + #929 e057c55a (stacked base, both clean at baseline 664)"
+        "#922 (MERGED)",
+        "#913 (MERGED 25bb6b4bd)",
+        "#929 (MERGED 817d9abe4)",
+        "— all dependencies are on main; nothing is stacked"
       ],
       "forbiddenTouches": [
-        "claude/v1-trade-intelligence-efstt3",
-        "claude/v1-con-01-constraint-owner",
         "src/roster_intel/**",
         "src/ros/**",
         "CLAUDE.md",
@@ -95,7 +95,7 @@
         "docs/C_SERIES_SCOPE_MANIFEST.md",
         "frontend/**"
       ],
-      "prompt": "Lane 2 — Trade Intelligence. #914 merged at 17:51:26Z, so src/roster_intel/ is on main and the condition your own #913 body set for V1-43 is satisfied: Analyze Trade V1 can now consume src.roster_intel instead of building against an unmerged interface. Your rehearsal assignment is superseded by that merge. Take V1-43 / C7-DESK-01 / #792 for real. Base on #929's CURRENT head e057c55a (the old 51b11bfb is retired) — NOT bare main — because you need #913's package substrate and #929's constraint owner; mark the PR as third in the #913 -> #929 -> V1-43 train, and do not commit to either frozen PR. Build the canonical recommendation for ONE typed-in trade. CONSUME the merged Roster owners — exact lineup, reserve demand, meaningful core, Team Strength, Team Weakness, droppability, replacement level, roster simulation — and reimplement none of them; a second implementation of a freshly merged canonical owner is the worst possible outcome of this merge, so ship an import census proving it. The contract row names no-double-counting explicitly: declare every input with its correlation group and show no body of evidence is counted twice. Missing is never zero — an unpriceable asset, an unknown cap or absent Roster evidence must yield an explicit insufficient/unknown verdict, never a confident-looking number, and that must be pinned. Prove canonical value untouched with scripts/board_diff.py --expect-no-value-change. RED-first with a recorded mutation per guard. V1-42 (exact before/apply/re-solve/after simulation) is a SEPARATE row and simulation.py is now on main: state plainly whether you consume it or whether V1-42 stays open — do not silently absorb it. No frontend UI (Lane 6's, and #912 is frozen) — hand the response shape over. No edits to CLAUDE.md or the contract/plan/manifest; draft that text for Claude 5. Stop when the recommendation works with the five proofs recorded and the PR is posted READY FOR INTEGRATION.",
+      "prompt": "Lane 2 — Trade Intelligence. #914 merged at 17:51:26Z, so src/roster_intel/ is on main and the condition your own #913 body set for V1-43 is satisfied: Analyze Trade V1 can now consume src.roster_intel instead of building against an unmerged interface. Your rehearsal assignment is superseded by that merge. Take V1-43 / C7-DESK-01 / #792 for real. Branch from PLAIN MAIN — #913 and #929 are both merged, so the substrate and the constraint owner are already there; import them rather than restacking — NOT bare main — because you need #913's package substrate and #929's constraint owner; mark the PR as third in the #913 -> #929 -> V1-43 train, and do not commit to either frozen PR. Build the canonical recommendation for ONE typed-in trade. CONSUME the merged Roster owners — exact lineup, reserve demand, meaningful core, Team Strength, Team Weakness, droppability, replacement level, roster simulation — and reimplement none of them; a second implementation of a freshly merged canonical owner is the worst possible outcome of this merge, so ship an import census proving it. The contract row names no-double-counting explicitly: declare every input with its correlation group and show no body of evidence is counted twice. Missing is never zero — an unpriceable asset, an unknown cap or absent Roster evidence must yield an explicit insufficient/unknown verdict, never a confident-looking number, and that must be pinned. Prove canonical value untouched with scripts/board_diff.py --expect-no-value-change. RED-first with a recorded mutation per guard. V1-42 (exact before/apply/re-solve/after simulation) is a SEPARATE row and simulation.py is now on main: state plainly whether you consume it or whether V1-42 stays open — do not silently absorb it. No frontend UI (Lane 6's, and #912 is frozen) — hand the response shape over. No edits to CLAUDE.md or the contract/plan/manifest; draft that text for Claude 5. Stop when the recommendation works with the five proofs recorded and the PR is posted READY FOR INTEGRATION.",
       "heldAt": "2026-08-19T19:01:00Z",
       "heldReason": "Its base (#929 on #913) is conflicted against post-#914 main. Claude 7's own instruction to 'base on #929's head 51b11bfb' was correct when written at 18:16Z and is not correct now — recorded rather than quietly edited.",
       "laneIsNotIdle": "Lane 2 pushed rehearsal-2 at 20:19Z (finalized Roster reconciliation map) and has added nothing to either frozen PR. Correct posture; nothing needs dispatching.",
@@ -117,8 +117,9 @@
         10
       ],
       "releaseReason": "B5 cleared: #913 reconciled onto the finalized Roster mainline (6e7c2457) and #929 rebased on top (e057c55a); both merge clean at baseline 664.",
-      "baseAmended": "Base on #929's CURRENT head e057c55a, NOT the retired 51b11bfb. The train is #913 -> #929 -> V1-43, in the order the lane declared.",
-      "newCaveat": "#913's CI is in flight on 6e7c2457 as of 23:17:18Z. The base is textually clean but not yet re-validated, so treat a red there as a stop signal before building on it. Also: the owner's note on #929 says the stack supports V1-130 only, NOT V1-34 — do not treat V1-34 as closed by it."
+      "baseAmended": "BASE IS NOW PLAIN MAIN. #913 (25bb6b4bd) and #929 (817d9abe4) are both merged, so the three-deep train is gone and V1-43 branches from main. This supersedes both earlier base instructions (51b11bfb, then e057c55a).",
+      "newCaveat": "#913's CI is in flight on 6e7c2457 as of 23:17:18Z. The base is textually clean but not yet re-validated, so treat a red there as a stop signal before building on it. Also: the owner's note on #929 says the stack supports V1-130 only, NOT V1-34 — do not treat V1-34 as closed by it.",
+      "reamendedAt": "2026-08-20T03:12:00Z"
     }
   ],
   "currentAssignmentsManual": {
@@ -283,6 +284,13 @@
       "id": "C11-2",
       "raisedAt": "2026-08-19T23:30:00Z",
       "correction": "This auditor's own scheduled B5 recheck hardcoded the SHA c2153ebe. Once #913's head moved, that test described a commit nobody was merging and would have reported a cleared blocker as still open. Blocker rechecks must resolve the ref, not a remembered SHA."
+    },
+    {
+      "id": "C17-1",
+      "raisedAt": "2026-08-20T03:12:00Z",
+      "supersedes": "C11-1",
+      "correction": "C11-1 said the constraint stack supports V1-130 only and that counting V1-34 too was 'wrong by one'. The observation (no writer for tradeConstraintsByLeague, so no operable user control) stands, but the conclusion was too strong: V1-34's contract level is L1, and L1 requires a deterministic RED->GREEN plus merge-tree green, NOT a production consumer. Claude 5 promoted it on three mutations performed at Integration with six named REDs. My warning was itself wrong by one.",
+      "whatSurvives": "An argument that V1-34 ought to need a production consumer is an argument to RE-LEVEL the row to L4 — an owner decision — not an argument against the promotion."
     }
   ]
 }

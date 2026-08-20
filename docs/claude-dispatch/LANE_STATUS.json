@@ -1,9 +1,9 @@
 {
   "_comment": "Lane utilization state, owned by Claude 7 (Lane Dispatcher). NOT an authority on integration sequencing (Claude 5 / docs/EXECUTION_PLAN.md), on V1 status (docs/VERSION_1_COMPLETION_CONTRACT.md) or on canonical ownership (CLAUDE.md). Repository evidence outranks this file: where they disagree, this file is wrong and must be corrected.",
-  "updatedAt": "2026-08-20T02:28:00Z",
-  "dispatchCycle": 16,
+  "updatedAt": "2026-08-20T03:12:00Z",
+  "dispatchCycle": 17,
   "writePolicy": "This file and ASSIGNMENTS.json are written ONLY on a material state transition — new assignment, assignment accepted, completion, blocker, freeze/unfreeze, or a meaningful dependency change. A heartbeat that finds nothing changed produces no commit and no CI run.",
-  "evidenceBasis": "origin/main 55633d4ed; V1 §3 counted on main and each promoted row read individually; refs resolved live; three distinct merge-subject formats now observed",
+  "evidenceBasis": "origin/main b8ca95f4f; four merges detected via the '— <title>' subject format; V1 §3 counted on main AND on Lane 5's live branch with a per-row diff; all refs resolved live",
   "assignmentSourceNote": "The six current assignments were made manually by the owner, not by this dispatcher. Recorded here so the durable state matches reality; Claude 7 did not originate them and does not own them.",
   "v1": {
     "requiredRows": 132,
@@ -23,9 +23,9 @@
         925
       ],
       "pr": 925,
-      "implementationHead": "#933 GREEN (20:48:46Z); #925 is now chain head and merges clean post-#922",
-      "releaseCandidate": "#933 IN WAVE — integration/rc-wave-a",
-      "evidence": "#933 in rc-wave-a; #925 991280ad still open and clean",
+      "implementationHead": "#925 991280ad — FEATURE_GREEN, clean",
+      "releaseCandidate": "handed off",
+      "evidence": "#933 MERGED 6eb847c39; #925 still open",
       "blockedBy": null,
       "doNotTouch": [
         "#922",
@@ -34,26 +34,25 @@
       "nextSafeWork": "none required. Frozen per policy rule 8; this is NO_SAFE_WORK, not idleness.",
       "lastMeaningfulActivity": "2026-08-19T22:26:04Z",
       "mergedThisCycle": [
-        922
-      ],
-      "openPrs": [
-        925,
         933
       ],
+      "openPrs": [
+        925
+      ],
       "policyState": "READY_FOR_INTEGRATION",
-      "policyStateDetail": "#933 FEATURE_GREEN and inside rc-wave-a; #925 FEATURE_GREEN and clean. Both frozen at handoff — no further implementation unless Integration returns them."
+      "policyStateDetail": "#933 landed; #925 remains handed off and frozen."
     },
     "2": {
       "name": "Trade Intelligence",
       "state": "ACTIVE",
       "currentTask": "#913 MERGED; #929 is in the release-candidate wave; V1-43 assignment released and awaiting delivery",
       "assignmentSource": "manual (owner) rehearsal + Claude 7's L2-2026-08-19-02 held",
-      "branch": "claude/v1-con-01-constraint-owner",
+      "branch": null,
       "frozenPrs": [],
-      "pr": 929,
-      "implementationHead": "#929 e057c55a clean; also carried inside integration/rc-wave-a",
-      "releaseCandidate": "IN WAVE — integration/rc-wave-a",
-      "evidence": "#913 merged as 25bb6b4bd; branch deleted; #929 clean against main and included in rc-wave-a",
+      "pr": null,
+      "implementationHead": "n/a — nothing in flight",
+      "releaseCandidate": "n/a",
+      "evidence": "#929 MERGED 817d9abe4; #913 merged earlier; no open Lane 2 PR",
       "blockedBy": null,
       "doNotTouch": [
         "src/roster_intel/**",
@@ -61,18 +60,16 @@
         "CLAUDE.md",
         "frontend/**"
       ],
-      "nextSafeWork": "V1-43 remains the only dependency-ready unit, and its base is inside the wave — confirm the final base with Integration before branching. Do NOT refresh #929 for main movement.",
+      "nextSafeWork": "V1-43 Analyze Trade V1, branching from PLAIN MAIN — the stacked base is gone because #913 and #929 both merged. Assignment L2-2026-08-19-02 amended.",
       "lastMeaningfulActivity": "2026-08-20T00:18:00Z",
-      "assignedThisCycle": "L2-2026-08-19-02 RELEASED (DELIVERY_REQUIRED, base amended to e057c55a)",
+      "assignedThisCycle": "L2-2026-08-19-02 re-amended (base = main) — still DELIVERY_REQUIRED",
       "idleMinutes": 0,
-      "openPrs": [
+      "openPrs": [],
+      "mergedThisCycle": [
         929
       ],
-      "mergedThisCycle": [
-        913
-      ],
-      "policyState": "READY_FOR_INTEGRATION",
-      "policyStateDetail": "#929 FEATURE_GREEN, clean, inside rc-wave-a. Frozen at handoff."
+      "policyState": "FREE — V1-43 is a genuinely unstarted dependency-ready unit",
+      "policyStateDetail": "Both stack members merged. This is the one lane where the 10-minute ACTIONABLE_IDLE rule still applies, because V1-43 is unstarted and now unblocked."
     },
     "3": {
       "name": "Scoring / Season / Projections / Power",
@@ -82,24 +79,25 @@
       "branch": "claude/v1-51-ros-standings-tiebreak",
       "openPrs": [
         915,
-        923,
+        923
+      ],
+      "mergedThisCycle": [
         934,
         937
       ],
-      "mergedThisCycle": [],
-      "pr": 937,
+      "pr": 923,
       "implementationHead": "#934 GREEN 21:00:43Z; #937 GREEN 00:00:45Z",
       "releaseCandidate": "#937 IN WAVE — integration/rc-wave-a",
-      "evidence": "#937 head pushed 23:44Z, Validate PR success 00:00:45Z; #934 green; #923/#915 unchanged",
+      "evidence": "#937 MERGED 5feade0eb; #934 MERGED e37d2786e; #915 and #923 still open",
       "blockedBy": null,
       "doNotTouch": [
         "#915 head while under integration review"
       ],
       "nextSafeWork": "none required — four PRs already handed off. Frozen per rule 8.",
-      "observation": "#937 is in the release candidate, so the four-PR count should fall as the wave lands. Still no fifth until it does.",
+      "observation": "Down to two open PRs from four. §28 pressure relieved.",
       "lastMeaningfulActivity": "2026-08-20T00:17:57Z",
       "policyState": "READY_FOR_INTEGRATION",
-      "policyStateDetail": "#937 and #934 FEATURE_GREEN; #937 inside rc-wave-a. #915/#923 awaiting integration."
+      "policyStateDetail": "#915 and #923 handed off and frozen."
     },
     "4": {
       "name": "Market / FAAB / Sharp / Analyst",
@@ -132,26 +130,28 @@
     "5": {
       "name": "Integration / Governance / Production",
       "state": "ACTIVE",
-      "currentTask": "promotions landed via #939; more promotion work in flight on a live branch (f3c97e414, 1 ahead)",
+      "currentTask": "per-PR merges done; staging +2 promotions and 2 honest corrections on its live branch",
       "assignmentSource": "n/a — sole integration authority, never tasked by this dispatcher",
       "branch": null,
       "mergedThisCycle": [
-        927,
-        932,
-        939
+        929,
+        933,
+        934,
+        937
       ],
       "implementationHead": "n/a",
       "releaseCandidate": "NOT_YET_FROZEN",
-      "evidence": "V1 on main now 45/132; claude/v1-integration-authority-xaqcv8 live again at f3c97e414",
+      "evidence": "main 45/132; branch 54f9ee098 counts 47/132 staging V1-34 and V1-130",
       "blockedBy": null,
       "doNotTouch": [],
       "nextSafeWork": "its own sequencing",
       "reportedToIntegration": [
-        "V1 is 45/132 (34.1%) and verified row by row. The five that moved are V1-28, V1-30, V1-33, V1-64, V1-119.",
-        "BIGGEST REMAINING LEVER, and it changed tonight: #932 is on main, so the Lane-4 production verifier is deployable. The on-box batch (V1-57, V1-129, V1-60 — gitignored prod files and systemctl, NO HTTP auth) is now executable and needs only host access. The authenticated batch (V1-11, V1-27, V1-58) needs the session credential or the bearer endpoint you must sign off.",
-        "Both integration branches are badly stale — rc-937 26 behind, rc-wave-a 33 behind. Refresh or retire per rule 7; two stale integration branches is the shape that rule warns about.",
-        "Still open and handed off: #929, #933, #937, #934, #925, #935, #915, #923, #912. #921 is approved POST-V1 and recommended paused.",
-        "V1-88 correctly not promoted. Closing it needs either a structured `gates` field on the flag registry or a re-levelling ruling — not a proxy test."
+        "Both integration branches are spent — rc-937 45 behind, rc-wave-a 42 behind, their content merged individually. Retire them (rule 7).",
+        "Four implementations landed with no row promoted, which is correct. Your live branch stages the two that earned it.",
+        "STILL THE BIGGEST LEVER: the Lane-4 production verifier is on main and deployable. The on-box batch (V1-57, V1-129, V1-60) needs host access only — no HTTP auth — and nobody has run it. That is worth more numerator than any remaining implementation.",
+        "V1-88 remains correctly unpromoted. Closing it needs a structured `gates` field or a re-levelling ruling.",
+        "V1-42 reads NOT STARTED while #913's W3 supplied its missing consumer — worth a look, since a merged owner with a consumer is exactly what the row wanted.",
+        "Lane 2 has no open PR and V1-43 is unblocked on plain main. It is the only lane with genuinely unstarted dependency-ready work."
       ],
       "lastMeaningfulActivity": "2026-08-20T02:23:00Z",
       "policyState": "INTEGRATION_OWNER"
@@ -199,12 +199,19 @@
     ]
   },
   "cycleNumberingNote": "The scheduled wakeup was labelled cycle 14, but cycle 14 was already spent adopting the #940 policy. Run as 15; the wakeup's cycle-13 state was superseded.",
-  "cycle16Transitions": [
-    "V1 MOVED: 40 -> 45/132 (34.1%). #939 merged Claude 5's promotion branch. Each row confirmed individually in main's table.",
-    "V1-88 STILL READS IMPLEMENTED_UNVERIFIED. It went through Claude 5's own promotion pass and was not promoted — the auditor's refusal to call it closable, on the grounds that the endpoint-naming invariant has no deterministic test and the registry holds the gated endpoint as prose, survived contact with the integration owner's review.",
-    "#927 and #932 MERGED (Lane 4). CONSEQUENCE FOR THE CLOSABILITY QUEUE: scripts/verify_lane4_production.py is now on main, so the on-box and authenticated verification batches this queue proposed are newly EXECUTABLE rather than theoretical. That is the biggest change to what is closable next.",
-    "A THIRD merge-subject format observed: 'Merge pull request #NNN — <title>', with no 'from <branch>'. The dual detection caught it because it still contains 'pull request', but the branch name is absent, so branch-based attribution fails on these.",
-    "CORRECTION AGAINST MYSELF: at cycle 15 I reported #935's head as 051753d4. It was already 6ff7b164 at 01:23 — I carried a remembered SHA instead of resolving the ref live, which is the exact rule I wrote at cycle 11 and reinforced at 13. The green verdicts (Boot stack 01:30:48Z, Validate 01:37:29Z) were run at 01:25:41Z on the NEW head, so B10's closure stands; what was wrong is the SHA I attributed it to. A citation error, not a verdict error, and recorded as such.",
-    "Both integration branches are now badly stale: integration/rc-937 is 3 ahead / 26 BEHIND, integration/rc-wave-a 16 ahead / 33 BEHIND. Rule 7 wants them refreshed and small, or retired."
-  ]
+  "cycle17Transitions": [
+    "FOUR MERGES: #933 (V1-29), #929 (V1-130), #937 (V1-95), #934 (V1-51 tiebreak). Claude 5 merged them individually rather than through the wave branches, so both integration branches are now spent: rc-937 is 1 ahead / 45 behind, rc-wave-a 4 ahead / 42 behind. Under rule 7 they should be retired, not refreshed.",
+    "V1 on main is STILL 45/132. The four merges moved no row, which is correct discipline rather than a lapse — implementation landing is not verification.",
+    "Lane 5 stages +2 on its live branch (54f9ee098, 47/132): V1-34 and V1-130 to VERIFIED. It also CORRECTS two rows in the honest direction — V1-51 NOT STARTED -> IN PROGRESS and V1-95 NOT STARTED -> IMPLEMENTED_UNVERIFIED — and notably did NOT promote V1-29 despite #933 landing.",
+    "Claude 5 also caught its own stale tally and gated it ('The standing tally was stale in my own commit; gate it so it cannot recur'). Worth recording as the same class of error this dispatcher made at cycle 15 with a remembered SHA — and it fixed it structurally rather than by hand.",
+    "V1-43's BASE QUESTION IS RESOLVED. Both #913 and #929 are now merged, so the Analyze Trade unit no longer needs a stacked base: it branches from plain main. Assignment L2-2026-08-19-02 amended accordingly.",
+    "Lane 2 now has NO open PR. Under the #940 policy that is not idleness by default — but V1-43 is a genuinely unstarted dependency-ready unit, so Lane 2 is the one lane where the 10-minute rule still applies."
+  ],
+  "selfCorrection_C17": {
+    "supersedes": "C11-1",
+    "whatIClaimed": "At cycle 11 I recorded, from the owner's note on #929, that the constraint stack supports V1-130 ONLY and not V1-34, because the owner ships with no writer for tradeConstraintsByLeague — and that any projection counting both rows was 'wrong by one'.",
+    "whatIsActuallyTrue": "The observation was right: there is no operable user-facing control. The CONCLUSION was too strong. V1-34's target verification level in the contract is L1 — a RED->GREEN test at exact head plus green CI on the merge tree — and L1 does not require a production consumer. Claude 5's promotion rests on three mutations performed AT INTEGRATION, each confirmed applied with the changed line quoted before being counted, yielding six named REDs across test_recommendation_constraints.py and test_constraint_generation.py (41 passed).",
+    "consequence": "My 'wrong by one' warning was itself wrong by one. The level the contract sets is the contract's to set, and it says L1.",
+    "whatSurvives": "If anyone believes V1-34 should require a production consumer, that is an argument for RE-LEVELLING the row to L4 — an owner decision — not an argument against this promotion. Recorded that way rather than quietly dropped."
+  }
 }
