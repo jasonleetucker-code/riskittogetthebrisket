@@ -1,7 +1,7 @@
 {
   "_comment": "Live V1 Closability Queue, owned by Claude 7 as independent V1 traffic controller / adversarial auditor. Ranks IMPLEMENTED_UNVERIFIED rows by verification effort per row gained. NOT an authority on V1 status — only Claude 5 promotes a row, and no percentage here is claimed as achieved.",
-  "updatedAt": "2026-08-20T06:40:00Z",
-  "auditCycle": 22,
+  "updatedAt": "2026-08-20T09:40:00Z",
+  "auditCycle": 23,
   "evidenceBasis": {
     "contract": "docs/VERSION_1_COMPLETION_CONTRACT.md §3 read on origin/main e3b387ca5",
     "deployedSha": "e3b387ca5",
@@ -401,52 +401,50 @@
     "_doNotQuote": "Do not cite this block as the V1 status. Read the contract on current main instead.",
     "observedVerifiedRows": 57,
     "observedRequiredRows": 132,
-    "observedAtSha": "c4431ccba",
-    "observedAt": "2026-08-20T06:38:00Z",
+    "observedAtSha": "cca488cd7",
+    "observedAt": "2026-08-20T09:38:00Z",
     "howObserved": "counted `VERIFIED` in the §3 table of the contract as it exists at that exact SHA",
-    "note": "#947 merged as ff2741305. Row-diffed and independently counted; the contract's own table agrees."
+    "note": "Unchanged across four merges (#946, #948, #952, #956). Counted independently; the contract table agrees."
   },
   "_authorityNote": "This queue RANKS work by verification effort. It does not own, publish or restate V1 status. docs/VERSION_1_COMPLETION_CONTRACT.md §3 owns that, and every count in this file is a derived reading stamped with the SHA it came from.",
-  "cycle22": {
-    "promotedThisCycle": {
-      "V1-107": "VERIFIED, target L2 — payload re-measured at Integration from an archive, plus two mutations each producing named REDs.",
-      "V1-113": "VERIFIED, target L1 — 20 axe checks confirmed passing and non-skipping from the CI run log.",
-      "V1-108": "DEMOTED IN PLACE to IMPLEMENTED_UNVERIFIED with an exact close condition: commit the transitive import-graph scan as a guard. Now a Tier B item rather than an unanalysed IN PROGRESS row."
+  "cycle23": {
+    "bottleneckRestated": "VERIFICATION PASSES, NOT IMPLEMENTATION. Five merges over cycles 21-23 produced +2 VERIFIED rows, both from the single promotion PR #947. Rows now routinely land implemented-and-honest with a named close condition and then wait. The queue's Tier B population is growing faster than anything is draining it.",
+    "rowsWithNamedCloseConditions": {
+      "V1-51": "Implementation merged via #956; row stays IN PROGRESS. Close: give playoff_odds.py:215 the `unsimulable` shape with n_simulations 0 and a sibling-consistent `simulated` flag, a test RED without it, then re-measure the three endpoints for the L2 statement.",
+      "V1-108": "Close: commit the transitive import-graph scan as a guard.",
+      "V1-106": "NO named close condition — see the cycle-22 finding. Still IN PROGRESS citing only PR #760 while that code is on main."
     },
-    "tierB_newlyIdentified": {
-      "V1-106": "Code on main via #912; blocker is instrument credibility (the FPS harness owner ruling), not implementation. The row does not say so. Needs the same decomposition #947 gave V1-108.",
-      "V1-108": "Named close condition exists. Cheapest of the L6 rows now."
+    "cycle22FindingsRecheck": {
+      "stalePRs": "#759 and #760 STILL OPEN against landed code. Unacted. Note #949 (open) does exactly this class of cleanup for two work-claim rows in docs/WORK_CLAIMS.md, so someone is working the stale-bookkeeping seam — just not these two PRs.",
+      "V1_106_rowText": "Unchanged. Still the structural sibling of V1-108 without V1-108's decomposition."
     },
     "standingItemsUnchanged": [
       {
         "item": "Lane 2 ACTIONABLE_IDLE",
-        "elapsed": "~10.5h since 9e9d8e8ec; no new branch, no new PR",
-        "row": "V1-43 still `NOT STARTED`, target L1, unblocked on plain main",
-        "blocker": "ASSIGNMENT DELIVERY of L2-2026-08-19-02 — still DELIVERY_REQUIRED, still no reachable channel",
+        "elapsed": "~13.5h since 9e9d8e8ec; no new branch, no new PR",
+        "row": "V1-43 still NOT STARTED, target L1, unblocked on plain main",
+        "blocker": "ASSIGNMENT DELIVERY of L2-2026-08-19-02 — DELIVERY_REQUIRED, no reachable channel",
         "dispatcherAction": "Surfaced only. No second assignment written."
       },
       {
         "item": "Lane 4 on-box verification batch",
-        "rows": "V1-57, V1-129, V1-60 — all still IMPLEMENTED_UNVERIFIED at c4431ccba",
-        "elapsed": "~12.5h since 66fb1a053",
-        "dispatcherAction": "Cannot execute on-box verification from this session."
+        "rows": "V1-57, V1-129, V1-60 — all still IMPLEMENTED_UNVERIFIED at cca488cd7",
+        "elapsed": "~15h since 66fb1a053",
+        "sharpened": "Given the cycle-23 bottleneck reading, this batch is no longer merely 'cheap' — it is one of the few conversions available that needs NO new implementation and NO new PR from an implementation lane. Host access only."
       },
       {
-        "item": "Abandoned refs, #940 rule 7",
-        "stillPresent": [
-          "integration/rc-937 (80b7b948d)",
-          "integration/rc-wave-a (213f91513)",
-          "v1/premium-ui (c025e4f68 — provably dead, ancestor of b3ea4cf5a)"
-        ],
-        "counterObservation": "Two lanes DID delete their branches on merge this cycle and last. The three that remain are integration-owned or orphaned, not lane-owned.",
-        "dispatcherAction": "Ref deletion is not dispatcher authority."
+        "item": "Abandoned refs",
+        "resolved": "v1/premium-ui DELETED",
+        "remaining": [
+          "integration/rc-937",
+          "integration/rc-wave-a"
+        ]
       }
     ],
     "stillOpenAndReported": {
-      "V1-42": "NOT STARTED for a sixth consecutive cycle, though #913's W3 supplied the consumer simulate_roster_change lacked.",
-      "V1-88": "IMPLEMENTED_UNVERIFIED; unpromotable absent a structured `gates` field on the flag registry or an owner re-levelling ruling.",
-      "pr930PostDeployScrape": "Still unconfirmed.",
-      "stalePRs": "#759 and #760 open against landed code — see LANE_STATUS newFinding_stalOpenPRs."
+      "V1-42": "NOT STARTED for a seventh consecutive cycle despite #913's W3.",
+      "V1-88": "Unpromotable absent a structured `gates` field or an owner re-levelling ruling.",
+      "pr930PostDeployScrape": "Still unconfirmed."
     }
   }
 }

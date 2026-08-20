@@ -1,7 +1,7 @@
 {
   "_comment": "Lane utilization state, owned by Claude 7 (Lane Dispatcher). NOT an authority on integration sequencing (Claude 5 / docs/EXECUTION_PLAN.md), on V1 status (docs/VERSION_1_COMPLETION_CONTRACT.md) or on canonical ownership (CLAUDE.md). Repository evidence outranks this file: where they disagree, this file is wrong and must be corrected.",
-  "updatedAt": "2026-08-20T06:40:00Z",
-  "dispatchCycle": 22,
+  "updatedAt": "2026-08-20T09:40:00Z",
+  "dispatchCycle": 23,
   "writePolicy": "This file and ASSIGNMENTS.json are written ONLY on a material state transition — new assignment, assignment accepted, completion, blocker, freeze/unfreeze, or a meaningful dependency change. A heartbeat that finds nothing changed produces no commit and no CI run.",
   "evidenceBasis": "origin/main 079fc9e4a; §3 diffed row-by-row from cycle-19 main (c5a367266); all refs resolved live; #945 CI green 04:57:35Z",
   "assignmentSourceNote": "The six current assignments were made manually by the owner, not by this dispatcher. Recorded here so the durable state matches reality; Claude 7 did not originate them and does not own them.",
@@ -206,34 +206,42 @@
     "howObserved": "counted `VERIFIED` in the §3 table of the contract as it exists at that exact SHA"
   },
   "canonicalOwnerRule": "This dispatcher previously carried a `v1` block with verified/percent fields that read as authoritative, and it DRIFTED — PR #945 declared 48/132 while the contract on main said 55/132. That is a second owner of the numerator forming inside a coordination record, which is the exact defect class this dispatcher has spent the session flagging in other lanes. Corrected on integration review: the fields are renamed to name themselves derived, carry the SHA they were read at, and declare the contract the winner in any disagreement.",
-  "cycle22Transitions": {
-    "mainTip": "c4431ccba (was 64769555a)",
-    "merged": {
-      "pr": "#947 — Integration",
-      "mergeCommit": "ff2741305 (subject format 2: 'Merge pull request #N — <title>')",
-      "verifiedIndependently": "Row-diffed §3 64769555a -> c4431ccba. EXACTLY the three rows #947 claimed and no others: V1-107 IN PROGRESS -> VERIFIED (target L2), V1-113 IN PROGRESS -> VERIFIED (target L1), V1-108 IN PROGRESS -> IMPLEMENTED_UNVERIFIED (target L2).",
-      "contractSelfConsistent": "Counted the rows myself (57 / 21 / 23 / 29 / 2 = 132) and then read the contract's own status table and completion line: identical, 57 / 132 = 43.2%. The two agree, which is the check the contract's own history says has failed before.",
-      "branchHygiene": "claude/v1-integration-authority-xaqcv8 DELETED on merge. Second correct rule 7 cleanup in two cycles."
+  "cycle23Transitions": {
+    "mainTip": "cca488cd7 (was c4431ccba)",
+    "headlineFinding": {
+      "statement": "FOUR PRs MERGED THIS CYCLE AND THE CONTRACT MOVED BY ZERO ROWS.",
+      "merged": [
+        "#946 (015570741) — P1 BDVM ingestion off the request path",
+        "#948 (9e8350960) — CI reliability",
+        "#952 (b5f339d2d) — /waivers FAAB on mobile",
+        "#956 (4157adfe4) — V1-51 championship truthful sims"
+      ],
+      "rowDiff": "§3 row-diffed c4431ccba -> cca488cd7: NO row changed status. Still 57/132, and the contract's own table and completion line agree with my independent count.",
+      "thisIsCorrectBehaviour": "#956 landed the V1-51 IMPLEMENTATION and the row stayed `IN PROGRESS` with a named close condition (give playoff_odds :215 the `unsimulable` shape with n_simulations 0, a RED-without-it test, then re-measure three endpoints for the L2 statement). A merge is not verification, and the lanes are holding that line.",
+      "butTheUtilizationReadingIsTheOppositeOfIdleLanes": "Across cycles 21-23: FIVE merges, +2 VERIFIED rows, and BOTH of those came from ONE promotion PR (#947). The numerator moves only when Integration runs a dedicated verification pass. Implementation throughput and verification throughput have decoupled, and verification is the binding constraint — not lane idleness, which is what this dispatcher has been reporting for a dozen cycles."
     },
-    "watchItemResolved": {
-      "ref": "claude/ci-reliability-hardening",
-      "became": "PR #948 — 'CI reliability: the seven red ticks were mostly right — CI's own side effects were not'",
-      "head": "c20a1f1df",
-      "verdict": "NOT a #940 rule 7 breach. It acquired a PR within one cycle of being flagged.",
-      "relevance": "Directly in the false-green class this dispatcher audits: it adds tests named for the property, not the mechanism — no workflow exits green on missing secrets, production checks do not skip green, bootstrap reports the unit's real outcome. It also touches verify-sharp-production.yml and adds tests/deploy/test_sharp_smoke_commit_order.py, which is adjacent to blocker B8 (pr-validation concurrency and refresh commits). Not dispatcher-assigned; not dispatcher-reviewed."
+    "abandonedRefUpdate": {
+      "cleared": "v1/premium-ui is GONE from origin. One of the three cleared without anyone being told to.",
+      "stillPresent": [
+        "integration/rc-937 (80b7b948d)",
+        "integration/rc-wave-a (213f91513)"
+      ],
+      "alsoDeletedOnMerge": [
+        "claude/bdvm-nonblocking-ingestion-v2",
+        "claude/ci-reliability-hardening"
+      ],
+      "assessment": "Branch hygiene has gone from zero cleanups in twenty cycles to four in three. The two that remain are integration-owned release-candidate refs, not lane refs."
     },
-    "newFinding_stalOpenPRs": {
-      "finding": "TWO OPEN PRs REPRESENT WORK ALREADY ON MAIN.",
-      "evidence": "#912's commit list contains c3aec3a10 'Stop six non-data routes from downloading the player contract (#759)' and a9136e13e 'Window the rankings board ... (#760)'. Confirmed on main directly rather than from the subjects: AppShell.jsx defines isNoPlayerDataRoute at line 162 and gates on it at 198, and frontend/components/ds/useRowWindow.js + frontend/__tests__/components/ds/RowWindow.test.jsx both exist at c4431ccba.",
-      "consequence": "The open-PR queue overstates outstanding work by two, and a future integrator could review or re-merge landed code. This is the rule 7 concern — a ref that is no longer a source of truth — arriving as a PR rather than a branch.",
-      "dispatcherAction": "REPORTED ONLY. Closing a PR is not dispatcher authority."
+    "newObservation_laneEight": {
+      "evidence": "#954 is titled 'feat(sources): acquisition states, bridge layer, per-row archive preservation (Lane 8 PR A)', with companion #950 and branches claude/cross-position-bridge-v1 and -prb.",
+      "consequence": "This dispatcher's model covers Lanes 1-6 plus Integration. A Lane 8 is committing and is outside every doNotTouch set, collision watchlist and idle clock in these records.",
+      "dispatcherAction": "REPORTED. Extending the lane model is an owner decision, not a dispatcher one. Recording it because a coordination record that silently omits an active lane is the same defect class as a stale tally — it looks complete."
     },
-    "newFinding_V1_106": {
-      "row": "V1-106 — rankings board windowing",
-      "status": "`IN PROGRESS`, target L2, evidence pointer reads only 'PR #760'",
-      "problem": "#760's code is ON MAIN. #947's summary says V1-106 'stays open per the owner ruling on the FPS harness', which is a real and correct reason — but the ROW does not say it. Read alone, the row looks like unlanded work when what is actually missing is a credible instrument.",
-      "whyItMatters": "This is the exact structural sibling of V1-108, which #947 decomposed properly with a named close condition. V1-106 is the same shape and did not get one, so it will keep reading as unstarted implementation and keep attracting the wrong kind of work.",
-      "dispatcherAction": "REPORTED to L5/L6, who own row text. The dispatcher does not edit the contract."
+    "myOwnPr": {
+      "pr": "#945",
+      "head": "0085493ac",
+      "ci": "Validate PR SUCCESS — job 96338019518, completed 06:50:03Z",
+      "reviewComments": "none new"
     }
   }
 }
