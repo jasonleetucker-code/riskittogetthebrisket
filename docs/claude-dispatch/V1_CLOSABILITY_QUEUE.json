@@ -1,7 +1,7 @@
 {
   "_comment": "Live V1 Closability Queue, owned by Claude 7 as independent V1 traffic controller / adversarial auditor. Ranks IMPLEMENTED_UNVERIFIED rows by verification effort per row gained. NOT an authority on V1 status — only Claude 5 promotes a row, and no percentage here is claimed as achieved.",
-  "updatedAt": "2026-08-20T14:50:00Z",
-  "auditCycle": 36,
+  "updatedAt": "2026-08-20T15:45:00Z",
+  "auditCycle": 38,
   "evidenceBasis": {
     "contract": "docs/VERSION_1_COMPLETION_CONTRACT.md §3 read on origin/main e3b387ca5",
     "deployedSha": "e3b387ca5",
@@ -401,24 +401,23 @@
     "_doNotQuote": "Do not cite this block as the V1 status. Read the contract on current main instead.",
     "observedVerifiedRows": 60,
     "observedRequiredRows": 136,
-    "observedAtSha": "a9799ef93",
-    "observedAt": "2026-08-20T14:47:00Z",
+    "observedAtSha": "0c6f1fdcd",
+    "observedAt": "2026-08-20T15:42:00Z",
     "howObserved": "counted `VERIFIED` in the §3 table of the contract as it exists at that exact SHA",
-    "note": "V1-63 VERIFIED via #988. Fourth promotion pass this session."
+    "note": "VERIFIED unchanged at 60/136. No promotion pass since #988 (cycle 36)."
   },
   "_authorityNote": "This queue RANKS work by verification effort. It does not own, publish or restate V1 status. docs/VERSION_1_COMPLETION_CONTRACT.md §3 owns that, and every count in this file is a derived reading stamped with the SHA it came from.",
-  "cycle36": {
-    "promotionPassRan": "YES — #988. V1-63 VERIFIED, 59 -> 60/136.",
-    "bottleneckUpdated": "Cycles 21-36: eleven merges total across promotion+implementation, +5 VERIFIED rows (V1-107, V1-113, V1-51, V1-53, V1-63), all five from FOUR dedicated Integration promotion passes (#947, #963, #972, #988). Implementation volume across many lanes stays high; the numerator moves only in discrete Integration acts, and this cycle both halves of that pattern were visible in one sweep: V1-108's implementation merged (#989) while its promotion did NOT, in the same window V1-63's promotion DID land.",
+  "cycle38": {
+    "promotionPassRan": "NO. V1-52 moved NOT STARTED -> IN PROGRESS as a status correction (#994), not a promotion.",
     "tierB": {
-      "V1-106": "SIXTEENTH cycle. Still IN PROGRESS, still citing only PR #760, still the ONLY standing item with no PR or fix in flight anywhere.",
-      "V1-108": "Implementation MERGED via #989 — this dispatcher's own named close condition, verbatim. Row still IMPLEMENTED_UNVERIFIED pending Integration's separate promotion. Watch for a dedicated promotion PR next.",
-      "V1-88": "Implementation OPEN, unmerged, in #991 — 'READY FOR INTEGRATION'. Same shape as V1-108: mutation-tested, RED-confirmed, awaiting Integration to merge and promote separately."
+      "V1-106": "EIGHTEENTH cycle. Still IN PROGRESS, still citing only PR #760, still the ONLY standing item with no PR or fix in flight anywhere.",
+      "V1-108": "Implementation merged (#989, cycle 36). Promotion still pending, two cycles later.",
+      "V1-88": "Implementation open (#991). Still unmerged."
     },
     "standingItems": [
       {
         "item": "Lane 2 ACTIONABLE_IDLE",
-        "elapsed": "~22h; branch still 9e9d8e8ec",
+        "elapsed": "~23h; branch still 9e9d8e8ec",
         "row": "V1-43 NOT STARTED, target L1, unblocked on plain main",
         "blocker": "ASSIGNMENT DELIVERY of L2-2026-08-19-02",
         "dispatcherAction": "Surfaced only. No second assignment written."
@@ -426,7 +425,7 @@
       {
         "item": "Lane 4 on-box verification batch",
         "rows": "V1-57, V1-129, V1-60 — IMPLEMENTED_UNVERIFIED",
-        "elapsed": "~22.5h; branch still 66fb1a053"
+        "elapsed": "~23.5h; branch still 66fb1a053"
       },
       {
         "item": "Abandoned refs, verified by name",
@@ -434,10 +433,9 @@
           "v1/premium-ui c025e4f68",
           "integration/rc-937 80b7b948d",
           "integration/rc-wave-a 213f91513"
-        ],
-        "hygiene": "claude/v1-108-no-player-data-import-graph-guard, claude/v1-52-canonical-power, claude/v1-integration-authority-xaqcv8 all deleted on merge this cycle."
+        ]
       }
     ],
-    "stalePRsUnacted": "#759 and #760 still open against landed code. Thirteenth cycle."
+    "stalePRsUnacted": "#759 and #760 still open against landed code. Fourteenth cycle."
   }
 }

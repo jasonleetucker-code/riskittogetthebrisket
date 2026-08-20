@@ -1,7 +1,7 @@
 {
   "_comment": "Lane utilization state, owned by Claude 7 (Lane Dispatcher). NOT an authority on integration sequencing (Claude 5 / docs/EXECUTION_PLAN.md), on V1 status (docs/VERSION_1_COMPLETION_CONTRACT.md) or on canonical ownership (CLAUDE.md). Repository evidence outranks this file: where they disagree, this file is wrong and must be corrected.",
-  "updatedAt": "2026-08-20T14:50:00Z",
-  "dispatchCycle": 36,
+  "updatedAt": "2026-08-20T15:45:00Z",
+  "dispatchCycle": 38,
   "writePolicy": "This file and ASSIGNMENTS.json are written ONLY on a material state transition — new assignment, assignment accepted, completion, blocker, freeze/unfreeze, or a meaningful dependency change. A heartbeat that finds nothing changed produces no commit and no CI run.",
   "evidenceBasis": "origin/main 079fc9e4a; §3 diffed row-by-row from cycle-19 main (c5a367266); all refs resolved live; #945 CI green 04:57:35Z",
   "assignmentSourceNote": "Lanes 1-6 carry the owner's original six manual assignments, tracked in detail by this dispatcher. Lanes 8-13 are five additional owner-authorized campaign lanes (Claude 8 chartered 2026-08-20; Claude 9-13 chartered the same day under the POST-V1 C-Series mass-build campaign, EXECUTION_PLAN.md §0). This dispatcher did not originate any of these eleven assignments and does not own or re-scope them. Lanes 8-13 are tracked here only lightly — ownership boundaries and authorization citation — because they are self-directed under their own charter, unlike lanes 1-6 which this dispatcher actively monitors for idleness and dispatches follow-on work to. There is no lane 7: Claude 7 is the dispatcher identity, per dispatcherIdentity above.",
@@ -253,11 +253,11 @@
     "_doNotQuote": "Do not cite this block as the V1 status. Read the contract on current main instead.",
     "observedVerifiedRows": 60,
     "observedRequiredRows": 136,
-    "observedAtSha": "a9799ef93",
-    "observedAt": "2026-08-20T14:47:00Z",
+    "observedAtSha": "0c6f1fdcd",
+    "observedAt": "2026-08-20T15:42:00Z",
     "howObserved": "counted VERIFIED in the §3 table at that exact SHA; independently summed all statuses to 136 and confirmed the contract’s own table and completion line agree",
     "denominatorChangedAtThisSha": "YES — 132 -> 136. See cycle26Transitions.",
-    "note": "V1-63 promoted VERIFIED via #988 (fourth promotion pass this session, after #947/#963/#972). V1-108's close condition merged via #989 but the row correctly stayed IMPLEMENTED_UNVERIFIED pending a separate promotion."
+    "note": "VERIFIED unchanged at 60/136. V1-52 corrected NOT STARTED -> IN PROGRESS via #994, an accuracy correction, not a promotion."
   },
   "canonicalOwnerRule": "This dispatcher previously carried a `v1` block with verified/percent fields that read as authoritative, and it DRIFTED — PR #945 declared 48/132 while the contract on main said 55/132. That is a second owner of the numerator forming inside a coordination record, which is the exact defect class this dispatcher has spent the session flagging in other lanes. Corrected on integration review: the fields are renamed to name themselves derived, carry the SHA they were read at, and declare the contract the winner in any disagreement.",
   "correction_C24": {
@@ -357,26 +357,24 @@
       "handoff": "exact head 40509bc5a on claude/lane-dispatcher-orchestrator-u5hpca (#945)"
     }
   },
-  "cycle36Transitions": {
-    "mainTip": "a9799ef93 (was 7901b4733)",
-    "myOwnPr_ciAnomaly": {
+  "cycle38Transitions": {
+    "mainTip": "0c6f1fdcd (was 7a6af1027)",
+    "myOwnPr": {
       "pr": "#945",
-      "head": "b9731eb50 — UNCHANGED, no new commit landed on this branch this cycle",
-      "verdict": "Validate PR CANCELLED, job 96457874629, started 14:16:57Z, completed 14:38:06Z",
-      "investigated": "Confirmed via `git log` that b9731eb50 is still the branch tip — no push of mine caused this cancellation, unlike the earlier rule-(m) pattern where my own cadence cancelled prior runs. The concurrency group is keyed on PR NUMBER alone (`pr-${{ github.event.pull_request.number }}`), so cancellation requires a second pull_request event on #945 specifically; none is visible from this side (no new commits, no force-push). Recorded as an unexplained anomaly rather than attributed to my own cadence, since the evidence does not support that attribution this time.",
-      "resolution": "This cycle's write (a genuine material transition below) will push a new commit and trigger a fresh run naturally — no separate re-run action needed."
+      "head": "61004e586 — unchanged, no push this cycle since nothing material required one",
+      "verdict": "Validate PR SUCCESS, job 96467482637, 14:45:48Z -> 15:04:33Z (same run reported last cycle; re-confirmed rather than re-reported blind)"
     },
     "merged": [
-      "#979 — V1-52: isolate the canonical power engine, thread the results-only lens through HTTP",
-      "#989 — V1-108: transitive import-graph guard for the no-player-data routes (the close condition this dispatcher named since cycle 24)",
-      "#988 — Integration promotion: V1-63 VERIFIED (60/136)"
+      "#987 — V1-29: close the discovery gap in the replacement-level single-owner guard",
+      "#971 — Lane 8 PR C: Dynasty Nerds IDP Top-275 acquisition",
+      "#994 — Integration: 'Ledger truth: V1-52 IN PROGRESS, P1-BDVM claim closed, smoke churn root-caused'"
     ],
     "rowDiff": {
-      "method": "§3 row-diffed 7901b4733 -> a9799ef93",
-      "result": "EXACTLY ONE status change: V1-63 IMPLEMENTED_UNVERIFIED -> VERIFIED. Denominator held at 136.",
-      "selfConsistency": "Independent count 60+20+21+33+2=136; contract's own table and completion line read 60/136=44.1%, agreeing.",
-      "v1_108_didNotMoveDespiteMerging": "#989 merged — the exact close condition this record has named since cycle 24 — but V1-108's row correctly stayed IMPLEMENTED_UNVERIFIED. Same separation as V1-63 last cycle: implementation lands, a distinct Integration act promotes. Confirming rather than assuming: read the live row text directly."
+      "method": "§3 row-diffed a9799ef93 -> 0c6f1fdcd (spanning cycles 37-38, since cycle 37 was a no-commit cycle with no row movement)",
+      "result": "ONE change: V1-52 NOT STARTED -> IN PROGRESS. VERIFIED unchanged at 60.",
+      "contractFileTouch": "#994 touched the file (3 insertions/3 deletions) — read the diff per rule (o) rather than assuming: it is a STATUS CORRECTION, the row's own text reads 'Status corrected 2026-08-20 from NOT STARTED', matching the commit title exactly. Not a promotion, not a denominator change — independent count confirms 60+20+22+32+2=136, contract's own table agrees."
     },
-    "v1_88_stillOpen": "#991 (V1-88's close condition) is OPEN, UNMERGED — checked its body directly: 'READY FOR INTEGRATION — Claude 5 promotes/merges. I do not.' Structurally identical shape to #989: a caller-graph reachability guard, mutation-tested against the real F-26 defect (RED confirmed on reintroduction, GREEN restored). Not yet landed."
+    "v1_108_and_v1_88_stillPending": "Both still IMPLEMENTED_UNVERIFIED on main. Neither #989 (V1-108, merged 2 cycles ago) nor #991 (V1-88, still open at last check) has been promoted yet.",
+    "branchHygiene": "claude/lane8-dynasty-nerds-acquisition and claude/v1-29-replacement-discovery-guard deleted on merge — both landed and cleaned up in the same cycle their PRs merged."
   }
 }
