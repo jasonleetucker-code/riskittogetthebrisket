@@ -16,14 +16,44 @@ jobs:
     name: Production Health Check
     runs-on: ubuntu-latest
     timeout-minutes: 5
-    if: ${{ vars.PROD_PUBLIC_URL != '' }}
+    # NO `if: ${{ vars.PROD_PUBLIC_URL != '' }}` here.  CI reliability
+    # lane, 2026-08-20.  This is the workflow's ONLY job, and a job
+    # skipped by a job-level `if` reports neutral — which the checks UI
+    # and the run's own conclusion render as SUCCESS.  So an unset or
+    # renamed PROD_PUBLIC_URL would silently retire the always-on
+    # external check of production, and every 6 hours the repository
+    # would be told production was fine by a run that never looked.
+    #
+    # This is the same class of defect as AUDIT F-21 below, which the
+    # step already documents: a check that cannot report the condition
+    # it exists for.  F-21 was an exemption inside the assertion; this
+    # one removes the assertion entirely.
+    #
+    # The variable IS set today (prod-e2e-smoke.yml, which refuses when
+    # it is empty, ran green at 2026-08-20T04:53Z), so this hardens
+    # against a configuration regression rather than repairing a live
+    # failure.  The condition is not deleted — it moves into a step
+    # that can refuse, the shape prod-e2e-smoke.yml already uses.
     steps:
-      - name: Check /api/health
-        id: health
+      - name: Resolve production URL
+        id: url
         shell: bash
         run: |
           set -Eeuo pipefail
           URL="${{ vars.PROD_PUBLIC_URL }}"
+          if [[ -z "${URL}" ]]; then
+            echo "::error title=PROD_PUBLIC_URL not set::The production health check cannot run without a target origin. Set the PROD_PUBLIC_URL repository variable. Refusing rather than skipping: a skipped job reports green, and 'we did not look' must not read as 'we looked and it was fine'."
+            exit 1
+          fi
+          echo "url=${URL%/}" >> "$GITHUB_OUTPUT"
+
+      - name: Check /api/health
+        id: health
+        shell: bash
+        env:
+          URL: ${{ steps.url.outputs.url }}
+        run: |
+          set -Eeuo pipefail
           # Strip trailing slash if present
           URL="${URL%/}"
 
