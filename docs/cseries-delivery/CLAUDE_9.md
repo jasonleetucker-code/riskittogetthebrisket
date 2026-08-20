@@ -374,3 +374,33 @@ tests) was still running in the background at commit time; its full result is re
 if it surfaced anything, otherwise treat its absence as confirmation it passed clean.
 
 ---
+
+## Candidate next units (scoped, not started)
+
+Investigated briefly while the Unit 4 regression sweep ran, so the next session (or this one, if it continues)
+doesn't have to re-derive the scoping:
+
+- **`C3-TOPO-01`** (generated-trade topology constraint). The mechanical rule
+  (`abs(playersA-playersB) <= 1`, picks excluded) is already enforced by `src/packages/construction.py`'s
+  `enumerate_packages` for every caller — `enforce_topology` defaults `True` and is never overridden anywhere in
+  `src/` (confirmed by grep: the only two occurrences of `enforce_topology` in the whole tree are the parameter's
+  own definition and its enforcement site). **But** the manifest's own row asks for something larger than a
+  compliance check: it names specific allowed shapes up to `3v2`/`2v3`, and no current generator's `max_per_side`
+  reaches 3 — so 3-for-2 packages are not violated, they are simply never *generated*. Closing this row for real
+  is a PRODUCT capability change (raising `max_per_side` and wiring the new shapes through at least one live
+  generator), not a verification-only unit, and touches `finder.py`/`angle.py`'s live search space — bigger and
+  riskier than this session's remaining scope. A genuine near-term slice: a topology-compliance regression test
+  proving no *existing* generator can produce a shape violating the rule (this would be verification-only, safe,
+  and closes the "topology test" evidence column even before 3v2 capability lands) — not attempted this session,
+  named here so it isn't rediscovered from scratch.
+- **`_check_legality` → `roster_capacity.py` migration** in `roster_intel/packages.py` — deferred explicitly in
+  Unit 4 (see above): needs a two-sided `CapacityContext` and raises a live methodology question about whether a
+  generator should reject or report-and-cost an over-cap package.
+- **`suggestions.py`'s full `C3-PKG-01` migration** — deferred explicitly in Unit 4: the live endpoint's four
+  generator functions need to be read in full (only `_generate_consolidation` has been) and the in-code-flagged
+  IDP-universe deferred owner decision needs an explicit ruling before any behavioral change.
+- **`C3-CTX-01`** (team-context toggle, V1-41, `NOT STARTED`) and **`C7-DESK-01`** (Analyze Trade, V1-43,
+  `NOT STARTED`) remain the next-largest named rows in this lane's scope once the above are resolved or
+  deliberately left for a dedicated unit.
+
+---
