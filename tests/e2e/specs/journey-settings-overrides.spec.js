@@ -1,11 +1,17 @@
 /**
  * Critical journey: settings source-toggle round-trip.
  *
- * The single-source-of-truth override path (see CLAUDE.md):
- * toggling a source on /settings must fire POST
- * /api/rankings/overrides (the backend recomputes the blend — there
- * is NO frontend ranking engine) and the rankings board must
- * re-render from the delta with the custom-mix indicator visible.
+ * The single-source-of-truth override path (see CLAUDE.md): toggling a
+ * source on /settings must fire POST /api/rankings/overrides — there is
+ * NO frontend ranking engine.  What the response must carry changed in
+ * #875: custom source weighting is WITHDRAWN
+ * (`_SOURCE_OVERRIDES_DISABLED` in src/api/data_contract.py), because a
+ * user-weighted board published under rankDerivedValue is a second
+ * canonical valuation truth.  The round-trip is still asserted
+ * end-to-end; the response must now carry the withdrawal contract — an
+ * explicit warning, no custom mix reported active, the toggled source
+ * still blended — and the rankings page must NOT show the custom-mix
+ * badge.
  *
  * Auth: test-only session fixture (skips when E2E_TEST_SECRET unset).
  * State: settings live in localStorage — each test gets a fresh
@@ -42,11 +48,11 @@ test.describe("journey: settings source toggles", () => {
     expect(await toggles.count()).toBeGreaterThanOrEqual(registeredCount);
   });
 
-  test("toggling a source fires the overrides request and updates the board", async ({ authedPage: page }) => {
-    // Each overrides POST recomputes the full blend server-side
-    // (CPU-seconds per call), and this journey triggers it twice —
-    // once from /settings, once when /rankings rehydrates.  Give the
-    // whole round-trip more than the default 90s budget.
+  test("toggling a source round-trips, and the withdrawn custom mix is ignored rather than applied", async ({ authedPage: page }) => {
+    // Each overrides POST rebuilds the full blend server-side on a
+    // memo miss (CPU-seconds per call), and this journey triggers it
+    // twice — once from /settings, once when /rankings rehydrates.
+    // Give the whole round-trip more than the default budget.
     test.setTimeout(180_000);
     const guard = attachConsoleGuards(page);
 
@@ -65,6 +71,14 @@ test.describe("journey: settings source toggles", () => {
       }
     });
 
+    // Registry lookup so the toggled control can be mapped back to its
+    // source KEY: the withdrawal contract below is asserted in key
+    // vocabulary (`rankingsOverride.enabledSources` carries registry
+    // keys, while the toggle's aria-label carries the display name).
+    const regRes = await page.request.get("/api/rankings/sources");
+    expect(regRes.status()).toBe(200);
+    const registrySources = ((await regRes.json()).sources || []).filter(Boolean);
+
     await page.goto(pageUrl("/settings"), { waitUntil: "domcontentloaded" });
     const toggles = page.locator('input.settings-src-toggle[aria-label^="Include "]');
     await expect(toggles.first()).toBeVisible({ timeout: 30_000 });
@@ -72,6 +86,17 @@ test.describe("journey: settings source toggles", () => {
     // Pick the first currently-enabled toggle and switch it off.
     const enabledToggle = toggles.and(page.locator(":checked")).first();
     await expect(enabledToggle).toBeVisible({ timeout: 15_000 });
+    const toggleLabel = (await enabledToggle.getAttribute("aria-label")) || "";
+    const toggledDisplayName = toggleLabel
+      .replace(/^Include /, "")
+      .replace(/ in blend$/, "");
+    const disabledKey = registrySources.find(
+      (s) => s.displayName === toggledDisplayName,
+    )?.key;
+    expect(
+      disabledKey,
+      `the toggle labelled ${JSON.stringify(toggleLabel)} must resolve to a registry source key`,
+    ).toBeTruthy();
 
     // The round-trip contract: the click must fire POST
     // /api/rankings/overrides and it must succeed.  60s budget: the
@@ -88,20 +113,77 @@ test.describe("journey: settings source toggles", () => {
     ]);
     expect(
       overridesResponse.status(),
-      "overrides endpoint should recompute the blend successfully",
+      "overrides endpoint should answer the toggle successfully",
     ).toBe(200);
-    const delta = await overridesResponse.json();
-    // The delta payload carries recomputed per-player fields.
-    const playerBlock = delta.players || delta.playersDelta || delta;
-    expect(Object.keys(playerBlock).length).toBeGreaterThan(0);
 
-    // The board must re-render from the recomputed blend and surface
-    // the custom-mix indicator so the user knows they're off-default.
-    // The badge reads ``rankingsOverride.isCustomized`` off the
-    // delta-merged contract, which lands only after the rankings
-    // page's own base fetch + overrides POST complete — rows can
-    // render from the base contract while that second round-trip is
-    // still in flight.
+    // Read the delta by REPLAYING the captured body through the API
+    // request context — deliberately NOT `overridesResponse.json()`.
+    // Playwright's `.json()` waits for the browser to finish loading
+    // the response body, and the app drains this ~4.7 MB body only
+    // after its base-contract fetch resolves
+    // (dynasty-data.js::_postOverridesAndMerge); when it falls through
+    // to the base contract instead, the body is never consumed,
+    // `.json()` has no timeout of its own, and the test burns its whole
+    // budget — the 180s retry hang in E2E runs 140/142.  The replay
+    // posts the byte-identical body straight to the backend: the memo
+    // key is derived from the request's normalized inputs, so the
+    // replay is served from the same slot the page's own POST
+    // populated, with no dependence on the page draining anything.
+    const postData = overridesResponse.request().postData();
+    expect(postData, "the toggle POST must carry a JSON body").toBeTruthy();
+    const overridesUrl = new URL(overridesResponse.url());
+    const replay = await page.request.post(
+      overridesUrl.pathname + overridesUrl.search,
+      {
+        headers: { "content-type": "application/json" },
+        data: postData,
+        timeout: 60_000,
+      },
+    );
+    expect(
+      replay.status(),
+      "replaying the captured overrides body against the backend should succeed",
+    ).toBe(200);
+    const delta = await replay.json();
+
+    // The delta payload really is a delta carrying recomputed
+    // per-player rows.  (The assertion this replaces counted `delta`'s
+    // top-level keys after falling through `delta.players ||
+    // delta.playersDelta || delta` — neither key exists on the delta
+    // shape, so it was vacuously green on any non-empty response.)
+    expect(delta.mode, "the ?view=delta response must be a delta").toBe(
+      "delta",
+    );
+    expect(Array.isArray(delta.rankingsDelta?.players)).toBe(true);
+    expect(delta.rankingsDelta.players.length).toBeGreaterThan(50);
+
+    // The withdrawal contract (#875, `_SOURCE_OVERRIDES_DISABLED` in
+    // src/api/data_contract.py): user source weighting must not mint a
+    // second canonical board.  The endpoint accepts the toggle, but
+    // 1) it says explicitly that the weighting was ignored,
+    expect(
+      delta.warnings || [],
+      "the overrides response must state that custom weighting is withdrawn",
+    ).toEqual(
+      expect.arrayContaining([
+        expect.stringContaining("custom source weighting is disabled"),
+      ]),
+    );
+    // 2) it reports no custom mix as active,
+    const rankingsOverride = delta.rankingsOverride || {};
+    expect(
+      rankingsOverride.isCustomized,
+      "no custom mix may be reported as active",
+    ).toBe(false);
+    // 3) and the toggled-off source stays in the blend.
+    expect(
+      rankingsOverride.enabledSources || [],
+      "the disabled source must still be blended — the override is ignored, not applied",
+    ).toContain(disabledKey);
+
+    // The rankings board must still render, and /rankings must re-fire
+    // its own overrides POST on hydration — the round-trip machinery is
+    // intact even though the weighting itself is withdrawn.
     //
     // This block used to `test.skip` when the badge never appeared AND
     // the app had logged its base-contract fallback warning.  That reads
@@ -131,6 +213,10 @@ test.describe("journey: settings source toggles", () => {
     // Note this also restores guard.assertClean() below: test.skip()
     // throws, so on the skip path every browser console error collected
     // on this journey was discarded too.
+    // NOTE: only `.status()` is read off this response — it is
+    // header-derived and safe.  Its BODY is deliberately never read:
+    // see the replay note above for why `.json()` on a page-initiated
+    // overrides response can hang for the whole test budget.
     const rehydrateOverrides = page
       .waitForResponse(
         (res) =>
@@ -153,19 +239,26 @@ test.describe("journey: settings source toggles", () => {
       "the /rankings-side overrides round-trip should also recompute successfully",
     ).toBe(200);
 
+    // The custom-mix badge must NOT appear: the backend ignored the
+    // weighting, so showing the badge would claim a custom board that
+    // was never produced.  (This spec asserted the badge VISIBLE until
+    // #875 withdrew custom weighting — the stale expectation behind the
+    // failures in E2E runs 140/142.)  10s wait: the board rendered and
+    // the rehydrate POST completed above, so anything that would mount
+    // the badge has already happened.
     const badge = page.locator('[aria-label="Custom source mix active"]').first();
     const badgeVisible = await badge
-      .waitFor({ state: "visible", timeout: 60_000 })
+      .waitFor({ state: "visible", timeout: 10_000 })
       .then(() => true)
       .catch(() => false);
     expect(
       badgeVisible,
-      `custom-mix badge should appear once a source is disabled${
+      `the custom-mix badge must NOT appear while source weighting is withdrawn — showing it would claim an override the backend ignored${
         fallbackWarnings.length > 0
           ? ` — the app logged a base-contract fallback: ${fallbackWarnings[0]}`
           : ""
       }`,
-    ).toBeTruthy();
+    ).toBe(false);
 
     guard.assertClean();
   });

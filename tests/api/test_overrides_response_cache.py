@@ -9,10 +9,17 @@ league, sleeper-match) and versioned on ``latest_data_etag``.
 
 Pinned here:
     1. Two identical POSTs → one pipeline build, byte-identical bodies.
-    2. Distinct bodies → distinct slots (no cross-body bleed).
+    2. Distinct DERIVED inputs (tep knobs) → distinct slots (no
+       cross-body bleed).
     3. A new contract generation (etag change) → rebuild.
     4. ``_prime_latest_payload`` clears the memo outright.
     5. leagueAdjusted requests bypass the cache (rebuilt every time).
+    6. Bodies that normalize to the SAME derived inputs share one slot:
+       with custom source weighting withdrawn
+       (``_SOURCE_OVERRIDES_DISABLED``), every source-toggle body maps
+       to the same empty override map, so keying the memo on the raw
+       body burned a full pipeline rebuild per distinct client body
+       while producing byte-identical responses.
 """
 
 from __future__ import annotations
@@ -181,3 +188,37 @@ def test_league_adjusted_requests_are_now_memoized_like_any_other(overrides_env,
     assert r1.content == r2.content
     assert calls["n"] == 1, "the second identical request rebuilt instead of hitting the memo"
     assert server._OVERRIDES_RESPONSE_CACHE, "no slot was written"
+
+
+def test_withdrawn_source_toggle_bodies_share_one_slot(overrides_env, monkeypatch):
+    """Two bodies disabling DIFFERENT sources build once and answer
+    byte-identically while custom source weighting is withdrawn.
+
+    ``normalize_source_overrides`` maps both bodies to the same (empty)
+    override map — the withdrawal is the whole point of #875 — so the
+    responses cannot differ.  The memo key is therefore derived from the
+    NORMALIZED inputs the build actually consumes, not the raw posted
+    body: a raw-body key made every distinct client body pay a full
+    pipeline rebuild (measured ~1.2s each on the live contract) for a
+    response the memo already held.
+    """
+    with TestClient(server.app, raise_server_exceptions=True) as c:
+        _install_data(monkeypatch)
+        calls = _count_builds(monkeypatch)
+
+        r1 = c.post(
+            "/api/rankings/overrides?view=delta",
+            json={"ktcSfTep": {"include": False}},
+        )
+        r2 = c.post(
+            "/api/rankings/overrides?view=delta",
+            json={"fantasyCalc": {"include": False}},
+        )
+
+    assert r1.status_code == 200, r1.text
+    assert r2.status_code == 200, r2.text
+    assert calls["n"] == 1, (
+        "bodies that normalize identically must share one memo slot — "
+        "a second full rebuild means the key is reading the raw body"
+    )
+    assert r1.content == r2.content

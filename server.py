@@ -378,13 +378,18 @@ _OVERLAY_RESPONSE_CACHE_MAX = 32
 # between scrapes.  Same shape as the overlay cache above:
 # ``key -> (raw_bytes, gzip_bytes, version)`` where ``version`` is the
 # ``latest_data_etag`` generation the entry was built from.  Key =
-# (canonical body JSON hash, delta_view, league key, sleeper_matches) —
-# everything that can alter the response body.  Entries whose version
-# no longer matches are rebuilt in place (one generation per slot);
-# ``_prime_latest_payload`` clears the dict outright on scrape
-# promotion.  The leagueAdjusted path is deliberately NOT cached (its
-# factors come from the gameplan module with its own freshness) but
-# still builds off the event loop.
+# (hash of the NORMALIZED build inputs — override map, tep knobs,
+# valuation mode, warnings — plus delta_view, league key,
+# sleeper_matches): everything that can alter the response body, and
+# nothing that cannot.  It used to hash the raw posted body, which with
+# custom source weighting withdrawn (#875) meant every distinct
+# source-toggle body paid a full pipeline rebuild for a byte-identical
+# response; ``normalize_source_overrides`` maps them all to the same
+# empty map.  Entries whose version no longer matches are rebuilt in
+# place (one generation per slot); ``_prime_latest_payload`` clears the
+# dict outright on scrape promotion.  The leagueAdjusted path is cached
+# like any other since B9a withdrew the lens (no gameplan factors left
+# to go stale).
 _OVERRIDES_RESPONSE_CACHE: dict = {}
 _OVERRIDES_ENCODE_LOCKS: dict = {}
 _OVERRIDES_RESPONSE_CACHE_MAX = 16
@@ -4567,25 +4572,45 @@ async def post_rankings_overrides(request: Request):
         return raw, gz
 
     # ── Response memo ────────────────────────────────────────────────
-    # Cache key: everything that can change the response body.  The
-    # canonical body JSON covers overrides + tep knobs + any unknown
-    # keys (which produce per-body warnings), and it includes
-    # ``valuation_mode``, so a request carrying the withdrawn lens keys
-    # separately from one that does not — which is what the differing
-    # ``valuationNote`` needs.  ``valuation_mode`` requests used to be
-    # excluded because their factors came from the gameplan module whose
-    # freshness this cache cannot see; with the lens withdrawn there are
-    # no factors and nothing unseeable left to exclude.  Entries are
-    # versioned on ``latest_data_etag`` (the contract generation) and
-    # rebuilt in place when stale; ``_prime_latest_payload`` clears the
-    # whole dict on scrape promotion.
+    # Cache key: everything that can change the response body, and
+    # nothing that cannot.  The build consumes the NORMALIZED inputs —
+    # the override map from ``normalize_source_overrides`` (always ``{}``
+    # while ``_SOURCE_OVERRIDES_DISABLED``), the two tep knobs, and
+    # ``valuation_mode`` (→ ``valuationNote``) — plus the ``warnings``
+    # that get stamped onto the payload, so the key is derived from
+    # exactly those.  Hashing the raw posted body instead (the previous
+    # key) made every distinct source-toggle body pay a full pipeline
+    # rebuild for a byte-identical response.  ``warnings`` rides the key
+    # so this stays response-equivalence-complete even if the withdrawal
+    # flag is ever flipped back (per-body unknown-key warnings would key
+    # separately), and it distinguishes ``body=None`` (no withdrawal
+    # warning — ``normalize_source_overrides`` early-returns before the
+    # disabled check) from ``body={}`` (warning present).
+    # ``valuation_mode`` requests used to be excluded because their
+    # factors came from the gameplan module whose freshness this cache
+    # cannot see; with the lens withdrawn there are no factors and
+    # nothing unseeable left to exclude.  Entries are versioned on
+    # ``latest_data_etag`` (the contract generation) and rebuilt in
+    # place when stale; ``_prime_latest_payload`` clears the whole dict
+    # on scrape promotion.
     cacheable = contract_version is not None
     cache_key = None
     if cacheable:
-        canonical_body = json.dumps(body, sort_keys=True, separators=(",", ":"), default=str)
+        normalized_inputs = json.dumps(
+            {
+                "overrides": overrides,
+                "tep": tep_multiplier,
+                "tepNative": tep_native_multiplier,
+                "valuationMode": valuation_mode,
+                "warnings": warnings,
+            },
+            sort_keys=True,
+            separators=(",", ":"),
+            default=str,
+        )
         cache_key = (
             "overrides",
-            hashlib.sha1(canonical_body.encode("utf-8")).hexdigest(),
+            hashlib.sha1(normalized_inputs.encode("utf-8")).hexdigest(),
             delta_view,
             league_cfg.key,
             sleeper_matches,

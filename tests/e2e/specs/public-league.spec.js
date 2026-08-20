@@ -13,9 +13,9 @@ const { pageUrl, awaitStreamSettled } = require("../helpers/journey");
 // private contract) — that would mean the public isolation is
 // broken.  We attach a request listener to confirm.
 
-// Tab labels in render order.  The Draft Capital tab is the default
-// landing because /draft-capital was folded into /league — public
-// visitors arriving at /league see it first.
+// Tab labels the walk test exercises — a subset of the page's
+// SUB_TABS (frontend/app/league/tabs.js), which also owns the default
+// landing (DEFAULT_TAB = "overview").
 const TABS = [
   "Draft Capital",
   "Home",
@@ -83,6 +83,28 @@ async function visitLeague(
     null,
     { timeout: 45_000 },
   );
+  // A deep-linked tab whose section missed the SSR prefetch (the
+  // server-side fetch is bounded at 3s) lazy-loads client-side behind
+  // "Loading section..." — and that fetch retries with backoff and has
+  // NO timeout of its own.  Waiting for it here, bounded, keeps the
+  // needle wait below measuring only "did the right content render"
+  // instead of silently sharing its 15s with an unbounded fetch — the
+  // mobile ?tab= timeout in E2E run 142.
+  await page.waitForFunction(
+    () => !document.body.innerText.includes("Loading section..."),
+    null,
+    { timeout: 30_000 },
+  );
+  // A failed section fetch renders an explicit error state.  Name it,
+  // rather than letting the needle wait below time out anonymously.
+  const sectionUnavailable = await page.evaluate(() =>
+    document.body.innerText.includes("Section unavailable"),
+  );
+  if (sectionUnavailable) {
+    throw new Error(
+      `visitLeague(${path}): the section fetch failed — the page renders "Section unavailable"`,
+    );
+  }
   if (waitForText) {
     await page.waitForFunction(
       (needle) => document.body.innerText.includes(needle),
@@ -193,7 +215,29 @@ test.describe("public /league page", () => {
   test("deep links via ?tab= query param land on the right tab", async ({
     page,
   }) => {
+    // The lowercase "award" needle matches only awards-SECTION copy
+    // ("<season> awards", "tap an award…", "No awards yet") — nav
+    // labels are capital-A "Awards" — so it proves the section body
+    // rendered, not merely that a tab control exists.
     await visitLeague(page, "/league?tab=awards", { waitForText: "award" });
+
+    // And the tab CONTROL must agree the awards tab is the active one
+    // — the routing half of "land on the right tab", asserted on the
+    // control each viewport actually uses (≤768px renders a <select>,
+    // desktop a button row).
+    await awaitStreamSettled(page);
+    const width = page.viewportSize()?.width ?? 1366;
+    if (width <= 768) {
+      await expect(
+        page.getByLabel("Select league section"),
+        "the mobile section selector must land on the awards tab",
+      ).toHaveValue("awards");
+    } else {
+      await expect(
+        page.locator(".sub-nav-btn.active"),
+        "the active tab button must be Awards",
+      ).toHaveText("Awards");
+    }
   });
 
   test("franchise deep link via ?owner= opens the selected franchise", async ({
@@ -530,27 +574,120 @@ test.describe("public /league page", () => {
     expect(body).toHaveProperty("metrics.total_served");
   });
 
-  test("teamAssignment section returns 12 manager slots (Phase A)", async ({
+  test("teamAssignment covers every manager slot and labels unknowns explicitly", async ({
     request,
   }) => {
-    // The Team Assignment section is registered as eager so the
-    // aggregate /api/public/league response carries it.  It also
-    // resolves through /api/public/league/{section}.  Pin both: the
-    // section endpoint must 200 and the assignments array must
-    // cover every manager in the league.
+    // This test pins the AVAILABILITY contract of
+    // src/api/team_assignment.py, not an aspiration about its data.
+    //
+    // It used to require `nflTeams.length > 0` for every manager — a
+    // deliberate red written against defect #815 (favorite map + roster
+    // scoring both whiffing).  But an empty `nflTeams` is a
+    // pinned-legitimate state of the producer (see
+    // tests/api/test_team_assignment_availability.py::
+    // test_healthy_empty_result_is_still_expressible): no configured
+    // favorite plus nothing clearing the scoring threshold is a
+    // measured "nothing qualified", and inventing a team to satisfy a
+    // test is exactly the fabrication MISSING-IS-NEVER-ZERO forbids.
+    // The section is also built from live Sleeper data, so which
+    // managers qualify moves between runs — E2E runs 140/142 failed on
+    // two different transient shapes of it.  What IS guaranteed, and
+    // asserted here: every current manager gets a slot, every known
+    // (favorite-resolved) assignment is preserved, nothing is priced
+    // into the list without clearing the threshold, and when the
+    // producer cannot answer it says why instead of serving a bare
+    // empty list.  Defect #815 stays tracked at the unit level.
     const res = await request.get("/api/public/league/teamAssignment");
     expect(res.status()).toBe(200);
     const json = await res.json();
-    const data = json.data || json.body || json;
-    const assignments = (data && data.assignments) || [];
+    const data = json.data || {};
+    const assignments = data.assignments || [];
     expect(Array.isArray(assignments)).toBeTruthy();
-    expect(assignments.length).toBeGreaterThanOrEqual(8); // realistic floor
-    // Every assignment must have a non-empty NFL teams list — a
-    // manager with zero NFL teams means the favorite map + roster
-    // scoring both whiffed, which is a regression we want to catch.
+
+    if (data.available === false) {
+      // Degraded is a legal answer, but only an EXPLICIT one: the
+      // payload must name a known cause, and must not carry
+      // assignments it just declared unavailable.
+      expect(
+        ["no_current_season", "no_rosters"],
+        "available:false must name a machine-readable reason",
+      ).toContain(data.unavailableReason);
+      expect(assignments).toHaveLength(0);
+      expect(data.rosterScoringAvailable).toBe(false);
+      return;
+    }
+
+    // Healthy path: one slot per manager with a current roster, keyed
+    // by ownerId — derived from the same response's league header, so
+    // the expectation tracks the league instead of a magic count.
+    expect(data.available).toBe(true);
+    expect(data.unavailableReason).toBeNull();
+    const managers = json.league?.managers || [];
+    const activeOwnerIds = managers
+      .filter((m) => m.currentRosterId !== null && m.currentRosterId !== undefined)
+      .map((m) => m.ownerId)
+      .sort();
+    expect(
+      activeOwnerIds.length,
+      "the league header must carry current-season managers",
+    ).toBeGreaterThanOrEqual(8); // realistic floor for a real league
+    expect(
+      assignments.map((a) => a.ownerId).sort(),
+      "one assignment per current manager — no drops, no duplicates, no inventions",
+    ).toEqual(activeOwnerIds);
+
+    const threshold = data.config?.thresholds?.assignmentMinPoints;
+    const maxTeams = data.config?.limits?.maxTeamsPerOwner;
+    expect(typeof threshold).toBe("number");
+    expect(typeof maxTeams).toBe("number");
+
     for (const a of assignments) {
-      expect(a.nflTeams, `${a.displayName} has no NFL teams`).toBeTruthy();
-      expect(a.nflTeams.length).toBeGreaterThan(0);
+      const who = a.displayName || a.ownerId;
+      expect(typeof a.displayName).toBe("string");
+      expect(typeof a.rosterScored, `${who}: rosterScored must be stated`).toBe(
+        "boolean",
+      );
+      expect(Array.isArray(a.nflTeams), `${who}: nflTeams must be an array`).toBeTruthy();
+      expect(
+        a.nflTeams.length,
+        `${who}: at most ${maxTeams} NFL teams`,
+      ).toBeLessThanOrEqual(maxTeams);
+
+      // A resolved favorite is emitted unconditionally and first —
+      // dropping it means the producer lost a KNOWN assignment.
+      if (a.favoriteKey != null) {
+        expect(
+          a.nflTeams.length,
+          `${who}: favorite ${a.favoriteKey} resolved but no team emitted`,
+        ).toBeGreaterThanOrEqual(1);
+        expect(
+          a.nflTeams[0].isFavorite,
+          `${who}: the favorite must lead the list`,
+        ).toBe(true);
+      }
+
+      for (const t of a.nflTeams) {
+        expect(String(t.abbr), `${who}: NFL team abbr`).toMatch(/^[A-Z]{2,3}$/);
+        expect(typeof t.isFavorite).toBe("boolean");
+        expect(Number.isFinite(t.score), `${who}: ${t.abbr} score`).toBeTruthy();
+        // No fabrication: everything in the list is there because it is
+        // the favorite or because it EARNED the threshold.
+        if (!t.isFavorite) {
+          expect(
+            t.score,
+            `${who}: ${t.abbr} is listed without clearing the ${threshold}-point threshold`,
+          ).toBeGreaterThanOrEqual(threshold);
+        }
+      }
+    }
+
+    // When roster scoring was unavailable the section must say so, and
+    // every per-manager card must carry the same honesty.
+    if (data.rosterScoringAvailable === false) {
+      expect(data.degradedReasons).toContain("player_directory_unavailable");
+      for (const a of assignments) {
+        expect(a.rosterScored, `${a.displayName || a.ownerId}: rosterScored must be false when the directory is unavailable`).toBe(false);
+      }
     }
   });
 
