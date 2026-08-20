@@ -324,6 +324,67 @@ def retired_reachable(extra: Path | None = None) -> dict[str, list[str]]:
     return call_sites(set(RETIRED_SYMBOLS), extra=extra)
 
 
+def _owner_symbol_paths() -> dict[str, str]:
+    """Every OWNER row's call names, mapped to the ONE path each may live at."""
+    out: dict[str, str] = {}
+    for impl in CENSUS:
+        if impl.disposition != OWNER:
+            continue
+        for name in impl.call_names:
+            out[name] = impl.path
+    return out
+
+
+def definition_sites(names: set[str], extra: Path | None = None) -> dict[str, list[str]]:
+    """Every function/method/class DEFINITION named one of ``names``.
+
+    This is the check ``call_sites`` structurally cannot make. A call-site
+    scan tracks only the bare name in CALL position — it has no notion of
+    which DEFINITION that name resolves to, because it never imports or
+    binds anything, it just walks an AST. So a second module that defines
+    its own ``replacement_per_game`` produces a call site the census
+    happily counts as evidence the declared OWNER is consumed (MR1), and
+    adding a call to that duplicate doesn't change the verdict either
+    (MR2) — the census was verifying "is this NAME called somewhere",
+    which a same-named duplicate satisfies for free. Verifying "is this
+    NAME DEFINED anywhere but its declared home" catches both, independent
+    of whether anything calls the duplicate at all.
+    """
+    hits: dict[str, list[str]] = {}
+    for path in _python_files(extra):
+        rel = str(path.relative_to(REPO)) if REPO in path.parents else str(path)
+        try:
+            tree = ast.parse(path.read_text(encoding="utf-8"))
+        except (SyntaxError, UnicodeDecodeError):
+            continue
+        for node in ast.walk(tree):
+            if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+                continue
+            if node.name in names:
+                hits.setdefault(node.name, []).append(rel)
+    return hits
+
+
+def undeclared_owner_definitions(extra: Path | None = None) -> dict[str, list[str]]:
+    """OWNER symbol names DEFINED somewhere other than their declared path.
+
+    This is the single-owner discovery guard V1-29 was missing: it does
+    not care whether the duplicate is registered in CENSUS, whether it is
+    ever called, or whether it was introduced before or after this scan
+    runs. Any second definition of an OWNER's own symbol name is, by
+    construction, an undeclared second owner for that (unit, population).
+    """
+    owner_paths = _owner_symbol_paths()
+    sites = definition_sites(set(owner_paths), extra=extra)
+    violations: dict[str, list[str]] = {}
+    for name, paths in sites.items():
+        declared_path = owner_paths[name]
+        stray = sorted(p for p in set(paths) if p != declared_path)
+        if stray:
+            violations[name] = stray
+    return violations
+
+
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
@@ -359,6 +420,13 @@ def main(argv: list[str] | None = None) -> int:
     if reachable:
         failures.append(f"retired symbols are reachable again: {reachable}")
 
+    stray_definitions = undeclared_owner_definitions()
+    if stray_definitions:
+        failures.append(
+            "an OWNER symbol name is DEFINED outside its declared path — an "
+            f"undeclared second owner: {stray_definitions}"
+        )
+
     for r in rows:
         if r.disposition in (DEAD, RETIRED) and (r.callers or r.intra):
             failures.append(
@@ -387,9 +455,11 @@ def main(argv: list[str] | None = None) -> int:
             f"{', '.join(unconsumed)}"
         )
     dead = [r.key for r in rows if r.disposition == DEAD]
+    owner_names = sorted(_owner_symbol_paths())
     print(
         f"{TAG} clean: {len(RETIRED_SYMBOLS)} retired symbol(s) deleted and unreachable; "
-        f"{len(dead)} DEAD row(s); every OWNER consumed; every OWNER unit distinct."
+        f"{len(dead)} DEAD row(s); every OWNER consumed; every OWNER unit distinct; "
+        f"no undeclared definition of {len(owner_names)} OWNER symbol(s) elsewhere."
     )
 
     if args.json_out:
@@ -399,6 +469,7 @@ def main(argv: list[str] | None = None) -> int:
                 {
                     "implementations": [r.to_dict() for r in rows],
                     "retiredSymbols": list(RETIRED_SYMBOLS),
+                    "ownerSymbolsGuarded": owner_names,
                 },
                 indent=2,
                 sort_keys=True,

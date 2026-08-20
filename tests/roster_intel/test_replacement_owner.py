@@ -34,6 +34,7 @@ from scripts.replacement_census import (
     build_census,
     main,
     retired_reachable,
+    undeclared_owner_definitions,
 )
 
 REPO = pathlib.Path(__file__).resolve().parents[2]
@@ -100,6 +101,76 @@ def test_the_census_detects_a_reintroduced_duplicate(tmp_path):
     try:
         assert retired_reachable(), "the census did NOT detect a reintroduced retired symbol"
         assert main([]) == EXIT_VIOLATION, "the census exited clean with a duplicate present"
+    finally:
+        probe.unlink(missing_ok=True)
+
+
+def test_no_owner_symbol_is_defined_outside_its_declared_path():
+    """The discovery guard, checked clean at HEAD.
+
+    ``call_sites`` cannot tell an OWNER's real definition from a same-named
+    duplicate elsewhere — it only sees the bare name in CALL position. This
+    is the check that can: every OWNER symbol name must be DEFINED at
+    exactly the one path its CENSUS row declares.
+    """
+    assert undeclared_owner_definitions() == {}
+
+
+def test_the_guard_catches_a_same_named_duplicate_nobody_calls():
+    """MR1, reproduced as a positive control.
+
+    A new module defining its own ``replacement_per_game`` — the OWNER
+    symbol declared for ``src/scoring/replacement_level.py`` (row B) —
+    used to pass the census cleanly (exit 0, 18/18) because nothing calls
+    it, so ``retired_reachable``/``build_census`` never look at it. The
+    NEW guard must catch it anyway: an undeclared owner is a defect the
+    moment it is defined, whether or not it is ever invoked.
+    """
+    probe = REPO / "src" / "league_intel" / "_v129_dup_probe.py"
+    probe.write_text(
+        "def replacement_per_game(rows, position):\n"
+        "    return sum(r.get('points', 0.0) for r in rows) / max(len(rows), 1)\n",
+        encoding="utf-8",
+    )
+    try:
+        dups = undeclared_owner_definitions()
+        assert (
+            "replacement_per_game" in dups
+        ), "the guard did NOT detect an undeclared duplicate definition (MR1)"
+        assert "src/league_intel/_v129_dup_probe.py" in dups["replacement_per_game"]
+        assert (
+            main([]) == EXIT_VIOLATION
+        ), "the census exited clean with an undeclared owner present"
+    finally:
+        probe.unlink(missing_ok=True)
+
+
+def test_the_guard_catches_a_same_named_duplicate_with_a_call_site():
+    """MR2, reproduced as a positive control.
+
+    Same duplicate as MR1, but now it is live code with a real caller —
+    the exact shape that used to fool ``build_census`` into reporting the
+    real OWNER as consumed (the AST call scan matched the bare name
+    ``replacement_per_game`` and could not tell which definition answered
+    it). The guard must still fail: a second definition is the defect,
+    independent of whether it is called.
+    """
+    probe = REPO / "src" / "league_intel" / "_v129_dup_probe.py"
+    probe.write_text(
+        "def replacement_per_game(rows, position):\n"
+        "    return sum(r.get('points', 0.0) for r in rows) / max(len(rows), 1)\n"
+        "\n"
+        "\n"
+        "def call_it(rows):\n"
+        "    return replacement_per_game(rows, 'RB')\n",
+        encoding="utf-8",
+    )
+    try:
+        dups = undeclared_owner_definitions()
+        assert (
+            "replacement_per_game" in dups
+        ), "the guard did NOT detect an undeclared duplicate definition with a call site (MR2)"
+        assert main([]) == EXIT_VIOLATION, "the census exited clean with a called, undeclared owner"
     finally:
         probe.unlink(missing_ok=True)
 

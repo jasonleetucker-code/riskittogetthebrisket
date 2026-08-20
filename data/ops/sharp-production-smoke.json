@@ -4,18 +4,18 @@
   "ffpcMarket": {},
   "lastError": null,
   "lastMeasuredOn": null,
-  "lastObservedAt": "2026-08-20T13:56:19.853685+00:00",
+  "lastObservedAt": "2026-08-20T15:37:33.027559+00:00",
   "lastObservedOn": "2026-08-20",
   "lastRun": {
     "attempts": 0,
     "deployConclusion": "cancelled",
-    "deployHeadSha": "ef41523a811033fcea88b8c8963fc84011af36df",
-    "deployRunId": "32376207795",
+    "deployHeadSha": "faa50ba9a615fdf3ee274418c5c4e3fce7a4171e",
+    "deployRunId": "32385904810",
     "event": "workflow_run"
   },
   "measured": false,
   "schema": 2,
   "stateFingerprint": "sha256:b1315fce9ca972446c296d8993ec3b0be7b221861d3eab2f4b6079ccc8e7ebf2",
-  "stateSince": "2026-08-20T13:56:19.853685+00:00",
+  "stateSince": "2026-08-20T15:37:33.027559+00:00",
   "status": "deploy_failed"
 }

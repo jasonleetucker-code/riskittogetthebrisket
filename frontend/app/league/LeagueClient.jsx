@@ -118,10 +118,13 @@ function LeaguePage({ initialContract = null, initialTab = DEFAULT_TAB }) {
   const urlTab = normalizeTabKey(searchParams.get("tab"));
   const urlOwner = searchParams.get("owner") || "";
   const urlWeek = searchParams.get("week") || "";
-  // Read the ROS feature flags so the Power tab can swap to v2 when
-  // the user opts in.  Defaults match the registry in
-  // ``components/useSettings.js`` (rosEnabled true,
-  // useRosPowerRankings false until validated per-user).
+  // Read the ROS feature flags so the Power tab can swap between the
+  // canonical engine's two lenses.  The registry in
+  // ``components/useSettings.js`` defaults ``useRosPowerRankings`` to
+  // TRUE — this comment said "false until validated per-user" until
+  // 2026-08-19, which was backwards and mattered: it meant anyone
+  // reasoning about which ranking the public /league Power tab shows
+  // got the answer wrong. It shows the forward-looking one.
   const { settings } = useSettings();
   const useRosPower = !!settings?.useRosPowerRankings;
 

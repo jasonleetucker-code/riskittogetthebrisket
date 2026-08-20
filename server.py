@@ -11343,6 +11343,7 @@ async def get_public_league_section(
     owner: str = "",
     refresh: str = "",
     leagueKey: str = "",
+    lens: str = "",
 ):
     """Single public-league section JSON payload.
 
@@ -11351,6 +11352,14 @@ async def get_public_league_section(
     also include a narrowed ``franchiseDetail`` block so the frontend
     can render a single franchise page without downloading every
     franchise's detail dict.
+
+    ``lens`` (V1-52) selects which of the canonical power engine's two
+    lenses the ``rosPower`` section answers with —
+    ``power_v2.LENS_FORWARD_LOOKING`` (default, matches the
+    aggregate-contract behavior) or ``power_v2.LENS_RESULTS_ONLY``.
+    Ignored for every other section.  Rejected outright rather than
+    silently falling back to the default: a typo'd lens value silently
+    answering the wrong question is worse than a 400.
 
     NOTE: the ``.csv`` variant above MUST remain registered before this
     route — FastAPI otherwise matches ``/{section}`` against
@@ -11364,6 +11373,18 @@ async def get_public_league_section(
                 "availableSections": list(PUBLIC_SECTION_KEYS),
             },
         )
+    if lens and section == "rosPower":
+        from src.ros import power_v2  # noqa: PLC0415
+
+        _valid_lenses = (power_v2.LENS_FORWARD_LOOKING, power_v2.LENS_RESULTS_ONLY)
+        if lens not in _valid_lenses:
+            return JSONResponse(
+                status_code=400,
+                content={
+                    "error": f"Unknown power lens: {lens!r}",
+                    "availableLenses": list(_valid_lenses),
+                },
+            )
     _league_err = _public_section_league_error(section, leagueKey)
     if _league_err is not None:
         return _league_err
@@ -11398,6 +11419,15 @@ async def get_public_league_section(
                 if section == "franchise" and owner:
                     detail_map = payload.get("data", {}).get("detail") or {}
                     payload["franchiseDetail"] = detail_map.get(str(owner).strip())
+                if section == "rosPower" and lens:
+                    # ``build_section_payload`` above already ran the
+                    # default (forward-looking) lens; only recompute when
+                    # a non-default lens was explicitly requested, so the
+                    # common case pays no extra cost.
+                    from src.ros import power_v2  # noqa: PLC0415
+
+                    if lens != power_v2.LENS_FORWARD_LOOKING:
+                        payload["data"] = power_v2.build_section(snapshot, lens=lens)
                 assert_public_payload_safe(payload)
                 return payload
 

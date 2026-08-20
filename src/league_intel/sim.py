@@ -83,6 +83,8 @@ import statistics
 from dataclasses import dataclass, field
 from typing import Any, Iterable, Mapping, Sequence
 
+from src.league_intel import sim_calibration as _sim_calibration
+
 __all__ = [
     "SIM_MODEL_VERSION",
     "DEFAULT_SIM_WEEKS",
@@ -178,31 +180,35 @@ class _LegacyPointsModel:
     interface ``sim_calibration.PointsModel`` exposes.
 
     This exists so the draw model is a SEAM rather than a hardcoded
-    formula.  ``claude/league-intel-sim`` derives the real thing —
-    ``ros_value_per_point`` and the per-position CV table — from actual
-    stat lines scored under this league's own settings, replacing two
-    magic constants (a ``/2.7`` divisor tuned by eye and a CV table
-    citing a dataset named nowhere in the repo).  Its ``PointsModel``
-    already exposes ``draw(ros_value, position, rng)``; matching that
-    signature here means its calibrated model drops in as a parameter
-    with no edit to this module and no second copy of the arithmetic.
+    formula: a calibrated ``PointsModel`` drops in as the ``points_model``
+    parameter with no edit to this module.
 
-    That branch owns the schema.  This is the consumer.
+    It no longer restates the arithmetic. It used to hardcode the ``2.7``
+    divisor and import the per-position CV table from
+    ``ros/playoff_sim``, which itself held a byte-identical copy of
+    ``sim_calibration.FALLBACK_CV_BY_POSITION`` — three copies of three
+    numbers, and two implementations of one Gaussian draw. It now
+    delegates to a ``PointsModel`` built from the owner's own fallback
+    constants, which is an exact behavioural identity (pinned by
+    ``tests/league_intel/test_points_model_single_owner.py``).
+
+    What it keeps is its own ``source`` stamp. Parity of NUMBERS is not
+    parity of PROVENANCE: a run on this path must still report
+    ``legacy-constants`` rather than borrow the owner's
+    ``fallback-constants`` label, so ``pointsModelSource`` cannot claim a
+    provenance the run did not have.
     """
 
     source = "legacy-constants"
 
-    def draw(self, ros_value: float, position: str, rng: Any) -> float:
-        from src.ros.playoff_sim import (  # noqa: PLC0415
-            _DEFAULT_PLAYER_CV,
-            _PLAYER_CV_BY_POSITION,
-        )
+    def __init__(self) -> None:
+        # The owner's documented fallback — NOT a calibrated artifact.
+        # ``PointsModel()`` with no arguments is exactly the constants
+        # this class used to inline.
+        self._model = _sim_calibration.PointsModel()
 
-        mean = max(0.0, float(ros_value) / 2.7)
-        if mean <= 0.0:
-            return 0.0
-        cv = _PLAYER_CV_BY_POSITION.get((position or "").upper(), _DEFAULT_PLAYER_CV)
-        return max(0.0, rng.gauss(mean, max(0.5, mean * cv)))
+    def draw(self, ros_value: float, position: str, rng: Any) -> float:
+        return self._model.draw(ros_value, position, rng)
 
 
 _LEGACY_POINTS_MODEL = _LegacyPointsModel()
