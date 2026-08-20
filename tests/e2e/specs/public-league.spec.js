@@ -106,10 +106,25 @@ async function visitLeague(
     );
   }
   if (waitForText) {
+    // Measured against production 2026-08-20: a cold Next Data Cache
+    // miss on a per-section endpoint (revalidate: 60s, not proactively
+    // warmed — only the aggregate /api/public/league is, by
+    // public-league-warmup.yml) makes build_section_payload() a live
+    // request-time cost. GET /api/public/league/awards took 13.998s on
+    // a cold hit vs 2.6s warm — right at the edge of the previous
+    // 15_000ms budget, and this step runs AFTER "Loading section..."
+    // has already cleared (that message is next/dynamic's CODE-split
+    // loading state, not the section's own DATA fetch — see
+    // LeagueClient.jsx's `sectionLoading`), so the data fetch is not
+    // covered by either of the waits above it. Reproduced: run
+    // 32351289881 timed out here on tab=awards and tab=franchise&owner=
+    // while every other assertion in the same run passed. 30s matches
+    // the sibling "Loading section..." budget a few lines up and clears
+    // the measured cold-path latency with headroom.
     await page.waitForFunction(
       (needle) => document.body.innerText.includes(needle),
       waitForText,
-      { timeout: 15_000 },
+      { timeout: 30_000 },
     );
   }
   return privateHits;
