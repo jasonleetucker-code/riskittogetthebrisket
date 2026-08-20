@@ -39,6 +39,7 @@ from typing import Any
 
 from src.api.league_registry import active_leagues
 from src.trade.faab_comparability import TargetFormat
+from src.trade.ledger_sort import newest_first_key
 from src.trade.market_trade_ledger import market_trades
 
 TIER_EXACT = "EXACT_NATIVE_COMPARABLE"
@@ -145,10 +146,5 @@ def comparable_trades_for_asset(
                 }
             )
 
-    out.sort(
-        key=lambda t: (
-            t["occurredAtMs"] is None,
-            -(t["occurredAtMs"] or 0),
-        )
-    )
+    out.sort(key=lambda t: newest_first_key(t["occurredAtMs"]))
     return out

@@ -41,6 +41,7 @@ from pathlib import Path
 from typing import Any
 
 from src.acquisition.store import read_events
+from src.trade.ledger_sort import oldest_first_key
 
 WAIVER = "WAIVER"
 FREE_AGENT = "FREE_AGENT"
@@ -90,13 +91,7 @@ def waiver_claims(league_key: str, *, path: Path | None = None) -> list[dict[str
             }
         )
 
-    claims.sort(
-        key=lambda c: (
-            c["occurredAtMs"] is not None,
-            c["occurredAtMs"] or 0,
-            c["sourceRef"],
-        )
-    )
+    claims.sort(key=lambda c: oldest_first_key(c["occurredAtMs"], c["sourceRef"]))
     return claims
 
 

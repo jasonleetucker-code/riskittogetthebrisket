@@ -59,6 +59,7 @@ from typing import Any
 
 from src.acquisition.store import read_events
 from src.trade.faab_comparability import TargetFormat
+from src.trade.ledger_sort import oldest_first_key
 
 TRADE = "TRADE"
 TRADE_AWAY = "TRADE_AWAY"
@@ -140,13 +141,7 @@ def market_trades(league_key: str, *, path: Path | None = None) -> list[dict[str
             }
         )
 
-    trades.sort(
-        key=lambda t: (
-            t["occurredAtMs"] is not None,
-            t["occurredAtMs"] or 0,
-            t["sourceRef"],
-        )
-    )
+    trades.sort(key=lambda t: oldest_first_key(t["occurredAtMs"], t["sourceRef"]))
     return trades
 
 

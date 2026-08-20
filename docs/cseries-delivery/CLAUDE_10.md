@@ -206,6 +206,45 @@ python3 -m pytest tests/api/test_market_ledger_endpoints.py tests/api/test_faab_
 → 922 passed, 0 failed. `ruff check` clean; `ruff format --diff` shows only one pre-existing,
 unrelated hunk at `server.py:10535` (untouched by this diff, not introduced here).
 
+## Batch 4 — decision-path coercion gate repair (real defect, caught by CI)
+
+**Root cause, corrected.** Three consecutive pushes were reported here and on PR #961 as blocked
+only by an unrelated, pre-existing `check_source_health.py` content-staleness warning. That
+diagnosis was **wrong** — caught by Claude 5 (Integration) re-inspecting the actual per-step
+`conclusion` values on the `Validate PR` job rather than trusting a tail-of-log read. The real
+blocker was the **Decision-path coercion gate** (`scripts/check_decision_coercions.py`, no
+`continue-on-error`), which correctly flagged three real defects:
+`comparable_trades.py:151`, `market_trade_ledger.py:146` and `waiver_ledger.py:96` all used
+`occurredAtMs or 0` as a sort-key fallback for a possibly-missing transaction timestamp — exactly
+the "missing resolves to a fabricated number" anti-pattern the gate exists to block.
+`check_source_health.py` *is* genuinely advisory (`continue-on-error: true` — its own non-zero
+exit still prints loudly without failing the step), which is what made it look like the culprit in
+a log tail; the mistake was not checking the per-step conclusion.
+
+**Fix:** extracted `src/trade/ledger_sort.py` — two pure key functions
+(`oldest_first_key`/`newest_first_key`) that partition rows into known/unknown-timestamp groups
+via the leading tuple element, so a missing timestamp is only ever compared against another
+missing timestamp (via `==`, never magnitude) and never substituted with a placeholder. Wired
+into all three call sites (one-line change each). 8 new tests in `tests/trade/test_ledger_sort.py`
+pin both invariants directly: the key's timestamp position is `None`, never `0`, for a missing
+row; and the resulting sort order is byte-identical to the old (coercing) implementation for both
+all-known and mixed known/unknown inputs. `python scripts/check_decision_coercions.py` went from
+reporting the 3 new violations to clean. No published row field changed — `occurredAtMs` was
+already correctly `None` in every output dict; the coercion only ever lived in the ephemeral
+internal sort key.
+
+Corrected on PR #961: the description and an earlier misattributing comment were both updated
+with the real cause, crediting Claude 5's catch rather than silently rewriting the record.
+
+### Verification (Batch 4)
+
+```
+python3 scripts/check_decision_coercions.py
+python3 -m pytest tests/trade/ tests/api/ -q
+```
+→ coercion gate clean; full `tests/trade/` + `tests/api/` sweep green (see PR #961 for the exact
+count at the verified commit).
+
 ### Next candidate batches (not started)
 
 `C4-FAAB-01` (FAAB Market Heat) is next in strict dependency order, but is a materially different
