@@ -283,3 +283,93 @@ ONE CONCEPT ONE CANONICAL OWNER — and because Claude 13 should not independent
 4. Watch `C2-U4` for `V1-52` (unchanged from §5 above).
 5. Continue picking dependency-ready C5 units per §0.1's authorization; do not merge
    any PR — hand green batches to Claude 5.
+
+## 10. C5-WAR-01 — deterministic core (Realized VORP, Actual WAR, WAB, Game Changer)
+
+**Branch:** `claude/c5-war-01-deterministic-core` (separate branch/PR — distinct cluster
+from both V1-53 and C5-PROJ-A).
+
+Full record: `docs/player-impact/C5_WAR_01_DETERMINISTIC_CORE.md`. Summary:
+
+- **Delivered:** `src/war/standings.py` (pure H2H/median credit primitives) +
+  `src/war/player_impact.py` (Realized Lineup VORP, Actual WAR, Wins Above Bench,
+  Game Changer Points — four of the spec's five metrics) + `tests/war/` (40 tests
+  directly pinning `docs/PLAYER_IMPACT_WAR_MVP_SPEC.md` §12's own validation list).
+- **xWAR deliberately excluded** — needs the same joint weekly league-score
+  simulation Game Day needs (assessed and deferred in §7 above); building a
+  standalone one for xWAR alone would be the "second matchup model" the Game Day
+  spec forbids.
+- **No duplicate math:** consumes `src/scoring/replacement_level.py::replacement_per_game`
+  (the declared owner) and `src/ros/lineup.py::assign_lineup` (the C2-U1 canonical
+  solver) as-is. `tests/lineup/test_single_owner.py` 16/16 confirms no second
+  assignment engine was introduced.
+- **Key correctness decision:** team scores are summed from real per-player points,
+  never `LineupAssignment.score` (which floors a negative objective via the
+  solver's live health-penalty path — wrong for an already-played historical
+  week).
+- **Key correctness decision:** the counterfactual median is genuinely
+  recalculated from the counterfactual score set on every call (spec §3's
+  "Mandatory" instruction), with a test specifically constructed to diverge from
+  a stale-median answer so it cannot pass by accident.
+- **Found, not repaired (C9-AWARD scope, Claude 13's lane):**
+  `src/public_league/awards.py:1441-1444` has an existing VORP calculation that
+  floors at 0.0 and is season- rather than week-aggregate, both diverging from
+  the binding spec. Recorded so Claude 13 retires it into a call to this owner
+  rather than independently "fixing" it in place.
+- **Labelled PRIOR, not verified:** median-game tie/odd-even handling (no network
+  egress in this environment to check against live Sleeper behavior).
+- **Verification:** `tests/war/` 40/40; combined with `tests/lineup/` +
+  `tests/scoring/` 180/180, zero regressions; `ruff check .` + `ruff format --check .`
+  clean across the whole repo.
+- **Deliberately NOT claimed:** xWAR; consumer wiring to real Sleeper snapshot
+  data; the spec's §10 immutable historical evidence store; the `awards.py` VORP
+  repair; MVP/OPOY/DPOY methodology (spec §7/§8); any change to
+  `replacement_level.py` or `lineup.py`.
+
+## 11. C5-PROJ-B — canonical projection-stat schema + exact-league rescoring
+
+**Branch:** `claude/c5-proj-b-canonical-schema`, branched from `claude/c5-proj-a-source-census`
+(a real dependency, not a convenience — this unit imports the census module `C5-PROJ-A`
+introduced, so it cannot exist on a branch that doesn't have it).
+
+Full record: `docs/projections/C5_PROJ_B_CANONICAL_SCHEMA.md`. Summary:
+
+- **Delivered:** `src/ros/projection_observations.py` — wraps BDVM's existing
+  `ProjectionRecord`/`resolve_fpg` (the two LIVE sources `C5-PROJ-A` found: Mike
+  Clay/ESPN, The IDP Show) into the seasonal ensemble's plan-§4 observation contract.
+  No BDVM file touched; `resolve_fpg` does the actual exact-league rescoring, reusing
+  the same production scoring engine (`compute_weekly_points`) that scores realized
+  history.
+- **Structural enforcement, not just documentation:** a `ProjectionObservation`
+  cannot be built for a source missing from the `C5-PROJ-A` census (raises) or for a
+  `RANKINGS_ONLY`-censused source (refuses — would otherwise manufacture a projection
+  a source never published). Proxy rows (BDVM's own reconstructed-baseline estimates)
+  are excluded by default and stay labelled when explicitly included.
+- **Key finding for future adapters:** a projection's raw `stat_line` uses nflverse
+  COLUMN names (`receptions`/`receiving_yards`), not Sleeper SCORING-KEY names
+  (`rec`/`rec_yd`) — similar enough to confuse, and a stat line built with the wrong
+  vocabulary silently scores 0.0 rather than raising. Caught by this unit's own tests
+  before it could reach `C5-PROJ-C`.
+- **Verification:** `tests/ros/test_projection_observations.py` 12/12 (including a
+  real snapshot round-trip via `write_snapshot`→`load_and_rescore_source`);
+  `tests/api/test_canonical_ownership_protections.py` 20/20 (seasonal-lane write
+  guard); `tests/bdvm/test_engine_parity.py` 7/7 (BDVM's frozen reference fixture
+  untouched); combined `tests/ros/`+`tests/bdvm/` 550/1-skipped, zero regressions;
+  `ruff check .` + `ruff format --check .` clean.
+- **Deliberately NOT claimed:** any change to `src/bdvm/*`; `C5-PROJ-C`/`C5-PROJ-D`
+  ensemble aggregation; any new fetcher/acquisition code; DFS/betting-market
+  discovery lanes (still `GREENFIELD`).
+
+## 12. Session status and open PRs (as of this entry)
+
+| PR | branch | unit | status |
+|---|---|---|---|
+| #964 | `claude/cseries-seasonal-intelligence-efz837` | V1-53 | **merged to `main`** |
+| #966 | `claude/c5-proj-a-source-census` | C5-PROJ-A | open, CI green |
+| #969 | `claude/c5-war-01-deterministic-core` | C5-WAR-01 deterministic core | open, CI green |
+| (pending) | `claude/c5-proj-b-canonical-schema` | C5-PROJ-B | about to open — depends on #966 |
+
+None merged by this session except via Integration (#964) — Claude 5 (Integration
+Authority) is the sole merge authority per `docs/EXECUTION_PLAN.md` §0. `#966` should
+merge before or together with `claude/c5-proj-b-canonical-schema`'s PR, since the
+latter is branched from and depends on it.
