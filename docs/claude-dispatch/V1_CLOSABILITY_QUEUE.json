@@ -1,6 +1,6 @@
 {
   "_comment": "Live V1 Closability Queue, owned by Claude 7 as independent V1 traffic controller / adversarial auditor. Ranks IMPLEMENTED_UNVERIFIED rows by verification effort per row gained. NOT an authority on V1 status — only Claude 5 promotes a row, and no percentage here is claimed as achieved.",
-  "updatedAt": "2026-08-20T01:35:00Z",
+  "updatedAt": "2026-08-20T01:42:00Z",
   "auditCycle": 2,
   "evidenceBasis": {
     "contract": "docs/VERSION_1_COMPLETION_CONTRACT.md §3 read on origin/main e3b387ca5",
@@ -22,7 +22,7 @@
       "L3": 12,
       "L4": 3
     },
-    "note": "Ninth consecutive recount: still 40/132, across seven merges plus #938 and #940. V1-64's evidence is now on main but its row is unpromoted and its note is stale."
+    "note": "TENTH recount. Authoritative numerator on main: 40/132 (30.3%). Claude 5 has FIVE promotions staged on an unmerged branch (V1-28, V1-30, V1-33, V1-64, V1-119) which would make it 45/132 (34.1%) when that branch lands. An unmerged promotion is not a promotion."
   },
   "deployState": {
     "correctionAccepted": "Cycle 1 collapsed four distinct facts into 'main is deployed'. Separated below.",
@@ -359,5 +359,40 @@
         "mergedAs": "5bdee44db"
       }
     ]
+  },
+  "stagedPromotions": {
+    "branch": "claude/v1-integration-authority-xaqcv8",
+    "head": "83d73a664",
+    "aheadOfMain": 3,
+    "branchCount": "45/132 (34.1%)",
+    "rows": [
+      {
+        "row": "V1-28",
+        "level": "L1",
+        "from": "IN PROGRESS"
+      },
+      {
+        "row": "V1-30",
+        "level": "L2",
+        "from": "IN PROGRESS"
+      },
+      {
+        "row": "V1-33",
+        "level": "L1",
+        "from": "IN PROGRESS"
+      },
+      {
+        "row": "V1-64",
+        "level": "L1",
+        "from": "IMPLEMENTED_UNVERIFIED"
+      },
+      {
+        "row": "V1-119",
+        "level": "L1",
+        "from": "IMPLEMENTED_UNVERIFIED"
+      }
+    ],
+    "queueCrossCheck": "V1-119 was this queue's single Tier A candidate and V1-64 its Tier B micro-PR; both are in the staged set. V1-88, which this queue refused to call promotable, is NOT — the refusal held. V1-28/V1-30/V1-33 are Roster rows this queue did not rank, since they were IN PROGRESS rather than IMPLEMENTED_UNVERIFIED.",
+    "notCredited": "None of it counts until the branch merges and the §3 table on main changes."
   }
 }

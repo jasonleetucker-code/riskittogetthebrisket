@@ -1,9 +1,9 @@
 {
   "_comment": "Lane utilization state, owned by Claude 7 (Lane Dispatcher). NOT an authority on integration sequencing (Claude 5 / docs/EXECUTION_PLAN.md), on V1 status (docs/VERSION_1_COMPLETION_CONTRACT.md) or on canonical ownership (CLAUDE.md). Repository evidence outranks this file: where they disagree, this file is wrong and must be corrected.",
-  "updatedAt": "2026-08-20T01:35:00Z",
-  "dispatchCycle": 14,
+  "updatedAt": "2026-08-20T01:42:00Z",
+  "dispatchCycle": 15,
   "writePolicy": "This file and ASSIGNMENTS.json are written ONLY on a material state transition — new assignment, assignment accepted, completion, blocker, freeze/unfreeze, or a meaningful dependency change. A heartbeat that finds nothing changed produces no commit and no CI run.",
-  "evidenceBasis": "origin/main 42e0cf999; #936 (5bdee44db) and the #940 policy (fb1245bd6, SQUASH-merged) both on main; refs resolved live; V1 §3 recounted; rc-wave-a ahead/behind measured",
+  "evidenceBasis": "origin/main 42e0cf999; dual merge detection (merge-commit AND squash '(#NNN)' subjects) per the cycle-14 lesson; refs resolved live; V1 §3 counted on BOTH main and Lane 5's unmerged branch",
   "assignmentSourceNote": "The six current assignments were made manually by the owner, not by this dispatcher. Recorded here so the durable state matches reality; Claude 7 did not originate them and does not own them.",
   "v1": {
     "requiredRows": 132,
@@ -133,7 +133,7 @@
     "5": {
       "name": "Integration / Governance / Production",
       "state": "ACTIVE",
-      "currentTask": "integration queue under the #940 policy; rc-wave-a needs the planned freshness pass",
+      "currentTask": "promoting V1 rows on its own branch (5 staged) and running per-PR integration candidates",
       "assignmentSource": "n/a — sole integration authority, never tasked by this dispatcher",
       "branch": null,
       "mergedThisCycle": [
@@ -141,19 +141,18 @@
       ],
       "implementationHead": "n/a",
       "releaseCandidate": "NOT_YET_FROZEN",
-      "evidence": "main 547e51bc6; #913 and #938 merged this cycle; rc-wave-a 17 commits ahead, clean, baseline 664",
+      "evidence": "claude/v1-integration-authority-xaqcv8 head 83d73a664 'V1-64 VERIFIED on re-performed mutation evidence (#936)', 3 ahead of main, counts 45/132; integration/rc-937 built 00:57Z",
       "blockedBy": null,
       "doNotTouch": [],
       "nextSafeWork": "its own sequencing",
       "reportedToIntegration": [
-        "rc-wave-a is 14 commits BEHIND main and carries #936 content that has already merged directly. Policy rule 7 wants it refreshed and small; rule 2 makes that yours, not the lanes'.",
-        "Wave PRs still open: #933 (V1-29, L2), #937 (V1-95, L2), #929 (V1-130, L2). #936 (V1-64, L1) has landed on its own.",
-        "V1-64's L1 evidence is now on main (tests/sharp/test_record_queue.py asserts oldestCrawlMs). The row still reads IMPLEMENTED_UNVERIFIED — the promotion is available to you and needs only your read of the assertions plus the merge-tree green that landing already provided.",
-        "Rule 6 check: nothing has been merged child-first so far. #936 was standalone off main.",
-        "#927/#932 must NOT be sent back to Lane 4 for freshness — rule 1. One planned reconciliation when they reach the front of the queue.",
-        "V1 still 40/132 — ninth recount."
+        "Your five staged promotions are on an UNMERGED branch, so the published numerator is still 40/132. Landing that branch is now itself a V1 event worth sequencing.",
+        "rc-wave-a (16 ahead / 14 behind) looks superseded by rc-937. If so, retire it rather than leaving two integration branches alive — rule 7 forbids an integration branch becoming a second long-lived source of truth.",
+        "#935 is now GREEN on both checks and is a clean candidate; B10 is closed.",
+        "#927/#932 still must NOT be sent back to Lane 4 for freshness (rule 1).",
+        "V1-88 is still not promotable on the evidence this auditor could find — the endpoint-naming invariant has no deterministic test and the registry holds the gated endpoint as prose. Noted because it is NOT in your staged five, which matches."
       ],
-      "lastMeaningfulActivity": "2026-08-20T00:51:31Z",
+      "lastMeaningfulActivity": "2026-08-20T01:12:00Z",
       "policyState": "INTEGRATION_OWNER"
     },
     "6": {
@@ -163,22 +162,22 @@
       "assignmentSource": "manual (owner)",
       "branch": "claude/rosters-canonical-team-strength",
       "pr": 935,
-      "implementationHead": "#935 head 051753d4 (main merged in 00:52Z, pulling #938's stabilized E2E gate) — fresh Boot stack verdict pending",
+      "implementationHead": "#935 head 051753d4 — GREEN on both checks (Boot stack 01:30:48Z, Validate 01:37:29Z)",
       "releaseCandidate": "NOT_YET_FROZEN",
-      "evidence": "#935 pushed 00:52Z; previous Boot stack failure was 22:17:20Z on the pre-#938 gate",
+      "evidence": "#935 both checks green on the post-#938 gate; the earlier 22:17:20Z failure is superseded and was an instrument fault, not a product defect",
       "blockedBy": null,
       "doNotTouch": [
         "#912 head"
       ],
-      "nextSafeWork": "obtain the fresh Boot stack verdict on #935. That is a missing verdict, not a freshness refresh, so it is permitted.",
-      "lastMeaningfulActivity": "2026-08-20T00:54:34Z",
-      "watch": "B10 downgraded — the lane acted, and in the right order: bring in the repaired gate, then re-measure. Do not read the old 22:17:20Z failure as the current verdict.",
+      "nextSafeWork": "none required. Frozen at handoff; NO_SAFE_WORK, not idleness.",
+      "lastMeaningfulActivity": "2026-08-20T01:37:29Z",
+      "watch": "CLOSED — B10 resolved green.",
       "openPrs": [
         912,
         935
       ],
-      "policyState": "FEATURE_GREEN_PENDING_VERDICT",
-      "policyStateDetail": "#935 head 051753d4 — Validate green, fresh Boot stack verdict pending after pulling in #938's repaired gate. NOT yet FEATURE_GREEN as a whole. #912 FEATURE_GREEN and frozen."
+      "policyState": "READY_FOR_INTEGRATION",
+      "policyStateDetail": "#935 is now FEATURE_GREEN on both gates and handed off; #912 FEATURE_GREEN and frozen. Both frozen per rule 8."
     }
   },
   "collisionWatch": [
@@ -198,10 +197,12 @@
       "Integration branches are legitimate but bounded (rule 7): staging only, refreshed from main, kept small, never a second source of truth. rc-wave-a is now measured against that bar."
     ]
   },
-  "cycle14Transitions": [
-    "POLICY ADOPTED — #940 squash-merged as fb1245bd6 at 01:29:55Z. Note for my own method: it has no 'Merge pull request' line, so my standing merge-detection grep missed it. Squash merges must be detected by path (git log -- <file>), not by merge-commit subject.",
-    "#936 MERGED (5bdee44db). V1-64's deterministic L1 evidence is now ON MAIN: tests/sharp/test_record_queue.py asserts oldestCrawlMs, which is the exact gap the corrected closability queue identified and the row's contract note still describes as missing. The row itself still reads IMPLEMENTED_UNVERIFIED — promotion remains Claude 5's.",
-    "rc-wave-a IS NOW STALE: 16 ahead of main but 14 BEHIND it, and its #936 content is redundant now that #936 merged directly. Policy rule 7 requires an integration branch to be refreshed from main and kept small. This is an INTEGRATION action, explicitly not a lane action (rule 2).",
-    "V1 recounted a NINTH time: still 40/132, now across seven merges plus #938 and #940."
+  "cycleNumberingNote": "The scheduled wakeup was labelled cycle 14, but cycle 14 was already spent adopting the #940 policy. Run as 15; the wakeup's cycle-13 state was superseded.",
+  "cycle15Transitions": [
+    "BLOCKER B10 IS CLOSED. #935's fresh verdict on head 051753d4 is GREEN on BOTH checks — Boot stack + run journeys 01:30:48Z and Validate PR 01:37:29Z. The 22:17:20Z failure was measured on the pre-#938 gate, so Lane 6's sequencing (repair the instrument, then re-measure) was correct and is now proven.",
+    "SECOND, NARROWER INTEGRATION BRANCH: integration/rc-937 (00:57Z, head 80b7b948d, 3 ahead / 7 behind, clean) carrying #937 alone. Claude 5 appears to have pivoted from the four-PR rc-wave-a to per-PR candidates, which is the direction policy rule 7 favours (keep it small). rc-wave-a is now 16 ahead / 14 behind and looks superseded rather than advanced.",
+    "FIVE V1 PROMOTIONS ARE STAGED BUT UNMERGED on claude/v1-integration-authority-xaqcv8 (3 ahead of main): V1-28 and V1-33 (L1) and V1-30 (L2) from the Roster landings, plus V1-64 (L1) and V1-119 (L1). That branch counts 45/132 (34.1%). THE AUTHORITATIVE NUMERATOR REMAINS 40/132 (30.3%) because main is unchanged — a promotion on an unmerged branch is not a promotion.",
+    "The two rows the corrected closability queue named are the two being promoted: V1-119 (its single Tier A candidate) and V1-64 (its Tier B micro-PR). V1-88, which this auditor refused to call promotable for want of an exact L1 proof, is NOT among them — consistent with that refusal.",
+    "Still no V1-43 branch. L2-2026-08-19-02 remains DELIVERY_REQUIRED and undelivered."
   ]
 }
