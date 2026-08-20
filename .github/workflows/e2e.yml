@@ -274,6 +274,56 @@ jobs:
             sleep 2
           done
 
+      # Answering /api/status is NOT the same as being ready to serve a
+      # journey.  BDVM is flag-on by default, and its first /api/bdvm/*
+      # call lazily ingests the nflverse corpus INSIDE the backend
+      # process — measured in run 32316532286: ~112k weekly-stat rows +
+      # ~158k snap-count rows + schedules, 00:17:05 to ~00:19:45, all
+      # network + CPU on a 2-core runner.  While that runs the event
+      # loop is starved, and the Next /api/dynasty-data bridge aborts a
+      # response after a 4s INTER-CHUNK gap
+      # (BACKEND_IDLE_TIMEOUT_MS in frontend/app/api/dynasty-data/route.js),
+      # so a journey that loads the board inside that window gets a 503
+      # and a "Rankings unavailable" page with zero rows.  That is what
+      # failed journey-trade.spec.js:96 at ~00:19 in that run.
+      #
+      # Paying for the ingestion here MOVES it out of the journey window
+      # instead of adding work, and the poll below is the honest
+      # readiness condition: the very path the app uses must actually
+      # serve the contract before the suite starts.
+      - name: Warm lazy backend caches, then prove the data path serves
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          jar="$RUNNER_TEMP/warm-cookies.txt"
+          curl -sf -X POST http://127.0.0.1:8000/api/test/create-session \
+            -H "Authorization: Bearer $E2E_TEST_SECRET" -c "$jar" -o /dev/null
+          keys=$(curl -sf http://127.0.0.1:8000/api/leagues \
+            | python3 -c 'import json,sys; print(" ".join(l["key"] for l in json.load(sys.stdin).get("leagues", [])))')
+          for key in $keys; do
+            # A non-200 here is fine and is NOT swallowed error handling:
+            # /api/bdvm/values documents 503 for flag-off, no snapshot and
+            # a non-loaded league.  The point is to force the lazy
+            # ingestion now, whatever the verdict; the poll below is what
+            # actually gates the suite.
+            code=$(curl -s -o /dev/null -w '%{http_code}' -m 900 -b "$jar" \
+              "http://127.0.0.1:8000/api/bdvm/values?leagueKey=$key" || echo 000)
+            echo "bdvm warm leagueKey=$key -> $code"
+          done
+          for i in $(seq 1 90); do
+            code=$(curl -s -o /dev/null -w '%{http_code}' -m 120 -b "$jar" \
+              "http://127.0.0.1:3000/api/dynasty-data?view=app" || echo 000)
+            if [[ "$code" == "200" ]]; then
+              echo "data bridge serves the contract (attempt $i)"; break
+            fi
+            if [[ $i == 90 ]]; then
+              echo "::error title=Data bridge never served the contract::the backend is still starved or unreachable — see backend.log artifact"
+              tail -n 100 "$RUNNER_TEMP/backend.log" || true
+              exit 1
+            fi
+            sleep 2
+          done
+
       - name: Run Playwright suite
         shell: bash
         env:
