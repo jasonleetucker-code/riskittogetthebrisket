@@ -136,3 +136,77 @@ frontend-only, with a smaller diff than planned and zero backend changes.
   is a real gap, not a silent claim of success — flagging it per CLAUDE.md's own instruction to say
   so explicitly rather than claim a UI verification that didn't happen. A `run`-skill pass in an
   environment with a working Python install would close it before this ships.
+
+### Batch 2 (C9-HIST-01) — Franchise continuity: retirement stops erasing history
+
+**Owner decision recorded first, before writing code.** The scope manifest's stated defect
+("2024 declares ten teams but carries only eight standings rows, and retired-owner mappings
+hard-coded rather than derived") turned out not to be an oversight — `src/public_league/
+identity.py`'s `_RETIRED_OWNER_IDS` filter was a previous DELIBERATE design, with its own
+dedicated, explicitly-reasoned test suite (`tests/public_league/test_identity_retirement.py`),
+that fully erased a retired owner's participation from every season, including past seasons where
+they were a legitimate active roster. That's what produces the count mismatch: a season's declared
+`numTeams` (from Sleeper's `total_rosters`) stayed correct while `season_standings()` silently
+dropped any retired owner's row via the same "orphaned roster" path used for rosters with no
+owner_id at all.
+
+Reversing an intentional, tested privacy/product decision is not a bug fix I should make
+unilaterally, so I asked the owner which way C9-HIST-01 should resolve it before touching any code.
+**Decision: restore historical rows, hide retired owners only from current-facing UI (dropdowns/
+directories).**
+
+**What shipped** (`src/public_league/identity.py`):
+- `Manager` gained `is_retired: bool` — a flag, not a filter baked into construction.
+- `build_manager_registry()` no longer skips a retired owner's roster/alias/`roster_to_owner` entry
+  for any season; it flags `is_retired` on the `Manager` instead. Their real historical
+  participation (standings rows, archive rows, career stats, matchup attribution) is restored.
+- `ManagerRegistry.ordered_managers(include_retired: bool = False)` is the new exclusion point —
+  used by `to_public_list()` (unchanged default behavior: still excludes retired owners from the
+  public managers directory) and by anything else that wants the forward-facing list. A caller that
+  genuinely wants the all-time roster can pass `include_retired=True`.
+
+**Downstream consumers audited, not assumed correct:**
+- `archives.py::_manager_index` and `franchise.py`'s per-owner index/detail build, plus
+  `overview.py`'s league-vitals manager count — all read `by_owner_id` or `ordered_managers()`
+  directly and needed no change: the franchise leaderboard and league-vitals counters are
+  inherently historical/all-time views, so restoring retired owners to them is the correct outcome,
+  not a side effect to guard against.
+- `src/ros/power_v2.py::_enumerate_owner_ids` **did** need a fix — its docstring explicitly says it
+  builds "the authoritative active-owner registry" for a CURRENT power-rankings table and relies on
+  `by_owner_id` excluding retired owners. Since that dict no longer excludes them, this is exactly
+  the "current UI" case the owner's decision says should still filter — changed to
+  `{m.owner_id for m in snapshot.managers.ordered_managers()}`, preserving the original exclusion
+  semantics with the new API instead of the raw dict.
+- `matchup_recap.py`'s existing "unresolved owner" fallback (`retired:{league}:{rid}` synthetic id,
+  "Former manager" label) is unaffected in mechanism — it still fires correctly for genuine orphans
+  (no `owner_id` at all) — but now fires LESS often: a retired owner's own historical matchups
+  resolve to their real name instead of the placeholder. Updated its stale inline comment and the
+  stale docstring in `tests/public_league/test_matchup_unresolved_owner.py` (that test's actual
+  assertions were already orphan-construction-based and needed no logic change).
+
+**Test suite rewritten, not just patched**, since the old file pinned the now-reversed contract as
+correct: `tests/public_league/test_identity_retirement.py` — 8 tests, including a full
+`metrics.season_standings()` end-to-end test reproducing the exact manifest symptom (a season with
+2 retired-owner rosters among 4 now produces 4 standings rows, matching `numTeams`, not 2).
+
+**Verified:**
+- New/rewritten test file: 8/8 passing.
+- `tests/public_league/` + `tests/ros/test_power_v2.py`: 398 passed, 31 skipped (pre-existing
+  skips), zero regressions.
+- `ruff check` clean on every touched file; `ruff format` applied to the one file it flagged
+  (whitespace only).
+- Full `pytest tests/ -m "not livedata"` sweep kicked off as an extra safety net beyond the
+  directly-relevant suites above and was still running at commit time (this sandbox runs it slower
+  than CI's ~700s). Not blocking the commit — the targeted suites already exercise every call site
+  the diff touches or that reads its APIs (identity.py, matchup_recap.py, power_v2.py, and every
+  test file under tests/public_league/). Will report the full-sweep result in a follow-up note if
+  it surfaces anything the targeted runs didn't.
+
+**Deliberately NOT claiming:**
+- Any UI/frontend surface for this (that's `/league`'s existing rendering of these same backend
+  fields — no frontend change needed or made).
+- Public League Experience v3 (`C9-V3-01`) — this repair is a stated *precondition* for it per the
+  scope manifest, not the feature itself.
+- Whether an individual retired owner's OWN franchise page should be directly *linked* from
+  anywhere now that it resolves correctly — out of scope; only the underlying data/count defect is
+  fixed here.
