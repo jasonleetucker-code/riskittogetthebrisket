@@ -130,7 +130,7 @@ the invariant is satisfied today.
 | Real market trades | *(to be created)* CE-01 canonical ledger | ABSENT | `C4-MTL-01` |
 | Sharp cohort | `src/sharp/cohort.py` | HOLDS in code; production population unproven | `C4-SHARP-01` |
 | Manager intelligence | `src/intel/*` substrate | HOLDS as substrate; Manager Scout absent | `C6-MGR-01` |
-| Analyst intelligence | *(to be created)* claim/evidence ledger | ABSENT — no ingestion, no credentials | `C6-ANA-01` |
+| Analyst intelligence | `src/analyst/` — schema (`claim.py`/`stance.py`) + ledger (`store.py`/`query.py`) | PARTIAL — schema, persistence and as-of query exist; still no ingestion, no credentials, no consumers | `C6-ANA-01` |
 | Central Buy/Sell | *(to be created)* one reconciler | **≥6 emitters, no reconciler; one dead module claims ownership** | `C6-SIG-01` |
 | Projections (ROS) | `src/ros/*` adapters | HOLDS | `F-ROS-01` |
 | Realized scoring | `src/nfl_data/realized_points.py` | HOLDS (B7) | `F-SCORE-02` |
@@ -315,7 +315,7 @@ in production rather than merely deployed.*
 
 | id | capability | owner | status | final | disposition | deps | source | prof | lane | flag | evidence |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| `C6-ANA-01` | Analyst claim/evidence ledger | *(new)* | ABSENT — **zero ingestion code, zero credentials, zero transcription tooling** | Normalized claims with identity, provenance, dedupe | IMPLEMENT | `C1-ID-01` | inventory §5 | P3 | intel | `OD-03` | ledger rows |
+| `C6-ANA-01` | Analyst claim/evidence ledger | `src/analyst/` | PARTIAL — schema (`claim.py`/`stance.py`) and persistence + as-of query (`store.py`/`query.py`, `docs/analyst/LEDGER_STORAGE.md`) exist; **zero ingestion code, zero credentials, zero transcription tooling, zero consumers** | Normalized claims with identity, provenance, dedupe | IMPLEMENT (ingestion remains) | `C1-ID-01` | inventory §5 | P3 | intel | `OD-03` | ledger rows |
 | `C6-POD-01` | Podcast Intelligence | `C6-ANA-01` | ABSENT | ~50 sources; canonical analyst identity | IMPLEMENT | `C6-ANA-01` | inventory 5.1–5.7 | P3 | intel | `OD-03` | coverage |
 | `C6-YT-01` | YouTube Analyst Intelligence | `C6-ANA-01` | ABSENT | ~50 sources; **deduped against podcasts by analyst/content identity** so one opinion is not two votes | IMPLEMENT | `C6-POD-01` | #782, decision 8 | P3 | intel | `OD-03` `EXT` | dedupe test |
 | `C6-X-01` | X / Twitter analyst feed | `C6-ANA-01` | ABSENT | Official API only, no scraping | IMPLEMENT | `C6-ANA-01` | #788, decision 13 | P3 | intel | `OD-03` **cost-gated** | owner cost approval |
