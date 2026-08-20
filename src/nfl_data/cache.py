@@ -52,17 +52,45 @@ def _entry_paths(cache_dir: Path, key: str) -> tuple[Path, Path]:
     return cache_dir / f"{h}.json", cache_dir / f"{h}.meta.json"
 
 
+def entry_age_seconds(key: str, *, cache_dir: Path | None = None) -> float | None:
+    """Seconds since ``key`` was fetched, or None when it is absent.
+
+    Exposed so a cache-only reader can report HOW OLD the artifact it
+    served is.  ``put`` has always recorded ``fetched_at``; this only
+    reads it back, so no new provenance was invented for it.
+    """
+    cache_dir = cache_dir or _default_cache_dir()
+    _, meta_path = _entry_paths(cache_dir, key)
+    try:
+        meta = json.loads(meta_path.read_text(encoding="utf-8"))
+        fetched_at = float(meta.get("fetched_at") or 0.0)
+    except Exception:  # noqa: BLE001
+        return None
+    if fetched_at <= 0.0:
+        return None
+    return max(0.0, time.time() - fetched_at)
+
+
 def get(
     key: str,
     *,
     ttl_seconds: float,
     cache_dir: Path | None = None,
+    allow_stale: bool = False,
 ) -> Any | None:
     """Return the cached value for ``key`` if fresh, else None.
 
     Malformed / corrupted entries are deleted and treated as cache
     misses so a partial write from a crashed process doesn't wedge
     the cache.
+
+    ``allow_stale`` returns a present-but-expired entry instead of None.
+    The TTL governs WHEN THE REFRESH OWNER SHOULD RE-FETCH; it is not a
+    statement that an older artifact is unreadable.  A request path that
+    may not fetch would otherwise lose its input every 24h and degrade
+    daily — turning a latency repair into a freshness regression.  The
+    caller is responsible for reporting the age (``entry_age_seconds``)
+    so stale is never served as current.
     """
     cache_dir = cache_dir or _default_cache_dir()
     if not cache_dir.exists():
@@ -81,7 +109,7 @@ def get(
         except OSError:
             pass
         return None
-    if (time.time() - fetched_at) > ttl_seconds:
+    if not allow_stale and (time.time() - fetched_at) > ttl_seconds:
         return None
     try:
         return json.loads(data_path.read_text(encoding="utf-8"))

@@ -1,64 +1,67 @@
 """NFL schedule → per-team ROS week structures (byes, playoff weeks).
 
-Fetches the nflverse schedules dataset (stdlib urllib, same release
-pattern as ``src.nfl_data.nflverse_direct``), derives each team's
-regular-season week list with byes marked, and stamps the league's
-fantasy-playoff weeks so the ROS module can weight them.
+Derives each team's regular-season week list with byes marked and stamps
+the league's fantasy-playoff weeks so the ROS module can weight them.
+
+**This module no longer downloads anything.**  It used to fetch the
+nflverse schedules dataset with its own ``urllib.request.urlopen`` — a
+SECOND nflverse downloader beside ``src.nfl_data.ingest``, with no TTL
+cache, no single-flight and no feature gate — and it was reachable from
+the live ``/api/bdvm/*`` request path.  Acquisition now belongs to the
+canonical ingestion owner; this module only shapes what that owner
+returns.  ``tests/bdvm/test_request_path_is_local.py`` asserts
+structurally that the downloader cannot come back.
 
 Pure builders are separated from the fetch so tests use fixture rows.
 """
 
 from __future__ import annotations
 
-import csv
-import io
 import logging
-import urllib.error
-import urllib.request
 from typing import Any, Iterable, Mapping
 
 from src.bdvm.ros import RosWeek
 
 _LOGGER = logging.getLogger(__name__)
 
-_SCHEDULE_URL = (
-    "https://github.com/nflverse/nflverse-data/releases/download/schedules/sched_{year}.csv"
-)
-# Combined all-seasons file — the fallback when the per-season file is
-# not published yet (observed: sched_2026.csv 404s while games.csv has
-# the 2026 slate).
-_SCHEDULE_URL_ALL = (
-    "https://github.com/nflverse/nflverse-data/releases/download/schedules/games.csv"
-)
-_USER_AGENT = "riskitbrisket-bdvm/1.0 (+https://riskittogetthebrisket.org)"
-
 # Sleeper-style default: fantasy playoffs in NFL weeks 15-17.
 DEFAULT_PLAYOFF_WEEKS = (15, 16, 17)
 
 
-def _get_csv(url: str, timeout: float) -> list[dict[str, Any]]:
-    req = urllib.request.Request(url, headers={"User-Agent": _USER_AGENT})
-    with urllib.request.urlopen(req, timeout=timeout) as resp:  # noqa: S310
-        text = resp.read().decode("utf-8", errors="replace")
-    return list(csv.DictReader(io.StringIO(text)))
-
-
-def fetch_schedule_rows(season: int, *, timeout: float = 60.0) -> list[dict[str, Any]]:
+def fetch_schedule_rows(
+    season: int, *, timeout: float = 60.0, cache_only: bool = False
+) -> list[dict[str, Any]]:
     """Raw schedule rows for one season; [] on any failure (degrade soft).
 
-    Tries the per-season file, then falls back to the combined
-    ``games.csv`` filtered to ``season``.
+    Delegates to ``src.nfl_data.ingest.fetch_schedules``, which owns the
+    URLs, the per-season → combined-file fallback, the 24h disk cache,
+    the cold-cache single-flight and the ``nfl_data_ingest`` gate.
+
+    ``timeout`` is accepted and unused: the canonical owner applies its
+    own.  It is kept so existing callers and tests do not break on a
+    signature change that has nothing to do with what they are testing.
+
+    ``cache_only=True`` is the REQUEST-PATH mode and never fetches.
+
+    SECOND CONSUMER, named because the reroute changes what it inherits:
+    ``src/playerctx/asof.py::_default_fetch_rows`` calls this WITHOUT
+    ``cache_only`` and always did — it fetched before this change too, so
+    that is not a regression, and it now gains the 24h cache and the
+    cold-cache single-flight it never had.  What is genuinely new is the
+    ``nfl_data_ingest`` feature gate: with that flag OFF this returns
+    ``[]`` where the raw downloader would still have fetched.  That is the
+    correct coupling — bypassing the nflverse flag was part of what made
+    the private downloader a second owner — and ``asof.py`` already
+    degrades softly on empty rows.  Recorded rather than changed here;
+    switching that caller to a materialised read belongs to playerctx.
     """
+    from src.nfl_data import ingest  # noqa: PLC0415
+
     try:
-        return _get_csv(_SCHEDULE_URL.format(year=season), timeout)
-    except (urllib.error.URLError, OSError, ValueError) as exc:
-        _LOGGER.info("bdvm schedule: per-season file unavailable (%s); trying games.csv", exc)
-    try:
-        rows = _get_csv(_SCHEDULE_URL_ALL, timeout)
-    except (urllib.error.URLError, OSError, ValueError) as exc:
-        _LOGGER.warning("bdvm schedule: fetch failed for %s: %s", season, exc)
+        return list(ingest.fetch_schedules([int(season)], cache_only=cache_only) or [])
+    except Exception as exc:  # noqa: BLE001
+        _LOGGER.warning("bdvm schedule: rows unavailable for %s: %s", season, exc)
         return []
-    return [r for r in rows if str(r.get("season") or "").strip() == str(season)]
 
 
 def team_weeks_from_schedule(
@@ -104,9 +107,19 @@ def team_weeks_from_schedule(
 
 
 def fetch_team_weeks(
-    season: int, *, playoff_weeks: Iterable[int] = DEFAULT_PLAYOFF_WEEKS
+    season: int,
+    *,
+    playoff_weeks: Iterable[int] = DEFAULT_PLAYOFF_WEEKS,
+    cache_only: bool = False,
 ) -> dict[str, list[RosWeek]]:
-    rows = fetch_schedule_rows(season)
+    """Per-team ROS weeks, or ``{}`` when the schedule is unavailable.
+
+    ``cache_only=True`` is the request-path mode.  An empty result is the
+    SAME degraded state this function already returned on a failed fetch:
+    the ROS enrichment is reduced, never fabricated, and playoff weighting
+    is untouched.
+    """
+    rows = fetch_schedule_rows(season, cache_only=cache_only)
     if not rows:
         return {}
     return team_weeks_from_schedule(rows, playoff_weeks=playoff_weeks)

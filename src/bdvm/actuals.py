@@ -188,6 +188,7 @@ def fetch_current_season_actuals(
     name_normalizer: Callable[[str], str],
     season: int | None = None,
     today: date | None = None,
+    cache_only: bool = False,
 ) -> tuple[int | None, dict[str, list[tuple[int, float]]]]:
     """Fetch + score the in-progress season's weekly rows.
 
@@ -201,6 +202,15 @@ def fetch_current_season_actuals(
     Fetch/network errors RAISE so the caller can decide not to
     memoize them — a transient blip must not pin the whole board to
     preseason values for the rest of the day.
+
+    ``cache_only=True`` is the REQUEST-PATH mode and never fetches; it
+    scores whatever weekly rows the refresh owner has already
+    materialised.  With nothing materialised this returns the ordinary
+    ``(None, {})`` no-evidence signal — the SAME value the preseason
+    window returns — so the posterior simply does not update.  It is not
+    zero production, and this function's stricter rules are untouched by
+    the mode: the calendar NFL season (never the rookie draft year), REG
+    weeks only, and the caller's deliberate refusal to memoize failures.
     """
     if season is None:
         season = current_nfl_season(today)
@@ -209,7 +219,7 @@ def fetch_current_season_actuals(
     from src.nfl_data import ingest  # noqa: PLC0415
     from src.nfl_data.pbp_weekly import default_pbp_stats  # noqa: PLC0415
 
-    rows = ingest.fetch_weekly_stats([int(season)]) or []
+    rows = ingest.fetch_weekly_stats([int(season)], cache_only=cache_only) or []
     return weekly_points_from_rows(
         rows,
         scoring_settings,
