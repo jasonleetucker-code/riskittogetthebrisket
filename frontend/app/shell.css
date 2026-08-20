@@ -66,6 +66,22 @@
 .shell-brand-mark {
   color: var(--accent);
 }
+/* PSI editorial scope (C8-PSI-02): the reference screenshot's compact
+   "CU" monogram block — a bordered square, not a bare glyph. Scoped so
+   the terminal shell (unmigrated state, if this class is ever removed)
+   keeps its plain accent-colored mark. */
+.psi-editorial .shell-brand-mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-1);
+  font-family: var(--font-display);
+  font-style: italic;
+  color: var(--text-primary);
+}
 .shell-nav {
   display: flex;
   align-items: center;

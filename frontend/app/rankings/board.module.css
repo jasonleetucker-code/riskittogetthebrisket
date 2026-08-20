@@ -6,6 +6,119 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-4);
+  /* The .psi-editorial class scopes new token values onto this section
+     (see tokens.css), but scoping alone only changes what descendants
+     that reference the tokens render as — it does not repaint the
+     section itself, which would otherwise stay transparent and show
+     the dark body background underneath. Paint it explicitly. */
+  background: var(--surface-0);
+  color: var(--text-primary);
+  min-height: 100vh;
+  /* Full-bleed: the app shell's .main-shell (globals.css, under an
+     active work claim — not edited here) wraps every route in its own
+     padding, which would otherwise leave a dark frame of the old
+     terminal surface around this section on every side. Cancel it with
+     matching negative margins, then restore the same amount as padding
+     so inner content spacing is unchanged. Breakpoints/values mirror
+     .main-shell's exactly (globals.css lines ~459-462, 1791, 1858-1859,
+     2158-2159, 2129) — re-check both if that file's padding rules move. */
+  margin: calc(-1 * var(--space-lg));
+  padding: var(--space-lg);
+}
+
+@media (max-width: 1024px) {
+  .page {
+    margin: calc(-1 * var(--space-md));
+    padding: var(--space-md);
+  }
+}
+
+@media (max-width: 768px) {
+  .page {
+    margin: calc(-1 * var(--space-sm)) calc(-1 * var(--space-sm))
+      calc(-1 * (var(--mobile-nav-h) + env(safe-area-inset-bottom, 0px) + var(--space-md)));
+    padding: var(--space-sm) var(--space-sm)
+      calc(var(--mobile-nav-h) + env(safe-area-inset-bottom, 0px) + var(--space-md));
+  }
+}
+
+@media (max-width: 420px) {
+  .page {
+    margin: -6px -6px calc(-1 * (var(--mobile-nav-h) + env(safe-area-inset-bottom, 0px) + 10px));
+    padding: 6px 6px calc(var(--mobile-nav-h) + env(safe-area-inset-bottom, 0px) + 10px);
+  }
+}
+
+@media (max-width: 360px) {
+  .page {
+    margin: -4px -4px calc(-1 * (var(--mobile-nav-h) + env(safe-area-inset-bottom, 0px) + 8px));
+    padding: 4px 4px calc(var(--mobile-nav-h) + env(safe-area-inset-bottom, 0px) + 8px);
+  }
+}
+
+/* ── PSI editorial hero (C8-PSI-02) ──
+   Overrides ds.css's generic .ds-page-header__title just for this page's
+   hero — a scoped compound selector, not a change to the shared
+   component (which every other page's header still uses at its normal
+   size). --font-size-3xl is the largest step in the existing 8-size
+   scale; a serif face at that size already reads as "hero" against the
+   rest of the board without inventing a ninth size. */
+.hero :global(.ds-page-header__title) {
+  font-family: var(--font-display);
+  font-size: var(--font-size-3xl);
+  font-style: italic;
+}
+.hero :global(.ds-page-header__eyebrow) {
+  font-family: var(--font-data);
+}
+
+/* ── Legacy badge-amber color fix (measured axe-core color-contrast) ──
+   Unlike badge-cyan/-green/-red, globals.css's .badge-amber (used for
+   IDP position badges and medium-confidence rows — display-helpers.js)
+   hardcodes its own color/background/border literals (a purple picked
+   for the old dark canvas) instead of reading var(--amber), so the
+   .psi-editorial legacy-token remap in tokens.css cannot reach it:
+   1.5-2.0:1 text-on-cream against a 4.5:1 floor. Overriding text color
+   alone was NOT enough — the badge's own translucent purple background
+   tint composites over the cream page to a muted lavender that still
+   only clears 3.4-4.4:1 with an otherwise-compliant text color, so the
+   background/border move to the same warning hue as the text. globals.css
+   is under an active work claim, so this overrides with higher
+   specificity from this page's own scope instead of editing that file. */
+.page :global(.badge-amber) {
+  color: var(--warning-text);
+  background: var(--warning-muted);
+  border-color: rgba(153, 98, 29, 0.35);
+}
+/* Same fix for the other three badge-* variants: their backgrounds/
+   borders are ALSO hardcoded old-theme literals (blue/green/red tints
+   picked for the dark canvas), not var()-driven, so the legacy-token
+   text-color remap alone left a mismatched tint behind the now-remapped
+   text. On .badge-cyan specifically this was enough on its own to push
+   .posRank's opacity-faded text (board.module.css below) just under
+   4.5:1 — an axe-confirmed failure, not a hypothetical one. */
+.page :global(.badge-cyan) {
+  /* NOT var(--accent-muted) (0.1 alpha) — that tint sits directly behind
+     this badge's own accent-colored text, and tinting a light backdrop
+     TOWARD a dark foreground color inherently erodes their contrast
+     (measured: 4.486:1 on surface-2, an axe-confirmed failure). The old
+     mismatched blue tint this replaces happened to clear 4.5 by taking
+     a different luminance path, not because it was a correct pairing.
+     0.06 keeps a visible accent tint while holding >=4.5:1 everywhere
+     (worst measured 4.76:1 on surface-2). */
+  background: rgba(163, 52, 28, 0.06);
+  border-color: var(--accent-border);
+}
+.page :global(.badge-green) {
+  background: var(--positive-muted);
+  border-color: rgba(21, 127, 76, 0.35);
+}
+.page :global(.badge-red) {
+  /* var(--negative-muted) (0.1 alpha) measured 4.490:1 worst-case for
+     the same reason .badge-cyan's tint did — see that rule's comment.
+     0.07 clears >=4.5:1 everywhere (worst measured 4.67:1). */
+  background: rgba(195, 61, 71, 0.07);
+  border-color: rgba(195, 61, 71, 0.35);
 }
 
 /* ── Trust strip ── */
@@ -233,6 +346,49 @@
   color: var(--text-tertiary);
 }
 
+/* ── PSI editorial migration (C8-PSI-02): local replacements for two
+   globals.css legacy classes this page used to reach for
+   (`button-reset`, `rankings-player-name`). Both hardcode pre-R0
+   token names (`--border`, `--cyan`) that this scope's `.psi-editorial`
+   redefinition never touches, so they'd keep rendering old colors on a
+   fully-migrated page. `globals.css` is a live work claim (Lane 6) —
+   these are new local classes, not edits to it. ── */
+.resetButton {
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+}
+/* `.page`-scoped deliberately: the row also carries the literal
+   `rankings-player-name` E2E hook, whose globals.css rule sets
+   font-weight 600 and a --cyan hover.  Equal single-class
+   specificity would leave the winner to stylesheet injection order,
+   which is not a contract.  One extra class settles it in favour of
+   the editorial rule regardless of order. */
+.page .playerName {
+  font-weight: 700;
+  cursor: pointer;
+  transition: color 0.1s;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+.page .playerName:hover,
+.page .playerName:active {
+  color: var(--accent);
+}
+.muted {
+  color: var(--text-tertiary);
+}
+@media (max-width: 768px) {
+  .page .playerName {
+    display: inline-block;
+    padding: 6px 0;
+  }
+}
+
 /* ── Table cells ── */
 .rankCell {
   display: inline-flex;
@@ -273,13 +429,19 @@
 }
 .posRank {
   margin-left: 4px;
-  /* 0.85 composited the badge's blue toward the surface and landed the
-     result at 4.494:1 — axe reports it as a contrast failure at 4.5.
-     Missing the AA floor by six thousandths is still missing it, and on
-     9px text it is the row least able to afford it.  0.92 keeps the
-     de-emphasis the opacity was for (the position rank is secondary to
-     the position itself) while clearing the floor at 4.99:1. */
-  opacity: 0.92;
+  /* Was opacity-faded (0.85, then 0.92) to de-emphasize the rank number
+     against the position badge's own accent color — but opacity blends
+     toward whatever backdrop the badge renders against, and once .badge-
+     cyan's own remapped text (var(--cyan) -> var(--accent) under
+     .psi-editorial) sits on this scope's cream surfaces, NEITHER opacity
+     step clears 4.5:1 on every surface a row can use (measured worst
+     case 4.00:1 on surface-2 at 0.92 — an axe-confirmed failure, not a
+     six-thousandths miss this time). A fixed backdrop-independent color
+     already proven >=4.5:1 on all four surfaces (see the
+     text-secondary/text-tertiary contrast test) both fixes it and reads
+     as more reliably "secondary to the badge" than a translucency that
+     depends on what's rendered behind it. */
+  color: var(--text-secondary, inherit);
   font-family: var(--font-data);
   font-size: 0.85em;
 }
