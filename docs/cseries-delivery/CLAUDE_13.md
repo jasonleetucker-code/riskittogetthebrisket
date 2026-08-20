@@ -212,3 +212,103 @@ impact, same acknowledged-deferred class.
   above) — named, deferred, not silently dropped.
 - The "format summary" league line (see above).
 - Real browser/visual verification and the axe a11y suite — that's Batch A4.
+
+### Batch A4 — Real browser verification + axe a11y — done
+
+Unlike the earlier ticker batch (which gave up on browser verification entirely), this batch got a
+real backend + frontend stack running in-sandbox: `pip install fastapi pytest httpx
+beautifulsoup4 uvicorn` (full `requirements.txt` fails on an unrelated native-build error in
+`http-ece`, worked around by installing only what `server.py` needed to boot), `uvicorn server:app`
+with `ALLOW_DEFAULT_LOGIN_DEV=1`, `next build --webpack` + `next start`. The scrape pipeline itself
+can't run here (`ModuleNotFoundError: playwright` for the Python side), so `data/dynasty_data_<date>.json`
+was seeded from the repo's own tracked `exports/latest/` archive (real, previously-produced
+canonical data — not fabricated) so the board would render real values rather than an empty/degraded
+state. A Playwright script logged in via `POST /api/auth/login` directly against the backend
+(`ctx.request.post`, sharing cookies with `page` — the app's local dev setup has no Next.js bridge
+route for `/api/auth/login`, since production relies on nginx proxying `/api/*` straight to the
+backend, a layer absent from a bare `next start`) and screenshotted `/rankings` and `/` at both
+1366×900 and 390×844.
+
+**Two real rendering bugs found and fixed by this verification, both invisible from source reading
+alone:**
+
+1. **Full-bleed background.** `.psi-editorial` on `.page` only repaints elements that reference the
+   scoped tokens — it doesn't repaint `.page` itself, and the app shell's `.main-shell` padding
+   (`globals.css`, claimed) left the old dark terminal surface visible as a frame around the whole
+   migrated section on every side (worst on mobile: a ~6px dark band directly under the header).
+   Fixed by painting `.page`'s own background/color explicitly and cancelling `.main-shell`'s
+   padding with matching negative margins at every one of its breakpoints (1024/768/420/360px,
+   mirroring its exact token/literal values) — without editing that claimed file. Commit `11c69e7d`.
+
+2. **Real axe-core color-contrast failures — 187 nodes on first scan.** All traced to legacy
+   `globals.css` classes (`.badge-cyan/-green/-red/-amber`, `.rankings-tier-badge`, the tier
+   separator label, the league switcher) reading legacy tokens (`--cyan`, `--subtext`, `--text`,
+   `--border`, …) directly — tokens calibrated for the dark terminal canvas that A3's "leave the
+   legacy badge system deferred" note above did NOT anticipate would actually fail contrast once
+   the CANVAS under them changed, only that they'd look "visually inconsistent." Fixed in four
+   rounds, each re-verified by re-running the real scan (not assumed from math alone, though the
+   math is recorded too, since two rounds were literal fractions-of-a-point misses axe would catch
+   and eyeballing would not):
+   - `.psi-editorial` in `tokens.css` now remaps every legacy COLOR alias to the already-validated
+     semantic token carrying the same role (`--cyan`→`--accent` per OD-05's own "cyan IS the
+     accent" rule, `--text`→`--text-primary`, etc.) — structural legacy tokens (spacing/radius/
+     font/layout) deliberately left alone.
+   - Three of the four `badge-*` classes ALSO hardcode their own background/border literals (not
+     `var()`-driven), unreachable by the token remap: `.badge-amber`'s `#c9a9ff` text was
+     1.5-2.0:1 on cream; its background independently dragged an otherwise-fixed text color down to
+     3.4-4.4:1. `.badge-cyan`/`.badge-red`'s remapped-to-matching-hue backgrounds individually
+     measured 4.49:1 (tinting a light backdrop *toward* a dark foreground's own hue erodes their
+     contrast — an effect the old, mismatched blue/red tints had accidentally been immune to).
+     `.posRank`'s opacity-based de-emphasis (already patched twice by earlier work for the OLD
+     accent) depends on whatever it composites against and stopped clearing 4.5:1 once the color
+     underneath changed; replaced with a fixed `--text-secondary`. All fixed via
+     `.page :global(.badge-*)` overrides in `board.module.css` — higher specificity than
+     `globals.css`'s bare classes, so no edit to that claimed file.
+   - `--text-tertiary` itself was `#6e6353` (4.44:1 on the worst surface) — A1's own comment called
+     this "still AA at body sizes," which is not a real WCAG exception. Darkened one step to
+     `#6b6151` (4.60:1).
+   - Added a new pinning test (`text-secondary and text-tertiary clear 4.5:1 on every surface`) so
+     this exact class of regression — a token-only check that never asserted the specific pairing
+     an axe scan actually renders — can't silently reopen. Commit `3acd6347`.
+
+**This revises A3's "legacy badge system, NOT touched" note above**: it is still not migrated onto
+`ds/Badge` (that remains real, separate, deferred work spanning multiple pages), but its four
+color/background/border values ARE now overridden specifically for contrast, scoped to this page
+only via `:global()`, without touching `globals.css`.
+
+**Real screenshots captured and reviewed** (not claimed without evidence — this sandbox DID launch
+a real Chromium, contrary to the earlier ticker batch): `/rankings` desktop 1366×900, full-page
+scroll, mobile 390×844, and the shell header via `/` mobile — all authenticated, all rendering real
+canonical board data (Josh Allen #1 at 9,991, Brock Bowers #2, real tier groupings, real trust-strip
+counts). Confirmed: cream editorial surface full-bleed at every breakpoint, serif italic hero,
+burnt-red accent nav/badges/eyebrow, `/` (unmigrated Home) correctly still dark-terminal below its
+now-editorial shared header — proving the migration is scoped per-route rather than a global theme
+flip. Screenshots were viewed in this session, not just captured; not attached to this file (binary,
+and this doc is meant to stay reviewable as text) — Claude 5/the owner can reproduce them from this
+recipe or ask for them to be sent directly.
+
+**Verified:**
+- axe-core (`@axe-core/playwright`, WCAG 2.0/2.1 A+AA tags) against `/rankings` desktop + mobile,
+  authenticated, real data: **0 violations** after the last fix (started at 187 nodes / 1 violation
+  type). Run directly rather than through `tests/e2e/specs/a11y-axe.spec.js`'s full baseline-ratchet
+  harness, which needs `E2E_TEST_MODE`/`E2E_TEST_SECRET` env the backend wasn't booted with in this
+  session — the scan itself is the same `@axe-core/playwright` engine and WCAG tag set that spec
+  uses, just invoked directly against this session's authenticated context. Recommend Integration
+  re-run the real harness for the baseline-file bookkeeping once a full E2E-provisioned backend is
+  available.
+- One finding is confirmed **pre-existing and out of this PR's scope**:
+  `.scouting-insight-badge--down`/`--warn` on `/` — present identically in every scan run this
+  batch (before AND after every fix above), on unmigrated dark-terminal Home page content this
+  branch's scope does not touch. Not fixed here; named for whoever owns that surface.
+- Full frontend suite: 142 test files / 2,245 tests (2 new since A3, both in
+  `tokens-contract.test.js`), zero regressions.
+- `next build --webpack`: clean.
+- Bundle budget: `/rankings/page` 66.6 KB / 75 KB (8.4 KB headroom, unchanged from A3) — all 14/14
+  budgeted pages pass.
+
+**Deliberately NOT claiming:**
+- The full `tests/e2e/specs/a11y-axe.spec.js` baseline-ratchet run (env-gated, see above) — the
+  underlying scan it would run was done directly instead, but the baseline-file bookkeeping that
+  spec owns was not touched or updated.
+- Player Profile (PR B) verification — separate batch, not started.
+- The pre-existing Home-page finding named above.
