@@ -213,13 +213,41 @@ def simulate_championship_odds(
         snapshot, ros_map, best_ball=best_ball
     )
     if not distributions:
+        # No team has a scored regular-season week, so there is no weekly
+        # distribution to draw from and the loop below never runs.
+        #
+        # ``n_simulations`` used to be echoed back here UNCONDITIONALLY, so
+        # this branch published the caller's ARGUMENT as if it were a count of
+        # work done.  Measured in production on 2026-08-20 (#943):
+        # ``championshipOdds: []`` beside ``n_simulations: 10000``, with
+        # ``rosStrengthAvailable: true`` and a fully resolved 7-team
+        # ``playoffStructure`` — every other signal saying the inputs were
+        # fine.  A consumer could not tell it from "we simulated ten thousand
+        # seasons and nobody won one", which is MISSING IS NEVER ZERO
+        # inverted: absence of evidence published as a completed measurement.
+        #
+        # The reason string is NOT a new coinage.  ``playoff_odds.py`` already
+        # refuses this exact state under ``no_scored_weeks_in_league``, under a
+        # comment stating that two engines must not invent different words for
+        # one state — an invariant this file was breaching.  It is deliberately
+        # DISTINCT from the bracket-unknown refusal above, because the two need
+        # different responses: that one is a league-settings problem, this one
+        # resolves itself once games are played.
         return {
             "championshipOdds": [],
-            "n_simulations": n_simulations,
+            "n_simulations": 0,
             "playoffSeeds": playoff_seeds,
             "byeSeeds": bye_seeds,
             "playoffStructure": structure.to_dict(),
             "rosStrengthAvailable": bool(ros_map),
+            "unsimulable": {
+                "reason": "no_scored_weeks_in_league",
+                "detail": (
+                    "no regular-season week has been scored for any team, so "
+                    "there is no distribution to draw from and a champion "
+                    "cannot be simulated. This is not a 0% chance for anyone."
+                ),
+            },
         }
 
     record = playoff_sim._current_record(snapshot)
