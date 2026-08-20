@@ -51,6 +51,7 @@ STATUS = DOCS / "PLANNING_DOCUMENT_STATUS.md"
 EXEC_PLAN = DOCS / "EXECUTION_PLAN.md"
 RECONCILIATION = DOCS / "POST_B_RECONCILIATION_2026-08-14.md"
 CONTRACT = DOCS / "C_SERIES_REPLAN_AND_COMPLETION_CONTRACT.md"
+V1_CONTRACT = DOCS / "VERSION_1_COMPLETION_CONTRACT.md"
 
 RESERVED_PHRASE = (
     "C-SERIES COMPLETE — EVERY APPROVED FEATURE DEPLOYED, "
@@ -296,6 +297,65 @@ def check_declared_row_count(f: Failures, text: str, rows: list[dict]) -> None:
             )
 
 
+def check_standing_tally(f: Failures) -> None:
+    """15: the V1 contract's standing tally agrees with its own row table.
+
+    Added 2026-08-20 after Integration shipped a contract whose §3 table held 47
+    ``VERIFIED`` rows while §3.11 still declared 45 — the tally block is edited by
+    hand and the rows are edited one at a time, so they drift apart silently and in
+    the flattering direction. This is the same declared-vs-actual failure that
+    ``config/coercion_baseline.json`` already has a gate for, and the same one
+    ``check_declared_row_count`` exists for in the manifest: a number that can be
+    counted must never be typed forward.
+
+    Measured from the table, never from the block. The denominator is checked too,
+    because a tally that agrees with the rows but disagrees about the total is the
+    stale-127 defect this document already recorded once.
+    """
+    if not V1_CONTRACT.exists():
+        return
+    text = read(V1_CONTRACT)
+
+    row_re = re.compile(r"^\|\s*(V1-\d+)\s*\|(?:[^|]*\|){3}\s*(`[A-Z_ ]+`)\s*\|", re.M)
+    measured: dict[str, int] = {}
+    ids: list[str] = []
+    for rid, status in row_re.findall(text):
+        ids.append(rid)
+        measured[status.strip()] = measured.get(status.strip(), 0) + 1
+
+    if not ids:
+        f.add("v1-tally", "VERSION_1_COMPLETION_CONTRACT.md: no V1-* rows parsed")
+        return
+
+    dupes = sorted({i for i in ids if ids.count(i) > 1})
+    if dupes:
+        f.add("v1-tally", f"duplicate V1 row ids: {dupes}")
+
+    total = len(ids)
+
+    # Declared per-status counts in the §3.11 block.
+    for status, declared in re.findall(r"^\|\s*(`[A-Z_ ]+`)\s*\|\s*(\d+)\s*\|\s*$", text, re.M):
+        actual = measured.get(status.strip(), 0)
+        if int(declared) != actual:
+            f.add(
+                "v1-tally",
+                f"standing tally declares {status.strip()} = {declared} but the table has {actual}",
+            )
+
+    # Declared denominator.
+    for declared in re.findall(r"\*\*denominator\*\*\s*\|\s*\*\*(\d+)\*\*", text):
+        if int(declared) != total:
+            f.add("v1-tally", f"declared denominator {declared} but {total} rows are present")
+
+    # The completion line: "V1 completion: N / D = P%."
+    for n, d in re.findall(r"V1 completion:\s*(\d+)\s*/\s*(\d+)", text):
+        verified = measured.get("`VERIFIED`", 0)
+        if int(n) != verified:
+            f.add("v1-tally", f"completion line claims {n} VERIFIED but the table has {verified}")
+        if int(d) != total:
+            f.add("v1-tally", f"completion line claims a denominator of {d} but {total} rows exist")
+
+
 def check_source_census(f: Failures) -> None:
     """12: the declared source-family count agrees with the traceability table.
 
@@ -490,6 +550,7 @@ def main() -> int:
         check_manifest(f, ce)
         manifest_ids = {r["id"] for r in parse_manifest(read(MANIFEST))}
         check_source_census(f)
+        check_standing_tally(f)
         check_traceability(f, manifest_ids)
         check_execution_map(f, manifest_ids)
         check_governance_index(f)
@@ -518,6 +579,7 @@ def main() -> int:
     print("  every traceability destination resolves; unexplained unmapped is 0")
     print("  declared RET-row count matches the rows actually flagged")
     print("  every manifest row maps to exactly one execution unit")
+    print("  V1 standing tally agrees with the V1 row table")
     return 0
 
 

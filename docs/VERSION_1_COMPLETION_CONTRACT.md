@@ -311,19 +311,22 @@ Projections · **L4** Market / FAAB / Analyst · **L5** Integration / QA / CI / 
 
 ### 3.11 Standing tally
 
-Measured 2026-08-18 23:00 UTC at `main` (with #910 merged and deployed), counted
-from the §3 table itself rather than by editing this block.
+Measured 2026-08-20 02:55 UTC at `main` `e37d2786e` plus this change, counted
+from the §3 table itself rather than by editing this block, and now **enforced**
+by `scripts/check_planning_integrity.py::check_standing_tally` — this block was
+found stale at 45 while the table already said 47, which is the same
+declared-vs-actual drift `config/coercion_baseline.json` has its own gate for.
 
 | status | count |
 |---|---|
-| `VERIFIED` | 45 |
-| `IMPLEMENTED_UNVERIFIED` | 21 |
-| `IN PROGRESS` | 31 |
-| `NOT STARTED` | 33 |
+| `VERIFIED` | 47 |
+| `IMPLEMENTED_UNVERIFIED` | 22 |
+| `IN PROGRESS` | 32 |
+| `NOT STARTED` | 29 |
 | `BLOCKED` | 2 |
 | **denominator** | **132** |
 
-**V1 completion: 45 / 132 = 34.1%.**
+**V1 completion: 47 / 132 = 35.6%.**
 
 **Up five, and every one of them on deployed evidence rather than on a merge.**
 #910 merged at 21:29 UTC; the deploy that carried it completed at ~22:50 and the
