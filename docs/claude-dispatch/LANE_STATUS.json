@@ -1,7 +1,7 @@
 {
   "_comment": "Lane utilization state, owned by Claude 7 (Lane Dispatcher). NOT an authority on integration sequencing (Claude 5 / docs/EXECUTION_PLAN.md), on V1 status (docs/VERSION_1_COMPLETION_CONTRACT.md) or on canonical ownership (CLAUDE.md). Repository evidence outranks this file: where they disagree, this file is wrong and must be corrected.",
-  "updatedAt": "2026-08-20T17:45:00Z",
-  "dispatchCycle": 42,
+  "updatedAt": "2026-08-20T20:50:00Z",
+  "dispatchCycle": 49,
   "writePolicy": "This file and ASSIGNMENTS.json are written ONLY on a material state transition — new assignment, assignment accepted, completion, blocker, freeze/unfreeze, or a meaningful dependency change. A heartbeat that finds nothing changed produces no commit and no CI run.",
   "evidenceBasis": "origin/main 079fc9e4a; §3 diffed row-by-row from cycle-19 main (c5a367266); all refs resolved live; #945 CI green 04:57:35Z",
   "assignmentSourceNote": "Lanes 1-6 carry the owner's original six manual assignments, tracked in detail by this dispatcher. Lanes 8-13 are five additional owner-authorized campaign lanes (Claude 8 chartered 2026-08-20; Claude 9-13 chartered the same day under the POST-V1 C-Series mass-build campaign, EXECUTION_PLAN.md §0). This dispatcher did not originate any of these eleven assignments and does not own or re-scope them. Lanes 8-13 are tracked here only lightly — ownership boundaries and authorization citation — because they are self-directed under their own charter, unlike lanes 1-6 which this dispatcher actively monitors for idleness and dispatches follow-on work to. There is no lane 7: Claude 7 is the dispatcher identity, per dispatcherIdentity above.",
@@ -253,11 +253,11 @@
     "_doNotQuote": "Do not cite this block as the V1 status. Read the contract on current main instead.",
     "observedVerifiedRows": 61,
     "observedRequiredRows": 136,
-    "observedAtSha": "6ce6eb686",
-    "observedAt": "2026-08-20T17:40:00Z",
+    "observedAtSha": "d5b62aed4",
+    "observedAt": "2026-08-20T20:46:00Z",
     "howObserved": "counted VERIFIED in the §3 table at that exact SHA; independently summed all statuses to 136 and confirmed the contract’s own table and completion line agree",
     "denominatorChangedAtThisSha": "YES — 132 -> 136. See cycle26Transitions.",
-    "note": "V1-29 promoted VERIFIED via #998 (fifth promotion pass this session, after #947/#963/#972/#988). Seven-cycle streak without a landed promotion pass ended."
+    "note": "Unchanged at 61/136 despite two merges (#991, #993) — neither promotes. Denominator held."
   },
   "canonicalOwnerRule": "This dispatcher previously carried a `v1` block with verified/percent fields that read as authoritative, and it DRIFTED — PR #945 declared 48/132 while the contract on main said 55/132. That is a second owner of the numerator forming inside a coordination record, which is the exact defect class this dispatcher has spent the session flagging in other lanes. Corrected on integration review: the fields are renamed to name themselves derived, carry the SHA they were read at, and declare the contract the winner in any disagreement.",
   "correction_C24": {
@@ -357,27 +357,44 @@
       "handoff": "exact head 40509bc5a on claude/lane-dispatcher-orchestrator-u5hpca (#945)"
     }
   },
-  "prContinuity_C42": {
-    "event": "#945 MERGED as afdb6463a. This session's harness auto-unsubscribed from its PR activity and instructed not to reopen it.",
-    "consequence": "A NEW branch and PR are required to continue durable dispatch records — this is a different, ongoing change (cycle 42 onward), not a reopening of #945's content.",
-    "newBranch": "claude/lane-dispatcher-orchestrator-cycle42, created off main at 6ce6eb686 (the exact post-merge tip) immediately after the merge notification, before any further main movement — verified clean, no rebase needed.",
-    "verifiedPostMerge": "All three dispatch JSON files landed on main intact at their cycle-38 state (dispatchCycle 38), confirming #945's content merged without corruption.",
-    "newPr": "to be opened this cycle alongside this commit."
+  "cycle49_v188_staleRefutation": {
+    "_class": "A finding, not a correction against this dispatcher — a stale row in the canonical contract, caught by checking the timeline rather than trusting the row text at face value.",
+    "whatTheRowSays": "V1-88 is IMPLEMENTED_UNVERIFIED with text reading 'NOT promoted 2026-08-20 — refuted by mutation at Integration', describing a reintroduction test that leaves the OLD guard files (test_flag_docs_match_reality.py, test_feature_flags.py, test_reception_fit.py) at 35 passed / 0 failed — i.e. nothing catches the F-26 defect.",
+    "whenThatWasWritten": "That refutation text landed in commit 8a0c3c03a, 'V1-29 VERIFIED at L2 (61/136) (#998)', at 2026-08-20 13:22:16 -0400.",
+    "whenTheRealFixMerged": "#991, 'V1-88: non-vacuous flag-to-route reachability guard (F-26)', merged as d87eefae9 at 2026-08-20 16:30:22 -0400 — THREE HOURS AFTER the refutation was written.",
+    "verifiedTheNewGuardExists": "Confirmed on current main: src/api/flag_reachability.py and tests/api/test_feature_flag_endpoint_reachability.py both present, containing test_reintroducing_the_exact_f26_defect_fails_the_guard among five tests — exactly the guard class the refutation itself specified as what would satisfy L1 ('a guard that resolves flag -> gate call site -> enclosing function -> route handler').",
+    "theGap": "The refutation's test list does not include the new file, because it could not have — the new file did not exist on main yet when the refutation was written. Nobody has re-run the row's own check against the post-#991 tree, so the row still reads REFUTED against a fix that has since landed.",
+    "dispatcherAction": "REPORTED ONLY. Re-verifying and promoting V1-88 is Integration's act, not this dispatcher's. Flagging precisely so it isn't missed: the row is stale in a specific, checkable way, not merely old.",
+    "theClassOfDefect": "Same shape as every correction logged in this record all session — a snapshot that was true when taken and now reads as current fact. The lesson from #945/#967 applies here too, just to someone else's file: date-stamp a refutation the same way a promotion is date-stamped, or it silently outlives what it refutes."
   },
-  "cycle42Transitions": {
-    "mainTip": "6ce6eb686 (was 27af5969a at cycle 41's last check, then #945 itself merged plus further movement)",
-    "theStalePromptItReceived": "This cycle's dispatcher prompt was queued before #945 merged and referenced it as 'my PR', a head that no longer existed, and a seven-cycle unchanged-main narrative. Per rule (b) resolved everything live rather than trusting the prompt: the wake notification for #945's merge had already arrived and was handled proactively (branch prepared) before this prompt fired.",
+  "cycle49Transitions": {
+    "mainTip": "d5b62aed4 (was 36b7033f8)",
+    "myOwnPr": {
+      "pr": "#1000",
+      "head": "current cycle-42 branch tip",
+      "verdict": "Validate PR SUCCESS, job 96521211589, 18m6s — same run, seventh consecutive confirmed check."
+    },
     "merged": [
-      "#984 — C8-PSI-02: Premium Sports Intelligence migration, Rankings reference route + Player File",
-      "#945 — this dispatcher's own cycle 21-41 records",
-      "#998 — Integration promotion: V1-29 VERIFIED at L2 (61/136)"
+      "#993 — Lane 8 PR B: multi-bridge cross-position translation owner (production valuation change)",
+      "#991 — V1-88: non-vacuous flag-to-route reachability guard (F-26)"
     ],
     "rowDiff": {
-      "method": "§3 row-diffed 0c6f1fdcd (cycle 38 baseline) -> 6ce6eb686",
-      "result": "ONE status change: V1-29 IN PROGRESS -> VERIFIED. Denominator held at 136.",
-      "selfConsistency": "Independent count 61+20+21+32+2=136; contract's own table and completion line read 61/136=44.9%, agreeing.",
-      "streakEnded": "Seven cycles (36 through 41 inclusive of the quiet period) without a landed promotion pass. #998 ends it — the V1-29 promotion this record has been watching sit unmerged at commit f46701d39 since cycle 39 finally landed."
+      "method": "§3 row-diffed 6ce6eb686 (cycle 42 baseline) -> d5b62aed4",
+      "result": "NO STATUS CHANGE. 61 VERIFIED of 136, independent count and contract's own table agree (61/136=44.9%).",
+      "v1_88_specifically": "Still IMPLEMENTED_UNVERIFIED — but see cycle49_v188_staleRefutation. The guard this row demands now exists on main; the row's own refutation predates the merge that built it."
     },
-    "v1_108_and_v1_88_stillPending": "Both remain IMPLEMENTED_UNVERIFIED. The Integration authority branch (claude/v1-integration-authority-xaqcv8) has moved to a new commit (494608cba) since the V1-29 promotion landed — likely staging the next promotion pass. Not yet examined in detail; will check next cycle."
+    "productionValuationChangeNote": {
+      "what": "#993 is explicitly labelled 'production valuation change' by its own title — the first Lane 8 PR to touch canonical value rather than acquisition/audit scaffolding.",
+      "contractFileTouch": "NONE — confirmed via git log path-filter, no commits touching VERSION_1_COMPLETION_CONTRACT.md in this range besides #998 (already recorded last cycle)."
+    },
+    "newActivity": {
+      "V1_106_finally_has_a_PR": "branch claude/v1-106-windowing-evidence, commit 357c9410e: 'V1-106: commit regression-sensitive windowing evidence + current-tree FPS measurement'. Not yet a PR number confirmed, not yet merged. This is the FIRST activity on V1-106 in the twenty-plus cycles this dispatcher has tracked it as the sole standing item with nothing in flight.",
+      "otherNewBranches": [
+        "claude/lane8-v1-136-idpshow-audit",
+        "claude/v1-31-v1-32-strength-weakness-guards",
+        "claude/v1-32-weakness-single-owner-guard"
+      ],
+      "integrationAuthorityBranchMoved": "e82cfc4e3 -> 53d3cdc7b, not yet examined — likely reconciling #991/#993's landing."
+    }
   }
 }
