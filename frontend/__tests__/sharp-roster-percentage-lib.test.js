@@ -6,6 +6,7 @@ import {
   buildTransparencyTiles,
   classifyEmptyState,
   describeBuySell,
+  describeManagerConcentration,
   describeTrend,
   formatCount,
   formatDelta,
@@ -40,6 +41,62 @@ describe("formatting", () => {
     expect(formatCount(null)).toBe("—");
     expect(formatTimestamp(null)).toBe("—");
     expect(formatTimestamp(0)).toBe("—");
+  });
+});
+
+// W15-F009 (inv 4.6): a per-player manager count so "N sharp rosters" does
+// not read as N independent opinions when they belong to fewer managers.
+describe("manager concentration", () => {
+  it("adds the manager count only when it differs from the roster count", () => {
+    expect(
+      formatSample({ sharpRosters: 5, eligibleRosters: 12, distinctManagers: 1 }),
+    ).toBe("5 of 12 (1 manager)");
+    expect(
+      formatSample({ sharpRosters: 4, eligibleRosters: 12, distinctManagers: 3 }),
+    ).toBe("4 of 12 (3 managers)");
+  });
+
+  it("omits the manager count when every roster belongs to a different manager", () => {
+    expect(
+      formatSample({ sharpRosters: 4, eligibleRosters: 12, distinctManagers: 4 }),
+    ).toBe("4 of 12");
+  });
+
+  it("does not touch the base sample when the backend published nothing", () => {
+    expect(formatSample({ sharpRosters: 3, eligibleRosters: 12 })).toBe("3 of 12");
+  });
+
+  it("describes concentration only when a manager holds more than one counted roster", () => {
+    expect(
+      describeManagerConcentration({
+        sharpRosters: 5,
+        distinctManagers: 1,
+        managerConcentration: 1,
+      }),
+    ).toBe(
+      "1 distinct manager behind these 5 rosters — one manager accounts for 100%.",
+    );
+    expect(
+      describeManagerConcentration({
+        sharpRosters: 4,
+        distinctManagers: 3,
+        managerConcentration: 0.5,
+      }),
+    ).toBe(
+      "3 distinct managers behind these 4 rosters — one manager accounts for 50%.",
+    );
+  });
+
+  it("returns undefined rather than a redundant note for the even case", () => {
+    expect(
+      describeManagerConcentration({
+        sharpRosters: 4,
+        distinctManagers: 4,
+        managerConcentration: 0.25,
+      }),
+    ).toBeUndefined();
+    expect(describeManagerConcentration(null)).toBeUndefined();
+    expect(describeManagerConcentration({})).toBeUndefined();
   });
 });
 

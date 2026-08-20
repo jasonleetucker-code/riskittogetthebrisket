@@ -8,15 +8,23 @@ pair on "two entries and either side scored" and never checks owner
 attribution, while ``_side_block`` returned ``None`` whenever
 ``metrics.resolve_owner`` came back empty — and
 ``build_matchup_recap`` bails if either side is ``None``, so
-``server.py`` 404s.  ``identity.build_manager_registry`` deliberately does
-not register rosters whose owner is orphaned or in ``_RETIRED_OWNER_IDS``
-(see ``test_identity_retirement.py``), so every 2024 game involving the two
-retired managers advertised a link that could not be built.
+``server.py`` 404s.  At the time this was written, ``identity.
+build_manager_registry`` also dropped every roster belonging to an
+orphaned OR retired owner from ``roster_to_owner``, so every 2024 game
+involving the two (then-)retired managers advertised a link that could
+not be built.
 
 The asymmetry was the defect, not the retirement list.  The archive keeps
 every real game reachable, attributed to the roster rather than to a
-person; retired managers stay out of dropdowns and franchise pages because
-that filtering lives in ``identity.py``, which is untouched.
+person.  **C9-HIST-01 (2026-08-20) since narrowed what "retired" drops**:
+a retired owner's historical ``roster_to_owner`` entry is preserved (see
+``test_identity_retirement.py``), so this fallback path now fires only for
+GENUINE orphans — a roster with no ``owner_id`` at all in that season's
+data. Retired managers still stay out of dropdowns and franchise-listing
+directories, but that filtering lives in ``ordered_managers()`` /
+``to_public_list()``, not in ``roster_to_owner`` resolution — so a retired
+owner's own historical matchups now resolve to their real name instead of
+"Former manager".
 
 Guard both directions — a resolved owner must NOT acquire the fallback,
 or the retirement list would be silently doing nothing.

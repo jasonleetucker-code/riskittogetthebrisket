@@ -1,7 +1,7 @@
 # Chase Upside / Risk It To Get The Brisket — Current Execution Plan
 
 **Status:** CANONICAL SEQUENCING / AUTHORIZATION RECORD
-**Last reconciled:** 2026-08-20 (owner directive: **POST-V1 C-SERIES MASS-BUILD CAMPAIGN AUTHORIZED** — five isolated lanes, Claude 9-13, execution timing only; V1 classification and denominator unchanged — §0). Previously 2026-08-18 (owner directive: **V1 COMPLETION SPRINT AUTHORIZED**, six parallel lanes, superseding the 2026-08-17 feature freeze for V1-required work only — §0)
+**Last reconciled:** 2026-08-20 (owner directive: **FIRST PREMIUM SPORTS INTELLIGENCE PRODUCTION MIGRATION AUTHORIZED** — PSI foundation, shell, Rankings and Player File reference routes; execution timing only, V1 denominator unchanged — §0). Also 2026-08-20 (owner directive: **POST-V1 C-SERIES MASS-BUILD CAMPAIGN AUTHORIZED** — five isolated lanes, Claude 9-13, execution timing only; V1 classification and denominator unchanged — §0). Previously 2026-08-18 (owner directive: **V1 COMPLETION SPRINT AUTHORIZED**, six parallel lanes, superseding the 2026-08-17 feature freeze for V1-required work only — §0)
 **Companion:** `docs/MASTER_PRODUCT_PLAN.md` · `docs/C_SERIES_REPLAN_AND_COMPLETION_CONTRACT.md`
 
 This file answers **what implementation work is authorized right now**, and nothing else. It does not define
@@ -243,6 +243,107 @@ its lane (§0.4a, "The two-state reporting contract").
   completion contract.
 - It does **not** broaden the completion contract because implementation started early. A
   capability built ahead of time is still POST-V1 until the owner separately says otherwise.
+
+---
+
+
+## PREMIUM SPORTS INTELLIGENCE — FIRST PRODUCTION MIGRATION AUTHORIZED, OWNER DECISION 2026-08-20.
+
+> **Owner decision — 2026-08-20:** the first controlled Premium Sports Intelligence
+> production migration is now authorized: shared PSI foundation, shell/navigation where
+> required, Rankings reference route, and Universal Player Profile reference surface.
+> This changes execution timing only and does not add POST-V1 work to the V1 denominator.
+> Claude 13 owns implementation; Claude 5 owns integration/deployment.
+
+**This supersedes the TIMING classification in
+[`docs/PREMIUM_SPORTS_INTELLIGENCE_DESIGN_NORTH_STAR.md`](PREMIUM_SPORTS_INTELLIGENCE_DESIGN_NORTH_STAR.md)
+§7 — and nothing else in that document.** That file's §7 records *"WAIT: real production
+redesign foundation and route migration until the trigger above is satisfied."* The owner
+has now judged the trigger satisfied for a **bounded** reference migration. The north star
+is **not edited**: its design direction remains authoritative, and its §7 stays as the
+record of a decision that was correct when it was made. A permanent design document is not
+rewritten to erase its own history — the authorization moves here, where authorization
+lives.
+
+**Scope, and it is a short list.** Four things, in this order:
+
+1. the shared **PSI foundation** (tokens, primitives, `ds/` additions);
+2. **shell / navigation**, only where the reference routes require it;
+3. **Rankings** — the first full production reference route;
+4. **Universal Player Profile / Player File** — the second reference surface.
+
+**This is NOT a whole-application big-bang rewrite.** Route-by-route remains the method
+(north star §8). A route not on the list above is not authorized by this section.
+
+### What this does not change
+
+- It does **not** make PSI work V1 REQUIRED. It stays POST-V1.
+- It does **not** change the V1 denominator, which is **136**. Recorded as an explicit
+  **0** in the completion contract's §10 change log, so the absence is deliberate rather
+  than an omission.
+- It does **not** let visual work alter canonical methodology. See the gates below.
+- It does **not** authorize deleting legacy implementation before parity (north star §6).
+
+### Gates that bind this migration
+
+These are not review preferences; a slice that fails one is not integrable.
+
+**Presentation only — no second methodology layer.** No frontend canonical value
+calculation, Value Adjustment, Team Strength formula, projection proxy, or source
+weighting; no historical fallback that substitutes a current value; **missing is never
+zero**. PSI changes information hierarchy, not what a number means. The existing guards
+apply unchanged — `tests/api/test_canonical_ownership_protections.py` scans `.jsx` and
+`.js` for canonical and alias writes, so a frontend value write fails CI on its own.
+
+**Data truth.** The approved prototype contains **mock data**. No prototype value may be
+hardcoded — not league sample size, player value, rank, positional rank, confidence,
+movement, age, player quote, chart history, team, trade count or source statistic. Every
+displayed datum traces to canonical production data or to an honest unavailable state.
+
+**Functional parity, with the `#912` repairs explicitly protected.** Rankings must keep
+compact/mobile parity, virtualization, aria row semantics, failure-state semantics
+(a failure is not an empty state), route data-fetch gating, the WCAG baseline and the
+bundle budgets. A visual rewrite may not reintroduce all-rows-mounted, mobile/desktop
+board divergence, generic empty states for failures, inaccessible controls, or
+unnecessary contract downloads.
+
+**Visual evidence is a real gate.** For these two reference migrations, green CI is
+necessary and **not sufficient**. PR A needs browser-rendered mobile Rankings, desktop
+Rankings and the shell/header on both; PR B needs mobile and desktop Player File for a
+rich-data player **and** a partial/missing-data player. *"Unit tests green, browser could
+not launch"* is an honest report but not a completed check — where the implementing
+environment cannot render, Integration performs the missing verification rather than
+waiving it.
+
+### Preview — there is none, and one is not to be invented
+
+Checked before asking for it: this repository has **no preview or staging deployment**.
+There is no Vercel / Netlify / Cloudflare Pages configuration, and **every** workflow
+`environment:` in `.github/workflows/` is `production`. The single deploy target is the
+VPS via `deploy/deploy.sh`.
+
+**Do not build a parallel deployment architecture to create one.** A second live
+environment for the sake of screenshots is a larger production risk than the migration it
+would be reviewing.
+
+What exists and should be used instead: **Playwright with Chromium is already installed in
+CI** (`.github/workflows/e2e.yml`) and in the integration environment. Rendered evidence is
+therefore producible today, as PR artifacts, without any new infrastructure — which is what
+the visual gate above requires. The owner reviews screenshots on the PR, then the deployed
+route itself after merge.
+
+### Sequencing
+
+**PR A** (foundation + shell + Rankings) then **PR B** (Player File). If B consumes
+primitives A introduces, it is an explicit bounded ordered stack — but **B may be built
+while A is in review**. Build broadly, integrate narrowly; Claude 13 does not idle waiting
+for a review to finish.
+
+**Integration promptness is part of this decision.** A completed, gated PSI reference
+route is not held back merely for being POST-V1. V1-critical correctness keeps safety
+priority in the merge queue, and owner-approved PSI work integrates promptly where it does
+not materially jeopardise a V1-critical shipping unit — the point of a reference route is
+that the owner can see it on the deployed application.
 
 ---
 

@@ -6466,6 +6466,86 @@ async def post_waiver_faab_recommend(request: Request):
     return JSONResponse(content=rec)
 
 
+#: Cap on how many recent rows a market-ledger read returns.  These are
+#: history browsers, not exports — an unbounded response would let one
+#: league's whole lifetime of waiver claims or trades ride on a single
+#: request, and no consumer needs more than a recent window at once.
+_MARKET_LEDGER_RECENT_LIMIT = 100
+
+
+@app.get("/api/market/waivers")
+async def get_market_waivers(request: Request):
+    """C4-WAIV-01 — this league's waiver-claim history.
+
+    Read-only projection of the canonical acquisition ledger
+    (``src.trade.waiver_ledger``); never triggers a Sleeper fetch. Most
+    recent claims first (the ledger itself orders oldest-first with
+    undated claims leading, so this endpoint reverses it — recency is
+    what a reader wants here).
+
+    Responses::
+
+        200  {leagueKey, summary, recentClaims}
+        400  unknown_league / inactive_league
+        404  no_leagues_configured
+    """
+    try:
+        league_cfg = _resolve_league_for_request(request)
+    except LeagueResolutionError as err:
+        return err.json_response()
+
+    from src.trade import waiver_ledger as _waiver_ledger  # noqa: PLC0415
+
+    summary = _waiver_ledger.waiver_ledger_summary(league_cfg.key)
+    claims = _waiver_ledger.waiver_claims(league_cfg.key)
+    recent = list(reversed(claims[-_MARKET_LEDGER_RECENT_LIMIT:]))
+    return JSONResponse(
+        content={
+            "leagueKey": league_cfg.key,
+            "summary": summary,
+            "recentClaims": recent,
+            "recentClaimsTruncated": len(claims) > len(recent),
+        }
+    )
+
+
+@app.get("/api/market/trades")
+async def get_market_trades(request: Request):
+    """C4-MTL-01 — this league's own recorded trade history.
+
+    Read-only projection of the canonical acquisition ledger
+    (``src.trade.market_trade_ledger``), scoped to trades this league's
+    own rosters made. This is NOT the broader cross-market ledger
+    (``C4-MTL-02`` — external ingestion, permission-gated and not yet
+    built); every row here is one of our own leagues' own trades. Most
+    recent first.
+
+    Responses::
+
+        200  {leagueKey, summary, recentTrades}
+        400  unknown_league / inactive_league
+        404  no_leagues_configured
+    """
+    try:
+        league_cfg = _resolve_league_for_request(request)
+    except LeagueResolutionError as err:
+        return err.json_response()
+
+    from src.trade import market_trade_ledger as _market_trade_ledger  # noqa: PLC0415
+
+    summary = _market_trade_ledger.market_ledger_summary(league_cfg.key)
+    trades = _market_trade_ledger.market_trades(league_cfg.key)
+    recent = list(reversed(trades[-_MARKET_LEDGER_RECENT_LIMIT:]))
+    return JSONResponse(
+        content={
+            "leagueKey": league_cfg.key,
+            "summary": summary,
+            "recentTrades": recent,
+            "recentTradesTruncated": len(trades) > len(recent),
+        }
+    )
+
+
 @app.get("/api/valuation/league-adjusted")
 async def get_league_adjusted_values(request: Request):
     """This league's league-adjusted value overlay (LI-9).
@@ -11263,6 +11343,7 @@ async def get_public_league_section(
     owner: str = "",
     refresh: str = "",
     leagueKey: str = "",
+    lens: str = "",
 ):
     """Single public-league section JSON payload.
 
@@ -11271,6 +11352,14 @@ async def get_public_league_section(
     also include a narrowed ``franchiseDetail`` block so the frontend
     can render a single franchise page without downloading every
     franchise's detail dict.
+
+    ``lens`` (V1-52) selects which of the canonical power engine's two
+    lenses the ``rosPower`` section answers with —
+    ``power_v2.LENS_FORWARD_LOOKING`` (default, matches the
+    aggregate-contract behavior) or ``power_v2.LENS_RESULTS_ONLY``.
+    Ignored for every other section.  Rejected outright rather than
+    silently falling back to the default: a typo'd lens value silently
+    answering the wrong question is worse than a 400.
 
     NOTE: the ``.csv`` variant above MUST remain registered before this
     route — FastAPI otherwise matches ``/{section}`` against
@@ -11284,6 +11373,18 @@ async def get_public_league_section(
                 "availableSections": list(PUBLIC_SECTION_KEYS),
             },
         )
+    if lens and section == "rosPower":
+        from src.ros import power_v2  # noqa: PLC0415
+
+        _valid_lenses = (power_v2.LENS_FORWARD_LOOKING, power_v2.LENS_RESULTS_ONLY)
+        if lens not in _valid_lenses:
+            return JSONResponse(
+                status_code=400,
+                content={
+                    "error": f"Unknown power lens: {lens!r}",
+                    "availableLenses": list(_valid_lenses),
+                },
+            )
     _league_err = _public_section_league_error(section, leagueKey)
     if _league_err is not None:
         return _league_err
@@ -11318,6 +11419,15 @@ async def get_public_league_section(
                 if section == "franchise" and owner:
                     detail_map = payload.get("data", {}).get("detail") or {}
                     payload["franchiseDetail"] = detail_map.get(str(owner).strip())
+                if section == "rosPower" and lens:
+                    # ``build_section_payload`` above already ran the
+                    # default (forward-looking) lens; only recompute when
+                    # a non-default lens was explicitly requested, so the
+                    # common case pays no extra cost.
+                    from src.ros import power_v2  # noqa: PLC0415
+
+                    if lens != power_v2.LENS_FORWARD_LOOKING:
+                        payload["data"] = power_v2.build_section(snapshot, lens=lens)
                 assert_public_payload_safe(payload)
                 return payload
 
