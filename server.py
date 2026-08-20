@@ -6466,6 +6466,86 @@ async def post_waiver_faab_recommend(request: Request):
     return JSONResponse(content=rec)
 
 
+#: Cap on how many recent rows a market-ledger read returns.  These are
+#: history browsers, not exports — an unbounded response would let one
+#: league's whole lifetime of waiver claims or trades ride on a single
+#: request, and no consumer needs more than a recent window at once.
+_MARKET_LEDGER_RECENT_LIMIT = 100
+
+
+@app.get("/api/market/waivers")
+async def get_market_waivers(request: Request):
+    """C4-WAIV-01 — this league's waiver-claim history.
+
+    Read-only projection of the canonical acquisition ledger
+    (``src.trade.waiver_ledger``); never triggers a Sleeper fetch. Most
+    recent claims first (the ledger itself orders oldest-first with
+    undated claims leading, so this endpoint reverses it — recency is
+    what a reader wants here).
+
+    Responses::
+
+        200  {leagueKey, summary, recentClaims}
+        400  unknown_league / inactive_league
+        404  no_leagues_configured
+    """
+    try:
+        league_cfg = _resolve_league_for_request(request)
+    except LeagueResolutionError as err:
+        return err.json_response()
+
+    from src.trade import waiver_ledger as _waiver_ledger  # noqa: PLC0415
+
+    summary = _waiver_ledger.waiver_ledger_summary(league_cfg.key)
+    claims = _waiver_ledger.waiver_claims(league_cfg.key)
+    recent = list(reversed(claims[-_MARKET_LEDGER_RECENT_LIMIT:]))
+    return JSONResponse(
+        content={
+            "leagueKey": league_cfg.key,
+            "summary": summary,
+            "recentClaims": recent,
+            "recentClaimsTruncated": len(claims) > len(recent),
+        }
+    )
+
+
+@app.get("/api/market/trades")
+async def get_market_trades(request: Request):
+    """C4-MTL-01 — this league's own recorded trade history.
+
+    Read-only projection of the canonical acquisition ledger
+    (``src.trade.market_trade_ledger``), scoped to trades this league's
+    own rosters made. This is NOT the broader cross-market ledger
+    (``C4-MTL-02`` — external ingestion, permission-gated and not yet
+    built); every row here is one of our own leagues' own trades. Most
+    recent first.
+
+    Responses::
+
+        200  {leagueKey, summary, recentTrades}
+        400  unknown_league / inactive_league
+        404  no_leagues_configured
+    """
+    try:
+        league_cfg = _resolve_league_for_request(request)
+    except LeagueResolutionError as err:
+        return err.json_response()
+
+    from src.trade import market_trade_ledger as _market_trade_ledger  # noqa: PLC0415
+
+    summary = _market_trade_ledger.market_ledger_summary(league_cfg.key)
+    trades = _market_trade_ledger.market_trades(league_cfg.key)
+    recent = list(reversed(trades[-_MARKET_LEDGER_RECENT_LIMIT:]))
+    return JSONResponse(
+        content={
+            "leagueKey": league_cfg.key,
+            "summary": summary,
+            "recentTrades": recent,
+            "recentTradesTruncated": len(trades) > len(recent),
+        }
+    )
+
+
 @app.get("/api/valuation/league-adjusted")
 async def get_league_adjusted_values(request: Request):
     """This league's league-adjusted value overlay (LI-9).

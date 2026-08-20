@@ -56,7 +56,6 @@ const SCAN = ["app", "components"];
 const BASELINE = {
   "app/trending/page.jsx": 1,
   "app/league/activity/page.jsx": 1,
-  "components/terminal/MarketTicker.jsx": 2,
   "components/terminal/PlayerMarketMovement.jsx": 2,
   "components/terminal/TeamNewsFeed.jsx": 1,
 };
@@ -65,6 +64,11 @@ const BASELINE = {
 //   a real role="tabpanel" + aria-controls. De-listed when the
 //   stale-entry assertion caught it on the first rebase onto merged
 //   main, which is precisely the job that assertion exists to do.
+//   components/terminal/MarketTicker.jsx — C8-PSI-01 (Chase Upside
+//   Market Ticker rebuild) moved its scope switch onto ds
+//   `SegmentedControl`, which is a radiogroup filter over one list, not
+//   tabpanels — the fix this guard has always named. De-listed by the
+//   same stale-entry assertion.
 
 function walk(dir, out = []) {
   for (const e of fs.readdirSync(dir, { withFileTypes: true })) {

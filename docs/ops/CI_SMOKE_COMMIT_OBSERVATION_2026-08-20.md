@@ -276,3 +276,63 @@ Open `sharp-unverifiable` trackers: #951, #953, #955, #957, #959 — **five**, s
 run, and there is no credential, so no healthy run exists. Draining them manually would be
 housekeeping that hides the real state: the gate still cannot measure. They stay until either
 a credential arrives or the owner decides otherwise.
+
+---
+
+## Checkpoint 2026-08-20T12:09Z — 4½ hours, and the tracker repair is 1:1
+
+Window: **07:40:12Z → 12:09:42Z** (4 h 29 m), from the first post-#948 write `65bfca4d2`.
+
+### Smoke commits: still zero, workflow still running
+
+| quantity | value |
+|---|---|
+| smoke commits written | **0** |
+| `verify-sharp-production.yml` runs in the window | **13** |
+| conclusions | **12 success**, 1 failure (the 09:28:57Z GraphQL 503, already diagnosed) |
+| expected at the pre-merge rate (48 / 24 h ≈ 2/h) | **~9** |
+
+Both halves hold at 4½ hours — 50% longer than the previous checkpoint, and the
+gap between expected (~9) and observed (0) has widened rather than drifted.
+
+The record on `main` is byte-stable since the schema-2 write: `stateSince` and
+`lastObservedAt` both still `2026-08-20T07:40:06.649789+00:00`,
+`status: unverifiable_unauthenticated`, `measured: false`,
+`credentialRegression: false`.
+
+**The ≤ 1/day claim is STILL NOT MADE, and the reason is unchanged.** Four and a
+half hours is not a day. The **day-rollover write has not executed** — that is the
+one branch this observation has never tested, and it is the branch that decides
+whether the steady-state answer is 0/day or 1/day. A confident number before it runs
+would be an extrapolation, not a measurement. Full-window read remains due
+**2026-08-21T07:45Z**.
+
+### The tracker repair, now 1:1 across eight runs
+
+#960 merged at 10:02:24Z. Every `verify-sharp-production` run since:
+
+| | |
+|---|---|
+| runs since the fix | **8** (10:02, 10:19, 10:26, 10:49, 11:17, 11:55, 11:56, 11:59) |
+| comments now on #951 | **8** |
+| NEW trackers created since the fix | **0** |
+| last tracker created | **#959, 09:05:26Z** — before the fix |
+
+**Eight runs, eight comments, zero new issues.** The previous checkpoint saw 3-for-3;
+this is the same behaviour sustained across nearly three times as many runs, and it
+lands on #951 every time — the oldest duplicate, which is the `min`-by-number
+selection rule holding rather than drifting between the five.
+
+Open `sharp-unverifiable` trackers: **#951, #953, #955, #957, #959** — five, static.
+
+**Still not drained, and this is now a deliberate standing decision rather than a
+pending chore.** The close path fires only on a `healthy` run; there is no credential,
+so no healthy run exists and none can be manufactured. Draining the five by hand would
+leave the dashboard clean and the gate exactly as blind as it is today — which is the
+false green this whole record exists to prevent. They stay until a credential arrives
+or the owner rules otherwise.
+
+**Consequently, two things remain unproven and are not being claimed:**
+healthy-run tracker closure/reconciliation (no authenticated healthy run has ever
+occurred), and the ≤ 1/day steady state (day-rollover unexecuted). Both are
+*unexercised*, which is a different statement from *failing*.

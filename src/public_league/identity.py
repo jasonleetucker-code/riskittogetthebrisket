@@ -26,13 +26,14 @@ from src.utils.owner_names import owner_label
 
 # ── Retired owner IDs ────────────────────────────────────────────────
 # Sleeper owner_ids of former league members who have left the league
-# entirely.  Their historical aliases (team names, avatars, roster
-# slots) are filtered out at registry build time so they don't appear
-# in franchise dropdowns, manager lists, or alias tables.  Game-data
-# references to their old roster slots (matchup results, trades) that
-# exist in the Sleeper archives will simply attribute to "" and get
-# filtered out by the same orphan-roster handling that skips
-# un-assigned rosters, so no historical rewrite is required.
+# entirely.  This is a CURRENT-STATE label, not a historical-erasure
+# instruction: a retired owner's real past seasons are real history
+# (C9-HIST-01 — a season that fielded N rosters must report N standings
+# rows, whoever holds them today), so retirement filters them out of
+# forward-facing manager directories only (``ordered_managers()`` /
+# ``to_public_list()``), never out of ``roster_to_owner`` or their own
+# aliases. See ``Manager.is_retired`` and ``ManagerRegistry.
+# ordered_managers``.
 #
 # Add an entry here to retire an owner:
 #     _RETIRED_OWNER_IDS: frozenset[str] = frozenset({
@@ -70,6 +71,11 @@ class Manager:
     current_roster_id: int | None = None
     current_team_name: str = ""
     current_league_id: str = ""
+    # True iff this owner_id is in _RETIRED_OWNER_IDS. Excludes them from
+    # forward-facing directories (ordered_managers/to_public_list); it does
+    # NOT remove their aliases or roster_to_owner entries — those stay real
+    # history.
+    is_retired: bool = False
 
     def to_public_dict(self) -> dict[str, Any]:
         """Slim, public-safe serialization of a manager."""
@@ -113,8 +119,20 @@ class ManagerRegistry:
             return ""
         return self.roster_to_owner.get((str(league_id or ""), rid_int), "")
 
-    def ordered_managers(self) -> list[Manager]:
-        return sorted(self.by_owner_id.values(), key=lambda m: m.display_name.lower())
+    def ordered_managers(self, *, include_retired: bool = False) -> list[Manager]:
+        """Managers for forward-facing directories (dropdowns, listings).
+
+        Excludes retired owners by default — that is what "retired" means
+        for this method. It does NOT mean their history is gone: callers
+        that need historical participation (standings, archives, matchup
+        attribution) read ``by_owner_id`` / ``roster_to_owner`` directly and
+        are unaffected by this filter. Pass ``include_retired=True`` for a
+        genuinely all-time directory.
+        """
+        managers = self.by_owner_id.values()
+        if not include_retired:
+            managers = (m for m in managers if not m.is_retired)
+        return sorted(managers, key=lambda m: m.display_name.lower())
 
     def to_public_list(self) -> list[dict[str, Any]]:
         return [m.to_public_dict() for m in self.ordered_managers()]
@@ -161,14 +179,6 @@ def build_manager_registry(seasons: Iterable[dict[str, Any]]) -> ManagerRegistry
                 # pseudo-owner.  History for this roster in this season
                 # will simply be attributed to "" and filtered out.
                 continue
-            if owner_id in _RETIRED_OWNER_IDS:
-                # Operator-maintained retirement list.  Drop every
-                # alias from this owner across every season so they
-                # don't appear in manager dropdowns or franchise
-                # pages.  Historical matchup / trade data that
-                # references their old roster slot falls through to
-                # the same "" attribution path as orphaned rosters.
-                continue
             try:
                 rid_int = int(roster.get("roster_id"))
             except (TypeError, ValueError):
@@ -204,6 +214,7 @@ def build_manager_registry(seasons: Iterable[dict[str, Any]]) -> ManagerRegistry
                     owner_id=owner_id,
                     display_name=str(display_name),
                     avatar=avatar,
+                    is_retired=owner_id in _RETIRED_OWNER_IDS,
                 )
                 registry.by_owner_id[owner_id] = manager
 
