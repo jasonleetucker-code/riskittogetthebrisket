@@ -134,11 +134,13 @@ def test_the_guard_catches_a_same_named_duplicate_nobody_calls():
     )
     try:
         dups = undeclared_owner_definitions()
-        assert "replacement_per_game" in dups, (
-            "the guard did NOT detect an undeclared duplicate definition (MR1)"
-        )
+        assert (
+            "replacement_per_game" in dups
+        ), "the guard did NOT detect an undeclared duplicate definition (MR1)"
         assert "src/league_intel/_v129_dup_probe.py" in dups["replacement_per_game"]
-        assert main([]) == EXIT_VIOLATION, "the census exited clean with an undeclared owner present"
+        assert (
+            main([]) == EXIT_VIOLATION
+        ), "the census exited clean with an undeclared owner present"
     finally:
         probe.unlink(missing_ok=True)
 
@@ -165,9 +167,9 @@ def test_the_guard_catches_a_same_named_duplicate_with_a_call_site():
     )
     try:
         dups = undeclared_owner_definitions()
-        assert "replacement_per_game" in dups, (
-            "the guard did NOT detect an undeclared duplicate definition with a call site (MR2)"
-        )
+        assert (
+            "replacement_per_game" in dups
+        ), "the guard did NOT detect an undeclared duplicate definition with a call site (MR2)"
         assert main([]) == EXIT_VIOLATION, "the census exited clean with a called, undeclared owner"
     finally:
         probe.unlink(missing_ok=True)
