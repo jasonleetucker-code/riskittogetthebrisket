@@ -15,6 +15,7 @@
 > unchanged — both acquisition paths tried here really do return zero IDP rows
 > — but the conclusion drawn from it was wrong. Dynasty Dealer exposes cardinal
 > IDP values behind an undocumented parameter this audit did not try. See §15a.
+> The implementation lane that carries this forward is **Claude 8 / Lane 8**.
 > Bridge eligibility is now **PENDING** a same-basis and freshness
 > qualification against the offensive `current_value` basis. **No production
 > weighting or voting is authorized by this correction.**
@@ -765,7 +766,9 @@ exactly the disagreement §10 identified as the hardest:
 Note also `min = 0` on the offense side: under MISSING IS NEVER ZERO those rows
 must be treated as unpriced at the adapter, never as zero-valued.
 
-Full working record: `docs/sources/C7_PR_A_BRIDGE_FOUNDATION.md` §7a.
+Full working record: `docs/sources/C8_PR_A_BRIDGE_FOUNDATION.md` §7a
+(implementation lane **Claude 8 / Lane 8**, per the owner's designation of
+2026-08-20).
 
 ---
 
