@@ -1,9 +1,9 @@
 {
   "_comment": "Lane utilization state, owned by Claude 7 (Lane Dispatcher). NOT an authority on integration sequencing (Claude 5 / docs/EXECUTION_PLAN.md), on V1 status (docs/VERSION_1_COMPLETION_CONTRACT.md) or on canonical ownership (CLAUDE.md). Repository evidence outranks this file: where they disagree, this file is wrong and must be corrected.",
-  "updatedAt": "2026-08-20T00:15:00Z",
-  "dispatchCycle": 12,
+  "updatedAt": "2026-08-20T01:00:00Z",
+  "dispatchCycle": 13,
   "writePolicy": "This file and ASSIGNMENTS.json are written ONLY on a material state transition — new assignment, assignment accepted, completion, blocker, freeze/unfreeze, or a meaningful dependency change. A heartbeat that finds nothing changed produces no commit and no CI run.",
-  "evidenceBasis": "origin/main e3f4a225c at fetch time (a newer main commit landed ~38s later, visible via its own deploy run); refs resolved LIVE per the cycle-11 rule; per-PR check runs and deploy runs read live",
+  "evidenceBasis": "origin/main 547e51bc6 with #913 (25bb6b4bd) and #938 (ef9d21dac) both MERGED; refs resolved LIVE; integration/rc-wave-a contents enumerated by merge-commit walk; V1 §3 recounted; coercion baselines read from both trees",
   "assignmentSourceNote": "The six current assignments were made manually by the owner, not by this dispatcher. Recorded here so the durable state matches reality; Claude 7 did not originate them and does not own them.",
   "v1": {
     "requiredRows": 132,
@@ -24,14 +24,14 @@
       ],
       "pr": 925,
       "implementationHead": "#933 GREEN (20:48:46Z); #925 is now chain head and merges clean post-#922",
-      "releaseCandidate": "NOT_YET_FROZEN",
-      "evidence": "#922 MERGED b3739f095 22:26:04Z; #925 991280ad clean against new main; #933 4e0c30e0 green",
+      "releaseCandidate": "#933 IN WAVE — integration/rc-wave-a",
+      "evidence": "#933 in rc-wave-a; #925 991280ad still open and clean",
       "blockedBy": null,
       "doNotTouch": [
         "#922",
         "#925 while under integration review"
       ],
-      "nextSafeWork": "#925 is now the integration candidate — hand it over rather than stacking further; continue #933",
+      "nextSafeWork": "#933 is in the wave; #925 remains a separate candidate to hand over",
       "lastMeaningfulActivity": "2026-08-19T22:26:04Z",
       "mergedThisCycle": [
         922
@@ -44,14 +44,14 @@
     "2": {
       "name": "Trade Intelligence",
       "state": "ACTIVE",
-      "currentTask": "reconciled #913 onto the finalized Roster mainline; #929 rebased on top; V1-43 now released",
+      "currentTask": "#913 MERGED; #929 is in the release-candidate wave; V1-43 assignment released and awaiting delivery",
       "assignmentSource": "manual (owner) rehearsal + Claude 7's L2-2026-08-19-02 held",
-      "branch": "claude/v1-trade-intelligence-efstt3",
+      "branch": "claude/v1-con-01-constraint-owner",
       "frozenPrs": [],
-      "pr": 913,
-      "implementationHead": "#913 6e7c2457 GREEN 23:33:20Z; #929 e057c55a rebased on it — both clean at baseline 664",
-      "releaseCandidate": "READY — green, clean, ordered #913 then #929",
-      "evidence": "#913 Validate PR success 23:33:20Z; mergeability re-tested against live refs at 00:13Z, both clean; no V1-43 branch yet",
+      "pr": 929,
+      "implementationHead": "#929 e057c55a clean; also carried inside integration/rc-wave-a",
+      "releaseCandidate": "IN WAVE — integration/rc-wave-a",
+      "evidence": "#913 merged as 25bb6b4bd; branch deleted; #929 clean against main and included in rc-wave-a",
       "blockedBy": null,
       "doNotTouch": [
         "src/roster_intel/**",
@@ -59,13 +59,15 @@
         "CLAUDE.md",
         "frontend/**"
       ],
-      "nextSafeWork": "V1-43 Analyze Trade V1 on top of #929's new head e057c55a — assignment L2-2026-08-19-02 is RELEASED",
-      "lastMeaningfulActivity": "2026-08-19T23:33:20Z",
+      "nextSafeWork": "V1-43 on top of #929 — but note #929 is now inside a release candidate, so confirm the final base with Claude 5 before branching",
+      "lastMeaningfulActivity": "2026-08-20T00:18:00Z",
       "assignedThisCycle": "L2-2026-08-19-02 RELEASED (DELIVERY_REQUIRED, base amended to e057c55a)",
       "idleMinutes": 0,
       "openPrs": [
-        913,
         929
+      ],
+      "mergedThisCycle": [
+        913
       ]
     },
     "3": {
@@ -83,15 +85,15 @@
       "mergedThisCycle": [],
       "pr": 937,
       "implementationHead": "#934 GREEN 21:00:43Z; #937 GREEN 00:00:45Z",
-      "releaseCandidate": "NOT_YET_FROZEN",
+      "releaseCandidate": "#937 IN WAVE — integration/rc-wave-a",
       "evidence": "#937 head pushed 23:44Z, Validate PR success 00:00:45Z; #934 green; #923/#915 unchanged",
       "blockedBy": null,
       "doNotTouch": [
         "#915 head while under integration review"
       ],
       "nextSafeWork": "drive #934 and #937; open nothing further until some of the four land",
-      "observation": "FOUR open PRs now (#915, #923, #934, #937). #937 is a live production defect on a NOT STARTED V1 row at level L2 — cheap and numerator-relevant — but this is the count at which master-prompt §28 starts to bite: no fifth.",
-      "lastMeaningfulActivity": "2026-08-20T00:00:45Z"
+      "observation": "#937 is in the release candidate, so the four-PR count should fall as the wave lands. Still no fifth until it does.",
+      "lastMeaningfulActivity": "2026-08-20T00:17:57Z"
     },
     "4": {
       "name": "Market / FAAB / Sharp / Analyst",
@@ -107,13 +109,13 @@
       ],
       "pr": 936,
       "implementationHead": "#936 GREEN 22:03:39Z on ef7c3d28; #932 GREEN 20:33:19Z on c795381b",
-      "releaseCandidate": "NOT_YET_FROZEN",
-      "evidence": "#936 green 22:03:39Z — the V1-64 L1 pin, delivered against the auditor's Tier B finding and now passing on its exact head",
+      "releaseCandidate": "#936 IN WAVE — integration/rc-wave-a",
+      "evidence": "#936 GREEN and now carried in the release candidate; #932/#927/#921 still open",
       "blockedBy": null,
       "doNotTouch": [],
-      "nextSafeWork": "hand #936 to Claude 5 as the cheapest available V1 row; it must not queue behind larger units",
+      "nextSafeWork": "#936 is in the wave — the cheapest V1 row is now moving; keep #932 ready behind it",
       "watch": "CLOSED — Q4-2026-08-19-01 is answered by action. No second task was ever assigned, which was the right call.",
-      "lastMeaningfulActivity": "2026-08-19T22:05:52Z",
+      "lastMeaningfulActivity": "2026-08-20T00:40:32Z",
       "closedPrs": [
         931
       ]
@@ -121,45 +123,45 @@
     "5": {
       "name": "Integration / Governance / Production",
       "state": "ACTIVE",
-      "currentTask": "integration queue — B5 cleared, so {#913 -> #929} is now a mergeable ordered pair; the bounded release candidate for #927/#932 is still outstanding",
+      "currentTask": "release candidate integration/rc-wave-a is BUILT and clean, carrying #933/#936/#937/#929",
       "assignmentSource": "n/a — sole integration authority, never tasked by this dispatcher",
       "branch": null,
       "mergedThisCycle": [
-        922
+        913,
+        938
       ],
       "implementationHead": "n/a",
       "releaseCandidate": "NOT_YET_FROZEN",
-      "evidence": "main e3f4a225c; no merges since #922; post-#922 deploy confirmed as run 32308795433 on b3739f095",
+      "evidence": "main 547e51bc6; #913 and #938 merged this cycle; rc-wave-a 17 commits ahead, clean, baseline 664",
       "blockedBy": null,
       "doNotTouch": [],
       "nextSafeWork": "its own sequencing",
       "reportedToIntegration": [
-        "READY AND WAITING: #913 (6e7c2457) is GREEN, clean, baseline 664 — then #929 (e057c55a). Whichever lands second needs its baseline regenerated from the tree that then exists (main is 670).",
-        "STILL OUTSTANDING: ONE bounded release candidate on current main for #927/#932. Per #926 the lanes must NOT rebase for it.",
-        "#936 GREEN — still the cheapest V1 row (L1). #937 GREEN — V1-95, a live production defect at level L2.",
-        "#935 Boot stack still FAILING and unaddressed for two hours (B10). Do not merge on its green Validate PR alone.",
-        "Deployment is keeping pace: #922's merge commit deployed successfully at 22:26:07Z. #930's closure still needs a post-deploy ROS SCRAPE, which is a separate question from deployment and is not yet confirmed.",
-        "V1 still 40/132 — seventh recount."
+        "rc-wave-a is the highest-payoff event of the night: FOUR V1 rows in one candidate — V1-64 (level L1), V1-29 (L2), V1-95 (L2), V1-130 (L2). The L1 row is satisfiable by this candidate's own green merge-tree CI; the three L2 rows each need a measured board/contract statement, which is the cheapest evidence class after L1.",
+        "V1-34 is NOT in this wave and must not be counted with V1-130 — #929 ships the constraint owner with no writer for tradeConstraintsByLeague (correction C11-1).",
+        "#925 (Roster verification pack) and #932 (Lane 4 verification tooling) are NOT in the wave and remain separate candidates.",
+        "#935 has merged the stabilized gate in and needs a fresh Boot stack verdict before any merge decision.",
+        "V1 still 40/132 — eighth recount. The wave is the first thing all night that can move it."
       ],
-      "lastMeaningfulActivity": "2026-08-20T00:13:41Z"
+      "lastMeaningfulActivity": "2026-08-20T00:51:31Z"
     },
     "6": {
       "name": "Premium UI / Frontend",
-      "state": "ACTIVE_WITH_UNADDRESSED_RED",
+      "state": "ACTIVE",
       "currentTask": "V1-35 delivered as #935 — /rosters consumes canonical Team Strength instead of scoring teams itself",
       "assignmentSource": "manual (owner)",
       "branch": "claude/rosters-canonical-team-strength",
       "pr": 935,
-      "implementationHead": "#935 head 7c61e09f — Validate PR GREEN 21:33:00Z but Boot stack + run journeys FAILED 22:17:20Z. Mixed, therefore NOT green.",
+      "implementationHead": "#935 head 051753d4 (main merged in 00:52Z, pulling #938's stabilized E2E gate) — fresh Boot stack verdict pending",
       "releaseCandidate": "NOT_YET_FROZEN",
-      "evidence": "#935 Boot stack failure 22:17:20Z UNCHANGED — no new run, no diagnosis comment; last lane activity 22:27:19Z, roughly two hours ago",
+      "evidence": "#935 pushed 00:52Z; previous Boot stack failure was 22:17:20Z on the pre-#938 gate",
       "blockedBy": null,
       "doNotTouch": [
         "#912 head"
       ],
       "nextSafeWork": "diagnose the #935 E2E failure. Note it may well be its OWN: #935 modified tests/e2e/specs/signed-in-smoke.spec.js, so the usual 'journey-settings-overrides fails on main too' defence does not automatically apply here. Establish a main control run before attributing it to the known flake.",
-      "lastMeaningfulActivity": "2026-08-19T22:27:19Z",
-      "watch": "ESCALATED: a lane sitting on its own failing check for two hours. Not idle-by-gap alone — the red is the reason this matters. Ask whether B10 was seen; do NOT assign anything else, which would pull the lane off a failing check.",
+      "lastMeaningfulActivity": "2026-08-20T00:54:34Z",
+      "watch": "B10 downgraded — the lane acted, and in the right order: bring in the repaired gate, then re-measure. Do not read the old 22:17:20Z failure as the current verdict.",
       "openPrs": [
         912,
         935
@@ -173,11 +175,11 @@
     "docs/VERSION_1_COMPLETION_CONTRACT.md — Claude 5 only.",
     "docs/claude-dispatch/** — Claude 7 only. No lane writes here."
   ],
-  "cycle12Transitions": [
-    "#913 Validate PR GREEN 23:33:20Z on 6e7c2457. The B5 reconciliation is now COMPLETE with evidence: green, clean against main, baseline 664. Cycle 11 recorded this head as 'CI in flight'; leaving that stale would have told Claude 5 'unknown' about the head of its ordered pair.",
-    "#937 GREEN 00:00:45Z on its new head (V1-95, awards-before-games).",
-    "POST-#922 DEPLOY CONFIRMED — the cycle-10 caution is answered, not assumed: Deploy Production run 32308795433, head b3739f095 (the #922 merge commit itself), conclusion success at 22:26:07Z. Two further successful deploys followed (32308903919 on d0b6305db, 32311808782 on 8fd35fca9) and one was in progress on 25bb6b4bd at 00:13:41Z. There is no merged-but-not-deployed backlog.",
-    "BLOCKER B10 UNCHANGED and now ~2 hours old: #935's Boot stack failure from 22:17:20Z has had no new run and no diagnosis. Lane 6 has not acted since 22:27Z — the only lane sitting on its own red.",
-    "No merges. No release candidate run. No V1-43 branch yet, so L2-2026-08-19-02 remains DELIVERY_REQUIRED and undelivered. V1 unchanged at 40/132."
+  "cycle13Transitions": [
+    "#913 MERGED (25bb6b4bd). The six-cycle B5 blocker is fully resolved AND landed; its branch is deleted, which is also why a hardcoded-SHA check would now fail outright rather than merely mislead. main's coercion baseline is now 664, so the divergence class that caused B5 is closed at the source.",
+    "#938 MERGED (ef9d21dac) — 'E2E Safety Net stabilization: the blocking gate is trustworthy again'. Verified at exact head before merge: Validate PR green 00:49:06Z, Boot stack green 00:37:55Z, Playwright 154 passed / 52 skipped with ZERO flaky retries. It repaired journey-settings-overrides, journey-tools-health and public-league plus server.py. I never saw this PR open — it was opened and merged inside one 40-minute window, so no dispatch cycle observed it; recorded rather than glossed.",
+    "THE BOUNDED RELEASE CANDIDATE EXISTS: integration/rc-wave-a, created 00:18Z, 17 commits ahead, merges CLEAN onto current main with baseline 664 == main's 664. It carries FOUR lane PRs: #933 (V1-29), #936 (V1-64), #937 (V1-95), #929 (V1-130). This is the verification-batch shape the closability queue asked for — one candidate carrying four V1 rows.",
+    "B10 is being addressed correctly rather than argued away: Lane 6 merged main into #935 at 00:52 (head 051753d4), which pulls #938's stabilized E2E gate in. That is the right sequence — fix the instrument, then re-measure. A fresh Boot stack verdict is now the thing to watch.",
+    "V1 recounted an EIGHTH time: still 40/132. #913 merging did not move it, which is expected — its rows are IN PROGRESS/NOT STARTED and promotion is Claude 5's alone."
   ]
 }

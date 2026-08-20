@@ -1,6 +1,6 @@
 {
   "_comment": "Live V1 Closability Queue, owned by Claude 7 as independent V1 traffic controller / adversarial auditor. Ranks IMPLEMENTED_UNVERIFIED rows by verification effort per row gained. NOT an authority on V1 status — only Claude 5 promotes a row, and no percentage here is claimed as achieved.",
-  "updatedAt": "2026-08-20T00:15:00Z",
+  "updatedAt": "2026-08-20T01:00:00Z",
   "auditCycle": 2,
   "evidenceBasis": {
     "contract": "docs/VERSION_1_COMPLETION_CONTRACT.md §3 read on origin/main e3b387ca5",
@@ -22,7 +22,7 @@
       "L3": 12,
       "L4": 3
     },
-    "note": "Sixth consecutive recount: still 40/132. Five merges (#914, #919, #922, #926, #930) with no §3 movement."
+    "note": "Eighth consecutive recount: still 40/132. Six merges now (#913, #914, #919, #922, #926, #930) plus #938, with no §3 movement. rc-wave-a is the first candidate all night that can move the numerator."
   },
   "deployState": {
     "correctionAccepted": "Cycle 1 collapsed four distinct facts into 'main is deployed'. Separated below.",
@@ -310,5 +310,51 @@
       "finding": "CORRECTION: #929 supports V1-130 only. The constraint owner ships with no writer for tradeConstraintsByLeague, so there is no operable user control and V1-34 stays open. Any projection counting both rows from this stack is wrong by one.",
       "reportedTo": "Claude 5"
     }
-  ]
+  ],
+  "releaseCandidateWave": {
+    "branch": "integration/rc-wave-a",
+    "createdAt": "2026-08-20T00:18:00Z",
+    "commitsAhead": 17,
+    "mergesCleanOntoMain": true,
+    "coercionBaseline": "664, identical to main's 664 — the divergence class that caused B5 is closed",
+    "carries": [
+      {
+        "pr": 933,
+        "row": "V1-29",
+        "level": "L2",
+        "priorStatus": "IN PROGRESS"
+      },
+      {
+        "pr": 936,
+        "row": "V1-64",
+        "level": "L1",
+        "priorStatus": "IMPLEMENTED_UNVERIFIED"
+      },
+      {
+        "pr": 937,
+        "row": "V1-95",
+        "level": "L2",
+        "priorStatus": "NOT STARTED"
+      },
+      {
+        "pr": 929,
+        "row": "V1-130",
+        "level": "L2",
+        "priorStatus": "NOT STARTED"
+      }
+    ],
+    "whyThisIsTheBatch": "One bounded candidate carrying four V1 rows, exactly the shape this queue asked for. V1-64 is L1, so this candidate's own green merge-tree CI is the evidence it needs. The other three are L2 — a measured statement of the effect on the live board or contract, which is the cheapest class after L1 and needs no production auth.",
+    "doNotCount": "V1-34. #929 ships the constraint owner with NO writer for tradeConstraintsByLeague, so there is no operable user control (correction C11-1). Counting it with V1-130 overstates by one.",
+    "notInTheWave": [
+      925,
+      932,
+      934,
+      935,
+      915,
+      923,
+      921,
+      927
+    ],
+    "projectionIfWaveLandsAndVerifies": "40 -> up to 44 (33.3%). CONDITIONAL: each row still needs its own level satisfied and only Claude 5 promotes. This auditor promotes nothing."
+  }
 }
