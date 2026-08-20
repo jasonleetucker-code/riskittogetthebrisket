@@ -99,6 +99,26 @@ def _crawl(responses, league_ids=("L1",), ledger_path=None, budget=100, now_ms=N
     return result, http
 
 
+def _fetch_stamps(ledger_path):
+    """The ``last_fetched_ms`` values actually stored, read back from the DB.
+
+    Deliberately read from the ledger rather than assumed from the ``now_ms``
+    the fixture passed in: the assertion is about what ``crawl_coverage``
+    summarises, so its comparison set has to be the same rows it reads.
+    """
+    conn = ledger.connect(ledger_path)
+    try:
+        return [
+            int(row["last_fetched_ms"])
+            for row in conn.execute(
+                "SELECT last_fetched_ms FROM sharp_league_fetch WHERE backfilled = 1"
+            ).fetchall()
+            if row["last_fetched_ms"] is not None
+        ]
+    finally:
+        conn.close()
+
+
 class TestItActuallyIngests:
     def test_a_trade_lands_in_the_ledger(self, db):
         result, _ = _crawl(responses_for(), ledger_path=db)
@@ -254,6 +274,59 @@ class TestCoverageHonesty:
         assert cov["sharpEligibleLeagues"] == 2
         assert cov["leaguesCrawled"] == 1
         assert cov["leaguesUncrawled"] == 1
+
+    def test_oldest_crawl_is_the_minimum_not_the_most_recent(self, db, monkeypatch):
+        """``oldestCrawlMs`` answers "how stale is the STALEST league".
+
+        It is the number an operator reads to decide whether the crawl is
+        keeping up, so publishing the newest timestamp instead would make a
+        badly-lagging crawl look current — the reassuring direction, which is
+        the one that goes unnoticed.
+
+        Three leagues crawled a day apart: the answer must be the oldest of
+        the three, and must not equal the newest.
+        """
+        monkeypatch.setattr(
+            transactions.discovery,
+            "sharp_eligible_league_ids",
+            lambda *, ledger_path=None: ["L1", "L2", "L3"],
+        )
+        for league, when in (("L1", NOW), ("L2", NOW - DAY_MS), ("L3", NOW - 2 * DAY_MS)):
+            _crawl(responses_for(league), league_ids=[league], ledger_path=db, now_ms=when)
+
+        cov = transactions.crawl_coverage(ledger_path=db)
+        stamps = _fetch_stamps(db)
+        assert len(stamps) == 3, "the fixture must crawl three leagues or it proves nothing"
+        assert cov["oldestCrawlMs"] == min(stamps)
+        assert cov["oldestCrawlMs"] != max(
+            stamps
+        ), "min and max coincide, so this fixture cannot tell them apart"
+        # ...and the denominator behaviour already pinned above is untouched.
+        assert cov["sharpEligibleLeagues"] == 3
+        assert cov["leaguesCrawled"] == 3
+
+    def test_no_crawled_league_publishes_none_never_zero(self, db, monkeypatch):
+        """MISSING IS NEVER ZERO, on the axis where zero is worst.
+
+        ``oldestCrawlMs`` is an epoch millisecond, so ``0`` is 1970 — the
+        oldest timestamp expressible. "We have never crawled anything" would
+        therefore render as "our crawl is 56 years stale", and any consumer
+        comparing against a staleness budget would read the empty state as a
+        maximal alarm rather than as an absence.
+        """
+        monkeypatch.setattr(
+            transactions.discovery,
+            "sharp_eligible_league_ids",
+            lambda *, ledger_path=None: ["L1", "L2"],
+        )
+        cov = transactions.crawl_coverage(ledger_path=db)
+        assert cov["leaguesCrawled"] == 0
+        assert cov["oldestCrawlMs"] is None
+        assert cov["oldestCrawlMs"] != 0
+        # The denominator is still stated, so "nothing crawled" keeps its
+        # own denominator and cannot read as "nothing eligible".
+        assert cov["sharpEligibleLeagues"] == 2
+        assert cov["leaguesUncrawled"] == 2
 
 
 class TestWaiverSeparation:

@@ -1,10 +1,10 @@
 {
   "attempts": 1,
-  "checkedAt": "2026-08-20T00:51:30.575990+00:00",
+  "checkedAt": "2026-08-20T01:09:16.062832+00:00",
   "cohort": {},
-  "deployConclusion": "pending",
+  "deployConclusion": "success",
   "deployHeadSha": "ef9d21dac9f4cbb14db50f98d7e34ecb7dcfca08",
-  "deployRunId": "",
+  "deployRunId": "32318866649",
   "errors": [
     {
       "attempt": 1,
@@ -12,7 +12,7 @@
       "type": "Unauthenticated"
     }
   ],
-  "eventName": "push",
+  "eventName": "workflow_run",
   "ffpcMarket": {},
   "status": "unverifiable_unauthenticated"
 }
