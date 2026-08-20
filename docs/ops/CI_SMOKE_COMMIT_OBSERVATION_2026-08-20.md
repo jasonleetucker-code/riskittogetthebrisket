@@ -194,3 +194,85 @@ demonstrated causal defect in #948, which is the condition that unfreezes it.
 
 `Deploy Production` run `32345039692` for the #948 merge
 (`9e83509607736f0419dddf3ac00da4110b569f6b`) **completed success** at 08:20:57Z.
+
+---
+
+## Checkpoint 2026-08-20T10:48Z — the suppression holds, and the tracker question is settled by production
+
+Window: **07:40:12Z → 10:48:46Z** (3 h 08 m), from the first post-#948 write `65bfca4d2`.
+
+### Smoke commits: still zero, and the workflow is still running
+
+| quantity | value |
+|---|---|
+| smoke commits written | **0** |
+| `verify-sharp-production.yml` runs in the window | **8** |
+| conclusions | **7 success**, 1 failure (diagnosed below) |
+| expected at the pre-merge rate (48 / 24 h ≈ 2/h) | ~6 |
+
+Both halves still hold at 3× the previous checkpoint's duration. The record on `main` is
+unchanged since the schema-2 write: `stateSince` and `lastObservedAt` both still
+`2026-08-20T07:40:06.649789+00:00`, `status: unverifiable_unauthenticated`,
+`measured: false`, `credentialRegression: false`.
+
+**Still not the ≤ 1/day claim.** Three hours is not a day, and the **day-rollover write is
+still unexercised** — that is the one branch this observation has not yet tested, and it is
+the branch that decides whether the number is 0/day or 1/day. Full-window read remains due
+**2026-08-21T07:45Z**.
+
+### The one failure — diagnosed, not waved off as flaky
+
+Run `32354095506` (09:28:57Z, `cca488cd7`) failed at step 6, *Track that the Sharp gate cannot
+measure*. Cause, from the log:
+
+```
+HTTP 503: No server is currently available to service your request.
+          (https://api.github.com/graphql)
+##[error]Process completed with exit code 1.
+```
+
+**A transient GitHub GraphQL outage, upstream of this repository.** Not a rate limit, not the
+duplication defect, and not our code. It has not recurred in the three runs since. No fix is
+warranted, and none was made — re-running is the whole remedy, which is the narrow case the
+CI-reliability lane's own rule permits (it died in an API call, not in a test body).
+
+Worth stating plainly because it is the *desired* behaviour: a lookup that fails **stays a
+failure**. That invariant survived #960 and is pinned by
+`tests/deploy/test_sharp_tracker_dedup.py::test_lookup_failure_stays_actionable_and_is_not_silently_healthy`.
+
+---
+
+## #958 CLOSED — `gh` emits `app/github-actions`, confirmed in production
+
+The hypothesis is no longer a hypothesis. Run `32356925992` (10:02:24Z), the first
+`verify-sharp-production` run after #960 merged, printed the diagnostic #960 added:
+
+```
+##[notice]app/github-actions
+https://github.com/.../issues/951#issuecomment-5354397097
+```
+
+Two facts in two lines:
+
+1. **`gh` reports this bot as `app/github-actions`** in `--json author` output — the `app/`
+   prefix it puts on bot actors. Three years of guessing (F-23's bare `github-actions`, then
+   F-23's `[bot]`-suffix normalisation, then #948 inheriting it) are settled by one measurement.
+   Neither earlier guess was ever reproduced against real `gh` output; both were wrong about
+   *which* transformation was needed, and the third fix removed the dependency instead.
+2. **It COMMENTED on #951** rather than creating a new issue — and #951 is the **oldest**
+   duplicate, which is the `min`-by-number rule doing exactly what it was written for.
+
+### Duplication has stopped, measured
+
+| | |
+|---|---|
+| last NEW tracker created | **#959, 09:05:26Z** — before #960 merged at 10:02:24Z |
+| trackers created since the fix | **0** |
+| comments now on #951 | **3** — one per post-fix run (10:02, 10:19, 10:26) |
+
+Open `sharp-unverifiable` trackers: #951, #953, #955, #957, #959 — **five**, static.
+
+**They are still not drained by hand, deliberately.** The close path fires only on a `healthy`
+run, and there is no credential, so no healthy run exists. Draining them manually would be
+housekeeping that hides the real state: the gate still cannot measure. They stay until either
+a credential arrives or the owner decides otherwise.
