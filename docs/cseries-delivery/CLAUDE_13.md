@@ -629,3 +629,100 @@ updates. Each batch is its own commit, reviewable independently.
 
 **Next**: PR B (Universal Player Profile / "Player File") — stacked on this branch per the
 approved plan, starting from Batch B1 (extracting reusable sections from `PlayerPopup.jsx`).
+
+### Batch B1–B3 (C8-PSI-02) — Universal Player Profile ("Player File") — done
+
+While this batch was starting, Claude 5 began reconciling PR A (#984) with `main` on this same
+branch (merge commit `41ae6c7a`, "Reconcile PR A (#984) with main — Integration, one planned
+pass"). **Deviation from the plan, recorded rather than silently worked around**: the plan called
+for PR B to be a separate PR stacked on top of PR A's branch. Since Integration was actively
+reconciling `claude/psi-reference-routes` in real time, branching off it mid-reconciliation and
+later reconciling a second time risked more disruption than it avoided, so PR B's commit landed
+directly on the same branch (merged in cleanly after PR A's commit — verified zero diff on PR B's
+own files between before and after the merge). **PR #984 now carries both PR A and PR B**; its
+title and description were updated to say so explicitly rather than leaving the description
+describing only half the diff. Claude 5 can still split them at merge time with full context —
+this is a branch-topology choice, not a decision that they must be merged together.
+
+**What shipped (B1 — extraction):**
+`frontend/components/PlayerPopup.jsx` — `RosContextSection`, `IntelContextSection`,
+`PlayerNewsSection` exported (were local-only; `PlayerContextSection`/`RealizedPointsSection`
+were already exported). `computeValueChain` exported (already existed as a plain function).
+Three previously-inline `useMemo` bodies — ownership/position-rank lookup, per-source value
+breakdown, and the consensus-narrative derivation — pulled out to standalone exported functions
+(`computeOwnership`, `computeSiteDetails`, `computeConsensusText`) since the new page needs the
+identical derivation; `PlayerPopup` now calls the same functions instead of carrying a second
+copy. This is genuine value-bearing logic (not presentation), extracted verbatim — no behavior
+changed. Verified: `PlayerPopup.test.jsx`'s 6 tests pass unchanged before and after.
+
+**What shipped (B2 — new route):**
+`frontend/app/players/[playerId]/page.jsx` + `player-file.module.css`. Row lookup mirrors
+`/players/compare`'s `findRow` pattern — Sleeper `playerId` first, case-insensitive name fallback.
+Hero (eyebrow "Player File / {POS} — {TEAM}", real name/age/team/years-exp, real ownership line
+via `computeOwnership` — no fabricated jersey number), summary strip (real value/overall rank/
+position rank/confidence/sources — position rank is a display ordinal over the full ranked pool,
+same technique as Rankings' own `positionRankByName`, not a new rank computation), five
+`ds/Tabs`-based sections:
+- **Overview** — edge signal, value chain (`computeValueChain`), 180-day rank-history chart
+  (`PlayerRankHistoryChart`, reused as-is — renders its own honest "Value history unavailable"
+  when there's no series, verified live in this sandbox since the seeded snapshot has none).
+- **Market** — source breakdown (`computeSiteDetails`) + consensus narrative
+  (`computeConsensusText`), same data PlayerPopup shows.
+- **Trades** — **no canonical per-player trade-history data source exists in this codebase**
+  (checked: the trade engines compute live suggestions/simulations, none persist a queryable
+  per-player ledger). Honest "Trade history not available" state instead of a fabricated history
+  or a standalone "Trade Desk" button — `EXECUTION_PLAN.md` §6 lists "Trade Desk" itself as not
+  yet authorized, and the owner's brief separately warned against fabricating exactly this button.
+- **Performance** — `RosContextSection` + `PlayerContextSection` + `RealizedPointsSection`,
+  verbatim.
+- **Intel** — `IntelContextSection` + `PlayerNewsSection`, verbatim.
+
+**Actions, verified against what's real before wiring** (per the brief's explicit "if it doesn't
+exist, don't build a fake button" instruction): checked `/trade` and `/arbitrage` (the real KTC
+arbitrage finder — `/finder` turned out to be a legacy redirect shim to `/rankings?screen=...`,
+not a standalone page) for any player-seeding query param. Neither has one. So "Open in Trade
+Calculator" is a plain, honestly-labeled navigation link — not a claim that the calculator opens
+pre-loaded with this player. "Compare" reuses `/players/compare`'s existing real `?p1=` seeding
+(confirmed by reading that page's own `useEffect`). No "Find buyers"/arbitrage action was added:
+an unseeded link to a generic board would misrepresent itself as player-specific.
+
+`PlayerPopup.jsx` gained one new button ("Full profile", linking to the new route by playerId
+then name) in its identity-actions row — otherwise completely unchanged. It stays the quick-view
+drawer; it was not gutted into a stub, since every existing call site and its own tests depend on
+its current content.
+
+Not in the naming canon (`naming-canon.js`): a per-entity detail route reached only via a player
+link has no static canon title to pin (its `<h1>` is the player's own name, which varies per
+player) — same relationship `/league/player/[playerId]` already has to the public nav.
+
+**What shipped (B3 — verification), same rigor as A4:**
+- Full suite: 143 test files / 2,255 tests (post-merge with `main`), 0 regressions.
+- `next build --webpack`: clean.
+- Real axe-core scan (WCAG 2.0/2.1 A+AA), authenticated, real canonical data (Josh Allen — #1
+  overall, QB1, 14 sources, real ownership "Blaine · QB1 on roster"): **0 violations** on desktop,
+  mobile, AND the not-found state, on the first scan — no legacy `globals.css` class is touched
+  anywhere in this page (every element is a `ds/` primitive already proven token-correct by A4's
+  fixes), so none of A4's four rounds of fixes had anything to re-discover here.
+- Real Chromium screenshots captured and reviewed: the happy path at both breakpoints, all five
+  tabs individually (Overview/Market/Trades/Performance/Intel), and the loading/failure/not-found
+  states.
+- **One real bug found and fixed by that verification**: the loading/failure/error/not-found early
+  returns rendered OUTSIDE the `.psi-editorial`-scoped section — only the happy-path return was
+  wrapped — so a not-found link showed the OLD dark terminal palette instead of the migrated one.
+  Caught by an actual screenshot of the not-found state, not by inspection; fixed by wrapping
+  every return path in the same scoped section, then re-verified.
+
+**Deliberately NOT claiming:**
+- A trimmed-down PlayerPopup ("slim quick-view/launcher" per the brief's aspiration) — it gained a
+  launcher link but kept every existing section; trimming its content is separate, riskier
+  follow-up work with many existing dependents, not required to ship real value now.
+- The Trades tab's underlying feature — an honest gap, not a stub for later completion in this
+  batch.
+- The full `a11y-axe.spec.js` baseline-ratchet harness run — same reason as A4.
+
+### Batch B4 — PR B handoff — done
+
+No separate PR opened — see the deviation note at the top of this section. PR #984's title/body
+updated to describe both PR A and PR B; `docs/WORK_CLAIMS.md`'s existing claim row extended with
+the B1-B3 files and findings. Status: **FEATURE_GREEN / READY_FOR_INTEGRATION** for both PRs A and
+B together. Not self-merged. Still subscribed to #984's activity from A5.
