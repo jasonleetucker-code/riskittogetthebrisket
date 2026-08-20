@@ -1,7 +1,7 @@
 {
   "_comment": "Live V1 Closability Queue, owned by Claude 7 as independent V1 traffic controller / adversarial auditor. Ranks IMPLEMENTED_UNVERIFIED rows by verification effort per row gained. NOT an authority on V1 status — only Claude 5 promotes a row, and no percentage here is claimed as achieved.",
-  "updatedAt": "2026-08-20T11:05:00Z",
-  "auditCycle": 28,
+  "updatedAt": "2026-08-20T11:30:00Z",
+  "auditCycle": 29,
   "evidenceBasis": {
     "contract": "docs/VERSION_1_COMPLETION_CONTRACT.md §3 read on origin/main e3b387ca5",
     "deployedSha": "e3b387ca5",
@@ -401,22 +401,23 @@
     "_doNotQuote": "Do not cite this block as the V1 status. Read the contract on current main instead.",
     "observedVerifiedRows": 58,
     "observedRequiredRows": 136,
-    "observedAtSha": "daf3c981e",
-    "observedAt": "2026-08-20T11:00:00Z",
+    "observedAtSha": "31724a8d4",
+    "observedAt": "2026-08-20T11:27:00Z",
     "howObserved": "counted `VERIFIED` in the §3 table of the contract as it exists at that exact SHA",
-    "note": "Unchanged. Main has not moved since cycle 27 apart from automated data refreshes; no promotion pass since #963."
+    "note": "#954 merged and changed no row, by Lane 8 charter. No promotion pass since #963."
   },
   "_authorityNote": "This queue RANKS work by verification effort. It does not own, publish or restate V1 status. docs/VERSION_1_COMPLETION_CONTRACT.md §3 owns that, and every count in this file is a derived reading stamped with the SHA it came from.",
-  "cycle28": {
-    "promotionPassRan": "NO. None since #963 (cycle 26).",
+  "cycle29": {
+    "promotionPassRan": "NO — none since #963 at cycle 26.",
+    "zeroRowMergeWasByDesign": "#954 is Lane 8, whose charter forbids it from adding §3 rows or marking anything VERIFIED. Distinguish this from the cycles 21-25 pattern: there, zero-row merges meant verification lagging implementation. Here it is the intended shape.",
     "tierB": {
-      "V1-106": "EIGHTH cycle. Still IN PROGRESS, still citing only PR #760 while that code is on main, still no named close condition.",
-      "V1-108": "Close: commit the transitive import-graph scan as a guard. Sixth cycle unactioned."
+      "V1-106": "NINTH cycle. Still IN PROGRESS, still citing only PR #760 while that code is on main, still no named close condition.",
+      "V1-108": "Close: commit the transitive import-graph scan as a guard. Seventh cycle unactioned."
     },
     "standingItems": [
       {
         "item": "Lane 2 ACTIONABLE_IDLE",
-        "elapsed": "~18h; branch still 9e9d8e8ec",
+        "elapsed": "~18.5h; branch still 9e9d8e8ec",
         "row": "V1-43 NOT STARTED, target L1, unblocked on plain main",
         "blocker": "ASSIGNMENT DELIVERY of L2-2026-08-19-02",
         "dispatcherAction": "Surfaced only. No second assignment written."
@@ -424,8 +425,8 @@
       {
         "item": "Lane 4 on-box verification batch",
         "rows": "V1-57, V1-129, V1-60 — IMPLEMENTED_UNVERIFIED",
-        "elapsed": "~18.5h; branch still 66fb1a053",
-        "sharpenedAgain": "claude/integration-sweep-1048 shows Integration closing #958 on PRODUCTION EVIDENCE this hour. The instrument is not merely available in principle — it is in active use on other work while this batch waits."
+        "elapsed": "~19h; branch still 66fb1a053",
+        "note": "claude/integration-sweep-1048 still shows production-evidence closure running on other work."
       },
       {
         "item": "Abandoned refs, verified by name",
@@ -433,9 +434,10 @@
           "v1/premium-ui c025e4f68",
           "integration/rc-937 80b7b948d",
           "integration/rc-wave-a 213f91513"
-        ]
+        ],
+        "hygiene": "claude/cross-position-bridge-v1 deleted on merge — fifth lane branch cleaned up."
       }
     ],
-    "stalePRsUnacted": "#759 (82851974f) and #760 (4f00f1599) still open against landed code. Seventh cycle."
+    "stalePRsUnacted": "#759 and #760 still open against landed code. Eighth cycle."
   }
 }

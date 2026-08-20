@@ -1,7 +1,7 @@
 {
   "_comment": "Lane utilization state, owned by Claude 7 (Lane Dispatcher). NOT an authority on integration sequencing (Claude 5 / docs/EXECUTION_PLAN.md), on V1 status (docs/VERSION_1_COMPLETION_CONTRACT.md) or on canonical ownership (CLAUDE.md). Repository evidence outranks this file: where they disagree, this file is wrong and must be corrected.",
-  "updatedAt": "2026-08-20T11:05:00Z",
-  "dispatchCycle": 28,
+  "updatedAt": "2026-08-20T11:30:00Z",
+  "dispatchCycle": 29,
   "writePolicy": "This file and ASSIGNMENTS.json are written ONLY on a material state transition — new assignment, assignment accepted, completion, blocker, freeze/unfreeze, or a meaningful dependency change. A heartbeat that finds nothing changed produces no commit and no CI run.",
   "evidenceBasis": "origin/main 079fc9e4a; §3 diffed row-by-row from cycle-19 main (c5a367266); all refs resolved live; #945 CI green 04:57:35Z",
   "assignmentSourceNote": "The six current assignments were made manually by the owner, not by this dispatcher. Recorded here so the durable state matches reality; Claude 7 did not originate them and does not own them.",
@@ -246,20 +246,31 @@
     "standingChange": "Cycle interval stays at 20+ minutes. The dispatcher's own write rate is now bounded by the validation it depends on.",
     "theLessonAgainstMyself": "I was measuring a system I was perturbing, and the perturbation looked exactly like the system being slow. It took twenty-seven cycles to check whether the anomaly on my own PR was caused by me — and the same defect on someone else's PR took me one cycle to find at #922. Method rule (m) exists because proximity made it invisible."
   },
-  "cycle28Transitions": {
-    "mainTip": "daf3c981e — UNCHANGED since cycle 27. No merges, no promotion pass, contract untouched at 58 VERIFIED of 136.",
+  "laneNumberingResolved_C29": {
+    "_closes": "The thread I opened at cycle 24 ('the fleet has outgrown my model') and half-corrected at cycle 25 ('it was superseded by an owner authorization'). It is now fully resolved in the canonical record, not in mine.",
+    "what": "#954 merged (main 31724a8d4) carrying commit 6f1556e86, 'docs(governance): Lane 8, not Lane 7'. docs/EXECUTION_PLAN.md §0 now charters the source-acquisition / cross-position-bridge lane as LANE 8 and states why 7 is not a gap.",
+    "theTextThatMattersToThisRecord": "EXECUTION_PLAN.md:55-59 — 'Lane 7 is **not** missing from this list: `docs/claude-dispatch/LANE_STATUS.json` and `ASSIGNMENTS.json` already assign **Claude 7 the Lane Dispatcher role** (\"owned by Claude 7 (Lane Dispatcher)\"; \"Claude 7 does not merge, does not implement\"). This lane was briefly mislabelled Lane 7 on 2026-08-20 and the owner corrected it the same day.'",
+    "consequence": "These dispatch records are now CITED BY the canonical execution record as the definition of Lane 7. That raises the cost of drift in this file: it is no longer only my own bookkeeping. The v1DerivedObservation guard rails matter more, not less — and the same discipline now applies to lane identity, which is a thing I do own here.",
+    "laneModelNow": "Lanes 1-6 product, Lane 7 dispatcher (this record), Lane 8 source acquisition / cross-position bridge. C-Series campaign lanes (Claude 9 and the C5 branches) run under the #963 authorization. My six-lane model was not wrong; it was incomplete, and the gap is now closed by the owner rather than by me."
+  },
+  "cycle29Transitions": {
+    "mainTip": "31724a8d4 (was daf3c981e)",
+    "merged": "#954 — Lane 8 PR A, merge 31724a8d4. Branch claude/cross-position-bridge-v1 deleted on merge.",
+    "v1Effect": "NONE. Row-diffed §3: no row changed. 58 VERIFIED of 136, and the contract's own table and completion line agree with my independent count.",
+    "andThatIsBYCHARTER": "Lane 8's charter states it 'does not add rows to VERSION_1_COMPLETION_CONTRACT.md §3' and 'marks nothing VERIFIED'. A merge that moves no row is this lane behaving exactly as chartered — the first time this session a zero-row merge has been the DESIGNED outcome rather than verification lagging implementation.",
+    "promotionPassRan": "NO. None since #963.",
     "myOwnPr": {
       "pr": "#945",
-      "head": "01cdc43ed",
-      "verdict": "Validate PR SUCCESS, job 96393703573, completed 10:38:35Z",
-      "note": "First completed verdict since cycle 22."
+      "head": "c270806dc",
+      "verdict": "Validate PR SUCCESS, job 96403117027, 11:03:16Z -> 11:20:27Z",
+      "runDuration": "17 minutes 11 seconds — LONGER than the 13m53s measured last cycle.",
+      "whyThatMatters": "The 20+ minute interval is not comfortably clear of the validation time; it is barely clear of it. An 11-minute cadence would have cancelled this run with six minutes to spare. Rule (m) holds, and the margin is thinner than the first measurement suggested."
     },
-    "newIntegrationBranch": {
-      "ref": "claude/integration-sweep-1048",
-      "head": "09a9322ef",
-      "subject": "'#958 closed by production evidence; #948 suppression holds at 3h'",
-      "readingForThisQueue": "Integration is doing PRODUCTION-EVIDENCE closure work again — the same instrument class that the Lane 4 on-box batch (V1-57 / V1-129 / V1-60) has been waiting on for eighteen hours. Reported, not assigned."
-    },
-    "campaignLaneActivity": "claude/cross-position-bridge-v1 -> 8fba3a9a5 and claude/cseries-seasonal-intelligence-efz837 -> 283ddef16. Authorized lanes, moving normally."
+    "newBranches": [
+      "claude/c5-proj-a-source-census",
+      "claude/c5-war-01-deterministic-core",
+      "claude/cseries-premium-public-closure",
+      "claude/cseries-trade-decision-mrwj7r moved to 08c89e1f3"
+    ]
   }
 }
