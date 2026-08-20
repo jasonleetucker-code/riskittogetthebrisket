@@ -461,12 +461,20 @@ def _score_state(
     if not active_weights:
         for oid in owner_ids:
             i = inputs[oid]
+            # Record is a FACT (wins/losses), independent of whether a
+            # weighted score can be computed -- refusing to rank a team
+            # does not mean refusing to say how many games it has won.
+            # Same field, same source, as the normal-path rows below.
+            career = state["career"].get(oid, _EMPTY_CAREER)
+            career_wins = round(career["wins"])
+            career_games = career["games"]
             unrankable.append(
                 {
                     "ownerId": oid,
                     "displayName": _metrics.display_name_for(snapshot, oid),
                     "powerScore": None,
                     "rank": None,
+                    "record": f"{career_wins}-{career_games - career_wins}",
                     "components": {
                         "ppg": round(_percentile(ppg_values, i["ppg"]), 4),
                         "recent": round(_percentile(recent_values, i["recent"]), 4),
@@ -513,11 +521,24 @@ def _score_state(
         # numeric IDs in the OWNER column.  The canonical helper lives
         # at module scope in ``src.public_league.metrics``; use it
         # consistently with the rest of the public-league pipeline.
+        # Career wins/losses -- the SAME accumulator power.py's own
+        # "record" field reads (an actual-share tally across every
+        # historical week, not the current season's Sleeper-stored
+        # W-L), computed here rather than re-derived: ``state["career"]``
+        # already carries it for every owner this loop already visits.
+        # Additive only -- exposing what this engine already builds, not
+        # a second computation of a quantity power.py owns today.
+        career = state["career"].get(oid, _EMPTY_CAREER)
+        career_wins = round(career["wins"])
+        career_games = career["games"]
+        record = f"{career_wins}-{career_games - career_wins}"
+
         rankings.append(
             {
                 "ownerId": oid,
                 "displayName": _metrics.display_name_for(snapshot, oid),
                 "powerScore": score,
+                "record": record,
                 "components": {k: round(v, 4) for k, v in components.items()},
                 "rosStrengthPercentile": (
                     round(ros_strength_pct, 4) if ros_strength_pct is not None else None
@@ -706,6 +727,17 @@ def build_section(
         preseason=preseason,
         results_only=results_only,
     )
+
+    # ``teamName`` only for the HEADLINE rows -- a lookup per owner, once,
+    # not per trend week (56+ weeks x 12 owners of unused lookups for a
+    # field the trend series has no use for).  Same source power.py reads
+    # (``_roster_id_for_owner`` -> ``_metrics.team_name``), because a team
+    # name is not this engine's concept to redefine -- it is looked up,
+    # never derived from anything power-ranking-specific.
+    league_id = seasons_sorted[-1].league_id if seasons_sorted else None
+    for row in rankings:
+        rid = luck._roster_id_for_owner(registry, league_id, row["ownerId"]) if league_id else None
+        row["teamName"] = _metrics.team_name(snapshot, league_id, rid) if league_id else None
 
     # ── The trend series ────────────────────────────────────────────
     #

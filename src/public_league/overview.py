@@ -239,6 +239,19 @@ def _most_decorated_franchise(history_section: dict[str, Any]) -> dict[str, Any]
 
 # ── v2 home callouts (from specialized sections) ────────────────────────
 def _current_power_leader(power_section: dict[str, Any]) -> dict[str, Any] | None:
+    """The landing-card headline, sourced from the CANONICAL power engine
+    (``src.ros.power_v2``), not the legacy ``public_league/power.py`` this
+    used to read (V1-52 item D).
+
+    ``weekRankDelta`` is deliberately absent from ``power_v2``'s rows,
+    never present-but-zero: no per-week ROS-strength history exists to
+    diff the forward-looking headline against last week's, so there is
+    no observation to report.  Read with NO default -- ``.get(..., 0)``
+    would republish MISSING as a fabricated "unchanged", which is
+    exactly the value a real unchanged rank also produces.  A prior
+    version of this function (reading the legacy engine) had this exact
+    defect; not carrying it forward.
+    """
     ranking = power_section.get("currentRanking") or []
     if not ranking:
         return None
@@ -247,9 +260,9 @@ def _current_power_leader(power_section: dict[str, Any]) -> dict[str, Any] | Non
         "ownerId": head.get("ownerId"),
         "displayName": head.get("displayName"),
         "teamName": head.get("teamName"),
-        "power": head.get("power"),
+        "power": head.get("powerScore"),
         "record": head.get("record"),
-        "weekRankDelta": head.get("weekRankDelta", 0),
+        "weekRankDelta": head.get("weekRankDelta"),
     }
 
 
