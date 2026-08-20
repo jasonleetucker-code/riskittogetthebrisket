@@ -1320,6 +1320,30 @@ Rules for new code:
   deciding a factual question, which W18-F001 forbids, on an axis that
   hard-excludes.
 
+  **The TARGET league's TEP is a FACT, read from its scoring card**
+  (2026-08-19).  It used to be inferred from the ``scoringProfile``
+  LABEL — the thing §4.10 above says may never decide a factual
+  question — and the label is measurably wrong here: ``dynasty_main``
+  carries ``superflex_tep15_ppr1`` while its 2026 card grants TEs no
+  premium at all (``bonus_rec_te 0.0`` / ``bonus_fd_te 1.0``, measured
+  ×1.000 against WR by the golden-validated scorer; the LI-7 / ADR-009
+  correction).  So the crowd market matched this league against
+  external TE-premium leagues and excluded the ones that actually
+  match it.  The rule is now
+  ``te_premium.measure_te_demand(None, card).has_scoring_edge`` —
+  reusing the canonical TE-demand owner, roster half withheld because
+  ``is_2te`` already carries it as a separate soft signal — gated on
+  ``scoring_evidence_state(cfg) == "fresh"``.  Anything else is
+  **UNKNOWN**, which hard-excludes rather than becoming "no premium",
+  and ``crowd_refusal_reason`` answers
+  ``target_format_unverifiable:<fields>`` AHEAD of the freshness
+  checks so an unprovable target cannot read as an absent feed.
+  TEP **severity** stays dormant: ``tep_level`` is ``None`` by
+  construction, because KTC's 4-level vendor taxonomy and our
+  continuous per-key scoring edge have no measured crosswalk, and
+  inventing one to make the ``tep_severity_gap`` branch execute is
+  exactly the class of error this lane exists to prevent.
+
   **The population is offense-only, and that is enforced.**  Across
   all 200 rows the starting slots are exactly QB/RB/WR/TE/PK/Def —
   ``Def`` is a team D/ST and NO league in the feed starts an

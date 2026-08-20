@@ -97,7 +97,7 @@ a match.
 | `superflex_mismatch` / `superflex_unknown` | `qBs ≥ 2` vs the target | the single biggest driver of QB waiver demand |
 | `tep_mismatch` / `tep_unknown` | `tep > 0` vs the target | TE premium on/off |
 | `team_count_mismatch` / `team_count_unknown` | outside ±`teamCountTolerance` | how many rivals split the same finite pool |
-| `target_format_unknown:<field>` | the **target** league's own registry entry does not state `superflex`, `tep` or `teams` | comparability is measured *against* the target — see below |
+| `target_format_unknown:<field>` | the target league could not prove `superflex`, `tep` or `teams` — for `tep` that means no **fresh** scoring card | comparability is measured *against* the target — see below |
 
 The gate is **symmetric about the target**: a 1QB target excludes superflex
 evidence, not the other way round. Comparator relevance is derived from the
@@ -122,10 +122,57 @@ demotes a tier (`two_te_unknown`) rather than excluding — unknown must not pas
 as a match, but a TE-starter count is not worth discarding an otherwise
 comparable league over.
 
-One nuance on TEP: it is a **scoring** property, so a scoring-profile label
-containing `tep` settles it on its own even when the starter block is missing.
-Without such a label, the 2-TE requirement is the only signal available, so an
-unknown starter block leaves TEP unknown rather than false.
+### TEP is a FACT, read from the scoring card — never from a label
+
+**Corrected 2026-08-19.** This section used to say a scoring-profile label
+containing `tep` "settles it on its own". It settles nothing. A label is a
+hand-authored string in `config/leagues/registry.json`; `MASTER_PRODUCT_PLAN`
+§4.10 is explicit that it may decide model/config identity and never a factual
+question. Both live leagues carry `superflex_tep15_ppr1` while differing on 35
+of 48 scoring keys.
+
+It was not a theoretical risk. `dynasty_main`'s 2026 scoring grants tight ends
+**no premium at all** — `bonus_rec_te 0.0`, `bonus_fd_te 1.0`, identical to WR
+— proven by running one receiving line through the golden-validated
+deterministic scorer (TE 21.55 vs WR 21.55, ×1.000; the LI-7 / ADR-009
+correction recorded in `src/api/data_contract.py`). The commissioner removed
+the premium; the label did not change. So the crowd market matched this league
+against external TE-premium leagues, and excluded the ones that actually match
+its scoring, on a premium it does not grant.
+
+The rule now:
+
+| evidence | `TargetFormat.tep` |
+|---|---|
+| a **fresh** scoring card whose TE keys beat their WR/RB counterparts | `True` |
+| a **fresh** card where they do not | `False` |
+| a `stale` / `missing` card, or none at all | `None` — UNKNOWN |
+
+Freshness is `league_registry.scoring_evidence_state`, unchanged and not a new
+budget: a card proves when it was taken, not that it is still true, and a card
+from a different NFL season is wrong however recently it was fetched.
+
+The measurement itself reuses the canonical owner,
+`league_intel.te_premium.measure_te_demand`, which compares each TE-specific
+bonus against its WR/RB counterpart — so a league paying *every* pass-catcher a
+first-down bonus is correctly not a TE-premium league. Reading `bonus_rec_te`
+alone here would be a second owner and would miss `bonus_fd_te`, which was half
+of this league's measured 2025 premium.
+
+The roster half is deliberately withheld from that call: `is_2te` already
+carries the mandatory-TE-starter requirement as its own **soft** signal, so
+feeding it in again would count one fact twice — once hard, once soft.
+
+**UNKNOWN does not become non-TEP.** `tep is None` hard-excludes on
+`target_format_unknown:tep`, so an unprovable target admits nothing rather than
+quietly comparing itself against offense-scoring leagues.
+
+**And an unprovable target says so.** `CrowdMarket` carries
+`targetFormatUnknown`, and `crowd_refusal_reason` answers
+`target_format_unverifiable:<fields>` **ahead of** the freshness checks. When
+the target cannot be described, no row is admissible whatever the ledger's age
+— so reporting `no_crowd_ledger` would send the reader to the feed when the fix
+is a registry entry or a scoring card nobody fetched.
 
 ### The parse-failure guard
 
@@ -143,14 +190,15 @@ Among the survivors, soft mismatches demote a tier and **change no number**:
 
 | tier | meaning |
 |---|---|
-| A | no soft mismatch — same 2-TE setting, same TEP severity band, exact team count |
+| A | no soft mismatch — same 2-TE setting, exact team count (severity is dormant, see §10.5) |
 | B | one soft mismatch |
 | C | two or more |
 | `unverified` | a row persisted before the format evidence was captured (see §7) |
 
-Soft mismatch reasons: `two_te_mismatch`, `two_te_unknown`, `tep_severity_gap`
-(|Δ`tep`| ≥ 2, only measurable when the target's own level is known), and
-`team_count_offset`.
+Soft mismatch reasons: `two_te_mismatch`, `two_te_unknown`, `team_count_offset`
+— and `tep_severity_gap` (|Δ`tep`| ≥ 2), which is **dormant and unreachable in
+production** because the target never states a level. §10.5 says why, and what
+evidence would change it.
 
 **Why no weights.** The owner spec is explicit: *"Do not invent final numeric
 weights merely from these labels. Validate them empirically against Brisket
@@ -290,12 +338,31 @@ No UI consumes this yet; that is the UI lane's call.
    2026-08-19) — they lack `originalBudget` and `rostersPerPlayer`, both
    required. Expect `crowdMarket.state: "missing"` from deploy until the
    fetcher re-accumulates; the ledger does not self-heal.
-5. **TEP severity is carried but rarely actionable** — `TargetFormat.tep_level`
-   is `None` for our leagues because our registry records TEP through the
-   scoring-profile label rather than a KTC-style 0-3 level. The gap check is
-   therefore dormant for Brisket and only fires for a target whose level is
-   known. Recording the level anyway means the evidence is there when a
-   scoring-derived level lands.
+5. **TEP severity is DORMANT, and stays dormant.** `TargetFormat.tep_level` is
+   `None` *by construction*, so `tep_severity_gap` and its
+   `ComparabilityPolicy.tep_severity_gap` threshold cannot fire in production.
+   That is deliberate, not an omission waiting to be filled in.
+
+   The two sides speak different languages. KTC states a 4-level **vendor
+   taxonomy** (`tepLevel` 0-3 — its Off / TE+ / TE++ / TE+++ settings, which
+   `CLAUDE.md` records as "same-source calibration states of one provider").
+   Our side has a **continuous** per-key scoring edge in points. No published
+   crosswalk exists and this repo has measured none.
+
+   `te_premium._REQUIRED_TE_TO_BASIS` maps TE starters onto the same 4-level
+   vocabulary and is the obvious candidate — but it carries its own provenance
+   note saying it encodes an operator-supplied assumption this repo did **not**
+   measure. Promoting an assumption into a comparability gate so that a branch
+   executes would be inventing methodology to satisfy a table.
+
+   **What would authorize it:** external leagues observed with *both* a stated
+   `tepLevel` and a readable scoring card, in enough numbers to **fit** the
+   mapping rather than assume it. The feed states the level and never the card,
+   so that evidence does not exist today.
+
+   Until then severity is UNKNOWN, and unknown is silent: it does not become a
+   severity of zero, and it does not make a league non-TEP — `tep` is answered
+   independently and its own unknown hard-excludes.
 6. **Sample size per player stays small** (often 1-6 claims), which the
    `crowdBlendWeight` of 0.6 already accounts for; this change makes the sample
    *cleaner*, not larger.

@@ -467,6 +467,13 @@ class CrowdMarket:
     excluded_counts: dict[str, int] = field(default_factory=dict)
     prices_idp: bool = False
     target_budget: float | None = None
+    target_unknown: tuple[str, ...] = ()
+    """Required target settings this league could not prove.
+
+    Non-empty means every row was inadmissible for a reason on OUR side, not
+    the feed's — reported separately because "no crowd evidence" and "we cannot
+    describe our own league" have different fixes.
+    """
 
     @property
     def usable(self) -> bool:
@@ -483,6 +490,7 @@ class CrowdMarket:
             "excludedCounts": dict(sorted(self.excluded_counts.items())),
             "pricesIdp": self.prices_idp,
             "pricedPlayers": len(self.index),
+            "targetFormatUnknown": list(self.target_unknown),
             # Dynasty status of this feed is asserted by the SOURCE, not
             # verified per league — recorded so a consumer can see which kind
             # of evidence it holds (owner spec section 5).
@@ -534,6 +542,7 @@ def build_crowd_market(
     pol = policy or _comparability.ComparabilityPolicy()
     market = CrowdMarket(
         target_budget=(target.original_budget if target else None),
+        target_unknown=_comparability.unprovable_target_fields(target),
     )
     if not isinstance(payload, dict):
         return market
@@ -667,6 +676,13 @@ def crowd_refusal_reason(market: CrowdMarket, position: str | None = None) -> st
     """
     if not isinstance(market, CrowdMarket):
         return "market_unavailable"
+    if market.target_unknown:
+        # Ahead of the state checks on purpose.  When the target cannot be
+        # described, no row is admissible whatever the ledger's age, so
+        # freshness is moot and reporting "no ledger" would send the reader to
+        # the wrong place -- the fix is a registry entry or a scoring card
+        # nobody fetched, not the feed.
+        return "target_format_unverifiable:" + ",".join(market.target_unknown)
     if market.state == "missing":
         return "no_crowd_ledger"
     if market.state == "stale":

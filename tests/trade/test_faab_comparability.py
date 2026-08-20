@@ -279,7 +279,8 @@ class TestTargetFormat:
         target = FC.TargetFormat.from_roster_settings(
             {"teamCount": 10, "starters": {"QB": 1, "TE": 1, "SFLEX": 1}},
             league_key="other",
-            scoring_profile="superflex_ppr1",
+            scoring_settings={"rec": 1.0, "bonus_rec_te": 0.0},
+            scoring_evidence="fresh",
             idp_enabled=False,
         )
         assert (target.teams, target.superflex, target.is_2te, target.tep, target.idp) == (
@@ -305,16 +306,20 @@ class TestTargetFormat:
         target = FC.TargetFormat.from_roster_settings(
             entry["rosterSettings"],
             league_key=entry["key"],
-            scoring_profile=entry["scoringProfile"],
             idp_enabled=entry["idpEnabled"],
         )
-        assert (target.teams, target.superflex, target.is_2te, target.tep, target.idp) == (
+        # Roster facts come straight from the shipped JSON...
+        assert (target.teams, target.superflex, target.is_2te, target.idp) == (
             12,
             True,
             True,
             True,
-            True,
         )
+        # ...but TEP is a SCORING fact and the registry entry does not carry
+        # one, so it is unknown here.  It used to read ``True`` off the
+        # ``superflex_tep15_ppr1`` LABEL, which is measurably wrong for this
+        # league: its 2026 card grants TEs no premium at all.
+        assert target.tep is None
 
     def test_an_unresolvable_league_degrades_rather_than_raising(self):
         """A registry that cannot answer must not take the waiver page down —
@@ -336,16 +341,125 @@ class TestTargetFormat:
             None,
         )
 
-    def test_a_tep_profile_label_is_positive_evidence_on_its_own(self):
-        """TEP is a SCORING property.  A profile that says so settles it even
-        when the starter block is missing; without one, an unknown starter
-        block leaves TEP unknown rather than false."""
-        labelled = FC.TargetFormat.from_roster_settings(
-            {"teamCount": 12}, scoring_profile="superflex_tep15_ppr1"
+
+class TestTepIsAFactNotALabel:
+    """TEP is decided by the league's ACTUAL scoring card.
+
+    The scoring-profile label decides nothing here.  Both live leagues carry
+    ``superflex_tep15_ppr1`` while differing on 35 of 48 scoring keys, and
+    ``dynasty_main``'s 2026 card grants TEs no premium at all
+    (``bonus_rec_te 0.0`` / ``bonus_fd_te 1.0``, measured ×1.000 against WR by
+    the golden-validated scorer — the LI-7 / ADR-009 correction).  The label
+    said TEP anyway, so the crowd market matched this league against external
+    TE-premium leagues on a premium the commissioner had removed.
+    """
+
+    @staticmethod
+    def _target(scoring, evidence="fresh"):
+        return FC.TargetFormat.from_roster_settings(
+            {"teamCount": 12, "starters": {"QB": 1, "TE": 2, "SFLEX": 1}},
+            league_key="t",
+            scoring_settings=scoring,
+            scoring_evidence=evidence,
         )
-        assert labelled.tep is True and labelled.is_2te is None
-        unlabelled = FC.TargetFormat.from_roster_settings({"teamCount": 12})
-        assert unlabelled.tep is None
+
+    def test_a_real_te_bonus_proves_tep(self):
+        assert self._target({"rec": 1.0, "bonus_rec_te": 0.5}).tep is True
+
+    def test_a_first_down_te_bonus_also_proves_tep(self):
+        """``bonus_rec_te`` alone is not the rule.  ``bonus_fd_te`` was half of
+        this league's measured 2025 premium, so a rule reading only receptions
+        would call a first-down-premium league non-TEP."""
+        assert self._target({"bonus_fd_te": 1.35, "bonus_fd_wr": 1.0}).tep is True
+
+    def test_a_bonus_every_pass_catcher_receives_is_not_a_te_premium(self):
+        """Reusing ``te_premium.measure_te_demand`` buys this for free: each TE
+        key is compared against its WR/RB counterpart, so a league-wide
+        first-down bonus advantages nobody."""
+        assert self._target({"bonus_fd_te": 1.0, "bonus_fd_wr": 1.0}).tep is False
+
+    def test_a_card_with_no_te_premium_is_false_not_unknown(self):
+        """``dynasty_main``'s real 2026 shape.  A proven absence is an answer.
+
+        Both first-down bonuses are present and EQUAL, which is the measured
+        2026 card ("``bonus_fd_te 1.0`` ... identical to WR").  An absent WR
+        comparator would be a different league and a genuine TE edge.
+        """
+        card = {"rec": 1.0, "bonus_rec_te": 0.0, "bonus_fd_te": 1.0, "bonus_fd_wr": 1.0}
+        assert self._target(card).tep is False
+
+    def test_two_mandatory_te_starters_do_not_make_the_scoring_a_premium(self):
+        """The roster requirement is carried separately as ``is_2te``.
+
+        Letting it also decide ``tep`` would count one fact twice — once as a
+        hard gate and once as a soft demotion — which is why the roster half is
+        withheld from ``measure_te_demand`` here.
+        """
+        target = self._target({"rec": 1.0, "bonus_rec_te": 0.0})
+        assert target.is_2te is True
+        assert target.tep is False
+
+    @pytest.mark.parametrize("evidence", ["stale", "missing", "", "unknown"])
+    def test_unproven_scoring_is_unknown_never_non_tep(self, evidence):
+        """A card proves when it was taken, not that it is still true.  Only
+        ``fresh`` authorizes the claim; everything else is UNKNOWN — and
+        UNKNOWN must not silently become "no TE premium"."""
+        assert self._target({"bonus_rec_te": 0.5}, evidence=evidence).tep is None
+
+    def test_no_card_at_all_is_unknown(self):
+        assert self._target(None).tep is None
+        assert self._target({}).tep is None
+
+    def test_a_caller_that_supplies_nothing_fails_closed(self):
+        """The defaults are "we were told nothing", so a call site that forgets
+        to pass the card cannot accidentally assert a format."""
+        assert FC.TargetFormat.from_roster_settings({"teamCount": 12}).tep is None
+
+    def test_unknown_tep_excludes_every_external_league(self):
+        """UNKNOWN does not become non-TEP, and it does not pass as a match.
+
+        ``classify`` hard-excludes on ``target_format_unknown:tep``, so an
+        unprovable target admits nothing rather than quietly comparing itself
+        against offense-scoring leagues.
+        """
+        target = self._target({"bonus_rec_te": 0.5}, evidence="stale")
+        verdict = FC.classify(_fmt(tep_level=2), target)
+        assert verdict.excluded
+        assert "target_format_unknown:tep" in verdict.reasons
+
+
+class TestTepSeverityIsDormant:
+    """Severity is UNKNOWN, and unknown is silent.
+
+    KTC states a 4-level vendor taxonomy (``tepLevel`` 0-3); our side has a
+    continuous per-key scoring edge in points.  No published crosswalk exists
+    and this repo has measured none, so mapping one onto the other would be
+    invented methodology existing only to make a branch execute.
+    """
+
+    def test_the_target_never_claims_a_severity(self):
+        target = FC.TargetFormat.from_roster_settings(
+            {"teamCount": 12, "starters": {"TE": 3, "SFLEX": 1}},
+            scoring_settings={"bonus_rec_te": 2.0},
+            scoring_evidence="fresh",
+        )
+        # A big TE bonus and three mandatory TE starters still yields no level.
+        assert target.tep is True
+        assert target.tep_level is None
+
+    def test_the_severity_branch_cannot_fire_and_changes_no_tier(self):
+        """Dormant means the soft reason is never emitted, not that it is
+        emitted as zero."""
+        target = FC.TargetFormat.from_roster_settings(
+            {"teamCount": 12, "starters": {"TE": 2, "SFLEX": 1}},
+            scoring_settings={"bonus_rec_te": 0.5},
+            scoring_evidence="fresh",
+        )
+        # tepLevel 3 vs an unknown target level: the widest gap the feed can
+        # state, against a target that states none.
+        verdict = FC.classify(_fmt(tep_level=3, is_2te=True), target)
+        assert not verdict.excluded
+        assert "tep_severity_gap" not in verdict.reasons
 
 
 class TestAnUnknownTargetFailsClosed:

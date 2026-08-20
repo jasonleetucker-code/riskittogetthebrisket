@@ -108,7 +108,14 @@ def aggregate_person_consensus(
             "mixedPersonSignals": mixed,
             "weightedPersonNet": round(weighted_net, 6),
             "weightedPersonVolume": round(weighted_volume, 6),
-            "personManagerQuality": quality_total / voters if voters else 1.0,
+            # UNKNOWN, NOT PERFECT.  ``else 1.0`` answered "how good are the
+            # managers behind this signal?" with the HIGHEST possible score
+            # exactly when nobody qualified to answer it.  Reachable whenever
+            # every person who touched the asset both added and dropped it in
+            # the window: the row is still emitted, with ``personVotes: 0``
+            # and ``mixedPersonSignals > 0``.  A measured 0.0 is a different
+            # statement and still reports as 0.0.
+            "personManagerQuality": quality_total / voters if voters else None,
             "networkCount": len(network_vote_abs),
             "networkConcentration": (None if concentration is None else round(concentration, 4)),
             "personAgreement": (max(buys, sells) / voters if voters else None),

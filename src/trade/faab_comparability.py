@@ -260,6 +260,90 @@ def source_format_from_settings(settings: Any) -> SourceFormat:
     )
 
 
+#: Evidence states from ``league_registry.scoring_evidence_state`` that PROVE a
+#: league's current scoring.  Only ``fresh`` does: a card proves when it was
+#: taken, not that it is still true, and a card from a different NFL season is
+#: wrong however recently it was fetched.  Same rule the scoring-fingerprint
+#: gate already applies — not a second budget.
+_SCORING_EVIDENCE_PROVES_CURRENT = ("fresh",)
+
+
+def _tep_from_scoring(scoring: dict[str, Any] | None, evidence: str) -> bool | None:
+    """Does this league's ACTUAL scoring grant tight ends a premium?
+
+    ``None`` when it cannot be proven — and that is a real, common answer, not
+    a corner case.
+
+    Why not the scoring-profile label
+    ─────────────────────────────────
+    This used to be ``"tep" in scoring_profile``.  A label is a hand-authored
+    string in ``config/leagues/registry.json`` and settles nothing about
+    scoring; ``MASTER_PRODUCT_PLAN`` §4.10 is explicit that it may decide
+    model/config identity and never a factual question.  Both live leagues
+    carry ``superflex_tep15_ppr1`` while differing on 35 of 48 scoring keys.
+
+    It was not a theoretical risk here.  ``dynasty_main``'s 2026 card grants
+    TEs **no** premium — ``bonus_rec_te 0.0``, ``bonus_fd_te 1.0``, identical
+    to WR — proven by running one receiving line through the golden-validated
+    deterministic scorer (TE 21.55 vs WR 21.55, ×1.000; see the LI-7 / ADR-009
+    correction in ``src/api/data_contract.py``).  The label said TEP, so the
+    crowd market matched this league against external TE-premium leagues and
+    excluded non-premium ones, on a premium the commissioner had removed.
+
+    The measurement reuses the canonical owner
+    ──────────────────────────────────────────
+    ``league_intel.te_premium.measure_te_demand`` already answers "does scoring
+    advantage TE", comparing each TE-specific bonus against its WR/RB
+    counterparts — so a league that pays *everyone* a first-down bonus is
+    correctly not a TE-premium league.  Reading ``bonus_rec_te`` alone here
+    would be a second owner AND would miss ``bonus_fd_te``, which is half of
+    the measured 2025 premium.
+
+    The roster half is deliberately withheld from it (``roster=None``).
+    ``measure_te_demand`` lets mandatory TE starters raise the basis, which is
+    right for valuation and wrong here: ``TargetFormat.is_2te`` already carries
+    the roster requirement as its own soft signal, so feeding it in as well
+    would count one fact twice — once hard, once soft.
+    """
+    if evidence not in _SCORING_EVIDENCE_PROVES_CURRENT:
+        return None
+    if not isinstance(scoring, dict) or not scoring:
+        return None
+    from src.league_intel.te_premium import measure_te_demand  # noqa: PLC0415
+
+    return measure_te_demand(None, scoring).has_scoring_edge
+
+
+# ── TEP SEVERITY IS DORMANT, AND STAYS DORMANT ─────────────────────
+#
+# ``ComparabilityPolicy.tep_severity_gap`` and the ``tep_severity_gap`` soft
+# reason exist and are unreachable in production: ``TargetFormat.tep_level`` is
+# ``None`` by construction, so the branch that needs BOTH levels never fires.
+# That is deliberate, and this note is here so the next reader does not "fix"
+# it by making one up.
+#
+# The two sides speak different languages.  KTC's waiver rows carry a 4-level
+# VENDOR TAXONOMY (``tepLevel`` 0-3, its Off / TE+ / TE++ / TE+++ settings,
+# which CLAUDE.md records as "same-source calibration states of one provider").
+# Our side has a CONTINUOUS per-key scoring edge in points.  There is no
+# published crosswalk between them, and this repo has measured none.
+#
+# ``te_premium._REQUIRED_TE_TO_BASIS`` maps TE starters onto the same 4-level
+# vocabulary and is the obvious candidate — but it carries its own provenance
+# note saying it encodes an operator-supplied assumption this repo did not
+# measure.  Promoting an assumption into a comparability gate, so that a branch
+# executes, would be inventing methodology to satisfy a table.
+#
+# WHAT WOULD AUTHORIZE IT: external leagues observed with BOTH a stated
+# ``tepLevel`` and a readable scoring card, enough of them to FIT the mapping
+# rather than assume it.  The feed states the level and never the card, so the
+# evidence does not exist today.
+#
+# Until then: severity is UNKNOWN, and unknown is silent.  It does not become a
+# severity of zero, and it does not make a league non-TEP — ``tep`` above is
+# answered independently, and its own unknown hard-excludes.
+
+
 @dataclass(frozen=True)
 class TargetFormat:
     """The league we are trying to price a waiver claim FOR.
@@ -292,10 +376,19 @@ class TargetFormat:
         settings: dict[str, Any] | None,
         *,
         league_key: str = "",
-        scoring_profile: str = "",
+        scoring_settings: dict[str, Any] | None = None,
+        scoring_evidence: str = "missing",
         idp_enabled: bool | None = None,
         original_budget: float | None = None,
     ) -> "TargetFormat":
+        """Build the comparator from the league's own FACTS.
+
+        ``scoring_settings`` is the league's real Sleeper scoring card and
+        ``scoring_evidence`` is ``league_registry.scoring_evidence_state``'s
+        verdict on it.  Both default to "we were told nothing", so a caller
+        that forgets them gets ``tep=None`` and fails closed rather than a
+        confident guess.
+        """
         settings = settings or {}
         starters = settings.get("starters")
         starters = starters if isinstance(starters, dict) and starters else None
@@ -308,19 +401,7 @@ class TargetFormat:
         else:
             superflex = bool(starters.get("SFLEX") or starters.get("SUPER_FLEX"))
 
-        # TEP is a SCORING property, read from the scoring-profile label; the
-        # starter block only says how many TEs must START.  Both are kept
-        # because §7 names them separately ("TE premium AND two mandatory TE
-        # starters").  A profile label that says "tep" is positive evidence on
-        # its own; without one, the 2-TE requirement is the only signal, so an
-        # unknown starter block leaves TEP unknown rather than false.
-        profile_says_tep = "tep" in str(scoring_profile or "").lower()
-        if profile_says_tep:
-            tep = True
-        elif is_2te is None:
-            tep = None
-        else:
-            tep = is_2te
+        tep = _tep_from_scoring(scoring_settings, scoring_evidence)
 
         if idp_enabled is not None:
             idp: bool | None = bool(idp_enabled)
@@ -334,6 +415,7 @@ class TargetFormat:
             superflex=superflex,
             tep=tep,
             is_2te=is_2te,
+            # SEVERITY IS DORMANT BY CONSTRUCTION — see ``_tep_from_scoring``.
             tep_level=None,
             idp=idp,
             original_budget=original_budget,
@@ -341,17 +423,40 @@ class TargetFormat:
         )
 
     @classmethod
+    def from_league_config(
+        cls,
+        cfg: Any,
+        *,
+        roster_settings: dict[str, Any] | None = None,
+        original_budget: float | None = None,
+    ) -> "TargetFormat":
+        """Build from a ``LeagueConfig``, reading that league's real scoring.
+
+        The ONE place the registry lookups live, so no caller has to remember
+        that TEP comes from the card and not from the profile label.
+        """
+        from src.api import league_registry  # noqa: PLC0415 — optional at import time
+
+        if cfg is None:
+            return cls()
+        key = str(getattr(cfg, "key", "") or "")
+        if roster_settings is None:
+            roster_settings = league_registry.get_league_roster_settings(key)
+        return cls.from_roster_settings(
+            roster_settings or {},
+            league_key=key,
+            scoring_settings=league_registry.scoring_settings_for_league(cfg),
+            scoring_evidence=league_registry.scoring_evidence_state(cfg),
+            idp_enabled=getattr(cfg, "idp_enabled", None),
+            original_budget=original_budget,
+        )
+
+    @classmethod
     def from_registry(cls, league_key: str) -> "TargetFormat":
         """Read the target league out of the canonical registry."""
         from src.api import league_registry  # noqa: PLC0415 — optional at import time
 
-        cfg = league_registry.get_league_by_key(league_key)
-        return cls.from_roster_settings(
-            league_registry.get_league_roster_settings(league_key),
-            league_key=league_key,
-            scoring_profile=getattr(cfg, "scoring_profile", "") or "",
-            idp_enabled=getattr(cfg, "idp_enabled", None),
-        )
+        return cls.from_league_config(league_registry.get_league_by_key(league_key))
 
 
 # ── Policy ─────────────────────────────────────────────────────────
@@ -424,6 +529,27 @@ class Comparability:
         return {"tier": self.tier, "excluded": self.excluded, "reasons": list(self.reasons)}
 
 
+#: Target settings that MUST be proven before any external league can be
+#: matched against it.  One definition, so the census, the refusal reason and
+#: the gate itself cannot drift apart.
+REQUIRED_TARGET_FIELDS: tuple[str, ...] = ("superflex", "tep", "teams")
+
+
+def unprovable_target_fields(target: TargetFormat | None) -> tuple[str, ...]:
+    """Which required target settings this league could not prove.
+
+    Non-empty means EVERY external row is inadmissible — which a consumer must
+    be able to say out loud.  "We hold no crowd evidence" and "we cannot
+    describe our own league well enough to judge any" are different failures
+    with different fixes, and reporting them identically sends the reader
+    looking at the feed when the answer is in the registry or in a scoring card
+    that was never fetched.
+    """
+    if target is None:
+        return REQUIRED_TARGET_FIELDS
+    return tuple(name for name in REQUIRED_TARGET_FIELDS if getattr(target, name, None) is None)
+
+
 def classify(
     source: SourceFormat,
     target: TargetFormat,
@@ -446,9 +572,8 @@ def classify(
     # Excluding here rather than defaulting is the whole reason
     # ``TargetFormat`` has no defaults: judging real external evidence
     # against an invented comparator is worse than judging it against none.
-    for field_name in ("superflex", "tep", "teams"):
-        if getattr(target, field_name) is None:
-            hard.append(f"target_format_unknown:{field_name}")
+    for field_name in unprovable_target_fields(target):
+        hard.append(f"target_format_unknown:{field_name}")
 
     # Budget — the denominator of every normalized share.
     if source.original_budget is None or source.original_budget <= 0:
