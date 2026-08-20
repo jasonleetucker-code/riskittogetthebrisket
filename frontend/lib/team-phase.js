@@ -96,12 +96,18 @@ export function analyzeLeaguePhases(ladder) {
   const partnerships = [];
   for (const w of winners) {
     for (const r of rebuilders) {
+      // An unmeasured value OR age must not silently become a real
+      // number in a complementarity SCORE that ranks recommendations —
+      // that is exactly the missing-is-never-zero violation the retired
+      // formula's own `|| 0` fallbacks used to commit. Skip the pairing
+      // rather than fabricate a gap.
       if (w.totalValue == null || r.totalValue == null) continue;
+      if (w.medianAge == null || r.medianAge == null) continue;
       // Score by complementarity: bigger value gap x bigger age gap =
       // better fit. Unchanged rule from the retired formula — only the
       // two inputs it reads are now canonical.
       const valueGap = w.totalValue - r.totalValue;
-      const ageGap = (r.medianAge ?? w.medianAge ?? 0) - (w.medianAge ?? 0);
+      const ageGap = r.medianAge - w.medianAge;
       const score = Math.max(0, valueGap) * Math.max(0, ageGap || 1);
       partnerships.push({
         winnerOwnerId: w.ownerId,

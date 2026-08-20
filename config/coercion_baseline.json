@@ -1,6 +1,6 @@
 {
  "note": "Known missing-data coercions on decision paths, recorded so the gate can block NEW ones while the remediation batches burn these down. Each batch deletes its findings' entries. Do not add to this file to make a build pass.",
- "count": 663,
+ "count": 661,
  "violations": [
   "frontend/lib/auction-power.js::const raw = names.map((n) => Number(totalsObj[n]) || 0);",
   "frontend/lib/bdvm.js::assetCount: _num(r?.assetCount) ?? 0,",
@@ -181,9 +181,7 @@
   "frontend/lib/signal-engine.js::c.volatility?.label === \"high\" && (c.trend7 ?? 0) <= -5,",
   "frontend/lib/signal-engine.js::return (b.context.value || 0) - (a.context.value || 0);",
   "frontend/lib/signal-engine.js::value: Number(row?.rankDerivedValue || row?.values?.full || 0),",
-  "frontend/lib/team-phase.js::const ageGap = (r.medianAge || 0) - (w.medianAge || 0);",
   "frontend/lib/team-phase.js::const score = Math.max(0, valueGap) * Math.max(0, ageGap || 1);",
-  "frontend/lib/team-phase.js::value: Number(r.rankDerivedValue || r.values?.full || 0),",
   "frontend/lib/trade-logic.js::.map((v) => Number(v) || 0)",
   "frontend/lib/trade-logic.js::const adjustment = adjustments[i] || 0;",
   "frontend/lib/trade-logic.js::const d = Number(mv.dollars) || 0;",
