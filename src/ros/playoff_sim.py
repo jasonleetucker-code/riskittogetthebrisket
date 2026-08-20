@@ -839,11 +839,14 @@ def simulate_playoff_odds(
                 sim_wins[owner_a] = sim_wins.get(owner_a, 0.0) + 0.5
                 sim_wins[owner_b] = sim_wins.get(owner_b, 0.0) + 0.5
 
-        # Sort: wins desc, PF tiebreak desc.
-        ranked = sorted(
-            owners,
-            key=lambda o: (-sim_wins.get(o, 0.0), -sim_pf.get(o, 0.0)),
-        )
+        # Standings order comes from the CANONICAL owner, not a local sort.
+        # This used to be a two-key ``sorted(owners, key=(-wins, -pf))``, and
+        # the third key was implicit: Python's sort is stable and ``owners``
+        # is ``sorted(distributions.keys())``, so exact ties resolved in
+        # ALPHABETICAL ownerId order.  Renaming an owner is not a football
+        # event.  ``rng`` is passed explicitly per W19-F008 — see the guard in
+        # tests/ros/test_standings_tiebreak.py.
+        ranked = playoff_odds.standings_from_sim(sim_wins, sim_pf, owners, rng=rng)
         for i, owner in enumerate(ranked):
             seed_counts[owner][i] += 1
             wins_total[owner] += sim_wins.get(owner, 0.0)

@@ -311,14 +311,14 @@ class TieHandling(unittest.TestCase):
         wins = {"loser": 0, "tier": 0}
         points = {"loser": 1000.0, "tier": 500.0}
         ties = {"loser": 0, "tier": 1}
-        ordered = playoff_odds._standings_from_sim(wins, points, ["loser", "tier"], ties=ties)
+        ordered = playoff_odds.standings_from_sim(wins, points, ["loser", "tier"], ties=ties)
         self.assertEqual(ordered, ["tier", "loser"])
 
     def test_standings_uses_pf_tiebreak_when_record_matches(self) -> None:
         wins = {"a": 5, "b": 5}
         points = {"a": 1500.0, "b": 1200.0}
         ties = {"a": 1, "b": 1}
-        ordered = playoff_odds._standings_from_sim(wins, points, ["a", "b"], ties=ties)
+        ordered = playoff_odds.standings_from_sim(wins, points, ["a", "b"], ties=ties)
         self.assertEqual(ordered, ["a", "b"])
 
     def test_record_counts_tied_matchup(self) -> None:
