@@ -1,39 +1,41 @@
 /**
  * team-phase — classify each team in the league as
- * Win-now / Contender / Mixed / Rebuild based on roster age × value.
+ * Win-now / Contender / Mixed / Rebuild from the canonical Team
+ * Strength + age-value portfolio owners.
  *
- * Methodology
- * -----------
- * For every team in ``rawData.sleeper.teams``:
- *   1. Look up rankDerivedValue + age for each rostered player.
- *   2. Compute median age and total value (top-25 players, or all if
- *      shorter).
- *   3. Score along two dimensions:
- *        - value vs the league median (above / below)
- *        - age vs the league median (younger / older)
+ * V1-31 audit finding F-3 (`docs/roster-intelligence/V1_35_METRIC_SEPARATION_AUDIT.md`):
+ * this module used to derive its own "how good is this team" number —
+ * a client-side top-25 `rankDerivedValue` sum plus a raw per-player age
+ * lookup — independently of `src/roster_intel/strength.py` (feature
+ * inventory row 1.1, THE canonical Team Strength owner). Two production
+ * surfaces disagreeing about "how strong is this roster" is exactly the
+ * defect V1-31 exists to remove.
  *
- * Phase classification
- * --------------------
- *   high value × younger  →  Win-now    ("you're built to win now and later")
- *   high value × older    →  Contender  ("you're built to win now")
- *   low value × younger   →  Rebuild    ("you're young and still climbing")
- *   low value × older     →  Mixed      ("you should probably reset")
+ * Retired: the top-25 value sum and the raw age lookup. Kept: the
+ * classification RULE itself (value vs. league median, age vs. league
+ * median → 4 quadrants) and the trade-partner complementarity scoring —
+ * neither is a "position weight" or a "weakness threshold" the owner
+ * has decided; they are a generic bucketing of two axes that now come
+ * from canonical sources:
  *
- * Trade-partner suggestion: a Win-now/Contender team is a natural
- * buyer of older star talent from a Rebuild team.  We surface the
- * three most-complementary pairs in the UI.
+ *   value  <- strengthTotal          (src/roster_intel/strength.py, meaningful core)
+ *   age    <- valueWeightedCoreAge   (src/roster_intel/age_portfolio.py)
  *
- * No I/O — pure function from the live contract.
+ * Both are already served, league-wide, by `GET /api/roster/intelligence`
+ * (`payload.leagueContext`, reshaped by `lib/roster-intelligence.js::teamStrengthLadder`)
+ * — no second backend call and no new backend field.
+ *
+ * No I/O here — pure function over the ladder `useRosterIntelligence`
+ * already fetched.
  */
 
-const TOP_N_FOR_VALUE = 25;
-
-export const PHASES = Object.freeze({
+const PHASES = Object.freeze({
   WIN_NOW: { key: "win_now", label: "Win-now", tone: "up", order: 0 },
   CONTENDER: { key: "contender", label: "Contender", tone: "up", order: 1 },
   MIXED: { key: "mixed", label: "Mixed", tone: "warn", order: 2 },
   REBUILD: { key: "rebuild", label: "Rebuild", tone: "down", order: 3 },
 });
+export { PHASES };
 
 function median(values) {
   const arr = (values || [])
@@ -44,44 +46,12 @@ function median(values) {
   return arr.length % 2 ? arr[mid] : (arr[mid - 1] + arr[mid]) / 2;
 }
 
-function buildIndex(rows) {
-  const ix = new Map();
-  for (const r of rows || []) {
-    if (!r?.name) continue;
-    ix.set(String(r.name).toLowerCase(), {
-      value: Number(r.rankDerivedValue || r.values?.full || 0),
-      age: Number(r.age) || null,
-    });
-  }
-  return ix;
-}
-
-function teamSnapshot(team, valueIndex) {
-  const players = Array.isArray(team?.players) ? team.players : [];
-  const lookup = players
-    .map((n) => valueIndex.get(String(n).toLowerCase()))
-    .filter((p) => p && p.value > 0);
-  // Sort by value desc, take top N for the "starter-equivalent" total.
-  const top = [...lookup].sort((a, b) => b.value - a.value).slice(0, TOP_N_FOR_VALUE);
-  const totalValue = top.reduce((s, p) => s + p.value, 0);
-  const ages = top.map((p) => p.age).filter((a) => Number.isFinite(a));
-  return {
-    name: team?.name || "Team",
-    ownerId: String(team?.ownerId || ""),
-    rosterId: String(team?.rosterId || ""),
-    totalValue: Math.round(totalValue),
-    medianAge: median(ages),
-    rosterCount: players.length,
-    valuedCount: top.length,
-  };
-}
-
 function classifyPhase(snapshot, leagueMedians) {
   const { totalValue, medianAge } = snapshot;
-  const isHighValue = leagueMedians.value != null && totalValue > leagueMedians.value;
-  // ``younger`` is < median age (lower number = younger).  When
-  // medianAge is null (no age data), default to "older" so a team
-  // with missing data doesn't get pushed into the youth corner.
+  const isHighValue = leagueMedians.value != null && totalValue != null && totalValue > leagueMedians.value;
+  // ``younger`` is < the league's median age. When either side is
+  // unmeasured, default to "older" so a team with missing data doesn't
+  // get pushed into the youth corner.
   const isYounger =
     medianAge != null && leagueMedians.age != null && medianAge < leagueMedians.age;
 
@@ -91,27 +61,34 @@ function classifyPhase(snapshot, leagueMedians) {
   return PHASES.MIXED;
 }
 
-export function analyzeLeaguePhases(rawData, rows) {
-  const teams = rawData?.sleeper?.teams || [];
-  if (!Array.isArray(teams) || teams.length === 0) {
+/**
+ * @param {Array} ladder — `teamStrengthLadder(payload, {myOwnerId})` rows:
+ *   `{ownerId, teamName, strengthTotal, valueWeightedCoreAge, isMe, ...}`
+ */
+export function analyzeLeaguePhases(ladder) {
+  const rows = Array.isArray(ladder) ? ladder : [];
+  if (!rows.length) {
     return { teams: [], leagueMedians: { value: null, age: null }, partnerships: [] };
   }
-  const valueIndex = buildIndex(rows);
-  const snapshots = teams.map((t) => teamSnapshot(t, valueIndex));
+
+  const snapshots = rows.map((t) => ({
+    name: t.teamName || "Team",
+    ownerId: String(t.ownerId || ""),
+    isMe: Boolean(t.isMe),
+    totalValue: t.strengthTotal,
+    medianAge: t.valueWeightedCoreAge,
+  }));
 
   const leagueMedians = {
     value: median(snapshots.map((s) => s.totalValue)),
-    age: median(snapshots.map((s) => s.medianAge).filter((a) => a != null)),
+    age: median(snapshots.map((s) => s.medianAge)),
   };
 
-  const enriched = snapshots.map((s) => {
-    const phase = classifyPhase(s, leagueMedians);
-    return { ...s, phase };
-  });
+  const enriched = snapshots.map((s) => ({ ...s, phase: classifyPhase(s, leagueMedians) }));
 
   enriched.sort((a, b) => {
     if (a.phase.order !== b.phase.order) return a.phase.order - b.phase.order;
-    return b.totalValue - a.totalValue;
+    return (b.totalValue ?? -Infinity) - (a.totalValue ?? -Infinity);
   });
 
   const winners = enriched.filter((t) => t.phase.key === "win_now" || t.phase.key === "contender");
@@ -119,9 +96,12 @@ export function analyzeLeaguePhases(rawData, rows) {
   const partnerships = [];
   for (const w of winners) {
     for (const r of rebuilders) {
-      // Score by complementarity: bigger value gap × bigger age gap = better fit.
+      if (w.totalValue == null || r.totalValue == null) continue;
+      // Score by complementarity: bigger value gap x bigger age gap =
+      // better fit. Unchanged rule from the retired formula — only the
+      // two inputs it reads are now canonical.
       const valueGap = w.totalValue - r.totalValue;
-      const ageGap = (r.medianAge || 0) - (w.medianAge || 0);
+      const ageGap = (r.medianAge ?? w.medianAge ?? 0) - (w.medianAge ?? 0);
       const score = Math.max(0, valueGap) * Math.max(0, ageGap || 1);
       partnerships.push({
         winnerOwnerId: w.ownerId,
