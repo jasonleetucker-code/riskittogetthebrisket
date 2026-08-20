@@ -495,11 +495,27 @@ jobs:
           # duplicate in silence.  On failure: say so loudly, then still file
           # the alert, because losing the alert entirely is worse than
           # filing a second copy of it.
-          if ! EXISTING=$(gh issue list --state open --label e2e-failures \
-                            --json number,title,author \
-                            --jq "[.[] | select((.author.login | sub(\"\\\\[bot\\\\]$\"; \"\")) == \"github-actions\")
-                                       | select(.title==\"${TRACKER_TITLE}\")] | .[0].number"); then
+          # ISSUE #958.  The author clause is GONE.  F-23 (above) diagnosed the
+          # 14 duplicates as a `[bot]` SUFFIX problem and normalised that away;
+          # the same predicate was then copied into
+          # verify-sharp-production.yml, where it produced four fresh
+          # duplicates in 67 minutes.  Executing this shell against real `jq`
+          # shows why: `github-actions` and `github-actions[bot]` BOTH pass the
+          # clause, and `app/github-actions` -- the `app/` prefix gh puts on
+          # bot actors in `--json author` -- does not.  Two guesses, both
+          # wrong; identity is now LABEL + exact TITLE, which does not depend
+          # on a spelling.  `.[0]` is replaced by min-by-number for the reason
+          # F-23 records: gh sorts newest-first, so `.[0]` is what let #753
+          # displace #732.  Proven by tests/deploy/test_sharp_tracker_dedup.py.
+          if ! ROWS=$(gh issue list --state open --label e2e-failures \
+                        --json number,title,author); then
             echo "::error title=Tracker lookup failed::gh issue list failed; filing an alert without deduplicating against the existing tracker"
+            ROWS=""
+          fi
+          if [[ -n "$ROWS" ]]; then
+            EXISTING=$(printf '%s' "$ROWS" \
+              | jq -r "[.[] | select(.title==\"${TRACKER_TITLE}\") | .number] | min // empty")
+          else
             EXISTING=""
           fi
           if [[ -n "$EXISTING" && "$EXISTING" != "null" ]]; then
@@ -580,8 +596,7 @@ jobs:
           # the only honest outcome is to say the all-clear did not run.
           if ! OPEN=$(gh issue list --state open --label e2e-failures \
                         --json number,title,author \
-                        --jq ".[] | select((.author.login | sub(\"\\\\[bot\\\\]$\"; \"\")) == \"github-actions\")
-                                  | select(.title==\"${TRACKER_TITLE}\") | .number"); then
+                        --jq "[.[] | select(.title==\"${TRACKER_TITLE}\") | .number] | sort | .[]"); then
             echo "::error title=Tracker lookup failed::gh issue list failed; the green all-clear did NOT run and any open tracker is still open"
             exit 1
           fi
