@@ -437,8 +437,71 @@ correction; said so explicitly rather than guessing.
 
 **Blocker:** none.
 
-**Commit SHA:** *(recorded after commit)*
+**Commit SHA:** `bf0de63e`
 
 **PR-ready status:** READY_FOR_INTEGRATION — documentation-only, governance checks green.
+
+---
+
+## Investigation, not a unit: `V1-97` / `C3-REPLAY-01` (Historical Trade Replay does not leak hindsight)
+
+`V1-97` is in the V1 REQUIRED denominator (`docs/VERSION_1_COMPLETION_CONTRACT.md` §3.3, `NOT STARTED`) and its
+one dependency, `C1-HIST-01` (the temporal ledger), is CLOSED — so on paper this looked like the next
+dependency-ready, in-lane unit after Unit 5. Traced the actual live code before writing anything, and stopped
+short of implementing, for a reason worth recording precisely so a future session (or this one, continuing)
+does not re-walk the same ground.
+
+**Two genuinely different surfaces exist, and the manifest's description ("current values for missing history,
+earliest-known for pre-coverage trades, current pick values; a divergent Hill form back-derives old values")
+does not cleanly describe either of them on its own:**
+
+1. **Public activity feed** (`src/api/public_activity_valuation.py` → `src/public_league/activity.py::
+   _apply_trade_grades`) — grades EVERY historical trade in the public `/league` timeline using the SAME
+   valuation callable built from `latest_contract_data`, i.e. **today's** canonical values, regardless of when
+   the trade happened. Confirmed by reading `_apply_trade_grades` and `build_valuation_from_contract` in full:
+   there is no date-awareness anywhere in this path. **But** this may not be the defect the manifest names — the
+   grade is presented as a plain `{grade, color, label}` badge, not labelled "at-the-time" or "how it aged", so
+   it may be a legitimate, honestly-unlabelled "Current Grade" (one of CLAUDE.md's three explicitly legitimate
+   questions) rather than a hindsight leak. Did not find where/whether the frontend presents this badge in a way
+   that implies contemporaneous judgment — that determination needs a frontend trace this session didn't do.
+2. **Private `/trades` page "How It Aged"** (`frontend/lib/trade-retro-value.js` + `frontend/lib/
+   value-history.js`, wired in at `frontend/app/trades/page.jsx:405,422-432`) — this is a much closer match to
+   the manifest's description. Its own docstring documents that it **previously** broke exactly the four rules
+   the manifest complains about (future-observation fallback, missing-as-current substitution, picks priced at
+   today's number, incomplete totals compared to complete ones) and states each was fixed. It also states
+   explicitly, in its own words: *"That module [`src/history/asof.py`, C1-U4] is also where this computation
+   BELONGS... this is a second implementation of the same question. Migrating it is Trade History work, which is
+   not currently authorized; refusing to overstate in the meantime is not."* — i.e. the JS module's author
+   already identified the real fix (migrate to the canonical `src/history.asof` ledger, which even has a
+   docstring naming this exact use case: `value_known_before`'s docstring reads *"Instant-strict as-of lookup for
+   at-the-time analyses (C3-U9)"*) and left it undone because C1-U4 wasn't closed yet when it was written. It now
+   is. The remaining known-divergent piece is `value-history.js::valueFromRank`'s fallback — an approximate
+   frontend Hill-curve reimplementation used only when a historical snapshot has a `rank` but no stamped `val` —
+   which is exactly the "divergent Hill form back-derives old values" phrase in the manifest.
+
+**Why this was not attempted as a unit this session:** closing it properly means (a) determining with certainty
+whether the public feed's un-labelled current-value grade is or isn't the described defect (needs a frontend
+trace not yet done), and, more substantially, (b) for the private `/trades` page, building a new backend
+endpoint wrapping `src.history.asof.value_known_before`/`batch_as_of` for a trade's two sides, then rewiring
+`trades/page.jsx` off its current `useRankHistory` → `rank_history.jsonl`-sourced `historyLookup` — a real
+architecture change to a live, user-facing page, not a bounded wiring fix like Units 2/4. Both need more
+certainty than a code trace alone can give before touching a live surface; the risk of guessing wrong here is
+real in a way it wasn't for the units actually delivered. Recorded per the campaign's "stop only the affected
+unit, continue elsewhere" rule rather than forced through.
+
+**What a real Unit 6 would need, precisely, to pick this up cleanly:**
+1. Trace how the public activity `grade` badge is actually rendered/labelled on `/league` to settle question (1)
+   above.
+2. If (2) is confirmed as the real target: design a small new endpoint (or extend an existing trade-history
+   route) that calls `src.history.asof.batch_as_of`/`value_known_before` for a trade's sides at the trade's
+   timestamp, returning the same fidelity vocabulary `trade-retro-value.js` already expects
+   (`no_prior_observation` / `pick_history_not_recorded` / `undated_trade`, plus the ledger's own `exact`/
+   `nearest-prior`/`partial`/`unavailable` labels).
+3. Rewire `trades/page.jsx` to consume it instead of `useRankHistory`+`buildHistoryLookup`, preserving
+   `gradeRetro`'s existing, already-correct internal logic (its four rules do not need to change — only where
+   its `historyLookup` data comes from).
+4. A no-hindsight test at the new endpoint (a trade dated before a value moved must never see the post-move
+   value) plus a frontend integration test that the page's rendered "aged" badges match the endpoint's fidelity
+   labels.
 
 ---
