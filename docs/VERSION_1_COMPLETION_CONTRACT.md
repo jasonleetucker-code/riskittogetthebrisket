@@ -237,7 +237,7 @@ Projections · **L4** Market / FAAB / Analyst · **L5** Integration / QA / CI / 
 | V1-78 | Row-floor guard covers every registered voter | audit `F-15` | L5 | `VERIFIED` | L2 | source-health correctness. 8 of 21 had opted out |
 | V1-79 | A blocking gate bounds the production payload | audit `F-16` | L6 | `NOT STARTED` | L2 | performance / test integrity |
 | V1-80 | The critical-source gate can fire for DLF | audit `F-17` | L5 | `NOT STARTED` | L2 | source-health correctness |
-| V1-81 | Freshness budgets bound what the signal measures | audit `F-18` | L5 | `IMPLEMENTED_UNVERIFIED` | L2 | source-health correctness. #909 |
+| V1-81 | Freshness budgets bound what the signal measures | audit `F-18` | L5 | `VERIFIED` | L2 | source-health correctness. #909. **VERIFIED 2026-08-20 at Integration.** Target level **L2** — §2: L1 plus a measured statement of the effect on the live board or contract — and both halves hold. **L1:** `tests/api/test_freshness_budget_not_laxer_than_alerts.py` **23 pass**, pinning the RELATION (contract budget ≤ alert threshold) rather than a number. Mutation **MF1**, confirmed APPLIED with the changed line quoted: `data_contract.py:746` `"ktc": 6` → `"ktc": 9999` ⇒ RED `test_contract_budget_is_not_laxer_than_the_alert_threshold[ktc]`. So the relation is genuinely enforced per source, not asserted once in aggregate. **L2 measured on the live board, twice, because the first measurement alone would have been vacuous.** (a) *Is the repair inert today?* Relaxing the five repaired 24h budgets back to 720h and rebuilding: **0 confidenceBucket, 0 confidenceLabel, 0 rankDerivedValue changed across 1111 rows.** That reproduces the F-18 audit's own finding (0 across 1109 rows) and is the honest answer — every source is currently fresh (production ages 1.24–1.62 h, measured the same night), so nothing is near any budget. (b) *But does the budget bound anything at all?* A 0 on a fresh board cannot distinguish a working gate from a dead one, so the mechanism was exercised directly: aging **all 27** `data/scrape_state/*_last_success` stamps by 1000 h — far past every budget — and rebuilding moves **583 of 1111 rows**: `high` **269 → 24**, `medium` **338 → 0**, `low` **242 → 825** (transitions: 245 high→low, 338 medium→low; the 262 `none` rows are unaffected because they carry no confidence). That is the five-axis gate behaving exactly as specified — freshness is one axis and **the weakest axis wins**, so total staleness collapses the board to `low` and cannot be bought back by source count. Recorded because it is easy to get backwards: aging a **single** source (`yahooBoone`, 100 h against a 24 h budget) moves **0** buckets. That is not the gate failing — one of 27 families is simply never pivotal to a weakest-axis outcome. Stamps DO participate in the build even though they are not among `golden_board.py`'s two hashed inputs (the pinned export and `CSVs/site_raw/`), which is why (b) is measurable at all |
 | V1-82 | Health/status/metrics/alerts report board age, not process age | audit `F-19` | L5 | `VERIFIED` | L3 | false-green repair. #909, completed by #910's `F-28` repair. **Production-verified 2026-08-18 23:00 UTC** on the deployed SHA: `producedAt 22:55:34+00:00` < `loadedAt 22:55:40+00:00` < `last_scrape 22:55:49+00:00`, `data_age_hours 0.1`. The age now tracks the BOARD. It was `IMPLEMENTED_UNVERIFIED` rather than verified because #909 shipped the repair onto a host whose clock made it unmeasurable — see `V1-128` |
 | V1-83 | Alert cooldown keyed on delivery | audit `F-20` | L5 | `IMPLEMENTED_UNVERIFIED` | L3 | observability correctness. #909 |
 | V1-84 | 503 is not exempt from production health failure | audit `F-21` | L5 | `IMPLEMENTED_UNVERIFIED` | L3 | false-green repair. #909 |
@@ -320,14 +320,14 @@ table already said 47, and on its first real use it caught the same drift again
 
 | status | count |
 |---|---|
-| `VERIFIED` | 48 |
-| `IMPLEMENTED_UNVERIFIED` | 21 |
+| `VERIFIED` | 49 |
+| `IMPLEMENTED_UNVERIFIED` | 20 |
 | `IN PROGRESS` | 32 |
 | `NOT STARTED` | 29 |
 | `BLOCKED` | 2 |
 | **denominator** | **132** |
 
-**V1 completion: 48 / 132 = 36.4%.**
+**V1 completion: 49 / 132 = 37.1%.**
 
 **Up five, and every one of them on deployed evidence rather than on a merge.**
 #910 merged at 21:29 UTC; the deploy that carried it completed at ~22:50 and the
