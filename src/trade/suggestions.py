@@ -26,7 +26,7 @@ from typing import Any
 from src.canonical.calibration import to_display_value
 from src.trade.ktc_va import adjusted_pair_totals
 from src.utils.name_clean import normalize_position as _norm_pos  # noqa: F401 — see _norm_pos shim removal below (audit S2)
-from src.ros.lineup import resolve_starter_slots, slot_demand
+from src.ros.lineup import configured_slot_eligibility, resolve_starter_slots, slot_demand
 
 
 # ── Configuration ────────────────────────────────────────────────────
@@ -103,12 +103,14 @@ def starter_needs_for_league(league_key: str | None = None) -> dict[str, int]:
     if not slots:
         return dict(DEFAULT_STARTER_NEEDS)
 
-    overrides = {
-        slot: settings[key]
-        for slot, key in (("FLEX", "flexEligible"), ("IDP_FLEX", "idpFlexEligible"))
-        if settings.get(key)
-    }
-    demand = slot_demand(slots, eligibility_overrides=overrides).flex_priority
+    # The one resolver, not a local two-entry copy.  The retired map here
+    # omitted ``sflexEligible`` entirely, so a league that narrows its
+    # Superflex was measured against the declared default — and C2-U1's
+    # ``configured_slot_eligibility`` docstring names this very module as the
+    # "two-entry variant" it exists to replace.
+    demand = slot_demand(
+        slots, eligibility_overrides=configured_slot_eligibility(settings)
+    ).flex_priority
     needs = {pos: n for pos, n in demand.items() if pos not in _NON_DEMAND_SLOTS}
     return needs or dict(DEFAULT_STARTER_NEEDS)
 
@@ -1299,57 +1301,115 @@ def _generate_positional_upgrades(
 
 
 def _find_balancers(
-    gap: int,
+    suggestion: TradeSuggestion,
     asset_pool: list[PlayerAsset],
     roster_names_set: set[str],
     exclude_names: set[str],
     roster: RosterAnalysis | None = None,
-) -> tuple[list[PlayerAsset], str]:
-    """Find realistic balancer add-ons for a near-there trade.
+) -> tuple[list[PlayerAsset], str, list[int]]:
+    """Find add-ons that actually close a near-there trade's gap.
 
     Direction-aware:
     - gap < 0 (user underpays): search user's roster for expendable add-ons.
     - gap > 0 (user overpays): search global pool for what opponent could add.
 
-    Returns (balancers, side) where side is "you_add" or "they_add".
+    Returns ``(balancers, side, residual_gaps)`` where ``side`` is
+    ``"you_add"`` or ``"they_add"`` and ``residual_gaps[i]`` is the gap
+    that would REMAIN after adding ``balancers[i]`` — same sign
+    convention as ``suggestion.gap``.
+
+    ──────────────────────────────────────────────────────────────────
+    Why this simulates instead of matching a value (defect #800)
+    ──────────────────────────────────────────────────────────────────
+    ``suggestion.gap`` is :func:`_va_gap` — the gap AFTER KTC's Value
+    Adjustment, which is the number the verdict and the trade page both
+    show.  This function used to rank candidates by
+    ``abs(candidate.display_value - abs(gap))``: a **raw** player value
+    matched against an **adjusted** target.
+
+    That arithmetic is only valid if adding a piece worth ``V`` moves
+    the adjusted gap by ``V``, and it does not.  VA is a function of
+    BOTH sides' complete value arrays, so adding a piece re-runs
+    :func:`src.trade.ktc_va.ktc_adjust_package` from scratch — the piece
+    count changes, the progressive-nerf ladder shifts, the recipient
+    side can flip, and the 1-v-1 / 3.3% display gates snap on or off.
+
+    Measured on the equivalent frontend path over 4,000 synthetic
+    two-side trades where a near-even landing WAS reachable from the
+    candidate pool: the value-matching rule missed it 43.2% of the time,
+    and in 701 of those cases it handed the lead to the other side.
+
+    So every candidate is scored by re-running ``_va_gap`` with the
+    candidate added to the side that needs to sweeten, and the ranking
+    key is the residual that actually remains.  A candidate that does
+    not shrink the gap is not a balancer and is dropped.
     """
+
+    gap = int(suggestion.gap)
     if abs(gap) < 256:
-        return ([], "")
-    target_value = abs(gap)
+        return ([], "", [])
     side = "you_add" if gap < 0 else "they_add"
 
     if gap < 0 and roster is not None:
         # User needs to sweeten — search THEIR roster for expendable depth
-        candidates = _roster_balancer_candidates(
-            target_value,
-            roster,
-            exclude_names,
-        )
+        candidates = _roster_balancer_candidates(roster, exclude_names)
     else:
         # Opponent needs to sweeten — search global pool
         candidates = _pool_balancer_candidates(
-            target_value,
             asset_pool,
             roster_names_set,
             exclude_names,
         )
+    if not candidates:
+        return ([], side, [])
 
-    candidates.sort(
-        key=lambda c: (
-            0 if (roster and c.position in roster.surplus_positions) else 1,
-            abs(c.display_value - target_value),
-            c.name,
+    give_values = [int(p.display_value) for p in suggestion.give]
+    receive_values = [int(p.display_value) for p in suggestion.receive]
+
+    def _residual(candidate: PlayerAsset) -> int:
+        """Gap remaining once ``candidate`` joins the sweetening side."""
+
+        value = int(candidate.display_value)
+        if side == "you_add":
+            return _va_gap([*give_values, value], receive_values)
+        return _va_gap(give_values, [*receive_values, value])
+
+    scored: list[tuple[int, PlayerAsset]] = []
+    for candidate in candidates:
+        residual = _residual(candidate)
+        # A "balancer" that leaves the trade no closer than it started
+        # is not a balancer.  MISSING IS NEVER ZERO applies here too:
+        # an unpriced candidate cannot be shown to close anything, so it
+        # never reaches this loop (``display_value`` gates the pools).
+        if abs(residual) >= abs(gap):
+            continue
+        scored.append((residual, candidate))
+
+    if not scored:
+        return ([], side, [])
+
+    scored.sort(
+        key=lambda item: (
+            0 if (roster and item[1].position in roster.surplus_positions) else 1,
+            abs(item[0]),
+            item[1].name,
         )
     )
-    return (candidates[:MAX_BALANCERS], side)
+    chosen = scored[:MAX_BALANCERS]
+    return ([c for _, c in chosen], side, [r for r, _ in chosen])
 
 
 def _roster_balancer_candidates(
-    target_value: int,
     roster: RosterAnalysis,
     exclude_names: set[str],
 ) -> list[PlayerAsset]:
-    """Find expendable depth pieces from the user's roster."""
+    """Expendable depth pieces from the user's roster.
+
+    ELIGIBILITY only — which players it would be reasonable to add.  How
+    well any of them closes the gap is :func:`_find_balancers`' question,
+    and it is answered by simulation rather than by a value-proximity
+    band (defect #800).
+    """
     candidates: list[PlayerAsset] = []
 
     # Prefer surplus-position depth, then any non-starter depth
@@ -1361,7 +1421,6 @@ def _roster_balancer_candidates(
                 p.name.lower() not in exclude_names
                 and p.position  # skip positionless
                 and p.display_value >= MIN_RELEVANT_VALUE
-                and abs(p.display_value - target_value) < target_value * 0.5
             ):
                 if not any(c.name == p.name for c in candidates):
                     candidates.append(p)
@@ -1369,12 +1428,14 @@ def _roster_balancer_candidates(
 
 
 def _pool_balancer_candidates(
-    target_value: int,
     asset_pool: list[PlayerAsset],
     roster_names_set: set[str],
     exclude_names: set[str],
 ) -> list[PlayerAsset]:
-    """Find realistic balancer candidates from the global asset pool."""
+    """Realistic balancer candidates from the global asset pool.
+
+    ELIGIBILITY only — see :func:`_roster_balancer_candidates`.
+    """
     return [
         a
         for a in asset_pool
@@ -1382,7 +1443,6 @@ def _pool_balancer_candidates(
         and a.name.lower() not in exclude_names
         and a.position  # skip positionless / placeholder entries
         and a.display_value >= MIN_RELEVANT_VALUE
-        and abs(a.display_value - target_value) < target_value * 0.4
     ]
 
 
@@ -1557,6 +1617,7 @@ def generate_suggestions_from_pool(
     league_rosters: list[dict[str, Any]] | None = None,
     board_top_n: int | None = None,
     ktc_top_n: int | None = None,
+    capacity_context: Any | None = None,
 ) -> dict[str, Any]:
     """Generate trade suggestions against a pre-built asset pool.
 
@@ -1570,6 +1631,15 @@ def generate_suggestions_from_pool(
     the pool is expected to have already had the top-N filter applied
     by the caller.  ``ktc_top_n`` is a deprecated alias; this gate
     never consulted KTC (WS-J F-4).
+
+    ``capacity_context`` (``src.trade.roster_capacity.CapacityContext``) turns
+    on the roster-capacity read.  Every suggestion then carries what it would
+    cost in forced releases — and **nothing is filtered out**.  On a full
+    58-man roster a legality filter would silently shorten these lists, and a
+    proposal that vanishes is invisible rather than explained; that is the same
+    failure mode as a balancer that does not say where it lands.  Refusing
+    over-cap packages is right for ``roster_intel.packages``, which is choosing
+    what to put on a Pareto frontier — a different question.
     """
     if board_top_n is None:
         board_top_n = BOARD_TOP_N_FILTER if ktc_top_n is None else ktc_top_n
@@ -1605,12 +1675,29 @@ def generate_suggestions_from_pool(
         s.__dict__["edge"] = edge
         s.__dict__["edge_explanation"] = explanation
 
+        # What this trade costs in roster spots.  Attached, never filtered.
+        if capacity_context is not None:
+            from src.trade.roster_capacity import (  # noqa: PLC0415
+                assess_roster_capacity,
+                player_names_only,
+            )
+
+            try:
+                s.__dict__["roster_capacity"] = assess_roster_capacity(
+                    capacity_context,
+                    incoming_players=player_names_only(s.receive),
+                    outgoing_players=player_names_only(s.give),
+                )
+            except Exception:  # noqa: BLE001 — an optional read never drops a suggestion
+                s.__dict__["roster_capacity"] = None
+
         # Balancers for non-even trades
         if s.fairness != "even":
             exclude = {p.name.lower() for p in s.give + s.receive}
-            bals, side = _find_balancers(s.gap, pool, roster_set, exclude, roster)
+            bals, side, residuals = _find_balancers(s, pool, roster_set, exclude, roster)
             s.__dict__["balancers"] = bals
             s.__dict__["balancer_side"] = side
+            s.__dict__["balancer_residuals"] = residuals
 
         # Phase 3: Opponent fit
         if opponent_analyses:
@@ -1754,6 +1841,16 @@ def _serialize_suggestion(
         bal_side = s.__dict__.get("balancer_side", "")
         if bal_side:
             result["balancerSide"] = bal_side
+        # The gap that would REMAIN after each balancer, in the same
+        # sign convention as ``gap``.  Published because a suggestion
+        # that says "add this to balance" without saying what it lands
+        # on is unfalsifiable (defect #800).
+        residuals = s.__dict__.get("balancer_residuals", [])
+        if residuals:
+            result["balancerResidualGaps"] = [int(r) for r in residuals]
+    capacity = s.__dict__.get("roster_capacity")
+    if capacity is not None:
+        result["rosterCapacity"] = capacity.to_dict()
     edge = s.__dict__.get("edge")
     if edge:
         result["edge"] = edge

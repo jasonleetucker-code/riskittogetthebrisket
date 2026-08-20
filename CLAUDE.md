@@ -1011,6 +1011,197 @@ offense, IDP and picks on one native 0-9999 scale; of KTC's 500 rows,
 (p10 0.888, p90 1.054, measured 2026-07-26). Both top out at 9999, so
 there is no rescaling to apply between them.
 
+### Trade comparison — raw canonical value vs contextual Value Adjustment
+
+Two quantities, deliberately distinct.  Conflating them is defect **#800**,
+which shipped on two surfaces at once.
+
+* **Raw canonical value** — ``rankDerivedValue``.  One number per asset,
+  owned by ``_compute_unified_rankings``.  Value Adjustment never mutates it;
+  a player is worth the same whatever package he is in.
+* **Adjusted side total** — ``raw + VA − stack``.  The comparison quantity
+  for ONE specific pairing of packages.  It is a property of the trade, not
+  of any asset in it, and it is what every fairness verdict, meter and gap
+  in this repo is measured on.
+
+**The consequence that is easy to get wrong: VA is a function of BOTH sides'
+complete value arrays.**  Adding a piece of raw value *V* does NOT move the
+adjusted gap by *V* — it re-runs ``ktc_adjust_package`` from scratch, so the
+piece count changes, the progressive-nerf ladder shifts, the recipient side
+can flip, and the 1-v-1 / 3.3% display gates snap on or off.  Anything that
+wants to close a gap must **simulate the post-add adjusted gap**, never
+subtract a raw value from it.
+
+Both equalizers used to do exactly that — rank candidates by
+``|candidate raw value − |adjusted gap||``.  Measured over 4,000 seeded
+two-side trades where a near-even landing WAS reachable from the candidate
+pool: the value-matching rule missed it **43.2%** of the time (1,360 of
+3,148) and in **701** of those handed the lead to the other side.  Mean
+residual gap 1,007 against an achievable 50.  After the repair: **0 misses,
+0 flips**, mean residual 50 — the achievable optimum.
+
+Worked example, the whole defect in three lines.  Side A gives one 5,000
+piece, side B gives one 4,000 piece; the gap is 1,000 and B must sweeten.
+The retired rule picks the 1,000 piece, because 1,000 matches 1,000:
+
+| B adds | resulting gap |
+|---|---|
+| 500 | 2,500 — worse |
+| **1,000** (the "perfect" match) | **2,032 — twice as lopsided** |
+| 2,000 | 727 — the only one that helps |
+
+The moment B holds two pieces the consolidation premium fires and credits
+2,032 to side A.
+
+**One representation, every side count.**  Until 2026-08-18 the 2-team meter
+read VA-adjusted side totals while the 3+-team meter read a raw net flow with
+no VA in it at all, so the same trade shape graded differently at 2 teams and
+at 3.  ``computeSideFlows`` is now VA-inclusive: each side's premium is spread
+proportionally across the assets it SENDS, so ``given_i = raw_i + adjustment_i``
+by construction and the premium lands on whichever side receives those pieces.
+``tradeImbalance`` is the single definition of "how far apart is this trade",
+and for N = 2 the identity ``nets[1] === tradeGapAdjusted(A, B)`` holds exactly
+(pinned by test).  Caveat that travels with the number: the multi-side VA is a
+**structural extension** of a 2-side calibration, not a separately fit model.
+
+Known, pre-existing, NOT fixed here: the draft-capital stack term is accounted
+differently by the two paths — ``adjustedSideTotals`` debits both sides' stack
+into the gap while a net flow credits only the side's own.  Zero for every
+trade with no pick routing; it belongs to whoever revisits the stack model.
+
+Owners:
+
+| concept | owner |
+|---|---|
+| Value Adjustment (Python) | ``src/trade/ktc_va.py`` — ``market_value_adjustment.py`` is a re-export |
+| Value Adjustment (JS) | ``frontend/lib/trade-logic.js::ktcAdjustPackage`` |
+| adjusted gap / imbalance | ``tradeGapAdjusted`` + ``tradeImbalance`` (JS), ``_va_gap`` (Python) |
+| equalizer / balancers | ``findBalancers`` (JS), ``suggestions._find_balancers`` (Python) |
+
+``_js_round`` is load-bearing.  The two Python ports disagreed because one
+used ``floor(x + 0.5)`` (JavaScript ``Math.round``) and the other Python's
+``round``, which is banker's rounding.  The 139-observation KTC fixture
+contains no half-integer case and never caught it; over 40,000 random
+packages the banker's copy published a different value on **75**, and it was
+the copy suggestions / angle / monte_carlo all used.  The owner now scores
+**0 / 40,000** against the JS reference.
+
+RETIRED with this work, all dead or duplicated: the V2 scarcity constants and
+the V12/V13 regression fit in ``trade-logic.js``
+(``_vaFromSortedSides`` had no caller and no test), and the second Python
+port.  Deleted rather than deprecated — a complete second VA sitting exported
+beside the live one is what lets a future caller wire it in without anyone
+deciding to.
+
+Rule for new code: need to compare two packages → ``tradeImbalance`` /
+``_va_gap``.  Need to close a gap → simulate, never subtract.  Never publish a
+VA-adjusted number under a raw-value field name, or vice versa.
+
+### Roster capacity and forced drops — one owner
+
+``src/trade/roster_capacity.py`` is the ONLY place a trade's roster consequence
+is computed: current size, allowed size, open spots, over-limit state, and the
+forced drops with **their value**.
+
+Before 2026-08-18 nothing in the trade surface could answer it.
+``simulate_trade`` accepted ``roster_settings`` and used it only to reach
+``team_impact`` for starter slots; ``suggestions.py`` / ``finder.py`` /
+``angle.py`` proposed 2-for-1s with no notion of a cap at all.  The single
+legality check in the repo, ``roster_intel/packages._check_legality``, is
+``/api/gameplan``-only.  All four now consume this owner.
+
+**Not an edge case here.**  ``dynasty_main`` caps at 58 and its twelve rosters
+held ``[45, 46, 53, 55, 56, 57, 58, 58, 58, 58, 58, 58]`` on 2026-08-18 — six
+teams AT the cap.  On a real full roster the finder returns 40 trades and all
+40 force a release; every one of them used to present that released value as
+free.
+
+**Consumed, never rebuilt.**  ``build_cut_ladder`` / ``effective_cut_cost`` /
+``waiver_values_by_position`` (``src/draft/displacement.py``),
+``build_roster_assets`` (``src/draft/context.py``),
+``load_league_starter_slots`` (``src/ros/lineup.py``).  One cut ladder, two
+consumers: ``/api/draft/roster-context`` and this.  No slot table, replacement
+level or lineup fill is defined here.  The ladder is bounded to the rungs the
+trade needs — a BOUND, not an approximation (rung *k* is identical whether the
+ladder stops at *k* or at its 30-rung default): 39 ms → 3 ms on a real 58-man
+roster, same drops.
+
+**REPORTS, never rejects.**  ``_check_legality`` REFUSES an over-cap package,
+which is right for a generator choosing what to put on a Pareto frontier and
+wrong for a simulator answering a question the user typed in.  Both consume the
+same counting rule and a test pins that they never disagree about whether a
+package is over the cap.  ``/api/trade/suggestions``, ``/api/trade/finder``,
+``/api/trade/simulate`` and both ``/api/angle/*`` endpoints attach the same
+block and **filter nothing** — on a full roster a legality filter would
+silently shorten those lists, and a proposal that vanishes is invisible rather
+than explained.  Measured on the live board: ``find_angle_packages`` returns
+the SAME 25 candidates with the capacity read on and off, 10 of which force a
+release.
+
+Four rules that are load-bearing:
+
+- **Draft picks do NOT occupy roster spots.**  Verified, not assumed:
+  ``rosterSize`` is 58, the largest live roster holds exactly 58 PLAYERS, and
+  those same teams hold 10-23 picks besides.  A pick-for-player trade is
+  therefore NOT capacity-neutral.
+- **An unresolved player still occupies a spot.**  Counts come from the roster
+  and the request, never from what the board managed to price — dropping an
+  unjoinable name understates roster pressure, the direction that hides a
+  forced drop.  Two entries colliding on identity are two spots, and removing
+  one removes exactly one.
+- **An unknown cap is UNKNOWN, never unlimited** — ``rosterLimit: None``,
+  ``overLimitAfter: None``, plus a note.  Coercing it makes every trade look
+  free.
+- **An unpriced forced drop reports ``value: null``**, is counted in
+  ``unpricedForcedDrops`` and excluded from ``forcedDropValue``.  Its
+  ``effectiveCutCost`` IS defined and is published separately.
+- **An outgoing player the roster does not hold frees NO spot**, and the
+  discrepancy is published as ``outgoingNotOnRoster`` rather than corrected
+  away.  Removal is matched by MULTIPLICITY — the same rule ``_surviving_keys``
+  and the post-trade roster rebuild use.  ``size_after`` used to subtract
+  ``len(outgoing)`` flat, so those three disagreed about what the post-trade
+  roster was, in the direction that HIDES pressure: a freed spot that never
+  existed, and so a forced drop never reported.  Reachable from
+  ``/api/angle/find``, which lets a user select any player on the BOARD.
+
+**Taxi occupancy is BRACKETED, never assumed.**  Sleeper lists taxi players
+INSIDE ``players``, so ``size_before`` counts them while membership is
+invisible — ``dynasty_new`` carries 5 taxi slots and no source in this
+codebase says who occupies them.  Guessing 0 overstates pressure and invents
+forced drops; guessing full relief hides real ones.  So active occupancy is a
+RANGE (``taxiOccupiedMin`` / ``taxiOccupiedMax``), ``certainty`` becomes
+``partial``, and ``forcedDropsAreUpperBound`` says the drops are the worst case
+rather than a determined set.  ``requiresDrops`` is ``True`` / ``False`` /
+**``None``** — ``None`` ONLY when the range straddles zero; ``lo > 0`` is
+``True``, because "how many" being unknown does not make "whether" unknown.
+When a caller hands over a roster that DOES carry taxi membership the answer is
+``exact``.  Unknown must never become "no taxi relief".
+
+``league_roster_limit`` / ``league_taxi_size`` are the ONE resolver;
+``draft/context._roster_size_for`` and ``api/gameplan._roster_limit`` delegate
+to them.
+
+Known reachability limit, recorded rather than left to be discovered: no
+current ``suggestions.py`` shape (1-for-1, 2-for-1) can exceed a cap, so the
+forced-drop path is reachable there only on an already-over-limit roster.  A
+test fails if a 1-for-2 suggestion generator is added, which is when that
+changes.  The shapes that DO go over are the finder's ``PackageShape(1, 2)``
+and Angle's N+1 counter-package — the latter on ANY roster at the cap, with no
+over-limit precondition, which makes ``/api/angle/packages`` the surface where
+the forced-drop path is genuinely exercised.
+
+**The finder's Value Adjustment is no longer a monkeypatch.**
+``src/trade/__init__.py`` used to rebind ``finder._score_trade`` and
+``TradeCandidate.to_dict`` at package-import time.  Python's import machinery
+made it unbypassable, but reading ``finder.py`` told you the finder scored
+linearly — which it did not — and a double install wrapped the wrapper.
+``_score_trade`` now calls ``finder_value_adjustment.score_with_value_adjustment``
+explicitly over ``_score_trade_on_values``, and the package ``__init__`` is
+inert.  Pinned by ``tests/trade/test_finder_va_is_not_bypassable.py``, which
+tests the PROPERTY (the premium is applied and published) plus AST guards that
+no generator bypasses the adjusting scorer and the ``__init__`` has no
+executable statements.
+
 ### FAAB recommendations — one engine, two separate answers
 ``src/trade/faab_engine.py`` is the ONLY place a FAAB dollar figure is
 derived.  Full reference: ``docs/faab-model.md``.

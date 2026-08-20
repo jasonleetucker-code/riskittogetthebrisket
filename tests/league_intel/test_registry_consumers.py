@@ -208,11 +208,33 @@ class TestTeamImpactPath:
         assert _needed_at("DB", rs) == 3.0  # 3 fixed + no IDP_FLEX share
         assert _needed_at("TE", rs) > 2.0  # 2 fixed + FLEX share
 
-    def test_league_active_positions_all_seven(self):
+    def test_league_active_positions_include_the_kicker_this_league_starts(self):
+        """``dynasty_main`` starts ``K: 1``, so K is an active position.
+
+        This assertion used to demand exactly the seven offence+IDP families
+        and so PINNED a defect: ``team_impact`` filtered its roster through a
+        hardcoded 7-tuple, kickers never reached ``project_starters``, the K
+        slot could never be filled, and a traded kicker was invisible to the
+        whole payload — while the capacity path (``build_cut_ladder`` ->
+        ``assign_lineup``) seated him on the same roster.
+
+        Positions are now derived from the league's OWN resolved slots via the
+        canonical eligibility owner, so this reads what the league actually
+        starts rather than a constant.
+        """
         from src.trade.team_impact import _league_active_positions
 
         rs = _registry_main()["rosterSettings"]
-        assert _league_active_positions(rs) == ["QB", "RB", "WR", "TE", "DL", "LB", "DB"]
+        assert _league_active_positions(rs) == [
+            "QB",
+            "RB",
+            "WR",
+            "TE",
+            "DL",
+            "LB",
+            "DB",
+            "K",
+        ]
 
 
 # ── 5. suggestions starter-needs mirror ───────────────────────────────

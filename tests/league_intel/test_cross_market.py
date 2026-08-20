@@ -459,3 +459,80 @@ class TestRealBoardCoverage:
             if pkg.is_rankable:
                 sources = {a.raw_market_source for a in pkg.assets if not a.converted}
                 assert len(sources) == 1, f"mixed sources {sources}"
+
+
+# ── The module's own importer census (lane brief: "evaluate cross_market") ──
+#
+# This file's docstring has now carried TWO wrong claims about its own reach:
+# first "zero production importers", then "angle.py is still not rewired and
+# the defect is still live there".  Both were true once and neither was true
+# when it was read.  A prose census in a docstring decays silently; this one
+# fails.
+
+
+def _repo_root():
+    from pathlib import Path
+
+    return Path(__file__).resolve().parents[2]
+
+
+def _python_sources():
+    root = _repo_root()
+    for path in (root / "src").rglob("*.py"):
+        yield path
+    yield root / "server.py"
+
+
+def test_the_documented_importer_census_is_the_real_one():
+    """Exactly these modules import from ``cross_market``, and no others.
+
+    A new importer is not forbidden — it is required to update the table in
+    the module docstring, which is the only place this module's blast radius
+    is written down.
+    """
+    import re
+
+    documented = {
+        "src/api/gameplan.py",
+        "src/roster_intel/packages.py",
+        "src/trade/angle.py",
+    }
+    pattern = re.compile(r"^\s*from\s+src\.league_intel\.cross_market\s+import", re.M)
+    root = _repo_root()
+    found = set()
+    for path in _python_sources():
+        rel = path.relative_to(root).as_posix()
+        if rel == "src/league_intel/cross_market.py":
+            continue
+        if pattern.search(path.read_text(encoding="utf-8", errors="ignore")):
+            found.add(rel)
+    assert found == documented, (
+        "cross_market's importer set changed — update the census table in its "
+        f"docstring.  added={sorted(found - documented)} "
+        f"removed={sorted(documented - found)}"
+    )
+
+
+def test_angle_sums_no_per_asset_market_value():
+    """The defect this module exists for stays closed, in live code.
+
+    Docstrings are exempt because ``angle.py`` and this module both QUOTE the
+    retired expression to explain what was removed — the same trap that made
+    two earlier guards in this repo decorative (#909).
+    """
+    import ast
+
+    path = _repo_root() / "src" / "trade" / "angle.py"
+    tree = ast.parse(path.read_text(encoding="utf-8"))
+    offenders = []
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.Subscript):
+            continue
+        key = node.slice
+        if isinstance(key, ast.Constant) and key.value == "market_value":
+            offenders.append(node.lineno)
+    assert offenders == [], (
+        "angle.py reads a per-asset 'market_value' in live code at line(s) "
+        f"{offenders} — package totals must come from value_package, which "
+        "prices the whole package inside ONE market"
+    )
