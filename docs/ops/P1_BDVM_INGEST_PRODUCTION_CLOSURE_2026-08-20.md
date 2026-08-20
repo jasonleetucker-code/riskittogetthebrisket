@@ -100,3 +100,94 @@ authenticated `/api/bdvm/values` read on the deployed host, recording whether
 `meta.auxiliaryInputs` reports `available` / `stale` / `missing` and that the
 request returns without a remote fetch — plus, ideally, a build identifier on
 `/api/status` so §1 stops depending on run metadata.
+
+**A second, bounded attempt was made after traffic control moved #946 to
+`DEPLOYED_NOT_VERIFIED`. It reached the same state, and §7 records what was
+probed and why each avenue is closed — do not stop reading here.**
+
+---
+
+## 7 · Second, bounded verification attempt — 2026-08-20, post-deploy
+
+Traffic control moved #946 to `DEPLOYED_NOT_VERIFIED` and asked for a bounded
+production verification of the specific request-path invariant, with evidence
+sufficient to distinguish three outcomes:
+
+1. a cache / materialised read,
+2. a stale last-known-good read,
+3. a heavyweight remote nflverse ingestion on the request path.
+
+**The attempt was executed and the outcome is unchanged: `unverifiable_unauthenticated`.**
+Recording it here so the state is a measured finding rather than a repeated
+assertion, and so a credentialed session can close it without redoing the search.
+
+### 7.1 · What was probed
+
+| probe | result |
+|---|---|
+| `GET /api/bdvm/values` | **401** (1.36 s) |
+| `GET /api/bdvm/roster` | **401** (1.06 s) |
+| `GET /api/bdvm/trades` | **401** (1.06 s) |
+| `POST /api/bdvm/trade-eval` | **401** (0.64 s) |
+| `GET /api/data` | **401** (0.95 s) |
+| `GET /api/status` → `nflDataProvider` | `feature_flag true`, `active_provider nflverse_direct`, `nfl_data_py_installed false`, `nflverse_direct_available true`, `cache_dir_exists true` |
+| `GET /api/status` → `featureFlags.bdvm_engine` | `{"enabled": true, "gateStatus": "LIVE"}` |
+
+### 7.2 · The wall is structural, not incidental
+
+`server.py::_private_api_gate` is, by its own docstring, "the ONLY auth gate in
+this process", and it runs **as middleware, ahead of routing**. The allowlists it
+consults are:
+
+- `_PUBLIC_API_PREFIXES` = `/api/public/league`, `/api/league/articles`
+- `_PUBLIC_API_EXACT` = health / status / uptime / metrics / leagues /
+  rankings-sources / auth\* / scaffold-status / draft-capital
+- `_SELF_AUTHED_API_EXACT` = signal-alerts, custom-alerts, test-session, push key
+
+**No BDVM path appears on any of them**, and all four BDVM routes
+(`server.py:6566/6719/6745/6778`) sit behind the gate. So the production BDVM
+request path is not merely returning 401 today — it is **provably unreachable
+without a session**. Per the standing rule, that gate must not be relaxed,
+allowlisted, or otherwise turned into a pass.
+
+### 7.3 · Why the public surfaces cannot substitute
+
+`fetch_team_weeks` has exactly two call sites in the tree — its own definition
+(`src/bdvm/schedule.py:109`) and the repaired request path
+(`src/api/bdvm_api.py:102`). **Nothing public reaches it.** So no unauthenticated
+request can exercise the invariant even indirectly, and a green public surface is
+evidence about a different code path.
+
+`nflDataProvider` reports `cache_dir_exists` and nothing else — no cache ages, no
+per-season presence, no file count. It therefore **cannot distinguish outcome 1
+from outcome 2**, let alone detect outcome 3. The post-deploy smoke probes
+`/api/data`, `/api/health`, `/api/public/league`, `/api/status`; **none of them
+touch BDVM**, so deploy-green is not evidence here either — which is precisely
+what traffic control instructed must not be inferred.
+
+### 7.4 · Verdict, and what would actually close it
+
+**Not production-verified. Not failed.** No causal defect is routed to Lane 3,
+because nothing failed — the invariant was not observable, which is a third state
+and is recorded as one.
+
+Deterministic evidence for the repair itself stands unchanged (§4–§6, mutations
+MB1/MB2/MB3). What is missing is the *production* half only.
+
+Any ONE of these closes it:
+
+1. **An authenticated read** of `/api/bdvm/values` against the deployed host,
+   recording `meta.auxiliaryInputs.state` (`available` / `stale` / `missing`),
+   `ageSeconds`, and wall-time — a cold cache-only read returns in-process, an
+   ingestion does not.
+2. **On-box evidence**: `journalctl -u dynasty` across the first interactive BDVM
+   request, plus nflverse cache file mtimes before and after — this is the only
+   avenue that observes outcome 3 directly.
+3. **Durably** — and the option worth taking, because it removes the blind spot
+   rather than working around it once: add a BDVM probe to the post-deploy smoke,
+   and a build identifier to `/api/status` (which would also retire §1's
+   dependence on run metadata, the gap #932 named).
+
+Options 1 and 2 need credentials this environment does not hold. Option 3 is a
+`deploy.yml` change and belongs to the CI/deploy lane, not to Integration acting
+unilaterally on a production surface.
