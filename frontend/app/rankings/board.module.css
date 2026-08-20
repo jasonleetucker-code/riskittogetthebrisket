@@ -8,6 +8,22 @@
   gap: var(--space-4);
 }
 
+/* ── PSI editorial hero (C8-PSI-02) ──
+   Overrides ds.css's generic .ds-page-header__title just for this page's
+   hero — a scoped compound selector, not a change to the shared
+   component (which every other page's header still uses at its normal
+   size). --font-size-3xl is the largest step in the existing 8-size
+   scale; a serif face at that size already reads as "hero" against the
+   rest of the board without inventing a ninth size. */
+.hero :global(.ds-page-header__title) {
+  font-family: var(--font-display);
+  font-size: var(--font-size-3xl);
+  font-style: italic;
+}
+.hero :global(.ds-page-header__eyebrow) {
+  font-family: var(--font-data);
+}
+
 /* ── Trust strip ── */
 .trustStrip {
   display: grid;
@@ -231,6 +247,43 @@
   font-family: var(--font-data);
   font-size: var(--font-size-2xs);
   color: var(--text-tertiary);
+}
+
+/* ── PSI editorial migration (C8-PSI-02): local replacements for two
+   globals.css legacy classes this page used to reach for
+   (`button-reset`, `rankings-player-name`). Both hardcode pre-R0
+   token names (`--border`, `--cyan`) that this scope's `.psi-editorial`
+   redefinition never touches, so they'd keep rendering old colors on a
+   fully-migrated page. `globals.css` is a live work claim (Lane 6) —
+   these are new local classes, not edits to it. ── */
+.resetButton {
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+}
+.playerName {
+  font-weight: 700;
+  cursor: pointer;
+  transition: color 0.1s;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+.playerName:hover,
+.playerName:active {
+  color: var(--accent);
+}
+.muted {
+  color: var(--text-tertiary);
+}
+@media (max-width: 768px) {
+  .playerName {
+    display: inline-block;
+    padding: 6px 0;
+  }
 }
 
 /* ── Table cells ── */

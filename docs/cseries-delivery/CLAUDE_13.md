@@ -136,3 +136,79 @@ one small monogram tweak.
 - Any change to `globals.css` (claimed).
 - A rewrite of the nav's information architecture — every existing nav item, group, gating rule
   and keyboard/focus behavior is untouched; only the palette changed.
+
+### Batch A3 (C8-PSI-02) — Rankings visual migration — done
+
+**Finding that reshaped this batch, same as A2:** `frontend/app/rankings/board.module.css` is
+already 100% token-driven — zero raw hex, zero `rgba()` (verified by grep before writing a line).
+Applying `.psi-editorial` to the page root re-skins the entire table (rank/player/value/source
+cells, filters, rails, trust strip) automatically. The real work was finding and closing the small
+number of places the page reached OUTSIDE the token system, into legacy `globals.css` classes this
+Lane-6 claim forbids editing.
+
+**What shipped:**
+- `frontend/app/rankings/page.jsx`: `.psi-editorial` added to the page root `<section>`. Three
+  legacy-class leaks closed by adding local replacements to `board.module.css` and swapping the
+  className references (never editing `globals.css`):
+  - `button-reset` (hardcoded `--border`/`--cyan`, both pre-R0 legacy names invisible to the new
+    scope) → new `.resetButton`, a genuine reset (no background/border) rather than the legacy
+    rule's incidental box — matches the screenshot's plain inline typography for player names,
+    watch stars and values.
+  - `rankings-player-name` (legacy `--cyan` hover) → new `.playerName`, same behavior, hover color
+    now `--accent`.
+  - `muted` (legacy `--muted` token) → new `.muted`, now `--text-tertiary`.
+  - `custom-mix-badge` audited and left AS-IS: verified its own declared properties (font-family,
+    size, spacing, a brightness-filter hover) are all color-neutral: it layers onto `ds-badge
+    ds-badge--warning`, which is already fully token-driven.
+- **Hero treatment**: eyebrow now reads "Chase Upside Consensus / Updated {relative time}" —
+  reusing the page's own existing `relativeUpdated` freshness derivation (`rawData?.dataFreshness`
+  → `generatedAt`), not a new computation. `<h1>` stays the literal string `"Rankings"` — see the
+  naming-canon note below for why "The Dynasty Board" is NOT the `<h1>`. Description became "The
+  Dynasty Board — unified dynasty rankings, offense + IDP blended by consensus rank." (existing
+  product language, "The Dynasty Board" folded in as editorial branding rather than a new claim).
+  New `.hero` class + a scoped `:global(.ds-page-header__title)` compound selector in
+  `board.module.css` gives just this page's title a serif `--font-display` face at
+  `--font-size-3xl` (the existing scale's largest step — no ninth size invented) — `ds.css`'s
+  shared `PageHeader` styling is untouched for every other page.
+- **"Format summary" (real league Superflex/TEP/IDP label) deliberately omitted**: no canonical
+  field for this was found readily available on this page (checked `useLeague()`,
+  `useTeam()`) in the time budget for this batch. Rather than guess or fabricate a label,
+  omitted — a real gap, named per the owner's own instruction rather than silently skipped.
+
+**Naming-canon course-correction, caught by the test suite (not by inspection):** the first attempt
+set the literal `<h1>` to "The Dynasty Board", which broke `page-title-canon.test.jsx` — this repo
+pins nav label ≡ page `<h1>` deliberately (its docstring cites a real 2026-07-29 regression this
+guard now catches). Changing the canon would mean changing `nav-model.js`'s desktop nav link label
+too — an app-wide copy change well beyond "Rankings page visual migration," and out of scope for
+this batch. Reverted to keep `<h1>` as the canon "Rankings" and moved the editorial name into the
+description instead. Recorded here because a plan-vs-actual note belongs beside the code, not
+silently corrected away.
+
+**Legacy badge system, NOT touched, documented rather than silently left:** `lib/display-helpers.js`
+(`posBadgeClass`, `confBadgeClass`, `marketEdge`/`marketAction`) all return legacy `globals.css`
+class names (`badge-cyan`, `badge-amber`, `badge-green`, `badge-red`, `edge-buy`, `edge-sell`) for
+position/confidence/edge badges throughout the table, audit panel and edge rail. `board.module.css`'s
+OWN header comment already names this as an acknowledged, deferred concern ("Badge/tier/audit-grid
+colors stay on their legacy global classes until the R5 CSS purge") — not something this batch
+introduced. These badges are self-contained colored chips (not transparent), so they remain fully
+legible, just visually inconsistent with the new palette rather than broken. Migrating this whole
+shared badge system onto `ds/Badge` is real work spanning multiple pages beyond Rankings and is
+correctly a separate, dedicated unit (the repo's own planned "R5 CSS purge"), not silent scope creep
+here. Same disposition for the mobile-source-strip/audit-row expanded-drawer background wash
+(`rankings-mobile-source-row`/`rankings-audit-row`) — near-transparent legacy tints, low visual
+impact, same acknowledged-deferred class.
+
+**Verified:**
+- Full frontend suite: 142 test files / 2,243 tests, zero regressions (including
+  `page-title-canon.test.jsx` after the h1 correction above).
+- `next build` (both the default Turbopack builder and `--webpack`, since the bundle-budget script
+  needs the latter): clean, zero new errors (same three pre-existing `/api/public/league*`
+  `TypeError`s from no backend running in this sandbox, unrelated to this diff).
+- Bundle budget: `/rankings/page` 66.6 KB / 75 KB (8.4 KB headroom) — all 14/14 budgeted pages
+  pass.
+
+**Deliberately NOT claiming:**
+- The legacy badge system migration and the mobile-source-row/audit-row background tint (see
+  above) — named, deferred, not silently dropped.
+- The "format summary" league line (see above).
+- Real browser/visual verification and the axe a11y suite — that's Batch A4.
