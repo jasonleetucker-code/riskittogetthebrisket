@@ -4,16 +4,15 @@ import { useEffect, useMemo, useState } from "react";
 import { useApp } from "@/components/AppShell";
 import { useTeam } from "@/components/useTeam";
 import { useNews } from "@/components/useNews";
-import {
-  computeMovers,
-  formatChange,
-} from "@/lib/market-movers";
-import { selectTickerAlerts } from "@/lib/news-service";
+import { Movement, SegmentedControl } from "@/components/ds";
+import { computeMovers } from "@/lib/market-movers";
+import { selectTickerAlerts, timeAgo } from "@/lib/news-service";
+import styles from "./market-ticker.module.css";
 
 const SCOPE_OPTIONS = [
-  { key: "roster", label: "My Roster" },
-  { key: "league", label: "League" },
-  { key: "top150", label: "Top 150" },
+  { value: "roster", label: "My Roster" },
+  { value: "league", label: "League" },
+  { value: "top150", label: "Top 150" },
 ];
 
 // Minimum meaningful movers before we'll render the strip at all.
@@ -44,12 +43,24 @@ function usePrefersReducedMotion() {
   return reduced;
 }
 
+// Freshness ticks once a minute so the "as of" label stays honest
+// without re-rendering on every animation frame.
+function useNow(intervalMs = 60000) {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), intervalMs);
+    return () => clearInterval(id);
+  }, [intervalMs]);
+  return now;
+}
+
 export default function MarketTicker() {
   const { rows, rawData, openPlayerPopup } = useApp();
   const { selectedTeam } = useTeam();
   const sleeperTeams = rawData?.sleeper?.teams;
   const leagueNames = useLeagueNames(sleeperTeams);
   const reducedMotion = usePrefersReducedMotion();
+  const now = useNow();
 
   const [scope, setScope] = useState("roster");
   const [paused, setPaused] = useState(false);
@@ -99,30 +110,33 @@ export default function MarketTicker() {
     return out;
   }, [movers, alerts]);
 
-  const scopeLabel =
-    SCOPE_OPTIONS.find((o) => o.key === scope)?.label || "Roster";
+  // Backend-stamped freshness, verbatim — never a client-computed
+  // "just now" until a real timestamp is missing.
+  const freshness =
+    typeof rawData?.generatedAt === "string" ? timeAgo(rawData.generatedAt, now) : null;
+
+  const scopeSwitch = (
+    <div className={styles.rail}>
+      <span className={styles.railLabel}>Scope</span>
+      <SegmentedControl
+        label="Ticker scope"
+        value={scope}
+        onChange={setScope}
+        options={SCOPE_OPTIONS}
+      />
+      {freshness ? (
+        <span className={styles.freshness}>Updated {freshness} ago</span>
+      ) : null}
+    </div>
+  );
 
   if (items.length < MIN_RENDERABLE) {
+    const scopeLabel =
+      SCOPE_OPTIONS.find((o) => o.value === scope)?.label || "Roster";
     return (
-      <div className="ticker ticker--quiet" role="region" aria-label="Market ticker">
-        <div className="ticker-scope">
-          <span className="ticker-scope-label">Scope</span>
-          <div className="ticker-scope-tabs" role="tablist">
-            {SCOPE_OPTIONS.map((o) => (
-              <button
-                key={o.key}
-                type="button"
-                role="tab"
-                aria-selected={scope === o.key}
-                className={`ticker-scope-tab${scope === o.key ? " is-active" : ""}`}
-                onClick={() => setScope(o.key)}
-              >
-                {o.label}
-              </button>
-            ))}
-          </div>
-        </div>
-        <div className="ticker-quiet-msg">
+      <div className={`${styles.ticker} ${styles.quiet}`} role="region" aria-label="Market ticker">
+        {scopeSwitch}
+        <div className={styles.quietMsg}>
           Market quiet in {scopeLabel.toLowerCase()} — fewer than {MIN_RENDERABLE} moves since last update.
         </div>
       </div>
@@ -135,32 +149,16 @@ export default function MarketTicker() {
 
   return (
     <div
-      className={`ticker${animate ? " ticker--live" : ""}`}
+      className={styles.ticker}
       role="region"
       aria-label="Market ticker"
       onMouseEnter={() => setPaused(true)}
       onMouseLeave={() => setPaused(false)}
     >
-      <div className="ticker-scope">
-        <span className="ticker-scope-label">Scope</span>
-        <div className="ticker-scope-tabs" role="tablist">
-          {SCOPE_OPTIONS.map((o) => (
-            <button
-              key={o.key}
-              type="button"
-              role="tab"
-              aria-selected={scope === o.key}
-              className={`ticker-scope-tab${scope === o.key ? " is-active" : ""}`}
-              onClick={() => setScope(o.key)}
-            >
-              {o.label}
-            </button>
-          ))}
-        </div>
-      </div>
-      <div className="ticker-strip">
+      {scopeSwitch}
+      <div className={styles.strip}>
         <ul
-          className={`ticker-track${animate ? " ticker-track--animated" : ""}`}
+          className={`${styles.track}${animate ? ` ${styles.trackAnimated}` : ""}`}
           style={animate ? { animationDuration: `${Math.max(30, items.length * 4)}s` } : undefined}
         >
           {items.map((it) => (
@@ -193,24 +191,24 @@ export default function MarketTicker() {
 function TickerSlot({ item, ariaHidden, onPlayerClick }) {
   if (item.kind === "mover") {
     const m = item.data;
-    const direction = m.change > 0 ? "up" : "down";
     return (
       <li
-        className={`ticker-item ticker-item--mover ticker-item--${direction}${
-          m.onRoster ? " ticker-item--roster" : ""
-        }`}
+        className={`${styles.item} ${m.onRoster ? styles.itemRoster : ""}`.trim()}
         aria-hidden={ariaHidden || undefined}
       >
         <button
           type="button"
-          className="ticker-item-trigger"
+          className={styles.itemTrigger}
           onClick={() => onPlayerClick?.(m.name)}
-          title={`${m.name} — rank change ${m.change > 0 ? "+" : ""}${m.change}`}
         >
-          {m.onRoster && <span className="ticker-item-dot" aria-hidden="true">●</span>}
-          <span className="ticker-item-label">{m.name}</span>
-          <span className="ticker-item-pos">{m.pos}</span>
-          <span className="ticker-item-delta">{formatChange(m.change)}</span>
+          {m.onRoster && (
+            <span className={styles.itemDot} aria-hidden="true">
+              ●
+            </span>
+          )}
+          <span className={styles.itemLabel}>{m.name}</span>
+          <span className={styles.itemPos}>{m.pos}</span>
+          <Movement delta={m.change} confidence={m.confidence} />
         </button>
       </li>
     );
@@ -219,19 +217,24 @@ function TickerSlot({ item, ariaHidden, onPlayerClick }) {
   // Alert
   const a = item.data;
   const firstPlayer = Array.isArray(a.players) ? a.players[0]?.name : null;
+  const sevClass =
+    a.severity === "watch"
+      ? styles.itemAlertSevWatch
+      : a.severity === "info"
+        ? styles.itemAlertSevInfo
+        : "";
   return (
-    <li
-      className={`ticker-item ticker-item--alert ticker-item--sev-${a.severity}`}
-      aria-hidden={ariaHidden || undefined}
-    >
+    <li className={`${styles.item} ${styles.itemAlert}`} aria-hidden={ariaHidden || undefined}>
       <button
         type="button"
-        className="ticker-item-trigger"
+        className={styles.itemTrigger}
         onClick={() => firstPlayer && onPlayerClick?.(firstPlayer)}
         title={a.headline}
       >
-        <span className="ticker-item-alert-tag">{a.severity.toUpperCase()}</span>
-        <span className="ticker-item-headline">{a.headline}</span>
+        <span className={`${styles.itemAlertTag} ${sevClass}`.trim()}>
+          {a.severity.toUpperCase()}
+        </span>
+        <span className={styles.itemHeadline}>{a.headline}</span>
       </button>
     </li>
   );
