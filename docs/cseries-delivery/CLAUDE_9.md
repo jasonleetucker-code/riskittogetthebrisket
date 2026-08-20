@@ -107,7 +107,7 @@ unable to diverge because both wrap the same core function. The JS side (`fronte
 already single-owner with V2/V12/V13 dead code already removed — verified by reading the file, not reused from the
 manifest's claim.
 
-**Commit SHA:** *(recorded after commit)*
+**Commit SHA:** `877c8f35`
 
 **PR-ready status:** READY_FOR_INTEGRATION — small, self-contained, fully tested, zero production value change,
 no dependency on any other in-flight unit.
