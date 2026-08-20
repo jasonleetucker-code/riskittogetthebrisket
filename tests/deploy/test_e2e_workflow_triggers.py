@@ -192,30 +192,43 @@ def test_tracker_steps_identify_their_own_issue_not_just_the_label() -> None:
     string was present in a file.
 
     A guard may not pin a SPELLING it never verifies against reality.
-    The clause is now normalised (``sub("\\[bot\\]$"; "")``), which is
-    correct whichever API answers — GraphQL reports a bot as
-    ``github-actions``, REST as ``github-actions[bot]`` — and this test
-    pins the normalisation rather than either spelling.
+
+    **ISSUE #958 — and the normalisation was the same mistake again.**  The
+    paragraph above replaced a pinned spelling with a pinned TRANSFORMATION
+    (``sub("\\[bot\\]$"; "")``) that was equally unverified.  It is wrong for
+    the same reason: executing this shell against real ``jq`` shows that
+    ``github-actions`` and ``github-actions[bot]`` BOTH pass that clause, and
+    ``app/github-actions`` — the ``app/`` prefix ``gh`` puts on bot actors in
+    ``--json author`` output — does not.  The duplicates therefore kept
+    accumulating, and when ``verify-sharp-production.yml`` inherited this
+    predicate verbatim it produced four fresh ones in 67 minutes (#951, #953,
+    #955, #957).
+
+    Three guesses is enough.  The author clause is REMOVED, and identity is the
+    workflow-owned LABEL plus the exact TITLE.  That still protects #753 — a
+    hand-filed defect carrying ``e2e-failures`` — because #753's title is not
+    this workflow's title, which is the clause that was actually doing that
+    work.  ``.[0]`` is likewise replaced by min-by-number: gh sorts
+    newest-first, which is the mechanism by which #753 displaced #732 at all.
+
+    This test now pins the STRUCTURE (title-keyed, no author dependence) while
+    ``tests/deploy/test_sharp_tracker_dedup.py`` pins the BEHAVIOUR by running
+    both workflows' real shell against a ``gh`` stub for all three spellings.
+    A guard that asserts a string is present is what stayed green on top of a
+    dead selector for two weeks; the behavioural test is the one that cannot.
     """
     wf = _workflow()
     for name in _ISSUE_STEP_NAMES:
         run = _step_named(wf, name)["run"]
 
-        assert ".author.login" in run, (
-            f"{name!r} no longer filters the tracker lookup by author. "
-            "Selecting on the e2e-failures label alone treats any issue "
-            "wearing it as this workflow's own tracker — which closed/"
-            "hijacked #753, a hand-filed defect."
+        assert "select(.author" not in run and ".author.login ==" not in run, (
+            f"{name!r} branches on the author login again. Three spellings have "
+            "now been guessed wrong (F-23 twice, then issue #958); identity is "
+            "LABEL + exact TITLE, which does not depend on a spelling."
         )
-        assert 'sub(\\"\\\\\\\\[bot\\\\\\\\]$\\"; \\"\\")' in run, (
-            f"{name!r} compares the author login without normalising the "
-            "'[bot]' suffix. That is the F-23 defect: the bot files as "
-            "'github-actions[bot]', a bare 'github-actions' comparison "
-            "matches nothing, and the tracker silently duplicates forever."
-        )
-        assert 'select(.author.login==\\"github-actions\\")' not in run, (
-            f"{name!r} has gone back to comparing the raw login against "
-            "the bare spelling. That clause never matched (F-23)."
+        assert ".[0].number" not in run, (
+            f"{name!r} is back to `.[0]` off gh's newest-first sort — the "
+            "mechanism that let #753 displace the real tracker #732."
         )
         # Not an f-string: ${TRACKER_TITLE} is the shell variable the
         # workflow expands, so the braces are literal text to match.

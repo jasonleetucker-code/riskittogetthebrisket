@@ -299,42 +299,70 @@ def test_a_gate_that_can_never_measure_is_tracked_rather_than_only_warned():
     )
 
 
-def test_the_tracker_identifies_its_issue_by_author_and_title():
-    """AUDIT F-23, not re-derived.
+def test_the_tracker_identifies_its_issue_without_betting_on_a_login_spelling():
+    """AUDIT F-23, third appearance — and this time the bet is not re-placed.
 
-    ``gh`` reports this bot's login as ``github-actions`` via GraphQL and
-    ``github-actions[bot]`` via REST, so pinning either spelling is a
-    bet. e2e.yml lost that bet and accumulated 14 undrained trackers.
-    Normalise the suffix away instead.
+    The retired form of this guard pinned an author clause that normalised a
+    ``[bot]`` SUFFIX away, on the theory that ``gh`` reports the login as
+    ``github-actions`` via GraphQL and ``github-actions[bot]`` via REST.  Both
+    of those spellings do in fact work.  The one that does NOT is
+    ``app/github-actions`` -- the ``app/`` prefix ``gh`` puts on bot actors in
+    ``--json author`` output -- and that is what production did: #951, #953,
+    #955, #957, one new issue per run (issue #958).
+
+    Two guesses at a spelling have now failed.  The invariant is therefore that
+    the step does not depend on the spelling AT ALL: identity is the
+    workflow-owned LABEL plus the exact TITLE.  ``test_sharp_tracker_dedup.py``
+    proves the behaviour by executing this shell against real ``jq`` for all
+    three spellings; this guard pins the structure so it cannot quietly regrow
+    an author clause.
     """
     steps = _workflow_steps()
+    seen = 0
     for name, step in steps.items():
         if "Sharp gate cannot measure" not in name and "unmeasurable-gate" not in name:
             continue
+        seen += 1
         script = step["run"]
         assert "gh issue list" in script, f"{name}: no lookup, so it cannot dedup"
-        # Compare with backslashes removed.  The jq filter reaches the
-        # shell as `sub(\"\\\\[bot\\\\]\$\"; \"\")`, so the literal
-        # `[bot]` is NOT a substring of the raw script -- the escapes sit
-        # INSIDE the bracket expression.  A needle written against the
-        # readable form silently matches nothing, which is how a guard
-        # ends up asserting that a step it never examined is correct.
+        # Backslashes removed: the jq filter reaches the shell escaped, so a
+        # needle written against the readable form silently matches nothing.
+        # That is how a guard ends up asserting a step it never examined.
         unescaped = script.replace("\\", "")
-        assert "sub(" in unescaped and "[bot]" in unescaped, (
-            f"{name}: the author clause does not normalise the `[bot]` suffix. "
-            "`gh` reports this bot as `github-actions` via GraphQL and "
-            "`github-actions[bot]` via REST, so pinning either spelling is a bet -- "
-            "and it is the bet e2e.yml lost, leaving 14 undrained trackers (AUDIT F-23)"
-        )
-        assert "github-actions" in unescaped, (
-            f"{name}: the lookup no longer filters by author at all, so it can match "
-            "a human-filed issue that happens to carry the same label"
-        )
         assert ".title==" in script, (
             f"{name}: identifies its tracker by label alone. A human can apply a "
             "plain label to a hand-written issue, and this step would then comment "
             "on -- or close -- their bug report"
         )
+        assert "select(.author" not in unescaped and ".author.login ==" not in unescaped, (
+            f"{name}: the lookup branches on the author login again. Two spellings "
+            "have already been guessed wrong (F-23, then issue #958); the login is "
+            "fetched for the record but must not decide identity"
+        )
+    assert seen == 2, (
+        f"expected both tracker steps, examined {seen} -- a renamed step would "
+        "make this guard vacuous"
+    )
+
+
+def test_the_open_tracker_step_prefers_the_oldest_duplicate():
+    """``gh`` sorts newest-first, so ``.[0]`` picks whichever duplicate was filed
+    LAST.  That is the mechanism that let #753 displace the real tracker #732 in
+    e2e.yml, and with four live duplicates it would keep hopping between them."""
+    steps = _workflow_steps()
+    opener = next(
+        (step for name, step in steps.items() if "Sharp gate cannot measure" in name),
+        None,
+    )
+    assert opener is not None, "the tracker-open step is gone"
+    script = opener["run"]
+    assert "min" in script, (
+        "the open step no longer selects the OLDEST matching tracker, so a run "
+        "can comment on a newer duplicate and leave the canonical one orphaned"
+    )
+    assert ".[0].number" not in script.replace(
+        "\\", ""
+    ), "`.[0]` off gh's newest-first sort is the F-23 displacement bug"
 
 
 def test_the_tracker_drains_itself_when_the_gate_can_measure_again():
