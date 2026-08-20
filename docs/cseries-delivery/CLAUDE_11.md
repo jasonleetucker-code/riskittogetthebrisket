@@ -419,7 +419,7 @@ Full record: `docs/game-day/C5_GD_02_PREDICTION_ARCHIVE.md`. Summary:
 | #966 | `claude/c5-proj-a-source-census` | C5-PROJ-A | open, CI green |
 | #969 | `claude/c5-war-01-deterministic-core` | C5-WAR-01 deterministic core | open, CI green |
 | #973 | `claude/c5-proj-b-canonical-schema` | C5-PROJ-B | open, based on #966 (base branch, not `main`) |
-| (pending) | `claude/c5-gd-02-prediction-archive` | C5-GD-02 prediction archive | about to open — clean base off `main` |
+| #981 | `claude/c5-gd-02-prediction-archive` | C5-GD-02 prediction archive | open, clean base off `main` |
 
 None merged by this session except via Integration (#964) — Claude 5 (Integration
 Authority) is the sole merge authority per `docs/EXECUTION_PLAN.md` §0. `#966` should
