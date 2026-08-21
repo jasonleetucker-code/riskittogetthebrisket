@@ -1,7 +1,7 @@
 {
   "_comment": "Lane utilization state for an independent traffic-control/dispatch record (no lane number, no name assigned to it — see governanceCorrection_C31). NOT an authority on integration sequencing (Claude 5 / docs/EXECUTION_PLAN.md), on V1 status (docs/VERSION_1_COMPLETION_CONTRACT.md) or on canonical ownership (CLAUDE.md). Repository evidence outranks this file: where they disagree, this file is wrong and must be corrected.",
-  "updatedAt": "2026-08-21T04:32:00Z",
-  "dispatchCycle": 64,
+  "updatedAt": "2026-08-21T05:00:00Z",
+  "dispatchCycle": 65,
   "writePolicy": "This file and ASSIGNMENTS.json are written ONLY on a material state transition — new assignment, assignment accepted, completion, blocker, freeze/unfreeze, or a meaningful dependency change. A heartbeat that finds nothing changed produces no commit and no CI run.",
   "evidenceBasis": "origin/main 079fc9e4a; §3 diffed row-by-row from cycle-19 main (c5a367266); all refs resolved live; #945 CI green 04:57:35Z",
   "assignmentSourceNote": "Lanes 1-6 carry the owner's original six manual assignments, tracked in detail by this dispatcher. Lanes 8-13 are five additional owner-authorized campaign lanes (Claude 8 chartered 2026-08-20; Claude 9-13 chartered the same day under the POST-V1 C-Series mass-build campaign, EXECUTION_PLAN.md §0). This dispatcher did not originate any of these eleven assignments and does not own or re-scope them. Lanes 8-13 are tracked here only lightly — ownership boundaries and authorization citation — because they are self-directed under their own charter, unlike lanes 1-6 which this dispatcher actively monitors for idleness and dispatches follow-on work to. This record is independent traffic-control/dispatch bookkeeping — it claims no lane number and is not assigned to a named identity, per dispatcherIdentity above.",
@@ -492,5 +492,21 @@
     "otherMerged": "routine automated data-refresh chore only.",
     "standingItemsUnchanged": "Lane 2, Lane 4 on-box batch, all three abandoned refs — checked live, no change.",
     "matrixTracking": "Now 63 of the original 71 matrix rows remain open. Four closures since delivery: V1-32, V1-117, V1-94, V1-46 -- three of the four were rows this dispatcher independently flagged (V1-32 as the headline finding, V1-94 and V1-46 as tracked NEXT10/NEXT15 candidates)."
+  },
+  "cycle65_v1Next25Census": {
+    "_comment": "Second owner-requested audit, distinct from the cycle-56 V1_70_ATTACK_MATRIX: a fresh current-main census of the NEXT 25 candidates EXCLUDING the active Tier-A queue (V1-69,90,121,133,134,135,79,92,98,112,40 -- already assigned, not duplicated here). NOT a promotion, NOT a count, NOT a code change.",
+    "deliverable": "docs/claude-dispatch/V1_NEXT25_CENSUS.md",
+    "scope": "55 non-VERIFIED, non-Tier-A rows read fresh from origin/main; 30 classified with a legible closure path, 25 selected and ranked (NEXT5/NEXT10/SURPLUS10); the remaining 25 of 55 explicitly named as not examined this pass rather than silently omitted",
+    "headlineFindings": [
+      "V1-42 (exact roster simulation): contract reads NOT STARTED but src/roster_intel/simulation.py:223 already defines simulate_roster_change -- confirmed by direct grep this pass. Strongest 'mechanism already exists' finding.",
+      "V1-49: PR #1027 (open, docs-only) re-audited and found zero remaining code defect -- the gate is 4 of 10 PRODUCTION-ONLY promotion items. Two further SAF-normalization gaps were found and confirmed UNREACHABLE on the live board, correctly left unrepaired per the sprint's own instruction.",
+      "V1-136: PR #1001 (open, three slices) has real audit evidence but Slice 3's instrumentation targets a board (idpShow plain) that #1012 retired from voting shortly before this PR's last push -- a fully-scoped 5-point reconciliation plan already exists in the same branch for Claude 5 to apply.",
+      "V1-41: a commit titled exactly for this row exists, but only inside the 100-file 'claude/v1-trade-roster-rehearsal' branch, explicitly marked DO-NOT-CHERRY-PICK and already flagged by this dispatcher's own prior-cycle records as evidence-only, never mergeable. Recorded so nobody rediscovers that by attempting a cherry-pick.",
+      "Nine rows (V1-45/56/61 VERIFY-ONLY trio, V1-57/60/65/129 post-#911 quartet, V1-83/84 post-#909 pair) are all class C -- zero code gap, only a production checklist/measurement remains, independently confirmed against origin/main this pass.",
+      "V1-87 is BLOCKED with no blocker stated, unlike every other BLOCKED row in this census (V1-89, V1-110 both name an explicit owner-decision ID) -- flagged as possibly-stale."
+    ],
+    "ranking": "by NUMERATOR PER HOUR, not feature attractiveness: class C (production-check-only, code already exists) ranked above D (small repair) above E (bounded implementation); H (owner-decision-blocked) rows named but excluded from the ranked 25.",
+    "buckets": {"NEXT5": 5, "NEXT10": 10, "SURPLUS10": 10, "namedExcluded": 5, "notExaminedThisPass": 25},
+    "note": "This dispatcher counted nothing, promoted nothing, and modified no code in producing it -- delivery only, per the owner's explicit constraints."
   }
 }
