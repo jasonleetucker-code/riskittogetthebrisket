@@ -28,11 +28,16 @@
 #   2. fetch + reset --hard origin/main so we always start from the
 #      latest CI-committed state.
 #   3. Pull cached cookies from ``$WORK_DIR/idpshow_session.json``.
-#   4. Run ``scripts/fetch_idpshow.py``.  (The fetcher only READS the
-#      jar — no code path rewrites cookies; re-mints are human-made
-#      directly into ``$WORK_DIR``, which stays the source of truth.)
-#   5. Stamp ``data/scrape_state/idpShow_last_success`` with the
-#      current epoch, stage the CSV + stamp, commit, push.  Push
+#   4. Run ``scripts/fetch_idpshow.py`` (IDP-only board, unregistered/
+#      diagnostic) and ``scripts/fetch_idpshow.py --combined`` (the
+#      COMBINED offense+IDP board — the provider family's sole VOTING
+#      source as of 2026-08-20).  Both read the same session jar; the
+#      fetcher only READS it — no code path rewrites cookies; re-mints
+#      are human-made directly into ``$WORK_DIR``, which stays the
+#      source of truth.
+#   5. Stamp ``data/scrape_state/idpShow_last_success`` and
+#      ``data/scrape_state/idpShowCombined_last_success`` with the
+#      current epoch, stage both CSVs + stamps, commit, push.  Push
 #      retries on rebase conflict (CI's data-refresh cron also
 #      pushes to main every 2h).
 
@@ -81,9 +86,31 @@ if [[ ! -f "${REPO_DIR}/idpshow_session.json" ]]; then
   exit 1
 fi
 
-log "running scripts/fetch_idpshow.py"
+# Two boards, one paywalled article family, one session cookie.
+# idpShowCombined is the VOTING board (see
+# src/api/data_contract.py::_RANKING_SOURCES) as of 2026-08-20 — it
+# must stay on the same refresh cadence as the retired idpShow.csv,
+# which is now acquisition-only (unregistered, kept for diagnostics).
+# Each fetch is independent: one board's fetch failing does not block
+# committing the other board's successful refresh, and only a
+# same-run failure of BOTH aborts the whole push.
+DEFAULT_FETCH_OK=1
+COMBINED_FETCH_OK=1
+
+log "running scripts/fetch_idpshow.py (IDP-only board, unregistered/diagnostic)"
 if ! "${VENV_PYTHON}" scripts/fetch_idpshow.py; then
-  err "fetch_idpshow.py exited non-zero - keeping previous CSV / stamp; will retry on next timer fire."
+  err "fetch_idpshow.py exited non-zero - keeping previous CSV / stamp."
+  DEFAULT_FETCH_OK=0
+fi
+
+log "running scripts/fetch_idpshow.py --combined (VOTING board)"
+if ! "${VENV_PYTHON}" scripts/fetch_idpshow.py --combined; then
+  err "fetch_idpshow.py --combined exited non-zero - keeping previous CSV / stamp."
+  COMBINED_FETCH_OK=0
+fi
+
+if [[ "${DEFAULT_FETCH_OK}" -eq 0 && "${COMBINED_FETCH_OK}" -eq 0 ]]; then
+  err "both idpShow fetches failed - nothing to commit; will retry on next timer fire."
   exit 1
 fi
 
@@ -96,14 +123,23 @@ if [[ -f "${REPO_DIR}/idpshow_session.json" ]]; then
 fi
 
 mkdir -p data/scrape_state
-date -u +%s > data/scrape_state/idpShow_last_success
+if [[ "${DEFAULT_FETCH_OK}" -eq 1 ]]; then
+  date -u +%s > data/scrape_state/idpShow_last_success
+fi
+if [[ "${COMBINED_FETCH_OK}" -eq 1 ]]; then
+  date -u +%s > data/scrape_state/idpShowCombined_last_success
+fi
 
-# Force-add the stamp because data/ is gitignored at the repo level
-# (data/scrape_state/ is the carve-out we want tracked) - matches the
-# scheduled-refresh.yml "Commit updated data" step.
+# Force-add both boards' outputs + stamps because data/ is gitignored
+# at the repo level (data/scrape_state/ is the carve-out we want
+# tracked) - matches the scheduled-refresh.yml "Commit updated data"
+# step.  Adding a path whose fetch failed (and so is unchanged on
+# disk) is harmless - it just produces no diff to commit.
 git add -f -- \
   CSVs/site_raw/idpShow.csv \
-  data/scrape_state/idpShow_last_success
+  CSVs/site_raw/idpShowCombined.csv \
+  data/scrape_state/idpShow_last_success \
+  data/scrape_state/idpShowCombined_last_success
 
 if git diff --cached --quiet; then
   log "no changes after fetch - exiting clean"

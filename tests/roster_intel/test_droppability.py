@@ -17,6 +17,7 @@ import ast
 import json
 import pathlib
 import random
+import re
 
 import pytest
 
@@ -237,6 +238,41 @@ def test_the_cut_ladder_owner_has_exactly_two_callers():
         "src/draft/context.py",
         "src/roster_intel/droppability.py",
     }
+
+
+def test_no_independent_drop_candidate_selector_exists():
+    """The gap the call-site guard above cannot see.
+
+    ``test_the_cut_ladder_owner_has_exactly_two_callers`` proves nobody
+    ELSE calls ``build_cut_ladder``. It proves nothing about a module that
+    decides "who should this team release" WITHOUT ever calling the
+    owner — and that is exactly the shape ``src/trade/waiver.py`` carried
+    until it was deleted: ``find_drop_candidates`` ranked the roster by
+    raw ``rankDerivedValue`` with no lineup guard, no waiver-value offset
+    and no call to ``build_cut_ladder`` anywhere in it, so the call-site
+    guard was structurally blind to it (same failure shape as V1-29's
+    MR1/MR2 — a discovery rule keyed on the owner's OWN call sites cannot
+    catch a second implementation that never calls in).
+
+    So this is a vocabulary scan over definitions, not a call-site scan:
+    a second module naming itself a drop/cut-candidate answer is the
+    duplication this row exists to prevent, whether or not it ever wires
+    into the owner.
+    """
+    pattern = re.compile(r"\b(find_drop_candidates?|drop_candidates?|cut_candidates?)\b", re.I)
+    owners = set()
+    for path in (REPO / "src").rglob("*.py"):
+        rel = path.relative_to(REPO).as_posix()
+        if pattern.search(path.read_text(encoding="utf-8", errors="ignore")):
+            owners.add(rel)
+    assert owners <= {
+        "src/draft/displacement.py",
+        "src/roster_intel/droppability.py",
+        "src/trade/waiver.py",
+    }, (
+        "drop/cut-candidate vocabulary appears outside the declared owner "
+        f"and its documented history: {sorted(owners)}"
+    )
 
 
 def test_the_scarcity_band_is_read_from_the_owner_not_restated():

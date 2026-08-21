@@ -78,3 +78,33 @@ It is deliberately **not** the Team Strength consumer gap. That gap is
 real and is the V1-35 audit's headline, but its repair is a frontend
 change on `/rosters` — Claude 6's lane. Naming it as this lane's next
 unit would be claiming another lane's files.
+
+---
+
+## Addendum, 2026-08-20 (superseding rows V1-29, V1-31, V1-32 above)
+
+This table's body is from an earlier point in the same lane's work and is
+now stale on three rows; rather than rewrite history, this addendum
+records what changed and where the current record lives.
+
+- **V1-29** is now `VERIFIED` at L2 (#987, merge `faa50ba9a`; L1 half
+  confirmed by mutation at Integration — see
+  `docs/VERSION_1_COMPLETION_CONTRACT.md`). The "Next Roster-only unit"
+  section above is resolved and no longer describes outstanding work.
+- **V1-31**: `/phases`' independent top-25-value × raw-age classifier
+  (audit finding F-3 / handoff H-2) is retired and redirected onto this
+  lane's own `teamStrengthLadder()` materializer (PR #1002). `/rosters`'
+  `scoreTeamTiers` composite (F-1 / H-1) remains open and is still
+  Claude 6's file.
+- **V1-32**: a backend AST single-owner discovery guard for
+  `TeamStrength` / `TeamWeakness` now exists
+  (`tests/roster_intel/test_strength_weakness_single_owner.py`, PR
+  #1004), and a census at the current tree confirms no live frontend
+  Weakness duplicate exists to retire.
+- **Whether V1-32 needs a frontend consumer to close was investigated
+  and answered NO** — it is an **L4** question, V1-32's target is
+  **L2**, and L2 is independently re-confirmed today (`V1_ROSTER_
+  VERIFICATION_PACK.md` §3.1/§6, via the newly-committed
+  `--offline` reproduction command). No frontend code was added for
+  either row in this pass; building one would exceed both rows' actual
+  acceptance bar and duplicate handoff H-1, already assigned to Claude 6.

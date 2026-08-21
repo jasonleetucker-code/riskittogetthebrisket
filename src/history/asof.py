@@ -415,6 +415,148 @@ def batch_as_of(
     }
 
 
+def batch_known_before(
+    requests: Sequence[tuple[str, datetime]],
+    *,
+    lane: str = LANE_CANONICAL,
+    source_key: str = "",
+    max_age_days: int | None = None,
+    path: Path | None = None,
+) -> dict[str, Any]:
+    """Instant-strict as-of lookup for a batch of ``(asset_key, instant)``
+    pairs — the batched sibling of :func:`value_known_before`.
+
+    Unlike :func:`batch_as_of` (day-granular, one shared date for every
+    asset), each request here carries its OWN instant — the natural shape
+    for historical trade replay, where the same player recurs across many
+    trades each with its own timestamp.  ``value_known_before`` per request
+    would reopen the ledger and re-query per item; this groups requests by
+    distinct ``asset_key`` and issues exactly one SQL fetch per distinct
+    key (bounded by the furthest-future instant requested for that key),
+    then re-applies the same instant-strict selection
+    (:func:`_instant_at_or_before`, :func:`_select_best`) to each request's
+    own instant against the shared candidate set in memory.  A key that
+    recurs across many requests costs one round trip, not N.
+
+    Every ``instant`` must be timezone-aware; this is validated for the
+    WHOLE batch before any connection is opened, matching
+    :func:`value_known_before`'s contract.
+
+    Results are returned in request order (positionally aligned to
+    ``requests``, not deduplicated — the same ``(asset_key, instant)`` pair
+    may legitimately repeat and each occurrence gets its own result), each
+    shaped identically to a single :func:`value_known_before` call.
+    ``max_age_days`` has no default freshness budget (``None``): staleness
+    is a live-serving concept, and historical replay has no owner-approved
+    notion of "too old" to invent one.
+    """
+    normalized: list[tuple[str, datetime]] = []
+    for asset_key, instant in requests:
+        if instant.tzinfo is None:
+            raise ObservationError(
+                "naive datetime passed to batch_known_before; as-of instants must be UTC-aware"
+            )
+        normalized.append((asset_key, instant.astimezone(timezone.utc)))
+
+    results: list[dict[str, Any] | None] = [None] * len(normalized)
+
+    by_key: dict[str, list[int]] = {}
+    for i, (asset_key, _utc) in enumerate(normalized):
+        by_key.setdefault(asset_key, []).append(i)
+
+    conn = _connect_readonly(path)
+    try:
+        for asset_key, idxs in by_key.items():
+            eligible_idxs: list[int] = []
+            for i in idxs:
+                utc = normalized[i][1]
+                requested = utc.date().isoformat()
+                if requested < HISTORY_FLOOR:
+                    out = _unavailable(
+                        asset_key, lane, source_key, requested, REASON_BEFORE_BOUNDARY
+                    )
+                    out["requestedInstant"] = utc.isoformat()
+                    results[i] = out
+                else:
+                    eligible_idxs.append(i)
+            if not eligible_idxs:
+                continue
+
+            if conn is None:
+                for i in eligible_idxs:
+                    utc = normalized[i][1]
+                    requested = utc.date().isoformat()
+                    out = _unavailable(asset_key, lane, source_key, requested, REASON_NO_PRIOR)
+                    out["requestedInstant"] = utc.isoformat()
+                    results[i] = out
+                continue
+
+            max_date = max(normalized[i][1].date().isoformat() for i in eligible_idxs)
+            rows = _fetch_candidates(conn, asset_key, lane, source_key, date_max=max_date)
+
+            for i in eligible_idxs:
+                utc = normalized[i][1]
+                requested = utc.date().isoformat()
+                filtered = [
+                    r
+                    for r in rows
+                    if str(r["observed_date"]) < requested
+                    or (
+                        str(r["observed_date"]) == requested
+                        and _instant_at_or_before(r["observed_at"], utc)
+                    )
+                ]
+                best = _select_best(filtered)
+                if best is None:
+                    out = _unavailable(asset_key, lane, source_key, requested, REASON_NO_PRIOR)
+                    out["requestedInstant"] = utc.isoformat()
+                    results[i] = out
+                    continue
+                result = _result_from_row(best, requested)
+                result["requestedInstant"] = utc.isoformat()
+                if (
+                    max_age_days is not None
+                    and result["distanceDays"] is not None
+                    and result["distanceDays"] > max_age_days
+                ):
+                    out = _unavailable(
+                        asset_key, lane, source_key, requested, REASON_OUTSIDE_MAX_AGE
+                    )
+                    out["requestedInstant"] = utc.isoformat()
+                    out["nearestPriorDate"] = result["observedDate"]
+                    out["nearestPriorDistanceDays"] = result["distanceDays"]
+                    results[i] = out
+                else:
+                    results[i] = result
+    finally:
+        if conn is not None:
+            conn.close()
+
+    n = len(results)
+    exact = sum(1 for r in results if r is not None and r["fidelity"] == FIDELITY_EXACT)
+    prior = sum(1 for r in results if r is not None and r["fidelity"] == FIDELITY_NEAREST_PRIOR)
+    missing = n - exact - prior
+    if n == 0 or missing == n:
+        agg = FIDELITY_UNAVAILABLE
+    elif missing == 0 and prior == 0:
+        agg = FIDELITY_EXACT
+    elif missing == 0:
+        agg = FIDELITY_NEAREST_PRIOR
+    else:
+        agg = FIDELITY_PARTIAL
+    return {
+        "results": results,
+        "summary": {
+            "items": n,
+            "exact": exact,
+            "nearestPrior": prior,
+            "unavailable": missing,
+            "coverage": (exact + prior) / n if n else 0.0,
+            "fidelity": agg,
+        },
+    }
+
+
 def series(
     asset_key: str,
     *,

@@ -319,6 +319,7 @@ export function SimulationPanel({ simResult, simError, selectedTeam, onReset }) 
     ...(simResult?.unresolvedIn || []),
     ...(simResult?.unresolvedOut || []),
   ];
+  const rc = simResult?.rosterCapacity;
 
   return (
     <Panel
@@ -426,6 +427,36 @@ export function SimulationPanel({ simResult, simError, selectedTeam, onReset }) 
                 </Banner>
               ) : null}
             </div>
+          ) : null}
+
+          {rc && rc.requiresDrops === true ? (
+            <Banner tone="warning" title="Roster capacity">
+              {`Forces ${rc.forcedDrops.length} release${rc.forcedDrops.length === 1 ? "" : "s"}` +
+                (rc.rosterLimit != null ? ` to fit the ${rc.rosterLimit}-man limit` : "") +
+                (rc.forcedDropValue != null
+                  ? ` — ${Math.round(rc.forcedDropValue).toLocaleString()} value released`
+                  : "") +
+                (rc.forcedDropsAreUpperBound ? " (worst case; taxi occupancy uncertain)" : "") +
+                (rc.ladderExhausted ? " — no fully legal cleanup found" : "")}
+              {rc.forcedDrops.length > 0 ? (
+                <ul className={styles.simRationale}>
+                  {rc.forcedDrops.map((d) => (
+                    <li key={d.playerId || d.name}>
+                      {d.name} ({d.position}) —{" "}
+                      {d.value != null ? Math.round(d.value).toLocaleString() : "unpriced"}
+                    </li>
+                  ))}
+                </ul>
+              ) : null}
+            </Banner>
+          ) : null}
+
+          {rc && rc.requiresDrops === null ? (
+            <Banner tone="neutral" title="Roster capacity">
+              {rc.rosterLimit == null
+                ? "Roster capacity unknown for this league."
+                : "Roster capacity uncertain — taxi occupancy unknown; this trade may or may not require a release."}
+            </Banner>
           ) : null}
 
           {unresolved.length > 0 ? (
@@ -601,12 +632,32 @@ function AssetRow({
             <span className={styles.assetMetaText}>
               {row.pos} · Consensus{" "}
               {row.blendedSourceRank != null ? row.blendedSourceRank.toFixed(1) : "—"}
+              {" · "}
+              {Number.isFinite(row.sourceCount) ? row.sourceCount : 0} src
             </span>
+            {row.confidenceBucket && row.confidenceBucket !== "high" ? (
+              /* W08-F011 (V1-92): the trade builder priced every asset
+                 with no visible signal for how thin the evidence behind
+                 that price is. `confidenceBucket` already folds
+                 freshness in as one of its five axes (see
+                 src/api/confidence.py — freshness cannot be read alone
+                 per-row, so the bucket IS the backend's per-row
+                 freshness-aware truth), so surfacing it here needs no
+                 new Date.now()-based staleness invented on the client.
+                 Silent for "high" — the expected default — to avoid
+                 badging every row in a trade. */
+              <Badge
+                tone={row.confidenceBucket === "medium" ? "warning" : "negative"}
+                title={row.confidenceLabel || undefined}
+              >
+                {row.confidenceBucket === "none"
+                  ? "no confidence data"
+                  : `${row.confidenceBucket} confidence`}
+              </Badge>
+            ) : null}
             <input
               type="number"
-              className={`asset-value-override-input${
-                valueOverrides[row.name] != null ? " overridden" : ""
-              }`}
+              className="asset-value-override-input"
               value={valueOverrides[row.name] != null ? valueOverrides[row.name] : ""}
               placeholder={
                 isUnpricedBoardRow(row)

@@ -1,0 +1,187 @@
+{
+  "fullCount": 983,
+  "mountedRows": 37,
+  "domNodes": 1536,
+  "hover": true,
+  "control": [
+    {
+      "rate": 1,
+      "frames": 231,
+      "elapsedMs": 3833.0999999999995,
+      "fps": 60.00365239623282,
+      "medianFrameMs": 16.699999999999818,
+      "p95FrameMs": 16.799999999999272,
+      "longFrames": 0,
+      "moved": 9000,
+      "maxScroll": 23700,
+      "thinSample": false
+    },
+    {
+      "rate": 4,
+      "frames": 231,
+      "elapsedMs": 3833.199999999999,
+      "fps": 60.00208702911407,
+      "medianFrameMs": 16.700000000000728,
+      "p95FrameMs": 16.799999999999272,
+      "longFrames": 0,
+      "moved": 9000,
+      "maxScroll": 23700,
+      "thinSample": false
+    },
+    {
+      "rate": 6,
+      "frames": 229,
+      "elapsedMs": 3799.800000000003,
+      "fps": 60.00315806095053,
+      "medianFrameMs": 16.69999999999709,
+      "p95FrameMs": 16.700000000004366,
+      "longFrames": 0,
+      "moved": 9000,
+      "maxScroll": 23700,
+      "thinSample": false
+    }
+  ],
+  "results": [
+    {
+      "rate": 1,
+      "frames": 227,
+      "elapsedMs": 3783.1679999999997,
+      "fps": 59.738293409121674,
+      "medianFrameMs": 16.699999999999818,
+      "p95FrameMs": 16.800000000000182,
+      "longFrames": 1,
+      "moved": 9000,
+      "maxScroll": 40611,
+      "thinSample": false,
+      "samples": [
+        {
+          "frames": 226,
+          "elapsedMs": 3799.7999999999993,
+          "fps": 59.2136428233065,
+          "medianFrameMs": 16.69999999999891,
+          "p95FrameMs": 16.799999999999272,
+          "longFrames": 2,
+          "moved": 9000,
+          "maxScroll": 40611,
+          "thinSample": false
+        },
+        {
+          "frames": 227,
+          "elapsedMs": 3783.1679999999997,
+          "fps": 59.738293409121674,
+          "medianFrameMs": 16.699999999999818,
+          "p95FrameMs": 16.800000000000182,
+          "longFrames": 1,
+          "moved": 9000,
+          "maxScroll": 40611,
+          "thinSample": false
+        },
+        {
+          "frames": 230,
+          "elapsedMs": 3816.6000000000004,
+          "fps": 60.0010480532411,
+          "medianFrameMs": 16.69999999999891,
+          "p95FrameMs": 16.799999999999272,
+          "longFrames": 0,
+          "moved": 9000,
+          "maxScroll": 40611,
+          "thinSample": false
+        }
+      ]
+    },
+    {
+      "rate": 4,
+      "frames": 93,
+      "elapsedMs": 3833.2000000000007,
+      "fps": 24.000834811645618,
+      "medianFrameMs": 49.899999999999636,
+      "p95FrameMs": 66.70000000000073,
+      "longFrames": 72,
+      "moved": 9000,
+      "maxScroll": 40611,
+      "thinSample": false,
+      "samples": [
+        {
+          "frames": 89,
+          "elapsedMs": 3849.9000000000015,
+          "fps": 22.857736564586084,
+          "medianFrameMs": 50,
+          "p95FrameMs": 66.70000000000073,
+          "longFrames": 69,
+          "moved": 9000,
+          "maxScroll": 40611,
+          "thinSample": false
+        },
+        {
+          "frames": 93,
+          "elapsedMs": 3833.2000000000007,
+          "fps": 24.000834811645618,
+          "medianFrameMs": 49.899999999999636,
+          "p95FrameMs": 66.70000000000073,
+          "longFrames": 72,
+          "moved": 9000,
+          "maxScroll": 40611,
+          "thinSample": false
+        },
+        {
+          "frames": 98,
+          "elapsedMs": 3849.9000000000015,
+          "fps": 25.195459622327842,
+          "medianFrameMs": 33.400000000001455,
+          "p95FrameMs": 66.69999999999709,
+          "longFrames": 75,
+          "moved": 9000,
+          "maxScroll": 40611,
+          "thinSample": false
+        }
+      ]
+    },
+    {
+      "rate": 6,
+      "frames": 51,
+      "elapsedMs": 3966.4999999999964,
+      "fps": 12.605571662674915,
+      "medianFrameMs": 83.40000000000146,
+      "p95FrameMs": 133.40000000000146,
+      "longFrames": 46,
+      "moved": 9000,
+      "maxScroll": 40611,
+      "thinSample": false,
+      "samples": [
+        {
+          "frames": 47,
+          "elapsedMs": 4016.5,
+          "fps": 11.452757375824723,
+          "medianFrameMs": 100,
+          "p95FrameMs": 150,
+          "longFrames": 44,
+          "moved": 9000,
+          "maxScroll": 40611,
+          "thinSample": false
+        },
+        {
+          "frames": 51,
+          "elapsedMs": 3966.4999999999964,
+          "fps": 12.605571662674915,
+          "medianFrameMs": 83.40000000000146,
+          "p95FrameMs": 133.40000000000146,
+          "longFrames": 46,
+          "moved": 9000,
+          "maxScroll": 40611,
+          "thinSample": false
+        },
+        {
+          "frames": 51,
+          "elapsedMs": 3916.5,
+          "fps": 12.766500702157538,
+          "medianFrameMs": 83.40000000000146,
+          "p95FrameMs": 133.29999999999927,
+          "longFrames": 46,
+          "moved": 9000,
+          "maxScroll": 40611,
+          "thinSample": false
+        }
+      ]
+    }
+  ]
+}

@@ -268,11 +268,24 @@ class TestEnrichFromSourceCsvsJoinHygiene(unittest.TestCase):
         players = [_row("T.J. Watt", "DL")]
         # Need a backbone anchor so the shared-market ladder exists and
         # DLF's raw rank has something to translate against.
+        #
+        # That requires OFFENSE rows too, and it always did — the ladder's
+        # whole content is "where do IDPs sit among ALL assets".  An IDP-only
+        # anchor used to produce one anyway: the identity ladder, which says
+        # the best defender is the best asset, and which is the defect the
+        # crosswalk exists to prevent.  A bridge must now span both pools to
+        # be usable, so the fixture supplies the offense half it was already
+        # claiming to model rather than relying on a ladder that was never
+        # real (C7).
+        players.append(_row("Offense One", "WR", idp=9900))
+        players.append(_row("Offense Two", "RB", idp=9500))
         players.append(_row("Myles Garrett", "DL", idp=9000))
         self._run_with_csvs(
             players,
             {
                 "idpTradeCalc": [
+                    ("Offense One", 9900),
+                    ("Offense Two", 9500),
                     ("Myles Garrett", 9000),
                     ("TJ Watt", 3288),
                 ],

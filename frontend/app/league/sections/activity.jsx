@@ -150,15 +150,27 @@ export function TradeCard({ trade, managers, onNavigate }) {
               <span style={{ cursor: side.ownerId ? "pointer" : "default", color: side.ownerId ? "var(--cyan)" : "var(--text)" }}>
                 {side.displayName || side.teamName || nameFor(managers, side.ownerId)}
               </span>
-              {side.grade && (
-                <>
-                  <span style={{ fontSize: "0.78rem", fontWeight: 800, color: side.grade.color }}>
-                    {side.grade.grade}
-                  </span>
-                  <span style={{ fontSize: "0.58rem", color: "var(--subtext)", fontWeight: 500 }}>
-                    {side.grade.label}
-                  </span>
-                </>
+              {side.grade && side.grade.available === false ? (
+                // No admissible historical evidence for this side's assets
+                // as of the trade's own date — an honest "we don't know",
+                // never a grade silently computed from today's values.
+                <span
+                  title="This trade predates our historical value coverage, or one of its assets has no recorded value as of that date."
+                  style={{ fontSize: "0.58rem", color: "var(--subtext)", fontWeight: 500, fontStyle: "italic" }}
+                >
+                  {side.grade.label}
+                </span>
+              ) : (
+                side.grade && (
+                  <>
+                    <span style={{ fontSize: "0.78rem", fontWeight: 800, color: side.grade.color }}>
+                      {side.grade.grade}
+                    </span>
+                    <span style={{ fontSize: "0.58rem", color: "var(--subtext)", fontWeight: 500 }}>
+                      {side.grade.label}
+                    </span>
+                  </>
+                )
               )}
             </div>
             <div style={{ fontSize: "0.68rem", color: "var(--subtext)", marginTop: 2 }}>Received:</div>

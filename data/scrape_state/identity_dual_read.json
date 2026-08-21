@@ -1,16 +1,16 @@
 {
- "generatedAt": "2026-08-20T13:35:24.941560+00:00",
+ "generatedAt": "2026-08-21T11:05:26.450213+00:00",
  "servedPolicy": "scraper_sleeper_attach_v1",
  "servedBy": "src.identity.resolution",
  "legacyLadderRetired": true,
  "v2WatchEnabled": true,
  "site": "scraper_sleeper_attach",
- "calls": 1957,
+ "calls": 1961,
  "v1Agree": 0,
  "v1Diverge": 0,
  "v1Examples": [],
- "v2Same": 1937,
- "v2WouldChange": 20,
+ "v2Same": 1942,
+ "v2WouldChange": 19,
  "v2Examples": [
   {
    "name": "Bam Knight",
@@ -34,14 +34,6 @@
    "served": "10917",
    "engineV2": null,
    "v2Method": "exact_clean:name_pos",
-   "v2Reason": "ambiguous"
-  },
-  {
-   "name": "Elijah Mitchell",
-   "pos": "",
-   "served": "7561",
-   "engineV2": null,
-   "v2Method": "exact_clean:name",
    "v2Reason": "ambiguous"
   },
   {

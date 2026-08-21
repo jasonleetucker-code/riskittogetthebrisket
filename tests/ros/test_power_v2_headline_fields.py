@@ -21,12 +21,32 @@ file pins both.
 ``power.py`` calls), computed once per HEADLINE row rather than per
 trend-week row — the trend series has no use for it and 56+ weeks of unused
 lookups per owner would be pure waste.
+
+RECONCILIATION NOTE (2026-08-21, Integration, onto #1032's `main`).
+``record`` originally read ``state["career"]`` from inside ``_score_state``.
+#1032 (landed on `main` after this unit was written) repointed the headline
+call's ``state["career"]`` from the true unbounded ``career_state`` to a new
+per-season-reset ``season_state``, to fix ppg/wl_record cross-season
+contamination.  Left as originally written, ``record`` would have silently
+inherited that repointing and started reading a CURRENT-SEASON W-L instead
+of the true career total this field is documented above to mean — the exact
+contamination class #1032 exists to prevent, reintroduced for a new field by
+a same-name accident.  Fixed by moving ``record`` out of ``_score_state``
+entirely into ``build_section``'s existing headline-only post-pass (beside
+``teamName``), reading ``career_state`` directly rather than through
+``state["career"]``.  ``test_record_is_present_on_normal_scoring_rows``
+below cannot itself catch this — its fixture is single-season, so
+``career_state`` and ``season_state`` are numerically identical there.
+``test_record_is_the_true_career_total_not_the_current_season_only`` is the
+one that discriminates, reusing the two-season fixture
+``test_power_v2_season_scoping.py`` built for exactly this class of bug.
 """
 
 from __future__ import annotations
 
 from src.ros import power_v2
 from tests.ros.test_power_lenses import _scored_snapshot
+from tests.ros.test_power_v2_season_scoping import _row, _two_season_snapshot
 from tests.public_league.fixtures import build_test_snapshot
 
 
@@ -94,3 +114,32 @@ def test_team_name_is_the_same_lookup_power_py_uses():
                 break
         expected = _metrics.team_name(snapshot, league_id, rid)
         assert row["teamName"] == expected
+
+
+def test_record_is_the_true_career_total_not_the_current_season_only():
+    """The discriminating assertion the single-season fixture above cannot
+    make. Two-season fixture (``test_power_v2_season_scoping``): season 2025
+    alpha wins all 3 (500 vs 50), season 2026 alpha loses all 3 (~10 vs
+    ~200) -- bravo is the exact mirror.
+
+    SEASON-2026-ONLY (the bug this reconciliation prevents): alpha "0-3",
+    bravo "3-0" -- exactly what ``season_state``, the accumulator #1032
+    repointed the headline ``ppg``/``wl_record`` onto, would produce if
+    ``record`` had been left reading it too.
+
+    TRUE CAREER (correct, matches ``power.py``'s own semantics): both
+    owners split 3-3 across the two seasons -- a symmetric fixture on
+    purpose, so a season-scoped bug can't hide behind an accidentally
+    correct-looking asymmetric number.
+    """
+    out = power_v2.build_section(_two_season_snapshot(), lens=power_v2.LENS_RESULTS_ONLY)
+    alpha = _row(out["currentRanking"], "alpha")
+    bravo = _row(out["currentRanking"], "bravo")
+    assert alpha["record"] == "3-3", (
+        f"got {alpha['record']!r} -- season-2026-only would read '0-3'; "
+        "record must be the true career total, not the season-scoped accumulator"
+    )
+    assert bravo["record"] == "3-3", (
+        f"got {bravo['record']!r} -- season-2026-only would read '3-0'; "
+        "record must be the true career total, not the season-scoped accumulator"
+    )

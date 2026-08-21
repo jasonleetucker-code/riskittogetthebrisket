@@ -63,6 +63,27 @@ SESSION_PATH = REPO / "idpshow_session.json"
 ARTICLE_URL = "https://www.theidpshow.com/p/idp-dynasty-rankings"
 OUT_PATH = REPO / "CSVs" / "site_raw" / "idpShow.csv"
 
+# The SAME publisher also runs a COMBINED offense+IDP dynasty board.  It is a
+# different QUANTITY from the IDP-only board above — a cross-market ordering
+# that ranks Bijan Robinson against Patrick Queen — not a re-cut of it.
+#
+# Acquired and preserved; it votes NOTHING.  Two reasons, both load-bearing:
+#
+#   * It is the same PROVIDER, so admitting both as independent votes would
+#     manufacture agreement out of one opinion — the KTC Off/TE+/TE++/TE+++
+#     defect family CLAUDE.md names explicitly.
+#   * Measured 2026-08-20, the swap is not a free upgrade: the combined board
+#     carries 250 players (170 offense / 80 IDP) against the IDP board's 350,
+#     and only 79 of our current IDP players appear on it.  Switching wholesale
+#     would strip an IDP Show vote from 278 defenders to gain 170 offense rows.
+#
+# Which board should VOTE is an owner decision with a measured cost, not a URL
+# swap.  This fetcher's job is to make the evidence available either way.
+COMBINED_ARTICLE_URL = (
+    "https://www.theidpshow.com/p/combined-idp-offense-dynasty-rankings-fantasy-football"
+)
+COMBINED_OUT_PATH = REPO / "CSVs" / "site_raw" / "idpShowCombined.csv"
+
 # Position normalization.  The IDP Show groups pass rushers as ``ED``
 # (edge) and interior linemen as ``IDL`` — both fall under the DL
 # family in our registry.  ``S`` and ``CB`` fold into the DB family.
@@ -123,10 +144,10 @@ def _build_session():
     return session
 
 
-def _fetch_article_html(session) -> str:
-    r = session.get(ARTICLE_URL, timeout=45)
+def _fetch_article_html(session, url: str = ARTICLE_URL) -> str:
+    r = session.get(url, timeout=45)
     if r.status_code != 200:
-        raise RuntimeError(f"GET {ARTICLE_URL} failed: HTTP {r.status_code}")
+        raise RuntimeError(f"GET {url} failed: HTTP {r.status_code}")
     return r.text
 
 
@@ -148,6 +169,50 @@ def _extract_chart_id(html: str) -> str | None:
     if not m:
         return None
     return m.group(1)
+
+
+def _extract_all_chart_ids(html: str) -> list[str]:
+    """Every distinct Datawrapper chart embedded in the article, in order.
+
+    :func:`_extract_chart_id` returns the FIRST iframe, which is right for
+    the IDP-only post (one chart) and WRONG for the combined post, which
+    embeds two: a top-250 excerpt and the full 700+ board.  Taking the
+    first silently ingests the excerpt — measured 2026-08-20, that cost
+    277 of the 350 IDP players their cross-market placement.
+    """
+    seen: list[str] = []
+    for m in re.finditer(r"datawrapper\.dwcdn\.net/([A-Za-z0-9]+)/", html):
+        cid = m.group(1)
+        if cid not in seen:
+            seen.append(cid)
+    return seen
+
+
+def _pick_widest_chart(session, chart_ids: list[str]) -> tuple[str, str, str] | None:
+    """Choose the chart with the MOST data rows, and say why.
+
+    Selection is on measured row count rather than on document order or a
+    hardcoded id, for two reasons: the author can reorder the embeds, and a
+    hardcoded id silently breaks the day the chart is republished under a
+    new one.  Ties and empty responses lose - a truncated fetch must never
+    win by default, which is the same fail-closed posture as the 0-rows
+    guard in :func:`main`.
+    """
+    best: tuple[str, str, str] | None = None
+    best_rows = 0
+    for cid in chart_ids:
+        version = _resolve_latest_version(session, cid)
+        if not version:
+            continue
+        try:
+            csv_text = _fetch_dataset_csv(session, cid, version)
+        except RuntimeError:
+            continue
+        rows = max(0, len(csv_text.splitlines()) - 1)
+        print(f"[idpshow]   candidate {cid} v{version}: {rows} rows")
+        if rows > best_rows:
+            best, best_rows = (cid, version, csv_text), rows
+    return best
 
 
 def _resolve_latest_version(session, chart_id: str) -> str | None:
@@ -241,21 +306,34 @@ def _parse_dataset(csv_text: str) -> list[dict]:
     silently re-break the feed (the 0-rows guard in :func:`main`
     would still catch a *third* unknown schema).
     """
-    reader = csv.DictReader(csv_text.splitlines())
+    # The IDP-only chart is comma-separated; the COMBINED board is
+    # tab-separated with `Rank / Name / Position / Team / Change`.  Sniff on
+    # the header rather than on the flag, so a future format flip on either
+    # board is handled by the same code path instead of by a second parser.
+    first = csv_text.splitlines()[0] if csv_text.splitlines() else ""
+    delimiter = "\t" if first.count("\t") > first.count(",") else ","
+    reader = csv.DictReader(csv_text.splitlines(), delimiter=delimiter)
     rows_out: list[dict] = []
     for row in reader:
-        name = str(row.get("PLAYER") or "").strip()
+        # "Name"/"Position"/"Rank" are the COMBINED board's headers.
+        name = str(row.get("PLAYER") or row.get("Name") or "").strip()
         if not name:
             continue
         # Position: old ``POS`` is a bare code; new ``POSITION RANK``
         # is the code with the positional rank concatenated
         # (``ED1``).  Strip everything from the first digit on.
-        pos_src = str(row.get("POS") or row.get("POSITION RANK") or "").strip().upper()
+        pos_src = (
+            str(row.get("POS") or row.get("POSITION RANK") or row.get("Position") or "")
+            .strip()
+            .upper()
+        )
         m = re.match(r"[A-Z]+", pos_src)
         pos_raw = m.group(0) if m else pos_src
         pos_norm = _POS_NORM.get(pos_raw, pos_raw)
         # Overall rank: old ``OVR`` → new ``OVERALL``.
-        ovr_raw = str(row.get("OVR") or row.get("OVERALL") or "").strip().lstrip("0")
+        ovr_raw = (
+            str(row.get("OVR") or row.get("OVERALL") or row.get("Rank") or "").strip().lstrip("0")
+        )
         try:
             rank = int(ovr_raw) if ovr_raw else None
         except (TypeError, ValueError):
@@ -308,7 +386,23 @@ def main(argv: list[str] | None = None) -> int:
         action="store_true",
         help="Scrape but don't write the CSV.",
     )
+    parser.add_argument(
+        "--combined",
+        action="store_true",
+        help=(
+            "Fetch the publisher's COMBINED offense+IDP dynasty board into "
+            "idpShowCombined.csv instead of the IDP-only board.  This is "
+            "the provider family's SOLE voting source as of 2026-08-20 — "
+            "see the ``idpShowCombined`` entry in "
+            "``src/api/data_contract.py::_RANKING_SOURCES``.  The plain "
+            "(no-flag) board is still fetched for diagnostics but is "
+            "unregistered and cannot vote.  See COMBINED_ARTICLE_URL for "
+            "why this board, not that one."
+        ),
+    )
     args = parser.parse_args(argv)
+    article_url = COMBINED_ARTICLE_URL if args.combined else ARTICLE_URL
+    out_path = COMBINED_OUT_PATH if args.combined else OUT_PATH
 
     if not SESSION_PATH.exists():
         print(
@@ -322,7 +416,7 @@ def main(argv: list[str] | None = None) -> int:
     session = _build_session()
 
     try:
-        html = _fetch_article_html(session)
+        html = _fetch_article_html(session, article_url)
     except RuntimeError as exc:
         print(f"[idpshow] article fetch failed: {exc}", file=sys.stderr)
         return 1
@@ -334,6 +428,55 @@ def main(argv: list[str] | None = None) -> int:
             file=sys.stderr,
         )
         return 1
+
+    if args.combined:
+        # The combined post embeds a top-250 excerpt AND the full 700+
+        # board.  Pick by measured width, never by document order.
+        candidates = _extract_all_chart_ids(html)
+        print(f"[idpshow] combined post embeds {len(candidates)} chart(s): {candidates}")
+        picked = _pick_widest_chart(session, candidates)
+        if not picked:
+            print(
+                "[idpshow] ERROR: no Datawrapper chart in the combined post "
+                "returned a usable dataset.",
+                file=sys.stderr,
+            )
+            return 1
+        chart_id, version, csv_text = picked
+        print(f"[idpshow] chart_id={chart_id} version={version} (widest of {len(candidates)})")
+        rows = _parse_dataset(csv_text)
+        print(f"[idpshow] parsed {len(rows)} rows")
+        if not rows:
+            print("[idpshow] ERROR: 0 rows parsed — refusing to overwrite.", file=sys.stderr)
+            return 1
+        # Hard floor aligned with the downstream contract guard
+        # ``_DEFAULT_SOURCE_ROW_FLOORS["idpShowCombined"]`` (450).  This
+        # board is now a VOTING source, so the failure mode the plain
+        # board's floor exists to prevent applies here too — most
+        # sharply, picking the article's 250-row excerpt chart again
+        # instead of the ~665-700 row full board (the exact defect PR
+        # #1008 fixed by measuring chart width instead of trusting
+        # document order).  Fail loudly and preserve last-good rather
+        # than silently shipping a truncated board.  Skipped under
+        # --dry-run so the sample below still prints for diagnosis.
+        _IDPSHOW_COMBINED_ROW_FLOOR = 450
+        if not args.dry_run and len(rows) < _IDPSHOW_COMBINED_ROW_FLOOR:
+            print(
+                f"[idpshow] ERROR: only {len(rows)} rows — expected ≥"
+                f"{_IDPSHOW_COMBINED_ROW_FLOOR} (contract floor "
+                f"_DEFAULT_SOURCE_ROW_FLOORS['idpShowCombined']).  "
+                f"Partial/degraded scrape (or the excerpt chart won the "
+                f"width comparison again); preserving last-good CSV, not "
+                f"overwriting.",
+                file=sys.stderr,
+            )
+            return 2
+        if args.dry_run:
+            print("[idpshow] dry run — not writing")
+            return 0
+        count = _write_csv(out_path, rows)
+        print(f"[idpshow] wrote {count} rows → {out_path.relative_to(REPO)}")
+        return 0
 
     chart_id = _extract_chart_id(html)
     if not chart_id:
@@ -405,8 +548,8 @@ def main(argv: list[str] | None = None) -> int:
             print(f"  #{r['rank']:<4} {r['position']:<4} {r['name']}")
         return 0
 
-    count = _write_csv(OUT_PATH, rows)
-    print(f"[idpshow] wrote {count} rows → {OUT_PATH.relative_to(REPO)}")
+    count = _write_csv(out_path, rows)
+    print(f"[idpshow] wrote {count} rows → {out_path.relative_to(REPO)}")
     return 0
 
 

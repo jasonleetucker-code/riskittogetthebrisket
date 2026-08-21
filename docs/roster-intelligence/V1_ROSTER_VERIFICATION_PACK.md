@@ -87,7 +87,7 @@ refusing an anonymous caller, and retrying it is guaranteed to fail
 identically. `verify-sharp-production.yml` spent 40 minutes per run
 learning that.
 
-### Offline (EVIDENCE-L1 / L2) — runs in CI already
+### Offline, check-correctness only (EVIDENCE-L1) — runs in CI already
 
 ```bash
 python -m pytest tests/roster_intel/test_verification_pack.py \
@@ -99,6 +99,43 @@ Both files are pure-logic and stay in the **hard gate**
 touches the network —
 `tests/infra/test_unit_suite_does_not_probe_production.py` forbids it,
 which is why the pack is built as `fetch → payload → pure check`.
+
+**This proves the checks are live** (each can PASS and can be made to
+FAIL — see the file's own docstring) **against a hand-built synthetic
+fixture.** It does NOT reproduce §3's real-board numbers ("216 rungs",
+"215 rung credits", …) — those were originally produced by hand against
+`newest_complete_raw_payload()`, with no committed command to regenerate
+them. That gap is what `--offline` below closes.
+
+### Offline, real board (EVIDENCE-L2) — `--offline`
+
+```bash
+python scripts/verify_roster_intelligence.py --offline \
+    --json-out data/ops/roster-intelligence-verification-offline.json
+```
+
+No server, no auth, no network — `build_bundle_offline()` rebuilds the
+contract from the newest **COMPLETE** archived scrape via
+`build_api_data_contract` → `build_league_roster_intelligence`, the same
+two functions the doc's original hand-run used. Ceiling **EVIDENCE-L2**:
+a locally rebuilt contract is real, but it is not a deployed response.
+Defaults `--league-key` to `dynasty_main`, the one league this repo's
+archive fixture covers (`newest_complete_raw_payload()` — see §4 item 01
+for the second league).
+
+Two checks are **structurally** UNMEASURABLE offline, and that is
+correct rather than a gap to close here: check 12 needs the deployed
+public-league `teamAssignment` section this archive does not carry, and
+check 13 needs a timed HTTP round-trip — `build_bundle_offline` leaves
+`bundle.latency_ms` empty on purpose rather than timing local
+contract-rebuild CPU work and reporting it as "endpoint latency", which
+would be a fabricated pass on a quantity the run never measured. Pinned
+by `tests/roster_intel/test_verify_offline.py`.
+
+Marked `livedata` (`tests/roster_intel/test_verify_offline.py`) — it
+reads a real archived scrape, same convention as `test_real_rosters.py`
+— so it runs outside the blocking hard gate, same as the pack's own
+`--base-url` HTTP path always has.
 
 ---
 
@@ -136,6 +173,47 @@ slots; 83 unpriced is 12.6% of 660 rostered, the same figure
 `src/api/roster_intelligence.py`'s module docstring records. Had the
 join silently failed, these would read 0 and the harness would have
 downgraded every PASS.
+
+### 3.1 Re-run at a later head, via the now-committed `--offline` command
+
+Re-measured **2026-08-20** at `8be59e267`, on merged `main` (post
+#914/#922/#933/#929, i.e. after V1-27/28/29/30/33/34/130 all reached
+`VERIFIED`), via `python scripts/verify_roster_intelligence.py --offline`
+— the first time this table was produced by a **committed, re-runnable
+command** rather than by hand. Source:
+`dynasty_export_20260820_210638.zip`, a fresher board than the original
+run's, two days later.
+
+| # | check | result | level | denominator | vs 2026-08-19 |
+|---|---|---|---|---|---|
+| 01 | every active configured league answers | **PASS** | EVIDENCE-L2 | 1 | unchanged |
+| 02 | weakness thresholds scale with `teamCount` | **PASS** | EVIDENCE-L1 | **216 rungs** | unchanged |
+| 03 | flex slots from actual league configuration | **PASS** | EVIDENCE-L2 | **36 flex slots** | unchanged |
+| 04 | every player appears at most once per core | **PASS** | EVIDENCE-L2 | **374 members** | unchanged |
+| 05 | starters removed before the reserve solve | **PASS** | EVIDENCE-L2 | **240 starters** | unchanged |
+| 06 | core size respects starters + reserve demand | **PASS** | EVIDENCE-L2 | **12 teams** | unchanged |
+| 07 | unpriced players reported, not coerced | **PASS** | EVIDENCE-L2 | **660 rostered** | unchanged |
+| 08 | unpriced excluded from every value aggregate | **PASS** | EVIDENCE-L2 | **86 unpriced** | 83 → 86 (board drift, not a defect — see below) |
+| 09 | Team Strength groups re-sum to total | **PASS** | EVIDENCE-L2 | **12 teams** | unchanged |
+| 10 | weakness credits no player to two rungs | **PASS** | EVIDENCE-L2 | **215 rung credits** | unchanged |
+| 11 | Young Core uses core-only value, discloses PRIOR | **PASS** | EVIDENCE-L2 | **12 portfolios** | unchanged |
+| 12 | teamAssignment degrades honestly | **UNMEASURABLE** | — | 0 | unchanged (still needs a deploy) |
+| 13 | endpoint latency within budget | **UNMEASURABLE** | — | 0 | unchanged (still needs a live HTTP request — see §2's note on why `build_bundle_offline` refuses to fake this one) |
+
+Exit code **2**, same shape as the original run: 11 PASS, 2
+UNMEASURABLE, 0 FAIL. **The 216-rung / 215-credit figures for V1-32 are
+identical two days and one merged 12-item train apart** — the strongest
+form of "consolidation is behaviorally inert" available short of a
+before/after diff on the exact same board, because #914/#922/#933/#929
+touched replacement level, the lineup solver and the untouchable-control
+lane, none of which this row's threshold/credit math reads. Check 08's
+denominator moving 83→86 is the live board's own unpriced-rostered-player
+count drifting with scrape health (per `src/api/roster_intelligence.py`'s
+own docstring) — a change in the INPUT, not in V1-31/V1-32's code, and
+exactly the kind of honest movement `unpricedIds` exists to surface
+rather than hide.
+
+Reproduce: `python scripts/verify_roster_intelligence.py --offline`.
 
 ---
 
@@ -210,3 +288,54 @@ really is a duplicate. The test therefore asserts "the intended check is
 among the red ones" with a bounded allowance, not "exactly one is red".
 Claiming the stricter property would mean weakening a check to buy a
 tidier table.
+
+---
+
+## 6. V1-32: does closing it need a frontend consumer? (2026-08-20)
+
+Investigated because a later dispatch, reading the F-2 finding and
+PR #1004's own "no live Team Weakness duplicate to retire" report,
+proposed the missing frontend consumer as V1-32's actual remaining gap.
+It is not, and this is why, re-derived from primary sources rather than
+re-trusted from the earlier summary:
+
+1. `docs/VERSION_1_COMPLETION_CONTRACT.md` §2 defines the level ladder:
+   **L2** = "L1 plus a measured statement of the effect on the live board
+   or contract"; **L4** = "L3 plus proof the intended user-facing surface
+   consumes the canonical implementation with truthful semantics". A
+   frontend consumer is an **L4** requirement, not an L2 one.
+2. §3.2's own row states V1-32's **target level is L2**, not L4.
+3. `V1_35_METRIC_SEPARATION_AUDIT.md` F-2 (written earlier in this same
+   lane, before this task) already reached this conclusion: *"V1-31 and
+   V1-32 require EVIDENCE-L2 ... so the missing consumer does not block
+   their required level. It blocks any future L4 claim."*
+4. `C2_CANONICAL_ROSTER_CHAIN.md` §7, this lane's own build record for
+   the owner, is explicit: *"UI — none from this lane. Claude 6 owns the
+   frontend."*
+5. Re-checked against the current tree rather than assumed stale:
+   `grep -rn "weakness" frontend/` (case-insensitive) returns **zero
+   hits** — no frontend code reads `TeamWeakness` output today, including
+   after this session's own V1-31 work wired `strength`/ladder data
+   through `TeamStrengthCard.jsx` and `TeamPhasePanel.jsx`. The audit's
+   finding is current, not stale.
+6. §3.1 above supplies the L2 evidence itself: checks 02 and 10, PASS at
+   EVIDENCE-L2/L1, reproduced today at a different head against a
+   different board than the original 2026-08-19 run, with the same
+   passing counts (216 rungs, 215 credits, 0 violations).
+
+**Conclusion: V1-32's own acceptance bar does not require a frontend
+consumer, and none was built here.** A future **L4** claim for V1-31 or
+V1-32 does need one — handoff **H-1** in `V1_35_METRIC_SEPARATION_AUDIT.md`
+already names it (`/rosters`, folding `scoreTeamTiers` onto
+`strength.total` / `strength.starterValue` / `strength.reserveValue` and
+rendering `weakness.needs` beside it) and already assigns it to Claude 6.
+Building that frontend surface from this lane would be inventing scope
+this row does not require and duplicating an assignment that already
+exists elsewhere — the opposite of the single-owner discipline V1-31/32
+exist to enforce.
+
+What genuinely *was* missing and is fixed here instead: V1-32's L2
+evidence existed only as a hand-run result with no committed reproduction
+command (§2/§3.1's `--offline` addition), and that command was not
+verified to still hold on the current merged tree until this task ran it.
+Both are now true and both are in-lane, non-frontend work.
