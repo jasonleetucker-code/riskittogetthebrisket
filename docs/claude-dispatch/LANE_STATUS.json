@@ -1,7 +1,7 @@
 {
   "_comment": "Lane utilization state for an independent traffic-control/dispatch record (no lane number, no name assigned to it — see governanceCorrection_C31). NOT an authority on integration sequencing (Claude 5 / docs/EXECUTION_PLAN.md), on V1 status (docs/VERSION_1_COMPLETION_CONTRACT.md) or on canonical ownership (CLAUDE.md). Repository evidence outranks this file: where they disagree, this file is wrong and must be corrected.",
-  "updatedAt": "2026-08-21T04:05:00Z",
-  "dispatchCycle": 63,
+  "updatedAt": "2026-08-21T04:32:00Z",
+  "dispatchCycle": 64,
   "writePolicy": "This file and ASSIGNMENTS.json are written ONLY on a material state transition — new assignment, assignment accepted, completion, blocker, freeze/unfreeze, or a meaningful dependency change. A heartbeat that finds nothing changed produces no commit and no CI run.",
   "evidenceBasis": "origin/main 079fc9e4a; §3 diffed row-by-row from cycle-19 main (c5a367266); all refs resolved live; #945 CI green 04:57:35Z",
   "assignmentSourceNote": "Lanes 1-6 carry the owner's original six manual assignments, tracked in detail by this dispatcher. Lanes 8-13 are five additional owner-authorized campaign lanes (Claude 8 chartered 2026-08-20; Claude 9-13 chartered the same day under the POST-V1 C-Series mass-build campaign, EXECUTION_PLAN.md §0). This dispatcher did not originate any of these eleven assignments and does not own or re-scope them. Lanes 8-13 are tracked here only lightly — ownership boundaries and authorization citation — because they are self-directed under their own charter, unlike lanes 1-6 which this dispatcher actively monitors for idleness and dispatches follow-on work to. This record is independent traffic-control/dispatch bookkeeping — it claims no lane number and is not assigned to a named identity, per dispatcherIdentity above.",
@@ -476,5 +476,21 @@
     "v146Recheck": "STILL UNCHANGED — NOT STARTED, no mention of #1025. Two cycles now without a promotion pass following that implementation; continuing to watch rather than escalating.",
     "standingItemsUnchanged": "Lane 2, Lane 4 on-box batch, all three abandoned refs — checked live, no change.",
     "matrixTracking": "Now 64 of the original 71 matrix rows remain open. Three closures since delivery: V1-32 (this dispatcher's own headline finding), V1-117, V1-94 (also independently flagged in the matrix)."
+  },
+  "cycle64Transitions": {
+    "mainTip": "ea9711c43 (was 54a70883e)",
+    "myOwnPr": {
+      "pr": "#1000",
+      "head": "d71319387",
+      "verdict": "Validate PR SUCCESS, job 96664072022, 04:01:39Z -> 04:19:12Z (17m33s)."
+    },
+    "rowDiff": {
+      "method": "§3 row-diffed 54a70883e -> ea9711c43",
+      "result": "ONE change: V1-46 NOT STARTED -> VERIFIED via #1029, closing the gap this record had been re-checking every cycle since #1025's implementation landed (cycle 62). Fourth V1_70_ATTACK_MATRIX row to close since delivery (after V1-32, V1-117, V1-94).",
+      "selfConsistency": "Independent count 70+19+17+28+2=136; contract's own table and completion line read 70/136=51.5%, agreeing. NOTE: the contract's own completion-line prose flags that #1014/#1026 and #1024/#1029 each independently typed '69' for two different single-row promotions from a shared 68 base -- a textual-coincidence trap the contract names explicitly rather than papering over. Recomputed independently here from the live row table rather than trusting that narrative note at face value, per method rule (h)/(g); the recount agrees with it."
+    },
+    "otherMerged": "routine automated data-refresh chore only.",
+    "standingItemsUnchanged": "Lane 2, Lane 4 on-box batch, all three abandoned refs — checked live, no change.",
+    "matrixTracking": "Now 63 of the original 71 matrix rows remain open. Four closures since delivery: V1-32, V1-117, V1-94, V1-46 -- three of the four were rows this dispatcher independently flagged (V1-32 as the headline finding, V1-94 and V1-46 as tracked NEXT10/NEXT15 candidates)."
   }
 }
