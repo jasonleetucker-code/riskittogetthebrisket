@@ -20,16 +20,21 @@ Checks
 8.  Every planning document is classified in ``docs/PLANNING_DOCUMENT_STATUS.md`` — a
     document that appears nowhere in the governance index is drift.
 9.  Exactly one document claims to be the authorization record.
-10. The reserved C-completion phrase is not used as a claim.
-11. The manifest's declared row total agrees with the measured one — and so does every other
+10. Exactly one document claims to be the live owner intake ledger (V1-117) — the same
+    "second/vanished claimant" shape as check 9, for the other single-owner document role
+    this repo names: recording an owner instruction is durable the moment it lands in ONE
+    ledger, and a second self-declared ledger (or none) would make "where do new owner
+    instructions go" ambiguous the same way a second authorization record would.
+11. The reserved C-completion phrase is not used as a claim.
+12. The manifest's declared row total agrees with the measured one — and so does every other
     "N rows" claim in the file.  It shipped for review declaring 163 in one place and 214 in
     two others.
-12. The declared source-family count agrees with the traceability table, counting by base
+13. The declared source-family count agrees with the traceability table, counting by base
     letter so dated cohorts (E, E2, E3) stay subdivisions rather than silently inflating the
     headline.
-13. The traceability record resolves: every destination it cites is a real manifest row, no
+14. The traceability record resolves: every destination it cites is a real manifest row, no
     destination is unresolved, and the unexplained-unmapped total is still zero.
-14. The declared RET-row count matches the rows actually flagged RET — that number scopes the
+15. The declared RET-row count matches the rows actually flagged RET — that number scopes the
     authorized retention tranche, so a stale one can under- or over-authorize real work.
 
 Exit codes: 0 pass, 1 failures found, 2 the check could not run.
@@ -602,6 +607,34 @@ def check_single_authorization_record(f: Failures) -> None:
         )
 
 
+#: The self-declaring form ("**Status:** ACTIVE — **THE LIVE OWNER INTAKE
+#: LEDGER**") vs. a cross-reference to it (PLANNING_DOCUMENT_STATUS.md's own
+#: index table, "| `docs/OWNER_REQUESTED_TODO.md` | **THE LIVE OWNER INTAKE
+#: LEDGER** — see §2 |"). A bare substring search over the marker phrase
+#: would count the index's own reference as a second claimant — the same
+#: trap V1-114 records for the authorization-record heading. Anchoring on
+#: "Status:** ACTIVE —" immediately before the marker is what a document
+#: does to claim the role for ITSELF, not to describe another one.
+INTAKE_LEDGER_MARKER = re.compile(
+    r"\*\*Status:\*\*\s*ACTIVE\s*—\s*\*\*THE LIVE OWNER INTAKE LEDGER\*\*"
+)
+
+
+def check_single_intake_ledger(f: Failures) -> None:
+    """11: exactly one document may claim to be the live owner intake ledger."""
+    claimants = []
+    for path in sorted(DOCS.glob("*.md")):
+        text = path.read_text(encoding="utf-8")
+        if INTAKE_LEDGER_MARKER.search(text):
+            claimants.append(path.name)
+    if claimants != ["OWNER_REQUESTED_TODO.md"]:
+        f.add(
+            "intake-ledger",
+            f"expected exactly one live owner intake ledger "
+            f"(OWNER_REQUESTED_TODO.md); found {claimants or 'none'}",
+        )
+
+
 def check_reserved_phrase(f: Failures) -> None:
     """10: the reserved completion phrase may be defined, never claimed."""
     allowed = {
@@ -640,6 +673,7 @@ def main() -> int:
         check_execution_map(f, manifest_ids)
         check_governance_index(f)
         check_single_authorization_record(f)
+        check_single_intake_ledger(f)
         check_reserved_phrase(f)
     except SystemExit as exc:
         print(exc, file=sys.stderr)
@@ -658,6 +692,7 @@ def main() -> int:
     print("  every owner decision has a question, options and a C1-blocking answer")
     print("  every planning document is classified")
     print("  exactly one authorization record")
+    print("  exactly one live owner intake ledger")
     print("  reserved completion phrase not claimed")
     print("  declared manifest row count agrees with the measured one")
     print("  source-family count agrees with the traceability table")
