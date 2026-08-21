@@ -1,7 +1,7 @@
 {
   "_comment": "Lane utilization state, owned by Claude 7 (Lane Dispatcher). NOT an authority on integration sequencing (Claude 5 / docs/EXECUTION_PLAN.md), on V1 status (docs/VERSION_1_COMPLETION_CONTRACT.md) or on canonical ownership (CLAUDE.md). Repository evidence outranks this file: where they disagree, this file is wrong and must be corrected.",
-  "updatedAt": "2026-08-20T23:50:00Z",
-  "dispatchCycle": 55,
+  "updatedAt": "2026-08-21T00:15:00Z",
+  "dispatchCycle": 56,
   "writePolicy": "This file and ASSIGNMENTS.json are written ONLY on a material state transition — new assignment, assignment accepted, completion, blocker, freeze/unfreeze, or a meaningful dependency change. A heartbeat that finds nothing changed produces no commit and no CI run.",
   "evidenceBasis": "origin/main 079fc9e4a; §3 diffed row-by-row from cycle-19 main (c5a367266); all refs resolved live; #945 CI green 04:57:35Z",
   "assignmentSourceNote": "Lanes 1-6 carry the owner's original six manual assignments, tracked in detail by this dispatcher. Lanes 8-13 are five additional owner-authorized campaign lanes (Claude 8 chartered 2026-08-20; Claude 9-13 chartered the same day under the POST-V1 C-Series mass-build campaign, EXECUTION_PLAN.md §0). This dispatcher did not originate any of these eleven assignments and does not own or re-scope them. Lanes 8-13 are tracked here only lightly — ownership boundaries and authorization citation — because they are self-directed under their own charter, unlike lanes 1-6 which this dispatcher actively monitors for idleness and dispatches follow-on work to. There is no lane 7: Claude 7 is the dispatcher identity, per dispatcherIdentity above.",
@@ -391,5 +391,20 @@
     },
     "seventhPromotionPassThisSession": "After #947, #963, #972, #988, #998, #999 — #1010 is the seventh, and the third to promote two rows in one PR (after #947, #999). Session total from these passes: V1-107, V1-113, V1-51, V1-53, V1-63, V1-29, V1-88, V1-108, V1-97, V1-106 = 10 rows.",
     "v1_32_partialPromotionDiscipline": "#1004 built a guard and #1010 STILL refused to promote V1-32, naming a specific unguarded half rather than accepting partial coverage as sufficient. Same discipline this record has praised in Integration all session (V1-63, V1-88's original refutation, V1-52's correction) — a guard existing is not automatically a guard covering the claim."
+  },
+  "cycle56_v170AttackMatrix": {
+    "_comment": "Deep read-only audit of all 71 non-VERIFIED V1 rows, requested directly by the owner outside the normal dispatch-cycle cadence. NOT a promotion, NOT a count, NOT a code change -- a prioritized closure-candidate report delivered to Claude 5 / Integration.",
+    "deliverable": "docs/claude-dispatch/V1_70_ATTACK_MATRIX.md",
+    "scope": "all 71 non-VERIFIED rows in VERSION_1_COMPLETION_CONTRACT.md §3 as of origin/main (65 VERIFIED / 19 IMPLEMENTED_UNVERIFIED / 20 IN PROGRESS / 30 NOT STARTED / 2 BLOCKED, denominator 136, self-consistency confirmed)",
+    "method": "per-row text pulled live from the canonical contract (this repo's convention front-loads PR numbers and checklist results into row text) plus targeted git verification where flagged plus this session's own cross-cycle merge-timing observation; NOT exhaustive git archaeology on all 71 rows -- a subset are marked RE-CHECK where a referenced PR's exact merge state was not independently reconfirmed this pass",
+    "headlineFinding": "V1-32's own row text names PR #1004 as an unmerged blocker ('#1004, which is not on main (checked, not assumed)'). Confirmed this pass, two ways: #1004 (25ec0826a) IS an ancestor of origin/main with its guard test present in the tree; AND the refuting text was itself authored by #1010 (bd9519871), whose OWN first parent commit IS #1004's merge -- so the claim was false at the moment #1010 wrote it, not only stale from later drift. Sharper than the V1-88 precedent this dispatcher found earlier: there the refutation predated the fix by hours; here the refuting PR's own ancestry already contained the fix it claimed was absent. Self-correction: this dispatcher's own cycle-55 entry ('V1-32 correctly stayed IN PROGRESS... same discipline this record has praised') took the row's claim at face value without checking #1010's merge parentage -- recorded here rather than quietly overwritten. One bounded verification step remains per the row's own close condition (an applied single-owner mutation confirmation against the now-present guard), not new implementation.",
+    "buckets": {
+      "TOP10": 10,
+      "NEXT10": 10,
+      "NEXT15": 15,
+      "SURPLUS15": 15,
+      "remainderFG": 21
+    },
+    "note": "31 closures needed for 96/136; TOP10+NEXT10+NEXT15 alone is 35 candidates, already surplus over the 31 target; SURPLUS15 brings the considered pool to 50 so the sprint can absorb blocked or contested rows well past the first 31 without falling short. This dispatcher counted nothing, promoted nothing, and modified no code in producing it -- delivery only."
   }
 }
