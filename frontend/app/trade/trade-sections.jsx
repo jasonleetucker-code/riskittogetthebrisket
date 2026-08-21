@@ -632,7 +632,29 @@ function AssetRow({
             <span className={styles.assetMetaText}>
               {row.pos} · Consensus{" "}
               {row.blendedSourceRank != null ? row.blendedSourceRank.toFixed(1) : "—"}
+              {" · "}
+              {Number.isFinite(row.sourceCount) ? row.sourceCount : 0} src
             </span>
+            {row.confidenceBucket && row.confidenceBucket !== "high" ? (
+              /* W08-F011 (V1-92): the trade builder priced every asset
+                 with no visible signal for how thin the evidence behind
+                 that price is. `confidenceBucket` already folds
+                 freshness in as one of its five axes (see
+                 src/api/confidence.py — freshness cannot be read alone
+                 per-row, so the bucket IS the backend's per-row
+                 freshness-aware truth), so surfacing it here needs no
+                 new Date.now()-based staleness invented on the client.
+                 Silent for "high" — the expected default — to avoid
+                 badging every row in a trade. */
+              <Badge
+                tone={row.confidenceBucket === "medium" ? "warning" : "negative"}
+                title={row.confidenceLabel || undefined}
+              >
+                {row.confidenceBucket === "none"
+                  ? "no confidence data"
+                  : `${row.confidenceBucket} confidence`}
+              </Badge>
+            ) : null}
             <input
               type="number"
               className="asset-value-override-input"
