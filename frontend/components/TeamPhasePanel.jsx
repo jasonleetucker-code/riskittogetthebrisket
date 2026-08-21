@@ -2,8 +2,11 @@
 
 import { useMemo } from "react";
 import Link from "next/link";
-import { useDynastyData } from "@/components/useDynastyData";
+import { FailureState } from "@/components/ds/FailureState";
+import { EmptyState, LoadingState } from "@/components/ui";
+import { useRosterIntelligence } from "@/components/useRosterIntelligence";
 import { useUserState } from "@/components/useUserState";
+import { teamStrengthLadder } from "@/lib/roster-intelligence";
 import { analyzeLeaguePhases } from "@/lib/team-phase";
 
 const TONE_COLOR = {
@@ -18,46 +21,93 @@ function fmtAge(a) {
 }
 
 function fmtValue(v) {
-  if (!Number.isFinite(v)) return "—";
+  if (v == null || !Number.isFinite(v)) return "—";
   return Math.round(v).toLocaleString();
 }
 
-export default function TeamPhasePanel() {
-  // This panel is the entire body of /phases.  It used to live at
-  // /league/phases and needed this hook specifically because AppShell
-  // refuses to hydrate the private contract under the ``/league``
-  // prefix (PUBLIC_ONLY_ROUTE_PREFIXES), making ``useApp()`` there
-  // permanently ``{rows: [], rawData: null}``.  That is exactly why
-  // the route moved: contention classification is private analysis and
-  // had no business on a public-prefixed URL.
-  //
-  // On /phases ``useApp()`` would now work too.  Keeping the direct
-  // hook costs nothing — the fetch layer dedups and ``buildRows`` is
-  // shared by contract identity through a WeakMap — and it keeps the
-  // panel host-agnostic, which is the same reason RosterComparePanel
-  // reads it directly on /league/franchise/[owner].  ``/api/data`` is
-  // auth-gated, so an anonymous visitor gets a 401 and the explicit
-  // message below rather than any leaked data.
-  const { rows, rawData, loading } = useDynastyData();
-  const { state: userState } = useUserState();
+/** Each refusal gets its own sentence — same posture as
+ *  TeamStrengthCard's StrengthFailure, since this panel reads the same
+ *  endpoint and can fail the same ways. */
+function PhaseFailure({ failure }) {
+  if (!failure) return null;
+  const { kind, message } = failure;
+  if (kind === "auth") {
+    return <EmptyState title="Sign in to see league phases" message={message} />;
+  }
+  if (kind === "team_required") {
+    return (
+      <EmptyState
+        title="Choose a team"
+        message={
+          message ||
+          "Pick your team above to see league phases and your natural trade partners."
+        }
+      />
+    );
+  }
+  if (kind === "team_not_found") {
+    return (
+      <EmptyState
+        title="That team is not in this league"
+        message={message || "Pick a different team above."}
+      />
+    );
+  }
+  if (kind === "not_ready") {
+    return (
+      <EmptyState
+        title="League phases are not ready yet"
+        message={
+          message ||
+          "The league's rosters have not been loaded on this server yet."
+        }
+      />
+    );
+  }
+  if (kind === "league" || kind === "unavailable") {
+    return (
+      <FailureState
+        failure={{ kind: "unavailable", message: message || "The roster intelligence service did not respond." }}
+        context="League phases"
+        variant="block"
+      />
+    );
+  }
+  return (
+    <EmptyState
+      title="League phases could not be measured"
+      message={message || "An unexpected error occurred."}
+    />
+  );
+}
 
+export default function TeamPhasePanel() {
+  const { state: userState } = useUserState();
   const myOwnerId = userState?.selectedTeam?.ownerId
     ? String(userState.selectedTeam.ownerId)
-    : null;
+    : "";
+
+  // Same canonical source `/rosters` uses (src/roster_intel/strength.py +
+  // age_portfolio.py via GET /api/roster/intelligence). Team-scoped by
+  // the endpoint's own contract (a team is needed to resolve "you are"),
+  // but `leagueContext` — every team's strengthTotal/valueWeightedCoreAge —
+  // is always included regardless of which team is asked.
+  const { loading, data, failure } = useRosterIntelligence({ ownerId: myOwnerId });
 
   const analysis = useMemo(
-    () => analyzeLeaguePhases(rawData, rows),
-    [rawData, rows],
+    () => analyzeLeaguePhases(teamStrengthLadder(data, { myOwnerId })),
+    [data, myOwnerId],
   );
 
-  // Never render nothing: this component owns a whole route, so a
-  // silent null is indistinguishable from a broken page.
   if (loading) {
     return (
       <p className="muted" style={{ fontSize: "0.72rem", margin: "8px 0" }}>
         Loading league rosters…
       </p>
     );
+  }
+  if (failure) {
+    return <PhaseFailure failure={failure} />;
   }
   if (!analysis.teams.length) {
     return (
@@ -82,8 +132,9 @@ export default function TeamPhasePanel() {
       <div>
         <h3 style={{ margin: 0, fontSize: "0.92rem" }}>Win-now vs Rebuild</h3>
         <p className="muted" style={{ fontSize: "0.7rem", margin: "4px 0 0" }}>
-          Each team classified by top-25 roster value × median age, against the league medians
-          ({fmtValue(analysis.leagueMedians.value)} value · {fmtAge(analysis.leagueMedians.age)} age).
+          Each team classified by Team Strength (meaningful core) × value-weighted core
+          age, against the league medians ({fmtValue(analysis.leagueMedians.value)} strength ·{" "}
+          {fmtAge(analysis.leagueMedians.age)} age).
         </p>
       </div>
 
@@ -95,7 +146,7 @@ export default function TeamPhasePanel() {
               {myRow.phase.label}
             </strong>
             <span className="muted" style={{ fontSize: "0.74rem" }}>
-              · top-25 value {fmtValue(myRow.totalValue)} · median age {fmtAge(myRow.medianAge)}
+              · strength {fmtValue(myRow.totalValue)} · core age {fmtAge(myRow.medianAge)}
             </span>
           </div>
         </div>
@@ -107,8 +158,8 @@ export default function TeamPhasePanel() {
             <tr>
               <th style={{ textAlign: "left" }}>Team</th>
               <th style={{ textAlign: "left" }}>Phase</th>
-              <th style={{ textAlign: "right" }}>Top-25 value</th>
-              <th style={{ textAlign: "right" }}>Median age</th>
+              <th style={{ textAlign: "right" }}>Team Strength</th>
+              <th style={{ textAlign: "right" }}>Core age</th>
             </tr>
           </thead>
           <tbody>
