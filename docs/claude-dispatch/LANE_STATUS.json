@@ -1,7 +1,7 @@
 {
   "_comment": "Lane utilization state for an independent traffic-control/dispatch record (no lane number, no name assigned to it — see governanceCorrection_C31). NOT an authority on integration sequencing (Claude 5 / docs/EXECUTION_PLAN.md), on V1 status (docs/VERSION_1_COMPLETION_CONTRACT.md) or on canonical ownership (CLAUDE.md). Repository evidence outranks this file: where they disagree, this file is wrong and must be corrected.",
-  "updatedAt": "2026-08-21T20:46:00Z",
-  "dispatchCycle": 96,
+  "updatedAt": "2026-08-21T21:16:00Z",
+  "dispatchCycle": 97,
   "writePolicy": "This file and ASSIGNMENTS.json are written ONLY on a material state transition — new assignment, assignment accepted, completion, blocker, freeze/unfreeze, or a meaningful dependency change. A heartbeat that finds nothing changed produces no commit and no CI run.",
   "evidenceBasis": "origin/main 079fc9e4a; §3 diffed row-by-row from cycle-19 main (c5a367266); all refs resolved live; #945 CI green 04:57:35Z",
   "assignmentSourceNote": "Lanes 1-6 carry the owner's original six manual assignments, tracked in detail by this dispatcher. Lanes 8-13 are five additional owner-authorized campaign lanes (Claude 8 chartered 2026-08-20; Claude 9-13 chartered the same day under the POST-V1 C-Series mass-build campaign, EXECUTION_PLAN.md §0). This dispatcher did not originate any of these eleven assignments and does not own or re-scope them. Lanes 8-13 are tracked here only lightly — ownership boundaries and authorization citation — because they are self-directed under their own charter, unlike lanes 1-6 which this dispatcher actively monitors for idleness and dispatches follow-on work to. This record is independent traffic-control/dispatch bookkeeping — it claims no lane number and is not assigned to a named identity, per dispatcherIdentity above.",
@@ -699,5 +699,20 @@
     },
     "standingItemsUnchanged": "Lane 2, Lane 4 on-box batch, all three abandoned refs, #1027 (V1-49), #1001 (V1-136 -- content now fully consumed and its underlying row promoted) — checked live, no change beyond what's recorded.",
     "note": "First numerator movement since cycle 82's Tier-A closure (14 cycles at 81/136). Tally now 82/136=60.3%. V1-136 is the first of the three IMPLEMENTED_UNVERIFIED status-bump rows this session (V1-136, V1-52, V1-49) to reach full VERIFIED -- the production-measurement gap each was held on is provably closable, as this one just proved."
+  },
+  "cycle97Transitions": {
+    "ciAnomalyResolved": "The cycle-96 CI anomaly (run 32522564418 on head e4c1ec60f showed conclusion 'cancelled', not 'success', with no explaining push) resolved cleanly with the fresh run triggered by cycle 96's own commit: run 32525056076 on head 96841e0e5, conclusion 'success', head_sha cross-verified via actions_list, 20:44:02Z -> 21:02:07Z. One-off, not recurring -- no further action needed.",
+    "mainTip": "91bb2f4a0 (was 915c6a88b at cycle 96) -- includes Integration's reconciliation of long-open PR #962 (Claude 9's C3 Trade Substrate lane, stale base reconciled onto current main) plus a genuine CI-break fix (DLF fixture repair) and other routine commits.",
+    "myOwnPr": {
+      "pr": "#1000", "head": "96841e0e5",
+      "verdict": "Confirmed GREEN this cycle (see ciAnomalyResolved above). No new comments (still just the two governance-correction exchange comments)."
+    },
+    "rowDiff": {
+      "method": "§3 row-diffed 915c6a88b -> 91bb2f4a0",
+      "result": "TWO more real numerator promotions plus one status bump, all from reconciling #962: V1-37 NOT STARTED -> VERIFIED (the third standalone Python Value-Adjustment port collapsed onto one shared stdlib-only core in src/valuation_math/ktc_va_core.py; both remaining wrappers -- src/trade/ktc_va.py private, trade_grading.py public -- are thin and boundary-forced; parity tests 8/50 subtests passing, single-owner-guard mutation independently re-verified fresh this pass, including planting then removing a decoy second implementation of the exact magic-constant fingerprint). V1-42 NOT STARTED -> VERIFIED (the pre-existing C2-SIM-01 exact roster-simulation engine, confirmed pre-existing lane-1 work via a single ancestor commit, was finally wired into the live /api/trade/simulate endpoint as an additive finalRosterSimulation field; RED-before/GREEN-after independently re-verified fresh this pass by removing then restoring the wiring block, 3 of 4 targeted tests correctly failed and were restored). V1-36 NOT STARTED -> IN PROGRESS only, not VERIFIED (roster_intel/packages.py gained TradeConstraints/roster_capacity integration, proven a byte-identical no-op on its one production caller, but suggestions.py -- the live /api/trade/suggestions endpoint -- remains a deliberate un-migrated holdout with hand-rolled shapes; genuinely not yet 'ONE shared package generator').",
+      "selfConsistency": "Independent count 84+22+15+13+2=136; contract's own table and completion line read 84/136=61.8%, agreeing."
+    },
+    "standingItemsUnchanged": "Lane 2, Lane 4 on-box batch, all three abandoned refs, #1027 (V1-49) — checked live, no change.",
+    "note": "SECOND consecutive material cycle with real numerator movement (cycle 96: +1 via V1-136; cycle 97: +2 via V1-37/V1-42). Tally now 84/136=61.8%, up from the 81/136=59.6% plateau that held for 14 cycles after Tier-A closed. 12 more rows needed for the original 96/136=70.6% target."
   }
 }
