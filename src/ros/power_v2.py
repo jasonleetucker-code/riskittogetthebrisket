@@ -461,6 +461,11 @@ def _score_state(
     if not active_weights:
         for oid in owner_ids:
             i = inputs[oid]
+            # ``record`` is NOT set here -- see the comment on the
+            # headline post-pass in ``build_section``: this function's
+            # ``state["career"]`` is season-scoped for the headline call
+            # (V1-52 / #1032) and would silently produce a current-season
+            # record instead of the true career one this field means.
             unrankable.append(
                 {
                     "ownerId": oid,
@@ -513,6 +518,8 @@ def _score_state(
         # numeric IDs in the OWNER column.  The canonical helper lives
         # at module scope in ``src.public_league.metrics``; use it
         # consistently with the rest of the public-league pipeline.
+        # ``record`` is NOT set here -- see the headline post-pass in
+        # ``build_section``.
         rankings.append(
             {
                 "ownerId": oid,
@@ -742,6 +749,38 @@ def build_section(
         preseason=preseason,
         results_only=results_only,
     )
+
+    # ``teamName`` and ``record`` only for the HEADLINE rows -- a lookup
+    # (resp. career fact) per owner, once, not per trend week (56+ weeks
+    # x 12 owners of unused work for fields the trend series has no use
+    # for).  ``teamName``: same source power.py reads
+    # (``_roster_id_for_owner`` -> ``_metrics.team_name``), because a team
+    # name is not this engine's concept to redefine -- it is looked up,
+    # never derived from anything power-ranking-specific.
+    #
+    # ``record`` is READ FROM ``career_state`` HERE, deliberately not
+    # from ``final_state["career"]`` (== ``season_state``) inside
+    # ``_score_state`` -- V1-52 / #1032 repointed the headline call's
+    # ``state["career"]`` to the season-scoped accumulator so ppg/
+    # wl_record stop reading a career average as the current season's
+    # number.  ``record`` is a DIFFERENT field with the OPPOSITE
+    # intent: a true career wins/losses tally, the same accumulator
+    # ``power.py``'s own ``record`` field reads (an actual-share tally
+    # across every historical week, not the current season's
+    # Sleeper-stored W-L).  Reading it via ``state["career"]`` would
+    # have silently reintroduced #1032's exact contamination bug for
+    # this one field -- present here, not in ``_score_state``, is what
+    # keeps it reading the real unreset accumulator regardless of which
+    # state ``_score_state`` was called with (headline vs. any given
+    # trend week).
+    league_id = seasons_sorted[-1].league_id if seasons_sorted else None
+    for row in rankings:
+        rid = luck._roster_id_for_owner(registry, league_id, row["ownerId"]) if league_id else None
+        row["teamName"] = _metrics.team_name(snapshot, league_id, rid) if league_id else None
+        career = career_state.get(row["ownerId"], _EMPTY_CAREER)
+        career_wins = round(career["wins"])
+        career_games = career["games"]
+        row["record"] = f"{career_wins}-{career_games - career_wins}"
 
     # ── The trend series ────────────────────────────────────────────
     #
