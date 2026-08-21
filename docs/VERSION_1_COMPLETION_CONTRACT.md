@@ -225,7 +225,7 @@ Projections · **L4** Market / FAAB / Analyst · **L5** Integration / QA / CI / 
 | V1-66 | 2029 pick tier ordering not inverted | audit `F-1` | L5 | `VERIFIED` | L2 | data integrity |
 | V1-67 | E2E board diagnostic reports a true root cause | audit `F-2` | L5 | `VERIFIED` | L1 | false-green repair (#893) |
 | V1-68 | E2E suite verdict is read and true | audit `F-3` / `F-3a` / `F-3b` | L5 | `IN PROGRESS` | L2 | CI/E2E. Red on `main` 7 consecutive days |
-| V1-69 | `value_as_of` accepts an ISO datetime | audit `F-5` | L5 | `NOT STARTED` | L1 | stability |
+| V1-69 | `value_as_of` accepts an ISO datetime | audit `F-5` | L5 | `VERIFIED` | L1 | stability. **PROMOTED 2026-08-21; the row was stale.** `src/history/store.py::as_of_date`'s string path used to be a bare `strptime(s, "%Y-%m-%d")`, so an ISO-8601 *datetime* string escaped as a raw `ValueError` the caller could not catch as `ObservationError` and said nothing about the UTC-awareness rule that governs the object path. Already fixed (commit `8f7c1197b`) and pinned by `tests/history/test_asof_string_dates.py`: 7/7 on this tree, covering plain-date passthrough, UTC/offset/Zulu datetime strings resolving identically to the equivalent `datetime` object, midnight-crossing offset conversion, naive-datetime refusal matching the object path, and garbage inputs raising the module's own `ObservationError` rather than a bare `ValueError`. Reperformed rather than trusted: reverted the string path to the old bare `strptime` ⇒ RED on 8 of 11 (4 tests + 4 subtests, exactly the ISO/offset/Zulu/naive/garbage cases); restored ⇒ GREEN, clean tree. |
 | V1-70 | A source cannot go unfetched while every surface reads OK | audit `F-6` | L5 | `VERIFIED` | L2 | source-health correctness. 12.6-day precedent |
 | V1-71 | Source-health headline counts the real voter population | audit `F-7` / `C4-SRC-02` | L5 | `VERIFIED` | L2 | false-green repair — 2/2 for a 21-voter board |
 | V1-72 | Build-check suppressions rest on sources that exist | audit `F-8` | L5 | `VERIFIED` | L1 | evidence integrity |
@@ -358,14 +358,14 @@ table already said 47, and on its first real use it caught the same drift again
 
 | status | count |
 |---|---|
-| `VERIFIED` | 65 |
+| `VERIFIED` | 66 |
 | `IMPLEMENTED_UNVERIFIED` | 19 |
 | `IN PROGRESS` | 20 |
-| `NOT STARTED` | 30 |
+| `NOT STARTED` | 29 |
 | `BLOCKED` | 2 |
 | **denominator** | **136** |
 
-**V1 completion: 65 / 136 = 47.8%.**
+**V1 completion: 66 / 136 = 48.5%.**
 
 The percentage went DOWN without any capability regressing, and that is the tally being honest
 rather than flattering: the owner enlarged V1 on 2026-08-20 (§3.12, +4) and the denominator moved
