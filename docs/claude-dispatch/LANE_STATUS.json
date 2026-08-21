@@ -1,7 +1,7 @@
 {
   "_comment": "Lane utilization state for an independent traffic-control/dispatch record (no lane number, no name assigned to it — see governanceCorrection_C31). NOT an authority on integration sequencing (Claude 5 / docs/EXECUTION_PLAN.md), on V1 status (docs/VERSION_1_COMPLETION_CONTRACT.md) or on canonical ownership (CLAUDE.md). Repository evidence outranks this file: where they disagree, this file is wrong and must be corrected.",
-  "updatedAt": "2026-08-21T17:50:00Z",
-  "dispatchCycle": 90,
+  "updatedAt": "2026-08-21T18:48:00Z",
+  "dispatchCycle": 92,
   "writePolicy": "This file and ASSIGNMENTS.json are written ONLY on a material state transition — new assignment, assignment accepted, completion, blocker, freeze/unfreeze, or a meaningful dependency change. A heartbeat that finds nothing changed produces no commit and no CI run.",
   "evidenceBasis": "origin/main 079fc9e4a; §3 diffed row-by-row from cycle-19 main (c5a367266); all refs resolved live; #945 CI green 04:57:35Z",
   "assignmentSourceNote": "Lanes 1-6 carry the owner's original six manual assignments, tracked in detail by this dispatcher. Lanes 8-13 are five additional owner-authorized campaign lanes (Claude 8 chartered 2026-08-20; Claude 9-13 chartered the same day under the POST-V1 C-Series mass-build campaign, EXECUTION_PLAN.md §0). This dispatcher did not originate any of these eleven assignments and does not own or re-scope them. Lanes 8-13 are tracked here only lightly — ownership boundaries and authorization citation — because they are self-directed under their own charter, unlike lanes 1-6 which this dispatcher actively monitors for idleness and dispatches follow-on work to. This record is independent traffic-control/dispatch bookkeeping — it claims no lane number and is not assigned to a named identity, per dispatcherIdentity above.",
@@ -654,5 +654,21 @@
     },
     "standingItemsUnchanged": "Lane 2, Lane 4 on-box batch, all three abandoned refs, #1027 (V1-49), #1001 (V1-136) — checked live, no change beyond what's already recorded.",
     "note": "This is now the second landed status-only correction pattern this session (V1-136 at cycle 85, V1-52 here): real implementation work merges and closes a row's own named gap, but the row's stated L2 bar requires a production-scale measurement this environment cannot perform, so Integration correctly stops at IMPLEMENTED_UNVERIFIED rather than over-claiming VERIFIED. Numerator holds at 81/136=59.6%."
+  },
+  "cycle92Transitions": {
+    "_comment": "Cycle 91 was a no-commit heartbeat at the contract level -- real code landed (2970cc07f, reconciling #1020/#1027's disjoint V1-49 audits: punt_ret_td/kick_ret_td scoring added, IDP return-TD keys closed as proven-unsupported) but the contract's own V1-49 row text was unchanged at that point. Folded forward, no separate block.",
+    "mainTip": "7445e2a26 (was 2970cc07f at cycle 91) -- merged #1031 (squash 2970cc07f) plus a status-correction commit (d4d4c3b4b) that landed one commit later, matching the exact V1-136/V1-52 pattern.",
+    "myOwnPr": {
+      "pr": "#1000", "head": "1fe9cdfb0",
+      "verdict": "Validate PR SUCCESS, run 32509995484 (head_sha cross-verified), 17:47:41Z -> 18:02:52Z. No new comments (still just the two governance-correction exchange comments)."
+    },
+    "rowDiff": {
+      "method": "§3 row-diffed 2970cc07f -> 7445e2a26",
+      "result": "THIRD instance this session of the same pattern (after V1-136 cycle 85, V1-52 cycle 90): V1-49 IN PROGRESS -> IMPLEMENTED_UNVERIFIED via merged #1031, status-corrected one commit later (d4d4c3b4b), not promoted to VERIFIED. #1031 reconciled #1020 and #1027 as covering DISJOINT residuals rather than contradictory findings, then closed #1020's half: punt_ret_td repaired (real nflverse weekly-feed column, added to realized_points._SIMPLE_KEYS), kick_ret_td repaired (derived from raw PBP, mirrors the existing pass_int_td predicate), idp_def_pr_td/idp_def_kr_td CLOSED as proven-unsupported (Sleeper's own scoring UI has no IDP return-TD category, no host-truth instance exists to validate against). Host-truth validated against two real 2025 events (Charlie Jones wk9, Rashid Shaheed wk14) confirming kick_ret_td+punt_ret_td==st_td. L2 current-league delta is provably 0 on both live leagues (neither configures these keys). Row's own text: does NOT touch host_native_scoring (still PRODUCTION_ONLY, 4 of 10 promotion-gate items open) or the position-normalization tables #1027 itself found -- correctly IMPLEMENTED_UNVERIFIED, not VERIFIED.",
+      "selfConsistency": "Independent count 81+23+18+12+2=136; contract's own table and completion line read 81/136=59.6%, agreeing -- numerator unchanged."
+    },
+    "watchItemsRecheck": "#1027 (V1-49) re-read in full: UNCHANGED -- still open/unmerged, same 2 commits, docs-only, mergeable_state 'unknown'. #1031 is a SEPARATE new PR (not #1027 itself) that consumed #1027's audit findings (the host_native_scoring gate + position-table findings) alongside #1020's, and is what actually merged. #1027 remains open, its content permanently superseded/consumed rather than merged, same shape as #1001/#1034 at cycle 85.",
+    "standingItemsUnchanged": "Lane 2, Lane 4 on-box batch, all three abandoned refs — checked live, no change.",
+    "note": "Now THREE rows this session (V1-136, V1-52, V1-49) show the identical shape: real implementation merges via a NEW PR that consumes an open audit-only PR's findings, contract corrects status to IMPLEMENTED_UNVERIFIED one commit later, numerator holds because the row's own L2 bar needs a production-scale measurement this environment cannot run. Numerator holds at 81/136=59.6%."
   }
 }
