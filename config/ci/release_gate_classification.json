@@ -1,0 +1,724 @@
+{
+  "categories": {
+    "advisory": "A failure here is recorded but must not fail the run (continue-on-error: true at step or job level).",
+    "blocking": "A failure here must fail the run. This is the default for every step with no continue-on-error."
+  },
+  "description": "Machine-readable release-gate classification. Every workflow step must resolve to exactly one entry here (V1-121 / tests/deploy/test_release_gate_classification.py). Classification is by EXPLICIT declaration in this file, never inferred from step names or content -- see docs/ops/STABILIZATION_2026-08-16.md section 3d-bis for why a heuristic/AST classifier was tried and rejected (23 hits -> 5 after narrowing -> 5 of 5 false positives).",
+  "entries": {
+    "audit-dropped-sources.yml::audit::Build live contract from latest snapshot": {
+      "category": "blocking"
+    },
+    "audit-dropped-sources.yml::audit::Checkout": {
+      "category": "blocking"
+    },
+    "audit-dropped-sources.yml::audit::Enforce elevated-rate threshold": {
+      "category": "blocking"
+    },
+    "audit-dropped-sources.yml::audit::Install dependencies": {
+      "category": "blocking"
+    },
+    "audit-dropped-sources.yml::audit::Run audit (text report to job log)": {
+      "category": "blocking"
+    },
+    "audit-dropped-sources.yml::audit::Set up Python": {
+      "category": "blocking"
+    },
+    "audit-identity-matches.yml::audit::Checkout": {
+      "category": "blocking"
+    },
+    "audit-identity-matches.yml::audit::Close the tracking issue when the run is green": {
+      "category": "blocking"
+    },
+    "audit-identity-matches.yml::audit::Install dependencies": {
+      "category": "blocking"
+    },
+    "audit-identity-matches.yml::audit::Locate latest snapshot": {
+      "category": "blocking"
+    },
+    "audit-identity-matches.yml::audit::Open / update rolling issue on collision": {
+      "category": "blocking"
+    },
+    "audit-identity-matches.yml::audit::Run identity match audit (fails on alias collision)": {
+      "category": "blocking"
+    },
+    "audit-identity-matches.yml::audit::Set up Python": {
+      "category": "blocking"
+    },
+    "audit-identity-matches.yml::audit::Upload full report": {
+      "category": "blocking"
+    },
+    "audit-rank-form-drift.yml::audit::Check for a snapshot": {
+      "category": "blocking"
+    },
+    "audit-rank-form-drift.yml::audit::Checkout": {
+      "category": "blocking"
+    },
+    "audit-rank-form-drift.yml::audit::Close the tracking issue when the drift audit is green": {
+      "category": "blocking"
+    },
+    "audit-rank-form-drift.yml::audit::Fail loudly on drift or error": {
+      "category": "blocking"
+    },
+    "audit-rank-form-drift.yml::audit::Install dependencies": {
+      "category": "blocking"
+    },
+    "audit-rank-form-drift.yml::audit::Job summary": {
+      "category": "blocking"
+    },
+    "audit-rank-form-drift.yml::audit::Open or update an issue on drift": {
+      "category": "blocking"
+    },
+    "audit-rank-form-drift.yml::audit::Run drift check": {
+      "category": "advisory"
+    },
+    "audit-rank-form-drift.yml::audit::Set up Python": {
+      "category": "blocking"
+    },
+    "c1a-closure-diagnostics.yml::inventory::Checkout": {
+      "category": "blocking"
+    },
+    "c1a-closure-diagnostics.yml::inventory::Collect the inventory from production": {
+      "category": "blocking"
+    },
+    "c1a-closure-diagnostics.yml::inventory::Configure production SSH": {
+      "category": "blocking"
+    },
+    "c1a-closure-preflight.yml::preflight::Checkout": {
+      "category": "blocking"
+    },
+    "c1a-closure-preflight.yml::preflight::Configure production SSH": {
+      "category": "blocking"
+    },
+    "c1a-closure-preflight.yml::preflight::Run the preflight on production": {
+      "category": "blocking"
+    },
+    "c1a-install-state-backup.yml::install::Checkout": {
+      "category": "blocking"
+    },
+    "c1a-install-state-backup.yml::install::Configure production SSH": {
+      "category": "blocking"
+    },
+    "c1a-install-state-backup.yml::install::Install the state-backup line": {
+      "category": "blocking"
+    },
+    "c1a-install-state-backup.yml::install::Prove the installed path runs, and where it writes": {
+      "category": "blocking"
+    },
+    "c1a-run-playerctx-push.yml::push::Configure production SSH": {
+      "category": "blocking"
+    },
+    "c1a-run-playerctx-push.yml::push::Start the unit and report what it published": {
+      "category": "blocking"
+    },
+    "claude.yml::claude::Checkout repository": {
+      "category": "blocking"
+    },
+    "claude.yml::claude::Run Claude Code": {
+      "category": "blocking"
+    },
+    "closed-pr-stranded-commits.yml::check::Ask on the PR": {
+      "category": "blocking"
+    },
+    "closed-pr-stranded-commits.yml::check::Checkout": {
+      "category": "blocking"
+    },
+    "closed-pr-stranded-commits.yml::check::Compare the PR head against main": {
+      "category": "blocking"
+    },
+    "consensus-edge-revalidate.yml::revalidate::Checkout": {
+      "category": "blocking"
+    },
+    "consensus-edge-revalidate.yml::revalidate::Compare the fresh verdict against the committed one": {
+      "category": "blocking"
+    },
+    "consensus-edge-revalidate.yml::revalidate::Install dependencies": {
+      "category": "blocking"
+    },
+    "consensus-edge-revalidate.yml::revalidate::Job summary": {
+      "category": "blocking"
+    },
+    "consensus-edge-revalidate.yml::revalidate::Re-run the board validation": {
+      "category": "blocking"
+    },
+    "consensus-edge-revalidate.yml::revalidate::Self-test the gate before trusting it": {
+      "category": "blocking"
+    },
+    "consensus-edge-revalidate.yml::revalidate::Set up Python": {
+      "category": "blocking"
+    },
+    "consensus-edge-revalidate.yml::revalidate::Upload the fresh measurements": {
+      "category": "blocking"
+    },
+    "crowd-faab-diagnostics.yml::crowd-faab-status::Configure production SSH": {
+      "category": "blocking"
+    },
+    "crowd-faab-diagnostics.yml::crowd-faab-status::Probe crowd FAAB on production": {
+      "category": "blocking"
+    },
+    "deploy.yml::deploy::Assert post-deploy verification will actually run": {
+      "category": "blocking"
+    },
+    "deploy.yml::deploy::Checkout (full history for the deploy-skip guard)": {
+      "category": "blocking"
+    },
+    "deploy.yml::deploy::Guard against skipping or reversing a deploy": {
+      "category": "blocking"
+    },
+    "deploy.yml::deploy::Post-deploy smoke test": {
+      "category": "blocking",
+      "flags": [
+        "conditional_skip"
+      ]
+    },
+    "deploy.yml::deploy::Preflight validate deploy inputs (no SSH)": {
+      "category": "blocking"
+    },
+    "deploy.yml::deploy::Run remote deploy script": {
+      "category": "blocking"
+    },
+    "deploy.yml::deploy::SSH preflight (connectivity + remote paths)": {
+      "category": "blocking"
+    },
+    "deploy.yml::deploy::Validate known_hosts entry for target host": {
+      "category": "blocking"
+    },
+    "deploy.yml::deploy::Validate live data contract": {
+      "category": "blocking",
+      "flags": [
+        "conditional_skip"
+      ]
+    },
+    "deploy.yml::validate::API data contract check (FULL lane \u2014 blocking)": {
+      "category": "blocking"
+    },
+    "deploy.yml::validate::Checkout": {
+      "category": "blocking"
+    },
+    "deploy.yml::validate::Deploy script syntax gate (existing scripts only)": {
+      "category": "blocking"
+    },
+    "deploy.yml::validate::Frontend bundle-size gate": {
+      "category": "blocking"
+    },
+    "deploy.yml::validate::Install dependencies (requirements-dev.txt)": {
+      "category": "blocking"
+    },
+    "deploy.yml::validate::Preflight environment check": {
+      "category": "blocking"
+    },
+    "deploy.yml::validate::Python format gate (ruff format --check)": {
+      "category": "blocking"
+    },
+    "deploy.yml::validate::Python lint (ruff check \u2014 blocking mirror)": {
+      "category": "blocking"
+    },
+    "deploy.yml::validate::Python runtime import gate": {
+      "category": "blocking"
+    },
+    "deploy.yml::validate::Python syntax gate": {
+      "category": "blocking"
+    },
+    "deploy.yml::validate::Run live-data tests (advisory \u2014 non-blocking)": {
+      "category": "advisory"
+    },
+    "deploy.yml::validate::Run unit tests (hard gate \u2014 pure logic)": {
+      "category": "blocking"
+    },
+    "deploy.yml::validate::Set up Node (for bundle gate)": {
+      "category": "blocking"
+    },
+    "deploy.yml::validate::Set up Python": {
+      "category": "blocking"
+    },
+    "deploy.yml::validate::Validate dependency graph (pip check)": {
+      "category": "blocking"
+    },
+    "deploy.yml::validate::Validate required deploy artifacts exist": {
+      "category": "blocking"
+    },
+    "draftsharks-diagnostic.yml::probe::Assert nothing in the repository was modified": {
+      "category": "blocking"
+    },
+    "draftsharks-diagnostic.yml::probe::Install dependencies": {
+      "category": "blocking"
+    },
+    "draftsharks-diagnostic.yml::probe::Probe the authenticated dynasty board": {
+      "category": "blocking"
+    },
+    "draftsharks-diagnostic.yml::probe::Summarise": {
+      "category": "blocking"
+    },
+    "draftsharks-diagnostic.yml::probe::Upload diagnostic artifact": {
+      "category": "blocking"
+    },
+    "draftsharks-diagnostic.yml::probe::step_0": {
+      "category": "blocking"
+    },
+    "draftsharks-diagnostic.yml::probe::step_1": {
+      "category": "blocking"
+    },
+    "e2e.yml::e2e::Alert on workflow failure": {
+      "category": "blocking"
+    },
+    "e2e.yml::e2e::Build frontend (production)": {
+      "category": "blocking"
+    },
+    "e2e.yml::e2e::Checkout": {
+      "category": "blocking"
+    },
+    "e2e.yml::e2e::Close the tracking issue when the suite is green": {
+      "category": "blocking"
+    },
+    "e2e.yml::e2e::Generate test session secret": {
+      "category": "blocking"
+    },
+    "e2e.yml::e2e::Install Playwright chromium (test runner only)": {
+      "category": "blocking"
+    },
+    "e2e.yml::e2e::Install backend dependencies": {
+      "category": "blocking"
+    },
+    "e2e.yml::e2e::Install root + frontend deps": {
+      "category": "blocking"
+    },
+    "e2e.yml::e2e::Preflight (compile checks, contract validation, data seed)": {
+      "category": "blocking"
+    },
+    "e2e.yml::e2e::Run Playwright suite": {
+      "category": "blocking"
+    },
+    "e2e.yml::e2e::Set up Python": {
+      "category": "blocking"
+    },
+    "e2e.yml::e2e::Start backend (FastAPI :8000)": {
+      "category": "blocking"
+    },
+    "e2e.yml::e2e::Start frontend (Next.js :3000)": {
+      "category": "blocking"
+    },
+    "e2e.yml::e2e::Upload Playwright report": {
+      "category": "blocking"
+    },
+    "e2e.yml::e2e::Upload server logs on failure": {
+      "category": "blocking"
+    },
+    "e2e.yml::e2e::Use Node 20": {
+      "category": "blocking"
+    },
+    "e2e.yml::e2e::Wait for stack readiness": {
+      "category": "blocking"
+    },
+    "e2e.yml::e2e::Warm lazy backend caches, then prove the data path serves": {
+      "category": "blocking"
+    },
+    "fd-diagnostics.yml::inventory::Checkout": {
+      "category": "blocking"
+    },
+    "fd-diagnostics.yml::inventory::Collect FD inventory": {
+      "category": "blocking"
+    },
+    "fd-diagnostics.yml::inventory::Configure production SSH": {
+      "category": "blocking"
+    },
+    "health-check.yml::health::Check /api/health": {
+      "category": "blocking"
+    },
+    "health-check.yml::health::Check /api/status (backup freshness)": {
+      "category": "blocking"
+    },
+    "health-check.yml::health::Check /api/status (data freshness)": {
+      "category": "blocking"
+    },
+    "health-check.yml::health::Check served-board source coverage": {
+      "category": "blocking"
+    },
+    "health-check.yml::health::Close the tracking issue on a green run": {
+      "category": "blocking"
+    },
+    "health-check.yml::health::Open or update the tracking issue on failure": {
+      "category": "blocking"
+    },
+    "health-check.yml::health::Resolve production URL": {
+      "category": "blocking"
+    },
+    "intel-refresh.yml::refresh::Alert on workflow failure": {
+      "category": "blocking"
+    },
+    "intel-refresh.yml::refresh::Close the tracking issue when the run is green": {
+      "category": "blocking"
+    },
+    "intel-refresh.yml::refresh::Poll refresh status": {
+      "category": "blocking"
+    },
+    "intel-refresh.yml::refresh::Resolve target URL": {
+      "category": "blocking"
+    },
+    "intel-refresh.yml::refresh::Trigger intel refresh": {
+      "category": "blocking"
+    },
+    "pr-validation.yml::validate::API data contract check (structural lane \u2014 blocking)": {
+      "category": "blocking"
+    },
+    "pr-validation.yml::validate::Audit finding-status drift gate": {
+      "category": "blocking"
+    },
+    "pr-validation.yml::validate::Checkout": {
+      "category": "blocking"
+    },
+    "pr-validation.yml::validate::Decision-path coercion gate": {
+      "category": "blocking"
+    },
+    "pr-validation.yml::validate::Deploy script syntax gate": {
+      "category": "blocking"
+    },
+    "pr-validation.yml::validate::Frontend build + bundle-size budget": {
+      "category": "blocking"
+    },
+    "pr-validation.yml::validate::Frontend unit tests (vitest)": {
+      "category": "blocking"
+    },
+    "pr-validation.yml::validate::Install dependencies": {
+      "category": "blocking"
+    },
+    "pr-validation.yml::validate::Install frontend dependencies": {
+      "category": "blocking"
+    },
+    "pr-validation.yml::validate::Planning integrity gate": {
+      "category": "blocking"
+    },
+    "pr-validation.yml::validate::Preflight environment check": {
+      "category": "blocking"
+    },
+    "pr-validation.yml::validate::Product-plan governance gate": {
+      "category": "blocking"
+    },
+    "pr-validation.yml::validate::Python format gate (ruff format --check)": {
+      "category": "blocking"
+    },
+    "pr-validation.yml::validate::Python import gate": {
+      "category": "blocking"
+    },
+    "pr-validation.yml::validate::Python lint (ruff check \u2014 whole repo, blocking)": {
+      "category": "blocking"
+    },
+    "pr-validation.yml::validate::Python syntax gate": {
+      "category": "blocking"
+    },
+    "pr-validation.yml::validate::Release-candidate freshness (advisory)": {
+      "category": "advisory"
+    },
+    "pr-validation.yml::validate::Run live-data tests (advisory \u2014 non-blocking)": {
+      "category": "advisory"
+    },
+    "pr-validation.yml::validate::Run unit tests (hard gate \u2014 pure logic)": {
+      "category": "blocking"
+    },
+    "pr-validation.yml::validate::Set up Node.js": {
+      "category": "blocking"
+    },
+    "pr-validation.yml::validate::Set up Python": {
+      "category": "blocking"
+    },
+    "pr-validation.yml::validate::Source-health check (advisory \u2014 non-blocking)": {
+      "category": "advisory"
+    },
+    "pr-validation.yml::validate::Validate dependency graph (pip check)": {
+      "category": "blocking"
+    },
+    "prod-e2e-smoke.yml::smoke::Checkout": {
+      "category": "blocking"
+    },
+    "prod-e2e-smoke.yml::smoke::Install Playwright chromium": {
+      "category": "blocking"
+    },
+    "prod-e2e-smoke.yml::smoke::Install root deps": {
+      "category": "blocking"
+    },
+    "prod-e2e-smoke.yml::smoke::Probe prod is live before running browser": {
+      "category": "blocking"
+    },
+    "prod-e2e-smoke.yml::smoke::Resolve production URL": {
+      "category": "blocking"
+    },
+    "prod-e2e-smoke.yml::smoke::Run public /league spec against prod": {
+      "category": "blocking"
+    },
+    "prod-e2e-smoke.yml::smoke::Upload Playwright trace artifacts on failure": {
+      "category": "blocking"
+    },
+    "prod-e2e-smoke.yml::smoke::Use Node 20": {
+      "category": "blocking"
+    },
+    "public-league-warmup.yml::warm::Emit metrics snapshot": {
+      "category": "blocking"
+    },
+    "public-league-warmup.yml::warm::Resolve target URL": {
+      "category": "blocking"
+    },
+    "public-league-warmup.yml::warm::Wait for backend health": {
+      "category": "blocking"
+    },
+    "public-league-warmup.yml::warm::Warm the snapshot": {
+      "category": "blocking"
+    },
+    "refit-hill-curves.yml::refit::Checkout": {
+      "category": "blocking"
+    },
+    "refit-hill-curves.yml::refit::Commit the registry record": {
+      "category": "blocking"
+    },
+    "refit-hill-curves.yml::refit::Fail loudly on error or regression": {
+      "category": "blocking"
+    },
+    "refit-hill-curves.yml::refit::Install dependencies": {
+      "category": "blocking"
+    },
+    "refit-hill-curves.yml::refit::Job summary": {
+      "category": "blocking"
+    },
+    "refit-hill-curves.yml::refit::Open an issue when a human must act": {
+      "category": "blocking"
+    },
+    "refit-hill-curves.yml::refit::Pin the board snapshot this fit trains on": {
+      "category": "blocking"
+    },
+    "refit-hill-curves.yml::refit::Run refit + held-out gate": {
+      "category": "blocking"
+    },
+    "refit-hill-curves.yml::refit::Self-test the gate before trusting it": {
+      "category": "blocking"
+    },
+    "refit-hill-curves.yml::refit::Set up Python": {
+      "category": "blocking"
+    },
+    "release-candidate.yml::candidate::API data contract check (structural lane)": {
+      "category": "blocking"
+    },
+    "release-candidate.yml::candidate::Build the exact merge candidate": {
+      "category": "blocking"
+    },
+    "release-candidate.yml::candidate::Checkout (full history \u2014 the check diffs base against head)": {
+      "category": "blocking"
+    },
+    "release-candidate.yml::candidate::Deploy script syntax gate (existing scripts only)": {
+      "category": "blocking"
+    },
+    "release-candidate.yml::candidate::Frontend build + bundle-size budget": {
+      "category": "blocking"
+    },
+    "release-candidate.yml::candidate::Frontend unit tests (vitest)": {
+      "category": "blocking"
+    },
+    "release-candidate.yml::candidate::Governance + planning gates": {
+      "category": "blocking"
+    },
+    "release-candidate.yml::candidate::Install dependencies": {
+      "category": "blocking"
+    },
+    "release-candidate.yml::candidate::Install frontend dependencies": {
+      "category": "blocking"
+    },
+    "release-candidate.yml::candidate::Preflight environment check": {
+      "category": "blocking"
+    },
+    "release-candidate.yml::candidate::Python format + lint gates": {
+      "category": "blocking"
+    },
+    "release-candidate.yml::candidate::Python runtime import gate": {
+      "category": "blocking"
+    },
+    "release-candidate.yml::candidate::Python syntax gate": {
+      "category": "blocking"
+    },
+    "release-candidate.yml::candidate::Release-candidate freshness (STRICT)": {
+      "category": "blocking"
+    },
+    "release-candidate.yml::candidate::Set up Node.js": {
+      "category": "blocking"
+    },
+    "release-candidate.yml::candidate::Set up Python": {
+      "category": "blocking"
+    },
+    "release-candidate.yml::candidate::Source health (advisory \u2014 the deploy gate is the blocking one)": {
+      "category": "advisory"
+    },
+    "release-candidate.yml::candidate::Unit tests (hard gate \u2014 pure logic)": {
+      "category": "blocking"
+    },
+    "release-candidate.yml::candidate::Validate dependency graph (pip check)": {
+      "category": "blocking"
+    },
+    "retention-backup-proof.yml::prove::Checkout": {
+      "category": "blocking"
+    },
+    "retention-backup-proof.yml::prove::Configure production SSH": {
+      "category": "blocking"
+    },
+    "retention-backup-proof.yml::prove::Run backup and prove restore on production": {
+      "category": "blocking"
+    },
+    "retention-health.yml::probe::Checkout": {
+      "category": "blocking"
+    },
+    "retention-health.yml::probe::Configure production SSH": {
+      "category": "blocking"
+    },
+    "retention-health.yml::probe::Probe retention streams on production": {
+      "category": "blocking"
+    },
+    "scheduled-refresh.yml::refresh::Alert on workflow failure": {
+      "category": "blocking"
+    },
+    "scheduled-refresh.yml::refresh::Assert DLF freshness": {
+      "category": "blocking"
+    },
+    "scheduled-refresh.yml::refresh::Checkout": {
+      "category": "blocking"
+    },
+    "scheduled-refresh.yml::refresh::Close the tracking issue on a green run": {
+      "category": "blocking"
+    },
+    "scheduled-refresh.yml::refresh::Commit updated data": {
+      "category": "blocking"
+    },
+    "scheduled-refresh.yml::refresh::Contract coverage watchdog": {
+      "category": "blocking"
+    },
+    "scheduled-refresh.yml::refresh::Install dependencies": {
+      "category": "blocking"
+    },
+    "scheduled-refresh.yml::refresh::Persist freshness stamps": {
+      "category": "blocking"
+    },
+    "scheduled-refresh.yml::refresh::Prune regenerable archives (retention)": {
+      "category": "blocking"
+    },
+    "scheduled-refresh.yml::refresh::Report freshness": {
+      "category": "blocking"
+    },
+    "scheduled-refresh.yml::refresh::Run scraper": {
+      "category": "blocking"
+    },
+    "scheduled-refresh.yml::refresh::Set up Python": {
+      "category": "blocking"
+    },
+    "scheduled-refresh.yml::refresh::Staleness watchdog": {
+      "category": "blocking"
+    },
+    "scheduled-refresh.yml::refresh::Sync Draft Data from Google Sheet": {
+      "category": "blocking"
+    },
+    "scheduled-refresh.yml::refresh::Trigger deploy": {
+      "category": "blocking"
+    },
+    "scheduled-refresh.yml::refresh::Validate scrape sanity (pre-commit gate)": {
+      "category": "blocking"
+    },
+    "scoring-snapshot-diagnostics.yml::inventory::Checkout": {
+      "category": "blocking"
+    },
+    "scoring-snapshot-diagnostics.yml::inventory::Collect scoring-snapshot inventory": {
+      "category": "blocking"
+    },
+    "scoring-snapshot-diagnostics.yml::inventory::Configure production SSH": {
+      "category": "blocking"
+    },
+    "sharp-records-bootstrap.yml::bootstrap::Configure production SSH": {
+      "category": "blocking"
+    },
+    "sharp-records-bootstrap.yml::bootstrap::Install units and populate the Sharp cohort": {
+      "category": "blocking"
+    },
+    "smoke-test.yml::production-smoke::Resolve production URL": {
+      "category": "blocking"
+    },
+    "smoke-test.yml::production-smoke::Smoke test production endpoints": {
+      "category": "blocking"
+    },
+    "smoke-test.yml::production-smoke::Validate served board via public status": {
+      "category": "blocking"
+    },
+    "smoke-test.yml::validate::API contract check": {
+      "category": "blocking"
+    },
+    "smoke-test.yml::validate::Checkout": {
+      "category": "blocking"
+    },
+    "smoke-test.yml::validate::Deploy script syntax gate": {
+      "category": "blocking"
+    },
+    "smoke-test.yml::validate::Install dependencies": {
+      "category": "blocking"
+    },
+    "smoke-test.yml::validate::Preflight environment check": {
+      "category": "blocking"
+    },
+    "smoke-test.yml::validate::Python import gate": {
+      "category": "blocking"
+    },
+    "smoke-test.yml::validate::Python syntax gate": {
+      "category": "blocking"
+    },
+    "smoke-test.yml::validate::Run unit tests": {
+      "category": "blocking"
+    },
+    "smoke-test.yml::validate::Set up Python": {
+      "category": "blocking"
+    },
+    "smoke-test.yml::validate::Validate dependency graph (pip check)": {
+      "category": "blocking"
+    },
+    "temporal-ledger-diagnostics.yml::ledger-status::Configure production SSH": {
+      "category": "blocking"
+    },
+    "temporal-ledger-diagnostics.yml::ledger-status::Probe temporal ledger on production": {
+      "category": "blocking"
+    },
+    "verify-sharp-production.yml::verify::Close the unmeasurable-gate tracker once the smoke can measure": {
+      "category": "blocking"
+    },
+    "verify-sharp-production.yml::verify::Commit production smoke result": {
+      "category": "blocking"
+    },
+    "verify-sharp-production.yml::verify::Enforce healthy population": {
+      "category": "blocking"
+    },
+    "verify-sharp-production.yml::verify::Track that the Sharp gate cannot measure": {
+      "category": "blocking"
+    },
+    "verify-sharp-production.yml::verify::Wait for deploy and Sharp population, then capture coverage": {
+      "category": "blocking"
+    },
+    "verify-sharp-production.yml::verify::step_0": {
+      "category": "blocking"
+    },
+    "weekly-narratives.yml::generate::Append report to job summary": {
+      "category": "blocking"
+    },
+    "weekly-narratives.yml::generate::Check ANTHROPIC_API_KEY is configured": {
+      "category": "blocking"
+    },
+    "weekly-narratives.yml::generate::Checkout": {
+      "category": "blocking"
+    },
+    "weekly-narratives.yml::generate::Commit and push new articles": {
+      "category": "blocking"
+    },
+    "weekly-narratives.yml::generate::Generate articles": {
+      "category": "blocking"
+    },
+    "weekly-narratives.yml::generate::Install dependencies": {
+      "category": "blocking"
+    },
+    "weekly-narratives.yml::generate::Resolve mode (manual dispatch vs cron)": {
+      "category": "blocking"
+    },
+    "weekly-narratives.yml::generate::Set up Python": {
+      "category": "blocking"
+    }
+  },
+  "flags": {
+    "conditional_skip": "This step's own `if:` gates it on a vars./secrets. emptiness check, so a SKIP here is not evidence of health -- see tests/deploy/test_no_workflow_exits_green_on_missing_secrets.py for the related invariant on exit-0 paths."
+  },
+  "version": 1
+}
