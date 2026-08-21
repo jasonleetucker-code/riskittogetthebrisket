@@ -1,7 +1,7 @@
 {
   "_comment": "Lane utilization state for an independent traffic-control/dispatch record (no lane number, no name assigned to it — see governanceCorrection_C31). NOT an authority on integration sequencing (Claude 5 / docs/EXECUTION_PLAN.md), on V1 status (docs/VERSION_1_COMPLETION_CONTRACT.md) or on canonical ownership (CLAUDE.md). Repository evidence outranks this file: where they disagree, this file is wrong and must be corrected.",
-  "updatedAt": "2026-08-21T05:00:00Z",
-  "dispatchCycle": 65,
+  "updatedAt": "2026-08-21T05:56:00Z",
+  "dispatchCycle": 67,
   "writePolicy": "This file and ASSIGNMENTS.json are written ONLY on a material state transition — new assignment, assignment accepted, completion, blocker, freeze/unfreeze, or a meaningful dependency change. A heartbeat that finds nothing changed produces no commit and no CI run.",
   "evidenceBasis": "origin/main 079fc9e4a; §3 diffed row-by-row from cycle-19 main (c5a367266); all refs resolved live; #945 CI green 04:57:35Z",
   "assignmentSourceNote": "Lanes 1-6 carry the owner's original six manual assignments, tracked in detail by this dispatcher. Lanes 8-13 are five additional owner-authorized campaign lanes (Claude 8 chartered 2026-08-20; Claude 9-13 chartered the same day under the POST-V1 C-Series mass-build campaign, EXECUTION_PLAN.md §0). This dispatcher did not originate any of these eleven assignments and does not own or re-scope them. Lanes 8-13 are tracked here only lightly — ownership boundaries and authorization citation — because they are self-directed under their own charter, unlike lanes 1-6 which this dispatcher actively monitors for idleness and dispatches follow-on work to. This record is independent traffic-control/dispatch bookkeeping — it claims no lane number and is not assigned to a named identity, per dispatcherIdentity above.",
@@ -508,5 +508,20 @@
     "ranking": "by NUMERATOR PER HOUR, not feature attractiveness: class C (production-check-only, code already exists) ranked above D (small repair) above E (bounded implementation); H (owner-decision-blocked) rows named but excluded from the ranked 25.",
     "buckets": {"NEXT5": 5, "NEXT10": 10, "SURPLUS10": 10, "namedExcluded": 5, "notExaminedThisPass": 25},
     "note": "This dispatcher counted nothing, promoted nothing, and modified no code in producing it -- delivery only, per the owner's explicit constraints."
+  },
+  "cycle67Transitions": {
+    "mainTip": "77bcd5423 (was 34c1ffa48)",
+    "myOwnPr": {
+      "pr": "#1000",
+      "head": "06244aa44",
+      "verdict": "Validate PR SUCCESS, run 32448720467 / job 96673000179, 04:56:29Z -> 05:14:29Z (18m0s). Self-correction: cycle 66 reported this as still-pending because get_status returned 0 legacy statuses; this repo reports CI via GitHub Actions check runs, not legacy commit statuses, and get_check_runs had already carried the correct green verdict for this exact head at cycle 66 -- misread as 'the old run' without cross-checking the head_sha field. Confirmed via actions_list this cycle: run 32448720467's head_sha matches 06244aa44 exactly."
+    },
+    "rowDiff": {
+      "method": "§3 row-diffed 34c1ffa48 -> 77bcd5423",
+      "result": "TWO changes via #1021: V1-69 NOT STARTED -> VERIFIED, V1-90 NOT STARTED -> VERIFIED. Both are TIER-A queue rows (already assigned by the owner, explicitly excluded from this dispatcher's V1_NEXT25_CENSUS) -- good confirmation the active queue is producing real closures, not duplicated by anything delivered here. Separately, the same PR's promotion of V1-121 was self-corrected back to NOT STARTED by an owner comment on #1021 -- the row's own text now explains the partition it cited (structuralErrors/sourceHealthErrors) answers a narrower question than the row requires. Recorded as legitimate self-correction, not a defect to flag.",
+      "selfConsistency": "Independent count 72+19+17+26+2=136; contract's own table and completion line read 72/136=52.9%, agreeing."
+    },
+    "standingItemsUnchanged": "Lane 2, Lane 4 on-box batch, all three abandoned refs — checked live, no change.",
+    "queueTracking": "Tier-A queue (11 rows) now 2 closed (V1-69, V1-90), 9 remain: V1-121 (corrected back to open), V1-133-135, V1-79, V1-92, V1-98, V1-112, V1-40."
   }
 }
