@@ -10522,7 +10522,7 @@ def _public_section_access_error(section: str, request: Request) -> JSONResponse
         content={
             "error": "auth_required",
             "message": (
-                f"{section!r} contains manager-specific intelligence and " "requires a session."
+                f"{section!r} contains manager-specific intelligence and requires a session."
             ),
             "section": section,
         },
@@ -12437,40 +12437,35 @@ async def get_terminal(request: Request):
     )
 
 
-@app.post("/api/trade/simulate")
-async def post_trade_simulate(request: Request):
-    """Pure-function what-if: apply a hypothetical trade to the
-    authenticated user's team and return the delta payload.
+async def _build_trade_simulation(
+    request: Request,
+) -> tuple[dict[str, Any] | None, str | None, JSONResponse | None]:
+    """Shared body: resolve league/team, run ``trade_simulator.simulate_trade``.
 
-    Body::
-
-        {
-          "team":       "<ownerId>" (optional — defaults to session
-                        owner when signed in via Sleeper),
-          "teamName":   "<teamName>" (optional fallback lookup),
-          "playersIn":  ["Ja'Marr Chase", ...],   # inbound players
-          "playersOut": ["Drake London", ...],     # outbound players
-          "picksIn":    ["2026 1.04", ...],        # inbound picks
-          "picksOut":   ["2027 2.08", ...]         # outbound picks
-        }
-
-    Response shape matches ``trade_simulator.simulate_trade``.
-    No persistence — the live contract is never mutated.
+    Returns ``(result, league_key, error_response)`` — exactly one of
+    ``result``/``error_response`` is set.  Factored out so
+    ``/api/trade/analyze`` (V1-43 / C7-DESK-01) can compose Analyze Trade on
+    top of the identical simulation ``/api/trade/simulate`` already returns,
+    rather than re-deriving league/team/overlay resolution a second time.
     """
     session = _get_auth_session(request)
     if not session:
-        return JSONResponse(status_code=401, content={"error": "auth_required"})
+        return None, None, JSONResponse(status_code=401, content={"error": "auth_required"})
     if not latest_contract_data:
-        return JSONResponse(
-            status_code=503,
-            content={"error": "No data available yet."},
+        return (
+            None,
+            None,
+            JSONResponse(
+                status_code=503,
+                content={"error": "No data available yet."},
+            ),
         )
     try:
         body = await request.json()
     except Exception:
         body = None
     if not isinstance(body, dict):
-        return JSONResponse(status_code=400, content={"error": "invalid_body"})
+        return None, None, JSONResponse(status_code=400, content={"error": "invalid_body"})
 
     # Validate leagueKey but don't require the loaded contract's
     # leagueKey to match — when the user is on a non-default league
@@ -12480,7 +12475,7 @@ async def post_trade_simulate(request: Request):
     try:
         league_cfg = _resolve_league_for_request(request, body=body)
     except LeagueResolutionError as err:
-        return err.json_response()
+        return None, None, err.json_response()
 
     # Build the contract this trade sim runs against.  When the
     # request league matches the loaded contract, just use it.
@@ -12494,7 +12489,7 @@ async def post_trade_simulate(request: Request):
         # Trade simulation needs matching rankings.
         _scoring_err = _scoring_identity_error(contract, league_cfg)
         if _scoring_err is not None:
-            return _scoring_err
+            return None, None, _scoring_err
         # Splice in a live overlay for the requested league.
         loaded_sleeper = contract.get("sleeper") or {}
         id_map = loaded_sleeper.get("idToPlayer") if isinstance(loaded_sleeper, dict) else None
@@ -12512,13 +12507,17 @@ async def post_trade_simulate(request: Request):
             )
             overlay = None
         if not overlay or not overlay.get("teams"):
-            return JSONResponse(
-                status_code=503,
-                content={
-                    "error": "data_not_ready",
-                    "message": f"Sleeper overlay for league {league_cfg.key!r} unavailable.",
-                    "leagueKey": league_cfg.key,
-                },
+            return (
+                None,
+                None,
+                JSONResponse(
+                    status_code=503,
+                    content={
+                        "error": "data_not_ready",
+                        "message": f"Sleeper overlay for league {league_cfg.key!r} unavailable.",
+                        "leagueKey": league_cfg.key,
+                    },
+                ),
             )
         hybrid_sleeper, _ = _sleeper_overlay.merge_cross_league_sleeper_block(
             loaded_sleeper=loaded_sleeper if isinstance(loaded_sleeper, dict) else {},
@@ -12547,9 +12546,13 @@ async def post_trade_simulate(request: Request):
         name=team_name,
     )
     if resolved_team is None:
-        return JSONResponse(
-            status_code=404,
-            content={"error": "team_not_found", "leagueKey": league_cfg.key},
+        return (
+            None,
+            None,
+            JSONResponse(
+                status_code=404,
+                content={"error": "team_not_found", "leagueKey": league_cfg.key},
+            ),
         )
 
     def _str_list(key):
@@ -12571,6 +12574,59 @@ async def post_trade_simulate(request: Request):
     )
     result["leagueKey"] = league_cfg.key
     _stamp_valuation_mode(result, valuation_mode, valuation_note)
+    return result, league_cfg.key, None
+
+
+@app.post("/api/trade/simulate")
+async def post_trade_simulate(request: Request):
+    """Pure-function what-if: apply a hypothetical trade to the
+    authenticated user's team and return the delta payload.
+
+    Body::
+
+        {
+          "team":       "<ownerId>" (optional — defaults to session
+                        owner when signed in via Sleeper),
+          "teamName":   "<teamName>" (optional fallback lookup),
+          "playersIn":  ["Ja'Marr Chase", ...],   # inbound players
+          "playersOut": ["Drake London", ...],     # outbound players
+          "picksIn":    ["2026 1.04", ...],        # inbound picks
+          "picksOut":   ["2027 2.08", ...]         # outbound picks
+        }
+
+    Response shape matches ``trade_simulator.simulate_trade``.
+    No persistence — the live contract is never mutated.
+    """
+    result, _league_key, error = await _build_trade_simulation(request)
+    if error is not None:
+        return error
+    return JSONResponse(
+        content=result,
+        headers={"Cache-Control": "no-store"},
+    )
+
+
+@app.post("/api/trade/analyze")
+async def post_trade_analyze(request: Request):
+    """Analyze Trade — the canonical decision-synthesis verdict (V1-43 /
+    C7-DESK-01, V1 depth; see ``src.trade.analyze_trade`` for what is and is
+    not included at this depth).
+
+    Body: identical to ``/api/trade/simulate`` — this endpoint runs that
+    exact simulation internally and layers a recommendation on top; it does
+    not accept or need a separately-specified trade.
+
+    Response: the ``/api/trade/simulate`` payload's fields, plus
+    ``analysis`` — ``src.trade.analyze_trade.analyze_trade()``'s output
+    (recommendation / confidence / reasonsFor / reasonsAgainst / dimensions /
+    unavailableDimensions).
+    """
+    result, _league_key, error = await _build_trade_simulation(request)
+    if error is not None:
+        return error
+    from src.trade.analyze_trade import analyze_trade
+
+    result["analysis"] = analyze_trade(result)
     return JSONResponse(
         content=result,
         headers={"Cache-Control": "no-store"},
