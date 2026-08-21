@@ -726,3 +726,188 @@ No separate PR opened — see the deviation note at the top of this section. PR 
 updated to describe both PR A and PR B; `docs/WORK_CLAIMS.md`'s existing claim row extended with
 the B1-B3 files and findings. Status: **FEATURE_GREEN / READY_FOR_INTEGRATION** for both PRs A and
 B together. Not self-merged. Still subscribed to #984's activity from A5.
+
+### Series C10-CLOSE — V1 closure machinery (V1-121, V1-123, V1-124, V1-125, V1-126)
+
+**Temporary priority pivot, per owner instruction.** C8/C9 storytelling/public-product work is
+paused; this series is a deep C10 census across five specific `docs/VERSION_1_COMPLETION_CONTRACT.md`
+rows, all `NOT STARTED` at the start of this series, targeting the V1 70% denominator. Branch:
+`claude/cseries-mass-implementation-jwmtxk`, reset from stale (0 unique commits, 41 behind `main`)
+to fresh `origin/main` before this series began. Explicit constraints from the brief, held
+throughout: build the smallest structural guard each row's target level actually needs; mutation-
+prove every new guard RED→GREEN; for the two production-only rows (V1-123, V1-124) build the
+checklist/instrument only — never claim a false pass — and hand production execution to Claude 5;
+do not attempt V1-126's actual final-regression closure early; do not edit
+`VERSION_1_COMPLETION_CONTRACT.md`; never self-merge.
+
+Research was a dedicated phase before any code: 4 parallel Explore agents (V1-121, V1-123, V1-124,
+V1-125), each producing a file:line-cited report, synthesized into a plan and reviewed before
+implementation began. That research surfaced two things worth naming up front because they shaped
+every batch below: **V1-125's own contract phrasing ("every `retires` line zero") describes a
+field that does not exist anywhere in the manifest** — the row was a build, not a repair — and **a
+prior session's own `C10-CLOSE-02` re-verification (Series 1, Batch 3 above) had already measured
+a 2-of-2 false-positive rate on the dead-code census's own "deprecate" dispositions**, which this
+series' V1-125 batch extended to 4-of-8 by checking two more.
+
+**Commits, in order**: V1-121 → V1-125 → V1-123+V1-124 (one commit — both are checklist-only
+instruments, shipped together) → a `ruff format` fix (see below) → V1-126. Each is independently
+reviewable.
+
+#### V1-121 (release discipline) — machine-readable release-gate classification — done
+
+**Finding**: not "almost complete." `V1-122` (VERIFIED) covers 3 of the repo's 235 workflow steps
+(the `validate_api_contract.py` structural/full/advisory lanes) — the other 232 had no
+machine-readable category anywhere. `docs/ops/STABILIZATION_2026-08-16.md` §3d-bis had already
+tried and rejected a heuristic/AST classifier (23 hits → 5 after narrowing → 5 of 5 false
+positives), so this classifies by **explicit structural declaration only**
+(`continue-on-error` at step or job level → `advisory`; everything else → `blocking`), never
+inference.
+
+**Shipped**: `config/ci/release_gate_classification.json` (235 entries, one per workflow step) +
+`scripts/ci_gate_classification.py` (the shared enumeration both the manifest and the test read,
+so they cannot drift from each other) + `tests/deploy/test_release_gate_classification.py` (4
+assertions: every live step has an entry; no entry names a step that no longer exists — the
+ratchet half; declared category matches the live `continue-on-error` structure — catches
+classification going stale in place; the manifest itself is well-formed). Found 6 genuinely
+advisory steps and 2 conditional-skip steps in `deploy.yml` (flagged, not reclassified — they're
+still `blocking` when they run).
+
+**Verified**: all 3 assertions mutation-proved RED (an added unclassified step; a stale manifest
+entry; a category mismatch), each with the exact offending key named in the failure message, then
+reverted to green.
+
+#### V1-125 (ONE CONCEPT, ONE CANONICAL OWNER) — duplicate-owner census — done
+
+**Finding**: same shape as V1-121 — the contract's own "retires" phrasing names a field that does
+not exist in `docs/C_SERIES_SCOPE_MANIFEST.md`. A retirement is recorded only as prose in the
+separate §2 "Canonical-owner map" table, via a `~~<old population>~~ →` convention on 5 rows today.
+
+**Shipped**: `check_duplicate_owners()` in `scripts/check_planning_integrity.py` — every manifest
+row whose status starts `DUPLICATED` (prefix match — `C3-EQ-01` is `DUPLICATED + WRONG-OWNER`)
+must have a §2 owner-map entry, and that entry's state must be a real statement (retirement, or an
+explicit measured count) rather than blank or vague. Deliberately does **not** require retirement
+— per the brief, "do not delete legitimate alternate concepts simply to reach zero" — and this
+session measured **5 of 8** currently-`DUPLICATED` rows as genuine, live, still-open duplication
+(`C2-REPL-01`, `C2-STR-01`, `C2-WEAK-01`, `C3-EQ-01`, `C5-POW-01`, `C5-PLAY-01`, `C6-SIG-01`) —
+real implementation work correctly out of a census's scope. `C2-WEAK-01`'s one open research
+question (does `profiles.py`'s independent `urgent_need` still diverge from the canonical
+`weakness.py`) was resolved **RED**: `profiles.py` imports nothing from `weakness.py`, and its
+`urgent_need` reaches a live consumer via `targets.py` → `/api/gameplan`.
+
+**Documentation-drift fixes, same posture as Series 1 Batch 3's `C3-VA-01` correction**:
+`C3-PKG-01`'s owner cell corrected from `src/trade/` to `src/packages/` (the actual consolidated
+substrate's own docstring explicitly rejects the old location); added a §2 owner-map row for
+`C3-EQ-01`, which had none at all — an id absent from the section a census scans is not the same
+as a documented duplicate, and the check would otherwise silently miss it.
+
+**Side effect**: 2 more false positives found in `docs/master-site-audit/evidence/W30/dead-code-map.csv`
+(`D-038` `src/api/auction_power.py` has a live parity test; `D-100` `src/adapters/` executes at
+import time via `server.py`'s `sleeper_trending` import) — 4 of 8 checked "deprecate" dispositions
+are now confirmed wrong across this session and the prior one. Fixed `D-125`'s evidence string
+(claimed no importer at all; `tests/backtesting/test_harness.py` imports it — disposition itself
+was already correct). **Critical**: fixed all six corrections (this session's 3 plus the prior
+session's D-032/D-112/D-120, which had only ever been hand-edited into the CSV) in the
+**generator** (`build_deadcode_map.py`), not just the CSV output — regenerating from the old
+generator would have silently wiped all three prior corrections. Regenerated: same 56 rows, only
+the 6 corrected entries changed (`git diff` confirms).
+
+**Verified**: reported measured statement — `0 of 8 DUPLICATED rows retired` — is the honest L2
+closure this row asks for. 3 mutation-proof cases (missing §2 entry; vague state; the "0 found"
+non-vacuity guard), each RED with the exact row named, then reverted to green. Full
+`tests/deploy/` suite green throughout (375→376 across the series).
+
+#### V1-123 (production verification) — browser/workflow matrix instrument — done
+
+**Checklist/instrument only — no production access from this session.**
+`docs/ops/C10_CLOSE_03_BROWSER_WORKFLOW_MATRIX.md`: maps contract §13.3's named categories against
+a real inventory of 45 `page.jsx` routes. Categories with a real route are listed for verification;
+categories with **no** real route (Trade Desk, Perfect Waivers, Analyst Intelligence, Game Day,
+Command Center, Upside Report, Awards v2, "Universal Player Profile expansion" specifically) are
+recorded as NOT-YET-BUILT rather than silently omitted — all traced to
+`docs/EXECUTION_PLAN.md` §6's do-not-opportunistically-begin list. Ports the dynamic-route param
+recipe table from `docs/route-usability-audit.md` rather than re-deriving it, and reuses that
+document's own "PASS (honest empty)" vs "DEFECT — empty-state lie" vocabulary, since that already
+IS §13.3's "truthful semantics" bar in the repo's own words.
+
+**A real research error caught before it shipped**: an earlier draft flagged `/draft-capital` as
+"almost certainly 404s in production" (no `app/draft-capital/` page directory). Cross-checking
+against this same series' V1-125 batch — which independently caught the identical "no page
+directory ≠ dead" trap twice in the dead-code census — surfaced that `next.config.mjs:33-34`
+declares a real 308 redirect to `/league?tab=draft-capital`. Corrected in the matrix, not silently
+dropped; recorded as a finding in its own right since it demonstrates why cross-checking parallel
+research threads against each other matters.
+
+#### V1-124 (production verification) — background-jobs/data-production instrument — done
+
+**Checklist/instrument only — no production/SSH access from this session.**
+`docs/ops/C10_CLOSE_04_BACKGROUND_JOBS_MATRIX.md`: 49 rows (14 GitHub Actions cron workflows, 27
+systemd units, 8 in-process `server.py` loops), each with trigger, expected artifact and
+health-tracking mechanism — or an explicit `UNVERIFIABLE-WITHOUT-JOURNAL` for the 14 systemd
+timers this census found have literally no health signal anywhere (no stamp, no retention stream,
+no `/api/status` field, no CI assertion) — including the entire 8-crawl Sharp-intel lane, meaning
+`/api/sharp/*`'s `cohort_building` on an empty ledger is indistinguishable from "the crawls
+stopped four weeks ago" without checking directly.
+
+**Two real, deterministic fixes shipped alongside the document** (not left as findings for someone
+else, since both were reachable without production access):
+1. `chase-upside-curated-sharps`'s dedicated installer had **zero callers anywhere in the repo** —
+   the exact "template committed, reviewed, merged, never rendered" failure class
+   `tests/deploy/test_all_timers_are_wired.py`'s own docstring describes, in a directory that
+   guard's glob structurally could not see. Wired into `deploy/bootstrap-sharp-records.sh` (new
+   `run_curated_sharps_now()`, mirroring the existing `run_ffpc_now()` shape exactly) and closed
+   the blind spot with a new test covering both `curated-sharps-systemd/` and `ffpc-systemd/`
+   going forward. Mutation-proved RED (installer file missing) then green.
+2. `deploy/diagnostics/c1a_closure_inventory.sh` extended from 3 units to all 27, reusing its own
+   existing read-only `unit_state()`/`journal_tail()` probes rather than inventing a second
+   inspection mechanism — running it now produces this entire matrix's systemd section in one
+   pass. Documents the trap worth repeating at the point of use: a timer-activated `Type=oneshot`
+   service's correct steady state between runs is `inactive`/`disabled` — never read `is-active`
+   as liveness there.
+
+**Also corrected**: `docs/master-site-audit/ROUTE_API_JOB_INVENTORY.md`'s one claim that was a live
+factual error (not just a dated headline count) — `verify-sharp-production.yml`'s `git add`
+failure is fixed (`git add -f` now, confirmed tracked). The stale **counts** (22 workflows, 19
+timers) were deliberately left as their own point-in-time census rather than rewritten to today's
+numbers — that document's provenance line pins it to a specific commit and data snapshot, and
+silently updating headline counts while leaving the provenance line unchanged would make it lie
+about which day it describes. Added pointer notes to the new V1-124 matrix instead.
+
+#### Cross-cutting: `ruff format` fix — done
+
+Found while dry-running V1-126's first gate: 4 files this series had itself created/edited
+(`scripts/ci_gate_classification.py` + its test, `test_all_timers_are_wired.py`,
+`build_deadcode_map.py`) failed `ruff format --check` — the same blocking gate every PR runs.
+Fixed directly; confirmed `ruff check` and the affected suites unchanged, and regenerating
+`dead-code-map.csv` from the reformatted generator produces a byte-identical file.
+
+#### V1-126 (production verification) — final V1 regression command — done, definition only
+
+**Explicitly not an early-closure attempt.** `scripts/run_final_v1_regression.sh` +
+`docs/ops/C10_CLOSE_07_FINAL_REGRESSION.md`: a pure composition of gates that already exist and
+already run somewhere in CI — no new test logic. `release-candidate.yml` is the closest existing
+match but deliberately excludes Playwright/E2E (owned by the separately-triggered, path-filtered
+`e2e.yml`); §13.7 explicitly requires it, so this script adds the full suite unconditionally,
+including the two WebKit-only projects CI never runs today — called out as an explicit decision to
+keep or reverse, not left implicit. Source-health and the V1-125 census compose as
+recorded-not-gating steps, matching the existing structural/advisory CI-lane split.
+
+**Spot-verified, not run end-to-end**: `ruff format`/`check`, all 4 governance scripts, `pip
+check`, and this series' own new `pytest` slices — all clean directly in this sandbox.
+`check_env.py` fails here only on packages this sandbox never had installed (`playwright`,
+`openpyxl`, `curl_cffi`, `anthropic`) — a sandbox limitation, not a defect, and recorded as such
+rather than silently worked around.
+
+**Deliberately NOT claiming, across this whole series:**
+- Any V1 row status change in `VERSION_1_COMPLETION_CONTRACT.md` — not edited, per instruction.
+- Production execution of the V1-123/V1-124 checklists — genuinely not possible from this
+  sandbox; both documents say so explicitly rather than reading as silently passed.
+- Fixing any of the 5 confirmed-live `DUPLICATED` duplicate implementations, or the `C6-SIG-01`
+  reconciler — real implementation work, correctly out of a census's scope.
+- A full end-to-end run of `run_final_v1_regression.sh` — would need a booted stack + browser and
+  is not required to validate that the script composes real, already-passing gates correctly.
+- Fixing `riskit-uptime.service`'s `SuccessExitStatus=0 1` masking real outages, or
+  `backup_health`'s glob missing `riskit-state-backup`'s actual path — both real, named defects
+  needing an owner decision on the right fix, not a silent edit in a census pass.
+
+**Status: FEATURE_GREEN / READY_FOR_INTEGRATION.** PR opened, base `main`, head
+`claude/cseries-mass-implementation-jwmtxk`. Not self-merged.
