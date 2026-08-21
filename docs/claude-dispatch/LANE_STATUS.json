@@ -1,7 +1,7 @@
 {
   "_comment": "Lane utilization state for an independent traffic-control/dispatch record (no lane number, no name assigned to it — see governanceCorrection_C31). NOT an authority on integration sequencing (Claude 5 / docs/EXECUTION_PLAN.md), on V1 status (docs/VERSION_1_COMPLETION_CONTRACT.md) or on canonical ownership (CLAUDE.md). Repository evidence outranks this file: where they disagree, this file is wrong and must be corrected.",
-  "updatedAt": "2026-08-21T15:20:00Z",
-  "dispatchCycle": 85,
+  "updatedAt": "2026-08-21T17:50:00Z",
+  "dispatchCycle": 90,
   "writePolicy": "This file and ASSIGNMENTS.json are written ONLY on a material state transition — new assignment, assignment accepted, completion, blocker, freeze/unfreeze, or a meaningful dependency change. A heartbeat that finds nothing changed produces no commit and no CI run.",
   "evidenceBasis": "origin/main 079fc9e4a; §3 diffed row-by-row from cycle-19 main (c5a367266); all refs resolved live; #945 CI green 04:57:35Z",
   "assignmentSourceNote": "Lanes 1-6 carry the owner's original six manual assignments, tracked in detail by this dispatcher. Lanes 8-13 are five additional owner-authorized campaign lanes (Claude 8 chartered 2026-08-20; Claude 9-13 chartered the same day under the POST-V1 C-Series mass-build campaign, EXECUTION_PLAN.md §0). This dispatcher did not originate any of these eleven assignments and does not own or re-scope them. Lanes 8-13 are tracked here only lightly — ownership boundaries and authorization citation — because they are self-directed under their own charter, unlike lanes 1-6 which this dispatcher actively monitors for idleness and dispatches follow-on work to. This record is independent traffic-control/dispatch bookkeeping — it claims no lane number and is not assigned to a named identity, per dispatcherIdentity above.",
@@ -639,5 +639,20 @@
     "watchItemsRecheck": "#1027 (V1-49) re-read in full: unchanged since cycle 65, still open/unmerged, still docs-only (zero src/tests/config touched per its own explicit non-goals), mergeable_state 'unknown'. #1001 (V1-136) re-read in full: unchanged since cycle 65/70 except for context already superseded by #1034 above -- its own correction section is what #1034 executed. Both remain the standing watch items; no merge on either yet.",
     "standingItemsUnchanged": "Lane 2, Lane 4 on-box batch, all three abandoned refs — checked live, no change.",
     "note": "Tally holds at 81/136=59.6% -- V1-136 moved status but not the numerator. This is the second time this session a #1001/#1027-family PR's own analysis has directly produced a landed main fix while the PR itself stayed unmerged; watching for either to actually land next."
+  },
+  "cycle90Transitions": {
+    "_comment": "Cycles 86-89 were no-commit heartbeats (main moved only via routine chores -- Sharp smoke records, idpshow/dlf automated refreshes -- contract byte-identical throughout, tally held at 81/136=59.6%, CI green on 3091ede59 run 32496910906 across all four cycles). #1027 and #1001 were both re-read in full at cycle 89 and found unchanged/stable. Folded forward, no separate blocks.",
+    "mainTip": "bd566ac5f (was 44344370b at cycle 89) -- merged #996+#1009 (squash f92a465ed) plus a status-correction commit (bd566ac5f itself).",
+    "myOwnPr": {
+      "pr": "#1000", "head": "3091ede59",
+      "verdict": "Still the same run as cycles 86-89: Validate PR SUCCESS, run 32496910906 (head_sha cross-verified), 15:18:51Z -> 15:36:47Z. No new comments (still just the two governance-correction exchange comments)."
+    },
+    "rowDiff": {
+      "method": "§3 row-diffed 44344370b -> bd566ac5f",
+      "result": "STATUS BUMP, not a numerator promotion: V1-52 IN PROGRESS -> IMPLEMENTED_UNVERIFIED via merged #996+#1009 ('V1-52: retire the legacy power engine entirely'), closing the row's own long-tracked 'item D' gap -- one canonical power-rankings engine now, not two. src/public_league/power.py, power.jsx, test_power.py, _SECTION_BUILDERS['power'] and the three-layer useRosPowerRankings toggle are confirmed DELETED (not deprecated) by direct grep per the row's own text; LeagueClient.jsx now renders the canonical RosPowerSection unconditionally. Row's own text states the remaining gap for VERIFIED is a production-scale 12-owner lens-agreement measurement this environment cannot run (needs gitignored data/ros/team_strength/latest.json for a real league) -- correctly IMPLEMENTED_UNVERIFIED, not VERIFIED, following the exact same pattern V1-136 showed at cycle 85.",
+      "selfConsistency": "Independent count 81+22+18+13+2=136; contract's own table and completion line read 81/136=59.6%, agreeing -- numerator unchanged by this row, exactly as the contract's own note states."
+    },
+    "standingItemsUnchanged": "Lane 2, Lane 4 on-box batch, all three abandoned refs, #1027 (V1-49), #1001 (V1-136) — checked live, no change beyond what's already recorded.",
+    "note": "This is now the second landed status-only correction pattern this session (V1-136 at cycle 85, V1-52 here): real implementation work merges and closes a row's own named gap, but the row's stated L2 bar requires a production-scale measurement this environment cannot perform, so Integration correctly stops at IMPLEMENTED_UNVERIFIED rather than over-claiming VERIFIED. Numerator holds at 81/136=59.6%."
   }
 }
