@@ -16,9 +16,9 @@ Inputs come from two places:
 
     * ``data/ros/team_strength/latest.json`` — written by
       ``src.ros.team_strength``.  Provides ``team_ros_strength_percentile``.
-    * ``PublicLeagueSnapshot`` — already feeds the existing
-      ``power.py``.  Provides PPG, recent form, W/L, all-play, streak,
-      and luck-regression inputs.
+    * ``PublicLeagueSnapshot`` — the same historical walk the retired
+      ``power.py`` v1 engine read.  Provides PPG, recent form, W/L,
+      all-play, streak, and luck-regression inputs.
 
 The owner list spans every team that owns a roster in the current
 league, sourced from the team-strength snapshot (live Sleeper rosters)
@@ -39,10 +39,9 @@ roster health, and 2026 schedule SOS when available).  The same
 ``missing_inputs`` machinery that protects against an absent
 team-strength file already handles renormalisation cleanly.
 
-Render-side, this section is gated by ``settings.useRosPowerRankings``:
-when False, the existing ``power.py`` v1 still drives /league → Power.
-When True, /league → ROS Power renders this version side-by-side as
-the new "ROS Power" tab.
+This is the ONLY power-ranking engine.  ``src/public_league/power.py``
+(the pre-V1-52 v1 engine) and its renderer are deleted; /league → Power
+always renders this module's output.
 """
 
 from __future__ import annotations
@@ -479,6 +478,8 @@ def _score_state(
                         "all_play": round(i["all_play"], 4),
                         "streak": round(i["streak"], 4),
                         "luck_regression": round(i["luck_regression"], 4),
+                        "pointsPerGame": round(i["ppg"], 2),
+                        "recentAvg": round(i["recent"], 2),
                     },
                     "rosStrengthPercentile": None,
                     "weightsApplied": {},
@@ -503,12 +504,30 @@ def _score_state(
             components["team_ros_strength"] = ros_pct.get(oid, 0.0)
         components["schedule_adjusted"] = i["schedule_adjusted"] if schedule_available else 0.0
 
-        # Active weighted score in [0, 1], then scale to 100.
+        # Active weighted score in [0, 1], then scale to 100.  Computed
+        # BEFORE the two raw fields below are folded in -- those are
+        # display-only and must never enter the weighted sum, which
+        # iterates ``active_weights`` (a fixed key set that never
+        # contains "pointsPerGame"/"recentAvg") rather than the whole
+        # ``components`` dict, so this ordering is a clarity choice, not
+        # a correctness dependency.
         score_unit = (
             sum(active_weights.get(k, 0.0) * components.get(k, 0.0) for k in active_weights)
             / weight_total
         )
         score = round(score_unit * 100, 2)
+
+        # Raw magnitudes power.py's own renderer displayed alongside its
+        # percentile transforms (``pointsPerGame``/``recentAvg`` there).
+        # ``i["ppg"]``/``i["recent"]`` are the SAME locals already
+        # computed above to feed ``_percentile(...)`` a few lines up --
+        # this does not recompute anything or stand up a second engine,
+        # it stops discarding a value this function already produced.
+        # Display-only: excluded from ``active_weights`` by construction
+        # (the weight table has no "pointsPerGame"/"recentAvg" key), so
+        # publishing them cannot change ``score``.
+        components["pointsPerGame"] = round(i["ppg"], 2)
+        components["recentAvg"] = round(i["recent"], 2)
 
         ros_strength_pct = ros_pct.get(oid, None) if ros_available else None
         # Display name resolution: ``ManagerRegistry`` doesn't define
@@ -590,7 +609,16 @@ def build_section(
     NOT computed here in PR2" and that the v1 power section exposes it
     instead.  Both halves are now false: ``trend`` is computed here (so
     the table and the chart beside it are one quantity rather than two
-    formulas), and V1-52 is retiring the v1 section as an engine.
+    formulas), and the v1 section (``src/public_league/power.py``) is
+    deleted -- this is the only remaining power-ranking engine.
+
+    ``components.pointsPerGame``/``components.recentAvg`` (both headline
+    rows and every ``trend.weeks[].rankings`` row) are the raw magnitudes
+    v1's renderer displayed beside its percentile transforms.  They are
+    surfaced from the same locals ``components.ppg``/``components.recent``
+    already derive their percentile from -- not a second computation, and
+    excluded from ``active_weights`` by construction (display-only; see
+    the comment at their assignment in ``_score_state``).
     """
     registry = snapshot.managers
     seasons_sorted = sorted(snapshot.seasons, key=lambda s: luck._season_sort_key(s.season))

@@ -24,7 +24,6 @@ from . import (
     matchup_preview,
     overview,
     playoff_odds,
-    power,
     records,
     rivalries,
     streaks,
@@ -71,7 +70,6 @@ _SECTION_BUILDERS: dict[str, Callable[[PublicLeagueSnapshot], dict[str, Any]]] =
     "archives": archives.build_section,
     "luck": luck.build_section,
     "streaks": streaks.build_section,
-    "power": power.build_section,
     "matchupPreview": matchup_preview.build_section,
     "weeklyRecap": weekly_recap.build_section,
     # Team Assignment — maps each fantasy team to 1–3 NFL teams.  Cheap
@@ -139,9 +137,15 @@ def _faab_analytics_section(snapshot: PublicLeagueSnapshot) -> dict[str, Any]:
 _LAZY_SECTION_BUILDERS: dict[str, Callable[[PublicLeagueSnapshot], dict[str, Any]]] = {
     "playoffOdds": playoff_odds.build_section,
     "rosTeamStrength": _ros_api.build_section,
-    # ROS-driven power rankings v2.  Coexists with the existing
-    # ``power`` section above; the frontend swaps between them based
-    # on ``settings.useRosPowerRankings``.
+    # The canonical power-ranking engine (V1-52). The v1 engine
+    # (``src/public_league/power.py``) is retired -- this is the only
+    # remaining one. Kept lazy rather than promoted to
+    # ``_SECTION_BUILDERS``: the /league Power tab already fetches it
+    # on-demand (this was true even before retirement, since
+    # ``useRosPowerRankings`` has defaulted to true since 2026-04-29),
+    # and its trend walk is O(seasons x weeks) -- exactly the cost the
+    # eager aggregate path exists to avoid imposing on every landing
+    # page load.
     "rosPower": _ros_power_section,
     # ROS-driven playoff Monte Carlo.  Coexists with v1 ``playoffOdds``;
     # frontend swaps via settings.useRosPlayoffOdds.
@@ -338,11 +342,10 @@ def _league_header(snapshot: PublicLeagueSnapshot) -> dict[str, Any]:
 
 
 def _build_overview(snapshot: PublicLeagueSnapshot, sections: dict[str, Any]) -> dict[str, Any]:
-    # The landing card reads the CANONICAL power engine (V1-52 item D),
-    # not ``sections["power"]`` (still the legacy engine, still eagerly
-    # built here -- it stays because the toggle-gated legacy Power tab,
-    # ``power.jsx``, still renders raw values ``power_v2`` doesn't
-    # publish; retiring that consumer is a separate frontend unit).
+    # The landing card reads the CANONICAL power engine (V1-52 item D).
+    # The legacy engine (``src/public_league/power.py``) this used to read
+    # instead is deleted -- there is no second computation to choose
+    # between any more.
     #
     # Called directly here rather than added to ``_SECTION_BUILDERS`` or
     # ``_LAZY_SECTION_BUILDERS``: this is a PRIVATE input to the overview
@@ -352,14 +355,10 @@ def _build_overview(snapshot: PublicLeagueSnapshot, sections: dict[str, Any]) ->
     #
     # Measured cost (synthetic 12-owner/8-season fixture,
     # docs/power/V1_52_CANONICAL_POWER_ENGINE.md): ~35ms for the full
-    # build_section call including its trend series, against the legacy
-    # engine's own ~25ms on the identical fixture -- so this adds a
-    # second, comparable-order eager computation to every aggregate
-    # ``/league`` load rather than replacing one, until the legacy tab is
-    # retired.  Both numbers are far under any page-load budget this
-    # repo enforces; the "O(seasons x weeks) trend would regress the
-    # landing page" concern this call site used to be blocked on does not
-    # survive measurement at realistic scale.
+    # build_section call including its trend series -- far under any
+    # page-load budget this repo enforces; the "O(seasons x weeks) trend
+    # would regress the landing page" concern this call site used to be
+    # blocked on did not survive measurement at realistic scale.
     from src.ros import power_v2  # noqa: PLC0415
 
     ros_power_section = power_v2.build_section(snapshot)
