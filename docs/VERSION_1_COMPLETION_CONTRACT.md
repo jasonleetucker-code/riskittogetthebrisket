@@ -185,7 +185,7 @@ Projections · **L4** Market / FAAB / Analyst · **L5** Integration / QA / CI / 
 | V1-43 | Analyze Trade canonical recommendation (V1) | `C7-DESK-01` / `#792` | L2 | `NOT STARTED` | L1 | named V1 scope, explicitly at V1 depth. No double-counting of overlapping signals |
 | V1-44 | Equalizers rank on the post-VA gap | `C3-EQ-01` / `#800` | L2 | `VERIFIED` | L1 | P1 live trade correctness. **VERIFIED 2026-08-20 at Integration.** Target level **L1**. The row's own concern was that `findBalancers` was **divergent in two runtimes**, so both were proven, not one: `tests/trade/test_balancer_uses_adjusted_gap.py` **24 pass** and `frontend/__tests__/trade-logic.test.js` **179 pass**. **Two mutations, each confirmed APPLIED with the changed line quoted, each reintroducing the EXACT retired #800 rule — ranking candidates by raw value against an adjusted target:** (MV1, Python) `suggestions.py:1474` scoring by `abs(value - abs(gap))` instead of re-running `_va_gap` ⇒ REDs including `test_chosen_balancer_is_the_best_available_from_the_pool[2-for-1]`, `[3-for-2]`, `test_published_residual_matches_a_recomputation`, and critically `test_overshoot_does_not_hand_the_lead_to_the_other_side` — the 701-flip half of the defect; (MV2, JS) `trade-logic.js:1317` `imbalanceAfter: after.imbalance` → `Math.abs((row.value \|\| 0) - Math.abs(gap))` ⇒ **5 REDs**, including one named for the defect itself (*"scores against the ADJUSTED gap, not the raw value (defect #800)"*), plus *"returns players that actually close the gap — which is not the one whose value matches it"*, *"never leaves the trade further apart than it started"*, *"picks the best available candidate, not merely a better one"* and the 3-team sweetener routing. So the invariant is enforced **independently in each runtime**, which is what the divergence concern required — a single-runtime proof would have left exactly the gap this row was opened on. Both restored; 24 and 179 pass |
 | V1-45 | Trade calculator | inv 2.1 | L2 | `IMPLEMENTED_UNVERIFIED` | L4 | high-use surface; owner status "ALREADY COMPLETE — VERIFY ONLY" |
-| V1-46 | Manual override UX: visually silent, one global reset | `C3-CALC-02` / `#781` | L6 | `NOT STARTED` | L1 | binding owner UX requirement, decisions 3–7 |
+| V1-46 | Manual override UX: visually silent, one global reset | `C3-CALC-02` / `#781` | L6 | `VERIFIED` | L1 | binding owner UX requirement, decisions 3–7. **PROMOTED 2026-08-21** (merged `b78dd858e`, #1025). `docs/C_SERIES_SCOPE_MANIFEST.md`'s final state — "No per-player badge; top-level Reset Values; removal clears the override; canonical truth unchanged" — measured absent before this fix: the asset-value override `<input>` carried a conditional `overridden` CSS class (a per-player badge), and no top-level control cleared every override at once. Fixed: dropped the conditional class from `AssetRow` (`trade-sections.jsx`) and its now-dead `.overridden` CSS rule; added one "Reset Values" button to the trade-controls toolbar (`page.jsx`), disabled when nothing is overridden. Does not touch `customValue`-first resolution in `trade-logic.js` or any canonical field. Pinned by `frontend/__tests__/components/trade-value-override-ux.test.jsx` (3/3). Reperformed at Integration: restored the conditional `overridden` class ⇒ RED (1 of 3, the exact badge-absence assertion); reverted ⇒ GREEN, clean tree. |
 | V1-47 | Multi-team (3+) trade modelling preserved | `BS-3TEAM` | L2 | `VERIFIED` | L1 | owner requirement: "must never be simplified away" |
 
 ### 3.4 Exact scoring and required current-season-model correctness
@@ -358,14 +358,14 @@ table already said 47, and on its first real use it caught the same drift again
 
 | status | count |
 |---|---|
-| `VERIFIED` | 70 |
+| `VERIFIED` | 71 |
 | `IMPLEMENTED_UNVERIFIED` | 19 |
 | `IN PROGRESS` | 16 |
-| `NOT STARTED` | 29 |
+| `NOT STARTED` | 28 |
 | `BLOCKED` | 2 |
 | **denominator** | **136** |
 
-**V1 completion: 70 / 136 = 51.5%.** (69 on `main` post-`#1024`/`V1-94` + `V1-40` here, `IN PROGRESS` → `VERIFIED` on a measured `board_diff` L2 statement.)
+**V1 completion: 71 / 136 = 52.2%.** (70 on `main` post-`#1024`(`V1-94`)/`#1029`(`V1-46`) + `V1-40` here, `IN PROGRESS` → `VERIFIED` on a measured `board_diff` L2 statement.)
 
 The percentage went DOWN without any capability regressing, and that is the tally being honest
 rather than flattering: the owner enlarged V1 on 2026-08-20 (§3.12, +4) and the denominator moved
