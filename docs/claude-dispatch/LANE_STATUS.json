@@ -1,7 +1,7 @@
 {
   "_comment": "Lane utilization state for an independent traffic-control/dispatch record (no lane number, no name assigned to it — see governanceCorrection_C31). NOT an authority on integration sequencing (Claude 5 / docs/EXECUTION_PLAN.md), on V1 status (docs/VERSION_1_COMPLETION_CONTRACT.md) or on canonical ownership (CLAUDE.md). Repository evidence outranks this file: where they disagree, this file is wrong and must be corrected.",
-  "updatedAt": "2026-08-21T11:56:00Z",
-  "dispatchCycle": 79,
+  "updatedAt": "2026-08-21T12:30:00Z",
+  "dispatchCycle": 80,
   "writePolicy": "This file and ASSIGNMENTS.json are written ONLY on a material state transition — new assignment, assignment accepted, completion, blocker, freeze/unfreeze, or a meaningful dependency change. A heartbeat that finds nothing changed produces no commit and no CI run.",
   "evidenceBasis": "origin/main 079fc9e4a; §3 diffed row-by-row from cycle-19 main (c5a367266); all refs resolved live; #945 CI green 04:57:35Z",
   "assignmentSourceNote": "Lanes 1-6 carry the owner's original six manual assignments, tracked in detail by this dispatcher. Lanes 8-13 are five additional owner-authorized campaign lanes (Claude 8 chartered 2026-08-20; Claude 9-13 chartered the same day under the POST-V1 C-Series mass-build campaign, EXECUTION_PLAN.md §0). This dispatcher did not originate any of these eleven assignments and does not own or re-scope them. Lanes 8-13 are tracked here only lightly — ownership boundaries and authorization citation — because they are self-directed under their own charter, unlike lanes 1-6 which this dispatcher actively monitors for idleness and dispatches follow-on work to. This record is independent traffic-control/dispatch bookkeeping — it claims no lane number and is not assigned to a named identity, per dispatcherIdentity above.",
@@ -592,5 +592,20 @@
     "mainTip": "e52e2f890 (routine chores only across cycles 76-79, no V1 row effect)",
     "tierAPipelineUpdate": "MATERIAL CHANGE this cycle: read #1023 and #1017 fresh (full PR bodies, not just the mergeable_state field, per the priority flag). Both have been REBASED since cycle 74/75 -- new commits (#1023 now 9 commits, was 8; #1017 now 7, was 6), base updated to current main (e52e2f890), and both now read mergeable_state 'clean' (was 'dirty'/'unknown' fluctuating). Content unchanged: same titles, same mutation-proof evidence, still FEATURE_GREEN/READY_FOR_INTEGRATION, still unmerged. Both are now genuinely ready to merge -- the prior conflict has been resolved by someone, not just a transient field value this time.",
     "standingItemsUnchanged": "Lane 2, Lane 4 on-box batch, all three abandoned refs — checked live, no change across all four cycles."
+  },
+  "cycle80Transitions": {
+    "mainTip": "277df6ff5 (was e52e2f890) -- merged PR #1023 (commit f2a06df7d) plus its 'V1-133/134/135: promote to VERIFIED at L2 -- Lane 8 bridge owner already shipped' commit (4077d7afa).",
+    "myOwnPr": {
+      "pr": "#1000", "head": "d86d8f515",
+      "verdict": "Validate PR SUCCESS, run 32479420857 (head_sha cross-verified against list_workflow_runs), 11:55:22Z -> 12:14:00Z (18m42s). No new comments."
+    },
+    "rowDiff": {
+      "method": "§3 row-diffed e52e2f890 -> 277df6ff5",
+      "result": "THREE promotions, all Tier-A: V1-133 NOT STARTED -> VERIFIED, V1-134 NOT STARTED -> VERIFIED, V1-135 NOT STARTED -> VERIFIED, exactly the PR flagged since cycle 69/70. The contract's own re-verification text at this SHA independently confirms #1012's idpShowCombined cutover does not touch this evidence: config/bridges/bridges_v1.json contains only idpTradeCalc/draftSharks/dynastyDealer, and idpShowCombined has no bridge registry entry -- it reads its own is_cross_market rank through an entirely separate crosswalk in data_contract.py, so the two mechanisms are disjoint.",
+      "selfConsistency": "Independent count 80+20+19+15+2=136; contract's own table and completion line read 80/136=58.8%, agreeing."
+    },
+    "tierAMilestone": "Tier-A queue: 10 of 11 closed (V1-69, V1-90, V1-121, V1-79, V1-92, V1-98, V1-112, V1-133, V1-134, V1-135). Only V1-40 remains, covered by still-open PR #1017. Its mergeable_state fluctuated back to 'unknown' after #1023's merge shifted its base (base.sha now f2a06df7d, 8 commits, updated_at 12:26:18Z) -- content unchanged (still the dead find_drop_candidates deletion + vocabulary-scan guard, mutation-proven, FEATURE_GREEN/READY_FOR_INTEGRATION, 'Not self-merged'). Closing this one row brings Tier-A to 11/11.",
+    "standingItemsUnchanged": "Lane 2, Lane 4 on-box batch, all three abandoned refs — checked live, no change.",
+    "note": "58.8% is up from the 70/136=51.5% baseline stated in the original NEXT25 instruction, and up from 56.6% last material cycle. #1027 (V1-49) and #1001 (V1-136) remain open and unmerged, still watched neutrally, no action taken by this record."
   }
 }
