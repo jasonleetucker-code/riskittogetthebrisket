@@ -41,6 +41,23 @@ _SYSTEMD = _REPO / "deploy" / "systemd"
 _INSTALLER = _REPO / "deploy" / "install-systemd-service.sh"
 _DEPLOY_SH = _REPO / "deploy" / "deploy.sh"
 
+# Two more systemd-unit directories exist OUTSIDE deploy/systemd/, each with
+# its OWN dedicated installer script rather than deploy.sh's glob-and-derive
+# loop above -- so they cannot be checked by extending the assertions above
+# (those are specific to install-systemd-service.sh's install_simple_timer
+# pattern and deploy.sh's own glob). They need the SAME invariant checked
+# against THEIR actual wiring mechanism instead: does anything ever call the
+# dedicated installer. V1-124 (C10-CLOSE-04) found one of these two has zero
+# callers anywhere in the repo -- deploy/install-curated-sharps-service.sh,
+# for deploy/curated-sharps-systemd/chase-upside-curated-sharps.timer.template
+# -- the exact "template committed, reviewed, merged, and never once
+# rendered onto the box" failure class this file's own docstring describes,
+# reopened in a directory this file's glob structurally cannot see.
+_EXTRA_TIMER_DIRS = {
+    "curated-sharps-systemd": (_REPO / "deploy" / "curated-sharps-systemd", _REPO / "deploy" / "install-curated-sharps-service.sh"),
+    "ffpc-systemd": (_REPO / "deploy" / "ffpc-systemd", _REPO / "deploy" / "install-ffpc-sharp-service.sh"),
+}
+
 
 def _installer() -> str:
     return _INSTALLER.read_text(encoding="utf-8", errors="replace")
@@ -209,3 +226,36 @@ def test_deploy_sh_still_derives_missing_timers_from_this_directory() -> None:
     body = _DEPLOY_SH.read_text(encoding="utf-8", errors="replace")
     assert "deploy/systemd/*.timer.template" in body
     assert "is-enabled" in body, "deploy.sh must treat installed-but-disabled as missing"
+
+
+# ── The two directories outside deploy/systemd/ ─────────────────────
+
+
+def test_every_dedicated_installer_directory_has_a_reachable_installer() -> None:
+    """Same invariant as the block above -- "every template is reached by
+    SOME install route" -- checked against the actual mechanism these two
+    directories use (a standalone installer script, not
+    install-systemd-service.sh). A timer template here with an installer
+    that nothing calls is exactly as dead as one missing from
+    install-systemd-service.sh entirely; the difference is only which
+    file would have caught it, and until this test neither did.
+    """
+    search_text = "\n".join(
+        p.read_text(encoding="utf-8", errors="replace")
+        for p in list((_REPO / "deploy").glob("*.sh")) + list((_REPO / ".github" / "workflows").glob("*.yml"))
+    )
+    unwired: list[str] = []
+    for label, (timer_dir, installer_script) in _EXTRA_TIMER_DIRS.items():
+        templates = list(timer_dir.glob("*.timer.template"))
+        if not templates:
+            continue  # nothing to check for this directory
+        if not installer_script.is_file():
+            unwired.append(f"{label}: installer {installer_script.name} does not exist")
+            continue
+        if installer_script.name not in search_text:
+            unwired.append(
+                f"{label}: {installer_script.name} exists but nothing under deploy/*.sh or "
+                ".github/workflows/*.yml calls it -- the timer template(s) it installs "
+                f"({[t.name for t in templates]}) are committed but never rendered onto a box"
+            )
+    assert not unwired, unwired

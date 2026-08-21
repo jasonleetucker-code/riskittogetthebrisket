@@ -352,6 +352,18 @@ The W23 shard mapped all three (`evidence/W23/schedule-map.csv`,
 
 ### 3.1 GitHub workflows — all 22
 
+**STALE COUNT, flagged rather than silently rewritten (2026-08-20, C10-CLOSE-04 audit).** This
+table is a point-in-time census at this document's own provenance commit (`ba9f348b`,
+2026-08-04) and is left as that historical record rather than edited row-by-row to match today's
+tree — rewriting a dated census to describe a different day would make its own provenance line
+false. The current count is **31 workflow files**, not 22: `force-sharp-production-now.yml`,
+`trigger-sharp-now-via-merge.yml`, `trigger-sharp-no-environment.yml` and
+`check-sharp-production-now.yml` (all 4 listed below) have since been **deleted**, and
+`dynasty-pbp-weekly`, `dynasty-faab-history`, `dynasty-sharp-cohort-snapshot`,
+`dynasty-sharp-transactions`, `chase-upside-curated-sharps` and several others shipped since. For
+the CURRENT enumeration, see `docs/ops/C10_CLOSE_04_BACKGROUND_JOBS_MATRIX.md` §A, built and kept
+current by that closure pass rather than this frozen audit.
+
 | Workflow | Trigger | Cadence (UTC) | Runs | Note |
 |---|---|---|---|---|
 | `scheduled-refresh.yml` | cron | `42 */2 * * *` — every 2 h | 20 scripts: 15 `fetch_*`, `validate_scrape_sanity`, both watchdogs, `check_env` | **The data pipeline.** Guards are mostly post-deploy — W23-F010 |
@@ -391,6 +403,14 @@ contains a duplicate mapping key, so no workflow is silently unrunnable for that
 (W23-F016, status `Implemented and verified`).
 
 ### 3.2 systemd timers — all 19
+
+**STALE COUNT, flagged rather than silently rewritten (2026-08-20, C10-CLOSE-04 audit).** Same
+provenance-preservation reasoning as §3.1 above — this table is a point-in-time census at
+`ba9f348b` and is not edited to match today's tree. The current count is **27 systemd units**
+(20 `dynasty-*` template-rendered + 5 fixed non-template units + 2 units in separately-installed
+directories `curated-sharps-systemd/`/`ffpc-systemd/`), not 19. For the current enumeration and
+each unit's health-tracking mechanism (or lack of one), see
+`docs/ops/C10_CLOSE_04_BACKGROUND_JOBS_MATRIX.md` §B.
 
 | Unit | OnCalendar (UTC) | ExecStart | Installed by |
 |---|---|---|---|
@@ -517,8 +537,8 @@ baseline that no test and no workflow reads (W24-F009).
 
 | Job | Output | Who reads it |
 |---|---|---|
-| `verify-sharp-production.yml` | `data/ops/sharp-production-smoke.json` | **nobody, ever.** `.gitignore:45` ignores `data/`, `git add` on an explicitly-named ignored path exits 1, GitHub Actions runs steps under `bash -e`, so the step dies — and the "Enforce healthy population" verdict step immediately after it carries the default `if: success()` and is skipped. `git log --all -- data/ops/` returns **0 commits**: the directory has never been committed in the repo's history |
-| `force-sharp-production-now.yml`, `trigger-sharp-now-via-merge.yml`, `trigger-sharp-no-environment.yml` | three more `data/ops/*.json` | same `git add` failure; here only the artifact is lost, because their commit step is last and `if: always()` |
+| `verify-sharp-production.yml` | `data/ops/sharp-production-smoke.json` | **CORRECTED 2026-08-20 (C10-CLOSE-04 audit) — this row is stale and the defect it describes is fixed.** As of this document's own provenance commit (`ba9f348b`) the claim was accurate; `.github/workflows/verify-sharp-production.yml:303` now runs `git add -f data/ops/sharp-production-smoke.json`, and `git ls-files data/ops/` confirms the file is tracked. The "nobody, ever" / "0 commits" claim below no longer holds and should not be re-cited as current |
+| `force-sharp-production-now.yml`, `trigger-sharp-now-via-merge.yml`, `trigger-sharp-no-environment.yml` | three more `data/ops/*.json` | **CORRECTED 2026-08-20 — these three workflows have since been DELETED.** `data/ops/sharp-force-production-live.json`, `sharp-merge-trigger-result.json` and `sharp-no-environment-result.json` are still git-tracked (their commit step, from whenever it last ran, is not undone by deleting the workflow) but nothing in the current tree regenerates them — they are frozen artifacts that read as current ops state. §3.1 below still lists these three workflows in its inventory table; that table is a point-in-time census at `ba9f348b` and is not corrected row-by-row here — see the note at the top of §3.1 |
 | `consensus-edge-revalidate.yml` (weekly Wed) | `pooled.topBuys.medianExcess` and a full validation JSON | printed and discarded. The gate compares only `decision.recommendation`, a string — it stays green while the measured excess moves from −0.006 to −0.30 or to +0.20 (W14-F008). And the surface it validates, `/consensus-edge`, is **behind a flag that defaults off** |
 | `refit-hill-curves.yml` (weekly Tue) | a GitHub issue | read by a human, but `gh issue create` with no `gh issue list` dedupe and **zero** `gh issue close` steps — alone among the six issue-opening workflows. A persistent condition mints one duplicate issue every Tuesday forever (W23-F009) |
 | the ops "scrape success rate < 50%" alert | an SMTP email | **can never fire.** The payload handed to `_check_scrape_rate` never carries `scrape_success_rate_24h` (an AST scan of all 23 keys written into `scrape_status` confirms it), and where the key *does* exist — on `/api/status` — its value is a dict, so `float()` raises and the `except` swallows it. Both routes to the alert are closed (W23-F001) |

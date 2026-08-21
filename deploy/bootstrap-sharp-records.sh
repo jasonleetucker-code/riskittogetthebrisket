@@ -158,6 +158,40 @@ run_ffpc_now() {
   sudo -n "${JOURNALCTL_BIN}" -u "${ffpc_service}" -n 120 --no-pager || true
 }
 
+run_curated_sharps_now() {
+  # V1-124 (C10-CLOSE-04) found this installer had zero callers anywhere in
+  # the repo -- deploy/curated-sharps-systemd/chase-upside-curated-sharps
+  # was committed, reviewed and merged, and never once rendered onto a box.
+  # Wired here rather than left as a documented gap: this bootstrap script
+  # is the one place a fresh box's Sharp-lane units already get installed
+  # and kicked (see run_ffpc_now above, the same shape), so a curated-sharps
+  # box that never ran this script would still miss it -- but every box
+  # that DOES run it (the only route that installs the Sharp lane at all
+  # today) now also installs this one.
+  local installer="${APP_DIR}/deploy/install-curated-sharps-service.sh"
+  local curated_service="chase-upside-curated-sharps.service"
+
+  if [[ ! -f "${installer}" ]]; then
+    warn "Curated-sharps installer is unavailable: ${installer}"
+    return 0
+  fi
+
+  log "Installing the curated Sharp identity/model refresh timer."
+  APP_DIR="${APP_DIR}" \
+  VENV_DIR="${VENV_DIR}" \
+  SERVICE_USER="${APP_USER}" \
+    bash "${installer}"
+
+  if ! sudo -n "${SYSTEMCTL_BIN}" cat "${curated_service}" >/dev/null 2>&1; then
+    warn "Curated-sharps service was not installed; it may be disabled by configuration."
+    return 0
+  fi
+
+  run_oneshot "${curated_service}"
+  log "Recent curated-sharps journal:"
+  sudo -n "${JOURNALCTL_BIN}" -u "${curated_service}" -n 120 --no-pager || true
+}
+
 main() {
   [[ -d "${APP_DIR}" ]] || { error "APP_DIR does not exist: ${APP_DIR}"; exit 1; }
   [[ -x "${VENV_DIR}/bin/python" ]] || {
@@ -225,6 +259,10 @@ main() {
   # FFPC is independent from Sleeper qualification. Always populate it even
   # when the longer Sleeper historical pass is still building its cohort.
   run_ffpc_now
+
+  # Same reasoning: curated-sharps is a standalone daily refresh, not part
+  # of the Sleeper qualification pipeline below.
+  run_curated_sharps_now
 
   local eligible
   eligible="$(queue_field eligibleLeagues)"
