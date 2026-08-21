@@ -35,6 +35,45 @@ rather than the investigated, proven-unsupported finding it is. If a
 future session obtains a real nonzero instance of either key, that is
 new evidence and reopens this as its own investigation.
 
+## No-double-count behavior (explicit determination)
+
+`kick_ret_td`, `punt_ret_td` and `st_td` are three **independent** keys
+in Sleeper's own scoring vocabulary, each sourced from a different,
+non-overlapping mechanism in this engine:
+
+- `st_td` reads the weekly feed's `special_teams_tds` column (combined
+  kick+punt count).
+- `punt_ret_td` reads the weekly feed's separate `pt_return_tds` column.
+- `kick_ret_td` reads a PBP-derived per-play predicate
+  (`play_type=="kickoff" && return_touchdown`), entirely independent of
+  either weekly column.
+
+**If a league configures nonzero rates for `st_td` AND `kick_ret_td`
+(or `punt_ret_td`) simultaneously, the same physical return-TD event
+pays under both keys.** This is a deliberate, verified non-bug, not an
+oversight: it is the identical stacking shape this codebase already
+treats as correct for `kr_yd` (return yardage) plus `st_td` (return-TD
+bonus) — a league paying both a per-yard rate and a TD bonus for the
+same play is standard fantasy scoring design, the same way `rec_yd` and
+`rec_td` both pay on one catch. Sleeper's own scoring engine does not
+enforce mutual exclusivity between a combined category and its splits
+at the config level, and this engine's job is to score whatever
+nonzero rates a league's real `scoring_settings` contains — faithfully,
+not policed against a stacking choice that is the commissioner's to
+make. **Verified**: neither live league (`dynasty_main`, `dynasty_new`)
+configures more than one of these three keys nonzero today (see the L2
+measurement below), so this stacking is not presently reachable on any
+league this platform serves — recorded as the correct behavior for a
+league that does, not as a live discrepancy.
+
+What IS guarded against, by test, is a different failure mode: a single
+PBP play being credited to the WRONG one of the two split keys.
+`test_kick_ret_td_does_not_fire_on_a_punt_return_touchdown` pins that a
+punt-return-TD play never credits `kick_ret_td`, and the `pt_return_tds`
+weekly column is punt-return-specific by nflverse's own definition, so
+the two split keys cannot double-credit each other on the same event
+either.
+
 ## Host-truth validation
 
 Per this repo's established discipline (predicates are measured, not
