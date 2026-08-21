@@ -10531,7 +10531,7 @@ def _public_section_access_error(section: str, request: Request) -> JSONResponse
         content={
             "error": "auth_required",
             "message": (
-                f"{section!r} contains manager-specific intelligence and " "requires a session."
+                f"{section!r} contains manager-specific intelligence and requires a session."
             ),
             "section": section,
         },

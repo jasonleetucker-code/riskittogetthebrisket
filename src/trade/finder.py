@@ -329,7 +329,7 @@ def _build_summary(
     # rendered as "you gain -100 board value (+-2%)".
     verb = "you gain" if board_delta >= 0 else "you give up"
     parts = [
-        f"{edge_label}: {verb} {abs(board_delta):,} board value " f"({board_gain_pct:+.0%})",
+        f"{edge_label}: {verb} {abs(board_delta):,} board value ({board_gain_pct:+.0%})",
     ]
     # Only claim KTC opponent appeal when coverage is full
     if coverage == "full":
