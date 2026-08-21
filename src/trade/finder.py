@@ -951,6 +951,7 @@ def find_trades(
     contract: dict[str, Any] | None = None,
     capacity_context: Any | None = None,
     constraints: Any | None = None,
+    use_team_context: bool = True,
 ) -> dict[str, Any]:
     """
     Find board-arbitrage trades.
@@ -959,6 +960,15 @@ def find_trades(
     ----------
     players : dict
         Raw players dict from the live data payload.
+    use_team_context : bool
+        V1-41 / ``C3-CTX-01``.  ON (default) makes the roster-fit bonus's
+        "fills a need" arm consult the canonical Team Weakness owner
+        (``src.roster_intel.weakness.build_team_weakness``, via
+        ``build_league_roster_intelligence``) instead of a raw position
+        count, and requires it to answer before any fit bonus is applied.
+        OFF suppresses the entire roster-fit block — no bonus, no
+        ``roster_fit``/``addresses_urgent_need:*`` flags, no team-specific
+        signal of any kind reaches the ranking or the response.
     my_team : str
         Name of my Sleeper team.
     opponent_teams : list[str]
@@ -1030,6 +1040,49 @@ def find_trades(
             "trades": [],
             "metadata": {},
         }
+
+    # V1-41 / C3-CTX-01 — the canonical Team Weakness owner, resolved ONCE
+    # per request.  ``weakness_by_position`` stays empty (never a fabricated
+    # need) whenever context is OFF, the owner cannot be resolved, or the
+    # league-wide computation fails; "fills a need" then contributes no
+    # bonus rather than silently falling back to the retired raw-count rule.
+    team_context: dict[str, Any] = {
+        "applied": False,
+        "urgentPositions": [],
+        "unavailableReason": "context_off" if not use_team_context else None,
+    }
+    weakness_by_position: dict[str, dict[str, Any]] = {}
+    if use_team_context:
+        my_owner_id = next(
+            (str(t.get("ownerId") or "") for t in sleeper_teams if t.get("name") == my_team),
+            "",
+        )
+        if not my_owner_id:
+            team_context["unavailableReason"] = "owner_id_unresolved"
+        elif not contract:
+            team_context["unavailableReason"] = "no_contract"
+        else:
+            try:
+                from src.api.roster_intelligence import (  # noqa: PLC0415
+                    build_league_roster_intelligence,
+                )
+
+                intel = build_league_roster_intelligence(
+                    contract, team_count=len(sleeper_teams) or None
+                )
+                weakness = (intel.get("teams") or {}).get(my_owner_id, {}).get("weakness") or {}
+                if weakness.get("available"):
+                    weakness_by_position = {
+                        n["position"]: n for n in weakness.get("needs", []) if n.get("position")
+                    }
+                    team_context["applied"] = True
+                    team_context["urgentPositions"] = list(weakness.get("urgentPositions") or [])
+                else:
+                    team_context["unavailableReason"] = (
+                        weakness.get("unavailableReason") or "weakness_unavailable"
+                    )
+            except Exception as exc:  # noqa: BLE001 — an annotation never breaks the finder
+                team_context["unavailableReason"] = f"error:{exc}"
 
     # C3-CON-01 / V1-130 — recommendation constraints, applied to the OUTGOING
     # pool BEFORE enumeration.  Spec §6: generate only feasible packages; never
@@ -1150,29 +1203,38 @@ def find_trades(
     # Deduplicate
     all_trades = _deduplicate(all_trades)
 
-    # ── Light roster-fit adjustment ──────────────────────────────────
+    # ── Light roster-fit adjustment (V1-41 / C3-CTX-01: OFF suppresses this
+    # entire block — no team-specific roster-fit signal reaches the ranking
+    # or the response) ────────────────────────────────────────────────────
     # Slightly reward trades that shed surplus positions or fill weak ones.
-    my_pos_counts: dict[str, int] = {}
-    for a in my_roster:
-        if a.position:
-            my_pos_counts[a.position] = my_pos_counts.get(a.position, 0) + 1
+    # "Fills a need" is gated on the CANONICAL Team Weakness owner
+    # (``weakness_by_position``, resolved above) rather than a raw position
+    # count: an unavailable owner means no bonus, never a silent fallback
+    # to the retired ad-hoc rule.
+    if use_team_context:
+        my_pos_counts: dict[str, int] = {}
+        for a in my_roster:
+            if a.position:
+                my_pos_counts[a.position] = my_pos_counts.get(a.position, 0) + 1
 
-    for tc in all_trades:
-        fit_bonus = 0.0
-        fit_reasons: list[str] = []
-        for a in tc.give:
-            if my_pos_counts.get(a.position, 0) >= ROSTER_SURPLUS_THRESHOLD:
-                fit_bonus += 1.0
-                fit_reasons.append(f"sheds {a.position} surplus")
-        for a in tc.receive:
-            if my_pos_counts.get(a.position, 0) <= ROSTER_WEAK_THRESHOLD:
-                fit_bonus += 1.5
-                fit_reasons.append(f"fills {a.position} need")
-        if fit_bonus > 0:
-            tc.arbitrage_score += fit_bonus
-            tc.flags.append("roster_fit")
-            tc.ranking_factors["rosterFitBonus"] = round(fit_bonus, 2)
-            tc.summary += " Roster fit: " + ", ".join(fit_reasons) + "."
+        for tc in all_trades:
+            fit_bonus = 0.0
+            fit_reasons: list[str] = []
+            for a in tc.give:
+                if my_pos_counts.get(a.position, 0) >= ROSTER_SURPLUS_THRESHOLD:
+                    fit_bonus += 1.0
+                    fit_reasons.append(f"sheds {a.position} surplus")
+            for a in tc.receive:
+                need = weakness_by_position.get(a.position)
+                if need and need.get("level") in ("critical", "high"):
+                    fit_bonus += 1.5
+                    fit_reasons.append(f"fills {a.position} need ({need.get('level')})")
+                    tc.flags.append(f"addresses_urgent_need:{a.position}")
+            if fit_bonus > 0:
+                tc.arbitrage_score += fit_bonus
+                tc.flags.append("roster_fit")
+                tc.ranking_factors["rosterFitBonus"] = round(fit_bonus, 2)
+                tc.summary += " Roster fit: " + ", ".join(fit_reasons) + "."
 
     # Rank
     all_trades.sort(key=lambda t: t.arbitrage_score, reverse=True)
@@ -1227,6 +1289,10 @@ def find_trades(
             "opponentTeams": opponent_teams,
             "opponentsAnalyzed": opponents_analyzed,
             "myRosterSize": len(my_roster),
+            # V1-41 / C3-CTX-01 — whether the canonical Team Weakness owner
+            # actually influenced this run's roster-fit bonus, and why not
+            # when it did not.
+            "teamContext": team_context,
             # Why the outgoing pool may be smaller than the roster.  Published
             # unconditionally: "you protect 22 players" and "no trade exists"
             # must not render identically.
