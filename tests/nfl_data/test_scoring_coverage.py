@@ -146,6 +146,39 @@ def test_a_nonzero_unknown_rule_is_reported_as_a_gap():
     assert audit[Coverage.GAP] == {"some_new_sleeper_rule": 2.5}
 
 
+# ── V1-49 / #1020 ────────────────────────────────────────────────────
+
+
+def test_punt_ret_td_is_a_bare_weekly_feed_key():
+    """No play-by-play needed — real, distinct from st_td/kr_yd/pr_yd."""
+    assert classify("punt_ret_td") is Coverage.SCORED
+    assert engine_reads_key("punt_ret_td")
+
+
+def test_kick_ret_td_needs_the_pbp_supplement():
+    """Real, but only reachable with play-by-play attached — no bare
+    weekly column exists for it (unlike punt_ret_td)."""
+    assert classify("kick_ret_td") is Coverage.UNSCORABLE
+    assert classify("kick_ret_td", pbp_supplement=True) is Coverage.SCORED
+    assert not engine_reads_key("kick_ret_td")
+    assert engine_reads_key("kick_ret_td", pbp_supplement=True)
+
+
+def test_idp_return_td_keys_are_closed_as_unsupported():
+    """Investigated, not fabricated: no real Sleeper scoring UI category
+    and no host-truth instance exists for either key (see the reason
+    string and tests/nfl_data/test_individual_special_teams.py for the
+    full evidence). CLOSED as unsupported, never DERIVABLE_FROM_PLAY_BY_PLAY
+    and never HOST_PUBLISHED — either would misrepresent the finding."""
+    from src.nfl_data.scoring_coverage import DERIVABLE_FROM_PLAY_BY_PLAY, HOST_PUBLISHED
+
+    for key in ("idp_def_pr_td", "idp_def_kr_td"):
+        assert classify(key) is Coverage.UNSCORABLE
+        assert key in UNSCORABLE_REASONS
+        assert key not in DERIVABLE_FROM_PLAY_BY_PLAY
+        assert key not in HOST_PUBLISHED
+
+
 #: The operator's ACTUAL scoring cards, snapshotted 2026-07-28.
 #:
 #: A first version of this pointed at

@@ -125,6 +125,10 @@ _MAXIMAL_ROW: dict[str, Any] = {
     "kickoff_return_yards": 120,
     "punt_return_yards": 60,
     "special_teams_tds": 1,
+    # ADDED (V1-49 / #1020), with the punt_ret_td addition to
+    # _SIMPLE_KEYS. Without this the probe cannot fire the newly scored
+    # rule and it reads as a false GAP.
+    "pt_return_tds": 1,
     # KICKER, added with the fgm/fgmiss/xpm/xpmiss reclassification.
     "pat_made": 6,
     "pat_missed": 2,
@@ -307,6 +311,7 @@ DERIVABLE_FROM_PLAY_BY_PLAY: frozenset[str] = frozenset(
         "st_tkl_solo",
         "st_ff",
         "st_fum_rec",
+        "kick_ret_td",
     }
 )
 
@@ -381,6 +386,28 @@ UNSCORABLE_REASONS: dict[str, str] = {
     "st_tkl_solo": "not an nflverse weekly column; derived by src.nfl_data.pbp_weekly from special-teams solo + tackle-with-assist ids (758 of 759 against the host over seven 2025 weeks, exact in six) — attach it under realized_points.PBP_SUPPLEMENT_ROW_KEY to score it",
     "st_ff": "not an nflverse weekly column; derived by src.nfl_data.pbp_weekly from forced_fumble_player_1/2 on special-teams plays (exact against the host over seven 2025 weeks) — attach it under realized_points.PBP_SUPPLEMENT_ROW_KEY to score it",
     "st_fum_rec": "not an nflverse weekly column; derived by src.nfl_data.pbp_weekly from a special-teams fumble recovery by the NON-fumbling team (exact against the host over seven 2025 weeks) — attach it under realized_points.PBP_SUPPLEMENT_ROW_KEY to score it",
+    # ADDED (V1-49 / #1020).  Sleeper's split of st_td.  Not in
+    # HOST_PUBLISHED, unlike its siblings above: Sleeper's own weekly
+    # stat dump never carries this key — it publishes only the combined
+    # st_td — so there is no host-truth ground truth to recover it from
+    # on the "sleeper" source path either. Verified instead against the
+    # identity kick_ret_td + punt_ret_td == st_td on real 2025 REG
+    # return-TD scorers (docs/scoring/ + test_pbp_weekly.py).
+    "kick_ret_td": "not an nflverse weekly column (only the combined special_teams_tds is; the punt half, pt_return_tds, IS on the weekly feed as punt_ret_td); derived by src.nfl_data.pbp_weekly from play_type=='kickoff' + return_touchdown, credited to kickoff_returner_player_id, excluding own_kickoff_recovery_td — attach it under realized_points.PBP_SUPPLEMENT_ROW_KEY to score it",
+    # ADDED (V1-49 / #1020).  Investigated and CLOSED as unsupported,
+    # not shipped as a recoverable gap. Sleeper's own documented scoring
+    # UI has no IDP return-TD category — return TDs are listed only
+    # under "Special Teams Player" (kick_ret_td/punt_ret_td above,
+    # whose RULE_META bucket already includes DB). Across the three
+    # sampled 2025 host stat dumps this repo carries (~330 player
+    # entries, REG weeks 5/9/14), neither key is ever nonzero, so there
+    # is no host-truth instance to validate a predicate against. Do NOT
+    # add either to DERIVABLE_FROM_PLAY_BY_PLAY or HOST_PUBLISHED — both
+    # would misrepresent this as recoverable rather than unsupported. If
+    # a future session obtains a real nonzero instance, that is new
+    # evidence and reopens this as its own investigation.
+    "idp_def_pr_td": "not derivable with confidence: Sleeper's documented scoring UI lists return TDs only under Special Teams Player (kick_ret_td/punt_ret_td, which already bucket DB); no host stat dump sample (2025 REG wk5/9/14, ~330 player-entries) ever carries this key nonzero, so there is no host-truth instance to validate a predicate against — closed as unsupported by src.nfl_data.pbp_weekly investigation (V1-49 / #1020), not a data gap",
+    "idp_def_kr_td": "not derivable with confidence: Sleeper's documented scoring UI lists return TDs only under Special Teams Player (kick_ret_td/punt_ret_td, which already bucket DB); no host stat dump sample (2025 REG wk5/9/14, ~330 player-entries) ever carries this key nonzero, so there is no host-truth instance to validate a predicate against — closed as unsupported by src.nfl_data.pbp_weekly investigation (V1-49 / #1020), not a data gap",
 }
 
 

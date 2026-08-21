@@ -163,6 +163,19 @@ def test_a_fully_supplemented_season_reports_complete():
 # ── Coverage, on the real card ───────────────────────────────────────
 
 
+#: The subset of PBP_SUPPLEMENT_KEYS that ``dynasty_main`` actually
+#: configures nonzero. Until V1-49 / #1020 this was ALL of
+#: PBP_SUPPLEMENT_KEYS, which is what let the two tests below assert
+#: full-set equality directly. ``kick_ret_td`` broke that coincidence:
+#: it is real and correctly a PBP_SUPPLEMENT_KEYS member, but neither
+#: live league pays it, so it must never appear as UNSCORABLE on THIS
+#: card's audit (a zero-rated rule is skipped by audit_scoring_settings
+#: entirely) even though it is a genuine PBP-supplement key in general.
+_DYNASTY_MAIN_CONFIGURED_PBP_KEYS = frozenset(
+    k for k in PBP_SUPPLEMENT_KEYS if float(DYNASTY_MAIN.get(k, 0) or 0)
+)
+
+
 def test_the_live_card_has_no_unscorable_rule_left_once_the_join_is_made():
     """The measurable claim. Before this change ten configured nonzero
     rules on ``dynasty_main`` were UNSCORABLE; the supplement is the only
@@ -172,16 +185,29 @@ def test_the_live_card_has_no_unscorable_rule_left_once_the_join_is_made():
     without = audit_scoring_settings(DYNASTY_MAIN, pbp_supplement=False)
     with_join = audit_scoring_settings(DYNASTY_MAIN, pbp_supplement=True)
 
-    assert set(without[Coverage.UNSCORABLE]) == set(PBP_SUPPLEMENT_KEYS)
+    assert set(without[Coverage.UNSCORABLE]) == _DYNASTY_MAIN_CONFIGURED_PBP_KEYS
     assert with_join[Coverage.UNSCORABLE] == {}
     assert with_join[Coverage.GAP] == {}
-    assert set(with_join[Coverage.SCORED]) == set(without[Coverage.SCORED]) | PBP_SUPPLEMENT_KEYS
+    assert (
+        set(with_join[Coverage.SCORED])
+        == set(without[Coverage.SCORED]) | _DYNASTY_MAIN_CONFIGURED_PBP_KEYS
+    )
 
 
 def test_coverage_still_defaults_to_the_bare_nflverse_path():
     """Coverage is a property of the engine AND its inputs. Answering as
     though the supplement were present when the caller does not join it
     is the same overstatement this whole unit exists to remove."""
-    assert set(audit_scoring_settings(DYNASTY_MAIN)[Coverage.UNSCORABLE]) == set(
-        PBP_SUPPLEMENT_KEYS
+    assert (
+        set(audit_scoring_settings(DYNASTY_MAIN)[Coverage.UNSCORABLE])
+        == _DYNASTY_MAIN_CONFIGURED_PBP_KEYS
     )
+
+
+def test_kick_ret_td_is_real_but_not_configured_by_either_live_league():
+    """The one PBP_SUPPLEMENT_KEYS member the coincidence above no longer
+    covers, stated explicitly rather than left implicit in a set
+    difference."""
+    assert "kick_ret_td" in PBP_SUPPLEMENT_KEYS
+    assert "kick_ret_td" not in _DYNASTY_MAIN_CONFIGURED_PBP_KEYS
+    assert float(DYNASTY_MAIN.get("kick_ret_td", 0) or 0) == 0.0
