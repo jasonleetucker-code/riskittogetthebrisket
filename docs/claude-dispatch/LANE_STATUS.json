@@ -1,7 +1,7 @@
 {
   "_comment": "Lane utilization state for an independent traffic-control/dispatch record (no lane number, no name assigned to it — see governanceCorrection_C31). NOT an authority on integration sequencing (Claude 5 / docs/EXECUTION_PLAN.md), on V1 status (docs/VERSION_1_COMPLETION_CONTRACT.md) or on canonical ownership (CLAUDE.md). Repository evidence outranks this file: where they disagree, this file is wrong and must be corrected.",
-  "updatedAt": "2026-08-21T00:15:00Z",
-  "dispatchCycle": 56,
+  "updatedAt": "2026-08-21T03:05:00Z",
+  "dispatchCycle": 61,
   "writePolicy": "This file and ASSIGNMENTS.json are written ONLY on a material state transition — new assignment, assignment accepted, completion, blocker, freeze/unfreeze, or a meaningful dependency change. A heartbeat that finds nothing changed produces no commit and no CI run.",
   "evidenceBasis": "origin/main 079fc9e4a; §3 diffed row-by-row from cycle-19 main (c5a367266); all refs resolved live; #945 CI green 04:57:35Z",
   "assignmentSourceNote": "Lanes 1-6 carry the owner's original six manual assignments, tracked in detail by this dispatcher. Lanes 8-13 are five additional owner-authorized campaign lanes (Claude 8 chartered 2026-08-20; Claude 9-13 chartered the same day under the POST-V1 C-Series mass-build campaign, EXECUTION_PLAN.md §0). This dispatcher did not originate any of these eleven assignments and does not own or re-scope them. Lanes 8-13 are tracked here only lightly — ownership boundaries and authorization citation — because they are self-directed under their own charter, unlike lanes 1-6 which this dispatcher actively monitors for idleness and dispatches follow-on work to. This record is independent traffic-control/dispatch bookkeeping — it claims no lane number and is not assigned to a named identity, per dispatcherIdentity above.",
@@ -423,6 +423,22 @@
       "the v1DerivedObservation block and its SHA-stamped reading — untouched"
     ],
     "scriptsRun": "scripts/check_planning_integrity.py and scripts/check_product_plan_governance.py — run this pass; results recorded in the commit that carries this correction",
-    "verdict": "This is a bounded identity/governance correction only, consistent with the owner's instruction. Cycle work (row-diffing, the V1_70_ATTACK_MATRIX delivery, PR CI status) continues unaffected."
+    "verdict": "This is a bounded identity/governance correction only, consistent with the owner's instruction. Cycle work (row-diffing, the V1_70_ATTACK_MATRIX delivery, PR CI status) continues unaffected.",
+    "ciConfirmed": "Validate PR SUCCESS on head d5186bb71 (the governance-correction commit) — job 96649181597, 02:32:16Z -> 02:48:49Z (16m33s). Owner has not replied further to the reply comment as of cycle 61; no action pending on the thread."
+  },
+  "cycle60to61Transitions": {
+    "mainTip": "e38fe3b41 (was 00844956d two cycles ago)",
+    "rowDiff": {
+      "method": "§3 row-diffed in two steps this session: 00844956d -> 362fc856c, then 362fc856c -> e38fe3b41",
+      "step1": "V1-32 IN PROGRESS -> VERIFIED via #1013 — confirms the V1_70_ATTACK_MATRIX headline finding delivered cycle 56 (the row's own stated blocker, #1004, was independently confirmed already merged before the promotion landed).",
+      "step2": "V1-117 NOT STARTED -> VERIFIED via #1016 ('add single-intake-ledger guard') — a matrix SURPLUS15 candidate, not one this dispatcher flagged as high-confidence; recorded for completeness.",
+      "selfConsistency": "Independent count 67+19+19+29+2=136; contract's own table and completion line read 67/136=49.3%, agreeing."
+    },
+    "otherMerged": [
+      "#1015 — V1-94 teamAssignment availability contract proven against the real pipeline. Implementation only; did NOT change V1-94's contract status, consistent with the implementation-lands/promotion-is-separate pattern this record has documented all session.",
+      "#1012 — IDP Show combined Top-700 board becomes sole voting source. No V1 row effect."
+    ],
+    "standingItemsUnchanged": "Lane 2 (V1-43 NOT STARTED, ASSIGNMENT DELIVERY still the blocker), Lane 4 on-box batch (V1-57/60/129 still IMPLEMENTED_UNVERIFIED, row text unchanged), all three abandoned refs (v1/premium-ui c025e4f68, integration/rc-937 80b7b948d, integration/rc-wave-a 213f91513) — checked live, no change.",
+    "matrixTracking": "Two of the V1_70_ATTACK_MATRIX's 71 audited rows have closed since delivery: V1-32 (TOP10, this dispatcher's own headline finding) and V1-117 (SURPLUS15). 65 remain of the original 71."
   }
 }
