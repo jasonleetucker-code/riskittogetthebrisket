@@ -121,3 +121,42 @@ def test_every_consumer_refuses_loudly_when_the_production_url_is_empty():
         "Running against an empty origin asserts nothing just as surely as skipping "
         "does; annotate with `::error` and `exit 1`:\n  " + "\n  ".join(missing)
     )
+
+
+def test_gh_issue_steps_declare_gh_repo():
+    """``health-check.yml`` has no ``actions/checkout``, so ``gh`` cannot infer
+    the repo from a ``.git`` directory the way the checked-out workflows do.
+
+    Measured 2026-08-21: every one of 9 consecutive scheduled runs
+    (2026-08-19 through 2026-08-21) failed with ``fatal: not a git
+    repository`` on the ``gh issue list`` calls in "Open or update the
+    tracking issue on failure" and "Close the tracking issue on a green
+    run" — silently turning both halves of F-21's own repair (file the
+    alert, clear it later) into a false negative, while production
+    itself stayed healthy throughout. The health/status/coverage/backup
+    assertions were never the problem; the issue-tracking plumbing was.
+
+    ``GH_REPO`` is the documented fix for exactly this shape (a ``gh``
+    call with no git checkout to infer from), and it covers every ``gh
+    issue`` subcommand in the step uniformly rather than needing a
+    ``--repo`` flag on each call.
+    """
+    path = WORKFLOWS / "health-check.yml"
+    document = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+    offenders: list[str] = []
+    for job_name, job in (document.get("jobs") or {}).items():
+        if not isinstance(job, dict):
+            continue
+        for step in job.get("steps") or []:
+            if not isinstance(step, dict) or not isinstance(step.get("run"), str):
+                continue
+            if "gh issue" not in step["run"]:
+                continue
+            env = step.get("env") or {}
+            if "GH_REPO" not in env:
+                offenders.append(f"{job_name} :: {step.get('name', '<unnamed>')}")
+    assert not offenders, (
+        "a step calls `gh issue` with no `GH_REPO` set and no checkout to infer the "
+        "repo from -- every call will fail with 'not a git repository':\n  "
+        + "\n  ".join(offenders)
+    )
