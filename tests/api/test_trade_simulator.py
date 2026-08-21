@@ -541,3 +541,149 @@ def test_classify_window_mixed_roster_is_balanced():
     assets = [_player_asset(f"Vet{i}", 1000, 27) for i in range(5)]
     assets += [_pick(1000) for _ in range(5)]
     assert team_impact._classify_window(assets, _WINDOW_CFG) == "balanced"
+
+
+# ── Final roster simulation: C2-SIM-01 (roster_intel.simulation) composed  ──
+# via C3-CAP-01 (roster_capacity.simulate_final_legal_roster) at THIS
+# endpoint. Before this, ``/api/trade/simulate`` reported only a forced-drop
+# COST estimate via ``rosterCapacity`` and never resolved WHICH player, the
+# re-solved lineup, or the Team Strength delta — even though both primitives
+# already existed and were independently tested
+# (``tests/trade/test_trade_consumes_roster.py``). Fixture mirrors that
+# file's ``TINY_ROSTER``/``TINY_SETTINGS`` exactly, so the same forced-drop
+# outcome (TE1, the cheapest RB/WR/TE-flex-redundant player) is expected here.
+
+_CAPACITY_SETTINGS = {
+    "teamCount": 12,
+    "rosterSize": 6,
+    "taxiSize": 0,
+    "starters": {"QB": 1, "RB": 1, "WR": 1, "FLEX": 1},
+}
+
+
+def _mk_capacity_contract():
+    """A 6-man roster already AT a 6-man cap: any incoming player forces a drop."""
+
+    def row(name, value, pos):
+        return {
+            "displayName": name,
+            "canonicalName": name,
+            "assetClass": "offense",
+            "position": pos,
+            "pos": pos,
+            "rankDerivedValue": value,
+            "values": {"full": value},
+        }
+
+    roster = [
+        ("QB1", 5000.0, "QB"),
+        ("RB1", 4000.0, "RB"),
+        ("WR1", 3000.0, "WR"),
+        ("RB2", 800.0, "RB"),
+        ("WR2", 700.0, "WR"),
+        ("TE1", 600.0, "TE"),
+    ]
+    free_agents = [
+        row(f"FA {i}", 200.0 + i, p) for i, p in enumerate(("QB", "RB", "WR", "TE", "RB", "WR"))
+    ]
+    incoming = [("IN1", 6000.0, "WR")]
+    rows = (
+        [row(n, v, p) for n, v, p in roster] + free_agents + [row(n, v, p) for n, v, p in incoming]
+    )
+    team = {
+        "ownerId": "o1",
+        "name": "Us",
+        "roster_id": 1,
+        "players": [n for n, _v, _p in roster],
+        "playerIds": [n.lower() for n, _v, _p in roster],
+        "picks": [],
+    }
+    opponent = {
+        "ownerId": "o2",
+        "name": "Them",
+        "roster_id": 2,
+        "players": [n for n, _v, _p in incoming],
+        "playerIds": [n.lower() for n, _v, _p in incoming],
+        "picks": [],
+    }
+    return {"playersArray": rows, "sleeper": {"teams": [team, opponent]}}
+
+
+def test_final_roster_simulation_names_the_forced_drop():
+    contract = _mk_capacity_contract()
+    team = terminal.resolve_team(contract, owner_id="o1", name=None)
+    result = trade_simulator.simulate_trade(
+        contract,
+        resolved_team=team,
+        players_in=["IN1"],
+        players_out=[],
+        roster_settings=_CAPACITY_SETTINGS,
+        league_key=None,
+    )
+    capacity = result["rosterCapacity"]
+    assert capacity["requiresDrops"] is True
+    assert capacity["forcedDrops"], "fixture must actually force a drop"
+
+    sim = result["finalRosterSimulation"]
+    assert sim["available"] is True
+    # The cleanup IS the capacity answer's own forced drops, not a second,
+    # independently-chosen selection (mirrors
+    # test_trade_consumes_roster.py::test_a_forced_drop_is_never_also_retained).
+    capacity_drop_ids = {d["playerId"] for d in capacity["forcedDrops"]}
+    cleanup_ids = {d["playerId"] for d in sim["cleanupApplied"]}
+    assert cleanup_ids == capacity_drop_ids
+    assert cleanup_ids  # non-empty: a real player was named, not a placeholder
+    # A re-solved lineup and Team Strength delta, not merely a value delta.
+    assert "strengthDelta" in sim
+    assert "movements" in sim
+    assert sim["isVerdict"] is False
+
+
+def test_final_roster_simulation_absent_without_resolved_team():
+    contract = _mk_capacity_contract()
+    result = trade_simulator.simulate_trade(
+        contract,
+        resolved_team=None,
+        players_in=["IN1"],
+        players_out=[],
+        roster_settings=_CAPACITY_SETTINGS,
+    )
+    # Not null, not {} — genuinely absent, matching rosterCapacity's own
+    # absence in the same no-team case.
+    assert "finalRosterSimulation" not in result
+    assert "rosterCapacity" not in result
+
+
+def test_final_roster_simulation_clean_fit_reports_empty_cleanup():
+    contract = _mk_capacity_contract()
+    team = terminal.resolve_team(contract, owner_id="o1", name=None)
+    # 1-for-1: roster size is unchanged, so no forced drop is required.
+    result = trade_simulator.simulate_trade(
+        contract,
+        resolved_team=team,
+        players_in=["IN1"],
+        players_out=["TE1"],
+        roster_settings=_CAPACITY_SETTINGS,
+        league_key=None,
+    )
+    assert result["rosterCapacity"]["requiresDrops"] is False
+    sim = result["finalRosterSimulation"]
+    assert sim["available"] is True
+    assert sim["cleanupApplied"] == []
+
+
+def test_final_roster_simulation_unavailable_when_starter_slots_unresolved():
+    contract = _mk_capacity_contract()
+    team = terminal.resolve_team(contract, owner_id="o1", name=None)
+    settings_no_starters = {"teamCount": 12, "rosterSize": 6, "taxiSize": 0}
+    result = trade_simulator.simulate_trade(
+        contract,
+        resolved_team=team,
+        players_in=["IN1"],
+        players_out=[],
+        roster_settings=settings_no_starters,
+        league_key=None,
+    )
+    sim = result["finalRosterSimulation"]
+    assert sim["available"] is False
+    assert sim["unavailableReason"] == "starter_slots_unresolved"
