@@ -897,16 +897,20 @@ _DEFAULT_SOURCE_ROW_FLOORS: dict[str, int] = {
     # FantasyPros / Pat Fitzmaurice: QB (50) + RB (~88) + WR (~115) +
     # TE (~46) ≈ 299 rows at the April 2026 baseline.  Floor at ~75%.
     "fantasyProsFitzmaurice": 225,
-    # The IDP Show (IDP-only, unregistered as of 2026-08-20 — see the
-    # ``idpShowCombined`` registry entry): the CSV has ~419 rows but
-    # only ~200 canonicalize against the Sleeper player pool (the
-    # source goes deep into camp-body / backup IDPs that Sleeper
-    # doesn't enumerate).  Floor at 150 covers ~75% of the realistic
-    # match rate — a partial fetch or column-drop regression would
-    # trip this warning.  Kept even though the source no longer votes:
-    # the file is still fetched and a silently-broken fetch is still
-    # worth surfacing.
-    "idpShow": 150,
+    # The IDP Show (IDP-only) floor is REMOVED, not kept, as of
+    # 2026-08-20 — see the ``idpShowCombined`` registry entry.  This
+    # dict's floor gate reads ``canonicalSiteValues`` population for
+    # every key in ``set(get_ranking_source_keys()) | set(row_floors)``
+    # (``_compute_unified_rankings``'s per-source row-count-floor
+    # block), and an UNREGISTERED source can never populate that column
+    # — the entry would trip ``source_missing:idpShow`` as a permanent,
+    # unfixable hard error rather than surface a real fetch problem.
+    # The file is still fetched and its own acquisition floor
+    # (``_IDPSHOW_ROW_FLOOR`` in ``scripts/fetch_idpshow.py``) still
+    # guards the fetch itself; this contract-level gate is specifically
+    # about VOTING coverage, which an unregistered source structurally
+    # cannot have.
+    #
     # The IDP Show COMBINED board (665 raw rows / 662 distinct names
     # at the 2026-08-20 acquisition).  A cross-source proxy match
     # (normalized-name overlap against the ktc.csv + idpTradeCalc.csv
