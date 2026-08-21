@@ -635,9 +635,7 @@ function AssetRow({
             </span>
             <input
               type="number"
-              className={`asset-value-override-input${
-                valueOverrides[row.name] != null ? " overridden" : ""
-              }`}
+              className="asset-value-override-input"
               value={valueOverrides[row.name] != null ? valueOverrides[row.name] : ""}
               placeholder={
                 isUnpricedBoardRow(row)

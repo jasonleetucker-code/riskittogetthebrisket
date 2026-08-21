@@ -1809,6 +1809,12 @@ export default function TradePage() {
                 {sides.length === 2 ? "Swap Sides" : "Rotate Sides"}
               </Button>
               <Button onClick={clearTrade}>Clear Trade</Button>
+              <Button
+                onClick={() => setValueOverrides({})}
+                disabled={!Object.keys(valueOverrides).length}
+              >
+                Reset Values
+              </Button>
               {sides.length < MAX_SIDES ? (
                 <Button onClick={addTeam}>Add Team</Button>
               ) : null}
