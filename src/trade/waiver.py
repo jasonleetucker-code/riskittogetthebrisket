@@ -5,9 +5,16 @@ Finds players currently NOT on any roster in the league, sorted by
 suppresses rookies via the ``_rookies_eligible_today`` gate from
 ``src.trade.suggestions``.
 
-Companion ``find_drop_candidates`` returns the lowest-value players
-on the user's roster — best-ball-native: when adding a FA, you have
-to drop someone, and this surfaces who first.
+**No drop side lives here.** ``find_drop_candidates`` used to, ranking
+the roster by ascending ``rankDerivedValue`` with no lineup guard, no
+effective cut cost, and no scarcity — the ``package delta - lowest raw
+player value`` rule ``C3-CAP-01`` forbids by name. It had no production
+caller (tests only), so it is deleted rather than reconciled against
+the ladder: a dead function named ``find_drop_candidates`` sitting in
+this module is exactly what gets wired to the wrong owner by a future
+caller who never had to decide. The canonical answer is
+``src/roster_intel/droppability.py`` — ``team_droppability`` for a
+roster the contract holds, ``pool_cut_ladder`` for one it does not.
 """
 
 from __future__ import annotations
@@ -381,57 +388,3 @@ def find_waiver_targets(
         "total": total,
         "rookies_excluded": not rookies_eligible,
     }
-
-
-def find_drop_candidates(
-    contract: dict[str, Any],
-    user_team_players: list[str],
-    *,
-    limit: int = 5,
-) -> list[dict[str, Any]]:
-    """Return the lowest-value players on the user's roster, ranked
-    bottom-up.  Best-ball companion to ``find_waiver_targets``."""
-    arr = contract.get("playersArray") or []
-    if not isinstance(arr, list):
-        return []
-
-    roster_lower = {_normalize_name(n) for n in (user_team_players or [])}
-    if not roster_lower:
-        return []
-
-    candidates: list[tuple[float, dict[str, Any]]] = []
-
-    for row in arr:
-        if not isinstance(row, dict):
-            continue
-        name = str(row.get("displayName") or row.get("canonicalName") or "")
-        if _normalize_name(name) not in roster_lower:
-            continue
-
-        consensus = row.get("rankDerivedValue")
-        if not isinstance(consensus, (int, float)) or consensus <= 0:
-            continue
-
-        rank = row.get("canonicalConsensusRank")
-        rationale_parts: list[str] = []
-        if isinstance(rank, int) and rank > 200:
-            rationale_parts.append(f"rank #{rank} on consensus")
-        if not rationale_parts:
-            rationale_parts.append("low value vs roster average")
-
-        candidates.append(
-            (
-                float(consensus),
-                {
-                    "name": name,
-                    "position": str(row.get("position") or "").upper(),
-                    "consensusValue": int(round(float(consensus))),
-                    "adjustedValue": int(round(float(consensus))),  # alias
-                    "rank": rank if isinstance(rank, int) else None,
-                    "rationale": " · ".join(rationale_parts),
-                },
-            )
-        )
-
-    candidates.sort(key=lambda x: x[0])
-    return [c[1] for c in candidates[:limit]]

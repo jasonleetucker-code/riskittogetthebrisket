@@ -145,7 +145,7 @@ _IDP_SIGNAL_KEYS = {
     "idpTradeCalc",
     "dlfIdp",
     "fantasyProsIdp",
-    "idpShow",
+    "idpShowCombined",
 }
 
 # All source signal keys — used to detect which source(s) a player has
@@ -418,19 +418,42 @@ _SOURCE_CSV_PATHS: dict[str, Any] = {
         "path": "CSVs/site_raw/dlfIdp.csv",
         "signal": "rank",
     },
-    # The IDP Show (Adamidp) — Substack-hosted IDP rankings article
-    # at theidpshow.com/p/idp-dynasty-rankings.  The actual rankings
-    # are served from an embedded Datawrapper iframe whose
-    # dataset.csv is publicly accessible.  Fetched by
-    # ``scripts/fetch_idpshow.py`` which authenticates into the
-    # paywalled article (via cookie-dump session), extracts the
-    # current chart ID from the iframe src, and downloads the
-    # dataset.  Signal=rank — the chart includes a TRADE VALUE
-    # column but it's draft-pick-equivalent text ("1st + 2nd",
-    # "3rd", etc.), not numeric, so we use the OVR column as the
-    # rank signal.  ~420 rows covering ED/IDL/LB/S/CB.
-    "idpShow": {
-        "path": "CSVs/site_raw/idpShow.csv",
+    # The IDP Show (Adamidp) — OWNER DECISION 2026-08-20: the provider
+    # family's SOLE voting board is now the COMBINED offense+IDP Top-700
+    # board (theidpshow.com/p/combined-idp-offense-dynasty-rankings-...),
+    # not the older IDP-only board at idpShow.csv.  Both are Substack-
+    # hosted, served from an embedded Datawrapper iframe, fetched by
+    # ``scripts/fetch_idpshow.py`` (``--combined`` selects this one,
+    # picking the WIDEST of the article's chart embeds by measured row
+    # count — see ``_pick_widest_chart`` — because the combined article
+    # embeds a 250-row excerpt ahead of the real ~665-700 row board).
+    # Signal=rank: the chart's TRADE VALUE column is draft-pick-
+    # equivalent text ("1st + 2nd"), not numeric, so the rank column is
+    # the ordinal signal.  Registered ``is_cross_market=True`` below
+    # (unlike the retired idpShow.csv) because this board's rank is
+    # ALREADY a native combined offense+IDP ordinal — Bijan Robinson #1,
+    # Josh Allen #2 — so it needs no shared-market crosswalk through
+    # another source's ladder; see the registry entry's comment below
+    # for the full rationale.
+    #
+    # The old ``idpShow.csv`` (IDP-only, ~350 rows) remains ACQUIRED
+    # (the fetch script's default, no-flag path still writes it, and the
+    # prod timer still refreshes it — see
+    # ``deploy/idpshow_fetch_and_push.sh``) but is deliberately left
+    # UNREGISTERED here — the same acquired-but-not-a-ranking-source
+    # posture ``draftSharksRosSf.csv`` already has (see the
+    # ``draftSharks`` entry below).  An unregistered CSV cannot vote:
+    # ``_enrich_from_source_csvs`` only reads keys present in this dict,
+    # so removing the entry is a structural guarantee, not a policy
+    # flag that could be silently re-enabled.  Never register a second
+    # ``idpShow*`` key alongside this one — same-provider double
+    # counting is forbidden by the correlation-group rules this
+    # registry enforces elsewhere (see ``correlation_group`` on the
+    # ``idpShowCombined`` entry, and
+    # ``tests/api/test_idpshow_combined_source.py::
+    # TestExactlyOneVotingIdpShowKey``).
+    "idpShowCombined": {
+        "path": "CSVs/site_raw/idpShowCombined.csv",
         "signal": "rank",
     },
     # DLF Dynasty Superflex rankings — offense expert consensus.
@@ -780,8 +803,17 @@ _SOURCE_MAX_AGE_HOURS: dict[str, int] = {
     # this should surface, and 24h matches config/source_staleness.json,
     # which also flags idpShow SOFT with a 72h escalation — so a re-mint
     # chore stays quiet for a day without the budget hiding a dead fetcher
-    # for a month.  (Was 720h — F-18.)
+    # for a month.  (Was 720h — F-18.)  Tracked even though this key is
+    # UNREGISTERED (retired from voting 2026-08-20 — see the
+    # ``idpShowCombined`` registry entry) because the same prod timer
+    # still refreshes ``idpShow.csv`` and a silently-dead fetcher on an
+    # acquired-but-inert file is still worth surfacing.
     "idpShow": 24,
+    # The IDP Show COMBINED board — same paywalled cookie, same timer
+    # (deploy/idpshow_fetch_and_push.sh runs the fetcher twice, once
+    # per board), so the same 24h budget applies.  This is now the
+    # PROVIDER FAMILY'S SOLE VOTING KEY (Task 1/2, 2026-08-20).
+    "idpShowCombined": 24,
     # DraftSharks SF + IDP CSVs are written by scripts/fetch_draftsharks.py
     # on every scheduled-refresh tick (3-hour cadence), so the same
     # 6-hour freshness budget as ktc / idpTradeCalc applies.
@@ -865,12 +897,33 @@ _DEFAULT_SOURCE_ROW_FLOORS: dict[str, int] = {
     # FantasyPros / Pat Fitzmaurice: QB (50) + RB (~88) + WR (~115) +
     # TE (~46) ≈ 299 rows at the April 2026 baseline.  Floor at ~75%.
     "fantasyProsFitzmaurice": 225,
-    # The IDP Show: the CSV has ~419 rows but only ~200 canonicalize
-    # against the Sleeper player pool (the source goes deep into
-    # camp-body / backup IDPs that Sleeper doesn't enumerate).  Floor
-    # at 150 covers ~75% of the realistic match rate — a partial
-    # fetch or column-drop regression would trip this warning.
-    "idpShow": 150,
+    # The IDP Show (IDP-only) floor is REMOVED, not kept, as of
+    # 2026-08-20 — see the ``idpShowCombined`` registry entry.  This
+    # dict's floor gate reads ``canonicalSiteValues`` population for
+    # every key in ``set(get_ranking_source_keys()) | set(row_floors)``
+    # (``_compute_unified_rankings``'s per-source row-count-floor
+    # block), and an UNREGISTERED source can never populate that column
+    # — the entry would trip ``source_missing:idpShow`` as a permanent,
+    # unfixable hard error rather than surface a real fetch problem.
+    # The file is still fetched and its own acquisition floor
+    # (``_IDPSHOW_ROW_FLOOR`` in ``scripts/fetch_idpshow.py``) still
+    # guards the fetch itself; this contract-level gate is specifically
+    # about VOTING coverage, which an unregistered source structurally
+    # cannot have.
+    #
+    # The IDP Show COMBINED board (665 raw rows / 662 distinct names
+    # at the 2026-08-20 acquisition).  A cross-source proxy match
+    # (normalized-name overlap against the ktc.csv + idpTradeCalc.csv
+    # union, 928 distinct names) found 653/662 (98.6%) — NOT the true
+    # Sleeper-pool canonicalization rate (that universe is broader and
+    # more IDP-deep than Sleeper's own roster, so it overstates true
+    # match odds), but a real, measured floor for "did the fetch/parse
+    # come back intact" rather than a fabricated 700.  Floor set well
+    # below the measured proxy match so genuine vendor churn (a few
+    # dozen players added/dropped week to week) doesn't trip it, while
+    # a truncated fetch — e.g. picking the 250-row excerpt chart again
+    # instead of the widest one — still does.
+    "idpShowCombined": 450,
     # DraftSharks: the scraper ingests 461 offense / 389 IDP rows,
     # but canonical-name matches against the Sleeper player pool
     # yield a smaller count because DS's deeper rows are prospects
@@ -1181,6 +1234,12 @@ from src.canonical.idp_backbone import (  # noqa: E402
     TRANSLATION_DIRECT,
     TRANSLATION_FALLBACK,
 )
+from src.bridges.assess import assess_bridges  # noqa: E402
+from src.bridges.states import QUALIFIED as BRIDGE_QUALIFIED  # noqa: E402
+from src.bridges.ladder import build_bridge_ladder  # noqa: E402
+from src.bridges.registry import load_bridge_descriptors  # noqa: E402
+from src.sources.acquisition_state import UNAVAILABLE as ACQ_UNAVAILABLE  # noqa: E402
+from src.sources.acquisition_state import AcquisitionOutcome  # noqa: E402
 from src.canonical.rank_coordinates import (  # noqa: E402
     RANK_POOL_IDP,
     RANK_POOL_SHARED_MARKET,
@@ -1497,36 +1556,72 @@ _RANKING_SOURCES: list[dict[str, Any]] = [
         "is_tep_premium": False,
     },
     {
-        # The IDP Show (Adamidp) — Substack-hosted full IDP rankings
-        # board published at theidpshow.com/p/idp-dynasty-rankings.
-        # Data is served from an embedded Datawrapper iframe whose
-        # dataset.csv is fetched by ``scripts/fetch_idpshow.py``.
-        # ~420 rows covering ED/IDL/LB/S/CB.  Unlike DLF IDP this
-        # board DOES include rookie prospects (Arvell Reese, Sonny
-        # Styles, etc.), so ``excludes_rookies=False``.
+        # The IDP Show (Adamidp) — OWNER DECISION 2026-08-20: this
+        # provider family's SOLE voting key.  Substack-hosted, served
+        # from an embedded Datawrapper iframe, fetched by
+        # ``scripts/fetch_idpshow.py --combined`` (which picks the
+        # WIDEST chart in the article — see ``_pick_widest_chart`` —
+        # because the combined post embeds a 250-row excerpt ahead of
+        # the real ~665-700 row board; taking the first embed by
+        # document order silently ingested the excerpt, PR #1008).
+        # 665 rows / 662 distinct names at the 2026-08-20 acquisition,
+        # Bijan Robinson #1 / Josh Allen #2 — i.e. the rank is ALREADY
+        # a native COMBINED offense+IDP ordinal, not an IDP-only rank
+        # that needs translating onto someone else's ladder.
         #
-        # Rank-only signal — the source's TRADE VALUE column is
-        # draft-pick-equivalent text ("1st + 2nd", "3rd") rather
-        # than a numeric scale, so we use the OVR column as the
-        # rank and let the shared-market translator convert to the
-        # combined-pool for Hill-curve input.
-        "key": "idpShow",
+        # This is why ``is_cross_market=True`` + ``scope=overall_idp``
+        # + ``extra_scopes=[overall_offense]`` (the same pattern
+        # IDPTradeCalc and DraftSharks use below) is the right registry
+        # shape and ``needs_shared_market_translation=False``: the
+        # dormant Phase 1c ``csv_rank_cross_market_keys`` pre-pass in
+        # ``_compute_unified_rankings`` — written for exactly "any
+        # future rank-signal cross-market source" — restores this
+        # board's own combined CSV rank instead of the generic
+        # per-scope dense re-rank, and routes it to the GLOBAL Hill
+        # master via ``rank_coordinates.native_pool_for_source``.  The
+        # evidence stays ORDINAL throughout: nothing here manufactures
+        # a cardinal 0-9999 vendor value out of a rank column, and this
+        # source is deliberately NOT declared in
+        # ``config/bridges/bridges_v1.json`` — it seeds no OTHER
+        # specialist's shared-market ladder (dlfIdp / fantasyProsIdp
+        # keep crosswalking through idpTradeCalc + draftSharks exactly
+        # as before; this source simply stops needing that ladder for
+        # its OWN vote).
+        #
+        # The OLDER idpShow.csv (IDP-only, ~350 rows,
+        # needs_shared_market_translation=True, translated through
+        # idpTradeCalc's ladder) is RETIRED from voting as of this
+        # entry — see ``_SOURCE_CSV_PATHS`` for where it is now
+        # unregistered.  Never register a second ``idpShow*`` key: see
+        # ``tests/api/test_idpshow_combined_source.py::
+        # TestExactlyOneVotingIdpShowKey`` for the structural guard.
+        #
+        # Includes rookie prospects (the board is a full combined
+        # dynasty board, not an IDP-only excerpt), so
+        # ``excludes_rookies=False``.
+        "key": "idpShowCombined",
         # C1-SRC-02: DYNASTY is PROVEN per endpoint, never inferred from the
         # provider being one we otherwise trust.  UNKNOWN fails closed.
         "game_type": GAME_TYPE_DYNASTY,
         "game_type_evidence": (
-            "theidpshow.com/p/idp-dynasty-rankings — the endpoint path itself is the "
-            "dynasty board, and the publisher's redraft/weekly output lives at separate "
-            "posts that are not fetched"
+            "theidpshow.com/p/combined-idp-offense-dynasty-rankings-fantasy-football — "
+            "the endpoint path itself is the dynasty board, and the publisher's "
+            "redraft/weekly output lives at separate posts that are not fetched"
         ),
-        "display_name": "The IDP Show (Adamidp)",
-        "column_label": "IDP Show",
+        "display_name": "The IDP Show — Combined (Adamidp)",
+        "column_label": "IDP Show Combined",
+        "correlation_group": "idpShow",
         "scope": SOURCE_SCOPE_OVERALL_IDP,
+        "extra_scopes": [SOURCE_SCOPE_OVERALL_OFFENSE],
         "position_group": None,
-        "depth": 420,
+        # Measured floor, not the vendor's own "Top 700" marketing
+        # figure — see the ``idpShowCombined`` row-floor comment above
+        # for the full rationale (Task 7: never hardcode 700).
+        "depth": 450,
         "weight": 1.0,
         "is_backbone": False,
-        "needs_shared_market_translation": True,
+        "is_cross_market": True,
+        "needs_shared_market_translation": False,
         "excludes_rookies": False,
         # IDP values have no TE-premium dimension — declared
         # explicitly False so the registry-completeness test can
@@ -2703,8 +2798,11 @@ def expand_correlation_groups(keys: Iterable[str]) -> set[str]:
 # than inferred, so this list is the single place they are written down:
 #
 #   * The IDP shared-market crosswalk.  Sources flagged
-#     ``needs_shared_market_translation`` — today ``dlfIdp``, ``idpShow``
-#     and ``fantasyProsIdp`` — rank players within the IDP class only.
+#     ``needs_shared_market_translation`` — today ``dlfIdp`` and
+#     ``fantasyProsIdp`` (``idpShowCombined`` is registered
+#     ``is_cross_market`` instead — its own rank is already a combined
+#     offense+IDP ordinal and needs no crosswalk; see its registry entry) —
+#     rank players within the IDP class only.
 #     The backbone's shared-market ladder crosswalks that within-class
 #     ordinal into the combined offense+IDP rank space.  With no backbone
 #     the ladder is empty and ``translate_position_rank`` returns the raw
@@ -2782,8 +2880,21 @@ def scale_integrity_lost(excluded_keys: Iterable[str]) -> dict[str, dict[str, st
     }
 
     asset_classes: dict[str, str] = {}
-    # Mirrors the backbone selection in ``_compute_unified_rankings``:
-    # primary scope overall_idp AND is_backbone.
+    # Mirrors the bridge selection in ``_compute_unified_rankings``: does any
+    # QUALIFIED cross-position bridge still have BOTH of its halves?
+    #
+    # This used to ask "does any surviving overall_idp source carry
+    # is_backbone", and the class immediately below in
+    # ``tests/consensus_edge/test_fair_value.py`` existed because that gate
+    # could be satisfied by a one-line registry edit while the board stayed
+    # broken.  It reads the bridge registry now, so a label cannot lift it —
+    # and because a bridge is a FAMILY, losing one half of a two-key vendor
+    # correctly costs that bridge.
+    #
+    # It remains a DECLARATION: it reports what the registry claims, and
+    # ``shared_market_crosswalk_failed`` remains the measurement that should
+    # decide.  A declared bridge can still fail to be capable on a given
+    # board, which is why both exist.
     #
     # This used to carry a comment promising that "registering a second
     # IDP backbone lifts this guard automatically instead of leaving a
@@ -2793,10 +2904,8 @@ def scale_integrity_lost(excluded_keys: Iterable[str]) -> dict[str, dict[str, st
     # stays at median 1.224 / max 3.478.  Measured, not argued —
     # ``tests/consensus_edge/test_fair_value.py`` pins it.
     if not any(
-        str(s.get("key") or "") in surviving
-        and s.get("scope") == SOURCE_SCOPE_OVERALL_IDP
-        and s.get("is_backbone")
-        for s in _RANKING_SOURCES
+        d.comparability == BRIDGE_QUALIFIED and all(k in surviving for k in d.keys)
+        for d in load_bridge_descriptors()
     ):
         asset_classes["idp"] = SCALE_LOST_IDP_BACKBONE
 
@@ -4042,6 +4151,14 @@ _SOURCE_CSV_PARSE_CACHE: dict[
 # 24,024 decisions and the inline cascade was then deleted.
 _LAST_CONTRACT_JOIN_SUMMARY: dict | None = None
 
+# Written by _compute_unified_rankings, stamped into the contract payload as
+# ``crossPositionBridges`` by build_api_data_contract.  Lane 8: names every
+# declared bridge's state (including PENDING / UNAVAILABLE / STALE — a failed
+# or withheld bridge stays represented here rather than disappearing), which
+# bridges actually contributed to the shared-market ladder, and the withheld
+# vote count per source.  ``None`` before any board is built.
+_LAST_CROSS_POSITION_BRIDGE_SUMMARY: dict | None = None
+
 _FP_META_CSV_CACHE: dict[str, tuple[float, dict[str, dict[str, Any]]]] = {}
 
 
@@ -4348,6 +4465,10 @@ def _enrich_from_source_csvs(
 
     _join_decisions = 0
     _join_matched = 0
+    # Cross-position-group name collisions withheld from voting (never a
+    # false attribution) — keyed by source, valued by the colliding
+    # canonical-match keys.  See the ``else`` branch below.
+    _withheld_ambiguous_names: dict[str, list[str]] = {}
 
     # DraftSharks (offense + IDP) publish a cross-market 0-100 ``3D
     # Value +`` scale that goes negative past ~rank 200 — the CSV
@@ -4479,24 +4600,41 @@ def _enrich_from_source_csvs(
                     "candidates": [t[0] for t in entries],
                 }
             else:
-                # Multiple position groups share this canonical key.
-                # Without per-CSV-row position info we can't tell which
-                # entry belongs to which group, so we replicate the
-                # best entry across both groups but flag it as ambiguous
-                # so the row audit can downgrade trust.
-                entries_sorted = sorted(entries, key=lambda t: -t[1])
-                best_name, best_val, best_orig_rank, best_native, best_sid = entries_sorted[0]
-                for grp in row_groups:
-                    per_source[f"{cname}::{grp}"] = {
-                        "value": best_val,
-                        "originalRank": best_orig_rank,
-                        "nativeValue": best_native,
-                        "sleeperId": best_sid,
-                        "displayName": best_name,
-                        "ambiguous": True,
-                        "candidates": [t[0] for t in entries],
-                        "groupCollision": sorted(row_groups),
-                    }
+                # Multiple DISTINCT canonical players share this
+                # normalized name across different position groups —
+                # e.g. Justin Jefferson the Minnesota WR and Justin
+                # Jefferson the Cleveland LB (issue #1011).  This is a
+                # different situation from the ``len(row_groups) <= 1``
+                # branch above (one real person, possibly listed twice
+                # by the CSV — e.g. Travis Hunter's two-way listing,
+                # which stays fully voting there): here two REAL,
+                # DIFFERENT people are colliding on one name, and
+                # attaching either CSV entry to the wrong one is not a
+                # missing vote, it is a WRONG one.
+                #
+                # WITHHOLD rather than replicate.  This function has no
+                # per-CSV-row position captured in ``csv_lookup`` (the
+                # tuple is name/value/rank/native/sleeperId only) to
+                # split the entries by group, and even a source's OWN
+                # claimed position column cannot be trusted to do it
+                # safely here: measured 2026-08-20, the IDP Show
+                # combined board itself mislabels the Minnesota WR's
+                # row "LB" (its true position), which is exactly the
+                # signal a position-based split would have to trust.
+                # Vendor TEAM — the other candidate disambiguator — is
+                # not published by this CSV at all.
+                #
+                # So: no ``per_source`` entry is written for any of the
+                # colliding groups.  ``match_row_to_source_entry`` then
+                # finds no ``{cname}::{grp}`` key for ANY of the
+                # colliding canonical rows and returns no match — the
+                # source contributes NOTHING for this name (not a zero;
+                # the row's ``canonicalSiteValues`` simply carries no
+                # key for this source, the same "missing" state a row
+                # this source never covered would have).  Only the
+                # colliding names are affected; every other row from
+                # this CSV still joins and votes normally.
+                _withheld_ambiguous_names.setdefault(source_key, []).append(cname)
         csv_index[source_key] = per_source
 
         # Sleeper-ID join index (sources whose CSV carries a
@@ -4664,6 +4802,18 @@ def _enrich_from_source_csvs(
         "legacyCascadeRetired": True,
         "decisions": _join_decisions,
         "matched": _join_matched,
+        # Names withheld because they collide across DIFFERENT canonical
+        # players' position groups (issue #1011) — never attached to the
+        # wrong person, never a false zero.  Per-source so a golden-board
+        # diff can name exactly which players a source's vote is missing
+        # for and why.
+        "withheldForCrossGroupNameCollision": {
+            source_key: sorted(set(names))
+            for source_key, names in _withheld_ambiguous_names.items()
+        },
+        "withheldForCrossGroupNameCollisionCount": sum(
+            len(set(names)) for names in _withheld_ambiguous_names.values()
+        ),
     }
 
     return csv_index
@@ -8209,9 +8359,12 @@ def _compute_unified_rankings(
     # synthetic overall rank, with a caution flag on the per-source meta.
     #
     # WHICH sources that actually affects, measured rather than assumed:
-    # the ``needs_shared_market_translation`` ones — today ``dlfIdp``,
-    # ``idpShow`` and ``fantasyProsIdp``, which flip method ``exact`` →
-    # ``fallback`` on 159 / 235 / 177 rows of the live board.  The
+    # the ``needs_shared_market_translation`` ones — today ``dlfIdp`` and
+    # ``fantasyProsIdp`` (``idpShowCombined`` no longer crosswalks through
+    # this backbone as of 2026-08-20 — it is registered ``is_cross_market``
+    # and reads its own native combined rank instead; the 235-row figure in
+    # the dated table below predates that change and describes the retired
+    # ``idpShow`` key).  The
     # ``position_idp`` branch below is ALSO backbone-dependent and is
     # currently dead: no registered source carries that scope, and a
     # census of every ``sourceRankMeta`` stamp across the 973-row live
@@ -8227,12 +8380,22 @@ def _compute_unified_rankings(
     # this ladder as a crosswalk so their IDP-only rank 1 is translated
     # to the combined-pool rank of the best IDP, not treated as if it
     # were the overall rank 1 of the shared offense+IDP board.
+    #
+    # Lane 8: the ladder is now built by the CROSS-POSITION BRIDGE OWNER
+    # (``src/bridges``) from every QUALIFIED bridge that measures capable on
+    # this board, not from the first source carrying ``is_backbone``.  That
+    # flag is a label — it can be moved onto a source that cannot seed a
+    # ladder, satisfying the guard while leaving the board broken
+    # (``tests/consensus_edge/test_fair_value.py::TestTheGuardIsACapabilityNotAFlag``)
+    # — and it is no longer read here.  Capability is measured; a bridge is a
+    # FAMILY, so a vendor whose offense and IDP halves sit under two registry
+    # keys (Draft Sharks) can seed a ladder for the first time.
+    #
+    # With ONE usable bridge the combined ladder is the incumbent ladder,
+    # integer for integer, so the healthy board cannot move merely because a
+    # second bridge became possible.
     backbone_source_key: str | None = None
-    for src in active_sources:
-        if src["scope"] == SOURCE_SCOPE_OVERALL_IDP and src.get("is_backbone"):
-            backbone_source_key = src["key"]
-            break
-    if backbone_source_key:
+    if True:
         # ── Derived rows are not this vendor's evidence ──────────────
         #
         # The backbone answers ONE question: at which positions in THIS
@@ -8265,15 +8428,66 @@ def _compute_unified_rankings(
                     in synthetic_pick_derivation_map
                 )
             ]
-        # Only seed the shared-market ladder when the backbone source
-        # actually prices both offense + IDP on a shared scale; this is
-        # detected by the registry declaring offense in extra_scopes.
-        backbone_src_def = next(
-            (s for s in active_sources if s["key"] == backbone_source_key),
-            {},
+        # ── Bridge assessment ───────────────────────────────────────
+        # A bridge whose source is switched off by an override is
+        # UNAVAILABLE, not merely uncovered: ``canonicalSiteValues``
+        # still carries a disabled source's numbers, so measuring
+        # capability alone would let a source the caller excluded keep
+        # translating.
+        bridge_offense_positions = frozenset(_OFFENSE_POSITIONS | {"PICK"})
+        bridge_idp_positions = frozenset(_IDP_POSITIONS)
+        bridge_descriptors = load_bridge_descriptors()
+        bridge_acquisition = {
+            key: AcquisitionOutcome(
+                source_key=key,
+                state=ACQ_UNAVAILABLE,
+                reason="source is not active for this build",
+            )
+            for d in bridge_descriptors
+            for key in d.keys
+            if key not in active_keys
+        }
+        bridge_assessments = assess_bridges(
+            bridge_descriptors,
+            backbone_rows,
+            offense_positions=bridge_offense_positions,
+            idp_positions=bridge_idp_positions,
+            acquisition=bridge_acquisition,
         )
-        backbone_extra_scopes = list(backbone_src_def.get("extra_scopes") or [])
-        if SOURCE_SCOPE_OVERALL_OFFENSE in backbone_extra_scopes:
+        from src.api import feature_flags as _feature_flags  # noqa: PLC0415
+
+        bridge_ladder = build_bridge_ladder(
+            bridge_assessments,
+            backbone_rows,
+            offense_positions=bridge_offense_positions,
+            idp_positions=bridge_idp_positions,
+            # Off by default: admitting a second bridge is a methodology
+            # change with measured board movement, and it is separable from
+            # the withholding repair, which is unconditional.
+            limit=None if _feature_flags.is_enabled("multi_bridge_ladder") else 1,
+        )
+
+        # ``backbone`` survives for the PER-POSITION ladders the dormant
+        # ``position_idp`` branch reads, and for the depth stamped in
+        # ``sourceRankMeta``.
+        #
+        # It is deliberately NOT gated on bridge capability.  A per-position
+        # ladder ("DL3 sits at overall-IDP rank 5") is an ordering WITHIN the
+        # IDP class; it carries no claim about offense and needs no
+        # cross-position evidence.  Only the shared-market ladder below is a
+        # cross-position statement, and only it is gated.  Collapsing the two
+        # would refuse an intra-IDP translation for want of evidence it never
+        # needed.
+        usable_bridges = [a for a in bridge_assessments if a.usable]
+        if usable_bridges:
+            backbone_source_key = usable_bridges[0].descriptor.idp_keys[0]
+        else:
+            for _d in bridge_descriptors:
+                _seed = next((k for k in _d.idp_keys if k in active_keys), None)
+                if _seed:
+                    backbone_source_key = _seed
+                    break
+        if backbone_source_key:
             backbone = build_backbone_from_rows(
                 backbone_rows,
                 source_key=backbone_source_key,
@@ -8281,13 +8495,7 @@ def _compute_unified_rankings(
                 offense_positions=_OFFENSE_POSITIONS | {"PICK"},
             )
         else:
-            backbone = build_backbone_from_rows(
-                backbone_rows,
-                source_key=backbone_source_key,
-                idp_positions=_IDP_POSITIONS,
-            )
-    else:
-        backbone = IdpBackbone()
+            backbone = IdpBackbone()
 
     # ── Phase 1: Combined-pass ordinal ranking per source ──
     # row_source_ranks[row_idx][source_key] = effective rank (int)
@@ -8296,6 +8504,9 @@ def _compute_unified_rankings(
     row_source_ranks: dict[int, dict[str, int]] = {}
     row_source_meta: dict[int, dict[str, dict[str, Any]]] = {}
     source_pool_sizes: dict[str, int] = {}
+    # {sourceKey: rows whose vote was withheld for want of a usable bridge}.
+    # Reported on the contract; never silently zero.
+    withheld_no_bridge: dict[str, int] = {}
     # row_eligible_families[row_idx] = every provider family that COULD
     # have covered this row.  Filled in Phase 3 beside softFallbackCount
     # (same eligibility test) and read by the B11 confidence gate.
@@ -8305,8 +8516,11 @@ def _compute_unified_rankings(
     row_confidence_inputs: dict[int, tuple[list[FamilyEvidence], set[str]]] = {}
     # For backbone assertion: remember the actual ladder depth used
     backbone_depth = backbone.depth
-    shared_market_ladder = backbone.shared_idp_ladder()
-    shared_market_depth = backbone.shared_market_depth
+    # The combined ladder from every usable bridge.  EMPTY means no bridge
+    # could be qualified, and an empty ladder is a refusal, not a degenerate
+    # ladder — see the withholding branch in Phase 1.
+    shared_market_ladder = list(bridge_ladder.ladder)
+    shared_market_depth = bridge_ladder.reference_depth
 
     # ── Rookie-translation ladders (built lazily on demand) ──
     # Sources flagged ``needs_rookie_translation=True`` (dlfRookieSf /
@@ -8487,6 +8701,28 @@ def _compute_unified_rankings(
                 backbone_depth_meta = shared_market_depth
                 if method != TRANSLATION_FALLBACK:
                     rank_pool = RANK_POOL_SHARED_MARKET
+                else:
+                    # ── Lane 8: WITHHOLD, never pass the raw rank through ──
+                    #
+                    # A source flagged ``needs_shared_market_translation``
+                    # ranks players within the IDP class only.  With no usable
+                    # ladder, ``translate_position_rank`` returns the raw rank,
+                    # and recording it here is the defect this lane exists to
+                    # remove: the vote then asserts that IDP #1 is asset #1.
+                    # Measured with ``idpTradeCalc`` excluded, that was 661
+                    # votes on untranslated ranks and a top IDP published at
+                    # 9,999 — because ``percentile_to_value`` short-circuits an
+                    # effective rank of 1 to ``DISPLAY_SCALE_MAX`` exactly.
+                    #
+                    # A specialist board genuinely does not know where its #1
+                    # sits against offense, so the honest answer is to cast no
+                    # vote rather than to cast a fabricated one.  The row keeps
+                    # every source that CAN be translated; if that leaves it
+                    # with too few, the existing single-source haircut and the
+                    # confidence gate describe it truthfully.
+                    withheld_no_bridge.setdefault(source_key, 0)
+                    withheld_no_bridge[source_key] += 1
+                    continue
             elif needs_rookie_xlate:
                 # Updated framework: rookie sources skip the ladder.
                 # The ROOKIE master curve + native-N percentile
@@ -10127,6 +10363,17 @@ def _compute_unified_rankings(
         if row.get("pickRookieAnchor"):
             pdata["pickRookieAnchor"] = row["pickRookieAnchor"]
 
+    global _LAST_CROSS_POSITION_BRIDGE_SUMMARY
+    _LAST_CROSS_POSITION_BRIDGE_SUMMARY = {
+        "bridges": [a.to_dict() for a in bridge_assessments],
+        "ladder": bridge_ladder.to_dict(),
+        # Per source key: how many votes were withheld for want of a usable
+        # bridge, rather than passed through untranslated (Lane 8's repair).
+        # Never silently absent — an empty dict IS the honest "0 withheld".
+        "withheldNoBridge": dict(withheld_no_bridge),
+        "multiBridgeLadderEnabled": _feature_flags.is_enabled("multi_bridge_ladder"),
+    }
+
     return pick_aliases
 
 
@@ -11174,6 +11421,11 @@ def build_api_data_contract(
         # scraper site's twin artifact is data/scrape_state/identity_dual_read.json.
         "identityJoin": _LAST_CONTRACT_JOIN_SUMMARY,
         "hillCurves": _build_hill_curves_block(),
+        # Lane 8: every declared bridge's state, which contributed to the
+        # shared-market ladder, and the per-source withheld-vote count.  A
+        # bridge that is PENDING / UNAVAILABLE / STALE is named here rather
+        # than silently absent from the board it did not translate.
+        "crossPositionBridges": _LAST_CROSS_POSITION_BRIDGE_SUMMARY,
     }
     # Drop internal-only provenance markers before materializing the
     # contract so they don't leak into the public payload.

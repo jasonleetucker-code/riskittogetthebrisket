@@ -10135,48 +10135,35 @@ _PUBLIC_LEAGUE_WARMUP = _env_bool("PUBLIC_LEAGUE_WARMUP_AT_STARTUP", True)
 
 
 from src.api.public_activity_valuation import (  # noqa: E402 — grouped with public-league block
-    build_valuation_from_contract as _build_valuation_from_contract,
+    build_asof_valuation as _build_asof_valuation,
 )
-
-
-# Single-entry memo for the activity-valuation callable, keyed on the
-# private contract generation (``latest_data_etag``).  The builder
-# re-parsed the multi-MB private contract on every /api/public/league*
-# request; the callable is a pure function of one contract generation.
-_ACTIVITY_VALUATION_MEMO: dict = {}
+from src.history import store as _history_store  # noqa: E402 — grouped with public-league block
 
 
 def _build_public_activity_valuation():
-    """Build a valuation callable for the public activity trade feed.
+    """Resolver FACTORY for the public activity trade feed.
 
-    Reads the cached private canonical contract (``latest_contract_data``)
-    and returns a callable ``(asset_dict) -> float``.  The public
-    activity section uses this callable server-side to compute trade
-    letter grades on the public timeline.  The raw values themselves
-    never leave the backend — only the derived ``{grade, color,
-    label}`` block is emitted on the public payload.
+    Returns a callable matching ``activity._ResolverFactory`` — given
+    every ``(asset, instant)`` pair a feed build needs, it resolves each
+    against the canonical temporal ledger (``src.history.asof`` — C1-U4)
+    AS OF the trade's own instant, never against today's board (V1-97 /
+    C3-REPLAY-01: a trade graded with tomorrow's evidence is a hindsight
+    leak).  ``build_asof_valuation`` itself does no I/O until the
+    returned factory is actually called with a feed's request list, so
+    unlike the old contract-parsing builder this needs no per-generation
+    memo — returning the plain function reference is already free.
 
-    Returns ``None`` when the private contract is unavailable (fresh
-    server, scraper failure).  In that case the public activity feed
-    ships without grade annotations.
-
-    Memoized per contract generation (no TTL — a scrape promotion mints
-    a new etag).  With no etag (mid-prime / no contract) the builder
-    runs uncached.
-
-    The actual contract parsing lives in
-    ``src.api.public_activity_valuation.build_valuation_from_contract``
-    so it can be unit-tested without pulling in FastAPI.
+    Returns ``None`` only when the ledger file does not exist at all
+    (fresh server, nothing ever recorded) — the public activity feed
+    then ships without grade annotations, the same graceful-degradation
+    contract as before.  When the ledger exists but simply has no
+    observation for a given asset/instant, that is handled per-asset by
+    the resolver itself (an honest "insufficient historical evidence"
+    side, never a missing feature).
     """
-    etag = latest_data_etag
-    if not etag:
-        return _build_valuation_from_contract(latest_contract_data)
-    hit = _ACTIVITY_VALUATION_MEMO.get("v")
-    if hit is not None and hit[0] == etag:
-        return hit[1]
-    val = _build_valuation_from_contract(latest_contract_data)
-    _ACTIVITY_VALUATION_MEMO["v"] = (etag, val)
-    return val
+    if not _history_store.DB_PATH.exists():
+        return None
+    return _build_asof_valuation
 
 
 # ── Public contract response memo ────────────────────────────────────

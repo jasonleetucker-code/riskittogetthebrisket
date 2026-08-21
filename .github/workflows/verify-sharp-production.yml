@@ -105,7 +105,26 @@ jobs:
               "errors": [],
           }
 
-          if event_name == "workflow_run" and deploy_conclusion != "success":
+          # Classify the DEPLOY outcome before deciding whether production
+          # health is even a question.  `!= "success"` used to collapse four
+          # distinct outcomes into `deploy_failed`, and the one it got most
+          # wrong is `cancelled`: that is the NORMAL outcome when the
+          # concurrency group supersedes a run, which happens on every
+          # merge that lands while an earlier deploy is still going.  The
+          # superseding deploy usually succeeds moments later, so the
+          # record was asserting a production failure about a deploy that
+          # shipped fine.  Superseded is not failed, and neither is
+          # unmeasured.
+          #
+          # A cancelled or skipped deploy yields NO production-health
+          # verdict at all — the correct answer is "we did not measure",
+          # not a verdict in either direction.  Real failures keep their
+          # teeth.
+          if event_name == "workflow_run" and deploy_conclusion == "cancelled":
+              result["status"] = "deploy_superseded"
+          elif event_name == "workflow_run" and deploy_conclusion in ("skipped", "", "pending", None):
+              result["status"] = "deploy_unmeasured"
+          elif event_name == "workflow_run" and deploy_conclusion != "success":
               result["status"] = "deploy_failed"
           else:
               # A push-triggered smoke starts alongside deployment. A workflow-run
@@ -360,6 +379,29 @@ jobs:
                   "token for the smoke (see _SELF_AUTHED_API_EXACT in server.py for "
                   "the bearer pattern used by /api/signal-alerts/run) to turn this "
                   "into an enforcing gate."
+              )
+              raise SystemExit(0)
+
+          if status == "deploy_superseded":
+              # No verdict.  The deploy this run was triggered by was
+              # cancelled — almost always because a later merge superseded
+              # it — so there is no deployed state to make a claim about.
+              # Exiting 0 here is not a green claim about production; it is
+              # the absence of a claim, which is what the evidence supports.
+              print(
+                  "::notice title=Sharp smoke made no production claim::"
+                  f"the triggering deploy concluded '{deploy_conclusion}' "
+                  "(superseded by a later run), so production health was NOT "
+                  "measured and no verdict is recorded."
+              )
+              raise SystemExit(0)
+
+          if status == "deploy_unmeasured":
+              print(
+                  "::warning title=Sharp smoke has no deploy conclusion::"
+                  f"the triggering deploy concluded '{deploy_conclusion or 'none'}', "
+                  "so production health was NOT measured. This is an absence of "
+                  "evidence, not evidence of health or of failure."
               )
               raise SystemExit(0)
 
