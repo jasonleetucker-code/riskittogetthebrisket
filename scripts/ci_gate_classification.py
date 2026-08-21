@@ -57,7 +57,9 @@ MANIFEST_PATH = ROOT / "config" / "ci" / "release_gate_classification.json"
 
 def _workflow_files() -> list[Path]:
     files = sorted(WORKFLOWS_DIR.glob("*.yml")) + sorted(WORKFLOWS_DIR.glob("*.yaml"))
-    assert files, "no workflow files found under .github/workflows -- this guard would pass vacuously"
+    assert (
+        files
+    ), "no workflow files found under .github/workflows -- this guard would pass vacuously"
     return files
 
 
@@ -145,7 +147,9 @@ def category_mismatches() -> list[str]:
         declared = entry.get("category")
         actual = live_step["declared_category"]
         if declared != actual:
-            mismatches.append(f"{key}: manifest says {declared!r}, workflow structurally declares {actual!r}")
+            mismatches.append(
+                f"{key}: manifest says {declared!r}, workflow structurally declares {actual!r}"
+            )
     return mismatches
 
 

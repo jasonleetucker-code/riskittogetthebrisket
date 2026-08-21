@@ -74,6 +74,9 @@ def test_manifest_is_well_formed():
     entries = manifest.get("entries", {})
     assert entries, "manifest has zero entries -- this guard would pass vacuously"
     for key, entry in entries.items():
-        assert entry.get("category") in ("blocking", "advisory"), f"{key}: invalid category {entry.get('category')!r}"
+        assert entry.get("category") in (
+            "blocking",
+            "advisory",
+        ), f"{key}: invalid category {entry.get('category')!r}"
         for flag in entry.get("flags", []):
             assert flag in manifest.get("flags", {}), f"{key}: undeclared flag {flag!r}"

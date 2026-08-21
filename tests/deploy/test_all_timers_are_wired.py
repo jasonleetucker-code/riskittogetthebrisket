@@ -54,8 +54,14 @@ _DEPLOY_SH = _REPO / "deploy" / "deploy.sh"
 # rendered onto the box" failure class this file's own docstring describes,
 # reopened in a directory this file's glob structurally cannot see.
 _EXTRA_TIMER_DIRS = {
-    "curated-sharps-systemd": (_REPO / "deploy" / "curated-sharps-systemd", _REPO / "deploy" / "install-curated-sharps-service.sh"),
-    "ffpc-systemd": (_REPO / "deploy" / "ffpc-systemd", _REPO / "deploy" / "install-ffpc-sharp-service.sh"),
+    "curated-sharps-systemd": (
+        _REPO / "deploy" / "curated-sharps-systemd",
+        _REPO / "deploy" / "install-curated-sharps-service.sh",
+    ),
+    "ffpc-systemd": (
+        _REPO / "deploy" / "ffpc-systemd",
+        _REPO / "deploy" / "install-ffpc-sharp-service.sh",
+    ),
 }
 
 
@@ -242,7 +248,8 @@ def test_every_dedicated_installer_directory_has_a_reachable_installer() -> None
     """
     search_text = "\n".join(
         p.read_text(encoding="utf-8", errors="replace")
-        for p in list((_REPO / "deploy").glob("*.sh")) + list((_REPO / ".github" / "workflows").glob("*.yml"))
+        for p in list((_REPO / "deploy").glob("*.sh"))
+        + list((_REPO / ".github" / "workflows").glob("*.yml"))
     )
     unwired: list[str] = []
     for label, (timer_dir, installer_script) in _EXTRA_TIMER_DIRS.items():

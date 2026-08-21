@@ -255,7 +255,7 @@ add(
     "imports AuctionPowerConstants + effective_auction_power and is a LIVE cross-language "
     "parity guard -- its own docstring (:1-28) states the JS is what users see and the "
     "Python is the documented source of truth, pinning the three tuning constants so drift "
-    "fails (:87: \"the frontend is the one users see, and the Python file is the one "
+    'fails (:87: "the frontend is the one users see, and the Python file is the one '
     "documented as authoritative. Change both.\"). The prior 'zero Python importers' "
     "evidence checked src/ imports only and missed the test-suite parity guard -- the same "
     "sanctioned-duplication-with-parity-test shape this file already blesses at D-039",
