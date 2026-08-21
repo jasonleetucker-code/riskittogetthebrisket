@@ -391,9 +391,13 @@ def main(argv: list[str] | None = None) -> int:
         action="store_true",
         help=(
             "Fetch the publisher's COMBINED offense+IDP dynasty board into "
-            "idpShowCombined.csv instead of the IDP-only board.  Acquisition "
-            "only — nothing in the registry reads that file, so it cannot "
-            "vote.  See COMBINED_ARTICLE_URL for why."
+            "idpShowCombined.csv instead of the IDP-only board.  This is "
+            "the provider family's SOLE voting source as of 2026-08-20 — "
+            "see the ``idpShowCombined`` entry in "
+            "``src/api/data_contract.py::_RANKING_SOURCES``.  The plain "
+            "(no-flag) board is still fetched for diagnostics but is "
+            "unregistered and cannot vote.  See COMBINED_ARTICLE_URL for "
+            "why this board, not that one."
         ),
     )
     args = parser.parse_args(argv)
@@ -445,6 +449,28 @@ def main(argv: list[str] | None = None) -> int:
         if not rows:
             print("[idpshow] ERROR: 0 rows parsed — refusing to overwrite.", file=sys.stderr)
             return 1
+        # Hard floor aligned with the downstream contract guard
+        # ``_DEFAULT_SOURCE_ROW_FLOORS["idpShowCombined"]`` (450).  This
+        # board is now a VOTING source, so the failure mode the plain
+        # board's floor exists to prevent applies here too — most
+        # sharply, picking the article's 250-row excerpt chart again
+        # instead of the ~665-700 row full board (the exact defect PR
+        # #1008 fixed by measuring chart width instead of trusting
+        # document order).  Fail loudly and preserve last-good rather
+        # than silently shipping a truncated board.  Skipped under
+        # --dry-run so the sample below still prints for diagnosis.
+        _IDPSHOW_COMBINED_ROW_FLOOR = 450
+        if not args.dry_run and len(rows) < _IDPSHOW_COMBINED_ROW_FLOOR:
+            print(
+                f"[idpshow] ERROR: only {len(rows)} rows — expected ≥"
+                f"{_IDPSHOW_COMBINED_ROW_FLOOR} (contract floor "
+                f"_DEFAULT_SOURCE_ROW_FLOORS['idpShowCombined']).  "
+                f"Partial/degraded scrape (or the excerpt chart won the "
+                f"width comparison again); preserving last-good CSV, not "
+                f"overwriting.",
+                file=sys.stderr,
+            )
+            return 2
         if args.dry_run:
             print("[idpshow] dry run — not writing")
             return 0
