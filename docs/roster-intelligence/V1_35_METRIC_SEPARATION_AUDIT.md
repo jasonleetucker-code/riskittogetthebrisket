@@ -62,7 +62,7 @@ fetch/render path exists, not merely that the route responds.
 | 10 | `/api/terminal` `totalValue` | `src/api/terminal.py::build_terminal_payload` | Σ `rankDerivedValue` over the **whole roster** · 1–9999 | `server.py:11944` → `useTerminal.js`, `PortfolioSummary.jsx` | yes | **legitimate different quantity** = decision 69's *Total Asset Value* |
 | A | `/rosters` value breakdown | `frontend/lib/league-analysis.js::buildAllTeamSummaries` | Σ 1–9999 by position group | `/rosters` | yes | **materializer — consumes the server's `optimalLineup`, computes no new concept** |
 | B | `/rosters` tier score | `frontend/lib/league-analysis.js:1224` | `starterValue×0.7 + depthValue×0.2 − pickValue×0.1` | `/rosters`, Contender/Mid-Tier/Rebuilder | yes | **STALE DUPLICATE — decision-69 violation** |
-| C | `/phases` classifier | `frontend/lib/team-phase.js` | top-25 value × median age → 4 labels | `/phases` | yes | **duplicate concept, client-only** |
+| C | `/phases` classifier | `frontend/lib/team-phase.js` | `strengthTotal` × `valueWeightedCoreAge` → 4 labels | `/phases` | yes | **RETIRED (H-2 closed) — was duplicate concept, client-only; inputs now canonical** |
 | D | BDVM roster | `src/bdvm/roster.py::analyze_rosters` | `starterFpg` · **projected fantasy points per game** | `/api/bdvm/roster`, flag `bdvm_engine` on | endpoint yes | **legitimate different quantity** |
 
 ---
@@ -109,19 +109,42 @@ is F-1's formula. Both facts belong in the row notes.
 
 * **Retirement path:** handoff **H-1** (same change closes both).
 
-### F-3 — `/phases` is a third client-side team classifier
+### F-3 — `/phases` is a third client-side team classifier — CLOSED (V1-31 discovery-guard PR)
 
-`frontend/lib/team-phase.js` classifies teams Win-now / Contender /
-Mixed / Rebuild from top-25 value × median age. `src/roster_intel/`
-already owns both inputs canonically — `age_portfolio.py` (value-weighted
-age, Young Core Index) and `window.py` (competitive state) — measured
-over the *meaningful core* rather than an arbitrary top-25.
+`frontend/lib/team-phase.js` classified teams Win-now / Contender /
+Mixed / Rebuild from a client-side top-25 `rankDerivedValue` sum × a raw
+per-player age lookup, scanning `rawData.sleeper.teams` directly (the
+duplicate value/age computation this finding names).
 
-Not the same defect as F-1: this one is a legitimate concept computed in
-the wrong place, rather than an invented composite. Lower priority, same
-owner.
+Not the same defect as F-1: this was a legitimate concept computed in
+the wrong place, rather than an invented composite, so the fix is
+narrower than H-1's — the classification RULE (value vs. league median,
+age vs. league median → 4 quadrants) and the trade-partner
+complementarity scoring are unchanged; only the two INPUT axes were
+redirected onto canonical sources already served league-wide by
+`GET /api/roster/intelligence` (`payload.leagueContext`, via
+`lib/roster-intelligence.js::teamStrengthLadder`):
 
-* **Retirement path:** handoff **H-2**.
+    value  <- strengthTotal          (src/roster_intel/strength.py, row 1.1)
+    age    <- valueWeightedCoreAge   (src/roster_intel/age_portfolio.py, row 1.6)
+
+`window.py`'s CompetitiveWindow was NOT used — it is not reachable
+league-wide today (only per-team, via the disconnected `/api/gameplan`),
+and redirecting the classification RULE itself onto it would need new
+backend surface plus a decision on how its contend/rebuild states map
+onto the 4-way Win-now/Contender/Mixed/Rebuild labels, which is a
+product question outside a duplicate-consolidation unit's scope, not a
+retirement this audit can close on its own.
+
+`TeamPhasePanel.jsx` now reads `useRosterIntelligence()` (same hook
+`/rosters`' `TeamStrengthCard.jsx` uses) instead of `useDynastyData()`.
+Discovery guard: `frontend/__tests__/no-frontend-team-strength-methodology.test.js`
+extended with a scan for `rankDerivedValue` / `useDynastyData(` /
+`sleeper.teams` in `lib/team-phase.js` + `components/TeamPhasePanel.jsx`,
+mutation-proven (a reintroduced raw-row read fails the guard; restored,
+green).
+
+* **Retirement path:** handoff **H-2** — closed.
 
 ### F-4 — two power engines and two playoff-odds engines
 
@@ -185,16 +208,16 @@ current quantity, desired owner and the test that would close it.
 | **test** | a frontend unit test asserting `/rosters` renders backend-stamped values and that `scoreTeamTiers` is gone; plus `tests/roster_intel/test_metric_separation.py::test_roster_intelligence_publishes_no_generic_team_score` extended to the rendered props |
 | **note** | this single change closes **F-1 and F-2 together** and is what would let V1-31 / V1-32 reach EVIDENCE-L4 |
 
-### H-2 — fold `/phases` onto the age-portfolio and window owners (**Claude 6**)
+### H-2 — fold `/phases` onto the age-portfolio and strength owners — CLOSED
 
 | field | value |
 |---|---|
 | **path** | `frontend/lib/team-phase.js`; `frontend/components/TeamPhasePanel.jsx` |
-| **consumer** | `frontend/app/phases/page.jsx:33` |
-| **current quantity** | top-25 `rankDerivedValue` total × median age → 4 labels, computed client-side |
-| **desired owner** | `agePortfolio.valueWeightedCoreAge` / `youngCoreIndex` (+ its `PRIOR` disclosure) and `src/roster_intel/window.py`'s competitive state, both over the **meaningful core** |
-| **test** | frontend test that the phase label comes from the payload; backend already covered |
-| **priority** | below H-1 — a right concept in the wrong place, not an invented one |
+| **consumer** | `frontend/app/phases/page.jsx` |
+| **quantity before** | top-25 `rankDerivedValue` total × median age → 4 labels, computed client-side from raw player rows |
+| **quantity after** | `strengthTotal` (`src/roster_intel/strength.py`) × `valueWeightedCoreAge` (`src/roster_intel/age_portfolio.py`), read from `GET /api/roster/intelligence`'s `leagueContext` via `teamStrengthLadder`; same classification rule, canonical inputs |
+| **not done** | folding the classification RULE itself onto `window.py`'s CompetitiveWindow — not reachable league-wide without new backend surface, and mapping its states onto 4 quadrant labels is a product decision outside this unit |
+| **test** | `frontend/__tests__/team-phase.test.js` (6, incl. an unmeasured-input case), `frontend/__tests__/components/team-phase-panel.test.jsx` (4), `no-frontend-team-strength-methodology.test.js`'s extended raw-row-derivation guard (mutation-proven) |
 
 ### H-3 — V1-52 power engines (**Claude 3 / public league**) — census only
 
