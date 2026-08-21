@@ -118,7 +118,7 @@ def test_the_guard_is_not_vacuous(mutation):
     # here since the guard walks the whole tree regardless of depth (proven
     # separately by the request-path files' own local-import style above).
     assert _forbidden_offenders(mutation), (
-        f"the guard did not notice {mutation!r} — it would not catch a real " "future import either"
+        f"the guard did not notice {mutation!r} — it would not catch a real future import either"
     )
 
 
