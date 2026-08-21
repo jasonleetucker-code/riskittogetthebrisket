@@ -1,7 +1,7 @@
 {
   "_comment": "Lane utilization state for an independent traffic-control/dispatch record (no lane number, no name assigned to it — see governanceCorrection_C31). NOT an authority on integration sequencing (Claude 5 / docs/EXECUTION_PLAN.md), on V1 status (docs/VERSION_1_COMPLETION_CONTRACT.md) or on canonical ownership (CLAUDE.md). Repository evidence outranks this file: where they disagree, this file is wrong and must be corrected.",
-  "updatedAt": "2026-08-21T13:35:00Z",
-  "dispatchCycle": 82,
+  "updatedAt": "2026-08-21T15:20:00Z",
+  "dispatchCycle": 85,
   "writePolicy": "This file and ASSIGNMENTS.json are written ONLY on a material state transition — new assignment, assignment accepted, completion, blocker, freeze/unfreeze, or a meaningful dependency change. A heartbeat that finds nothing changed produces no commit and no CI run.",
   "evidenceBasis": "origin/main 079fc9e4a; §3 diffed row-by-row from cycle-19 main (c5a367266); all refs resolved live; #945 CI green 04:57:35Z",
   "assignmentSourceNote": "Lanes 1-6 carry the owner's original six manual assignments, tracked in detail by this dispatcher. Lanes 8-13 are five additional owner-authorized campaign lanes (Claude 8 chartered 2026-08-20; Claude 9-13 chartered the same day under the POST-V1 C-Series mass-build campaign, EXECUTION_PLAN.md §0). This dispatcher did not originate any of these eleven assignments and does not own or re-scope them. Lanes 8-13 are tracked here only lightly — ownership boundaries and authorization citation — because they are self-directed under their own charter, unlike lanes 1-6 which this dispatcher actively monitors for idleness and dispatches follow-on work to. This record is independent traffic-control/dispatch bookkeeping — it claims no lane number and is not assigned to a named identity, per dispatcherIdentity above.",
@@ -623,5 +623,21 @@
     "tierAMilestone": "TIER-A QUEUE NOW 11 OF 11 CLOSED. All originally-assigned Tier-A rows (V1-69, V1-90, V1-121, V1-79, V1-92, V1-98, V1-112, V1-133, V1-134, V1-135, V1-40) are VERIFIED. No further Tier-A tracking needed going forward -- this record's remaining standing watches are #1027 (V1-49) and #1001 (V1-136), both still open, plus general row-diffing for any new promotion pass.",
     "standingItemsUnchanged": "Lane 2, Lane 4 on-box batch, all three abandoned refs — checked live, no change.",
     "note": "81/136=59.6% matches the user's own stated planning assumption for a closed Tier-A queue exactly. 15 more rows needed for 96/136=70.6% -- the V1_NEXT25_CENSUS.md delivered at cycle 65 remains the standing candidate list for that next stretch; watching for Integration/Claude 5 to pick up rows from it."
+  },
+  "cycle85Transitions": {
+    "_comment": "Cycles 83-84 were no-commit heartbeats (main moved only via routine chores -- Sharp smoke record, idpshow/dlf automated refreshes -- contract byte-identical, tally held at 81/136=58.6%..59.6%, CI green on 92eafaf3e run 32487492269) -- folded forward, no separate blocks.",
+    "mainTip": "fe66ff016 (was ff4eb3453 at cycle 84's heartbeat) -- merged #1034.",
+    "myOwnPr": {
+      "pr": "#1000", "head": "92eafaf3e",
+      "verdict": "Still the same run as cycles 82-84: Validate PR SUCCESS, run 32487492269 (head_sha cross-verified), 13:33:50Z -> 13:47:30Z. No new comments (still just the two governance-correction exchange comments)."
+    },
+    "rowDiff": {
+      "method": "§3 row-diffed ff4eb3453 -> fe66ff016",
+      "result": "STATUS BUMP, not a numerator promotion: V1-136 NOT STARTED -> IMPLEMENTED_UNVERIFIED via merged #1034 ('V1-136: board-aware acquisition-state instrumentation for both IDP Show boards'), followed immediately by a status-correction commit (c6370dfc2) explicitly citing owner traffic-control per this record's own governance-correction precedent, correcting an initial IMPLEMENTED_UNVERIFIED->VERIFIED miscall back down. #1034 is the exact reconciliation Claude 5 was asked to execute by #1001's own Slice-3-correction doc (LANE8_POST_1012_RECONCILIATION_AUDIT.md's 5-point plan) -- #1001 itself remains open/unmerged (re-read in full this cycle, content unchanged since cycle 65/70, still mergeable_state 'unknown'/'dirty' against current main), but its analysis directly produced this landed fix. Both IDP Show boards (plain + idpShowCombined, the one that actually votes since #1012) now construct real AcquisitionOutcome states on every main() return point; row's own text states the remaining gap for VERIFIED is L2 board-level measurement + actual production deployment, neither done from this environment yet -- correctly IMPLEMENTED_UNVERIFIED, not VERIFIED.",
+      "selfConsistency": "Independent count 81+21+18+14+2=136; contract's own table and completion line read 81/136=59.6%, agreeing -- numerator unchanged by this row, exactly as the contract's own note states."
+    },
+    "watchItemsRecheck": "#1027 (V1-49) re-read in full: unchanged since cycle 65, still open/unmerged, still docs-only (zero src/tests/config touched per its own explicit non-goals), mergeable_state 'unknown'. #1001 (V1-136) re-read in full: unchanged since cycle 65/70 except for context already superseded by #1034 above -- its own correction section is what #1034 executed. Both remain the standing watch items; no merge on either yet.",
+    "standingItemsUnchanged": "Lane 2, Lane 4 on-box batch, all three abandoned refs — checked live, no change.",
+    "note": "Tally holds at 81/136=59.6% -- V1-136 moved status but not the numerator. This is the second time this session a #1001/#1027-family PR's own analysis has directly produced a landed main fix while the PR itself stayed unmerged; watching for either to actually land next."
   }
 }
