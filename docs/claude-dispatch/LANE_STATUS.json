@@ -1,7 +1,7 @@
 {
   "_comment": "Lane utilization state for an independent traffic-control/dispatch record (no lane number, no name assigned to it — see governanceCorrection_C31). NOT an authority on integration sequencing (Claude 5 / docs/EXECUTION_PLAN.md), on V1 status (docs/VERSION_1_COMPLETION_CONTRACT.md) or on canonical ownership (CLAUDE.md). Repository evidence outranks this file: where they disagree, this file is wrong and must be corrected.",
-  "updatedAt": "2026-08-21T07:56:00Z",
-  "dispatchCycle": 71,
+  "updatedAt": "2026-08-21T09:26:00Z",
+  "dispatchCycle": 74,
   "writePolicy": "This file and ASSIGNMENTS.json are written ONLY on a material state transition — new assignment, assignment accepted, completion, blocker, freeze/unfreeze, or a meaningful dependency change. A heartbeat that finds nothing changed produces no commit and no CI run.",
   "evidenceBasis": "origin/main 079fc9e4a; §3 diffed row-by-row from cycle-19 main (c5a367266); all refs resolved live; #945 CI green 04:57:35Z",
   "assignmentSourceNote": "Lanes 1-6 carry the owner's original six manual assignments, tracked in detail by this dispatcher. Lanes 8-13 are five additional owner-authorized campaign lanes (Claude 8 chartered 2026-08-20; Claude 9-13 chartered the same day under the POST-V1 C-Series mass-build campaign, EXECUTION_PLAN.md §0). This dispatcher did not originate any of these eleven assignments and does not own or re-scope them. Lanes 8-13 are tracked here only lightly — ownership boundaries and authorization citation — because they are self-directed under their own charter, unlike lanes 1-6 which this dispatcher actively monitors for idleness and dispatches follow-on work to. This record is independent traffic-control/dispatch bookkeeping — it claims no lane number and is not assigned to a named identity, per dispatcherIdentity above.",
@@ -564,5 +564,13 @@
     "tierAMilestone": "Tier-A queue: 7 of 11 closed (V1-69, V1-90, V1-121, V1-79, V1-92, V1-98, V1-112). Only 4 remain: V1-133/134/135 (covered by still-open #1023) and V1-40 (covered by still-open #1017). Both PRs already read and confirmed mutation-proven at cycle 70 -- no new reading needed, just watching for merge.",
     "standingItemsUnchanged": "Lane 2, Lane 4 on-box batch, all three abandoned refs — checked live, no change.",
     "note": "56.6% crosses well past the halfway point to the 70.6% target (96/136). At the current closure rate this session, the remaining Tier-A rows plus V1_70_ATTACK_MATRIX/V1_NEXT25_CENSUS candidates are the most likely path to 96."
+  },
+  "cycle72to74Transitions": {
+    "_comment": "Cycles 72 and 73 were no-commit heartbeats per this record's own writePolicy -- CI stayed green, only routine chores landed on main. Folded into this entry rather than given empty blocks.",
+    "mainTip": "bcdbe1856 (was e9333823) -- routine chores only, no V1 row effect",
+    "ciStatus": "67356b339 remains GREEN (run 32460714967, head_sha cross-verified at cycle 72), reconfirmed unchanged through cycle 74. No new PR comments across all three cycles.",
+    "tierAPipelineUpdate": "Both remaining PRs (#1023, #1017) shifted mergeable_state from 'unknown' (cycle 70) to 'dirty' (cycle 74) -- they now conflict with current main and need reconciliation before landing. Content unchanged otherwise (still mutation-proven, still FEATURE_GREEN/READY_FOR_INTEGRATION per their own text). This is expected given how much has merged into main since they opened (#1021, #1022, #1030 among others) -- reported as a real state change, not treated as a defect in either PR.",
+    "standingItemsUnchanged": "Lane 2, Lane 4 on-box batch, all three abandoned refs — checked live, no change across all three cycles.",
+    "note": "Tier-A queue holds at 7 of 11 closed. The remaining 4 rows (V1-133/134/135, V1-40) are content-ready but now blocked on a merge-conflict resolution someone needs to perform -- not a code or evidence gap."
   }
 }
