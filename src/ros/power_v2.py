@@ -605,7 +605,27 @@ def build_section(
     # Career totals across all seasons (matches power.py's accumulator
     # semantics).  Recent buffer is per-season; the "recent form"
     # metric is the trailing 3-game average within the current season.
+    #
+    # career_state is CONSUMED for exactly one purpose past this loop:
+    # _enumerate_owner_ids's historical-presence fallback (its keys, not
+    # its values) — a manager who mid-rejoined and is missing from both
+    # live sources this season still needs to appear via history. It is
+    # deliberately NOT reset per season and deliberately NOT read by
+    # _score_state.
     career_state: dict[str, dict[str, float | int]] = defaultdict(
+        lambda: {"points": 0.0, "games": 0, "wins": 0.0, "losses": 0.0}
+    )
+    # SEASON-scoped mirror of career_state, feeding ppg / wl_record and
+    # the trend series only (V1-52 / #1020).  Reset at the top of each
+    # season below, so by loop-end it holds ONLY the final season's
+    # totals — the same "last write wins across the season boundary"
+    # contract last_season_recent / last_season_allplay_share already
+    # use for recentAvg / all_play.  Before this fix, ppg and wl_record
+    # read career_state directly: a CAREER average presented as the
+    # current season's number, contaminated by every prior season a
+    # manager played, including on the trend line for weeks that had not
+    # happened yet in the contaminating season.
+    season_state: dict[str, dict[str, float | int]] = defaultdict(
         lambda: {"points": 0.0, "games": 0, "wins": 0.0, "losses": 0.0}
     )
     season_outcomes: dict[str, list[float]] = defaultdict(list)
@@ -619,6 +639,10 @@ def build_section(
         week_scores = luck._season_weekly_scores(season, registry)
         if not week_scores:
             continue
+        # Reset at the top of each season's processing — V1-52.  By the
+        # time this loop ends, season_state holds ONLY the final
+        # season's totals.
+        season_state = defaultdict(lambda: {"points": 0.0, "games": 0, "wins": 0.0, "losses": 0.0})
         if season is seasons_sorted[-1]:
             recent_buffer: dict[str, list[float]] = defaultdict(list)
         for wk in sorted(week_scores.keys()):
@@ -632,6 +656,18 @@ def build_section(
                 actual_share = actuals.get(oid, 0.0)
                 s["wins"] += actual_share
                 s["losses"] += 1.0 - actual_share
+                ss = season_state[oid]
+                ss["points"] += pts
+                ss["games"] += 1
+                ss["wins"] += actual_share
+                ss["losses"] += 1.0 - actual_share
+                # KNOWN RESIDUAL (V1-52 investigation, not fixed here):
+                # season_outcomes and expected_share_total accumulate
+                # across every season the same way career_state's
+                # points/games did before this fix, feeding the streak
+                # and luck-regression components respectively.  Out of
+                # this unit's bounded scope (PPG/wl_record only) —
+                # tracked as a follow-up finding.
                 season_outcomes[oid].append(actual_share)
                 if season is seasons_sorted[-1]:
                     rb = recent_buffer[oid]
@@ -661,7 +697,7 @@ def build_section(
                     season.season,
                     wk,
                     {
-                        "career": {o: dict(v) for o, v in career_state.items()},
+                        "career": {o: dict(v) for o, v in season_state.items()},
                         "recent": {o: list(v) for o, v in last_season_recent.items()},
                         "allplay": dict(last_season_allplay_share),
                         "expected": dict(expected_share_total),
@@ -691,7 +727,7 @@ def build_section(
     schedule_by_owner = _schedule_adjusted_scores(snapshot, ros_pct)
 
     final_state = {
-        "career": career_state,
+        "career": season_state,
         "recent": last_season_recent,
         "allplay": last_season_allplay_share,
         "expected": expected_share_total,
