@@ -151,3 +151,80 @@ Registered in `docs/WORK_CLAIMS.md` as V1-53 / C5-ROS-01.
 3. Do not begin the POST-V1 items in §0's table without a fresh owner
    decision recorded in `docs/EXECUTION_PLAN.md` §0, per that file's own
    authorization rule.
+
+## 6. Correction, 2026-08-21 — §1's V1-49 and V1-52 rows are stale
+
+Appended rather than rewritten, so the reasoning trail stays legible — this
+section supersedes §1's V1-49 and V1-52 rows for anyone reading them today.
+
+**V1-49.** §1's row described V1-49 as "already delivered" with SAF
+"already in `POSITION_ALIASES`/`_IDP_POSITIONS`" — that was true of `#802`'s
+tests, but **not** true of the engine underneath them at the time this log
+was written: `#915` (merged `7446b8b31`, 2026-08-20, after this log's
+"Started" date) found that `SAF` was in **neither** table, so every safety's
+IDP scoring was silently skipped — a well-formed `0.000`, 1,429 player-weeks,
+10,842.88 points never awarded on the live `dynasty_main` card. `#915` fixed
+the engine (added `SAF` to `POSITION_ALIASES`, derived `_IDP_POSITIONS` from
+it rather than hand-maintaining it), fixed blocked-kick scoring (was wrongly
+marked `UNSCORABLE`), and fixed a separate asymmetric season-card resolver.
+All three are confirmed correct on `main` today, with passing coverage
+(`tests/nfl_data/test_individual_special_teams.py`,
+`tests/nfl_data/test_idp_position_coverage.py`,
+`tests/league_comparison/test_season_card_symmetry.py`). Individual-ST-vs-DST
+separation (`is_host_player_entry`) is also confirmed correct and well-tested.
+
+**What is NOT yet closed, and is the actual remaining gate**:
+`docs/VERSION_1_COMPLETION_CONTRACT.md` §3.4 still records V1-49 as
+`IN PROGRESS` at L2, and that is accurate — the gate is the
+`host_native_scoring` challenger-path promotion (`#915`'s own "Promotion
+gate" table), with 4 of 10 items explicitly `OPEN — needs prod`: the PBP
+artifact isn't yet built+scheduled in production, BDVM hasn't been rerun
+against the challenger, `league_comparison` hasn't been rerun against
+challenger scoring, and historical backtests haven't been rerun. The flag
+itself (`host_native_scoring`, `src/api/feature_flags.py`) stays default
+`OFF`. This is **PRODUCTION_ONLY** — none of the four gate items are
+reachable from a sandbox session, so no further Lane-3 sandbox work can
+close V1-49; it needs Integration/Claude 5 to run the four items against a
+real deploy.
+
+**A separate, real-but-latent architectural finding, investigated and
+deliberately NOT repaired this session**: `POSITION_ALIASES`
+(`src/utils/name_clean.py`) is documented as the sole canonical
+position-normalization owner, and `#915` correctly derived
+`realized_points._IDP_POSITIONS` from it — but three consumer modules still
+hand-maintain their own position tables rather than deriving from it
+(`league_comparison/scoring_engine.py::_canonical_position`,
+`league_intel/replacement.py::_BASE_POSITION_ALIASES`, and
+`ros/lineup.py::_LINEUP_FAMILY` — the last is the canonical lineup/slot
+owner per `CLAUDE.md`'s C2-U1 section, and its own code comment records the
+exact same defect class already firing once before with `MLB`, fixed
+2026-08-19). Checked empirically before deciding whether to fix: the live
+exported board (`exports/latest/dynasty_data_2026-08-21.json`,
+`sleeper.positions`, 940 entries) contains **zero** `"SAF"`-spelled
+positions — Sleeper's own player database already reports safeties as
+`"S"`/`"DB"`, never nflverse's 2025-unified `"SAF"` spelling, and every
+consumer of these three tables (`roster_intel/marginal.py`,
+`api/gameplan.py`, `roster_intel/profiles.py`, `roster_intel/targets.py`,
+and the lineup optimizer itself) reads `RosterPlayer.position`, which is
+sourced from that same Sleeper-derived board field, not from raw nflverse
+stat rows. So unlike the scoring-engine SAF gap `#915` fixed, this one does
+not currently fire on real data — the same "latent, not firing" status the
+`MLB` fix's own regression test documents for that earlier defect. Per this
+session's explicit instruction not to repair unreachable theoretical
+defects, this was investigated to a firm conclusion and **not** coded —
+recorded here as a real, precisely-scoped risk for whoever next touches
+position normalization (it would fire the instant any of these three
+tables' input ever carries a raw nflverse-spelled position instead of a
+Sleeper-derived one), not as an open TODO for this lane to chase further.
+
+**V1-52.** §1's row described V1-52 as blocked on `C2-U4` (Team Strength)
+being open. That dependency has since closed and the unit proceeded without
+waiting further: `#979` (merged) shipped the canonical `power_v2` engine
+with both lenses reachable; `#996` and `#1009` (both open, unmerged, frozen
+for Integration as of this correction) complete the retirement of the legacy
+`power.py` engine. `docs/VERSION_1_COMPLETION_CONTRACT.md` §3.4 correctly
+shows `IN PROGRESS`, matching the live PR queue. See
+`docs/power/V1_52_L2_VERIFICATION_RECIPE.md` for the checklist Integration
+needs to run after merging `#996` → `#1009`; no further V1-52 implementation
+is authorized in this lane unless that verification surfaces a causal gap.
+
