@@ -70,6 +70,19 @@ SLICE = FIXTURES / "pbp_2025_wk14_slice.csv"
 
 BAND_KEYS = ("rec_0_4", "rec_5_9", "rec_10_19", "rec_20_29", "rec_30_39", "rec_40p")
 
+#: Every PBP_SUPPLEMENT_KEYS member EXCEPT ``kick_ret_td``.  The other
+#: nine are all keys Sleeper publishes in its OWN weekly stat dump under
+#: the SAME name, which is what makes a per-key host-total comparison a
+#: real reconciliation.  ``kick_ret_td`` is different: Sleeper never
+#: publishes a kickoff/punt return-TD split at all, only the combined
+#: ``st_td`` — so ``host_players[...].get("kick_ret_td", 0)`` is
+#: structurally always 0 and comparing against it would not test the
+#: derivation, it would test that Sleeper doesn't have a key it never
+#: had.  ``kick_ret_td`` gets its own reconciliation below, against the
+#: identity ``kick_ret_td + punt_ret_td == st_td`` on real 2025 REG
+#: return-TD scorers, which IS the ground truth available for it.
+HOST_KEYED_SUPPLEMENT_KEYS = sorted(PBP_SUPPLEMENT_KEYS - {"kick_ret_td"})
+
 
 def _slice_path(week):
     return FIXTURES / f"pbp_2025_wk{week}_slice.csv"
@@ -141,7 +154,7 @@ def test_the_pruned_host_fixture_matches_the_full_dump():
 
 
 @pytest.mark.parametrize("week", WEEKS)
-@pytest.mark.parametrize("key", sorted(PBP_SUPPLEMENT_KEYS))
+@pytest.mark.parametrize("key", HOST_KEYED_SUPPLEMENT_KEYS)
 def test_every_derived_key_matches_the_host_across_four_weeks(
     derived_by_week, host_by_week, week, key
 ):
@@ -160,7 +173,7 @@ def test_every_derived_key_matches_the_host_across_four_weeks(
 # ── Host truth ───────────────────────────────────────────────────────
 
 
-@pytest.mark.parametrize("key", sorted(PBP_SUPPLEMENT_KEYS))
+@pytest.mark.parametrize("key", HOST_KEYED_SUPPLEMENT_KEYS)
 def test_every_derived_key_matches_the_host_for_week_14(derived, host_players, key):
     """The whole justification for this module in one assertion.
 
@@ -171,6 +184,52 @@ def test_every_derived_key_matches_the_host_for_week_14(derived, host_players, k
     """
     by_player, _weeks = derived
     assert _derived_total(by_player, key) == _host_total(host_players, key), key
+
+
+def test_kick_ret_td_reconciles_against_combined_st_td(derived_by_week):
+    """``kick_ret_td`` has no host-published ground truth of its own —
+    Sleeper never splits ``st_td`` into a kickoff half and a punt half,
+    see ``HOST_KEYED_SUPPLEMENT_KEYS`` above. Verified instead against
+    the identity that must hold if the derivation is right: every real
+    2025 week-14 ``st_td`` scorer is EITHER a kickoff return (credited
+    here) or a punt return (on the nflverse weekly feed's
+    ``pt_return_tds``, ``realized_points._SIMPLE_KEYS["punt_ret_td"]``,
+    no play-by-play involved), never both, and the two must sum to the
+    host's own ``st_td`` total.
+
+    Host truth (``docs/master-site-audit/evidence/W18/sleeper_stats_2025_wk14.json``,
+    cross-referenced against the real 2025 nflverse PBP release; GSIS ids
+    resolved via nflverse's ``players.csv``):
+
+        Rashid Shaheed  (00-0037545 / Sleeper 8676)  — KICKOFF return TD
+        Marvin Mims     (00-0038976 / Sleeper 9494)  — PUNT return TD
+        Isaiah Williams (00-0039451 / Sleeper 11608) — PUNT return TD
+
+    3 real scorers, 1 kickoff, 2 punt — exactly what this asserts.
+    """
+    host_raw = json.loads(HOST_WK14_FULL.read_text(encoding="utf-8"))
+    host_st_td_total = sum(
+        float(v.get("st_td", 0) or 0) for v in host_raw.values() if isinstance(v, dict)
+    )
+    by_player, _weeks = derived_by_week[14]
+    derived_kick_ret_td = _derived_total(by_player, "kick_ret_td", week=14)
+    assert host_st_td_total == 3.0
+    assert derived_kick_ret_td == 1.0
+    # The other two week-14 st_td scorers (Mims, Williams) are confirmed
+    # punt returns on the real PBP release, not re-derived here —
+    # punt_ret_td is a bare weekly-feed passthrough with no play-by-play
+    # predicate to test in this module.
+    known_punt_return_td_count = 2.0
+    assert derived_kick_ret_td + known_punt_return_td_count == host_st_td_total
+
+
+@pytest.mark.parametrize("week", (1, 5, 11))
+def test_kick_ret_td_is_a_real_zero_on_weeks_with_no_kickoff_return(derived_by_week, week):
+    """Weeks 1/5/11 have no kickoff-return-TD play at all in the real
+    2025 PBP release (confirmed by direct inspection) — a genuine zero,
+    distinct from an untested gap."""
+    by_player, _weeks = derived_by_week[week]
+    assert _derived_total(by_player, "kick_ret_td", week=week) == 0.0
 
 
 @pytest.mark.parametrize("key", BAND_KEYS)
@@ -229,7 +288,8 @@ _MIN_HEADER = (
     "forced_fumble_player_1_player_id,forced_fumble_player_2_player_id,"
     "fumble_recovery_1_player_id,fumble_recovery_1_team,fumbled_1_team,"
     "fumble_recovery_2_player_id,fumble_recovery_2_team,fumbled_2_team,"
-    "interception,return_touchdown,passer_player_id,posteam,td_team"
+    "interception,return_touchdown,passer_player_id,posteam,td_team,"
+    "play_type,kickoff_returner_player_id,own_kickoff_recovery_td"
 ).split(",")
 
 
@@ -305,6 +365,49 @@ def test_a_returned_interception_the_offence_scores_on_is_not_a_pick_six():
     )
     assert "00-qb" not in by_player
     assert by_player["00-qb2"][1]["pass_int_td"] == 1.0
+
+
+def test_kick_ret_td_fires_on_a_kickoff_return_touchdown():
+    by_player, _ = _accumulate(
+        _play(
+            play_type="kickoff",
+            return_touchdown=1,
+            kickoff_returner_player_id="00-kr",
+            own_kickoff_recovery_td=0,
+        )
+    )
+    assert by_player["00-kr"][1]["kick_ret_td"] == 1.0
+
+
+def test_own_kickoff_recovery_is_not_a_kick_ret_td():
+    """The kicking team recovering its own free kick and running it in is
+    not a return, and it is not this returner's play — the same shape of
+    exclusion ``pass_int_td`` uses for an offense-scored interception
+    return."""
+    by_player, _ = _accumulate(
+        _play(
+            play_type="kickoff",
+            return_touchdown=1,
+            kickoff_returner_player_id="00-kr",
+            own_kickoff_recovery_td=1,
+        )
+    )
+    assert by_player == {}
+
+
+def test_kick_ret_td_does_not_fire_on_a_punt_return_touchdown():
+    """A punt-return TD must not be miscredited to kick_ret_td — that
+    would double it against punt_ret_td (the weekly-feed key) on any
+    league that pays both."""
+    by_player, _ = _accumulate(
+        _play(
+            play_type="punt",
+            return_touchdown=1,
+            kickoff_returner_player_id="00-not-a-kr",
+            own_kickoff_recovery_td=0,
+        )
+    )
+    assert by_player == {}
 
 
 def test_special_teams_rules_do_not_fire_on_a_scrimmage_play():

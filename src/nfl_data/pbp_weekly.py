@@ -9,6 +9,10 @@ at nothing and the site reported a total that was quietly low:
     rec_0_4  rec_5_9  rec_10_19  rec_20_29  rec_30_39  rec_40p
     st_tkl_solo  st_ff  st_fum_rec  pass_int_td
 
+An eleventh, ``kick_ret_td``, joined later (V1-49 / #1020) on the same
+mechanism — real, but not currently paid by either live league, so it
+is documented separately below rather than folded into the "ten".
+
 Measured on the league host's own week-14 2025 dump that is 451.53
 points in one week — ~7,676 across a regular season, roughly two thirds
 of it the six reception bands. ``scoring_coverage`` called them
@@ -84,6 +88,22 @@ end zone. ``return_touchdown`` is 1, and it is not a pick-six. With the
 clause: exact on all seven weeks (12 of 12); without it, week 5 charges
 a quarterback -2 points he did not concede.
 
+**``kick_ret_td``** (V1-49 / #1020, added after the reconciliation above,
+so it is not part of the "ten rules" measured against dynasty_main's
+card — neither live league configures a nonzero rate for it today) —
+``play_type == "kickoff"`` + ``return_touchdown``, credited to
+``kickoff_returner_player_id``, excluding ``own_kickoff_recovery_td``
+(the kicking team recovering its own free kick — not a return, the same
+shape of exclusion as ``pass_int_td``'s). Sleeper never publishes this
+as its own key (only the combined ``st_td``), so there is no per-key
+host dump to reconcile against; instead it is verified against the
+identity ``kick_ret_td + punt_ret_td == st_td`` on every real 2025 REG
+return-TD scorer this module's fixtures cover — week 9 Charlie Jones
+(00-0038576) and week 14 Rashid Shaheed (00-0037545) both kickoff
+returns, week 14 Marvin Mims (00-0038976) and Isaiah Williams
+(00-0039451) both punt returns — see
+``test_kick_ret_td_reconciles_against_combined_st_td``.
+
 Missing is not zero
 ───────────────────
 A week that was never streamed and a week in which a player recorded
@@ -150,6 +170,9 @@ _REQUIRED_COLUMNS: tuple[str, ...] = (
     "passer_player_id",
     "posteam",
     "td_team",
+    "play_type",
+    "kickoff_returner_player_id",
+    "own_kickoff_recovery_td",
 )
 
 #: Tackler id columns credited to ``st_tkl_solo`` on a special-teams play.
@@ -216,6 +239,9 @@ def _iter_plays(lines: Iterable[str]) -> Iterator[tuple[int, str, dict[str, list
     i_passer = idx["passer_player_id"]
     i_posteam = idx["posteam"]
     i_td_team = idx["td_team"]
+    i_play_type = idx["play_type"]
+    i_kickoff_returner = idx["kickoff_returner_player_id"]
+    i_own_kr_td = idx["own_kickoff_recovery_td"]
 
     for row in reader:
         try:
@@ -273,6 +299,33 @@ def _iter_plays(lines: Iterable[str]) -> Iterator[tuple[int, str, dict[str, list
             offense = _cell(row, i_posteam)
             if scoring_team and offense and scoring_team != offense:
                 _credit("pass_int_td", _cell(row, i_passer))
+
+        # ``kick_ret_td`` (V1-49 / #1020).  Sleeper's own vocabulary
+        # splits ``st_td`` into a kickoff half and a punt half; the punt
+        # half is on the nflverse WEEKLY feed as ``pt_return_tds``
+        # (``_SIMPLE_KEYS`` in realized_points.py), but there is no
+        # equivalent bare kickoff-return-TD column — only the combined
+        # ``special_teams_tds``. This is the derivation for that half.
+        #
+        # ``own_kickoff_recovery_td`` excludes the kicking team recovering
+        # its own free kick and running it in — not a return, and not
+        # this returner's play, the same reason ``pass_int_td`` excludes
+        # an offense-scored interception return.
+        #
+        # Host-truth reconciled against Sleeper's real 2025 dumps: week 9
+        # Charlie Jones (00-0038576, kr_yd 179 / kr_lng 98 / st_td 1) and
+        # week 14 Rashid Shaheed (00-0037545, kr_yd 148 / kr_lng 100 /
+        # st_td 1) both derive to exactly 1 here, and week 14's other two
+        # ``st_td`` scorers (Marvin Mims 00-0038976, Isaiah Williams
+        # 00-0039451) are confirmed PUNT returns on the same PBP release —
+        # so ``kick_ret_td + punt_ret_td == st_td`` for every 2025 REG
+        # week-14 return-TD scorer, not just this one.
+        if (
+            _cell(row, i_play_type) == "kickoff"
+            and is_truthy(_cell(row, i_ret_td))
+            and not is_truthy(_cell(row, i_own_kr_td))
+        ):
+            _credit("kick_ret_td", _cell(row, i_kickoff_returner))
 
         yield week, stype, events
 
