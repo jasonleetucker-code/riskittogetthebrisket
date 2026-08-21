@@ -1,7 +1,7 @@
 {
   "_comment": "Lane utilization state for an independent traffic-control/dispatch record (no lane number, no name assigned to it — see governanceCorrection_C31). NOT an authority on integration sequencing (Claude 5 / docs/EXECUTION_PLAN.md), on V1 status (docs/VERSION_1_COMPLETION_CONTRACT.md) or on canonical ownership (CLAUDE.md). Repository evidence outranks this file: where they disagree, this file is wrong and must be corrected.",
-  "updatedAt": "2026-08-21T12:30:00Z",
-  "dispatchCycle": 80,
+  "updatedAt": "2026-08-21T13:35:00Z",
+  "dispatchCycle": 82,
   "writePolicy": "This file and ASSIGNMENTS.json are written ONLY on a material state transition — new assignment, assignment accepted, completion, blocker, freeze/unfreeze, or a meaningful dependency change. A heartbeat that finds nothing changed produces no commit and no CI run.",
   "evidenceBasis": "origin/main 079fc9e4a; §3 diffed row-by-row from cycle-19 main (c5a367266); all refs resolved live; #945 CI green 04:57:35Z",
   "assignmentSourceNote": "Lanes 1-6 carry the owner's original six manual assignments, tracked in detail by this dispatcher. Lanes 8-13 are five additional owner-authorized campaign lanes (Claude 8 chartered 2026-08-20; Claude 9-13 chartered the same day under the POST-V1 C-Series mass-build campaign, EXECUTION_PLAN.md §0). This dispatcher did not originate any of these eleven assignments and does not own or re-scope them. Lanes 8-13 are tracked here only lightly — ownership boundaries and authorization citation — because they are self-directed under their own charter, unlike lanes 1-6 which this dispatcher actively monitors for idleness and dispatches follow-on work to. This record is independent traffic-control/dispatch bookkeeping — it claims no lane number and is not assigned to a named identity, per dispatcherIdentity above.",
@@ -607,5 +607,21 @@
     "tierAMilestone": "Tier-A queue: 10 of 11 closed (V1-69, V1-90, V1-121, V1-79, V1-92, V1-98, V1-112, V1-133, V1-134, V1-135). Only V1-40 remains, covered by still-open PR #1017. Its mergeable_state fluctuated back to 'unknown' after #1023's merge shifted its base (base.sha now f2a06df7d, 8 commits, updated_at 12:26:18Z) -- content unchanged (still the dead find_drop_candidates deletion + vocabulary-scan guard, mutation-proven, FEATURE_GREEN/READY_FOR_INTEGRATION, 'Not self-merged'). Closing this one row brings Tier-A to 11/11.",
     "standingItemsUnchanged": "Lane 2, Lane 4 on-box batch, all three abandoned refs — checked live, no change.",
     "note": "58.8% is up from the 70/136=51.5% baseline stated in the original NEXT25 instruction, and up from 56.6% last material cycle. #1027 (V1-49) and #1001 (V1-136) remain open and unmerged, still watched neutrally, no action taken by this record."
+  },
+  "cycle82Transitions": {
+    "_comment": "Cycle 81 was a no-commit heartbeat (main moved via a routine idpshow-refresh chore only, contract §3 byte-identical, tally held at 80/136=58.8%, CI green on d153bfd11 run 32482503292) -- folded forward, no separate block.",
+    "mainTip": "55daf1e58 (was 277df6ff5 at cycle 80 / 45588c415 at cycle 81's heartbeat) -- merged PR #1017.",
+    "myOwnPr": {
+      "pr": "#1000", "head": "d153bfd11",
+      "verdict": "Still the same run as cycle 80/81: Validate PR SUCCESS, run 32482503292 (head_sha cross-verified against list_workflow_runs), 12:34:09Z -> 12:53:34Z (~19m). No new comments (still just the two governance-correction exchange comments)."
+    },
+    "rowDiff": {
+      "method": "§3 row-diffed 45588c415 -> 55daf1e58",
+      "result": "TIER-A MILESTONE: V1-40 IN PROGRESS -> VERIFIED via merged #1017. The row's own promotion text (376de78ea, 'V1-40: promote to VERIFIED at L2 -- measured board_diff, not argued') deletes the dead find_drop_candidates second droppability owner and backs the promotion with a measured board_diff (1111/1111 rows, 0 values moved, 0 ranks changed) plus a full contract-key-set comparison plus byte-identical team_droppability/assess_roster_capacity output captures bracketing the deletion -- a literal measurement on every axis the L2 bar asks for, not an inference from an empty import graph alone.",
+      "selfConsistency": "Independent count 81+20+19+14+2=136; contract's own table and completion line read 81/136=59.6%, agreeing -- this is exactly the Tier-A-closed planning figure named in the original NEXT25 instruction."
+    },
+    "tierAMilestone": "TIER-A QUEUE NOW 11 OF 11 CLOSED. All originally-assigned Tier-A rows (V1-69, V1-90, V1-121, V1-79, V1-92, V1-98, V1-112, V1-133, V1-134, V1-135, V1-40) are VERIFIED. No further Tier-A tracking needed going forward -- this record's remaining standing watches are #1027 (V1-49) and #1001 (V1-136), both still open, plus general row-diffing for any new promotion pass.",
+    "standingItemsUnchanged": "Lane 2, Lane 4 on-box batch, all three abandoned refs — checked live, no change.",
+    "note": "81/136=59.6% matches the user's own stated planning assumption for a closed Tier-A queue exactly. 15 more rows needed for 96/136=70.6% -- the V1_NEXT25_CENSUS.md delivered at cycle 65 remains the standing candidate list for that next stretch; watching for Integration/Claude 5 to pick up rows from it."
   }
 }
