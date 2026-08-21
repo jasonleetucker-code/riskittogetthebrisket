@@ -358,14 +358,14 @@ table already said 47, and on its first real use it caught the same drift again
 
 | status | count |
 |---|---|
-| `VERIFIED` | 65 |
-| `IMPLEMENTED_UNVERIFIED` | 19 |
-| `IN PROGRESS` | 20 |
-| `NOT STARTED` | 30 |
+| `VERIFIED` | 69 |
+| `IMPLEMENTED_UNVERIFIED` | 20 |
+| `IN PROGRESS` | 18 |
+| `NOT STARTED` | 27 |
 | `BLOCKED` | 2 |
 | **denominator** | **136** |
 
-**V1 completion: 65 / 136 = 47.8%.**
+**V1 completion: 69 / 136 = 50.7%.**
 
 The percentage went DOWN without any capability regressing, and that is the tally being honest
 rather than flattering: the owner enlarged V1 on 2026-08-20 (§3.12, +4) and the denominator moved
