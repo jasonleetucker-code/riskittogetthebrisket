@@ -65,7 +65,9 @@ export function normalizeTabKey(key) {
 // Which public-contract section each tab renders from.
 //
 // Tabs ABSENT from this map fetch their own data and need nothing from
-// the contract: `previews`/`recaps` (ArticlesSection), the four `ros*`
+// the contract: `previews`/`recaps` (ArticlesSection), `power`
+// (RosPowerSection reads the lazy `rosPower` section directly — the v1
+// engine and its eager `power` section are retired), the four `ros*`
 // tabs, and `draft-capital`.  That absence is load-bearing — it is what
 // lets the server ship a contract containing only the sections the
 // landing tab actually reads instead of all seventeen (2.01 MB, of
@@ -73,7 +75,6 @@ export function normalizeTabKey(key) {
 // all since the articles tabs replaced it).
 export const SECTION_FOR_TAB = Object.freeze({
   overview: "overview",
-  power: "power",
   luck: "luck",
   streaks: "streaks",
   history: "history",

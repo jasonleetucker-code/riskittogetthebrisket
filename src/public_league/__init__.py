@@ -30,7 +30,6 @@ Section modules:
     archives         — Public searchable archives / databases
     luck             — Luck Score (actual vs expected wins)
     streaks          — Active streaks + records-in-reach feed
-    power            — Weekly power ranking + time-series chart
     matchup_preview  — Head-to-head preview / recap for the current week
     weekly_recap     — Full-page weekly recap newsletter
     matchup_narrative — ESPN-style preview/recap article generator (Claude-powered)

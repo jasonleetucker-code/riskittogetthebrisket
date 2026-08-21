@@ -41,7 +41,6 @@ export const PUBLIC_SECTION_KEYS = Object.freeze([
   "archives",
   "luck",
   "streaks",
-  "power",
   "teamAssignment",
   "matchupPreview",
   "weeklyRecap",

@@ -350,7 +350,6 @@
         1
       ],
       "consumers": [
-        "src/public_league/power.py",
         "src/sharp/score.py",
         "src/roster_intel/window.py",
         "src/ros/power_v2.py",
@@ -359,7 +358,8 @@
       "duplicates": [
         {
           "impl": "src/public_league/power.py",
-          "disposition": "(below + (equal-1)*0.5)/(n-1) \u2014 max 1.0"
+          "disposition": "REMOVED \u2014 V1-52 deleted the whole module (its percentile helper, (below + (equal-1)*0.5)/(n-1), went with it); the surviving power engine is src/ros/power_v2.py, already listed below",
+          "removedMarker": "(equal - 1) * 0.5) / (n - 1)"
         },
         {
           "impl": "src/sharp/score.py",

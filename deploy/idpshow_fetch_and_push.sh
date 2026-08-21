@@ -135,11 +135,34 @@ fi
 # tracked) - matches the scheduled-refresh.yml "Commit updated data"
 # step.  Adding a path whose fetch failed (and so is unchanged on
 # disk) is harmless - it just produces no diff to commit.
-git add -f -- \
-  CSVs/site_raw/idpShow.csv \
-  CSVs/site_raw/idpShowCombined.csv \
-  data/scrape_state/idpShow_last_success \
+ADD_PATHS=(
+  CSVs/site_raw/idpShow.csv
+  CSVs/site_raw/idpShowCombined.csv
+  data/scrape_state/idpShow_last_success
   data/scrape_state/idpShowCombined_last_success
+)
+
+# *_last_status.json (V1-136) is the fetcher's own structured
+# AcquisitionOutcome for that run - written on every real (non-dry-run)
+# invocation, success OR failure, unlike *_last_success which only ever
+# advances.  Committing it is what makes a failure's CLASS
+# (AUTH_REQUIRED vs UNAVAILABLE vs PARSE_FAILED vs SCHEMA_CHANGED)
+# observable in the repo instead of living only in a timer's transient
+# log.  Existence-checked (unlike the paths above, which are already
+# tracked from a prior run) because these two are new: the ONE path
+# through fetch_idpshow.py that can exit without writing one is an
+# uncaught exception before its first persist point (e.g. curl_cffi
+# missing) - `git add -f` on a path that has never existed is a hard
+# pathspec error under `set -e`, which would abort this whole push and
+# block committing the OTHER board's genuinely successful refresh too.
+if [[ -f data/scrape_state/idpShow_last_status.json ]]; then
+  ADD_PATHS+=(data/scrape_state/idpShow_last_status.json)
+fi
+if [[ -f data/scrape_state/idpShowCombined_last_status.json ]]; then
+  ADD_PATHS+=(data/scrape_state/idpShowCombined_last_status.json)
+fi
+
+git add -f -- "${ADD_PATHS[@]}"
 
 if git diff --cached --quiet; then
   log "no changes after fetch - exiting clean"

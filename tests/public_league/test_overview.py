@@ -83,13 +83,58 @@ class OverviewTests(unittest.TestCase):
         self.assertIn("week", recap)
 
     # ── v2 Home callouts ─────────────────────────────────────────────
-    def test_current_power_leader_populated(self) -> None:
+    def test_current_power_leader_reads_the_canonical_engine(self) -> None:
+        """V1-52 item D: the landing card reads ``power_v2``, not the
+        legacy ``public_league/power.py`` it used to.
+
+        The shared fixture (``build_test_snapshot``) is a PRESEASON state
+        with no ``team_ros_strength`` snapshot -- exactly the state
+        ``power_v2``'s own refuse-to-rank contract (item B) exists for:
+        every historical-results component is suppressed by preseason
+        mode, and the forward-looking substitute is unavailable, so there
+        is genuinely nothing to rank on. The legacy engine used to
+        fabricate a score here regardless; this asserts the CORRECT
+        behavior, not the old one -- the leader card still names an
+        owner and a factual record (both real regardless of whether a
+        score is computable), and is honest that no score exists rather
+        than showing a fabricated one.
+        """
         leader = self.overview["currentPowerLeader"]
         self.assertIsNotNone(leader)
-        for key in ("ownerId", "displayName", "teamName", "power", "record"):
+        for key in ("ownerId", "displayName", "teamName", "record"):
             self.assertIn(key, leader)
+            self.assertIsNotNone(leader[key], f"{key} is present but None")
+        self.assertIsNone(
+            leader["power"],
+            "the fixture is preseason with no team-strength snapshot -- nothing "
+            "is rankable, so a real (non-null) power score means something "
+            "fabricated a number rather than refusing",
+        )
+        self.assertIsNone(
+            leader["weekRankDelta"],
+            "no per-week ROS-strength history exists for the forward-looking "
+            "lens, so this must be unknown, never a fabricated 0",
+        )
+
+    def test_current_power_leader_is_populated_when_the_engine_can_rank(self) -> None:
+        """The other half: refusal must not become the ONLY outcome.
+
+        Same call this class exercises (``overview._current_power_leader``
+        over a real ``power_v2`` section), against a fixture with real
+        scored weeks -- proving the honest-refusal test above isn't
+        passing because nothing here can ever produce a leader.
+        """
+        from src.public_league import overview
+        from src.ros import power_v2
+        from tests.ros.test_power_lenses import _scored_snapshot
+
+        section = power_v2.build_section(_scored_snapshot(), lens=power_v2.LENS_FORWARD_LOOKING)
+        leader = overview._current_power_leader(section)
+        self.assertIsNotNone(leader)
+        self.assertIsNotNone(leader["power"])
         self.assertGreaterEqual(leader["power"], 0)
         self.assertLessEqual(leader["power"], 100)
+        self.assertIsNotNone(leader["record"])
 
     def test_lucky_unlucky_current_populated(self) -> None:
         lu = self.overview["luckyUnluckyCurrent"]
