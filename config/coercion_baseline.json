@@ -1,6 +1,6 @@
 {
  "note": "Known missing-data coercions on decision paths, recorded so the gate can block NEW ones while the remediation batches burn these down. Each batch deletes its findings' entries. Do not add to this file to make a build pass.",
- "count": 661,
+ "count": 660,
  "violations": [
   "frontend/lib/auction-power.js::const raw = names.map((n) => Number(totalsObj[n]) || 0);",
   "frontend/lib/bdvm.js::assetCount: _num(r?.assetCount) ?? 0,",
@@ -412,7 +412,6 @@
   "src/news/unified_signal_engine.py::abs(usage_signal_dict.get(\"snap_pct_z\") or 0),",
   "src/news/unified_signal_engine.py::abs(usage_signal_dict.get(\"target_share_z\") or 0),",
   "src/public_league/activity.py::feed.sort(key=lambda t: -int(t.get(\"createdAt\") or 0))",
-  "src/public_league/activity.py::out.append(float(valuation(asset) or 0.0))",
   "src/public_league/activity.py::wk = t.get(\"week\") or 0",
   "src/public_league/archives.py::rows.sort(key=lambda r: -(int(r.get(\"createdAt\") or 0)))",
   "src/public_league/awards.py::elif int(pk.get(\"previous_owner_id\") or 0) == rid:",
