@@ -1,13 +1,4 @@
 {
-  "aggregatedAt": "2026-08-21T17:10:59.567797+00:00",
-  "league": {
-    "is_superflex": true,
-    "is_2qb": false,
-    "is_te_premium": true,
-    "idp_enabled": true
-  },
-  "sourceCount": 5,
-  "playerCount": 1039,
   "players": [
     {
       "canonicalName": "josh allen",
