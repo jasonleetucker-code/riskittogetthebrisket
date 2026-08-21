@@ -164,17 +164,28 @@ add(
 )
 add(
     "D-032",
-    "duplicate service",
-    "Three Python ports of KTC adjustPackage",
-    "src/trade/ktc_va.py, src/trade/market_value_adjustment.py, "
-    "src/public_league/trade_grading.py",
-    "38/20000 random packages diverge by exactly 1 between ktc_va (Python round) and "
-    "the other two (floor(x+0.5))",
-    "trade suggestions + angle + MC (port A); arbitrage finder (port B); "
-    "public-league grades (port C)",
-    "replace",
-    "one algorithm, three copies, one of them with the rounding bug the other two "
-    "explicitly document fixing",
+    "duplicate service (RE-VERIFIED 2026-08-20, corrected)",
+    "Two Python ports of KTC adjustPackage (was three)",
+    "src/trade/ktc_va.py, src/public_league/trade_grading.py",
+    "src/trade/market_value_adjustment.py is now a pure re-export of ktc_va.py "
+    "(0 computation, own docstring says so) -- the rounding-bug port (floor(x+0.5) vs "
+    "ktc_va's banker's-rounding original) was collapsed 2026-08-18. trade_grading.py "
+    "already uses _js_round (floor(x+0.5), matching ktc_va's now-fixed rounding) and is "
+    "guarded by a live cross-implementation parity fixture "
+    "(tests/public_league/test_trade_grade_parity.py + "
+    "frontend/__tests__/trade-grade-parity.test.js + "
+    "tests/fixtures/trade_grade_parity_cases.json), 8 tests / 50 subtests passing "
+    "2026-08-20",
+    "trade suggestions + angle + MC + arbitrage finder (both via ktc_va.py, port B "
+    "collapsed into re-export); public-league grades (trade_grading.py, still separate)",
+    "adapt",
+    "the ORIGINAL defect (rounding divergence, monkeypatch install, dead V12/V13 "
+    "exports) is fixed per CLAUDE.md's trade-engine section and verified here by direct "
+    "read + a green parity test. What remains is 2 Python implementations, not 1 -- "
+    "same sanctioned-duplication shape as D-039 (a real parity test makes it safe), but "
+    "whether trade_grading.py should still collapse into ktc_va.py per C3-VA-01's "
+    "stated target (ONE Python port) is a Lane 2 (Claude 9, C3 trade substrate) "
+    "methodology call, not decided here",
 )
 add(
     "D-033",
@@ -240,11 +251,18 @@ add(
     "duplicate schema",
     "Auction power: Python module vs JS mirror",
     "src/api/auction_power.py (170L) vs frontend/lib/auction-power.js",
-    "zero Python importers anywhere; the JS file's own header calls itself a mirror "
-    "of the Python",
-    "frontend only",
-    "deprecate",
-    "the 'mirror' is the only live implementation; the original is dead",
+    "CORRECTED 2026-08-20 (C10-CLOSE-02 audit): tests/api/test_auction_power_parity.py:36 "
+    "imports AuctionPowerConstants + effective_auction_power and is a LIVE cross-language "
+    "parity guard -- its own docstring (:1-28) states the JS is what users see and the "
+    "Python is the documented source of truth, pinning the three tuning constants so drift "
+    "fails (:87: \"the frontend is the one users see, and the Python file is the one "
+    "documented as authoritative. Change both.\"). The prior 'zero Python importers' "
+    "evidence checked src/ imports only and missed the test-suite parity guard -- the same "
+    "sanctioned-duplication-with-parity-test shape this file already blesses at D-039",
+    "both, via the parity test",
+    "retain",
+    "deleting the Python file destroys the only thing keeping the shipped JS numbers "
+    "honest -- same disposition class as D-039",
 )
 add(
     "D-039",
@@ -444,11 +462,19 @@ add(
     "source adapter",
     "ScraperBridgeAdapter",
     "src/adapters/scraper_bridge_adapter.py",
-    "zero references outside tests and src/adapters/__init__.py; CLAUDE.md:895 "
-    "claims 'live (server.py)'",
-    "tests only",
-    "deprecate",
-    "documentation asserts a production wiring that does not exist",
+    "CORRECTED 2026-08-20 (C10-CLOSE-02 audit): the original evidence's own qualifier "
+    "('outside tests AND src/adapters/__init__.py') silently discarded the one importer "
+    "that makes this live. src/adapters/__init__.py:1 does a top-level "
+    "'from .scraper_bridge_adapter import ScraperBridgeAdapter', and server.py:2112,6002 "
+    "do 'from src.adapters import sleeper_trending' -- which EXECUTES that __init__.py on "
+    "every live request path touching sleeper trending. scripts/audit/"
+    "measure_module_reachability.py:56 already lists src.adapters in "
+    "DYNAMIC_DISPATCH_HINTS, i.e. the reachability tool already knows this package is "
+    "dynamically reached; this row's disposition did not read that signal",
+    "production, via package __init__ import-time execution",
+    "retain",
+    "CLAUDE.md:895's 'live (server.py)' claim was correct; the census's own reachability "
+    "check missed the __init__.py import-time path",
 )
 add(
     "D-101",
@@ -494,13 +520,22 @@ add(
 )
 add(
     "D-112",
-    "dead nav target",
+    "live redirect target (RE-VERIFIED 2026-08-20, corrected)",
     "/draft-capital",
     "frontend/lib/nav-model.js:391",
-    "no frontend/app/draft-capital directory exists",
-    "pageTitleFor label lookup only (not paletteTargets)",
-    "deprecate",
-    "vestigial title mapping for a removed page; harmless but misleading",
+    "no frontend/app/draft-capital directory exists, but "
+    "frontend/__tests__/nav-model.test.js:25 and public-routes.test.js document + pin "
+    "it as a legacy routing-layer 308 redirect declared in next.config.mjs (not a page "
+    "directory) that public-routes.test.js explicitly keeps public "
+    "(isPublicPath('/draft-capital') === true)",
+    "pageTitleFor label lookup only (not paletteTargets); the redirect itself is "
+    "routing-layer, not a page component",
+    "retain",
+    "NOT dead -- a page-directory absence is not evidence of dead code once a route "
+    "can be declared outside app/ (next.config.mjs redirects). This is the SECOND row "
+    "this same C10 pass found stale on a 'no page directory' assumption (see D-120's "
+    "correction) -- neither is safe to act on from this census alone without checking "
+    "for a routing-layer or test-pinned reason first",
 )
 add(
     "D-113",
@@ -516,14 +551,24 @@ add(
 # ── modules with no production importer ──────────────────────────────
 add(
     "D-120",
-    "dead module",
+    "dead module (RE-VERIFIED 2026-08-20, corrected)",
     "src/api/chat.py",
     "src/api/chat.py",
-    "GET and POST /api/chat both return 404 on the running server; "
-    "/api/chat is absent from evidence/openapi.json's 100 ops; no importer",
+    "still zero production importers, GET/POST /api/chat still absent from server.py -- "
+    "but tests/api/test_chat_layers_are_consistently_wired.py (added after this row was "
+    "written) is a live, passing guard asserting exactly this: three chat layers "
+    "(backend module, frontend proxy, UI caller) must be ALL wired or ALL unwired, and "
+    "pins that today's intended state is ALL THREE UNWIRED pending a product decision "
+    "on shipping a streaming-LLM feature. Its own docstring says explicitly: 'recorded "
+    "rather than deleted -- it becomes valuable the moment the product decision goes "
+    "the other way'",
     "nothing",
-    "deprecate",
-    "the module docstring describes a 'single private endpoint' that is not registered",
+    "retain",
+    "this was ALMOST deleted by this same C10 pass on the strength of the original "
+    "'deprecate' disposition -- reading the guard test first is what caught it. NOT a "
+    "case for deletion: a newer, more specific decision than this census row already "
+    "governs it. The other D-121..D-129 dead-module rows have NOT been re-checked for "
+    "a similar deliberate-keep guard and should not be deleted without the same check",
 )
 add(
     "D-121",
@@ -571,8 +616,11 @@ add(
     "dead module",
     "src/backtesting/harness.py",
     "src/backtesting/harness.py",
-    "no importer at all, including scripts",
-    "nothing",
+    "CORRECTED 2026-08-20 (C10-CLOSE-02 audit): 'no importer at all, including scripts' "
+    "was factually false -- tests/backtesting/test_harness.py:5 imports it. Zero "
+    "PRODUCTION importers, so the deprecate disposition still stands; only the evidence "
+    "string was wrong",
+    "tests only",
     "deprecate",
     "feature_flags.py:406 names it as the thing dynamic_source_weights gates",
 )

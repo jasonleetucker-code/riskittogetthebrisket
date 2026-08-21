@@ -241,6 +241,89 @@ def check_manifest(f: Failures, ce_registry: dict[str, str]) -> None:
     check_declared_flag_count(f, text, rows)
 
 
+def parse_owner_map(text: str) -> dict[str, dict]:
+    """Section 2's "Canonical-owner map": ``| concept | canonical owner | state | manifest row |``.
+
+    Keyed by the manifest-row id in the 4th cell (backtick-wrapped, e.g. `` `C2-REPL-01` ``) —
+    that id is the join key back to the main manifest table `check_manifest` already parses.
+    """
+    marker = "\n# 2. Canonical-owner map"
+    end_marker = "\n# 3. Acceptance profiles"
+    if marker not in text:
+        return {}
+    body = text.split(marker, 1)[1]
+    if end_marker in body:
+        body = body.split(end_marker, 1)[0]
+    rows: dict[str, dict] = {}
+    for line in body.split("\n"):
+        cells = [c.strip() for c in line.strip().strip("|").split("|")]
+        if len(cells) != 4 or cells[0] in ("concept", "---"):
+            continue
+        m = re.search(r"`([A-Z][A-Z0-9]*-[A-Z0-9-]+)`\s*$", cells[3])
+        if not m:
+            continue
+        rows[m.group(1)] = {"concept": cells[0], "owner": cells[1], "state": cells[2], "line": line}
+    return rows
+
+
+# A row's §2 `state` cell counts as a real statement -- either a retirement
+# (the `~~<old population>~~ →` convention, used on 5 rows today: Player
+# identity, Pick identity, Historical value, Acquisition history, Lineup/slot
+# assignment) or an explicit current count of the surviving duplicates
+# (`**N implementations**`, `**≥5 need definitions**`, etc). A blank, a bare
+# adjective, or "to be consolidated" with no number is NOT a statement --
+# V1-125's own wording requires "a measured statement... 0 rows, or the
+# exact rows," and an unnumbered vague state is neither.
+_RETIREMENT_PATTERN = re.compile(r"~~.*?~~\s*→")
+_MEASURED_COUNT_PATTERN = re.compile(r"\*\*[^*]*(\d+|≥\d+)[^*]*\*\*")
+
+
+def check_duplicate_owners(f: Failures, rows: list[dict]) -> None:
+    """C10-CLOSE-02 / V1-125: every `DUPLICATED`-status manifest row has an owner-map
+    entry, and that entry's `state` cell is a real statement (retired, or an honest
+    current count) rather than a vague or missing one.
+
+    Deliberately does NOT require every row to show retirement -- V1-125's own text
+    says "do not delete legitimate alternate concepts simply to reach zero," and a
+    2026-08-20 audit measured 5 of 8 currently-`DUPLICATED` rows as genuine, live,
+    still-open duplication (real implementation work, out of this check's scope).
+    What this DOES enforce is that no `DUPLICATED` row can go untracked or have its
+    tracking go silently vague -- the structural half of the census, not the
+    methodology work of actually retiring the code.
+    """
+    text = read(MANIFEST)
+    owner_map = parse_owner_map(text)
+
+    duplicated = [r for r in rows if len(r["cells"]) > 3 and r["cells"][3].startswith("DUPLICATED")]
+    if not duplicated:
+        f.add("duplicate-owners", "no DUPLICATED-status rows found — the parser likely broke")
+        return
+
+    retired = 0
+    for r in duplicated:
+        entry = owner_map.get(r["id"])
+        if entry is None:
+            f.add(
+                "duplicate-owners",
+                f"{r['id']} is DUPLICATED but has no entry in the section-2 owner map "
+                f"({MANIFEST.name})",
+            )
+            continue
+        state = entry["state"]
+        if _RETIREMENT_PATTERN.search(state):
+            retired += 1
+        elif _MEASURED_COUNT_PATTERN.search(state):
+            pass  # open, but honestly counted — not a failure
+        else:
+            f.add(
+                "duplicate-owners",
+                f"{r['id']}'s owner-map state is neither a retirement nor a measured "
+                f"count: {state!r}",
+            )
+
+    print(f"  duplicate owners: {retired} of {len(duplicated)} DUPLICATED rows retired")
+
+
 def check_declared_flag_count(f: Failures, text: str, rows: list[dict]) -> None:
     """14: the declared RET count agrees with the rows actually flagged RET.
 
@@ -548,7 +631,9 @@ def main() -> int:
     try:
         ce = check_ce_registry(f)
         check_manifest(f, ce)
-        manifest_ids = {r["id"] for r in parse_manifest(read(MANIFEST))}
+        manifest_rows = parse_manifest(read(MANIFEST))
+        manifest_ids = {r["id"] for r in manifest_rows}
+        check_duplicate_owners(f, manifest_rows)
         check_source_census(f)
         check_standing_tally(f)
         check_traceability(f, manifest_ids)
@@ -580,6 +665,7 @@ def main() -> int:
     print("  declared RET-row count matches the rows actually flagged")
     print("  every manifest row maps to exactly one execution unit")
     print("  V1 standing tally agrees with the V1 row table")
+    print("  every DUPLICATED row has an owner-map entry with a real (retired or counted) state")
     return 0
 
 
