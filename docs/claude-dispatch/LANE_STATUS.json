@@ -1,7 +1,7 @@
 {
   "_comment": "Lane utilization state for an independent traffic-control/dispatch record (no lane number, no name assigned to it — see governanceCorrection_C31). NOT an authority on integration sequencing (Claude 5 / docs/EXECUTION_PLAN.md), on V1 status (docs/VERSION_1_COMPLETION_CONTRACT.md) or on canonical ownership (CLAUDE.md). Repository evidence outranks this file: where they disagree, this file is wrong and must be corrected.",
-  "updatedAt": "2026-08-21T07:26:00Z",
-  "dispatchCycle": 70,
+  "updatedAt": "2026-08-21T07:56:00Z",
+  "dispatchCycle": 71,
   "writePolicy": "This file and ASSIGNMENTS.json are written ONLY on a material state transition — new assignment, assignment accepted, completion, blocker, freeze/unfreeze, or a meaningful dependency change. A heartbeat that finds nothing changed produces no commit and no CI run.",
   "evidenceBasis": "origin/main 079fc9e4a; §3 diffed row-by-row from cycle-19 main (c5a367266); all refs resolved live; #945 CI green 04:57:35Z",
   "assignmentSourceNote": "Lanes 1-6 carry the owner's original six manual assignments, tracked in detail by this dispatcher. Lanes 8-13 are five additional owner-authorized campaign lanes (Claude 8 chartered 2026-08-20; Claude 9-13 chartered the same day under the POST-V1 C-Series mass-build campaign, EXECUTION_PLAN.md §0). This dispatcher did not originate any of these eleven assignments and does not own or re-scope them. Lanes 8-13 are tracked here only lightly — ownership boundaries and authorization citation — because they are self-directed under their own charter, unlike lanes 1-6 which this dispatcher actively monitors for idleness and dispatches follow-on work to. This record is independent traffic-control/dispatch bookkeeping — it claims no lane number and is not assigned to a named identity, per dispatcherIdentity above.",
@@ -549,5 +549,20 @@
     "tierAPipelineCheck": "Read all three PRs flagged last cycle directly rather than guessing from titles (rule q): #1023 (V1-133/134/135, mutation-proven, tally note says 65->68/136 -- written before #1021/#1030 landed, so that arithmetic is now stale relative to current main but the row content itself is unaffected), #1022 (V1-79/92/98/112 real fixes plus V1-101 status-only correction, all five test-backed with RED/GREEN mutation cycles shown, mergeable_state clean), #1017 (V1-40, dead-code deletion + vocabulary guard, mutation-proven, FEATURE_GREEN/READY_FOR_INTEGRATION). Together these three cover EVERY remaining Tier-A row except none left uncovered -- V1-133/134/135/79/98/92/112/40 is exactly the 8 that remain open. All three still unmerged as of this check; none is the 'reconciliation pass' the contract flagged for V1-121 specifically, so that note's target is still to be identified.",
     "standingItemsUnchanged": "Lane 2, Lane 4 on-box batch, all three abandoned refs — checked live, no change.",
     "note": "Nothing promoted or merged this cycle -- reporting the pipeline shape only. Once any of #1023/#1022/#1017 lands, expect a large jump in Tier-A closures in one row-diff."
+  },
+  "cycle71Transitions": {
+    "mainTip": "e9333823 (was cb181fb9d)",
+    "myOwnPr": {
+      "pr": "#1000", "head": "2604dcd92",
+      "verdict": "Validate PR SUCCESS, run 32458484282 (head_sha cross-verified), 07:24:24Z -> 07:43:07Z (18m43s). No new comments."
+    },
+    "rowDiff": {
+      "method": "§3 row-diffed cb181fb9d -> e9333823",
+      "result": "#1022 MERGED, exactly the PR flagged last cycle. FOUR promotions: V1-79, V1-92, V1-98, V1-112 all -> VERIFIED, on the evidence already stated in each row's own note. PLUS one status CORRECTION, not a promotion: V1-101 IN PROGRESS -> IMPLEMENTED_UNVERIFIED -- its own PR concedes an L4 gap remains, so it moved to a more accurate non-VERIFIED state rather than closing. This is the fourth time this session the contract's own completion-line prose has flagged and resolved the same textual-coincidence trap (two branches independently computing a tally from a shared base); traced against the real merge-base per the contract's own note rather than trusted blind.",
+      "selfConsistency": "Independent count 77+20+15+22+2=136; contract's own table and completion line read 77/136=56.6%, agreeing."
+    },
+    "tierAMilestone": "Tier-A queue: 7 of 11 closed (V1-69, V1-90, V1-121, V1-79, V1-92, V1-98, V1-112). Only 4 remain: V1-133/134/135 (covered by still-open #1023) and V1-40 (covered by still-open #1017). Both PRs already read and confirmed mutation-proven at cycle 70 -- no new reading needed, just watching for merge.",
+    "standingItemsUnchanged": "Lane 2, Lane 4 on-box batch, all three abandoned refs — checked live, no change.",
+    "note": "56.6% crosses well past the halfway point to the 70.6% target (96/136). At the current closure rate this session, the remaining Tier-A rows plus V1_70_ATTACK_MATRIX/V1_NEXT25_CENSUS candidates are the most likely path to 96."
   }
 }
