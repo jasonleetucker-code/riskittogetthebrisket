@@ -578,12 +578,120 @@ class TestCrossMarketIntegration:
         assert "sum(a.raw_market_value" not in src
 
     def test_does_not_depend_on_the_pre_fix_trade_engines(self):
-        """finder.py was silently offense-only until recently."""
-        import inspect
+        """finder.py was silently offense-only until recently.
 
-        from src.roster_intel import packages
+        Narrowed 2026-08-20 (C3-PKG-01): the concern this test names is
+        specifically about the trade VALUATION engines that carried the
+        offense-only defect (finder / suggestions / angle, plus the KTC-VA
+        ports they used before cross_market.py existed) — not the entire
+        ``src.trade`` namespace. A blanket substring ban on ``"src.trade"``
+        also blocked importing ``src.trade.constraints`` (C3-CON-01), the
+        canonical LOCK/EXCLUDE owner ``finder.py`` and ``angle.py`` already
+        consume — a different, later-built, cross-cutting concern with no
+        connection to the offense-only valuation bug. An AST import scan
+        pins the actual claim instead of a string match that could not
+        distinguish "reimplements offense-only valuation" from "consumes an
+        unrelated canonical owner that happens to live under the same
+        package".
+        """
+        import ast
+        from pathlib import Path
 
-        assert "src.trade" not in inspect.getsource(packages)
+        source_path = Path(__file__).resolve().parents[2] / "src" / "roster_intel" / "packages.py"
+        tree = ast.parse(source_path.read_text(encoding="utf-8"), filename=str(source_path))
+        forbidden = {"src.trade.finder", "src.trade.suggestions", "src.trade.angle"}
+        imported: set[str] = set()
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Import):
+                imported.update(alias.name for alias in node.names)
+            elif isinstance(node, ast.ImportFrom) and node.module:
+                imported.add(node.module)
+        offenders = imported & forbidden
+        assert not offenders, (
+            f"roster_intel/packages.py imports the pre-fix, offense-only trade "
+            f"valuation engine(s) {sorted(offenders)} — it must value packages "
+            f"through src.league_intel.cross_market instead"
+        )
+
+
+# ══ C3-CON-01 constraints (LOCK/EXCLUDE, persistent protection) ═══════
+#
+# 2026-08-20: previously this generator was the one surface with ZERO
+# constraints.py integration — no way to keep a protected or excluded
+# player out of a generated package at all. Wired through the same
+# partition_sendable/blocked_outgoing seam finder.py already uses.
+
+
+class TestConstraintsWiring:
+    def test_constraints_none_is_byte_identical_to_omitting_it(self):
+        """The default must be a true no-op — not merely 'usually agrees'.
+
+        This is the golden-fixture inertness proof for the one production
+        caller (src/api/gameplan.py), which passes no constraints argument
+        today: calling explicitly with ``constraints=None`` must produce
+        the exact same dict as not passing the parameter at all.
+        """
+        with_default = generate_packages(
+            _our_pool(), SLOTS, our_assets=_ours(), their_assets=_theirs()
+        )
+        with_explicit_none = generate_packages(
+            _our_pool(), SLOTS, our_assets=_ours(), their_assets=_theirs(), constraints=None
+        )
+        assert with_default == with_explicit_none
+
+    def test_a_protected_player_never_appears_on_the_outgoing_side(self):
+        from src.trade.constraints import resolve_constraints
+
+        constraints = resolve_constraints(persistent={"untouchables": ["BENCH1"]})
+        res = generate_packages(
+            _our_pool(),
+            SLOTS,
+            our_assets=_ours(),
+            their_assets=_theirs(),
+            constraints=constraints,
+        )
+        sent_ids = {a["id"] for pkg in (*res["frontier"], *res["rejected"]) for a in pkg["send"]}
+        assert "bench1" not in sent_ids
+
+    def test_a_protected_player_is_reported_blocked_with_a_reason(self):
+        from src.trade.constraints import resolve_constraints
+
+        constraints = resolve_constraints(persistent={"untouchables": ["BENCH1"]})
+        res = generate_packages(
+            _our_pool(),
+            SLOTS,
+            our_assets=_ours(),
+            their_assets=_theirs(),
+            constraints=constraints,
+        )
+        assert res["constraintsBlockedOutgoing"] == 1
+        assert res["constraintsBlockedReasons"] == ["protected_individual"]
+
+    def test_an_incoming_target_who_is_protected_on_the_other_roster_is_untouched(self):
+        """Only the OUTGOING side is constrained — a protected player stays
+        a valid ACQUISITION target (spec §2.2)."""
+        from src.trade.constraints import resolve_constraints
+
+        constraints = resolve_constraints(persistent={"untouchables": ["THEIR_STUD"]})
+        unconstrained = generate_packages(
+            _our_pool(), SLOTS, our_assets=_ours(), their_assets=_theirs()
+        )
+        constrained = generate_packages(
+            _our_pool(),
+            SLOTS,
+            our_assets=_ours(),
+            their_assets=_theirs(),
+            constraints=constraints,
+        )
+        # Their protected player is still offered to us on some receive side
+        # in both runs — nothing about the ACQUISITION side changed.
+        received_ids_unconstrained = {
+            a["id"] for pkg in unconstrained["frontier"] for a in pkg["receive"]
+        }
+        received_ids_constrained = {
+            a["id"] for pkg in constrained["frontier"] for a in pkg["receive"]
+        }
+        assert received_ids_unconstrained == received_ids_constrained
 
 
 # ══ Acceptance language ═════════════════════════════════════════════
