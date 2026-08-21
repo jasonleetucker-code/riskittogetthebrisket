@@ -1,5 +1,5 @@
 {
-  "_comment": "Durable dispatch ledger written by Claude 7 (Lane Dispatcher). One PRIMARY assignment per lane. An ACTIVE row is never overwritten and a second task is never piled onto an unread one. Claude 7 does not merge, does not implement, and does not change V1 status.",
+  "_comment": "Durable dispatch ledger written by an independent traffic-control/dispatch record (no lane number, no name attached — see LANE_STATUS.json governanceCorrection_C31). One PRIMARY assignment per lane. An ACTIVE row is never overwritten and a second task is never piled onto an unread one. This record does not merge, does not implement, and does not change V1 status.",
   "updatedAt": "2026-08-20T12:05:00Z",
   "cycle": 30,
   "writePolicy": "Written only on a material state transition. An unchanged heartbeat produces no commit and no CI run.",
@@ -19,7 +19,7 @@
       "createdAt": "2026-08-19T10:14:00Z",
       "status": "COMPLETED",
       "closedAt": "2026-08-19T17:30:00Z",
-      "origin": "Claude 7 dispatch, cycle 1",
+      "origin": "this dispatch record, cycle 1",
       "priority": "P1",
       "v1Rows": [
         "V1-130",
@@ -35,7 +35,7 @@
         "head": "51b11bfb",
         "ci": "Validate PR success 2026-08-19T13:59:18Z",
         "verifiedByDispatcher": "Changed-file list read live (14 files). Every hard boundary held: src/trade/constraints.py is the new single owner; enforcement runs inside src/packages/construction.py (during generation, not a post-filter); all four outgoing-proposing surfaces covered (suggestions, finder, angle, server.py); ZERO frontend/** files, ZERO src/roster_intel/** or src/ros/** files, ZERO edits to CLAUDE.md or the contract/plan/manifest; #913's head unchanged at c2153eb. Four constraint test suites present including test_constraint_generation.py.",
-        "notVerifiedByDispatcher": "The proof CONTENT — mutation-tested RED, fail-closed semantics, outgoing-only asymmetry, board byte-identity. Those are Claude 5's to judge at integration; Claude 7 checked scope and boundaries, not correctness."
+        "notVerifiedByDispatcher": "The proof CONTENT — mutation-tested RED, fail-closed semantics, outgoing-only asymmetry, board byte-identity. Those are Claude 5's to judge at integration; this dispatch record checked scope and boundaries, not correctness."
       },
       "handoffState": "FROZEN_FOR_INTEGRATION — Claude 5 owns #929 and #913 as an ordered pair."
     },
@@ -45,7 +45,7 @@
       "laneName": "Trade Intelligence",
       "createdAt": "2026-08-19T18:16:00Z",
       "status": "DELIVERY_REQUIRED",
-      "origin": "Claude 7 dispatch, cycle 4",
+      "origin": "this dispatch record, cycle 4",
       "priority": "P1",
       "v1Rows": [
         "V1-43"
@@ -97,7 +97,7 @@
       ],
       "prompt": "Lane 2 — Trade Intelligence. #914 merged at 17:51:26Z, so src/roster_intel/ is on main and the condition your own #913 body set for V1-43 is satisfied: Analyze Trade V1 can now consume src.roster_intel instead of building against an unmerged interface. Your rehearsal assignment is superseded by that merge. Take V1-43 / C7-DESK-01 / #792 for real. Branch from PLAIN MAIN — #913 and #929 are both merged, so the substrate and the constraint owner are already there; import them rather than restacking — NOT bare main — because you need #913's package substrate and #929's constraint owner; mark the PR as third in the #913 -> #929 -> V1-43 train, and do not commit to either frozen PR. Build the canonical recommendation for ONE typed-in trade. CONSUME the merged Roster owners — exact lineup, reserve demand, meaningful core, Team Strength, Team Weakness, droppability, replacement level, roster simulation — and reimplement none of them; a second implementation of a freshly merged canonical owner is the worst possible outcome of this merge, so ship an import census proving it. The contract row names no-double-counting explicitly: declare every input with its correlation group and show no body of evidence is counted twice. Missing is never zero — an unpriceable asset, an unknown cap or absent Roster evidence must yield an explicit insufficient/unknown verdict, never a confident-looking number, and that must be pinned. Prove canonical value untouched with scripts/board_diff.py --expect-no-value-change. RED-first with a recorded mutation per guard. V1-42 (exact before/apply/re-solve/after simulation) is a SEPARATE row and simulation.py is now on main: state plainly whether you consume it or whether V1-42 stays open — do not silently absorb it. No frontend UI (Lane 6's, and #912 is frozen) — hand the response shape over. No edits to CLAUDE.md or the contract/plan/manifest; draft that text for Claude 5. Stop when the recommendation works with the five proofs recorded and the PR is posted READY FOR INTEGRATION.",
       "heldAt": "2026-08-19T19:01:00Z",
-      "heldReason": "Its base (#929 on #913) is conflicted against post-#914 main. Claude 7's own instruction to 'base on #929's head 51b11bfb' was correct when written at 18:16Z and is not correct now — recorded rather than quietly edited.",
+      "heldReason": "Its base (#929 on #913) is conflicted against post-#914 main. This dispatch record's own instruction to 'base on #929's head 51b11bfb' was correct when written at 18:16Z and is not correct now — recorded rather than quietly edited.",
       "laneIsNotIdle": "Lane 2 pushed rehearsal-2 at 20:19Z (finalized Roster reconciliation map) and has added nothing to either frozen PR. Correct posture; nothing needs dispatching.",
       "heldSinceCycles": [
         5,
@@ -123,7 +123,7 @@
     }
   ],
   "currentAssignmentsManual": {
-    "_note": "Made by the owner directly, not by this dispatcher. Recorded so durable state matches reality. Claude 7 does not own or re-scope these; it monitors them and will not assign over them. This block covers ONLY lanes 1-6 (the original V1 sprint assignments this dispatcher tracks in detail). Five more owner-authorized lanes exist — Claude 8 (Source Acquisition + Cross-Position Bridge, chartered 2026-08-20, V1-scoped) and Claude 9-13 (the POST-V1 C-Series mass-build campaign, chartered 2026-08-20, EXECUTION_PLAN.md §0). Those five are self-directed under their own charter and are tracked lightly in LANE_STATUS.json (lanes 8-13) for awareness, not assignment. There is no lane 7: Claude 7 is this dispatcher, per EXECUTION_PLAN.md's own text ('Lane 7 is not missing... nothing here creates one').",
+    "_note": "Made by the owner directly, not by this dispatcher. Recorded so durable state matches reality. This dispatch record does not own or re-scope these; it monitors them and will not assign over them. This block covers ONLY lanes 1-6 (the original V1 sprint assignments this dispatcher tracks in detail). Five more owner-authorized lanes exist — Claude 8 (Source Acquisition + Cross-Position Bridge, chartered 2026-08-20, V1-scoped) and Claude 9-13 (the POST-V1 C-Series mass-build campaign, chartered 2026-08-20, EXECUTION_PLAN.md §0). Those five are self-directed under their own charter and are tracked lightly in LANE_STATUS.json (lanes 8-13) for awareness, not assignment. This is an independent traffic-control/dispatch record, not a numbered product lane (see LANE_STATUS.json governanceCorrection_C31, 2026-08-21).",
     "1": {
       "task": "V1-29 (#933) + Roster verification pack (#925, now chain head)",
       "status": "ACTIVE",
@@ -237,7 +237,7 @@
       ],
       "problem": "#913 conflicts with post-#914 main on config/coercion_baseline.json; #929 inherits it. Plus two #914-induced breaks: the _index_contract_rows -> index_contract_rows rename leaves the merged tree unable to import, and #914's exact-caller-set cut-ladder test goes red on roster_capacity's direct call.",
       "verifiedByDispatcher": "Conflict reproduced locally with git merge-tree against origin/main — the single conflicted path is config/coercion_baseline.json.",
-      "notClaude7s": "Resolution is integration work on frozen candidates. Claude 7 reported it and did not touch either branch.",
+      "notThisDispatchRecords": "Resolution is integration work on frozen candidates. This dispatch record reported it and did not touch either branch.",
       "stillOpenAtCycle": 10,
       "openForCycles": 6,
       "recheck": "Reproduced a sixth time at 22:43Z.",
@@ -255,7 +255,7 @@
       "problem": "#922's Validate PR on its current head 1f6a877e was CANCELLED at 20:42:14Z. The head of the Roster chain therefore has no green run of its own.",
       "whyItMatters": "Cancelled is neither a pass nor a failure. Cycle 7 recorded this head as GREEN by inheriting the previous head's verdict, which is exactly the missing-read-as-passing mistake this project treats as a defect class. Corrected here.",
       "fix": "Re-run the workflow, or push so a fresh run is scheduled. Do not treat the cancelled run as a verdict.",
-      "notClaude7s": "Neither re-running someone else's CI nor pushing to a frozen candidate is the dispatcher's to do — reported.",
+      "notThisDispatchRecords": "Neither re-running someone else's CI nor pushing to a frozen candidate is the dispatcher's to do — reported.",
       "update": "#922's head is now 5885796. Run 32304436677 attempt 1 (job 96234016882) cancelled 21:54:13Z; attempt 2 (job 96239812680) IN PROGRESS from 21:55:47Z. Root cause of the repeated cancellations is structural, not mysterious: pr-validation.yml:41-43 sets concurrency group pr-<number> with cancel-in-progress: true, so any push or re-run during validation cancels it. The fix is to leave attempt 2 alone.",
       "closedAt": "2026-08-19T22:26:04Z",
       "resolution": "#922's attempt-2 validation resolved and the PR MERGED as b3739f095. Leaving the run untouched was the fix, exactly as recorded."
@@ -270,7 +270,7 @@
       ],
       "problem": "#935's Boot stack + run journeys FAILED at 22:17:20Z (job 96241817417) while its Validate PR is green. A PR with one green and one red check is not green.",
       "whyNotAutomaticallyTheKnownFlake": "Lane 6 has correctly argued before that journey-settings-overrides fails on main and on every branch cut from it. That defence does NOT transfer automatically here, because #935 itself modified tests/e2e/specs/signed-in-smoke.spec.js. A main control run is needed before attributing this to the pre-existing failure.",
-      "notClaude7s": "diagnosis belongs to the lane; reported only."
+      "notThisDispatchRecords": "diagnosis belongs to the lane; reported only."
     }
   ],
   "corrections": [
@@ -298,6 +298,12 @@
     "trigger": "Issue #967 — dispatch registry missing lanes 8 and 9-13.",
     "whatChanged": "currentAssignmentsManual._note rewritten to state the assignment ledger covers lanes 1-6 only and name the five additional owner-authorized lanes without claiming dispatch authority over them. No assignment rows added for 8-13 — this dispatcher does not originate their work.",
     "companionEdit": "docs/claude-dispatch/LANE_STATUS.json — full detail, including dispatcherIdentity block and lanes 8-13 entries.",
+    "noV1Edit": "This correction touches no V1 status, denominator, or product/governance file outside the two dispatcher-owned records named above."
+  },
+  "governanceCorrection_C31": {
+    "trigger": "Owner review comment on PR #1000 (id 5361278924, 2026-08-20T20:26:57Z) — see LANE_STATUS.json governanceCorrection_C31 for the full quote.",
+    "whatChanged": "_comment, origin fields, notVerifiedByDispatcher, heldReason, currentAssignmentsManual._note rewritten to drop 'Claude 7' as this record's name/number; the three 'notClaude7s' keys renamed 'notThisDispatchRecords' with matching text.",
+    "companionEdit": "docs/claude-dispatch/LANE_STATUS.json — full detail and the owner comment quote.",
     "noV1Edit": "This correction touches no V1 status, denominator, or product/governance file outside the two dispatcher-owned records named above."
   }
 }

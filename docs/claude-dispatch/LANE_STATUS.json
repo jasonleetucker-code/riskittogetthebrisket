@@ -1,10 +1,10 @@
 {
-  "_comment": "Lane utilization state, owned by Claude 7 (Lane Dispatcher). NOT an authority on integration sequencing (Claude 5 / docs/EXECUTION_PLAN.md), on V1 status (docs/VERSION_1_COMPLETION_CONTRACT.md) or on canonical ownership (CLAUDE.md). Repository evidence outranks this file: where they disagree, this file is wrong and must be corrected.",
+  "_comment": "Lane utilization state for an independent traffic-control/dispatch record (no lane number, no name assigned to it — see governanceCorrection_C31). NOT an authority on integration sequencing (Claude 5 / docs/EXECUTION_PLAN.md), on V1 status (docs/VERSION_1_COMPLETION_CONTRACT.md) or on canonical ownership (CLAUDE.md). Repository evidence outranks this file: where they disagree, this file is wrong and must be corrected.",
   "updatedAt": "2026-08-21T00:15:00Z",
   "dispatchCycle": 56,
   "writePolicy": "This file and ASSIGNMENTS.json are written ONLY on a material state transition — new assignment, assignment accepted, completion, blocker, freeze/unfreeze, or a meaningful dependency change. A heartbeat that finds nothing changed produces no commit and no CI run.",
   "evidenceBasis": "origin/main 079fc9e4a; §3 diffed row-by-row from cycle-19 main (c5a367266); all refs resolved live; #945 CI green 04:57:35Z",
-  "assignmentSourceNote": "Lanes 1-6 carry the owner's original six manual assignments, tracked in detail by this dispatcher. Lanes 8-13 are five additional owner-authorized campaign lanes (Claude 8 chartered 2026-08-20; Claude 9-13 chartered the same day under the POST-V1 C-Series mass-build campaign, EXECUTION_PLAN.md §0). This dispatcher did not originate any of these eleven assignments and does not own or re-scope them. Lanes 8-13 are tracked here only lightly — ownership boundaries and authorization citation — because they are self-directed under their own charter, unlike lanes 1-6 which this dispatcher actively monitors for idleness and dispatches follow-on work to. There is no lane 7: Claude 7 is the dispatcher identity, per dispatcherIdentity above.",
+  "assignmentSourceNote": "Lanes 1-6 carry the owner's original six manual assignments, tracked in detail by this dispatcher. Lanes 8-13 are five additional owner-authorized campaign lanes (Claude 8 chartered 2026-08-20; Claude 9-13 chartered the same day under the POST-V1 C-Series mass-build campaign, EXECUTION_PLAN.md §0). This dispatcher did not originate any of these eleven assignments and does not own or re-scope them. Lanes 8-13 are tracked here only lightly — ownership boundaries and authorization citation — because they are self-directed under their own charter, unlike lanes 1-6 which this dispatcher actively monitors for idleness and dispatches follow-on work to. This record is independent traffic-control/dispatch bookkeeping — it claims no lane number and is not assigned to a named identity, per dispatcherIdentity above.",
   "lanes": {
     "1": {
       "name": "Roster Intelligence",
@@ -37,7 +37,7 @@
       "name": "Trade Intelligence",
       "state": "ACTIONABLE_IDLE",
       "currentTask": "#913 MERGED; #929 is in the release-candidate wave; V1-43 assignment released and awaiting delivery",
-      "assignmentSource": "manual (owner) rehearsal + Claude 7's L2-2026-08-19-02 held",
+      "assignmentSource": "manual (owner) rehearsal + this dispatch record's L2-2026-08-19-02 held",
       "branch": null,
       "frozenPrs": [],
       "pr": null,
@@ -226,7 +226,7 @@
     "src/packages/construction.py + src/trade/{suggestions,finder,angle}.py + server.py — touched by #913, #929 and (if raised) the V1-43 unit. That is a three-deep ordered release train; it stops being safe if any is merged out of order.",
     "CLAUDE.md — governance-shared; lanes report needed edits to Claude 5. A recurring uncommitted CLAUDE.md reversion has been seen in three Lane 2 working copies; never `git add -A` there.",
     "docs/VERSION_1_COMPLETION_CONTRACT.md — Claude 5 only.",
-    "docs/claude-dispatch/** — Claude 7 only. No lane writes here."
+    "docs/claude-dispatch/** — written only by this dispatch record. No lane writes here."
   ],
   "policy": {
     "adopted": "Main-Movement and Integration Queue Policy — AGENTS.md line 14 + ASSISTANT_COORDINATION.md, squash-merged as fb1245bd6 (#940) at 01:29:55Z.",
@@ -304,7 +304,7 @@
     "what": "#954 merged (main 31724a8d4) carrying commit 6f1556e86, 'docs(governance): Lane 8, not Lane 7'. docs/EXECUTION_PLAN.md §0 now charters the source-acquisition / cross-position-bridge lane as LANE 8 and states why 7 is not a gap.",
     "theTextThatMattersToThisRecord": "EXECUTION_PLAN.md:55-59 — 'Lane 7 is **not** missing from this list: `docs/claude-dispatch/LANE_STATUS.json` and `ASSIGNMENTS.json` already assign **Claude 7 the Lane Dispatcher role** (\"owned by Claude 7 (Lane Dispatcher)\"; \"Claude 7 does not merge, does not implement\"). This lane was briefly mislabelled Lane 7 on 2026-08-20 and the owner corrected it the same day.'",
     "consequence": "These dispatch records are now CITED BY the canonical execution record as the definition of Lane 7. That raises the cost of drift in this file: it is no longer only my own bookkeeping. The v1DerivedObservation guard rails matter more, not less — and the same discipline now applies to lane identity, which is a thing I do own here.",
-    "laneModelNow": "Lanes 1-6 product, Lane 7 dispatcher (this record), Lane 8 source acquisition / cross-position bridge. C-Series campaign lanes (Claude 9 and the C5 branches) run under the #963 authorization. My six-lane model was not wrong; it was incomplete, and the gap is now closed by the owner rather than by me."
+    "laneModelNow": "SUPERSEDED BY governanceCorrection_C31 (2026-08-21) — the 'Lane 7' framing this field asserted is retired. Current model: Lanes 1-6 product, Lane 8 source acquisition / cross-position bridge, this record an independent traffic-control/dispatch process with no lane number. C-Series campaign lanes (Claude 9 and the C5 branches) run under the #963 authorization."
   },
   "cycle29Transitions": {
     "mainTip": "31724a8d4 (was daf3c981e)",
@@ -327,15 +327,16 @@
     ]
   },
   "dispatcherIdentity": {
-    "_authority": "docs/EXECUTION_PLAN.md §0, lines 55-59 and the POST-V1 C-Series section: 'There is no Claude 7 lane. The number is not assigned, and nothing here creates one.'",
-    "statement": "Claude 7 IS the Lane Dispatcher — the author of this record — and is explicitly NOT a seventh product implementation lane. This file's own numbering (lanes 1-6 as product lanes) was briefly read elsewhere as leaving '7' open; EXECUTION_PLAN.md corrected that reading on 2026-08-20 by naming this file and ASSIGNMENTS.json directly as the reason 7 is not a gap.",
-    "doesNotChange": "Nothing about the dispatcher's own conduct rules changes: no merging, no implementing, no V1 status edits, no origination of work for other lanes."
+    "_authority": "SUPERSEDED 2026-08-21 by governanceCorrection_C31 (owner comment on PR #1000). Previously cited docs/EXECUTION_PLAN.md §0, lines 55-59: 'There is no Claude 7 lane. The number is not assigned, and nothing here creates one.' — that EXECUTION_PLAN.md text is unchanged (out of this record's write scope) and this block no longer restates it as this record's own name.",
+    "statement": "This is an independent traffic-control/dispatch record. It is not a seventh product implementation lane, and per the 2026-08-21 owner correction it is not described as 'Claude 7' either — the earlier framing (kept below for history) clarified 'dispatcher, not a lane' but still used a name/number as this record's identity, which the owner's comment on PR #1000 asked to drop entirely.",
+    "priorStatement_SUPERSEDED": "Claude 7 IS the Lane Dispatcher — the author of this record — and is explicitly NOT a seventh product implementation lane. This file's own numbering (lanes 1-6 as product lanes) was briefly read elsewhere as leaving '7' open; EXECUTION_PLAN.md corrected that reading on 2026-08-20 by naming this file and ASSIGNMENTS.json directly as the reason 7 is not a gap.",
+    "doesNotChange": "Nothing about this record's own conduct rules changes: no merging, no implementing, no V1 status edits, no origination of work for other lanes."
   },
   "governanceCorrection_C30": {
     "trigger": "Issue #967 — 'Dispatch registry is missing lanes 8 and 9-13' — a bounded dispatcher-owned governance correction requested directly, citing head d51910bf5.",
     "whatWasStale": "LANE_STATUS.json materially listed only lanes 1-6, and assignmentSourceNote said 'The six current assignments were made manually by the owner,' which had been true and was now incomplete against EXECUTION_PLAN.md's Lane 8 charter (cycle 26-29) and the Claude 9-13 mass-build campaign (authorized at #963, cycle 26).",
     "whatChanged": [
-      "added dispatcherIdentity, citing EXECUTION_PLAN.md's own text that Claude 7 is the dispatcher and no product lane 7 exists",
+      "added dispatcherIdentity (since further revised 2026-08-21 by governanceCorrection_C31), citing EXECUTION_PLAN.md's own text that a dispatcher role exists and no product lane 7 exists",
       "added lanes 8-13 as lightly-tracked entries (owns/charter-date/citation/observed activity), explicitly NOT given the full assignment-tracking shape lanes 1-6 have, because this dispatcher does not originate or own their work",
       "rewrote assignmentSourceNote to state eleven total owner-authorized assignments across 1-6 and 8-13, with no lane 7"
     ],
@@ -347,7 +348,7 @@
     "selfCheck": "This is the second time this session a governance send-back has asked this dispatcher to correct its own coordination record for the same underlying class of defect: #945's send-back (cycle 20) was 'you formed a second owner of the V1 numerator'; this one is 'your lane model went stale against a canonical record that superseded it.' Both are the same root cause — a derived/cached reading that nobody forced to reconcile against its source. Recording it here rather than treating it as a one-off, because the fix in both cases was the same: mark the block as derived and dated, and don't let convenience make it read as authoritative.",
     "validated": {
       "ci": "Validate PR SUCCESS on head 40509bc5a — job 96415462467, 11:52:57Z -> 12:10:01Z, 17m4s",
-      "check1_oneDispatcherIdentity": "CONFIRMED — dispatcherIdentity block present, states Claude 7 = dispatcher, not a product lane",
+      "check1_oneDispatcherIdentity": "CONFIRMED at the time — dispatcherIdentity block present, stated a dispatcher role distinct from a product lane. Superseded 2026-08-21 by governanceCorrection_C31, which dropped the name/number attached to that role.",
       "check2_lanes8to13Present": "CONFIRMED — LANE_STATUS.json lanes keys = ['1','2','3','4','5','6','8','9','10','11','12','13']",
       "check3_noProductLane7Invented": "CONFIRMED — no '7' key in lanes{}; no 'lane: 7' entry in ASSIGNMENTS.json",
       "check4_noV1StatusChanged": "CONFIRMED — diffed the correction commit against its parent: only docs/claude-dispatch/ASSIGNMENTS.json and LANE_STATUS.json touched, zero product/source/governance files, no observedVerifiedRows/observedRequiredRows/denominator value altered",
@@ -406,5 +407,22 @@
       "remainderFG": 21
     },
     "note": "31 closures needed for 96/136; TOP10+NEXT10+NEXT15 alone is 35 candidates, already surplus over the 31 target; SURPLUS15 brings the considered pool to 50 so the sprint can absorb blocked or contested rows well past the first 31 without falling short. This dispatcher counted nothing, promoted nothing, and modified no code in producing it -- delivery only."
+  },
+  "governanceCorrection_C31": {
+    "trigger": "Owner review comment on PR #1000 (id 5361278924, 2026-08-20T20:26:57Z): 'the current owner map explicitly has Claude 1-6 and Claude 8; there is no active Claude 7 lane. This PR's title/body and docs/claude-dispatch/* ownership text still describe a Lane/Claude 7 dispatcher, so merging it would reintroduce stale durable ownership metadata. Please make only the bounded identity/governance correction: describe this as an independent traffic-control/dispatch record without assigning it to Claude 7... Do not change V1 scope or statuses as part of this correction.'",
+    "whatWasStale": "The prior governanceCorrection_C30 pass (cycle 30) had already established 'dispatcher, not a product lane' but still used 'Claude 7' as this record's own name/number throughout _comment, assignmentSourceNote, dispatcherIdentity, several per-field attributions, and the PR title/body. That is the exact 'Lane/Claude 7 dispatcher' framing the owner's new comment names as stale durable ownership metadata.",
+    "whatChanged": [
+      "_comment, assignmentSourceNote, dispatcherIdentity.statement, and the doNotTouch/assignmentSource fields that named 'Claude 7' rewritten to describe this as an independent traffic-control/dispatch record with no lane number and no name attached",
+      "laneNumberingResolved_C29.laneModelNow and dispatcherIdentity._authority annotated SUPERSEDED rather than silently rewritten, per this record's own convention of recording corrections instead of quietly editing history",
+      "governanceCorrection_C30's historical validation checks left intact as a record of what was confirmed at cycle 30, with check1 annotated superseded",
+      "PR #1000's title and body corrected to the same framing (see PR history — not duplicated in this file)"
+    ],
+    "whatDidNotChange": [
+      "V1 status, denominator or any §3 row — untouched, per the owner's explicit instruction",
+      "VERSION_1_COMPLETION_CONTRACT.md, EXECUTION_PLAN.md, product source, CE registry — none touched; EXECUTION_PLAN.md §0 still quotes the pre-2026-08-21 'Claude 7' framing verbatim (lines 55-59) and that quote is now stale against this correction, but EXECUTION_PLAN.md is Claude 5's file, not this record's, so the discrepancy is reported here rather than edited there",
+      "the v1DerivedObservation block and its SHA-stamped reading — untouched"
+    ],
+    "scriptsRun": "scripts/check_planning_integrity.py and scripts/check_product_plan_governance.py — run this pass; results recorded in the commit that carries this correction",
+    "verdict": "This is a bounded identity/governance correction only, consistent with the owner's instruction. Cycle work (row-diffing, the V1_70_ATTACK_MATRIX delivery, PR CI status) continues unaffected."
   }
 }

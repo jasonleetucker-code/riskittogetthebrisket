@@ -1,7 +1,7 @@
 # V1_70_ATTACK_MATRIX
 
 **Read-only independent audit. No code modified. No V1 status counted or promoted by this document.**
-**Author: Claude 7 (Lane Dispatcher). Delivered to Claude 5 / Integration via this file on PR #1000.**
+**Author: this repository's independent traffic-control/dispatch record (no lane number — see `docs/claude-dispatch/LANE_STATUS.json` governanceCorrection_C31). Delivered to Claude 5 / Integration via this file on PR #1000.**
 
 Repository: `jasonleetucker-code/riskittogetthebrisket`
 Baseline: 65 / 136 = 47.8% VERIFIED. Target: 96 / 136 = 70.6% (31 additional VERIFIED rows needed).
