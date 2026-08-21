@@ -1222,10 +1222,6 @@ input[type="range"]:focus-visible::-moz-range-thumb {
   border-bottom-color: var(--cyan);
   color: var(--text);
 }
-.asset-value-override-input.overridden {
-  color: var(--amber);
-  border-bottom-color: var(--amber);
-}
 
 .tier-label {
   display: inline-flex;
