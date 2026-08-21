@@ -7426,6 +7426,14 @@ async def post_trade_finder(request: Request):
         request, contract, league_cfg, surface="/api/trade/finder"
     )
 
+    # V1-41 / C3-CTX-01 — "Use Team Context", ON by default.  Wire name
+    # ``useTeamContext``; missing/non-bool falls back to the canonical
+    # default (True) rather than silently disabling the signal.
+    raw_use_team_context = body.get("useTeamContext")
+    use_team_context = (
+        bool(raw_use_team_context) if isinstance(raw_use_team_context, bool) else True
+    )
+
     try:
         result = await run_in_threadpool(
             find_trades,
@@ -7441,6 +7449,7 @@ async def post_trade_finder(request: Request):
             # Without this the finder arbitrages the raw scraper
             # composite, which no other engine and no UI surface reads.
             contract=contract,
+            use_team_context=use_team_context,
         )
     except Exception as e:
         log.error(f"Trade Finder failed: {e}")
@@ -10522,7 +10531,7 @@ def _public_section_access_error(section: str, request: Request) -> JSONResponse
         content={
             "error": "auth_required",
             "message": (
-                f"{section!r} contains manager-specific intelligence and " "requires a session."
+                f"{section!r} contains manager-specific intelligence and requires a session."
             ),
             "section": section,
         },
