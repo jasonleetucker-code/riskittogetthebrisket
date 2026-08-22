@@ -1,20 +1,11 @@
 {
-  "version": "v1.2",
-  "my_league": {
-    "id": "1312736351547850752",
-    "label": "My League"
-  },
+  "version": "v1.3",
   "baseline_league": {
     "id": "1328545898812170240",
     "label": "Standard Baseline"
   },
   "seasons": [2022, 2023, 2024, 2025],
   "sample_sizes": {
-    "QB": 24,
-    "RB": 24,
-    "WR": 36,
-    "TE": 12,
-    "FLEX": 96,
-    "IDP_TOTAL": 96
+    "FLEX": 96
   }
 }
