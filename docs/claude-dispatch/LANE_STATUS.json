@@ -1,9 +1,9 @@
 {
   "_comment": "Lane utilization state for an independent traffic-control/dispatch record (no lane number, no name assigned to it — see governanceCorrection_C31). NOT an authority on integration sequencing (Claude 5 / docs/EXECUTION_PLAN.md), on V1 status (docs/VERSION_1_COMPLETION_CONTRACT.md) or on canonical ownership (CLAUDE.md). Repository evidence outranks this file: where they disagree, this file is wrong and must be corrected.",
-  "updatedAt": "2026-08-22T08:56:00Z",
-  "dispatchCycle": 121,
+  "updatedAt": "2026-08-22T11:19:00Z",
+  "dispatchCycle": 126,
   "writePolicy": "This file and ASSIGNMENTS.json are written ONLY on a material state transition — new assignment, assignment accepted, completion, blocker, freeze/unfreeze, or a meaningful dependency change. A heartbeat that finds nothing changed produces no commit and no CI run.",
-  "evidenceBasis": "origin/main 079fc9e4a; §3 diffed row-by-row from cycle-19 main (c5a367266); all refs resolved live; #945 CI green 04:57:35Z",
+  "evidenceBasis": "origin/main ed0cf77c2; §3 diffed row-by-row from cycle-125 main (8ba570dd8); all refs resolved live; own PR #1000 CI green run 32563472798",
   "assignmentSourceNote": "Lanes 1-6 carry the owner's original six manual assignments, tracked in detail by this dispatcher. Lanes 8-13 are five additional owner-authorized campaign lanes (Claude 8 chartered 2026-08-20; Claude 9-13 chartered the same day under the POST-V1 C-Series mass-build campaign, EXECUTION_PLAN.md §0). This dispatcher did not originate any of these eleven assignments and does not own or re-scope them. Lanes 8-13 are tracked here only lightly — ownership boundaries and authorization citation — because they are self-directed under their own charter, unlike lanes 1-6 which this dispatcher actively monitors for idleness and dispatches follow-on work to. This record is independent traffic-control/dispatch bookkeeping — it claims no lane number and is not assigned to a named identity, per dispatcherIdentity above.",
   "lanes": {
     "1": {
@@ -795,5 +795,20 @@
     },
     "standingItemsUnchanged": "Lane 2, Lane 4 on-box batch, all three abandoned refs, #1027 (V1-49) — checked live, no change.",
     "note": "Tally now 87/136=64.0%. FOUR consecutive material cycles with real numerator movement (118->119: 84->85, 119->120: 85->86, 120->121: 86->87). 9 more rows needed for the original 96/136=70.6% target -- this is now well within striking distance given the pace of the last four cycles."
+  },
+  "cycle126Transitions": {
+    "_comment": "Cycles 122-125 were no-commit heartbeats: cycle 122 saw V1-36 gain real progress (#1048 L1 single-owner guard) but stay IN PROGRESS; cycle 123 saw V1-25's real fix land via #1056 (route \"my league\" through the canonical registry, W18-F005) with row text unaffected; cycle 124 was fully flat; cycle 125 saw V1-21's real fix land via #1055 (model provenance stamps, W04-F011, reconciled via #1057 at cycle 126) with row text unaffected at the time. Tally held at 87/136=64.0% throughout. Folded forward, no separate blocks.",
+    "mainTip": "ed0cf77c2 (was 8ba570dd8 at cycle 125) -- merged 'V1-21: reconcile model provenance stamps (#1055) onto current main' promotion via #1057.",
+    "myOwnPr": {
+      "pr": "#1000", "head": "41b9953df",
+      "verdict": "Validate PR SUCCESS, run 32563472798 (head_sha cross-verified), 08:53:35Z -> 09:11:46Z -- same run held across cycles 121-126 (no push needed on this dispatch record's own branch). No new comments (still just the two governance-correction exchange comments from cycle ~117-118)."
+    },
+    "rowDiff": {
+      "method": "§3 row-diffed 8ba570dd8 -> ed0cf77c2",
+      "result": "FIFTH material cycle with real numerator movement (non-consecutive -- cycles 122-125 were flat/promotion-split between this and cycle 121): V1-21 IN PROGRESS -> VERIFIED via #1057 (Integration), reconciling #1055 (Claude 8's model provenance stamps, W04-F011) onto current main. New _hill_master_provenance() in src/api/data_contract.py stamps hillCurves.provenance read-only from the existing ModelRegistry/ModelVersion owner, reusing the vocabulary already established by src/bdvm/src/consensus_edge: verified_champion only when live constants byte-match the recorded champion's params exactly; unverified on drift; unavailable on missing/corrupt registry or no champion -- modelVersion stays None on both non-verified states. src/history/provenance.py's pipeline_version() hash scoped to exclude the new provenance sub-block so a cosmetic registry correction cannot move temporal-board pipeline identity. Independently re-verified this pass per the row's own text: 6/6 focused tests (corrupt registry, missing registry, drifted constants, no champion, paramSetId stability, real verified champion), a live invocation against the real production hill_scope_masters registry returning a genuine verified_champion/modelVersion 2/real paramSetId+asOf+producer (not synthetic), and a fresh self-performed mutation (forced the matches branch to never take the unverified path) sending test_drifted_constants_report_unverified_not_the_stale_champion RED then restored clean. Zero server.py/frontend changes confirmed against the true git merge-base (faafefb71, not the PR's stated stale base).",
+      "selfConsistency": "Independent count 88+22+12+12+2=136; contract's own table and completion line read 88/136=64.7%, agreeing."
+    },
+    "standingItemsUnchanged": "Three abandoned refs (v1/premium-ui c025e4f68, integration/rc-937 80b7b948d, integration/rc-wave-a 213f9151) — checked live every cycle since, no change. CI-cancellation-anomaly tracker holds at 2 occurrences (cycles 96, 101), none since.",
+    "note": "Tally now 88/136=64.7%. V1-25 (via #1056, cycle 123) remains an open promotion-split watch -- row text still IN PROGRESS as of this cycle's diff. V1-36's remaining gap stays precisely scoped (wire PackageAsset/package_key into suggestions.py's four _generate_* functions). 8 more rows needed for the original 96/136=70.6% target."
   }
 }
