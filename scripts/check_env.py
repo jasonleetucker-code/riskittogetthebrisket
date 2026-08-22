@@ -20,7 +20,9 @@ from __future__ import annotations
 
 import argparse
 import importlib
+import json
 import sys
+from pathlib import Path
 from typing import Iterable
 
 
@@ -73,6 +75,65 @@ def _check(modules: Iterable[str], label: str) -> list[str]:
     return failures
 
 
+def _diagnose_live_pick_blend() -> bool:
+    """Temporary PR-only diagnostic for the active production blocker."""
+    from src.api.data_contract import build_api_data_contract
+
+    candidates = sorted(Path("exports/latest").glob("dynasty_data_*.json"))
+    if not candidates:
+        print("[blend-debug] no tracked payload", file=sys.stderr)
+        return False
+    with candidates[-1].open("r", encoding="utf-8") as handle:
+        payload = json.load(handle)
+    contract = build_api_data_contract(
+        payload,
+        data_source={"type": "test_file", "path": "exports/latest"},
+    )
+    row = next(
+        (
+            candidate
+            for candidate in contract.get("playersArray") or []
+            if candidate.get("canonicalName") == "2027 Late 1st"
+        ),
+        None,
+    )
+    if row is None:
+        print("[blend-debug] target row missing", file=sys.stderr)
+        return False
+    source_meta = {}
+    for key, value in (row.get("sourceRankMeta") or {}).items():
+        if isinstance(value, dict):
+            source_meta[key] = {
+                "valueContribution": value.get("valueContribution"),
+                "contributedToBlend": value.get("contributedToBlend"),
+                "isAnchor": value.get("isAnchor"),
+                "hampelDropped": value.get("hampelDropped"),
+                "supersededBy": value.get("supersededBy"),
+                "valueContributionPath": value.get("valueContributionPath"),
+                "rawRank": value.get("rawRank"),
+                "effectiveRank": value.get("effectiveRank"),
+                "rankCoordinatePool": value.get("rankCoordinatePool"),
+                "method": value.get("method"),
+                "appliedWeight": value.get("appliedWeight"),
+            }
+    diagnostic = {
+        "rankDerivedValue": row.get("rankDerivedValue"),
+        "canonicalConsensusRank": row.get("canonicalConsensusRank"),
+        "anchorValue": row.get("anchorValue"),
+        "subgroupBlendValue": row.get("subgroupBlendValue"),
+        "subgroupDelta": row.get("subgroupDelta"),
+        "alphaShrinkage": row.get("alphaShrinkage"),
+        "pickYearDiscount": row.get("pickYearDiscount"),
+        "pickValueProvenance": row.get("pickValueProvenance"),
+        "canonicalSiteValues": row.get("canonicalSiteValues"),
+        "sourceRanks": row.get("sourceRanks"),
+        "sourceRankMeta": source_meta,
+        "violation": row.get("blendIntegrityViolation"),
+    }
+    print("[blend-debug] " + json.dumps(diagnostic, sort_keys=True, default=str))
+    return row.get("blendIntegrityViolation") is not None
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
@@ -96,6 +157,10 @@ def main() -> int:
             " every declared dep, then re-run this check.",
             file=sys.stderr,
         )
+        return 1
+
+    if not args.runtime and _diagnose_live_pick_blend():
+        print("[blend-debug] reproduced production blocker", file=sys.stderr)
         return 1
 
     print("[check_env] All required modules importable.")
