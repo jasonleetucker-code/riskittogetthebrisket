@@ -4860,12 +4860,13 @@ async def get_leagues(request: Request):
 
 
 # ── League Comparison ─────────────────────────────────────────────────
-# Compares one custom-scoring Sleeper league against a "standard"
-# baseline league across multiple historical NFL seasons.  Read-only
-# analysis tool — does NOT route through the league registry; the two
-# league IDs come from config/league_comparison.json server-side, the
-# UI never sends raw Sleeper IDs in requests.  See
-# src/league_comparison/service.py for the full pipeline.
+# Compares "my league" — the league registry's default league (W18-F005;
+# no query param, no per-league selection at this route) — against a
+# "standard" baseline league across multiple historical NFL seasons.
+# Read-only analysis tool; the baseline league id comes from
+# config/league_comparison.json server-side, the UI never sends raw
+# Sleeper IDs in requests.  See src/league_comparison/service.py for
+# the full pipeline.
 @app.get("/api/league-comparison")
 async def get_league_comparison(request: Request):
     """Build the positional-balance comparison between the two

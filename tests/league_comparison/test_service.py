@@ -7,13 +7,18 @@ boundary so the test runs offline and pins the response shape.
 from __future__ import annotations
 
 import json
+from pathlib import Path
+
 import pytest
 
+from src.api import league_registry as _league_registry
 from src.league_comparison import (
     historical_stats as _stats_mod,
     service as _service,
     sleeper_scoring as _sleeper_mod,
 )
+
+_REPO_ROOT = Path(__file__).resolve().parents[2]
 
 
 # ── Fixtures ──────────────────────────────────────────────────────────
@@ -23,15 +28,27 @@ from src.league_comparison import (
 def isolate_caches(tmp_path, monkeypatch):
     """Redirect both the per-league scoring cache and the disk
     comparison cache to a temp dir so tests don't bleed into each
-    other or into real cache files."""
+    other or into real cache files.
+
+    Also points the league registry at the REAL repo file (the global
+    conftest points ``LEAGUE_REGISTRY_PATH`` at ``/nonexistent`` to
+    keep other suites hermetic) — ``build_comparison`` now resolves
+    "my league" through the registry (W18-F005), so a real registry
+    entry has to be reachable for these tests to build anything.
+    """
     _sleeper_mod.evict()
     monkeypatch.setattr(
         _service,
         "_cache_dir",
         lambda: tmp_path / "lc_cache",
     )
+    monkeypatch.setenv(
+        "LEAGUE_REGISTRY_PATH", str(_REPO_ROOT / "config" / "leagues" / "registry.json")
+    )
+    _league_registry.reload_registry()
     yield
     _sleeper_mod.evict()
+    _league_registry.reload_registry()
 
 
 _MY_SCORING = {
@@ -61,10 +78,14 @@ _BASE_SCORING = {
 
 
 def _load_real_league_ids():
-    """Read the same config the service reads so the stub stays in
-    lockstep with whatever IDs are configured."""
+    """Resolve the same two league ids ``build_comparison`` resolves —
+    "my league" through the registry's default league (W18-F005),
+    "baseline league" from the JSON config — so the stub stays in
+    lockstep with whatever is actually configured."""
     config = _service._load_config()
-    return config["my_league"]["id"], config["baseline_league"]["id"]
+    my_league = _league_registry.get_default_league()
+    assert my_league is not None, "real_registry fixture did not load a default league"
+    return my_league.sleeper_league_id, config["baseline_league"]["id"]
 
 
 def _stub_scoring_fetch(monkeypatch):
@@ -324,3 +345,67 @@ def test_payload_is_json_serializable(monkeypatch):
     out = _service.build_comparison(refresh=True)
     # Will raise if anything in the payload is non-serializable
     json.dumps(out)
+
+
+class TestSampleSizesFromRosterSettings:
+    """W18-F005's other half: replacement-level cohort sizes derived
+    from the league's OWN roster shape rather than a hand-maintained
+    config guess that silently drifts when the lineup changes."""
+
+    def test_reproduces_dynasty_mains_real_roster_shape(self):
+        """QB counts SFLEX as real demand (the existing C2-CORE-01
+        convention, not a new rule); RB/WR/TE are plain team_count *
+        starters. Values pinned against the registry's real dynasty_main
+        entry (12 teams; QB1/RB2/WR3/TE2/SFLEX1/DL3/LB3/DB3/IDP_FLEX0)."""
+        roster_settings = {
+            "teamCount": 12,
+            "starters": {
+                "QB": 1,
+                "RB": 2,
+                "WR": 3,
+                "TE": 2,
+                "FLEX": 2,
+                "SFLEX": 1,
+                "K": 1,
+                "DL": 3,
+                "LB": 3,
+                "DB": 3,
+                "IDP_FLEX": 0,
+            },
+        }
+        got = _service._sample_sizes_from_roster_settings(roster_settings)
+        assert got == {
+            "QB": 24,  # 12 * (1 QB + 1 SFLEX)
+            "RB": 24,  # 12 * 2
+            "WR": 36,  # 12 * 3
+            "TE": 24,  # 12 * 2 -- corrected from the old hardcoded 12
+            "IDP_TOTAL": 108,  # 12 * (3 DL + 3 LB + 3 DB + 0 IDP_FLEX) -- corrected from 96
+        }
+
+    def test_a_non_idp_leagues_zero_idp_slots_derive_to_zero_not_omitted(self):
+        """dynasty_new carries no DL/LB/DB/IDP_FLEX keys at all (it is
+        not an IDP league) -- missing slot keys must derive to 0, not
+        raise or silently drop the key."""
+        roster_settings = {
+            "teamCount": 10,
+            "starters": {"QB": 1, "RB": 2, "WR": 3, "TE": 1, "FLEX": 2, "SFLEX": 1},
+        }
+        got = _service._sample_sizes_from_roster_settings(roster_settings)
+        assert got["IDP_TOTAL"] == 0
+        assert got["QB"] == 10 * (1 + 1)
+
+    @pytest.mark.parametrize(
+        "roster_settings",
+        [
+            {},
+            {"teamCount": 12},  # no starters dict
+            {"teamCount": 0, "starters": {"QB": 1}},  # non-positive team count
+            {"teamCount": 12, "starters": "not-a-dict"},
+        ],
+    )
+    def test_missing_or_malformed_roster_settings_fails_closed(self, roster_settings):
+        """MISSING IS NEVER ZERO: a league with no derivable roster shape
+        must refuse loudly, never silently produce a sample_sizes dict of
+        zeros that would read as 'we measured zero demand'."""
+        with pytest.raises(ValueError):
+            _service._sample_sizes_from_roster_settings(roster_settings)

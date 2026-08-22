@@ -82,11 +82,14 @@ def _latest_export(exports_dir: Path) -> Path | None:
 
 
 def _load_league_scoring() -> tuple[str, dict[str, Any], int | None]:
+    from src.api.league_registry import get_sleeper_league_id
     from src.league_comparison.service import _load_config
     from src.league_comparison.sleeper_scoring import fetch_league_scoring
 
     cfg = _load_config()
-    league_id = str((cfg.get("my_league") or {}).get("id") or "")
+    # "My league" is the registry's default league (W18-F005), not the
+    # retired cfg["my_league"] config key.
+    league_id = str(get_sleeper_league_id() or "")
     seasons = [int(s) for s in (cfg.get("seasons") or []) if str(s).isdigit()]
     if not league_id:
         return "", {}, None
