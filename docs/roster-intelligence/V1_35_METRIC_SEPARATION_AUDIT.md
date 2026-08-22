@@ -3,6 +3,18 @@
 **Row:** `V1-35` · **Lane:** L1 Roster Intelligence · **Required evidence
 level:** EVIDENCE-L1 · **Status entering this audit:** `NOT STARTED`
 
+**Re-verified 2026-08-22, current `main` `faafefb71`.** Both live
+violations this audit originally found (F-1, F-3) are now retired in
+production — `frontend/lib/league-analysis.js`'s `scoreTeamTiers` is
+deleted (see `docs/rosters/ROSTERS_TEAM_STRENGTH_MIGRATION.md`) and
+`frontend/lib/team-phase.js` reads canonical `strengthTotal` /
+`valueWeightedCoreAge`. Confirmed by reading the actual files, not by
+trusting this document — see §0 and §5's updates, and the new §7. This
+re-verification landed in a session where an earlier PR carrying the
+same H-1/H-2 changes (#1002) was independently closed without merging;
+the fix reached `main` some other way, so it was checked against the
+code rather than assumed from that PR's history.
+
 **Binding source** — `docs/OWNER_REQUESTED_TODO.md` decision 69, verbatim:
 
 > **Total Asset Value, Meaningful Roster Strength, Exact Starting Lineup,
@@ -20,40 +32,41 @@ are recorded as such precisely so nobody "fixes" them.
 
 ---
 
-## 0. The headline finding
+## 0. The headline finding — SUPERSEDED, see §7
 
 > **Six live production answers to "how good is this team" exist on six
 > different units — and the module documented as "THE canonical Team
 > Strength owner" is the one nobody renders.**
 
-`src/roster_intel/strength.py` opens with "the canonical Team Strength
-owner". `grep -rn "roster/intelligence" frontend/` returns **zero
-hits**: no page, hook or bridge route fetches it. Meanwhile
-`frontend/lib/nav-model.js:147` labels **`/rosters`** as "Team Strength",
-and `/rosters` renders a client-side composite with no server
-equivalent.
+This was true when first measured: `grep -rn "roster/intelligence"
+frontend/` returned zero hits, and `/rosters` rendered a client-side
+composite with no server equivalent. **It is no longer true.**
+Re-measured 2026-08-22: `grep -rn "roster/intelligence" frontend/ |
+grep -v __tests__` returns 12 hits including
+`components/TeamStrengthCard.jsx` ("Renders `GET
+/api/roster/intelligence`. It computes nothing…") and
+`app/rosters/page.jsx`. §7 has the current census row.
 
-This is the V1 contract's own false-green test failing —
-*"is the intended production consumer actually using the canonical
-implementation, with truthful data semantics?"* — and it is why V1-31
-cannot claim EVIDENCE-L4 no matter how correct the owner is.
-
-**The repair is a frontend change on `/rosters`, which is Claude 6's
-lane.** It is handed over in §3, not made here.
+This finding motivated §3's H-1 handoff, which Claude 6 has since
+closed — see `docs/rosters/ROSTERS_TEAM_STRENGTH_MIGRATION.md`. Kept
+here, struck rather than deleted, so a reader mid-investigation does not
+rediscover a defect that is already fixed.
 
 ---
 
 ## 1. Census
 
-Verified file-by-file at `fd70515`. "Rendered?" means a frontend
-fetch/render path exists, not merely that the route responds.
+Verified file-by-file at `fd70515`; rows 3-4's "rendered?" column
+re-verified 2026-08-22 against current `main` (see §7). "Rendered?"
+means a frontend fetch/render path exists, not merely that the route
+responds.
 
 | # | concept | canonical owner | quantity · unit | production path | rendered? | classification |
 |---|---|---|---|---|---|---|
 | 1 | Canonical asset value | `src/api/data_contract.py::_compute_unified_rankings` → `rankDerivedValue` | dynasty market value · **1–9999** | `/api/data` and every engine | yes | **canonical** |
 | 2 | Exact starting lineup | `src/ros/lineup.py::solve_optimal_assignment` | assignment + score · **unit-agnostic** (score is in whatever unit the pool carries) | contract stamp `sleeper.teams[].optimalLineup` | yes, via `starter-slots.js::fillLineup` | **canonical** |
-| 3 | Meaningful Roster Strength | `src/roster_intel/strength.py::build_team_strength` | Σ `rankDerivedValue` over the meaningful core · **1–9999 scale, uncapped in aggregate** | `src/api/roster_intelligence.py:259` → `GET /api/roster/intelligence` | **NO — zero frontend fetchers** | **canonical, UNCONSUMED** |
-| 4 | Team Weakness / need priority | `src/roster_intel/weakness.py::build_team_weakness` | rung status vs `k × teamCount` · **ordinal, not a score** | same endpoint, `:261` | **NO** | **canonical, UNCONSUMED** |
+| 3 | Meaningful Roster Strength | `src/roster_intel/strength.py::build_team_strength` | Σ `rankDerivedValue` over the meaningful core · **1–9999 scale, uncapped in aggregate** | `src/api/roster_intelligence.py:259` → `GET /api/roster/intelligence` | **YES (was NO)** — `components/TeamStrengthCard.jsx` on `/rosters`, `lib/team-phase.js` on `/phases` | **canonical, consumed** |
+| 4 | Team Weakness / need priority | `src/roster_intel/weakness.py::build_team_weakness` | rung status vs `k × teamCount` · **ordinal, not a score** | same endpoint, `:261` | **NO** — still no frontend fetcher for the `weakness` block specifically (V1-32's own row, not this one) | **canonical, UNCONSUMED** |
 | 5 | ROS team strength | `src/ros/team_strength.py::compute_team_strength` | `teamRosStrength` · **0–100 log-rank production index** | `data/ros/team_strength/<key>.json` → `/api/public/league/rosTeamStrength` | yes — "ROS Strength" tab | **legitimate different quantity** |
 | 6 | Power ranking | v2 `src/ros/power_v2.py` (live) · v1 `src/public_league/power.py` | v2 `power_score` **0–1 weighted percentile** · v1 `power` **0–100** | `public_contract.py` → one Power tab, switched by `useRosPowerRankings` | v2 yes, v1 dormant | **duplicate — cross-lane (V1-52)** |
 | 7 | Playoff probability | `src/ros/playoff_sim.py::simulate_playoff_odds` · `src/public_league/playoff_odds.py::compute_playoff_odds` | probability **0–1** | both registered in `public_contract.py` | yes | **duplicate — cross-lane (V1-51)** |
@@ -238,7 +251,7 @@ As H-3, for V1-51.
 ## 5. What this closes, and what it does not
 
 **Closed at EVIDENCE-L1** by `tests/roster_intel/test_metric_separation.py`
-(10 tests, all mutation-proven — see §6):
+(17 tests, all mutation-proven — see §6):
 
 * no collapsed generic team score anywhere in the canonical roster payload;
 * Meaningful Roster Strength and Total Asset Value separately named, with
@@ -250,13 +263,30 @@ As H-3, for V1-51.
   from roster value;
 * the dynasty-value lane structurally cannot import the ROS-production
   modules (`team_strength`, `aggregate`, `power_v2`, `playoff_sim`,
-  `championship`, `direction`).
+  `championship`, `direction`);
+* **as of §7's re-verification**, `/rosters` (`frontend/lib/league-analysis.js`,
+  `app/rosters/page.jsx`) and `/phases` (`frontend/lib/team-phase.js`,
+  `components/TeamPhasePanel.jsx`) carry no weighted-composite team
+  score, no client-side contender/rebuilder tier cut, and no raw-row
+  value/age derivation — read DIRECTLY from those files by this lane's
+  own suite, not inferred from `no-frontend-team-strength-methodology.test.js`
+  (a JS file this lane does not own, though it independently agrees —
+  confirmed by mutating both files at once and watching both suites
+  fail on the identical line);
+* at least two of decision 69's quantities (Team Strength rank, Young
+  Core Index rank) are shown to GENUINELY DIVERGE on the newest real
+  archived board, not merely asserted distinct on a toy fixture.
 
-**Not closed.** V1-35 says "in the model **and the UI**". This audit
-closes the model half inside this lane and hands the UI half to Claude 6
-as H-1/H-2. The row should read `IN PROGRESS` with the model half
-evidenced, not `VERIFIED` — a green suite here is necessary and not
-sufficient.
+**Previously reported "not closed."** This section used to say V1-35's
+UI half was handed to Claude 6 and unclosed, and that the row should
+read `IN PROGRESS` rather than `VERIFIED`. **That is stale** — Claude 6
+closed H-1/H-2 in the interim (see §0, §7), and this lane's own suite
+now independently confirms it rather than trusting the earlier claim.
+The model-and-UI split this section drew is gone: **both halves now
+have production evidence inside this repository's hard test gate.**
+Whether that clears V1-35's full bar (its own row still names "in the
+model and the UI") is Claude 5's call, per the standing rule that this
+lane does not edit `VERSION_1_COMPLETION_CONTRACT.md`.
 
 ---
 
@@ -273,5 +303,49 @@ sufficient.
 | the payload walk is not vacuous | asserted > 500 keys traversed on a real rebuilt contract | passes |
 | two playoff engines exist | read both signatures | `playoff_seeds: int = 6` vs `playoff_spots: int \| None` |
 
-Suite: `python -m pytest tests/roster_intel/test_metric_separation.py -q` →
-**10 passed**, hard gate (`-m "not livedata"`), no network.
+Suite (at this audit's original writing): `python -m pytest
+tests/roster_intel/test_metric_separation.py -q` → 10 passed, hard gate
+(`-m "not livedata"`), no network. **See §7 for the current count and
+the re-verification evidence.**
+
+---
+
+## 7. Re-verification and UI-half closure, 2026-08-22
+
+Performed on `main` `faafefb71`, independently of this document's own
+prior claims — every row below was checked against the live file or a
+live run, not copied forward.
+
+| claim | how it was checked | result |
+|---|---|---|
+| `/rosters` fetches `GET /api/roster/intelligence` | `grep -rn "roster/intelligence" frontend/ \| grep -v __tests__` | 12 hits incl. `components/TeamStrengthCard.jsx`, `app/rosters/page.jsx` — §0's "zero hits" is stale |
+| `scoreTeamTiers` deleted | `grep -n "scoreTeamTiers\|starterValue.*0.7" frontend/lib/league-analysis.js` | 0 executable hits; only the retirement comment and its own name |
+| `team-phase.js` reads canonical inputs | read `frontend/lib/team-phase.js:1-30` | `strengthTotal` / `valueWeightedCoreAge`, sourced from `teamStrengthLadder` |
+| this lane's suite reaches the two frontend files directly (not via the doc's word) | new tests §5, `tests/roster_intel/test_metric_separation.py::test_rosters_surface_has_no_weighted_composite_team_score` / `test_rosters_surface_has_no_tier_classification` / `test_phases_surface_reads_canonical_strength_not_raw_rows` | read `frontend/lib/league-analysis.js`, `app/rosters/page.jsx`, `frontend/lib/team-phase.js`, `components/TeamPhasePanel.jsx` from disk; pass |
+| the UI scan is not decoration (F-1 half) | reintroduced the exact retired `scoreTeamTiers` line into `frontend/lib/league-analysis.js` (a real, tracked production file), re-ran the suite | `test_rosters_surface_has_no_weighted_composite_team_score` and `test_rosters_surface_has_no_tier_classification` both RED, naming the exact file:line; reverted (`git checkout --`), suite green again |
+| the UI scan is not decoration (F-3 half) | reintroduced the retired `rawData?.sleeper?.teams` raw-row read into `frontend/lib/team-phase.js` | `test_phases_surface_reads_canonical_strength_not_raw_rows` RED, naming the file:line; reverted, suite green |
+| the two independent guards (this lane's Python scan, Claude 6's JS scan) agree | ran `npx vitest run __tests__/no-frontend-team-strength-methodology.test.js` against the SAME `league-analysis.js` mutation | both guards failed on the same reintroduced line, independently |
+| two of decision 69's quantities genuinely diverge, not just assert `!=` on a toy fixture | `test_metrics_genuinely_diverge_on_a_representative_real_board`, real 12-team archived board | Team Strength rank 1 (Brent) has Young Core Index rank 11 on the same board; 11 of 12 teams' ranks differ across the two axes |
+| V1-36 (Claude 2, shared package generator) does not touch any file this unit edits | `git diff $(git merge-base origin/claude/v1-36-shared-package-generator origin/main) origin/claude/v1-36-shared-package-generator --stat` | empty — that branch has no commits past its shared base yet; no overlap to report |
+
+Suite now: `python -m pytest tests/roster_intel/test_metric_separation.py -q`
+→ **17 passed** (10 original + 7 new), hard gate, no network.
+
+**What this closes.** Both F-1 and F-3 — the only two live decision-69
+violations this audit ever found — are confirmed retired in production,
+by this lane's own direct evidence rather than by trusting another
+lane's file or an earlier version of this document. Combined with §1-4's
+pre-existing model-half coverage, EVIDENCE-L1 for V1-35 ("in the model
+and the UI") now has a single hard-gated Python suite proving both
+halves from inside this lane, plus an independently-agreeing JS suite
+Claude 6 maintains.
+
+**What this does not do.** It does not promote the row —
+`docs/VERSION_1_COMPLETION_CONTRACT.md` is Claude 5's file. It does not
+touch F-4/F-5 (the V1-51/V1-52 power/playoff-odds duplicate engines),
+which remain a different lane's rows; a quick re-check found the F-5
+file paths (`LeagueClient.jsx`, `useSettings.js`) no longer contain the
+`useRosPowerRankings` string this audit originally cited, which may mean
+that stale comment was separately fixed or the setting was renamed —
+worth a fresh look by whoever owns V1-51/V1-52, not re-investigated here
+since it is outside V1-35's own scope either way.
