@@ -104,9 +104,9 @@ class TestReceptionFitResolvesTheRequestedLeague:
 
         main_id = real_registry.get_sleeper_league_id("dynasty_main")
         new_id = real_registry.get_sleeper_league_id("dynasty_new")
-        assert main_id and new_id and main_id != new_id, (
-            "fixture registry must carry two distinct, resolvable leagues"
-        )
+        assert (
+            main_id and new_id and main_id != new_id
+        ), "fixture registry must carry two distinct, resolvable leagues"
 
         gameplan._resolve_reception_fit("dynasty_main")
         gameplan.invalidate_reception_fit_cache()
