@@ -10,7 +10,7 @@ def _latest_payload() -> dict:
     candidates = sorted(Path("exports/latest").glob("dynasty_data_*.json"))
     if not candidates:
         raise AssertionError("tracked latest dynasty payload is required")
-    with candidates[-1].open(r"r", encoding="utf-8") as handle:
+    with candidates[-1].open("r", encoding="utf-8") as handle:
         return json.load(handle)
 
 
