@@ -678,6 +678,16 @@ def build_section(
         # time this loop ends, season_state holds ONLY the final
         # season's totals.
         season_state = defaultdict(lambda: {"points": 0.0, "games": 0, "wins": 0.0, "losses": 0.0})
+        # Same reset, same reason (V1-52 follow-up): season_outcomes and
+        # expected_share_total fed streak/luck_regression from a career
+        # total the same way season_state's points/games fed ppg/wl_record
+        # before the fix above. Neither has a second, career-scoped
+        # consumer (unlike career_state, whose .keys() also backs
+        # _enumerate_owner_ids's historical-presence fallback), so resetting
+        # them here in place is sufficient -- no parallel accumulator
+        # needed.
+        season_outcomes = defaultdict(list)
+        expected_share_total = defaultdict(float)
         if season is seasons_sorted[-1]:
             recent_buffer: dict[str, list[float]] = defaultdict(list)
         for wk in sorted(week_scores.keys()):
@@ -696,13 +706,6 @@ def build_section(
                 ss["games"] += 1
                 ss["wins"] += actual_share
                 ss["losses"] += 1.0 - actual_share
-                # KNOWN RESIDUAL (V1-52 investigation, not fixed here):
-                # season_outcomes and expected_share_total accumulate
-                # across every season the same way career_state's
-                # points/games did before this fix, feeding the streak
-                # and luck-regression components respectively.  Out of
-                # this unit's bounded scope (PPG/wl_record only) —
-                # tracked as a follow-up finding.
                 season_outcomes[oid].append(actual_share)
                 if season is seasons_sorted[-1]:
                     rb = recent_buffer[oid]
