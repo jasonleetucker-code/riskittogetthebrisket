@@ -94,6 +94,56 @@ def _production_sources() -> list[str]:
     return [p for p in _tracked(".py", ".js", ".jsx") if not p.startswith(skip)]
 
 
+#: Indirect construction of the canonical field — a dict-literal key
+#: (``{"rankDerivedValue": v}``), which also covers ``dict.update({...})``
+#: since that is a dict literal passed as an argument. Added 2026-08-22
+#: (V1-53 / C5-ROS-01 residual): the assignment scan above only ever
+#: matched ``[...] =`` / ``.field =`` syntax, so a dict built directly with
+#: the canonical key — never *assigned into* an existing dict — passed the
+#: gate above silently.
+#:
+#: Deliberately scoped to ``rankDerivedValue`` ONLY, not the three aliases,
+#: for this dict-literal form. Measured before widening (the same
+#: discipline the alias widening above used): the three alias words collide
+#: with real, unrelated production dict keys — an "overall" stats-summary
+#: key in ``src/scoring/backtest.py`` and a legitimately different-schema
+#: "displayValue" field in ``src/trade/suggestions.py`` (verified sourced
+#: from ``row["rankDerivedValue"]`` via ``PlayerAsset.display_value``, not
+#: an independent computation — see that module's own docstring, W29-F001).
+#: ``rankDerivedValue`` itself has no such collision: measured zero
+#: unapproved production hits. A ``.update(field=value)`` keyword-argument
+#: form is not separately matched — measured zero occurrences of that form
+#: for any of the four names anywhere in the repository, so a dedicated
+#: pattern would add regex risk (colliding with an ordinary keyword
+#: argument or local variable named ``rankDerivedValue``) for no measured
+#: benefit. Python-only: JS/JSX object literals commonly use unquoted keys,
+#: a structurally worse collision surface, and the residual's own wording
+#: ("dict literal", ``dict.update(...)``, ``setattr(...)``) is Python
+#: vocabulary — a JS-side indirect-construction gap is a distinct,
+#: out-of-scope residual for a future unit.
+_CANONICAL_INDIRECT_DICT_WRITE = re.compile(r"""["']rankDerivedValue["']\s*:""")
+
+#: Indirect construction via ``setattr``. Unlike the dict-literal form
+#: above, this is safe to widen to all four names: measured zero
+#: occurrences of ``setattr(..., "rankDerivedValue"/"overall"/
+#: "finalAdjusted"/"displayValue", ...)`` anywhere in the repository, so
+#: there is no false-positive collision to reason about.
+_CANONICAL_SETATTR_WRITE = re.compile(
+    r"""setattr\(\s*[^,]+,\s*["'](rankDerivedValue|overall|finalAdjusted|displayValue)["']\s*,"""
+)
+
+#: The one measured, verified-harmless occurrence of a dict-literal
+#: ``rankDerivedValue`` key outside the approved producers: the example
+#: request body in ``/api/trade/simulate-mc``'s docstring
+#: (``server.py``, ``post_trade_simulate_mc``), not executable code. Keyed
+#: by file with the exact expected count — not a blanket file exemption —
+#: so a *second*, real hit in the same file still fails the scan below,
+#: and so a future edit that removes or duplicates the example is caught
+#: by ``test_the_doc_example_allowance_is_exact`` rather than silently
+#: drifting stale.
+_KNOWN_DOC_EXAMPLE_HITS = {"server.py": 1}
+
+
 # ── A — only approved producers write canonical value ──────────────────
 
 
@@ -138,6 +188,75 @@ def test_the_writer_scan_is_not_vacuous():
     assert not _CANONICAL_WRITE.findall('if vals["overall"] == 1:')
 
 
+def test_only_approved_modules_construct_the_canonical_value_field_indirectly():
+    """V1-53 / C5-ROS-01 residual — the assignment scan above cannot see a
+    dict built directly with the canonical key, or a ``setattr`` call.
+    Same producer allowlist as the assignment scan; the one documented,
+    verified-harmless doc-example occurrence is subtracted by count, not by
+    a blanket per-file exemption.
+    """
+    offenders: list[tuple[str, int]] = []
+    for rel in _production_sources():
+        if rel in APPROVED_CANONICAL_WRITERS:
+            continue
+        try:
+            body = (REPO / rel).read_text(encoding="utf-8", errors="ignore")
+        except OSError:
+            continue
+        hits = len(_CANONICAL_SETATTR_WRITE.findall(body))
+        if rel.endswith(".py"):
+            hits += len(_CANONICAL_INDIRECT_DICT_WRITE.findall(body))
+        hits -= _KNOWN_DOC_EXAMPLE_HITS.get(rel, 0)
+        if hits > 0:
+            offenders.append((rel, hits))
+
+    assert not offenders, (
+        "a module outside the approved canonical producers constructs "
+        "rankDerivedValue (or an alias, via setattr) indirectly — a dict "
+        "literal, dict.update({...}), or setattr(). This is the same "
+        "single-owner violation the assignment scan above catches, just "
+        "via a syntax it cannot see:\n"
+        + "\n".join(f"  {rel}: {n} occurrence(s)" for rel, n in offenders)
+    )
+
+
+def test_the_indirect_write_scan_is_not_vacuous():
+    """Pins both what the new patterns catch and, just as important, the
+    deliberate alias exclusion on the dict-literal form — so that scope
+    decision is a verified fact, not an unchecked comment."""
+    assert _CANONICAL_INDIRECT_DICT_WRITE.findall('{"rankDerivedValue": v}')
+    assert _CANONICAL_INDIRECT_DICT_WRITE.findall('d.update({"rankDerivedValue": v})')
+    # The three aliases are deliberately NOT covered by the dict-literal
+    # form (see the comment above the pattern) — pin the exclusion itself.
+    assert not _CANONICAL_INDIRECT_DICT_WRITE.findall('{"overall": v}')
+    assert not _CANONICAL_INDIRECT_DICT_WRITE.findall('{"finalAdjusted": v}')
+    assert not _CANONICAL_INDIRECT_DICT_WRITE.findall('{"displayValue": v}')
+
+    assert _CANONICAL_SETATTR_WRITE.findall('setattr(row, "rankDerivedValue", v)')
+    assert _CANONICAL_SETATTR_WRITE.findall('setattr(row, "overall", v)')
+    assert _CANONICAL_SETATTR_WRITE.findall('setattr(row, "finalAdjusted", v)')
+    assert _CANONICAL_SETATTR_WRITE.findall('setattr(row, "displayValue", v)')
+    # A setattr writing an unrelated field is not a canonical write.
+    assert not _CANONICAL_SETATTR_WRITE.findall('setattr(row, "boardRank", v)')
+
+
+def test_the_doc_example_allowance_is_exact():
+    """The allowance is a documented, counted exception, not a blanket
+    exemption — if the docstring example changes shape, this must be
+    updated deliberately rather than the guard silently drifting."""
+    for rel, expected in _KNOWN_DOC_EXAMPLE_HITS.items():
+        body = (REPO / rel).read_text(encoding="utf-8", errors="ignore")
+        actual = len(_CANONICAL_INDIRECT_DICT_WRITE.findall(body))
+        assert actual == expected, (
+            f"{rel}: expected exactly {expected} known doc-example "
+            f"occurrence(s) of a rankDerivedValue dict-literal key, found "
+            f"{actual}. If this changed because the example was edited, "
+            f"update _KNOWN_DOC_EXAMPLE_HITS; if it changed because a new, "
+            f"real indirect write was added, that is the violation this "
+            f"guard exists to catch."
+        )
+
+
 def test_no_seasonal_lane_module_assigns_a_canonical_alias():
     """V1-53 / C5-ROS-01 — the redraft/ROS seasonal lane must never write
     canonical dynasty value, and that includes the three aliases the write
@@ -163,6 +282,28 @@ def test_no_seasonal_lane_module_assigns_a_canonical_alias():
         f"seasonal (redraft/ROS) module(s) assign canonical dynasty value or "
         f"an alias, breaching the source-domain boundary "
         f"(docs/REDRAFT_ROS_INTELLIGENCE_SPEC.md §3): {offenders}"
+    )
+
+
+def test_no_seasonal_lane_module_constructs_a_canonical_alias_indirectly():
+    """The indirect-construction complement of the test above — same
+    reasoning, same scope, the dict-literal/setattr forms instead of
+    assignment. Measured zero hits in ``src/ros/`` today; this closes the
+    gap before it can be exploited, not after."""
+    offenders: list[tuple[str, int]] = []
+    for rel in _production_sources():
+        if not rel.startswith("src/ros/"):
+            continue
+        body = (REPO / rel).read_text(encoding="utf-8", errors="ignore")
+        hits = len(_CANONICAL_SETATTR_WRITE.findall(body))
+        if rel.endswith(".py"):
+            hits += len(_CANONICAL_INDIRECT_DICT_WRITE.findall(body))
+        if hits:
+            offenders.append((rel, hits))
+    assert not offenders, (
+        f"seasonal (redraft/ROS) module(s) construct canonical dynasty "
+        f"value or an alias indirectly, breaching the source-domain "
+        f"boundary (docs/REDRAFT_ROS_INTELLIGENCE_SPEC.md §3): {offenders}"
     )
 
 
