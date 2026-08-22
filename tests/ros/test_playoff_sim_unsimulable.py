@@ -132,6 +132,63 @@ class TestAFinishedSeasonStillReportsItsResult(_Harness):
         self.assertNotIn("unsimulable", out)
 
 
+class TestNoScoredWeeksInLeague(unittest.TestCase):
+    """V1-51 residual: the third refusal branch, ``if not distributions:``,
+    used to return ``n_simulations: 0`` with no ``unsimulable`` block at
+    all — the one state in this function that went unnamed while its two
+    siblings in this same function (and both sibling engines,
+    ``src.public_league.playoff_odds`` and ``src.ros.championship``) all
+    stamp ``unsimulable: {reason: "no_scored_weeks_in_league"}`` for the
+    identical underlying signal (``playoff_odds._season_weekly_scores``
+    returning nothing for the league).
+
+    Distinct from ``TestNothingPlayedAndNothingScheduled`` above: that
+    class drives the ``not schedule and games_played <= 0`` branch with
+    ``_build_team_distributions`` patched to always succeed. This class
+    drives the earlier ``if not distributions:`` branch directly, which
+    that harness structurally cannot reach.
+    """
+
+    owners = ["a", "b", "c", "d"]
+
+    def _run(self, **kwargs):
+        snap = SimpleNamespace(seasons=[], managers=SimpleNamespace(by_owner_id={}))
+        kwargs.setdefault("playoff_seeds", 6)
+        kwargs.setdefault("bye_seeds", 2)
+        with (
+            patch.object(
+                playoff_sim,
+                "_build_team_distributions",
+                return_value=({}, {}),
+            ),
+            patch.object(playoff_sim, "_load_ros_strength_map", return_value={}),
+            patch.object(playoff_sim, "_league_best_ball", return_value=False),
+        ):
+            return playoff_sim.simulate_playoff_odds(snap, n_simulations=50, **kwargs)
+
+    def test_no_scored_weeks_yields_the_shared_unsimulable_reason(self) -> None:
+        out = self._run()
+        self.assertEqual(out["playoffOdds"], [])
+        self.assertEqual(out["n_simulations"], 0)
+        self.assertEqual(out["unsimulable"]["reason"], "no_scored_weeks_in_league")
+        self.assertIn("not a 0% chance", out["unsimulable"]["detail"])
+
+    def test_no_scored_weeks_state_is_never_stamped_converged(self) -> None:
+        out = self._run()
+        self.assertNotIn("converged", out)
+
+    def test_no_scored_weeks_is_a_distinct_reason_from_nothing_scheduled(self) -> None:
+        """The two refusal branches this function carries must not
+        collapse into one code path — reached via a genuinely different
+        precondition (empty distributions vs. an empty schedule with no
+        games played), so their reasons must stay distinguishable."""
+        out = self._run()
+        self.assertNotEqual(
+            out["unsimulable"]["reason"],
+            "no_games_played_and_none_scheduled",
+        )
+
+
 class TestCompletedGamesHelper(unittest.TestCase):
     def test_ignores_non_numeric_and_boolean_values(self) -> None:
         self.assertEqual(playoff_sim._completed_games({"wins": 3, "losses": 2}), 5.0)
