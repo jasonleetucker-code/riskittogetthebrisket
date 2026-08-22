@@ -1,7 +1,7 @@
 {
   "_comment": "Lane utilization state for an independent traffic-control/dispatch record (no lane number, no name assigned to it — see governanceCorrection_C31). NOT an authority on integration sequencing (Claude 5 / docs/EXECUTION_PLAN.md), on V1 status (docs/VERSION_1_COMPLETION_CONTRACT.md) or on canonical ownership (CLAUDE.md). Repository evidence outranks this file: where they disagree, this file is wrong and must be corrected.",
-  "updatedAt": "2026-08-22T08:27:00Z",
-  "dispatchCycle": 120,
+  "updatedAt": "2026-08-22T08:56:00Z",
+  "dispatchCycle": 121,
   "writePolicy": "This file and ASSIGNMENTS.json are written ONLY on a material state transition — new assignment, assignment accepted, completion, blocker, freeze/unfreeze, or a meaningful dependency change. A heartbeat that finds nothing changed produces no commit and no CI run.",
   "evidenceBasis": "origin/main 079fc9e4a; §3 diffed row-by-row from cycle-19 main (c5a367266); all refs resolved live; #945 CI green 04:57:35Z",
   "assignmentSourceNote": "Lanes 1-6 carry the owner's original six manual assignments, tracked in detail by this dispatcher. Lanes 8-13 are five additional owner-authorized campaign lanes (Claude 8 chartered 2026-08-20; Claude 9-13 chartered the same day under the POST-V1 C-Series mass-build campaign, EXECUTION_PLAN.md §0). This dispatcher did not originate any of these eleven assignments and does not own or re-scope them. Lanes 8-13 are tracked here only lightly — ownership boundaries and authorization citation — because they are self-directed under their own charter, unlike lanes 1-6 which this dispatcher actively monitors for idleness and dispatches follow-on work to. This record is independent traffic-control/dispatch bookkeeping — it claims no lane number and is not assigned to a named identity, per dispatcherIdentity above.",
@@ -781,5 +781,19 @@
     },
     "standingItemsUnchanged": "Lane 2, Lane 4 on-box batch, all three abandoned refs, #1027 (V1-49) — checked live, no change.",
     "note": "Tally now 86/136=63.2%, third consecutive material cycle with real numerator movement (118->119: 84->85, 119->120: 85->86). 10 more rows needed for the original 96/136=70.6% target."
+  },
+  "cycle121Transitions": {
+    "mainTip": "4c179edb2 (was a894e712a at cycle 120) -- merged 'V1-35: promote to VERIFIED -- reconcile #1049 (metric-separation evidence)'.",
+    "myOwnPr": {
+      "pr": "#1000", "head": "794a9a0d0",
+      "verdict": "Validate PR SUCCESS, run 32562198718 (head_sha cross-verified via webhook + reconfirmed), 08:24:34Z -> 08:42:50Z. No new comments (still just the two governance-correction exchange comments)."
+    },
+    "rowDiff": {
+      "method": "§3 row-diffed a894e712a -> 4c179edb2",
+      "result": "FOURTH CONSECUTIVE cycle with real numerator movement: V1-35 NOT STARTED -> VERIFIED via merged #1049. Both live violations of the binding owner decision-69 metric-separation rule were confirmed already retired in production, independently of two other PRs that separately claimed the fixes (one closed as superseded this session): F-1 (/rosters' weighted-composite scoreTeamTiers, starterValue*0.7+depthValue*0.2-pickValue*0.1, tercile-cut contender/mid/rebuilder) deleted, replaced by GET /api/roster/intelligence; F-3 (/phases' raw top-25 rankDerivedValue + raw-age) redirected onto canonical strengthTotal/valueWeightedCoreAge. The genuine gap this PR closed was EVIDENTIARY not behavioral -- the lane's own test suite previously disclaimed proof on these two specific frontend files ('other lanes' files'); 7 new tests (10->17) read the real production files directly from disk, including a positive-control divergence test (Team Strength rank vs Young Core Index rank diverge on 11 of 12 teams on the newest real archived board -- the separation claim is not vacuous). Independently re-verified this pass: 17/17 tests fresh; a fresh self-performed mutation reintroduced the exact retired scoreTeamTiers formula into a real tracked production file (frontend/lib/league-analysis.js), sent the isolation test RED naming the exact line, restored clean; vitest 18/18 on the three related JS files. Test-only change -- no production code touched by this PR itself (the F-1/F-3 fixes landed earlier, independently).",
+      "selfConsistency": "Independent count 87+22+13+12+2=136; contract's own table and completion line read 87/136=64.0%, agreeing."
+    },
+    "standingItemsUnchanged": "Lane 2, Lane 4 on-box batch, all three abandoned refs, #1027 (V1-49) — checked live, no change.",
+    "note": "Tally now 87/136=64.0%. FOUR consecutive material cycles with real numerator movement (118->119: 84->85, 119->120: 85->86, 120->121: 86->87). 9 more rows needed for the original 96/136=70.6% target -- this is now well within striking distance given the pace of the last four cycles."
   }
 }
