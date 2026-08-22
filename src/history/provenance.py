@@ -34,6 +34,17 @@ def pipeline_version(contract: dict[str, Any]) -> str:
     content-hashed ``paramSetId`` over ``params_v1.json``, for the same
     reason: a version that cannot change is not a version.
 
+    Scoped to the four known scope-curve keys ONLY (V1-21 / W04-F011):
+    ``hillCurves`` also carries a ``provenance`` sub-block (which model
+    version PRODUCED these constants — descriptive metadata, not a
+    value-determining constant itself).  Hashing it verbatim would make
+    this identity move on a purely cosmetic registry correction (e.g.
+    backfilling a champion's ``appliedAt``) with no curve constant
+    changing at all — exactly the "a version that cannot change is not a
+    version" failure this function exists to prevent, just aimed at the
+    wrong input.  Any OTHER future non-curve key added to ``hillCurves``
+    is excluded the same way, defensively, not just this one.
+
     Degrades to ``nohash`` rather than raising.  A recording job must
     not take the process down over its own labelling.
     """
@@ -41,8 +52,12 @@ def pipeline_version(contract: dict[str, Any]) -> str:
     curves = contract.get("hillCurves")
     if not isinstance(curves, dict) or not curves:
         return f"{shape}+nohash"
+    curve_keys = ("global", "offense", "idp", "rookie")
+    value_determining = {k: curves[k] for k in curve_keys if k in curves}
+    if not value_determining:
+        return f"{shape}+nohash"
     try:
-        blob = json.dumps(curves, sort_keys=True, separators=(",", ":"))
+        blob = json.dumps(value_determining, sort_keys=True, separators=(",", ":"))
     except (TypeError, ValueError):
         return f"{shape}+nohash"
     return f"{shape}+{hashlib.sha256(blob.encode('utf-8')).hexdigest()[:8]}"
