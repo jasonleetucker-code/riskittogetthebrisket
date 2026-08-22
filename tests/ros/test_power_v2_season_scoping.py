@@ -25,6 +25,8 @@ already populates it correctly.
 
 from __future__ import annotations
 
+import pytest
+
 from src.public_league.identity import Manager, ManagerRegistry
 from src.public_league.snapshot import PublicLeagueSnapshot, SeasonSnapshot
 from src.ros import power_v2
@@ -116,6 +118,92 @@ def _two_season_snapshot() -> PublicLeagueSnapshot:
 
 def _row(rankings: list[dict], owner_id: str) -> dict:
     return next(r for r in rankings if r["ownerId"] == owner_id)
+
+
+#: A separate, purpose-built fixture for the streak test. alpha/bravo's
+#: main fixture above does NOT discriminate streak contamination: each
+#: owner's season-2026 outcomes are already uniform (all-L for alpha,
+#: all-W for bravo) AND season-2025's uniform outcome is the OPPOSITE
+#: sign, so `_streak_score_from_outcomes`'s trailing-run search
+#: naturally stops at the season boundary either way — the bug is real
+#: but that fixture can't see it. Here "charlie" loses every game of
+#: BOTH seasons (same sign on both sides of the boundary), so a
+#: career-contaminated trailing run keeps counting straight through the
+#: season boundary while the season-2-only run correctly stops at
+#: season 2's own first game.
+_STREAK_ROSTERS = [{"roster_id": 1, "owner_id": "charlie"}, {"roster_id": 2, "owner_id": "dave"}]
+_STREAK_SEASON_2025_SCORES = {1: {1: 10.0, 2: 90.0}, 2: {1: 10.0, 2: 90.0}, 3: {1: 10.0, 2: 90.0}}
+_STREAK_SEASON_2026_SCORES = {1: {1: 10.0, 2: 90.0}, 2: {1: 10.0, 2: 90.0}, 3: {1: 10.0, 2: 90.0}}
+
+
+def _streak_snapshot() -> PublicLeagueSnapshot:
+    season_2025 = _season(
+        "2025", "L2025", _STREAK_ROSTERS, _STREAK_SEASON_2025_SCORES, is_complete=True
+    )
+    season_2026 = _season(
+        "2026", "L2026", _STREAK_ROSTERS, _STREAK_SEASON_2026_SCORES, is_complete=False
+    )
+    registry = _registry_with(_STREAK_ROSTERS, "L2025", "L2026")
+    return PublicLeagueSnapshot(
+        root_league_id="L2026",
+        generated_at="2026-08-21T00:00:00Z",
+        seasons=[season_2026, season_2025],
+        managers=registry,
+    )
+
+
+class TestStreakAndLuckRegressionIsolation:
+    """V1-52 follow-up (#1032's own residual comment): season_outcomes
+    and expected_share_total fed streak/luck_regression from a career
+    total the same way season_state's points/games fed ppg/wl_record
+    before the original fix."""
+
+    def test_streak_resets_at_the_season_boundary(self):
+        """charlie loses every game of both seasons (uniform sign on
+        both sides of the boundary). Season-2-only: 3 straight losses
+        -> run=3 -> streak score = max(0.0, 0.5 - 3*0.10) = 0.2.
+        Career-contaminated: 6 straight losses (the run keeps counting
+        through the season boundary since season 2025 also ended in an
+        unbroken loss streak) -> run=6 -> streak score floors at 0.0.
+        """
+        out = power_v2.build_section(_streak_snapshot(), lens=power_v2.LENS_RESULTS_ONLY)
+        charlie = _row(out["currentRanking"], "charlie")
+        assert charlie["components"]["streak"] == pytest.approx(0.2), (
+            "season-2-only losing streak is 3 games (score 0.2); a career-contaminated "
+            "6-game streak would floor the score at 0.0"
+        )
+
+    def test_luck_regression_uses_season_2_only_expected_share(self):
+        """alpha (from the main two-season fixture) went undefeated on
+        all-play EXPECTATION in season 2025 (expectedShare 1.0 every
+        week, blowing bravo out) and 0-for-3 on it in season 2026
+        (expectedShare 0.0 every week, getting blown out). wins/games
+        are already season-2-only (post the original V1-52 fix).
+
+        Season-2-only expected_share_running = 0.0 (3 x 0.0) ->
+        luck_delta = (0 - 0.0) / 3 = 0.0 -> luck_score = 0.5 (neutral,
+        correct: alpha's season-2 results matched its season-2
+        all-play expectation exactly).
+
+        Career-contaminated expected_share_running = 3.0 (season
+        2025's 3 x 1.0 leaking in) + 0.0 = 3.0 -> luck_delta =
+        (0 - 3.0) / 3 = -1.0 -> luck_score clamps to 1.0 (maximally
+        "unlucky", which is false: nothing about season 2025 has
+        anything to do with alpha's season-2 luck).
+        """
+        out = power_v2.build_section(_two_season_snapshot(), lens=power_v2.LENS_RESULTS_ONLY)
+        alpha = _row(out["currentRanking"], "alpha")
+        assert alpha["components"]["luck_regression"] == pytest.approx(0.5), (
+            "season-2-only luck score must be neutral (0.5); a career-contaminated "
+            "expected-share total would clamp this to 1.0"
+        )
+
+    def test_both_lenses_agree_on_the_season_2_only_streak_and_luck(self):
+        forward = power_v2.build_section(_streak_snapshot(), lens=power_v2.LENS_FORWARD_LOOKING)
+        results = power_v2.build_section(_streak_snapshot(), lens=power_v2.LENS_RESULTS_ONLY)
+        for out in (forward, results):
+            charlie = _row(out["currentRanking"], "charlie")
+            assert charlie["components"]["streak"] == pytest.approx(0.2)
 
 
 class TestSeasonIsolation:
