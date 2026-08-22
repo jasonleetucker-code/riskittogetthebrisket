@@ -1,7 +1,7 @@
 {
   "_comment": "Lane utilization state for an independent traffic-control/dispatch record (no lane number, no name assigned to it — see governanceCorrection_C31). NOT an authority on integration sequencing (Claude 5 / docs/EXECUTION_PLAN.md), on V1 status (docs/VERSION_1_COMPLETION_CONTRACT.md) or on canonical ownership (CLAUDE.md). Repository evidence outranks this file: where they disagree, this file is wrong and must be corrected.",
-  "updatedAt": "2026-08-22T07:58:00Z",
-  "dispatchCycle": 119,
+  "updatedAt": "2026-08-22T08:27:00Z",
+  "dispatchCycle": 120,
   "writePolicy": "This file and ASSIGNMENTS.json are written ONLY on a material state transition — new assignment, assignment accepted, completion, blocker, freeze/unfreeze, or a meaningful dependency change. A heartbeat that finds nothing changed produces no commit and no CI run.",
   "evidenceBasis": "origin/main 079fc9e4a; §3 diffed row-by-row from cycle-19 main (c5a367266); all refs resolved live; #945 CI green 04:57:35Z",
   "assignmentSourceNote": "Lanes 1-6 carry the owner's original six manual assignments, tracked in detail by this dispatcher. Lanes 8-13 are five additional owner-authorized campaign lanes (Claude 8 chartered 2026-08-20; Claude 9-13 chartered the same day under the POST-V1 C-Series mass-build campaign, EXECUTION_PLAN.md §0). This dispatcher did not originate any of these eleven assignments and does not own or re-scope them. Lanes 8-13 are tracked here only lightly — ownership boundaries and authorization citation — because they are self-directed under their own charter, unlike lanes 1-6 which this dispatcher actively monitors for idleness and dispatches follow-on work to. This record is independent traffic-control/dispatch bookkeeping — it claims no lane number and is not assigned to a named identity, per dispatcherIdentity above.",
@@ -767,5 +767,19 @@
     },
     "standingItemsUnchanged": "Lane 2, Lane 4 on-box batch, all three abandoned refs, #1027 (V1-49) — checked live, no change.",
     "note": "Tally now 85/136=62.5%, up from 84/136 held flat for 17 cycles (102-118). 11 more rows needed for the original 96/136=70.6% target."
+  },
+  "cycle120Transitions": {
+    "mainTip": "a894e712a (was a9ac79f4d at cycle 119) -- merged 'V1-43: canonical adjudication -- promote to VERIFIED'.",
+    "myOwnPr": {
+      "pr": "#1000", "head": "3431b9373",
+      "verdict": "Validate PR SUCCESS, run 32560910349 (head_sha cross-verified via webhook + reconfirmed), 07:55:38Z -> 08:10:17Z. No new comments (still just the two governance-correction exchange comments)."
+    },
+    "rowDiff": {
+      "method": "§3 row-diffed a9ac79f4d -> a894e712a",
+      "result": "REAL NUMERATOR PROMOTION: V1-43 NOT STARTED -> VERIFIED via merged #1045. Analyze Trade (src/trade/analyze_trade.py) composes two already-VERIFIED canonical dimensions -- equity (V1-37's adjusted_pair_totals) and roster marginal impact (V1-42's finalRosterSimulation Team Strength delta) -- into a MAKE/LEAN_MAKE/TOO_CLOSE/LEAN_PASS/PASS recommendation via an explicit rule table, never a tuned weighted sum (per the row's own no-double-counting governance rule). New POST /api/trade/analyze, additive. Dependency adjudication performed and independently re-verified this pass: V1-41's Team Context does NOT need separate wiring (its finder-side signal and V1-42's Strength delta are two different-precision measurements of the same underlying fact -- wiring both would double-count); C4-MTL-03 (market corroboration) legitimately stays unavailable (depends on entirely-absent C4-MTL-01, a whole new ledger, not a bounded gap) and is stamped via a real, non-vacuous _UNAVAILABLE_DIMENSIONS tuple rather than silently dropped. AST guard + fresh self-performed mutation (injected a shared-helper call into the roster-impact dimension) sent the isolation test RED, restored clean; broader regression 1389 passed/0 failed confirming the shared-simulation refactor is behavior-preserving. Notable: this is the SECOND row (after V1-41) landing from the same C7-DESK-01/C3-CTX-01 dependency cluster in consecutive cycles -- both independently evidenced and non-conflicting per the row's own text.",
+      "selfConsistency": "Independent count 86+22+13+13+2=136; contract's own table and completion line read 86/136=63.2%, agreeing."
+    },
+    "standingItemsUnchanged": "Lane 2, Lane 4 on-box batch, all three abandoned refs, #1027 (V1-49) — checked live, no change.",
+    "note": "Tally now 86/136=63.2%, third consecutive material cycle with real numerator movement (118->119: 84->85, 119->120: 85->86). 10 more rows needed for the original 96/136=70.6% target."
   }
 }
