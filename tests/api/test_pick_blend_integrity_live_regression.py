@@ -10,7 +10,9 @@ from src.api.data_contract import build_api_data_contract
 
 def _latest_payload() -> dict:
     candidates = sorted(Path("exports/latest").glob("dynasty_data_*.json"))
-    assert candidates, "tracked latest dynasty payload is required for the blend-integrity regression"
+    assert candidates, (
+        "tracked latest dynasty payload is required for the blend-integrity regression"
+    )
     with candidates[-1].open("r", encoding="utf-8") as handle:
         return json.load(handle)
 
