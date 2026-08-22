@@ -6202,6 +6202,115 @@ def _build_hill_curves_block() -> dict[str, dict[str, Any]]:
         "rookie": _entry(
             "rookie", "Rookie", HILL_ROOKIE_PERCENTILE_C, HILL_ROOKIE_PERCENTILE_S, False
         ),
+        "provenance": _hill_master_provenance(),
+    }
+
+
+def _hill_master_provenance() -> dict[str, Any]:
+    """Model provenance stamp for the Hill scope masters (V1-21 / W04-F011).
+
+    W04-F011: "Derived values carry no model version, param-set id or
+    as-of stamp — /api/data serves values with nothing recording which
+    champion produced them."  ``src/model_registry/`` already exists and
+    already records exactly that (see its package docstring), but by
+    design "does not change what any live endpoint returns" — nothing
+    under ``src/api`` ever read it.  This is the read-only stamp that
+    closes that gap, reusing the SAME ``modelVersion`` / ``paramSetId`` /
+    ``asOf`` vocabulary ``src/bdvm`` and ``src/consensus_edge`` already
+    established (see ``src/consensus_edge/params.py``'s own docstring:
+    "a second [convention] would be a drift risk, not a feature") rather
+    than inventing a fourth.
+
+    Never computes a value and never changes what the board prices — the
+    champion pointer is consulted for its METADATA only.  Truthful, not
+    merely present: a version number is stamped ONLY when the live
+    constants byte-match the recorded champion's params exactly.  Any
+    divergence — constants hand-edited without a promote()+apply() cycle,
+    a registry file that fails to load, a model with no champion — is
+    reported ``status: "unverified"``/``"unavailable"`` with the reason
+    named, never coerced onto the nearest-looking version.  A fallback
+    (unverified) state is a DIFFERENT status than a verified one; neither
+    is ever silently upgraded into the other.
+    """
+    import hashlib  # noqa: PLC0415
+
+    from src.canonical.player_valuation import (  # noqa: PLC0415
+        HILL_GLOBAL_PERCENTILE_C,
+        HILL_GLOBAL_PERCENTILE_S,
+        HILL_PERCENTILE_C,
+        HILL_PERCENTILE_S,
+        HILL_ROOKIE_PERCENTILE_C,
+        HILL_ROOKIE_PERCENTILE_S,
+        IDP_HILL_PERCENTILE_C,
+        IDP_HILL_PERCENTILE_S,
+    )
+    from src.model_registry import ModelRegistry, RegistryError  # noqa: PLC0415
+
+    live_params = {
+        "HILL_GLOBAL_PERCENTILE_C": float(HILL_GLOBAL_PERCENTILE_C),
+        "HILL_GLOBAL_PERCENTILE_S": float(HILL_GLOBAL_PERCENTILE_S),
+        "HILL_PERCENTILE_C": float(HILL_PERCENTILE_C),
+        "HILL_PERCENTILE_S": float(HILL_PERCENTILE_S),
+        "IDP_HILL_PERCENTILE_C": float(IDP_HILL_PERCENTILE_C),
+        "IDP_HILL_PERCENTILE_S": float(IDP_HILL_PERCENTILE_S),
+        "HILL_ROOKIE_PERCENTILE_C": float(HILL_ROOKIE_PERCENTILE_C),
+        "HILL_ROOKIE_PERCENTILE_S": float(HILL_ROOKIE_PERCENTILE_S),
+    }
+
+    try:
+        registry = ModelRegistry.load("hill_scope_masters")
+    except (RegistryError, OSError, ValueError, KeyError, TypeError) as exc:
+        # Broad on purpose: a malformed/corrupt registry file (bad JSON,
+        # a missing required key) must degrade this stamp to UNAVAILABLE,
+        # never crash the whole /api/data build over a diagnostic field.
+        return {
+            "status": "unavailable",
+            "modelVersion": None,
+            "paramSetId": None,
+            "asOf": None,
+            "reason": f"model registry unreadable: {exc}",
+        }
+
+    if not registry.has_champion:
+        return {
+            "status": "unavailable",
+            "modelVersion": None,
+            "paramSetId": None,
+            "asOf": None,
+            "reason": "hill_scope_masters registry has no champion",
+        }
+
+    champion = registry.champion
+    champion_params = {str(k): float(v) for k, v in champion.params.items()}
+    matches = champion_params.keys() == live_params.keys() and all(
+        abs(champion_params[k] - v) < 1e-9 for k, v in live_params.items()
+    )
+
+    if not matches:
+        return {
+            "status": "unverified",
+            "modelVersion": None,
+            "paramSetId": None,
+            "asOf": None,
+            "reason": (
+                "live constants in player_valuation.py do not match registry "
+                f"champion v{champion.version}'s recorded params — promote()/"
+                "apply() may be out of sync with what is actually committed"
+            ),
+        }
+
+    digest = hashlib.sha256(
+        json.dumps(champion_params, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    ).hexdigest()[:16]
+    return {
+        "status": "verified_champion",
+        "modelVersion": champion.version,
+        "paramSetId": f"hill_scope_masters:{digest}",
+        "asOf": champion.promoted_at or champion.fitted_at,
+        "fittedAt": champion.fitted_at,
+        "producer": champion.producer,
+        "qualified": champion.qualified,
+        "confidence": champion.confidence,
     }
 
 
