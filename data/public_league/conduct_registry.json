@@ -1,0 +1,731 @@
+{
+  "schemaVersion": 1,
+  "lastReviewed": "2026-08-23",
+  "reviewPolicy": {
+    "identityKey": "Sleeper player ID",
+    "minimumEvidence": "At least one labeled HTTPS source per incident",
+    "maintenance": "Manually review dispositions and current-roster identity matches before publishing updates"
+  },
+  "players": [
+    {
+      "sleeperPlayerId": "12585",
+      "playerName": "James Pearce Jr.",
+      "incidents": [
+        {
+          "incidentId": "james-pearce-2026-domestic-case",
+          "date": "2026-02-07",
+          "dateLabel": "February 7, 2026",
+          "lastVerified": "2026-08-14",
+          "category": "domesticViolence",
+          "summary": "Police arrested Pearce after a reported domestic dispute. Prosecutors later filed felony aggravated-battery-with-a-deadly-weapon, fleeing/eluding, and resisting-with-violence charges, plus a misdemeanor stalking charge.",
+          "status": "pretrialDiversion",
+          "statusLabel": "Pretrial diversion; conditional dismissal",
+          "disposition": "Pearce agreed to a six-month pretrial intervention program. His attorneys said all felony and misdemeanor charges would be dismissed if he completed it without a violation.",
+          "qualifyingBasis": [
+            "credibleAllegation",
+            "formalLegalAction",
+            "violenceRelatedDiscipline"
+          ],
+          "discipline": {
+            "organization": "NFL",
+            "description": "Eight-game suspension for violating the personal conduct policy",
+            "date": "2026-08-14"
+          },
+          "sources": [
+            {
+              "label": "Associated Press — diversion agreement and filed charges",
+              "url": "https://apnews.com/article/3a7f5ad7f252bae6bb563598f0fefc7b"
+            },
+            {
+              "label": "NFL — eight-game personal-conduct suspension",
+              "url": "https://www.nfl.com/news/falcons-james-pearce-jr-suspended-eight-games-for-violating-nfl-personal-conduct-policy"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "sleeperPlayerId": "3294",
+      "playerName": "Dak Prescott",
+      "incidents": [
+        {
+          "incidentId": "dak-prescott-2017-sexual-assault-allegation",
+          "date": "2017-02",
+          "dateLabel": "Alleged February 2017 incident; reported in 2024",
+          "lastVerified": "2024-06-27",
+          "category": "sexualMisconduct",
+          "summary": "A woman alleged in 2024 that Prescott sexually assaulted her in 2017. Prescott denied the allegation and filed a separate civil action alleging extortion.",
+          "status": "prosecutionDeclined",
+          "statusLabel": "No criminal charge; civil claim dismissed",
+          "disposition": "Dallas police said detectives found insufficient evidence that an offense occurred and did not pursue charges. A judge later dismissed the accuser's civil lawsuit.",
+          "qualifyingBasis": [
+            "credibleAllegation"
+          ],
+          "denial": "Prescott denied the allegation and alleged an attempted extortion.",
+          "sources": [
+            {
+              "label": "ESPN — police decline charges for insufficient evidence",
+              "url": "https://www.espn.com/nfl/story/_/id/40072090/police-no-charges-cowboys-prescott-alleged-17-incident"
+            },
+            {
+              "label": "Reuters — civil lawsuit dismissed",
+              "url": "https://www.reuters.com/sports/judge-tosses-lawsuit-against-cowboys-dak-prescott-2024-06-27/"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "sleeperPlayerId": "4017",
+      "playerName": "Deshaun Watson",
+      "incidents": [
+        {
+          "incidentId": "deshaun-watson-2021-massage-lawsuits",
+          "date": "2021-03",
+          "dateLabel": "Civil filings began in March 2021",
+          "lastVerified": "2026-02-09",
+          "category": "sexualMisconduct",
+          "summary": "More than two dozen women accused Watson in civil filings of sexual assault or other sexual misconduct during massage appointments. Watson denied wrongdoing.",
+          "status": "resolvedMixed",
+          "statusLabel": "No indictment; civil cases settled or dismissed",
+          "disposition": "Two Texas grand juries declined to indict Watson. Many civil matters were settled, and Associated Press reported in February 2026 that the final two related lawsuits had been dismissed.",
+          "qualifyingBasis": [
+            "credibleAllegation",
+            "violenceRelatedDiscipline"
+          ],
+          "discipline": {
+            "organization": "NFL",
+            "description": "Eleven-game suspension, $5 million fine, evaluation, and treatment requirements under a league/NFLPA settlement",
+            "date": "2022-08-18"
+          },
+          "denial": "Watson has denied assaulting anyone and denied wrongdoing in the civil matters.",
+          "sources": [
+            {
+              "label": "Associated Press — final related lawsuits dismissed and case history",
+              "url": "https://apnews.com/article/ea14ddc8c2986a08efc1d5242a71d0c4"
+            },
+            {
+              "label": "NFL — 11-game suspension and $5 million fine",
+              "url": "https://www.nfl.com/news/browns-qb-deshaun-watson-suspended-11-games-fined-5-million-following-settlement"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "sleeperPlayerId": "5850",
+      "playerName": "Josh Jacobs",
+      "incidents": [
+        {
+          "incidentId": "josh-jacobs-2026-domestic-arrest",
+          "date": "2026-05-26",
+          "dateLabel": "May 26, 2026 arrest",
+          "lastVerified": "2026-07-06",
+          "category": "domesticViolence",
+          "summary": "Police arrested Jacobs on recommended domestic-abuse-related offenses including battery, victim intimidation, and felony strangulation or suffocation.",
+          "status": "arrestedInvestigationOpen",
+          "statusLabel": "Arrested; no formal charge filed",
+          "disposition": "The district attorney released Jacobs while seeking more investigation and said no formal charging decision had been made. A July update said the investigation remained open.",
+          "qualifyingBasis": [
+            "credibleAllegation",
+            "formalLegalAction"
+          ],
+          "denial": "Jacobs, through counsel, denied wrongdoing and said the evidence would support no charges.",
+          "sources": [
+            {
+              "label": "Associated Press — arrest, release, denial, and open investigation",
+              "url": "https://apnews.com/article/29bb5bed683e516e630f05caf5d68afe"
+            },
+            {
+              "label": "WTMJ — July 2026 investigation status",
+              "url": "https://wtmj.com/sports/2026/07/06/no-decision-on-josh-jacobs-charges/"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "sleeperPlayerId": "4098",
+      "playerName": "Kareem Hunt",
+      "incidents": [
+        {
+          "incidentId": "kareem-hunt-2018-physical-altercations",
+          "date": "2018-02",
+          "dateLabel": "February and June 2018 incidents",
+          "lastVerified": "2019-03-15",
+          "category": "violentConduct",
+          "summary": "Video showed Hunt shoving and kicking a woman during a February 2018 altercation. The league also cited a separate June physical altercation.",
+          "status": "leagueFinding",
+          "statusLabel": "NFL conduct finding; no criminal charge",
+          "disposition": "NFL reporting said Hunt was not arrested and faced no criminal charge for the February incident. The league imposed discipline for both physical altercations.",
+          "qualifyingBasis": [
+            "credibleAllegation",
+            "violenceRelatedDiscipline"
+          ],
+          "discipline": {
+            "organization": "NFL",
+            "description": "Eight-game suspension for violating the personal conduct policy",
+            "date": "2019-03-15"
+          },
+          "sources": [
+            {
+              "label": "NFL — eight-game suspension and underlying incidents",
+              "url": "https://www.nfl.com/news/nfl-suspends-browns-rb-kareem-hunt-eight-games-0ap3000001022826"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "sleeperPlayerId": "12512",
+      "playerName": "Quinshon Judkins",
+      "incidents": [
+        {
+          "incidentId": "quinshon-judkins-2025-domestic-arrest",
+          "date": "2025-07-12",
+          "dateLabel": "July 12, 2025 arrest",
+          "lastVerified": "2025-08-14",
+          "category": "domesticViolence",
+          "summary": "Judkins was arrested after his girlfriend alleged that he struck her during a July 7 car ride from the Fort Lauderdale airport.",
+          "status": "prosecutionDeclined",
+          "statusLabel": "Prosecutors declined to file a charge",
+          "disposition": "Broward County prosecutors declined the misdemeanor battery case, citing no video or independent witnesses, a delayed report, and evidence issues they said made conviction unlikely.",
+          "qualifyingBasis": [
+            "credibleAllegation",
+            "formalLegalAction"
+          ],
+          "sources": [
+            {
+              "label": "Associated Press — prosecutors decline domestic-violence case",
+              "url": "https://apnews.com/article/browns-quinshon-judkins-arrest-dde50f5a4005b18f4f0920a7b8af257a"
+            },
+            {
+              "label": "NFL — arrest allegation and police report",
+              "url": "https://www.nfl.com/news/browns-rookie-rb-quinshon-judkins-arrested-on-charge-of-misdemeanor-domestic-violence"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "sleeperPlayerId": "10229",
+      "playerName": "Rashee Rice",
+      "incidents": [
+        {
+          "incidentId": "rashee-rice-2026-domestic-civil-allegations",
+          "date": "2026-02",
+          "dateLabel": "Civil lawsuit filed February 2026",
+          "lastVerified": "2026-04",
+          "category": "domesticViolence",
+          "summary": "Rice's former girlfriend alleged in a civil lawsuit that he repeatedly assaulted her between December 2023 and July 2025, including while she was pregnant.",
+          "status": "leagueNoFinding",
+          "statusLabel": "Civil allegation; no NFL policy finding",
+          "disposition": "The NFL later said it found insufficient evidence of a personal-conduct violation and imposed no discipline for these allegations. The cited reports did not identify a criminal charge.",
+          "qualifyingBasis": [
+            "credibleAllegation"
+          ],
+          "denial": "Rice denied the lawsuit allegations through counsel.",
+          "sources": [
+            {
+              "label": "Associated Press — civil assault allegations",
+              "url": "https://apnews.com/article/358f4e7e0f2bbc3ff33a4ace7153959f"
+            },
+            {
+              "label": "People — NFL closes review with no discipline",
+              "url": "https://people.com/rashee-rice-won-t-face-nfl-discipline-after-abuse-allegations-by-ex-girlfriend-11942880"
+            }
+          ]
+        },
+        {
+          "incidentId": "rashee-rice-2024-high-speed-crash",
+          "date": "2024-03-30",
+          "dateLabel": "March 30, 2024 crash",
+          "lastVerified": "2026-05",
+          "category": "seriousCrime",
+          "summary": "Rice drove at high speed in a Dallas street race, caused a multi-vehicle crash that injured people, and left the scene.",
+          "status": "pleaded",
+          "statusLabel": "Guilty plea to two third-degree felonies",
+          "disposition": "Rice pleaded guilty to collision involving serious bodily injury and racing on a highway causing bodily injury. He received deferred probation, 30 days in jail, and restitution obligations.",
+          "qualifyingBasis": [
+            "formalLegalAction",
+            "convictionOrPlea"
+          ],
+          "discipline": {
+            "organization": "NFL",
+            "description": "Six-game suspension for violating the personal conduct policy",
+            "date": "2025-08-27"
+          },
+          "sources": [
+            {
+              "label": "Associated Press — guilty plea, sentence, and crash facts",
+              "url": "https://apnews.com/article/454eb8f9ee467628ee8258fe8ae5cc0c"
+            },
+            {
+              "label": "Associated Press — six-game NFL suspension",
+              "url": "https://apnews.com/article/db7c2a8f3521f044eae93709290564c8"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "sleeperPlayerId": "7571",
+      "playerName": "Rashod Bateman",
+      "incidents": [
+        {
+          "incidentId": "rashod-bateman-2026-family-violence-case",
+          "date": "2026-06-03",
+          "dateLabel": "June 3, 2026 arrest",
+          "lastVerified": "2026-08-22",
+          "category": "domesticViolence",
+          "summary": "Bateman was accused of smashing a vehicle window while the mother of his child and their infant were inside; shattered glass allegedly caused small facial cuts.",
+          "status": "chargedPending",
+          "statusLabel": "Charges pending",
+          "disposition": "Georgia court records listed family-violence battery, reckless conduct, and first-degree criminal damage to property. NFL reporting said the league was reviewing the matter in August 2026.",
+          "qualifyingBasis": [
+            "credibleAllegation",
+            "formalLegalAction"
+          ],
+          "denial": "Bateman's attorney said the matter had been taken out of context and urged people to await the legal process.",
+          "sources": [
+            {
+              "label": "NFL — arrest, charges, and alleged injuries",
+              "url": "https://www.nfl.com/news/ravens-wr-rashod-bateman-was-arrested-in-june-charged-with-family-violence"
+            },
+            {
+              "label": "ESPN — August 2026 NFL review and case status",
+              "url": "https://www.espn.com/nfl/story/_/id/49685741/nfl-reviewing-ravens-wr-bateman-family-violence-arrest"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "sleeperPlayerId": "11624",
+      "playerName": "Xavier Worthy",
+      "incidents": [
+        {
+          "incidentId": "xavier-worthy-2025-domestic-arrest",
+          "date": "2025-03-07",
+          "dateLabel": "March 7, 2025 arrest",
+          "lastVerified": "2025-03-08",
+          "category": "domesticViolence",
+          "summary": "Worthy was arrested after an allegation of assaulting a household member by impeding breathing or circulation, a third-degree felony allegation under Texas law.",
+          "status": "prosecutionDeclined",
+          "statusLabel": "District attorney declined charges",
+          "disposition": "The Williamson County district attorney declined to accept the case after reviewing witness interviews. Worthy was released and no criminal charge was pursued.",
+          "qualifyingBasis": [
+            "credibleAllegation",
+            "formalLegalAction"
+          ],
+          "denial": "Worthy's attorneys called the allegation baseless and said he had been the target of extortion.",
+          "sources": [
+            {
+              "label": "Associated Press — arrest, denial, and declined charges",
+              "url": "https://apnews.com/article/4d3b3bb4c3608a5be74f2dda420f0044"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "sleeperPlayerId": "7765",
+      "playerName": "Jonathon Cooper",
+      "incidents": [
+        {
+          "incidentId": "jonathon-cooper-2026-domestic-cases",
+          "date": "2026-06-04",
+          "dateLabel": "June 4 and June 12, 2026 arrests",
+          "lastVerified": "2026-07-29",
+          "category": "domesticViolence",
+          "summary": "Cooper was arrested twice in June after a dispute with his girlfriend. Filed counts include felony second-degree assault by strangulation and misdemeanors tied to the dispute and an alleged protection-order violation.",
+          "status": "chargedPending",
+          "statusLabel": "Felony and misdemeanor charges pending",
+          "disposition": "Cooper pleaded not guilty. Reuters reported in late July that the matters had been combined and that an arraignment was scheduled for August 31, 2026.",
+          "qualifyingBasis": [
+            "credibleAllegation",
+            "formalLegalAction"
+          ],
+          "denial": "Cooper pleaded not guilty.",
+          "sources": [
+            {
+              "label": "NFL — second arrest and alleged protection-order violation",
+              "url": "https://www.nfl.com/news/broncos-jonathon-cooper-arrested-again-four-charges-harassment-protection-order"
+            },
+            {
+              "label": "Reuters — pending felony charge and August arraignment",
+              "url": "https://www.reuters.com/sports/payton-broncos-staying-course-with-lb-jonathon-cooper--flm-2026-07-29/"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "sleeperPlayerId": "12571",
+      "playerName": "Mike Green",
+      "incidents": [
+        {
+          "incidentId": "mike-green-2022-virginia-sexual-assault-allegation",
+          "date": "2022",
+          "dateLabel": "2022 at the University of Virginia",
+          "lastVerified": "2025-04-26",
+          "category": "sexualMisconduct",
+          "summary": "Green said an anonymous sexual-assault accusation preceded his suspension at Virginia and transfer to Marshall.",
+          "status": "allegedNoCharge",
+          "statusLabel": "Allegation; no criminal charge reported",
+          "disposition": "ESPN reported that Green was never charged. Green denied wrongdoing, and the Ravens said they investigated the allegations before drafting him.",
+          "qualifyingBasis": [
+            "credibleAllegation"
+          ],
+          "denial": "Green denied the allegation and said he had done nothing wrong.",
+          "sources": [
+            {
+              "label": "NFL — Green addresses and denies the allegations",
+              "url": "https://www.nfl.com/news/nfl-draft-prospect-mike-green-denies-sexual-assault-allegations-addresses-departure-from-virginia"
+            },
+            {
+              "label": "ESPN — Ravens review and no criminal charge",
+              "url": "https://www.espn.com/nfl/story/_/id/44861661/gm-eric-decosta-says-ravens-investigated-sexual-assault-allegations-2nd-round-pick-mike-green"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "sleeperPlayerId": "2449",
+      "playerName": "Stefon Diggs",
+      "incidents": [
+        {
+          "incidentId": "stefon-diggs-2025-assault-case",
+          "date": "2025-12-02",
+          "dateLabel": "Alleged December 2, 2025 incident",
+          "lastVerified": "2026-05-05",
+          "category": "domesticViolence",
+          "summary": "A former live-in chef accused Diggs of slapping and choking her during a dispute. Prosecutors charged felony strangulation and misdemeanor assault and battery.",
+          "status": "acquitted",
+          "statusLabel": "Acquitted at trial",
+          "disposition": "A jury found Diggs not guilty of both charges on May 5, 2026, after a two-day trial.",
+          "qualifyingBasis": [
+            "credibleAllegation",
+            "formalLegalAction"
+          ],
+          "denial": "Diggs denied that the assault occurred and pleaded not guilty before his acquittal.",
+          "sources": [
+            {
+              "label": "Associated Press — not-guilty verdict and trial record",
+              "url": "https://apnews.com/article/7128f3d02e1058120d0d5423f0ec72f5"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "sleeperPlayerId": "8261",
+      "playerName": "Jack Jones",
+      "incidents": [
+        {
+          "incidentId": "jack-jones-2023-airport-firearms-case",
+          "date": "2023-06-16",
+          "dateLabel": "June 16, 2023 airport arrest",
+          "lastVerified": "2023-09-05",
+          "category": "weapons",
+          "summary": "Jones was arrested after two loaded firearms were found in his carry-on luggage at Boston Logan International Airport, leading to serious gun charges.",
+          "status": "dismissed",
+          "statusLabel": "Weapons charges dropped under agreement",
+          "disposition": "Prosecutors dropped the gun charges after Jones agreed to one year of pretrial probation and 48 hours of community service on other counts.",
+          "qualifyingBasis": [
+            "formalLegalAction"
+          ],
+          "sources": [
+            {
+              "label": "ESPN — weapons charges dropped and agreement terms",
+              "url": "https://www.espn.com/nfl/story/_/id/38335150/patriots-jack-jones-gun-charges-dropped-deal-prosecutors"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "sleeperPlayerId": "2306",
+      "playerName": "Jameis Winston",
+      "incidents": [
+        {
+          "incidentId": "jameis-winston-2016-uber-misconduct",
+          "date": "2016-03",
+          "dateLabel": "March 2016 incident",
+          "lastVerified": "2018-06-28",
+          "category": "sexualMisconduct",
+          "summary": "An Uber driver accused Winston of nonconsensual sexual touching during a ride in Arizona.",
+          "status": "leagueFinding",
+          "statusLabel": "NFL personal-conduct finding",
+          "disposition": "The NFL said its investigation concluded Winston touched the driver in an inappropriate and sexual manner without consent. The discipline was negotiated and Winston did not appeal.",
+          "qualifyingBasis": [
+            "credibleAllegation",
+            "violenceRelatedDiscipline"
+          ],
+          "discipline": {
+            "organization": "NFL",
+            "description": "Three-game suspension for violating the personal conduct policy",
+            "date": "2018-06-28"
+          },
+          "sources": [
+            {
+              "label": "NFL — investigation finding and three-game suspension",
+              "url": "https://www.nfl.com/news/buccaneers-jameis-winston-suspended-three-games-0ap3000000938898"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "sleeperPlayerId": "8148",
+      "playerName": "Jameson Williams",
+      "incidents": [
+        {
+          "incidentId": "jameson-williams-2024-concealed-weapon-review",
+          "date": "2024-10-08",
+          "dateLabel": "October 8, 2024 traffic stop",
+          "lastVerified": "2025-02-19",
+          "category": "weapons",
+          "summary": "Police found Williams's registered handgun under his seat during a traffic stop. He lacked a concealed-pistol license at the time, and police submitted a concealed-weapon warrant request.",
+          "status": "prosecutionDeclined",
+          "statusLabel": "No charge; warrant request denied",
+          "disposition": "The Wayne County prosecutor denied the warrant because Michigan law did not support a charge on the specific facts. The NFL later imposed no discipline.",
+          "qualifyingBasis": [
+            "credibleAllegation"
+          ],
+          "sources": [
+            {
+              "label": "Wayne County Prosecutor — no charges and legal rationale",
+              "url": "https://www.waynecountymi.gov/Prosecutor-Press-Releases/2024/No-Charges-to-Issue-Against-Jameson-Williams"
+            },
+            {
+              "label": "ESPN — no criminal charge or NFL discipline",
+              "url": "https://www.espn.com/nfl/story/_/id/43921816/lions-wr-jameson-williams-face-nfl-discipline-gun"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "sleeperPlayerId": "9997",
+      "playerName": "Zay Flowers",
+      "incidents": [
+        {
+          "incidentId": "zay-flowers-2024-domestic-investigation",
+          "date": "2024-01-16",
+          "dateLabel": "Alleged January 16, 2024 incident",
+          "lastVerified": "2024-04-18",
+          "category": "domesticViolence",
+          "summary": "A woman reported a violent domestic incident involving an NFL player; reporting and the ensuing investigation connected the matter to Flowers.",
+          "status": "leagueNoFinding",
+          "statusLabel": "No charge; NFL found insufficient evidence",
+          "disposition": "Baltimore County police suspended the investigation without charging Flowers. The NFL said there was insufficient evidence of a personal-conduct violation and took no action.",
+          "qualifyingBasis": [
+            "credibleAllegation"
+          ],
+          "sources": [
+            {
+              "label": "ESPN — no charge and NFL insufficient-evidence finding",
+              "url": "https://www.espn.com/nfl/story/_/id/39970859/nfl-finds-insufficient-evidence-punish-ravens-zay-flowers"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "sleeperPlayerId": "4071",
+      "playerName": "Marlon Humphrey",
+      "incidents": [
+        {
+          "incidentId": "marlon-humphrey-2018-robbery-charge",
+          "date": "2018-01-13",
+          "dateLabel": "January 13, 2018 incident",
+          "lastVerified": "2018-03-02",
+          "category": "seriousCrime",
+          "summary": "Humphrey was arrested and charged with felony robbery after a dispute with an Uber driver over a phone charger valued at $15.",
+          "status": "dismissed",
+          "statusLabel": "Felony charge dismissed",
+          "disposition": "A judge dismissed the robbery charge after finding no probable cause that Humphrey had committed a crime.",
+          "qualifyingBasis": [
+            "formalLegalAction"
+          ],
+          "denial": "Humphrey said the event was a misunderstanding and that he believed the charger was his.",
+          "sources": [
+            {
+              "label": "ESPN — felony charge dismissed for no probable cause",
+              "url": "https://www.espn.com/nfl/story/_/id/22628432/felony-robbery-charge-baltimore-ravens-cornerback-marlon-humphrey-dismissed"
+            },
+            {
+              "label": "NFL — arrest report and Humphrey's account",
+              "url": "https://www.nfl.com/news/marlon-humphrey-arrested-on-suspicion-of-stealing-15-charger-0ap3000000910417"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "sleeperPlayerId": "12503",
+      "playerName": "Isaiah Bond",
+      "incidents": [
+        {
+          "incidentId": "isaiah-bond-2025-sexual-assault-case",
+          "date": "2025-04-10",
+          "dateLabel": "April 10, 2025 surrender on warrant",
+          "lastVerified": "2025-08-14",
+          "category": "sexualMisconduct",
+          "summary": "Bond surrendered on a sexual-assault warrant in Texas and was released on bond. He denied the allegation.",
+          "status": "noBilled",
+          "statusLabel": "Grand jury returned no bill; case closed",
+          "disposition": "A Collin County grand jury returned a no bill, meaning no indictment would issue. The district attorney said the decision concluded the criminal proceeding.",
+          "qualifyingBasis": [
+            "credibleAllegation",
+            "formalLegalAction"
+          ],
+          "denial": "Bond denied the allegation and filed a separate federal complaint alleging false accusations and coercion.",
+          "sources": [
+            {
+              "label": "ESPN — no bill and criminal case closed",
+              "url": "https://www.espn.com/nfl/story/_/id/45980953/ex-texas-wr-isaiah-bond-no-longer-faces-charges-agent-says"
+            },
+            {
+              "label": "NFL — surrender, denial, and no-bill disposition",
+              "url": "https://www.nfl.com/news/udfa-wr-isaiah-bond-says-he-s-signing-with-browns-after-sexual-assault-case-is-no-billed"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "sleeperPlayerId": "4018",
+      "playerName": "Joe Mixon",
+      "incidents": [
+        {
+          "incidentId": "joe-mixon-2014-assault-plea",
+          "date": "2014-07-25",
+          "dateLabel": "July 25, 2014 incident",
+          "lastVerified": "2016-12-16",
+          "category": "violentConduct",
+          "summary": "Mixon punched a female student in the face during an altercation, causing facial fractures. Surveillance video was later released publicly.",
+          "status": "pleaded",
+          "statusLabel": "Alford plea to misdemeanor assault",
+          "disposition": "Mixon entered an Alford plea, received a deferred sentence, community service, and counseling, and did not serve jail time.",
+          "qualifyingBasis": [
+            "convictionOrPlea",
+            "violenceRelatedDiscipline"
+          ],
+          "discipline": {
+            "organization": "University of Oklahoma",
+            "description": "Suspended from football for the entire 2014 season",
+            "date": "2014-08"
+          },
+          "sources": [
+            {
+              "label": "CBS News/AP — assault plea, injuries, and season suspension",
+              "url": "https://www.cbsnews.com/detroit/news/footage-of-oklahoma-rb-joe-mixon-punching-woman-surfaces-video/"
+            },
+            {
+              "label": "ESPN — Mixon's public apology for the assault",
+              "url": "https://www.espn.com/college-football/story/_/id/18340581/oklahoma-sooners-rb-joe-mixon-apologizes-punching-woman-2014"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "sleeperPlayerId": "7117",
+      "playerName": "L'Jarius Sneed",
+      "incidents": [
+        {
+          "incidentId": "ljarius-sneed-2024-shooting-case",
+          "date": "2024-12-06",
+          "dateLabel": "December 6, 2024 shooting allegation",
+          "lastVerified": "2026-05-05",
+          "category": "seriousCrime",
+          "summary": "Sneed was accused in connection with shots fired at two men at a Texas auto dealership. Reporting described an initial aggravated-assault charge that was reduced to failing to report a felony.",
+          "status": "dismissed",
+          "statusLabel": "All criminal charges dropped",
+          "disposition": "The remaining failure-to-report charge was dropped in May 2026. Reuters reported that a related civil lawsuit remained pending at that time.",
+          "qualifyingBasis": [
+            "formalLegalAction"
+          ],
+          "sources": [
+            {
+              "label": "Reuters — criminal charge dropped and civil-case status",
+              "url": "https://www.reuters.com/sports/charge-dropped-against-ex-titans-cb-ljarius-sneed--flm-2026-05-05/"
+            },
+            {
+              "label": "ESPN — charge history and dismissal",
+              "url": "https://www.espn.com/nfl/story/_/id/48684719/charges-ljarius-sneed-shooting-dropped"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "sleeperPlayerId": "4035",
+      "playerName": "Alvin Kamara",
+      "incidents": [
+        {
+          "incidentId": "alvin-kamara-2022-las-vegas-assault",
+          "date": "2022-02-05",
+          "dateLabel": "February 5, 2022 incident",
+          "lastVerified": "2023-08-04",
+          "category": "violentConduct",
+          "summary": "Kamara was arrested after a man was beaten outside a Las Vegas nightclub and initially faced felony battery resulting in substantial bodily harm.",
+          "status": "pleaded",
+          "statusLabel": "No-contest plea to reduced misdemeanor",
+          "disposition": "Kamara pleaded no contest to misdemeanor breach of peace; the felony count was resolved in the plea agreement. He received community service and paid the injured man for medical bills.",
+          "qualifyingBasis": [
+            "formalLegalAction",
+            "convictionOrPlea",
+            "violenceRelatedDiscipline"
+          ],
+          "discipline": {
+            "organization": "NFL",
+            "description": "Three-game suspension for violating the personal conduct policy",
+            "date": "2023-08-04"
+          },
+          "sources": [
+            {
+              "label": "NFL — no-contest plea and reduced charge",
+              "url": "https://www.nfl.com/news/saints-rb-alvin-kamara-pleads-no-contest-to-lesser-misdemeanor-charge-from-feb-2"
+            },
+            {
+              "label": "NFL — three-game personal-conduct suspension",
+              "url": "https://www.nfl.com/news/saints-rb-alvin-kamara-suspended-three-games-for-role-in-february-2022-incident-"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "sleeperPlayerId": "3321",
+      "playerName": "Tyreek Hill",
+      "incidents": [
+        {
+          "incidentId": "tyreek-hill-2014-domestic-assault-plea",
+          "date": "2014-12",
+          "dateLabel": "December 2014 incident and arrest",
+          "lastVerified": "2025-04-08",
+          "category": "domesticViolence",
+          "summary": "Hill was accused of choking and assaulting his then-pregnant fiancée while he was at Oklahoma State.",
+          "status": "pleaded",
+          "statusLabel": "Guilty plea to domestic assault and battery by strangulation",
+          "disposition": "Hill pleaded guilty in 2015 and received three years of probation.",
+          "qualifyingBasis": [
+            "credibleAllegation",
+            "formalLegalAction",
+            "convictionOrPlea"
+          ],
+          "sources": [
+            {
+              "label": "Associated Press — guilty plea and sentence",
+              "url": "https://apnews.com/article/43d1d2596e7e75c8d11991092b3be759"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

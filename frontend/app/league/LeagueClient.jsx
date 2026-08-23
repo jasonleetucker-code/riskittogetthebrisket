@@ -86,6 +86,7 @@ const SuperlativesSection = lazySection(() => import("./sections/superlatives.js
 const ArchivesSection = lazySection(() => import("./sections/archives.jsx"));
 const LuckSection = lazySection(() => import("./sections/luck.jsx"));
 const StreaksSection = lazySection(() => import("./sections/streaks.jsx"));
+const ConductSection = lazySection(() => import("./sections/conduct.jsx"));
 const RosTeamStrengthSection = lazySection(() => import("./sections/ros-team-strength.jsx"));
 const RosPowerSection = lazySection(() => import("./sections/ros-power.jsx"));
 const RosChampionshipSection = lazySection(() => import("./sections/ros-championship.jsx"));
@@ -398,6 +399,9 @@ function LeaguePage({ initialContract = null, initialTab = DEFAULT_TAB }) {
       )}
       {activeTab === "streaks" && (
         <StreaksSection data={sections.streaks} managers={managers} />
+      )}
+      {activeTab === "conduct" && (
+        <ConductSection data={sections.conduct} managers={managers} />
       )}
       {activeTab === "power" && <RosPowerSection managers={managers} />}
       {activeTab === "rosTeamStrength" && <RosTeamStrengthSection />}

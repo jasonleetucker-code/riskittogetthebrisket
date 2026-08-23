@@ -17,6 +17,7 @@ from . import (
     activity,
     archives,
     awards,
+    conduct,
     draft,
     franchise,
     history,
@@ -33,7 +34,7 @@ from . import (
 )
 from .snapshot import PublicLeagueSnapshot
 
-PUBLIC_CONTRACT_VERSION = "public-league/2026-04-18.v1"
+PUBLIC_CONTRACT_VERSION = "public-league/2026-08-23.v1"
 
 
 def _team_assignment_section(snapshot: PublicLeagueSnapshot) -> dict[str, Any]:
@@ -135,6 +136,11 @@ def _faab_analytics_section(snapshot: PublicLeagueSnapshot) -> dict[str, Any]:
 
 
 _LAZY_SECTION_BUILDERS: dict[str, Callable[[PublicLeagueSnapshot], dict[str, Any]]] = {
+    # Source-backed current-roster conduct board. Kept lazy both because
+    # the registry is irrelevant to the default League landing page and
+    # because this sensitive dataset should only be materialized for the
+    # tab that explicitly presents its statuses, dispositions, and sources.
+    "conduct": conduct.build_section,
     "playoffOdds": playoff_odds.build_section,
     "rosTeamStrength": _ros_api.build_section,
     # The canonical power-ranking engine (V1-52). The v1 engine

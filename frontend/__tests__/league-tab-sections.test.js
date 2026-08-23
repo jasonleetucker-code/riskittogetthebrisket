@@ -82,6 +82,12 @@ describe("tab → section map", () => {
     // landing tab needs the same one.
     expect(SECTION_FOR_TAB[DEFAULT_TAB]).toBe("overview");
   });
+
+  it("keeps the conduct board section-backed and on-demand", () => {
+    expect(SECTION_FOR_TAB.conduct).toBe("conduct");
+    expect(PUBLIC_SECTION_KEYS).toContain("conduct");
+    expect(SELF_FETCHING_TABS).not.toContain("conduct");
+  });
 });
 
 const pageSource = fs.readFileSync(
