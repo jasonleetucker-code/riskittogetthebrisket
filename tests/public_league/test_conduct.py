@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import copy
+import json
 import unittest
+from pathlib import Path
 
 from src.public_league import build_public_snapshot
 from src.public_league.conduct import build_section
@@ -11,9 +13,18 @@ from src.public_league.snapshot import PublicLeagueSnapshot
 from tests.public_league.fixtures import build_stub_client, install_stubs
 
 
+_COMMITTED_REGISTRY_PATH = (
+    Path(__file__).resolve().parents[2]
+    / "data"
+    / "public_league"
+    / "conduct_registry.json"
+)
+
+
 def _incident(
     incident_id: str,
     *,
+    category: str = "domesticViolence",
     status: str = "allegedNoCharge",
     bases: list[str] | None = None,
     sources: list[dict[str, str]] | None = None,
@@ -24,7 +35,7 @@ def _incident(
         "date": "2025-01-02",
         "dateLabel": "January 2, 2025",
         "lastVerified": "2026-08-23",
-        "category": "domesticViolence",
+        "category": category,
         "summary": f"Documented summary for {incident_id}.",
         "status": status,
         "statusLabel": f"Status for {incident_id}",
@@ -118,6 +129,103 @@ class ConductSectionTests(unittest.TestCase):
         self.assertEqual(owner_a["flaggedPlayerCount"], 1)
         self.assertEqual(owner_a["incidentCount"], 2)
         self.assertEqual(owner_a["players"][0]["playerName"], "Rudy Rook")
+
+    def test_score_formula_weights_outcome_discipline_and_repeat_incidents(self) -> None:
+        registry = _registry(
+            [
+                _player(
+                    "p-rookie-a",
+                    "Rudy Rook",
+                    [_incident("allegation")],
+                ),
+                _player(
+                    "p-rb3",
+                    "Eve RB-Three",
+                    [
+                        _incident(
+                            "plea",
+                            status="pleaded",
+                            bases=["formalLegalAction", "convictionOrPlea"],
+                        )
+                    ],
+                ),
+                _player(
+                    "p-wr3",
+                    "Hal WR-Three",
+                    [
+                        _incident(
+                            "league-finding",
+                            category="weapons",
+                            status="leagueFinding",
+                            bases=["violenceRelatedDiscipline"],
+                        )
+                    ],
+                ),
+                _player(
+                    "p-idp1",
+                    "Kim DL-One",
+                    [
+                        _incident("repeat-one", category="seriousCrime"),
+                        _incident("repeat-two", category="seriousCrime"),
+                    ],
+                ),
+            ]
+        )
+
+        data = build_section(self.snapshot, registry=registry)
+
+        owner_a = _team(data, "owner-A")
+        owner_b = _team(data, "owner-B")
+        owner_c = _team(data, "owner-C")
+        owner_d = _team(data, "owner-D")
+
+        # Same category, but an allegation receives 20% of the severity
+        # points while a documented plea receives 100%.
+        self.assertEqual(owner_a["score"], 10.0)
+        self.assertEqual(owner_b["score"], 50.0)
+        # 40 severity × .85 league finding + 10 discipline points.
+        self.assertEqual(owner_c["score"], 44.0)
+        # Two 30 × .20 incidents plus a 10 × .20 outcome-scaled repeat bonus.
+        self.assertEqual(owner_d["score"], 14.0)
+        repeat_player = owner_d["players"][0]
+        self.assertEqual(repeat_player["incidentPoints"], 12.0)
+        self.assertEqual(repeat_player["repeatIncidentBonus"], 2.0)
+        self.assertTrue(repeat_player["isRepeatIncidentPlayer"])
+
+        self.assertEqual(
+            [team["ownerId"] for team in data["teams"]],
+            ["owner-B", "owner-C", "owner-D", "owner-A"],
+        )
+        self.assertEqual([team["rank"] for team in data["teams"]], [1, 2, 3, 4])
+        self.assertEqual(data["totals"]["score"], 118.0)
+        self.assertEqual(data["scoring"]["disciplineBonus"], 10.0)
+        self.assertEqual(data["scoring"]["repeatIncidentBonus"], 10.0)
+
+    def test_acquittal_scores_zero_and_equal_scores_share_a_rank(self) -> None:
+        registry = _registry(
+            [
+                _player(
+                    "p-rookie-a",
+                    "Rudy Rook",
+                    [
+                        _incident(
+                            "acquitted",
+                            status="acquitted",
+                            bases=["credibleAllegation", "formalLegalAction"],
+                        )
+                    ],
+                )
+            ]
+        )
+
+        data = build_section(self.snapshot, registry=registry)
+
+        self.assertEqual(_team(data, "owner-A")["score"], 0.0)
+        self.assertEqual(
+            _team(data, "owner-A")["players"][0]["incidents"][0]["score"],
+            0.0,
+        )
+        self.assertEqual({team["rank"] for team in data["teams"]}, {1})
 
     def test_reserve_and_taxi_slots_count_but_draft_picks_do_not(self) -> None:
         snapshot = copy.deepcopy(self.snapshot)
@@ -253,6 +361,30 @@ class ConductSectionTests(unittest.TestCase):
         self.assertGreater(data["dataQuality"]["acceptedIncidentCount"], 0)
         self.assertEqual(data["dataQuality"]["rejectedPlayerCount"], 0)
         self.assertEqual(data["dataQuality"]["rejectedIncidentCount"], 0)
+
+    def test_committed_registry_contains_all_screenshot_requested_players(self) -> None:
+        registry = json.loads(_COMMITTED_REGISTRY_PATH.read_text(encoding="utf-8"))
+        registry_players = {
+            player["sleeperPlayerId"]: player["playerName"]
+            for player in registry["players"]
+        }
+        expected_players = {
+            "138": "Ben Roethlisberger",
+            "1264": "Justin Tucker",
+            "4017": "Deshaun Watson",
+            "4098": "Kareem Hunt",
+            "5850": "Josh Jacobs",
+            "6789": "Henry Ruggs",
+            "7571": "Rashod Bateman",
+            "9493": "Puka Nacua",
+            "10229": "Rashee Rice",
+            "12512": "Quinshon Judkins",
+        }
+
+        self.assertEqual(
+            {player_id: registry_players.get(player_id) for player_id in expected_players},
+            expected_players,
+        )
 
     def test_no_current_season_is_unavailable_not_a_confident_zero(self) -> None:
         snapshot = PublicLeagueSnapshot(

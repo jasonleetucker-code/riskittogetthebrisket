@@ -29,6 +29,12 @@ const UNAVAILABLE_MESSAGES = {
 function plural(value, singular, pluralLabel = `${singular}s`) {
   return Number(value) === 1 ? singular : pluralLabel;
 }
+
+function formatScore(value) {
+  const score = Number(value) || 0;
+  return Number.isInteger(score) ? String(score) : score.toFixed(1);
+}
+
 function statusTone(status) {
   if (["pleaded", "convicted", "leagueFinding"].includes(status)) {
     return styles.statusFinding;
@@ -54,6 +60,26 @@ function statusTone(status) {
   return styles.statusAllegation;
 }
 
+function ScoreFormula({ scoring = {} }) {
+  if (!scoring.formula) return null;
+  return (
+    <div className={styles.scoreFormula} aria-label="Ranking score formula">
+      <div>
+        <strong>Ranking formula</strong>
+        <span>{scoring.formula}</span>
+      </div>
+      <div className={styles.formulaBonuses}>
+        <span>
+          <strong>+{formatScore(scoring.disciplineBonus)}</strong> qualifying discipline
+        </span>
+        <span>
+          <strong>up to +{formatScore(scoring.repeatIncidentBonus)}</strong> each repeat incident
+        </span>
+      </div>
+    </div>
+  );
+}
+
 function Breakdown({ breakdown = {}, compact = false }) {
   return (
     <div className={compact ? styles.breakdownCompact : styles.breakdown}>
@@ -69,6 +95,7 @@ function Breakdown({ breakdown = {}, compact = false }) {
 
 function Incident({ incident }) {
   const sources = Array.isArray(incident.sources) ? incident.sources : [];
+  const score = incident.scoreBreakdown || {};
   return (
     <article className={styles.incident}>
       <div className={styles.incidentTopline}>
@@ -81,6 +108,16 @@ function Incident({ incident }) {
       </div>
 
       <p className={styles.summary}>{incident.summary}</p>
+
+      <div className={styles.incidentScore}>
+        <strong>+{formatScore(incident.score)} pts</strong>
+        <span>
+          {formatScore(score.severityPoints)} severity × {Number(score.outcomeMultiplier) || 0}
+          {Number(score.disciplineBonus)
+            ? ` + ${formatScore(score.disciplineBonus)} discipline`
+            : ""}
+        </span>
+      </div>
 
       <div className={styles.factGrid}>
         <div>
@@ -132,7 +169,13 @@ function PlayerRecord({ player }) {
           {meta ? <span>{meta}</span> : null}
         </span>
         <span className={styles.playerCount}>
-          {incidents.length} {plural(incidents.length, "record")}
+          <strong>{formatScore(player.score)} pts</strong>
+          <span>
+            {incidents.length} {plural(incidents.length, "record")}
+            {Number(player.repeatIncidentBonus)
+              ? ` · +${formatScore(player.repeatIncidentBonus)} repeat`
+              : ""}
+          </span>
         </span>
       </summary>
       <div className={styles.playerBody}>
@@ -166,9 +209,10 @@ function TeamCard({ team, managers }) {
           </span>
         </span>
         <span className={styles.teamTally}>
-          <strong>{Number(team.flaggedPlayerCount) || 0}</strong>
+          <strong>{formatScore(team.score)}</strong>
           <span>
-            flagged {plural(team.flaggedPlayerCount, "player")} · {Number(team.incidentCount) || 0}{" "}
+            ranking points · {Number(team.flaggedPlayerCount) || 0} flagged{" "}
+            {plural(team.flaggedPlayerCount, "player")} · {Number(team.incidentCount) || 0}{" "}
             {plural(team.incidentCount, "record")}
           </span>
         </span>
@@ -197,7 +241,7 @@ function TeamCard({ team, managers }) {
   );
 }
 
-function Methodology({ methodology = {}, dataQuality = {} }) {
+function Methodology({ methodology = {}, scoring = {}, dataQuality = {} }) {
   const rejected =
     (Number(dataQuality.rejectedPlayerCount) || 0) +
     (Number(dataQuality.rejectedIncidentCount) || 0);
@@ -209,6 +253,32 @@ function Methodology({ methodology = {}, dataQuality = {} }) {
         <p>{methodology.breakdownCounts}</p>
         <p>{methodology.rosterScope}</p>
         <p>{methodology.sourceRule}</p>
+        {scoring.caveat ? <p className={styles.scoreCaveat}>{scoring.caveat}</p> : null}
+        <div className={styles.formulaTables}>
+          <div>
+            <h3>Category severity points</h3>
+            <ul className={styles.formulaRows}>
+              {(scoring.severityWeights || []).map((item) => (
+                <li key={item.category}>
+                  <span>{item.label}</span>
+                  <strong>{formatScore(item.points)}</strong>
+                </li>
+              ))}
+            </ul>
+          </div>
+          <div>
+            <h3>Current-status multipliers</h3>
+            <ul className={styles.formulaRows}>
+              {(scoring.outcomeMultipliers || []).map((item) => (
+                <li key={item.status}>
+                  <span>{item.label}</span>
+                  <strong>×{Number(item.multiplier) || 0}</strong>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </div>
+        {scoring.repeatDefinition ? <p>{scoring.repeatDefinition}</p> : null}
         <div className={styles.methodColumns}>
           <div>
             <h3>Included</h3>
@@ -241,7 +311,7 @@ export default function ConductSection({ data, managers }) {
   if (!data) {
     return (
       <div className={`card ${styles.unavailable}`}>
-        <h2>League Conduct Board</h2>
+        <h2>Piece of Shit Rankings</h2>
         <p>The section has not loaded. Refresh the page to retry.</p>
       </div>
     );
@@ -250,7 +320,7 @@ export default function ConductSection({ data, managers }) {
   if (data.available === false) {
     return (
       <div className={`card ${styles.unavailable}`}>
-        <h2>League Conduct Board unavailable</h2>
+        <h2>Piece of Shit Rankings unavailable</h2>
         <p>
           {UNAVAILABLE_MESSAGES[data.unavailableReason] ||
             "The board cannot be built from the current reviewed data."}
@@ -268,11 +338,11 @@ export default function ConductSection({ data, managers }) {
         <div className={styles.eyebrow}>Current roster · source-backed</div>
         <div className={styles.heroCopy}>
           <div>
-            <h2>League Conduct Board</h2>
+            <h2>Piece of Shit Rankings</h2>
             <p>
-              A roster tally of qualifying public-record incidents. Allegations,
-              legal action, pleas or convictions, cleared matters, and league
-              discipline are shown separately.
+              A formula-based roster ranking of qualifying public-record incidents.
+              Severity, documented outcome, discipline, and repeat incidents all
+              affect the score; allegations never score like convictions.
             </p>
           </div>
           <div className={styles.reviewStamp}>
@@ -280,8 +350,12 @@ export default function ConductSection({ data, managers }) {
           </div>
         </div>
 
-        <div className={styles.totals} aria-label="League conduct totals">
+        <div className={styles.totals} aria-label="Piece of Shit Rankings totals">
           <div className={styles.primaryTotal}>
+            <strong>{formatScore(totals.score)}</strong>
+            <span>league ranking points</span>
+          </div>
+          <div>
             <strong>{Number(totals.flaggedPlayers) || 0}</strong>
             <span>unique flagged players</span>
           </div>
@@ -293,11 +367,9 @@ export default function ConductSection({ data, managers }) {
             <strong>{Number(totals.teams) || 0}</strong>
             <span>fantasy teams</span>
           </div>
-          <div>
-            <strong>{Number(totals.rosteredPlayers) || 0}</strong>
-            <span>roster IDs checked</span>
-          </div>
         </div>
+
+        <ScoreFormula scoring={data.scoring} />
 
         <Breakdown breakdown={totals.breakdown} />
 
@@ -307,9 +379,16 @@ export default function ConductSection({ data, managers }) {
         </div>
       </header>
 
-      <Methodology methodology={data.methodology} dataQuality={data.dataQuality} />
+      <Methodology
+        methodology={data.methodology}
+        scoring={data.scoring}
+        dataQuality={data.dataQuality}
+      />
 
-      <section className={styles.teamList} aria-label="Fantasy team conduct tallies">
+      <section
+        className={styles.teamList}
+        aria-label="Piece of Shit Rankings by fantasy team"
+      >
         {teams.length ? (
           teams.map((team) => (
             <TeamCard team={team} managers={managers} key={`${team.ownerId}-${team.rosterId}`} />

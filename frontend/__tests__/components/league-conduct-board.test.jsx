@@ -35,6 +35,26 @@ const methodology = {
     "This is a curated public-record index, not a complete background check. A listing is not a finding of guilt; read each status and disposition.",
 };
 
+const scoring = {
+  version: "1.0",
+  formula:
+    "Team score = sum(category severity points × current-status multiplier + qualifying discipline bonus) + outcome-scaled repeat-incident bonuses",
+  severityWeights: [
+    { category: "domesticViolence", label: "Domestic violence", points: 50 },
+    { category: "seriousCrime", label: "Other serious crime", points: 30 },
+  ],
+  outcomeMultipliers: [
+    { status: "convicted", label: "Convicted", multiplier: 1 },
+    { status: "allegedNoCharge", label: "Documented allegation; no charge", multiplier: 0.2 },
+    { status: "acquitted", label: "Acquitted", multiplier: 0 },
+  ],
+  disciplineBonus: 10,
+  repeatIncidentBonus: 10,
+  repeatDefinition:
+    "Each additional distinct reviewed incident adds up to 10 points, scaled by its outcome.",
+  caveat: "The score ranks rosters and is not a finding of guilt or character.",
+};
+
 function incident(overrides = {}) {
   return {
     incidentId: "incident-one",
@@ -50,6 +70,12 @@ function incident(overrides = {}) {
     denial: "The player denied the allegation.",
     discipline: null,
     qualifyingBasis: ["credibleAllegation"],
+    score: 10,
+    scoreBreakdown: {
+      severityPoints: 50,
+      outcomeMultiplier: 0.2,
+      disciplineBonus: 0,
+    },
     sources: [
       {
         label: "Associated Press — case report",
@@ -67,11 +93,13 @@ function healthyData() {
     asOf: "2026-08-23T12:00:00Z",
     registryLastReviewed: "2026-08-23",
     methodology,
+    scoring,
     totals: {
       teams: 2,
       rosteredPlayers: 112,
       flaggedPlayers: 2,
-      incidents: 3,
+      incidents: 4,
+      score: 79.5,
       breakdown: {
         credibleAllegation: 2,
         formalLegalAction: 1,
@@ -81,7 +109,7 @@ function healthyData() {
     },
     dataQuality: {
       acceptedPlayerCount: 2,
-      acceptedIncidentCount: 3,
+      acceptedIncidentCount: 4,
       rejectedPlayerCount: 0,
       rejectedIncidentCount: 0,
       matchedRegistryPlayerCount: 2,
@@ -96,7 +124,8 @@ function healthyData() {
         teamName: "Brisket Bandits",
         rosteredPlayerCount: 58,
         flaggedPlayerCount: 2,
-        incidentCount: 3,
+        incidentCount: 4,
+        score: 79.5,
         breakdown: {
           credibleAllegation: 2,
           formalLegalAction: 1,
@@ -109,8 +138,12 @@ function healthyData() {
             playerName: "Example Player",
             position: "WR",
             nflTeam: "MIN",
-            incidentCount: 2,
+            incidentCount: 3,
             qualifyingBasis: ["credibleAllegation", "formalLegalAction"],
+            score: 27,
+            incidentPoints: 25,
+            repeatIncidentBonus: 2,
+            isRepeatIncidentPlayer: true,
             incidents: [
               incident(),
               incident({
@@ -121,6 +154,25 @@ function healthyData() {
                 disposition: "A jury returned a not-guilty verdict.",
                 denial: "The player pleaded not guilty before the acquittal.",
                 qualifyingBasis: ["credibleAllegation", "formalLegalAction"],
+                score: 0,
+                scoreBreakdown: {
+                  severityPoints: 50,
+                  outcomeMultiplier: 0,
+                  disciplineBonus: 0,
+                },
+              }),
+              incident({
+                incidentId: "incident-four",
+                status: "resolvedMixed",
+                statusLabel: "Mixed resolution",
+                summary: "A third documented matter had a mixed resolution.",
+                disposition: "The cited record documents a mixed resolution.",
+                score: 15,
+                scoreBreakdown: {
+                  severityPoints: 50,
+                  outcomeMultiplier: 0.3,
+                  disciplineBonus: 0,
+                },
               }),
             ],
           },
@@ -131,6 +183,10 @@ function healthyData() {
             nflTeam: "DET",
             incidentCount: 1,
             qualifyingBasis: ["credibleAllegation", "violenceRelatedDiscipline"],
+            score: 52.5,
+            incidentPoints: 52.5,
+            repeatIncidentBonus: 0,
+            isRepeatIncidentPlayer: false,
             incidents: [
               incident({
                 incidentId: "incident-three",
@@ -145,6 +201,12 @@ function healthyData() {
                   "credibleAllegation",
                   "violenceRelatedDiscipline",
                 ],
+                score: 52.5,
+                scoreBreakdown: {
+                  severityPoints: 50,
+                  outcomeMultiplier: 0.85,
+                  disciplineBonus: 10,
+                },
               }),
             ],
           },
@@ -159,6 +221,7 @@ function healthyData() {
         rosteredPlayerCount: 54,
         flaggedPlayerCount: 0,
         incidentCount: 0,
+        score: 0,
         breakdown: {
           credibleAllegation: 0,
           formalLegalAction: 0,
@@ -171,15 +234,20 @@ function healthyData() {
   };
 }
 
-describe("League Conduct Board", () => {
+describe("Piece of Shit Rankings", () => {
   it("shows the unique-player headline, incident total, and every fantasy team", () => {
     render(<ConductSection data={healthyData()} managers={managers} />);
 
     expect(
-      screen.getByRole("heading", { name: "League Conduct Board" }),
+      screen.getByRole("heading", { name: "Piece of Shit Rankings" }),
     ).toBeInTheDocument();
     expect(screen.getByText("unique flagged players")).toBeInTheDocument();
     expect(screen.getByText("documented records")).toBeInTheDocument();
+    expect(screen.getByText("league ranking points")).toBeInTheDocument();
+    expect(screen.getByLabelText("Ranking score formula")).toHaveTextContent(
+      "category severity points × current-status multiplier",
+    );
+    expect(screen.getAllByText("79.5")).toHaveLength(2);
     expect(screen.getByText("AAron")).toBeInTheDocument();
     expect(screen.getByText("Brisket Bandits")).toBeInTheDocument();
     expect(screen.getByText("Bea")).toBeInTheDocument();
@@ -196,6 +264,11 @@ describe("League Conduct Board", () => {
     const playerSummary = screen.getByText("Example Player").closest("summary");
     fireEvent.click(playerSummary);
     expect(playerSummary.closest("details")).toHaveAttribute("open");
+    expect(screen.getByText("27 pts")).toBeInTheDocument();
+    expect(screen.getByText("3 records · +2 repeat")).toBeInTheDocument();
+    expect(screen.getByText("+10 pts")).toBeInTheDocument();
+    expect(screen.getByText("+0 pts")).toBeInTheDocument();
+    expect(screen.getByText("50 severity × 0.2")).toBeInTheDocument();
 
     expect(
       screen.getByText("Allegation; no criminal charge reported"),
@@ -236,7 +309,7 @@ describe("League Conduct Board", () => {
     );
 
     expect(
-      screen.getByRole("heading", { name: "League Conduct Board unavailable" }),
+      screen.getByRole("heading", { name: "Piece of Shit Rankings unavailable" }),
     ).toBeInTheDocument();
     expect(screen.getByText(/withheld rather than publishing/)).toBeInTheDocument();
     expect(screen.queryByText("unique flagged players")).not.toBeInTheDocument();

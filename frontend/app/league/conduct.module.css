@@ -101,6 +101,56 @@
   margin-top: auto;
 }
 
+.scoreFormula {
+  align-items: center;
+  background: color-mix(in srgb, var(--cyan) 7%, var(--surface-2));
+  border: 1px solid color-mix(in srgb, var(--cyan) 30%, var(--border));
+  border-radius: var(--radius-sm);
+  display: flex;
+  gap: 18px;
+  justify-content: space-between;
+  margin-top: 8px;
+  padding: 9px 11px;
+}
+
+.scoreFormula > div:first-child {
+  display: grid;
+  gap: 2px;
+}
+
+.scoreFormula > div:first-child > strong {
+  color: var(--cyan);
+  font-size: 0.7rem;
+  text-transform: uppercase;
+}
+
+.scoreFormula > div:first-child > span {
+  color: var(--subtext);
+  font-size: 0.66rem;
+  line-height: 1.4;
+}
+
+.formulaBonuses {
+  display: flex;
+  flex: 0 0 auto;
+  gap: 7px;
+}
+
+.formulaBonuses span {
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  color: var(--subtext);
+  font-size: 0.61rem;
+  padding: 5px 8px;
+  white-space: nowrap;
+}
+
+.formulaBonuses strong {
+  color: var(--text);
+  font-family: var(--mono);
+}
+
 .breakdown,
 .breakdownCompact {
   display: grid;
@@ -217,6 +267,55 @@
   gap: 16px;
   grid-template-columns: 1fr 1fr;
   margin-top: 10px;
+}
+
+.scoreCaveat {
+  border-left: 2px solid var(--cyan);
+  padding-left: 8px;
+}
+
+.formulaTables {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: 1fr 1fr;
+  margin-top: 10px;
+}
+
+.formulaTables > div {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 9px 11px;
+}
+
+.formulaTables h3 {
+  color: var(--text);
+  font-size: 0.72rem;
+  margin: 0 0 5px;
+}
+
+.formulaRows {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.formulaRows li {
+  align-items: baseline;
+  display: flex;
+  gap: 8px;
+  justify-content: space-between;
+  padding: 2px 0;
+}
+
+.formulaRows li + li {
+  border-top: 1px solid color-mix(in srgb, var(--border) 65%, transparent);
+}
+
+.formulaRows strong {
+  color: var(--cyan);
+  flex: 0 0 auto;
+  font-family: var(--mono);
 }
 
 .methodColumns > div {
@@ -396,16 +495,36 @@
 }
 
 .playerCount {
+  align-items: flex-end;
+  display: flex;
   flex: 0 0 auto;
+  flex-direction: column;
+  padding-right: 13px;
+  position: relative;
+}
+
+.playerCount strong {
+  color: var(--cyan);
+  font-size: 0.7rem;
+}
+
+.playerCount span {
+  color: var(--subtext);
+  font-family: var(--mono);
+  font-size: 0.57rem;
 }
 
 .playerCount::after {
   color: var(--cyan);
-  content: "  +";
+  content: "+";
+  position: absolute;
+  right: 0;
+  top: 50%;
+  transform: translateY(-50%);
 }
 
 .playerRecord[open] .playerCount::after {
-  content: "  −";
+  content: "−";
 }
 
 .playerBody {
@@ -490,6 +609,28 @@
   margin: 9px 0;
 }
 
+.incidentScore {
+  align-items: baseline;
+  background: color-mix(in srgb, var(--cyan) 6%, var(--surface-2));
+  border-left: 2px solid var(--cyan);
+  display: flex;
+  gap: 8px;
+  margin: 0 0 9px;
+  padding: 6px 8px;
+}
+
+.incidentScore strong {
+  color: var(--cyan);
+  flex: 0 0 auto;
+  font-family: var(--mono);
+  font-size: 0.7rem;
+}
+
+.incidentScore span {
+  color: var(--subtext);
+  font-size: 0.61rem;
+}
+
 .factGrid {
   display: grid;
   gap: 8px;
@@ -549,7 +690,8 @@
 
 @media (max-width: 760px) {
   .heroCopy,
-  .caution {
+  .caution,
+  .scoreFormula {
     align-items: stretch;
     flex-direction: column;
     gap: 7px;
@@ -570,6 +712,14 @@
 
   .methodColumns {
     grid-template-columns: 1fr;
+  }
+
+  .formulaTables {
+    grid-template-columns: 1fr;
+  }
+
+  .formulaBonuses {
+    flex-wrap: wrap;
   }
 
   .teamCard > summary {

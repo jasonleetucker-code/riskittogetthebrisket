@@ -74,14 +74,98 @@ _BREAKDOWN_KEYS = (
     "violenceRelatedDiscipline",
 )
 
+# Deliberately simple, public, and auditable.  Category points express the
+# seriousness of the alleged/documented conduct; the status multiplier is the
+# evidentiary/outcome control that prevents an allegation from scoring like a
+# conviction.  Do not infer either value from prose in a summary.
+_CATEGORY_POINTS: dict[str, float] = {
+    "domesticViolence": 50.0,
+    "sexualMisconduct": 50.0,
+    "violentConduct": 40.0,
+    "weapons": 40.0,
+    "seriousCrime": 30.0,
+}
+
+_OUTCOME_MULTIPLIERS: dict[str, float] = {
+    "convicted": 1.0,
+    "pleaded": 1.0,
+    "leagueFinding": 0.85,
+    "pretrialDiversion": 0.65,
+    "chargedPending": 0.55,
+    "arrestedInvestigationOpen": 0.45,
+    "resolvedMixed": 0.30,
+    "allegedNoCharge": 0.20,
+    "prosecutionDeclined": 0.10,
+    "noBilled": 0.10,
+    "dismissed": 0.10,
+    "leagueNoFinding": 0.05,
+    "acquitted": 0.0,
+}
+
+_OUTCOME_LABELS: dict[str, str] = {
+    "convicted": "Convicted",
+    "pleaded": "Guilty / no-contest plea",
+    "leagueFinding": "League or organization finding",
+    "pretrialDiversion": "Pretrial diversion",
+    "chargedPending": "Charge pending",
+    "arrestedInvestigationOpen": "Arrest / investigation open",
+    "resolvedMixed": "Mixed or partially resolved record",
+    "allegedNoCharge": "Documented allegation; no charge",
+    "prosecutionDeclined": "Prosecution declined",
+    "noBilled": "Grand jury no-bill",
+    "dismissed": "Charge or case dismissed",
+    "leagueNoFinding": "League found insufficient evidence / no violation",
+    "acquitted": "Acquitted",
+}
+
+_DISCIPLINE_BONUS = 10.0
+_REPEAT_INCIDENT_BONUS = 10.0
+
+_SCORING = {
+    "version": "1.0",
+    "formula": (
+        "Team score = sum(category severity points × current-status multiplier "
+        "+ qualifying discipline bonus) + outcome-scaled repeat-incident bonuses"
+    ),
+    "severityWeights": [
+        {
+            "category": category,
+            "label": _CATEGORY_LABELS[category],
+            "points": points,
+        }
+        for category, points in _CATEGORY_POINTS.items()
+    ],
+    "outcomeMultipliers": [
+        {
+            "status": status,
+            "label": _OUTCOME_LABELS[status],
+            "multiplier": multiplier,
+        }
+        for status, multiplier in _OUTCOME_MULTIPLIERS.items()
+    ],
+    "disciplineBonus": _DISCIPLINE_BONUS,
+    "repeatIncidentBonus": _REPEAT_INCIDENT_BONUS,
+    "repeatDefinition": (
+        "The highest-status-multiplier incident is the player's base incident. Every other "
+        "distinct reviewed incident adds up to the repeat bonus, scaled by that incident's "
+        "current-status multiplier; an acquittal therefore adds zero. Multiple allegations "
+        "grouped in one registry incident do not create extra bonuses."
+    ),
+    "caveat": (
+        "The score ranks current fantasy rosters from this reviewed registry. It is not a "
+        "finding of guilt, a complete background check, or an objective measure of a person's "
+        "character. Status updates can change the score."
+    ),
+}
+
 _METHODOLOGY = {
     "mainTally": (
-        "The main tally counts unique current-roster players with at least one accepted "
-        "registry incident. A player with multiple incidents is counted once there."
+        "Teams are ranked by the published score formula, not by a raw player count. The "
+        "unique-player and incident totals remain visible as context."
     ),
     "breakdownCounts": (
         "Each breakdown also counts unique players. Categories can overlap, so they do not "
-        "sum to the main tally."
+        "sum to the unique flagged-player total."
     ),
     "rosterScope": (
         "Current Sleeper player IDs across active, bench, reserve/IR, taxi, and starter slots; "
@@ -123,11 +207,13 @@ def _base_payload(
         "asOf": snapshot.generated_at,
         "registryLastReviewed": registry_last_reviewed,
         "methodology": _METHODOLOGY,
+        "scoring": _SCORING,
         "totals": {
             "teams": 0,
             "rosteredPlayers": 0,
             "flaggedPlayers": 0,
             "incidents": 0,
+            "score": 0.0,
             "breakdown": {key: 0 for key in _BREAKDOWN_KEYS},
         },
         "dataQuality": {
@@ -173,6 +259,23 @@ def _valid_source(source: Any) -> dict[str, str] | None:
     if not label or parsed.scheme != "https" or not parsed.netloc:
         return None
     return {"label": label, "url": url}
+
+
+def _incident_score(
+    *,
+    category: str,
+    status: str,
+    has_discipline: bool,
+) -> tuple[float, dict[str, float]]:
+    severity_points = _CATEGORY_POINTS[category]
+    outcome_multiplier = _OUTCOME_MULTIPLIERS[status]
+    discipline_bonus = _DISCIPLINE_BONUS if has_discipline else 0.0
+    points = round((severity_points * outcome_multiplier) + discipline_bonus, 1)
+    return points, {
+        "severityPoints": severity_points,
+        "outcomeMultiplier": outcome_multiplier,
+        "disciplineBonus": discipline_bonus,
+    }
 
 
 def _normalize_incident(
@@ -254,7 +357,15 @@ def _normalize_incident(
     if "violenceRelatedDiscipline" in bases and discipline is None:
         return None
 
+    if (status in {"pleaded", "convicted"}) != ("convictionOrPlea" in bases):
+        return None
+
     denial = str(raw.get("denial") or "").strip()
+    score, score_breakdown = _incident_score(
+        category=category,
+        status=status,
+        has_discipline=discipline is not None,
+    )
     seen_incident_ids.add(incident_id)
     return {
         "incidentId": incident_id,
@@ -271,6 +382,8 @@ def _normalize_incident(
         "discipline": discipline,
         "denial": denial,
         "sources": sources,
+        "score": score,
+        "scoreBreakdown": score_breakdown,
     }
 
 
@@ -366,6 +479,19 @@ def _player_row(
     nfl_team = ""
     if isinstance(metadata, dict):
         nfl_team = str(metadata.get("team") or "")
+    incident_points = round(sum(float(incident["score"]) for incident in incidents), 1)
+    outcome_multipliers = sorted(
+        (
+            float(incident["scoreBreakdown"]["outcomeMultiplier"])
+            for incident in incidents
+        ),
+        reverse=True,
+    )
+    repeat_incident_bonus = round(
+        sum(outcome_multipliers[1:]) * _REPEAT_INCIDENT_BONUS,
+        1,
+    )
+    score = round(incident_points + repeat_incident_bonus, 1)
     return {
         "playerId": player_id,
         "playerName": snapshot.player_display(player_id) or registry_player["playerName"],
@@ -373,6 +499,10 @@ def _player_row(
         "nflTeam": nfl_team,
         "incidentCount": len(incidents),
         "qualifyingBasis": bases,
+        "score": score,
+        "incidentPoints": incident_points,
+        "repeatIncidentBonus": repeat_incident_bonus,
+        "isRepeatIncidentPlayer": len(incidents) > 1,
         "incidents": incidents,
     }
 
@@ -449,7 +579,11 @@ def build_section(
         ]
         matched_registry_ids.update(player["playerId"] for player in flagged_players)
         flagged_players.sort(
-            key=lambda player: (-player["incidentCount"], player["playerName"].casefold())
+            key=lambda player: (
+                -player["score"],
+                -player["incidentCount"],
+                player["playerName"].casefold(),
+            )
         )
 
         owner_id = str(roster.get("owner_id") or "")
@@ -470,6 +604,7 @@ def build_section(
                 "rosteredPlayerCount": len(roster_player_ids),
                 "flaggedPlayerCount": len(flagged_players),
                 "incidentCount": sum(player["incidentCount"] for player in flagged_players),
+                "score": round(sum(player["score"] for player in flagged_players), 1),
                 "breakdown": _team_breakdown(flagged_players),
                 "players": flagged_players,
             }
@@ -477,13 +612,19 @@ def build_section(
 
     teams.sort(
         key=lambda team: (
+            -team["score"],
             -team["flaggedPlayerCount"],
             -team["incidentCount"],
             team["displayName"].casefold(),
         )
     )
-    for rank, team in enumerate(teams, start=1):
-        team["rank"] = rank
+    previous_score: float | None = None
+    previous_rank = 0
+    for position, team in enumerate(teams, start=1):
+        if previous_score is None or team["score"] != previous_score:
+            previous_rank = position
+            previous_score = team["score"]
+        team["rank"] = previous_rank
 
     all_players = [player for team in teams for player in team["players"]]
     payload = _base_payload(
@@ -498,6 +639,7 @@ def build_section(
         "rosteredPlayers": rostered_total,
         "flaggedPlayers": len(all_players),
         "incidents": sum(player["incidentCount"] for player in all_players),
+        "score": round(sum(player["score"] for player in all_players), 1),
         "breakdown": _team_breakdown(all_players),
     }
     payload["dataQuality"] = {
