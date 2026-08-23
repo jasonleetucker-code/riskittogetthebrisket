@@ -39,7 +39,7 @@ Rank,Team,Player,Fantasy Position,ADP,Bye,Age,1yr. Proj,3yr. Proj,5yr. Proj,10yr
 38,,Roquan Smith,LB,N/A,13,29.3,198,349,530,805,,13
 39,,Xavier Watts,DB,N/A,11,24.8,167,363,587,1059,,13
 40,,Demetrius Knight Jr.,LB,N/A,6,26.1,163,338,535,911,,13
-41,,Kamari Lassiter,DB,N/A,8,23.5,167,364,586,1036,,13
+41,,Kamari Lassiter,DB,N/A,8,23.6,167,364,586,1036,,13
 42,,Zaire Franklin,LB,N/A,11,30.1,166,352,526,780,,12
 43,,Kaleb Elarms-Orr,LB,N/A,7,22.9,113,325,537,1006,,12
 44,,Cody Simon,LB,N/A,14,24.3,124,328,531,963,,12
@@ -81,7 +81,7 @@ Rank,Team,Player,Fantasy Position,ADP,Bye,Age,1yr. Proj,3yr. Proj,5yr. Proj,10yr
 80,,Eric Wilson,LB,N/A,6,31.8,197,279,398,554,,7
 81,,D'Angelo Ponds,DB,N/A,13,21.6,123,317,507,936,,7
 82,,Laiatu Latu,DL,N/A,13,25.6,140,305,512,839,,7
-83,,Jonas Sanker,DB,N/A,8,23.7,127,310,506,913,,7
+83,,Jonas Sanker,DB,N/A,8,23.8,127,310,506,913,,7
 84,,Travon Walker,DL,N/A,7,25.7,123,265,444,728,,6
 85,,George Karlaftis,DL,N/A,5,25.3,134,300,503,825,,6
 86,,Andrew Mukuba,DB,N/A,10,23.7,119,308,506,943,,6
@@ -125,7 +125,7 @@ Rank,Team,Player,Fantasy Position,ADP,Bye,Age,1yr. Proj,3yr. Proj,5yr. Proj,10yr
 124,,Jordan Battle,DB,N/A,6,25.7,163,274,438,761,,3
 125,,Kamren Curl,DB,N/A,11,27.3,172,281,439,711,,3
 126,,Michael Jackson,DB,N/A,5,29.6,183,285,440,653,,3
-127,,Jake Golday,LB,N/A,6,23.2,48,248,410,768,,3
+127,,Jake Golday,LB,N/A,6,23.3,48,248,410,768,,3
 128,,Nick Herbig,DL,N/A,9,24.8,100,235,394,646,,3
 129,,Yaya Diaby,DL,N/A,10,27.2,139,250,388,555,,3
 130,,Keisean Nixon,DB,N/A,11,29.2,189,284,437,650,,3
@@ -269,7 +269,7 @@ Rank,Team,Player,Fantasy Position,ADP,Bye,Age,1yr. Proj,3yr. Proj,5yr. Proj,10yr
 268,,Harrison Phillips,DL,N/A,13,30.5,81,127,175,246,,-3
 269,,Upton Stout,DB,N/A,8,24.6,116,233,363,637,,-3
 270,,Brandon Stephens,DB,N/A,13,28.6,144,227,357,557,,-3
-271,,Dani Dennis-Sutton,DL,N/A,11,22.6,45,114,190,357,,-3
+271,,Dani Dennis-Sutton,DL,N/A,11,22.7,45,114,190,357,,-3
 272,,Isaiah Pola-Mao,DB,N/A,13,27.1,141,225,352,571,,-3
 273,,Byron Murphy,DB,N/A,6,28.6,140,230,361,562,,-3
 274,,Montaric Brown,DB,N/A,7,26.9,156,221,343,566,,-3
@@ -285,7 +285,7 @@ Rank,Team,Player,Fantasy Position,ADP,Bye,Age,1yr. Proj,3yr. Proj,5yr. Proj,10yr
 284,,Jalen Thompson,DB,N/A,14,28.1,150,222,343,527,,-4
 285,,Grover Stewart,DL,N/A,13,32.8,92,102,127,191,,-4
 286,,Justin Reid,DB,N/A,8,29.5,171,215,326,484,,-4
-287,,Kenny Moore,DB,N/A,18,30.9,171,227,325,445,,-4
+287,,Kenny Moore,DB,N/A,18,31,171,227,325,445,,-4
 288,,Javon Kinlaw,DL,N/A,7,28.8,52,108,160,223,,-4
 289,,Joshua Josephs,DL,N/A,7,22.7,22,95,164,330,,-4
 290,,T.J. Watt,DL,N/A,9,31.8,181,143,188,279,,-4
@@ -340,7 +340,7 @@ Rank,Team,Player,Fantasy Position,ADP,Bye,Age,1yr. Proj,3yr. Proj,5yr. Proj,10yr
 339,,Baron Browning,DL,N/A,14,27.5,53,133,207,295,,-8
 340,,Trey Moore,LB,N/A,6,23.3,42,120,198,371,,-8
 341,,Jalen Ramsey,DB,N/A,9,31.8,150,187,265,369,,-8
-342,,A.J. Terrell,DB,N/A,11,27.8,146,171,266,416,,-8
+342,,A.J. Terrell,DB,N/A,11,27.9,146,171,266,416,,-8
 343,,Kyler Gordon,DB,N/A,10,26.7,127,173,274,466,,-8
 344,,Deontae Lawson,LB,N/A,10,23.5,30,118,194,364,,-8
 345,,Jarvis Brownlee Jr.,DB,N/A,13,25.1,98,186,288,497,,-8
@@ -389,8 +389,8 @@ Rank,Team,Player,Fantasy Position,ADP,Bye,Age,1yr. Proj,3yr. Proj,5yr. Proj,10yr
 388,,JD Bertrand,LB,N/A,11,26.3,0,0,0,0,,-19
 389,,Jimmy Rolder,LB,N/A,6,22.5,0,0,0,0,,-19
 390,,Genesis Smith,DB,N/A,7,21.8,68,51,61,82,,-23
-391,,Nohl Williams,DB,N/A,5,23.8,140,0,0,0,,-25
-392,,Colton Hood,DB,N/A,8,21.4,116,0,0,0,,-26
+391,,Nohl Williams,DB,N/A,5,23.9,140,0,0,0,,-25
+392,,Colton Hood,DB,N/A,8,21.5,116,0,0,0,,-26
 393,,Jermod McCoy,DB,N/A,13,21,40,25,32,44,,-26
 394,,Carrington Valentine,DB,N/A,11,24.9,71,0,0,0,,-27
 395,,Deonte Banks,DB,N/A,8,25.4,24,0,0,0,,-29
