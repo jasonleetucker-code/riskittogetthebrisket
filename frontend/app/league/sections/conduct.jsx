@@ -31,8 +31,41 @@ function plural(value, singular, pluralLabel = `${singular}s`) {
 }
 
 function formatScore(value) {
-  const score = Number(value) || 0;
+  if (value === null || value === undefined || value === "") return "—";
+  const score = Number(value);
+  if (!Number.isFinite(score)) return "—";
   return Number.isInteger(score) ? String(score) : score.toFixed(1);
+}
+
+function hasNumericScore(value) {
+  return (
+    value !== null &&
+    value !== undefined &&
+    value !== "" &&
+    Number.isFinite(Number(value))
+  );
+}
+
+function hasCompleteScoreContract(data) {
+  if (!data?.scoring?.version || !hasNumericScore(data?.totals?.score)) {
+    return false;
+  }
+  const teams = Array.isArray(data.teams) ? data.teams : [];
+  return teams.every((team) => {
+    if (!hasNumericScore(team.score)) return false;
+    const players = Array.isArray(team.players) ? team.players : [];
+    return players.every((player) => {
+      if (!hasNumericScore(player.score)) return false;
+      const incidents = Array.isArray(player.incidents) ? player.incidents : [];
+      return incidents.every(
+        (incident) =>
+          hasNumericScore(incident.score) &&
+          hasNumericScore(incident.scoreBreakdown?.severityPoints) &&
+          hasNumericScore(incident.scoreBreakdown?.outcomeMultiplier) &&
+          hasNumericScore(incident.scoreBreakdown?.disciplineBonus),
+      );
+    });
+  });
 }
 
 function statusTone(status) {
@@ -324,6 +357,19 @@ export default function ConductSection({ data, managers }) {
         <p>
           {UNAVAILABLE_MESSAGES[data.unavailableReason] ||
             "The board cannot be built from the current reviewed data."}
+        </p>
+      </div>
+    );
+  }
+
+  if (!hasCompleteScoreContract(data)) {
+    return (
+      <div className={`card ${styles.unavailable}`}>
+        <h2>Piece of Shit Rankings updating</h2>
+        <p>
+          A cached response from before formula scoring was detected. The board
+          is withheld rather than showing missing scores as zero; refresh once
+          to load the current rankings.
         </p>
       </div>
     );

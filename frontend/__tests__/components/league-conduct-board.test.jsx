@@ -314,4 +314,28 @@ describe("Piece of Shit Rankings", () => {
     expect(screen.getByText(/withheld rather than publishing/)).toBeInTheDocument();
     expect(screen.queryByText("unique flagged players")).not.toBeInTheDocument();
   });
+
+  it("withholds a cached pre-formula payload instead of converting missing scores to zero", () => {
+    const stale = healthyData();
+    delete stale.scoring;
+    delete stale.totals.score;
+    for (const team of stale.teams) {
+      delete team.score;
+      for (const player of team.players) {
+        delete player.score;
+        for (const record of player.incidents) {
+          delete record.score;
+          delete record.scoreBreakdown;
+        }
+      }
+    }
+
+    render(<ConductSection data={stale} managers={managers} />);
+
+    expect(
+      screen.getByRole("heading", { name: "Piece of Shit Rankings updating" }),
+    ).toBeInTheDocument();
+    expect(screen.getByText(/cached response from before formula scoring/)).toBeInTheDocument();
+    expect(screen.queryByText("league ranking points")).not.toBeInTheDocument();
+  });
 });
