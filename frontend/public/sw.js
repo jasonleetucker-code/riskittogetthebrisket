@@ -6,11 +6,11 @@
  *     manifest).  Asset hashes are deterministic, so even a stale
  *     cache is safe: the HTML references the current hash and the
  *     old hash eventually expires.
- *   - Stale-while-revalidate for the PUBLIC league API
- *     (``/api/public/league*``).  Visitor sees the cached snapshot
- *     instantly while a fresh fetch updates the cache in the
- *     background — drops cold-load time on the public /league hub
- *     by the snapshot-fetch round-trip cost (~400 ms typical).
+ *   - Network-first for the PUBLIC league API
+ *     (``/api/public/league*``), with CacheStorage used only as an
+ *     offline fallback.  The backend already owns the short-lived
+ *     snapshot cache; serving an unbounded browser-cache entry first
+ *     can preserve an obsolete API schema across a deployment.
  *   - Network-first for everything else (HTML routes, private
  *     API calls).  We never want to serve stale private contract
  *     data; the public hub is the only API safe to read from cache
@@ -56,7 +56,12 @@
 // v7: /api/data + /api/dynasty-data added to NEVER_CACHE (stop the
 // per-navigation multi-MB cache.put of the private contract).  Bump
 // evicts runtime caches that may still hold contract payloads.
-const CACHE_VERSION = "chaseupside-v7";
+// v8: public-league API reads moved from stale-while-revalidate to
+// network-first.  The old cache could return a pre-formula conduct
+// payload after deployment, and the rankings UI interpreted its
+// missing score fields as real zeroes.  The version bump evicts every
+// such payload already stored on visitors' devices.
+const CACHE_VERSION = "chaseupside-v8";
 const STATIC_CACHE = `${CACHE_VERSION}-static`;
 const RUNTIME_CACHE = `${CACHE_VERSION}-runtime`;
 const PUBLIC_LEAGUE_CACHE = `${CACHE_VERSION}-public-league`;
@@ -128,16 +133,13 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  // Public league API: stale-while-revalidate.  The snapshot is
-  // already kept fresh server-side by the 20-min warmup cron
-  // (``.github/workflows/public-league-warmup.yml``) + the
-  // stale-while-revalidate behaviour in
-  // ``server.py::_get_public_snapshot`` — both layers mean a cached
-  // response on the client is at most ~25 minutes old, well within
-  // the snapshot's TTL.  This caching layer trades that bounded
-  // staleness for instant first paint on repeat visits.
+  // Public league API: network-first, cached only for offline use.
+  // CacheStorage does not enforce the backend response's max-age, so
+  // stale-while-revalidate here could return an arbitrarily old API
+  // schema before its background refresh completed.  The backend and
+  // Next server already own bounded caches for this data.
   if (url.pathname.startsWith("/api/public/league")) {
-    event.respondWith(staleWhileRevalidate(req, PUBLIC_LEAGUE_CACHE));
+    event.respondWith(networkFirst(req, PUBLIC_LEAGUE_CACHE));
     return;
   }
 
@@ -161,50 +163,20 @@ async function cacheFirst(request) {
   }
 }
 
-async function networkFirst(request) {
+async function networkFirst(request, cacheName = RUNTIME_CACHE) {
+  const cache = await caches.open(cacheName);
   try {
     const res = await fetch(request);
     if (res && res.ok) {
-      const cache = await caches.open(RUNTIME_CACHE);
       // Best-effort put; a quota error shouldn't break the response.
       cache.put(request, res.clone()).catch(() => {});
     }
     return res;
   } catch {
-    const cached = await caches.match(request);
+    const cached = await cache.match(request);
     if (cached) return cached;
     return offlineFallback();
   }
-}
-
-/**
- * Stale-while-revalidate: respond from cache instantly when present,
- * fire a background fetch in parallel that updates the cache for the
- * next visit.  Only used for ``/api/public/league*`` because that's
- * the one endpoint where (a) the data is non-personalised and (b)
- * the server already keeps the snapshot fresh on a tight TTL, so a
- * cached response is acceptable for first paint.
- */
-async function staleWhileRevalidate(request, cacheName) {
-  const cache = await caches.open(cacheName);
-  const cached = await cache.match(request);
-  const networkFetch = fetch(request)
-    .then((res) => {
-      if (res && res.ok) {
-        cache.put(request, res.clone()).catch(() => {});
-      }
-      return res;
-    })
-    .catch(() => null);
-  if (cached) {
-    // Don't await the background revalidation — let the tab continue.
-    return cached;
-  }
-  // Cache miss: fall back to whatever the network returns.  If the
-  // network is also dead, give the user the offline shell.
-  const fresh = await networkFetch;
-  if (fresh) return fresh;
-  return offlineFallback();
 }
 
 self.addEventListener("push", (event) => {
