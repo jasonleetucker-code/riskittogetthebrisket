@@ -14,10 +14,7 @@ from tests.public_league.fixtures import build_stub_client, install_stubs
 
 
 _COMMITTED_REGISTRY_PATH = (
-    Path(__file__).resolve().parents[2]
-    / "data"
-    / "public_league"
-    / "conduct_registry.json"
+    Path(__file__).resolve().parents[2] / "data" / "public_league" / "conduct_registry.json"
 )
 
 
@@ -365,8 +362,7 @@ class ConductSectionTests(unittest.TestCase):
     def test_committed_registry_contains_all_screenshot_requested_players(self) -> None:
         registry = json.loads(_COMMITTED_REGISTRY_PATH.read_text(encoding="utf-8"))
         registry_players = {
-            player["sleeperPlayerId"]: player["playerName"]
-            for player in registry["players"]
+            player["sleeperPlayerId"]: player["playerName"] for player in registry["players"]
         }
         expected_players = {
             "138": "Ben Roethlisberger",

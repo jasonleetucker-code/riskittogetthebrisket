@@ -481,10 +481,7 @@ def _player_row(
         nfl_team = str(metadata.get("team") or "")
     incident_points = round(sum(float(incident["score"]) for incident in incidents), 1)
     outcome_multipliers = sorted(
-        (
-            float(incident["scoreBreakdown"]["outcomeMultiplier"])
-            for incident in incidents
-        ),
+        (float(incident["scoreBreakdown"]["outcomeMultiplier"]) for incident in incidents),
         reverse=True,
     )
     repeat_incident_bonus = round(
