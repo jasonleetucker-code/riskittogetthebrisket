@@ -43,9 +43,11 @@ import { PUBLIC_SECTION_KEYS, fetchPublicSection } from "@/lib/public-league-dat
 import { buildManagerLookup } from "./shared.jsx";
 import {
   DEFAULT_TAB,
+  PIECE_OF_SHIT_RANKINGS_TAB,
   SECTION_FOR_TAB,
   SUB_TABS,
   VALID_TABS,
+  leagueTabHref,
   normalizeTabKey,
 } from "./tabs.js";
 
@@ -114,14 +116,18 @@ function LeaguePage({ initialContract = null, initialTab = DEFAULT_TAB }) {
   // Apply the tab-key alias on read so legacy ``?tab=matchupPreview``
   // and ``?tab=weeklyRecap`` URLs land on the new Previews/Recaps
   // tabs instead of falling through to the default.
-  const urlTab = normalizeTabKey(searchParams.get("tab"));
+  const rawUrlTab = searchParams.get("tab");
+  const urlTab = normalizeTabKey(rawUrlTab);
   const urlOwner = searchParams.get("owner") || "";
   const urlWeek = searchParams.get("week") || "";
+  const normalizedInitialTab = normalizeTabKey(initialTab);
 
   const [activeTab, setActiveTabState] = useState(
     urlTab && VALID_TABS.has(urlTab)
       ? urlTab
-      : (initialTab && VALID_TABS.has(initialTab) ? initialTab : DEFAULT_TAB),
+      : (normalizedInitialTab && VALID_TABS.has(normalizedInitialTab)
+          ? normalizedInitialTab
+          : DEFAULT_TAB),
   );
   const [state, setState] = useState(
     initialContract
@@ -135,29 +141,23 @@ function LeaguePage({ initialContract = null, initialTab = DEFAULT_TAB }) {
     }
   }, [urlTab, activeTab]);
 
+  useEffect(() => {
+    // Keep old shared links working, then replace the legacy query value
+    // with the canonical slug so copied URLs always use the current name.
+    if (!rawUrlTab || rawUrlTab === urlTab || !VALID_TABS.has(urlTab)) return;
+    router.replace(leagueTabHref(urlTab, searchParams.toString()), { scroll: false });
+  }, [rawUrlTab, router, searchParams, urlTab]);
+
   const setActiveTab = useCallback((key, extraParams = {}) => {
     // Normalize on write so internal CTAs that still pass legacy
     // keys (overview.jsx → onNavigate("matchupPreview")) route to
     // the renamed tabs instead of into a blank-content state.
     const normalized = normalizeTabKey(key);
     setActiveTabState(normalized);
-    const params = new URLSearchParams(searchParams.toString());
-    // Omit ``?tab=`` from the URL when on the default tab for a
-    // cleaner shareable link.
-    if (normalized === DEFAULT_TAB) {
-      params.delete("tab");
-    } else {
-      params.set("tab", normalized);
-    }
-    for (const [k, v] of Object.entries(extraParams)) {
-      if (v === null || v === undefined || v === "") {
-        params.delete(k);
-      } else {
-        params.set(k, String(v));
-      }
-    }
-    const qs = params.toString();
-    router.replace(qs ? `/league?${qs}` : "/league", { scroll: false });
+    router.replace(
+      leagueTabHref(normalized, searchParams.toString(), extraParams),
+      { scroll: false },
+    );
   }, [router, searchParams]);
 
   useEffect(() => {
@@ -400,7 +400,7 @@ function LeaguePage({ initialContract = null, initialTab = DEFAULT_TAB }) {
       {activeTab === "streaks" && (
         <StreaksSection data={sections.streaks} managers={managers} />
       )}
-      {activeTab === "conduct" && (
+      {activeTab === PIECE_OF_SHIT_RANKINGS_TAB && (
         <ConductSection data={sections.conduct} managers={managers} />
       )}
       {activeTab === "power" && <RosPowerSection managers={managers} />}
