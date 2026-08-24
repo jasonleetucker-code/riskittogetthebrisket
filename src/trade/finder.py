@@ -1121,9 +1121,7 @@ def find_trades(
                     "sessionExcludedCount": len(excluded_player_names),
                     "noResultReason": "all_outgoing_assets_session_excluded",
                 },
-                "warnings": [
-                    "Every asset on your roster was excluded from this arbitrage scan."
-                ],
+                "warnings": ["Every asset on your roster was excluded from this arbitrage scan."],
             }
 
     # V1-41 / C3-CTX-01 — the canonical Team Weakness owner, resolved ONCE
@@ -1281,8 +1279,7 @@ def find_trades(
         opp_filtered = [
             a
             for a in opp_roster
-            if a.name not in owned_names
-            and a.name.strip().casefold() not in excluded_player_keys
+            if a.name not in owned_names and a.name.strip().casefold() not in excluded_player_keys
         ]
         if not opp_filtered:
             continue
