@@ -1,0 +1,773 @@
+{
+  "measuredAt": "2026-08-24T18:59:50.923Z",
+  "viewport": "390x844",
+  "minTargetPx": 44,
+  "minFontPx": 12,
+  "control": {
+    "ok": true,
+    "targetsSeen": 3,
+    "undersizedSeen": 1,
+    "smallestFontPx": 9,
+    "expected": {
+      "targetsSeen": 3,
+      "undersizedSeen": 1,
+      "smallestFontPx": 9
+    }
+  },
+  "routes": {
+    "/rankings": {
+      "status": 200,
+      "hasMain": true,
+      "h1": "Rankings",
+      "viewportWidth": 390,
+      "documentScrollWidth": 390,
+      "horizontalOverflowPx": 0,
+      "targets": {
+        "total": 170,
+        "under": 163,
+        "worst": [
+          {
+            "tag": "button",
+            "w": 17,
+            "h": 13,
+            "label": "Add Josh Allen to watchlist"
+          },
+          {
+            "tag": "button",
+            "w": 17,
+            "h": 13,
+            "label": "Add Brock Bowers to watchlist"
+          },
+          {
+            "tag": "button",
+            "w": 17,
+            "h": 13,
+            "label": "Add Bijan Robinson to watchlist"
+          },
+          {
+            "tag": "button",
+            "w": 17,
+            "h": 13,
+            "label": "Add Jahmyr Gibbs to watchlist"
+          },
+          {
+            "tag": "button",
+            "w": 17,
+            "h": 13,
+            "label": "Add Ja'Marr Chase to watchlist"
+          },
+          {
+            "tag": "button",
+            "w": 17,
+            "h": 13,
+            "label": "Add Drake Maye to watchlist"
+          },
+          {
+            "tag": "button",
+            "w": 17,
+            "h": 13,
+            "label": "Add Jaxon Smith-Njigba to watchlist"
+          },
+          {
+            "tag": "button",
+            "w": 17,
+            "h": 13,
+            "label": "Add Trey McBride to watchlist"
+          },
+          {
+            "tag": "button",
+            "w": 17,
+            "h": 13,
+            "label": "Add Puka Nacua to watchlist"
+          },
+          {
+            "tag": "button",
+            "w": 17,
+            "h": 13,
+            "label": "Add Jayden Daniels to watchlist"
+          }
+        ]
+      },
+      "fonts": {
+        "distinctSizes": [
+          {
+            "px": 9,
+            "count": 36,
+            "sample": "N"
+          },
+          {
+            "px": 9.2,
+            "count": 30,
+            "sample": "1"
+          },
+          {
+            "px": 10.9,
+            "count": 39,
+            "sample": "WR"
+          },
+          {
+            "px": 11,
+            "count": 69,
+            "sample": "Chase Upside Consensus / Updated 57s ago"
+          },
+          {
+            "px": 11.2,
+            "count": 120,
+            "sample": "1"
+          },
+          {
+            "px": 11.5,
+            "count": 2,
+            "sample": "Risk It To Get The Brisket"
+          },
+          {
+            "px": 12,
+            "count": 22,
+            "sample": "Hide edge"
+          },
+          {
+            "px": 13,
+            "count": 9,
+            "sample": "Skip to content"
+          },
+          {
+            "px": 14,
+            "count": 2,
+            "sample": "Rankings"
+          },
+          {
+            "px": 18,
+            "count": 6,
+            "sample": "981"
+          },
+          {
+            "px": 28,
+            "count": 1,
+            "sample": "Rankings"
+          }
+        ],
+        "smallestPx": 9,
+        "underCount": 296
+      },
+      "wideElements": [
+        {
+          "tag": "table",
+          "cls": "ds-table ds-table--compact",
+          "w": 553
+        },
+        {
+          "tag": "colgroup",
+          "cls": "",
+          "w": 553
+        },
+        {
+          "tag": "thead",
+          "cls": "",
+          "w": 553
+        },
+        {
+          "tag": "tr",
+          "cls": "",
+          "w": 553
+        },
+        {
+          "tag": "tbody",
+          "cls": "",
+          "w": 553
+        },
+        {
+          "tag": "tr",
+          "cls": "ds-table__row--interactive rankings-row-clickable",
+          "w": 553
+        }
+      ],
+      "pinnedCount": 8,
+      "pinnedOverlaps": []
+    },
+    "/trade": {
+      "status": 200,
+      "hasMain": true,
+      "h1": "Trade Calculator",
+      "viewportWidth": 390,
+      "documentScrollWidth": 390,
+      "horizontalOverflowPx": 0,
+      "targets": {
+        "total": 30,
+        "under": 20,
+        "worst": [
+          {
+            "tag": "button",
+            "w": 146.1,
+            "h": 16.1,
+            "label": "Second opinions"
+          },
+          {
+            "tag": "button",
+            "w": 111.7,
+            "h": 23.8,
+            "label": "Pick your team▾"
+          },
+          {
+            "tag": "button",
+            "w": 67.2,
+            "h": 24,
+            "label": "Market"
+          },
+          {
+            "tag": "button",
+            "w": 88.8,
+            "h": 24,
+            "label": "My league"
+          },
+          {
+            "tag": "button",
+            "w": 120,
+            "h": 32,
+            "label": "Risk It To Get The Brisket▾"
+          },
+          {
+            "tag": "button",
+            "w": 112,
+            "h": 32.9,
+            "label": "Swap Sides"
+          },
+          {
+            "tag": "button",
+            "w": 119.8,
+            "h": 32.9,
+            "label": "Clear Trade"
+          },
+          {
+            "tag": "button",
+            "w": 127.6,
+            "h": 32.9,
+            "label": "Reset Values"
+          },
+          {
+            "tag": "button",
+            "w": 96.4,
+            "h": 32.9,
+            "label": "Add Team"
+          },
+          {
+            "tag": "button",
+            "w": 112,
+            "h": 32.9,
+            "label": "Import KTC"
+          }
+        ]
+      },
+      "fonts": {
+        "distinctSizes": [
+          {
+            "px": 10.2,
+            "count": 1,
+            "sample": "Gap: 0"
+          },
+          {
+            "px": 10.6,
+            "count": 2,
+            "sample": "Side A"
+          },
+          {
+            "px": 11,
+            "count": 10,
+            "sample": "Trades"
+          },
+          {
+            "px": 11.5,
+            "count": 5,
+            "sample": "Risk It To Get The Brisket"
+          },
+          {
+            "px": 12,
+            "count": 7,
+            "sample": "Market"
+          },
+          {
+            "px": 12.5,
+            "count": 1,
+            "sample": "FAIR"
+          },
+          {
+            "px": 13,
+            "count": 12,
+            "sample": "Skip to content"
+          },
+          {
+            "px": 13.1,
+            "count": 3,
+            "sample": "0"
+          },
+          {
+            "px": 14,
+            "count": 5,
+            "sample": "Trade Calculator"
+          },
+          {
+            "px": 14.4,
+            "count": 2,
+            "sample": "0"
+          },
+          {
+            "px": 14.7,
+            "count": 1,
+            "sample": "A"
+          },
+          {
+            "px": 16,
+            "count": 3,
+            "sample": "0"
+          },
+          {
+            "px": 22,
+            "count": 1,
+            "sample": "Trade Calculator"
+          }
+        ],
+        "smallestPx": 10.2,
+        "underCount": 18
+      },
+      "wideElements": [],
+      "pinnedCount": 5,
+      "pinnedOverlaps": [
+        {
+          "a": "div.trade-sticky-tray",
+          "b": "button.screenshot-fab",
+          "overlapPx": {
+            "x": 44,
+            "y": 44
+          },
+          "area": 1936
+        }
+      ]
+    },
+    "/draft": {
+      "status": 200,
+      "hasMain": true,
+      "h1": "Draft Board",
+      "viewportWidth": 390,
+      "documentScrollWidth": 390,
+      "horizontalOverflowPx": 0,
+      "targets": {
+        "total": 555,
+        "under": 397,
+        "worst": [
+          {
+            "tag": "input",
+            "w": 13,
+            "h": 13,
+            "label": ""
+          },
+          {
+            "tag": "input",
+            "w": 13,
+            "h": 13,
+            "label": ""
+          },
+          {
+            "tag": "input",
+            "w": 13,
+            "h": 13,
+            "label": ""
+          },
+          {
+            "tag": "input",
+            "w": 13,
+            "h": 13,
+            "label": ""
+          },
+          {
+            "tag": "input",
+            "w": 13,
+            "h": 13,
+            "label": ""
+          },
+          {
+            "tag": "input",
+            "w": 13,
+            "h": 13,
+            "label": ""
+          },
+          {
+            "tag": "input",
+            "w": 13,
+            "h": 13,
+            "label": ""
+          },
+          {
+            "tag": "input",
+            "w": 13,
+            "h": 13,
+            "label": ""
+          },
+          {
+            "tag": "input",
+            "w": 13,
+            "h": 13,
+            "label": ""
+          },
+          {
+            "tag": "input",
+            "w": 13,
+            "h": 13,
+            "label": ""
+          }
+        ]
+      },
+      "fonts": {
+        "distinctSizes": [
+          {
+            "px": 9.3,
+            "count": 72,
+            "sample": "NEED"
+          },
+          {
+            "px": 10.6,
+            "count": 100,
+            "sample": "Mine"
+          },
+          {
+            "px": 10.9,
+            "count": 225,
+            "sample": "(sparkline populates after first pick)"
+          },
+          {
+            "px": 11,
+            "count": 17,
+            "sample": "My Team"
+          },
+          {
+            "px": 11.2,
+            "count": 593,
+            "sample": "— how much of the budget advantage to sp"
+          },
+          {
+            "px": 11.5,
+            "count": 174,
+            "sample": "Risk It To Get The Brisket"
+          },
+          {
+            "px": 11.8,
+            "count": 4,
+            "sample": "All72"
+          },
+          {
+            "px": 12,
+            "count": 6,
+            "sample": "How this works"
+          },
+          {
+            "px": 12.2,
+            "count": 31,
+            "sample": "—"
+          },
+          {
+            "px": 12.5,
+            "count": 68,
+            "sample": "$0"
+          },
+          {
+            "px": 12.8,
+            "count": 2,
+            "sample": "Aggression — how much of the budget adva"
+          },
+          {
+            "px": 13,
+            "count": 2,
+            "sample": "Skip to content"
+          },
+          {
+            "px": 13.1,
+            "count": 2,
+            "sample": "Live sync: OFF"
+          },
+          {
+            "px": 14,
+            "count": 9,
+            "sample": "Draft Board"
+          },
+          {
+            "px": 14.1,
+            "count": 2,
+            "sample": "$483"
+          },
+          {
+            "px": 14.4,
+            "count": 164,
+            "sample": "+"
+          },
+          {
+            "px": 18,
+            "count": 6,
+            "sample": "1.00×"
+          },
+          {
+            "px": 22,
+            "count": 1,
+            "sample": "Draft Board"
+          }
+        ],
+        "smallestPx": 9.3,
+        "underCount": 1185
+      },
+      "wideElements": [
+        {
+          "tag": "div",
+          "cls": "draft-team-row draft-team-row-head",
+          "w": 599
+        },
+        {
+          "tag": "table",
+          "cls": "draft-table",
+          "w": 1061
+        },
+        {
+          "tag": "thead",
+          "cls": "",
+          "w": 1061
+        },
+        {
+          "tag": "tr",
+          "cls": "",
+          "w": 1061
+        },
+        {
+          "tag": "tbody",
+          "cls": "",
+          "w": 1061
+        },
+        {
+          "tag": "tr",
+          "cls": "draft-row",
+          "w": 1061
+        },
+        {
+          "tag": "tr",
+          "cls": "draft-row",
+          "w": 1061
+        },
+        {
+          "tag": "tr",
+          "cls": "draft-row",
+          "w": 1061
+        },
+        {
+          "tag": "tr",
+          "cls": "draft-row",
+          "w": 1061
+        },
+        {
+          "tag": "tr",
+          "cls": "draft-row",
+          "w": 1061
+        }
+      ],
+      "pinnedCount": 17,
+      "pinnedOverlaps": [
+        {
+          "a": "th.",
+          "b": "th.",
+          "overlapPx": {
+            "x": 1,
+            "y": 41
+          },
+          "area": 41
+        },
+        {
+          "a": "th.",
+          "b": "th.",
+          "overlapPx": {
+            "x": 1,
+            "y": 41
+          },
+          "area": 41
+        }
+      ]
+    },
+    "/rosters": {
+      "status": 200,
+      "hasMain": true,
+      "h1": "Team Strength",
+      "viewportWidth": 390,
+      "documentScrollWidth": 390,
+      "horizontalOverflowPx": 0,
+      "targets": {
+        "total": 48,
+        "under": 31,
+        "worst": [
+          {
+            "tag": "button",
+            "w": 82.9,
+            "h": 16.7,
+            "label": "Jonas Sanker"
+          },
+          {
+            "tag": "button",
+            "w": 76,
+            "h": 16.7,
+            "label": "Cyrus Allen"
+          },
+          {
+            "tag": "button",
+            "w": 89.8,
+            "h": 16.7,
+            "label": "Derrick Moore"
+          },
+          {
+            "tag": "button",
+            "w": 82.9,
+            "h": 16.7,
+            "label": "Marlin Klein"
+          },
+          {
+            "tag": "button",
+            "w": 89.8,
+            "h": 16.7,
+            "label": "Charlie Kolar"
+          },
+          {
+            "tag": "button",
+            "w": 89.8,
+            "h": 16.7,
+            "label": "Tanner Koziol"
+          },
+          {
+            "tag": "button",
+            "w": 69.1,
+            "h": 16.7,
+            "label": "Kyle Louis"
+          },
+          {
+            "tag": "button",
+            "w": 103.7,
+            "h": 16.7,
+            "label": "Milton Williams"
+          },
+          {
+            "tag": "button",
+            "w": 76,
+            "h": 16.7,
+            "label": "RJ Maryland"
+          },
+          {
+            "tag": "button",
+            "w": 103.7,
+            "h": 16.7,
+            "label": "Jer'Zhan Newton"
+          }
+        ]
+      },
+      "fonts": {
+        "distinctSizes": [
+          {
+            "px": 9,
+            "count": 54,
+            "sample": "QB 24k"
+          },
+          {
+            "px": 9.3,
+            "count": 12,
+            "sample": "58 players, 54 picks"
+          },
+          {
+            "px": 9.6,
+            "count": 24,
+            "sample": "20 sell"
+          },
+          {
+            "px": 9.9,
+            "count": 67,
+            "sample": "QB"
+          },
+          {
+            "px": 10.6,
+            "count": 1,
+            "sample": "Every asset the filters below admit, at "
+          },
+          {
+            "px": 10.9,
+            "count": 1,
+            "sample": "Players not on any roster with meaningfu"
+          },
+          {
+            "px": 11,
+            "count": 6,
+            "sample": "Home"
+          },
+          {
+            "px": 11.2,
+            "count": 27,
+            "sample": "Team"
+          },
+          {
+            "px": 11.5,
+            "count": 54,
+            "sample": "Risk It To Get The Brisket"
+          },
+          {
+            "px": 11.7,
+            "count": 12,
+            "sample": "Ty"
+          },
+          {
+            "px": 12,
+            "count": 1,
+            "sample": "Pass ?team=<ownerId>. It could not be in"
+          },
+          {
+            "px": 12.2,
+            "count": 1,
+            "sample": "Roster value portfolio"
+          },
+          {
+            "px": 13,
+            "count": 1,
+            "sample": "Skip to content"
+          },
+          {
+            "px": 13.1,
+            "count": 3,
+            "sample": "Team Strength"
+          },
+          {
+            "px": 13.4,
+            "count": 8,
+            "sample": "QB"
+          },
+          {
+            "px": 14,
+            "count": 1,
+            "sample": "Team Strength"
+          },
+          {
+            "px": 14.7,
+            "count": 1,
+            "sample": "Choose a team"
+          },
+          {
+            "px": 15.2,
+            "count": 1,
+            "sample": "Team Strength"
+          }
+        ],
+        "smallestPx": 9,
+        "underCount": 258
+      },
+      "wideElements": [
+        {
+          "tag": "table",
+          "cls": "roster-portfolio-table",
+          "w": 508
+        },
+        {
+          "tag": "tbody",
+          "cls": "",
+          "w": 508
+        }
+      ],
+      "pinnedCount": 6,
+      "pinnedOverlaps": []
+    }
+  }
+}
