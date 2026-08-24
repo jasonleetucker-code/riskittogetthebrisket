@@ -78,3 +78,67 @@ standalone, with no #1086 code present.
 `rankings-windowing` (V1-106), `api-view-parity`, `critical-smoke`, `signed-in-smoke`,
 `a11y-axe`, the production build and all 14 bundle budgets — **74 passed / 0 failed** on the
 focused revalidation batch after the repair.
+
+---
+
+## Addendum — the E2E job now fails BEFORE any test runs (`ed4c0f64c`, 21:42 UTC)
+
+The two journey failures analysed above are no longer what the E2E Safety Net is
+reporting. On head `ed4c0f64c` the job died in `npm run regression:preflight`, so **zero
+specs executed** — the run uploaded no `playwright-report`, no `test-results`, and no
+backend/frontend logs, because none were produced.
+
+```
+[contract] ok=False errors=2 warnings=18 players=993
+[contract] structuralErrors=1 sourceHealthErrors=1
+[contract][error] blend_integrity_violation:1 row(s) hold a value outside the
+                  range of their own source contributions (2028 Late 3rd)
+##[error]Process completed with exit code 1
+```
+
+**This is main's data, not this PR's code.** Established three ways:
+
+1. the PR's diff touches **no** `exports/`, `data/`, `data_contract`, canonical-valuation
+   or pick-pricing file — the changed set is frontend shell + `/api/auth/status` +
+   `consensus_edge` availability + tests;
+2. the snapshot CI validates, `exports/latest/dynasty_data_2026-08-24.json`, is byte-identical
+   between this branch and `origin/main` (it arrives via `chore: automated data refresh
+   2026-08-24T21:15:54Z`, commit `64f382343`);
+3. running the same validator on a **clean `origin/main` worktree with no #1086 code
+   present** reproduces it exactly — `structuralErrors=1`, same `2028 Late 3rd` row.
+
+Per `CLAUDE.md`, a blend-integrity violation is a row whose blended value fell outside the
+range of its own source contributions — structurally impossible under correct operation.
+The system deliberately **does not coerce it**: the row is quarantined and the build-level
+validator raises a hard error, because "coercing an impossible number to a plausible one
+hides a pipeline fault". That is exactly what is happening, and it is working as designed.
+
+**Consequence, stated plainly: the E2E Safety Net cannot go green from Lane 6.** The fix
+belongs to whoever owns the valuation pipeline / the 2028 pick pricing, and the condition
+blocks every PR that runs this job while the snapshot stands. **Classification: D —
+external/infrastructure blocker, on main.** Not fixed here, not worked around, and the
+preflight gate was not weakened.
+
+## Addendum — the PR Validation hard-gate failure at `ed4c0f64c`
+
+Different failure, and this one **is** partly this PR's:
+
+```
+tests/api/test_public_league_privacy_boundary.py::TestPrivateSectionsAreClosedToAnonymousCallers
+  ::test_the_csv_variant_is_closed_too[rosTeamStrength]
+  AssertionError: rosTeamStrength.csv answered 429 anonymously
+```
+
+429 is the rate limiter, not an auth defect — the route is fine. `/api/auth/status` and
+`/api/auth/login` are both in `server.py::_PUBLIC_API_EXACT`, so they spend from a
+**60/min per-IP budget shared by the entire suite**, and under `TestClient` every test is
+the same client IP. This PR's two new files add roughly sixty such calls; the suite runs
+them alphabetically *before* `test_public_league_*`, and the accumulated budget then runs
+out inside an unrelated test, which fails on 429 instead of its real assertion.
+
+The test passes in isolation (9/9) — the failure is purely cumulative.
+
+Repaired at the source of the pressure rather than at the victim: both new test modules
+now carry an autouse fixture calling `rate_limit.reset_for_tests()`, the limiter's own
+sanctioned test hook. Production rate limiting is unchanged and no assertion anywhere is
+weakened; one module's request volume simply stops becoming another module's failure.

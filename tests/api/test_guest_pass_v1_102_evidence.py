@@ -77,6 +77,34 @@ def db(monkeypatch, tmp_path):
     return path
 
 
+@pytest.fixture(autouse=True)
+def _drain_no_rate_limit_budget():
+    """Leave the shared rate-limit bucket as we found it.
+
+    `/api/auth/status` and `/api/auth/login` are both in
+    `_PUBLIC_API_EXACT`, so every request this module makes spends from a
+    60/min per-IP budget that the WHOLE suite shares — and under
+    `TestClient` every test is the same client IP. This file adds dozens
+    of such calls, which is enough to push a later, unrelated test over
+    the edge and make it fail with 429 instead of its real assertion.
+
+    That is not hypothetical: it is how
+    `test_public_league_privacy_boundary.py::test_the_csv_variant_is_closed_too`
+    started reporting "answered 429 anonymously" for a route this change
+    never touches.
+
+    `reset_for_tests` is the limiter's own sanctioned hook. Nothing about
+    production rate limiting changes, and no assertion anywhere is
+    weakened — this only stops one module's request volume from becoming
+    another module's failure.
+    """
+    from src.api import rate_limit  # noqa: PLC0415
+
+    rate_limit.reset_for_tests()
+    yield
+    rate_limit.reset_for_tests()
+
+
 def _anonymous(monkeypatch) -> None:
     monkeypatch.setattr(server, "_get_auth_session", lambda r: None)
     monkeypatch.setattr(server, "_is_authenticated", lambda r: False)
