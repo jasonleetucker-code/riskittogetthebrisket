@@ -179,12 +179,18 @@ function TradeCard({ trade, myTeam, opponent }) {
           arbitrage {Number(trade.arbitrageScore || 0).toFixed(2)}
         </span>
         <span className={styles.deltas}>
-          <span className={boardDelta >= 0 ? styles.good : styles.bad}>our board {fmtSigned(boardDelta)}</span>
+          <span className={boardDelta >= 0 ? styles.good : styles.bad}>
+            our board {fmtSigned(boardDelta)}
+          </span>
           <span className={styles.sep}>/</span>
-          <span className={ktcDelta >= 0 ? styles.good : styles.bad}>their market {fmtSigned(ktcDelta)}</span>
+          <span className={ktcDelta >= 0 ? styles.good : styles.bad}>
+            their market {fmtSigned(ktcDelta)}
+          </span>
         </span>
         {trade.mixedMarket ? (
-          <Badge tone="warning">spans {(trade.marketsUsed || []).map((m) => MARKET_LABEL[m] || m).join(" + ")}</Badge>
+          <Badge tone="warning">
+            spans {(trade.marketsUsed || []).map((m) => MARKET_LABEL[m] || m).join(" + ")}
+          </Badge>
         ) : null}
       </div>
       <div className={styles.tradeBody}>
@@ -235,19 +241,37 @@ export default function ArbitragePage() {
   const effectiveTeam = myTeam || defaultTeam;
 
   const playerEdges = useMemo(
-    () => buildArbitrageRows(rows, { action: edgeAction, assetClass: edgeClass, minEdge: edgeFloor }),
+    () =>
+      buildArbitrageRows(rows, {
+        action: edgeAction,
+        assetClass: edgeClass,
+        minEdge: edgeFloor,
+      }),
     [rows, edgeAction, edgeClass, edgeFloor],
   );
-  const buyCount = useMemo(() => buildArbitrageRows(rows, { action: "buy", minEdge: edgeFloor }).length, [rows, edgeFloor]);
-  const sellCount = useMemo(() => buildArbitrageRows(rows, { action: "sell", minEdge: edgeFloor }).length, [rows, edgeFloor]);
-  const winWinCount = useMemo(() => buildArbitrageRows(rows, { action: "winwin", minEdge: edgeFloor }).length, [rows, edgeFloor]);
+
+  const buyCount = useMemo(
+    () => buildArbitrageRows(rows, { action: "buy", minEdge: edgeFloor }).length,
+    [rows, edgeFloor],
+  );
+  const sellCount = useMemo(
+    () => buildArbitrageRows(rows, { action: "sell", minEdge: edgeFloor }).length,
+    [rows, edgeFloor],
+  );
+  const winWinCount = useMemo(
+    () => buildArbitrageRows(rows, { action: "winwin", minEdge: edgeFloor }).length,
+    [rows, edgeFloor],
+  );
 
   async function run() {
     if (!effectiveTeam) return;
     setRunning(true);
     setError("");
     try {
-      const body = { myTeam: effectiveTeam, opponentTeams: opponent === "all" ? ["all"] : [opponent] };
+      const body = {
+        myTeam: effectiveTeam,
+        opponentTeams: opponent === "all" ? ["all"] : [opponent],
+      };
       if (selectedLeagueKey) body.leagueKey = selectedLeagueKey;
       const res = await fetch("/api/trade/finder", {
         method: "POST",
@@ -277,40 +301,139 @@ export default function ArbitragePage() {
       <PageHeader
         eyebrow="Trades"
         title="Arbitrage"
-        description="Market Arbitrage Finder — find players our canonical board values above or below the public market, then turn those edges into trades that can still look fair to the counterparty."
+        description="Find players our canonical board values above or below the public market, then turn those edges into trades that can still look fair to the counterparty."
       />
 
       {dataError ? <Banner tone="negative">{String(dataError)}</Banner> : null}
 
       <Panel>
         <h3 style={{ marginTop: 0 }}>Player-level inefficiencies</h3>
-        <p className={styles.muted}>Offense is compared directly with KTC. IDP is compared directly with IDP Trade Calculator. Source disagreement is not required; that remains a separate Rankings research lens.</p>
+        <p className={styles.muted}>
+          Offense is compared directly with KTC. IDP is compared directly with IDP Trade Calculator. Source disagreement is not required; that remains a separate Rankings research lens.
+        </p>
         <div className={styles.controls}>
-          <Field label="Signal"><Select value={edgeAction} onChange={(e) => setEdgeAction(e.target.value)}><option value="buy">Buy arbitrage</option><option value="sell">Sell arbitrage</option><option value="winwin">Win-win on public market</option><option value="all">All edges</option></Select></Field>
-          <Field label="Player type"><Select value={edgeClass} onChange={(e) => setEdgeClass(e.target.value)}><option value="all">All players</option><option value="offense">Offense — KTC</option><option value="idp">IDP — IDP Trade Calculator</option></Select></Field>
-          <Field label="Minimum edge"><Select value={String(edgeFloor)} onChange={(e) => setEdgeFloor(Number(e.target.value))}><option value="0.05">5%+</option><option value="0.10">10%+</option><option value="0.15">15%+</option><option value="0.20">20%+</option></Select></Field>
+          <Field label="Signal">
+            <Select value={edgeAction} onChange={(e) => setEdgeAction(e.target.value)}>
+              <option value="buy">Buy arbitrage</option>
+              <option value="sell">Sell arbitrage</option>
+              <option value="winwin">Win-win on public market</option>
+              <option value="all">All edges</option>
+            </Select>
+          </Field>
+          <Field label="Player type">
+            <Select value={edgeClass} onChange={(e) => setEdgeClass(e.target.value)}>
+              <option value="all">All players</option>
+              <option value="offense">Offense — KTC</option>
+              <option value="idp">IDP — IDP Trade Calculator</option>
+            </Select>
+          </Field>
+          <Field label="Minimum edge">
+            <Select value={String(edgeFloor)} onChange={(e) => setEdgeFloor(Number(e.target.value))}>
+              <option value="0.05">5%+</option>
+              <option value="0.10">10%+</option>
+              <option value="0.15">15%+</option>
+              <option value="0.20">20%+</option>
+            </Select>
+          </Field>
         </div>
-        <div className={styles.stats}><StatTile label="Buy edges" value={fmt(buyCount)} /><StatTile label="Sell edges" value={fmt(sellCount)} /><StatTile label="Win-win offers" value={fmt(winWinCount)} /><StatTile label="Visible" value={fmt(playerEdges.length)} /></div>
+        <div className={styles.stats}>
+          <StatTile label="Buy edges" value={fmt(buyCount)} />
+          <StatTile label="Sell edges" value={fmt(sellCount)} />
+          <StatTile label="Win-win offers" value={fmt(winWinCount)} />
+          <StatTile label="Visible" value={fmt(playerEdges.length)} />
+        </div>
         {dataLoading ? <SkeletonTable rows={5} /> : <PlayerEdgeTable opportunities={playerEdges} />}
       </Panel>
 
       <Panel>
         <h3 style={{ marginTop: 0 }}>Turn the edge into a trade</h3>
-        <p className={styles.muted}>This second layer scans actual rosters for packages that gain on our board while remaining plausible on the counterparty market.</p>
+        <p className={styles.muted}>
+          This second layer scans actual rosters for packages that gain on our board while remaining plausible on the counterparty market.
+        </p>
         <div className={styles.controls}>
-          <Field label="Your team"><Select value={effectiveTeam} onChange={(e) => setMyTeam(e.target.value)} disabled={dataLoading || !teams.length}>{teams.map((t) => <option key={t.name} value={t.name}>{t.name}</option>)}</Select></Field>
-          <Field label="Opponent"><Select value={opponent} onChange={(e) => setOpponent(e.target.value)} disabled={dataLoading || !teams.length}><option value="all">All teams</option>{teams.filter((t) => t.name !== effectiveTeam).map((t) => <option key={t.name} value={t.name}>{t.name}</option>)}</Select></Field>
-          <Button onClick={run} disabled={running || !effectiveTeam}>{running ? "Scanning…" : "Find trade packages"}</Button>
+          <Field label="Your team">
+            <Select
+              value={effectiveTeam}
+              onChange={(e) => setMyTeam(e.target.value)}
+              disabled={dataLoading || !teams.length}
+            >
+              {teams.map((t) => (
+                <option key={t.name} value={t.name}>
+                  {t.name}
+                </option>
+              ))}
+            </Select>
+          </Field>
+          <Field label="Opponent">
+            <Select
+              value={opponent}
+              onChange={(e) => setOpponent(e.target.value)}
+              disabled={dataLoading || !teams.length}
+            >
+              <option value="all">All teams</option>
+              {teams
+                .filter((t) => t.name !== effectiveTeam)
+                .map((t) => (
+                  <option key={t.name} value={t.name}>
+                    {t.name}
+                  </option>
+                ))}
+            </Select>
+          </Field>
+          <Button onClick={run} disabled={running || dataLoading || !effectiveTeam}>
+            {running ? "Scanning…" : "Find trade packages"}
+          </Button>
         </div>
       </Panel>
 
       {error ? <Banner tone="negative">{error}</Banner> : null}
-      {result ? (
-        <Panel>
-          <h3 style={{ marginTop: 0 }}>Roster-to-roster packages</h3>
-          {meta ? <p className={styles.muted}>Scanned {fmt(meta.candidatesScanned ?? meta.scanned)} candidates{meta.market ? ` · ${meta.market}` : ""}</p> : null}
-          {(result.trades || result.results || []).length ? (result.trades || result.results || []).map((trade, i) => <TradeCard key={trade.id || i} trade={trade} myTeam={effectiveTeam} opponent={opponent} />) : <EmptyState title="No package edge found" description="The player-level table may still show opportunities even when no current roster package clears the finder constraints." />}
-        </Panel>
+
+      {result?.warnings?.map((w, i) => (
+        <Banner key={i} tone="warning">
+          {w}
+        </Banner>
+      ))}
+
+      {meta ? (
+        <div className={styles.stats}>
+          <StatTile label="Qualified" value={fmt(meta.totalQualified)} />
+          <StatTile label="Shown" value={fmt(meta.returned)} />
+          <StatTile label="Asset pool" value={fmt(meta.assetPoolSize)} />
+          <StatTile label="Market coverage" value={`${meta.marketCoveragePercent ?? 0}%`} />
+          <StatTile label="Unpriced by board" value={fmt(meta.assetsUnpricedByBoard)} />
+          <StatTile label="Mixed-market" value={fmt(meta.mixedMarketTrades)} />
+        </div>
+      ) : null}
+
+      {meta?.valueSource && meta.valueSource !== "rankDerivedValue" ? (
+        <Banner tone="warning">
+          This run valued assets off <code>{meta.valueSource}</code>, not the board you see. Results
+          are not comparable to the rankings page.
+        </Banner>
+      ) : null}
+
+      {running ? <SkeletonTable rows={4} /> : null}
+
+      {!running && result && !result.trades?.length ? (
+        <EmptyState
+          title="No package arbitrage found"
+          description="Every candidate either lost value on our board or looked too lopsided on the counterparty's market to be plausible."
+        />
+      ) : null}
+
+      {!running && result?.trades?.length ? (
+        <div className={styles.trades}>
+          {result.trades.map((t, i) => (
+            <TradeCard key={i} trade={t} myTeam={effectiveTeam} opponent={opponent} />
+          ))}
+        </div>
+      ) : null}
+
+      {!result && !running ? (
+        <EmptyState
+          title="Package scan ready"
+          description="The player-level opportunities above are live immediately. Choose your team and a counterparty to search actual trade constructions."
+        />
       ) : null}
     </div>
   );
