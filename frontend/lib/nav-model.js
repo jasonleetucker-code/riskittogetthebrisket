@@ -305,7 +305,14 @@ export function systemItemsFor({ isAdmin = false } = {}) {
  */
 export function itemIsOffered(item, capabilities) {
   if (!item || !item.capability) return true;
-  return capabilities?.[item.capability] === true;
+  // `available === true` and nothing else. The server sends
+  // `{ consensusEdge: { available: boolean } }`, so every other shape —
+  // a missing key (older/degraded response), a null block (probe
+  // failed), a bare boolean (a client reading a stale contract), a
+  // truthy non-boolean — is UNKNOWN, and unknown is not offered.
+  // Reading `?.available` off a bare `true` yields undefined, which is
+  // the correct fail-closed answer rather than an accidental pass.
+  return capabilities?.[item.capability]?.available === true;
 }
 
 /**

@@ -58,17 +58,28 @@ const GATED = flattenNav(NAV_MODEL).filter((i) => i.capability);
 const MUST_BE_GATED = [...new Set([...GATED.map((i) => i.href), CONSENSUS_EDGE])];
 
 /** Capability map with every declared capability switched ON. */
-const ALL_ON = Object.fromEntries(GATED.map((i) => [i.capability, true]));
+const ALL_ON = Object.fromEntries(GATED.map((i) => [i.capability, { available: true }]));
 
 /** The states that must all mean "do not offer". */
 const NOT_OFFERED_STATES = [
   ["undefined — probe has not answered", undefined],
   ["null — probe failed", null],
   ["empty map — backend sent no features block", {}],
-  ["explicitly false — flag is off", Object.fromEntries(GATED.map((i) => [i.capability, false]))],
-  // A truthy-but-not-true value must not pass either: the server sends
-  // booleans, so anything else is a shape we did not agree to.
-  ["truthy non-boolean", Object.fromEntries(GATED.map((i) => [i.capability, "yes"]))],
+  [
+    "explicitly unavailable — flag off, or no contract loaded",
+    Object.fromEntries(GATED.map((i) => [i.capability, { available: false }])),
+  ],
+  // A truthy-but-not-true value must not pass: the server sends a
+  // boolean, so anything else is a shape we did not agree to.
+  [
+    "truthy non-boolean",
+    Object.fromEntries(GATED.map((i) => [i.capability, { available: "yes" }])),
+  ],
+  // A BARE boolean is the pre-nesting shape. A client holding a stale
+  // contract must fail closed rather than read `true` as available.
+  ["bare boolean — stale contract shape", Object.fromEntries(GATED.map((i) => [i.capability, true]))],
+  // Present key, empty object: the server answered but told us nothing.
+  ["capability present but empty", Object.fromEntries(GATED.map((i) => [i.capability, {}]))],
 ];
 
 /** Every href any offer surface would show for a given capability map. */
@@ -102,7 +113,7 @@ describe("V1-131 — capability-gated nav destinations", () => {
   }
 
   it("offers the gated destination once the capability is explicitly true", () => {
-    const offered = offeredHrefs({ ...ALL_ON, consensusEdge: true });
+    const offered = offeredHrefs({ ...ALL_ON, consensusEdge: { available: true } });
     for (const href of MUST_BE_GATED) {
       expect(offered.has(href)).toBe(true);
     }

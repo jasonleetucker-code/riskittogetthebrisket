@@ -37,6 +37,7 @@ from email.mime.multipart import MIMEMultipart
 from datetime import datetime, timezone
 from pathlib import Path
 from contextlib import asynccontextmanager
+from collections.abc import Callable
 from typing import Any
 
 from fastapi import FastAPI, BackgroundTasks, Request
@@ -11561,38 +11562,63 @@ async def test_alert():
 
 # ── AUTH + ENTRY GATE ROUTES ────────────────────────────────────────────
 
-# Nav-gated capabilities: flag name → the key the shell's nav model asks
-# for.  Deliberately a SHORT closed list, not a dump of every flag —
-# `/api/auth/status` is on every page load and this answers exactly one
-# question ("may the nav offer this destination?").  Operator-facing flag
-# visibility is a different concern and a different row (V1-87).
-_NAV_GATED_FLAGS: dict[str, str] = {
-    # consensus_edge defaults OFF (ADR-023).  With it off, every board
-    # handler under /api/consensus-edge/* returns 503 feature_disabled,
-    # so offering the page in the nav is offering a door that is always
-    # locked — the same thing the adminOnly Ops filter exists to prevent.
-    "consensus_edge": "consensusEdge",
+
+# Nav-gated capabilities: the shell's nav key → the CANONICAL predicate
+# that answers "can this feature actually serve its page right now".
+#
+# Deliberately a SHORT closed list, not a dump of every flag.
+# `/api/auth/status` is on every page load and answers exactly one
+# question here ("may the nav offer this destination?"); operator-facing
+# flag visibility is a different concern and a different row (V1-87).
+# This must not grow into a general product-data endpoint.
+#
+# Each value is a THUNK resolving the feature's own availability owner at
+# call time, never a flag read done here.  A flag is not availability:
+# consensus_edge's board handlers 503 both when the flag is off
+# (`feature_disabled`) AND when no contract is loaded (`data_not_ready`),
+# so a nav gate keyed on the flag alone would advertise a dead page for
+# the whole window where the flag is on and the data is not.  Asking the
+# feature keeps one owner for feature health — the nav and the router
+# cannot drift into disagreeing about whether the page works.
+def _consensus_edge_available() -> bool:
+    from src.consensus_edge.api import is_available  # noqa: PLC0415
+
+    return is_available()
+
+
+_NAV_GATED_CAPABILITIES: dict[str, Callable[[], bool]] = {
+    # consensus_edge defaults OFF (ADR-023), so the DEFAULT state is a
+    # nav entry to a page whose every board endpoint refuses — the same
+    # thing the adminOnly Ops filter exists to prevent.
+    "consensusEdge": _consensus_edge_available,
 }
 
 
-def _nav_gated_features() -> dict[str, bool]:
-    """Effective state of the nav-gated flags.
+def _nav_gated_features() -> dict[str, dict[str, bool]]:
+    """Effective availability of each nav-gated capability.
 
-    FAILS CLOSED, per flag.  An unregistered or unreadable flag yields
-    ``False`` — "we could not confirm this works" must never reach the
-    shell as "this works".  It is also why this cannot raise: a KeyError
-    escaping here would take down `/api/auth/status`, which is the probe
-    the entire shell (nav, switchers, login affordance) depends on, so a
-    flag-registry rename would log every user out of their own chrome.
+    Shape is ``{"consensusEdge": {"available": bool}}`` — a nested object
+    rather than a bare boolean so a later capability can carry a second
+    fact without changing the key's type on a client already reading it.
+    ``available`` rather than ``enabled`` because those are genuinely
+    different questions here and the difference is the defect: the flag
+    can be on while the board still cannot be served.
+
+    FAILS CLOSED, per capability.  Anything that raises or cannot be
+    resolved yields ``False`` — "we could not confirm this works" must
+    never reach the shell as "this works".  It is also why this cannot
+    propagate: an exception escaping here would take down
+    `/api/auth/status`, the probe the entire shell (nav, switchers,
+    login affordance) depends on, so a rename in the feature module
+    would log every user out of their own chrome.
     """
-    from src.api import feature_flags as _ff  # noqa: PLC0415
-
-    out: dict[str, bool] = {}
-    for flag, key in _NAV_GATED_FLAGS.items():
+    out: dict[str, dict[str, bool]] = {}
+    for key, resolve in _NAV_GATED_CAPABILITIES.items():
         try:
-            out[key] = bool(_ff.is_enabled(flag))
-        except Exception:  # noqa: BLE001 — unknown flag ⇒ not offered
-            out[key] = False
+            available = bool(resolve())
+        except Exception:  # noqa: BLE001 — unresolvable ⇒ not offered
+            available = False
+        out[key] = {"available": available}
     return out
 
 
