@@ -34,6 +34,8 @@ import styles from "./arbitrage.module.css";
 // "The sources disagree" and "our canonical value beats the public price" are
 // different questions. /rankings retains the disagreement research lens.
 
+const ARBITRAGE_CONTROL_KEY = "__arbitrageControl";
+
 function fmt(v) {
   if (v == null || !Number.isFinite(Number(v))) return "—";
   return Number(v).toLocaleString();
@@ -134,7 +136,7 @@ function PlayerEdgeTable({ opportunities }) {
   );
 }
 
-function AssetList({ assets }) {
+function AssetList({ assets, onExclude }) {
   if (!assets?.length) return <span className={styles.muted}>—</span>;
   return (
     <ul className={styles.assetList}>
@@ -146,13 +148,24 @@ function AssetList({ assets }) {
             board {fmt(a.modelValue)}
             {a.ktcValue != null ? ` · market ${fmt(a.ktcValue)}` : " · unpriced"}
           </span>
+          {onExclude && a.name ? (
+            <button
+              type="button"
+              className={styles.excludeButton}
+              aria-label={`Exclude ${a.name} from suggestions`}
+              title="Exclude from this scan"
+              onClick={() => onExclude(a.name)}
+            >
+              ×
+            </button>
+          ) : null}
         </li>
       ))}
     </ul>
   );
 }
 
-function TradeCard({ trade, myTeam, opponent }) {
+function TradeCard({ trade, myTeam, opponent, onExclude }) {
   const boardDelta = Number(trade.boardDelta || 0);
   const ktcDelta = Number(trade.ktcDelta || 0);
 
@@ -178,6 +191,7 @@ function TradeCard({ trade, myTeam, opponent }) {
         <span className={styles.score}>
           arbitrage {Number(trade.arbitrageScore || 0).toFixed(2)}
         </span>
+        {trade.packageSize ? <Badge tone="neutral">{trade.packageSize}</Badge> : null}
         <span className={styles.deltas}>
           <span className={boardDelta >= 0 ? styles.good : styles.bad}>
             our board {fmtSigned(boardDelta)}
@@ -196,11 +210,11 @@ function TradeCard({ trade, myTeam, opponent }) {
       <div className={styles.tradeBody}>
         <div className={styles.side}>
           <h4 className={styles.sideLabel}>You give</h4>
-          <AssetList assets={trade.give} />
+          <AssetList assets={trade.give} onExclude={onExclude} />
         </div>
         <div className={styles.side}>
           <h4 className={styles.sideLabel}>You get</h4>
-          <AssetList assets={trade.receive} />
+          <AssetList assets={trade.receive} onExclude={onExclude} />
         </div>
       </div>
       {openInCalculator ? (
@@ -211,6 +225,12 @@ function TradeCard({ trade, myTeam, opponent }) {
         </div>
       ) : null}
     </Panel>
+  );
+}
+
+function tradeContainsPlayer(trade, playerName) {
+  return [...(trade?.give || []), ...(trade?.receive || [])].some(
+    (asset) => String(asset?.name || "") === String(playerName || ""),
   );
 }
 
@@ -237,6 +257,7 @@ export default function ArbitragePage() {
   const [edgeAction, setEdgeAction] = useState("buy");
   const [edgeClass, setEdgeClass] = useState("all");
   const [edgeFloor, setEdgeFloor] = useState(0.05);
+  const [excludedPlayers, setExcludedPlayers] = useState([]);
 
   const effectiveTeam = myTeam || defaultTeam;
 
@@ -263,14 +284,34 @@ export default function ArbitragePage() {
     [rows, edgeFloor],
   );
 
-  async function run() {
+  async function run(nextExcluded = excludedPlayers) {
     if (!effectiveTeam) return;
+    const normalizedExcluded = Array.from(
+      new Set((nextExcluded || []).map((name) => String(name || "").trim()).filter(Boolean)),
+    );
+    const selectedOpponents =
+      opponent === "all"
+        ? teams.filter((t) => t.name !== effectiveTeam).map((t) => t.name)
+        : [opponent];
+
     setRunning(true);
     setError("");
     try {
       const body = {
         myTeam: effectiveTeam,
-        opponentTeams: opponent === "all" ? ["all"] : [opponent],
+        // The backend route currently validates only that opponentTeams is a
+        // list before passing it through to src/trade/finder.py.  The reserved
+        // control object lets the arbitrage page request session-local search
+        // policy without changing persistent trade constraints or valuation.
+        opponentTeams: [
+          ...selectedOpponents,
+          {
+            [ARBITRAGE_CONTROL_KEY]: {
+              equalCountOnly: true,
+              excludePlayers: normalizedExcluded,
+            },
+          },
+        ],
       };
       if (selectedLeagueKey) body.leagueKey = selectedLeagueKey;
       const res = await fetch("/api/trade/finder", {
@@ -292,6 +333,42 @@ export default function ArbitragePage() {
     } finally {
       setRunning(false);
     }
+  }
+
+  function excludePlayer(playerName) {
+    const name = String(playerName || "").trim();
+    if (!name || excludedPlayers.includes(name)) return;
+    const next = [...excludedPlayers, name];
+    setExcludedPlayers(next);
+    // Remove the stale suggestion immediately, then ask the backend to search
+    // the reduced pools.  The rerun is not a post-filter: finder.py receives
+    // the same exclusion and removes the player before package enumeration.
+    setResult((prev) =>
+      prev
+        ? {
+            ...prev,
+            trades: (prev.trades || []).filter((trade) => !tradeContainsPlayer(trade, name)),
+          }
+        : prev,
+    );
+    void run(next);
+  }
+
+  function restorePlayer(playerName) {
+    const next = excludedPlayers.filter((name) => name !== playerName);
+    setExcludedPlayers(next);
+    void run(next);
+  }
+
+  function clearExclusions() {
+    setExcludedPlayers([]);
+    void run([]);
+  }
+
+  function resetPackageScan() {
+    setExcludedPlayers([]);
+    setResult(null);
+    setError("");
   }
 
   const meta = result?.metadata;
@@ -348,13 +425,16 @@ export default function ArbitragePage() {
       <Panel>
         <h3 style={{ marginTop: 0 }}>Turn the edge into a trade</h3>
         <p className={styles.muted}>
-          This second layer scans actual rosters for packages that gain on our board while remaining plausible on the counterparty market.
+          This second layer scans actual rosters for 1-for-1 or 2-for-2 packages that gain on our board while remaining plausible on the counterparty market. Use the × beside any player to remove them from this scan and search again without them.
         </p>
         <div className={styles.controls}>
           <Field label="Your team">
             <Select
               value={effectiveTeam}
-              onChange={(e) => setMyTeam(e.target.value)}
+              onChange={(e) => {
+                setMyTeam(e.target.value);
+                resetPackageScan();
+              }}
               disabled={dataLoading || !teams.length}
             >
               {teams.map((t) => (
@@ -367,7 +447,10 @@ export default function ArbitragePage() {
           <Field label="Opponent">
             <Select
               value={opponent}
-              onChange={(e) => setOpponent(e.target.value)}
+              onChange={(e) => {
+                setOpponent(e.target.value);
+                resetPackageScan();
+              }}
               disabled={dataLoading || !teams.length}
             >
               <option value="all">All teams</option>
@@ -380,10 +463,32 @@ export default function ArbitragePage() {
                 ))}
             </Select>
           </Field>
-          <Button onClick={run} disabled={running || dataLoading || !effectiveTeam}>
+          <Button onClick={() => run(excludedPlayers)} disabled={running || dataLoading || !effectiveTeam}>
             {running ? "Scanning…" : "Find trade packages"}
           </Button>
         </div>
+        {excludedPlayers.length ? (
+          <div className={styles.exclusionBar} aria-label="Excluded players">
+            <span className={styles.muted}>Excluded from this scan:</span>
+            <div className={styles.exclusionChips}>
+              {excludedPlayers.map((name) => (
+                <button
+                  key={name}
+                  type="button"
+                  className={styles.exclusionChip}
+                  aria-label={`Restore ${name} to suggestions`}
+                  title="Undo exclusion"
+                  onClick={() => restorePlayer(name)}
+                >
+                  {name} ×
+                </button>
+              ))}
+            </div>
+            <Button size="sm" variant="secondary" onClick={clearExclusions} disabled={running}>
+              Clear exclusions
+            </Button>
+          </div>
+        ) : null}
       </Panel>
 
       {error ? <Banner tone="negative">{error}</Banner> : null}
@@ -417,14 +522,20 @@ export default function ArbitragePage() {
       {!running && result && !result.trades?.length ? (
         <EmptyState
           title="No package arbitrage found"
-          description="Every candidate either lost value on our board or looked too lopsided on the counterparty's market to be plausible."
+          description="Every candidate either lost value on our board, used an excluded player, or looked too lopsided on the counterparty's market to be plausible."
         />
       ) : null}
 
       {!running && result?.trades?.length ? (
         <div className={styles.trades}>
           {result.trades.map((t, i) => (
-            <TradeCard key={i} trade={t} myTeam={effectiveTeam} opponent={opponent} />
+            <TradeCard
+              key={i}
+              trade={t}
+              myTeam={effectiveTeam}
+              opponent={opponent}
+              onExclude={excludePlayer}
+            />
           ))}
         </div>
       ) : null}
