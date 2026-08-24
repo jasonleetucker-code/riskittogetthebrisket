@@ -198,13 +198,17 @@ export default function AppShell({ children, authenticated = false, capabilities
     !isPublicOnlyRoute(pathname) && !isNoPlayerDataRoute(pathname);
 
   return privateDataEnabled ? (
-    <PrivateAppShell authenticated={authenticated}>{children}</PrivateAppShell>
+    <PrivateAppShell authenticated={authenticated} capabilities={capabilities}>
+      {children}
+    </PrivateAppShell>
   ) : (
-    <NoPlayerDataAppShell authenticated={authenticated}>{children}</NoPlayerDataAppShell>
+    <NoPlayerDataAppShell authenticated={authenticated} capabilities={capabilities}>
+      {children}
+    </NoPlayerDataAppShell>
   );
 }
 
-function PrivateAppShell({ children, authenticated }) {
+function PrivateAppShell({ children, authenticated, capabilities }) {
   const { loading, error, failure, retry, rows, siteKeys, rawData } =
     useDynastyData();
   return (
@@ -218,6 +222,7 @@ function PrivateAppShell({ children, authenticated }) {
       rawData={rawData}
       privateDataEnabled={true}
       authenticated={authenticated}
+      capabilities={capabilities}
     >
       {children}
     </InnerAppShell>
@@ -228,7 +233,7 @@ function PrivateAppShell({ children, authenticated }) {
 // /api/data would leak private data, and private routes that simply have
 // no player data to show.  Named for what it does (no player data) rather
 // than for either reason, since it now answers to two.
-function NoPlayerDataAppShell({ children, authenticated }) {
+function NoPlayerDataAppShell({ children, authenticated, capabilities }) {
   // No useDynastyData call — the public page pipeline must never
   // hydrate from /api/data.  The search + popup components render
   // against an empty rows list so they simply no-op rather than
@@ -244,13 +249,14 @@ function NoPlayerDataAppShell({ children, authenticated }) {
       rawData={null}
       privateDataEnabled={false}
       authenticated={authenticated}
+      capabilities={capabilities}
     >
       {children}
     </InnerAppShell>
   );
 }
 
-function InnerAppShell({ loading, error, failure, retry, rows, siteKeys, rawData, privateDataEnabled, authenticated, children }) {
+function InnerAppShell({ loading, error, failure, retry, rows, siteKeys, rawData, privateDataEnabled, authenticated, capabilities, children }) {
   // Player search requires an authenticated session.  Search against
   // the private contract leaks ranking data and private identifiers
   // to logged-out visitors on otherwise-public surfaces.

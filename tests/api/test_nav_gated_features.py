@@ -138,9 +138,22 @@ def test_auth_status_reports_the_capability_off(monkeypatch):
 
 
 def test_auth_status_reports_the_capability_on(monkeypatch):
+    """`available` needs BOTH prerequisites established, not just the flag.
+
+    This test used to set only the flag and assert True. It passed on a
+    machine with a contract already loaded and FAILED IN CI, where none
+    is — correctly, because `available` means "the board can be served"
+    and the board also 503s `data_not_ready`. The old version asserted
+    the flag-only contract that this feature exists to reject, so it was
+    wrong in the same way a flag-keyed nav gate would be.
+
+    The contract is set INSIDE the client context because entering it
+    fires FastAPI startup, which would overwrite a value set beforehand.
+    """
     _authed(monkeypatch)
     _set_flag(monkeypatch, "consensus_edge", True)
     with TestClient(server.app, raise_server_exceptions=True) as c:
+        _set_contract(monkeypatch, True)
         body = c.get("/api/auth/status").json()
     assert body["features"]["consensusEdge"]["available"] is True
 
@@ -157,12 +170,20 @@ def test_capability_tracks_the_endpoints_rather_than_a_constant(monkeypatch):
     for enabled in (True, False):
         _set_flag(monkeypatch, "consensus_edge", enabled)
         with TestClient(server.app, raise_server_exceptions=True) as c:
+            # Hold the OTHER prerequisite fixed, so the flag is the only
+            # variable and the comparison is about tracking rather than
+            # about whichever contract the host happened to load.
+            _set_contract(monkeypatch, True)
             reported = c.get("/api/auth/status").json()["features"]["consensusEdge"]["available"]
             board = c.get("/api/consensus-edge/players").status_code
-        assert reported is enabled
-        assert (
-            board != 503
-        ) is enabled, f"capability says {reported} but the board answered {board}"
+        # Agreement with the BOARD, never with the flag. Asserting
+        # `reported is enabled` would re-encode the flag-as-availability
+        # conflation this capability was rewritten to remove — and it is
+        # what made this test environment-dependent.
+        assert reported is (board != 503), (
+            f"capability says available={reported} but /players answered {board} "
+            f"(flag={enabled})"
+        )
 
 
 def test_values_are_real_booleans(monkeypatch):
