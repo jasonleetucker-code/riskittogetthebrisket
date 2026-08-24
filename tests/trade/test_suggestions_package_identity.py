@@ -259,9 +259,9 @@ class TestGeneratorsStillExcludeRosteredAssets:
         pool, roster_names = _engineered_pool_and_roster()
         noisy_roster_names = [f"  {n.upper()}  " for n in roster_names]
         roster = analyze_roster(noisy_roster_names, pool)
-        assert roster.roster_size == len(roster_names), (
-            "the noisy names must still all match the pool"
-        )
+        assert roster.roster_size == len(
+            roster_names
+        ), "the noisy names must still all match the pool"
         roster_set = {_identity_key(n) for n in noisy_roster_names}
         rostered_keys = {_identity_key(n) for n in roster_names}
 

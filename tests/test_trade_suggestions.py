@@ -456,9 +456,9 @@ class TestGenerateSuggestions:
         )
         for s in all_suggs:
             for p in s["receive"]:
-                assert p["name"].lower() not in roster_set, (
-                    f"{p['name']} is on roster but suggested as receive"
-                )
+                assert (
+                    p["name"].lower() not in roster_set
+                ), f"{p['name']} is on roster but suggested as receive"
 
     def test_empty_roster_no_crash(self):
         snap = _sample_snapshot()
@@ -844,9 +844,9 @@ class TestRankingInOutput:
                 continue
             scores = [s["rankScore"]["total"] for s in suggs]
             for i in range(len(scores) - 1):
-                assert scores[i] >= scores[i + 1], (
-                    f"{cat}[{i}] score {scores[i]} < [{i + 1}] score {scores[i + 1]}"
-                )
+                assert (
+                    scores[i] >= scores[i + 1]
+                ), f"{cat}[{i}] score {scores[i]} < [{i + 1}] score {scores[i + 1]}"
 
     def test_ranking_still_deterministic(self):
         """Ranked output must be identical across runs."""
@@ -1083,9 +1083,9 @@ class TestQualityFilters:
                 for p in s["give"]:
                     freq[p["name"]] += 1
         if freq:
-            assert freq.most_common(1)[0][1] <= MAX_GIVE_PLAYER_APPEARANCES, (
-                f"{freq.most_common(1)[0][0]} appears {freq.most_common(1)[0][1]}x as give"
-            )
+            assert (
+                freq.most_common(1)[0][1] <= MAX_GIVE_PLAYER_APPEARANCES
+            ), f"{freq.most_common(1)[0][0]} appears {freq.most_common(1)[0][1]}x as give"
 
     def test_filtered_output_still_deterministic(self):
         """Full pipeline with filters must remain deterministic."""
@@ -2171,12 +2171,12 @@ class TestKtcTopNFilter:
         for s in all_suggestions:
             for side in ("give", "receive"):
                 for player in s[side]:
-                    assert player.get("ktcRank") is not None, (
-                        f"{player['name']} in {side} has no ktcRank"
-                    )
-                    assert player["ktcRank"] <= 100, (
-                        f"{player['name']} ranked {player['ktcRank']} — outside top 100 filter"
-                    )
+                    assert (
+                        player.get("ktcRank") is not None
+                    ), f"{player['name']} in {side} has no ktcRank"
+                    assert (
+                        player["ktcRank"] <= 100
+                    ), f"{player['name']} ranked {player['ktcRank']} — outside top 100 filter"
 
     def test_no_suggestions_with_very_tight_filter(self):
         """With an impossibly tight filter, should return 0 suggestions gracefully."""
@@ -2498,9 +2498,9 @@ class TestEffectiveSourceRanks:
         )
         pool = build_asset_pool_from_contract(self._contract([row]), ktc_top_n=0)
         assert len(pool) == 1
-        assert pool[0].source_count == 3, (
-            "source_count must be the post-Hampel effective count, not len(canonicalSiteValues)"
-        )
+        assert (
+            pool[0].source_count == 3
+        ), "source_count must be the post-Hampel effective count, not len(canonicalSiteValues)"
 
     def test_dispersion_cv_uses_effective_source_ranks(self):
         from src.trade.suggestions import build_asset_pool_from_contract
