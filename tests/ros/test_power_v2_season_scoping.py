@@ -353,3 +353,88 @@ class TestUnrankableUnaffected:
         for row in out["currentRanking"]:
             assert row["powerScore"] is None
             assert row["rank"] is None
+
+
+#: V1-52 follow-up 2 — the PRODUCTION shape, which no fixture above has:
+#: a scoreless CURRENT season sitting after prior scored seasons. Every
+#: other two-season fixture in this file gives 2026 real scores, so the
+#: retired ``season is seasons_sorted[-1]`` guard fired and the defect was
+#: invisible. Here 2026 has no matchups at all — exactly what production
+#: reports in preseason (``weeksPlayed 0``) — so ``seasons_sorted[-1]`` is
+#: a season the accumulation loop ``continue``s straight past.
+#:
+#: 2025 runs FOUR weeks against ``_RECENT_WINDOW = 3`` deliberately: the
+#: trailing window must drop week 1, so a buffer that never slid would
+#: give alpha 265.0 rather than 20.0 and the test would catch that too.
+_RECENT_ROSTERS = [{"roster_id": 1, "owner_id": "alpha"}, {"roster_id": 2, "owner_id": "bravo"}]
+_RECENT_SEASON_2025_SCORES = {
+    1: {1: 1000.0, 2: 0.0},
+    2: {1: 10.0, 2: 100.0},
+    3: {1: 20.0, 2: 200.0},
+    4: {1: 30.0, 2: 300.0},
+}
+#: Trailing-3 means over weeks 2-4, week 1 having slid out of the window.
+_ALPHA_RECENT = 20.0
+_BRAVO_RECENT = 200.0
+
+
+def _preseason_shape_snapshot() -> PublicLeagueSnapshot:
+    """Prior scored season + scoreless current season."""
+    season_2025 = _season(
+        "2025", "L2025", _RECENT_ROSTERS, _RECENT_SEASON_2025_SCORES, is_complete=True
+    )
+    season_2026 = _season("2026", "L2026", _RECENT_ROSTERS, {}, is_complete=False)
+    registry = _registry_with(_RECENT_ROSTERS, "L2025", "L2026")
+    return PublicLeagueSnapshot(
+        root_league_id="L2026",
+        generated_at="2026-08-21T00:00:00Z",
+        seasons=[season_2026, season_2025],
+        managers=registry,
+    )
+
+
+class TestRecentFormSurvivesAScorelessCurrentSeason:
+    """``recent`` carries 0.12 of ``WEIGHTS`` — 21.8% of the results-only
+    score, whose active weights sum to 0.55. Under the retired binding it
+    was a constant 0.5 for every owner in every preseason, with a "0.0"
+    recentAvg rendered as though it had been observed."""
+
+    def test_the_fixture_really_is_the_preseason_shape(self):
+        """Non-vacuity: if 2026 ever gains scores this fixture stops
+        discriminating, exactly as the older ones already fail to."""
+        snap = _preseason_shape_snapshot()
+        newest = max(s.season for s in snap.seasons)
+        assert newest == "2026"
+        scoreless = next(s for s in snap.seasons if s.season == "2026")
+        assert not scoreless.matchups_by_week, "2026 must be scoreless for this to test anything"
+
+    def test_recent_avg_is_the_last_scored_seasons_trailing_window(self):
+        out = power_v2.build_section(_preseason_shape_snapshot(), lens=power_v2.LENS_RESULTS_ONLY)
+        rows = out["currentRanking"]
+        assert _row(rows, "alpha")["components"]["recentAvg"] == pytest.approx(_ALPHA_RECENT)
+        assert _row(rows, "bravo")["components"]["recentAvg"] == pytest.approx(_BRAVO_RECENT)
+
+    def test_recent_percentiles_are_measured_not_a_shared_default(self):
+        out = power_v2.build_section(_preseason_shape_snapshot(), lens=power_v2.LENS_RESULTS_ONLY)
+        rows = out["currentRanking"]
+        alpha = _row(rows, "alpha")["components"]["recent"]
+        bravo = _row(rows, "bravo")["components"]["recent"]
+        assert {alpha, bravo} != {0.5}, (
+            "every owner sharing the 0.5 midpoint is the signature of an "
+            "unmeasured component, not a real tie"
+        )
+        assert bravo > alpha
+
+    def test_all_play_also_survives_the_scoreless_season(self):
+        """``last_season_allplay_share`` resets alongside it, so the two
+        cannot disagree about which season they describe."""
+        out = power_v2.build_section(_preseason_shape_snapshot(), lens=power_v2.LENS_RESULTS_ONLY)
+        rows = out["currentRanking"]
+        shares = {r["ownerId"]: r["components"]["all_play"] for r in rows}
+        assert shares["bravo"] > shares["alpha"]
+
+    def test_recent_still_carries_its_declared_weight(self):
+        """Guards the other direction: a fix that silently dropped the
+        component would also stop it being a constant."""
+        out = power_v2.build_section(_preseason_shape_snapshot(), lens=power_v2.LENS_RESULTS_ONLY)
+        assert out["effectiveWeights"].get("recent") == power_v2.WEIGHTS["recent"]

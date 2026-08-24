@@ -688,8 +688,34 @@ def build_section(
         # needed.
         season_outcomes = defaultdict(list)
         expected_share_total = defaultdict(float)
-        if season is seasons_sorted[-1]:
-            recent_buffer: dict[str, list[float]] = defaultdict(list)
+        # Same reset, same reason, third time (V1-52 follow-up 2):
+        # last_season_recent / last_season_allplay_share feed recent and
+        # all_play.  They were NOT reset here -- last_season_recent was
+        # gated on ``season is seasons_sorted[-1]`` and
+        # last_season_allplay_share on an unconditional overwrite.
+        #
+        # The gate was the defect.  This loop ``continue``s past a
+        # scoreless season ABOVE, so when the newest season in the
+        # snapshot has no scores yet -- every preseason, and the state
+        # production is in right now -- ``seasons_sorted[-1]`` is that
+        # scoreless season and the guard never fired for ANY season.
+        # last_season_recent stayed empty for every owner, _score_state
+        # read ``recent = 0.0`` for all of them, and a percentile over an
+        # all-equal list is 0.5.  A 0.12-weight component (21.8% of the
+        # results-only score, whose active weights sum to 0.55) was
+        # published as a measurement with nothing measured behind it, and
+        # the UI rendered "0.0" recentAvg as though it were an
+        # observation.
+        #
+        # Resetting here instead makes "the last SCORED season wins"
+        # structural for all six accumulators rather than a property of
+        # which season happens to sit last in the list.  An owner absent
+        # from that season now holds no stale prior-season value either
+        # -- their recent/all_play go empty exactly as their
+        # season_state does, so the three stay consistent.
+        last_season_recent = defaultdict(list)
+        last_season_allplay_share = {}
+        recent_buffer: dict[str, list[float]] = defaultdict(list)
         for wk in sorted(week_scores.keys()):
             scores = week_scores[wk]
             actuals, _ = luck._actual_week_results(season, wk, registry)
@@ -707,12 +733,11 @@ def build_section(
                 ss["wins"] += actual_share
                 ss["losses"] += 1.0 - actual_share
                 season_outcomes[oid].append(actual_share)
-                if season is seasons_sorted[-1]:
-                    rb = recent_buffer[oid]
-                    rb.append(pts)
-                    if len(rb) > _RECENT_WINDOW:
-                        rb.pop(0)
-                    last_season_recent[oid] = list(rb)
+                rb = recent_buffer[oid]
+                rb.append(pts)
+                if len(rb) > _RECENT_WINDOW:
+                    rb.pop(0)
+                last_season_recent[oid] = list(rb)
                 # Capture the last week's all-play expected share so
                 # the all-play-record percentile reflects current
                 # standings rather than a season-wide average that
