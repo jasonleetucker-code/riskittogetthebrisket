@@ -23,14 +23,30 @@ from src.ros import lineup as owner
 
 REPO = Path(__file__).resolve().parents[2]
 SRC = REPO / "src"
+SCRIPTS = REPO / "scripts"
 FRONTEND_LIB = REPO / "frontend" / "lib"
 
 #: The one module allowed to implement assignment.
 OWNER_PATH = SRC / "ros" / "lineup.py"
 
+#: Both trees, deliberately.  This scan covered ``src/`` alone until
+#: 2026-08-24, which left a real hole in the claim it exists to enforce:
+#: a second assignment engine, private eligibility table or duplicate
+#: slot-demand derivation living under ``scripts/`` was invisible to it.
+#: Scripts are production — ``scripts/`` holds the scrape fetchers, the
+#: refit pipeline and the verification instruments, and a lineup solved
+#: there would be exactly the second owner ``C2-U1`` retired three of.
+#: Adding the tree cost nothing: every existing script already passed.
+_SCAN_ROOTS = (SRC, SCRIPTS)
+
 
 def _python_sources() -> list[Path]:
-    return [p for p in SRC.rglob("*.py") if p != OWNER_PATH and "__pycache__" not in p.parts]
+    return [
+        p
+        for root in _SCAN_ROOTS
+        for p in root.rglob("*.py")
+        if p != OWNER_PATH and "__pycache__" not in p.parts
+    ]
 
 
 class TestNoSecondAssignmentEngine:

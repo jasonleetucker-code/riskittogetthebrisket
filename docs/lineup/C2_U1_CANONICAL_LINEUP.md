@@ -388,3 +388,113 @@ NAME, and `optimalLineup.assignments` carries `player` (a name) with no id at al
 publishes its own denominator — 240 assignments joined, i.e. 12 teams × 20 slots, all of them —
 so the reader can see the check ran rather than take "0" or "4" on trust. A verification that
 cannot distinguish "measured and found none" from "matched nothing" is not a verification.
+
+### 10b. The checklist is now executable — 2026-08-24
+
+§10a was run by hand, and its own closing paragraph records that the run
+*nearly passed vacuously*. A checklist whose correctness depends on the
+operator reproducing that reasoning is not a checklist, so it is now code:
+**`scripts/verify_lineup_production.py`**.
+
+```bash
+# EVIDENCE-L3 — the deployed SHA. Needs a session cookie.
+export ROSTER_VERIFY_COOKIE='session=…'
+python scripts/verify_lineup_production.py \
+    --base-url "$PROD_PUBLIC_URL" \
+    --expect-sha "$DEPLOYED_SHA" \
+    --json-out data/ops/lineup-verification.json
+
+# EVIDENCE-L2 — no server, no auth, no network.
+python scripts/verify_lineup_production.py --offline
+```
+
+Exit codes are the repo convention: `0` measured and passed, `1` measured
+a violation, `2` something could not be measured. **`2` is never collapsed
+into `0`** — "no data" must not read as "passed".
+
+| §10 item | automated | check |
+|---|---|---|
+| 1 | yes | `01` stamp `available` + `slotSource` |
+| 2 | **no — needs a browser** | see below |
+| 3 | yes (transport half) | `03` `starterDelta` on a starter-neutral trade |
+| 3a | yes | `03a` Sleeper reachable, lineups still available |
+| 4 | **no — needs a pre-deploy snapshot** | see below |
+| 5 | yes | `05` hybrid started off primary |
+| — | yes (added) | `06` no player occupies two slots |
+
+**What it does not compute.** No lineup. Every check reads what production
+published; the solve stays in `src/ros/lineup.py`. An instrument that
+recomputes what it checks verifies only that it agrees with itself.
+
+**The two items that stay manual, and why they are not automatable rather
+than merely unautomated:**
+
+* **Item 2** (`/terminal` + `/rosters` *render* starters from the stamp)
+  needs an authenticated browser session and something looking at the
+  page. The server-side half — that the stamp is what the client is
+  handed — is pinned offline by `tests/lineup/test_serving_path.py`.
+* **Item 4** (a scrape completes and the board is unchanged) needs a
+  **pre-deploy** production snapshot. §10a marked this PARTIAL for
+  exactly this reason and it cannot be reconstructed after the fact.
+  Capture one with `scripts/golden_board.py` **before** the next deploy
+  and the item becomes measurable; skip that and it stays PARTIAL forever.
+
+Both are printed by every run under `§10 items this instrument cannot
+automate`, so a partial verification cannot quietly read as a complete one.
+
+**Two traps are encoded, both real, both regression-pinned in
+`tests/lineup/test_verify_lineup_production.py`:**
+
+1. **The name-vs-id join** (§10a's near-false-pass). Check `05` publishes
+   `assignmentsJoined` and returns **UNMEASURABLE — never FAIL** when the
+   join resolves zero rows, because "matched nothing" is not "found none".
+2. **The vocabulary mismatch**, found when this instrument was first run
+   against a real board: `sleeper.positions` carries the raw NFL position
+   (`DE`, `DT`) while slots speak the lineup vocabulary (`DL`). Comparing
+   them directly counted Myles Garrett — a DE, eligible only at DL,
+   started at DL — as "started off his primary", inflating the hybrid
+   count **from 3 to 16**. Both sides now normalise through
+   `lineup_position`, the canonical owner's own vocabulary function.
+
+**Offline run at `131abf9f9` (EVIDENCE-L2), the shipping tree:**
+
+| check | result | n |
+|---|---|---|
+| 01 stamp available + `sleeper_roster_positions` | **PASS** | 12 teams |
+| 03a Sleeper reachable, still available | **PASS** | 12 lineups |
+| 03 `starterDelta` starter-neutral | UNMEASURABLE | no HTTP offline |
+| 05 hybrid started off primary | **PASS** | 240 assignments joined, 0 unjoined |
+| 06 no player in two slots | **PASS** | 240 assignments |
+
+240 joined is 12 teams × 20 slots — the same denominator §10a published
+after it fixed its join, reproduced independently by code. The hybrids
+found were **T.J. Watt** (DL→LB), **Travis Hunter** (WR→DB) and **Uchenna
+Nwosu** (DL→LB); the first two are the same players §10a named six days
+earlier, which is the cross-check that the instrument measures what the
+hand-run measured.
+
+**Item 3's invariant is closed separately, and locally.** §10a marked it
+BLOCKED-EXTERNAL on auth, which is true of the HTTP probe and only of the
+probe: `starterCount` comes from `project_starters` → `assign_lineup`, all
+pure Python. `tests/lineup/test_starter_neutral_trade.py` pins it (4
+tests) — including the discriminating case a bench-for-bench swap cannot
+catch: a **same-position starter swap**, where value moves through the
+starting lineup but the seat count must not. Mutation-proven by rewriting
+`team_impact.py`'s `starterDelta` to track `starterValue` instead of
+`starterCount`, which turns that test RED. What remains for production is
+the transport: that the deployed endpoint returns the block at all.
+
+**Instrument mutation proof.** Reproducing the retired eligibility-blindness
+defect — `RosterPlayer.eligible_positions()` made to ignore
+`fantasy_positions`, the exact engine behaviour that scored 0/10 against
+Sleeper's own awarded lineups — turns check `05` **FAIL** on the real
+board with its full 240-assignment denominator (a measured property
+failure, correctly distinguished from a join failure) and moves the exit
+code 2 → 1. Restored clean.
+
+**One structural hole closed alongside.** `tests/lineup/test_single_owner.py`
+scanned `src/` only, so a second assignment engine, private eligibility
+table or duplicate slot-demand derivation under `scripts/` was invisible
+to the guard enforcing this row's central claim. It now scans both trees.
+Every existing script already passed; a decoy script carrying
+`_DEFAULT_FLEX_ELIGIBLE` is caught by file and line.
