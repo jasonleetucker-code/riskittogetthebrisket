@@ -182,7 +182,7 @@ export const __routeGates = {
  * For PUBLIC-only routes, AppShell refuses to hydrate private data.
  * See PUBLIC_ONLY_ROUTE_PREFIXES above.
  */
-export default function AppShell({ children, authenticated = false }) {
+export default function AppShell({ children, authenticated = false, capabilities = null }) {
   const pathname = usePathname();
   // Two INDEPENDENT reasons to skip the player pipeline, composed rather
   // than merged: one is a privacy boundary, one is "this page has no use
@@ -416,6 +416,10 @@ function InnerAppShell({ loading, error, failure, retry, rows, siteKeys, rawData
         <CommandPalette
           rows={rows}
           teamByPlayer={teamByPlayer}
+          // Nav offers in the palette obey the same capability gate as
+          // the menus — hiding an entry from the drawer while ⌘K still
+          // routes there would leave V1-131 half-fixed.
+          capabilities={capabilities}
           isOpen={searchOpen}
           onClose={() => setSearchOpen(false)}
           onSelect={(row) => openPlayerPopup(row)}

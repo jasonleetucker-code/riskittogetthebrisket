@@ -187,11 +187,18 @@ export const NAV_MODEL = [
       // it is experimental: /edge is the incumbent both users and any
       // future evaluation compare against, so retiring it before the
       // replacement has earned it would destroy the baseline.
+      // ...and it is CAPABILITY-GATED, because it ships behind a flag
+      // that defaults OFF (ADR-023).  With the flag off every board
+      // handler under /api/consensus-edge/* answers 503, so an
+      // unconditional entry here is a nav offer to a dead page — the
+      // same defect the adminOnly Ops filter below exists to prevent
+      // (V1-131 / audit F-25).  Gating only: the FEATURE stays post-V1.
       {
         href: "/consensus-edge",
         label: "Consensus Edge",
         hint: "Where our anchor-free fair value disagrees with the market",
         keywords: ["buy", "sell", "mispricing", "consensus edge", "fair value"],
+        capability: "consensusEdge",
       },
       // Sharp Tracker sits in Market, not League, and that placement is
       // load-bearing rather than cosmetic: it is a GLOBAL cohort signal
@@ -275,6 +282,53 @@ export function systemItemsFor({ isAdmin = false } = {}) {
 }
 
 /**
+ * May this viewer be OFFERED `item`, given the server's capability map?
+ *
+ * FAILS CLOSED, and that is the whole point.  An item with no
+ * `capability` is always offerable (the overwhelming majority).  An item
+ * that declares one is offered ONLY on an explicit `true` — `undefined`
+ * (probe not answered yet), `null` (probe failed) and `false` (flag off)
+ * all mean "do not offer".
+ *
+ * Unknown must not read as available: the failure this prevents is a
+ * user clicking a menu entry and landing on a page whose every endpoint
+ * 503s, which is strictly worse than not seeing the entry.  It is the
+ * same tri-state discipline `visibleGroups` already applies to
+ * `authenticated` in TopBar, and the same judgement the adminOnly filter
+ * above records — "offering a door that is always locked is worse than
+ * not showing the door".
+ *
+ * Note this gates the OFFER, never the ROUTE.  `/consensus-edge` stays
+ * directly reachable by URL, so an operator running with
+ * RISKIT_FEATURE_CONSENSUS_EDGE=1 to keep evaluating it loses nothing,
+ * and the entry reappears on its own once the probe answers true.
+ */
+export function itemIsOffered(item, capabilities) {
+  if (!item || !item.capability) return true;
+  return capabilities?.[item.capability] === true;
+}
+
+/**
+ * NAV_MODEL with capability-gated destinations removed.  A group whose
+ * items are all gated away drops out entirely rather than rendering as
+ * an empty menu, and a group whose own `href` was the gated item falls
+ * back to its first surviving item so the clickable group label cannot
+ * point at a destination we just decided not to offer.
+ */
+export function navGroupsFor({ capabilities } = {}) {
+  return NAV_MODEL.map((group) => {
+    if (!group.items || group.items.length === 0) {
+      return itemIsOffered(group, capabilities) ? group : null;
+    }
+    const items = group.items.filter((i) => itemIsOffered(i, capabilities));
+    if (items.length === 0) return null;
+    if (items.length === group.items.length) return group;
+    const href = items.some((i) => i.href === group.href) ? group.href : items[0].href;
+    return { ...group, href, items };
+  }).filter(Boolean);
+}
+
+/**
  * Mobile bottom tabs — the same IA collapsed to five slots: the three
  * highest-traffic destinations plus Home, with the full NAV_MODEL one
  * tap away behind Menu (a drawer, not a separate second IA — the
@@ -330,12 +384,21 @@ export function flattenNav(groups) {
   return out;
 }
 
-/** Every destination the command palette can navigate to. */
-export function paletteTargets() {
+/**
+ * Every destination the command palette can navigate to.
+ *
+ * Capability-filtered for the same reason the menus are: the palette is
+ * a nav OFFER surface, so hiding an entry from the drawer while the
+ * palette still navigates there would leave V1-131 half-fixed — a user
+ * hitting ⌘K and typing "consensus" would still land on the dead page.
+ * Called with no capabilities (the pre-existing signature) it fails
+ * closed and omits every gated destination.
+ */
+export function paletteTargets({ capabilities } = {}) {
   const seen = new Set();
   const out = [];
   for (const item of [
-    ...flattenNav(NAV_MODEL),
+    ...flattenNav(navGroupsFor({ capabilities })),
     ...SYSTEM_MODEL.items.map((i) => ({ ...i, group: "System" })),
     ...PALETTE_EXTRA_TARGETS.map((i) => ({ ...i, group: null })),
   ]) {
@@ -378,6 +441,14 @@ const DEEP_TITLES = {
   "/league/articles": "Articles",
 };
 
+/**
+ * Deliberately reads the UNFILTERED model.  Capability gating decides
+ * what the nav OFFERS, not what exists: `/consensus-edge` stays
+ * reachable by URL, and a page you can reach must still be able to name
+ * itself.  Filtering here would title it "Chase Upside" — a blank page
+ * header — for exactly the operator who turned the flag on to look at
+ * it.  Do not "fix" this to match the menus.
+ */
 export function pageTitleFor(pathname) {
   if (!pathname || pathname === "/") return "Home";
   for (const [prefix, label] of Object.entries(DEEP_TITLES)) {

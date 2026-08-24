@@ -44,6 +44,9 @@ function isPublicRoute(href) {
 const AuthContext = createContext({
   authenticated: null,
   isAdmin: false,
+  // Server capability map for flag-gated nav destinations.  Defaults
+  // null — "not told" — which nav-model reads as "do not offer".
+  features: null,
   checking: true,
   logout: () => {},
 });
@@ -71,7 +74,7 @@ function RouteFocusManager({ mainRef }) {
 }
 
 function ShellChrome({ children }) {
-  const { authenticated, isAdmin, logout } = useAuthContext();
+  const { authenticated, isAdmin, features, logout } = useAuthContext();
   const mainRef = useRef(null);
 
   // openSearch comes from AppShell's context — ShellChrome renders
@@ -86,6 +89,7 @@ function ShellChrome({ children }) {
           <TopBar
             authenticated={authenticated}
             isAdmin={isAdmin}
+            capabilities={features}
             isPublic={isPublicRoute}
             onSearch={openSearch}
             searchEnabled={searchEnabled}
@@ -109,6 +113,7 @@ function ShellChrome({ children }) {
           <MobileTabBar
             authenticated={authenticated}
             isAdmin={isAdmin}
+            capabilities={features}
             isPublic={isPublicRoute}
             onLogout={logout}
           />
@@ -136,7 +141,7 @@ export default function AppShellWrapper({ children }) {
 
   return (
     <AuthContext.Provider value={auth}>
-      <AppShell authenticated={auth.authenticated === true}>
+      <AppShell authenticated={auth.authenticated === true} capabilities={auth.features}>
         <ShellChrome>{children}</ShellChrome>
       </AppShell>
     </AuthContext.Provider>
