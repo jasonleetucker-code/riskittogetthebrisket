@@ -1,7 +1,7 @@
 """Regression coverage for filename-dated playerctx freshness.
 
 A discovery test used a fixed 2026-08-10 filename and eventually aged stale on
-the real calendar.  These tests pin the clock explicitly so they prove both
+the real calendar. These tests pin the clock explicitly so they prove both
 sides of the real retention contract without depending on today's date.
 """
 
@@ -14,14 +14,16 @@ def _playerctx_stream(report):
     return next(stream for stream in report["streams"] if stream["id"] == "C1-RET-08")
 
 
-def _write_snapshot(data_dir):
+def _write_snapshot(tmp_path):
+    data_dir = tmp_path / "data"
     hist = data_dir / "playerctx" / "history"
     hist.mkdir(parents=True)
     (hist / "playerctx_2026-08-10.json").write_text("{}", encoding="utf-8")
+    return data_dir
 
 
-def test_playerctx_fixed_filename_is_ok_inside_real_budget(data_dir, monkeypatch):
-    _write_snapshot(data_dir)
+def test_playerctx_fixed_filename_is_ok_inside_real_budget(tmp_path, monkeypatch):
+    data_dir = _write_snapshot(tmp_path)
     monkeypatch.setattr(
         health,
         "_now",
@@ -34,8 +36,8 @@ def test_playerctx_fixed_filename_is_ok_inside_real_budget(data_dir, monkeypatch
     assert stream["stampSource"] == "filename"
 
 
-def test_playerctx_fixed_filename_ages_out_past_real_budget(data_dir, monkeypatch):
-    _write_snapshot(data_dir)
+def test_playerctx_fixed_filename_ages_out_past_real_budget(tmp_path, monkeypatch):
+    data_dir = _write_snapshot(tmp_path)
     monkeypatch.setattr(
         health,
         "_now",
