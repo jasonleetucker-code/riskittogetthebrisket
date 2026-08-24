@@ -142,3 +142,64 @@ Repaired at the source of the pressure rather than at the victim: both new test 
 now carry an autouse fixture calling `rate_limit.reset_for_tests()`, the limiter's own
 sanctioned test hook. Production rate limiting is unchanged and no assertion anywhere is
 weakened; one module's request volume simply stops becoming another module's failure.
+
+---
+
+## The 429 privacy-boundary red: measured cause, base vs branch
+
+**Request under test:** anonymous `GET /api/public/league/rosTeamStrength.csv`
+**Test:** `tests/api/test_public_league_privacy_boundary.py::TestPrivateSectionsAreClosedToAnonymousCallers::test_the_csv_variant_is_closed_too[rosTeamStrength]`
+
+*(Traffic control cited this as `tests/guardrails/test_public_league_privacy_boundary.py::test_private_v1_endpoint_is_protected_server_side[rosTeamStrength.csv]`. No `tests/guardrails/` directory and no test of that name exist on this branch or on `origin/main`; the file CI actually names is the one above. Same request, same assertion — recorded only so the citation resolves.)*
+
+### The ordering, from source
+
+`server.py::_private_api_gate` does two things in this order:
+
+1. **rate-limit** — only when `_is_public_api_path(path)`;
+2. **blanket 401 auth gate** — only when **NOT** `_is_public_api_path(path)`.
+
+`"/api/public/league"` is in `_PUBLIC_API_PREFIXES`, so this path takes branch 1 and
+never takes branch 2. The 401/403/404 the test expects therefore comes from the
+**handler's own per-section privacy check**, downstream of the middleware — and a
+429 short-circuits before the handler ever runs.
+
+### Measured, in one process, both refs
+
+| | fresh limiter | limiter exhausted | after reset | 429 body |
+|---|---|---|---|---|
+| **branch `23b3077fc`** | **401** | **429** | **401** | `error`, `message`, `retryAfterSeconds` |
+| **base `origin/main` 478d249ef** | **401** | **429** | **401** | `error`, `message`, `retryAfterSeconds` |
+
+**Identical on both.** The budget was exhausted by issuing 120 `/api/auth/status` calls,
+which is what a long suite does incidentally.
+
+### Classification
+
+**C — the suite legitimately trips a rate limit before privacy evaluation.** Not **A**:
+the ordering is byte-identical on base, and this PR touches no middleware, no
+`_PUBLIC_API_*` set, no `_is_public_api_path`, and no limiter code. The *ordering* half is
+also **B** (pre-existing, reproduced on clean main); what #1086 contributes is ~60 extra
+rate-limited `/api/auth/*` calls earlier in suite order, which is what tips the shared
+60/min per-IP budget over before this test runs.
+
+### The privacy invariant HOLDS, and 429 was NOT allowlisted
+
+- With a fresh limiter the boundary answers **401** — fail-closed, correctly.
+- The 429 response body carries **only** `error` / `message` / `retryAfterSeconds`. No
+  league payload, no section data, no manager intelligence. The private resource does not
+  become observable because the response is 429; it becomes *less* reachable.
+- No status code was added to any expected-status allowlist, and no assertion was relaxed.
+
+The repair is upstream of the symptom: this PR's two new test modules reset the limiter
+they perturb (`rate_limit.reset_for_tests()`, the limiter's own sanctioned hook), so one
+module's request volume stops becoming another module's failure. Production rate limiting
+is untouched.
+
+### Validation after the repair
+
+`tests/api/test_public_league_privacy_boundary.py` 15 passed / 12 skipped ·
+nav-gated + feature-flag reachability + guest-pass evidence + private-auth **116 passed** ·
+`tests/api/` end to end (contains both new modules **and** this victim, in CI's ordering)
+**2201 passed, 0 failed** · frontend nav/shell + V1-108 route-gate **71 passed** ·
+planning integrity, decision coercions, `ruff check .`, `ruff format --check .` all clean.
