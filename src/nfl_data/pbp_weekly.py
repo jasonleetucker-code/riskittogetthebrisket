@@ -151,7 +151,20 @@ __all__ = [
     "pbp_weekly_path",
 ]
 
-PBP_WEEKLY_SCHEMA_VERSION = "2026-08-18.v1"
+#: Bump this whenever :data:`PBP_SUPPLEMENT_KEYS` gains or loses a key,
+#: or a predicate changes what an existing key MEANS.  The artifact
+#: records which keys it was built with, so a file written under an older
+#: key set is not an older-shaped version of this one — it is a different
+#: measurement wearing the same field names, and the keys it never
+#: derived would read as real zeros.
+#:
+#: ``.v2`` (2026-08-24): ``kick_ret_td`` joined ``PBP_SUPPLEMENT_KEYS``
+#: with V1-49 / #1031 and this constant was NOT bumped at the time.  Every
+#: artifact on disk predated it, ``--skip-existing`` compares exactly this
+#: string so the weekly timer would never have rebuilt them, and
+#: ``load_pbp_weekly`` had no check at all — so a league paying
+#: ``kick_ret_td`` scored it at zero with nothing reporting the gap.
+PBP_WEEKLY_SCHEMA_VERSION = "2026-08-24.v2"
 
 #: Columns whose absence means the release schema moved under us. A
 #: renamed column must never read as "nothing happened this season" —
@@ -622,19 +635,78 @@ def persist_pbp_weekly(
 
 
 def load_pbp_weekly(season: int, *, out_dir: Path | None = None) -> dict[str, Any] | None:
-    """Read one season's derived stats, or ``None`` if never built."""
+    """Read one season's derived stats, or ``None`` if never built.
+
+    REFUSES an artifact that does not match the current schema, rather
+    than adapting it — the same posture, and for the same reason, as
+    :func:`src.nfl_data.reception_depth.load_reception_depth`.
+
+    Refusing is what keeps a stale artifact honest.  ``covers()`` is
+    week-level, so a file built before a key existed still reports its
+    weeks as covered; ``stats_for`` then returns a Mapping that simply
+    has no entry for the new key, ``compute_weekly_points`` takes its
+    ``isinstance(supplement, Mapping)`` branch, and ``unscored`` stays
+    empty.  The rule scores zero and NOTHING says so.  Returning ``None``
+    instead routes the same player-week through the ``else`` branch,
+    where every play-by-play-only rule the card pays is reported as
+    ``unscored`` — an honest unknown instead of a fabricated zero.
+
+    Degrades rather than breaks: every consumer already handles ``None``
+    (``SeasonPbpIndex`` caches it and reports it via ``seasons_missing``;
+    ``attach_supplement`` returns the row untouched), and
+    ``scripts/build_pbp_weekly.py --skip-existing`` sees the refusal as
+    "not on disk at current schema" and rebuilds the season.
+    """
     path = pbp_weekly_path(season, out_dir=out_dir)
     if not path.exists():
         return None
+    payload: dict[str, Any] | None = None
     try:
         with path.open("r", encoding="utf-8") as fh:
             for line in fh:
                 line = line.strip()
                 if line:
-                    return json.loads(line)
+                    payload = json.loads(line)
+                    break
     except (OSError, json.JSONDecodeError) as exc:
         _LOGGER.warning("pbp_weekly=unreadable season=%d err=%r", season, exc)
-    return None
+        return None
+    if payload is None:
+        return None
+
+    stamped = str((payload or {}).get("schemaVersion") or "")
+    if stamped != PBP_WEEKLY_SCHEMA_VERSION:
+        _LOGGER.warning(
+            "pbp_weekly: %s is schema %r, expected %r — refusing it. "
+            "Rebuild with scripts/build_pbp_weekly.py --seasons %d.",
+            path,
+            stamped or "(unstamped)",
+            PBP_WEEKLY_SCHEMA_VERSION,
+            int(season),
+        )
+        return None
+
+    # A matching version is not by itself proof the artifact derived the
+    # keys this process expects: the failure this guard exists for is a
+    # key set that changed WITHOUT the version being bumped, which is
+    # exactly what happened when ``kick_ret_td`` was added.  The artifact
+    # already records ``statKeys``; until now it was written and never
+    # read back.
+    stat_keys = payload.get("statKeys")
+    if isinstance(stat_keys, (list, tuple)):
+        missing = sorted(PBP_SUPPLEMENT_KEYS - {str(k) for k in stat_keys})
+        if missing:
+            _LOGGER.warning(
+                "pbp_weekly: %s stamps schema %r but derived no %s — refusing it. "
+                "The key set moved without a version bump; rebuild with "
+                "scripts/build_pbp_weekly.py --seasons %d.",
+                path,
+                stamped,
+                ", ".join(missing),
+                int(season),
+            )
+            return None
+    return payload
 
 
 #: Where a weekly stat row carries its GSIS id, most-specific first.
