@@ -607,7 +607,16 @@ Steps:
     ``blendIntegrityViolation`` and left alone, because coercing an
     impossible number to a plausible one hides a pipeline fault.  No
     asset-class exemption, no confidence dependency, no tunable band —
-    ``_BLEND_HULL_EPSILON`` (1e-9) is float slack, not policy.
+    ``_BLEND_HULL_EPSILON`` (1e-9) is float slack, and
+    ``_BLEND_HULL_QUANTIZATION_BELOW`` / ``…_ABOVE`` (1.5 / 0.5, added
+    2026-08-25) are the exact worst-case skew of comparing a truncated
+    ``int(norm_val)`` against ``int(round())`` contribution stamps —
+    both numerical precision, not policy.  Without the latter the check
+    manufactured a violation whenever the two pick markets nearly agreed
+    at a rounding boundary (measured: "2027 Mid 2nd" 2026-08-25, and the
+    "2027 Late 1st" transient of 2026-08-22/#1063 — the same class,
+    previously closed as an upstream blip because it self-cleared when
+    the next scrape moved a value).
 
     **Not clamping is only half of abstaining.**  The other half is that
     the value stops counting as an ordinary canonical number, and that is
