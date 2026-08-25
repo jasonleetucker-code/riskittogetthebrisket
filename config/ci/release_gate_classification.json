@@ -683,6 +683,48 @@
     "temporal-ledger-diagnostics.yml::ledger-status::Probe temporal ledger on production": {
       "category": "blocking"
     },
+    "v1-authenticated-verification.yml::v1-authenticated::API verification suite": {
+      "category": "blocking"
+    },
+    "v1-authenticated-verification.yml::v1-authenticated::Browser verification suite (prod-auth Playwright specs)": {
+      "category": "blocking"
+    },
+    "v1-authenticated-verification.yml::v1-authenticated::Checkout": {
+      "category": "blocking"
+    },
+    "v1-authenticated-verification.yml::v1-authenticated::Configure production SSH": {
+      "category": "blocking"
+    },
+    "v1-authenticated-verification.yml::v1-authenticated::Fail the job on API/lane4 verdicts": {
+      "category": "blocking"
+    },
+    "v1-authenticated-verification.yml::v1-authenticated::Lane 4 remote verification (C1-C3 + C8/C9)": {
+      "category": "blocking"
+    },
+    "v1-authenticated-verification.yml::v1-authenticated::Log in through the real auth path": {
+      "category": "blocking"
+    },
+    "v1-authenticated-verification.yml::v1-authenticated::Mint an ephemeral verification guest pass (on-box, canonical implementation)": {
+      "category": "blocking"
+    },
+    "v1-authenticated-verification.yml::v1-authenticated::Resolve production origin": {
+      "category": "blocking"
+    },
+    "v1-authenticated-verification.yml::v1-authenticated::Revoke the pass (always)": {
+      "category": "blocking"
+    },
+    "v1-authenticated-verification.yml::v1-authenticated::Upload the reports": {
+      "category": "blocking"
+    },
+    "v1-onbox-checklists.yml::v1-onbox::Configure production SSH": {
+      "category": "blocking"
+    },
+    "v1-onbox-checklists.yml::v1-onbox::Run V1 on-box checklists": {
+      "category": "blocking"
+    },
+    "v1-onbox-checklists.yml::v1-onbox::Upload the report": {
+      "category": "blocking"
+    },
     "verify-sharp-production.yml::verify::Close the unmeasurable-gate tracker once the smoke can measure": {
       "category": "blocking"
     },

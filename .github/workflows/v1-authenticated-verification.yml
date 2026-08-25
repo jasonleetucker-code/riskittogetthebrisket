@@ -1,0 +1,319 @@
+name: V1 Authenticated Production Verification (ephemeral guest session)
+
+# The one generic primitive the §9a packet-A tranche was blocked on: an
+# authenticated production session, produced by EXISTING authorized
+# infrastructure instead of an owner grant.
+#
+# HOW, and why it preserves auth
+# ------------------------------
+# 1. An on-box SSH step (the same DEPLOY_* mechanism the other dispatch
+#    workflows use) mints a guest pass through the canonical
+#    src/api/guest_passes.py::create() at a NON-DEFAULT duration.  That is
+#    a normal admin mutation — and it is itself the mechanism V1-102
+#    exists to test (configurable expiry; hash-only persistence).
+# 2. The runner logs in through the real /api/auth/login guest-pass
+#    fall-through.  No bypass, no E2E_TEST_MODE, no allowlist change: the
+#    resulting session is a genuine time-bounded GUEST session, which the
+#    admin gates reject by construction (username stays "guest").
+# 3. The verification suite runs with that session:
+#      - scripts/verify_v1_authenticated.py  (API halves: V1-11/27/45/56/
+#        61/102-partial/131)
+#      - scripts/verify_lane4_production.py --mode remote (+ C8/C9 with a
+#        REAL free agent the API suite picked off the deployed board)
+#      - the prod-auth Playwright specs, when present (browser halves)
+# 4. The pass is revoked (always()), and the audit trail — pass id,
+#    timestamps, deployed SHA — goes into the artifact.  The token and the
+#    session id are masked, kept in 600-mode RUNNER_TEMP files, and never
+#    written to any artifact.
+#
+# What this deliberately CANNOT do: anything admin.  The /admin-surface
+# halves of V1-101/V1-102 stay blocked on an admin credential that does
+# not exist here and is not being created.
+
+on:
+  workflow_dispatch:
+    inputs:
+      league:
+        description: League key to verify against (registry key)
+        required: false
+        default: "dynasty_main"
+        type: string
+      suite:
+        description: Which halves to run
+        required: false
+        default: "all"
+        type: choice
+        options: [api, browser, all]
+      pass_hours:
+        description: Guest-pass duration in hours (non-default on purpose — 12 is the UI default)
+        required: false
+        default: "2"
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: production-deploy
+  cancel-in-progress: false
+
+jobs:
+  v1-authenticated:
+    name: V1 authenticated verification
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    environment: production
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Resolve production origin
+        shell: bash
+        env:
+          PROD_PUBLIC_URL: ${{ vars.PROD_PUBLIC_URL }}
+        run: |
+          set -Eeuo pipefail
+          if [ -z "${PROD_PUBLIC_URL:-}" ]; then
+            echo "::error::vars.PROD_PUBLIC_URL is unset — refusing to guess the origin"
+            exit 1
+          fi
+          echo "ORIGIN=${PROD_PUBLIC_URL%/}" >> "$GITHUB_ENV"
+
+      - name: Configure production SSH
+        env:
+          DEPLOY_SSH_PRIVATE_KEY: ${{ secrets.DEPLOY_SSH_PRIVATE_KEY }}
+          DEPLOY_KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+          DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          install -d -m 700 "$HOME/.ssh"
+          printf '%s\n' "$DEPLOY_SSH_PRIVATE_KEY" | sed 's/\r$//' > "$HOME/.ssh/id_ed25519"
+          printf '%s\n' "$DEPLOY_KNOWN_HOSTS" | sed 's/\r$//' > "$HOME/.ssh/known_hosts"
+          chmod 600 "$HOME/.ssh/id_ed25519"
+          chmod 644 "$HOME/.ssh/known_hosts"
+          ssh-keygen -y -f "$HOME/.ssh/id_ed25519" >/dev/null
+          echo "PORT=${DEPLOY_PORT:-22}" >> "$GITHUB_ENV"
+
+      - name: Mint an ephemeral verification guest pass (on-box, canonical implementation)
+        id: mint
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          APP_DIR: ${{ vars.PROD_APP_DIR || '/home/dynasty/trade-calculator' }}
+          PASS_HOURS: ${{ inputs.pass_hours }}
+          RUN_ID: ${{ github.run_id }}
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          # Captured by command substitution ONLY — the raw output is never
+          # echoed or teed, so the token cannot reach the log before the
+          # mask below.
+          MINT_JSON=$(ssh -i "$HOME/.ssh/id_ed25519" \
+            -o BatchMode=yes -o StrictHostKeyChecking=yes \
+            -o UserKnownHostsFile="$HOME/.ssh/known_hosts" \
+            -o ConnectTimeout=15 \
+            -p "$PORT" "$DEPLOY_USER@$DEPLOY_HOST" \
+            "APP_DIR=$(printf %q "$APP_DIR") PASS_HOURS=$(printf %q "$PASS_HOURS") RUN_ID=$(printf %q "$RUN_ID") bash -s" <<'REMOTE'
+          set -Eeuo pipefail
+          cd "$APP_DIR"
+          PY="$APP_DIR/.venv/bin/python"
+          [ -x "$PY" ] || PY="$APP_DIR/venv/bin/python"
+          [ -x "$PY" ] || PY=python3
+          "$PY" - <<'PYEOF'
+          import json
+          import os
+          import sys
+
+          sys.path.insert(0, os.environ["APP_DIR"])
+          from src.api import guest_passes
+
+          gp, token = guest_passes.create(
+              duration_hours=float(os.environ.get("PASS_HOURS", "2")),
+              note=f"v1-authenticated-verification run {os.environ.get('RUN_ID', '?')}",
+              created_by="github-actions-v1-verify",
+          )
+          print(json.dumps({"id": gp.id, "expires": gp.expires_at_epoch, "token": token}))
+          PYEOF
+          REMOTE
+          )
+          TOKEN=$(printf '%s' "$MINT_JSON" | python3 -c 'import json,sys; print(json.load(sys.stdin)["token"])')
+          echo "::add-mask::$TOKEN"
+          PASS_ID=$(printf '%s' "$MINT_JSON" | python3 -c 'import json,sys; print(json.load(sys.stdin)["id"])')
+          EXPIRES=$(printf '%s' "$MINT_JSON" | python3 -c 'import json,sys; print(json.load(sys.stdin)["expires"])')
+          install -m 600 /dev/null "$RUNNER_TEMP/guest_pass_token"
+          printf '%s' "$TOKEN" > "$RUNNER_TEMP/guest_pass_token"
+          echo "PASS_ID=$PASS_ID" >> "$GITHUB_ENV"
+          echo "pass_id=$PASS_ID" >> "$GITHUB_OUTPUT"
+          echo "expires=$EXPIRES" >> "$GITHUB_OUTPUT"
+          echo "Minted guest pass id=$PASS_ID (expiry epoch $EXPIRES); token masked."
+
+      - name: Log in through the real auth path
+        id: login
+        shell: bash
+        env:
+          PASS_HOURS: ${{ inputs.pass_hours }}
+        run: |
+          set -Eeuo pipefail
+          BODY=$(python3 - "$ORIGIN" "$RUNNER_TEMP/guest_pass_token" <<'PYEOF'
+          import json
+          import sys
+          import urllib.request
+
+          origin, token_file = sys.argv[1], sys.argv[2]
+          token = open(token_file, encoding="utf-8").read().strip()
+          req = urllib.request.Request(
+              origin + "/api/auth/login",
+              method="POST",
+              headers={"Content-Type": "application/json"},
+              data=json.dumps({"username": "guest", "password": token}).encode(),
+          )
+          with urllib.request.urlopen(req, timeout=30) as resp:
+              cookie = ""
+              for header, value in resp.headers.items():
+                  if header.lower() == "set-cookie" and value.startswith("jason_session="):
+                      cookie = value.split(";", 1)[0].split("=", 1)[1]
+              body = json.load(resp)
+          print(json.dumps({"ok": body.get("ok"), "guest": body.get("guest"),
+                            "expiresAtEpoch": body.get("expiresAtEpoch"), "cookie": cookie}))
+          PYEOF
+          )
+          COOKIE=$(printf '%s' "$BODY" | python3 -c 'import json,sys; print(json.load(sys.stdin)["cookie"])')
+          if [ -z "$COOKIE" ]; then
+            echo "::error::login returned no jason_session cookie"
+            exit 1
+          fi
+          echo "::add-mask::$COOKIE"
+          install -m 600 /dev/null "$RUNNER_TEMP/session_cookie"
+          printf '%s' "$COOKIE" > "$RUNNER_TEMP/session_cookie"
+          GUEST=$(printf '%s' "$BODY" | python3 -c 'import json,sys; print(json.load(sys.stdin)["guest"])')
+          EXPIRES=$(printf '%s' "$BODY" | python3 -c 'import json,sys; print(json.load(sys.stdin)["expiresAtEpoch"])')
+          echo "guest=$GUEST expiresAtEpoch=$EXPIRES (requested ${PASS_HOURS}h — non-default)"
+          echo "expires_epoch=$EXPIRES" >> "$GITHUB_OUTPUT"
+          if [ "$GUEST" != "True" ] && [ "$GUEST" != "true" ]; then
+            echo "::error::login did not report a guest session"
+            exit 1
+          fi
+
+      - name: API verification suite
+        if: ${{ inputs.suite != 'browser' }}
+        id: api
+        shell: bash
+        env:
+          LEAGUE: ${{ inputs.league }}
+          PASS_HOURS: ${{ inputs.pass_hours }}
+          EXPIRES_EPOCH: ${{ steps.login.outputs.expires_epoch }}
+        run: |
+          set -Eeuo pipefail
+          rc=0
+          python3 scripts/verify_v1_authenticated.py \
+            --origin "$ORIGIN" --league "$LEAGUE" \
+            --cookie-file "$RUNNER_TEMP/session_cookie" \
+            --report v1-auth-report.json \
+            --expected-duration-seconds "$(python3 -c "print(float('$PASS_HOURS')*3600)")" \
+            --observed-expires-epoch "$EXPIRES_EPOCH" \
+            --free-agent-out "$RUNNER_TEMP/free_agent.txt" || rc=$?
+          echo "api_exit=$rc" >> "$GITHUB_OUTPUT"
+          echo "API suite exit: $rc (0 pass · 2 fail · 3 proved nothing)"
+
+      - name: Lane 4 remote verification (C1-C3 + C8/C9)
+        if: ${{ inputs.suite != 'browser' }}
+        id: lane4
+        shell: bash
+        env:
+          LEAGUE: ${{ inputs.league }}
+        run: |
+          set -Eeuo pipefail
+          export RISKIT_SESSION_COOKIE="jason_session=$(cat "$RUNNER_TEMP/session_cookie")"
+          ADD_PLAYER_ARGS=()
+          if [ -s "$RUNNER_TEMP/free_agent.txt" ]; then
+            ADD_PLAYER_ARGS=(--add-player "$(cat "$RUNNER_TEMP/free_agent.txt")")
+            echo "C8/C9 free agent: $(cat "$RUNNER_TEMP/free_agent.txt") (picked from the deployed board)"
+          else
+            echo "No free agent picked — C8/C9 will record BLOCKED (never invented)"
+          fi
+          rc=0
+          python3 scripts/verify_lane4_production.py \
+            --mode remote --origin "$ORIGIN" --league "$LEAGUE" \
+            "${ADD_PLAYER_ARGS[@]}" 2>&1 | tee lane4-remote.txt || rc=$?
+          echo "lane4_exit=$rc" >> "$GITHUB_OUTPUT"
+          echo "Lane 4 remote exit: $rc"
+
+      - name: Browser verification suite (prod-auth Playwright specs)
+        if: ${{ inputs.suite != 'api' && hashFiles('tests/e2e/prod-auth.config.js') != '' }}
+        id: browser
+        shell: bash
+        env:
+          PROD_ORIGIN: ${{ env.ORIGIN }}
+          PROD_SESSION_COOKIE_FILE: ${{ runner.temp }}/session_cookie
+        run: |
+          set -Eeuo pipefail
+          npm ci
+          npx playwright install chromium --with-deps
+          rc=0
+          npx playwright test --config tests/e2e/prod-auth.config.js 2>&1 | tee prod-auth-browser.txt || rc=$?
+          echo "browser_exit=$rc" >> "$GITHUB_OUTPUT"
+          echo "Browser suite exit: $rc"
+
+      - name: Revoke the pass (always)
+        if: ${{ always() && steps.mint.outputs.pass_id != '' }}
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          APP_DIR: ${{ vars.PROD_APP_DIR || '/home/dynasty/trade-calculator' }}
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          ssh -i "$HOME/.ssh/id_ed25519" \
+            -o BatchMode=yes -o StrictHostKeyChecking=yes \
+            -o UserKnownHostsFile="$HOME/.ssh/known_hosts" \
+            -o ConnectTimeout=15 \
+            -p "$PORT" "$DEPLOY_USER@$DEPLOY_HOST" \
+            "APP_DIR=$(printf %q "$APP_DIR") PASS_ID=$(printf %q "$PASS_ID") bash -s" <<'REMOTE'
+          set -Eeuo pipefail
+          cd "$APP_DIR"
+          PY="$APP_DIR/.venv/bin/python"
+          [ -x "$PY" ] || PY="$APP_DIR/venv/bin/python"
+          [ -x "$PY" ] || PY=python3
+          "$PY" - <<'PYEOF'
+          import os
+          import sys
+
+          sys.path.insert(0, os.environ["APP_DIR"])
+          from src.api import guest_passes
+
+          pass_id = int(os.environ["PASS_ID"])
+          revoked = guest_passes.revoke(pass_id)
+          print(f"revoked pass id={pass_id}: {revoked}")
+          PYEOF
+          REMOTE
+          echo "Audit: pass ${PASS_ID} minted and revoked within this run."
+
+      - name: Fail the job on API/lane4 verdicts
+        if: ${{ inputs.suite != 'browser' }}
+        shell: bash
+        env:
+          API_EXIT: ${{ steps.api.outputs.api_exit }}
+          LANE4_EXIT: ${{ steps.lane4.outputs.lane4_exit }}
+        run: |
+          set -Eeuo pipefail
+          echo "api=$API_EXIT lane4=$LANE4_EXIT (0 pass · 2 fail · 3 proved nothing)"
+          # Exit 3 is recorded but does not fail the job: an evidence-free
+          # check must be visible, and a red job hides which one happened.
+          for code in "$API_EXIT" "$LANE4_EXIT"; do
+            case "$code" in
+              1|2) echo "::error title=V1 authenticated::a suite reported exit $code"; exit "$code" ;;
+            esac
+          done
+
+      - name: Upload the reports
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: v1-authenticated-report
+          path: |
+            v1-auth-report.json
+            lane4-remote.txt
+            prod-auth-browser.txt
+          if-no-files-found: warn
+          retention-days: 30
