@@ -5874,32 +5874,25 @@ def _stamp_rank_changes(
     # it either.  The rollback lever CLAUDE.md documents is real; the
     # inventory that would tell an operator it exists is not.
     #
-    # Registering it in ``_DEFAULTS`` is the obvious repair and was attempted.
-    # It is refused by ``tests/api/test_feature_flags.py``, which requires
-    # every defaulted-ON flag to be classified either ``safe_on`` (additive,
-    # inert, cannot move a number) or ``value_moving_on`` (with a MEASURED
-    # blast radius).  This flag is neither cheaply: it MUTATES THE CONTRACT —
-    # ON stamps ledger-derived ``rankChange``, OFF stamps ``None`` — so the
-    # ``safe_on`` standard ``perfect_draft`` meets ("writes no value, mutates
-    # no contract") does not hold, and ``value_moving_on`` demands a
-    # measurement.
-    #
-    # That measurement needs the temporal ledger and a built board.  With no
-    # ``data/temporal_ledger.sqlite`` present BOTH branches stamp ``None``,
-    # so an on/off diff taken without it reports "0 rows changed" — a vacuous
-    # figure that would read as evidence.  Recording that would be worse than
-    # recording nothing.
-    #
-    # To close F-24: measure ON vs OFF over a real board with the ledger
-    # present (which rows' ``rankChange`` becomes ``None``, and the
-    # distribution of the non-null values), then register the flag carrying
-    # that blast radius.  Until then this direct read stays, documented.
-    import os as _os
+    # F-24 CLOSED 2026-08-25 (V1-87).  The paragraph above records why the
+    # flag could not be registered without a measurement, and the
+    # measurement now exists: Lane 4 on-box run 32843495391 (deployed
+    # ``8537aa4c2``, ledger present, 37 recorded board dates) measured ON
+    # deriving a non-null ``rankChange`` for 743 of 749 ranked rows on the
+    # 2026-08-25 board (comparator 2026-08-24) against a structurally
+    # all-None OFF.  The flag is registered in ``feature_flags._DEFAULTS``
+    # carrying that blast radius, classified ``value_moving_on``, and this
+    # site now reads through the ONE registry owner rather than the
+    # environment directly — so /api/status, ``snapshot()`` and the
+    # reachability test finally see the rollback lever CLAUDE.md documents.
+    # Registry reads are cached per process (same convention as
+    # ``bdvm_engine``); tests that flip the env mid-process call
+    # ``feature_flags.reload()``.
+    from src.api import feature_flags as _feature_flags
 
-    flag = _os.environ.get("RISKIT_FEATURE_LEDGER_RANK_CHANGE", "1").strip().lower()
     previous: dict[str, tuple[str, int]] = {}
     _history_keys = None
-    if flag not in ("0", "false", "off"):
+    if _feature_flags.is_enabled("ledger_rank_change"):
         # Every src.history touch — the keys import included — sits
         # inside one guard: a history failure (or the rollback flag)
         # must not break the contract build, and the degraded stamp is

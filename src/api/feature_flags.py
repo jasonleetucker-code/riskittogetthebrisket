@@ -87,6 +87,22 @@ _DEFAULTS: Final[dict[str, bool]] = {
     # label, and with the flag off it uses the first usable bridge, which
     # reproduces the incumbent ladder integer for integer.
     "multi_bridge_ladder": False,
+    # C1-U4 — ledger-derived rankChange on the canonical contract.  ON
+    # derives each ranked row's rankChange from the temporal ledger's
+    # previous recorded board; OFF stamps None on every row (deliberately
+    # not the retired self-referential cache).  Registered 2026-08-25,
+    # closing audit F-24 (V1-87): the flag was read directly from the
+    # environment in data_contract and was invisible to this inventory,
+    # snapshot(), /api/status and the reachability test.  Blast radius
+    # MEASURED on the production box (Lane 4 run 32843495391, deployed
+    # 8537aa4c2, ledger present with 37 recorded board dates): ON derives
+    # a non-null rankChange for 743 of 749 ranked rows on the 2026-08-25
+    # board (comparator 2026-08-24, 1342 ranked assets); OFF is
+    # structurally all-None, so the blast radius is exactly those 743
+    # rankChange stamps — no VALUE, rank, or tier moves under either
+    # setting.  Rollback: RISKIT_FEATURE_LEDGER_RANK_CHANGE=0 (and
+    # restart — registry reads are cached per process).
+    "ledger_rank_change": True,
     "unified_id_mapper": False,
     # Phase 2 — nfl_data_py pipeline
     # Activated with the 2026-04-25 deploy that adds nfl_data_py to
@@ -471,6 +487,12 @@ NO_GATE: Final[str] = "NO_GATE"
 _GATE_STATUS: Final[dict[str, str]] = {
     # ── Reachable from server.py; toggling changes a response ──
     "nfl_data_ingest": LIVE,
+    # ledger_rank_change gates the temporal-ledger rankChange derivation in
+    # ``data_contract._stamp_rank_changes``, which reaches a request through
+    # ``/api/data``: on → each ranked row's rankChange derives from the
+    # ledger's previous recorded board (743 of 749 rows non-null on the
+    # measured production board), off → None on every row.
+    "ledger_rank_change": LIVE,
     "realized_points_api": LIVE,
     "monte_carlo_trade": LIVE,
     "te_basis_conversion": LIVE,
