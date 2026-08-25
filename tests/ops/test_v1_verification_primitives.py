@@ -203,3 +203,76 @@ def test_onbox_workflow_gates_the_only_write_behind_a_flag():
     # The write path (--allow-writes) is only produced when run_live_builder
     # is true.
     assert "run_live_builder && '--allow-writes' || ''" in wf
+
+
+def test_v89_control_archive_names_parse_under_the_detector_grammar():
+    """The step-8 control must speak the detector's filename dialect.
+
+    measure_content_staleness stamps archives via (\\d{8})_(\\d{6}) and
+    silently skips names that do not parse.  The first control used
+    dashed dates, both archives were skipped, and {} read as 'the
+    detector cannot see DraftSharks staleness' — a false FAIL against a
+    sound detector.  Pin: every archive filename the verifier constructs
+    for the control matches the real detector's stamp regex.
+    """
+    from scripts.check_source_health import _ARCHIVE_STAMP_RE
+
+    src = Path(onbox.__file__).read_text(encoding="utf-8")
+    names = re.findall(r'f"(dynasty_[a-z]+_\{[a-z]+\}\.zip)"', src)
+    assert names, "the control's archive-name f-string moved — update this pin"
+    stamps = re.findall(r"for stamp in \(([^)]*)\)", src)
+    assert stamps, "the control's stamp tuple moved — update this pin"
+    for stamp in re.findall(r'"([^"]+)"', stamps[0]):
+        rendered = names[0].replace("{stamp}", stamp)
+        assert _ARCHIVE_STAMP_RE.search(rendered), (
+            f"control archive name {rendered!r} does not parse under "
+            "_ARCHIVE_STAMP_RE — the detector will silently skip it and the "
+            "control will fail falsely again"
+        )
+
+
+def test_isolated_records_a_crash_as_that_checks_error(_reset_checks):
+    """A check's crash costs that check, never the suite.
+
+    The first production run lost the report file, the free-agent pick
+    and every downstream check to one uncaught read timeout in
+    check_v61.
+    """
+
+    def boom():
+        raise TimeoutError("the read operation timed out")
+
+    out = auth._isolated("V61A", boom)
+    assert out is None
+    crash = [c for c in auth.CHECKS if c.check_id == "V61A:crash"]
+    assert len(crash) == 1
+    assert crash[0].status == "error"
+    assert "TimeoutError" in crash[0].detail
+
+    def fine():
+        return "value"
+
+    assert auth._isolated("OK", fine) == "value"
+    assert not [c for c in auth.CHECKS if c.check_id == "OK:crash"]
+
+
+def test_c1u8_item4_absent_store_is_blocked_not_fail():
+    """acquisition_status exit 2 + ABSENT is the script's defined
+    'ledger absent' semantic — a blocked dependency on the unrun §8
+    items 2/3 builder, never a code failure."""
+    src = Path(onbox.__file__).read_text(encoding="utf-8")
+    m = re.search(r'rc == 2 and "ABSENT" in out', src)
+    assert m, "the item-4 absent-store branch is gone — exit 2 would read as FAIL again"
+    seg = src[m.start() : m.start() + 1500]
+    assert '"blocked"' in seg, "the absent-store branch must record blocked"
+
+
+def test_c1u8_item7_targets_the_acquisition_store_not_the_intel_ledger():
+    """holdings/pick_lineage live in data/retention/acquisition.sqlite;
+    the intel ledger is the wrong population by design."""
+    src = Path(onbox.__file__).read_text(encoding="utf-8")
+    item7 = src[src.index('"C1U8-7"') :]
+    head = item7[:3000]
+    assert "acquisition_store" in head
+    assert "pick_lineage" in head
+    assert "event_type = 'TRADE'" in head
