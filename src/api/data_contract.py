@@ -1114,6 +1114,40 @@ _CRITICAL_PRIMARY_SOURCES: tuple[str, ...] = (
 )
 
 
+def critical_primary_for_run_source(run_source: str) -> str | None:
+    """The critical primary source a scraper RUN name reports for, or ``None``.
+
+    The scraper's run registries name a source by its transport, not only
+    by its identity — ``source_enabled_map`` in ``Dynasty Scraper.py``
+    reads ``SITES.get("DLF")`` and registers the result as
+    ``"DLF_LocalCSV"`` — so the name that reaches
+    ``sourceRunSummary.failedSources`` is the primary source name,
+    optionally qualified with an underscore suffix (``DLF_LocalCSV``,
+    historically ``KTC_TradeDB`` / ``KTC_WaiverDB``).  Matching run names
+    against :data:`_CRITICAL_PRIMARY_SOURCES` verbatim therefore could not
+    fire for DLF at all: a DLF failure arrived as ``DLF_LocalCSV``, matched
+    nothing, and fell through to the ``partial_run_unknown`` WARNING for
+    one of the four sources this file declares critical (audit F-17 /
+    V1-80).
+
+    This is the ONE derivation rule from run name to critical primary —
+    exact match, or ``<primary>_<qualifier>`` — deliberately NOT a fourth
+    hand-maintained name list (F-17 rules that out as the defect, not the
+    fix).  ``IDPTradeCalc`` keeps its historical bare-prefix match so any
+    unqualified sub-endpoint name it ever emitted stays critical.
+
+    The qualifier separator is ``_`` because that is the scraper's own
+    naming convention; run names whose primary is NOT critical resolve to
+    ``None`` and stay warnings (``DraftSharks_IDP``, ``FantasyPros_IDP``).
+    """
+    for primary in _CRITICAL_PRIMARY_SOURCES:
+        if run_source == primary or run_source.startswith(primary + "_"):
+            return primary
+    if run_source.startswith("IDPTradeCalc"):
+        return "IDPTradeCalc"
+    return None
+
+
 def _build_source_timestamps() -> dict[str, dict[str, Any]]:
     """Return per-source freshness block with mtimes + staleness flags.
 
@@ -13077,10 +13111,10 @@ def validate_api_data_contract(payload: dict[str, Any]) -> dict[str, Any]:
                 if src in TOLERABLE_PARTIAL_SOURCES:
                     warnings.append(f"partial_run_tolerable:{src}")
                     continue
-                # Critical match: exact name of a primary source, or a
-                # prefix match for IDPTradeCalc's sub-endpoints.
-                is_critical = src in _CRITICAL_PRIMARY_SOURCES or src.startswith("IDPTradeCalc")
-                if is_critical:
+                # Critical match: the run name resolves to a critical
+                # primary source (exact, or ``<primary>_<qualifier>`` —
+                # the scraper reports DLF as ``DLF_LocalCSV``; F-17).
+                if critical_primary_for_run_source(src) is not None:
                     errors.append(f"partial_run_critical:{src}")
                 else:
                     warnings.append(f"partial_run_unknown:{src}")
