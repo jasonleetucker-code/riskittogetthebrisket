@@ -1814,7 +1814,7 @@ _RANKING_SOURCES: list[dict[str, Any]] = [
         # provider being one we otherwise trust.  UNKNOWN fails closed.
         "game_type": GAME_TYPE_DYNASTY,
         "game_type_evidence": (
-            "Play for Keeps pfk_dynasty_rankings Supabase table — the table name is the " "product"
+            "Play for Keeps pfk_dynasty_rankings Supabase table — the table name is the product"
         ),
         "display_name": "Play for Keeps Dynasty",
         "scope": SOURCE_SCOPE_OVERALL_OFFENSE,
@@ -1849,7 +1849,7 @@ _RANKING_SOURCES: list[dict[str, Any]] = [
         # provider being one we otherwise trust.  UNKNOWN fails closed.
         "game_type": GAME_TYPE_DYNASTY,
         "game_type_evidence": (
-            "dynasty-daddy.com/api/v1/player/all/today — Dynasty Daddy is a dynasty-only " "product"
+            "dynasty-daddy.com/api/v1/player/all/today — Dynasty Daddy is a dynasty-only product"
         ),
         "display_name": "Dynasty Daddy Superflex",
         "scope": SOURCE_SCOPE_OVERALL_OFFENSE,
@@ -2172,7 +2172,7 @@ _RANKING_SOURCES: list[dict[str, Any]] = [
         # provider being one we otherwise trust.  UNKNOWN fails closed.
         "game_type": GAME_TYPE_DYNASTY,
         "game_type_evidence": (
-            "same draftsharks.com dynasty-rankings page as draftSharks, IDP slice of the " "one DOM"
+            "same draftsharks.com dynasty-rankings page as draftSharks, IDP slice of the one DOM"
         ),
         "correlation_group": "draftSharks",
         "display_name": "Draft Sharks IDP Dynasty",
@@ -5682,6 +5682,32 @@ def _parse_pick_tier(name: str) -> tuple[int, str, int] | None:
 #: W02-F016.
 _BLEND_HULL_EPSILON: float = 1e-9
 
+# The two quantities the hull check compares are INTEGERS quantized from
+# floats by two different rules, and the allowance below is the exact
+# worst-case skew of that quantization — numerical precision, not policy:
+#
+# * ``rankDerivedValue`` is ``int(norm_val)`` — truncation, so the
+#   published integer sits as much as (just under) 1.0 BELOW the float
+#   blend and never above it;
+# * each ``sourceRankMeta[*].valueContribution`` stamp is
+#   ``int(round(value))`` — within 0.5 of its float contribution in
+#   either direction.
+#
+# A float blend sitting exactly on the hull floor can therefore publish
+# up to 1.5 below the stamped minimum (1.0 truncation + 0.5 stamp
+# rounding), and up to 0.5 above the stamped maximum (stamp rounding
+# only — truncation never raises a value). Anything outside THOSE bounds
+# is a genuine impossibility. Measured incident, 2026-08-25 ("2027 Mid
+# 2nd"): votes 3459.692 (ktc 3459 x 9999/9997) and 3460.0 (idpTradeCalc
+# 3460/9999 x 9999), float blend ~3459.85 inside the true hull, published
+# ``int()`` -> 3459, stamps ``int(round())`` -> [3460, 3460] — flagged as
+# "below" a hull the blend never left. The 2026-08-22 "2027 Late 1st"
+# transient (#1063) is the same class: it fires whenever the two pick
+# markets nearly agree at a rounding boundary, and "self-corrects" when
+# the next scrape moves either value a hair.
+_BLEND_HULL_QUANTIZATION_BELOW: float = 1.5
+_BLEND_HULL_QUANTIZATION_ABOVE: float = 0.5
+
 
 def _detect_blend_integrity_violations(
     players_array: list[dict[str, Any]],
@@ -5730,10 +5756,23 @@ def _detect_blend_integrity_violations(
     the nearest boundary would turn pipeline corruption into a clean,
     plausible-looking number. The row is marked instead, so the failure
     stays visible. There is no tolerance dial: the check is exact up to
-    floating-point representation, and ``_BLEND_HULL_EPSILON`` is a
-    numerical-precision allowance, NOT a policy band — measured across
-    5,931 historical rows the violation count is 0 at every tolerance from
-    0% to 10%, so no policy slack is doing any work.
+    the representation of its inputs, and both allowances are
+    numerical-precision, NOT policy bands — measured across 5,931
+    historical rows the violation count is 0 at every tolerance from 0%
+    to 10%, so no policy slack is doing any work.
+
+    "Representation of its inputs" is doing real work in that sentence,
+    and this check got it wrong until 2026-08-25: the two quantities
+    compared here are integers quantized from floats by DIFFERENT rules
+    (``rankDerivedValue`` truncates; the ``valueContribution`` stamps
+    round), so a float blend genuinely inside its hull can publish up to
+    1.5 below the stamped minimum and 0.5 above the stamped maximum.
+    ``_BLEND_HULL_EPSILON`` alone manufactured a "violation" out of that
+    skew whenever the stamped hull was under a unit wide — see the
+    derivation and the measured 2027 Mid 2nd incident at
+    ``_BLEND_HULL_QUANTIZATION_BELOW``. The additive allowance covers
+    exactly the quantization worst case and nothing else: a fault that
+    moves a value by even two units past the hull still fires.
 
     Rows resting on fewer than two contributions are skipped: a hull needs
     two points, and "missing" is not "violating".
@@ -5771,7 +5810,9 @@ def _detect_blend_integrity_violations(
             continue
 
         lo, hi = min(contributions.values()), max(contributions.values())
-        if lo * (1.0 - _BLEND_HULL_EPSILON) <= value <= hi * (1.0 + _BLEND_HULL_EPSILON):
+        lo_bound = lo * (1.0 - _BLEND_HULL_EPSILON) - _BLEND_HULL_QUANTIZATION_BELOW
+        hi_bound = hi * (1.0 + _BLEND_HULL_EPSILON) + _BLEND_HULL_QUANTIZATION_ABOVE
+        if lo_bound <= value <= hi_bound:
             continue
 
         stamp = {
@@ -6821,8 +6862,7 @@ def _validate_source_game_types_invariant(
         )
     if unknown_value:
         problems.append(
-            f"declare a game_type outside GAME_TYPES: {unknown_value}. "
-            f"Valid: {sorted(GAME_TYPES)}"
+            f"declare a game_type outside GAME_TYPES: {unknown_value}. Valid: {sorted(GAME_TYPES)}"
         )
     if not_dynasty:
         problems.append(
