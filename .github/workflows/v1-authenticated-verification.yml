@@ -315,5 +315,6 @@ jobs:
             v1-auth-report.json
             lane4-remote.txt
             prod-auth-browser.txt
+            tests/e2e/test-results-prod-auth/
           if-no-files-found: warn
           retention-days: 30
