@@ -11609,6 +11609,30 @@ async def auth_login(request: Request):
 
     username = str(payload.get("username") or "").strip()
     password = str(payload.get("password") or "")
+
+    # W22-F003: the login endpoint gets its own failure throttle —
+    # exponential backoff per client IP and per (client IP, username)
+    # after repeated failed attempts.  Checked BEFORE any credential
+    # comparison so a blocked caller learns nothing about validity.
+    # Design, constants and the never-key-on-username-alone invariant
+    # live in ``src/api/rate_limit.py`` (the ``login_*`` functions) —
+    # one throttle owner, no second in-server implementation.
+    from src.api import rate_limit as _rl
+
+    client_ip = _client_ip_from_request(request)
+    throttled, retry_after = _rl.login_throttle_check(client_ip, username)
+    if throttled:
+        return JSONResponse(
+            status_code=429,
+            content={
+                "ok": False,
+                "error": "too_many_attempts",
+                "message": "Too many failed login attempts — try again shortly.",
+                "retryAfterSeconds": retry_after,
+            },
+            headers={"Retry-After": str(retry_after), "Cache-Control": "no-store"},
+        )
+
     # Post-login default lands users on "/" (the Brisket Home
     # dashboard — Team Value + Top Movers + Risers/Fallers).  An
     # explicit ``next`` from the form preserves deep-link return,
@@ -11617,6 +11641,7 @@ async def auth_login(request: Request):
 
     # Owner login: full session, max-age = JASON_AUTH_COOKIE_MAX_AGE.
     if username == JASON_LOGIN_USERNAME and password == JASON_LOGIN_PASSWORD:
+        _rl.login_record_success(client_ip, username)
         session_id = _create_auth_session(username, auth_method="password")
         response = JSONResponse(content={"ok": True, "redirect": next_path})
         response.set_cookie(
@@ -11644,10 +11669,12 @@ async def auth_login(request: Request):
         if remaining < 1.0:
             # Expired during the millisecond between fetch and now —
             # treat as invalid.
+            _rl.login_record_failure(client_ip, username)
             return JSONResponse(
                 status_code=401,
                 content={"ok": False, "error": "Invalid username or password."},
             )
+        _rl.login_record_success(client_ip, username)
         session_id = _create_auth_session(
             "guest",
             auth_method="guest_pass",
@@ -11678,6 +11705,7 @@ async def auth_login(request: Request):
         )
         return response
 
+    _rl.login_record_failure(client_ip, username)
     return JSONResponse(
         status_code=401,
         content={"ok": False, "error": "Invalid username or password."},
