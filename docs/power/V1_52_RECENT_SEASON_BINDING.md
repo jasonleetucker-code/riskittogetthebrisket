@@ -210,9 +210,85 @@ across all owners. Restored → 16/16 green.
 Stated honestly: `test_all_play_also_survives_the_scoreless_season` **passes
 under the mutation**. `all_play`'s unconditional overwrite already worked in the
 preseason shape, so that test is a regression guard for the reset added here,
-not part of the RED proof. The `all_play` defect it does guard (a stale share
-for an owner absent from the last scored season) needs a third-season fixture to
-exhibit and is not claimed as reproduced.
+not part of the RED proof.
+
+### `all_play` — the contradiction this document used to carry, resolved
+
+**Corrected 2026-08-25 (owner traffic-control on #1081).** The heading and the
+change table above both say this unit binds `all_play` to the last scored
+season, while the paragraph directly above said its defect "needs a third-season
+fixture to exhibit and is not claimed as reproduced." Those cannot both be the
+whole story, and the gap between them is exactly where a reader would form a
+wrong belief. Split into the two separate claims it was conflating:
+
+* **`all_play`'s season RESET is fixed here, and is now pinned.** The
+  third-season fixture that was called for exists —
+  `TestEverySeasonResetHoldsAcrossThreeSeasons` — and asserts that `all_play`,
+  like `ppg`/`wl_record`/`streak`/`luck_regression`/`recent`, describes the last
+  **scored** season and not a prior one. No claim rests on an unwritten fixture
+  any more.
+* **`all_play`'s MISSING-value semantics are NOT fixed here.** An owner absent
+  from the last scored season still resolves through
+  `state["allplay"].get(oid, 0.0)` — a coercion of the same family as the one
+  removed from `recent`. That is deliberate and scoped: the owner direction on
+  this PR names *recent-form* as the component that must stay unknown, and
+  widening a published-value semantic beyond the direction would be inventing
+  scope, not following it. Recorded here as a known, named residual rather than
+  quietly fixed or quietly ignored.
+
+## Missing is never zero — the second repair
+
+The first repair bound recent form to the last **scored** season. That fixed
+*which* season it describes and left the unmeasured case coerced:
+`recent = sum(rb) / len(rb) if rb else 0.0`. Because every owner shared that
+`0.0`, `_percentile` returned a confident **0.5 for all of them** — an
+unmeasured component published as a midpoint, which is the original defect
+wearing a different mask.
+
+Per the owner invariant (missing/unknown != zero) both missing cases now stay
+unknown, and they resolve through two different mechanisms because the
+missingness lives at two different granularities:
+
+| case | who lacks it | mechanism |
+|---|---|---|
+| (a) no scored weeks anywhere | everyone | `"recent"` joins `missing_inputs`, so the weight renormalises away league-wide — the **same** path `team_ros_strength` and `schedule_adjusted` already use |
+| (b) an owner absent from the last scored season | one owner | the component stays in the section budget; that **row's** `weightsApplied` drops it and its score renormalises over the weights it actually has |
+
+Neither invents a rule. (a) is the existing league-wide renormalisation; (b) is
+that identical rule applied at the granularity the missingness has. The two
+alternatives were both explicitly ruled out: multiplying the weight by a
+stand-in is the coercion being removed, and leaving the weight in the divisor
+against a zero numerator deflates the score by exactly that weight — the silent
+deflation the league-wide renormalisation exists to prevent.
+
+`_percentile` needed no change: it already excludes `None` from its comparison
+population (`eligible = [v for v in values if v is not None]`), so an unmeasured
+owner cannot drag the scale others are ranked against.
+
+**The frontend needed no change either**, and that was verified rather than
+assumed: `ros-power.jsx`'s `fmtRaw` already renders `null` as `—`, and
+`ComponentBar` returns `null` for a weight it cannot find — so an unmeasured
+component's bar vanishes instead of rendering a fabricated 0%. Publishing
+per-row `weightsApplied` is what makes that work, and the field name already
+said "Applied".
+
+An owner with **nothing** measurable refuses outright (`powerScore: None`,
+`rank: None`) and sorts last without consuming a rank — the same rule as the
+section-level refusal, at the same granularity as the rest of this change.
+
+### Mutation proof for the missing-is-never-zero repair
+
+Three mutations, each restoring one of the coercions the owner named, all RED
+then restored GREEN:
+
+```
+A  recent = ... if rb else 0.0            (coerce to zero)     -> 4 failed
+B  "recent": 0.5 if i["recent"] is None   (coerce to neutral)  -> 3 failed
+C  owner_weights = active_weights          (keep the weight)    -> 5 failed
+```
+
+C fails loudest because a `None` component reaching the weighted sum is a
+`TypeError`, not a wrong number — the coercion cannot be reintroduced quietly.
 
 ## Regression
 

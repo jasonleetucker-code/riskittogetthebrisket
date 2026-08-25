@@ -358,7 +358,15 @@ def _score_state(
         s = state["career"].get(oid, _EMPTY_CAREER)
         ppg = s["points"] / s["games"] if s["games"] else 0.0
         rb = state["recent"].get(oid, [])
-        recent = sum(rb) / len(rb) if rb else 0.0
+        # UNMEASURED IS None, NOT 0.0 (owner invariant: missing != zero).
+        # An owner with no trailing games in the last SCORED season has
+        # no recent form -- not zero recent form, and not an average one.
+        # The retired ``else 0.0`` fed ``_percentile`` a real value, and
+        # because every owner shared it the percentile came back 0.5 for
+        # all of them: an unmeasured component published as a confident
+        # midpoint. ``None`` propagates to a dropped weight and a null
+        # component instead; see the per-owner renormalisation below.
+        recent = sum(rb) / len(rb) if rb else None
         wins = s["wins"]
         games = s["games"] or 1
         wl = wins / games  # already in [0, 1]
@@ -388,9 +396,13 @@ def _score_state(
         }
 
     # Convert raw inputs to percentiles (ppg, recent only — the others
-    # are already 0-1 scores).
+    # are already 0-1 scores).  ``recent_values`` may contain ``None``
+    # for owners with nothing measured; ``_percentile`` already excludes
+    # those from its comparison population (``eligible``), so an
+    # unmeasured owner cannot drag the scale others are ranked against.
     ppg_values = [inputs[o]["ppg"] for o in owner_ids]
     recent_values = [inputs[o]["recent"] for o in owner_ids]
+    recent_available = any(v is not None for v in recent_values)
 
     # Renormalise weights when missing inputs are present so the score
     # stays in [0, 100] instead of being deflated by the unfilled
@@ -400,6 +412,14 @@ def _score_state(
         missing_inputs.append(_LENS_DROPPED_ROS if results_only else "team_ros_strength")
     if not schedule_available:
         missing_inputs.append("schedule_adjusted")
+    # Case (a) -- NOBODY has recent form (no scored weeks anywhere in the
+    # snapshot).  The component is unmeasurable league-wide, so it drops
+    # out of the weight budget entirely through the SAME mechanism
+    # ``team_ros_strength`` and ``schedule_adjusted`` already use.  No new
+    # rule: an input nothing can supply is renormalised away rather than
+    # scored at a stand-in value.
+    if not recent_available:
+        missing_inputs.append("recent")
 
     # THE PRESEASON SUPPRESSION BELONGS TO ONE LENS, NOT BOTH.
     #
@@ -473,13 +493,21 @@ def _score_state(
                     "rank": None,
                     "components": {
                         "ppg": round(_percentile(ppg_values, i["ppg"]), 4),
-                        "recent": round(_percentile(recent_values, i["recent"]), 4),
+                        # Unmeasured stays null on the refusal path too --
+                        # this branch already refuses to invent a score, so
+                        # inventing a component inside it would be the same
+                        # error one level down.
+                        "recent": (
+                            None
+                            if i["recent"] is None
+                            else round(_percentile(recent_values, i["recent"]), 4)
+                        ),
                         "wl_record": round(i["wl_record"], 4),
                         "all_play": round(i["all_play"], 4),
                         "streak": round(i["streak"], 4),
                         "luck_regression": round(i["luck_regression"], 4),
                         "pointsPerGame": round(i["ppg"], 2),
-                        "recentAvg": round(i["recent"], 2),
+                        "recentAvg": (None if i["recent"] is None else round(i["recent"], 2)),
                     },
                     "rosStrengthPercentile": None,
                     "weightsApplied": {},
@@ -487,14 +515,23 @@ def _score_state(
             )
         return unrankable, missing_inputs, active_weights
 
-    weight_total = sum(active_weights.values())
-
+    # NOTE: the league-wide ``sum(active_weights.values())`` divisor is gone.
+    # Each row now divides by the total of the weights IT actually applied,
+    # which equals the league-wide total for every owner with complete data
+    # and differs only where a component is genuinely unknown.
     rankings: list[dict[str, Any]] = []
     for oid in owner_ids:
         i = inputs[oid]
-        components: dict[str, float] = {
+        components: dict[str, float | None] = {
             "ppg": _percentile(ppg_values, i["ppg"]),
-            "recent": _percentile(recent_values, i["recent"]),
+            # Case (b) -- this owner has no trailing games in the last
+            # SCORED season while others do.  The component is measurable
+            # league-wide, so it stays in ``active_weights``; it is THIS
+            # owner's value that is unknown.  Publishing ``None`` and
+            # dropping the weight for this row only is the same
+            # renormalisation rule as above, applied at the granularity
+            # the missingness actually has.
+            "recent": (None if i["recent"] is None else _percentile(recent_values, i["recent"])),
             "wl_record": i["wl_record"],
             "all_play": i["all_play"],
             "streak": i["streak"],
@@ -511,11 +548,29 @@ def _score_state(
         # contains "pointsPerGame"/"recentAvg") rather than the whole
         # ``components`` dict, so this ordering is a clarity choice, not
         # a correctness dependency.
-        score_unit = (
-            sum(active_weights.get(k, 0.0) * components.get(k, 0.0) for k in active_weights)
-            / weight_total
-        )
-        score = round(score_unit * 100, 2)
+        #
+        # PER-OWNER renormalisation.  ``active_weights``/``weight_total``
+        # are the league-wide budget; a component this owner has no value
+        # for is excluded from THEIR sum and THEIR divisor.  Multiplying a
+        # weight by a stand-in would be the coercion this change exists to
+        # remove, and leaving the weight in the divisor against a zero
+        # numerator would deflate the score by exactly that weight --
+        # the same silent deflation the league-wide renormalisation above
+        # was written to prevent.
+        owner_weights = {
+            k: w for k, w in active_weights.items() if components.get(k, 0.0) is not None
+        }
+        owner_weight_total = sum(owner_weights.values())
+        if not owner_weight_total:
+            # Nothing measurable for this owner at all.  Refuse rather
+            # than publish a score built from no evidence -- same rule as
+            # the section-level refusal above, same reason.
+            score = None
+        else:
+            score_unit = (
+                sum(owner_weights[k] * components[k] for k in owner_weights) / owner_weight_total
+            )
+            score = round(score_unit * 100, 2)
 
         # Raw magnitudes power.py's own renderer displayed alongside its
         # percentile transforms (``pointsPerGame``/``recentAvg`` there).
@@ -527,7 +582,11 @@ def _score_state(
         # (the weight table has no "pointsPerGame"/"recentAvg" key), so
         # publishing them cannot change ``score``.
         components["pointsPerGame"] = round(i["ppg"], 2)
-        components["recentAvg"] = round(i["recent"], 2)
+        # ``null``, never 0.0 -- ros-power.jsx's ``fmtRaw`` already
+        # renders null as an em-dash, so an unmeasured average shows as
+        # "—" rather than a confident-looking "0.0".  That frontend
+        # behaviour is preserved, not changed.
+        components["recentAvg"] = None if i["recent"] is None else round(i["recent"], 2)
 
         ros_strength_pct = ros_pct.get(oid, None) if ros_available else None
         # Display name resolution: ``ManagerRegistry`` doesn't define
@@ -544,17 +603,37 @@ def _score_state(
                 "ownerId": oid,
                 "displayName": _metrics.display_name_for(snapshot, oid),
                 "powerScore": score,
-                "components": {k: round(v, 4) for k, v in components.items()},
+                "components": {
+                    k: (None if v is None else round(v, 4)) for k, v in components.items()
+                },
                 "rosStrengthPercentile": (
                     round(ros_strength_pct, 4) if ros_strength_pct is not None else None
                 ),
-                "weightsApplied": dict(active_weights),
+                # THIS owner's applied weights, not the league-wide budget.
+                # The field name already says "Applied", the score above is
+                # computed from exactly these, and ros-power.jsx's
+                # ``ComponentBar`` returns null for a weight it cannot find
+                # -- so an unmeasured component's bar vanishes instead of
+                # rendering a fabricated 0%.
+                "weightsApplied": dict(owner_weights),
             }
         )
 
-    rankings.sort(key=lambda r: -r["powerScore"])
-    for rank, row in enumerate(rankings, start=1):
+    # A refused row (``powerScore is None``) is NOT ranked -- ranking it
+    # would be the fabrication the refusal just avoided.  PARTITIONED
+    # rather than sorted with a placeholder key: substituting any number
+    # for the missing score, even one used only for ordering, is the
+    # coercion this change exists to remove, and it would put a real
+    # score and a stand-in on the same scale.  Ranks stay dense over the
+    # rows that have one; refused rows follow, in their existing order.
+    scored = [r for r in rankings if r["powerScore"] is not None]
+    refused = [r for r in rankings if r["powerScore"] is None]
+    scored.sort(key=lambda r: -r["powerScore"])
+    for rank, row in enumerate(scored, start=1):
         row["rank"] = rank
+    for row in refused:
+        row["rank"] = None
+    rankings = scored + refused
 
     return rankings, missing_inputs, active_weights
 
