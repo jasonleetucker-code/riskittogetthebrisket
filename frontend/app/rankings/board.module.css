@@ -420,6 +420,35 @@
   color: var(--text-tertiary);
   display: inline-flex;
   padding: 0 2px;
+  /* Anchor for the mobile hit-area pseudo below. Positioning the button
+     itself changes no layout — the pseudo is the only absolute box. */
+  position: relative;
+}
+/* V1-109 / W26-F017 — the watchlist star measured 17x13px at 390x844,
+   the worst interactive target on /rankings (repeated once per row).
+   The repair is HIT-AREA EXPANSION, not growing the box: row height is
+   load-bearing for the V1-106 windowing (useRowWindow measures real row
+   blocks), so the visual star stays 13px and an invisible, centered
+   pseudo-element carries the touch target instead. 44x44 is the WCAG
+   2.5.5 / iOS HIG target; rows repeat every ~34px, so the topmost-paint
+   rule clips neighbouring zones to roughly row height vertically — the
+   guaranteed floor is WCAG 2.5.8 AA (24x24), which
+   tests/e2e/specs/mobile-touch-targets.spec.js measures with
+   elementFromPoint (a getBoundingClientRect instrument cannot see this
+   repair — see the V1-109 re-measurement doc).
+   Mobile-only on purpose: on a desktop pointer an invisible 44px halo
+   would steal precise clicks aimed at the tail of the player-name
+   button beside it. */
+@media (max-width: 768px) {
+  .watchStar::after {
+    content: "";
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: 44px;
+    height: 44px;
+    transform: translate(-50%, -50%);
+  }
 }
 .watchStar:hover {
   color: var(--text-primary);
@@ -443,7 +472,10 @@
      depends on what's rendered behind it. */
   color: var(--text-secondary, inherit);
   font-family: var(--font-data);
-  font-size: 0.85em;
+  /* V1-109 / W26-F017: was 0.85em, which computed to 9.2px inside the
+     position badge — below the design system's 11px floor
+     (docs/DESIGN-SYSTEM.md: "no micro-type below --font-size-2xs"). */
+  font-size: var(--font-size-2xs);
 }
 .consensusCell {
   font-family: var(--font-data);
