@@ -33,7 +33,14 @@
 > `VERSION_1_COMPLETION_CONTRACT.md` is the canonical status record. Where this
 > file and the contract disagree, **the contract wins.** See
 > §"Lane-4 V1 status at 2026-08-24" at the foot of this document for the
-> current measured state of all ten open rows.
+> measured state of all ten open rows as of that date.
+>
+> **Integration reconciliation 2026-08-25** (merging this file onto current
+> `main`): the right-hand column of the table above is itself now historical.
+> The contract has since promoted **V1-57 → `VERIFIED` (L3)** and
+> **V1-60 → `VERIFIED` (L2)** on the Lane 4 on-box harvest (run
+> `32843495391` at deployed `8537aa4c2`); V1-62 is unchanged. The rule stands:
+> the contract wins, at whatever date you read this.
 
 | # | Item | State (as measured 2026-08-18 — see header correction) | Owner / blocker |
 |---|---|---|---|
@@ -245,6 +252,18 @@ ledger read live: 88 / 136 VERIFIED. Lane ownership is the contract's `lane`
 column, not its `level` column — V1-45 (Trade calculator) is lane **L2** and is
 not Lane 4's row, notwithstanding that this lane reported its defect.
 
+> **Superseded in part, 2026-08-25 (Integration reconciliation, `main` =
+> `9878c5015`).** This section is a dated snapshot; the contract has since
+> moved to **103 / 136 VERIFIED** and five of the ten rows below are closed:
+> **V1-57 (L3), V1-58 (L3), V1-60 (L2), V1-65 (L2), V1-129 (L2)** — promoted
+> on the Lane 4 on-box harvest (run `32843495391` at deployed `8537aa4c2`),
+> which also partially superseded the "authenticated session is the only
+> unlock" premise: an on-box run measures the cohort in-process without one.
+> The externally-blocked statement below now applies to the REMAINING five
+> (V1-56, V1-59, V1-61, V1-62, V1-89), and V1-89's `OD-04` half is answered
+> by `docs/lane4/V1_89_DRAFTSHARKS_DECISION_PACKET.md`. The contract stays
+> authoritative over both this table and this note.
+
 ## The ten open rows, and the one thing they have in common
 
 | row | required level | contract status | blocker |
@@ -350,6 +369,15 @@ the case `CLAUDE.md`'s content-staleness section documents.
 *"confirm option (a) already happened, then close"* rather than as a live
 re-mint / accept / retire choice. Retiring a provider family that is currently
 fetching cleanly would change the blend on every row for no measured cause.
+
+> **Superseded 2026-08-25 by `docs/lane4/V1_89_DRAFTSHARKS_DECISION_PACKET.md`**
+> (Integration reconciliation). The packet closes exactly the bound this
+> section names: it measures **content** freshness, not just fetch stamps —
+> byte-identical re-confirmation against upstream plus the vendor's own
+> `<time datetime>` publication marker — and puts `OD-04` to the owner as
+> **A. HEALTHY_CURRENT** (accept; do not re-mint, do not retire; no owner
+> credential action required). Quote the packet, not this section. V1-89's
+> ledger row remains `BLOCKED` until the owner records the decision.
 
 ## §3 — V1-62's stated blocker points at a projection, not a live defect
 

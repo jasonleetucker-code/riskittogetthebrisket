@@ -482,3 +482,10 @@ in its own header comment that the stamp tracks *"fetch succeeded"*, not
 question `OD-04` named; it does not answer content staleness, which remains the
 L3 production check. Report the two separately or the row will be closed on the
 wrong evidence.
+
+> **Superseded 2026-08-25 by `docs/lane4/V1_89_DRAFTSHARKS_DECISION_PACKET.md`**
+> (Integration reconciliation): the packet performs BOTH halves — fetch ages
+> AND content freshness measured against the vendor's own publication marker —
+> and records the `OD-04` recommendation **A. HEALTHY_CURRENT**. Run the
+> packet's procedure rather than this one; this section stays as the record of
+> why the two questions are separate.

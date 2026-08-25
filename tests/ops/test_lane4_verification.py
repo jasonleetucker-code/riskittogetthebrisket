@@ -812,6 +812,7 @@ class TestTheRequiredListsCannotBeSilentlyEmptied:
         )
         assert _routes_named_in(mixed) == {"/api/sharp/market"}
 
+
 # ── V1-65: the league-population census ────────────────────────────
 
 
