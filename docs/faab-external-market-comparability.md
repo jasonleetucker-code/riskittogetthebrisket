@@ -1,7 +1,7 @@
 # External-league FAAB comparability
 
 **Owner module:** `src/trade/faab_comparability.py`
-**Consumers:** `scripts/fetch_crowd_faab.py`, `src/trade/faab_history.py`, `server.py::/api/faab/recommend`
+**Consumers:** `scripts/fetch_crowd_faab.py`, `src/trade/faab_history.py`, `server.py::/api/waiver/faab-recommend`
 **Owner spec:** [`FAAB_MARKET_SIGNAL_NORMALIZATION_2026-08-14.md`](FAAB_MARKET_SIGNAL_NORMALIZATION_2026-08-14.md) §3, §5, §7, §10
 **Model reference:** [`faab-model.md`](faab-model.md)
 
@@ -271,7 +271,7 @@ evidence None    refusalReason 'no_crowd_ledger'
 
 **Operational consequence, stated plainly because it is the opposite of what
 §7 used to promise.** With `CROWD_RETENTION_DAYS` at 120, the whole accumulated
-ledger goes unusable at once on deploy, and `/api/faab/recommend` reports
+ledger goes unusable at once on deploy, and `/api/waiver/faab-recommend` reports
 `crowdMarket.state: "missing"` until the fetcher re-accumulates from its ~5-day
 rolling window. `merge_crowd_rows` is existing-wins, so legacy rows never
 self-heal; re-priming is a fetch, not a policy change.
@@ -298,7 +298,7 @@ it holds rather than inferring dynasty from a URL fragment.
 
 ## 9. Response surface
 
-`POST /api/faab/recommend` gains a `crowdMarket` block:
+`POST /api/waiver/faab-recommend` gains a `crowdMarket` block:
 
 ```json
 {
@@ -382,6 +382,6 @@ python scripts/fetch_crowd_faab.py --league dynasty_main --dry-run   # exclusion
 **Production checks (for the integration lane):** after the first real run on
 prod, confirm rows in `data/faab/crowd_history_<leagueKey>.json` carry a
 `comparability` block and a `rostersPerPlayer` setting, and that
-`/api/faab/recommend` reports `crowdMarket.state: "fresh"`. If it reports
+`/api/waiver/faab-recommend` reports `crowdMarket.state: "fresh"`. If it reports
 `stale`, the `dynasty-crowd-faab` timer has stopped — that is the condition this
 change makes visible.

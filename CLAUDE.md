@@ -1354,7 +1354,7 @@ Rules for new code:
   an IDP league ever appears.  Freshness is likewise a gate, not a
   decoration: a ledger past ``maxFileAgeDays``, or one with no
   ``updatedAt`` at all, is ``stale`` and refused — unmeasurable
-  freshness is not freshness.  ``/api/faab/recommend`` stamps
+  freshness is not freshness.  ``/api/waiver/faab-recommend`` stamps
   ``crowdMarket`` (state, asOf, tier counts, exclusion census,
   refusal reason) so "no price for this player" and "we declined to
   quote one" cannot read the same.  Dynasty status of this feed is a
