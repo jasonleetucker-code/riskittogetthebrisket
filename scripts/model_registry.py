@@ -210,9 +210,17 @@ def cmd_validate(args: argparse.Namespace) -> int:
     # by exactly the drift removed.  The champion's stored score was 7
     # days old, the challenger's 1.
     #
-    # This matters more than an advisory CLI normally would:
-    # ``cmd_promote`` has NO holdout gate, so this verdict is the only
-    # thing between a human and ``promote`` + ``apply``.
+    # This matters more than an advisory CLI normally would.  It used to
+    # matter absolutely: ``cmd_promote`` had NO gate of any kind, so this
+    # verdict was the only thing between a human and ``promote`` +
+    # ``apply``.  ``ModelRegistry.promote`` now runs the per-scope gate
+    # (``src/model_registry/scope_validation.py``) and refuses a changed
+    # routed scope with no evidence of its own.  That gate and this
+    # verdict answer DIFFERENT questions and neither replaces the other:
+    # the gate asks "was each scope that moved scored by something?" and
+    # this asks "did the OFFENSE curve actually beat the incumbent, on
+    # scores measured at the same time?".  A challenger can pass the gate
+    # and lose here, and vice versa.
     #
     # ``auto_refit_hill_curves.py`` already did it correctly
     # (both fresh, then decide) — two code paths, one contract, one of
@@ -254,14 +262,31 @@ def cmd_validate(args: argparse.Namespace) -> int:
 
 
 def cmd_promote(args: argparse.Namespace) -> int:
+    """Promote a challenger, subject to the per-scope evidence gate.
+
+    ``--override-scope`` is the owner escape hatch the gate documents:
+    GLOBAL and IDP may never get an external holdout, and a permanently
+    unpromotable model is its own failure mode.  It requires
+    ``--override-reason`` for the same purpose ``--reason`` is required —
+    an unrecorded exception is indistinguishable from an accident — and
+    the recorded state says ``OVERRIDDEN_BY_OWNER``, never a
+    ``VALIDATED_*`` one.  A decision is not a measurement.
+    """
     reg = _load_or_seed()
     try:
-        champ = reg.promote(args.version, reason=args.reason)
+        champ = reg.promote(
+            args.version,
+            reason=args.reason,
+            override_scopes=args.override_scope or (),
+            override_reason=args.override_reason or "",
+        )
     except RegistryError as exc:
         print(f"ERROR: {exc}", file=sys.stderr)
         return 2
     reg.save()
     print(f"champion is now v{champ.version}")
+    for scope in sorted(champ.scope_validation):
+        print(f"  {scope}: {champ.scope_validation[scope]}")
     print("Run `apply` to write these constants into player_valuation.py.")
     return 0
 
@@ -327,6 +352,18 @@ def main() -> int:
     p_pro = sub.add_parser("promote", help="make a challenger the champion")
     p_pro.add_argument("version", type=int)
     p_pro.add_argument("--reason", required=True)
+    p_pro.add_argument(
+        "--override-scope",
+        action="append",
+        metavar="SCOPE",
+        help="accept a changed routed scope that has no evidence of its own "
+        "(repeatable); requires --override-reason",
+    )
+    p_pro.add_argument(
+        "--override-reason",
+        default="",
+        help="why the owner accepts the overridden scopes' risk",
+    )
     p_pro.set_defaults(fn=cmd_promote)
 
     p_rb = sub.add_parser("rollback", help="reinstate the previous champion")
