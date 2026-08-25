@@ -3368,7 +3368,13 @@ _PUBLIC_API_EXACT = frozenset(
         "/api/auth/status",
         "/api/auth/login",
         "/api/auth/logout",
-        "/api/scaffold/status",
+        # /api/scaffold/status was REMOVED from this list 2026-08-25
+        # (W22-F005 / V1-103): it hands the full source inventory and
+        # pipeline internals to anonymous callers, and a caller census
+        # found nothing anonymous reading it — no frontend caller, no
+        # bridge route, no workflow curl, no deploy script. The other
+        # /api/scaffold/* endpoints were already private
+        # (tests/api/test_private_auth.py).
         # /league page is a public view — its draft-capital tab reads
         # this endpoint.  Payload is public Sleeper data (team names,
         # pick dollar values, owners) already viewable on Sleeper.
@@ -3521,14 +3527,32 @@ async def _request_context_middleware(request: Request, call_next):
 
 
 def _client_ip_from_request(request: Request) -> str:
-    """Prefer ``X-Forwarded-For`` (nginx sets it for us in prod);
-    fall back to ``request.client.host``."""
+    """The client identity the RATE LIMITER keys on — attacker-fixed, not
+    attacker-chosen (W22-F002 / V1-103).
+
+    ``X-Real-IP`` first: nginx sets it with ``proxy_set_header X-Real-IP
+    $remote_addr`` (deploy/nginx/chaseupside-proxy.conf), which REPLACES
+    anything the client sent — through the proxy it is always the TCP
+    peer nginx actually saw.
+
+    ``X-Forwarded-For`` is different: nginx uses
+    ``$proxy_add_x_forwarded_for``, which APPENDS the real address to
+    whatever the client supplied.  Taking the FIRST entry — what this
+    function did until 2026-08-25 — therefore keyed the limiter on an
+    attacker-chosen string: rotate one header value per request and every
+    public endpoint's limit dissolves.  The one entry our own trusted
+    proxy wrote is the LAST, so the fallback takes that.
+
+    Bare ``request.client.host`` remains for direct (dev/E2E) access.
+    """
+    real_ip = request.headers.get("x-real-ip", "").strip()
+    if real_ip:
+        return real_ip
     xff = request.headers.get("x-forwarded-for", "")
     if xff:
-        # First entry in the chain is the original client.
-        first = xff.split(",")[0].strip()
-        if first:
-            return first
+        last = xff.split(",")[-1].strip()
+        if last:
+            return last
     client = request.client
     return client.host if client else ""
 
