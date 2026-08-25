@@ -1,0 +1,250 @@
+{
+  "applicableChecks": 5,
+  "checkedAt": "2026-08-25T06:58:00.977505+00:00",
+  "checks": [
+    {
+      "denominator": 5,
+      "detail": "all 5 routes registered, confirmed by source scan (108 routes discovered).",
+      "evidence": {
+        "missing": [],
+        "required": [
+          "GET /api/status",
+          "GET /api/sharp/market",
+          "GET /api/sharp/cohort",
+          "GET /api/sharp/roster-percentage",
+          "POST /api/waiver/faab-recommend"
+        ],
+        "routesDiscovered": 108,
+        "source": "source scan"
+      },
+      "id": "R0",
+      "row": "-",
+      "status": "pass",
+      "title": "every route this package names is registered"
+    },
+    {
+      "denominator": null,
+      "detail": "market_payload(window='30d') published no personConsensus block on any row. With an empty cohort or an empty movement ledger there is nothing to measure \u2014 this is not evidence that the field is correct.",
+      "evidence": {},
+      "id": "C1",
+      "row": "V1-63",
+      "status": "blocked",
+      "title": "zero-voter personManagerQuality is JSON null, never 1.0"
+    },
+    {
+      "denominator": null,
+      "detail": "market_payload(window='30d') published no row with personVotes > 0, so no measured quality exists to check. Nothing proven either way.",
+      "evidence": {
+        "rowsWithPersonConsensus": 0
+      },
+      "id": "C2",
+      "row": "V1-63",
+      "status": "blocked",
+      "title": "a measured personManagerQuality of 0.0 stays 0.0"
+    },
+    {
+      "denominator": null,
+      "detail": "market_payload(window='30d') published no personConsensus block on any row.",
+      "evidence": {},
+      "id": "C3",
+      "row": "V1-63",
+      "status": "blocked",
+      "title": "networkConcentration is null when weighted volume is zero"
+    },
+    {
+      "denominator": null,
+      "detail": "served tep=False, derived from the fresh card (edges {'bonus_rec_te': -0.02, 'bonus_fd_te': 0.0}); it DISAGREES with the 'superflex_tep15_ppr1' label.",
+      "evidence": {
+        "cardPresent": true,
+        "cardSaysTep": false,
+        "deployedRule": "card",
+        "labelSaysTep": true,
+        "scoringEdges": {
+          "bonus_fd_te": 0.0,
+          "bonus_rec_te": -0.02
+        },
+        "scoringEvidenceState": "fresh",
+        "scoringProfileLabel": "superflex_tep15_ppr1",
+        "servedIs2te": true,
+        "servedTep": false
+      },
+      "id": "C4",
+      "row": "V1-129",
+      "status": "pass",
+      "title": "target TEP is derived from the scoring card, not the profile label"
+    },
+    {
+      "denominator": null,
+      "detail": "this league's scoring evidence is fresh, so the unproven branch did not execute. Not a pass \u2014 to exercise it, run against a league whose card is stale or absent. Do NOT age or delete a card to manufacture the case.",
+      "evidence": {
+        "scoringEvidenceState": "fresh",
+        "servedTep": false,
+        "unprovableTargetFields": []
+      },
+      "id": "C5",
+      "row": "V1-129",
+      "status": "unmeasurable",
+      "title": "stale or missing scoring evidence leaves TEP UNKNOWN and fails closed"
+    },
+    {
+      "denominator": null,
+      "detail": "the fresh card grants TE no edge over WR/RB ({'bonus_rec_te': -0.02, 'bonus_fd_te': 0.0}) and the served tep is False, against a 'superflex_tep15_ppr1' label that says otherwise.",
+      "evidence": {
+        "bonus_fd_te": 1.0,
+        "bonus_fd_wr": 1.0,
+        "bonus_rec_te": 0.0,
+        "bonus_rec_wr": 0.02,
+        "cardSaysTep": false,
+        "scoringEdges": {
+          "bonus_fd_te": 0.0,
+          "bonus_rec_te": -0.02
+        },
+        "scoringEvidenceState": "fresh",
+        "scoringProfileLabel": "superflex_tep15_ppr1",
+        "servedTep": false
+      },
+      "id": "C6",
+      "row": "V1-129",
+      "status": "pass",
+      "title": "dynasty_main behaves as non-TE-premium under its actual card"
+    },
+    {
+      "denominator": null,
+      "detail": "no crowd ledger for dynasty_main at data/faab/crowd_history_dynasty_main.json. It is gitignored and prod-only. Run the dynasty-crowd-faab timer (or scripts/fetch_crowd_faab.py) and re-check \u2014 do not synthesise rows.",
+      "evidence": {},
+      "id": "C7",
+      "row": "V1-129",
+      "status": "blocked",
+      "title": "comparable crowd population, card-derived vs the retired label rule"
+    },
+    {
+      "denominator": null,
+      "detail": "no crowd ledger here, so the retained population cannot be inspected. Do not synthesise rows.",
+      "evidence": {},
+      "id": "C10",
+      "row": "V1-129",
+      "status": "blocked",
+      "title": "an offense-only population refuses to price IDP"
+    },
+    {
+      "denominator": 8,
+      "detail": "all 8 field paths present; 7 unchecked (producer unavailable).",
+      "evidence": {
+        "checked": 8,
+        "missing": [],
+        "uncheckedBecauseProducerUnavailable": [
+          "crowd-market.state",
+          "crowd-market.targetFormatUnknown",
+          "crowd-market.excludedCounts",
+          "crowd-market.tierCounts",
+          "crowd-market.pricesIdp",
+          "crowd-market.rowsUsed",
+          "crowd-market.rowsTotal"
+        ]
+      },
+      "id": "R1",
+      "row": "-",
+      "status": "pass",
+      "title": "every field this package reads exists in its producer"
+    },
+    {
+      "denominator": null,
+      "detail": "these read server.py's assembled response, so they need --origin (the local one is fine: http://127.0.0.1:8000) and --add-player naming a real free agent.",
+      "evidence": {},
+      "id": "C8",
+      "row": "V1-129",
+      "status": "blocked",
+      "title": "crowd-market refusal reasons are specific and honest"
+    },
+    {
+      "denominator": null,
+      "detail": "these read server.py's assembled response, so they need --origin (the local one is fine: http://127.0.0.1:8000) and --add-player naming a real free agent.",
+      "evidence": {},
+      "id": "C9",
+      "row": "V1-129",
+      "status": "blocked",
+      "title": "the crowd moves the bid only when it was actually admitted"
+    },
+    {
+      "denominator": null,
+      "detail": "systemctl exited 1: System has not been booted with systemd as init system (PID 1). Can't operate.\nFailed to connect to bus: Host is down",
+      "evidence": {},
+      "id": "V57",
+      "row": "V1-57",
+      "status": "blocked",
+      "title": "dynasty-faab-history timer is installed and firing"
+    },
+    {
+      "denominator": null,
+      "detail": "/home/user/riskittogetthebrisket/data/faab/bid_history_dynasty_main.json is absent. With data/faab/ present this is a real failure (the timer ran and produced nothing); without it, this is not the deployed working directory.",
+      "evidence": {},
+      "id": "V57b",
+      "row": "V1-57",
+      "status": "blocked",
+      "title": "own-league bid history exists and is recent"
+    },
+    {
+      "denominator": null,
+      "detail": "the cohort is empty here, so the lane's populated behaviour cannot be measured. It correctly reports cohortCoveragePct: null rather than 0 \u2014 which is the honest-degraded half of the row, but not the whole row. V1-58 is the blocker.",
+      "evidence": {
+        "boardStatus": "cohort_building",
+        "cohortCoveragePct": null,
+        "cohortManagers": 0,
+        "cohortManagersRepresented": 0,
+        "collectResultCarriesStatus": true,
+        "eligibleRosters": 0,
+        "ffpcRosters": 0,
+        "selectedManagers": 0,
+        "sleeperRosters": 0
+      },
+      "id": "V60",
+      "row": "V1-60",
+      "status": "blocked",
+      "title": "the FFPC roster lane is real or honestly unavailable"
+    },
+    {
+      "denominator": null,
+      "detail": "single owner at src/sharp/cohort.py:263; every surface re-exports it.",
+      "evidence": {
+        "definitions": [
+          "src/sharp/cohort.py:263"
+        ]
+      },
+      "id": "V65",
+      "row": "V1-65",
+      "status": "pass",
+      "title": "cohort_members has exactly one definition"
+    },
+    {
+      "denominator": null,
+      "detail": "needs the deployed host: an authenticated /api/sharp/cohort read (V1-58) and a clean journalctl run of dynasty-sharp-discovery -> -records -> -rosters (V1-59). Not closable from a repository, and not to be closed by manufacturing a cohort.",
+      "evidence": {},
+      "id": "B58",
+      "row": "V1-58",
+      "status": "blocked",
+      "title": "Sharp cohort proven populated in production"
+    },
+    {
+      "denominator": null,
+      "detail": "needs the deployed host: an authenticated /api/sharp/cohort read (V1-58) and a clean journalctl run of dynasty-sharp-discovery -> -records -> -rosters (V1-59). Not closable from a repository, and not to be closed by manufacturing a cohort.",
+      "evidence": {},
+      "id": "B59",
+      "row": "V1-59",
+      "status": "blocked",
+      "title": "Sharp bootstrap stops failing"
+    }
+  ],
+  "counts": {
+    "blocked": 12,
+    "pass": 5,
+    "unmeasurable": 1
+  },
+  "deployed": {
+    "dataDirPresent": true,
+    "headSha": "cdeb7fb54f9c6bb50b90c4c94b0f87f926b82839",
+    "workingDirectory": "/home/user/riskittogetthebrisket"
+  },
+  "league": "dynasty_main",
+  "mode": "onbox",
+  "origin": null
+}
