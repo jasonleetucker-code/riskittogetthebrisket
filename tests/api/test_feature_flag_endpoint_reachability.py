@@ -150,3 +150,116 @@ def test_reachable_routes_sees_the_run_in_threadpool_indirection():
         "reachable_routes_for_flag found nothing -- the run_in_threadpool "
         "indirection is invisible again, the exact false negative this guards"
     )
+
+
+# ── Lane 4: no Sharp/FAAB surface may be silently flag-gated ──────────
+#
+# V1 requires, for every Market/FAAB/Sharp surface, that "a flag-off
+# surface cannot masquerade as implemented". Today that holds for the
+# strongest possible reason: **there is no flag at all on any of them.**
+# Measured on this tree, zero ``is_enabled`` call sites exist anywhere
+# under ``src/sharp/`` or in the FAAB modules, so no operator toggle can
+# make one of those boards vanish while a V1 row still reads
+# IMPLEMENTED.
+#
+# That is a property of the current tree, not a law, which is exactly why
+# it needs a guard rather than a sentence in a document. If a future
+# change gates one of these surfaces, this test fails and forces the
+# author to register the flag and state its default -- the same
+# discipline ``_GATE_STATUS`` already imposes elsewhere -- instead of the
+# board disappearing quietly.
+#
+# Deliberately NOT asserting "no flag may ever reach these routes".
+# ``te_basis_conversion`` transitively reaches
+# ``/api/sharp/roster-percentage`` because the board consumes canonical
+# board values, and that is correct: it is a canonical-value flag, it is
+# not referenced anywhere in ``src/sharp/``, and forbidding it would be
+# forbidding the Sharp board from reading the board.
+
+_LANE4_MODULE_ROOTS = ("src/sharp/",)
+_LANE4_MODULE_FILES = (
+    "src/trade/faab_engine.py",
+    "src/trade/faab_recommender.py",
+    "src/trade/faab_comparability.py",
+    "src/trade/faab_history.py",
+    "src/trade/faab_contention.py",
+    "src/api/faab_analytics.py",
+)
+
+
+def _lane4_gate_sites() -> dict[tuple[str, str], set[str]]:
+    """``{(module, function): {flag}}`` for every gate inside Lane 4 code."""
+    index = fr._build_index()
+    found: dict[tuple[str, str], set[str]] = {}
+    for key, flags in index.gate_flags.items():
+        module = key[0].replace("\\", "/")
+        in_lane4 = module.startswith(_LANE4_MODULE_ROOTS) or module in _LANE4_MODULE_FILES
+        if in_lane4 and flags:
+            found[key] = set(flags)
+    return found
+
+
+def test_no_sharp_or_faab_surface_is_gated_by_an_unregistered_flag():
+    """A Lane-4 gate is allowed -- an *unaccountable* one is not.
+
+    An ``is_enabled("typo_name")`` raises on read, and an unregistered
+    flag has no ``_DEFAULTS`` entry and no ``_GATE_STATUS`` row, so
+    nothing tells an operator the surface is off. Today this passes
+    vacuously (there are no Lane-4 gates at all); the assertion is
+    written to stay meaningful the moment one appears.
+    """
+    from src.api import feature_flags
+
+    registered = set(feature_flags.registered_flags())
+    offenders = {
+        f"{module}::{func}": sorted(flags - registered)
+        for (module, func), flags in _lane4_gate_sites().items()
+        if flags - registered
+    }
+    assert not offenders, (
+        f"Lane-4 (Sharp/FAAB) code gates on unregistered flags: {offenders}. "
+        "Register the flag in feature_flags._DEFAULTS and classify it in "
+        "_GATE_STATUS, so an operator can see the surface is switched off."
+    )
+
+
+def test_a_lane4_gate_defaulting_off_would_hide_a_shipped_surface():
+    """Any Lane-4 gate must default ON, or be explicitly acknowledged.
+
+    This is the "flag-off surface masquerading as implemented" failure
+    directly: a Sharp or FAAB board gated by a flag that defaults
+    ``False`` renders as empty/absent while its V1 row still claims the
+    capability ships. Zero such gates exist today.
+    """
+    from src.api import feature_flags
+
+    hidden = {
+        f"{module}::{func}": flag
+        for (module, func), flags in _lane4_gate_sites().items()
+        for flag in flags
+        if flag in feature_flags._DEFAULTS and not feature_flags._DEFAULTS[flag]
+    }
+    assert not hidden, (
+        f"Lane-4 surface gated by a flag that defaults OFF: {hidden}. "
+        "A board that vanishes by default must not be reported as a shipped "
+        "V1 capability -- either default it ON or record the row as gated."
+    )
+
+
+def test_the_lane4_gate_scan_can_actually_see_a_gate():
+    """Non-vacuity control.
+
+    Both assertions above currently pass because ``_lane4_gate_sites()``
+    is EMPTY. That is the finding, but an empty scan is also exactly what
+    a broken scan produces, and the two must not be indistinguishable.
+    This proves the scanner resolves real gates in the real tree by
+    pointing it at a module that genuinely has one.
+    """
+    index = fr._build_index()
+    gated = {key[0].replace("\\", "/") for key, flags in index.gate_flags.items() if flags}
+    assert gated, "the gate scan found no is_enabled call sites anywhere -- it is broken"
+    # The Lane-4 result is a real measurement over a working scanner.
+    assert "src/api/gameplan.py" in gated, (
+        "expected the known reception_scoring_fit gate in src/api/gameplan.py; "
+        f"scanner saw {sorted(gated)[:10]}"
+    )

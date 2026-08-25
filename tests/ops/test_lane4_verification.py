@@ -576,6 +576,56 @@ class TestItDetectsIdpRefusal:
         assert report.checks[0].status == verify.BLOCKED
 
 
+#: A ``/api/...`` token followed by one of these is a FILE PATH, not a route
+#: claim -- ``tests/api/test_x.py``, ``frontend/app/api/.../route.js``. A
+#: procedures document legitimately cites the test file an operator should run,
+#: and before this exclusion existed such a citation was read as a phantom
+#: route and failed the guard below.
+_SOURCE_FILE_SUFFIXES = (".py", ".js", ".jsx", ".ts", ".tsx", ".md", ".json")
+
+#: The corrections quote the retired names in order to say they are wrong.
+#: Quoting a wrong name must stay legal, or the document cannot record its own
+#: history -- so the whole retired prefix is exempt, and naming it is the point
+#: rather than an oversight.
+_RETIRED_ROUTE_PREFIX = "/api/faab"
+
+
+def _routes_named_in(text: str) -> set[str]:
+    """Every ``/api/...`` token in ``text`` that is a route CLAIM.
+
+    Pure over its input so the extraction rule can be exercised against
+    synthetic strings. Asserting it against the real document instead would be
+    vacuous: every route that appears there as a curl target also appears in
+    prose, so a rule that dropped the curl form entirely would still leave the
+    route in the set and the test would pass while the rule was broken. That
+    is not hypothetical -- it is what a first cut of these tests did.
+
+    The exclusion keys on the token's **suffix**, never on what PRECEDES it.
+    ``/api/`` sits mid-token in both a curl target
+    (``https://chaseupside.com/api/sharp/cohort``) and a file path
+    (``tests/api/test_x.py``), so a "must be preceded by a delimiter" rule
+    cannot tell a route from a path -- it just drops both.
+    """
+    import re
+
+    named: set[str] = set()
+    for match in re.finditer(r"/api/[a-zA-Z0-9/_{}-]+", text):
+        token = match.group(0)
+        if token.startswith(_RETIRED_ROUTE_PREFIX):
+            continue
+        # The character class excludes ``.``, so the match stops immediately
+        # before any extension and the tail is inspectable here.
+        if text[match.end() :].startswith(_SOURCE_FILE_SUFFIXES):
+            continue
+        named.add(token.rstrip("/.,`*"))
+    return named
+
+
+def _routes_named_by_the_procedures_doc() -> set[str]:
+    doc = REPO_ROOT / "docs" / "lane4" / "L2_L3_VERIFICATION_PROCEDURES.md"
+    return _routes_named_in(doc.read_text(encoding="utf-8"))
+
+
 class TestTheDocumentItselfNamesRealRoutes:
     """The regression guard on the corrected procedures document.
 
@@ -585,21 +635,8 @@ class TestTheDocumentItselfNamesRealRoutes:
     """
 
     def test_every_api_path_in_the_procedures_doc_is_a_real_route(self):
-        import re
-
-        doc = REPO_ROOT / "docs" / "lane4" / "L2_L3_VERIFICATION_PROCEDURES.md"
-        text = doc.read_text(encoding="utf-8")
+        named = _routes_named_by_the_procedures_doc()
         registered = {path for path, _method in verify._registered_routes_static()}
-        # The corrections quote the retired names in order to say they are
-        # wrong. Quoting a wrong name must stay legal, or the document cannot
-        # record its own history -- so the whole retired prefix is exempt, and
-        # naming it is the point rather than an oversight.
-        retired_prefix = "/api/faab"
-        named = {
-            m.rstrip("/.,`*")
-            for m in re.findall(r"/api/[a-zA-Z0-9/_{}-]+", text)
-            if not m.startswith(retired_prefix)
-        }
         assert named, "the guard must not pass by matching nothing"
         missing = sorted(n for n in named if n not in registered and not n.endswith("/*"))
         # `/api/sharp/` appears as a prefix in prose; allow bare prefixes that
@@ -724,6 +761,56 @@ class TestTheRequiredListsCannotBeSilentlyEmptied:
         turned on. If one stops being guarded, the correction it protects can
         silently rot back."""
         assert field in verify.REQUIRED_FIELDS
+
+    def test_a_route_named_only_as_a_curl_target_is_still_scanned(self):
+        """The exclusion must not be re-implemented as a LOOKBEHIND.
+
+        In ``https://chaseupside.com/api/sharp/cohort`` the ``/api/`` is
+        preceded by the ``m`` of ``.com``, exactly as it is preceded by the
+        ``s`` of ``tests`` in a file path. Suppressing the file-path false
+        positive by requiring a delimiter before the token therefore drops
+        curl targets too -- and a procedures document whose whole purpose is
+        recording curl commands would then be checked barely at all.
+
+        Asserted on synthetic text rather than the real document ON PURPOSE:
+        every route the doc curls is also named in prose, so a broken rule
+        still leaves it in the set and a test over the real file passes while
+        proving nothing.
+        """
+        only_curled = "curl -s 'https://chaseupside.com/api/sharp/cohort' -b \"$C\"\n"
+        assert _routes_named_in(only_curled) == {"/api/sharp/cohort"}
+
+    def test_a_route_named_only_inside_a_source_file_path_is_not_a_route(self):
+        """The failure this exclusion was written for.
+
+        ``tests/api/test_feature_flag_endpoint_reachability.py`` contains the
+        substring ``/api/test_feature_flag_endpoint_reachability``. Citing that
+        file -- which the procedures document does, because an operator needs
+        to know which suite to run -- produced a phantom route and failed the
+        guard.
+        """
+        cited = "python -m pytest tests/api/test_feature_flag_endpoint_reachability.py -q\n"
+        assert _routes_named_in(cited) == set()
+        # …and the real document, which now contains exactly that citation,
+        # carries no phantom route either.
+        phantoms = sorted(
+            n for n in _routes_named_by_the_procedures_doc() if n.startswith("/api/test_")
+        )
+        assert phantoms == [], f"file paths are being read as routes: {phantoms}"
+
+    def test_the_two_rules_do_not_cancel_each_other_out(self):
+        """Non-vacuity for the pair.
+
+        Both tests above assert on a SINGLE-token string, so a rule that
+        returned the empty set for everything would pass the second and fail
+        the first, and one that returned every token would do the reverse.
+        This pins that one string containing both forms splits them.
+        """
+        mixed = (
+            "run `pytest tests/api/test_x.py`, then "
+            "curl 'https://chaseupside.com/api/sharp/market'\n"
+        )
+        assert _routes_named_in(mixed) == {"/api/sharp/market"}
 
 
 # ── V1-65: the league-population census ────────────────────────────
