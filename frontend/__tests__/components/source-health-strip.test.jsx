@@ -349,3 +349,120 @@ describe("SourceHealthStrip · run failures it cannot attribute (F-12)", () => {
     expect(document.body.textContent).toMatch(/matched by key/);
   });
 });
+
+// The server now speaks ONE vocabulary (F-12 / census S-2 / V1-76).
+//
+// ``server._source_health`` resolves each run-named failure to the
+// registry keys it concerns via its single
+// ``registry_keys_for_run_source`` owner, and publishes them as
+// ``source_failures[].registryKeys`` plus the ``*_source_keys``
+// registry-key projections of the run-state lists.  The frontend needed
+// no mapping of its own — it consumes the resolved keys.  A failure that
+// round-trips to a rendered row now LIGHTS THAT ROW (not the
+// unattributable panel); a failure that resolves to nothing (an
+// unverified run name, fail-closed) is still shown verbatim as
+// unattributable.
+describe("SourceHealthStrip · server-resolved attribution (F-12 / V1-76)", () => {
+  /** The resolved shape: run-named failures carry their registry keys,
+      and run-state lists carry a registry-key projection. */
+  const RESOLVED = {
+    source_health: {
+      source_runtime: {
+        overall_status: "partial",
+        enabled_sources: ["KTC", "IDPTradeCalc"],
+        failed_sources: ["KTC"],
+        failed_source_keys: ["ktcSfTep"],
+        partial_sources: ["DLF_LocalCSV"],
+        partial_source_keys: ["dlfSf"],
+        timed_out_sources: [],
+        timed_out_source_keys: [],
+        finished_at: new Date().toISOString(),
+      },
+      registered_sources: ["ktcSfTep", "idpTradeCalc", "dlfSf"],
+      source_counts: { ktcSfTep: 502, idpTradeCalc: 911, dlfSf: 400 },
+      unmeasured_sources: [],
+      sources: {
+        ktcSfTep: { lastFetched: new Date().toISOString(), ageHours: 0.2 },
+        idpTradeCalc: { lastFetched: new Date().toISOString(), ageHours: 0.2 },
+        dlfSf: { lastFetched: new Date().toISOString(), ageHours: 0.2 },
+      },
+      source_failures: [
+        {
+          source: "KTC",
+          reason: "failed",
+          registryKeys: ["ktcSfTep"],
+          details: { message: "KTC blocked: cloudflare challenge" },
+        },
+        {
+          source: "DLF_LocalCSV",
+          reason: "partial",
+          registryKeys: ["dlfSf"],
+          details: { message: "source completed with zero mapped values" },
+        },
+      ],
+      missing_sources: [],
+    },
+  };
+
+  it("lights the resolved rows instead of stranding the failures", async () => {
+    mockStatus({ body: RESOLVED });
+    const { container } = render(<SourceHealthStrip variant="page" />);
+    await waitFor(() => expect(screen.getByRole("region")).toBeTruthy());
+    screen.getByRole("button").click();
+
+    // KTC failed -> ktcSfTep row down; DLF_LocalCSV partial -> dlfSf row warn.
+    await waitFor(() =>
+      expect(container.querySelectorAll(".source-health-row--down").length).toBe(1),
+    );
+    expect(container.querySelectorAll(".source-health-row--warn").length).toBe(1);
+    // ...and the resolved failure reason reaches the row it lit up.
+    expect(document.body.textContent).toMatch(/cloudflare challenge/);
+    expect(document.body.textContent).toMatch(/zero mapped values/);
+  });
+
+  it("does not double-report a resolved failure as unattributable", async () => {
+    mockStatus({ body: RESOLVED });
+    const { container } = render(<SourceHealthStrip variant="page" />);
+    await waitFor(() => expect(screen.getByRole("region")).toBeTruthy());
+    screen.getByRole("button").click();
+
+    await waitFor(() =>
+      expect(container.querySelectorAll(".source-health-row").length).toBe(3),
+    );
+    // Every failure attributed to a row -> the unattributable panel is empty.
+    expect(
+      container.querySelectorAll(".source-health-unattributed-row").length,
+    ).toBe(0);
+  });
+
+  it("still strands a failure that resolves to no registered row", async () => {
+    // Fail-closed: an unverified run name carries empty registryKeys and
+    // no key projection, so it cannot be pinned to a row and stays
+    // visible under its own name.
+    const body = JSON.parse(JSON.stringify(RESOLVED));
+    body.source_health.source_runtime.failed_sources = ["SomethingWeNeverRan"];
+    body.source_health.source_runtime.failed_source_keys = [];
+    body.source_health.source_runtime.partial_sources = [];
+    body.source_health.source_runtime.partial_source_keys = [];
+    body.source_health.source_failures = [
+      {
+        source: "SomethingWeNeverRan",
+        reason: "failed",
+        registryKeys: [],
+        details: { message: "mystery outage" },
+      },
+    ];
+    mockStatus({ body });
+    const { container } = render(<SourceHealthStrip variant="page" />);
+    await waitFor(() => expect(screen.getByRole("region")).toBeTruthy());
+    screen.getByRole("button").click();
+
+    await waitFor(() =>
+      expect(
+        container.querySelectorAll(".source-health-unattributed-row").length,
+      ).toBe(1),
+    );
+    expect(container.querySelectorAll(".source-health-row--down").length).toBe(0);
+    expect(document.body.textContent).toMatch(/mystery outage/);
+  });
+});

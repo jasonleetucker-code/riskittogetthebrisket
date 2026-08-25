@@ -1738,6 +1738,30 @@ def _build_source_health_snapshot(
         else:
             missing.append(key)
 
+    # F-12 / V1-76: the ONE resolver from a scraper RUN name to the
+    # canonical registry keys it concerns.  Failures arrive named in the
+    # scraper's run-name vocabulary (``KTC``, ``DLF_LocalCSV`` …) while
+    # every population/coverage field here is registry-keyed
+    # (``ktcSfTep``, ``dlfSf`` …), so a failure could not be joined back
+    # to its rows.  Resolving here — the one seam that holds both
+    # vocabularies — is what the health surface delegates to rather than
+    # inventing a second owner of source identity.  Fails closed: an
+    # unrecognised run name resolves to ``[]`` and stays unattributed.
+    try:
+        from src.api.data_contract import registry_keys_for_run_source
+    except Exception:  # pragma: no cover - resolver import failure
+
+        def registry_keys_for_run_source(_run_source: str) -> list[str]:
+            return []
+
+    def _registry_keys_for_run_names(names: list) -> list[str]:
+        out: list[str] = []
+        for n in names:
+            for k in registry_keys_for_run_source(str(n)):
+                if k not in out:
+                    out.append(k)
+        return out
+
     failures: list[dict] = []
     seen_failures: set[tuple[str, str, str]] = set()
 
@@ -1755,6 +1779,11 @@ def _build_source_health_snapshot(
                 "source": src,
                 "reason": rsn,
                 "details": d,
+                # The canonical registry keys this run-named failure
+                # concerns, so the health surface can join it back to its
+                # rows.  Empty when the run name resolves to nothing —
+                # fail closed, do not guess a row.
+                "registryKeys": registry_keys_for_run_source(src),
             }
         )
 
@@ -1857,6 +1886,16 @@ def _build_source_health_snapshot(
             "partial_sources": sorted([str(s) for s in partial_sources]),
             "timed_out_sources": sorted([str(s) for s in timed_out_sources]),
             "failed_sources": sorted([str(s) for s in failed_sources]),
+            # F-12 / V1-76: the same lists projected into registry-key
+            # space, so a health row (registry-keyed) can light up from
+            # run state on its own.  Additive — the run-name lists above
+            # are retained as provenance.  Empty entries fail closed: a
+            # run name that resolves to no registered key contributes
+            # nothing here and stays visible under its own name in
+            # ``source_failures``.
+            "failed_source_keys": sorted(_registry_keys_for_run_names(failed_sources)),
+            "partial_source_keys": sorted(_registry_keys_for_run_names(partial_sources)),
+            "timed_out_source_keys": sorted(_registry_keys_for_run_names(timed_out_sources)),
         }
 
     if not partial_run:

@@ -1148,6 +1148,59 @@ def critical_primary_for_run_source(run_source: str) -> str | None:
     return None
 
 
+def _run_source_names_match(reported: str, declared: str) -> bool:
+    """True if a REPORTED run name and a DECLARED one are the same identity.
+
+    The same qualifier rule :func:`critical_primary_for_run_source` uses —
+    exact match, or ``<primary>_<qualifier>`` in EITHER direction — so a
+    primary name (``DLF``) and its transport-qualified form
+    (``DLF_LocalCSV``) are never two incomparable labels.
+    """
+    if not reported or not declared:
+        return False
+    if reported == declared:
+        return True
+    return reported.startswith(declared + "_") or declared.startswith(reported + "_")
+
+
+def registry_keys_for_run_source(run_source: str) -> list[str]:
+    """Registry keys a scraper RUN name governs, in registry order.
+
+    The single resolver from a ``sourceRunSummary`` run name to the
+    canonical ranking-registry keys it concerns (F-12 / census S-2 /
+    V1-76).  Where :func:`critical_primary_for_run_source` answers "is
+    this run name a CRITICAL primary" for the contract-health gate, this
+    answers "which registry ROWS does this run name concern" for the
+    health surface — the same vocabulary problem, one step further.
+
+    The mapping is DECLARED on each :data:`_RANKING_SOURCES` entry's
+    ``run_source`` field — the registry is the source-identity owner, so
+    this reads that owner rather than keeping a second parallel table.
+    It is declared only where the in-process Dynasty Scraper run governs
+    the source (the only run names that can reach
+    ``sourceRunSummary``): ``KTC`` → ``ktcSfTep``, ``IDPTradeCalc`` →
+    ``idpTradeCalc``, and ``DLF_LocalCSV`` → the four DLF boards it loads
+    from local CSVs (V1-80 / F-17).  A registry key fetched by its own
+    ``scripts/`` timer declares no ``run_source`` and a scrape-run
+    failure can never name it.
+
+    Returns ``[]`` when no registered source declares this run name: the
+    fail-closed state, so an unverified failure stays unattributed rather
+    than being pinned to a guessed row.  MISSING IS NEVER a wrong guess.
+    """
+    name = str(run_source or "").strip()
+    if not name:
+        return []
+    out: list[str] = []
+    for src in _RANKING_SOURCES:
+        declared = str(src.get("run_source") or "").strip()
+        if declared and _run_source_names_match(name, declared):
+            key = str(src.get("key") or "")
+            if key and key not in out:
+                out.append(key)
+    return out
+
+
 def _build_source_timestamps() -> dict[str, dict[str, Any]]:
     """Return per-source freshness block with mtimes + staleness flags.
 
@@ -1348,6 +1401,12 @@ _RANKING_SOURCES: list[dict[str, Any]] = [
         # finder + per-source winner row on /trade can keep displaying
         # both values side-by-side.  Only the blend vote was removed.
         "key": "ktcSfTep",
+        # F-12 / V1-76: the Dynasty Scraper run name that governs this
+        # board, so a ``sourceRunSummary`` failure round-trips to this
+        # registry key (``registry_keys_for_run_source``).  Declared only
+        # where the in-process scraper run produces the source; keys
+        # fetched by their own ``scripts/`` timer omit it and fail closed.
+        "run_source": "KTC",
         # C1-SRC-02: DYNASTY is PROVEN per endpoint, never inferred from the
         # provider being one we otherwise trust.  UNKNOWN fails closed.
         "game_type": GAME_TYPE_DYNASTY,
@@ -1381,6 +1440,7 @@ _RANKING_SOURCES: list[dict[str, Any]] = [
         # row sets (offense vs IDP positions), so sourceRanks["idpTradeCalc"]
         # is written exactly once per row.
         "key": "idpTradeCalc",
+        "run_source": "IDPTradeCalc",  # F-12 / V1-76 (see ktcSfTep)
         # C1-SRC-02: DYNASTY is PROVEN per endpoint, never inferred from the
         # provider being one we otherwise trust.  UNKNOWN fails closed.
         "game_type": GAME_TYPE_DYNASTY,
@@ -1435,6 +1495,10 @@ _RANKING_SOURCES: list[dict[str, Any]] = [
         # preventing false 1-src flags on fringe offense players
         # that DLF SF was never going to list.
         "key": "dlfSf",
+        # F-12 / V1-76: the scraper loads all four DLF boards under the
+        # single run name ``DLF_LocalCSV`` (V1-80 / F-17), so a DLF run
+        # failure round-trips to every DLF registry key.
+        "run_source": "DLF_LocalCSV",
         # C1-SRC-02: DYNASTY is PROVEN per endpoint, never inferred from the
         # provider being one we otherwise trust.  UNKNOWN fails closed.
         "game_type": GAME_TYPE_DYNASTY,
@@ -1480,6 +1544,7 @@ _RANKING_SOURCES: list[dict[str, Any]] = [
         # weight scales contribution down so the rookie board never
         # overwhelms the veteran-rich retail/expert blend.
         "key": "dlfRookieSf",
+        "run_source": "DLF_LocalCSV",  # F-12 / V1-76 (see dlfSf)
         # C1-SRC-02: DYNASTY is PROVEN per endpoint, never inferred from the
         # provider being one we otherwise trust.  UNKNOWN fails closed.
         "game_type": GAME_TYPE_DYNASTY,
@@ -1529,6 +1594,7 @@ _RANKING_SOURCES: list[dict[str, Any]] = [
         # the best IDP in the shared market (typically ~30-50), which
         # correctly calibrates DLF against the retail offense market.
         "key": "dlfIdp",
+        "run_source": "DLF_LocalCSV",  # F-12 / V1-76 (see dlfSf)
         # C1-SRC-02: DYNASTY is PROVEN per endpoint, never inferred from the
         # provider being one we otherwise trust.  UNKNOWN fails closed.
         "game_type": GAME_TYPE_DYNASTY,
@@ -1567,6 +1633,7 @@ _RANKING_SOURCES: list[dict[str, Any]] = [
         # translated against IDPTC's ladder.  depth=50 matches the
         # typical export size.
         "key": "dlfRookieIdp",
+        "run_source": "DLF_LocalCSV",  # F-12 / V1-76 (see dlfSf)
         # C1-SRC-02: DYNASTY is PROVEN per endpoint, never inferred from the
         # provider being one we otherwise trust.  UNKNOWN fails closed.
         "game_type": GAME_TYPE_DYNASTY,
