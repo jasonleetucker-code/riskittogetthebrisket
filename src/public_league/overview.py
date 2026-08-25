@@ -385,7 +385,11 @@ def _league_vitals(snapshot: PublicLeagueSnapshot) -> dict[str, Any]:
                 total_scored_weeks += 1
     return {
         "seasonsCovered": len(snapshot.seasons),
-        "managers": len(snapshot.managers.by_owner_id),
+        # Current-state vital ("At a glance") — must match the forward-facing
+        # ``league.managers`` directory in the same payload (to_public_list()).
+        # The all-time count including retirees is a DIFFERENT quantity and
+        # would need its own label (V1-96 residual).
+        "managers": len(snapshot.managers.ordered_managers()),
         "totalTrades": total_trades,
         "totalWaivers": total_waivers,
         "totalScoredWeeks": total_scored_weeks,

@@ -265,6 +265,43 @@ class SectionCoverageTests(unittest.TestCase):
         ):
             self.assertIn(block, s)
 
+    def test_archives_manager_index_covers_every_season_result_owner(self) -> None:
+        """V1-96 residual (C9-HIST-01): the archives manager index must
+        cover the rows it indexes.
+
+        ``seasonResults`` emits every historical standings row, including
+        retirees' real past seasons.  A manager index built from the
+        forward-facing directory (``ordered_managers()`` default,
+        retirees excluded) therefore cannot find owners its own archive
+        contains.  The invariant — not a count literal: every ownerId
+        appearing in seasonResults appears in the manager index.
+        """
+        from src.public_league import archives
+
+        install_stubs(build_stub_client())
+        snapshot = build_public_snapshot("L2025", max_seasons=2)
+        # owner-X held roster 4 in 2024 only — exactly the retiree shape.
+        # Flag them retired the way build_manager_registry models it
+        # (Manager.is_retired), so the fixture contains a retired manager
+        # WITH historical season rows.
+        snapshot.managers.by_owner_id["owner-X"].is_retired = True
+
+        section = archives.build_section(snapshot)
+        season_result_owners = {row["ownerId"] for row in section["seasonResults"]}
+        index_owners = {row["ownerId"] for row in section["managers"]}
+
+        # Guard against vacuity: the retiree really is in the archive rows.
+        self.assertIn("owner-X", season_result_owners)
+        self.assertLessEqual(
+            season_result_owners,
+            index_owners,
+            msg=(
+                "archives.seasonResults contains owners the archives manager "
+                "index cannot find: "
+                f"{sorted(season_result_owners - index_owners)}"
+            ),
+        )
+
     def test_luck_section(self) -> None:
         s = self.contract["sections"]["luck"]
         for block in (
