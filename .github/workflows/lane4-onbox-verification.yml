@@ -66,7 +66,12 @@ jobs:
   lane4-onbox:
     name: Lane 4 on-box verification
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    # 15 was too short to distinguish "hung" from "slow": the box is
+    # spending ~29.5 min of CPU per half-hour on the crashlooping
+    # chaseupside-ffpc-sharp.service (V1-59), so everything on it is slow.
+    # 30 gives a genuinely stuck check somewhere to fail rather than
+    # racing the budget.
+    timeout-minutes: 30
     environment: production
     steps:
       - name: Configure production SSH
@@ -119,7 +124,18 @@ jobs:
           [ -x "$PY" ] || PY="$APP_DIR/venv/bin/python"
           [ -x "$PY" ] || PY=python3
           # No --out: nothing is written to production disk.
-          exec "$PY" scripts/verify_lane4_production.py \
+          #
+          # -u is LOAD-BEARING, not hygiene.  Python's stdout is
+          # block-buffered when it is not a TTY, and this runs through
+          # `ssh | tee` -- no TTY at any hop.  The first dispatch (run
+          # 32826823646) was killed by the step timeout and the artifact
+          # came back 274 bytes: the header echoes only, with every check
+          # this script had emitted still sitting unflushed in the buffer
+          # when the process died.  `if: always()` on the upload guarantees
+          # the FILE arrives, not that it has anything in it.  That made a
+          # hang and a slow-but-working run indistinguishable, which is the
+          # one thing an instrument must never do.
+          exec "$PY" -u scripts/verify_lane4_production.py \
             --mode onbox --league "$LEAGUE_KEY"
           REMOTE
           echo "verifier_exit=$rc" >> "$GITHUB_OUTPUT"
