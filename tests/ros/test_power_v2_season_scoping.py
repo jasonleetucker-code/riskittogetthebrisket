@@ -353,3 +353,336 @@ class TestUnrankableUnaffected:
         for row in out["currentRanking"]:
             assert row["powerScore"] is None
             assert row["rank"] is None
+
+
+#: V1-52 follow-up 2 — the PRODUCTION shape, which no fixture above has:
+#: a scoreless CURRENT season sitting after prior scored seasons. Every
+#: other two-season fixture in this file gives 2026 real scores, so the
+#: retired ``season is seasons_sorted[-1]`` guard fired and the defect was
+#: invisible. Here 2026 has no matchups at all — exactly what production
+#: reports in preseason (``weeksPlayed 0``) — so ``seasons_sorted[-1]`` is
+#: a season the accumulation loop ``continue``s straight past.
+#:
+#: 2025 runs FOUR weeks against ``_RECENT_WINDOW = 3`` deliberately: the
+#: trailing window must drop week 1, so a buffer that never slid would
+#: give alpha 265.0 rather than 20.0 and the test would catch that too.
+_RECENT_ROSTERS = [{"roster_id": 1, "owner_id": "alpha"}, {"roster_id": 2, "owner_id": "bravo"}]
+_RECENT_SEASON_2025_SCORES = {
+    1: {1: 1000.0, 2: 0.0},
+    2: {1: 10.0, 2: 100.0},
+    3: {1: 20.0, 2: 200.0},
+    4: {1: 30.0, 2: 300.0},
+}
+#: Trailing-3 means over weeks 2-4, week 1 having slid out of the window.
+_ALPHA_RECENT = 20.0
+_BRAVO_RECENT = 200.0
+
+
+def _preseason_shape_snapshot() -> PublicLeagueSnapshot:
+    """Prior scored season + scoreless current season."""
+    season_2025 = _season(
+        "2025", "L2025", _RECENT_ROSTERS, _RECENT_SEASON_2025_SCORES, is_complete=True
+    )
+    season_2026 = _season("2026", "L2026", _RECENT_ROSTERS, {}, is_complete=False)
+    registry = _registry_with(_RECENT_ROSTERS, "L2025", "L2026")
+    return PublicLeagueSnapshot(
+        root_league_id="L2026",
+        generated_at="2026-08-21T00:00:00Z",
+        seasons=[season_2026, season_2025],
+        managers=registry,
+    )
+
+
+class TestRecentFormSurvivesAScorelessCurrentSeason:
+    """``recent`` carries 0.12 of ``WEIGHTS`` — 21.8% of the results-only
+    score, whose active weights sum to 0.55. Under the retired binding it
+    was a constant 0.5 for every owner in every preseason, with a "0.0"
+    recentAvg rendered as though it had been observed."""
+
+    def test_the_fixture_really_is_the_preseason_shape(self):
+        """Non-vacuity: if 2026 ever gains scores this fixture stops
+        discriminating, exactly as the older ones already fail to."""
+        snap = _preseason_shape_snapshot()
+        newest = max(s.season for s in snap.seasons)
+        assert newest == "2026"
+        scoreless = next(s for s in snap.seasons if s.season == "2026")
+        assert not scoreless.matchups_by_week, "2026 must be scoreless for this to test anything"
+
+    def test_recent_avg_is_the_last_scored_seasons_trailing_window(self):
+        out = power_v2.build_section(_preseason_shape_snapshot(), lens=power_v2.LENS_RESULTS_ONLY)
+        rows = out["currentRanking"]
+        assert _row(rows, "alpha")["components"]["recentAvg"] == pytest.approx(_ALPHA_RECENT)
+        assert _row(rows, "bravo")["components"]["recentAvg"] == pytest.approx(_BRAVO_RECENT)
+
+    def test_recent_percentiles_are_measured_not_a_shared_default(self):
+        out = power_v2.build_section(_preseason_shape_snapshot(), lens=power_v2.LENS_RESULTS_ONLY)
+        rows = out["currentRanking"]
+        alpha = _row(rows, "alpha")["components"]["recent"]
+        bravo = _row(rows, "bravo")["components"]["recent"]
+        assert {alpha, bravo} != {0.5}, (
+            "every owner sharing the 0.5 midpoint is the signature of an "
+            "unmeasured component, not a real tie"
+        )
+        assert bravo > alpha
+
+    def test_all_play_also_survives_the_scoreless_season(self):
+        """``last_season_allplay_share`` resets alongside it, so the two
+        cannot disagree about which season they describe."""
+        out = power_v2.build_section(_preseason_shape_snapshot(), lens=power_v2.LENS_RESULTS_ONLY)
+        rows = out["currentRanking"]
+        shares = {r["ownerId"]: r["components"]["all_play"] for r in rows}
+        assert shares["bravo"] > shares["alpha"]
+
+    def test_recent_still_carries_its_declared_weight(self):
+        """Guards the other direction: a fix that silently dropped the
+        component would also stop it being a constant."""
+        out = power_v2.build_section(_preseason_shape_snapshot(), lens=power_v2.LENS_RESULTS_ONLY)
+        assert out["effectiveWeights"].get("recent") == power_v2.WEIGHTS["recent"]
+
+
+# ── Missing is never zero (owner invariant) ────────────────────────────
+#
+# The first repair in this file bound recent form to the last SCORED
+# season. That fixed WHICH season it describes but left the unmeasured
+# case coerced: ``recent = ... if rb else 0.0``, which every owner shared,
+# so ``_percentile`` returned a confident 0.5 for all of them. Per the
+# owner invariant, unmeasured must stay unmeasured -- never 0.0, never a
+# bottom percentile, never a neutral 0.5 kept merely so a number exists.
+#
+# Two distinct cases, deliberately tested apart because they resolve
+# through different mechanisms:
+#   (a) NOBODY has recent form  -> the component is unmeasurable
+#       league-wide and drops out of the weight budget entirely.
+#   (b) ONE owner lacks it while others have it -> the component is
+#       measurable, but THIS owner's value is unknown.
+
+
+def _no_scored_weeks_snapshot() -> PublicLeagueSnapshot:
+    """Case (a): a league whose every season is scoreless."""
+    rosters = [{"roster_id": 1, "owner_id": "alpha"}, {"roster_id": 2, "owner_id": "bravo"}]
+    season_2025 = _season("2025", "L2025", rosters, {}, is_complete=True)
+    season_2026 = _season("2026", "L2026", rosters, {}, is_complete=False)
+    return PublicLeagueSnapshot(
+        root_league_id="L2026",
+        generated_at="2026-08-25T00:00:00Z",
+        seasons=[season_2026, season_2025],
+        managers=_registry_with(rosters, "L2025", "L2026"),
+    )
+
+
+#: Case (b): three owners, but ``carol`` sits out the last SCORED season
+#: (2025). She played 2024, so a career-scoped or unreset accumulator
+#: would hand her a stale 2024 recent average -- which is the other way
+#: this can go wrong, and is why she has real 2024 scores rather than
+#: none at all.
+_ABSENT_ROSTERS_2024 = [
+    {"roster_id": 1, "owner_id": "alpha"},
+    {"roster_id": 2, "owner_id": "bravo"},
+    {"roster_id": 3, "owner_id": "carol"},
+]
+_ABSENT_ROSTERS_2025 = [
+    {"roster_id": 1, "owner_id": "alpha"},
+    {"roster_id": 2, "owner_id": "bravo"},
+]
+_ABSENT_2024_SCORES = {
+    1: {1: 100.0, 2: 110.0, 3: 900.0},
+    2: {1: 100.0, 2: 110.0, 3: 900.0},
+    3: {1: 100.0, 2: 110.0, 3: 900.0},
+}
+_ABSENT_2025_SCORES = {
+    1: {1: 120.0, 2: 130.0},
+    2: {1: 121.0, 2: 131.0},
+    3: {1: 122.0, 2: 132.0},
+}
+
+
+def _owner_absent_from_last_scored_season_snapshot() -> PublicLeagueSnapshot:
+    season_2024 = _season(
+        "2024", "L2024", _ABSENT_ROSTERS_2024, _ABSENT_2024_SCORES, is_complete=True
+    )
+    season_2025 = _season(
+        "2025", "L2025", _ABSENT_ROSTERS_2025, _ABSENT_2025_SCORES, is_complete=True
+    )
+    season_2026 = _season("2026", "L2026", _ABSENT_ROSTERS_2024, {}, is_complete=False)
+    registry = ManagerRegistry()
+    for r in _ABSENT_ROSTERS_2024:
+        oid = str(r["owner_id"])
+        registry.by_owner_id.setdefault(oid, Manager(owner_id=oid, display_name=oid))
+        registry.roster_to_owner[("L2024", int(r["roster_id"]))] = oid
+        registry.roster_to_owner[("L2026", int(r["roster_id"]))] = oid
+    for r in _ABSENT_ROSTERS_2025:
+        registry.roster_to_owner[("L2025", int(r["roster_id"]))] = str(r["owner_id"])
+    return PublicLeagueSnapshot(
+        root_league_id="L2026",
+        generated_at="2026-08-25T00:00:00Z",
+        seasons=[season_2026, season_2025, season_2024],
+        managers=registry,
+    )
+
+
+class TestUnmeasuredRecentFormStaysUnknown:
+    """Owner invariant: missing/unknown != zero."""
+
+    # ── (a) nothing measured anywhere ──────────────────────────────────
+
+    def test_no_scored_weeks_drops_recent_from_the_weight_budget(self):
+        out = power_v2.build_section(_no_scored_weeks_snapshot(), lens=power_v2.LENS_RESULTS_ONLY)
+        assert "recent" not in (out["effectiveWeights"] or {}), (
+            "an input nothing can supply must renormalise away, not be "
+            "scored at a stand-in value"
+        )
+
+    def test_no_scored_weeks_publishes_null_not_zero_or_neutral(self):
+        out = power_v2.build_section(_no_scored_weeks_snapshot(), lens=power_v2.LENS_RESULTS_ONLY)
+        for row in out["currentRanking"]:
+            c = row["components"]
+            assert c["recent"] is None, c["recent"]
+            assert c["recentAvg"] is None, c["recentAvg"]
+
+    # ── (b) one owner absent from the last scored season ───────────────
+
+    def test_the_absent_owner_really_is_absent_and_the_others_are_not(self):
+        """Non-vacuity: if carol ever gained 2025 games, or the others
+        lost theirs, everything below would pass for the wrong reason."""
+        out = power_v2.build_section(
+            _owner_absent_from_last_scored_season_snapshot(), lens=power_v2.LENS_RESULTS_ONLY
+        )
+        rows = out["currentRanking"]
+        assert {r["ownerId"] for r in rows} == {"alpha", "bravo", "carol"}
+        assert _row(rows, "alpha")["components"]["recentAvg"] is not None
+        assert _row(rows, "bravo")["components"]["recentAvg"] is not None
+
+    def test_the_absent_owners_recent_is_null_not_zero_or_neutral(self):
+        out = power_v2.build_section(
+            _owner_absent_from_last_scored_season_snapshot(), lens=power_v2.LENS_RESULTS_ONLY
+        )
+        carol = _row(out["currentRanking"], "carol")["components"]
+        assert carol["recent"] is None, carol["recent"]
+        assert carol["recentAvg"] is None, carol["recentAvg"]
+
+    def test_the_absent_owner_does_not_inherit_a_stale_prior_season(self):
+        """carol's 900.0-per-week 2024 must not resurface as 2025 form."""
+        out = power_v2.build_section(
+            _owner_absent_from_last_scored_season_snapshot(), lens=power_v2.LENS_RESULTS_ONLY
+        )
+        assert _row(out["currentRanking"], "carol")["components"]["recentAvg"] != 900.0
+
+    def test_the_absent_owner_is_scored_without_the_unknown_component(self):
+        """Not deflated by a zero, and not credited with a midpoint --
+        the weight is simply not applied to this row."""
+        out = power_v2.build_section(
+            _owner_absent_from_last_scored_season_snapshot(), lens=power_v2.LENS_RESULTS_ONLY
+        )
+        rows = out["currentRanking"]
+        carol = _row(rows, "carol")
+        assert "recent" not in carol["weightsApplied"]
+        assert carol["powerScore"] is not None
+        # The component IS measurable league-wide, so it stays in the
+        # section budget and the owners who have it keep their weight.
+        assert "recent" in out["effectiveWeights"]
+        assert "recent" in _row(rows, "alpha")["weightsApplied"]
+
+    def test_a_null_component_never_reaches_the_weighted_sum(self):
+        """Structural: every weight a row applies has a real value behind
+        it, so no stand-in can be multiplied in."""
+        out = power_v2.build_section(
+            _owner_absent_from_last_scored_season_snapshot(), lens=power_v2.LENS_RESULTS_ONLY
+        )
+        for row in out["currentRanking"]:
+            for key in row["weightsApplied"]:
+                assert row["components"].get(key) is not None, (row["ownerId"], key)
+
+
+# ── All three season resets, pinned on one three-season fixture ────────
+#
+# This file's three repairs each reset a different accumulator at the top
+# of every SCORED season:
+#
+#   1. season_state                          -> ppg, wl_record      (#1032)
+#   2. season_outcomes, expected_share_total -> streak, luck_reg    (#1059)
+#   3. last_season_recent,                   -> recent, all_play    (this
+#      last_season_allplay_share                                     unit)
+#
+# The two-season fixtures above can only show that the LAST season wins.
+# A third season is what proves the reset happens on EVERY scored season
+# rather than once at the end -- an accumulator reset only on the final
+# iteration would pass every earlier test in this file.
+#
+# 2024: dave is overwhelming. 2025: the roles invert completely. 2026 is
+# scoreless. So every component must describe 2025, and any accumulator
+# still carrying 2024 flips at least one of them the wrong way.
+_THREE_ROSTERS = [{"roster_id": 1, "owner_id": "dave"}, {"roster_id": 2, "owner_id": "erin"}]
+_THREE_2024 = {
+    1: {1: 900.0, 2: 10.0},
+    2: {1: 900.0, 2: 10.0},
+    3: {1: 900.0, 2: 10.0},
+}
+_THREE_2025 = {
+    1: {1: 20.0, 2: 200.0},
+    2: {1: 20.0, 2: 200.0},
+    3: {1: 20.0, 2: 200.0},
+}
+
+
+def _three_season_snapshot() -> PublicLeagueSnapshot:
+    season_2024 = _season("2024", "L2024", _THREE_ROSTERS, _THREE_2024, is_complete=True)
+    season_2025 = _season("2025", "L2025", _THREE_ROSTERS, _THREE_2025, is_complete=True)
+    season_2026 = _season("2026", "L2026", _THREE_ROSTERS, {}, is_complete=False)
+    return PublicLeagueSnapshot(
+        root_league_id="L2026",
+        generated_at="2026-08-25T00:00:00Z",
+        seasons=[season_2026, season_2025, season_2024],
+        managers=_registry_with(_THREE_ROSTERS, "L2024", "L2025", "L2026"),
+    )
+
+
+class TestEverySeasonResetHoldsAcrossThreeSeasons:
+    def test_the_fixture_really_inverts_between_the_two_scored_seasons(self):
+        """Non-vacuity: if 2024 and 2025 agreed, contamination would be
+        undetectable and every assertion below would pass for free."""
+        assert _THREE_2024[1][1] > _THREE_2024[1][2]
+        assert _THREE_2025[1][1] < _THREE_2025[1][2]
+
+    def test_reset_one_ppg_and_wl_record_describe_the_last_scored_season(self):
+        out = power_v2.build_section(_three_season_snapshot(), lens=power_v2.LENS_RESULTS_ONLY)
+        rows = out["currentRanking"]
+        dave, erin = _row(rows, "dave"), _row(rows, "erin")
+        # 2025-only PPG is exactly 20.0 / 200.0; carrying 2024 would give
+        # dave 613.33 and invert both of these.
+        assert dave["components"]["pointsPerGame"] == pytest.approx(20.0)
+        assert erin["components"]["pointsPerGame"] == pytest.approx(200.0)
+        assert dave["components"]["wl_record"] == pytest.approx(0.0)
+        assert erin["components"]["wl_record"] == pytest.approx(1.0)
+
+    def test_reset_two_streak_and_luck_describe_the_last_scored_season(self):
+        out = power_v2.build_section(_three_season_snapshot(), lens=power_v2.LENS_RESULTS_ONLY)
+        rows = out["currentRanking"]
+        # dave lost all three 2025 games. A career-scoped run would start
+        # from three 2024 WINS and the trailing streak would not be a
+        # clean three-game losing run.
+        assert _row(rows, "dave")["components"]["streak"] == pytest.approx(0.2)
+        assert _row(rows, "erin")["components"]["streak"] == pytest.approx(0.8)
+        # luck_regression is (wins - expected_share) / games, and both
+        # halves must come from the same season for it to mean anything.
+        assert _row(rows, "dave")["components"]["luck_regression"] == pytest.approx(0.5)
+        assert _row(rows, "erin")["components"]["luck_regression"] == pytest.approx(0.5)
+
+    def test_reset_three_recent_and_all_play_describe_the_last_scored_season(self):
+        out = power_v2.build_section(_three_season_snapshot(), lens=power_v2.LENS_RESULTS_ONLY)
+        rows = out["currentRanking"]
+        dave, erin = _row(rows, "dave"), _row(rows, "erin")
+        # Trailing-3 over 2025 only. dave's 2024 average was 900.0.
+        assert dave["components"]["recentAvg"] == pytest.approx(20.0)
+        assert erin["components"]["recentAvg"] == pytest.approx(200.0)
+        # all_play is the last scored week's expected share, and 2025's
+        # last week has erin ahead.
+        assert erin["components"]["all_play"] > dave["components"]["all_play"]
+
+    def test_the_middle_season_is_not_the_one_being_described(self):
+        """Guards the specific failure a third season exists to catch: an
+        accumulator reset only on the final loop iteration would leave
+        every component describing 2024+2025 combined rather than 2025."""
+        out = power_v2.build_section(_three_season_snapshot(), lens=power_v2.LENS_RESULTS_ONLY)
+        dave = _row(out["currentRanking"], "dave")["components"]
+        combined_ppg = (900.0 * 3 + 20.0 * 3) / 6
+        assert dave["pointsPerGame"] != pytest.approx(combined_ppg)
