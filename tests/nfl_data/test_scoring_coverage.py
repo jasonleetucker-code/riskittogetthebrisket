@@ -33,6 +33,7 @@ from src.nfl_data import realized_points as rp
 from src.nfl_data.scoring_coverage import (
     _MAXIMAL_ROW,
     Coverage,
+    HOST_PATH_UNREACHABLE,
     UNSCORABLE_REASONS,
     audit_scoring_settings,
     classify,
@@ -295,3 +296,77 @@ def test_the_maximal_row_stays_maximal():
     assert (
         _MAXIMAL_ROW["attempts"] > _MAXIMAL_ROW["completions"]
     ), "attempts must exceed completions or pass_inc cannot fire"
+
+
+# ── Coverage verdicts are nflverse-path-scoped (V1-49 prerequisite) ────
+#
+# ``engine_reads_key`` probes with nflverse COLUMN names and never passes
+# ``source=``, so every verdict this module returns describes the
+# champion path. That was silent; ``HOST_PATH_UNREACHABLE`` states it and
+# these tests keep the claim honest against the committed host dumps.
+
+_HOST_DUMPS = sorted(
+    (Path(__file__).resolve().parents[2] / "docs" / "master-site-audit" / "evidence" / "W18").glob(
+        "sleeper_stats_2025_wk*.json"
+    )
+)
+
+
+def _host_player_entries():
+    """Every PLAYER entry across the committed 2025 REG host dumps.
+
+    Numeric-id filter matches ``realized_points.is_host_player_entry`` —
+    Sleeper keys team defenses by alpha code and several ST keys appear
+    on BOTH, so an unfiltered scan would measure the wrong population.
+    """
+    out = []
+    for path in _HOST_DUMPS:
+        raw = json.loads(path.read_text(encoding="utf-8"))
+        out.extend(v or {} for k, v in raw.items() if k.replace("-", "").isdigit())
+    return out
+
+
+def test_the_host_dumps_are_actually_present_and_populated():
+    """Non-vacuity: an empty scan would make every claim below pass."""
+    assert len(_HOST_DUMPS) == 3, [p.name for p in _HOST_DUMPS]
+    entries = _host_player_entries()
+    assert len(entries) > 6000, len(entries)
+
+
+def test_the_host_publishes_the_combined_st_td_and_the_return_yardage():
+    """The control. If the host published NO special teams at all, the
+    asymmetry below would be uninteresting."""
+    entries = _host_player_entries()
+    for key in ("st_td", "kr_yd", "pr_yd"):
+        assert any(key in e for e in entries), key
+
+
+def test_every_host_path_unreachable_key_is_genuinely_absent_from_the_host():
+    """The record must stay measured, not become a stale comment."""
+    entries = _host_player_entries()
+    for key in HOST_PATH_UNREACHABLE:
+        present = sum(1 for e in entries if key in e)
+        assert present == 0, f"{key} now appears on {present} host player entries"
+
+
+def test_punt_ret_td_is_scored_on_nflverse_but_recorded_unreachable_on_the_host():
+    """Both halves matter: it really is scored on the champion path, and
+    it really is unreachable on the challenger one."""
+    assert classify("punt_ret_td") is Coverage.SCORED
+    assert "punt_ret_td" in HOST_PATH_UNREACHABLE
+    # The nflverse column it is scored from is likewise never on a host row.
+    assert all("pt_return_tds" not in e for e in _host_player_entries())
+
+
+def test_kick_ret_td_is_not_double_recorded():
+    """It is already UNSCORABLE without the supplement and its
+    UNSCORABLE_REASONS entry already records the host gap — listing it
+    again would be a second owner for one fact."""
+    assert "kick_ret_td" not in HOST_PATH_UNREACHABLE
+    assert "kick_ret_td" in UNSCORABLE_REASONS
+
+
+def test_every_recorded_reason_names_its_measurement():
+    for key, reason in HOST_PATH_UNREACHABLE.items():
+        assert len(reason) > 80, f"{key} is recorded without a real justification"
+        assert "measured" in reason, f"{key} does not say what was measured"

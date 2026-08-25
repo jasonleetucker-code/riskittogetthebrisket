@@ -1,0 +1,124 @@
+{
+  "applicableChecks": 1,
+  "checkedAt": "2026-08-25T06:57:52.663714+00:00",
+  "checks": [
+    {
+      "denominator": 5,
+      "detail": "all 5 routes registered, confirmed by source scan (108 routes discovered).",
+      "evidence": {
+        "missing": [],
+        "required": [
+          "GET /api/status",
+          "GET /api/sharp/market",
+          "GET /api/sharp/cohort",
+          "GET /api/sharp/roster-percentage",
+          "POST /api/waiver/faab-recommend"
+        ],
+        "routesDiscovered": 108,
+        "source": "source scan"
+      },
+      "id": "R0",
+      "row": "-",
+      "status": "pass",
+      "title": "every route this package names is registered"
+    },
+    {
+      "denominator": null,
+      "detail": "401 from https://chaseupside.com/api/sharp/market?window=30d&limit=250 \u2014 no session was supplied, so nothing was measured. Set RISKIT_SESSION_COOKIE to an authenticated session; do not relax the endpoint's gate.",
+      "evidence": {},
+      "id": "C1",
+      "row": "V1-63",
+      "status": "unverifiable_unauthenticated",
+      "title": "zero-voter personManagerQuality is JSON null, never 1.0"
+    },
+    {
+      "denominator": null,
+      "detail": "401 from https://chaseupside.com/api/sharp/market?window=30d&limit=250 \u2014 no session was supplied, so nothing was measured. Set RISKIT_SESSION_COOKIE to an authenticated session; do not relax the endpoint's gate.",
+      "evidence": {},
+      "id": "C2",
+      "row": "V1-63",
+      "status": "unverifiable_unauthenticated",
+      "title": "a measured personManagerQuality of 0.0 stays 0.0"
+    },
+    {
+      "denominator": null,
+      "detail": "401 from https://chaseupside.com/api/sharp/market?window=30d&limit=250 \u2014 no session was supplied, so nothing was measured. Set RISKIT_SESSION_COOKIE to an authenticated session; do not relax the endpoint's gate.",
+      "evidence": {},
+      "id": "C3",
+      "row": "V1-63",
+      "status": "unverifiable_unauthenticated",
+      "title": "networkConcentration is null when weighted volume is zero"
+    },
+    {
+      "denominator": null,
+      "detail": "needs the league's scoring card and/or the crowd ledger, both gitignored and prod-local. Run --mode onbox on the deployed host. C8 below is the API-visible shadow of C4/C5.",
+      "evidence": {},
+      "id": "C4",
+      "row": "V1-129",
+      "status": "blocked",
+      "title": "target TEP is derived from the scoring card, not the profile label"
+    },
+    {
+      "denominator": null,
+      "detail": "needs the league's scoring card and/or the crowd ledger, both gitignored and prod-local. Run --mode onbox on the deployed host. C8 below is the API-visible shadow of C4/C5.",
+      "evidence": {},
+      "id": "C5",
+      "row": "V1-129",
+      "status": "blocked",
+      "title": "stale or missing scoring evidence leaves TEP UNKNOWN and fails closed"
+    },
+    {
+      "denominator": null,
+      "detail": "needs the league's scoring card and/or the crowd ledger, both gitignored and prod-local. Run --mode onbox on the deployed host. C8 below is the API-visible shadow of C4/C5.",
+      "evidence": {},
+      "id": "C6",
+      "row": "V1-129",
+      "status": "blocked",
+      "title": "dynasty_main behaves as non-TE-premium under its actual card"
+    },
+    {
+      "denominator": null,
+      "detail": "needs the league's scoring card and/or the crowd ledger, both gitignored and prod-local. Run --mode onbox on the deployed host. C8 below is the API-visible shadow of C4/C5.",
+      "evidence": {},
+      "id": "C7",
+      "row": "V1-129",
+      "status": "blocked",
+      "title": "comparable crowd population, card-derived vs the retired label rule"
+    },
+    {
+      "denominator": null,
+      "detail": "needs --add-player naming a REAL free agent on the deployed board. No player is invented for this check.",
+      "evidence": {},
+      "id": "C8",
+      "row": "V1-129",
+      "status": "blocked",
+      "title": "crowd-market refusal reasons are specific and honest"
+    },
+    {
+      "denominator": null,
+      "detail": "needs --add-player naming a REAL free agent on the deployed board. No player is invented for this check.",
+      "evidence": {},
+      "id": "C9",
+      "row": "V1-129",
+      "status": "blocked",
+      "title": "the crowd moves the bid only when it was actually admitted"
+    }
+  ],
+  "counts": {
+    "blocked": 6,
+    "pass": 1,
+    "unverifiable_unauthenticated": 3
+  },
+  "deployed": {
+    "contractHealthy": true,
+    "contractVersion": "2026-03-10.v2",
+    "headSha": null,
+    "headShaSource": "unavailable_over_http",
+    "lastDataRefreshAt": "2026-08-25T06:03:18.231984+00:00",
+    "lastPayloadLoadedAt": "2026-08-25T06:03:23.522662+00:00",
+    "origin": "https://chaseupside.com"
+  },
+  "league": "dynasty_main",
+  "mode": "remote",
+  "origin": "https://chaseupside.com"
+}

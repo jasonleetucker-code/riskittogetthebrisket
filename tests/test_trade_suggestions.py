@@ -27,6 +27,7 @@ from src.trade.suggestions import (
     _find_balancers,
     _roster_balancer_candidates,
     _pool_balancer_candidates,
+    _identity_key,
     TradeSuggestion,
     MIN_RELEVANT_VALUE,
     MIN_ACTIONABLE_VALUE,
@@ -845,7 +846,7 @@ class TestRankingInOutput:
             for i in range(len(scores) - 1):
                 assert (
                     scores[i] >= scores[i + 1]
-                ), f"{cat}[{i}] score {scores[i]} < [{i+1}] score {scores[i+1]}"
+                ), f"{cat}[{i}] score {scores[i]} < [{i + 1}] score {scores[i + 1]}"
 
     def test_ranking_still_deterministic(self):
         """Ranked output must be identical across runs."""
@@ -1441,7 +1442,7 @@ def _make_pool_and_roster():
         "Sauce Gardner",  # 2 DB
     ]
     roster = analyze_roster(roster_names, pool)
-    roster_set = {n.lower() for n in roster_names}
+    roster_set = {_identity_key(n) for n in roster_names}
     return pool, roster, roster_set
 
 
@@ -1502,7 +1503,7 @@ class TestFindBalancersDirection:
         assert side == "you_add"
         # If balancers found, they must be from the user's roster
         for b in bals:
-            assert b.name.lower() in roster_set
+            assert _identity_key(b.name) in roster_set
 
     def test_positive_gap_searches_global_pool(self):
         """When user overpays (gap > 0), balancers come from global pool."""
@@ -1513,7 +1514,7 @@ class TestFindBalancersDirection:
         assert side == "they_add"
         # Balancers must NOT be from user's roster
         for b in bals:
-            assert b.name.lower() not in roster_set
+            assert _identity_key(b.name) not in roster_set
 
     def test_small_gap_returns_nothing(self):
         """Gaps under 256 don't need balancers."""
@@ -1533,7 +1534,7 @@ class TestFindBalancersDirection:
         assert side == "you_add"
         # Falls back to pool search since no roster provided
         for b in bals:
-            assert b.name.lower() not in roster_set
+            assert _identity_key(b.name) not in roster_set
 
 
 class TestBalancerQuality:
@@ -1586,11 +1587,11 @@ class TestBalancerQuality:
             _suggestion_with_gap(5000), pool, roster_set, set(), roster
         )
         if bals_all:
-            excluded_name = bals_all[0].name.lower()
+            excluded_name = _identity_key(bals_all[0].name)
             bals_without, _side, _residuals = _find_balancers(
                 _suggestion_with_gap(5000), pool, roster_set, {excluded_name}, roster
             )
-            excluded_names = {b.name.lower() for b in bals_without}
+            excluded_names = {_identity_key(b.name) for b in bals_without}
             assert excluded_name not in excluded_names
 
 
@@ -1771,7 +1772,7 @@ class TestConsolidationClosestValueTarget:
             "Ernest Jones",
         ]
         roster = analyze_roster(idp, pool)
-        roster_set = {n.lower() for n in idp}
+        roster_set = {_identity_key(n) for n in idp}
         from src.trade.suggestions import _generate_consolidation
 
         results = _generate_consolidation(roster, pool, roster_set)
@@ -2173,9 +2174,9 @@ class TestKtcTopNFilter:
                     assert (
                         player.get("ktcRank") is not None
                     ), f"{player['name']} in {side} has no ktcRank"
-                    assert player["ktcRank"] <= 100, (
-                        f"{player['name']} ranked {player['ktcRank']} — " f"outside top 100 filter"
-                    )
+                    assert (
+                        player["ktcRank"] <= 100
+                    ), f"{player['name']} ranked {player['ktcRank']} — outside top 100 filter"
 
     def test_no_suggestions_with_very_tight_filter(self):
         """With an impossibly tight filter, should return 0 suggestions gracefully."""
@@ -2497,9 +2498,9 @@ class TestEffectiveSourceRanks:
         )
         pool = build_asset_pool_from_contract(self._contract([row]), ktc_top_n=0)
         assert len(pool) == 1
-        assert pool[0].source_count == 3, (
-            "source_count must be the post-Hampel effective count, " "not len(canonicalSiteValues)"
-        )
+        assert (
+            pool[0].source_count == 3
+        ), "source_count must be the post-Hampel effective count, not len(canonicalSiteValues)"
 
     def test_dispersion_cv_uses_effective_source_ranks(self):
         from src.trade.suggestions import build_asset_pool_from_contract

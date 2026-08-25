@@ -157,6 +157,17 @@ class TestRollback:
                 params={"HILL_PERCENTILE_C": 0.098, "HILL_PERCENTILE_S": 1.30},
                 fitted_at="",
                 producer="t",
+                # Carries a holdout record because it MOVES the OFFENSE
+                # curve, and ``promote()`` runs the per-scope evidence gate
+                # (``scope_validation``): a routed scope that changed with
+                # nothing scoring it is refused.  This test is about
+                # rollback fidelity, so the promotion is scaffolding — the
+                # record makes the scaffolding legal rather than exempt.
+                holdout={
+                    "criterion": 700.0,
+                    "measuredAt": "2026-08-20T00:00:00+00:00",
+                    "perSource": {"a": 1.0, "b": 2.0, "c": 3.0},
+                },
             )
         )
         reg.promote(2, reason="win")

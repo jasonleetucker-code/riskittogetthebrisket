@@ -327,11 +327,44 @@ class ModelRegistry:
         self._validate()
         return seeded
 
-    def promote(self, version: int, *, reason: str) -> ModelVersion:
+    def promote(
+        self,
+        version: int,
+        *,
+        reason: str,
+        override_scopes: Iterable[str] = (),
+        override_reason: str = "",
+    ) -> ModelVersion:
         """Make ``version`` the champion; retire the incumbent.
 
         The reason is mandatory and stored.  A promotion with no stated
         reason is indistinguishable from an accident.
+
+        **The per-scope gate runs here**, and that placement is the point.
+        ``scope_validation`` was written to stop one scope riding another
+        scope's evidence into production, and until now it had no caller
+        outside its own tests: ``scripts/model_registry.py`` said in a
+        comment that ``cmd_promote`` "has NO holdout gate", the stored
+        ``scopeValidation`` field was ``{}`` on every recorded version,
+        and the module could therefore refuse nothing.  A gate that
+        nothing calls is documentation, not a gate.
+
+        Evidence is DERIVED, never asserted by the caller: OFFENSE counts
+        as externally validated exactly when the challenger carries a
+        holdout record, because ``holdout.evaluate_offense_master`` is the
+        only out-of-sample evaluator that exists and it reads offense
+        boards only.  No other scope is ever auto-validated — that is the
+        asymmetry ``scope_validation`` exists to preserve, and letting a
+        caller pass ``validated_scopes`` here would hand it back the
+        laundering the module forbids.  An owner who wants to accept a
+        scope's risk knowingly uses ``override_scopes`` + a non-empty
+        ``override_reason``, which records a DECISION and is never
+        reported as a measurement.
+
+        The gate is applied to ``promote`` and deliberately not to
+        ``rollback``: reinstating a former champion returns production to
+        a state it already ran, so demanding fresh evidence for it would
+        block the documented undo.
         """
         if not reason.strip():
             raise RegistryError("promote() requires a non-empty reason")
@@ -342,6 +375,17 @@ class ModelRegistry:
             raise RegistryError(
                 f"v{version} is retired; use rollback() to reinstate a former champion"
             )
+
+        from src.model_registry.scope_validation import assert_promotable
+
+        incumbent = next((v for v in self._versions if v.status == "champion"), None)
+        scope_states = assert_promotable(
+            incumbent.params if incumbent else {},
+            target.params,
+            validated_scopes={"OFFENSE"} if target.qualified else (),
+            override_scopes=override_scopes,
+            override_reason=override_reason,
+        )
 
         now = _utcnow()
         out: list[ModelVersion] = []
@@ -355,6 +399,7 @@ class ModelRegistry:
                         status="champion",
                         promoted_at=now,
                         notes=(*v.notes, f"promoted: {reason.strip()}"),
+                        scope_validation=scope_states,
                     )
                 )
             else:
@@ -401,7 +446,7 @@ class ModelRegistry:
             target = self.get(to_version)
             if target.status != "retired" or not target.promoted_at:
                 raise RegistryError(
-                    f"v{to_version} was never a champion; rollback targets former " "champions only"
+                    f"v{to_version} was never a champion; rollback targets former champions only"
                 )
 
         now = _utcnow()
