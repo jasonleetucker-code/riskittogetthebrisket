@@ -61,6 +61,9 @@ from src.utils.name_clean import is_first_name_variant  # noqa: E402
 from src.utils.name_clean import resolve_idp_position as _resolve_idp_position  # noqa: E402
 from src.utils.age import age_from_birthdate as _age_from_birthdate  # noqa: E402
 from src.utils.owner_names import owner_label as _owner_label  # noqa: E402
+from src.sources.site_raw_mirror import (  # noqa: E402
+    mirror_site_raw_csvs as _mirror_site_raw_csvs,
+)
 
 # ── C1-ID-01: the name-matching primitives this file defined are now
 # owned by the canonical identity package and imported back, so this
@@ -663,6 +666,7 @@ _KTC_SITE_RAW_FLOOR: int = 400
 #: the display-only one is what created the gap.
 _KTC_TEP_SITE_RAW_FLOOR: int = 400
 _IDPTC_SITE_RAW_FLOOR: int = 700
+
 DLF_IMPORT_DEBUG = {}
 
 # KTC blocker diagnosis — set by scrape_ktc on failure for source reporting
@@ -6734,6 +6738,28 @@ async def run(progress_callback=None):
                 except Exception:
                     pass
 
+        # Mirror raw vendor CSVs that a standalone fetcher owns into the
+        # bundle, so the archive — and with it the existing content-age
+        # detector in ``scripts/check_source_health`` — can observe them
+        # at all.  Policy, the file list and the absent-is-absent rule
+        # all live in ``src/sources/site_raw_mirror``; this is the one
+        # call site.
+        try:
+            _mirror_outcomes = _mirror_site_raw_csvs(
+                repo_root=SCRIPT_DIR,
+                site_raw_dir=site_raw_dir,
+                produced_this_run=_fresh_site_raw,
+            )
+        except Exception as _mirror_exc:
+            print(f"  [site_raw] mirror pass failed: {_mirror_exc}", flush=True)
+            _mirror_outcomes = {}
+        _mirrored_site_raw = {
+            name for name, outcome in _mirror_outcomes.items() if outcome == "mirrored"
+        }
+        for _name, _outcome in sorted(_mirror_outcomes.items()):
+            if _outcome != "mirrored":
+                print(f"  [site_raw] mirror {_name}: {_outcome}", flush=True)
+
         # Write manifest with per-source freshness metadata.
         manifest = {
             "generatedAt": datetime.datetime.now().isoformat(),
@@ -6742,6 +6768,7 @@ async def run(progress_callback=None):
             "siteRawCount": len(os.listdir(site_raw_dir)) if os.path.exists(site_raw_dir) else 0,
             "siteRawFresh": sorted(_fresh_site_raw),
             "siteRawPreserved": sorted(_preserved_site_raw),
+            "siteRawMirrored": sorted(_mirrored_site_raw),
         }
         with open(os.path.join(latest_dir, "manifest.json"), "w", encoding="utf-8") as f:
             json.dump(manifest, f, indent=2, ensure_ascii=False)
