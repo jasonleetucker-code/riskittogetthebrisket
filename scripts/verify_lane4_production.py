@@ -1463,6 +1463,152 @@ def check_single_cohort_owner(report: Report) -> None:
         check.detail = f"expected one definition in src/sharp/cohort.py, found {hits}."
 
 
+def check_league_population_difference(report: Report, *, ledger_path: Path | None = None) -> None:
+    """V1-65 (L2) — the two admitted league populations, from the deployed ledger.
+
+    The row's L2 needs the CENSUS, not just the single-owner property that
+    ``check_single_cohort_owner`` pins: how many discovered leagues the
+    Insider (signal) gate admits, how many the strictly-narrower Sharp gate
+    admits, and an explicit accounting of the difference.  All of it is read
+    from the intel ledger through the existing read-only primitives
+    (``discovery.signal_eligible_league_ids`` / ``sharp_eligible_league_ids``
+    / ``graph_stats``); nothing is re-decided here.
+
+    The one thing this check ASSERTS rather than reports: sharp is defined as
+    strictly narrower than signal (dynasty-only, no keeper, >= 2 seasons —
+    ``src/intel/league_filter.py``), so a sharp-admitted league outside the
+    signal set means the two gates disagreed about the same stored evidence.
+
+    The signal-but-not-sharp difference is EXPLAINED, not just counted: each
+    league's stored ``settings_json`` evidence (type / bestBall / ageSeasons)
+    is re-run through the canonical ``league_filter.sharp_exclusion_reason``
+    ladder — never a second rule — and the reasons are published as a
+    histogram.
+    """
+    check = report.add(
+        Check(
+            "V65b",
+            "V1-65",
+            "signal- vs sharp-admitted league populations, censused from the deployed ledger",
+        )
+    )
+    try:
+        from src.intel import league_filter
+        from src.intel import ledger as intel_ledger
+        from src.sharp import discovery
+    except Exception as exc:  # pragma: no cover - deployment shape
+        check.status = ERROR
+        check.detail = f"could not import the discovery/ledger owners: {exc!r}"
+        return
+
+    path = Path(ledger_path) if ledger_path else intel_ledger.default_path()
+    if not path.exists():
+        # ``ledger.connect`` CREATES an absent file (schema write), and this
+        # script is read-only — so presence is decided before any connect.
+        check.status = BLOCKED
+        check.detail = (
+            f"no intel ledger at {path}, so there is no discovered-league store to "
+            "census. This is the sandbox/undeployed state — the ledger is gitignored "
+            "and prod-only. Run on the box; do not synthesise leagues."
+        )
+        check.evidence = {"ledgerPresent": False, "ledgerPath": str(path)}
+        return
+
+    conn = intel_ledger.connect(path)
+    try:
+        league_rows = conn.execute("SELECT league_id, settings_json FROM leagues").fetchall()
+        ms_sharp_complete = conn.execute(
+            "SELECT COUNT(DISTINCT league_id) AS n FROM manager_seasons "
+            "WHERE sharp_eligible=1 AND is_complete=1"
+        ).fetchone()["n"]
+    finally:
+        conn.close()
+
+    if not league_rows:
+        check.status = UNMEASURABLE
+        check.detail = (
+            "ledger carries no discovered leagues here — an environment artifact "
+            "(the discovery crawl runs only on the deployed box), not a statement "
+            "about the production graph. Empty-here is not evidence of anything."
+        )
+        check.evidence = {"ledgerPresent": True, "observedLeagues": 0}
+        return
+
+    signal = set(discovery.signal_eligible_league_ids(ledger_path=path))
+    sharp = set(discovery.sharp_eligible_league_ids(ledger_path=path))
+    stats = discovery.graph_stats(ledger_path=path)
+    sharp_only = sorted(sharp - signal)
+    signal_only = sorted(signal - sharp)
+
+    stored = {str(r["league_id"]): r["settings_json"] for r in league_rows}
+    histogram: dict[str, int] = {}
+    for lid in signal_only:
+        try:
+            settings = json.loads(stored.get(lid) or "{}")
+        except (TypeError, ValueError):
+            settings = None
+        if not isinstance(settings, dict):
+            histogram["unparseable_settings"] = histogram.get("unparseable_settings", 0) + 1
+            continue
+        age_recorded = "ageSeasons" in settings
+        # Faithful inverse of what discovery stored, not a guess:
+        # ``league_age_seasons`` answers 2 iff ``previous_league_id`` was
+        # truthy at crawl time, and ``ageSeasons`` recorded exactly that.
+        reconstructed = {
+            "settings": {"type": settings.get("type"), "best_ball": settings.get("bestBall")},
+            "previous_league_id": (
+                "recorded-chain" if (settings.get("ageSeasons") or 0) >= 2 else ""
+            ),
+        }
+        reason = league_filter.sharp_exclusion_reason(reconstructed)
+        if reason == "too_new" and not age_recorded:
+            # An unrecorded age is UNKNOWN, and unknown must not read as a
+            # measured "too new" — missing is never a value.
+            reason = "age_unrecorded"
+        if reason is None:
+            # Re-derivation admits a league the stored sharpEligible flag
+            # refused. Publish the drift; coerce neither side.
+            reason = "stored_flag_disagrees_with_rederivation"
+        histogram[reason] = histogram.get(reason, 0) + 1
+
+    check.denominator = len(league_rows)
+    check.evidence = {
+        "ledgerPresent": True,
+        "observedLeagues": len(league_rows),
+        "signalAdmitted": len(signal),
+        "sharpAdmitted": len(sharp),
+        "signalOnlyCount": len(signal_only),
+        "signalOnlySample": signal_only[:10],
+        "sharpOnlyCount": len(sharp_only),
+        "sharpOnlySample": sharp_only[:10],
+        "sharpExclusionReasons": histogram,
+        # Cross-check from an independent table: leagues whose crawled
+        # season RECORDS are marked sharp-eligible and complete. Reported,
+        # not asserted against the discovery flags — the records crawl
+        # legitimately lags discovery.
+        "managerSeasonsSharpCompleteLeagues": ms_sharp_complete,
+        "graphStats": {
+            key: stats.get(key) for key in ("observedUsers", "memberships", "discoveryOnlyLeagues")
+        },
+    }
+    if sharp_only:
+        check.status = FAIL
+        check.detail = (
+            f"{len(sharp_only)} league(s) are sharp-admitted but NOT signal-admitted "
+            f"(sample {sharp_only[:10]}). Sharp is defined as strictly narrower than "
+            "signal (dynasty-only, >= 2 seasons), so this set must be empty — a member "
+            "here means the two gates disagree about the same stored evidence."
+        )
+        return
+    check.status = PASS
+    check.detail = (
+        f"signal admits {len(signal)} of {len(league_rows)} discovered leagues, sharp "
+        f"admits {len(sharp)}; the {len(signal_only)}-league difference is explained by "
+        f"{histogram}. manager_seasons cross-check: {ms_sharp_complete} distinct "
+        "league(s) carry sharp-eligible complete season records."
+    )
+
+
 def record_blocked_rows(report: Report, unauth_detail: str | None) -> None:
     """V1-58 / V1-59 — recorded as BLOCKED, with the credential named.
 
@@ -1748,6 +1894,7 @@ def run_onbox(report: Report, args: argparse.Namespace) -> None:
     check_faab_history_artifact(report, args.league)
     check_ffpc_lane_is_honest(report)
     check_single_cohort_owner(report)
+    check_league_population_difference(report)
     record_blocked_rows(report, None)
 
 

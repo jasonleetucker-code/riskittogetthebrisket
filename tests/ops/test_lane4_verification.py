@@ -724,3 +724,139 @@ class TestTheRequiredListsCannotBeSilentlyEmptied:
         turned on. If one stops being guarded, the correction it protects can
         silently rot back."""
         assert field in verify.REQUIRED_FIELDS
+
+
+# ── V1-65: the league-population census ────────────────────────────
+
+
+def _intel_ledger(tmp_path, monkeypatch):
+    """A tmp intel ledger, schema applied — the test_discovery pattern."""
+    from src.intel import ledger, store
+
+    monkeypatch.setattr(store, "DATA_DIR", tmp_path / "intel")
+    ledger.reset_setup_cache()
+    path = tmp_path / "intel" / ledger.LEDGER_FILENAME
+    ledger.connect(path).close()
+    return path
+
+
+def _league_row(league_id, *, type_=2, best_ball=0, signal=True, sharp=True, age=2, omit_age=False):
+    import json
+
+    settings = {
+        "type": type_,
+        "bestBall": best_ball,
+        "signalEligible": signal,
+        "sharpEligible": sharp,
+        "ageSeasons": age,
+    }
+    if omit_age:
+        settings.pop("ageSeasons")
+    return {
+        "league_id": league_id,
+        "season": "2026",
+        "previous_league_id": "prev" if age >= 2 else "",
+        "name": f"League {league_id}",
+        "total_rosters": 12,
+        "settings_json": json.dumps(settings),
+    }
+
+
+class TestLeaguePopulationCensus:
+    """V1-65's L2 census: signal- vs sharp-admitted, with the difference
+    explained rather than merely counted."""
+
+    def test_a_populated_ledger_yields_the_census_and_the_reason_histogram(
+        self, tmp_path, monkeypatch
+    ):
+        from src.intel import ledger
+
+        path = _intel_ledger(tmp_path, monkeypatch)
+        ledger.upsert_leagues(
+            [
+                # signal AND sharp: dynasty, 2 seasons.
+                _league_row("DYN_OLD", type_=2, signal=True, sharp=True, age=2),
+                # signal only: keeper (dynasty-adjacent, never sharp).
+                _league_row("KEEP", type_=1, signal=True, sharp=False, age=2),
+                # signal only: first-year dynasty.
+                _league_row("DYN_NEW", type_=2, signal=True, sharp=False, age=1),
+                # neither: best-ball and redraft.
+                _league_row("BB", type_=2, best_ball=1, signal=False, sharp=False),
+                _league_row("RED", type_=0, signal=False, sharp=False),
+            ],
+            path=path,
+        )
+        conn = ledger.connect(path)
+        try:
+            conn.execute(
+                "INSERT INTO manager_seasons (league_id, season, user_id, is_complete, "
+                "sharp_eligible) VALUES ('DYN_OLD', '2025', 'u1', 1, 1)"
+            )
+            conn.commit()
+        finally:
+            conn.close()
+
+        report = _report()
+        verify.check_league_population_difference(report, ledger_path=path)
+        check = report.checks[0]
+        assert check.status == verify.PASS, check.detail
+        assert check.evidence["signalAdmitted"] == 3
+        assert check.evidence["sharpAdmitted"] == 1
+        assert check.evidence["sharpOnlyCount"] == 0
+        assert check.evidence["signalOnlyCount"] == 2
+        assert sorted(check.evidence["signalOnlySample"]) == ["DYN_NEW", "KEEP"]
+        assert check.evidence["sharpExclusionReasons"] == {"keeper": 1, "too_new": 1}
+        assert check.evidence["managerSeasonsSharpCompleteLeagues"] == 1
+        assert check.denominator == 5
+
+    def test_a_sharp_league_outside_the_signal_set_fails(self, tmp_path, monkeypatch):
+        """Sharp is strictly narrower by definition; a member here means the
+        two gates disagreed about the same stored evidence."""
+        from src.intel import ledger
+
+        path = _intel_ledger(tmp_path, monkeypatch)
+        ledger.upsert_leagues(
+            [_league_row("WEIRD", type_=2, signal=False, sharp=True, age=2)], path=path
+        )
+        report = _report()
+        verify.check_league_population_difference(report, ledger_path=path)
+        check = report.checks[0]
+        assert check.status == verify.FAIL
+        assert check.evidence["sharpOnlySample"] == ["WEIRD"]
+
+    def test_an_unrecorded_age_is_not_reported_as_too_new(self, tmp_path, monkeypatch):
+        """Missing is never a value: a league whose stored settings carry no
+        ageSeasons must not read as a measured 'too new'."""
+        from src.intel import ledger
+
+        path = _intel_ledger(tmp_path, monkeypatch)
+        ledger.upsert_leagues(
+            [_league_row("NOAGE", type_=2, signal=True, sharp=False, age=1, omit_age=True)],
+            path=path,
+        )
+        report = _report()
+        verify.check_league_population_difference(report, ledger_path=path)
+        check = report.checks[0]
+        assert check.status == verify.PASS
+        assert check.evidence["sharpExclusionReasons"] == {"age_unrecorded": 1}
+
+    def test_an_empty_leagues_table_is_unmeasurable_never_pass(self, tmp_path, monkeypatch):
+        path = _intel_ledger(tmp_path, monkeypatch)
+        report = _report()
+        verify.check_league_population_difference(report, ledger_path=path)
+        check = report.checks[0]
+        assert check.status == verify.UNMEASURABLE
+        assert "carries no discovered leagues here" in check.detail
+        assert check.evidence["ledgerPresent"] is True
+
+    def test_an_absent_ledger_is_blocked_and_is_not_created(self, tmp_path):
+        """Read-only: probing for the store must not mint one — an empty
+        ledger this check created would be indistinguishable from a real
+        empty crawl on the next run."""
+        path = tmp_path / "absent" / "ledger.sqlite3"
+        report = _report()
+        verify.check_league_population_difference(report, ledger_path=path)
+        check = report.checks[0]
+        assert check.status == verify.BLOCKED
+        assert check.evidence["ledgerPresent"] is False
+        assert not path.exists()
