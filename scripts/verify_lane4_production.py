@@ -1704,6 +1704,141 @@ def check_cohort_population_onbox(report: Report, *, ledger_path: Path | None = 
         )
 
 
+def check_ledger_rank_change_flag(report: Report, *, ledger_path: Path | None = None) -> None:
+    """V1-87 — the measured ON/OFF blast radius of RISKIT_FEATURE_LEDGER_RANK_CHANGE.
+
+    The row is blocked on exactly one input: a temporal ledger with real
+    ``canonical_board`` rows, which only production has —
+    ``src/history/record.py`` writes that lane at the fresh-scrape promotion
+    site.  ``data_contract._stamp_rank_changes`` documents why the number
+    cannot be taken anywhere else: with no ledger BOTH flag branches stamp
+    ``None``, so an ON/OFF diff reports a vacuous "0 rows changed" that
+    would read as evidence.
+
+    The measurement is the NARROW read, deliberately.  Flag OFF stamps
+    ``None`` on every row structurally (``_stamp_rank_changes`` never
+    touches the ledger on that branch), so its non-null count is 0 by
+    construction and rebuilding the whole contract to observe it would
+    prove nothing the source does not already state.  Flag ON derives
+    ``rankChange`` from ``asof.previous_board_ranks`` — called here with
+    the same arguments ``data_contract`` passes — joined against the
+    newest recorded canonical board, which IS the served board's recorded
+    ranks.  A full double contract rebuild on the box would answer the
+    same question at far greater cost; ``measurementBasis`` in the
+    evidence says so.
+    """
+    check = report.add(
+        Check(
+            "V87",
+            "V1-87",
+            "ledger rank-change flag ON/OFF blast radius over the recorded canonical_board lane",
+        )
+    )
+    try:
+        from src.history import asof as history_asof
+        from src.history import store as history_store
+    except Exception as exc:  # pragma: no cover - deployment shape
+        check.status = ERROR
+        check.detail = f"could not import the temporal-history owner: {exc!r}"
+        return
+
+    path = Path(ledger_path) if ledger_path else history_store.DB_PATH
+    coverage = history_store.coverage(path)
+    lane_counts = coverage.get("byLane") or {}
+    canonical_rows = int(lane_counts.get(history_store.LANE_CANONICAL, 0) or 0)
+    check.evidence = {
+        "ledgerPath": str(path),
+        "ledgerPresent": bool(coverage.get("exists")),
+        "laneRowCounts": lane_counts,
+        "canonicalBoardRows": canonical_rows,
+    }
+    if not coverage.get("exists") or canonical_rows == 0:
+        check.status = UNMEASURABLE
+        check.detail = (
+            "the temporal ledger holds no canonical_board rows here — an environment "
+            "artifact, not a measurement: only production records that lane "
+            "(src/history/record.py, at the fresh-scrape promotion site in server.py). "
+            "With no ledger BOTH flag branches stamp None, so an ON/OFF diff taken "
+            "here would report a vacuous '0 rows changed' and must not be recorded as "
+            "evidence. Run this on the box."
+        )
+        return
+
+    conn = history_store.connect(path)
+    try:
+        dates = [
+            str(r[0])
+            for r in conn.execute(
+                "SELECT DISTINCT observed_date FROM observations "
+                "WHERE lane=? ORDER BY observed_date",
+                (history_store.LANE_CANONICAL,),
+            ).fetchall()
+        ]
+        newest = dates[-1] if dates else None
+        # The newest recorded board's ranked rows, corrections excluded —
+        # the same exclusion previous_board_ranks applies to the comparator.
+        ranked_keys = {
+            str(r[0])
+            for r in conn.execute(
+                "SELECT DISTINCT asset_key FROM observations "
+                "WHERE lane=? AND observed_date=? AND rank IS NOT NULL "
+                "AND id NOT IN (SELECT superseded_id FROM corrections)",
+                (history_store.LANE_CANONICAL, newest),
+            ).fetchall()
+        }
+    finally:
+        conn.close()
+
+    check.evidence.update({"canonicalBoardDates": len(dates), "newestBoardDate": newest})
+    if len(dates) < 2:
+        check.status = UNMEASURABLE
+        check.detail = (
+            f"the canonical_board lane holds only {len(dates)} distinct board date(s), "
+            "and rankChange needs a strictly-prior comparator date — the flag's ON "
+            "branch cannot be measured from this ledger yet. Not a pass: re-run after "
+            "the next recorded board."
+        )
+        return
+
+    # The same function, with the same arguments, that
+    # data_contract._stamp_rank_changes calls when the flag is ON.
+    previous = history_asof.previous_board_ranks(before_date=newest, path=path)
+    comparator_keys = {key for key, (_d, rank) in previous.items() if rank > 0}
+    on_non_null = len(ranked_keys & comparator_keys)
+    comparator_date = next(iter(sorted({d for d, _r in previous.values()})), None)
+
+    check.denominator = len(ranked_keys)
+    check.evidence.update(
+        {
+            "comparatorDate": comparator_date,
+            "comparatorRankedAssets": len(previous),
+            "rankedRowsOnNewestBoard": len(ranked_keys),
+            "nonNullRankChangeOn": on_non_null,
+            # OFF stamps None on every row before the ledger is ever read —
+            # structural, per _stamp_rank_changes' flag branch, so 0 here is
+            # a statement about the code, not an observation of this ledger.
+            "nonNullRankChangeOff": 0,
+            "offIsStructural": True,
+            "delta": on_non_null,
+            "measurementBasis": (
+                "narrow read through src/history's own reader: the newest recorded "
+                "canonical_board (the served board's recorded ranks) joined against "
+                "asof.previous_board_ranks — the same call data_contract."
+                "_stamp_rank_changes makes with the flag ON. OFF is structurally "
+                "all-None, so a full double contract rebuild would answer the same "
+                "question at far greater cost and was deliberately not run."
+            ),
+        }
+    )
+    check.status = PASS
+    check.detail = (
+        f"flag ON derives a non-null rankChange for {on_non_null} of {len(ranked_keys)} "
+        f"ranked rows on the {newest} board (comparator {comparator_date}, "
+        f"{len(previous)} ranked assets); flag OFF stamps None on all of them "
+        f"structurally, so the blast radius is exactly {on_non_null} rows."
+    )
+
+
 def record_blocked_rows(report: Report, unauth_detail: str | None, *, mode: str = "remote") -> None:
     """V1-58 / V1-59 — recorded as BLOCKED, with the credential named.
 
@@ -2008,6 +2143,7 @@ def run_onbox(report: Report, args: argparse.Namespace) -> None:
     check_single_cohort_owner(report)
     check_league_population_difference(report)
     check_cohort_population_onbox(report)
+    check_ledger_rank_change_flag(report)
     record_blocked_rows(report, None, mode="onbox")
 
 

@@ -971,3 +971,118 @@ class TestBlockedRowsModeSplit:
         source = inspect.getsource(verify.run_onbox)
         assert "check_cohort_population_onbox(report)" in source
         assert 'record_blocked_rows(report, None, mode="onbox")' in source
+
+
+# ── V1-87: the rank-change flag's blast radius ─────────────────────
+
+
+def _temporal_ledger(tmp_path):
+    from src.history import store
+
+    store._reset_setup_cache_for_tests()
+    path = tmp_path / "temporal_ledger.sqlite"
+    store.connect(path).close()
+    return path
+
+
+def _record_board(path, observed_date, ranks_by_player):
+    """One canonical_board date: ``{player_suffix: rank}``."""
+    from src.history import store
+
+    result = store.write_observations(
+        [
+            {
+                "asset_key": f"player:{suffix}",
+                "asset_class": "offense",
+                "lane": store.LANE_CANONICAL,
+                "source_key": "",
+                "observed_date": observed_date,
+                "rank": rank,
+                "value": 1000.0 - rank,
+                "origin": "test",
+            }
+            for suffix, rank in ranks_by_player.items()
+        ],
+        path=path,
+    )
+    assert not result["rejected"], result["rejected"]
+    return result
+
+
+class TestLedgerRankChangeFlag:
+    """V1-87: the flag's ON/OFF blast radius, measured against a ledger with
+    real canonical_board rows — and honestly unmeasurable without one, since
+    with no ledger BOTH branches stamp None and the diff is vacuous."""
+
+    def test_two_board_dates_yield_the_measured_blast_radius(self, tmp_path):
+        path = _temporal_ledger(tmp_path)
+        _record_board(path, "2026-08-01", {"1": 10, "2": 20, "3": 30})
+        # player:4 is new on the second board: ranked, but no comparator,
+        # so the ON branch stamps None for it — it must not count.
+        _record_board(path, "2026-08-02", {"2": 15, "3": 35, "4": 40})
+        report = _report()
+        verify.check_ledger_rank_change_flag(report, ledger_path=path)
+        report.finalize()
+        check = report.checks[0]
+        assert check.status == verify.PASS, check.detail
+        assert check.evidence["canonicalBoardRows"] == 6
+        assert check.evidence["canonicalBoardDates"] == 2
+        assert check.evidence["newestBoardDate"] == "2026-08-02"
+        assert check.evidence["comparatorDate"] == "2026-08-01"
+        assert check.evidence["rankedRowsOnNewestBoard"] == 3
+        assert check.evidence["nonNullRankChangeOn"] == 2
+        assert check.evidence["nonNullRankChangeOff"] == 0
+        assert check.evidence["offIsStructural"] is True
+        assert check.evidence["delta"] == 2
+        assert check.denominator == 3
+
+    def test_a_single_board_date_is_unmeasurable_not_zero(self, tmp_path):
+        """One date has no strictly-prior comparator. Reporting a blast
+        radius of 0 there would present 'cannot measure' as 'measured
+        nothing moved'."""
+        path = _temporal_ledger(tmp_path)
+        _record_board(path, "2026-08-01", {"1": 10, "2": 20})
+        report = _report()
+        verify.check_ledger_rank_change_flag(report, ledger_path=path)
+        check = report.checks[0]
+        assert check.status == verify.UNMEASURABLE
+        assert "strictly-prior comparator" in check.detail
+        assert check.evidence["canonicalBoardDates"] == 1
+
+    def test_an_absent_ledger_is_unmeasurable_and_is_not_created(self, tmp_path):
+        path = tmp_path / "absent" / "temporal_ledger.sqlite"
+        report = _report()
+        verify.check_ledger_rank_change_flag(report, ledger_path=path)
+        check = report.checks[0]
+        assert check.status == verify.UNMEASURABLE
+        assert "environment artifact" in check.detail
+        assert check.evidence["ledgerPresent"] is False
+        assert not path.exists()
+
+    def test_a_ledger_without_canonical_board_rows_is_unmeasurable(self, tmp_path):
+        """Other lanes are not the served board; their presence must not
+        make the flag's blast radius look measurable."""
+        from src.history import store
+
+        path = _temporal_ledger(tmp_path)
+        result = store.write_observations(
+            [
+                {
+                    "asset_key": "player:1",
+                    "asset_class": "offense",
+                    "lane": store.LANE_SOURCE,
+                    "source_key": "ktcSfTep",
+                    "observed_date": "2026-08-01",
+                    "value": 5000.0,
+                    "origin": "test",
+                }
+            ],
+            path=path,
+        )
+        assert result["written"] == 1
+        report = _report()
+        verify.check_ledger_rank_change_flag(report, ledger_path=path)
+        check = report.checks[0]
+        assert check.status == verify.UNMEASURABLE
+        assert check.evidence["canonicalBoardRows"] == 0
+        assert check.evidence["laneRowCounts"].get(store.LANE_SOURCE) == 1
