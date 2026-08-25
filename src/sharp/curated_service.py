@@ -31,8 +31,12 @@ def _int_param(value: Any, default: int, *, minimum: int = 0, maximum: int = 100
         return default
 
 
-def _require_admin(request: Request) -> JSONResponse | None:
-    """Return an error response when the caller is not an allowlisted admin.
+def _admin_session(request: Request) -> JSONResponse | dict[str, Any]:
+    """Resolve the caller's admin session, or an error response.
+
+    Returns the SESSION DICT on success so callers can attribute the action
+    to the authenticated admin (the audit trail's "who" must come from the
+    session, never from a caller-supplied body field).
 
     Resolved through the running server module rather than imported, because
     ``server.py`` imports THIS module -- a module-level import back into it
@@ -45,8 +49,17 @@ def _require_admin(request: Request) -> JSONResponse | None:
         require_admin = getattr(module, "_require_admin_session", None)
         if require_admin is not None:
             result = require_admin(request)
-            return result if isinstance(result, JSONResponse) else None
+            if isinstance(result, JSONResponse):
+                return result
+            return result if isinstance(result, dict) else {}
     return _error(503, "admin_gate_unavailable", "Admin authorization is unavailable.")
+
+
+def _require_admin(request: Request) -> JSONResponse | None:
+    """Gate-only view of :func:`_admin_session` for routes that need no
+    attribution. Same fail-closed contract."""
+    result = _admin_session(request)
+    return result if isinstance(result, JSONResponse) else None
 
 
 def _error(status: int, code: str, message: str) -> JSONResponse:
@@ -126,9 +139,14 @@ def _register_http_routes() -> None:
         # model -- it is what turns a curated person into a Super Sharp whose
         # trades vote. The private-API gate only proves *a* logged-in user, so
         # this needs the allowlist on top.
-        guard = _require_admin(request)
-        if guard is not None:
-            return guard
+        session = _admin_session(request)
+        if isinstance(session, JSONResponse):
+            return session
+        # The audit trail's "who" is the authenticated admin, taken from the
+        # session. A body-supplied ``reviewer`` is a caller claim and is
+        # deliberately ignored -- before 2026-08-25 it defaulted to the
+        # constant "admin", so every recorded decision had the same author.
+        reviewer = str(session.get("username") or "").strip() or "admin"
         try:
             body = await request.json()
         except Exception:  # noqa: BLE001
@@ -138,7 +156,7 @@ def _register_http_routes() -> None:
                 curated.review_candidate,
                 candidate_id,
                 str((body or {}).get("decision") or ""),
-                reviewer=str((body or {}).get("reviewer") or "admin"),
+                reviewer=reviewer,
                 reason=str((body or {}).get("reason") or "") or None,
             )
         except KeyError:
