@@ -42,12 +42,14 @@ from pathlib import Path
 import pytest
 
 from src.nfl_data.pbp_weekly import (
+    PBP_WEEKLY_SCHEMA_VERSION,
     PbpWeeklyStats,
     SeasonPbpIndex,
     accumulate_weekly,
     attach_supplement,
     gsis_of_row,
     load_pbp_weekly,
+    pbp_weekly_path,
     persist_pbp_weekly,
 )
 from src.nfl_data.realized_points import PBP_SUPPLEMENT_KEYS, PBP_SUPPLEMENT_ROW_KEY
@@ -707,3 +709,85 @@ def test_an_unknown_scoring_team_is_not_a_pick_six(td_team, posteam):
         )
     )
     assert by_player == {}
+
+
+# ── Artifact schema integrity (V1-49 production-proof prerequisite) ────
+#
+# The failure these guard is NOT "the file is unreadable" — it is the
+# far quieter one where a stale artifact is read successfully and its
+# missing keys score as real zeros.  ``covers()`` is week-level, so a
+# file built before a key existed still reports its weeks as covered;
+# the supplement is then a Mapping with no entry for the new key, and
+# ``compute_weekly_points`` never populates ``unscored``.
+
+
+def _write_artifact(tmp_path, payload: dict) -> None:
+    path = pbp_weekly_path(2025, out_dir=tmp_path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(payload) + "\n", encoding="utf-8")
+
+
+def _valid_payload(**overrides) -> dict:
+    payload = {
+        "schemaVersion": PBP_WEEKLY_SCHEMA_VERSION,
+        "season": 2025,
+        "weeksCovered": [14],
+        "partialWeeks": [],
+        "statKeys": sorted(PBP_SUPPLEMENT_KEYS),
+        "players": {"00-0038576": {"weeks": {"14": {"kick_ret_td": 1.0}}}},
+    }
+    payload.update(overrides)
+    return payload
+
+
+def test_a_current_schema_artifact_is_accepted(tmp_path):
+    """Non-vacuity: the guards below must reject for their stated reason,
+    not because this helper writes something unreadable."""
+    _write_artifact(tmp_path, _valid_payload())
+    assert load_pbp_weekly(2025, out_dir=tmp_path) is not None
+
+
+def test_a_stale_schema_artifact_is_refused_not_read_as_zeros(tmp_path):
+    _write_artifact(tmp_path, _valid_payload(schemaVersion="2026-08-18.v1"))
+    assert load_pbp_weekly(2025, out_dir=tmp_path) is None
+
+
+def test_an_unstamped_artifact_is_refused(tmp_path):
+    payload = _valid_payload()
+    del payload["schemaVersion"]
+    _write_artifact(tmp_path, payload)
+    assert load_pbp_weekly(2025, out_dir=tmp_path) is None
+
+
+def test_a_key_set_that_moved_without_a_version_bump_is_refused(tmp_path):
+    """The exact failure that produced this unit: ``kick_ret_td`` joined
+    PBP_SUPPLEMENT_KEYS and the version was NOT bumped, so a
+    version-only check would have passed the artifact through."""
+    stale_keys = sorted(PBP_SUPPLEMENT_KEYS - {"kick_ret_td"})
+    _write_artifact(tmp_path, _valid_payload(statKeys=stale_keys))
+    assert load_pbp_weekly(2025, out_dir=tmp_path) is None
+
+
+def test_a_refused_artifact_reports_the_season_missing_rather_than_empty(tmp_path):
+    """Refusing must produce an honest unknown, not a different silent
+    zero — the whole point of the guard."""
+    _write_artifact(tmp_path, _valid_payload(schemaVersion="2026-08-18.v1"))
+    index = SeasonPbpIndex(out_dir=tmp_path)
+    row = {"season": 2025, "week": 14, "player_id": "00-0038576"}
+    assert PBP_SUPPLEMENT_ROW_KEY not in index.attach(row)
+    assert index.seasons_missing == (2025,)
+
+
+def test_the_schema_version_is_bumped_when_the_key_set_changes(tmp_path):
+    """A freshly persisted artifact must stamp the current version AND
+    the current key set, so the two can never drift apart again."""
+
+    def lines(_season):
+        with SLICE.open("r", encoding="utf-8", newline="") as fh:
+            return list(fh)
+
+    persist_pbp_weekly([2025], out_dir=tmp_path, _line_source=lines)
+    payload = load_pbp_weekly(2025, out_dir=tmp_path)
+    assert payload is not None, "a just-built artifact must not be refused"
+    assert payload["schemaVersion"] == PBP_WEEKLY_SCHEMA_VERSION
+    assert sorted(payload["statKeys"]) == sorted(PBP_SUPPLEMENT_KEYS)
