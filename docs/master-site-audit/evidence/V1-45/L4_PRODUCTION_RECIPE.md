@@ -4,6 +4,22 @@
 `IMPLEMENTED_UNVERIFIED` · owner note *"ALREADY COMPLETE — VERIFY ONLY"*.
 **No V1 status column edited. This lane reaches L2; L4 needs a deployed SHA.**
 
+> **Scope, and the canonical V1-45 recipe.** The broader V1-45 L4 recipe is
+> **`docs/trade/V1_45_TRADE_CALCULATOR_L4_EVIDENCE_RECIPE.md`** (#1082, Trade Intelligence
+> lane) — it covers all three canonical blocks `/api/trade/simulate` stamps plus the Analyze
+> Trade surface, and it is the document to run for the row as a whole. **This file does not
+> replace it and is not a second V1-45 recipe**; it is the verification for the ONE repair
+> below, and it exists separately only because the repair shipped after that audit.
+>
+> The two agree on the measurement, independently: #1082 measured `finalRosterSimulation` at
+> **0 frontend consumers, not rendered on `/trade`** against `main` @ `131abf9f`; this lane
+> measured the same thing against `main` @ `b857d07c0`. #1082 is the **audit**; this is the
+> **repair**. Whoever runs the L4 pass should run #1082's recipe and use §Recipe here for the
+> final-roster block specifically.
+>
+> #1082 also records a gap this lane did **not** touch: `POST /api/trade/analyze` (V1-43) has
+> zero frontend callers and no Next bridge route. Different row, different owner.
+
 ---
 
 ## What changed, and what it is not
