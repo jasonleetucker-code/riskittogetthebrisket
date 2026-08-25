@@ -3521,14 +3521,32 @@ async def _request_context_middleware(request: Request, call_next):
 
 
 def _client_ip_from_request(request: Request) -> str:
-    """Prefer ``X-Forwarded-For`` (nginx sets it for us in prod);
-    fall back to ``request.client.host``."""
+    """The client identity the RATE LIMITER keys on — attacker-fixed, not
+    attacker-chosen (W22-F002 / V1-103).
+
+    ``X-Real-IP`` first: nginx sets it with ``proxy_set_header X-Real-IP
+    $remote_addr`` (deploy/nginx/chaseupside-proxy.conf), which REPLACES
+    anything the client sent — through the proxy it is always the TCP
+    peer nginx actually saw.
+
+    ``X-Forwarded-For`` is different: nginx uses
+    ``$proxy_add_x_forwarded_for``, which APPENDS the real address to
+    whatever the client supplied.  Taking the FIRST entry — what this
+    function did until 2026-08-25 — therefore keyed the limiter on an
+    attacker-chosen string: rotate one header value per request and every
+    public endpoint's limit dissolves.  The one entry our own trusted
+    proxy wrote is the LAST, so the fallback takes that.
+
+    Bare ``request.client.host`` remains for direct (dev/E2E) access.
+    """
+    real_ip = request.headers.get("x-real-ip", "").strip()
+    if real_ip:
+        return real_ip
     xff = request.headers.get("x-forwarded-for", "")
     if xff:
-        # First entry in the chain is the original client.
-        first = xff.split(",")[0].strip()
-        if first:
-            return first
+        last = xff.split(",")[-1].strip()
+        if last:
+            return last
     client = request.client
     return client.host if client else ""
 
