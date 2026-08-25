@@ -724,3 +724,365 @@ class TestTheRequiredListsCannotBeSilentlyEmptied:
         turned on. If one stops being guarded, the correction it protects can
         silently rot back."""
         assert field in verify.REQUIRED_FIELDS
+
+
+# ── V1-65: the league-population census ────────────────────────────
+
+
+def _intel_ledger(tmp_path, monkeypatch):
+    """A tmp intel ledger, schema applied — the test_discovery pattern."""
+    from src.intel import ledger, store
+
+    monkeypatch.setattr(store, "DATA_DIR", tmp_path / "intel")
+    ledger.reset_setup_cache()
+    path = tmp_path / "intel" / ledger.LEDGER_FILENAME
+    ledger.connect(path).close()
+    return path
+
+
+def _league_row(league_id, *, type_=2, best_ball=0, signal=True, sharp=True, age=2, omit_age=False):
+    import json
+
+    settings = {
+        "type": type_,
+        "bestBall": best_ball,
+        "signalEligible": signal,
+        "sharpEligible": sharp,
+        "ageSeasons": age,
+    }
+    if omit_age:
+        settings.pop("ageSeasons")
+    return {
+        "league_id": league_id,
+        "season": "2026",
+        "previous_league_id": "prev" if age >= 2 else "",
+        "name": f"League {league_id}",
+        "total_rosters": 12,
+        "settings_json": json.dumps(settings),
+    }
+
+
+class TestLeaguePopulationCensus:
+    """V1-65's L2 census: signal- vs sharp-admitted, with the difference
+    explained rather than merely counted."""
+
+    def test_a_populated_ledger_yields_the_census_and_the_reason_histogram(
+        self, tmp_path, monkeypatch
+    ):
+        from src.intel import ledger
+
+        path = _intel_ledger(tmp_path, monkeypatch)
+        ledger.upsert_leagues(
+            [
+                # signal AND sharp: dynasty, 2 seasons.
+                _league_row("DYN_OLD", type_=2, signal=True, sharp=True, age=2),
+                # signal only: keeper (dynasty-adjacent, never sharp).
+                _league_row("KEEP", type_=1, signal=True, sharp=False, age=2),
+                # signal only: first-year dynasty.
+                _league_row("DYN_NEW", type_=2, signal=True, sharp=False, age=1),
+                # neither: best-ball and redraft.
+                _league_row("BB", type_=2, best_ball=1, signal=False, sharp=False),
+                _league_row("RED", type_=0, signal=False, sharp=False),
+            ],
+            path=path,
+        )
+        conn = ledger.connect(path)
+        try:
+            conn.execute(
+                "INSERT INTO manager_seasons (league_id, season, user_id, is_complete, "
+                "sharp_eligible) VALUES ('DYN_OLD', '2025', 'u1', 1, 1)"
+            )
+            conn.commit()
+        finally:
+            conn.close()
+
+        report = _report()
+        verify.check_league_population_difference(report, ledger_path=path)
+        check = report.checks[0]
+        assert check.status == verify.PASS, check.detail
+        assert check.evidence["signalAdmitted"] == 3
+        assert check.evidence["sharpAdmitted"] == 1
+        assert check.evidence["sharpOnlyCount"] == 0
+        assert check.evidence["signalOnlyCount"] == 2
+        assert sorted(check.evidence["signalOnlySample"]) == ["DYN_NEW", "KEEP"]
+        assert check.evidence["sharpExclusionReasons"] == {"keeper": 1, "too_new": 1}
+        assert check.evidence["managerSeasonsSharpCompleteLeagues"] == 1
+        assert check.denominator == 5
+
+    def test_a_sharp_league_outside_the_signal_set_fails(self, tmp_path, monkeypatch):
+        """Sharp is strictly narrower by definition; a member here means the
+        two gates disagreed about the same stored evidence."""
+        from src.intel import ledger
+
+        path = _intel_ledger(tmp_path, monkeypatch)
+        ledger.upsert_leagues(
+            [_league_row("WEIRD", type_=2, signal=False, sharp=True, age=2)], path=path
+        )
+        report = _report()
+        verify.check_league_population_difference(report, ledger_path=path)
+        check = report.checks[0]
+        assert check.status == verify.FAIL
+        assert check.evidence["sharpOnlySample"] == ["WEIRD"]
+
+    def test_an_unrecorded_age_is_not_reported_as_too_new(self, tmp_path, monkeypatch):
+        """Missing is never a value: a league whose stored settings carry no
+        ageSeasons must not read as a measured 'too new'."""
+        from src.intel import ledger
+
+        path = _intel_ledger(tmp_path, monkeypatch)
+        ledger.upsert_leagues(
+            [_league_row("NOAGE", type_=2, signal=True, sharp=False, age=1, omit_age=True)],
+            path=path,
+        )
+        report = _report()
+        verify.check_league_population_difference(report, ledger_path=path)
+        check = report.checks[0]
+        assert check.status == verify.PASS
+        assert check.evidence["sharpExclusionReasons"] == {"age_unrecorded": 1}
+
+    def test_an_empty_leagues_table_is_unmeasurable_never_pass(self, tmp_path, monkeypatch):
+        path = _intel_ledger(tmp_path, monkeypatch)
+        report = _report()
+        verify.check_league_population_difference(report, ledger_path=path)
+        check = report.checks[0]
+        assert check.status == verify.UNMEASURABLE
+        assert "carries no discovered leagues here" in check.detail
+        assert check.evidence["ledgerPresent"] is True
+
+    def test_an_absent_ledger_is_blocked_and_is_not_created(self, tmp_path):
+        """Read-only: probing for the store must not mint one — an empty
+        ledger this check created would be indistinguishable from a real
+        empty crawl on the next run."""
+        path = tmp_path / "absent" / "ledger.sqlite3"
+        report = _report()
+        verify.check_league_population_difference(report, ledger_path=path)
+        check = report.checks[0]
+        assert check.status == verify.BLOCKED
+        assert check.evidence["ledgerPresent"] is False
+        assert not path.exists()
+
+
+# ── V1-58: the in-process cohort resolution ────────────────────────
+
+
+class TestCohortPopulationOnbox:
+    """On the box the cohort is resolvable in-process through the canonical
+    owner — the same pattern run_onbox uses for the market and roster
+    boards. Two honesty rules: a measured zero over present stores is a
+    truthful pass-with-populated-false, and absent stores are blocked."""
+
+    def test_an_absent_store_is_blocked_and_is_not_created(self, tmp_path):
+        path = tmp_path / "absent" / "ledger.sqlite3"
+        report = _report()
+        verify.check_cohort_population_onbox(report, ledger_path=path)
+        check = report.checks[0]
+        assert check.status == verify.BLOCKED
+        assert check.evidence["ledgerPresent"] is False
+        assert not path.exists()
+
+    def test_a_measured_zero_over_present_stores_is_a_truthful_pass(self, tmp_path, monkeypatch):
+        """Zero members with the stores present is a REAL measured answer.
+
+        Not converted to FAILED (an empty cohort is a finding about the
+        deployed data, not about the check), not presented as populated,
+        and not downgraded by the vacuous-pass guard — this check verifies
+        measurability, so its denominator is deliberately None.
+        """
+        from src.sharp import cohort
+
+        path = _intel_ledger(tmp_path, monkeypatch)
+        monkeypatch.setattr(cohort, "load_ffpc_config", lambda path=None: {})
+        # The curated-industry population reads a separate store that may or
+        # may not exist in a dev checkout; pin it empty so this test measures
+        # the automated path over the tmp ledger deterministically.
+        monkeypatch.setattr(cohort, "curated_industry_members", lambda qualification: [])
+        report = _report()
+        verify.check_cohort_population_onbox(report, ledger_path=path)
+        report.finalize()
+        check = report.checks[0]
+        assert check.status == verify.PASS, check.detail
+        assert check.evidence["populated"] is False
+        assert check.evidence["memberCount"] == 0
+        assert "ZERO" in check.detail and "measured" in check.detail
+
+    def test_a_populated_cohort_reports_the_qualification_and_platform_split(
+        self, tmp_path, monkeypatch
+    ):
+        from src.sharp import cohort
+
+        path = _intel_ledger(tmp_path, monkeypatch)
+        members = [
+            cohort.CohortMember("sleeper:u1", "sleeper", "automated_qualified", 0.9),
+            cohort.CohortMember("ffpc:m1", "ffpc", "curated_high_stakes", 0.75),
+        ]
+        coverage = {
+            "automatedQualifiedManagers": 1,
+            "curatedManagers": 1,
+            "provisionalManagers": 0,
+            "evidenceManagers": 5,
+            "methodologyVersion": "sharp-v2-test",
+        }
+        monkeypatch.setattr(cohort, "cohort_members", lambda **kw: (members, coverage))
+        report = _report()
+        verify.check_cohort_population_onbox(report, ledger_path=path)
+        check = report.checks[0]
+        assert check.status == verify.PASS
+        assert check.evidence["populated"] is True
+        assert check.evidence["memberCount"] == 2
+        assert check.evidence["byQualificationMethod"] == {
+            "automated_qualified": 1,
+            "curated_high_stakes": 1,
+        }
+        assert check.evidence["byPlatform"] == {"sleeper": 1, "ffpc": 1}
+        assert check.evidence["coverage"]["methodologyVersion"] == "sharp-v2-test"
+
+
+class TestBlockedRowsModeSplit:
+    """B58 stays blocked only where nothing measured it: REMOTE mode.
+
+    On the box check_cohort_population_onbox resolves the cohort in-process,
+    so recording the row as blocked there would deny a measurement the run
+    just made. B59 stays blocked in both modes.
+    """
+
+    def test_remote_mode_records_both_rows_blocked(self):
+        report = _report()
+        verify.record_blocked_rows(report, None, mode="remote")
+        assert [c.row for c in report.checks] == ["V1-58", "V1-59"]
+        assert all(c.status == verify.BLOCKED for c in report.checks)
+
+    def test_remote_mode_with_a_401_records_both_rows_unverifiable(self):
+        report = _report()
+        verify.record_blocked_rows(report, "401 from /api/sharp/cohort", mode="remote")
+        assert [c.row for c in report.checks] == ["V1-58", "V1-59"]
+        assert all(c.status == verify.UNVERIFIABLE for c in report.checks)
+
+    def test_onbox_mode_keeps_only_b59(self):
+        report = _report()
+        verify.record_blocked_rows(report, None, mode="onbox")
+        assert [c.row for c in report.checks] == ["V1-59"]
+        assert report.checks[0].status == verify.BLOCKED
+
+    def test_run_onbox_actually_registers_the_in_process_check(self):
+        """Non-vacuity: the mode split is only honest if the on-box run
+        REPLACES the blocked row with a measurement rather than dropping it."""
+        import inspect
+
+        source = inspect.getsource(verify.run_onbox)
+        assert "check_cohort_population_onbox(report)" in source
+        assert 'record_blocked_rows(report, None, mode="onbox")' in source
+
+
+# ── V1-87: the rank-change flag's blast radius ─────────────────────
+
+
+def _temporal_ledger(tmp_path):
+    from src.history import store
+
+    store._reset_setup_cache_for_tests()
+    path = tmp_path / "temporal_ledger.sqlite"
+    store.connect(path).close()
+    return path
+
+
+def _record_board(path, observed_date, ranks_by_player):
+    """One canonical_board date: ``{player_suffix: rank}``."""
+    from src.history import store
+
+    result = store.write_observations(
+        [
+            {
+                "asset_key": f"player:{suffix}",
+                "asset_class": "offense",
+                "lane": store.LANE_CANONICAL,
+                "source_key": "",
+                "observed_date": observed_date,
+                "rank": rank,
+                "value": 1000.0 - rank,
+                "origin": "test",
+            }
+            for suffix, rank in ranks_by_player.items()
+        ],
+        path=path,
+    )
+    assert not result["rejected"], result["rejected"]
+    return result
+
+
+class TestLedgerRankChangeFlag:
+    """V1-87: the flag's ON/OFF blast radius, measured against a ledger with
+    real canonical_board rows — and honestly unmeasurable without one, since
+    with no ledger BOTH branches stamp None and the diff is vacuous."""
+
+    def test_two_board_dates_yield_the_measured_blast_radius(self, tmp_path):
+        path = _temporal_ledger(tmp_path)
+        _record_board(path, "2026-08-01", {"1": 10, "2": 20, "3": 30})
+        # player:4 is new on the second board: ranked, but no comparator,
+        # so the ON branch stamps None for it — it must not count.
+        _record_board(path, "2026-08-02", {"2": 15, "3": 35, "4": 40})
+        report = _report()
+        verify.check_ledger_rank_change_flag(report, ledger_path=path)
+        report.finalize()
+        check = report.checks[0]
+        assert check.status == verify.PASS, check.detail
+        assert check.evidence["canonicalBoardRows"] == 6
+        assert check.evidence["canonicalBoardDates"] == 2
+        assert check.evidence["newestBoardDate"] == "2026-08-02"
+        assert check.evidence["comparatorDate"] == "2026-08-01"
+        assert check.evidence["rankedRowsOnNewestBoard"] == 3
+        assert check.evidence["nonNullRankChangeOn"] == 2
+        assert check.evidence["nonNullRankChangeOff"] == 0
+        assert check.evidence["offIsStructural"] is True
+        assert check.evidence["delta"] == 2
+        assert check.denominator == 3
+
+    def test_a_single_board_date_is_unmeasurable_not_zero(self, tmp_path):
+        """One date has no strictly-prior comparator. Reporting a blast
+        radius of 0 there would present 'cannot measure' as 'measured
+        nothing moved'."""
+        path = _temporal_ledger(tmp_path)
+        _record_board(path, "2026-08-01", {"1": 10, "2": 20})
+        report = _report()
+        verify.check_ledger_rank_change_flag(report, ledger_path=path)
+        check = report.checks[0]
+        assert check.status == verify.UNMEASURABLE
+        assert "strictly-prior comparator" in check.detail
+        assert check.evidence["canonicalBoardDates"] == 1
+
+    def test_an_absent_ledger_is_unmeasurable_and_is_not_created(self, tmp_path):
+        path = tmp_path / "absent" / "temporal_ledger.sqlite"
+        report = _report()
+        verify.check_ledger_rank_change_flag(report, ledger_path=path)
+        check = report.checks[0]
+        assert check.status == verify.UNMEASURABLE
+        assert "environment artifact" in check.detail
+        assert check.evidence["ledgerPresent"] is False
+        assert not path.exists()
+
+    def test_a_ledger_without_canonical_board_rows_is_unmeasurable(self, tmp_path):
+        """Other lanes are not the served board; their presence must not
+        make the flag's blast radius look measurable."""
+        from src.history import store
+
+        path = _temporal_ledger(tmp_path)
+        result = store.write_observations(
+            [
+                {
+                    "asset_key": "player:1",
+                    "asset_class": "offense",
+                    "lane": store.LANE_SOURCE,
+                    "source_key": "ktcSfTep",
+                    "observed_date": "2026-08-01",
+                    "value": 5000.0,
+                    "origin": "test",
+                }
+            ],
+            path=path,
+        )
+        assert result["written"] == 1
+        report = _report()
+        verify.check_ledger_rank_change_flag(report, ledger_path=path)
+        check = report.checks[0]
+        assert check.status == verify.UNMEASURABLE
+        assert check.evidence["canonicalBoardRows"] == 0
+        assert check.evidence["laneRowCounts"].get(store.LANE_SOURCE) == 1

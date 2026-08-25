@@ -1122,7 +1122,13 @@ def _opponent_fit_label(
     if not fitting_teams:
         return None
     if len(fitting_teams) == 1:
-        return f"Strong bilateral fit: {fitting_teams[0]} needs {', '.join(give_positions)} and could deal."
+        # sorted(): ``give_positions`` is a set, and joining a set puts the
+        # process's hash seed into an API response — measured: four distinct
+        # labels for one suggestion across PYTHONHASHSEED 0/1/7/42.
+        return (
+            f"Strong bilateral fit: {fitting_teams[0]} needs "
+            f"{', '.join(sorted(give_positions))} and could deal."
+        )
     return f"Potential trade partners ({len(fitting_teams)}): {', '.join(fitting_teams[:3])}"
 
 

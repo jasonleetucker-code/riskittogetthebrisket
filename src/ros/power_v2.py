@@ -370,7 +370,17 @@ def _score_state(
         wins = s["wins"]
         games = s["games"] or 1
         wl = wins / games  # already in [0, 1]
-        all_play = state["allplay"].get(oid, 0.0)
+        # UNMEASURED IS None, NOT 0.0 -- the same owner invariant recent
+        # binds to above (missing != zero).  ``last_season_allplay_share``
+        # only holds keys for owners who appeared in the last SCORED
+        # season's weeks, and all_play is an expected share on [0, 1]
+        # consumed raw (never percentiled), so the retired ``.get(oid,
+        # 0.0)`` default scored an absent owner as the league's WORST
+        # all-play performer -- a confident bottom value, at weight 0.08,
+        # for a component nothing measured.  ``None`` propagates to a
+        # dropped weight and a null component through the same per-owner
+        # renormalisation recent already uses.
+        all_play = state["allplay"].get(oid)
         streak = _streak_score_from_outcomes(state["outcomes"].get(oid, []))
         # Luck regression: a team whose actualWins lag expectedWins
         # gets a small boost (regression toward expected).  Clamp to
@@ -403,6 +413,12 @@ def _score_state(
     ppg_values = [inputs[o]["ppg"] for o in owner_ids]
     recent_values = [inputs[o]["recent"] for o in owner_ids]
     recent_available = any(v is not None for v in recent_values)
+    # all_play is already a 0-1 share and is consumed raw -- unlike
+    # ``recent_values`` this list feeds no ``_percentile`` call.  It
+    # exists only to answer whether ANYONE was measured, so league-wide
+    # absence can renormalise the weight away below.
+    all_play_values = [inputs[o]["all_play"] for o in owner_ids]
+    all_play_available = any(v is not None for v in all_play_values)
 
     # Renormalise weights when missing inputs are present so the score
     # stays in [0, 100] instead of being deflated by the unfilled
@@ -420,6 +436,13 @@ def _score_state(
     # scored at a stand-in value.
     if not recent_available:
         missing_inputs.append("recent")
+    # Same rule, same mechanism, for all_play (owner invariant: missing
+    # != zero).  With no scored weeks anywhere in the snapshot,
+    # ``last_season_allplay_share`` is empty, so the component is
+    # unmeasurable league-wide and drops out of the weight budget rather
+    # than being scored at a stand-in 0.0 for every owner.
+    if not all_play_available:
+        missing_inputs.append("all_play")
 
     # THE PRESEASON SUPPRESSION BELONGS TO ONE LENS, NOT BOTH.
     #
@@ -503,7 +526,7 @@ def _score_state(
                             else round(_percentile(recent_values, i["recent"]), 4)
                         ),
                         "wl_record": round(i["wl_record"], 4),
-                        "all_play": round(i["all_play"], 4),
+                        "all_play": (None if i["all_play"] is None else round(i["all_play"], 4)),
                         "streak": round(i["streak"], 4),
                         "luck_regression": round(i["luck_regression"], 4),
                         "pointsPerGame": round(i["ppg"], 2),
