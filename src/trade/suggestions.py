@@ -349,6 +349,14 @@ class RosterAnalysis:
     #: Whether a constraint set was consulted at all.  "Nothing is protected"
     #: and "nobody asked" are different claims and this keeps them apart.
     constraints_applied: bool = False
+    #: The starter-demand model this analysis was computed with (W30-F006 /
+    #: V1-25).  ``analyze_roster`` stores the LEAGUE'S resolved needs here so
+    #: every downstream consumer — the four generators, ``rank_score``, the
+    #: balancer-candidate picker — reads the same lineup the rooms were split
+    #: with.  ``DEFAULT_STARTER_NEEDS`` (dynasty_main's demand) is the
+    #: FALLBACK default only: reading the module constant directly inside a
+    #: generator is the hardcode that told the 1-TE league to keep its TE2.
+    starter_needs: dict[str, int] = field(default_factory=lambda: dict(DEFAULT_STARTER_NEEDS))
 
     def __post_init__(self) -> None:
         """An analysis built without constraints has consulted none.
@@ -877,6 +885,7 @@ def analyze_roster(
         sendable_keys=sendable_keys,
         constrained_out=tuple(blocked),
         constraints_applied=True,
+        starter_needs=dict(needs),
     )
 
 
@@ -1000,7 +1009,7 @@ def rank_score(
         for p in s.receive:
             if p.position in roster.need_positions:
                 starter_ct = roster.starter_counts.get(p.position, 0)
-                needed = DEFAULT_STARTER_NEEDS.get(p.position, 1)
+                needed = roster.starter_needs.get(p.position, 1)
                 if starter_ct == 0:
                     need_sev = max(need_sev, 2.0)
                 elif starter_ct < needed:
@@ -1039,7 +1048,7 @@ def rank_score_breakdown(
         for p in s.receive:
             if p.position in roster.need_positions:
                 starter_ct = roster.starter_counts.get(p.position, 0)
-                needed = DEFAULT_STARTER_NEEDS.get(p.position, 1)
+                needed = roster.starter_needs.get(p.position, 1)
                 if starter_ct == 0:
                     need_sev = max(need_sev, 2.0)
                 elif starter_ct < needed:
@@ -1146,7 +1155,7 @@ def _generate_sell_high(
         players = roster.by_position.get(pos, [])
         if len(players) < 2:
             continue
-        need = DEFAULT_STARTER_NEEDS.get(pos, 1)
+        need = roster.starter_needs.get(pos, 1)
         # Depth is measured on the FULL room (a protected player is still
         # depth); the candidates we may offer come from the sendable view.
         sell_candidates = [
@@ -1226,7 +1235,7 @@ def _generate_buy_low(
         for target in targets[:5]:
             for surplus_pos in roster.surplus_positions:
                 depth = roster.by_position.get(surplus_pos, [])
-                need = DEFAULT_STARTER_NEEDS.get(surplus_pos, 1)
+                need = roster.starter_needs.get(surplus_pos, 1)
                 tradeable = [
                     p
                     for p in depth[need:]
@@ -1282,7 +1291,7 @@ def _generate_consolidation(
     tradeable: list[PlayerAsset] = []
     for pos in roster.surplus_positions:
         players = roster.by_position.get(pos, [])
-        need = DEFAULT_STARTER_NEEDS.get(pos, 1)
+        need = roster.starter_needs.get(pos, 1)
         for p in players[need:]:
             if p.display_value >= MIN_RELEVANT_VALUE and roster.can_send(p):
                 tradeable.append(p)
@@ -1375,16 +1384,15 @@ def _generate_positional_upgrades(
 ) -> list[TradeSuggestion]:
     suggestions: list[TradeSuggestion] = []
 
-    for pos in DEFAULT_STARTER_NEEDS:
+    for pos in roster.starter_needs:
         players = roster.by_position.get(pos, [])
         if len(players) < 2:
             continue
-        need = DEFAULT_STARTER_NEEDS.get(pos, 1)
+        need = roster.starter_needs.get(pos, 1)
         if need < 1:
             continue
 
         starters = players[:need]
-        # pos is always an offense position in DEFAULT_STARTER_NEEDS; using
         depth = [
             p
             for p in players[need:]
@@ -1428,7 +1436,7 @@ def _generate_positional_upgrades(
                 surplus_tol = int(FAIRNESS_TOLERANCE * UPGRADE_SWEETENER_SURPLUS_MULTIPLIER)
                 for sp in roster.surplus_positions:
                     sp_depth = roster.by_position.get(sp, [])
-                    sp_need = DEFAULT_STARTER_NEEDS.get(sp, 1)
+                    sp_need = roster.starter_needs.get(sp, 1)
                     for p in sp_depth[sp_need:]:
                         sp_ev = p.display_value
                         if sp_ev >= MIN_RELEVANT_VALUE and abs(sp_ev - gap_needed) < surplus_tol:
@@ -1582,9 +1590,9 @@ def _roster_balancer_candidates(
     candidates: list[PlayerAsset] = []
 
     # Prefer surplus-position depth, then any non-starter depth
-    for pos in list(roster.surplus_positions) + list(DEFAULT_STARTER_NEEDS.keys()):
+    for pos in list(roster.surplus_positions) + list(roster.starter_needs.keys()):
         players = roster.by_position.get(pos, [])
-        need = DEFAULT_STARTER_NEEDS.get(pos, 1)
+        need = roster.starter_needs.get(pos, 1)
         for p in players[need:]:
             # The equalizer is spec §2.3's "trade equalizers / counteroffer
             # suggestions" bullet: it puts a FURTHER outgoing asset into the
@@ -1955,7 +1963,7 @@ def generate_suggestions_from_pool(
             # reads as "no trades exist" rather than "you protect these".
             "constraintsBlockedOutgoing": len(roster.constrained_out),
             "constraintsBlockedReasons": sorted({r for _a, r in roster.constrained_out}),
-            "starterNeeds": starter_needs or DEFAULT_STARTER_NEEDS,
+            "starterNeeds": roster.starter_needs,
             "opponentRostersProvided": len(league_rosters) if league_rosters else 0,
             "opponentRostersAnalyzed": len(opponent_analyses),
         },
