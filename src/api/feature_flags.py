@@ -8,21 +8,21 @@ proves itself.
 enabled.**  This docstring, ``README.md`` and ``docs/ARCHITECTURE.md``
 all used to assert a blanket disabled-by-default rule, and
 ARCHITECTURE built a stronger claim on top of it about production
-behaviour being frozen until a flag was flipped.  Both were false: 8 of
-the 16 entries in ``_DEFAULTS`` below are ``True`` — ``bdvm_engine``,
-``te_basis_conversion`` (which reprices every tight end on the live
-board), ``monte_carlo_trade``, ``idp_scoring_fit``,
-``reception_scoring_fit``, ``nfl_data_ingest``, ``realized_points_api``
-and ``perfect_draft`` — several with comments recording that the
-enabled default is deliberate.
+behaviour being frozen until a flag was flipped.  Both were false:
+9 of the 19 entries in ``_DEFAULTS`` below are ``True`` —
+``bdvm_engine``, ``te_basis_conversion`` (which reprices every tight
+end on the live board), ``monte_carlo_trade``, ``idp_scoring_fit``,
+``reception_scoring_fit``, ``nfl_data_ingest``, ``realized_points_api``,
+``perfect_draft`` and ``ledger_rank_change`` — several with comments
+recording that the enabled default is deliberate.
 
-**One live gate is deliberately NOT in this registry**, and it is the
-sharpest illustration of why the paragraph above matters:
-``RISKIT_FEATURE_LEDGER_RANK_CHANGE`` is read directly in
-``data_contract._stamp_rank_changes``, defaults ON, and therefore appears
-in no operator surface at all.  Audit **F-24** proposed registering it;
-that is blocked, not abandoned, and the reason is recorded at the read
-site.
+**No live gate sits outside this registry any more.**  The last one —
+``RISKIT_FEATURE_LEDGER_RANK_CHANGE``, read directly in
+``data_contract._stamp_rank_changes`` and therefore visible in no
+operator surface at all — was registered as ``ledger_rank_change`` on
+2026-08-25, closing audit **F-24** (V1-87).  The read site now routes
+through ``is_enabled``; the measured blast radius that unblocked the
+registration is recorded at its ``_DEFAULTS`` entry.
 
 For a flag that ships enabled, the env var is a ROLLBACK lever, not an
 opt-in.  Read ``_DEFAULTS`` for the flag you care about rather than
@@ -87,6 +87,22 @@ _DEFAULTS: Final[dict[str, bool]] = {
     # label, and with the flag off it uses the first usable bridge, which
     # reproduces the incumbent ladder integer for integer.
     "multi_bridge_ladder": False,
+    # C1-U4 — ledger-derived rankChange on the canonical contract.  ON
+    # derives each ranked row's rankChange from the temporal ledger's
+    # previous recorded board; OFF stamps None on every row (deliberately
+    # not the retired self-referential cache).  Registered 2026-08-25,
+    # closing audit F-24 (V1-87): the flag was read directly from the
+    # environment in data_contract and was invisible to this inventory,
+    # snapshot(), /api/status and the reachability test.  Blast radius
+    # MEASURED on the production box (Lane 4 run 32843495391, deployed
+    # 8537aa4c2, ledger present with 37 recorded board dates): ON derives
+    # a non-null rankChange for 743 of 749 ranked rows on the 2026-08-25
+    # board (comparator 2026-08-24, 1342 ranked assets); OFF is
+    # structurally all-None, so the blast radius is exactly those 743
+    # rankChange stamps — no VALUE, rank, or tier moves under either
+    # setting.  Rollback: RISKIT_FEATURE_LEDGER_RANK_CHANGE=0 (and
+    # restart — registry reads are cached per process).
+    "ledger_rank_change": True,
     "unified_id_mapper": False,
     # Phase 2 — nfl_data_py pipeline
     # Activated with the 2026-04-25 deploy that adds nfl_data_py to
@@ -471,6 +487,12 @@ NO_GATE: Final[str] = "NO_GATE"
 _GATE_STATUS: Final[dict[str, str]] = {
     # ── Reachable from server.py; toggling changes a response ──
     "nfl_data_ingest": LIVE,
+    # ledger_rank_change gates the temporal-ledger rankChange derivation in
+    # ``data_contract._stamp_rank_changes``, which reaches a request through
+    # ``/api/data``: on → each ranked row's rankChange derives from the
+    # ledger's previous recorded board (743 of 749 rows non-null on the
+    # measured production board), off → None on every row.
+    "ledger_rank_change": LIVE,
     "realized_points_api": LIVE,
     "monte_carlo_trade": LIVE,
     "te_basis_conversion": LIVE,

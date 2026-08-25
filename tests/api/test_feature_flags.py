@@ -92,6 +92,16 @@ def test_every_flag_defaults_off_except_safe_additive():
         # QB/RB/WR/IDP value changes.  Rank displacement median 7, p90
         # 22.  Rollback: RISKIT_FEATURE_TE_BASIS_CONVERSION=0.
         "te_basis_conversion",
+        # C1-U4 / F-24 (V1-87).  Ledger-derived rankChange on the
+        # canonical contract.  Blast radius MEASURED on the production
+        # box (Lane 4 run 32843495391, deployed 8537aa4c2, temporal
+        # ledger present with 37 recorded board dates): ON derives a
+        # non-null rankChange for 743 of 749 ranked rows on the
+        # 2026-08-25 board (comparator 2026-08-24, 1342 ranked assets);
+        # OFF stamps None on every row structurally.  The moved field is
+        # rankChange ONLY — no value, rank or tier differs between the
+        # settings.  Rollback: RISKIT_FEATURE_LEDGER_RANK_CHANGE=0.
+        "ledger_rank_change",
         # IDP positional scoring fit.  Blast radius RE-measured against
         # the 2026-07-28 live board (1,094 rows) on the complete scoring
         # card:
