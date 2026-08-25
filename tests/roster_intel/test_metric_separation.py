@@ -523,8 +523,35 @@ def test_metrics_genuinely_diverge_on_a_representative_real_board():
         "either the board is unrepresentative or the two axes have collapsed"
     )
 
-    strongest = min(pairs, key=lambda p: p[0])
-    assert strongest[0] != strongest[1], (
-        "the single strongest-by-value team should not also rank identically "
-        f"on youth by coincidence: {strongest}"
+    # The magnitude half of the same property, stated over the POPULATION.
+    #
+    # This clause used to read ``min(pairs, key=...)`` then
+    # ``assert strongest[0] != strongest[1]`` — the single strongest-by-value
+    # team must not also rank #1 on youth. That asserted a COINCIDENCE about
+    # one data point, not a fact about the two concepts: the best roster in a
+    # league is perfectly entitled to also be its youngest, and on the
+    # 2026-08-24 board it was, giving ``(1, 1)`` and a RED that said nothing
+    # about collapse. Two distinct metrics may agree anywhere, including at
+    # the top; what they may not do is agree EVERYWHERE.
+    #
+    # So the leader is no longer special-cased. What the docstring actually
+    # claims — "a team can be the single STRONGEST roster in the league by
+    # value while ranking near the BOTTOM on youth" — is a statement about
+    # displacement, and it is asserted here directly: somewhere in the
+    # population, a team's two ranks must sit at least half a league apart.
+    # That is the same ``len(pairs) // 2`` scale the inversion bar above
+    # already uses, so no new threshold is introduced; a team displaced by
+    # half the league is by construction top-half on one axis and bottom-half
+    # on the other.
+    #
+    # It is also strictly stronger than counting inversions. Inversions treat
+    # a one-place shuffle and an eleven-place swing identically, so a Young
+    # Core that had degenerated into "Team Strength plus noise" could show 12
+    # of 12 differing and still pass. Requiring real displacement closes that.
+    displacements = [abs(s - y) for s, y in pairs]
+    assert max(displacements) >= len(pairs) // 2, (
+        "Team Strength and Young Core Index rank every team within "
+        f"{max(displacements)} places of each other (need >= {len(pairs) // 2}). "
+        "No team is strong-but-old or weak-but-young, so the two axes are "
+        "tracking one another rather than measuring different things."
     )
