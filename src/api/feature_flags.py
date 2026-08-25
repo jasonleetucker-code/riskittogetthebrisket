@@ -8,21 +8,21 @@ proves itself.
 enabled.**  This docstring, ``README.md`` and ``docs/ARCHITECTURE.md``
 all used to assert a blanket disabled-by-default rule, and
 ARCHITECTURE built a stronger claim on top of it about production
-behaviour being frozen until a flag was flipped.  Both were false: 8 of
-the 16 entries in ``_DEFAULTS`` below are ``True`` — ``bdvm_engine``,
-``te_basis_conversion`` (which reprices every tight end on the live
-board), ``monte_carlo_trade``, ``idp_scoring_fit``,
-``reception_scoring_fit``, ``nfl_data_ingest``, ``realized_points_api``
-and ``perfect_draft`` — several with comments recording that the
-enabled default is deliberate.
+behaviour being frozen until a flag was flipped.  Both were false:
+9 of the 19 entries in ``_DEFAULTS`` below are ``True`` —
+``bdvm_engine``, ``te_basis_conversion`` (which reprices every tight
+end on the live board), ``monte_carlo_trade``, ``idp_scoring_fit``,
+``reception_scoring_fit``, ``nfl_data_ingest``, ``realized_points_api``,
+``perfect_draft`` and ``ledger_rank_change`` — several with comments
+recording that the enabled default is deliberate.
 
-**One live gate is deliberately NOT in this registry**, and it is the
-sharpest illustration of why the paragraph above matters:
-``RISKIT_FEATURE_LEDGER_RANK_CHANGE`` is read directly in
-``data_contract._stamp_rank_changes``, defaults ON, and therefore appears
-in no operator surface at all.  Audit **F-24** proposed registering it;
-that is blocked, not abandoned, and the reason is recorded at the read
-site.
+**No live gate sits outside this registry any more.**  The last one —
+``RISKIT_FEATURE_LEDGER_RANK_CHANGE``, read directly in
+``data_contract._stamp_rank_changes`` and therefore visible in no
+operator surface at all — was registered as ``ledger_rank_change`` on
+2026-08-25, closing audit **F-24** (V1-87).  The read site now routes
+through ``is_enabled``; the measured blast radius that unblocked the
+registration is recorded at its ``_DEFAULTS`` entry.
 
 For a flag that ships enabled, the env var is a ROLLBACK lever, not an
 opt-in.  Read ``_DEFAULTS`` for the flag you care about rather than
