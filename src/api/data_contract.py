@@ -5842,6 +5842,58 @@ _TWO_WAY_PLAYERS: dict[str, str] = {
 }
 
 
+def _family_evidence_for_row(
+    *,
+    row: dict[str, Any],
+    effective_source_ranks: dict[str, Any],
+    effective_source_meta: dict[str, dict[str, Any]],
+    src_by_key: dict[str, dict[str, Any]],
+    family_by_key: dict[str, str],
+    fresh_by_source: dict[str, bool | None],
+) -> list["FamilyEvidence"]:
+    """Assemble the B11 gate's per-family evidence for one row.
+
+    ONE assembly, TWO callers: the ranked path and the off-cap player
+    value pass (#1101).  Extracted rather than transcribed, because a
+    second copy of this block would be a second confidence methodology —
+    ``src/api/confidence.py`` owns what the levels MEAN and this owns
+    what evidence it is shown, and both halves need exactly one owner.
+
+    Decides no level.  Every judgement below is about what a source
+    contribution IS, not about how good it is.
+    """
+    row_is_te = str(row.get("position") or "").strip().upper() == "TE"
+    evidence: list[FamilyEvidence] = []
+    for skey in effective_source_ranks:
+        smeta = effective_source_meta.get(skey) or {}
+        # Family-superseded members are not independent evidence;
+        # B10-T3b already excluded them from the blend.
+        if smeta.get("contributedToBlend") is False:
+            continue
+        method = str(smeta.get("method") or "")
+        src_def = src_by_key.get(skey, {})
+        evidence.append(
+            FamilyEvidence(
+                family=family_by_key.get(skey, skey),
+                source_key=skey,
+                value_contribution=smeta.get("valueContribution"),
+                fresh=fresh_by_source.get(skey),
+                # ADR-015 lifts a non-TEP source's TE row onto the
+                # TE++ basis the board is anchored on.  A measured
+                # conversion, not a native observation.
+                format_native=(not row_is_te) or bool(src_def.get("is_tep_premium")),
+                # An approximating translation — rookie ladder or
+                # backbone fallback — is a guess at where the
+                # source would have placed the player.
+                directly_observed=(
+                    method != TRANSLATION_FALLBACK
+                    and not method.startswith("rookie_ladder_translation")
+                ),
+            )
+        )
+    return evidence
+
+
 def _restate_confidence_after_override(
     players_array: list[dict[str, Any]],
     confidence_inputs: dict[int, tuple[list[FamilyEvidence], set[str]]],
@@ -10030,35 +10082,14 @@ def _compute_unified_rankings(
             # five axes over B10 family HEADS, combined by bottleneck.
             # Everything this loop does here is ASSEMBLE the evidence —
             # no level is decided in this file.
-            row_is_te = str(row.get("position") or "").strip().upper() == "TE"
-            evidence: list[FamilyEvidence] = []
-            for skey in effective_source_ranks:
-                smeta = effective_source_meta.get(skey) or {}
-                # Family-superseded members are not independent evidence;
-                # B10-T3b already excluded them from the blend.
-                if smeta.get("contributedToBlend") is False:
-                    continue
-                method = str(smeta.get("method") or "")
-                src_def = src_by_key.get(skey, {})
-                evidence.append(
-                    FamilyEvidence(
-                        family=family_by_key.get(skey, skey),
-                        source_key=skey,
-                        value_contribution=smeta.get("valueContribution"),
-                        fresh=fresh_by_source.get(skey),
-                        # ADR-015 lifts a non-TEP source's TE row onto the
-                        # TE++ basis the board is anchored on.  A measured
-                        # conversion, not a native observation.
-                        format_native=(not row_is_te) or bool(src_def.get("is_tep_premium")),
-                        # An approximating translation — rookie ladder or
-                        # backbone fallback — is a guess at where the
-                        # source would have placed the player.
-                        directly_observed=(
-                            method != TRANSLATION_FALLBACK
-                            and not method.startswith("rookie_ladder_translation")
-                        ),
-                    )
-                )
+            evidence = _family_evidence_for_row(
+                row=row,
+                effective_source_ranks=effective_source_ranks,
+                effective_source_meta=effective_source_meta,
+                src_by_key=src_by_key,
+                family_by_key=family_by_key,
+                fresh_by_source=fresh_by_source,
+            )
             # Kept so a LATER post-blend override that moves this row's
             # value can re-state its confidence against the value that
             # actually shipped.  See ``_restate_confidence_after_override``.
@@ -10145,39 +10176,127 @@ def _compute_unified_rankings(
                 if "idpTradeCalc" in source_ranks:
                     pdata["idpRank"] = source_ranks["idpTradeCalc"]
 
-    # ── Phase 4b': off-cap pick value stamping (C1-U6, RED-1) ──
+    # ── Phase 4b': off-cap VALUE stamping (C1-U6 RED-1; #1101) ──
     #
     # ``OVERALL_RANK_LIMIT`` is a RANK concept: the board publishes 800
-    # ranked rows.  For PLAYER rows past the cap, withholding the value
-    # is deliberate top-board behavior and is untouched here.  A PICK
-    # row that voted, though, is a valid tradeable asset whose canonical
-    # value must exist regardless of where it sorts (manifest
-    # C1-PICK-01: "every valid pick through 2029 has a finite canonical
-    # value") — the rookie-anchor pass already takes exactly this
-    # posture for current-year slot picks ("anchor regardless of
-    # whether the pick survived the cap").  Measured before this pass:
-    # five voted 2029 tier rows published ``rankDerivedValue: None``
-    # with their discount stamp already on the row.  Value only — no
-    # rank, no tier, no percentile: those stay capped.
+    # ranked rows.  It is NOT a claim that the 801st asset is worthless,
+    # and #1101 separates the two questions outright:
+    #
+    #   A. canonical VALUE availability   — does this asset have a price?
+    #   B. canonical TOP-BOARD membership — does it get a rank and tier?
+    #
+    # The cap answers B and only B.  So every row past it that VOTED —
+    # a pick, or a player carrying at least one matched trusted dynasty
+    # source and a positive canonical blend — keeps the value the
+    # pipeline has ALREADY computed for it.  Value only: no rank, no
+    # tier, no percentile, no standing.  A row here legitimately
+    # publishes ``rankDerivedValue > 0`` beside
+    # ``canonicalConsensusRank: None`` / ``canonicalTierId: None``, and
+    # that pairing is the intended shape, not an inconsistency.
+    #
+    # The pick half landed first (manifest C1-PICK-01: "every valid pick
+    # through 2029 has a finite canonical value"), mirroring the posture
+    # the rookie-anchor pass already took for current-year slot picks.
+    # The PLAYER half is #1101: measured on the 2026-08-25 board, 186
+    # players past the cap carried real source ranks and a positive
+    # blend (155..1186) and published ``rankDerivedValue: None`` — Trey
+    # Lance among them, with 8 sources and a blend of 1102.  A rank cap
+    # withholding a rank is top-board policy; a rank cap erasing a
+    # measured value is evidence loss.
+    #
+    # ``row_normalized`` is built from ``row_source_ranks``, so ARRIVING
+    # here is itself the evidence gate: a row nothing matched never
+    # enters this list and stays unpriced.  MISSING IS NEVER ZERO — and
+    # never ``DISPLAY_SCALE_MIN`` either.  Nothing below invents a value
+    # for a row that has none; it publishes the one already computed.
     for norm_val, row_idx in row_normalized[OVERALL_RANK_LIMIT:]:
         row = players_array[row_idx]
-        if row.get("assetClass") != "pick":
+        if norm_val <= 0:
+            # No positive canonical evidence to publish.  Leave the row
+            # unpriced rather than floor it up to 1 — a floor is what a
+            # real value is held ABOVE, not what a missing one becomes.
             continue
-        derived = int(norm_val)
-        if derived <= 0:
-            continue
-        row["rankDerivedValue"] = derived
-        row["offCapPickValue"] = True
-        is_slot_specific = _parse_pick_slot(row.get("canonicalName") or "") is not None
-        bucket, label = assess_pick_confidence(
-            row.get("canonicalSiteValues") or {},
-            is_slot_specific=is_slot_specific,
-        )
-        row["confidenceBucket"] = bucket
-        row["confidenceLabel"] = label
-        row["confidenceBasis"] = "pick_dispersion"
-        row["confidenceAxes"] = None
-        row["confidenceReasons"] = None
+        # The canonical scale's own minimum, from the scale's owner
+        # (``player_valuation.DISPLAY_SCALE_MIN``); no second literal is
+        # declared here.  The ranked path's ``int(norm_val)`` truncates,
+        # so a blend of 0.6 — real evidence, genuinely tiny — would
+        # otherwise be published as exactly the 0 this pass exists to
+        # stop manufacturing.
+        #
+        # Stated plainly: on the live board this floor is DEFENSIVE and
+        # binds nothing.  The Hill tail puts the deepest off-cap blend at
+        # 155, three orders of magnitude clear of it.  It is here because
+        # the correct rule is "positive evidence publishes at least the
+        # scale minimum", not because a row was measured needing it — and
+        # a floor that only appears once something has already been
+        # rounded to zero is a floor added too late.
+        derived = max(_CANONICAL_VALUE_MIN, int(norm_val))
+
+        if row.get("assetClass") == "pick":
+            row["rankDerivedValue"] = derived
+            row["offCapPickValue"] = True
+            is_slot_specific = _parse_pick_slot(row.get("canonicalName") or "") is not None
+            bucket, label = assess_pick_confidence(
+                row.get("canonicalSiteValues") or {},
+                is_slot_specific=is_slot_specific,
+            )
+            row["confidenceBucket"] = bucket
+            row["confidenceLabel"] = label
+            row["confidenceBasis"] = "pick_dispersion"
+            row["confidenceAxes"] = None
+            row["confidenceReasons"] = None
+        else:
+            source_ranks = row_source_ranks.get(row_idx) or {}
+            if not source_ranks:
+                # Unreachable by construction (see above); kept as the
+                # structural guard that says so, because the day the
+                # blend loop's input widens, this is the line that must
+                # refuse rather than the one that prices a stranger.
+                continue
+            source_meta = row_source_meta.get(row_idx, {})
+            dropped_set = set(row.get("droppedSources") or [])
+            effective_source_ranks = {k: v for k, v in source_ranks.items() if k not in dropped_set}
+            effective_source_meta = {k: v for k, v in source_meta.items() if k not in dropped_set}
+            row["rankDerivedValue"] = derived
+            row["offCapPlayerValue"] = True
+            # Publish the post-Hampel set the assessment below was read
+            # from.  Leaving the template's ``{}`` on a row that now
+            # carries a price would assert "no source survived" about a
+            # row priced by the survivors.
+            row["effectiveSourceRanks"] = effective_source_ranks
+            # Confidence comes from the SAME owner and the SAME evidence
+            # assembly the ranked path uses — no off-cap methodology, and
+            # nothing here promotes a row for being priced.  Whatever the
+            # gate returns is what ships: on the live board these rows
+            # answer ``low``, because coverage/agreement are genuinely
+            # thin this deep, which is the truthful answer rather than a
+            # flattering one.
+            evidence = _family_evidence_for_row(
+                row=row,
+                effective_source_ranks=effective_source_ranks,
+                effective_source_meta=effective_source_meta,
+                src_by_key=src_by_key,
+                family_by_key=family_by_key,
+                fresh_by_source=fresh_by_source,
+            )
+            # Registered so a LATER post-blend override that moves this
+            # row's value re-states its confidence against the number
+            # that actually shipped, exactly as for a ranked row.
+            row_confidence_inputs[row_idx] = (
+                evidence,
+                row_eligible_families.get(row_idx, set()),
+            )
+            assessment = assess_confidence(
+                evidence,
+                eligible_families=row_eligible_families.get(row_idx, set()),
+                consensus_value=derived,
+            )
+            row["confidenceBucket"] = assessment.overall
+            row["confidenceLabel"] = assessment.label
+            row["confidenceBasis"] = "evidence_gate"
+            row["confidenceAxes"] = dict(assessment.axes)
+            row["confidenceReasons"] = list(assessment.reasons)
+
         legacy_ref = row.get("legacyRef")
         if legacy_ref and legacy_ref in players_by_name:
             pdata = players_by_name[legacy_ref]
