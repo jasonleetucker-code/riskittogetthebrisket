@@ -654,6 +654,7 @@ def configured_slot_eligibility(
     for key, slot in (
         ("flexEligible", "FLEX"),
         ("sflexEligible", "SUPER_FLEX"),
+        ("wrrbFlexEligible", "WR_RB_FLEX"),
         ("idpFlexEligible", "IDP_FLEX"),
     ):
         raw = roster_settings.get(key)

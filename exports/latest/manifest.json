@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-08-25T09:22:09.277550",
+  "generatedAt": "2026-08-25T11:06:59.364259",
   "date": "2026-08-25",
   "files": [
     "dynasty_data.js",
@@ -14,7 +14,12 @@
     "ktc.csv",
     "ktcSfTep.csv"
   ],
-  "siteRawPreserved": [],
+  "siteRawPreserved": [
+    "draftSharksIdp.csv",
+    "draftSharksRosIdp.csv",
+    "draftSharksRosSf.csv",
+    "draftSharksSf.csv"
+  ],
   "siteRawMirrored": [
     "draftSharksIdp.csv",
     "draftSharksRosIdp.csv",

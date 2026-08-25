@@ -21,15 +21,21 @@ import NavMenu from "@/components/shell/NavMenu";
 import TeamSwitcher from "@/components/TeamSwitcher";
 import LeagueSwitcher from "@/components/LeagueSwitcher";
 import {
-  NAV_MODEL,
   SYSTEM_MODEL,
   isGroupActive,
   isNavActive,
+  navGroupsFor,
   systemItemsFor,
 } from "@/lib/nav-model";
 
-function visibleGroups(authenticated, isPublic) {
-  if (authenticated) return NAV_MODEL;
+function visibleGroups(authenticated, isPublic, capabilities) {
+  // Capability gating happens FIRST and applies to both branches: a
+  // destination whose endpoints all 503 is not offered to anyone, signed
+  // in or out (V1-131).  `navGroupsFor` fails closed on an unresolved
+  // capability, matching the tri-state treatment of `authenticated`
+  // immediately below.
+  const model = navGroupsFor({ capabilities });
+  if (authenticated) return model;
   // ``authenticated`` is tri-state: null means "not resolved yet".  The
   // public subset is the answer for a KNOWN signed-out visitor, not a
   // safe default for an unknown one — every other consumer in this file
@@ -44,7 +50,7 @@ function visibleGroups(authenticated, isPublic) {
   // left-aligned brand and a `margin-left: auto` right rail, so items
   // appearing fill their own space without moving either neighbour.
   if (authenticated === null || authenticated === undefined) return [];
-  return NAV_MODEL.map((group) => {
+  return model.map((group) => {
     if (!group.items) return isPublic(group.href) ? group : null;
     const items = group.items.filter((i) => isPublic(i.href));
     if (items.length === 0) return null;
@@ -61,13 +67,14 @@ function visibleGroups(authenticated, isPublic) {
 export default function TopBar({
   authenticated,
   isAdmin,
+  capabilities,
   isPublic,
   onSearch,
   searchEnabled = true,
   onLogout,
 }) {
   const pathname = usePathname();
-  const groups = visibleGroups(authenticated, isPublic);
+  const groups = visibleGroups(authenticated, isPublic, capabilities);
   const systemItems = systemItemsFor({ isAdmin });
 
   return (

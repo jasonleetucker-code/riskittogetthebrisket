@@ -45,6 +45,11 @@ export function useAuth() {
   // would 403 anyway.  Never trusted for access control — every admin
   // endpoint re-checks server-side.
   const [isAdmin, setIsAdmin] = useState(false);
+  // Server capability map for flag-gated nav destinations, from the same
+  // /api/auth/status probe.  `null` = we have not been told, which the
+  // nav model treats as "do not offer" — see nav-model.itemIsOffered.
+  // Same posture as isAdmin: a UI affordance, never access control.
+  const [features, setFeatures] = useState(null);
   const [checking, setChecking] = useState(true);
   // Exposed so a caller can tell "we never got an answer" apart from
   // "the answer was no" without re-deriving it from authenticated.
@@ -121,6 +126,10 @@ export function useAuth() {
         // Authoritative: stop retrying and commit, in both directions.
         setAuthenticated(authed);
         setIsAdmin(authed && !!data.isAdmin);
+        // Only an authoritative answer sets capabilities.  A signed-out
+        // response carries none, and a backend too old to send the block
+        // leaves this null — both mean "not offered", never "offered".
+        setFeatures(authed && data.features ? data.features : null);
         setAuthUnknown(false);
         setChecking(false);
         writeAuthCache(authed);
@@ -189,6 +198,7 @@ export function useAuth() {
     } catch { /* sessionStorage unavailable — in-memory state still flips */ }
     setAuthenticated(false);
     setIsAdmin(false);
+    setFeatures(null);
     setAuthUnknown(false);
     window.location.href = "/";
   }, []);
@@ -213,5 +223,5 @@ export function useAuth() {
     }
   }, []);
 
-  return { authenticated, isAdmin, checking, authUnknown, logout, onLoginSuccess };
+  return { authenticated, isAdmin, features, checking, authUnknown, logout, onLoginSuccess };
 }

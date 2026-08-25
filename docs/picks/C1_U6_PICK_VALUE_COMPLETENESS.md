@@ -233,6 +233,25 @@ assumption is named in the config (`classificationNote`) and here.
   shared structure, not an unrelated drift.  Follow-up recorded (§12): whether
   synthetic rows should be excluded from translation pools is its own measured
   decision — exclusion also moves player values.
+* **KTC-side mirror of the same coupling, measured at the V1-132 (F-34)
+  repair (2026-08-25).**  The paragraph above documents the coupling for the
+  IDPTC backbone only; the identical mechanism exists on the KTC side and was
+  measured when the horizon year gained its second market: the rookie ladder
+  (`rookie_ladder_translation_via_ktcSfTep`) is built from `ktcSfTep`'s
+  Phase-1 effective ranks, an ordinal pool that BY DESIGN contains the
+  synthetic pick rows once they carry derived `ktcSfTep` values.  Giving the
+  twelve horizon tier cells their `ktcSfTep` evidence shifts deep rookies'
+  ladder-translated votes (`dlfRookieSf` / `flockFantasySfRookies`):
+  measured **17 offense rookies moved, p50 ≈ −0.15%, max −0.78%** (Cole
+  Payton; values 1050–1900, ktcSfTep ordinals ~470–482), plus **3 tethered
+  2026 slot picks at −0.11%** — smaller than the IDPTC-side coupling
+  accepted above (max −1.3%).  Zero IDP players moved; 2027/2028 vendor
+  values byte-identical; top-200 membership unchanged; ranked 740 → 740.
+  Adjudicated by Integration as the same accepted class through the same
+  designed shared structure: there is no implementation of a two-market
+  horizon blend that leaves the ladder pool untouched, short of the §12
+  translation-pool exclusion — which stays an OPEN, separately-measured
+  methodology decision, now with symmetric evidence on both markets' pools.
 * **Cap-margin churn:** four tail players (values ≈1140, the board's ranked
   floor) fell out of the top-800 value-stamping window as repriced 2029 rows
   entered it — the same boundary churn every 2-hour refresh produces when

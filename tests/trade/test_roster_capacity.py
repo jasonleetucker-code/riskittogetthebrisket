@@ -41,11 +41,16 @@ MAIN_SETTINGS = {
         "DB": 3,
     },
 }
+# Host truth for dynasty_new (W18-F011 / V1-25): 27 roster slots, 3 taxi,
+# and the second flex is WR/RB-only.  Pinned against the committed snapshot
+# in config/league_intel/dynasty_new/ by tests/league_intel/
+# test_registry_consumers.py; stated here because the conftest blocks the
+# registry.
 NEW_SETTINGS = {
     "teamCount": 10,
-    "rosterSize": 24,
-    "taxiSize": 5,
-    "starters": {"QB": 1, "RB": 2, "WR": 3, "TE": 1, "FLEX": 2, "SFLEX": 1},
+    "rosterSize": 27,
+    "taxiSize": 3,
+    "starters": {"QB": 1, "RB": 2, "WR": 3, "TE": 1, "FLEX": 1, "WRRB_FLEX": 1, "SFLEX": 1},
 }
 NO_SETTINGS = None
 
@@ -153,8 +158,8 @@ def _ctx(roster, settings=None, extra_rows=None, picks=(), opponent=()):
 def test_league_caps_read_the_settings_they_are_given():
     assert league_roster_limit(None, MAIN_SETTINGS) == 58
     assert league_taxi_size(None, MAIN_SETTINGS) == 0
-    assert league_roster_limit(None, NEW_SETTINGS) == 24
-    assert league_taxi_size(None, NEW_SETTINGS) == 5
+    assert league_roster_limit(None, NEW_SETTINGS) == 27
+    assert league_taxi_size(None, NEW_SETTINGS) == 3
 
 
 def test_league_caps_fall_back_to_the_registry(monkeypatch):
@@ -519,24 +524,24 @@ def test_taxi_slots_make_the_conclusion_partial_not_silently_relieved():
 
     Sleeper lists taxi players inside ``players``, so counting every listed
     player against the active cap **overstates** roster pressure — the opposite
-    of what this module first claimed — and in a 5-slot league it can invent up
-    to five forced drops that are not required.  Assuming full relief would
+    of what this module first claimed — and in a 3-slot league it can invent up
+    to three forced drops that are not required.  Assuming full relief would
     hide real ones.  Neither guess is available, so the answer is bracketed.
     """
-    # 28 rostered against a 24-man cap with 5 taxi slots: over by 4 if nobody
-    # is on taxi, legal if four or more are.  Genuinely unknown.
-    context = _ctx(_roster(28), settings=NEW_SETTINGS)
+    # 29 rostered against a 27-man cap with 3 taxi slots: over by 2 if nobody
+    # is on taxi, legal if two or more are.  Genuinely unknown.
+    context = _ctx(_roster(29), settings=NEW_SETTINGS)
     assert context.taxi_membership_known is False
     assert any("partial" in n and "taxi" in n for n in context.notes)
 
     capacity = assess_roster_capacity(context, incoming_players=[], outgoing_players=[])
-    assert capacity.taxi_size == 5
+    assert capacity.taxi_size == 3
     assert capacity.certainty == "partial"
     assert capacity.over_limit_after is None  # no point estimate may be published
     assert capacity.over_limit_after_min == 0
-    assert capacity.over_limit_after_max == 4
+    assert capacity.over_limit_after_max == 2
     assert capacity.taxi_occupied_min == 0
-    assert capacity.taxi_occupied_max == 5
+    assert capacity.taxi_occupied_max == 3
     assert capacity.requires_drops is None  # NOT False
     payload = capacity.to_dict()
     assert payload["requiresDrops"] is None
@@ -546,7 +551,7 @@ def test_taxi_slots_make_the_conclusion_partial_not_silently_relieved():
 def test_a_partial_conclusion_still_names_the_worst_case_drops():
     """Bracketed does not mean silent — the upper bound is still actionable."""
     capacity = assess_roster_capacity(
-        _ctx(_roster(28), settings=NEW_SETTINGS), incoming_players=[], outgoing_players=[]
+        _ctx(_roster(29), settings=NEW_SETTINGS), incoming_players=[], outgoing_players=[]
     )
     assert len(capacity.forced_drops) == capacity.over_limit_after_max
     assert capacity.to_dict()["forcedDropsAreUpperBound"] is True
@@ -554,12 +559,12 @@ def test_a_partial_conclusion_still_names_the_worst_case_drops():
 
 def test_taxi_relief_cannot_rescue_a_roster_that_is_over_even_with_it():
     """When the bracket does not straddle, the answer is certain again."""
-    # 30 rostered, 24 cap, 5 taxi: over by at least 1 however taxi is assigned.
+    # 31 rostered, 27 cap, 3 taxi: over by at least 1 however taxi is assigned.
     capacity = assess_roster_capacity(
-        _ctx(_roster(30), settings=NEW_SETTINGS), incoming_players=[], outgoing_players=[]
+        _ctx(_roster(31), settings=NEW_SETTINGS), incoming_players=[], outgoing_players=[]
     )
     assert capacity.over_limit_after_min == 1
-    assert capacity.over_limit_after_max == 6
+    assert capacity.over_limit_after_max == 4
     assert capacity.requires_drops is True
 
 
@@ -593,30 +598,30 @@ def test_known_taxi_membership_is_used_and_makes_the_answer_exact():
     contract-shaped caller supplies this today; the path exists so that adding
     ``taxi`` to the team block is a data change rather than a code change.
     """
-    roster = _roster(28)
+    roster = _roster(30)
     contract, team = _contract(roster, extra_rows=_free_agents())
-    on_taxi = [n for n, _v, _p in roster[:4]]
+    on_taxi = [n for n, _v, _p in roster[:3]]
     team["taxi"] = on_taxi
     context = build_capacity_context(contract, None, team, roster_settings=NEW_SETTINGS)
 
     assert context.taxi_membership_known is True
     capacity = assess_roster_capacity(context, incoming_players=[], outgoing_players=[])
     assert capacity.certainty == "exact"
-    assert capacity.taxi_occupied_min == capacity.taxi_occupied_max == 4
-    # 28 rostered − 4 on taxi = 24 active, exactly the cap.
+    assert capacity.taxi_occupied_min == capacity.taxi_occupied_max == 3
+    # 30 rostered − 3 on taxi = 27 active, exactly the cap.
     assert capacity.over_limit_after == 0
     assert capacity.requires_drops is False
 
 
 def test_a_traded_away_taxi_player_frees_his_taxi_slot_not_a_roster_spot():
-    roster = _roster(28)
+    roster = _roster(30)
     contract, team = _contract(roster, extra_rows=_free_agents())
-    team["taxi"] = [n for n, _v, _p in roster[:4]]
+    team["taxi"] = [n for n, _v, _p in roster[:3]]
     context = build_capacity_context(contract, None, team, roster_settings=NEW_SETTINGS)
 
     capacity = assess_roster_capacity(context, incoming_players=[], outgoing_players=[roster[0][0]])
-    # One taxi member left, so 27 rostered − 3 on taxi = 24 active.
-    assert capacity.taxi_occupied_max == 3
+    # One taxi member left, so 29 rostered − 2 on taxi = 27 active.
+    assert capacity.taxi_occupied_max == 2
     assert capacity.over_limit_after == 0
 
 
