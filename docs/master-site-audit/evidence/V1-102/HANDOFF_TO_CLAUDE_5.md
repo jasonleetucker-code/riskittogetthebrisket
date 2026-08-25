@@ -1,5 +1,14 @@
 # V1-102 (#780) — evidence handoff to Claude 5
 
+> **ADOPTED ON `main` BEFORE THIS BRANCH MERGED.** The recommendation below was carried
+> out by the Integration Authority 2026-08-25 (`#1098`): the row now reads
+> `IMPLEMENTED_UNVERIFIED` with the reclassification recorded in the row itself.
+> §1's "current stale row text" is therefore HISTORICAL — it quotes the pre-`#1098`
+> state this document was written against. The clause-by-clause evidence table below
+> remains the row's implementation record; the open half is unchanged (L4 needs the
+> deployed owner workflow run end-to-end — the same /admin guest-pass action §9b's
+> two-grants note names).
+
 **Audited at:** `131abf9f9` (dispatch SHA) · **Lane 6** · **No V1 status column edited.**
 
 **Recommendation: `NOT STARTED` → `IMPLEMENTED_UNVERIFIED`.** Not `VERIFIED` — the row's
