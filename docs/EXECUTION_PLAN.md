@@ -1,7 +1,7 @@
 # Chase Upside / Risk It To Get The Brisket — Current Execution Plan
 
 **Status:** CANONICAL SEQUENCING / AUTHORIZATION RECORD
-**Last reconciled:** 2026-08-20 (owner directive: **POST-V1 C-SERIES MASS-BUILD CAMPAIGN AUTHORIZED** — five isolated lanes, Claude 9-13, execution timing only; V1 classification and denominator unchanged — §0). Previously 2026-08-18 (owner directive: **V1 COMPLETION SPRINT AUTHORIZED**, six parallel lanes, superseding the 2026-08-17 feature freeze for V1-required work only — §0)
+**Last reconciled:** 2026-08-20 (owner directive: **FIRST PREMIUM SPORTS INTELLIGENCE PRODUCTION MIGRATION AUTHORIZED** — PSI foundation, shell, Rankings and Player File reference routes; execution timing only, V1 denominator unchanged — §0). Also 2026-08-20 (owner directive: **POST-V1 C-SERIES MASS-BUILD CAMPAIGN AUTHORIZED** — five isolated lanes, Claude 9-13, execution timing only; V1 classification and denominator unchanged — §0). Previously 2026-08-18 (owner directive: **V1 COMPLETION SPRINT AUTHORIZED**, six parallel lanes, superseding the 2026-08-17 feature freeze for V1-required work only — §0)
 **Companion:** `docs/MASTER_PRODUCT_PLAN.md` · `docs/C_SERIES_REPLAN_AND_COMPLETION_CONTRACT.md`
 
 This file answers **what implementation work is authorized right now**, and nothing else. It does not define
@@ -34,7 +34,8 @@ Genuinely new ideas go to the long-term roadmap. A genuine **omission** from alr
 scope is a denominator change, and a denominator change is an owner decision recorded in the
 completion contract §10 — never a silent edit.
 
-**Six parallel lanes are authorized**, with these ownership boundaries. A lane that introduces
+**Seven parallel product lanes are authorized** (six on 2026-08-18; lane 8 chartered 2026-08-20 —
+see below), with these ownership boundaries. A lane that introduces
 another lane's canonical math is rejected or refactored — ONE CONCEPT, ONE CANONICAL OWNER
 applies across lanes exactly as it applies across modules.
 
@@ -46,6 +47,64 @@ applies across lanes exactly as it applies across modules.
 | **4 — Market / FAAB / Analyst** | FAAB · market · Sharp · Buy/Sell and analyst systems |
 | **5 — Integration Authority** | governance · integration · CI · cross-cutting QA · global source-health semantics · deployment and production verification · the completion ledger |
 | **6 — Premium UI / Frontend** | UI · frontend · performance · accessibility |
+| **8 — Source Acquisition / Cross-Position Bridge** | source acquisition and preservation · offense↔IDP translation · bridge health, freshness and comparability semantics · source-family / common-mode metadata · bridge-loss resilience · the evidence required to qualify a bridge source |
+
+
+### LANE 8 CHARTERED — OWNER DECISION, 2026-08-20
+
+**Why the number is 8, and why 7 is not a gap.** The product lanes ran 1–6.
+Lane 7 is **not** missing from this list: `docs/claude-dispatch/LANE_STATUS.json`
+and `ASSIGNMENTS.json` already assign **Claude 7 the Lane Dispatcher role**
+("owned by Claude 7 (Lane Dispatcher)"; "Claude 7 does not merge, does not
+implement"). This lane was briefly mislabelled Lane 7 on 2026-08-20 and the
+owner corrected it the same day. Note also that `C7` and `C8` are **already
+taken** by the C-Series taxonomy in `docs/C_SERIES_EXECUTION_MAP.md` — §9
+Decision products and §10 Performance / Premium design / Accessibility — so this
+lane's durable artefacts use the unambiguous `LANE8_` prefix rather than a
+`C8-` one that would point at Lane 6's units.
+
+**Owner authorization.** Recorded here as the canonical location. On 2026-08-20
+the owner designated this program top-priority V1 and authorized it to alter
+production valuation, subject to the two constraints below. That authorization
+covers the multi-bridge translation owner and the vote-withholding repair; it
+does **not** authorize an IDP value ceiling, a revival of the market corridor,
+or any post-consensus clamp.
+
+**Why.** The board's offense↔IDP translation rests on a single source.
+`idpTradeCalc` is the only registered source whose value column spans both pools,
+so it is the only thing that can seed the shared-market ladder. Measured with it
+excluded (PR #950, `docs/sources/CROSS_POSITION_SOURCE_AND_IDP_CEILING_AUDIT_2026-08-20.md`):
+**661 votes cast on untranslated ranks, 310 flagged rows, the top IDP published at
+9,999, and IDP occupancy of the top 100 rising from 8 to 29.** An IDP-only source's
+rank #1 becomes an overall-market rank #1 — a cross-position claim no specialist
+board possesses the evidence to make.
+
+The owner has designated the repair **top-priority V1**. That decision required a
+lane, because the work is a canonical owner in its own right and belongs to none of
+the six: it is not roster, trade, season, market, UI, or integration.
+
+**Boundaries.** Lane 8 owns the concepts listed in the table above. It does **not**
+own global source-health semantics (lane 5), source-health frontend surfaces
+(lane 6), or any valuation methodology outside cross-position translation. It may
+not introduce a second package, lineup, replacement or value engine, and the
+ONE CONCEPT, ONE CANONICAL OWNER rule binds it exactly as it binds the others.
+
+**Two constraints carried over, not relaxed by this charter.**
+
+* **The V1 denominator is unchanged by this section.** Chartering a lane authorizes
+  work; it does not add rows to `VERSION_1_COMPLETION_CONTRACT.md` §3. Lane 8
+  prepares proposed rows with evidence; the Integration Authority records any
+  denominator change under §10, with a date and a reason, as an owner decision.
+  Lane 8 marks nothing `VERIFIED`.
+* **`src/api/data_contract.py`'s pipeline core remains SERIAL — one writer only**
+  (§4 below). Lane 8's translation work touches it and must therefore be scheduled
+  by Integration rather than raced against another lane.
+
+**Explicitly not authorized by this charter:** any IDP value ceiling, any revival of
+the retired market corridor, or any post-consensus clamp. PR #950 measured the
+ceiling family and found it inert in the healthy state and insufficient in the
+degraded one. The authorized direction is multiple qualified bridges feeding one
+canonical translation owner, with truthful refusal when no bridge is valid.
 
 **Lane assignments deliberately extend past V1.** Each lane owns post-V1 continuation work so
 that no lane goes idle after finishing its V1 responsibilities. **That continuation work is not
@@ -110,8 +169,9 @@ destabilise production because future code happens to be ready.
 
 ### The lane map
 
-Existing active V1 lanes are unchanged and are **not** superseded by this section — the six-lane
-table in §0 above stands, and lanes 1-4 and 6 keep their V1 responsibilities.
+Existing active V1 lanes are unchanged and are **not** superseded by this section — the lane
+table in §0 above stands (lanes 1-6 chartered 2026-08-18, lane 8 chartered 2026-08-20), and
+lanes 1-4 and 6 keep their V1 responsibilities.
 
 | lane | owns |
 |---|---|
@@ -183,6 +243,107 @@ its lane (§0.4a, "The two-state reporting contract").
   completion contract.
 - It does **not** broaden the completion contract because implementation started early. A
   capability built ahead of time is still POST-V1 until the owner separately says otherwise.
+
+---
+
+
+## PREMIUM SPORTS INTELLIGENCE — FIRST PRODUCTION MIGRATION AUTHORIZED, OWNER DECISION 2026-08-20.
+
+> **Owner decision — 2026-08-20:** the first controlled Premium Sports Intelligence
+> production migration is now authorized: shared PSI foundation, shell/navigation where
+> required, Rankings reference route, and Universal Player Profile reference surface.
+> This changes execution timing only and does not add POST-V1 work to the V1 denominator.
+> Claude 13 owns implementation; Claude 5 owns integration/deployment.
+
+**This supersedes the TIMING classification in
+[`docs/PREMIUM_SPORTS_INTELLIGENCE_DESIGN_NORTH_STAR.md`](PREMIUM_SPORTS_INTELLIGENCE_DESIGN_NORTH_STAR.md)
+§7 — and nothing else in that document.** That file's §7 records *"WAIT: real production
+redesign foundation and route migration until the trigger above is satisfied."* The owner
+has now judged the trigger satisfied for a **bounded** reference migration. The north star
+is **not edited**: its design direction remains authoritative, and its §7 stays as the
+record of a decision that was correct when it was made. A permanent design document is not
+rewritten to erase its own history — the authorization moves here, where authorization
+lives.
+
+**Scope, and it is a short list.** Four things, in this order:
+
+1. the shared **PSI foundation** (tokens, primitives, `ds/` additions);
+2. **shell / navigation**, only where the reference routes require it;
+3. **Rankings** — the first full production reference route;
+4. **Universal Player Profile / Player File** — the second reference surface.
+
+**This is NOT a whole-application big-bang rewrite.** Route-by-route remains the method
+(north star §8). A route not on the list above is not authorized by this section.
+
+### What this does not change
+
+- It does **not** make PSI work V1 REQUIRED. It stays POST-V1.
+- It does **not** change the V1 denominator, which is **136**. Recorded as an explicit
+  **0** in the completion contract's §10 change log, so the absence is deliberate rather
+  than an omission.
+- It does **not** let visual work alter canonical methodology. See the gates below.
+- It does **not** authorize deleting legacy implementation before parity (north star §6).
+
+### Gates that bind this migration
+
+These are not review preferences; a slice that fails one is not integrable.
+
+**Presentation only — no second methodology layer.** No frontend canonical value
+calculation, Value Adjustment, Team Strength formula, projection proxy, or source
+weighting; no historical fallback that substitutes a current value; **missing is never
+zero**. PSI changes information hierarchy, not what a number means. The existing guards
+apply unchanged — `tests/api/test_canonical_ownership_protections.py` scans `.jsx` and
+`.js` for canonical and alias writes, so a frontend value write fails CI on its own.
+
+**Data truth.** The approved prototype contains **mock data**. No prototype value may be
+hardcoded — not league sample size, player value, rank, positional rank, confidence,
+movement, age, player quote, chart history, team, trade count or source statistic. Every
+displayed datum traces to canonical production data or to an honest unavailable state.
+
+**Functional parity, with the `#912` repairs explicitly protected.** Rankings must keep
+compact/mobile parity, virtualization, aria row semantics, failure-state semantics
+(a failure is not an empty state), route data-fetch gating, the WCAG baseline and the
+bundle budgets. A visual rewrite may not reintroduce all-rows-mounted, mobile/desktop
+board divergence, generic empty states for failures, inaccessible controls, or
+unnecessary contract downloads.
+
+**Visual evidence is a real gate.** For these two reference migrations, green CI is
+necessary and **not sufficient**. PR A needs browser-rendered mobile Rankings, desktop
+Rankings and the shell/header on both; PR B needs mobile and desktop Player File for a
+rich-data player **and** a partial/missing-data player. *"Unit tests green, browser could
+not launch"* is an honest report but not a completed check — where the implementing
+environment cannot render, Integration performs the missing verification rather than
+waiving it.
+
+### Preview — there is none, and one is not to be invented
+
+Checked before asking for it: this repository has **no preview or staging deployment**.
+There is no Vercel / Netlify / Cloudflare Pages configuration, and **every** workflow
+`environment:` in `.github/workflows/` is `production`. The single deploy target is the
+VPS via `deploy/deploy.sh`.
+
+**Do not build a parallel deployment architecture to create one.** A second live
+environment for the sake of screenshots is a larger production risk than the migration it
+would be reviewing.
+
+What exists and should be used instead: **Playwright with Chromium is already installed in
+CI** (`.github/workflows/e2e.yml`) and in the integration environment. Rendered evidence is
+therefore producible today, as PR artifacts, without any new infrastructure — which is what
+the visual gate above requires. The owner reviews screenshots on the PR, then the deployed
+route itself after merge.
+
+### Sequencing
+
+**PR A** (foundation + shell + Rankings) then **PR B** (Player File). If B consumes
+primitives A introduces, it is an explicit bounded ordered stack — but **B may be built
+while A is in review**. Build broadly, integrate narrowly; Claude 13 does not idle waiting
+for a review to finish.
+
+**Integration promptness is part of this decision.** A completed, gated PSI reference
+route is not held back merely for being POST-V1. V1-critical correctness keeps safety
+priority in the merge queue, and owner-approved PSI work integrates promptly where it does
+not materially jeopardise a V1-critical shipping unit — the point of a reference route is
+that the owner can see it on the deployed application.
 
 ---
 

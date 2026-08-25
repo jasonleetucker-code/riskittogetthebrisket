@@ -607,7 +607,16 @@ Steps:
     ``blendIntegrityViolation`` and left alone, because coercing an
     impossible number to a plausible one hides a pipeline fault.  No
     asset-class exemption, no confidence dependency, no tunable band —
-    ``_BLEND_HULL_EPSILON`` (1e-9) is float slack, not policy.
+    ``_BLEND_HULL_EPSILON`` (1e-9) is float slack, and
+    ``_BLEND_HULL_QUANTIZATION_BELOW`` / ``…_ABOVE`` (1.5 / 0.5, added
+    2026-08-25) are the exact worst-case skew of comparing a truncated
+    ``int(norm_val)`` against ``int(round())`` contribution stamps —
+    both numerical precision, not policy.  Without the latter the check
+    manufactured a violation whenever the two pick markets nearly agreed
+    at a rounding boundary (measured: "2027 Mid 2nd" 2026-08-25, and the
+    "2027 Late 1st" transient of 2026-08-22/#1063 — the same class,
+    previously closed as an upstream blip because it self-cleared when
+    the next scrape moved a value).
 
     **Not clamping is only half of abstaining.**  The other half is that
     the value stops counting as an ordinary canonical number, and that is
@@ -743,6 +752,28 @@ live order (corrected 2026-07-29 audit):
     IDP players' translated votes ~±0.1% (measured; see
     ``docs/picks/C1_U6_PICK_VALUE_COMPLETENESS.md`` §8).  Full record:
     that document.
+
+**Value availability and top-board membership are two questions** (#1101).
+``OVERALL_RANK_LIMIT`` answers only the second.  Phase 4b′ therefore stamps
+``rankDerivedValue`` on EVERY row past the cap that voted — picks (C1-U6)
+and, since #1101, PLAYERS with at least one matched trusted dynasty source
+and a positive canonical blend.  Value only: no rank, no tier, no
+percentile, no standing, so ``rankDerivedValue > 0`` beside
+``canonicalConsensusRank: None`` is the intended shape rather than an
+inconsistency to reconcile.  Off-cap player rows carry
+``offCapPlayerValue: true``; picks keep ``offCapPickValue``.
+
+The value is the one the pipeline ALREADY computed — the same
+``row_normalized`` blend the ranked path reads, never a legacy scraper
+composite, never a frontend ordinal, held at or above the canonical scale's
+own ``DISPLAY_SCALE_MIN`` so a float→int truncation cannot manufacture a 0.
+``row_normalized`` is built from ``row_source_ranks``, so arriving in this
+pass IS the evidence gate: a row nothing matched never enters it and stays
+unpriced.  MISSING IS NEVER ZERO, and never the floor either.  Confidence
+runs through the shared ``_family_evidence_for_row`` assembly and
+``assess_confidence`` — one gate, no off-cap methodology, no promotion for
+being priced.  Measured on the 2026-08-25 board: 186 players newly priced
+(155..1186), and 0 of 740 ranked rows moved value, rank or tier.
 
 Master curve constants are refit weekly by
 ``.github/workflows/refit-hill-curves.yml`` (see
@@ -1354,7 +1385,7 @@ Rules for new code:
   an IDP league ever appears.  Freshness is likewise a gate, not a
   decoration: a ledger past ``maxFileAgeDays``, or one with no
   ``updatedAt`` at all, is ``stale`` and refused — unmeasurable
-  freshness is not freshness.  ``/api/faab/recommend`` stamps
+  freshness is not freshness.  ``/api/waiver/faab-recommend`` stamps
   ``crowdMarket`` (state, asOf, tier counts, exclusion census,
   refusal reason) so "no price for this player" and "we declined to
   quote one" cannot read the same.  Dynasty status of this feed is a

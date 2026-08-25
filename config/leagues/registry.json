@@ -45,21 +45,24 @@
       "sleeperLeagueId": "1320092771247222784",
       "scoringProfile": "superflex_tep15_ppr1",
       "idpEnabled": false,
+      "bestBall": false,
       "active": true,
       "aliases": ["new", "non-idp", "bsb", "beers"],
       "rosterSettings": {
         "teamCount": 10,
-        "rosterSize": 24,
-        "taxiSize": 5,
+        "rosterSize": 27,
+        "taxiSize": 3,
         "starters": {
           "QB": 1,
           "RB": 2,
           "WR": 3,
           "TE": 1,
-          "FLEX": 2,
+          "FLEX": 1,
+          "WRRB_FLEX": 1,
           "SFLEX": 1
         },
         "flexEligible": ["RB", "WR", "TE"],
+        "wrrbFlexEligible": ["RB", "WR"],
         "sflexEligible": ["QB", "RB", "WR", "TE"]
       },
       "defaultTeamMap": {}

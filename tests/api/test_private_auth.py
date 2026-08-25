@@ -40,6 +40,10 @@ PRIVATE_API_PATHS = [
     "/api/scaffold/identity",
     "/api/scaffold/validation",
     "/api/scaffold/report",
+    # De-allowlisted 2026-08-25 (W22-F005 / V1-103): pipeline internals
+    # and the full source inventory are operator data, and the caller
+    # census found no anonymous consumer.
+    "/api/scaffold/status",
     "/api/user/state",
     "/api/player/12345/realized",  # Phase 11 follow-on — realized points
     "/api/admin/nfl-data/flush",

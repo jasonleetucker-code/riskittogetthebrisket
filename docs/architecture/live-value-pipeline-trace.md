@@ -81,7 +81,7 @@ policy.  Pinned against the registry by
 | `dlfRookieIdp` | overall_idp | 1.0 | 50 | `rank_signal` |
 | `draftSharksIdp` | overall_idp | 1.0 | 400 | — |
 | `fantasyProsIdp` | overall_idp | 1.0 | 100 | `rank_signal`, `shared_market_translation`, `excludes_rookies` |
-| `idpShow` | overall_idp | 1.0 | 420 | `rank_signal`, `shared_market_translation` |
+| `idpShowCombined` | overall_idp (+ overall_offense) | 1.0 | 450 | `rank_signal` |
 | `idpTradeCalc` | overall_idp (+ overall_offense) | 1.0 | — | `backbone`, `tep_premium` |
 | `dlfRookieSf` | overall_offense | 1.0 | 50 | `rank_signal` |
 | `dlfSf` | overall_offense | 1.0 | 280 | `rank_signal` |

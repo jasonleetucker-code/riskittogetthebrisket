@@ -195,6 +195,12 @@ Full record: `docs/projections/C5_PROJ_A_SOURCE_CAPABILITY_CENSUS.md`. Summary:
   (`draftSharksRosSf`) being flagged `is_projection_source: True` in the live
   `ROS_SOURCES` registry — a discrepancy recorded, not repaired (out of this
   foundational unit's scope; `ROS_SOURCES` is live and consumed elsewhere).
+  *(Corrected at the census merge, Integration 2026-08-25: the census
+  originally described DraftSharks as a dynasty-CSV proxy awaiting a "PR 2
+  swap"; V1-89/#1095 completed that swap — the live feed reads the real
+  `/ros-rankings/superflex` + `/ros-rankings/idp` boards behind the proven
+  authenticated session, dynasty CSVs fallback-only. Classification
+  unchanged: the feed is still rank-only, so `RANKINGS_ONLY` stands.)*
 - **Key finding:** CBS Sports Fantasy, NFL Fantasy, and FantasyPros' actual
   projections page are genuinely greenfield — zero existing code. No source URL was
   invented for any of them; recording "no access path yet" is the correct state per

@@ -17,6 +17,7 @@ from . import (
     activity,
     archives,
     awards,
+    conduct,
     draft,
     franchise,
     history,
@@ -24,7 +25,6 @@ from . import (
     matchup_preview,
     overview,
     playoff_odds,
-    power,
     records,
     rivalries,
     streaks,
@@ -34,7 +34,7 @@ from . import (
 )
 from .snapshot import PublicLeagueSnapshot
 
-PUBLIC_CONTRACT_VERSION = "public-league/2026-04-18.v1"
+PUBLIC_CONTRACT_VERSION = "public-league/2026-08-23.v1"
 
 
 def _team_assignment_section(snapshot: PublicLeagueSnapshot) -> dict[str, Any]:
@@ -71,7 +71,6 @@ _SECTION_BUILDERS: dict[str, Callable[[PublicLeagueSnapshot], dict[str, Any]]] =
     "archives": archives.build_section,
     "luck": luck.build_section,
     "streaks": streaks.build_section,
-    "power": power.build_section,
     "matchupPreview": matchup_preview.build_section,
     "weeklyRecap": weekly_recap.build_section,
     # Team Assignment — maps each fantasy team to 1–3 NFL teams.  Cheap
@@ -137,11 +136,22 @@ def _faab_analytics_section(snapshot: PublicLeagueSnapshot) -> dict[str, Any]:
 
 
 _LAZY_SECTION_BUILDERS: dict[str, Callable[[PublicLeagueSnapshot], dict[str, Any]]] = {
+    # Source-backed current-roster conduct board. Kept lazy both because
+    # the registry is irrelevant to the default League landing page and
+    # because this sensitive dataset should only be materialized for the
+    # tab that explicitly presents its statuses, dispositions, and sources.
+    "conduct": conduct.build_section,
     "playoffOdds": playoff_odds.build_section,
     "rosTeamStrength": _ros_api.build_section,
-    # ROS-driven power rankings v2.  Coexists with the existing
-    # ``power`` section above; the frontend swaps between them based
-    # on ``settings.useRosPowerRankings``.
+    # The canonical power-ranking engine (V1-52). The v1 engine
+    # (``src/public_league/power.py``) is retired -- this is the only
+    # remaining one. Kept lazy rather than promoted to
+    # ``_SECTION_BUILDERS``: the /league Power tab already fetches it
+    # on-demand (this was true even before retirement, since
+    # ``useRosPowerRankings`` has defaulted to true since 2026-04-29),
+    # and its trend walk is O(seasons x weeks) -- exactly the cost the
+    # eager aggregate path exists to avoid imposing on every landing
+    # page load.
     "rosPower": _ros_power_section,
     # ROS-driven playoff Monte Carlo.  Coexists with v1 ``playoffOdds``;
     # frontend swaps via settings.useRosPlayoffOdds.
@@ -338,6 +348,26 @@ def _league_header(snapshot: PublicLeagueSnapshot) -> dict[str, Any]:
 
 
 def _build_overview(snapshot: PublicLeagueSnapshot, sections: dict[str, Any]) -> dict[str, Any]:
+    # The landing card reads the CANONICAL power engine (V1-52 item D).
+    # The legacy engine (``src/public_league/power.py``) this used to read
+    # instead is deleted -- there is no second computation to choose
+    # between any more.
+    #
+    # Called directly here rather than added to ``_SECTION_BUILDERS`` or
+    # ``_LAZY_SECTION_BUILDERS``: this is a PRIVATE input to the overview
+    # card, not a new addressable ``rosPower``-duplicate contract key, and
+    # NOT a promotion of ``rosPower``'s own lazy status -- the dedicated
+    # ``/api/public/league/rosPower`` endpoint is untouched by this call.
+    #
+    # Measured cost (synthetic 12-owner/8-season fixture,
+    # docs/power/V1_52_CANONICAL_POWER_ENGINE.md): ~35ms for the full
+    # build_section call including its trend series -- far under any
+    # page-load budget this repo enforces; the "O(seasons x weeks) trend
+    # would regress the landing page" concern this call site used to be
+    # blocked on did not survive measurement at realistic scale.
+    from src.ros import power_v2  # noqa: PLC0415
+
+    ros_power_section = power_v2.build_section(snapshot)
     return overview.build_section(
         snapshot,
         history_section=sections.get("history") or {},
@@ -349,7 +379,7 @@ def _build_overview(snapshot: PublicLeagueSnapshot, sections: dict[str, Any]) ->
         weekly_section=sections.get("weekly") or {},
         luck_section=sections.get("luck") or {},
         streaks_section=sections.get("streaks") or {},
-        power_section=sections.get("power") or {},
+        power_section=ros_power_section,
         matchup_preview_section=sections.get("matchupPreview") or {},
         weekly_recap_section=sections.get("weeklyRecap") or {},
     )
@@ -357,26 +387,29 @@ def _build_overview(snapshot: PublicLeagueSnapshot, sections: dict[str, Any]) ->
 
 def _build_activity_section(
     snapshot: PublicLeagueSnapshot,
-    activity_valuation: Callable[[dict[str, Any]], float] | None,
+    activity_valuation: activity._ResolverFactory | None,
 ) -> dict[str, Any]:
     if activity_valuation is None:
         return activity.build_section(snapshot)
-    return activity.build_section(snapshot, valuation=activity_valuation)
+    return activity.build_section(snapshot, valuation_factory=activity_valuation)
 
 
 def build_section_payload(
     snapshot: PublicLeagueSnapshot,
     section: str,
     *,
-    activity_valuation: Callable[[dict[str, Any]], float] | None = None,
+    activity_valuation: activity._ResolverFactory | None = None,
 ) -> dict[str, Any]:
     """Build a single public-section payload, wrapped in the standard header.
 
     ``activity_valuation`` (optional) enables server-side trade-grade
-    computation on the activity feed.  When supplied it must be a
-    callable that takes a received-asset dict and returns a numeric
-    value; only the derived grade letter/label is emitted — raw
-    values never leave the backend.
+    computation on the activity feed, graded AS OF each trade's own
+    timestamp (V1-97 / C3-REPLAY-01) rather than today's board.  When
+    supplied it must be a resolver FACTORY — see
+    ``src.api.public_activity_valuation.build_asof_valuation`` and
+    ``activity.build_section``'s docstring for the exact shape.  Only
+    the derived grade letter/label is emitted — raw values never leave
+    the backend.
 
     Raises ``KeyError`` if ``section`` is unknown.
     """
@@ -421,7 +454,7 @@ def build_section_payload(
 def build_public_contract(
     snapshot: PublicLeagueSnapshot,
     *,
-    activity_valuation: Callable[[dict[str, Any]], float] | None = None,
+    activity_valuation: activity._ResolverFactory | None = None,
 ) -> dict[str, Any]:
     """Assemble the full public contract: every section + header.
 

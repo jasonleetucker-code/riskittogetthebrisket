@@ -306,6 +306,39 @@ const VERDICT_TONE = {
   decline: "negative",
 };
 
+/**
+ * `finalRosterSimulation` refusal copy, keyed by the backend's own
+ * `unavailableReason`.  The backend refuses for reasons that mean
+ * genuinely different things to a user, so they are not collapsed into
+ * one "unavailable" line.
+ */
+const FINAL_ROSTER_UNAVAILABLE_COPY = {
+  capacity_uncertain:
+    "taxi occupancy is unknown, so the forced-drop set is a range rather than a determined set — see Roster capacity above",
+  starter_slots_unresolved:
+    "the league's starting slots did not resolve, so no lineup could be solved",
+};
+
+/**
+ * Why the final roster was not simulated.
+ *
+ * Reads BOTH shapes the backend can stamp: `{available: false,
+ * unavailableReason}` for a deliberate refusal, and `{unavailable:
+ * "<ExcType>"}` for an error — the second carries no `available` key at
+ * all, which is why the caller tests `available === true` rather than
+ * `available !== false`.
+ */
+function finalRosterUnavailableText(frs) {
+  const reason = frs?.unavailableReason || frs?.unavailable || "reason not reported";
+  return `Not simulated — ${FINAL_ROSTER_UNAVAILABLE_COPY[reason] || reason}.`;
+}
+
+/** Backend-stamped number for display. Missing stays missing, never 0. */
+function strengthText(v) {
+  const n = Number(v);
+  return Number.isFinite(n) ? Math.round(n).toLocaleString() : "—";
+}
+
 export function SimulationPanel({ simResult, simError, selectedTeam, onReset }) {
   if (!simResult && !simError) return null;
 
@@ -319,6 +352,12 @@ export function SimulationPanel({ simResult, simError, selectedTeam, onReset }) 
     ...(simResult?.unresolvedIn || []),
     ...(simResult?.unresolvedOut || []),
   ];
+  const rc = simResult?.rosterCapacity;
+  // V1-45 / V1-42. `rosterCapacity` says WHO must go; this says what the
+  // roster IS once they have — the lineup re-solved over the post-trade,
+  // post-cleanup roster. Absent (not null) whenever there is no resolved
+  // team, and absent must render nothing at all.
+  const frs = simResult?.finalRosterSimulation;
 
   return (
     <Panel
@@ -426,6 +465,131 @@ export function SimulationPanel({ simResult, simError, selectedTeam, onReset }) 
                 </Banner>
               ) : null}
             </div>
+          ) : null}
+
+          {rc && rc.requiresDrops === true ? (
+            <Banner tone="warning" title="Roster capacity">
+              {`Forces ${rc.forcedDrops.length} release${rc.forcedDrops.length === 1 ? "" : "s"}` +
+                (rc.rosterLimit != null ? ` to fit the ${rc.rosterLimit}-man limit` : "") +
+                (rc.forcedDropValue != null
+                  ? ` — ${Math.round(rc.forcedDropValue).toLocaleString()} value released`
+                  : "") +
+                (rc.forcedDropsAreUpperBound ? " (worst case; taxi occupancy uncertain)" : "") +
+                (rc.ladderExhausted ? " — no fully legal cleanup found" : "")}
+              {rc.forcedDrops.length > 0 ? (
+                <ul className={styles.simRationale}>
+                  {rc.forcedDrops.map((d) => (
+                    <li key={d.playerId || d.name}>
+                      {d.name} ({d.position}) —{" "}
+                      {d.value != null ? Math.round(d.value).toLocaleString() : "unpriced"}
+                    </li>
+                  ))}
+                </ul>
+              ) : null}
+            </Banner>
+          ) : null}
+
+          {rc && rc.requiresDrops === null ? (
+            <Banner tone="neutral" title="Roster capacity">
+              {rc.rosterLimit == null
+                ? "Roster capacity unknown for this league."
+                : "Roster capacity uncertain — taxi occupancy unknown; this trade may or may not require a release."}
+            </Banner>
+          ) : null}
+
+          {/* Final roster — renders AFTER the capacity blocks on purpose:
+              the backend's own `capacity_uncertain` note says "see
+              rosterCapacity", so it must read after what it refers to.
+              Pure display of backend stamps; nothing here is derived. */}
+          {frs ? (
+            frs.available === true ? (
+              <div className={styles.simSection} style={{ marginTop: "var(--space-3)" }}>
+                <div className={styles.simSectionHead}>
+                  <span className={styles.simSectionTitle}>Final roster</span>
+                </div>
+                <div className={styles.simGrid}>
+                  <StatTile label="Strength before" value={strengthText(frs.strengthBefore?.total)} />
+                  <StatTile label="Strength after" value={strengthText(frs.strengthAfter?.total)} />
+                  <StatTile
+                    label="Strength change"
+                    /* The BACKEND's delta. Never `after - before`: this
+                       file computes no trade math, and a client-side
+                       subtraction would silently republish a different
+                       quantity under a canonical field's name. */
+                    value={
+                      Number.isFinite(Number(frs.strengthDelta))
+                        ? fmtSigned(frs.strengthDelta)
+                        : "—"
+                    }
+                  />
+                </div>
+
+                {frs.promotions?.length > 0 ? (
+                  <ul className={styles.simRationale}>
+                    {frs.promotions.map((m) => (
+                      <li key={`promo-${m.playerId || m.name}`}>
+                        Promoted: {m.name} ({m.position}) →{" "}
+                        {m.slotAfter || "lineup"}
+                      </li>
+                    ))}
+                  </ul>
+                ) : null}
+
+                {frs.displacements?.length > 0 ? (
+                  <ul className={styles.simRationale}>
+                    {frs.displacements.map((m) => (
+                      <li key={`disp-${m.playerId || m.name}`}>
+                        Displaced: {m.name} ({m.position}) — {m.slotBefore || "lineup"} → bench
+                      </li>
+                    ))}
+                  </ul>
+                ) : null}
+
+                {/* Both directions, with equal weight. RosterSimulation's
+                    own docstring: "A simulation that only showed what
+                    improved would be an advocacy tool." */}
+                {frs.needsFixed?.length > 0 || frs.needsCreated?.length > 0 ? (
+                  <ul className={styles.simRationale}>
+                    {frs.needsFixed?.length > 0 ? (
+                      <li>Needs closed: {frs.needsFixed.join(", ")}</li>
+                    ) : null}
+                    {frs.needsCreated?.length > 0 ? (
+                      <li>Needs opened: {frs.needsCreated.join(", ")}</li>
+                    ) : null}
+                  </ul>
+                ) : null}
+
+                {frs.cleanupApplied?.length > 0 ? (
+                  <p className={styles.suggestMeta}>
+                    {`Solved after ${frs.cleanupApplied.length} required release` +
+                      `${frs.cleanupApplied.length === 1 ? "" : "s"} — named under Roster capacity.`}
+                  </p>
+                ) : null}
+
+                {frs.unpricedIncoming?.length > 0 ? (
+                  <p className={styles.suggestMeta}>
+                    Incoming, not priced by the board: {frs.unpricedIncoming.join(", ")}
+                  </p>
+                ) : null}
+
+                {frs.outgoingNotFound?.length > 0 ? (
+                  <p className={styles.suggestMeta}>
+                    Sent but not found on this roster: {frs.outgoingNotFound.join(", ")}
+                  </p>
+                ) : null}
+
+                {frs.cleanupIsUpperBound ? (
+                  <Banner tone="warning">
+                    The releases this was solved against are a worst case, so this final
+                    roster is one of a range rather than a determined set.
+                  </Banner>
+                ) : null}
+              </div>
+            ) : (
+              <Banner tone="neutral" title="Final roster">
+                {finalRosterUnavailableText(frs)}
+              </Banner>
+            )
           ) : null}
 
           {unresolved.length > 0 ? (
@@ -601,12 +765,32 @@ function AssetRow({
             <span className={styles.assetMetaText}>
               {row.pos} · Consensus{" "}
               {row.blendedSourceRank != null ? row.blendedSourceRank.toFixed(1) : "—"}
+              {" · "}
+              {Number.isFinite(row.sourceCount) ? row.sourceCount : 0} src
             </span>
+            {row.confidenceBucket && row.confidenceBucket !== "high" ? (
+              /* W08-F011 (V1-92): the trade builder priced every asset
+                 with no visible signal for how thin the evidence behind
+                 that price is. `confidenceBucket` already folds
+                 freshness in as one of its five axes (see
+                 src/api/confidence.py — freshness cannot be read alone
+                 per-row, so the bucket IS the backend's per-row
+                 freshness-aware truth), so surfacing it here needs no
+                 new Date.now()-based staleness invented on the client.
+                 Silent for "high" — the expected default — to avoid
+                 badging every row in a trade. */
+              <Badge
+                tone={row.confidenceBucket === "medium" ? "warning" : "negative"}
+                title={row.confidenceLabel || undefined}
+              >
+                {row.confidenceBucket === "none"
+                  ? "no confidence data"
+                  : `${row.confidenceBucket} confidence`}
+              </Badge>
+            ) : null}
             <input
               type="number"
-              className={`asset-value-override-input${
-                valueOverrides[row.name] != null ? " overridden" : ""
-              }`}
+              className="asset-value-override-input"
               value={valueOverrides[row.name] != null ? valueOverrides[row.name] : ""}
               placeholder={
                 isUnpricedBoardRow(row)

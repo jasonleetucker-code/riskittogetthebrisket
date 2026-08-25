@@ -61,6 +61,9 @@ from src.utils.name_clean import is_first_name_variant  # noqa: E402
 from src.utils.name_clean import resolve_idp_position as _resolve_idp_position  # noqa: E402
 from src.utils.age import age_from_birthdate as _age_from_birthdate  # noqa: E402
 from src.utils.owner_names import owner_label as _owner_label  # noqa: E402
+from src.sources.site_raw_mirror import (  # noqa: E402
+    mirror_site_raw_csvs as _mirror_site_raw_csvs,
+)
 
 # ── C1-ID-01: the name-matching primitives this file defined are now
 # owned by the canonical identity package and imported back, so this
@@ -663,6 +666,7 @@ _KTC_SITE_RAW_FLOOR: int = 400
 #: the display-only one is what created the gap.
 _KTC_TEP_SITE_RAW_FLOOR: int = 400
 _IDPTC_SITE_RAW_FLOOR: int = 700
+
 DLF_IMPORT_DEBUG = {}
 
 # KTC blocker diagnosis — set by scrape_ktc on failure for source reporting
@@ -5713,6 +5717,10 @@ async def run(progress_callback=None):
 
     rebuilt_pick_entries = {}  # players_json labels -> entry
     rebuilt_pick_anchors = {}  # site -> canonical pick key (no "Pick")
+    # (site, canonical key) pairs whose exported anchor is the MODEL's
+    # composite, not a vendor quote — provenance reconciliation names
+    # them instead of letting them wear a vendor class (V1-85).
+    _model_injected_pick_keys = set()
 
     def _put_pick(label, canonical_key, value, site_vals):
         v = max(1, int(round(float(value))))
@@ -5752,6 +5760,7 @@ async def run(progress_callback=None):
         if vendor_priced and "ktc" not in e:
             e["ktc"] = v
             rebuilt_pick_anchors.setdefault("ktc", {})[canonical_key] = v
+            _model_injected_pick_keys.add(("ktc", canonical_key))
         e["_composite"] = v
         # The TRUE count.  ``max(1, ...)`` claimed one source for a row
         # with none, which is the same conflation in a second field.
@@ -5869,6 +5878,15 @@ async def run(progress_callback=None):
     # anchor (C1-U6-D1, 2026-08-17).  Raw now means raw.
     players_json.update(rebuilt_pick_entries)
     pick_anchors = rebuilt_pick_anchors
+    # ``pick_anchors_provenance`` must describe the map the export
+    # EMITS, not the stage-1 vendor builds the model board replaced.
+    # Unreconciled it stamped a whole site (``ktcSfTep``) and ~96 keys
+    # per source that ``pickAnchors`` does not contain, and said
+    # nothing true about the model-injected composites it does
+    # (F-22 / V1-85 — reporting only, no value moves here).
+    pick_anchors_provenance = _pickmap.reconcile_emitted_anchor_provenance(
+        rebuilt_pick_anchors, pick_anchors_provenance, _model_injected_pick_keys
+    )
     _disc_str = ", ".join(
         f"y+{int(y) - int(_pick_model_year)}={discount_by_year.get(y, 0):.3f}"
         for y in _future_pick_years
@@ -6559,10 +6577,11 @@ async def run(progress_callback=None):
         "pickAnchors": pick_anchors,
         "pickAnchorsRaw": pick_anchors_raw,
         # What each emitted anchor key actually IS, per source — a
-        # published observation or a within-year derivation.  Additive
-        # and read by nothing yet; it exists so "derived" and "observed"
-        # are distinguishable in the export at all, which they were not
-        # (C1-U6-D1).
+        # published observation, a within-year derivation, a vendor
+        # value carried on a model row, or the model's own injected
+        # composite.  Reconciled against the EMITTED map above, so its
+        # site/key sets match ``pickAnchors`` exactly (C1-U6-D1; F-22 /
+        # V1-85).  Additive and read by nothing yet.
         "pickAnchorsProvenance": pick_anchors_provenance,
         "coverageAudit": coverage_audit,
         "poolAudit": _pool_audit.to_dict() if _pool_audit else None,
@@ -6734,6 +6753,28 @@ async def run(progress_callback=None):
                 except Exception:
                     pass
 
+        # Mirror raw vendor CSVs that a standalone fetcher owns into the
+        # bundle, so the archive — and with it the existing content-age
+        # detector in ``scripts/check_source_health`` — can observe them
+        # at all.  Policy, the file list and the absent-is-absent rule
+        # all live in ``src/sources/site_raw_mirror``; this is the one
+        # call site.
+        try:
+            _mirror_outcomes = _mirror_site_raw_csvs(
+                repo_root=SCRIPT_DIR,
+                site_raw_dir=site_raw_dir,
+                produced_this_run=_fresh_site_raw,
+            )
+        except Exception as _mirror_exc:
+            print(f"  [site_raw] mirror pass failed: {_mirror_exc}", flush=True)
+            _mirror_outcomes = {}
+        _mirrored_site_raw = {
+            name for name, outcome in _mirror_outcomes.items() if outcome == "mirrored"
+        }
+        for _name, _outcome in sorted(_mirror_outcomes.items()):
+            if _outcome != "mirrored":
+                print(f"  [site_raw] mirror {_name}: {_outcome}", flush=True)
+
         # Write manifest with per-source freshness metadata.
         manifest = {
             "generatedAt": datetime.datetime.now().isoformat(),
@@ -6742,6 +6783,7 @@ async def run(progress_callback=None):
             "siteRawCount": len(os.listdir(site_raw_dir)) if os.path.exists(site_raw_dir) else 0,
             "siteRawFresh": sorted(_fresh_site_raw),
             "siteRawPreserved": sorted(_preserved_site_raw),
+            "siteRawMirrored": sorted(_mirrored_site_raw),
         }
         with open(os.path.join(latest_dir, "manifest.json"), "w", encoding="utf-8") as f:
             json.dump(manifest, f, indent=2, ensure_ascii=False)

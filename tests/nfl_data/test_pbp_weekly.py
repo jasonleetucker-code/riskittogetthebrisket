@@ -42,12 +42,14 @@ from pathlib import Path
 import pytest
 
 from src.nfl_data.pbp_weekly import (
+    PBP_WEEKLY_SCHEMA_VERSION,
     PbpWeeklyStats,
     SeasonPbpIndex,
     accumulate_weekly,
     attach_supplement,
     gsis_of_row,
     load_pbp_weekly,
+    pbp_weekly_path,
     persist_pbp_weekly,
 )
 from src.nfl_data.realized_points import PBP_SUPPLEMENT_KEYS, PBP_SUPPLEMENT_ROW_KEY
@@ -69,6 +71,19 @@ WEEKS = (1, 5, 11, 14)
 SLICE = FIXTURES / "pbp_2025_wk14_slice.csv"
 
 BAND_KEYS = ("rec_0_4", "rec_5_9", "rec_10_19", "rec_20_29", "rec_30_39", "rec_40p")
+
+#: Every PBP_SUPPLEMENT_KEYS member EXCEPT ``kick_ret_td``.  The other
+#: nine are all keys Sleeper publishes in its OWN weekly stat dump under
+#: the SAME name, which is what makes a per-key host-total comparison a
+#: real reconciliation.  ``kick_ret_td`` is different: Sleeper never
+#: publishes a kickoff/punt return-TD split at all, only the combined
+#: ``st_td`` — so ``host_players[...].get("kick_ret_td", 0)`` is
+#: structurally always 0 and comparing against it would not test the
+#: derivation, it would test that Sleeper doesn't have a key it never
+#: had.  ``kick_ret_td`` gets its own reconciliation below, against the
+#: identity ``kick_ret_td + punt_ret_td == st_td`` on real 2025 REG
+#: return-TD scorers, which IS the ground truth available for it.
+HOST_KEYED_SUPPLEMENT_KEYS = sorted(PBP_SUPPLEMENT_KEYS - {"kick_ret_td"})
 
 
 def _slice_path(week):
@@ -141,7 +156,7 @@ def test_the_pruned_host_fixture_matches_the_full_dump():
 
 
 @pytest.mark.parametrize("week", WEEKS)
-@pytest.mark.parametrize("key", sorted(PBP_SUPPLEMENT_KEYS))
+@pytest.mark.parametrize("key", HOST_KEYED_SUPPLEMENT_KEYS)
 def test_every_derived_key_matches_the_host_across_four_weeks(
     derived_by_week, host_by_week, week, key
 ):
@@ -160,7 +175,7 @@ def test_every_derived_key_matches_the_host_across_four_weeks(
 # ── Host truth ───────────────────────────────────────────────────────
 
 
-@pytest.mark.parametrize("key", sorted(PBP_SUPPLEMENT_KEYS))
+@pytest.mark.parametrize("key", HOST_KEYED_SUPPLEMENT_KEYS)
 def test_every_derived_key_matches_the_host_for_week_14(derived, host_players, key):
     """The whole justification for this module in one assertion.
 
@@ -171,6 +186,52 @@ def test_every_derived_key_matches_the_host_for_week_14(derived, host_players, k
     """
     by_player, _weeks = derived
     assert _derived_total(by_player, key) == _host_total(host_players, key), key
+
+
+def test_kick_ret_td_reconciles_against_combined_st_td(derived_by_week):
+    """``kick_ret_td`` has no host-published ground truth of its own —
+    Sleeper never splits ``st_td`` into a kickoff half and a punt half,
+    see ``HOST_KEYED_SUPPLEMENT_KEYS`` above. Verified instead against
+    the identity that must hold if the derivation is right: every real
+    2025 week-14 ``st_td`` scorer is EITHER a kickoff return (credited
+    here) or a punt return (on the nflverse weekly feed's
+    ``pt_return_tds``, ``realized_points._SIMPLE_KEYS["punt_ret_td"]``,
+    no play-by-play involved), never both, and the two must sum to the
+    host's own ``st_td`` total.
+
+    Host truth (``docs/master-site-audit/evidence/W18/sleeper_stats_2025_wk14.json``,
+    cross-referenced against the real 2025 nflverse PBP release; GSIS ids
+    resolved via nflverse's ``players.csv``):
+
+        Rashid Shaheed  (00-0037545 / Sleeper 8676)  — KICKOFF return TD
+        Marvin Mims     (00-0038976 / Sleeper 9494)  — PUNT return TD
+        Isaiah Williams (00-0039451 / Sleeper 11608) — PUNT return TD
+
+    3 real scorers, 1 kickoff, 2 punt — exactly what this asserts.
+    """
+    host_raw = json.loads(HOST_WK14_FULL.read_text(encoding="utf-8"))
+    host_st_td_total = sum(
+        float(v.get("st_td", 0) or 0) for v in host_raw.values() if isinstance(v, dict)
+    )
+    by_player, _weeks = derived_by_week[14]
+    derived_kick_ret_td = _derived_total(by_player, "kick_ret_td", week=14)
+    assert host_st_td_total == 3.0
+    assert derived_kick_ret_td == 1.0
+    # The other two week-14 st_td scorers (Mims, Williams) are confirmed
+    # punt returns on the real PBP release, not re-derived here —
+    # punt_ret_td is a bare weekly-feed passthrough with no play-by-play
+    # predicate to test in this module.
+    known_punt_return_td_count = 2.0
+    assert derived_kick_ret_td + known_punt_return_td_count == host_st_td_total
+
+
+@pytest.mark.parametrize("week", (1, 5, 11))
+def test_kick_ret_td_is_a_real_zero_on_weeks_with_no_kickoff_return(derived_by_week, week):
+    """Weeks 1/5/11 have no kickoff-return-TD play at all in the real
+    2025 PBP release (confirmed by direct inspection) — a genuine zero,
+    distinct from an untested gap."""
+    by_player, _weeks = derived_by_week[week]
+    assert _derived_total(by_player, "kick_ret_td", week=week) == 0.0
 
 
 @pytest.mark.parametrize("key", BAND_KEYS)
@@ -229,7 +290,8 @@ _MIN_HEADER = (
     "forced_fumble_player_1_player_id,forced_fumble_player_2_player_id,"
     "fumble_recovery_1_player_id,fumble_recovery_1_team,fumbled_1_team,"
     "fumble_recovery_2_player_id,fumble_recovery_2_team,fumbled_2_team,"
-    "interception,return_touchdown,passer_player_id,posteam,td_team"
+    "interception,return_touchdown,passer_player_id,posteam,td_team,"
+    "play_type,kickoff_returner_player_id,own_kickoff_recovery_td"
 ).split(",")
 
 
@@ -305,6 +367,49 @@ def test_a_returned_interception_the_offence_scores_on_is_not_a_pick_six():
     )
     assert "00-qb" not in by_player
     assert by_player["00-qb2"][1]["pass_int_td"] == 1.0
+
+
+def test_kick_ret_td_fires_on_a_kickoff_return_touchdown():
+    by_player, _ = _accumulate(
+        _play(
+            play_type="kickoff",
+            return_touchdown=1,
+            kickoff_returner_player_id="00-kr",
+            own_kickoff_recovery_td=0,
+        )
+    )
+    assert by_player["00-kr"][1]["kick_ret_td"] == 1.0
+
+
+def test_own_kickoff_recovery_is_not_a_kick_ret_td():
+    """The kicking team recovering its own free kick and running it in is
+    not a return, and it is not this returner's play — the same shape of
+    exclusion ``pass_int_td`` uses for an offense-scored interception
+    return."""
+    by_player, _ = _accumulate(
+        _play(
+            play_type="kickoff",
+            return_touchdown=1,
+            kickoff_returner_player_id="00-kr",
+            own_kickoff_recovery_td=1,
+        )
+    )
+    assert by_player == {}
+
+
+def test_kick_ret_td_does_not_fire_on_a_punt_return_touchdown():
+    """A punt-return TD must not be miscredited to kick_ret_td — that
+    would double it against punt_ret_td (the weekly-feed key) on any
+    league that pays both."""
+    by_player, _ = _accumulate(
+        _play(
+            play_type="punt",
+            return_touchdown=1,
+            kickoff_returner_player_id="00-not-a-kr",
+            own_kickoff_recovery_td=0,
+        )
+    )
+    assert by_player == {}
 
 
 def test_special_teams_rules_do_not_fire_on_a_scrimmage_play():
@@ -604,3 +709,85 @@ def test_an_unknown_scoring_team_is_not_a_pick_six(td_team, posteam):
         )
     )
     assert by_player == {}
+
+
+# ── Artifact schema integrity (V1-49 production-proof prerequisite) ────
+#
+# The failure these guard is NOT "the file is unreadable" — it is the
+# far quieter one where a stale artifact is read successfully and its
+# missing keys score as real zeros.  ``covers()`` is week-level, so a
+# file built before a key existed still reports its weeks as covered;
+# the supplement is then a Mapping with no entry for the new key, and
+# ``compute_weekly_points`` never populates ``unscored``.
+
+
+def _write_artifact(tmp_path, payload: dict) -> None:
+    path = pbp_weekly_path(2025, out_dir=tmp_path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(payload) + "\n", encoding="utf-8")
+
+
+def _valid_payload(**overrides) -> dict:
+    payload = {
+        "schemaVersion": PBP_WEEKLY_SCHEMA_VERSION,
+        "season": 2025,
+        "weeksCovered": [14],
+        "partialWeeks": [],
+        "statKeys": sorted(PBP_SUPPLEMENT_KEYS),
+        "players": {"00-0038576": {"weeks": {"14": {"kick_ret_td": 1.0}}}},
+    }
+    payload.update(overrides)
+    return payload
+
+
+def test_a_current_schema_artifact_is_accepted(tmp_path):
+    """Non-vacuity: the guards below must reject for their stated reason,
+    not because this helper writes something unreadable."""
+    _write_artifact(tmp_path, _valid_payload())
+    assert load_pbp_weekly(2025, out_dir=tmp_path) is not None
+
+
+def test_a_stale_schema_artifact_is_refused_not_read_as_zeros(tmp_path):
+    _write_artifact(tmp_path, _valid_payload(schemaVersion="2026-08-18.v1"))
+    assert load_pbp_weekly(2025, out_dir=tmp_path) is None
+
+
+def test_an_unstamped_artifact_is_refused(tmp_path):
+    payload = _valid_payload()
+    del payload["schemaVersion"]
+    _write_artifact(tmp_path, payload)
+    assert load_pbp_weekly(2025, out_dir=tmp_path) is None
+
+
+def test_a_key_set_that_moved_without_a_version_bump_is_refused(tmp_path):
+    """The exact failure that produced this unit: ``kick_ret_td`` joined
+    PBP_SUPPLEMENT_KEYS and the version was NOT bumped, so a
+    version-only check would have passed the artifact through."""
+    stale_keys = sorted(PBP_SUPPLEMENT_KEYS - {"kick_ret_td"})
+    _write_artifact(tmp_path, _valid_payload(statKeys=stale_keys))
+    assert load_pbp_weekly(2025, out_dir=tmp_path) is None
+
+
+def test_a_refused_artifact_reports_the_season_missing_rather_than_empty(tmp_path):
+    """Refusing must produce an honest unknown, not a different silent
+    zero — the whole point of the guard."""
+    _write_artifact(tmp_path, _valid_payload(schemaVersion="2026-08-18.v1"))
+    index = SeasonPbpIndex(out_dir=tmp_path)
+    row = {"season": 2025, "week": 14, "player_id": "00-0038576"}
+    assert PBP_SUPPLEMENT_ROW_KEY not in index.attach(row)
+    assert index.seasons_missing == (2025,)
+
+
+def test_the_schema_version_is_bumped_when_the_key_set_changes(tmp_path):
+    """A freshly persisted artifact must stamp the current version AND
+    the current key set, so the two can never drift apart again."""
+
+    def lines(_season):
+        with SLICE.open("r", encoding="utf-8", newline="") as fh:
+            return list(fh)
+
+    persist_pbp_weekly([2025], out_dir=tmp_path, _line_source=lines)
+    payload = load_pbp_weekly(2025, out_dir=tmp_path)
+    assert payload is not None, "a just-built artifact must not be refused"
+    assert payload["schemaVersion"] == PBP_WEEKLY_SCHEMA_VERSION
+    assert sorted(payload["statKeys"]) == sorted(PBP_SUPPLEMENT_KEYS)

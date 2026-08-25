@@ -25,6 +25,11 @@ LEAGUE_KEY = "dynasty_main"
 def authed(monkeypatch):
     monkeypatch.setattr(server, "_is_authenticated", lambda r: True)
     monkeypatch.setattr(server, "_get_auth_session", lambda r: {"username": "jason"})
+    # POST /api/intel/refresh now gates its session path on the admin
+    # allowlist (W22-F007), so the stub identity is allowlisted
+    # explicitly rather than depending on the env default.  Read-only
+    # intel endpoints ignore this.
+    monkeypatch.setattr(server, "PRIVATE_APP_ALLOWED_USERNAMES", frozenset({"jason"}))
 
 
 @pytest.fixture

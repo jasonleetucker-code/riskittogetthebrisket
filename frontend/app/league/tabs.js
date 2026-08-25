@@ -11,6 +11,9 @@
 // Isolation contract (see LeagueClient.jsx): nothing here may import
 // from the private canonical pipeline.  It imports nothing at all.
 
+export const PIECE_OF_SHIT_RANKINGS_TAB = "piece-of-shit-rankings";
+export const PIECE_OF_SHIT_RANKINGS_TITLE = "Piece of Shit Rankings";
+
 // Tab order + labels for the /league section nav.
 export const SUB_TABS = Object.freeze([
   { key: "overview", label: "Home" },
@@ -26,6 +29,10 @@ export const SUB_TABS = Object.freeze([
   { key: "rosTradeDeadline", label: "Trade Deadline" },
   { key: "luck", label: "Luck" },
   { key: "streaks", label: "Streaks" },
+  {
+    key: PIECE_OF_SHIT_RANKINGS_TAB,
+    label: PIECE_OF_SHIT_RANKINGS_TITLE,
+  },
   { key: "history", label: "History" },
   { key: "rivalries", label: "Rivalries" },
   { key: "awards", label: "Awards" },
@@ -45,9 +52,9 @@ export const DEFAULT_TAB = "overview";
 
 // Old → new tab-key aliases. Two reasons to keep these forever:
 //   1. External deep links (sitemap.js, /league/week/<season>/<week>
-//      back-links, anyone's bookmarks) still use the legacy
-//      ``matchupPreview`` / ``weeklyRecap`` query values. Without the
-//      alias they fall through to DEFAULT_TAB on landing.
+//      back-links, anyone's bookmarks) may still use a legacy query
+//      value. Without the alias they fall through to DEFAULT_TAB on
+//      landing.
 //   2. Internal CTAs (overview.jsx → onNavigate("matchupPreview"))
 //      route through the same setActiveTab path, so aliasing in one
 //      place fixes both classes of caller.
@@ -55,6 +62,7 @@ export const DEFAULT_TAB = "overview";
 export const TAB_ALIASES = Object.freeze({
   matchupPreview: "previews",
   weeklyRecap: "recaps",
+  conduct: PIECE_OF_SHIT_RANKINGS_TAB,
 });
 
 export function normalizeTabKey(key) {
@@ -62,10 +70,32 @@ export function normalizeTabKey(key) {
   return TAB_ALIASES[key] || key;
 }
 
+export function leagueTabHref(key, currentSearch = "", extraParams = {}) {
+  const normalized = normalizeTabKey(key);
+  const resolved = VALID_TABS.has(normalized) ? normalized : DEFAULT_TAB;
+  const params = new URLSearchParams(currentSearch);
+  if (resolved === DEFAULT_TAB) {
+    params.delete("tab");
+  } else {
+    params.set("tab", resolved);
+  }
+  for (const [name, value] of Object.entries(extraParams)) {
+    if (value === null || value === undefined || value === "") {
+      params.delete(name);
+    } else {
+      params.set(name, String(value));
+    }
+  }
+  const query = params.toString();
+  return query ? `/league?${query}` : "/league";
+}
+
 // Which public-contract section each tab renders from.
 //
 // Tabs ABSENT from this map fetch their own data and need nothing from
-// the contract: `previews`/`recaps` (ArticlesSection), the four `ros*`
+// the contract: `previews`/`recaps` (ArticlesSection), `power`
+// (RosPowerSection reads the lazy `rosPower` section directly — the v1
+// engine and its eager `power` section are retired), the four `ros*`
 // tabs, and `draft-capital`.  That absence is load-bearing — it is what
 // lets the server ship a contract containing only the sections the
 // landing tab actually reads instead of all seventeen (2.01 MB, of
@@ -73,9 +103,9 @@ export function normalizeTabKey(key) {
 // all since the articles tabs replaced it).
 export const SECTION_FOR_TAB = Object.freeze({
   overview: "overview",
-  power: "power",
   luck: "luck",
   streaks: "streaks",
+  [PIECE_OF_SHIT_RANKINGS_TAB]: "conduct",
   history: "history",
   rivalries: "rivalries",
   awards: "awards",

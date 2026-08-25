@@ -194,3 +194,233 @@ demonstrated causal defect in #948, which is the condition that unfreezes it.
 
 `Deploy Production` run `32345039692` for the #948 merge
 (`9e83509607736f0419dddf3ac00da4110b569f6b`) **completed success** at 08:20:57Z.
+
+---
+
+## Checkpoint 2026-08-20T10:48Z — the suppression holds, and the tracker question is settled by production
+
+Window: **07:40:12Z → 10:48:46Z** (3 h 08 m), from the first post-#948 write `65bfca4d2`.
+
+### Smoke commits: still zero, and the workflow is still running
+
+| quantity | value |
+|---|---|
+| smoke commits written | **0** |
+| `verify-sharp-production.yml` runs in the window | **8** |
+| conclusions | **7 success**, 1 failure (diagnosed below) |
+| expected at the pre-merge rate (48 / 24 h ≈ 2/h) | ~6 |
+
+Both halves still hold at 3× the previous checkpoint's duration. The record on `main` is
+unchanged since the schema-2 write: `stateSince` and `lastObservedAt` both still
+`2026-08-20T07:40:06.649789+00:00`, `status: unverifiable_unauthenticated`,
+`measured: false`, `credentialRegression: false`.
+
+**Still not the ≤ 1/day claim.** Three hours is not a day, and the **day-rollover write is
+still unexercised** — that is the one branch this observation has not yet tested, and it is
+the branch that decides whether the number is 0/day or 1/day. Full-window read remains due
+**2026-08-21T07:45Z**.
+
+### The one failure — diagnosed, not waved off as flaky
+
+Run `32354095506` (09:28:57Z, `cca488cd7`) failed at step 6, *Track that the Sharp gate cannot
+measure*. Cause, from the log:
+
+```
+HTTP 503: No server is currently available to service your request.
+          (https://api.github.com/graphql)
+##[error]Process completed with exit code 1.
+```
+
+**A transient GitHub GraphQL outage, upstream of this repository.** Not a rate limit, not the
+duplication defect, and not our code. It has not recurred in the three runs since. No fix is
+warranted, and none was made — re-running is the whole remedy, which is the narrow case the
+CI-reliability lane's own rule permits (it died in an API call, not in a test body).
+
+Worth stating plainly because it is the *desired* behaviour: a lookup that fails **stays a
+failure**. That invariant survived #960 and is pinned by
+`tests/deploy/test_sharp_tracker_dedup.py::test_lookup_failure_stays_actionable_and_is_not_silently_healthy`.
+
+---
+
+## #958 CLOSED — `gh` emits `app/github-actions`, confirmed in production
+
+The hypothesis is no longer a hypothesis. Run `32356925992` (10:02:24Z), the first
+`verify-sharp-production` run after #960 merged, printed the diagnostic #960 added:
+
+```
+##[notice]app/github-actions
+https://github.com/.../issues/951#issuecomment-5354397097
+```
+
+Two facts in two lines:
+
+1. **`gh` reports this bot as `app/github-actions`** in `--json author` output — the `app/`
+   prefix it puts on bot actors. Three years of guessing (F-23's bare `github-actions`, then
+   F-23's `[bot]`-suffix normalisation, then #948 inheriting it) are settled by one measurement.
+   Neither earlier guess was ever reproduced against real `gh` output; both were wrong about
+   *which* transformation was needed, and the third fix removed the dependency instead.
+2. **It COMMENTED on #951** rather than creating a new issue — and #951 is the **oldest**
+   duplicate, which is the `min`-by-number rule doing exactly what it was written for.
+
+### Duplication has stopped, measured
+
+| | |
+|---|---|
+| last NEW tracker created | **#959, 09:05:26Z** — before #960 merged at 10:02:24Z |
+| trackers created since the fix | **0** |
+| comments now on #951 | **3** — one per post-fix run (10:02, 10:19, 10:26) |
+
+Open `sharp-unverifiable` trackers: #951, #953, #955, #957, #959 — **five**, static.
+
+**They are still not drained by hand, deliberately.** The close path fires only on a `healthy`
+run, and there is no credential, so no healthy run exists. Draining them manually would be
+housekeeping that hides the real state: the gate still cannot measure. They stay until either
+a credential arrives or the owner decides otherwise.
+
+---
+
+## Checkpoint 2026-08-20T12:09Z — 4½ hours, and the tracker repair is 1:1
+
+Window: **07:40:12Z → 12:09:42Z** (4 h 29 m), from the first post-#948 write `65bfca4d2`.
+
+### Smoke commits: still zero, workflow still running
+
+| quantity | value |
+|---|---|
+| smoke commits written | **0** |
+| `verify-sharp-production.yml` runs in the window | **13** |
+| conclusions | **12 success**, 1 failure (the 09:28:57Z GraphQL 503, already diagnosed) |
+| expected at the pre-merge rate (48 / 24 h ≈ 2/h) | **~9** |
+
+Both halves hold at 4½ hours — 50% longer than the previous checkpoint, and the
+gap between expected (~9) and observed (0) has widened rather than drifted.
+
+The record on `main` is byte-stable since the schema-2 write: `stateSince` and
+`lastObservedAt` both still `2026-08-20T07:40:06.649789+00:00`,
+`status: unverifiable_unauthenticated`, `measured: false`,
+`credentialRegression: false`.
+
+**The ≤ 1/day claim is STILL NOT MADE, and the reason is unchanged.** Four and a
+half hours is not a day. The **day-rollover write has not executed** — that is the
+one branch this observation has never tested, and it is the branch that decides
+whether the steady-state answer is 0/day or 1/day. A confident number before it runs
+would be an extrapolation, not a measurement. Full-window read remains due
+**2026-08-21T07:45Z**.
+
+### The tracker repair, now 1:1 across eight runs
+
+#960 merged at 10:02:24Z. Every `verify-sharp-production` run since:
+
+| | |
+|---|---|
+| runs since the fix | **8** (10:02, 10:19, 10:26, 10:49, 11:17, 11:55, 11:56, 11:59) |
+| comments now on #951 | **8** |
+| NEW trackers created since the fix | **0** |
+| last tracker created | **#959, 09:05:26Z** — before the fix |
+
+**Eight runs, eight comments, zero new issues.** The previous checkpoint saw 3-for-3;
+this is the same behaviour sustained across nearly three times as many runs, and it
+lands on #951 every time — the oldest duplicate, which is the `min`-by-number
+selection rule holding rather than drifting between the five.
+
+Open `sharp-unverifiable` trackers: **#951, #953, #955, #957, #959** — five, static.
+
+**Still not drained, and this is now a deliberate standing decision rather than a
+pending chore.** The close path fires only on a `healthy` run; there is no credential,
+so no healthy run exists and none can be manufactured. Draining the five by hand would
+leave the dashboard clean and the gate exactly as blind as it is today — which is the
+false green this whole record exists to prevent. They stay until a credential arrives
+or the owner rules otherwise.
+
+**Consequently, two things remain unproven and are not being claimed:**
+healthy-run tracker closure/reconciliation (no authenticated healthy run has ever
+occurred), and the ≤ 1/day steady state (day-rollover unexecuted). Both are
+*unexercised*, which is a different statement from *failing*.
+
+---
+
+## Checkpoint 2026-08-20T14:40Z — the commits came back, they are NOT churn, and the cause is a misclassification
+
+### Correcting this record's own last checkpoint
+
+The 12:09Z checkpoint says "smoke commits: still zero". That was true when written and is
+**false now**, and the correction matters more than the number: there have been **eight**
+since, and the previous checkpoint's headline would otherwise stand as the last word.
+
+```
+22b6cf540 12:22   6fe287dc5 12:23   59c4ec907 13:02   7c826f9c2 13:08
+d630978ca 13:47   9bd34a519 13:55   7901b4733 13:56   96055e41b 14:23
+```
+
+### They are genuine state transitions. The suppression logic is working perfectly.
+
+Read the committed record at each of the eight:
+
+| commit | status | fingerprint | deployConclusion |
+|---|---|---|---|
+| 22b6cf540 | `deploy_failed` | `b1315fce9ca9` | cancelled |
+| 6fe287dc5 | `unverifiable_unauthenticated` | `f57cf5e6cbe5` | success |
+| 59c4ec907 | `deploy_failed` | `b1315fce9ca9` | cancelled |
+| 7c826f9c2 | `unverifiable_unauthenticated` | `f57cf5e6cbe5` | success |
+| d630978ca | `deploy_failed` | `b1315fce9ca9` | cancelled |
+| 9bd34a519 | `unverifiable_unauthenticated` | `f57cf5e6cbe5` | pending |
+| 7901b4733 | `deploy_failed` | `b1315fce9ca9` | cancelled |
+| 96055e41b | `unverifiable_unauthenticated` | `f57cf5e6cbe5` | pending |
+
+Exactly **two** fingerprints, strictly alternating, **never two consecutive writes of the
+same one**. Zero duplicate writes in eight. The `stateFingerprint` suppression #948 added is
+doing precisely what it was built to do, and misreading these as same-state churn would
+condemn the one mechanism that is working.
+
+The fingerprint is also not the culprit by being too fine: it is taken over
+`(status, cohort, ffpcMarket, lastErrorType)` and **excludes** `deployHeadSha`,
+`deployRunId`, `checkedAt`, `attempts`, `eventName` and the error message by construction.
+Every one of these eight writes recorded a real change of `status`.
+
+### The cause: a CANCELLED deploy is being reported as a FAILED deploy
+
+`.github/workflows/verify-sharp-production.yml:108`:
+
+```python
+if event_name == "workflow_run" and deploy_conclusion != "success":
+    result["status"] = "deploy_failed"
+```
+
+`!= "success"` swallows **cancelled**, **skipped** and empty alike. And a cancelled deploy is
+the *normal* outcome here, not an anomaly: `deploy.yml`'s concurrency group cancels a
+superseded run whenever merges land close together. Every `cancelled` row above is one of
+those — Integration merged four PRs inside forty minutes this afternoon, and each burst
+produced a cancel → success pair, hence a `deploy_failed` → `unverifiable_unauthenticated`
+pair, hence two commits.
+
+**Superseded is not failed.** This is the same error this entire record exists to prevent,
+wearing different clothes: it is why `unverifiable_unauthenticated` is kept distinct from
+`unhealthy`, and why "the gate could not measure" must never render as "the gate measured
+something bad". A run that was cancelled *because a newer one replaced it* produced no
+evidence about production at all. The truthful status for it is an unmeasured one — the
+`waiting` / unverifiable family — not a failure verdict.
+
+Two consequences, both worth stating before tomorrow's read:
+
+1. **The write volume is a symptom, not the disease.** Deduplicating harder, widening the
+   fingerprint, or throttling the writer would all suppress a signal that is currently
+   *correct given its inputs*. The fix is upstream, in the classification.
+2. **≤ 1/day is structurally unreachable during any active merge window** while cancelled
+   maps to `deploy_failed`, because each supersession is a real transition under the
+   current rule. That is not the suppression failing; it is the target being measured
+   against a status that oscillates for reasons unrelated to production health.
+
+Routed to the CI reliability lane as its own unit rather than repaired here — this record is
+an observation, and rewriting the workflow it observes would make it both instrument and
+subject.
+
+### The full-window requirement stands, unchanged
+
+The day-rollover write has still not executed, so the ≤ 1/day steady state remains
+**unexercised** — which is still a different statement from *failing*. The full-window read
+is due **2026-08-21T07:45Z** and nothing here shortens it. What has changed is that the
+window will now be read knowing what the oscillation is, so a high count tomorrow can be
+attributed rather than guessed at.
+
+Open `sharp-unverifiable` trackers: **#951, #953, #955, #957, #959** — five, static, still
+deliberately not drained.

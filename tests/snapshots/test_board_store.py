@@ -212,6 +212,33 @@ class TestPipelineVersion(unittest.TestCase):
     def test_missing_curves_degrade_rather_than_raise(self) -> None:
         self.assertTrue(board_store.pipeline_version({}).endswith("+nohash"))
 
+    def test_a_non_curve_metadata_key_does_not_move_the_version(self) -> None:
+        """V1-21 / W04-F011 regression: ``hillCurves`` now also carries a
+        ``provenance`` sub-block (which model version PRODUCED the
+        constants) alongside the four scope curves themselves.  That
+        metadata is not value-determining, so it must NOT move this
+        identity -- otherwise a purely cosmetic registry correction (e.g.
+        backfilling a champion's ``appliedAt``) would look like a Hill
+        re-fit to the temporal ledger with no curve constant having
+        changed at all.
+        """
+        without_provenance = board_store.pipeline_version(_contract())
+        with_provenance = board_store.pipeline_version(
+            _contract(
+                hillCurves={
+                    "idp": {"c": 0.083, "s": 1.11},
+                    "offense": {"c": 0.11, "s": 0.72},
+                    "provenance": {
+                        "status": "verified_champion",
+                        "modelVersion": 2,
+                        "paramSetId": "hill_scope_masters:deadbeefdeadbeef",
+                        "asOf": "2026-07-29T23:35:35.519297+00:00",
+                    },
+                }
+            )
+        )
+        self.assertEqual(without_provenance, with_provenance)
+
 
 class TestNotADecisionPath(unittest.TestCase):
     """The store records evidence about the board; it never feeds it.

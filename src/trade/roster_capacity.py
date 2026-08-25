@@ -72,8 +72,9 @@ cannot tell which of its members occupy taxi slots.
 That matters in the direction opposite to the one this module first claimed.
 Counting every listed player against the active cap does not understate open
 spots — it **overstates roster pressure**, and in a taxi league it can invent
-forced drops that the league would not require.  ``dynasty_new`` carries 5 taxi
-slots against a 24-man roster, so the error is up to five players wide.
+forced drops that the league would not require.  ``dynasty_new`` carries 3 taxi
+slots against a 27-man roster (host truth, W18-F011 / V1-25 — this line used to
+say 5 against 24), so the error is up to three players wide.
 
 Neither guess is available:
 

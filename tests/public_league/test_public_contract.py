@@ -95,6 +95,38 @@ class PublicContractSafetyTests(unittest.TestCase):
             payload = build_section_payload(self.snapshot, key)
             assert_public_payload_safe(payload)
 
+    def test_team_assignment_healthy_snapshot_reports_available(self) -> None:
+        """V1-94 / #815, healthy half, through the REAL assembly pipeline
+        (not a hand-built ``PublicLeagueSnapshot`` — this one comes from
+        ``build_public_snapshot`` over stubbed Sleeper responses, same as
+        every other section this class checks)."""
+        payload = build_section_payload(self.snapshot, "teamAssignment")
+        data = payload["data"]
+        self.assertTrue(data["available"])
+        self.assertIsNone(data["unavailableReason"])
+        self.assertGreater(len(data["assignments"]), 0)
+
+    def test_team_assignment_degraded_snapshot_reports_unavailable_not_empty(
+        self,
+    ) -> None:
+        """V1-94 / #815, degraded half, through the SAME real pipeline.
+
+        An unknown league id makes ``fetch_league`` return ``None``, which
+        ``build_public_snapshot`` turns into zero seasons — a real
+        degraded-fetch shape, not a hand-constructed one. Before #815 this
+        rendered as a bare ``assignments: []`` indistinguishable from a
+        healthy empty league; it must now say why, and the safety walk
+        must still accept the shape.
+        """
+        degraded_snapshot = build_public_snapshot("L_UNKNOWN_LEAGUE_ID", max_seasons=2)
+        self.assertIsNone(degraded_snapshot.current_season)
+        payload = build_section_payload(degraded_snapshot, "teamAssignment")
+        assert_public_payload_safe(payload)
+        data = payload["data"]
+        self.assertFalse(data["available"])
+        self.assertEqual(data["unavailableReason"], "no_current_season")
+        self.assertEqual(data["assignments"], [])
+
     def test_private_field_guard_rejects_leaks(self) -> None:
         # Direct invariant test — if someone adds a private field to
         # the header, the guard MUST trip.
@@ -233,6 +265,43 @@ class SectionCoverageTests(unittest.TestCase):
         ):
             self.assertIn(block, s)
 
+    def test_archives_manager_index_covers_every_season_result_owner(self) -> None:
+        """V1-96 residual (C9-HIST-01): the archives manager index must
+        cover the rows it indexes.
+
+        ``seasonResults`` emits every historical standings row, including
+        retirees' real past seasons.  A manager index built from the
+        forward-facing directory (``ordered_managers()`` default,
+        retirees excluded) therefore cannot find owners its own archive
+        contains.  The invariant — not a count literal: every ownerId
+        appearing in seasonResults appears in the manager index.
+        """
+        from src.public_league import archives
+
+        install_stubs(build_stub_client())
+        snapshot = build_public_snapshot("L2025", max_seasons=2)
+        # owner-X held roster 4 in 2024 only — exactly the retiree shape.
+        # Flag them retired the way build_manager_registry models it
+        # (Manager.is_retired), so the fixture contains a retired manager
+        # WITH historical season rows.
+        snapshot.managers.by_owner_id["owner-X"].is_retired = True
+
+        section = archives.build_section(snapshot)
+        season_result_owners = {row["ownerId"] for row in section["seasonResults"]}
+        index_owners = {row["ownerId"] for row in section["managers"]}
+
+        # Guard against vacuity: the retiree really is in the archive rows.
+        self.assertIn("owner-X", season_result_owners)
+        self.assertLessEqual(
+            season_result_owners,
+            index_owners,
+            msg=(
+                "archives.seasonResults contains owners the archives manager "
+                "index cannot find: "
+                f"{sorted(season_result_owners - index_owners)}"
+            ),
+        )
+
     def test_luck_section(self) -> None:
         s = self.contract["sections"]["luck"]
         for block in (
@@ -254,10 +323,14 @@ class SectionCoverageTests(unittest.TestCase):
         ):
             self.assertIn(block, s)
 
-    def test_power_section(self) -> None:
-        s = self.contract["sections"]["power"]
-        for block in ("weeks", "seriesByOwner", "currentRanking", "methodology", "weights"):
-            self.assertIn(block, s)
+    def test_no_legacy_power_section(self) -> None:
+        """The v1 power engine (``src/public_league/power.py``) is
+        retired.  The aggregate contract no longer builds a ``power``
+        section at all -- the canonical engine lives at the lazy
+        ``rosPower`` section key instead (see test_server_routes.py for
+        HTTP-level coverage of that endpoint)."""
+        self.assertNotIn("power", self.contract["sections"])
+        self.assertNotIn("power", PUBLIC_SECTION_KEYS)
 
     def test_matchup_preview_section(self) -> None:
         s = self.contract["sections"]["matchupPreview"]
@@ -268,6 +341,23 @@ class SectionCoverageTests(unittest.TestCase):
         s = self.contract["sections"]["weeklyRecap"]
         for block in ("weeks", "byKey", "latest", "seasonsCovered"):
             self.assertIn(block, s)
+
+
+def _const_valuation_factory(value_fn):
+    """Wrap an old-style ``(asset) -> float`` valuation function as the
+    resolver-factory shape ``activity_valuation`` now expects
+    (V1-97 / C3-REPLAY-01: grading resolves AS OF each trade's own
+    instant, via a factory that batches every ``(asset, instant)`` pair
+    up front).  These tests exercise grading MATH — band table, VA
+    engine, sanitization — not temporal correctness, so the factory
+    here ignores the trade instant entirely and just re-runs the
+    supplied per-asset function.
+    """
+
+    def _factory(_requests):
+        return lambda asset, _instant: value_fn(asset)
+
+    return _factory
 
 
 class ActivityGradingTests(unittest.TestCase):
@@ -315,7 +405,7 @@ class ActivityGradingTests(unittest.TestCase):
 
         contract = build_public_contract(
             self.snapshot,
-            activity_valuation=_valuation,
+            activity_valuation=_const_valuation_factory(_valuation),
         )
         feed = contract["sections"]["activity"]["feed"]
         graded_sides = [
@@ -352,7 +442,7 @@ class ActivityGradingTests(unittest.TestCase):
 
         contract = build_public_contract(
             self.snapshot,
-            activity_valuation=_valuation,
+            activity_valuation=_const_valuation_factory(_valuation),
         )
         feed = contract["sections"]["activity"]["feed"]
         trade_2025 = next(t for t in feed if t["transactionId"] == "tx-2025-a")
@@ -378,13 +468,14 @@ class ActivityGradingTests(unittest.TestCase):
         ]
         trade = {
             "transactionId": "synthetic-nan",
+            "createdAt": 1752580800000,
             "sides": [
                 {"receivedAssets": got_a, "sentAssets": got_b},
                 {"receivedAssets": got_b, "sentAssets": got_a},
             ],
         }
 
-        def _valuation(asset):
+        def _valuation(asset, _instant):
             pid = str(asset.get("playerId") or "")
             if pid in {"a", "b"}:
                 return 1000.0
@@ -422,6 +513,7 @@ class ActivityGradingTests(unittest.TestCase):
 
         trade = {
             "transactionId": "synthetic-3way",
+            "createdAt": 1752580800000,
             "sides": [
                 {"receivedAssets": [_asset("small")], "sentAssets": [_asset("big")]},
                 {"receivedAssets": [_asset("big")], "sentAssets": [_asset("mid")]},
@@ -430,7 +522,7 @@ class ActivityGradingTests(unittest.TestCase):
         }
         values = {"big": 8000.0, "mid": 3000.0, "small": 1000.0}
 
-        def _valuation(asset):
+        def _valuation(asset, _instant):
             return values.get(str(asset.get("playerId") or ""), 0.0)
 
         _apply_trade_grades([trade], _valuation)
@@ -452,7 +544,7 @@ class ActivityGradingTests(unittest.TestCase):
         payload = build_section_payload(
             self.snapshot,
             "activity",
-            activity_valuation=_valuation,
+            activity_valuation=_const_valuation_factory(_valuation),
         )
         feed = payload["data"]["feed"]
         self.assertGreater(len(feed), 0)

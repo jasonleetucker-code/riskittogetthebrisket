@@ -413,3 +413,79 @@ SHA, and V1-59 is a clean `journalctl` run of the three-pass chain
 
 Without it both stay `BLOCKED`. They are **not** to be closed by standing up a
 synthetic cohort: a manufactured population would verify the manufacture.
+
+---
+
+## Lane-4 feature-flag posture (measured 2026-08-24, `main` `131abf9f9`)
+
+**No production step is required and none should be invented.** This is a
+structural property of the tree, measurable locally, and it is already guarded.
+
+V1 requires proof that a flag-off surface cannot masquerade as implemented. For
+Lane 4 the answer is that **no Sharp or FAAB surface is flag-gated at all** —
+zero `is_enabled` call sites exist under `src/sharp/` or in the FAAB modules
+(`faab_engine`, `faab_recommender`, `faab_comparability`, `faab_history`,
+`faab_contention`, `faab_analytics`). Every one is unconditionally reachable in
+the intended production configuration.
+
+```bash
+python -m pytest tests/api/test_feature_flag_endpoint_reachability.py -q
+```
+
+PASS: green, **and** the three Lane-4 tests are present —
+`test_no_sharp_or_faab_surface_is_gated_by_an_unregistered_flag`,
+`test_a_lane4_gate_defaulting_off_would_hide_a_shipped_surface`, and the
+non-vacuity control `test_the_lane4_gate_scan_can_actually_see_a_gate`.
+
+The control matters: the first two pass over an **empty** gate set, and an empty
+set is what a broken scanner also produces. The control asserts the scanner
+resolves the known real gate in `src/api/gameplan.py`, so "no Lane-4 gates" is a
+measurement rather than a silence.
+
+`te_basis_conversion` transitively reaches `/api/sharp/roster-percentage` and
+that is correct — it is Lane 5's canonical-value flag, defaults `True`
+(`gate_status == LIVE`), and is not referenced in `src/sharp/` at all. The Sharp
+board reaches it by consuming canonical board values.
+
+## V1-89 — measure DraftSharks freshness before acting on `OD-04`
+
+`OD-04` (re-mint / accept degradation / retire) was raised on a ~219 h staleness
+against a 24 h threshold. **Check whether that condition still holds before
+treating the decision as live** — measured 2026-08-24, all three DraftSharks
+keys were **0.9 h** old and every registered source was ≤ 3.0 h.
+
+```bash
+# fetch-freshness of every source, straight from tracked state on main
+python - <<'PY'
+import subprocess, datetime, os
+now = datetime.datetime.now(datetime.timezone.utc)
+paths = subprocess.run(["git","ls-tree","--name-only","origin/main","data/scrape_state/"],
+                       capture_output=True, text=True).stdout.split()
+for p in sorted(paths):
+    if not p.endswith("_last_success"):
+        continue
+    key = os.path.basename(p).replace("_last_success", "")
+    raw = subprocess.run(["git","show",f"origin/main:{p}"],
+                         capture_output=True, text=True).stdout.strip()
+    try:
+        age = (now.timestamp() - float(raw)) / 3600
+    except ValueError:
+        age = float("nan")
+    flag = "  <== DRAFTSHARKS" if "draftShark" in key else ""
+    print(f"{key:26} age_h={age:8.1f}{flag}")
+PY
+```
+
+**A fresh stamp is NOT a pass on its own.** `config/source_staleness.json` says
+in its own header comment that the stamp tracks *"fetch succeeded"*, not
+*"vendor published new content"*. So this command answers the **watchdog**
+question `OD-04` named; it does not answer content staleness, which remains the
+L3 production check. Report the two separately or the row will be closed on the
+wrong evidence.
+
+> **Superseded 2026-08-25 by `docs/lane4/V1_89_DRAFTSHARKS_DECISION_PACKET.md`**
+> (Integration reconciliation): the packet performs BOTH halves — fetch ages
+> AND content freshness measured against the vendor's own publication marker —
+> and records the `OD-04` recommendation **A. HEALTHY_CURRENT**. Run the
+> packet's procedure rather than this one; this section stays as the record of
+> why the two questions are separate.

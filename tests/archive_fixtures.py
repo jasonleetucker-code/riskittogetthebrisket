@@ -45,7 +45,7 @@ def _degraded_critical_sources(payload: dict) -> list[str]:
     """
     from src.api.data_contract import (
         TOLERABLE_PARTIAL_SOURCES,
-        _CRITICAL_PRIMARY_SOURCES,
+        critical_primary_for_run_source,
     )
 
     settings = payload.get("settings") if isinstance(payload.get("settings"), dict) else {}
@@ -58,7 +58,7 @@ def _degraded_critical_sources(payload: dict) -> list[str]:
             name = str(src)
             if name in TOLERABLE_PARTIAL_SOURCES:
                 continue
-            if name in _CRITICAL_PRIMARY_SOURCES or name.startswith("IDPTradeCalc"):
+            if critical_primary_for_run_source(name) is not None:
                 degraded.append(name)
     return degraded
 

@@ -683,7 +683,17 @@ class TestBuildRankingsDeltaPayload(unittest.TestCase):
         # (+6.3%), which is what the user pays.  ``confidenceMetrics``
         # was deliberately left OFF the payload to hold it there; the
         # reasons already carry its numbers in readable form.
-        self.assertLess(delta_bytes, 60_000)
+        #
+        # Bumped 60KB → 65KB 2026-08-20: The IDP Show's combined board
+        # replaced the retired IDP-only board as the provider family's
+        # sole voting source (docs: idpShowCombined registry entry).
+        # Registered ``is_cross_market``, it legitimately votes on this
+        # fixture's OFFENSE rows too — something the retired IDP-only
+        # ``idpShow`` never did — so more rows carry its
+        # sourceRanks/sourceRankMeta/confidence stamps than before.
+        # Measured 60,717 bytes on this fixture; the ratio assertion
+        # below is unaffected (0.355, well under 0.60).
+        self.assertLess(delta_bytes, 65_000)
         self.assertLess(delta_bytes / full_bytes, 0.60)
 
     def test_delta_carries_all_override_sensitive_fields(self) -> None:

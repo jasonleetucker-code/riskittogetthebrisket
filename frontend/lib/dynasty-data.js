@@ -372,24 +372,31 @@ export const RANKING_SOURCES = [
     excludesRookies: false,
   },
   {
-    // The IDP Show (Adamidp) — Substack-hosted full-universe IDP
-    // rankings board.  Includes rookies, edge/interior split.
-    // Data loaded by scripts/fetch_idpshow.py from a Datawrapper
-    // iframe embedded in the paywalled article; session cookies
-    // are refreshed manually ~quarterly (Substack captcha blocks
-    // automated login).  ~420 rows.  Rank-signal via the OVR
-    // column; needs shared-market translation for Hill input.
-    key: "idpShow",
-    displayName: "The IDP Show (Adamidp)",
-    columnLabel: "IDP Show",
+    // The IDP Show (Adamidp) — OWNER DECISION 2026-08-20: the COMBINED
+    // offense+IDP Top-700 board is this provider family's sole voting
+    // key (see src/api/data_contract.py::_RANKING_SOURCES for the full
+    // rationale).  665 rows at the 2026-08-20 acquisition, Bijan
+    // Robinson #1 / Josh Allen #2 — a native combined-pool ordinal, so
+    // it needs no shared-market crosswalk.  Data loaded by
+    // scripts/fetch_idpshow.py --combined from a Datawrapper iframe
+    // embedded in the paywalled article (widest of the article's chart
+    // embeds, by measured row count); session cookies are refreshed
+    // manually ~quarterly (Substack captcha blocks automated login).
+    // The older IDP-only board (idpShow.csv) is retired from voting —
+    // unregistered, not mirrored here.
+    key: "idpShowCombined",
+    displayName: "The IDP Show — Combined (Adamidp)",
+    columnLabel: "IDP Show Combined",
+    correlationGroup: "idpShow",
     scope: "overall_idp",
+    extraScopes: ["overall_offense"],
     positionGroup: null,
-    depth: 420,
+    depth: 450,
     weight: 1.0,
     isBackbone: false,
     isRetail: false,
     isTepPremium: false,
-    needsSharedMarketTranslation: true,
+    needsSharedMarketTranslation: false,
     excludesRookies: false,
     isRankSignal: true,
   },

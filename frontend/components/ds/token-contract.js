@@ -185,6 +185,34 @@ export const LIGHT_THEME_REQUIRED = [
   "--focus-ring",
 ];
 
+/**
+ * Semantic tokens the `.psi-editorial` migration scope (C8-PSI-02, the
+ * Premium Sports Intelligence reference-route direction) must re-map, plus
+ * the one token it alone defines (`--font-display` has no terminal
+ * equivalent — see tokens.css). Mirrors LIGHT_THEME_REQUIRED's role: this
+ * scope must define at least these (it may define more).
+ */
+export const PSI_EDITORIAL_REQUIRED = [
+  "--surface-0",
+  "--surface-1",
+  "--surface-2",
+  "--surface-3",
+  "--text-primary",
+  "--text-secondary",
+  "--text-tertiary",
+  "--border-default",
+  "--border-strong",
+  "--accent",
+  "--positive",
+  "--negative",
+  "--warning",
+  "--info",
+  "--data-up",
+  "--data-down",
+  "--focus-ring",
+  "--font-display",
+];
+
 /** Chart series slots in their validated fixed order. Never cycle. */
 export const CHART_SERIES_TOKENS = [
   "--chart-1",

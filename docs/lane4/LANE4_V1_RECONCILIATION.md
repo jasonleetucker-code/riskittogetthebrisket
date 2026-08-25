@@ -3,16 +3,46 @@
 **Measured:** 2026-08-18, at the post-sync head (main merged through `52541f5`).
 **Method:** live repo inspection, not a contract snapshot.
 
-> **Contract not found.** `VERSION_1_COMPLETION_CONTRACT.md` does not exist on
-> `main` or on any non-archive branch visible to this session, and no file in
-> the tree carries the `V1-55`…`V1-65` identifiers. The nearest owner record is
-> `docs/C_SERIES_REPLAN_AND_COMPLETION_CONTRACT.md`. This reconciliation is
-> therefore keyed to the **enumerated list as given in the lane instruction**,
-> in the order given; the numeric mapping below is inferred from that order and
-> should be confirmed by the integration lane before it is quoted as contract
-> identifiers.
+> ## ⚠️ HEADER CORRECTED 2026-08-24 — read this before quoting the table below
+>
+> **The original "Contract not found" disclaimer is now false, and the table
+> under it predates the real contract.**
+>
+> This file opened by saying `VERSION_1_COMPLETION_CONTRACT.md` "does not exist
+> on `main`", so its row numbering was *inferred from the order of a lane
+> instruction* rather than read from an owner record. The contract now exists on
+> `main` and is canonical. Re-checked at `131abf9f9`, the inferred numbering
+> happens to line up with the real identifiers — but that is a coincidence this
+> file cannot claim credit for, and it does **not** make the *verdicts* current.
+>
+> **Three verdicts below contradict the live contract and must not be quoted:**
+>
+> | this file says | live contract at `131abf9f9` says |
+> |---|---|
+> | V1-57 "**DONE this pass**" | `IMPLEMENTED_UNVERIFIED`, required level **L3** |
+> | V1-60 "**DONE this pass**" | `IMPLEMENTED_UNVERIFIED`, required level **L2** |
+> | V1-62 "**verified honest**" | `IN PROGRESS`, required level **L4** |
+>
+> None of those three is wrong about the *code* — the implementations are real
+> and were measured. They are wrong about the **evidence level**: this file was
+> written before the contract set a required level per row, so "done" here means
+> "implemented and locally verified", which is L1. It is not L2/L3/L4, and the
+> gap in every case is production evidence nobody in this lane can obtain
+> without credentials.
+>
+> `VERSION_1_COMPLETION_CONTRACT.md` is the canonical status record. Where this
+> file and the contract disagree, **the contract wins.** See
+> §"Lane-4 V1 status at 2026-08-24" at the foot of this document for the
+> measured state of all ten open rows as of that date.
+>
+> **Integration reconciliation 2026-08-25** (merging this file onto current
+> `main`): the right-hand column of the table above is itself now historical.
+> The contract has since promoted **V1-57 → `VERIFIED` (L3)** and
+> **V1-60 → `VERIFIED` (L2)** on the Lane 4 on-box harvest (run
+> `32843495391` at deployed `8537aa4c2`); V1-62 is unchanged. The rule stands:
+> the contract wins, at whatever date you read this.
 
-| # | Item | State | Owner / blocker |
+| # | Item | State (as measured 2026-08-18 — see header correction) | Owner / blocker |
 |---|---|---|---|
 | V1-55 | FAAB engine verification | **verified** — 526 tests in `tests/trade/` incl. `test_faab_engine`, `test_faab_calibration` (pins the derived all-in line against two managers' stated judgments), `test_faab_config_parity` (no in-code default may drift from `faab.json`) | — |
 | V1-56 | FAAB context production verification | **advanced — the context number is correct and the canonical doc said it wasn't** — see below. Verifying the *running* production instance still needs prod access | Claude 5 (prod half) |
@@ -212,3 +242,168 @@ or assumes a cohort would defeat the very reporting that is working.
   unless Claude 5 reclassifies.
 - **UI** — `crowdMarket`, `status`/`unavailableReason` and the 14-day sharp
   window are published as truthful API state. Rendering is Claude 6's.
+
+---
+
+# Lane-4 V1 status at 2026-08-24
+
+**Measured at `main` = `131abf9f9a1c014c77ac4bb80b346d5f9dc2ccac`.** Canonical
+ledger read live: 88 / 136 VERIFIED. Lane ownership is the contract's `lane`
+column, not its `level` column — V1-45 (Trade calculator) is lane **L2** and is
+not Lane 4's row, notwithstanding that this lane reported its defect.
+
+> **Superseded in part, 2026-08-25 (Integration reconciliation, `main` =
+> `9878c5015`).** This section is a dated snapshot; the contract has since
+> moved to **103 / 136 VERIFIED** and five of the ten rows below are closed:
+> **V1-57 (L3), V1-58 (L3), V1-60 (L2), V1-65 (L2), V1-129 (L2)** — promoted
+> on the Lane 4 on-box harvest (run `32843495391` at deployed `8537aa4c2`),
+> which also partially superseded the "authenticated session is the only
+> unlock" premise: an on-box run measures the cohort in-process without one.
+> The externally-blocked statement below now applies to the REMAINING five
+> (V1-56, V1-59, V1-61, V1-62, V1-89), and V1-89's `OD-04` half is answered
+> by `docs/lane4/V1_89_DRAFTSHARKS_DECISION_PACKET.md`. The contract stays
+> authoritative over both this table and this note.
+
+## The ten open rows, and the one thing they have in common
+
+| row | required level | contract status | blocker |
+|---|---|---|---|
+| V1-56 FAAB league context panel | L4 | `IMPLEMENTED_UNVERIFIED` | authenticated session |
+| V1-57 FAAB bid-history scheduled | L3 | `IMPLEMENTED_UNVERIFIED` | VPS shell |
+| V1-58 Sharp cohort populated | L3 | `IMPLEMENTED_UNVERIFIED` | authenticated session |
+| V1-59 Sharp bootstrap stops failing | L3 | `IN PROGRESS` | VPS shell |
+| V1-60 FFPC roster lane truthful | L2 | `IMPLEMENTED_UNVERIFIED` | authenticated session |
+| V1-61 Sharp Roster Percentage | L4 | `IMPLEMENTED_UNVERIFIED` | authenticated session + VPS shell |
+| V1-62 Sharp Tracker | L4 | `IN PROGRESS` | authenticated session (see §3) |
+| V1-65 Insider population distinction | L2 | `IMPLEMENTED_UNVERIFIED` | VPS shell |
+| V1-89 DraftSharks staleness | L3 | `BLOCKED` | owner decision `OD-04` (see §2) |
+| V1-129 crowd-FAAB comparability | L2 | `IMPLEMENTED_UNVERIFIED` | VPS shell |
+
+**Every open Lane-4 row is externally blocked.** The two prerequisites are
+singular and unchanged: **one authenticated session cookie for
+`chaseupside.com`, and VPS shell access.** No amount of further local work
+moves any of these rows, and the recorded production smoke
+(`data/ops/sharp-production-smoke.json`, `lastObservedAt`
+`2026-08-24T09:44:17Z`) still reads `status: unverifiable_unauthenticated`,
+`measured: false`, `401 from https://chaseupside.com/api/sharp/cohort`.
+
+That smoke is itself the point worth escalating: **the dedicated CI smoke
+workflow's own credentialed attempt gets 401.** This is not a sandbox
+limitation. It is a credential-provisioning gap upstream of every verification
+lane, and it is the single highest-leverage thing an owner can fix for this
+lane's numerator.
+
+## §1 — Feature-flag posture: no Lane-4 surface can be silently switched off
+
+V1 requires, for every relevant surface, proof that *a flag-off surface cannot
+masquerade as implemented*. For Lane 4 that requirement is discharged
+**structurally**, and this is a stronger result than a calibration:
+
+**Zero `is_enabled` call sites exist anywhere under `src/sharp/`, or in
+`faab_engine.py` / `faab_recommender.py` / `faab_comparability.py` /
+`faab_history.py` / `faab_contention.py` / `faab_analytics.py`.** There is no
+flag to switch off. Every Sharp and FAAB surface is unconditionally reachable in
+the intended production configuration.
+
+Measured with `src/api/flag_reachability.py` (the caller-graph resolver built
+for V1-88, PR #991), which resolves flag → gate call site → enclosing function →
+transitive callers → route handler.
+
+One flag *transitively* reaches `/api/sharp/roster-percentage`:
+`te_basis_conversion`. That is correct and must not be "fixed" — it is a
+canonical-value flag (Lane 5's TE-premium basis conversion), it defaults `True`
+with `gate_status == LIVE`, and it is **not referenced anywhere in
+`src/sharp/`**. The board reaches it by consuming canonical board values.
+Forbidding that would be forbidding the Sharp board from reading the board.
+
+**Guarded, not merely recorded.** `tests/api/test_feature_flag_endpoint_reachability.py`
+gains three tests so this stays true rather than being a snapshot:
+
+- an `is_enabled` gate appearing in Lane-4 code on an **unregistered** flag fails;
+- a Lane-4 gate on a flag that **defaults `False`** fails — that is the
+  masquerade case exactly: the board vanishes while its V1 row still claims the
+  capability ships;
+- a **non-vacuity control**, because both assertions currently pass over an
+  empty set and "no gates found" is indistinguishable from "scanner broken"
+  otherwise. It asserts the scanner resolves the known real gate in
+  `src/api/gameplan.py`.
+
+Both guards are mutation-proven against the real tree: injecting a gate into
+`src/sharp/market.py` on `unified_id_mapper` (default `False`) turns the
+defaults-off guard RED naming the exact module, function and flag; changing that
+to an unregistered name turns the registration guard RED instead.
+`src/sharp/market.py` was restored byte-identical afterwards.
+
+## §2 — V1-89: the `OD-04` premise no longer holds
+
+`OD-04` asks the owner to re-mint, accept degradation, or retire DraftSharks. It
+was raised on a specific measured condition:
+
+> ~219 h stale against a 24 h threshold, the production session file absent, the
+> watchdog red every two hours, and nine-day-old values still voting in every
+> blend.
+
+**Measured at `main` `131abf9f9`, from tracked `data/scrape_state/*_last_success`:**
+
+| key | age |
+|---|---|
+| `draftSharks` | **0.9 h** |
+| `draftSharksIdp` | **0.9 h** |
+| `draftSharksRos` | **0.9 h** |
+
+All 28 registered sources are ≤ 3.0 h old. `main` carries
+`exports/latest/dynasty_data_2026-08-24.json` with `scrapeTimestamp`
+`2026-08-24T17:26:50Z`. The acute condition `OD-04` was raised for has cleared,
+which is consistent with its own recommended option (a) — *re-mint the session
+and repair the dynasty scrape* — having already happened operationally.
+
+**Bounded honestly, and the bound is load-bearing.** `config/source_staleness.json`
+states in its own header comment that the stamp tracks *"fetch succeeded"*, not
+*"vendor published new content"*. So this measurement proves the **watchdog
+condition** has cleared. It does **not** prove content freshness, and content
+staleness is a genuinely different question that stays part of V1-89's L3
+production check. A fresh fetch stamp over unchanged vendor content is exactly
+the case `CLAUDE.md`'s content-staleness section documents.
+
+**Recommended disposition — for the owner, not decided here:** re-put `OD-04` as
+*"confirm option (a) already happened, then close"* rather than as a live
+re-mint / accept / retire choice. Retiring a provider family that is currently
+fetching cleanly would change the blend on every row for no measured cause.
+
+> **Superseded 2026-08-25 by `docs/lane4/V1_89_DRAFTSHARKS_DECISION_PACKET.md`**
+> (Integration reconciliation). The packet closes exactly the bound this
+> section names: it measures **content** freshness, not just fetch stamps —
+> byte-identical re-confirmation against upstream plus the vendor's own
+> `<time datetime>` publication marker — and puts `OD-04` to the owner as
+> **A. HEALTHY_CURRENT** (accept; do not re-mint, do not retire; no owner
+> credential action required). Quote the packet, not this section. V1-89's
+> ledger row remains `BLOCKED` until the owner records the decision.
+
+## §3 — V1-62's stated blocker points at a projection, not a live defect
+
+V1-62's contract note reads *"live but W15-F017 no memoization"*.
+
+`W15-F017` is real in shape: `cohort_members()` is genuinely unmemoized (only
+`load_ffpc_config` carries an `lru_cache` in `src/sharp/cohort.py`) and
+`src/sharp/market.py` calls it from three sites (`:394`, `:517`, `:593`).
+
+But `docs/master-site-audit/PERFORMANCE_AUDIT.md` classifies it **P3** and says
+of it directly:
+
+> W15-F017's O(N log N) rebuild is **invisible at the current 0 rows**. The
+> scale at which it becomes the slowest surface on the site is **a projection,
+> not a measurement.**
+
+…with its recorded blocker being *"No populated platform ledger"* — the same
+populated-production-ledger blocker as V1-58, V1-60 and V1-61.
+
+**Consequence for planning: V1-62 is not available implementation work.** Adding
+a TTL memo now would be an optimization whose benefit cannot be measured (0
+rows) and whose risk is concrete: a memoized cohort can serve a **stale**
+membership, and `stale != current` is one of this programme's hard truthfulness
+rules. It would also not advance the row, whose required level is **L4** —
+actual user-facing consumption — which needs the authenticated surface either
+way.
+
+Recorded so that a future session reading "no memoization" does not mistake a
+deferred P3 projection for an open defect it should go and fix.

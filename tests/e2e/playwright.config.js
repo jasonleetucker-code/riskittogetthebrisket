@@ -103,6 +103,13 @@ const backendEnv = {
 
 module.exports = defineConfig({
   testDir: "./specs",
+  // specs/prod-auth/ is the production-auth verification suite. It runs
+  // against the DEPLOYED site with a real session cookie, exclusively
+  // through tests/e2e/prod-auth.config.js — collecting it here would
+  // add permanently-skipped tests to every local/CI run (its fixture
+  // skips without PROD_ORIGIN + PROD_SESSION_COOKIE_FILE) and shift the
+  // suite-size expectations the reporter and workflows are tuned to.
+  testIgnore: "**/prod-auth/**",
   // Verifies the stack can actually serve the suite (snapshot loaded,
   // test sessions unlocked, authenticated /api/data populated) and
   // fails with a fix-it message instead of letting specs time out or

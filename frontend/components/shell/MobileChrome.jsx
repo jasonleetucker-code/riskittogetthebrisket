@@ -23,9 +23,9 @@ import LeagueSwitcher from "@/components/LeagueSwitcher";
 import {
   MOBILE_TABS,
   MOBILE_TABS_PUBLIC,
-  NAV_MODEL,
   SYSTEM_MODEL,
   flattenNav,
+  navGroupsFor,
   isNavActive,
   pageTitleFor,
   systemItemsFor,
@@ -61,7 +61,7 @@ function DrawerGroup({ label, items, pathname, onNavigate }) {
 export function MobileTopBar({ authenticated, onSearch, searchEnabled = true }) {
   const pathname = usePathname();
   return (
-    <header className="shell-mobile-topbar" data-html2canvas-ignore>
+    <header className="shell-mobile-topbar psi-editorial" data-html2canvas-ignore>
       <span className="shell-mobile-title">{pageTitleFor(pathname)}</span>
       <div className="shell-mobile-actions">
         {authenticated && <LeagueSwitcher variant="mobile" />}
@@ -81,7 +81,7 @@ export function MobileTopBar({ authenticated, onSearch, searchEnabled = true }) 
   );
 }
 
-export function MobileTabBar({ authenticated, isAdmin, isPublic, onLogout }) {
+export function MobileTabBar({ authenticated, isAdmin, capabilities, isPublic, onLogout }) {
   const pathname = usePathname();
   const [menuOpen, setMenuOpen] = useState(false);
 
@@ -105,9 +105,15 @@ export function MobileTabBar({ authenticated, isAdmin, isPublic, onLogout }) {
     return best;
   }, null);
 
+  // Capability gating first, and for BOTH branches — the drawer is a nav
+  // offer surface exactly like the desktop menus, so a destination whose
+  // endpoints all 503 must not appear here either (V1-131).  Fails
+  // closed on an unresolved capability.
+  const model = navGroupsFor({ capabilities });
+
   const groups = authenticated
-    ? [...NAV_MODEL, { ...SYSTEM_MODEL, items: systemItemsFor({ isAdmin }) }]
-    : NAV_MODEL.map((g) => {
+    ? [...model, { ...SYSTEM_MODEL, items: systemItemsFor({ isAdmin }) }]
+    : model.map((g) => {
         if (!g.items) return isPublic(g.href) ? g : null;
         const items = g.items.filter((i) => isPublic(i.href));
         return items.length ? { ...g, items } : null;
@@ -115,7 +121,7 @@ export function MobileTabBar({ authenticated, isAdmin, isPublic, onLogout }) {
 
   return (
     <>
-      <nav className="shell-tabbar" aria-label="Primary" data-html2canvas-ignore>
+      <nav className="shell-tabbar psi-editorial" aria-label="Primary" data-html2canvas-ignore>
         {tabs.map((tab) => (
           <Link
             key={tab.href}
@@ -139,7 +145,12 @@ export function MobileTabBar({ authenticated, isAdmin, isPublic, onLogout }) {
         </button>
       </nav>
 
-      <Drawer open={menuOpen} onClose={() => setMenuOpen(false)} title="Menu">
+      <Drawer
+        open={menuOpen}
+        onClose={() => setMenuOpen(false)}
+        title="Menu"
+        className="psi-editorial"
+      >
         {groups.map((group) => (
           <DrawerGroup
             key={group.key}

@@ -44,6 +44,35 @@ def _flag_enabled() -> bool:
     return bool(feature_flags.is_enabled("consensus_edge"))
 
 
+def is_available() -> bool:
+    """Can this feature actually serve its board right now?
+
+    THE ONE canonical answer, and deliberately NOT the same question as
+    ``_flag_enabled()``. Two independent conditions make every board
+    handler below answer 503, and a consumer that checks only the first
+    is wrong exactly when the flag is on and the data is not:
+
+      * the ``consensus_edge`` flag is off  -> 503 ``feature_disabled``
+      * no contract is loaded               -> 503 ``data_not_ready``
+
+    Read-only, cheap (a flag read plus an identity check on an already
+    loaded module global), and it builds nothing — safe to call from
+    ``/api/auth/status``, which is on every page load.
+
+    EXISTS FOR THE NAV GATE (V1-131). The shell must not advertise a
+    destination whose endpoints all refuse, and "all of them refuse"
+    is this predicate, not the flag. Keeping it here rather than
+    re-deriving it in ``server.py`` is the point: one feature-health
+    owner, so the nav and the router cannot drift into disagreeing
+    about whether the page works.
+
+    Deliberately NOT a general health vocabulary. It answers one
+    question for one feature; anything richer belongs to
+    ``/api/consensus-edge/health``, which is itself gated by this.
+    """
+    return bool(_flag_enabled() and _contract())
+
+
 def _disabled_response() -> JSONResponse:
     return JSONResponse(
         status_code=503,

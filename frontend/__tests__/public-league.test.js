@@ -18,6 +18,7 @@ describe("PUBLIC_SECTION_KEYS", () => {
     const required = [
       "overview", "history", "rivalries", "awards", "records",
       "franchise", "activity", "draft", "weekly", "superlatives", "archives",
+      "conduct",
     ];
     for (const key of required) {
       expect(PUBLIC_SECTION_KEYS).toContain(key);

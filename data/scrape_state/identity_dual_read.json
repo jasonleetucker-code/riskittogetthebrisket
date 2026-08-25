@@ -1,16 +1,16 @@
 {
- "generatedAt": "2026-08-20T09:19:21.234646+00:00",
+ "generatedAt": "2026-08-25T19:24:23.706424+00:00",
  "servedPolicy": "scraper_sleeper_attach_v1",
  "servedBy": "src.identity.resolution",
  "legacyLadderRetired": true,
  "v2WatchEnabled": true,
  "site": "scraper_sleeper_attach",
- "calls": 1957,
+ "calls": 1967,
  "v1Agree": 0,
  "v1Diverge": 0,
  "v1Examples": [],
- "v2Same": 1937,
- "v2WouldChange": 20,
+ "v2Same": 1949,
+ "v2WouldChange": 18,
  "v2Examples": [
   {
    "name": "Bam Knight",
@@ -35,22 +35,6 @@
    "engineV2": null,
    "v2Method": "exact_clean:name_pos",
    "v2Reason": "ambiguous"
-  },
-  {
-   "name": "Elijah Mitchell",
-   "pos": "",
-   "served": "7561",
-   "engineV2": null,
-   "v2Method": "exact_clean:name",
-   "v2Reason": "ambiguous"
-  },
-  {
-   "name": "Frank Gore",
-   "pos": "",
-   "served": "232",
-   "engineV2": "11573",
-   "v2Method": "exact_clean:name_teamed",
-   "v2Reason": null
   },
   {
    "name": "Jaylon Jones",

@@ -45,15 +45,22 @@ DraftSharks entries this census introduces
 by `src/ros/sources/draftsharks_ros.py`) are live, enabled, and currently
 consumed by the ROS aggregator — but none of them is a per-player projected
 stat line. They are ECR rankings, a trade-value chart, or (for DraftSharks)
-a dynasty rankings CSV reused as a ROS proxy pending a documented "PR 2
-swap" to a real ROS scrape that has not happened. This census flags all
+a rank-only ROS board. *(Corrected at the census merge, Integration
+2026-08-25: this paragraph originally described DraftSharks as "a dynasty
+rankings CSV reused as a ROS proxy pending a documented 'PR 2 swap' to a
+real ROS scrape that has not happened". V1-89 / PR #1095 — merged to `main`
+2026-08-25 — completed that swap: the live feed reads the real
+`/ros-rankings/superflex` + `/ros-rankings/idp` boards behind the proven
+authenticated session, with the dynasty CSVs only a labelled fallback
+(`source_mode "dynasty_proxy"`). The classification is unchanged: the real
+ROS fetcher's CSV writer emits an empty projection column, so the feed is
+still an ordinal board.)* This census flags all
 five as `RANKINGS_ONLY`, per the sub-unit's own instruction.
 
 **One discrepancy recorded, not repaired here.** `ROS_SOURCES` marks
 `draftSharksRosSf` (the entry both new DraftSharks census rows map to) as
 `is_projection_source: True`, which this census's evidence does not
-support — the module's own docstring describes the current feed as a
-ranking-board proxy. `ROS_SOURCES` is a live, consumed registry with its
+support — the feed is rank-only. `ROS_SOURCES` is a live, consumed registry with its
 own weight/aggregation semantics; changing that flag is outside this
 foundational unit's scope and risks moving the live ROS blend. Recorded so
 C5-PROJ-B/C do not mistake `ROS_SOURCES` membership, or that flag

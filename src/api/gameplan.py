@@ -1160,6 +1160,7 @@ def _resolve_reception_fit(league_key: str) -> dict[str, float] | None:
 
     by_name: dict[str, float] | None = None
     try:
+        from src.api.league_registry import get_sleeper_league_id  # noqa: PLC0415
         from src.league_comparison.scoring_engine import (  # noqa: PLC0415
             compute_player_season_scores,
         )
@@ -1177,7 +1178,10 @@ def _resolve_reception_fit(league_key: str) -> dict[str, float] | None:
         from src.utils.name_clean import resolve_canonical_name  # noqa: PLC0415
 
         cfg = _load_config()
-        mine_id = str((cfg.get("my_league") or {}).get("id") or "")
+        # "My league" is canonically owned by the registry (W18-F005) —
+        # this MUST resolve the requested league, not a hardcoded config
+        # entry, or a non-default league silently gets league #1's fit.
+        mine_id = str(get_sleeper_league_id(league_key) or "")
         base_id = str((cfg.get("baseline_league") or {}).get("id") or "")
         seasons = [int(s) for s in (cfg.get("seasons") or []) if str(s).isdigit()]
         season = max(seasons) if seasons else None
@@ -1277,6 +1281,7 @@ def _resolve_scoring_fit(league_key: str) -> Any | None:
 
     measurement = None
     try:
+        from src.api.league_registry import get_sleeper_league_id  # noqa: PLC0415
         from src.league_comparison.service import _load_config  # noqa: PLC0415
         from src.league_comparison.sleeper_scoring import (  # noqa: PLC0415
             fetch_league_scoring,
@@ -1287,7 +1292,10 @@ def _resolve_scoring_fit(league_key: str) -> Any | None:
         from src.nfl_data.ingest import fetch_weekly_defensive_stats  # noqa: PLC0415
 
         cfg = _load_config()
-        mine_id = str((cfg.get("my_league") or {}).get("id") or "")
+        # "My league" is canonically owned by the registry (W18-F005) —
+        # this MUST resolve the requested league, not a hardcoded config
+        # entry, or a non-default league silently gets league #1's fit.
+        mine_id = str(get_sleeper_league_id(league_key) or "")
         base_id = str((cfg.get("baseline_league") or {}).get("id") or "")
         seasons = [int(s) for s in (cfg.get("seasons") or []) if str(s).isdigit()]
         season = max(seasons) if seasons else None

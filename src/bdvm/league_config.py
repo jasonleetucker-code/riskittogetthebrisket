@@ -219,6 +219,11 @@ def from_contract(
         flex_map = {
             "FLEX": tuple(rs.get("flexEligible") or _FLEX_SLOTS["FLEX"]),
             "SFLEX": tuple(rs.get("sflexEligible") or _FLEX_SLOTS["SUPER_FLEX"]),
+            # dynasty_new's host runs a WR/RB-only second flex (W18-F011).
+            # Without this branch a registry ``WRRB_FLEX`` starter key fell
+            # through to the fixed-slot bucket — a "position" no player maps
+            # to — instead of a flex slot with its declared eligibility.
+            "WRRB_FLEX": tuple(rs.get("wrrbFlexEligible") or _FLEX_SLOTS["WRRB_FLEX"]),
             "IDP_FLEX": tuple(rs.get("idpFlexEligible") or _FLEX_SLOTS["IDP_FLEX"]),
         }
         for slot, count in raw_starters.items():
@@ -226,7 +231,7 @@ def from_contract(
             n = int(count or 0)
             if n <= 0:
                 continue
-            if slot_u in ("FLEX", "SFLEX", "IDP_FLEX"):
+            if slot_u in ("FLEX", "SFLEX", "WRRB_FLEX", "IDP_FLEX"):
                 canonical = "SUPER_FLEX" if slot_u == "SFLEX" else slot_u
                 flex[canonical] = (n, tuple(g.upper() for g in flex_map[slot_u]))
             else:

@@ -24,6 +24,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from src.canonical.calibration import to_display_value
+from src.packages import PackageAsset, adapt_assets, side_key
 from src.trade.ktc_va import adjusted_pair_totals
 from src.utils.name_clean import normalize_position as _norm_pos  # noqa: F401 — see _norm_pos shim removal below (audit S2)
 from src.ros.lineup import configured_slot_eligibility, resolve_starter_slots, slot_demand
@@ -261,6 +262,65 @@ class PlayerAsset:
         return self.board_rank
 
 
+def _identity_key(name: str) -> str:
+    """This file's per-asset identity, routed through the C3-PKG-01 owner
+    (``src.packages.PackageAsset.key``) instead of a hand-rolled
+    normalization (V1-36).
+
+    ``PlayerAsset`` carries no stable asset id — there is nothing here to
+    join on except a display name — so every call resolves through the
+    owner's own name-fallback branch (``PackageAsset.key_is_name_fallback``)
+    exactly as ``finder.py``/``angle.py``'s callers do today when their
+    asset objects likewise carry no id. That is the SAME limitation this
+    file had before migrating: this change makes the normalization formula
+    single-owner, not more identity-resolving than the inputs allow.
+
+    Every membership/dedup check in this module — pool-name join, sendable
+    view, C3-CON-01 blocked set, roster/exclude sets used by the four
+    generators and the balancer helpers — must call this one function
+    rather than its own ``.lower()``/``.strip()`` variant, so a name
+    compared on one side of a check is always keyed identically to the
+    name compared on the other side.
+    """
+    return PackageAsset(asset_id="", name=name or "", position="", value=None).key
+
+
+def _side_identity(assets: "list[PlayerAsset]") -> tuple[str, ...]:
+    """Identity of ONE side of a candidate package, from the C3-PKG-01 owner
+    (``src.packages.side_key``) — order-independent, per-asset-canonical.
+
+    This module had three hand-rolled side keys before V1-36, each spelled
+    differently and each subtly weaker than the owner's:
+    ``s.receive[0].name`` (first asset only, so a 2-asset receive side was
+    keyed by half of itself), ``f"{p1.name}|{p2.name}"`` (ORDER-dependent,
+    so the same unordered pair could key two ways), and
+    ``"|".join(sorted(p.name ...))`` (sorted, but on raw display names).
+    Routing all three through one owner is the whole of what C3-PKG-01 asks
+    of this file at the side level.
+
+    ``adapt_assets`` reads ``.name`` / ``.position`` / ``.display_value``,
+    which ``PlayerAsset`` already carries, so no adapter class is needed and
+    no second representation is introduced.
+    """
+    return side_key(adapt_assets(assets))
+
+
+#: ``src.packages.package_key`` — the WHOLE-package (both-sides) identity —
+#: deliberately has no call site in this module, and that is a measured
+#: statement rather than an oversight.  ``package_key(send, receive)`` is
+#: literally ``(side_key(send), side_key(receive))``, and every dedup this
+#: file actually performs is SINGLE-SIDED: buy-low buckets by its receive
+#: side, consolidation by its give pair, the quality pass by its receive
+#: side.  There is no cross-category "have I already proposed this exact
+#: give-for-receive package" check anywhere in the pipeline today.  Adding
+#: one would suppress suggestions that currently ship — a behaviour change,
+#: not an identity canonicalisation — so V1-36 consumes the owner's
+#: ``side_key`` at all four real sites and leaves the composite unused
+#: rather than inventing a consumer for it.  Recorded for Claude 5: whether
+#: duplicate packages SHOULD be collapsed across categories is a product
+#: question this unit is not authorised to answer.
+
+
 @dataclass
 class RosterAnalysis:
     """Positional analysis of a roster."""
@@ -289,6 +349,14 @@ class RosterAnalysis:
     #: Whether a constraint set was consulted at all.  "Nothing is protected"
     #: and "nobody asked" are different claims and this keeps them apart.
     constraints_applied: bool = False
+    #: The starter-demand model this analysis was computed with (W30-F006 /
+    #: V1-25).  ``analyze_roster`` stores the LEAGUE'S resolved needs here so
+    #: every downstream consumer — the four generators, ``rank_score``, the
+    #: balancer-candidate picker — reads the same lineup the rooms were split
+    #: with.  ``DEFAULT_STARTER_NEEDS`` (dynasty_main's demand) is the
+    #: FALLBACK default only: reading the module constant directly inside a
+    #: generator is the hardcode that told the 1-TE league to keep its TE2.
+    starter_needs: dict[str, int] = field(default_factory=lambda: dict(DEFAULT_STARTER_NEEDS))
 
     def __post_init__(self) -> None:
         """An analysis built without constraints has consulted none.
@@ -310,9 +378,7 @@ class RosterAnalysis:
                 self,
                 "sendable_keys",
                 frozenset(
-                    str(p.name or "").strip().lower()
-                    for room in self.by_position.values()
-                    for p in room
+                    _identity_key(p.name) for room in self.by_position.values() for p in room
                 ),
             )
 
@@ -321,7 +387,7 @@ class RosterAnalysis:
         return self.sendable_by_position.get(position, [])
 
     def can_send(self, asset: PlayerAsset) -> bool:
-        return str(asset.name or "").strip().lower() in self.sendable_keys
+        return _identity_key(asset.name) in self.sendable_keys
 
 
 @dataclass
@@ -757,14 +823,14 @@ def analyze_roster(
 
     pool_by_name: dict[str, PlayerAsset] = {}
     for a in asset_pool:
-        key = a.name.lower().strip()
+        key = _identity_key(a.name)
         if key not in pool_by_name or a.display_value > pool_by_name[key].display_value:
             pool_by_name[key] = a
 
     by_position: dict[str, list[PlayerAsset]] = {}
     matched = 0
     for rn in roster_names:
-        key = rn.lower().strip()
+        key = _identity_key(rn)
         a = pool_by_name.get(key)
         if a is None:
             continue
@@ -799,13 +865,13 @@ def analyze_roster(
 
     everyone = [p for room in by_position.values() for p in room]
     blocked = blocked_outgoing(everyone, constraints)
-    blocked_names = {str(a.name or "").strip().lower() for a, _r in blocked}
+    blocked_names = {_identity_key(a.name) for a, _r in blocked}
     sendable_by_position = {
-        pos: [p for p in room if str(p.name or "").strip().lower() not in blocked_names]
+        pos: [p for p in room if _identity_key(p.name) not in blocked_names]
         for pos, room in by_position.items()
     }
     sendable_keys = frozenset(
-        str(p.name or "").strip().lower() for room in sendable_by_position.values() for p in room
+        _identity_key(p.name) for room in sendable_by_position.values() for p in room
     )
 
     return RosterAnalysis(
@@ -819,6 +885,7 @@ def analyze_roster(
         sendable_keys=sendable_keys,
         constrained_out=tuple(blocked),
         constraints_applied=True,
+        starter_needs=dict(needs),
     )
 
 
@@ -942,7 +1009,7 @@ def rank_score(
         for p in s.receive:
             if p.position in roster.need_positions:
                 starter_ct = roster.starter_counts.get(p.position, 0)
-                needed = DEFAULT_STARTER_NEEDS.get(p.position, 1)
+                needed = roster.starter_needs.get(p.position, 1)
                 if starter_ct == 0:
                     need_sev = max(need_sev, 2.0)
                 elif starter_ct < needed:
@@ -981,7 +1048,7 @@ def rank_score_breakdown(
         for p in s.receive:
             if p.position in roster.need_positions:
                 starter_ct = roster.starter_counts.get(p.position, 0)
-                needed = DEFAULT_STARTER_NEEDS.get(p.position, 1)
+                needed = roster.starter_needs.get(p.position, 1)
                 if starter_ct == 0:
                     need_sev = max(need_sev, 2.0)
                 elif starter_ct < needed:
@@ -1025,10 +1092,6 @@ def _analyze_opponent_rosters(
     asset_pool: list[PlayerAsset],
 ) -> dict[str, RosterAnalysis]:
     """Analyze all opponent rosters for need/surplus."""
-    pool_by_name: dict[str, PlayerAsset] = {}
-    for a in asset_pool:
-        pool_by_name[a.name.lower().strip()] = a
-
     result: dict[str, RosterAnalysis] = {}
     for roster_entry in league_rosters:
         team_name = str(roster_entry.get("team_name", roster_entry.get("owner", ""))).strip()
@@ -1068,7 +1131,13 @@ def _opponent_fit_label(
     if not fitting_teams:
         return None
     if len(fitting_teams) == 1:
-        return f"Strong bilateral fit: {fitting_teams[0]} needs {', '.join(give_positions)} and could deal."
+        # sorted(): ``give_positions`` is a set, and joining a set puts the
+        # process's hash seed into an API response — measured: four distinct
+        # labels for one suggestion across PYTHONHASHSEED 0/1/7/42.
+        return (
+            f"Strong bilateral fit: {fitting_teams[0]} needs "
+            f"{', '.join(sorted(give_positions))} and could deal."
+        )
     return f"Potential trade partners ({len(fitting_teams)}): {', '.join(fitting_teams[:3])}"
 
 
@@ -1086,7 +1155,7 @@ def _generate_sell_high(
         players = roster.by_position.get(pos, [])
         if len(players) < 2:
             continue
-        need = DEFAULT_STARTER_NEEDS.get(pos, 1)
+        need = roster.starter_needs.get(pos, 1)
         # Depth is measured on the FULL room (a protected player is still
         # depth); the candidates we may offer come from the sendable view.
         sell_candidates = [
@@ -1104,7 +1173,7 @@ def _generate_sell_high(
                     a
                     for a in asset_pool
                     if a.position == need_pos
-                    and a.name.lower() not in roster_names_set
+                    and _identity_key(a.name) not in roster_names_set
                     and a.display_value >= MIN_RELEVANT_VALUE
                     and abs(a.display_value - sell_ev) < FAIRNESS_TOLERANCE
                 ]
@@ -1157,7 +1226,7 @@ def _generate_buy_low(
             a
             for a in asset_pool
             if a.position == need_pos
-            and a.name.lower() not in roster_names_set
+            and _identity_key(a.name) not in roster_names_set
             and a.display_value > target_floor
         ]
         if not targets:
@@ -1166,7 +1235,7 @@ def _generate_buy_low(
         for target in targets[:5]:
             for surplus_pos in roster.surplus_positions:
                 depth = roster.by_position.get(surplus_pos, [])
-                need = DEFAULT_STARTER_NEEDS.get(surplus_pos, 1)
+                need = roster.starter_needs.get(surplus_pos, 1)
                 tradeable = [
                     p
                     for p in depth[need:]
@@ -1197,10 +1266,14 @@ def _generate_buy_low(
                             )
                         )
 
-    # Deduplicate by receive target (keep tightest gap)
-    seen: dict[str, TradeSuggestion] = {}
+    # Deduplicate by receive target (keep tightest gap).
+    #
+    # The tightest-gap SELECTION RULE is unchanged — only the key it is
+    # bucketed by is now the canonical side identity (V1-36) instead of
+    # ``s.receive[0].name``, which keyed a side by its first asset alone.
+    seen: dict[tuple[str, ...], TradeSuggestion] = {}
     for s in suggestions:
-        key = s.receive[0].name
+        key = _side_identity(s.receive)
         if key not in seen or abs(s.gap) < abs(seen[key].gap):
             seen[key] = s
     # Preliminary sort by value; final ranking applied in generate_suggestions()
@@ -1218,7 +1291,7 @@ def _generate_consolidation(
     tradeable: list[PlayerAsset] = []
     for pos in roster.surplus_positions:
         players = roster.by_position.get(pos, [])
-        need = DEFAULT_STARTER_NEEDS.get(pos, 1)
+        need = roster.starter_needs.get(pos, 1)
         for p in players[need:]:
             if p.display_value >= MIN_RELEVANT_VALUE and roster.can_send(p):
                 tradeable.append(p)
@@ -1227,11 +1300,16 @@ def _generate_consolidation(
     if len(tradeable) < 2:
         return []
 
-    tried: set[str] = set()
+    tried: set[tuple[str, ...]] = set()
     for i in range(min(len(tradeable), 6)):
         for j in range(i + 1, min(len(tradeable), 8)):
             p1, p2 = tradeable[i], tradeable[j]
-            pair_key = f"{p1.name}|{p2.name}"
+            # Canonical give-side identity (V1-36).  The retired
+            # ``f"{p1.name}|{p2.name}"`` was ORDER-dependent, so it could key
+            # one unordered pair two ways; the owner's side key sorts.  The
+            # pair-enumeration bounds (6 x 8) and every downstream product
+            # rule are untouched.
+            pair_key = _side_identity([p1, p2])
             if pair_key in tried:
                 continue
             tried.add(pair_key)
@@ -1254,7 +1332,7 @@ def _generate_consolidation(
                 targets = [
                     a
                     for a in asset_pool
-                    if a.name.lower() not in roster_names_set
+                    if _identity_key(a.name) not in roster_names_set
                     and min_target <= a.display_value <= max_target
                     and a.display_value > give_max
                     and (not pair_is_offense_only or a.position not in _IDP_BASE_POSITIONS)
@@ -1306,16 +1384,15 @@ def _generate_positional_upgrades(
 ) -> list[TradeSuggestion]:
     suggestions: list[TradeSuggestion] = []
 
-    for pos in DEFAULT_STARTER_NEEDS:
+    for pos in roster.starter_needs:
         players = roster.by_position.get(pos, [])
         if len(players) < 2:
             continue
-        need = DEFAULT_STARTER_NEEDS.get(pos, 1)
+        need = roster.starter_needs.get(pos, 1)
         if need < 1:
             continue
 
         starters = players[:need]
-        # pos is always an offense position in DEFAULT_STARTER_NEEDS; using
         depth = [
             p
             for p in players[need:]
@@ -1338,7 +1415,7 @@ def _generate_positional_upgrades(
             a
             for a in asset_pool
             if a.position == pos
-            and a.name.lower() not in roster_names_set
+            and _identity_key(a.name) not in roster_names_set
             and a.display_value >= upgrade_floor
         ]
         if not targets:
@@ -1359,7 +1436,7 @@ def _generate_positional_upgrades(
                 surplus_tol = int(FAIRNESS_TOLERANCE * UPGRADE_SWEETENER_SURPLUS_MULTIPLIER)
                 for sp in roster.surplus_positions:
                     sp_depth = roster.by_position.get(sp, [])
-                    sp_need = DEFAULT_STARTER_NEEDS.get(sp, 1)
+                    sp_need = roster.starter_needs.get(sp, 1)
                     for p in sp_depth[sp_need:]:
                         sp_ev = p.display_value
                         if sp_ev >= MIN_RELEVANT_VALUE and abs(sp_ev - gap_needed) < surplus_tol:
@@ -1513,9 +1590,9 @@ def _roster_balancer_candidates(
     candidates: list[PlayerAsset] = []
 
     # Prefer surplus-position depth, then any non-starter depth
-    for pos in list(roster.surplus_positions) + list(DEFAULT_STARTER_NEEDS.keys()):
+    for pos in list(roster.surplus_positions) + list(roster.starter_needs.keys()):
         players = roster.by_position.get(pos, [])
-        need = DEFAULT_STARTER_NEEDS.get(pos, 1)
+        need = roster.starter_needs.get(pos, 1)
         for p in players[need:]:
             # The equalizer is spec §2.3's "trade equalizers / counteroffer
             # suggestions" bullet: it puts a FURTHER outgoing asset into the
@@ -1524,11 +1601,11 @@ def _roster_balancer_candidates(
             if not roster.can_send(p):
                 continue
             if (
-                p.name.lower() not in exclude_names
+                _identity_key(p.name) not in exclude_names
                 and p.position  # skip positionless
                 and p.display_value >= MIN_RELEVANT_VALUE
             ):
-                if not any(c.name == p.name for c in candidates):
+                if not any(_identity_key(c.name) == _identity_key(p.name) for c in candidates):
                     candidates.append(p)
     return candidates
 
@@ -1545,8 +1622,8 @@ def _pool_balancer_candidates(
     return [
         a
         for a in asset_pool
-        if a.name.lower() not in roster_names_set
-        and a.name.lower() not in exclude_names
+        if _identity_key(a.name) not in roster_names_set
+        and _identity_key(a.name) not in exclude_names
         and a.position  # skip positionless / placeholder entries
         and a.display_value >= MIN_RELEVANT_VALUE
     ]
@@ -1592,10 +1669,12 @@ def _apply_quality_filters(
 
     # ── 2. Cap receive-target repetition per category ────────────────
     for cat_name, suggs in categories.items():
-        recv_counts: dict[str, int] = {}
+        recv_counts: dict[tuple[str, ...], int] = {}
         filtered: list[TradeSuggestion] = []
         for s in suggs:
-            recv_key = "|".join(sorted(p.name for p in s.receive))
+            # Canonical receive-side identity (V1-36); the cap itself
+            # (MAX_RECEIVE_TARGET_PER_CATEGORY) is unchanged.
+            recv_key = _side_identity(s.receive)
             recv_counts[recv_key] = recv_counts.get(recv_key, 0) + 1
             if recv_counts[recv_key] <= MAX_RECEIVE_TARGET_PER_CATEGORY:
                 filtered.append(s)
@@ -1672,13 +1751,18 @@ def _apply_quality_filters(
             filtered = []
             for s in suggs:
                 # Check if ANY give-player would exceed the cap
+                # Per-asset identity from the owner (V1-36); the cap itself
+                # (MAX_GIVE_PLAYER_APPEARANCES) and the two-budget grouping
+                # above are unchanged.
                 would_exceed = any(
-                    give_counts.get(p.name, 0) >= MAX_GIVE_PLAYER_APPEARANCES for p in s.give
+                    give_counts.get(_identity_key(p.name), 0) >= MAX_GIVE_PLAYER_APPEARANCES
+                    for p in s.give
                 )
                 if would_exceed:
                     continue
                 for p in s.give:
-                    give_counts[p.name] = give_counts.get(p.name, 0) + 1
+                    gk = _identity_key(p.name)
+                    give_counts[gk] = give_counts.get(gk, 0) + 1
                 filtered.append(s)
             categories[cat_name] = filtered
 
@@ -1780,7 +1864,7 @@ def generate_suggestions_from_pool(
                 "noResultReason": "all_outgoing_assets_constrained",
             },
         }
-    roster_set = {n.lower().strip() for n in roster_names}
+    roster_set = {_identity_key(n) for n in roster_names}
 
     sell_high = _generate_sell_high(roster, pool, roster_set)
     buy_low = _generate_buy_low(roster, pool, roster_set)
@@ -1818,7 +1902,7 @@ def generate_suggestions_from_pool(
 
         # Balancers for non-even trades
         if s.fairness != "even":
-            exclude = {p.name.lower() for p in s.give + s.receive}
+            exclude = {_identity_key(p.name) for p in s.give + s.receive}
             bals, side, residuals = _find_balancers(s, pool, roster_set, exclude, roster)
             s.__dict__["balancers"] = bals
             s.__dict__["balancer_side"] = side
@@ -1879,7 +1963,7 @@ def generate_suggestions_from_pool(
             # reads as "no trades exist" rather than "you protect these".
             "constraintsBlockedOutgoing": len(roster.constrained_out),
             "constraintsBlockedReasons": sorted({r for _a, r in roster.constrained_out}),
-            "starterNeeds": starter_needs or DEFAULT_STARTER_NEEDS,
+            "starterNeeds": roster.starter_needs,
             "opponentRostersProvided": len(league_rosters) if league_rosters else 0,
             "opponentRostersAnalyzed": len(opponent_analyses),
         },

@@ -23,14 +23,30 @@ from src.ros import lineup as owner
 
 REPO = Path(__file__).resolve().parents[2]
 SRC = REPO / "src"
+SCRIPTS = REPO / "scripts"
 FRONTEND_LIB = REPO / "frontend" / "lib"
 
 #: The one module allowed to implement assignment.
 OWNER_PATH = SRC / "ros" / "lineup.py"
 
+#: Both trees, deliberately.  This scan covered ``src/`` alone until
+#: 2026-08-24, which left a real hole in the claim it exists to enforce:
+#: a second assignment engine, private eligibility table or duplicate
+#: slot-demand derivation living under ``scripts/`` was invisible to it.
+#: Scripts are production — ``scripts/`` holds the scrape fetchers, the
+#: refit pipeline and the verification instruments, and a lineup solved
+#: there would be exactly the second owner ``C2-U1`` retired three of.
+#: Adding the tree cost nothing: every existing script already passed.
+_SCAN_ROOTS = (SRC, SCRIPTS)
+
 
 def _python_sources() -> list[Path]:
-    return [p for p in SRC.rglob("*.py") if p != OWNER_PATH and "__pycache__" not in p.parts]
+    return [
+        p
+        for root in _SCAN_ROOTS
+        for p in root.rglob("*.py")
+        if p != OWNER_PATH and "__pycache__" not in p.parts
+    ]
 
 
 class TestNoSecondAssignmentEngine:
@@ -95,6 +111,75 @@ class TestNoSecondAssignmentEngine:
                     offenders.append(f"{path.relative_to(REPO)}:{node.lineno}: {names}")
         assert offenders == [], (
             "a slot-eligibility table outside src/ros/lineup.py:\n  " + "\n  ".join(offenders)
+        )
+
+    def test_no_module_outside_the_owner_defines_a_slot_to_positions_MAP(self):
+        """The same table, caught by SHAPE instead of by NAME.
+
+        The test above only looks at assignments whose TARGET contains
+        "FLEX", which is what every historically retired table happened to
+        be called. That is a naming convention, not a property of the
+        defect, and Integration demonstrated the hole on this branch: a
+        real second engine written as
+
+            _SLOT_POOLS = {"QB": ("QB",), "W/R/T": ("RB", "WR", "TE"), ...}
+            def solve_starting_lineup(players, slots): ...  # greedy
+
+        passed all sixteen guards, including when injected into
+        ``scripts/verify_lineup_production.py``. Verified by injection
+        before this test was written, not argued.
+
+        So the fingerprint here is structural: a dict literal whose values
+        are ALL literal position collections, with at least one value
+        naming two or more positions. That is what a slot→eligibility
+        table IS, whatever the variable is called, and the multi-position
+        requirement is what separates it from an ordinary lookup like
+        ``{"QB": ("QB",)}``. A flat list of offensive positions — the
+        legitimate "which players count as offense" shape the sibling test
+        deliberately tolerates — is not a dict and is untouched.
+        """
+
+        def _position_collection(node: ast.AST) -> list[str] | None:
+            """The position strings in a literal collection, or None."""
+            if isinstance(node, (ast.Tuple, ast.List, ast.Set)):
+                elts = node.elts
+            elif isinstance(node, ast.Call) and isinstance(node.func, ast.Name):
+                if node.func.id not in {"frozenset", "set", "tuple", "list"} or not node.args:
+                    return None
+                return _position_collection(node.args[0])
+            else:
+                return None
+            if not elts:
+                return None
+            known = set(owner.POSITION_ORDER)
+            values = []
+            for e in elts:
+                if not (isinstance(e, ast.Constant) and isinstance(e.value, str)):
+                    return None
+                if e.value not in known:
+                    return None
+                values.append(e.value)
+            return values
+
+        offenders: list[str] = []
+        for path in _python_sources():
+            tree = ast.parse(path.read_text(encoding="utf-8"))
+            for node in ast.walk(tree):
+                if not isinstance(node, ast.Dict) or len(node.values) < 2:
+                    continue
+                if any(k is None for k in node.keys):  # ``{**spread}``
+                    continue
+                collections = [_position_collection(v) for v in node.values]
+                if any(c is None for c in collections):
+                    continue
+                if not any(len(set(c)) >= 2 for c in collections):
+                    continue
+                offenders.append(f"{path.relative_to(REPO)}:{node.lineno}")
+
+        assert offenders == [], (
+            "a slot->positions eligibility map outside src/ros/lineup.py — a "
+            "second engine does not become legal by avoiding the word FLEX:\n  "
+            + "\n  ".join(offenders)
         )
 
     def test_the_owner_is_the_only_module_that_names_augmenting_paths(self):
@@ -234,10 +319,9 @@ class TestFrontendIsNotAnOptimizer:
 
         for fam, members in families.items():
             for member in members:
-                assert owner.lineup_position(member) == fam, (
-                    f"JS maps {member} -> {fam}; Python maps it to "
-                    f"{owner.lineup_position(member)}"
-                )
+                assert (
+                    owner.lineup_position(member) == fam
+                ), f"JS maps {member} -> {fam}; Python maps it to {owner.lineup_position(member)}"
         # ...and the other direction, so Python cannot grow a family the
         # display vocabulary does not know about.
         for pos, fam in owner._LINEUP_FAMILY.items():

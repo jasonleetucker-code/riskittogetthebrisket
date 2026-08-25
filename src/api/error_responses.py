@@ -108,8 +108,16 @@ def install_exception_handler(app: FastAPI) -> None:
         # Never let a handler crash silently; always log with full
         # context that correlates to the request.
         rid = current_request_id()
-        client_ip = request.headers.get("x-forwarded-for") or (
-            request.client.host if request.client else ""
+        # Same trust order as server._client_ip_from_request (W22-F002):
+        # X-Real-IP is REPLACED by nginx so it is the peer nginx saw;
+        # X-Forwarded-For is APPENDED to, so only its LAST entry is ours.
+        # This is log context, but a log that records an attacker-chosen
+        # string as "ip=" poisons the incident trail the same way.
+        _xff = request.headers.get("x-forwarded-for", "")
+        client_ip = (
+            request.headers.get("x-real-ip", "").strip()
+            or (_xff.split(",")[-1].strip() if _xff else "")
+            or (request.client.host if request.client else "")
         )
         tb = traceback.format_exc()
         _LOGGER.error(

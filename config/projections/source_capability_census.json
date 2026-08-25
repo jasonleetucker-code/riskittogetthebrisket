@@ -165,7 +165,7 @@
     },
     {
       "key": "draftSharksOffenseProjections",
-      "displayName": "Draft Sharks — offense (existing dynasty SF feed reused as ROS proxy)",
+      "displayName": "Draft Sharks — offense (real ROS boards behind the authenticated session)",
       "providerFamily": "draftSharks",
       "evidenceClass": "RANKINGS_ONLY",
       "targetPopulation": ["OFFENSE"],
@@ -173,12 +173,12 @@
       "implementationStatus": "LIVE_BUT_RANKINGS_ONLY",
       "existingModule": "src.ros.sources.draftsharks_ros",
       "existingRosRegistryKey": "draftSharksRosSf",
-      "existingFetcher": "scripts/fetch_draftsharks.py",
+      "existingFetcher": "scripts/fetch_draftsharks_ros.py",
       "accessPosture": "CREDENTIALED_SESSION_ALREADY_WIRED",
-      "accessEvidence": "Authenticated Playwright session already wired for the dynasty product (DRAFTSHARKS_EMAIL/PASSWORD env vars, per src/ros/sources/draftsharks_ros.py's own module docstring, which describes a 'PR 2 swap' to an actual ROS scrape that has not happened). Today's feed reads the dynasty Superflex CSV as a proxy — a ranking board, not a stat-line projection, despite ROS_SOURCES flagging is_projection_source: True on this entry (see the fantasyProsProjections note above for the same discrepancy pattern).",
-      "sourceUrlEvidence": "https://www.draftsharks.com/rankings/rest-of-season (from src/ros/sources/__init__.py)",
+      "accessEvidence": "Authenticated Playwright session wired and PROVEN in production (DRAFTSHARKS_EMAIL/PASSWORD env vars; V1-89 / PR #1095, merged 2026-08-25, includes prove_ros_page_is_league_scoped). The 'PR 2 swap' this entry originally described as not-yet-happened is COMPLETE: the live feed reads the real /ros-rankings/superflex + /ros-rankings/idp boards (source_mode 'ros'), with the dynasty Superflex CSV only a labelled fallback (source_mode 'dynasty_proxy'). The feed is still rank-only — scripts/fetch_draftsharks_ros.py's CSV writer emits an empty projection column — so this remains a ranking board, not a stat-line projection, despite ROS_SOURCES flagging is_projection_source: True on this entry (see the fantasyProsProjections note above for the same discrepancy pattern).",
+      "sourceUrlEvidence": "https://www.draftsharks.com/ros-rankings/superflex + /ros-rankings/idp (src/ros/sources/draftsharks_ros.py)",
       "acquisitionOwnerLane": "Claude 8",
-      "notes": "docs/EXECUTION_PLAN.md §0 names 'Draft Sharks cross-position qualification' as Claude 8's exclusive scope. Any work to reach Draft Sharks' actual projection endpoint (the documented 'PR 2 swap') belongs to Claude 8, not this lane — recorded here for the census, not claimed for implementation."
+      "notes": "Corrected at the census merge (Integration 2026-08-25): the census originally recorded the 'PR 2 swap' as future acquisition-lane work; V1-89/#1095 completed it. Remaining acquisition-scope work on Draft Sharks' actual PROJECTION endpoint (a per-player stat line, which the ROS boards are not) stays with the acquisition owner lane — recorded here for the census, not claimed for implementation."
     },
     {
       "key": "draftSharksIdpProjections",
@@ -190,12 +190,12 @@
       "implementationStatus": "LIVE_BUT_RANKINGS_ONLY",
       "existingModule": "src.ros.sources.draftsharks_ros",
       "existingRosRegistryKey": "draftSharksRosSf",
-      "existingFetcher": "scripts/fetch_draftsharks.py",
+      "existingFetcher": "scripts/fetch_draftsharks_ros.py",
       "accessPosture": "CREDENTIALED_SESSION_ALREADY_WIRED",
-      "accessEvidence": "Same session as draftSharksOffenseProjections; IDP rankings are the same product family, not a separate projection.",
-      "sourceUrlEvidence": null,
+      "accessEvidence": "Same session as draftSharksOffenseProjections — proven in production by V1-89/#1095, which also landed the real /ros-rankings/idp board fetch; IDP rankings are the same product family, not a separate projection (rank-only feed, empty projection column).",
+      "sourceUrlEvidence": "https://www.draftsharks.com/ros-rankings/idp (src/ros/sources/draftsharks_ros.py)",
       "acquisitionOwnerLane": "Claude 8",
-      "notes": "Same disposition and ownership as draftSharksOffenseProjections."
+      "notes": "Same disposition and ownership as draftSharksOffenseProjections (see its corrected note)."
     },
     {
       "key": "brisketInternalModel",

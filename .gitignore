@@ -23,6 +23,10 @@ frontend/.next.old/
 frontend/.next.*/
 tests/e2e/playwright-report/
 tests/e2e/test-results/
+# prod-auth verification suite (tests/e2e/prod-auth.config.js) writes its
+# own artifact dirs so a prod run never clobbers the default suite's.
+tests/e2e/playwright-report-prod-auth/
+tests/e2e/test-results-prod-auth/
 tests/e2e/tests/
 test-results/
 

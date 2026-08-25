@@ -25,6 +25,7 @@ That false signal is exactly what this comment exists to prevent.
 
 from __future__ import annotations
 
+import statistics
 import unittest
 from pathlib import Path
 from unittest import mock
@@ -405,23 +406,36 @@ class TestFairValueIndex(unittest.TestCase):
         self.assertGreater(cov["pricedByAssetClass"].get("offense", 0), 0)
 
     @_needs_payload
-    def test_rows_that_lost_two_dependencies_are_counted_under_both(self):
-        # The defect: `coverage` counted the singular headline reason, so
-        # every row that lost the rookie ladder AND the IDP backbone was
-        # invisible under the rookie one.
+    def test_multi_reason_rows_are_counted_under_every_reason(self):
+        """RE-DECIDED for C7 — the arithmetic is pinned, the fixture is not.
+
+        The defect this guards is real and unchanged: ``coverage`` counted the
+        singular headline reason, so a row that lost the rookie ladder AND the
+        IDP backbone was invisible under the rookie one.
+
+        What changed is that the anchor-free board no longer PRODUCES such a
+        row. Losing ``idpTradeCalc`` used to cost the shared-market scale as
+        well as the rookie ladder; Draft Sharks now carries the scale, so only
+        the rookie dependency is lost and the overlap is empty. Requiring the
+        overlap to be non-empty would now be asserting that the repair did not
+        happen, so the count identity is asserted unconditionally instead —
+        it holds whether or not any row currently carries two reasons, and it
+        still fails the moment ``coverage`` goes back to counting one.
+        """
         index = fv.fair_value_index(_RAW)
         both = [e for e in index.values() if len(e.get("unpricedReasons") or []) > 1]
-        self.assertTrue(both, "expected rookie-IDP rows carrying two causes")
         cov = fv.coverage(index)
-        self.assertGreaterEqual(
-            cov["unpricedByReason"].get(fv.UNPRICED_SCALE_ROOKIE_LADDER, 0),
-            len(both),
-            "rows losing both dependencies are missing from the rookie-ladder count",
-        )
-        # And the over-count is exactly the double-counted rows.
+        for entry in both:
+            for reason in entry["unpricedReasons"]:
+                self.assertGreaterEqual(
+                    cov["unpricedByReason"].get(reason, 0),
+                    1,
+                    f"{entry['playerKey']}: reason {reason} is missing from the census",
+                )
         self.assertEqual(
             sum(cov["unpricedByReason"].values()) - cov["unpricedRows"],
             sum(len(e["unpricedReasons"]) - 1 for e in both),
+            "the census over-count must be exactly the multi-reason rows",
         )
 
     @_needs_payload
@@ -435,66 +449,102 @@ class TestFairValueIndex(unittest.TestCase):
             else:
                 self.assertEqual(plural, [], entry["playerKey"])
 
-    def test_idp_is_refused_out_loud_rather_than_priced_wrong(self):
-        # This assertion used to read ``pricedByAssetClass["idp"] > 0``,
-        # on the reasoning that an IDP league whose defenders all fell
-        # out is the failure mode that made finder.py silently
-        # offense-only for months. That reasoning is right and the
-        # assertion was wrong: IDP rows WERE being priced, on a scale
-        # that does not exist.
-        #
-        # ``idpTradeCalc`` builds the shared-market ladder that lifts the
-        # three IDP-only boards' within-class ordinal (``dlfIdp``,
-        # ``idpShow``, ``fantasyProsIdp``, all flagged
-        # ``needs_shared_market_translation``) into the combined
-        # offense+IDP rank space. The leave-one-out board excludes it by
-        # construction, so those votes fall back to the untranslated rank
-        # and IDP #1 scores as asset #1. Measured on the 2026-08-03
-        # payload: 220 IDP rows, median LOO/base ratio 1.224, range 0.45x
-        # to 3.48x.
-        #
-        # This comment used to say ``position_idp`` sources lost a
-        # within-DL/LB/DB crosswalk. No registered source has that scope
-        # and no row on the live board carries that stamp; the branch is
-        # dead. The assertions below were right throughout — only the
-        # stated reason was wrong.
-        #
-        # So the invariant that matters is not "IDP is priced" — it is
-        # "IDP is never SILENTLY absent". Every IDP row must still be in
-        # the index, and each must name the dependency that failed.
+    def test_idp_is_priced_because_a_second_bridge_survives(self):
+        """RE-DECIDED for C7. The assertion inverts; the invariant does not.
+
+        History, because it is the whole argument. This test first asserted
+        ``pricedByAssetClass["idp"] > 0`` on the reasoning that an IDP league
+        whose defenders all fall out is the failure mode that made
+        ``finder.py`` silently offense-only for months. That reasoning was
+        right and the assertion was wrong: IDP rows WERE priced, on a scale
+        that did not exist. It was then inverted to require refusal, because
+        refusing was the only honest option available — ``idpTradeCalc`` was
+        the sole source able to seed the shared-market ladder, and the
+        leave-one-out board excludes the anchor by construction.
+
+        That is no longer true. Draft Sharks is a qualified bridge, so an
+        anchor-free board still has a working cross-position scale, and
+        refusing would now discard evidence rather than protect anyone.
+
+        The invariant that survived every version is the one asserted here:
+        **IDP is never SILENTLY absent.** A row is priced on a scale that
+        exists, or it names the dependency that failed.
+        """
         index = fv.fair_value_index(_RAW)
         idp = [e for e in index.values() if e.get("assetClass") == "idp"]
         self.assertGreater(len(idp), 50, "IDP rows vanished from the index entirely")
+
+        priced = [e for e in idp if e.get("fairValue")]
+        self.assertGreater(
+            len(priced),
+            0,
+            "no IDP row was priced — the surviving bridge is not carrying the scale",
+        )
         for entry in idp:
-            self.assertIsNone(entry["fairValue"], entry["playerKey"])
-            self.assertEqual(entry["unpricedReason"], fv.UNPRICED_SCALE_IDP_BACKBONE)
-            self.assertTrue((entry.get("scaleIntegrity") or {}).get("lost"))
+            if entry.get("fairValue"):
+                self.assertFalse(
+                    (entry.get("scaleIntegrity") or {}).get("lost"),
+                    f"{entry['playerKey']}: priced on a scale reported lost",
+                )
+            else:
+                self.assertTrue(
+                    entry.get("unpricedReason"),
+                    f"{entry['playerKey']}: unpriced without naming a reason",
+                )
 
     def test_the_surviving_board_is_on_one_scale(self):
-        # The guard's whole purpose, stated as a measurement rather than
-        # as a list of excluded keys: whatever survives must be a board
-        # whose values mean the same thing. A leave-one-out value differs
-        # from the default board's by the weight of one vote — a few
-        # percent — and anything near 2x is a broken denominator, not a
-        # strong opinion.
+        """Units, not opinions — and C7 forces the two to be separated.
+
+        The guard's purpose is that whatever survives is denominated in the
+        same units as the board it is compared against. That used to be
+        expressible as a single worst-case bound of 1.35x, because IDP was
+        refused outright and every priced row was offense.
+
+        Now IDP is priced, and IDP is where the bridges genuinely disagree —
+        Draft Sharks and IDP Trade Calculator differ by roughly 3x on elite
+        DL and reverse on LB. An anchor-free board that drops one of them
+        therefore moves individual defenders a long way on the STRENGTH OF AN
+        OPINION, which is not a broken denominator. Measured here: median
+        ratio 0.995 across 585 priced rows, with the extreme a linebacker
+        Draft Sharks ranks near the top of its board and IDP Trade Calculator
+        does not.
+
+        So the bound is asserted where it means units — the central tendency,
+        and the offense rows whose anchors did not change — and the tail is
+        allowed to reflect disagreement.
+        """
         default = dc.build_api_data_contract(_RAW)
         base = {fv._row_key(r): r for r in default["playersArray"] if fv._row_key(r)}
-        ratios = []
+        ratios: list[tuple[float, str]] = []
+        offense_ratios: list[tuple[float, str]] = []
         for key, entry in fv.fair_value_index(_RAW).items():
             fair = entry.get("fairValue")
             row = base.get(key) or {}
             baseline = row.get("rankDerivedValue")
             if not fair or not isinstance(baseline, (int, float)) or baseline <= 0:
                 continue
-            ratios.append((fair / float(baseline), key))
+            ratio = fair / float(baseline)
+            ratios.append((ratio, key))
+            if str(row.get("position") or "").upper() in {"QB", "RB", "WR", "TE"}:
+                offense_ratios.append((ratio, key))
+
         self.assertGreater(len(ratios), 200, "too few priced rows to judge scale")
-        worst_ratio, worst_key = max(ratios)
+
+        median = statistics.median([r for r, _ in ratios])
         self.assertLess(
-            worst_ratio,
+            abs(median - 1.0),
+            0.05,
+            f"median leave-one-out ratio is {median:.3f} — the anchor-free board is "
+            f"not denominated in the same units as the board it is compared against",
+        )
+
+        worst_offense, worst_key = max(offense_ratios)
+        self.assertLess(
+            worst_offense,
             1.35,
-            f"{worst_key} is {worst_ratio:.2f}x the default board — the anchor-free "
-            f"board is not denominated in the same units as the board it is "
-            f"compared against",
+            f"{worst_key} is {worst_offense:.2f}x the default board on the offense "
+            f"side, where no bridge changed — that is a denominator fault, not a "
+            f"difference of opinion",
         )
 
     @_needs_payload
@@ -549,89 +599,92 @@ if __name__ == "__main__":
 
 
 class TestTheGuardIsACapabilityNotAFlag(unittest.TestCase):
-    """`is_backbone` is a label, and a label can be granted by an edit.
+    """A registry label may not confer cross-position capability.
 
-    `scale_integrity_lost` gates the IDP refusal on "does any surviving
-    overall_idp source carry is_backbone". Four shipped documents used to
-    describe that as a feature — "registering a second cross-market IDP
-    source lifts the refusal automatically" — and recommend it as the
-    forward path. It is the opposite of a feature:
+    REWRITTEN for C7. The property is unchanged and the mechanism that
+    guarantees it is stronger, so the tests move rather than relax.
 
-    * A second cross-market IDP source is ALREADY registered
-      (`draftSharksIdp`, is_cross_market=True) and the refusal correctly
-      does not lift, because the gate is `is_backbone`.
-    * `build_backbone_from_rows` seeds its ladder from ONE registry key,
-      so a backbone needs a source whose own value column spans offense
-      AND IDP. `idpTradeCalc` is the only one (529 positive offense +
-      258 positive IDP). `draftSharksIdp` has ZERO positive offense
-      values under its key — its offense half is the separate
-      `draftSharks` key — so promoting it produces the identity ladder,
-      which is exactly the fallback.
-    * So the one-line edit those docs recommend lifts the guard and
-      leaves the board bit-for-bit broken: median 1.224, max 3.478,
-      Caleb Banks still 3.48x.
+    The original class pinned a hazard: ``scale_integrity_lost`` gated the IDP
+    refusal on "does any surviving overall_idp source carry ``is_backbone``",
+    and that gate could be satisfied by a one-line edit — promoting
+    ``draftSharksIdp``, which carries ZERO positive offense values under its
+    own key — while the board stayed bit-for-bit broken. Four shipped
+    documents recommended exactly that edit as the forward path.
 
-    These tests pin that the MEASURED gate holds where the declared one
-    folds. They are the reason `shared_market_crosswalk_failed` exists.
+    Two things have changed.
+
+    * ``is_backbone`` is **no longer read** when the ladder is built or when
+      the declared gate is evaluated. The pipeline asks the bridge owner,
+      which measures capability from the board.
+    * A bridge is a **family**, so Draft Sharks — whose offense half lives
+      under the separate ``draftSharks`` key — is a real second bridge rather
+      than an identity ladder. Excluding ``idpTradeCalc`` therefore no longer
+      breaks the IDP scale, which is the repair this lane exists for.
+
+    So the tests below pin: the label buys nothing at all now; the declared
+    gate follows the bridge registry; losing the incumbent bridge is survived;
+    and losing EVERY bridge still refuses.
     """
 
-    @_needs_payload
-    def test_the_declared_gate_can_be_satisfied_by_an_edit(self):
-        # Not a bug being asserted as correct — this is the hazard, pinned
-        # so that anyone who changes the declaration sees what it does not
-        # buy them.
+    def _patched_registry(self):
         patched = []
         for src in dc._RANKING_SOURCES:
             copy = dict(src)
             if copy["key"] == "draftSharksIdp":
                 copy["is_backbone"] = True
             patched.append(copy)
-        with mock.patch.object(dc, "_RANKING_SOURCES", patched):
-            declared = dc.scale_integrity_lost(["idpTradeCalc"])
+        return patched
+
+    @_needs_payload
+    def test_the_label_no_longer_moves_the_declared_gate(self):
+        """The edit those documents recommended now buys nothing at all.
+
+        It used to lift the refusal without repairing anything. The gate reads
+        the bridge registry, so the flag is inert in both directions.
+        """
+        with mock.patch.object(dc, "_RANKING_SOURCES", self._patched_registry()):
+            patched = dc.scale_integrity_lost(["idpTradeCalc"])
+        unpatched = dc.scale_integrity_lost(["idpTradeCalc"])
         self.assertEqual(
-            declared["assetClasses"],
+            patched,
+            unpatched,
+            "is_backbone still changes the declared gate — the label is load-bearing again",
+        )
+
+    @_needs_payload
+    def test_the_declared_gate_follows_the_bridge_registry(self):
+        """Losing one QUALIFIED bridge is survivable; losing all is not."""
+        self.assertEqual(dc.scale_integrity_lost([])["assetClasses"], {})
+        self.assertEqual(
+            dc.scale_integrity_lost(["idpTradeCalc"])["assetClasses"],
             {},
-            "the registry gate no longer lifts on this edit — if that is deliberate, "
-            "this test should be rewritten rather than deleted",
+            "a second qualified bridge should carry the scale when the incumbent goes",
         )
-
-    @_needs_payload
-    def test_but_the_board_still_reports_the_crosswalk_as_failed(self):
-        patched = []
-        for src in dc._RANKING_SOURCES:
-            copy = dict(src)
-            if copy["key"] == "draftSharksIdp":
-                copy["is_backbone"] = True
-            patched.append(copy)
-        with mock.patch.object(dc, "_RANKING_SOURCES", patched):
-            board = fv.leave_one_out_board(_RAW, exclude=["idpTradeCalc"])
-            failed = dc.shared_market_crosswalk_failed(board.get("playersArray") or [])
-        self.assertTrue(
-            failed,
-            "promoting a source with no offense values produced a working ladder — "
-            "if a real second backbone was registered, re-measure before trusting this",
-        )
-        self.assertIn("idpShow", failed)
-
-    @_needs_payload
-    def test_and_the_refusal_therefore_holds(self):
-        # The property that actually protects a user: the flag edit must
-        # not put IDP rows back on the board.
-        patched = []
-        for src in dc._RANKING_SOURCES:
-            copy = dict(src)
-            if copy["key"] == "draftSharksIdp":
-                copy["is_backbone"] = True
-            patched.append(copy)
-        with mock.patch.object(dc, "_RANKING_SOURCES", patched):
-            index = fv.fair_value_index(_RAW)
-        idp_priced = [
-            e for e in index.values() if e.get("assetClass") == "idp" and e.get("fairValue")
-        ]
         self.assertEqual(
-            idp_priced,
-            [],
-            "a registry flag edit put IDP rows back on the board without repairing the scale",
+            dc.scale_integrity_lost(["idpTradeCalc", "draftSharks", "draftSharksIdp"])[
+                "assetClasses"
+            ],
+            {"idp": dc.SCALE_LOST_IDP_BACKBONE},
+            "with every bridge gone the scale must be declared lost",
+        )
+
+    @_needs_payload
+    def test_a_bridge_needs_both_halves(self):
+        """Half a two-key vendor is not a bridge."""
+        self.assertEqual(
+            dc.scale_integrity_lost(["idpTradeCalc", "draftSharksIdp"])["assetClasses"],
+            {"idp": dc.SCALE_LOST_IDP_BACKBONE},
+        )
+
+    @_needs_payload
+    def test_losing_the_incumbent_bridge_is_survived(self):
+        """The repair, measured on a real board: no untranslated votes."""
+        board = fv.leave_one_out_board(_RAW, exclude=["idpTradeCalc"])
+        failed = dc.shared_market_crosswalk_failed(board.get("playersArray") or [])
+        self.assertEqual(
+            failed,
+            {},
+            "excluding the incumbent bridge still produced untranslated votes",
         )
 
     @_needs_payload
@@ -642,10 +695,31 @@ class TestTheGuardIsACapabilityNotAFlag(unittest.TestCase):
         self.assertEqual(dc.shared_market_crosswalk_failed(contract.get("playersArray") or []), {})
 
     @_needs_payload
-    def test_the_anchor_free_board_reports_which_sources_fell_back(self):
-        board = fv.leave_one_out_board(_RAW, exclude=["idpTradeCalc"])
-        failed = dc.shared_market_crosswalk_failed(board.get("playersArray") or [])
-        self.assertEqual(sorted(failed), ["dlfIdp", "fantasyProsIdp", "idpShow"])
+    def test_with_no_bridge_at_all_nothing_is_untranslated_either(self):
+        """Not because it was translated — because the vote was withheld.
+
+        This is the property that actually protects a user. Before the repair
+        an anchor-free board reported ``["dlfIdp", "fantasyProsIdp",
+        "idpShow"]`` as having fallen back, and those fallbacks put IDP #1 on
+        the board as asset #1. Now no untranslated rank is recorded at all.
+        """
+        board = fv.leave_one_out_board(
+            _RAW, exclude=["idpTradeCalc", "draftSharks", "draftSharksIdp"]
+        )
+        rows = board.get("playersArray") or []
+        self.assertEqual(dc.shared_market_crosswalk_failed(rows), {})
+        idp_at_ceiling = [
+            r
+            for r in rows
+            if str(r.get("position") or "").upper() in {"DL", "LB", "DB"}
+            and isinstance(r.get("rankDerivedValue"), (int, float))
+            and float(r["rankDerivedValue"]) >= 9000
+        ]
+        self.assertEqual(
+            idp_at_ceiling,
+            [],
+            "an IDP reached the top of the scale with no cross-position bridge",
+        )
 
 
 class TestBothScaleFailuresAreNamed(unittest.TestCase):
@@ -661,20 +735,39 @@ class TestBothScaleFailuresAreNamed(unittest.TestCase):
     """
 
     @_needs_payload
-    def test_a_row_with_two_broken_dependencies_lists_both(self):
+    def test_the_double_loss_is_still_declarable(self):
+        """RE-DECIDED for C7. The machinery is pinned at its source.
+
+        A rookie IDP row used to lose BOTH dependencies on the anchor-free
+        board, because ``idpTradeCalc`` was the shared-market bridge AND the
+        rookie ladder's reference. Draft Sharks now carries the bridge, so
+        excluding the anchor costs only the rookie ladder and the overlap on
+        that board is empty.
+
+        The overlap is therefore asserted where it can still be produced —
+        the declaration itself, with every bridge and the rookie reference
+        gone — rather than by requiring a board to keep exhibiting a defect
+        the repair removed.
+        """
+        declared = dc.scale_integrity_lost(["idpTradeCalc", "draftSharks", "draftSharksIdp"])
+        self.assertEqual(declared["assetClasses"], {"idp": dc.SCALE_LOST_IDP_BACKBONE})
+        self.assertEqual(
+            declared["sources"].get("dlfRookieIdp"),
+            dc.SCALE_LOST_ROOKIE_LADDER,
+            "a rookie IDP source must still lose its ladder when its reference goes",
+        )
+
+    @_needs_payload
+    def test_any_row_reporting_two_causes_names_both(self):
         index = fv.fair_value_index(_RAW)
-        both = [
-            e
-            for e in index.values()
-            if len((e.get("scaleIntegrity") or {}).get("reasons") or []) > 1
-        ]
-        self.assertTrue(both, "no row reported two causes — expected the rookie IDP overlap")
-        for entry in both:
-            self.assertEqual(
-                sorted(entry["scaleIntegrity"]["reasons"]),
-                sorted({fv.UNPRICED_SCALE_IDP_BACKBONE, fv.UNPRICED_SCALE_ROOKIE_LADDER}),
-                entry["playerKey"],
-            )
+        for entry in index.values():
+            reasons = (entry.get("scaleIntegrity") or {}).get("reasons") or []
+            if len(reasons) > 1:
+                self.assertEqual(
+                    sorted(reasons),
+                    sorted({fv.UNPRICED_SCALE_IDP_BACKBONE, fv.UNPRICED_SCALE_ROOKIE_LADDER}),
+                    entry["playerKey"],
+                )
 
     @_needs_payload
     def test_the_headline_reason_is_still_one_of_the_reasons(self):

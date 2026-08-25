@@ -36,6 +36,12 @@ const PAGE_SURFACE = "#131519";
 const POS_TEXT_COLORS = Object.fromEntries(
   Object.entries(POS_GROUP_COLORS).map(([g, c]) => [g, textSafe(c, PAGE_SURFACE)]),
 );
+// V1-109 / W26-F017: /rosters shipped micro-type down to 9.0px at
+// 390x844 — the smallest type of any route in the mobile audit. Every
+// inline size that sat below the design-system floor now rides the token
+// (docs/DESIGN-SYSTEM.md: "no micro-type below --font-size-2xs" = 11px).
+// Pinned by tests/e2e/specs/mobile-type-floor.spec.js.
+const FONT_2XS = "var(--font-size-2xs, 0.6875rem)";
 import AgeCurveOverlay from "@/components/graphs/AgeCurveOverlay";
 import TeamStrengthCard from "@/components/TeamStrengthCard";
 import { useRosterIntelligence } from "@/components/useRosterIntelligence";
@@ -315,7 +321,7 @@ export default function RostersPage() {
         {/* Legend */}
         <div style={{ display: "flex", gap: 10, marginBottom: 10, flexWrap: "wrap" }}>
           {POS_GROUPS.filter((g) => activeGroups.has(g)).map((g) => (
-            <div key={g} style={{ display: "flex", alignItems: "center", gap: 4, fontSize: "0.62rem" }}>
+            <div key={g} style={{ display: "flex", alignItems: "center", gap: 4, fontSize: FONT_2XS }}>
               <div style={{ width: 10, height: 10, borderRadius: 2, background: POS_GROUP_COLORS[g] }} />
               {g}
             </div>
@@ -367,7 +373,7 @@ export default function RostersPage() {
                   <tr key={team.name} style={isMe ? { background: "rgba(200, 56, 3, 0.06)" } : undefined}>
                     <td style={{ fontWeight: 700, ...(isMe ? { color: "var(--cyan)" } : {}) }}>
                       {team.name}
-                      <div style={{ fontSize: "0.58rem", color: "var(--subtext)", fontWeight: 400 }}>
+                      <div style={{ fontSize: FONT_2XS, color: "var(--subtext)", fontWeight: 400 }}>
                         {team.playerCount} players{team.pickCount ? `, ${team.pickCount} picks` : ""}
                       </div>
                     </td>
@@ -390,7 +396,7 @@ export default function RostersPage() {
                                 display: "flex",
                                 alignItems: "center",
                                 justifyContent: "center",
-                                fontSize: "0.56rem",
+                                fontSize: FONT_2XS,
                                 // Same rule as the chips above: the label
                                 // sits ON the mark colour, so the readable
                                 // foreground is computed rather than
@@ -569,7 +575,7 @@ function TradeTargetsCard({ myTeam, teams, groupAvg, onPlayerClick }) {
                   name={t.name}
                   size={22}
                 />
-                <span style={{ color: POS_TEXT_COLORS[needPos], fontFamily: "var(--mono)", fontWeight: 700, width: 28, fontSize: "0.62rem" }}>
+                <span style={{ color: POS_TEXT_COLORS[needPos], fontFamily: "var(--mono)", fontWeight: 700, width: 28, fontSize: FONT_2XS }}>
                   {t.pos}
                 </span>
                 <PlayerNameButton
@@ -606,7 +612,7 @@ function TradeTargetsCard({ myTeam, teams, groupAvg, onPlayerClick }) {
                 name={p.name}
                 size={22}
               />
-              <span style={{ color: POS_TEXT_COLORS[p.group], fontFamily: "var(--mono)", fontWeight: 700, width: 28, fontSize: "0.62rem" }}>
+              <span style={{ color: POS_TEXT_COLORS[p.group], fontFamily: "var(--mono)", fontWeight: 700, width: 28, fontSize: FONT_2XS }}>
                 {p.pos}
               </span>
               <span style={{ flex: 1, fontWeight: 600 }}>{p.name}</span>
@@ -664,7 +670,7 @@ function LeagueEdgeCard({ edges }) {
                   }}
                   title={`Market overvalues ${t.sellCount} of their players`}
                 />
-                <span style={{ fontSize: "0.6rem", color: "var(--red)", fontFamily: "var(--mono)", minWidth: 40 }}>
+                <span style={{ fontSize: FONT_2XS, color: "var(--red)", fontFamily: "var(--mono)", minWidth: 40 }}>
                   {t.sellCount} sell
                 </span>
                 <div
@@ -677,13 +683,13 @@ function LeagueEdgeCard({ edges }) {
                   }}
                   title={`Market undervalues ${t.buyCount} of their players`}
                 />
-                <span style={{ fontSize: "0.6rem", color: "var(--green)", fontFamily: "var(--mono)" }}>
+                <span style={{ fontSize: FONT_2XS, color: "var(--green)", fontFamily: "var(--mono)" }}>
                   {t.buyCount} buy
                 </span>
               </div>
             </div>
             {(t.topSells.length > 0 || t.topBuys.length > 0) && (
-              <div style={{ fontSize: "0.62rem", color: "var(--subtext)", paddingLeft: 100 }}>
+              <div style={{ fontSize: FONT_2XS, color: "var(--subtext)", paddingLeft: 100 }}>
                 {t.topSells.length > 0 && (
                   <span style={{ color: "var(--red)" }}>
                     Overvalued: {t.topSells.map((p) => `${p.name} +${p.pct}%`).join(", ")}
@@ -732,7 +738,7 @@ function WaiverWireCard({ gems, onPlayerClick }) {
               name={p.name}
               size={20}
             />
-            <span style={{ color: POS_TEXT_COLORS[p.pos] || "var(--subtext)", fontWeight: 700, fontFamily: "var(--mono)", fontSize: "0.62rem" }}>
+            <span style={{ color: POS_TEXT_COLORS[p.pos] || "var(--subtext)", fontWeight: 700, fontFamily: "var(--mono)", fontSize: FONT_2XS }}>
               {p.pos}
             </span>
             <PlayerNameButton

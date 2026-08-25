@@ -18,30 +18,27 @@ import {
 } from "@/components/ds";
 import { withValuationMode } from "@/lib/valuation-mode";
 import { buildShareUrl } from "@/lib/trade-share";
+import { buildArbitrageRows } from "@/lib/market-arbitrage";
 import styles from "./arbitrage.module.css";
 
-// ── /arbitrage — the board-vs-market arbitrage finder ─────────────────
+// ── /arbitrage — board-vs-public-market arbitrage finder ─────────────
 //
-// This is the UI caller for src/trade/finder.py, which had none. The
-// engine was built, audited (per-market top-150 gating, marketCoverage,
-// assetsUnpricedByBoard, valueSource stamping), exposed at
-// POST /api/trade/finder — and never invoked by anything. Backlog #6.
+// Two layers intentionally live together here:
+//   1. Player-level market inefficiencies — canonical board versus the public
+//      transaction market a trade partner is likely to check (KTC for offense,
+//      IDP Trade Calculator for IDP).
+//   2. Package-level trade finder — src/trade/finder.py, which searches actual
+//      roster-to-roster constructions through POST /api/trade/finder.
 //
-// WHY THIS IS NOT ON /finder, despite the name. /finder is a board
-// filter: five presets that sort the board on sourceRankSpread /
-// confidenceBucket / isSingleSource / rookie. It computes no
-// board-versus-market comparison at all. A stale header comment there
-// once called it "the arbitrage blotter", and that single word is what
-// made an earlier audit record a phantom second implementation
-// competing with this engine. Putting a real arbitrage view on that
-// route would recreate exactly that confusion.
-//
-// Everything below is rendered verbatim from the backend response. This
-// file computes no trade values, no deltas, and no scores — same rule as
-// buildRows. The one thing it derives is display formatting.
+// Source disagreement is deliberately NOT a qualification rule for layer 1.
+// "The sources disagree" and "our canonical value beats the public price" are
+// different questions. /rankings retains the disagreement research lens.
+
+const ARBITRAGE_CONTROL_KEY = "__arbitrageControl";
 
 function fmt(v) {
-  return Number(v || 0).toLocaleString();
+  if (v == null || !Number.isFinite(Number(v))) return "—";
+  return Number(v).toLocaleString();
 }
 
 function fmtSigned(v) {
@@ -49,9 +46,97 @@ function fmtSigned(v) {
   return `${n > 0 ? "+" : ""}${fmt(Math.round(n))}`;
 }
 
+function fmtPct(v) {
+  const n = Number(v);
+  if (!Number.isFinite(n)) return "—";
+  return `${n > 0 ? "+" : ""}${Math.round(n * 100)}%`;
+}
+
+function edgeActionLabel(action) {
+  if (action === "strong_buy") return "STRONG BUY";
+  if (action === "buy") return "BUY";
+  if (action === "strong_sell") return "STRONG SELL";
+  if (action === "sell") return "SELL";
+  return "HOLD";
+}
+
 const MARKET_LABEL = { ktcSfTep: "KTC", ktc: "KTC", idpTradeCalc: "IDPTC" };
 
-function AssetList({ assets, tone }) {
+function PlayerEdgeTable({ opportunities }) {
+  if (!opportunities.length) {
+    return (
+      <EmptyState
+        title="No player-level edges at this threshold"
+        description="Missing public prices stay missing rather than becoming zero. Lower the threshold or switch asset class to inspect more of the board."
+      />
+    );
+  }
+
+  return (
+    <div style={{ overflowX: "auto" }}>
+      <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 14 }}>
+        <thead>
+          <tr>
+            {[
+              "Player",
+              "Pos",
+              "Our rank",
+              "Our value",
+              "Public market",
+              "Public value",
+              "Hidden surplus",
+              "Edge",
+              "Signal",
+              "Confidence",
+              "Public-friendly offer",
+            ].map((label) => (
+              <th
+                key={label}
+                style={{ textAlign: "left", padding: "10px 9px", borderBottom: "1px solid var(--border, #333)", whiteSpace: "nowrap" }}
+              >
+                {label}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {opportunities.map(({ row, edge }) => (
+            <tr key={row.playerId || `${row.name}-${row.pos}`}>
+              <td style={{ padding: "10px 9px", borderBottom: "1px solid var(--border, #292929)" }}>
+                <strong>{row.name}</strong>
+              </td>
+              <td style={{ padding: "10px 9px", borderBottom: "1px solid var(--border, #292929)" }}>{row.pos}</td>
+              <td style={{ padding: "10px 9px", borderBottom: "1px solid var(--border, #292929)" }}>{row.rank ?? "—"}</td>
+              <td style={{ padding: "10px 9px", borderBottom: "1px solid var(--border, #292929)" }}>{fmt(edge.ourValue)}</td>
+              <td style={{ padding: "10px 9px", borderBottom: "1px solid var(--border, #292929)" }}>{edge.marketLabel}</td>
+              <td style={{ padding: "10px 9px", borderBottom: "1px solid var(--border, #292929)" }}>{fmt(edge.marketValue)}</td>
+              <td style={{ padding: "10px 9px", borderBottom: "1px solid var(--border, #292929)" }}>{fmtSigned(edge.edgePoints)}</td>
+              <td style={{ padding: "10px 9px", borderBottom: "1px solid var(--border, #292929)" }}>{fmtPct(edge.edgeRatio)}</td>
+              <td style={{ padding: "10px 9px", borderBottom: "1px solid var(--border, #292929)" }}>
+                <Badge tone={edge.edgeRatio > 0 ? "positive" : "warning"}>{edgeActionLabel(edge.action)}</Badge>
+              </td>
+              <td style={{ padding: "10px 9px", borderBottom: "1px solid var(--border, #292929)" }}>{row.confidenceBucket || "unknown"}</td>
+              <td style={{ padding: "10px 9px", borderBottom: "1px solid var(--border, #292929)", minWidth: 190 }}>
+                {edge.winWin ? (
+                  <>
+                    <strong>{fmt(edge.publicFriendlyOfferCeiling)}</strong>
+                    <div style={{ opacity: 0.7, marginTop: 2 }}>
+                      public {fmtPct(edge.publicWinRatio)} · internal {fmtPct(edge.internalWinRatio)}
+                    </div>
+                  </>
+                ) : (
+                  "—"
+                )}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function AssetList({ assets, onExclude }) {
   if (!assets?.length) return <span className={styles.muted}>—</span>;
   return (
     <ul className={styles.assetList}>
@@ -63,19 +148,27 @@ function AssetList({ assets, tone }) {
             board {fmt(a.modelValue)}
             {a.ktcValue != null ? ` · market ${fmt(a.ktcValue)}` : " · unpriced"}
           </span>
+          {onExclude && a.name ? (
+            <button
+              type="button"
+              className={styles.excludeButton}
+              aria-label={`Exclude ${a.name} from suggestions`}
+              title="Exclude from this scan"
+              onClick={() => onExclude(a.name)}
+            >
+              ×
+            </button>
+          ) : null}
         </li>
       ))}
     </ul>
   );
 }
 
-function TradeCard({ trade, myTeam, opponent }) {
+function TradeCard({ trade, myTeam, opponent, onExclude }) {
   const boardDelta = Number(trade.boardDelta || 0);
   const ktcDelta = Number(trade.ktcDelta || 0);
 
-  // A found trade was a dead end: the engine surfaced it, and then you
-  // retyped both sides into the calculator by hand.  The share encoder
-  // already round-trips exactly this shape, so the hand-off is a link.
   const openInCalculator = useMemo(() => {
     const give = (trade.give || []).map((a) => a.name).filter(Boolean);
     const receive = (trade.receive || []).map((a) => a.name).filter(Boolean);
@@ -88,21 +181,17 @@ function TradeCard({ trade, myTeam, opponent }) {
         ],
       });
     } catch {
-      // A trade we cannot encode simply loses the shortcut; the card
-      // itself still renders.
       return null;
     }
   }, [trade, myTeam, opponent]);
 
   return (
-    // ``arbitrage-trade-card`` is a stable E2E hook alongside the
-    // CSS-module class, the same convention the news rows use — module
-    // class names are hashed at build time and cannot be selected on.
     <Panel className={`${styles.tradeCard} arbitrage-trade-card`}>
       <div className={styles.tradeHead}>
         <span className={styles.score}>
           arbitrage {Number(trade.arbitrageScore || 0).toFixed(2)}
         </span>
+        {trade.packageSize ? <Badge tone="neutral">{trade.packageSize}</Badge> : null}
         <span className={styles.deltas}>
           <span className={boardDelta >= 0 ? styles.good : styles.bad}>
             our board {fmtSigned(boardDelta)}
@@ -112,12 +201,6 @@ function TradeCard({ trade, myTeam, opponent }) {
             their market {fmtSigned(ktcDelta)}
           </span>
         </span>
-        {/* The backend stamps ``mixedMarket`` itself rather than making
-            the client infer it. A mixed delta adds two publishers'
-            numbers; they are directly comparable (median cross-board
-            ratio 1.000) but disagree +/-10% at p10-p90, so a delta
-            smaller than that is not distinguishable from the boards
-            simply disagreeing. Surfacing it is the point. */}
         {trade.mixedMarket ? (
           <Badge tone="warning">
             spans {(trade.marketsUsed || []).map((m) => MARKET_LABEL[m] || m).join(" + ")}
@@ -127,11 +210,11 @@ function TradeCard({ trade, myTeam, opponent }) {
       <div className={styles.tradeBody}>
         <div className={styles.side}>
           <h4 className={styles.sideLabel}>You give</h4>
-          <AssetList assets={trade.give} tone="give" />
+          <AssetList assets={trade.give} onExclude={onExclude} />
         </div>
         <div className={styles.side}>
           <h4 className={styles.sideLabel}>You get</h4>
-          <AssetList assets={trade.receive} tone="receive" />
+          <AssetList assets={trade.receive} onExclude={onExclude} />
         </div>
       </div>
       {openInCalculator ? (
@@ -145,8 +228,14 @@ function TradeCard({ trade, myTeam, opponent }) {
   );
 }
 
+function tradeContainsPlayer(trade, playerName) {
+  return [...(trade?.give || []), ...(trade?.receive || [])].some(
+    (asset) => String(asset?.name || "") === String(playerName || ""),
+  );
+}
+
 export default function ArbitragePage() {
-  const { loading: dataLoading, error: dataError, rawData } = useDynastyData();
+  const { loading: dataLoading, error: dataError, rawData, rows } = useDynastyData();
   const { selectedLeagueKey, selectedOwnerId } = useTeam();
 
   const teams = useMemo(() => {
@@ -165,25 +254,70 @@ export default function ArbitragePage() {
   const [result, setResult] = useState(null);
   const [running, setRunning] = useState(false);
   const [error, setError] = useState("");
+  const [edgeAction, setEdgeAction] = useState("buy");
+  const [edgeClass, setEdgeClass] = useState("all");
+  const [edgeFloor, setEdgeFloor] = useState(0.05);
+  const [excludedPlayers, setExcludedPlayers] = useState([]);
 
   const effectiveTeam = myTeam || defaultTeam;
 
-  async function run() {
+  const playerEdges = useMemo(
+    () =>
+      buildArbitrageRows(rows, {
+        action: edgeAction,
+        assetClass: edgeClass,
+        minEdge: edgeFloor,
+      }),
+    [rows, edgeAction, edgeClass, edgeFloor],
+  );
+
+  const buyCount = useMemo(
+    () => buildArbitrageRows(rows, { action: "buy", minEdge: edgeFloor }).length,
+    [rows, edgeFloor],
+  );
+  const sellCount = useMemo(
+    () => buildArbitrageRows(rows, { action: "sell", minEdge: edgeFloor }).length,
+    [rows, edgeFloor],
+  );
+  const winWinCount = useMemo(
+    () => buildArbitrageRows(rows, { action: "winwin", minEdge: edgeFloor }).length,
+    [rows, edgeFloor],
+  );
+
+  async function run(nextExcluded = excludedPlayers) {
     if (!effectiveTeam) return;
+    const normalizedExcluded = Array.from(
+      new Set((nextExcluded || []).map((name) => String(name || "").trim()).filter(Boolean)),
+    );
+    const selectedOpponents =
+      opponent === "all"
+        ? teams.filter((t) => t.name !== effectiveTeam).map((t) => t.name)
+        : [opponent];
+
     setRunning(true);
     setError("");
     try {
       const body = {
         myTeam: effectiveTeam,
-        opponentTeams: opponent === "all" ? ["all"] : [opponent],
+        // The backend route currently validates only that opponentTeams is a
+        // list before passing it through to src/trade/finder.py.  The reserved
+        // control object lets the arbitrage page request session-local search
+        // policy without changing persistent trade constraints or valuation.
+        opponentTeams: [
+          ...selectedOpponents,
+          {
+            [ARBITRAGE_CONTROL_KEY]: {
+              equalCountOnly: true,
+              excludePlayers: normalizedExcluded,
+            },
+          },
+        ],
       };
       if (selectedLeagueKey) body.leagueKey = selectedLeagueKey;
       const res = await fetch("/api/trade/finder", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         cache: "no-store",
-        // Our side of the arbitrage follows the selected board; the
-        // market anchor it is measured against never does.
         body: JSON.stringify(withValuationMode(body)),
       });
       const data = await res.json().catch(() => ({}));
@@ -201,6 +335,42 @@ export default function ArbitragePage() {
     }
   }
 
+  function excludePlayer(playerName) {
+    const name = String(playerName || "").trim();
+    if (!name || excludedPlayers.includes(name)) return;
+    const next = [...excludedPlayers, name];
+    setExcludedPlayers(next);
+    // Remove the stale suggestion immediately, then ask the backend to search
+    // the reduced pools.  The rerun is not a post-filter: finder.py receives
+    // the same exclusion and removes the player before package enumeration.
+    setResult((prev) =>
+      prev
+        ? {
+            ...prev,
+            trades: (prev.trades || []).filter((trade) => !tradeContainsPlayer(trade, name)),
+          }
+        : prev,
+    );
+    void run(next);
+  }
+
+  function restorePlayer(playerName) {
+    const next = excludedPlayers.filter((name) => name !== playerName);
+    setExcludedPlayers(next);
+    void run(next);
+  }
+
+  function clearExclusions() {
+    setExcludedPlayers([]);
+    void run([]);
+  }
+
+  function resetPackageScan() {
+    setExcludedPlayers([]);
+    setResult(null);
+    setError("");
+  }
+
   const meta = result?.metadata;
 
   return (
@@ -208,17 +378,63 @@ export default function ArbitragePage() {
       <PageHeader
         eyebrow="Trades"
         title="Arbitrage"
-        description="Trades that gain on our blended board while still reading as fair on the market your counterparty checks."
+        description="Find players our canonical board values above or below the public market, then turn those edges into trades that can still look fair to the counterparty."
       />
 
       {dataError ? <Banner tone="negative">{String(dataError)}</Banner> : null}
 
       <Panel>
+        <h3 style={{ marginTop: 0 }}>Player-level inefficiencies</h3>
+        <p className={styles.muted}>
+          Offense is compared directly with KTC. IDP is compared directly with IDP Trade Calculator. Source disagreement is not required; that remains a separate Rankings research lens.
+        </p>
+        <div className={styles.controls}>
+          <Field label="Signal">
+            <Select value={edgeAction} onChange={(e) => setEdgeAction(e.target.value)}>
+              <option value="buy">Buy arbitrage</option>
+              <option value="sell">Sell arbitrage</option>
+              <option value="winwin">Win-win on public market</option>
+              <option value="all">All edges</option>
+            </Select>
+          </Field>
+          <Field label="Player type">
+            <Select value={edgeClass} onChange={(e) => setEdgeClass(e.target.value)}>
+              <option value="all">All players</option>
+              <option value="offense">Offense — KTC</option>
+              <option value="idp">IDP — IDP Trade Calculator</option>
+            </Select>
+          </Field>
+          <Field label="Minimum edge">
+            <Select value={String(edgeFloor)} onChange={(e) => setEdgeFloor(Number(e.target.value))}>
+              <option value="0.05">5%+</option>
+              <option value="0.10">10%+</option>
+              <option value="0.15">15%+</option>
+              <option value="0.20">20%+</option>
+            </Select>
+          </Field>
+        </div>
+        <div className={styles.stats}>
+          <StatTile label="Buy edges" value={fmt(buyCount)} />
+          <StatTile label="Sell edges" value={fmt(sellCount)} />
+          <StatTile label="Win-win offers" value={fmt(winWinCount)} />
+          <StatTile label="Visible" value={fmt(playerEdges.length)} />
+        </div>
+        {dataLoading ? <SkeletonTable rows={5} /> : <PlayerEdgeTable opportunities={playerEdges} />}
+      </Panel>
+
+      <Panel>
+        <h3 style={{ marginTop: 0 }}>Turn the edge into a trade</h3>
+        <p className={styles.muted}>
+          This second layer scans actual rosters for 1-for-1 or 2-for-2 packages that gain on our board while remaining plausible on the counterparty market. Use the × beside any player to remove them from this scan and search again without them.
+        </p>
         <div className={styles.controls}>
           <Field label="Your team">
             <Select
               value={effectiveTeam}
-              onChange={(e) => setMyTeam(e.target.value)}
+              onChange={(e) => {
+                setMyTeam(e.target.value);
+                resetPackageScan();
+              }}
               disabled={dataLoading || !teams.length}
             >
               {teams.map((t) => (
@@ -231,7 +447,10 @@ export default function ArbitragePage() {
           <Field label="Opponent">
             <Select
               value={opponent}
-              onChange={(e) => setOpponent(e.target.value)}
+              onChange={(e) => {
+                setOpponent(e.target.value);
+                resetPackageScan();
+              }}
               disabled={dataLoading || !teams.length}
             >
               <option value="all">All teams</option>
@@ -244,17 +463,36 @@ export default function ArbitragePage() {
                 ))}
             </Select>
           </Field>
-          <Button onClick={run} disabled={running || dataLoading || !effectiveTeam}>
-            {running ? "Scanning…" : "Find arbitrage"}
+          <Button onClick={() => run(excludedPlayers)} disabled={running || dataLoading || !effectiveTeam}>
+            {running ? "Scanning…" : "Find trade packages"}
           </Button>
         </div>
+        {excludedPlayers.length ? (
+          <div className={styles.exclusionBar} aria-label="Excluded players">
+            <span className={styles.muted}>Excluded from this scan:</span>
+            <div className={styles.exclusionChips}>
+              {excludedPlayers.map((name) => (
+                <button
+                  key={name}
+                  type="button"
+                  className={styles.exclusionChip}
+                  aria-label={`Restore ${name} to suggestions`}
+                  title="Undo exclusion"
+                  onClick={() => restorePlayer(name)}
+                >
+                  {name} ×
+                </button>
+              ))}
+            </div>
+            <Button size="sm" variant="secondary" onClick={clearExclusions} disabled={running}>
+              Clear exclusions
+            </Button>
+          </div>
+        ) : null}
       </Panel>
 
       {error ? <Banner tone="negative">{error}</Banner> : null}
 
-      {/* Backend warnings are rendered verbatim. The engine emits a real
-          one when an IDP league has no priced IDP assets, which is the
-          regression that made this engine silently offense-only. */}
       {result?.warnings?.map((w, i) => (
         <Banner key={i} tone="warning">
           {w}
@@ -267,9 +505,6 @@ export default function ArbitragePage() {
           <StatTile label="Shown" value={fmt(meta.returned)} />
           <StatTile label="Asset pool" value={fmt(meta.assetPoolSize)} />
           <StatTile label="Market coverage" value={`${meta.marketCoveragePercent ?? 0}%`} />
-          {/* Assets the board declines to price leave the engine's
-              universe entirely. Surfaced because "not shown" and
-              "not priced" are different states — 202 on a real payload. */}
           <StatTile label="Unpriced by board" value={fmt(meta.assetsUnpricedByBoard)} />
           <StatTile label="Mixed-market" value={fmt(meta.mixedMarketTrades)} />
         </div>
@@ -286,23 +521,29 @@ export default function ArbitragePage() {
 
       {!running && result && !result.trades?.length ? (
         <EmptyState
-          title="No arbitrage found"
-          description="Every candidate either lost value on our board or looked too lopsided on the counterparty's market to be plausible."
+          title="No package arbitrage found"
+          description="Every candidate either lost value on our board, used an excluded player, or looked too lopsided on the counterparty's market to be plausible."
         />
       ) : null}
 
       {!running && result?.trades?.length ? (
         <div className={styles.trades}>
           {result.trades.map((t, i) => (
-            <TradeCard key={i} trade={t} myTeam={effectiveTeam} opponent={opponent} />
+            <TradeCard
+              key={i}
+              trade={t}
+              myTeam={effectiveTeam}
+              opponent={opponent}
+              onExclude={excludePlayer}
+            />
           ))}
         </div>
       ) : null}
 
       {!result && !running ? (
         <EmptyState
-          title="Pick a team and scan"
-          description="Choose your team and a counterparty above, then run the scan to surface trades the market prices differently than our board does."
+          title="Package scan ready"
+          description="The player-level opportunities above are live immediately. Choose your team and a counterparty to search actual trade constructions."
         />
       ) : null}
     </div>
