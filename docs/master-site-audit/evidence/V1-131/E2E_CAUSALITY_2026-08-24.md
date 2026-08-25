@@ -203,3 +203,111 @@ nav-gated + feature-flag reachability + guest-pass evidence + private-auth **116
 `tests/api/` end to end (contains both new modules **and** this victim, in CI's ordering)
 **2201 passed, 0 failed** · frontend nav/shell + V1-108 route-gate **71 passed** ·
 planning integrity, decision coercions, `ruff check .`, `ruff format --check .` all clean.
+
+---
+
+## The hard-gate red at `b2b724efd`: `test_metrics_genuinely_diverge_on_a_representative_real_board`
+
+The 429 documented above is **gone** — PR Validation went from `1 failed, 1563 passed`
+(`ed4c0f64c`) to `1 failed, 7517 passed` (`b2b724efd`), so the limiter repair worked and the
+suite now runs to completion. What it surfaced at the far end is a different failure:
+
+```
+FAILED tests/roster_intel/test_metric_separation.py::test_metrics_genuinely_diverge_on_a_representative_real_board
+AssertionError: the single strongest-by-value team should not also rank identically
+                on youth by coincidence: (1, 1)
+assert 1 != 1
+```
+
+### Controlled comparison — the full 2×2
+
+The test's only external input is the bundle `tests/archive_fixtures.newest_complete_raw_payload()`
+selects. That bundle is **tracked data**, and `main` has three archives this branch does not
+(`…191933`, `…211319`, `…230400`), because the branch's merge-base is the dispatch SHA
+`131abf9f9` while `main` is now `332d8e6ff`. CI validates the *merge* ref, so CI selects a bundle
+that is not in this working tree.
+
+So both variables were crossed, in this environment, back to back:
+
+| code | archive selected | result |
+|---|---|---|
+| **base** — clean `origin/main` `332d8e6ff` worktree, **no #1086 code present** | `…230400` (main's newest) | **FAIL** `(1, 1)` |
+| **base** — same worktree, newer archives held aside | `…172650` | **PASS** |
+| **branch** `b2b724efd` | `…172650` (this tree's newest) | **PASS** |
+| **branch** `b2b724efd`, main's newest archive copied in | `…230400` | **FAIL** `(1, 1)` |
+
+The code column has **no effect**. The archive column decides the verdict entirely, and the
+failure reproduces on clean `main` with none of this PR's code in the tree.
+
+**Classification: B — pre-existing on current `main`, data-coupled.** Consistent with the
+structural fact that `git diff origin/main...HEAD` touches no `src/roster_intel/`, no
+`src/ros/`, no `data_contract`, no valuation or pick-pricing file.
+
+### The two axes have NOT collapsed — which is the point worth carrying
+
+Measured on the failing bundle (`…230400`), Team Strength rank vs Young Core Index rank across
+all twelve teams:
+
+```
+strRk  1  2   3  4  5  6  7  8  9 10 11 12
+yciRk  1 11   2  4  7  5  3  9  8 12  6 10
+```
+
+**10 of 12 teams diverge.** The test's *primary* assertion — `inversions >= len(pairs) // 2`,
+i.e. at least 6 — passes comfortably. Decision 69's separation is intact and visibly so.
+
+What fails is the *secondary* assertion, that the #1-by-strength team is not also #1 on youth.
+With twelve teams that coincidence occurs about **1 run in 12** under perfect independence, so
+the assertion reddens roughly 8% of boards *precisely when the axes are behaving correctly*.
+It is a coincidence-sensitive statement about one live board sitting in the blocking gate — the
+shape `CLAUDE.md` names directly:
+
+> A test in the hard gate (`-m "not livedata"`) must not assert an absolute count, a floor or a
+> health status over the LIVE board — those are functions of which sources answered the last
+> scrape. Assert the invariant instead (all-of-them rather than more-than-N).
+
+### Why this was reasonable to write, and what the fixture actually guarantees
+
+`tests/archive_fixtures.py` exists precisely to keep board-backed tests in the blocking gate, and
+its docstring says so: *"It does not soften any assertion, and it is not a livedata exemption:
+these tests stay in the blocking gate."* Selecting the newest **complete** bundle rather than the
+newest bundle removes the failure mode it was written for — one timed-out KTC fetch reddening
+twelve unrelated tests.
+
+The nuance that this failure exposes is that the fixture removes **scrape-health**
+nondeterminism, not **board-content** nondeterminism. It is deterministic *for a fixed tree*, and
+the tree is not fixed: the 2-hourly refresh commits new archives to `main`, so the selected bundle
+changes roughly every two hours and every PR is validated against whichever board `main` happened
+to carry at merge-ref time.
+
+That is fine for an assertion about a *property of the population* — "these two rank vectors
+mostly disagree" is true of every healthy board. It is not fine for an assertion about one
+distinguished team, which is a fact about a particular board.
+
+### Not repaired here, and not weakened
+
+The assertion belongs to **V1-35 / the Roster lane** and is that row's own EVIDENCE-L1 artifact.
+Rewriting another lane's V1 evidence to be less strict in order to turn this PR green is exactly
+what the direction forbids, and the failure is not caused by #1086. **Nothing was skipped,
+`xfail`-ed, deselected, reclassified `livedata`, or relaxed.** It blocks every PR against `main`
+until the board happens to shift, so it is handed to Integration as a shared blocker.
+
+**Drafted repair, for whoever owns V1-35 — proposing is not editing.** The measurement above says
+the right invariant is a *population* property, not a property of one distinguished team. Two
+candidates, both stronger than what is there now because neither can pass or fail by coincidence:
+
+* keep the existing `inversions >= len(pairs) // 2` (it measured 10/12, and it is the assertion
+  that actually states "these axes are not collapsed"), and **delete the `strongest` clause**; or
+* replace the `strongest` clause with a rank-correlation bound — e.g. Spearman ρ between the two
+  rank vectors must be below some declared threshold — which states the same intent
+  ("these are different orderings") over all twelve teams rather than over one.
+
+Either keeps the test in the blocking gate honestly. Choosing between them is the Roster lane's
+call, not this one's.
+
+### Consequence for this PR's own CI evidence
+
+`Frontend unit tests (vitest)` and `Frontend build + bundle-size budget` carry no `if: always()`
+in `.github/workflows/pr-validation.yml`, so the hard-gate failure ends the job **before this
+lane's own gates run**. They are therefore reported below as locally verified at the exact head,
+and CI will exercise them as soon as the base blocker clears.
