@@ -8,18 +8,18 @@
     "type": "Unauthenticated"
   },
   "lastMeasuredOn": null,
-  "lastObservedAt": "2026-08-25T18:07:43.717839+00:00",
+  "lastObservedAt": "2026-08-25T18:33:26.837130+00:00",
   "lastObservedOn": "2026-08-25",
   "lastRun": {
     "attempts": 1,
     "deployConclusion": "pending",
-    "deployHeadSha": "5a95955dbe8390a403fdc96a55f88ec905ad3216",
+    "deployHeadSha": "d4362e8b7f07eb613015233479d3209131a22c2c",
     "deployRunId": "",
     "event": "push"
   },
   "measured": false,
   "schema": 2,
   "stateFingerprint": "sha256:f57cf5e6cbe5fdb5622c386fe300849a82fb2bdc3dbbfdab7bcaea151551b7f8",
-  "stateSince": "2026-08-25T18:07:43.717839+00:00",
+  "stateSince": "2026-08-25T18:33:26.837130+00:00",
   "status": "unverifiable_unauthenticated"
 }
