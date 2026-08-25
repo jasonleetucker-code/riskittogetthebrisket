@@ -190,10 +190,16 @@ test.describe("journey: trade surfaces", () => {
     // Hence: READ FIRST, and only click when no scan is in flight.
     // `disabled={running || dataLoading || !effectiveTeam}` makes
     // `isEnabled()` the page's own statement that a click is safe.
-    const scan = page.getByRole("button", { name: /Find arbitrage|Scanning/i });
+    // #1071 also renamed the scan button ("Find arbitrage" → "Find trade
+    // packages") and the no-result copy ("No arbitrage found" → "No package
+    // arbitrage found"); with the old names the poll below could neither
+    // click nor settle, so it burned its full 90s twice.
+    const scan = page.getByRole("button", {
+      name: /Find trade packages|Scanning/i,
+    });
     const settled = page
       .locator(SEL.arbitrageTradeCard)
-      .or(page.getByText(/No arbitrage found/i));
+      .or(page.getByText(/No package arbitrage found/i));
 
     await expect
       .poll(
