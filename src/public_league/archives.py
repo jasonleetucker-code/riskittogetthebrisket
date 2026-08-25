@@ -245,7 +245,11 @@ def _season_result_archives(
 
 def _manager_index(snapshot: PublicLeagueSnapshot) -> list[dict[str, Any]]:
     rows: list[dict[str, Any]] = []
-    for manager in snapshot.managers.ordered_managers():
+    # Archives are historical record sets: the season-result rows include
+    # retirees' real past seasons (C9-HIST-01), so the index must cover the
+    # rows it indexes — this is an all-time directory, not a forward-facing
+    # one (C9-HIST-01 residual).
+    for manager in snapshot.managers.ordered_managers(include_retired=True):
         rows.append(
             {
                 "kind": "manager",
