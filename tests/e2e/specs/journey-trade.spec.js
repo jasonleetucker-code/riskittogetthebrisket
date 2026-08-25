@@ -157,8 +157,11 @@ test.describe("journey: trade surfaces", () => {
     });
 
     // Before any scan the page states what it wants, rather than showing
-    // an empty table that reads like a broken board.
-    await expect(page.getByText(/Pick a team and scan/i)).toBeVisible({
+    // an empty table that reads like a broken board.  #1071 rewrote this
+    // empty state ("Package scan ready" / "Choose your team and a
+    // counterparty") without updating this assertion, which held the E2E
+    // Safety Net red on every PR from 2026-08-24 until this line caught up.
+    await expect(page.getByText(/Package scan ready/i)).toBeVisible({
       timeout: 30_000,
     });
 
