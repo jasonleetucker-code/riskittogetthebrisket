@@ -198,6 +198,64 @@ class TestTheInvariantDetectsImpossibility(unittest.TestCase):
             self.assertIsNone(row.get("blendIntegrityViolation"), f"boundary {v} flagged")
 
 
+class TestQuantizationSkewIsNotViolation(unittest.TestCase):
+    """The 2026-08-25 "2027 Mid 2nd" false positive, pinned.
+
+    The two quantities the detector compares are integers quantized from
+    floats by DIFFERENT rules: ``rankDerivedValue`` is ``int(norm_val)``
+    (truncation — up to 1.0 below the float blend), while each
+    ``valueContribution`` stamp is ``int(round(value))`` (within 0.5
+    either way). A blend genuinely inside its float hull can therefore
+    publish up to 1.5 below the stamped minimum and up to 0.5 above the
+    stamped maximum — and when the stamped hull is under a unit wide,
+    the old float-epsilon check manufactured a violation out of pure
+    rounding. Measured live: ktc voted 3459 x 9999/9997 = 3459.692,
+    idpTradeCalc voted 3460.0, the blend was ~3459.85 (inside), the
+    published truncation was 3459, and both stamps rounded to 3460 —
+    flagged "below" a hull the blend never left, quarantining the row
+    and turning the structural CI lane red on every open PR. The
+    2026-08-22 "2027 Late 1st" transient (#1063) was the same class.
+    """
+
+    def _detect(self, value, contributions):
+        row = {
+            "displayName": "X",
+            "canonicalConsensusRank": 134,
+            "rankDerivedValue": value,
+            "sourceRankMeta": {k: {"valueContribution": v} for k, v in contributions.items()},
+        }
+        dc._detect_blend_integrity_violations([row], {})
+        return row
+
+    def test_the_live_incident_shape_is_not_flagged(self):
+        """Truncated value one below a degenerate rounded hull."""
+        row = self._detect(3459, {"ktcSfTep": 3460, "idpTradeCalc": 3460})
+        self.assertIsNone(row.get("blendIntegrityViolation"))
+
+    def test_truncation_skew_below_a_narrow_hull_is_not_flagged(self):
+        """Same skew on a hull one unit wide."""
+        row = self._detect(3459, {"a": 3460, "b": 3461})
+        self.assertIsNone(row.get("blendIntegrityViolation"))
+
+    def test_below_beyond_the_quantization_bound_still_fires(self):
+        """Two whole units below the stamped floor cannot be rounding."""
+        row = self._detect(3458, {"a": 3460, "b": 3460})
+        self.assertEqual(row["blendIntegrityViolation"]["direction"], "below")
+
+    def test_above_beyond_the_quantization_bound_still_fires(self):
+        """Truncation never raises: one unit above the stamped ceiling
+        is already impossible, and must still be detected."""
+        row = self._detect(3461, {"a": 3460, "b": 3460})
+        self.assertEqual(row["blendIntegrityViolation"]["direction"], "above")
+
+    def test_the_allowance_is_quantization_scale_not_a_band(self):
+        """Both allowances must stay below 2 units on a 1-9999 scale —
+        wide enough for integer quantization, structurally too narrow to
+        act as the corridor's policy band."""
+        self.assertLessEqual(dc._BLEND_HULL_QUANTIZATION_BELOW, 1.5)
+        self.assertLessEqual(dc._BLEND_HULL_QUANTIZATION_ABOVE, 0.5)
+
+
 class TestMissingEvidenceStaysExplicit(unittest.TestCase):
     """ "Missing" is not "violating" — a hull needs two points."""
 
