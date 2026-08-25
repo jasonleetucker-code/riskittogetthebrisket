@@ -11483,6 +11483,14 @@ async def trigger_scrape(request: Request, background_tasks: BackgroundTasks):
     ``not_implemented`` because multi-league scraping isn't wired up
     yet (that's a future refactor of Dynasty Scraper.py).
     """
+    # W22-F007: triggering the production scrape (or force-refreshing
+    # a league's Sleeper overlay) is an operator-grade action, not a
+    # product feature — gate on the admin allowlist, never on mere
+    # session presence.  A guest-pass session gets 403 here.
+    session_or_err = _require_admin_session(request)
+    if isinstance(session_or_err, JSONResponse):
+        return session_or_err
+
     # Validate the key first.  Non-default leagues don't run the
     # full ranking scrape (the pipeline is single-league) — instead
     # they refresh the on-demand Sleeper overlay (rosters + trades
@@ -11570,8 +11578,13 @@ async def trigger_scrape(request: Request, background_tasks: BackgroundTasks):
 
 
 @app.post("/api/test-alert")
-async def test_alert():
+async def test_alert(request: Request):
     """Send a test alert email to verify configuration."""
+    # W22-F007: sends an outbound email — operator-grade, so it gates
+    # on the admin allowlist, not on session presence.
+    session_or_err = _require_admin_session(request)
+    if isinstance(session_or_err, JSONResponse):
+        return session_or_err
     if not ALERT_ENABLED:
         return JSONResponse(
             status_code=400,
@@ -11696,6 +11709,30 @@ async def auth_login(request: Request):
 
     username = str(payload.get("username") or "").strip()
     password = str(payload.get("password") or "")
+
+    # W22-F003: the login endpoint gets its own failure throttle —
+    # exponential backoff per client IP and per (client IP, username)
+    # after repeated failed attempts.  Checked BEFORE any credential
+    # comparison so a blocked caller learns nothing about validity.
+    # Design, constants and the never-key-on-username-alone invariant
+    # live in ``src/api/rate_limit.py`` (the ``login_*`` functions) —
+    # one throttle owner, no second in-server implementation.
+    from src.api import rate_limit as _rl
+
+    client_ip = _client_ip_from_request(request)
+    throttled, retry_after = _rl.login_throttle_check(client_ip, username)
+    if throttled:
+        return JSONResponse(
+            status_code=429,
+            content={
+                "ok": False,
+                "error": "too_many_attempts",
+                "message": "Too many failed login attempts — try again shortly.",
+                "retryAfterSeconds": retry_after,
+            },
+            headers={"Retry-After": str(retry_after), "Cache-Control": "no-store"},
+        )
+
     # Post-login default lands users on "/" (the Brisket Home
     # dashboard — Team Value + Top Movers + Risers/Fallers).  An
     # explicit ``next`` from the form preserves deep-link return,
@@ -11704,6 +11741,7 @@ async def auth_login(request: Request):
 
     # Owner login: full session, max-age = JASON_AUTH_COOKIE_MAX_AGE.
     if username == JASON_LOGIN_USERNAME and password == JASON_LOGIN_PASSWORD:
+        _rl.login_record_success(client_ip, username)
         session_id = _create_auth_session(username, auth_method="password")
         response = JSONResponse(content={"ok": True, "redirect": next_path})
         response.set_cookie(
@@ -11731,10 +11769,12 @@ async def auth_login(request: Request):
         if remaining < 1.0:
             # Expired during the millisecond between fetch and now —
             # treat as invalid.
+            _rl.login_record_failure(client_ip, username)
             return JSONResponse(
                 status_code=401,
                 content={"ok": False, "error": "Invalid username or password."},
             )
+        _rl.login_record_success(client_ip, username)
         session_id = _create_auth_session(
             "guest",
             auth_method="guest_pass",
@@ -11765,6 +11805,7 @@ async def auth_login(request: Request):
         )
         return response
 
+    _rl.login_record_failure(client_ip, username)
     return JSONResponse(
         status_code=401,
         content={"ok": False, "error": "Invalid username or password."},
@@ -14504,13 +14545,16 @@ async def post_intel_refresh(request: Request):
     sequentially (the cron's mode); any other key resolves through
     the standard league resolver."""
     is_cron = _intel_bearer_auth_ok(request)
-    session = None if is_cron else _get_auth_session(request)
-    if not is_cron and not session:
-        return JSONResponse(
-            status_code=401,
-            content={"error": "auth_required", "message": "Sign-in or bearer token required."},
-            headers={"Cache-Control": "no-store"},
-        )
+    session = None
+    if not is_cron:
+        # W22-F007: a crawl is minutes of budgeted Sleeper calls — an
+        # operator-grade action, so the browser path gates on the admin
+        # allowlist rather than session presence (a guest-pass session
+        # gets 403).  The bearer path (the daily cron) is unchanged.
+        session_or_err = _require_admin_session(request)
+        if isinstance(session_or_err, JSONResponse):
+            return session_or_err
+        session = session_or_err
 
     # D13: per-user cooldown on MANUAL triggers.  The cron (bearer) is
     # exempt — it is the intended scheduled driver.  A crawl is minutes
