@@ -426,8 +426,58 @@ Summary:
   `projection_observations.py`, `projection_source_census.py`, or
   `src/ros/aggregate.py`; the pre-existing `player_key` name-collision
   limitation (not repaired here).
+## 13. C5-GD-02 — prediction archive without temporal leakage
 
-## 13. Session status and open PRs (as of this entry)
+**Branch:** `claude/c5-gd-02-prediction-archive`, branched from `main` (NOT stacked —
+deliberately needs nothing from #966/#973/#969).
+
+Before building, ran a two-agent audit (per this turn's explicit mission: prove
+whether a shared "no-lookahead league-week simulation substrate" exists before
+building one — needed by both xWAR and Game Day, which are both blocked on exactly
+this). Confirmed MISSING on both halves:
+
+- No backward-replaying simulation engine exists — every engine found
+  (`playoff_odds.py`, `playoff_sim.py`, `championship.py`) is forward-only, live-roster.
+  The two playoff engines are themselves an unresolved duplication
+  (`docs/C_SERIES_SCOPE_MANIFEST.md:303`, `C5-PLAY-01`, CONSOLIDATE) — not touched here.
+- No archived per-week roster/projection data exists to replay against — `src/history/`'s
+  ledger is asset-value-identity-keyed only (no team/roster/week axis in its schema),
+  `exports/archive/` and `data/ros/aggregate/history/` are value-snapshots-only.
+
+Retroactive backfill is therefore structurally impossible — the same conclusion
+`scripts/backtest_perfect_draft.py` already reached for the analogous draft-price
+problem. Per the mission's own instruction ("DO NOT immediately build a simulator...
+design the smallest primitive"), and given the actual simulator needs methodology
+decisions (distribution family, sample count, correlation handling) this session
+must not invent unilaterally (METHODOLOGY STOP), selected the smallest genuinely
+useful, genuinely urgent, policy-independent next step: start capturing the
+perishable pre-event evidence now, before another week of it is lost permanently.
+This is not invented scope — it is `C5-GD-02`, already named in
+`docs/C_SERIES_SCOPE_MANIFEST.md` and `RET`-flagged for exactly this reason.
+
+Full record: `docs/game-day/C5_GD_02_PREDICTION_ARCHIVE.md`. Summary:
+
+- **Delivered:** `src/ros/game_day_archive.py` — a pure, append-only, dependency-light
+  capture store for per-(league, season, week, team, capture_kind) prediction
+  snapshots. No BDVM/Sleeper calls inside it (callers pass already-resolved data,
+  mirroring `src/history/store.py`'s own pure-store separation).
+- **Explicitly NOT built:** the simulator itself, xWAR, Game Day's probability
+  output, or any capture script that would actually call this store on a schedule.
+- **Key correctness decisions:** missing point estimates cannot be silently
+  coerced (source-without-estimate / estimate-without-source both refused,
+  mutation-proved); duplicate captures for the same identity are refused, never
+  silently overwritten (identity-keyed filenames, mutation-proved, with a
+  documented note on why both the refusal test and the success test are needed);
+  `captured_at` cannot be backdated because it isn't a parameter — always the real
+  clock; no `HISTORY_FLOOR`-equivalent constant, deliberately (no earlier data to
+  bound; inventing one would misrepresent an operational fact as a designed one).
+- **Verification:** `tests/ros/test_game_day_archive.py` 15/15;
+  `tests/api/test_canonical_ownership_protections.py` 35/35 combined (seasonal-lane
+  write guard holds); `tests/ros/` full suite 217/1-skipped, zero regressions;
+  `ruff check .` + `ruff format --check .` checked BEFORE push (learned from the
+  prior three units, which each needed a post-push fix cycle).
+
+## 14. Session status and open PRs (as of this entry)
 
 | PR | branch | unit | status |
 |---|---|---|---|
