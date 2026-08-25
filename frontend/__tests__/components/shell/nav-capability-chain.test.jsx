@@ -159,18 +159,39 @@ function renderedHrefs() {
   ).map((el) => el.getAttribute("href"));
 }
 
+/**
+ * Render, then OPEN the group the gated item lives in.
+ *
+ * This is load-bearing, and the first version of this file got it
+ * wrong. `NavMenu` renders its items only while `open` (`{open ? …}`),
+ * so a "the link is absent" assertion taken against a collapsed menu is
+ * true no matter what the capability says. Measured: mutating
+ * `itemIsOffered` to `!== false` — breaking fail-closed outright — left
+ * both negative tests here GREEN while the pure-model suite went 6 RED.
+ * A negative assertion that cannot fail is not evidence.
+ */
+async function renderTopBarWithMarketOpen(capabilities) {
+  const user = (await import("@testing-library/user-event")).default;
+  const rendered = renderTopBar(capabilities);
+  await user.click(screen.getByRole("button", { name: "Market menu" }));
+  return rendered;
+}
+
 describe("rendered navigation honours the capability", () => {
-  it("does NOT render the Consensus Edge link when it is unavailable", () => {
-    renderTopBar(UNAVAILABLE);
+  it("does NOT render the Consensus Edge link when it is unavailable", async () => {
+    await renderTopBarWithMarketOpen(UNAVAILABLE);
     expect(renderedHrefs()).not.toContain("/consensus-edge");
     // The rest of the Market group must survive — gating one item is not
-    // permission to drop its neighbours.
+    // permission to drop its neighbours. Asserted on the OPEN menu, so
+    // this also proves the absence above was measured against a menu
+    // that was actually showing its items.
+    expect(renderedHrefs()).toContain("/edge");
     expect(
       screen.getByRole("button", { name: "Market menu" }),
     ).toBeInTheDocument();
   });
 
-  it("does NOT render it when the capability is unknown (null / missing / bare)", () => {
+  it("does NOT render it when the capability is unknown (null / missing / bare)", async () => {
     for (const caps of [
       null,
       undefined,
@@ -178,16 +199,21 @@ describe("rendered navigation honours the capability", () => {
       { consensusEdge: {} },
       { consensusEdge: true },
     ]) {
-      const { unmount } = renderTopBar(caps);
-      expect(renderedHrefs()).not.toContain("/consensus-edge");
+      const { unmount } = await renderTopBarWithMarketOpen(caps);
+      const hrefs = renderedHrefs();
+      expect(hrefs, `capability ${JSON.stringify(caps)}`).not.toContain(
+        "/consensus-edge",
+      );
+      // Same non-vacuity guard: the menu really is open.
+      expect(hrefs, `capability ${JSON.stringify(caps)}`).toContain(
+        "/edge",
+      );
       unmount();
     }
   });
 
   it("renders it once the capability is explicitly available", async () => {
-    const user = (await import("@testing-library/user-event")).default;
-    renderTopBar(AVAILABLE);
-    await user.click(screen.getByRole("button", { name: "Market menu" }));
+    await renderTopBarWithMarketOpen(AVAILABLE);
     expect(renderedHrefs()).toContain("/consensus-edge");
   });
 

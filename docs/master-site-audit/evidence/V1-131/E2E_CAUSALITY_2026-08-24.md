@@ -311,3 +311,35 @@ call, not this one's.
 in `.github/workflows/pr-validation.yml`, so the hard-gate failure ends the job **before this
 lane's own gates run**. They are therefore reported below as locally verified at the exact head,
 and CI will exercise them as soon as the base blocker clears.
+
+
+---
+
+## Mutation re-run at the exact head — and it found a vacuous assertion of my own
+
+Both V1-131 mutations were re-run at `b2b724efd` rather than carried forward from the numbers
+measured before the availability rework:
+
+| mutation | result |
+|---|---|
+| `is_available()` → `return True` (claim available regardless of canonical state) | **8 of 23 RED** in `tests/api/test_nav_gated_features.py`, including all three `test_capability_and_the_board_never_disagree` cases where the board is unavailable |
+| `itemIsOffered`: `=== true` → `!== false` (break fail-closed) | **6 of 24 RED** — exactly the unknown / absent / bare-boolean states |
+
+The second one exposed a defect in **this PR's own test file**, and it is the kind this lane has
+been calling out in other people's code, so it is recorded rather than quietly fixed.
+
+`nav-capability-chain.test.jsx` reported `Test Files 1 failed | 1 passed` under that mutation:
+the pure-model suite went red, and the *rendered-chrome* suite stayed **green while fail-closed
+was broken**. Cause: `NavMenu` renders its items only while `open` (`{open ? … }`), and the two
+negative tests asserted `/consensus-edge` was absent **without opening the Market menu**. The
+link was absent because the menu was shut, not because the capability said so. A negative
+assertion that cannot fail is not evidence.
+
+Repaired by opening the group before asserting, plus a non-vacuity guard in each negative test —
+the sibling `/edge` link **must** be present, which is only true when the menu really is
+expanded. Re-running the identical mutation afterwards: **7 RED across `Test Files 2 failed (2)`**,
+so the chain suite now catches the break it previously slept through.
+
+This is a strengthening, not a weakening: no assertion was removed or relaxed, two were made
+capable of failing, and two non-vacuity guards were added. Full frontend suite green afterwards
+at **2,363 / 2,363** across 160 files.
