@@ -210,17 +210,17 @@ Projections · **L4** Market / FAAB / Analyst · **L5** Integration / QA / CI / 
 |---|---|---|---|---|---|---|
 | V1-55 | One FAAB engine (ceiling vs recommended bid) | `F-FAAB-01` / inv 3.1 | L4 | `VERIFIED` | L2 | FAAB core. 247 tests; backtest 166/166 → 0/166 low-value overbids |
 | V1-56 | FAAB league context panel | inv 3.2 | L4 | `IMPLEMENTED_UNVERIFIED` | L4 | FAAB core; owner status "VERIFY ONLY" |
-| V1-57 | FAAB bid-history collection is scheduled, not a manual step | `C4-FAAB-02` | L4 | `IMPLEMENTED_UNVERIFIED` | L3 | **#911 merged 2026-08-19 (`edc726ef1`).** The scheduler exists: `deploy/systemd/dynasty-faab-history.{service,timer}.template` plus the `install_simple_timer "faab-history"` line, verified in the diff and verified to match the installer's own naming convention (`dynasty-${stem}.{service,timer}.template`, unit `${SERVICE_NAME}-${stem}`). Fires 07:40 UTC, clear of the 2-hourly scrape, the crowd-FAAB pass and the sharp discovery/records/roster chain. **L3 needs the unit installed and firing on prod** — not claimable from here |
+| V1-57 | FAAB bid-history collection is scheduled, not a manual step | `C4-FAAB-02` | L4 | `IMPLEMENTED_UNVERIFIED` | L3 | **#911 merged 2026-08-19 (`edc726ef1`).** The scheduler exists: `deploy/systemd/dynasty-faab-history.{service,timer}.template` plus the `install_simple_timer "faab-history"` line, verified in the diff and verified to match the installer's own naming convention (`dynasty-${stem}.{service,timer}.template`, unit `${SERVICE_NAME}-${stem}`). Fires 07:40 UTC, clear of the 2-hourly scrape, the crowd-FAAB pass and the sharp discovery/records/roster chain. **L3 needs the unit installed and firing on prod** — not claimable from here. **RE-TESTED 2026-08-25 (§9b): `BLOCKED-EXTERNAL`, unobserved rather than failed.** `systemctl` is unavailable in this environment (*System has not been booted with systemd as init system*), so the verifier's `V57`/`V57b` checks report `blocked`. Whether `dynasty-faab-history.timer` is installed and has fired in production is **not known**; the templates are present in `deploy/systemd/` |
 | V1-132 | The horizon pick year is not a single-vendor dependency | audit `F-34` | L5 | `NOT STARTED` | L2 | **added 2026-08-18** — tracked DEFECT against already-required canonical value + signal independence, not new product scope. Measured: 2026/2027/2028 tier rows blend `idpTradeCalc` + `ktcSfTep`; the horizon year blends `idpTradeCalc` **alone** on all 12 cells, because the injection clones from the RAW payload while `ktcSfTep` pick values arrive via the later CSV enrichment. `F-30` made the horizon *guarantee* independent of this; the blended *value* still is not |
-| V1-129 | External crowd-FAAB evidence is comparable, fresh and position-capable | audit `F-33` / `FAAB_MARKET_SIGNAL_NORMALIZATION_2026-08-14` §3/§5/§7/§10 | L4 | `IMPLEMENTED_UNVERIFIED` | L2 | **#911 merged 2026-08-19.** `src/trade/faab_comparability.py` is the single owner, called at fetch AND read time; multi-copy and degenerate-budget leagues excluded; IDP refused against an offense-only population; stale ledgers refused. Adversarial review confirmed the headline invariant across 30 (crowd pct × value) combinations with every leaf key diffed, and `faab_engine.py` has a zero-byte diff. **L2 needs the crowd ledger, which is prod-only (gitignored)** — and see the deploy note: the accumulated legacy ledger hard-excludes on read, so `crowdMarket` reports `missing` until the fetcher re-accumulates |
-| V1-58 | Sharp cohort proven populated in production | `C4-SHARP-01` / `C4-U2` | L4 | `IMPLEMENTED_UNVERIFIED` | L3 | Sharp core. Verification artifacts end at 502/401/"unverifiable_unauthenticated" |
-| V1-59 | Sharp bootstrap stops failing | `C4-SHARP-02` | L4 | `IN PROGRESS` | L3 | Sharp core. FFPC timeouts + SQLite locking |
-| V1-60 | FFPC roster lane real or honestly empty | `C4-SHARP-03` | L4 | `IMPLEMENTED_UNVERIFIED` | L2 | **#911 merged 2026-08-19.** `CollectResult` gains `status` / `unavailable_reason` with an explicit `unavailable()` constructor, and the FFPC lane returns `no_cohort_managers_on_platform` instead of an empty success — so "the lane ran and found nothing" and "the lane did not run" are structurally distinct and both published. Verified in the diff. **L2 board measurement is prod-side** (FFPC contributes zero rosters today) |
-| V1-61 | Sharp Roster Percentage | inv 4.5 | L4 | `IMPLEMENTED_UNVERIFIED` | L4 | Sharp core; owner status "VERIFY ONLY" |
+| V1-129 | External crowd-FAAB evidence is comparable, fresh and position-capable | audit `F-33` / `FAAB_MARKET_SIGNAL_NORMALIZATION_2026-08-14` §3/§5/§7/§10 | L4 | `IMPLEMENTED_UNVERIFIED` | L2 | **#911 merged 2026-08-19.** `src/trade/faab_comparability.py` is the single owner, called at fetch AND read time; multi-copy and degenerate-budget leagues excluded; IDP refused against an offense-only population; stale ledgers refused. Adversarial review confirmed the headline invariant across 30 (crowd pct × value) combinations with every leaf key diffed, and `faab_engine.py` has a zero-byte diff. **L2 needs the crowd ledger, which is prod-only (gitignored)** — and see the deploy note: the accumulated legacy ledger hard-excludes on read, so `crowdMarket` reports `missing` until the fetcher re-accumulates. **FIVE CHECKS RE-ATTEMPTED 2026-08-25 (§9b) — all five `BLOCKED-EXTERNAL`, none simulated.** 129a/129b need the real `data/faab/crowd_history_dynasty_main.json`, absent here (verifier `C7`/`C10` = `blocked`); 129c needs an authenticated `POST /api/waiver/faab-recommend` with a real rostered IDP player; 129d must read the real current ledger and **no file was artificially aged** to manufacture a stale state; 129e needs the live `crowdMarket.targetFormatUnknown`. Separately corrected in this pass: `CLAUDE.md:1357` named `/api/faab/recommend`, which **does not exist** — the only registered route is `/api/waiver/faab-recommend` (`server.py:5770`), and a verifier following the doc would have chased a 404 and recorded a false negative |
+| V1-58 | Sharp cohort proven populated in production | `C4-SHARP-01` / `C4-U2` | L4 | `IMPLEMENTED_UNVERIFIED` | L3 | Sharp core. Verification artifacts end at 502/401/"unverifiable_unauthenticated". **RE-TESTED 2026-08-25 (§9b) and the blocker is worse than "no session for Claude":** `data/ops/sharp-production-smoke.json` — written by `verify-sharp-production.yml` against real production, committed at `a55d1eaf0` — reads `status: "unverifiable_unauthenticated"`, `measured: false`, `cohort: {}`, `lastError: 401 from https://chaseupside.com/api/sharp/cohort`, and **`lastMeasuredOn: null`**. That null is load-bearing: the standing production-verification workflow has **never once measured**. `BLOCKED-EXTERNAL` |
+| V1-59 | Sharp bootstrap stops failing | `C4-SHARP-02` | L4 | `IN PROGRESS` | L3 | Sharp core. FFPC timeouts + SQLite locking. **DEFECT NAMED 2026-08-25 (§9b) — still `IN PROGRESS`, not promoted.** Measured from real production journald via `Bootstrap Sharp Records` run **32813417583** (job `97697004287`, head `a9e1c1de2`), step *"Install units and populate the Sharp cohort"*: **failure after 30 m 11 s**. Two of the four candidate causes are present and one is upstream of the other. (1) `chaseupside-ffpc-sharp.service` **crashloops on a 30-minute `TimeoutStartSec`** — repeated `start operation timed out. Terminating.` → `code=killed, status=15/TERM` → `Failed with result 'timeout'`, restarting immediately, each cycle reporting `Consumed 29 min 25-45 s CPU time`. CPU rather than wall-clock means it is **spinning, not blocked on a slow remote read**. (2) When it does reach work it dies on `sqlite3.OperationalError: database is locked` at `src/intel/platform_ledger.py:1219` (`register_asset_alias`), via `hydrate_sleeper_asset_catalog` (`:1820`) from `scripts/crawl_ffpc_sharp.py:111`. (3) **The error path dies on the same lock** — `could not persist FFPC failure report`, `record_ingestion_run` (`:1862`) raising `database is locked` while handling (2) — so the service cannot record its own failure, which is why the ledger shows nothing rather than a failed run. Not a blip: of the 20 most recent runs every non-skipped one is a failure, back to 2026-08-22. Explicitly NOT promoted on the grounds that other Sharp surfaces look healthy — they return 401, so nothing about them is observed at all |
+| V1-60 | FFPC roster lane real or honestly empty | `C4-SHARP-03` | L4 | `IMPLEMENTED_UNVERIFIED` | L2 | **#911 merged 2026-08-19.** `CollectResult` gains `status` / `unavailable_reason` with an explicit `unavailable()` constructor, and the FFPC lane returns `no_cohort_managers_on_platform` instead of an empty success — so "the lane ran and found nothing" and "the lane did not run" are structurally distinct and both published. Verified in the diff. **L2 board measurement is prod-side** (FFPC contributes zero rosters today). **RE-TESTED 2026-08-25 (§9b): `BLOCKED-EXTERNAL` — and the state is `unavailable`, NOT honestly empty.** A truthful `no_cohort_managers_on_platform` may satisfy this row only when measured on the deployed real population. It cannot be claimed: per `V1-59`'s measured defect the FFPC ingestion service never completes a run, so the lane did not run. Coercing that to "empty" is the exact defect `#911` built `CollectResult.unavailable()` to prevent |
+| V1-61 | Sharp Roster Percentage | inv 4.5 | L4 | `IMPLEMENTED_UNVERIFIED` | L4 | Sharp core; owner status "VERIFY ONLY". **RE-TESTED 2026-08-25 (§9b): `BLOCKED-EXTERNAL` at L4.** `GET /api/sharp/roster-percentage` returns **401** unauthenticated, and no session is mintable (`POST /api/test/create-session` → 404, its correct fail-closed behaviour). No `transparency.cohortManagers` / `eligibleRosters` / `cohortCoveragePct` was observed, and none is inferred — unknown stays distinct from zero |
 | V1-62 | Sharp Tracker | inv 4.4 | L4 | `IN PROGRESS` | L4 | Sharp core; live but W15-F017 no memoization |
 | V1-63 | Manager-level Sharp concentration | inv 4.6 | L4 | `VERIFIED` | L1 | Sharp core; the denominator counts rosters, not people. **VERIFIED 2026-08-20 at Integration on merged `main` (#977, merge `ef41523a8`).** Target level **L1**, and that is what this rests on — deterministic RED→GREEN at the exact merged head, nothing inferred from CI or from the merge. The blocker was the one the previous note named precisely, and it was NOT the defect the row's title suggests: #927 (`df93e5ac1`) had already fixed `personManagerQuality` returning `1.0` for zero voters, but that lives in `src/sharp/market.py` (the Buy/Sell Tracker), while `docs/OWNER_FEATURE_INVENTORY.md:132` (inv 4.6 / `W15-F009`) names `src/sharp/roster_percentage.py` — the board where one manager's five teams could render as an 83% sharp roster percentage with nothing on the row saying it is one human. That surface now emits `distinctManagers` and `managerConcentration` per player, and `formatSample` shows the manager count only when it differs from the roster count, so the rosters-not-people rule is visible where the percentage is read. **Mutation-verified at Integration by execution, not accepted on the lane's report:** baseline `tests/sharp/test_roster_percentage.py` 45/45 at head `4dacf1c40`; **MG1** replacing `max(manager_counts.values()) / len(counted)` with `1 / len(counted)` (concentration blind to manager identity) ⇒ RED, 2 failed / 43 passed, including `test_manager_concentration_flags_one_person_behind_several_rosters`; **MG2** replacing `len(manager_counts)` with `len(counted)` (distinctManagers reporting rosters) ⇒ RED, the same 2 tests; restore ⇒ 45/45, clean tree. Non-vacuous in both directions. The lane's "`counted` is never empty" claim was checked rather than trusted, because `max()` over an empty Counter and a zero divisor would both be live faults: `holders` comes from `_tally(filtered)` and `roster_keys` from that same `filtered` list, so `held_by ⊆ roster_keys` by construction, `counted == held_by`, and `roster_manager` is total over it — no missing-manager state to coerce. Cohort qualification, scoring and weighting are untouched, and no canonical value surface is involved. |
 | V1-64 | Sharp event ledger surfaces adds/drops | inv 4.7 | L4 | `VERIFIED` | L1 | **VERIFIED 2026-08-20 on merged `main` (#936, merge `5bdee44db`).** Target level is **L1** — deterministic evidence — and it is now satisfied on BOTH producers, which is what the row was missing. #911 confirmed the behaviour existed; #936 pins it. `tests/sharp/test_record_queue.py` + `tests/sharp/test_transactions.py`: **27 passed** on the shipping tree. **Four mutations re-performed at Integration, each confirmed APPLIED before being counted:** `record_queue.py:110` `min`→`max` ⇒ RED `test_oldest_crawl_is_the_minimum_not_the_most_recent`; `record_queue.py:110` `None`→`0` ⇒ RED `test_no_crawled_league_publishes_none_never_zero`; `transactions.py` SQL `MIN(`→`MAX(` ⇒ RED (minimum test); `transactions.py:363` `else None`→`else 0` ⇒ RED (never-zero test). Restored: 27 pass. So `oldestCrawlMs` is provably the MINIMUM, and provably `None` rather than `0` when nothing was crawled — missing is not zero, on both code paths. A fifth attempt (Python `min(` in `transactions.py`) matched nothing because that producer aggregates in SQL; it applied no change and is NOT counted |
-| V1-65 | Insider Trading / cross-league ownership | `C4-INS-01` / inv 4.8 | L4 | `IMPLEMENTED_UNVERIFIED` | L2 | **#911 merged 2026-08-19. L1 COMPLETE and mutation-proven at Integration 2026-08-20; L2 UNMEASURABLE in this environment — NOT promoted.** The consolidation already existed (ledger / signals / two products); what was missing was the guarantee. `tests/intel/test_insider_never_claims_sharp.py` AST-scans the three insider modules for non-docstring "sharp" literals, with a positive control so it cannot pass by matching nothing and a negative control so docstrings stay allowed. 5 pass. **Mutation MI1, confirmed APPLIED with the changed line quoted:** appending a real emitted literal `_MUTATION_LABEL = "sharp manager signal"` to `src/intel/leads.py` ⇒ RED `test_the_insider_surface_emits_no_sharp_vocabulary[src/intel/leads.py]`, naming the offending module and line. So the scan is a genuine guard over the real tree, not only over its own fixture. The boundary itself is real in code: Sharp is a SKILL claim (`SHARP_ELIGIBLE_TYPES = {2}` — dynasty only — plus `SHARP_MIN_LEAGUE_AGE_SEASONS = 2`); Insider admits `ELIGIBLE_TYPES = {1, 2}` — keeper AND dynasty — with no age floor. **Why L2 is not satisfied:** §2 requires a measured statement of the effect on the live board or contract, and the population statement this row needs (how many leagues each filter actually admits) cannot be made here — `data/intel/ledger.sqlite3` is present but **schema-only**: `leagues`, `platform_leagues`, `league_memberships`, `transactions`, `asset_movements`, `sharp_people` and `manager_seasons` all hold **0 rows**. A count of 0 from an empty ledger is an artifact of the environment, not a finding — the same trap #927 named for the Sharp consensus row. The insider surface is also not on the public allowlist, so unlike `V1-95` it cannot be read off production unauthenticated, and that gate must not be relaxed to make verification easier. **To close:** run the eligibility census on the deployed ledger (on-box) and record how many leagues each filter admits and how the two sets differ |
+| V1-65 | Insider Trading / cross-league ownership | `C4-INS-01` / inv 4.8 | L4 | `IMPLEMENTED_UNVERIFIED` | L2 | **#911 merged 2026-08-19. L1 COMPLETE and mutation-proven at Integration 2026-08-20; L2 UNMEASURABLE in this environment — NOT promoted.** The consolidation already existed (ledger / signals / two products); what was missing was the guarantee. `tests/intel/test_insider_never_claims_sharp.py` AST-scans the three insider modules for non-docstring "sharp" literals, with a positive control so it cannot pass by matching nothing and a negative control so docstrings stay allowed. 5 pass. **Mutation MI1, confirmed APPLIED with the changed line quoted:** appending a real emitted literal `_MUTATION_LABEL = "sharp manager signal"` to `src/intel/leads.py` ⇒ RED `test_the_insider_surface_emits_no_sharp_vocabulary[src/intel/leads.py]`, naming the offending module and line. So the scan is a genuine guard over the real tree, not only over its own fixture. The boundary itself is real in code: Sharp is a SKILL claim (`SHARP_ELIGIBLE_TYPES = {2}` — dynasty only — plus `SHARP_MIN_LEAGUE_AGE_SEASONS = 2`); Insider admits `ELIGIBLE_TYPES = {1, 2}` — keeper AND dynasty — with no age floor. **Why L2 is not satisfied:** §2 requires a measured statement of the effect on the live board or contract, and the population statement this row needs (how many leagues each filter actually admits) cannot be made here — `data/intel/ledger.sqlite3` is present but **schema-only**: `leagues`, `platform_leagues`, `league_memberships`, `transactions`, `asset_movements`, `sharp_people` and `manager_seasons` all hold **0 rows**. A count of 0 from an empty ledger is an artifact of the environment, not a finding — the same trap #927 named for the Sharp consensus row. The insider surface is also not on the public allowlist, so unlike `V1-95` it cannot be read off production unauthenticated, and that gate must not be relaxed to make verification easier. **To close:** run the eligibility census on the deployed ledger (on-box) and record how many leagues each filter admits and how the two sets differ. **L2 RE-ATTEMPTED 2026-08-25 (§9b) — `UNMEASURABLE`, not failed.** The sandbox `data/intel/ledger.sqlite3` (458 KB) censuses to **29 tables, 0 rows in 28 of them** (`meta` = 4). Per the standing prohibition that is an ENVIRONMENT ARTIFACT, not evidence the production feature is broken, and it was **not** used as a population measurement. Sharp-admitted league count is **UNKNOWN**, never 0; the Insider-admitted count and the set difference were not computed, and were not inferred from source code. Needs the deployed ledger |
 
 ### 3.6 Source-health correctness and stability / false-green repairs
 
@@ -811,6 +811,128 @@ enable it (owner action, own blast radius) so the checklist can run, or classify
 already pass; the final rank-agreement observation needs naturally existing scored weeks and
 numeric ranks. Left `IMPLEMENTED_UNVERIFIED` / `STATE_BLOCKED`. No week was fabricated, no
 production evidence simulated, and refusal behaviour was **not** read as numeric agreement.
+
+---
+
+### §9b — Lane 4 batch harvest, 2026-08-25: access resolved once, zero rows promoted, one defect named
+
+Ran as one pass, per the Lane 4 batch directive. **Nothing was promoted, and the tally is
+unchanged at 89 / 136.** What this pass produces is (a) a definitive Phase-1 access answer,
+(b) the exact operational defect behind `V1-59`, measured from real production journald,
+and (c) two corrections. Recorded here so the next session re-tests rather than inherits.
+
+#### Phase 1 — production access, re-tested from scratch
+
+Both halves are **ABSENT**, not merely the session cookie:
+
+| capability | probe | result |
+|---|---|---|
+| on-box / VPS | `which ssh scp` | **not installed** |
+| on-box / VPS | `~/.ssh/` | empty — no keys, no `known_hosts`, no `config` |
+| on-box / VPS | `DEPLOY_HOST` | a GitHub Actions secret; not reachable from a session |
+| credentials | `.env`, `.env.local`, `.env.production` | absent |
+| site auth | `RISKIT_SESSION_COOKIE` | unset |
+| site auth | `GET /api/sharp/roster-percentage`, `/api/data`, `/api/terminal` | **401** each |
+| site auth | `POST /api/test/create-session` | **404** — correct fail-closed behaviour, not defeated |
+
+**The deployed automation has the same gap, and that is the more important finding.**
+`data/ops/sharp-production-smoke.json` — written by `verify-sharp-production.yml` against real
+production, committed at `a55d1eaf0` — reads `status: "unverifiable_unauthenticated"`,
+`measured: false`, `cohort: {}`, `lastError: 401 from https://chaseupside.com/api/sharp/cohort`,
+and **`lastMeasuredOn: null`**. That null is the load-bearing field: the Sharp production
+verification workflow has **never once measured**. So `V1-58`/`V1-61` are not waiting on an
+engineer with a terminal; the standing instrument itself has no session.
+
+#### The instrument was run, in both modes, and behaved correctly
+
+`scripts/verify_lane4_production.py` — not rebuilt, not weakened.
+
+* `--mode remote --origin https://chaseupside.com --league dynasty_main` → **exit 3**.
+  `R0` pass (all 5 routes registered, 108 discovered); `C1`/`C2`/`C3`
+  `unverifiable_unauthenticated` (401); `C4`-`C9` `blocked`.
+* `--mode onbox` in this sandbox → **exit 3**. `R0`/`R1`/`C4`/`C6`/`V65` pass, `C5`
+  `unmeasurable`, and `C1`/`C2`/`C3`/`C7`/`C10`/`C8`/`C9`/`V57`/`V57b`/`V60`/`B58`/`B59`
+  `blocked`.
+
+Neither exit 0. The strict semantics (401 = `UNVERIFIABLE_UNAUTHENTICATED`, empty population =
+`UNMEASURABLE`, absent store = `BLOCKED`) held without modification.
+
+#### V1-65 — the local ledger is an ENVIRONMENT ARTIFACT, and is recorded as one
+
+`data/intel/ledger.sqlite3` exists in this sandbox (458 KB). Read-only census: **29 tables, 0
+rows in 28 of them**, `meta` = 4. Per the directive's own prohibition this is **not** read as
+feature failure and **not** used as a population measurement. `V1-65` is `UNMEASURABLE` here.
+
+The L1 half stands unchanged (`V65` check: single owner at `src/sharp/cohort.py:263`, every
+surface re-exporting it). The L2 population measurement — Sharp-admitted league count,
+Insider-admitted league count, explicit set difference — requires the **deployed** ledger and
+was **not** attempted against this one. Sharp-admitted count is **UNKNOWN**, not 0.
+
+#### V1-59 — the exact remaining operational defect, MEASURED
+
+This is the one row whose blocker moves from "split evidence" to a named cause. Source: the
+`Bootstrap Sharp Records` workflow (`sharp-records-bootstrap.yml`), which dumps real production
+journald. Latest run **32813417583** on `a9e1c1de2`, job `97697004287`, step *"Install units and
+populate the Sharp cohort"* — **failure**, 05:35:13 → 06:05:24 (**30 m 11 s**).
+
+Of the directive's four hypotheses, **C and D are both present and D is upstream of C**:
+
+1. **Crashloop on a start timeout.** `chaseupside-ffpc-sharp.service` repeatedly logs
+   `start operation timed out. Terminating.` → `code=killed, status=15/TERM` →
+   `Failed with result 'timeout'`, at a 30-minute `TimeoutStartSec`, restarting immediately
+   (…06:33→07:03, 07:03:38→07:33:38, 07:35:23→08:05:23 in box-local time). Each cycle reports
+   `Consumed 29 min 25-45 s CPU time` — **CPU, not wall-clock wait**, so it is spinning rather
+   than blocked on a slow remote read.
+2. **`sqlite3.OperationalError: database is locked`**, at
+   `src/intel/platform_ledger.py:1219` in `register_asset_alias`, via
+   `hydrate_sleeper_asset_catalog` (`:1820`), from `scripts/crawl_ffpc_sharp.py:111`.
+3. **The error path dies on the same lock.** `could not persist FFPC failure report` —
+   `record_ingestion_run` (`platform_ledger.py:1862`) raises `database is locked` while handling
+   the exception above. The service therefore cannot record its own failure, which is why the
+   ledger shows nothing rather than showing a failed run.
+
+Run history is not a blip: of the 20 most recent `Bootstrap Sharp Records` runs, the
+non-skipped ones are **failures** without exception, back to 2026-08-22.
+
+`V1-59` stays **`IN PROGRESS`**. Not promoted, and explicitly not promoted on the grounds that
+other Sharp surfaces look healthy — they are 401, so nothing about them is observed at all.
+
+#### V1-60 — unavailable, NOT honestly empty
+
+A consequence of the above that must not be mis-recorded. The directive permits a truthful
+`no_cohort_managers_on_platform` to satisfy the empty-lane requirement **when measured on the
+deployed real population**. It cannot be claimed here: the FFPC ingestion service never
+completes a run, so the lane's state is **unavailable**, and coercing that to "honestly empty"
+is the exact defect `#911` built `CollectResult.unavailable()` to prevent. `V1-60` remains
+`IMPLEMENTED_UNVERIFIED`, `BLOCKED-EXTERNAL`.
+
+#### Two corrections
+
+* **`CLAUDE.md:1357` names a route that does not exist.** It states that
+  ``/api/faab/recommend`` stamps `crowdMarket`. The only registered FAAB recommendation route is
+  ``/api/waiver/faab-recommend`` (`server.py:5770`); there is no `/api/faab/*` route in
+  `server.py` at all. Corrected in this pass. The Lane 4 directive independently flagged the same
+  thing, and a verifier following the doc would have chased a 404 and recorded a false negative.
+* **`V1-129` five checks are not startable.** 129a/129b need the real
+  `data/faab/crowd_history_dynasty_main.json` (absent here — `C7`/`C10` `blocked`); 129c needs an
+  authenticated `POST /api/waiver/faab-recommend` with a real rostered IDP player; 129d must read
+  the real current ledger and was **not** simulated by artificially ageing anything; 129e needs the
+  live `crowdMarket.targetFormatUnknown`. All five: **BLOCKED-EXTERNAL**.
+
+#### V1-57
+
+`systemctl` is unavailable in this sandbox (`System has not been booted with systemd as init
+system`), so `V57`/`V57b` report `blocked`. Whether `dynasty-faab-history.timer` is installed and
+has fired is **unobserved**, not failed. The templates exist in `deploy/systemd/`.
+
+#### The single owner-facing action
+
+> **Provide or establish an authenticated `chaseupside.com` admin session through the existing
+> secure production-login / session mechanism, and on-box access to the deployed working
+> directory.**
+
+Nothing is to be pasted into GitHub or chat. Note that the same grant also un-blocks
+`verify-sharp-production.yml`, which has never measured.
 
 ---
 
