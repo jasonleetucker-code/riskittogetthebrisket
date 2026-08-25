@@ -37,6 +37,7 @@ from email.mime.multipart import MIMEMultipart
 from datetime import datetime, timezone
 from pathlib import Path
 from contextlib import asynccontextmanager
+from collections.abc import Callable
 from typing import Any
 
 from fastapi import FastAPI, BackgroundTasks, Request
@@ -11584,6 +11585,67 @@ async def test_alert():
 
 
 # ── AUTH + ENTRY GATE ROUTES ────────────────────────────────────────────
+
+
+# Nav-gated capabilities: the shell's nav key → the CANONICAL predicate
+# that answers "can this feature actually serve its page right now".
+#
+# Deliberately a SHORT closed list, not a dump of every flag.
+# `/api/auth/status` is on every page load and answers exactly one
+# question here ("may the nav offer this destination?"); operator-facing
+# flag visibility is a different concern and a different row (V1-87).
+# This must not grow into a general product-data endpoint.
+#
+# Each value is a THUNK resolving the feature's own availability owner at
+# call time, never a flag read done here.  A flag is not availability:
+# consensus_edge's board handlers 503 both when the flag is off
+# (`feature_disabled`) AND when no contract is loaded (`data_not_ready`),
+# so a nav gate keyed on the flag alone would advertise a dead page for
+# the whole window where the flag is on and the data is not.  Asking the
+# feature keeps one owner for feature health — the nav and the router
+# cannot drift into disagreeing about whether the page works.
+def _consensus_edge_available() -> bool:
+    from src.consensus_edge.api import is_available  # noqa: PLC0415
+
+    return is_available()
+
+
+_NAV_GATED_CAPABILITIES: dict[str, Callable[[], bool]] = {
+    # consensus_edge defaults OFF (ADR-023), so the DEFAULT state is a
+    # nav entry to a page whose every board endpoint refuses — the same
+    # thing the adminOnly Ops filter exists to prevent.
+    "consensusEdge": _consensus_edge_available,
+}
+
+
+def _nav_gated_features() -> dict[str, dict[str, bool]]:
+    """Effective availability of each nav-gated capability.
+
+    Shape is ``{"consensusEdge": {"available": bool}}`` — a nested object
+    rather than a bare boolean so a later capability can carry a second
+    fact without changing the key's type on a client already reading it.
+    ``available`` rather than ``enabled`` because those are genuinely
+    different questions here and the difference is the defect: the flag
+    can be on while the board still cannot be served.
+
+    FAILS CLOSED, per capability.  Anything that raises or cannot be
+    resolved yields ``False`` — "we could not confirm this works" must
+    never reach the shell as "this works".  It is also why this cannot
+    propagate: an exception escaping here would take down
+    `/api/auth/status`, the probe the entire shell (nav, switchers,
+    login affordance) depends on, so a rename in the feature module
+    would log every user out of their own chrome.
+    """
+    out: dict[str, dict[str, bool]] = {}
+    for key, resolve in _NAV_GATED_CAPABILITIES.items():
+        try:
+            available = bool(resolve())
+        except Exception:  # noqa: BLE001 — unresolvable ⇒ not offered
+            available = False
+        out[key] = {"available": available}
+    return out
+
+
 @app.get("/api/auth/status")
 async def auth_status(request: Request):
     session = _get_auth_session(request)
@@ -11604,6 +11666,20 @@ async def auth_status(request: Request):
             # so a client that lies to itself about this flag gains
             # nothing.
             "isAdmin": str(session.get("username") or "").lower() in PRIVATE_APP_ALLOWED_USERNAMES,
+            # Which flag-gated destinations actually answer, so the shell
+            # can stop OFFERING a nav entry whose page is dead (V1-131 /
+            # audit F-25).  Same posture as ``isAdmin`` directly above:
+            # a UI affordance, never access control — the router in
+            # ``src/consensus_edge/api.py`` re-checks the flag on every
+            # handler, so a client that lies to itself here reaches a
+            # 503, not a board.
+            #
+            # This rides the shell's EXISTING probe rather than adding a
+            # second one.  ``useAuth`` is the one capability fetch the
+            # shell makes on every route, and V1-108 ("non-data routes
+            # stop fetching the contract") is VERIFIED — a new per-page
+            # request to learn a boolean would regress it.
+            "features": _nav_gated_features(),
         }
     )
 
