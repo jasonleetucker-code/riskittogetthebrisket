@@ -356,6 +356,15 @@
     "intel-refresh.yml::refresh::Trigger intel refresh": {
       "category": "blocking"
     },
+    "lane4-onbox-verification.yml::lane4-onbox::Configure production SSH": {
+      "category": "blocking"
+    },
+    "lane4-onbox-verification.yml::lane4-onbox::Run Lane 4 on-box verification": {
+      "category": "blocking"
+    },
+    "lane4-onbox-verification.yml::lane4-onbox::Upload the report": {
+      "category": "blocking"
+    },
     "pr-validation.yml::validate::API data contract check (structural lane \u2014 blocking)": {
       "category": "blocking"
     },
