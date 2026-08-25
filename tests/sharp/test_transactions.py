@@ -298,9 +298,9 @@ class TestCoverageHonesty:
         stamps = _fetch_stamps(db)
         assert len(stamps) == 3, "the fixture must crawl three leagues or it proves nothing"
         assert cov["oldestCrawlMs"] == min(stamps)
-        assert cov["oldestCrawlMs"] != max(stamps), (
-            "min and max coincide, so this fixture cannot tell them apart"
-        )
+        assert cov["oldestCrawlMs"] != max(
+            stamps
+        ), "min and max coincide, so this fixture cannot tell them apart"
         # ...and the denominator behaviour already pinned above is untouched.
         assert cov["sharpEligibleLeagues"] == 3
         assert cov["leaguesCrawled"] == 3
