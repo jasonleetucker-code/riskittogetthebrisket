@@ -385,10 +385,21 @@ class TestSampleSizesFromRosterSettings:
     def test_a_non_idp_leagues_zero_idp_slots_derive_to_zero_not_omitted(self):
         """dynasty_new carries no DL/LB/DB/IDP_FLEX keys at all (it is
         not an IDP league) -- missing slot keys must derive to 0, not
-        raise or silently drop the key."""
+        raise or silently drop the key.  Starters are the host-truth
+        lineup (W18-F011: FLEX 1 + WRRB_FLEX 1, not FLEX 2); flex-type
+        keys are deliberately not read here, so the derivation is
+        unchanged by the second flex being WR/RB-only."""
         roster_settings = {
             "teamCount": 10,
-            "starters": {"QB": 1, "RB": 2, "WR": 3, "TE": 1, "FLEX": 2, "SFLEX": 1},
+            "starters": {
+                "QB": 1,
+                "RB": 2,
+                "WR": 3,
+                "TE": 1,
+                "FLEX": 1,
+                "WRRB_FLEX": 1,
+                "SFLEX": 1,
+            },
         }
         got = _service._sample_sizes_from_roster_settings(roster_settings)
         assert got["IDP_TOTAL"] == 0
@@ -409,3 +420,40 @@ class TestSampleSizesFromRosterSettings:
         zeros that would read as 'we measured zero demand'."""
         with pytest.raises(ValueError):
             _service._sample_sizes_from_roster_settings(roster_settings)
+
+
+class TestFlexSampleSizeHasNoSilentDefault:
+    """W18-F005 residual (V1-25): ``flex_n`` was
+    ``sample_sizes.get("FLEX", 96)`` — a hardcoded fallback lineup.
+
+    The recorded intent (``_sample_sizes_from_roster_settings``'s own
+    docstring) is that FLEX is deliberately NOT derived from the roster
+    shape: it is a combined top-N comparison-pool size with no owner
+    formula, so it stays a PLAIN CONFIG VALUE.  What that rules out is
+    the silent default — a caller that supplies no FLEX must get an
+    error naming the config, never another league's hand-typed 96.
+    ``build_comparison`` already fails fast on a missing FLEX before the
+    per-season helper runs; these pins close the helper's own escape
+    hatch so no future caller can reopen it."""
+
+    def test_missing_flex_is_an_explicit_error_not_a_default_lineup(self):
+        rows = _make_season(2025)
+        with pytest.raises(ValueError, match="FLEX"):
+            _service._per_season_metrics_for_league(
+                rows, _MY_SCORING, {"QB": 20, "RB": 20, "WR": 30, "TE": 10}, 2025
+            )
+
+    def test_the_configured_flex_value_is_the_one_used(self):
+        rows = _make_season(2025)
+        sizes = {"QB": 20, "RB": 20, "WR": 30, "TE": 10, "FLEX": 12}
+        _per_pos, flex_metrics, _union = _service._per_season_metrics_for_league(
+            rows, _MY_SCORING, sizes, 2025
+        )
+        assert flex_metrics.sample_size == 12
+
+    def test_live_config_declares_flex_explicitly(self):
+        """The live path is unchanged by removing the default: the config
+        still states FLEX as an explicit value (96 today), and
+        ``build_comparison`` requires it before the helper ever runs."""
+        config = _service._load_config()
+        assert int(config["sample_sizes"]["FLEX"]) > 0
