@@ -314,6 +314,7 @@ def crawl_transactions(
                 result.leagues_failed += 1
                 result.errors[lid] = "transactions_fetch_failed"
                 _save_fetch_state(conn, lid, state, error="transactions_fetch_failed")
+                conn.commit()
                 continue
 
             new_boundary = {
@@ -334,6 +335,18 @@ def crawl_transactions(
                 },
                 error=None,
             )
+            # Commit PER LEAGUE, not once for the whole crawl.  Every
+            # iteration does network I/O, so a single end-of-crawl commit
+            # held the SQLite writer lock across the entire budget — the
+            # same contention records.py repaired per season (V1-59): in a
+            # quiet period most leagues yield zero new events, nothing
+            # else commits, and the implicit transaction opened by the
+            # first _save_fetch_state upsert starves every concurrent
+            # sharp unit past its 30 s busy_timeout.  Movements dedupe on
+            # movement_id and fetch state upserts on league_id, so
+            # per-league durability changes no outcome — only the lock
+            # window.
+            conn.commit()
             result.leagues_fetched += 1
 
         conn.commit()
