@@ -1,0 +1,142 @@
+name: Lane 4 On-Box Verification (read-only)
+
+# Lane 4 V1 production evidence, run FROM THE BOX.
+#
+# WHY THIS EXISTS
+# ---------------
+# `scripts/verify_lane4_production.py --mode onbox` is the owner of Lane 4's
+# per-row production checks, and its inputs are all prod-only and gitignored:
+# `data/intel/ledger.sqlite3`, `data/faab/crowd_history_<leagueKey>.json`,
+# the league scoring cards, the installed systemd units.  A repository cannot
+# prove any of them, and a sandbox that reads its own empty copies proves
+# something worse than nothing — it proves a false negative.
+#
+# The 2026-08-25 Lane 4 batch recorded every one of V1-57/58/59/60/61/65/129
+# as BLOCKED-EXTERNAL for want of on-box access.  That was true of the
+# *session*, and it was the wrong conclusion about the *repository*: CI has
+# held working SSH to production all along (`DEPLOY_*` secrets, strict
+# host-key verification), and what was missing was a workflow that runs this
+# particular script.  Eleven SSH workflows exist; each takes narrow typed
+# inputs and none references it.  This is that workflow, and nothing more.
+#
+# READ-ONLY, and enforced by shape rather than by promise:
+#   * `--out` is deliberately NOT passed, so the script writes nothing to
+#     production disk.  Its stdout is captured on the RUNNER and uploaded
+#     as an artifact.
+#   * every check the script performs is a GET, a file read, or a
+#     `systemctl` query (see its module docstring, rule 3).
+#
+# WHAT IT CANNOT DO
+# -----------------
+# `--mode remote`, and on-box checks C8/C9, read `server.py`'s assembled
+# `/api/waiver/faab-recommend` response.  Those are session-gated by
+# `_private_api_gate` with no localhost exemption and no bearer path, so they
+# need `--origin` + `--add-player` + a real session.  They stay blocked until
+# a `PROD_VERIFY_GUEST_PASS` environment secret exists.  This workflow does
+# not attempt them, does not enable `E2E_TEST_MODE`, and does not widen the
+# public allowlist — the gate refusing us is the gate working.
+#
+# EXIT CODES (from the script, passed through unchanged):
+#   0  applicable checks ran and passed
+#   1  error
+#   2  a check FAILED
+#   3  proved nothing — NOT green.  A 401 is UNVERIFIABLE_UNAUTHENTICATED,
+#      never a pass and never a failure.
+#
+# Same SSH mechanism, permissions and concurrency posture as
+# temporal-ledger-diagnostics.yml.
+
+on:
+  workflow_dispatch:
+    inputs:
+      league:
+        description: League key to verify against (registry key, never a raw Sleeper id)
+        required: false
+        default: "dynasty_main"
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: production-deploy
+  cancel-in-progress: false
+
+jobs:
+  lane4-onbox:
+    name: Lane 4 on-box verification
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: production
+    steps:
+      - name: Configure production SSH
+        env:
+          DEPLOY_SSH_PRIVATE_KEY: ${{ secrets.DEPLOY_SSH_PRIVATE_KEY }}
+          DEPLOY_KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+          DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          install -d -m 700 "$HOME/.ssh"
+          printf '%s\n' "$DEPLOY_SSH_PRIVATE_KEY" | sed 's/\r$//' > "$HOME/.ssh/id_ed25519"
+          printf '%s\n' "$DEPLOY_KNOWN_HOSTS" | sed 's/\r$//' > "$HOME/.ssh/known_hosts"
+          chmod 600 "$HOME/.ssh/id_ed25519"
+          chmod 644 "$HOME/.ssh/known_hosts"
+          ssh-keygen -y -f "$HOME/.ssh/id_ed25519" >/dev/null
+          echo "PORT=${DEPLOY_PORT:-22}" >> "$GITHUB_ENV"
+
+      - name: Run Lane 4 on-box verification
+        id: verify
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          APP_DIR: ${{ vars.PROD_APP_DIR || '/home/dynasty/trade-calculator' }}
+          LEAGUE_KEY: ${{ inputs.league }}
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          # `tee` must not mask the remote exit status, and the remote
+          # status is the whole point: 3 means "proved nothing", which
+          # reads identically to success in a log nobody scrolls.
+          set -o pipefail
+          rc=0
+          ssh -i "$HOME/.ssh/id_ed25519" \
+            -o BatchMode=yes -o StrictHostKeyChecking=yes \
+            -o UserKnownHostsFile="$HOME/.ssh/known_hosts" \
+            -o ConnectTimeout=15 -o ServerAliveInterval=15 \
+            -p "$PORT" "$DEPLOY_USER@$DEPLOY_HOST" \
+            "APP_DIR=$(printf %q "$APP_DIR") LEAGUE_KEY=$(printf %q "$LEAGUE_KEY") bash -s" <<'REMOTE' 2>&1 | tee lane4-onbox.txt || rc=$?
+          set -Eeuo pipefail
+          cd "$APP_DIR"
+          # The deployed SHA is part of the evidence: a Lane 4 verdict is
+          # only attributable to a tree if the tree is recorded with it.
+          echo "### deployed_sha: $(git rev-parse HEAD)"
+          echo "### app_dir: $APP_DIR"
+          echo "### league: $LEAGUE_KEY"
+          echo "### utc: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          echo "###"
+          PY="$APP_DIR/.venv/bin/python"
+          [ -x "$PY" ] || PY="$APP_DIR/venv/bin/python"
+          [ -x "$PY" ] || PY=python3
+          # No --out: nothing is written to production disk.
+          exec "$PY" scripts/verify_lane4_production.py \
+            --mode onbox --league "$LEAGUE_KEY"
+          REMOTE
+          echo "verifier_exit=$rc" >> "$GITHUB_OUTPUT"
+          echo "Lane 4 verifier exit code: $rc"
+          case "$rc" in
+            0) echo "::notice title=Lane 4::applicable checks ran and PASSED" ;;
+            2) echo "::error title=Lane 4::a check FAILED (exit 2)" ;;
+            3) echo "::error title=Lane 4::proved nothing (exit 3) — NOT green" ;;
+            *) echo "::error title=Lane 4::verifier errored (exit $rc)" ;;
+          esac
+          exit "$rc"
+
+      - name: Upload the report
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: lane4-onbox-report
+          path: lane4-onbox.txt
+          if-no-files-found: warn
+          retention-days: 30
