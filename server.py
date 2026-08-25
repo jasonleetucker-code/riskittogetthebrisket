@@ -3368,7 +3368,13 @@ _PUBLIC_API_EXACT = frozenset(
         "/api/auth/status",
         "/api/auth/login",
         "/api/auth/logout",
-        "/api/scaffold/status",
+        # /api/scaffold/status was REMOVED from this list 2026-08-25
+        # (W22-F005 / V1-103): it hands the full source inventory and
+        # pipeline internals to anonymous callers, and a caller census
+        # found nothing anonymous reading it — no frontend caller, no
+        # bridge route, no workflow curl, no deploy script. The other
+        # /api/scaffold/* endpoints were already private
+        # (tests/api/test_private_auth.py).
         # /league page is a public view — its draft-capital tab reads
         # this endpoint.  Payload is public Sleeper data (team names,
         # pick dollar values, owners) already viewable on Sleeper.
