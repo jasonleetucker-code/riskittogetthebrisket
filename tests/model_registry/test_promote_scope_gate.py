@@ -132,22 +132,45 @@ class TestGateIsWired:
         assert round_tripped.scope_validation  # not {}
 
 
+def _live_registry() -> ModelRegistry:
+    return ModelRegistry.load("hill_scope_masters")
+
+
+def _standing_challengers() -> list[int]:
+    """Every challenger the live registry currently carries.
+
+    DERIVED, never hard-coded.  ``.github/workflows/refit-hill-curves.yml``
+    registers a new challenger every week, so a literal list is stale by
+    construction — and this was not hypothetical: the list shipped as
+    ``[3, 4, 5]`` and the very next refit added **v6**, which the test would
+    then have skipped in silence.  A coverage gap in a guard is worse than
+    no guard, because the guard still reports green.
+
+    ``rejected`` and ``retired`` versions are excluded on purpose: this
+    asserts what could still be promoted TODAY, and a rejected version is
+    already refused for a different reason.
+    """
+    return [v.version for v in _live_registry().versions if v.status == "challenger"]
+
+
 class TestAgainstTheLiveRegistry:
     """The gate's verdict on the real standing challengers.
 
-    Not a hypothetical: `hill_scope_masters` carries champion v2 and two
-    open challengers, and every one of them moves a routed scope that
-    nothing scored.  If this ever starts passing, either real per-scope
-    evidence arrived or the gate was weakened — both are things a reader
-    of this file should be forced to notice.
+    Not a hypothetical: `hill_scope_masters` carries champion v2 and open
+    challengers that each move a routed scope nothing scored.  If this ever
+    starts passing, either real per-scope evidence arrived or the gate was
+    weakened — both are things a reader of this file should be forced to
+    notice.
     """
 
-    def _live(self) -> ModelRegistry:
-        return ModelRegistry.load("hill_scope_masters")
+    def test_there_is_something_to_refuse(self):
+        """Positive control.  An empty challenger list would make the
+        parametrized test below vacuous — zero cases, still green."""
+        assert _standing_challengers(), "no standing challengers; the guard below proves nothing"
 
-    @pytest.mark.parametrize("version", [3, 4, 5])
+    @pytest.mark.parametrize("version", _standing_challengers())
     def test_every_standing_challenger_is_refused(self, version: int):
-        reg = self._live()
+        reg = _live_registry()
         assert reg.champion.version == 2, "test assumes v2 is champion"
         with pytest.raises(RegistryError, match="UNVALIDATED_NO_HOLDOUT"):
             reg.promote(version, reason="held-out criterion improved")
