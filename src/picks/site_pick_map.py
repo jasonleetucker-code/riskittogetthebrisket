@@ -41,6 +41,7 @@ from dataclasses import dataclass, field
 from typing import Any, Mapping, Sequence
 
 __all__ = [
+    "MODEL_INJECTED_PROVENANCE",
     "PICK_TIERS",
     "SitePickMap",
     "build_site_pick_map",
@@ -48,8 +49,10 @@ __all__ = [
     "parse_pick_label",
     "pick_suffix",
     "pick_value",
+    "reconcile_emitted_anchor_provenance",
     "slot_to_tier",
     "slot_tier_ranges",
+    "VENDOR_ROW_PROVENANCE",
 ]
 
 #: Tier vocabulary, in board order.
@@ -393,3 +396,57 @@ def build_site_pick_map(
                     values[key] = fmt_pick_value(s_val)
                     provenance[key] = s_class
     return SitePickMap(values=values, provenance=provenance)
+
+
+# ── Emitted-anchor provenance reconciliation (F-22 / V1-85) ──────────
+
+#: The scraper's model composite, published under a vendor key on a row
+#: that vendor did not price (the deliberate C1-U6 follow-up 3 branch).
+MODEL_INJECTED_PROVENANCE = "model_injected_composite"
+
+#: A value that rode a model row's per-site values — vendor evidence —
+#: but whose (site, key) has no recorded stage-1 evidence class.
+VENDOR_ROW_PROVENANCE = "vendor_row_value"
+
+
+def reconcile_emitted_anchor_provenance(
+    emitted: Mapping[str, Any],
+    stage1_provenance: Mapping[str, Any],
+    model_injected: Sequence[tuple[str, str]] | set[tuple[str, str]] | None = None,
+) -> dict[str, dict[str, str]]:
+    """Provenance for exactly the anchors a payload EMITS.
+
+    ``SitePickMap``'s contract — a key absent from ``values`` is absent
+    from ``provenance`` too — holds per source at build time, but the
+    scraper's export replaces the built anchor maps with the model's
+    rebuilt board while carrying the stage-1 provenance forward
+    unchanged (F-22 / V1-85).  Measured on the 2026-08-25 payload: the
+    export stamped provenance for ``ktcSfTep`` (180 keys) while
+    ``pickAnchors`` carried no ``ktcSfTep`` at all, and stamped 180
+    ``ktc`` keys against 84 emitted — two surfaces describing the same
+    anchors differently, which is the audit's F-22 exactly.
+
+    This reconciles the descriptions: the returned mapping's site and
+    key sets equal the emitted map's, exactly.  A value that rode a
+    model row's site values keeps its stage-1 evidence class when one
+    was recorded (else ``VENDOR_ROW_PROVENANCE``); a model-injected
+    composite is named ``MODEL_INJECTED_PROVENANCE`` rather than
+    wearing a vendor class.  Reporting only — no anchor value is read,
+    written, or moved here.
+    """
+    injected = {(str(s), str(k)) for s, k in (model_injected or ())}
+    out: dict[str, dict[str, str]] = {}
+    for site, site_map in emitted.items():
+        if not isinstance(site_map, Mapping):
+            continue
+        stage1 = stage1_provenance.get(site)
+        stage1 = stage1 if isinstance(stage1, Mapping) else {}
+        site_prov: dict[str, str] = {}
+        for key in site_map:
+            k = str(key)
+            if (str(site), k) in injected:
+                site_prov[k] = MODEL_INJECTED_PROVENANCE
+            else:
+                site_prov[k] = str(stage1.get(k) or VENDOR_ROW_PROVENANCE)
+        out[str(site)] = site_prov
+    return out
