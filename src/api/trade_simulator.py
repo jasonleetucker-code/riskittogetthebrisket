@@ -215,6 +215,12 @@ def simulate_trade(
           "unresolvedOut": [str, ...],
           "equity":        int,          # net value to team (positive = good)
           "rosterCapacity":{...},         # see src/trade/roster_capacity
+          "finalRosterSimulation": {...}, # optional; see src.roster_intel.simulation.
+                                           # RosterSimulation.to_dict() plus cleanupApplied /
+                                           # cleanupIsUpperBound. Absent (not null) whenever
+                                           # rosterCapacity itself is absent/failed; an
+                                           # {"available": False, ...} / {"unavailable": ...}
+                                           # shape when computable-but-refused or errored.
         }
 
     Never mutates the contract or persists.  Pure function over the
@@ -391,11 +397,12 @@ def simulate_trade(
                 resolved_team,
                 roster_settings=roster_settings,
             )
-            response["rosterCapacity"] = assess_roster_capacity(
+            capacity = assess_roster_capacity(
                 capacity_context,
                 incoming_players=players_in,
                 outgoing_players=players_out,
-            ).to_dict()
+            )
+            response["rosterCapacity"] = capacity.to_dict()
         except Exception as exc:  # noqa: BLE001
             # Degrade, never fail: the value delta above is the primary
             # answer and must not be taken down by an optional capacity
@@ -405,5 +412,55 @@ def simulate_trade(
                 "unavailable": f"{type(exc).__name__}",
                 "notes": ["roster capacity could not be computed for this trade"],
             }
+            capacity = None
+            capacity_context = None
+
+        # Final legal roster: WHICH player actually goes, the re-solved
+        # lineup, and the Team Strength delta — not just the forced-drop
+        # COST estimate ``rosterCapacity`` above reports.
+        #
+        # C2-SIM-01 (``src.roster_intel.simulation.simulate_roster_change``)
+        # and its C3-CAP-01 composition
+        # (``roster_capacity.simulate_final_legal_roster``) already exist and
+        # are independently tested (``tests/trade/test_trade_consumes_roster.py``,
+        # P1-P9). This block is pure composition of those two already-owned
+        # primitives at this endpoint — no new roster-impact methodology.
+        #
+        # A separate try/except from the block above: a failure here must
+        # not erase an already-successful ``rosterCapacity`` result, and a
+        # failure above must not be double-reported.
+        if capacity is not None and capacity_context is not None:
+            requires_drops = capacity.requires_drops
+            if requires_drops is None:
+                # Taxi-bracket ambiguity: the outgoing set for the cleanup
+                # solve is itself uncertain, so re-solving against one
+                # arbitrary guess would publish a specific lineup as though
+                # it were determined. Missing is never zero: this is a
+                # distinct "unknown" from a computed, empty result.
+                response["finalRosterSimulation"] = {
+                    "available": False,
+                    "unavailableReason": "capacity_uncertain",
+                    "notes": [
+                        "taxi membership is unknown and the forced-drop set is "
+                        "therefore a range, not a determined set — see rosterCapacity"
+                    ],
+                }
+            else:
+                try:
+                    from src.trade.roster_capacity import (  # noqa: PLC0415
+                        simulate_final_legal_roster,
+                    )
+
+                    response["finalRosterSimulation"] = simulate_final_legal_roster(
+                        capacity_context,
+                        capacity,
+                        incoming_players=players_in,
+                        outgoing_players=players_out,
+                    )
+                except Exception as exc:  # noqa: BLE001
+                    response["finalRosterSimulation"] = {
+                        "unavailable": f"{type(exc).__name__}",
+                        "notes": ["the final legal roster could not be simulated for this trade"],
+                    }
 
     return response

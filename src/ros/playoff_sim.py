@@ -748,6 +748,17 @@ def simulate_playoff_odds(
             snapshot, ros_map, best_ball=best_ball, points_model=model
         )
     if not distributions:
+        # No scored weeks exist for this league yet, so there is no
+        # evidence to build a team score distribution from — the same
+        # state `src.public_league.playoff_odds` and
+        # `src.ros.championship` detect off the identical
+        # `playoff_odds._season_weekly_scores` signal and both name
+        # `no_scored_weeks_in_league` (V1-51: two engines must not
+        # invent different words for one state). This branch used to
+        # publish that state silently — n_simulations: 0 with no
+        # unsimulable block — distinguishable from the two OTHER
+        # refusal branches in this function only by the absence of a
+        # name, not by any signal a caller could act on.
         return {
             "playoffOdds": [],
             "n_simulations": 0,
@@ -757,6 +768,14 @@ def simulate_playoff_odds(
             "rosStrengthAvailable": bool(ros_map),
             "bestBallVarianceMode": "depth_aware" if best_ball else "off",
             "pointsModelSource": model.source,
+            "unsimulable": {
+                "reason": "no_scored_weeks_in_league",
+                "detail": (
+                    "no scored weeks exist for this league yet, so there is no "
+                    "evidence to build a team score distribution from. This is "
+                    "not a 0% chance for anyone."
+                ),
+            },
         }
 
     record = _current_record(snapshot)

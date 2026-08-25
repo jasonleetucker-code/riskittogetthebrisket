@@ -1,8 +1,9 @@
 # V1-52 — one canonical weekly power-rankings engine
 
-Status: **IN PROGRESS.** Steps 1-4 landed; the retirement itself (step 5)
-is scoped and measured below but **not done**, and the reason is a real
-constraint rather than remaining effort.
+Status: **Steps 1-5 landed.** Step 5 (the retirement) shipped differently
+from what this document originally scoped for it -- see "Step 5,
+corrected" below, appended rather than rewritten in place so the reasoning
+trail that led to the corrected design stays legible.
 
 Companion to `docs/playoffs/V1_51_CANONICAL_PLAYOFF_BRACKET.md`, which
 established the precondition this unit builds on.
@@ -212,3 +213,65 @@ live public `/league` output the moment they ship — the refusal replaces
 a fabricated order with an honest empty state, and the lens repair gives
 the retrospective view real numbers all offseason where it previously
 had none. Both should be observed in production rather than assumed.
+
+## Step 5, corrected
+
+The claim above -- "an adapter cannot recover a raw PPG from a percentile,
+so it would have to compute one, which is a second owner again" -- does
+not survive reading `_score_state` itself. `inputs[oid]["ppg"]` and
+`inputs[oid]["recent"]` (the exact raw magnitudes power.py's own
+`pointsPerGame`/`recentAvg` are, from the same `career`/`recent`
+accumulators) are computed as an unavoidable intermediate step *before*
+`_percentile(...)` converts them into `components.ppg`/`components.recent`.
+The adapter framing was never tested against the code: this is not
+"recompute a raw value from a percentile" (the thing that really would be
+a second engine) — it is "stop discarding a local this one function
+already built." `components.allPlayWinPctThisWeek` was already correctly
+identified elsewhere (V1-52 item D, #996) as never having been a
+percentile in `power_v2` at all; this closes the other two of the three
+supposedly-unrecoverable fields the same way.
+
+What actually shipped, once that was corrected:
+
+* `_score_state` gains `components.pointsPerGame`/`components.recentAvg`
+  (raw), additive alongside the existing `components.ppg`/`components.recent`
+  (percentile) — present on headline rows, every `trend.weeks[].rankings`
+  row, and the refuse-to-rank rows. Display-only: excluded from `WEIGHTS`
+  by construction, so `powerScore` cannot move.
+* `ros-power.jsx` gains the week-selector table and the power-score line
+  chart `power.jsx` had — both built from `trend.weeks`/`trend.seriesByOwner`,
+  data the canonical engine already publishes. No second computation on
+  the frontend.
+* The retirement is NOT "the toggle selecting a lens" as originally
+  scoped. `settings.useRosPowerRankings` is deleted outright, not left as
+  an inert toggle — it had already defaulted to `true` since 2026-04-29,
+  so `power.py`/`power.jsx` were reachable only via explicit opt-out, and
+  there is no longer an alternative for a toggle to select between.
+  `src/public_league/power.py`, `frontend/app/league/sections/power.jsx`,
+  and the `_SECTION_BUILDERS["power"]` eager registry entry are deleted,
+  not deprecated.
+* The Playoff Odds card `power.jsx` embedded (a separate feature from
+  power rankings, fetching `/api/public/league/playoffOdds`) had no other
+  frontend consumer anywhere on `/league` — deleting `power.jsx` outright
+  would have silently dropped it. Ported into `ros-power.jsx` unchanged,
+  same v1 data source, zero methodology change; the dormant ROS-blended
+  `rosPlayoffOdds` section (built server-side, never consumed) is left
+  untouched, since activating it is a separate, bigger decision than
+  retiring the power-ranking engine.
+* The shape differences table above is now fully closed except `games`
+  (dropped — not rendered by `power.jsx`'s table and recoverable from
+  `record` by any future consumer that needs it) and `weekRankDelta`
+  (superseded, not reproduced — see below).
+
+`weekRankDelta` is not reintroduced under that name. `ros-power.jsx`
+already computed an equivalent (`trendDelta`, prior-vs-last-two-weeks rank
+change from `trend.seriesByOwner`, always within the results-only lens so
+it never mixes with the headline lens's forward-looking rank) since #979.
+It already returns `null` rather than `0` when fewer than two trend points
+exist or a compared week was unrankable — the same "unknown stays `None`"
+posture `power.py`'s own `weekRankDelta` violated (`(prior - rank) if
+prior else 0`, an anti-pattern documented and NOT reproduced when
+`overview.currentPowerLeader` was redirected in #996). The week-selector's
+own `weekDelta` helper generalizes the same function to any two adjacent
+trend weeks rather than only the last two, preserving the identical
+null-propagation semantics — no new field was invented to replace it.

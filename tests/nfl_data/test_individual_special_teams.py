@@ -39,7 +39,11 @@ from pathlib import Path
 
 import pytest
 
-from src.nfl_data.realized_points import compute_weekly_points, sleeper_stat_line_from_row
+from src.nfl_data.realized_points import (
+    PBP_SUPPLEMENT_ROW_KEY,
+    compute_weekly_points,
+    sleeper_stat_line_from_row,
+)
 from src.nfl_data.scoring_coverage import (
     _MAXIMAL_ROW,
     Coverage,
@@ -63,6 +67,24 @@ def dynasty_main_card() -> dict:
         (EVIDENCE / "sleeper_league_1312006700437352448.json").read_text(encoding="utf-8")
     )
     return doc.get("scoring_settings") or {}
+
+
+@pytest.fixture(scope="module")
+def dynasty_new_card() -> dict:
+    doc = json.loads((EVIDENCE / "sleeper_league_dynasty_new.json").read_text(encoding="utf-8"))
+    return doc.get("scoring_settings") or {}
+
+
+#: V1-49 / #1020.  A config neither live league carries — all four of
+#: the disputed keys nonzero — so the RED-fixture requirement (test on a
+#: configured supported league, per the task) does not depend on either
+#: live card ever turning one on.
+SYNTHETIC_RETURN_TD_CARD = {
+    "kick_ret_td": 6.0,
+    "punt_ret_td": 6.0,
+    "idp_def_kr_td": 6.0,
+    "idp_def_pr_td": 6.0,
+}
 
 
 @pytest.fixture(scope="module")
@@ -98,6 +120,77 @@ def test_return_yards_move_a_real_players_total(dynasty_main_card):
     # 105 * 0.0333.. + 41 * 0.0333.. = 4.8667
     assert with_returns.fantasy_points == pytest.approx(4.8667, abs=1e-3)
     assert without.fantasy_points == 0.0
+
+
+# ── 1b. V1-49 / #1020 — the four disputed split keys ──────────────────
+
+
+@pytest.mark.parametrize("key", ["kick_ret_td", "punt_ret_td"])
+def test_return_td_categories_are_scored(key):
+    """Real, distinct Sleeper keys (not aliases of st_td) that the
+    champion nflverse path previously dropped as a silent GAP.
+    punt_ret_td is a bare weekly-feed column; kick_ret_td needs the
+    play-by-play supplement attached (no equivalent weekly column)."""
+    kwargs = {"pbp_supplement": True} if key == "kick_ret_td" else {}
+    assert engine_reads_key(key, **kwargs), f"{key} is a player ST rule and must be scored"
+
+
+@pytest.mark.parametrize("key", ["idp_def_pr_td", "idp_def_kr_td"])
+def test_idp_return_td_keys_are_closed_as_unsupported(key):
+    """Investigated and CLOSED, not shipped as a gap or a fabricated
+    derivation: Sleeper's own documented scoring UI has no IDP
+    return-TD category (return TDs are Special-Teams-Player only, and
+    that bucket already includes DB), and no sampled 2025 host dump
+    ever carries either key nonzero — no host-truth instance exists to
+    validate a predicate against."""
+    from src.nfl_data.scoring_coverage import DERIVABLE_FROM_PLAY_BY_PLAY, HOST_PUBLISHED
+
+    assert classify(key) is Coverage.UNSCORABLE
+    assert key in UNSCORABLE_REASONS
+    assert key not in DERIVABLE_FROM_PLAY_BY_PLAY, f"{key}: not a proven derivation"
+    assert key not in HOST_PUBLISHED, f"{key}: no host dump ever carries this key"
+
+
+def test_synthetic_fixture_classifies_all_four_disputed_keys_correctly():
+    """The RED fixture: a config neither live league has, exercising all
+    four keys at once. kick_ret_td/punt_ret_td must be scorable
+    (SCORED with the pbp supplement attached); the two IDP keys must
+    stay UNSCORABLE, never a silent GAP and never fabricated as scored."""
+    audit = audit_scoring_settings(SYNTHETIC_RETURN_TD_CARD, pbp_supplement=True)
+    assert set(audit[Coverage.SCORED]) >= {"kick_ret_td", "punt_ret_td"}
+    assert set(audit[Coverage.UNSCORABLE]) >= {"idp_def_pr_td", "idp_def_kr_td"}
+    assert audit[Coverage.GAP] == {}, "no key in this fixture should read as an unexplained gap"
+
+
+@pytest.mark.parametrize("card_name", ["dynasty_main_card", "dynasty_new_card"])
+def test_neither_live_league_configures_the_four_disputed_keys(card_name, request):
+    """L2 (a): the point delta from this repair on both real leagues
+    today is provably 0 — audit_scoring_settings skips zero-rated keys
+    entirely, and none of the four is nonzero on either live card."""
+    card = request.getfixturevalue(card_name)
+    for key in ("kick_ret_td", "punt_ret_td", "idp_def_pr_td", "idp_def_kr_td"):
+        assert float(card.get(key, 0) or 0) == 0.0, f"{key} is configured on {card_name}"
+
+
+def test_kick_ret_td_and_punt_ret_td_move_a_real_players_total():
+    """L2 (b): the fully-configured-fixture delta is nonzero and exact —
+    proves the repair actually functions, not just classifies."""
+    kr_row = {
+        "season": 2025,
+        "week": 9,
+        "position": "WR",
+        PBP_SUPPLEMENT_ROW_KEY: {"kick_ret_td": 1.0},
+    }
+    pr_row = {"season": 2025, "week": 14, "position": "WR", "pt_return_tds": 1.0}
+    kr_pts = compute_weekly_points(kr_row, SYNTHETIC_RETURN_TD_CARD, position="WR")
+    pr_pts = compute_weekly_points(pr_row, SYNTHETIC_RETURN_TD_CARD, position="WR")
+    assert kr_pts.fantasy_points == 6.0
+    assert pr_pts.fantasy_points == 6.0
+    # The two IDP keys contribute 0.0 by design, not omission — neither
+    # row carries idp_def_kr_td/idp_def_pr_td and neither can, since
+    # they are proven unsupported rather than merely unwired.
+    kr_breakdown = {label for label, _raw, _pts in kr_pts.breakdown}
+    assert "IDP" not in " ".join(kr_breakdown)
 
 
 def test_dst_return_spellings_never_reach_a_player(dynasty_main_card):

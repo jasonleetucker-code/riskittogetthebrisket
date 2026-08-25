@@ -1,5 +1,5 @@
 {
-  "computedAt": "2026-08-20T21:09:03.913350+00:00",
+  "computedAt": "2026-08-25T17:20:33.164878+00:00",
   "playoffOdds": [],
   "n_simulations": 0,
   "playoffSeeds": 7,
@@ -13,5 +13,9 @@
   },
   "rosStrengthAvailable": true,
   "bestBallVarianceMode": "depth_aware",
-  "pointsModelSource": "fallback-constants"
+  "pointsModelSource": "fallback-constants",
+  "unsimulable": {
+    "reason": "no_scored_weeks_in_league",
+    "detail": "no scored weeks exist for this league yet, so there is no evidence to build a team score distribution from. This is not a 0% chance for anyone."
+  }
 }

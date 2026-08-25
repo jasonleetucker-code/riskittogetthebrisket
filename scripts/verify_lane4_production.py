@@ -1463,16 +1463,409 @@ def check_single_cohort_owner(report: Report) -> None:
         check.detail = f"expected one definition in src/sharp/cohort.py, found {hits}."
 
 
-def record_blocked_rows(report: Report, unauth_detail: str | None) -> None:
+def check_league_population_difference(report: Report, *, ledger_path: Path | None = None) -> None:
+    """V1-65 (L2) — the two admitted league populations, from the deployed ledger.
+
+    The row's L2 needs the CENSUS, not just the single-owner property that
+    ``check_single_cohort_owner`` pins: how many discovered leagues the
+    Insider (signal) gate admits, how many the strictly-narrower Sharp gate
+    admits, and an explicit accounting of the difference.  All of it is read
+    from the intel ledger through the existing read-only primitives
+    (``discovery.signal_eligible_league_ids`` / ``sharp_eligible_league_ids``
+    / ``graph_stats``); nothing is re-decided here.
+
+    The one thing this check ASSERTS rather than reports: sharp is defined as
+    strictly narrower than signal (dynasty-only, no keeper, >= 2 seasons —
+    ``src/intel/league_filter.py``), so a sharp-admitted league outside the
+    signal set means the two gates disagreed about the same stored evidence.
+
+    The signal-but-not-sharp difference is EXPLAINED, not just counted: each
+    league's stored ``settings_json`` evidence (type / bestBall / ageSeasons)
+    is re-run through the canonical ``league_filter.sharp_exclusion_reason``
+    ladder — never a second rule — and the reasons are published as a
+    histogram.
+    """
+    check = report.add(
+        Check(
+            "V65b",
+            "V1-65",
+            "signal- vs sharp-admitted league populations, censused from the deployed ledger",
+        )
+    )
+    try:
+        from src.intel import league_filter
+        from src.intel import ledger as intel_ledger
+        from src.sharp import discovery
+    except Exception as exc:  # pragma: no cover - deployment shape
+        check.status = ERROR
+        check.detail = f"could not import the discovery/ledger owners: {exc!r}"
+        return
+
+    path = Path(ledger_path) if ledger_path else intel_ledger.default_path()
+    if not path.exists():
+        # ``ledger.connect`` CREATES an absent file (schema write), and this
+        # script is read-only — so presence is decided before any connect.
+        check.status = BLOCKED
+        check.detail = (
+            f"no intel ledger at {path}, so there is no discovered-league store to "
+            "census. This is the sandbox/undeployed state — the ledger is gitignored "
+            "and prod-only. Run on the box; do not synthesise leagues."
+        )
+        check.evidence = {"ledgerPresent": False, "ledgerPath": str(path)}
+        return
+
+    conn = intel_ledger.connect(path)
+    try:
+        league_rows = conn.execute("SELECT league_id, settings_json FROM leagues").fetchall()
+        ms_sharp_complete = conn.execute(
+            "SELECT COUNT(DISTINCT league_id) AS n FROM manager_seasons "
+            "WHERE sharp_eligible=1 AND is_complete=1"
+        ).fetchone()["n"]
+    finally:
+        conn.close()
+
+    if not league_rows:
+        check.status = UNMEASURABLE
+        check.detail = (
+            "ledger carries no discovered leagues here — an environment artifact "
+            "(the discovery crawl runs only on the deployed box), not a statement "
+            "about the production graph. Empty-here is not evidence of anything."
+        )
+        check.evidence = {"ledgerPresent": True, "observedLeagues": 0}
+        return
+
+    signal = set(discovery.signal_eligible_league_ids(ledger_path=path))
+    sharp = set(discovery.sharp_eligible_league_ids(ledger_path=path))
+    stats = discovery.graph_stats(ledger_path=path)
+    sharp_only = sorted(sharp - signal)
+    signal_only = sorted(signal - sharp)
+
+    stored = {str(r["league_id"]): r["settings_json"] for r in league_rows}
+    histogram: dict[str, int] = {}
+    for lid in signal_only:
+        try:
+            settings = json.loads(stored.get(lid) or "{}")
+        except (TypeError, ValueError):
+            settings = None
+        if not isinstance(settings, dict):
+            histogram["unparseable_settings"] = histogram.get("unparseable_settings", 0) + 1
+            continue
+        age_recorded = "ageSeasons" in settings
+        # Faithful inverse of what discovery stored, not a guess:
+        # ``league_age_seasons`` answers 2 iff ``previous_league_id`` was
+        # truthy at crawl time, and ``ageSeasons`` recorded exactly that.
+        reconstructed = {
+            "settings": {"type": settings.get("type"), "best_ball": settings.get("bestBall")},
+            "previous_league_id": (
+                "recorded-chain" if (settings.get("ageSeasons") or 0) >= 2 else ""
+            ),
+        }
+        reason = league_filter.sharp_exclusion_reason(reconstructed)
+        if reason == "too_new" and not age_recorded:
+            # An unrecorded age is UNKNOWN, and unknown must not read as a
+            # measured "too new" — missing is never a value.
+            reason = "age_unrecorded"
+        if reason is None:
+            # Re-derivation admits a league the stored sharpEligible flag
+            # refused. Publish the drift; coerce neither side.
+            reason = "stored_flag_disagrees_with_rederivation"
+        histogram[reason] = histogram.get(reason, 0) + 1
+
+    check.denominator = len(league_rows)
+    check.evidence = {
+        "ledgerPresent": True,
+        "observedLeagues": len(league_rows),
+        "signalAdmitted": len(signal),
+        "sharpAdmitted": len(sharp),
+        "signalOnlyCount": len(signal_only),
+        "signalOnlySample": signal_only[:10],
+        "sharpOnlyCount": len(sharp_only),
+        "sharpOnlySample": sharp_only[:10],
+        "sharpExclusionReasons": histogram,
+        # Cross-check from an independent table: leagues whose crawled
+        # season RECORDS are marked sharp-eligible and complete. Reported,
+        # not asserted against the discovery flags — the records crawl
+        # legitimately lags discovery.
+        "managerSeasonsSharpCompleteLeagues": ms_sharp_complete,
+        "graphStats": {
+            key: stats.get(key) for key in ("observedUsers", "memberships", "discoveryOnlyLeagues")
+        },
+    }
+    if sharp_only:
+        check.status = FAIL
+        check.detail = (
+            f"{len(sharp_only)} league(s) are sharp-admitted but NOT signal-admitted "
+            f"(sample {sharp_only[:10]}). Sharp is defined as strictly narrower than "
+            "signal (dynasty-only, >= 2 seasons), so this set must be empty — a member "
+            "here means the two gates disagree about the same stored evidence."
+        )
+        return
+    check.status = PASS
+    check.detail = (
+        f"signal admits {len(signal)} of {len(league_rows)} discovered leagues, sharp "
+        f"admits {len(sharp)}; the {len(signal_only)}-league difference is explained by "
+        f"{histogram}. manager_seasons cross-check: {ms_sharp_complete} distinct "
+        "league(s) carry sharp-eligible complete season records."
+    )
+
+
+def check_cohort_population_onbox(report: Report, *, ledger_path: Path | None = None) -> None:
+    """V1-58 — the sharp cohort, resolved in-process from the deployed stores.
+
+    Over HTTPS this row needs an authenticated ``/api/sharp/cohort`` read.
+    On the box the SAME population is resolvable in-process through the one
+    canonical owner — ``src/sharp/cohort.py::cohort_members`` — which is the
+    identical pattern ``run_onbox`` already trusts when it builds the market
+    and roster-percentage boards from the deployed stores for C1-C3.
+
+    Two honesty rules, both structural:
+
+    * A population of ZERO with the stores PRESENT is a REAL measured
+      answer.  It is reported as PASS with ``populated: false`` — the check
+      verifies MEASURABILITY and reports the population truthfully.  It is
+      never converted to FAILED (an empty cohort is a finding, not a broken
+      verifier) and never presented as a populated cohort.
+    * Absent stores are BLOCKED.  Empty-here is only evidence when the
+      store is actually here.
+    """
+    check = report.add(
+        Check("V58", "V1-58", "sharp cohort resolved in-process from the deployed stores")
+    )
+    try:
+        from src.intel import ledger as intel_ledger
+        from src.sharp.cohort import cohort_members, load_ffpc_config
+    except Exception as exc:  # pragma: no cover - deployment shape
+        check.status = ERROR
+        check.detail = f"could not import the cohort owner: {exc!r}"
+        return
+
+    path = Path(ledger_path) if ledger_path else intel_ledger.default_path()
+    if not path.exists():
+        # ``ledger.connect`` (which the cohort owner reaches through
+        # ``ensure_platform_schema``) CREATES an absent file, so presence is
+        # decided here first — this script is read-only.
+        check.status = BLOCKED
+        check.detail = (
+            f"no platform ledger at {path}, so there is no store to resolve the "
+            "cohort from. This is the sandbox/undeployed state — run on the box. "
+            "Not to be closed by manufacturing a cohort."
+        )
+        check.evidence = {"ledgerPresent": False, "ledgerPath": str(path)}
+        return
+
+    try:
+        # The same config-loading path market_payload uses for its own
+        # in-process cohort resolution.
+        members, coverage = cohort_members(
+            qualification="all", ledger_path=path, ffpc_config=load_ffpc_config()
+        )
+    except Exception as exc:
+        check.status = ERROR
+        check.detail = f"cohort_members raised: {exc!r}"
+        return
+
+    by_method: dict[str, int] = {}
+    by_platform: dict[str, int] = {}
+    for member in members:
+        by_method[member.qualification_method] = by_method.get(member.qualification_method, 0) + 1
+        by_platform[member.platform] = by_platform.get(member.platform, 0) + 1
+
+    # Deliberately NOT a population denominator: this check verifies that
+    # the cohort is MEASURABLE here and reports the population truthfully,
+    # and a truthful zero must not be downgraded by the vacuous-pass guard
+    # in ``Check.finalize`` — zero members over present stores is the
+    # measured answer, not an uninspected one.
+    check.denominator = None
+    check.evidence = {
+        "ledgerPresent": True,
+        "memberCount": len(members),
+        "populated": bool(members),
+        "byQualificationMethod": by_method,
+        "byPlatform": by_platform,
+        "coverage": coverage,
+    }
+    check.status = PASS
+    if members:
+        check.detail = (
+            f"cohort resolves in-process to {len(members)} member(s) ({by_method}; "
+            f"platforms {by_platform}); methodology "
+            f"{coverage.get('methodologyVersion')!r}."
+        )
+    else:
+        check.detail = (
+            "the stores are present and the cohort truthfully resolves to ZERO "
+            "members — a real measured answer, reported as populated: false "
+            f"(evidenceManagers={coverage.get('evidenceManagers')}, "
+            f"automated={coverage.get('automatedQualifiedManagers')}, "
+            f"curated={coverage.get('curatedManagers')}, "
+            f"provisional={coverage.get('provisionalManagers')}). Not converted to a "
+            "failure: an empty cohort is a finding about the deployed data, not "
+            "about this check."
+        )
+
+
+def check_ledger_rank_change_flag(report: Report, *, ledger_path: Path | None = None) -> None:
+    """V1-87 — the measured ON/OFF blast radius of RISKIT_FEATURE_LEDGER_RANK_CHANGE.
+
+    The row is blocked on exactly one input: a temporal ledger with real
+    ``canonical_board`` rows, which only production has —
+    ``src/history/record.py`` writes that lane at the fresh-scrape promotion
+    site.  ``data_contract._stamp_rank_changes`` documents why the number
+    cannot be taken anywhere else: with no ledger BOTH flag branches stamp
+    ``None``, so an ON/OFF diff reports a vacuous "0 rows changed" that
+    would read as evidence.
+
+    The measurement is the NARROW read, deliberately.  Flag OFF stamps
+    ``None`` on every row structurally (``_stamp_rank_changes`` never
+    touches the ledger on that branch), so its non-null count is 0 by
+    construction and rebuilding the whole contract to observe it would
+    prove nothing the source does not already state.  Flag ON derives
+    ``rankChange`` from ``asof.previous_board_ranks`` — called here with
+    the same arguments ``data_contract`` passes — joined against the
+    newest recorded canonical board, which IS the served board's recorded
+    ranks.  A full double contract rebuild on the box would answer the
+    same question at far greater cost; ``measurementBasis`` in the
+    evidence says so.
+    """
+    check = report.add(
+        Check(
+            "V87",
+            "V1-87",
+            "ledger rank-change flag ON/OFF blast radius over the recorded canonical_board lane",
+        )
+    )
+    try:
+        from src.history import asof as history_asof
+        from src.history import store as history_store
+    except Exception as exc:  # pragma: no cover - deployment shape
+        check.status = ERROR
+        check.detail = f"could not import the temporal-history owner: {exc!r}"
+        return
+
+    path = Path(ledger_path) if ledger_path else history_store.DB_PATH
+    coverage = history_store.coverage(path)
+    lane_counts = coverage.get("byLane") or {}
+    canonical_rows = int(lane_counts.get(history_store.LANE_CANONICAL, 0) or 0)
+    check.evidence = {
+        "ledgerPath": str(path),
+        "ledgerPresent": bool(coverage.get("exists")),
+        "laneRowCounts": lane_counts,
+        "canonicalBoardRows": canonical_rows,
+    }
+    if not coverage.get("exists") or canonical_rows == 0:
+        check.status = UNMEASURABLE
+        check.detail = (
+            "the temporal ledger holds no canonical_board rows here — an environment "
+            "artifact, not a measurement: only production records that lane "
+            "(src/history/record.py, at the fresh-scrape promotion site in server.py). "
+            "With no ledger BOTH flag branches stamp None, so an ON/OFF diff taken "
+            "here would report a vacuous '0 rows changed' and must not be recorded as "
+            "evidence. Run this on the box."
+        )
+        return
+
+    conn = history_store.connect(path)
+    try:
+        dates = [
+            str(r[0])
+            for r in conn.execute(
+                "SELECT DISTINCT observed_date FROM observations "
+                "WHERE lane=? ORDER BY observed_date",
+                (history_store.LANE_CANONICAL,),
+            ).fetchall()
+        ]
+        newest = dates[-1] if dates else None
+        # The newest recorded board's ranked rows, corrections excluded —
+        # the same exclusion previous_board_ranks applies to the comparator.
+        ranked_keys = {
+            str(r[0])
+            for r in conn.execute(
+                "SELECT DISTINCT asset_key FROM observations "
+                "WHERE lane=? AND observed_date=? AND rank IS NOT NULL "
+                "AND id NOT IN (SELECT superseded_id FROM corrections)",
+                (history_store.LANE_CANONICAL, newest),
+            ).fetchall()
+        }
+    finally:
+        conn.close()
+
+    check.evidence.update({"canonicalBoardDates": len(dates), "newestBoardDate": newest})
+    if len(dates) < 2:
+        check.status = UNMEASURABLE
+        check.detail = (
+            f"the canonical_board lane holds only {len(dates)} distinct board date(s), "
+            "and rankChange needs a strictly-prior comparator date — the flag's ON "
+            "branch cannot be measured from this ledger yet. Not a pass: re-run after "
+            "the next recorded board."
+        )
+        return
+
+    # The same function, with the same arguments, that
+    # data_contract._stamp_rank_changes calls when the flag is ON.
+    previous = history_asof.previous_board_ranks(before_date=newest, path=path)
+    comparator_keys = {key for key, (_d, rank) in previous.items() if rank > 0}
+    on_non_null = len(ranked_keys & comparator_keys)
+    comparator_date = next(iter(sorted({d for d, _r in previous.values()})), None)
+
+    check.denominator = len(ranked_keys)
+    check.evidence.update(
+        {
+            "comparatorDate": comparator_date,
+            "comparatorRankedAssets": len(previous),
+            "rankedRowsOnNewestBoard": len(ranked_keys),
+            "nonNullRankChangeOn": on_non_null,
+            # OFF stamps None on every row before the ledger is ever read —
+            # structural, per _stamp_rank_changes' flag branch, so 0 here is
+            # a statement about the code, not an observation of this ledger.
+            "nonNullRankChangeOff": 0,
+            "offIsStructural": True,
+            "delta": on_non_null,
+            "measurementBasis": (
+                "narrow read through src/history's own reader: the newest recorded "
+                "canonical_board (the served board's recorded ranks) joined against "
+                "asof.previous_board_ranks — the same call data_contract."
+                "_stamp_rank_changes makes with the flag ON. OFF is structurally "
+                "all-None, so a full double contract rebuild would answer the same "
+                "question at far greater cost and was deliberately not run."
+            ),
+        }
+    )
+    check.status = PASS
+    check.detail = (
+        f"flag ON derives a non-null rankChange for {on_non_null} of {len(ranked_keys)} "
+        f"ranked rows on the {newest} board (comparator {comparator_date}, "
+        f"{len(previous)} ranked assets); flag OFF stamps None on all of them "
+        f"structurally, so the blast radius is exactly {on_non_null} rows."
+    )
+
+
+def record_blocked_rows(report: Report, unauth_detail: str | None, *, mode: str = "remote") -> None:
     """V1-58 / V1-59 — recorded as BLOCKED, with the credential named.
+
+    V1-59 (a clean journalctl run of the three-pass crawl chain) is blocked
+    in BOTH modes — nothing in this script can observe systemd journals
+    remotely, and the on-box run still needs a human-readable journal pass.
+
+    V1-58 is blocked only in REMOTE mode.  On the box the cohort is resolved
+    IN-PROCESS by :func:`check_cohort_population_onbox`, through the same
+    canonical owner and the same deployed stores that ``run_onbox`` already
+    uses to build the market and roster boards for C1-C3 — so recording the
+    row as blocked there would deny a measurement the run just made.
+    Whether an in-process resolution satisfies the row's L3 (whose wording
+    names an authenticated ``/api/sharp/cohort`` read) is an adjudication
+    call recorded at the contract ledger, not decided by this script; the
+    check reports the measurement and claims nothing about the row's level.
 
     Never closed by standing up a synthetic cohort: a manufactured population
     would verify the manufacture.
     """
-    for row, title in (
+    rows = [
         ("V1-58", "Sharp cohort proven populated in production"),
         ("V1-59", "Sharp bootstrap stops failing"),
-    ):
+    ]
+    if mode == "onbox":
+        rows = [entry for entry in rows if entry[0] != "V1-58"]
+    for row, title in rows:
         check = report.add(Check(f"B{row[-2:]}", row, title))
         check.status = UNVERIFIABLE if unauth_detail else BLOCKED
         check.detail = (
@@ -1641,7 +2034,7 @@ def run_remote(report: Report, args: argparse.Namespace) -> None:
     check_crowd_refusal_reasons(report, faab, source)
     check_faab_recommendation_effect(report, faab, source)
 
-    record_blocked_rows(report, unauth)
+    record_blocked_rows(report, unauth, mode="remote")
 
 
 def run_onbox(report: Report, args: argparse.Namespace) -> None:
@@ -1748,7 +2141,10 @@ def run_onbox(report: Report, args: argparse.Namespace) -> None:
     check_faab_history_artifact(report, args.league)
     check_ffpc_lane_is_honest(report)
     check_single_cohort_owner(report)
-    record_blocked_rows(report, None)
+    check_league_population_difference(report)
+    check_cohort_population_onbox(report)
+    check_ledger_rank_change_flag(report)
+    record_blocked_rows(report, None, mode="onbox")
 
 
 def _git_head() -> str | None:

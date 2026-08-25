@@ -538,7 +538,7 @@ class TestPayloadLevelBlocks(unittest.TestCase):
                 "ktcSfTep",
                 "idpTradeCalc",
                 "dlfIdp",
-                "idpShow",
+                "idpShowCombined",
                 "dlfSf",
                 "dynastyNerdsSfTep",
                 "fantasyCalc",

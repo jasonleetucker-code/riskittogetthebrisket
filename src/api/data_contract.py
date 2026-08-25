@@ -145,7 +145,7 @@ _IDP_SIGNAL_KEYS = {
     "idpTradeCalc",
     "dlfIdp",
     "fantasyProsIdp",
-    "idpShow",
+    "idpShowCombined",
 }
 
 # All source signal keys — used to detect which source(s) a player has
@@ -418,19 +418,42 @@ _SOURCE_CSV_PATHS: dict[str, Any] = {
         "path": "CSVs/site_raw/dlfIdp.csv",
         "signal": "rank",
     },
-    # The IDP Show (Adamidp) — Substack-hosted IDP rankings article
-    # at theidpshow.com/p/idp-dynasty-rankings.  The actual rankings
-    # are served from an embedded Datawrapper iframe whose
-    # dataset.csv is publicly accessible.  Fetched by
-    # ``scripts/fetch_idpshow.py`` which authenticates into the
-    # paywalled article (via cookie-dump session), extracts the
-    # current chart ID from the iframe src, and downloads the
-    # dataset.  Signal=rank — the chart includes a TRADE VALUE
-    # column but it's draft-pick-equivalent text ("1st + 2nd",
-    # "3rd", etc.), not numeric, so we use the OVR column as the
-    # rank signal.  ~420 rows covering ED/IDL/LB/S/CB.
-    "idpShow": {
-        "path": "CSVs/site_raw/idpShow.csv",
+    # The IDP Show (Adamidp) — OWNER DECISION 2026-08-20: the provider
+    # family's SOLE voting board is now the COMBINED offense+IDP Top-700
+    # board (theidpshow.com/p/combined-idp-offense-dynasty-rankings-...),
+    # not the older IDP-only board at idpShow.csv.  Both are Substack-
+    # hosted, served from an embedded Datawrapper iframe, fetched by
+    # ``scripts/fetch_idpshow.py`` (``--combined`` selects this one,
+    # picking the WIDEST of the article's chart embeds by measured row
+    # count — see ``_pick_widest_chart`` — because the combined article
+    # embeds a 250-row excerpt ahead of the real ~665-700 row board).
+    # Signal=rank: the chart's TRADE VALUE column is draft-pick-
+    # equivalent text ("1st + 2nd"), not numeric, so the rank column is
+    # the ordinal signal.  Registered ``is_cross_market=True`` below
+    # (unlike the retired idpShow.csv) because this board's rank is
+    # ALREADY a native combined offense+IDP ordinal — Bijan Robinson #1,
+    # Josh Allen #2 — so it needs no shared-market crosswalk through
+    # another source's ladder; see the registry entry's comment below
+    # for the full rationale.
+    #
+    # The old ``idpShow.csv`` (IDP-only, ~350 rows) remains ACQUIRED
+    # (the fetch script's default, no-flag path still writes it, and the
+    # prod timer still refreshes it — see
+    # ``deploy/idpshow_fetch_and_push.sh``) but is deliberately left
+    # UNREGISTERED here — the same acquired-but-not-a-ranking-source
+    # posture ``draftSharksRosSf.csv`` already has (see the
+    # ``draftSharks`` entry below).  An unregistered CSV cannot vote:
+    # ``_enrich_from_source_csvs`` only reads keys present in this dict,
+    # so removing the entry is a structural guarantee, not a policy
+    # flag that could be silently re-enabled.  Never register a second
+    # ``idpShow*`` key alongside this one — same-provider double
+    # counting is forbidden by the correlation-group rules this
+    # registry enforces elsewhere (see ``correlation_group`` on the
+    # ``idpShowCombined`` entry, and
+    # ``tests/api/test_idpshow_combined_source.py::
+    # TestExactlyOneVotingIdpShowKey``).
+    "idpShowCombined": {
+        "path": "CSVs/site_raw/idpShowCombined.csv",
         "signal": "rank",
     },
     # DLF Dynasty Superflex rankings — offense expert consensus.
@@ -780,8 +803,17 @@ _SOURCE_MAX_AGE_HOURS: dict[str, int] = {
     # this should surface, and 24h matches config/source_staleness.json,
     # which also flags idpShow SOFT with a 72h escalation — so a re-mint
     # chore stays quiet for a day without the budget hiding a dead fetcher
-    # for a month.  (Was 720h — F-18.)
+    # for a month.  (Was 720h — F-18.)  Tracked even though this key is
+    # UNREGISTERED (retired from voting 2026-08-20 — see the
+    # ``idpShowCombined`` registry entry) because the same prod timer
+    # still refreshes ``idpShow.csv`` and a silently-dead fetcher on an
+    # acquired-but-inert file is still worth surfacing.
     "idpShow": 24,
+    # The IDP Show COMBINED board — same paywalled cookie, same timer
+    # (deploy/idpshow_fetch_and_push.sh runs the fetcher twice, once
+    # per board), so the same 24h budget applies.  This is now the
+    # PROVIDER FAMILY'S SOLE VOTING KEY (Task 1/2, 2026-08-20).
+    "idpShowCombined": 24,
     # DraftSharks SF + IDP CSVs are written by scripts/fetch_draftsharks.py
     # on every scheduled-refresh tick (3-hour cadence), so the same
     # 6-hour freshness budget as ktc / idpTradeCalc applies.
@@ -865,12 +897,33 @@ _DEFAULT_SOURCE_ROW_FLOORS: dict[str, int] = {
     # FantasyPros / Pat Fitzmaurice: QB (50) + RB (~88) + WR (~115) +
     # TE (~46) ≈ 299 rows at the April 2026 baseline.  Floor at ~75%.
     "fantasyProsFitzmaurice": 225,
-    # The IDP Show: the CSV has ~419 rows but only ~200 canonicalize
-    # against the Sleeper player pool (the source goes deep into
-    # camp-body / backup IDPs that Sleeper doesn't enumerate).  Floor
-    # at 150 covers ~75% of the realistic match rate — a partial
-    # fetch or column-drop regression would trip this warning.
-    "idpShow": 150,
+    # The IDP Show (IDP-only) floor is REMOVED, not kept, as of
+    # 2026-08-20 — see the ``idpShowCombined`` registry entry.  This
+    # dict's floor gate reads ``canonicalSiteValues`` population for
+    # every key in ``set(get_ranking_source_keys()) | set(row_floors)``
+    # (``_compute_unified_rankings``'s per-source row-count-floor
+    # block), and an UNREGISTERED source can never populate that column
+    # — the entry would trip ``source_missing:idpShow`` as a permanent,
+    # unfixable hard error rather than surface a real fetch problem.
+    # The file is still fetched and its own acquisition floor
+    # (``_IDPSHOW_ROW_FLOOR`` in ``scripts/fetch_idpshow.py``) still
+    # guards the fetch itself; this contract-level gate is specifically
+    # about VOTING coverage, which an unregistered source structurally
+    # cannot have.
+    #
+    # The IDP Show COMBINED board (665 raw rows / 662 distinct names
+    # at the 2026-08-20 acquisition).  A cross-source proxy match
+    # (normalized-name overlap against the ktc.csv + idpTradeCalc.csv
+    # union, 928 distinct names) found 653/662 (98.6%) — NOT the true
+    # Sleeper-pool canonicalization rate (that universe is broader and
+    # more IDP-deep than Sleeper's own roster, so it overstates true
+    # match odds), but a real, measured floor for "did the fetch/parse
+    # come back intact" rather than a fabricated 700.  Floor set well
+    # below the measured proxy match so genuine vendor churn (a few
+    # dozen players added/dropped week to week) doesn't trip it, while
+    # a truncated fetch — e.g. picking the 250-row excerpt chart again
+    # instead of the widest one — still does.
+    "idpShowCombined": 450,
     # DraftSharks: the scraper ingests 461 offense / 389 IDP rows,
     # but canonical-name matches against the Sleeper player pool
     # yield a smaller count because DS's deeper rows are prospects
@@ -1503,36 +1556,72 @@ _RANKING_SOURCES: list[dict[str, Any]] = [
         "is_tep_premium": False,
     },
     {
-        # The IDP Show (Adamidp) — Substack-hosted full IDP rankings
-        # board published at theidpshow.com/p/idp-dynasty-rankings.
-        # Data is served from an embedded Datawrapper iframe whose
-        # dataset.csv is fetched by ``scripts/fetch_idpshow.py``.
-        # ~420 rows covering ED/IDL/LB/S/CB.  Unlike DLF IDP this
-        # board DOES include rookie prospects (Arvell Reese, Sonny
-        # Styles, etc.), so ``excludes_rookies=False``.
+        # The IDP Show (Adamidp) — OWNER DECISION 2026-08-20: this
+        # provider family's SOLE voting key.  Substack-hosted, served
+        # from an embedded Datawrapper iframe, fetched by
+        # ``scripts/fetch_idpshow.py --combined`` (which picks the
+        # WIDEST chart in the article — see ``_pick_widest_chart`` —
+        # because the combined post embeds a 250-row excerpt ahead of
+        # the real ~665-700 row board; taking the first embed by
+        # document order silently ingested the excerpt, PR #1008).
+        # 665 rows / 662 distinct names at the 2026-08-20 acquisition,
+        # Bijan Robinson #1 / Josh Allen #2 — i.e. the rank is ALREADY
+        # a native COMBINED offense+IDP ordinal, not an IDP-only rank
+        # that needs translating onto someone else's ladder.
         #
-        # Rank-only signal — the source's TRADE VALUE column is
-        # draft-pick-equivalent text ("1st + 2nd", "3rd") rather
-        # than a numeric scale, so we use the OVR column as the
-        # rank and let the shared-market translator convert to the
-        # combined-pool for Hill-curve input.
-        "key": "idpShow",
+        # This is why ``is_cross_market=True`` + ``scope=overall_idp``
+        # + ``extra_scopes=[overall_offense]`` (the same pattern
+        # IDPTradeCalc and DraftSharks use below) is the right registry
+        # shape and ``needs_shared_market_translation=False``: the
+        # dormant Phase 1c ``csv_rank_cross_market_keys`` pre-pass in
+        # ``_compute_unified_rankings`` — written for exactly "any
+        # future rank-signal cross-market source" — restores this
+        # board's own combined CSV rank instead of the generic
+        # per-scope dense re-rank, and routes it to the GLOBAL Hill
+        # master via ``rank_coordinates.native_pool_for_source``.  The
+        # evidence stays ORDINAL throughout: nothing here manufactures
+        # a cardinal 0-9999 vendor value out of a rank column, and this
+        # source is deliberately NOT declared in
+        # ``config/bridges/bridges_v1.json`` — it seeds no OTHER
+        # specialist's shared-market ladder (dlfIdp / fantasyProsIdp
+        # keep crosswalking through idpTradeCalc + draftSharks exactly
+        # as before; this source simply stops needing that ladder for
+        # its OWN vote).
+        #
+        # The OLDER idpShow.csv (IDP-only, ~350 rows,
+        # needs_shared_market_translation=True, translated through
+        # idpTradeCalc's ladder) is RETIRED from voting as of this
+        # entry — see ``_SOURCE_CSV_PATHS`` for where it is now
+        # unregistered.  Never register a second ``idpShow*`` key: see
+        # ``tests/api/test_idpshow_combined_source.py::
+        # TestExactlyOneVotingIdpShowKey`` for the structural guard.
+        #
+        # Includes rookie prospects (the board is a full combined
+        # dynasty board, not an IDP-only excerpt), so
+        # ``excludes_rookies=False``.
+        "key": "idpShowCombined",
         # C1-SRC-02: DYNASTY is PROVEN per endpoint, never inferred from the
         # provider being one we otherwise trust.  UNKNOWN fails closed.
         "game_type": GAME_TYPE_DYNASTY,
         "game_type_evidence": (
-            "theidpshow.com/p/idp-dynasty-rankings — the endpoint path itself is the "
-            "dynasty board, and the publisher's redraft/weekly output lives at separate "
-            "posts that are not fetched"
+            "theidpshow.com/p/combined-idp-offense-dynasty-rankings-fantasy-football — "
+            "the endpoint path itself is the dynasty board, and the publisher's "
+            "redraft/weekly output lives at separate posts that are not fetched"
         ),
-        "display_name": "The IDP Show (Adamidp)",
-        "column_label": "IDP Show",
+        "display_name": "The IDP Show — Combined (Adamidp)",
+        "column_label": "IDP Show Combined",
+        "correlation_group": "idpShow",
         "scope": SOURCE_SCOPE_OVERALL_IDP,
+        "extra_scopes": [SOURCE_SCOPE_OVERALL_OFFENSE],
         "position_group": None,
-        "depth": 420,
+        # Measured floor, not the vendor's own "Top 700" marketing
+        # figure — see the ``idpShowCombined`` row-floor comment above
+        # for the full rationale (Task 7: never hardcode 700).
+        "depth": 450,
         "weight": 1.0,
         "is_backbone": False,
-        "needs_shared_market_translation": True,
+        "is_cross_market": True,
+        "needs_shared_market_translation": False,
         "excludes_rookies": False,
         # IDP values have no TE-premium dimension — declared
         # explicitly False so the registry-completeness test can
@@ -1725,7 +1814,7 @@ _RANKING_SOURCES: list[dict[str, Any]] = [
         # provider being one we otherwise trust.  UNKNOWN fails closed.
         "game_type": GAME_TYPE_DYNASTY,
         "game_type_evidence": (
-            "Play for Keeps pfk_dynasty_rankings Supabase table — the table name is the " "product"
+            "Play for Keeps pfk_dynasty_rankings Supabase table — the table name is the product"
         ),
         "display_name": "Play for Keeps Dynasty",
         "scope": SOURCE_SCOPE_OVERALL_OFFENSE,
@@ -1760,7 +1849,7 @@ _RANKING_SOURCES: list[dict[str, Any]] = [
         # provider being one we otherwise trust.  UNKNOWN fails closed.
         "game_type": GAME_TYPE_DYNASTY,
         "game_type_evidence": (
-            "dynasty-daddy.com/api/v1/player/all/today — Dynasty Daddy is a dynasty-only " "product"
+            "dynasty-daddy.com/api/v1/player/all/today — Dynasty Daddy is a dynasty-only product"
         ),
         "display_name": "Dynasty Daddy Superflex",
         "scope": SOURCE_SCOPE_OVERALL_OFFENSE,
@@ -2083,7 +2172,7 @@ _RANKING_SOURCES: list[dict[str, Any]] = [
         # provider being one we otherwise trust.  UNKNOWN fails closed.
         "game_type": GAME_TYPE_DYNASTY,
         "game_type_evidence": (
-            "same draftsharks.com dynasty-rankings page as draftSharks, IDP slice of the " "one DOM"
+            "same draftsharks.com dynasty-rankings page as draftSharks, IDP slice of the one DOM"
         ),
         "correlation_group": "draftSharks",
         "display_name": "Draft Sharks IDP Dynasty",
@@ -2709,8 +2798,11 @@ def expand_correlation_groups(keys: Iterable[str]) -> set[str]:
 # than inferred, so this list is the single place they are written down:
 #
 #   * The IDP shared-market crosswalk.  Sources flagged
-#     ``needs_shared_market_translation`` — today ``dlfIdp``, ``idpShow``
-#     and ``fantasyProsIdp`` — rank players within the IDP class only.
+#     ``needs_shared_market_translation`` — today ``dlfIdp`` and
+#     ``fantasyProsIdp`` (``idpShowCombined`` is registered
+#     ``is_cross_market`` instead — its own rank is already a combined
+#     offense+IDP ordinal and needs no crosswalk; see its registry entry) —
+#     rank players within the IDP class only.
 #     The backbone's shared-market ladder crosswalks that within-class
 #     ordinal into the combined offense+IDP rank space.  With no backbone
 #     the ladder is empty and ``translate_position_rank`` returns the raw
@@ -4373,6 +4465,10 @@ def _enrich_from_source_csvs(
 
     _join_decisions = 0
     _join_matched = 0
+    # Cross-position-group name collisions withheld from voting (never a
+    # false attribution) — keyed by source, valued by the colliding
+    # canonical-match keys.  See the ``else`` branch below.
+    _withheld_ambiguous_names: dict[str, list[str]] = {}
 
     # DraftSharks (offense + IDP) publish a cross-market 0-100 ``3D
     # Value +`` scale that goes negative past ~rank 200 — the CSV
@@ -4504,24 +4600,41 @@ def _enrich_from_source_csvs(
                     "candidates": [t[0] for t in entries],
                 }
             else:
-                # Multiple position groups share this canonical key.
-                # Without per-CSV-row position info we can't tell which
-                # entry belongs to which group, so we replicate the
-                # best entry across both groups but flag it as ambiguous
-                # so the row audit can downgrade trust.
-                entries_sorted = sorted(entries, key=lambda t: -t[1])
-                best_name, best_val, best_orig_rank, best_native, best_sid = entries_sorted[0]
-                for grp in row_groups:
-                    per_source[f"{cname}::{grp}"] = {
-                        "value": best_val,
-                        "originalRank": best_orig_rank,
-                        "nativeValue": best_native,
-                        "sleeperId": best_sid,
-                        "displayName": best_name,
-                        "ambiguous": True,
-                        "candidates": [t[0] for t in entries],
-                        "groupCollision": sorted(row_groups),
-                    }
+                # Multiple DISTINCT canonical players share this
+                # normalized name across different position groups —
+                # e.g. Justin Jefferson the Minnesota WR and Justin
+                # Jefferson the Cleveland LB (issue #1011).  This is a
+                # different situation from the ``len(row_groups) <= 1``
+                # branch above (one real person, possibly listed twice
+                # by the CSV — e.g. Travis Hunter's two-way listing,
+                # which stays fully voting there): here two REAL,
+                # DIFFERENT people are colliding on one name, and
+                # attaching either CSV entry to the wrong one is not a
+                # missing vote, it is a WRONG one.
+                #
+                # WITHHOLD rather than replicate.  This function has no
+                # per-CSV-row position captured in ``csv_lookup`` (the
+                # tuple is name/value/rank/native/sleeperId only) to
+                # split the entries by group, and even a source's OWN
+                # claimed position column cannot be trusted to do it
+                # safely here: measured 2026-08-20, the IDP Show
+                # combined board itself mislabels the Minnesota WR's
+                # row "LB" (its true position), which is exactly the
+                # signal a position-based split would have to trust.
+                # Vendor TEAM — the other candidate disambiguator — is
+                # not published by this CSV at all.
+                #
+                # So: no ``per_source`` entry is written for any of the
+                # colliding groups.  ``match_row_to_source_entry`` then
+                # finds no ``{cname}::{grp}`` key for ANY of the
+                # colliding canonical rows and returns no match — the
+                # source contributes NOTHING for this name (not a zero;
+                # the row's ``canonicalSiteValues`` simply carries no
+                # key for this source, the same "missing" state a row
+                # this source never covered would have).  Only the
+                # colliding names are affected; every other row from
+                # this CSV still joins and votes normally.
+                _withheld_ambiguous_names.setdefault(source_key, []).append(cname)
         csv_index[source_key] = per_source
 
         # Sleeper-ID join index (sources whose CSV carries a
@@ -4689,6 +4802,18 @@ def _enrich_from_source_csvs(
         "legacyCascadeRetired": True,
         "decisions": _join_decisions,
         "matched": _join_matched,
+        # Names withheld because they collide across DIFFERENT canonical
+        # players' position groups (issue #1011) — never attached to the
+        # wrong person, never a false zero.  Per-source so a golden-board
+        # diff can name exactly which players a source's vote is missing
+        # for and why.
+        "withheldForCrossGroupNameCollision": {
+            source_key: sorted(set(names))
+            for source_key, names in _withheld_ambiguous_names.items()
+        },
+        "withheldForCrossGroupNameCollisionCount": sum(
+            len(set(names)) for names in _withheld_ambiguous_names.values()
+        ),
     }
 
     return csv_index
@@ -5211,6 +5336,13 @@ def _inject_far_future_pick_sources(
     tier entry is left untouched, so the moment vendors publish e.g.
     2029 this no-ops for that year ("pivot when sources add them").
 
+    POPULATION NOTE (V1-132 / audit F-34): this function sees the RAW
+    payload only, where just the in-JSON pick markets carry values —
+    ``ktcSfTep``'s pick values arrive through the later CSV enrichment.
+    :func:`_complete_synthetic_pick_sources_from_enrichment` runs after
+    that enrichment and extends this same derivation to the enriched
+    per-source evidence, so the horizon year blends both pick markets.
+
     Returns the per-build derivation map (canonical match key → record).
     Its length is the number of synthetic raw entries added, and its keys
     are the synthetic-name set the single-source gate allowlists.  It is
@@ -5300,6 +5432,124 @@ def _inject_far_future_pick_sources(
             added += 1
         years_with_tiers.add(year)
     return derivations
+
+
+def _complete_synthetic_pick_sources_from_enrichment(
+    players_array: list[dict[str, Any]],
+    synthetic_pick_derivations: Mapping[str, dict[str, Any]],
+) -> int:
+    """Extend the far-future derivation to CSV-enriched source evidence.
+
+    AUDIT F-34 (V1-132).  :func:`_inject_far_future_pick_sources` clones
+    the template year's entry out of ``players_by_name`` — the RAW
+    scraper payload — and that population is strictly poorer than the
+    one the canonical board blends for the same template year:
+    ``ktcSfTep``'s pick values arrive through the LATER
+    ``_enrich_from_source_csvs`` pass, which the injection structurally
+    cannot see.  So the published years (both pick markets on every tier
+    row) blended two markets while the horizon year blended
+    ``idpTradeCalc`` alone on all twelve tier cells — a single-vendor
+    dependency on exactly the rows with the least direct evidence.
+
+    The injection cannot simply move after the enrichment: it must run
+    against ``players_by_name`` BEFORE ``players_array`` is derived so
+    the synthetic rows exist as rows (and as legacy dict entries) at
+    all, and the enrichment loop itself needs those rows to exist to
+    stamp anything.  The pipeline's own structure — rows built once,
+    then enriched in place — therefore supports the converse ordering:
+    hand the injection's derivation the enriched evidence, in place, per
+    synthetic row.
+
+    Same derivation, wider population — nothing about the model changes:
+
+      * a source key present (positive) on the TEMPLATE row but absent
+        on the synthetic row is filled with ``template × step ** gap``,
+        the identical ``derivedYearModel`` cell step and compounding the
+        injection applies to the raw per-source values (through the one
+        shared :func:`_year_step_for`);
+      * a value the injection already stepped at the raw layer is left
+        alone — never re-stepped, never overwritten;
+      * a source the template row does not carry stays MISSING
+        (C1-U6-D1: a year a source did not publish is the key's
+        absence), so a source publishing no picks contributes nothing;
+      * provenance is untouched — the rows keep their
+        ``derived_year_step`` record; nothing here can promote a
+        derivation to ``direct_market_blend``.
+
+    Chained templates are processed in ascending target-year order so a
+    horizon two years past the last published year (whose template is
+    itself synthetic) reads its template's completed values.
+
+    In practice the enrichment-only pick sources are the value-signal
+    pick markets — today exactly ``ktcSfTep`` — but the rule is the
+    injection's own (every positive per-source value on the template),
+    not a source list to keep in step.
+
+    Returns the number of per-source values stamped.  Runs immediately
+    after ``_enrich_from_source_csvs`` in :func:`build_api_data_contract`
+    and mutates only the synthetic rows' ``canonicalSiteValues``;
+    ``_compute_unified_rankings`` recomputes ``sourceCount`` /
+    ``sourcePresence`` from those, and the backbone's synthetic-row
+    exclusion (C1-U6 follow-up 2) already keeps every value written here
+    out of the cross-market ladder.
+    """
+    if not synthetic_pick_derivations:
+        return 0
+    cfg = _load_pick_year_discount()
+    rows_by_key: dict[str, dict[str, Any]] = {}
+    for row in players_array:
+        if not isinstance(row, dict) or row.get("assetClass") != "pick":
+            continue
+        key = _canonical_match_key(str(row.get("canonicalName") or ""))
+        if key:
+            rows_by_key[key] = row
+
+    def _target_year(item: tuple[str, dict[str, Any]]) -> int:
+        row = rows_by_key.get(item[0])
+        if isinstance(row, dict):
+            m = _PICK_TIER_RE.match(str(row.get("canonicalName") or "").strip())
+            if m:
+                return int(m.group(1))
+        return 0
+
+    stamped = 0
+    for match_key, record in sorted(synthetic_pick_derivations.items(), key=_target_year):
+        row = rows_by_key.get(match_key)
+        if not isinstance(row, dict):
+            continue
+        template = rows_by_key.get(_canonical_match_key(str(record.get("basisName") or "")))
+        if not isinstance(template, dict):
+            continue
+        m = _PICK_TIER_RE.match(str(row.get("canonicalName") or "").strip())
+        if not m:
+            continue
+        year, tier, rnd = int(m.group(1)), m.group(2), int(m.group(3))
+        try:
+            basis_year = int(record["basisYear"])
+        except (KeyError, TypeError, ValueError):
+            # No recorded basis year -> REFUSE to derive.  ``or 0`` here
+            # would fabricate gap = year - 0 and drive step**gap to ~0,
+            # stamping a 0.0 that reads as a real value — missing is
+            # never zero, and never a fabricated basis either.
+            continue
+        gap = year - basis_year
+        if gap <= 0:
+            continue
+        factor = _year_step_for(tier, rnd, cfg) ** gap
+        template_sites = template.get("canonicalSiteValues")
+        row_sites = row.get("canonicalSiteValues")
+        if not isinstance(template_sites, dict) or not isinstance(row_sites, dict):
+            continue
+        for source_key, template_value in template_sites.items():
+            t_num = _safe_num(template_value)
+            if t_num is None or t_num <= 0:
+                continue  # the template does not carry it → MISSING stays missing
+            existing = _safe_num(row_sites.get(source_key))
+            if existing is not None and existing > 0:
+                continue  # already derived at injection — never re-stepped
+            row_sites[source_key] = round(float(t_num) * factor, 1)
+            stamped += 1
+    return stamped
 
 
 def current_rookie_draft_year(today: date | None = None) -> int:
@@ -5432,6 +5682,32 @@ def _parse_pick_tier(name: str) -> tuple[int, str, int] | None:
 #: W02-F016.
 _BLEND_HULL_EPSILON: float = 1e-9
 
+# The two quantities the hull check compares are INTEGERS quantized from
+# floats by two different rules, and the allowance below is the exact
+# worst-case skew of that quantization — numerical precision, not policy:
+#
+# * ``rankDerivedValue`` is ``int(norm_val)`` — truncation, so the
+#   published integer sits as much as (just under) 1.0 BELOW the float
+#   blend and never above it;
+# * each ``sourceRankMeta[*].valueContribution`` stamp is
+#   ``int(round(value))`` — within 0.5 of its float contribution in
+#   either direction.
+#
+# A float blend sitting exactly on the hull floor can therefore publish
+# up to 1.5 below the stamped minimum (1.0 truncation + 0.5 stamp
+# rounding), and up to 0.5 above the stamped maximum (stamp rounding
+# only — truncation never raises a value). Anything outside THOSE bounds
+# is a genuine impossibility. Measured incident, 2026-08-25 ("2027 Mid
+# 2nd"): votes 3459.692 (ktc 3459 x 9999/9997) and 3460.0 (idpTradeCalc
+# 3460/9999 x 9999), float blend ~3459.85 inside the true hull, published
+# ``int()`` -> 3459, stamps ``int(round())`` -> [3460, 3460] — flagged as
+# "below" a hull the blend never left. The 2026-08-22 "2027 Late 1st"
+# transient (#1063) is the same class: it fires whenever the two pick
+# markets nearly agree at a rounding boundary, and "self-corrects" when
+# the next scrape moves either value a hair.
+_BLEND_HULL_QUANTIZATION_BELOW: float = 1.5
+_BLEND_HULL_QUANTIZATION_ABOVE: float = 0.5
+
 
 def _detect_blend_integrity_violations(
     players_array: list[dict[str, Any]],
@@ -5480,10 +5756,23 @@ def _detect_blend_integrity_violations(
     the nearest boundary would turn pipeline corruption into a clean,
     plausible-looking number. The row is marked instead, so the failure
     stays visible. There is no tolerance dial: the check is exact up to
-    floating-point representation, and ``_BLEND_HULL_EPSILON`` is a
-    numerical-precision allowance, NOT a policy band — measured across
-    5,931 historical rows the violation count is 0 at every tolerance from
-    0% to 10%, so no policy slack is doing any work.
+    the representation of its inputs, and both allowances are
+    numerical-precision, NOT policy bands — measured across 5,931
+    historical rows the violation count is 0 at every tolerance from 0%
+    to 10%, so no policy slack is doing any work.
+
+    "Representation of its inputs" is doing real work in that sentence,
+    and this check got it wrong until 2026-08-25: the two quantities
+    compared here are integers quantized from floats by DIFFERENT rules
+    (``rankDerivedValue`` truncates; the ``valueContribution`` stamps
+    round), so a float blend genuinely inside its hull can publish up to
+    1.5 below the stamped minimum and 0.5 above the stamped maximum.
+    ``_BLEND_HULL_EPSILON`` alone manufactured a "violation" out of that
+    skew whenever the stamped hull was under a unit wide — see the
+    derivation and the measured 2027 Mid 2nd incident at
+    ``_BLEND_HULL_QUANTIZATION_BELOW``. The additive allowance covers
+    exactly the quantization worst case and nothing else: a fault that
+    moves a value by even two units past the hull still fires.
 
     Rows resting on fewer than two contributions are skipped: a hull needs
     two points, and "missing" is not "violating".
@@ -5521,7 +5810,9 @@ def _detect_blend_integrity_violations(
             continue
 
         lo, hi = min(contributions.values()), max(contributions.values())
-        if lo * (1.0 - _BLEND_HULL_EPSILON) <= value <= hi * (1.0 + _BLEND_HULL_EPSILON):
+        lo_bound = lo * (1.0 - _BLEND_HULL_EPSILON) - _BLEND_HULL_QUANTIZATION_BELOW
+        hi_bound = hi * (1.0 + _BLEND_HULL_EPSILON) + _BLEND_HULL_QUANTIZATION_ABOVE
+        if lo_bound <= value <= hi_bound:
             continue
 
         stamp = {
@@ -5624,32 +5915,25 @@ def _stamp_rank_changes(
     # it either.  The rollback lever CLAUDE.md documents is real; the
     # inventory that would tell an operator it exists is not.
     #
-    # Registering it in ``_DEFAULTS`` is the obvious repair and was attempted.
-    # It is refused by ``tests/api/test_feature_flags.py``, which requires
-    # every defaulted-ON flag to be classified either ``safe_on`` (additive,
-    # inert, cannot move a number) or ``value_moving_on`` (with a MEASURED
-    # blast radius).  This flag is neither cheaply: it MUTATES THE CONTRACT —
-    # ON stamps ledger-derived ``rankChange``, OFF stamps ``None`` — so the
-    # ``safe_on`` standard ``perfect_draft`` meets ("writes no value, mutates
-    # no contract") does not hold, and ``value_moving_on`` demands a
-    # measurement.
-    #
-    # That measurement needs the temporal ledger and a built board.  With no
-    # ``data/temporal_ledger.sqlite`` present BOTH branches stamp ``None``,
-    # so an on/off diff taken without it reports "0 rows changed" — a vacuous
-    # figure that would read as evidence.  Recording that would be worse than
-    # recording nothing.
-    #
-    # To close F-24: measure ON vs OFF over a real board with the ledger
-    # present (which rows' ``rankChange`` becomes ``None``, and the
-    # distribution of the non-null values), then register the flag carrying
-    # that blast radius.  Until then this direct read stays, documented.
-    import os as _os
+    # F-24 CLOSED 2026-08-25 (V1-87).  The paragraph above records why the
+    # flag could not be registered without a measurement, and the
+    # measurement now exists: Lane 4 on-box run 32843495391 (deployed
+    # ``8537aa4c2``, ledger present, 37 recorded board dates) measured ON
+    # deriving a non-null ``rankChange`` for 743 of 749 ranked rows on the
+    # 2026-08-25 board (comparator 2026-08-24) against a structurally
+    # all-None OFF.  The flag is registered in ``feature_flags._DEFAULTS``
+    # carrying that blast radius, classified ``value_moving_on``, and this
+    # site now reads through the ONE registry owner rather than the
+    # environment directly — so /api/status, ``snapshot()`` and the
+    # reachability test finally see the rollback lever CLAUDE.md documents.
+    # Registry reads are cached per process (same convention as
+    # ``bdvm_engine``); tests that flip the env mid-process call
+    # ``feature_flags.reload()``.
+    from src.api import feature_flags as _feature_flags
 
-    flag = _os.environ.get("RISKIT_FEATURE_LEDGER_RANK_CHANGE", "1").strip().lower()
     previous: dict[str, tuple[str, int]] = {}
     _history_keys = None
-    if flag not in ("0", "false", "off"):
+    if _feature_flags.is_enabled("ledger_rank_change"):
         # Every src.history touch — the keys import included — sits
         # inside one guard: a history failure (or the rollback flag)
         # must not break the contract build, and the degraded stamp is
@@ -5715,6 +5999,58 @@ _TWO_WAY_PLAYERS: dict[str, str] = {
     # Travis Hunter — CU / JAX corner-WR two-way player.  Listed WR.
     "Travis Hunter": "DB",
 }
+
+
+def _family_evidence_for_row(
+    *,
+    row: dict[str, Any],
+    effective_source_ranks: dict[str, Any],
+    effective_source_meta: dict[str, dict[str, Any]],
+    src_by_key: dict[str, dict[str, Any]],
+    family_by_key: dict[str, str],
+    fresh_by_source: dict[str, bool | None],
+) -> list["FamilyEvidence"]:
+    """Assemble the B11 gate's per-family evidence for one row.
+
+    ONE assembly, TWO callers: the ranked path and the off-cap player
+    value pass (#1101).  Extracted rather than transcribed, because a
+    second copy of this block would be a second confidence methodology —
+    ``src/api/confidence.py`` owns what the levels MEAN and this owns
+    what evidence it is shown, and both halves need exactly one owner.
+
+    Decides no level.  Every judgement below is about what a source
+    contribution IS, not about how good it is.
+    """
+    row_is_te = str(row.get("position") or "").strip().upper() == "TE"
+    evidence: list[FamilyEvidence] = []
+    for skey in effective_source_ranks:
+        smeta = effective_source_meta.get(skey) or {}
+        # Family-superseded members are not independent evidence;
+        # B10-T3b already excluded them from the blend.
+        if smeta.get("contributedToBlend") is False:
+            continue
+        method = str(smeta.get("method") or "")
+        src_def = src_by_key.get(skey, {})
+        evidence.append(
+            FamilyEvidence(
+                family=family_by_key.get(skey, skey),
+                source_key=skey,
+                value_contribution=smeta.get("valueContribution"),
+                fresh=fresh_by_source.get(skey),
+                # ADR-015 lifts a non-TEP source's TE row onto the
+                # TE++ basis the board is anchored on.  A measured
+                # conversion, not a native observation.
+                format_native=(not row_is_te) or bool(src_def.get("is_tep_premium")),
+                # An approximating translation — rookie ladder or
+                # backbone fallback — is a guess at where the
+                # source would have placed the player.
+                directly_observed=(
+                    method != TRANSLATION_FALLBACK
+                    and not method.startswith("rookie_ladder_translation")
+                ),
+            )
+        )
+    return evidence
 
 
 def _restate_confidence_after_override(
@@ -6077,6 +6413,115 @@ def _build_hill_curves_block() -> dict[str, dict[str, Any]]:
         "rookie": _entry(
             "rookie", "Rookie", HILL_ROOKIE_PERCENTILE_C, HILL_ROOKIE_PERCENTILE_S, False
         ),
+        "provenance": _hill_master_provenance(),
+    }
+
+
+def _hill_master_provenance() -> dict[str, Any]:
+    """Model provenance stamp for the Hill scope masters (V1-21 / W04-F011).
+
+    W04-F011: "Derived values carry no model version, param-set id or
+    as-of stamp — /api/data serves values with nothing recording which
+    champion produced them."  ``src/model_registry/`` already exists and
+    already records exactly that (see its package docstring), but by
+    design "does not change what any live endpoint returns" — nothing
+    under ``src/api`` ever read it.  This is the read-only stamp that
+    closes that gap, reusing the SAME ``modelVersion`` / ``paramSetId`` /
+    ``asOf`` vocabulary ``src/bdvm`` and ``src/consensus_edge`` already
+    established (see ``src/consensus_edge/params.py``'s own docstring:
+    "a second [convention] would be a drift risk, not a feature") rather
+    than inventing a fourth.
+
+    Never computes a value and never changes what the board prices — the
+    champion pointer is consulted for its METADATA only.  Truthful, not
+    merely present: a version number is stamped ONLY when the live
+    constants byte-match the recorded champion's params exactly.  Any
+    divergence — constants hand-edited without a promote()+apply() cycle,
+    a registry file that fails to load, a model with no champion — is
+    reported ``status: "unverified"``/``"unavailable"`` with the reason
+    named, never coerced onto the nearest-looking version.  A fallback
+    (unverified) state is a DIFFERENT status than a verified one; neither
+    is ever silently upgraded into the other.
+    """
+    import hashlib  # noqa: PLC0415
+
+    from src.canonical.player_valuation import (  # noqa: PLC0415
+        HILL_GLOBAL_PERCENTILE_C,
+        HILL_GLOBAL_PERCENTILE_S,
+        HILL_PERCENTILE_C,
+        HILL_PERCENTILE_S,
+        HILL_ROOKIE_PERCENTILE_C,
+        HILL_ROOKIE_PERCENTILE_S,
+        IDP_HILL_PERCENTILE_C,
+        IDP_HILL_PERCENTILE_S,
+    )
+    from src.model_registry import ModelRegistry, RegistryError  # noqa: PLC0415
+
+    live_params = {
+        "HILL_GLOBAL_PERCENTILE_C": float(HILL_GLOBAL_PERCENTILE_C),
+        "HILL_GLOBAL_PERCENTILE_S": float(HILL_GLOBAL_PERCENTILE_S),
+        "HILL_PERCENTILE_C": float(HILL_PERCENTILE_C),
+        "HILL_PERCENTILE_S": float(HILL_PERCENTILE_S),
+        "IDP_HILL_PERCENTILE_C": float(IDP_HILL_PERCENTILE_C),
+        "IDP_HILL_PERCENTILE_S": float(IDP_HILL_PERCENTILE_S),
+        "HILL_ROOKIE_PERCENTILE_C": float(HILL_ROOKIE_PERCENTILE_C),
+        "HILL_ROOKIE_PERCENTILE_S": float(HILL_ROOKIE_PERCENTILE_S),
+    }
+
+    try:
+        registry = ModelRegistry.load("hill_scope_masters")
+    except (RegistryError, OSError, ValueError, KeyError, TypeError) as exc:
+        # Broad on purpose: a malformed/corrupt registry file (bad JSON,
+        # a missing required key) must degrade this stamp to UNAVAILABLE,
+        # never crash the whole /api/data build over a diagnostic field.
+        return {
+            "status": "unavailable",
+            "modelVersion": None,
+            "paramSetId": None,
+            "asOf": None,
+            "reason": f"model registry unreadable: {exc}",
+        }
+
+    if not registry.has_champion:
+        return {
+            "status": "unavailable",
+            "modelVersion": None,
+            "paramSetId": None,
+            "asOf": None,
+            "reason": "hill_scope_masters registry has no champion",
+        }
+
+    champion = registry.champion
+    champion_params = {str(k): float(v) for k, v in champion.params.items()}
+    matches = champion_params.keys() == live_params.keys() and all(
+        abs(champion_params[k] - v) < 1e-9 for k, v in live_params.items()
+    )
+
+    if not matches:
+        return {
+            "status": "unverified",
+            "modelVersion": None,
+            "paramSetId": None,
+            "asOf": None,
+            "reason": (
+                "live constants in player_valuation.py do not match registry "
+                f"champion v{champion.version}'s recorded params — promote()/"
+                "apply() may be out of sync with what is actually committed"
+            ),
+        }
+
+    digest = hashlib.sha256(
+        json.dumps(champion_params, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    ).hexdigest()[:16]
+    return {
+        "status": "verified_champion",
+        "modelVersion": champion.version,
+        "paramSetId": f"hill_scope_masters:{digest}",
+        "asOf": champion.promoted_at or champion.fitted_at,
+        "fittedAt": champion.fitted_at,
+        "producer": champion.producer,
+        "qualified": champion.qualified,
+        "confidence": champion.confidence,
     }
 
 
@@ -6417,8 +6862,7 @@ def _validate_source_game_types_invariant(
         )
     if unknown_value:
         problems.append(
-            f"declare a game_type outside GAME_TYPES: {unknown_value}. "
-            f"Valid: {sorted(GAME_TYPES)}"
+            f"declare a game_type outside GAME_TYPES: {unknown_value}. Valid: {sorted(GAME_TYPES)}"
         )
     if not_dynasty:
         problems.append(
@@ -7436,10 +7880,14 @@ def _complete_future_pick_values(
     # scraper payload — and that population is strictly poorer than the one the
     # canonical board uses for the same template year: ``ktcSfTep``'s pick
     # values arrive through the LATER CSV enrichment, which correctly carries no
-    # far-future year to enrich a synthetic row with.  A synthetic row can
-    # therefore only ever vote on the in-JSON sources, and when those thin out
-    # it is left with no voting source at all.  No voter means no rank, no rank
-    # means no ``rankDerivedValue``.
+    # far-future year to enrich a synthetic row with.  Since V1-132 (F-34) the
+    # post-enrichment ``_complete_synthetic_pick_sources_from_enrichment`` pass
+    # steps the TEMPLATE row's enriched values onto the synthetic rows, so a
+    # synthetic row normally votes on both pick markets — but that pass can
+    # only widen what the template row carries.  When the template's evidence
+    # itself thins out (in-JSON AND CSV), a synthetic row is still left with no
+    # voting source at all.  No voter means no rank, no rank means no
+    # ``rankDerivedValue``.
     #
     # Measured 2026-08-18: the 17:11Z scrape's in-JSON ``idpTradeCalc`` pick
     # values collapsed to the round-1 tiers while BOTH vendor CSVs stayed
@@ -8234,9 +8682,12 @@ def _compute_unified_rankings(
     # synthetic overall rank, with a caution flag on the per-source meta.
     #
     # WHICH sources that actually affects, measured rather than assumed:
-    # the ``needs_shared_market_translation`` ones — today ``dlfIdp``,
-    # ``idpShow`` and ``fantasyProsIdp``, which flip method ``exact`` →
-    # ``fallback`` on 159 / 235 / 177 rows of the live board.  The
+    # the ``needs_shared_market_translation`` ones — today ``dlfIdp`` and
+    # ``fantasyProsIdp`` (``idpShowCombined`` no longer crosswalks through
+    # this backbone as of 2026-08-20 — it is registered ``is_cross_market``
+    # and reads its own native combined rank instead; the 235-row figure in
+    # the dated table below predates that change and describes the retired
+    # ``idpShow`` key).  The
     # ``position_idp`` branch below is ALSO backbone-dependent and is
     # currently dead: no registered source carries that scope, and a
     # census of every ``sourceRankMeta`` stamp across the 973-row live
@@ -9793,35 +10244,14 @@ def _compute_unified_rankings(
             # five axes over B10 family HEADS, combined by bottleneck.
             # Everything this loop does here is ASSEMBLE the evidence —
             # no level is decided in this file.
-            row_is_te = str(row.get("position") or "").strip().upper() == "TE"
-            evidence: list[FamilyEvidence] = []
-            for skey in effective_source_ranks:
-                smeta = effective_source_meta.get(skey) or {}
-                # Family-superseded members are not independent evidence;
-                # B10-T3b already excluded them from the blend.
-                if smeta.get("contributedToBlend") is False:
-                    continue
-                method = str(smeta.get("method") or "")
-                src_def = src_by_key.get(skey, {})
-                evidence.append(
-                    FamilyEvidence(
-                        family=family_by_key.get(skey, skey),
-                        source_key=skey,
-                        value_contribution=smeta.get("valueContribution"),
-                        fresh=fresh_by_source.get(skey),
-                        # ADR-015 lifts a non-TEP source's TE row onto the
-                        # TE++ basis the board is anchored on.  A measured
-                        # conversion, not a native observation.
-                        format_native=(not row_is_te) or bool(src_def.get("is_tep_premium")),
-                        # An approximating translation — rookie ladder or
-                        # backbone fallback — is a guess at where the
-                        # source would have placed the player.
-                        directly_observed=(
-                            method != TRANSLATION_FALLBACK
-                            and not method.startswith("rookie_ladder_translation")
-                        ),
-                    )
-                )
+            evidence = _family_evidence_for_row(
+                row=row,
+                effective_source_ranks=effective_source_ranks,
+                effective_source_meta=effective_source_meta,
+                src_by_key=src_by_key,
+                family_by_key=family_by_key,
+                fresh_by_source=fresh_by_source,
+            )
             # Kept so a LATER post-blend override that moves this row's
             # value can re-state its confidence against the value that
             # actually shipped.  See ``_restate_confidence_after_override``.
@@ -9908,39 +10338,127 @@ def _compute_unified_rankings(
                 if "idpTradeCalc" in source_ranks:
                     pdata["idpRank"] = source_ranks["idpTradeCalc"]
 
-    # ── Phase 4b': off-cap pick value stamping (C1-U6, RED-1) ──
+    # ── Phase 4b': off-cap VALUE stamping (C1-U6 RED-1; #1101) ──
     #
     # ``OVERALL_RANK_LIMIT`` is a RANK concept: the board publishes 800
-    # ranked rows.  For PLAYER rows past the cap, withholding the value
-    # is deliberate top-board behavior and is untouched here.  A PICK
-    # row that voted, though, is a valid tradeable asset whose canonical
-    # value must exist regardless of where it sorts (manifest
-    # C1-PICK-01: "every valid pick through 2029 has a finite canonical
-    # value") — the rookie-anchor pass already takes exactly this
-    # posture for current-year slot picks ("anchor regardless of
-    # whether the pick survived the cap").  Measured before this pass:
-    # five voted 2029 tier rows published ``rankDerivedValue: None``
-    # with their discount stamp already on the row.  Value only — no
-    # rank, no tier, no percentile: those stay capped.
+    # ranked rows.  It is NOT a claim that the 801st asset is worthless,
+    # and #1101 separates the two questions outright:
+    #
+    #   A. canonical VALUE availability   — does this asset have a price?
+    #   B. canonical TOP-BOARD membership — does it get a rank and tier?
+    #
+    # The cap answers B and only B.  So every row past it that VOTED —
+    # a pick, or a player carrying at least one matched trusted dynasty
+    # source and a positive canonical blend — keeps the value the
+    # pipeline has ALREADY computed for it.  Value only: no rank, no
+    # tier, no percentile, no standing.  A row here legitimately
+    # publishes ``rankDerivedValue > 0`` beside
+    # ``canonicalConsensusRank: None`` / ``canonicalTierId: None``, and
+    # that pairing is the intended shape, not an inconsistency.
+    #
+    # The pick half landed first (manifest C1-PICK-01: "every valid pick
+    # through 2029 has a finite canonical value"), mirroring the posture
+    # the rookie-anchor pass already took for current-year slot picks.
+    # The PLAYER half is #1101: measured on the 2026-08-25 board, 186
+    # players past the cap carried real source ranks and a positive
+    # blend (155..1186) and published ``rankDerivedValue: None`` — Trey
+    # Lance among them, with 8 sources and a blend of 1102.  A rank cap
+    # withholding a rank is top-board policy; a rank cap erasing a
+    # measured value is evidence loss.
+    #
+    # ``row_normalized`` is built from ``row_source_ranks``, so ARRIVING
+    # here is itself the evidence gate: a row nothing matched never
+    # enters this list and stays unpriced.  MISSING IS NEVER ZERO — and
+    # never ``DISPLAY_SCALE_MIN`` either.  Nothing below invents a value
+    # for a row that has none; it publishes the one already computed.
     for norm_val, row_idx in row_normalized[OVERALL_RANK_LIMIT:]:
         row = players_array[row_idx]
-        if row.get("assetClass") != "pick":
+        if norm_val <= 0:
+            # No positive canonical evidence to publish.  Leave the row
+            # unpriced rather than floor it up to 1 — a floor is what a
+            # real value is held ABOVE, not what a missing one becomes.
             continue
-        derived = int(norm_val)
-        if derived <= 0:
-            continue
-        row["rankDerivedValue"] = derived
-        row["offCapPickValue"] = True
-        is_slot_specific = _parse_pick_slot(row.get("canonicalName") or "") is not None
-        bucket, label = assess_pick_confidence(
-            row.get("canonicalSiteValues") or {},
-            is_slot_specific=is_slot_specific,
-        )
-        row["confidenceBucket"] = bucket
-        row["confidenceLabel"] = label
-        row["confidenceBasis"] = "pick_dispersion"
-        row["confidenceAxes"] = None
-        row["confidenceReasons"] = None
+        # The canonical scale's own minimum, from the scale's owner
+        # (``player_valuation.DISPLAY_SCALE_MIN``); no second literal is
+        # declared here.  The ranked path's ``int(norm_val)`` truncates,
+        # so a blend of 0.6 — real evidence, genuinely tiny — would
+        # otherwise be published as exactly the 0 this pass exists to
+        # stop manufacturing.
+        #
+        # Stated plainly: on the live board this floor is DEFENSIVE and
+        # binds nothing.  The Hill tail puts the deepest off-cap blend at
+        # 155, three orders of magnitude clear of it.  It is here because
+        # the correct rule is "positive evidence publishes at least the
+        # scale minimum", not because a row was measured needing it — and
+        # a floor that only appears once something has already been
+        # rounded to zero is a floor added too late.
+        derived = max(_CANONICAL_VALUE_MIN, int(norm_val))
+
+        if row.get("assetClass") == "pick":
+            row["rankDerivedValue"] = derived
+            row["offCapPickValue"] = True
+            is_slot_specific = _parse_pick_slot(row.get("canonicalName") or "") is not None
+            bucket, label = assess_pick_confidence(
+                row.get("canonicalSiteValues") or {},
+                is_slot_specific=is_slot_specific,
+            )
+            row["confidenceBucket"] = bucket
+            row["confidenceLabel"] = label
+            row["confidenceBasis"] = "pick_dispersion"
+            row["confidenceAxes"] = None
+            row["confidenceReasons"] = None
+        else:
+            source_ranks = row_source_ranks.get(row_idx) or {}
+            if not source_ranks:
+                # Unreachable by construction (see above); kept as the
+                # structural guard that says so, because the day the
+                # blend loop's input widens, this is the line that must
+                # refuse rather than the one that prices a stranger.
+                continue
+            source_meta = row_source_meta.get(row_idx, {})
+            dropped_set = set(row.get("droppedSources") or [])
+            effective_source_ranks = {k: v for k, v in source_ranks.items() if k not in dropped_set}
+            effective_source_meta = {k: v for k, v in source_meta.items() if k not in dropped_set}
+            row["rankDerivedValue"] = derived
+            row["offCapPlayerValue"] = True
+            # Publish the post-Hampel set the assessment below was read
+            # from.  Leaving the template's ``{}`` on a row that now
+            # carries a price would assert "no source survived" about a
+            # row priced by the survivors.
+            row["effectiveSourceRanks"] = effective_source_ranks
+            # Confidence comes from the SAME owner and the SAME evidence
+            # assembly the ranked path uses — no off-cap methodology, and
+            # nothing here promotes a row for being priced.  Whatever the
+            # gate returns is what ships: on the live board these rows
+            # answer ``low``, because coverage/agreement are genuinely
+            # thin this deep, which is the truthful answer rather than a
+            # flattering one.
+            evidence = _family_evidence_for_row(
+                row=row,
+                effective_source_ranks=effective_source_ranks,
+                effective_source_meta=effective_source_meta,
+                src_by_key=src_by_key,
+                family_by_key=family_by_key,
+                fresh_by_source=fresh_by_source,
+            )
+            # Registered so a LATER post-blend override that moves this
+            # row's value re-states its confidence against the number
+            # that actually shipped, exactly as for a ranked row.
+            row_confidence_inputs[row_idx] = (
+                evidence,
+                row_eligible_families.get(row_idx, set()),
+            )
+            assessment = assess_confidence(
+                evidence,
+                eligible_families=row_eligible_families.get(row_idx, set()),
+                consensus_value=derived,
+            )
+            row["confidenceBucket"] = assessment.overall
+            row["confidenceLabel"] = assessment.label
+            row["confidenceBasis"] = "evidence_gate"
+            row["confidenceAxes"] = dict(assessment.axes)
+            row["confidenceReasons"] = list(assessment.reasons)
+
         legacy_ref = row.get("legacyRef")
         if legacy_ref and legacy_ref in players_by_name:
             pdata = players_by_name[legacy_ref]
@@ -10889,6 +11407,14 @@ def build_api_data_contract(
     csv_index = _enrich_from_source_csvs(
         players_array, parse_errors=source_parse_errors, csv_root=csv_root
     )
+
+    # V1-132 / audit F-34: the far-future injection above ran against the
+    # RAW payload, where only the in-JSON pick markets exist; the CSV
+    # enrichment has now put ``ktcSfTep``'s pick values on the template
+    # year's rows.  Extend the SAME derivation (same cell step, same
+    # compounding, same provenance) to that enriched evidence so the
+    # horizon year blends both pick markets like every published year.
+    _complete_synthetic_pick_sources_from_enrichment(players_array, synthetic_pick_derivations)
 
     # Post-enrichment position guardrail: CSV enrichment happens AFTER
     # _derive_player_row, so the in-row guardrail there runs against an

@@ -17,10 +17,13 @@ import { describe, expect, it } from "vitest";
 
 import {
   DEFAULT_TAB,
+  PIECE_OF_SHIT_RANKINGS_TAB,
+  PIECE_OF_SHIT_RANKINGS_TITLE,
   SECTION_FOR_TAB,
   SUB_TABS,
   TAB_ALIASES,
   VALID_TABS,
+  leagueTabHref,
   normalizeTabKey,
   sectionForTab,
 } from "@/app/league/tabs.js";
@@ -33,6 +36,7 @@ import { PUBLIC_SECTION_KEYS } from "@/lib/public-league-data";
 const SELF_FETCHING_TABS = [
   "previews",
   "recaps",
+  "power",
   "rosTeamStrength",
   "rosChampionship",
   "rosTradeDeadline",
@@ -61,12 +65,10 @@ describe("tab → section map", () => {
     }
   });
 
-  it("resolves aliases and unknown tabs to a real section", () => {
-    // Legacy deep links land on the renamed tabs, which are
-    // self-fetching — so no section, not a wrong one.
-    for (const legacy of Object.keys(TAB_ALIASES)) {
+  it("resolves aliases and unknown tabs to the canonical tab's section", () => {
+    for (const [legacy, canonical] of Object.entries(TAB_ALIASES)) {
       expect(VALID_TABS.has(normalizeTabKey(legacy))).toBe(true);
-      expect(sectionForTab(legacy)).toBeNull();
+      expect(sectionForTab(legacy)).toBe(SECTION_FOR_TAB[canonical] || null);
     }
     // A hand-typed junk tab must resolve like the UI will render it:
     // through DEFAULT_TAB, so the server pre-renders the section the
@@ -80,6 +82,25 @@ describe("tab → section map", () => {
     // reads it on every tab) and skips a second request when the
     // landing tab needs the same one.
     expect(SECTION_FOR_TAB[DEFAULT_TAB]).toBe("overview");
+  });
+
+  it("uses Piece of Shit Rankings as the canonical label and URL key", () => {
+    expect(SUB_TABS).toContainEqual({
+      key: PIECE_OF_SHIT_RANKINGS_TAB,
+      label: PIECE_OF_SHIT_RANKINGS_TITLE,
+    });
+    expect(PIECE_OF_SHIT_RANKINGS_TAB).toBe("piece-of-shit-rankings");
+    expect(TAB_ALIASES.conduct).toBe(PIECE_OF_SHIT_RANKINGS_TAB);
+    expect(VALID_TABS.has("conduct")).toBe(false);
+    expect(SECTION_FOR_TAB[PIECE_OF_SHIT_RANKINGS_TAB]).toBe("conduct");
+    expect(PUBLIC_SECTION_KEYS).toContain("conduct");
+    expect(SELF_FETCHING_TABS).not.toContain(PIECE_OF_SHIT_RANKINGS_TAB);
+    expect(leagueTabHref(PIECE_OF_SHIT_RANKINGS_TAB)).toBe(
+      "/league?tab=piece-of-shit-rankings",
+    );
+    expect(leagueTabHref("conduct")).toBe(
+      "/league?tab=piece-of-shit-rankings",
+    );
   });
 });
 

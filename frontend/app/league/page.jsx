@@ -16,7 +16,13 @@ import { cache } from "react";
 import { connection } from "next/server";
 import LeagueClient from "./LeagueClient.jsx";
 import { fetchBackendJson } from "../../lib/server-backend.js";
-import { DEFAULT_TAB, normalizeTabKey, sectionForTab } from "./tabs.js";
+import {
+  DEFAULT_TAB,
+  PIECE_OF_SHIT_RANKINGS_TAB,
+  PIECE_OF_SHIT_RANKINGS_TITLE,
+  normalizeTabKey,
+  sectionForTab,
+} from "./tabs.js";
 
 // Fetch ONE public-contract section.  Shape: {contractVersion, league,
 // section, data} — every section response carries the ``league`` block,
@@ -92,9 +98,29 @@ const fetchSection = cache(async function fetchSection(section) {
   return data;
 });
 
-export async function generateMetadata() {
+export async function generateMetadata({ searchParams } = {}) {
+  const sp = (await searchParams) || {};
+  const rawTab =
+    typeof sp.tab === "string"
+      ? sp.tab
+      : Array.isArray(sp.tab)
+        ? sp.tab[0]
+        : DEFAULT_TAB;
+  const isPieceOfShitRankings =
+    normalizeTabKey(rawTab) === PIECE_OF_SHIT_RANKINGS_TAB;
   const data = await fetchSection("overview");
   if (!data) {
+    if (isPieceOfShitRankings) {
+      const title = `${PIECE_OF_SHIT_RANKINGS_TITLE} — Risk It To Get The Brisket`;
+      const description =
+        "Formula-based, source-backed current-roster rankings of qualifying public-record incidents.";
+      return {
+        title,
+        description,
+        openGraph: { title, description, type: "website" },
+        twitter: { card: "summary", title, description },
+      };
+    }
     return {
       title: "Risk It To Get The Brisket — public league",
       description: "Public league home for the dynasty league.",
@@ -107,6 +133,17 @@ export async function generateMetadata() {
   const champ = overview.currentChampion;
   const decorated = overview.mostDecoratedFranchise;
   const rivalry = overview.featuredRivalry;
+  if (isPieceOfShitRankings) {
+    const title = `${PIECE_OF_SHIT_RANKINGS_TITLE} — ${name}`;
+    const description =
+      "Formula-based, source-backed current-roster rankings of qualifying public-record incidents.";
+    return {
+      title,
+      description,
+      openGraph: { title, description, type: "website", siteName: name },
+      twitter: { card: "summary", title, description },
+    };
+  }
   const parts = [];
   if (champ) parts.push(`Champ: ${champ.displayName}`);
   if (decorated) parts.push(`Top franchise: ${decorated.displayName}`);

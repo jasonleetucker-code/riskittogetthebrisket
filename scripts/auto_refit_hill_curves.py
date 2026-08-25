@@ -315,7 +315,14 @@ def main() -> int:
             f"  python3 scripts/model_registry.py validate {target}\n"
             f'  python3 scripts/model_registry.py promote {target} --reason "held-out win"\n'
             "  python3 scripts/model_registry.py apply\n"
-            "  # then run the suite and open a PR"
+            "  # then run the suite and open a PR\n"
+            "\n"
+            "  # NOTE: `promote` runs the per-scope evidence gate and will REFUSE\n"
+            "  # if this challenger moved GLOBAL or IDP — the held-out criterion\n"
+            "  # above scores OFFENSE only. That is not a bug in the refit; it is\n"
+            "  # the criterion's scope being stated. Measure the board effect with\n"
+            "  # scripts/measure_hill_version_board.py before deciding whether to\n"
+            "  # accept the risk with --override-scope + --override-reason."
         )
         return EXIT_PROMOTABLE
 

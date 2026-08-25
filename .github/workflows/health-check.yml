@@ -280,6 +280,18 @@ jobs:
         shell: bash
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # This job has no `actions/checkout` step (deliberately —
+          # it's a lightweight external HTTP ping), so `gh` cannot
+          # infer the repo from a `.git` directory the way the
+          # checked-out workflows do. Without this, every `gh issue`
+          # call below fails with "not a git repository" — silently
+          # turning both halves of F-21's own repair (file the alert,
+          # clear it later) into a false negative that reads as
+          # "checked and fine" instead of "did not run".  Measured:
+          # 9 consecutive scheduled runs failed on exactly this while
+          # production itself stayed healthy (2026-08-19 through
+          # 2026-08-21).
+          GH_REPO: ${{ github.repository }}
         run: |
           set -Eeuo pipefail
           RUN_URL="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
@@ -347,6 +359,9 @@ jobs:
         shell: bash
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # See the matching comment on "Open or update the tracking
+          # issue on failure" — same missing-checkout cause.
+          GH_REPO: ${{ github.repository }}
         run: |
           set -Eeuo pipefail
           # Same identification as the alert step, and it must stay identical —

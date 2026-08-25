@@ -28,6 +28,7 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 from src.api import data_contract
+from src.api import feature_flags as _ff
 from src.history import asof, backfill, keys, migrate, record, store
 
 FIXTURE = Path(__file__).resolve().parents[1] / "fixtures" / "temporal_live_subset.json"
@@ -575,10 +576,12 @@ class TestRankChangeDeterministic(_LedgerCase):
         fx = _fx()
         _record_fixture_board(self.ledger, "2026-08-15", rows=_prior_rows(fx))
         os.environ["RISKIT_FEATURE_LEDGER_RANK_CHANGE"] = "0"
+        _ff.reload()
         try:
             stamps = self._stamp(_rows(fx), "2026-08-16")
         finally:
             del os.environ["RISKIT_FEATURE_LEDGER_RANK_CHANGE"]
+            _ff.reload()
         self.assertTrue(all(v is None for v in stamps.values()))
 
 
@@ -801,10 +804,12 @@ class TestValuationInertness(unittest.TestCase):
 
         # Build 1 — derivation off.
         os.environ["RISKIT_FEATURE_LEDGER_RANK_CHANGE"] = "0"
+        _ff.reload()
         try:
             baseline = data_contract.build_api_data_contract(json.loads(json.dumps(raw)))
         finally:
             os.environ.pop("RISKIT_FEATURE_LEDGER_RANK_CHANGE", None)
+            _ff.reload()
 
         # Seed a ledger with the SAME board recorded under the prior
         # date, then build again with the derivation on and the default

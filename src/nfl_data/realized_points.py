@@ -132,6 +132,17 @@ _SIMPLE_KEYS: dict[str, tuple[tuple[str, ...], str]] = {
     "kr_yd": (("kickoff_return_yards",), "KR Yds"),
     "pr_yd": (("punt_return_yards",), "PR Yds"),
     "st_td": (("special_teams_tds",), "ST TD"),
+    # ADDED (V1-49 / #1020).  Sleeper's own split of ``st_td``.  The
+    # weekly feed carries this one outright — ``pt_return_tds`` is a
+    # bare per-player-week column, same tier as kr_yd/pr_yd/st_td above.
+    # There is no ``kickoff_return_tds`` column on the weekly feed (see
+    # ``kick_ret_td``'s PBP-derived entry in PBP_SUPPLEMENT_KEYS below
+    # instead); confirmed against the live nflverse weekly release
+    # header, not just the cached column list.  Neither live league
+    # (dynasty_main, dynasty_new) configures this key today, so this is
+    # correctness/future-proofing rather than a change to a published
+    # number — see docs/scoring/ for the V1-49 L2 measurement.
+    "punt_ret_td": (("pt_return_tds",), "Punt Ret TD"),
     # ADDED 2026-08-13 (B7 / W18-F003).  KICKER.  The engine read no
     # kicker key at all, so every kicker scored a well-formed 0.000 with
     # no reason and no flag -- and dynasty_main starts K:1.  Nothing here
@@ -509,6 +520,7 @@ _SLEEPER_KEY_LABELS: dict[str, str] = {
     "st_ff": "ST Forced Fum",
     "st_fum_rec": "ST Fum Rec",
     "pass_int_td": "Pick-Six Thrown",
+    "kick_ret_td": "KR TD",
     **{k: "First Downs" for k in _FIRST_DOWN_BONUS_KEYS.values()},
 }
 
@@ -615,6 +627,7 @@ PBP_SUPPLEMENT_KEYS: frozenset[str] = frozenset(
         "st_ff",
         "st_fum_rec",
         "pass_int_td",
+        "kick_ret_td",
     }
 )
 

@@ -1,18 +1,29 @@
 {
-  "generatedAt": "2026-08-20T21:06:38.691756",
-  "date": "2026-08-20",
+  "generatedAt": "2026-08-25T17:18:07.098966",
+  "date": "2026-08-25",
   "files": [
     "dynasty_data.js",
-    "dynasty_data_2026-08-20.json",
+    "dynasty_data_2026-08-25.json",
     "dynasty_full.csv",
     "dynasty_values.csv",
     "site_raw"
   ],
-  "siteRawCount": 3,
+  "siteRawCount": 7,
   "siteRawFresh": [
     "idpTradeCalc.csv",
     "ktc.csv",
     "ktcSfTep.csv"
   ],
-  "siteRawPreserved": []
+  "siteRawPreserved": [
+    "draftSharksIdp.csv",
+    "draftSharksRosIdp.csv",
+    "draftSharksRosSf.csv",
+    "draftSharksSf.csv"
+  ],
+  "siteRawMirrored": [
+    "draftSharksIdp.csv",
+    "draftSharksRosIdp.csv",
+    "draftSharksRosSf.csv",
+    "draftSharksSf.csv"
+  ]
 }

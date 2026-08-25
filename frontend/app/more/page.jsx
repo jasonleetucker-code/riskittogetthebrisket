@@ -12,11 +12,16 @@
 import Link from "next/link";
 import { useAuthContext } from "@/app/AppShellWrapper";
 import { PageHeader, Panel } from "@/components/ds";
-import { NAV_MODEL, SYSTEM_MODEL, flattenNav } from "@/lib/nav-model";
+import { SYSTEM_MODEL, flattenNav, navGroupsFor } from "@/lib/nav-model";
 
 export default function MorePage() {
-  const { authenticated, logout } = useAuthContext();
-  const groups = [...NAV_MODEL, SYSTEM_MODEL];
+  const { authenticated, features, logout } = useAuthContext();
+  // "Every surface" means every surface we are willing to OFFER.  This
+  // page is a nav surface like the menus and the palette, so a
+  // destination whose endpoints all 503 is omitted here too (V1-131) —
+  // listing it as a live link on the site map would reintroduce exactly
+  // the dead-end the gate removes.
+  const groups = [...navGroupsFor({ capabilities: features }), SYSTEM_MODEL];
 
   return (
     <section>

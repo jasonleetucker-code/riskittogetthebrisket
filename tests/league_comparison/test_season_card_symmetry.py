@@ -120,8 +120,8 @@ def test_the_live_four_vs_one_shape_is_symmetric():
     available) while the baseline's resolved 2025 only (-> three
     dropped).
     """
-    mine = svc._build_league_block(_Info("L_MINE"), _seasons_map(), {})
-    base = svc._build_league_block(_Info("L_BASE"), _seasons_map(), {})
+    mine = svc._build_league_block(_Info("L_MINE"), _seasons_map(), SAMPLES)
+    base = svc._build_league_block(_Info("L_BASE"), _seasons_map(), SAMPLES)
     assert _available(mine) == _available(base), (
         f"asymmetric window: my_league {_available(mine)} vs baseline {_available(base)} — "
         "the two combined averages are over different seasons"
@@ -151,8 +151,8 @@ def test_no_chain_state_can_move_the_window_on_either_arm(mine_resolves, base_re
     mine_chain, base_chain = _chain(mine_resolves), _chain(base_resolves)
     assert mine_chain.cards.keys() != base_chain.cards.keys() or not mine_resolves, label
 
-    mine = svc._build_league_block(_Info("L_MINE"), _seasons_map(), {})
-    base = svc._build_league_block(_Info("L_BASE"), _seasons_map(), {})
+    mine = svc._build_league_block(_Info("L_MINE"), _seasons_map(), SAMPLES)
+    base = svc._build_league_block(_Info("L_BASE"), _seasons_map(), SAMPLES)
     assert _available(mine) == _available(base) == [str(s) for s in SEASONS], label
 
 
@@ -208,8 +208,8 @@ def test_the_comparison_service_does_not_reach_the_as_of_resolver_at_all():
 def test_both_arms_declare_the_same_basis():
     """One rule, not two. A per-season basis that differs between the
     arms is the asymmetry wearing a different name."""
-    mine = svc._build_league_block(_Info("L_MINE"), _seasons_map(), {})
-    base = svc._build_league_block(_Info("L_BASE"), _seasons_map(), {})
+    mine = svc._build_league_block(_Info("L_MINE"), _seasons_map(), SAMPLES)
+    base = svc._build_league_block(_Info("L_BASE"), _seasons_map(), SAMPLES)
     bases_mine = {b["cardBasis"] for b in mine["perSeason"].values()}
     bases_base = {b["cardBasis"] for b in base["perSeason"].values()}
     assert bases_mine == bases_base == {svc.CARD_BASIS_COUNTERFACTUAL}
@@ -233,7 +233,7 @@ def test_a_season_with_no_stat_rows_is_still_unavailable():
     stat feed cannot supply is unavailable on either arm, as before."""
     partial = dict(_seasons_map())
     partial[2023] = []
-    block = svc._build_league_block(_Info("L_MINE"), partial, {})
+    block = svc._build_league_block(_Info("L_MINE"), partial, SAMPLES)
     assert "2023" not in _available(block)
     assert block["perSeason"]["2023"]["unavailableReason"] == "no_stat_rows"
 
@@ -249,7 +249,7 @@ def test_no_season_is_ever_labelled_as_its_own_resolved_card_here():
     is not entitled to make, because neither configured league played any
     requested season.
     """
-    block = svc._build_league_block(_Info("L"), _seasons_map(), {})
+    block = svc._build_league_block(_Info("L"), _seasons_map(), SAMPLES)
     bases = {b["cardBasis"] for b in block["perSeason"].values()}
     assert bases == {svc.CARD_BASIS_COUNTERFACTUAL}, bases
     assert "current_card_unverified" not in bases, "the silent-substitution label is back"

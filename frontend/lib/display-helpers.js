@@ -399,7 +399,7 @@ const IDP_RETAIL_KEY = "idpTradeCalc";
 const IDP_CONSENSUS_KEYS = new Set([
   "dlfIdp",
   "dlfRookieIdp",
-  "idpShow",
+  "idpShowCombined",
   "fantasyProsIdp",
   "draftSharksIdp",
 ]);
@@ -472,8 +472,8 @@ export function idpMarketEdge(row) {
 
   // Same value-space treatment as the offense path.  The IDP side is
   // if anything more exposed to the pool-depth artifact: idpTradeCalc
-  // publishes ~901 rows against dlfIdp/idpShow/fantasyProsIdp pools a
-  // fraction of that size.
+  // publishes ~901 rows against dlfIdp/idpShowCombined/fantasyProsIdp
+  // pools a fraction of that size.
   const idpSides = sideValues(
     row,
     Object.keys(ranks),

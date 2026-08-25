@@ -1222,10 +1222,6 @@ input[type="range"]:focus-visible::-moz-range-thumb {
   border-bottom-color: var(--cyan);
   color: var(--text);
 }
-.asset-value-override-input.overridden {
-  color: var(--amber);
-  border-bottom-color: var(--amber);
-}
 
 .tier-label {
   display: inline-flex;
@@ -1885,6 +1881,7 @@ input[type="range"]:focus-visible::-moz-range-thumb {
        the nav's taller total height (var + env). */
     bottom: calc(var(--mobile-nav-h) + env(safe-area-inset-bottom, 0px));
   }
+
 
   .trade-tray-main {
     padding: 8px 10px;
@@ -3181,6 +3178,50 @@ input[type="range"]:focus-visible::-moz-range-thumb {
   cursor: pointer;
   transition: transform 0.12s ease, box-shadow 0.12s ease, border-color 0.12s ease;
 }
+/* W26-F015 / V1-109 — the FAB must stack ABOVE a pinned bottom tray,
+   not on top of it.
+
+   Measured at 390x844 on 2026-08-24, before this rule: the tray sat at
+   y 714 with height 74 (z-index 35) and the FAB at y 734, 44x44
+   (z-index 900) — the FAB was entirely INSIDE the tray, occluding its
+   right-hand 44x44 corner. Both are anchored to the same bottom
+   baseline, so raising the FAB by 16px (as the base rule does) never
+   cleared a 74px-tall tray; it just parked it in the middle.
+
+   `:has()` rather than a route class, because neither component should
+   have to know the other exists — the tray is /trade's, the FAB is the
+   shell's. Degradation is exactly today's behaviour in a browser without
+   `:has()` support, so this cannot make anything worse than it already
+   is.
+
+   --sticky-tray-clearance is a CHECKED constant, not a guess: the
+   mobile-usability instrument asserts zero pinned-element overlap on
+   /trade, so a tray that outgrows this reserve fails a test instead of
+   silently re-occluding itself. */
+body:has(.trade-sticky-tray) .screenshot-fab {
+  --sticky-tray-clearance: 88px;
+  bottom: calc(var(--sticky-tray-clearance) + 12px);
+}
+
+/* Mobile adds the nav + safe-area baseline the tray itself sits on.
+
+   This lives HERE, immediately after the base rule, and NOT in the
+   `@media (max-width: 768px)` block further up the file — that block is
+   at ~line 1880 and `.screenshot-fab` is at ~3150, so an identically
+   specific selector up there LOSES to the base rule on source order.
+   That is not hypothetical: the first attempt at this fix put it there
+   and the measured overlap only fell from 44x44 to 44x30, because
+   mobile silently took the desktop offset and dropped the 56px nav
+   term. Keep the two rules adjacent. */
+@media (max-width: 768px) {
+  body:has(.trade-sticky-tray) .screenshot-fab {
+    bottom: calc(
+      var(--mobile-nav-h) + env(safe-area-inset-bottom, 0px) +
+        var(--sticky-tray-clearance) + 12px
+    );
+  }
+}
+
 .screenshot-fab:hover {
   transform: translateY(-1px);
   border-color: var(--cyan);

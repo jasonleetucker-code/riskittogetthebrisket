@@ -42,9 +42,29 @@ def real_registry(monkeypatch):
     league_registry.reload_registry()
 
 
-def _registry_main() -> dict:
+def _registry_league(key: str) -> dict:
     registry = json.loads((REPO / "config" / "leagues" / "registry.json").read_text())
-    return next(lg for lg in registry["leagues"] if lg["key"] == "dynasty_main")
+    return next(lg for lg in registry["leagues"] if lg["key"] == key)
+
+
+def _registry_main() -> dict:
+    return _registry_league("dynasty_main")
+
+
+def _dynasty_new_snapshot() -> dict:
+    """The committed dynasty_new host snapshot (W18-F011 / V1-25).
+
+    dynasty_main's snapshot lives at ``config/league_intel/`` root and is
+    what ``load_canonical_config`` reads; dynasty_new's lives in its own
+    subdirectory so the root loader (which globs non-recursively and IS
+    dynasty_main by construction) can never pick it up.  Read raw rather
+    than through ``build_config_from_snapshot``: that builder's scoring
+    canary requires IDP + kicker keys dynasty_new's card does not carry.
+    """
+    d = REPO / "config" / "league_intel" / "dynasty_new"
+    candidates = sorted(d.glob("sleeper_league_snapshot_*.json"), key=lambda p: p.name)
+    assert candidates, f"no committed dynasty_new snapshot in {d}"
+    return json.loads(candidates[-1].read_text(encoding="utf-8"))
 
 
 # ── 0. Registry file matches the canonical snapshot truth ─────────────
@@ -73,6 +93,98 @@ class TestRegistryMatchesSnapshot:
         assert rs["rosterSize"] == cfg.roster_size == 58
         assert rs["taxiSize"] == cfg.taxi_slots == 0
         assert rs["teamCount"] == cfg.team_count == 12
+
+
+class TestRegistryMatchesSnapshotDynastyNew:
+    """W18-F011 / V1-25: the registry's dynasty_new entry was wrong against
+    its live host on EVERY roster field it modelled (rosterSize 24 vs 27,
+    taxiSize 5 vs 3, FLEX 2 vs FLEX 1 + WRRB_FLEX 1) and nothing in the
+    suite compared it to anything.  These pins are the same registry ==
+    committed-snapshot contract ``TestRegistryMatchesSnapshot`` gives
+    dynasty_main, against ``config/league_intel/dynasty_new/``."""
+
+    def test_starters_match_live_sleeper_structure(self):
+        snap = _dynasty_new_snapshot()
+        positions = [str(p).upper() for p in snap["roster_positions"]]
+        host_counts: dict[str, int] = {}
+        for slot in positions:
+            if slot == "BN":
+                continue
+            host_counts[slot] = host_counts.get(slot, 0) + 1
+
+        starters = _registry_league("dynasty_new")["rosterSettings"]["starters"]
+        # Registry uses SFLEX where Sleeper says SUPER_FLEX
+        translated = {("SFLEX" if k == "SUPER_FLEX" else k): v for k, v in host_counts.items()}
+        non_zero = {k: v for k, v in starters.items() if v > 0}
+        assert non_zero == translated
+        # The host's second flex is WR/RB-only — a TE is not a legal
+        # starter there, so it must not be modelled as a third FLEX.
+        assert starters["WRRB_FLEX"] == 1
+        assert starters["FLEX"] == 1
+        assert sum(starters.values()) == 10
+
+    def test_wrrb_flex_eligibility_is_declared_and_excludes_te(self):
+        rs = _registry_league("dynasty_new")["rosterSettings"]
+        assert rs["wrrbFlexEligible"] == ["RB", "WR"]
+        # And the one canonical resolver consumes it (no second table).
+        from src.ros.lineup import configured_slot_eligibility
+
+        elig = configured_slot_eligibility(rs)
+        assert elig["WR_RB_FLEX"] == ("RB", "WR")
+        assert "TE" not in elig["WR_RB_FLEX"]
+
+    def test_roster_size_taxi_and_team_count(self):
+        snap = _dynasty_new_snapshot()
+        rs = _registry_league("dynasty_new")["rosterSettings"]
+        assert rs["rosterSize"] == len(snap["roster_positions"]) == 27
+        assert rs["taxiSize"] == int(snap["settings"]["taxi_slots"]) == 3
+        assert rs["teamCount"] == int(snap["total_rosters"]) == 10
+        # starters + bench must account for the whole roster
+        bench = sum(1 for p in snap["roster_positions"] if str(p).upper() == "BN")
+        assert sum(v for v in rs["starters"].values() if v > 0) + bench == rs["rosterSize"]
+
+    def test_best_ball_is_stated_not_defaulted(self):
+        snap = _dynasty_new_snapshot()
+        assert int(snap["settings"].get("best_ball") or 0) == 0
+        assert _registry_league("dynasty_new")["bestBall"] is False
+
+    def test_reserve_slots_are_recorded_in_the_snapshot_only(self):
+        """The host runs 3 IR slots.  The registry deliberately does NOT
+        model IR yet — no consumer vocabulary for it exists (taxi is
+        BRACKETED in ``src/trade/roster_capacity.py`` and reserve players
+        sit inside ``players`` the same way), so a registry key would be a
+        dead field implying modelling that isn't there.  The fact is
+        pinned here against the committed snapshot instead, so the day a
+        consumer grows the vocabulary the number is already on record."""
+        snap = _dynasty_new_snapshot()
+        assert int(snap["settings"]["reserve_slots"]) == 3
+        rs = _registry_league("dynasty_new")["rosterSettings"]
+        assert "reserveSize" not in rs and "irSize" not in rs
+
+    def test_registry_starters_flatten_through_the_canonical_owner(self):
+        """A WRRB_FLEX starters key must reach the lineup owner as the
+        WR_RB_FLEX slot, not fall through as an unknown fixed slot."""
+        from src.ros.lineup import resolve_starter_slots
+
+        rs = _registry_league("dynasty_new")["rosterSettings"]
+        slots, source = resolve_starter_slots(roster_settings=rs)
+        assert source == "registry_starters"
+        assert len(slots) == 10
+        assert slots.count("WR_RB_FLEX") == 1
+        assert slots.count("FLEX") == 1
+        assert slots.count("SUPER_FLEX") == 1
+
+    def test_dynasty_new_snapshot_cannot_shadow_the_canonical_loader(self):
+        """``load_canonical_config`` globs ``config/league_intel/`` root
+        non-recursively; the dynasty_new snapshot lives one level down so
+        the League Intelligence engine's canonical config stays
+        dynasty_main's.  If this ever fails, the snapshot has been moved
+        into the root directory — which would silently swap the engine's
+        league."""
+        from src.league_intel.config import load_canonical_config
+
+        cfg = load_canonical_config()
+        assert cfg.sleeper_league_id != str(_dynasty_new_snapshot()["league_id"])
 
 
 # ── 1. league_registry loader ─────────────────────────────────────────
@@ -280,6 +392,13 @@ class TestSuggestionsNeeds:
         10-team, starts 1 TE and rosters no IDP.  Serving it
         dynasty_main's demand model told it to chase a second TE and
         nine defenders it cannot start.
+
+        Host truth (W18-F011 / V1-25): the second flex is ``WRRB_FLEX``
+        (WR/RB only), not a second RB/WR/TE FLEX.  Under the
+        ``flex_priority`` round-robin both flexes therefore open on RB
+        (FLEX ranks RB first; WR_RB_FLEX ranks RB first), so demand is
+        RB 4 / WR 3 — this test asserted RB 3 / WR 4 while the registry
+        modelled a lineup the host does not run.
         """
         from src.trade.suggestions import starter_needs_for_league
 
@@ -287,10 +406,11 @@ class TestSuggestionsNeeds:
 
         assert needs["TE"] == 1, "dynasty_new starts one TE"
         assert "DL" not in needs and "LB" not in needs and "DB" not in needs
-        # Superflex + 2 FLEX are allocated the same way in both leagues.
-        assert needs["QB"] == 2
-        assert needs["RB"] == 3
-        assert needs["WR"] == 4
+        assert needs["QB"] == 2  # 1 QB + 1 SUPER_FLEX
+        assert needs["RB"] == 4  # 2 RB + FLEX→RB + WR_RB_FLEX→RB
+        assert needs["WR"] == 3  # 3 dedicated WR slots
+        # Total demand equals total non-K starter slots — nothing invented.
+        assert sum(needs.values()) == 10
         assert "K" not in needs
 
     def test_derived_needs_fall_back_rather_than_returning_nothing(self, real_registry):

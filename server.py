@@ -37,6 +37,7 @@ from email.mime.multipart import MIMEMultipart
 from datetime import datetime, timezone
 from pathlib import Path
 from contextlib import asynccontextmanager
+from collections.abc import Callable
 from typing import Any
 
 from fastapi import FastAPI, BackgroundTasks, Request
@@ -3368,7 +3369,13 @@ _PUBLIC_API_EXACT = frozenset(
         "/api/auth/status",
         "/api/auth/login",
         "/api/auth/logout",
-        "/api/scaffold/status",
+        # /api/scaffold/status was REMOVED from this list 2026-08-25
+        # (W22-F005 / V1-103): it hands the full source inventory and
+        # pipeline internals to anonymous callers, and a caller census
+        # found nothing anonymous reading it — no frontend caller, no
+        # bridge route, no workflow curl, no deploy script. The other
+        # /api/scaffold/* endpoints were already private
+        # (tests/api/test_private_auth.py).
         # /league page is a public view — its draft-capital tab reads
         # this endpoint.  Payload is public Sleeper data (team names,
         # pick dollar values, owners) already viewable on Sleeper.
@@ -3521,14 +3528,32 @@ async def _request_context_middleware(request: Request, call_next):
 
 
 def _client_ip_from_request(request: Request) -> str:
-    """Prefer ``X-Forwarded-For`` (nginx sets it for us in prod);
-    fall back to ``request.client.host``."""
+    """The client identity the RATE LIMITER keys on — attacker-fixed, not
+    attacker-chosen (W22-F002 / V1-103).
+
+    ``X-Real-IP`` first: nginx sets it with ``proxy_set_header X-Real-IP
+    $remote_addr`` (deploy/nginx/chaseupside-proxy.conf), which REPLACES
+    anything the client sent — through the proxy it is always the TCP
+    peer nginx actually saw.
+
+    ``X-Forwarded-For`` is different: nginx uses
+    ``$proxy_add_x_forwarded_for``, which APPENDS the real address to
+    whatever the client supplied.  Taking the FIRST entry — what this
+    function did until 2026-08-25 — therefore keyed the limiter on an
+    attacker-chosen string: rotate one header value per request and every
+    public endpoint's limit dissolves.  The one entry our own trusted
+    proxy wrote is the LAST, so the fallback takes that.
+
+    Bare ``request.client.host`` remains for direct (dev/E2E) access.
+    """
+    real_ip = request.headers.get("x-real-ip", "").strip()
+    if real_ip:
+        return real_ip
     xff = request.headers.get("x-forwarded-for", "")
     if xff:
-        # First entry in the chain is the original client.
-        first = xff.split(",")[0].strip()
-        if first:
-            return first
+        last = xff.split(",")[-1].strip()
+        if last:
+            return last
     client = request.client
     return client.host if client else ""
 
@@ -4860,12 +4885,13 @@ async def get_leagues(request: Request):
 
 
 # ── League Comparison ─────────────────────────────────────────────────
-# Compares one custom-scoring Sleeper league against a "standard"
-# baseline league across multiple historical NFL seasons.  Read-only
-# analysis tool — does NOT route through the league registry; the two
-# league IDs come from config/league_comparison.json server-side, the
-# UI never sends raw Sleeper IDs in requests.  See
-# src/league_comparison/service.py for the full pipeline.
+# Compares "my league" — the league registry's default league (W18-F005;
+# no query param, no per-league selection at this route) — against a
+# "standard" baseline league across multiple historical NFL seasons.
+# Read-only analysis tool; the baseline league id comes from
+# config/league_comparison.json server-side, the UI never sends raw
+# Sleeper IDs in requests.  See src/league_comparison/service.py for
+# the full pipeline.
 @app.get("/api/league-comparison")
 async def get_league_comparison(request: Request):
     """Build the positional-balance comparison between the two
@@ -7426,6 +7452,14 @@ async def post_trade_finder(request: Request):
         request, contract, league_cfg, surface="/api/trade/finder"
     )
 
+    # V1-41 / C3-CTX-01 — "Use Team Context", ON by default.  Wire name
+    # ``useTeamContext``; missing/non-bool falls back to the canonical
+    # default (True) rather than silently disabling the signal.
+    raw_use_team_context = body.get("useTeamContext")
+    use_team_context = (
+        bool(raw_use_team_context) if isinstance(raw_use_team_context, bool) else True
+    )
+
     try:
         result = await run_in_threadpool(
             find_trades,
@@ -7441,6 +7475,7 @@ async def post_trade_finder(request: Request):
             # Without this the finder arbitrages the raw scraper
             # composite, which no other engine and no UI surface reads.
             contract=contract,
+            use_team_context=use_team_context,
         )
     except Exception as e:
         log.error(f"Trade Finder failed: {e}")
@@ -10522,7 +10557,7 @@ def _public_section_access_error(section: str, request: Request) -> JSONResponse
         content={
             "error": "auth_required",
             "message": (
-                f"{section!r} contains manager-specific intelligence and " "requires a session."
+                f"{section!r} contains manager-specific intelligence and requires a session."
             ),
             "section": section,
         },
@@ -11448,6 +11483,14 @@ async def trigger_scrape(request: Request, background_tasks: BackgroundTasks):
     ``not_implemented`` because multi-league scraping isn't wired up
     yet (that's a future refactor of Dynasty Scraper.py).
     """
+    # W22-F007: triggering the production scrape (or force-refreshing
+    # a league's Sleeper overlay) is an operator-grade action, not a
+    # product feature — gate on the admin allowlist, never on mere
+    # session presence.  A guest-pass session gets 403 here.
+    session_or_err = _require_admin_session(request)
+    if isinstance(session_or_err, JSONResponse):
+        return session_or_err
+
     # Validate the key first.  Non-default leagues don't run the
     # full ranking scrape (the pipeline is single-league) — instead
     # they refresh the on-demand Sleeper overlay (rosters + trades
@@ -11535,8 +11578,13 @@ async def trigger_scrape(request: Request, background_tasks: BackgroundTasks):
 
 
 @app.post("/api/test-alert")
-async def test_alert():
+async def test_alert(request: Request):
     """Send a test alert email to verify configuration."""
+    # W22-F007: sends an outbound email — operator-grade, so it gates
+    # on the admin allowlist, not on session presence.
+    session_or_err = _require_admin_session(request)
+    if isinstance(session_or_err, JSONResponse):
+        return session_or_err
     if not ALERT_ENABLED:
         return JSONResponse(
             status_code=400,
@@ -11550,6 +11598,67 @@ async def test_alert():
 
 
 # ── AUTH + ENTRY GATE ROUTES ────────────────────────────────────────────
+
+
+# Nav-gated capabilities: the shell's nav key → the CANONICAL predicate
+# that answers "can this feature actually serve its page right now".
+#
+# Deliberately a SHORT closed list, not a dump of every flag.
+# `/api/auth/status` is on every page load and answers exactly one
+# question here ("may the nav offer this destination?"); operator-facing
+# flag visibility is a different concern and a different row (V1-87).
+# This must not grow into a general product-data endpoint.
+#
+# Each value is a THUNK resolving the feature's own availability owner at
+# call time, never a flag read done here.  A flag is not availability:
+# consensus_edge's board handlers 503 both when the flag is off
+# (`feature_disabled`) AND when no contract is loaded (`data_not_ready`),
+# so a nav gate keyed on the flag alone would advertise a dead page for
+# the whole window where the flag is on and the data is not.  Asking the
+# feature keeps one owner for feature health — the nav and the router
+# cannot drift into disagreeing about whether the page works.
+def _consensus_edge_available() -> bool:
+    from src.consensus_edge.api import is_available  # noqa: PLC0415
+
+    return is_available()
+
+
+_NAV_GATED_CAPABILITIES: dict[str, Callable[[], bool]] = {
+    # consensus_edge defaults OFF (ADR-023), so the DEFAULT state is a
+    # nav entry to a page whose every board endpoint refuses — the same
+    # thing the adminOnly Ops filter exists to prevent.
+    "consensusEdge": _consensus_edge_available,
+}
+
+
+def _nav_gated_features() -> dict[str, dict[str, bool]]:
+    """Effective availability of each nav-gated capability.
+
+    Shape is ``{"consensusEdge": {"available": bool}}`` — a nested object
+    rather than a bare boolean so a later capability can carry a second
+    fact without changing the key's type on a client already reading it.
+    ``available`` rather than ``enabled`` because those are genuinely
+    different questions here and the difference is the defect: the flag
+    can be on while the board still cannot be served.
+
+    FAILS CLOSED, per capability.  Anything that raises or cannot be
+    resolved yields ``False`` — "we could not confirm this works" must
+    never reach the shell as "this works".  It is also why this cannot
+    propagate: an exception escaping here would take down
+    `/api/auth/status`, the probe the entire shell (nav, switchers,
+    login affordance) depends on, so a rename in the feature module
+    would log every user out of their own chrome.
+    """
+    out: dict[str, dict[str, bool]] = {}
+    for key, resolve in _NAV_GATED_CAPABILITIES.items():
+        try:
+            available = bool(resolve())
+        except Exception:  # noqa: BLE001 — unresolvable ⇒ not offered
+            available = False
+        out[key] = {"available": available}
+    return out
+
+
 @app.get("/api/auth/status")
 async def auth_status(request: Request):
     session = _get_auth_session(request)
@@ -11570,6 +11679,20 @@ async def auth_status(request: Request):
             # so a client that lies to itself about this flag gains
             # nothing.
             "isAdmin": str(session.get("username") or "").lower() in PRIVATE_APP_ALLOWED_USERNAMES,
+            # Which flag-gated destinations actually answer, so the shell
+            # can stop OFFERING a nav entry whose page is dead (V1-131 /
+            # audit F-25).  Same posture as ``isAdmin`` directly above:
+            # a UI affordance, never access control — the router in
+            # ``src/consensus_edge/api.py`` re-checks the flag on every
+            # handler, so a client that lies to itself here reaches a
+            # 503, not a board.
+            #
+            # This rides the shell's EXISTING probe rather than adding a
+            # second one.  ``useAuth`` is the one capability fetch the
+            # shell makes on every route, and V1-108 ("non-data routes
+            # stop fetching the contract") is VERIFIED — a new per-page
+            # request to learn a boolean would regress it.
+            "features": _nav_gated_features(),
         }
     )
 
@@ -11586,6 +11709,30 @@ async def auth_login(request: Request):
 
     username = str(payload.get("username") or "").strip()
     password = str(payload.get("password") or "")
+
+    # W22-F003: the login endpoint gets its own failure throttle —
+    # exponential backoff per client IP and per (client IP, username)
+    # after repeated failed attempts.  Checked BEFORE any credential
+    # comparison so a blocked caller learns nothing about validity.
+    # Design, constants and the never-key-on-username-alone invariant
+    # live in ``src/api/rate_limit.py`` (the ``login_*`` functions) —
+    # one throttle owner, no second in-server implementation.
+    from src.api import rate_limit as _rl
+
+    client_ip = _client_ip_from_request(request)
+    throttled, retry_after = _rl.login_throttle_check(client_ip, username)
+    if throttled:
+        return JSONResponse(
+            status_code=429,
+            content={
+                "ok": False,
+                "error": "too_many_attempts",
+                "message": "Too many failed login attempts — try again shortly.",
+                "retryAfterSeconds": retry_after,
+            },
+            headers={"Retry-After": str(retry_after), "Cache-Control": "no-store"},
+        )
+
     # Post-login default lands users on "/" (the Brisket Home
     # dashboard — Team Value + Top Movers + Risers/Fallers).  An
     # explicit ``next`` from the form preserves deep-link return,
@@ -11594,6 +11741,7 @@ async def auth_login(request: Request):
 
     # Owner login: full session, max-age = JASON_AUTH_COOKIE_MAX_AGE.
     if username == JASON_LOGIN_USERNAME and password == JASON_LOGIN_PASSWORD:
+        _rl.login_record_success(client_ip, username)
         session_id = _create_auth_session(username, auth_method="password")
         response = JSONResponse(content={"ok": True, "redirect": next_path})
         response.set_cookie(
@@ -11621,10 +11769,12 @@ async def auth_login(request: Request):
         if remaining < 1.0:
             # Expired during the millisecond between fetch and now —
             # treat as invalid.
+            _rl.login_record_failure(client_ip, username)
             return JSONResponse(
                 status_code=401,
                 content={"ok": False, "error": "Invalid username or password."},
             )
+        _rl.login_record_success(client_ip, username)
         session_id = _create_auth_session(
             "guest",
             auth_method="guest_pass",
@@ -11655,6 +11805,7 @@ async def auth_login(request: Request):
         )
         return response
 
+    _rl.login_record_failure(client_ip, username)
     return JSONResponse(
         status_code=401,
         content={"ok": False, "error": "Invalid username or password."},
@@ -12437,40 +12588,35 @@ async def get_terminal(request: Request):
     )
 
 
-@app.post("/api/trade/simulate")
-async def post_trade_simulate(request: Request):
-    """Pure-function what-if: apply a hypothetical trade to the
-    authenticated user's team and return the delta payload.
+async def _build_trade_simulation(
+    request: Request,
+) -> tuple[dict[str, Any] | None, str | None, JSONResponse | None]:
+    """Shared body: resolve league/team, run ``trade_simulator.simulate_trade``.
 
-    Body::
-
-        {
-          "team":       "<ownerId>" (optional — defaults to session
-                        owner when signed in via Sleeper),
-          "teamName":   "<teamName>" (optional fallback lookup),
-          "playersIn":  ["Ja'Marr Chase", ...],   # inbound players
-          "playersOut": ["Drake London", ...],     # outbound players
-          "picksIn":    ["2026 1.04", ...],        # inbound picks
-          "picksOut":   ["2027 2.08", ...]         # outbound picks
-        }
-
-    Response shape matches ``trade_simulator.simulate_trade``.
-    No persistence — the live contract is never mutated.
+    Returns ``(result, league_key, error_response)`` — exactly one of
+    ``result``/``error_response`` is set.  Factored out so
+    ``/api/trade/analyze`` (V1-43 / C7-DESK-01) can compose Analyze Trade on
+    top of the identical simulation ``/api/trade/simulate`` already returns,
+    rather than re-deriving league/team/overlay resolution a second time.
     """
     session = _get_auth_session(request)
     if not session:
-        return JSONResponse(status_code=401, content={"error": "auth_required"})
+        return None, None, JSONResponse(status_code=401, content={"error": "auth_required"})
     if not latest_contract_data:
-        return JSONResponse(
-            status_code=503,
-            content={"error": "No data available yet."},
+        return (
+            None,
+            None,
+            JSONResponse(
+                status_code=503,
+                content={"error": "No data available yet."},
+            ),
         )
     try:
         body = await request.json()
     except Exception:
         body = None
     if not isinstance(body, dict):
-        return JSONResponse(status_code=400, content={"error": "invalid_body"})
+        return None, None, JSONResponse(status_code=400, content={"error": "invalid_body"})
 
     # Validate leagueKey but don't require the loaded contract's
     # leagueKey to match — when the user is on a non-default league
@@ -12480,7 +12626,7 @@ async def post_trade_simulate(request: Request):
     try:
         league_cfg = _resolve_league_for_request(request, body=body)
     except LeagueResolutionError as err:
-        return err.json_response()
+        return None, None, err.json_response()
 
     # Build the contract this trade sim runs against.  When the
     # request league matches the loaded contract, just use it.
@@ -12494,7 +12640,7 @@ async def post_trade_simulate(request: Request):
         # Trade simulation needs matching rankings.
         _scoring_err = _scoring_identity_error(contract, league_cfg)
         if _scoring_err is not None:
-            return _scoring_err
+            return None, None, _scoring_err
         # Splice in a live overlay for the requested league.
         loaded_sleeper = contract.get("sleeper") or {}
         id_map = loaded_sleeper.get("idToPlayer") if isinstance(loaded_sleeper, dict) else None
@@ -12512,13 +12658,17 @@ async def post_trade_simulate(request: Request):
             )
             overlay = None
         if not overlay or not overlay.get("teams"):
-            return JSONResponse(
-                status_code=503,
-                content={
-                    "error": "data_not_ready",
-                    "message": f"Sleeper overlay for league {league_cfg.key!r} unavailable.",
-                    "leagueKey": league_cfg.key,
-                },
+            return (
+                None,
+                None,
+                JSONResponse(
+                    status_code=503,
+                    content={
+                        "error": "data_not_ready",
+                        "message": f"Sleeper overlay for league {league_cfg.key!r} unavailable.",
+                        "leagueKey": league_cfg.key,
+                    },
+                ),
             )
         hybrid_sleeper, _ = _sleeper_overlay.merge_cross_league_sleeper_block(
             loaded_sleeper=loaded_sleeper if isinstance(loaded_sleeper, dict) else {},
@@ -12547,9 +12697,13 @@ async def post_trade_simulate(request: Request):
         name=team_name,
     )
     if resolved_team is None:
-        return JSONResponse(
-            status_code=404,
-            content={"error": "team_not_found", "leagueKey": league_cfg.key},
+        return (
+            None,
+            None,
+            JSONResponse(
+                status_code=404,
+                content={"error": "team_not_found", "leagueKey": league_cfg.key},
+            ),
         )
 
     def _str_list(key):
@@ -12571,6 +12725,59 @@ async def post_trade_simulate(request: Request):
     )
     result["leagueKey"] = league_cfg.key
     _stamp_valuation_mode(result, valuation_mode, valuation_note)
+    return result, league_cfg.key, None
+
+
+@app.post("/api/trade/simulate")
+async def post_trade_simulate(request: Request):
+    """Pure-function what-if: apply a hypothetical trade to the
+    authenticated user's team and return the delta payload.
+
+    Body::
+
+        {
+          "team":       "<ownerId>" (optional — defaults to session
+                        owner when signed in via Sleeper),
+          "teamName":   "<teamName>" (optional fallback lookup),
+          "playersIn":  ["Ja'Marr Chase", ...],   # inbound players
+          "playersOut": ["Drake London", ...],     # outbound players
+          "picksIn":    ["2026 1.04", ...],        # inbound picks
+          "picksOut":   ["2027 2.08", ...]         # outbound picks
+        }
+
+    Response shape matches ``trade_simulator.simulate_trade``.
+    No persistence — the live contract is never mutated.
+    """
+    result, _league_key, error = await _build_trade_simulation(request)
+    if error is not None:
+        return error
+    return JSONResponse(
+        content=result,
+        headers={"Cache-Control": "no-store"},
+    )
+
+
+@app.post("/api/trade/analyze")
+async def post_trade_analyze(request: Request):
+    """Analyze Trade — the canonical decision-synthesis verdict (V1-43 /
+    C7-DESK-01, V1 depth; see ``src.trade.analyze_trade`` for what is and is
+    not included at this depth).
+
+    Body: identical to ``/api/trade/simulate`` — this endpoint runs that
+    exact simulation internally and layers a recommendation on top; it does
+    not accept or need a separately-specified trade.
+
+    Response: the ``/api/trade/simulate`` payload's fields, plus
+    ``analysis`` — ``src.trade.analyze_trade.analyze_trade()``'s output
+    (recommendation / confidence / reasonsFor / reasonsAgainst / dimensions /
+    unavailableDimensions).
+    """
+    result, _league_key, error = await _build_trade_simulation(request)
+    if error is not None:
+        return error
+    from src.trade.analyze_trade import analyze_trade
+
+    result["analysis"] = analyze_trade(result)
     return JSONResponse(
         content=result,
         headers={"Cache-Control": "no-store"},
@@ -14338,13 +14545,16 @@ async def post_intel_refresh(request: Request):
     sequentially (the cron's mode); any other key resolves through
     the standard league resolver."""
     is_cron = _intel_bearer_auth_ok(request)
-    session = None if is_cron else _get_auth_session(request)
-    if not is_cron and not session:
-        return JSONResponse(
-            status_code=401,
-            content={"error": "auth_required", "message": "Sign-in or bearer token required."},
-            headers={"Cache-Control": "no-store"},
-        )
+    session = None
+    if not is_cron:
+        # W22-F007: a crawl is minutes of budgeted Sleeper calls — an
+        # operator-grade action, so the browser path gates on the admin
+        # allowlist rather than session presence (a guest-pass session
+        # gets 403).  The bearer path (the daily cron) is unchanged.
+        session_or_err = _require_admin_session(request)
+        if isinstance(session_or_err, JSONResponse):
+            return session_or_err
+        session = session_or_err
 
     # D13: per-user cooldown on MANUAL triggers.  The cron (bearer) is
     # exempt — it is the intended scheduled driver.  A crawl is minutes

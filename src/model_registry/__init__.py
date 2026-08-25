@@ -16,11 +16,16 @@ the live example: eight constants in
 ``.github/workflows/refit-hill-curves.yml`` and committed to main
 without review.
 
-What this package does NOT do: it does not compute values, does not
-import the valuation pipeline, and does not change what any live
-endpoint returns.  It records what a fitted parameter set is, where it
-came from, how it scored on data it never saw, and which version is
-authoritative.  Promotion and rollback are explicit operations.
+What this package does NOT do: it does not compute values and does not
+import the valuation pipeline.  ``src/api/data_contract.py`` reads it
+read-only, for exactly one purpose (V1-21 / W04-F011): stamping the
+served ``hillCurves.provenance`` block with which champion produced the
+live Hill-master constants.  That stamp never changes a player's value —
+it is metadata about the constants, not an input to computing them — so
+the package still computes nothing and still owns no valuation math.
+It records what a fitted parameter set is, where it came from, how it
+scored on data it never saw, and which version is authoritative.
+Promotion and rollback are explicit operations.
 
 Modules
 -------

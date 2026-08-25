@@ -20,6 +20,7 @@ _MAX_TRACKED_IPS — keeps memory bounded.
 from __future__ import annotations
 
 import logging
+import math
 import os
 import threading
 import time
@@ -138,3 +139,166 @@ def snapshot() -> dict[str, Any]:
 def reset_for_tests() -> None:
     with _lock:
         _buckets.clear()
+    login_reset_for_tests()
+
+
+# ── Login failure throttle (W22-F003) ────────────────────────────────
+#
+# ``POST /api/auth/login`` had no throttle of its own, no lockout and
+# no failure backoff — 200 wrong-password attempts landed at 223 req/s
+# with zero 429.  This is a dedicated FAILURE throttle, separate from
+# the public token buckets above: it counts failed credential checks
+# and imposes an exponential delay once the free attempts are spent.
+#
+# Keying — INVARIANT: a lockout is NEVER keyed on username alone.  An
+# attacker must not be able to lock the real owner out remotely by
+# spraying failures at the owner's username from anywhere on the
+# internet; the per-username component is therefore always scoped
+# WITHIN the client IP.  Each failure is charged to two keys:
+#
+#   * ``ip:<ip>``             — throttles username rotation from one host
+#   * ``ipuser:<ip>|<user>``  — throttles password guessing on one account
+#
+# Failures from IP A never throttle IP B (test-pinned in
+# tests/api/test_login_throttle.py).  With no usable client IP nothing
+# is keyed at all — falling back to the bare username would break the
+# invariant.
+#
+# All constants live here, once:
+_LOGIN_FREE_ATTEMPTS = 5  # failures per window before the backoff starts
+_LOGIN_BACKOFF_BASE_SECONDS = 1.0  # first delay; then 2s, 4s, ... doubling
+_LOGIN_BACKOFF_CAP_SECONDS = 60.0  # the doubling caps here
+_LOGIN_FAILURE_WINDOW_SECONDS = 15 * 60  # cool-off: state expires after this
+#                                          long with no new failure
+_MAX_TRACKED_LOGIN_KEYS = 5000
+
+
+@dataclass
+class _LoginFailureState:
+    failures: int
+    last_failure_at: float
+    blocked_until: float
+
+
+_login_failures: dict[str, _LoginFailureState] = {}
+_login_lock = threading.Lock()
+
+
+def _login_now() -> float:
+    """The login throttle's single clock read — a seam so tests can
+    drive the backoff without sleeping."""
+    return time.time()
+
+
+def _login_keys(ip: str, username: str) -> list[str]:
+    """The keys one attempt is charged to.  Never the bare username —
+    see the invariant in the section comment above."""
+    keys: list[str] = []
+    ip = (ip or "").strip()
+    if not ip:
+        return keys
+    keys.append(f"ip:{ip}")
+    user = (username or "").strip().lower()
+    if user:
+        keys.append(f"ipuser:{ip}|{user}")
+    return keys
+
+
+def _login_state_expired(state: _LoginFailureState, now: float) -> bool:
+    return now - state.last_failure_at >= _LOGIN_FAILURE_WINDOW_SECONDS
+
+
+def login_throttle_check(ip: str, username: str) -> tuple[bool, int]:
+    """``(is_blocked, retry_after_seconds)`` for one login attempt.
+
+    Call BEFORE any credential comparison, so a blocked caller learns
+    nothing about validity.  Never blocks a first attempt (no recorded
+    failures → no state → not blocked).
+    """
+    now = _login_now()
+    worst = 0.0
+    with _login_lock:
+        for key in _login_keys(ip, username):
+            state = _login_failures.get(key)
+            if state is None:
+                continue
+            if _login_state_expired(state, now):
+                # Cool-off elapsed — the window resets.
+                _login_failures.pop(key, None)
+                continue
+            worst = max(worst, state.blocked_until - now)
+    if worst > 0:
+        return (True, max(1, math.ceil(worst)))
+    return (False, 0)
+
+
+def login_record_failure(ip: str, username: str) -> None:
+    """Record one FAILED credential check against both keys.
+
+    The first ``_LOGIN_FREE_ATTEMPTS`` failures in a window carry no
+    delay; from then on the next attempt is pushed out exponentially
+    (1s, 2s, 4s, ... capped at ``_LOGIN_BACKOFF_CAP_SECONDS``).
+    """
+    now = _login_now()
+    with _login_lock:
+        for key in _login_keys(ip, username):
+            state = _login_failures.get(key)
+            if state is None or _login_state_expired(state, now):
+                state = _LoginFailureState(failures=0, last_failure_at=now, blocked_until=0.0)
+                _login_failures[key] = state
+            state.failures += 1
+            state.last_failure_at = now
+            if state.failures >= _LOGIN_FREE_ATTEMPTS:
+                delay = min(
+                    _LOGIN_BACKOFF_CAP_SECONDS,
+                    _LOGIN_BACKOFF_BASE_SECONDS * (2.0 ** (state.failures - _LOGIN_FREE_ATTEMPTS)),
+                )
+                state.blocked_until = max(state.blocked_until, now + delay)
+        _maybe_evict_login_keys()
+
+
+def login_record_success(ip: str, username: str) -> None:
+    """A successful login clears the ``(ip, username)`` failure state.
+
+    Deliberately NOT the bare-IP key: an attacker holding one valid
+    credential (e.g. a guest pass) must not be able to reset the
+    IP-wide counter between guessing bursts.  The IP key expires on its
+    own via the cool-off window.
+    """
+    ip = (ip or "").strip()
+    user = (username or "").strip().lower()
+    if not ip or not user:
+        return
+    with _login_lock:
+        _login_failures.pop(f"ipuser:{ip}|{user}", None)
+
+
+def _maybe_evict_login_keys() -> None:
+    """Bound memory: drop the oldest 10% when the cap is hit.  Called
+    under ``_login_lock``."""
+    if len(_login_failures) <= _MAX_TRACKED_LOGIN_KEYS:
+        return
+    target = max(1, _MAX_TRACKED_LOGIN_KEYS // 10)
+    oldest = sorted(
+        _login_failures.items(),
+        key=lambda kv: kv[1].last_failure_at,
+    )[:target]
+    for key, _ in oldest:
+        _login_failures.pop(key, None)
+
+
+def login_throttle_snapshot() -> dict[str, Any]:
+    """Summary stats for observability."""
+    with _login_lock:
+        return {
+            "trackedKeys": len(_login_failures),
+            "freeAttempts": _LOGIN_FREE_ATTEMPTS,
+            "backoffBaseSeconds": _LOGIN_BACKOFF_BASE_SECONDS,
+            "backoffCapSeconds": _LOGIN_BACKOFF_CAP_SECONDS,
+            "failureWindowSeconds": _LOGIN_FAILURE_WINDOW_SECONDS,
+        }
+
+
+def login_reset_for_tests() -> None:
+    with _login_lock:
+        _login_failures.clear()
