@@ -10,10 +10,12 @@
  * public pipeline (src/public_league/) and AppShell deliberately
  * refuses to hydrate the private contract there.  But contention
  * classification IS private analysis: TeamPhasePanel calls
- * useDynastyData() directly — bypassing that refusal — to rank every
- * team by top-25 roster value.  A public-prefixed route that fetches
- * the private contract is a boundary violation waiting to become a
- * leak the first time the API allowlist is edited.
+ * useRosterIntelligence() directly — bypassing that refusal — to read
+ * GET /api/roster/intelligence (the canonical Team Strength +
+ * age-portfolio owners; see V1-35 audit finding F-3). A public-prefixed
+ * route that fetches private roster intelligence is a boundary
+ * violation waiting to become a leak the first time the API allowlist
+ * is edited.
  *
  * So the page moved to its own private route instead of being
  * special-cased.  /league/phases still resolves — see the redirect
@@ -28,7 +30,7 @@ export default function PhasesPage() {
     <section>
       <PageHeader
         title="Win-now vs Rebuild"
-        subtitle="Each team classified by top-25 roster value × median age, with natural trade-partner suggestions for your franchise."
+        subtitle="Each team classified by canonical Team Strength × value-weighted core age, with natural trade-partner suggestions for your franchise."
       />
       <TeamPhasePanel />
     </section>

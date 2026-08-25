@@ -1,0 +1,840 @@
+{
+ "measuredAt": "2026-08-20T21:55:37.879Z",
+ "runs": 3,
+ "routes": {
+  "desktop /rankings": {
+   "viewport": "desktop",
+   "path": "/rankings",
+   "readySelector": ".ds-table-wrap table tbody tr.rankings-row-clickable",
+   "readyMeans": "a board row \u2014 the player table has data",
+   "cold": {
+    "ttfbMs": {
+     "p50": 9,
+     "p95": 53,
+     "n": 3
+    },
+    "fcpMs": {
+     "p50": 192,
+     "p95": 364,
+     "n": 3
+    },
+    "usefulMs": {
+     "p50": 1495,
+     "p95": 2968,
+     "n": 3
+    },
+    "domContentLoadedMs": {
+     "p50": 115,
+     "p95": 276,
+     "n": 3
+    },
+    "loadMs": {
+     "p50": 252,
+     "p95": 697,
+     "n": 3
+    },
+    "encodedBytes": {
+     "p50": 8192966,
+     "p95": 8193189,
+     "n": 3
+    },
+    "decodedBytes": {
+     "p50": 8827277,
+     "p95": 8827277,
+     "n": 3
+    },
+    "requestCount": {
+     "p50": 71,
+     "p95": 71,
+     "n": 3
+    },
+    "domNodes": {
+     "p50": 1332,
+     "p95": 1337,
+     "n": 3
+    },
+    "usefulMissing": 0,
+    "errors": 0
+   },
+   "warm": {
+    "ttfbMs": {
+     "p50": 15,
+     "p95": 39,
+     "n": 3
+    },
+    "fcpMs": {
+     "p50": 172,
+     "p95": 236,
+     "n": 3
+    },
+    "usefulMs": {
+     "p50": 2198,
+     "p95": 2654,
+     "n": 3
+    },
+    "domContentLoadedMs": {
+     "p50": 102,
+     "p95": 170,
+     "n": 3
+    },
+    "loadMs": {
+     "p50": 203,
+     "p95": 490,
+     "n": 3
+    },
+    "encodedBytes": {
+     "p50": 8827277,
+     "p95": 8827277,
+     "n": 3
+    },
+    "decodedBytes": {
+     "p50": 8827277,
+     "p95": 8827277,
+     "n": 3
+    },
+    "requestCount": {
+     "p50": 71,
+     "p95": 71,
+     "n": 3
+    },
+    "domNodes": {
+     "p50": 1344,
+     "p95": 1344,
+     "n": 3
+    },
+    "usefulMissing": 0,
+    "errors": 0
+   }
+  },
+  "desktop /trade": {
+   "viewport": "desktop",
+   "path": "/trade",
+   "readySelector": ".trade-controls",
+   "readyMeans": "the trade control bar",
+   "cold": {
+    "ttfbMs": {
+     "p50": 7,
+     "p95": 9,
+     "n": 3
+    },
+    "fcpMs": {
+     "p50": 140,
+     "p95": 152,
+     "n": 3
+    },
+    "usefulMs": {
+     "p50": 997,
+     "p95": 999,
+     "n": 3
+    },
+    "domContentLoadedMs": {
+     "p50": 102,
+     "p95": 108,
+     "n": 3
+    },
+    "loadMs": {
+     "p50": 215,
+     "p95": 221,
+     "n": 3
+    },
+    "encodedBytes": {
+     "p50": 8109823,
+     "p95": 8199835,
+     "n": 3
+    },
+    "decodedBytes": {
+     "p50": 8749246,
+     "p95": 8810732,
+     "n": 3
+    },
+    "requestCount": {
+     "p50": 69,
+     "p95": 71,
+     "n": 3
+    },
+    "domNodes": {
+     "p50": 267,
+     "p95": 268,
+     "n": 3
+    },
+    "usefulMissing": 0,
+    "errors": 0
+   },
+   "warm": {
+    "ttfbMs": {
+     "p50": 11,
+     "p95": 17,
+     "n": 3
+    },
+    "fcpMs": {
+     "p50": 144,
+     "p95": 184,
+     "n": 3
+    },
+    "usefulMs": {
+     "p50": 974,
+     "p95": 1914,
+     "n": 3
+    },
+    "domContentLoadedMs": {
+     "p50": 94,
+     "p95": 157,
+     "n": 3
+    },
+    "loadMs": {
+     "p50": 213,
+     "p95": 262,
+     "n": 3
+    },
+    "encodedBytes": {
+     "p50": 8810732,
+     "p95": 8810732,
+     "n": 3
+    },
+    "decodedBytes": {
+     "p50": 8810732,
+     "p95": 8810732,
+     "n": 3
+    },
+    "requestCount": {
+     "p50": 71,
+     "p95": 71,
+     "n": 3
+    },
+    "domNodes": {
+     "p50": 268,
+     "p95": 269,
+     "n": 3
+    },
+    "usefulMissing": 0,
+    "errors": 0
+   }
+  },
+  "desktop /league": {
+   "viewport": "desktop",
+   "path": "/league",
+   "readySelector": "main .card, .league-page .card",
+   "readyMeans": "the first league card",
+   "cold": {
+    "ttfbMs": {
+     "p50": 31,
+     "p95": 92,
+     "n": 3
+    },
+    "fcpMs": {
+     "p50": 204,
+     "p95": 260,
+     "n": 3
+    },
+    "usefulMs": {
+     "p50": 244,
+     "p95": 318,
+     "n": 3
+    },
+    "domContentLoadedMs": {
+     "p50": 136,
+     "p95": 198,
+     "n": 3
+    },
+    "loadMs": {
+     "p50": 232,
+     "p95": 302,
+     "n": 3
+    },
+    "encodedBytes": {
+     "p50": 304322,
+     "p95": 304322,
+     "n": 3
+    },
+    "decodedBytes": {
+     "p50": 889958,
+     "p95": 889958,
+     "n": 3
+    },
+    "requestCount": {
+     "p50": 18,
+     "p95": 18,
+     "n": 3
+    },
+    "domNodes": {
+     "p50": 358,
+     "p95": 360,
+     "n": 3
+    },
+    "usefulMissing": 0,
+    "errors": 0
+   },
+   "warm": {
+    "ttfbMs": {
+     "p50": 37,
+     "p95": 37,
+     "n": 3
+    },
+    "fcpMs": {
+     "p50": 132,
+     "p95": 172,
+     "n": 3
+    },
+    "usefulMs": {
+     "p50": 200,
+     "p95": 202,
+     "n": 3
+    },
+    "domContentLoadedMs": {
+     "p50": 113,
+     "p95": 116,
+     "n": 3
+    },
+    "loadMs": {
+     "p50": 114,
+     "p95": 116,
+     "n": 3
+    },
+    "encodedBytes": {
+     "p50": 305922,
+     "p95": 305922,
+     "n": 3
+    },
+    "decodedBytes": {
+     "p50": 891558,
+     "p95": 891558,
+     "n": 3
+    },
+    "requestCount": {
+     "p50": 21,
+     "p95": 21,
+     "n": 3
+    },
+    "domNodes": {
+     "p50": 402,
+     "p95": 410,
+     "n": 3
+    },
+    "usefulMissing": 0,
+    "errors": 0
+   }
+  },
+  "desktop /": {
+   "viewport": "desktop",
+   "path": "/",
+   "readySelector": "[aria-label=\"Team aggregates\"]",
+   "readyMeans": "the team aggregates block",
+   "cold": {
+    "ttfbMs": {
+     "p50": 8,
+     "p95": 8,
+     "n": 3
+    },
+    "fcpMs": {
+     "p50": 140,
+     "p95": 152,
+     "n": 3
+    },
+    "usefulMs": {
+     "p50": 496,
+     "p95": 497,
+     "n": 3
+    },
+    "domContentLoadedMs": {
+     "p50": 101,
+     "p95": 108,
+     "n": 3
+    },
+    "loadMs": {
+     "p50": 204,
+     "p95": 216,
+     "n": 3
+    },
+    "encodedBytes": {
+     "p50": 393826,
+     "p95": 403324,
+     "n": 3
+    },
+    "decodedBytes": {
+     "p50": 1002151,
+     "p95": 1011649,
+     "n": 3
+    },
+    "requestCount": {
+     "p50": 32,
+     "p95": 33,
+     "n": 3
+    },
+    "domNodes": {
+     "p50": 295,
+     "p95": 370,
+     "n": 3
+    },
+    "usefulMissing": 0,
+    "errors": 0
+   },
+   "warm": {
+    "ttfbMs": {
+     "p50": 26,
+     "p95": 56,
+     "n": 3
+    },
+    "fcpMs": {
+     "p50": 200,
+     "p95": 220,
+     "n": 3
+    },
+    "usefulMs": {
+     "p50": 381,
+     "p95": 386,
+     "n": 3
+    },
+    "domContentLoadedMs": {
+     "p50": 120,
+     "p95": 135,
+     "n": 3
+    },
+    "loadMs": {
+     "p50": 193,
+     "p95": 355,
+     "n": 3
+    },
+    "encodedBytes": {
+     "p50": 1010084,
+     "p95": 1022362,
+     "n": 3
+    },
+    "decodedBytes": {
+     "p50": 1010084,
+     "p95": 1022362,
+     "n": 3
+    },
+    "requestCount": {
+     "p50": 30,
+     "p95": 35,
+     "n": 3
+    },
+    "domNodes": {
+     "p50": 289,
+     "p95": 301,
+     "n": 3
+    },
+    "usefulMissing": 0,
+    "errors": 0
+   }
+  },
+  "mobile /rankings": {
+   "viewport": "mobile",
+   "path": "/rankings",
+   "readySelector": ".ds-table-wrap table tbody tr.rankings-row-clickable",
+   "readyMeans": "a board row \u2014 the player table has data",
+   "cold": {
+    "ttfbMs": {
+     "p50": 8,
+     "p95": 9,
+     "n": 3
+    },
+    "fcpMs": {
+     "p50": 136,
+     "p95": 144,
+     "n": 3
+    },
+    "usefulMs": {
+     "p50": 1094,
+     "p95": 1098,
+     "n": 3
+    },
+    "domContentLoadedMs": {
+     "p50": 100,
+     "p95": 116,
+     "n": 3
+    },
+    "loadMs": {
+     "p50": 209,
+     "p95": 213,
+     "n": 3
+    },
+    "encodedBytes": {
+     "p50": 5984032,
+     "p95": 6035061,
+     "n": 3
+    },
+    "decodedBytes": {
+     "p50": 6637399,
+     "p95": 6706372,
+     "n": 3
+    },
+    "requestCount": {
+     "p50": 57,
+     "p95": 58,
+     "n": 3
+    },
+    "domNodes": {
+     "p50": 1274,
+     "p95": 1293,
+     "n": 3
+    },
+    "usefulMissing": 0,
+    "errors": 0
+   },
+   "warm": {
+    "ttfbMs": {
+     "p50": 15,
+     "p95": 18,
+     "n": 3
+    },
+    "fcpMs": {
+     "p50": 132,
+     "p95": 164,
+     "n": 3
+    },
+    "usefulMs": {
+     "p50": 981,
+     "p95": 1158,
+     "n": 3
+    },
+    "domContentLoadedMs": {
+     "p50": 113,
+     "p95": 139,
+     "n": 3
+    },
+    "loadMs": {
+     "p50": 226,
+     "p95": 248,
+     "n": 3
+    },
+    "encodedBytes": {
+     "p50": 6636559,
+     "p95": 6705538,
+     "n": 3
+    },
+    "decodedBytes": {
+     "p50": 6636559,
+     "p95": 6705538,
+     "n": 3
+    },
+    "requestCount": {
+     "p50": 56,
+     "p95": 56,
+     "n": 3
+    },
+    "domNodes": {
+     "p50": 1277,
+     "p95": 1296,
+     "n": 3
+    },
+    "usefulMissing": 0,
+    "errors": 0
+   }
+  },
+  "mobile /trade": {
+   "viewport": "mobile",
+   "path": "/trade",
+   "readySelector": ".trade-controls",
+   "readyMeans": "the trade control bar",
+   "cold": {
+    "ttfbMs": {
+     "p50": 6,
+     "p95": 7,
+     "n": 2
+    },
+    "fcpMs": {
+     "p50": 92,
+     "p95": 112,
+     "n": 2
+    },
+    "usefulMs": {
+     "p50": 1020,
+     "p95": 1035,
+     "n": 2
+    },
+    "domContentLoadedMs": {
+     "p50": 78,
+     "p95": 85,
+     "n": 2
+    },
+    "loadMs": {
+     "p50": 175,
+     "p95": 179,
+     "n": 2
+    },
+    "encodedBytes": {
+     "p50": 5869994,
+     "p95": 5870496,
+     "n": 2
+    },
+    "decodedBytes": {
+     "p50": 6489094,
+     "p95": 6489094,
+     "n": 2
+    },
+    "requestCount": {
+     "p50": 42,
+     "p95": 42,
+     "n": 2
+    },
+    "domNodes": {
+     "p50": 200,
+     "p95": 202,
+     "n": 2
+    },
+    "usefulMissing": 0,
+    "errors": 0
+   },
+   "warm": {
+    "ttfbMs": {
+     "p50": 10,
+     "p95": 10,
+     "n": 2
+    },
+    "fcpMs": {
+     "p50": 76,
+     "p95": 84,
+     "n": 2
+    },
+    "usefulMs": {
+     "p50": 445,
+     "p95": 477,
+     "n": 2
+    },
+    "domContentLoadedMs": {
+     "p50": 48,
+     "p95": 77,
+     "n": 2
+    },
+    "loadMs": {
+     "p50": 115,
+     "p95": 151,
+     "n": 2
+    },
+    "encodedBytes": {
+     "p50": 6535646,
+     "p95": 6544597,
+     "n": 2
+    },
+    "decodedBytes": {
+     "p50": 6535646,
+     "p95": 6544597,
+     "n": 2
+    },
+    "requestCount": {
+     "p50": 52,
+     "p95": 53,
+     "n": 2
+    },
+    "domNodes": {
+     "p50": 260,
+     "p95": 261,
+     "n": 2
+    },
+    "usefulMissing": 0,
+    "errors": 0
+   }
+  },
+  "mobile /league": {
+   "viewport": "mobile",
+   "path": "/league",
+   "readySelector": "main .card, .league-page .card",
+   "readyMeans": "the first league card",
+   "cold": {
+    "ttfbMs": {
+     "p50": 25,
+     "p95": 45,
+     "n": 3
+    },
+    "fcpMs": {
+     "p50": 192,
+     "p95": 224,
+     "n": 3
+    },
+    "usefulMs": {
+     "p50": 285,
+     "p95": 497,
+     "n": 3
+    },
+    "domContentLoadedMs": {
+     "p50": 150,
+     "p95": 175,
+     "n": 3
+    },
+    "loadMs": {
+     "p50": 241,
+     "p95": 277,
+     "n": 3
+    },
+    "encodedBytes": {
+     "p50": 304322,
+     "p95": 345054,
+     "n": 3
+    },
+    "decodedBytes": {
+     "p50": 889958,
+     "p95": 1019421,
+     "n": 3
+    },
+    "requestCount": {
+     "p50": 18,
+     "p95": 32,
+     "n": 3
+    },
+    "domNodes": {
+     "p50": 358,
+     "p95": 363,
+     "n": 3
+    },
+    "usefulMissing": 0,
+    "errors": 0
+   },
+   "warm": {
+    "ttfbMs": {
+     "p50": 50,
+     "p95": 70,
+     "n": 3
+    },
+    "fcpMs": {
+     "p50": 168,
+     "p95": 192,
+     "n": 3
+    },
+    "usefulMs": {
+     "p50": 228,
+     "p95": 923,
+     "n": 3
+    },
+    "domContentLoadedMs": {
+     "p50": 178,
+     "p95": 184,
+     "n": 3
+    },
+    "loadMs": {
+     "p50": 178,
+     "p95": 184,
+     "n": 3
+    },
+    "encodedBytes": {
+     "p50": 304322,
+     "p95": 1019421,
+     "n": 3
+    },
+    "decodedBytes": {
+     "p50": 889958,
+     "p95": 1019421,
+     "n": 3
+    },
+    "requestCount": {
+     "p50": 18,
+     "p95": 32,
+     "n": 3
+    },
+    "domNodes": {
+     "p50": 364,
+     "p95": 364,
+     "n": 3
+    },
+    "usefulMissing": 0,
+    "errors": 0
+   }
+  },
+  "mobile /": {
+   "viewport": "mobile",
+   "path": "/",
+   "readySelector": "[aria-label=\"Team aggregates\"]",
+   "readyMeans": "the team aggregates block",
+   "cold": {
+    "ttfbMs": {
+     "p50": 9,
+     "p95": 12,
+     "n": 3
+    },
+    "fcpMs": {
+     "p50": 164,
+     "p95": 168,
+     "n": 3
+    },
+    "usefulMs": {
+     "p50": 1535,
+     "p95": 3652,
+     "n": 3
+    },
+    "domContentLoadedMs": {
+     "p50": 103,
+     "p95": 128,
+     "n": 3
+    },
+    "loadMs": {
+     "p50": 248,
+     "p95": 272,
+     "n": 3
+    },
+    "encodedBytes": {
+     "p50": 588657,
+     "p95": 6030376,
+     "n": 3
+    },
+    "decodedBytes": {
+     "p50": 1211217,
+     "p95": 6648022,
+     "n": 3
+    },
+    "requestCount": {
+     "p50": 59,
+     "p95": 60,
+     "n": 3
+    },
+    "domNodes": {
+     "p50": 306,
+     "p95": 314,
+     "n": 3
+    },
+    "usefulMissing": 0,
+    "errors": 0
+   },
+   "warm": {
+    "ttfbMs": {
+     "p50": 18,
+     "p95": 46,
+     "n": 3
+    },
+    "fcpMs": {
+     "p50": 132,
+     "p95": 204,
+     "n": 3
+    },
+    "usefulMs": {
+     "p50": 310,
+     "p95": 394,
+     "n": 3
+    },
+    "domContentLoadedMs": {
+     "p50": 121,
+     "p95": 184,
+     "n": 3
+    },
+    "loadMs": {
+     "p50": 222,
+     "p95": 286,
+     "n": 3
+    },
+    "encodedBytes": {
+     "p50": 919139,
+     "p95": 954502,
+     "n": 3
+    },
+    "decodedBytes": {
+     "p50": 919139,
+     "p95": 954502,
+     "n": 3
+    },
+    "requestCount": {
+     "p50": 25,
+     "p95": 30,
+     "n": 3
+    },
+    "domNodes": {
+     "p50": 314,
+     "p95": 535,
+     "n": 3
+    },
+    "usefulMissing": 0,
+    "errors": 0
+   }
+  }
+ },
+ "retryMeasuredAt": "2026-08-20T21:56:55.365Z",
+ "note": "mobile /league and mobile / were re-measured separately after the combined run hit test-session-mint rate limiting (HTTP 429) on the first pass; their values come from retryMeasuredAt, everything else from measuredAt. Same head, same servers, same secret."
+}

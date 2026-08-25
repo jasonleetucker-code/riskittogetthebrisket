@@ -149,6 +149,14 @@ ROSTER_WEAK_THRESHOLD = 1  # ≤1 at a position = weakness (light fit bonus)
 
 IDP_POSITIONS = {"DL", "LB", "DB"}
 
+# /arbitrage is currently the only browser consumer of /api/trade/finder.
+# The route's long-standing wire contract validates only that opponentTeams is
+# a list, then passes it through.  This reserved control envelope lets that
+# surface request session-local search policy without mutating persistent trade
+# constraints or adding a second valuation path.  Ordinary string-only callers
+# are unchanged.
+ARBITRAGE_CONTROL_KEY = "__arbitrageControl"
+
 
 @dataclass
 class Asset:
@@ -329,7 +337,7 @@ def _build_summary(
     # rendered as "you gain -100 board value (+-2%)".
     verb = "you gain" if board_delta >= 0 else "you give up"
     parts = [
-        f"{edge_label}: {verb} {abs(board_delta):,} board value " f"({board_gain_pct:+.0%})",
+        f"{edge_label}: {verb} {abs(board_delta):,} board value ({board_gain_pct:+.0%})",
     ]
     # Only claim KTC opponent appeal when coverage is full
     if coverage == "full":
@@ -844,16 +852,20 @@ def _score_trade_on_values(give: list[Asset], receive: list[Asset]) -> TradeCand
     return tc
 
 
-#: Pool bound for the ASYMMETRIC shapes.  1-for-1 is a cheap cross product and
-#: is left unbounded, exactly as before; 2-for-1 and 1-for-2 multiply by the
-#: pool size again and are capped.
+#: Pool bound for asymmetric 2-for-1 / 1-for-2 search in legacy/default mode.
 _ASYMMETRIC_POOL_LIMIT = 30
+#: 2-for-2 is combinatorial on BOTH sides.  Eighteen keeps its search space
+#: close to the old asymmetric cost while still covering the highest-value
+#: roster core first (rank_key is by_value_desc).
+_TWO_FOR_TWO_POOL_LIMIT = 18
 
 
 def _generate_packages(
     my_assets: list[Asset],
     opp_assets: list[Asset],
     outgoing_policy: Any,
+    *,
+    equal_count_only: bool = False,
 ) -> tuple[list[TradeCandidate], dict[str, Any]]:
     """Enumerate and score every shape this engine offers.
 
@@ -864,20 +876,10 @@ def _generate_packages(
     arbitrage finder rather than one of the other three products, and none of
     that moved.
 
-    This replaced three hand-rolled generators (``_generate_1for1`` /
-    ``_generate_2for1`` / ``_generate_1for2``).  Two things changed with them,
-    both deliberate:
-
-    **The pool bound is now by VALUE, not alphabetical.**  The retired code
-    sliced ``[:30]`` off a roster list built in Sleeper's ``players`` order,
-    which is alphabetical — so the 2-for-1 and 1-for-2 search space was
-    "players whose names sort early", and nothing said so.  Measured on the
-    2026-08-18 board across twelve live rosters: two exceed the bound at all,
-    and on the larger of them **7 of the top 30 assets by value were excluded,
-    the highest worth 6,671**.
-
-    **Truncation is reported.**  The slice was silent, so "no 2-for-1 found"
-    and "we never looked past asset 30" rendered identically.
+    Default callers preserve the historical 1-for-1 + asymmetric search.
+    ``/arbitrage`` explicitly requests ``equal_count_only`` and gets exactly
+    1-for-1 + 2-for-2.  That keeps this UX policy scoped to the surface that
+    asked for it instead of silently changing other internal callers.
     """
     results: list[TradeCandidate] = []
 
@@ -913,6 +915,17 @@ def _generate_packages(
         return report
 
     one_for_one = _run([substrate.PackageShape(1, 1)], None)
+    if equal_count_only:
+        two_for_two = _run(
+            [substrate.PackageShape(2, 2)],
+            _TWO_FOR_TWO_POOL_LIMIT,
+        )
+        return results, {
+            "mode": "equal_count_only",
+            "oneForOne": one_for_one.to_dict(),
+            "twoForTwo": two_for_two.to_dict(),
+        }
+
     asymmetric = _run(
         [substrate.PackageShape(2, 1), substrate.PackageShape(1, 2)],
         _ASYMMETRIC_POOL_LIMIT,
@@ -939,10 +952,50 @@ def _deduplicate(trades: list[TradeCandidate]) -> list[TradeCandidate]:
     return result
 
 
+def _parse_arbitrage_controls(
+    opponent_items: list[Any],
+) -> tuple[list[str], bool, set[str], list[str]]:
+    """Split real opponent names from the /arbitrage control envelope.
+
+    The public route already passes ``opponentTeams`` through after validating
+    it is a list.  Ordinary callers send only strings and get byte-for-byte the
+    old semantics.  The arbitrage page may append one reserved mapping with
+    equal-count policy and session-local player exclusions.
+    """
+    opponents: list[str] = []
+    equal_count_only = False
+    excluded_keys: set[str] = set()
+    excluded_display: list[str] = []
+
+    for item in opponent_items:
+        if isinstance(item, str):
+            opponents.append(item)
+            continue
+        if not isinstance(item, dict):
+            continue
+        raw_control = item.get(ARBITRAGE_CONTROL_KEY)
+        if not isinstance(raw_control, dict):
+            continue
+        if raw_control.get("equalCountOnly") is True:
+            equal_count_only = True
+        raw_excluded = raw_control.get("excludePlayers")
+        if not isinstance(raw_excluded, (list, tuple, set)):
+            continue
+        for raw_name in raw_excluded:
+            name = str(raw_name or "").strip()
+            key = name.casefold()
+            if not key or key in excluded_keys:
+                continue
+            excluded_keys.add(key)
+            excluded_display.append(name)
+
+    return opponents, equal_count_only, excluded_keys, excluded_display
+
+
 def find_trades(
     players: dict[str, Any],
     my_team: str,
-    opponent_teams: list[str],
+    opponent_teams: list[Any],
     sleeper_teams: list[dict[str, Any]],
     *,
     max_results: int = MAX_RESULTS,
@@ -951,6 +1004,7 @@ def find_trades(
     contract: dict[str, Any] | None = None,
     capacity_context: Any | None = None,
     constraints: Any | None = None,
+    use_team_context: bool = True,
 ) -> dict[str, Any]:
     """
     Find board-arbitrage trades.
@@ -959,10 +1013,21 @@ def find_trades(
     ----------
     players : dict
         Raw players dict from the live data payload.
+    use_team_context : bool
+        V1-41 / ``C3-CTX-01``.  ON (default) makes the roster-fit bonus's
+        "fills a need" arm consult the canonical Team Weakness owner
+        (``src.roster_intel.weakness.build_team_weakness``, via
+        ``build_league_roster_intelligence``) instead of a raw position
+        count, and requires it to answer before any fit bonus is applied.
+        OFF suppresses the entire roster-fit block — no bonus, no
+        ``roster_fit``/``addresses_urgent_need:*`` flags, no team-specific
+        signal of any kind reaches the ranking or the response.
     my_team : str
         Name of my Sleeper team.
-    opponent_teams : list[str]
-        Names of opponent teams to trade with.
+    opponent_teams : list
+        Names of opponent teams to trade with.  ``/arbitrage`` may append the
+        reserved :data:`ARBITRAGE_CONTROL_KEY` mapping; it is removed before
+        roster resolution and never treated as a team.
     sleeper_teams : list[dict]
         Full Sleeper teams array from the data payload.
     max_results : int
@@ -980,6 +1045,10 @@ def find_trades(
     -------
     dict with trades, metadata, and any warnings.
     """
+    opponent_teams, equal_count_only, excluded_player_keys, excluded_player_names = (
+        _parse_arbitrage_controls(opponent_teams)
+    )
+
     if market_top_n is None:
         market_top_n = MARKET_TOP_N_FILTER if ktc_top_n is None else ktc_top_n
 
@@ -1031,6 +1100,73 @@ def find_trades(
             "metadata": {},
         }
 
+    # Session-local exclusions are a SEARCH rule, not a valuation or persistent
+    # protection rule.  Remove them from both sides BEFORE package enumeration.
+    # Keep the original ownership set separately so an excluded player on my
+    # roster can never re-enter as an incoming target through dirty roster data.
+    owned_names = {a.name for a in my_roster}
+    original_my_roster_size = len(my_roster)
+    if excluded_player_keys:
+        my_roster = [a for a in my_roster if a.name.strip().casefold() not in excluded_player_keys]
+        if not my_roster:
+            return {
+                "trades": [],
+                "metadata": {
+                    "myTeam": my_team,
+                    "opponentTeams": opponent_teams,
+                    "myRosterSize": original_my_roster_size,
+                    "searchableMyRosterSize": 0,
+                    "packageMode": "equal_count_only" if equal_count_only else "default",
+                    "sessionExcludedPlayers": excluded_player_names,
+                    "sessionExcludedCount": len(excluded_player_names),
+                    "noResultReason": "all_outgoing_assets_session_excluded",
+                },
+                "warnings": ["Every asset on your roster was excluded from this arbitrage scan."],
+            }
+
+    # V1-41 / C3-CTX-01 — the canonical Team Weakness owner, resolved ONCE
+    # per request.  ``weakness_by_position`` stays empty (never a fabricated
+    # need) whenever context is OFF, the owner cannot be resolved, or the
+    # league-wide computation fails; "fills a need" then contributes no
+    # bonus rather than silently falling back to the retired raw-count rule.
+    team_context: dict[str, Any] = {
+        "applied": False,
+        "urgentPositions": [],
+        "unavailableReason": "context_off" if not use_team_context else None,
+    }
+    weakness_by_position: dict[str, dict[str, Any]] = {}
+    if use_team_context:
+        my_owner_id = next(
+            (str(t.get("ownerId") or "") for t in sleeper_teams if t.get("name") == my_team),
+            "",
+        )
+        if not my_owner_id:
+            team_context["unavailableReason"] = "owner_id_unresolved"
+        elif not contract:
+            team_context["unavailableReason"] = "no_contract"
+        else:
+            try:
+                from src.api.roster_intelligence import (  # noqa: PLC0415
+                    build_league_roster_intelligence,
+                )
+
+                intel = build_league_roster_intelligence(
+                    contract, team_count=len(sleeper_teams) or None
+                )
+                weakness = (intel.get("teams") or {}).get(my_owner_id, {}).get("weakness") or {}
+                if weakness.get("available"):
+                    weakness_by_position = {
+                        n["position"]: n for n in weakness.get("needs", []) if n.get("position")
+                    }
+                    team_context["applied"] = True
+                    team_context["urgentPositions"] = list(weakness.get("urgentPositions") or [])
+                else:
+                    team_context["unavailableReason"] = (
+                        weakness.get("unavailableReason") or "weakness_unavailable"
+                    )
+            except Exception as exc:  # noqa: BLE001 — an annotation never breaks the finder
+                team_context["unavailableReason"] = f"error:{exc}"
+
     # C3-CON-01 / V1-130 — recommendation constraints, applied to the OUTGOING
     # pool BEFORE enumeration.  Spec §6: generate only feasible packages; never
     # generate everything and hide the forbidden ones afterwards, which wastes
@@ -1066,6 +1202,9 @@ def find_trades(
                 "myTeam": my_team,
                 "constraintsBlockedOutgoing": len(blocked_outgoing),
                 "constraintsBlockedReasons": sorted({r for _, r in blocked_outgoing}),
+                "packageMode": "equal_count_only" if equal_count_only else "default",
+                "sessionExcludedPlayers": excluded_player_names,
+                "sessionExcludedCount": len(excluded_player_names),
                 "noResultReason": "all_outgoing_assets_constrained",
             },
             "warnings": [
@@ -1074,7 +1213,6 @@ def find_trades(
             ],
         }
 
-    my_names = {a.name for a in my_roster}
     all_trades: list[TradeCandidate] = []
     enumeration_reports: dict[str, dict[str, Any]] = {}
     opponents_analyzed = 0
@@ -1135,44 +1273,64 @@ def find_trades(
             warnings.append(f"Could not resolve opponent team '{opp_name}'.")
             continue
 
-        # Exclude any assets that are on my team from opponent pool
-        opp_filtered = [a for a in opp_roster if a.name not in my_names]
+        # Exclude anything owned by my team plus every session-blacklisted
+        # player before enumeration.  This is deliberately not a post-filter:
+        # alternative packages are generated from the reduced search pool.
+        opp_filtered = [
+            a
+            for a in opp_roster
+            if a.name not in owned_names and a.name.strip().casefold() not in excluded_player_keys
+        ]
         if not opp_filtered:
             continue
         opponents_analyzed += 1
 
         # Generate candidates for every trade shape.  Construction mechanics
         # are the substrate's; the scoring objective stays in this module.
-        shaped, enum_report = _generate_packages(my_roster, opp_filtered, outgoing_policy)
+        shaped, enum_report = _generate_packages(
+            my_roster,
+            opp_filtered,
+            outgoing_policy,
+            equal_count_only=equal_count_only,
+        )
         all_trades.extend(shaped)
         enumeration_reports[opp_name] = enum_report
 
     # Deduplicate
     all_trades = _deduplicate(all_trades)
 
-    # ── Light roster-fit adjustment ──────────────────────────────────
+    # ── Light roster-fit adjustment (V1-41 / C3-CTX-01: OFF suppresses this
+    # entire block — no team-specific roster-fit signal reaches the ranking
+    # or the response) ────────────────────────────────────────────────────
     # Slightly reward trades that shed surplus positions or fill weak ones.
-    my_pos_counts: dict[str, int] = {}
-    for a in my_roster:
-        if a.position:
-            my_pos_counts[a.position] = my_pos_counts.get(a.position, 0) + 1
+    # "Fills a need" is gated on the CANONICAL Team Weakness owner
+    # (``weakness_by_position``, resolved above) rather than a raw position
+    # count: an unavailable owner means no bonus, never a silent fallback
+    # to the retired ad-hoc rule.
+    if use_team_context:
+        my_pos_counts: dict[str, int] = {}
+        for a in my_roster:
+            if a.position:
+                my_pos_counts[a.position] = my_pos_counts.get(a.position, 0) + 1
 
-    for tc in all_trades:
-        fit_bonus = 0.0
-        fit_reasons: list[str] = []
-        for a in tc.give:
-            if my_pos_counts.get(a.position, 0) >= ROSTER_SURPLUS_THRESHOLD:
-                fit_bonus += 1.0
-                fit_reasons.append(f"sheds {a.position} surplus")
-        for a in tc.receive:
-            if my_pos_counts.get(a.position, 0) <= ROSTER_WEAK_THRESHOLD:
-                fit_bonus += 1.5
-                fit_reasons.append(f"fills {a.position} need")
-        if fit_bonus > 0:
-            tc.arbitrage_score += fit_bonus
-            tc.flags.append("roster_fit")
-            tc.ranking_factors["rosterFitBonus"] = round(fit_bonus, 2)
-            tc.summary += " Roster fit: " + ", ".join(fit_reasons) + "."
+        for tc in all_trades:
+            fit_bonus = 0.0
+            fit_reasons: list[str] = []
+            for a in tc.give:
+                if my_pos_counts.get(a.position, 0) >= ROSTER_SURPLUS_THRESHOLD:
+                    fit_bonus += 1.0
+                    fit_reasons.append(f"sheds {a.position} surplus")
+            for a in tc.receive:
+                need = weakness_by_position.get(a.position)
+                if need and need.get("level") in ("critical", "high"):
+                    fit_bonus += 1.5
+                    fit_reasons.append(f"fills {a.position} need ({need.get('level')})")
+                    tc.flags.append(f"addresses_urgent_need:{a.position}")
+            if fit_bonus > 0:
+                tc.arbitrage_score += fit_bonus
+                tc.flags.append("roster_fit")
+                tc.ranking_factors["rosterFitBonus"] = round(fit_bonus, 2)
+                tc.summary += " Roster fit: " + ", ".join(fit_reasons) + "."
 
     # Rank
     all_trades.sort(key=lambda t: t.arbitrage_score, reverse=True)
@@ -1226,7 +1384,15 @@ def find_trades(
             "myTeam": my_team,
             "opponentTeams": opponent_teams,
             "opponentsAnalyzed": opponents_analyzed,
-            "myRosterSize": len(my_roster),
+            "myRosterSize": original_my_roster_size,
+            "searchableMyRosterSize": len(my_roster),
+            "packageMode": "equal_count_only" if equal_count_only else "default",
+            "sessionExcludedPlayers": excluded_player_names,
+            "sessionExcludedCount": len(excluded_player_names),
+            # V1-41 / C3-CTX-01 — whether the canonical Team Weakness owner
+            # actually influenced this run's roster-fit bonus, and why not
+            # when it did not.
+            "teamContext": team_context,
             # Why the outgoing pool may be smaller than the roster.  Published
             # unconditionally: "you protect 22 players" and "no trade exists"
             # must not render identically.

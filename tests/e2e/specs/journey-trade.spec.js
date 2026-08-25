@@ -157,8 +157,11 @@ test.describe("journey: trade surfaces", () => {
     });
 
     // Before any scan the page states what it wants, rather than showing
-    // an empty table that reads like a broken board.
-    await expect(page.getByText(/Pick a team and scan/i)).toBeVisible({
+    // an empty table that reads like a broken board.  #1071 rewrote this
+    // empty state ("Package scan ready" / "Choose your team and a
+    // counterparty") without updating this assertion, which held the E2E
+    // Safety Net red on every PR from 2026-08-24 until this line caught up.
+    await expect(page.getByText(/Package scan ready/i)).toBeVisible({
       timeout: 30_000,
     });
 
@@ -187,10 +190,16 @@ test.describe("journey: trade surfaces", () => {
     // Hence: READ FIRST, and only click when no scan is in flight.
     // `disabled={running || dataLoading || !effectiveTeam}` makes
     // `isEnabled()` the page's own statement that a click is safe.
-    const scan = page.getByRole("button", { name: /Find arbitrage|Scanning/i });
+    // #1071 also renamed the scan button ("Find arbitrage" → "Find trade
+    // packages") and the no-result copy ("No arbitrage found" → "No package
+    // arbitrage found"); with the old names the poll below could neither
+    // click nor settle, so it burned its full 90s twice.
+    const scan = page.getByRole("button", {
+      name: /Find trade packages|Scanning/i,
+    });
     const settled = page
       .locator(SEL.arbitrageTradeCard)
-      .or(page.getByText(/No arbitrage found/i));
+      .or(page.getByText(/No package arbitrage found/i));
 
     await expect
       .poll(

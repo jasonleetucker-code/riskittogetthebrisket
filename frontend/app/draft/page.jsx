@@ -3047,7 +3047,11 @@ function DraftReviewPanel({ workspace, stats, onClose }) {
                         {t.isMine && (
                           <span
                             className="draft-tag draft-tag-mine"
-                            style={{ marginLeft: 6, fontSize: "0.62rem" }}
+                            style={{
+                              marginLeft: 6,
+                              // V1-109 / W26-F017: 11px type floor (was 0.62rem).
+                              fontSize: "var(--font-size-2xs, 0.6875rem)",
+                            }}
                           >
                             mine
                           </span>

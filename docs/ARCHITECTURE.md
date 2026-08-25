@@ -26,8 +26,10 @@ Browser ─► Nginx ─► Next.js (port 3000) ─► FastAPI (port 8000) ─�
    `src/api/feature_flags.py`. Env override via `RISKIT_FEATURE_<NAME>=1`
    (or `=0` to disable).
 
-   **Defaults are per-flag.** As of 2026-08-05, 8 of the 17 entries in
-   `_DEFAULTS` ship enabled — `bdvm_engine`, `te_basis_conversion`
+   **Defaults are per-flag.** As of 2026-08-25, 9 of the 19 entries in
+   `_DEFAULTS` ship enabled — `ledger_rank_change` (registered closing
+   F-24: the ledger-derived `rankChange` derivation, previously an
+   invisible direct env read), `bdvm_engine`, `te_basis_conversion`
    (which reprices every tight end on the live board),
    `monte_carlo_trade`, `idp_scoring_fit`, `reception_scoring_fit`,
    `nfl_data_ingest`, `realized_points_api`, `perfect_draft` — several

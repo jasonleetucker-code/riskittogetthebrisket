@@ -55,16 +55,21 @@ function ageLabel(iso) {
 
 // Per-row tone.
 //
-// The two membership tests are kept and are CORRECT — they simply do not
-// fire on today's payload, because the two sides speak different
-// vocabularies (see attributionSplit below).  Left in place rather than
-// deleted so that the day run state is published in registry keys, rows
-// light up without touching this component.  What must not happen is a
-// reader assuming they work now: they are pinned by a test either way.
+// ``source`` is a registry key (a rendered row).  Run state arrives from
+// the scraper in run-name space, so the server (F-12 / V1-76) now
+// projects each run-state list into registry-key space beside the
+// run-name original — ``failed_source_keys`` alongside ``failed_sources``
+// — using its single ``registry_keys_for_run_source`` owner.  We consult
+// the KEY-space list first (the join that actually fires on real data)
+// and keep the run-name list as a fallback for the forward-compatible
+// case where the backend already publishes run state in registry keys.
 function toneFor(source, runtime, ageHours) {
-  // Hard signals first.
+  // Hard signals first — key-space projection, then the run-name list.
+  if (runtime?.failed_source_keys?.includes(source)) return "down";
   if (runtime?.failed_sources?.includes(source)) return "down";
+  if (runtime?.partial_source_keys?.includes(source)) return "warn";
   if (runtime?.partial_sources?.includes(source)) return "warn";
+  if (runtime?.timed_out_source_keys?.includes(source)) return "down";
   if (runtime?.timed_out_sources?.includes(source)) return "down";
   // Age-based fallback.  NOTE this is FRESHNESS, not run state: a failed
   // fetch normally leaves the previous CSV in place, so a recent file
@@ -95,20 +100,36 @@ function toneFor(source, runtime, ageHours) {
 // both vocabularies (``server._source_health``) — inventing one here
 // would make this component a second owner of it.
 //
-// So this does the part that needs no mapping: it stops throwing the
-// unmatched failures away.  They are reported under their own names,
-// with the run's own reason, and labelled as unattributable — which is
-// the honest state, and is not the same as "everything is fine".
+// So this does the part that needs no mapping IN THE FRONTEND: the
+// server (F-12 / V1-76) resolves each run-named failure to the registry
+// keys it concerns and stamps them as ``registryKeys``, using its single
+// ``registry_keys_for_run_source`` owner.  A failure whose resolved keys
+// name a rendered row is ATTRIBUTED — it lights that row up via
+// ``toneFor`` and is dropped from this panel.  A failure that resolves to
+// nothing (an unverified run name, fail-closed) still cannot be pinned to
+// a row, so it is reported under its own name, with the run's own reason,
+// and labelled unattributable — the honest state, not "everything fine".
 function attributionSplit(health, runtime, rowSources) {
   const known = new Set(rowSources);
+  const attributable = (keys) =>
+    Array.isArray(keys) && keys.some((k) => known.has(k));
   const failures = Array.isArray(health?.source_failures)
     ? health.source_failures
     : [];
   const seen = new Set();
+  // Run names the server DID attribute to a rendered row — recorded so
+  // the belt-and-braces pass below does not re-report them as orphans.
+  const attributed = new Set();
   const unattributed = [];
   for (const f of failures) {
     const name = f?.source;
-    if (!name || known.has(name) || seen.has(name)) continue;
+    // Attributed when the run name itself is a rendered row, OR the
+    // server resolved it to registry keys that are.
+    if (name && (known.has(name) || attributable(f?.registryKeys))) {
+      attributed.add(name);
+      continue;
+    }
+    if (!name || seen.has(name)) continue;
     // The field is ``reason``, not ``kind``.  ``server._push_failure``
     // appends ``{source, reason, details}`` — reading ``kind`` meant the
     // fallback fired on EVERY row, so a PARTIAL source rendered as a hard
@@ -133,7 +154,8 @@ function attributionSplit(health, runtime, rowSources) {
     ["partial_sources", "partial"],
   ]) {
     for (const name of Array.isArray(runtime?.[key]) ? runtime[key] : []) {
-      if (!name || known.has(name) || seen.has(name)) continue;
+      if (!name || known.has(name) || attributed.has(name) || seen.has(name))
+        continue;
       seen.add(name);
       unattributed.push({ source: name, kind, reason: null });
     }
@@ -227,8 +249,14 @@ export default function SourceHealthStrip({ variant = "inline" }) {
         ageLabel: ageLbl,
         ageHours: srcAgeHours,
         failedReason:
+          // ``src`` is a registry key; a failure names a run source and
+          // (F-12 / V1-76) carries the registry keys it resolved to, so
+          // match on either — otherwise a DLF_LocalCSV failure's reason
+          // never reaches the ``dlfSf`` row it lit up.
           (health.source_failures || []).find(
-            (f) => f.source === src,
+            (f) =>
+              f.source === src ||
+              (Array.isArray(f.registryKeys) && f.registryKeys.includes(src)),
           )?.details?.message || null,
       };
     });

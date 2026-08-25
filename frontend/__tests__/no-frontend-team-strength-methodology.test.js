@@ -49,6 +49,29 @@ const SCOPE = [
 ];
 
 /**
+ * Files that must read the canonical value/age axes from
+ * `GET /api/roster/intelligence` rather than re-deriving them from raw
+ * player rows. This is `team-phase.js`'s retired shape (V1-31 audit
+ * finding F-3): not a weighted composite and not a tier-cut string —
+ * `/phases`'s "contender"/"rebuild" LABELS are legitimate product
+ * vocabulary for this page's own purpose, unlike `scoreTeamTiers`'
+ * retired tier cut, so this scope does NOT reuse SCOPE/COMPOSITE/
+ * TIER_CUT above. What was actually retired here is a client-side
+ * top-25 `rankDerivedValue` sum plus a raw per-player age lookup,
+ * scanning `rawData.sleeper.teams` directly.
+ */
+const NO_RAW_ROW_SCOPE = ["lib/team-phase.js", "components/TeamPhasePanel.jsx"];
+
+/** Reading a raw player row's value directly, or the raw contract/hook
+ *  that carries one, instead of the canonical `strengthTotal` /
+ *  `valueWeightedCoreAge` the backend already aggregated. Deliberately
+ *  NOT a bare `.age` check — `leagueMedians.age` is a legitimate median
+ *  of already-canonical ages, and a generic `.age` pattern would flag
+ *  it as if it were a raw player-row field access. */
+const RAW_ROW_DERIVATION =
+  /\brankDerivedValue\b|useDynastyData\s*\(|sleeper\?\.teams\b|sleeper\.teams\b/;
+
+/**
  * A weighted-composite scoring expression: a numeric coefficient applied
  * to a *-Value/-Score term and summed with another. This is the shape of
  * a team score, not of a unit conversion.
@@ -178,6 +201,35 @@ describe("no frontend Team Strength methodology", () => {
       offenders,
       "`scoreTeamTiers` is retired — /rosters consumes `strength` from " +
         "GET /api/roster/intelligence:\n" + offenders.join("\n"),
+    ).toEqual([]);
+  });
+
+  it("RAW_ROW_DERIVATION actually matches the retired shape", () => {
+    // Positive control: the exact lines team-phase.js used to carry.
+    expect(RAW_ROW_DERIVATION.test("value: Number(r.rankDerivedValue || 0),")).toBe(true);
+    expect(RAW_ROW_DERIVATION.test("const { rows, rawData } = useDynastyData();")).toBe(true);
+    expect(RAW_ROW_DERIVATION.test("const teams = rawData?.sleeper?.teams || [];")).toBe(true);
+    // Negative control: reading the canonical materializer's OWN output
+    // field names, including a MEDIAN OF ages, must not trip it.
+    expect(RAW_ROW_DERIVATION.test("totalValue: t.strengthTotal,")).toBe(false);
+    expect(RAW_ROW_DERIVATION.test("medianAge: t.valueWeightedCoreAge,")).toBe(false);
+    expect(RAW_ROW_DERIVATION.test("medianAge != null && leagueMedians.age != null")).toBe(false);
+  });
+
+  it("team-phase.js and TeamPhasePanel.jsx read canonical strength/age, not raw player rows", () => {
+    const offenders = [];
+    for (const rel of NO_RAW_ROW_SCOPE) {
+      const src = stripComments(read(rel) || "");
+      src.split("\n").forEach((line, i) => {
+        if (RAW_ROW_DERIVATION.test(line)) offenders.push(`${rel}:${i + 1}  ${line.trim()}`);
+      });
+    }
+    expect(
+      offenders,
+      "A raw player-row value/age derivation is a second Team Strength " +
+        "engine (V1-31 audit F-3). Read strengthTotal / valueWeightedCoreAge " +
+        "from lib/roster-intelligence.js::teamStrengthLadder instead:\n" +
+        offenders.join("\n"),
     ).toEqual([]);
   });
 });

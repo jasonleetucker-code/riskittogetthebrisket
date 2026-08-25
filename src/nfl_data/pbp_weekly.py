@@ -9,6 +9,10 @@ at nothing and the site reported a total that was quietly low:
     rec_0_4  rec_5_9  rec_10_19  rec_20_29  rec_30_39  rec_40p
     st_tkl_solo  st_ff  st_fum_rec  pass_int_td
 
+An eleventh, ``kick_ret_td``, joined later (V1-49 / #1020) on the same
+mechanism — real, but not currently paid by either live league, so it
+is documented separately below rather than folded into the "ten".
+
 Measured on the league host's own week-14 2025 dump that is 451.53
 points in one week — ~7,676 across a regular season, roughly two thirds
 of it the six reception bands. ``scoring_coverage`` called them
@@ -84,6 +88,22 @@ end zone. ``return_touchdown`` is 1, and it is not a pick-six. With the
 clause: exact on all seven weeks (12 of 12); without it, week 5 charges
 a quarterback -2 points he did not concede.
 
+**``kick_ret_td``** (V1-49 / #1020, added after the reconciliation above,
+so it is not part of the "ten rules" measured against dynasty_main's
+card — neither live league configures a nonzero rate for it today) —
+``play_type == "kickoff"`` + ``return_touchdown``, credited to
+``kickoff_returner_player_id``, excluding ``own_kickoff_recovery_td``
+(the kicking team recovering its own free kick — not a return, the same
+shape of exclusion as ``pass_int_td``'s). Sleeper never publishes this
+as its own key (only the combined ``st_td``), so there is no per-key
+host dump to reconcile against; instead it is verified against the
+identity ``kick_ret_td + punt_ret_td == st_td`` on every real 2025 REG
+return-TD scorer this module's fixtures cover — week 9 Charlie Jones
+(00-0038576) and week 14 Rashid Shaheed (00-0037545) both kickoff
+returns, week 14 Marvin Mims (00-0038976) and Isaiah Williams
+(00-0039451) both punt returns — see
+``test_kick_ret_td_reconciles_against_combined_st_td``.
+
 Missing is not zero
 ───────────────────
 A week that was never streamed and a week in which a player recorded
@@ -131,7 +151,20 @@ __all__ = [
     "pbp_weekly_path",
 ]
 
-PBP_WEEKLY_SCHEMA_VERSION = "2026-08-18.v1"
+#: Bump this whenever :data:`PBP_SUPPLEMENT_KEYS` gains or loses a key,
+#: or a predicate changes what an existing key MEANS.  The artifact
+#: records which keys it was built with, so a file written under an older
+#: key set is not an older-shaped version of this one — it is a different
+#: measurement wearing the same field names, and the keys it never
+#: derived would read as real zeros.
+#:
+#: ``.v2`` (2026-08-24): ``kick_ret_td`` joined ``PBP_SUPPLEMENT_KEYS``
+#: with V1-49 / #1031 and this constant was NOT bumped at the time.  Every
+#: artifact on disk predated it, ``--skip-existing`` compares exactly this
+#: string so the weekly timer would never have rebuilt them, and
+#: ``load_pbp_weekly`` had no check at all — so a league paying
+#: ``kick_ret_td`` scored it at zero with nothing reporting the gap.
+PBP_WEEKLY_SCHEMA_VERSION = "2026-08-24.v2"
 
 #: Columns whose absence means the release schema moved under us. A
 #: renamed column must never read as "nothing happened this season" —
@@ -150,6 +183,9 @@ _REQUIRED_COLUMNS: tuple[str, ...] = (
     "passer_player_id",
     "posteam",
     "td_team",
+    "play_type",
+    "kickoff_returner_player_id",
+    "own_kickoff_recovery_td",
 )
 
 #: Tackler id columns credited to ``st_tkl_solo`` on a special-teams play.
@@ -216,6 +252,9 @@ def _iter_plays(lines: Iterable[str]) -> Iterator[tuple[int, str, dict[str, list
     i_passer = idx["passer_player_id"]
     i_posteam = idx["posteam"]
     i_td_team = idx["td_team"]
+    i_play_type = idx["play_type"]
+    i_kickoff_returner = idx["kickoff_returner_player_id"]
+    i_own_kr_td = idx["own_kickoff_recovery_td"]
 
     for row in reader:
         try:
@@ -273,6 +312,33 @@ def _iter_plays(lines: Iterable[str]) -> Iterator[tuple[int, str, dict[str, list
             offense = _cell(row, i_posteam)
             if scoring_team and offense and scoring_team != offense:
                 _credit("pass_int_td", _cell(row, i_passer))
+
+        # ``kick_ret_td`` (V1-49 / #1020).  Sleeper's own vocabulary
+        # splits ``st_td`` into a kickoff half and a punt half; the punt
+        # half is on the nflverse WEEKLY feed as ``pt_return_tds``
+        # (``_SIMPLE_KEYS`` in realized_points.py), but there is no
+        # equivalent bare kickoff-return-TD column — only the combined
+        # ``special_teams_tds``. This is the derivation for that half.
+        #
+        # ``own_kickoff_recovery_td`` excludes the kicking team recovering
+        # its own free kick and running it in — not a return, and not
+        # this returner's play, the same reason ``pass_int_td`` excludes
+        # an offense-scored interception return.
+        #
+        # Host-truth reconciled against Sleeper's real 2025 dumps: week 9
+        # Charlie Jones (00-0038576, kr_yd 179 / kr_lng 98 / st_td 1) and
+        # week 14 Rashid Shaheed (00-0037545, kr_yd 148 / kr_lng 100 /
+        # st_td 1) both derive to exactly 1 here, and week 14's other two
+        # ``st_td`` scorers (Marvin Mims 00-0038976, Isaiah Williams
+        # 00-0039451) are confirmed PUNT returns on the same PBP release —
+        # so ``kick_ret_td + punt_ret_td == st_td`` for every 2025 REG
+        # week-14 return-TD scorer, not just this one.
+        if (
+            _cell(row, i_play_type) == "kickoff"
+            and is_truthy(_cell(row, i_ret_td))
+            and not is_truthy(_cell(row, i_own_kr_td))
+        ):
+            _credit("kick_ret_td", _cell(row, i_kickoff_returner))
 
         yield week, stype, events
 
@@ -569,19 +635,78 @@ def persist_pbp_weekly(
 
 
 def load_pbp_weekly(season: int, *, out_dir: Path | None = None) -> dict[str, Any] | None:
-    """Read one season's derived stats, or ``None`` if never built."""
+    """Read one season's derived stats, or ``None`` if never built.
+
+    REFUSES an artifact that does not match the current schema, rather
+    than adapting it — the same posture, and for the same reason, as
+    :func:`src.nfl_data.reception_depth.load_reception_depth`.
+
+    Refusing is what keeps a stale artifact honest.  ``covers()`` is
+    week-level, so a file built before a key existed still reports its
+    weeks as covered; ``stats_for`` then returns a Mapping that simply
+    has no entry for the new key, ``compute_weekly_points`` takes its
+    ``isinstance(supplement, Mapping)`` branch, and ``unscored`` stays
+    empty.  The rule scores zero and NOTHING says so.  Returning ``None``
+    instead routes the same player-week through the ``else`` branch,
+    where every play-by-play-only rule the card pays is reported as
+    ``unscored`` — an honest unknown instead of a fabricated zero.
+
+    Degrades rather than breaks: every consumer already handles ``None``
+    (``SeasonPbpIndex`` caches it and reports it via ``seasons_missing``;
+    ``attach_supplement`` returns the row untouched), and
+    ``scripts/build_pbp_weekly.py --skip-existing`` sees the refusal as
+    "not on disk at current schema" and rebuilds the season.
+    """
     path = pbp_weekly_path(season, out_dir=out_dir)
     if not path.exists():
         return None
+    payload: dict[str, Any] | None = None
     try:
         with path.open("r", encoding="utf-8") as fh:
             for line in fh:
                 line = line.strip()
                 if line:
-                    return json.loads(line)
+                    payload = json.loads(line)
+                    break
     except (OSError, json.JSONDecodeError) as exc:
         _LOGGER.warning("pbp_weekly=unreadable season=%d err=%r", season, exc)
-    return None
+        return None
+    if payload is None:
+        return None
+
+    stamped = str((payload or {}).get("schemaVersion") or "")
+    if stamped != PBP_WEEKLY_SCHEMA_VERSION:
+        _LOGGER.warning(
+            "pbp_weekly: %s is schema %r, expected %r — refusing it. "
+            "Rebuild with scripts/build_pbp_weekly.py --seasons %d.",
+            path,
+            stamped or "(unstamped)",
+            PBP_WEEKLY_SCHEMA_VERSION,
+            int(season),
+        )
+        return None
+
+    # A matching version is not by itself proof the artifact derived the
+    # keys this process expects: the failure this guard exists for is a
+    # key set that changed WITHOUT the version being bumped, which is
+    # exactly what happened when ``kick_ret_td`` was added.  The artifact
+    # already records ``statKeys``; until now it was written and never
+    # read back.
+    stat_keys = payload.get("statKeys")
+    if isinstance(stat_keys, (list, tuple)):
+        missing = sorted(PBP_SUPPLEMENT_KEYS - {str(k) for k in stat_keys})
+        if missing:
+            _LOGGER.warning(
+                "pbp_weekly: %s stamps schema %r but derived no %s — refusing it. "
+                "The key set moved without a version bump; rebuild with "
+                "scripts/build_pbp_weekly.py --seasons %d.",
+                path,
+                stamped,
+                ", ".join(missing),
+                int(season),
+            )
+            return None
+    return payload
 
 
 #: Where a weekly stat row carries its GSIS id, most-specific first.

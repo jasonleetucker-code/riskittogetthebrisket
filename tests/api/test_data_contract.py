@@ -542,7 +542,7 @@ class TestHillCurvesStamp(unittest.TestCase):
         self.assertIsInstance(curves, dict)
         self.assertEqual(
             set(curves.keys()),
-            {"global", "offense", "idp", "rookie"},
+            {"global", "offense", "idp", "rookie", "provenance"},
         )
 
     def test_each_curve_has_renderable_rank_form(self):
@@ -580,6 +580,116 @@ class TestHillCurvesStamp(unittest.TestCase):
         self.assertAlmostEqual(curves["idp"]["s"], IDP_HILL_PERCENTILE_S)
         self.assertAlmostEqual(curves["rookie"]["c"], HILL_ROOKIE_PERCENTILE_C)
         self.assertAlmostEqual(curves["rookie"]["s"], HILL_ROOKIE_PERCENTILE_S)
+
+
+class TestHillMasterProvenanceStamp(unittest.TestCase):
+    """V1-21 / W04-F011: the served board must record WHICH model version
+
+    produced ``hillCurves``' constants — a real ``modelVersion`` /
+    ``paramSetId`` / ``asOf`` stamp, the same vocabulary
+    ``src/bdvm``/``src/consensus_edge`` already use, sourced from the
+    PRE-EXISTING ``src/model_registry`` package (which previously had
+    zero live-endpoint consumers) rather than a fourth invented scheme.
+
+    The property under test is narrower than "a stamp exists": a stamp
+    must be TRUTHFUL. It is one of three honest states — a verified
+    champion match, an explicit "unverified" (constants drifted from the
+    registry), or an explicit "unavailable" (registry unreadable / no
+    champion) — and never lets state 2 or 3 wear state 1's clothing.
+    """
+
+    def test_the_live_board_stamps_a_real_verified_champion(self):
+        """Positive control: today's committed constants DO match the
+        registry's recorded champion, so the contract must say so with
+        real values, not a placeholder."""
+        contract = build_api_data_contract(_minimal_raw_payload())
+        prov = contract["hillCurves"]["provenance"]
+        self.assertEqual(prov["status"], "verified_champion")
+        self.assertIsInstance(prov["modelVersion"], int)
+        self.assertGreaterEqual(prov["modelVersion"], 1)
+        self.assertIsInstance(prov["paramSetId"], str)
+        self.assertTrue(prov["paramSetId"].startswith("hill_scope_masters:"))
+        self.assertIsNotNone(prov["asOf"])
+        self.assertIn(prov["confidence"], ("unvalidated", "provisional", "measured"))
+
+    def test_paramSetId_is_stable_across_two_builds(self):
+        """The same champion must yield the same id — it identifies the
+        parameter CONTENT, not the moment it was read."""
+        a = build_api_data_contract(_minimal_raw_payload())["hillCurves"]["provenance"]
+        b = build_api_data_contract(_minimal_raw_payload())["hillCurves"]["provenance"]
+        self.assertEqual(a["paramSetId"], b["paramSetId"])
+        self.assertEqual(a["modelVersion"], b["modelVersion"])
+
+    def test_a_missing_registry_reports_unavailable_not_a_guessed_version(self):
+        """Negative control: if the model registry cannot be loaded at
+        all, the stamp must say UNAVAILABLE with a reason -- never fall
+        back to a fabricated or nearest-looking version number."""
+        from unittest import mock
+
+        from src.model_registry import ModelRegistry, RegistryError
+
+        def _raise(model_id, registry_dir=None):
+            raise RegistryError("simulated: registry file missing")
+
+        with mock.patch.object(ModelRegistry, "load", staticmethod(_raise)):
+            contract = build_api_data_contract(_minimal_raw_payload())
+        prov = contract["hillCurves"]["provenance"]
+        self.assertEqual(prov["status"], "unavailable")
+        self.assertIsNone(prov["modelVersion"])
+        self.assertIsNone(prov["paramSetId"])
+        self.assertIn("reason", prov)
+        self.assertTrue(prov["reason"])
+
+    def test_drifted_constants_report_unverified_not_the_stale_champion(self):
+        """Negative control: if the live constants no longer match the
+        registry's recorded champion (e.g. an edit that skipped
+        promote()+apply()), the stamp must say UNVERIFIED -- it must
+        NOT keep claiming the old champion's version, which would
+        misattribute a value nobody validated to a version that was."""
+        import src.canonical.player_valuation as pv
+        from unittest import mock
+
+        with mock.patch.object(pv, "HILL_GLOBAL_PERCENTILE_C", 0.999):
+            contract = build_api_data_contract(_minimal_raw_payload())
+        prov = contract["hillCurves"]["provenance"]
+        self.assertEqual(prov["status"], "unverified")
+        self.assertIsNone(prov["modelVersion"])
+        self.assertIsNone(prov["paramSetId"])
+        self.assertIn("reason", prov)
+
+    def test_a_corrupt_registry_file_degrades_to_unavailable_not_a_crash(self):
+        """A malformed registry file (bad JSON) must not take down the
+        whole /api/data build over a diagnostic field -- it degrades to
+        the same UNAVAILABLE state as a missing file."""
+        from unittest import mock
+
+        from src.model_registry import ModelRegistry
+
+        def _raise_json_error(model_id, registry_dir=None):
+            raise ValueError("simulated: not valid JSON")
+
+        with mock.patch.object(ModelRegistry, "load", staticmethod(_raise_json_error)):
+            contract = build_api_data_contract(_minimal_raw_payload())
+        prov = contract["hillCurves"]["provenance"]
+        self.assertEqual(prov["status"], "unavailable")
+        self.assertIsNone(prov["modelVersion"])
+
+    def test_no_champion_reports_unavailable(self):
+        """Negative control: a registry that loads but has never had a
+        champion promoted must not be read as version 0 or version
+        None-meaning-verified -- it is UNAVAILABLE, the same as an
+        unreadable file, because neither case has a validated answer."""
+        from src.model_registry.versioning import ModelRegistry as RealModelRegistry
+
+        empty_registry = RealModelRegistry("hill_scope_masters", versions=())
+        from unittest import mock
+        from src.model_registry import ModelRegistry
+
+        with mock.patch.object(ModelRegistry, "load", staticmethod(lambda *a, **k: empty_registry)):
+            contract = build_api_data_contract(_minimal_raw_payload())
+        prov = contract["hillCurves"]["provenance"]
+        self.assertEqual(prov["status"], "unavailable")
+        self.assertIsNone(prov["modelVersion"])
 
 
 class TestRawSourceValues(unittest.TestCase):

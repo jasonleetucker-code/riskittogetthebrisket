@@ -121,9 +121,16 @@ def test_an_unreadable_accumulator_is_unknown_not_missing(data_dir):
 
 
 def test_playerctx_snapshots_are_probed(data_dir):
+    """A genuinely fresh dated snapshot must probe as healthy.
+
+    Use the test clock instead of a calendar fixture: a fixed filename
+    eventually ages past C1-RET-08's 14-day freshness budget and turns
+    this positive-path test into a deterministic deploy blocker.
+    """
     hist = data_dir / "playerctx" / "history"
     hist.mkdir(parents=True)
-    (hist / "playerctx_2026-08-10.json").write_text("{}", encoding="utf-8")
+    today = datetime.now(timezone.utc).date().isoformat()
+    (hist / f"playerctx_{today}.json").write_text("{}", encoding="utf-8")
 
     stream = _by_id(health.retention_health(data_dir=data_dir))["C1-RET-08"]
     assert stream["state"] == health.STATE_OK

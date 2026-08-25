@@ -43,6 +43,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Iterable
 
+from src.api import league_registry as _league_registry
 from src.nfl_data import cache as _nfl_cache
 
 from . import historical_stats as _stats
@@ -83,6 +84,53 @@ def _repo_root() -> Path:
 
 def _config_path() -> Path:
     return _repo_root() / "config" / "league_comparison.json"
+
+
+#: Positions with a dedicated, per-position replacement-level sample
+#: (mirrors ``metrics.OFFENSE_POSITIONS``, not imported directly to
+#: avoid a needless cross-import for four literals).
+_SAMPLE_POSITIONS: tuple[str, ...] = ("QB", "RB", "WR", "TE")
+
+
+def _sample_sizes_from_roster_settings(roster_settings: dict[str, Any]) -> dict[str, int]:
+    """Replacement-level cohort sizes derived from the league's OWN
+    roster shape (W18-F005), never a hand-maintained guess that
+    silently drifts when the league's lineup changes.
+
+    ``team_count * starter_slots_for_position`` for each of
+    ``_SAMPLE_POSITIONS``, plus ``IDP_TOTAL`` (``DL + LB + DB +
+    IDP_FLEX``).  Superflex counts toward QB demand — the same
+    convention this codebase already uses for Team Strength's
+    Meaningful Roster Core (``C2-CORE-01``), not a new rule invented
+    here.  Reproduces the pre-fix ``QB``/``RB``/``WR`` config values on
+    ``dynasty_main`` exactly (24/24/36), and corrects ``TE`` (12 → 24)
+    and ``IDP_TOTAL`` (96 → 108), which is what the audit measured
+    wrong (``docs/master-site-audit/findings.json`` W18-F005).
+
+    ``FLEX`` is deliberately NOT derived here: it is a combined top-N
+    RB/WR/TE comparison-pool size, not a per-position replacement
+    cohort, and no owner record states a roster-shape formula for
+    it — inventing one would be deciding methodology this fix has no
+    standing to decide.  It stays a plain config value.
+    """
+    team_count = int(roster_settings.get("teamCount") or 0)
+    starters = roster_settings.get("starters")
+    if team_count <= 0 or not isinstance(starters, dict):
+        raise ValueError(
+            "league-comparison sample sizes need a positive teamCount and a "
+            f"starters dict from the registry's rosterSettings; got {roster_settings!r}"
+        )
+
+    def _slots(*positions: str) -> int:
+        return sum(int(starters.get(p) or 0) for p in positions)
+
+    return {
+        "QB": team_count * _slots("QB", "SFLEX"),
+        "RB": team_count * _slots("RB"),
+        "WR": team_count * _slots("WR"),
+        "TE": team_count * _slots("TE"),
+        "IDP_TOTAL": team_count * _slots("DL", "LB", "DB", "IDP_FLEX"),
+    }
 
 
 def _load_config() -> dict[str, Any]:
@@ -126,14 +174,16 @@ def _cache_key(
 #: arms.
 #:
 #: WHY COUNTERFACTUAL, AND WHY IT IS NOT THE DEFECT IT LOOKS LIKE.
-#: ``config/league_comparison.json`` points at two leagues created for
-#: 2026 — "Scoring" (``1312736351547850752``, no ``previous_league_id``
-#: at all) and "Standard" (``1328545898812170240``, one hop back to
-#: 2025) — and asks for seasons 2022-2025.  **Neither league played any
-#: of them.**  They are vessels carrying two scoring cards, and the
-#: season loop varies the NFL production, not the league's rules.  So
-#: "what did this league pay in 2023" is not the question here, and
-#: answering it is not available: there is no such card to find.
+#: "My league" is the registry's default league (real history, a real
+#: ``previous_league_id`` chain — see :func:`_sample_sizes_from_roster_settings`
+#: and W18-F005 on why it is no longer the standalone Sleeper id this
+#: comment used to name).  ``baseline_league`` in
+#: ``config/league_comparison.json`` — "Standard"
+#: (``1328545898812170240``) — is a vessel league carrying one scoring
+#: card, and ``seasons`` asks for 2022-2025.  Neither arm's card is
+#: being asked "what did you pay in 2023" — the season loop varies the
+#: NFL production, not either league's rules, so a vessel that never
+#: played a requested season answers exactly as well as one that did.
 #:
 #: The as-of resolver (``season_scoring``) is still the right owner where
 #: the question really IS as-of — ``bdvm.baseline`` rescores a real
@@ -173,7 +223,19 @@ def _per_season_metrics_for_league(
         sample = _m.top_n_by_position(scores, pos, n)
         per_pos[pos] = _m.position_metrics(sample)
         sample_union.extend(sample)
-    flex_n = int(sample_sizes.get("FLEX", 96))
+    # W18-F005 residual (V1-25): FLEX is deliberately NOT derived from the
+    # roster shape — see _sample_sizes_from_roster_settings — so it must be
+    # an EXPLICIT config value.  The retired ``.get("FLEX", 96)`` default
+    # silently substituted one hand-typed league's comparison pool whenever
+    # the key was missing; a missing value is now an error naming its
+    # config, never another league's lineup.
+    if "FLEX" not in sample_sizes:
+        raise ValueError(
+            "league-comparison sample sizes carry no FLEX pool size; it is a "
+            "plain config value (config/league_comparison.json sample_sizes.FLEX) "
+            "and there is deliberately no default"
+        )
+    flex_n = int(sample_sizes["FLEX"])
     flex_sample = _m.flex_top_n(scores, n=flex_n)
     flex_metrics = _m.position_metrics(flex_sample)
     return per_pos, flex_metrics, sample_union
@@ -457,9 +519,22 @@ def build_comparison(*, refresh: bool = False) -> dict[str, Any]:
     config = _load_config()
     version = str(config.get("version") or "v1.0")
     seasons_requested: list[int] = sorted({int(s) for s in config.get("seasons") or []})
+
+    # "My league" is the canonical registry's default league — never a
+    # second, independently file-maintained Sleeper id (W18-F005).  A
+    # registry with nothing configured must fail closed rather than
+    # resurrecting a stale/independent identity from the JSON config.
+    my_league_cfg = _league_registry.get_default_league()
+    if my_league_cfg is None:
+        raise ValueError(
+            "no league configured in the registry (config/leagues/registry.json) "
+            "— league comparison has no canonical 'my league' to compare"
+        )
+
     sample_sizes: dict[str, int] = {
         k: int(v) for k, v in (config.get("sample_sizes") or {}).items()
     }
+    sample_sizes.update(_sample_sizes_from_roster_settings(my_league_cfg.roster_settings))
 
     # Fail fast on a malformed config rather than silently producing
     # zeroed metrics when a position key is missing or non-positive.
@@ -474,10 +549,9 @@ def build_comparison(*, refresh: bool = False) -> dict[str, Any]:
             f"got non-positive values for: {_bad}"
         )
 
-    my_cfg = config["my_league"]
     base_cfg = config["baseline_league"]
 
-    my_info = _sleeper.fetch_league_scoring(my_cfg["id"], refresh=refresh)
+    my_info = _sleeper.fetch_league_scoring(my_league_cfg.sleeper_league_id, refresh=refresh)
     base_info = _sleeper.fetch_league_scoring(base_cfg["id"], refresh=refresh)
 
     cache_key = _cache_key(
@@ -513,8 +587,7 @@ def build_comparison(*, refresh: bool = False) -> dict[str, Any]:
         )
     elif len(avail["available"]) == 0:
         warnings.append(
-            "No NFL stats are available for any requested season.  "
-            "Comparison cannot be computed."
+            "No NFL stats are available for any requested season.  Comparison cannot be computed."
         )
 
     # Pre-flag any scoring rules the engine does not score — surfaces in
@@ -624,7 +697,7 @@ def build_comparison(*, refresh: bool = False) -> dict[str, Any]:
             "version": version,
             "myLeague": {
                 "id": my_info.league_id,
-                "label": my_cfg.get("label"),
+                "label": my_league_cfg.display_name,
                 "name": my_info.name,
                 "scoringHash": my_info.scoring_hash,
             },

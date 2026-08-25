@@ -126,17 +126,28 @@ def main(argv: list[str] | None = None) -> int:
         print("cards or config fixture missing", file=sys.stderr)
         return 2
 
+    from src.api import league_registry
     from src.league_comparison import service as svc
 
     cfg = json.loads(CONFIG.read_text())
     cards = json.loads(CARDS.read_text())
     seasons = [int(s) for s in cfg["seasons"]]
+
+    # "My league" is the registry's default league (W18-F005) — mirror
+    # build_comparison's own resolution rather than the retired
+    # cfg["my_league"] config key, so this reproduction script keeps
+    # measuring the SAME arithmetic the live service actually runs.
+    my_league_cfg = league_registry.get_default_league()
+    if my_league_cfg is None:
+        print("no default league configured in the registry", file=sys.stderr)
+        return 2
     sample_sizes = {str(k): int(v) for k, v in cfg["sample_sizes"].items()}
+    sample_sizes.update(svc._sample_sizes_from_roster_settings(my_league_cfg.roster_settings))
 
     my_info = _Info(
-        str(cfg["my_league"]["id"]),
+        my_league_cfg.sleeper_league_id,
         cards["dynasty_main"].get("scoring_settings", cards["dynasty_main"]),
-        cfg["my_league"]["label"],
+        my_league_cfg.display_name,
     )
     base_info = _Info(
         str(cfg["baseline_league"]["id"]),

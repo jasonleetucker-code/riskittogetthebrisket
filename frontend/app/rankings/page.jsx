@@ -998,9 +998,15 @@ export default function RankingsPage() {
                 name={row.name}
                 size={28}
               />
+              {/* `rankings-player-name` is a stable E2E hook, not a
+                  style: journey.js::SEL.playerName selects on it, and
+                  five rankings specs plus the mobile popup smoke read
+                  the board through it.  Kept alongside the module class
+                  for the same reason `rankings-controls` and
+                  `rankings-row-clickable` are. */}
               <button
                 type="button"
-                className="button-reset rankings-player-name"
+                className={`rankings-player-name ${styles.resetButton} ${styles.playerName}`}
                 onClick={() => openPlayerPopup?.(row)}
                 title={`Open ${row.name}'s profile`}
               >
@@ -1008,7 +1014,7 @@ export default function RankingsPage() {
               </button>
               <button
                 type="button"
-                className={`button-reset ${styles.watchStar}${onWatch ? ` ${styles.watchStarActive}` : ""}`}
+                className={`${styles.resetButton} ${styles.watchStar}${onWatch ? ` ${styles.watchStarActive}` : ""}`}
                 aria-pressed={onWatch}
                 aria-label={
                   onWatch
@@ -1117,7 +1123,7 @@ export default function RankingsPage() {
             <span className={styles.valueCell}>
               <button
                 type="button"
-                className={`button-reset ${styles.valueButton}`}
+                className={`${styles.resetButton} ${styles.valueButton}`}
                 onClick={() => openPlayerPopup?.(row)}
                 title={`Hill-curve value ${val.toLocaleString()} (scale 1–9,999) — click for the per-source breakdown`}
               >
@@ -1159,7 +1165,7 @@ export default function RankingsPage() {
                     <span className={styles.srcRank}> ({cell.rankLabel})</span>
                   </>
                 ) : (
-                  <span className="muted">—</span>
+                  <span className={styles.muted}>—</span>
                 )}
               </span>
             );
@@ -1258,11 +1264,11 @@ export default function RankingsPage() {
           "Visible only while the BDVM engine is enabled.",
         render: (row) => {
           const entry = bdvmEntryForRow(bdvmIndex, row);
-          if (!entry) return <span className="muted">—</span>;
+          if (!entry) return <span className={styles.muted}>—</span>;
           if (entry.gap == null) {
             return (
               <span
-                className="muted"
+                className={styles.muted}
                 title={entry.signalReason || "no market anchor for this asset"}
               >
                 —
@@ -1325,7 +1331,7 @@ export default function RankingsPage() {
               </span>
             ))}
             {!action && cautions.length === 0 && (
-              <span className="muted">—</span>
+              <span className={styles.muted}>—</span>
             )}
           </>
         );
@@ -1350,11 +1356,16 @@ export default function RankingsPage() {
 
   // ── Render ──────────────────────────────────────────────────────
   return (
-    <section className={styles.page}>
+    <section className={`${styles.page} psi-editorial`}>
       <PageHeader
-        eyebrow="Rankings"
+        className={styles.hero}
+        eyebrow={
+          relativeUpdated
+            ? `Chase Upside Consensus / Updated ${relativeUpdated}`
+            : "Chase Upside Consensus"
+        }
         title="Rankings"
-        description="Unified dynasty board — offense + IDP blended by consensus rank."
+        description="The Dynasty Board — unified dynasty rankings, offense + IDP blended by consensus rank."
         actions={
           <>
             {/*

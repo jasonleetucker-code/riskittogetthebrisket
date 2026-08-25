@@ -75,20 +75,43 @@ class TestTheValuationPathCannotReachAcquisitionHistory:
 
     def test_the_whole_src_tree_is_free_of_valuation_side_consumers(self):
         """Broader sweep, so a new pipeline module is covered the day it
-        is written rather than the day someone remembers this list."""
+        is written rather than the day someone remembers this list.
+
+        ``src/trade/waiver_ledger.py`` (C4-WAIV-01) and
+        ``src/trade/market_trade_ledger.py`` (C4-MTL-01) are the deliberate
+        exceptions, both added 2026-08-20. Both are pure historical
+        PROJECTIONS — grouping recorded transactions into claims/trades —
+        and neither reaches ``rankDerivedValue`` or any canonical value;
+        they read acquisition history the same legitimate direction
+        ``src/history`` already reads value history, per this file's own
+        stated rule ("historical ownership is downstream of value"). Each
+        is named here by exact path rather than folded into a prefix
+        allowance, so a third module reaching for the same import still
+        has to earn its own line."""
         allowed_prefixes = ("src/acquisition/",)
+        allowed_exact = {
+            "src/trade/waiver_ledger.py",
+            "src/trade/market_trade_ledger.py",
+        }
         offenders = []
         for path in (REPO / "src").rglob("*.py"):
             rel = str(path.relative_to(REPO))
-            if rel.startswith(allowed_prefixes):
+            if rel.startswith(allowed_prefixes) or rel in allowed_exact:
                 continue
             if any(n.startswith("src.acquisition") for n in _imported_modules(path)):
                 offenders.append(rel)
         assert not offenders, (
             f"unexpected src-tree consumers of src.acquisition: {offenders}. "
             "The authorized consumers are the offline collector and health probe under "
-            "scripts/; anything else needs a deliberate decision, not an import."
+            "scripts/, plus src/trade/waiver_ledger.py and "
+            "src/trade/market_trade_ledger.py; anything else needs a deliberate decision, "
+            "not an import."
         )
+        for rel in allowed_exact:
+            assert rel not in _VALUATION_PATH, (
+                f"{rel} is allowed to import acquisition history but is also listed in "
+                "_VALUATION_PATH — those two facts cannot both hold."
+            )
 
 
 class TestTheContractBuildDoesNotTouchAcquisition:

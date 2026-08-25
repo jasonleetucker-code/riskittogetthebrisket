@@ -792,13 +792,7 @@ export default function SettingsPage() {
           label="Enable ROS engine"
           checked={settings.rosEnabled !== false}
           onChange={(v) => update("rosEnabled", v)}
-          hint="Master switch.  Off hides every ROS-driven surface (Power v2, Championship tab, Trade-deadline dashboard, ROS Fit panel, player tags)."
-        />
-        <ToggleRow
-          label="Use ROS-driven Power Rankings"
-          checked={!!settings.useRosPowerRankings}
-          onChange={(v) => update("useRosPowerRankings", v)}
-          hint="Swap the /league Power tab from the v1 PPG/all-play formula to the ROS-driven 9-input v2.  Defaults off until you've validated v2 against a few weeks of standings."
+          hint="Master switch.  Off hides every ROS-driven surface (Championship tab, Trade-deadline dashboard, ROS Fit panel, player tags).  Does not affect the Power tab — it has no v1 fallback to fall back to (V1-52 retired it)."
         />
         <ToggleRow
           label="Use ROS-driven Playoff Odds"

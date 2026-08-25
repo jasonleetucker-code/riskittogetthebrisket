@@ -273,7 +273,21 @@ class TestDlfParticipatesInUnifiedRankings(unittest.TestCase):
         self.assertEqual(backbones[0]["key"], "idpTradeCalc")
 
     def test_dlf_ranks_alongside_idptradecalc(self):
+        # idpTradeCalc's cross-position bridge capability is MEASURED from
+        # the rows actually present in a build (src/bridges/descriptor.py),
+        # not declared — so a fixture with only IDP rows can never exercise
+        # it, whatever the real board looks like.  Ten offense rows (each
+        # also carrying a corroborating ktcSfTep value so the single-source
+        # haircut doesn't fire) give idpTradeCalc a genuine offense pool
+        # alongside its IDP one, matching
+        # test_dlf_rank_is_mapped_through_shared_market_when_offense_present
+        # below rather than the pre-bridge-measurement fixture this
+        # replaces.
         rows = [
+            _row("off%d" % i, "QB" if i % 2 else "WR", idp=9999 - i * 10, ktc_sf=9999 - i * 10)
+            for i in range(10)
+        ]
+        rows += [
             # Both sources agree: dl1 > lb1 > db1.
             _row("dl1", "DL", idp=900, dlf=9995),
             _row("lb1", "LB", idp=800, dlf=9990),
@@ -281,32 +295,35 @@ class TestDlfParticipatesInUnifiedRankings(unittest.TestCase):
         ]
         _compute_unified_rankings(rows, {})
 
-        for r in rows:
+        idp_rows = [r for r in rows if r["canonicalName"] in ("dl1", "lb1", "db1")]
+        for r in idp_rows:
             meta = r["sourceRankMeta"]
             self.assertIn("dlfIdp", meta)
             self.assertIn("idpTradeCalc", meta)
             self.assertEqual(meta["dlfIdp"]["scope"], SOURCE_SCOPE_OVERALL_IDP)
             # DLF is an IDP-only expert board, so its raw rank is
-            # translated through the shared-market IDP ladder built
-            # from IDPTradeCalc's combined offense+IDP pool.  In this
-            # fixture there are no offense rows, so the ladder is
-            # ``[1, 2, 3]`` and the crosswalk becomes a no-op in terms
-            # of effective rank, but the method token flips from DIRECT
-            # to EXACT because the row lands on a ladder anchor.
+            # translated through the shared-market IDP ladder built from
+            # IDPTradeCalc's combined offense+IDP pool — the method token
+            # is EXACT because each row lands on a ladder anchor.
             self.assertEqual(meta["dlfIdp"]["method"], TRANSLATION_EXACT)
             self.assertTrue(meta["dlfIdp"]["sharedMarketTranslated"])
             # idpTradeCalc is still the backbone — no crosswalk on it.
             self.assertEqual(meta["idpTradeCalc"]["method"], TRANSLATION_DIRECT)
             self.assertFalse(meta["idpTradeCalc"]["sharedMarketTranslated"])
 
-        # dl1 is rank 1 in both sources
-        dl1 = rows[0]
-        self.assertEqual(dl1["sourceRanks"]["idpTradeCalc"], 1)
-        self.assertEqual(dl1["sourceRanks"]["dlfIdp"], 1)
-        # db1 is rank 3 in both
-        db1 = rows[2]
-        self.assertEqual(db1["sourceRanks"]["idpTradeCalc"], 3)
-        self.assertEqual(db1["sourceRanks"]["dlfIdp"], 3)
+        dl1 = next(r for r in rows if r["canonicalName"] == "dl1")
+        lb1 = next(r for r in rows if r["canonicalName"] == "lb1")
+        db1 = next(r for r in rows if r["canonicalName"] == "db1")
+        # Combined-pool ranks: the ten offense rows outprice all three IDPs
+        # in idpTradeCalc value order, so the IDPs land at 11/12/13.
+        self.assertEqual(dl1["sourceRanks"]["idpTradeCalc"], 11)
+        self.assertEqual(lb1["sourceRanks"]["idpTradeCalc"], 12)
+        self.assertEqual(db1["sourceRanks"]["idpTradeCalc"], 13)
+        # DLF agrees on the same dl1 > lb1 > db1 order, so its translated
+        # ranks land on the same three anchors.
+        self.assertEqual(dl1["sourceRanks"]["dlfIdp"], 11)
+        self.assertEqual(lb1["sourceRanks"]["dlfIdp"], 12)
+        self.assertEqual(db1["sourceRanks"]["dlfIdp"], 13)
 
     def test_dlf_rank_is_mapped_through_shared_market_when_offense_present(self):
         """The real regression: when offense rows dominate the backbone
@@ -367,19 +384,30 @@ class TestDlfParticipatesInUnifiedRankings(unittest.TestCase):
         # Both sources carry equal weight so the blended effective rank
         # should be the average of the two, which still produces a
         # deterministic ordinal on the unified board.
+        #
+        # As above: idpTradeCalc's bridge capability is measured from the
+        # rows in THIS build, so ten offense rows are required to give it a
+        # genuine offense+IDP pool to span — an all-IDP fixture can never
+        # exercise a real bridge, whatever a live board looks like.
         rows = [
+            _row("off%d" % i, "QB" if i % 2 else "WR", idp=9999 - i * 10, ktc_sf=9999 - i * 10)
+            for i in range(10)
+        ]
+        rows += [
             _row("dl1", "DL", idp=900, dlf=9990),
             _row("dl2", "DL", idp=800, dlf=9995),
         ]
         _compute_unified_rankings(rows, {})
 
-        dl1 = rows[0]
-        dl2 = rows[1]
-        # Sanity: each source stamps its own ordinal under the same scope.
-        self.assertEqual(dl1["sourceRanks"]["idpTradeCalc"], 1)
-        self.assertEqual(dl2["sourceRanks"]["idpTradeCalc"], 2)
-        self.assertEqual(dl1["sourceRanks"]["dlfIdp"], 2)
-        self.assertEqual(dl2["sourceRanks"]["dlfIdp"], 1)
+        dl1 = next(r for r in rows if r["canonicalName"] == "dl1")
+        dl2 = next(r for r in rows if r["canonicalName"] == "dl2")
+        # Sanity: each source stamps its own ordinal under the same scope,
+        # translated onto the same combined-pool anchors (11/12) as the
+        # sibling tests above.
+        self.assertEqual(dl1["sourceRanks"]["idpTradeCalc"], 11)
+        self.assertEqual(dl2["sourceRanks"]["idpTradeCalc"], 12)
+        self.assertEqual(dl1["sourceRanks"]["dlfIdp"], 12)
+        self.assertEqual(dl2["sourceRanks"]["dlfIdp"], 11)
         # Rank spread across sources is captured for transparency.  A
         # one-rank disagreement is below the hasSourceDisagreement
         # threshold (80) but still surfaces on sourceRankSpread.
@@ -388,8 +416,47 @@ class TestDlfParticipatesInUnifiedRankings(unittest.TestCase):
         self.assertFalse(dl1["isSingleSource"])
         self.assertFalse(dl2["isSingleSource"])
 
-    def test_dlf_only_player_still_gets_ranked_via_overall_idp_scope(self):
+    def test_dlf_is_withheld_not_untranslated_when_no_bridge_is_measurable(self):
+        """Negative control for the two positive tests above: the SAME
+        agreeing dl1/lb1/db1 fixture, with the offense rows removed so
+        idpTradeCalc's combined pool has no offense side and therefore
+        cannot measure as a usable bridge (src/bridges/descriptor.py::
+        measure_capability — ``spans_both_pools`` requires BOTH sides
+        positive). DLF's raw IDP-only rank must never re-enter combined
+        rank space untranslated: it is withheld entirely rather than
+        published as if rank #1 were overall rank #1 (the historical
+        defect this class exists to prevent — #950's 661 untranslated
+        votes / IDP published at 9,999). idpTradeCalc itself is unaffected
+        because it never needs translation for its own native overall_idp
+        scope.
+        """
         rows = [
+            _row("dl1", "DL", idp=900, dlf=9995),
+            _row("lb1", "LB", idp=800, dlf=9990),
+            _row("db1", "DB", idp=700, dlf=9985),
+        ]
+        _compute_unified_rankings(rows, {})
+
+        for r in rows:
+            self.assertNotIn("dlfIdp", r["sourceRanks"])
+            self.assertNotIn("dlfIdp", r["sourceRankMeta"])
+            self.assertIn("idpTradeCalc", r["sourceRanks"])
+            # No fabricated cardinal value: DLF contributed nothing, so
+            # the row's value comes from idpTradeCalc alone, never from
+            # an untranslated DLF rank masquerading as shared-market rank.
+            self.assertLess(r["rankDerivedValue"], 9999)
+
+    def test_dlf_only_player_still_gets_ranked_via_overall_idp_scope(self):
+        # A genuine idpTradeCalc bridge (see the offense rows below) is
+        # required for dlf_only's raw DLF rank to be translated at all —
+        # without one, an untranslated IDP-only rank is correctly withheld
+        # rather than allowed to masquerade as an overall vote (the
+        # vote-withholding repair this whole class is pinning).
+        rows = [
+            _row("off%d" % i, "QB" if i % 2 else "WR", idp=9999 - i * 10, ktc_sf=9999 - i * 10)
+            for i in range(10)
+        ]
+        rows += [
             _row("idp_anchor", "DL", idp=900),  # IDPTradeCalc-only
             _row("dlf_only", "DL", dlf=9950),  # DLF-only
         ]

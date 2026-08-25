@@ -114,6 +114,7 @@ _SCRAPER_FLOOR_RESOLVERS = {
     "dynastyDaddySf": lambda: _module_int_const("fetch_dynasty_daddy.py", "_DD_ROW_COUNT_FLOOR"),
     "flockFantasySf": lambda: _module_int_const("fetch_flock_fantasy.py", "_FF_ROW_COUNT_FLOOR"),
     "idpShow": lambda: _module_int_const("fetch_idpshow.py", "_IDPSHOW_ROW_FLOOR"),
+    "idpShowCombined": lambda: _module_int_const("fetch_idpshow.py", "_IDPSHOW_COMBINED_ROW_FLOOR"),
     "dlfSf": lambda: _dlf_board_min_rows("dlfSf"),
     "dlfIdp": lambda: _dlf_board_min_rows("dlfIdp"),
     # No aligned internal floor today (legacy Dynasty Scraper.py

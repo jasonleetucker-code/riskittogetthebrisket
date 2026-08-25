@@ -43,9 +43,11 @@ import { PUBLIC_SECTION_KEYS, fetchPublicSection } from "@/lib/public-league-dat
 import { buildManagerLookup } from "./shared.jsx";
 import {
   DEFAULT_TAB,
+  PIECE_OF_SHIT_RANKINGS_TAB,
   SECTION_FOR_TAB,
   SUB_TABS,
   VALID_TABS,
+  leagueTabHref,
   normalizeTabKey,
 } from "./tabs.js";
 
@@ -86,14 +88,13 @@ const SuperlativesSection = lazySection(() => import("./sections/superlatives.js
 const ArchivesSection = lazySection(() => import("./sections/archives.jsx"));
 const LuckSection = lazySection(() => import("./sections/luck.jsx"));
 const StreaksSection = lazySection(() => import("./sections/streaks.jsx"));
-const PowerSection = lazySection(() => import("./sections/power.jsx"));
+const ConductSection = lazySection(() => import("./sections/conduct.jsx"));
 const RosTeamStrengthSection = lazySection(() => import("./sections/ros-team-strength.jsx"));
 const RosPowerSection = lazySection(() => import("./sections/ros-power.jsx"));
 const RosChampionshipSection = lazySection(() => import("./sections/ros-championship.jsx"));
 const RosTradeDeadlineSection = lazySection(() => import("./sections/ros-trade-deadline.jsx"));
 const ArticlesSection = lazySection(() => import("./sections/articles.jsx"));
 const TeamAssignmentSection = lazySection(() => import("./sections/team-assignment.jsx"));
-import { useSettings } from "@/components/useSettings";
 
 // SUB_TABS / VALID_TABS / DEFAULT_TAB / normalizeTabKey / SECTION_FOR_TAB
 // now live in ./tabs.js so ./page.jsx (a server component) can read the
@@ -115,20 +116,18 @@ function LeaguePage({ initialContract = null, initialTab = DEFAULT_TAB }) {
   // Apply the tab-key alias on read so legacy ``?tab=matchupPreview``
   // and ``?tab=weeklyRecap`` URLs land on the new Previews/Recaps
   // tabs instead of falling through to the default.
-  const urlTab = normalizeTabKey(searchParams.get("tab"));
+  const rawUrlTab = searchParams.get("tab");
+  const urlTab = normalizeTabKey(rawUrlTab);
   const urlOwner = searchParams.get("owner") || "";
   const urlWeek = searchParams.get("week") || "";
-  // Read the ROS feature flags so the Power tab can swap to v2 when
-  // the user opts in.  Defaults match the registry in
-  // ``components/useSettings.js`` (rosEnabled true,
-  // useRosPowerRankings false until validated per-user).
-  const { settings } = useSettings();
-  const useRosPower = !!settings?.useRosPowerRankings;
+  const normalizedInitialTab = normalizeTabKey(initialTab);
 
   const [activeTab, setActiveTabState] = useState(
     urlTab && VALID_TABS.has(urlTab)
       ? urlTab
-      : (initialTab && VALID_TABS.has(initialTab) ? initialTab : DEFAULT_TAB),
+      : (normalizedInitialTab && VALID_TABS.has(normalizedInitialTab)
+          ? normalizedInitialTab
+          : DEFAULT_TAB),
   );
   const [state, setState] = useState(
     initialContract
@@ -142,29 +141,23 @@ function LeaguePage({ initialContract = null, initialTab = DEFAULT_TAB }) {
     }
   }, [urlTab, activeTab]);
 
+  useEffect(() => {
+    // Keep old shared links working, then replace the legacy query value
+    // with the canonical slug so copied URLs always use the current name.
+    if (!rawUrlTab || rawUrlTab === urlTab || !VALID_TABS.has(urlTab)) return;
+    router.replace(leagueTabHref(urlTab, searchParams.toString()), { scroll: false });
+  }, [rawUrlTab, router, searchParams, urlTab]);
+
   const setActiveTab = useCallback((key, extraParams = {}) => {
     // Normalize on write so internal CTAs that still pass legacy
     // keys (overview.jsx → onNavigate("matchupPreview")) route to
     // the renamed tabs instead of into a blank-content state.
     const normalized = normalizeTabKey(key);
     setActiveTabState(normalized);
-    const params = new URLSearchParams(searchParams.toString());
-    // Omit ``?tab=`` from the URL when on the default tab for a
-    // cleaner shareable link.
-    if (normalized === DEFAULT_TAB) {
-      params.delete("tab");
-    } else {
-      params.set("tab", normalized);
-    }
-    for (const [k, v] of Object.entries(extraParams)) {
-      if (v === null || v === undefined || v === "") {
-        params.delete(k);
-      } else {
-        params.set(k, String(v));
-      }
-    }
-    const qs = params.toString();
-    router.replace(qs ? `/league?${qs}` : "/league", { scroll: false });
+    router.replace(
+      leagueTabHref(normalized, searchParams.toString(), extraParams),
+      { scroll: false },
+    );
   }, [router, searchParams]);
 
   useEffect(() => {
@@ -217,11 +210,8 @@ function LeaguePage({ initialContract = null, initialTab = DEFAULT_TAB }) {
   const league = contract?.league || null;
 
   // Which section the active tab needs, or null when the tab fetches
-  // its own data (articles, the ROS tabs, draft-capital).  The Power
-  // tab is the one conditional: under the ROS flag it renders
-  // RosPowerSection, which reads nothing from the contract.
-  const neededSection =
-    activeTab === "power" && useRosPower ? null : SECTION_FOR_TAB[activeTab] || null;
+  // its own data (articles, Power, the other ROS tabs, draft-capital).
+  const neededSection = SECTION_FOR_TAB[activeTab] || null;
   const haveSection = !neededSection || sections[neededSection] !== undefined;
 
   // Lazily pull the section the visitor just opened.  ``inflightRef``
@@ -410,11 +400,10 @@ function LeaguePage({ initialContract = null, initialTab = DEFAULT_TAB }) {
       {activeTab === "streaks" && (
         <StreaksSection data={sections.streaks} managers={managers} />
       )}
-      {activeTab === "power" && (
-        useRosPower
-          ? <RosPowerSection />
-          : <PowerSection data={sections.power} managers={managers} />
+      {activeTab === PIECE_OF_SHIT_RANKINGS_TAB && (
+        <ConductSection data={sections.conduct} managers={managers} />
       )}
+      {activeTab === "power" && <RosPowerSection managers={managers} />}
       {activeTab === "rosTeamStrength" && <RosTeamStrengthSection />}
       {activeTab === "rosChampionship" && <RosChampionshipSection />}
       {activeTab === "rosTradeDeadline" && <RosTradeDeadlineSection />}

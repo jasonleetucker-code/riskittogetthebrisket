@@ -48,6 +48,9 @@ Usage:
     python scripts/verify_roster_intelligence.py --base-url http://127.0.0.1:8000
     python scripts/verify_roster_intelligence.py --base-url "$PROD_PUBLIC_URL" \
         --league-key dynasty_main --league-key dynasty_new --json-out evidence.json
+    python scripts/verify_roster_intelligence.py --offline --json-out evidence.json
+        # rebuilds from the newest COMPLETE archived scrape — no server,
+        # no auth, no network. Ceiling EVIDENCE-L2, never L3/L4.
 
 Exit codes (the repo convention — ``scripts/backtest_perfect_draft.py``):
     0  every check was MEASURED and PASSED
@@ -1241,6 +1244,51 @@ def build_bundle_http(base_url: str, league_key: str, registry: Mapping[str, Any
     return bundle
 
 
+def build_bundle_offline(
+    league_key: str, registry: Mapping[str, Any] | None
+) -> tuple[Bundle, str | None]:
+    """Rebuild one league's payload from the newest COMPLETE archived scrape.
+
+    EVIDENCE-L2, never higher: this reads a locally rebuilt contract, not
+    a deployed response.  It exists because the pack's own documented
+    offline command — ``pytest tests/roster_intel/test_verification_pack.py``
+    — drives every check from a hand-built synthetic fixture and proves
+    the checks are LIVE (RED on a violated payload), not that they hold
+    on a real board.  ``V1_ROSTER_VERIFICATION_PACK.md`` §3's "216
+    rungs" / "215 rung credits" table was produced against
+    ``newest_complete_raw_payload()`` by hand, with no committed command
+    to reproduce it.  This is that command, mirroring ``build_bundle_http``
+    exactly except for where the payload comes from.
+
+    ``team_assignment`` is left unset: the public teamAssignment section
+    is a deploy-time overlay this archive does not carry, so check 12
+    correctly reports UNMEASURABLE rather than a fabricated pass.
+
+    ``bundle.latency_ms`` is likewise left EMPTY, deliberately: check 13
+    polices HTTP endpoint latency against a p95 budget, and timing this
+    function's local dict/CPU work would let it silently report a
+    fabricated "PASS" for a quantity — a network round-trip — that was
+    never measured. Local build time is not the evidence this check
+    claims to carry.
+    """
+    from src.api.data_contract import build_api_data_contract
+    from src.api.roster_intelligence import build_league_roster_intelligence
+    from tests.archive_fixtures import newest_complete_raw_payload
+
+    bundle = Bundle(league_key=league_key, registry=registry)
+    raw, source_path = newest_complete_raw_payload()
+    if raw is None:
+        bundle.errors["intelligence"] = "no complete archived scrape available"
+        return bundle, None
+
+    contract = build_api_data_contract(raw)
+    team_count = (registry or {}).get("teamCount")
+    bundle.intelligence = build_league_roster_intelligence(
+        contract, team_count=team_count if isinstance(team_count, int) else None
+    )
+    return bundle, source_path
+
+
 def _registry_entries(keys: Sequence[str] | None) -> list[tuple[str, dict[str, Any]]]:
     """Active leagues from the local registry, or exactly the keys asked for."""
     from src.api.league_registry import (
@@ -1354,7 +1402,59 @@ def main(argv: list[str] | None = None) -> int:
         type=Path,
         help="Write the machine-readable evidence artifact here.",
     )
+    parser.add_argument(
+        "--offline",
+        action="store_true",
+        help="Rebuild from the newest COMPLETE archived scrape instead of "
+        "probing a server. No --base-url, no auth, no network. Ceiling "
+        "EVIDENCE-L2 — a locally rebuilt contract, never a deployed "
+        "response. Defaults --league-key to dynasty_main, the one this "
+        "repo's archive fixture covers; pass --league-key to override.",
+    )
     args = parser.parse_args(argv)
+
+    if args.offline:
+        keys = args.league_keys or ["dynasty_main"]
+        try:
+            entries = _registry_entries(keys)
+        except Exception as exc:  # noqa: BLE001
+            print(f"{TAG} ::error title=Registry unreadable::{exc}")
+            return EXIT_UNMEASURED
+        bundles, source_paths = [], []
+        for key, reg in entries:
+            bundle, source_path = build_bundle_offline(key, reg)
+            bundles.append(bundle)
+            if source_path:
+                source_paths.append(source_path)
+        results = run_checks(bundles, source_level=L2)
+        source_desc = ", ".join(sorted(set(source_paths))) or "(no archive found)"
+        render(
+            results,
+            base_url="",
+            source=f"offline_archive:{source_desc}",
+            source_level=L2,
+            expect_sha=args.expect_sha,
+        )
+        code = exit_code_for(results)
+        if args.json_out:
+            artifact = {
+                "checkedAt": datetime.now(timezone.utc).isoformat(),
+                "baseUrl": "",
+                "archiveSource": source_paths,
+                "operatorAssertedSha": args.expect_sha,
+                "shaPublishedByApi": None,
+                "sourceLevel": L2,
+                "exitCode": code,
+                "leagues": [b.league_key for b in bundles],
+                "fetchErrors": {b.league_key: b.errors for b in bundles if b.errors},
+                "checks": [r.to_dict() for r in results],
+            }
+            args.json_out.parent.mkdir(parents=True, exist_ok=True)
+            args.json_out.write_text(
+                json.dumps(artifact, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+            )
+            print(f"{TAG} evidence written to {args.json_out}")
+        return code
 
     if not args.base_url:
         print(f"{TAG} ::error title=No base URL::Pass --base-url or set ROSTER_VERIFY_BASE_URL.")

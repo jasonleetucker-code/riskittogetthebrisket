@@ -105,7 +105,7 @@ def _build_board() -> list[dict[str, Any]]:
                 f"Defender {i:02d}",
                 "LB",
                 idpTradeCalc=6400 - i * 150,
-                idpShow=_synthetic_rank(i),
+                idpShowCombined=_synthetic_rank(i),
             )
         )
     # Offense carries the top of the board — including the top
@@ -125,7 +125,7 @@ def _build_board() -> list[dict[str, Any]]:
             "Two Way Player",
             "WR",
             ktcSfTep=3000,
-            idpShow=_synthetic_rank(5),
+            idpShowCombined=_synthetic_rank(5),
             idpTradeCalc=5200,
         )
     )

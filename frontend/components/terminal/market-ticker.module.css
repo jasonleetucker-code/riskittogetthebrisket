@@ -1,0 +1,175 @@
+/* market-ticker.module.css — Chase Upside Market Ticker (C8-PSI-01).
+   Structural/layout styles only. Delta coloring and confidence ticks
+   ride ds/Badge's <Movement> (ds.css, --data-up/--data-down tokens);
+   the scope switch rides ds/SegmentedControl (ds.css). Nothing here
+   duplicates either. */
+
+.ticker {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm, 6px);
+  /* Height-stable across the quiet <-> live swap: the live marquee's
+     content height differed from the quiet strip, nudging the whole
+     dashboard when items arrived. */
+  min-height: 40px;
+  padding: 6px var(--space-sm) 6px var(--space-md);
+  overflow: hidden;
+}
+
+.rail {
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  padding-right: var(--space-sm);
+  border-right: 1px solid var(--border);
+  gap: 4px;
+}
+
+.railLabel {
+  font-size: 0.6rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.freshness {
+  font-size: 0.62rem;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.strip {
+  flex: 1;
+  overflow: hidden;
+  min-width: 0;
+  position: relative;
+}
+
+.track {
+  display: flex;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  gap: var(--space-lg);
+  white-space: nowrap;
+  width: max-content;
+}
+
+.trackAnimated {
+  animation: ticker-marquee 60s linear infinite;
+  will-change: transform;
+}
+
+@keyframes ticker-marquee {
+  0% {
+    transform: translateX(0);
+  }
+  100% {
+    transform: translateX(-50%);
+  }
+}
+
+.ticker:hover .trackAnimated {
+  animation-play-state: paused;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .trackAnimated {
+    animation: none;
+  }
+}
+
+.quiet {
+  min-height: 40px;
+}
+
+.quietMsg {
+  font-size: 0.76rem;
+  color: var(--muted);
+  padding: 0 var(--space-sm);
+  flex: 1;
+}
+
+.item {
+  display: inline-flex;
+  align-items: center;
+  font-size: 0.78rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--muted);
+}
+
+.itemTrigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: transparent;
+  border: 0;
+  padding: 2px 4px;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.itemTrigger:hover {
+  color: var(--cyan);
+}
+
+.itemLabel {
+  font-weight: 600;
+  color: var(--text);
+}
+
+.itemPos {
+  font-size: 0.66rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+  text-transform: uppercase;
+}
+
+.itemRoster .itemLabel {
+  color: var(--cyan);
+}
+
+.itemDot {
+  color: var(--cyan);
+  font-size: 0.5rem;
+  line-height: 1;
+}
+
+.itemAlert .itemTrigger {
+  gap: 8px;
+  padding: 2px 8px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: rgba(248, 113, 113, 0.08);
+}
+
+.itemAlertTag {
+  font-size: 0.62rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  color: var(--red);
+}
+
+.itemAlertSevWatch {
+  color: var(--amber);
+}
+
+.itemAlertSevInfo {
+  color: var(--muted);
+}
+
+.itemHeadline {
+  color: var(--text);
+  font-weight: 600;
+  max-width: 280px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

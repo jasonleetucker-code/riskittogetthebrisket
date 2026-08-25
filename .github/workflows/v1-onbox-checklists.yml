@@ -1,0 +1,111 @@
+name: V1 On-Box Checklists (read-only by default)
+
+# Executable form of V1 production checklists that exist as prose and whose
+# inputs are prod-only:
+#   V1-89  (DraftSharks §6),  V1-15/16/17 (C1-U8 §8),  V1-59 (journal chain),
+#   V1-83  (F-20 delivery-keyed cooldown),  V1-11 item 1,  V1-124 (job matrix).
+#
+# Same SSH mechanism, permissions, concurrency and buffering posture as
+# lane4-onbox-verification.yml (see its header for why -u and tee-without-
+# masking-exit matter).  Read-only, enforced by shape: the driver's only
+# write path (the C1-U8 live acquisition builder — the checklist's own
+# operation) requires BOTH the run_live_builder input here and the
+# --allow-writes flag it maps to.
+#
+# EXIT CODES (from scripts/verify_v1_onbox.py, passed through):
+#   0 applicable checks ran and passed · 1 error · 2 a check FAILED
+#   3 proved nothing — NOT green.
+
+on:
+  workflow_dispatch:
+    inputs:
+      checks:
+        description: "Comma list of check groups (v89,c1u8,v59,v83,v11,v124) or 'all'"
+        required: false
+        default: "all"
+        type: string
+      run_live_builder:
+        description: "Permit C1-U8 items 2/3 (writes data/intel/ledger.sqlite3 via the checklist's own builder)"
+        required: false
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+
+concurrency:
+  group: production-deploy
+  cancel-in-progress: false
+
+jobs:
+  v1-onbox:
+    name: V1 on-box checklists
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment: production
+    steps:
+      - name: Configure production SSH
+        env:
+          DEPLOY_SSH_PRIVATE_KEY: ${{ secrets.DEPLOY_SSH_PRIVATE_KEY }}
+          DEPLOY_KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+          DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          install -d -m 700 "$HOME/.ssh"
+          printf '%s\n' "$DEPLOY_SSH_PRIVATE_KEY" | sed 's/\r$//' > "$HOME/.ssh/id_ed25519"
+          printf '%s\n' "$DEPLOY_KNOWN_HOSTS" | sed 's/\r$//' > "$HOME/.ssh/known_hosts"
+          chmod 600 "$HOME/.ssh/id_ed25519"
+          chmod 644 "$HOME/.ssh/known_hosts"
+          ssh-keygen -y -f "$HOME/.ssh/id_ed25519" >/dev/null
+          echo "PORT=${DEPLOY_PORT:-22}" >> "$GITHUB_ENV"
+
+      - name: Run V1 on-box checklists
+        id: verify
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          APP_DIR: ${{ vars.PROD_APP_DIR || '/home/dynasty/trade-calculator' }}
+          CHECKS: ${{ inputs.checks }}
+          ALLOW_WRITES: ${{ inputs.run_live_builder && '--allow-writes' || '' }}
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          rc=0
+          ssh -i "$HOME/.ssh/id_ed25519" \
+            -o BatchMode=yes -o StrictHostKeyChecking=yes \
+            -o UserKnownHostsFile="$HOME/.ssh/known_hosts" \
+            -o ConnectTimeout=15 -o ServerAliveInterval=15 \
+            -p "$PORT" "$DEPLOY_USER@$DEPLOY_HOST" \
+            "APP_DIR=$(printf %q "$APP_DIR") CHECKS=$(printf %q "$CHECKS") ALLOW_WRITES=$(printf %q "$ALLOW_WRITES") bash -s" <<'REMOTE' 2>&1 | tee v1-onbox.txt || rc=$?
+          set -Eeuo pipefail
+          cd "$APP_DIR"
+          echo "### deployed_sha: $(git rev-parse HEAD)"
+          echo "### app_dir: $APP_DIR"
+          echo "### checks: $CHECKS"
+          echo "### utc: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          echo "###"
+          PY="$APP_DIR/.venv/bin/python"
+          [ -x "$PY" ] || PY="$APP_DIR/venv/bin/python"
+          [ -x "$PY" ] || PY=python3
+          # shellcheck disable=SC2086 — ALLOW_WRITES is empty or one flag.
+          exec "$PY" -u scripts/verify_v1_onbox.py --checks "$CHECKS" $ALLOW_WRITES
+          REMOTE
+          echo "verifier_exit=$rc" >> "$GITHUB_OUTPUT"
+          echo "V1 on-box checklist exit code: $rc"
+          case "$rc" in
+            0) echo "::notice title=V1 on-box::applicable checks ran and PASSED" ;;
+            2) echo "::error title=V1 on-box::a check FAILED (exit 2)" ;;
+            3) echo "::error title=V1 on-box::proved nothing (exit 3) — NOT green" ;;
+            *) echo "::error title=V1 on-box::verifier errored (exit $rc)" ;;
+          esac
+          exit "$rc"
+
+      - name: Upload the report
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: v1-onbox-report
+          path: v1-onbox.txt
+          if-no-files-found: warn
+          retention-days: 30

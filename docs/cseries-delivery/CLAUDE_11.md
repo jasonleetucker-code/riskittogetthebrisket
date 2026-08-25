@@ -195,6 +195,12 @@ Full record: `docs/projections/C5_PROJ_A_SOURCE_CAPABILITY_CENSUS.md`. Summary:
   (`draftSharksRosSf`) being flagged `is_projection_source: True` in the live
   `ROS_SOURCES` registry — a discrepancy recorded, not repaired (out of this
   foundational unit's scope; `ROS_SOURCES` is live and consumed elsewhere).
+  *(Corrected at the census merge, Integration 2026-08-25: the census
+  originally described DraftSharks as a dynasty-CSV proxy awaiting a "PR 2
+  swap"; V1-89/#1095 completed that swap — the live feed reads the real
+  `/ros-rankings/superflex` + `/ros-rankings/idp` boards behind the proven
+  authenticated session, dynasty CSVs fallback-only. Classification
+  unchanged: the feed is still rank-only, so `RANKINGS_ONLY` stands.)*
 - **Key finding:** CBS Sports Fantasy, NFL Fantasy, and FantasyPros' actual
   projections page are genuinely greenfield — zero existing code. No source URL was
   invented for any of them; recording "no access path yet" is the correct state per
@@ -360,7 +366,67 @@ Full record: `docs/projections/C5_PROJ_B_CANONICAL_SCHEMA.md`. Summary:
   ensemble aggregation; any new fetcher/acquisition code; DFS/betting-market
   discovery lanes (still `GREENFIELD`).
 
-## 12. C5-GD-02 — prediction archive without temporal leakage
+## 12. C5-PROJ-D — ROS/full-season projection ensemble
+
+**Branch:** `claude/c5-proj-d-ros-full-season-ensemble`, branched from
+`claude/c5-proj-b-canonical-schema` (a real dependency — this unit imports
+`ProjectionObservation`/`load_and_rescore_source` from that branch, so it
+carries A's and B's commits in its history until Integration merges the
+chain in order).
+
+Built **out of the plan's stated execution order** (ahead of `C5-PROJ-C`,
+the weekly ensemble) for a measured, documented reason, not a preference:
+the `C5-PROJ-A` census has exactly two `implementationStatus: LIVE`
+sources (`clayProjections`/`idpShowProjections`), and both are
+`PRESEASON_FULL_SEASON` horizon only — every `WEEKLY`-horizon census entry
+is `GREENFIELD`. `C5-PROJ-C` would have zero real inputs today; this
+unit's own charter name ("ROS/full-season ensemble") explicitly covers
+`PRESEASON_FULL_SEASON`, so building against the two live sources is
+in-charter, not a scope stretch. Full reasoning, including a correction to
+`C5-PROJ-B`'s own "what's next" phrasing, is in the new design doc.
+
+Full record: `docs/projections/C5_PROJ_D_ROS_FULL_SEASON_ENSEMBLE.md`.
+Summary:
+
+- **Delivered:** `src/ros/projection_ensemble.py` — combines
+  `C5-PROJ-B`'s `ProjectionObservation` rows across independent provider
+  families using only plan §6's three approved primitives
+  (`equal_family_mean`/`median`/`trimmed_mean` — a closed set, no
+  weighting parameter exists anywhere in the module).
+- **Honest single-source labelling:** `family_count == 1` is forced to
+  `combination_method == "single_family_passthrough"` even when the
+  caller requests another method — a one-family value is never
+  mislabelled as a consensus.
+- **Missing is never zero, mutation-proved:** `disagreement_spread`/
+  `disagreement_stddev` are `None` (not `0.0`) below two families;
+  hand-flipping that branch's `None` to `0.0` sent the dedicated test RED,
+  confirming the check is real before restoring it.
+- **Structural horizon/season guard, mutation-proved:** cross-horizon or
+  cross-season combination in one call raises rather than silently
+  averaging — the concrete enforcement of plan §9 item 4's "no
+  weekly/ROS semantic mixing." Disabling the horizon-mismatch branch by
+  hand sent its test RED; restored afterward.
+- **The n=2 path is exercised on real data, not hypothetically:**
+  confirmed via `src/bdvm/clay_projections.py`'s own docstring plus a real
+  synthetic-snapshot round-trip test that Clay + IDP Show genuinely
+  overlap on defenders — those players land at `family_count == 2` with a
+  real computed value; offense-only players correctly stay at
+  `family_count == 1`.
+- **Verification:** `tests/ros/test_projection_ensemble.py` 21/21 (two
+  mutation-proof pairs, both hand-verified this session); `tests/api/
+  test_canonical_ownership_protections.py` 20/20 (seasonal-lane write
+  guard holds, no new guard needed — automatic `src/ros/` coverage);
+  `tests/bdvm/test_engine_parity.py` 7/7; combined `tests/ros/` 252
+  passed/1 skipped, zero regressions; `ruff check .` +
+  `ruff format --check .` clean (checked before push).
+- **Deliberately NOT claimed:** `C5-PROJ-C` (blocked on a live weekly
+  source, not this unit's job to build a fetcher); `C5-PROJ-E`/
+  `C5-PROJ-F`; any downstream consumer wiring; any DFS/betting-market
+  handling; any learned/adaptive weighting; any change to `src/bdvm/*`,
+  `projection_observations.py`, `projection_source_census.py`, or
+  `src/ros/aggregate.py`; the pre-existing `player_key` name-collision
+  limitation (not repaired here).
+## 13. C5-GD-02 — prediction archive without temporal leakage
 
 **Branch:** `claude/c5-gd-02-prediction-archive`, branched from `main` (NOT stacked —
 deliberately needs nothing from #966/#973/#969).
@@ -411,7 +477,7 @@ Full record: `docs/game-day/C5_GD_02_PREDICTION_ARCHIVE.md`. Summary:
   `ruff check .` + `ruff format --check .` checked BEFORE push (learned from the
   prior three units, which each needed a post-push fix cycle).
 
-## 13. Session status and open PRs (as of this entry)
+## 14. Session status and open PRs (as of this entry)
 
 | PR | branch | unit | status |
 |---|---|---|---|
@@ -420,9 +486,11 @@ Full record: `docs/game-day/C5_GD_02_PREDICTION_ARCHIVE.md`. Summary:
 | #969 | `claude/c5-war-01-deterministic-core` | C5-WAR-01 deterministic core | open, CI green |
 | #973 | `claude/c5-proj-b-canonical-schema` | C5-PROJ-B | open, based on #966 (base branch, not `main`) |
 | #981 | `claude/c5-gd-02-prediction-archive` | C5-GD-02 prediction archive | open, clean base off `main` |
+| (new) | `claude/c5-proj-d-ros-full-season-ensemble` | C5-PROJ-D | to be opened this session, based on #973's branch (base branch, not `main`) |
 
 None merged by this session except via Integration (#964) — Claude 5 (Integration
-Authority) is the sole merge authority per `docs/EXECUTION_PLAN.md` §0. `#966` should
-merge before or together with `claude/c5-proj-b-canonical-schema`'s PR, since the
-latter is branched from and depends on it. `claude/c5-gd-02-prediction-archive` has
-a clean `main` base and can merge independently of the other three.
+Authority) is the sole merge authority per `docs/EXECUTION_PLAN.md` §0. `#966`
+should merge before or together with `#973`, and `#973` before or together
+with C5-PROJ-D's PR, since each carries the prior unit's commits in its
+history. `claude/c5-gd-02-prediction-archive` has a clean `main` base and
+can merge independently of the projection-ensemble chain.

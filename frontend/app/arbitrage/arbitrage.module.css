@@ -110,6 +110,55 @@
   color: var(--text-muted);
 }
 
+.excludeButton,
+.exclusionChip {
+  border: 1px solid var(--border-subtle);
+  background: var(--surface-raised, transparent);
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.excludeButton {
+  width: 24px;
+  height: 24px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  margin-left: auto;
+  font-size: 1rem;
+  line-height: 1;
+}
+
+.excludeButton:hover,
+.exclusionChip:hover {
+  color: var(--text-primary);
+  border-color: var(--border-strong, var(--border-subtle));
+}
+
+.exclusionBar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  margin-top: var(--space-3);
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--border-subtle);
+}
+
+.exclusionChips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.exclusionChip {
+  border-radius: 999px;
+  padding: 5px 9px;
+  font: inherit;
+  font-size: 0.8rem;
+}
+
 .muted {
   color: var(--text-muted);
 }
@@ -123,6 +172,10 @@
 
   .controls > * {
     flex: 1 1 100%;
+  }
+
+  .exclusionBar {
+    align-items: stretch;
   }
 }
 

@@ -47,7 +47,9 @@ DEDUPLICATES.
 
 from __future__ import annotations
 
+import hashlib
 import json
+import threading
 from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
@@ -260,17 +262,19 @@ def curated_industry_members(qualification: str) -> list[CohortMember]:
     ]
 
 
-def cohort_members(
+def _compute_cohort_members(
     *,
-    qualification: str = "all",
-    ledger_path: Path | None = None,
-    ffpc_config: dict[str, Any] | None = None,
+    qualification: str,
+    ledger_path: Path | None,
+    ffpc_config: dict[str, Any] | None,
 ) -> tuple[list[CohortMember], dict[str, Any]]:
-    """``(members, coverage)`` — THE sharp pool.
+    """The UNCACHED cohort computation — see :func:`cohort_members`.
 
-    This is the function every sharp feature must call.  Do not
-    reimplement the selection, and do not filter its output by anything
-    that amounts to a second qualification rule.
+    This is the O(N log N) rebuild (``build_manager_records`` →
+    ``score_managers`` → curated/provisional selection → dedup) that the
+    memo in :func:`cohort_members` fronts.  Selection logic lives here and
+    nowhere else; the wrapper adds a correctness-preserving cache and
+    changes no membership.
     """
     if qualification not in ALLOWED_QUALIFICATION:
         raise ValueError(f"unsupported qualification: {qualification}")
@@ -341,6 +345,140 @@ def cohort_members(
         "methodologyVersion": sharp_score.methodology_version(),
     }
     return list(by_key.values()), coverage
+
+
+# ── cohort memo (W15-F017) ───────────────────────────────────────────
+#
+# ``_compute_cohort_members`` is an O(N log N) rebuild that ``market.py``
+# calls three times per render and ``roster_percentage`` calls again.
+# Memoizing it is a pure performance repair — the selection above is the
+# single owner of WHO is a sharp and is not touched.
+#
+# The hard constraint: a memo MUST NOT serve a STALE membership.  So the
+# cache key carries a freshness fingerprint of the ONE input a fresh call
+# re-reads on every invocation — the platform-ledger sqlite file.  Trace
+# of what ``_compute_cohort_members`` consumes:
+#
+#   * the platform ledger sqlite — read fresh (a live SQL query) on
+#     every call, via ``build_manager_records`` / ``provisional_members``
+#     AND ``curated_cohort_members`` (the curated tables live in the SAME
+#     ledger db, not a separate file).  This is the per-trade-moving
+#     input, so its ``(mtime_ns, size)`` is THE freshness signal.
+#   * ``load_ffpc_config`` (this module) and ``score.load_config`` — both
+#     ``@lru_cache``d by path.  They are read ONCE per process and frozen
+#     thereafter, so between two calls in one process they cannot change
+#     the output.  Fingerprinting the config FILES would therefore imply
+#     a hot-reload the loaders do not perform; the honest key mirrors the
+#     inputs a fresh call actually re-reads, which is the ledger alone.
+#   * the ``ffpc_config`` ARGUMENT — a direct input (not cached), so its
+#     content is folded into the key when a caller passes one.
+#
+# Fingerprint is taken BEFORE the compute: a concurrent ledger write
+# during the compute only tags the entry with the pre-write fingerprint
+# while holding post-write-or-equal data — never staler than current —
+# and the next call sees the new fingerprint and recomputes.  The entry
+# for a key always holds the LATEST fingerprint's result (a changed
+# fingerprint overwrites rather than accumulating), so the cache stays
+# bounded to the small (qualification × ledger path × ffpc-config) space.
+
+_COHORT_CACHE_LOCK = threading.Lock()
+# key -> (ledger_fingerprint, (members, coverage))
+_cohort_cache: dict[
+    tuple[str, str, str], tuple[str, tuple[list[CohortMember], dict[str, Any]]]
+] = {}
+
+
+def _resolve_ledger_path(ledger_path: Path | None) -> Path:
+    """The concrete ledger file a call reads, resolved the same way the
+    computation resolves it (``ledger.default_path()`` at call time when
+    unspecified — deliberately dynamic so a test's monkeypatched data dir
+    is honored)."""
+    if ledger_path is not None:
+        return Path(ledger_path)
+    from src.intel import ledger  # noqa: PLC0415 — call-time, matches default_path()
+
+    return ledger.default_path()
+
+
+def _ledger_fingerprint(path: Path) -> str:
+    """``mtime_ns:size`` of the ledger, or ``-`` when it cannot be
+    stat-ed.  A missing input is a STATE, not an error (same posture as
+    ``consensus_edge.inputs.fingerprint``); it must not raise, and it
+    changes the instant the file is first created/written."""
+    try:
+        stat = path.stat()
+    except OSError:
+        return "-"
+    return f"{stat.st_mtime_ns}:{stat.st_size}"
+
+
+def _ffpc_config_signal(ffpc_config: dict[str, Any] | None) -> str:
+    """Stable key fragment for the ``ffpc_config`` argument.
+
+    ``None`` means "read the file" and collapses to a single sentinel
+    (the file's content is frozen by ``load_ffpc_config``'s cache within a
+    process, per the note above).  An explicit dict is hashed by content
+    so two different configs never share a cache entry.
+    """
+    if ffpc_config is None:
+        return "file"
+    try:
+        blob = json.dumps(ffpc_config, sort_keys=True, default=str)
+    except (TypeError, ValueError):
+        blob = repr(ffpc_config)
+    return "cfg:" + hashlib.sha1(blob.encode("utf-8")).hexdigest()
+
+
+def reset_cohort_cache() -> None:
+    """Forget every memoized cohort.
+
+    Production never needs this — the ledger fingerprint invalidates
+    entries on its own.  It exists for tests, which mutate MONKEYPATCHED
+    internals (invisible to a file fingerprint) and must not see one
+    test's cohort answer the next test's call.
+    """
+    with _COHORT_CACHE_LOCK:
+        _cohort_cache.clear()
+
+
+def cohort_members(
+    *,
+    qualification: str = "all",
+    ledger_path: Path | None = None,
+    ffpc_config: dict[str, Any] | None = None,
+) -> tuple[list[CohortMember], dict[str, Any]]:
+    """``(members, coverage)`` — THE sharp pool.
+
+    This is the function every sharp feature must call.  Do not
+    reimplement the selection, and do not filter its output by anything
+    that amounts to a second qualification rule.
+
+    Memoized (W15-F017): repeated calls with the same inputs AND an
+    unchanged platform ledger share one computation, so the three
+    ``market.py`` call sites in one render rebuild the cohort once rather
+    than thrice.  The cache invalidates the instant the ledger's
+    ``(mtime_ns, size)`` changes, so it can never serve a membership that
+    is stale relative to the current ledger.  The returned collections
+    are shared and MUST be treated read-only (every existing caller only
+    reads keys off them).
+    """
+    if qualification not in ALLOWED_QUALIFICATION:
+        raise ValueError(f"unsupported qualification: {qualification}")
+    resolved = _resolve_ledger_path(ledger_path)
+    key = (qualification, str(resolved), _ffpc_config_signal(ffpc_config))
+    fingerprint = _ledger_fingerprint(resolved)
+    with _COHORT_CACHE_LOCK:
+        cached = _cohort_cache.get(key)
+        if cached is not None and cached[0] == fingerprint:
+            return cached[1]
+    result = _compute_cohort_members(
+        qualification=qualification,
+        ledger_path=ledger_path,
+        ffpc_config=ffpc_config,
+    )
+    with _COHORT_CACHE_LOCK:
+        _cohort_cache[key] = (fingerprint, result)
+    return result
 
 
 # ── person-level identity ────────────────────────────────────────────

@@ -224,21 +224,36 @@ def _make_snapshot(
     the supplied rosters.  Each roster's owner_id is registered as an
     active manager so ``_enumerate_owner_ids`` includes them.
     """
+    league_id = f"L{season_year}"
     registry = ManagerRegistry()
     for r in rosters:
         oid = str(r.get("owner_id") or "")
         if not oid:
             continue
         registry.by_owner_id[oid] = Manager(owner_id=oid, display_name=oid)
+        # ``roster_to_owner`` is LOAD-BEARING, not bookkeeping.
+        # ``luck._season_weekly_scores`` attributes a matchup row to an
+        # owner through it and SKIPS any row it cannot resolve, so a
+        # registry without it yields zero scored weeks — every component
+        # falls back to its neutral default and every owner scores the
+        # SAME number however different the fixture's points are.
+        # Fixtures built that way assert shape while measuring nothing
+        # about the data: measured 2026-08-19, every owner in
+        # ``test_power_lenses._scored_snapshot`` scored an identical
+        # 33.64 across three weeks of deliberately different points.
+        try:
+            registry.roster_to_owner[(league_id, int(r.get("roster_id")))] = oid
+        except (TypeError, ValueError):
+            continue
     season = _make_season(
         season_year,
-        f"L{season_year}",
+        league_id,
         rosters,
         matchups_by_week,
         is_complete=is_complete,
     )
     return PublicLeagueSnapshot(
-        root_league_id=f"L{season_year}",
+        root_league_id=league_id,
         generated_at="2026-04-30T00:00:00Z",
         seasons=[season],
         managers=registry,

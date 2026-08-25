@@ -280,7 +280,10 @@ recomputed anywhere here — this is roster-impact math.
   the lowest raw-value player.
 
 ### C2-U4 — Canonical Team Strength
-- **rows** `C2-STR-01` · **owner** `src/ros/team_strength.py` · **retires** 4 notions
+- **rows** `C2-STR-01` · **owner** `src/roster_intel/strength.py` (**CORRECTED 2026-08-20** — built by lane
+  1's `#914`; NOT `src/ros/team_strength.py`, a legitimately distinct ROS 0-100 production composite this
+  entry previously pointed to; see manifest `C2-STR-01` for the full correction and its caveat) · **retires**
+  4 notions
 - **kind** INFRA · **deps** C2-U1, C2-U2, C2-U3
 - **calibration** lineup- and replacement-aware; **diminishing marginal depth** is
   required, not optional — a WR6 may not count like a WR1
@@ -318,13 +321,24 @@ recomputed anywhere here — this is roster-impact math.
 `trade` is a **SERIAL lane — one writer only**.
 
 ### C3-U1 — ONE shared package generator
-- **rows** `C3-PKG-01` · **owner** *(to create)* under `src/trade/`
-- **retires** 4 independent generators · **kind** INFRA · **deps** C2-U3, C2-U4
+- **rows** `C3-PKG-01` · **owner** `src/packages/construction.py` (**CORRECTED 2026-08-20** — this shared
+  mechanics substrate already exists: `PackageShape`, `topology_is_allowed`, `enumerate_packages`/
+  `enumerate_sides`, `package_key`; NOT "to create")
+- **status** PARTIAL, not "4 independent generators" — `finder.py`/`angle.py` fully consume it;
+  `roster_intel/packages.py` (disconnected) only for identity; `suggestions.py` (LIVE endpoint) is the one
+  true holdout, carrying tuned product logic that must not be silently changed by a mechanical migration
+- **kind** INFRA · **deps** C2-U3, C2-U4 (both now built — see C2-U4 and the `C2-SIM-01` manifest row)
 - **the gate for all of C7** — no page-local generator may survive
 
 ### C3-U2 — ONE Value Adjustment, parity proven
-- **rows** `C3-VA-01` `C3-VA-02` · **owner** `src/trade/ktc_va.py`
-- **retires** 5 implementations incl. one installed by import-time monkeypatch
+- **rows** `C3-VA-01` `C3-VA-02` · **owner** `src/trade/ktc_va.py` (private) +
+  `src/valuation_math/ktc_va_core.py` (shared stdlib-only core, new) +
+  `src/public_league/trade_grading.py` (public; forced to stay a separate thin wrapper by the public/private
+  import boundary)
+- **status COMPLETE (this lane, 2026-08-20)** — re-measured at HEAD rather than trusted: the monkeypatch and a
+  second Python port were already retired by an earlier pass; the one genuine survivor (`trade_grading.py`'s
+  standalone algorithm copy, structurally forced by the boundary) now wraps the extracted shared core.
+  Mutation-tested single-owner guard: `tests/valuation_math/test_single_owner.py`
 - **hard rule** KTC VA is an **exact external market lens**. Consolidate and prove
   parity; **do not "improve" it**. Parity proves agreement, not correctness.
 
@@ -344,7 +358,10 @@ recomputed anywhere here — this is roster-impact math.
 
 ### C3-U6 — Whole-package market coverage + equalizers
 - **rows** `C3-XMKT-01` `C3-EQ-01` · **owner** `src/league_intel/cross_market.py`
-  (correct today, **DISCONNECTED — zero production importers**) · **deps** C3-U2
+  (**CORRECTED 2026-08-20 — WIRED**, not "DISCONNECTED — zero production importers": consumed by
+  `angle.py`/`gameplan.py`/`roster_intel/packages.py`, guarded by an AST test) · **deps** C3-U2
+  — note `C3-EQ-01` (equalizers) is a SEPARATE, already-VERIFIED row (V1-44); do not conflate the two just
+  because they share this unit
 
 ### C3-U7 — Monte Carlo revalidation
 - **rows** `C3-MC-01` · **deps** C1-U4, C3-U1
