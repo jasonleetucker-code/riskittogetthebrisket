@@ -5336,6 +5336,13 @@ def _inject_far_future_pick_sources(
     tier entry is left untouched, so the moment vendors publish e.g.
     2029 this no-ops for that year ("pivot when sources add them").
 
+    POPULATION NOTE (V1-132 / audit F-34): this function sees the RAW
+    payload only, where just the in-JSON pick markets carry values —
+    ``ktcSfTep``'s pick values arrive through the later CSV enrichment.
+    :func:`_complete_synthetic_pick_sources_from_enrichment` runs after
+    that enrichment and extends this same derivation to the enriched
+    per-source evidence, so the horizon year blends both pick markets.
+
     Returns the per-build derivation map (canonical match key → record).
     Its length is the number of synthetic raw entries added, and its keys
     are the synthetic-name set the single-source gate allowlists.  It is
@@ -5425,6 +5432,124 @@ def _inject_far_future_pick_sources(
             added += 1
         years_with_tiers.add(year)
     return derivations
+
+
+def _complete_synthetic_pick_sources_from_enrichment(
+    players_array: list[dict[str, Any]],
+    synthetic_pick_derivations: Mapping[str, dict[str, Any]],
+) -> int:
+    """Extend the far-future derivation to CSV-enriched source evidence.
+
+    AUDIT F-34 (V1-132).  :func:`_inject_far_future_pick_sources` clones
+    the template year's entry out of ``players_by_name`` — the RAW
+    scraper payload — and that population is strictly poorer than the
+    one the canonical board blends for the same template year:
+    ``ktcSfTep``'s pick values arrive through the LATER
+    ``_enrich_from_source_csvs`` pass, which the injection structurally
+    cannot see.  So the published years (both pick markets on every tier
+    row) blended two markets while the horizon year blended
+    ``idpTradeCalc`` alone on all twelve tier cells — a single-vendor
+    dependency on exactly the rows with the least direct evidence.
+
+    The injection cannot simply move after the enrichment: it must run
+    against ``players_by_name`` BEFORE ``players_array`` is derived so
+    the synthetic rows exist as rows (and as legacy dict entries) at
+    all, and the enrichment loop itself needs those rows to exist to
+    stamp anything.  The pipeline's own structure — rows built once,
+    then enriched in place — therefore supports the converse ordering:
+    hand the injection's derivation the enriched evidence, in place, per
+    synthetic row.
+
+    Same derivation, wider population — nothing about the model changes:
+
+      * a source key present (positive) on the TEMPLATE row but absent
+        on the synthetic row is filled with ``template × step ** gap``,
+        the identical ``derivedYearModel`` cell step and compounding the
+        injection applies to the raw per-source values (through the one
+        shared :func:`_year_step_for`);
+      * a value the injection already stepped at the raw layer is left
+        alone — never re-stepped, never overwritten;
+      * a source the template row does not carry stays MISSING
+        (C1-U6-D1: a year a source did not publish is the key's
+        absence), so a source publishing no picks contributes nothing;
+      * provenance is untouched — the rows keep their
+        ``derived_year_step`` record; nothing here can promote a
+        derivation to ``direct_market_blend``.
+
+    Chained templates are processed in ascending target-year order so a
+    horizon two years past the last published year (whose template is
+    itself synthetic) reads its template's completed values.
+
+    In practice the enrichment-only pick sources are the value-signal
+    pick markets — today exactly ``ktcSfTep`` — but the rule is the
+    injection's own (every positive per-source value on the template),
+    not a source list to keep in step.
+
+    Returns the number of per-source values stamped.  Runs immediately
+    after ``_enrich_from_source_csvs`` in :func:`build_api_data_contract`
+    and mutates only the synthetic rows' ``canonicalSiteValues``;
+    ``_compute_unified_rankings`` recomputes ``sourceCount`` /
+    ``sourcePresence`` from those, and the backbone's synthetic-row
+    exclusion (C1-U6 follow-up 2) already keeps every value written here
+    out of the cross-market ladder.
+    """
+    if not synthetic_pick_derivations:
+        return 0
+    cfg = _load_pick_year_discount()
+    rows_by_key: dict[str, dict[str, Any]] = {}
+    for row in players_array:
+        if not isinstance(row, dict) or row.get("assetClass") != "pick":
+            continue
+        key = _canonical_match_key(str(row.get("canonicalName") or ""))
+        if key:
+            rows_by_key[key] = row
+
+    def _target_year(item: tuple[str, dict[str, Any]]) -> int:
+        row = rows_by_key.get(item[0])
+        if isinstance(row, dict):
+            m = _PICK_TIER_RE.match(str(row.get("canonicalName") or "").strip())
+            if m:
+                return int(m.group(1))
+        return 0
+
+    stamped = 0
+    for match_key, record in sorted(synthetic_pick_derivations.items(), key=_target_year):
+        row = rows_by_key.get(match_key)
+        if not isinstance(row, dict):
+            continue
+        template = rows_by_key.get(_canonical_match_key(str(record.get("basisName") or "")))
+        if not isinstance(template, dict):
+            continue
+        m = _PICK_TIER_RE.match(str(row.get("canonicalName") or "").strip())
+        if not m:
+            continue
+        year, tier, rnd = int(m.group(1)), m.group(2), int(m.group(3))
+        try:
+            basis_year = int(record["basisYear"])
+        except (KeyError, TypeError, ValueError):
+            # No recorded basis year -> REFUSE to derive.  ``or 0`` here
+            # would fabricate gap = year - 0 and drive step**gap to ~0,
+            # stamping a 0.0 that reads as a real value — missing is
+            # never zero, and never a fabricated basis either.
+            continue
+        gap = year - basis_year
+        if gap <= 0:
+            continue
+        factor = _year_step_for(tier, rnd, cfg) ** gap
+        template_sites = template.get("canonicalSiteValues")
+        row_sites = row.get("canonicalSiteValues")
+        if not isinstance(template_sites, dict) or not isinstance(row_sites, dict):
+            continue
+        for source_key, template_value in template_sites.items():
+            t_num = _safe_num(template_value)
+            if t_num is None or t_num <= 0:
+                continue  # the template does not carry it → MISSING stays missing
+            existing = _safe_num(row_sites.get(source_key))
+            if existing is not None and existing > 0:
+                continue  # already derived at injection — never re-stepped
+            row_sites[source_key] = round(float(t_num) * factor, 1)
+            stamped += 1
+    return stamped
 
 
 def current_rookie_draft_year(today: date | None = None) -> int:
@@ -7722,10 +7847,14 @@ def _complete_future_pick_values(
     # scraper payload — and that population is strictly poorer than the one the
     # canonical board uses for the same template year: ``ktcSfTep``'s pick
     # values arrive through the LATER CSV enrichment, which correctly carries no
-    # far-future year to enrich a synthetic row with.  A synthetic row can
-    # therefore only ever vote on the in-JSON sources, and when those thin out
-    # it is left with no voting source at all.  No voter means no rank, no rank
-    # means no ``rankDerivedValue``.
+    # far-future year to enrich a synthetic row with.  Since V1-132 (F-34) the
+    # post-enrichment ``_complete_synthetic_pick_sources_from_enrichment`` pass
+    # steps the TEMPLATE row's enriched values onto the synthetic rows, so a
+    # synthetic row normally votes on both pick markets — but that pass can
+    # only widen what the template row carries.  When the template's evidence
+    # itself thins out (in-JSON AND CSV), a synthetic row is still left with no
+    # voting source at all.  No voter means no rank, no rank means no
+    # ``rankDerivedValue``.
     #
     # Measured 2026-08-18: the 17:11Z scrape's in-JSON ``idpTradeCalc`` pick
     # values collapsed to the round-1 tiers while BOTH vendor CSVs stayed
@@ -11245,6 +11374,14 @@ def build_api_data_contract(
     csv_index = _enrich_from_source_csvs(
         players_array, parse_errors=source_parse_errors, csv_root=csv_root
     )
+
+    # V1-132 / audit F-34: the far-future injection above ran against the
+    # RAW payload, where only the in-JSON pick markets exist; the CSV
+    # enrichment has now put ``ktcSfTep``'s pick values on the template
+    # year's rows.  Extend the SAME derivation (same cell step, same
+    # compounding, same provenance) to that enriched evidence so the
+    # horizon year blends both pick markets like every published year.
+    _complete_synthetic_pick_sources_from_enrichment(players_array, synthetic_pick_derivations)
 
     # Post-enrichment position guardrail: CSV enrichment happens AFTER
     # _derive_player_row, so the in-row guardrail there runs against an
