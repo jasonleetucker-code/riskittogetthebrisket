@@ -5525,8 +5525,12 @@ def _complete_synthetic_pick_sources_from_enrichment(
             continue
         year, tier, rnd = int(m.group(1)), m.group(2), int(m.group(3))
         try:
-            basis_year = int(record.get("basisYear") or 0)
-        except (TypeError, ValueError):
+            basis_year = int(record["basisYear"])
+        except (KeyError, TypeError, ValueError):
+            # No recorded basis year -> REFUSE to derive.  ``or 0`` here
+            # would fabricate gap = year - 0 and drive step**gap to ~0,
+            # stamping a 0.0 that reads as a real value — missing is
+            # never zero, and never a fabricated basis either.
             continue
         gap = year - basis_year
         if gap <= 0:
