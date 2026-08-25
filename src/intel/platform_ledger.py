@@ -207,6 +207,8 @@ CREATE INDEX IF NOT EXISTS idx_am_platform_ts ON asset_movements(platform, ts);
 CREATE INDEX IF NOT EXISTS idx_am_canonical_ts ON asset_movements(canonical_asset_id, ts);
 CREATE INDEX IF NOT EXISTS idx_am_manager_key_ts ON asset_movements(manager_key, ts);
 CREATE INDEX IF NOT EXISTS idx_am_league_key_ts ON asset_movements(league_key, ts);
+CREATE INDEX IF NOT EXISTS idx_am_platform_source
+  ON asset_movements(platform, source_asset_id);
 CREATE UNIQUE INDEX IF NOT EXISTS idx_tx_transaction_key
   ON transactions(transaction_key) WHERE transaction_key IS NOT NULL;
 CREATE UNIQUE INDEX IF NOT EXISTS idx_am_movement_key
@@ -694,6 +696,59 @@ def _sync_legacy_leagues(conn: sqlite3.Connection) -> None:
         )
 
 
+#: Indexes that must exist on EVERY platform ledger, including ones
+#: already stamped at the current ``PLATFORM_SCHEMA_VERSION``.
+#:
+#: ``_platform_schema_ready`` checks columns, one table and the triggers —
+#: never indexes — so a purely additive index added to ``_PLATFORM_SCHEMA``
+#: reaches new ledgers and NO deployed one.  Bumping the schema version to
+#: deliver it would re-run the whole platform migration (and its backup) on
+#: every deployed ledger to add an index, which is the trade
+#: ``src/sharp/roster_store.py`` already declined for its four additive
+#: tables.  This pass is the same posture: additive DDL, applied on its own,
+#: outside the version gate.
+_REQUIRED_PLATFORM_INDEXES: tuple[str, ...] = (
+    # V1-59.  ``register_asset_alias`` repairs previously-unmapped rows with
+    # ``UPDATE asset_movements ... WHERE platform=? AND source_asset_id=?``.
+    # With only ``idx_am_platform_ts`` available, SQLite planned that as
+    # ``SEARCH ... USING INDEX idx_am_platform_ts (platform=?)`` — i.e. the
+    # whole platform partition scanned, per call.
+    #
+    # ``hydrate_sleeper_asset_catalog`` makes one such call per player in
+    # Sleeper's directory, so the catalog pass cost O(players x movements)
+    # and grew every time the ledger ingested anything.  Measured on a
+    # synthetic ledger: 1,500 players over 60,000 movements took 22.70 s
+    # without this index and 0.15 s with it (151x), and the cost doubled
+    # exactly with movement count (20k/40k/80k/160k -> 1.48/3.01/5.99/12.08 s),
+    # which is the signature of a scan rather than a lookup.
+    #
+    # That runtime is the whole incident: the catalog pass is ONE
+    # transaction, so a hydration that takes half an hour holds the ledger's
+    # write lock for half an hour, and every other writer — including the
+    # next service instance and ``record_ingestion_run`` — waits out its
+    # ``busy_timeout`` and raises ``database is locked``.
+    "CREATE INDEX IF NOT EXISTS idx_am_platform_source "
+    "ON asset_movements(platform, source_asset_id)",
+)
+
+
+def ensure_platform_indexes(conn: sqlite3.Connection) -> None:
+    """Create any missing required index.  Idempotent, and free when satisfied.
+
+    Safe to call on every connection: measured, ``CREATE INDEX IF NOT
+    EXISTS`` for an index that already exists takes **no write lock** and
+    returns in ~0 ms even while another connection holds one, so this
+    cannot become a new contention source in steady state.  Only the
+    one-time creation needs the lock.
+
+    A failure to create is deliberately NOT swallowed.  An index that
+    silently failed to appear leaves the O(players x movements) scan in
+    place with no signal — which is the condition this exists to end.
+    """
+    for statement in _REQUIRED_PLATFORM_INDEXES:
+        conn.execute(statement)
+
+
 def _platform_schema_ready(conn: sqlite3.Connection) -> bool:
     try:
         version = conn.execute(
@@ -839,6 +894,18 @@ def ensure_platform_schema(
     own = conn is None
     connection = conn or ledger.connect(path)
     if _platform_schema_ready(connection):
+        # Additive indexes live outside the version gate — see
+        # ``_REQUIRED_PLATFORM_INDEXES``.  A ledger can be fully migrated
+        # and still be missing one, which is exactly the V1-59 state.
+        #
+        # Skipped mid-transaction for the same reason the automatic backup
+        # below is: this may be a caller's connection, and committing here
+        # would end a transaction we do not own.  Every path that can
+        # actually create the index (the collectors, which open their own
+        # connection) reaches it on a fresh one.
+        if not connection.in_transaction:
+            ensure_platform_indexes(connection)
+            connection.commit()
         return connection
     before = _legacy_row_counts(connection)
     # The explicit migration command creates a timestamped backup. This
@@ -1855,9 +1922,32 @@ def record_ingestion_run(
     error: dict[str, Any] | None = None,
     metadata: dict[str, Any] | None = None,
     path: Path | None = None,
+    busy_timeout_ms: int | None = None,
 ) -> None:
+    """Upsert one row into ``ingestion_runs``.
+
+    ``busy_timeout_ms`` bounds how long this call waits for the ledger's
+    write lock, overriding the connection default (30 s).
+
+    It exists for the FAILURE-recording path, and V1-59 is why.  This
+    function opens its OWN connection, so when the primary work died on
+    write-lock contention the recorder queued behind the very lock that
+    caused the failure, waited the full 30 s, and then raised — measured
+    at 30.09 s in the controlled reproduction.  On a unit already at its
+    ``TimeoutStartSec`` that wait is often long enough to be SIGKILLed
+    mid-wait, so the run was never marked ``failed`` at all and
+    ``platform_coverage`` went on reporting the previous SUCCESS as the
+    latest ingestion.
+
+    A shorter budget does not make the write more likely to succeed; it
+    makes the attempt survivable, so the caller reaches its own reporting.
+    The lock is still never ignored — contention raises, and callers must
+    not swallow it.
+    """
     values = counters or {}
     conn = ensure_platform_schema(path)
+    if busy_timeout_ms is not None:
+        conn.execute(f"PRAGMA busy_timeout={int(busy_timeout_ms)}")
     try:
         conn.execute(
             """
