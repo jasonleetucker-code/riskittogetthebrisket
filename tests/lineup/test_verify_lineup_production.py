@@ -17,7 +17,7 @@ regression test of its own, because both were real:
 * the **name-vs-id join** that made the 2026-08-18 hand-run report 0
   hits and nearly read as a failing property (§10a);
 * the **vocabulary mismatch** (raw ``DE``/``DT`` vs lineup ``DL``) that
-  inflated the hybrid count from 4 to 16 on the 2026-08-24 board when
+  inflated the hybrid count from 3 to 16 on the 2026-08-24 board when
   this module was first run.
 
 No network. Every test drives the check layer directly from fixtures;
@@ -118,7 +118,16 @@ def _clean_contract() -> dict[str, Any]:
                 "Hyb Player": ["DL", "LB"],
                 "Dee QB": ["QB"],
                 "Eli RB": ["RB"],
-                "Fay DL": ["DL"],
+                # THE DISCRIMINATING ROW. A DT eligible at DL *and* LB,
+                # started at DL — i.e. at his own primary once ``DT`` is
+                # normalized to ``DL``. Multi-eligible, so the
+                # ``len(eligible_set) > 1`` gate does NOT excuse him: only
+                # the vocabulary normalization keeps him off the hybrid
+                # list. Without it, ``"DT" != "DL"`` and he is falsely
+                # counted. ``Cal DL`` cannot make that point — he is
+                # single-eligible and the gate drops him either way, which
+                # is what made this pin vacuous when it was first written.
+                "Fay DL": ["DL", "LB"],
                 "Gus LB": ["LB"],
             },
         }
@@ -266,11 +275,18 @@ def test_05_reports_unmeasurable_not_failure_when_the_join_matches_nothing():
 
 
 def test_05_does_not_count_a_de_playing_dl_as_a_hybrid():
-    """THE VOCABULARY TRAP, measured 2026-08-24: 4 real hybrids became
-    16 because ``positions`` says ``DE`` while the slot says ``DL``.
+    """THE VOCABULARY TRAP, measured 2026-08-24: 3 real hybrids became
+    16 because ``positions`` says ``DE``/``DT`` while the slot says ``DL``.
 
-    ``Cal DL`` is a DE, eligible only at DL, started at DL. Ordinary.
-    He must not appear, and the one real hybrid still must.
+    ``Fay DL`` is the row that discriminates: a DT eligible at DL **and**
+    LB, started at DL. He is multi-eligible, so the ``len(eligible_set)
+    > 1`` gate does not drop him; only normalizing ``DT`` -> ``DL`` on
+    the primary side keeps him off the list. Remove that normalization
+    and this test goes red.
+
+    ``Cal DL`` (a DE eligible only at DL) is kept as the ordinary case,
+    but he proves nothing on his own — the eligibility gate excludes him
+    whether or not the vocabulary is normalized.
     """
     r = check_05_hybrid_started_off_primary(_bundle())
     names = {h["player"] for h in r.evidence["hybridsStartedOffPrimary"]}

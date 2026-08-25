@@ -456,6 +456,15 @@ automate`, so a partial verification cannot quietly read as a complete one.
    count **from 3 to 16**. Both sides now normalise through
    `lineup_position`, the canonical owner's own vocabulary function.
 
+   The regression pin for this one is **discriminating, not merely
+   named**, and the distinction cost a review round. A single-eligibility
+   row like Garrett proves nothing: `len(eligible_set) > 1` drops him
+   whether or not the vocabulary is normalised, so a fixture built on him
+   passes with the normalisation deleted. The fixture therefore carries a
+   **multi-eligible** DT — eligible at DL *and* LB, started at DL — for
+   whom only the `DT`→`DL` normalisation decides the answer. Deleting
+   either `lineup_position` call turns that test red.
+
 **Offline run at `131abf9f9` (EVIDENCE-L2), the shipping tree:**
 
 | check | result | n |
@@ -498,3 +507,15 @@ table or duplicate slot-demand derivation under `scripts/` was invisible
 to the guard enforcing this row's central claim. It now scans both trees.
 Every existing script already passed; a decoy script carrying
 `_DEFAULT_FLEX_ELIGIBLE` is caught by file and line.
+
+**Widening the scan was not sufficient, and that was the second review
+finding.** The existing guards match on *names* — `FLEX`, `SUPER_FLEX`,
+`eligible` — so a genuine second assignment engine evades all of them by
+calling its slots `SPOT` and `WILD`. Injected into
+`scripts/verify_lineup_production.py`, exactly such an engine passed the
+widened guard 16/16. `test_no_module_outside_the_owner_defines_a_slot_
+to_positions_MAP` closes that by **shape**: a dict literal of ≥2 entries
+whose values are all literal position collections, at least one naming ≥2
+distinct positions, is a slot→positions eligibility table regardless of
+what its keys are called. No false positive anywhere in `src/` +
+`scripts/`; the injected engine is caught by file and line.

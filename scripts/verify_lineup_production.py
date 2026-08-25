@@ -350,7 +350,7 @@ def check_05_hybrid_started_off_primary(bundle: LineupBundle) -> CheckResult:
     Comparing them directly counts Myles Garrett — primary ``DE``, sole
     eligibility ``DL``, started at ``DL`` — as a player "started off his
     primary", which is simply a DE playing DL. Measured on the
-    2026-08-24 board that error inflated the count from 4 to 16.
+    2026-08-24 board that error inflated the count from 3 to 16.
 
     Both sides are therefore normalised through ``lineup_position``, the
     canonical owner's own vocabulary function — not a local table. And a
