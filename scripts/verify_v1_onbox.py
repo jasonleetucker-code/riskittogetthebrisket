@@ -243,9 +243,18 @@ def check_v89() -> None:
                     shutil.copy(cfg_src, troot / "config" / "source_staleness.json")
                 # Two synthetic archives, 40 days apart, identical
                 # DraftSharks bytes — unambiguously beyond any budget.
+                # The names MUST follow the production convention
+                # (dynasty_export_%Y%m%d_%H%M%S.zip, Dynasty Scraper.py's
+                # writer): measure_content_staleness timestamps archives
+                # via _ARCHIVE_STAMP_RE (\d{8})_(\d{6}) and SILENTLY
+                # SKIPS any archive whose name does not parse.  The
+                # first control used dashed dates, both archives were
+                # skipped, and the resulting {} read as "detector cannot
+                # see DraftSharks staleness" — a false FAIL against a
+                # sound detector (root-caused 2026-08-25).
                 frozen = b"name,value\nFrozen Player,1000\n"
-                for day in ("2026-07-01", "2026-08-10"):
-                    zp = troot / "exports" / "archive" / f"dynasty_data_{day}.zip"
+                for stamp in ("20260701_000000", "20260810_000000"):
+                    zp = troot / "exports" / "archive" / f"dynasty_export_{stamp}.zip"
                     with zipfile.ZipFile(zp, "w") as zf:
                         zf.writestr(
                             "manifest.json",
@@ -359,7 +368,20 @@ def check_c1u8(allow_writes: bool) -> None:
         rc, out, err = _run([sys.executable, "scripts/acquisition_status.py"])
         holdings_unknown = re.search(r"holdingsImportUnknown[\"'=:\s]+(\d+)", out)
         events = re.search(r"events[\"'=:\s]+(\d+)", out)
-        if rc != 0:
+        if rc == 2 and "ABSENT" in out:
+            # Exit 2 is the script's DEFINED "ledger absent" semantic
+            # (acquisition_status returns 2 iff coverage()["present"] is
+            # false).  The store is created only by the §8 items 2/3 live
+            # builder, so its absence is a blocked dependency, never a
+            # code failure — adjudicated 2026-08-25 after this check
+            # recorded a false FAIL against an unrun builder.
+            c.record(
+                "blocked",
+                "acquisition ledger absent — §8 items 2/3 (the live builder) "
+                "have not run; dispatch with run_live_builder=true first",
+                stdout=out[-400:],
+            )
+        elif rc != 0:
             c.record("fail", f"status script exited {rc}", stderr=err[-500:])
         elif events and int(events.group(1)) > 0:
             c.record(
@@ -378,83 +400,163 @@ def check_c1u8(allow_writes: bool) -> None:
     except Exception as exc:  # noqa: BLE001
         c.record("error", str(exc))
 
-    # Item 5 — the store holds more than trades (waiver rows).
+    # Item 5 — the store holds more than trades (waiver rows).  The
+    # retention store's table is league_transactions (there has never
+    # been a league_events TABLE — the first run of this check asked for
+    # one and recorded a false unmeasurable; the file is just NAMED
+    # league_events.sqlite).  §8 item 5 is operationally "the trades
+    # count must stop equalling the transactions count": Sleeper's type
+    # vocabulary is trade / waiver / free_agent.
     c = _check("C1U8-5", "V1-16", "§8 item 5: waiver rows exist (trades != transactions)")
     try:
         with _sqlite_ro(retention) as conn:
             tables = {
                 r[0] for r in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")
             }
-            if "league_events" not in tables:
-                c.record("unmeasurable", f"no league_events table; tables={sorted(tables)}")
+            if "league_transactions" not in tables:
+                c.record("unmeasurable", f"no league_transactions table; tables={sorted(tables)}")
             else:
-                cols = [r[1] for r in conn.execute("PRAGMA table_info(league_events)")]
-                type_col = next((k for k in ("event_type", "type", "kind") if k in cols), None)
-                if type_col is None:
-                    c.record("unmeasurable", f"no recognizable type column; columns={cols}")
+                rows = dict(
+                    conn.execute(
+                        "SELECT type, COUNT(*) FROM league_transactions GROUP BY type"
+                    ).fetchall()
+                )
+                total = sum(rows.values())
+                non_trade = {k: v for k, v in rows.items() if str(k).lower() != "trade"}
+                if total == 0:
+                    c.record("unmeasurable", "league_transactions is empty", by_type=rows)
+                elif non_trade:
+                    c.record("pass", "store holds non-trade transactions", by_type=rows)
                 else:
-                    rows = dict(
-                        conn.execute(
-                            f"SELECT {type_col}, COUNT(*) FROM league_events GROUP BY {type_col}"
-                        ).fetchall()
-                    )
-                    non_trade = {k: v for k, v in rows.items() if "trade" not in str(k).lower()}
-                    if non_trade:
-                        c.record("pass", "store holds non-trade events", by_type=rows)
-                    else:
-                        c.record("fail", "store still holds trades and nothing else", by_type=rows)
+                    c.record("fail", "store still holds trades and nothing else", by_type=rows)
     except Exception as exc:  # noqa: BLE001
         c.record("error", str(exc))
 
-    # Item 6 — the nightly backup carries the ledger.
+    # Item 6 — the nightly backup carries the ACQUISITION ledger.  Real
+    # roots per deploy/backup/backup_root_lib.sh (the one owner of the
+    # backup location): /var/backups/riskit-state primary,
+    # /home/dynasty/backups/riskit-state fallback, generations under
+    # <root>/daily/YYYY-MM-DD/ with sqlite gz copies under sqlite/.  The
+    # first run of this check inspected two paths the backup owner never
+    # writes and grepped for names that miss item 6's actual target,
+    # sqlite/acquisition.sqlite.gz.  Three honest states beyond
+    # pass/fail: the root is root-owned 0700 so an unprivileged run is
+    # blocked-unreadable; and until §8 items 2/3 create the source store
+    # the backup legitimately logs "skip (absent)" — item 6 is the
+    # TRANSITION to a real snapshot, so gz-absent while the source store
+    # is absent is blocked-on-2/3, not fail.
     c = _check("C1U8-6", "V1-15", "§8 item 6: nightly backup includes the ledger")
-    backup_roots = [Path("/var/backups/riskit/daily"), REPO_ROOT / "backups" / "daily"]
-    root = next((p for p in backup_roots if p.exists()), None)
-    if root is None:
-        c.record("unmeasurable", f"no backup dir at {[str(p) for p in backup_roots]}")
-    else:
-        snaps = sorted(root.iterdir())
-        if not snaps:
-            c.record("fail", f"backup dir {root} is empty")
-        else:
-            newest = snaps[-1]
-            hits = [
-                str(p) for p in newest.rglob("*") if "league_events" in p.name or "ledger" in p.name
-            ]
-            if hits:
-                c.record("pass", f"newest backup {newest.name} carries the ledger", files=hits)
-            else:
-                c.record("fail", f"newest backup {newest.name} does NOT carry the ledger")
-
-    # Item 7 — one trade end to end: event → two holding periods → lineage.
-    c = _check("C1U8-7", "V1-17", "§8 item 7: one trade resolves end to end")
+    acquisition_store = REPO_ROOT / "data" / "retention" / "acquisition.sqlite"
+    backup_roots = [
+        Path("/var/backups/riskit-state"),
+        Path.home() / "backups" / "riskit-state",
+    ]
     try:
-        with _sqlite_ro(intel) as conn:
-            tables = {
-                r[0] for r in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")
-            }
-            holding = next((t for t in tables if "holding" in t), None)
-            lineage = next((t for t in tables if "lineage" in t or "pick" in t), None)
-            if not holding:
-                c.record("unmeasurable", f"no holdings table found; tables={sorted(tables)}")
-            else:
-                n_holdings = conn.execute(f"SELECT COUNT(*) FROM {holding}").fetchone()[0]
-                n_lineage = (
-                    conn.execute(f"SELECT COUNT(*) FROM {lineage}").fetchone()[0]
-                    if lineage
-                    else None
+        root = next((p for p in backup_roots if p.exists()), None)
+        if root is None:
+            c.record("unmeasurable", f"no backup root at {[str(p) for p in backup_roots]}")
+        else:
+            try:
+                daily = root / "daily"
+                snaps = sorted(daily.iterdir()) if daily.exists() else []
+            except PermissionError:
+                snaps = None
+            if snaps is None:
+                c.record(
+                    "blocked",
+                    f"backup root {root} unreadable by this user (root-owned 0700) — "
+                    "same posture as retention_backup_restore_proof.sh",
                 )
-                if n_holdings and n_holdings >= 2:
+            elif not snaps:
+                c.record("fail", f"backup root {root} has no daily generations")
+            else:
+                newest = snaps[-1]
+                gz = newest / "sqlite" / "acquisition.sqlite.gz"
+                if gz.exists():
                     c.record(
                         "pass",
-                        "holdings and lineage populated from real events",
-                        holdings_table=holding,
-                        holdings=n_holdings,
-                        lineage_table=lineage,
-                        lineage_rows=n_lineage,
+                        f"newest generation {newest.name} carries acquisition.sqlite.gz",
+                        file=str(gz),
+                        size=gz.stat().st_size,
+                    )
+                elif not acquisition_store.exists():
+                    c.record(
+                        "blocked",
+                        "acquisition.sqlite.gz absent, but the SOURCE store is absent "
+                        "too — blocked on §8 items 2/3 (the backup logs 'skip (absent)' "
+                        "until the builder creates the store)",
+                        generation=str(newest),
                     )
                 else:
-                    c.record("fail", f"holdings table {holding} has {n_holdings} rows")
+                    c.record(
+                        "fail",
+                        f"source store exists but newest generation {newest.name} "
+                        "does NOT carry sqlite/acquisition.sqlite.gz",
+                    )
+    except PermissionError:
+        c.record("blocked", "backup root unreadable by this user (root-owned 0700)")
+
+    # Item 7 — one trade end to end: event → two holding periods → lineage.
+    # The holdings/pick_lineage tables live in the C1-U8 ACQUISITION
+    # store data/retention/acquisition.sqlite (src/acquisition/store.py),
+    # NOT the intel ledger — the intel ledger is "members' other leagues,
+    # wrong population" per the C1-U8 record, and the first run of this
+    # check searched it, recording a false unmeasurable.  Until §8 items
+    # 2/3 create the store this item is blocked, same as item 4.
+    c = _check("C1U8-7", "V1-17", "§8 item 7: one trade resolves end to end")
+    try:
+        if not acquisition_store.exists():
+            c.record(
+                "blocked",
+                f"acquisition store absent at {acquisition_store} — blocked on "
+                "§8 items 2/3 (the live builder)",
+            )
+        else:
+            with _sqlite_ro(acquisition_store) as conn:
+                trade = conn.execute(
+                    "SELECT league_key, asset_id FROM acquisition_events "
+                    "WHERE event_type = 'TRADE' LIMIT 1"
+                ).fetchone()
+                if trade is None:
+                    c.record("fail", "store exists but holds no TRADE acquisition event")
+                else:
+                    lk, aid = trade
+                    holdings = conn.execute(
+                        "SELECT owner_rid, basis_value, basis_missing_reason FROM holdings "
+                        "WHERE league_key = ? AND asset_id = ? ORDER BY sequence_num",
+                        (lk, aid),
+                    ).fetchall()
+                    basis_ok = any(h[1] is not None or h[2] is not None for h in holdings)
+                    lineage_hops = conn.execute(
+                        "SELECT COUNT(*) FROM pick_lineage WHERE league_key = ?", (lk,)
+                    ).fetchone()[0]
+                    pick_trades = conn.execute(
+                        "SELECT COUNT(*) FROM acquisition_events WHERE league_key = ? "
+                        "AND event_type = 'TRADE' AND asset_id LIKE 'pick:%'",
+                        (lk,),
+                    ).fetchone()[0]
+                    if len(holdings) >= 2 and basis_ok and (pick_trades == 0 or lineage_hops >= 1):
+                        c.record(
+                            "pass",
+                            "a TRADE event resolves to both holding periods with an "
+                            "explicit basis-or-reason, and traded picks carry lineage",
+                            league_key=lk,
+                            asset_id=aid,
+                            holding_periods=len(holdings),
+                            pick_trades=pick_trades,
+                            lineage_hops=lineage_hops,
+                        )
+                    else:
+                        c.record(
+                            "fail",
+                            "trade does not resolve end to end",
+                            league_key=lk,
+                            asset_id=aid,
+                            holding_periods=len(holdings),
+                            basis_present=basis_ok,
+                            pick_trades=pick_trades,
+                            lineage_hops=lineage_hops,
+                        )
     except Exception as exc:  # noqa: BLE001
         c.record("error", str(exc))
 

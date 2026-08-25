@@ -461,6 +461,25 @@ def emit_free_agent(contract: dict | None, out_path: str | None) -> None:
 # ────────────────────────────── driver ──────────────────────────────
 
 
+def _isolated(label: str, fn, *args):
+    """Run one check so its crash costs THAT check, never the suite.
+
+    The first production run proved why this exists: check_v61's uncaught
+    read timeout (a cold /api/sharp/roster-percentage taking >60 s right
+    after a deploy restart) aborted main() before the report was written
+    or the free agent picked — every downstream check silently vanished
+    and the run proved nothing about them.  A network timeout is a
+    legitimate measurement to RECORD (status "error"), not a reason to
+    lose the rest of the evidence.
+    """
+    try:
+        return fn(*args)
+    except Exception as exc:  # noqa: BLE001 — recorded, not raised
+        c = _check(f"{label}:crash", "-", f"{label} raised instead of recording")
+        c.record("error", f"{type(exc).__name__}: {exc}")
+        return None
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--origin", required=True)
@@ -476,18 +495,18 @@ def main() -> int:
         cookie_value = fh.read().strip()
     client = Client(args.origin, cookie_value)
 
-    session_ok = check_auth0(client)
-    check_v102(args.expected_duration_seconds, args.observed_expires_epoch)
+    session_ok = _isolated("AUTH0", check_auth0, client)
+    _isolated("V102A", check_v102, args.expected_duration_seconds, args.observed_expires_epoch)
     if session_ok:
-        contract = _fetch_contract(client)
-        check_v61(client)
-        check_v56(client)
-        check_v131(client)
-        check_v11_item8(client)
-        check_v11_item3_fresh(contract)
-        check_v27_item3(client, contract, args.league)
-        check_v45(client, contract, args.league)
-        emit_free_agent(contract, args.free_agent_out)
+        contract = _isolated("CONTRACT", _fetch_contract, client)
+        _isolated("V61A", check_v61, client)
+        _isolated("V56A", check_v56, client)
+        _isolated("V131A", check_v131, client)
+        _isolated("V11-8", check_v11_item8, client)
+        _isolated("V11-3", check_v11_item3_fresh, contract)
+        _isolated("V27-3", check_v27_item3, client, contract, args.league)
+        _isolated("V45A", check_v45, client, contract, args.league)
+        _isolated("FA-PICK", emit_free_agent, contract, args.free_agent_out)
 
     report = {
         "utc": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
