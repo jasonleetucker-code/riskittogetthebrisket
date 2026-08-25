@@ -11458,6 +11458,14 @@ async def trigger_scrape(request: Request, background_tasks: BackgroundTasks):
     ``not_implemented`` because multi-league scraping isn't wired up
     yet (that's a future refactor of Dynasty Scraper.py).
     """
+    # W22-F007: triggering the production scrape (or force-refreshing
+    # a league's Sleeper overlay) is an operator-grade action, not a
+    # product feature — gate on the admin allowlist, never on mere
+    # session presence.  A guest-pass session gets 403 here.
+    session_or_err = _require_admin_session(request)
+    if isinstance(session_or_err, JSONResponse):
+        return session_or_err
+
     # Validate the key first.  Non-default leagues don't run the
     # full ranking scrape (the pipeline is single-league) — instead
     # they refresh the on-demand Sleeper overlay (rosters + trades
@@ -11545,8 +11553,13 @@ async def trigger_scrape(request: Request, background_tasks: BackgroundTasks):
 
 
 @app.post("/api/test-alert")
-async def test_alert():
+async def test_alert(request: Request):
     """Send a test alert email to verify configuration."""
+    # W22-F007: sends an outbound email — operator-grade, so it gates
+    # on the admin allowlist, not on session presence.
+    session_or_err = _require_admin_session(request)
+    if isinstance(session_or_err, JSONResponse):
+        return session_or_err
     if not ALERT_ENABLED:
         return JSONResponse(
             status_code=400,
@@ -14404,13 +14417,16 @@ async def post_intel_refresh(request: Request):
     sequentially (the cron's mode); any other key resolves through
     the standard league resolver."""
     is_cron = _intel_bearer_auth_ok(request)
-    session = None if is_cron else _get_auth_session(request)
-    if not is_cron and not session:
-        return JSONResponse(
-            status_code=401,
-            content={"error": "auth_required", "message": "Sign-in or bearer token required."},
-            headers={"Cache-Control": "no-store"},
-        )
+    session = None
+    if not is_cron:
+        # W22-F007: a crawl is minutes of budgeted Sleeper calls — an
+        # operator-grade action, so the browser path gates on the admin
+        # allowlist rather than session presence (a guest-pass session
+        # gets 403).  The bearer path (the daily cron) is unchanged.
+        session_or_err = _require_admin_session(request)
+        if isinstance(session_or_err, JSONResponse):
+            return session_or_err
+        session = session_or_err
 
     # D13: per-user cooldown on MANUAL triggers.  The cron (bearer) is
     # exempt — it is the intended scheduled driver.  A crawl is minutes
