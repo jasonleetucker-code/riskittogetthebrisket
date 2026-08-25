@@ -298,9 +298,9 @@ class TestCoverageHonesty:
         stamps = _fetch_stamps(db)
         assert len(stamps) == 3, "the fixture must crawl three leagues or it proves nothing"
         assert cov["oldestCrawlMs"] == min(stamps)
-        assert cov["oldestCrawlMs"] != max(
-            stamps
-        ), "min and max coincide, so this fixture cannot tell them apart"
+        assert cov["oldestCrawlMs"] != max(stamps), (
+            "min and max coincide, so this fixture cannot tell them apart"
+        )
         # ...and the denominator behaviour already pinned above is untouched.
         assert cov["sharpEligibleLeagues"] == 3
         assert cov["leaguesCrawled"] == 3
@@ -386,3 +386,64 @@ class TestCursorPersistence:
         result, _ = _crawl(later, ledger_path=db)
         assert result.movements_ingested == 2
         assert ledger.counts(path=db)["tradeCount"] == 2
+
+
+class TestWriterLockWindows:
+    def test_each_league_commits_before_the_next_network_call(self, db):
+        """V1-59: the crawl must never hold the SQLite writer lock across
+        network I/O.
+
+        A single end-of-crawl commit left the implicit transaction opened
+        by the FIRST league's ``_save_fetch_state`` upsert pending for the
+        whole budgeted run — on production, minutes of writer lock in a
+        quiet period (no new events, so ``ingest_events`` never commits),
+        starving every concurrent sharp unit past its 30 s busy_timeout
+        (measured 2026-08-25: discovery, records and rosters all raising
+        ``database is locked``).  The observable property, mirrored from
+        ``test_records.TestWriterLockWindows``: by the time the crawl asks
+        Sleeper about the SECOND league, the FIRST league's fetch-state row
+        is already visible to an independent connection.  Under the retired
+        single-commit shape this count is 0 until the crawl returns.
+        """
+        import sqlite3
+
+        observed: list[int] = []
+        responses = {
+            f"{BASE}/state/nfl": {"week": 2},
+            f"{BASE}/league/L1/rosters": [roster(1, "A"), roster(2, "B")],
+            f"{BASE}/league/L2/rosters": [roster(1, "A"), roster(2, "B")],
+            # No transactions entries on purpose: FakeHttp answers [] for
+            # every transactions week, which is the quiet-period shape —
+            # nothing but _save_fetch_state writes, so only the per-league
+            # commit can make the row visible.
+        }
+
+        class SpyingHttp(FakeHttp):
+            def __call__(self, url):
+                if url == f"{BASE}/league/L2/rosters":
+                    probe = sqlite3.connect(db)
+                    try:
+                        n = probe.execute(
+                            "SELECT COUNT(*) FROM sharp_league_fetch WHERE league_id='L1'"
+                        ).fetchone()[0]
+                    finally:
+                        probe.close()
+                    observed.append(n)
+                return super().__call__(url)
+
+        http = SpyingHttp(responses)
+        transactions.crawl_transactions(
+            league_ids=["L1", "L2"],
+            budget=100,
+            sleep_s=0.0,
+            http_get=http,
+            now_ms=NOW,
+            ledger_path=db,
+        )
+
+        assert observed, "the crawl never reached the second league — vacuous"
+        assert observed[0] > 0, (
+            "the first league's fetch state was invisible to an independent "
+            "reader while the crawl performed its next network call — the "
+            "writer transaction is still spanning network I/O (V1-59)"
+        )
