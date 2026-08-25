@@ -295,11 +295,53 @@ gate, not a permanent second scoring system**.
 | BDVM rerun against challenger output | **OPEN** — needs a prod box with snapshots |
 | league-comparison rerun and measured | **partly closed** — the season-card symmetry repair is recomputed both ways on 72,457 real weekly rows (§5b: similarity 69→72, FLEX deviation 26.77%→21.54%). Rerunning it against *challenger* scoring still needs a live Sleeper fetch. |
 | historical backtests rerun | **OPEN** — needs the above |
-| play-by-play artifact built and joined in production | **OPEN** — `scripts/build_pbp_weekly.py` must run on prod, and the resulting movement in BDVM baselines and league comparison must be measured, not assumed (§4a) |
+| play-by-play artifact built and joined in production | **OPEN** — `scripts/build_pbp_weekly.py` must run on prod, and the resulting movement in BDVM baselines and league comparison must be measured, not assumed (§4a). **See §4b: every existing artifact must be rebuilt first, and as of 2026-08-24 that is now enforced rather than trusted.** |
 
 The remaining OPEN items mostly require production data this environment does not have
 (gitignored `data/`, live Sleeper API). They are the promotion PR's work, and
 promotion must not proceed without them.
+
+### 4b. The artifact rebuild is a PRECONDITION, not a step of the measurement
+
+Discovered 2026-08-24 while preparing the production run, and repaired before
+it: `PBP_WEEKLY_SCHEMA_VERSION` was **not** bumped when `kick_ret_td` joined
+`PBP_SUPPLEMENT_KEYS` (V1-49 / #1031). The consequences compounded:
+
+* every `pbp_weekly_*.jsonl` on disk predated that key and did not derive it;
+* `scripts/build_pbp_weekly.py --skip-existing` compares exactly that constant,
+  and the scheduled unit runs `--completed-seasons-back 5 --skip-existing`
+  (`deploy/systemd/dynasty-pbp-weekly.service.template`), so the timer would
+  **never** have rebuilt them;
+* `load_pbp_weekly` had **no version check at all** — unlike its sibling
+  `reception_depth.load_reception_depth`, which already refuses a mismatched
+  schema;
+* and the resulting failure was a **fabricated zero, not an unknown**:
+  `covers()` is week-level, so a stale-but-complete week still reports as
+  covered, the supplement is a Mapping merely lacking the new key,
+  `compute_weekly_points` takes its `isinstance(supplement, Mapping)` branch,
+  and `unscored` stays empty. `kick_ret_td` scores 0 and nothing says so.
+
+That last point is why this had to be fixed *before* the production
+measurement rather than after: **a production run cannot distinguish a correct
+zero from a silently-unreachable one.** Measuring against stale artifacts would
+have produced a clean-looking result that was wrong.
+
+Repaired: the version is bumped to `2026-08-24.v2`, `load_pbp_weekly` refuses a
+mismatched artifact (returning `None`, which routes the player-week through the
+`unscored` branch — an honest unknown), and it additionally refuses an artifact
+whose recorded `statKeys` lack a key this process expects. That second check is
+the one that would have caught this defect: the key set moved *without* a
+version bump, so a version-only check would have passed the file through.
+`statKeys` was already written by `persist_pbp_weekly` and, until now, never
+read back.
+
+**Operational consequence, stated rather than buried:** on first deploy after
+this change, every season's artifact is refused until rebuilt. `--skip-existing`
+and the weekly timer now do the right thing automatically (a refused artifact
+reads as "not on disk at current schema"), so no manual `--force` is required —
+but the first timer run after deploy will rebuild all seasons and take
+correspondingly longer, and until it completes the affected rules report as
+`unscored` rather than scoring at zero. That is the intended degraded state.
 
 **Promotion is a separate, measured PR** that flips the canonical owner, migrates
 the affected baselines/backtests/consumers together, deletes `_FIELD_MAP` and

@@ -417,6 +417,52 @@ UNSCORABLE_REASONS: dict[str, str] = {
 _MAXIMAL_PBP_SUPPLEMENT: dict[str, float] = {key: 1.0 for key in sorted(PBP_SUPPLEMENT_KEYS)}
 
 
+#: **Every verdict this module returns describes the nflverse path.**
+#:
+#: ``engine_reads_key`` probes with :data:`_MAXIMAL_ROW`, whose keys are
+#: nflverse COLUMN names, and calls ``compute_weekly_points`` without a
+#: ``source`` argument — so it always exercises
+#: ``sleeper_stat_line_from_row``, never ``host_stat_line``.  That was
+#: silent until now; stating it is the point of this block.
+#:
+#: The scoping matters because ``host_native_scoring`` (default OFF, a
+#: champion/challenger gate) switches the engine onto the host's own
+#: vocabulary, and a rule reachable on one path is not automatically
+#: reachable on the other.
+#:
+#: Keys below are reachable on the nflverse path and **structurally
+#: unreachable on the host path**, with the measurement that establishes
+#: it.  This is a RECORD, not a probe: it is asserted against the
+#: committed host dumps by
+#: ``tests/nfl_data/test_scoring_coverage.py``, so it cannot quietly go
+#: stale the way an uncommented comment would.
+#:
+#: Measured over all three committed 2025 REG host dumps
+#: (``docs/master-site-audit/evidence/W18/sleeper_stats_2025_wk{5,9,14}.json``
+#: — 6,181 player entries): ``punt_ret_td`` appears on 0 of them, and so
+#: does ``pt_return_tds``, the nflverse column it is scored from.  The
+#: host publishes the COMBINED ``st_td`` (3 / 0 / 3 nonzero) and does
+#: publish ``kr_yd`` / ``pr_yd``, so this is a real per-key asymmetry
+#: rather than the host omitting special teams generally.
+#:
+#: ``kick_ret_td`` is deliberately NOT listed: it is already UNSCORABLE
+#: on the nflverse path without the play-by-play supplement, and its
+#: :data:`UNSCORABLE_REASONS` entry already records that the host does
+#: not publish the split either.  Listing it here would be a second
+#: owner for one fact.
+HOST_PATH_UNREACHABLE: dict[str, str] = {
+    "punt_ret_td": (
+        "reachable only via the nflverse weekly column 'pt_return_tds' "
+        "(_SIMPLE_KEYS), which never appears on a host row; measured over "
+        "3 committed 2025 REG host dumps (6,181 player entries) both "
+        "'punt_ret_td' and 'pt_return_tds' are present on 0. Under "
+        "host_native_scoring a league paying this rule scores it at 0 and "
+        "'unscored' stays empty, because that signal is only populated on "
+        "the nflverse branch — a silent zero, not a reported gap"
+    ),
+}
+
+
 def engine_reads_key(
     key: str,
     *,
@@ -455,6 +501,11 @@ def classify(key: str, *, pbp_supplement: bool = False) -> Coverage:
     Order matters: SCORED wins over everything, because a key the engine
     demonstrably reads is scored regardless of which family its name
     suggests.
+
+    **The verdict describes the nflverse path.**  See
+    :data:`HOST_PATH_UNREACHABLE` for the keys where that distinction is
+    load-bearing today — ``SCORED`` here does not imply the rule is
+    reachable once ``host_native_scoring`` is promoted.
     """
     if engine_reads_key(key, pbp_supplement=pbp_supplement):
         return Coverage.SCORED
