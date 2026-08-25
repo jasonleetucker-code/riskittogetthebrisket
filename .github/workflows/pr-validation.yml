@@ -55,7 +55,15 @@ jobs:
     # aspirational until this date — no vitest step existed in any
     # workflow.  It does now (see "Frontend unit tests" below), so the
     # comment is finally accurate.  vitest adds ~20s.
-    timeout-minutes: 20
+    #
+    # 20 → 30 (2026-08-25): the suite legitimately grew past the old
+    # ceiling — ten green runs that day measured 12.5-19.5 minutes, and
+    # TWO runs were killed at exactly ~20m ("cancelled", which reads
+    # like a supersede and cost an hour of diagnosis each time). 30
+    # keeps a real hang detectable while leaving headroom for a suite
+    # that adds tests every merge. This bounds WALL CLOCK only — no
+    # test, gate or tolerance is affected.
+    timeout-minutes: 30
     steps:
       - name: Checkout
         uses: actions/checkout@v7
