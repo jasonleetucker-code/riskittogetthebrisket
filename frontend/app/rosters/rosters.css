@@ -80,7 +80,8 @@
 }
 
 .team-strength-facets dt {
-  font-size: 0.62rem;
+  /* V1-109 / W26-F017: was 0.62rem (9.9px) — 11px design-system floor. */
+  font-size: var(--font-size-2xs, 0.6875rem);
   color: var(--subtext);
   text-transform: uppercase;
   letter-spacing: 0.03em;
@@ -129,7 +130,8 @@
 }
 
 .team-strength-unranked-note {
-  font-size: 0.58rem;
+  /* V1-109 / W26-F017: was 0.58rem (9.3px) — 11px design-system floor. */
+  font-size: var(--font-size-2xs, 0.6875rem);
   font-weight: 400;
   color: var(--subtext);
   text-transform: uppercase;

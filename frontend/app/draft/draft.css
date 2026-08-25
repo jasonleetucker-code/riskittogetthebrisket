@@ -1207,7 +1207,10 @@
   border: 1px solid var(--blush);
   border-radius: 3px;
   padding: 1px 5px;
-  font-size: 0.58rem;
+  /* V1-109 / W26-F017: was 0.58rem — the 9.3px "NEED" chips were
+     /draft's smallest shipped type at 390x844 (x72 on the measured
+     board). 11px design-system floor (docs/DESIGN-SYSTEM.md). */
+  font-size: var(--font-size-2xs, 0.6875rem);
   font-weight: 700;
   letter-spacing: 0.05em;
   margin-left: 4px;
