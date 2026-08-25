@@ -1,21 +1,22 @@
 """Draft Sharks ROS adapter.
 
-PR 1 strategy: read the existing dynasty Superflex + IDP CSVs that
-``scripts/fetch_draftsharks.py`` already maintains every 2h via the
-authenticated Playwright path.  Treat them as a ROS proxy with the
-spec-defined weight.  Zero new auth dependency, zero double-scraping.
+Reads the REAL rest-of-season boards that
+``scripts/fetch_draftsharks_ros.py`` acquires from
+``/ros-rankings/superflex`` and ``/ros-rankings/idp`` behind the
+authenticated Playwright session.  ``source_mode`` reports ``"ros"``
+when it served those.
 
-PR 2 swap: when DraftSharks' actual /rankings/rest-of-season page is
-verified accessible to our login, replace ``_load_existing_csvs`` with
-an actual scrape.  The adapter contract stays the same so the registry
-weight + aggregator behavior don't change.
+The dynasty Superflex + IDP CSVs remain a season-long PROXY fallback,
+used only when the real SF board is absent (fresh checkout, ROS page
+outage, an acquisition the fetcher refused).  ``source_mode`` reports
+``"dynasty_proxy"`` then, so "we served ROS" and "we served a
+stand-in" are distinguishable downstream rather than both reading as a
+DraftSharks ROS opinion.
 
-NOTE on weight: the spec calls Draft Sharks ROS the highest-confidence
-source (1.25).  Until PR 2's actual ROS scrape lands, the dynasty SF
-read is technically a season-long proxy — but DS's dynasty values
-already incorporate ROS context (their internal model blends them),
-so the 1.25 weight is still reasonable for PR 1.  Document the proxy
-status in run JSON so the source-health UI flags it.
+The staged "PR 1 proxy / PR 2 swap" plan this docstring used to
+describe is COMPLETE; the swap landed and ``_load_existing_csvs`` is
+gone.  Registry weight and aggregator behaviour are unchanged by that
+history and are not this module's business.
 """
 
 from __future__ import annotations
@@ -195,17 +196,33 @@ def scrape(src_meta: dict[str, Any]) -> ScrapeResult:
     proxy when the ROS fetcher hasn't run yet (fresh checkout, ROS
     page outage, etc.).
 
-    The two files are UNIONED name-first, not concatenated (audit
-    2026-07-30).  ``/ros-rankings/idp`` is not an IDP-only mirror
-    despite its name: measured on the live files it is a second FULL
-    board over the identical 978-player universe (0 names unique to
-    either side) in a different format — a 1QB board, where
-    ``jahmyr gibbs`` is 1 and ``josh allen`` is 17 against the SF
-    board's 1 and 2.  Concatenating handed DraftSharks 67.4% of the
-    blend instead of 50.8%, inflated ``sourceCount``/``confidence`` on
-    939 of 1084 players, and systematically suppressed QB/LB in a
-    superflex IDP league.  Nothing is lost by collapsing: the SF board
-    already carries all 424 IDP-family rows itself.
+    The two files are UNIONED name-first, not concatenated.
+
+    WHY the union (audit 2026-07-30, still valid): concatenating the two
+    boards handed DraftSharks 67.4% of the blend instead of 50.8%,
+    inflated ``sourceCount`` / ``confidence`` on 939 of 1084 players, and
+    systematically suppressed QB/LB in a superflex IDP league.  Any
+    player listed on both pages must count once.
+
+    WHAT THE UNION CONTRIBUTES IS NOT FIXED, and this docstring used to
+    say it was.  The 2026-07-30 measurement found the two pages covering
+    an identical universe, so the union added nothing, and that
+    observation was written down as though it were a property.  It is
+    not: re-measured 2026-08-25 (V1-89) the vendor had reshaped both
+    pages — the idp page was genuinely IDP-restricted, the SF board was
+    a few hundred rows, and the union added several hundred IDP players
+    the SF page did not list.
+
+    The invariants that hold regardless:
+
+    * each file carries its OWN ``total_ranked``, and ``rank_to_score``
+      normalises against that per row.  Two boards of different sizes
+      therefore union safely with no renormalisation;
+    * the SF board is primary — it is the one this source key claims to
+      be (``is_superflex``) — and the idp page can only ADD names, never
+      displace an SF rank;
+    * the overlap between the pages, and hence the size of the
+      contribution, is measured when it matters and never assumed.
     """
     started = datetime.now(timezone.utc).isoformat()
     key = str(src_meta.get("key") or "draftSharksRosSf")

@@ -1,0 +1,45 @@
+{
+  "purpose": "V1-27 (C2-U1 \u00a710) item 4 \u2014 PRE-DEPLOY board snapshot. Irrecoverable after the fact; this is the observation \u00a710a has sat PARTIAL for.",
+  "capturedAt": "2026-08-25T07:42:21.563661+00:00",
+  "shippingTreeSha": "d3423eaf1d2628f5b6052a5d9992305d4b82198b",
+  "lastDeployedSha": "cdeb7fb54f9c6bb50b90c4c94b0f87f926b82839",
+  "primaryArtifact": {
+    "path": "data/ops/v1-27/pre-deploy-golden-board-LIVE-2026-08-25.json",
+    "basis": "LIVE export exports/latest/dynasty_data_2026-08-25.json \u2014 the board production actually serves",
+    "inputSha256": "c6f0cad01f1eedba0fff604bde9c91eef4c2f0af89a409868adff3a8b065c48d",
+    "sourceCsvSha256": "b0955baaf7d07ff350579cf2483de1ba1b40268f43be1172a510034a260d074d",
+    "freshnessSha256": "e2d96b314690a3fc6c4bcea120503ba2fa58c02333be2af5604c3a2658ccf2a2",
+    "scrapeTimestamp": "2026-08-25T05:19:40.956457+00:00",
+    "boardSha256": "93ff9dd6ab5e5d2b753ad52e66bd71d73da61a923957362d4b8457c43beedb44",
+    "totals": {
+      "idp": 398,
+      "picks": 162,
+      "priced": 849,
+      "ranked": 740,
+      "rows": 1114
+    }
+  },
+  "controlArtifact": {
+    "path": "data/ops/v1-27/pre-deploy-golden-board-2026-08-25.json",
+    "basis": "FROZEN fixture tests/fixtures/golden/input_export.json.gz \u2014 isolates CODE effect, cannot answer the deploy question",
+    "inputSha256": "f7ab141ec441d8cae651236703a04111a42befa108bc0dde908c9bf368769af6",
+    "boardSha256": "82ea10ae0064801e62b35de410b2f529d2844a2ffcdfe12701674fc0f5489a39",
+    "totals": {
+      "idp": 398,
+      "picks": 162,
+      "priced": 849,
+      "ranked": 740,
+      "rows": 1111
+    }
+  },
+  "lineupRosterCensus": {
+    "teams": 12,
+    "teamsWithOptimalLineup": 12,
+    "totalAssignedSlots": 240,
+    "totalBench": 338,
+    "totalUnpriced": 0,
+    "rosterPositions": 58,
+    "leagueKey": null,
+    "sleeperDataReady": null
+  }
+}

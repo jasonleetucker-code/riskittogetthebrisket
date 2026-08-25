@@ -1,0 +1,38 @@
+====================================================================
+BOARD DIFF  v2.json -> v5.json
+====================================================================
+      rows: 1111 -> 1111
+    ranked: 740 -> 740
+    priced: 849 -> 849
+     picks: 162 -> 162
+       idp: 398 -> 398
+
+  VALUES: 741 moved, 36 newly priced, 36 newly unpriced
+    |pct change|  p50=15.4%  p90=25.7%  max=32.1%
+    Chris Brazzell                        1968 ->    1336  (-32.1%)
+    Jaylen Wright                         1791 ->    1219  (-31.9%)
+    Braelon Allen                         2169 ->    1490  (-31.3%)
+    Tre Tucker                            1957 ->    1350  (-31.0%)
+    Tank Dell                             2082 ->    1439  (-30.9%)
+    Jaylin Noel                           2239 ->    1550  (-30.8%)
+    Mac Jones                             1913 ->    1330  (-30.5%)
+    Jalen Milroe                          1590 ->    1108  (-30.3%)
+    Malik Washington                      1920 ->    1338  (-30.3%)
+    Zachariah Branch                      2346 ->    1638  (-30.2%)
+    Tory Horton                           1937 ->    1353  (-30.1%)
+    Ollie Gordon                          1753 ->    1229  (-29.9%)
+    Troy Franklin                         1988 ->    1396  (-29.8%)
+    Isaac TeSlaa                          2055 ->    1445  (-29.7%)
+    Elijah Sarratt                        2189 ->    1540  (-29.6%)
+    newly UNPRICED: Adam Thielen, Audric Estime, CJ Daniels, Calvin Austin, Colbie Young, Davis Mills, Deion Burks, Desmond Reid, Devin Singletary, Devontez Walker
+
+  RANKS: 758 changed
+
+  LABELS:
+    canonicalTierId            738 flipped   e.g. 2027 Early 1st: 4 -> 3
+    confidenceBucket           300 flipped   e.g. A.J. Brown: high -> medium
+    confidenceLabel            367 flipped   e.g. A.J. Brown: High — every axis high -> Medium — limited by agreement
+    marketGapDirection         147 flipped   e.g. AJ Barner: retail_premium -> consensus_premium
+    hasSourceDisagreement       21 flipped   e.g. Alim McNeill: False -> True
+
+  SOURCE COVERAGE: 264 rows vote differently

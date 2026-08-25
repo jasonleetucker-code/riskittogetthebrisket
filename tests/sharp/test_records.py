@@ -287,3 +287,52 @@ class TestFinishPercentiles:
         assert recs["top"].finish_percentiles == [1.0]
         assert recs["bot"].finish_percentiles == [0.0]
         assert recs["mid"].finish_percentiles == [0.5]
+
+
+class TestWriterLockWindows:
+    def test_each_season_commits_before_the_next_network_call(self, db):
+        """V1-59 residual: the crawl must never hold the SQLite writer
+        lock across network I/O.
+
+        A single end-of-crawl commit kept one write transaction open for
+        the whole budget — on production, an hour-long writer lock
+        overlapping the 05:20 FFPC ingestion window.  The observable
+        property: by the time the crawl asks Sleeper about the SECOND
+        chain hop, the FIRST hop's rows are already visible to an
+        independent connection.  Under the retired single-commit shape
+        this count is 0 until the crawl returns.
+        """
+        import sqlite3
+
+        observed: list[int] = []
+        responses = {
+            f"{BASE}/league/L2026": league("L2026", "2026", previous="L2025"),
+            f"{BASE}/league/L2026/rosters": [roster(1, "a"), roster(2, "b")],
+            f"{BASE}/league/L2026/winners_bracket": bracket(1, 2),
+            f"{BASE}/league/L2025": league("L2025", "2025", previous="0"),
+            f"{BASE}/league/L2025/rosters": [roster(1, "a"), roster(2, "b")],
+            f"{BASE}/league/L2025/winners_bracket": bracket(2, 1),
+        }
+
+        class SpyingSleeper(FakeSleeper):
+            def __call__(self, url):
+                if url == f"{BASE}/league/L2025":
+                    probe = sqlite3.connect(db)
+                    try:
+                        n = probe.execute(
+                            "SELECT COUNT(*) FROM manager_seasons WHERE league_id='L2026'"
+                        ).fetchone()[0]
+                    finally:
+                        probe.close()
+                    observed.append(n)
+                return super().__call__(url)
+
+        http = SpyingSleeper(responses)
+        records.crawl_records(league_ids=["L2026"], http_get=http, ledger_path=db, sleep_s=0)
+
+        assert observed, "the crawl never reached the second chain hop — vacuous"
+        assert observed[0] > 0, (
+            "the first season's rows were invisible to an independent reader "
+            "while the crawl performed its next network call — the writer "
+            "transaction is still spanning network I/O (V1-59)"
+        )

@@ -64,6 +64,38 @@ class OverviewTests(unittest.TestCase):
         vitals = self.overview["leagueVitals"]
         self.assertEqual(vitals["seasonsCovered"], 2)
         self.assertGreaterEqual(vitals["totalTrades"], 2)
+        self.assertEqual(vitals["managers"], len(self.snapshot.managers.ordered_managers()))
+
+    def test_league_vitals_managers_matches_directory_with_retiree_present(self) -> None:
+        """V1-96 residual: leagueVitals is the CURRENT-STATE "At a glance"
+        card and renders beside the same payload's ``league.managers``
+        directory (``to_public_list()``, retirees excluded).  Its count
+        must therefore be the directory's count — the all-time count
+        including retirees is a different quantity and would need its own
+        label.  A retiree is present so the assertion discriminates:
+        counting ``by_owner_id`` (pre-fix) gives directory + retirees.
+        """
+        snapshot = build_test_snapshot()
+        # owner-X held a roster in 2024 only — flag them retired the way
+        # build_manager_registry models it (Manager.is_retired).
+        snapshot.managers.by_owner_id["owner-X"].is_retired = True
+
+        directory_count = len(snapshot.managers.ordered_managers())
+        # Discrimination guard: with the retiree flagged, the all-time
+        # count and the directory count genuinely differ.
+        self.assertEqual(len(snapshot.managers.by_owner_id), directory_count + 1)
+
+        payload = build_section_payload(snapshot, "overview")
+        vitals = payload["data"]["leagueVitals"]
+        self.assertEqual(
+            vitals["managers"],
+            directory_count,
+            msg=(
+                "leagueVitals.managers must count the forward-facing manager "
+                "directory it renders beside, not by_owner_id (which includes "
+                "retirees)"
+            ),
+        )
 
     def test_most_decorated_franchise(self) -> None:
         top = self.overview["mostDecoratedFranchise"]

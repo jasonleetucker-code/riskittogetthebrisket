@@ -25,6 +25,21 @@ overwrite respectively), which is what proves the defect was in the
 accumulator specifically, not in "season" as a concept the module
 lacked.
 
+> **CORRECTION (2026-08-24, V1-52 follow-up 2).** The sentence above is
+> **wrong about `recentAvg`**, and wrong in the direction that matters:
+> it cites as *proof of correctness* the very gate that was the defect.
+> `if season is seasons_sorted[-1]:` is not a season scope — the
+> accumulation loop `continue`s past a scoreless season *before* that
+> line, so whenever the newest season in the snapshot has no scores yet
+> (every preseason, including the state production is in now) the guard
+> never fires for any season, `last_season_recent` stays empty for every
+> owner, and `recent` resolves to a shared 0.5 percentile carrying a
+> 0.12 weight. Repaired by binding all six accumulators to the last
+> **scored** season; full record in
+> `docs/power/V1_52_RECENT_SEASON_BINDING.md`. The original sentence is
+> left standing rather than rewritten, because a
+> documented-as-verified falsehood is itself part of the record.
+
 **REPRODUCED: YES**, confirmed by a two-season fixture
 (`tests/ros/test_power_v2_season_scoping.py`) before any fix — see the
 mutation transcript below for the exact RED state.
@@ -139,6 +154,14 @@ bravo's 0.75 (bravo, the real season-2 leader, ranks ahead). Buggy
 - `recentAvg` and `all_play` were already correct and remain correct,
   with exact expected values asserted in the new fixture (not merely
   "test still passes").
+  > **CORRECTED 2026-08-24** — see the correction at the top of this
+  > document. `recentAvg` was **not** correct: it was measured only when
+  > the newest season in the snapshot happened to carry scores, which no
+  > preseason satisfies. This fixture asserted exact values and still
+  > missed it, because the fixture gives its current season real scores
+  > and so never reaches the failing state. Fixed in
+  > `docs/power/V1_52_RECENT_SEASON_BINDING.md`; `all_play` was
+  > genuinely correct and stays so.
 - Unrankable stays a refusal (`powerScore`/`rank` stay `None`, never
   `0.0`) — unaffected, confirmed via the existing proven
   `test_power_unrankable.py` fixture shape.

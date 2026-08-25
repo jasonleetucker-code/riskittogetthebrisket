@@ -5336,6 +5336,13 @@ def _inject_far_future_pick_sources(
     tier entry is left untouched, so the moment vendors publish e.g.
     2029 this no-ops for that year ("pivot when sources add them").
 
+    POPULATION NOTE (V1-132 / audit F-34): this function sees the RAW
+    payload only, where just the in-JSON pick markets carry values —
+    ``ktcSfTep``'s pick values arrive through the later CSV enrichment.
+    :func:`_complete_synthetic_pick_sources_from_enrichment` runs after
+    that enrichment and extends this same derivation to the enriched
+    per-source evidence, so the horizon year blends both pick markets.
+
     Returns the per-build derivation map (canonical match key → record).
     Its length is the number of synthetic raw entries added, and its keys
     are the synthetic-name set the single-source gate allowlists.  It is
@@ -5425,6 +5432,124 @@ def _inject_far_future_pick_sources(
             added += 1
         years_with_tiers.add(year)
     return derivations
+
+
+def _complete_synthetic_pick_sources_from_enrichment(
+    players_array: list[dict[str, Any]],
+    synthetic_pick_derivations: Mapping[str, dict[str, Any]],
+) -> int:
+    """Extend the far-future derivation to CSV-enriched source evidence.
+
+    AUDIT F-34 (V1-132).  :func:`_inject_far_future_pick_sources` clones
+    the template year's entry out of ``players_by_name`` — the RAW
+    scraper payload — and that population is strictly poorer than the
+    one the canonical board blends for the same template year:
+    ``ktcSfTep``'s pick values arrive through the LATER
+    ``_enrich_from_source_csvs`` pass, which the injection structurally
+    cannot see.  So the published years (both pick markets on every tier
+    row) blended two markets while the horizon year blended
+    ``idpTradeCalc`` alone on all twelve tier cells — a single-vendor
+    dependency on exactly the rows with the least direct evidence.
+
+    The injection cannot simply move after the enrichment: it must run
+    against ``players_by_name`` BEFORE ``players_array`` is derived so
+    the synthetic rows exist as rows (and as legacy dict entries) at
+    all, and the enrichment loop itself needs those rows to exist to
+    stamp anything.  The pipeline's own structure — rows built once,
+    then enriched in place — therefore supports the converse ordering:
+    hand the injection's derivation the enriched evidence, in place, per
+    synthetic row.
+
+    Same derivation, wider population — nothing about the model changes:
+
+      * a source key present (positive) on the TEMPLATE row but absent
+        on the synthetic row is filled with ``template × step ** gap``,
+        the identical ``derivedYearModel`` cell step and compounding the
+        injection applies to the raw per-source values (through the one
+        shared :func:`_year_step_for`);
+      * a value the injection already stepped at the raw layer is left
+        alone — never re-stepped, never overwritten;
+      * a source the template row does not carry stays MISSING
+        (C1-U6-D1: a year a source did not publish is the key's
+        absence), so a source publishing no picks contributes nothing;
+      * provenance is untouched — the rows keep their
+        ``derived_year_step`` record; nothing here can promote a
+        derivation to ``direct_market_blend``.
+
+    Chained templates are processed in ascending target-year order so a
+    horizon two years past the last published year (whose template is
+    itself synthetic) reads its template's completed values.
+
+    In practice the enrichment-only pick sources are the value-signal
+    pick markets — today exactly ``ktcSfTep`` — but the rule is the
+    injection's own (every positive per-source value on the template),
+    not a source list to keep in step.
+
+    Returns the number of per-source values stamped.  Runs immediately
+    after ``_enrich_from_source_csvs`` in :func:`build_api_data_contract`
+    and mutates only the synthetic rows' ``canonicalSiteValues``;
+    ``_compute_unified_rankings`` recomputes ``sourceCount`` /
+    ``sourcePresence`` from those, and the backbone's synthetic-row
+    exclusion (C1-U6 follow-up 2) already keeps every value written here
+    out of the cross-market ladder.
+    """
+    if not synthetic_pick_derivations:
+        return 0
+    cfg = _load_pick_year_discount()
+    rows_by_key: dict[str, dict[str, Any]] = {}
+    for row in players_array:
+        if not isinstance(row, dict) or row.get("assetClass") != "pick":
+            continue
+        key = _canonical_match_key(str(row.get("canonicalName") or ""))
+        if key:
+            rows_by_key[key] = row
+
+    def _target_year(item: tuple[str, dict[str, Any]]) -> int:
+        row = rows_by_key.get(item[0])
+        if isinstance(row, dict):
+            m = _PICK_TIER_RE.match(str(row.get("canonicalName") or "").strip())
+            if m:
+                return int(m.group(1))
+        return 0
+
+    stamped = 0
+    for match_key, record in sorted(synthetic_pick_derivations.items(), key=_target_year):
+        row = rows_by_key.get(match_key)
+        if not isinstance(row, dict):
+            continue
+        template = rows_by_key.get(_canonical_match_key(str(record.get("basisName") or "")))
+        if not isinstance(template, dict):
+            continue
+        m = _PICK_TIER_RE.match(str(row.get("canonicalName") or "").strip())
+        if not m:
+            continue
+        year, tier, rnd = int(m.group(1)), m.group(2), int(m.group(3))
+        try:
+            basis_year = int(record["basisYear"])
+        except (KeyError, TypeError, ValueError):
+            # No recorded basis year -> REFUSE to derive.  ``or 0`` here
+            # would fabricate gap = year - 0 and drive step**gap to ~0,
+            # stamping a 0.0 that reads as a real value — missing is
+            # never zero, and never a fabricated basis either.
+            continue
+        gap = year - basis_year
+        if gap <= 0:
+            continue
+        factor = _year_step_for(tier, rnd, cfg) ** gap
+        template_sites = template.get("canonicalSiteValues")
+        row_sites = row.get("canonicalSiteValues")
+        if not isinstance(template_sites, dict) or not isinstance(row_sites, dict):
+            continue
+        for source_key, template_value in template_sites.items():
+            t_num = _safe_num(template_value)
+            if t_num is None or t_num <= 0:
+                continue  # the template does not carry it → MISSING stays missing
+            existing = _safe_num(row_sites.get(source_key))
+            if existing is not None and existing > 0:
+                continue  # already derived at injection — never re-stepped
+            row_sites[source_key] = round(float(t_num) * factor, 1)
+            stamped += 1
+    return stamped
 
 
 def current_rookie_draft_year(today: date | None = None) -> int:
@@ -5749,32 +5874,25 @@ def _stamp_rank_changes(
     # it either.  The rollback lever CLAUDE.md documents is real; the
     # inventory that would tell an operator it exists is not.
     #
-    # Registering it in ``_DEFAULTS`` is the obvious repair and was attempted.
-    # It is refused by ``tests/api/test_feature_flags.py``, which requires
-    # every defaulted-ON flag to be classified either ``safe_on`` (additive,
-    # inert, cannot move a number) or ``value_moving_on`` (with a MEASURED
-    # blast radius).  This flag is neither cheaply: it MUTATES THE CONTRACT —
-    # ON stamps ledger-derived ``rankChange``, OFF stamps ``None`` — so the
-    # ``safe_on`` standard ``perfect_draft`` meets ("writes no value, mutates
-    # no contract") does not hold, and ``value_moving_on`` demands a
-    # measurement.
-    #
-    # That measurement needs the temporal ledger and a built board.  With no
-    # ``data/temporal_ledger.sqlite`` present BOTH branches stamp ``None``,
-    # so an on/off diff taken without it reports "0 rows changed" — a vacuous
-    # figure that would read as evidence.  Recording that would be worse than
-    # recording nothing.
-    #
-    # To close F-24: measure ON vs OFF over a real board with the ledger
-    # present (which rows' ``rankChange`` becomes ``None``, and the
-    # distribution of the non-null values), then register the flag carrying
-    # that blast radius.  Until then this direct read stays, documented.
-    import os as _os
+    # F-24 CLOSED 2026-08-25 (V1-87).  The paragraph above records why the
+    # flag could not be registered without a measurement, and the
+    # measurement now exists: Lane 4 on-box run 32843495391 (deployed
+    # ``8537aa4c2``, ledger present, 37 recorded board dates) measured ON
+    # deriving a non-null ``rankChange`` for 743 of 749 ranked rows on the
+    # 2026-08-25 board (comparator 2026-08-24) against a structurally
+    # all-None OFF.  The flag is registered in ``feature_flags._DEFAULTS``
+    # carrying that blast radius, classified ``value_moving_on``, and this
+    # site now reads through the ONE registry owner rather than the
+    # environment directly — so /api/status, ``snapshot()`` and the
+    # reachability test finally see the rollback lever CLAUDE.md documents.
+    # Registry reads are cached per process (same convention as
+    # ``bdvm_engine``); tests that flip the env mid-process call
+    # ``feature_flags.reload()``.
+    from src.api import feature_flags as _feature_flags
 
-    flag = _os.environ.get("RISKIT_FEATURE_LEDGER_RANK_CHANGE", "1").strip().lower()
     previous: dict[str, tuple[str, int]] = {}
     _history_keys = None
-    if flag not in ("0", "false", "off"):
+    if _feature_flags.is_enabled("ledger_rank_change"):
         # Every src.history touch — the keys import included — sits
         # inside one guard: a history failure (or the rollback flag)
         # must not break the contract build, and the degraded stamp is
@@ -5840,6 +5958,58 @@ _TWO_WAY_PLAYERS: dict[str, str] = {
     # Travis Hunter — CU / JAX corner-WR two-way player.  Listed WR.
     "Travis Hunter": "DB",
 }
+
+
+def _family_evidence_for_row(
+    *,
+    row: dict[str, Any],
+    effective_source_ranks: dict[str, Any],
+    effective_source_meta: dict[str, dict[str, Any]],
+    src_by_key: dict[str, dict[str, Any]],
+    family_by_key: dict[str, str],
+    fresh_by_source: dict[str, bool | None],
+) -> list["FamilyEvidence"]:
+    """Assemble the B11 gate's per-family evidence for one row.
+
+    ONE assembly, TWO callers: the ranked path and the off-cap player
+    value pass (#1101).  Extracted rather than transcribed, because a
+    second copy of this block would be a second confidence methodology —
+    ``src/api/confidence.py`` owns what the levels MEAN and this owns
+    what evidence it is shown, and both halves need exactly one owner.
+
+    Decides no level.  Every judgement below is about what a source
+    contribution IS, not about how good it is.
+    """
+    row_is_te = str(row.get("position") or "").strip().upper() == "TE"
+    evidence: list[FamilyEvidence] = []
+    for skey in effective_source_ranks:
+        smeta = effective_source_meta.get(skey) or {}
+        # Family-superseded members are not independent evidence;
+        # B10-T3b already excluded them from the blend.
+        if smeta.get("contributedToBlend") is False:
+            continue
+        method = str(smeta.get("method") or "")
+        src_def = src_by_key.get(skey, {})
+        evidence.append(
+            FamilyEvidence(
+                family=family_by_key.get(skey, skey),
+                source_key=skey,
+                value_contribution=smeta.get("valueContribution"),
+                fresh=fresh_by_source.get(skey),
+                # ADR-015 lifts a non-TEP source's TE row onto the
+                # TE++ basis the board is anchored on.  A measured
+                # conversion, not a native observation.
+                format_native=(not row_is_te) or bool(src_def.get("is_tep_premium")),
+                # An approximating translation — rookie ladder or
+                # backbone fallback — is a guess at where the
+                # source would have placed the player.
+                directly_observed=(
+                    method != TRANSLATION_FALLBACK
+                    and not method.startswith("rookie_ladder_translation")
+                ),
+            )
+        )
+    return evidence
 
 
 def _restate_confidence_after_override(
@@ -7670,10 +7840,14 @@ def _complete_future_pick_values(
     # scraper payload — and that population is strictly poorer than the one the
     # canonical board uses for the same template year: ``ktcSfTep``'s pick
     # values arrive through the LATER CSV enrichment, which correctly carries no
-    # far-future year to enrich a synthetic row with.  A synthetic row can
-    # therefore only ever vote on the in-JSON sources, and when those thin out
-    # it is left with no voting source at all.  No voter means no rank, no rank
-    # means no ``rankDerivedValue``.
+    # far-future year to enrich a synthetic row with.  Since V1-132 (F-34) the
+    # post-enrichment ``_complete_synthetic_pick_sources_from_enrichment`` pass
+    # steps the TEMPLATE row's enriched values onto the synthetic rows, so a
+    # synthetic row normally votes on both pick markets — but that pass can
+    # only widen what the template row carries.  When the template's evidence
+    # itself thins out (in-JSON AND CSV), a synthetic row is still left with no
+    # voting source at all.  No voter means no rank, no rank means no
+    # ``rankDerivedValue``.
     #
     # Measured 2026-08-18: the 17:11Z scrape's in-JSON ``idpTradeCalc`` pick
     # values collapsed to the round-1 tiers while BOTH vendor CSVs stayed
@@ -10030,35 +10204,14 @@ def _compute_unified_rankings(
             # five axes over B10 family HEADS, combined by bottleneck.
             # Everything this loop does here is ASSEMBLE the evidence —
             # no level is decided in this file.
-            row_is_te = str(row.get("position") or "").strip().upper() == "TE"
-            evidence: list[FamilyEvidence] = []
-            for skey in effective_source_ranks:
-                smeta = effective_source_meta.get(skey) or {}
-                # Family-superseded members are not independent evidence;
-                # B10-T3b already excluded them from the blend.
-                if smeta.get("contributedToBlend") is False:
-                    continue
-                method = str(smeta.get("method") or "")
-                src_def = src_by_key.get(skey, {})
-                evidence.append(
-                    FamilyEvidence(
-                        family=family_by_key.get(skey, skey),
-                        source_key=skey,
-                        value_contribution=smeta.get("valueContribution"),
-                        fresh=fresh_by_source.get(skey),
-                        # ADR-015 lifts a non-TEP source's TE row onto the
-                        # TE++ basis the board is anchored on.  A measured
-                        # conversion, not a native observation.
-                        format_native=(not row_is_te) or bool(src_def.get("is_tep_premium")),
-                        # An approximating translation — rookie ladder or
-                        # backbone fallback — is a guess at where the
-                        # source would have placed the player.
-                        directly_observed=(
-                            method != TRANSLATION_FALLBACK
-                            and not method.startswith("rookie_ladder_translation")
-                        ),
-                    )
-                )
+            evidence = _family_evidence_for_row(
+                row=row,
+                effective_source_ranks=effective_source_ranks,
+                effective_source_meta=effective_source_meta,
+                src_by_key=src_by_key,
+                family_by_key=family_by_key,
+                fresh_by_source=fresh_by_source,
+            )
             # Kept so a LATER post-blend override that moves this row's
             # value can re-state its confidence against the value that
             # actually shipped.  See ``_restate_confidence_after_override``.
@@ -10145,39 +10298,127 @@ def _compute_unified_rankings(
                 if "idpTradeCalc" in source_ranks:
                     pdata["idpRank"] = source_ranks["idpTradeCalc"]
 
-    # ── Phase 4b': off-cap pick value stamping (C1-U6, RED-1) ──
+    # ── Phase 4b': off-cap VALUE stamping (C1-U6 RED-1; #1101) ──
     #
     # ``OVERALL_RANK_LIMIT`` is a RANK concept: the board publishes 800
-    # ranked rows.  For PLAYER rows past the cap, withholding the value
-    # is deliberate top-board behavior and is untouched here.  A PICK
-    # row that voted, though, is a valid tradeable asset whose canonical
-    # value must exist regardless of where it sorts (manifest
-    # C1-PICK-01: "every valid pick through 2029 has a finite canonical
-    # value") — the rookie-anchor pass already takes exactly this
-    # posture for current-year slot picks ("anchor regardless of
-    # whether the pick survived the cap").  Measured before this pass:
-    # five voted 2029 tier rows published ``rankDerivedValue: None``
-    # with their discount stamp already on the row.  Value only — no
-    # rank, no tier, no percentile: those stay capped.
+    # ranked rows.  It is NOT a claim that the 801st asset is worthless,
+    # and #1101 separates the two questions outright:
+    #
+    #   A. canonical VALUE availability   — does this asset have a price?
+    #   B. canonical TOP-BOARD membership — does it get a rank and tier?
+    #
+    # The cap answers B and only B.  So every row past it that VOTED —
+    # a pick, or a player carrying at least one matched trusted dynasty
+    # source and a positive canonical blend — keeps the value the
+    # pipeline has ALREADY computed for it.  Value only: no rank, no
+    # tier, no percentile, no standing.  A row here legitimately
+    # publishes ``rankDerivedValue > 0`` beside
+    # ``canonicalConsensusRank: None`` / ``canonicalTierId: None``, and
+    # that pairing is the intended shape, not an inconsistency.
+    #
+    # The pick half landed first (manifest C1-PICK-01: "every valid pick
+    # through 2029 has a finite canonical value"), mirroring the posture
+    # the rookie-anchor pass already took for current-year slot picks.
+    # The PLAYER half is #1101: measured on the 2026-08-25 board, 186
+    # players past the cap carried real source ranks and a positive
+    # blend (155..1186) and published ``rankDerivedValue: None`` — Trey
+    # Lance among them, with 8 sources and a blend of 1102.  A rank cap
+    # withholding a rank is top-board policy; a rank cap erasing a
+    # measured value is evidence loss.
+    #
+    # ``row_normalized`` is built from ``row_source_ranks``, so ARRIVING
+    # here is itself the evidence gate: a row nothing matched never
+    # enters this list and stays unpriced.  MISSING IS NEVER ZERO — and
+    # never ``DISPLAY_SCALE_MIN`` either.  Nothing below invents a value
+    # for a row that has none; it publishes the one already computed.
     for norm_val, row_idx in row_normalized[OVERALL_RANK_LIMIT:]:
         row = players_array[row_idx]
-        if row.get("assetClass") != "pick":
+        if norm_val <= 0:
+            # No positive canonical evidence to publish.  Leave the row
+            # unpriced rather than floor it up to 1 — a floor is what a
+            # real value is held ABOVE, not what a missing one becomes.
             continue
-        derived = int(norm_val)
-        if derived <= 0:
-            continue
-        row["rankDerivedValue"] = derived
-        row["offCapPickValue"] = True
-        is_slot_specific = _parse_pick_slot(row.get("canonicalName") or "") is not None
-        bucket, label = assess_pick_confidence(
-            row.get("canonicalSiteValues") or {},
-            is_slot_specific=is_slot_specific,
-        )
-        row["confidenceBucket"] = bucket
-        row["confidenceLabel"] = label
-        row["confidenceBasis"] = "pick_dispersion"
-        row["confidenceAxes"] = None
-        row["confidenceReasons"] = None
+        # The canonical scale's own minimum, from the scale's owner
+        # (``player_valuation.DISPLAY_SCALE_MIN``); no second literal is
+        # declared here.  The ranked path's ``int(norm_val)`` truncates,
+        # so a blend of 0.6 — real evidence, genuinely tiny — would
+        # otherwise be published as exactly the 0 this pass exists to
+        # stop manufacturing.
+        #
+        # Stated plainly: on the live board this floor is DEFENSIVE and
+        # binds nothing.  The Hill tail puts the deepest off-cap blend at
+        # 155, three orders of magnitude clear of it.  It is here because
+        # the correct rule is "positive evidence publishes at least the
+        # scale minimum", not because a row was measured needing it — and
+        # a floor that only appears once something has already been
+        # rounded to zero is a floor added too late.
+        derived = max(_CANONICAL_VALUE_MIN, int(norm_val))
+
+        if row.get("assetClass") == "pick":
+            row["rankDerivedValue"] = derived
+            row["offCapPickValue"] = True
+            is_slot_specific = _parse_pick_slot(row.get("canonicalName") or "") is not None
+            bucket, label = assess_pick_confidence(
+                row.get("canonicalSiteValues") or {},
+                is_slot_specific=is_slot_specific,
+            )
+            row["confidenceBucket"] = bucket
+            row["confidenceLabel"] = label
+            row["confidenceBasis"] = "pick_dispersion"
+            row["confidenceAxes"] = None
+            row["confidenceReasons"] = None
+        else:
+            source_ranks = row_source_ranks.get(row_idx) or {}
+            if not source_ranks:
+                # Unreachable by construction (see above); kept as the
+                # structural guard that says so, because the day the
+                # blend loop's input widens, this is the line that must
+                # refuse rather than the one that prices a stranger.
+                continue
+            source_meta = row_source_meta.get(row_idx, {})
+            dropped_set = set(row.get("droppedSources") or [])
+            effective_source_ranks = {k: v for k, v in source_ranks.items() if k not in dropped_set}
+            effective_source_meta = {k: v for k, v in source_meta.items() if k not in dropped_set}
+            row["rankDerivedValue"] = derived
+            row["offCapPlayerValue"] = True
+            # Publish the post-Hampel set the assessment below was read
+            # from.  Leaving the template's ``{}`` on a row that now
+            # carries a price would assert "no source survived" about a
+            # row priced by the survivors.
+            row["effectiveSourceRanks"] = effective_source_ranks
+            # Confidence comes from the SAME owner and the SAME evidence
+            # assembly the ranked path uses — no off-cap methodology, and
+            # nothing here promotes a row for being priced.  Whatever the
+            # gate returns is what ships: on the live board these rows
+            # answer ``low``, because coverage/agreement are genuinely
+            # thin this deep, which is the truthful answer rather than a
+            # flattering one.
+            evidence = _family_evidence_for_row(
+                row=row,
+                effective_source_ranks=effective_source_ranks,
+                effective_source_meta=effective_source_meta,
+                src_by_key=src_by_key,
+                family_by_key=family_by_key,
+                fresh_by_source=fresh_by_source,
+            )
+            # Registered so a LATER post-blend override that moves this
+            # row's value re-states its confidence against the number
+            # that actually shipped, exactly as for a ranked row.
+            row_confidence_inputs[row_idx] = (
+                evidence,
+                row_eligible_families.get(row_idx, set()),
+            )
+            assessment = assess_confidence(
+                evidence,
+                eligible_families=row_eligible_families.get(row_idx, set()),
+                consensus_value=derived,
+            )
+            row["confidenceBucket"] = assessment.overall
+            row["confidenceLabel"] = assessment.label
+            row["confidenceBasis"] = "evidence_gate"
+            row["confidenceAxes"] = dict(assessment.axes)
+            row["confidenceReasons"] = list(assessment.reasons)
+
         legacy_ref = row.get("legacyRef")
         if legacy_ref and legacy_ref in players_by_name:
             pdata = players_by_name[legacy_ref]
@@ -11126,6 +11367,14 @@ def build_api_data_contract(
     csv_index = _enrich_from_source_csvs(
         players_array, parse_errors=source_parse_errors, csv_root=csv_root
     )
+
+    # V1-132 / audit F-34: the far-future injection above ran against the
+    # RAW payload, where only the in-JSON pick markets exist; the CSV
+    # enrichment has now put ``ktcSfTep``'s pick values on the template
+    # year's rows.  Extend the SAME derivation (same cell step, same
+    # compounding, same provenance) to that enriched evidence so the
+    # horizon year blends both pick markets like every published year.
+    _complete_synthetic_pick_sources_from_enrichment(players_array, synthetic_pick_derivations)
 
     # Post-enrichment position guardrail: CSV enrichment happens AFTER
     # _derive_player_row, so the in-row guardrail there runs against an

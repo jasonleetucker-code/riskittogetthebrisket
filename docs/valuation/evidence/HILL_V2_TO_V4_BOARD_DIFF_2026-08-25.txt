@@ -1,0 +1,38 @@
+====================================================================
+BOARD DIFF  v2.json -> v4.json
+====================================================================
+      rows: 1111 -> 1111
+    ranked: 740 -> 740
+    priced: 849 -> 849
+     picks: 162 -> 162
+       idp: 398 -> 398
+
+  VALUES: 771 moved, 3 newly priced, 3 newly unpriced
+    |pct change|  p50=0.8%  p90=1.9%  max=4.1%
+    Zavion Thomas                         1451 ->    1392  (-4.1%)
+    Noah Fant                             1843 ->    1771  (-3.9%)
+    Quincy Williams                       2164 ->    2240  (+3.5%)
+    Brenen Thompson                       1540 ->    1486  (-3.5%)
+    Colby Parkinson                       2175 ->    2113  (-2.9%)
+    Dalton Schultz                        2761 ->    2687  (-2.7%)
+    Colbie Young                          1231 ->    1199  (-2.6%)
+    Adam Thielen                          1277 ->    1245  (-2.5%)
+    Nate Boerkircher                      1578 ->    1541  (-2.3%)
+    Joe Flacco                            1260 ->    1231  (-2.3%)
+    Malik Benson                          1363 ->    1332  (-2.3%)
+    CJ Daniels                            1296 ->    1267  (-2.2%)
+    Raheim Sanders                        1263 ->    1235  (-2.2%)
+    J'Mari Taylor                         1264 ->    1236  (-2.2%)
+    Roschon Johnson                       1241 ->    1214  (-2.2%)
+    newly UNPRICED: Deion Burks, Tutu Atwell, Xavier Restrepo
+
+  RANKS: 649 changed
+
+  LABELS:
+    canonicalTierId            646 flipped   e.g. 2027 Early 2nd: 17 -> 18
+    confidenceBucket            45 flipped   e.g. Adam Randall: high -> medium
+    confidenceLabel             50 flipped   e.g. Adam Randall: High — every axis high -> Medium — limited by agreement
+    marketGapDirection           7 flipped   e.g. Brevin Jordan: consensus_premium -> retail_premium
+    hasSourceDisagreement        1 flipped   e.g. Alim McNeill: False -> True
+
+  SOURCE COVERAGE: 15 rows vote differently

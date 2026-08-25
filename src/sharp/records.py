@@ -335,6 +335,15 @@ def crawl_records(
                 for row in rows:
                     touched_managers.add(row["user_id"])
                 _store_rows(rows, conn=conn)
+                # Commit PER SEASON, not once for the whole crawl.  Every
+                # iteration of this loop does network I/O, so a single
+                # end-of-crawl commit held the SQLite writer lock across
+                # the entire budget — measured on prod as an hour-long
+                # write transaction overlapping the 05:20 FFPC ingestion
+                # window, the same lock contention V1-59 names.  Rows
+                # upsert on (league_id, season, user_id), so per-season
+                # durability changes no outcome — only the lock window.
+                conn.commit()
 
                 current = str(league.get("previous_league_id") or "")
         conn.commit()

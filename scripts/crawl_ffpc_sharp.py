@@ -59,6 +59,14 @@ def _sources(config: dict[str, Any], only: str | None) -> list[dict[str, Any]]:
     return sources
 
 
+#: How long the FAILURE recorder may wait for the ledger write lock.
+#: Deliberately far below the 30 s connection default: it is reached
+#: only when the primary work already lost that lock, on a unit that
+#: may be seconds from SIGKILL, and a long wait there costs the report
+#: without making the write any likelier to land.
+_FAILURE_RECORD_BUSY_TIMEOUT_MS = 2000
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--public-only", action="store_true")
@@ -108,6 +116,30 @@ def main() -> int:
         adapter = FFPCAdapter.from_config(config, players_directory=players, repo_root=REPO_ROOT)
         if not args.dry_run:
             platform_ledger.ensure_platform_schema().close()
+            # Claim the run BEFORE the heavy work.
+            #
+            # V1-59: this process can die without ever recording an
+            # outcome — SIGKILL at ``TimeoutStartSec``, or its own
+            # failure-recording write losing the same lock the primary
+            # work lost.  ``platform_coverage`` reports the newest row per
+            # platform, so with no row for this attempt it kept surfacing
+            # the previous SUCCESS, and a crashlooping collector read as a
+            # healthy one.
+            #
+            # A ``running`` row with ``finished_ms`` NULL is the truthful
+            # third state: something started here and never reported an
+            # outcome.  Every terminal path below upserts over it by
+            # ``run_id``, so a run that DOES finish is unaffected.
+            platform_ledger.record_ingestion_run(
+                run_id=run_id,
+                platform="ffpc",
+                source_ref=args.source_league,
+                started_ms=started,
+                finished_ms=None,
+                status="running",
+                counters=counters,
+                metadata={"publicOnly": True},
+            )
             platform_ledger.hydrate_sleeper_asset_catalog(players)
 
         if args.fixture:
@@ -289,9 +321,22 @@ def main() -> int:
                 counters=counters,
                 error={"type": type(exc).__name__, "message": str(exc)},
                 metadata={"publicOnly": True},
+                # Bounded so the recorder cannot inherit the 30 s wait that
+                # caused the failure it is reporting.  If it still loses the
+                # lock the ``running`` row claimed at the top stands, which
+                # is why this may be short without losing the truth.
+                busy_timeout_ms=_FAILURE_RECORD_BUSY_TIMEOUT_MS,
             )
         except Exception:  # noqa: BLE001
-            log.exception("could not persist FFPC failure report")
+            # NOT swallowed: logged at exception level, the process still
+            # exits non-zero, and the ``running`` row remains as the
+            # durable statement that this attempt never completed.
+            log.exception(
+                "could not persist FFPC failure report — run %s stays "
+                "recorded as 'running' with no finish, which is the "
+                "truthful state, not a success",
+                run_id,
+            )
         return 1
 
 

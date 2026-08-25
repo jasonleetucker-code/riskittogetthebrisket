@@ -223,7 +223,19 @@ def _per_season_metrics_for_league(
         sample = _m.top_n_by_position(scores, pos, n)
         per_pos[pos] = _m.position_metrics(sample)
         sample_union.extend(sample)
-    flex_n = int(sample_sizes.get("FLEX", 96))
+    # W18-F005 residual (V1-25): FLEX is deliberately NOT derived from the
+    # roster shape — see _sample_sizes_from_roster_settings — so it must be
+    # an EXPLICIT config value.  The retired ``.get("FLEX", 96)`` default
+    # silently substituted one hand-typed league's comparison pool whenever
+    # the key was missing; a missing value is now an error naming its
+    # config, never another league's lineup.
+    if "FLEX" not in sample_sizes:
+        raise ValueError(
+            "league-comparison sample sizes carry no FLEX pool size; it is a "
+            "plain config value (config/league_comparison.json sample_sizes.FLEX) "
+            "and there is deliberately no default"
+        )
+    flex_n = int(sample_sizes["FLEX"])
     flex_sample = _m.flex_top_n(scores, n=flex_n)
     flex_metrics = _m.position_metrics(flex_sample)
     return per_pos, flex_metrics, sample_union

@@ -37,9 +37,9 @@ const MAX_PLAYERS = 12;
 const MAX_NAV = 6;
 const EMPTY_QUERY_NAV = 8;
 
-function matchNavTargets(query) {
+function matchNavTargets(query, capabilities) {
   const q = query.trim().toLowerCase();
-  const targets = paletteTargets();
+  const targets = paletteTargets({ capabilities });
   if (!q) return targets.slice(0, EMPTY_QUERY_NAV);
   // token grammar (pos:/owner:/team:) is always a player search
   if (q.includes(":")) return [];
@@ -57,6 +57,7 @@ function matchNavTargets(query) {
 export default function CommandPalette({
   rows = [],
   teamByPlayer = null,
+  capabilities = null,
   isOpen,
   onClose,
   onSelect,
@@ -92,7 +93,7 @@ export default function CommandPalette({
     return matched.slice(0, MAX_PLAYERS).map((m) => m[2]);
   }, [rows, q, teamByPlayer]);
 
-  const navResults = useMemo(() => matchNavTargets(q), [q]);
+  const navResults = useMemo(() => matchNavTargets(q, capabilities), [q, capabilities]);
 
   // Flat option list: players first (dominant use), then navigation.
   const options = useMemo(
