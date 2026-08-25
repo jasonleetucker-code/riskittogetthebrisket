@@ -1609,16 +1609,128 @@ def check_league_population_difference(report: Report, *, ledger_path: Path | No
     )
 
 
-def record_blocked_rows(report: Report, unauth_detail: str | None) -> None:
+def check_cohort_population_onbox(report: Report, *, ledger_path: Path | None = None) -> None:
+    """V1-58 — the sharp cohort, resolved in-process from the deployed stores.
+
+    Over HTTPS this row needs an authenticated ``/api/sharp/cohort`` read.
+    On the box the SAME population is resolvable in-process through the one
+    canonical owner — ``src/sharp/cohort.py::cohort_members`` — which is the
+    identical pattern ``run_onbox`` already trusts when it builds the market
+    and roster-percentage boards from the deployed stores for C1-C3.
+
+    Two honesty rules, both structural:
+
+    * A population of ZERO with the stores PRESENT is a REAL measured
+      answer.  It is reported as PASS with ``populated: false`` — the check
+      verifies MEASURABILITY and reports the population truthfully.  It is
+      never converted to FAILED (an empty cohort is a finding, not a broken
+      verifier) and never presented as a populated cohort.
+    * Absent stores are BLOCKED.  Empty-here is only evidence when the
+      store is actually here.
+    """
+    check = report.add(
+        Check("V58", "V1-58", "sharp cohort resolved in-process from the deployed stores")
+    )
+    try:
+        from src.intel import ledger as intel_ledger
+        from src.sharp.cohort import cohort_members, load_ffpc_config
+    except Exception as exc:  # pragma: no cover - deployment shape
+        check.status = ERROR
+        check.detail = f"could not import the cohort owner: {exc!r}"
+        return
+
+    path = Path(ledger_path) if ledger_path else intel_ledger.default_path()
+    if not path.exists():
+        # ``ledger.connect`` (which the cohort owner reaches through
+        # ``ensure_platform_schema``) CREATES an absent file, so presence is
+        # decided here first — this script is read-only.
+        check.status = BLOCKED
+        check.detail = (
+            f"no platform ledger at {path}, so there is no store to resolve the "
+            "cohort from. This is the sandbox/undeployed state — run on the box. "
+            "Not to be closed by manufacturing a cohort."
+        )
+        check.evidence = {"ledgerPresent": False, "ledgerPath": str(path)}
+        return
+
+    try:
+        # The same config-loading path market_payload uses for its own
+        # in-process cohort resolution.
+        members, coverage = cohort_members(
+            qualification="all", ledger_path=path, ffpc_config=load_ffpc_config()
+        )
+    except Exception as exc:
+        check.status = ERROR
+        check.detail = f"cohort_members raised: {exc!r}"
+        return
+
+    by_method: dict[str, int] = {}
+    by_platform: dict[str, int] = {}
+    for member in members:
+        by_method[member.qualification_method] = by_method.get(member.qualification_method, 0) + 1
+        by_platform[member.platform] = by_platform.get(member.platform, 0) + 1
+
+    # Deliberately NOT a population denominator: this check verifies that
+    # the cohort is MEASURABLE here and reports the population truthfully,
+    # and a truthful zero must not be downgraded by the vacuous-pass guard
+    # in ``Check.finalize`` — zero members over present stores is the
+    # measured answer, not an uninspected one.
+    check.denominator = None
+    check.evidence = {
+        "ledgerPresent": True,
+        "memberCount": len(members),
+        "populated": bool(members),
+        "byQualificationMethod": by_method,
+        "byPlatform": by_platform,
+        "coverage": coverage,
+    }
+    check.status = PASS
+    if members:
+        check.detail = (
+            f"cohort resolves in-process to {len(members)} member(s) ({by_method}; "
+            f"platforms {by_platform}); methodology "
+            f"{coverage.get('methodologyVersion')!r}."
+        )
+    else:
+        check.detail = (
+            "the stores are present and the cohort truthfully resolves to ZERO "
+            "members — a real measured answer, reported as populated: false "
+            f"(evidenceManagers={coverage.get('evidenceManagers')}, "
+            f"automated={coverage.get('automatedQualifiedManagers')}, "
+            f"curated={coverage.get('curatedManagers')}, "
+            f"provisional={coverage.get('provisionalManagers')}). Not converted to a "
+            "failure: an empty cohort is a finding about the deployed data, not "
+            "about this check."
+        )
+
+
+def record_blocked_rows(report: Report, unauth_detail: str | None, *, mode: str = "remote") -> None:
     """V1-58 / V1-59 — recorded as BLOCKED, with the credential named.
+
+    V1-59 (a clean journalctl run of the three-pass crawl chain) is blocked
+    in BOTH modes — nothing in this script can observe systemd journals
+    remotely, and the on-box run still needs a human-readable journal pass.
+
+    V1-58 is blocked only in REMOTE mode.  On the box the cohort is resolved
+    IN-PROCESS by :func:`check_cohort_population_onbox`, through the same
+    canonical owner and the same deployed stores that ``run_onbox`` already
+    uses to build the market and roster boards for C1-C3 — so recording the
+    row as blocked there would deny a measurement the run just made.
+    Whether an in-process resolution satisfies the row's L3 (whose wording
+    names an authenticated ``/api/sharp/cohort`` read) is an adjudication
+    call recorded at the contract ledger, not decided by this script; the
+    check reports the measurement and claims nothing about the row's level.
 
     Never closed by standing up a synthetic cohort: a manufactured population
     would verify the manufacture.
     """
-    for row, title in (
+    rows = [
         ("V1-58", "Sharp cohort proven populated in production"),
         ("V1-59", "Sharp bootstrap stops failing"),
-    ):
+    ]
+    if mode == "onbox":
+        rows = [entry for entry in rows if entry[0] != "V1-58"]
+    for row, title in rows:
         check = report.add(Check(f"B{row[-2:]}", row, title))
         check.status = UNVERIFIABLE if unauth_detail else BLOCKED
         check.detail = (
@@ -1787,7 +1899,7 @@ def run_remote(report: Report, args: argparse.Namespace) -> None:
     check_crowd_refusal_reasons(report, faab, source)
     check_faab_recommendation_effect(report, faab, source)
 
-    record_blocked_rows(report, unauth)
+    record_blocked_rows(report, unauth, mode="remote")
 
 
 def run_onbox(report: Report, args: argparse.Namespace) -> None:
@@ -1895,7 +2007,8 @@ def run_onbox(report: Report, args: argparse.Namespace) -> None:
     check_ffpc_lane_is_honest(report)
     check_single_cohort_owner(report)
     check_league_population_difference(report)
-    record_blocked_rows(report, None)
+    check_cohort_population_onbox(report)
+    record_blocked_rows(report, None, mode="onbox")
 
 
 def _git_head() -> str | None:

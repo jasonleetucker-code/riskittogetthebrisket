@@ -860,3 +860,114 @@ class TestLeaguePopulationCensus:
         assert check.status == verify.BLOCKED
         assert check.evidence["ledgerPresent"] is False
         assert not path.exists()
+
+
+# ── V1-58: the in-process cohort resolution ────────────────────────
+
+
+class TestCohortPopulationOnbox:
+    """On the box the cohort is resolvable in-process through the canonical
+    owner — the same pattern run_onbox uses for the market and roster
+    boards. Two honesty rules: a measured zero over present stores is a
+    truthful pass-with-populated-false, and absent stores are blocked."""
+
+    def test_an_absent_store_is_blocked_and_is_not_created(self, tmp_path):
+        path = tmp_path / "absent" / "ledger.sqlite3"
+        report = _report()
+        verify.check_cohort_population_onbox(report, ledger_path=path)
+        check = report.checks[0]
+        assert check.status == verify.BLOCKED
+        assert check.evidence["ledgerPresent"] is False
+        assert not path.exists()
+
+    def test_a_measured_zero_over_present_stores_is_a_truthful_pass(self, tmp_path, monkeypatch):
+        """Zero members with the stores present is a REAL measured answer.
+
+        Not converted to FAILED (an empty cohort is a finding about the
+        deployed data, not about the check), not presented as populated,
+        and not downgraded by the vacuous-pass guard — this check verifies
+        measurability, so its denominator is deliberately None.
+        """
+        from src.sharp import cohort
+
+        path = _intel_ledger(tmp_path, monkeypatch)
+        monkeypatch.setattr(cohort, "load_ffpc_config", lambda path=None: {})
+        # The curated-industry population reads a separate store that may or
+        # may not exist in a dev checkout; pin it empty so this test measures
+        # the automated path over the tmp ledger deterministically.
+        monkeypatch.setattr(cohort, "curated_industry_members", lambda qualification: [])
+        report = _report()
+        verify.check_cohort_population_onbox(report, ledger_path=path)
+        report.finalize()
+        check = report.checks[0]
+        assert check.status == verify.PASS, check.detail
+        assert check.evidence["populated"] is False
+        assert check.evidence["memberCount"] == 0
+        assert "ZERO" in check.detail and "measured" in check.detail
+
+    def test_a_populated_cohort_reports_the_qualification_and_platform_split(
+        self, tmp_path, monkeypatch
+    ):
+        from src.sharp import cohort
+
+        path = _intel_ledger(tmp_path, monkeypatch)
+        members = [
+            cohort.CohortMember("sleeper:u1", "sleeper", "automated_qualified", 0.9),
+            cohort.CohortMember("ffpc:m1", "ffpc", "curated_high_stakes", 0.75),
+        ]
+        coverage = {
+            "automatedQualifiedManagers": 1,
+            "curatedManagers": 1,
+            "provisionalManagers": 0,
+            "evidenceManagers": 5,
+            "methodologyVersion": "sharp-v2-test",
+        }
+        monkeypatch.setattr(cohort, "cohort_members", lambda **kw: (members, coverage))
+        report = _report()
+        verify.check_cohort_population_onbox(report, ledger_path=path)
+        check = report.checks[0]
+        assert check.status == verify.PASS
+        assert check.evidence["populated"] is True
+        assert check.evidence["memberCount"] == 2
+        assert check.evidence["byQualificationMethod"] == {
+            "automated_qualified": 1,
+            "curated_high_stakes": 1,
+        }
+        assert check.evidence["byPlatform"] == {"sleeper": 1, "ffpc": 1}
+        assert check.evidence["coverage"]["methodologyVersion"] == "sharp-v2-test"
+
+
+class TestBlockedRowsModeSplit:
+    """B58 stays blocked only where nothing measured it: REMOTE mode.
+
+    On the box check_cohort_population_onbox resolves the cohort in-process,
+    so recording the row as blocked there would deny a measurement the run
+    just made. B59 stays blocked in both modes.
+    """
+
+    def test_remote_mode_records_both_rows_blocked(self):
+        report = _report()
+        verify.record_blocked_rows(report, None, mode="remote")
+        assert [c.row for c in report.checks] == ["V1-58", "V1-59"]
+        assert all(c.status == verify.BLOCKED for c in report.checks)
+
+    def test_remote_mode_with_a_401_records_both_rows_unverifiable(self):
+        report = _report()
+        verify.record_blocked_rows(report, "401 from /api/sharp/cohort", mode="remote")
+        assert [c.row for c in report.checks] == ["V1-58", "V1-59"]
+        assert all(c.status == verify.UNVERIFIABLE for c in report.checks)
+
+    def test_onbox_mode_keeps_only_b59(self):
+        report = _report()
+        verify.record_blocked_rows(report, None, mode="onbox")
+        assert [c.row for c in report.checks] == ["V1-59"]
+        assert report.checks[0].status == verify.BLOCKED
+
+    def test_run_onbox_actually_registers_the_in_process_check(self):
+        """Non-vacuity: the mode split is only honest if the on-box run
+        REPLACES the blocked row with a measurement rather than dropping it."""
+        import inspect
+
+        source = inspect.getsource(verify.run_onbox)
+        assert "check_cohort_population_onbox(report)" in source
+        assert 'record_blocked_rows(report, None, mode="onbox")' in source
