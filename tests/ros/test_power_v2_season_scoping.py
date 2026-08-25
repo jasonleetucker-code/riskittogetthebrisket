@@ -427,11 +427,24 @@ class TestRecentFormSurvivesAScorelessCurrentSeason:
 
     def test_all_play_also_survives_the_scoreless_season(self):
         """``last_season_allplay_share`` resets alongside it, so the two
-        cannot disagree about which season they describe."""
+        cannot disagree about which season they describe.
+
+        Non-vacuity (V1-52 residual): BOTH of this fixture's owners hold
+        an ``allplay`` key, so the bravo>alpha comparison alone survived
+        the retired ``.get(oid, 0.0)`` default untouched.  The
+        absent-owner fixture is what actually exercises the default arm:
+        carol has no key in the last scored season's share map, and
+        unmeasured must surface as None -- never the 0.0 the default
+        would coerce."""
         out = power_v2.build_section(_preseason_shape_snapshot(), lens=power_v2.LENS_RESULTS_ONLY)
         rows = out["currentRanking"]
         shares = {r["ownerId"]: r["components"]["all_play"] for r in rows}
         assert shares["bravo"] > shares["alpha"]
+        absent = power_v2.build_section(
+            _owner_absent_from_last_scored_season_snapshot(), lens=power_v2.LENS_RESULTS_ONLY
+        )
+        carol = _row(absent["currentRanking"], "carol")["components"]
+        assert carol["all_play"] is None, carol["all_play"]
 
     def test_recent_still_carries_its_declared_weight(self):
         """Guards the other direction: a fix that silently dropped the
@@ -591,6 +604,100 @@ class TestUnmeasuredRecentFormStaysUnknown:
         for row in out["currentRanking"]:
             for key in row["weightsApplied"]:
                 assert row["components"].get(key) is not None, (row["ownerId"], key)
+
+
+class TestUnmeasuredAllPlayStaysUnknown:
+    """Owner invariant, all_play edition (V1-52 residual): the ``recent``
+    repair above left its four-lines-later neighbour coerced --
+    ``state["allplay"].get(oid, 0.0)``.  all_play is an expected share on
+    [0, 1] consumed raw (never percentiled), so the 0.0 default did not
+    even get recent's every-owner-ties-at-0.5 camouflage: it scored a
+    missing owner as the league's WORST all-play performer, at weight
+    0.08.  Same two cases as recent, resolved through the same two
+    mechanisms."""
+
+    # ── (a) nothing measured anywhere ──────────────────────────────────
+
+    def test_no_scored_weeks_drops_all_play_from_the_weight_budget(self):
+        out = power_v2.build_section(_no_scored_weeks_snapshot(), lens=power_v2.LENS_RESULTS_ONLY)
+        assert "all_play" not in (out["effectiveWeights"] or {}), (
+            "an input nothing can supply must renormalise away, not be "
+            "scored at a stand-in value"
+        )
+        assert "all_play" in out["missingInputs"]
+
+    def test_no_scored_weeks_publishes_null_not_zero(self):
+        out = power_v2.build_section(_no_scored_weeks_snapshot(), lens=power_v2.LENS_RESULTS_ONLY)
+        for row in out["currentRanking"]:
+            assert row["components"]["all_play"] is None, row["components"]["all_play"]
+
+    # ── (b) one owner absent from the last scored season ───────────────
+
+    def test_the_absent_owners_all_play_is_null_not_zero(self):
+        out = power_v2.build_section(
+            _owner_absent_from_last_scored_season_snapshot(), lens=power_v2.LENS_RESULTS_ONLY
+        )
+        rows = out["currentRanking"]
+        carol = _row(rows, "carol")["components"]
+        assert carol["all_play"] is None, carol["all_play"]
+        # The measured owners keep real shares -- the null is carol's,
+        # not a league-wide wipe.
+        assert _row(rows, "alpha")["components"]["all_play"] is not None
+        assert _row(rows, "bravo")["components"]["all_play"] is not None
+
+    def test_the_absent_owner_does_not_inherit_a_stale_prior_season(self):
+        """carol dominated 2024's all-play (900 vs 100/110 every week,
+        expectedShare 1.0); none of that may resurface as 2025 form."""
+        out = power_v2.build_section(
+            _owner_absent_from_last_scored_season_snapshot(), lens=power_v2.LENS_RESULTS_ONLY
+        )
+        assert _row(out["currentRanking"], "carol")["components"]["all_play"] != 1.0
+
+    def test_the_absent_owner_is_scored_without_the_unknown_component(self):
+        """Not deflated by a worst-in-league zero -- the weight is simply
+        not applied to this row."""
+        out = power_v2.build_section(
+            _owner_absent_from_last_scored_season_snapshot(), lens=power_v2.LENS_RESULTS_ONLY
+        )
+        rows = out["currentRanking"]
+        carol = _row(rows, "carol")
+        assert "all_play" not in carol["weightsApplied"]
+        assert carol["powerScore"] is not None
+        # The component IS measurable league-wide, so it stays in the
+        # section budget and the owners who have it keep their weight.
+        assert "all_play" in out["effectiveWeights"]
+        assert "all_play" in _row(rows, "alpha")["weightsApplied"]
+
+    def test_a_null_all_play_never_reaches_the_weighted_sum(self):
+        """Mirror of recent's structural sweep, made discriminating for
+        all_play: that sweep passed on the PRE-fix code because the
+        coerced 0.0 is not None -- the weight WAS applied, to a stand-in.
+        This version additionally pins that the absent owner applies no
+        all_play weight at all, so there is no value, real or invented,
+        for it to multiply."""
+        out = power_v2.build_section(
+            _owner_absent_from_last_scored_season_snapshot(), lens=power_v2.LENS_RESULTS_ONLY
+        )
+        for row in out["currentRanking"]:
+            for key in row["weightsApplied"]:
+                assert row["components"].get(key) is not None, (row["ownerId"], key)
+        assert "all_play" not in _row(out["currentRanking"], "carol")["weightsApplied"]
+
+    def test_the_refusal_path_serialises_the_unknown_share_as_null(self):
+        """Forward-looking + preseason with no team-strength file is the
+        every-component-dropped refusal state (the same reachable shape
+        tests/ros/test_power_unrankable.py pins).  carol's unmeasured
+        share must serialise as null there too: the pre-fix ``round()``
+        call would TypeError on None, and a coerced 0.0 would publish a
+        confident worst-in-league share inside the branch whose whole
+        point is refusing to invent numbers."""
+        out = power_v2.build_section(
+            _owner_absent_from_last_scored_season_snapshot(), lens=power_v2.LENS_FORWARD_LOOKING
+        )
+        assert out.get("unrankable"), "fixture must land on the refusal path"
+        rows = out["currentRanking"]
+        assert _row(rows, "carol")["components"]["all_play"] is None
+        assert _row(rows, "alpha")["components"]["all_play"] is not None
 
 
 # ── All three season resets, pinned on one three-season fixture ────────
