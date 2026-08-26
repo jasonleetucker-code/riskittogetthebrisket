@@ -1,0 +1,93 @@
+name: One-shot V1-56 verifier repair
+
+on:
+  push:
+    branches:
+      - chatgpt/v1-56-verifier-repair
+
+permissions:
+  contents: write
+
+jobs:
+  repair:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout verifier branch
+        uses: actions/checkout@v4
+        with:
+          ref: chatgpt/v1-56-verifier-repair
+          fetch-depth: 0
+
+      - name: Repair the two V1-56 false-negative paths
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+
+          api_path = Path("scripts/verify_v1_authenticated.py")
+          api = api_path.read_text(encoding="utf-8")
+          old = '''    block = body.get("faabAnalytics") if "faabAnalytics" in body else body
+    if not isinstance(block, dict):
+        c.record("fail", "no analytics block", topKeys=sorted(body)[:15])
+        return
+'''
+          new = '''    # `/api/public/league/{section}` is a section ENVELOPE:
+    # `{contractVersion, league, section, data}`.  The old verifier read the
+    # envelope itself as the analytics block, so a healthy production response
+    # falsely failed with "leagueMedianWinningBid absent" even though the value
+    # was present under `data`.  Accept the historical direct block only as a
+    # compatibility shape; never fall back to treating the envelope as data.
+    if isinstance(body.get("data"), dict):
+        block = body["data"]
+    elif isinstance(body.get("faabAnalytics"), dict):
+        block = body["faabAnalytics"]
+    else:
+        c.record("fail", "no analytics block", topKeys=sorted(body)[:15])
+        return
+'''
+          assert api.count(old) == 1, "V1-56 API verifier anchor changed"
+          api = api.replace(old, new, 1)
+          api_path.write_text(api, encoding="utf-8")
+
+          test_path = Path("tests/ops/test_v1_verification_primitives.py")
+          tests = test_path.read_text(encoding="utf-8")
+          anchor = '''# ── V1-131: the agreement rule ──
+'''
+          addition = '''# ── V1-56: public-league section envelope ──\n\n\ndef test_v56_reads_the_analytics_block_from_the_section_data_envelope():\n    client = _FakeClient(\n        {\n            "/api/public/league/faabAnalytics": (\n                200,\n                {\n                    "contractVersion": "2026-03-10.v2",\n                    "league": {"name": "Risk It To Get The Brisket"},\n                    "section": "faabAnalytics",\n                    "data": {\n                        "leagueMedianWinningBid": 0.0,\n                        "leagueAvgWinningBid": 1.37,\n                        "totalBidsAnalyzed": 1097,\n                    },\n                },\n            )\n        }\n    )\n    auth.check_v56(client)\n    assert auth.CHECKS[-1].status == "pass"\n    assert "leagueMedianWinningBid=0.0" in auth.CHECKS[-1].detail\n\n\ndef test_v56_does_not_mistake_the_section_envelope_for_the_analytics_block():\n    client = _FakeClient(\n        {\n            "/api/public/league/faabAnalytics": (\n                200,\n                {\n                    "contractVersion": "2026-03-10.v2",\n                    "league": {"name": "Risk It To Get The Brisket"},\n                    "section": "faabAnalytics",\n                    "data": None,\n                },\n            )\n        }\n    )\n    auth.check_v56(client)\n    assert auth.CHECKS[-1].status == "fail"\n    assert auth.CHECKS[-1].detail == "no analytics block"\n\n\n'''
+          assert tests.count(anchor) == 1, "V1 verifier unit-test anchor changed"
+          tests = tests.replace(anchor, addition + anchor, 1)
+          test_path.write_text(tests, encoding="utf-8")
+
+          browser_path = Path("tests/e2e/specs/prod-auth/v1-56-waivers-faab-strip.spec.js")
+          browser = browser_path.read_text(encoding="utf-8")
+          browser_anchor = '''    await expect(\n      page.getByRole("heading", { level: 1, name: /^Waivers$/ }),\n    ).toBeVisible({ timeout: 90_000 });\n\n    const analyticsRes = await analyticsPromise;\n'''
+          browser_replacement = '''    await expect(\n      page.getByRole("heading", { level: 1, name: /^Waivers$/ }),\n    ).toBeVisible({ timeout: 90_000 });\n\n    // The ephemeral production-verification guest intentionally has no\n    // persisted per-league team preference.  The FAAB context strip is\n    // team-context UI, so when the real shell says "Pick your team" the\n    // verifier must establish that prerequisite through the SAME user-facing\n    // TeamSwitcher a normal user uses.  The old proof instead demanded a\n    // team-scoped strip while deliberately providing no team, producing a\n    // false negative against a component whose analytics request had already\n    // succeeded.  Do not seed localStorage or call an internal setter here.\n    const teamSwitcher = page.locator(".team-switcher").first();\n    await expect(\n      teamSwitcher,\n      "authenticated /waivers must offer a real team selector before a team-scoped FAAB assertion",\n    ).toBeVisible({ timeout: 30_000 });\n    const needsTeam = await teamSwitcher.evaluate((node) =>\n      node.classList.contains("team-switcher--needs"),\n    );\n    if (needsTeam) {\n      const toggle = teamSwitcher.locator(".team-switcher-toggle");\n      await toggle.click();\n      const option = teamSwitcher.locator(".team-switcher-option").first();\n      await expect(\n        option,\n        "the production contract exposes no selectable team for the guest verifier",\n      ).toBeVisible({ timeout: 15_000 });\n      const chosen = (await option.innerText()).trim();\n      await option.click();\n      annotate(testInfo, "team-context", `selected through TeamSwitcher: ${chosen}`);\n    } else {\n      annotate(\n        testInfo,\n        "team-context",\n        `already resolved by the shell: ${(await teamSwitcher.innerText()).trim()}`,\n      );\n    }\n\n    const analyticsRes = await analyticsPromise;\n'''
+          assert browser.count(browser_anchor) == 1, "V1-56 browser verifier anchor changed"
+          browser = browser.replace(browser_anchor, browser_replacement, 1)
+          browser_path.write_text(browser, encoding="utf-8")
+          PY
+
+      - name: Run focused verifier tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          pytest -q tests/ops/test_v1_verification_primitives.py
+          node --check tests/e2e/specs/prod-auth/v1-56-waivers-faab-strip.spec.js
+          python scripts/check_decision_coercions.py
+          python scripts/check_planning_integrity.py
+
+      - name: Commit only verifier repairs and self-delete
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add scripts/verify_v1_authenticated.py \
+                  tests/ops/test_v1_verification_primitives.py \
+                  tests/e2e/specs/prod-auth/v1-56-waivers-faab-strip.spec.js
+          git rm .github/workflows/v1-56-verifier-repair-once.yml
+          git diff --cached --check
+          git commit -m "test(v1): make V1-56 production proof establish real team context"
+          git push origin HEAD:chatgpt/v1-56-verifier-repair
