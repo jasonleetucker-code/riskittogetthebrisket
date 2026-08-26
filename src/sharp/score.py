@@ -144,6 +144,17 @@ class ManagerRecord:
         return self.abandoned_rosters / self.observed_leagues
 
 
+def _serialize_component_value(value: Any) -> Any:
+    """Make component evidence JSON-safe without inventing missing values."""
+    if value is None:
+        return None
+    if isinstance(value, dict):
+        return {str(k): _serialize_component_value(v) for k, v in value.items()}
+    if isinstance(value, (int, float)):
+        return round(value, 4)
+    return value
+
+
 @dataclass
 class ManagerScore:
     user_id: str
@@ -153,7 +164,7 @@ class ManagerScore:
     confidence: float = 0.0
     confidence_tier: str = "low"
     qualified: bool = False
-    components: dict[str, float] = field(default_factory=dict)
+    components: dict[str, Any] = field(default_factory=dict)
     contributors: list[str] = field(default_factory=list)
     ineligible_reasons: list[str] = field(default_factory=list)
     coverage: dict[str, Any] = field(default_factory=dict)
@@ -168,7 +179,7 @@ class ManagerScore:
             "confidence": round(self.confidence, 3),
             "confidenceTier": self.confidence_tier,
             "qualified": self.qualified,
-            "components": {k: round(v, 4) for k, v in self.components.items()},
+            "components": {k: _serialize_component_value(v) for k, v in self.components.items()},
             "contributors": self.contributors,
             "ineligibleReasons": self.ineligible_reasons,
             "coverage": self.coverage,
