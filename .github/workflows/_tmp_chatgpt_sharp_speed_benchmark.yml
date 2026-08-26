@@ -1,0 +1,111 @@
+name: Temporary Sharp Read-Path Benchmark
+
+on:
+  push:
+    branches:
+      - chatgpt/sharp-speed-benchmark
+
+permissions:
+  contents: read
+
+jobs:
+  benchmark:
+    name: Benchmark production Sharp endpoints
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    environment: production
+    steps:
+      - name: Configure production SSH
+        env:
+          DEPLOY_SSH_PRIVATE_KEY: ${{ secrets.DEPLOY_SSH_PRIVATE_KEY }}
+          DEPLOY_KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+          DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          install -d -m 700 "$HOME/.ssh"
+          printf '%s\n' "$DEPLOY_SSH_PRIVATE_KEY" | sed 's/\r$//' > "$HOME/.ssh/id_ed25519"
+          printf '%s\n' "$DEPLOY_KNOWN_HOSTS" | sed 's/\r$//' > "$HOME/.ssh/known_hosts"
+          chmod 600 "$HOME/.ssh/id_ed25519"
+          chmod 644 "$HOME/.ssh/known_hosts"
+          ssh-keygen -y -f "$HOME/.ssh/id_ed25519" >/dev/null
+          echo "PORT=${DEPLOY_PORT:-22}" >> "$GITHUB_ENV"
+
+      - name: Measure authenticated backend latency on real production data
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          APP_DIR: ${{ vars.PROD_APP_DIR || '/home/dynasty/trade-calculator' }}
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          ssh -i "$HOME/.ssh/id_ed25519" \
+            -o BatchMode=yes -o StrictHostKeyChecking=yes \
+            -o UserKnownHostsFile="$HOME/.ssh/known_hosts" \
+            -o ConnectTimeout=15 -o ServerAliveInterval=15 -o ServerAliveCountMax=8 \
+            -p "$PORT" "$DEPLOY_USER@$DEPLOY_HOST" \
+            "APP_DIR=$(printf %q "$APP_DIR") bash -s" <<'REMOTE'
+          set -Eeuo pipefail
+          cd "$APP_DIR"
+          PY="$APP_DIR/.venv/bin/python"; [ -x "$PY" ] || PY="$APP_DIR/venv/bin/python"; [ -x "$PY" ] || PY=python3
+          "$PY" - <<'PY'
+          import json, os, sys, time, urllib.request
+          sys.path.insert(0, os.environ['APP_DIR'])
+          from src.api import guest_passes
+
+          gp = None
+          try:
+              gp, token = guest_passes.create(duration_hours=0.5, note='sharp speed benchmark', created_by='github-actions-sharp-benchmark')
+              req = urllib.request.Request(
+                  'http://127.0.0.1:8000/api/auth/login',
+                  method='POST',
+                  headers={'Content-Type': 'application/json', 'Host': 'chaseupside.com'},
+                  data=json.dumps({'username': 'guest', 'password': token}).encode(),
+              )
+              with urllib.request.urlopen(req, timeout=60) as resp:
+                  cookies = resp.headers.get_all('Set-Cookie') or []
+                  session = None
+                  for raw in cookies:
+                      if raw.startswith('jason_session='):
+                          session = raw.split(';', 1)[0]
+                          break
+                  if not session:
+                      raise RuntimeError('login returned no jason_session cookie')
+
+              endpoints = [
+                  ('sharpTracker', '/api/sharp/market?window=30d&sort=strength&assetType=all&platform=all&qualification=all&limit=50'),
+                  ('sharpRosterPercentage', '/api/sharp/roster-percentage?position=all&platform=all&format=all&contention=all&experience=all&qualification=all&sort=rostered&limit=50'),
+              ]
+              results = []
+              for label, path in endpoints:
+                  for attempt in range(1, 3):
+                      req = urllib.request.Request(
+                          'http://127.0.0.1:8000' + path,
+                          headers={'Cookie': session, 'Host': 'chaseupside.com', 'Accept': 'application/json'},
+                      )
+                      started = time.perf_counter()
+                      try:
+                          with urllib.request.urlopen(req, timeout=180) as resp:
+                              body = resp.read()
+                              elapsed = time.perf_counter() - started
+                              payload = json.loads(body)
+                              results.append({
+                                  'endpoint': label,
+                                  'attempt': attempt,
+                                  'statusCode': resp.status,
+                                  'seconds': round(elapsed, 4),
+                                  'bytes': len(body),
+                                  'payloadStatus': payload.get('status') if isinstance(payload, dict) else None,
+                                  'players': len(payload.get('players') or []) if isinstance(payload, dict) else None,
+                                  'generatedAt': payload.get('generatedAt') if isinstance(payload, dict) else None,
+                              })
+                      except Exception as exc:
+                          elapsed = time.perf_counter() - started
+                          results.append({'endpoint': label, 'attempt': attempt, 'seconds': round(elapsed, 4), 'error': type(exc).__name__ + ': ' + str(exc)})
+                          break
+              print('SHARP_SPEED_BASELINE=' + json.dumps(results, sort_keys=True))
+          finally:
+              if gp is not None:
+                  guest_passes.revoke(gp.id)
+          PY
+          REMOTE
