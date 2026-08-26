@@ -1,0 +1,24 @@
+name: Temporary V1 verification dispatch
+on: [push]
+permissions:
+  actions: write
+  contents: write
+jobs:
+  dispatch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Dispatch canonical production verifiers
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -Eeuo pipefail
+          gh workflow run v1-authenticated-verification.yml --repo "$GITHUB_REPOSITORY" --ref main -f league=dynasty_main -f suite=all -f pass_hours=2
+          gh workflow run v1-onbox-checklists.yml --repo "$GITHUB_REPOSITORY" --ref main -f checks=all -f run_live_builder=false
+      - name: Remove temporary dispatcher
+        run: |
+          git config user.name "ChatGPT Integration"
+          git config user.email "chatgpt-integration@users.noreply.github.com"
+          git rm .github/workflows/_tmp_dispatch_v1_verification.yml
+          git commit -m "chore: remove temporary V1 verifier dispatcher"
+          git push origin HEAD:chatgpt/dispatch-v1-verification
