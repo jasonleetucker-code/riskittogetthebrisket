@@ -1,0 +1,71 @@
+name: Temporary V1-84 production reconciliation
+
+on:
+  push:
+    branches:
+      - chatgpt/v1-84-prod-evidence
+
+permissions:
+  contents: write
+
+jobs:
+  reconcile:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Reconcile V1-84 from natural production evidence
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          p = Path('docs/VERSION_1_COMPLETION_CONTRACT.md')
+          s = p.read_text()
+          lines = s.splitlines()
+          matches = [i for i, line in enumerate(lines) if line.startswith('| V1-84 |')]
+          assert len(matches) == 1, matches
+          i = matches[0]
+          old = lines[i]
+          assert '| `IMPLEMENTED_UNVERIFIED` | L3 |' in old, old
+          note = (' **PROMOTED 2026-08-25 from natural L3 production evidence.** '
+                  'The repaired F-21 health workflow from `#909` was exercised by scheduled production run '
+                  '`32700949074` on head `b1066ec98a93b417d3801935142543885e94230f`; that head is 818 commits '
+                  'after `#909` merge `82b25bd7d`. The first attempt observed HTTP 503 on all three `/api/health` '
+                  'probes with `contract_ok=false` and opened rolling production-health issue `#1069` instead of '
+                  'warning/exempting the degraded state. A later canonical data cycle recovered; attempt 2 returned '
+                  'HTTP 200 with `contract_ok=true` and the workflow closed the same tracker. This is the real production '
+                  'failure/recovery path, not a synthetic status or workflow-green inference.')
+          lines[i] = old.replace('| `IMPLEMENTED_UNVERIFIED` | L3 |', '| `VERIFIED` | L3 |') + note
+          s = '\n'.join(lines) + ('\n' if s.endswith('\n') else '')
+
+          assert '| `VERIFIED` | 112 |' in s
+          assert '| `IMPLEMENTED_UNVERIFIED` | 18 |' in s
+          s = s.replace('| `VERIFIED` | 112 |', '| `VERIFIED` | 113 |', 1)
+          s = s.replace('| `IMPLEMENTED_UNVERIFIED` | 18 |', '| `IMPLEMENTED_UNVERIFIED` | 17 |', 1)
+
+          marker = '**V1 completion: 112 / 136 = 82.4%.**'
+          assert s.count(marker) == 1, s.count(marker)
+          s = s.replace(
+              marker,
+              '**V1 completion: 113 / 136 = 83.1%.** Numerator moved +1 by `V1-84` production L3 closure '
+              '(scheduled health run `32700949074`: three consecutive 503s produced a real `production-health` '
+              'incident, and the green recovery attempt closed it). **112 before this reconciliation.**',
+              1,
+          )
+          p.write_text(s)
+          PY
+          git diff --check
+          python scripts/check_planning_integrity.py
+          python scripts/check_decision_coercions.py
+      - name: Commit reconciliation and remove temporary workflow
+        shell: bash
+        run: |
+          git config user.name "ChatGPT Integration"
+          git config user.email "chatgpt-integration@users.noreply.github.com"
+          git rm .github/workflows/_tmp_v1_84_reconcile.yml
+          git add docs/VERSION_1_COMPLETION_CONTRACT.md
+          git commit -m "docs: verify V1-84 at L3"
+          git push origin HEAD:chatgpt/v1-84-prod-evidence
