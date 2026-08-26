@@ -398,3 +398,30 @@ def test_capping_shrinks_a_lean_but_never_flips_it(tmp_path, monkeypatch):
     assert win["net"] > 0
     assert win["weightedNet"] > 0, "the cap reversed the direction of the lean"
     assert win["weightedNet"] <= win["net"]
+
+def test_overlapping_tracker_windows_share_one_ledger_read(tmp_path, monkeypatch):
+    """48h/7d/30d remain independent views but share one SQL scan."""
+    path = tmp_path / "ledger.sqlite3"
+    platform_ledger.ingest_batch(batch("sleeper", "u1", "L1", "T1", "M1"), path=path)
+    monkeypatch.setattr(market, "cohort_members", lambda **kwargs: members())
+
+    real_query = platform_ledger.query_movements
+    calls = []
+
+    def counted_query(**kwargs):
+        calls.append(dict(kwargs))
+        return real_query(**kwargs)
+
+    monkeypatch.setattr(market.platform_ledger, "query_movements", counted_query)
+    payload = market.market_payload(
+        window="7d",
+        now_ms=NOW,
+        ledger_path=path,
+        ffpc_config={"enabled": True, "allowCuratedInCombinedSignals": True},
+    )
+
+    assert len(calls) == 1
+    assert calls[0]["since_ms"] == NOW - 30 * 24 * 60 * 60 * 1000
+    row = payload["assets"][0]
+    assert row["windows"]["7d"]["volume"] == 1
+    assert row["velocity"] is None

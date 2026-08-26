@@ -811,3 +811,28 @@ def test_the_roster_board_defines_no_qualification_of_its_own():
         assert (
             forbidden not in source
         ), f"roster_percentage must not re-derive qualification: {forbidden}"
+
+def test_roster_board_reuses_one_roster_store_connection(ledger, cohort_of, monkeypatch):
+    """Current state, catalog, and four trend baselines share one read connection."""
+    cohort_of(["sleeper:u1", "sleeper:u2"])
+    rs.record_rosters(
+        [
+            roster("sleeper:u1", "sleeper:L1", assets=["wr1", "rb1"]),
+            roster("sleeper:u2", "sleeper:L2", assets=["wr1"]),
+        ],
+        path=ledger,
+    )
+
+    real_ensure = rs.ensure_roster_schema
+    calls = []
+
+    def counted_ensure(*args, **kwargs):
+        calls.append((args, kwargs))
+        return real_ensure(*args, **kwargs)
+
+    monkeypatch.setattr(rs, "ensure_roster_schema", counted_ensure)
+    payload = board(ledger)
+
+    assert len(calls) == 1
+    wr = row_for(payload, "Star Receiver")
+    assert (wr["sharpRosters"], wr["eligibleRosters"], wr["sharpRosterPct"]) == (2, 2, 1.0)

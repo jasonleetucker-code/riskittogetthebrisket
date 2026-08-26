@@ -368,6 +368,53 @@ def _sort_rows(rows: list[dict[str, Any]], sort: str) -> list[dict[str, Any]]:
     return sorted(rows, key=key)
 
 
+def _query_movements_for_windows(
+    *,
+    windows: Sequence[str],
+    now_ms: int,
+    manager_keys: Sequence[str],
+    platforms: Sequence[str] | None,
+    asset_type: str,
+    ledger_path: Path | None,
+) -> dict[str, list[dict[str, Any]]]:
+    """Read overlapping Sharp Tracker windows with one ledger query.
+
+    The primary, 48-hour, and 30-day windows are independent lenses over
+    the same canonical movements. Query the widest required interval once,
+    then partition those rows with the exact same inclusive window bounds.
+    This changes no cohort, source, identity, movement, or scoring semantics.
+    """
+    names = list(dict.fromkeys(windows))
+    if not names:
+        return {}
+    bounds = {name: signals.window_bounds(name, now_ms) for name in names}
+    since_values = [since for since, _until in bounds.values()]
+    earliest_since = (
+        None
+        if any(since is None for since in since_values)
+        else min(since_values)
+    )
+    latest_until = max(until for _since, until in bounds.values())
+    rows = platform_ledger.query_movements(
+        manager_keys=manager_keys,
+        since_ms=earliest_since,
+        until_ms=latest_until,
+        platforms=platforms,
+        asset_type=asset_type,
+        canonical_only=True,
+        path=ledger_path,
+    )
+    out: dict[str, list[dict[str, Any]]] = {}
+    for name, (since, until) in bounds.items():
+        out[name] = [
+            row
+            for row in rows
+            if (since is None or int(row["timestampMs"]) >= since)
+            and int(row["timestampMs"]) <= until
+        ]
+    return out
+
+
 def market_payload(
     *,
     window: str = "30d",
@@ -402,19 +449,18 @@ def market_payload(
     platforms = None if platform == "all" else [platform]
 
     needed_windows = list(dict.fromkeys((window, "48h", "30d")))
+    movements_by_window = _query_movements_for_windows(
+        windows=needed_windows,
+        now_ms=now,
+        manager_keys=manager_keys,
+        platforms=platforms,
+        asset_type=asset_type,
+        ledger_path=ledger_path,
+    )
     per_window: dict[str, dict[str, dict[str, Any]]] = {}
     person_view: dict[str, dict[str, Any]] = {}
     for name in needed_windows:
-        since, until = signals.window_bounds(name, now)
-        movements = platform_ledger.query_movements(
-            manager_keys=manager_keys,
-            since_ms=since,
-            until_ms=until,
-            platforms=platforms,
-            asset_type=asset_type,
-            canonical_only=True,
-            path=ledger_path,
-        )
+        movements = movements_by_window[name]
         per_window[name] = _aggregate_window(movements, quality)
         if name == window:
             # One vote per PERSON, with a diminishing-independence discount for

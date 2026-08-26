@@ -322,7 +322,11 @@ def build_player_index(contract: dict[str, Any] | None) -> dict[str, dict[str, A
     return index
 
 
-def _catalog_metadata(ledger_path: Path | None) -> dict[str, dict[str, Any]]:
+def _catalog_metadata(
+    ledger_path: Path | None,
+    *,
+    conn: Any | None = None,
+) -> dict[str, dict[str, Any]]:
     """``{canonicalAssetId: {displayName, position, nflTeam}}`` from the ledger.
 
     ``canonical_assets`` is the platform's own asset catalog, hydrated
@@ -332,14 +336,20 @@ def _catalog_metadata(ledger_path: Path | None) -> dict[str, dict[str, Any]]:
     instance) otherwise renders as a bare Sleeper id next to a perfectly
     correct percentage, which reads as a broken row.
 
+    ``conn`` lets the request owner reuse the already-open roster-store
+    connection. The read and fallback semantics are identical either way.
     Degrades to an empty map — a name is cosmetic and must never cost a
     board its numbers.
     """
-    try:
-        conn = roster_store.ensure_roster_schema(ledger_path)
-    except Exception:  # noqa: BLE001
-        log.exception("sharp roster %%: asset catalog unavailable")
-        return {}
+    own = conn is None
+    if conn is None:
+        try:
+            connection = roster_store.ensure_roster_schema(ledger_path)
+        except Exception:  # noqa: BLE001
+            log.exception("sharp roster %%: asset catalog unavailable")
+            return {}
+    else:
+        connection = conn
     try:
         return {
             str(row["canonical_asset_id"]): {
@@ -347,7 +357,7 @@ def _catalog_metadata(ledger_path: Path | None) -> dict[str, dict[str, Any]]:
                 "position": (str(row["position"] or "").strip().upper() or None),
                 "nflTeam": (str(row["nfl_team"] or "").strip().upper() or None),
             }
-            for row in conn.execute(
+            for row in connection.execute(
                 """
                 SELECT canonical_asset_id, display_name, position, nfl_team
                   FROM canonical_assets
@@ -359,7 +369,8 @@ def _catalog_metadata(ledger_path: Path | None) -> dict[str, dict[str, Any]]:
         log.exception("sharp roster %%: asset catalog read failed")
         return {}
     finally:
-        conn.close()
+        if own:
+            connection.close()
 
 
 def _fallback_metadata(asset_id: str, catalog: dict[str, dict[str, Any]] | None = None) -> dict:
@@ -580,52 +591,59 @@ def build_board(
     )
     cohort_keys = {m.manager_key for m in members}
 
-    stored = roster_store.load_rosters(path=ledger_path)
-    usable, exclusions = eligible_rosters(
-        stored,
-        cohort_manager_keys=cohort_keys,
-        now_ms=now,
-        max_age_days=max_age_days,
-    )
-    filtered = [r for r in usable if _roster_passes(r, filters)]
-    filtered_out = len(usable) - len(filtered)
+    # One read connection owns the roster-state portion of this request.
+    # Previously current rosters, catalog metadata, and four trend baselines
+    # independently reopened/ensured the same SQLite schema.
+    roster_conn = roster_store.ensure_roster_schema(ledger_path)
+    try:
+        stored = roster_store.load_rosters(path=ledger_path, conn=roster_conn)
+        usable, exclusions = eligible_rosters(
+            stored,
+            cohort_manager_keys=cohort_keys,
+            now_ms=now,
+            max_age_days=max_age_days,
+        )
+        filtered = [r for r in usable if _roster_passes(r, filters)]
+        filtered_out = len(usable) - len(filtered)
 
-    roster_keys = {str(r["rosterKey"]) for r in filtered}
-    holders, slot_counts = _tally(filtered)
-    denominators, unknown_format = _denominators(filtered)
-    # W15-F009 (inv 4.6): every ``filtered`` roster already passed the
-    # cohort-membership gate in ``eligible_rosters``, so its ``managerKey``
-    # is guaranteed present — this map is total over ``roster_keys``, not
-    # a best-effort join, and needs no "unknown manager" fallback bucket.
-    roster_manager = {str(r["rosterKey"]): str(r["managerKey"]) for r in filtered}
+        roster_keys = {str(r["rosterKey"]) for r in filtered}
+        holders, slot_counts = _tally(filtered)
+        denominators, unknown_format = _denominators(filtered)
+        # W15-F009 (inv 4.6): every ``filtered`` roster already passed the
+        # cohort-membership gate in ``eligible_rosters``, so its ``managerKey``
+        # is guaranteed present — this map is total over ``roster_keys``, not
+        # a best-effort join, and needs no "unknown manager" fallback bucket.
+        roster_manager = {str(r["rosterKey"]): str(r["managerKey"]) for r in filtered}
+        asset_catalog = _catalog_metadata(ledger_path, conn=roster_conn)
+
+        # The owner's stated windows are 7 / 14 / 30 day; season-to-date is kept
+        # alongside them because it answers a different question.
+        baselines = {
+            "sevenDay": now - 7 * DAY_MS,
+            "fourteenDay": now - 14 * DAY_MS,
+            "thirtyDay": now - 30 * DAY_MS,
+            "seasonToDate": _season_start_ms(now),
+        }
+        sorted_roster_keys = sorted(roster_keys)
+        baseline_holdings = {
+            name: roster_store.holdings_as_of(
+                as_of,
+                roster_keys=sorted_roster_keys,
+                path=ledger_path,
+                conn=roster_conn,
+            )
+            for name, as_of in baselines.items()
+        }
+    finally:
+        roster_conn.close()
 
     player_index = build_player_index(contract)
-    asset_catalog = _catalog_metadata(ledger_path)
     buy_sell = _buy_sell_index(
         members=members,
         ledger_path=ledger_path,
         window=buy_sell_window,
         now_ms=now,
     )
-
-    # The owner's stated windows are 7 / 14 / 30 day; season-to-date is kept
-    # alongside them because it answers a different question (how ownership
-    # moved over the whole season, not over a recent window).
-    #
-    # Adding a window costs one ``holdings_as_of`` read and NOTHING else: the
-    # population-overlap guard in ``_trend`` applies to every baseline
-    # identically, so a cohort that grew between the endpoints still cannot
-    # masquerade as players gaining ownership on the new window either.
-    baselines = {
-        "sevenDay": now - 7 * DAY_MS,
-        "fourteenDay": now - 14 * DAY_MS,
-        "thirtyDay": now - 30 * DAY_MS,
-        "seasonToDate": _season_start_ms(now),
-    }
-    baseline_holdings = {
-        name: roster_store.holdings_as_of(as_of, roster_keys=sorted(roster_keys), path=ledger_path)
-        for name, as_of in baselines.items()
-    }
 
     market_pct = _market_ownership(sorted(holders))
     rows: list[dict[str, Any]] = []
