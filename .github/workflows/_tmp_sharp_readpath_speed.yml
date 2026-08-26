@@ -26,6 +26,7 @@ jobs:
               .github/_tmp_sharp_patch_part4.pyfrag > /tmp/sharp-perf-patch.py
           python -m py_compile /tmp/sharp-perf-patch.py
           python /tmp/sharp-perf-patch.py
+          python -c 'from pathlib import Path; [p.write_text(p.read_text(encoding="utf-8").rstrip()+"\n", encoding="utf-8") for p in (Path("tests/sharp/test_unified_market.py"), Path("tests/sharp/test_roster_percentage.py"))]'
           python -m py_compile src/sharp/market.py src/sharp/roster_percentage.py tests/sharp/test_unified_market.py tests/sharp/test_roster_percentage.py
           git diff --check
       - name: Commit patch and remove temporary staging files
