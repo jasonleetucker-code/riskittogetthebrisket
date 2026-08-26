@@ -1,0 +1,91 @@
+name: Temporary Sharp score serialization repair
+
+on:
+  push:
+    branches:
+      - chatgpt/sharp-score-serialization-none
+
+permissions:
+  contents: write
+
+jobs:
+  repair:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: chatgpt/sharp-score-serialization-none
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install focused test dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install pytest ruff
+      - name: Reproduce production traceback, repair, and prove green
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python - <<'PY'
+          from pathlib import Path
+
+          test_path = Path('tests/sharp/test_score.py')
+          text = test_path.read_text()
+          test = '''\n\ndef test_manager_score_to_dict_preserves_unknown_components_and_nested_weights():\n    scored = S.ManagerScore(\n        user_id="serializer",\n        evaluable=True,\n        score=88.8,\n        components={\n            "performance": 0.123456,\n            "rosterQuality": None,\n            "weightsApplied": {"performance": 0.461538, "rosterQuality": 0.0},\n        },\n    )\n\n    payload = scored.to_dict()\n\n    assert payload["components"]["performance"] == 0.1235\n    assert payload["components"]["rosterQuality"] is None\n    assert payload["components"]["weightsApplied"] == {\n        "performance": 0.4615,\n        "rosterQuality": 0.0,\n    }\n'''
+          if 'test_manager_score_to_dict_preserves_unknown_components_and_nested_weights' not in text:
+              test_path.write_text(text + test)
+          PY
+
+          set +e
+          python -m pytest tests/sharp/test_score.py -q -k to_dict_preserves_unknown_components_and_nested_weights
+          red_rc=$?
+          set -e
+          if [[ "$red_rc" -eq 0 ]]; then
+            echo '::error::Expected the production serialization defect to reproduce RED before repair.'
+            exit 1
+          fi
+          echo "RED reproduced as expected (pytest rc=$red_rc)."
+
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path('src/sharp/score.py')
+          text = path.read_text()
+
+          old_type = '    components: dict[str, float] = field(default_factory=dict)'
+          new_type = '    components: dict[str, Any] = field(default_factory=dict)'
+          if old_type not in text:
+              raise SystemExit('ManagerScore.components annotation anchor not found')
+          text = text.replace(old_type, new_type, 1)
+
+          anchor = '\n\n@dataclass\nclass ManagerScore:'
+          helper = '''\n\ndef _serialize_component_value(value: Any) -> Any:\n    """Make component evidence JSON-safe without inventing missing values."""\n    if value is None:\n        return None\n    if isinstance(value, dict):\n        return {str(k): _serialize_component_value(v) for k, v in value.items()}\n    if isinstance(value, (int, float)):\n        return round(value, 4)\n    return value\n\n\n@dataclass\nclass ManagerScore:'''
+          if anchor not in text:
+              raise SystemExit('ManagerScore class anchor not found')
+          text = text.replace(anchor, helper, 1)
+
+          old_components = '            "components": {k: round(v, 4) for k, v in self.components.items()},'
+          new_components = '            "components": {k: _serialize_component_value(v) for k, v in self.components.items()},'
+          if old_components not in text:
+              raise SystemExit('ManagerScore.to_dict components anchor not found')
+          text = text.replace(old_components, new_components, 1)
+          path.write_text(text)
+          PY
+
+          python -m pytest tests/sharp/test_score.py -q -k to_dict_preserves_unknown_components_and_nested_weights
+          python -m pytest tests/sharp/test_score.py -q
+          ruff format src/sharp/score.py tests/sharp/test_score.py
+          ruff check src/sharp/score.py tests/sharp/test_score.py
+          python -m pytest tests/sharp/test_score.py -q
+      - name: Remove temporary workflow and commit repair
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          rm -f .github/workflows/_tmp_chatgpt_sharp_score_serialization.yml
+          git config user.name 'chatgpt-integration'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add src/sharp/score.py tests/sharp/test_score.py .github/workflows/_tmp_chatgpt_sharp_score_serialization.yml
+          git diff --cached --check
+          git commit -m 'fix(sharp): serialize missing score components truthfully'
+          git push origin HEAD:chatgpt/sharp-score-serialization-none
