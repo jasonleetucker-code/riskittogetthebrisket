@@ -236,7 +236,7 @@ Projections · **L4** Market / FAAB / Analyst · **L5** Integration / QA / CI / 
 | V1-73 | Board-diff harness hashes all three inputs | audit `F-9` | L5 | `VERIFIED` | L1 | test integrity |
 | V1-74 | The board's retail anchor is watched | audit `F-10` | L5 | `VERIFIED` | L2 | source-health correctness. Verified 2026-08-18 from the post-deploy committed export: `coverageAudit.expectedSites: {offense: [ktcSfTep], idp: [idpTradeCalc]}`. Not from `/api/status`, which does not expose the field — the first check read `anchor_row_counts`, a different question, and was withdrawn |
 | V1-75 | A source losing all evidence stays visible to the watchdog | audit `F-11` | L5 | `VERIFIED` | L1 | truthful degraded state |
-| V1-76 | Failure attribution compares one vocabulary | audit `F-12` / census `S-2` | L5 | `NOT STARTED` | L2 | source-health correctness. **Design refuted — see §8** |
+| V1-76 | Failure attribution compares one vocabulary | audit `F-12` / census `S-2` | L5 | `VERIFIED` | L2 | source-health correctness. **PROMOTED 2026-08-25 after `#1132` (merge `7e73a97b4`, feature head `bd3127a1b`).** The refuted `playerCount: null` proposal remains refuted and absent. The accepted replacement is the evidence-driven design §8.1 required: one registry-owned `run_source` → registry-key resolver, additive key-space failure projections, a frontend that consumes those resolved keys, and fail-closed unattributable failures when no mapping is proven. L1: exact-head `PR Validation` run `32891194471` SUCCESS; `tests/api/test_failure_attribution_vocabulary.py` RED→GREEN with 11 cases plus three frontend resolved-attribution cases, including explicit guards that the refuted design never re-enters the promotion path. L2: the real 2026-08-25 board built with and without the repair held **1,116 rows with 0 value changes, 0 rank changes, 0 tier changes**. This closes the vocabulary false-green without moving canonical valuation. |
 | V1-77 | `/api/dynasty-data` cannot answer 200 off disk when the backend says 401 | audit `F-14` | L5 | `VERIFIED` | L2 | security / data integrity |
 | V1-78 | Row-floor guard covers every registered voter | audit `F-15` | L5 | `VERIFIED` | L2 | source-health correctness. 8 of 21 had opted out |
 | V1-79 | A blocking gate bounds the production payload | audit `F-16` | L6 | `VERIFIED` | L2 | performance / test integrity. **VERIFIED 2026-08-21.** F-16's own third sub-finding (fake `--strict` flag on the bundle-size gate) was already repaired on `main` by `8cd89fbe5` and needed no further work — confirmed genuinely blocking in `pr-validation.yml` (no `continue-on-error`). The two payload sub-findings named in F-16 were still open: `test_launch_readiness.py::test_gzipped_payload_under_2mb` sits in `_LIVEDATA_MODULES` (`tests/conftest.py`), so it runs only in the `continue-on-error: true` advisory step and cannot block a PR, and it measures `json.dumps(contract)` at default separators + `gzip.compress` default level 9 on the **full** contract — a shape `server.py` never serves (production always uses `separators=(",", ":")` + `compresslevel=5`, and clients receive `?view=app`/`runtime` or `?view=array`, never the full dict+array-duplicated payload). Repaired by `tests/api/test_production_payload_ceiling.py`, new and additive (the advisory test is untouched — a livedata calibration claim, not a defect, per the same reasoning already applied to `test_faab_calibration.py`). Built from the tracked export archive (`tests/archive_fixtures.newest_complete_raw_payload()`, the same deterministic-and-skips-not-passes-vacuously discipline `test_compact_view_byte_budget.py` established) so it stays in the **blocking** gate, not livedata. Asserts a bytes-per-row budget (60% headroom over the measured rate) rather than a hardcoded byte count, so organic per-row growth cannot false-fail it while a doubling-class bug (e.g. reintroducing a dropped duplicate encoding — the exact historical failure `test_compact_view_byte_budget.py` was written for) still trips it. **Exact measured production-sized payload** (archive `dynasty_export_20260820_230504.zip`, 1,111 rows, gzip level 5 matching `server.py`): `view=app` (runtime) **592.3 KB gz, 545.95 bytes/row**; `view=array` **722.1 KB gz, 665.51 bytes/row**. **L1 mutation-proved**: reintroducing the dropped `players` dict into the runtime view (`payload["_MUTATION_TEST_duplicate_blob"] = contract.get("players")`) → `test_runtime_view_under_bytes_per_row_budget` RED (`1123.4 KB gz, 1035.4 bytes/row` against an 873.5 bytes/row budget); reverting → GREEN, both tests pass |
@@ -370,15 +370,18 @@ table already said 47, and on its first real use it caught the same drift again
 
 | status | count |
 |---|---|
-| `VERIFIED` | 108 |
+| `VERIFIED` | 109 |
 | `IMPLEMENTED_UNVERIFIED` | 20 |
 | `IN PROGRESS` | 3 |
-| `NOT STARTED` | 5 |
+| `NOT STARTED` | 4 |
 | `BLOCKED` | 0 |
 | **denominator** | **136** |
 
-**V1 completion: 108 / 136 = 79.4%.** Numerator moved +1 by `V1-105`'s closure (`NOT STARTED` →
-`VERIFIED` L2): `#1006` merged the baseline audit into the canonical record, and the row closes on
+**V1 completion: 109 / 136 = 80.1%.** Numerator moved +1 in the 2026-08-25 `V1-76`
+reconciliation (`NOT STARTED` → `VERIFIED` L2): `#1132`'s replacement satisfies the exact evidence-driven
+posture preserved in §8.1, exact-head CI is green, and the 1,116-row L2 board measurement is inert
+(0 values / 0 ranks / 0 tiers changed). **108 before this reconciliation.** The prior numerator movement
+was +1 by `V1-105`'s closure (`NOT STARTED` → `VERIFIED` L2): `#1006` merged the baseline audit into the canonical record, and the row closes on
 the owner-accepted terms — the `/rankings` pre-feature baseline permanently irrecoverable
 (owner-accepted, never fabricated or relabeled), the prospective baselines for the still-unmodified
 surfaces standing, the unmeasured routes staying `BLOCKED_EXTERNAL`, the one near-miss preserved.
@@ -690,7 +693,7 @@ place, with the original preserved. Erasing it would remove the evidence that th
 **Original finding (stands):** failure attribution in the health UI compares two disjoint
 vocabularies — scraper run names against registry keys — so a disposition does not round-trip and
 a run-level "complete" does not decompose into which boards arrived (audit `F-12`, census `S-2`).
-The underlying problem is real and remains open as `V1-76`.
+The underlying problem was real. It remained open at the time of this refutation and is now closed by the independently different replacement in `#1132`; the refutation below is preserved because it still governs what must not be reintroduced.
 
 **The proposed fix — emitting `playerCount: null` to distinguish "reported zero" from "did not
 report" — is refuted at high confidence, and this session verified both halves directly at HEAD
@@ -711,9 +714,9 @@ one — the field has never been populated, so a detector keyed on it would obse
 degradation historically capable of taking the board down was timeout-related, which the proposal
 would not have observed either.
 
-**Required posture:** `V1-76` stays open. Any replacement must be designed from actual failure
-data and adversarially tested before implementation. Any audit status still presenting S-2 as a
-ready fix is stale and must be corrected.
+**Required posture (historical, satisfied 2026-08-25):** the refuted proposal stays dead. `#1132`
+used actual failure data and adversarial tests to build a different replacement, preserved unknown/unmapped
+failures explicitly, and met the row's L2 bar. `V1-76` is therefore closed without revising this refutation.
 
 ### 8.2 F-22 — reclassified P0 → P2, on measurement
 
