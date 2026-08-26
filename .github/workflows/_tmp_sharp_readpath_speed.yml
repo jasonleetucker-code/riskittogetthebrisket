@@ -16,12 +16,13 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          fetch-depth: 2
+          fetch-depth: 3
       - name: Recover and apply bounded performance patch
         shell: bash
         run: |
-          git show HEAD^:.github/workflows/_tmp_sharp_readpath_speed.yml > /tmp/old-sharp-workflow.yml
+          git show HEAD~2:.github/workflows/_tmp_sharp_readpath_speed.yml > /tmp/old-sharp-workflow.yml
           sed -n "/python - <<'PY'/,/^          PY$/p" /tmp/old-sharp-workflow.yml | sed '1d;$d;s/^          //' > /tmp/sharp-perf-patch.py
+          python -c "import base64; exec(base64.b64decode('ZnJvbSBwYXRobGliIGltcG9ydCBQYXRoCnAgPSBQYXRoKCIvdG1wL3NoYXJwLXBlcmYtcGF0Y2gucHkiKQpzID0gcC5yZWFkX3RleHQoZW5jb2Rpbmc9InV0Zi04IikKb2xkID0gJ3RleHQgPSByZXBsYWNlX29uY2UodGV4dCwgb2xkX2xvb3AsIG5ld19sb29wLCAibWFya2V0IGxvb3AiKScKbmV3ID0gJ3N0YXJ0ID0gdGV4dC5pbmRleChcJyAgICBuZWVkZWRfd2luZG93cyA9IGxpc3QoZGljdC5mcm9ta2V5cygod2luZG93LCAiNDhoIiwgIjMwZCIpKSlcXG5cJylcbmVuZCA9IHRleHQuaW5kZXgoXCcgICAgICAgICAgICAjIE9uZSB2b3RlIHBlciBQRVJTT05cJywgc3RhcnQpXG50ZXh0ID0gdGV4dFs6c3RhcnRdICsgbmV3X2xvb3AgKyB0ZXh0W2VuZDpdJwppZiBzLmNvdW50KG9sZCkgIT0gMToKICAgIHJhaXNlIFN5c3RlbUV4aXQoZiJtb2RpZmllcjogZXhwZWN0ZWQgb25lIG1hcmtldC1sb29wIGNhbGwsIGZvdW5kIHtzLmNvdW50KG9sZCl9IikKcC53cml0ZV90ZXh0KHMucmVwbGFjZShvbGQsIG5ldywgMSksIGVuY29kaW5nPSJ1dGYtOCIpCg==').decode())"
           python /tmp/sharp-perf-patch.py
           python -m py_compile src/sharp/market.py src/sharp/roster_percentage.py tests/sharp/test_unified_market.py tests/sharp/test_roster_percentage.py
           git diff --check
