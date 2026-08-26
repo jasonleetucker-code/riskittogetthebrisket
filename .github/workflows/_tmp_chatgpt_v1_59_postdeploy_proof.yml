@@ -10,7 +10,7 @@ permissions:
 
 concurrency:
   group: chatgpt-v1-59-postdeploy-proof
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 jobs:
   prove:
@@ -74,13 +74,12 @@ jobs:
 
           echo
           echo "=== REAL PRODUCTION SHARP SCORE SERIALIZATION ==="
-          # First exercise the exact diagnostic path that produced the prior
-          # NoneType __round__ traceback. This is read-only.
+          # Exact read-only diagnostic path that previously produced the
+          # NoneType __round__ traceback.
           "$PY" scripts/crawl_sharp_records.py --score
 
-          # Then inspect the same real production records structurally so a
-          # synthetic-only green cannot masquerade as proof. Missing must
-          # remain None/null; nested component evidence must remain nested.
+          # Inspect the same real production records structurally so a
+          # synthetic-only green cannot masquerade as proof.
           "$PY" - <<'PY'
           import json
           from src.sharp import records
@@ -90,15 +89,16 @@ jobs:
           if not scored:
               raise SystemExit("UNMEASURABLE: real production score population is empty")
 
-          null_leaves = 0
-          nested_components = 0
+          counters = {"nullLeaves": 0, "nestedComponents": 0}
           serialized = 0
           sample = None
 
+          def interesting(v):
+              return v is None or isinstance(v, dict)
+
           def verify(src, dst, path="components"):
-              global null_leaves
               if src is None:
-                  null_leaves += 1
+                  counters["nullLeaves"] += 1
                   if dst is not None:
                       raise AssertionError(f"missing->non-null coercion at {path}: {dst!r}")
                   return
@@ -128,31 +128,28 @@ jobs:
                   raise AssertionError("serialized components is not an object")
               for key, value in components.items():
                   if isinstance(value, dict):
-                      nested_components += 1
+                      counters["nestedComponents"] += 1
                   verify(value, out.get(key), f"components.{key}")
               if sample is None and any(v is None for v in components.values()) and any(isinstance(v, dict) for v in components.values()):
                   sample = {
                       "userId": payload.get("userId"),
                       "nullKeys": sorted(k for k, v in components.items() if v is None),
                       "nestedKeys": sorted(k for k, v in components.items() if isinstance(v, dict)),
-                      "serialized": {k: out.get(k) for k in components if v_is_interesting(components[k])},
+                      "serialized": {k: out.get(k) for k, v in components.items() if interesting(v)},
                   }
 
-          if null_leaves == 0:
+          if counters["nullLeaves"] == 0:
               raise SystemExit("UNMEASURABLE: real production scores contained no None leaves")
-          if nested_components == 0:
+          if counters["nestedComponents"] == 0:
               raise SystemExit("UNMEASURABLE: real production scores contained no nested component evidence")
 
           print(json.dumps({
               "realManagersScored": len(scored),
               "realManagersSerialized": serialized,
-              "nullLeavesPreserved": null_leaves,
-              "nestedComponentObjectsPreserved": nested_components,
+              "nullLeavesPreserved": counters["nullLeaves"],
+              "nestedComponentObjectsPreserved": counters["nestedComponents"],
               "sample": sample,
           }, sort_keys=True))
-
-          def v_is_interesting(v):
-              return v is None or isinstance(v, dict)
           PY
 
           echo
