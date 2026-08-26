@@ -21,7 +21,7 @@ jobs:
           set -Eeuo pipefail
           python3 - <<'PY'
           from pathlib import Path
-          import re
+          from collections import Counter
 
           path = Path('docs/VERSION_1_COMPLETION_CONTRACT.md')
           text = path.read_text(encoding='utf-8')
@@ -31,9 +31,10 @@ jobs:
           assert len(rows) == 1, f'expected exactly one V1-59 row, found {len(rows)}'
           idx = rows[0]
           row = lines[idx]
-          assert row.count('`IN PROGRESS`') == 1, f'V1-59 no longer IN PROGRESS: {row}'
+          status_token = '| `IN PROGRESS` | L3 |'
+          assert row.count(status_token) == 1, f'V1-59 status column no longer IN PROGRESS/L3: {row}'
           assert 'scheduled' in row.lower() and 'bootstrap' in row.lower(), 'V1-59 row no longer carries the scheduled-bootstrap evidence bar'
-          row = row.replace('`IN PROGRESS`', '`VERIFIED`', 1)
+          row = row.replace(status_token, '| `VERIFIED` | L3 |', 1)
           evidence = (' **PROMOTED 2026-08-26 on the naturally scheduled production-chain evidence already preserved in '
                       '`docs/ops/V1_59_SCHEDULED_CHAIN_PROOF_2026-08-26.md` (#1144). The production proof is bound to deployed '
                       '`c30b8d6ba1ef2fa604ecb1cfe1e44dd6130ede44`: discovery, records, and rosters ran in scheduled order '
@@ -63,7 +64,6 @@ jobs:
                             '**114 before this reconciliation.** ')
           text = text.replace(old_completion, new_completion, 1)
 
-          # Parse only the canonical V1 rows, never rationale prose, and prove the denominator/tally before writing.
           parsed = []
           for line in text.splitlines():
               if line.startswith('| V1-'):
@@ -71,7 +71,6 @@ jobs:
                   assert len(cells) >= 6, line
                   parsed.append(cells)
           assert len(parsed) == 136, f'denominator drift: {len(parsed)}'
-          from collections import Counter
           statuses = Counter(c[4].strip('`') for c in parsed)
           expected = {'VERIFIED': 115, 'IMPLEMENTED_UNVERIFIED': 16, 'IN PROGRESS': 2, 'NOT STARTED': 3}
           for status, count in expected.items():
