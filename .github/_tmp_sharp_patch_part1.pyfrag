@@ -1,0 +1,19 @@
+from pathlib import Path
+import re
+
+def replace_once(text, old, new, label):
+    n = text.count(old)
+    if n != 1:
+        raise SystemExit(f"{label}: expected one match, found {n}")
+    return text.replace(old, new, 1)
+
+market_path = Path("src/sharp/market.py")
+text = market_path.read_text(encoding="utf-8")
+marker = "\n\ndef market_payload(\n"
+if text.count(marker) != 1:
+    raise SystemExit("market.py: market_payload marker drifted")
+helper = '\n\ndef _query_movements_for_windows(\n    *,\n    windows: Sequence[str],\n    now_ms: int,\n    manager_keys: Sequence[str],\n    platforms: Sequence[str] | None,\n    asset_type: str,\n    ledger_path: Path | None,\n) -> dict[str, list[dict[str, Any]]]:\n    """Read overlapping Sharp Tracker windows with one ledger query.\n\n    The primary, 48-hour, and 30-day windows are independent lenses over\n    the same canonical movements. Query the widest required interval once,\n    then partition those rows with the exact same inclusive window bounds.\n    This changes no cohort, source, identity, movement, or scoring semantics.\n    """\n    names = list(dict.fromkeys(windows))\n    if not names:\n        return {}\n    bounds = {name: signals.window_bounds(name, now_ms) for name in names}\n    since_values = [since for since, _until in bounds.values()]\n    earliest_since = (\n        None\n        if any(since is None for since in since_values)\n        else min(since_values)\n    )\n    latest_until = max(until for _since, until in bounds.values())\n    rows = platform_ledger.query_movements(\n        manager_keys=manager_keys,\n        since_ms=earliest_since,\n        until_ms=latest_until,\n        platforms=platforms,\n        asset_type=asset_type,\n        canonical_only=True,\n        path=ledger_path,\n    )\n    out: dict[str, list[dict[str, Any]]] = {}\n    for name, (since, until) in bounds.items():\n        out[name] = [\n            row\n            for row in rows\n            if (since is None or int(row["timestampMs"]) >= since)\n            and int(row["timestampMs"]) <= until\n        ]\n    return out\n'
+text = text.replace(marker, helper + marker, 1)
+old_loop = '    needed_windows = list(dict.fromkeys((window, "48h", "30d")))\n    per_window: dict[str, dict[str, dict[str, Any]]] = {}\n    person_view: dict[str, dict[str, Any]] = {}\n    for name in needed_windows:\n        since, until = signals.window_bounds(name, now)\n        movements = platform_ledger.query_movements(\n            manager_keys=manager_keys,\n            since_ms=since,\n            until_ms=until,\n            platforms=platforms,\n            asset_type=asset_type,\n            canonical_only=True,\n            path=ledger_path,\n        )\n        per_window[name] = _aggregate_window(movements, quality)\n        if name == window:\n'
+new_loop = '    needed_windows = list(dict.fromkeys((window, "48h", "30d")))\n    movements_by_window = _query_movements_for_windows(\n        windows=needed_windows,\n        now_ms=now,\n        manager_keys=manager_keys,\n        platforms=platforms,\n        asset_type=asset_type,\n        ledger_path=ledger_path,\n    )\n    per_window: dict[str, dict[str, dict[str, Any]]] = {}\n    person_view: dict[str, dict[str, Any]] = {}\n    for name in needed_windows:\n        movements = movements_by_window[name]\n        per_window[name] = _aggregate_window(movements, quality)\n        if name == window:\n'
+start = text.index('    needed_windows = list(dict.fromkeys((window
