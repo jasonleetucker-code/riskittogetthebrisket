@@ -1,0 +1,14 @@
+(text, old_reads, new_reads, "roster read block")
+rp_path.write_text(text, encoding="utf-8")
+
+mtp = Path("tests/sharp/test_unified_market.py")
+mt = mtp.read_text(encoding="utf-8")
+if "def test_overlapping_tracker_windows_share_one_ledger_read" in mt:
+    raise SystemExit("tracker perf test already exists")
+mtp.write_text(mt.rstrip() + '\n\ndef test_overlapping_tracker_windows_share_one_ledger_read(tmp_path, monkeypatch):\n    """48h/7d/30d remain independent views but share one SQL scan."""\n    path = tmp_path / "ledger.sqlite3"\n    platform_ledger.ingest_batch(batch("sleeper", "u1", "L1", "T1", "M1"), path=path)\n    monkeypatch.setattr(market, "cohort_members", lambda **kwargs: members())\n\n    real_query = platform_ledger.query_movements\n    calls = []\n\n    def counted_query(**kwargs):\n        calls.append(dict(kwargs))\n        return real_query(**kwargs)\n\n    monkeypatch.setattr(market.platform_ledger, "query_movements", counted_query)\n    payload = market.market_payload(\n        window="7d",\n        now_ms=NOW,\n        ledger_path=path,\n        ffpc_config={"enabled": True, "allowCuratedInCombinedSignals": True},\n    )\n\n    assert len(calls) == 1\n    assert calls[0]["since_ms"] == NOW - 30 * 24 * 60 * 60 * 1000\n    row = payload["assets"][0]\n    assert row["windows"]["7d"]["volume"] == 1\n    assert row["velocity"] is None\n' + "\n", encoding="utf-8")
+
+rtp = Path("tests/sharp/test_roster_percentage.py")
+rt = rtp.read_text(encoding="utf-8")
+if "def test_roster_board_reuses_one_roster_store_connection" in rt:
+    raise SystemExit("roster perf test already exists")
+rtp.write_text(rt.rstrip() + '\n\ndef test_roster_board_reuses_one_roster_store_connection(ledger, cohort_of, monkeypatch):\n    """Current state, catalog, and four trend baselines share one read connection."""\n    cohort_of(["sleeper:u1", "sleeper:u2"])\n    rs.record_rosters(\n        [\n            roster("sleeper:u1", "sleeper:L1", assets=["wr1", "rb1"]),\n            roster("sleeper:u2", "sleeper:L2", assets=["wr1"]),\n        ],\n        path=ledger,\n    )\n\n    real_ensure = rs.ensure_roster_schema\n    calls = []\n\n    def counted_ensure(*args, **kwargs):\n        calls.append((args, kwargs))\n        return real_ensure(*args, **kwargs)\n\n    monkeypatch.setattr(rs, "ensure_roster_schema", counted_ensure)\n    payload = board(ledger)\n\n    assert len(calls) == 1\n    wr = row_for(payload, "Star Receiver")\n    assert (wr["sharpRosters"], wr["eligibleRosters"], wr["sharpRosterPct"]) == (2, 2, 1.0)\n' + "\n", encoding="utf-8")
