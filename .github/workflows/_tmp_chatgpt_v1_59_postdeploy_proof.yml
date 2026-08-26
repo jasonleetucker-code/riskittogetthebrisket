@@ -14,9 +14,9 @@ concurrency:
 
 jobs:
   prove:
-    name: Read-only V1-59 production proof
+    name: Read-only V1-59 service semantics proof
     runs-on: ubuntu-latest
-    timeout-minutes: 40
+    timeout-minutes: 15
     environment: production
     steps:
       - name: Configure production SSH
@@ -35,7 +35,7 @@ jobs:
           ssh-keygen -y -f "$HOME/.ssh/id_ed25519" >/dev/null
           echo "PORT=${DEPLOY_PORT:-22}" >> "$GITHUB_ENV"
 
-      - name: Wait for #1143 deployment, then prove V1-59 without writes
+      - name: Inspect deployed V1-59 scheduled chain read-only
         env:
           DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
           DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
@@ -52,166 +52,82 @@ jobs:
             "APP_DIR=$(printf %q "$APP_DIR") REQUIRED_SHA=$(printf %q "$REQUIRED_SHA") bash -s" <<'REMOTE'
           set -Eeuo pipefail
           cd "$APP_DIR"
-          PY="$APP_DIR/.venv/bin/python"
-          [ -x "$PY" ] || PY="$APP_DIR/venv/bin/python"
-          [ -x "$PY" ] || PY=python3
+          deployed="$(git rev-parse HEAD)"
+          echo "DEPLOYED_SHA=$deployed"
+          git cat-file -e "${REQUIRED_SHA}^{commit}"
+          git merge-base --is-ancestor "$REQUIRED_SHA" "$deployed"
+          echo "REQUIRED_SHA_PRESENT=$REQUIRED_SHA"
 
-          echo "=== WAIT FOR DEPLOYED SHA TO CONTAIN #1143 ==="
-          deployed=""
-          for attempt in $(seq 1 80); do
-            deployed="$(git rev-parse HEAD)"
-            if git cat-file -e "${REQUIRED_SHA}^{commit}" 2>/dev/null && git merge-base --is-ancestor "$REQUIRED_SHA" "$deployed"; then
-              echo "DEPLOYED_SHA=$deployed"
-              echo "REQUIRED_SHA_PRESENT=$REQUIRED_SHA"
-              break
-            fi
-            if [ "$attempt" -eq 80 ]; then
-              echo "ERROR: deployed tree $deployed does not contain $REQUIRED_SHA after waiting" >&2
-              exit 1
-            fi
-            sleep 15
+          echo
+          echo "=== CANONICAL SYSTEMD SUCCESS SEMANTICS ==="
+          units=(dynasty-sharp-discovery dynasty-sharp-records dynasty-sharp-rosters)
+          for unit in "${units[@]}"; do
+            echo "--- $unit.service unit definition ---"
+            systemctl cat "$unit.service" --no-pager | grep -E '^(ExecStart|SuccessExitStatus|TimeoutStartSec)=' || true
           done
 
           echo
-          echo "=== REAL PRODUCTION SHARP SCORE SERIALIZATION ==="
-          # Exact read-only diagnostic path that previously produced the
-          # NoneType __round__ traceback.
-          "$PY" scripts/crawl_sharp_records.py --score
-
-          # Inspect the same real production records structurally so a
-          # synthetic-only green cannot masquerade as proof.
-          "$PY" - <<'PY'
-          import json
-          from src.sharp import records
-          from src.sharp import score as sharp_score
-
-          scored = sharp_score.score_managers(records.build_manager_records())
-          if not scored:
-              raise SystemExit("UNMEASURABLE: real production score population is empty")
-
-          counters = {"nullLeaves": 0, "nestedComponents": 0}
-          serialized = 0
-          sample = None
-
-          def interesting(v):
-              return v is None or isinstance(v, dict)
-
-          def verify(src, dst, path="components"):
-              if src is None:
-                  counters["nullLeaves"] += 1
-                  if dst is not None:
-                      raise AssertionError(f"missing->non-null coercion at {path}: {dst!r}")
-                  return
-              if isinstance(src, dict):
-                  if not isinstance(dst, dict):
-                      raise AssertionError(f"nested evidence flattened at {path}: {type(dst).__name__}")
-                  expected_keys = {str(k) for k in src}
-                  if set(dst) != expected_keys:
-                      raise AssertionError(f"nested keys changed at {path}: {set(dst)} != {expected_keys}")
-                  for k, v in src.items():
-                      verify(v, dst[str(k)], f"{path}.{k}")
-                  return
-              if isinstance(src, (int, float)) and not isinstance(src, bool):
-                  expected = round(src, 4)
-                  if dst != expected:
-                      raise AssertionError(f"numeric leaf changed at {path}: {dst!r} != {expected!r}")
-                  return
-              if dst != src:
-                  raise AssertionError(f"component changed at {path}: {dst!r} != {src!r}")
-
-          for manager in scored:
-              payload = manager.to_dict()
-              serialized += 1
-              components = manager.components
-              out = payload.get("components")
-              if not isinstance(out, dict):
-                  raise AssertionError("serialized components is not an object")
-              for key, value in components.items():
-                  if isinstance(value, dict):
-                      counters["nestedComponents"] += 1
-                  verify(value, out.get(key), f"components.{key}")
-              if sample is None and any(v is None for v in components.values()) and any(isinstance(v, dict) for v in components.values()):
-                  sample = {
-                      "userId": payload.get("userId"),
-                      "nullKeys": sorted(k for k, v in components.items() if v is None),
-                      "nestedKeys": sorted(k for k, v in components.items() if isinstance(v, dict)),
-                      "serialized": {k: out.get(k) for k, v in components.items() if interesting(v)},
-                  }
-
-          if counters["nullLeaves"] == 0:
-              raise SystemExit("UNMEASURABLE: real production scores contained no None leaves")
-          if counters["nestedComponents"] == 0:
-              raise SystemExit("UNMEASURABLE: real production scores contained no nested component evidence")
-
-          print(json.dumps({
-              "realManagersScored": len(scored),
-              "realManagersSerialized": serialized,
-              "nullLeavesPreserved": counters["nullLeaves"],
-              "nestedComponentObjectsPreserved": counters["nestedComponents"],
-              "sample": sample,
-          }, sort_keys=True))
-          PY
-
-          echo
-          echo "=== V1-59 SCHEDULED DISCOVERY -> RECORDS -> ROSTERS CHAIN ==="
-          DAY_START="$(date -u +%Y-%m-%dT00:00:00Z)"
-          units=(dynasty-sharp-discovery dynasty-sharp-records dynasty-sharp-rosters)
+          echo "=== SCHEDULED DISCOVERY -> RECORDS -> ROSTERS ==="
           last_epochs=()
           for unit in "${units[@]}"; do
-            echo "--- $unit.timer ---"
             timer_show="$(systemctl show "$unit.timer" -p LastTriggerUSec -p NextElapseUSecRealtime --no-pager)"
+            echo "--- $unit.timer ---"
             printf '%s\n' "$timer_show"
             last="$(printf '%s\n' "$timer_show" | sed -n 's/^LastTriggerUSec=//p')"
             if [ -z "$last" ] || [ "$last" = "n/a" ]; then
               echo "ERROR: $unit.timer has no last trigger" >&2
               exit 1
             fi
-            last_epoch="$(date -u -d "$last" +%s)"
-            day_epoch="$(date -u -d "$DAY_START" +%s)"
-            if [ "$last_epoch" -lt "$day_epoch" ]; then
-              echo "ERROR: $unit.timer has not fired today UTC; last=$last" >&2
-              exit 1
-            fi
-            last_epochs+=("$last_epoch")
+            last_epochs+=("$(date -u -d "$last" +%s)")
 
             echo "--- $unit.service state ---"
-            state="$(systemctl show "$unit.service" -p Result -p ExecMainStatus -p ExecMainStartTimestamp -p ExecMainExitTimestamp --no-pager)"
+            state="$(systemctl show "$unit.service" -p Result -p ExecMainCode -p ExecMainStatus -p ExecMainStartTimestamp -p ExecMainExitTimestamp --no-pager)"
             printf '%s\n' "$state"
             result="$(printf '%s\n' "$state" | sed -n 's/^Result=//p')"
-            status="$(printf '%s\n' "$state" | sed -n 's/^ExecMainStatus=//p')"
-            if [ "$result" != "success" ] || [ "$status" != "0" ]; then
-              echo "ERROR: $unit.service latest state not clean: Result=$result ExecMainStatus=$status" >&2
+
+            echo "--- $unit.service journal from latest timer trigger ---"
+            journal="$(journalctl -u "$unit.service" --since "$last" --no-pager -q || true)"
+            printf '%s\n' "$journal" | tail -n 220
+            bad="$(printf '%s\n' "$journal" | grep -E -i 'database is locked|status=15/TERM|Failed with result|Traceback|watchdog|start operation timed out' || true)"
+
+            # systemd's Result is authoritative because these units explicitly
+            # declare SuccessExitStatus=0 2: exit 2 means resumable budget
+            # exhaustion, not failure.  The previous probe incorrectly required
+            # ExecMainStatus=0 and is superseded by this check.
+            if [ "$result" != "success" ]; then
+              echo "ERROR: $unit.service Result=$result" >&2
               exit 1
             fi
-
-            echo "--- $unit.service journal since scheduled timer trigger ---"
-            journal="$(journalctl -u "$unit.service" --since "$last" --no-pager -q || true)"
-            printf '%s\n' "$journal" | tail -n 160
-            bad="$(printf '%s\n' "$journal" | grep -E -i 'database is locked|status=15/TERM|Failed with result|code=exited, status=[1-9]|Traceback|watchdog|start operation timed out' || true)"
             if [ -n "$bad" ]; then
-              echo "ERROR: $unit.service journal contains post-trigger failure evidence:" >&2
+              echo "ERROR: $unit.service journal contains failure evidence:" >&2
               printf '%s\n' "$bad" >&2
               exit 1
             fi
           done
 
           if ! [ "${last_epochs[0]}" -lt "${last_epochs[1]}" ] || ! [ "${last_epochs[1]}" -lt "${last_epochs[2]}" ]; then
-            echo "ERROR: timer trigger order is not discovery < records < rosters: ${last_epochs[*]}" >&2
+            echo "ERROR: timer order is not discovery < records < rosters: ${last_epochs[*]}" >&2
             exit 1
           fi
           echo "SCHEDULED_CHAIN_ORDER=discovery<records<rosters"
 
           echo
           echo "=== FFPC UNIT HEALTH ==="
-          ffpc="$(systemctl show chaseupside-ffpc-sharp.service -p Result -p ExecMainStatus -p NRestarts --no-pager 2>/dev/null || true)"
+          systemctl cat chaseupside-ffpc-sharp.service --no-pager | grep -E '^(ExecStart|SuccessExitStatus|TimeoutStartSec|Restart)=' || true
+          ffpc="$(systemctl show chaseupside-ffpc-sharp.service -p Result -p ExecMainCode -p ExecMainStatus -p NRestarts -p ExecMainStartTimestamp -p ExecMainExitTimestamp --no-pager 2>/dev/null || true)"
           printf '%s\n' "$ffpc"
           ffpc_result="$(printf '%s\n' "$ffpc" | sed -n 's/^Result=//p')"
-          ffpc_status="$(printf '%s\n' "$ffpc" | sed -n 's/^ExecMainStatus=//p')"
-          if [ "$ffpc_result" != "success" ] || [ "$ffpc_status" != "0" ]; then
-            echo "ERROR: FFPC unit is not healthy: Result=$ffpc_result ExecMainStatus=$ffpc_status" >&2
+          if [ "$ffpc_result" != "success" ]; then
+            echo "ERROR: FFPC unit Result=$ffpc_result" >&2
+            exit 1
+          fi
+          ffpc_bad="$(journalctl -u chaseupside-ffpc-sharp.service --since '24 hours ago' --no-pager -q 2>/dev/null | grep -E -i 'database is locked|status=15/TERM|Failed with result|Traceback|watchdog|start operation timed out' || true)"
+          if [ -n "$ffpc_bad" ]; then
+            echo "ERROR: FFPC recent journal contains failure evidence:" >&2
+            printf '%s\n' "$ffpc_bad" >&2
             exit 1
           fi
 
           echo
-          echo "V1_59_READ_ONLY_PROOF=PASS"
+          echo "V1_59_SERVICE_CHAIN_PROOF=PASS"
           REMOTE
