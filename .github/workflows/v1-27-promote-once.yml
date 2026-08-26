@@ -31,7 +31,8 @@ jobs:
           from pathlib import Path
 
           path = Path("docs/VERSION_1_COMPLETION_CONTRACT.md")
-          evidence = Path("docs/ops/V1_27_AUTHENTICATED_PRODUCTION_PROOF_2026-08-26.md")
+          evidence_path = "docs/lineup/evidence/V1_27_AUTHENTICATED_PROD_2026-08-26.md"
+          evidence = Path(evidence_path)
           assert evidence.is_file(), "merged V1-27 production evidence packet is missing"
 
           text = path.read_text(encoding="utf-8")
@@ -47,14 +48,14 @@ jobs:
 
           promotion = (
               " **PROMOTED 2026-08-26 to `VERIFIED` at L3 after the merged authenticated "
-              "production packet `docs/ops/V1_27_AUTHENTICATED_PRODUCTION_PROOF_2026-08-26.md` "
-              "closed the remaining consumer chain: the canonical guest-pass/login path "
-              "authenticated against production; `/terminal` and `/rosters` rendered the "
-              "server-stamped `optimalLineup`; and a real bench-for-bench trade simulation "
-              "reported zero `starterDelta` at every position while preserving starter "
-              "assignments. The already-recorded owner-approved substitute for the "
-              "irrecoverable pre-deploy snapshot remains the evidence for that historical "
-              "check; nothing was fabricated or inferred from a merge alone.**"
+              f"production packet `{evidence_path}` closed the remaining consumer chain: "
+              "the canonical guest-pass/login path authenticated against production; "
+              "`/terminal` and `/rosters` rendered the server-stamped `optimalLineup`; and "
+              "a real bench-for-bench trade simulation reported zero `starterDelta` at "
+              "every position while preserving starter assignments. The already-recorded "
+              "owner-approved substitute for the irrecoverable pre-deploy snapshot remains "
+              "the evidence for that historical check; nothing was fabricated or inferred "
+              "from a merge alone.**"
           )
           new_row = old_row.replace(
               "| L1 | `IMPLEMENTED_UNVERIFIED` | L3 |",
