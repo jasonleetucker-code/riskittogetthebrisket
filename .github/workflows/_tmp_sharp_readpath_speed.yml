@@ -1,0 +1,388 @@
+name: Temporary Sharp read-path performance patch
+
+on:
+  push:
+    branches:
+      - chatgpt/sharp-readpath-speed-v1
+    paths:
+      - .github/workflows/_tmp_sharp_readpath_speed.yml
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Apply bounded performance patch
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import re
+
+          def replace_once(path: str, old: str, new: str) -> None:
+              p = Path(path)
+              text = p.read_text(encoding="utf-8")
+              count = text.count(old)
+              if count != 1:
+                  raise SystemExit(f"{path}: expected exactly one literal match, found {count}")
+              p.write_text(text.replace(old, new, 1), encoding="utf-8")
+
+          # 1) Sharp Tracker: collapse the three overlapping movement-window
+          # reads into one widest-window ledger read, then partition the exact
+          # same rows in memory with the same inclusive bounds.
+          market = Path("src/sharp/market.py")
+          text = market.read_text(encoding="utf-8")
+          marker = "\n\ndef market_payload(\n"
+          if text.count(marker) != 1:
+              raise SystemExit("market.py: market_payload marker drifted")
+          helper = r'''
+
+
+def _query_movements_for_windows(
+    *,
+    windows: Sequence[str],
+    now_ms: int,
+    manager_keys: Sequence[str],
+    platforms: Sequence[str] | None,
+    asset_type: str,
+    ledger_path: Path | None,
+) -> dict[str, list[dict[str, Any]]]:
+    """Read overlapping Sharp Tracker windows with one ledger query.
+
+    The previous request path issued one SQL query for each of the primary,
+    48-hour, and 30-day windows even though those windows overlap.  This
+    helper asks the canonical ledger for the widest required interval once
+    and partitions that already-filtered result using ``window_bounds``'s
+    same inclusive edges.  It changes no cohort, movement, source, identity,
+    or scoring semantics; it only removes redundant database work.
+    """
+    names = list(dict.fromkeys(windows))
+    if not names:
+        return {}
+    bounds = {name: signals.window_bounds(name, now_ms) for name in names}
+    since_values = [since for since, _until in bounds.values()]
+    earliest_since = None if any(since is None for since in since_values) else min(since_values)
+    latest_until = max(until for _since, until in bounds.values())
+    rows = platform_ledger.query_movements(
+        manager_keys=manager_keys,
+        since_ms=earliest_since,
+        until_ms=latest_until,
+        platforms=platforms,
+        asset_type=asset_type,
+        canonical_only=True,
+        path=ledger_path,
+    )
+    out: dict[str, list[dict[str, Any]]] = {}
+    for name, (since, until) in bounds.items():
+        out[name] = [
+            row
+            for row in rows
+            if (since is None or int(row["timestampMs"]) >= since)
+            and int(row["timestampMs"]) <= until
+        ]
+    return out
+'''
+          text = text.replace(marker, helper + marker, 1)
+          old_loop = '''    needed_windows = list(dict.fromkeys((window, "48h", "30d")))
+    per_window: dict[str, dict[str, dict[str, Any]]] = {}
+    person_view: dict[str, dict[str, Any]] = {}
+    for name in needed_windows:
+        since, until = signals.window_bounds(name, now)
+        movements = platform_ledger.query_movements(
+            manager_keys=manager_keys,
+            since_ms=since,
+            until_ms=until,
+            platforms=platforms,
+            asset_type=asset_type,
+            canonical_only=True,
+            path=ledger_path,
+        )
+        per_window[name] = _aggregate_window(movements, quality)
+        if name == window:
+'''
+          new_loop = '''    needed_windows = list(dict.fromkeys((window, "48h", "30d")))
+    movements_by_window = _query_movements_for_windows(
+        windows=needed_windows,
+        now_ms=now,
+        manager_keys=manager_keys,
+        platforms=platforms,
+        asset_type=asset_type,
+        ledger_path=ledger_path,
+    )
+    per_window: dict[str, dict[str, dict[str, Any]]] = {}
+    person_view: dict[str, dict[str, Any]] = {}
+    for name in needed_windows:
+        movements = movements_by_window[name]
+        per_window[name] = _aggregate_window(movements, quality)
+        if name == window:
+'''
+          if text.count(old_loop) != 1:
+              raise SystemExit(f"market.py: expected one overlapping-window loop, found {text.count(old_loop)}")
+          market.write_text(text.replace(old_loop, new_loop, 1), encoding="utf-8")
+
+          # 2) Sharp Roster Percentage: reuse one roster-store connection for
+          # current rosters, catalog metadata, and all four historical
+          # baselines instead of opening/migrating the same SQLite file six
+          # separate times in one request.
+          rp = Path("src/sharp/roster_percentage.py")
+          text = rp.read_text(encoding="utf-8")
+          catalog_pattern = re.compile(
+              r"def _catalog_metadata\(ledger_path: Path \| None\) -> dict\[str, dict\[str, Any\]\]:\n.*?\n\ndef _fallback_metadata",
+              re.S,
+          )
+          catalog_replacement = r'''def _catalog_metadata(
+    ledger_path: Path | None,
+    *,
+    conn: Any | None = None,
+) -> dict[str, dict[str, Any]]:
+    """``{canonicalAssetId: {displayName, position, nflTeam}}`` from the ledger.
+
+    ``canonical_assets`` is the platform's own asset catalog, hydrated
+    from Sleeper's directory by the roster crawl and the FFPC crawl. It
+    is consulted because our BOARD only names players inside its ranked
+    pool: a genuinely rostered player outside it (a deep veteran QB, for
+    instance) otherwise renders as a bare Sleeper id next to a perfectly
+    correct percentage, which reads as a broken row.
+
+    ``conn`` lets the request owner reuse the already-open roster-store
+    connection.  The read and fallback semantics are identical either way.
+    Degrades to an empty map — a name is cosmetic and must never cost a
+    board its numbers.
+    """
+    own = conn is None
+    if conn is None:
+        try:
+            connection = roster_store.ensure_roster_schema(ledger_path)
+        except Exception:  # noqa: BLE001
+            log.exception("sharp roster %%: asset catalog unavailable")
+            return {}
+    else:
+        connection = conn
+    try:
+        return {
+            str(row["canonical_asset_id"]): {
+                "displayName": row["display_name"],
+                "position": (str(row["position"] or "").strip().upper() or None),
+                "nflTeam": (str(row["nfl_team"] or "").strip().upper() or None),
+            }
+            for row in connection.execute(
+                """
+                SELECT canonical_asset_id, display_name, position, nfl_team
+                  FROM canonical_assets
+                 WHERE display_name IS NOT NULL
+                """
+            ).fetchall()
+        }
+    except Exception:  # noqa: BLE001
+        log.exception("sharp roster %%: asset catalog read failed")
+        return {}
+    finally:
+        if own:
+            connection.close()
+
+
+def _fallback_metadata'''
+          text, count = catalog_pattern.subn(catalog_replacement, text, count=1)
+          if count != 1:
+              raise SystemExit(f"roster_percentage.py: catalog function drifted ({count})")
+
+          old_reads = '''    stored = roster_store.load_rosters(path=ledger_path)
+    usable, exclusions = eligible_rosters(
+        stored,
+        cohort_manager_keys=cohort_keys,
+        now_ms=now,
+        max_age_days=max_age_days,
+    )
+    filtered = [r for r in usable if _roster_passes(r, filters)]
+    filtered_out = len(usable) - len(filtered)
+
+    roster_keys = {str(r["rosterKey"]) for r in filtered}
+    holders, slot_counts = _tally(filtered)
+    denominators, unknown_format = _denominators(filtered)
+    # W15-F009 (inv 4.6): every ``filtered`` roster already passed the
+    # cohort-membership gate in ``eligible_rosters``, so its ``managerKey``
+    # is guaranteed present — this map is total over ``roster_keys``, not
+    # a best-effort join, and needs no "unknown manager" fallback bucket.
+    roster_manager = {str(r["rosterKey"]): str(r["managerKey"]) for r in filtered}
+
+    player_index = build_player_index(contract)
+    asset_catalog = _catalog_metadata(ledger_path)
+    buy_sell = _buy_sell_index(
+        members=members,
+        ledger_path=ledger_path,
+        window=buy_sell_window,
+        now_ms=now,
+    )
+
+    # The owner's stated windows are 7 / 14 / 30 day; season-to-date is kept
+    # alongside them because it answers a different question (how ownership
+    # moved over the whole season, not over a recent window).
+    #
+    # Adding a window costs one ``holdings_as_of`` read and NOTHING else: the
+    # population-overlap guard in ``_trend`` applies to every baseline
+    # identically, so a cohort that grew between the endpoints still cannot
+    # masquerade as players gaining ownership on the new window either.
+    baselines = {
+        "sevenDay": now - 7 * DAY_MS,
+        "fourteenDay": now - 14 * DAY_MS,
+        "thirtyDay": now - 30 * DAY_MS,
+        "seasonToDate": _season_start_ms(now),
+    }
+    baseline_holdings = {
+        name: roster_store.holdings_as_of(as_of, roster_keys=sorted(roster_keys), path=ledger_path)
+        for name, as_of in baselines.items()
+    }
+'''
+          new_reads = '''    # One read connection owns the entire roster-state portion of this
+    # request.  Previously load_rosters, catalog metadata, and each of the
+    # four baselines independently reopened/ensured the same SQLite schema.
+    # Reusing the connection removes that repeated migration/connection cost
+    # without caching or changing freshness semantics.
+    roster_conn = roster_store.ensure_roster_schema(ledger_path)
+    try:
+        stored = roster_store.load_rosters(path=ledger_path, conn=roster_conn)
+        usable, exclusions = eligible_rosters(
+            stored,
+            cohort_manager_keys=cohort_keys,
+            now_ms=now,
+            max_age_days=max_age_days,
+        )
+        filtered = [r for r in usable if _roster_passes(r, filters)]
+        filtered_out = len(usable) - len(filtered)
+
+        roster_keys = {str(r["rosterKey"]) for r in filtered}
+        holders, slot_counts = _tally(filtered)
+        denominators, unknown_format = _denominators(filtered)
+        # W15-F009 (inv 4.6): every ``filtered`` roster already passed the
+        # cohort-membership gate in ``eligible_rosters``, so its ``managerKey``
+        # is guaranteed present — this map is total over ``roster_keys``, not
+        # a best-effort join, and needs no "unknown manager" fallback bucket.
+        roster_manager = {str(r["rosterKey"]): str(r["managerKey"]) for r in filtered}
+        asset_catalog = _catalog_metadata(ledger_path, conn=roster_conn)
+
+        # The owner's stated windows are 7 / 14 / 30 day; season-to-date is kept
+        # alongside them because it answers a different question (how ownership
+        # moved over the whole season, not over a recent window).
+        baselines = {
+            "sevenDay": now - 7 * DAY_MS,
+            "fourteenDay": now - 14 * DAY_MS,
+            "thirtyDay": now - 30 * DAY_MS,
+            "seasonToDate": _season_start_ms(now),
+        }
+        sorted_roster_keys = sorted(roster_keys)
+        baseline_holdings = {
+            name: roster_store.holdings_as_of(
+                as_of,
+                roster_keys=sorted_roster_keys,
+                path=ledger_path,
+                conn=roster_conn,
+            )
+            for name, as_of in baselines.items()
+        }
+    finally:
+        roster_conn.close()
+
+    player_index = build_player_index(contract)
+    buy_sell = _buy_sell_index(
+        members=members,
+        ledger_path=ledger_path,
+        window=buy_sell_window,
+        now_ms=now,
+    )
+'''
+          if text.count(old_reads) != 1:
+              raise SystemExit(f"roster_percentage.py: request read block drifted ({text.count(old_reads)})")
+          rp.write_text(text.replace(old_reads, new_reads, 1), encoding="utf-8")
+
+          # 3) Non-vacuous regression tests: assert the expensive owners are
+          # invoked once while the resulting user-visible numbers stay intact.
+          market_tests = Path("tests/sharp/test_unified_market.py")
+          mt = market_tests.read_text(encoding="utf-8")
+          test_market = r'''
+
+
+def test_overlapping_tracker_windows_share_one_ledger_read(tmp_path, monkeypatch):
+    """48h/7d/30d are independent views but do not need independent SQL scans."""
+    path = tmp_path / "ledger.sqlite3"
+    platform_ledger.ingest_batch(batch("sleeper", "u1", "L1", "T1", "M1"), path=path)
+    monkeypatch.setattr(market, "cohort_members", lambda **kwargs: members())
+
+    real_query = platform_ledger.query_movements
+    calls = []
+
+    def counted_query(**kwargs):
+        calls.append(dict(kwargs))
+        return real_query(**kwargs)
+
+    monkeypatch.setattr(market.platform_ledger, "query_movements", counted_query)
+    payload = market.market_payload(
+        window="7d",
+        now_ms=NOW,
+        ledger_path=path,
+        ffpc_config={"enabled": True, "allowCuratedInCombinedSignals": True},
+    )
+
+    assert len(calls) == 1
+    assert calls[0]["since_ms"] == NOW - 30 * 24 * 60 * 60 * 1000
+    row = payload["assets"][0]
+    assert row["windows"]["7d"]["volume"] == 1
+    assert row["velocity"] is None  # unchanged: the 30d baseline is still too thin
+'''
+          if "def test_overlapping_tracker_windows_share_one_ledger_read" in mt:
+              raise SystemExit("tracker performance regression test already exists")
+          market_tests.write_text(mt.rstrip() + test_market + "\n", encoding="utf-8")
+
+          roster_tests = Path("tests/sharp/test_roster_percentage.py")
+          rt = roster_tests.read_text(encoding="utf-8")
+          test_roster = r'''
+
+
+def test_roster_board_reuses_one_roster_store_connection(ledger, cohort_of, monkeypatch):
+    """Current state, catalog, and four trend baselines share one read connection."""
+    cohort_of(["sleeper:u1", "sleeper:u2"])
+    rs.record_rosters(
+        [
+            roster("sleeper:u1", "sleeper:L1", assets=["wr1", "rb1"]),
+            roster("sleeper:u2", "sleeper:L2", assets=["wr1"]),
+        ],
+        path=ledger,
+    )
+
+    real_ensure = rs.ensure_roster_schema
+    calls = []
+
+    def counted_ensure(*args, **kwargs):
+        calls.append((args, kwargs))
+        return real_ensure(*args, **kwargs)
+
+    monkeypatch.setattr(rs, "ensure_roster_schema", counted_ensure)
+    payload = board(ledger)
+
+    assert len(calls) == 1
+    wr = row_for(payload, "Star Receiver")
+    assert (wr["sharpRosters"], wr["eligibleRosters"], wr["sharpRosterPct"]) == (2, 2, 1.0)
+'''
+          if "def test_roster_board_reuses_one_roster_store_connection" in rt:
+              raise SystemExit("roster performance regression test already exists")
+          roster_tests.write_text(rt.rstrip() + test_roster + "\n", encoding="utf-8")
+          PY
+
+          python -m py_compile src/sharp/market.py src/sharp/roster_percentage.py \
+            tests/sharp/test_unified_market.py tests/sharp/test_roster_percentage.py
+          git diff --check
+
+      - name: Commit patch and remove temporary workflow
+        shell: bash
+        run: |
+          git config user.name "chatgpt-integration"
+          git config user.email "actions@users.noreply.github.com"
+          git rm .github/workflows/_tmp_sharp_readpath_speed.yml
+          git add src/sharp/market.py src/sharp/roster_percentage.py \
+            tests/sharp/test_unified_market.py tests/sharp/test_roster_percentage.py
+          git commit -m "perf(sharp): collapse redundant read-path database work"
+          git push origin HEAD:chatgpt/sharp-readpath-speed-v1
