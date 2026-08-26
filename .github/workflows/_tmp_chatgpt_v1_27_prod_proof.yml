@@ -1,0 +1,168 @@
+name: Temporary V1-27 Authenticated Production Proof
+
+on:
+  push:
+    branches:
+      - chatgpt/v1-27-prod-proof-2
+
+permissions:
+  contents: read
+
+jobs:
+  prove:
+    name: V1-27 deployed lineup proof
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    environment: production
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Resolve production origin
+        env:
+          PROD_PUBLIC_URL: ${{ vars.PROD_PUBLIC_URL }}
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          test -n "${PROD_PUBLIC_URL:-}"
+          echo "ORIGIN=${PROD_PUBLIC_URL%/}" >> "$GITHUB_ENV"
+
+      - name: Configure production SSH
+        env:
+          DEPLOY_SSH_PRIVATE_KEY: ${{ secrets.DEPLOY_SSH_PRIVATE_KEY }}
+          DEPLOY_KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+          DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          install -d -m 700 "$HOME/.ssh"
+          printf '%s\n' "$DEPLOY_SSH_PRIVATE_KEY" | sed 's/\r$//' > "$HOME/.ssh/id_ed25519"
+          printf '%s\n' "$DEPLOY_KNOWN_HOSTS" | sed 's/\r$//' > "$HOME/.ssh/known_hosts"
+          chmod 600 "$HOME/.ssh/id_ed25519"
+          chmod 644 "$HOME/.ssh/known_hosts"
+          ssh-keygen -y -f "$HOME/.ssh/id_ed25519" >/dev/null
+          echo "PORT=${DEPLOY_PORT:-22}" >> "$GITHUB_ENV"
+
+      - name: Bind evidence to deployed SHA
+        id: deployed
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          APP_DIR: ${{ vars.PROD_APP_DIR || '/home/dynasty/trade-calculator' }}
+          REQUIRED_SHA: c30b8d6ba1ef2fa604ecb1cfe1e44dd6130ede44
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          sha=$(ssh -i "$HOME/.ssh/id_ed25519" -o BatchMode=yes -o StrictHostKeyChecking=yes \
+            -o UserKnownHostsFile="$HOME/.ssh/known_hosts" -o ConnectTimeout=15 \
+            -p "$PORT" "$DEPLOY_USER@$DEPLOY_HOST" \
+            "cd $(printf %q "$APP_DIR") && git rev-parse HEAD && git merge-base --is-ancestor $(printf %q "$REQUIRED_SHA") HEAD")
+          sha=$(printf '%s\n' "$sha" | head -n1)
+          echo "DEPLOYED_SHA=$sha" >> "$GITHUB_ENV"
+          echo "deployed_sha=$sha" >> "$GITHUB_OUTPUT"
+          echo "DEPLOYED_SHA=$sha"
+
+      - name: Mint ephemeral guest pass via canonical implementation
+        id: mint
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          APP_DIR: ${{ vars.PROD_APP_DIR || '/home/dynasty/trade-calculator' }}
+          RUN_ID: ${{ github.run_id }}
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          MINT_JSON=$(ssh -i "$HOME/.ssh/id_ed25519" -o BatchMode=yes -o StrictHostKeyChecking=yes \
+            -o UserKnownHostsFile="$HOME/.ssh/known_hosts" -o ConnectTimeout=15 \
+            -p "$PORT" "$DEPLOY_USER@$DEPLOY_HOST" \
+            "APP_DIR=$(printf %q "$APP_DIR") RUN_ID=$(printf %q "$RUN_ID") bash -s" <<'REMOTE'
+          set -Eeuo pipefail
+          cd "$APP_DIR"
+          PY="$APP_DIR/.venv/bin/python"; [ -x "$PY" ] || PY="$APP_DIR/venv/bin/python"; [ -x "$PY" ] || PY=python3
+          "$PY" - <<'PY'
+          import json, os, sys
+          sys.path.insert(0, os.environ['APP_DIR'])
+          from src.api import guest_passes
+          gp, token = guest_passes.create(duration_hours=2.0, note=f"v1-27 proof {os.environ.get('RUN_ID')}", created_by="github-actions-v1-27-proof")
+          print(json.dumps({'id': gp.id, 'token': token}))
+          PY
+          REMOTE
+          )
+          TOKEN=$(printf '%s' "$MINT_JSON" | python3 -c 'import json,sys; print(json.load(sys.stdin)["token"])')
+          PASS_ID=$(printf '%s' "$MINT_JSON" | python3 -c 'import json,sys; print(json.load(sys.stdin)["id"])')
+          echo "::add-mask::$TOKEN"
+          install -m 600 /dev/null "$RUNNER_TEMP/guest_pass_token"
+          printf '%s' "$TOKEN" > "$RUNNER_TEMP/guest_pass_token"
+          echo "PASS_ID=$PASS_ID" >> "$GITHUB_ENV"
+          echo "pass_id=$PASS_ID" >> "$GITHUB_OUTPUT"
+
+      - name: Login through real guest-pass auth path
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python3 - "$ORIGIN" "$RUNNER_TEMP/guest_pass_token" "$RUNNER_TEMP/session_cookie" <<'PY'
+          import json, sys, urllib.request
+          origin, token_file, out_file = sys.argv[1:]
+          token = open(token_file, encoding='utf-8').read().strip()
+          req = urllib.request.Request(origin + '/api/auth/login', method='POST', headers={'Content-Type':'application/json'}, data=json.dumps({'username':'guest','password':token}).encode())
+          with urllib.request.urlopen(req, timeout=30) as resp:
+              cookie=''
+              for h,v in resp.headers.items():
+                  if h.lower() == 'set-cookie' and v.startswith('jason_session='):
+                      cookie=v.split(';',1)[0].split('=',1)[1]
+              body=json.load(resp)
+          assert body.get('guest') is True and cookie, body
+          open(out_file,'w',encoding='utf-8').write(cookie)
+          print('authenticated=True authMethod=guest_pass username=guest')
+          PY
+          chmod 600 "$RUNNER_TEMP/session_cookie"
+
+      - name: Execute canonical V1-27 L3 API checklist
+        shell: bash
+        env:
+          ROSTER_VERIFY_COOKIE: unused
+        run: |
+          set -Eeuo pipefail
+          export ROSTER_VERIFY_COOKIE="jason_session=$(cat "$RUNNER_TEMP/session_cookie")"
+          python3 scripts/verify_lineup_production.py \
+            --base-url "$ORIGIN" \
+            --league-key dynasty_main \
+            --expect-sha "$DEPLOYED_SHA" \
+            --json-out "$RUNNER_TEMP/v1-27-lineup-proof.json"
+          cat "$RUNNER_TEMP/v1-27-lineup-proof.json"
+
+      - name: Execute V1-27 deployed browser consumer checks
+        shell: bash
+        env:
+          PROD_SESSION_COOKIE_FILE: ${{ runner.temp }}/session_cookie
+        run: |
+          set -Eeuo pipefail
+          export PROD_ORIGIN="$ORIGIN"
+          npm ci
+          npx playwright install chromium --with-deps
+          npx playwright test --config tests/e2e/prod-auth.config.js tests/e2e/specs/prod-auth/v1-27-lineup-render.spec.js --project=prod-desktop
+
+      - name: Revoke pass always
+        if: ${{ always() && steps.mint.outputs.pass_id != '' }}
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          APP_DIR: ${{ vars.PROD_APP_DIR || '/home/dynasty/trade-calculator' }}
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          ssh -i "$HOME/.ssh/id_ed25519" -o BatchMode=yes -o StrictHostKeyChecking=yes \
+            -o UserKnownHostsFile="$HOME/.ssh/known_hosts" -o ConnectTimeout=15 \
+            -p "$PORT" "$DEPLOY_USER@$DEPLOY_HOST" \
+            "APP_DIR=$(printf %q "$APP_DIR") PASS_ID=$(printf %q "$PASS_ID") bash -s" <<'REMOTE'
+          set -Eeuo pipefail
+          cd "$APP_DIR"
+          PY="$APP_DIR/.venv/bin/python"; [ -x "$PY" ] || PY="$APP_DIR/venv/bin/python"; [ -x "$PY" ] || PY=python3
+          "$PY" - <<'PY'
+          import os, sys
+          sys.path.insert(0, os.environ['APP_DIR'])
+          from src.api import guest_passes
+          assert guest_passes.revoke(int(os.environ['PASS_ID']))
+          print('guest pass revoked')
+          PY
+          REMOTE
