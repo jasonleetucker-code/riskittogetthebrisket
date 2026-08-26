@@ -19,140 +19,43 @@ jobs:
           ref: chatgpt/v1-56-verifier-repair
           fetch-depth: 0
 
-      - name: Repair the two V1-56 false-negative paths
+      - name: Repair exact V1-56 verifier anchors
         shell: bash
+        env:
+          API_OLD: "ICAgIGJsb2NrID0gYm9keS5nZXQoImZhYWJBbmFseXRpY3MiKSBpZiAiZmFhYkFuYWx5dGljcyIgaW4gYm9keSBlbHNlIGJvZHkKICAgIGlmIG5vdCBpc2luc3RhbmNlKGJsb2NrLCBkaWN0KToKICAgICAgICBjLnJlY29yZCgiZmFpbCIsICJubyBhbmFseXRpY3MgYmxvY2siLCB0b3BLZXlzPXNvcnRlZChib2R5KVs6MTVdKQogICAgICAgIHJldHVybgo="
+          API_NEW: "ICAgICMgYC9hcGkvcHVibGljL2xlYWd1ZS97c2VjdGlvbn1gIGlzIGEgc2VjdGlvbiBFTlZFTE9QRToKICAgICMgYHtjb250cmFjdFZlcnNpb24sIGxlYWd1ZSwgc2VjdGlvbiwgZGF0YX1gLiBUaGUgb2xkIHZlcmlmaWVyIHJlYWQgdGhlCiAgICAjIGVudmVsb3BlIGl0c2VsZiBhcyB0aGUgYW5hbHl0aWNzIGJsb2NrLCBzbyBhIGhlYWx0aHkgcHJvZHVjdGlvbiByZXNwb25zZQogICAgIyBmYWxzZWx5IGZhaWxlZCB3aXRoICJsZWFndWVNZWRpYW5XaW5uaW5nQmlkIGFic2VudCIgZXZlbiB0aG91Z2ggdGhlIHZhbHVlCiAgICAjIHdhcyBwcmVzZW50IHVuZGVyIGBkYXRhYC4gQWNjZXB0IHRoZSBoaXN0b3JpY2FsIGRpcmVjdCBibG9jayBvbmx5IGFzIGEKICAgICMgY29tcGF0aWJpbGl0eSBzaGFwZTsgbmV2ZXIgZmFsbCBiYWNrIHRvIHRyZWF0aW5nIHRoZSBlbnZlbG9wZSBhcyBkYXRhLgogICAgaWYgaXNpbnN0YW5jZShib2R5LmdldCgiZGF0YSIpLCBkaWN0KToKICAgICAgICBibG9jayA9IGJvZHlbImRhdGEiXQogICAgZWxpZiBpc2luc3RhbmNlKGJvZHkuZ2V0KCJmYWFiQW5hbHl0aWNzIiksIGRpY3QpOgogICAgICAgIGJsb2NrID0gYm9keVsiZmFhYkFuYWx5dGljcyJdCiAgICBlbHNlOgogICAgICAgIGMucmVjb3JkKCJmYWlsIiwgIm5vIGFuYWx5dGljcyBibG9jayIsIHRvcEtleXM9c29ydGVkKGJvZHkpWzoxNV0pCiAgICAgICAgcmV0dXJuCgo="
+          TEST_ANCHOR: "IyDilIDilIAgVjEtMTMxOiB0aGUgYWdyZWVtZW50IHJ1bGUg4pSA4pSACg=="
+          TEST_ADD: "IyDilIDilIAgVjEtNTY6IHB1YmxpYy1sZWFndWUgc2VjdGlvbiBlbnZlbG9wZSDilIDilIAKCgpkZWYgdGVzdF92NTZfcmVhZHNfdGhlX2FuYWx5dGljc19ibG9ja19mcm9tX3RoZV9zZWN0aW9uX2RhdGFfZW52ZWxvcGUoKToKICAgIGNsaWVudCA9IF9GYWtlQ2xpZW50KAogICAgICAgIHsKICAgICAgICAgICAgIi9hcGkvcHVibGljL2xlYWd1ZS9mYWFiQW5hbHl0aWNzIjogKAogICAgICAgICAgICAgICAgMjAwLAogICAgICAgICAgICAgICAgewogICAgICAgICAgICAgICAgICAgICJjb250cmFjdFZlcnNpb24iOiAiMjAyNi0wMy0xMC52MiIsCiAgICAgICAgICAgICAgICAgICAgImxlYWd1ZSI6IHsibmFtZSI6ICJSaXNrIEl0IFRvIEdldCBUaGUgQnJpc2tldCJ9LAogICAgICAgICAgICAgICAgICAgICJzZWN0aW9uIjogImZhYWJBbmFseXRpY3MiLAogICAgICAgICAgICAgICAgICAgICJkYXRhIjogewogICAgICAgICAgICAgICAgICAgICAgICAibGVhZ3VlTWVkaWFuV2lubmluZ0JpZCI6IDAuMCwKICAgICAgICAgICAgICAgICAgICAgICAgImxlYWd1ZUF2Z1dpbm5pbmdCaWQiOiAxLjM3LAogICAgICAgICAgICAgICAgICAgICAgICAidG90YWxCaWRzQW5hbHl6ZWQiOiAxMDk3LAogICAgICAgICAgICAgICAgICAgIH0sCiAgICAgICAgICAgICAgICB9LAogICAgICAgICAgICApCiAgICAgICAgfQogICAgKQogICAgYXV0aC5jaGVja192NTYoY2xpZW50KQogICAgYXNzZXJ0IGF1dGguQ0hFQ0tTWy0xXS5zdGF0dXMgPT0gInBhc3MiCiAgICBhc3NlcnQgImxlYWd1ZU1lZGlhbldpbm5pbmdCaWQ9MC4wIiBpbiBhdXRoLkNIRUNLU1stMV0uZGV0YWlsCgoKZGVmIHRlc3RfdjU2X2RvZXNfbm90X21pc3Rha2VfdGhlX3NlY3Rpb25fZW52ZWxvcGVfZm9yX3RoZV9hbmFseXRpY3NfYmxvY2soKToKICAgIGNsaWVudCA9IF9GYWtlQ2xpZW50KAogICAgICAgIHsKICAgICAgICAgICAgIi9hcGkvcHVibGljL2xlYWd1ZS9mYWFiQW5hbHl0aWNzIjogKAogICAgICAgICAgICAgICAgMjAwLAogICAgICAgICAgICAgICAgewogICAgICAgICAgICAgICAgICAgICJjb250cmFjdFZlcnNpb24iOiAiMjAyNi0wMy0xMC52MiIsCiAgICAgICAgICAgICAgICAgICAgImxlYWd1ZSI6IHsibmFtZSI6ICJSaXNrIEl0IFRvIEdldCBUaGUgQnJpc2tldCJ9LAogICAgICAgICAgICAgICAgICAgICJzZWN0aW9uIjogImZhYWJBbmFseXRpY3MiLAogICAgICAgICAgICAgICAgICAgICJkYXRhIjogTm9uZSwKICAgICAgICAgICAgICAgIH0sCiAgICAgICAgICAgICkKICAgICAgICB9CiAgICApCiAgICBhdXRoLmNoZWNrX3Y1NihjbGllbnQpCiAgICBhc3NlcnQgYXV0aC5DSEVDS1NbLTFdLnN0YXR1cyA9PSAiZmFpbCIKICAgIGFzc2VydCBhdXRoLkNIRUNLU1stMV0uZGV0YWlsID09ICJubyBhbmFseXRpY3MgYmxvY2siCgoK"
+          BROWSER_OLD: "ICAgIGF3YWl0IGV4cGVjdCgKICAgICAgcGFnZS5nZXRCeVJvbGUoImhlYWRpbmciLCB7IGxldmVsOiAxLCBuYW1lOiAvXldhaXZlcnMkLyB9KSwKICAgICkudG9CZVZpc2libGUoeyB0aW1lb3V0OiA5MF8wMDAgfSk7CgogICAgY29uc3QgYW5hbHl0aWNzUmVzID0gYXdhaXQgYW5hbHl0aWNzUHJvbWlzZTsK"
+          BROWSER_NEW: "ICAgIGF3YWl0IGV4cGVjdCgKICAgICAgcGFnZS5nZXRCeVJvbGUoImhlYWRpbmciLCB7IGxldmVsOiAxLCBuYW1lOiAvXldhaXZlcnMkLyB9KSwKICAgICkudG9CZVZpc2libGUoeyB0aW1lb3V0OiA5MF8wMDAgfSk7CgogICAgLy8gVGhlIGVwaGVtZXJhbCBwcm9kdWN0aW9uLXZlcmlmaWNhdGlvbiBndWVzdCBpbnRlbnRpb25hbGx5IGhhcyBubwogICAgLy8gcGVyc2lzdGVkIHBlci1sZWFndWUgdGVhbSBwcmVmZXJlbmNlLiBUaGUgRkFBQiBjb250ZXh0IHN0cmlwIGlzCiAgICAvLyB0ZWFtLWNvbnRleHQgVUksIHNvIHdoZW4gdGhlIHJlYWwgc2hlbGwgc2F5cyAiUGljayB5b3VyIHRlYW0iIHRoZQogICAgLy8gdmVyaWZpZXIgbXVzdCBlc3RhYmxpc2ggdGhhdCBwcmVyZXF1aXNpdGUgdGhyb3VnaCB0aGUgU0FNRSB1c2VyLWZhY2luZwogICAgLy8gVGVhbVN3aXRjaGVyIGEgbm9ybWFsIHVzZXIgdXNlcy4gVGhlIG9sZCBwcm9vZiBpbnN0ZWFkIGRlbWFuZGVkIGEKICAgIC8vIHRlYW0tc2NvcGVkIHN0cmlwIHdoaWxlIGRlbGliZXJhdGVseSBwcm92aWRpbmcgbm8gdGVhbSwgcHJvZHVjaW5nIGEKICAgIC8vIGZhbHNlIG5lZ2F0aXZlIGFnYWluc3QgYSBjb21wb25lbnQgd2hvc2UgYW5hbHl0aWNzIHJlcXVlc3QgaGFkIGFscmVhZHkKICAgIC8vIHN1Y2NlZWRlZC4gRG8gbm90IHNlZWQgbG9jYWxTdG9yYWdlIG9yIGNhbGwgYW4gaW50ZXJuYWwgc2V0dGVyIGhlcmUuCiAgICBjb25zdCB0ZWFtU3dpdGNoZXIgPSBwYWdlLmxvY2F0b3IoIi50ZWFtLXN3aXRjaGVyIikuZmlyc3QoKTsKICAgIGF3YWl0IGV4cGVjdCgKICAgICAgdGVhbVN3aXRjaGVyLAogICAgICAiYXV0aGVudGljYXRlZCAvd2FpdmVycyBtdXN0IG9mZmVyIGEgcmVhbCB0ZWFtIHNlbGVjdG9yIGJlZm9yZSBhIHRlYW0tc2NvcGVkIEZBQUIgYXNzZXJ0aW9uIiwKICAgICkudG9CZVZpc2libGUoeyB0aW1lb3V0OiAzMF8wMDAgfSk7CiAgICBjb25zdCBuZWVkc1RlYW0gPSBhd2FpdCB0ZWFtU3dpdGNoZXIuZXZhbHVhdGUoKG5vZGUpID0+CiAgICAgIG5vZGUuY2xhc3NMaXN0LmNvbnRhaW5zKCJ0ZWFtLXN3aXRjaGVyLS1uZWVkcyIpLAogICAgKTsKICAgIGlmIChuZWVkc1RlYW0pIHsKICAgICAgY29uc3QgdG9nZ2xlID0gdGVhbVN3aXRjaGVyLmxvY2F0b3IoIi50ZWFtLXN3aXRjaGVyLXRvZ2dsZSIpOwogICAgICBhd2FpdCB0b2dnbGUuY2xpY2soKTsKICAgICAgY29uc3Qgb3B0aW9uID0gdGVhbVN3aXRjaGVyLmxvY2F0b3IoIi50ZWFtLXN3aXRjaGVyLW9wdGlvbiIpLmZpcnN0KCk7CiAgICAgIGF3YWl0IGV4cGVjdCgKICAgICAgICBvcHRpb24sCiAgICAgICAgInRoZSBwcm9kdWN0aW9uIGNvbnRyYWN0IGV4cG9zZXMgbm8gc2VsZWN0YWJsZSB0ZWFtIGZvciB0aGUgZ3Vlc3QgdmVyaWZpZXIiLAogICAgICApLnRvQmVWaXNpYmxlKHsgdGltZW91dDogMTVfMDAwIH0pOwogICAgICBjb25zdCBjaG9zZW4gPSAoYXdhaXQgb3B0aW9uLmlubmVyVGV4dCgpKS50cmltKCk7CiAgICAgIGF3YWl0IG9wdGlvbi5jbGljaygpOwogICAgICBhbm5vdGF0ZSh0ZXN0SW5mbywgInRlYW0tY29udGV4dCIsIGBzZWxlY3RlZCB0aHJvdWdoIFRlYW1Td2l0Y2hlcjogJHtjaG9zZW59YCk7CiAgICB9IGVsc2UgewogICAgICBhbm5vdGF0ZSgKICAgICAgICB0ZXN0SW5mbywKICAgICAgICAidGVhbS1jb250ZXh0IiwKICAgICAgICBgYWxyZWFkeSByZXNvbHZlZCBieSB0aGUgc2hlbGw6ICR7KGF3YWl0IHRlYW1Td2l0Y2hlci5pbm5lclRleHQoKSkudHJpbSgpfWAsCiAgICAgICk7CiAgICB9CgogICAgY29uc3QgYW5hbHl0aWNzUmVzID0gYXdhaXQgYW5hbHl0aWNzUHJvbWlzZTsK"
         run: |
           set -euo pipefail
-          cat > /tmp/v1-56.patch <<'PATCH'
-          diff --git a/scripts/verify_v1_authenticated.py b/scripts/verify_v1_authenticated.py
-          --- a/scripts/verify_v1_authenticated.py
-          +++ b/scripts/verify_v1_authenticated.py
-          @@ -185,9 +185,19 @@ def check_v56(client: Client) -> None:
-               if status != 200 or not isinstance(body, dict):
-                   c.record("fail" if status != 401 else "unmeasurable", f"HTTP {status}")
-                   return
-          -    block = body.get("faabAnalytics") if "faabAnalytics" in body else body
-          -    if not isinstance(block, dict):
-          +    # `/api/public/league/{section}` is a section ENVELOPE:
-          +    # `{contractVersion, league, section, data}`. The old verifier read the
-          +    # envelope itself as the analytics block, so a healthy production response
-          +    # falsely failed with "leagueMedianWinningBid absent" even though the value
-          +    # was present under `data`. Accept the historical direct block only as a
-          +    # compatibility shape; never fall back to treating the envelope as data.
-          +    if isinstance(body.get("data"), dict):
-          +        block = body["data"]
-          +    elif isinstance(body.get("faabAnalytics"), dict):
-          +        block = body["faabAnalytics"]
-          +    else:
-                   c.record("fail", "no analytics block", topKeys=sorted(body)[:15])
-                   return
-          +
-               median = block.get("leagueMedianWinningBid", "ABSENT")
-               if median == "ABSENT":
-                   c.record("fail", "leagueMedianWinningBid absent from the payload", keys=sorted(block)[:20])
-          diff --git a/tests/ops/test_v1_verification_primitives.py b/tests/ops/test_v1_verification_primitives.py
-          --- a/tests/ops/test_v1_verification_primitives.py
-          +++ b/tests/ops/test_v1_verification_primitives.py
-          @@ -98,6 +98,50 @@ def test_v61_zero_coverage_where_null_expected_is_still_typed_pass():
-               assert auth.CHECKS[-1].status == "fail"  # a string coverage is malformed
-           
-           
-          +# ── V1-56: public-league section envelope ──
-          +
-          +
-          +def test_v56_reads_the_analytics_block_from_the_section_data_envelope():
-          +    client = _FakeClient(
-          +        {
-          +            "/api/public/league/faabAnalytics": (
-          +                200,
-          +                {
-          +                    "contractVersion": "2026-03-10.v2",
-          +                    "league": {"name": "Risk It To Get The Brisket"},
-          +                    "section": "faabAnalytics",
-          +                    "data": {
-          +                        "leagueMedianWinningBid": 0.0,
-          +                        "leagueAvgWinningBid": 1.37,
-          +                        "totalBidsAnalyzed": 1097,
-          +                    },
-          +                },
-          +            )
-          +        }
-          +    )
-          +    auth.check_v56(client)
-          +    assert auth.CHECKS[-1].status == "pass"
-          +    assert "leagueMedianWinningBid=0.0" in auth.CHECKS[-1].detail
-          +
-          +
-          +def test_v56_does_not_mistake_the_section_envelope_for_the_analytics_block():
-          +    client = _FakeClient(
-          +        {
-          +            "/api/public/league/faabAnalytics": (
-          +                200,
-          +                {
-          +                    "contractVersion": "2026-03-10.v2",
-          +                    "league": {"name": "Risk It To Get The Brisket"},
-          +                    "section": "faabAnalytics",
-          +                    "data": None,
-          +                },
-          +            )
-          +        }
-          +    )
-          +    auth.check_v56(client)
-          +    assert auth.CHECKS[-1].status == "fail"
-          +    assert auth.CHECKS[-1].detail == "no analytics block"
-          +
-          +
-           # ── V1-131: the agreement rule ──
-           
-           
-          diff --git a/tests/e2e/specs/prod-auth/v1-56-waivers-faab-strip.spec.js b/tests/e2e/specs/prod-auth/v1-56-waivers-faab-strip.spec.js
-          --- a/tests/e2e/specs/prod-auth/v1-56-waivers-faab-strip.spec.js
-          +++ b/tests/e2e/specs/prod-auth/v1-56-waivers-faab-strip.spec.js
-          @@ -54,6 +54,42 @@ test.describe("V1-56: /waivers league-FAAB context strip", () => {
-                 page.getByRole("heading", { level: 1, name: /^Waivers$/ }),
-               ).toBeVisible({ timeout: 90_000 });
-           
-          +    // The ephemeral production-verification guest intentionally has no
-          +    // persisted per-league team preference. The FAAB context strip is
-          +    // team-context UI, so when the real shell says "Pick your team" the
-          +    // verifier must establish that prerequisite through the SAME user-facing
-          +    // TeamSwitcher a normal user uses. The old proof instead demanded a
-          +    // team-scoped strip while deliberately providing no team, producing a
-          +    // false negative against a component whose analytics request had already
-          +    // succeeded. Do not seed localStorage or call an internal setter here.
-          +    const teamSwitcher = page.locator(".team-switcher").first();
-          +    await expect(
-          +      teamSwitcher,
-          +      "authenticated /waivers must offer a real team selector before a team-scoped FAAB assertion",
-          +    ).toBeVisible({ timeout: 30_000 });
-          +    const needsTeam = await teamSwitcher.evaluate((node) =>
-          +      node.classList.contains("team-switcher--needs"),
-          +    );
-          +    if (needsTeam) {
-          +      const toggle = teamSwitcher.locator(".team-switcher-toggle");
-          +      await toggle.click();
-          +      const option = teamSwitcher.locator(".team-switcher-option").first();
-          +      await expect(
-          +        option,
-          +        "the production contract exposes no selectable team for the guest verifier",
-          +      ).toBeVisible({ timeout: 15_000 });
-          +      const chosen = (await option.innerText()).trim();
-          +      await option.click();
-          +      annotate(testInfo, "team-context", `selected through TeamSwitcher: ${chosen}`);
-          +    } else {
-          +      annotate(
-          +        testInfo,
-          +        "team-context",
-          +        `already resolved by the shell: ${(await teamSwitcher.innerText()).trim()}`,
-          +      );
-          +    }
-          +
-               const analyticsRes = await analyticsPromise;
-               let data = null;
-               if (analyticsRes) {
-          PATCH
-          git apply --check /tmp/v1-56.patch
-          git apply /tmp/v1-56.patch
+          python - <<'PY'
+          import base64
+          import os
+          from pathlib import Path
+
+          def decode(name):
+              return base64.b64decode(os.environ[name]).decode("utf-8")
+
+          api_path = Path("scripts/verify_v1_authenticated.py")
+          api = api_path.read_text(encoding="utf-8")
+          old, new = decode("API_OLD"), decode("API_NEW")
+          assert api.count(old) == 1, f"API anchor count={api.count(old)}"
+          api_path.write_text(api.replace(old, new, 1), encoding="utf-8")
+
+          test_path = Path("tests/ops/test_v1_verification_primitives.py")
+          tests = test_path.read_text(encoding="utf-8")
+          anchor, addition = decode("TEST_ANCHOR"), decode("TEST_ADD")
+          assert tests.count(anchor) == 1, f"test anchor count={tests.count(anchor)}"
+          test_path.write_text(tests.replace(anchor, addition + anchor, 1), encoding="utf-8")
+
+          browser_path = Path("tests/e2e/specs/prod-auth/v1-56-waivers-faab-strip.spec.js")
+          browser = browser_path.read_text(encoding="utf-8")
+          old, new = decode("BROWSER_OLD"), decode("BROWSER_NEW")
+          assert browser.count(old) == 1, f"browser anchor count={browser.count(old)}"
+          browser_path.write_text(browser.replace(old, new, 1), encoding="utf-8")
+          PY
 
       - name: Run focused verifier tests
         shell: bash
