@@ -185,8 +185,13 @@ def check_v56(client: Client) -> None:
     if status != 200 or not isinstance(body, dict):
         c.record("fail" if status != 401 else "unmeasurable", f"HTTP {status}")
         return
-    block = body.get("faabAnalytics") if "faabAnalytics" in body else body
-    if not isinstance(block, dict):
+    # `/api/public/league/{section}` is a section ENVELOPE.
+    # Read analytics from `data`; never mistake envelope metadata for data.
+    if isinstance(body.get("data"), dict):
+        block = body["data"]
+    elif isinstance(body.get("faabAnalytics"), dict):
+        block = body["faabAnalytics"]
+    else:
         c.record("fail", "no analytics block", topKeys=sorted(body)[:15])
         return
     median = block.get("leagueMedianWinningBid", "ABSENT")

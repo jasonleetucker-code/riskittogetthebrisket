@@ -105,6 +105,39 @@ def test_v61_zero_coverage_where_null_expected_is_still_typed_pass():
     assert auth.CHECKS[-1].status == "fail"  # a string coverage is malformed
 
 
+# ── V1-56: public-league section envelope ──
+
+
+def test_v56_reads_analytics_from_section_data_and_preserves_zero():
+    client = _FakeClient({
+        "/api/public/league/faabAnalytics": (200, {
+            "contractVersion": "2026-03-10.v2",
+            "section": "faabAnalytics",
+            "data": {
+                "leagueMedianWinningBid": 0.0,
+                "leagueAvgWinningBid": 1.37,
+                "totalBidsAnalyzed": 1097,
+            },
+        })
+    })
+    auth.check_v56(client)
+    assert auth.CHECKS[-1].status == "pass"
+    assert "leagueMedianWinningBid=0.0" in auth.CHECKS[-1].detail
+
+
+def test_v56_refuses_section_envelope_without_analytics_data():
+    client = _FakeClient({
+        "/api/public/league/faabAnalytics": (200, {
+            "contractVersion": "2026-03-10.v2",
+            "section": "faabAnalytics",
+            "data": None,
+        })
+    })
+    auth.check_v56(client)
+    assert auth.CHECKS[-1].status == "fail"
+    assert auth.CHECKS[-1].detail == "no analytics block"
+
+
 # ── V1-131: the agreement rule ──
 
 

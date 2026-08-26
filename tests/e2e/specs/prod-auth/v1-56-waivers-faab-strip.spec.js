@@ -50,6 +50,28 @@ test.describe("V1-56: /waivers league-FAAB context strip", () => {
       page.getByRole("heading", { level: 1, name: /^Waivers$/ }),
     ).toBeVisible({ timeout: 90_000 });
 
+    // The ephemeral verifier has no persisted team preference. Establish the
+    // team-scoped prerequisite through the same TeamSwitcher a user uses.
+    const teamSwitcher = page.locator(".team-switcher").first();
+    await expect(teamSwitcher).toBeVisible({ timeout: 30_000 });
+    const needsTeam = await teamSwitcher.evaluate((node) =>
+      node.classList.contains("team-switcher--needs"),
+    );
+    if (needsTeam) {
+      await teamSwitcher.locator(".team-switcher-toggle").click();
+      const option = teamSwitcher.locator(".team-switcher-option").first();
+      await expect(option).toBeVisible({ timeout: 15_000 });
+      const chosen = (await option.innerText()).trim();
+      await option.click();
+      annotate(testInfo, "team-context", `selected through TeamSwitcher: ${chosen}`);
+    } else {
+      annotate(
+        testInfo,
+        "team-context",
+        `already resolved by the shell: ${(await teamSwitcher.innerText()).trim()}`,
+      );
+    }
+
     const analyticsRes = await analyticsPromise;
     let data = null;
     if (analyticsRes) {
