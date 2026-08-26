@@ -1,0 +1,79 @@
+name: Temporary V1-76 ledger reconciliation
+
+on:
+  push:
+    branches:
+      - chatgpt/v1-76-ledger-reconcile
+
+permissions:
+  contents: write
+
+jobs:
+  reconcile:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Reconcile canonical V1 ledger
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          p = Path('docs/VERSION_1_COMPLETION_CONTRACT.md')
+          s = p.read_text()
+
+          old_row = '| V1-76 | Failure attribution compares one vocabulary | audit `F-12` / census `S-2` | L5 | `NOT STARTED` | L2 | source-health correctness. **Design refuted — see §8** |'
+          new_row = '| V1-76 | Failure attribution compares one vocabulary | audit `F-12` / census `S-2` | L5 | `VERIFIED` | L2 | source-health correctness. **PROMOTED 2026-08-25 after `#1132` (merge `7e73a97b4`, feature head `bd3127a1b`).** The refuted `playerCount: null` proposal remains refuted and absent. The accepted replacement is the evidence-driven design §8.1 required: one registry-owned `run_source` → registry-key resolver, additive key-space failure projections, a frontend that consumes those resolved keys, and fail-closed unattributable failures when no mapping is proven. L1: exact-head `PR Validation` run `32891194471` SUCCESS; `tests/api/test_failure_attribution_vocabulary.py` RED→GREEN with 11 cases plus three frontend resolved-attribution cases, including explicit guards that the refuted design never re-enters the promotion path. L2: the real 2026-08-25 board built with and without the repair held **1,116 rows with 0 value changes, 0 rank changes, 0 tier changes**. This closes the vocabulary false-green without moving canonical valuation. |'
+          assert s.count(old_row) == 1, f'expected exactly one V1-76 old row, found {s.count(old_row)}'
+          s = s.replace(old_row, new_row)
+
+          old_problem = 'The underlying problem is real and remains open as `V1-76`.'
+          new_problem = 'The underlying problem was real. It remained open at the time of this refutation and is now closed by the independently different replacement in `#1132`; the refutation below is preserved because it still governs what must not be reintroduced.'
+          assert s.count(old_problem) == 1, f'expected one historical problem sentence, found {s.count(old_problem)}'
+          s = s.replace(old_problem, new_problem)
+
+          old_posture = '''**Required posture:** `V1-76` stays open. Any replacement must be designed from actual failure
+data and adversarially tested before implementation. Any audit status still presenting S-2 as a
+ready fix is stale and must be corrected.'''
+          new_posture = '''**Required posture (historical, satisfied 2026-08-25):** the refuted proposal stays dead. `#1132`
+used actual failure data and adversarial tests to build a different replacement, preserved unknown/unmapped
+failures explicitly, and met the row's L2 bar. `V1-76` is therefore closed without revising this refutation.'''
+          assert s.count(old_posture) == 1, f'expected one historical posture paragraph, found {s.count(old_posture)}'
+          s = s.replace(old_posture, new_posture)
+
+          old_verified = '| `VERIFIED` | 108 |'
+          old_ns = '| `NOT STARTED` | 5 |'
+          assert s.count(old_verified) == 1
+          assert s.count(old_ns) == 1
+          s = s.replace(old_verified, '| `VERIFIED` | 109 |')
+          s = s.replace(old_ns, '| `NOT STARTED` | 4 |')
+
+          old_completion = '''**V1 completion: 108 / 136 = 79.4%.** Numerator moved +1 by `V1-105`'s closure (`NOT STARTED` →
+`VERIFIED` L2):'''
+          new_completion = '''**V1 completion: 109 / 136 = 80.1%.** Numerator moved +1 in the 2026-08-25 `V1-76`
+reconciliation (`NOT STARTED` → `VERIFIED` L2): `#1132`'s replacement satisfies the exact evidence-driven
+posture preserved in §8.1, exact-head CI is green, and the 1,116-row L2 board measurement is inert
+(0 values / 0 ranks / 0 tiers changed). **108 before this reconciliation.** The prior numerator movement
+was +1 by `V1-105`'s closure (`NOT STARTED` → `VERIFIED` L2):'''
+          assert s.count(old_completion) == 1, f'expected standing completion intro once, found {s.count(old_completion)}'
+          s = s.replace(old_completion, new_completion)
+
+          p.write_text(s)
+          PY
+
+          git diff --check
+          python scripts/check_planning_integrity.py
+          python scripts/check_decision_coercions.py
+
+      - name: Commit reconciliation and remove temporary workflow
+        shell: bash
+        run: |
+          git config user.name "ChatGPT Integration"
+          git config user.email "chatgpt-integration@users.noreply.github.com"
+          git rm .github/workflows/_tmp_v1_76_reconcile.yml
+          git add docs/VERSION_1_COMPLETION_CONTRACT.md
+          git commit -m "docs: verify V1-76 at L2"
+          git push origin HEAD:chatgpt/v1-76-ledger-reconcile
