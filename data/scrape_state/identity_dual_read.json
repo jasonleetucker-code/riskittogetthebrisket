@@ -1,5 +1,5 @@
 {
- "generatedAt": "2026-08-26T02:16:22.938528+00:00",
+ "generatedAt": "2026-08-26T03:41:37.968662+00:00",
  "servedPolicy": "scraper_sleeper_attach_v1",
  "servedBy": "src.identity.resolution",
  "legacyLadderRetired": true,
@@ -9,8 +9,8 @@
  "v1Agree": 0,
  "v1Diverge": 0,
  "v1Examples": [],
- "v2Same": 1949,
- "v2WouldChange": 17,
+ "v2Same": 1948,
+ "v2WouldChange": 18,
  "v2Examples": [
   {
    "name": "Bam Knight",
@@ -104,6 +104,14 @@
    "name": "Matthew Hibner",
    "pos": "",
    "served": "13324",
+   "engineV2": null,
+   "v2Method": "none",
+   "v2Reason": "no_candidate"
+  },
+  {
+   "name": "Bam Knight",
+   "pos": "",
+   "served": "6050",
    "engineV2": null,
    "v2Method": "none",
    "v2Reason": "no_candidate"
