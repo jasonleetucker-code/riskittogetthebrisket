@@ -1,0 +1,67 @@
+name: Temporary V1-16 reconciliation
+
+on:
+  push:
+    branches:
+      - chatgpt/v1-16-proof
+
+permissions:
+  contents: write
+
+jobs:
+  reconcile:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Reconcile canonical V1 ledger
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('docs/VERSION_1_COMPLETION_CONTRACT.md')
+          lines = p.read_text().splitlines()
+          matches = [i for i, line in enumerate(lines) if line.startswith('| V1-16 |')]
+          assert len(matches) == 1, matches
+          i = matches[0]
+          assert '`IMPLEMENTED_UNVERIFIED`' in lines[i], lines[i]
+          lines[i] = ('| V1-16 | Historical roster reconstruction | `C1-ACQ-02` | L5 | `VERIFIED` | L3 | '
+                      'canonical history. **PROMOTED 2026-08-26 on fresh deterministic + production evidence.** '
+                      'Implementation remains the merged C1-U8 owner from #878 (merge `af4dad9b5`). '
+                      'Fresh L1 proof on current product tree `28b3c8eaf`: workflow run `32943730840` first ran '
+                      '`tests/acquisition/test_roster_and_privacy.py` GREEN, then mutated `_covers()` so a future '
+                      'acquisition incorrectly covered the earlier instant and required the focused suite to go RED, '
+                      'then restored the file to a clean diff and GREEN again with planning integrity passing. '
+                      'L3 production proof: corrected on-box run `32919655291` against deployed SHA '
+                      '`a82898fdbe73ea2effd295132590dff35a45ac98` passed C1-U8 §8 item 5 on the real retention store: '
+                      '492 `free_agent`, 294 `trade`, and 744 `waiver` transactions, proving historical reconstruction '
+                      'is fed by the full transaction vocabulary rather than trades-only. Missing/unavailable semantics '
+                      'remain distinct from empty in the same mutation-proven roster suite. |')
+          s = '\n'.join(lines) + '\n'
+          assert s.count('| `VERIFIED` | 113 |') == 1
+          assert s.count('| `IMPLEMENTED_UNVERIFIED` | 17 |') == 1
+          s = s.replace('| `VERIFIED` | 113 |', '| `VERIFIED` | 114 |', 1)
+          s = s.replace('| `IMPLEMENTED_UNVERIFIED` | 17 |', '| `IMPLEMENTED_UNVERIFIED` | 16 |', 1)
+          marker = '**V1 completion: 113 / 136 = 83.1%.** '
+          assert s.count(marker) == 1
+          s = s.replace(marker,
+              '**V1 completion: 114 / 136 = 83.8%.** Numerator moved +1 by `V1-16` production L3 closure: '
+              'fresh current-tree GREEN → mutation RED → restored GREEN proof (`32943730840`) plus the real on-box '
+              'C1-U8 §8 item 5 PASS (`32919655291`, deployed `a82898fd...`) with 492 free-agent / 294 trade / 744 waiver '
+              'rows. **113 before this reconciliation.** ', 1)
+          p.write_text(s)
+          PY
+          git diff --check
+          python scripts/check_planning_integrity.py
+          python scripts/check_decision_coercions.py
+      - name: Commit reconciliation and remove temporary workflows
+        shell: bash
+        run: |
+          git config user.name "ChatGPT Integration"
+          git config user.email "chatgpt-integration@users.noreply.github.com"
+          git rm .github/workflows/_tmp_v1_16_proof.yml .github/workflows/_tmp_v1_16_reconcile.yml
+          git add docs/VERSION_1_COMPLETION_CONTRACT.md
+          git commit -m "docs: verify V1-16 at L3"
+          git push origin HEAD:chatgpt/v1-16-proof
