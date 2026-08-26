@@ -34,19 +34,16 @@ jobs:
           changed = []
           out = []
           for line in lines:
-            matched = False
             for row_id, (old_status, new_status, note) in evidence.items():
               if line.startswith(f'| {row_id} |'):
                 parts = line.split('|')
-                # table fields: blank, id, item, source, lane, status, target, notes, blank
                 current = parts[5].strip().strip('`')
                 assert current == old_status, f'{row_id}: expected {old_status}, found {current}'
                 parts[5] = f' `{new_status}` '
                 notes = parts[7].strip()
-                parts[7] = f' {notes} **PROMOTED 2026-08-25 from fresh production evidence.** {note} '
-                line = '|'.join(parts)
+                parts[7] = f' {notes} **PROMOTED 2026-08-25 from fresh production evidence.** {note}'
+                line = '|'.join(parts).rstrip()
                 changed.append(row_id)
-                matched = True
                 break
             out.append(line)
           assert changed == ['V1-111', 'V1-124'], changed
