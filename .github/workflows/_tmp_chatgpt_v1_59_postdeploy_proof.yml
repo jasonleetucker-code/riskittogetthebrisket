@@ -1,0 +1,220 @@
+name: Temporary V1-59 Post-Deploy Production Proof
+
+on:
+  push:
+    branches:
+      - chatgpt/v1-59-postdeploy-proof
+
+permissions:
+  contents: read
+
+concurrency:
+  group: chatgpt-v1-59-postdeploy-proof
+  cancel-in-progress: false
+
+jobs:
+  prove:
+    name: Read-only V1-59 production proof
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    environment: production
+    steps:
+      - name: Configure production SSH
+        env:
+          DEPLOY_SSH_PRIVATE_KEY: ${{ secrets.DEPLOY_SSH_PRIVATE_KEY }}
+          DEPLOY_KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+          DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          install -d -m 700 "$HOME/.ssh"
+          printf '%s\n' "$DEPLOY_SSH_PRIVATE_KEY" | sed 's/\r$//' > "$HOME/.ssh/id_ed25519"
+          printf '%s\n' "$DEPLOY_KNOWN_HOSTS" | sed 's/\r$//' > "$HOME/.ssh/known_hosts"
+          chmod 600 "$HOME/.ssh/id_ed25519"
+          chmod 644 "$HOME/.ssh/known_hosts"
+          ssh-keygen -y -f "$HOME/.ssh/id_ed25519" >/dev/null
+          echo "PORT=${DEPLOY_PORT:-22}" >> "$GITHUB_ENV"
+
+      - name: Wait for #1143 deployment, then prove V1-59 without writes
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          APP_DIR: ${{ vars.PROD_APP_DIR || '/home/dynasty/trade-calculator' }}
+          REQUIRED_SHA: c30b8d6ba1ef2fa604ecb1cfe1e44dd6130ede44
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          ssh -i "$HOME/.ssh/id_ed25519" \
+            -o BatchMode=yes -o StrictHostKeyChecking=yes \
+            -o UserKnownHostsFile="$HOME/.ssh/known_hosts" \
+            -o ConnectTimeout=15 -o ServerAliveInterval=15 -o ServerAliveCountMax=8 \
+            -p "$PORT" "$DEPLOY_USER@$DEPLOY_HOST" \
+            "APP_DIR=$(printf %q "$APP_DIR") REQUIRED_SHA=$(printf %q "$REQUIRED_SHA") bash -s" <<'REMOTE'
+          set -Eeuo pipefail
+          cd "$APP_DIR"
+          PY="$APP_DIR/.venv/bin/python"
+          [ -x "$PY" ] || PY="$APP_DIR/venv/bin/python"
+          [ -x "$PY" ] || PY=python3
+
+          echo "=== WAIT FOR DEPLOYED SHA TO CONTAIN #1143 ==="
+          deployed=""
+          for attempt in $(seq 1 80); do
+            deployed="$(git rev-parse HEAD)"
+            if git cat-file -e "${REQUIRED_SHA}^{commit}" 2>/dev/null && git merge-base --is-ancestor "$REQUIRED_SHA" "$deployed"; then
+              echo "DEPLOYED_SHA=$deployed"
+              echo "REQUIRED_SHA_PRESENT=$REQUIRED_SHA"
+              break
+            fi
+            if [ "$attempt" -eq 80 ]; then
+              echo "ERROR: deployed tree $deployed does not contain $REQUIRED_SHA after waiting" >&2
+              exit 1
+            fi
+            sleep 15
+          done
+
+          echo
+          echo "=== REAL PRODUCTION SHARP SCORE SERIALIZATION ==="
+          # First exercise the exact diagnostic path that produced the prior
+          # NoneType __round__ traceback. This is read-only.
+          "$PY" scripts/crawl_sharp_records.py --score
+
+          # Then inspect the same real production records structurally so a
+          # synthetic-only green cannot masquerade as proof. Missing must
+          # remain None/null; nested component evidence must remain nested.
+          "$PY" - <<'PY'
+          import json
+          from src.sharp import records
+          from src.sharp import score as sharp_score
+
+          scored = sharp_score.score_managers(records.build_manager_records())
+          if not scored:
+              raise SystemExit("UNMEASURABLE: real production score population is empty")
+
+          null_leaves = 0
+          nested_components = 0
+          serialized = 0
+          sample = None
+
+          def verify(src, dst, path="components"):
+              global null_leaves
+              if src is None:
+                  null_leaves += 1
+                  if dst is not None:
+                      raise AssertionError(f"missing->non-null coercion at {path}: {dst!r}")
+                  return
+              if isinstance(src, dict):
+                  if not isinstance(dst, dict):
+                      raise AssertionError(f"nested evidence flattened at {path}: {type(dst).__name__}")
+                  expected_keys = {str(k) for k in src}
+                  if set(dst) != expected_keys:
+                      raise AssertionError(f"nested keys changed at {path}: {set(dst)} != {expected_keys}")
+                  for k, v in src.items():
+                      verify(v, dst[str(k)], f"{path}.{k}")
+                  return
+              if isinstance(src, (int, float)) and not isinstance(src, bool):
+                  expected = round(src, 4)
+                  if dst != expected:
+                      raise AssertionError(f"numeric leaf changed at {path}: {dst!r} != {expected!r}")
+                  return
+              if dst != src:
+                  raise AssertionError(f"component changed at {path}: {dst!r} != {src!r}")
+
+          for manager in scored:
+              payload = manager.to_dict()
+              serialized += 1
+              components = manager.components
+              out = payload.get("components")
+              if not isinstance(out, dict):
+                  raise AssertionError("serialized components is not an object")
+              for key, value in components.items():
+                  if isinstance(value, dict):
+                      nested_components += 1
+                  verify(value, out.get(key), f"components.{key}")
+              if sample is None and any(v is None for v in components.values()) and any(isinstance(v, dict) for v in components.values()):
+                  sample = {
+                      "userId": payload.get("userId"),
+                      "nullKeys": sorted(k for k, v in components.items() if v is None),
+                      "nestedKeys": sorted(k for k, v in components.items() if isinstance(v, dict)),
+                      "serialized": {k: out.get(k) for k in components if v_is_interesting(components[k])},
+                  }
+
+          if null_leaves == 0:
+              raise SystemExit("UNMEASURABLE: real production scores contained no None leaves")
+          if nested_components == 0:
+              raise SystemExit("UNMEASURABLE: real production scores contained no nested component evidence")
+
+          print(json.dumps({
+              "realManagersScored": len(scored),
+              "realManagersSerialized": serialized,
+              "nullLeavesPreserved": null_leaves,
+              "nestedComponentObjectsPreserved": nested_components,
+              "sample": sample,
+          }, sort_keys=True))
+
+          def v_is_interesting(v):
+              return v is None or isinstance(v, dict)
+          PY
+
+          echo
+          echo "=== V1-59 SCHEDULED DISCOVERY -> RECORDS -> ROSTERS CHAIN ==="
+          DAY_START="$(date -u +%Y-%m-%dT00:00:00Z)"
+          units=(dynasty-sharp-discovery dynasty-sharp-records dynasty-sharp-rosters)
+          last_epochs=()
+          for unit in "${units[@]}"; do
+            echo "--- $unit.timer ---"
+            timer_show="$(systemctl show "$unit.timer" -p LastTriggerUSec -p NextElapseUSecRealtime --no-pager)"
+            printf '%s\n' "$timer_show"
+            last="$(printf '%s\n' "$timer_show" | sed -n 's/^LastTriggerUSec=//p')"
+            if [ -z "$last" ] || [ "$last" = "n/a" ]; then
+              echo "ERROR: $unit.timer has no last trigger" >&2
+              exit 1
+            fi
+            last_epoch="$(date -u -d "$last" +%s)"
+            day_epoch="$(date -u -d "$DAY_START" +%s)"
+            if [ "$last_epoch" -lt "$day_epoch" ]; then
+              echo "ERROR: $unit.timer has not fired today UTC; last=$last" >&2
+              exit 1
+            fi
+            last_epochs+=("$last_epoch")
+
+            echo "--- $unit.service state ---"
+            state="$(systemctl show "$unit.service" -p Result -p ExecMainStatus -p ExecMainStartTimestamp -p ExecMainExitTimestamp --no-pager)"
+            printf '%s\n' "$state"
+            result="$(printf '%s\n' "$state" | sed -n 's/^Result=//p')"
+            status="$(printf '%s\n' "$state" | sed -n 's/^ExecMainStatus=//p')"
+            if [ "$result" != "success" ] || [ "$status" != "0" ]; then
+              echo "ERROR: $unit.service latest state not clean: Result=$result ExecMainStatus=$status" >&2
+              exit 1
+            fi
+
+            echo "--- $unit.service journal since scheduled timer trigger ---"
+            journal="$(journalctl -u "$unit.service" --since "$last" --no-pager -q || true)"
+            printf '%s\n' "$journal" | tail -n 160
+            bad="$(printf '%s\n' "$journal" | grep -E -i 'database is locked|status=15/TERM|Failed with result|code=exited, status=[1-9]|Traceback|watchdog|start operation timed out' || true)"
+            if [ -n "$bad" ]; then
+              echo "ERROR: $unit.service journal contains post-trigger failure evidence:" >&2
+              printf '%s\n' "$bad" >&2
+              exit 1
+            fi
+          done
+
+          if ! [ "${last_epochs[0]}" -lt "${last_epochs[1]}" ] || ! [ "${last_epochs[1]}" -lt "${last_epochs[2]}" ]; then
+            echo "ERROR: timer trigger order is not discovery < records < rosters: ${last_epochs[*]}" >&2
+            exit 1
+          fi
+          echo "SCHEDULED_CHAIN_ORDER=discovery<records<rosters"
+
+          echo
+          echo "=== FFPC UNIT HEALTH ==="
+          ffpc="$(systemctl show chaseupside-ffpc-sharp.service -p Result -p ExecMainStatus -p NRestarts --no-pager 2>/dev/null || true)"
+          printf '%s\n' "$ffpc"
+          ffpc_result="$(printf '%s\n' "$ffpc" | sed -n 's/^Result=//p')"
+          ffpc_status="$(printf '%s\n' "$ffpc" | sed -n 's/^ExecMainStatus=//p')"
+          if [ "$ffpc_result" != "success" ] || [ "$ffpc_status" != "0" ]; then
+            echo "ERROR: FFPC unit is not healthy: Result=$ffpc_result ExecMainStatus=$ffpc_status" >&2
+            exit 1
+          fi
+
+          echo
+          echo "V1_59_READ_ONLY_PROOF=PASS"
+          REMOTE
