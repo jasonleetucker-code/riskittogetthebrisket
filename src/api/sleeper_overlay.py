@@ -41,6 +41,7 @@ a potential future admin "refresh" endpoint.
 from __future__ import annotations
 
 import datetime as _dt
+import http.client
 import json
 import logging
 import threading
@@ -152,7 +153,12 @@ def _http_get_json(url: str) -> Any:
         req = urllib.request.Request(url, headers={"User-Agent": _USER_AGENT})
         with urllib.request.urlopen(req, timeout=_HTTP_TIMEOUT_SEC) as resp:
             body = resp.read()
-    except (urllib.error.URLError, urllib.error.HTTPError, TimeoutError) as exc:
+    except (
+        urllib.error.URLError,
+        urllib.error.HTTPError,
+        TimeoutError,
+        http.client.RemoteDisconnected,
+    ) as exc:
         log.warning("sleeper_overlay: fetch %s failed: %s", url, exc)
         if bp is not None:
             bp.report_failure(exc)
