@@ -1,11 +1,22 @@
 """Historical FAAB bid history — fetch, persist, and summarise.
 
 The FAAB engine's market model needs to know how THIS league actually
-bids, not how a generic league bids.  Sleeper exposes every completed
-``waiver`` / ``free_agent`` transaction with its winning
-``settings.waiver_bid``, and leagues chain backwards through
-``previous_league_id``, so a dynasty league's whole bidding history is
-reachable.
+bids, not how a generic league bids.  Sleeper exposes resolved waiver
+transactions after processing, including completed winning claims and
+failed claims with their submitted ``settings.waiver_bid``.  Leagues
+also chain backwards through ``previous_league_id``, so a dynasty
+league's bidding history is reachable without pretending pending blind
+bids are visible before waivers run.
+
+Two distributions deliberately stay separate:
+
+* **winning prices** — completed waiver / free-agent adds.  These answer
+  what claims actually cleared for and remain the source for the league
+  median, percentiles, zero-bid share and week priors;
+* **resolved waiver attempts** — completed + failed waiver claims.  These
+  answer how aggressively each manager is willing to bid.  Failed/lower
+  bids improve owner-tendency estimation without being mistaken for a
+  market-clearing price.
 
 What this module deliberately does differently from
 ``src/api/faab_analytics.py``
@@ -68,8 +79,19 @@ def fetch_bid_history(
     *,
     max_seasons: int = 10,
 ) -> dict[str, Any]:
-    """Walk the league chain backwards and collect every completed
-    waiver / free-agent add with its winning bid.
+    """Walk the league chain backwards and collect resolved FAAB bids.
+
+    Completed waiver / free-agent adds are retained as winning-price
+    observations.  Failed **waiver** claims are retained too because,
+    after the waiver run, their submitted bid is observable willingness
+    to pay even though it did not clear.  Failed free-agent transactions
+    are excluded: they are not sealed-bid waiver attempts and can fail
+    for unrelated transaction mechanics.
+
+    The returned season key remains ``adds`` for backwards compatibility;
+    v2 rows stamp ``status`` and ``won`` so summarisation can keep winning
+    prices separate from all resolved waiver attempts.  Legacy v1 rows
+    without those keys are interpreted as completed wins.
 
     Network-bound and slow (one request per league-week), so callers
     should persist the result rather than calling this per request.
@@ -144,24 +166,37 @@ def fetch_bid_history(
             for tx in txs:
                 if not isinstance(tx, dict):
                     continue
-                if tx.get("type") not in ("waiver", "free_agent"):
+                tx_type = str(tx.get("type") or "")
+                status = str(tx.get("status") or "")
+                if tx_type not in ("waiver", "free_agent"):
                     continue
-                if tx.get("status") != "complete":
+                is_win = status == "complete"
+                is_resolved_losing_waiver = tx_type == "waiver" and status == "failed"
+                if not is_win and not is_resolved_losing_waiver:
+                    # Pending claims are intentionally invisible to the model;
+                    # only resolved history may teach future predictions.
                     continue
                 bid = (tx.get("settings") or {}).get("waiver_bid")
                 adds = tx.get("adds") or {}
                 if bid is None or not isinstance(adds, dict) or not adds:
+                    continue
+                try:
+                    bid_int = int(bid)
+                except (TypeError, ValueError):
                     continue
                 roster_ids = tx.get("roster_ids") or []
                 for player_id in adds:
                     rows.append(
                         {
                             "playerId": str(player_id),
-                            "bid": int(bid),
-                            "bidPct": 100.0 * float(bid) / float(budget),
+                            "bid": bid_int,
+                            "bidPct": 100.0 * float(bid_int) / float(budget),
                             "week": week,
                             "rosterId": roster_ids[0] if roster_ids else None,
-                            "type": str(tx.get("type")),
+                            "type": tx_type,
+                            "status": status,
+                            "won": is_win,
+                            "transactionId": str(tx.get("transaction_id") or "") or None,
                             "createdAt": int(tx.get("status_updated") or tx.get("created") or 0),
                         }
                     )
@@ -188,11 +223,22 @@ def fetch_bid_history(
         )
         league_id = league.get("previous_league_id")
 
+    all_rows = [row for season in seasons for row in season.get("adds") or []]
+    wins = [row for row in all_rows if row.get("status", "complete") == "complete"]
+    attempts = [
+        row
+        for row in all_rows
+        if row.get("type") == "waiver" and row.get("status", "complete") in ("complete", "failed")
+    ]
+    failed_attempts = [row for row in attempts if row.get("status") == "failed"]
     return {
-        "schemaVersion": 1,
+        "schemaVersion": 2,
         "sleeperLeagueId": str(sleeper_league_id),
         "seasons": seasons,
-        "totalAdds": sum(len(s["adds"]) for s in seasons),
+        # Backwards-compatible: totalAdds still means completed acquisitions.
+        "totalAdds": len(wins),
+        "totalBidAttempts": len(attempts),
+        "totalFailedWaiverBids": len(failed_attempts),
     }
 
 
@@ -223,9 +269,13 @@ def load_bid_history(league_key: str) -> dict[str, Any] | None:
 class MarketPriors:
     """League-fitted market parameters.
 
-    Every field is a percentage of the ORIGINAL budget, so a league
-    that changed its budget between seasons still aggregates
-    correctly.
+    Every percentage is against the ORIGINAL budget, so a league that
+    changed its budget between seasons still aggregates correctly.
+
+    ``sample_size`` and the price percentiles remain **winning-price**
+    statistics. ``bid_attempt_sample_size`` / ``owner_attempt_*`` are a
+    separate sealed-bid tendency layer built from resolved waiver wins
+    plus failed claims when a v2 history snapshot contains them.
     """
 
     sample_size: int = 0
@@ -238,6 +288,10 @@ class MarketPriors:
     nonzero_median_pct: float = 0.0
     owner_aggression: dict[str, float] = field(default_factory=dict)
     owner_sample: dict[str, int] = field(default_factory=dict)
+    bid_attempt_sample_size: int = 0
+    failed_bid_sample_size: int = 0
+    owner_attempt_aggression: dict[str, float] = field(default_factory=dict)
+    owner_attempt_sample: dict[str, int] = field(default_factory=dict)
     by_week: dict[int, float] = field(default_factory=dict)
     seasons: list[str] = field(default_factory=list)
 
@@ -253,6 +307,12 @@ class MarketPriors:
             "nonzeroMedianPct": round(self.nonzero_median_pct, 3),
             "ownerAggression": {k: round(v, 3) for k, v in self.owner_aggression.items()},
             "ownerSample": self.owner_sample,
+            "bidAttemptSampleSize": self.bid_attempt_sample_size,
+            "failedBidSampleSize": self.failed_bid_sample_size,
+            "ownerAttemptAggression": {
+                k: round(v, 3) for k, v in self.owner_attempt_aggression.items()
+            },
+            "ownerAttemptSample": self.owner_attempt_sample,
             "seasons": self.seasons,
         }
 
@@ -265,7 +325,14 @@ def _percentile(sorted_vals: list[float], q: float) -> float:
 
 
 def summarize_bid_history(payload: dict[str, Any] | None) -> MarketPriors:
-    """Fit the market priors.
+    """Fit winning-price priors plus manager bid-attempt tendencies.
+
+    Legacy v1 snapshots contain completed wins only; rows without a
+    ``status`` key are therefore treated as wins and still produce the
+    exact same winning-price priors.  V2 snapshots additionally retain
+    failed waiver claims.  Those losing bids are **not** admitted to
+    ``median_pct`` / percentiles / by-week clearing priors; they only
+    expand the owner-attempt tendency sample.
 
     Unlike the legacy analytics summariser this KEEPS $0 bids — they
     are the modal outcome and dropping them is what made the old
@@ -275,8 +342,10 @@ def summarize_bid_history(payload: dict[str, Any] | None) -> MarketPriors:
     if not isinstance(payload, dict):
         return priors
 
-    all_pct: list[float] = []
-    by_owner: dict[str, list[float]] = {}
+    winning_pct: list[float] = []
+    winning_by_owner: dict[str, list[float]] = {}
+    waiver_attempt_pct: list[float] = []
+    attempts_by_owner: dict[str, list[float]] = {}
     by_week: dict[int, list[float]] = {}
     seasons: list[str] = []
 
@@ -292,37 +361,57 @@ def summarize_bid_history(payload: dict[str, Any] | None) -> MarketPriors:
                 pct = float(row.get("bidPct"))
             except (TypeError, ValueError):
                 continue
-            all_pct.append(pct)
+            status = str(row.get("status") or "complete")
+            tx_type = str(row.get("type") or "waiver")
             owner = str(row.get("ownerId") or "")
-            if owner:
-                by_owner.setdefault(owner, []).append(pct)
-            try:
-                by_week.setdefault(int(row.get("week") or 0), []).append(pct)
-            except (TypeError, ValueError):
-                pass
 
-    if not all_pct:
+            if status == "complete":
+                winning_pct.append(pct)
+                if owner:
+                    winning_by_owner.setdefault(owner, []).append(pct)
+                try:
+                    by_week.setdefault(int(row.get("week") or 0), []).append(pct)
+                except (TypeError, ValueError):
+                    pass
+
+            if tx_type == "waiver" and status in ("complete", "failed"):
+                waiver_attempt_pct.append(pct)
+                if owner:
+                    attempts_by_owner.setdefault(owner, []).append(pct)
+                if status == "failed":
+                    priors.failed_bid_sample_size += 1
+
+    if not winning_pct:
         return priors
 
-    all_pct.sort()
-    nonzero = [p for p in all_pct if p > 0]
+    winning_pct.sort()
+    nonzero = [p for p in winning_pct if p > 0]
 
-    priors.sample_size = len(all_pct)
-    priors.zero_bid_share = 1.0 - (len(nonzero) / len(all_pct))
-    priors.median_pct = statistics.median(all_pct)
-    priors.mean_pct = statistics.fmean(all_pct)
-    priors.p75_pct = _percentile(all_pct, 0.75)
-    priors.p90_pct = _percentile(all_pct, 0.90)
-    priors.max_pct = all_pct[-1]
+    priors.sample_size = len(winning_pct)
+    priors.zero_bid_share = 1.0 - (len(nonzero) / len(winning_pct))
+    priors.median_pct = statistics.median(winning_pct)
+    priors.mean_pct = statistics.fmean(winning_pct)
+    priors.p75_pct = _percentile(winning_pct, 0.75)
+    priors.p90_pct = _percentile(winning_pct, 0.90)
+    priors.max_pct = winning_pct[-1]
     priors.nonzero_median_pct = statistics.median(nonzero) if nonzero else 0.0
     priors.seasons = sorted(set(seasons), reverse=True)
 
-    league_mean = priors.mean_pct or 1.0
-    for owner, vals in by_owner.items():
+    winning_league_mean = priors.mean_pct or 1.0
+    for owner, vals in winning_by_owner.items():
         priors.owner_sample[owner] = len(vals)
         priors.owner_aggression[owner] = (
-            (statistics.fmean(vals) / league_mean) if league_mean else 1.0
+            (statistics.fmean(vals) / winning_league_mean) if winning_league_mean else 1.0
         )
+
+    priors.bid_attempt_sample_size = len(waiver_attempt_pct)
+    if waiver_attempt_pct:
+        attempt_league_mean = statistics.fmean(waiver_attempt_pct) or 1.0
+        for owner, vals in attempts_by_owner.items():
+            priors.owner_attempt_sample[owner] = len(vals)
+            priors.owner_attempt_aggression[owner] = (
+                (statistics.fmean(vals) / attempt_league_mean) if attempt_league_mean else 1.0
+            )
 
     for week, vals in by_week.items():
         priors.by_week[week] = statistics.fmean(vals)
@@ -789,12 +878,23 @@ def owner_aggression_factor(
 ) -> tuple[float, bool]:
     """``(factor, low_sample)`` for one manager.
 
-    Below ``min_sample`` observed adds the manager defaults to neutral
-    with ``low_sample=True`` — the engine surfaces that rather than
-    pretending to know a tendency from two claims.
+    Prefer the resolved-waiver-attempt fit when at least ``min_sample``
+    blind bids exist for this owner.  That fit includes completed wins
+    and failed/lower claims after the waiver run, so it measures actual
+    willingness to spend instead of conditioning only on bids that won.
+
+    Older v1 history files have no losing-attempt sample; they fall back
+    to the legacy winning-bid fit.  Below the sample floor either way,
+    the manager defaults to neutral with ``low_sample=True``.
     """
-    n = priors.owner_sample.get(str(owner_id), 0)
-    if n < min_sample:
+    key = str(owner_id)
+    attempt_n = priors.owner_attempt_sample.get(key, 0)
+    if attempt_n >= min_sample:
+        factor = priors.owner_attempt_aggression.get(key, 1.0)
+        return max(clamp[0], min(clamp[1], float(factor))), False
+
+    win_n = priors.owner_sample.get(key, 0)
+    if win_n < min_sample:
         return 1.0, True
-    factor = priors.owner_aggression.get(str(owner_id), 1.0)
+    factor = priors.owner_aggression.get(key, 1.0)
     return max(clamp[0], min(clamp[1], float(factor))), False

@@ -22,8 +22,8 @@
  *          the ceiling, because bidding the ceiling captures zero
  *          surplus by construction.
  *   2. Warnings ("likely outbid", pacing, marginal upgrade) as Banners.
- *   3. Contention — the FAAB v2 sealed-auction read: the clearing price,
- *      the projected top rival, and the per-opponent estimate table.
+ *   3. FAAB Bid Predictor — the sealed-auction read: clearing price,
+ *      projected top rival, and the per-opponent estimate table.
  *   4. Everything else behind disclosures: the factor breakdown (the
  *      user does not need eleven rows of arithmetic by default) and the
  *      league's historical FAAB context.
@@ -214,7 +214,7 @@ const RIVAL_COLUMNS = [
     hideBelow: "lg",
     accessor: (r) => r.aggression,
     render: (r) => `${Number(r.aggression ?? 1).toFixed(2)}×`,
-    headerInfo: "Their average winning bid ÷ the league median, clamped to 0.5-2.0×.",
+    headerInfo: "Historical waiver-bid tendency from resolved attempts when available; older history falls back to winning bids. Clamped to 0.5–2.0×.",
   },
 ];
 
@@ -248,9 +248,9 @@ function ContentionSection({ contention }) {
           meta={rivals.length ? `of ${rivals.length} rivals` : "no rivals modeled"}
         />
         <StatTile
-          label="Rival read"
+          label="FAAB bid predictor"
           value="Estimate"
-          meta="winning bids only"
+          meta="resolved history + roster context"
         />
       </div>
 
