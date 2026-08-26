@@ -1,0 +1,90 @@
+name: Temporary V1-59 Ledger Reconciliation
+
+on:
+  push:
+    branches:
+      - chatgpt/v1-59-ledger-reconcile
+
+permissions:
+  contents: write
+
+jobs:
+  reconcile:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 1
+      - name: Reconcile V1-59 only
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+
+          path = Path('docs/VERSION_1_COMPLETION_CONTRACT.md')
+          text = path.read_text(encoding='utf-8')
+          lines = text.splitlines()
+
+          rows = [i for i, line in enumerate(lines) if line.startswith('| V1-59 |')]
+          assert len(rows) == 1, f'expected exactly one V1-59 row, found {len(rows)}'
+          idx = rows[0]
+          row = lines[idx]
+          assert row.count('`IN PROGRESS`') == 1, f'V1-59 no longer IN PROGRESS: {row}'
+          assert 'scheduled' in row.lower() and 'bootstrap' in row.lower(), 'V1-59 row no longer carries the scheduled-bootstrap evidence bar'
+          row = row.replace('`IN PROGRESS`', '`VERIFIED`', 1)
+          evidence = (' **PROMOTED 2026-08-26 on the naturally scheduled production-chain evidence already preserved in '
+                      '`docs/ops/V1_59_SCHEDULED_CHAIN_PROOF_2026-08-26.md` (#1144). The production proof is bound to deployed '
+                      '`c30b8d6ba1ef2fa604ecb1cfe1e44dd6130ede44`: discovery, records, and rosters ran in scheduled order '
+                      '(`discovery < records < rosters`); the systemd units accepted only the documented success semantics '
+                      '(`SuccessExitStatus=0 2`); the named crash/lock/watchdog signatures were absent in the captured slices; '
+                      'FFPC remained successful with zero restarts; and the verifier emitted `V1_59_SERVICE_CHAIN_PROOF=PASS`. '
+                      'Upstream 404/read-timeout warnings and resumable budget exhaustion remain visible rather than being relabelled healthy.**')
+          assert row.endswith(' |'), 'unexpected V1-59 markdown row shape'
+          row = row[:-2] + evidence + ' |'
+          lines[idx] = row
+          text = '\n'.join(lines) + ('\n' if text.endswith('\n') else '')
+
+          replacements = {
+              '| `VERIFIED` | 114 |': '| `VERIFIED` | 115 |',
+              '| `IN PROGRESS` | 3 |': '| `IN PROGRESS` | 2 |',
+          }
+          for old, new in replacements.items():
+              assert text.count(old) == 1, f'expected exactly one tally token {old!r}, found {text.count(old)}'
+              text = text.replace(old, new, 1)
+
+          old_completion = '**V1 completion: 114 / 136 = 83.8%.** '
+          assert text.count(old_completion) == 1, f'completion headline drifted: {text.count(old_completion)} matches'
+          new_completion = ('**V1 completion: 115 / 136 = 84.6%.** Numerator moved +1 by `V1-59` production L3 closure: '
+                            'the naturally scheduled chain proof preserved by #1144 verifies the deployed repair SHA `c30b8d6b...`, '
+                            'scheduled `discovery < records < rosters` ordering, documented systemd success semantics, absence of the '
+                            'named crash/lock/watchdog signatures in the captured slices, and `V1_59_SERVICE_CHAIN_PROOF=PASS`. '
+                            '**114 before this reconciliation.** ')
+          text = text.replace(old_completion, new_completion, 1)
+
+          # Parse only the canonical V1 rows, never rationale prose, and prove the denominator/tally before writing.
+          parsed = []
+          for line in text.splitlines():
+              if line.startswith('| V1-'):
+                  cells = [c.strip() for c in line.strip('|').split('|')]
+                  assert len(cells) >= 6, line
+                  parsed.append(cells)
+          assert len(parsed) == 136, f'denominator drift: {len(parsed)}'
+          from collections import Counter
+          statuses = Counter(c[4].strip('`') for c in parsed)
+          expected = {'VERIFIED': 115, 'IMPLEMENTED_UNVERIFIED': 16, 'IN PROGRESS': 2, 'NOT STARTED': 3}
+          for status, count in expected.items():
+              assert statuses[status] == count, (status, statuses[status], statuses)
+          assert statuses.get('BLOCKED', 0) == 0, statuses
+
+          path.write_text(text, encoding='utf-8')
+          PY
+          rm .github/workflows/tmp-v1-59-ledger-reconcile.yml
+          git diff --check
+          git diff -- docs/VERSION_1_COMPLETION_CONTRACT.md
+          git config user.name 'chatgpt-integration'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add docs/VERSION_1_COMPLETION_CONTRACT.md .github/workflows/tmp-v1-59-ledger-reconcile.yml
+          git commit -m 'docs(v1): verify V1-59 service-chain resilience'
+          git push origin HEAD:chatgpt/v1-59-ledger-reconcile
