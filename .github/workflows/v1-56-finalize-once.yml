@@ -1,0 +1,157 @@
+name: One-shot finalize V1-56 verifier repair
+
+on:
+  push:
+    branches:
+      - chatgpt/v1-56-verifier-repair
+
+permissions:
+  contents: write
+
+jobs:
+  finalize:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout verifier branch
+        uses: actions/checkout@v4
+        with:
+          ref: chatgpt/v1-56-verifier-repair
+          fetch-depth: 0
+
+      - name: Apply exact-anchor verifier repairs
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+
+          # API verifier: unwrap the canonical public-league section envelope.
+          path = Path("scripts/verify_v1_authenticated.py")
+          lines = path.read_text(encoding="utf-8").splitlines(keepends=True)
+          needle = '    block = body.get("faabAnalytics") if "faabAnalytics" in body else body\n'
+          idxs = [i for i, line in enumerate(lines) if line == needle]
+          assert len(idxs) == 1, f"V1-56 API anchor count={len(idxs)}"
+          i = idxs[0]
+          assert lines[i + 1].strip() == "if not isinstance(block, dict):"
+          assert 'c.record("fail", "no analytics block"' in lines[i + 2]
+          assert lines[i + 3].strip() == "return"
+          replacement = [
+              '    # `/api/public/league/{section}` is a section ENVELOPE.\n',
+              '    # Read analytics from `data`; never mistake envelope metadata for data.\n',
+              '    if isinstance(body.get("data"), dict):\n',
+              '        block = body["data"]\n',
+              '    elif isinstance(body.get("faabAnalytics"), dict):\n',
+              '        block = body["faabAnalytics"]\n',
+              '    else:\n',
+              '        c.record("fail", "no analytics block", topKeys=sorted(body)[:15])\n',
+              '        return\n',
+          ]
+          lines[i : i + 4] = replacement
+          path.write_text("".join(lines), encoding="utf-8")
+
+          # Pure-logic regression tests: real envelope + measured zero, and malformed envelope.
+          path = Path("tests/ops/test_v1_verification_primitives.py")
+          text = path.read_text(encoding="utf-8")
+          marker = "# ── V1-131: the agreement rule ──\n"
+          assert text.count(marker) == 1, f"V1-56 unit-test marker count={text.count(marker)}"
+          test_lines = [
+              "# ── V1-56: public-league section envelope ──\n",
+              "\n",
+              "\n",
+              "def test_v56_reads_analytics_from_section_data_and_preserves_zero():\n",
+              "    client = _FakeClient({\n",
+              "        \"/api/public/league/faabAnalytics\": (200, {\n",
+              "            \"contractVersion\": \"2026-03-10.v2\",\n",
+              "            \"section\": \"faabAnalytics\",\n",
+              "            \"data\": {\n",
+              "                \"leagueMedianWinningBid\": 0.0,\n",
+              "                \"leagueAvgWinningBid\": 1.37,\n",
+              "                \"totalBidsAnalyzed\": 1097,\n",
+              "            },\n",
+              "        })\n",
+              "    })\n",
+              "    auth.check_v56(client)\n",
+              "    assert auth.CHECKS[-1].status == \"pass\"\n",
+              "    assert \"leagueMedianWinningBid=0.0\" in auth.CHECKS[-1].detail\n",
+              "\n",
+              "\n",
+              "def test_v56_refuses_section_envelope_without_analytics_data():\n",
+              "    client = _FakeClient({\n",
+              "        \"/api/public/league/faabAnalytics\": (200, {\n",
+              "            \"contractVersion\": \"2026-03-10.v2\",\n",
+              "            \"section\": \"faabAnalytics\",\n",
+              "            \"data\": None,\n",
+              "        })\n",
+              "    })\n",
+              "    auth.check_v56(client)\n",
+              "    assert auth.CHECKS[-1].status == \"fail\"\n",
+              "    assert auth.CHECKS[-1].detail == \"no analytics block\"\n",
+              "\n",
+              "\n",
+          ]
+          text = text.replace(marker, "".join(test_lines) + marker, 1)
+          path.write_text(text, encoding="utf-8")
+
+          # Browser verifier: establish real team context through the production TeamSwitcher.
+          path = Path("tests/e2e/specs/prod-auth/v1-56-waivers-faab-strip.spec.js")
+          lines = path.read_text(encoding="utf-8").splitlines(keepends=True)
+          needle = "    const analyticsRes = await analyticsPromise;\n"
+          idxs = [i for i, line in enumerate(lines) if line == needle]
+          assert len(idxs) == 1, f"V1-56 browser anchor count={len(idxs)}"
+          i = idxs[0]
+          insertion = [
+              "    // The ephemeral verifier has no persisted team preference. Establish the\n",
+              "    // team-scoped prerequisite through the same TeamSwitcher a user uses.\n",
+              '    const teamSwitcher = page.locator(".team-switcher").first();\n',
+              "    await expect(teamSwitcher).toBeVisible({ timeout: 30_000 });\n",
+              "    const needsTeam = await teamSwitcher.evaluate((node) =>\n",
+              '      node.classList.contains("team-switcher--needs"),\n',
+              "    );\n",
+              "    if (needsTeam) {\n",
+              '      await teamSwitcher.locator(".team-switcher-toggle").click();\n',
+              '      const option = teamSwitcher.locator(".team-switcher-option").first();\n',
+              "      await expect(option).toBeVisible({ timeout: 15_000 });\n",
+              "      const chosen = (await option.innerText()).trim();\n",
+              "      await option.click();\n",
+              '      annotate(testInfo, "team-context", `selected through TeamSwitcher: ${chosen}`);\n',
+              "    } else {\n",
+              "      annotate(\n",
+              "        testInfo,\n",
+              '        "team-context",\n',
+              "        `already resolved by the shell: ${(await teamSwitcher.innerText()).trim()}`,\n",
+              "      );\n",
+              "    }\n",
+              "\n",
+          ]
+          lines[i:i] = insertion
+          path.write_text("".join(lines), encoding="utf-8")
+          PY
+
+      - name: Install focused test dependency
+        shell: bash
+        run: python -m pip install --disable-pip-version-check pytest
+
+      - name: Run focused verifier and governance gates
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pytest -q tests/ops/test_v1_verification_primitives.py
+          node --check tests/e2e/specs/prod-auth/v1-56-waivers-faab-strip.spec.js
+          python scripts/check_decision_coercions.py
+          python scripts/check_planning_integrity.py
+
+      - name: Commit verifier repairs and self-delete all temporary workflows
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add scripts/verify_v1_authenticated.py \
+                  tests/ops/test_v1_verification_primitives.py \
+                  tests/e2e/specs/prod-auth/v1-56-waivers-faab-strip.spec.js
+          git rm -f .github/workflows/v1-56-verifier-repair-once.yml \
+                    .github/workflows/v1-56-finalize-once.yml
+          git diff --cached --check
+          git commit -m "test(v1): make V1-56 proof establish real team context"
+          git push origin HEAD:chatgpt/v1-56-verifier-repair
