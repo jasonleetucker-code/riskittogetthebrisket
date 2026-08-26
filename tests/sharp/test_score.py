@@ -262,3 +262,25 @@ class TestPercentileRank:
     def test_monotone(self):
         pop = [0.1, 0.2, 0.3, 0.4, 0.5]
         assert S.percentile_rank(0.05, pop) < S.percentile_rank(0.45, pop)
+
+
+def test_manager_score_to_dict_preserves_unknown_components_and_nested_weights():
+    scored = S.ManagerScore(
+        user_id="serializer",
+        evaluable=True,
+        score=88.8,
+        components={
+            "performance": 0.123456,
+            "rosterQuality": None,
+            "weightsApplied": {"performance": 0.461538, "rosterQuality": 0.0},
+        },
+    )
+
+    payload = scored.to_dict()
+
+    assert payload["components"]["performance"] == 0.1235
+    assert payload["components"]["rosterQuality"] is None
+    assert payload["components"]["weightsApplied"] == {
+        "performance": 0.4615,
+        "rosterQuality": 0.0,
+    }
