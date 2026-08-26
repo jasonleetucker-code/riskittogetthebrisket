@@ -1,0 +1,72 @@
+name: Temporary V1-89 production reconciliation
+
+on:
+  push:
+    branches:
+      - chatgpt/v1-89-prod-evidence-main
+
+permissions:
+  contents: write
+
+jobs:
+  reconcile:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Reconcile V1-89 from fresh L3 evidence
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          p = Path('docs/VERSION_1_COMPLETION_CONTRACT.md')
+          s = p.read_text()
+          lines = s.splitlines()
+          matches = [i for i, line in enumerate(lines) if line.startswith('| V1-89 |')]
+          assert len(matches) == 1, matches
+          i = matches[0]
+          old = lines[i]
+          assert '| `IMPLEMENTED_UNVERIFIED` | L3 |' in old, old
+          note = (' **PROMOTED 2026-08-25 from fresh L3 production evidence.** '
+                  'On-box verification run `32919655291` against deployed SHA '
+                  '`a82898fdbe73ea2effd295132590dff35a45ac98` executed the packet §6 recipe: '
+                  'production DraftSharks stamps are fresh and advance only on successful fetch; the existing dynasty/IDP '
+                  'league-scoped proof and the independent ROS fail-closed proof are both pinned by the deployed implementation; '
+                  'the newest archive contains all four DraftSharks files under `site_raw/` and names them in `siteRawMirrored`; '
+                  '`measure_content_staleness()` returns all four DraftSharks keys; currently publishing content does not false-alert; '
+                  'the synthetic stale-content control does alert; and the pre-existing `idpTradeCalc` content-age reading remains present. '
+                  'The verifier reported each packet group PASS rather than inferring health from workflow green.')
+          lines[i] = old.replace('| `IMPLEMENTED_UNVERIFIED` | L3 |', '| `VERIFIED` | L3 |') + note
+          s = '\n'.join(lines) + ('\n' if s.endswith('\n') else '')
+
+          assert '| `VERIFIED` | 111 |' in s
+          assert '| `IMPLEMENTED_UNVERIFIED` | 19 |' in s
+          s = s.replace('| `VERIFIED` | 111 |', '| `VERIFIED` | 112 |', 1)
+          s = s.replace('| `IMPLEMENTED_UNVERIFIED` | 19 |', '| `IMPLEMENTED_UNVERIFIED` | 18 |', 1)
+
+          marker = '**V1 completion: 111 / 136 = 81.6%.**'
+          assert s.count(marker) == 1, s.count(marker)
+          s = s.replace(
+              marker,
+              '**V1 completion: 112 / 136 = 82.4%.** Numerator moved +1 by `V1-89` production L3 closure '
+              '(fresh on-box run `32919655291` against deployed `a82898fdbe73ea2effd295132590dff35a45ac98`; '
+              'the packet §6 DraftSharks acquisition/archive/staleness recipe passed). **111 before this reconciliation.**',
+              1,
+          )
+          p.write_text(s)
+          PY
+          git diff --check
+          python scripts/check_planning_integrity.py
+          python scripts/check_decision_coercions.py
+      - name: Commit reconciliation and remove temporary workflow
+        shell: bash
+        run: |
+          git config user.name "ChatGPT Integration"
+          git config user.email "chatgpt-integration@users.noreply.github.com"
+          git rm .github/workflows/_tmp_v1_89_reconcile.yml
+          git add docs/VERSION_1_COMPLETION_CONTRACT.md
+          git commit -m "docs: verify V1-89 at L3"
+          git push origin HEAD:chatgpt/v1-89-prod-evidence-main
