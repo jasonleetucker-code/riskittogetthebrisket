@@ -2,8 +2,13 @@
 """Fetch and persist a league's historical FAAB bid history.
 
 Walks the Sleeper league chain backwards through ``previous_league_id``
-and stores every completed waiver / free-agent add with its winning
-bid under ``data/faab/bid_history_<leagueKey>.json``.
+and stores completed waiver / free-agent winning prices plus resolved
+failed waiver bids under ``data/faab/bid_history_<leagueKey>.json``.
+
+Winning prices remain the clearing-price sample.  Resolved waiver wins
++ failed bids form a separate manager-tendency sample, so a losing bid
+can teach the predictor how aggressive an owner is without being
+mistaken for the price that actually cleared.
 
 The FAAB engine's market model reads the persisted file; it never
 makes network calls itself.  Run this on a cadence (or by hand after
@@ -75,6 +80,8 @@ def main() -> int:
             continue
 
         total = payload.get("totalAdds") or 0
+        attempts = payload.get("totalBidAttempts") or 0
+        failed = payload.get("totalFailedWaiverBids") or 0
         if not total:
             print("  no completed adds with a bid found")
             continue
@@ -82,11 +89,16 @@ def main() -> int:
 
         priors = summarize_bid_history(payload)
         print(
-            f"  {total} adds across {len(payload.get('seasons') or [])} season(s): "
+            f"  {total} winning adds across {len(payload.get('seasons') or [])} season(s): "
             f"median {priors.median_pct:.2f}% of budget, "
             f"p90 {priors.p90_pct:.2f}%, max {priors.max_pct:.2f}%, "
             f"{priors.zero_bid_share:.0%} at $0"
         )
+        if attempts:
+            print(
+                f"  owner-tendency sample: {attempts} resolved waiver bids "
+                f"({failed} failed/lower bids)"
+            )
         if args.summary_only:
             print(json.dumps(priors.to_dict(), indent=2))
             continue
