@@ -296,9 +296,30 @@ test.describe("V1-131: nav gating on the deployed shell", () => {
     const tabbar = page.locator('nav.shell-tabbar[aria-label="Primary"]');
     await expect(tabbar).toBeVisible({ timeout: 60_000 });
 
-    await tabbar.getByRole("button", { name: /Menu/ }).click();
+    // `domcontentloaded` + the tabbar's visibility only prove the SSR
+    // markup painted — the Menu button's onClick is wired by React
+    // hydration, which can still be in flight. A native click landing
+    // in that gap dispatches a real DOM event with nobody listening for
+    // it yet, and once hydration completes there is no replay: the
+    // drawer just never opens. Give hydration a bounded chance to
+    // finish (same networkidle-with-fallback pattern this file already
+    // uses for the desktop reload test at line ~254) before treating a
+    // still-closed drawer as a real gating failure.
+    await page.waitForLoadState("networkidle", { timeout: 15_000 }).catch(() => {});
+
+    const menuButton = tabbar.getByRole("button", { name: /Menu/ });
     const drawerGroups = page.locator(".shell-drawer-group");
-    await expect(drawerGroups.first()).toBeVisible({ timeout: 15_000 });
+    await menuButton.click();
+    try {
+      await expect(drawerGroups.first()).toBeVisible({ timeout: 5_000 });
+    } catch {
+      // One retry covers a click that still landed pre-hydration despite
+      // the networkidle wait above (e.g. a slow WebKit mobile runner) —
+      // genuine gating defects fail this too, since neither attempt
+      // opens the drawer.
+      await menuButton.click();
+      await expect(drawerGroups.first()).toBeVisible({ timeout: 15_000 });
+    }
 
     // Negative control: the Market group renders with its ungated entries.
     const marketGroup = drawerGroups.filter({
