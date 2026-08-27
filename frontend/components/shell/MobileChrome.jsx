@@ -16,7 +16,7 @@
  */
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Drawer, Icon } from "@/components/ds";
 import TeamSwitcher from "@/components/TeamSwitcher";
 import LeagueSwitcher from "@/components/LeagueSwitcher";
@@ -84,10 +84,16 @@ export function MobileTopBar({ authenticated, onSearch, searchEnabled = true }) 
 export function MobileTabBar({ authenticated, isAdmin, capabilities, isPublic, onLogout }) {
   const pathname = usePathname();
   const [menuOpen, setMenuOpen] = useState(false);
+  const previousPathnameRef = useRef(pathname);
 
-  // Close the drawer whenever navigation lands.
+  // Close the drawer only when navigation ACTUALLY lands somewhere else.
+  // A late shell mount/hydration effect must not race the Menu click and
+  // immediately close a drawer that was just opened (V1-131 mobile L4).
   useEffect(() => {
-    setMenuOpen(false);
+    if (previousPathnameRef.current !== pathname) {
+      previousPathnameRef.current = pathname;
+      setMenuOpen(false);
+    }
   }, [pathname]);
 
   // Logged out, the authed tab set filtered by "is this public" left
