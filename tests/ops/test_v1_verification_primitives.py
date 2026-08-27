@@ -105,6 +105,65 @@ def test_v61_zero_coverage_where_null_expected_is_still_typed_pass():
     assert auth.CHECKS[-1].status == "fail"  # a string coverage is malformed
 
 
+# ── V1-56: the payload lives under "data", never under a "faabAnalytics" key ──
+
+
+def test_v56_reads_the_data_envelope_not_a_section_named_key():
+    # build_section_payload() (src/public_league/public_contract.py) always
+    # wraps a section body as {contractVersion, league, section, data} — the
+    # body never appears under a key matching the section's own name.
+    client = _FakeClient(
+        {
+            "/api/public/league/faabAnalytics": (
+                200,
+                {
+                    "contractVersion": "1",
+                    "league": {},
+                    "section": "faabAnalytics",
+                    "data": {"leagueMedianWinningBid": 0, "leagueAvgWinningBid": 1.37},
+                },
+            )
+        }
+    )
+    auth.check_v56(client)
+    c = auth.CHECKS[-1]
+    assert c.status == "pass"
+
+
+def test_v56_a_faabanalytics_shaped_wrapper_fails_absence_not_a_false_pass():
+    # A payload shaped like the OLD (buggy) expectation — body itself
+    # carrying no "data" key — must not silently read as present.
+    client = _FakeClient(
+        {
+            "/api/public/league/faabAnalytics": (
+                200,
+                {"faabAnalytics": {"leagueMedianWinningBid": 0}},
+            )
+        }
+    )
+    auth.check_v56(client)
+    assert auth.CHECKS[-1].status == "fail"
+
+
+def test_v56_401_is_unmeasurable_not_fail():
+    client = _FakeClient({"/api/public/league/faabAnalytics": (401, {"error": "auth_required"})})
+    auth.check_v56(client)
+    assert auth.CHECKS[-1].status == "unmeasurable"
+
+
+def test_v56_null_median_is_typed_pass():
+    client = _FakeClient(
+        {
+            "/api/public/league/faabAnalytics": (
+                200,
+                {"data": {"leagueMedianWinningBid": None}},
+            )
+        }
+    )
+    auth.check_v56(client)
+    assert auth.CHECKS[-1].status == "pass"
+
+
 # ── V1-131: the agreement rule ──
 
 

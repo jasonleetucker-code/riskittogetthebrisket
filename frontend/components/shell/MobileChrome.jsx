@@ -23,6 +23,7 @@ import LeagueSwitcher from "@/components/LeagueSwitcher";
 import {
   MOBILE_TABS,
   MOBILE_TABS_PUBLIC,
+  MOBILE_TABS_UNKNOWN,
   SYSTEM_MODEL,
   flattenNav,
   navGroupsFor,
@@ -100,7 +101,27 @@ export function MobileTabBar({ authenticated, isAdmin, capabilities, isPublic, o
   // Home and the Menu button — and no Sign in anywhere in the mobile
   // chrome, so the only way into the app from a phone was a button on
   // the landing page.  Logged-out visitors get their own three tabs.
-  const tabs = authenticated ? MOBILE_TABS : MOBILE_TABS_PUBLIC;
+  //
+  // ``authenticated`` is deliberately three-valued (useAuth.js): true /
+  // false are answers from the server; null (or undefined, before the
+  // first render settles) means "still checking, or a probe failed" —
+  // and the hook's own contract is that this renders as NEUTRAL chrome,
+  // "no authed surfaces, but no Login affordance either"
+  // (useAuth.js:37-39). TopBar already keys its desktop nav on this
+  // exact three-way split (TopBar.jsx::visibleGroups); this mirrors it
+  // for the mobile tab set. Collapsing "still checking" into the same
+  // branch as a confirmed sign-out put "Sign in" on screen for an
+  // already-signed-in visitor for as long as the auth probe took, then
+  // swapped to the real tab set the moment it resolved (V1-131 mobile
+  // L4 residual — a different mechanism than the pathname-close race
+  // #1149 fixed). MOBILE_TABS_UNKNOWN carries no claim in either
+  // direction.
+  const tabs =
+    authenticated === true
+      ? MOBILE_TABS
+      : authenticated === false
+        ? MOBILE_TABS_PUBLIC
+        : MOBILE_TABS_UNKNOWN;
 
   // Tab active state: longest-prefix winner among the tabs so /trade
   // lights Trade, not Home; the Menu button is active-by-none like the

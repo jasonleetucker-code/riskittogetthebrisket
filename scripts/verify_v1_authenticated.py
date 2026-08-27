@@ -185,7 +185,13 @@ def check_v56(client: Client) -> None:
     if status != 200 or not isinstance(body, dict):
         c.record("fail" if status != 401 else "unmeasurable", f"HTTP {status}")
         return
-    block = body.get("faabAnalytics") if "faabAnalytics" in body else body
+    # build_section_payload() (src/public_league/public_contract.py) wraps
+    # every section as {contractVersion, league, section, data} — the
+    # section's own body always lives under "data", never under a key
+    # named after the section itself. Same class of defect as W11-F006,
+    # which was previously fixed on the frontend (ManualAddDrop.jsx) but
+    # not here.
+    block = body.get("data")
     if not isinstance(block, dict):
         c.record("fail", "no analytics block", topKeys=sorted(body)[:15])
         return

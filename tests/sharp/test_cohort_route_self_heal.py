@@ -17,8 +17,8 @@ def test_cohort_status_self_heals_missing_market_routes(monkeypatch):
         lambda: {"sleeper": {}, "ffpc": {}},
     )
     monkeypatch.setattr(service.discovery, "graph_stats", lambda: {})
-    monkeypatch.setattr(service, "load_manager_records", lambda: [])
-    monkeypatch.setattr(service, "_records_coverage", lambda: {})
+    monkeypatch.setattr(service, "load_manager_records", lambda: ([], {}))
+    monkeypatch.setattr(service, "_records_coverage", lambda records, evidence: {})
     monkeypatch.setattr(service.sharp_market, "load_ffpc_config", lambda: {})
     monkeypatch.setattr(service.sharp_market, "provisional_members", lambda _config: [])
 

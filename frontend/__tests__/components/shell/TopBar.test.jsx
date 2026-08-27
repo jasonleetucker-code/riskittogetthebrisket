@@ -261,6 +261,30 @@ describe("MobileTabBar", () => {
     expect(screen.getByRole("link", { name: /League/ })).toHaveAttribute("href", "/league");
     expect(screen.queryByRole("link", { name: /Ranks/ })).toBeNull();
   });
+
+  it("while auth is unresolved, offers neither the authed tabs nor Sign in (V1-131 mobile L4)", () => {
+    // authenticated === null/undefined means "still checking" — NOT a
+    // confirmed sign-out. Before this fix, MobileTabBar collapsed that
+    // into the same branch as authenticated === false, so an
+    // already-signed-in visitor's very first paint (and every render
+    // until the /api/auth/status probe resolves) showed "Sign in" and
+    // a public-only tab set, then swapped to the real one the instant
+    // the probe answered.
+    pathname = "/";
+    for (const unresolved of [null, undefined]) {
+      const { unmount } = render(
+        <MobileTabBar authenticated={unresolved} isPublic={isPublic} onLogout={() => {}} />
+      );
+      expect(screen.queryByRole("link", { name: /Sign in/ })).toBeNull();
+      expect(screen.queryByRole("link", { name: /Ranks/ })).toBeNull();
+      expect(screen.queryByRole("link", { name: /Trade/ })).toBeNull();
+      // Still a real, labelled tab bar with a working Menu button —
+      // unresolved must not mean absent, just non-committal.
+      expect(screen.getByRole("navigation", { name: "Primary" })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: /Menu/ })).toBeInTheDocument();
+      unmount();
+    }
+  });
 });
 
 describe("search affordance is gated on searchEnabled, not authenticated", () => {

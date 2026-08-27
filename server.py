@@ -3457,6 +3457,14 @@ _SELF_AUTHED_API_EXACT = frozenset(
         "/api/test/create-session",
         # Push public-key endpoint is read-only and stateless — no auth.
         "/api/push/public-key",
+        # Same bearer-auth pattern as signal-alerts/intel-refresh, for the
+        # "Verify Sharp Production Population" smoke workflow (which reads
+        # both routes to decide "healthy"). Each handler still requires a
+        # session OR the SHARP_SMOKE_TOKEN bearer
+        # (src.sharp.service.sharp_smoke_bearer_auth_ok) — this only lets
+        # the request past the cookie-only middleware so that check can run.
+        "/api/sharp/cohort",
+        "/api/sharp/market",
     }
 )
 _PUBLIC_API_PREFIXES = (
@@ -14778,7 +14786,15 @@ async def get_sharp_cohort(request: Request):
     network, and the page renders it as an explanation.  The four tiers
     are always reported separately so "not built yet" can never be
     mistaken for "nobody qualified".
+
+    Registered in ``_SELF_AUTHED_API_EXACT`` so this handler runs its
+    own auth: a browser session (the normal path) OR the
+    ``SHARP_SMOKE_TOKEN`` bearer token used by the production-smoke
+    workflow (``_sharp_service.sharp_smoke_bearer_auth_ok``).  Neither
+    present → 401, same as every other private endpoint.
     """
+    if not _get_auth_session(request) and not _sharp_service.sharp_smoke_bearer_auth_ok(request):
+        return JSONResponse(status_code=401, content={"error": "auth_required"})
     payload = await run_in_threadpool(_sharp_service.cohort_status)
     return JSONResponse(
         content=payload,
