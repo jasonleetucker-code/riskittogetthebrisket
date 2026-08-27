@@ -51,9 +51,7 @@ def test_sharp_market_requires_session_or_bearer(monkeypatch):
 
     with TestClient(server.app, raise_server_exceptions=True) as client:
         anonymous = client.get("/api/sharp/market")
-        wrong_bearer = client.get(
-            "/api/sharp/market", headers={"Authorization": "Bearer nope"}
-        )
+        wrong_bearer = client.get("/api/sharp/market", headers={"Authorization": "Bearer nope"})
         right_bearer = client.get(
             "/api/sharp/market",
             headers={"Authorization": "Bearer correct-horse-battery-staple"},
@@ -70,9 +68,7 @@ def test_sharp_cohort_requires_session_or_bearer(monkeypatch):
 
     with TestClient(server.app, raise_server_exceptions=True) as client:
         anonymous = client.get("/api/sharp/cohort")
-        wrong_bearer = client.get(
-            "/api/sharp/cohort", headers={"Authorization": "Bearer nope"}
-        )
+        wrong_bearer = client.get("/api/sharp/cohort", headers={"Authorization": "Bearer nope"})
         right_bearer = client.get(
             "/api/sharp/cohort",
             headers={"Authorization": "Bearer correct-horse-battery-staple"},
@@ -88,12 +84,8 @@ def test_sharp_cohort_and_market_bearer_disabled_when_token_unset(monkeypatch):
     monkeypatch.setattr(service, "SHARP_SMOKE_TOKEN", "")
 
     with TestClient(server.app, raise_server_exceptions=True) as client:
-        cohort = client.get(
-            "/api/sharp/cohort", headers={"Authorization": "Bearer anything"}
-        )
-        market = client.get(
-            "/api/sharp/market", headers={"Authorization": "Bearer anything"}
-        )
+        cohort = client.get("/api/sharp/cohort", headers={"Authorization": "Bearer anything"})
+        market = client.get("/api/sharp/market", headers={"Authorization": "Bearer anything"})
 
     assert cohort.status_code == 401
     assert market.status_code == 401
