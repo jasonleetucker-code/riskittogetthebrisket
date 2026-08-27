@@ -240,14 +240,35 @@ def check_v131(client: Client) -> None:
     )
 
 
-def check_v11_item8(client: Client) -> None:
+def check_v11_item8(client: Client, contract: dict | None) -> None:
     c = _check("V11-8", "V1-11", "C1-U5 §6 item 8: the terminal still renders confidence")
-    status, body = client.request("/api/terminal")
+    # /api/terminal only builds per-player signal rows (where the
+    # confidence field actually lives — src/api/terminal.py::_build_signal_context,
+    # spread into each entry) for a RESOLVED team; with no ?team= and no
+    # sleeper_user_id on the session (the guest_pass account is not a real
+    # Sleeper user), resolved_team stays None, roster_rows is empty, and
+    # signals ends up []  -- not because confidence is missing from a real
+    # row, but because there is no row to carry it. Same team-resolution
+    # pattern check_v27_item3 already uses (contract.sleeper.teams), so a
+    # real roster's signals actually get evaluated.
+    teams = ((contract or {}).get("sleeper") or {}).get("teams") or []
+    team_id = next((tid for t in teams if (tid := _team_id(t))), None)
+    if team_id is None:
+        c.record("unmeasurable", "could not resolve a real team id from the contract")
+        return
+    status, body = client.request(f"/api/terminal?team={team_id}")
     if status == 401:
         c.record("unmeasurable", "401 — UNVERIFIABLE")
         return
     if status != 200 or not isinstance(body, dict):
         c.record("fail", f"HTTP {status}")
+        return
+    signals = body.get("signals")
+    if not signals:
+        c.record(
+            "unmeasurable",
+            f"team {team_id} resolved but produced zero signal rows to check",
+        )
         return
     blob = json.dumps(body)
     has_confidence = "confidence" in blob
@@ -508,7 +529,7 @@ def main() -> int:
         _isolated("V61A", check_v61, client)
         _isolated("V56A", check_v56, client)
         _isolated("V131A", check_v131, client)
-        _isolated("V11-8", check_v11_item8, client)
+        _isolated("V11-8", check_v11_item8, client, contract)
         _isolated("V11-3", check_v11_item3_fresh, contract)
         _isolated("V27-3", check_v27_item3, client, contract, args.league)
         _isolated("V45A", check_v45, client, contract, args.league)
