@@ -164,6 +164,64 @@ def test_v56_null_median_is_typed_pass():
     assert auth.CHECKS[-1].status == "pass"
 
 
+# ── V1-11 item 8: the terminal needs a RESOLVED team to have signal rows
+# to check at all — an empty ``signals: []`` (no team resolvable, e.g. the
+# guest_pass account has no Sleeper user id) is not the same finding as a
+# real signal row genuinely missing confidence, and must not read as one.
+
+
+def test_v11_8_no_team_resolvable_is_unmeasurable_not_fail():
+    client = _FakeClient({})  # never reached — no team id in the contract
+    auth.check_v11_item8(client, {"sleeper": {"teams": []}})
+    assert auth.CHECKS[-1].status == "unmeasurable"
+
+
+def test_v11_8_empty_signals_with_a_resolved_team_is_unmeasurable_not_fail():
+    contract = {"sleeper": {"teams": [{"ownerId": "123"}]}}
+    client = _FakeClient({"/api/terminal?team=123": (200, {"signals": []})})
+    auth.check_v11_item8(client, contract)
+    c = auth.CHECKS[-1]
+    assert c.status == "unmeasurable"
+    assert "zero signal rows" in c.detail
+
+
+def test_v11_8_real_signal_rows_with_confidence_is_pass():
+    contract = {"sleeper": {"teams": [{"ownerId": "123"}]}}
+    client = _FakeClient(
+        {
+            "/api/terminal?team=123": (
+                200,
+                {"signals": [{"name": "Josh Allen", "confidence": 0.82}]},
+            )
+        }
+    )
+    auth.check_v11_item8(client, contract)
+    assert auth.CHECKS[-1].status == "pass"
+
+
+def test_v11_8_real_signal_rows_missing_confidence_is_a_real_fail():
+    # The regression this check exists to catch: a resolved team WITH
+    # signal rows, none of which carry the confidence field at all.
+    contract = {"sleeper": {"teams": [{"ownerId": "123"}]}}
+    client = _FakeClient(
+        {
+            "/api/terminal?team=123": (
+                200,
+                {"signals": [{"name": "Josh Allen", "signal": "HOLD"}]},
+            )
+        }
+    )
+    auth.check_v11_item8(client, contract)
+    assert auth.CHECKS[-1].status == "fail"
+
+
+def test_v11_8_401_is_unmeasurable_not_fail():
+    contract = {"sleeper": {"teams": [{"ownerId": "123"}]}}
+    client = _FakeClient({"/api/terminal?team=123": (401, {"error": "auth_required"})})
+    auth.check_v11_item8(client, contract)
+    assert auth.CHECKS[-1].status == "unmeasurable"
+
+
 # ── V1-131: the agreement rule ──
 
 
