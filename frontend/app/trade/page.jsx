@@ -178,6 +178,7 @@ export default function TradePage() {
   // and show a clear "data not ready" banner when needed.
   const {
     selectedTeam,
+    setSelectedTeam,
     idpEnabled,
     leagueMismatch,
     selectedLeagueKey,
@@ -1418,6 +1419,17 @@ export default function TradePage() {
       .filter((_, oi) => oi !== i)
       .map((t) => ({ team_name: t.name, players: t.players || [] }));
     setLeagueRosters(opponents);
+
+    // Propagate to the global team context (``useTeam().selectedTeam``)
+    // so a pick made via THIS in-page dropdown — not just the topbar
+    // TeamSwitcher — also updates surfaces gated on it, e.g. the
+    // "Simulate impact" button below, which reads ``selectedTeam``
+    // directly. Guarded against the value that produced this same call
+    // via the topbar-sync effect above, so the two effects don't feed
+    // back into each other.
+    if (i !== topbarTeamIdx) {
+      setSelectedTeam(team);
+    }
   }
 
   // Auto-fetch suggestions whenever the user lands on the page with

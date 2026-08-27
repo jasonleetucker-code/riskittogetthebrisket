@@ -205,8 +205,23 @@ def manager_evidence(
     ]
 
 
-def coverage(*, ledger_path: Path | None = None) -> dict[str, Any]:
-    records, evidence = build_manager_records(ledger_path=ledger_path)
+def coverage(
+    *,
+    ledger_path: Path | None = None,
+    records: list[sharp_score.ManagerRecord] | None = None,
+    evidence: dict[str, EvidenceStatus] | None = None,
+) -> dict[str, Any]:
+    """Coverage summary over the manager-record population.
+
+    ``records``/``evidence`` let a caller that already ran
+    :func:`build_manager_records` this request pass the result straight
+    through instead of paying for the same joins/aggregates twice — the
+    cohort-status endpoint (``src/sharp/service.py::cohort_status``) is the
+    motivating caller. Omit both (the default) to compute them here as
+    before.
+    """
+    if records is None or evidence is None:
+        records, evidence = build_manager_records(ledger_path=ledger_path)
     conn = platform_ledger.ensure_platform_schema(ledger_path)
     try:
         row = conn.execute(

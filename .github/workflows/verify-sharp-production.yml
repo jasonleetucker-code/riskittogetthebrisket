@@ -40,6 +40,13 @@ jobs:
           DEPLOY_CONCLUSION: ${{ github.event.workflow_run.conclusion || 'pending' }}
           DEPLOY_RUN_ID: ${{ github.event.workflow_run.id || '' }}
           DEPLOY_HEAD_SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
+          # Bearer token for GET /api/sharp/cohort and GET /api/sharp/market
+          # (server.py's _SELF_AUTHED_API_EXACT + src.sharp.service's
+          # SHARP_SMOKE_TOKEN check — same pattern INTEL_REFRESH_TOKEN uses
+          # in intel-refresh.yml). Unset secret = empty string = the
+          # workflow's original behavior (anonymous request, 401,
+          # unverifiable_unauthenticated) is unchanged.
+          SHARP_SMOKE_TOKEN: ${{ secrets.SHARP_SMOKE_TOKEN }}
         run: |
           python - <<'PY'
           import json
@@ -76,14 +83,16 @@ jobs:
               problem behind what looks like a slow deploy.
               """
 
+          smoke_token = os.environ.get("SHARP_SMOKE_TOKEN", "").strip()
+
           def fetch_json(url):
-              request = urllib.request.Request(
-                  url,
-                  headers={
-                      "User-Agent": "ChaseUpside-Production-Smoke/1.0",
-                      "Cache-Control": "no-cache",
-                  },
-              )
+              headers = {
+                  "User-Agent": "ChaseUpside-Production-Smoke/1.0",
+                  "Cache-Control": "no-cache",
+              }
+              if smoke_token:
+                  headers["Authorization"] = f"Bearer {smoke_token}"
+              request = urllib.request.Request(url, headers=headers)
               try:
                   with urllib.request.urlopen(request, timeout=30) as response:
                       return response.status, json.loads(response.read().decode("utf-8"))
@@ -374,11 +383,14 @@ jobs:
               # about what would make it a real check.
               print(
                   "::warning title=Sharp smoke cannot verify::"
-                  "/api/sharp/* requires a session and this workflow holds no "
-                  "credential, so population health was NOT measured. Provision a "
-                  "token for the smoke (see _SELF_AUTHED_API_EXACT in server.py for "
-                  "the bearer pattern used by /api/signal-alerts/run) to turn this "
-                  "into an enforcing gate."
+                  "/api/sharp/* requires a session or the SHARP_SMOKE_TOKEN bearer, "
+                  "and this run presented neither a valid session nor a matching "
+                  "token, so population health was NOT measured. The mechanism "
+                  "exists (src.sharp.service.sharp_smoke_bearer_auth_ok, same "
+                  "bearer pattern as /api/signal-alerts/run) — set the "
+                  "SHARP_SMOKE_TOKEN repo secret AND the matching SHARP_SMOKE_TOKEN "
+                  "value in production's .env (then restart the dynasty service) "
+                  "to turn this into an enforcing gate."
               )
               raise SystemExit(0)
 
@@ -453,15 +465,20 @@ jobs:
           - Run: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}
 
           \`https://chaseupside.com/api/sharp/cohort\` answers **401**. The site is up
-          and correctly refusing an anonymous caller; this workflow simply holds no
-          credential, so Sharp population health is **not measured**. The per-run
-          disposition is deliberately a warning rather than a failure — failing every
-          run for a token CI was never issued is how a gate gets deleted — but the
+          and correctly refusing an unauthenticated caller; this run presented no
+          valid session and no matching \`SHARP_SMOKE_TOKEN\` bearer, so Sharp
+          population health is **not measured**. The per-run disposition is
+          deliberately a warning rather than a failure — failing every run for a
+          token CI was never issued is how a gate gets deleted — but the
           cumulative fact is that the gate has never evaluated its invariant.
 
-          **The one action that fixes this:** provision a token for the smoke. See
-          \`_SELF_AUTHED_API_EXACT\` in \`server.py\` for the bearer pattern
-          \`/api/signal-alerts/run\` already uses.
+          **The one action that fixes this:** the bearer mechanism already exists
+          (\`_SELF_AUTHED_API_EXACT\` in \`server.py\` +
+          \`src.sharp.service.sharp_smoke_bearer_auth_ok\`, same pattern
+          \`/api/signal-alerts/run\` uses) — set the \`SHARP_SMOKE_TOKEN\` repo
+          secret AND the matching \`SHARP_SMOKE_TOKEN\` value in production's
+          \`.env\` (then restart the \`dynasty\` service so it picks up the new
+          env var).
 
           This issue closes itself on the first run that reports \`healthy\`.
           EOF

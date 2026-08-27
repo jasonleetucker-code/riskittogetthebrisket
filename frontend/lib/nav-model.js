@@ -368,6 +368,22 @@ export const MOBILE_TABS_PUBLIC = [
 ];
 
 /**
+ * Neutral mobile tabs for the "we don't know yet" auth state.
+ *
+ * ``useAuth``'s ``authenticated`` is deliberately three-valued
+ * (true / false / null) specifically so a still-resolving session is
+ * never mistaken for a confirmed sign-out — see useAuth.js's own
+ * docstring: "Consumers render null as neutral chrome (no authed
+ * surfaces, but no 'Login' affordance either)". MOBILE_TABS_PUBLIC's
+ * "Sign in" entry asserts the opposite of that: a confirmed logged-out
+ * state. Reused MOBILE_TABS_PUBLIC minus that one entry, rather than a
+ * third hand-authored list, so the two stay in lockstep by construction.
+ */
+export const MOBILE_TABS_UNKNOWN = MOBILE_TABS_PUBLIC.filter(
+  (tab) => tab.href !== "/login",
+);
+
+/**
  * Extra command-palette navigation targets that intentionally live in
  * no menu (reached contextually in the UI) but must stay reachable.
  */

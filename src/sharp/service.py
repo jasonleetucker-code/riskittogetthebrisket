@@ -7,7 +7,9 @@ Sharp Score v2 and the single market table are computed.
 
 from __future__ import annotations
 
+import hmac
 import logging
+import os
 import sys
 from datetime import datetime, timezone
 from typing import Any
@@ -26,23 +28,57 @@ log = logging.getLogger(__name__)
 STATUS_OK = "ok"
 STATUS_BUILDING = "cohort_building"
 
+# Shared secret for the "Verify Sharp Production Population" workflow
+# (.github/workflows/verify-sharp-production.yml). Same bearer-auth
+# pattern as server.py's SIGNAL_ALERT_CRON_TOKEN / INTEL_REFRESH_TOKEN:
+# when set, a matching ``Authorization: Bearer <token>`` header is
+# accepted on ``GET /api/sharp/cohort`` and ``GET /api/sharp/market`` in
+# place of a browser session, so CI can measure real population health
+# instead of reporting unverifiable_unauthenticated on every run. Empty
+# (the default) = disabled — both endpoints stay session-only, exactly
+# their behavior before this token existed.
+SHARP_SMOKE_TOKEN = os.getenv("SHARP_SMOKE_TOKEN", "").strip()
+
+
+def sharp_smoke_bearer_auth_ok(request: Request) -> bool:
+    """True when the request carries the Sharp production-smoke bearer
+    token. An unset token means this can never pass (cron auth disabled,
+    session-only) — the endpoints' behavior before the token existed.
+    """
+    if not SHARP_SMOKE_TOKEN:
+        return False
+    header = (request.headers.get("authorization") or "").strip()
+    if not header.lower().startswith("bearer "):
+        return False
+    presented = header.split(None, 1)[1].strip()
+    # Compare as bytes: header values can be non-ASCII and
+    # hmac.compare_digest raises TypeError on non-ASCII str input.
+    presented_b = presented.encode("utf-8", "surrogateescape")
+    configured_b = SHARP_SMOKE_TOKEN.encode("utf-8", "surrogateescape")
+    return hmac.compare_digest(presented_b, configured_b)
+
 
 def _utc_now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
-def load_manager_records() -> list[sharp_score.ManagerRecord]:
+def load_manager_records() -> tuple[list[sharp_score.ManagerRecord], dict[str, Any]]:
     try:
-        records, _evidence = platform_records.build_manager_records()
-        return records
+        return platform_records.build_manager_records()
     except Exception:  # noqa: BLE001 — status must not 500
         log.exception("sharp: platform-neutral manager records unavailable")
-        return []
+        return [], {}
 
 
-def _records_coverage() -> dict[str, Any]:
+def _records_coverage(
+    records: list[sharp_score.ManagerRecord], evidence: dict[str, Any]
+) -> dict[str, Any]:
     try:
-        return platform_records.coverage()
+        # Pass the already-computed population through rather than letting
+        # coverage() re-run build_manager_records() (the same joins +
+        # aggregates over manager_seasons/asset_movements this request
+        # already paid for once, a few lines up).
+        return platform_records.coverage(records=records, evidence=evidence)
     except Exception:  # noqa: BLE001
         log.exception("sharp: records coverage failed")
         return {}
@@ -72,7 +108,7 @@ def cohort_status() -> dict[str, Any]:
         log.exception("sharp: Sleeper graph stats failed")
         graph = {}
 
-    manager_records = load_manager_records()
+    manager_records, manager_evidence = load_manager_records()
     scored = sharp_score.score_managers(manager_records) if manager_records else []
     tiers = (
         sharp_score.cohort_tiers(scored)
@@ -122,7 +158,7 @@ def cohort_status() -> dict[str, Any]:
             ),
         },
         "graph": graph,
-        "records": _records_coverage(),
+        "records": _records_coverage(manager_records, manager_evidence),
         "coverage": {"legacy": coverage, "platforms": source_coverage},
         "ffpc": {
             "enabled": bool(config.get("enabled")),
@@ -163,6 +199,27 @@ def roster_percentage_audit_payload(asset_id: str, **kwargs: Any) -> dict[str, A
     from src.sharp import roster_percentage
 
     return roster_percentage.audit_player(asset_id, **kwargs)
+
+
+def _running_session_check(request: Request):
+    """Best-effort delegate to server.py's session-cookie check.
+
+    Mirrors :func:`_server_app`'s ``sys.modules`` lookup rather than a
+    direct ``import server`` — server.py imports THIS module, so a
+    top-level import here would be circular. Looked up lazily at
+    request time, by which point the server module is fully loaded.
+    Returns ``None`` (never raises) if it isn't reachable; the bearer
+    path in :func:`sharp_smoke_bearer_auth_ok` still works either way.
+    """
+    for module_name in ("server", "__main__"):
+        module = sys.modules.get(module_name)
+        checker = getattr(module, "_get_auth_session", None)
+        if callable(checker):
+            try:
+                return checker(request)
+            except Exception:  # noqa: BLE001
+                return None
+    return None
 
 
 def _server_app():
@@ -208,6 +265,18 @@ def _register_http_routes() -> None:
         return
 
     async def get_market(request: Request):
+        # Registered in server.py's _SELF_AUTHED_API_EXACT (alongside
+        # /api/sharp/cohort) so the cookie-only middleware lets the
+        # request through — this check is what actually gates it: a
+        # browser session OR the SHARP_SMOKE_TOKEN bearer used by the
+        # production-smoke workflow. Neither present -> 401, same as
+        # every other private endpoint.
+        if not _running_session_check(request) and not sharp_smoke_bearer_auth_ok(request):
+            return JSONResponse(
+                status_code=401,
+                content={"error": "auth_required"},
+                headers={"Cache-Control": "no-store"},
+            )
         query = request.query_params
         try:
             payload = await run_in_threadpool(
