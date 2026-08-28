@@ -163,11 +163,51 @@ resolve_systemctl_bin() {
 }
 
 # ── small python helpers, run against the SAME .env every production
-#    process would source (EnvironmentFile=-__APP_DIR__/.env) ─────────
+#    process would read (EnvironmentFile=-__APP_DIR__/.env) ───────────
+#
+# Reads .env as plain KEY=VALUE lines (env_sourced_python_env_args),
+# never via bash `source`. First live activation run (2026-08-28,
+# run 33176834694) hit a real, deterministic production incident: the
+# box's actual .env contains a line that is not valid KEY=VALUE bash
+# syntax, and `source`-ing it derailed the run before any write
+# happened (a safe outcome, but not a usable one — every dispatch
+# would fail identically). `EnvironmentFile=` in the systemd unit that
+# actually loads this file is itself a plain KEY=VALUE reader, not a
+# shell interpreter, so a strict line parser here is the FAITHFUL
+# match to how production reads its own .env — bash `source` was
+# always a stricter, riskier stand-in than the real mechanism.
+# Malformed lines are silently skipped (a value there could be a
+# partial secret — never echoed), never executed as a command.
+env_sourced_python_env_args() {
+  local -a args=()
+  local line key value
+  if [[ -f "${ENV_FILE}" ]]; then
+    while IFS= read -r line || [[ -n "${line}" ]]; do
+      [[ "${line}" =~ ^[[:space:]]*(#.*)?$ ]] && continue
+      if [[ "${line}" =~ ^([A-Za-z_][A-Za-z0-9_]*)=(.*)$ ]]; then
+        key="${BASH_REMATCH[1]}"
+        value="${BASH_REMATCH[2]}"
+        args+=("${key}=${value}")
+      fi
+    done < "${ENV_FILE}"
+  fi
+  # `printf '%s\n' "${args[@]}"` on a truly empty array still executes
+  # the format once, substituting "" for the missing operand — one
+  # blank line, not zero. mapfile below then reads that as a single
+  # empty-string element, so `env ""` gets passed a bogus argument it
+  # tries to run as a command ("env: '': No such file or directory").
+  # Guarded explicitly rather than relying on printf's argument-recycling
+  # behavior to do the right thing with zero elements.
+  if ((${#args[@]} > 0)); then
+    printf '%s\n' "${args[@]}"
+  fi
+}
+
 env_sourced_python() {
   # Usage: env_sourced_python <python -c code...>
-  ( set -a; [[ -f "${ENV_FILE}" ]] && source "${ENV_FILE}"; set +a
-    cd "${APP_DIR}" && "${PYTHON_BIN}" "$@" )
+  local -a env_args=()
+  mapfile -t env_args < <(env_sourced_python_env_args)
+  ( cd "${APP_DIR}" && env "${env_args[@]}" "${PYTHON_BIN}" "$@" )
 }
 
 read_flag_enabled() {

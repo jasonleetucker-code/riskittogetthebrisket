@@ -147,9 +147,9 @@ def test_only_the_allowed_env_keys_are_threaded_into_the_remote_command():
         re.findall(r"([A-Z_][A-Z0-9_]*)=(?:preflight|activate|rollback|\$\(printf %q)", text)
     )
     assert keys, "expected to find at least one remote env-key assignment"
-    assert (
-        keys <= _ALLOWED_REMOTE_ENV_KEYS
-    ), f"unexpected remote env keys: {keys - _ALLOWED_REMOTE_ENV_KEYS}"
+    assert keys <= _ALLOWED_REMOTE_ENV_KEYS, (
+        f"unexpected remote env keys: {keys - _ALLOWED_REMOTE_ENV_KEYS}"
+    )
 
 
 def test_reason_is_never_interpolated_directly_as_a_bash_or_python_expression():
@@ -235,6 +235,78 @@ def test_stdin_piped_invocation_runs_main_without_unbound_variable_crash():
     assert "unbound variable" not in result.stderr, result.stderr
     assert "ACTION must be one of" in result.stderr, result.stderr
     assert result.returncode == 1
+
+
+def _source_script_and_run(app_dir: Path, bash_code: str) -> subprocess.CompletedProcess:
+    """Source the real script with APP_DIR pointed at a scratch directory,
+    then run `bash_code`. main() never auto-runs when sourced (the
+    BASH_SOURCE guard at the script's end). ENV_FILE is derived from
+    APP_DIR INSIDE the script (`ENV_FILE="${APP_DIR}/.env"`, not read
+    from a pre-set env var) — so APP_DIR is the only lever that controls
+    which .env the sourced functions see.
+    """
+    script = f'source "{_SCRIPT_PATH}" >/dev/null 2>&1; {bash_code}'
+    return subprocess.run(
+        ["bash", "-c", script],
+        capture_output=True,
+        text=True,
+        env={**os.environ, "APP_DIR": str(app_dir)},
+        timeout=30,
+    )
+
+
+def test_env_file_is_never_sourced_as_bash(tmp_path):
+    """Regression pin for a real production incident (second live
+    activation attempt, run 33176834694, 2026-08-28): production's real
+    `.env` contains a line that is not valid `KEY=VALUE` bash syntax (a
+    bare hex string, believed to be a wrapped/partial secret), and the
+    old `source`-based loader tried to execute it as a command (exit 127,
+    `command not found`). `env_sourced_python` must parse `.env` as plain
+    KEY=VALUE text and never hand any of it to bash for execution.
+    """
+    app_dir = tmp_path / "app"
+    app_dir.mkdir()
+    (app_dir / ".env").write_text(
+        "FOO=bar\n"
+        "RISKIT_FEATURE_HOST_NATIVE_SCORING=0\n"
+        "c503b850537d737346e1f321b73ed2c9d889e0cde5636bf008985dfa1c17feaf\n"
+        "BAZ=qux with spaces\n"
+        "# a comment\n"
+        "\n"
+        "EMPTY_VALUE=\n"
+    )
+    result = _source_script_and_run(
+        app_dir,
+        'env_sourced_python -c "import os; '
+        "print('FOO=' + os.environ.get('FOO', 'MISSING')); "
+        "print('BAZ=' + os.environ.get('BAZ', 'MISSING')); "
+        "print('RISKIT=' + os.environ.get('RISKIT_FEATURE_HOST_NATIVE_SCORING', 'MISSING')); "
+        "print('EMPTY=[' + os.environ.get('EMPTY_VALUE', 'MISSING') + ']')\"",
+    )
+    assert result.returncode == 0, result.stderr
+    assert "command not found" not in result.stderr, result.stderr
+    assert "FOO=bar" in result.stdout
+    assert "BAZ=qux with spaces" in result.stdout
+    assert "RISKIT=0" in result.stdout
+    assert "EMPTY=[]" in result.stdout
+
+
+def test_env_sourced_python_env_args_skips_malformed_lines_silently(tmp_path):
+    app_dir = tmp_path / "app"
+    app_dir.mkdir()
+    (app_dir / ".env").write_text("A=1\nnot a key value line\nB=2\n")
+    result = _source_script_and_run(app_dir, "env_sourced_python_env_args")
+    assert result.returncode == 0, result.stderr
+    lines = [line for line in result.stdout.splitlines() if line]
+    assert lines == ["A=1", "B=2"]
+
+
+def test_env_sourced_python_tolerates_a_missing_env_file(tmp_path):
+    app_dir = tmp_path / "app"
+    app_dir.mkdir()  # deliberately no .env written
+    result = _source_script_and_run(app_dir, "env_sourced_python -c \"print('ok')\"")
+    assert result.returncode == 0, result.stderr
+    assert "ok" in result.stdout
 
 
 def _run_validate_activation_id(value: str) -> subprocess.CompletedProcess:
