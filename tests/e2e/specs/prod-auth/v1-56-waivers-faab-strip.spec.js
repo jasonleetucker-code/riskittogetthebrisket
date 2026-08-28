@@ -50,6 +50,32 @@ test.describe("V1-56: /waivers league-FAAB context strip", () => {
       page.getByRole("heading", { level: 1, name: /^Waivers$/ }),
     ).toBeVisible({ timeout: 90_000 });
 
+    // FaabHeaderStat intentionally lives inside ManualAddDrop's
+    // selected-team branch because the strip includes "Your FAAB" as
+    // well as the league-wide numbers. The ephemeral guest-pass account
+    // has no persisted Sleeper team identity, so merely loading /waivers
+    // leaves selectedTeam null and the strip correctly absent. Older
+    // versions of this production spec asserted the strip immediately
+    // and therefore failed on a legitimate teamless state even while the
+    // page had fetched populated league analytics. Select a REAL team
+    // through the deployed TeamSwitcher before asserting the consumer.
+    const teamToggle = page.locator(".team-switcher-toggle").first();
+    await expect(
+      teamToggle,
+      "the deployed shell must expose the canonical TeamSwitcher before V1-56 can exercise the team-scoped FAAB strip",
+    ).toBeVisible({ timeout: 60_000 });
+    await teamToggle.click();
+    const teamOptions = page.locator(".team-switcher-option");
+    await expect(
+      teamOptions.first(),
+      "TeamSwitcher opened but exposed no real league teams",
+    ).toBeVisible({ timeout: 30_000 });
+    const selectedTeamName = (
+      await teamOptions.first().locator(".team-switcher-option-name").innerText()
+    ).trim();
+    await teamOptions.first().click();
+    annotate(testInfo, "team-selected", selectedTeamName || "first available team");
+
     const analyticsRes = await analyticsPromise;
     let data = null;
     if (analyticsRes) {
