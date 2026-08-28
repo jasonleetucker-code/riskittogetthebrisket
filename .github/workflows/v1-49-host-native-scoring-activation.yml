@@ -1,0 +1,268 @@
+name: V1-49 Host-Native Scoring — Controlled Activation
+
+# Narrowly-scoped, reviewed production write for exactly ONE thing:
+# flipping RISKIT_FEATURE_HOST_NATIVE_SCORING in production, rebuilding
+# the PBP-weekly artifact, and measuring the result — with automatic,
+# verified rollback on any failure.
+#
+# This is deliberately NOT a general production-mutation framework:
+#   * the flag key is hard-coded inside
+#     deploy/diagnostics/v1_49_host_native_activation.sh, never taken
+#     from a workflow input;
+#   * the only typed inputs are `action` (activate|rollback),
+#     `confirm_activation`, `expected_sha`, `bdvm_season`,
+#     `activation_id`, and a free-text `reason` used only as an audit
+#     note — there is no free-text command input anywhere;
+#   * there is exactly one rollback code path
+#     (deploy/diagnostics/v1_49_host_native_activation.sh::do_rollback),
+#     invoked both by the automatic in-script failure handler and by an
+#     explicit `action: rollback` dispatch.
+#
+# Merging this workflow does NOT activate anything — it must be
+# separately dispatched with `action: activate` once this PR's CI is
+# green. See docs/scoring/HOST_NATIVE_SCORING_VALIDATION.md and V1-49 in
+# docs/VERSION_1_COMPLETION_CONTRACT.md for the governing conditions.
+
+on:
+  workflow_dispatch:
+    inputs:
+      action:
+        description: "activate = flip the flag, rebuild, measure. rollback = restore a prior activation attempt."
+        required: true
+        type: choice
+        options:
+          - activate
+          - rollback
+      confirm_activation:
+        description: "Must be true to run action=activate. Guards against a fat-fingered dispatch."
+        required: false
+        default: false
+        type: boolean
+      expected_sha:
+        description: "Exact commit SHA production must currently be running. Preflight refuses on mismatch. Required for activate; ignored for rollback."
+        required: true
+        type: string
+      bdvm_season:
+        description: "Season scripts/bdvm_build_baseline.py targets for the pre/post snapshot diff (e.g. 2026). Required for activate; ignored for rollback."
+        required: false
+        type: string
+      activation_id:
+        description: "For action=rollback: the activation id (GitHub Actions run id) to restore. Empty = most recent activation attempt."
+        required: false
+        type: string
+      reason:
+        description: "Audit note: why this is being run."
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  # Shares deploy.yml's group deliberately: a real deploy and a flag
+  # activation must never race on the same box.
+  group: production-deploy
+  cancel-in-progress: false
+
+jobs:
+  v1-49-activation:
+    name: V1-49 host-native-scoring controlled activation
+    runs-on: ubuntu-latest
+    timeout-minutes: 75
+    environment: production
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Validate inputs
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          if [[ "${{ inputs.action }}" == "activate" ]]; then
+            if [[ "${{ inputs.confirm_activation }}" != "true" ]]; then
+              echo "::error::action=activate requires confirm_activation=true. Refusing to proceed."
+              exit 1
+            fi
+            if [[ -z "${{ inputs.bdvm_season }}" ]]; then
+              echo "::error::bdvm_season is required for action=activate."
+              exit 1
+            fi
+          fi
+
+      - name: Configure production SSH
+        env:
+          DEPLOY_SSH_PRIVATE_KEY: ${{ secrets.DEPLOY_SSH_PRIVATE_KEY }}
+          DEPLOY_KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+          DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          install -d -m 700 "$HOME/.ssh"
+          printf '%s\n' "$DEPLOY_SSH_PRIVATE_KEY" | sed 's/\r$//' > "$HOME/.ssh/id_ed25519"
+          printf '%s\n' "$DEPLOY_KNOWN_HOSTS" | sed 's/\r$//' > "$HOME/.ssh/known_hosts"
+          chmod 600 "$HOME/.ssh/id_ed25519"
+          chmod 644 "$HOME/.ssh/known_hosts"
+          ssh-keygen -y -f "$HOME/.ssh/id_ed25519" >/dev/null
+          echo "PORT=${DEPLOY_PORT:-22}" >> "$GITHUB_ENV"
+
+      - name: Preflight (read-only)
+        id: preflight
+        if: ${{ inputs.action == 'activate' }}
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          APP_DIR: ${{ vars.PROD_APP_DIR || '/home/dynasty/trade-calculator' }}
+          PYTHON_BIN: ${{ vars.PROD_PYTHON_BIN || '' }}
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          set -o pipefail
+          rc=0
+          ssh -i "$HOME/.ssh/id_ed25519" \
+            -o BatchMode=yes -o StrictHostKeyChecking=yes \
+            -o UserKnownHostsFile="$HOME/.ssh/known_hosts" \
+            -o ConnectTimeout=15 -o ServerAliveInterval=15 \
+            -p "$PORT" "$DEPLOY_USER@$DEPLOY_HOST" \
+            "ACTION=preflight APP_DIR=$(printf %q "$APP_DIR") PYTHON_BIN=$(printf %q "$PYTHON_BIN") EXPECTED_SHA=$(printf %q "${{ inputs.expected_sha }}") bash -s" \
+            < deploy/diagnostics/v1_49_host_native_activation.sh 2>&1 | tee preflight.txt || rc=$?
+          echo "Preflight exit code: ${rc}"
+          exit "${rc}"
+
+      - name: Backup, activate, rebuild, measure
+        id: activate
+        if: ${{ inputs.action == 'activate' && steps.preflight.outcome == 'success' }}
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          APP_DIR: ${{ vars.PROD_APP_DIR || '/home/dynasty/trade-calculator' }}
+          PYTHON_BIN: ${{ vars.PROD_PYTHON_BIN || '' }}
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          set -o pipefail
+          rc=0
+          ssh -i "$HOME/.ssh/id_ed25519" \
+            -o BatchMode=yes -o StrictHostKeyChecking=yes \
+            -o UserKnownHostsFile="$HOME/.ssh/known_hosts" \
+            -o ConnectTimeout=15 -o ServerAliveInterval=30 \
+            -p "$PORT" "$DEPLOY_USER@$DEPLOY_HOST" \
+            "ACTION=activate APP_DIR=$(printf %q "$APP_DIR") PYTHON_BIN=$(printf %q "$PYTHON_BIN") EXPECTED_SHA=$(printf %q "${{ inputs.expected_sha }}") ACTIVATION_ID=$(printf %q "${{ github.run_id }}") BDVM_SEASON=$(printf %q "${{ inputs.bdvm_season }}") REASON=$(printf %q "${{ inputs.reason }}") bash -s" \
+            < deploy/diagnostics/v1_49_host_native_activation.sh 2>&1 | tee activation.txt || rc=$?
+          echo "Activation exit code: ${rc}"
+          echo "activation_exit=${rc}" >> "$GITHUB_OUTPUT"
+          exit "${rc}"
+
+      - name: Safety-net rollback (activation step failed to complete cleanly)
+        id: safety_net_rollback
+        if: ${{ inputs.action == 'activate' && steps.activate.outcome == 'failure' }}
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          APP_DIR: ${{ vars.PROD_APP_DIR || '/home/dynasty/trade-calculator' }}
+          PYTHON_BIN: ${{ vars.PROD_PYTHON_BIN || '' }}
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          set -o pipefail
+          rc=0
+          # Covers what the in-script ERR trap cannot see (an SSH drop,
+          # or the runner killing the previous step on timeout). Calling
+          # this even when the in-script trap already rolled back is
+          # safe: every restore it performs is idempotent.
+          ssh -i "$HOME/.ssh/id_ed25519" \
+            -o BatchMode=yes -o StrictHostKeyChecking=yes \
+            -o UserKnownHostsFile="$HOME/.ssh/known_hosts" \
+            -o ConnectTimeout=15 -o ServerAliveInterval=15 \
+            -p "$PORT" "$DEPLOY_USER@$DEPLOY_HOST" \
+            "ACTION=rollback APP_DIR=$(printf %q "$APP_DIR") PYTHON_BIN=$(printf %q "$PYTHON_BIN") ACTIVATION_ID=$(printf %q "${{ github.run_id }}") REASON=$(printf %q "safety-net: activate step did not complete cleanly, run ${{ github.run_id }}") bash -s" \
+            < deploy/diagnostics/v1_49_host_native_activation.sh 2>&1 | tee safety-net-rollback.txt || rc=$?
+          echo "Safety-net rollback exit code: ${rc}"
+          if [[ "${rc}" != "0" ]]; then
+            echo "::error::Safety-net rollback FAILED (exit ${rc}) — MANUAL INTERVENTION REQUIRED."
+          fi
+          exit "${rc}"
+
+      - name: Explicit rollback dispatch
+        id: explicit_rollback
+        if: ${{ inputs.action == 'rollback' }}
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          APP_DIR: ${{ vars.PROD_APP_DIR || '/home/dynasty/trade-calculator' }}
+          PYTHON_BIN: ${{ vars.PROD_PYTHON_BIN || '' }}
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          set -o pipefail
+          rc=0
+          ssh -i "$HOME/.ssh/id_ed25519" \
+            -o BatchMode=yes -o StrictHostKeyChecking=yes \
+            -o UserKnownHostsFile="$HOME/.ssh/known_hosts" \
+            -o ConnectTimeout=15 -o ServerAliveInterval=15 \
+            -p "$PORT" "$DEPLOY_USER@$DEPLOY_HOST" \
+            "ACTION=rollback APP_DIR=$(printf %q "$APP_DIR") PYTHON_BIN=$(printf %q "$PYTHON_BIN") ACTIVATION_ID=$(printf %q "${{ inputs.activation_id }}") REASON=$(printf %q "${{ inputs.reason }}") bash -s" \
+            < deploy/diagnostics/v1_49_host_native_activation.sh 2>&1 | tee rollback.txt || rc=$?
+          echo "Rollback exit code: ${rc}"
+          exit "${rc}"
+
+      - name: Job summary
+        if: always()
+        shell: bash
+        run: |
+          {
+            echo "## V1-49 host-native-scoring — action: ${{ inputs.action }}"
+            echo ""
+            echo "- Reason: ${{ inputs.reason }}"
+            echo "- Run id (activation id): ${{ github.run_id }}"
+            echo "- Expected SHA: ${{ inputs.expected_sha }}"
+            echo ""
+            if [[ "${{ inputs.action }}" == "activate" ]]; then
+              if [[ "${{ steps.preflight.outcome }}" == "failure" ]]; then
+                echo "### RESULT: PREFLIGHT_REFUSED — nothing was written."
+              else
+                exit_code="${{ steps.activate.outputs.activation_exit }}"
+                case "${exit_code}" in
+                  0) echo "### RESULT: ACTIVATED" ;;
+                  2) echo "### RESULT: ROLLED_BACK — this is a FAILED V1-49 verification attempt, not VERIFIED." ;;
+                  *)
+                    if [[ "${{ steps.safety_net_rollback.outcome }}" == "success" ]]; then
+                      echo "### RESULT: ROLLED_BACK (via safety net) — this is a FAILED V1-49 verification attempt, not VERIFIED."
+                    else
+                      echo "### RESULT: ROLLBACK_FAILED — MANUAL INTERVENTION REQUIRED."
+                    fi
+                    ;;
+                esac
+              fi
+            else
+              if [[ "${{ steps.explicit_rollback.outcome }}" == "success" ]]; then
+                echo "### RESULT: ROLLED_BACK"
+              else
+                echo "### RESULT: ROLLBACK_FAILED — MANUAL INTERVENTION REQUIRED."
+              fi
+            fi
+            echo ""
+            for f in preflight.txt activation.txt safety-net-rollback.txt rollback.txt; do
+              if [[ -s "${f}" ]]; then
+                echo "<details><summary>${f}</summary>"
+                echo ""
+                echo '```'
+                tail -c 40000 "${f}"
+                echo '```'
+                echo "</details>"
+                echo ""
+              fi
+            done
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload the reports
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: v1-49-activation-report
+          path: |
+            preflight.txt
+            activation.txt
+            safety-net-rollback.txt
+            rollback.txt
+          if-no-files-found: ignore
+          retention-days: 90
