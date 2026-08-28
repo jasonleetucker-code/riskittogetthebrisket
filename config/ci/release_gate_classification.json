@@ -683,6 +683,33 @@
     "temporal-ledger-diagnostics.yml::ledger-status::Probe temporal ledger on production": {
       "category": "blocking"
     },
+    "v1-49-host-native-scoring-activation.yml::v1-49-activation::Backup, activate, rebuild, measure": {
+      "category": "blocking"
+    },
+    "v1-49-host-native-scoring-activation.yml::v1-49-activation::Checkout": {
+      "category": "blocking"
+    },
+    "v1-49-host-native-scoring-activation.yml::v1-49-activation::Configure production SSH": {
+      "category": "blocking"
+    },
+    "v1-49-host-native-scoring-activation.yml::v1-49-activation::Explicit rollback dispatch": {
+      "category": "blocking"
+    },
+    "v1-49-host-native-scoring-activation.yml::v1-49-activation::Job summary": {
+      "category": "blocking"
+    },
+    "v1-49-host-native-scoring-activation.yml::v1-49-activation::Preflight (read-only)": {
+      "category": "blocking"
+    },
+    "v1-49-host-native-scoring-activation.yml::v1-49-activation::Safety-net rollback (activation step failed to complete cleanly)": {
+      "category": "blocking"
+    },
+    "v1-49-host-native-scoring-activation.yml::v1-49-activation::Upload the reports": {
+      "category": "blocking"
+    },
+    "v1-49-host-native-scoring-activation.yml::v1-49-activation::Validate inputs": {
+      "category": "blocking"
+    },
     "v1-authenticated-verification.yml::v1-authenticated::API verification suite": {
       "category": "blocking"
     },
