@@ -563,10 +563,24 @@ main() {
   esac
 }
 
-# Run main only when EXECUTED, not when sourced — mirrors
-# deploy/rollback.sh's own guard. Sourcing is how a test can call
-# individual functions (e.g. validate_activation_id) in isolation
-# without dispatching a real preflight/activate/rollback.
-if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
+# Run main only when EXECUTED, not when sourced. Sourcing is how a
+# test can call individual functions (e.g. validate_activation_id) in
+# isolation without dispatching a real preflight/activate/rollback.
+#
+# ``${BASH_SOURCE[0]:-${0}}`` rather than deploy/rollback.sh's bare
+# ``${BASH_SOURCE[0]}``: that script is always invoked as
+# ``bash /path/to/rollback.sh`` (a named file), which populates
+# BASH_SOURCE. This one is piped over SSH via
+# ``ssh ... "bash -s" < deploy/diagnostics/v1_49_host_native_activation.sh``
+# — bash reading a script from stdin with no named file does not push
+# anything onto BASH_SOURCE at all, so under `set -u` the bare form
+# throws "BASH_SOURCE[0]: unbound variable" before main() ever runs,
+# and every real dispatch fails at this line. The default-expansion
+# form falls back to ``$0`` when BASH_SOURCE has no entry, making the
+# comparison trivially true (never sourced in that shape, so main()
+# is always the right call) while leaving the sourced-for-testing case
+# unchanged (BASH_SOURCE[0] is the sourced file's real path there,
+# which does not equal $0).
+if [[ "${BASH_SOURCE[0]:-${0}}" == "${0}" ]]; then
   main "$@"
 fi

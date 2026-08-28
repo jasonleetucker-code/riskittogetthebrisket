@@ -26,6 +26,7 @@ flag/backup logic lives in ``tests/scripts/test_prod_env_flag_ops.py``,
 
 from __future__ import annotations
 
+import os
 import re
 import subprocess
 from pathlib import Path
@@ -203,6 +204,37 @@ def test_do_rollback_is_called_from_exactly_the_two_expected_sites():
 def test_script_syntax_is_valid_bash():
     result = subprocess.run(["bash", "-n", str(_SCRIPT_PATH)], capture_output=True, text=True)
     assert result.returncode == 0, result.stderr
+
+
+def test_stdin_piped_invocation_runs_main_without_unbound_variable_crash():
+    """Regression pin for a real production incident (first live activation
+    dispatch, 2026-08-28): piping the script via stdin into `bash -s` — the
+    exact shape
+    `ssh ... "bash -s" < deploy/diagnostics/v1_49_host_native_activation.sh`
+    uses in the real workflow — leaves BASH_SOURCE with no entry at all
+    (no named file is involved), and the bare `${BASH_SOURCE[0]}` guard
+    threw "unbound variable" under `set -u` before main() ever ran. Every
+    real dispatch failed at that line regardless of ACTION or inputs; the
+    bug was invisible to `bash -n` (syntax-valid) and to the sourced-file
+    unit tests below (a real named path populates BASH_SOURCE correctly,
+    so sourcing never exercised this branch).
+
+    Reproduces the exact invocation shape here — stdin, no filename — and
+    asserts main() actually reaches its own dispatch logic rather than
+    crashing on the unset guard variable.
+    """
+    with open(_SCRIPT_PATH, "rb") as script_file:
+        result = subprocess.run(
+            ["bash", "-s"],
+            stdin=script_file,
+            capture_output=True,
+            text=True,
+            env={**os.environ, "ACTION": ""},
+            timeout=30,
+        )
+    assert "unbound variable" not in result.stderr, result.stderr
+    assert "ACTION must be one of" in result.stderr, result.stderr
+    assert result.returncode == 1
 
 
 def _run_validate_activation_id(value: str) -> subprocess.CompletedProcess:
