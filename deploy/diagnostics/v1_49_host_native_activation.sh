@@ -162,6 +162,36 @@ resolve_systemctl_bin() {
   return 1
 }
 
+# ── health check with retry, ported from deploy/verify-deploy.sh's
+#    probe_with_retries() rather than reinvented — that is the exact
+#    retry shape the real deploy pipeline already trusts, same defaults
+#    (45 attempts x 2s ~= 90s budget, 8s per-attempt curl timeout). A
+#    real production run (33192153602, 2026-08-28) proved the one-shot
+#    `sleep 3; curl` this script used before was too impatient: the
+#    curl failed with a plain connection refusal (exit 7 — nothing
+#    listening yet, not a slow response `--max-time` could have waited
+#    out) on BOTH the activate restart and the rollback restart, while
+#    an independent check of the live site showed the service had come
+#    up and served a full scrape cycle roughly 27s after the restart —
+#    comfortably past `sleep 3` but well inside this retry budget.
+wait_for_service_health() {
+  local attempts="${HEALTH_CHECK_MAX_ATTEMPTS:-45}"
+  local sleep_seconds="${HEALTH_CHECK_SLEEP_SECONDS:-2}"
+  local timeout_seconds="${HEALTH_CHECK_CURL_TIMEOUT:-8}"
+  local url="http://${APP_HOST}:${APP_PORT}/api/status"
+  local n=1
+  while (( n <= attempts )); do
+    if curl -fsS --max-time "${timeout_seconds}" "${url}" >/dev/null 2>&1; then
+      return 0
+    fi
+    if (( n < attempts )); then
+      sleep "${sleep_seconds}"
+    fi
+    n=$((n + 1))
+  done
+  return 1
+}
+
 # ── small python helpers, run against the SAME .env every production
 #    process would read (EnvironmentFile=-__APP_DIR__/.env) ───────────
 #
@@ -338,7 +368,7 @@ do_rollback() {
     failures+=("could not resolve systemctl to restart the service")
   fi
 
-  if ! curl -fsS --max-time 10 "http://${APP_HOST}:${APP_PORT}/api/status" >/dev/null; then
+  if ! wait_for_service_health; then
     failures+=("health check (/api/status) failed after rollback")
   fi
 
@@ -442,7 +472,7 @@ do_activate() {
   sudo -n "${systemctl_bin}" restart "${SERVICE_NAME}"
   sleep 3
   sudo -n "${systemctl_bin}" is-active --quiet "${SERVICE_NAME}"
-  curl -fsS --max-time 10 "http://${APP_HOST}:${APP_PORT}/api/status" >/dev/null
+  wait_for_service_health || { warn "Service did not become healthy within the retry budget."; false; }
   log "Service restarted and healthy."
 
   # 5. Paranoia check: the flag now reads enabled.

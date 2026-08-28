@@ -154,7 +154,24 @@ jobs:
 
       - name: Safety-net rollback (activation step failed to complete cleanly)
         id: safety_net_rollback
-        if: ${{ inputs.action == 'activate' && steps.activate.outcome == 'failure' }}
+        # `failure()` is REQUIRED here, not decorative. GitHub Actions
+        # implicitly prepends `success()` to any `if:` expression that
+        # doesn't itself call one of the status-check functions
+        # (success/failure/always/cancelled) -- a plain comparison like
+        # `steps.activate.outcome == 'failure'` does not count. Without
+        # `failure()`, the previous step (`activate`) having failed makes
+        # the job's implicit success() false, so this condition could
+        # NEVER evaluate true regardless of the rest of the expression --
+        # confirmed on two real runs (33176834694, 33192153602): activate
+        # failed (conclusion "failure") and this step still showed
+        # "skipped" both times, defeating the entire point of the safety
+        # net (catching a failure the in-script ERR trap couldn't handle,
+        # e.g. an SSH drop or runner timeout). The explicit
+        # `steps.activate.outcome == 'failure'` clause is kept alongside
+        # `failure()` so this correctly stays skipped when `preflight`
+        # itself failed and `activate` never ran (outcome "skipped", not
+        # "failure").
+        if: ${{ inputs.action == 'activate' && failure() && steps.activate.outcome == 'failure' }}
         env:
           DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
           DEPLOY_USER: ${{ secrets.DEPLOY_USER }}

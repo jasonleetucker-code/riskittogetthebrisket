@@ -349,6 +349,97 @@ def test_do_activate_and_do_rollback_action_both_validate_activation_id():
     assert "validate_activation_id" in do_rollback_action_body
 
 
+def _run_wait_for_service_health(
+    tmp_path, curl_body: str, env_overrides: dict
+) -> tuple[subprocess.CompletedProcess, Path]:
+    """Source the real script with a stubbed `curl` on PATH ahead of the
+    real one, then call `wait_for_service_health` in isolation. Returns
+    the completed process plus the path to a counter file the stub
+    increments on every invocation, so a test can assert exactly how
+    many attempts were made.
+    """
+    fake_bin = tmp_path / "bin"
+    fake_bin.mkdir()
+    counter_file = tmp_path / "attempts"
+    counter_file.write_text("0")
+    curl_stub = fake_bin / "curl"
+    curl_stub.write_text(f"#!/usr/bin/env bash\n{curl_body}\n")
+    curl_stub.chmod(0o755)
+
+    script = f'source "{_SCRIPT_PATH}" >/dev/null 2>&1; wait_for_service_health'
+    result = subprocess.run(
+        ["bash", "-c", script],
+        capture_output=True,
+        text=True,
+        env={
+            **os.environ,
+            "PATH": f"{fake_bin}{os.pathsep}{os.environ['PATH']}",
+            "APP_DIR": str(tmp_path),
+            **env_overrides,
+        },
+        timeout=30,
+    )
+    return result, counter_file
+
+
+def test_wait_for_service_health_retries_until_success(tmp_path):
+    """Regression pin for a real production incident (third live activation
+    attempt, run 33192153602, 2026-08-28): the health check after a
+    `systemctl restart` failed with a plain connection refusal (curl exit 7)
+    on both the activate and the rollback restart, while the service was
+    independently confirmed to come up ~27s later — well past the old
+    one-shot `sleep 3; curl` this replaced, but inside this retry budget.
+    """
+    counter_file = tmp_path / "attempts"
+    curl_body = f"""
+n=$(cat "{counter_file}")
+n=$((n + 1))
+echo "$n" > "{counter_file}"
+if (( n < 3 )); then
+  exit 7
+fi
+exit 0
+"""
+    result, counter_file = _run_wait_for_service_health(
+        tmp_path,
+        curl_body,
+        {"HEALTH_CHECK_MAX_ATTEMPTS": "5", "HEALTH_CHECK_SLEEP_SECONDS": "0"},
+    )
+    assert result.returncode == 0, result.stderr
+    assert counter_file.read_text().strip() == "3"
+
+
+def test_wait_for_service_health_fails_after_exhausting_attempts(tmp_path):
+    curl_body = f"""
+n=$(cat "{tmp_path / 'attempts'}")
+n=$((n + 1))
+echo "$n" > "{tmp_path / 'attempts'}"
+exit 7
+"""
+    result, counter_file = _run_wait_for_service_health(
+        tmp_path,
+        curl_body,
+        {"HEALTH_CHECK_MAX_ATTEMPTS": "3", "HEALTH_CHECK_SLEEP_SECONDS": "0"},
+    )
+    assert result.returncode != 0
+    assert counter_file.read_text().strip() == "3"
+
+
+def test_both_health_checks_route_through_the_retry_helper():
+    """Exactly one `wait_for_service_health` definition, called from both
+    do_activate() and do_rollback() -- and no bare one-shot `curl ...
+    /api/status` survives anywhere else in the file (the shape the two
+    call sites used before this fix, and the shape the false
+    ROLLBACK_FAILED alarm on run 33192153602 was caused by).
+    """
+    script_text = _SCRIPT_PATH.read_text()
+    definitions = re.findall(r"^wait_for_service_health\(\)\s*\{", script_text, flags=re.MULTILINE)
+    assert len(definitions) == 1
+    # def + do_activate call + do_rollback call
+    assert script_text.count("wait_for_service_health") == 3
+    assert script_text.count("curl -fsS") == 1
+
+
 def test_workflow_only_references_the_established_ssh_secrets():
     text = _WORKFLOW_PATH.read_text()
     expected_secrets = {
@@ -360,6 +451,36 @@ def test_workflow_only_references_the_established_ssh_secrets():
     }
     used_secrets = set(re.findall(r"secrets\.([A-Z_]+)", text))
     assert used_secrets == expected_secrets
+
+
+def test_safety_net_rollback_condition_calls_a_status_check_function():
+    """GitHub Actions implicitly prepends `success()` to any `if:` expression
+    that doesn't itself call one of success()/failure()/always()/cancelled().
+    A plain comparison like `steps.activate.outcome == 'failure'` does NOT
+    count -- so without an explicit status-check function, this step could
+    never run when the step it exists to safety-net for actually fails
+    (the previous step failing makes the implicit success() false, which
+    ANDs the whole condition to false regardless of the rest).
+
+    Confirmed on two real runs (33176834694, 33192153602): `activate`
+    failed and "Safety-net rollback" showed `skipped` both times --
+    defeating the entire point of the safety net (catching a failure the
+    in-script ERR trap can't handle, e.g. an SSH drop or runner timeout).
+    """
+    document = _load_workflow()
+    job = _job(document)
+    safety_net = next(step for step in job["steps"] if step.get("id") == "safety_net_rollback")
+    condition = safety_net["if"]
+    assert re.search(r"\b(failure|always)\s*\(\s*\)", condition), (
+        "safety-net rollback's `if:` has no failure()/always() call, so "
+        "GitHub Actions' implicit success() prepend makes it unreachable "
+        "whenever the step it exists to catch actually fails"
+    )
+    # The explicit outcome check must survive alongside failure() -- it is
+    # what keeps this correctly skipped when `activate` never ran at all
+    # (preflight failed, so activate's own outcome is "skipped", not
+    # "failure").
+    assert "steps.activate.outcome" in condition
 
 
 def test_merging_this_workflow_never_dispatches_it():
