@@ -147,9 +147,9 @@ def test_only_the_allowed_env_keys_are_threaded_into_the_remote_command():
         re.findall(r"([A-Z_][A-Z0-9_]*)=(?:preflight|activate|rollback|\$\(printf %q)", text)
     )
     assert keys, "expected to find at least one remote env-key assignment"
-    assert keys <= _ALLOWED_REMOTE_ENV_KEYS, (
-        f"unexpected remote env keys: {keys - _ALLOWED_REMOTE_ENV_KEYS}"
-    )
+    assert (
+        keys <= _ALLOWED_REMOTE_ENV_KEYS
+    ), f"unexpected remote env keys: {keys - _ALLOWED_REMOTE_ENV_KEYS}"
 
 
 def test_reason_is_never_interpolated_directly_as_a_bash_or_python_expression():
