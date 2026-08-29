@@ -64,6 +64,15 @@ has no destination in the Scope Manifest or the traceability document.
 Detailed owner-approved behaviour. Binding within their subject; they do not authorize implementation.
 
 ### Trade
+- `docs/OWNER_FEATURE_ADDENDUM_2026-08-29_BEST_BALL_ROSTER_UTILITY.md` — **owner-approved scope, issue #1173,
+  owner decision 2026-08-29.** A roster-conditional dynasty best-ball utility layer for Analyze Trade
+  (`F(R) = E[optimal legal weekly lineup score | R, exact league rules]`; Best-Ball Lineup Impact, Lineup Entry
+  Probability, Usable Production/Redundancy, Depth Insurance Value, Roster Spot Shadow Value,
+  Consolidation/Diversification classification) that must reuse canonical exact lineup/assignment machinery and
+  must never overwrite standalone canonical player value. Per the addendum's own §8, reconciliation into
+  `docs/OWNER_REQUESTED_TODO.md`, `docs/OWNER_FEATURE_INVENTORY.md`, the scope manifest and
+  `docs/EXECUTION_PLAN.md` is deliberately deferred until the normal planning/authorization workflow schedules
+  implementation — not yet done.
 - `docs/trade/TRADE_GENERATION_PREFERENCES_AND_REFINEMENT_SPEC.md` — Best Trade to Send Each Team, persistent personal protection, LOCK/EXCLUDE, the shared constraint owner *(from PR #835)*
 - `docs/TRADE_CALCULATOR_MARKET_EVIDENCE_EXPANSION_SPEC.md` — TC-01…TC-30, the mature-calculator end-state gate *(from PR #816)*
 - `docs/trade/HISTORICAL_TRADE_REPLAY_AS_OF_ANALYSIS_SPEC.md` — three lenses, no-hindsight rule, fidelity taxonomy *(from PR #816)*
