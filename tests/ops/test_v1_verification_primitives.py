@@ -393,3 +393,73 @@ def test_c1u8_item7_targets_the_acquisition_store_not_the_intel_ledger():
     assert "acquisition_store" in head
     assert "pick_lineage" in head
     assert "event_type = 'TRADE'" in head
+
+
+# ── V59 chain check honors each unit's own SuccessExitStatus contract ──
+
+
+def _fake_run_v59_chain(exec_main_status: str):
+    """Build a fake onbox._run that answers exactly the calls check_v59()
+    makes, for all three chain units plus the ffpc unit, with the given
+    ExecMainStatus on the chain units. Result=success on every unit,
+    matching what systemd itself reports once SuccessExitStatus=0 2 has
+    been applied — real production evidence (2026-08-29 on-box run)."""
+
+    def fake_run(cmd, timeout=300):
+        if cmd[:2] == ["systemctl", "show"] and "chaseupside-ffpc-sharp.service" in cmd:
+            return 0, "Result=success\nExecMainStatus=0\nNRestarts=0\n", ""
+        if cmd[:2] == ["systemctl", "show"]:
+            return (
+                0,
+                f"Result=success\nExecMainStatus={exec_main_status}\n"
+                "ExecMainExitTimestamp=Sat 2026-08-29 10:47:16 CEST\n"
+                "ActiveEnterTimestamp=\n",
+                "",
+            )
+        if cmd[:2] == ["systemctl", "list-timers"]:
+            return 0, "NEXT LEFT LAST PASSED UNIT ACTIVATES\n", ""
+        if cmd[:1] == ["journalctl"]:
+            return 0, "", ""
+        raise AssertionError(f"unexpected command in test: {cmd}")
+
+    return fake_run
+
+
+def test_v59_chain_exit_2_is_pass_not_fail(monkeypatch):
+    """Regression pin for a real false-fail found during the 2026-08-29
+    on-box harvest: dynasty-sharp-discovery.service.template and
+    dynasty-sharp-rosters.service.template both declare
+    SuccessExitStatus=0 2 (exit 2 is a documented nothing-to-do outcome,
+    not a failure) and systemd's own Result= property already reflects
+    that. The old check ignored Result and independently required
+    ExecMainStatus == "0", so a genuinely healthy Result=success run
+    with ExecMainStatus=2 was reported as a chain failure."""
+    monkeypatch.setattr(onbox, "_run", _fake_run_v59_chain("2"))
+    onbox.check_v59()
+    chain_check = [c for c in onbox.CHECKS if c.check_id == "V59"]
+    assert len(chain_check) == 1
+    assert chain_check[0].status == "pass", chain_check[0].detail
+
+
+def test_v59_chain_still_fails_on_a_real_bad_result(monkeypatch):
+    """The fix must not become a rubber stamp: a unit whose Result is
+    genuinely not success/exit-code (e.g. a real timeout/failed unit)
+    still fails the check."""
+
+    def fake_run(cmd, timeout=300):
+        if cmd[:2] == ["systemctl", "show"] and "chaseupside-ffpc-sharp.service" in cmd:
+            return 0, "Result=success\nExecMainStatus=0\nNRestarts=0\n", ""
+        if cmd[:2] == ["systemctl", "show"]:
+            return 0, "Result=failed\nExecMainStatus=15\n", ""
+        if cmd[:2] == ["systemctl", "list-timers"]:
+            return 0, "NEXT LEFT LAST PASSED UNIT ACTIVATES\n", ""
+        if cmd[:1] == ["journalctl"]:
+            return 0, "", ""
+        raise AssertionError(f"unexpected command in test: {cmd}")
+
+    monkeypatch.setattr(onbox, "_run", fake_run)
+    onbox.check_v59()
+    chain_check = [c for c in onbox.CHECKS if c.check_id == "V59"]
+    assert len(chain_check) == 1
+    assert chain_check[0].status == "fail"
+    assert "Result=failed" in chain_check[0].detail
