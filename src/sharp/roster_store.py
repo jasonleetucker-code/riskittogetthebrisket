@@ -585,6 +585,101 @@ def holdings_as_of(
             connection.close()
 
 
+def holdings_as_of_multi(
+    as_of_ms_values: Sequence[int],
+    *,
+    roster_keys: Sequence[str],
+    path: Path | None = None,
+    conn: sqlite3.Connection | None = None,
+) -> dict[int, dict[str, set[str]]]:
+    """``{as_of_ms: {roster_key: {canonical_asset_id}}}`` for SEVERAL
+    timestamps against the same roster population in one pass.
+
+    Semantically identical to calling ``holdings_as_of()`` once per
+    timestamp (byte-identical output, pinned by
+    ``test_holdings_as_of_multi_matches_per_call_output`` in
+    ``tests/sharp/test_roster_store.py``) — it exists purely to avoid
+    re-scanning ``sharp_roster_observations`` and
+    ``sharp_roster_asset_spans`` once per baseline. Both tables are read
+    ONCE for the full ``roster_keys`` population (unfiltered by any
+    ``as_of``), and the per-timestamp ``observed_ms <=`` / span-open
+    logic runs in Python instead of as N separate SQL scans.
+
+    A roster's earliest observation already answers "was this roster
+    observed by X" for every X at once (the existence test
+    ``holdings_as_of()`` runs per timestamp is monotonic), and each
+    span's own open/closed shape does not depend on which timestamp is
+    asked — both properties are what make one shared pass correct here.
+    """
+    if not roster_keys or not as_of_ms_values:
+        return {int(a): {} for a in as_of_ms_values}
+    own = conn is None
+    connection = conn if conn is not None else ensure_roster_schema(path)
+    try:
+        keys = [str(k) for k in roster_keys]
+        as_ofs = sorted({int(a) for a in as_of_ms_values})
+
+        earliest_observed: dict[str, int] = {}
+        for start in range(0, len(keys), 400):
+            chunk = keys[start : start + 400]
+            placeholders = ",".join("?" for _ in chunk)
+            for row in connection.execute(
+                f"""
+                SELECT roster_key, MIN(observed_ms) AS earliest
+                  FROM sharp_roster_observations
+                 WHERE roster_key IN ({placeholders})
+                 GROUP BY roster_key
+                """,
+                chunk,
+            ).fetchall():
+                earliest_observed[str(row["roster_key"])] = int(row["earliest"])
+
+        spans: list[tuple[str, str, int, bool, int | None, int | None]] = []
+        for start in range(0, len(keys), 400):
+            chunk = keys[start : start + 400]
+            placeholders = ",".join("?" for _ in chunk)
+            for row in connection.execute(
+                f"""
+                SELECT roster_key, canonical_asset_id, span_start_ms,
+                       closed, closed_at_ms, span_end_ms
+                  FROM sharp_roster_asset_spans
+                 WHERE roster_key IN ({placeholders})
+                """,
+                chunk,
+            ).fetchall():
+                spans.append(
+                    (
+                        str(row["roster_key"]),
+                        str(row["canonical_asset_id"]),
+                        int(row["span_start_ms"]),
+                        bool(row["closed"]),
+                        row["closed_at_ms"],
+                        row["span_end_ms"],
+                    )
+                )
+
+        result: dict[int, dict[str, set[str]]] = {}
+        for as_of in as_ofs:
+            out: dict[str, set[str]] = {
+                rkey: set() for rkey, earliest in earliest_observed.items() if earliest <= as_of
+            }
+            if out:
+                for rkey, asset_id, start_ms, closed, closed_at_ms, span_end_ms in spans:
+                    if rkey not in out or start_ms > as_of:
+                        continue
+                    if not closed:
+                        out[rkey].add(asset_id)
+                        continue
+                    end_bound = closed_at_ms if closed_at_ms is not None else span_end_ms
+                    if end_bound is not None and end_bound > as_of:
+                        out[rkey].add(asset_id)
+            result[as_of] = out
+        return result
+    finally:
+        if own:
+            connection.close()
+
+
 def coverage(
     *,
     path: Path | None = None,
