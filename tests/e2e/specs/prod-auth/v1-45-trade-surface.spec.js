@@ -256,17 +256,28 @@ test.describe("V1-45: /trade renders finalRosterSimulation from the page's own s
 
     // Roster-capacity banner — the forced-release COUNT, rendered vs
     // stamped (rc.forcedDrops), when the backend says drops are forced.
+    //
+    // Scoped to the "Roster capacity" alert region specifically, not the
+    // whole panel: a forced-drop player can ALSO appear in the Final-roster
+    // section's own "Displaced: <name> (<pos>) — ..." line further down
+    // the same panel (a real production case, e.g. Budda Baker), and a
+    // panel-wide text search hits both — a Playwright strict-mode
+    // violation on a locator that was never meant to be unique panel-wide.
     if (rc && rc.requiresDrops === true) {
+      const capacityBanner = panel
+        .locator('[role="alert"], [role="status"]')
+        .filter({ has: page.getByText("Roster capacity", { exact: true }) })
+        .first();
       const nDrops = (rc.forcedDrops || []).length;
       await expect(
-        panel.getByText(
+        capacityBanner.getByText(
           new RegExp(`Forces ${nDrops} release${nDrops === 1 ? "" : "s"}`),
         ),
         `rendered forced-release count must equal rosterCapacity.forcedDrops.length (${nDrops})`,
       ).toBeVisible();
       for (const d of rc.forcedDrops || []) {
         await expect(
-          panel.getByText(new RegExp(`${d.name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")} \\(${d.position}\\)`)),
+          capacityBanner.getByText(new RegExp(`${d.name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")} \\(${d.position}\\)`)),
           `forced drop "${d.name}" must be named in the capacity banner`,
         ).toBeVisible();
       }
