@@ -635,22 +635,31 @@ def build_board(
         # alongside them because it answers a different question (how ownership
         # moved over the whole season, not over a recent window).
         #
-        # Adding a window costs one ``holdings_as_of`` read and NOTHING else: the
+        # Adding a window costs one shared read and NOTHING else: the
         # population-overlap guard in ``_trend`` applies to every baseline
         # identically, so a cohort that grew between the endpoints still cannot
         # masquerade as players gaining ownership on the new window either.
+        #
+        # holdings_as_of_multi() answers all four baselines from ONE pass
+        # over sharp_roster_observations / sharp_roster_asset_spans instead
+        # of four independent per-baseline scans (V1-61: this was the
+        # remaining source of the >60s production timeout after the
+        # connection-reuse fix alone proved insufficient). Semantically
+        # identical to calling holdings_as_of() four times — pinned by
+        # test_holdings_as_of_multi_matches_per_call_output.
         baselines = {
             "sevenDay": now - 7 * DAY_MS,
             "fourteenDay": now - 14 * DAY_MS,
             "thirtyDay": now - 30 * DAY_MS,
             "seasonToDate": _season_start_ms(now),
         }
-        baseline_holdings = {
-            name: roster_store.holdings_as_of(
-                as_of, roster_keys=sorted(roster_keys), path=ledger_path, conn=db_conn
-            )
-            for name, as_of in baselines.items()
-        }
+        _multi_holdings = roster_store.holdings_as_of_multi(
+            list(baselines.values()),
+            roster_keys=sorted(roster_keys),
+            path=ledger_path,
+            conn=db_conn,
+        )
+        baseline_holdings = {name: _multi_holdings[as_of] for name, as_of in baselines.items()}
     finally:
         db_conn.close()
 

@@ -207,6 +207,94 @@ class TestHistory:
         }
 
 
+class TestHoldingsAsOfMulti:
+    """holdings_as_of_multi() answers several timestamps from one pass
+    over the observation/span tables instead of one scan per timestamp
+    (V1-61: the remaining source of a >60s production timeout after
+    connection reuse alone proved insufficient). It must be
+    byte-identical to calling holdings_as_of() once per timestamp —
+    every property below is already proven of holdings_as_of() itself
+    in TestHistory; this class exists to prove the batched path never
+    diverges from it, not to re-derive the semantics.
+    """
+
+    def _fixture(self, ledger):
+        day = 86_400_000
+        # Roster 1 (league L1): held {4046, 6794} from NOW, then 6794
+        # was dropped as of the observation at NOW + 40d (still holds
+        # 4046, an OPEN span with no closing observation at all).
+        rs.record_rosters(
+            [observation(assets=[rs.RosterAsset("4046"), rs.RosterAsset("6794")], observed_ms=NOW)],
+            path=ledger,
+        )
+        rs.record_rosters(
+            [observation(assets=[rs.RosterAsset("4046")], observed_ms=NOW + 40 * day)],
+            path=ledger,
+        )
+        # Roster 2 (league L1, a second manager/roster): not observed
+        # until NOW + 10d — absent from any as_of before that.
+        rs.record_rosters(
+            [
+                observation(
+                    manager_key="sleeper:u2",
+                    source_roster_id="2",
+                    assets=[rs.RosterAsset("5849")],
+                    observed_ms=NOW + 10 * day,
+                )
+            ],
+            path=ledger,
+        )
+        # Roster "sleeper:L2#1" is deliberately never recorded at all —
+        # the never-observed case.
+        return day
+
+    def test_matches_per_call_output_at_every_boundary(self, ledger):
+        day = self._fixture(ledger)
+        keys = ["sleeper:L1#1", "sleeper:L1#2", "sleeper:L2#1"]
+        # Spans the fixture's real boundaries: before anything, exactly
+        # at roster 1's first observation, between roster 2's first
+        # observation and roster 1's second, exactly at roster 1's
+        # second (the drop), and long after everything.
+        as_ofs = [NOW - 1, NOW, NOW + 5 * day, NOW + 15 * day, NOW + 40 * day, NOW + 100 * day]
+
+        batched = rs.holdings_as_of_multi(as_ofs, roster_keys=keys, path=ledger)
+        per_call = {a: rs.holdings_as_of(a, roster_keys=keys, path=ledger) for a in as_ofs}
+
+        assert batched == per_call
+        # Concrete sanity checks so a bug in BOTH implementations at once
+        # (which the equality above could not catch) still fails loudly.
+        assert batched[NOW - 1] == {}  # nothing observed yet — ABSENT
+        assert batched[NOW] == {"sleeper:L1#1": {"4046", "6794"}}
+        assert batched[NOW + 15 * day] == {
+            "sleeper:L1#1": {"4046", "6794"},
+            "sleeper:L1#2": {"5849"},
+        }
+        assert batched[NOW + 40 * day] == {
+            "sleeper:L1#1": {"4046"},
+            "sleeper:L1#2": {"5849"},
+        }
+        # sleeper:L2#1 is absent from every timestamp — never observed.
+        for a in as_ofs:
+            assert "sleeper:L2#1" not in batched[a]
+
+    def test_empty_roster_keys_returns_empty_per_timestamp(self, ledger):
+        self._fixture(ledger)
+        assert rs.holdings_as_of_multi([NOW, NOW + 1], roster_keys=[], path=ledger) == {
+            NOW: {},
+            NOW + 1: {},
+        }
+
+    def test_a_caller_supplied_connection_is_not_closed(self, ledger):
+        self._fixture(ledger)
+        conn = rs.ensure_roster_schema(ledger)
+        try:
+            rs.holdings_as_of_multi([NOW], roster_keys=["sleeper:L1#1"], conn=conn)
+            # A closed connection raises on any further use.
+            conn.execute("SELECT 1")
+        finally:
+            conn.close()
+
+
 def test_schema_creation_is_idempotent_and_does_not_touch_platform_version(ledger):
     from src.intel import platform_ledger
 
