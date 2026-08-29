@@ -33,6 +33,16 @@ from collections import OrderedDict
 from pathlib import Path
 from typing import Any, Callable
 
+# When invoked as ``python scripts/profile_sharp_roster_percentage.py``, Python
+# places ``scripts/`` rather than the repository root at sys.path[0].  The
+# production Lane 4 runner executes the profiler in exactly that form, so make
+# the repository root explicit before importing the canonical ``src`` package.
+# This changes import plumbing only; it does not alter product inputs, outputs,
+# auth, methodology, or missing-data semantics.
+_REPO_ROOT = Path(__file__).resolve().parents[1]
+if str(_REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(_REPO_ROOT))
+
 from src.sharp import cohort as sharp_cohort
 from src.sharp import roster_percentage as roster_percentage
 from src.sharp import roster_store
