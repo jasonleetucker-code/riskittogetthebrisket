@@ -592,9 +592,13 @@ def check_v59() -> None:
             ["systemctl", "list-timers", f"{unit}.timer", "--all", "--no-pager"], timeout=30
         )
         results[unit] = {"unit": info, "timer": timers.strip().splitlines()[:4]}
-        if info.get("Result") not in ("success", "exit-code") or info.get("ExecMainStatus") not in (
-            "0",
-        ):
+        # systemd's own Result= already applies each unit's SuccessExitStatus=
+        # directive (dynasty-sharp-{discovery,records,rosters}.service.template
+        # all declare "SuccessExitStatus=0 2" — exit 2 is a documented
+        # nothing-to-do outcome, not a failure). Re-deriving pass/fail from a
+        # raw ExecMainStatus == "0" check ignores that contract and flags a
+        # genuinely healthy run as failed.
+        if info.get("Result") not in ("success", "exit-code"):
             problems.append(
                 f"{unit}: Result={info.get('Result')} ExecMainStatus={info.get('ExecMainStatus')}"
             )
@@ -618,7 +622,8 @@ def check_v59() -> None:
     else:
         c.record(
             "pass",
-            "all three chain units last exited 0 with no lock crashes or timeout "
+            "all three chain units last reported Result=success (per each unit's "
+            "own SuccessExitStatus contract) with no lock crashes or timeout "
             "kills in 48h of journal",
             chain=results,
         )
