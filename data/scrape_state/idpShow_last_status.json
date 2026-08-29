@@ -1,8 +1,10 @@
 {
   "sourceKey": "idpShow",
-  "state": "HEALTHY",
-  "usable": true,
-  "acquired": true,
-  "rowCount": 350,
-  "observedAt": "2026-08-29T10:32:36.978958+00:00"
+  "state": "UNAVAILABLE",
+  "usable": false,
+  "acquired": false,
+  "rowCount": null,
+  "reason": "article_fetch_failed",
+  "detail": "GET https://www.theidpshow.com/p/idp-dynasty-rankings failed: HTTP 502",
+  "observedAt": "2026-08-29T12:32:10.534362+00:00"
 }
