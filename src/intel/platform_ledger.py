@@ -1688,10 +1688,19 @@ def query_movements(
     asset_type: str | None = None,
     canonical_only: bool = True,
     path: Path | None = None,
+    conn: sqlite3.Connection | None = None,
 ) -> list[dict[str, Any]]:
+    """``conn`` lets a caller that already holds a connection to this same
+    ledger (e.g. ``roster_percentage.build_board()``, which already opens
+    one for ``roster_store``) reuse it instead of paying for another
+    ``ensure_platform_schema`` round trip. Ownership stays with the
+    caller when supplied — mirrors ``ensure_platform_schema``'s own
+    ``own = conn is None`` pattern.
+    """
     if not manager_keys:
         return []
-    conn = ensure_platform_schema(path)
+    own = conn is None
+    connection = conn if conn is not None else ensure_platform_schema(path)
     clauses = [
         f"m.manager_key IN ({','.join('?' for _ in manager_keys)})",
         "m.tx_type='trade'",
@@ -1728,7 +1737,7 @@ def query_movements(
          ORDER BY m.ts DESC, m.movement_key
     """
     try:
-        rows = conn.execute(sql, params).fetchall()
+        rows = connection.execute(sql, params).fetchall()
         return [
             {
                 "platform": r["platform"],
@@ -1754,7 +1763,8 @@ def query_movements(
             for r in rows
         ]
     finally:
-        conn.close()
+        if own:
+            connection.close()
 
 
 def audit_asset(

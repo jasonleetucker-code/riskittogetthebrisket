@@ -44,6 +44,7 @@ leaving a caller to infer intent from rank alone.
 from __future__ import annotations
 
 import logging
+import sqlite3
 import time
 from collections import Counter
 from dataclasses import dataclass
@@ -322,7 +323,9 @@ def build_player_index(contract: dict[str, Any] | None) -> dict[str, dict[str, A
     return index
 
 
-def _catalog_metadata(ledger_path: Path | None) -> dict[str, dict[str, Any]]:
+def _catalog_metadata(
+    ledger_path: Path | None, *, conn: sqlite3.Connection | None = None
+) -> dict[str, dict[str, Any]]:
     """``{canonicalAssetId: {displayName, position, nflTeam}}`` from the ledger.
 
     ``canonical_assets`` is the platform's own asset catalog, hydrated
@@ -334,9 +337,14 @@ def _catalog_metadata(ledger_path: Path | None) -> dict[str, dict[str, Any]]:
 
     Degrades to an empty map — a name is cosmetic and must never cost a
     board its numbers.
+
+    ``conn`` lets the caller (``build_board``) reuse the same connection
+    it already opened for ``roster_store`` instead of paying for a
+    second ``ensure_roster_schema`` round trip.
     """
+    own = conn is None
     try:
-        conn = roster_store.ensure_roster_schema(ledger_path)
+        connection = conn if conn is not None else roster_store.ensure_roster_schema(ledger_path)
     except Exception:  # noqa: BLE001
         log.exception("sharp roster %%: asset catalog unavailable")
         return {}
@@ -347,7 +355,7 @@ def _catalog_metadata(ledger_path: Path | None) -> dict[str, dict[str, Any]]:
                 "position": (str(row["position"] or "").strip().upper() or None),
                 "nflTeam": (str(row["nfl_team"] or "").strip().upper() or None),
             }
-            for row in conn.execute(
+            for row in connection.execute(
                 """
                 SELECT canonical_asset_id, display_name, position, nfl_team
                   FROM canonical_assets
@@ -359,7 +367,8 @@ def _catalog_metadata(ledger_path: Path | None) -> dict[str, dict[str, Any]]:
         log.exception("sharp roster %%: asset catalog read failed")
         return {}
     finally:
-        conn.close()
+        if own:
+            connection.close()
 
 
 def _fallback_metadata(asset_id: str, catalog: dict[str, dict[str, Any]] | None = None) -> dict:
@@ -580,52 +589,70 @@ def build_board(
     )
     cohort_keys = {m.manager_key for m in members}
 
-    stored = roster_store.load_rosters(path=ledger_path)
-    usable, exclusions = eligible_rosters(
-        stored,
-        cohort_manager_keys=cohort_keys,
-        now_ms=now,
-        max_age_days=max_age_days,
-    )
-    filtered = [r for r in usable if _roster_passes(r, filters)]
-    filtered_out = len(usable) - len(filtered)
+    # One connection for every DB-backed call below (load_rosters, each
+    # holdings_as_of baseline, and the buy/sell join), instead of each
+    # opening and closing its own. Every one of these already accepted an
+    # optional ``conn`` for exactly this reuse; nothing here threaded one
+    # through, so a single board request paid for
+    # ensure_roster_schema/ensure_platform_schema (a schema-readiness
+    # check plus a commit) six separate times against the same file. This
+    # is the real cost behind the >60s timeouts measured against this
+    # endpoint in production (V1-61) — /api/sharp/cohort's sibling defect
+    # (redundant build_manager_records() calls, #1150) was a different
+    # function; this one was never touched.
+    db_conn = roster_store.ensure_roster_schema(ledger_path)
+    try:
+        stored = roster_store.load_rosters(path=ledger_path, conn=db_conn)
+        usable, exclusions = eligible_rosters(
+            stored,
+            cohort_manager_keys=cohort_keys,
+            now_ms=now,
+            max_age_days=max_age_days,
+        )
+        filtered = [r for r in usable if _roster_passes(r, filters)]
+        filtered_out = len(usable) - len(filtered)
 
-    roster_keys = {str(r["rosterKey"]) for r in filtered}
-    holders, slot_counts = _tally(filtered)
-    denominators, unknown_format = _denominators(filtered)
-    # W15-F009 (inv 4.6): every ``filtered`` roster already passed the
-    # cohort-membership gate in ``eligible_rosters``, so its ``managerKey``
-    # is guaranteed present — this map is total over ``roster_keys``, not
-    # a best-effort join, and needs no "unknown manager" fallback bucket.
-    roster_manager = {str(r["rosterKey"]): str(r["managerKey"]) for r in filtered}
+        roster_keys = {str(r["rosterKey"]) for r in filtered}
+        holders, slot_counts = _tally(filtered)
+        denominators, unknown_format = _denominators(filtered)
+        # W15-F009 (inv 4.6): every ``filtered`` roster already passed the
+        # cohort-membership gate in ``eligible_rosters``, so its ``managerKey``
+        # is guaranteed present — this map is total over ``roster_keys``, not
+        # a best-effort join, and needs no "unknown manager" fallback bucket.
+        roster_manager = {str(r["rosterKey"]): str(r["managerKey"]) for r in filtered}
 
-    player_index = build_player_index(contract)
-    asset_catalog = _catalog_metadata(ledger_path)
-    buy_sell = _buy_sell_index(
-        members=members,
-        ledger_path=ledger_path,
-        window=buy_sell_window,
-        now_ms=now,
-    )
+        player_index = build_player_index(contract)
+        asset_catalog = _catalog_metadata(ledger_path, conn=db_conn)
+        buy_sell = _buy_sell_index(
+            members=members,
+            ledger_path=ledger_path,
+            window=buy_sell_window,
+            now_ms=now,
+            conn=db_conn,
+        )
 
-    # The owner's stated windows are 7 / 14 / 30 day; season-to-date is kept
-    # alongside them because it answers a different question (how ownership
-    # moved over the whole season, not over a recent window).
-    #
-    # Adding a window costs one ``holdings_as_of`` read and NOTHING else: the
-    # population-overlap guard in ``_trend`` applies to every baseline
-    # identically, so a cohort that grew between the endpoints still cannot
-    # masquerade as players gaining ownership on the new window either.
-    baselines = {
-        "sevenDay": now - 7 * DAY_MS,
-        "fourteenDay": now - 14 * DAY_MS,
-        "thirtyDay": now - 30 * DAY_MS,
-        "seasonToDate": _season_start_ms(now),
-    }
-    baseline_holdings = {
-        name: roster_store.holdings_as_of(as_of, roster_keys=sorted(roster_keys), path=ledger_path)
-        for name, as_of in baselines.items()
-    }
+        # The owner's stated windows are 7 / 14 / 30 day; season-to-date is kept
+        # alongside them because it answers a different question (how ownership
+        # moved over the whole season, not over a recent window).
+        #
+        # Adding a window costs one ``holdings_as_of`` read and NOTHING else: the
+        # population-overlap guard in ``_trend`` applies to every baseline
+        # identically, so a cohort that grew between the endpoints still cannot
+        # masquerade as players gaining ownership on the new window either.
+        baselines = {
+            "sevenDay": now - 7 * DAY_MS,
+            "fourteenDay": now - 14 * DAY_MS,
+            "thirtyDay": now - 30 * DAY_MS,
+            "seasonToDate": _season_start_ms(now),
+        }
+        baseline_holdings = {
+            name: roster_store.holdings_as_of(
+                as_of, roster_keys=sorted(roster_keys), path=ledger_path, conn=db_conn
+            )
+            for name, as_of in baselines.items()
+        }
+    finally:
+        db_conn.close()
 
     market_pct = _market_ownership(sorted(holders))
     rows: list[dict[str, Any]] = []
@@ -823,6 +850,7 @@ def _buy_sell_index(
     ledger_path: Path | None,
     window: str,
     now_ms: int,
+    conn: sqlite3.Connection | None = None,
 ) -> dict[str, dict[str, Any]]:
     """Recent Sharp Buy/Sell Tracker activity, keyed by canonical asset.
 
@@ -830,6 +858,11 @@ def _buy_sell_index(
     the ledger, so "3 sharp buys" means exactly what it means on
     ``/market/sharp-tracker``.  A failure here degrades to no activity
     column; it never takes the roster board down.
+
+    ``conn`` lets the caller (``build_board``, which already holds one
+    connection for ``roster_store``) reuse it here instead of paying for
+    a second ``ensure_platform_schema`` round trip against the same
+    underlying ledger file.
     """
     try:
         from src.intel import platform_ledger, signals
@@ -842,6 +875,7 @@ def _buy_sell_index(
             until_ms=until,
             canonical_only=True,
             path=ledger_path,
+            conn=conn,
         )
         quality = {m.manager_key: m.quality for m in members}
         aggregated = sharp_market._aggregate_window(movements, quality)
