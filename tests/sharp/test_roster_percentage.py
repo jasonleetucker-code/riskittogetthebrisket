@@ -811,3 +811,75 @@ def test_the_roster_board_defines_no_qualification_of_its_own():
         assert (
             forbidden not in source
         ), f"roster_percentage must not re-derive qualification: {forbidden}"
+
+
+# ── connection reuse (V1-61) ────────────────────────────────────────────
+#
+# Every DB-backed call inside build_board() (load_rosters, one
+# holdings_as_of per baseline window, the buy/sell join) already accepted
+# an optional ``conn`` to reuse a caller's connection, but build_board()
+# never threaded one through -- each call paid for its own
+# ensure_roster_schema/ensure_platform_schema round trip (a schema
+# readiness check plus a commit) against the same underlying file. This
+# is the real cost behind the >60s timeouts measured against this
+# endpoint in production.
+
+
+def test_build_board_opens_exactly_one_connection(ledger, cohort_of, monkeypatch):
+    """Regression pin: one board request must open the ledger file once,
+    not once per internal call. Counts real ``sqlite3.connect`` calls
+    through ``src.intel.ledger.connect`` -- the one primitive every
+    schema-readiness helper in this chain bottoms out at -- rather than
+    trusting call counts on the higher-level wrappers, which would not
+    catch a wrapper that opens its own connection internally.
+    """
+    from src.intel import ledger as ledger_module
+
+    cohort_of(["sleeper:u1", "sleeper:u2"])
+    rs.record_rosters(
+        [
+            roster("sleeper:u1", "sleeper:L1", assets=["wr1", "rb1"]),
+            roster("sleeper:u2", "sleeper:L2", assets=["wr1"]),
+        ],
+        path=ledger,
+    )
+
+    real_connect = ledger_module.connect
+    calls = []
+
+    def _counting_connect(path=None):
+        calls.append(path)
+        return real_connect(path)
+
+    monkeypatch.setattr(ledger_module, "connect", _counting_connect)
+    board(ledger)
+    assert len(calls) == 1, f"expected exactly one connection, opened {len(calls)}"
+
+
+def test_query_movements_does_not_close_a_caller_supplied_connection(tmp_path):
+    """A caller-supplied connection must survive the call (ownership
+    stays with the caller) -- mirrors the same ``own = conn is None``
+    contract ``ensure_platform_schema``/``ensure_roster_schema`` already
+    honour. Without this, threading one shared connection through
+    ``build_board`` would close it after the FIRST ``_buy_sell_index``
+    call and break every subsequent read on it.
+    """
+    from src.intel import ledger as ledger_module
+    from src.intel import platform_ledger
+
+    db_path = tmp_path / "ledger.sqlite3"
+    conn = ledger_module.connect(db_path)
+    try:
+        platform_ledger.ensure_platform_schema(conn=conn)
+        result = platform_ledger.query_movements(
+            manager_keys=["sleeper:u1"],
+            since_ms=0,
+            until_ms=NOW,
+            path=db_path,
+            conn=conn,
+        )
+        assert result == []
+        # Still usable -- a closed connection would raise ProgrammingError.
+        conn.execute("SELECT 1").fetchone()
+    finally:
+        conn.close()
