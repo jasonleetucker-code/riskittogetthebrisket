@@ -43,9 +43,9 @@ _REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(_REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(_REPO_ROOT))
 
-from src.sharp import cohort as sharp_cohort
-from src.sharp import roster_percentage as roster_percentage
-from src.sharp import roster_store
+from src.sharp import cohort as sharp_cohort  # noqa: E402
+from src.sharp import roster_percentage as roster_percentage  # noqa: E402
+from src.sharp import roster_store  # noqa: E402
 
 
 class ProfileTimeout(RuntimeError):
