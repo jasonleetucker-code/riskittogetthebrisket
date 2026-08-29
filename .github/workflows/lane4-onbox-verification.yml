@@ -47,6 +47,11 @@ name: Lane 4 On-Box Verification (read-only)
 # temporal-ledger-diagnostics.yml.
 
 on:
+  push:
+    branches:
+      - main
+    paths:
+      - '.github/workflows/lane4-onbox-verification.yml'
   workflow_dispatch:
     inputs:
       league:
@@ -96,7 +101,7 @@ jobs:
           DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
           DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
           APP_DIR: ${{ vars.PROD_APP_DIR || '/home/dynasty/trade-calculator' }}
-          LEAGUE_KEY: ${{ inputs.league }}
+          LEAGUE_KEY: ${{ inputs.league || 'dynasty_main' }}
         shell: bash
         run: |
           set -Eeuo pipefail
@@ -123,6 +128,30 @@ jobs:
           PY="$APP_DIR/.venv/bin/python"
           [ -x "$PY" ] || PY="$APP_DIR/venv/bin/python"
           [ -x "$PY" ] || PY=python3
+
+          # V1-61 diagnostic only: call the already-landed canonical profiler
+          # before the Lane 4 verifier. Exit 2 is its explicit truthful timeout
+          # result and is recorded rather than treated as either success or an
+          # infrastructure failure. Any other non-zero code is a real profiler
+          # execution failure and must fail this workflow.
+          if [ -f scripts/profile_sharp_roster_percentage.py ]; then
+            echo "### v1-61-stage-profile"
+            set +e
+            "$PY" -u scripts/profile_sharp_roster_percentage.py --timeout-seconds 300
+            profile_rc=$?
+            set -e
+            echo "### v1-61-profiler-exit: $profile_rc"
+            case "$profile_rc" in
+              0) echo "### v1-61-profile-status: completed" ;;
+              2) echo "### v1-61-profile-status: timed_out_truthfully" ;;
+              *) echo "### v1-61-profile-status: execution_error"; exit "$profile_rc" ;;
+            esac
+            echo "###"
+          else
+            echo "### v1-61-profile-status: missing_profiler"
+            exit 41
+          fi
+
           # No --out: nothing is written to production disk.
           #
           # -u is LOAD-BEARING, not hygiene.  Python's stdout is
