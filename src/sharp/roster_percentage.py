@@ -49,7 +49,7 @@ import time
 from collections import Counter
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Callable, Iterable, Sequence
+from typing import Any, Callable, Collection, Iterable, Sequence
 
 from src.sharp import cohort as sharp_cohort
 from src.sharp import roster_store
@@ -76,6 +76,14 @@ MIN_PLAYER_DENOMINATOR = 5
 # substantially the same rosters.  Below this overlap the sample moved
 # too much for the delta to mean anything, and we say so instead.
 MIN_TREND_POPULATION_OVERLAP = 0.80
+
+# An asset nothing held at a given baseline.  A shared immutable empty is safe
+# because ``_trend`` only ever iterates ``baseline_holders``; it never mutates
+# it.  "Held by no roster then" is a real measurement, not missing evidence —
+# ``_trend`` still reports rosterPctThen 0.0 against a real shared population,
+# and withholds the delta on its own population-overlap rule when the
+# populations moved too much.
+_NO_ROSTER_KEYS: frozenset[str] = frozenset()
 
 DAY_MS = 86_400_000
 
@@ -492,7 +500,7 @@ def _trend(
     asset_id: str,
     *,
     current_holders: set[str],
-    baseline_holders: dict[str, set[str]],
+    baseline_holders: Collection[str],
     current_roster_keys: set[str],
     baseline_roster_keys: set[str],
 ) -> dict[str, Any]:
@@ -502,6 +510,14 @@ def _trend(
     cohort that grew between the endpoints cannot masquerade as players
     gaining ownership.  When the overlap is too small the delta is
     withheld and the reason is returned in its place.
+
+    ``baseline_holders`` is the ROSTER KEYS that held this asset at the
+    baseline.  It is only ever iterated (``{k for k in baseline_holders
+    ...}``), never subscripted, so a bare set of keys and a
+    ``{roster_key: assets}`` mapping are interchangeable here — iterating
+    a mapping yields exactly its keys.  ``build_board`` passes a set from
+    a per-baseline inverted index; the older per-asset filtered mapping
+    produced the identical iteration at O(rosters) cost per asset.
     """
     shared = current_roster_keys & baseline_roster_keys
     union = current_roster_keys | baseline_roster_keys
@@ -664,6 +680,38 @@ def build_board(
         db_conn.close()
 
     market_pct = _market_ownership(sorted(holders))
+
+    # Loop-invariant baseline structures, computed ONCE per baseline rather
+    # than rebuilt for every (asset x baseline) pair in the row loop below
+    # (V1-61).  The trend block used to build, per asset per baseline, both a
+    # filtered copy of that baseline's whole holdings map and a fresh set of
+    # its roster keys -- each O(rosters).  At the measured production shape
+    # (2,379 qualifying assets x 4 baselines x 9,544 eligible rosters) that
+    # was the single largest remaining cost in build_board: 57.4s of a 128.1s
+    # wall on the 2026-08-30 Lane 4 profile (run 33303611063), and the only
+    # part of it the profiler did not attribute to a named stage.
+    #
+    # Nothing _trend receives changes value:
+    #   * it only ITERATES baseline_holders, and only for roster keys, so an
+    #     inverted asset -> roster-keys index yields the identical iteration
+    #     as the filtered mapping did (see its docstring).
+    #   * baseline_roster_keys KEEPS its per-asset intersection with
+    #     ``applicable``.  That is load-bearing and deliberately not hoisted:
+    #     _trend's ``union`` is ``current_roster_keys | baseline_roster_keys``,
+    #     so passing the unintersected baseline set would widen the union and
+    #     silently change populationOverlap -- the guard that stops a cohort
+    #     that grew between endpoints reading as ownership gain.
+    baseline_key_sets: dict[str, set[str]] = {
+        name: set(baseline_holdings[name] or {}) for name in baselines
+    }
+    baseline_asset_rosters: dict[str, dict[str, set[str]]] = {}
+    for _name in baselines:
+        _inverted: dict[str, set[str]] = {}
+        for _roster_key, _held_assets in (baseline_holdings[_name] or {}).items():
+            for _held_asset in _held_assets:
+                _inverted.setdefault(_held_asset, set()).add(_roster_key)
+        baseline_asset_rosters[_name] = _inverted
+
     rows: list[dict[str, Any]] = []
     unpriced = 0
     for asset_id, held_by in holders.items():
@@ -738,13 +786,9 @@ def build_board(
                 name: _trend(
                     asset_id,
                     current_holders=counted,
-                    baseline_holders={
-                        key: assets
-                        for key, assets in (baseline_holdings[name] or {}).items()
-                        if asset_id in assets
-                    },
+                    baseline_holders=baseline_asset_rosters[name].get(asset_id, _NO_ROSTER_KEYS),
                     current_roster_keys=applicable,
-                    baseline_roster_keys=set(baseline_holdings[name] or {}) & applicable,
+                    baseline_roster_keys=baseline_key_sets[name] & applicable,
                 )
                 for name in baselines
             },
