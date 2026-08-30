@@ -30,7 +30,7 @@ requests~=2.34.2
 playwright~=1.58.0
 
 # Excel workbook parser (CSVs/Draft Data.xlsx → draft_data.csv).
-openpyxl~=3.1.0
+openpyxl~=3.1.5
 
 # Chat endpoint (``/api/chat``) — optional at runtime (server.py
 # guards ``import anthropic`` with ImportError fallback) but declared
