@@ -66,6 +66,7 @@ Design rules, each guarding a specific failure
 
 from __future__ import annotations
 
+import bisect
 import json
 import math
 from dataclasses import dataclass, field
@@ -214,6 +215,31 @@ def percentile_rank(value: float, population: Sequence[float]) -> float:
     return (below + 0.5 * equal) / len(pop)
 
 
+def _percentile_rank_sorted(value: float, sorted_population: Sequence[float]) -> float:
+    """Same statistic as :func:`percentile_rank`, in O(log N) instead of O(N).
+
+    Callers must hand in a population that is ALREADY sorted and already
+    cleaned to plain floats (no filtering or casting happens here) — this
+    is the hot-path twin used by :func:`score_managers`, which precomputes
+    one sorted array per population axis ONCE rather than re-scanning a raw
+    list on every one of the N managers being scored. ``percentile_rank``
+    itself is untouched and stays the correct choice for any caller holding
+    an unsorted or unvalidated population.
+
+    ``bisect_left`` counts population members strictly below ``value`` on a
+    sorted array; ``bisect_right - bisect_left`` counts members equal to
+    it — together they reproduce ``percentile_rank``'s
+    ``(below + 0.5 * equal) / len(pop)`` exactly, including the empty- and
+    all-tied-population cases.
+    """
+    n = len(sorted_population)
+    if n == 0:
+        return 0.5
+    below = bisect.bisect_left(sorted_population, value)
+    equal = bisect.bisect_right(sorted_population, value) - below
+    return (below + 0.5 * equal) / n
+
+
 def _shrunk_rate(successes: int, trials: int, base_rate: float, prior_n: float) -> float:
     """Beta-binomial shrink toward ``base_rate``.  With few trials the
     result sits near the base rate; it only departs with real volume."""
@@ -284,6 +310,11 @@ def _performance_component(
     population: dict[str, list[float]],
     cfg: dict[str, Any],
 ) -> tuple[float, list[str]]:
+    """``population`` must be pre-sorted, pre-cleaned float arrays (see
+    ``score_managers``'s ``sorted_population`` — every lookup here goes
+    through ``_percentile_rank_sorted``, not ``percentile_rank``, because
+    this runs once per manager and a fresh O(N) scan per call was the
+    dominant cost of ``score_managers`` in production (V1-61)."""
     block = cfg.get("performance") or {}
     sub = block.get("subWeights") or {}
     notes: list[str] = []
@@ -291,14 +322,14 @@ def _performance_component(
 
     win = rec.win_pct
     if win is not None:
-        p = percentile_rank(win, population.get("winPct") or [])
+        p = _percentile_rank_sorted(win, population.get("winPct") or [])
         parts.append((float(sub.get("winPct", 0.30)), p))
         if p >= 0.9:
             notes.append(f"Top-{round((1 - p) * 100)}% multi-season win rate")
 
     playoff = rec.playoff_rate
     if playoff is not None:
-        p = percentile_rank(playoff, population.get("playoffRate") or [])
+        p = _percentile_rank_sorted(playoff, population.get("playoffRate") or [])
         parts.append((float(sub.get("playoffRate", 0.25)), p))
         if rec.playoff_appearances and rec.completed_seasons:
             notes.append(
@@ -310,7 +341,7 @@ def _performance_component(
     base = _mean(population.get("championshipRate") or []) or 0.08
     prior_n = float((block.get("championshipShrinkage") or {}).get("priorN", 6.0))
     shrunk = _shrunk_rate(rec.championships, rec.completed_seasons, base, prior_n)
-    p = percentile_rank(shrunk, population.get("championshipRateShrunk") or [])
+    p = _percentile_rank_sorted(shrunk, population.get("championshipRateShrunk") or [])
     parts.append((float(sub.get("championshipRate", 0.20)), p))
     if rec.championships >= 2:
         notes.append(f"{rec.championships} championships across observed leagues")
@@ -337,6 +368,10 @@ def _roster_quality_component(
 ) -> tuple[float | None, list[str]]:
     """Roster strength percentile, or **None** when there is no evidence.
 
+    ``population`` must be pre-sorted, pre-cleaned float arrays (see
+    ``_performance_component``'s note — same ``score_managers`` caller,
+    same reason).
+
     Returns None rather than 0.0 for "nothing to score", and that
     distinction is the whole point. The four ``ManagerRecord`` fields
     this reads — ``roster_value_ratios``, ``age_adjusted_value_ratio``,
@@ -362,7 +397,7 @@ def _roster_quality_component(
     ratio = _mean(rec.roster_value_ratios)
     if ratio is not None:
         clamped = _clamp(ratio, float(lo), float(hi))
-        p = percentile_rank(clamped, population.get("rosterValueRatio") or [])
+        p = _percentile_rank_sorted(clamped, population.get("rosterValueRatio") or [])
         parts.append((float(sub.get("valueVsLeagueAverage", 0.45)), p))
         if p >= 0.9:
             notes.append(
@@ -379,7 +414,7 @@ def _roster_quality_component(
         if val is None:
             continue
         clamped = _clamp(float(val), float(lo), float(hi))
-        p = percentile_rank(clamped, population.get(pop_key) or [])
+        p = _percentile_rank_sorted(clamped, population.get(pop_key) or [])
         parts.append((float(sub.get(weight_key, 0.2)), p))
 
     if not parts:
@@ -577,6 +612,20 @@ def score_managers(
     qual = cfg.get("qualification") or {}
     population = build_population(records, cfg)
 
+    # Precomputed ONCE per axis, not once per manager: `_performance_component`
+    # and `_roster_quality_component` used to call `percentile_rank`, which
+    # rebuilds and rescans its population argument from scratch on every
+    # call. With ~N managers each doing several such lookups against the
+    # same N-sized population, that is O(N^2) — measured as the dominant
+    # cost (~196 of ~297 total seconds) of a real production Sharp Roster
+    # Percentage build (V1-61). Sorting each axis once here and looking
+    # values up with `_percentile_rank_sorted` (binary search) makes the
+    # per-manager cost O(log N) instead, with no change to the statistic.
+    sorted_population = {
+        key: sorted(float(v) for v in vals if isinstance(v, (int, float)))
+        for key, vals in population.items()
+    }
+
     scored: list[ManagerScore] = []
     raw_scores: list[float] = []
 
@@ -606,8 +655,8 @@ def score_managers(
             )
             continue
 
-        perf, perf_notes = _performance_component(rec, population, cfg)
-        roster, roster_notes = _roster_quality_component(rec, population, cfg)
+        perf, perf_notes = _performance_component(rec, sorted_population, cfg)
+        roster, roster_notes = _roster_quality_component(rec, sorted_population, cfg)
         consistency, cons_notes = _consistency_component(rec, cfg)
         longevity = _longevity_component(rec, cfg)
         activity = _activity_component(rec, cfg)
@@ -702,10 +751,14 @@ def score_managers(
     max_size = int(qual.get("maxCohortSize", 2500))
 
     qualified: list[ManagerScore] = []
+    # Same O(N^2) -> O(N log N) repair as the sorted_population precompute
+    # above: this loop calls the percentile lookup once per evaluable
+    # manager against the same `raw_scores` population every time.
+    sorted_raw_scores = sorted(raw_scores)
     for entry in scored:
         if not entry.evaluable or entry.score is None:
             continue
-        entry.score_percentile = round(percentile_rank(entry.score, raw_scores), 4)
+        entry.score_percentile = round(_percentile_rank_sorted(entry.score, sorted_raw_scores), 4)
         # BOTH bars. A high score on thin evidence does not qualify.
         if entry.score_percentile >= min_pct and entry.confidence >= min_conf:
             entry.qualified = True
