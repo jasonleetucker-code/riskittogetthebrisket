@@ -9,18 +9,18 @@ Rank,Team,Player,Fantasy Position,ADP,Bye,Age,1yr. Proj,3yr. Proj,5yr. Proj,10yr
 8,,Jack Campbell,LB,8.10,6,26,227,553,876,1492,,33
 9,,Jamien Sherwood,LB,10.05,13,26.6,228,550,871,1484,,32
 10,,Nick Bolton,LB,11.11,5,26.4,212,530,838,1428,,30
-11,,Arvell Reese,LB,12.03,8,20.9,166,480,791,1594,,28
+11,,Arvell Reese,LB,12.03,8,21,166,480,791,1594,,28
 12,,Kevin Winston Jr.,DB,22.10,9,22.7,174,494,809,1535,,28
 13,,Ernest Jones,LB,12.12,11,26.8,211,492,778,1326,,27
 14,,Quay Walker,LB,11.09,13,26.3,208,473,748,1275,,25
 15,,Cooper DeJean,DB,14.06,10,23.5,206,465,753,1350,,25
 16,,Jordyn Brooks,LB,10.10,6,28.8,223,473,730,1165,,25
-17,,Devin Lloyd,LB,13.03,5,27.8,222,453,710,1170,,24
+17,,Devin Lloyd,LB,13.03,5,27.9,222,453,710,1170,,24
 18,,Dillon Thieneman,DB,13.07,10,22,98,479,784,1489,,24
 19,,Nakobe Dean,LB,11.10,13,25.7,191,448,721,1263,,24
 20,,Daiyan Henley,LB,12.02,7,26.8,193,454,718,1224,,23
 21,,Fred Warner,LB,9.07,8,29.8,212,439,690,1174,,23
-22,,Zack Baun,LB,10.06,10,29.6,237,441,671,1019,,22
+22,,Zack Baun,LB,10.06,10,29.7,237,441,671,1019,,22
 23,,Jacob Rodriguez,LB,17.12,6,23.9,121,440,711,1290,,21
 24,,Caleb Downs,DB,10.11,14,21.7,154,432,704,1312,,21
 25,,Trevin Wallace,LB,25.03,5,23.5,126,397,656,1229,,19
@@ -32,7 +32,7 @@ Rank,Team,Player,Fantasy Position,ADP,Bye,Age,1yr. Proj,3yr. Proj,5yr. Proj,10yr
 31,,Blake Cashman,LB,15.03,6,30.3,228,391,584,866,,17
 32,,DeMarvion Overshown,LB,22.09,14,26,196,365,579,986,,16
 33,,Patrick Queen,LB,15.10,9,27,169,377,591,973,,16
-34,,Kool-Aid McKinstry,DB,87.07,8,23.8,186,385,601,1053,,15
+34,,Kool-Aid McKinstry,DB,87.07,8,23.9,186,385,601,1053,,15
 35,,Terrel Bernard,LB,16.11,7,27.3,179,349,547,901,,14
 36,,Kyle Hamilton,DB,9.11,13,25.4,197,365,579,1001,,14
 37,,Foyesade Oluokun,LB,11.01,7,31,219,356,522,744,,14
@@ -128,14 +128,14 @@ Rank,Team,Player,Fantasy Position,ADP,Bye,Age,1yr. Proj,3yr. Proj,5yr. Proj,10yr
 127,,Jordan Battle,DB,19.10,6,25.7,163,274,438,761,,3
 128,,Nick Herbig,DL,20.03,9,24.8,100,235,394,646,,3
 129,,Jake Golday,LB,24.12,6,23.3,48,248,410,768,,3
-130,,Yaya Diaby,DL,19.02,10,27.2,139,250,388,555,,3
+130,,Yaya Diaby,DL,19.02,10,27.3,139,250,388,555,,3
 131,,Bobby Okereke,LB,25.09,18,30.1,0,297,445,659,,3
 132,,Alex Singleton,LB,16.09,10,32.7,186,234,333,464,,3
 133,,Kerby Joseph,DB,29.05,6,25.8,139,280,448,779,,3
 134,,Bryan Bresee,DL,94.08,8,24.8,0,282,453,758,,3
 135,,Mack Wilson,LB,23.04,14,28.5,136,234,361,576,,3
 136,,Kobie Turner,DL,24.09,11,27.3,125,245,379,576,,3
-137,,Jalon Walker,LB,170.08,11,22.5,0,261,435,855,,3
+137,,Jalon Walker,LB,170.09,11,22.5,0,261,435,855,,3
 138,,Jonathan Greenard,DL,23.10,10,29.3,127,268,361,504,,3
 139,,Will McDonald,DL,29.01,13,27.2,111,254,395,565,,3
 140,,Gervon Dexter,DL,93.11,10,24.8,108,237,381,637,,3
@@ -176,7 +176,7 @@ Rank,Team,Player,Fantasy Position,ADP,Bye,Age,1yr. Proj,3yr. Proj,5yr. Proj,10yr
 175,,Osa Odighizuwa,DL,48.10,8,28,92,208,318,460,,1
 176,,Minkah Fitzpatrick,DB,25.07,13,29.8,206,250,380,564,,1
 177,,Joey Porter Jr.,DB,93.03,9,26.1,169,248,393,668,,1
-178,,Boye Mafe,DL,18.07,6,27.7,105,199,309,442,,1
+178,,Boye Mafe,DL,18.07,6,27.8,105,199,309,442,,1
 179,,Akheem Mesidor,DL,19.01,7,25.3,85,189,317,519,,1
 180,,Quentin Lake,DB,23.11,11,27.6,193,245,382,617,,1
 181,,Nnamdi Madubuike,DL,30.03,13,28.8,123,197,287,404,,1
@@ -217,7 +217,7 @@ Rank,Team,Player,Fantasy Position,ADP,Bye,Age,1yr. Proj,3yr. Proj,5yr. Proj,10yr
 216,,Peter Woods,DL,21.06,5,21.4,54,157,265,532,,-1
 217,,Ronnie Hickman,DB,88.05,11,24.8,137,243,388,675,,-1
 218,,DeForest Buckner,DL,25.08,13,32.4,132,168,218,323,,-1
-219,,Andru Phillips,DB,86.07,8,24.7,120,251,391,685,,-1
+219,,Andru Phillips,DB,86.07,8,24.8,120,251,391,685,,-1
 220,,Dorance Armstrong,DL,29.06,7,29.2,108,173,233,325,,-1
 221,,Derwin James,DB,11.03,7,30,190,249,362,518,,-1
 222,,Zach Harrison,DL,92.06,11,25,96,150,248,409,,-1
@@ -269,7 +269,7 @@ Rank,Team,Player,Fantasy Position,ADP,Bye,Age,1yr. Proj,3yr. Proj,5yr. Proj,10yr
 268,,Brandon Stephens,DB,33.07,13,28.7,143,227,357,557,,-3
 269,,Upton Stout,DB,77.09,8,24.6,115,233,363,637,,-3
 270,,Harrison Phillips,DL,62.07,13,30.6,81,127,175,246,,-3
-271,,Isaiah Pola-Mao,DB,29.11,13,27.1,140,225,352,571,,-3
+271,,Isaiah Pola-Mao,DB,29.11,13,27.2,140,225,352,571,,-3
 272,,Byron Murphy,DB,58.08,6,28.6,140,230,361,562,,-3
 273,,Dani Dennis-Sutton,DL,73.02,11,22.7,45,114,190,357,,-3
 274,,Montaric Brown,DB,43.07,7,27,156,221,343,566,,-3
@@ -279,7 +279,7 @@ Rank,Team,Player,Fantasy Position,ADP,Bye,Age,1yr. Proj,3yr. Proj,5yr. Proj,10yr
 278,,Keldric Faulk,DL,17.03,9,20.9,36,108,183,382,,-3
 279,,Sam Okuayinonu,DL,39.01,8,28.3,53,125,179,251,,-3
 280,,Quincy Riley,DB,77.06,8,25.3,112,227,359,628,,-3
-281,,T.J. Sanders,DL,78.07,7,23,41,106,179,331,,-3
+281,,T.J. Sanders,DL,78.07,7,23.1,41,106,179,331,,-3
 282,,BJ Ojulari,LB,34.10,14,24.3,41,105,176,316,,-3
 283,,Jalen Thompson,DB,25.10,14,28.1,150,222,343,527,,-4
 284,,Adam Butler,DL,64.02,13,32.3,83,110,142,211,,-4
@@ -357,9 +357,9 @@ Rank,Team,Player,Fantasy Position,ADP,Bye,Age,1yr. Proj,3yr. Proj,5yr. Proj,10yr
 356,,Justin Eboigbe,DL,85.05,7,25.3,0,0,0,0,,-9
 357,,Da'Shawn Hand,DL,60.11,11,30.8,0,0,0,0,,-9
 358,,Shemar Turner,DL,78.04,10,23.6,0,0,0,0,,-9
-359,,Jonah Laulu,DL,82.10,13,26.1,0,0,0,0,,-9
+359,,Jonah Laulu,DL,82.10,13,26.2,0,0,0,0,,-9
 360,,Kevin Byard,DB,16.04,11,33,164,179,240,329,,-9
-361,,Elijah Molden,DB,33.06,7,27.5,115,175,273,443,,-9
+361,,Elijah Molden,DB,33.06,7,27.6,115,175,273,443,,-9
 362,,David Walker,LB,77.03,10,26.2,51,104,172,262,,-9
 363,,Anthony Nelson,DL,57.08,10,29.4,58,119,160,223,,-9
 364,,Tyrique Stevenson,DB,93.12,10,26.3,95,177,273,461,,-9
@@ -384,7 +384,7 @@ Rank,Team,Player,Fantasy Position,ADP,Bye,Age,1yr. Proj,3yr. Proj,5yr. Proj,10yr
 383,,Kyle Louis,LB,73.07,6,22.4,38,47,60,85,,-15
 384,,Chidobe Awuzie,DB,66.04,13,31.3,90,125,178,244,,-16
 385,,Malik Hooker,DB,67.04,14,30.3,78,123,179,256,,-16
-386,,Christian Rozeboom,LB,25.06,10,29.5,88,0,0,0,,-17
+386,,Christian Rozeboom,LB,25.06,10,29.6,88,0,0,0,,-17
 387,,Jeremiah Owusu-Koramoah,LB,50.04,11,26.8,0,0,0,0,,-19
 388,,JD Bertrand,LB,83.12,11,26.3,0,0,0,0,,-19
 389,,Jimmy Rolder,LB,72.12,6,22.5,0,0,0,0,,-19
@@ -407,5 +407,5 @@ Rank,Team,Player,Fantasy Position,ADP,Bye,Age,1yr. Proj,3yr. Proj,5yr. Proj,10yr
 406,,Reddy Steward,DB,81.07,14,25.3,0,0,0,0,,-30
 407,,Zakee Wheatley,DB,72.08,5,24.5,0,0,0,0,,-30
 408,,Kamari Ramsey,DB,21.01,8,22,0,0,0,0,,-30
-409,,Jakobe Thomas,DB,74.01,6,23.1,0,0,0,0,,-30
+409,,Jakobe Thomas,DB,74.01,6,23.2,0,0,0,0,,-30
 410,,Jadon Canady,DB,72.11,5,23.3,0,0,0,0,,-30
