@@ -654,24 +654,35 @@ def score_managers(
     # 162,016,665 isinstance calls, 92% of this function's runtime, at the
     # production population of 12,720 evaluable managers.
     #
-    # Read from `sorted_population`, NOT `population`, and that is
-    # load-bearing rather than incidental. `_performance_component` receives
-    # `sorted_population`, so that is the list it was averaging. The two hold
-    # the same multiset, but floating-point addition is not associative, so
-    # summing them in different orders yields slightly different means -- and
-    # that difference propagates through `_shrunk_rate` into a percentile
-    # lookup, moving real published values. Caught by the before/after
-    # equivalence check at the production population: sourcing this from
-    # `population` moved manager u556's performance component 0.2433 -> 0.2186
-    # and his score 47.4 -> 46.3. Spelled otherwise exactly as
-    # `_performance_component` spelled it, `or 0.08` fallback included.
+    # Read from `population`, NOT `sorted_population`, and that is
+    # load-bearing rather than incidental -- it must reproduce
+    # `build_population`'s own `observed_base` BIT-FOR-BIT.
     #
-    # Note `build_population` derives its own `observed_base` from the raw
-    # `pop["championshipRate"]`; that one has always summed in a different
-    # order than this one and is a separate quantity feeding a different axis.
-    # They are NOT required to be bit-identical, and this change does not
-    # alter either of them.
-    championship_base = _mean(sorted_population.get("championshipRate") or []) or 0.08
+    # `build_population` derives `observed_base = _mean(pop["championshipRate"])`
+    # over the RAW list and uses it to fill `pop["championshipRateShrunk"]`.
+    # `_performance_component` then recomputes THIS SAME MANAGER's shrunk rate
+    # from `base` and looks it up in that population. When the two bases agree
+    # exactly, a manager's recomputed value lands exactly ON its own stored
+    # entry, and `percentile_rank` counts it in the `equal` block, applying the
+    # midpoint rule. That self-consistency is the contract, not a coincidence.
+    #
+    # Averaging `sorted_population` instead holds the same multiset but sums it
+    # in a different order, and float addition is not associative: measured
+    # delta 7.2e-16, one ULP. That is enough to push the recomputed value off
+    # its own tie block -- and `championshipRateShrunk` is extremely tied (44
+    # distinct values across 3,390 entries; largest block 150), so a broken tie
+    # moves the percentile by up to 0.5 * 150 / 3390 = 0.022, not by an ULP.
+    #
+    # Measured against the pre-#1183 baseline at a shuffled 12,000-manager
+    # population: sourcing this from `sorted_population` changed the
+    # `performance` component on 3,390 of 3,390 evaluable managers, `score` on
+    # 3,230 (max delta 0.40), `score_percentile` on 3,102, and flipped
+    # `qualified` on 8 -- i.e. it moved sharp COHORT MEMBERSHIP. Reading
+    # `population` here restores byte-identical output.
+    #
+    # The `or 0.08` fallback matches `build_population`'s own `base_champ`,
+    # so the empty-population case agrees too.
+    championship_base = _mean(population.get("championshipRate") or []) or 0.08
 
     scored: list[ManagerScore] = []
     raw_scores: list[float] = []
