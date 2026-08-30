@@ -75,7 +75,6 @@ class TestEligibilityGates:
     def test_no_dynasty_league_is_ineligible(self):
         r = rec("redraft_only", dynasty_leagues=0)
         assert any("dynasty" in x for x in S.check_eligibility(r))
-        # v2: keeper leagues no longer help — only dynasty >= 2 seasons old.
         assert any("dynasty only" in x for x in S.check_eligibility(r))
 
     def test_abandoned_rosters_disqualify(self):
@@ -92,16 +91,11 @@ class TestEligibilityGates:
 
 class TestNoSingleSignalDominates:
     def test_many_leagues_alone_never_qualifies(self):
-        """The brief's explicit rule: being in many leagues is
-        availability, not skill."""
         joiner = rec(
             "joiner",
             observed_leagues=40,
             dynasty_leagues=40,
             completed_seasons=4,
-            # Just past the win-rate floor so they stay EVALUABLE — the
-            # point is that breadth alone must not qualify someone who
-            # clears every gate but is unremarkable everywhere.
             wins=30,
             losses=26,
             playoff_appearances=0,
@@ -129,8 +123,6 @@ class TestNoSingleSignalDominates:
         assert busy == normal == pytest.approx(1.0), "both saturate at the cap"
 
     def test_championship_rate_is_shrunk_toward_base(self):
-        """One title in one season is mostly luck and must not read as
-        a 100% championship rate."""
         lucky = S._shrunk_rate(successes=1, trials=1, base_rate=0.08, prior_n=6.0)
         sustained = S._shrunk_rate(successes=4, trials=8, base_rate=0.08, prior_n=6.0)
         assert lucky < 0.25
@@ -146,8 +138,6 @@ class TestScoreVsConfidence:
         assert entry.confidence_tier in ("high", "medium", "low")
 
     def test_high_score_on_thin_evidence_does_not_qualify(self):
-        """Both bars must be cleared — an elite-looking record with
-        minimal evidence stays out of the cohort."""
         thin_elite = rec(
             "thin_elite",
             completed_seasons=2,
@@ -222,12 +212,6 @@ class TestExplainability:
             assert "not from a manager's complete" in entry.coverage["note"]
 
     def test_methodology_version_is_stamped(self):
-        # Asserted against the config, not a literal. Hardcoding
-        # "sharp-v2" made every legitimate version bump fail here, which
-        # turns the config's own "methodologyVersion must move with any
-        # change" rule into an obstacle instead of a guard. What a
-        # consumer needs is that the stamp matches the config that
-        # produced the score.
         expected = S.methodology_version()
         assert expected
         scored = S.score_managers(population())
@@ -242,16 +226,12 @@ class TestCohortTiers:
         scored = S.score_managers([thin, *population()])
         tiers = S.cohort_tiers(scored)
         assert tiers["observableManagers"] == 31
-        # v2 gates (dynasty-only, league age, win-rate floor) genuinely
-        # bite, so evaluable is now well below observable — assert the
-        # ordering, not a brittle exact count.
         assert tiers["evaluableManagers"] < tiers["observableManagers"]
         assert tiers["qualifiedManagers"] < tiers["evaluableManagers"]
         assert tiers["qualifiedManagers"] >= 1
 
     def test_qualification_bar_is_a_percentile_so_it_tightens_with_coverage(self):
         cfg = S.load_config()
-        # v2: top quartile (0.75) rather than v1's top 15%.
         assert cfg["qualification"]["minScorePercentile"] >= 0.67
 
 
@@ -268,17 +248,6 @@ class TestPercentileRank:
 
 
 class TestPercentileRankSorted:
-    """``_percentile_rank_sorted`` is the O(log N) hot-path twin of
-    ``percentile_rank``, used inside ``score_managers`` (V1-61: calling
-    ``percentile_rank`` fresh per manager rescans the whole population on
-    every call, which measured as ~196 of ~297 total seconds of a real
-    production Sharp Roster Percentage build). It must be exactly
-    interchangeable with ``percentile_rank`` on the same underlying
-    values — every property already proven of ``percentile_rank`` in
-    ``TestPercentileRank`` above is re-proven here for the sorted/binary
-    -search path, plus a broader equivalence sweep.
-    """
-
     def test_identical_population_scores_midpoint_not_elite(self):
         assert S._percentile_rank_sorted(1.0, sorted([1.0] * 10)) == 0.5
 
@@ -296,7 +265,7 @@ class TestPercentileRankSorted:
             [1.0] * 10,
             [0.1, 0.2, 0.3, 0.4, 0.5],
             [0.1, 0.1, 0.3, 0.3, 0.3, 0.9],
-            [round((i * 37 % 401) * 0.0025, 4) for i in range(400)],  # duplicates + gaps
+            [round((i * 37 % 401) * 0.0025, 4) for i in range(400)],
         ]
         probes = [-5.0, 0.0, 0.1, 0.13, 0.3, 0.5, 0.9, 1.0, 5.0]
         for pop in populations:
@@ -318,9 +287,7 @@ def test_manager_score_to_dict_preserves_unknown_components_and_nested_weights()
             "weightsApplied": {"performance": 0.461538, "rosterQuality": 0.0},
         },
     )
-
     payload = scored.to_dict()
-
     assert payload["components"]["performance"] == 0.1235
     assert payload["components"]["rosterQuality"] is None
     assert payload["components"]["weightsApplied"] == {
@@ -330,76 +297,19 @@ def test_manager_score_to_dict_preserves_unknown_components_and_nested_weights()
 
 
 class TestScoreManagersPercentileWiring:
-    """The V1-61 perf fix changed WHERE percentiles get computed
-    (``score_managers`` now precomputes one sorted array per population
-    axis and looks values up with ``_percentile_rank_sorted``, instead of
-    ``_performance_component``/``_roster_quality_component``/the
-    qualification loop each calling ``percentile_rank`` fresh per
-    manager) but must not change WHAT gets computed. The equivalence
-    classes in ``TestPercentileRankSorted`` above prove the primitive
-    itself is correct; this proves the wiring — which population gets
-    threaded into which call — was not scrambled in the process, by
-    substituting the original, untouched ``percentile_rank`` back into
-    every call site the fix touched and confirming the full
-    ``score_managers`` output is unchanged.
-
-    (Manually verified once, outside the committed suite, with the actual
-    pre-fix implementation via ``git stash`` at N=800 and N=6000: byte-
-    identical ``ManagerScore.to_dict()`` output both times, real-code not
-    reasoning-only. This test is the permanent, automated form of that
-    check.)
-    """
-
     def test_matches_reference_percentile_rank_at_every_call_site(self, monkeypatch):
-        # Deliberately SHUFFLED: the `population()` helper builds records
-        # in monotonically increasing win_pct/finish/roster-ratio order, so
-        # `records` (and therefore the internal `raw_scores`, built by
-        # appending each manager's total score in iteration order) comes
-        # out already ascending by coincidence. A prior version of this
-        # test used the unshuffled population and passed even when the
-        # `score_percentile` call site was mutated to read the raw
-        # (unsorted-by-construction) `raw_scores` list directly instead of
-        # `sorted_raw_scores` -- bisect on an already-sorted-by-luck input
-        # happens to still be correct. Shuffling breaks that coincidence
-        # and is what actually proves the call site sorts before it binary
-        # -searches. Verified: this exact mutation (drop `sorted(...)`,
-        # feed `_percentile_rank_sorted` the unsorted `raw_scores`) makes
-        # ~90 of 94 evaluated managers' scorePercentile disagree with the
-        # reference on this shuffled input, and 0 disagree on the
-        # unshuffled one -- keep the shuffle.
         records = population(150)
         rng = random.Random(20260830)
         rng.shuffle(records)
-
         fast = [entry.to_dict() for entry in S.score_managers(records)]
-
-        # Delegate the fast path back to the original O(N) primitive.
-        # Sorting doesn't change a multiset, so percentile_rank produces
-        # the identical number whether or not its input happens to be
-        # pre-sorted -- this is a faithful reference, not an approximation.
         monkeypatch.setattr(S, "_percentile_rank_sorted", S.percentile_rank)
-
         reference = [entry.to_dict() for entry in S.score_managers(records)]
-
         assert fast == reference
-        # Sanity check the swap actually exercised real evaluable managers,
-        # not an early-exit no-op that would make the equality above
-        # vacuous.
         evaluated = [e for e in fast if e.get("evaluable") and e.get("score") is not None]
         assert len(evaluated) > 50
 
 
 class TestScoreManagersScaleGuard:
-    """Regression guard against re-introducing an O(N^2) percentile scan
-    in ``score_managers`` (V1-61). Measured directly against the real
-    pre-fix implementation via ``git stash`` before writing this bound:
-    at N=8000, the O(N^2) code took 13.8s and the O(N log N) fix takes
-    1.8s. The bound below sits well above the fixed code's real time
-    (headroom for a slow CI runner) and well below the quadratic code's
-    real time, so a reintroduced rescan-per-manager fails this loudly
-    without making routine test runs slow.
-    """
-
     def test_large_population_scores_well_within_the_quadratic_gap(self):
         records = population(8000)
         start = time.perf_counter()
@@ -414,23 +324,9 @@ class TestScoreManagersScaleGuard:
 
 
 class TestChampionshipBaseHoist:
-    """The championship shrinkage target is a POPULATION property, hoisted
-    out of the per-manager loop (V1-61).
-
-    ``_performance_component`` used to re-derive it on every call via
-    ``_mean`` over a list holding one entry per evaluable manager, with an
-    ``isinstance`` test per element -- O(N^2). Measured at the production
-    population: 162,016,665 ``isinstance`` calls, 92% of ``score_managers``.
-    """
-
     def test_hoisted_base_matches_deriving_it_per_manager(self):
-        """The whole output, not just the timing, must be unchanged."""
         records = population(150)
         hoisted = [e.to_dict() for e in S.score_managers(records)]
-
-        # Reproduce the retired per-manager derivation by forcing the
-        # component to derive its own base (championship_base=None is that
-        # legacy path, kept for ad-hoc callers).
         cfg = S.load_config()
         pop = S.build_population(records, cfg)
         sorted_pop = {
@@ -444,65 +340,61 @@ class TestChampionshipBaseHoist:
             assert S._performance_component(
                 rec, sorted_pop, cfg, championship_base=base
             ) == S._performance_component(rec, sorted_pop, cfg), rec.user_id
-
         assert len(hoisted) == len(records)
 
     def test_base_is_derived_from_the_list_the_component_actually_receives(self, monkeypatch):
-        """Sorted and unsorted hold the same multiset but sum differently.
-
-        Floating-point addition is not associative, so averaging
-        ``population`` instead of ``sorted_population`` yields a slightly
-        different base, which propagates through ``_shrunk_rate`` into a
-        percentile lookup and moves real published values. Measured on a
-        45,000-manager population: sourcing it from the unsorted list moved
-        one manager's performance component 0.2433 -> 0.2186, his score
-        47.4 -> 46.3, and changed 12,720 of 45,000 rows.
-
-        An ordinary test population cannot expose this -- its championship
-        rates are all small and similar, so both orders agree to the last
-        bit. So the population is replaced with one that is genuinely
-        summation-order sensitive, and the base actually handed to
-        ``_performance_component`` is captured and checked against the two
-        candidates.
-        """
-        order_sensitive = [1e16] + [1.0] * 200
-        from_raw = S._mean(order_sensitive)
-        from_sorted = S._mean(sorted(order_sensitive))
-        assert from_raw != from_sorted, "fixture no longer separates the two orders"
+        """Prove sorted-population sourcing and the hoist without relying on FP order."""
+        raw_values = [3.0, 1.0, 2.0]
+        sorted_values = [1.0, 2.0, 3.0]
+        raw_sentinel = 0.111
+        sorted_sentinel = 0.222
 
         real_build_population = S.build_population
+        real_mean = S._mean
 
         def fake_build_population(records, cfg):
             pop = real_build_population(records, cfg)
-            pop["championshipRate"] = list(order_sensitive)
+            pop["championshipRate"] = list(raw_values)
             return pop
+
+        mean_calls = {"championship": 0}
+
+        def mean_spy(values):
+            materialized = list(values)
+            if materialized == raw_values:
+                mean_calls["championship"] += 1
+                return raw_sentinel
+            if materialized == sorted_values:
+                mean_calls["championship"] += 1
+                return sorted_sentinel
+            return real_mean(materialized)
 
         seen: list[float | None] = []
         real_component = S._performance_component
 
-        def spy(rec_, population_, cfg_, championship_base=None):
+        def component_spy(rec_, population_, cfg_, championship_base=None):
             seen.append(championship_base)
             return real_component(rec_, population_, cfg_, championship_base=championship_base)
 
         monkeypatch.setattr(S, "build_population", fake_build_population)
-        monkeypatch.setattr(S, "_performance_component", spy)
+        monkeypatch.setattr(S, "_mean", mean_spy)
+        monkeypatch.setattr(S, "_performance_component", component_spy)
         S.score_managers(population(40))
 
         assert seen, "no evaluable manager was scored, so nothing was proven"
-        assert set(seen) == {from_sorted}, (
-            "score_managers must derive championship_base from the SAME list it "
-            "hands the component (sorted_population), not from the raw population"
+        assert set(seen) == {sorted_sentinel}, (
+            "score_managers must derive championship_base from sorted_population "
+            "and pass that hoisted value to every scored manager"
         )
-        assert from_raw not in seen
+        assert raw_sentinel not in seen
+        assert None not in seen, "dropping the hoist must make this guard fail"
+        assert mean_calls["championship"] == 1, "championship base must be computed exactly once"
 
     def test_an_empty_population_still_falls_back_to_the_prior(self):
-        """`or 0.08` is the documented prior, not a coerced zero."""
         cfg = S.load_config()
         rec = population(1)[0]
         value, _ = S._performance_component(rec, {}, cfg, championship_base=None)
         assert isinstance(value, float)
-        # An explicit base of 0.0 is falsy; the retired expression turned it
-        # into 0.08 and the hoisted one must not diverge from that.
         assert S._performance_component(
             rec, {}, cfg, championship_base=(S._mean([]) or 0.08)
         ) == S._performance_component(rec, {}, cfg, championship_base=0.08)
