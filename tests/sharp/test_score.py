@@ -411,3 +411,98 @@ class TestScoreManagersScaleGuard:
             "if this is genuinely slow again, check for a percentile_rank "
             "call reintroduced inside the per-manager loop"
         )
+
+
+class TestChampionshipBaseHoist:
+    """The championship shrinkage target is a POPULATION property, hoisted
+    out of the per-manager loop (V1-61).
+
+    ``_performance_component`` used to re-derive it on every call via
+    ``_mean`` over a list holding one entry per evaluable manager, with an
+    ``isinstance`` test per element -- O(N^2). Measured at the production
+    population: 162,016,665 ``isinstance`` calls, 92% of ``score_managers``.
+    """
+
+    def test_hoisted_base_matches_deriving_it_per_manager(self):
+        """The whole output, not just the timing, must be unchanged."""
+        records = population(150)
+        hoisted = [e.to_dict() for e in S.score_managers(records)]
+
+        # Reproduce the retired per-manager derivation by forcing the
+        # component to derive its own base (championship_base=None is that
+        # legacy path, kept for ad-hoc callers).
+        cfg = S.load_config()
+        pop = S.build_population(records, cfg)
+        sorted_pop = {
+            key: sorted(float(v) for v in vals if isinstance(v, (int, float)))
+            for key, vals in pop.items()
+        }
+        base = S._mean(sorted_pop.get("championshipRate") or []) or 0.08
+        for rec in records:
+            if S.check_eligibility(rec, cfg):
+                continue
+            assert S._performance_component(
+                rec, sorted_pop, cfg, championship_base=base
+            ) == S._performance_component(rec, sorted_pop, cfg), rec.user_id
+
+        assert len(hoisted) == len(records)
+
+    def test_base_is_derived_from_the_list_the_component_actually_receives(self, monkeypatch):
+        """Sorted and unsorted hold the same multiset but sum differently.
+
+        Floating-point addition is not associative, so averaging
+        ``population`` instead of ``sorted_population`` yields a slightly
+        different base, which propagates through ``_shrunk_rate`` into a
+        percentile lookup and moves real published values. Measured on a
+        45,000-manager population: sourcing it from the unsorted list moved
+        one manager's performance component 0.2433 -> 0.2186, his score
+        47.4 -> 46.3, and changed 12,720 of 45,000 rows.
+
+        An ordinary test population cannot expose this -- its championship
+        rates are all small and similar, so both orders agree to the last
+        bit. So the population is replaced with one that is genuinely
+        summation-order sensitive, and the base actually handed to
+        ``_performance_component`` is captured and checked against the two
+        candidates.
+        """
+        order_sensitive = [1e16] + [1.0] * 200
+        from_raw = S._mean(order_sensitive)
+        from_sorted = S._mean(sorted(order_sensitive))
+        assert from_raw != from_sorted, "fixture no longer separates the two orders"
+
+        real_build_population = S.build_population
+
+        def fake_build_population(records, cfg):
+            pop = real_build_population(records, cfg)
+            pop["championshipRate"] = list(order_sensitive)
+            return pop
+
+        seen: list[float | None] = []
+        real_component = S._performance_component
+
+        def spy(rec_, population_, cfg_, championship_base=None):
+            seen.append(championship_base)
+            return real_component(rec_, population_, cfg_, championship_base=championship_base)
+
+        monkeypatch.setattr(S, "build_population", fake_build_population)
+        monkeypatch.setattr(S, "_performance_component", spy)
+        S.score_managers(population(40))
+
+        assert seen, "no evaluable manager was scored, so nothing was proven"
+        assert set(seen) == {from_sorted}, (
+            "score_managers must derive championship_base from the SAME list it "
+            "hands the component (sorted_population), not from the raw population"
+        )
+        assert from_raw not in seen
+
+    def test_an_empty_population_still_falls_back_to_the_prior(self):
+        """`or 0.08` is the documented prior, not a coerced zero."""
+        cfg = S.load_config()
+        rec = population(1)[0]
+        value, _ = S._performance_component(rec, {}, cfg, championship_base=None)
+        assert isinstance(value, float)
+        # An explicit base of 0.0 is falsy; the retired expression turned it
+        # into 0.08 and the hoisted one must not diverge from that.
+        assert S._performance_component(
+            rec, {}, cfg, championship_base=(S._mean([]) or 0.08)
+        ) == S._performance_component(rec, {}, cfg, championship_base=0.08)

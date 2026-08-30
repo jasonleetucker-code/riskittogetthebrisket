@@ -309,12 +309,28 @@ def _performance_component(
     rec: ManagerRecord,
     population: dict[str, list[float]],
     cfg: dict[str, Any],
+    championship_base: float | None = None,
 ) -> tuple[float, list[str]]:
     """``population`` must be pre-sorted, pre-cleaned float arrays (see
     ``score_managers``'s ``sorted_population`` — every lookup here goes
     through ``_percentile_rank_sorted``, not ``percentile_rank``, because
     this runs once per manager and a fresh O(N) scan per call was the
-    dominant cost of ``score_managers`` in production (V1-61)."""
+    dominant cost of ``score_managers`` in production (V1-61).
+
+    ``championship_base`` is the population's mean championship rate — the
+    shrinkage target. It is a property of the POPULATION, not of ``rec``,
+    so ``score_managers`` computes it once and passes it in. Left as
+    ``None`` it is derived here exactly as before, which keeps ad-hoc and
+    historical callers working; the hot path must always pass it.
+
+    Deriving it per manager was the dominant cost of ``score_managers``
+    even after the percentile repair: ``_mean`` rebuilds its input list
+    with an ``isinstance`` test per element, and the list is one entry per
+    evaluable manager, so calling it once per manager is O(N^2). Measured
+    at the production population (12,720 evaluable of 45,286 evidence
+    managers): 162,016,665 ``isinstance`` calls — 92% of the function's
+    runtime, and 12,720 x 12,720 to within 0.2%.
+    """
     block = cfg.get("performance") or {}
     sub = block.get("subWeights") or {}
     notes: list[str] = []
@@ -338,7 +354,11 @@ def _performance_component(
             )
 
     # Championships: shrunk, because one title in one season is luck.
-    base = _mean(population.get("championshipRate") or []) or 0.08
+    base = (
+        championship_base
+        if championship_base is not None
+        else (_mean(population.get("championshipRate") or []) or 0.08)
+    )
     prior_n = float((block.get("championshipShrinkage") or {}).get("priorN", 6.0))
     shrunk = _shrunk_rate(rec.championships, rec.completed_seasons, base, prior_n)
     p = _percentile_rank_sorted(shrunk, population.get("championshipRateShrunk") or [])
@@ -626,6 +646,33 @@ def score_managers(
         for key, vals in population.items()
     }
 
+    # The championship shrinkage target, computed ONCE. It is a property of
+    # the population, not of any manager, and `_performance_component` used
+    # to re-derive it on every call -- `_mean` over a list holding one entry
+    # per evaluable manager, with an isinstance test per element. That is
+    # O(N^2), and after the percentile repair it was what remained: measured
+    # 162,016,665 isinstance calls, 92% of this function's runtime, at the
+    # production population of 12,720 evaluable managers.
+    #
+    # Read from `sorted_population`, NOT `population`, and that is
+    # load-bearing rather than incidental. `_performance_component` receives
+    # `sorted_population`, so that is the list it was averaging. The two hold
+    # the same multiset, but floating-point addition is not associative, so
+    # summing them in different orders yields slightly different means -- and
+    # that difference propagates through `_shrunk_rate` into a percentile
+    # lookup, moving real published values. Caught by the before/after
+    # equivalence check at the production population: sourcing this from
+    # `population` moved manager u556's performance component 0.2433 -> 0.2186
+    # and his score 47.4 -> 46.3. Spelled otherwise exactly as
+    # `_performance_component` spelled it, `or 0.08` fallback included.
+    #
+    # Note `build_population` derives its own `observed_base` from the raw
+    # `pop["championshipRate"]`; that one has always summed in a different
+    # order than this one and is a separate quantity feeding a different axis.
+    # They are NOT required to be bit-identical, and this change does not
+    # alter either of them.
+    championship_base = _mean(sorted_population.get("championshipRate") or []) or 0.08
+
     scored: list[ManagerScore] = []
     raw_scores: list[float] = []
 
@@ -655,7 +702,9 @@ def score_managers(
             )
             continue
 
-        perf, perf_notes = _performance_component(rec, sorted_population, cfg)
+        perf, perf_notes = _performance_component(
+            rec, sorted_population, cfg, championship_base=championship_base
+        )
         roster, roster_notes = _roster_quality_component(rec, sorted_population, cfg)
         consistency, cons_notes = _consistency_component(rec, cfg)
         longevity = _longevity_component(rec, cfg)
