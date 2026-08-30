@@ -50,8 +50,13 @@ on:
   push:
     branches:
       - main
+    # Keep the production evidence lane coupled to the scripts it executes.
+    # A profiler/verifier repair that lands without changing this workflow
+    # must still produce fresh on-box evidence from that exact merged tree.
     paths:
       - '.github/workflows/lane4-onbox-verification.yml'
+      - 'scripts/profile_sharp_roster_percentage.py'
+      - 'scripts/verify_lane4_production.py'
   workflow_dispatch:
     inputs:
       league:
