@@ -14,7 +14,7 @@
 # Test runner.  Minor bumped 8.3 → 9.0 on 2026-04-24 to match
 # what the local + production test envs actually have installed;
 # the original PR pin fell behind by three days.
-pytest~=9.0.0
+pytest~=9.1.1
 
 # ``fastapi.testclient.TestClient`` is a re-export of
 # ``starlette.testclient.TestClient``, which requires ``httpx`` at
