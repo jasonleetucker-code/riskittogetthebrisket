@@ -141,7 +141,10 @@ def _parse_args() -> argparse.Namespace:
         "--contract",
         type=Path,
         default=None,
-        help="contract JSON; defaults to newest exports/latest/dynasty_data_*.json",
+        help=(
+            "optional contract JSON; when omitted, profile build_board's canonical "
+            "contract=None path, matching the product's supported default"
+        ),
     )
     parser.add_argument(
         "--ledger-path",
@@ -163,8 +166,15 @@ def main() -> int:
     if args.timeout_seconds <= 0:
         raise SystemExit("--timeout-seconds must be > 0")
 
-    contract_path = args.contract or _latest_contract_path()
-    contract = _load_contract(contract_path)
+    # ``build_board`` explicitly supports ``contract=None``.  Production's
+    # newest exports/latest file is not guaranteed to be the assembled API
+    # contract (the 2026-08-30 Lane 4 run encountered a legitimate export with
+    # no playersArray), so treating the newest export as a mandatory input made
+    # this diagnostic fail before the canonical board ran.  Only load a
+    # contract when the operator explicitly supplied one; omission preserves
+    # the canonical default instead of fabricating or coercing an input.
+    contract_path = args.contract
+    contract = _load_contract(contract_path) if contract_path is not None else None
     recorder = StageRecorder()
     _install_stage_wrappers(recorder)
 
@@ -208,8 +218,8 @@ def main() -> int:
     report: dict[str, Any] = {
         "status": status,
         "wallMs": round(wall_ms, 3),
-        "contractPath": str(contract_path),
-        "contractPlayers": len(contract.get("playersArray") or []),
+        "contractPath": str(contract_path) if contract_path is not None else None,
+        "contractPlayers": len((contract or {}).get("playersArray") or []),
         "ledgerPath": str(args.ledger_path) if args.ledger_path else None,
         "stages": recorder.report(),
         "result": None,
