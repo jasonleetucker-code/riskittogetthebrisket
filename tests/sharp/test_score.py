@@ -343,7 +343,32 @@ class TestChampionshipBaseHoist:
         assert len(hoisted) == len(records)
 
     def test_base_is_derived_from_the_list_the_component_actually_receives(self, monkeypatch):
-        """Prove sorted-population sourcing and the hoist without relying on FP order."""
+        """Prove RAW-population sourcing and the hoist without relying on FP order.
+
+        The base must reproduce ``build_population``'s own ``observed_base``,
+        which is ``_mean`` over the RAW ``pop["championshipRate"]``. That is a
+        bit-for-bit requirement, not a stylistic one: ``build_population`` uses
+        ``observed_base`` to fill ``championshipRateShrunk``, and
+        ``_performance_component`` then recomputes the SAME manager's shrunk
+        rate and looks it up in that population. Equal bases make the manager
+        land exactly on its own stored entry, inside ``percentile_rank``'s
+        ``equal`` block.
+
+        Averaging the sorted list holds the same multiset but sums it in a
+        different order, and float addition is not associative -- one ULP is
+        enough to push the value off its own tie block. ``championshipRateShrunk``
+        is heavily tied (44 distinct values across 3,390 entries, largest block
+        150), so that ULP moves the percentile by up to 0.022, not by an ULP.
+        Measured against the pre-#1183 baseline at 12,000 managers: the sorted
+        sourcing moved ``performance`` on every evaluable manager, ``score`` on
+        3,230 (max 0.40), and flipped ``qualified`` on 8 -- sharp COHORT
+        MEMBERSHIP.
+
+        Sentinels rather than real means, deliberately: whether two summation
+        orders actually differ is interpreter-dependent (CPython 3.12 gave
+        ``sum()`` compensated summation), so a fixture built on that passes on
+        one interpreter and silently fails on another.
+        """
         raw_values = [3.0, 1.0, 2.0]
         sorted_values = [1.0, 2.0, 3.0]
         raw_sentinel = 0.111
@@ -382,13 +407,75 @@ class TestChampionshipBaseHoist:
         S.score_managers(population(40))
 
         assert seen, "no evaluable manager was scored, so nothing was proven"
-        assert set(seen) == {sorted_sentinel}, (
-            "score_managers must derive championship_base from sorted_population "
-            "and pass that hoisted value to every scored manager"
+        assert set(seen) == {raw_sentinel}, (
+            "score_managers must derive championship_base from the RAW population "
+            "-- the same list, in the same order, that build_population averaged "
+            "into observed_base -- and pass that hoisted value to every manager"
         )
-        assert raw_sentinel not in seen
+        assert sorted_sentinel not in seen, (
+            "sourcing the base from sorted_population desynchronizes it from "
+            "observed_base by an ULP and breaks the championshipRateShrunk tie"
+        )
         assert None not in seen, "dropping the hoist must make this guard fail"
         assert mean_calls["championship"] == 1, "championship base must be computed exactly once"
+
+    def test_a_managers_shrunk_rate_lands_on_its_own_population_entry(self, monkeypatch):
+        """The invariant the ULP broke, stated behaviourally rather than by sourcing.
+
+        Every evaluable manager's shrunk championship rate, recomputed inside
+        ``_performance_component`` from the hoisted base, must be an EXACT
+        member of ``championshipRateShrunk`` -- because ``build_population``
+        already computed that very number for that very manager. If it is not,
+        the manager is being percentile-ranked against a population it is not a
+        member of, and ``percentile_rank``'s tie handling silently stops
+        applying to it.
+
+        Deliberately asserts exact membership, not closeness: the whole defect
+        is that a value one ULP away is no longer a tie.
+
+        Coverage, stated rather than implied: this catches a DROPPED hoist
+        (base ``None``) and any structural break between ``build_population``
+        and ``_performance_component``. It does NOT catch the raw-vs-sorted
+        sourcing mutation at this fixture size -- the two summation orders
+        agree bit-for-bit on a 300-manager population, verified by running the
+        mutation against it. ``test_base_is_derived_from_the_list_the_component
+        _actually_receives`` is the mutation guard for the sourcing; this test
+        states the invariant that mutation violates.
+        """
+        records = population(300)
+        cfg = S.load_config()
+        pop = S.build_population(records, cfg)
+
+        seen: list[float | None] = []
+        real_component = S._performance_component
+
+        def component_spy(rec_, population_, cfg_, championship_base=None):
+            seen.append(championship_base)
+            return real_component(rec_, population_, cfg_, championship_base=championship_base)
+
+        monkeypatch.setattr(S, "_performance_component", component_spy)
+        S.score_managers(records)
+        monkeypatch.undo()
+
+        assert seen, "no evaluable manager was scored, so nothing was proven"
+        base = seen[0]
+        assert base is not None, "the hoisted base must reach the component"
+
+        prior_n = float(
+            ((cfg.get("performance") or {}).get("championshipShrinkage") or {}).get("priorN", 6.0)
+        )
+        stored = set(pop["championshipRateShrunk"])
+        assert stored, "fixture produced no evaluable managers"
+
+        for rec in records:
+            if S.check_eligibility(rec, cfg):
+                continue
+            shrunk = S._shrunk_rate(rec.championships, rec.completed_seasons, base, prior_n)
+            assert shrunk in stored, (
+                f"{rec.user_id}: recomputed shrunk rate {shrunk!r} is not an exact "
+                "member of championshipRateShrunk, so this manager no longer ties "
+                "with itself in the percentile lookup"
+            )
 
     def test_an_empty_population_still_falls_back_to_the_prior(self):
         cfg = S.load_config()
