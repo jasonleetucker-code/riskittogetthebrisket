@@ -1041,3 +1041,119 @@ class TestTrendBaselineLoopInvariants:
         )
         assert trend["comparableRosters"] == 3
         assert trend["populationOverlap"] == 1.0
+
+    def test_precomputed_shared_and_union_match_deriving_them(self):
+        """``_trend``'s optional fast-path arguments must be exactly the
+        quantities it would otherwise derive (V1-61).
+
+        ``build_board`` passes ``current_roster_keys=applicable`` and a
+        ``baseline_roster_keys`` that is ``<baseline keys> & applicable``, so
+        the baseline set is a SUBSET of the current set by construction, and
+        therefore ``shared == baseline_roster_keys`` and
+        ``union == current_roster_keys``. Deriving them anyway costs two
+        roster-key-sized set operations per (asset x baseline).
+        """
+        current = {f"L1#{i}" for i in range(1, 41)}
+        for baseline in (
+            set(),  # nothing observed at the baseline
+            {"L1#1"},  # a single overlapping roster
+            {f"L1#{i}" for i in range(1, 41)},  # the whole population
+            {f"L1#{i}" for i in range(1, 33)},  # exactly at the 0.80 bar
+            {f"L1#{i}" for i in range(1, 32)},  # just under it
+        ):
+            holders = {"L1#1", "L1#2", "L1#3"}
+            baseline_holders = {"L1#1", "L1#2"}
+            derived = rp._trend(
+                "4046",
+                current_holders=holders,
+                baseline_holders=baseline_holders,
+                current_roster_keys=current,
+                baseline_roster_keys=baseline,
+            )
+            fast = rp._trend(
+                "4046",
+                current_holders=holders,
+                baseline_holders=baseline_holders,
+                current_roster_keys=current,
+                baseline_roster_keys=baseline,
+                shared=baseline,
+                union_size=len(current),
+            )
+            assert derived == fast, baseline
+
+    def test_board_percentages_survive_the_precomputed_denominators(self, ledger, cohort_of):
+        """The row loop derives ``applicable`` and ``counted`` from
+        per-family precomputes rather than intersecting roster-key-sized
+        sets per asset. The published arithmetic must not move.
+
+        Mixed formats matter here: an IDP player's denominator is narrowed
+        to IDP-fielding leagues while an offense player's is not, so this
+        exercises both the narrowed and the full family sets.
+        """
+        idp_keys = [f"sleeper:idp{i}" for i in range(1, 5)]
+        off_keys = [f"sleeper:off{i}" for i in range(1, 7)]
+        cohort_of(idp_keys + off_keys)
+        rs.record_rosters(
+            [
+                roster(k, f"sleeper:LI{i}", assets=["lb1", "wr1"], fmt=IDP_LEAGUE)
+                for i, k in enumerate(idp_keys)
+            ]
+            + [
+                roster(k, f"sleeper:LO{i}", assets=["wr1"], fmt=OFFENSE_ONLY)
+                for i, k in enumerate(off_keys)
+            ],
+            path=ledger,
+        )
+        payload = board(ledger)
+
+        wr = row_for(payload, "Star Receiver")
+        lb = row_for(payload, "Star Linebacker")
+        # WR: held by all 10, every roster can field him.
+        assert (wr["sharpRosters"], wr["eligibleRosters"]) == (10, 10)
+        assert wr["sharpRosterPct"] == 1.0
+        # LB: held by the 4 IDP rosters, and only those 4 can field him --
+        # the offense-only rosters are correctly out of his denominator.
+        assert (lb["sharpRosters"], lb["eligibleRosters"]) == (4, 4)
+        assert lb["sharpRosterPct"] == 1.0
+
+    def test_a_holding_roster_outside_the_family_still_counts_at_the_baseline(
+        self, ledger, cohort_of
+    ):
+        """The baseline key set is built by distributing the intersection over
+        ``applicable = family_keys | held_rosters``, and BOTH terms are needed.
+
+        A roster that HOLDS an IDP player is inside his denominator even when
+        its captured format says the league fields no IDP — holding him is
+        proof it does. Those rosters are in ``held_rosters`` but NOT in
+        ``family_keys``, so dropping the ``held_rosters`` half of the baseline
+        set silently shrinks ``shared`` and can withhold a trend that is
+        genuinely available. Here 6 IDP + 4 offense-only rosters all hold the
+        linebacker at both endpoints: correct behaviour is overlap 1.0 and an
+        available trend; dropping the term gives 6/10 = 0.60 and withholds it.
+        """
+        idp_keys = [f"sleeper:idp{i}" for i in range(1, 7)]
+        off_keys = [f"sleeper:off{i}" for i in range(1, 5)]
+        cohort_of(idp_keys + off_keys)
+
+        def _rosters(observed):
+            return [
+                roster(k, f"sleeper:LI{i}", assets=["lb1"], fmt=IDP_LEAGUE, observed=observed)
+                for i, k in enumerate(idp_keys)
+            ] + [
+                roster(k, f"sleeper:LO{i}", assets=["lb1"], fmt=OFFENSE_ONLY, observed=observed)
+                for i, k in enumerate(off_keys)
+            ]
+
+        rs.record_rosters(_rosters(NOW - 40 * DAY), path=ledger)
+        rs.record_rosters(_rosters(NOW), path=ledger)
+
+        lb = row_for(board(ledger), "Star Linebacker")
+        # All 10 hold him, so all 10 are in his denominator.
+        assert (lb["sharpRosters"], lb["eligibleRosters"]) == (10, 10)
+        trend = lb["trend"]["thirtyDay"]
+        assert trend["available"] is True, (
+            "the population never moved; a withheld trend means the "
+            "held_rosters half of the baseline key set was dropped"
+        )
+        assert trend["comparableRosters"] == 10
+        assert trend["populationOverlap"] == 1.0
