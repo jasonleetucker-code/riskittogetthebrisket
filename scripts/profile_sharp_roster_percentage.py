@@ -43,9 +43,12 @@ _REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(_REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(_REPO_ROOT))
 
+from src.intel import platform_ledger  # noqa: E402
 from src.sharp import cohort as sharp_cohort  # noqa: E402
+from src.sharp import platform_records as sharp_platform_records  # noqa: E402
 from src.sharp import roster_percentage as roster_percentage  # noqa: E402
 from src.sharp import roster_store  # noqa: E402
+from src.sharp import score as sharp_score  # noqa: E402
 
 
 class ProfileTimeout(RuntimeError):
@@ -118,8 +121,26 @@ def _load_contract(path: Path) -> dict[str, Any]:
 def _install_stage_wrappers(recorder: StageRecorder) -> None:
     # These are the existing canonical calls made by build_board().  Wrapping
     # records wall time only; arguments, return values, exceptions and owners
-    # remain untouched.
+    # remain untouched.  The nested cohort timers intentionally overlap the
+    # top-level cohort_members timer: they partition the newly measured 195s
+    # cohort cost without changing which function owns cohort membership.
     recorder.wrap(sharp_cohort, "cohort_members", "cohort_members")
+    recorder.wrap(sharp_cohort, "_compute_cohort_members", "cohort_compute")
+    recorder.wrap(
+        sharp_platform_records,
+        "build_manager_records",
+        "cohort_build_manager_records",
+    )
+    recorder.wrap(sharp_score, "score_managers", "cohort_score_managers")
+    recorder.wrap(sharp_cohort, "load_ffpc_config", "cohort_load_ffpc_config")
+    recorder.wrap(sharp_cohort, "curated_members", "cohort_curated_members")
+    recorder.wrap(sharp_cohort, "provisional_members", "cohort_provisional_members")
+    recorder.wrap(
+        sharp_cohort,
+        "curated_industry_members",
+        "cohort_curated_industry_members",
+    )
+    recorder.wrap(platform_ledger, "ensure_platform_schema", "ensure_platform_schema")
     recorder.wrap(roster_store, "ensure_roster_schema", "ensure_roster_schema")
     recorder.wrap(roster_store, "load_rosters", "load_rosters")
     recorder.wrap(roster_percentage, "eligible_rosters", "eligible_rosters")
