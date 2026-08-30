@@ -52,7 +52,7 @@ beautifulsoup4~=4.15.0
 # pulled in transitively.  Used by ``src/api/push_delivery.py`` to
 # fan out the daily signal-alerts digest + custom alert hits to
 # subscribed devices.
-pywebpush~=2.0
+pywebpush~=2.4
 
 # tzdata: required on Windows ONLY, and load-bearing there.
 #
