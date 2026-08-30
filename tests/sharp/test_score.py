@@ -3,6 +3,9 @@ separation of score from confidence."""
 
 from __future__ import annotations
 
+import random
+import time
+
 import pytest
 
 from src.sharp import score as S
@@ -264,6 +267,46 @@ class TestPercentileRank:
         assert S.percentile_rank(0.05, pop) < S.percentile_rank(0.45, pop)
 
 
+class TestPercentileRankSorted:
+    """``_percentile_rank_sorted`` is the O(log N) hot-path twin of
+    ``percentile_rank``, used inside ``score_managers`` (V1-61: calling
+    ``percentile_rank`` fresh per manager rescans the whole population on
+    every call, which measured as ~196 of ~297 total seconds of a real
+    production Sharp Roster Percentage build). It must be exactly
+    interchangeable with ``percentile_rank`` on the same underlying
+    values — every property already proven of ``percentile_rank`` in
+    ``TestPercentileRank`` above is re-proven here for the sorted/binary
+    -search path, plus a broader equivalence sweep.
+    """
+
+    def test_identical_population_scores_midpoint_not_elite(self):
+        assert S._percentile_rank_sorted(1.0, sorted([1.0] * 10)) == 0.5
+
+    def test_empty_population_is_neutral(self):
+        assert S._percentile_rank_sorted(0.9, []) == 0.5
+
+    def test_monotone(self):
+        pop = sorted([0.1, 0.2, 0.3, 0.4, 0.5])
+        assert S._percentile_rank_sorted(0.05, pop) < S._percentile_rank_sorted(0.45, pop)
+
+    def test_matches_percentile_rank_across_populations_and_probes(self):
+        populations = [
+            [],
+            [1.0],
+            [1.0] * 10,
+            [0.1, 0.2, 0.3, 0.4, 0.5],
+            [0.1, 0.1, 0.3, 0.3, 0.3, 0.9],
+            [round((i * 37 % 401) * 0.0025, 4) for i in range(400)],  # duplicates + gaps
+        ]
+        probes = [-5.0, 0.0, 0.1, 0.13, 0.3, 0.5, 0.9, 1.0, 5.0]
+        for pop in populations:
+            sorted_pop = sorted(pop)
+            for value in probes:
+                assert S._percentile_rank_sorted(value, sorted_pop) == pytest.approx(
+                    S.percentile_rank(value, pop)
+                ), (pop, value)
+
+
 def test_manager_score_to_dict_preserves_unknown_components_and_nested_weights():
     scored = S.ManagerScore(
         user_id="serializer",
@@ -284,3 +327,87 @@ def test_manager_score_to_dict_preserves_unknown_components_and_nested_weights()
         "performance": 0.4615,
         "rosterQuality": 0.0,
     }
+
+
+class TestScoreManagersPercentileWiring:
+    """The V1-61 perf fix changed WHERE percentiles get computed
+    (``score_managers`` now precomputes one sorted array per population
+    axis and looks values up with ``_percentile_rank_sorted``, instead of
+    ``_performance_component``/``_roster_quality_component``/the
+    qualification loop each calling ``percentile_rank`` fresh per
+    manager) but must not change WHAT gets computed. The equivalence
+    classes in ``TestPercentileRankSorted`` above prove the primitive
+    itself is correct; this proves the wiring — which population gets
+    threaded into which call — was not scrambled in the process, by
+    substituting the original, untouched ``percentile_rank`` back into
+    every call site the fix touched and confirming the full
+    ``score_managers`` output is unchanged.
+
+    (Manually verified once, outside the committed suite, with the actual
+    pre-fix implementation via ``git stash`` at N=800 and N=6000: byte-
+    identical ``ManagerScore.to_dict()`` output both times, real-code not
+    reasoning-only. This test is the permanent, automated form of that
+    check.)
+    """
+
+    def test_matches_reference_percentile_rank_at_every_call_site(self, monkeypatch):
+        # Deliberately SHUFFLED: the `population()` helper builds records
+        # in monotonically increasing win_pct/finish/roster-ratio order, so
+        # `records` (and therefore the internal `raw_scores`, built by
+        # appending each manager's total score in iteration order) comes
+        # out already ascending by coincidence. A prior version of this
+        # test used the unshuffled population and passed even when the
+        # `score_percentile` call site was mutated to read the raw
+        # (unsorted-by-construction) `raw_scores` list directly instead of
+        # `sorted_raw_scores` -- bisect on an already-sorted-by-luck input
+        # happens to still be correct. Shuffling breaks that coincidence
+        # and is what actually proves the call site sorts before it binary
+        # -searches. Verified: this exact mutation (drop `sorted(...)`,
+        # feed `_percentile_rank_sorted` the unsorted `raw_scores`) makes
+        # ~90 of 94 evaluated managers' scorePercentile disagree with the
+        # reference on this shuffled input, and 0 disagree on the
+        # unshuffled one -- keep the shuffle.
+        records = population(150)
+        rng = random.Random(20260830)
+        rng.shuffle(records)
+
+        fast = [entry.to_dict() for entry in S.score_managers(records)]
+
+        # Delegate the fast path back to the original O(N) primitive.
+        # Sorting doesn't change a multiset, so percentile_rank produces
+        # the identical number whether or not its input happens to be
+        # pre-sorted -- this is a faithful reference, not an approximation.
+        monkeypatch.setattr(S, "_percentile_rank_sorted", S.percentile_rank)
+
+        reference = [entry.to_dict() for entry in S.score_managers(records)]
+
+        assert fast == reference
+        # Sanity check the swap actually exercised real evaluable managers,
+        # not an early-exit no-op that would make the equality above
+        # vacuous.
+        evaluated = [e for e in fast if e.get("evaluable") and e.get("score") is not None]
+        assert len(evaluated) > 50
+
+
+class TestScoreManagersScaleGuard:
+    """Regression guard against re-introducing an O(N^2) percentile scan
+    in ``score_managers`` (V1-61). Measured directly against the real
+    pre-fix implementation via ``git stash`` before writing this bound:
+    at N=8000, the O(N^2) code took 13.8s and the O(N log N) fix takes
+    1.8s. The bound below sits well above the fixed code's real time
+    (headroom for a slow CI runner) and well below the quadratic code's
+    real time, so a reintroduced rescan-per-manager fails this loudly
+    without making routine test runs slow.
+    """
+
+    def test_large_population_scores_well_within_the_quadratic_gap(self):
+        records = population(8000)
+        start = time.perf_counter()
+        S.score_managers(records)
+        elapsed = time.perf_counter() - start
+        assert elapsed < 6.0, (
+            f"score_managers took {elapsed:.2f}s for 8000 managers — "
+            "this is the V1-61 quadratic-percentile regression guard; "
+            "if this is genuinely slow again, check for a percentile_rank "
+            "call reintroduced inside the per-manager loop"
+        )
