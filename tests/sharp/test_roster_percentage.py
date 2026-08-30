@@ -883,3 +883,161 @@ def test_query_movements_does_not_close_a_caller_supplied_connection(tmp_path):
         conn.execute("SELECT 1").fetchone()
     finally:
         conn.close()
+
+
+class TestTrendBaselineLoopInvariants:
+    """The row loop's trend block hoists two per-baseline structures out of
+    the per-asset loop (V1-61: 57.4s of a measured 128.1s production
+    ``build_board`` wall, run 33303611063). It must stay byte-identical to
+    the retired per-asset formulation, which rebuilt both from
+    ``baseline_holdings`` for every (asset x baseline) pair.
+    """
+
+    @staticmethod
+    def _retired_baseline_holders(baseline_holdings, name, asset_id):
+        """Exactly what build_board used to pass as ``baseline_holders``."""
+        return {
+            key: assets
+            for key, assets in (baseline_holdings[name] or {}).items()
+            if asset_id in assets
+        }
+
+    def test_inverted_index_iterates_the_same_roster_keys_as_the_retired_filter(self):
+        baseline_holdings = {
+            "thirtyDay": {
+                "L1#1": {"4046", "6794"},
+                "L1#2": {"4046"},
+                "L1#3": {"5849"},
+                "L1#4": set(),
+            }
+        }
+        inverted: dict[str, set[str]] = {}
+        for roster_key, held in baseline_holdings["thirtyDay"].items():
+            for asset in held:
+                inverted.setdefault(asset, set()).add(roster_key)
+
+        for asset_id in ("4046", "6794", "5849", "never-held"):
+            retired = self._retired_baseline_holders(baseline_holdings, "thirtyDay", asset_id)
+            current = inverted.get(asset_id, rp._NO_ROSTER_KEYS)
+            # _trend only ever iterates this argument, and only for keys.
+            assert set(retired) == set(current), asset_id
+
+    def test_an_asset_held_by_nobody_at_the_baseline_is_empty_not_missing(self):
+        """MISSING IS NEVER ZERO's neighbour: held-by-nobody is a real
+        measurement (rosterPctThen 0.0), not absent evidence, and the
+        retired filter produced an empty mapping for it rather than
+        omitting the baseline."""
+        shared_keys = {f"L1#{i}" for i in range(1, 11)}
+        then = rp._trend(
+            "never-held",
+            current_holders={"L1#1"},
+            baseline_holders=rp._NO_ROSTER_KEYS,
+            current_roster_keys=shared_keys,
+            baseline_roster_keys=shared_keys,
+        )
+        retired = rp._trend(
+            "never-held",
+            current_holders={"L1#1"},
+            baseline_holders={},
+            current_roster_keys=shared_keys,
+            baseline_roster_keys=shared_keys,
+        )
+        assert then == retired
+        assert then["available"] is True
+        assert then["rosterPctThen"] == 0.0
+
+    def test_trend_treats_a_key_set_and_the_retired_mapping_identically(self):
+        shared_keys = {f"L1#{i}" for i in range(1, 21)}
+        holders = {"L1#1", "L1#2", "L1#3"}
+        mapping = {"L1#2": {"4046"}, "L1#5": {"4046"}}
+        assert rp._trend(
+            "4046",
+            current_holders=holders,
+            baseline_holders=mapping,
+            current_roster_keys=shared_keys,
+            baseline_roster_keys=shared_keys,
+        ) == rp._trend(
+            "4046",
+            current_holders=holders,
+            baseline_holders=set(mapping),
+            current_roster_keys=shared_keys,
+            baseline_roster_keys=shared_keys,
+        )
+
+    def test_every_asset_on_a_multi_asset_baseline_roster_is_indexed(self, ledger, cohort_of):
+        """The per-baseline inverted index must record EVERY asset each
+        baseline roster held, not just one of them.
+
+        The retired formulation re-scanned the whole holdings map per asset,
+        so it could not lose a holding. An inverted index can, and a lost
+        baseline holding is invisible in the worst way: it silently deflates
+        ``rosterPctThen`` and inflates ``rostersAdded``, manufacturing a buy
+        signal out of an indexing bug. Every roster here holds BOTH players
+        at both endpoints, so both trends must be flat.
+        """
+        keys = [f"sleeper:u{i}" for i in range(1, 11)]
+        cohort_of(keys)
+        then = NOW - 40 * DAY
+        for observed in (then, NOW):
+            rs.record_rosters(
+                [
+                    roster(k, f"sleeper:L{i}", assets=["wr1", "rb1"], observed=observed)
+                    for i, k in enumerate(keys)
+                ],
+                path=ledger,
+            )
+
+        payload = board(ledger)
+        for name in ("Star Receiver", "Good Back"):
+            trend = row_for(payload, name)["trend"]["thirtyDay"]
+            assert trend["available"] is True, name
+            assert trend["rosterPctThen"] == 1.0, (
+                f"{name} was held by all 10 baseline rosters; a lower 'then' "
+                "means its baseline holdings were dropped from the index"
+            )
+            assert trend["rosterPctNow"] == 1.0, name
+            assert trend["rosterPctChange"] == 0.0, name
+            assert trend["rostersAdded"] == 0, name
+            assert trend["rostersDropped"] == 0, name
+
+    def test_baseline_roster_keys_stay_intersected_with_applicable(self, ledger, cohort_of):
+        """The per-asset intersection with ``applicable`` is deliberately NOT
+        hoisted, and this exercises the real ``build_board`` path rather than
+        ``_trend`` in isolation.
+
+        _trend's ``union`` is ``current_roster_keys | baseline_roster_keys``,
+        so handing it the whole baseline population widens the union and
+        deflates populationOverlap -- the guard that stops a cohort which
+        grew between endpoints reading as ownership gain.
+
+        An IDP player is the case that separates them: his ``applicable`` set
+        is narrowed to IDP-fielding leagues, while ``baseline_holdings``
+        spans every roster in the cohort. Hoisting the intersection out of
+        the loop therefore measures his 3-roster IDP population against all
+        15 rosters (overlap 0.20 < 0.80) and WITHHOLDS a trend that is
+        genuinely available.
+        """
+        idp_keys = [f"sleeper:idp{i}" for i in range(1, 4)]
+        offense_keys = [f"sleeper:off{i}" for i in range(1, 13)]
+        cohort_of(idp_keys + offense_keys)
+        then = NOW - 40 * DAY
+
+        def _rosters(observed):
+            return [
+                roster(k, f"sleeper:LI{i}", assets=["lb1"], fmt=IDP_LEAGUE, observed=observed)
+                for i, k in enumerate(idp_keys)
+            ] + [
+                roster(k, f"sleeper:LO{i}", assets=["wr1"], fmt=OFFENSE_ONLY, observed=observed)
+                for i, k in enumerate(offense_keys)
+            ]
+
+        rs.record_rosters(_rosters(then), path=ledger)
+        rs.record_rosters(_rosters(NOW), path=ledger)
+
+        trend = row_for(board(ledger), "Star Linebacker")["trend"]["thirtyDay"]
+        assert trend["available"] is True, (
+            "the IDP population never moved, so this trend is real; seeing it "
+            "withheld means baseline_roster_keys was widened past `applicable`"
+        )
+        assert trend["comparableRosters"] == 3
+        assert trend["populationOverlap"] == 1.0
