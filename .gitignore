@@ -27,6 +27,11 @@ tests/e2e/test-results/
 # own artifact dirs so a prod run never clobbers the default suite's.
 tests/e2e/playwright-report-prod-auth/
 tests/e2e/test-results-prod-auth/
+# The json reporter's output (#1194): the run's EVIDENCE, uploaded as a CI
+# artifact and read there. It is a per-run product, never a tracked file —
+# committing one would put a stale set of `states-observed` annotations in
+# the tree beside the live spec.
+tests/e2e/prod-auth-results.json
 tests/e2e/tests/
 test-results/
 
