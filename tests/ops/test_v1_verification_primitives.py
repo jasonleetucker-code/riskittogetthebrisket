@@ -12,6 +12,7 @@ import re
 from pathlib import Path
 
 import pytest
+import yaml
 
 import scripts.verify_v1_authenticated as auth
 import scripts.verify_v1_onbox as onbox
@@ -313,6 +314,70 @@ def test_workflow_declares_read_only_posture():
     # to say the workflow does not use it — so scan non-comment lines).
     code_lines = [ln for ln in wf.splitlines() if not ln.lstrip().startswith("#")]
     assert not any("E2E_TEST_MODE" in ln for ln in code_lines)
+
+
+def test_every_suite_verdict_is_consumed_by_the_one_verdict_step():
+    """A captured exit code that nothing reads is not a gate.
+
+    `browser_exit` used to be written to $GITHUB_OUTPUT and consumed by
+    nothing, while the verdict step carried `if: inputs.suite != 'browser'`.
+    On a browser run the job's conclusion was therefore structurally
+    independent of whether the Playwright specs passed: a failing browser
+    suite reported success. Same class as a gate that cannot find its input
+    and so reads exactly like a gate that passed.
+
+    Pins the property rather than the wording: every `*_exit` a step
+    publishes must reach the verdict step's environment, and that step must
+    not be conditioned away for any suite.
+    """
+    wf_path = REPO_ROOT / ".github" / "workflows" / "v1-authenticated-verification.yml"
+    wf = yaml.safe_load(wf_path.read_text())
+    steps = wf["jobs"]["v1-authenticated"]["steps"]
+
+    published = set()
+    for step in steps:
+        for name in re.findall(r"(\w+_exit)=", step.get("run") or ""):
+            published.add(name)
+    assert published, "no suite publishes an exit code — the scan is vacuous"
+
+    verdict = [s for s in steps if "verdict" in (s.get("name") or "").lower()]
+    assert len(verdict) == 1, f"expected exactly one verdict owner, found {len(verdict)}"
+    verdict = verdict[0]
+
+    # It must not be skipped for any suite: a conditioned-away verdict is
+    # what produced the defect.
+    assert verdict.get("if") is None, (
+        f"the verdict step is conditional ({verdict.get('if')!r}); a suite it "
+        "skips for has no binding verdict"
+    )
+
+    consumed = " ".join((verdict.get("env") or {}).values())
+    body = verdict.get("run") or ""
+    for name in sorted(published):
+        assert name in consumed, f"{name} is published but never reaches the verdict step"
+        var = name.upper()
+        assert (
+            f"${{{var}}}" in body or f'"${var}"' in body
+        ), f"{name} reaches the verdict step's env but its body never reads ${var}"
+
+
+def test_prod_auth_config_reports_annotations_as_evidence():
+    """`states-observed` must survive the run.
+
+    Specs record which branch of a multi-state render actually ran by
+    pushing onto `testInfo.annotations`. The `list` reporter drops them and
+    the html folder is not uploaded, so without a structured report a green
+    tick proves a spec passed but not WHICH state production produced —
+    which is precisely what V1-45's L4 bar asks.
+    """
+    cfg = (REPO_ROOT / "tests" / "e2e" / "prod-auth.config.js").read_text()
+    assert '["json"' in cfg, "no json reporter: annotations never leave the runner"
+    assert "prod-auth-results.json" in cfg
+
+    wf = (REPO_ROOT / ".github" / "workflows" / "v1-authenticated-verification.yml").read_text()
+    assert (
+        "tests/e2e/prod-auth-results.json" in wf
+    ), "the json report is produced but never uploaded"
 
 
 def test_onbox_workflow_gates_the_only_write_behind_a_flag():

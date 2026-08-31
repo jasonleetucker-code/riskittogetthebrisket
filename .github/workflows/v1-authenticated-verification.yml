@@ -289,18 +289,31 @@ jobs:
           REMOTE
           echo "Audit: pass ${PASS_ID} minted and revoked within this run."
 
-      - name: Fail the job on API/lane4 verdicts
-        if: ${{ inputs.suite != 'browser' }}
+      - name: Fail the job on API/lane4/browser verdicts
         shell: bash
         env:
           API_EXIT: ${{ steps.api.outputs.api_exit }}
           LANE4_EXIT: ${{ steps.lane4.outputs.lane4_exit }}
+          BROWSER_EXIT: ${{ steps.browser.outputs.browser_exit }}
         run: |
           set -Eeuo pipefail
-          echo "api=$API_EXIT lane4=$LANE4_EXIT (0 pass · 2 fail · 3 proved nothing)"
+          echo "api=$API_EXIT lane4=$LANE4_EXIT browser=$BROWSER_EXIT (0 pass · 2 fail · 3 proved nothing)"
           # Exit 3 is recorded but does not fail the job: an evidence-free
           # check must be visible, and a red job hides which one happened.
-          for code in "$API_EXIT" "$LANE4_EXIT"; do
+          #
+          # The browser code is consumed HERE rather than by a second step,
+          # so there is one verdict owner. It used to be captured into
+          # `browser_exit` and read by nothing, while this step carried
+          # `if: inputs.suite != 'browser'` — so on a browser run the job's
+          # conclusion was structurally independent of whether the Playwright
+          # specs passed, and a failing browser suite reported success. That
+          # is the same class as a gate that cannot find its input and
+          # therefore reads exactly like a gate that passed.
+          #
+          # A skipped suite leaves its output empty, which the case below
+          # ignores: absent is not a verdict, and must not read as either a
+          # pass or a failure.
+          for code in "$API_EXIT" "$LANE4_EXIT" "$BROWSER_EXIT"; do
             case "$code" in
               1|2) echo "::error title=V1 authenticated::a suite reported exit $code"; exit "$code" ;;
             esac
@@ -315,6 +328,7 @@ jobs:
             v1-auth-report.json
             lane4-remote.txt
             prod-auth-browser.txt
+            tests/e2e/prod-auth-results.json
             tests/e2e/test-results-prod-auth/
           if-no-files-found: warn
           retention-days: 30
