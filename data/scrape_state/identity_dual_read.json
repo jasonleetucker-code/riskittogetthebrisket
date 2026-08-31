@@ -1,5 +1,5 @@
 {
- "generatedAt": "2026-08-30T14:02:36.620947+00:00",
+ "generatedAt": "2026-08-31T00:52:44.525667+00:00",
  "servedPolicy": "scraper_sleeper_attach_v1",
  "servedBy": "src.identity.resolution",
  "legacyLadderRetired": true,
@@ -117,20 +117,20 @@
    "v2Reason": "no_candidate"
   },
   {
-   "name": "Frank Gore",
-   "pos": "RB",
-   "served": "232",
-   "engineV2": "11573",
-   "v2Method": "exact_clean:name_pos_teamed",
-   "v2Reason": null
-  },
-  {
    "name": "Bam Knight",
    "pos": "",
    "served": "6050",
    "engineV2": null,
    "v2Method": "none",
    "v2Reason": "no_candidate"
+  },
+  {
+   "name": "Frank Gore",
+   "pos": "RB",
+   "served": "232",
+   "engineV2": "11573",
+   "v2Method": "exact_clean:name_pos_teamed",
+   "v2Reason": null
   },
   {
    "name": "Byron Murphy",
@@ -151,7 +151,7 @@
   {
    "name": "Jamarion Miller",
    "pos": "",
-   "served": "13403",
+   "served": "12103",
    "engineV2": null,
    "v2Method": "none",
    "v2Reason": "no_candidate"
