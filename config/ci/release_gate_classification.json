@@ -722,7 +722,7 @@
     "v1-authenticated-verification.yml::v1-authenticated::Configure production SSH": {
       "category": "blocking"
     },
-    "v1-authenticated-verification.yml::v1-authenticated::Fail the job on API/lane4 verdicts": {
+    "v1-authenticated-verification.yml::v1-authenticated::Fail the job on API/lane4/browser verdicts": {
       "category": "blocking"
     },
     "v1-authenticated-verification.yml::v1-authenticated::Lane 4 remote verification (C1-C3 + C8/C9)": {

@@ -88,6 +88,24 @@ module.exports = defineConfig({
   reporter: [
     ["list"],
     ["html", { open: "never", outputFolder: "playwright-report-prod-auth" }],
+    // The JSON report is the EVIDENCE artifact, not a convenience.
+    //
+    // Specs record which branch of a multi-state render actually ran by
+    // pushing onto `testInfo.annotations` (helpers.js::annotate) — e.g.
+    // V1-45's `states-observed: finalRosterSimulation: populated`. Those
+    // annotations exist only in a structured report: the `list` reporter
+    // prints pass/fail lines and drops them, and the `html` folder is not
+    // uploaded. Without this, a green tick proves the spec passed but not
+    // WHICH state production produced — and V1-45's L4 bar is a statement
+    // about the observed state, so the run could not answer its own
+    // question. Inferring the branch from a pass would be exactly the
+    // "infer rather than read" error this lane exists to prevent.
+    //
+    // Absolute path via `__dirname`: Playwright resolves a reporter's
+    // relative `outputFile` against the cwd, which is the repo root here
+    // and NOT where `outputDir` above lands (that one is config-relative).
+    // Pinning it removes the discrepancy rather than depending on it.
+    ["json", { outputFile: path.join(__dirname, "prod-auth-results.json") }],
   ],
   use: {
     // Deliberately NO baseURL: every navigation and API call builds its
