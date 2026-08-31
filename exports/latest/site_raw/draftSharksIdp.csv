@@ -80,7 +80,7 @@ Rank,Team,Player,Fantasy Position,ADP,Bye,Age,1yr. Proj,3yr. Proj,5yr. Proj,10yr
 79,,Eric Wilson,LB,22.04,6,31.9,197,279,398,554,,7
 80,,Abdul Carter,DL,11.11,8,22.8,132,300,498,936,,7
 81,,D'Angelo Ponds,DB,30.05,13,21.6,123,317,507,936,,7
-82,,Laiatu Latu,DL,16.02,13,25.6,140,305,512,839,,7
+82,,Laiatu Latu,DL,16.02,13,25.7,140,305,512,839,,7
 83,,Jonas Sanker,DB,78.04,8,23.8,127,310,506,913,,7
 84,,Travon Walker,DL,19.11,7,25.7,123,265,444,728,,7
 85,,George Karlaftis,DL,23.01,5,25.3,134,300,503,825,,6
@@ -123,7 +123,7 @@ Rank,Team,Player,Fantasy Position,ADP,Bye,Age,1yr. Proj,3yr. Proj,5yr. Proj,10yr
 122,,Benjamin Morrison,DB,80.01,10,22.4,114,288,468,843,,4
 123,,Jake Golday,LB,24.12,6,23.3,48,248,410,768,,4
 124,,Michael Jackson,DB,27.09,5,29.6,182,285,440,653,,3
-125,,Kamren Curl,DB,13.04,11,27.3,172,281,439,711,,3
+125,,Kamren Curl,DB,13.04,11,27.4,172,281,439,711,,3
 126,,Jordan Battle,DB,19.09,6,25.7,163,274,438,761,,3
 127,,Yaya Diaby,DL,18.12,10,27.3,139,250,388,555,,3
 128,,Nick Herbig,DL,20.03,9,24.8,100,235,394,646,,3
@@ -137,7 +137,7 @@ Rank,Team,Player,Fantasy Position,ADP,Bye,Age,1yr. Proj,3yr. Proj,5yr. Proj,10yr
 136,,Mack Wilson,LB,23.02,14,28.5,136,234,361,576,,3
 137,,Jonathan Greenard,DL,24.05,10,29.3,127,268,361,504,,3
 138,,Will McDonald,DL,28.12,13,27.2,111,254,395,565,,3
-139,,Gervon Dexter,DL,93.11,11,24.8,108,237,381,637,,3
+139,,Gervon Dexter,DL,93.11,11,24.8,107,237,381,637,,3
 140,,Derrick Brown,DL,24.10,5,28.3,140,240,366,530,,3
 141,,Walter Nolen,DL,80.08,14,22.8,75,232,392,726,,3
 142,,Dee Winters,LB,20.11,14,25.8,143,216,347,608,,3
@@ -184,7 +184,7 @@ Rank,Team,Player,Fantasy Position,ADP,Bye,Age,1yr. Proj,3yr. Proj,5yr. Proj,10yr
 183,,Quentin Lake,DB,23.11,11,27.6,193,245,382,617,,1
 184,,Zach Sieler,DL,30.07,6,30.9,128,197,260,366,,0
 185,,Justin Strnad,LB,52.09,10,30,125,210,315,466,,0
-186,,Jer'Zhan Newton,DL,86.08,7,23.9,82,176,292,516,,0
+186,,Jer'Zhan Newton,DL,86.08,7,24,82,176,292,516,,0
 187,,Josaiah Stewart,DL,78.02,11,23.3,78,169,287,547,,0
 188,,Billy Bowman,DB,77.03,11,23.6,112,259,417,738,,0
 189,,Chop Robinson,DL,21.11,6,23.6,76,166,280,532,,0
@@ -197,7 +197,7 @@ Rank,Team,Player,Fantasy Position,ADP,Bye,Age,1yr. Proj,3yr. Proj,5yr. Proj,10yr
 196,,Myles Murphy,DL,94.07,6,24.6,81,163,273,490,,0
 197,,Mykel Williams,DL,32.03,8,22.2,64,168,278,544,,0
 198,,Trey Hendrickson,DL,13.09,13,31.7,157,170,220,316,,-0
-199,,Devonte Wyatt,DL,45.05,11,28.3,99,173,264,382,,-0
+199,,Devonte Wyatt,DL,45.05,11,28.4,99,173,264,382,,-0
 200,,Calijah Kancey,DL,26.09,10,25.4,92,165,265,443,,-0
 201,,Rashan Gary,DL,19.02,14,28.7,115,223,300,419,,-0
 202,,Tommy Togiai,DL,48.07,8,26.9,93,171,265,402,,-0
@@ -252,7 +252,7 @@ Rank,Team,Player,Fantasy Position,ADP,Bye,Age,1yr. Proj,3yr. Proj,5yr. Proj,10yr
 251,,Tarheeb Still,DB,36.11,7,24.2,122,235,373,659,,-2
 252,,Jonathan Allen,DL,67.11,6,31.6,92,144,190,267,,-2
 253,,Josiah Trotter,LB,18.08,10,21.3,57,172,297,599,,-2
-254,,Ahmad Gardner,DB,44.07,13,24.9,139,230,362,631,,-2
+254,,Ahmad Gardner,DB,44.07,13,25,139,230,362,631,,-2
 255,,R Mason Thomas,DL,29.06,5,22,49,127,209,410,,-2
 256,,Maliek Collins,DL,35.01,11,31.3,91,140,184,259,,-2
 257,,Leonard Williams,DL,23.03,11,32.2,155,108,141,210,,-2
@@ -320,7 +320,7 @@ Rank,Team,Player,Fantasy Position,ADP,Bye,Age,1yr. Proj,3yr. Proj,5yr. Proj,10yr
 319,,Deommodore Lenoir,DB,47.03,8,26.8,121,206,319,526,,-6
 320,,DeWayne Carter,DL,86.06,7,25.7,34,55,89,149,,-6
 321,,Jamel Dean,DB,36.09,9,29.8,148,205,306,434,,-6
-322,,Carlton Davis,DB,62.07,11,29.6,150,195,303,453,,-6
+322,,Carlton Davis,DB,62.07,11,29.7,150,195,303,453,,-6
 323,,Tariq Woolen,DB,41.11,10,27.3,134,194,301,496,,-6
 324,,Javon Bullard,DB,32.07,11,23.9,100,203,318,560,,-6
 325,,Trey Amos,DB,79.03,7,24.4,87,204,325,573,,-6
@@ -368,7 +368,7 @@ Rank,Team,Player,Fantasy Position,ADP,Bye,Age,1yr. Proj,3yr. Proj,5yr. Proj,10yr
 367,,Romello Height,DL,31.10,8,25.3,42,95,159,261,,-10
 368,,Justin Jefferson,LB,72.08,11,23.4,32,92,152,284,,-10
 369,,Jaquan Brisker,DB,21.03,9,27.3,91,159,249,403,,-11
-370,,Jourdan Lewis,DB,65.12,7,30.9,102,164,235,322,,-12
+370,,Jourdan Lewis,DB,65.12,7,31,102,164,235,322,,-12
 371,,Demario Davis,LB,20.09,13,37.6,182,26,34,46,,-12
 372,,Nick Scott,DB,28.07,5,31.3,133,145,206,286,,-13
 373,,Cam Hart,DB,85.02,7,25.7,78,148,232,401,,-13
