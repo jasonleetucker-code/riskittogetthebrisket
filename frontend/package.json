@@ -32,16 +32,16 @@
   },
   "dependencies": {
     "html2canvas": "^1.4.1",
-    "next": "16.2.12",
+    "next": "16.3.3",
     "react": "19.2.8",
     "react-dom": "19.2.8"
   },
   "devDependencies": {
-    "@testing-library/jest-dom": "^7.0.0",
-    "@testing-library/react": "^16.1.0",
-    "@testing-library/user-event": "^14.5.2",
-    "@vitejs/plugin-react": "^6.0.5",
+    "@testing-library/jest-dom": "^7.0.1",
+    "@testing-library/react": "^16.3.3",
+    "@testing-library/user-event": "^14.6.6",
+    "@vitejs/plugin-react": "^6.1.1",
     "jsdom": "^25.0.1",
-    "vitest": "^4.1.10"
+    "vitest": "^4.1.11"
   }
 }
