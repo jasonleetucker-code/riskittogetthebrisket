@@ -245,6 +245,45 @@ test.describe("V1-45: /trade renders finalRosterSimulation from the page's own s
       `finalRosterSimulation keys: ${Object.keys(frs).join(",")} · ` +
         `rosterCapacity.requiresDrops=${rc ? rc.requiresDrops : "absent"}`,
     );
+    // The capacity ARITHMETIC, recorded unconditionally.
+    //
+    // `requiresDrops` alone cannot be reconciled against the roster this
+    // spec deliberately picked. Run 33397534205 annotated an at-cap
+    // receiving team (Ed, 58 of a 58 limit) taking a net +1 trade — the
+    // forced-release path this spec's own side-B comment says it is
+    // building — and the response still stamped `requiresDrops=false`.
+    // Whether that is correct is unknowable from the artifact, because the
+    // counts the backend actually used were never recorded: they are
+    // asserted only inside the `requiresDrops === true` branch, which did
+    // not fire.
+    //
+    // The two candidate explanations differ by exactly these fields. If
+    // `sizeBefore` is 58 the verdict contradicts its own inputs; if it is
+    // smaller, the backend is counting a different roster than
+    // `contract.sleeper.teams[].players` and the verdict is right. Missing
+    // is never zero, and an unreadable verdict must not read as a passing
+    // one, so the numbers are published either way.
+    annotate(
+      testInfo,
+      "capacity-arithmetic",
+      rc
+        ? `rosterLimit=${rc.rosterLimit} sizeBefore=${rc.sizeBefore} ` +
+          `sizeAfter=${rc.sizeAfter} openSpotsBefore=${rc.openSpotsBefore} ` +
+          `overLimitAfter=${rc.overLimitAfter} certainty=${rc.certainty} ` +
+          `requiresDrops=${rc.requiresDrops} ` +
+          `forcedDrops=${(rc.forcedDrops || []).length}`
+        : "rosterCapacity absent from the response",
+    );
+    // Contract-side counts for the same team, so the two sources of "how
+    // big is this roster" can be compared directly rather than inferred.
+    annotate(
+      testInfo,
+      "capacity-arithmetic",
+      `contract-side: ${myTeam.name} players=${(myTeam.players || []).length} ` +
+        `contractRosterLimit=${rosterLimit} ` +
+        `out=${1} in=${receiveNames.length} ` +
+        `expectedSizeAfter=${(myTeam.players || []).length - 1 + receiveNames.length}`,
+    );
 
     const panel = page
       .locator(".ds-panel")
