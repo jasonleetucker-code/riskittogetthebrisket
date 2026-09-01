@@ -64,6 +64,15 @@ function _entryFor(candidate) {
     reasonable,
     aggressive: _num(bid.aggressive),
     lowball: _num(bid.lowball),
+    // Market-aware-only — null in ceiling-only mode (see
+    // WaiverCandidate.to_dict on the backend). Powers the row redesign:
+    // "Bid $X · Expected clearing $Y-$Z · Max I'd pay $M".
+    clearing: _num(candidate?.clearing),
+    clearingLow: _num(candidate?.clearingLow),
+    clearingHigh: _num(candidate?.clearingHigh),
+    maxRational: _num(candidate?.maxRational),
+    objectiveDollars: _num(candidate?.objectiveDollars),
+    confidence: typeof candidate?.confidence === "string" ? candidate.confidence : null,
     consensusValue: _num(candidate?.consensusValue),
     rank: _num(candidate?.rank),
     isRookie: Boolean(candidate?.isRookie),
@@ -130,7 +139,13 @@ export function buildWaiverBidIndex(payload) {
   }
 
   if (byName.size === 0) return null;
-  return { byName, byNamePos, ambiguous };
+  // Global to the whole response, per src/trade/waiver.py::find_waiver_targets
+  // — "market_aware" (real rival contention, this team's roster) or
+  // "ceiling_only_estimate" (no resolvable team context — a fixed
+  // fraction of the objective ceiling, never a recommendation).
+  const methodology =
+    typeof payload?.bidMethodology === "string" ? payload.bidMethodology : null;
+  return { byName, byNamePos, ambiguous, methodology };
 }
 
 /**
@@ -156,15 +171,24 @@ export function waiverBidForRow(index, row) {
  * null — the four situations below are genuinely different and the
  * board used to render all of them as one `—`.
  *
- *   `unavailable`  no index at all: no team picked, a league mismatch,
- *                  or the suggestions endpoint did not answer. Nothing
- *                  is wrong with the player.
+ *   `unavailable`         no index at all: no team picked, a league
+ *                         mismatch, or the suggestions endpoint did
+ *                         not answer. Nothing is wrong with the player.
+ *   `team_context_missing`  a team WAS selected (the fetch only runs
+ *                         then) but the backend could not resolve it
+ *                         to a roster and fell back to
+ *                         `ceiling_only_estimate` — a fixed fraction
+ *                         of the objective ceiling with no rival
+ *                         model, which must never be shown as a
+ *                         recommendation. Wins over `priced` even
+ *                         though a `bid` object genuinely exists on
+ *                         the payload in this mode.
  *   `unpriced`     the index exists and this player is not priced in
  *                  it — either the engine declined him (`bid: null`)
  *                  or he is off the backend's per-position board.
  *   `ambiguous`    two candidates share this display name at different
  *                  positions, so no bid can be attributed to this row.
- *   `priced`       the backend stamped a figure.
+ *   `priced`       the backend stamped a market-aware figure.
  *
  * `unpriced` deliberately covers both "priced nothing" and "not on the
  * board": from the reader's seat they are the same fact — the backend
@@ -180,6 +204,14 @@ const BID_STATE_COPY = {
       "FAAB bids have not loaded for this board. Pick your team above — bids are " +
       "scaled to a specific manager's budget, so there is nothing to show until one " +
       "is selected.",
+  },
+  team_context_missing: {
+    label: "Recommendation unavailable: team context missing",
+    reason:
+      "Your team could not be resolved to a current roster, so the market-aware bid " +
+      "model (rival contention, your budget, your roster need) could not run. What " +
+      "would otherwise show here is only a fixed fraction of the player's objective " +
+      "ceiling with no rival model — not a recommendation — so it is withheld.",
   },
   unpriced: {
     label: "Not priced",
@@ -205,6 +237,14 @@ const BID_STATE_COPY = {
 export function waiverBidStateForRow(index, row) {
   const withCopy = (state) => ({ state, bid: null, ...BID_STATE_COPY[state] });
   if (!index) return withCopy("unavailable");
+  // A team was selected (the fetch that built this index only runs
+  // then), but the backend fell back to the ceiling-only estimate — no
+  // rival model ran, so nothing here is a recommendation. This check
+  // comes before any name lookup because it applies to EVERY row in
+  // the payload, not to whether this particular player has a bid.
+  if (index.methodology && index.methodology !== "market_aware") {
+    return withCopy("team_context_missing");
+  }
   if (!row) return withCopy("unpriced");
   const name = normalizeName(row?.name || row?.displayName);
   if (!name) return withCopy("unpriced");

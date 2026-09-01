@@ -195,3 +195,183 @@ Directive Part XIII's 20-item checklist, mapped:
 5. Fold best-ball lineup-crackability into the short-term-surplus scoring, reusing the existing exact lineup solver.
 6. Build the portfolio/multi-claim optimizer (directive Part XII) on top of the now-independent per-player `recommend()` calls.
 7. Wire the trending-drops velocity/acceleration data (persisted, computable) into the market layer once a real outcome study justifies a specific transform — deliberately left diagnostic-only in this pass.
+
+---
+
+## 15. Follow-up (2026-09-01): the frontend never sent `teamOwnerId`
+
+**This section documents a bug found in the deployed page after the above
+work merged, its root cause, the fix, and re-verification.** It does not
+supersede §1-14 above — the backend engine described there is correct and
+was never the problem; its market-aware path simply had no caller reaching
+it from the `/waivers` main table.
+
+### 15.1 Root cause
+
+The owner reported the deployed `/waivers` page, with team "Collin"
+selected, showing Cyrus Allen at "FAAB BID $56 · lowball $28 · aggressive
+$80" — exactly `_compute_faab_bid`'s retired fixed-fraction formula
+($56 = 70%×$80, $28 = 35%×$80), not the market-aware engine this redesign
+built.
+
+Traced to `frontend/components/useWaiverAnalysis.js` (the hook behind the
+MAIN waivers table, distinct from the single-player bid-desk modal
+`FaabRecommendation.jsx`, which already sent this field correctly). Its
+`POST /api/waiver/suggestions` body never included `teamOwnerId`, even
+though the hook already calls `useTeam()` and has `selectedTeam.ownerId`
+available in the same closure. Every request from this page's main table
+therefore resolved `team_owner_id=None` on the backend, which — by design,
+documented in `waiver.py`'s own docstring from the original pass — falls
+back to the ceiling-only estimate and stamps
+`bidMethodology: "ceiling_only_estimate"`. Nothing on the frontend read that
+field, so the fallback rendered identically to a real recommendation.
+
+This was purely a missing frontend wire-up. The backend fix from the
+original pass (§9 above) was correct and already merged; it had no caller
+that could reach it from this specific page.
+
+### 15.2 The fix
+
+- `frontend/components/useWaiverAnalysis.js` — sends
+  `teamOwnerId: selectedTeam?.ownerId`; also added `selectedTeam?.ownerId` to
+  the fetch effect's dependency array (switching between two already-selected
+  teams previously would not have re-fetched, since `bidsEnabled` stays true
+  in that case).
+- `frontend/lib/waiver-faab.js` — `buildWaiverBidIndex` now carries
+  `bidMethodology` onto the index; `waiverBidStateForRow` gained a new state,
+  `team_context_missing`, returned whenever the payload's methodology is not
+  `market_aware`. This wins over `priced` even though a `bid` object
+  genuinely exists in ceiling-only mode — it is not a recommendation and
+  must not render as one.
+- `frontend/components/waivers/WaiverBidFigure.jsx` — renders "Recommendation
+  unavailable: team context missing" for that state (satisfies the
+  requirement that the fallback must never be labeled "FAAB BID"), and
+  redesigns the priced row from "reasonable / lowball / aggressive" to
+  **"Bid $X · Expected clearing $Y-$Z · Max I'd pay $M"**, with "Max Worth"
+  (the objective ceiling) and confidence moved to the tooltip.
+- `src/trade/waiver.py::WaiverCandidate` — gained `clearing`, `clearingLow`,
+  `clearingHigh`, `maxRational`, `objectiveDollars`, `confidence` fields,
+  populated in the market-aware branch from `faab_engine.recommend()`'s
+  existing return (`rec["bids"]`, `rec["objective"]["dollars"]`,
+  `rec["confidence"]`) — these were already computed by the engine per
+  candidate and previously discarded; `null` in ceiling-only mode.
+- `src/trade/faab_engine.py::_market_clearing_price` — extended to return
+  p25/p50/p75 of the same rival-bid CDF in one scan (was p50 only), so
+  "Expected clearing $Y-$Z" is a real quantile of modelled evidence, not a
+  fabricated range.
+- New `scripts/faab_trace.py` — diagnostic CLI reproducing the exact
+  production call path (`find_waiver_targets` + a supplementary
+  `faab_engine.recommend()` call for fields the list endpoint doesn't
+  return) for one player/team, or the whole September 1 board at once.
+
+### 15.3 Why the UI said $56 — traced end to end
+
+Reproduced locally against `exports/latest/dynasty_data_2026-09-01.json`
+(the real 2026-09-01 board, including a real "Collin" team with 11
+opponents) via `scripts/faab_trace.py`:
+
+```
+$ python scripts/faab_trace.py --contract exports/latest/dynasty_data_2026-09-01.json \
+    --team-name Collin --player "Cyrus Allen"
+```
+
+| field | before fix (production, reported) | after fix (local repro) |
+|---|---|---|
+| bidMethodology | `ceiling_only_estimate` (silent) | `market_aware` |
+| canonical value | 2282 | 2282 |
+| objective ceiling ("Max Worth") | not surfaced (shim doesn't compute one honestly — it derives a ceiling but applies no rival model) | **$81** |
+| max I'd pay (maxRational) | n/a | **$36** |
+| expected clearing (band) | n/a | **$0-$0** (see caveat below) |
+| recommended bid | **$56** | **$0** |
+| lowball / aggressive shown | $28 / $80 | *(retired — not shown as bid advice)* |
+| rival count | n/a (no rival model ran) | 11 |
+| confidence | n/a | medium |
+
+The $56 was 70% of an $80 ceiling-derived figure with **zero rival
+modeling** — every uncontested, thinly-sourced rookie WR near this value
+would have priced similarly under the old fallback, regardless of actual
+market demand. Once the market-aware engine actually ran (owner id resolved,
+11 real opponents loaded from the same export), the recommended bid
+collapsed to $0.
+
+**Caveat on the exact $0, stated honestly rather than forced to match
+anything:** in this local reproduction, `rivalsWithKnownBalance` is 0 — the
+static export used here is the raw scraper block, which does not carry
+`faabRemaining` per team (that comes from a separate live Sleeper
+teams-overlay fetch the production server makes at request time,
+`_sleeper_overlay.fetch_sleeper_teams_overlay`, which this sandbox has no
+credentials to reach). Per the engine's own invariant ("a rival with no
+visible balance is excluded outright — an unverifiable rival must never
+raise your bid"), all 11 opponents were excluded from the win-probability
+math here, which pushes P(win) toward 1.0 at every bid level and collapses
+the recommended bid toward $0 for every player, not just Cyrus Allen. In
+production, with real balances loaded, the number would likely land
+somewhere in the engine's own previously-documented range for this exact
+player ($0-$19, per §9's original finding) rather than exactly $0 — but the
+qualitative result (large collapse from the ceiling-only $56-60, driven by
+real rival modeling) is confirmed, and is the property this fix is
+responsible for restoring, not a specific dollar figure.
+
+### 15.4 September 1 diagnostic board — re-run, gap explained with evidence
+
+Re-ran the fixed system (`scripts/faab_trace.py --board`) against the same
+local export/team. Full raw output is captured with the PR; summary:
+
+| player | owner's reviewed board | local repro (fixed system) | found on board? |
+|---|---|---|---|
+| Aaron Donald | ~$17 | *(not found)* | No — **already documented in §13 above** as zero canonical coverage; unrelated to this fix, present before and after |
+| George Holani | ~$6 | $0 | Yes |
+| Jacob Saylors | ~$5 | *(not in suggestions list)* | canonical value found (74), but `sourceCount: 1` — excluded by the pre-existing two-source minimum (`TestTwoSourceMinimum`), unrelated to this fix |
+| Kamren Kinchens | ~$4 | $0 | Yes |
+| Seth McGowan | ~$3 | $0 | Yes |
+| Barion Brown | ~$3 | $0 | Yes |
+| Derrick Moore | ~$1 | $0 | Yes |
+| Jonas Sanker | ~$1 | $0 | Yes |
+| Justice Hill | ~$1 | $0 | Yes |
+| Carson Wentz | ~$1 | *(not found)* | No — same pre-existing canonical-coverage gap as Aaron Donald |
+| Malik Benson | ~$1 | $0 | Yes |
+| Dohnte Meyers | ~$1 | *(not in suggestions list)* | canonical value found (711, `sourceCount: 2`, passes the two-source gate) but ranks below the top `DEFAULT_PER_POSITION_LIMIT=6` WR candidates by value, so it's capped out of `find_waiver_targets`'s per-position output — a pre-existing, unrelated behavior |
+| Jer'Zhan Newton | ~$0 | $0 | Yes |
+
+**Every priced player collapsed to $0 in this local reproduction**, where the
+owner's board shows a range from ~$0 to ~$17. This is the SAME structural
+cause as §15.3's Cyrus Allen caveat: this sandbox's rival field has zero
+known FAAB balances (no live Sleeper credentials here), so every claim reads
+as effectively uncontested and prices at the floor. This is **not evidence
+the fixed model is wrong** — it is evidence that a meaningful re-verification
+of the exact dollar amounts requires production's live balance data, which
+this session cannot reach (see §15.5). What this repro DOES confirm,
+independent of the balance-data gap: `bidMethodology` correctly resolves to
+`market_aware` for a real team against a real board, the engine runs without
+error across the whole named board, and the qualitative direction (ceiling-
+only's fixed-fraction numbers replaced by a real, lower, contention-aware
+number) is exactly what the fix was for.
+
+### 15.5 Production verification — what could and could not be done
+
+**This session has no VPS/SSH/deploy credentials** (unchanged from §12/§13).
+What was done instead:
+- Fixed the code (frontend + backend) and verified it against `pytest`
+  (backend, 524 FAAB/waiver tests passing) and the frontend test suite
+  (2404 tests passing, including new tests for the fixed request body, the
+  new `team_context_missing` state, and the redesigned row).
+- Ran the actual production code path (`find_waiver_targets` +
+  `faab_engine.recommend`) against a real archived board
+  (`exports/latest/dynasty_data_2026-09-01.json`) and a real team ("Collin",
+  the exact team from the owner's screenshot) via `scripts/faab_trace.py`,
+  confirming `bidMethodology` flips to `market_aware` and the fixed-fraction
+  numbers disappear.
+- Could NOT: push this fix to the live server, restart
+  `dynasty.service`/`dynasty-frontend.service`, fetch live Sleeper FAAB
+  balances for a fully realistic dollar-figure reproduction, or take a
+  screenshot of the actual deployed page.
+
+**To close the loop:** merge this PR, then pull `main` and restart both
+systemd services on the production VPS (per CLAUDE.md's deployment section).
+No config or migration changes are required — this is a pure code fix.
+
+### 15.6 Live Waiver Opportunity activation plan
+
+See `docs/faab-live-opportunity-model.md` §5a (added alongside this
+addendum) for the staged, criteria-gated activation/calibration plan. Status
+unchanged by this follow-up: the layer remains shadow-only, default off.

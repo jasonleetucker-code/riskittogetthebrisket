@@ -82,6 +82,19 @@ class WaiverCandidate:
     bid_aggressive: int | None = None
     bid_reasonable: int | None = None
     bid_lowball: int | None = None
+    # Market-aware-only fields — the full engine already computes these
+    # per candidate (``faab_engine.recommend``'s ``bids``/``objective``/
+    # ``confidence`` keys); they stay ``None`` in ceiling-only mode,
+    # where no rival model runs at all and there is nothing honest to
+    # put here.  Consumed by the /waivers row redesign ("Bid $X ·
+    # Expected clearing $Y-$Z · Max I'd pay $M") — see
+    # ``WaiverBidFigure.jsx``.
+    clearing: int | None = None
+    clearing_low: int | None = None
+    clearing_high: int | None = None
+    max_rational: int | None = None
+    objective_dollars: int | None = None
+    confidence: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -98,6 +111,12 @@ class WaiverCandidate:
             }
             if self.bid_aggressive is not None
             else None,
+            "clearing": self.clearing,
+            "clearingLow": self.clearing_low,
+            "clearingHigh": self.clearing_high,
+            "maxRational": self.max_rational,
+            "objectiveDollars": self.objective_dollars,
+            "confidence": self.confidence,
         }
 
 
@@ -458,6 +477,21 @@ def find_waiver_targets(
                 c.bid_aggressive = min(int(bids["aggressive"]), cap)
                 c.bid_reasonable = min(int(bids["recommended"]), cap)
                 c.bid_lowball = min(int(bids["conservative"]), cap)
+                # clearing/clearingLow/clearingHigh describe the MARKET
+                # (what the player will cost) and are NOT re-capped to
+                # our own balance the way the three bids above are — a
+                # broke team still needs to know what the player will
+                # go for. maxRational is already bounded by the team's
+                # balance inside the engine (it IS "the most I could
+                # rationally pay"), so it needs no separate cap here.
+                c.clearing = int(bids["clearing"])
+                if isinstance(bids.get("clearingLow"), (int, float)):
+                    c.clearing_low = int(bids["clearingLow"])
+                if isinstance(bids.get("clearingHigh"), (int, float)):
+                    c.clearing_high = int(bids["clearingHigh"])
+                c.max_rational = int(bids["maxRational"])
+                c.objective_dollars = int(rec["objective"]["dollars"])
+                c.confidence = rec.get("confidence")
     else:
         for cs in candidates_by_position.values():
             for c in cs:

@@ -208,6 +208,66 @@ log, not a retroactive backtest. The September 1 board comparison above is a
 **structural explanation case**, not statistical backtest evidence, and is
 reported as such.
 
+## 5a. Activation / calibration plan (added 2026-09-01 follow-up)
+
+The owner's requirement was a *live* daily waiver engine — role/injury/
+opportunity evidence actually moving production FAAB numbers. As shipped,
+this layer is shadow-only: it is computed (when `waiver_live_opportunity` is
+enabled) and logged for comparison, but never read by the live recommendation.
+That is not yet the finished feature; it is the champion/challenger scaffold
+the finished feature has to be validated through. Per CLAUDE.md's own
+invariant ("evaluation is not activation, nothing self-promotes"), promotion
+is a staged, criteria-gated, human-reviewed process, not a flag flip on
+completion of the code:
+
+- **Stage 0 (current state).** `waiver_live_opportunity` defaults off in
+  production. Nothing changes for a live user.
+- **Stage 1 — turn on shadow logging in production.** Flip the flag on (via
+  the per-process env-var override this codebase already uses for
+  script-only/shadow features, matching the `bdvm_engine` precedent) and
+  restart. This requires deploy access this development session does not
+  have (see the follow-up report's production-verification section) — it is
+  a named action item for whoever operates the deploy, not something claimed
+  done here.
+- **Stage 2 — accumulation window.** No review is meaningful on a thin
+  sample. Minimum bar before Stage 3 runs: **N ≥ 200** logged rows in
+  `data/faab/shadow_comparisons_<leagueKey>.json`, spanning **at least one**
+  real injury or depth-chart-promotion event class (not only
+  `hasEvidence: false` rows) and **at least 2 weeks** of in-season play, so
+  the sample isn't dominated by the no-evidence case this layer degrades to.
+- **Stage 3 — analysis.** Extend `scripts/faab_backtest.py`'s existing
+  CHALLENGER column to join the shadow log against realized outcomes once
+  they exist: `faab_history.py`'s recorded bids (did teams actually pay more
+  for opportunity-flagged players?) and, where obtainable, the player's
+  realized weekly production after the claim (did a promoted backup's role
+  actually hold?). Report: how often `opportunity_value` moved the
+  recommended bid, the size of the move, and whether the direction agreed
+  with what happened — not a single pass/fail number, since a role bet can
+  be well-calibrated and still wrong on any individual case.
+- **Stage 4 — human review.** Same posture as Hill-curve promotion
+  (`scripts/model_registry.py promote` + `apply`): a person reads the Stage 3
+  report and explicitly decides promote / partially promote (e.g., cap
+  `retention()` below 1.0, or gate promotion to specific event types with
+  strong Stage 3 evidence) / hold. No automatic promotion path exists or
+  should be built.
+- **Stage 5 — promotion mechanism, if approved.** Change is localized to the
+  `add_value` assignment at each call site (`server.py`'s
+  `/api/waiver/faab-recommend` handler, and `find_waiver_targets`'s
+  market-aware branch after the 2026-09-01 follow-up fix) — read
+  `opportunity_value(...)["value"]` instead of raw `rankDerivedValue` when a
+  promoted-live state is set, keeping the champion/challenger boundary at
+  exactly one line per call site, matching the BDVM/Hill-curve precedent
+  already in this codebase. This is deliberately not a new flag *state*
+  invented for the occasion — reuse whatever mechanism `scripts/model_registry.py`
+  already established for exactly this "challenger evaluated, human
+  approved, promote" sequence rather than inventing a second one.
+
+None of Stages 1-5 are executed by the 2026-09-01 follow-up work — that work
+fixed the `/waivers` frontend bug (see the FAAB redesign report addendum,
+`docs/faab-redesign-2026-09-01-report.md`) and left the shadow layer's status
+otherwise unchanged. This section exists so "when does this become live" has
+a concrete, falsifiable answer instead of an open-ended "later."
+
 ## 6. See also
 
 - `docs/faab-model.md` — the engine reference (unchanged, still binding).
