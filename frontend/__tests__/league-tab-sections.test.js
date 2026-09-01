@@ -41,6 +41,11 @@ const SELF_FETCHING_TABS = [
   "rosChampionship",
   "rosTradeDeadline",
   "draft-capital",
+  // Moved here 2026-09-01: the NFL Team Affinity rewrite made
+  // teamAssignment a private, session-gated section (same reason
+  // rosTeamStrength/rosTradeDeadline self-fetch instead of riding the
+  // anonymous eager aggregate).
+  "teamAssignment",
 ];
 
 describe("tab → section map", () => {

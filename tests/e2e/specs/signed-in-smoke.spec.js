@@ -407,6 +407,105 @@ test.describe("signed-in: private-intelligence sections", () => {
     expect(typeof data.positionBids).toBe("object");
     expect(typeof data.tierBids).toBe("object");
   });
+
+  // Relocated from `public-league.spec.js`'s "teamAssignment covers every
+  // manager slot" test, which asserted an anonymous 200. The 2026-09-01
+  // NFL Team Affinity rewrite made `teamAssignment` a fourth
+  // `PRIVATE_INTELLIGENCE_SECTIONS` member (same reason as
+  // `faabAnalytics`: it now publishes per-manager sums and per-player
+  // breakdowns of canonical dynasty value), so the shape contract is
+  // exercised from a session, same relocation pattern.
+  test("teamAssignment returns the documented shape to a session", async ({
+    authedPage,
+  }) => {
+    const res = await authedPage.request.get(
+      "/api/public/league/teamAssignment",
+    );
+    expect(res.status(), "a session must be able to read it").toBe(200);
+    const json = await res.json();
+    const data = json.data || json.body || json;
+    const assignments = data.assignments || [];
+    expect(Array.isArray(assignments)).toBeTruthy();
+
+    if (data.available === false) {
+      // Degraded is a legal answer, but only an EXPLICIT one.
+      expect(
+        ["no_current_season", "no_rosters"],
+        "available:false must name a machine-readable reason",
+      ).toContain(data.unavailableReason);
+      expect(assignments).toHaveLength(0);
+      return;
+    }
+
+    expect(data.available).toBe(true);
+    expect(data.unavailableReason).toBeNull();
+    expect(typeof data.rosterScoringAvailable).toBe("boolean");
+    expect(typeof data.qbSignalAvailable).toBe("boolean");
+    expect(Array.isArray(data.degradedReasons)).toBeTruthy();
+
+    const managers = json.league?.managers || [];
+    const activeOwnerIds = managers
+      .filter((m) => m.currentRosterId !== null && m.currentRosterId !== undefined)
+      .map((m) => m.ownerId)
+      .sort();
+    expect(
+      assignments.map((a) => a.ownerId).sort(),
+      "one assignment per current manager — no drops, no duplicates, no inventions",
+    ).toEqual(activeOwnerIds);
+
+    const minShare = data.config?.thresholds?.rosterAssignmentMinShare;
+    const qbMultiplier = data.config?.weights?.nflStartingQbMultiplier;
+    const maxTeams = data.config?.limits?.maxTeamsPerOwner;
+    expect(typeof minShare).toBe("number");
+    expect(typeof qbMultiplier).toBe("number");
+    expect(typeof maxTeams).toBe("number");
+
+    for (const a of assignments) {
+      const who = a.displayName || a.ownerId;
+      expect(typeof a.rosterScored, `${who}: rosterScored must be stated`).toBe(
+        "boolean",
+      );
+      expect(Array.isArray(a.nflTeams), `${who}: nflTeams must be an array`).toBeTruthy();
+      expect(
+        a.nflTeams.length,
+        `${who}: at most ${maxTeams} NFL teams`,
+      ).toBeLessThanOrEqual(maxTeams);
+
+      if (a.favoriteKey != null) {
+        expect(
+          a.nflTeams.length,
+          `${who}: favorite ${a.favoriteKey} resolved but no team emitted`,
+        ).toBeGreaterThanOrEqual(1);
+        expect(
+          a.nflTeams[0].isFavorite,
+          `${who}: the favorite must lead the list`,
+        ).toBe(true);
+      }
+
+      for (const t of a.nflTeams) {
+        expect(String(t.abbr), `${who}: NFL team abbr`).toMatch(/^[A-Z]{2,3}$/);
+        expect(typeof t.isFavorite).toBe("boolean");
+        expect(Number.isFinite(t.affinityScore), `${who}: ${t.abbr} affinityScore`).toBeTruthy();
+        // No fabrication: everything in the list is there because it is
+        // the favorite or because it EARNED the share threshold.
+        if (!t.isFavorite) {
+          expect(
+            t.affinityShare,
+            `${who}: ${t.abbr} is listed without an affinityShare`,
+          ).not.toBeNull();
+          expect(
+            t.affinityShare,
+            `${who}: ${t.abbr} is listed without clearing the ${minShare} share threshold`,
+          ).toBeGreaterThanOrEqual(minShare);
+        }
+        for (const c of t.contributors || []) {
+          expect(typeof c.canonicalValue).toBe("number");
+          expect(typeof c.weightedValue).toBe("number");
+          expect([1.0, qbMultiplier]).toContain(c.multiplier);
+        }
+      }
+    }
+  });
 });
 
 test.describe("signed-in: admin endpoints are gated", () => {

@@ -410,10 +410,7 @@ function LeaguePage({ initialContract = null, initialTab = DEFAULT_TAB }) {
       {activeTab === "previews" && <ArticlesSection mode="preview" />}
       {activeTab === "recaps" && <ArticlesSection mode="recap" />}
       {activeTab === "teamAssignment" && (
-        <TeamAssignmentSection
-          data={sections.teamAssignment}
-          managers={managers}
-        />
+        <TeamAssignmentSection managers={managers} />
       )}
         </>
       )}

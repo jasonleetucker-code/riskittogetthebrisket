@@ -77,6 +77,7 @@ __all__ = [
     "build_nfl_exposure",
     "exposure_change",
     "exposure_from_core",
+    "nfl_team_by_player",
     "simulation_exposure_change",
 ]
 
@@ -192,6 +193,43 @@ def _normalize_team(raw: Any) -> str | None:
     """``"phi "`` → ``"PHI"``; anything empty → ``None`` (UNKNOWN, not a bucket)."""
     token = str(raw or "").strip().upper()
     return token or None
+
+
+def nfl_team_by_player(contract: Mapping[str, Any] | None) -> dict[str, str]:
+    """``{playerName: nflTeam}`` from the canonical board.
+
+    Keyed the same way :func:`src.api.data_contract.contract_roster_pools`
+    keys players (``canonicalName`` first, falling back to ``displayName``),
+    so a caller joining this against a ``RosterPlayer``/``CoreMember``
+    population cannot silently miss every row — a join key that disagrees
+    with the pools fails completely rather than partially, which is what
+    made the original bug (this function's predecessor keyed by
+    ``playerId``, matching nothing) invisible until a live board was run.
+
+    An empty ``team`` is left OUT rather than stored as ``""`` — callers
+    read absence as UNKNOWN. ``"FA"`` (an unsigned free agent) IS a real,
+    resolved value here, not a missing one — see :data:`NON_FRANCHISE_TOKENS`
+    for the caller-side rule that a resolved-but-non-franchise team must not
+    be bucketed as if it were one of the 32 NFL teams.
+
+    Moved here from ``src/api/roster_intelligence.py`` (2026-09) so a second
+    consumer (Team Assignment's NFL affinity model) does not need to keep a
+    private duplicate of this join — one owner for "which NFL team is this
+    canonical player on".
+    """
+    out: dict[str, str] = {}
+    if not isinstance(contract, Mapping):
+        return out
+    for row in contract.get("playersArray") or []:
+        if not isinstance(row, Mapping) or row.get("assetClass") == "pick":
+            continue
+        team = str(row.get("team") or "").strip()
+        if not team:
+            continue
+        for key in (row.get("canonicalName"), row.get("displayName")):
+            if key:
+                out.setdefault(str(key), team)
+    return out
 
 
 def build_nfl_exposure(

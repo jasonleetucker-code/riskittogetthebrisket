@@ -100,6 +100,14 @@ def test_nothing_in_the_trade_or_roster_chain_imports_exposure():
     assert importers <= {
         "src/roster_intel/__init__.py",
         "src/api/roster_intelligence.py",
+        # Team Assignment (NFL Team Affinity, 2026-09-01) reads
+        # ``nfl_team_by_player``/``NON_FRANCHISE_TOKENS`` — the same pure
+        # canonical-name -> NFL-team join ``roster_intelligence.py``
+        # already uses — for player-to-franchise attribution.  It is not
+        # part of the trade/roster GRADING chain this test guards: it
+        # computes no flag, verdict, grade, penalty or recommendation,
+        # same as ``exposure.py`` itself.
+        "src/api/team_assignment.py",
     }, importers
 
 
