@@ -5892,9 +5892,9 @@ async def post_waiver_best_available_idp(request: Request):
         log.error(f"Best-available-IDP failed: {exc}")
         return JSONResponse(status_code=500, content={"error": f"failed: {exc}"})
 
-    source_timestamps = (
-        (latest_contract_data or {}).get("dataFreshness", {}).get("sourceTimestamps", {}) or {}
-    )
+    source_timestamps = (latest_contract_data or {}).get("dataFreshness", {}).get(
+        "sourceTimestamps", {}
+    ) or {}
     result["sourceFreshness"] = {
         "idpTradeCalc": source_timestamps.get("idpTradeCalc"),
         "idpShowCombined": source_timestamps.get("idpShowCombined"),

@@ -113,9 +113,7 @@ def test_rostered_on_another_team_excluded():
         _row("Elite", "LB", idptc=9999, idpshow_rank=1),
         _row("Filler", "DB", idptc=100, idpshow_rank=2),
     )
-    result = best_available_idp(
-        contract, sleeper_teams=[{"players": ["Elite"]}, {"players": []}]
-    )
+    result = best_available_idp(contract, sleeper_teams=[{"players": ["Elite"]}, {"players": []}])
     names = {c["name"] for c in result["candidates"]}
     assert "Elite" not in names
     assert "Filler" in names
@@ -198,8 +196,12 @@ def test_tiebreak_order_is_deterministic():
     # score wins, then better idptc score, then name.
     contract = _contract(
         # Population of 4 for both sources.
-        _row("Zebra", "LB", idptc=9999, idpshow_rank=4),  # idptc rank1->100, idpshow rank4->0 => combined 50
-        _row("Apple", "LB", idptc=1, idpshow_rank=1),  # idptc rank4->0, idpshow rank1->100 => combined 50
+        _row(
+            "Zebra", "LB", idptc=9999, idpshow_rank=4
+        ),  # idptc rank1->100, idpshow rank4->0 => combined 50
+        _row(
+            "Apple", "LB", idptc=1, idpshow_rank=1
+        ),  # idptc rank4->0, idpshow rank1->100 => combined 50
         _row("Filler1", "LB", idptc=9000, idpshow_rank=2),
         _row("Filler2", "LB", idptc=8000, idpshow_rank=3),
     )

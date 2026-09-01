@@ -202,16 +202,12 @@ def best_available_idp(
     # Dense rank: idpTradeCalc descending by value, idpShowCombined
     # ascending by its raw (combined-board) rank.
     idptc_score_by_row: dict[int, tuple[int, float, float]] = {}
-    for dense_rank, reading in enumerate(
-        sorted(idptc_readings, key=lambda r: -r.raw), start=1
-    ):
+    for dense_rank, reading in enumerate(sorted(idptc_readings, key=lambda r: -r.raw), start=1):
         score = _population_score(dense_rank, idptc_population)
         idptc_score_by_row[reading.row_index] = (dense_rank, reading.raw, score)
 
     idpshow_score_by_row: dict[int, tuple[int, float, float]] = {}
-    for dense_rank, reading in enumerate(
-        sorted(idpshow_readings, key=lambda r: r.raw), start=1
-    ):
+    for dense_rank, reading in enumerate(sorted(idpshow_readings, key=lambda r: r.raw), start=1):
         score = _population_score(dense_rank, idpshow_population)
         idpshow_score_by_row[reading.row_index] = (dense_rank, reading.raw, score)
 
