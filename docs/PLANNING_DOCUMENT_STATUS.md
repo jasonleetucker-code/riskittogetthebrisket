@@ -110,6 +110,7 @@ intent in the repository and win over anything older they contradict.
 - `docs/CANONICAL_WEEKLY_POWER_RANKINGS_SPEC.md` *(#809)*
 - `docs/GAME_DAY_PROBABILITY_SPEC.md` *(#809)*
 - `docs/faab-model.md`, `docs/FAAB_MARKET_SIGNAL_NORMALIZATION_2026-08-14.md` — **binding, issue #830, decisions 56–65**
+- `docs/faab-live-opportunity-model.md` — **binding, extends the two above with the Live Waiver Opportunity layer and the `/suggestions`-vs-`/faab-recommend` unification; does not supersede either**
 - `docs/perfect-draft.md`
 
 ### Roster intelligence

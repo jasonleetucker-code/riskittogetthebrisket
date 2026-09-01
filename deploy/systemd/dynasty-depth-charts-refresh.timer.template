@@ -1,0 +1,21 @@
+[Unit]
+Description=Daily ESPN depth-chart refresh for __SERVICE_NAME__
+Requires=__SERVICE_NAME__-depth-charts-refresh.service
+
+[Timer]
+# Daily, not weekly (unlike dynasty-playerctx-refresh): a depth-chart
+# promotion/demotion is exactly the kind of role change the Live
+# Waiver Opportunity layer exists to catch same-day, and ESPN's own
+# depth charts are already refreshed daily upstream (see
+# docs/playerctx.md's cadence rationale for the weekly consumer).
+# 04:20 UTC — before dynasty-signal-alerts (15:00) and off the
+# scheduled-refresh 2-hourly boundary (:42) so this never contends
+# with the main scrape for the box.
+OnCalendar=*-*-* 04:20:00 UTC
+RandomizedDelaySec=300
+Persistent=true
+AccuracySec=2min
+Unit=__SERVICE_NAME__-depth-charts-refresh.service
+
+[Install]
+WantedBy=timers.target

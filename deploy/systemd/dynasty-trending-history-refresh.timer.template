@@ -1,0 +1,17 @@
+[Unit]
+Description=Hourly Sleeper trending history snapshot for __SERVICE_NAME__
+Requires=__SERVICE_NAME__-trending-history-refresh.service
+
+[Timer]
+# Hourly — cheap (two tiny unauthenticated GETs) and fine-grained
+# enough to resolve a 6h velocity window into several observations
+# rather than two.  Anchored at :35 to avoid the scheduled-refresh
+# 2-hourly boundary (:42) and the injury-feed timer's :10 slot.
+OnCalendar=*-*-* *:35:00 UTC
+RandomizedDelaySec=120
+Persistent=true
+AccuracySec=1min
+Unit=__SERVICE_NAME__-trending-history-refresh.service
+
+[Install]
+WantedBy=timers.target

@@ -9,7 +9,7 @@ enabled.**  This docstring, ``README.md`` and ``docs/ARCHITECTURE.md``
 all used to assert a blanket disabled-by-default rule, and
 ARCHITECTURE built a stronger claim on top of it about production
 behaviour being frozen until a flag was flipped.  Both were false:
-9 of the 19 entries in ``_DEFAULTS`` below are ``True`` —
+9 of the 20 entries in ``_DEFAULTS`` below are ``True`` —
 ``bdvm_engine``, ``te_basis_conversion`` (which reprices every tight
 end on the live board), ``monte_carlo_trade``, ``idp_scoring_fit``,
 ``reception_scoring_fit``, ``nfl_data_ingest``, ``realized_points_api``,
@@ -154,19 +154,31 @@ _DEFAULTS: Final[dict[str, bool]] = {
     # Turning this on today would only enable a flag with no consumer.
     # Whoever wires the consumer must re-run the audit first.
     "usage_signals": False,
-    # Phase 7 — ESPN injury feed.  UNREACHABLE, so OFF.
+    # Phase 7 — ESPN injury feed.  Gate is SCRIPT_ONLY (see
+    # ``_GATE_STATUS`` below), so the DEFAULT stays False —
+    # ``test_only_a_live_flag_may_default_on`` correctly forbids a
+    # non-LIVE gate from defaulting True, because toggling it alone
+    # cannot change any request/response.
     #
-    # The gate in ``src/nfl_data/injury_feed.py`` is real and correct.
-    # The module has no production importer, so the gate never runs and
-    # the old "Safe to activate" was true only in the sense that
-    # activating it did nothing.
+    # ``scripts/refresh_injury_feed.py`` (Live Waiver Opportunity layer,
+    # docs/faab-live-opportunity-model.md) is now the module's
+    # importer: it diffs consecutive fetches and turns a transition
+    # into a BDVM structured event (INJURY / ACTIVATED_RETURN) that
+    # ``src/trade/faab_opportunity.py`` reads.  Its systemd timer sets
+    # ``RISKIT_FEATURE_ESPN_INJURY_FEED=1`` in that ONE process's
+    # environment (the documented rollback-lever pattern above) —
+    # deliberately not flipped here, which would turn every OTHER
+    # process on too for a gate that changes nothing for them.
     "espn_injury_feed": False,
-    # Phase 8 — Depth chart cross-check.  SCRIPT_ONLY, so OFF.
-    #
-    # ``src/nfl_data/depth_charts.py`` is gated and imported — by
-    # ``scripts/refresh_depth_charts.py`` alone.  The old comment's
-    # "Requires injury feed ON to cross-check" made it depend on a flag
-    # whose own module never runs, so neither half could ever fire.
+    # Phase 8 — Depth chart cross-check.  Same reasoning as
+    # ``espn_injury_feed`` immediately above: gate is SCRIPT_ONLY, so
+    # the default stays False.  ``scripts/refresh_depth_charts.py``
+    # now ALSO turns a detected slot change into a
+    # DEPTH_CHART_PROMOTION/DEMOTION BDVM event, and its systemd timer
+    # sets ``RISKIT_FEATURE_DEPTH_CHART_VALIDATION=1`` for that process
+    # only.  The old comment's "Requires injury feed ON to cross-check"
+    # was already moot before this — the two flags never depended on
+    # each other in code, only in a stale sentence.
     "depth_chart_validation": False,
     # Phase 9 — Monte Carlo trade simulator — new endpoint
     # /api/trade/simulate-mc.  Old /api/trade/simulate is unchanged.
@@ -383,6 +395,18 @@ _DEFAULTS: Final[dict[str, bool]] = {
     # restart** (flag reads are process-cached).  Evidence:
     # docs/scoring/HOST_NATIVE_SCORING_VALIDATION.md.
     "host_native_scoring": False,
+    # Live Waiver Opportunity layer (docs/faab-live-opportunity-model.md,
+    # 2026-09-01).  SHADOW ONLY: gated in server.py's
+    # /api/waiver/faab-recommend handler, which computes
+    # ``src.trade.faab_opportunity.opportunity_value`` alongside the
+    # canonical-only value and logs both to
+    # ``data/faab/shadow_comparisons_<leagueKey>.json`` — the LIVE
+    # response still uses the canonical-only value regardless of this
+    # flag.  Same champion/challenger posture as ``host_native_scoring``
+    # above: evaluation is not activation.  Promotion to the live bid is
+    # a separate, later, human-reviewed step once the shadow log gives
+    # outcome evidence — never automatic.
+    "waiver_live_opportunity": False,
 }
 
 _ENV_PREFIX: Final[str] = "RISKIT_FEATURE_"
@@ -526,18 +550,42 @@ _GATE_STATUS: Final[dict[str, str]] = {
     # host's own vocabulary is scored directly.  See
     # docs/scoring/HOST_NATIVE_SCORING_VALIDATION.md.
     "host_native_scoring": LIVE,
-    # ── Gate exists, module is stranded ──
-    #
-    # ``src/nfl_data/injury_feed.py`` and ``src/news/usage_signals.py``
-    # both check their flag properly.  Nothing imports either module, so
-    # the check never executes.
-    "espn_injury_feed": UNREACHABLE,
+    # waiver_live_opportunity gates a computation inside server.py's
+    # /api/waiver/faab-recommend handler (reachable from server.py by
+    # construction — it IS server.py), so the import-graph measurement
+    # below is genuinely LIVE.  This does NOT mean toggling it changes
+    # the response: it is a SHADOW gate by design (see its _DEFAULTS
+    # comment) — reachable-and-wired is a different claim from
+    # response-changing, which is exactly why it defaults False rather
+    # than True despite measuring LIVE.
+    "waiver_live_opportunity": LIVE,
+    # ``src/nfl_data/injury_feed.py`` is reachable since 2026-09-01 via
+    # ``scripts/refresh_injury_feed.py``, a script-only entry point (no
+    # server.py route reads it directly) that writes into the BDVM
+    # events ledger, which server.py DOES read through
+    # ``src/trade/faab_opportunity.py``.  Not plain LIVE (no request
+    # changes response by toggling this flag alone — the effect only
+    # shows up after the script has run and written events) and not
+    # UNREACHABLE either — SCRIPT_ONLY captures it correctly.
+    "espn_injury_feed": SCRIPT_ONLY,
+    # ``src/news/usage_signals.py`` — still genuinely stranded.  Nothing
+    # imports it.  Reviving it was evaluated for the Live Waiver
+    # Opportunity layer (docs/faab-live-opportunity-model.md) and scoped
+    # OUT of this pass: ``src/nfl_data/usage_windows.py`` needs a weekly
+    # nflverse pull this layer does not otherwise require, and the
+    # depth-chart + injury-feed events alone already cover the
+    # directive's named cases.  ``depth_charts.usage_confirms_slot_change``
+    # exists and is a real, tested cross-check primitive, but nothing
+    # calls it yet — a genuine follow-up, not fabricated here.
     "usage_signals": UNREACHABLE,
-    # ``src/nfl_data/depth_charts.py`` is gated and is imported — by
-    # ``scripts/refresh_depth_charts.py`` only.  Note this is a DIFFERENT
-    # module from ``src/playerctx/normalize.py::parse_depth_charts``,
-    # which is live and ungated; conflating the two reads as "depth
-    # charts work, so the flag must be live".
+    # ``src/nfl_data/depth_charts.py`` is gated and imported by
+    # ``scripts/refresh_depth_charts.py``, which since 2026-09-01 also
+    # writes DEPTH_CHART_PROMOTION/DEMOTION events into the BDVM ledger
+    # — same SCRIPT_ONLY reasoning as ``espn_injury_feed`` above.  Note
+    # this is a DIFFERENT module from
+    # ``src/playerctx/normalize.py::parse_depth_charts``, which is live
+    # and ungated; conflating the two reads as "depth charts work, so
+    # the flag must be live".
     "depth_chart_validation": SCRIPT_ONLY,
     # ── No gate anywhere: the flag is decoration ──
     #

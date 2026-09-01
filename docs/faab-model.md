@@ -808,12 +808,29 @@ Combined, as % of budget:
 **The league's median winning bid is 0–1% of budget.** The old system's flat
 21% sat above the 99th percentile of anything either league has ever paid.
 
-### 9.2 The zero-bid audit finding
+### 9.2 The zero-bid audit finding — CORRECTED 2026-09-01
 
-`src/api/faab_analytics.py` gates its league average and median on `bid > 0`
-(line 220, `if bid > 0: all_bids.append(bid)`). With 42–61% of adds costing
-exactly $0, that turns a true median of **0.00%** of budget into a reported
-median of **2.00%**. Those excluded bids are not noise — they are the modal
+This section previously claimed `src/api/faab_analytics.py` gates its league
+average and median on `bid > 0` and had "not been changed" to fix it. That is
+**no longer true and was found stale during the 2026-09-01 FAAB redesign
+audit** (`docs/faab-live-opportunity-model.md`) — reading the file at HEAD,
+`all_bids.append(bid)` runs unconditionally for every walked transaction, with
+an explicit in-code comment documenting that zero bids are kept for the exact
+reason this section describes. The `bid > 0` guard that DOES exist in the file
+is a different, correct thing: it gates `teamAggression`'s per-owner
+`avgBid`/`maxBid` (a team's *average winning bid*, which legitimately excludes
+non-events the same way `faab_history.py`'s aggression fit does), not the
+league-wide `leagueAvgWinningBid`/`leagueMedianWinningBid`. `zeroBidShare` was
+added to the payload alongside this correction so the two panels the owner
+sees can never silently disagree about what fraction of the sample was $0.
+
+The measurement below (42–61% of adds costing exactly $0) still stands as the
+reason zero bids must never be excluded from either surface; only the claim
+that this specific file excluded them was wrong.
+
+With 42–61% of adds costing exactly $0, excluding them from a median turns a
+true median of **0.00%** of budget into a reported median of **2.00%**. Those
+excluded bids are not noise — they are the modal
 outcome, and "how often does a claim go uncontested" is the single most
 important number in the market model.
 
@@ -826,9 +843,10 @@ explicitly. Note the module docstring characterises the analytics gap as a
 median of zero is undefined. The precise statement is: **the reported league
 median is 2% of budget when the true median is 0%.**
 
-`faab_analytics.py` has **not** been changed; it still powers the historical
-context panel. Anything reading `leagueMedianWinningBid` is reading a
-nonzero-only median.
+`faab_analytics.py` powers the historical context panel and, as of the
+2026-09-01 correction above, is confirmed at HEAD to already include zero
+bids in `leagueMedianWinningBid`/`leagueAvgWinningBid`, plus the new
+`zeroBidShare` field. The two modules now agree.
 
 ### 9.3 Fitting the market model
 

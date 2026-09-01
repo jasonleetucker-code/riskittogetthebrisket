@@ -5756,8 +5756,17 @@ async def post_waiver_suggestions(request: Request):
     audit, F-1).  Unknown body fields are still accepted and ignored,
     so old callers keep working.)
 
+    ``teamOwnerId`` (optional) — the requesting user's Sleeper owner
+    id.  When it resolves to a current roster in the resolved league,
+    bids come from the SAME market-aware engine
+    ``/api/waiver/faab-recommend`` uses (real rival contention, season
+    option value, positional need) instead of the ceiling-only
+    fallback.  Without it — or on an unmatched id — bids stay the
+    ceiling-only estimate, and ``bidMethodology`` on the response says
+    which formula ran so a caller never has to guess.
+
     Returns ``{by_position, by_family, total, rookies_excluded,
-    leagueKey}``.
+    bidMethodology, leagueKey}``.
     """
     if not latest_contract_data or not latest_contract_data.get("playersArray"):
         return JSONResponse(
@@ -5795,10 +5804,14 @@ async def post_waiver_suggestions(request: Request):
     except (TypeError, ValueError):
         min_value = _MIN_WAIVER_VALUE
     include_kicker = bool(body.get("includeKicker"))
+    requested_faab_remaining = body.get("faabRemaining")
     try:
-        faab_remaining = int(body.get("faabRemaining", 100))
+        faab_remaining = (
+            int(requested_faab_remaining) if requested_faab_remaining is not None else None
+        )
     except (TypeError, ValueError):
-        faab_remaining = 100
+        faab_remaining = None
+    team_owner_id = str(body.get("teamOwnerId") or "").strip() or None
 
     from src.trade import waiver as _waiver  # noqa: PLC0415
 
@@ -5808,17 +5821,56 @@ async def post_waiver_suggestions(request: Request):
     # player's worth shrink as the manager spent.
     _roster_settings = _league_registry.get_league_roster_settings(league_cfg.key) or {}
     _starters = _roster_settings.get("starters") or {}
+    # An UNKNOWN roster size and a genuinely zero-sized roster are
+    # different claims — coercing a missing registry value to 0 would
+    # fabricate "this roster is full" (open_roster_spots=0) rather than
+    # "we don't know its capacity".  find_waiver_targets already treats
+    # None the same as an unusable size (no drop-cost adjustment), so
+    # this preserves current behavior while keeping the two states
+    # distinguishable for any future consumer.
+    _raw_roster_size = _roster_settings.get("rosterSize")
+    _roster_size = int(_raw_roster_size) if isinstance(_raw_roster_size, int) else None
     _league_budget = 100
     for _t in sleeper_teams:
         if isinstance(_t, dict) and isinstance(_t.get("faabBudget"), int) and _t["faabBudget"] > 0:
             _league_budget = _t["faabBudget"]
             break
 
+    # A requesting team unlocks the market-aware engine, which needs
+    # ``faabRemaining`` per team — the baked scrape block doesn't carry
+    # it, so pull the same live teams-only overlay
+    # ``/api/waiver/faab-recommend`` uses.  Fall back to the baked block
+    # (ceiling-only mode, since it lacks balances) if the overlay fails.
+    _suggestions_teams = sleeper_teams
+    if team_owner_id:
+        try:
+            _overlay_id_map = sleeper.get("idToPlayer") if isinstance(sleeper, dict) else {}
+            _overlay = await run_in_threadpool(
+                lambda: _sleeper_overlay.fetch_sleeper_teams_overlay(
+                    sleeper_league_id=league_cfg.sleeper_league_id,
+                    id_to_player=_overlay_id_map if isinstance(_overlay_id_map, dict) else {},
+                )
+            )
+            if isinstance(_overlay, dict) and _overlay.get("teams"):
+                _suggestions_teams = _overlay["teams"]
+        except Exception as exc:  # noqa: BLE001 — degrade to ceiling-only, never 500
+            log.warning("waiver suggestions overlay fetch failed for %s: %s", league_cfg.key, exc)
+
+    _market_priors = None
+    try:
+        from src.trade.faab_history import load_bid_history, summarize_bid_history  # noqa: PLC0415
+
+        _market_priors = await run_in_threadpool(
+            lambda: summarize_bid_history(load_bid_history(league_cfg.key))
+        )
+    except Exception as exc:  # noqa: BLE001 — aggression just falls back to neutral
+        log.warning("waiver suggestions bid history load failed for %s: %s", league_cfg.key, exc)
+
     try:
         result = await run_in_threadpool(
             _waiver.find_waiver_targets,
             contract,
-            sleeper_teams,
+            _suggestions_teams,
             min_value=min_value,
             include_kicker_def=include_kicker,
             user_faab_remaining=faab_remaining,
@@ -5828,6 +5880,10 @@ async def post_waiver_suggestions(request: Request):
                 int(v or 0) for k, v in _starters.items() if str(k).upper() != "K"
             )
             or 20,
+            team_owner_id=team_owner_id,
+            starters=_starters,
+            roster_size=_roster_size,
+            market_priors=_market_priors,
         )
     except Exception as exc:  # noqa: BLE001
         log.error(f"Waiver suggestions failed: {exc}")
@@ -6002,6 +6058,32 @@ async def post_waiver_faab_recommend(request: Request):
     add_value = float(add_row.get("rankDerivedValue") or 0)
     drop_value = float(drop_row.get("rankDerivedValue") or 0) if drop_row else 0.0
     add_position = add_row.get("position") or add_row.get("pos") or None
+
+    # Live Waiver Opportunity — SHADOW ONLY (docs/faab-live-opportunity-
+    # model.md).  Computes the opportunity-adjusted value alongside the
+    # canonical-only one and logs both; ``add_value`` below is untouched,
+    # so this can never change what the user is shown.  Promotion to the
+    # live bid is a separate, later, human-reviewed step.
+    from src.api import feature_flags as _ff  # noqa: PLC0415
+
+    if _ff.is_enabled("waiver_live_opportunity"):
+        try:
+            from src.trade import faab_opportunity as _opportunity  # noqa: PLC0415
+            from src.trade import faab_shadow as _faab_shadow  # noqa: PLC0415
+
+            _opp_result = _opportunity.opportunity_value(
+                add_value,
+                sleeper_id=add_row.get("playerId"),
+                player_name=add_name,
+            )
+            _faab_shadow.record_comparison(
+                league_key=league_cfg.key,
+                player_name=add_name,
+                canonical_value=add_value,
+                opportunity_result=_opp_result,
+            )
+        except Exception as exc:  # noqa: BLE001 — a shadow computation must never break the live response
+            log.warning("waiver_live_opportunity shadow computation failed: %s", exc)
 
     # Rosters: prefer the live Sleeper TEAMS-ONLY overlay — its
     # ``teams`` carry ``faabRemaining`` (the baked scrape block does

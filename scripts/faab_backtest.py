@@ -49,6 +49,20 @@ printed so a reader can see which rows are worth anything.
     move materially with that choice, which is itself the finding: a
     formula with no absolute value scale cannot be backtested cleanly.
     The NEW engine's anchors are also computed off today's board.
+5.  CHALLENGER (the Live Waiver Opportunity layer,
+    docs/faab-live-opportunity-model.md) IS NOT VALIDATED BY THIS
+    BACKTEST, and the CHALLENGER column exists to make that visible
+    rather than to hide it.  ``src.trade.faab_opportunity`` reads
+    TODAY's playerctx snapshot and TODAY's BDVM event ledger — neither
+    has any historical retention, so calling it for a 2024 claim looks
+    up 2026 role/event data, which is a FAR worse look-ahead violation
+    than caveat 1's value join.  The report therefore stamps
+    ``challengerRowsWithEvidence`` (almost always 0, and MUST be read
+    before trusting any CHALLENGER number) rather than silently
+    running the same look-ahead-biased comparison a second time.  The
+    real validation path for this specific signal is the forward
+    shadow-comparison log (``data/faab/shadow_comparisons_*.json``),
+    not a retroactive replay.
 """
 
 from __future__ import annotations
@@ -64,6 +78,7 @@ from typing import Any, Iterable, Sequence
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from src.trade import faab_engine as engine  # noqa: E402
+from src.trade import faab_opportunity as opportunity  # noqa: E402
 from src.trade.faab_history import history_path, load_bid_history  # noqa: E402
 
 EXIT_OK = 0
@@ -229,6 +244,8 @@ class ClaimRow:
     old_aggressive: int
     new_recommended: int
     new_objective: int
+    challenger_recommended: int = 0
+    challenger_had_evidence: bool = False
 
     @property
     def old_delta(self) -> int:
@@ -239,12 +256,20 @@ class ClaimRow:
         return self.new_recommended - self.actual
 
     @property
+    def challenger_delta(self) -> int:
+        return self.challenger_recommended - self.actual
+
+    @property
     def old_won(self) -> bool:
         return self.old_reasonable >= self.actual
 
     @property
     def new_won(self) -> bool:
         return self.new_recommended >= self.actual
+
+    @property
+    def challenger_won(self) -> bool:
+        return self.challenger_recommended >= self.actual
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -266,6 +291,16 @@ class ClaimRow:
                 "objectiveCeiling": self.new_objective,
                 "deltaVsActual": self.new_delta,
                 "wouldHaveWon": self.new_won,
+            },
+            "challenger": {
+                "recommended": self.challenger_recommended,
+                "deltaVsActual": self.challenger_delta,
+                "wouldHaveWon": self.challenger_won,
+                # Almost always False on a historical claim — see caveat 5.
+                # A True here means the opportunity layer found role/event
+                # evidence keyed to THIS player TODAY, which for an old
+                # claim is itself a look-ahead artifact, not a real signal.
+                "hadEvidence": self.challenger_had_evidence,
             },
             "valueBand": _band_label(self.value),
         }
@@ -341,6 +376,78 @@ def _recommend_new(
     return out
 
 
+def _recommend_challenger(
+    *,
+    value: float,
+    player_id: str,
+    player_name: str,
+    week: int,
+    budget: int,
+    team_count: int,
+    starters_per_team: int,
+    anchors: engine.Anchors,
+    cfg: engine.FaabConfig,
+    cache: dict[tuple[str, int, int, int, int], tuple[int, bool]],
+) -> tuple[int, bool]:
+    """``(recommendedBid, hadEvidence)`` running TODAY's opportunity
+    layer against a HISTORICAL claim.
+
+    Read caveat 5 before trusting this number for anything but "is the
+    plumbing correct" — ``player_id``/``player_name`` are looked up
+    against TODAY's playerctx/event evidence, not evidence from the
+    claim's actual date, because no historical snapshot of either
+    exists.  ``hadEvidence`` is what lets the report show that
+    honestly rather than asserting it in prose alone.
+    """
+    key = (player_id, int(round(value)), int(week), int(budget), int(team_count))
+    hit = cache.get(key)
+    if hit is not None:
+        return hit
+
+    opp = opportunity.opportunity_value(
+        value,
+        sleeper_id=player_id or None,
+        player_name=player_name,
+        config=cfg,
+    )
+
+    league = engine.LeagueContext(
+        original_budget=budget,
+        team_count=team_count,
+        starters_per_team=starters_per_team,
+        current_week=week,
+        in_season=True,
+    )
+    team = engine.TeamContext(
+        faab_remaining=budget,
+        open_roster_spots=1,
+        need_level="neutral",
+        competitive_status="bubble",
+        risk_posture="balanced",
+    )
+    rivals = [
+        engine.RivalTeam(
+            owner_id=f"rival-{i}",
+            faab_remaining=budget,
+            need_level="neutral",
+            aggression=1.0,
+            low_sample=True,
+        )
+        for i in range(max(0, team_count - 1))
+    ]
+    result = engine.recommend(
+        engine.PlayerInput(value=float(opp["value"])),
+        league,
+        team,
+        anchors=anchors,
+        rivals=rivals,
+        config=cfg,
+    )
+    out = (int(result["bids"]["recommended"]), bool(opp["hasEvidence"]))
+    cache[key] = out
+    return out
+
+
 def _replay(
     payload: dict[str, Any],
     board: dict[str, dict[str, Any]],
@@ -387,6 +494,7 @@ def _replay(
                     "value": float(row["rankDerivedValue"]),
                     "name": str(row.get("displayName") or row.get("canonicalName") or "?"),
                     "position": str(row.get("position") or "").upper(),
+                    "playerId": str(add.get("playerId") or ""),
                 }
             )
 
@@ -402,6 +510,7 @@ def _replay(
             pool_top[key] = max(pool_top.get(key, 0.0), r["value"])
 
     cache: dict[tuple[int, int, int, int], tuple[int, int]] = {}
+    challenger_cache: dict[tuple[str, int, int, int, int], tuple[int, bool]] = {}
     rows: list[ClaimRow] = []
     for r in resolved:
         if old_pool == "all":
@@ -425,6 +534,18 @@ def _replay(
             cfg=cfg,
             cache=cache,
         )
+        challenger_bid, challenger_evidence = _recommend_challenger(
+            value=r["value"],
+            player_id=r["playerId"],
+            player_name=r["name"],
+            week=r["week"],
+            budget=r["budget"],
+            team_count=r["teamCount"],
+            starters_per_team=starters_per_team,
+            anchors=anchors,
+            cfg=cfg,
+            cache=challenger_cache,
+        )
         rows.append(
             ClaimRow(
                 player=r["name"],
@@ -438,6 +559,8 @@ def _replay(
                 old_aggressive=old_agg,
                 new_recommended=new_bid,
                 new_objective=new_obj,
+                challenger_recommended=challenger_bid,
+                challenger_had_evidence=challenger_evidence,
             )
         )
 
@@ -459,24 +582,39 @@ def _mean(values: Iterable[float]) -> float:
     return statistics.fmean(vals) if vals else 0.0
 
 
-def _model_stats(rows: Sequence[ClaimRow], *, model: str) -> dict[str, Any]:
+def _model_recommendation(c: ClaimRow, model: str) -> int:
     if model == "old":
-        recs = [c.old_reasonable for c in rows]
-        wins = [c for c in rows if c.old_won]
-        deltas = [c.old_delta for c in rows]
-    else:
-        recs = [c.new_recommended for c in rows]
-        wins = [c for c in rows if c.new_won]
-        deltas = [c.new_delta for c in rows]
+        return c.old_reasonable
+    if model == "challenger":
+        return c.challenger_recommended
+    return c.new_recommended
 
-    overpay = [c.old_delta if model == "old" else c.new_delta for c in wins]
-    spend_on_wins = sum(c.old_reasonable if model == "old" else c.new_recommended for c in wins)
-    budget_units = sum(
-        (c.old_reasonable if model == "old" else c.new_recommended) / max(1, c.budget) for c in rows
-    )
-    win_budget_units = sum(
-        (c.old_reasonable if model == "old" else c.new_recommended) / max(1, c.budget) for c in wins
-    )
+
+def _model_won(c: ClaimRow, model: str) -> bool:
+    if model == "old":
+        return c.old_won
+    if model == "challenger":
+        return c.challenger_won
+    return c.new_won
+
+
+def _model_delta(c: ClaimRow, model: str) -> int:
+    if model == "old":
+        return c.old_delta
+    if model == "challenger":
+        return c.challenger_delta
+    return c.new_delta
+
+
+def _model_stats(rows: Sequence[ClaimRow], *, model: str) -> dict[str, Any]:
+    recs = [_model_recommendation(c, model) for c in rows]
+    wins = [c for c in rows if _model_won(c, model)]
+    deltas = [_model_delta(c, model) for c in rows]
+
+    overpay = [_model_delta(c, model) for c in wins]
+    spend_on_wins = sum(_model_recommendation(c, model) for c in wins)
+    budget_units = sum(_model_recommendation(c, model) / max(1, c.budget) for c in rows)
+    win_budget_units = sum(_model_recommendation(c, model) / max(1, c.budget) for c in wins)
     return {
         "claims": len(rows),
         "wouldHaveWon": len(wins),
@@ -623,6 +761,12 @@ CAVEATS: tuple[str, ...] = (
     "OLD HEADLINE NUMBER: OLD is scored on its 'reasonable' bid (aggressive x 0.70), "
     "the figure the pre-engine UI presented as the recommendation. Its 'aggressive' "
     "figure is carried in the per-claim rows and in --json.",
+    "CHALLENGER IS NOT VALIDATED BY THIS BACKTEST: the Live Waiver Opportunity layer "
+    "reads TODAY's playerctx/event evidence for every historical claim, since neither "
+    "has any retained history. Check 'challengerRowsWithEvidence' below before reading "
+    "anything into a CHALLENGER number - a nonzero count on an old claim is itself a "
+    "look-ahead artifact, not a real signal. This column exists to prove the mechanics "
+    "are wired correctly, not to grade the opportunity layer's accuracy.",
 )
 
 
@@ -698,49 +842,75 @@ def _render(report: dict[str, Any], *, limit: int) -> str:
     add(_rule("="))
     header = (
         f"{'Player':<24}{'Pos':<5}{'Value':>7}{'Seas':>6}{'Wk':>4}"
-        f"{'Bud':>6}{'Actual':>8}{'OLD':>7}{'dOLD':>7}{'NEW':>7}{'dNEW':>7}"
+        f"{'Bud':>6}{'Actual':>8}{'OLD':>7}{'dOLD':>7}{'NEW':>7}{'dNEW':>7}{'CHAL':>7}"
     )
     add(header)
     add(_rule("-", len(header)))
     for row in shown:
+        chal_mark = "" if row["challenger"]["hadEvidence"] else "~"
         add(
             f"{row['player'][:23]:<24}{row['position'][:4]:<5}"
             f"{row['canonicalValue']:>7.0f}{row['season']:>6}{row['week']:>4}"
             f"{row['seasonBudget']:>6}{row['actualWinningBid']:>8}"
             f"{row['old']['recommended']:>7}{row['old']['deltaVsActual']:>+7}"
             f"{row['new']['recommended']:>7}{row['new']['deltaVsActual']:>+7}"
+            f"{row['challenger']['recommended']:>6}{chal_mark}"
         )
     if limit > 0 and len(rows) > limit:
         add(f"... {len(rows) - limit} more (use --limit 0 for all)")
+    add("  CHAL = challenger (Live Waiver Opportunity layer); '~' = no historical")
+    add("         evidence found (expected for nearly every row — see caveat 5)")
     add("")
 
     actual = report["actual"]
     old = report["old"]
     new = report["new"]
+    challenger = report["challenger"]
     add(_rule("="))
     add("AGGREGATE — WOULD-HAVE-WON (recommendation >= actual winning bid)")
     add(_rule("="))
-    add(f"{'':<34}{'OLD':>14}{'NEW':>14}")
-    add(f"{'claims scored':<34}{old['claims']:>14}{new['claims']:>14}")
-    add(f"{'would have WON':<34}{old['wouldHaveWon']:>14}{new['wouldHaveWon']:>14}")
-    add(f"{'would have LOST':<34}{old['wouldHaveLost']:>14}{new['wouldHaveLost']:>14}")
-    add(f"{'win rate':<34}{old['winRatePct']:>13.1f}%{new['winRatePct']:>13.1f}%")
+    add(f"{'':<34}{'OLD':>14}{'NEW':>14}{'CHALLENGER':>14}")
+    add(
+        f"{'claims scored':<34}{old['claims']:>14}{new['claims']:>14}" f"{challenger['claims']:>14}"
+    )
+    add(
+        f"{'would have WON':<34}{old['wouldHaveWon']:>14}{new['wouldHaveWon']:>14}"
+        f"{challenger['wouldHaveWon']:>14}"
+    )
+    add(
+        f"{'would have LOST':<34}{old['wouldHaveLost']:>14}{new['wouldHaveLost']:>14}"
+        f"{challenger['wouldHaveLost']:>14}"
+    )
+    add(
+        f"{'win rate':<34}{old['winRatePct']:>13.1f}%{new['winRatePct']:>13.1f}%"
+        f"{challenger['winRatePct']:>13.1f}%"
+    )
     add(
         f"{'avg overpayment when winning':<34}"
         f"{old['avgOverpaymentWhenWinning']:>14.2f}{new['avgOverpaymentWhenWinning']:>14.2f}"
+        f"{challenger['avgOverpaymentWhenWinning']:>14.2f}"
     )
     add(
         f"{'median overpay when winning':<34}"
         f"{old['medianOverpaymentWhenWinning']:>14.2f}"
         f"{new['medianOverpaymentWhenWinning']:>14.2f}"
+        f"{challenger['medianOverpaymentWhenWinning']:>14.2f}"
     )
     add(
         f"{'avg recommendation ($)':<34}"
         f"{old['avgRecommendation']:>14.2f}{new['avgRecommendation']:>14.2f}"
+        f"{challenger['avgRecommendation']:>14.2f}"
     )
     add(
         f"{'avg delta vs actual ($)':<34}"
         f"{old['avgDeltaVsActual']:>+14.2f}{new['avgDeltaVsActual']:>+14.2f}"
+        f"{challenger['avgDeltaVsActual']:>+14.2f}"
+    )
+    add("")
+    add(
+        f"  CHALLENGER rows with real historical evidence: "
+        f"{report['challengerRowsWithEvidence']} of {len(rows)} — "
+        "read caveat 5 before trusting anything above this line for CHALLENGER."
     )
     add("")
 
@@ -959,12 +1129,19 @@ def main(argv: Sequence[str] | None = None) -> int:
                 "(scored on reasonable = aggressive x 0.70)"
             ),
             "newModel": "src.trade.faab_engine.recommend -> bids.recommended",
+            "challengerModel": (
+                "src.trade.faab_opportunity.opportunity_value (TODAY's playerctx/event "
+                "evidence) -> src.trade.faab_engine.recommend -> bids.recommended; "
+                "NOT a validated backtest of the opportunity layer, see caveat 5"
+            ),
         },
         "caveats": list(CAVEATS),
         "join": join,
         "actual": _actual_stats(rows),
         "old": _model_stats(rows, model="old"),
         "new": _model_stats(rows, model="new"),
+        "challenger": _model_stats(rows, model="challenger"),
+        "challengerRowsWithEvidence": sum(1 for c in rows if c.challenger_had_evidence),
         "byValueBand": _breakdown(
             rows, lambda c: _band_label(c.value), [b[0] for b in VALUE_BANDS]
         ),

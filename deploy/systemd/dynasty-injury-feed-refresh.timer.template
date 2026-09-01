@@ -1,0 +1,19 @@
+[Unit]
+Description=Injury-feed refresh for __SERVICE_NAME__ (multiple times daily in-season)
+Requires=__SERVICE_NAME__-injury-feed-refresh.service
+
+[Timer]
+# Every 4 hours — injury status (questionable/doubtful/out, IR moves)
+# changes faster than depth-chart slots and directly gates the
+# availability factor in src/trade/faab_opportunity.py, so this runs
+# closer to the 2-hourly main scrape cadence than the daily depth-chart
+# timer.  Anchored at :10 (not :00/:42) to avoid the scheduled-refresh
+# 2-hourly boundary and dynasty-custom-alerts' own 2-hourly tick.
+OnCalendar=*-*-* 00/4:10:00 UTC
+RandomizedDelaySec=180
+Persistent=true
+AccuracySec=2min
+Unit=__SERVICE_NAME__-injury-feed-refresh.service
+
+[Install]
+WantedBy=timers.target
