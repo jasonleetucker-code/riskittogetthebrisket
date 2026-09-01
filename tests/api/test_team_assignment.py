@@ -4,9 +4,12 @@ Covers config load/merge, favorite resolution (direct + alias +
 missing, mechanism unchanged from the old points-based model), the
 canonical-value formula (base value passthrough, the ONE starting-QB
 2.0x multiplier and its "unknown never becomes starter" fallback),
-affinity-share aggregation and qualification, unlimited team assignments
-for all teams meeting the threshold, and the missing-is-never-zero /
-Meaningful-Core-reuse invariants the owner mandate is built on.
+affinity-share aggregation, the FIXED favorite + up to 4
+coverage-maximizing team selection (``_assign_coverage_maximizing_teams``
+-- natural top-4 per manager, then a single deterministic cross-manager
+repair pass for any of the 32 real NFL teams nobody covers), and the
+missing-is-never-zero / Meaningful-Core-reuse invariants the owner
+mandate is built on.
 """
 
 from __future__ import annotations
@@ -128,7 +131,7 @@ def _config_path(tmp_path: Path, body: dict) -> Path:
     return p
 
 
-def _stub_config(monkeypatch, tmp_path: Path, *, min_share=0.10, qb_multiplier=2.0):
+def _stub_config(monkeypatch, tmp_path: Path, *, qb_multiplier=2.0):
     cfg_path = _config_path(
         tmp_path,
         {
@@ -140,7 +143,6 @@ def _stub_config(monkeypatch, tmp_path: Path, *, min_share=0.10, qb_multiplier=2
                 "jasonleetucker": "jason",
             },
             "weights": {"nflStartingQbMultiplier": qb_multiplier},
-            "thresholds": {"rosterAssignmentMinShare": min_share},
             "limits": {},
         },
     )
@@ -153,9 +155,9 @@ def _stub_config(monkeypatch, tmp_path: Path, *, min_share=0.10, qb_multiplier=2
 def test_load_config_uses_defaults_when_file_missing(tmp_path: Path):
     cfg = team_assignment.load_config(tmp_path / "missing.json")
     assert cfg["weights"]["nflStartingQbMultiplier"] == 2.0
-    assert cfg["thresholds"]["rosterAssignmentMinShare"] == 0.10
     assert cfg["limits"] == {}
     assert cfg["favorites"] == {}
+    assert "thresholds" not in cfg
 
 
 def test_load_config_falls_back_on_malformed_json(tmp_path: Path):
@@ -183,26 +185,27 @@ def test_load_config_strips_doc_keys(tmp_path: Path):
 
 
 def test_no_dead_weight_or_threshold_knobs_remain():
-    """The old per-position point weights and the flat point threshold
-    are retired entirely -- one weight (the QB multiplier), one
-    threshold (the affinity-share minimum)."""
+    """The old per-position point weights AND the percentage threshold
+    are retired entirely -- one weight (the QB multiplier), zero
+    thresholds.  The non-favorite team count is a hardcoded constant,
+    not a config knob at all."""
     assert set(team_assignment._DEFAULT_CONFIG["weights"]) == {"nflStartingQbMultiplier"}
-    assert set(team_assignment._DEFAULT_CONFIG["thresholds"]) == {"rosterAssignmentMinShare"}
+    assert "thresholds" not in team_assignment._DEFAULT_CONFIG
+    assert team_assignment._NON_FAVORITE_TEAMS_PER_OWNER == 4
 
 
 def test_shipped_config_declares_exactly_the_live_knobs():
     shipped = json.loads(team_assignment._CONFIG_PATH.read_text(encoding="utf-8"))
     weights = {k for k in shipped["weights"] if k != "_doc"}
-    thresholds = {k for k in shipped["thresholds"] if k != "_doc"}
     assert weights == set(team_assignment._DEFAULT_CONFIG["weights"])
-    assert thresholds == set(team_assignment._DEFAULT_CONFIG["thresholds"])
+    assert "thresholds" not in shipped
 
 
 def test_load_config_merges_partial_user_config_over_defaults(tmp_path: Path):
     p = _config_path(tmp_path, {"weights": {"nflStartingQbMultiplier": 3.0}})
     cfg = team_assignment.load_config(p)
     assert cfg["weights"]["nflStartingQbMultiplier"] == 3.0
-    assert cfg["thresholds"]["rosterAssignmentMinShare"] == 0.10
+    assert "thresholds" not in cfg
 
 
 # ── Favorite resolution (unchanged mechanism, test 19) ────────────
@@ -380,9 +383,10 @@ def test_two_teammates_aggregate_correctly(monkeypatch, tmp_path: Path):
 
 
 def test_affinity_share_denominator_is_total_weighted_core_value(monkeypatch, tmp_path: Path):
-    """Test 7: two NFL teams, verify shares sum against the TOTAL,
-    including a team that itself does not clear the threshold."""
-    _stub_config(monkeypatch, tmp_path, min_share=0.10)
+    """Test 7: two NFL teams, verify shares sum against the TOTAL. Both
+    show -- there are only two real candidate teams, well under the
+    4-team cap, so no selection logic excludes either."""
+    _stub_config(monkeypatch, tmp_path)
     mgrs = ManagerRegistry(by_owner_id={"oA": _manager("oA", "nofavorite")})
     rosters = [{"roster_id": 1, "owner_id": "oA", "players": ["A", "B"]}]
     rows = [
@@ -396,14 +400,16 @@ def test_affinity_share_denominator_is_total_weighted_core_value(monkeypatch, tm
     assert a["totalWeightedCoreValue"] == 10000.0
     sea = next(t for t in a["nflTeams"] if t["abbr"] == "SEA")
     assert sea["affinityShare"] == 0.9
-    # KC is exactly 10% -- qualifies (boundary, see test 9) so both show.
     abbrs = {t["abbr"] for t in a["nflTeams"]}
     assert abbrs == {"SEA", "KC"}
 
 
-def test_non_favorite_below_threshold_does_not_qualify(monkeypatch, tmp_path: Path):
-    """Test 8."""
-    _stub_config(monkeypatch, tmp_path, min_share=0.10)
+def test_non_favorite_teams_always_shown_regardless_of_lopsided_share(monkeypatch, tmp_path: Path):
+    """No percentage threshold exists any more -- a team that would
+    have failed the old 10% cutoff (900/10000 = 9%) is still shown,
+    because selection is now purely about the 4-team cap, never a
+    share minimum."""
+    _stub_config(monkeypatch, tmp_path)
     mgrs = ManagerRegistry(by_owner_id={"oA": _manager("oA", "nofavorite")})
     rosters = [{"roster_id": 1, "owner_id": "oA", "players": ["A", "B"]}]
     rows = [
@@ -414,26 +420,10 @@ def test_non_favorite_below_threshold_does_not_qualify(monkeypatch, tmp_path: Pa
     snap = _snapshot(rosters, {}, mgrs, slots=["RB", "RB", "BN"])
     section = team_assignment.build_section(snap, contract)
     abbrs = {t["abbr"] for t in section["assignments"][0]["nflTeams"]}
-    assert abbrs == {"SEA"}
+    assert abbrs == {"SEA", "KC"}
 
 
-def test_non_favorite_at_or_above_threshold_qualifies(monkeypatch, tmp_path: Path):
-    """Test 9: exactly 10.0% qualifies (>= not >)."""
-    _stub_config(monkeypatch, tmp_path, min_share=0.10)
-    mgrs = ManagerRegistry(by_owner_id={"oA": _manager("oA", "nofavorite")})
-    rosters = [{"roster_id": 1, "owner_id": "oA", "players": ["A", "B"]}]
-    rows = [
-        _row("A", "RB", "SEA", 9000, player_id="a"),
-        _row("B", "RB", "KC", 1000, player_id="b"),
-    ]
-    contract = _contract(rows, {"oA": ["A", "B"]}, slots=["RB", "RB", "BN"])
-    snap = _snapshot(rosters, {}, mgrs, slots=["RB", "RB", "BN"])
-    section = team_assignment.build_section(snap, contract)
-    abbrs = {t["abbr"] for t in section["assignments"][0]["nflTeams"]}
-    assert "KC" in abbrs
-
-
-def test_favorite_remains_assigned_below_threshold(monkeypatch, tmp_path: Path):
+def test_favorite_remains_assigned_with_zero_affinity(monkeypatch, tmp_path: Path):
     """Test 10: favorite has zero roster contribution, still shown."""
     _stub_config(monkeypatch, tmp_path)
     mgrs = ManagerRegistry(by_owner_id={"oA": _manager("oA", "jason")})
@@ -447,18 +437,19 @@ def test_favorite_remains_assigned_below_threshold(monkeypatch, tmp_path: Path):
     assert a["nflTeams"][0]["isFavorite"] is True
     assert a["nflTeams"][0]["affinityScore"] == 0.0
     assert a["nflTeams"][0]["qualifiesByRoster"] is False
+    assert a["nflTeams"][0]["assignmentReason"] == "favorite"
 
 
-def test_all_qualifying_teams_are_assigned_with_deterministic_sort(monkeypatch, tmp_path: Path):
-    """Test 11 + 12: favorite + ALL qualifying non-favorites, sorted by
-    affinityShare (desc), affinityScore (desc), abbr (asc)."""
-    _stub_config(monkeypatch, tmp_path, min_share=0.05)
+def test_natural_top4_selected_with_deterministic_sort_no_repair_needed(
+    monkeypatch, tmp_path: Path
+):
+    """Favorite + up to 4 non-favorites, sorted by (affinityScore desc,
+    abbr asc).  Exactly 4 real non-favorite candidates exist here, so
+    they all fit the cap with no coverage-repair swap needed."""
+    _stub_config(monkeypatch, tmp_path)
     mgrs = ManagerRegistry(by_owner_id={"oA": _manager("oA", "jason")})
     names = [f"P{i}" for i in range(5)]
     rosters = [{"roster_id": 1, "owner_id": "oA", "players": names}]
-    # BUF highest (5000), then KC/DET/PHI tied (1000 each), MIN favorite (100).
-    # All except MIN meet the 0.05 share threshold: (5000 + 1000*3 + 100 = 8100 total).
-    # BUF: 5000/8100 = 61.7%, KC/DET/PHI: 1000/8100 = 12.3% each (all > 5%).
     rows = [
         _row("P0", "RB", "BUF", 5000, player_id="p0"),
         _row("P1", "RB", "KC", 1000, player_id="p1"),
@@ -470,12 +461,40 @@ def test_all_qualifying_teams_are_assigned_with_deterministic_sort(monkeypatch, 
     snap = _snapshot(rosters, {}, mgrs, slots=["RB", "RB", "RB", "RB", "RB", "BN"])
     section = team_assignment.build_section(snap, contract)
     abbrs = [t["abbr"] for t in section["assignments"][0]["nflTeams"]]
-    # All 5 teams qualify: favorite + 4 roster-based
     assert len(abbrs) == 5
     assert abbrs[0] == "MIN"  # favorite always first
-    assert abbrs[1] == "BUF"  # clearly highest share
-    # KC, DET, PHI tied at same share -- alphabetical order
+    assert abbrs[1] == "BUF"  # clearly highest score
+    # KC, DET, PHI tied at the same score -- alphabetical order
     assert abbrs[2:5] == ["DET", "KC", "PHI"]
+    reasons = {t["abbr"]: t["assignmentReason"] for t in section["assignments"][0]["nflTeams"]}
+    assert reasons["MIN"] == "favorite"
+    assert all(reasons[a] == "top_affinity" for a in ("BUF", "KC", "DET", "PHI"))
+
+
+def test_fifth_candidate_naturally_excluded_not_silently_dropped(monkeypatch, tmp_path: Path):
+    """A manager with 5 real non-favorite candidate teams keeps only
+    the top 4 by score; the 5th (weakest) is excluded from this
+    single-manager league by construction -- with no other manager to
+    keep it covered, repair cannot safely place it either, so it is
+    reported in unresolvedCoverageGaps rather than silently vanishing."""
+    _stub_config(monkeypatch, tmp_path)
+    mgrs = ManagerRegistry(by_owner_id={"oA": _manager("oA", "nofavorite")})
+    names = [f"P{i}" for i in range(5)]
+    rosters = [{"roster_id": 1, "owner_id": "oA", "players": names}]
+    rows = [
+        _row("P0", "RB", "BUF", 5000, player_id="p0"),
+        _row("P1", "RB", "KC", 4000, player_id="p1"),
+        _row("P2", "RB", "DET", 3000, player_id="p2"),
+        _row("P3", "RB", "PHI", 2000, player_id="p3"),
+        _row("P4", "RB", "SEA", 1000, player_id="p4"),
+    ]
+    contract = _contract(rows, {"oA": names}, slots=["RB", "RB", "RB", "RB", "RB", "BN"])
+    snap = _snapshot(rosters, {}, mgrs, slots=["RB", "RB", "RB", "RB", "RB", "BN"])
+    section = team_assignment.build_section(snap, contract)
+    abbrs = {t["abbr"] for t in section["assignments"][0]["nflTeams"]}
+    assert abbrs == {"BUF", "KC", "DET", "PHI"}
+    assert "SEA" not in abbrs
+    assert "SEA" in section["unresolvedCoverageGaps"]
 
 
 def test_missing_canonical_value_is_not_converted_to_zero(monkeypatch, tmp_path: Path):
@@ -620,6 +639,218 @@ def test_flex_players_are_not_selected_a_second_time(monkeypatch, tmp_path: Path
     kc = next(t for t in a["nflTeams"] if t["abbr"] == "KC")
     names_seen = [c["canonicalName"] for c in kc["contributors"]]
     assert len(names_seen) == len(set(names_seen))
+
+
+# ── Coverage-maximizing selection (cross-manager) ──────────────────
+#
+# Direct, pure-function tests of ``_assign_coverage_maximizing_teams``
+# -- no snapshot/contract fixtures needed.  ``ALL_TEAMS`` below is a
+# small closed universe (never the real 32) so gap/uncoverable-team
+# behavior is exercisable without constructing every real NFL team.
+
+
+_ALL_TEAMS = frozenset({"BUF", "KC", "DET", "PHI", "SEA", "CLE", "MIA", "DAL"})
+
+
+def _assign(owner_ids, scores, holds_qb=None, favorites=None, all_teams=None, **kwargs):
+    return team_assignment._assign_coverage_maximizing_teams(
+        owner_ids,
+        scores,
+        holds_qb or {oid: {} for oid in owner_ids},
+        favorites or {oid: None for oid in owner_ids},
+        all_teams=all_teams if all_teams is not None else _ALL_TEAMS,
+        **kwargs,
+    )
+
+
+def test_natural_top4_when_league_already_covers_everything():
+    """Two managers whose natural top-4s collectively already cover
+    every team with any leaguewide affinity -- no repair fires."""
+    owner_ids = ["m1", "m2"]
+    scores = {
+        "m1": {"BUF": 5000, "KC": 4000, "DET": 3000, "PHI": 2000},
+        "m2": {"SEA": 5000, "CLE": 4000, "MIA": 3000, "DAL": 2000},
+    }
+    non_fav, uncoverable, unresolved = _assign(owner_ids, scores)
+    assert {c["abbr"] for c in non_fav["m1"]} == {"BUF", "KC", "DET", "PHI"}
+    assert {c["abbr"] for c in non_fav["m2"]} == {"SEA", "CLE", "MIA", "DAL"}
+    assert all(c["reason"] == "top_affinity" for c in non_fav["m1"] + non_fav["m2"])
+    assert uncoverable == []
+    assert unresolved == []
+
+
+def test_coverage_gap_resolved_by_clear_best_fit_swap():
+    """CLE is uncovered.  m1 is the only manager with CLE affinity;
+    m1's weakest natural team (PHI) is also naturally held by m2, so
+    donating it is safe -- m1 gains CLE via coverage_repair, m2 keeps
+    PHI untouched."""
+    owner_ids = ["m1", "m2"]
+    scores = {
+        "m1": {"BUF": 5000, "KC": 4000, "DET": 3000, "PHI": 2000, "CLE": 500},
+        "m2": {"SEA": 5000, "MIA": 4000, "DAL": 3000, "PHI": 2000},
+    }
+    non_fav, uncoverable, unresolved = _assign(owner_ids, scores)
+    m1_abbrs = {c["abbr"] for c in non_fav["m1"]}
+    assert "CLE" in m1_abbrs
+    assert "PHI" not in m1_abbrs
+    cle_entry = next(c for c in non_fav["m1"] if c["abbr"] == "CLE")
+    assert cle_entry["reason"] == "coverage_repair"
+    assert {c["abbr"] for c in non_fav["m2"]} == {"SEA", "MIA", "DAL", "PHI"}
+    assert uncoverable == []
+    assert unresolved == []
+
+
+def test_gap_falls_to_second_best_fit_when_best_fit_cannot_afford_swap():
+    """m1 has the highest CLE score, but ALL FOUR of m1's natural
+    teams (BUF/KC/DET/PHI) are solely covered by m1 -- nobody else's
+    natural list touches any of them, so no safe donation exists on
+    m1.  Repair falls through to m2 (lower CLE score, but m2's
+    weakest natural team NE is also a third manager m3's sole
+    candidate, so it is safe to donate)."""
+    owner_ids = ["m1", "m2", "m3"]
+    scores = {
+        "m1": {"BUF": 5000, "KC": 4000, "DET": 3000, "PHI": 2000, "CLE": 900},
+        "m2": {"SEA": 5000, "MIA": 4000, "DAL": 3000, "NE": 2500, "CLE": 100},
+        "m3": {"NE": 1000},
+    }
+    all_teams = _ALL_TEAMS | {"NE"}
+    non_fav, uncoverable, unresolved = _assign(owner_ids, scores, all_teams=all_teams)
+    # m1's slots are untouched -- no safe donor was found on m1.
+    assert {c["abbr"] for c in non_fav["m1"]} == {"BUF", "KC", "DET", "PHI"}
+    m2_abbrs = {c["abbr"] for c in non_fav["m2"]}
+    assert "CLE" in m2_abbrs
+    assert "NE" not in m2_abbrs
+    cle_entry = next(c for c in non_fav["m2"] if c["abbr"] == "CLE")
+    assert cle_entry["reason"] == "coverage_repair"
+    assert {c["abbr"] for c in non_fav["m3"]} == {"NE"}
+    assert uncoverable == []
+    assert unresolved == []
+
+
+def test_donor_search_tries_next_weakest_before_giving_up_on_manager():
+    """m1's single weakest team (PHI) is solely-covered (unsafe), but
+    the second-weakest (DET) is safely covered elsewhere -- the search
+    must not give up on m1 after the first unsafe candidate."""
+    owner_ids = ["m1", "m2"]
+    scores = {
+        "m1": {"BUF": 5000, "KC": 4000, "DET": 3000, "PHI": 2000, "CLE": 900},
+        "m2": {"SEA": 5000, "DET": 200},  # DET also held by m2 -> safe to donate
+    }
+    non_fav, uncoverable, unresolved = _assign(owner_ids, scores)
+    m1_abbrs = {c["abbr"] for c in non_fav["m1"]}
+    assert "CLE" in m1_abbrs
+    assert "PHI" in m1_abbrs  # weakest kept -- it was unsafe to donate
+    assert "DET" not in m1_abbrs  # second-weakest donated instead
+    assert {c["abbr"] for c in non_fav["m2"]} == {"SEA", "DET"}
+    # MIA/DAL have zero affinity anywhere in this fixture -- genuinely
+    # uncoverable, not a failure of the repair logic under test here.
+    assert set(uncoverable) == {"MIA", "DAL"}
+    assert unresolved == []
+
+
+def test_totally_uncoverable_team_reported_transparently():
+    """DAL has zero affinity anywhere in the league -- reported in
+    uncoverable_teams, never assigned to anyone."""
+    owner_ids = ["m1"]
+    scores = {"m1": {"BUF": 5000, "KC": 4000, "DET": 3000, "PHI": 2000}}
+    non_fav, uncoverable, unresolved = _assign(owner_ids, scores)
+    assert "DAL" in uncoverable
+    assert all("DAL" != c["abbr"] for c in non_fav["m1"])
+    assert "DAL" not in unresolved
+
+
+def test_qb_holder_tiebreak_decides_between_equal_scored_managers():
+    """m1 and m2 are tied exactly on CLE score; only m2 holds CLE's
+    starting QB -- the tiebreak orders m2 ahead of m1 as CLE's repair
+    candidate, so m2 is tried first and wins immediately."""
+    owner_ids = ["m1", "m2"]
+    scores = {
+        "m1": {"BUF": 5000, "KC": 4000, "DET": 3000, "PHI": 2000, "CLE": 1000},
+        "m2": {"SEA": 5000, "MIA": 4000, "DAL": 3000, "PHI": 2000, "CLE": 1000},
+    }
+    holds_qb = {
+        "m1": {"CLE": False},
+        "m2": {"CLE": True},
+    }
+    non_fav, uncoverable, unresolved = _assign(owner_ids, scores, holds_qb)
+    assert "CLE" not in {c["abbr"] for c in non_fav["m1"]}
+    assert "CLE" in {c["abbr"] for c in non_fav["m2"]}
+
+
+def test_manager_with_fewer_than_four_real_candidates_not_padded():
+    owner_ids = ["m1"]
+    scores = {"m1": {"BUF": 5000, "KC": 4000}}
+    non_fav, uncoverable, unresolved = _assign(owner_ids, scores)
+    assert {c["abbr"] for c in non_fav["m1"]} == {"BUF", "KC"}
+    assert len(non_fav["m1"]) == 2
+
+
+def test_selection_deterministic_across_repeated_calls():
+    owner_ids = ["m1", "m2", "m3"]
+    scores = {
+        "m1": {"BUF": 5000, "KC": 4000, "DET": 3000, "PHI": 2000, "CLE": 900},
+        "m2": {"SEA": 5000, "MIA": 4000, "DAL": 3000},
+        "m3": {"CLE": 100},
+    }
+    result_a = _assign(owner_ids, scores)
+    result_b = _assign(owner_ids, scores)
+    assert result_a == result_b
+
+
+def test_zero_or_absent_score_never_assigned():
+    """A team present in ``scores`` at 0 (defensive input -- callers
+    are supposed to omit it) must never be treated as real affinity."""
+    owner_ids = ["m1"]
+    scores = {"m1": {"BUF": 5000, "CLE": 0}}
+    non_fav, uncoverable, unresolved = _assign(owner_ids, scores)
+    assert "CLE" not in {c["abbr"] for c in non_fav["m1"]}
+
+
+def test_favorite_excluded_from_gap_and_natural_candidacy():
+    """A team that is someone's favorite counts as covered and is
+    never separately assigned as a repair -- it also never appears as
+    a natural candidate for the manager whose favorite it is.  m2 has
+    enough OTHER real candidates that its own marginal CLE affinity is
+    naturally excluded from its top-4 anyway, isolating what this test
+    actually checks: CLE never becomes a repair target for m2 because
+    it is already covered by m1's favorite."""
+    owner_ids = ["m1", "m2"]
+    scores = {
+        "m1": {"BUF": 5000, "KC": 4000, "DET": 3000, "PHI": 2000, "CLE": 9999},
+        "m2": {"SEA": 5000, "MIA": 4000, "DAL": 3000, "NE": 2000, "CLE": 100},
+    }
+    favorites = {"m1": "CLE", "m2": None}
+    all_teams = _ALL_TEAMS | {"NE"}
+    non_fav, uncoverable, unresolved = _assign(
+        owner_ids, scores, favorites=favorites, all_teams=all_teams
+    )
+    # CLE is m1's favorite, so it is excluded from m1's own natural
+    # candidacy even though it scores highest of all -- favorites never
+    # compete for a non-favorite slot.
+    assert "CLE" not in {c["abbr"] for c in non_fav["m1"]}
+    assert {c["abbr"] for c in non_fav["m1"]} == {"BUF", "KC", "DET", "PHI"}
+    # CLE is covered (via m1's favorite) so it is not a gap for m2 either
+    # -- m2's own top-4 naturally excludes its marginal CLE affinity.
+    assert "CLE" not in {c["abbr"] for c in non_fav["m2"]}
+    assert {c["abbr"] for c in non_fav["m2"]} == {"SEA", "MIA", "DAL", "NE"}
+    assert uncoverable == []
+    assert unresolved == []
+
+
+def test_coverage_summary_arithmetic_and_disjointness(monkeypatch, tmp_path: Path):
+    _stub_config(monkeypatch, tmp_path)
+    mgrs = ManagerRegistry(by_owner_id={"oA": _manager("oA", "jason")})
+    rosters = [{"roster_id": 1, "owner_id": "oA", "players": ["A"]}]
+    rows = [_row("A", "RB", "KC", 4000, player_id="a")]
+    contract = _contract(rows, {"oA": ["A"]}, slots=["RB", "BN"])
+    snap = _snapshot(rosters, {}, mgrs, slots=["RB", "BN"])
+    section = team_assignment.build_section(snap, contract)
+    summary = section["coverageSummary"]
+    assert (
+        summary["coveredTeams"] + summary["uncoverableCount"] + summary["unresolvedGapCount"]
+        == summary["totalNflTeams"]
+    )
+    assert not (set(section["uncoverableTeams"]) & set(section["unresolvedCoverageGaps"]))
 
 
 # ── Structural / global availability ───────────────────────────────

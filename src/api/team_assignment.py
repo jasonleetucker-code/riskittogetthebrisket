@@ -1,5 +1,6 @@
-"""Map each fantasy team in the league to 1+ NFL teams by NFL Team
-Affinity — value-weighted roster affinity, not depth-chart points.
+"""Map each fantasy team in the league to a FIXED 5 NFL teams by NFL
+Team Affinity — value-weighted roster affinity, not depth-chart points,
+and not a percentage threshold.
 
 Two assignment sources, layered in this priority:
 
@@ -18,8 +19,8 @@ Two assignment sources, layered in this priority:
      team, with exactly one extra weight: a player who IS his NFL
      team's current starting quarterback counts double.
 
-Formula
--------
+Per-manager scoring formula (unchanged by this rewrite)
+---------------------------------------------------------
 
 For every member of a fantasy team's Meaningful Core::
 
@@ -40,19 +41,65 @@ For every member of a fantasy team's Meaningful Core::
                                     any team's numerator
     affinityShare = affinityScore / totalWeightedCoreValue
 
-A non-favorite NFL team qualifies when ``affinityShare >=
-rosterAssignmentMinShare`` (default 0.10).  No other position
-multipliers exist -- Meaningful Core membership already excludes
-players who do not materially contribute, and canonical value already
-distinguishes an elite player from a roster-filler one, so a second
-"starter" multiplier here would double-count information the core and
-the value already carry.
+No other position multipliers exist -- Meaningful Core membership
+already excludes players who do not materially contribute, and
+canonical value already distinguishes an elite player from a
+roster-filler one, so a second "starter" multiplier here would
+double-count information the core and the value already carry.
 
-Each fantasy team is assigned the favorite (if configured) plus ALL
-non-favorite NFL teams that meet the affinity threshold, sorted by
-(affinityShare desc, affinityScore desc, NFL abbreviation asc) for
-determinism. A roster built to capture multiple NFL teams' players
-will naturally affiliate with all of them.
+Selection: coverage-maximizing, not threshold-gated (2026-09-01)
+-------------------------------------------------------------------
+
+A flat percentage threshold (``affinityShare >= X%``) was tried and
+retired: it answers "is this NFL team a large share of everything this
+manager owns", which is denominator-sensitive and not the question
+that matters -- a manager can legitimately own a team's starting QB
+and several of its best assets and still fall under any fixed
+percentage simply because their overall roster is large and
+well-rounded.  MEASURED on the live league: exactly this happened
+(a manager holding a real NFL team's starting QB and multiple of its
+top assets scored under a 10% share and was silently excluded).
+
+The replacement, owner-mandated and LOCKED IN (not configurable):
+every manager gets exactly ``1 (favorite, if configured) + up to
+_NON_FAVORITE_TEAMS_PER_OWNER (4)`` NFL teams, chosen by
+``_assign_coverage_maximizing_teams`` in two steps, run ONCE across
+the whole league after every manager's ``affinityScore`` is known:
+
+  1. **Natural top-4** -- each manager's own 4 highest-``affinityScore``
+     non-favorite teams (ties broken toward whoever holds that team's
+     starting QB, then NFL abbreviation ascending).
+  2. **Coverage repair** -- a single deterministic pass that finds
+     which of the 32 real NFL teams remain unrepresented by ANYONE in
+     the league (no manager's favorite, no manager's natural top-4),
+     and swaps each such gap onto the single best-fit manager who has
+     real (nonzero) affinity for it, donating that manager's weakest
+     natural slot -- but ONLY when the donated team stays covered by
+     someone else afterward (never trade one gap for a new one), and
+     ONLY a ``"top_affinity"`` slot may ever be donated (a repaired
+     slot is never later evicted, which is what makes one pass
+     sufficient).  If the best-fit manager cannot safely donate any
+     slot, the next-best-fit manager is tried.  A tie between two
+     candidate managers for the same team is broken toward whoever
+     holds that team's starting QB -- verbatim owner instruction:
+     "ties go to who has the quarterback."
+
+  Two invariants hold no matter what: **a team is never assigned to a
+  manager with zero affinity for it**, even to pad a coverage count
+  (a team nobody in the league owns any Meaningful-Core player from
+  is reported in ``uncoverableTeams``, never faked); and **a manager
+  is never reduced below the real teams they have** just to improve
+  someone else's coverage -- the repair pass only ever SWAPS a
+  manager's own slot, never removes one to leave them short, and it
+  backs off to ``unresolvedCoverageGaps`` rather than stranding
+  anyone (expected empty on real league data; see the function's
+  docstring for the termination argument).
+
+  ``qualifiesByRoster`` on a non-favorite entry is therefore always
+  ``True`` once assigned (nothing zero-affinity is ever placed) --
+  the field survives from the retired-threshold era for the favorite
+  entry, where it still distinguishes a favorite backed by real roster
+  value from one that is not.
 
 Truthfulness / degraded states
 -------------------------------
@@ -119,6 +166,7 @@ Output shape::
               "display": str,
               "isFavorite": bool,
               "qualifiesByRoster": bool,
+              "assignmentReason": "favorite" | "top_affinity" | "coverage_repair",
               "affinityScore": float,
               "affinityShare": float | None,
               "contributors": [
@@ -141,9 +189,21 @@ Output shape::
         },
         ...
       ],
+      "uncoverableTeams": [str, ...],       # real NFL abbrs with ZERO
+                                             # affinity anywhere in the
+                                             # league -- never assigned
+      "unresolvedCoverageGaps": [str, ...], # real affinity exists but
+                                             # this pass could not place
+                                             # it without stranding a
+                                             # manager -- expected empty
+      "coverageSummary": {
+        "totalNflTeams": int,               # 32
+        "coveredTeams": int,
+        "uncoverableCount": int,
+        "unresolvedGapCount": int,
+      },
       "config": {
         "weights": {...},
-        "thresholds": {...},
         "limits": {...},
       },
       "currentSeason": str,
@@ -183,13 +243,6 @@ _DEFAULT_CONFIG: dict[str, Any] = {
     # double-count information those two owners already carry.
     "weights": {
         "nflStartingQbMultiplier": 2.0,
-    },
-    # A SHARE of a manager's total weighted core value, not an absolute
-    # point total -- so the threshold does not go stale every time the
-    # canonical value scale is refit.  Replaces the old flat
-    # ``assignmentMinPoints``.
-    "thresholds": {
-        "rosterAssignmentMinShare": 0.10,
     },
     "limits": {},
 }
@@ -296,6 +349,17 @@ _REASON_BACKUP_QB = "qb_not_starting"
 _REASON_QB_UNKNOWN = "starter_status_unknown"
 _REASON_NOT_QB = "not_qb"
 
+#: Fixed, owner-locked count of non-favorite NFL teams per manager
+#: ("I want this behavior to be locked in") -- deliberately a code
+#: constant, not a config knob.
+_NON_FAVORITE_TEAMS_PER_OWNER = 4
+
+#: Per-team assignment-reason tags, exposed for UI transparency (same
+#: spirit as ``multiplierReason``): WHY a team is on a manager's list.
+_REASON_FAVORITE = "favorite"
+_REASON_TOP_AFFINITY = "top_affinity"
+_REASON_COVERAGE_REPAIR = "coverage_repair"
+
 
 def _sleeper_id_by_canonical_name(contract: Mapping[str, Any] | None) -> dict[str, str]:
     """``{canonicalOrDisplayName: sleeperPlayerId}`` from the canonical
@@ -369,9 +433,16 @@ def _unavailable(config: dict[str, Any], reason: str) -> dict[str, Any]:
         "qbSignalAvailable": False,
         "degradedReasons": [],
         "assignments": [],
+        "uncoverableTeams": [],
+        "unresolvedCoverageGaps": [],
+        "coverageSummary": {
+            "totalNflTeams": len(_NFL_TEAM_NAMES),
+            "coveredTeams": 0,
+            "uncoverableCount": 0,
+            "unresolvedGapCount": 0,
+        },
         "config": {
             "weights": config["weights"],
-            "thresholds": config["thresholds"],
             "limits": config["limits"],
         },
         "currentSeason": None,
@@ -462,6 +533,185 @@ def _score_team_core(
     return out
 
 
+def _holds_starting_qb(core: _TeamCore, abbr: str) -> bool:
+    """Rule 5's tiebreak signal: does this manager's Meaningful Core
+    include this NFL team's CONFIRMED current starting QB.  Reads the
+    already-computed ``multiplierReason`` -- never re-derives it.
+    """
+    return any(
+        c.get("multiplierReason") == _REASON_STARTING_QB
+        for c in core.by_team_contributors.get(abbr, [])
+    )
+
+
+def _assign_coverage_maximizing_teams(
+    owner_ids: list[str],
+    scores: dict[str, dict[str, float]],
+    holds_qb: dict[str, dict[str, bool]],
+    favorite_abbrs: dict[str, str | None],
+    *,
+    all_teams: frozenset[str] = frozenset(),
+    slots_per_owner: int = _NON_FAVORITE_TEAMS_PER_OWNER,
+) -> tuple[dict[str, list[dict[str, Any]]], list[str], list[str]]:
+    """Cross-manager, coverage-maximizing NFL-team selection.  Runs
+    ONCE, after every manager's per-team ``affinityScore`` is known.
+
+    Pure function over plain dicts -- no ``_TeamCore``/snapshot
+    dependency, so it is independently testable without full
+    contract/snapshot fixtures.
+
+    Two-phase design:
+
+      1. **Natural top-4** -- each owner's ``slots_per_owner`` highest
+         ``affinityScore`` non-favorite teams (ties: QB-holder wins,
+         then abbr ascending).
+      2. **Coverage repair, single forward pass** -- every real NFL
+         team not covered by ANY favorite or ANY owner's natural top-4
+         is a "gap".  Gaps are processed most-confident-first (highest
+         best-available score across the whole league).  For each gap
+         team, candidate owners (real nonzero affinity for it) are
+         tried best-score-first (QB-holder wins ties); the first
+         candidate who can safely donate one of their OWN natural
+         slots -- i.e. the donated team stays covered by someone else
+         afterward -- takes the gap team in that slot.  A donated slot
+         is chosen weakest-first (QB-holder loses this internal sort,
+         so a QB-backed team is the last thing donated).
+
+      Only ``"top_affinity"`` slots are ever donor-eligible -- a
+      ``"coverage_repair"`` slot, once placed, is never later evicted.
+      That is what makes a SINGLE pass sufficient: each successful
+      repair strictly increases total coverage by exactly one team (a
+      valid donation requires the donated team to remain covered
+      elsewhere, so coverage never regresses), coverage is bounded by
+      ``len(all_teams)``, and the gap list is fixed and finite -- so
+      the pass always terminates and never oscillates.  It is a
+      deliberate greedy heuristic, not a formally-optimal matching
+      solver (an exhaustive augmenting-path search could occasionally
+      find a chained re-donation this cannot) -- acceptable per the
+      owner's explicit direction that this does not need to be
+      provably optimal.  A gap this pass cannot place without
+      stranding a manager below their real candidate count is reported
+      in ``unresolved_gap_teams`` rather than forced -- expected to be
+      empty on real league data (12 managers can supply up to 60
+      team-slots against a 32-team universe).
+
+    Invariants, both structural (never violated even under weird
+    input): a team is NEVER assigned to an owner with
+    ``scores[owner].get(abbr, 0) <= 0`` for it, even to pad coverage;
+    an owner is NEVER left with fewer non-favorite teams than they
+    started with in phase 1 (repair only swaps, never removes without
+    replacing).
+
+    Args:
+        owner_ids: every owner to consider, in a FIXED, caller-sorted
+            order -- output must not depend on dict iteration order.
+        scores: ``{ownerId: {abbr: affinityScore}}``, positive-only
+            (an owner/abbr pair the owner has zero affinity for should
+            simply be absent, not present at 0).
+        holds_qb: ``{ownerId: {abbr: bool}}``, keys a subset of (or
+            equal to) ``scores[ownerId]``'s keys.
+        favorite_abbrs: ``{ownerId: abbr | None}``.
+        all_teams: the full universe of real NFL team abbreviations to
+            evaluate coverage against.  Empty by default so a caller
+            who forgets it fails loudly rather than silently checking
+            coverage against nothing; ``build_section`` always passes
+            ``frozenset(_NFL_TEAM_NAMES)``.
+        slots_per_owner: non-favorite team count per owner.
+
+    Returns:
+        ``(non_favorite_by_owner, uncoverable_teams, unresolved_gap_teams)``.
+        ``non_favorite_by_owner[ownerId]`` is a list (length <=
+        ``slots_per_owner``) of ``{"abbr", "score", "holdsQb", "reason"}``
+        dicts, ``reason`` one of ``_REASON_TOP_AFFINITY`` /
+        ``_REASON_COVERAGE_REPAIR``.  ``uncoverable_teams`` -- real NFL
+        teams with ZERO affinity anywhere in the league (never
+        assigned to anyone).  ``unresolved_gap_teams`` -- real,
+        nonzero-affinity teams this pass could not place; both lists
+        are sorted and disjoint from each other and from every
+        assigned team.
+    """
+    natural: dict[str, list[dict[str, Any]]] = {}
+    for oid in owner_ids:
+        fav = favorite_abbrs.get(oid)
+        owner_scores = scores.get(oid) or {}
+        owner_qb = holds_qb.get(oid) or {}
+        candidates = [
+            {"abbr": abbr, "score": score, "holdsQb": bool(owner_qb.get(abbr))}
+            for abbr, score in owner_scores.items()
+            if abbr != fav and score > 0
+        ]
+        candidates.sort(key=lambda c: (-c["score"], not c["holdsQb"], c["abbr"]))
+        natural[oid] = [dict(c, reason=_REASON_TOP_AFFINITY) for c in candidates[:slots_per_owner]]
+
+    covered: set[str] = {abbr for abbr in favorite_abbrs.values() if abbr}
+    for oid in owner_ids:
+        covered.update(c["abbr"] for c in natural[oid])
+
+    league_wide: dict[str, list[dict[str, Any]]] = defaultdict(list)
+    for oid in owner_ids:
+        owner_scores = scores.get(oid) or {}
+        owner_qb = holds_qb.get(oid) or {}
+        for abbr, score in owner_scores.items():
+            if score > 0:
+                league_wide[abbr].append(
+                    {"ownerId": oid, "score": score, "holdsQb": bool(owner_qb.get(abbr))}
+                )
+
+    uncoverable = sorted(
+        abbr for abbr in all_teams if abbr not in covered and abbr not in league_wide
+    )
+    gaps = [abbr for abbr in all_teams if abbr not in covered and abbr in league_wide]
+
+    def _best_score(abbr: str) -> float:
+        return max(entry["score"] for entry in league_wide[abbr])
+
+    gaps.sort(key=lambda abbr: (-_best_score(abbr), abbr))
+
+    def _covered_without(oid: str, abbr: str) -> bool:
+        """Would ``abbr`` still be covered if it were removed from
+        ``oid``'s assigned list (favorite or any OTHER owner's list)?
+        """
+        if abbr in favorite_abbrs.values():
+            return True
+        return any(
+            other != oid and any(c["abbr"] == abbr for c in natural[other]) for other in owner_ids
+        )
+
+    unresolved: list[str] = []
+    for gap_abbr in gaps:
+        candidates = sorted(
+            league_wide[gap_abbr], key=lambda e: (-e["score"], not e["holdsQb"], e["ownerId"])
+        )
+        placed = False
+        for cand in candidates:
+            oid = cand["ownerId"]
+            slots = natural[oid]
+            donors = [i for i, s in enumerate(slots) if s["reason"] == _REASON_TOP_AFFINITY]
+            donors.sort(
+                key=lambda i: (slots[i]["score"], not slots[i]["holdsQb"], slots[i]["abbr"])
+            )
+            for i in donors:
+                donated_abbr = slots[i]["abbr"]
+                if _covered_without(oid, donated_abbr):
+                    slots[i] = {
+                        "abbr": gap_abbr,
+                        "score": cand["score"],
+                        "holdsQb": cand["holdsQb"],
+                        "reason": _REASON_COVERAGE_REPAIR,
+                    }
+                    placed = True
+                    break
+            if placed:
+                break
+        if not placed:
+            unresolved.append(gap_abbr)
+
+    for oid in owner_ids:
+        natural[oid].sort(key=lambda c: (-c["score"], c["abbr"]))
+
+    return natural, uncoverable, sorted(unresolved)
+
+
 def build_section(
     snapshot: PublicLeagueSnapshot,
     contract: Mapping[str, Any] | None = None,
@@ -486,7 +736,6 @@ def build_section(
         for k, v in (config.get("displayNameAliases") or {}).items()
         if isinstance(k, str) and isinstance(v, str)
     }
-    min_share = float(config.get("thresholds", {}).get("rosterAssignmentMinShare", 0.10))
     qb_weight = float(config.get("weights", {}).get("nflStartingQbMultiplier", 2.0))
 
     season = snapshot.current_season
@@ -523,9 +772,13 @@ def build_section(
     if not qb_signal_available:
         degraded_reasons.append(DEGRADED_NO_QB_SIGNAL)
 
-    # Walk every roster in the current season.  Score per (owner,
-    # NFL team) pair via the canonical Meaningful Core.
-    assignments: list[dict[str, Any]] = []
+    # Phase 1 -- score every owner's Meaningful Core (unchanged from the
+    # prior rewrite).  Collected rather than rendered inline, because
+    # team SELECTION (phase 2, below) needs every owner's scores at
+    # once -- it is a cross-manager, whole-league step, not a per-owner
+    # one.
+    owner_meta: dict[str, dict[str, Any]] = {}
+    owner_cores: dict[str, _TeamCore] = {}
     for roster in season.rosters:
         if not isinstance(roster, dict):
             continue
@@ -538,6 +791,10 @@ def build_section(
 
         favorite_key = _resolve_favorite_key(display_name, favorites, aliases)
         favorite_entry = favorites.get(favorite_key) if favorite_key else None
+        favorite_abbr = str(favorite_entry.get("abbr") or "").upper() if favorite_entry else None
+        favorite_display = (
+            str(favorite_entry.get("display") or favorite_abbr) if favorite_entry else None
+        )
 
         team_core = _TeamCore()
         team_core.reason = DEGRADED_NO_CONTRACT if not roster_scoring_available else None
@@ -555,14 +812,48 @@ def build_section(
                 qb_weight=qb_weight,
             )
 
-        # Build the NFL-teams list for this owner.
-        nfl_teams_out: list[dict[str, Any]] = []
-        favorite_abbr: str | None = None
+        owner_meta[owner_id] = {
+            "displayName": display_name or team_name or owner_id,
+            "teamName": team_name,
+            "favoriteKey": favorite_key,
+            "favoriteAbbr": favorite_abbr,
+            "favoriteDisplay": favorite_display,
+        }
+        owner_cores[owner_id] = team_core
 
-        if favorite_entry:
-            fav_abbr = str(favorite_entry.get("abbr") or "").upper()
-            fav_display = str(favorite_entry.get("display") or fav_abbr)
-            favorite_abbr = fav_abbr
+    # Phase 2 -- one cross-manager, coverage-maximizing selection pass.
+    # See ``_assign_coverage_maximizing_teams`` and the module docstring
+    # for the algorithm.
+    owner_ids_sorted = sorted(owner_meta)
+    favorite_abbrs = {oid: owner_meta[oid]["favoriteAbbr"] for oid in owner_ids_sorted}
+    scores_by_owner = {
+        oid: {a: s for a, s in owner_cores[oid].by_team_score.items() if s > 0}
+        for oid in owner_ids_sorted
+        if owner_cores[oid].scored
+    }
+    holds_qb_by_owner = {
+        oid: {a: _holds_starting_qb(owner_cores[oid], a) for a in scores_by_owner.get(oid, {})}
+        for oid in owner_ids_sorted
+        if owner_cores[oid].scored
+    }
+    non_fav_by_owner, uncoverable_teams, unresolved_gap_teams = _assign_coverage_maximizing_teams(
+        owner_ids_sorted,
+        scores_by_owner,
+        holds_qb_by_owner,
+        favorite_abbrs,
+        all_teams=frozenset(_NFL_TEAM_NAMES),
+    )
+
+    # Phase 3 -- render.  Favorite entry keeps its historical shape;
+    # non-favorite entries come straight from the selection result.
+    assignments: list[dict[str, Any]] = []
+    for owner_id in owner_ids_sorted:
+        meta = owner_meta[owner_id]
+        team_core = owner_cores[owner_id]
+        fav_abbr = meta["favoriteAbbr"]
+
+        nfl_teams_out: list[dict[str, Any]] = []
+        if fav_abbr:
             score = team_core.by_team_score.get(fav_abbr, 0.0)
             share = (
                 score / team_core.total_weighted_value
@@ -572,44 +863,43 @@ def build_section(
             nfl_teams_out.append(
                 {
                     "abbr": fav_abbr,
-                    "display": fav_display,
+                    "display": meta["favoriteDisplay"],
                     "isFavorite": True,
-                    "qualifiesByRoster": bool(share is not None and share >= min_share),
+                    "qualifiesByRoster": score > 0,
+                    "assignmentReason": _REASON_FAVORITE,
                     "affinityScore": round(score, 3),
                     "affinityShare": round(share, 4) if share is not None else None,
                     "contributors": list(team_core.by_team_contributors.get(fav_abbr, [])),
                 }
             )
 
-        roster_based = []
-        if team_core.total_weighted_value > 0:
-            for abbr, score in team_core.by_team_score.items():
-                if abbr == favorite_abbr:
-                    continue
-                share = score / team_core.total_weighted_value
-                if share < min_share:
-                    continue
-                roster_based.append(
-                    {
-                        "abbr": abbr,
-                        "display": _NFL_TEAM_NAMES.get(abbr, abbr),
-                        "isFavorite": False,
-                        "qualifiesByRoster": True,
-                        "affinityScore": round(score, 3),
-                        "affinityShare": round(share, 4),
-                        "contributors": list(team_core.by_team_contributors.get(abbr, [])),
-                    }
-                )
-        roster_based.sort(key=lambda r: (-r["affinityShare"], -r["affinityScore"], r["abbr"]))
-
-        nfl_teams_out.extend(roster_based)
+        for entry in non_fav_by_owner.get(owner_id, []):
+            abbr = entry["abbr"]
+            score = entry["score"]
+            share = (
+                score / team_core.total_weighted_value
+                if team_core.total_weighted_value > 0
+                else None
+            )
+            nfl_teams_out.append(
+                {
+                    "abbr": abbr,
+                    "display": _NFL_TEAM_NAMES.get(abbr, abbr),
+                    "isFavorite": False,
+                    "qualifiesByRoster": True,
+                    "assignmentReason": entry["reason"],
+                    "affinityScore": round(score, 3),
+                    "affinityShare": round(share, 4) if share is not None else None,
+                    "contributors": list(team_core.by_team_contributors.get(abbr, [])),
+                }
+            )
 
         assignments.append(
             {
                 "ownerId": owner_id,
-                "displayName": display_name or team_name or owner_id,
-                "teamName": team_name,
-                "favoriteKey": favorite_key,
+                "displayName": meta["displayName"],
+                "teamName": meta["teamName"],
+                "favoriteKey": meta["favoriteKey"],
                 "rosterScored": team_core.scored,
                 "rosterUnavailableReason": None if team_core.scored else team_core.reason,
                 "scoringComplete": team_core.scoring_complete,
@@ -626,6 +916,9 @@ def build_section(
     # the page is predictable across reloads.
     assignments.sort(key=lambda a: a["displayName"].lower())
 
+    total_teams = len(_NFL_TEAM_NAMES)
+    covered_count = total_teams - len(uncoverable_teams) - len(unresolved_gap_teams)
+
     return {
         "available": True,
         "unavailableReason": None,
@@ -633,9 +926,16 @@ def build_section(
         "qbSignalAvailable": qb_signal_available,
         "degradedReasons": degraded_reasons,
         "assignments": assignments,
+        "uncoverableTeams": uncoverable_teams,
+        "unresolvedCoverageGaps": unresolved_gap_teams,
+        "coverageSummary": {
+            "totalNflTeams": total_teams,
+            "coveredTeams": covered_count,
+            "uncoverableCount": len(uncoverable_teams),
+            "unresolvedGapCount": len(unresolved_gap_teams),
+        },
         "config": {
             "weights": config["weights"],
-            "thresholds": config["thresholds"],
             "limits": config["limits"],
         },
         "currentSeason": season.season,

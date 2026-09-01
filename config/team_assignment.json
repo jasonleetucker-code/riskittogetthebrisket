@@ -1,5 +1,5 @@
 {
-  "_doc": "Team Assignment configuration -- NFL Team Affinity model. See src/api/team_assignment.py. Edit favorites/aliases/weights here without redeploy; the file reloads on each section build. Roster-based affinity is driven by the canonical Meaningful Roster Core and canonical player values, not by weights declared here -- the only tunables left are the one owner-approved starting-QB multiplier and the affinity-share qualification threshold.",
+  "_doc": "Team Assignment configuration -- NFL Team Affinity model. See src/api/team_assignment.py. Edit favorites/aliases/weights here without redeploy; the file reloads on each section build. Roster-based affinity is driven by the canonical Meaningful Roster Core and canonical player values, not by weights declared here -- the only tunable left is the one owner-approved starting-QB multiplier. Non-favorite team selection is a fixed, owner-locked favorite + up to 4 coverage-maximizing teams (see _NON_FAVORITE_TEAMS_PER_OWNER in src/api/team_assignment.py) -- there is no percentage threshold and no config knob for the count; it is intentionally not configurable.",
 
   "favorites": {
     "joel":     {"abbr": "KC",  "display": "Kansas City Chiefs"},
@@ -40,12 +40,7 @@
     "nflStartingQbMultiplier": 2.0
   },
 
-  "thresholds": {
-    "_doc": "Minimum SHARE (0-1) of a manager's total weighted Meaningful Core value an NFL team's affinity score must reach to qualify as a roster-based assignment. A share rather than an absolute point total on purpose: it does not go stale every time the canonical value scale is refit. Favorites bypass this threshold entirely. Replaces the old flat assignmentMinPoints (points on an ad hoc 0-15+ scale); nothing reads that key any more.",
-    "rosterAssignmentMinShare": 0.10
-  },
-
   "limits": {
-    "_doc": "Currently empty. All NFL teams meeting the affinity-share threshold are automatically assigned."
+    "_doc": "Currently empty and deliberately not a place to configure the non-favorite team count. That count (favorite + up to 4) is a hardcoded, owner-locked constant (_NON_FAVORITE_TEAMS_PER_OWNER in src/api/team_assignment.py), not a runtime knob -- the percentage-threshold model this file used to configure (rosterAssignmentMinShare) was retired 2026-09-01 in favor of a coverage-maximizing selection across the whole league; see the module docstring."
   }
 }

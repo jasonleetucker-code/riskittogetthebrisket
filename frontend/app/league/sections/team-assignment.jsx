@@ -2,12 +2,16 @@
 
 // TeamAssignmentSection — "Team Assignment" tab on /league.
 //
-// NFL TEAM AFFINITY (2026-09-01 rewrite). Renders one card per fantasy
-// team showing:
+// NFL TEAM AFFINITY (2026-09-01 rewrite; coverage-maximizing selection
+// added same day). Renders one card per fantasy team showing:
 //   * Manager display name + avatar
-//   * 1–3 NFL teams (favorite + roster-based qualifiers)
-//   * Each NFL team chip with logo, full name, and tag
-//     ("Favorite" / "Roster-Based" with Affinity Score + Affinity Share)
+//   * Favorite + up to 4 NFL teams (fixed count, no percentage
+//     threshold) -- chosen to correlate with the manager's own roster
+//     as closely as possible while maximizing how many of the 32 real
+//     NFL teams are represented leaguewide; see
+//     ``_assign_coverage_maximizing_teams`` in the backend module.
+//   * Each NFL team chip with logo, full name, and tag ("Favorite" /
+//     "Roster-Based" / "League Coverage" with Affinity Score + Share)
 //   * Optional "Show breakdown" toggle that expands a per-player
 //     canonical-value breakdown per NFL team (canonical value, the
 //     starting-QB multiplier when it applied, and the weighted result)
@@ -131,8 +135,22 @@ function fmtShare(v) {
   return `${(Number(v) * 100).toFixed(1)}%`;
 }
 
+// assignmentReason (from src/api/team_assignment.py) -> [label, color].
+// "coverage_repair" gets its own color/label so a team assigned to
+// maximize leaguewide NFL-team coverage never reads identically to one
+// that was simply this manager's own highest-affinity pick.
+const REASON_TAG = {
+  favorite: ["Favorite", "var(--cyan)"],
+  top_affinity: ["Roster-Based", "var(--green)"],
+  coverage_repair: ["League Coverage", "var(--amber)"],
+};
+
 function NflTeamChip({ team }) {
   const share = fmtShare(team.affinityShare);
+  const [label, color] = REASON_TAG[team.assignmentReason] || [
+    team.isFavorite ? "Favorite" : "Roster-Based",
+    team.isFavorite ? "var(--cyan)" : "var(--green)",
+  ];
   return (
     <div
       className="card"
@@ -142,9 +160,7 @@ function NflTeamChip({ team }) {
         gap: 10,
         padding: "8px 12px",
         marginBottom: 6,
-        borderLeft: team.isFavorite
-          ? "3px solid var(--cyan)"
-          : "3px solid var(--green)",
+        borderLeft: `3px solid ${color}`,
       }}
     >
       <NflTeamLogo team={team.abbr} size={28} />
@@ -155,13 +171,13 @@ function NflTeamChip({ team }) {
         <div style={{ fontSize: "0.7rem", color: "var(--subtext)" }}>
           <span
             style={{
-              color: team.isFavorite ? "var(--cyan)" : "var(--green)",
+              color,
               fontWeight: 700,
               textTransform: "uppercase",
               letterSpacing: "0.04em",
             }}
           >
-            {team.isFavorite ? "Favorite" : "Roster-Based"}
+            {label}
           </span>
           <span style={{ marginLeft: 8, fontFamily: "var(--mono)" }}>
             Affinity: {fmtValue(team.affinityScore)}
@@ -326,8 +342,9 @@ function ManagerCard({ assignment, managers, expanded, onToggle }) {
           className="muted"
           style={{ fontSize: "0.78rem", padding: "4px 0" }}
         >
-          No NFL team assignments yet — favorite not configured and no
-          roster team cleared the affinity-share threshold.
+          No NFL team assignments yet — favorite not configured and this
+          manager's Meaningful Core touched no NFL team with real
+          canonical value.
         </div>
       ) : (
         teams.map((t) => (
@@ -433,9 +450,9 @@ export default function TeamAssignmentSection({ managers }) {
     );
   }
 
-  const minShare = data.config?.thresholds?.rosterAssignmentMinShare ?? 0.10;
   const qbMultiplier = data.config?.weights?.nflStartingQbMultiplier ?? 2.0;
   const degraded = Array.isArray(data.degradedReasons) ? data.degradedReasons : [];
+  const coverage = data.coverageSummary;
 
   return (
     <div>
@@ -447,18 +464,28 @@ export default function TeamAssignmentSection({ managers }) {
           lineHeight: 1.5,
         }}
       >
-        Each manager is mapped to 1–3 NFL teams by NFL Team Affinity: the
-        first team is the manager's declared favorite from{" "}
-        <code style={{ fontSize: "0.7rem" }}>config/team_assignment.json</code>.
-        Additional teams are ranked by the value of this team's canonical
-        Meaningful Core players rostered from that NFL franchise (the
-        same player population and canonical values Team Strength
-        uses), with a {qbMultiplier}x weight for a player who is that
-        NFL team's current starting quarterback. A team qualifies once
-        its share of this manager's total weighted roster value reaches{" "}
-        <strong>{(minShare * 100).toFixed(0)}%</strong>; max 3 NFL
-        teams per manager. Click &quot;Show breakdown&quot; on any
-        manager to see per-player value contributions.
+        Each manager is mapped to a favorite (if configured, from{" "}
+        <code style={{ fontSize: "0.7rem" }}>config/team_assignment.json</code>
+        ) plus up to 4 more NFL teams by NFL Team Affinity, ranked by the
+        value of this team's canonical Meaningful Core players rostered
+        from that NFL franchise (the same player population and
+        canonical values Team Strength uses), with a {qbMultiplier}x
+        weight for a player who is that NFL team's current starting
+        quarterback. There is no percentage threshold — the 4 non-favorite
+        teams are chosen to track each manager's own affinity as closely
+        as possible while maximizing how many of the league's real NFL
+        teams end up represented by someone (tagged{" "}
+        <strong>League Coverage</strong> when a team is included for that
+        reason rather than being this manager's own top pick). Click
+        &quot;Show breakdown&quot; on any manager to see per-player value
+        contributions.
+        {coverage ? (
+          <>
+            {" "}
+            {coverage.coveredTeams} of {coverage.totalNflTeams} NFL teams are
+            represented across the league this week.
+          </>
+        ) : null}
       </div>
 
       {degraded.map((reason) =>
