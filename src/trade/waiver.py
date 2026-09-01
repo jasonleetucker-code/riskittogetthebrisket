@@ -214,6 +214,25 @@ def _normalize_name(name: str) -> str:
     return str(name or "").strip().lower()
 
 
+def rostered_name_set(sleeper_teams: list[dict[str, Any]] | None) -> set[str]:
+    """Every rostered player name across every team, normalized.
+
+    Extracted from ``find_waiver_targets`` (pure extraction, no behavior
+    change) so a second caller — the IDP best-available card
+    (``src/trade/waiver_idp_best_available.py``) — can determine
+    free-agent status without duplicating this loop.  ``team["players"]``
+    is Sleeper's full roster list (starters + bench + taxi + IR/reserve),
+    so no separate taxi/IR carve-out is needed here.
+    """
+    rostered: set[str] = set()
+    for team in sleeper_teams or []:
+        if not isinstance(team, dict):
+            continue
+        for n in team.get("players") or []:
+            rostered.add(_normalize_name(n))
+    return rostered
+
+
 def find_waiver_targets(
     contract: dict[str, Any],
     sleeper_teams: list[dict[str, Any]] | None,
@@ -238,12 +257,7 @@ def find_waiver_targets(
     if not isinstance(arr, list):
         return {"by_position": {}, "by_family": {}, "total": 0, "rookies_excluded": False}
 
-    rostered: set[str] = set()
-    for team in sleeper_teams or []:
-        if not isinstance(team, dict):
-            continue
-        for n in team.get("players") or []:
-            rostered.add(_normalize_name(n))
+    rostered = rostered_name_set(sleeper_teams)
 
     rookies_eligible = _rookies_eligible_today()
     positions = set(_BASE_POSITIONS)

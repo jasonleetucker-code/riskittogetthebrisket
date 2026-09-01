@@ -5839,6 +5839,70 @@ async def post_waiver_suggestions(request: Request):
     return JSONResponse(content=result)
 
 
+@app.post("/api/waiver/best-available-idp")
+async def post_waiver_best_available_idp(request: Request):
+    """Top available IDP free agents: IDP Trade Calculator + The IDP Show, 50/50.
+
+    A narrow, two-source-only waiver decision lens — deliberately separate
+    from ``/api/waiver/suggestions``, which blends every ranking source via
+    ``rankDerivedValue``. This endpoint never reads ``rankDerivedValue``,
+    ``canonicalConsensusRank``, or ``sourceCount``; see
+    ``src/trade/waiver_idp_best_available.py`` for the full methodology.
+
+    Request body (JSON): ``leagueKey`` optional.
+
+    Returns ``{ownershipResolved, candidates, availableCount, sources,
+    degraded, sourceFreshness, leagueKey}``. ``candidates`` is the FULL
+    sorted list (not pre-sliced to 20) so a client-side position filter can
+    correctly find top players outside the top-20-overall slice.
+    """
+    if not latest_contract_data or not latest_contract_data.get("playersArray"):
+        return JSONResponse(
+            status_code=503,
+            content={"error": "Live contract not loaded yet."},
+        )
+    try:
+        body = await request.json()
+    except Exception:
+        body = {}
+    if not isinstance(body, dict):
+        body = {}
+
+    try:
+        league_cfg = _resolve_league_for_request(
+            request,
+            body=body,
+            require_loaded_contract=True,
+        )
+    except LeagueResolutionError as err:
+        return err.json_response()
+
+    from src.trade import waiver_idp_best_available as _idp_best  # noqa: PLC0415
+
+    sleeper = (latest_contract_data or {}).get("sleeper") or {}
+    sleeper_teams = sleeper.get("teams") or []
+
+    try:
+        result = await run_in_threadpool(
+            _idp_best.best_available_idp,
+            latest_contract_data,
+            sleeper_teams,
+        )
+    except Exception as exc:  # noqa: BLE001
+        log.error(f"Best-available-IDP failed: {exc}")
+        return JSONResponse(status_code=500, content={"error": f"failed: {exc}"})
+
+    source_timestamps = (
+        (latest_contract_data or {}).get("dataFreshness", {}).get("sourceTimestamps", {}) or {}
+    )
+    result["sourceFreshness"] = {
+        "idpTradeCalc": source_timestamps.get("idpTradeCalc"),
+        "idpShowCombined": source_timestamps.get("idpShowCombined"),
+    }
+    result["leagueKey"] = league_cfg.key
+    return JSONResponse(content=result)
+
+
 @app.post("/api/waiver/faab-recommend")
 async def post_waiver_faab_recommend(request: Request):
     """Recommend a FAAB bid for a single add/drop pair.

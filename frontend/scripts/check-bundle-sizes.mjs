@@ -149,7 +149,15 @@ const BUDGETS_KB = {
   // 42 restores the ~15% headroom this table asks for. The alternative
   // was a client-side bid formula, which the no-frontend-valuation
   // rule forbids (see the closing note in lib/waiver-logic.js).
-  "/waivers/page": 42,
+  //
+  // Bumped 42→52: the "Best available IDPs" card
+  // (components/waivers/BestAvailableIdps.jsx +
+  // components/useBestAvailableIdp.js) renders the two-source IDP
+  // composite from POST /api/waiver/best-available-idp. All scoring is
+  // server-side (src/trade/waiver_idp_best_available.py); this is
+  // display/formatting weight only. Measured 44.7 KB, up from 37.6 —
+  // 52 restores the ~15% headroom this table asks for.
+  "/waivers/page": 52,
   "/settings/page": 60,  // bumped 50→55 for guest-pass admin panel (token reveal, list table, revoke); 55→60 for the Sharp Tracker intel section in the shared PlayerPopup chunk (useLeague + intel fetch, PR #534)
   "/login/page": 15,
   "/more/page": 10,
