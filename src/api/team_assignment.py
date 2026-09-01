@@ -1,4 +1,4 @@
-"""Map each fantasy team in the league to 1-3 NFL teams by NFL Team
+"""Map each fantasy team in the league to 1+ NFL teams by NFL Team
 Affinity — value-weighted roster affinity, not depth-chart points.
 
 Two assignment sources, layered in this priority:
@@ -48,10 +48,11 @@ distinguishes an elite player from a roster-filler one, so a second
 "starter" multiplier here would double-count information the core and
 the value already carry.
 
-Each fantasy team gets at most ``maxTeamsPerOwner`` (default 3) NFL
-teams: the favorite (if configured) plus up to the two highest-
-qualifying non-favorites, sorted by (affinityShare desc, affinityScore
-desc, NFL abbreviation asc) for determinism.
+Each fantasy team is assigned the favorite (if configured) plus ALL
+non-favorite NFL teams that meet the affinity threshold, sorted by
+(affinityShare desc, affinityScore desc, NFL abbreviation asc) for
+determinism. A roster built to capture multiple NFL teams' players
+will naturally affiliate with all of them.
 
 Truthfulness / degraded states
 -------------------------------
@@ -190,9 +191,7 @@ _DEFAULT_CONFIG: dict[str, Any] = {
     "thresholds": {
         "rosterAssignmentMinShare": 0.10,
     },
-    "limits": {
-        "maxTeamsPerOwner": 3,
-    },
+    "limits": {},
 }
 
 
@@ -488,7 +487,6 @@ def build_section(
         if isinstance(k, str) and isinstance(v, str)
     }
     min_share = float(config.get("thresholds", {}).get("rosterAssignmentMinShare", 0.10))
-    max_teams = int(config.get("limits", {}).get("maxTeamsPerOwner", 3))
     qb_weight = float(config.get("weights", {}).get("nflStartingQbMultiplier", 2.0))
 
     season = snapshot.current_season
@@ -604,8 +602,7 @@ def build_section(
                 )
         roster_based.sort(key=lambda r: (-r["affinityShare"], -r["affinityScore"], r["abbr"]))
 
-        remaining_capacity = max(0, max_teams - len(nfl_teams_out))
-        nfl_teams_out.extend(roster_based[:remaining_capacity])
+        nfl_teams_out.extend(roster_based)
 
         assignments.append(
             {
