@@ -416,6 +416,15 @@ def summarize_league_faab(
         "leagueMedianWinningBid": (
             round(float(statistics.median(all_bids)), 2) if all_bids else 0.0
         ),
+        # Both aggregates above already include $0 bids (see the comment
+        # at ``all_bids.append(bid)``) — this field makes that fact
+        # visible on the panel itself rather than leaving it to be
+        # inferred, so it can never silently drift out of sync with
+        # ``src/trade/faab_history.py``'s own ``zeroBidShare``, which the
+        # engine's market model reads.
+        "zeroBidShare": (
+            round(sum(1 for b in all_bids if b <= 0) / len(all_bids), 4) if all_bids else 0.0
+        ),
         "totalBidsAnalyzed": len(all_bids),
         "positionBids": {pos: _stats_block(vals) for pos, vals in position_bids.items()},
         "tierBids": {label: _stats_block(vals) for label, vals in tier_bids.items()},

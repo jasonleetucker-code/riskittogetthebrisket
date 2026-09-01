@@ -262,10 +262,17 @@ def _demand_evidence_factors(
     """Trending + crowd signals as REPORTED EVIDENCE, not multipliers.
 
     These describe how much the market wants a player.  They are shown
-    so a user can see why competition is expected to be heavy, and they
-    are already reflected in the market layer's demand term.  They no
-    longer scale the bid directly — doing that on top of the market
-    model would count the same demand twice.
+    so a user can see why competition is expected to be heavy, and —
+    since 2026-09-01 — the SAME normalized trending share this
+    function reports is what ``_trending_share`` feeds into
+    ``engine.recommend``'s Stage E rival-engagement floor (mirroring
+    how ``crowd_share`` already works).  Before that fix, trending was
+    computed, displayed, and then discarded — the docstring here
+    claimed it was "already reflected in the market layer's demand
+    term" while ``demand_signal`` in fact came only from our own
+    board.  Both counted once now, never twice: trending only ever
+    raises a rival's ENGAGEMENT probability, never
+    ``objective_ceiling`` — worth and demand stay separate axes.
 
     STALE EVIDENCE IS NOT PRESENT EVIDENCE
     ──────────────────────────────────────
@@ -336,6 +343,41 @@ def _demand_evidence_factors(
 #: key its staleness ceiling is registered under.  Named once so the factor
 #: row and ``stale_inputs`` cannot drift onto different budgets.
 _TRENDING_INPUT_KEY = "trending"
+
+
+def _trending_share(
+    sleeper_trending: dict[str, Any] | None,
+    *,
+    now: float | None = None,
+) -> float | None:
+    """Normalize a raw Sleeper "trending adds" count to a 0-1 share.
+
+    ``None`` means NO evidence — missing, unparseable, or stale (the
+    same ``STALENESS_MAX_AGE_S["trending"]`` budget
+    ``_demand_evidence_factors`` uses, so the factor row and the
+    number that actually moves Stage E can never disagree about
+    whether the input is current).  ``engine.recommend`` treats
+    ``None`` as "nothing to blend" — never as zero pressure, which
+    would be indistinguishable from a genuinely quiet wire.
+
+    ``trendingSaturationCount`` is category-C: a documented, reasoned
+    bound (Sleeper's raw add count has no natural 0-1 scale) rather
+    than an empirical fit — no outcome data yet ties a specific add
+    count to a specific bid outcome.  Flagged for recalibration once
+    the shadow-comparison log (``data/faab/shadow_comparisons_*``)
+    accumulates real cases.
+    """
+    if not isinstance(sleeper_trending, dict):
+        return None
+    try:
+        count = int(sleeper_trending.get("count"))
+    except (TypeError, ValueError):
+        return None
+    if faab_contention.input_is_stale(_TRENDING_INPUT_KEY, sleeper_trending.get("asOf"), now=now):
+        return None
+    cfg = engine.FaabConfig()
+    saturation = max(1.0, cfg.num("market", "trendingSaturationCount", 500.0))
+    return max(0.0, min(1.0, count / saturation))
 
 
 def _age_phrase(age_s: float) -> str:
@@ -440,6 +482,8 @@ def recommend_faab(
     )
 
     extra = _demand_evidence_factors(sleeper_trending, add_player_name)
+    trending_share = _trending_share(sleeper_trending)
+    trending = {"share": trending_share} if trending_share is not None else None
     if league_faab_summary is None:
         extra.append(
             {
@@ -459,6 +503,7 @@ def recommend_faab(
         config=cfg,
         extra_factors=extra,
         crowd=crowd,
+        trending=trending,
     )
 
     bids = result["bids"]

@@ -104,6 +104,14 @@ _RULES: tuple[tuple[str, re.Pattern[str]], ...] = (
     ("CONTRACT_EXTENSION", re.compile(r"extension|extended (?:his|the) contract", re.I)),
     ("FRANCHISE_TAG", re.compile(r"franchise tag", re.I)),
     ("SIGNING", re.compile(r"\bsigns?\b|\bsigned\b|agrees? to (?:a )?(?:deal|terms)", re.I)),
+    (
+        "ROLE_UNCERTAIN",
+        re.compile(
+            r"committee (?:backfield|approach)|timeshare|unclear (?:role|situation)"
+            r"|muddled (?:backfield|situation)|split (?:carries|snaps|reps)",
+            re.I,
+        ),
+    ),
 )
 
 

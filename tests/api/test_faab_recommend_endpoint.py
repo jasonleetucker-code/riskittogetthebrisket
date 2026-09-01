@@ -939,3 +939,89 @@ def test_a_proven_te_premium_is_read_from_the_card_not_the_label(faab_env, monke
     assert block["targetFormatUnknown"] == []
     assert block["rowsUsed"] == 0
     assert block["excludedCounts"] == {"tep_mismatch": 4}
+
+
+# ── Live Waiver Opportunity — shadow-only guardrail ────────────────────
+#
+# docs/faab-live-opportunity-model.md: the shadow flag may compute and
+# LOG an opportunity-adjusted value, but it must never be visible in
+# the live response — evaluation is not activation.
+
+
+def test_shadow_flag_off_by_default_and_response_unaffected(faab_env, monkeypatch):
+    from src.api import feature_flags
+
+    assert feature_flags.is_enabled("waiver_live_opportunity") is False
+    with TestClient(server.app) as c:
+        res = _post(c, monkeypatch, {"addPlayerName": "Hot Pickup"})
+    assert res.status_code == 200
+
+
+def test_shadow_computation_never_changes_the_live_response(faab_env, monkeypatch):
+    """Flip the flag ON and confirm the response is byte-identical to
+    it OFF — the defining guarantee of a shadow-only rollout."""
+    from src.api import feature_flags
+
+    with TestClient(server.app) as c:
+        res_off = _post(c, monkeypatch, {"addPlayerName": "Hot Pickup"})
+
+    monkeypatch.setenv("RISKIT_FEATURE_WAIVER_LIVE_OPPORTUNITY", "1")
+    feature_flags.reload()
+    try:
+        with TestClient(server.app) as c:
+            res_on = _post(c, monkeypatch, {"addPlayerName": "Hot Pickup"})
+    finally:
+        feature_flags.reload()
+
+    assert res_off.status_code == res_on.status_code == 200
+    off_body = res_off.json()
+    on_body = res_on.json()
+    # inputsAsOf.trending is stamped fresh per call by the test fixture
+    # itself (unrelated to the shadow flag) — exclude the one volatile
+    # field rather than the whole freshness block.
+    off_body.get("inputsAsOf", {}).pop("trending", None)
+    on_body.get("inputsAsOf", {}).pop("trending", None)
+    assert off_body == on_body
+
+
+def test_shadow_flag_on_records_a_comparison(faab_env, monkeypatch):
+    from src.api import feature_flags
+    from src.trade import faab_shadow
+
+    recorded = []
+    monkeypatch.setattr(
+        faab_shadow,
+        "record_comparison",
+        lambda **kwargs: recorded.append(kwargs),
+    )
+    monkeypatch.setenv("RISKIT_FEATURE_WAIVER_LIVE_OPPORTUNITY", "1")
+    feature_flags.reload()
+    try:
+        with TestClient(server.app) as c:
+            res = _post(c, monkeypatch, {"addPlayerName": "Hot Pickup"})
+    finally:
+        feature_flags.reload()
+
+    assert res.status_code == 200
+    assert len(recorded) == 1
+    assert recorded[0]["player_name"] == "Hot Pickup"
+    assert recorded[0]["canonical_value"] == 4000.0
+
+
+def test_shadow_computation_failure_never_breaks_the_live_response(faab_env, monkeypatch):
+    from src.api import feature_flags
+    from src.trade import faab_shadow
+
+    def _boom(**kwargs):
+        raise RuntimeError("shadow computation exploded")
+
+    monkeypatch.setattr(faab_shadow, "record_comparison", _boom)
+    monkeypatch.setenv("RISKIT_FEATURE_WAIVER_LIVE_OPPORTUNITY", "1")
+    feature_flags.reload()
+    try:
+        with TestClient(server.app) as c:
+            res = _post(c, monkeypatch, {"addPlayerName": "Hot Pickup"})
+    finally:
+        feature_flags.reload()
+
+    assert res.status_code == 200

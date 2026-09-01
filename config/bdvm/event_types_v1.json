@@ -95,6 +95,11 @@
     "POSITION_ELIGIBILITY_CHANGE": {
       "impact": {"designation_risk_delta": 0.30, "sigma_mult": 1.10},
       "half_life_days": 180
+    },
+    "ROLE_UNCERTAIN": {
+      "impact": {"role_uncertainty_delta": 0.20, "sigma_mult": 1.15},
+      "half_life_days": 21,
+      "_comment": "added 2026-09-01 for the Live Waiver Opportunity layer (docs/faab-live-opportunity-model.md). Deliberately carries NO mu_pct — a muddled/committee situation is not evidence of MORE OR LESS opportunity, only of less certainty about it, so this type may only widen sigma. The one genuinely new ontology gap found in that audit: DEPTH_CHART_PROMOTION/DEMOTION already cover a clear role move both ways, ACTIVATED_RETURN covers a clean return from injury, but nothing covered 'the backfield is a committee' language. Short half-life (21d) because a genuinely uncertain situation should resolve one way or the other within a few weeks, not linger at full ontology strength."
     }
   }
 }

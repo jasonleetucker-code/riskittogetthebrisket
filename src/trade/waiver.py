@@ -244,6 +244,10 @@ def find_waiver_targets(
     league_budget: int | None = None,
     team_count: int | None = None,
     starters_per_team: int | None = None,
+    team_owner_id: str | None = None,
+    starters: dict[str, Any] | None = None,
+    roster_size: int = 0,
+    market_priors: Any = None,
 ) -> dict[str, Any]:
     """Return waiver-wire suggestions grouped by position.
 
@@ -252,6 +256,24 @@ def find_waiver_targets(
     ``user_faab_remaining`` is the selected team's current balance and
     acts only as a CAP.  They are different quantities and must not be
     passed interchangeably.
+
+    ``team_owner_id``, when it resolves to one of ``sleeper_teams``,
+    unlocks the SAME market-aware engine ``/api/waiver/faab-recommend``
+    uses — full rival contention via ``faab_recommender.build_rivals``,
+    not the ceiling-only shim.  Before this, the two endpoints ran two
+    different formulas for the same player at the same moment: this one
+    a fixed 70%/35% share of the raw objective ceiling with NO market
+    model, ``/faab-recommend`` a zero-inflated-lognormal rival auction.
+    Measured on the real 2026-09-01 board, that divergence alone put an
+    uncontested rookie WR (Cyrus Allen, board value 2282) at a $60
+    "reasonable" bid here against $0-$19 from the market-aware engine
+    depending on actual contention — a 3-4x+ gap for the identical
+    player.  ``bidMethodology`` on the response says which formula ran,
+    so a caller never has to guess.
+
+    Without a resolvable ``team_owner_id`` this stays the ceiling-only
+    estimate (no way to know which roster is "mine" to separate from
+    rivals), stamped as such rather than presented as market-aware.
     """
     arr = contract.get("playersArray") or []
     if not isinstance(arr, list):
@@ -348,21 +370,107 @@ def find_waiver_targets(
     # stay $0: coercing it to a full budget handed a broke manager a
     # full-budget bid.  Main's H4 audit found the same inversion; the
     # split below is the same fix expressed as a cap.
+    # Resolve which sleeper team (if any) is "ours" — required to build
+    # RivalTeam objects for every OTHER team.  Without this we cannot
+    # tell a rival from ourselves, so the market-aware path is skipped
+    # entirely rather than guessed at.
+    own_team_row: dict[str, Any] | None = None
+    if team_owner_id:
+        for t in sleeper_teams or []:
+            if isinstance(t, dict) and str(t.get("ownerId") or "") == str(team_owner_id):
+                own_team_row = t
+                break
+
+    bid_methodology = "ceiling_only_estimate"
     cap = user_faab_remaining if user_faab_remaining is not None else budget
+    if own_team_row is not None:
+        remaining = own_team_row.get("faabRemaining")
+        if user_faab_remaining is None and isinstance(remaining, int):
+            cap = remaining
     cap = max(0, int(cap))
 
-    for cs in candidates_by_position.values():
-        for c in cs:
-            agg, reas, low = _compute_faab_bid(
-                c.consensus_value,
-                budget=budget,
+    if own_team_row is not None:
+        bid_methodology = "market_aware"
+        from src.trade import faab_recommender as _recommender  # noqa: PLC0415
+
+        own_players = own_team_row.get("players") or []
+        open_roster_spots = max(0, int(roster_size) - len(own_players)) if roster_size else 0
+        opponent_teams = [
+            t
+            for t in (sleeper_teams or [])
+            if isinstance(t, dict) and str(t.get("ownerId") or "") != str(team_owner_id)
+        ]
+
+        # Every rankable board value, keyed for the need classifier —
+        # the same shape ``server.py``'s single-player endpoint builds.
+        roster_index: dict[str, tuple[float, str]] = {}
+        for row in arr:
+            if not isinstance(row, dict):
+                continue
+            v = row.get("rankDerivedValue")
+            if not isinstance(v, (int, float)):
+                continue
+            nm = _normalize_name(str(row.get("displayName") or row.get("name") or ""))
+            if nm:
+                roster_index[nm] = (float(v), str(row.get("position") or ""))
+
+        # Rivals and our own need are position-specific but NOT
+        # candidate-specific, so each is built once per position group
+        # (a handful of calls) rather than once per candidate (which
+        # could be hundreds) — same answer, far cheaper.
+        for pos, cs in candidates_by_position.items():
+            own_need = _recommender._need_level(
+                pos,
+                own_players,
+                None,
                 anchors=anchors,
-                league=league_ctx,
+                starters=starters,
+                roster_index=roster_index,
             )
-            # A recommendation must never exceed what the team has.
-            c.bid_aggressive = min(agg, cap)
-            c.bid_reasonable = min(reas, cap)
-            c.bid_lowball = min(low, cap)
+            rivals = _recommender.build_rivals(
+                opponent_teams,
+                position=pos,
+                asset_pool=None,
+                market_priors=market_priors,
+                league_summary=None,
+                roster_size=roster_size,
+                anchors=anchors,
+                starters=starters,
+                roster_index=roster_index,
+            )
+            own_team_ctx = _engine.TeamContext(
+                owner_id=str(team_owner_id),
+                faab_remaining=cap,
+                open_roster_spots=open_roster_spots,
+                need_level=own_need,
+                competitive_status="bubble",
+                risk_posture="balanced",
+            )
+            for c in cs:
+                rec = _engine.recommend(
+                    _engine.PlayerInput(name=c.name, value=c.consensus_value, position=pos),
+                    league_ctx,
+                    own_team_ctx,
+                    anchors=anchors,
+                    rivals=rivals,
+                )
+                bids = rec["bids"]
+                c.bid_aggressive = min(int(bids["aggressive"]), cap)
+                c.bid_reasonable = min(int(bids["recommended"]), cap)
+                c.bid_lowball = min(int(bids["conservative"]), cap)
+    else:
+        for cs in candidates_by_position.values():
+            for c in cs:
+                agg, reas, low = _compute_faab_bid(
+                    c.consensus_value,
+                    budget=budget,
+                    anchors=anchors,
+                    league=league_ctx,
+                )
+                # A recommendation must never exceed what the team has.
+                c.bid_aggressive = min(agg, cap)
+                c.bid_reasonable = min(reas, cap)
+                c.bid_lowball = min(low, cap)
 
     out_by_position: dict[str, list[dict[str, Any]]] = {}
     total = 0
@@ -401,4 +509,5 @@ def find_waiver_targets(
         "by_family": by_family,
         "total": total,
         "rookies_excluded": not rookies_eligible,
+        "bidMethodology": bid_methodology,
     }
