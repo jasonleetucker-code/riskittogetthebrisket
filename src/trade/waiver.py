@@ -246,7 +246,7 @@ def find_waiver_targets(
     starters_per_team: int | None = None,
     team_owner_id: str | None = None,
     starters: dict[str, Any] | None = None,
-    roster_size: int = 0,
+    roster_size: int | None = 0,
     market_priors: Any = None,
 ) -> dict[str, Any]:
     """Return waiver-wire suggestions grouped by position.

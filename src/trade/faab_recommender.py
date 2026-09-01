@@ -194,7 +194,7 @@ def build_rivals(
     asset_pool: Any = None,
     market_priors: Any = None,
     league_summary: dict[str, Any] | None = None,
-    roster_size: int = 0,
+    roster_size: int | None = 0,
     anchors: engine.Anchors | None = None,
     starters: dict[str, Any] | None = None,
     roster_index: dict[str, tuple[float, str]] | None = None,

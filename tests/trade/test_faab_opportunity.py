@@ -31,8 +31,9 @@ def _snapshot(*, trend=None, games=4, rank=None):
 
 class TestNoEvidenceDegradesToDynastyValue:
     def test_no_playerctx_no_events_returns_dynasty_value_unchanged(self):
-        with mock.patch("src.playerctx.service.load_playerctx", return_value=None), mock.patch(
-            "src.bdvm.events.load_events_file", return_value=[]
+        with (
+            mock.patch("src.playerctx.service.load_playerctx", return_value=None),
+            mock.patch("src.bdvm.events.load_events_file", return_value=[]),
         ):
             result = fo.opportunity_value(2500.0, sleeper_id="sid1", player_name="Nobody Here")
         assert result["value"] == 2500.0
@@ -52,8 +53,9 @@ class TestNoEvidenceDegradesToDynastyValue:
 class TestRoleEvidenceRaisesValue:
     def test_strong_role_evidence_raises_value_above_dynasty_value(self):
         snap = _snapshot(trend=15.0, games=4, rank=1)
-        with mock.patch("src.playerctx.service.load_playerctx", return_value=snap), mock.patch(
-            "src.bdvm.events.load_events_file", return_value=[]
+        with (
+            mock.patch("src.playerctx.service.load_playerctx", return_value=snap),
+            mock.patch("src.bdvm.events.load_events_file", return_value=[]),
         ):
             result = fo.opportunity_value(2000.0, sleeper_id="sid1", player_name="Role Guy")
         assert result["value"] > 2000.0
@@ -65,8 +67,9 @@ class TestRoleEvidenceRaisesValue:
         # names a reason to price ABOVE the slow board, never below a
         # value the canonical pipeline already stands behind.
         snap = _snapshot(trend=-15.0, games=4, rank=4)
-        with mock.patch("src.playerctx.service.load_playerctx", return_value=snap), mock.patch(
-            "src.bdvm.events.load_events_file", return_value=[]
+        with (
+            mock.patch("src.playerctx.service.load_playerctx", return_value=snap),
+            mock.patch("src.bdvm.events.load_events_file", return_value=[]),
         ):
             result = fo.opportunity_value(2000.0, sleeper_id="sid1", player_name="Fading Guy")
         assert result["value"] == 2000.0
@@ -87,8 +90,9 @@ class TestNoDiscontinuity:
 
     def test_small_dynasty_value_change_produces_small_opportunity_value_change(self):
         snap = _snapshot(trend=10.0, games=4, rank=2)
-        with mock.patch("src.playerctx.service.load_playerctx", return_value=snap), mock.patch(
-            "src.bdvm.events.load_events_file", return_value=[]
+        with (
+            mock.patch("src.playerctx.service.load_playerctx", return_value=snap),
+            mock.patch("src.bdvm.events.load_events_file", return_value=[]),
         ):
             low = fo.opportunity_value(1999.0, sleeper_id="sid1", player_name="Edge Case")
             high = fo.opportunity_value(2001.0, sleeper_id="sid1", player_name="Edge Case")
@@ -110,8 +114,9 @@ class TestEventAxisPromotionAndAvailability:
             confidence=0.85,
             source_reliability=0.85,
         )
-        with mock.patch("src.playerctx.service.load_playerctx", return_value=snap), mock.patch(
-            "src.bdvm.events.load_events_file", return_value=[promo]
+        with (
+            mock.patch("src.playerctx.service.load_playerctx", return_value=snap),
+            mock.patch("src.bdvm.events.load_events_file", return_value=[promo]),
         ):
             result = fo.opportunity_value(
                 2000.0, sleeper_id="sid1", player_name="Role Guy", today="2026-09-01"
@@ -134,8 +139,9 @@ class TestEventAxisPromotionAndAvailability:
             source_reliability=0.85,
         )
         snap = _snapshot(trend=None, rank=1)
-        with mock.patch("src.playerctx.service.load_playerctx", return_value=snap), mock.patch(
-            "src.bdvm.events.load_events_file", return_value=[promo]
+        with (
+            mock.patch("src.playerctx.service.load_playerctx", return_value=snap),
+            mock.patch("src.bdvm.events.load_events_file", return_value=[promo]),
         ):
             result = fo.opportunity_value(
                 1800.0, sleeper_id="sid1", player_name="Backup Guy", today="2026-09-01"
@@ -166,9 +172,7 @@ class TestEventAxisPromotionAndAvailability:
                 healthy = fo.opportunity_value(
                     1800.0, sleeper_id="sid1", player_name="Hurt Guy", today="2026-09-01"
                 )
-            with mock.patch(
-                "src.bdvm.events.load_events_file", return_value=[promo, injury]
-            ):
+            with mock.patch("src.bdvm.events.load_events_file", return_value=[promo, injury]):
                 injured = fo.opportunity_value(
                     1800.0, sleeper_id="sid1", player_name="Hurt Guy", today="2026-09-01"
                 )
@@ -191,8 +195,9 @@ class TestStaleSpeculationCannotMoveTheMean:
             confidence=0.45,  # below the 0.5 speculation threshold
             source_reliability=0.6,
         )
-        with mock.patch("src.playerctx.service.load_playerctx", return_value=None), mock.patch(
-            "src.bdvm.events.load_events_file", return_value=[speculative]
+        with (
+            mock.patch("src.playerctx.service.load_playerctx", return_value=None),
+            mock.patch("src.bdvm.events.load_events_file", return_value=[speculative]),
         ):
             result = fo.opportunity_value(
                 2000.0, sleeper_id="sid1", player_name="Speculative Guy", today="2026-09-01"

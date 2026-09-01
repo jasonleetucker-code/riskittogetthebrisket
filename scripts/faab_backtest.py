@@ -871,8 +871,7 @@ def _render(report: dict[str, Any], *, limit: int) -> str:
     add(_rule("="))
     add(f"{'':<34}{'OLD':>14}{'NEW':>14}{'CHALLENGER':>14}")
     add(
-        f"{'claims scored':<34}{old['claims']:>14}{new['claims']:>14}"
-        f"{challenger['claims']:>14}"
+        f"{'claims scored':<34}{old['claims']:>14}{new['claims']:>14}" f"{challenger['claims']:>14}"
     )
     add(
         f"{'would have WON':<34}{old['wouldHaveWon']:>14}{new['wouldHaveWon']:>14}"

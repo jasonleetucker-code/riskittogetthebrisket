@@ -5821,7 +5821,15 @@ async def post_waiver_suggestions(request: Request):
     # player's worth shrink as the manager spent.
     _roster_settings = _league_registry.get_league_roster_settings(league_cfg.key) or {}
     _starters = _roster_settings.get("starters") or {}
-    _roster_size = int(_roster_settings.get("rosterSize") or 0)
+    # An UNKNOWN roster size and a genuinely zero-sized roster are
+    # different claims — coercing a missing registry value to 0 would
+    # fabricate "this roster is full" (open_roster_spots=0) rather than
+    # "we don't know its capacity".  find_waiver_targets already treats
+    # None the same as an unusable size (no drop-cost adjustment), so
+    # this preserves current behavior while keeping the two states
+    # distinguishable for any future consumer.
+    _raw_roster_size = _roster_settings.get("rosterSize")
+    _roster_size = int(_raw_roster_size) if isinstance(_raw_roster_size, int) else None
     _league_budget = 100
     for _t in sleeper_teams:
         if isinstance(_t, dict) and isinstance(_t.get("faabBudget"), int) and _t["faabBudget"] > 0:
