@@ -1,16 +1,16 @@
 {
- "generatedAt": "2026-09-01T12:04:44.136285+00:00",
+ "generatedAt": "2026-09-01T16:58:13.648157+00:00",
  "servedPolicy": "scraper_sleeper_attach_v1",
  "servedBy": "src.identity.resolution",
  "legacyLadderRetired": true,
  "v2WatchEnabled": true,
  "site": "scraper_sleeper_attach",
- "calls": 1953,
+ "calls": 1945,
  "v1Agree": 0,
  "v1Diverge": 0,
  "v1Examples": [],
- "v2Same": 1936,
- "v2WouldChange": 17,
+ "v2Same": 1926,
+ "v2WouldChange": 19,
  "v2Examples": [
   {
    "name": "Bam Knight",
@@ -77,6 +77,14 @@
    "v2Reason": "no_candidate"
   },
   {
+   "name": "Michael Carter",
+   "pos": "",
+   "served": "7607",
+   "engineV2": null,
+   "v2Method": "exact_clean:name",
+   "v2Reason": "ambiguous"
+  },
+  {
    "name": "Michael Hall",
    "pos": "",
    "served": "11692",
@@ -91,6 +99,14 @@
    "engineV2": null,
    "v2Method": "none",
    "v2Reason": "no_candidate"
+  },
+  {
+   "name": "Tyler Johnson",
+   "pos": "",
+   "served": "6960",
+   "engineV2": null,
+   "v2Method": "exact_clean:name",
+   "v2Reason": "ambiguous"
   },
   {
    "name": "Matthew Hibner",
@@ -127,7 +143,7 @@
   {
    "name": "Jamarion Miller",
    "pos": "",
-   "served": "12103",
+   "served": "13403",
    "engineV2": null,
    "v2Method": "none",
    "v2Reason": "no_candidate"
