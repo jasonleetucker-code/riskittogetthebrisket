@@ -131,6 +131,45 @@ describe("useWaiverAnalysis FAAB bid fetch", () => {
     expect(body.faabRemaining).toBe(63);
   });
 
+  it("sends the selected team's ownerId — this is the fix for the ceiling-only fallback bug", async () => {
+    // Regression: before this fix, /waivers' main table never sent
+    // teamOwnerId at all, so the backend could never run the
+    // market-aware engine for it — every row silently fell back to
+    // the fixed-fraction ceiling_only_estimate shim, which is exactly
+    // what produced the observed $56/$28/$80 Cyrus Allen bug.
+    setContexts({
+      team: { name: "Collin", ownerId: "831633191830933504", players: [], faabRemaining: 63 },
+    });
+    const fetchMock = vi.fn(async () => jsonResponse(OK_PAYLOAD));
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<Probe />);
+    await waitFor(() => expect(fetchMock).toHaveBeenCalled());
+
+    const body = JSON.parse(fetchMock.mock.calls[0][1].body);
+    expect(body.teamOwnerId).toBe("831633191830933504");
+  });
+
+  it("re-fetches when the selected team's ownerId changes, even if a team was already selected", async () => {
+    setContexts({ team: { name: "Collin", ownerId: "owner-a", players: [], faabRemaining: 63 } });
+    const fetchMock = vi.fn(async () => jsonResponse(OK_PAYLOAD));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { rerender } = render(<Probe />);
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+
+    mockUseTeam.mockReturnValue({
+      selectedTeam: { name: "Someone Else", ownerId: "owner-b", players: [], faabRemaining: 40 },
+      leagueMismatch: false,
+      availableTeams: [],
+    });
+    rerender(<Probe />);
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
+
+    const secondBody = JSON.parse(fetchMock.mock.calls[1][1].body);
+    expect(secondBody.teamOwnerId).toBe("owner-b");
+  });
+
   // Every failure below is the SAME observable outcome: no index, no
   // error. That sameness is the point — the column just isn't there.
   it.each([

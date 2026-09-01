@@ -17,7 +17,7 @@
 // number that comes out is byte-identical to what the payload carried.
 
 import { describe, it, expect } from "vitest";
-import { buildWaiverBidIndex, waiverBidForRow } from "@/lib/waiver-faab";
+import { buildWaiverBidIndex, waiverBidForRow, waiverBidStateForRow } from "@/lib/waiver-faab";
 
 const EGBUKA = {
   name: "Emeka Egbuka",
@@ -172,5 +172,95 @@ describe("waiverBidForRow", () => {
     expect(waiverBidForRow(buildWaiverBidIndex(payload()), null)).toBeNull();
     expect(waiverBidForRow(buildWaiverBidIndex(payload()), { name: "" })).toBeNull();
     expect(waiverBidForRow(buildWaiverBidIndex(payload()), {})).toBeNull();
+  });
+});
+
+// ── bidMethodology / team_context_missing ───────────────────────────
+//
+// The bug this pins the fix for: the backend can silently fall back to
+// ceiling_only_estimate (a fixed 70%/35%-of-ceiling shim with NO rival
+// model) when it cannot resolve the requesting team, and until this
+// fix nothing on the frontend ever looked at bidMethodology at all —
+// so a fallback response rendered identically to a real recommendation.
+
+describe("buildWaiverBidIndex methodology + market-aware fields", () => {
+  it("carries bidMethodology through onto the index", () => {
+    const marketAware = buildWaiverBidIndex(payload({ bidMethodology: "market_aware" }));
+    expect(marketAware.methodology).toBe("market_aware");
+    const ceilingOnly = buildWaiverBidIndex(payload({ bidMethodology: "ceiling_only_estimate" }));
+    expect(ceilingOnly.methodology).toBe("ceiling_only_estimate");
+  });
+
+  it("defaults methodology to null when the payload omits it (back-compat)", () => {
+    const index = buildWaiverBidIndex(payload());
+    expect(index.methodology).toBeNull();
+  });
+
+  it("carries the new market-aware fields (clearing band, maxRational, objectiveDollars, confidence)", () => {
+    const rich = {
+      ...EGBUKA,
+      clearing: 6,
+      clearingLow: 4,
+      clearingHigh: 9,
+      maxRational: 20,
+      objectiveDollars: 55,
+      confidence: "medium",
+    };
+    const index = buildWaiverBidIndex({ by_position: { WR: [rich] }, bidMethodology: "market_aware" });
+    const bid = waiverBidForRow(index, { name: "Emeka Egbuka", pos: "WR" });
+    expect(bid.clearing).toBe(6);
+    expect(bid.clearingLow).toBe(4);
+    expect(bid.clearingHigh).toBe(9);
+    expect(bid.maxRational).toBe(20);
+    expect(bid.objectiveDollars).toBe(55);
+    expect(bid.confidence).toBe("medium");
+  });
+
+  it("nulls the market-aware fields rather than coercing to 0 when absent", () => {
+    const index = buildWaiverBidIndex(payload({ bidMethodology: "ceiling_only_estimate" }));
+    const bid = waiverBidForRow(index, { name: "Emeka Egbuka", pos: "WR" });
+    expect(bid.clearing).toBeNull();
+    expect(bid.clearingLow).toBeNull();
+    expect(bid.clearingHigh).toBeNull();
+    expect(bid.maxRational).toBeNull();
+    expect(bid.objectiveDollars).toBeNull();
+    expect(bid.confidence).toBeNull();
+  });
+});
+
+describe("waiverBidStateForRow team_context_missing", () => {
+  it("returns team_context_missing for every row when bidMethodology is ceiling_only_estimate", () => {
+    const index = buildWaiverBidIndex(payload({ bidMethodology: "ceiling_only_estimate" }));
+    const state = waiverBidStateForRow(index, { name: "Emeka Egbuka", pos: "WR" });
+    expect(state.state).toBe("team_context_missing");
+    expect(state.bid).toBeNull();
+    expect(state.label).toMatch(/Recommendation unavailable/i);
+  });
+
+  it("wins over priced even though a bid object exists on the ceiling-only payload", () => {
+    // The whole point of this fix: a ceiling_only_estimate response
+    // still carries a `bid` object per candidate (the fixed-fraction
+    // shim), but it must never render as though it were priced.
+    const index = buildWaiverBidIndex(payload({ bidMethodology: "ceiling_only_estimate" }));
+    expect(index.byName.get("emeka egbuka")).toBeTruthy(); // a bid genuinely exists
+    const state = waiverBidStateForRow(index, { name: "Emeka Egbuka", pos: "WR" });
+    expect(state.state).not.toBe("priced");
+  });
+
+  it("returns priced for a normal market_aware payload", () => {
+    const index = buildWaiverBidIndex(payload({ bidMethodology: "market_aware" }));
+    const state = waiverBidStateForRow(index, { name: "Emeka Egbuka", pos: "WR" });
+    expect(state.state).toBe("priced");
+    expect(state.bid.reasonable).toBe(8);
+  });
+
+  it("still returns priced when bidMethodology is absent (back-compat with older fixtures)", () => {
+    const index = buildWaiverBidIndex(payload());
+    const state = waiverBidStateForRow(index, { name: "Emeka Egbuka", pos: "WR" });
+    expect(state.state).toBe("priced");
+  });
+
+  it("unavailable still wins when there is no index at all, regardless of methodology", () => {
+    expect(waiverBidStateForRow(null, { name: "Emeka Egbuka", pos: "WR" }).state).toBe("unavailable");
   });
 });

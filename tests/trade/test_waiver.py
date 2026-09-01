@@ -441,3 +441,50 @@ class TestMarketAwareUnification:
         assert bid["aggressive"] <= 7
         assert bid["reasonable"] <= 7
         assert bid["lowball"] <= 7
+
+    def test_market_aware_candidate_exposes_clearing_max_rational_worth_confidence(
+        self, rookies_allowed
+    ):
+        """The follow-up fix: /waivers' row redesign ("Bid $X ·
+        Expected clearing $Y-$Z · Max I'd pay $M") needs these fields
+        per candidate.  The engine already computed them
+        (faab_engine.recommend's bids/objective/confidence keys) — this
+        pins that find_waiver_targets now captures them onto
+        WaiverCandidate instead of discarding them."""
+        teams = [
+            {"ownerId": "owner1", "faabRemaining": 100, "players": []},
+            {"ownerId": "owner2", "faabRemaining": 100, "players": []},
+        ]
+        out = w.find_waiver_targets(
+            _contract(_player("Solo Guy", "WR", 4000)),
+            sleeper_teams=teams,
+            team_owner_id="owner1",
+            starters={"QB": 1, "RB": 2, "WR": 3, "TE": 1},
+            roster_size=25,
+        )
+        candidate = out["by_position"]["WR"][0]
+        for key in ("clearing", "clearingLow", "clearingHigh", "maxRational", "objectiveDollars"):
+            assert isinstance(candidate[key], int), f"{key} should be an int in market_aware mode"
+        assert candidate["confidence"] in {"high", "medium", "low"}
+        assert candidate["clearingLow"] <= candidate["clearing"] <= candidate["clearingHigh"]
+
+    def test_ceiling_only_candidate_nulls_the_market_aware_fields(self, rookies_allowed):
+        """The inverse: with no resolvable team, none of these fields
+        exist (no rival model ran at all), and the fallback must report
+        that honestly rather than inventing zeros — the frontend keys
+        its 'Recommendation unavailable' state on bidMethodology, but a
+        client reading these fields directly must also see the absence."""
+        out = w.find_waiver_targets(
+            _contract(_player("Solo Guy", "WR", 4000)),
+            sleeper_teams=[{"ownerId": "owner1", "faabRemaining": 100, "players": []}],
+        )
+        candidate = out["by_position"]["WR"][0]
+        for key in (
+            "clearing",
+            "clearingLow",
+            "clearingHigh",
+            "maxRational",
+            "objectiveDollars",
+            "confidence",
+        ):
+            assert candidate[key] is None

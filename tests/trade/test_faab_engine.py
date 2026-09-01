@@ -466,6 +466,21 @@ class TestBidLadder:
         rec = self._rec(BOARD[220])
         assert rec["winProbability"] is None or 0.0 <= rec["winProbability"] <= 1.0
 
+    def test_clearing_band_is_a_real_quantile_ordering(self):
+        """clearingLow/clearing/clearingHigh are p25/p50/p75 of the
+        same rival-bid CDF _market_clearing_price scans — a real
+        quantile, not a fabricated band — so they must be monotonic
+        (rival_bid_cdf is non-decreasing in the bid amount)."""
+        rec = self._rec(BOARD[200])
+        bids = rec["bids"]
+        assert bids["clearingLow"] <= bids["clearing"] <= bids["clearingHigh"]
+
+    def test_uncontested_claim_clears_at_zero_across_the_whole_band(self):
+        rec = self._rec(BOARD[200], rivals=[])
+        assert rec["bids"]["clearing"] == 0
+        assert rec["bids"]["clearingLow"] == 0
+        assert rec["bids"]["clearingHigh"] == 0
+
     def test_percentages_use_the_right_denominators(self):
         league = _league()
         rec = FE.recommend(

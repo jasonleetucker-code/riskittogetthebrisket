@@ -97,6 +97,8 @@ class TestResponseContract:
             "aggressive",
             "maxRational",
             "clearing",
+            "clearingLow",
+            "clearingHigh",
         }
 
     def test_standard_is_the_recommended_bid(self):

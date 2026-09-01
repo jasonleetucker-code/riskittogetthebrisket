@@ -24,7 +24,17 @@ import { waiverBidStateForRow, buildWaiverBidIndex } from "@/lib/waiver-faab";
 
 const PRICED = {
   state: "priced",
-  bid: { reasonable: 15, aggressive: 22, lowball: 8 },
+  bid: {
+    reasonable: 15,
+    aggressive: 22,
+    lowball: 8,
+    clearing: 12,
+    clearingLow: 9,
+    clearingHigh: 18,
+    maxRational: 40,
+    objectiveDollars: 55,
+    confidence: "medium",
+  },
   label: "$15",
   reason: "",
 };
@@ -58,11 +68,30 @@ describe("WaiverBidFigure — priced", () => {
     expect(el.textContent).not.toContain("—");
   });
 
-  it("carries the lowball and aggressive ends as supporting detail", () => {
+  it("carries the expected-clearing band and max-rational bid as supporting detail — not the retired lowball/aggressive ladder", () => {
     render(<WaiverBidFigure entry={PRICED} />);
     const detail = screen.getByTestId("waiver-bid-detail").textContent;
-    expect(detail).toContain("8");
-    expect(detail).toContain("22");
+    expect(detail).toMatch(/clearing/i);
+    expect(detail).toContain("9");
+    expect(detail).toContain("18");
+    expect(detail).toMatch(/max i'?d pay/i);
+    expect(detail).toContain("40");
+    // The retired ladder must not survive under a new label.
+    expect(detail).not.toMatch(/lowball/i);
+    expect(detail).not.toMatch(/aggressive/i);
+  });
+
+  it("falls back to the bare headline (no detail line) when the market-aware fields are absent", () => {
+    // Older cached payload shape, or a transitional deploy where the
+    // backend hasn't shipped the new per-candidate fields yet — must
+    // never render half-built punctuation.
+    render(
+      <WaiverBidFigure
+        entry={{ ...PRICED, bid: { reasonable: 15, aggressive: 22, lowball: 8 } }}
+      />,
+    );
+    expect(screen.getByTestId("waiver-bid-figure")).toHaveTextContent("$15");
+    expect(screen.queryByTestId("waiver-bid-detail")).toBeNull();
   });
 });
 

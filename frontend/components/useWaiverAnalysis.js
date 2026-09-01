@@ -127,6 +127,14 @@ export function useWaiverAnalysis({
               // (unknown balance) is safe — it must never be sent as
               // the budget.
               faabRemaining: faabRemaining ?? undefined,
+              // Required for the backend to run the market-aware
+              // engine (rival contention, season option value,
+              // positional need) instead of its ceiling-only fallback
+              // — same field the manual bid desk
+              // (FaabRecommendation.jsx) already sends. Omitting this
+              // was the whole bug: bidsEnabled already requires
+              // selectedTeam, so ownerId is always available here.
+              teamOwnerId: selectedTeam?.ownerId || undefined,
             }),
           ),
         });
@@ -148,7 +156,11 @@ export function useWaiverAnalysis({
       cancelled = true;
       ctl.abort();
     };
-  }, [bidsEnabled, leagueKey, faabRemaining]);
+    // selectedTeam?.ownerId is a dependency in its own right, not just
+    // via bidsEnabled: switching between two already-selected teams
+    // keeps bidsEnabled === true, so without this the bids for the
+    // PREVIOUS team would silently stay on screen under the new one.
+  }, [bidsEnabled, leagueKey, faabRemaining, selectedTeam?.ownerId]);
 
   const faabIndex = useMemo(() => buildWaiverBidIndex(bidPayload), [bidPayload]);
 

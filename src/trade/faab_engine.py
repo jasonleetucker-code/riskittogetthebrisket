@@ -958,30 +958,43 @@ def _market_clearing_price(
     crowd_median_pct: float | None = None,
     crowd_share: float | None = None,
     trending_share: float | None = None,
-) -> int:
-    """The price at which the top rival bid is as likely to be under
-    as over — the median of the top-rival distribution.
+) -> dict[str, int]:
+    """The band of prices a rational rival field would clear this
+    player at — three quantiles of ``rival_bid_cdf`` (P(we win at this
+    bid)), scanned in one pass over the whole budget.
+
+    ``p50`` is "the price at which the top rival bid is as likely to be
+    under as over" (the historical single-number ``clearing`` figure).
+    ``p25``/``p75`` are the same CDF at the quarter and three-quarter
+    marks — a real quantile of the modelled rival-bid distribution, not
+    a fabricated band — giving the /waivers row UX an honest "expected
+    clearing $Y-$Z" range instead of one point estimate.
 
     Scanned over the whole budget, independent of our own balance or
     ceiling: this is what the player will cost, not what we can pay.
     """
     budget = max(1, int(league.original_budget))
+    found = {"p25": None, "p50": None, "p75": None}
     for b in range(0, budget + 1):
-        if (
-            rival_bid_cdf(
-                float(b),
-                rivals,
-                demand_signal=demand_signal,
-                league=league,
-                config=config,
-                crowd_median_pct=crowd_median_pct,
-                crowd_share=crowd_share,
-                trending_share=trending_share,
-            )
-            >= 0.5
-        ):
-            return b
-    return budget
+        if all(v is not None for v in found.values()):
+            break
+        p_win = rival_bid_cdf(
+            float(b),
+            rivals,
+            demand_signal=demand_signal,
+            league=league,
+            config=config,
+            crowd_median_pct=crowd_median_pct,
+            crowd_share=crowd_share,
+            trending_share=trending_share,
+        )
+        if found["p25"] is None and p_win >= 0.25:
+            found["p25"] = b
+        if found["p50"] is None and p_win >= 0.5:
+            found["p50"] = b
+        if found["p75"] is None and p_win >= 0.75:
+            found["p75"] = b
+    return {k: (v if v is not None else budget) for k, v in found.items()}
 
 
 def optimal_bid(
@@ -1039,7 +1052,9 @@ def optimal_bid(
             "conservative": 0,
             "aggressive": 0,
             "maxRational": 0,
-            "clearing": market_clearing,
+            "clearing": market_clearing["p50"],
+            "clearingLow": market_clearing["p25"],
+            "clearingHigh": market_clearing["p75"],
             "winProbability": None,
             "curve": [],
         }
@@ -1103,8 +1118,6 @@ def optimal_bid(
     )
     aggressive = min(aggressive, hard_cap)
 
-    clearing = market_clearing
-
     win_at_recommended = next(
         (p for b, p, _ in curve if b >= recommended),
         curve[-1][1] if curve else 0.0,
@@ -1115,7 +1128,9 @@ def optimal_bid(
         "conservative": int(max(0, conservative)),
         "aggressive": int(aggressive),
         "maxRational": int(hard_cap),
-        "clearing": int(clearing),
+        "clearing": int(market_clearing["p50"]),
+        "clearingLow": int(market_clearing["p25"]),
+        "clearingHigh": int(market_clearing["p75"]),
         "winProbability": round(float(win_at_recommended), 3),
         "curve": [{"bid": b, "winProb": round(p, 4)} for b, p, _ in curve[:60]],
     }
@@ -1302,6 +1317,8 @@ def recommend(
             "aggressive": bids["aggressive"],
             "maxRational": bids["maxRational"],
             "clearing": bids["clearing"],
+            "clearingLow": bids["clearingLow"],
+            "clearingHigh": bids["clearingHigh"],
         },
         "pctOfOriginalBudget": round(100.0 * bids["recommended"] / budget, 1),
         "pctOfRemaining": (

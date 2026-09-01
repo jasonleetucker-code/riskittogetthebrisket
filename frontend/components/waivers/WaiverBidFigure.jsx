@@ -18,23 +18,35 @@
  * `computeFaabHint` (see the closing note in `lib/waiver-logic.js`) is
  * precisely what this must never become.
  *
- * ── Three quantities, kept apart ──────────────────────────────────
+ * ── Four quantities, kept apart ───────────────────────────────────
  * `docs/faab-model.md` separates what a player is WORTH (the objective
- * ceiling, a share of the league's ORIGINAL budget) from what THIS
- * team should BID, and the bid desk's posture shapes only the latter.
- * The triplet this component prints is the engine's bid ladder off the
- * objective ceiling (`src/trade/waiver.py::bid_range`: aggressive =
- * ceiling × budget, reasonable = 0.70 of it, lowball = 0.35). It is
- * NOT the posture-parameterised recommendation — that comes from
- * `/api/waiver/faab-recommend` in the bid desk, and the suggestions
- * endpoint neither accepts nor applies `riskPosture`. So the copy here
- * says "FAAB bid" and points at the desk; it must not be relabelled as
- * "your recommended bid" without the backend actually computing one
- * per row.
+ * ceiling, "Max Worth") from what THIS team should BID, and further
+ * separates the bid from what the MARKET is expected to clear at and
+ * from the most this budget could rationally pay. All four now come
+ * from the same market-aware engine call `find_waiver_targets` already
+ * makes per candidate (`src/trade/faab_engine.py::recommend`) — this
+ * component used to print a fixed 70%/35%-of-ceiling ladder
+ * (`lowball`/`aggressive`) that had NO rival model in it at all, which
+ * is exactly the bug this redesign replaces. It is NOT the
+ * posture-parameterised recommendation from the bid desk
+ * (`/api/waiver/faab-recommend`) — the suggestions endpoint neither
+ * accepts nor applies `riskPosture` — but it IS the same rival-
+ * contention engine, unlike the retired ladder.
+ *
+ * `entry.bid.reasonable` is the headline "Bid". `clearing`/
+ * `clearingLow`/`clearingHigh` are a real quantile band of the modelled
+ * rival-bid distribution (`faab_engine.py::_market_clearing_price`),
+ * not a fabricated range. `maxRational` is the ceiling on what this
+ * budget could rationally pay (never above the balance). All three are
+ * `null` in `ceiling_only_estimate` mode — see `waiverBidStateForRow`'s
+ * `team_context_missing` state, which withholds this component
+ * entirely in that case rather than rendering nulls as dashes.
  *
  * ── An absence states its reason ──────────────────────────────────
  * A bare `—` stood for four different facts. `entry.state` names which
- * one, and the label is rendered instead of the glyph.
+ * one (a fifth, `team_context_missing`, says explicitly that a number
+ * exists on the payload but is being withheld because it is not a
+ * recommendation), and the label is rendered instead of the glyph.
  */
 
 import styles from "@/app/waivers/waivers.module.css";
@@ -71,24 +83,39 @@ export default function WaiverBidFigure({ entry, inline = false }) {
     );
   }
 
-  const { reasonable, aggressive, lowball } = entry.bid;
-  // The ladder ends ride along as a `title` on desktop and as visible
-  // small print inline, so a phone user is not asked to hover.
-  const detail =
-    `lowball ${fmtDollars(lowball)} · aggressive ${fmtDollars(aggressive)}`;
+  const { reasonable, clearing, clearingLow, clearingHigh, maxRational, objectiveDollars, confidence } =
+    entry.bid;
+
+  // Real market-aware fields, all present together or all null — see
+  // to_dict() on WaiverCandidate. Older cached payload shapes (or a
+  // transitional deploy) fall back to the bare headline bid rather
+  // than rendering half-built punctuation.
+  const hasMarketDetail =
+    Number.isFinite(clearingLow) && Number.isFinite(clearingHigh) && Number.isFinite(maxRational);
+
+  const detail = hasMarketDetail
+    ? `Expected clearing ${fmtDollars(clearingLow)}–${fmtDollars(clearingHigh)} · Max I'd pay ${fmtDollars(maxRational)}`
+    : "";
+
+  const tooltipParts = [`Bid ${fmtDollars(reasonable)}`];
+  if (Number.isFinite(clearing)) tooltipParts.push(`Clearing (median) ${fmtDollars(clearing)}`);
+  if (Number.isFinite(objectiveDollars)) tooltipParts.push(`Max Worth ${fmtDollars(objectiveDollars)}`);
+  if (confidence) tooltipParts.push(`Confidence: ${confidence}`);
 
   return (
     <span
       className={className}
       data-testid="waiver-bid-figure"
       data-state="priced"
-      title={`Reasonable ${fmtDollars(reasonable)} · ${detail}`}
+      title={tooltipParts.join(" · ")}
     >
-      {inline ? <span className={styles.faabInlineLabel}>FAAB bid</span> : null}
+      {inline ? <span className={styles.faabInlineLabel}>Bid</span> : null}
       <span className={styles.faabAmount}>{fmtDollars(reasonable)}</span>
-      <span className={styles.faabDetail} data-testid="waiver-bid-detail">
-        {detail}
-      </span>
+      {detail ? (
+        <span className={styles.faabDetail} data-testid="waiver-bid-detail">
+          {detail}
+        </span>
+      ) : null}
     </span>
   );
 }
