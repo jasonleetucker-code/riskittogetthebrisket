@@ -391,10 +391,21 @@ def market_payload(
     limit = max(1, min(500, int(limit)))
     now = int(now_ms if now_ms is not None else time.time() * 1000)
     config = ffpc_config if ffpc_config is not None else load_ffpc_config()
+    # Pass the ORIGINAL argument, not the resolved `config` dict (V1-62).
+    # `_compute_cohort_members` resolves `ffpc_config=None` the exact same
+    # way (`ffpc_config if ffpc_config is not None else load_ffpc_config()`,
+    # itself `@lru_cache`d), so the two are semantically identical -- but
+    # `cohort_members`'s memo keys on the ARGUMENT's identity signal
+    # (`_ffpc_config_signal`), and passing the resolved dict turns the
+    # common "no explicit override" case into a distinct "cfg:<sha1>" key
+    # that never matches `roster_percentage.py`'s "file" key for the same
+    # underlying config, so the two endpoints never shared one cohort
+    # build. `config` itself is kept below for its other, non-cohort uses
+    # (the FFPC-enabled/status checks).
     members, cohort_coverage = cohort_members(
         qualification=qualification,
         ledger_path=ledger_path,
-        ffpc_config=config,
+        ffpc_config=ffpc_config,
     )
     manager_keys = [item.manager_key for item in members]
     quality = {item.manager_key: item.quality for item in members}
@@ -514,10 +525,11 @@ def market_payload(
     rows = _sort_rows(rows, sort)[:limit]
 
     source_coverage = platform_ledger.platform_coverage(ledger_path)
+    # Same original-argument rule as the cohort_members call above.
     coverage_members, _coverage_meta = cohort_members(
         qualification="all",
         ledger_path=ledger_path,
-        ffpc_config=config,
+        ffpc_config=ffpc_config,
     )
     automated_by_platform = {"sleeper": 0, "ffpc": 0}
     curated_by_platform = {"sleeper": 0, "ffpc": 0}

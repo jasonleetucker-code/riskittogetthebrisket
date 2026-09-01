@@ -331,11 +331,34 @@ def stable_id(prefix: str, *parts: Any) -> str:
 def ensure_schema(ledger_path: Path | None = None) -> sqlite3.Connection:
     conn = platform_ledger.ensure_platform_schema(ledger_path)
     conn.executescript(_SCHEMA)
-    conn.execute(
-        "INSERT OR REPLACE INTO meta(key, value) VALUES(?, ?)",
-        ("curated_sharp_schema_version", str(SCHEMA_VERSION)),
-    )
-    conn.commit()
+    # The version stamp write below must be conditional, not unconditional
+    # (W15-F017 follow-up, V1-62). ``INSERT OR REPLACE`` always performs a
+    # write + commit even when the stored value already equals
+    # ``SCHEMA_VERSION``, and that write lands in the SAME ledger sqlite
+    # file whose ``(mtime_ns, size)`` is the ONLY freshness signal the
+    # ``cohort_members`` memo (``src/sharp/cohort.py``) checks. This
+    # function is called on every ``curated_cohort_members`` call, which
+    # every ``_compute_cohort_members`` call makes unconditionally via
+    # ``curated_industry_members`` -- so the unconditional write silently
+    # bumped the ledger's mtime on every single cohort build, poisoning
+    # the memo's own fingerprint before the NEXT call could ever see a
+    # match. Measured: with the unconditional write, two ``cohort_members``
+    # calls made microseconds apart, with an identical key, over an
+    # unmodified ledger, never hit the cache. Gating the write on the
+    # value actually needing to change makes the steady-state case (the
+    # overwhelming majority of calls) a pure read with no write at all,
+    # leaving the migration semantics -- the version marker ends at
+    # ``SCHEMA_VERSION`` either way -- completely unchanged.
+    current = conn.execute(
+        "SELECT value FROM meta WHERE key = ?",
+        ("curated_sharp_schema_version",),
+    ).fetchone()
+    if current is None or str(current[0]) != str(SCHEMA_VERSION):
+        conn.execute(
+            "INSERT OR REPLACE INTO meta(key, value) VALUES(?, ?)",
+            ("curated_sharp_schema_version", str(SCHEMA_VERSION)),
+        )
+        conn.commit()
     return conn
 
 

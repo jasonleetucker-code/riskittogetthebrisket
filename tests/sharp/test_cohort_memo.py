@@ -1,6 +1,6 @@
 """W15-F017 — ``cohort_members`` is memoized without ever serving a stale cohort.
 
-Three proofs, matching the V1-62 memo contract:
+Four groups of proofs, matching the V1-62 memo contract:
 
 * (a) two calls with unchanged inputs do the expensive rebuild ONCE and
       return the identical object;
@@ -11,6 +11,21 @@ Three proofs, matching the V1-62 memo contract:
       fingerprint being in the key — ``test_fingerprint_is_load_bearing``
       documents/exercises that by driving the memo through a key with the
       fingerprint stripped and showing it would then serve stale.
+* (d) V1-62 — ``curated.ensure_schema`` must not WRITE to the ledger on a
+      call where nothing needs to change.  Before its fix, the version
+      stamp there was an unconditional ``INSERT OR REPLACE`` + commit on
+      EVERY call, and that write landed in the exact ledger file whose
+      ``(mtime_ns, size)`` is the memo's only freshness signal — so every
+      cohort build silently invalidated its own cache before the next
+      caller could ever see a hit.  Group (a) above does not catch this:
+      its ``tmp_path`` fixture happens to hit ``curated_cohort_members``'s
+      broad ``except Exception: return []`` (a lock contention artifact
+      of calling it immediately after ``build_manager_records`` opens its
+      own connection on the same fresh file), so the write never fires in
+      that specific setup.  Group (d) forces the schema to be fully
+      migrated FIRST (``curated.ensure_schema`` called directly, matching
+      ``curated_cohort_members``'s own call shape) so the write path is
+      exercised for real, the way a warm production ledger exercises it.
 """
 
 from __future__ import annotations
@@ -23,7 +38,7 @@ from src.platforms.base import (
     NormalizedMovement,
     NormalizedTransaction,
 )
-from src.sharp import cohort, market
+from src.sharp import cohort, curated as curated_model, market
 
 NOW = 1_800_000_000_000
 
@@ -171,3 +186,108 @@ def test_fingerprint_is_load_bearing(tmp_path):
         qualification="provisional", ledger_path=path, ffpc_config=_config()
     )
     assert _keys(fresh) == ["ffpc:league:L1:team:1", "ffpc:league:L1:team:2"]
+
+
+# ── (d) V1-62: the curated version stamp must not self-poison the memo ──
+
+
+def _ledger_fingerprint(path):
+    stat = path.stat()
+    return f"{stat.st_mtime_ns}:{stat.st_size}"
+
+
+def test_ensure_schema_does_not_touch_ledger_once_version_is_current(tmp_path):
+    """A steady-state call to ``curated.ensure_schema`` must be a pure read.
+
+    The FIRST call is allowed to migrate (creating the curated tables and
+    writing the version stamp for the first time changes the file — that
+    is real, necessary work). Every call AFTER that, against an unchanged
+    ledger, must leave the file byte-for-byte and mtime-for-mtime alone.
+    Before the fix, the unconditional ``INSERT OR REPLACE`` + ``commit()``
+    touched the file on every single call.
+    """
+    path = tmp_path / "ledger.sqlite3"
+    platform_ledger.ingest_batch(_batch("1", "T1", "M1"), path=path)
+
+    conn = curated_model.ensure_schema(path)
+    conn.close()
+    fingerprint_after_migration = _ledger_fingerprint(path)
+
+    for _ in range(3):
+        conn = curated_model.ensure_schema(path)
+        conn.close()
+        assert _ledger_fingerprint(path) == fingerprint_after_migration
+
+
+def test_curated_industry_lookup_does_not_poison_the_cohort_memo(tmp_path, monkeypatch):
+    """End-to-end: once the curated schema is warm, repeated
+    ``cohort_members`` calls through the REAL ``curated_industry_members``
+    path share one rebuild, and the ledger fingerprint never moves between
+    them.
+
+    ``curated_industry_members`` (unlike the rest of ``_compute_cohort_members``)
+    does not accept or forward a ``ledger_path`` — it always resolves through
+    ``src.intel.ledger.default_path()``. That is a separate, narrower
+    pre-existing characteristic, not something this test works around
+    silently: ``ledger.default_path`` is monkeypatched to point at this
+    test's isolated ledger so the write path is exercised against a
+    hermetic fixture rather than the real default ledger file. This is
+    also why scenario group (a)'s ``tmp_path`` fixture does not reach the
+    bug (see module docstring): it never redirects the default path, so
+    the curated write there lands on the real default ledger instead of
+    the fixture, self-swallowed by ``curated_industry_members``'s broad
+    ``except Exception: return []`` on whatever state that file happens
+    to be in.
+    """
+    from src.intel import ledger as ledger_module
+
+    path = tmp_path / "ledger.sqlite3"
+    monkeypatch.setattr(ledger_module, "default_path", lambda: path)
+    platform_ledger.ingest_batch(_batch("1", "T1", "M1"), path=path)
+    curated_model.ensure_schema(path).close()
+
+    calls = {"n": 0}
+    real_compute = cohort._compute_cohort_members
+
+    def _counting(**kwargs):
+        calls["n"] += 1
+        return real_compute(**kwargs)
+
+    monkeypatch.setattr(cohort, "_compute_cohort_members", _counting)
+
+    fingerprint_before = _ledger_fingerprint(path)
+    first, _ = cohort.cohort_members(qualification="all", ledger_path=path)
+    fingerprint_after_first = _ledger_fingerprint(path)
+    second, _ = cohort.cohort_members(qualification="all", ledger_path=path)
+    fingerprint_after_second = _ledger_fingerprint(path)
+
+    assert calls["n"] == 1
+    assert first is second
+    assert fingerprint_before == fingerprint_after_first == fingerprint_after_second
+
+
+def test_mutation_control_unconditional_write_reintroduces_self_poisoning(tmp_path):
+    """Mutation control for (d): reproduce the RETIRED unconditional write
+    directly (not by editing source) and show it defeats the memo — i.e.
+    the two tests above are genuine guards against a real failure mode,
+    not a coincidence of this fixture.
+    """
+    path = tmp_path / "ledger.sqlite3"
+    platform_ledger.ingest_batch(_batch("1", "T1", "M1"), path=path)
+    curated_model.ensure_schema(path).close()
+
+    fingerprint_before = _ledger_fingerprint(path)
+    conn = curated_model.platform_ledger.ensure_platform_schema(path)
+    try:
+        # The exact statement removed from curated.ensure_schema: an
+        # unconditional version-stamp write, run with no version change.
+        conn.execute(
+            "INSERT OR REPLACE INTO meta(key, value) VALUES(?, ?)",
+            ("curated_sharp_schema_version", str(curated_model.SCHEMA_VERSION)),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+    fingerprint_after = _ledger_fingerprint(path)
+
+    assert fingerprint_before != fingerprint_after
