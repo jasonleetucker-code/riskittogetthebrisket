@@ -552,9 +552,9 @@ def test_the_proof_reads_the_run_s_result_rather_than_re_deriving(tmp_path):
     assert f"[backup-proof] proving generation: {primary}/daily/{TODAY}" in out, out
     # The decoy now also appears in the writer's prune warning, which is
     # correct — what must not happen is proving it.
-    assert (
-        f"proving generation: {decoy}" not in out
-    ), "the proof re-derived the location instead of reading the result"
+    assert f"proving generation: {decoy}" not in out, (
+        "the proof re-derived the location instead of reading the result"
+    )
 
 
 def test_the_on_disk_scan_takes_the_newest_dated_directory(tmp_path):
@@ -971,9 +971,9 @@ def test_a_generation_beyond_the_clock_skew_bound_fails_closed(tmp_path):
 
     assert result.returncode == 1, out
     assert "beyond the clock-skew bound" in out, out
-    assert (
-        f"proving generation: {real}" not in out
-    ), "name-ordered recency is untrustworthy in this root; it must refuse, not pick"
+    assert f"proving generation: {real}" not in out, (
+        "name-ordered recency is untrustworthy in this root; it must refuse, not pick"
+    )
 
 
 def test_a_generation_dated_tomorrow_is_skew_not_corruption(tmp_path):
@@ -1016,9 +1016,9 @@ def test_an_implausible_generation_does_not_consume_a_retention_slot(tmp_path):
     body = (REPO / "deploy" / "backup" / "riskit-state-backup.sh").read_text(encoding="utf-8")
     assert "prune_candidates()" in body
     assert "done < <(prune_candidates)" in body
-    assert (
-        'ls -1 "${BACKUP_ROOT}/daily" 2>/dev/null | sort | head -n -' not in body
-    ), "the raw keep-window is the defect"
+    assert 'ls -1 "${BACKUP_ROOT}/daily" 2>/dev/null | sort | head -n -' not in body, (
+        "the raw keep-window is the defect"
+    )
     assert "excluded from the keep window and NOT deleted" in body
 
 
@@ -1345,9 +1345,9 @@ def test_the_comparison_stamp_falls_back_to_the_directory_date(tmp_path):
     2020 generation beat a same-day one.
     """
     lib = LIB.read_text(encoding="utf-8")
-    assert (
-        'at="${base}T00:00:00Z"' in lib
-    ), "the derived-midnight fallback is what makes the stamp non-empty"
+    assert 'at="${base}T00:00:00Z"' in lib, (
+        "the derived-midnight fallback is what makes the stamp non-empty"
+    )
 
     app, data = _app(tmp_path)
     primary = tmp_path / "primary"
@@ -1364,9 +1364,9 @@ def test_the_comparison_stamp_falls_back_to_the_directory_date(tmp_path):
     result = _run_proof(app, data, primary, fallback, run_backup="0")
     out = result.stdout + result.stderr
     assert result.returncode == 0, out
-    assert (
-        f"promoted_at {TODAY}T00:00:00Z" in out
-    ), "the derived stamp must be visible and non-empty"
+    assert f"promoted_at {TODAY}T00:00:00Z" in out, (
+        "the derived stamp must be visible and non-empty"
+    )
     assert f"[backup-proof] proving generation: {primary}/daily/{TODAY}" in out, out
 
 
@@ -1455,9 +1455,9 @@ def test_a_continuous_root_still_reconciles_the_mirror(tmp_path):
     second = _run_writer(app, data, root, tmp_path, mirror)
     out = second.stdout + second.stderr
     assert second.returncode == 0, out
-    assert not (
-        mirror / "2000-01-01"
-    ).exists(), f"a continuous root must still reconcile, or remote retention grows forever\n{out}"
+    assert not (mirror / "2000-01-01").exists(), (
+        f"a continuous root must still reconcile, or remote retention grows forever\n{out}"
+    )
 
 
 def test_a_changed_destination_is_not_reconciled(tmp_path):
@@ -1560,8 +1560,7 @@ def test_an_interleaved_non_generation_entry_costs_no_real_generation(tmp_path):
     seeded = [f"2026-08-{i:02d}" for i in range(1, 15)]
     expected = sorted(seeded[1:] + [TODAY])  # 2026-08-01 dropped; TODAY newly written
     assert survivors == expected, (
-        f"a stray entry cost a real generation, or the wrong one was pruned: "
-        f"{survivors}\n{out}"
+        f"a stray entry cost a real generation, or the wrong one was pruned: {survivors}\n{out}"
     )
     assert "2026-08-01" not in survivors, "the oldest legitimate generation must be the one pruned"
     assert len(survivors) == 14, f"expected 14 legitimate generations, got {survivors}\n{out}"
