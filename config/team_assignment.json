@@ -46,6 +46,6 @@
   },
 
   "limits": {
-    "maxTeamsPerOwner": 3
+    "_doc": "Currently empty. All NFL teams meeting the affinity-share threshold are automatically assigned."
   }
 }

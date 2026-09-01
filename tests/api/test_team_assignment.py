@@ -4,9 +4,9 @@ Covers config load/merge, favorite resolution (direct + alias +
 missing, mechanism unchanged from the old points-based model), the
 canonical-value formula (base value passthrough, the ONE starting-QB
 2.0x multiplier and its "unknown never becomes starter" fallback),
-affinity-share aggregation and qualification, the max-3 cap, and the
-missing-is-never-zero / Meaningful-Core-reuse invariants the owner
-mandate is built on.
+affinity-share aggregation and qualification, unlimited team assignments
+for all teams meeting the threshold, and the missing-is-never-zero /
+Meaningful-Core-reuse invariants the owner mandate is built on.
 """
 
 from __future__ import annotations
@@ -141,7 +141,7 @@ def _stub_config(monkeypatch, tmp_path: Path, *, min_share=0.10, qb_multiplier=2
             },
             "weights": {"nflStartingQbMultiplier": qb_multiplier},
             "thresholds": {"rosterAssignmentMinShare": min_share},
-            "limits": {"maxTeamsPerOwner": 3},
+            "limits": {},
         },
     )
     monkeypatch.setattr(team_assignment, "_CONFIG_PATH", cfg_path)
@@ -154,7 +154,7 @@ def test_load_config_uses_defaults_when_file_missing(tmp_path: Path):
     cfg = team_assignment.load_config(tmp_path / "missing.json")
     assert cfg["weights"]["nflStartingQbMultiplier"] == 2.0
     assert cfg["thresholds"]["rosterAssignmentMinShare"] == 0.10
-    assert cfg["limits"]["maxTeamsPerOwner"] == 3
+    assert cfg["limits"] == {}
     assert cfg["favorites"] == {}
 
 
@@ -449,13 +449,16 @@ def test_favorite_remains_assigned_below_threshold(monkeypatch, tmp_path: Path):
     assert a["nflTeams"][0]["qualifiesByRoster"] is False
 
 
-def test_max_three_assignments_enforced_with_deterministic_tiebreak(monkeypatch, tmp_path: Path):
-    """Test 11 + 12: favorite + top two qualifiers, tiebreak by abbr."""
+def test_all_qualifying_teams_are_assigned_with_deterministic_sort(monkeypatch, tmp_path: Path):
+    """Test 11 + 12: favorite + ALL qualifying non-favorites, sorted by
+    affinityShare (desc), affinityScore (desc), abbr (asc)."""
     _stub_config(monkeypatch, tmp_path, min_share=0.05)
     mgrs = ManagerRegistry(by_owner_id={"oA": _manager("oA", "jason")})
     names = [f"P{i}" for i in range(5)]
     rosters = [{"roster_id": 1, "owner_id": "oA", "players": names}]
-    # BUF highest, then three teams tied at the same share -> alphabetical.
+    # BUF highest (5000), then KC/DET/PHI tied (1000 each), MIN favorite (100).
+    # All except MIN meet the 0.05 share threshold: (5000 + 1000*3 + 100 = 8100 total).
+    # BUF: 5000/8100 = 61.7%, KC/DET/PHI: 1000/8100 = 12.3% each (all > 5%).
     rows = [
         _row("P0", "RB", "BUF", 5000, player_id="p0"),
         _row("P1", "RB", "KC", 1000, player_id="p1"),
@@ -467,10 +470,12 @@ def test_max_three_assignments_enforced_with_deterministic_tiebreak(monkeypatch,
     snap = _snapshot(rosters, {}, mgrs, slots=["RB", "RB", "RB", "RB", "RB", "BN"])
     section = team_assignment.build_section(snap, contract)
     abbrs = [t["abbr"] for t in section["assignments"][0]["nflTeams"]]
-    assert len(abbrs) == 3
+    # All 5 teams qualify: favorite + 4 roster-based
+    assert len(abbrs) == 5
     assert abbrs[0] == "MIN"  # favorite always first
     assert abbrs[1] == "BUF"  # clearly highest share
-    assert abbrs[2] == "DET"  # tied with KC/PHI at same share, alphabetical wins
+    # KC, DET, PHI tied at same share -- alphabetical order
+    assert abbrs[2:5] == ["DET", "KC", "PHI"]
 
 
 def test_missing_canonical_value_is_not_converted_to_zero(monkeypatch, tmp_path: Path):
