@@ -229,7 +229,9 @@ def test_league_wide_contract_available_but_one_team_unmatched(monkeypatch, tmp_
     by_owner = {a["ownerId"]: a for a in section["assignments"]}
     assert by_owner["oA"]["rosterScored"] is True
     assert by_owner["oB"]["rosterScored"] is False
-    assert by_owner["oB"]["rosterUnavailableReason"] == team_assignment.ROSTER_REASON_NOT_IN_CONTRACT
+    assert (
+        by_owner["oB"]["rosterUnavailableReason"] == team_assignment.ROSTER_REASON_NOT_IN_CONTRACT
+    )
 
 
 def test_qb_signal_unavailable_does_not_block_roster_scoring(monkeypatch, tmp_path: Path):

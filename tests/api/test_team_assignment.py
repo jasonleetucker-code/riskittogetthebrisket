@@ -520,7 +520,9 @@ def test_meaningful_core_unavailable_for_one_team_is_not_a_confident_empty_answe
     by_owner = {a["ownerId"]: a for a in section["assignments"]}
     assert by_owner["oA"]["rosterScored"] is True
     assert by_owner["oB"]["rosterScored"] is False
-    assert by_owner["oB"]["rosterUnavailableReason"] == team_assignment.ROSTER_REASON_NOT_IN_CONTRACT
+    assert (
+        by_owner["oB"]["rosterUnavailableReason"] == team_assignment.ROSTER_REASON_NOT_IN_CONTRACT
+    )
     assert by_owner["oB"]["totalWeightedCoreValue"] is None
 
 
@@ -577,9 +579,7 @@ def test_deep_non_core_roster_players_contribute_nothing(monkeypatch, tmp_path: 
     a = section["assignments"][0]
     core = build_meaningful_core(
         [
-            RosterPlayer(
-                player_id=n, canonical_name=n, position="RB", ros_value=1000.0 * (i + 1)
-            )
+            RosterPlayer(player_id=n, canonical_name=n, position="RB", ros_value=1000.0 * (i + 1))
             for i, n in enumerate(names)
         ],
         ["RB", "BN"],
