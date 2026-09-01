@@ -239,7 +239,7 @@ export default function BestAvailableIdps({ leagueKey, idpEnabled }) {
       actions={
         <div className={styles.controlsInline}>
           <SourceFormulaInfo sourceFreshness={payload?.sourceFreshness} />
-          <Field label="Position" id="idp-best-available-pos">
+          <Field label="IDP Position" id="idp-best-available-pos">
             <Select
               id="idp-best-available-pos"
               value={position}
