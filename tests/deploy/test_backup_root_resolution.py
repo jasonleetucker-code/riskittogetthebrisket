@@ -1514,6 +1514,15 @@ def test_an_interleaved_non_generation_entry_costs_no_real_generation(tmp_path):
     Measured on the shipped writer with KEEP_DAILY=14: 14 real generations
     became 13 with the entry present, and stayed 14 once entries are recognised
     positively rather than merely not-looking-wrong.
+
+    The 14 seeded Aug 1-14 generations are historical fixture dates; the
+    writer run under test ADDS one more, for ``TODAY`` (this module's single
+    clock read -- ``DATE_STAMP=TODAY`` pins the script to it, same as
+    ``_run_proof``, so this test cannot straddle a midnight race between its
+    own date and the script's). Production policy retains the newest 14
+    legitimate dated generations, so the correct post-run state is 15
+    candidates pruned to 14: the oldest seeded date (2026-08-01) drops, the
+    other 13 seeded dates plus the newly written ``TODAY`` survive.
     """
     app, data = _app(tmp_path)
     root = tmp_path / "primary"
@@ -1531,6 +1540,7 @@ def test_an_interleaved_non_generation_entry_costs_no_real_generation(tmp_path):
         BACKUP_FALLBACK_ROOT=str(tmp_path / "fb"),
         PYTHON_BIN=sys.executable,
         KEEP_DAILY="14",
+        DATE_STAMP=TODAY,
     )
     result = subprocess.run(
         ["bash", str(REPO / "deploy" / "backup" / "riskit-state-backup.sh")],
@@ -1545,9 +1555,15 @@ def test_an_interleaved_non_generation_entry_costs_no_real_generation(tmp_path):
     survivors = sorted(
         p.name
         for p in (root / "daily").iterdir()
-        if p.is_dir() and re.fullmatch(r"2026-08-\d{2}", p.name)
+        if p.is_dir() and re.fullmatch(r"\d{4}-\d{2}-\d{2}", p.name)
     )
-    assert len(survivors) == 14, f"a stray entry cost a real generation: {survivors}\n{out}"
+    seeded = [f"2026-08-{i:02d}" for i in range(1, 15)]
+    expected = sorted(seeded[1:] + [TODAY])  # 2026-08-01 dropped; TODAY newly written
+    assert (
+        survivors == expected
+    ), f"a stray entry cost a real generation, or the wrong one was pruned: {survivors}\n{out}"
+    assert "2026-08-01" not in survivors, "the oldest legitimate generation must be the one pruned"
+    assert len(survivors) == 14, f"expected 14 legitimate generations, got {survivors}\n{out}"
     assert scratch.exists(), "an unrecognised entry must be excluded, not deleted"
 
 
