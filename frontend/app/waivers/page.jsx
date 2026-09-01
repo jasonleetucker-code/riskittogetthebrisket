@@ -17,6 +17,7 @@ import {
 } from "@/components/ds";
 import TeamSwitcher from "@/components/TeamSwitcher";
 import ManualAddDrop from "@/components/waivers/ManualAddDrop";
+import BestAvailableIdps from "@/components/waivers/BestAvailableIdps";
 import {
   DEFAULT_RISK_POSTURE,
   RISK_POSTURES,
@@ -663,6 +664,13 @@ export default function WaiversPage() {
           leagueKey={selectedLeague?.key}
           teamLoading={teamLoading}
           riskPosture={riskPosture}
+        />
+      ) : null}
+
+      {!signedOut && !leagueMismatch ? (
+        <BestAvailableIdps
+          leagueKey={selectedLeague?.key}
+          idpEnabled={Boolean(selectedLeague?.idpEnabled)}
         />
       ) : null}
 

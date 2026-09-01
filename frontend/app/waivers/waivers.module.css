@@ -98,6 +98,23 @@
   opacity: 0.65;
 }
 
+/* ── Best available IDPs card ── */
+.tierBadge {
+  margin-left: var(--space-2);
+}
+.controlsInline {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+@media (width < 480px) {
+  .controlsInline {
+    width: 100%;
+    justify-content: space-between;
+  }
+}
+
 /* ── Manual add/drop calculator ── */
 .calc {
   display: flex;
