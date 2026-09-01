@@ -1,0 +1,43 @@
+[Unit]
+Description=Dynasty Trade Calculator ESPN depth-chart refresh (__SERVICE_NAME__)
+After=network-online.target
+Wants=network-online.target
+
+# Part of the Live Waiver Opportunity layer
+# (docs/faab-live-opportunity-model.md).  Fetches all 32 NFL teams'
+# ESPN depth charts, diffs against the prior run
+# (data/nfl_data/depth_charts_prior.json), and turns a scored slot
+# change into a DEPTH_CHART_PROMOTION/DEMOTION BDVM structured event
+# (data/bdvm/events/<season>.json) that src/trade/faab_opportunity.py
+# reads through the FAAB engine's shadow path.
+#
+# WHY A PROD-SIDE TIMER AND NOT CI: same reasoning as
+# dynasty-playerctx-refresh — the events file lives under gitignored
+# data/, so a CI-built artifact never reaches the running server.
+#
+# RISKIT_FEATURE_DEPTH_CHART_VALIDATION=1 is scoped to THIS unit's
+# environment only (the documented rollback-lever pattern in
+# src/api/feature_flags.py) — the global default stays False because
+# the gate is SCRIPT_ONLY, not LIVE: toggling it globally would change
+# no request/response, only what this one script fetches.
+#
+# Exit codes (scripts/refresh_depth_charts.py):
+#   0 - all 32 teams fetched (or flag off -> no-op)
+#   1 - more than 5 teams failed this run; prior snapshot untouched
+
+[Service]
+Type=oneshot
+User=__APP_USER__
+Group=__APP_USER__
+WorkingDirectory=__APP_DIR__
+EnvironmentFile=-__APP_DIR__/.env
+Environment=RISKIT_FEATURE_DEPTH_CHART_VALIDATION=1
+ExecStart=__VENV_DIR__/bin/python __APP_DIR__/scripts/refresh_depth_charts.py --force
+StandardOutput=journal
+StandardError=journal
+Nice=10
+IOSchedulingClass=idle
+TimeoutStartSec=300
+
+[Install]
+WantedBy=multi-user.target

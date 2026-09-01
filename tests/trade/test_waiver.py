@@ -322,6 +322,7 @@ class TestDegradedInputs:
             "by_family": {},
             "total": 0,
             "rookies_excluded": False,
+            "bidMethodology": "ceiling_only_estimate",
         }
 
     def test_non_list_players_array_returns_empty_shape(self):
@@ -343,3 +344,100 @@ class TestDegradedInputs:
     def test_none_sleeper_teams_means_nobody_is_rostered(self, rookies_allowed):
         out = w.find_waiver_targets(_contract(_player("Free Guy", "WR", 4000)), sleeper_teams=None)
         assert out["total"] == 1
+
+
+# ── Market-aware unification with /api/waiver/faab-recommend ──────────
+#
+# Before this, /api/waiver/suggestions ran ONLY the fixed-multiplier
+# ceiling shim while /api/waiver/faab-recommend ran the full
+# market-aware engine — two different formulas for the same player at
+# the same moment.  Reproduced live against the 2026-09-01 board: a
+# thinly-sourced rookie WR (Cyrus Allen, board value 2282) priced at
+# $57-60 "reasonable" under the shim and $0-19 under the full engine
+# depending on real contention.  ``team_owner_id`` is what unlocks the
+# unified path here.
+
+
+class TestMarketAwareUnification:
+    def test_no_team_owner_id_stays_ceiling_only(self, rookies_allowed):
+        out = w.find_waiver_targets(
+            _contract(_player("Solo Guy", "WR", 4000)),
+            sleeper_teams=[{"ownerId": "owner1", "faabRemaining": 100, "players": []}],
+        )
+        assert out["bidMethodology"] == "ceiling_only_estimate"
+
+    def test_unresolved_team_owner_id_falls_back_to_ceiling_only(self, rookies_allowed):
+        out = w.find_waiver_targets(
+            _contract(_player("Solo Guy", "WR", 4000)),
+            sleeper_teams=[{"ownerId": "owner1", "faabRemaining": 100, "players": []}],
+            team_owner_id="not-a-real-owner",
+        )
+        assert out["bidMethodology"] == "ceiling_only_estimate"
+
+    def test_resolved_team_owner_id_uses_market_aware_engine(self, rookies_allowed):
+        teams = [
+            {"ownerId": "owner1", "faabRemaining": 100, "players": []},
+            {"ownerId": "owner2", "faabRemaining": 100, "players": []},
+        ]
+        out = w.find_waiver_targets(
+            _contract(_player("Solo Guy", "WR", 4000)),
+            sleeper_teams=teams,
+            team_owner_id="owner1",
+            starters={"QB": 1, "RB": 2, "WR": 3, "TE": 1},
+            roster_size=25,
+        )
+        assert out["bidMethodology"] == "market_aware"
+
+    def test_market_aware_bid_never_exceeds_ceiling_only_estimate_for_an_uncontested_player(
+        self, rookies_allowed
+    ):
+        """The whole point of the fix: once real contention is modeled,
+        a claim nobody is fighting for should price at or below what
+        the ceiling-only shim would have said, never above it."""
+        candidate = _player("Contested Guy", "WR", 3000)
+        teams_none = [{"ownerId": "owner1", "faabRemaining": 100, "players": []}]
+        ceiling_only = w.find_waiver_targets(
+            _contract(candidate), sleeper_teams=teams_none, per_position_limit=10
+        )
+
+        # A field of rivals with ZERO visible balance is excluded from
+        # the clearing math by policy (an unverifiable rival must never
+        # raise the user's bid) — so this is the "nobody is contesting"
+        # case for the market-aware path too.
+        teams_with_blind_rivals = [
+            {"ownerId": "owner1", "faabRemaining": 100, "players": []},
+            {"ownerId": "owner2", "faabRemaining": None, "players": []},
+            {"ownerId": "owner3", "faabRemaining": None, "players": []},
+        ]
+        market_aware = w.find_waiver_targets(
+            _contract(candidate),
+            sleeper_teams=teams_with_blind_rivals,
+            team_owner_id="owner1",
+            starters={"WR": 3},
+            roster_size=25,
+            per_position_limit=10,
+        )
+
+        ceiling_bid = ceiling_only["by_position"]["WR"][0]["bid"]["reasonable"]
+        market_bid = market_aware["by_position"]["WR"][0]["bid"]["reasonable"]
+        assert market_bid <= ceiling_bid
+
+    def test_market_aware_bid_never_exceeds_the_team_balance_cap(self, rookies_allowed):
+        candidate = _player("Rich Target", "WR", 5000)
+        teams = [
+            {"ownerId": "owner1", "faabRemaining": 7, "players": []},
+            {"ownerId": "owner2", "faabRemaining": 100, "players": []},
+        ]
+        out = w.find_waiver_targets(
+            _contract(candidate),
+            sleeper_teams=teams,
+            user_faab_remaining=7,
+            team_owner_id="owner1",
+            starters={"WR": 3},
+            roster_size=25,
+            per_position_limit=10,
+        )
+        bid = out["by_position"]["WR"][0]["bid"]
+        assert bid["aggressive"] <= 7
+        assert bid["reasonable"] <= 7
+        assert bid["lowball"] <= 7

@@ -108,6 +108,58 @@ class TestAnchors:
         assert set(d) >= {"vAllIn", "vReplacement", "band", "starterSlots", "source"}
 
 
+class TestAnchorsUnaffectedByLiveOpportunityLayer:
+    """Live Waiver Opportunity (docs/faab-live-opportunity-model.md)
+    changes what value ONE candidate player carries into
+    ``objective_ceiling``/``team_ceiling``.  ``resolve_anchors`` must
+    stay a pure function of the BOARD it is handed — V_allin/V_repl
+    represent 'where does the league-wide bar sit', and letting a
+    single player's short-term opportunity signal move that bar would
+    let one waiver claim reprice every other claim on the board.
+
+    ``resolve_anchors``'s signature already makes this structurally
+    true (it takes ``board_values``/``available_values`` sequences, not
+    a per-player callback), so these tests pin the INVARIANT rather
+    than exercise a code path that could silently regress it — an AST
+    guard plus a same-board-same-anchors equality check.
+    """
+
+    def test_resolve_anchors_has_no_data_dependency_on_the_opportunity_layer(self):
+        import ast
+        import inspect
+
+        src = inspect.getsource(FE.resolve_anchors)
+        tree = ast.parse(src)
+        names: set[str] = set()
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Name):
+                names.add(node.id)
+            elif isinstance(node, ast.Attribute):
+                names.add(node.attr)
+        assert "faab_opportunity" not in names
+        assert "opportunity_value" not in names
+
+    def test_identical_board_values_produce_identical_anchors_regardless_of_caller_context(self):
+        """Simulates the real call shape: anchors are resolved once from
+        the board, then a per-player opportunity value is computed
+        separately (as server.py's shadow path does) — re-resolving
+        anchors from the SAME board must be byte-identical, proving no
+        hidden global state leaked the per-player computation back in."""
+        board_values = list(BOARD)
+        available = [3000] * 30
+
+        before = FE.resolve_anchors(board_values, _league(), available_values=available)
+
+        # Stand-in for "a per-player opportunity value was computed in
+        # between" — the real call reads playerctx/BDVM events, neither
+        # of which resolve_anchors touches, so a bare pass suffices to
+        # assert nothing mutates board_values/available in place.
+        _ = (board_values, available)
+
+        after = FE.resolve_anchors(board_values, _league(), available_values=available)
+        assert before.to_dict() == after.to_dict()
+
+
 # ── Startable-depth need ─────────────────────────────────────────────
 
 

@@ -35,6 +35,7 @@ import requests
 log = logging.getLogger(__name__)
 
 TRENDING_ADD_URL = "https://api.sleeper.app/v1/players/nfl/trending/add"
+TRENDING_DROP_URL = "https://api.sleeper.app/v1/players/nfl/trending/drop"
 
 # 15-minute TTL — same window the Sleeper roster overlay uses
 # (``src/api/sleeper_overlay.py::_CACHE_TTL_SEC``), so both live
@@ -118,23 +119,29 @@ class _TrendingCache:
             self._failure_until = 0.0
 
 
-# Module-level singleton — the trending board is global (not
-# per-league), so every caller shares one snapshot.
+# Module-level singletons — the trending board is global (not
+# per-league), so every caller shares one snapshot.  Adds and drops
+# are cached separately: two independent endpoints, two independent
+# failure states, so an adds-endpoint outage cannot mark drops stale
+# and vice versa.
 _CACHE = _TrendingCache()
+_DROP_CACHE = _TrendingCache()
 
 
 def _reset_cache_for_tests() -> None:
-    """Test hook — purge the module-level trending cache."""
+    """Test hook — purge the module-level trending caches."""
     _CACHE.invalidate()
+    _DROP_CACHE.invalidate()
 
 
 def _fetch_snapshot(
     *,
+    url: str,
     lookback_hours: int,
     limit: int,
     session: requests.Session | None,
 ) -> dict[str, Any]:
-    """One live round-trip to the trending-adds endpoint.
+    """One live round-trip to a trending endpoint (add or drop).
 
     Returns ``{"fetchedAt": iso-str, "lookbackHours": int,
     "counts": {player_id: count}}``.  Raises on transport errors —
@@ -142,7 +149,7 @@ def _fetch_snapshot(
     """
     http = session or requests
     resp = http.get(
-        TRENDING_ADD_URL,
+        url,
         params={"lookback_hours": int(lookback_hours), "limit": int(limit)},
         timeout=_HTTP_TIMEOUT_S,
         headers={"User-Agent": "brisket-faab-trending/1.0"},
@@ -183,6 +190,34 @@ def get_trending_adds(
     """
     return _CACHE.get(
         fetcher=lambda: _fetch_snapshot(
+            url=TRENDING_ADD_URL,
+            lookback_hours=lookback_hours,
+            limit=limit,
+            session=session,
+        ),
+        force_refresh=force_refresh,
+    )
+
+
+def get_trending_drops(
+    *,
+    lookback_hours: int = DEFAULT_LOOKBACK_HOURS,
+    limit: int = DEFAULT_LIMIT,
+    session: requests.Session | None = None,
+    force_refresh: bool = False,
+) -> dict[str, Any] | None:
+    """Return the cached trending-drops snapshot, fetching if stale.
+
+    Same shape and degradation rules as :func:`get_trending_adds`.
+    Added 2026-09-01 for the Live Waiver Opportunity layer
+    (docs/faab-live-opportunity-model.md, directive Part IV.7) — a
+    player being widely dropped is a DIFFERENT signal from one being
+    widely added, and neither this function nor its caller conflates
+    them.
+    """
+    return _DROP_CACHE.get(
+        fetcher=lambda: _fetch_snapshot(
+            url=TRENDING_DROP_URL,
             lookback_hours=lookback_hours,
             limit=limit,
             session=session,
@@ -192,14 +227,31 @@ def get_trending_adds(
 
 
 def warm(*, session: requests.Session | None = None) -> bool:
-    """Force-refresh the cache (background warm hook).
+    """Force-refresh the ADDS cache (background warm hook).
 
     Returns True when a snapshot is available afterwards (fresh or
     stale).  Never raises — this runs on the server's post-scrape
-    overlay-warm daemon thread.
+    overlay-warm daemon thread.  Unchanged by the 2026-09-01 drops
+    addition: this hook's one job is keeping the signal the FAAB
+    engine actually reads (adds) warm, and its existing single-call
+    contract is depended on by ``test_warm_helper_never_raises``.  Use
+    :func:`warm_drops` to warm the drops cache — kept as a separate
+    call so an adds-only caller's fetch count and return-value meaning
+    never change.
     """
     try:
         return get_trending_adds(session=session, force_refresh=True) is not None
     except Exception as exc:  # noqa: BLE001 — warm must never propagate
         log.warning("sleeper trending warm failed: %s", exc)
+        return False
+
+
+def warm_drops(*, session: requests.Session | None = None) -> bool:
+    """Force-refresh the DROPS cache.  Same contract as :func:`warm`,
+    kept separate so it can fail independently without affecting the
+    adds signal every existing caller depends on."""
+    try:
+        return get_trending_drops(session=session, force_refresh=True) is not None
+    except Exception as exc:  # noqa: BLE001 — warm must never propagate
+        log.warning("sleeper trending-drops warm failed: %s", exc)
         return False

@@ -711,6 +711,7 @@ def _rival_engagement(
     *,
     config: FaabConfig,
     crowd_share: float | None = None,
+    trending_share: float | None = None,
 ) -> float:
     """P(this rival bids at all).
 
@@ -751,6 +752,17 @@ def _rival_engagement(
         floor = config.num("market", "engagementBaseRate", 0.05) + lift * float(crowd_share)
         p = max(p, min(config.num("market", "engagementMaxRate", 0.7), floor))
 
+    # Sleeper "trending adds" is weaker evidence than the crowd feed —
+    # an add-count, not a paid price — so it gets its OWN, smaller lift
+    # bound (``trendingEngagementLift``) rather than sharing
+    # ``crowdEngagementLift``.  Same mechanism as crowd: it can only
+    # raise expected COMPETITION, never the objective ceiling, which is
+    # computed upstream of this function and never reads it.
+    if trending_share is not None and trending_share > 0:
+        lift = config.num("market", "trendingEngagementLift", 1.5)
+        floor = config.num("market", "engagementBaseRate", 0.05) + lift * float(trending_share)
+        p = max(p, min(config.num("market", "engagementMaxRate", 0.7), floor))
+
     if rival.faab_remaining is not None and rival.faab_remaining <= 0:
         return 0.0
     return max(0.0, min(1.0, p))
@@ -765,6 +777,7 @@ def rival_bid_cdf(
     config: FaabConfig,
     crowd_median_pct: float | None = None,
     crowd_share: float | None = None,
+    trending_share: float | None = None,
 ) -> float:
     """P(every rival bids <= ``bid``) — i.e. P(we win at ``bid``).
 
@@ -791,7 +804,13 @@ def rival_bid_cdf(
     for rival in rivals:
         if rival.faab_remaining is None:
             continue  # unverifiable — excluded by policy
-        p = _rival_engagement(demand_signal, rival, config=config, crowd_share=crowd_share)
+        p = _rival_engagement(
+            demand_signal,
+            rival,
+            config=config,
+            crowd_share=crowd_share,
+            trending_share=trending_share,
+        )
         if p <= 0.0:
             continue
 
@@ -938,6 +957,7 @@ def _market_clearing_price(
     config: FaabConfig,
     crowd_median_pct: float | None = None,
     crowd_share: float | None = None,
+    trending_share: float | None = None,
 ) -> int:
     """The price at which the top rival bid is as likely to be under
     as over — the median of the top-rival distribution.
@@ -956,6 +976,7 @@ def _market_clearing_price(
                 config=config,
                 crowd_median_pct=crowd_median_pct,
                 crowd_share=crowd_share,
+                trending_share=trending_share,
             )
             >= 0.5
         ):
@@ -974,6 +995,7 @@ def optimal_bid(
     config: FaabConfig,
     crowd_median_pct: float | None = None,
     crowd_share: float | None = None,
+    trending_share: float | None = None,
 ) -> dict[str, Any]:
     """Stage E — the bid ladder from one expected-surplus curve.
 
@@ -1008,6 +1030,7 @@ def optimal_bid(
         config=config,
         crowd_median_pct=crowd_median_pct,
         crowd_share=crowd_share,
+        trending_share=trending_share,
     )
 
     if hard_cap <= 0:
@@ -1037,6 +1060,7 @@ def optimal_bid(
             config=config,
             crowd_median_pct=crowd_median_pct,
             crowd_share=crowd_share,
+            trending_share=trending_share,
         )
         ev = p_win * max(0.0, raw_ceiling_dollars - b)
         curve.append((b, p_win, ev))
@@ -1137,8 +1161,17 @@ def recommend(
     config: FaabConfig | None = None,
     extra_factors: Sequence[dict[str, Any]] = (),
     crowd: dict[str, Any] | None = None,
+    trending: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """The one FAAB recommendation call.
+
+    ``trending`` (optional) is Sleeper "trending adds" evidence, pre-
+    normalized by the caller to ``{"share": 0..1}`` — a saturating
+    read of the raw add count, already stale-gated (a stale or missing
+    snapshot must arrive as ``None``, never as evidence).  Like
+    ``crowd``, it can only raise expected rival ENGAGEMENT in Stage E;
+    it is never read by ``objective_ceiling`` and cannot move what a
+    player is worth, only what he is likely to cost.
 
     Returns both halves of the answer, always separated:
 
@@ -1222,6 +1255,7 @@ def recommend(
         config=cfg,
         crowd_median_pct=crowd.get("medianPct") if crowd else None,
         crowd_share=crowd.get("shareOfClaims") if crowd else None,
+        trending_share=trending.get("share") if trending else None,
     )
 
     remaining = ceil["remaining"]

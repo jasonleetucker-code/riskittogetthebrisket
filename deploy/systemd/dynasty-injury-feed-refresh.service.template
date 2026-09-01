@@ -1,0 +1,44 @@
+[Unit]
+Description=Dynasty Trade Calculator ESPN injury-feed refresh (__SERVICE_NAME__)
+After=network-online.target
+Wants=network-online.target
+
+# Part of the Live Waiver Opportunity layer
+# (docs/faab-live-opportunity-model.md).  Fetches the league-wide ESPN
+# injury report, diffs against the prior run
+# (data/nfl_data/injuries_prior.json), and turns a status transition
+# (new injury, worsened status, or recovery) into an INJURY /
+# ACTIVATED_RETURN BDVM structured event
+# (data/bdvm/events/<season>.json) that src/trade/faab_opportunity.py
+# reads through the FAAB engine's shadow path — this is what damps a
+# short-term surplus toward zero for a player who is unlikely to play
+# soon (directive Part IX's Jer'Zhan Newton / no-IR-slot case).
+#
+# WHY A PROD-SIDE TIMER AND NOT CI: same reasoning as
+# dynasty-playerctx-refresh — the events file lives under gitignored
+# data/, so a CI-built artifact never reaches the running server.
+#
+# RISKIT_FEATURE_ESPN_INJURY_FEED=1 is scoped to THIS unit's
+# environment only — see dynasty-depth-charts-refresh.service.template
+# for the same rollback-lever reasoning.
+#
+# Exit codes (scripts/refresh_injury_feed.py):
+#   0 - ok (including "flag off, no-op" and "no injuries")
+#   1 - event merge failed; prior snapshot untouched
+
+[Service]
+Type=oneshot
+User=__APP_USER__
+Group=__APP_USER__
+WorkingDirectory=__APP_DIR__
+EnvironmentFile=-__APP_DIR__/.env
+Environment=RISKIT_FEATURE_ESPN_INJURY_FEED=1
+ExecStart=__VENV_DIR__/bin/python __APP_DIR__/scripts/refresh_injury_feed.py
+StandardOutput=journal
+StandardError=journal
+Nice=10
+IOSchedulingClass=idle
+TimeoutStartSec=120
+
+[Install]
+WantedBy=multi-user.target

@@ -1145,6 +1145,12 @@ main() {
   install_simple_timer "sharp-activity" "qualified-manager Sleeper activity crawl"
   install_simple_timer "board-snapshot" "canonical board as-of snapshot"
   install_simple_timer "sharp-cohort-snapshot" "daily sharp-cohort baseline"
+  # Live Waiver Opportunity layer (docs/faab-live-opportunity-model.md):
+  # all three feed BDVM structured events / trending history that
+  # src/trade/faab_opportunity.py reads.  Public endpoints, no creds.
+  install_simple_timer "depth-charts-refresh" "ESPN depth-chart diff -> BDVM promotion/demotion events"
+  install_simple_timer "injury-feed-refresh" "ESPN injury-status diff -> BDVM injury/return events"
+  install_simple_timer "trending-history-refresh" "Sleeper trending adds+drops history snapshot"
 
   # ── daemon-reload and enable ────────────────────────────────────────────
   # ce_needs_install was missing from this list. Every other timer's
