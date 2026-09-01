@@ -20,6 +20,7 @@ import pytest
 
 from src.api import roster_intelligence as ri
 from src.roster_intel.core import build_meaningful_core
+from src.roster_intel.exposure import nfl_team_by_player
 from src.roster_intel.strength import build_team_strength
 
 _SLOTS = ["QB", "RB", "RB", "WR", "WR", "WR", "TE", "FLEX", "SUPER_FLEX"]
@@ -355,7 +356,7 @@ def test_exposure_matches_the_owner_called_directly():
     c, out = _league()
     pools, slots, _ = contract_roster_pools(c)
     core = build_meaningful_core(pools["o0"], slots)
-    direct = exposure_from_core(core, teams=ri._nfl_teams(c))
+    direct = exposure_from_core(core, teams=nfl_team_by_player(c))
     assert out["teams"]["o0"]["nflExposure"]["core"] == direct.to_dict()
 
 
@@ -387,7 +388,7 @@ def test_nfl_teams_are_keyed_the_way_the_pools_are():
     c = _contract()
     for row in c["playersArray"]:
         row["team"] = "MIN"
-    keys = set(ri._nfl_teams(c))
+    keys = set(nfl_team_by_player(c))
     assert "o0_QB0" in keys
     assert not any(k.startswith("id_") for k in keys)
     out = ri.build_league_roster_intelligence(c, team_count=12)

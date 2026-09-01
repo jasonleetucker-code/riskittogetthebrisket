@@ -1,56 +1,96 @@
-"""Map each fantasy team in the league to 1–3 NFL teams.
+"""Map each fantasy team in the league to 1-3 NFL teams by NFL Team
+Affinity — value-weighted roster affinity, not depth-chart points.
 
 Two assignment sources, layered in this priority:
 
   1. **Favorite team** — declared in ``config/team_assignment.json``
      under ``favorites.<lowercased manager key>``.  Always assigned
      regardless of roster composition.  ``displayNameAliases``
-     resolves Sleeper display_name variants ("JasonLeeTucker" →
-     "jason") to the favorites key.
+     resolves Sleeper display_name variants ("JasonLeeTucker" ->
+     "jason") to the favorites key.  UNCHANGED by this rewrite.
 
-  2. **Roster-based correlation** — score every (fantasy team,
-     NFL team) pair using a tiered point model that rewards
-     starting QBs, skill-position starters/committee backs, rookie
-     draft capital, and IDP starters.  NFL teams scoring ≥
-     ``assignmentMinPoints`` (default 15) qualify.
+  2. **Roster-based affinity** — the site's EXISTING canonical
+     Meaningful Roster Core (``src.roster_intel.core``) and EXISTING
+     canonical player values (``rankDerivedValue``, reached via
+     ``contract_roster_pools``).  This module never selects players and
+     never computes a value; it aggregates what Team Strength's own
+     population and values already say, grouped by each player's NFL
+     team, with exactly one extra weight: a player who IS his NFL
+     team's current starting quarterback counts double.
+
+Formula
+-------
+
+For every member of a fantasy team's Meaningful Core::
+
+    multiplier(member) = 2.0  iff member.position == "QB" AND the NFL
+                                 depth-chart signal affirmatively shows
+                                 depth_chart_order == 1 for his current
+                                 NFL team
+                        = 1.0  otherwise (backup QB, unknown/stale
+                                 signal -- unknown never becomes starter)
+    weightedValue(member) = member.canonicalValue * multiplier(member)
+
+    affinityScore(team, nflTeam) = sum(weightedValue) over members whose
+                                    NFL team == nflTeam
+    totalWeightedCoreValue(team) = sum(weightedValue) over EVERY member,
+                                    including members whose NFL team
+                                    could not be resolved -- they count
+                                    toward the denominator, never toward
+                                    any team's numerator
+    affinityShare = affinityScore / totalWeightedCoreValue
+
+A non-favorite NFL team qualifies when ``affinityShare >=
+rosterAssignmentMinShare`` (default 0.10).  No other position
+multipliers exist -- Meaningful Core membership already excludes
+players who do not materially contribute, and canonical value already
+distinguishes an elite player from a roster-filler one, so a second
+"starter" multiplier here would double-count information the core and
+the value already carry.
 
 Each fantasy team gets at most ``maxTeamsPerOwner`` (default 3) NFL
-teams.  Favorite always counts toward the cap.  When more teams
-qualify than the cap, the highest-scoring non-favorites win.
+teams: the favorite (if configured) plus up to the two highest-
+qualifying non-favorites, sorted by (affinityShare desc, affinityScore
+desc, NFL abbreviation asc) for determinism.
 
-The section's ``debug`` block carries per-player point contributions
-so the UI can render a breakdown panel ("Buffalo Bills — 22 pts:
-Josh Allen +10 (QB anchor), Stefon Diggs +5 (Starter), …").
+Truthfulness / degraded states
+-------------------------------
 
-**An empty ``assignments`` list is never the answer to a question we
-could not ask** (#815).  The section previously returned
-``{"assignments": []}`` with HTTP 200 whenever the snapshot carried no
-current season, so a degraded Sleeper fetch rendered identically to a
-league that genuinely has no rosters — and the frontend printed a
-fabricated diagnosis ("current season has no rosters yet") for a cause
-it had not measured.  Availability is now stated explicitly, in the
-same ``{"available": bool, "reason": ...}`` shape
-``data_contract.stamp_optimal_lineups`` already uses for the lineup
-stamp.
-
-Three distinct failure states, deliberately not collapsed:
+Three independent things can be missing, and none of them may read as
+a confident answer about something else:
 
 ``no_current_season`` / ``no_rosters``
-    Total: ``available`` is ``False`` and ``assignments`` is empty
-    because there was nothing to assign, not because nothing qualified.
+    BLOCKING.  ``available`` is ``False`` and ``assignments`` is empty
+    because there was nothing to assign at all.
 
-``player_directory_unavailable``
-    PARTIAL.  ``snapshot.nfl_players`` is empty — the ~5 MB Sleeper
-    dump failed or was not requested — so no player can be scored
-    against an NFL team.  Favorites are config-derived and still real,
-    so ``available`` stays ``True`` while ``rosterScoringAvailable`` is
-    ``False``.  Without this flag a favorite-only card reads as "we
-    scored the roster and nothing cleared the threshold", which is a
-    confident claim about evidence we never had.
+``rosterScoringAvailable`` (top-level)
+    ``False`` when no canonical contract was supplied, or the supplied
+    contract's rosters could not be matched against this league at
+    all.  Favorites are config-derived and still real, so the section
+    stays ``available: True`` -- a favorite-only card must not read as
+    "we scored this roster and nothing qualified" when we never had
+    the evidence to score it.
 
-Per assignment, ``playersResolved`` / ``playersTotal`` report how much
-of the roster the directory could actually answer for, so a *partial*
-directory is visible too rather than silently lowering every score.
+Per assignment, ``rosterScored`` / ``rosterUnavailableReason`` cover
+the narrower case where the league-wide contract IS usable but THIS
+manager's roster specifically could not be matched to a pool (an empty
+or colliding Sleeper ``ownerId`` at contract-build time), or that
+manager's Meaningful Core itself refused (e.g. the league's starter
+slots could not be resolved).
+
+``qbSignalAvailable`` (top-level)
+    ``False`` when Sleeper's public NFL player directory was not
+    fetched.  This affects ONLY the starting-QB multiplier (every QB
+    falls back to 1.0x rather than guessing); it does not block
+    roster-based scoring the way a missing contract does.
+
+Per assignment, ``unpricedCount`` names Meaningful-Core-eligible
+players the canonical board could not price -- MISSING IS NEVER ZERO,
+so those players contribute nothing rather than 0, and the count says
+so rather than letting the total look complete.  ``unresolvedNflTeamCount``
+does the same for players whose NFL team could not be determined
+(including genuine unsigned free agents, who resolve to a real but
+non-franchise state and must never be counted as a 33rd NFL team).
 
 Output shape::
 
@@ -58,24 +98,40 @@ Output shape::
       "available": bool,
       "unavailableReason": str | None,
       "rosterScoringAvailable": bool,
+      "qbSignalAvailable": bool,
       "degradedReasons": [str, ...],
       "assignments": [
         {
           "ownerId": str,
           "displayName": str,
-          "teamName": str,            # current Sleeper team name
-          "favoriteKey": str | None,  # which favorites entry was matched
-          "rosterScored": bool,       # False ⇒ nflTeams is favorite-only
-          "playersResolved": int,     # roster ids the directory answered
-          "playersTotal": int,
+          "teamName": str,
+          "favoriteKey": str | None,
+          "rosterScored": bool,
+          "rosterUnavailableReason": str | None,
+          "scoringComplete": bool,
+          "totalWeightedCoreValue": float | None,
+          "unpricedCount": int,
+          "unresolvedNflTeamCount": int,
           "nflTeams": [
             {
-              "abbr": str,            # 3-letter abbr, e.g. "KC"
-              "display": str,         # "Kansas City Chiefs"
+              "abbr": str,
+              "display": str,
               "isFavorite": bool,
-              "score": int,           # 0 for favorite-only when no roster contribution
+              "qualifiesByRoster": bool,
+              "affinityScore": float,
+              "affinityShare": float | None,
               "contributors": [
-                {"player": str, "points": int, "reason": str},
+                {
+                  "canonicalName": str,
+                  "sleeperPlayerId": str | None,
+                  "position": str,
+                  "nflTeam": str | None,
+                  "role": "starter" | "reserve",
+                  "canonicalValue": float,
+                  "multiplier": float,
+                  "multiplierReason": str,
+                  "weightedValue": float,
+                },
                 ...
               ],
             },
@@ -101,53 +157,48 @@ import json
 import logging
 from collections import defaultdict
 from pathlib import Path
-from typing import Any
+from typing import Any, Mapping
 
+from .data_contract import contract_roster_pools, contract_slot_eligibility
 from ..public_league.snapshot import PublicLeagueSnapshot
+from ..roster_intel.core import MeaningfulCore, build_meaningful_core
+from ..roster_intel.exposure import NON_FRANCHISE_TOKENS, nfl_team_by_player
 
 log = logging.getLogger(__name__)
 
 _CONFIG_PATH = Path(__file__).resolve().parents[2] / "config" / "team_assignment.json"
 
 # Built-in defaults.  A missing or malformed config file falls back
-# to these so the section never crashes — it just degrades to "no
-# favorites configured" + the spec's recommended weights.
+# to these so the section never crashes -- it just degrades to "no
+# favorites configured" + the spec's recommended threshold/multiplier.
 _DEFAULT_CONFIG: dict[str, Any] = {
     "favorites": {},
     "displayNameAliases": {},
-    # Every weight here is read by ``_score_player``.  The set used to
-    # be larger — ``eliteProductionTop10``/``Top24`` and ``idpElite``
-    # were declared but the first two paid for a signal the tier above
-    # had already paid for (see the T3 note in ``_score_player``) and
-    # the third was never read at all.  A declared-but-unread knob is
-    # worse than no knob: editing it looks like it does something.
+    # The ONE owner-approved extra weight.  Every RB/WR/TE/IDP multiplier
+    # that used to live here (qbAnchor/skillStarter/skillCommittee/
+    # rookieRound1/rookieRound2/idpStarter) is retired: Meaningful Core
+    # membership already decides who counts, and canonical value already
+    # distinguishes how much, so a second per-position weight here would
+    # double-count information those two owners already carry.
     "weights": {
-        "qbAnchor": 10,
-        "skillStarter": 5,
-        "skillCommittee": 2,
-        "rookieRound1": 4,
-        "rookieRound2": 2,
-        "idpStarter": 2,
+        "nflStartingQbMultiplier": 2.0,
     },
-    # Likewise the ``*Rank`` thresholds: they described a
-    # position-rank model this module never had the data for, and
-    # nothing read them.  Starter status comes from Sleeper's
-    # ``depth_chart_order``, which needs no threshold.
+    # A SHARE of a manager's total weighted core value, not an absolute
+    # point total -- so the threshold does not go stale every time the
+    # canonical value scale is refit.  Replaces the old flat
+    # ``assignmentMinPoints``.
     "thresholds": {
-        "assignmentMinPoints": 15,
+        "rosterAssignmentMinShare": 0.10,
     },
     "limits": {
         "maxTeamsPerOwner": 3,
     },
 }
 
-_SKILL_POSITIONS = frozenset({"RB", "WR", "TE"})
-_IDP_POSITIONS = frozenset({"DL", "DE", "DT", "LB", "DB", "CB", "S"})
-
 
 def load_config(path: Path | None = None) -> dict[str, Any]:
     """Read the team-assignment config from disk, falling back to
-    defaults on any error.  ``_doc`` keys are stripped silently —
+    defaults on any error.  ``_doc`` keys are stripped silently --
     they're inline documentation in the JSON file, not data.
     """
     target = path or _CONFIG_PATH
@@ -206,15 +257,7 @@ def _resolve_favorite_key(
     return None
 
 
-def _normalize_position(raw: str) -> str:
-    """Uppercase + canonical alias fold (DE/DT → DL family kept as
-    raw codes; we don't collapse here because ``_IDP_POSITIONS`` and
-    ``_SKILL_POSITIONS`` are keyed on the canonical Sleeper code).
-    """
-    return str(raw or "").strip().upper()
-
-
-def _player_meta(snapshot: PublicLeagueSnapshot, player_id: str) -> dict[str, Any]:
+def _player_meta(snapshot: PublicLeagueSnapshot, player_id: str | None) -> dict[str, Any]:
     """Look up Sleeper's player record.  Returns ``{}`` when missing
     so callers can early-return.  The lookup tolerates ``None`` and
     non-string ids defensively.
@@ -225,162 +268,98 @@ def _player_meta(snapshot: PublicLeagueSnapshot, player_id: str) -> dict[str, An
     return p if isinstance(p, dict) else {}
 
 
-def _is_rookie(meta: dict[str, Any]) -> bool:
-    """True when the Sleeper record indicates ``years_exp == 0``.
-    Falls back to False on missing fields.
+def _depth_chart_order(meta: dict[str, Any]) -> int | None:
+    """Sleeper's primary starter-status indicator.  ``None`` when
+    unknown -- the caller's heuristic falls through to "unknown", never
+    a guess.
     """
+    raw = meta.get("depth_chart_order")
     try:
-        return int(meta.get("years_exp") or 0) == 0
-    except (TypeError, ValueError):
-        return False
-
-
-def _draft_round(meta: dict[str, Any]) -> int | None:
-    """Extract NFL draft round from Sleeper's player record.  Returns
-    None when unknown.  Used for rookie capital scoring.
-    """
-    raw = meta.get("draft_round") or meta.get("draftRound")
-    try:
-        n = int(raw) if raw is not None else None
+        return int(raw) if raw is not None else None
     except (TypeError, ValueError):
         return None
-    return n if isinstance(n, int) and n > 0 else None
-
-
-def _score_player(
-    meta: dict[str, Any],
-    *,
-    config: dict[str, Any],
-    league_idp_enabled: bool,
-) -> tuple[int, list[dict[str, Any]]]:
-    """Score one player against their NFL team.  Returns
-    ``(total_points, contributors)`` where contributors is a list of
-    ``{points, reason}`` dicts so the debug UI can show the
-    breakdown.
-
-    All scoring rules layer additively, and each one pays for a
-    DISTINCT signal:
-      - QB anchor (T1): primary depth-chart QB → +qbAnchor
-      - Skill starter / committee (T2): RB/WR/TE
-      - Rookie capital (T4): NFL draft round 1 / 2
-      - IDP starter (T5): depth-chart-based, only when league has IDP
-
-    There is no T3.  It was an "elite production" tier that fired on
-    ``depth_order == 1`` for QB/RB/WR/TE — the exact condition T1 and
-    T2 already pay for — so being primary on the depth chart scored
-    twice: a starting RB was worth 8 points where the config reads 5,
-    and a starting QB 13 where it reads 10.  Its own comment called it
-    a "stand-in" for a top-10/top-24 list, and a stand-in for a signal
-    we already have is a double-count, not a proxy.  Reinstating an
-    elite tier needs a genuinely independent input (projections, or
-    ``canonicalConsensusRank``) — not another read of depth order.
-    """
-    weights = config["weights"]
-    # config["thresholds"] is deliberately not read here.  main's version
-    # of this comment described those keys as forward-looking scaffolding
-    # for a future canonicalConsensusRank drop-in; that stopped being true
-    # in the same change that removed T3 — the *Rank keys went with it
-    # because nothing read them (see the T3 note in _score_player and the
-    # config's own _doc).  The one threshold in live use,
-    # assignmentMinPoints, is read where it is applied.
-    pos = _normalize_position(meta.get("position"))
-    if not pos:
-        return 0, []
-
-    contributors: list[dict[str, Any]] = []
-    points = 0
-
-    # Depth-chart order — Sleeper's primary indicator of starter
-    # status.  ``None`` when unknown; the heuristic below falls
-    # through to "no starter credit".
-    order_raw = meta.get("depth_chart_order")
-    try:
-        depth_order = int(order_raw) if order_raw is not None else None
-    except (TypeError, ValueError):
-        depth_order = None
-
-    # T1 — QB anchor.
-    if pos == "QB" and depth_order == 1:
-        pts = int(weights["qbAnchor"])
-        points += pts
-        contributors.append({"points": pts, "reason": "QB anchor"})
-
-    # T2 — Skill position starter / committee.
-    if pos in _SKILL_POSITIONS and depth_order is not None:
-        if depth_order == 1:
-            pts = int(weights["skillStarter"])
-            points += pts
-            contributors.append({"points": pts, "reason": f"{pos} starter"})
-        elif depth_order in (2, 3):
-            pts = int(weights["skillCommittee"])
-            points += pts
-            contributors.append({"points": pts, "reason": f"{pos} committee"})
-        # depth_order >= 4 → 0 (bench / camp body)
-
-    # T4 — Rookie capital.
-    if _is_rookie(meta):
-        rd = _draft_round(meta)
-        if rd == 1:
-            pts = int(weights["rookieRound1"])
-            points += pts
-            contributors.append({"points": pts, "reason": "1st-round rookie"})
-        elif rd == 2:
-            pts = int(weights["rookieRound2"])
-            points += pts
-            contributors.append({"points": pts, "reason": "2nd-round rookie"})
-
-    # T5 — IDP starter.
-    if league_idp_enabled and pos in _IDP_POSITIONS and depth_order is not None:
-        if depth_order == 1:
-            pts = int(weights["idpStarter"])
-            points += pts
-            contributors.append({"points": pts, "reason": f"IDP {pos} starter"})
-        # An elite-IDP tier would need projection data we don't carry.
-        # Its ``idpElite`` weight was removed from the config rather
-        # than left sitting there unread.
-
-    return points, contributors
-
-
-def _league_idp_enabled(snapshot: PublicLeagueSnapshot) -> bool:
-    """Inspect the current season's roster_positions to detect IDP
-    slots.  IDP is enabled when any starting slot is in the IDP
-    family (DL/LB/DB/IDP_FLEX/etc.).  Falls back to False when
-    settings are missing.
-    """
-    season = snapshot.current_season
-    if season is None:
-        return False
-    raw = season.league.get("roster_positions") or []
-    for slot in raw:
-        s = str(slot or "").upper()
-        if s in _IDP_POSITIONS or s in ("IDP", "IDP_FLEX", "IDP_DL", "IDP_LB", "IDP_DB"):
-            return True
-    return False
-
-
-def _player_display(meta: dict[str, Any], pid: str) -> str:
-    full = meta.get("full_name")
-    if full:
-        return str(full)
-    first = str(meta.get("first_name") or "").strip()
-    last = str(meta.get("last_name") or "").strip()
-    name = f"{first} {last}".strip()
-    return name or str(pid)
 
 
 #: Machine-readable reasons the section cannot be produced at all.
 UNAVAILABLE_NO_CURRENT_SEASON = "no_current_season"
 UNAVAILABLE_NO_ROSTERS = "no_rosters"
-#: Degraded — the section is produced, but part of its evidence is absent.
-DEGRADED_NO_PLAYER_DIRECTORY = "player_directory_unavailable"
+#: Degraded -- the section is produced, but part of its evidence is absent.
+DEGRADED_NO_CONTRACT = "canonical_contract_unavailable"
+DEGRADED_NO_QB_SIGNAL = "qb_starter_signal_unavailable"
+
+#: Per-assignment reasons roster-based scoring could not be produced
+#: for THIS manager even though the league-wide contract is usable.
+ROSTER_REASON_NOT_IN_CONTRACT = "team_not_in_contract_pool"
+
+#: Multiplier reasons, exposed per contributor for the breakdown UI.
+_REASON_STARTING_QB = "nfl_starting_qb"
+_REASON_BACKUP_QB = "qb_not_starting"
+_REASON_QB_UNKNOWN = "starter_status_unknown"
+_REASON_NOT_QB = "not_qb"
+
+
+def _sleeper_id_by_canonical_name(contract: Mapping[str, Any] | None) -> dict[str, str]:
+    """``{canonicalOrDisplayName: sleeperPlayerId}`` from the canonical
+    board.
+
+    Keyed the same way ``contract_roster_pools`` / ``nfl_team_by_player``
+    key players, so this join cannot silently disagree with the pool a
+    ``CoreMember`` came from.  A name with no Sleeper id (unmatched
+    ``_sleeperId``) is simply absent -- the caller treats that as
+    "starter status unknown", never a guess.
+    """
+    out: dict[str, str] = {}
+    if not isinstance(contract, Mapping):
+        return out
+    for row in contract.get("playersArray") or []:
+        if not isinstance(row, Mapping) or row.get("assetClass") == "pick":
+            continue
+        pid = row.get("playerId")
+        if not pid:
+            continue
+        for key in (row.get("canonicalName"), row.get("displayName")):
+            if key:
+                out.setdefault(str(key), str(pid))
+    return out
+
+
+def _qb_multiplier(
+    *,
+    position: str,
+    canonical_name: str,
+    sleeper_ids: Mapping[str, str],
+    snapshot: PublicLeagueSnapshot,
+    qb_signal_available: bool,
+    weight: float,
+) -> tuple[float, str]:
+    """The ONE owner-approved extra weight.  Returns ``(multiplier, reason)``.
+
+    Never guesses: a backup QB and an UNKNOWN starter both resolve to
+    1.0x, and the reason string distinguishes them for the breakdown UI.
+    """
+    if position != "QB":
+        return 1.0, _REASON_NOT_QB
+    if not qb_signal_available:
+        return 1.0, _REASON_QB_UNKNOWN
+    sleeper_id = sleeper_ids.get(canonical_name)
+    if not sleeper_id:
+        return 1.0, _REASON_QB_UNKNOWN
+    meta = _player_meta(snapshot, sleeper_id)
+    if not meta:
+        return 1.0, _REASON_QB_UNKNOWN
+    depth = _depth_chart_order(meta)
+    if depth is None:
+        return 1.0, _REASON_QB_UNKNOWN
+    if depth == 1:
+        return float(weight), _REASON_STARTING_QB
+    return 1.0, _REASON_BACKUP_QB
 
 
 def _unavailable(config: dict[str, Any], reason: str) -> dict[str, Any]:
     """A shaped payload that says WHY it is empty.
 
     Same field set as the healthy path so the frontend's
-    destructure-and-map flow still never hits ``undefined`` — the
+    destructure-and-map flow still never hits ``undefined`` -- the
     difference is that ``available: False`` names the cause instead of
     letting an empty list imply one (#815).
     """
@@ -388,6 +367,7 @@ def _unavailable(config: dict[str, Any], reason: str) -> dict[str, Any]:
         "available": False,
         "unavailableReason": reason,
         "rosterScoringAvailable": False,
+        "qbSignalAvailable": False,
         "degradedReasons": [],
         "assignments": [],
         "config": {
@@ -400,14 +380,105 @@ def _unavailable(config: dict[str, Any], reason: str) -> dict[str, Any]:
     }
 
 
-def build_section(snapshot: PublicLeagueSnapshot) -> dict[str, Any]:
+class _TeamCore:
+    """One manager's resolved Meaningful Core + affinity aggregation,
+    or the reason it could not be produced.
+    """
+
+    __slots__ = (
+        "scored",
+        "reason",
+        "total_weighted_value",
+        "unpriced_count",
+        "unresolved_team_count",
+        "scoring_complete",
+        "by_team_score",
+        "by_team_contributors",
+    )
+
+    def __init__(self) -> None:
+        self.scored = False
+        self.reason: str | None = None
+        self.total_weighted_value = 0.0
+        self.unpriced_count = 0
+        self.unresolved_team_count = 0
+        self.scoring_complete = False
+        self.by_team_score: dict[str, float] = defaultdict(float)
+        self.by_team_contributors: dict[str, list[dict[str, Any]]] = defaultdict(list)
+
+
+def _score_team_core(
+    core: MeaningfulCore,
+    *,
+    team_map: Mapping[str, str],
+    sleeper_ids: Mapping[str, str],
+    snapshot: PublicLeagueSnapshot,
+    qb_signal_available: bool,
+    qb_weight: float,
+) -> _TeamCore:
+    out = _TeamCore()
+    if not core.available:
+        out.reason = core.unavailable_reason
+        return out
+
+    out.scored = True
+    out.unpriced_count = len(core.unpriced_ids)
+    out.scoring_complete = not (
+        core.unpriced_ids or core.unfilled_starter_slots or core.unfilled_reserve_slots
+    )
+
+    for member in core.members:
+        canonical_name = member.canonical_name or member.player_id
+        multiplier, reason = _qb_multiplier(
+            position=member.position,
+            canonical_name=canonical_name,
+            sleeper_ids=sleeper_ids,
+            snapshot=snapshot,
+            qb_signal_available=qb_signal_available,
+            weight=qb_weight,
+        )
+        weighted = float(member.value) * multiplier
+        out.total_weighted_value += weighted
+
+        nfl_team = team_map.get(canonical_name)
+        contributor = {
+            "canonicalName": canonical_name,
+            "sleeperPlayerId": sleeper_ids.get(canonical_name),
+            "position": member.position,
+            "nflTeam": nfl_team if nfl_team else None,
+            "role": member.role,
+            "canonicalValue": round(float(member.value), 3),
+            "multiplier": multiplier,
+            "multiplierReason": reason,
+            "weightedValue": round(weighted, 3),
+        }
+
+        if not nfl_team or nfl_team in NON_FRANCHISE_TOKENS:
+            out.unresolved_team_count += 1
+            continue
+
+        out.by_team_score[nfl_team] += weighted
+        out.by_team_contributors[nfl_team].append(contributor)
+
+    return out
+
+
+def build_section(
+    snapshot: PublicLeagueSnapshot,
+    contract: Mapping[str, Any] | None = None,
+) -> dict[str, Any]:
     """Assemble the team-assignment payload for the public-league
     aggregate response.  Always emits a fully-shaped payload so the
     frontend's destructure-and-map flow never hits ``undefined``.
 
-    See the module docstring for the availability semantics: an empty
-    ``assignments`` list is only ever a real answer when ``available``
-    is ``True``.
+    ``contract`` is the internal canonical ``/api/data`` contract
+    (``latest_contract_data`` in ``server.py``) -- the SAME source Team
+    Strength reads.  ``None`` (or a contract whose rosters cannot be
+    matched to this league at all) degrades to a favorites-only
+    payload; it never fails the whole section, and it never scores a
+    Meaningful-Core-eligible player at 0 -- see the module docstring.
+
+    See the module docstring for the full availability semantics.
     """
     config = load_config()
     favorites = config.get("favorites") or {}
@@ -416,9 +487,9 @@ def build_section(snapshot: PublicLeagueSnapshot) -> dict[str, Any]:
         for k, v in (config.get("displayNameAliases") or {}).items()
         if isinstance(k, str) and isinstance(v, str)
     }
-    threshold = int(config.get("thresholds", {}).get("assignmentMinPoints", 15))
+    min_share = float(config.get("thresholds", {}).get("rosterAssignmentMinShare", 0.10))
     max_teams = int(config.get("limits", {}).get("maxTeamsPerOwner", 3))
-    idp_enabled = _league_idp_enabled(snapshot)
+    qb_weight = float(config.get("weights", {}).get("nflStartingQbMultiplier", 2.0))
 
     season = snapshot.current_season
     if season is None:
@@ -428,18 +499,34 @@ def build_section(snapshot: PublicLeagueSnapshot) -> dict[str, Any]:
     if not season.rosters:
         return _unavailable(config, UNAVAILABLE_NO_ROSTERS)
 
-    # Roster-based scoring needs Sleeper's player directory.  It is
-    # fetched on a separate future that falls back to ``{}`` on error
-    # (``snapshot.build`` swallows the exception), and tests / cheap
-    # callers pass ``include_nfl_players=False`` — so "no directory" is
-    # a REACHABLE state that scores every player zero.  Detected up
-    # front rather than inferred from a run of zeros.
-    roster_scoring_available = bool(snapshot.nfl_players)
-    degraded_reasons: list[str] = [] if roster_scoring_available else [DEGRADED_NO_PLAYER_DIRECTORY]
+    qb_signal_available = bool(snapshot.nfl_players)
+
+    # Resolve the canonical contract into per-team Meaningful Cores.
+    # A missing/mismatched contract degrades to favorites-only rather
+    # than failing the section -- "roster affinity unavailable", never
+    # "no roster-based NFL teams" (which would look like a confident
+    # empty answer).
+    pools: dict[str, list[Any]] = {}
+    slots: list[str] = []
+    eligibility: dict[str, Any] | None = None
+    team_map: dict[str, str] = {}
+    sleeper_ids: dict[str, str] = {}
+    if isinstance(contract, Mapping) and contract:
+        pools, slots, _slot_source = contract_roster_pools(dict(contract))
+        eligibility = contract_slot_eligibility(contract) or None
+        team_map = nfl_team_by_player(contract)
+        sleeper_ids = _sleeper_id_by_canonical_name(contract)
+
+    roster_scoring_available = bool(pools) and bool(slots)
+
+    degraded_reasons: list[str] = []
+    if not roster_scoring_available:
+        degraded_reasons.append(DEGRADED_NO_CONTRACT)
+    if not qb_signal_available:
+        degraded_reasons.append(DEGRADED_NO_QB_SIGNAL)
 
     # Walk every roster in the current season.  Score per (owner,
-    # NFL team) pair.  Track contributors so the breakdown panel can
-    # render the per-player point list.
+    # NFL team) pair via the canonical Meaningful Core.
     assignments: list[dict[str, Any]] = []
     for roster in season.rosters:
         if not isinstance(roster, dict):
@@ -454,75 +541,69 @@ def build_section(snapshot: PublicLeagueSnapshot) -> dict[str, Any]:
         favorite_key = _resolve_favorite_key(display_name, favorites, aliases)
         favorite_entry = favorites.get(favorite_key) if favorite_key else None
 
-        # Aggregator: nfl_team_abbr -> (score, contributors_list).
-        scored: dict[str, dict[str, Any]] = defaultdict(lambda: {"score": 0, "contributors": []})
-
-        player_ids = roster.get("players") or []
-        players_resolved = 0
-        for pid in player_ids:
-            meta = _player_meta(snapshot, pid)
-            if not meta:
-                continue
-            players_resolved += 1
-            nfl_team = str(meta.get("team") or "").upper()
-            if not nfl_team:
-                continue
-            pts, contributors = _score_player(
-                meta,
-                config=config,
-                league_idp_enabled=idp_enabled,
+        team_core = _TeamCore()
+        team_core.reason = DEGRADED_NO_CONTRACT if not roster_scoring_available else None
+        pool = pools.get(owner_id) if roster_scoring_available else None
+        if roster_scoring_available and pool is None:
+            team_core.reason = ROSTER_REASON_NOT_IN_CONTRACT
+        elif roster_scoring_available and pool is not None:
+            core = build_meaningful_core(pool, slots, slot_eligibility=eligibility)
+            team_core = _score_team_core(
+                core,
+                team_map=team_map,
+                sleeper_ids=sleeper_ids,
+                snapshot=snapshot,
+                qb_signal_available=qb_signal_available,
+                qb_weight=qb_weight,
             )
-            if pts <= 0:
-                continue
-            slot = scored[nfl_team]
-            slot["score"] += pts
-            display = _player_display(meta, pid)
-            for c in contributors:
-                slot["contributors"].append(
-                    {
-                        "player": display,
-                        "points": int(c["points"]),
-                        "reason": str(c["reason"]),
-                    }
-                )
 
         # Build the NFL-teams list for this owner.
         nfl_teams_out: list[dict[str, Any]] = []
+        favorite_abbr: str | None = None
 
-        # 1. Always emit the favorite (with whatever roster score it earned).
         if favorite_entry:
             fav_abbr = str(favorite_entry.get("abbr") or "").upper()
             fav_display = str(favorite_entry.get("display") or fav_abbr)
-            slot = scored.get(fav_abbr, {"score": 0, "contributors": []})
+            favorite_abbr = fav_abbr
+            score = team_core.by_team_score.get(fav_abbr, 0.0)
+            share = (
+                score / team_core.total_weighted_value
+                if team_core.total_weighted_value > 0
+                else None
+            )
             nfl_teams_out.append(
                 {
                     "abbr": fav_abbr,
                     "display": fav_display,
                     "isFavorite": True,
-                    "score": int(slot["score"]),
-                    "contributors": list(slot["contributors"]),
+                    "qualifiesByRoster": bool(share is not None and share >= min_share),
+                    "affinityScore": round(score, 3),
+                    "affinityShare": round(share, 4) if share is not None else None,
+                    "contributors": list(team_core.by_team_contributors.get(fav_abbr, [])),
                 }
             )
 
-        # 2. Roster-based qualifiers — anyone else above threshold,
-        #    sorted by score desc.  Skip the favorite (already added).
-        favorite_abbr = nfl_teams_out[0]["abbr"] if nfl_teams_out else None
-        roster_based = sorted(
-            (
-                {
-                    "abbr": abbr,
-                    "display": _NFL_TEAM_NAMES.get(abbr, abbr),
-                    "isFavorite": False,
-                    "score": int(slot["score"]),
-                    "contributors": list(slot["contributors"]),
-                }
-                for abbr, slot in scored.items()
-                if abbr != favorite_abbr and slot["score"] >= threshold
-            ),
-            key=lambda r: (-int(r["score"]), r["abbr"]),
-        )
+        roster_based = []
+        if team_core.total_weighted_value > 0:
+            for abbr, score in team_core.by_team_score.items():
+                if abbr == favorite_abbr:
+                    continue
+                share = score / team_core.total_weighted_value
+                if share < min_share:
+                    continue
+                roster_based.append(
+                    {
+                        "abbr": abbr,
+                        "display": _NFL_TEAM_NAMES.get(abbr, abbr),
+                        "isFavorite": False,
+                        "qualifiesByRoster": True,
+                        "affinityScore": round(score, 3),
+                        "affinityShare": round(share, 4),
+                        "contributors": list(team_core.by_team_contributors.get(abbr, [])),
+                    }
+                )
+        roster_based.sort(key=lambda r: (-r["affinityShare"], -r["affinityScore"], r["abbr"]))
 
-        # 3. Cap at max_teams total (favorite counts).
         remaining_capacity = max(0, max_teams - len(nfl_teams_out))
         nfl_teams_out.extend(roster_based[:remaining_capacity])
 
@@ -532,17 +613,19 @@ def build_section(snapshot: PublicLeagueSnapshot) -> dict[str, Any]:
                 "displayName": display_name or team_name or owner_id,
                 "teamName": team_name,
                 "favoriteKey": favorite_key,
-                # A favorite-only card must not read as "we scored this
-                # roster and nothing qualified" when we could not score
-                # it at all.
-                "rosterScored": roster_scoring_available,
-                "playersResolved": players_resolved,
-                "playersTotal": len(player_ids),
+                "rosterScored": team_core.scored,
+                "rosterUnavailableReason": None if team_core.scored else team_core.reason,
+                "scoringComplete": team_core.scoring_complete,
+                "totalWeightedCoreValue": (
+                    round(team_core.total_weighted_value, 3) if team_core.scored else None
+                ),
+                "unpricedCount": team_core.unpriced_count,
+                "unresolvedNflTeamCount": team_core.unresolved_team_count,
                 "nflTeams": nfl_teams_out,
             }
         )
 
-    # Sort by display name for stable rendering — alphabetical so
+    # Sort by display name for stable rendering -- alphabetical so
     # the page is predictable across reloads.
     assignments.sort(key=lambda a: a["displayName"].lower())
 
@@ -550,6 +633,7 @@ def build_section(snapshot: PublicLeagueSnapshot) -> dict[str, Any]:
         "available": True,
         "unavailableReason": None,
         "rosterScoringAvailable": roster_scoring_available,
+        "qbSignalAvailable": qb_signal_available,
         "degradedReasons": degraded_reasons,
         "assignments": assignments,
         "config": {

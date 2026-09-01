@@ -2,7 +2,7 @@
 
 Integration's finding 9: ``_board_players`` keys each row by
 ``canonicalName`` only, taking the FIRST of ``canonicalName`` /
-``displayName``, while ``_ages`` and ``_nfl_teams`` key by BOTH.  The
+``displayName``, while ``_ages`` and ``nfl_team_by_player`` key by BOTH.  The
 pool, meanwhile, is keyed by whatever string ``sleeper.teams[].players``
 carries, and ``contract_roster_pools`` matches that against either name.
 
@@ -18,6 +18,7 @@ consequence; this is the same class, one field over.
 from __future__ import annotations
 
 from src.api import roster_intelligence as ri
+from src.roster_intel.exposure import nfl_team_by_player
 
 _SLOTS = ["QB", "RB", "WR", "TE", "FLEX"]
 
@@ -91,7 +92,7 @@ def test_the_three_board_joins_key_the_same_way():
     rank_keys = {k for k, _pos, _v in ri._board_players(contract, pool_keys={"A. Jones"})}
     assert "A. Jones" in rank_keys
     assert "A. Jones" in set(ri._ages(contract))
-    assert "A. Jones" in set(ri._nfl_teams(contract))
+    assert "A. Jones" in set(nfl_team_by_player(contract))
 
 
 # ══ No silent fallback that invents a plausible-but-wrong roster ═══

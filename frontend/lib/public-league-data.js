@@ -42,7 +42,6 @@ export const PUBLIC_SECTION_KEYS = Object.freeze([
   "luck",
   "streaks",
   "conduct",
-  "teamAssignment",
   "matchupPreview",
   "weeklyRecap",
 ]);

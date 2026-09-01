@@ -589,131 +589,24 @@ test.describe("public /league page", () => {
     expect(body).toHaveProperty("metrics.total_served");
   });
 
-  test("teamAssignment covers every manager slot and labels unknowns explicitly", async ({
-    request,
-  }) => {
-    // This test pins the AVAILABILITY contract of
-    // src/api/team_assignment.py, not an aspiration about its data.
-    //
-    // It used to require `nflTeams.length > 0` for every manager — a
-    // deliberate red written against defect #815 (favorite map + roster
-    // scoring both whiffing).  But an empty `nflTeams` is a
-    // pinned-legitimate state of the producer (see
-    // tests/api/test_team_assignment_availability.py::
-    // test_healthy_empty_result_is_still_expressible): no configured
-    // favorite plus nothing clearing the scoring threshold is a
-    // measured "nothing qualified", and inventing a team to satisfy a
-    // test is exactly the fabrication MISSING-IS-NEVER-ZERO forbids.
-    // The section is also built from live Sleeper data, so which
-    // managers qualify moves between runs — E2E runs 140/142 failed on
-    // two different transient shapes of it.  What IS guaranteed, and
-    // asserted here: every current manager gets a slot, every known
-    // (favorite-resolved) assignment is preserved, nothing is priced
-    // into the list without clearing the threshold, and when the
-    // producer cannot answer it says why instead of serving a bare
-    // empty list.  Defect #815 stays tracked at the unit level.
-    const res = await request.get("/api/public/league/teamAssignment");
-    expect(res.status()).toBe(200);
-    const json = await res.json();
-    const data = json.data || {};
-    const assignments = data.assignments || [];
-    expect(Array.isArray(assignments)).toBeTruthy();
-
-    if (data.available === false) {
-      // Degraded is a legal answer, but only an EXPLICIT one: the
-      // payload must name a known cause, and must not carry
-      // assignments it just declared unavailable.
-      expect(
-        ["no_current_season", "no_rosters"],
-        "available:false must name a machine-readable reason",
-      ).toContain(data.unavailableReason);
-      expect(assignments).toHaveLength(0);
-      expect(data.rosterScoringAvailable).toBe(false);
-      return;
-    }
-
-    // Healthy path: one slot per manager with a current roster, keyed
-    // by ownerId — derived from the same response's league header, so
-    // the expectation tracks the league instead of a magic count.
-    expect(data.available).toBe(true);
-    expect(data.unavailableReason).toBeNull();
-    const managers = json.league?.managers || [];
-    const activeOwnerIds = managers
-      .filter((m) => m.currentRosterId !== null && m.currentRosterId !== undefined)
-      .map((m) => m.ownerId)
-      .sort();
-    expect(
-      activeOwnerIds.length,
-      "the league header must carry current-season managers",
-    ).toBeGreaterThanOrEqual(8); // realistic floor for a real league
-    expect(
-      assignments.map((a) => a.ownerId).sort(),
-      "one assignment per current manager — no drops, no duplicates, no inventions",
-    ).toEqual(activeOwnerIds);
-
-    const threshold = data.config?.thresholds?.assignmentMinPoints;
-    const maxTeams = data.config?.limits?.maxTeamsPerOwner;
-    expect(typeof threshold).toBe("number");
-    expect(typeof maxTeams).toBe("number");
-
-    for (const a of assignments) {
-      const who = a.displayName || a.ownerId;
-      expect(typeof a.displayName).toBe("string");
-      expect(typeof a.rosterScored, `${who}: rosterScored must be stated`).toBe(
-        "boolean",
-      );
-      expect(Array.isArray(a.nflTeams), `${who}: nflTeams must be an array`).toBeTruthy();
-      expect(
-        a.nflTeams.length,
-        `${who}: at most ${maxTeams} NFL teams`,
-      ).toBeLessThanOrEqual(maxTeams);
-
-      // A resolved favorite is emitted unconditionally and first —
-      // dropping it means the producer lost a KNOWN assignment.
-      if (a.favoriteKey != null) {
-        expect(
-          a.nflTeams.length,
-          `${who}: favorite ${a.favoriteKey} resolved but no team emitted`,
-        ).toBeGreaterThanOrEqual(1);
-        expect(
-          a.nflTeams[0].isFavorite,
-          `${who}: the favorite must lead the list`,
-        ).toBe(true);
-      }
-
-      for (const t of a.nflTeams) {
-        expect(String(t.abbr), `${who}: NFL team abbr`).toMatch(/^[A-Z]{2,3}$/);
-        expect(typeof t.isFavorite).toBe("boolean");
-        expect(Number.isFinite(t.score), `${who}: ${t.abbr} score`).toBeTruthy();
-        // No fabrication: everything in the list is there because it is
-        // the favorite or because it EARNED the threshold.
-        if (!t.isFavorite) {
-          expect(
-            t.score,
-            `${who}: ${t.abbr} is listed without clearing the ${threshold}-point threshold`,
-          ).toBeGreaterThanOrEqual(threshold);
-        }
-      }
-    }
-
-    // When roster scoring was unavailable the section must say so, and
-    // every per-manager card must carry the same honesty.
-    if (data.rosterScoringAvailable === false) {
-      expect(data.degradedReasons).toContain("player_directory_unavailable");
-      for (const a of assignments) {
-        expect(a.rosterScored, `${a.displayName || a.ownerId}: rosterScored must be false when the directory is unavailable`).toBe(false);
-      }
-    }
-  });
-
   // ── the private-intelligence boundary, from the anonymous door ────────
   //
   // This block used to assert that `faabAnalytics` answered an anonymous
   // GET with **200** and the full recommender payload.  It does not, and
-  // must not: B8 classified it as one of three
-  // `PRIVATE_INTELLIGENCE_SECTIONS` (with `rosTeamStrength` and
-  // `rosTradeDeadline`), and `_public_section_access_error` refuses it
-  // without a session.  The 401 is the feature.
+  // must not: B8 classified it as one of four
+  // `PRIVATE_INTELLIGENCE_SECTIONS` (with `rosTeamStrength`,
+  // `rosTradeDeadline` and, since the 2026-09-01 NFL Team Affinity
+  // rewrite, `teamAssignment`), and `_public_section_access_error`
+  // refuses it without a session.  The 401 is the feature.
+  //
+  // `teamAssignment` moved into this loop for the same reason the other
+  // three are here: it now publishes per-manager sums and per-player
+  // breakdowns of canonical dynasty value, not flat depth-chart points,
+  // and the old standalone "covers every manager slot" test (asserting
+  // an anonymous 200) would be exactly the stale assertion this comment
+  // warns about — reopening the section to make it pass would delete the
+  // privacy boundary. Its shape coverage relocated to
+  // `signed-in-smoke.spec.js`, same as `faabAnalytics` before it.
   //
   // A stale assertion here is not a harmless red: the obvious way to make
   // it pass is to reopen the section, which would delete the privacy
@@ -725,6 +618,7 @@ test.describe("public /league page", () => {
     "faabAnalytics",
     "rosTeamStrength",
     "rosTradeDeadline",
+    "teamAssignment",
   ]) {
     test(`${section} refuses an anonymous caller (B8 private intelligence)`, async ({
       request,

@@ -96,11 +96,16 @@ export function leagueTabHref(key, currentSearch = "", extraParams = {}) {
 // the contract: `previews`/`recaps` (ArticlesSection), `power`
 // (RosPowerSection reads the lazy `rosPower` section directly — the v1
 // engine and its eager `power` section are retired), the four `ros*`
-// tabs, and `draft-capital`.  That absence is load-bearing — it is what
-// lets the server ship a contract containing only the sections the
-// landing tab actually reads instead of all seventeen (2.01 MB, of
-// which `weeklyRecap` alone is 378 KB that this page never renders at
-// all since the articles tabs replaced it).
+// tabs, `draft-capital`, and `teamAssignment` (moved to self-fetching
+// 2026-09-01 when the NFL Team Affinity rewrite made it a private,
+// session-gated section — see `PRIVATE_INTELLIGENCE_SECTIONS` in
+// `src/public_league/public_contract.py`; it can no longer ride the
+// anonymous eager aggregate the way its old points-based scoring did).
+// That absence is load-bearing — it is what lets the server ship a
+// contract containing only the sections the landing tab actually reads
+// instead of all seventeen (2.01 MB, of which `weeklyRecap` alone is
+// 378 KB that this page never renders at all since the articles tabs
+// replaced it).
 export const SECTION_FOR_TAB = Object.freeze({
   overview: "overview",
   luck: "luck",
@@ -116,7 +121,6 @@ export const SECTION_FOR_TAB = Object.freeze({
   weekly: "weekly",
   superlatives: "superlatives",
   archives: "archives",
-  teamAssignment: "teamAssignment",
 });
 
 /**

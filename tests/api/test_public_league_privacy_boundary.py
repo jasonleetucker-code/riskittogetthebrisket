@@ -43,7 +43,7 @@ import server
 from src.api import league_registry
 
 #: Sections whose payload is per-manager decision intelligence.
-PRIVATE_SECTIONS = ("rosTeamStrength", "faabAnalytics", "rosTradeDeadline")
+PRIVATE_SECTIONS = ("rosTeamStrength", "faabAnalytics", "rosTradeDeadline", "teamAssignment")
 
 #: Sections that are genuinely league-wide facts and must STAY public.
 #: Listed explicitly so a future "make it all private" sweep has to

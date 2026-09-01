@@ -74,7 +74,7 @@ from src.roster_intel.age_portfolio import (
 )
 from src.roster_intel.core import build_meaningful_core
 from src.roster_intel.droppability import league_droppability, team_droppability
-from src.roster_intel.exposure import build_nfl_exposure, exposure_from_core
+from src.roster_intel.exposure import build_nfl_exposure, exposure_from_core, nfl_team_by_player
 from src.roster_intel.strength import build_team_strength, rank_team_strengths
 from src.roster_intel.weakness import build_position_ranks, build_team_weakness
 
@@ -189,34 +189,6 @@ def _ages(contract: Mapping[str, Any] | None) -> dict[str, float | None]:
     return out
 
 
-def _nfl_teams(contract: Mapping[str, Any] | None) -> dict[str, str]:
-    """``{playerName: nflTeam}`` from the canonical board.
-
-    Keyed the same way ``contract_roster_pools`` keys players, for the reason
-    ``_board_players`` documents at length: a join key that disagrees with the
-    pools fails silently and completely.
-
-    An empty ``team`` is left OUT rather than stored as ``""`` — the exposure
-    owner reads absence as UNKNOWN and reports the player, and an empty string
-    would instead create a bucket that holds a share.  Measured on the live
-    board, 0 of 660 rostered players lack one, but 25 carry ``FA``, which is a
-    real answer (unsigned) and not a missing one.
-    """
-    out: dict[str, str] = {}
-    if not isinstance(contract, Mapping):
-        return out
-    for row in contract.get("playersArray") or []:
-        if not isinstance(row, Mapping) or row.get("assetClass") == "pick":
-            continue
-        team = str(row.get("team") or "").strip()
-        if not team:
-            continue
-        for key in (row.get("canonicalName"), row.get("displayName")):
-            if key:
-                out.setdefault(str(key), team)
-    return out
-
-
 def build_league_roster_intelligence(
     contract: Mapping[str, Any] | None,
     *,
@@ -277,7 +249,7 @@ def build_league_roster_intelligence(
     )
 
     drops = league_droppability(contract) if include_droppability else {}
-    nfl_teams = _nfl_teams(contract)
+    nfl_teams = nfl_team_by_player(contract)
     roster_values = {pl.player_id: pl.ros_value for pool in pools.values() for pl in pool}
 
     teams = {

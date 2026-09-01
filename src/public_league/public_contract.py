@@ -37,7 +37,9 @@ from .snapshot import PublicLeagueSnapshot
 PUBLIC_CONTRACT_VERSION = "public-league/2026-08-23.v1"
 
 
-def _team_assignment_section(snapshot: PublicLeagueSnapshot) -> dict[str, Any]:
+def _team_assignment_section(
+    snapshot: PublicLeagueSnapshot, contract: dict[str, Any] | None = None
+) -> dict[str, Any]:
     """Lazy-import wrapper for src.api.team_assignment.
 
     Imports inside the function body (PLC0415-style) so the
@@ -45,10 +47,20 @@ def _team_assignment_section(snapshot: PublicLeagueSnapshot) -> dict[str, Any]:
     import time — keeps the public pipeline isolated from the
     private contract builder, even though this section happens to
     reuse the snapshot directly.
+
+    ``contract`` is the internal canonical ``/api/data`` contract
+    (``latest_contract_data`` in ``server.py``) — the NFL Team Affinity
+    model reads canonical Meaningful Core membership and canonical
+    player values from it, the same source Team Strength reads.  It is
+    threaded in explicitly by the caller (``build_section_payload``)
+    rather than imported here, mirroring how ``activity_valuation`` is
+    already threaded into ``_build_activity_section`` for the same
+    reason: a section builder that needs privileged, non-snapshot data.
+    ``None`` degrades to a favorites-only payload rather than failing.
     """
     from src.api import team_assignment  # noqa: PLC0415
 
-    return team_assignment.build_section(snapshot)
+    return team_assignment.build_section(snapshot, contract)
 
 
 # Sections exposed by the public contract.  Each entry maps the public
@@ -73,11 +85,6 @@ _SECTION_BUILDERS: dict[str, Callable[[PublicLeagueSnapshot], dict[str, Any]]] =
     "streaks": streaks.build_section,
     "matchupPreview": matchup_preview.build_section,
     "weeklyRecap": weekly_recap.build_section,
-    # Team Assignment — maps each fantasy team to 1–3 NFL teams.  Cheap
-    # to compute (one walk through current rosters + Sleeper player
-    # metadata), so it ships in the eager aggregate response and the
-    # /league?tab=teamAssignment frontend reads it from sections.
-    "teamAssignment": _team_assignment_section,
 }
 
 # Sections that are expensive enough to warrant lazy-loading — they are
@@ -166,6 +173,16 @@ _LAZY_SECTION_BUILDERS: dict[str, Callable[[PublicLeagueSnapshot], dict[str, Any
     # /waivers' FAAB recommender (Phase B6).  Lazy because the
     # /league landing page doesn't consume it.
     "faabAnalytics": _faab_analytics_section,
+    # NFL Team Affinity (2026-09-01 rewrite of the old points-based Team
+    # Assignment).  Moved out of the eager ``_SECTION_BUILDERS`` and into
+    # ``PRIVATE_INTELLIGENCE_SECTIONS`` below: the model now publishes
+    # per-manager sums and per-player breakdowns of canonical dynasty
+    # value, the same class of per-manager decomposition that made
+    # ``rosTeamStrength`` private.  ``_team_assignment_section`` takes an
+    # optional second ``contract`` argument (unlike every other entry in
+    # this dict) — ``build_section_payload`` special-cases this one key
+    # to thread it, the same pattern ``activity_valuation`` already uses.
+    "teamAssignment": _team_assignment_section,
 }
 
 # Derived overview is a first-class section key the UI can fetch just
@@ -180,7 +197,7 @@ PUBLIC_SECTION_KEYS: tuple[str, ...] = (
 # ── The public/private boundary (B8) ──────────────────────────────────
 #
 # Registering a builder above makes a section BUILDABLE.  It does not
-# make it PUBLIC.  These three are per-manager decision intelligence and
+# make it PUBLIC.  These four are per-manager decision intelligence and
 # require a session, per CLAUDE.md §5: proprietary values, edges,
 # targets, weaknesses, forecasts and manager tendencies are private.
 #
@@ -206,6 +223,22 @@ PUBLIC_SECTION_KEYS: tuple[str, ...] = (
 #                     with literal strategy text ("Sell aging veterans
 #                     aggressively for picks + youth").
 #
+# ``teamAssignment`` (added 2026-09-01) joins this set for the identical
+# reason, not a new one: the NFL Team Affinity rewrite replaced flat
+# depth-chart points with per-manager sums (and a full per-player
+# breakdown) of canonical dynasty value, drawn from the same canonical
+# Meaningful Core / ``rankDerivedValue`` pipeline that made
+# ``rosTeamStrength`` private.  A manager's Affinity Score/Share per NFL
+# team, and the contributing players' canonical values, are exactly the
+# "decomposition attached to it" this boundary is written around — not
+# any specific field name (the payload avoids the literal blocklisted
+# names regardless; see ``_PRIVATE_FIELD_BLOCKLIST`` below).  Favorite-team
+# tags alone would not need gating (they are static config, not derived
+# from canonical value), but this boundary is enforced per SECTION, not
+# per field — "one predicate so the JSON route, the CSV route and any
+# future representation cannot drift apart" — so the whole section is
+# private rather than splitting it.
+#
 # rosTradeDeadline currently answers "Insufficient evidence" because the
 # product is preseason.  That is not a safe boundary: it populates real
 # per-manager calls at week 1.  An empty payload today is a timing
@@ -224,6 +257,7 @@ PRIVATE_INTELLIGENCE_SECTIONS: frozenset[str] = frozenset(
         "rosTeamStrength",
         "faabAnalytics",
         "rosTradeDeadline",
+        "teamAssignment",
     }
 )
 
@@ -399,6 +433,7 @@ def build_section_payload(
     section: str,
     *,
     activity_valuation: activity._ResolverFactory | None = None,
+    team_assignment_contract: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Build a single public-section payload, wrapped in the standard header.
 
@@ -410,6 +445,13 @@ def build_section_payload(
     ``activity.build_section``'s docstring for the exact shape.  Only
     the derived grade letter/label is emitted — raw values never leave
     the backend.
+
+    ``team_assignment_contract`` (optional) is the internal canonical
+    ``/api/data`` contract — the same non-snapshot-privileged-data
+    threading ``activity_valuation`` already does, for the same reason:
+    ``teamAssignment`` needs the canonical Meaningful Core / player-value
+    pipeline, which the public snapshot alone cannot supply.  Ignored for
+    every other section.
 
     Raises ``KeyError`` if ``section`` is unknown.
     """
@@ -432,6 +474,8 @@ def build_section_payload(
         section_body = _build_activity_section(snapshot, activity_valuation)
     elif section in _SECTION_BUILDERS:
         section_body = _SECTION_BUILDERS[section](snapshot)
+    elif section == "teamAssignment":
+        section_body = _team_assignment_section(snapshot, team_assignment_contract)
     elif section in _LAZY_SECTION_BUILDERS:
         # Lazy section builders (e.g. playoffOdds) run on-demand via
         # ``/api/public/league/<section>`` but are deliberately excluded

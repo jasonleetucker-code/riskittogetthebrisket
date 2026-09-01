@@ -11437,7 +11437,9 @@ async def get_public_league_section_csv(
         else:
 
             def _build_csv():
-                payload = build_section_payload(snapshot, section)
+                payload = build_section_payload(
+                    snapshot, section, team_assignment_contract=latest_contract_data
+                )
                 assert_public_payload_safe(payload)
                 kwargs = {}
                 if section == "franchise" and owner:
@@ -11548,6 +11550,7 @@ async def get_public_league_section(
                     snapshot,
                     section,
                     activity_valuation=_build_public_activity_valuation(),
+                    team_assignment_contract=latest_contract_data,
                 )
                 if section == "franchise" and owner:
                     detail_map = payload.get("data", {}).get("detail") or {}

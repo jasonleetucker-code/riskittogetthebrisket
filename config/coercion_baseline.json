@@ -1,6 +1,6 @@
 {
  "note": "Known missing-data coercions on decision paths, recorded so the gate can block NEW ones while the remediation batches burn these down. Each batch deletes its findings' entries. Do not add to this file to make a build pass.",
- "count": 660,
+ "count": 659,
  "violations": [
   "frontend/lib/auction-power.js::const raw = names.map((n) => Number(totalsObj[n]) || 0);",
   "frontend/lib/bdvm.js::assetCount: _num(r?.assetCount) ?? 0,",
@@ -284,7 +284,6 @@
   "src/api/sleeper_overlay.py::start = int(d.get(\"start_time\") or 0)",
   "src/api/sleeper_overlay.py::trades.sort(key=lambda t: -int(t.get(\"timestamp\", 0) or 0))",
   "src/api/source_health_alerts.py::last_alerted = float(prev.get(\"lastAlertedAt\") or 0)",
-  "src/api/team_assignment.py::return int(meta.get(\"years_exp\") or 0) == 0",
   "src/api/terminal.py::-(s.get(\"value\") or 0),",
   "src/api/terminal.py::[p for p in rosterValues if (p[\"trend7\"] or 0) <= -3],",
   "src/api/terminal.py::alert = ctx.get(\"alertCount\") or 0",
