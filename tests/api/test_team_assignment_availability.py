@@ -117,8 +117,7 @@ def _stub_config(monkeypatch, tmp_path: Path):
                 "favorites": {"jason": {"abbr": "MIN", "display": "Minnesota Vikings"}},
                 "displayNameAliases": {},
                 "weights": {"nflStartingQbMultiplier": 2.0},
-                "thresholds": {"rosterAssignmentMinShare": 0.10},
-                "limits": {"maxTeamsPerOwner": 3},
+                "limits": {},
             }
         ),
         encoding="utf-8",

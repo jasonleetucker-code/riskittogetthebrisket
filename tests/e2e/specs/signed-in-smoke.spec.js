@@ -453,12 +453,18 @@ test.describe("signed-in: private-intelligence sections", () => {
       "one assignment per current manager — no drops, no duplicates, no inventions",
     ).toEqual(activeOwnerIds);
 
-    const minShare = data.config?.thresholds?.rosterAssignmentMinShare;
     const qbMultiplier = data.config?.weights?.nflStartingQbMultiplier;
-    const maxTeams = data.config?.limits?.maxTeamsPerOwner;
-    expect(typeof minShare).toBe("number");
     expect(typeof qbMultiplier).toBe("number");
-    expect(typeof maxTeams).toBe("number");
+    // The threshold model is retired -- no config knob for it any more.
+    expect(data.config?.thresholds).toBeUndefined();
+
+    expect(Array.isArray(data.uncoverableTeams)).toBeTruthy();
+    expect(Array.isArray(data.unresolvedCoverageGaps)).toBeTruthy();
+    const summary = data.coverageSummary || {};
+    expect(typeof summary.totalNflTeams).toBe("number");
+    expect(
+      summary.coveredTeams + summary.uncoverableCount + summary.unresolvedGapCount,
+    ).toBe(summary.totalNflTeams);
 
     for (const a of assignments) {
       const who = a.displayName || a.ownerId;
@@ -466,10 +472,12 @@ test.describe("signed-in: private-intelligence sections", () => {
         "boolean",
       );
       expect(Array.isArray(a.nflTeams), `${who}: nflTeams must be an array`).toBeTruthy();
+      // Favorite (0 or 1) + up to 4 coverage-maximizing teams -- fixed,
+      // owner-locked, no threshold-driven variance any more.
       expect(
         a.nflTeams.length,
-        `${who}: at most ${maxTeams} NFL teams`,
-      ).toBeLessThanOrEqual(maxTeams);
+        `${who}: at most 5 NFL teams (favorite + 4)`,
+      ).toBeLessThanOrEqual(5);
 
       if (a.favoriteKey != null) {
         expect(
@@ -480,23 +488,22 @@ test.describe("signed-in: private-intelligence sections", () => {
           a.nflTeams[0].isFavorite,
           `${who}: the favorite must lead the list`,
         ).toBe(true);
+        expect(a.nflTeams[0].assignmentReason).toBe("favorite");
       }
 
       for (const t of a.nflTeams) {
         expect(String(t.abbr), `${who}: NFL team abbr`).toMatch(/^[A-Z]{2,3}$/);
         expect(typeof t.isFavorite).toBe("boolean");
         expect(Number.isFinite(t.affinityScore), `${who}: ${t.abbr} affinityScore`).toBeTruthy();
-        // No fabrication: everything in the list is there because it is
-        // the favorite or because it EARNED the share threshold.
+        // No fabrication: every non-favorite team on the list has real
+        // (nonzero) roster affinity -- never a threshold, never zero.
         if (!t.isFavorite) {
+          expect(["top_affinity", "coverage_repair"]).toContain(t.assignmentReason);
+          expect(t.qualifiesByRoster, `${who}: ${t.abbr} must qualify`).toBe(true);
           expect(
-            t.affinityShare,
-            `${who}: ${t.abbr} is listed without an affinityShare`,
-          ).not.toBeNull();
-          expect(
-            t.affinityShare,
-            `${who}: ${t.abbr} is listed without clearing the ${minShare} share threshold`,
-          ).toBeGreaterThanOrEqual(minShare);
+            t.affinityScore,
+            `${who}: ${t.abbr} is listed with zero affinity`,
+          ).toBeGreaterThan(0);
         }
         for (const c of t.contributors || []) {
           expect(typeof c.canonicalValue).toBe("number");
