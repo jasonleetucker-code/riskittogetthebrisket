@@ -58,7 +58,7 @@ jobs:
     timeout-minutes: 45
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           # The as-of panel reconstructs past boards with `git show`. On
           # a shallow clone the scripts exit 2 rather than measuring a
@@ -67,7 +67,7 @@ jobs:
           fetch-depth: 0
 
       - name: Set up Python
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@v7
         with:
           python-version: "3.12"
 
@@ -146,7 +146,7 @@ jobs:
 
       - name: Upload the fresh measurements
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: consensus-edge-revalidation
           path: /tmp/ce-rerun/
