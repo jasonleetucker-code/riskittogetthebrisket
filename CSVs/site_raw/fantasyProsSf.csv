@@ -9,11 +9,11 @@ Joe Burrow,7,QB,CIN
 Bijan Robinson,8,RB,ATL
 Jahmyr Gibbs,9,RB,DET
 Justin Herbert,10,QB,LAC
-Jaxon Smith-Njigba,11,WR,SEA
-Puka Nacua,12,WR,LAR
+Puka Nacua,11,WR,LAR
+Jaxon Smith-Njigba,12,WR,SEA
 Jalen Hurts,13,QB,PHI
-Patrick Mahomes II,14,QB,KC
-Trevor Lawrence,15,QB,JAC
+Trevor Lawrence,14,QB,JAC
+Patrick Mahomes II,15,QB,KC
 Amon-Ra St. Brown,16,WR,DET
 Justin Jefferson,17,WR,MIN
 CeeDee Lamb,18,WR,DAL
@@ -25,21 +25,21 @@ Bo Nix,23,QB,DEN
 Jaxson Dart,24,QB,NYG
 Drake London,25,WR,ATL
 De'Von Achane,26,RB,MIA
-James Cook III,27,RB,BUF
-Omarion Hampton,28,RB,LAC
-Dak Prescott,29,QB,DAL
-Jordan Love,30,QB,GB
+Omarion Hampton,27,RB,LAC
+James Cook III,28,RB,BUF
+Jordan Love,29,QB,GB
+Dak Prescott,30,QB,DAL
 Tetairoa McMillan,31,WR,CAR
 Brock Bowers,32,TE,LV
-Jonathan Taylor,33,RB,IND
-Nico Collins,34,WR,HOU
-George Pickens,35,WR,DAL
+Nico Collins,33,WR,HOU
+George Pickens,34,WR,DAL
+Jonathan Taylor,35,RB,IND
 Emeka Egbuka,36,WR,TB
 Kenneth Walker III,37,RB,KC
 Chris Olave,38,WR,NO
 Garrett Wilson,39,WR,NYJ
-Zay Flowers,40,WR,BAL
-Jared Goff,41,QB,DET
+Jared Goff,40,QB,DET
+Zay Flowers,41,WR,BAL
 Carnell Tate,42,WR,TEN
 Trey McBride,43,TE,ARI
 A.J. Brown,44,WR,NE
@@ -48,32 +48,32 @@ Luther Burden III,46,WR,CHI
 Ladd McConkey,47,WR,LAC
 Breece Hall,48,RB,NYJ
 Colston Loveland,49,TE,CHI
-Chase Brown,50,RB,CIN
-Fernando Mendoza,51,QB,LV
+Fernando Mendoza,50,QB,LV
+Jaylen Waddle,51,WR,DEN
 Tee Higgins,52,WR,CIN
-Jaylen Waddle,53,WR,DEN
+Chase Brown,53,RB,CIN
 C.J. Stroud,54,QB,HOU
 Makai Lemon,55,WR,PHI
 Rashee Rice,56,WR,KC
 Rome Odunze,57,WR,CHI
-Jordyn Tyson,58,WR,NO
-Tyler Warren,59,TE,IND
-Saquon Barkley,60,RB,PHI
-Cam Ward,61,QB,TEN
-Baker Mayfield,62,QB,TB
-Kyler Murray,63,QB,MIN
-Jameson Williams,64,WR,DET
-Christian McCaffrey,65,RB,SF
-Tucker Kraft,66,TE,GB
-Tyler Shough,67,QB,NO
+Tyler Warren,58,TE,IND
+Jordyn Tyson,59,WR,NO
+Kyler Murray,60,QB,MIN
+Saquon Barkley,61,RB,PHI
+Cam Ward,62,QB,TEN
+Jameson Williams,63,WR,DET
+Tyler Shough,64,QB,NO
+Baker Mayfield,65,QB,TB
+Christian McCaffrey,66,RB,SF
+Tucker Kraft,67,TE,GB
 TreVeyon Henderson,68,RB,NE
-Marvin Harrison Jr.,69,WR,ARI
-Kyren Williams,70,RB,LAR
-Malik Willis,71,QB,MIA
-Kyle Pitts Sr.,72,TE,ATL
-Quinshon Judkins,73,RB,CLE
-Christian Watson,74,WR,GB
-Sam LaPorta,75,TE,DET
+Malik Willis,69,QB,MIA
+Marvin Harrison Jr.,70,WR,ARI
+Kyle Pitts Sr.,71,TE,ATL
+Kyren Williams,72,RB,LAR
+Christian Watson,73,WR,GB
+Sam LaPorta,74,TE,DET
+Quinshon Judkins,75,RB,CLE
 Harold Fannin Jr.,76,TE,CLE
 Travis Etienne Jr.,77,RB,NO
 Sam Darnold,78,QB,SEA
@@ -84,55 +84,55 @@ Terry McLaurin,82,WR,WAS
 Cam Skattebo,83,RB,NYG
 KC Concepcion,84,WR,CLE
 Jadarian Price,85,RB,SEA
-Parker Washington,86,WR,JAC
-Alec Pierce,87,WR,IND
-Bryce Young,88,QB,CAR
-DJ Moore,89,WR,BUF
+Bryce Young,86,QB,CAR
+DJ Moore,87,WR,BUF
+Parker Washington,88,WR,JAC
+Alec Pierce,89,WR,IND
 Daniel Jones,90,QB,IND
-Derrick Henry,91,RB,BAL
-Matthew Stafford,92,QB,LAR
-Bhayshul Tuten,93,RB,JAC
-Isaiah Likely,94,TE,NYG
+Matthew Stafford,91,QB,LAR
+Isaiah Likely,92,TE,NYG
+Derrick Henry,93,RB,BAL
+Bhayshul Tuten,94,RB,JAC
 Kenyon Sadiq,95,TE,NYJ
 Jordan Addison,96,WR,MIN
 DK Metcalf,97,WR,PIT
 Eli Stowers,98,TE,PHI
-D'Andre Swift,99,RB,CHI
-Davante Adams,100,WR,LAR
+Davante Adams,99,WR,LAR
+D'Andre Swift,100,RB,CHI
 Dalton Kincaid,101,TE,BUF
 Wan'Dale Robinson,102,WR,TEN
 Mike Evans,103,WR,SF
-Michael Wilson,104,WR,ARI
-Josh Downs,105,WR,IND
-David Montgomery,106,RB,HOU
+Josh Downs,104,WR,IND
+Michael Wilson,105,WR,ARI
+Quentin Johnston,106,WR,LAC
 Denzel Boston,107,WR,CLE
-Quentin Johnston,108,WR,LAC
+David Montgomery,108,RB,HOU
 Michael Pittman Jr.,109,WR,PIT
 Xavier Worthy,110,WR,KC
-Courtland Sutton,111,WR,DEN
+George Kittle,111,TE,SF
 Jayden Reed,112,WR,GB
-George Kittle,113,TE,SF
-Josh Jacobs,114,RB,GB
-Jaylen Warren,115,RB,PIT
-Matthew Golden,116,WR,GB
-Omar Cooper Jr.,117,WR,NYJ
-Jake Ferguson,118,TE,DAL
-Chris Godwin Jr.,119,WR,TB
-Blake Corum,120,RB,LAR
-Jalen Coker,121,WR,CAR
+Courtland Sutton,113,WR,DEN
+Jaylen Warren,114,RB,PIT
+Matthew Golden,115,WR,GB
+Jake Ferguson,116,TE,DAL
+Josh Jacobs,117,RB,GB
+Chris Godwin Jr.,118,WR,TB
+Omar Cooper Jr.,119,WR,NYJ
+Jalen Coker,120,WR,CAR
+Blake Corum,121,RB,LAR
 Brenton Strange,122,TE,JAC
 Jakobi Meyers,123,WR,JAC
-RJ Harvey,124,RB,DEN
-Romeo Doubs,125,WR,NE
+De'Zhaun Stribling,124,WR,SF
+RJ Harvey,125,RB,DEN
 Jonathon Brooks,126,RB,CAR
-De'Zhaun Stribling,127,WR,SF
+Romeo Doubs,127,WR,NE
 Ty Simpson,128,QB,LAR
-Kyle Monangai,129,RB,CHI
-Rhamondre Stevenson,130,RB,NE
-Terrance Ferguson,131,TE,LAR
-Dallas Goedert,132,TE,PHI
-Jayden Higgins,133,WR,HOU
-Khalil Shakir,134,WR,BUF
+Terrance Ferguson,129,TE,LAR
+Kyle Monangai,130,RB,CHI
+Dallas Goedert,131,TE,PHI
+Rhamondre Stevenson,132,RB,NE
+Khalil Shakir,133,WR,BUF
+Jayden Higgins,134,WR,HOU
 Oronde Gadsden II,135,TE,LAC
 Rico Dowdle,136,RB,PIT
 Chig Okonkwo,137,TE,WAS
@@ -141,242 +141,242 @@ Jonah Coleman,139,RB,DEN
 Antonio Williams,140,WR,WAS
 Tre' Harris,141,WR,LAC
 Rashid Shaheed,142,WR,SEA
-Chuba Hubbard,143,RB,CAR
-Juwan Johnson,144,TE,NO
-Travis Hunter,145,WR,JAC
-Tony Pollard,146,RB,TEN
-Michael Penix Jr.,147,QB,ATL
-Jalen McMillan,148,WR,TB
-Kenny Gainwell,149,RB,TB
-Zach Charbonnet,150,RB,SEA
-Chris Bell,151,WR,MIA
-AJ Barner,152,TE,SEA
-Travis Kelce,153,TE,KC
-Jaylin Noel,154,WR,HOU
-Ja'Kobi Lane,155,WR,BAL
-J.K. Dobbins,156,RB,DEN
-Rachaad White,157,RB,WAS
-Jordan Mason,158,RB,MIN
-Pat Bryant,159,WR,DEN
-Kayshon Boutte,160,WR,HOU
-Jacory Croskey-Merritt,161,RB,WAS
-Adonai Mitchell,162,WR,NYJ
+Juwan Johnson,143,TE,NO
+Michael Penix Jr.,144,QB,ATL
+Chuba Hubbard,145,RB,CAR
+Jalen McMillan,146,WR,TB
+Tony Pollard,147,RB,TEN
+Travis Hunter,148,WR,JAC
+Ja'Kobi Lane,149,WR,BAL
+Chris Bell,150,WR,MIA
+Zach Charbonnet,151,RB,SEA
+Kenny Gainwell,152,RB,TB
+Jaylin Noel,153,WR,HOU
+AJ Barner,154,TE,SEA
+Travis Kelce,155,TE,KC
+Pat Bryant,156,WR,DEN
+J.K. Dobbins,157,RB,DEN
+Kayshon Boutte,158,WR,HOU
+Rachaad White,159,RB,WAS
+Jordan Mason,160,RB,MIN
+Adonai Mitchell,161,WR,NYJ
+Jacory Croskey-Merritt,162,RB,WAS
 T.J. Hockenson,163,TE,MIN
 Tyler Allgeier,164,RB,ARI
-Germie Bernard,165,WR,PIT
-Emmett Johnson,166,RB,KC
-Tua Tagovailoa,167,QB,ATL
-Ricky Pearsall,168,WR,SF
-Stefon Diggs,169,WR,WAS
-Shedeur Sanders,170,QB,CLE
-Woody Marks,171,RB,HOU
-Hunter Henry,172,TE,NE
-Jerry Jeudy,173,WR,CLE
-Gunnar Helm,174,TE,TEN
-Isaac TeSlaa,175,WR,DET
+Emmett Johnson,165,RB,KC
+Germie Bernard,166,WR,PIT
+Stefon Diggs,167,WR,WAS
+Shedeur Sanders,168,QB,CLE
+Jerry Jeudy,169,WR,CLE
+Tua Tagovailoa,170,QB,ATL
+Hunter Henry,171,TE,NE
+Isaac TeSlaa,172,WR,DET
+Ricky Pearsall,173,WR,SF
+Woody Marks,174,RB,HOU
+Gunnar Helm,175,TE,TEN
 Max Klare,176,TE,LAR
-Troy Franklin,177,WR,DEN
-Dalton Schultz,178,TE,HOU
-Chris Rodriguez Jr.,179,RB,JAC
-Dylan Sampson,180,RB,CLE
-Tyrone Tracy Jr.,181,RB,NYG
-Nicholas Singleton,182,RB,TEN
-Ted Hurst III,183,WR,TB
-Dontayvion Wicks,184,WR,PHI
-Jauan Jennings,185,WR,MIN
+Dalton Schultz,177,TE,HOU
+Troy Franklin,178,WR,DEN
+Dontayvion Wicks,179,WR,PHI
+Chris Rodriguez Jr.,180,RB,JAC
+Dylan Sampson,181,RB,CLE
+Ryan Flournoy,182,WR,DAL
+Tyrone Tracy Jr.,183,RB,NYG
+Ted Hurst III,184,WR,TB
+Malachi Fields,185,WR,NYG
 Aaron Jones Sr.,186,RB,MIN
-Malachi Fields,187,WR,NYG
+Nicholas Singleton,187,RB,TEN
 Zachariah Branch,188,WR,ATL
-Ryan Flournoy,189,WR,DAL
-MarShawn Lloyd,190,RB,GB
-Deebo Samuel Sr.,191,WR,SF
+Jauan Jennings,189,WR,MIN
+Deebo Samuel Sr.,190,WR,SF
+MarShawn Lloyd,191,RB,GB
 Tank Bigsby,192,RB,PHI
-Tyjae Spears,193,RB,TEN
-Keaton Mitchell,194,RB,LAC
+Keaton Mitchell,193,RB,LAC
+Tyjae Spears,194,RB,TEN
 Pat Freiermuth,195,TE,PIT
 Mason Taylor,196,TE,NYJ
-Elijah Sarratt,197,WR,BAL
-Cade Otton,198,TE,TB
-Tre Tucker,199,WR,LV
+Tre Tucker,197,WR,LV
+Calvin Ridley,198,WR,TEN
+Elijah Sarratt,199,WR,BAL
 Elic Ayomanor,200,WR,TEN
 David Njoku,201,TE,LAC
-Calvin Ridley,202,WR,TEN
-Jalen Nailor,203,WR,LV
-Greg Dulcich,204,TE,MIA
-Tank Dell,205,WR,HOU
-Darnell Mooney,206,WR,NYG
-Mike Washington Jr.,207,RB,LV
-Braelon Allen,208,RB,NYJ
-Rashod Bateman,209,WR,BAL
-Kaytron Allen,210,RB,WAS
-Keon Coleman,211,WR,BUF
+Cade Otton,202,TE,TB
+Darnell Mooney,203,WR,NYG
+Rashod Bateman,204,WR,BAL
+Mike Washington Jr.,205,RB,LV
+Greg Dulcich,206,TE,MIA
+Tank Dell,207,WR,HOU
+Jalen Nailor,208,WR,LV
+Jacoby Brissett,209,QB,ARI
+Keon Coleman,210,WR,BUF
+Braelon Allen,211,RB,NYJ
 Brian Robinson Jr.,212,RB,ATL
-Isiah Pacheco,213,RB,DET
-Jack Bech,214,WR,LV
-Jacoby Brissett,215,QB,ARI
-Oscar Delp,216,TE,NO
-Chimere Dike,217,WR,TEN
-J.J. McCarthy,218,QB,MIN
-Alvin Kamara,219,RB,NO
-Kimani Vidal,220,RB,LAC
-Skyler Bell,221,WR,BUF
+Kaytron Allen,213,RB,WAS
+Chimere Dike,214,WR,TEN
+Isiah Pacheco,215,RB,DET
+Alvin Kamara,216,RB,NO
+Kimani Vidal,217,RB,LAC
+Jack Bech,218,WR,LV
+J.J. McCarthy,219,QB,MIN
+Skyler Bell,220,WR,BUF
+Oscar Delp,221,TE,NO
 Geno Smith,222,QB,NYJ
 Mac Jones,223,QB,SF
-Ray Davis,224,RB,BUF
-Kaleb Johnson,225,RB,GB
-Malik Washington,226,WR,MIA
-Chris Brazzell II,227,WR,CAR
-Eli Raridon,228,TE,NE
-Demond Claiborne,229,RB,MIN
-Kirk Cousins,230,QB,LV
-Tory Horton,231,WR,SEA
-Brandon Aiyuk,232,WR,SF
+Kirk Cousins,224,QB,LV
+Ray Davis,225,RB,BUF
+Kaleb Johnson,226,RB,GB
+Malik Washington,227,WR,MIA
+Brandon Aiyuk,228,WR,SF
+Chris Brazzell II,229,WR,CAR
+Demond Claiborne,230,RB,MIN
+Eli Raridon,231,TE,NE
+Tory Horton,232,WR,SEA
 Jaylen Wright,233,RB,MIA
-Kyle Williams,234,WR,NE
-Marvin Mims Jr.,235,WR,DEN
-Sean Tucker,236,RB,TB
-Bryce Lance,237,WR,NO
-James Conner,238,RB,ARI
-Tyreek Hill,239,WR,FA
-Aaron Rodgers,240,QB,PIT
-Deshaun Watson,241,QB,CLE
-Cyrus Allen,242,WR,KC
-Ollie Gordon II,243,RB,MIA
-Devaughn Vele,244,WR,NO
-Kaelon Black,245,RB,SF
-Emanuel Wilson,246,RB,SEA
-Anthony Richardson Sr.,247,QB,IND
-Caleb Douglas,248,WR,MIA
-Christian Kirk,249,WR,SF
-Elijah Arroyo,250,TE,SEA
-Seth McGowan,251,RB,IND
-Michael Mayer,252,TE,LV
-Theo Johnson,253,TE,NYG
-Evan Engram,254,TE,DEN
-Cooper Kupp,255,WR,SEA
-Trey Benson,256,RB,ARI
+Marvin Mims Jr.,234,WR,DEN
+Kyle Williams,235,WR,NE
+Deshaun Watson,236,QB,CLE
+Sean Tucker,237,RB,TB
+Bryce Lance,238,WR,NO
+Cyrus Allen,239,WR,KC
+James Conner,240,RB,ARI
+Anthony Richardson Sr.,241,QB,IND
+Tyreek Hill,242,WR,FA
+Devaughn Vele,243,WR,NO
+Aaron Rodgers,244,QB,PIT
+Caleb Douglas,245,WR,MIA
+Ollie Gordon II,246,RB,MIA
+Kaelon Black,247,RB,SF
+Emanuel Wilson,248,RB,SEA
+Michael Mayer,249,TE,LV
+Christian Kirk,250,WR,SF
+Evan Engram,251,TE,DEN
+Elijah Arroyo,252,TE,SEA
+Seth McGowan,253,RB,IND
+Theo Johnson,254,TE,NYG
+Keenan Allen,255,WR,IND
+Cooper Kupp,256,WR,SEA
 Najee Harris,257,RB,NYG
-Keenan Allen,258,WR,IND
+Trey Benson,258,RB,ARI
 Jordan James,259,RB,SF
-Isaiah Davis,260,RB,NYJ
-Adam Randall,261,RB,BAL
-Devin Neal,262,RB,NO
-Colby Parkinson,263,TE,LAR
+Colby Parkinson,260,TE,LAR
+Isaiah Davis,261,RB,NYJ
+Adam Randall,262,RB,BAL
+Devin Neal,263,RB,NO
 Xavier Legette,264,WR,CAR
 Kendre Miller,265,RB,NO
-DJ Giddens,266,RB,IND
-Hollywood Brown,267,WR,PHI
-DeMario Douglas,268,WR,NE
-Jaydon Blue,269,RB,PHI
-Darnell Washington,270,TE,PIT
-Brashard Smith,271,RB,KC
-Brenen Thompson,272,WR,LAC
-Darius Slayton,273,WR,NYG
-Justice Hill,274,RB,BAL
-Chris Brooks,275,RB,GB
-Kevin Coleman Jr.,276,WR,MIA
-Charlie Kolar,277,TE,LAC
+Charlie Kolar,266,TE,LAC
+Darnell Washington,267,TE,PIT
+DJ Giddens,268,RB,IND
+DeMario Douglas,269,WR,NE
+Hollywood Brown,270,WR,PHI
+Darius Slayton,271,WR,NYG
+Justice Hill,272,RB,BAL
+Jaydon Blue,273,RB,PHI
+Brashard Smith,274,RB,KC
+Brenen Thompson,275,WR,LAC
+Jaleel McLaughlin,276,RB,CLE
+Kevin Coleman Jr.,277,WR,MIA
 Carson Beck,278,QB,ARI
-Tyquan Thornton,279,WR,KC
-LeQuint Allen Jr.,280,RB,JAC
-Ben Sinnott,281,TE,WAS
-Matt Hibner,282,TE,BAL
-Jaleel McLaughlin,283,RB,CLE
-Trevor Etienne,284,RB,CAR
-Jarquez Hunter,285,RB,FA
-Marlin Klein,286,TE,HOU
-Tez Johnson,287,WR,TB
-Cole Kmet,288,TE,CHI
-Isaiah Bond,289,WR,CLE
-Isaac Guerendo,290,RB,SF
-Sam Roush,291,TE,CHI
-Tahj Brooks,292,RB,CIN
-Tanner Koziol,293,TE,JAC
-Eli Heidenreich,294,RB,PIT
-Mike Gesicki,295,TE,CIN
-Erick All Jr.,296,TE,CIN
-Andrei Iosivas,297,WR,CIN
-Ja'Tavion Sanders,298,TE,CAR
-Jerome Ford,299,RB,WAS
-Jalen Royals,300,WR,KC
-Mack Hollins,301,WR,NE
+Chris Brooks,279,RB,GB
+Matt Hibner,280,TE,BAL
+Tyquan Thornton,281,WR,KC
+Marlin Klein,282,TE,HOU
+LeQuint Allen Jr.,283,RB,JAC
+Ben Sinnott,284,TE,WAS
+Cole Kmet,285,TE,CHI
+Erick All Jr.,286,TE,CIN
+Trevor Etienne,287,RB,CAR
+Sam Roush,288,TE,CHI
+Jarquez Hunter,289,RB,FA
+Mack Hollins,290,WR,NE
+Tanner Koziol,291,TE,JAC
+Isaac Guerendo,292,RB,SF
+Isaiah Bond,293,WR,CLE
+Tez Johnson,294,WR,TB
+Tahj Brooks,295,RB,CIN
+Malik Davis,296,RB,DAL
+Eli Heidenreich,297,RB,PIT
+Mike Gesicki,298,TE,CIN
+Andrei Iosivas,299,WR,CIN
+Jerome Ford,300,RB,WAS
+Ja'Tavion Sanders,301,TE,CAR
 George Holani,302,RB,SEA
-Jake Tonges,303,TE,SF
-Malik Davis,304,RB,DAL
+Samaje Perine,303,RB,CIN
+Jalen Royals,304,WR,KC
 Calvin Austin III,305,WR,NYG
-Will Shipley,306,RB,PHI
-Justin Joly,307,TE,FA
-Samaje Perine,308,RB,CIN
-Devin Singletary,309,RB,NYG
-Zavion Thomas,310,WR,CHI
-Savion Williams,311,WR,GB
+Zavion Thomas,306,WR,CHI
+Jake Tonges,307,TE,SF
+Will Shipley,308,RB,PHI
+Savion Williams,309,WR,GB
+Dawson Knox,310,TE,BUF
+Darren Waller,311,TE,CAR
 CJ Daniels,312,WR,LAR
-Cedric Tillman,313,WR,NO
-Dawson Knox,314,TE,BUF
+Audric Estime,313,RB,NO
+Devin Singletary,314,RB,NYG
 Jaylin Lane,315,WR,WAS
-Audric Estime,316,RB,NO
-Jalen Tolbert,317,WR,MIA
-J'Mari Taylor,318,RB,JAC
-Jordan Whittington,319,WR,LAR
-Darren Waller,320,TE,CAR
-Tyler Higbee,321,TE,LAR
-Joshua Palmer,322,WR,BUF
-Malik Benson,323,WR,LV
-Justin Fields,324,QB,KC
-Tutu Atwell,325,WR,LAR
-Ty Johnson,326,RB,BUF
-Dont'e Thornton Jr.,327,WR,LV
-Konata Mumpfield,328,WR,LAR
-John Metchie III,329,WR,CAR
-Emari Demercado,330,RB,DAL
-Jahan Dotson,331,WR,ATL
-Jack Endries,332,TE,CIN
-Tyson Bagent,333,QB,CHI
-Barion Brown,334,WR,NO
+Jordan Whittington,316,WR,LAR
+Malik Benson,317,WR,LV
+Justin Joly,318,TE,FA
+Jalen Tolbert,319,WR,MIA
+Tyler Higbee,320,TE,LAR
+Ty Johnson,321,RB,BUF
+J'Mari Taylor,322,RB,JAC
+Tutu Atwell,323,WR,LAR
+Joshua Palmer,324,WR,BUF
+Justin Fields,325,QB,KC
+Cedric Tillman,326,WR,NO
+Konata Mumpfield,327,WR,LAR
+John Metchie III,328,WR,CAR
+Dont'e Thornton Jr.,329,WR,LV
+Jahan Dotson,330,WR,ATL
+Barion Brown,331,WR,NO
+Tyson Bagent,332,QB,CHI
+Emari Demercado,333,RB,DAL
+Devontez Walker,334,WR,BAL
 Jalen Milroe,335,QB,SEA
-Devontez Walker,336,WR,BAL
-Jameis Winston,337,QB,NYG
-Carson Wentz,338,QB,MIN
-Joe Milton III,339,QB,FA
-Noah Fant,340,TE,NO
-Noah Gray,341,TE,KC
-Roman Wilson,342,WR,PIT
+Jameis Winston,336,QB,NYG
+Carson Wentz,337,QB,MIN
+Joe Milton III,338,QB,FA
+Noah Fant,339,TE,NO
+Jack Endries,340,TE,CIN
+Roman Wilson,341,WR,PIT
+Noah Gray,342,TE,KC
 Quinn Ewers,343,QB,JAC
-Luke McCaffrey,344,WR,WAS
-KeAndre Lambert-Smith,345,WR,LAC
-Roman Hemby,346,RB,LV
-Josh Cameron,347,WR,JAC
-Nate Boerkircher,348,TE,JAC
-Mitchell Evans,349,TE,CAR
-Joe Royer,350,TE,CLE
-Robert Henry Jr.,351,RB,WAS
-Demarcus Robinson,352,WR,SF
-Olamide Zaccheaus,353,WR,ATL
-Luke Musgrave,354,TE,GB
-Nick Westbrook-Ikhine,355,WR,FA
+KeAndre Lambert-Smith,344,WR,LAC
+Nate Boerkircher,345,TE,JAC
+Demarcus Robinson,346,WR,SF
+Robert Henry Jr.,347,RB,WAS
+Olamide Zaccheaus,348,WR,ATL
+Joe Royer,349,TE,CLE
+Nick Westbrook-Ikhine,350,WR,FA
+Josh Cameron,351,WR,JAC
+Luke Musgrave,352,TE,GB
+Roman Hemby,353,RB,LV
+Tai Felton,354,WR,MIN
+Mitchell Evans,355,TE,CAR
 Treylon Burks,356,WR,WAS
-Deion Burks,357,WR,IND
-Tai Felton,358,WR,MIN
-Elijah Higgins,359,TE,ARI
-Jonnu Smith,360,TE,GB
-Eric Rivers Jr.,361,WR,TB
-Colbie Young,362,WR,CIN
+Elijah Higgins,357,TE,ARI
+Luke McCaffrey,358,WR,WAS
+Jonnu Smith,359,TE,GB
+Eric Rivers Jr.,360,WR,TB
+Colbie Young,361,WR,CIN
+KaVontae Turpin,362,WR,DAL
 Jeff Caldwell,363,WR,KC
-KaVontae Turpin,364,WR,DAL
-Jam Miller,365,RB,FA
-Kendrick Law,366,WR,DET
+Jam Miller,364,RB,FA
+Kendrick Law,365,WR,DET
+Kalif Raymond,366,WR,CHI
 Roschon Johnson,367,RB,CHI
-Kalif Raymond,368,WR,CHI
-Rasheen Ali,369,RB,BAL
-Xavier Hutchinson,370,WR,HOU
-Austin Hooper,371,TE,ATL
-Seydou Traore,372,TE,MIA
-Tyren Montgomery,373,WR,TEN
-Josh Oliver,374,TE,MIN
-Kendrick Bourne,375,WR,ARI
-Dallen Bentley,376,TE,DEN
-J. Michael Sturdivant,377,WR,GB
-Josh Cuevas,378,TE,BAL
+Rasheen Ali,368,RB,BAL
+Xavier Hutchinson,369,WR,HOU
+Austin Hooper,370,TE,ATL
+Seydou Traore,371,TE,MIA
+Tyren Montgomery,372,WR,TEN
+Josh Oliver,373,TE,MIN
+Kendrick Bourne,374,WR,ARI
+Dallen Bentley,375,TE,DEN
+J. Michael Sturdivant,376,WR,GB
+Josh Cuevas,377,TE,BAL
+Deion Burks,378,WR,IND
 Zach Ertz,379,TE,FA
 Riley Nowakowski,380,TE,PIT
 Jelani Woods,381,TE,NYJ
@@ -392,28 +392,28 @@ Jordan Watkins,390,WR,SF
 Tommy Tremble,391,TE,CAR
 Brock Wright,392,TE,DET
 Drew Sample,393,TE,CIN
-Cade Klubnik,394,QB,NYJ
-Bam Knight,395,RB,ARI
-Drew Allar,396,QB,PIT
-Kareem Hunt,397,RB,FA
-Daniel Bellinger,398,TE,TEN
-Odell Beckham Jr.,399,WR,NYG
-Tanner Hudson,400,TE,CIN
-Thomas Fidone II,401,TE,NYG
-Jared Wiley,402,TE,KC
-Dean Connors,403,RB,LAR
-Vinny Anthony II,404,WR,ATL
-Michael Trigg,405,TE,DAL
-Durham Smythe,406,TE,BAL
-Greg Dortch,407,WR,BUF
-Luke Schoonmaker,408,TE,DAL
-Taylen Green,409,QB,CLE
-Mo Alie-Cox,410,TE,IND
-Phil Mafah,411,RB,FA
-Josh Whyle,412,TE,GB
-Garrett Nussmeier,413,QB,KC
-Ashton Dulin,414,WR,IND
-Efton Chism III,415,WR,NE
+Bam Knight,394,RB,ARI
+Kareem Hunt,395,RB,FA
+Daniel Bellinger,396,TE,TEN
+Odell Beckham Jr.,397,WR,NYG
+Tanner Hudson,398,TE,CIN
+Thomas Fidone II,399,TE,NYG
+Jared Wiley,400,TE,KC
+Dean Connors,401,RB,LAR
+Vinny Anthony II,402,WR,ATL
+Durham Smythe,403,TE,BAL
+Greg Dortch,404,WR,BUF
+Luke Schoonmaker,405,TE,DAL
+Mo Alie-Cox,406,TE,IND
+Phil Mafah,407,RB,FA
+Josh Whyle,408,TE,GB
+Ashton Dulin,409,WR,IND
+Efton Chism III,410,WR,NE
+Cade Klubnik,411,QB,NYJ
+Drew Allar,412,QB,PIT
+Michael Trigg,413,TE,DAL
+Taylen Green,414,QB,CLE
+Garrett Nussmeier,415,QB,KC
 Will Howard,416,QB,PIT
 Brandon Polk,417,WR,FA
 Reggie Virgil,418,WR,ARI
@@ -422,126 +422,124 @@ Marcus Mariota,420,QB,WAS
 Dae'Quan Wright,421,TE,FA
 Kaden Wetjen,422,WR,PIT
 Joe Mixon,423,RB,FA
-Jeremy McNichols,424,RB,WAS
-Aaron Anderson,425,WR,FA
-Spencer Rattler,426,QB,NO
-Tyler Conklin,427,TE,DET
+Aaron Anderson,424,WR,FA
+Spencer Rattler,425,QB,NO
+Tyler Conklin,426,TE,DET
+Jeremy McNichols,427,RB,WAS
 Jaydn Ott,428,RB,KC
-Jawhar Jordan,429,RB,HOU
-Tanner McKee,430,QB,PHI
-Davis Mills,431,QB,HOU
-Cade Stover,432,TE,HOU
-Eric McAlister,433,WR,FA
-Riley Leonard,434,QB,IND
-Dameon Pierce,435,RB,PHI
-Grant Calcaterra,436,TE,PHI
-John Michael Gyllenborg,437,TE,KC
-Will Levis,438,QB,FA
-Dillon Gabriel,439,QB,CLE
-Kenny Pickett,440,QB,CAR
-Terion Stewart,441,RB,KC
-Jeremy Ruckert,442,TE,NYJ
-Jahdae Walker,443,WR,CHI
-Joe Flacco,444,QB,CIN
-Mason Rudolph,445,QB,PIT
-Gardner Minshew II,446,QB,ARI
-Zach Wilson,447,QB,NO
-Raheem Mostert,448,RB,LV
-Jimmy Horn Jr.,449,WR,CAR
-Bo Melton,450,WR,GB
-Elijah Moore,451,WR,PHI
-Hunter Long,452,TE,ARI
-Julian Hill,453,TE,NE
-Trey Lance,454,QB,LAC
-Jake Browning,455,QB,FA
-Sam Howell,456,QB,DAL
-Mitchell Trubisky,457,QB,TEN
-Jalin Hyatt,458,WR,NYG
-Curtis Samuel,459,WR,FA
-Trey Palmer,460,WR,NO
-Jacob Cowing,461,WR,SF
-Taysom Hill,462,TE,FA
-Isaiah Hodgins,463,WR,FA
-RJ Maryland,464,TE,GB
-Foster Moreau,465,TE,HOU
-Van Jefferson,466,WR,FA
-Brevin Jordan,467,TE,HOU
-Xavier Restrepo,468,WR,FA
-Austin Ekeler,469,RB,FA
-Gabe Davis,470,WR,FA
-Antonio Gibson,471,RB,FA
-Tyrell Shavers,472,WR,BUF
-Theo Wease Jr.,473,WR,FA
-Ty Chandler,474,RB,NO
-Tyler Lockett,475,WR,LV
-Diontae Johnson,476,WR,FA
-Brandin Cooks,477,WR,FA
-Jermaine Burton,478,WR,FA
+Tanner McKee,429,QB,PHI
+Davis Mills,430,QB,HOU
+Cade Stover,431,TE,HOU
+Eric McAlister,432,WR,FA
+Riley Leonard,433,QB,IND
+Jawhar Jordan,434,RB,HOU
+Grant Calcaterra,435,TE,PHI
+John Michael Gyllenborg,436,TE,KC
+Will Levis,437,QB,FA
+Dillon Gabriel,438,QB,CLE
+Kenny Pickett,439,QB,CAR
+Dameon Pierce,440,RB,PHI
+Jeremy Ruckert,441,TE,NYJ
+Jahdae Walker,442,WR,CHI
+Joe Flacco,443,QB,CIN
+Mason Rudolph,444,QB,PIT
+Gardner Minshew II,445,QB,ARI
+Zach Wilson,446,QB,NO
+Terion Stewart,447,RB,FA
+Jimmy Horn Jr.,448,WR,CAR
+Bo Melton,449,WR,GB
+Elijah Moore,450,WR,PHI
+Hunter Long,451,TE,ARI
+Julian Hill,452,TE,NE
+Trey Lance,453,QB,LAC
+Jake Browning,454,QB,FA
+Sam Howell,455,QB,DAL
+Mitchell Trubisky,456,QB,TEN
+Jalin Hyatt,457,WR,NYG
+Curtis Samuel,458,WR,FA
+Trey Palmer,459,WR,NO
+Jacob Cowing,460,WR,SF
+Taysom Hill,461,TE,FA
+Isaiah Hodgins,462,WR,FA
+RJ Maryland,463,TE,GB
+Foster Moreau,464,TE,HOU
+Van Jefferson,465,WR,FA
+Brevin Jordan,466,TE,HOU
+Xavier Restrepo,467,WR,TEN
+Raheem Mostert,468,RB,LV
+Gabe Davis,469,WR,FA
+Austin Ekeler,470,RB,FA
+Tyrell Shavers,471,WR,BUF
+Theo Wease Jr.,472,WR,FA
+Antonio Gibson,473,RB,FA
+Tyler Lockett,474,WR,LV
+Diontae Johnson,475,WR,FA
+Brandin Cooks,476,WR,FA
+Jermaine Burton,477,WR,FA
+Ty Chandler,478,RB,NO
 Miles Sanders,479,RB,FA
 Elijah Mitchell,480,RB,FA
 Zack Moss,481,RB,FA
 Damien Martinez,482,RB,FA
 Alexander Mattison,483,RB,FA
-Sincere McCormick,484,RB,SF
-Dane Key,485,WR,DEN
-Harrison Wallace III,486,WR,ARI
-Romello Brinson,487,WR,FA
-Khalil Herbert,488,RB,FA
-Noah Thomas,489,WR,CIN
+Dane Key,484,WR,DEN
+Harrison Wallace III,485,WR,ARI
+Romello Brinson,486,WR,FA
+Sincere McCormick,487,RB,SF
+Noah Thomas,488,WR,CIN
+Khalil Herbert,489,RB,FA
 Zamir White,490,RB,NO
 CJ Donaldson,491,RB,NO
 Noah Whittington,492,RB,HOU
 Daylan Smothers,493,RB,FA
 Desmond Reid,494,RB,FA
-Rahsul Faison,495,RB,FA
-Trebor Pena,496,WR,JAC
-Mark Fletcher,497,RB,FA
-Malachi Corley,498,WR,CLE
-Joshua Dobbs,499,QB,DET
-Chip Trayanum,500,RB,NYJ
-Davis Allen,501,TE,LAR
-Tyler Huntley,502,QB,BAL
-Javon Baker,503,WR,FA
-Will Dissly,504,TE,FA
-Jackson Hawes,505,TE,BUF
-Jake Bobo,506,WR,SEA
-Aidan O'Connell,507,QB,LV
-Isaiah Williams,508,WR,FA
-Noah Brown,509,WR,FA
-Josh Reynolds,510,WR,FA
-JuJu Smith-Schuster,511,WR,FA
-Sterling Shepard,512,WR,FA
-Dohnte Meyers,513,WR,CIN
-Damien Alford,514,WR,FA
-Jared Wayne,515,WR,HOU
-Kevin Austin Jr.,516,WR,FA
-Lil'Jordan Humphrey,517,WR,DEN
-Jamari Thrash,518,WR,CLE
-Marquez Valdes-Scantling,519,WR,FA
-Arian Smith,520,WR,NYJ
-Tim Patrick,521,WR,NYJ
-Mitch Tinsley,522,WR,HOU
-Zay Jones,523,WR,FA
-Darius Cooper,524,WR,PHI
-Jonathan Mingo,525,WR,DAL
-Tyler Johnson,526,WR,FA
-Nick Nash,527,WR,FA
-Tyler Scott,528,WR,FA
-David Moore,529,WR,CAR
-Allen Lazard,530,WR,FA
-Cedrick Wilson Jr.,531,WR,FA
-Casey Washington,532,WR,CAR
-Chris Moore,533,WR,BAL
-Ricky White III,534,WR,SEA
-Ray-Ray McCloud III,535,WR,CHI
-Dante Pettis,536,WR,FA
-Scotty Miller,537,WR,CHI
-Ben Skowronek,538,WR,PIT
-Michael Bandy,539,WR,DEN
-Shedrick Jackson,540,WR,FA
-Xavier Smith,541,WR,LAR
-Johnny Wilson,542,WR,PHI
-David Sills V,543,WR,TB
-Henry Ruggs III,544,WR,FA
-Skyy Moore,545,WR,GB
-Isaiah Williams,546,WR,NYJ
+Trebor Pena,495,WR,JAC
+Rahsul Faison,496,RB,FA
+Malachi Corley,497,WR,CLE
+Joshua Dobbs,498,QB,DET
+Mark Fletcher,499,RB,FA
+Davis Allen,500,TE,LAR
+Tyler Huntley,501,QB,BAL
+Javon Baker,502,WR,FA
+Will Dissly,503,TE,FA
+Jackson Hawes,504,TE,BUF
+Jake Bobo,505,WR,SEA
+Aidan O'Connell,506,QB,LV
+Isaiah Williams,507,WR,FA
+Noah Brown,508,WR,FA
+Josh Reynolds,509,WR,FA
+JuJu Smith-Schuster,510,WR,FA
+Sterling Shepard,511,WR,FA
+Dohnte Meyers,512,WR,CIN
+Damien Alford,513,WR,FA
+Jared Wayne,514,WR,HOU
+Kevin Austin Jr.,515,WR,FA
+Lil'Jordan Humphrey,516,WR,DEN
+Jamari Thrash,517,WR,CLE
+Marquez Valdes-Scantling,518,WR,FA
+Arian Smith,519,WR,NYJ
+Tim Patrick,520,WR,NYJ
+Mitch Tinsley,521,WR,HOU
+Zay Jones,522,WR,FA
+Darius Cooper,523,WR,PHI
+Jonathan Mingo,524,WR,DAL
+Tyler Johnson,525,WR,FA
+Nick Nash,526,WR,FA
+Tyler Scott,527,WR,FA
+David Moore,528,WR,CAR
+Allen Lazard,529,WR,FA
+Cedrick Wilson Jr.,530,WR,FA
+Casey Washington,531,WR,CAR
+Chris Moore,532,WR,BAL
+Ricky White III,533,WR,SEA
+Ray-Ray McCloud III,534,WR,CHI
+Dante Pettis,535,WR,FA
+Scotty Miller,536,WR,CHI
+Ben Skowronek,537,WR,PIT
+Michael Bandy,538,WR,DEN
+Shedrick Jackson,539,WR,FA
+Xavier Smith,540,WR,LAR
+Johnny Wilson,541,WR,PHI
+David Sills V,542,WR,TB
+Henry Ruggs III,543,WR,FA
+Skyy Moore,544,WR,GB
