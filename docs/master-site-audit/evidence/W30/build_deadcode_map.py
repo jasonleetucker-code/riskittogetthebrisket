@@ -150,7 +150,7 @@ add(
     "playoff spots, 12 vs 8 owners, contradictory answers for 2 teams",
     "/league Playoff Odds tab, toggled by settings.useRosPlayoffOdds (default TRUE)",
     "replace",
-    "two answers to one question with no on-page statement of which engine produced " "the number",
+    "two answers to one question with no on-page statement of which engine produced the number",
 )
 add(
     "D-031",
@@ -166,15 +166,12 @@ add(
     "D-032",
     "duplicate service",
     "Three Python ports of KTC adjustPackage",
-    "src/trade/ktc_va.py, src/trade/market_value_adjustment.py, "
-    "src/public_league/trade_grading.py",
+    "src/trade/ktc_va.py, src/trade/market_value_adjustment.py, src/public_league/trade_grading.py",
     "38/20000 random packages diverge by exactly 1 between ktc_va (Python round) and "
     "the other two (floor(x+0.5))",
-    "trade suggestions + angle + MC (port A); arbitrage finder (port B); "
-    "public-league grades (port C)",
+    "trade suggestions + angle + MC (port A); arbitrage finder (port B); public-league grades (port C)",
     "replace",
-    "one algorithm, three copies, one of them with the rounding bug the other two "
-    "explicitly document fixing",
+    "one algorithm, three copies, one of them with the rounding bug the other two explicitly document fixing",
 )
 add(
     "D-033",
@@ -182,24 +179,21 @@ add(
     "Five percentile helpers",
     "src/public_league/power.py:52, src/sharp/score.py:191, src/ros/power_v2.py:99, "
     "src/roster_intel/window.py:228+238 (twice inline), src/roster_intel/profiles.py:86",
-    "at n=12 the extremes read 0.0/1.0 vs 0.0417/0.9583; empty population reads 0.5 " "vs 0.0",
+    "at n=12 the extremes read 0.0/1.0 vs 0.0417/0.9583; empty population reads 0.5 vs 0.0",
     "F-090, F-140, F-091, F-072, F-062",
     "replace",
-    "no canonical definition exists; the registry already calls this "
-    "'documented-divergence' but names it as five, not four-plus-an-index",
+    "no canonical definition exists; the registry already calls this 'documented-divergence' but names it as five, not four-plus-an-index",
 )
 add(
     "D-034",
     "duplicate service",
     "Six contender/rebuilder classifiers",
     "frontend/lib/team-phase.js, src/ros/direction.py, src/roster_intel/window.py, "
-    "src/bdvm/roster.py, src/trade/suggestions.py:803, "
-    "frontend/lib/league-analysis.js:1146",
+    "src/bdvm/roster.py, src/trade/suggestions.py:803, frontend/lib/league-analysis.js:1146",
     "4, 7, 5, 3, 3 and 3 label sets respectively over four different input families",
     "/phases, /league, /api/gameplan, /bdvm, /trade, /rosters",
     "adapt",
-    "some divergence is legitimate (a player-level tag is not a team classifier), but "
-    "'contender' means six different things across six surfaces",
+    "some divergence is legitimate (a player-level tag is not a team classifier), but 'contender' means six different things across six surfaces",
 )
 add(
     "D-035",
@@ -207,23 +201,20 @@ add(
     "Four replacement levels",
     "src/league_intel/replacement.py, src/scoring/replacement_level.py, "
     "src/bdvm/replacement.py, src/league_comparison/metrics.py",
-    "value points vs PPG vs PPG vs season points; endogenous flex vs preassigned "
-    "1/3 split vs greedy allocation vs single-rank",
+    "value points vs PPG vs PPG vs season points; endogenous flex vs preassigned 1/3 split vs greedy allocation vs single-rank",
     "/api/gameplan, awards, /api/bdvm/*, /league-comparison",
     "adapt",
-    "different units make three of them genuinely different concepts; the flex "
-    "convention split (endogenous vs preassigned) is not",
+    "different units make three of them genuinely different concepts; the flex convention split (endogenous vs preassigned) is not",
 )
 add(
     "D-036",
     "duplicate service",
     "Two detect_tiers",
     "src/canonical/player_valuation.py:202 vs src/scoring/tiering.py:201",
-    "identical function name, different math (rolling-median gap vs pool-normalized "
-    "effect size)",
+    "identical function name, different math (rolling-median gap vs pool-normalized effect size)",
     "data_contract.py:2033 (live) vs refit script only",
     "deprecate",
-    "the scoring/ copy is behind positional_tiers, which feature_flags.py:410 marks " "NO_GATE",
+    "the scoring/ copy is behind positional_tiers, which feature_flags.py:410 marks NO_GATE",
 )
 add(
     "D-037",
@@ -240,8 +231,7 @@ add(
     "duplicate schema",
     "Auction power: Python module vs JS mirror",
     "src/api/auction_power.py (170L) vs frontend/lib/auction-power.js",
-    "zero Python importers anywhere; the JS file's own header calls itself a mirror "
-    "of the Python",
+    "zero Python importers anywhere; the JS file's own header calls itself a mirror of the Python",
     "frontend only",
     "deprecate",
     "the 'mirror' is the only live implementation; the original is dead",
@@ -250,8 +240,7 @@ add(
     "D-039",
     "duplicate schema",
     "Source registry mirrored in Python and JS",
-    "src/api/data_contract.py::_RANKING_SOURCES vs "
-    "frontend/lib/dynasty-data.js::RANKING_SOURCES",
+    "src/api/data_contract.py::_RANKING_SOURCES vs frontend/lib/dynasty-data.js::RANKING_SOURCES",
     "tests/api/test_source_registry_parity.py parses the JS and diffs",
     "both",
     "retain",
@@ -264,7 +253,7 @@ add(
     "obsolete flag",
     "value_confidence_intervals",
     "src/api/feature_flags.py:63, :409",
-    "self-declared NO_GATE; src/canonical/confidence_intervals.py has zero production " "importers",
+    "self-declared NO_GATE; src/canonical/confidence_intervals.py has zero production importers",
     "nothing",
     "deprecate",
     "a flag that gates nothing over dead code",
@@ -323,9 +312,8 @@ add(
     "D-056",
     "stale default vs comment",
     "useRosPowerRankings / useRosPlayoffOdds",
-    "frontend/components/useSettings.js:143,:148 vs " "frontend/app/league/LeagueClient.jsx:100",
-    "both default TRUE; the comment three lines from the read says "
-    "'false until validated per-user'",
+    "frontend/components/useSettings.js:143,:148 vs frontend/app/league/LeagueClient.jsx:100",
+    "both default TRUE; the comment three lines from the read says 'false until validated per-user'",
     "/league",
     "replace",
     "the comment describes the opposite of the shipped default",
@@ -347,12 +335,10 @@ add(
     "generated output as source",
     "data/ tracked files",
     "data/",
-    "8,198 files tracked; data/ros/ is re-included by .gitignore and "
-    "refresh workflows git add -f",
+    "8,198 files tracked; data/ros/ is re-included by .gitignore and refresh workflows git add -f",
     "runtime reads",
     "adapt",
-    "pipeline output living in version control; CLAUDE.md documents it, which makes "
-    "it deliberate rather than accidental",
+    "pipeline output living in version control; CLAUDE.md documents it, which makes it deliberate rather than accidental",
 )
 
 # ── mock data reachable in production ────────────────────────────────
@@ -361,8 +347,7 @@ add(
     "mock data",
     "no mock/fixture data path reachable from a live route",
     "-",
-    "grep MOCK/FAKE/dummy/sample_data over src/ + server.py excluding tests: "
-    "only genuine SQL placeholder helpers and BDVM 'placeholder prior' comments",
+    "grep MOCK/FAKE/dummy/sample_data over src/ + server.py excluding tests: only genuine SQL placeholder helpers and BDVM 'placeholder prior' comments",
     "-",
     "retain",
     "clean — recorded because the absence is the finding",
@@ -393,8 +378,7 @@ add(
     "D-080",
     "table",
     "21 tables created by CREATE TABLE IF NOT EXISTS",
-    "src/intel/ledger.py, src/intel/platform_ledger.py, src/sharp/roster_store.py, "
-    "src/consensus_edge/snapshot.py, src/api/user_kv.py",
+    "src/intel/ledger.py, src/intel/platform_ledger.py, src/sharp/roster_store.py, src/consensus_edge/snapshot.py, src/api/user_kv.py",
     "every table name has >=4 non-DDL references; none is orphaned",
     "-",
     "retain",
@@ -405,23 +389,19 @@ add(
     "schema versioning gap",
     "sharp roster tables outside the migration",
     "src/sharp/roster_store.py",
-    "plain CREATE TABLE IF NOT EXISTS, deliberately NOT wired to "
-    "platform_ledger.PLATFORM_SCHEMA_VERSION",
+    "plain CREATE TABLE IF NOT EXISTS, deliberately NOT wired to platform_ledger.PLATFORM_SCHEMA_VERSION",
     "sharp roster crawl",
     "retain",
-    "documented tradeoff: bumping the version re-runs the whole platform migration "
-    "to add four additive tables",
+    "documented tradeoff: bumping the version re-runs the whole platform migration to add four additive tables",
 )
 
 # ── unused scheduled jobs ────────────────────────────────────────────
 add(
     "D-090",
     "scheduled job",
-    "trigger-sharp-now-via-merge.yml / "
-    "trigger-sharp-no-environment.yml / force-sharp-production-now.yml / "
-    "check-sharp-production-now.yml",
+    "trigger-sharp-now-via-merge.yml / trigger-sharp-no-environment.yml / force-sharp-production-now.yml / check-sharp-production-now.yml",
     ".github/workflows/",
-    "four one-off manual-trigger workflows for the same " "sharp-production bring-up",
+    "four one-off manual-trigger workflows for the same sharp-production bring-up",
     "GitHub Actions",
     "deprecate",
     "operational scaffolding from one incident, still in the workflow list",
@@ -434,8 +414,7 @@ add(
     "runs weekly; produces a CHALLENGER only — promotion is a human step",
     "config/model_registry/",
     "retain",
-    "verified live: championVersion 2 params match the committed constants exactly, "
-    "and v3 was correctly rejected for not clearing the 25-point margin",
+    "verified live: championVersion 2 params match the committed constants exactly, and v3 was correctly rejected for not clearing the 25-point margin",
 )
 
 # ── unused source adapters ───────────────────────────────────────────
@@ -444,8 +423,7 @@ add(
     "source adapter",
     "ScraperBridgeAdapter",
     "src/adapters/scraper_bridge_adapter.py",
-    "zero references outside tests and src/adapters/__init__.py; CLAUDE.md:895 "
-    "claims 'live (server.py)'",
+    "zero references outside tests and src/adapters/__init__.py; CLAUDE.md:895 claims 'live (server.py)'",
     "tests only",
     "deprecate",
     "documentation asserts a production wiring that does not exist",
@@ -477,7 +455,7 @@ add(
     "unreachable page",
     "/design",
     "frontend/app/design/page.jsx",
-    "not in NAV_MODEL, SYSTEM_MODEL or " "PALETTE_EXTRA_TARGETS",
+    "not in NAV_MODEL, SYSTEM_MODEL or PALETTE_EXTRA_TARGETS",
     "direct URL only",
     "retain",
     "a design-system reference page; deliberate",
@@ -494,13 +472,13 @@ add(
 )
 add(
     "D-112",
-    "dead nav target",
+    "live redirect target (RE-VERIFIED 2026-08-20, corrected)",
     "/draft-capital",
     "frontend/lib/nav-model.js:391",
-    "no frontend/app/draft-capital directory exists",
-    "pageTitleFor label lookup only (not paletteTargets)",
-    "deprecate",
-    "vestigial title mapping for a removed page; harmless but misleading",
+    "no frontend/app/draft-capital directory exists, but frontend/__tests__/nav-model.test.js:25 and public-routes.test.js document + pin it as a legacy routing-layer 308 redirect declared in next.config.mjs (not a page directory) that public-routes.test.js explicitly keeps public (isPublicPath('/draft-capital') === true)",
+    "pageTitleFor label lookup only (not paletteTargets); the redirect itself is routing-layer, not a page component",
+    "retain",
+    "NOT dead -- a page-directory absence is not evidence of dead code once a route can be declared outside app/ (next.config.mjs redirects). This later C10 reachability audit supersedes the original census conclusion.",
 )
 add(
     "D-113",
@@ -516,14 +494,13 @@ add(
 # ── modules with no production importer ──────────────────────────────
 add(
     "D-120",
-    "dead module",
+    "dead module (RE-VERIFIED 2026-08-20, corrected)",
     "src/api/chat.py",
     "src/api/chat.py",
-    "GET and POST /api/chat both return 404 on the running server; "
-    "/api/chat is absent from evidence/openapi.json's 100 ops; no importer",
+    "still zero production importers and /api/chat remains unwired, but tests/api/test_chat_layers_are_consistently_wired.py is a live passing guard that pins all three chat layers deliberately unwired pending the product decision",
     "nothing",
-    "deprecate",
-    "the module docstring describes a 'single private endpoint' that is not registered",
+    "retain (deliberately orphaned, guard-tested)",
+    "a newer, more specific guard-tested product decision supersedes the original deprecate disposition; deleting this module would break that settled decision",
 )
 add(
     "D-121",
@@ -533,8 +510,7 @@ add(
     "zero importers in src/, server.py or scripts/",
     "nothing",
     "deprecate",
-    "its docstring claims to be the 'single entry point for every BUY/SELL/HOLD "
-    "decision emitted to users'; four other producers ship and it ships nothing",
+    "its docstring claims to be the 'single entry point for every BUY/SELL/HOLD decision emitted to users'; four other producers ship and it ships nothing",
 )
 add(
     "D-122",
@@ -581,8 +557,7 @@ add(
     "dead module",
     "src/nfl_data/freshness.py (transitively)",
     "src/nfl_data/freshness.py",
-    "only importer is src/news/usage_signals.py, whose only importer is "
-    "scripts/audit/measure_usage_signal_rate.py",
+    "only importer is src/news/usage_signals.py, whose only importer is scripts/audit/measure_usage_signal_rate.py",
     "scripts only",
     "adapt",
     "the 'do not trust current-week data until Thursday' guard is not on any live path",
@@ -590,11 +565,9 @@ add(
 add(
     "D-127",
     "dead function",
-    "calibrate_canonical_values + _pick_curve_value + "
-    "_build_legacy_pick_lookup + get_calibration_params + _parse_pick_info",
+    "calibrate_canonical_values + _pick_curve_value + _build_legacy_pick_lookup + get_calibration_params + _parse_pick_info",
     "src/canonical/calibration.py",
-    "symbol scan over src/, server.py, scripts/: 0 production references for 5 of 7 "
-    "functions; only to_display_value and _is_pick are live",
+    "symbol scan over src/, server.py, scripts/: 0 production references for 5 of 7 functions; only to_display_value and _is_pick are live",
     "src/trade/suggestions.py:26 (to_display_value only)",
     "deprecate",
     "the legacy calibration pipeline is held alive entirely by its own tests",
@@ -612,15 +585,12 @@ add(
 add(
     "D-129",
     "dead module",
-    "src/roster_intel/roster_source.py, src/ros/tags.py, "
-    "src/nfl_data/{opportunity_stats,usage_windows,reception_shape_projection,"
-    "injury_feed}.py, src/platforms/sleeper.py, src/bdvm/backtest.py",
+    "src/roster_intel/roster_source.py, src/ros/tags.py, src/nfl_data/{opportunity_stats,usage_windows,reception_shape_projection,injury_feed}.py, src/platforms/sleeper.py, src/bdvm/backtest.py",
     "various",
-    "AST import closure from server.py + scripts/ + Dynasty Scraper.py "
-    "reaches none of them (evidence/W30/module-reachability.json)",
+    "AST import closure from server.py + scripts/ + Dynasty Scraper.py reaches none of them (evidence/W30/module-reachability.json)",
     "tests only",
     "adapt",
-    "30 of 300 src modules are unreachable from any entry point; 27 more are " "script-only",
+    "30 of 300 src modules are unreachable from any entry point; 27 more are script-only",
 )
 add(
     "D-130",
@@ -639,8 +609,7 @@ add(
     "partially-applied fix",
     "DEFAULT_STARTER_NEEDS hardcode",
     "src/trade/suggestions.py:882, :921, :1026",
-    "starter_needs_for_league('dynasty_new') returns TE 1; all three sites read "
-    "DEFAULT_STARTER_NEEDS['TE'] = 2",
+    "starter_needs_for_league('dynasty_new') returns TE 1; all three sites read DEFAULT_STARTER_NEEDS['TE'] = 2",
     "POST /api/trade/suggestions",
     "replace",
     "the per-league derivation landed but three call sites were not converted",
@@ -650,8 +619,7 @@ add(
     "stale registry entry",
     "docs/audits/formula-registry.json starter-slots",
     "docs/audits/formula-registry.json",
-    "names frontend/lib/league-analysis.js::STARTER_SLOTS (now only a comment) and "
-    "frontend/lib/portfolio-insights.js::defaultSlots (absent) as live duplicates",
+    "names frontend/lib/league-analysis.js::STARTER_SLOTS (now only a comment) and frontend/lib/portfolio-insights.js::defaultSlots (absent) as live duplicates",
     "tests/audit/test_formula_registry.py checks FILES exist, not constructs",
     "replace",
     "the registry's file-existence test cannot catch a stale construct name",
