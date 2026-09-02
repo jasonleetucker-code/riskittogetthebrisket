@@ -3446,6 +3446,7 @@ body:has(.trade-sticky-tray) .screenshot-fab {
 .team-switcher-option {
   display: flex;
   width: 100%;
+  min-height: 44px;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
@@ -3456,6 +3457,8 @@ body:has(.trade-sticky-tray) .screenshot-fab {
   font-size: 0.82rem;
   text-align: left;
   cursor: pointer;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
   transition: background 0.12s, color 0.12s;
 }
 .team-switcher-option:hover {
@@ -3503,20 +3506,29 @@ body:has(.trade-sticky-tray) .screenshot-fab {
    below ``x = 0`` and the team names rendered cut-off. */
 .team-switcher--mobile .team-switcher-toggle {
   font-size: 0.72rem;
+  min-height: 44px;
   padding: 4px 8px;
   max-width: 140px;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
 }
 .team-switcher--mobile .team-switcher-menu {
   /* Pin to the viewport, leave 12px margin each side.  Min-width
      covers the case where the topbar is partially off-screen
      (rotation, system-bar overlap). */
   position: fixed;
-  top: var(--mobile-topbar-h, 56px);
+  top: calc(
+    var(--mobile-topbar-h, 46px) + env(safe-area-inset-top, 0px) + 4px
+  );
   left: 12px;
   right: 12px;
   min-width: 220px;
   max-width: calc(100vw - 24px);
-  max-height: 70vh;
+  max-height: calc(
+    100dvh - var(--mobile-topbar-h, 46px) - var(--mobile-nav-h, 56px) -
+      env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px) - 24px
+  );
+  overscroll-behavior: contain;
 }
 
 /* ── League switcher ──────────────────────────────────────────────
@@ -3615,8 +3627,11 @@ body:has(.trade-sticky-tray) .screenshot-fab {
 }
 .league-switcher--mobile .league-switcher-toggle {
   font-size: 0.72rem;
+  min-height: 44px;
   padding: 4px 8px;
   max-width: 120px;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
 }
 .league-switcher--mobile .league-switcher-menu {
   min-width: 200px;
