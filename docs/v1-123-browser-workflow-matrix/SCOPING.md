@@ -54,15 +54,15 @@ Every route the shell nav actually offers (`frontend/lib/nav-model.js`, 33 top-l
 | Universal Player Profile | player detail overlay (opened from a rankings row, no dedicated URL) | none | **gap** |
 | Trade Calculator / Trade Desk / 3+ team | `/trade` | 2-team, desktop, populated | **partial** — 3+ team and mobile untested; Trade Desk is POST-V1 (no surface exists — see `V1-45`'s boundary ruling) |
 | Trade Finder / Suggestions / Package Builder | `/arbitrage` (Finder), `/angle` (Package Builder); Suggestions is embedded in `/trade` | none | **gap** |
-| Waivers / FAAB / Perfect Waivers | `/waivers` | populated, but with the named team-selection gap | **partial** — needs the `V1-56` follow-up + a "Perfect Waivers" definition check (no distinct route found; likely a `/waivers` section — confirm before scoping it separately) |
+| Waivers / FAAB / Perfect Waivers | `/waivers` | populated, but with the named team-selection gap | **`/waivers`: partial** — needs the `V1-56` follow-up. **Perfect Waivers itself: N/A — POST-V1**, per §4.2/§4.3 (`C7-WAIV-01`, "inv 3.3 Perfect Waivers" — a real but unbuilt future optimizer, no route exists to test). |
 | Draft / Perfect Draft / pick tools | `/draft`, `/draft-capital` (folds into `/league?tab=draft-capital`) | `/draft` type-floor only (mobile) | **gap** — Perfect Draft itself (the auction optimizer) has zero prod-auth coverage despite a rich local spec (`journey-perfect-draft.spec.js`) to port from |
 | Team/Roster intelligence | `/rosters`, `/league?tab=ros-team-strength` | `/rosters` lineup + capacity-identity only | **partial** — Team Strength/Weakness tab uncovered |
 | Market / Sharp / Insider / Analyst Intelligence | `/edge`, `/consensus-edge`, `/market/sharp-tracker`, `/market/sharp-roster-percentage`, `/league/insider-trading`, `/league-comparison` | Sharp Tracker only; `/consensus-edge` reachability only (no content assertion) | **gap** — Sharp Roster Percentage, Source Disagreement, Insider Trading, League Comparison all uncovered |
-| Playoff / Power / Game Day | `/league?tab=ros-championship` (playoff), `/league?tab=ros-power` (power) | none | **gap** — and "Game Day" has **no shipped route or section file** (`frontend/app/league/sections/` has no `game-day.jsx`; matches `docs/WORK_CLAIMS.md`'s `C5-GD-02`, which is mid-construction, no live consumer). Recommend recording Game Day as **N/A — not yet a real surface** rather than a coverage gap, and re-scoping it once it ships. |
+| Playoff / Power / Game Day | `/league?tab=ros-championship` (playoff), `/league?tab=ros-power` (power) | none | **playoff/power: gap.** Game Day: **N/A — POST-V1**, per `docs/VERSION_1_COMPLETION_CONTRACT.md` §4.1 (`C5-GD-01`/`CE-20`/`C5-GD-02`, owner-named-out 2026-08-18). Confirmed independently: no shipped route or section file exists (`frontend/app/league/sections/` has no `game-day.jsx`). Not a coverage gap to close — out of this row's denominator by scope, not by omission. |
 | Command Center / Portfolio | `/` (home dashboard / "war-room surface") | none in prod-auth (touched only by local `signed-in-smoke.spec.js`) | **gap** |
 | authenticated League navigation | `/league` + its `?tab=` fan-out, signed in | `v1-131` covers the shell's nav *offer* (menus, capability gating), not `/league` tab *content* | **partial** |
 | public League surfaces | `/league`, `/league/activity`, `/league/articles`, `/league/franchise`, `/league/rivalry`, `/league/week`, `/league/weekly` (public — no session needed) | none against real production (strong LOCAL coverage: `public-league.spec.js`, `public-league-visual.spec.js`) | **gap for production**, but cheapest to close — no `guest_pass` required, a plain fetch/navigate suffices, same posture as this session's direct `/api/public/league/*` checks |
-| Upside Report / Awards / history / sharing | `/league?tab=awards`, `?tab=history`, `?tab=archives`; "sharing" = the `.screenshot-fab` save-as-image control seen on `/trade` and `/more` this session | none against production | **gap** — "Upside Report" has no obvious 1:1 section-file match; confirm what it names before scoping (candidate: `overview.jsx`, or it may be marketing copy for the terminal itself) |
+| Upside Report / Awards / history / sharing | `/league?tab=awards`, `?tab=history`, `?tab=archives`; "sharing" = the `.screenshot-fab` save-as-image control seen on `/trade` and `/more` this session | none against production | **Awards/history/archives/sharing: gap.** "Upside Report" itself: **N/A — POST-V1**, per §4.1's "Wrapped / reporting" group (`C9-UR-01/02`, owner-named-out 2026-08-18). No section file names it because it hasn't shipped, not because it's unidentified. |
 
 ## 3. What "populated/empty/stale/error" means here, honestly
 
@@ -106,26 +106,25 @@ machinery), Source Disagreement (`/edge` — the `V1-131` spec already proves th
 is reachable; this phase asserts real board content), Insider Trading, League Comparison,
 Team Strength/Weakness tab, `/draft-capital`.
 
-**Phase 3 — confirm-before-scoping.** Game Day (record as N/A pending a real route), "Perfect
-Waivers" and "Upside Report" (confirm what these terms name in the current product before
-writing anything against them — do not guess a route).
+**Not in scope for this row — confirmed against `docs/VERSION_1_COMPLETION_CONTRACT.md` §4
+"POST-V1 DEFERRED", not merely absent from the shipped route table:**
 
-**Not in scope for this row:** Trade Desk (explicitly POST-V1 per `V1-45`'s boundary ruling —
-building prod-auth coverage for a surface that doesn't exist would be inventing evidence for
-nothing).
+| item | canonical id | §4 citation |
+|---|---|---|
+| Trade Desk | `C7-BEST-TRADE` / `#841` / `CE-05` | §4.2, L2 lane-continuation (also `V1-45`'s own boundary ruling) |
+| Game Day | `C5-GD-01` / `CE-20` / `C5-GD-02` | §4.1, named-out 2026-08-18 |
+| Perfect Waivers | `C7-WAIV-01` | §4.2 (L2) and §4.3 ("inv 3.3 Perfect Waivers") |
+| Upside Report | `C9-UR-01/02` | §4.1, "Wrapped / reporting" group |
 
-## 5. Open questions for a human decision before Phase 2/3 work starts
+All four are real, owner-approved future scope — "deferral is a scheduling statement, never a
+withdrawal" (§4's own framing) — but none of them exist as a testable production surface today,
+and none of them are required for V1-123's L4 bar. Building prod-auth coverage for a surface
+that doesn't exist would be inventing evidence for nothing, the same reasoning `V1-45` already
+established for Trade Desk. This resolves what an earlier draft of this document raised as three
+open questions (§5, now removed) — the answer was already in the canonical scope record and
+did not need a human decision.
 
-1. Does "Perfect Waivers" name a real, distinct feature, or is it prose describing `/waivers`'
-   existing manual add/drop calculator? If the latter, it's already inside Phase 0/1's
-   `/waivers` scope and needs no separate line.
-2. Same question for "Upside Report" — no section file matches it 1:1.
-3. Is Game Day expected to ship before V1-123 needs to close, or should this row's L4 bar be
-   read as "cover what exists today" with Game Day tracked as a known, dated gap? (`C5-GD-02`'s
-   own claim says its capture store has zero callers yet — this is a real product-readiness
-   question, not a testing one.)
-
-## 6. Status
+## 5. Status
 
 Scoping only. Nothing implemented. Next step, pending direction: start Phase 0 (public League
 surfaces) — no credentials needed, fastest path to real production evidence, and it establishes
