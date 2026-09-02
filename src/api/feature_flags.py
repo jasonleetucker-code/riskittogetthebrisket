@@ -9,12 +9,14 @@ enabled.**  This docstring, ``README.md`` and ``docs/ARCHITECTURE.md``
 all used to assert a blanket disabled-by-default rule, and
 ARCHITECTURE built a stronger claim on top of it about production
 behaviour being frozen until a flag was flipped.  Both were false:
-9 of the 20 entries in ``_DEFAULTS`` below are ``True`` —
+10 of the 20 entries in ``_DEFAULTS`` below are ``True`` —
 ``bdvm_engine``, ``te_basis_conversion`` (which reprices every tight
 end on the live board), ``monte_carlo_trade``, ``idp_scoring_fit``,
 ``reception_scoring_fit``, ``nfl_data_ingest``, ``realized_points_api``,
-``perfect_draft`` and ``ledger_rank_change`` — several with comments
-recording that the enabled default is deliberate.
+``perfect_draft``, ``ledger_rank_change`` and ``waiver_live_opportunity``
+(shadow-only — computes a second value alongside the canonical one and
+logs it; never changes what any caller is served) — several with
+comments recording that the enabled default is deliberate.
 
 **No live gate sits outside this registry any more.**  The last one —
 ``RISKIT_FEATURE_LEDGER_RANK_CHANGE``, read directly in
@@ -406,7 +408,21 @@ _DEFAULTS: Final[dict[str, bool]] = {
     # above: evaluation is not activation.  Promotion to the live bid is
     # a separate, later, human-reviewed step once the shadow log gives
     # outcome evidence — never automatic.
-    "waiver_live_opportunity": False,
+    #
+    # Stage 1 of the activation plan (docs/faab-live-opportunity-model.md
+    # §5a), started 2026-09-02: default flipped True so shadow comparisons
+    # begin accumulating in production rather than waiting on a second,
+    # separate deploy just to turn logging on.  Motivated by real evidence,
+    # not a guess — the 2026-09-01/02 overnight waiver results measured a
+    # genuine gap on several below-replacement players real managers paid
+    # $6-$19 for (docs/faab-redesign-2026-09-01-report.md §16), and ruling
+    # out a canonical-board defect on the same data left "the layer that
+    # isn't logging yet" as the best-supported explanation.  Still governed
+    # by ``_GATE_STATUS`` below, already ``LIVE`` for this key since the
+    # computation has been mechanically reachable since it shipped — this
+    # only changes whether it actually RUNS by default.  This does NOT
+    # change what any live user sees; see the docstring above.
+    "waiver_live_opportunity": True,
 }
 
 _ENV_PREFIX: Final[str] = "RISKIT_FEATURE_"

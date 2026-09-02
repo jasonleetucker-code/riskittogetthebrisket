@@ -778,7 +778,7 @@ def _with_stated_format(monkeypatch, *, scoring=None, evidence="fresh"):
     monkeypatch.setattr(
         server._league_registry,
         "scoring_settings_for_league",
-        lambda cfg: (dict(card) if card else None),
+        lambda cfg: dict(card) if card else None,
     )
     monkeypatch.setattr(
         server._league_registry,
@@ -948,10 +948,18 @@ def test_a_proven_te_premium_is_read_from_the_card_not_the_label(faab_env, monke
 # the live response — evaluation is not activation.
 
 
-def test_shadow_flag_off_by_default_and_response_unaffected(faab_env, monkeypatch):
+def test_shadow_flag_default_computes_but_response_still_ok(faab_env, monkeypatch):
+    """Stage 1 of the activation plan (docs/faab-live-opportunity-model.md
+    §5a, 2026-09-02) flipped this flag's default to True so shadow
+    comparisons accumulate without a second deploy — so, unlike before,
+    the shadow computation now runs by default.  The invariant this test
+    still owns is that a default-state call succeeds; whether the SHADOW
+    computation actually ran without touching the response is the
+    stronger guarantee `test_shadow_computation_never_changes_the_live_
+    response` below pins directly, at both flag states."""
     from src.api import feature_flags
 
-    assert feature_flags.is_enabled("waiver_live_opportunity") is False
+    assert feature_flags.is_enabled("waiver_live_opportunity") is True
     with TestClient(server.app) as c:
         res = _post(c, monkeypatch, {"addPlayerName": "Hot Pickup"})
     assert res.status_code == 200

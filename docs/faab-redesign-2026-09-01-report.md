@@ -373,5 +373,105 @@ No config or migration changes are required — this is a pure code fix.
 ### 15.6 Live Waiver Opportunity activation plan
 
 See `docs/faab-live-opportunity-model.md` §5a (added alongside this
-addendum) for the staged, criteria-gated activation/calibration plan. Status
-unchanged by this follow-up: the layer remains shadow-only, default off.
+addendum) for the staged, criteria-gated activation/calibration plan. As of
+2026-09-02 (§16 below), Stage 1 has started — `waiver_live_opportunity`
+now defaults to `True` in `_DEFAULTS`, so the shadow computation runs and
+logs by default rather than requiring a second deploy just to turn logging
+on. The layer is still shadow-only: nothing it computes reaches a live bid
+without a separate, later, human-reviewed promotion step (Stage 5).
+
+## 16. Real overnight validation (2026-09-01/02 waiver results)
+
+**What happened.** The owner reported the fixed `/waivers` page (§15) still
+looked wrong in a different way: with team "Jason" selected, the model
+recommended $0 for almost every candidate except Cyrus Allen ($8, capped
+"Max I'd pay" $23). The owner's real Sleeper waiver claims, placed the
+previous evening from independent manual research, spread $1-$7 across
+eleven players — a materially different shape. Rather than treat this as a
+hypothesis, the actual overnight waiver run was used as ground truth: Sleeper
+exposes a public, unauthenticated transactions API, separate from this
+project's own production site (which remains unreachable from this session),
+and it was queried directly for `league 1312006700437352448`'s real
+`round 1` waiver results the morning after processing.
+
+**The comparison**, model vs. reality, for every named candidate plus the
+players that actually got contested:
+
+| player | dynasty value | vs. replacement (1695) | model bid | model max | real winner | real price | next-best real bid |
+|---|---|---|---|---|---|---|---|
+| Cyrus Allen | 2282 | +587 | $0 | $25 | Ty | **$45** | $21 |
+| Marlin Klein | 1927 | +232 | $0 | $0 | Roy | **$19** | — |
+| Sam Roush | 1795 | +100 | $0 | $0 | Roy | **$7** | — |
+| Seth McGowan | 1607 | below | $0 | $0 | Roy | **$6** | $9 (Joey lost) |
+| George Holani | 1464 | below | $0 | $0 | Brent | **$6** | $3 (Jason, lost) |
+| Barion Brown | 1438 | below | $0 | $0 | Joey | **$12** | $3 |
+| Malik Benson | 1411 | below | $0 | $0 | Brent | **$6** | $4 |
+| Jonas Sanker / Derrick Moore / Jacob Saylors / Kamren Kinchens / Justice Hill / Dohnte Meyers | 711-1998 | mixed | $0-$1 | $0-$3 | **Jason** (us) | $1-$3 | uncontested or ~tied |
+
+Every claim in the last row — the ones the model and the owner's own manual
+bids agreed were worth $1-3 — was WON at exactly that price, uncontested or
+against light competition. That is real confirmation the model's floor
+behavior is correct: at this price tier, nobody else wanted these players
+either. The disconnect is entirely on the contested rows above it.
+
+**Root-caused into two distinct, independent mechanisms — not one bug:**
+
+1. **Bid shading below a genuinely positive ceiling (Cyrus Allen).** The
+   engine's own objective ceiling put Cyrus Allen's worth at $81 — *higher*
+   than the $45 he actually cost. The optimizer's recommended bid ($0) and
+   even its max-rational bid ($25) shade well below that ceiling by design
+   (`optimal_bid`'s docstring: "bidding the ceiling captures zero surplus by
+   construction"). That shading is intentional and matches the documented,
+   pre-existing tradeoff from the original NEW-vs-OLD FAAB backtest — the
+   new model has a *lower* win rate than the old one on purpose, because the
+   old one bought its win rate by bidding roughly 5x market on everything.
+   Losing Cyrus Allen to a $45 bid by a wide margin (our max: $25) is that
+   tradeoff operating exactly as measured before this was ever deployed —
+   not a new defect.
+
+2. **A real, unpriced short-term-value gap (Klein, Roush, McGowan, Holani,
+   Brown, Benson).** Four of these six sit *below* the league's own
+   replacement-value anchor (1695) in canonical dynasty terms — the
+   objective ceiling is architecturally $0 for a below-replacement asset,
+   which is correct FOR THE QUESTION THE ENGINE ANSWERS ("is this worth
+   keeping"). Real managers paid $6-19 for them anyway, which is not
+   explainable by shading (there is no ceiling to shade below). This is the
+   gap the Live Waiver Opportunity layer exists to close: real managers were
+   very plausibly pricing in this-week role clarity (this is the week after
+   final roster cuts — exactly when backup/depth-chart information updates
+   fastest) that a dynasty-only value has no way to see.
+
+**A canonical-board-defect hypothesis was checked and ruled out**, not
+assumed away. Marlin Klein's `canonicalSiteValues` were inspected directly:
+the true value-scale votes (`ktc` 1319, `ktcSfTep` 1913, `idpTradeCalc`
+1689) are broadly self-consistent with his blended 1927 — the large numbers
+elsewhere in that same dict (944100, 970200, …) are rank-signal synthetic
+encodings from rank-only sources, not value-scale figures, and reading them
+as dollars would have been the wrong comparison. Every one of the six
+above-market rows is independently flagged `confidenceBucket: "low"` by the
+existing B11 confidence gate — the system already knows these rows are
+less-certain than most, which is a different, weaker claim than "wrong,"
+but is consistent with "not enough evidence to move a valuation that a
+depth-chart signal legitimately would."
+
+**Decision, made with the owner in conversation, not unilaterally:** leave
+the objective-ceiling curve and anchors untouched — nothing in this data
+says they are miscalibrated, and last night is exactly the kind of evidence
+the shading tradeoff predicted. Start Stage 1 of the activation plan
+instead: `waiver_live_opportunity`'s default flipped to `True` (still
+shadow-only — see `src/api/feature_flags.py`, `tests/api/
+test_feature_flags.py::test_every_flag_defaults_off_except_safe_additive`'s
+`safe_on` entry for the additive-safety argument), so future nights like
+this one accumulate in `data/faab/shadow_comparisons_<leagueKey>.json`
+automatically rather than being reconstructed by hand from the Sleeper API
+after the fact. This is a genuine Stage 3-shaped evidence point arriving
+before Stage 1 had even started — reusing it is more honest than waiting
+for the next occurrence to start measuring.
+
+**Caveat that travels with this section:** this is one night, twelve
+players, one league. It demonstrates the SHAPE and rough SIZE of the gap
+(a handful of dollars to ~$20 on below/near-replacement players; the
+shading gap on a clearly-above-replacement player can be much larger) —
+it is not a calibrated blast radius and must not be read as one. The
+accumulating shadow log, not this single night, is what a promotion
+decision should eventually be based on.
