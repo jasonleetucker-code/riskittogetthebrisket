@@ -1,16 +1,16 @@
 {
- "generatedAt": "2026-09-02T00:35:10.114639+00:00",
+ "generatedAt": "2026-09-02T05:08:07.226205+00:00",
  "servedPolicy": "scraper_sleeper_attach_v1",
  "servedBy": "src.identity.resolution",
  "legacyLadderRetired": true,
  "v2WatchEnabled": true,
  "site": "scraper_sleeper_attach",
- "calls": 1943,
+ "calls": 1942,
  "v1Agree": 0,
  "v1Diverge": 0,
  "v1Examples": [],
- "v2Same": 1925,
- "v2WouldChange": 18,
+ "v2Same": 1923,
+ "v2WouldChange": 19,
  "v2Examples": [
   {
    "name": "Bam Knight",
@@ -99,6 +99,14 @@
    "engineV2": null,
    "v2Method": "none",
    "v2Reason": "no_candidate"
+  },
+  {
+   "name": "Tyler Johnson",
+   "pos": "",
+   "served": "6960",
+   "engineV2": null,
+   "v2Method": "exact_clean:name",
+   "v2Reason": "ambiguous"
   },
   {
    "name": "Matthew Hibner",
