@@ -194,8 +194,22 @@ test.describe("V1-131: nav gating on the deployed shell", () => {
 
     // ── /more site map ───────────────────────────────────────────────
     await page.goto(prodUrl("/more"), { waitUntil: "domcontentloaded" });
+    // Scoped to the site-map panels (frontend/app/more/page.jsx,
+    // .shell-sitemap-panel): observed on production run 33528409461
+    // (2026-09-01), an unscoped `a.shell-menu-item[href="/edge"]` resolved
+    // to TWO elements — one visible, one carrying `hidden`. The visible
+    // one is confirmed correct (the run's own accessibility snapshot shows
+    // exactly one "Source Disagreement" link under Market, reachable and
+    // correctly labelled), so the hidden second node is not a user-facing
+    // regression; scoping to the page's own site-map container makes the
+    // negative control unambiguous regardless of the second node's exact
+    // origin, which static review of NavMenu.jsx/TopBar.jsx did not
+    // conclusively identify (NavMenu's dropdown items are conditionally
+    // rendered on `open`, and the header's own persistent Market link
+    // carries a different class, `shell-nav-link`, so neither is a
+    // confirmed source — left for a follow-up if it recurs elsewhere).
     await expect(
-      page.locator('a.shell-menu-item[href="/edge"]'),
+      page.locator('.shell-sitemap-panel a.shell-menu-item[href="/edge"]'),
       "/more site map should list Source Disagreement (negative control)",
     ).toBeVisible({ timeout: 30_000 });
     const moreCeLinks = page.locator('a[href="/consensus-edge"]');
