@@ -16,13 +16,20 @@ const { test, expect, ORIGIN, prodUrl, annotate } = require("./helpers");
  * browser/workflow matrix.
  */
 
+// Cross-checked against frontend/app/league/tabs.js::VALID_TABS /
+// TAB_ALIASES (the ONE place that knows which tabs exist), 2026-09-03.
+// "conduct" is a legacy alias, kept forever for old deep links, that
+// the page rewrites the URL bar to "piece-of-shit-rankings" for --
+// asserting the alias key survives verbatim in the URL fails by design
+// (measured on real production: workflow run 33774483633, "Received:
+// piece-of-shit-rankings" -- not a flake, the alias resolving is
+// correct behavior). Test the tab's real canonical slug instead.
+// "rivalry" was a typo for the real key "rivalries".
 const TABS = [
   "overview",
   "activity",
-  "articles",
   "franchise",
-  "rivalry",
-  "week",
+  "rivalries",
   "weekly",
   "awards",
   "history",
@@ -30,9 +37,18 @@ const TABS = [
   "records",
   "streaks",
   "superlatives",
-  "conduct",
+  "piece-of-shit-rankings",
   "luck",
 ];
+// Not included, deliberately: "articles" and "week" are not tab= query
+// keys in the current model (VALID_TABS has no such entries) -- they
+// silently render the DEFAULT_TAB content without rewriting the URL
+// (sectionForTab() falls through, and only an aliased/rewritten tab
+// changes the query string), so they never failed this test, but they
+// were never testing what their names claimed either. The public
+// article surface lives at /league/articles/[season]/[week], a
+// distinct ROUTE rather than a /league?tab= value, and is out of this
+// spec's scope (deep-link-by-tab), not silently dropped.
 
 function configured() {
   return Boolean(String(ORIGIN || "").trim());

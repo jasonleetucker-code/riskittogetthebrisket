@@ -177,15 +177,40 @@ session (`33768425785`): **28 of 31 test instances passed.**
   `/rankings?screen=` deep-link filter and `POST /api/trade/finder`. Deliberately excludes
   `journey-trade.spec.js`'s "/trade builder renders" test — `v1-45-trade-surface.spec.js` already
   covers `/trade` in prod-auth field-for-field, so porting it again would be duplicate coverage.
-  **Written, not yet run against production.**
 
-**Phase 1 is now code-complete** (all four candidates from this document's own list ported:
-rankings journeys, mobile smoke, Perfect Draft, trade journeys) — the two newest files need a real
-production run before they count as L4 evidence.
+**Phase 1 is code-complete AND run against production** (run `33774483633`, 2026-09-03T15:44-15:54Z,
+8.8 minutes, 56 test instances): `v1-123-perfect-draft.spec.js` **3/3 PASSED** on real production —
+budget survives, real rookie recommendations render, spend never exceeds budget, an unloaded league
+produces no panel. `v1-123-trade-journeys.spec.js` **7/8 passed**: `/trades`, the
+`/rankings?screen=` filter, `POST /api/trade/finder`, and `/arbitrage` on `prod-desktop` (21.4s,
+real trade cards) all passed; `/arbitrage` timed out at 90s on `prod-mobile` only. This run also
+independently confirmed `v1-111` (which failed the *previous* run on a 45s API timeout) now passes
+cleanly on both projects — corroborating that the previous failure was genuine transient production
+load, not a defect: current direct checks of the same endpoints are fast and healthy.
 
-Still open from Phase 1: **Perfect Draft** (`journey-perfect-draft.spec.js` → prod-auth) and
-**Trade journeys** (`journey-trade.spec.js` → prod-auth, extending `v1-45` to `/arbitrage` and
-`/trades`).
+**A second, distinct Phase 0 defect found and fixed this run — not related to the race-condition
+fix.** `/league?tab=conduct` failed with `Received: "piece-of-shit-rankings"` instead of the
+requested `"conduct"`. Direct investigation (not guessed at): `frontend/app/league/tabs.js` defines
+`conduct` as a **deliberate legacy alias** (`TAB_ALIASES`, "kept forever for old deep links") that
+the page correctly rewrites the URL bar to the real canonical slug `piece-of-shit-rankings` for —
+confirmed live with `curl https://chaseupside.com/league?tab=conduct`, which server-renders
+`<option value="piece-of-shit-rankings" selected>Piece of Shit Rankings</option>`. The test's
+strict URL-preservation assertion was correctly failing on an alias by design, not on a bug. Fixed
+by testing the tab's real canonical slug instead of its alias, and by fixing a genuine typo
+(`rivalry` → the real key `rivalries`) found during the same cross-check against
+`tabs.js::VALID_TABS`. Two entries (`articles`, `week`) are not `tab=` query keys in the current
+model at all — they silently render `DEFAULT_TAB` content without rewriting the URL, so they never
+failed this test, but were never testing what their names claimed either; removed with a note
+rather than silently left in, since the public article surface is a distinct ROUTE
+(`/league/articles/[season]/[week]`) out of this deep-link spec's scope. **Not yet re-run to
+confirm this fix.**
+
+**Open, unresolved finding — not yet fixed or explained**: `/arbitrage` on `prod-mobile` timed out
+at 90s waiting for the scan to resolve to trades or an explicit empty state, while the identical
+scan passed on `prod-desktop` in 21.4s (a >4x margin under the 90s budget). Could be a genuine
+mobile-specific UI issue (a control not reachable the way the test expects at 390px) or compounding
+load late in an 8.8-minute run — not determined either way. Left open rather than guessed at; needs
+its own investigation before Phase 1 can be called fully proven.
 
 **Phase 2 — NOT STARTED.** All ten named gaps remain: Command Center/home dashboard, Universal
 Player Profile overlay, Trade Finder content, Package Builder (`/angle`), Sharp Roster Percentage,
