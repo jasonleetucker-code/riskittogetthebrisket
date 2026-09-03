@@ -305,7 +305,7 @@ Projections · **L4** Market / FAAB / Analyst · **L5** Integration / QA / CI / 
 | V1-122 | Structural / source-health CI lanes stay separated | `docs/ops/STABILIZATION_2026-08-16.md` | L5 | `VERIFIED` | L1 | CI correctness |
 | V1-123 | Browser / workflow matrix | `C10-CLOSE-03` | L5 | `NOT STARTED` | L4 | production verification |
 | V1-124 | Background jobs and data proven in production | `C10-CLOSE-04` | L5 | `VERIFIED` | L3 | production verification **PROMOTED 2026-08-25 from fresh production evidence.** Fresh post-#1135 on-box production verification run 32919655291 against deployed SHA `a82898fdbe73ea2effd295132590dff35a45ac98` returned `V1-124: PASS`. The canonical on-box verifier checks the real production timer units/job timestamps and their actual data artifacts, and records unavailable artifacts truthfully rather than coercing missing to zero. This supplies the row's L3 production proof.|
-| V1-125 | Duplicate owners retired (every `retires` line zero) | `C10-CLOSE-02` | L5 | `NOT STARTED` | L2 | ONE CONCEPT, ONE CANONICAL OWNER |
+| V1-125 | Duplicate owners retired (every `retires` line zero) | `C10-CLOSE-02` | L5 | `VERIFIED` | L2 | ONE CONCEPT, ONE CANONICAL OWNER. **PROMOTED `NOT STARTED` → `VERIFIED` (L2) 2026-09-03 — harvested from another session's work and independently re-verified, not trusted from its evidence packet.** Another session (branches `chatgpt/v1-125-zero-second-owner-20260903`, `chatgpt/v1-125-promotion-evidence-20260903`) merged PR #1229 (`scripts/v1_125_zero_second_owner.py` + `tests/audit/test_v1_125_zero_second_owner.py`) and PR #1230 (`docs/v1/V1_125_PROMOTION_EVIDENCE_2026-09-03.md`, which explicitly declined to self-promote this row) just before this session started. `docs/v1/V1_125_RETIREMENT_RECONCILIATION.md` reconciles exactly the 9 V1-applicable retirement families named in `docs/C_SERIES_EXECUTION_MAP.md` §13's consolidation ledger (Player identity/C1-U2, Pick identity/C1-U3, Historical value/C1-U4, Lineup-slot assignment/C2-U1, Replacement level-PAR/C2-U2, Team Strength/C2-U4, Team Weakness-need/C2-U5, Package generation/C3-U1, Value Adjustment/C3-U2), each `ALREADY_RETIRED_OR_INERT` with cited governing evidence, correctly excluding the 10th ledger entry (Central Buy/Sell, `C6-U1`) as POST-V1 per §4 of this contract. **Completeness independently cross-checked against §13's own ledger this session — the population is exactly 10 concepts, 9 V1-applicable + 1 correctly-excluded, no gap.** **Independently re-run this session** (not merely cited): `python3 scripts/v1_125_zero_second_owner.py` at exact head `82fbb8b` exits 0 with the literal message `MEASURED: 0 live second owners across 9 V1-applicable retirement families`, delegating to and passing all 9 families' own canonical-owner test suites; `pytest tests/audit/test_v1_125_zero_second_owner.py -v` 2/2 passed. **Mutation-proved fresh this session**: forced `C1-U2`'s reconciliation-table classification from `ALREADY_RETIRED_OR_INERT` to `OWNER_DECISION_REQUIRED` ⇒ gate exits 1, `unresolved ownership classification(s): {'C1-U2': 'OWNER_DECISION_REQUIRED'}`; restored ⇒ exit 0 again, `git diff` empty. The gate is a fail-closed orchestration check over 9 already-existing, already-canonical ownership guards — it introduces no new ownership methodology and changed no production implementation. L2 bar (L1 plus a measured statement of effect) is satisfied: the measured effect is the literal zero-second-owner count itself, which is what this row exists to measure. |
 | V1-126 | Final V1 regression green | `C10-CLOSE-07` | L5 | `NOT STARTED` | L1 | production verification |
 
 ### 3.12 Source acquisition and cross-position bridge (owner decision, 2026-08-20)
@@ -367,14 +367,19 @@ table already said 47, and on its first real use it caught the same drift again
 
 | status | count |
 |---|---|
-| `VERIFIED` | 128 |
+| `VERIFIED` | 129 |
 | `IMPLEMENTED_UNVERIFIED` | 2 |
 | `IN PROGRESS` | 0 |
-| `NOT STARTED` | 3 |
+| `NOT STARTED` | 2 |
 | `BLOCKED` | 0 |
 | **denominator** | **133** |
 
-**V1 completion: 128 / 133 = 96.2%.** Denominator moved 136 → 133 (2026-09-03, owner decisions):
+**V1 completion: 129 / 133 = 97.0%.** Numerator moved +1 again by `V1-125`'s promotion (2026-09-03):
+harvested from another session's PRs #1229/#1230 and independently re-verified this session (fresh
+exact-head run of `scripts/v1_125_zero_second_owner.py`, the pinned test file, and a fresh
+mutation-proof) — see the row for the full record. `128/133` before this reconciliation.
+
+Denominator moved 136 → 133 (2026-09-03, owner decisions):
 `V1-101`/`V1-102` moved to V2 by Owner Decision 2 (§4.4), and `V1-83` moved to V2 verification debt
 under Owner Decision 3 (§4.4) — an on-box checklist already found production's `ops_alerts` state
 genuinely empty, so the remaining proof depends on a real alert firing, not on more engineering.
