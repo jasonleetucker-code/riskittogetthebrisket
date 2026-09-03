@@ -252,13 +252,73 @@ files/state text cited per surface, not guessed):
   pass confirmed this is genuine, non-duplicate coverage and that extending it further (Player
   context / Realized points / Value chain sections) is optional depth, not a closed gap.
 
-None of these nine new/extended files have been run against production yet. Per this row's own
-rule, Phase 2 does not count as done until each has a confirmed production run — code shipped is
-not evidence.
+**First real production run** (`v1-authenticated-verification.yml` run `33777101766`,
+2026-09-03T16:11-16:25Z, dispatched before PR #1232 merged — this is the run whose failure showed
+as the advisory "V1 authenticated verification" check on the PR, which did not block merge since
+that check is non-required). Results, read from the artifact rather than inferred from the
+conclusion:
 
-**V1-123 as a whole stays below its L4 bar** ("the real authenticated application... across the
-major routes and workflows, including populated/empty/stale/error states") until Phase 2 closes —
-this document's own §4 framing is explicit that the row needs the COMPLETE matrix, not a phase.
-Each new spec also needs an actual run against production (not merely committed) before it counts
-as L4 evidence at all; that run is tracked separately in
-`docs/VERSION_1_COMPLETION_CONTRACT.md`'s `V1-123` row, not here.
+- **Phase 0 re-confirmed clean**: `v1-123-public-league-matrix.spec.js` passed on both
+  `prod-desktop` and `prod-mobile` — both the race-condition fix and the tab-alias fix hold.
+- **Phase 1 fully clean, including the previously-open finding**: `v1-123-rankings-journeys.spec.js`,
+  `v1-123-mobile-nav.spec.js`, `v1-123-perfect-draft.spec.js` all passed. `v1-123-trade-journeys.spec.js`
+  passed all 5 tests on both viewports — critically, `/arbitrage` on `prod-mobile` now passed in
+  20.6s (previously timed out at 90s). This resolves that finding as genuine transient production
+  load, not a persistent defect: the identical scan is fast and correct on a normal-load run.
+- **Phase 2: 4 of 9 files passed clean first try** (`v1-123-sharp-roster-percentage.spec.js` desktop,
+  `v1-123-league-comparison.spec.js` both viewports, `v1-123-team-strength.spec.js` both viewports).
+  **5 of 9 had real bugs, all in the new TEST code, not production** — each root-caused against the
+  actual source rather than guessed, then fixed:
+  - `v1-123-command-center.spec.js` (`prod-mobile` only, 180s **timeout**): `AppShellWrapper` mounts
+    BOTH `TopBar`'s desktop team-switcher toggle and `MobileChrome`'s mobile one unconditionally —
+    CSS media queries pick which is shown per viewport, the same pattern that made
+    `.shell-search-btn` desktop-only earlier this session. `.first()` alone selected the CSS-hidden
+    desktop instance at the mobile viewport, so `.click()` waited for actionability until the whole
+    test timed out. Fixed: scope to `button.team-switcher-toggle:visible`.
+  - `v1-123-draft-capital.spec.js` (both viewports, **failed**): the league tab picker's own
+    `<select>` carries an `<option>Draft Capital</option>` entry with the same text as the section's
+    real title; `getByText().first()` picked that (hidden outside an open native dropdown) instead
+    of the visible title. Fixed: `.and(page.locator(":visible"))`.
+  - `v1-123-insider-trading.spec.js` (both viewports, **failed**, strict-mode violation): the page's
+    own fixed subtitle ("Trades your league-mates made...") also matches a loose `/League-mate/i`
+    search, colliding with the real `MemberExposure` table's `<th>League-mate</th>` header. Fixed:
+    `getByRole("columnheader", { name: "League-mate" })`.
+  - `v1-123-package-builder.spec.js` (both viewports, **failed**, element not found): `RosterPicker`'s
+    row class comes from a CSS module (`angle.module.css`), so the literal `label.rosterRow` selector
+    never matches the hashed production class name. Fixed: select the real `<input type="checkbox">`
+    inside each row by ARIA role instead, which survives hashing.
+  - `v1-123-source-disagreement.spec.js` (both viewports, **failed**, strict-mode violation): "Sell
+    signals" is a substring of "IDP sell signals," and both panel headings live in the same tab, so
+    an unanchored text search matched both. Fixed: anchor the heading-name regex to
+    `/^Sell signals/i`.
+
+All five fixes are committed and were re-run against production
+(`v1-authenticated-verification.yml` run `33798151305`, dispatched against `ae7e634`,
+2026-09-03T19:44-20:11Z): **all 5 pass.** None of `v1-123-command-center.spec.js`,
+`v1-123-draft-capital.spec.js`, `v1-123-insider-trading.spec.js`, `v1-123-package-builder.spec.js`,
+or `v1-123-source-disagreement.spec.js` appear in this run's failures — every one of the five
+real bugs found on the first run is confirmed fixed.
+
+**Two NEW failures appeared this run, in files unchanged since the first run's clean pass**:
+`v1-123-sharp-roster-percentage.spec.js` (`prod-desktop`, 90s timeout waiting for the page's own
+`GET /api/sharp/roster-percentage` response) and `v1-123-team-strength.spec.js` (`prod-desktop`,
+60s timeout, neither the table nor either named empty state appeared). Neither spec file was
+touched between the two runs, so this is not a code regression in the test. A direct latency
+spot-check immediately after (`curl` against both endpoints) answered in under 0.8s each —
+production is not degraded right now — corroborating that both were genuine transient load during
+that specific run rather than a persistent defect, the same evidentiary pattern already established
+this session for the `/arbitrage` mobile timeout and the `v1-111` failure. **Not yet re-confirmed
+with a third run** — dispatched, pending.
+
+**Third confirmation run** (`v1-authenticated-verification.yml` run `33801083291`, dispatched
+against `7e8ce4c`, 2026-09-03T20:14-20:21Z): **80 of 80 test instances passed, zero failures.**
+Both `v1-123-sharp-roster-percentage.spec.js` and `v1-123-team-strength.spec.js` passed clean,
+confirming the prior run's two failures were transient production load, not defects, exactly as
+the latency spot-check predicted.
+
+**V1-123 CLOSED — PROMOTED → `VERIFIED` (L4) 2026-09-03.** Every phase (0, 1, 2) has a confirmed
+clean production run on the same commit; the L4 bar ("the real authenticated application... across
+the major routes and workflows, including populated/empty/stale/error states") is met by the
+COMPLETE matrix, not a phase, per this document's own §4 framing. Full history above is the
+evidence trail; `docs/VERSION_1_COMPLETION_CONTRACT.md`'s `V1-123` row carries the summary and the
+promotion record.
