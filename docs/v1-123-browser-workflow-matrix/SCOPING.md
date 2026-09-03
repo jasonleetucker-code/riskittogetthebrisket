@@ -310,9 +310,15 @@ that specific run rather than a persistent defect, the same evidentiary pattern 
 this session for the `/arbitrage` mobile timeout and the `v1-111` failure. **Not yet re-confirmed
 with a third run** — dispatched, pending.
 
-**V1-123 as a whole stays below its L4 bar** ("the real authenticated application... across the
-major routes and workflows, including populated/empty/stale/error states") until Phase 2 closes —
-this document's own §4 framing is explicit that the row needs the COMPLETE matrix, not a phase.
-Each new spec also needs an actual run against production (not merely committed) before it counts
-as L4 evidence at all; that run is tracked separately in
-`docs/VERSION_1_COMPLETION_CONTRACT.md`'s `V1-123` row, not here.
+**Third confirmation run** (`v1-authenticated-verification.yml` run `33801083291`, dispatched
+against `7e8ce4c`, 2026-09-03T20:14-20:21Z): **80 of 80 test instances passed, zero failures.**
+Both `v1-123-sharp-roster-percentage.spec.js` and `v1-123-team-strength.spec.js` passed clean,
+confirming the prior run's two failures were transient production load, not defects, exactly as
+the latency spot-check predicted.
+
+**V1-123 CLOSED — PROMOTED → `VERIFIED` (L4) 2026-09-03.** Every phase (0, 1, 2) has a confirmed
+clean production run on the same commit; the L4 bar ("the real authenticated application... across
+the major routes and workflows, including populated/empty/stale/error states") is met by the
+COMPLETE matrix, not a phase, per this document's own §4 framing. Full history above is the
+evidence trail; `docs/VERSION_1_COMPLETION_CONTRACT.md`'s `V1-123` row carries the summary and the
+promotion record.
