@@ -1,4 +1,4 @@
-"""On-box V1 production checklists — V1-89, V1-15/16/17, V1-59, V1-83, V1-11, V1-124.
+"""On-box V1 production checklists — V1-89, V1-15/16/17, V1-59, V1-83, V1-11, V1-124, V1-20.
 
 Runs ON the production box (dispatched by
 ``.github/workflows/v1-onbox-checklists.yml`` over the existing SSH lane),
@@ -14,6 +14,10 @@ executable form of checklists that already exist as prose:
              ops-alert state
 * ``v11``  — C1-U5 §6 item 1: the deployed SHA contains the unit
 * ``v124`` — the background-jobs / data matrix (timers, services, artifacts)
+* ``v20``  — C1-SRC-02's fails-closed half, against the DEPLOYED
+             ``src.api.data_contract`` module (the proven-per-feed half is
+             already L3; the real registry is all-DYNASTY so a live
+             negative case cannot exist, hence the injectable-rogue check)
 
 Rules, inherited from ``verify_lane4_production.py`` and enforced here:
 
@@ -754,6 +758,87 @@ def check_v11() -> None:
         )
 
 
+# ────────────────────────────── V1-20 fails-closed ──────────────────────────────
+
+
+def check_v20() -> None:
+    """C1-SRC-02: game type proven per feed, fails closed on ``UNKNOWN``.
+
+    The proven-per-feed half is already re-verified fresh at L3 (row's own
+    §9a note, via ``/api/rankings/sources``). What has never run against
+    the DEPLOYED tree is the fails-closed half — and it structurally
+    cannot be observed as a live negative case, because the real registry
+    is all-DYNASTY (no UNKNOWN feed exists to refuse). The row records
+    this honestly as L2 rather than rounding up.
+
+    This closes the gap the row names, not by manufacturing a bad feed in
+    production (forbidden), but by running the SAME injectable-rogue
+    check ``tests/sources/test_game_type_gate_red.py`` already pins in
+    this dev/CI environment against the actual deployed ``src.api.data_contract``
+    module instead — proving the fails-closed behaviour is the code that
+    is actually running in production, not just code that exists in a
+    branch. Entirely read-only: ``_validate_source_game_types_invariant``
+    takes an injectable ``sources`` list precisely so this can run without
+    mutating ``_RANKING_SOURCES``.
+    """
+    c = _check("V20", "V1-20", "C1-SRC-02: fails-closed half, against the deployed tree")
+    try:
+        sys.path.insert(0, str(REPO_ROOT))
+        from src.api import data_contract as dc
+
+        registry = list(dc._RANKING_SOURCES)
+        base = dict(registry[0]) if registry else {}
+        cases = {
+            "unknown": {**base, "key": "v20RogueUnknown", "game_type": "UNKNOWN"},
+            "redraft": {
+                **base,
+                "key": "v20RogueRedraft",
+                "game_type": "REDRAFT",
+                "game_type_evidence": "redraft toggle — a different product",
+            },
+            "absent": {k: v for k, v in base.items() if k != "game_type"}
+            | {"key": "v20RogueSilent"},
+        }
+        refused: dict[str, bool] = {}
+        for name, rogue in cases.items():
+            try:
+                dc._validate_source_game_types_invariant([*registry, rogue])
+                refused[name] = False
+            except Exception as exc:  # noqa: BLE001 — the refusal IS the assertion
+                refused[name] = rogue["key"] in str(exc)
+        # the honest case must still pass, or this is just a blocker
+        honest = {**base, "key": "v20HonestDynasty", "game_type": "DYNASTY"}
+        honest.setdefault("game_type_evidence", "endpoint documented dynasty-only")
+        honest_ok = False
+        try:
+            dc._validate_source_game_types_invariant([*registry, honest])
+            honest_ok = True
+        except Exception:  # noqa: BLE001
+            honest_ok = False
+    except Exception as exc:  # noqa: BLE001
+        c.record("error", f"could not import deployed data_contract: {exc}")
+        return
+
+    if all(refused.values()) and honest_ok:
+        c.record(
+            "pass",
+            "the deployed tree's game-type gate refuses UNKNOWN/REDRAFT/absent "
+            "(offending key named in each refusal) and accepts a verified-DYNASTY "
+            "declaration — the fails-closed half, proven against production code",
+            refused=refused,
+            honest_case_passed=honest_ok,
+            registry_size=len(registry),
+        )
+    else:
+        c.record(
+            "fail",
+            "the deployed tree's game-type gate did not refuse a rogue source, "
+            "or refused a legitimate one",
+            refused=refused,
+            honest_case_passed=honest_ok,
+        )
+
+
 # ────────────────────────────── V1-124 matrix ──────────────────────────────
 
 _ARTIFACTS = {
@@ -835,6 +920,7 @@ CHECK_FNS = {
     "v83": lambda args: check_v83(),
     "v11": lambda args: check_v11(),
     "v124": lambda args: check_v124(),
+    "v20": lambda args: check_v20(),
 }
 
 

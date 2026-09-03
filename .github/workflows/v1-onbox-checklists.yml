@@ -3,7 +3,8 @@ name: V1 On-Box Checklists (read-only by default)
 # Executable form of V1 production checklists that exist as prose and whose
 # inputs are prod-only:
 #   V1-89  (DraftSharks §6),  V1-15/16/17 (C1-U8 §8),  V1-59 (journal chain),
-#   V1-83  (F-20 delivery-keyed cooldown),  V1-11 item 1,  V1-124 (job matrix).
+#   V1-83  (F-20 delivery-keyed cooldown),  V1-11 item 1,  V1-124 (job matrix),
+#   V1-20  (C1-SRC-02 fails-closed half, against the deployed tree).
 #
 # Same SSH mechanism, permissions, concurrency and buffering posture as
 # lane4-onbox-verification.yml (see its header for why -u and tee-without-
@@ -20,7 +21,7 @@ on:
   workflow_dispatch:
     inputs:
       checks:
-        description: "Comma list of check groups (v89,c1u8,v59,v83,v11,v124) or 'all'"
+        description: "Comma list of check groups (v89,c1u8,v59,v83,v11,v124,v20) or 'all'"
         required: false
         default: "all"
         type: string
