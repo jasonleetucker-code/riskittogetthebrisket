@@ -23,7 +23,10 @@ test.describe("V1-123 Phase 2: Source Disagreement /edge (production)", () => {
 
     const gapsPanel = page.getByRole("tabpanel", { name: "Market gaps" });
     await expect(gapsPanel).toBeVisible({ timeout: 30_000 });
-    const sellSignals = gapsPanel.getByText("Sell signals", { exact: false });
+    // The panel has both "Sell signals" and "IDP sell signals" headings.
+    // Anchor the generic panel by its heading prefix instead of a substring
+    // locator that is intentionally ambiguous in Playwright strict mode.
+    const sellSignals = gapsPanel.getByRole("heading", { name: /^Sell signals\b/i });
     await expect(sellSignals).toBeVisible({ timeout: 15_000 });
 
     const agreementTab = page.getByRole("tab", { name: "Agreement" });
