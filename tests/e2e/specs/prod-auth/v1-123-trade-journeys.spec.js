@@ -131,6 +131,43 @@ test.describe("V1-123 Phase 1: trade journeys beyond /trade (production)", () =>
     );
   });
 
+  test("/arbitrage player-level edge table and filters render real board content on production", async ({
+    prodPage: page,
+  }, testInfo) => {
+    await page.goto(prodUrl("/arbitrage"), { waitUntil: "domcontentloaded" });
+    await awaitStreamSettled(page);
+
+    await expect(pageHeading(page, titleFor("/arbitrage"))).toBeVisible({ timeout: 30_000 });
+
+    const visibleTile = page.getByText("Visible", { exact: false }).first();
+    await expect(visibleTile).toBeVisible({ timeout: 30_000 });
+
+    const table = page.getByRole("table");
+    const emptyState = page.getByText(/No player-level edges at this threshold/i);
+    const settled = table.or(emptyState);
+    await expect(settled.first()).toBeVisible({ timeout: 30_000 });
+
+    const hasTable = await table.isVisible().catch(() => false);
+    if (hasTable) {
+      const rows = table.locator("tbody tr");
+      const rowCount = await rows.count();
+      expect(rowCount, "player-level edge table rendered with no rows").toBeGreaterThan(0);
+      annotate(testInfo, "arbitrage-player-level", `${rowCount} edge rows, populated`);
+    } else {
+      annotate(testInfo, "arbitrage-player-level", "explicit empty state at default threshold");
+    }
+
+    // Player-type filter narrows the population -- exercise it and
+    // require the page to still resolve to a table or the same empty
+    // state, never an error.
+    const playerType = page.getByLabel("Player type");
+    if (await playerType.isVisible().catch(() => false)) {
+      await playerType.selectOption("idp");
+      await expect(table.or(emptyState).first()).toBeVisible({ timeout: 15_000 });
+      await playerType.selectOption("all");
+    }
+  });
+
   test("POST /api/trade/finder returns arbitrage trades for a real roster on production", async ({
     prodPage: page,
   }) => {

@@ -212,10 +212,49 @@ mobile-specific UI issue (a control not reachable the way the test expects at 39
 load late in an 8.8-minute run — not determined either way. Left open rather than guessed at; needs
 its own investigation before Phase 1 can be called fully proven.
 
-**Phase 2 — NOT STARTED.** All ten named gaps remain: Command Center/home dashboard, Universal
-Player Profile overlay, Trade Finder content, Package Builder (`/angle`), Sharp Roster Percentage,
-Source Disagreement (`/edge` content), Insider Trading, League Comparison, Team Strength/Weakness
-tab, `/draft-capital`.
+**Phase 2 — code shipped 2026-09-03, not yet run against production.** All ten named gaps have
+new specs, built from a dedicated research pass over the real source (exact selectors/component
+files/state text cited per surface, not guessed):
+
+- `v1-123-command-center.spec.js` — `/` war-room surface + team switcher, ported from
+  `signed-in-smoke.spec.js`'s existing local assertions.
+- `v1-123-trade-journeys.spec.js` gained a new test asserting `/arbitrage`'s player-level edge
+  table and the player-type filter (Trade Finder *content*, distinct from the nav-only coverage
+  Phase 1 already proved).
+- `v1-123-package-builder.spec.js` — `/angle`, offer mode: select a roster player, submit, require
+  real return packages or the backend's own named empty state. Zero prior coverage anywhere; written
+  fresh.
+- `v1-123-sharp-roster-percentage.spec.js` — `/market/sharp-roster-percentage`, mirrors
+  `v1-62-sharp-tracker.spec.js`'s "capture the page's own fetch, prove the render matches it"
+  structure, adjusted for this endpoint's real differences (a ds `DataTable` keyed by `assetId`,
+  `payload.totalQualifyingPlayers` in place of Sharp Tracker's single "Assets" stat tile, and
+  backend-driven empty-state copy rather than a fixed string).
+- `v1-123-source-disagreement.spec.js` — `/edge`, all three signal-panel tabs (Market gaps /
+  Agreement / Data caution), asserting real panel content, not just that the nav link resolves
+  (`v1-131-nav-gating.spec.js` already proved reachability only).
+- `v1-123-insider-trading.spec.js` — `/league/insider-trading`, the intel table plus row expansion
+  into member-exposure evidence, or the page's own named empty/staleness states. Zero prior
+  coverage anywhere.
+- `v1-123-league-comparison.spec.js` — `/league-comparison`, `HeaderCard`'s "My League"/"Standard
+  Baseline" blocks plus tab navigation, with a generous timeout matching the page's own documented
+  30+ second cold-cache first load. Zero prior coverage anywhere.
+- `v1-123-team-strength.spec.js` — the ROS Strength tab. **Corrected during scoping**: the real
+  `VALID_TABS` key is `rosTeamStrength` (camelCase), not the kebab-case `ros-team-strength` this
+  document's own §2 table used — there is no alias for the kebab-case form, so that URL would have
+  silently rendered the default tab instead of failing, the same class of test bug Phase 0's
+  `conduct` alias already taught this row to check for explicitly rather than assume.
+- `v1-123-draft-capital.spec.js` — follows the `/draft-capital` → `/league?tab=draft-capital`
+  redirect (already proven at the HTTP level by `public-league.spec.js`) and asserts real team-totals
+  content. This component has no CSS classes or test-ids anywhere in its source, so assertions are
+  necessarily text-content-based — flagged here for whoever next touches this spec.
+- Universal Player Profile overlay: **no new file** — `v1-123-rankings-journeys.spec.js` (Phase 1)
+  already proved the overlay opens with Our Value + Source Breakdown on both viewports; the research
+  pass confirmed this is genuine, non-duplicate coverage and that extending it further (Player
+  context / Realized points / Value chain sections) is optional depth, not a closed gap.
+
+None of these nine new/extended files have been run against production yet. Per this row's own
+rule, Phase 2 does not count as done until each has a confirmed production run — code shipped is
+not evidence.
 
 **V1-123 as a whole stays below its L4 bar** ("the real authenticated application... across the
 major routes and workflows, including populated/empty/stale/error states") until Phase 2 closes —
