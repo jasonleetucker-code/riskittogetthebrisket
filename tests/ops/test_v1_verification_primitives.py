@@ -356,9 +356,9 @@ def test_every_suite_verdict_is_consumed_by_the_one_verdict_step():
     for name in sorted(published):
         assert name in consumed, f"{name} is published but never reaches the verdict step"
         var = name.upper()
-        assert f"${{{var}}}" in body or f'"${var}"' in body, (
-            f"{name} reaches the verdict step's env but its body never reads ${var}"
-        )
+        assert (
+            f"${{{var}}}" in body or f'"${var}"' in body
+        ), f"{name} reaches the verdict step's env but its body never reads ${var}"
 
 
 def test_prod_auth_config_reports_annotations_as_evidence():
@@ -375,9 +375,9 @@ def test_prod_auth_config_reports_annotations_as_evidence():
     assert "prod-auth-results.json" in cfg
 
     wf = (REPO_ROOT / ".github" / "workflows" / "v1-authenticated-verification.yml").read_text()
-    assert "tests/e2e/prod-auth-results.json" in wf, (
-        "the json report is produced but never uploaded"
-    )
+    assert (
+        "tests/e2e/prod-auth-results.json" in wf
+    ), "the json report is produced but never uploaded"
 
 
 def test_onbox_workflow_gates_the_only_write_behind_a_flag():
