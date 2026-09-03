@@ -23,17 +23,19 @@ test.describe("V1-123 Phase 2: /draft-capital (production)", () => {
       "/draft-capital must redirect to /league?tab=draft-capital",
     ).toContain("tab=draft-capital");
 
-    const header = page.getByText("Draft Capital", { exact: false }).first();
+    // "Draft Capital" also exists as a hidden selected <option> in the
+    // League tab picker, so it cannot be the populated-state signal.
+    // "Pick Values" is rendered by the actual draft-capital section only.
+    const populatedSignal = page.getByText("Pick Values", { exact: true }).first();
     const unavailable = page.getByText(/Draft capital unavailable/i);
-    const settled = header.or(unavailable);
+    const settled = populatedSignal.or(unavailable);
     await expect(settled.first()).toBeVisible({ timeout: 60_000 });
 
-    const populated = await header.isVisible().catch(() => false);
+    const populated = await populatedSignal.isVisible().catch(() => false);
     if (populated) {
       await expect(page.getByText(/draft ·.*teams ·.*rounds ·.*total budget/i)).toBeVisible({
         timeout: 30_000,
       });
-      await expect(page.getByText("Pick Values", { exact: false })).toBeVisible({ timeout: 30_000 });
       annotate(testInfo, "states-observed", "draft-capital: populated");
     } else {
       annotate(testInfo, "states-observed", "draft-capital: unavailable (explicit)");
