@@ -126,7 +126,36 @@ did not need a human decision.
 
 ## 5. Status
 
-Scoping only. Nothing implemented. Next step, pending direction: start Phase 0 (public League
-surfaces) — no credentials needed, fastest path to real production evidence, and it establishes
-the pattern (deep-link `?tab=` coverage, populated/empty states already distinguished by the
-public contract) that Phases 1-2 will reuse.
+**Phase 0 — DONE** (2026-09-03, `chatgpt/v1-123-phase0-public-league-20260903`, PR #1231):
+`tests/e2e/specs/prod-auth/v1-123-public-league-matrix.spec.js` — all 15 public `/league?tab=`
+routes render on the deployed site without touching private endpoints.
+
+**Phase 1 — IN PROGRESS** (2026-09-03, this session). Two of four candidates ported so far:
+
+- `tests/e2e/specs/prod-auth/v1-123-rankings-journeys.spec.js` — sort/reverse, position filter
+  narrow+restore, name-fragment search filter+clear, player popup (Our Value + Source Breakdown),
+  global `/` search shortcut → popup. Runs on both `prod-desktop` and `prod-mobile` projects
+  (ported from `journey-rankings.spec.js`, which is desktop-only locally — this is broader
+  coverage than the source it ports, not narrower).
+- `tests/e2e/specs/prod-auth/v1-123-mobile-nav.spec.js` — the one behavior from
+  `mobile-smoke.spec.js` not already covered elsewhere: the mobile bottom tab bar's visibility and
+  cross-tab navigation (`prod-mobile` only). The other two `mobile-smoke.spec.js` behaviors
+  (rankings board renders on a phone viewport; player popup opens/closes) are already exercised by
+  the rankings-journeys spec above running on `prod-mobile`, so porting them again would be
+  duplicate coverage, not new evidence.
+
+Still open from Phase 1: **Perfect Draft** (`journey-perfect-draft.spec.js` → prod-auth) and
+**Trade journeys** (`journey-trade.spec.js` → prod-auth, extending `v1-45` to `/arbitrage` and
+`/trades`).
+
+**Phase 2 — NOT STARTED.** All ten named gaps remain: Command Center/home dashboard, Universal
+Player Profile overlay, Trade Finder content, Package Builder (`/angle`), Sharp Roster Percentage,
+Source Disagreement (`/edge` content), Insider Trading, League Comparison, Team Strength/Weakness
+tab, `/draft-capital`.
+
+**V1-123 as a whole stays below its L4 bar** ("the real authenticated application... across the
+major routes and workflows, including populated/empty/stale/error states") until Phase 2 closes —
+this document's own §4 framing is explicit that the row needs the COMPLETE matrix, not a phase.
+Each new spec also needs an actual run against production (not merely committed) before it counts
+as L4 evidence at all; that run is tracked separately in
+`docs/VERSION_1_COMPLETION_CONTRACT.md`'s `V1-123` row, not here.
