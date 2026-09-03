@@ -209,6 +209,54 @@ def check_v56(client: Client) -> None:
     )
 
 
+def check_v49_item3(client: Client) -> None:
+    c = _check(
+        "V49-3",
+        "V1-49",
+        "authenticated GET /api/league-comparison?refresh=1 reaches the challenger "
+        "(Sleeper-fallback) path instead of 401ing on an unauthenticated probe",
+    )
+    status, body = client.request("/api/league-comparison?refresh=1")
+    if status == 401:
+        c.record(
+            "fail",
+            "401 even with a real authenticated session — the route is not merely "
+            "session-gated as the row's code-read concluded; something else refuses it",
+        )
+        return
+    if status == 503 and isinstance(body, dict):
+        # A documented, honest degraded response (Sleeper unreachable or one
+        # configured league's scoring_settings missing) — real measurement,
+        # not a fabricated pass, and distinct from "we never got in".
+        c.record(
+            "unmeasurable",
+            f"authenticated and reached the route, but it reports {body.get('error')!r} "
+            f"({body.get('detail', '')!r}) — a real degraded state, not an auth failure",
+            httpStatus=status,
+        )
+        return
+    if status != 200 or not isinstance(body, dict):
+        c.record(
+            "fail", f"HTTP {status}, unexpected shape", body=body if isinstance(body, str) else None
+        )
+        return
+    # 200: the route is genuinely reachable authenticated. This alone does
+    # not prove the host_native_scoring challenger fired — that needs real
+    # in-season stat data this session (2026-09-03, pre-Week-1) does not
+    # have — but it does resolve whether authentication was ever the
+    # blocker, which is the one thing this check can honestly measure.
+    top_keys = sorted(body)[:20]
+    c.record(
+        "pass",
+        f"200 with an authenticated session — the auth barrier is resolved; "
+        f"top-level keys: {top_keys}. Whether the host_native_scoring challenger "
+        "path specifically fired still needs real 2026 in-season Sleeper stat "
+        "data, which does not exist yet — that remains a separate, genuinely "
+        "temporal gap, not an auth gap",
+        topKeys=top_keys,
+    )
+
+
 def check_v131(client: Client) -> None:
     c = _check("V131A", "V1-131", "L3 recipe steps 2-3: features boolean agrees with the board")
     status, body = client.request("/api/auth/status")
@@ -529,6 +577,7 @@ def main() -> int:
         _isolated("V61A", check_v61, client)
         _isolated("V56A", check_v56, client)
         _isolated("V131A", check_v131, client)
+        _isolated("V49-3", check_v49_item3, client)
         _isolated("V11-8", check_v11_item8, client, contract)
         _isolated("V11-3", check_v11_item3_fresh, contract)
         _isolated("V27-3", check_v27_item3, client, contract, args.league)

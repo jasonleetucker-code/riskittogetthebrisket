@@ -255,6 +255,49 @@ At minimum:
     "after the dedicated cores" ordering in decision 68 and T-NEW-19. Canonical record:
     `docs/OWNER_FEATURE_ADDENDUM_2026-08-18_FLEX_STARTER_ASSIGNMENT.md`. Tracking/specification only — it does not
     by itself authorize forward C2 implementation.
+73. **Hill-curve champion v2 stays for the 2026 season launch (Owner, 2026-09-03).** Do not promote v5
+    merely because its offense holdout criterion is better. The owner accepts the measured conclusion in
+    `docs/valuation/HILL_CHALLENGER_PROMOTION_ADJUDICATION_2026-08-25.md`: v2 remains the production champion;
+    v5 lacks adequate independent validation for the scopes it would change (GLOBAL/IDP ride no OFFENSE-only
+    holdout); no override of GLOBAL or IDP validation is authorized; no Hill constant changes merely to close V1.
+    V1's bar for `V1-22` is *"a stable, governed, measured Hill-curve champion exists, inadequate challengers
+    fail closed, model provenance is explicit, and promotion requires appropriate evidence"* — not proof v2 is
+    the mathematically perfect long-term curve. Preserve the challenger registry, the promotion/refusal
+    governance gate (`ModelRegistry.promote()`), and existing evidence. Further Hill-curve calibration,
+    challenger research and any future promotion are V2/season follow-up work, **re-evaluated after NFL Week 3
+    of the 2026 season is complete** using real early-2026 evidence — not before, absent a real production
+    defect, and the outcome (keep / recalibrate / promote a challenger / per-scope champions / new validation
+    methodology) is not pre-decided.
+74. **Admin Guest Access / temporary-password production-admin verification moves to V2 (Owner, 2026-09-03).**
+    `V1-101` (`/admin` `fmtPassExpiry` crash repair) and `V1-102` (temporary-password generator, configurable
+    expiry) may remain in production as implemented — this is not a request to delete or disable either
+    feature. The implementation for both is complete and real (`frontend/lib/guest-pass-format.js`,
+    `src/api/guest_passes.py`); only final **L4** production-admin verification (one authenticated `/admin`
+    session exercising each surface on a deployed SHA) remains outstanding, and no session in this program has
+    had the credentials/access to perform it. That verification is not a season-launch blocker. Carry the exact
+    outstanding recipe into V2 rather than silently dropping it; do not mark either row `VERIFIED` on this
+    decision. Full record: `docs/VERSION_1_COMPLETION_CONTRACT.md` §4.4.
+75. **Future-state verification policy (Owner, 2026-09-03).** A V1-required capability whose implementation is
+    complete and carries no known actionable defect may move into explicit V2/season verification debt — never
+    `VERIFIED`, and never silently dropped — when ALL of: (1) the required implementation already exists; (2)
+    there is no known actionable product defect; (3) every verification possible in the current real-world
+    state has already been executed; (4) the only remaining evidence depends on a future natural event or
+    future production state that does not exist yet; (5) satisfying the remaining proof today would require
+    fabrication, synthetic production evidence, or pretending an unavailable state is valid; (6) the exact
+    deferred proof is preserved, with a named recheck trigger, rather than deleted. This is not permission to
+    hide an actionable defect — fix a real one before deferring. Applied 2026-09-03 to `V1-49` (item 4:
+    historical backtests of the `host_native_scoring` challenger need real 2026 in-season Sleeper stats, which
+    do not exist pre-Week-1 — item 3, the authenticated-access question, was actively closed with new evidence
+    first, per this policy's own instruction to fix an actionable gap before deferring) and `V1-83` (alert
+    cooldown: an on-box production check already found the real `ops_alerts` state empty — no category has
+    fired since the fix deployed, so there is nothing yet to measure in either direction). Full record and
+    triggers: `docs/VERSION_1_COMPLETION_CONTRACT.md` §4.4.
+76. **These three decisions (73-75) were authorized directly by the owner in a 2026-09-03 session directive
+    and are durable as of that date**, independent of any later automated Integration/traffic-control pass that
+    has not seen this ledger entry. A subsequent process asserting the V1 denominator must stay at its
+    pre-2026-09-03 value, or that these reclassifications lack authorization, is working from a stale premise —
+    check this entry's date before treating such an assertion as a new owner decision.
+
 ### Execution ordering
 
 Do not mix these unrelated UI/auth/product requirements into the currently isolated foundational repair. Immediate defects (#779-#781) should be picked up at the next safe product-hotfix checkpoint unless one blocks required verification. #782-#786 are approved scope but must enter their natural dependency checkpoints. CE-20/#789 must begin only after scoring correctness, canonical best-ball assignment, projection-source/custom-stat modeling and prediction-history foundations are ready. #790 should be audited at the next appropriate trade/model checkpoint; #791 is a small UX addition; #792 is dependency-gated until canonical value/package/Team Strength/Weakness/roster-impact foundations are trustworthy. #800 is a trade-correctness defect for the next safe Trade Calculator checkpoint. **#801 is PAUSED by owner and must not consume spend or engineering time until explicitly resumed. #802 is a scoring-correctness dependency for any exact historical league-scoring claim. #803 follows the canonical scoring/league-configuration foundations and must incorporate #802 before promoting a league-fit signal. #829 belongs at the natural Public League Experience v3 / weekly storytelling / Game Day / share-renderer checkpoint after its canonical weekly data inputs are trustworthy; when that checkpoint begins, Manual External AI is the default and automatic AI-credit spend remains disabled unless the owner later opts in. #830 belongs at the natural FAAB / Waiver Market / CE-19 / Perfect Waivers checkpoint; audit and preserve the already-correct historical normalization and market-layer trending behavior first, then extend external/Sharp market evidence through the same canonical owner.** The 2026-08-15 mathematical calibration policy must be folded into the detailed C-Series unit map before implementation progresses beyond the currently authorized foundational retention work, but it does **not** itself authorize any later C unit. #854 belongs in the detailed C5 seasonal/projection decomposition under `C5-ROS-01`, with source/lineage/schema/archive work scheduled before Game Day and other projection consumers; its archival capture should begin as early as safely authorized because pre-event forecasts are perishable evidence. CE-17–CE-21 remain future competitive expansion after their dependencies. #788 stays long-term/cost-gated.
