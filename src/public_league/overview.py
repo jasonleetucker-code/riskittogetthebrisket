@@ -251,7 +251,25 @@ def _current_power_leader(power_section: dict[str, Any]) -> dict[str, Any] | Non
     exactly the value a real unchanged rank also produces.  A prior
     version of this function (reading the legacy engine) had this exact
     defect; not carrying it forward.
+
+    ``power_section["unrankable"]`` means every weighted component was
+    dropped -- ``currentRanking`` is still populated (facts like
+    ``record`` survive the refusal, per ``power_v2``'s own contract) but
+    the list is in enumeration order, not rank order, because there is no
+    rank.  Taking ``ranking[0]`` in that state does not fabricate a
+    number (``power`` stays ``None``), but it DOES fabricate an identity
+    claim: the card's own label is "Power rank #1", and presenting a
+    specific named owner under that label asserts a leadership fact
+    nobody can currently support.  Withhold the whole headline instead --
+    the same "missing is never zero" posture applied to the CLAIM, not
+    just the metric inside it.  Confirmed live on production
+    2026-09-03 (true preseason, ``reason:
+    "preseason_and_no_forward_looking_input"``): this function was
+    naming an arbitrary owner ("Jason", first in enumeration order) as
+    "Power rank #1" league-wide, with no score to back it.
     """
+    if power_section.get("unrankable"):
+        return None
     ranking = power_section.get("currentRanking") or []
     if not ranking:
         return None

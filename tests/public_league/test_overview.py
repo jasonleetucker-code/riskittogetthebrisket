@@ -115,37 +115,35 @@ class OverviewTests(unittest.TestCase):
         self.assertIn("week", recap)
 
     # ── v2 Home callouts ─────────────────────────────────────────────
-    def test_current_power_leader_reads_the_canonical_engine(self) -> None:
+    def test_current_power_leader_withholds_the_whole_card_when_unrankable(self) -> None:
         """V1-52 item D: the landing card reads ``power_v2``, not the
-        legacy ``public_league/power.py`` it used to.
+        legacy ``public_league/power.py`` it used to -- and it withholds
+        the CLAIM, not just the number, when the engine cannot rank.
 
         The shared fixture (``build_test_snapshot``) is a PRESEASON state
         with no ``team_ros_strength`` snapshot -- exactly the state
         ``power_v2``'s own refuse-to-rank contract (item B) exists for:
         every historical-results component is suppressed by preseason
         mode, and the forward-looking substitute is unavailable, so there
-        is genuinely nothing to rank on. The legacy engine used to
-        fabricate a score here regardless; this asserts the CORRECT
-        behavior, not the old one -- the leader card still names an
-        owner and a factual record (both real regardless of whether a
-        score is computable), and is honest that no score exists rather
-        than showing a fabricated one.
+        is genuinely nothing to rank on.
+
+        A prior version of this test asserted the OPPOSITE of what is
+        correct: that the card should still name an owner (the first row
+        in enumeration order) under a "Power rank #1" headline with the
+        score withheld. Confirmed live on production 2026-09-03 (true
+        preseason) that this is a real, live defect -- withholding the
+        number does not rescue the label, which is itself a leadership
+        claim ("Power rank #1: <name>") nobody can support when the
+        board is unrankable. The correct behavior is the whole headline
+        withheld, matching how the frontend already treats a falsy
+        ``currentPowerLeader`` (the card section simply does not render).
         """
         leader = self.overview["currentPowerLeader"]
-        self.assertIsNotNone(leader)
-        for key in ("ownerId", "displayName", "teamName", "record"):
-            self.assertIn(key, leader)
-            self.assertIsNotNone(leader[key], f"{key} is present but None")
         self.assertIsNone(
-            leader["power"],
-            "the fixture is preseason with no team-strength snapshot -- nothing "
-            "is rankable, so a real (non-null) power score means something "
-            "fabricated a number rather than refusing",
-        )
-        self.assertIsNone(
-            leader["weekRankDelta"],
-            "no per-week ROS-strength history exists for the forward-looking "
-            "lens, so this must be unknown, never a fabricated 0",
+            leader,
+            "the fixture is preseason and genuinely unrankable -- the whole "
+            "'Power rank #1' headline claim must be withheld, not just the "
+            "numeric score inside it",
         )
 
     def test_current_power_leader_is_populated_when_the_engine_can_rank(self) -> None:
