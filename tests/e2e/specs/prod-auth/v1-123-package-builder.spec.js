@@ -24,12 +24,15 @@ test.describe("V1-123 Phase 2: Package Builder /angle (production)", () => {
       })
       .toBeGreaterThan(0);
 
-    const rosterRow = page.locator("label.rosterRow").first();
-    await expect(rosterRow, "your roster list should render at least one player").toBeVisible({
+    // Roster rows use a CSS module (`styles.rosterRow`), so the browser does
+    // not expose a literal `rosterRow` class. Target the actual checkbox
+    // control rendered by RosterPicker instead of depending on a build hash.
+    const rosterCheckbox = page.locator('input[type="checkbox"]').first();
+    await expect(rosterCheckbox, "your roster list should render at least one player").toBeVisible({
       timeout: 30_000,
     });
-    await rosterRow.click();
-    await expect(rosterRow).toHaveClass(/rosterRowSelected/);
+    await rosterCheckbox.check();
+    await expect(rosterCheckbox).toBeChecked();
 
     const submit = page.getByRole("button", { name: /Find return options/i });
     await expect(submit).toBeEnabled({ timeout: 15_000 });
