@@ -50,15 +50,27 @@ async function waitForLeagueReady(page, tab) {
     { timeout: 30_000 },
   );
 
+  // The two waits above can resolve vacuously true on a cold navigation:
+  // if the JS bundle has not mounted a loading state yet at the exact
+  // instant they are checked, "loading text is absent" is trivially
+  // satisfied before the app has rendered anything at all. Measured
+  // twice on real production, both prod-desktop and prod-mobile, always
+  // on this test's first navigation in a fresh browser context (runs
+  // 33768425785 and 33769285866): a 36-byte body at exactly this point.
+  // Poll for real content rather than trusting the loading-negation's
+  // single instant.
+  await expect
+    .poll(async () => (await page.locator("body").innerText()).trim().length, {
+      message: `production /league?tab=${tab} rendered an empty document`,
+      timeout: 30_000,
+    })
+    .toBeGreaterThan(100);
+
   const body = await page.locator("body").innerText();
   expect(
     body.includes("Section unavailable"),
     `production /league?tab=${tab} rendered an explicit unavailable state`,
   ).toBe(false);
-  expect(
-    body.trim().length,
-    `production /league?tab=${tab} rendered an empty document`,
-  ).toBeGreaterThan(100);
   await expect(
     page.getByRole("heading", { level: 1 }).first(),
     `production /league?tab=${tab} must retain the League page heading`,

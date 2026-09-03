@@ -126,17 +126,26 @@ did not need a human decision.
 
 ## 5. Status
 
-**Phase 0 — code shipped 2026-09-03 (PR #1231), FIRST REAL RUN THIS SESSION found a flake, not
-re-confirmed clean yet.** `tests/e2e/specs/prod-auth/v1-123-public-league-matrix.spec.js` actually
-executed against production for the first time in run `33768425785` (2026-09-03T14:42-14:47Z) and
-**failed on both projects**: `/league?tab=overview` returned an 83-byte-equivalent near-empty
-document (`body.trim().length === 36`, expected > 100) on the very first navigation of the run. A
-direct `curl https://chaseupside.com/league?tab=overview` immediately after returned a healthy
-200 with 83,629 bytes — the page is not actually broken right now. This reads as a transient
-timing/cold-start flake (both projects failed identically and immediately, on the FIRST request of
-a freshly-authenticated run) rather than a real defect, but per this program's own "at most once"
-re-run policy, it is **not yet re-confirmed clean** — do not mark Phase 0 done again without one
-more real run passing.
+**Phase 0 — code shipped 2026-09-03 (PR #1231), a real test-race bug found and fixed 2026-09-03,
+not yet re-confirmed clean.** `tests/e2e/specs/prod-auth/v1-123-public-league-matrix.spec.js`
+failed **identically on both projects, on two independent real runs** (`33768425785`,
+2026-09-03T14:42-14:47Z, and `33769285866`, 14:51-14:55Z): `/league?tab=overview` returned a
+36-byte near-empty document (expected > 100), always on the test's first navigation. Per this
+program's own "at most once" re-run policy, a second identical failure is real, not a flake — a
+direct `curl` showing the live page healthy ruled out "the page is broken," but not "the test has
+a bug."
+
+**Root cause found**: `waitForLeagueReady`'s two `page.waitForFunction` calls check for the
+*absence* of "Loading league data..."/"Loading section..." text starting from the instant they are
+called. On a cold navigation in a fresh browser context — this test's own first request, before any
+JS bundle has mounted anything — that text is not in the DOM yet for the unrelated reason that
+nothing has rendered at all, so "loading text is absent" is vacuously true and the wait resolves
+immediately, before the app has had any chance to load. The subsequent one-shot body-length check
+then reads the still-blank shell. Fixed by polling for real content (`expect.poll` on
+`body.trim().length`, the same idiom already used throughout this test suite's local and prod-auth
+specs) instead of trusting the loading-negation's single instant — same assertions and messages,
+now retry-based rather than one-shot. **Not yet re-run against production to confirm the fix**;
+do not mark Phase 0 done until that run passes.
 
 **Phase 1 — IN PROGRESS** (2026-09-03, this session). First real run against production this
 session (`33768425785`): **28 of 31 test instances passed.**
