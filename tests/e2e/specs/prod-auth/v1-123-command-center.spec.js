@@ -23,9 +23,13 @@ test.describe("V1-123 Phase 2: Command Center (production)", () => {
     await expect(commandBar).toBeVisible({ timeout: 60_000 });
     await expect(page.locator('[aria-label="Team aggregates"]')).toBeVisible({ timeout: 30_000 });
 
-    const switcherToggle = page.locator("button.team-switcher-toggle").first();
+    // Desktop and mobile variants coexist in the responsive shell. `.first()`
+    // can select the hidden desktop button on a mobile viewport, so operate on
+    // the variant that is actually visible to the production user.
+    const switcherToggle = page.locator("button.team-switcher-toggle:visible").first();
+    await expect(switcherToggle).toBeVisible({ timeout: 15_000 });
     await switcherToggle.click();
-    const menu = page.locator(".team-switcher-menu");
+    const menu = page.locator(".team-switcher-menu:visible").first();
     await expect(menu).toBeVisible({ timeout: 15_000 });
     const options = await menu.locator('[role="option"]').allInnerTexts();
     const trimmedOptions = options.map((o) => o.trim()).filter(Boolean);
