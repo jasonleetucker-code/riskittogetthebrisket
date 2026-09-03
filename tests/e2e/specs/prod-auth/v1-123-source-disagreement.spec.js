@@ -23,7 +23,11 @@ test.describe("V1-123 Phase 2: Source Disagreement /edge (production)", () => {
 
     const gapsPanel = page.getByRole("tabpanel", { name: "Market gaps" });
     await expect(gapsPanel).toBeVisible({ timeout: 30_000 });
-    const sellSignals = gapsPanel.getByText("Sell signals", { exact: false });
+    // "Sell signals" is a substring of "IDP sell signals" too, and both
+    // panel headings live in this tab -- an unanchored text search matches
+    // both and trips strict mode. Anchor to the start of the heading's
+    // accessible name so the IDP panel's heading is excluded.
+    const sellSignals = gapsPanel.getByRole("heading", { name: /^Sell signals/i });
     await expect(sellSignals).toBeVisible({ timeout: 15_000 });
 
     const agreementTab = page.getByRole("tab", { name: "Agreement" });

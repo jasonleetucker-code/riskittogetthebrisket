@@ -41,9 +41,15 @@ test.describe("V1-123 Phase 2: Insider Trading (production)", () => {
         `insider-trading: populated (${rowCount} rows)${isStale ? ", stale banner shown" : ""}`,
       );
 
-      // Row expansion: clicking the top asset row must reveal its evidence tab.
+      // Row expansion: clicking the top asset row must reveal its evidence
+      // tab. The page's own fixed subtitle ("Trades your league-mates
+      // made...") also matches a loose /League-mate/i text search, so use
+      // the real table column header (<th>League-mate</th>) to avoid that
+      // false match.
       await rows.first().click();
-      await expect(page.getByText(/League-mate/i).or(page.getByText(/Loading member exposure/i))).toBeVisible({
+      const evidenceHeader = page.getByRole("columnheader", { name: "League-mate" });
+      const loadingExposure = page.getByText(/Loading member exposure/i);
+      await expect(evidenceHeader.or(loadingExposure).first()).toBeVisible({
         timeout: 30_000,
       });
     } else {

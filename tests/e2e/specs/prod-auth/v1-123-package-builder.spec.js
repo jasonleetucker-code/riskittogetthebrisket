@@ -24,12 +24,17 @@ test.describe("V1-123 Phase 2: Package Builder /angle (production)", () => {
       })
       .toBeGreaterThan(0);
 
-    const rosterRow = page.locator("label.rosterRow").first();
-    await expect(rosterRow, "your roster list should render at least one player").toBeVisible({
+    // RosterPicker's row/selected classes come from a CSS module
+    // (angle.module.css), so the literal className is hashed in the
+    // production build and a plain ".rosterRow" selector never matches
+    // there. Each row is a <label> wrapping a real <input type="checkbox">
+    // -- an ARIA role that survives hashing -- so select on that instead.
+    const rosterCheckbox = page.getByRole("checkbox").first();
+    await expect(rosterCheckbox, "your roster list should render at least one player").toBeVisible({
       timeout: 30_000,
     });
-    await rosterRow.click();
-    await expect(rosterRow).toHaveClass(/rosterRowSelected/);
+    await rosterCheckbox.click();
+    await expect(rosterCheckbox).toBeChecked();
 
     const submit = page.getByRole("button", { name: /Find return options/i });
     await expect(submit).toBeEnabled({ timeout: 15_000 });
