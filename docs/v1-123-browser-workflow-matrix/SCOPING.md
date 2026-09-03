@@ -166,6 +166,22 @@ session (`33768425785`): **28 of 31 test instances passed.**
   (rankings board renders on a phone viewport; player popup opens/closes) are already exercised by
   the rankings-journeys spec above running on `prod-mobile`, so porting them again would be
   duplicate coverage, not new evidence.
+- `tests/e2e/specs/prod-auth/v1-123-perfect-draft.spec.js` (new, this session) — ports
+  `journey-perfect-draft.spec.js`'s three tests (buyable rookie combination; never exceeds budget;
+  an unloaded league produces no panel rather than a placeholder plan) onto production, desktop
+  only (matches the local source spec's own gate). Seeds the client-side draft workspace via
+  `addInitScript` using real team names read from the authenticated production contract. **Written,
+  not yet run against production.**
+- `tests/e2e/specs/prod-auth/v1-123-trade-journeys.spec.js` (new, this session) — extends `v1-45`
+  to `/arbitrage` and `/trades` per this document's own Phase 1 candidate list, plus the
+  `/rankings?screen=` deep-link filter and `POST /api/trade/finder`. Deliberately excludes
+  `journey-trade.spec.js`'s "/trade builder renders" test — `v1-45-trade-surface.spec.js` already
+  covers `/trade` in prod-auth field-for-field, so porting it again would be duplicate coverage.
+  **Written, not yet run against production.**
+
+**Phase 1 is now code-complete** (all four candidates from this document's own list ported:
+rankings journeys, mobile smoke, Perfect Draft, trade journeys) — the two newest files need a real
+production run before they count as L4 evidence.
 
 Still open from Phase 1: **Perfect Draft** (`journey-perfect-draft.spec.js` → prod-auth) and
 **Trade journeys** (`journey-trade.spec.js` → prod-auth, extending `v1-45` to `/arbitrage` and
