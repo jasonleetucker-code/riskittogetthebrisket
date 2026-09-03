@@ -126,18 +126,32 @@ did not need a human decision.
 
 ## 5. Status
 
-**Phase 0 — DONE** (2026-09-03, `chatgpt/v1-123-phase0-public-league-20260903`, PR #1231):
-`tests/e2e/specs/prod-auth/v1-123-public-league-matrix.spec.js` — all 15 public `/league?tab=`
-routes render on the deployed site without touching private endpoints.
+**Phase 0 — code shipped 2026-09-03 (PR #1231), FIRST REAL RUN THIS SESSION found a flake, not
+re-confirmed clean yet.** `tests/e2e/specs/prod-auth/v1-123-public-league-matrix.spec.js` actually
+executed against production for the first time in run `33768425785` (2026-09-03T14:42-14:47Z) and
+**failed on both projects**: `/league?tab=overview` returned an 83-byte-equivalent near-empty
+document (`body.trim().length === 36`, expected > 100) on the very first navigation of the run. A
+direct `curl https://chaseupside.com/league?tab=overview` immediately after returned a healthy
+200 with 83,629 bytes — the page is not actually broken right now. This reads as a transient
+timing/cold-start flake (both projects failed identically and immediately, on the FIRST request of
+a freshly-authenticated run) rather than a real defect, but per this program's own "at most once"
+re-run policy, it is **not yet re-confirmed clean** — do not mark Phase 0 done again without one
+more real run passing.
 
-**Phase 1 — IN PROGRESS** (2026-09-03, this session). Two of four candidates ported so far:
+**Phase 1 — IN PROGRESS** (2026-09-03, this session). First real run against production this
+session (`33768425785`): **28 of 31 test instances passed.**
 
 - `tests/e2e/specs/prod-auth/v1-123-rankings-journeys.spec.js` — sort/reverse, position filter
-  narrow+restore, name-fragment search filter+clear, player popup (Our Value + Source Breakdown),
-  global `/` search shortcut → popup. Runs on both `prod-desktop` and `prod-mobile` projects
-  (ported from `journey-rankings.spec.js`, which is desktop-only locally — this is broader
-  coverage than the source it ports, not narrower).
-- `tests/e2e/specs/prod-auth/v1-123-mobile-nav.spec.js` — the one behavior from
+  narrow+restore, name-fragment search filter+clear, player popup (Our Value + Source Breakdown)
+  ALL PASSED on both `prod-desktop` and `prod-mobile`. The global `/` search shortcut → popup
+  test failed on `prod-mobile` only — a genuine TEST bug, not a production defect: `.shell-search-
+  btn` lives in `components/shell/TopBar.jsx`, whose own docstring says "the desktop shell header
+  (R1)" — the affordance simply does not exist at the mobile viewport (mobile search lives behind
+  the Menu drawer instead). Fixed by gating that one test `desktopOnly` rather than the whole
+  file, since the other four interactions are now PROVEN to work on both viewports — narrowing
+  coverage to "desktop-only" for the whole file, as the local source spec does, would have thrown
+  away real, working mobile coverage this run just established.
+- `tests/e2e/specs/prod-auth/v1-123-mobile-nav.spec.js` — PASSED. The one behavior from
   `mobile-smoke.spec.js` not already covered elsewhere: the mobile bottom tab bar's visibility and
   cross-tab navigation (`prod-mobile` only). The other two `mobile-smoke.spec.js` behaviors
   (rankings board renders on a phone viewport; player popup opens/closes) are already exercised by
