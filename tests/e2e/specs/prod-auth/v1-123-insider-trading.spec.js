@@ -41,11 +41,14 @@ test.describe("V1-123 Phase 2: Insider Trading (production)", () => {
         `insider-trading: populated (${rowCount} rows)${isStale ? ", stale banner shown" : ""}`,
       );
 
-      // Row expansion: clicking the top asset row must reveal its evidence tab.
+      // Row expansion must enter the member-exposure state. The page subtitle
+      // also contains "league-mates", so a broad /League-mate/ locator is not
+      // evidence that the clicked row expanded.
       await rows.first().click();
-      await expect(page.getByText(/League-mate/i).or(page.getByText(/Loading member exposure/i))).toBeVisible({
-        timeout: 30_000,
-      });
+      const exposure = page
+        .getByText(/Loading member exposure/i)
+        .or(page.getByText(/No league-mate holds or traded this asset/i));
+      await expect(exposure.first()).toBeVisible({ timeout: 30_000 });
     } else {
       const empty = (await noSnapshot.isVisible().catch(() => false))
         ? "no-snapshot-yet"
