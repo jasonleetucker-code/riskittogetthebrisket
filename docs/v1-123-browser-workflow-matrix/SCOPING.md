@@ -292,8 +292,23 @@ conclusion:
     an unanchored text search matched both. Fixed: anchor the heading-name regex to
     `/^Sell signals/i`.
 
-All five fixes are committed; **none has been re-run against production yet** — that confirmation
-is the next step before Phase 2 (or the row as a whole) can be called done.
+All five fixes are committed and were re-run against production
+(`v1-authenticated-verification.yml` run `33798151305`, dispatched against `ae7e634`,
+2026-09-03T19:44-20:11Z): **all 5 pass.** None of `v1-123-command-center.spec.js`,
+`v1-123-draft-capital.spec.js`, `v1-123-insider-trading.spec.js`, `v1-123-package-builder.spec.js`,
+or `v1-123-source-disagreement.spec.js` appear in this run's failures — every one of the five
+real bugs found on the first run is confirmed fixed.
+
+**Two NEW failures appeared this run, in files unchanged since the first run's clean pass**:
+`v1-123-sharp-roster-percentage.spec.js` (`prod-desktop`, 90s timeout waiting for the page's own
+`GET /api/sharp/roster-percentage` response) and `v1-123-team-strength.spec.js` (`prod-desktop`,
+60s timeout, neither the table nor either named empty state appeared). Neither spec file was
+touched between the two runs, so this is not a code regression in the test. A direct latency
+spot-check immediately after (`curl` against both endpoints) answered in under 0.8s each —
+production is not degraded right now — corroborating that both were genuine transient load during
+that specific run rather than a persistent defect, the same evidentiary pattern already established
+this session for the `/arbitrage` mobile timeout and the `v1-111` failure. **Not yet re-confirmed
+with a third run** — dispatched, pending.
 
 **V1-123 as a whole stays below its L4 bar** ("the real authenticated application... across the
 major routes and workflows, including populated/empty/stale/error states") until Phase 2 closes —
