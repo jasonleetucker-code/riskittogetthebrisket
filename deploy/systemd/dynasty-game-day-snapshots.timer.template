@@ -1,0 +1,37 @@
+[Unit]
+Description=Weekly Game Day pregame snapshot capture for __SERVICE_NAME__
+# No Requires= here: [Timer] Unit= already binds the service, and a
+# [Unit] Requires= would start it on every boot regardless of OnCalendar
+# and let a service failure stop the timer itself.  Persistent=true below
+# is the intended catch-up.
+
+[Timer]
+# Weekly, Thursday 10:00 UTC — an OPERATIONAL CHOICE (the spec names no
+# exact cutoff; see the paired .service for the full reasoning). Chosen
+# to sit safely inside the window between the two boundaries that
+# matter:
+#
+#   - AFTER current_nfl_week()'s own week-turnover instant (UTC
+#     midnight on Thursday), so the capture is stamped under the
+#     correct upcoming week rather than the one that just ended;
+#   - BEFORE that week's first possible kickoff (Thursday Night
+#     Football, evening US time / late UTC or Friday UTC), so the
+#     snapshot is genuinely pregame and not contaminated by outcomes
+#     that already happened.
+#
+# Persistent=true backfills a missed run (box down over the window) —
+# safe because record_snapshot() refuses an exact-duplicate capture
+# rather than overwriting, so a late catch-up run still lands under the
+# right week and does not corrupt an earlier capture.
+#
+# This fires every Thursday year-round, including the ~34 offseason
+# weeks; the script exits 1 (soft, "not in season") on those and is not
+# actionable — see the .service file.
+OnCalendar=Thu *-*-* 10:00:00 UTC
+RandomizedDelaySec=600
+Persistent=true
+AccuracySec=5min
+Unit=__SERVICE_NAME__-game-day-snapshots.service
+
+[Install]
+WantedBy=timers.target

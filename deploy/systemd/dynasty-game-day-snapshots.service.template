@@ -1,0 +1,78 @@
+[Unit]
+Description=Dynasty Trade Calculator Game Day pregame snapshot capture (__SERVICE_NAME__)
+After=network-online.target
+Wants=network-online.target
+
+# C5-GD-02 — first real caller of src/ros/game_day_archive.py, which
+# was built (per docs/GAME_DAY_PROBABILITY_SPEC.md §5's archival
+# requirement) but had ZERO callers anywhere in the repo, meaning the
+# perishable pregame prediction state it exists to preserve was never
+# actually being captured. That state cannot be recovered after the
+# fact — once a week is scored, the pre-event roster/lineup-eligibility
+# state that produced any prediction is gone unless captured before the
+# outcome was known. This timer closes that gap.
+#
+# WHAT IT CAPTURES, HONESTLY: roster composition, the lineup-eligible
+# pool (by pure positional eligibility against the league's resolved
+# starter slots), the league's PROVEN-CURRENT scoring identity, and a
+# real wall-clock timestamp. It does NOT capture a per-week point
+# projection — none exists anywhere in this codebase today (confirmed
+# by a repo-wide check when this unit was written, 2026-09-03; see
+# scripts/capture_game_day_snapshots.py's own module docstring). Every
+# captured PlayerPointEstimate carries pointEstimate: null rather than
+# a fabricated number.
+#
+# CADENCE: weekly, early Thursday UTC — matching src.trade.faab_engine
+# .current_nfl_week()'s own Thursday-to-Wednesday week boundary (which
+# ticks over at UTC midnight) and well before that week's first game
+# (the earliest possible kickoff is Thursday Night Football, evening US
+# time / very late UTC or Friday UTC). This is an OPERATIONAL CHOICE,
+# not a spec requirement — docs/GAME_DAY_PROBABILITY_SPEC.md §5 requires
+# archiving pregame snapshots but does not name an exact cutoff. Revise
+# the OnCalendar line in the paired .timer if a tighter or looser window
+# is later decided.
+#
+# SAFE TO RE-RUN: record_snapshot() refuses an exact-duplicate
+# (league, season, week, team, capture_kind) tuple rather than
+# overwriting it, so a re-run within the same week is a no-op, not an
+# error. Persistent=true in the timer backfills a missed run after a
+# reboot within the same week for the same reason.
+#
+# WHY A PROD-SIDE TIMER AND NOT CI: this reads the live board export
+# from data/ (gitignored, VPS-only) and needs the deployed league
+# registry + scoring snapshots to resolve a PROVEN-CURRENT scoring
+# identity — same reasoning as every other data-producing timer in this
+# directory (BDVM refresh, FAAB history, player-context).
+#
+# OFFSEASON BEHAVIOR: current_nfl_season()/current_nfl_week() answer
+# "not in season" for roughly 34 weeks a year, and the script exits 1 in
+# that case (matching the rest of this directory's convention that a
+# nonzero exit communicates "nothing happened" rather than "the box is
+# broken") — systemd will show these as failed runs in the offseason;
+# that is expected and not actionable.
+#
+# Exit codes (scripts/capture_game_day_snapshots.py):
+#   0 - at least one snapshot recorded
+#   1 - soft: not in season, no active leagues, or no roster data
+#   2 - hard: no contract export found, or the league registry could
+#       not be read
+# On any exit code, whatever was already captured for prior weeks stays
+# on disk untouched — this unit only ever appends.
+
+[Service]
+Type=oneshot
+User=__APP_USER__
+Group=__APP_USER__
+WorkingDirectory=__APP_DIR__
+EnvironmentFile=-__APP_DIR__/.env
+ExecStart=__VENV_DIR__/bin/python __APP_DIR__/scripts/capture_game_day_snapshots.py
+StandardOutput=journal
+StandardError=journal
+# A handful of Sleeper HTTP calls per league plus one contract parse —
+# not resource-heavy, but never on a request path.
+Nice=10
+IOSchedulingClass=idle
+TimeoutStartSec=300
+
+[Install]
+WantedBy=multi-user.target
