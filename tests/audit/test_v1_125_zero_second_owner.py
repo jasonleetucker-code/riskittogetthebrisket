@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import importlib.util
+import sys
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[2]
@@ -10,9 +11,14 @@ SCRIPT = REPO / "scripts" / "v1_125_zero_second_owner.py"
 
 
 def _gate_module():
-    spec = importlib.util.spec_from_file_location("v1_125_zero_second_owner", SCRIPT)
+    module_name = "v1_125_zero_second_owner"
+    spec = importlib.util.spec_from_file_location(module_name, SCRIPT)
     assert spec is not None and spec.loader is not None
     module = importlib.util.module_from_spec(spec)
+    # dataclasses resolves annotations through sys.modules while the class is
+    # being decorated. Register this synthetic file import exactly as normal
+    # import machinery would before executing the module.
+    sys.modules[module_name] = module
     spec.loader.exec_module(module)
     return module
 
