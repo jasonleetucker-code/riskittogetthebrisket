@@ -257,6 +257,39 @@ def test_v131_non_boolean_available_fails():
     assert auth.CHECKS[-1].status == "fail"
 
 
+# ── V1-49 item 3: the authenticated league-comparison probe ──
+
+
+def test_v49_item3_401_with_real_session_is_a_fail_not_unmeasurable():
+    # A 401 despite a genuinely authenticated session means the earlier
+    # code-read conclusion ("only auth was ever blocking this") was wrong
+    # -- that is a real finding, not an absence of evidence.
+    client = _FakeClient({"/api/league-comparison?refresh=1": (401, {"error": "auth_required"})})
+    auth.check_v49_item3(client)
+    assert auth.CHECKS[-1].status == "fail"
+
+
+def test_v49_item3_503_degraded_state_is_unmeasurable_not_a_fabricated_pass():
+    client = _FakeClient(
+        {
+            "/api/league-comparison?refresh=1": (
+                503,
+                {"error": "sleeper_unreachable", "detail": "timeout"},
+            )
+        }
+    )
+    auth.check_v49_item3(client)
+    assert auth.CHECKS[-1].status == "unmeasurable"
+
+
+def test_v49_item3_200_authenticated_is_pass():
+    client = _FakeClient(
+        {"/api/league-comparison?refresh=1": (200, {"leagues": [], "positions": []})}
+    )
+    auth.check_v49_item3(client)
+    assert auth.CHECKS[-1].status == "pass"
+
+
 # ── V1-102: the configurable-expiry evidence ──
 
 
