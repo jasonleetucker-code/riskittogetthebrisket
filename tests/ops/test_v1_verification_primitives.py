@@ -528,3 +528,45 @@ def test_v59_chain_still_fails_on_a_real_bad_result(monkeypatch):
     assert len(chain_check) == 1
     assert chain_check[0].status == "fail"
     assert "Result=failed" in chain_check[0].detail
+
+
+# ── V1-20 fails-closed, against the real (this-tree) registry ──
+
+
+def test_v20_refuses_unknown_redraft_and_absent_but_accepts_the_honest_case():
+    """The property `test_game_type_gate_red.py` already pins, run through
+    the on-box driver's own check function rather than pytest directly --
+    this is what makes it eligible to run over SSH against the deployed
+    tree via `v1-onbox-checklists.yml`'s `checks=v20`, closing V1-20's
+    named L3 gap (the fails-closed half proven against the deployed SHA,
+    not just this dev tree)."""
+    onbox.check_v20()
+    result = [c for c in onbox.CHECKS if c.check_id == "V20"]
+    assert len(result) == 1
+    assert result[0].status == "pass", result[0].detail
+    assert result[0].evidence["refused"] == {
+        "unknown": True,
+        "redraft": True,
+        "absent": True,
+    }
+    assert result[0].evidence["honest_case_passed"] is True
+
+
+def test_v20_records_fail_when_the_gate_lets_a_rogue_source_through(monkeypatch):
+    """Mutation-shaped: if the injected validator stopped refusing, this
+    check must say FAIL, not silently report pass on a broken gate."""
+    from src.api import data_contract as dc
+
+    def permissive(sources=None):
+        return None  # never raises -- simulates a broken gate
+
+    monkeypatch.setattr(dc, "_validate_source_game_types_invariant", permissive)
+    onbox.check_v20()
+    result = [c for c in onbox.CHECKS if c.check_id == "V20"]
+    assert len(result) == 1
+    assert result[0].status == "fail"
+    assert result[0].evidence["refused"] == {
+        "unknown": False,
+        "redraft": False,
+        "absent": False,
+    }
