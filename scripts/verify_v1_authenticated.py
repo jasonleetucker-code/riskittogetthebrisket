@@ -236,7 +236,9 @@ def check_v49_item3(client: Client) -> None:
         )
         return
     if status != 200 or not isinstance(body, dict):
-        c.record("fail", f"HTTP {status}, unexpected shape", body=body if isinstance(body, str) else None)
+        c.record(
+            "fail", f"HTTP {status}, unexpected shape", body=body if isinstance(body, str) else None
+        )
         return
     # 200: the route is genuinely reachable authenticated. This alone does
     # not prove the host_native_scoring challenger fired — that needs real
