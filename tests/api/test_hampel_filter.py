@@ -12,6 +12,8 @@ single source.
 
 from __future__ import annotations
 
+import pytest
+
 from src.api.data_contract import (
     _HAMPEL_K,
     _HAMPEL_MIN_N,
@@ -269,3 +271,61 @@ class TestN4EdgeCase:
         # collapses.  Hampel's own design.
         assert dropped == []
         assert len(kept) == 4
+
+
+class TestLiveBoardIdpAnchorEjectionRate:
+    """W02-F002 — Hampel must not eject the IDP market anchor at scale.
+
+    ``docs/master-site-audit/REBASELINE_2026-08-11.md`` measured this
+    finding "RESOLVED AS A CONSEQUENCE OF W02-F001" (the coordinate-pool
+    routing fix in ``rank_coordinates.py``): the baseline ejected
+    ``idpTradeCalc`` on 30.5% of Hampel-eligible IDP rows (52/52 of them
+    HIGH) because three mispriced translated votes dragged the per-player
+    median far enough that the correctly-priced anchor read as the
+    outlier; post-B2 that fell to 2.1% (4/190). The finding's own
+    ``expected`` bar is "a low single-digit percentage" — this re-runs the
+    same measurement on the CURRENT exported board (droppedSources is a
+    real per-row stamp, not re-derived here) so the claim is re-checked
+    against fresh data rather than trusted from a three-week-old note.
+    Skips when no export is checked out, same posture as
+    ``test_curve_routing_coordinate_pool.py``'s live-board class this
+    reuses ``_live_contract()`` from.
+    """
+
+    IDP_POSITIONS = {"DL", "LB", "DB", "DE", "DT", "CB", "S", "SS", "FS", "EDGE"}
+
+    def test_idp_trade_calc_ejection_rate_stays_low_single_digit(self) -> None:
+        from tests.api.test_curve_routing_coordinate_pool import _live_contract
+
+        contract = _live_contract()
+        if contract is None:
+            pytest.skip("no exported board to build from")
+
+        rows = contract.get("playersArray") or []
+        eligible = 0
+        ejected = 0
+        for row in rows:
+            if row.get("position") not in self.IDP_POSITIONS:
+                continue
+            smeta = row.get("sourceRankMeta") or {}
+            if "idpTradeCalc" not in smeta:
+                continue
+            if len(smeta) < _HAMPEL_MIN_N:
+                continue
+            eligible += 1
+            if "idpTradeCalc" in (row.get("droppedSources") or []):
+                ejected += 1
+
+        assert eligible > 30, (
+            "too few Hampel-eligible IDP rows on the live board to measure "
+            "anything (population collapsed, not evidence of a fix)"
+        )
+        rate = 100.0 * ejected / eligible
+        # 10% ceiling: 3-5x the post-B2 measurement (2.1%), well clear of
+        # normal week-to-week board churn, but nowhere near the 30.5%
+        # baseline the coordinate-pool fix repaired.
+        assert rate <= 10.0, (
+            f"idpTradeCalc ejected on {ejected}/{eligible} ({rate:.1f}%) IDP rows "
+            "-- back toward the pre-W02-F001 baseline (30.5%, 52/52 HIGH); the "
+            "coordinate-pool routing fix may have regressed"
+        )
