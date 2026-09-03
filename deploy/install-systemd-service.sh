@@ -1151,6 +1151,11 @@ main() {
   install_simple_timer "depth-charts-refresh" "ESPN depth-chart diff -> BDVM promotion/demotion events"
   install_simple_timer "injury-feed-refresh" "ESPN injury-status diff -> BDVM injury/return events"
   install_simple_timer "trending-history-refresh" "Sleeper trending adds+drops history snapshot"
+  # C5-GD-02's first real caller — captures perishable pregame roster/
+  # lineup state before each week's games lock. No credentials, no
+  # special seeding; see the .service.template's own comment for why
+  # this evidence cannot be recovered after the fact.
+  install_simple_timer "game-day-snapshots" "Game Day pregame prediction snapshot capture"
 
   # ── daemon-reload and enable ────────────────────────────────────────────
   # ce_needs_install was missing from this list. Every other timer's

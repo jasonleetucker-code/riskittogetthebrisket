@@ -78,10 +78,18 @@ effort against a hard kickoff deadline.
 
 **Closed this session (2026-09-03)**: `scripts/capture_game_day_snapshots.py`
 is `game_day_archive`'s first real caller, plus
-`deploy/systemd/dynasty-game-day-snapshots.{service,timer}.template` (picked
-up automatically on the next production deploy — `deploy/deploy.sh` globs
-every `*.timer.template` in that directory and installs any that are
-missing, no other deploy-script change needed). Validated end-to-end against
+`deploy/systemd/dynasty-game-day-snapshots.{service,timer}.template` wired
+into `deploy/install-systemd-service.sh` via the shared `install_simple_timer`
+helper. **Correction to an initial claim this section made**: shipping the
+two template files alone is NOT enough — `deploy/deploy.sh`'s glob loop only
+DETECTS a missing timer and re-runs the installer; it is
+`install-systemd-service.sh` that actually renders and enables a unit, from a
+hand-written per-timer call, and a template with no such call is reported
+missing on every deploy forever without ever being installed
+(`tests/deploy/test_all_timers_are_wired.py` exists specifically to catch
+this class of mistake — and did, on this PR's first CI run). Fixed by adding
+`install_simple_timer "game-day-snapshots" "Game Day pregame prediction
+snapshot capture"` alongside the other no-special-case timers. Validated end-to-end against
 real production data in this sandbox (real Sleeper rosters for
 `dynasty_main`, real scoring-fingerprint evidence, a real write, a real
 idempotent re-run refusing the duplicate) before being committed — not just
