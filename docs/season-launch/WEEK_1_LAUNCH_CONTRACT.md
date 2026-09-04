@@ -41,13 +41,13 @@ The denominator is frozen at 30 for this launch tranche. Do not add/remove rows 
 | W1-15 | Private pregame | Private matchup intelligence reuses canonical lineup, strength/weakness, power/playoff, and projection inputs with source/freshness lineage. | NOT STARTED |
 | W1-16 | Private pregame | Owner's Week 1 private matchup-intelligence experience is deployed and production-verified for the selected team. | NOT STARTED |
 | W1-17 | Game Day foundation | `docs/GAME_DAY_PROBABILITY_SPEC.md` is the authoritative approved product/methodology contract for CE-20 Game Day. | VERIFIED |
-| W1-18 | Game Day backend | One canonical league-aware current-week scoring simulation owner is identified/implemented; no second matchup/median engine. | NOT STARTED |
-| W1-19 | Game Day backend | Simulation consumes the requested league's exact scoring, roster slots, eligibility, team count, and league settings without silent home-league fallback. | NOT STARTED |
-| W1-20 | Game Day backend | Best-ball simulation uses canonical optimal-lineup behavior and preserves still-eligible lineup displacement possibilities. | NOT STARTED |
-| W1-21 | Game Day backend | Completed, in-progress, not-started, inactive, and unavailable player/game states are handled without double projection or missing→zero coercion. | NOT STARTED |
-| W1-22 | Game Day probability | `Win Matchup %` is produced from the canonical weekly simulation with bounded, testable probability output. | NOT STARTED |
-| W1-23 | Game Day probability | `Beat League Median %` derives from the same league-wide simulation draws; median-disabled is NOT_APPLICABLE and tie semantics are host-faithful. | NOT STARTED |
-| W1-24 | Game Day truth | Game Day outputs preserve timestamp, model version, projection/source freshness, coverage, and truthful degraded/unavailable states. | NOT STARTED |
+| W1-18 | Game Day backend | One canonical league-aware current-week scoring simulation owner is identified/implemented; no second matchup/median engine. | VERIFIED |
+| W1-19 | Game Day backend | Simulation consumes the requested league's exact scoring, roster slots, eligibility, team count, and league settings without silent home-league fallback. | VERIFIED |
+| W1-20 | Game Day backend | Best-ball simulation uses canonical optimal-lineup behavior and preserves still-eligible lineup displacement possibilities. | VERIFIED |
+| W1-21 | Game Day backend | Completed, in-progress, not-started, inactive, and unavailable player/game states are handled without double projection or missing→zero coercion. | VERIFIED |
+| W1-22 | Game Day probability | `Win Matchup %` is produced from the canonical weekly simulation with bounded, testable probability output. | VERIFIED |
+| W1-23 | Game Day probability | `Beat League Median %` derives from the same league-wide simulation draws; median-disabled is NOT_APPLICABLE and tie semantics are host-faithful. | BLOCKED |
+| W1-24 | Game Day truth | Game Day outputs preserve timestamp, model version, projection/source freshness, coverage, and truthful degraded/unavailable states. | VERIFIED |
 | W1-25 | Game Day UI | Canonical Game Day route/section and navigation shell are integrated into the existing site design and selected-team context. | NOT STARTED |
 | W1-26 | Game Day UI | SCHEDULED/PREGAME state is production-usable: matchup, projected state, headline probabilities when available, drivers, freshness, and archive timestamp. | NOT STARTED |
 | W1-27 | Game Day UI | LIVE state is production-usable and updates actual scoring, best-ball state, remaining players, swing context, and probabilities truthfully. | NOT STARTED |
@@ -57,93 +57,33 @@ The denominator is frozen at 30 for this launch tranche. Do not add/remove rows 
 
 ## Mechanical tally
 
-*Recounted 2026-09-04T17:40Z.*
+*Recounted 2026-09-04T21:00Z after merge of #1244.*
 
-- VERIFIED: 8
+- VERIFIED: 14
 - IMPLEMENTED_UNVERIFIED: 1
 - IN PROGRESS: 0
-- NOT STARTED: 21
-- BLOCKED: 0
+- NOT STARTED: 14
+- BLOCKED: 1
 - DENOMINATOR: 30
-- COMPLETION: **8/30 = 26.7%**
-
-W1-02 is `VERIFIED` on production evidence (below). W1-03 advanced from
-`NOT STARTED` to `IMPLEMENTED_UNVERIFIED` and does NOT count.
+- COMPLETION: **14/30 = 46.7%**
 
 ### Row movements, 2026-09-04
 
-- **W1-02 → VERIFIED (production evidence, run `33904966161`).** The missing
-  caller is merged (#1240,
-  `b60da42`): `src/ros/game_day_capture.py` (resolution),
-  `scripts/capture_game_day_predictions.py` (CLI),
-  `deploy/systemd/dynasty-game-day-capture.{service,timer}.template`
-  (Thu 13:00 UTC + 15:30 retry, registered in `install-systemd-service.sh`),
-  `.github/workflows/game-day-capture.yml` (on-box manual + dry-run), and 23
-  tests. Before this, `grep -rn game_day_archive .github/workflows/ scripts/`
-  returned zero matches — the archive had no caller at all. It is NOT
-  Production evidence, on the deployed tree `67e5dd9`:
+- **W1-02 → VERIFIED (production evidence, run `33904966161`).** The canonical scheduled caller is merged (#1240, `b60da42`) and production dry-run evidence proved the real production interpreter/data path, nonzero projection coverage, open pregame window, exact scoring fingerprint, and installed/enabled timer. W1-04 remains separate and cannot count until an authentic pre-kickoff observation is actually harvested.
+- **W1-03 → IMPLEMENTED_UNVERIFIED.** `data/game_day/` is now in `deploy/backup/riskit-state-backup.sh`, pinned by `tests/deploy/test_state_backup_dir_archiving.py`, and documented in `docs/retention/RETENTION_REGISTER.md`. It is not VERIFIED because no backup generation containing `game_day.tar.gz` has yet been observed.
+- **W1-18 → VERIFIED (#1244, merge `f922d0dafc00e8ab0bf0dc215ed20e50f57f0ee0`).** `src/ros/game_day_sim.py` is the canonical league-aware current-week simulation owner. Per-player variance remains owned by `sim_calibration.PointsModel`; best-ball assignment remains owned by the canonical lineup solver. The new module owns the week rather than duplicating either primitive. Exact-head PR Validation was green before merge; the PR reports the full hard gate at 10,636 passed / 54 skipped / 0 failures.
+- **W1-19 → VERIFIED (#1244).** Tests pin per-league `best_ball`, `league_average_match`, scoring, roster positions/eligibility, team count, and requested-league rules. The implementation does not silently use the owner's home-league defaults.
+- **W1-20 → VERIFIED (#1244).** Best-ball draws re-solve the canonical optimal assignment on every simulation draw, preserving lineup displacement. Managed leagues instead use submitted lineups; tests pin both behaviors including Superflex/FLEX/TE/IDP/hybrid eligibility.
+- **W1-21 → VERIFIED (#1244).** Completed players are banked, in-progress players preserve banked points and draw only remainder, not-started players draw the full remaining distribution, inactive is a known zero, and unknown players remain unsimulable rather than being coerced to zero. These states are directly tested.
+- **W1-22 → VERIFIED (#1244).** `Win Matchup %` is produced by the canonical joint weekly simulation, bounded/tested, and structurally reconciles to the same draw-level joint outcomes used by the median path.
+- **W1-24 → VERIFIED (#1244).** Game Day result contracts carry generated/model/scoring metadata, coverage and unsimulable-player information, and explicit NOT_APPLICABLE / STANDINGS_RULE_UNVERIFIED / UNSIMULABLE / fallback notes instead of fabricated numeric certainty.
+- **W1-23 → BLOCKED, not VERIFIED.** #1244 correctly derives the median-side probability from the same league-wide simulation draws and correctly represents median-disabled as NOT_APPLICABLE, but host-faithful threshold/tie semantics remain unverified. `threshold_semantics_verified` is deliberately hard-coded false. The repo's historical Sleeper data cannot safely answer the question because retrospective best-ball scoring no longer reproduces the host's recorded season totals. Exact smallest decision/evidence needed: inspect one completed Sleeper week in the host UI/API evidence available at the time and establish whether `league_average_match` uses median or average and what an exact threshold tie records as. Do not guess or flip the flag without that evidence.
 
-  ```
-  ### python: /home/<user>/.venvs/trade-calculator/bin/python
-  Sleeper state: season=2026 week=1 season_type=regular
-  <main>: teams=12 players=674 estimates=581/674 slots=21 scoring=sf1:9e51824690d091f9
-  <new>:  teams=10 players=290 estimates=263/290 slots=10 scoring=sf1:82a5f8ef2bfdb098
-  ### archive file count: 0
-  ### scheduled timer:
-  ###   Thu 2026-09-10 15:00:00 CEST   5 days -  …-game-day-capture.timer
-  ###   enabled: yes
-  ```
+### Named blockers
 
-  Four things that verification establishes and a green run alone would not:
-  the script executes end to end against production's own data; **projection
-  estimates actually resolve there** (581/674 and 263/290, against 0/674 in a
-  sandbox, because `data/bdvm/` exists only on the box); the pregame window is
-  still OPEN, since a closed one would have been REFUSED with exit 3; and the
-  **scheduled timer is installed and enabled**, next firing Thu 2026-09-10
-  15:00 CEST = 13:00 UTC, roughly eleven hours before kickoff.
-
-  This row is the MECHANISM being scheduled and operational. The actual
-  harvested observation is W1-04, which stays `NOT STARTED` until the timer
-  fires. Deliberately not forced early: the archive is append-only and first
-  write wins, so writing now would consume the Week 1 pregame slot with a
-  Friday roster and permanently forbid the post-waiver Thursday capture, which
-  is the better evidence. The window is proven open and the mechanism proven
-  armed; the right action is to let it run.
-
-  Two defects were found by that verification and are worth recording because
-  neither was visible from the repository. The workflow's venv ladder
-  (`.venv` → `venv` → `python3`, copied from three existing on-box workflows)
-  missed both guesses on this box — the venv is at `PROD_VENV_DIR`, outside
-  `APP_DIR` — and silently selected the SYSTEM python, failing with
-  `ModuleNotFoundError: No module named 'fastapi'` (run `33903569120`). The
-  ladder now reads `PROD_VENV_DIR` and FAILS CLOSED rather than ending in a
-  bare `python3`. Separately, the deploy carrying this feature
-  (`33897716866`) was CANCELLED in the `production-deploy` concurrency queue;
-  a later run carried the same tree, but nothing could have told the
-  difference, which is why the timer-armed check now exists.
-- **W1-03 → IMPLEMENTED_UNVERIFIED.** `data/game_day/` was absent from
-  `deploy/backup/riskit-state-backup.sh`, so a Week 1 capture would have lived
-  on one VPS with no backup — for the one artifact in the repo that cannot be
-  re-created even with unlimited access to Sleeper. It is now in the backup
-  set, pinned by `tests/deploy/test_state_backup_dir_archiving.py`, and
-  documented in `docs/retention/RETENTION_REGISTER.md`. It is NOT `VERIFIED`:
-  no generation containing `game_day.tar.gz` has been observed, and the
-  register's existing split still stands — the deploy user's fallback lineage
-  is proven, the root-owned nightly is not.
-
-### Named blocker
-
-- **W1-11** (all six Week 1 narratives generated and quality-reviewed) cannot
-  be satisfied in its current state. `ANTHROPIC_API_KEY` is not configured, so
-  `weekly-narratives.yml` skips every step after its key check and reports
-  **success in ~10 seconds** — measured across its last 8 scheduled runs.
-  `exports/narratives/` holds two files in total, both `2025/week-17`; there
-  are zero 2026 articles. `matchupPreview` is not rendered by `/league`
-  ("the AI-article tabs replaced those views"), so the public Week 1 pregame
-  surface depends entirely on articles that will not be generated. The preview
-  cron fires **Wed 2026-09-09**, one day before kickoff. This is an owner
-  action (add the repository secret), not an implementation gap; recording it
-  here rather than silently missing the Sat Sep 5 pacing target.
+- **W1-11:** `ANTHROPIC_API_KEY` is not configured. `weekly-narratives.yml` therefore skips generation after its key check while reporting a green workflow; there are zero 2026 Week 1 narrative files. This needs the repository secret to exist before the scheduled Week 1 generation path can produce and quality-review all six articles.
+- **W1-23:** host threshold/tie semantics as described above. The simulation intentionally fails closed on the verification flag until real host evidence settles the rule.
+- **W1-04 / deadline mismatch:** the canonical append-only capture is scheduled for Thursday 2026-09-10, after the Wednesday 2026-09-09 launch-contract deadline, because Thursday post-waiver state is the stronger pregame observation and first write wins. Do not force an earlier capture merely to move the numerator unless the owner explicitly changes that acceptance/timing tradeoff.
 
 Whenever a row changes, update the row and the mechanical tally in the same bounded change. Never count prose claims or partial evidence as VERIFIED.
 
