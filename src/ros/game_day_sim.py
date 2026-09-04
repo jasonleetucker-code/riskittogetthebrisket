@@ -134,7 +134,9 @@ class LeagueWeekRules:
     #: True / False / **None**. ``None`` is "the standings rule could not
     #: be verified", which is not the same as the median game being off.
     median_enabled: bool | None
-    team_count: int
+    #: Descriptive only — nothing here decides on it. ``None`` when the
+    #: host did not state one, rather than a fabricated 0.
+    team_count: int | None
 
     def __post_init__(self) -> None:
         if not self.starter_slots:
@@ -486,6 +488,7 @@ def rules_from_league(
     median setting is `STANDINGS_RULE_UNVERIFIED` rather than disabled.
     """
     settings = league_payload.get("settings") or {}
+
     raw_median = settings.get("league_average_match")
     median_enabled: bool | None
     if raw_median is None:
@@ -495,14 +498,39 @@ def rules_from_league(
             median_enabled = bool(int(raw_median))
         except (TypeError, ValueError):
             median_enabled = None
+
+    # BEST BALL FAILS CLOSED. It decides whether the week is scored by
+    # re-solving the optimal lineup or by summing the manager's
+    # submitted one, which changes every number this module produces —
+    # so an absent flag must not quietly become "managed", the same way
+    # an absent median setting must not become "off". Sleeper states it
+    # for both live leagues (measured 2026-09-04: 1 and 0), so this
+    # refusal describes a broken payload, not a supported configuration.
+    raw_best_ball = settings.get("best_ball")
+    if raw_best_ball is None:
+        raise GameDaySimError(
+            f"{league_key}: the host did not state `best_ball`. Guessing it would "
+            "score the week under the wrong lineup rule for every team; a lineup "
+            "semantic is not a field to default."
+        )
     try:
-        team_count = int(settings.get("num_teams") or 0)
+        best_ball = bool(int(raw_best_ball))
+    except (TypeError, ValueError) as exc:
+        raise GameDaySimError(
+            f"{league_key}: `best_ball` is {raw_best_ball!r}, which is not a flag."
+        ) from exc
+
+    raw_teams = settings.get("num_teams")
+    team_count: int | None
+    try:
+        team_count = int(raw_teams) if raw_teams is not None else None
     except (TypeError, ValueError):
-        team_count = 0
+        team_count = None
+
     return LeagueWeekRules(
         league_key=league_key,
         starter_slots=tuple(starter_slots),
-        best_ball=bool(int(settings.get("best_ball") or 0)),
+        best_ball=best_ball,
         median_enabled=median_enabled,
         team_count=team_count,
     )

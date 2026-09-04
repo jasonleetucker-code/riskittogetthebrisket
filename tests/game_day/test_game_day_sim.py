@@ -444,6 +444,38 @@ def test_an_absent_median_setting_is_unknown_not_disabled():
     assert r.median_enabled is None
 
 
+def test_an_absent_best_ball_flag_is_refused_not_defaulted():
+    """The lineup semantic decides whether the week is scored by
+    re-solving the optimal lineup or summing the submitted one, so
+    guessing it would score every team under the wrong rule."""
+    with pytest.raises(GameDaySimError, match="best_ball"):
+        rules_from_league(
+            league_key="k",
+            league_payload={"settings": {"league_average_match": 1}},
+            starter_slots=("QB",),
+        )
+
+
+def test_a_non_flag_best_ball_value_is_refused():
+    with pytest.raises(GameDaySimError, match="not a flag"):
+        rules_from_league(
+            league_key="k",
+            league_payload={"settings": {"best_ball": "maybe"}},
+            starter_slots=("QB",),
+        )
+
+
+def test_an_absent_team_count_is_none_not_zero():
+    """Descriptive, but still not fabricated — nothing decides on it and
+    a 0-team league is not what an absent field means."""
+    r = rules_from_league(
+        league_key="k",
+        league_payload={"settings": {"best_ball": 1}},
+        starter_slots=("QB",),
+    )
+    assert r.team_count is None
+
+
 def test_no_starter_slots_is_refused():
     with pytest.raises(GameDaySimError, match="starter slots"):
         LeagueWeekRules(
