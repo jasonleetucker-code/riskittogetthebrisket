@@ -889,6 +889,30 @@ and start/sit calls are fair game in the narrative.
 """
 
 
+# Week 1 (and any week whose recent-form window lies entirely in a
+# previous season) hands the model a ``record``/``avgPoints`` pair that
+# describes LAST season. Every game in that window is prior-season by
+# construction — including the championship, which is the most
+# quotable and the most misleading. Without this the model has the
+# per-game ``season`` fields available but no instruction to use them,
+# and the natural phrasing ("averaging 118 a week") silently asserts
+# current-season form that does not exist yet.
+_PRIOR_SEASON_FORM_BLURB = """\
+IMPORTANT — RECENT FORM IS FROM A PREVIOUS SEASON. For {sides}, every \
+game in the ``recentForm`` window predates this season. There is no \
+current-season form yet.
+
+* DO label it explicitly: "last season", "closed 2025 with", "their \
+  final three of a year ago". The per-game ``season`` field tells you \
+  which year each result belongs to.
+* DO NOT write ``record`` or ``avgPoints`` as though they describe this \
+  season, and do not write "coming off" or "riding a streak" without \
+  saying which season it was.
+* DO NOT invent current-season stats to fill the gap. A season that has \
+  not started has no results, and that is itself the story.
+"""
+
+
 _PRIOR_OPENERS_BLURB = """\
 Here are the opening lines (and headline) of every recent article you've \
 written for this league. DO NOT reuse phrasing, structure, or metaphor from \
@@ -963,8 +987,24 @@ def assemble_prompt(
         ),
     }[brief.mode]
 
+    # Goes in the USER message, not the cached system block: whether the
+    # form window is prior-season depends on the week being written, so
+    # caching it across articles would apply Week 1's instruction to
+    # Week 5.
+    prior_form_sides = [
+        label
+        for label, side in (("the home team", brief.home), ("the away team", brief.away))
+        if (side.get("recentForm") or {}).get("isPriorSeasonOnly")
+    ]
+    prior_form_directive = ""
+    if prior_form_sides:
+        prior_form_directive = (
+            _PRIOR_SEASON_FORM_BLURB.format(sides=" and ".join(prior_form_sides)) + "\n"
+        )
+
     user_text = (
         f"{mode_directive}\n\n"
+        f"{prior_form_directive}"
         f"=== MATCHUP BRIEF ===\n{brief_json}\n\n"
         f"=== PRIOR ARTICLES (anti-repetition source) ===\n{prior_text}\n"
     )

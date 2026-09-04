@@ -10,7 +10,11 @@ from __future__ import annotations
 
 import unittest
 
-from src.public_league.matchup_preview import build_section, _pair_key
+from src.public_league.matchup_preview import (
+    build_section,
+    _pair_key,
+    _recent_form_for_owner,
+)
 from tests.public_league.fixtures import build_test_snapshot
 
 
@@ -92,3 +96,56 @@ class PreviewModeTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class RecentFormSeasonLabellingTests(unittest.TestCase):
+    """Week 1's recent-form window lies entirely in the PREVIOUS season.
+
+    The per-game rows always carried their own ``season``; the
+    aggregates did not, so ``record`` / ``avgPoints`` read as
+    current-season form wherever they were shown or summarised. In Week
+    1 that is guaranteed wrong — including the championship, which is
+    the most quotable game in the window and the most misleading.
+    """
+
+    def setUp(self) -> None:
+        self.snapshot = build_test_snapshot()
+        # Any owner the fixture actually attributes matchups to.
+        self.owner = sorted(self.snapshot.managers.by_owner_id)[0]
+
+    def test_a_window_entirely_in_a_prior_season_is_flagged(self) -> None:
+        # Week 1 of a season AFTER the fixture's data: every prior game
+        # belongs to an earlier season.
+        form = _recent_form_for_owner(self.snapshot, self.owner, "2026", 1, n=3)
+        self.assertTrue(form["games"], "fixture should supply prior games")
+        self.assertTrue(form["isPriorSeasonOnly"])
+        self.assertNotIn("2026", form["seasons"])
+
+    def test_a_mid_season_window_is_not_flagged_as_prior(self) -> None:
+        form = _recent_form_for_owner(self.snapshot, self.owner, "2025", 16, n=3)
+        self.assertTrue(form["games"])
+        self.assertFalse(form["isPriorSeasonOnly"])
+        self.assertIn("2025", form["seasons"])
+
+    def test_seasons_are_reported_oldest_first(self) -> None:
+        form = _recent_form_for_owner(self.snapshot, self.owner, "2026", 1, n=3)
+        self.assertEqual(form["seasons"], sorted(form["seasons"]))
+
+    def test_spans_seasons_matches_the_season_count(self) -> None:
+        form = _recent_form_for_owner(self.snapshot, self.owner, "2026", 1, n=3)
+        self.assertEqual(form["spansSeasons"], len(form["seasons"]) > 1)
+
+    def test_no_prior_games_reports_none_not_zero(self) -> None:
+        """MISSING IS NEVER ZERO. A manager with no scored history has
+        no measurable form; 0.0 would read as 'averaged zero points'."""
+        form = _recent_form_for_owner(self.snapshot, "owner-who-does-not-exist", "2026", 1)
+        self.assertEqual(form["games"], [])
+        self.assertIsNone(form["avgPoints"])
+        self.assertEqual(form["seasons"], [])
+        # An empty window is not "prior season only" — it is no evidence.
+        self.assertFalse(form["isPriorSeasonOnly"])
+        self.assertFalse(form["spansSeasons"])
+
+    def test_a_real_window_still_reports_a_numeric_average(self) -> None:
+        form = _recent_form_for_owner(self.snapshot, self.owner, "2025", 16, n=3)
+        self.assertIsInstance(form["avgPoints"], float)

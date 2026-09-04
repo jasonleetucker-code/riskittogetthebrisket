@@ -3,7 +3,13 @@
 For each matchup on the upcoming (or most recent) week, surface:
     * All-time head-to-head record between the two owners.
     * Last 5 meetings with dates / scores / winner.
-    * Recent form — last 3 games per team (average points, W-L).
+    * Recent form — last 3 games per team (average points, W-L), with
+      the seasons that window actually spans.  In WEEK 1 every game in
+      it belongs to the PREVIOUS season, so the aggregates carry
+      ``seasons`` / ``isPriorSeasonOnly`` / ``spansSeasons`` and a
+      consumer must label them rather than presenting them as
+      current-season form.  ``avgPoints`` is ``None`` — never ``0.0`` —
+      when there are no prior games at all.
 
 Current-week detection:
     1. Walk the current season's weeks in order.
@@ -165,11 +171,35 @@ def _recent_form_for_owner(
     wins = sum(1 for e in recent if e["result"] == "W")
     losses = sum(1 for e in recent if e["result"] == "L")
     ties = sum(1 for e in recent if e["result"] == "T")
-    avg = round(sum(e["points"] for e in recent) / len(recent), 2) if recent else 0.0
+    # MISSING IS NEVER ZERO. A manager with no prior scored games has no
+    # measurable form; ``0.0`` would read as "averaged zero points",
+    # which is a claim no observation supports. Callers must render the
+    # absence rather than the number.
+    avg = round(sum(e["points"] for e in recent) / len(recent), 2) if recent else None
+
+    # WHICH SEASONS THIS WINDOW ACTUALLY SPANS. The per-game rows have
+    # always carried their own ``season``, but the aggregates did not —
+    # so ``record``/``avgPoints`` read as current-season form wherever
+    # they were shown or summarised. In WEEK 1 that is guaranteed wrong:
+    # every game in the window belongs to the PREVIOUS season, including
+    # the championship, and nothing in the payload said so.
+    seasons = sorted({e["season"] for e in recent}, key=_season_sort)
+    prior_only = bool(recent) and all(
+        _season_sort(e["season"]) < _season_sort(before_season) for e in recent
+    )
     return {
         "games": recent,
         "record": f"{wins}-{losses}" + (f"-{ties}" if ties else ""),
         "avgPoints": avg,
+        #: Distinct seasons contributing to this window, oldest first.
+        "seasons": seasons,
+        #: True when EVERY game predates the season being previewed —
+        #: the Week 1 case. Consumers must label the aggregates as prior
+        #: -season rather than presenting them as current-season form.
+        "isPriorSeasonOnly": prior_only,
+        #: True when the window straddles a season boundary, so the
+        #: aggregates mix two seasons and neither label alone is honest.
+        "spansSeasons": len(seasons) > 1,
     }
 
 

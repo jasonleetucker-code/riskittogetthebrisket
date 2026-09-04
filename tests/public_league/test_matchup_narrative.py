@@ -20,6 +20,8 @@ Coverage map:
 
 from __future__ import annotations
 
+import copy
+
 import asyncio
 import json
 import os
@@ -619,3 +621,62 @@ class GenerateArticleTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class PriorSeasonFormDirectiveTests(unittest.TestCase):
+    """Week 1 hands the model a ``record``/``avgPoints`` pair describing
+    LAST season. The per-game ``season`` fields were always in the brief,
+    but nothing instructed the model to use them — so the natural
+    phrasing ("averaging 118 a week") silently asserts current-season
+    form that does not exist yet."""
+
+    @classmethod
+    def setUpClass(cls) -> None:
+        cls.snapshot = build_test_snapshot()
+        cls.brief = mn.build_brief(cls.snapshot, season="2025", week=16, matchup_id=1, mode="recap")
+
+    def _brief_with_prior_form(self, home: bool = True, away: bool = False):
+        brief = copy.deepcopy(self.brief)
+        brief.home.setdefault("recentForm", {})["isPriorSeasonOnly"] = home
+        brief.away.setdefault("recentForm", {})["isPriorSeasonOnly"] = away
+        return brief
+
+    def test_directive_absent_when_form_is_current_season(self) -> None:
+        _, messages = mn.assemble_prompt(
+            self._brief_with_prior_form(home=False, away=False), prior_articles=[]
+        )
+        self.assertNotIn("RECENT FORM IS FROM A PREVIOUS SEASON", messages[0]["content"])
+
+    def test_directive_present_and_names_the_affected_side(self) -> None:
+        _, messages = mn.assemble_prompt(
+            self._brief_with_prior_form(home=True, away=False), prior_articles=[]
+        )
+        content = messages[0]["content"]
+        self.assertIn("RECENT FORM IS FROM A PREVIOUS SEASON", content)
+        self.assertIn("the home team", content)
+        self.assertNotIn("the away team", content)
+
+    def test_directive_names_both_sides_in_week_one(self) -> None:
+        """The real Week 1 shape: neither side has current-season form."""
+        _, messages = mn.assemble_prompt(
+            self._brief_with_prior_form(home=True, away=True), prior_articles=[]
+        )
+        content = messages[0]["content"]
+        self.assertIn("the home team and the away team", content)
+
+    def test_directive_rides_the_user_message_not_the_cached_system_block(self) -> None:
+        """Whether the window is prior-season depends on the week being
+        written, so caching it would apply Week 1's instruction to Week 5."""
+        system, messages = mn.assemble_prompt(
+            self._brief_with_prior_form(home=True, away=True), prior_articles=[]
+        )
+        self.assertNotIn("RECENT FORM IS FROM A PREVIOUS SEASON", system[0]["text"])
+        self.assertIn("RECENT FORM IS FROM A PREVIOUS SEASON", messages[0]["content"])
+
+    def test_brief_still_carries_the_per_game_seasons(self) -> None:
+        """The directive tells the model to read a field; that field must
+        actually be there."""
+        for side in (self.brief.home, self.brief.away):
+            games = (side.get("recentForm") or {}).get("games") or []
+            for g in games:
+                self.assertIn("season", g)
