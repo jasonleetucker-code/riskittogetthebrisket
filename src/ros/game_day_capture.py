@@ -117,6 +117,23 @@ class CaptureBuild:
         return have, total
 
 
+def _is_positive_score(raw: Any) -> bool:
+    """Is this a real, positive score?
+
+    An ABSENT value is not a zero. Both answer "no football has been
+    played" here, so the practical result is the same — but they are
+    written as the different statements they are, rather than coerced
+    together with an ``or 0.0`` that a reader (and the repo's
+    decision-path coercion gate) would have to take on trust.
+    """
+    if raw is None:
+        return False
+    try:
+        return float(raw) > 0.0
+    except (TypeError, ValueError):
+        return False
+
+
 def week_has_begun(matchups: Sequence[Mapping[str, Any]] | None) -> bool:
     """Has any football counting toward this league-week been played?
 
@@ -139,19 +156,12 @@ def week_has_begun(matchups: Sequence[Mapping[str, Any]] | None) -> bool:
     for row in matchups or ():
         if not isinstance(row, Mapping):
             continue
-        try:
-            if float(row.get("points") or 0.0) > 0.0:
-                return True
-        except (TypeError, ValueError):
-            pass
+        if _is_positive_score(row.get("points")):
+            return True
         points_map = row.get("players_points")
         if isinstance(points_map, Mapping):
-            for value in points_map.values():
-                try:
-                    if float(value or 0.0) > 0.0:
-                        return True
-                except (TypeError, ValueError):
-                    continue
+            if any(_is_positive_score(v) for v in points_map.values()):
+                return True
     return False
 
 

@@ -43,7 +43,9 @@ from src.ros.game_day_capture import (  # noqa: E402
 )
 
 
-def _resolve_estimates(season: int, scoring_settings: dict) -> tuple[dict, str | None, tuple, tuple]:
+def _resolve_estimates(
+    season: int, scoring_settings: dict
+) -> tuple[dict, str | None, tuple, tuple]:
     """``(name → fpg, source label, loaded, unavailable)``.
 
     The only LIVE `PROJECTION_MODEL` sources in the census today are
@@ -60,9 +62,7 @@ def _resolve_estimates(season: int, scoring_settings: dict) -> tuple[dict, str |
     try:
         from src.ros.projection_ensemble import build_ros_full_season_ensemble
 
-        result = build_ros_full_season_ensemble(
-            season=season, scoring_settings=scoring_settings
-        )
+        result = build_ros_full_season_ensemble(season=season, scoring_settings=scoring_settings)
     except Exception as exc:  # noqa: BLE001 — a missing snapshot must not lose the roster capture
         print(f"    projections: unavailable ({type(exc).__name__}: {exc})")
         return {}, None, (), ()
@@ -85,21 +85,29 @@ def _resolve_estimates(season: int, scoring_settings: dict) -> tuple[dict, str |
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--league", action="append", default=[], metavar="KEY",
-                        help="registry league key; repeatable. Default: every ACTIVE league.")
-    parser.add_argument("--capture-kind", default="pregame",
-                        choices=["pregame", "in_game", "postgame"])
-    parser.add_argument("--season", type=int, default=None,
-                        help="override the season Sleeper reports.")
-    parser.add_argument("--week", type=int, default=None,
-                        help="override the week Sleeper reports.")
+    parser.add_argument(
+        "--league",
+        action="append",
+        default=[],
+        metavar="KEY",
+        help="registry league key; repeatable. Default: every ACTIVE league.",
+    )
+    parser.add_argument(
+        "--capture-kind", default="pregame", choices=["pregame", "in_game", "postgame"]
+    )
+    parser.add_argument(
+        "--season", type=int, default=None, help="override the season Sleeper reports."
+    )
+    parser.add_argument("--week", type=int, default=None, help="override the week Sleeper reports.")
     parser.add_argument("--run-id", default="", help="ties one batch of captures together.")
-    parser.add_argument("--allow-season-type", action="append", default=None,
-                        metavar="TYPE",
-                        help="Sleeper season_type values this run accepts. "
-                             "Default: regular, post.")
-    parser.add_argument("--dry-run", action="store_true",
-                        help="resolve and report, write nothing.")
+    parser.add_argument(
+        "--allow-season-type",
+        action="append",
+        default=None,
+        metavar="TYPE",
+        help="Sleeper season_type values this run accepts. " "Default: regular, post.",
+    )
+    parser.add_argument("--dry-run", action="store_true", help="resolve and report, write nothing.")
     args = parser.parse_args()
 
     if args.league:
@@ -119,11 +127,16 @@ def main() -> int:
     if season is None or week is None:
         state = sleeper_client.fetch_nfl_state()
         if not state:
-            print("ERROR: Sleeper /state/nfl unavailable and no --season/--week given. "
-                  "Refusing to guess the week.", file=sys.stderr)
+            print(
+                "ERROR: Sleeper /state/nfl unavailable and no --season/--week given. "
+                "Refusing to guess the week.",
+                file=sys.stderr,
+            )
             return 2
-        print(f"Sleeper state: season={state.get('season')} week={state.get('week')} "
-              f"season_type={state.get('season_type')}")
+        print(
+            f"Sleeper state: season={state.get('season')} week={state.get('week')} "
+            f"season_type={state.get('season_type')}"
+        )
         # A PRESEASON week 1 is not the regular season's week 1, and the
         # archive keys on (league, season, week, capture_kind) alone —
         # so capturing during the preseason would consume the real Week 1
@@ -133,8 +146,10 @@ def main() -> int:
         allowed = args.allow_season_type or ["regular", "post"]
         season_type = str(state.get("season_type") or "").strip().lower()
         if season_type not in allowed:
-            print(f"Nothing to do: season_type={season_type!r} is not in {allowed}. "
-                  "A preseason capture would consume the real week's slot.")
+            print(
+                f"Nothing to do: season_type={season_type!r} is not in {allowed}. "
+                "A preseason capture would consume the real week's slot."
+            )
             return 2
         if season is None:
             season = int(state.get("season") or 0) or None
@@ -145,15 +160,20 @@ def main() -> int:
         print("Nothing to do: no season/week resolved.")
         return 2
 
-    print(f"Capturing {args.capture_kind} for season {season}, week {week} "
-          f"across {len(configs)} league(s).{' [DRY RUN]' if args.dry_run else ''}")
+    print(
+        f"Capturing {args.capture_kind} for season {season}, week {week} "
+        f"across {len(configs)} league(s).{' [DRY RUN]' if args.dry_run else ''}"
+    )
 
     failures = 0
     refusals = 0
     players_meta = sleeper_client.fetch_nfl_players()
     if not players_meta:
-        print("ERROR: Sleeper players dump unavailable — positions and eligibility "
-              "would be unresolvable.", file=sys.stderr)
+        print(
+            "ERROR: Sleeper players dump unavailable — positions and eligibility "
+            "would be unresolvable.",
+            file=sys.stderr,
+        )
         return 1
 
     for cfg in configs:
@@ -161,7 +181,7 @@ def main() -> int:
         print(f"\n  {key}:")
         league_id = league_registry.get_sleeper_league_id(key)
         if not league_id:
-            print(f"    ERROR: no Sleeper league id", file=sys.stderr)
+            print("    ERROR: no Sleeper league id", file=sys.stderr)
             failures += 1
             continue
 
@@ -169,8 +189,7 @@ def main() -> int:
         rosters = sleeper_client.fetch_rosters(league_id)
         matchups = sleeper_client.fetch_matchups(league_id, week)
         if not league_payload or not rosters:
-            print(f"    ERROR: Sleeper returned no league payload or no rosters",
-                  file=sys.stderr)
+            print("    ERROR: Sleeper returned no league payload or no rosters", file=sys.stderr)
             failures += 1
             continue
 
@@ -204,9 +223,11 @@ def main() -> int:
             continue
 
         have, total = build.estimate_coverage
-        print(f"    teams={len(build.teams)} players={total} "
-              f"estimates={have}/{total} slots={len(build.starter_slots)} "
-              f"({build.starter_slot_source}) scoring={build.scoring_config_id}")
+        print(
+            f"    teams={len(build.teams)} players={total} "
+            f"estimates={have}/{total} slots={len(build.starter_slots)} "
+            f"({build.starter_slot_source}) scoring={build.scoring_config_id}"
+        )
         for note in build.notes:
             print(f"    note: {note}")
         if args.dry_run:

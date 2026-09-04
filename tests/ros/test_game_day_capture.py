@@ -26,9 +26,23 @@ from src.ros.game_day_capture import (
 # actually runs (measured 2026-09-04: 21 lineup slots from Sleeper's
 # roster_positions), trimmed to the slots these tests exercise.
 _ROSTER_POSITIONS = [
-    "QB", "RB", "RB", "WR", "WR", "TE",
-    "FLEX", "SUPER_FLEX", "DL", "LB", "DB", "IDP_FLEX",
-    "BN", "BN", "BN", "IR", "TAXI",
+    "QB",
+    "RB",
+    "RB",
+    "WR",
+    "WR",
+    "TE",
+    "FLEX",
+    "SUPER_FLEX",
+    "DL",
+    "LB",
+    "DB",
+    "IDP_FLEX",
+    "BN",
+    "BN",
+    "BN",
+    "IR",
+    "TAXI",
 ]
 
 _PLAYERS_META = {
@@ -236,9 +250,14 @@ def test_a_zero_estimate_is_kept_as_a_real_claim():
 def test_no_scoring_card_refuses_the_capture():
     with pytest.raises(ValueError, match="scoring card"):
         build_capture(
-            league_key="dynasty_main", season=2026, week=1, capture_kind="pregame",
+            league_key="dynasty_main",
+            season=2026,
+            week=1,
+            capture_kind="pregame",
             league_payload={"roster_positions": _ROSTER_POSITIONS, "scoring_settings": {}},
-            rosters=[_ROSTER], matchups=[], players_meta=_PLAYERS_META,
+            rosters=[_ROSTER],
+            matchups=[],
+            players_meta=_PLAYERS_META,
         )
 
 
@@ -246,9 +265,17 @@ def test_no_starter_slots_refuses_the_capture():
     """Without slots, `is_lineup_eligible` would be invented."""
     with pytest.raises(ValueError, match="starter slots"):
         build_capture(
-            league_key="dynasty_main", season=2026, week=1, capture_kind="pregame",
-            league_payload={"roster_positions": [], "scoring_settings": _LEAGUE["scoring_settings"]},
-            rosters=[_ROSTER], matchups=[], players_meta=_PLAYERS_META,
+            league_key="dynasty_main",
+            season=2026,
+            week=1,
+            capture_kind="pregame",
+            league_payload={
+                "roster_positions": [],
+                "scoring_settings": _LEAGUE["scoring_settings"],
+            },
+            rosters=[_ROSTER],
+            matchups=[],
+            players_meta=_PLAYERS_META,
             roster_settings={},
         )
 
@@ -258,8 +285,13 @@ def test_scoring_config_id_is_the_factual_fingerprint():
     from src.league_comparison.sleeper_scoring import scoring_fingerprint
 
     build = build_capture(
-        league_key="dynasty_main", season=2026, week=1, capture_kind="pregame",
-        league_payload=_LEAGUE, rosters=[_ROSTER], matchups=[],
+        league_key="dynasty_main",
+        season=2026,
+        week=1,
+        capture_kind="pregame",
+        league_payload=_LEAGUE,
+        rosters=[_ROSTER],
+        matchups=[],
         players_meta=_PLAYERS_META,
     )
     assert build.scoring_config_id == scoring_fingerprint(_LEAGUE["scoring_settings"])
@@ -267,10 +299,14 @@ def test_scoring_config_id_is_the_factual_fingerprint():
 
 def test_an_empty_roster_is_reported_not_raised():
     build = build_capture(
-        league_key="dynasty_main", season=2026, week=1, capture_kind="pregame",
+        league_key="dynasty_main",
+        season=2026,
+        week=1,
+        capture_kind="pregame",
         league_payload=_LEAGUE,
         rosters=[_ROSTER, {"roster_id": 9, "players": []}],
-        matchups=[], players_meta=_PLAYERS_META,
+        matchups=[],
+        players_meta=_PLAYERS_META,
     )
     assert len(build.teams) == 1
     assert any("no players" in n for n in build.notes)
@@ -281,8 +317,10 @@ def test_a_duplicate_player_id_is_collapsed_not_fatal():
     roster listing one twice is a host artifact, not two roster spots."""
     rows = build_team_roster(
         roster={"roster_id": 1, "players": ["qb1", "qb1", "rb1"]},
-        players_meta=_PLAYERS_META, starter_slots=_slots(),
-        estimates={}, estimate_source_label=None,
+        players_meta=_PLAYERS_META,
+        starter_slots=_slots(),
+        estimates={},
+        estimate_source_label=None,
     )
     assert [r.player_id for r in rows] == ["qb1", "rb1"]
 
@@ -292,8 +330,10 @@ def test_unknown_players_are_captured_with_an_empty_position():
     stays empty rather than becoming a guess."""
     rows = build_team_roster(
         roster={"roster_id": 1, "players": ["ghost"]},
-        players_meta=_PLAYERS_META, starter_slots=_slots(),
-        estimates={}, estimate_source_label=None,
+        players_meta=_PLAYERS_META,
+        starter_slots=_slots(),
+        estimates={},
+        estimate_source_label=None,
     )
     assert len(rows) == 1
     assert rows[0].position == ""
@@ -322,16 +362,26 @@ def test_capture_writes_once_and_refuses_the_rerun(tmp_path):
     from src.ros.game_day_archive import GameDayArchiveError
 
     build = build_capture(
-        league_key="dynasty_main", season=2026, week=1, capture_kind="pregame",
-        league_payload=_LEAGUE, rosters=[_ROSTER], matchups=[],
+        league_key="dynasty_main",
+        season=2026,
+        week=1,
+        capture_kind="pregame",
+        league_payload=_LEAGUE,
+        rosters=[_ROSTER],
+        matchups=[],
         players_meta=_PLAYERS_META,
     )
     team = build.teams[0]
     kwargs = dict(
-        league_key=build.league_key, season=build.season, week=build.week,
-        team_id=team.team_id, capture_kind=build.capture_kind,
+        league_key=build.league_key,
+        season=build.season,
+        week=build.week,
+        team_id=team.team_id,
+        capture_kind=build.capture_kind,
         scoring_config_id=build.scoring_config_id,
-        starter_slots=build.starter_slots, roster=team.roster, base_dir=tmp_path,
+        starter_slots=build.starter_slots,
+        roster=team.roster,
+        base_dir=tmp_path,
     )
     record_snapshot(**kwargs)
     with pytest.raises(GameDayArchiveError):
