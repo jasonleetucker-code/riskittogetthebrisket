@@ -145,5 +145,12 @@ def test_the_retention_artifacts_are_in_the_backup_list():
         'backup_dir "${DATA_DIR}/faab"',
         'backup_dir "${DATA_DIR}/identity"',
         'backup_dir "${DATA_DIR}/playerctx/history" "playerctx_history"',
+        # C5-GD-02. A pregame prediction snapshot records the state that
+        # produced a prediction BEFORE the outcome was known; once the
+        # week scores, that state is gone. It is the one artifact here
+        # that could not be re-created even with unlimited access to
+        # Sleeper, so a generation that omits it is not a backup of
+        # irreplaceable state.
+        'backup_dir "${DATA_DIR}/game_day"',
     ):
         assert expected in body, f"missing from the backup list: {expected}"

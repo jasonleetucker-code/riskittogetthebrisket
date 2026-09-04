@@ -25,8 +25,8 @@ The denominator is frozen at 30 for this launch tranche. Do not add/remove rows 
 | ID | Area | Requirement / acceptance | Status |
 |---|---|---|---|
 | W1-01 | Archive | Canonical append-only Game Day prediction archive exists, is merged, and its core refusal/identity behavior is tested. | VERIFIED |
-| W1-02 | Archive | A canonical scheduled/operational caller captures Game Day state before weekly games lock; no duplicate archive owner. | NOT STARTED |
-| W1-03 | Archive | Production persistence/retention for captured Week 1 observations is durable and truthfully documented. | NOT STARTED |
+| W1-02 | Archive | A canonical scheduled/operational caller captures Game Day state before weekly games lock; no duplicate archive owner. | IMPLEMENTED_UNVERIFIED |
+| W1-03 | Archive | Production persistence/retention for captured Week 1 observations is durable and truthfully documented. | IMPLEMENTED_UNVERIFIED |
 | W1-04 | Archive | At least one authentic Week 1 pre-kickoff production capture is harvested and verified before outcomes are known. | NOT STARTED |
 | W1-05 | Public pregame | Canonical matchup preview engine exists and is live/wired for upcoming matchups. | VERIFIED |
 | W1-06 | Public pregame | Canonical AI narrative preview/recap pipeline exists and is live/wired; no second article-generation owner. | VERIFIED |
@@ -57,13 +57,55 @@ The denominator is frozen at 30 for this launch tranche. Do not add/remove rows 
 
 ## Mechanical tally
 
+*Recounted 2026-09-04T17:40Z.*
+
 - VERIFIED: 7
-- IMPLEMENTED_UNVERIFIED: 0
+- IMPLEMENTED_UNVERIFIED: 2
 - IN PROGRESS: 0
-- NOT STARTED: 23
+- NOT STARTED: 21
 - BLOCKED: 0
 - DENOMINATOR: 30
 - COMPLETION: **7/30 = 23.3%**
+
+**The percentage did not move, and that is correct.** Two rows advanced from
+`NOT STARTED` to `IMPLEMENTED_UNVERIFIED`; only literal `VERIFIED` counts in
+the numerator, and neither has production evidence yet.
+
+### Row movements, 2026-09-04
+
+- **W1-02 → IMPLEMENTED_UNVERIFIED.** The missing caller is merged (#1240,
+  `b60da42`): `src/ros/game_day_capture.py` (resolution),
+  `scripts/capture_game_day_predictions.py` (CLI),
+  `deploy/systemd/dynasty-game-day-capture.{service,timer}.template`
+  (Thu 13:00 UTC + 15:30 retry, registered in `install-systemd-service.sh`),
+  `.github/workflows/game-day-capture.yml` (on-box manual + dry-run), and 23
+  tests. Before this, `grep -rn game_day_archive .github/workflows/ scripts/`
+  returned zero matches — the archive had no caller at all. It is NOT
+  `VERIFIED` because the row's acceptance says *captures*, and nothing has
+  been captured on production. That is W1-04.
+- **W1-03 → IMPLEMENTED_UNVERIFIED.** `data/game_day/` was absent from
+  `deploy/backup/riskit-state-backup.sh`, so a Week 1 capture would have lived
+  on one VPS with no backup — for the one artifact in the repo that cannot be
+  re-created even with unlimited access to Sleeper. It is now in the backup
+  set, pinned by `tests/deploy/test_state_backup_dir_archiving.py`, and
+  documented in `docs/retention/RETENTION_REGISTER.md`. It is NOT `VERIFIED`:
+  no generation containing `game_day.tar.gz` has been observed, and the
+  register's existing split still stands — the deploy user's fallback lineage
+  is proven, the root-owned nightly is not.
+
+### Named blocker
+
+- **W1-11** (all six Week 1 narratives generated and quality-reviewed) cannot
+  be satisfied in its current state. `ANTHROPIC_API_KEY` is not configured, so
+  `weekly-narratives.yml` skips every step after its key check and reports
+  **success in ~10 seconds** — measured across its last 8 scheduled runs.
+  `exports/narratives/` holds two files in total, both `2025/week-17`; there
+  are zero 2026 articles. `matchupPreview` is not rendered by `/league`
+  ("the AI-article tabs replaced those views"), so the public Week 1 pregame
+  surface depends entirely on articles that will not be generated. The preview
+  cron fires **Wed 2026-09-09**, one day before kickoff. This is an owner
+  action (add the repository secret), not an implementation gap; recording it
+  here rather than silently missing the Sat Sep 5 pacing target.
 
 Whenever a row changes, update the row and the mechanical tally in the same bounded change. Never count prose claims or partial evidence as VERIFIED.
 
