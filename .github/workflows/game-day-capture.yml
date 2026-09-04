@@ -159,6 +159,27 @@ jobs:
           find data/game_day/predictions -name '*.json' 2>/dev/null \
             | sed 's|^|###   |' | sort | head -60 || true
           echo "### archive file count: $(find data/game_day/predictions -name '*.json' 2>/dev/null | wc -l)"
+
+          # Is the SCHEDULED path actually armed? A successful manual run
+          # proves the script works; it says nothing about whether the timer
+          # that is supposed to fire before kickoff exists and is enabled.
+          # Those are different claims and the first has been mistaken for
+          # the second before — deploy.sh only installs a missing timer when
+          # its ensure-units check notices it, and a cancelled deploy
+          # installs nothing at all.
+          echo "###"
+          echo "### scheduled timer:"
+          TIMER="$(systemctl list-timers --all --no-pager --no-legend 2>/dev/null \
+            | grep -i 'game-day-capture' || true)"
+          if [ -n "$TIMER" ]; then
+            echo "###   $TIMER"
+            systemctl is-enabled --quiet "$(systemctl list-units --type=timer --all --no-legend \
+              | awk '/game-day-capture/ {print $1; exit}')" 2>/dev/null \
+              && echo "###   enabled: yes" || echo "###   enabled: NO"
+          else
+            echo "###   NOT INSTALLED — no game-day-capture timer on this host."
+            echo "###   The scheduled pre-kickoff capture will NOT fire."
+          fi
           exit "$capture_rc"
           REMOTE
           echo "capture_exit=$rc" >> "$GITHUB_OUTPUT"
