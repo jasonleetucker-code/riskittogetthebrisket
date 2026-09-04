@@ -153,13 +153,32 @@ class PointsModel:
     def cv_for(self, position: str) -> float:
         return self.cv_by_position.get((position or "").upper(), self.default_cv)
 
-    def draw(self, ros_value: float, position: str, rng: Any) -> float:
-        """Sample one weekly point total.  Hot path — keep it cheap."""
-        mean = self.mean_points(ros_value)
+    def draw_from_mean(self, mean: float, position: str, rng: Any) -> float:
+        """Sample one weekly point total from a mean ALREADY IN POINTS.
+
+        The variance half of this model — the per-position CV measured
+        under this league's own scoring — is independent of how the mean
+        was obtained.  ``draw`` gets its mean by converting a ``rosValue``
+        through the fitted scale; a caller holding a real point
+        projection (Game Day, and eventually LI-6's stat-line path)
+        supplies it directly and skips that conversion.
+
+        This is the seam the module docstring already anticipated
+        ("``PointsModel`` gains a stat-line path and the scale term
+        becomes a fallback for unprojected players.  The interface is
+        shaped for that now so the swap does not churn the sim").  It is
+        deliberately the SAME variance model rather than a second one:
+        two engines disagreeing about how volatile a QB week is would be
+        exactly the duplicate-owner problem this repo keeps closing.
+        """
         if mean <= 0.0:
             return 0.0
         sd = max(0.5, mean * self.cv_for(position))
         return max(0.0, rng.gauss(mean, sd))
+
+    def draw(self, ros_value: float, position: str, rng: Any) -> float:
+        """Sample one weekly point total.  Hot path — keep it cheap."""
+        return self.draw_from_mean(self.mean_points(ros_value), position, rng)
 
     def to_dict(self) -> dict[str, Any]:
         return {
