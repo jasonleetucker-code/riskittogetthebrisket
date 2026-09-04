@@ -320,6 +320,18 @@
     "fd-diagnostics.yml::inventory::Configure production SSH": {
       "category": "blocking"
     },
+    "game-day-capture.yml::capture::Configure production SSH": {
+      "category": "blocking"
+    },
+    "game-day-capture.yml::capture::Run capture on the box": {
+      "category": "blocking"
+    },
+    "game-day-capture.yml::capture::Upload capture log": {
+      "category": "blocking"
+    },
+    "game-day-capture.yml::capture::Summarise": {
+      "category": "blocking"
+    },
     "health-check.yml::health::Check /api/health": {
       "category": "blocking"
     },
