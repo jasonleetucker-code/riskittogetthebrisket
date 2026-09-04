@@ -25,8 +25,8 @@ The denominator is frozen at 30 for this launch tranche. Do not add/remove rows 
 | ID | Area | Requirement / acceptance | Status |
 |---|---|---|---|
 | W1-01 | Archive | Canonical append-only Game Day prediction archive exists, is merged, and its core refusal/identity behavior is tested. | VERIFIED |
-| W1-02 | Archive | A canonical scheduled/operational caller captures Game Day state before weekly games lock; no duplicate archive owner. | NOT STARTED |
-| W1-03 | Archive | Production persistence/retention for captured Week 1 observations is durable and truthfully documented. | NOT STARTED |
+| W1-02 | Archive | A canonical scheduled/operational caller captures Game Day state before weekly games lock; no duplicate archive owner. | VERIFIED |
+| W1-03 | Archive | Production persistence/retention for captured Week 1 observations is durable and truthfully documented. | IMPLEMENTED_UNVERIFIED |
 | W1-04 | Archive | At least one authentic Week 1 pre-kickoff production capture is harvested and verified before outcomes are known. | NOT STARTED |
 | W1-05 | Public pregame | Canonical matchup preview engine exists and is live/wired for upcoming matchups. | VERIFIED |
 | W1-06 | Public pregame | Canonical AI narrative preview/recap pipeline exists and is live/wired; no second article-generation owner. | VERIFIED |
@@ -57,13 +57,93 @@ The denominator is frozen at 30 for this launch tranche. Do not add/remove rows 
 
 ## Mechanical tally
 
-- VERIFIED: 7
-- IMPLEMENTED_UNVERIFIED: 0
+*Recounted 2026-09-04T17:40Z.*
+
+- VERIFIED: 8
+- IMPLEMENTED_UNVERIFIED: 1
 - IN PROGRESS: 0
-- NOT STARTED: 23
+- NOT STARTED: 21
 - BLOCKED: 0
 - DENOMINATOR: 30
-- COMPLETION: **7/30 = 23.3%**
+- COMPLETION: **8/30 = 26.7%**
+
+W1-02 is `VERIFIED` on production evidence (below). W1-03 advanced from
+`NOT STARTED` to `IMPLEMENTED_UNVERIFIED` and does NOT count.
+
+### Row movements, 2026-09-04
+
+- **W1-02 → VERIFIED (production evidence, run `33904966161`).** The missing
+  caller is merged (#1240,
+  `b60da42`): `src/ros/game_day_capture.py` (resolution),
+  `scripts/capture_game_day_predictions.py` (CLI),
+  `deploy/systemd/dynasty-game-day-capture.{service,timer}.template`
+  (Thu 13:00 UTC + 15:30 retry, registered in `install-systemd-service.sh`),
+  `.github/workflows/game-day-capture.yml` (on-box manual + dry-run), and 23
+  tests. Before this, `grep -rn game_day_archive .github/workflows/ scripts/`
+  returned zero matches — the archive had no caller at all. It is NOT
+  Production evidence, on the deployed tree `67e5dd9`:
+
+  ```
+  ### python: /home/<user>/.venvs/trade-calculator/bin/python
+  Sleeper state: season=2026 week=1 season_type=regular
+  <main>: teams=12 players=674 estimates=581/674 slots=21 scoring=sf1:9e51824690d091f9
+  <new>:  teams=10 players=290 estimates=263/290 slots=10 scoring=sf1:82a5f8ef2bfdb098
+  ### archive file count: 0
+  ### scheduled timer:
+  ###   Thu 2026-09-10 15:00:00 CEST   5 days -  …-game-day-capture.timer
+  ###   enabled: yes
+  ```
+
+  Four things that verification establishes and a green run alone would not:
+  the script executes end to end against production's own data; **projection
+  estimates actually resolve there** (581/674 and 263/290, against 0/674 in a
+  sandbox, because `data/bdvm/` exists only on the box); the pregame window is
+  still OPEN, since a closed one would have been REFUSED with exit 3; and the
+  **scheduled timer is installed and enabled**, next firing Thu 2026-09-10
+  15:00 CEST = 13:00 UTC, roughly eleven hours before kickoff.
+
+  This row is the MECHANISM being scheduled and operational. The actual
+  harvested observation is W1-04, which stays `NOT STARTED` until the timer
+  fires. Deliberately not forced early: the archive is append-only and first
+  write wins, so writing now would consume the Week 1 pregame slot with a
+  Friday roster and permanently forbid the post-waiver Thursday capture, which
+  is the better evidence. The window is proven open and the mechanism proven
+  armed; the right action is to let it run.
+
+  Two defects were found by that verification and are worth recording because
+  neither was visible from the repository. The workflow's venv ladder
+  (`.venv` → `venv` → `python3`, copied from three existing on-box workflows)
+  missed both guesses on this box — the venv is at `PROD_VENV_DIR`, outside
+  `APP_DIR` — and silently selected the SYSTEM python, failing with
+  `ModuleNotFoundError: No module named 'fastapi'` (run `33903569120`). The
+  ladder now reads `PROD_VENV_DIR` and FAILS CLOSED rather than ending in a
+  bare `python3`. Separately, the deploy carrying this feature
+  (`33897716866`) was CANCELLED in the `production-deploy` concurrency queue;
+  a later run carried the same tree, but nothing could have told the
+  difference, which is why the timer-armed check now exists.
+- **W1-03 → IMPLEMENTED_UNVERIFIED.** `data/game_day/` was absent from
+  `deploy/backup/riskit-state-backup.sh`, so a Week 1 capture would have lived
+  on one VPS with no backup — for the one artifact in the repo that cannot be
+  re-created even with unlimited access to Sleeper. It is now in the backup
+  set, pinned by `tests/deploy/test_state_backup_dir_archiving.py`, and
+  documented in `docs/retention/RETENTION_REGISTER.md`. It is NOT `VERIFIED`:
+  no generation containing `game_day.tar.gz` has been observed, and the
+  register's existing split still stands — the deploy user's fallback lineage
+  is proven, the root-owned nightly is not.
+
+### Named blocker
+
+- **W1-11** (all six Week 1 narratives generated and quality-reviewed) cannot
+  be satisfied in its current state. `ANTHROPIC_API_KEY` is not configured, so
+  `weekly-narratives.yml` skips every step after its key check and reports
+  **success in ~10 seconds** — measured across its last 8 scheduled runs.
+  `exports/narratives/` holds two files in total, both `2025/week-17`; there
+  are zero 2026 articles. `matchupPreview` is not rendered by `/league`
+  ("the AI-article tabs replaced those views"), so the public Week 1 pregame
+  surface depends entirely on articles that will not be generated. The preview
+  cron fires **Wed 2026-09-09**, one day before kickoff. This is an owner
+  action (add the repository secret), not an implementation gap; recording it
+  here rather than silently missing the Sat Sep 5 pacing target.
 
 Whenever a row changes, update the row and the mechanical tally in the same bounded change. Never count prose claims or partial evidence as VERIFIED.
 

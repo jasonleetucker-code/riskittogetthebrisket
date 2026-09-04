@@ -39,6 +39,18 @@
 #     (C1-RET-01).  PRIVATE: contains our leagues' own claim history.
 #   * data/identity/             — identity resolution reports
 #     (C1-RET-07)
+#   * data/game_day/             — Game Day pre-game prediction snapshots
+#     (C5-GD-02).  THE most irreplaceable artifact in this list, and the
+#     only one whose loss window is measured in hours: a pregame capture
+#     records the state that produced a prediction BEFORE the outcome was
+#     known, and once the week scores that state is gone.  Every other
+#     entry here could at worst be re-derived from something; this one
+#     could not be re-created even with unlimited access to Sleeper,
+#     because the thing it records no longer exists.  Its own writer
+#     refuses to reconstruct one after kickoff for exactly that reason.
+#     PRIVATE: real rosters and per-player point estimates for our own
+#     leagues; same rules as league_events.sqlite — never committed,
+#     never force-added to the public repository.
 #   * data/playerctx/history/    — dated playerctx snapshots
 #     (C1-RET-08).  The directory ONLY: data/playerctx/ next door holds
 #     a 38 MB depth-chart CSV and a 14 MB Sleeper dump, both
@@ -412,6 +424,7 @@ backup_dir "${DATA_DIR}/public_league"
 backup_dir "${DATA_DIR}/intel"
 backup_dir "${DATA_DIR}/faab"
 backup_dir "${DATA_DIR}/identity"
+backup_dir "${DATA_DIR}/game_day"
 backup_dir "${DATA_DIR}/playerctx/history" "playerctx_history"
 
 # Repo-root session files (gitignored via "*_session.json").

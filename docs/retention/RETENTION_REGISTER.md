@@ -654,3 +654,34 @@ permission:
   merging #852 did not by itself change what the 02:30 UTC timer executes.
   Treating one lineage's proof as the other's is exactly the substitution this
   tranche exists to refuse.
+
+---
+
+## Addendum — `data/game_day/` joined the backup set, 2026-09-04
+
+**Not a C1A row.** This register's authorization and table are scoped to
+`C1-RET-01`…`C1-RET-08`, and nothing here reclassifies them. This addendum
+exists because the nightly backup set changed and a register that omits a
+change to what it describes is not a live record.
+
+`deploy/backup/riskit-state-backup.sh` now archives `data/game_day/` — the
+C5-GD-02 Game Day pre-game prediction snapshots, written by
+`scripts/capture_game_day_predictions.py` (merged 2026-09-04, `b60da42`).
+
+It belongs in this class for a stronger reason than any existing row. Every
+store in the table above records something that cannot be *re-fetched*; a
+pregame capture records something that no longer *exists*. It is the state
+that produced a prediction before the outcome was known, and once the week
+scores, no amount of access to Sleeper can reconstruct it — which is why the
+capture script refuses to write a `pregame` snapshot after kickoff rather
+than reconstructing one. The loss window is hours, not days.
+
+**Evidence status: NONE MEASURED.** No generation has yet been observed
+containing a `game_day.tar.gz`, because no capture exists on production yet.
+This is stated rather than inferred: the row is in the script and pinned by
+`tests/deploy/test_state_backup_dir_archiving.py`, which is a repository fact,
+not production evidence. Do not read it as a proven backup.
+
+The same split the section above draws still applies and is not resolved
+here: the deploy user's fallback lineage is proven, the **root-owned nightly**
+is not, and installing this row changes neither.

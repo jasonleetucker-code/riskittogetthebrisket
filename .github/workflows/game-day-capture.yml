@@ -90,6 +90,14 @@ jobs:
           DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
           DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
           APP_DIR: ${{ vars.PROD_APP_DIR || '/home/dynasty/trade-calculator' }}
+          # The production venv lives OUTSIDE APP_DIR. deploy.yml passes this
+          # same variable to deploy.sh as VENV_DIR, overriding deploy.sh's own
+          # ${APP_DIR}/.venv default — so APP_DIR/.venv does not exist on this
+          # box and guessing it silently selects the SYSTEM python, which has
+          # no fastapi. Measured on run 33903569120: ModuleNotFoundError, 4
+          # seconds in. The systemd unit was never affected (deploy renders
+          # __VENV_DIR__ with the real path); only this workflow guessed.
+          VENV_DIR: ${{ vars.PROD_VENV_DIR || '/home/dynasty/.venvs/trade-calculator' }}
           CAPTURE_KIND: ${{ inputs.capture_kind || 'pregame' }}
           LEAGUE_KEY: ${{ inputs.league }}
           WEEK: ${{ inputs.week }}
@@ -105,7 +113,7 @@ jobs:
             -o UserKnownHostsFile="$HOME/.ssh/known_hosts" \
             -o ConnectTimeout=15 -o ServerAliveInterval=15 \
             -p "$PORT" "$DEPLOY_USER@$DEPLOY_HOST" \
-            "APP_DIR=$(printf %q "$APP_DIR") CAPTURE_KIND=$(printf %q "$CAPTURE_KIND") LEAGUE_KEY=$(printf %q "$LEAGUE_KEY") WEEK=$(printf %q "$WEEK") WRITE=$(printf %q "$WRITE") RUN_ID=$(printf %q "$RUN_ID") bash -s" <<'REMOTE' 2>&1 | tee game-day-capture.txt || rc=$?
+            "APP_DIR=$(printf %q "$APP_DIR") VENV_DIR=$(printf %q "$VENV_DIR") CAPTURE_KIND=$(printf %q "$CAPTURE_KIND") LEAGUE_KEY=$(printf %q "$LEAGUE_KEY") WEEK=$(printf %q "$WEEK") WRITE=$(printf %q "$WRITE") RUN_ID=$(printf %q "$RUN_ID") bash -s" <<'REMOTE' 2>&1 | tee game-day-capture.txt || rc=$?
           set -Eeuo pipefail
           cd "$APP_DIR"
           echo "### deployed_sha: $(git rev-parse HEAD)"
@@ -113,9 +121,21 @@ jobs:
           echo "### capture_kind: $CAPTURE_KIND"
           echo "### mode: ${WRITE:+WRITE}${WRITE:-DRY-RUN}"
           echo "###"
-          PY="$APP_DIR/.venv/bin/python"
+          # FAIL CLOSED. The retired ladder ended in a bare `python3`, and
+          # that fallback is what turned "the venv is somewhere else" into a
+          # ModuleNotFoundError deep inside an import chain — an interpreter
+          # that cannot import the app is not a degraded run of this script,
+          # it is a different question being answered. Refuse instead.
+          PY="$VENV_DIR/bin/python"
+          [ -x "$PY" ] || PY="$APP_DIR/.venv/bin/python"
           [ -x "$PY" ] || PY="$APP_DIR/venv/bin/python"
-          [ -x "$PY" ] || PY=python3
+          if [ ! -x "$PY" ]; then
+            echo "### ERROR: no application venv found."
+            echo "### tried: $VENV_DIR/bin/python, $APP_DIR/.venv/bin/python, $APP_DIR/venv/bin/python"
+            echo "### Set the PROD_VENV_DIR repository variable to the real path."
+            exit 41
+          fi
+          echo "### python: $PY"
 
           ARGS="--capture-kind $CAPTURE_KIND --run-id $RUN_ID"
           [ -n "$LEAGUE_KEY" ] && ARGS="$ARGS --league $LEAGUE_KEY"
@@ -139,6 +159,27 @@ jobs:
           find data/game_day/predictions -name '*.json' 2>/dev/null \
             | sed 's|^|###   |' | sort | head -60 || true
           echo "### archive file count: $(find data/game_day/predictions -name '*.json' 2>/dev/null | wc -l)"
+
+          # Is the SCHEDULED path actually armed? A successful manual run
+          # proves the script works; it says nothing about whether the timer
+          # that is supposed to fire before kickoff exists and is enabled.
+          # Those are different claims and the first has been mistaken for
+          # the second before — deploy.sh only installs a missing timer when
+          # its ensure-units check notices it, and a cancelled deploy
+          # installs nothing at all.
+          echo "###"
+          echo "### scheduled timer:"
+          TIMER="$(systemctl list-timers --all --no-pager --no-legend 2>/dev/null \
+            | grep -i 'game-day-capture' || true)"
+          if [ -n "$TIMER" ]; then
+            echo "###   $TIMER"
+            systemctl is-enabled --quiet "$(systemctl list-units --type=timer --all --no-legend \
+              | awk '/game-day-capture/ {print $1; exit}')" 2>/dev/null \
+              && echo "###   enabled: yes" || echo "###   enabled: NO"
+          else
+            echo "###   NOT INSTALLED — no game-day-capture timer on this host."
+            echo "###   The scheduled pre-kickoff capture will NOT fire."
+          fi
           exit "$capture_rc"
           REMOTE
           echo "capture_exit=$rc" >> "$GITHUB_OUTPUT"
