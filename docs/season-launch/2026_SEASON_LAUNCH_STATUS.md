@@ -1,3 +1,5 @@
+> **CANONICAL WEEK 1 SCOREBOARD — OWNER DIRECTIVE 2026-09-04.** Before broad V2 work, finish the Week 1 pregame + Game Day launch tranche by **Wednesday 2026-09-09 (America/Chicago)**. Progress is governed by `docs/season-launch/WEEK_1_LAUNCH_CONTRACT.md`: fixed denominator **30**, and only literal `VERIFIED` counts. Claude/automation check-ins must mechanically report X/30 + percentage from that contract and preserve IMPLEMENTED/MERGED/DEPLOYED/VERIFIED boundaries.
+
 # 2026 season-launch readiness — pregame / Game Day / postgame
 
 **Audit date:** 2026-09-03 (pre-Week-1). **Updated 2026-09-04** — the owner's
