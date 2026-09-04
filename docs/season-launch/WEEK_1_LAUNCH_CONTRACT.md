@@ -25,7 +25,7 @@ The denominator is frozen at 30 for this launch tranche. Do not add/remove rows 
 | ID | Area | Requirement / acceptance | Status |
 |---|---|---|---|
 | W1-01 | Archive | Canonical append-only Game Day prediction archive exists, is merged, and its core refusal/identity behavior is tested. | VERIFIED |
-| W1-02 | Archive | A canonical scheduled/operational caller captures Game Day state before weekly games lock; no duplicate archive owner. | IMPLEMENTED_UNVERIFIED |
+| W1-02 | Archive | A canonical scheduled/operational caller captures Game Day state before weekly games lock; no duplicate archive owner. | VERIFIED |
 | W1-03 | Archive | Production persistence/retention for captured Week 1 observations is durable and truthfully documented. | IMPLEMENTED_UNVERIFIED |
 | W1-04 | Archive | At least one authentic Week 1 pre-kickoff production capture is harvested and verified before outcomes are known. | NOT STARTED |
 | W1-05 | Public pregame | Canonical matchup preview engine exists and is live/wired for upcoming matchups. | VERIFIED |
@@ -59,21 +59,21 @@ The denominator is frozen at 30 for this launch tranche. Do not add/remove rows 
 
 *Recounted 2026-09-04T17:40Z.*
 
-- VERIFIED: 7
-- IMPLEMENTED_UNVERIFIED: 2
+- VERIFIED: 8
+- IMPLEMENTED_UNVERIFIED: 1
 - IN PROGRESS: 0
 - NOT STARTED: 21
 - BLOCKED: 0
 - DENOMINATOR: 30
-- COMPLETION: **7/30 = 23.3%**
+- COMPLETION: **8/30 = 26.7%**
 
-**The percentage did not move, and that is correct.** Two rows advanced from
-`NOT STARTED` to `IMPLEMENTED_UNVERIFIED`; only literal `VERIFIED` counts in
-the numerator, and neither has production evidence yet.
+W1-02 is `VERIFIED` on production evidence (below). W1-03 advanced from
+`NOT STARTED` to `IMPLEMENTED_UNVERIFIED` and does NOT count.
 
 ### Row movements, 2026-09-04
 
-- **W1-02 → IMPLEMENTED_UNVERIFIED.** The missing caller is merged (#1240,
+- **W1-02 → VERIFIED (production evidence, run `33904966161`).** The missing
+  caller is merged (#1240,
   `b60da42`): `src/ros/game_day_capture.py` (resolution),
   `scripts/capture_game_day_predictions.py` (CLI),
   `deploy/systemd/dynasty-game-day-capture.{service,timer}.template`
@@ -81,8 +81,46 @@ the numerator, and neither has production evidence yet.
   `.github/workflows/game-day-capture.yml` (on-box manual + dry-run), and 23
   tests. Before this, `grep -rn game_day_archive .github/workflows/ scripts/`
   returned zero matches — the archive had no caller at all. It is NOT
-  `VERIFIED` because the row's acceptance says *captures*, and nothing has
-  been captured on production. That is W1-04.
+  Production evidence, on the deployed tree `67e5dd9`:
+
+  ```
+  ### python: /home/<user>/.venvs/trade-calculator/bin/python
+  Sleeper state: season=2026 week=1 season_type=regular
+  <main>: teams=12 players=674 estimates=581/674 slots=21 scoring=sf1:9e51824690d091f9
+  <new>:  teams=10 players=290 estimates=263/290 slots=10 scoring=sf1:82a5f8ef2bfdb098
+  ### archive file count: 0
+  ### scheduled timer:
+  ###   Thu 2026-09-10 15:00:00 CEST   5 days -  …-game-day-capture.timer
+  ###   enabled: yes
+  ```
+
+  Four things that verification establishes and a green run alone would not:
+  the script executes end to end against production's own data; **projection
+  estimates actually resolve there** (581/674 and 263/290, against 0/674 in a
+  sandbox, because `data/bdvm/` exists only on the box); the pregame window is
+  still OPEN, since a closed one would have been REFUSED with exit 3; and the
+  **scheduled timer is installed and enabled**, next firing Thu 2026-09-10
+  15:00 CEST = 13:00 UTC, roughly eleven hours before kickoff.
+
+  This row is the MECHANISM being scheduled and operational. The actual
+  harvested observation is W1-04, which stays `NOT STARTED` until the timer
+  fires. Deliberately not forced early: the archive is append-only and first
+  write wins, so writing now would consume the Week 1 pregame slot with a
+  Friday roster and permanently forbid the post-waiver Thursday capture, which
+  is the better evidence. The window is proven open and the mechanism proven
+  armed; the right action is to let it run.
+
+  Two defects were found by that verification and are worth recording because
+  neither was visible from the repository. The workflow's venv ladder
+  (`.venv` → `venv` → `python3`, copied from three existing on-box workflows)
+  missed both guesses on this box — the venv is at `PROD_VENV_DIR`, outside
+  `APP_DIR` — and silently selected the SYSTEM python, failing with
+  `ModuleNotFoundError: No module named 'fastapi'` (run `33903569120`). The
+  ladder now reads `PROD_VENV_DIR` and FAILS CLOSED rather than ending in a
+  bare `python3`. Separately, the deploy carrying this feature
+  (`33897716866`) was CANCELLED in the `production-deploy` concurrency queue;
+  a later run carried the same tree, but nothing could have told the
+  difference, which is why the timer-armed check now exists.
 - **W1-03 → IMPLEMENTED_UNVERIFIED.** `data/game_day/` was absent from
   `deploy/backup/riskit-state-backup.sh`, so a Week 1 capture would have lived
   on one VPS with no backup — for the one artifact in the repo that cannot be
