@@ -1,0 +1,174 @@
+name: Game Day Capture (on-box)
+
+# MANUAL TRIGGER + VERIFICATION for the Game Day pre-game prediction
+# archive. The SCHEDULED owner of this capture is the prod-side systemd
+# timer (deploy/systemd/dynasty-game-day-capture.timer.template), NOT this
+# workflow — see that unit for why the capture has to run on the box:
+# data/ is gitignored repo-wide, so an archive written on a CI runner is
+# discarded with the runner, and the projection snapshots the capture joins
+# against (data/bdvm/projections/) exist only on the box.
+#
+# So this workflow does not capture on the runner. It runs the SAME script
+# on the box over SSH, which gives two things the timer alone does not:
+#
+#   1. a "capture now" button, for the week the timer is first installed
+#      (its first fire is the only one with no prior run to prove it works,
+#      and a Week 1 pregame window missed for an install problem is
+#      unrecoverable evidence, not a retryable job); and
+#   2. a --dry-run VERIFY mode that reports coverage and whether the window
+#      is still open, without writing anything.
+#
+# DEFAULT IS DRY RUN. Writing is opt-in via the `write` input, because the
+# archive is append-only: the FIRST capture for a (league, season, week,
+# team, pregame) tuple is the one that stands, and a premature run consumes
+# that slot with an earlier, staler roster.
+#
+# Same SSH mechanism, permissions and concurrency posture as
+# lane4-onbox-verification.yml.
+
+on:
+  workflow_dispatch:
+    inputs:
+      write:
+        description: "Actually write snapshots (unchecked = dry run, reports only)"
+        required: false
+        default: false
+        type: boolean
+      capture_kind:
+        description: "Which capture this is"
+        required: false
+        default: "pregame"
+        type: choice
+        options:
+          - pregame
+          - in_game
+          - postgame
+      league:
+        description: "Registry league key (blank = every ACTIVE league)"
+        required: false
+        default: ""
+        type: string
+      week:
+        description: "Override the week Sleeper reports (blank = ask Sleeper)"
+        required: false
+        default: ""
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: production-deploy
+  cancel-in-progress: false
+
+jobs:
+  capture:
+    name: Game Day capture on production
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: production
+    steps:
+      - name: Configure production SSH
+        env:
+          DEPLOY_SSH_PRIVATE_KEY: ${{ secrets.DEPLOY_SSH_PRIVATE_KEY }}
+          DEPLOY_KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+          DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          install -d -m 700 "$HOME/.ssh"
+          printf '%s\n' "$DEPLOY_SSH_PRIVATE_KEY" | sed 's/\r$//' > "$HOME/.ssh/id_ed25519"
+          printf '%s\n' "$DEPLOY_KNOWN_HOSTS" | sed 's/\r$//' > "$HOME/.ssh/known_hosts"
+          chmod 600 "$HOME/.ssh/id_ed25519"
+          chmod 644 "$HOME/.ssh/known_hosts"
+          ssh-keygen -y -f "$HOME/.ssh/id_ed25519" >/dev/null
+          echo "PORT=${DEPLOY_PORT:-22}" >> "$GITHUB_ENV"
+
+      - name: Run capture on the box
+        id: capture
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          APP_DIR: ${{ vars.PROD_APP_DIR || '/home/dynasty/trade-calculator' }}
+          CAPTURE_KIND: ${{ inputs.capture_kind || 'pregame' }}
+          LEAGUE_KEY: ${{ inputs.league }}
+          WEEK: ${{ inputs.week }}
+          WRITE: ${{ inputs.write && '1' || '' }}
+          RUN_ID: gha-${{ github.run_id }}
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          set -o pipefail
+          rc=0
+          ssh -i "$HOME/.ssh/id_ed25519" \
+            -o BatchMode=yes -o StrictHostKeyChecking=yes \
+            -o UserKnownHostsFile="$HOME/.ssh/known_hosts" \
+            -o ConnectTimeout=15 -o ServerAliveInterval=15 \
+            -p "$PORT" "$DEPLOY_USER@$DEPLOY_HOST" \
+            "APP_DIR=$(printf %q "$APP_DIR") CAPTURE_KIND=$(printf %q "$CAPTURE_KIND") LEAGUE_KEY=$(printf %q "$LEAGUE_KEY") WEEK=$(printf %q "$WEEK") WRITE=$(printf %q "$WRITE") RUN_ID=$(printf %q "$RUN_ID") bash -s" <<'REMOTE' 2>&1 | tee game-day-capture.txt || rc=$?
+          set -Eeuo pipefail
+          cd "$APP_DIR"
+          echo "### deployed_sha: $(git rev-parse HEAD)"
+          echo "### utc: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          echo "### capture_kind: $CAPTURE_KIND"
+          echo "### mode: ${WRITE:+WRITE}${WRITE:-DRY-RUN}"
+          echo "###"
+          PY="$APP_DIR/.venv/bin/python"
+          [ -x "$PY" ] || PY="$APP_DIR/venv/bin/python"
+          [ -x "$PY" ] || PY=python3
+
+          ARGS="--capture-kind $CAPTURE_KIND --run-id $RUN_ID"
+          [ -n "$LEAGUE_KEY" ] && ARGS="$ARGS --league $LEAGUE_KEY"
+          [ -n "$WEEK" ] && ARGS="$ARGS --week $WEEK"
+          [ -z "$WRITE" ] && ARGS="$ARGS --dry-run"
+
+          # -u for the same reason lane4-onbox-verification.yml needs it:
+          # no TTY at any hop, so block-buffered stdout can leave a killed
+          # run indistinguishable from a silent one.
+          set +e
+          "$PY" -u scripts/capture_game_day_predictions.py $ARGS
+          capture_rc=$?
+          set -e
+          echo "### capture-exit: $capture_rc"
+
+          # Show what is actually on disk afterwards. A workflow that
+          # reports "wrote 12 snapshots" and cannot show 12 files is
+          # reporting its own intent, not the state of production.
+          echo "###"
+          echo "### archive contents:"
+          find data/game_day/predictions -name '*.json' 2>/dev/null \
+            | sed 's|^|###   |' | sort | head -60 || true
+          echo "### archive file count: $(find data/game_day/predictions -name '*.json' 2>/dev/null | wc -l)"
+          exit "$capture_rc"
+          REMOTE
+          echo "capture_exit=$rc" >> "$GITHUB_OUTPUT"
+          echo "rc=$rc"
+          exit "$rc"
+
+      - name: Upload capture log
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: game-day-capture-log
+          path: game-day-capture.txt
+          if-no-files-found: warn
+
+      - name: Summarise
+        if: ${{ always() }}
+        shell: bash
+        run: |
+          {
+            echo "## Game Day capture (${{ inputs.capture_kind || 'pregame' }})"
+            echo ""
+            echo "Mode: ${{ inputs.write && 'WRITE' || 'DRY RUN' }}"
+            echo "Script exit: ${{ steps.capture.outputs.capture_exit }}"
+            echo ""
+            echo "Exit codes: 0 captured/already captured · 1 error ·"
+            echo "2 nothing to do (preseason or no week) · **3 REFUSED — the"
+            echo "pregame window has closed and that week's observation is"
+            echo "permanently unrecoverable**."
+            echo ""
+            echo '```'
+            cat game-day-capture.txt 2>/dev/null || echo "(no log)"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"

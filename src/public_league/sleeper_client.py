@@ -174,6 +174,20 @@ def _request_json(url: str, timeout: float = _DEFAULT_TIMEOUT) -> Any:
     return payload
 
 
+def fetch_nfl_state() -> dict[str, Any] | None:
+    """Sleeper's own ``/state/nfl``: the host's answer to "what season and
+    week is it right now".
+
+    Preferred over any calendar derivation for anything that must agree
+    with the league it is describing — Sleeper numbers its own weeks, and
+    a snapshot filed under a week the host disagrees with is filed under
+    the wrong week.  ``None`` on any failure, so a caller can refuse
+    rather than fall back to a guess.
+    """
+    data = _request_json(f"{SLEEPER_BASE}/state/nfl")
+    return data if isinstance(data, dict) else None
+
+
 def fetch_league(league_id: str) -> dict[str, Any] | None:
     data = _request_json(f"{SLEEPER_BASE}/league/{league_id}")
     return data if isinstance(data, dict) else None

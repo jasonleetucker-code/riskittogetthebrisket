@@ -1,0 +1,54 @@
+[Unit]
+Description=Game Day pre-game prediction archive capture (__SERVICE_NAME__)
+After=network-online.target
+Wants=network-online.target
+
+# Writes data/game_day/predictions/<season>/<league>/week_<n>/<team>_<kind>.json
+# via scripts/capture_game_day_predictions.py, which is the missing caller
+# for src/ros/game_day_archive.py (C5-GD-02).
+#
+# WHY THIS EXISTS AT ALL: the archive module shipped 2026-08-20 with the
+# explicit rationale that a pre-game prediction snapshot is PERISHABLE —
+# "once a week is scored, the pre-event state that produced any prediction
+# is gone unless it was captured before the outcome was known" — and then
+# had NO caller anywhere in the repo. A grep across .github/workflows/ and
+# scripts/ returned zero matches. It was capturing nothing.
+#
+# WHY A PROD-SIDE TIMER AND NOT CI: same reasoning as dynasty-faab-history
+# and dynasty-bdvm-refresh. data/ is gitignored repo-wide, so an archive
+# written on a CI runner never reaches the VPS and is discarded with the
+# runner. Worse here than elsewhere: the projection snapshots this capture
+# joins against (data/bdvm/projections/) exist ONLY on the box, written by
+# dynasty-bdvm-refresh, so a CI run would also record a uniformly
+# estimate-less snapshot. The evidence and its inputs are both local.
+#
+# Deploys do not endanger what this writes: deploy.sh updates tracked
+# files with `git checkout --force` and never removes gitignored data/.
+#
+# Exit codes (scripts/capture_game_day_predictions.py):
+#   0 - every league captured, or already was (the append-only skip)
+#   1 - hard error for at least one league
+#   2 - nothing to do (out of season, preseason, or no week resolved)
+#   3 - REFUSED: the pregame window has closed for a league
+#
+# Exit 3 is the one to page on. It means the timer fired after kickoff and
+# that week's pregame observation is permanently unrecoverable — the script
+# will not reconstruct one and label it pregame. Investigate the schedule,
+# do not re-run with a later capture_kind expecting the same evidence.
+
+[Service]
+Type=oneshot
+User=__APP_USER__
+Group=__APP_USER__
+WorkingDirectory=__APP_DIR__
+EnvironmentFile=-__APP_DIR__/.env
+ExecStart=__VENV_DIR__/bin/python __APP_DIR__/scripts/capture_game_day_predictions.py --capture-kind pregame --run-id systemd-timer
+StandardOutput=journal
+StandardError=journal
+# A handful of Sleeper reads per league plus one projection-snapshot load.
+# Never on a request path, but it IS time-critical, so it does not get the
+# idle IO class the sharp crawlers use.
+TimeoutStartSec=900
+
+[Install]
+WantedBy=multi-user.target

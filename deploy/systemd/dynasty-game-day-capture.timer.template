@@ -1,0 +1,44 @@
+[Unit]
+Description=Weekly pre-kickoff Game Day prediction capture for __SERVICE_NAME__
+# No Requires= here: [Timer] Unit= already binds the service, and a
+# [Unit] Requires= would start it on every boot regardless of OnCalendar.
+
+[Timer]
+# THURSDAY, BEFORE THE WEEK'S FIRST KICKOFF, AND THAT BOUND IS THE WHOLE
+# DESIGN. The capture is only honest while no game counting toward the
+# week has been played; the script refuses (exit 3) once Sleeper reports
+# any score, because a snapshot reconstructed afterwards and labelled
+# "pregame" is worse than a missing one — nothing downstream could tell.
+#
+# 13:00 UTC is chosen against the EARLIEST first-kickoff the season has,
+# not against the usual one:
+#   * ordinary week — Thursday Night Football, 20:15 ET = 00:15 UTC Fri,
+#     so 13:00 UTC Thursday clears it by ~11 hours;
+#   * THANKSGIVING — a Thursday with a 12:30 ET (17:30 UTC) kickoff,
+#     which is the binding constraint. A late-afternoon slot would be
+#     refused outright that week, losing it permanently.
+# It is also after Wednesday waiver processing, so the roster captured is
+# the one that actually starts the week.
+#
+# The 15:30 UTC second fire is a FREE RETRY, not a second observation: the
+# archive is append-only and refuses a duplicate (league, season, week,
+# team, capture_kind), which the script reports as an already-captured
+# skip and not an error. So a run that succeeded at 13:00 makes 15:30 a
+# no-op, while a 13:00 blocked by a Sleeper outage still gets a second
+# chance inside the Thanksgiving-safe window.
+OnCalendar=Thu *-*-* 13:00:00 UTC
+OnCalendar=Thu *-*-* 15:30:00 UTC
+# Deliberately NO RandomizedDelaySec: every other timer in this directory
+# spreads load, but this one is racing a kickoff. Jitter here buys nothing
+# and can only move the run closer to the deadline.
+#
+# Persistent=true catches up a fire missed to a reboot. It cannot resurrect
+# a missed WINDOW — a catch-up run after kickoff is refused by the same
+# gate, which is correct: the observation is gone, and the timer must not
+# manufacture a replacement.
+Persistent=true
+AccuracySec=1min
+Unit=__SERVICE_NAME__-game-day-capture.service
+
+[Install]
+WantedBy=timers.target
