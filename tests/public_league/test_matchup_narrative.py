@@ -30,6 +30,7 @@ import unittest
 from pathlib import Path
 
 from src.public_league import matchup_narrative as mn
+from src.public_league import matchup_narrative, matchup_preview
 from tests.public_league.fixtures import build_test_snapshot
 
 
@@ -680,3 +681,34 @@ class PriorSeasonFormDirectiveTests(unittest.TestCase):
             games = (side.get("recentForm") or {}).get("games") or []
             for g in games:
                 self.assertIn("season", g)
+
+
+class BriefDoesNotReintroduceZeroMarginTests(unittest.TestCase):
+    """The brief must not re-coerce an undefined H2H aggregate back to 0.0.
+
+    `_h2h_summary` answers ``None`` for a series with no meetings.  The brief
+    read those keys with ``.get(key, 0.0)``, which put "average margin 0.0"
+    back into the prompt JSON for a first-ever matchup — the exact fabricated
+    dead-heat claim the summary fix removed.  The defaults are gone; this
+    pins that they stay gone, because the coercion is one word long and
+    reads like ordinary defensive code in a diff.
+    """
+
+    def test_no_zero_default_on_the_h2h_margin_keys(self) -> None:
+        src = Path(matchup_narrative.__file__).read_text(encoding="utf-8")
+        self.assertNotIn('summary.get("avgMargin", 0.0)', src)
+        self.assertNotIn('summary.get("biggestMargin", 0.0)', src)
+        self.assertIn('summary.get("avgMargin")', src)
+        self.assertIn('summary.get("biggestMargin")', src)
+
+    def test_empty_series_serializes_as_null_in_the_prompt_json(self) -> None:
+        summary = matchup_preview._h2h_summary([], "owner-A", "owner-B")
+        block = {
+            "totalMeetings": summary.get("totalMeetings", 0),
+            "avgMargin": summary.get("avgMargin"),
+            "biggestMargin": summary.get("biggestMargin"),
+        }
+        rendered = json.dumps(block, sort_keys=True)
+        self.assertIn('"avgMargin": null', rendered)
+        self.assertIn('"biggestMargin": null', rendered)
+        self.assertNotIn("0.0", rendered)

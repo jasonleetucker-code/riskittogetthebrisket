@@ -228,8 +228,20 @@ def _h2h_summary(meetings: list[dict[str, Any]], sideA_oid: str, sideB_oid: str)
         if m.get("isPlayoff"):
             playoff_meetings += 1
     total = len(meetings)
-    avg_margin = round(sum(abs(m) for m in margins) / total, 2) if total else 0.0
-    biggest = max(margins, key=lambda m: abs(m)) if margins else 0.0
+    # An average and a maximum over an EMPTY series are undefined, not zero.
+    # Both used to fall back to ``0.0``, which is the one reading a consumer
+    # must never take from a first-ever meeting: "average margin 0.0" says
+    # these two always play to a dead heat, and it is fed verbatim into the
+    # narrative brief's prompt JSON.  ``None`` -> ``null`` there, which is
+    # the honest statement.  This matches ``_form_summary``, which already
+    # publishes ``avgPoints: None`` for a manager with no games.
+    #
+    # The COUNTS stay 0, deliberately: wins, ties and playoff meetings are
+    # tallies of things that happened zero times, and the points totals are
+    # sums over an empty set.  Those are facts.  Only the average and the
+    # extremum are undefined, and only they change.
+    avg_margin = round(sum(abs(m) for m in margins) / total, 2) if total else None
+    biggest = max(margins, key=lambda m: abs(m)) if margins else None
     return {
         "totalMeetings": total,
         "sideAWins": wins_a,
@@ -238,8 +250,12 @@ def _h2h_summary(meetings: list[dict[str, Any]], sideA_oid: str, sideB_oid: str)
         "sideAPointsTotal": round(pts_a, 2),
         "sideBPointsTotal": round(pts_b, 2),
         "avgMargin": avg_margin,
-        "biggestMargin": round(abs(biggest), 2),
-        "biggestMarginWinner": sideA_oid if biggest > 0 else (sideB_oid if biggest < 0 else None),
+        "biggestMargin": round(abs(biggest), 2) if biggest is not None else None,
+        "biggestMarginWinner": (
+            None
+            if biggest is None
+            else (sideA_oid if biggest > 0 else (sideB_oid if biggest < 0 else None))
+        ),
         "playoffMeetings": playoff_meetings,
     }
 

@@ -12,6 +12,7 @@ import unittest
 
 from src.public_league.matchup_preview import (
     build_section,
+    _h2h_summary,
     _pair_key,
     _recent_form_for_owner,
 )
@@ -149,3 +150,85 @@ class RecentFormSeasonLabellingTests(unittest.TestCase):
     def test_a_real_window_still_reports_a_numeric_average(self) -> None:
         form = _recent_form_for_owner(self.snapshot, self.owner, "2025", 16, n=3)
         self.assertIsInstance(form["avgPoints"], float)
+
+
+class EmptySeriesIsMissingNotZeroTests(unittest.TestCase):
+    """A first-ever meeting has NO average margin — it does not have one of zero.
+
+    Two of the six 2026 Week 1 matchups on production are first-ever meetings
+    (new managers joined for 2026), and `_h2h_summary` returned
+    ``avgMargin: 0.0`` / ``biggestMargin: 0.0`` for them.  That is a missing
+    value rendered as a real one, and the reading it invites is the opposite
+    of the truth: "average margin 0.0" says these two always play to a dead
+    heat.  It is not cosmetic — the block is serialized straight into the
+    narrative brief's prompt JSON (`matchup_narrative._build_brief`), so the
+    article generator was being handed a fabricated dead-heat series.
+
+    The sibling `_form_summary` already publishes ``avgPoints: None`` for a
+    manager with no games, so this is the module's own existing convention
+    applied consistently, not a new one.
+    """
+
+    def test_no_meetings_yields_none_for_undefined_aggregates(self) -> None:
+        summary = _h2h_summary([], "owner-A", "owner-B")
+        self.assertEqual(summary["totalMeetings"], 0)
+        self.assertIsNone(summary["avgMargin"])
+        self.assertIsNone(summary["biggestMargin"])
+        self.assertIsNone(summary["biggestMarginWinner"])
+
+    def test_counts_over_an_empty_series_stay_zero(self) -> None:
+        # Deliberately NOT promoted to None: these are tallies of things that
+        # happened zero times, and sums over an empty set.  They are facts.
+        summary = _h2h_summary([], "owner-A", "owner-B")
+        for key in (
+            "sideAWins",
+            "sideBWins",
+            "ties",
+            "playoffMeetings",
+            "sideAPointsTotal",
+            "sideBPointsTotal",
+        ):
+            self.assertEqual(summary[key], 0, key)
+
+    def test_a_real_series_still_reports_numbers(self) -> None:
+        meetings = [
+            {
+                "sideAOwnerId": "owner-A",
+                "sideBOwnerId": "owner-B",
+                "sideAPoints": 110.0,
+                "sideBPoints": 100.0,
+                "isPlayoff": False,
+            },
+            {
+                "sideAOwnerId": "owner-A",
+                "sideBOwnerId": "owner-B",
+                "sideAPoints": 90.0,
+                "sideBPoints": 120.0,
+                "isPlayoff": True,
+            },
+        ]
+        summary = _h2h_summary(meetings, "owner-A", "owner-B")
+        self.assertEqual(summary["totalMeetings"], 2)
+        self.assertEqual(summary["avgMargin"], 20.0)
+        self.assertEqual(summary["biggestMargin"], 30.0)
+        self.assertEqual(summary["biggestMarginWinner"], "owner-B")
+        self.assertEqual(summary["playoffMeetings"], 1)
+
+    def test_an_exactly_tied_meeting_has_no_margin_winner(self) -> None:
+        # Distinct from the empty case and it must stay distinct: a tie HAS a
+        # margin (zero) and no winner; an empty series has neither.
+        meetings = [
+            {
+                "sideAOwnerId": "owner-A",
+                "sideBOwnerId": "owner-B",
+                "sideAPoints": 100.0,
+                "sideBPoints": 100.0,
+                "isPlayoff": False,
+            }
+        ]
+        summary = _h2h_summary(meetings, "owner-A", "owner-B")
+        self.assertEqual(summary["totalMeetings"], 1)
+        self.assertEqual(summary["ties"], 1)
+        self.assertEqual(summary["avgMargin"], 0.0)
+        self.assertEqual(summary["biggestMargin"], 0.0)
+        self.assertIsNone(summary["biggestMarginWinner"])
