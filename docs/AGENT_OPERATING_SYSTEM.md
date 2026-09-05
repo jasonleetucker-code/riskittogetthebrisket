@@ -69,6 +69,15 @@ If the owner has asked for implementation or active traffic control and methodol
 
 Do not stop at “here is what somebody should do next” when the current role is authorized and able to perform that bounded action.
 
+### Progress visibility on long runs
+
+For work that spans many tool calls or meaningful checkpoints, keep the owner/operator informed without narrating every command.
+
+- surface a concise update when a material finding changes the plan, a significant phase completes, or a blocker appears;
+- include partial results as soon as they are useful;
+- do not repeat the same status or dump low-level tool chatter;
+- continue working after the update unless an actual owner decision is required.
+
 ### Do not improvise product methodology
 
 Stop the affected item when completion requires a genuine owner/methodology decision. Surface the **smallest exact decision** needed and continue unrelated dependency-ready work.
