@@ -89,6 +89,26 @@ Deliberately **not** adopted into always-loaded rules:
 - forced use of `/claude-api prompt-audit` when that command is unavailable;
 - any instruction to weaken existing repo verification or canonical-owner invariants in the name of prompt simplification.
 
+### Anatoli Kopadze — graph engineering
+
+Owner-supplied source:
+`https://x.com/anatolikopadze/status/2080668775796314331`
+
+Useful principles adopted:
+
+- a graph node needs a real contract: bounded job, explicit input, structured output;
+- remove "fake edges" when one step does not actually consume another's result;
+- use the diamond for wide work: fan out, deterministic reduce, independent verify, synthesize;
+- verifier context should be independent from worker context;
+- audit hidden dependencies caused by shared files/workspaces/state, credentials, or rate-limited APIs;
+- every fan-in should compare received results with expected results so silent node failures cannot masquerade as completeness;
+- use layered fan-in when raw parallel output would overflow synthesis context;
+- topology is not truth: ground the graph in immovable external anchors such as executed tests, production observations, authoritative data, or frozen owner rules;
+- graphs are inappropriate for small, exploratory, or genuinely sequential work;
+- start with bounded width/cost and expand only after a scoped run earns it.
+
+These extend the existing "loops inside graphs" rule without adding a new overlapping skill.
+
 ## What the repo already had
 
 The audit found that this repository was **not** starting from zero.
