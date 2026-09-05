@@ -189,6 +189,43 @@ Every bounded unit converges through this loop:
 
 If a step fails, route the unit to the smallest prior step that can repair the failure. Do not discard already accepted sibling work.
 
+### Retry budgets and exit conditions
+
+A convergence loop needs both an **acceptance condition** and a **bounded exit condition**.
+
+- Never repeat an identical failed action without new evidence, a changed input, or a changed hypothesis.
+- For autonomous retries, define a bounded attempt/action budget appropriate to the unit; do not create an unbounded "keep trying until green" loop.
+- A side-effecting retry must be proven idempotent or explicitly guarded against duplicate effects.
+- When the budget is exhausted, preserve the exact last failure/evidence, mark the unit BLOCKED or truthfully degraded, and move to other dependency-ready work.
+- Escalation is not failure: a loop should stop when the remaining uncertainty is genuinely an owner/methodology/external dependency.
+
+### Root-cause debugging
+
+Debug from the violated invariant backward, not from the visible exception forward:
+
+1. reproduce the failure before theorizing when reproduction is possible;
+2. identify the first point where the expected invariant becomes false;
+3. separate **observed evidence** from the **root-cause conclusion**;
+4. repair the canonical root cause rather than patching a downstream symptom;
+5. when multiple causes remain plausible, name the evidence that would distinguish them;
+6. after repair, prove the original reproduction is green and add the lightest durable learning edge that prevents recurrence.
+
+### Model/effort routing and tool batching
+
+Use capability and reasoning effort as resources, not status symbols.
+
+- Use the lowest model/effort tier that reliably clears the unit's acceptance bar when routing is available.
+- Escalate for ambiguous architecture, difficult root-cause analysis, methodology-sensitive review, or integration risk when evidence shows the cheaper route is insufficient.
+- Re-evaluate routing after a model-generation change; do not preserve old "always use maximum reasoning" assumptions by inertia.
+- Before a tool round, identify the independent evidence/actions needed next and batch/parallelize those that do not depend on one another.
+- Serialize only genuine dependencies or state-changing actions whose ordering matters.
+
+### Targeted edits over gratuitous rewrites
+
+Prefer the smallest edit that repairs the live path.
+
+Do not rewrite a whole file merely because the model can. A whole-file rewrite is justified only when the file's structure itself is the defect or the bounded replacement is demonstrably safer than a surgical edit. Preserve unrelated behavior and make review blast radius obvious.
+
 ## 6. Correction edges and learning edges
 
 A **correction edge** fixes the current run.
