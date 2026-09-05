@@ -33,7 +33,7 @@ The denominator is frozen at 30 for this launch tranche. Do not add/remove rows 
 | W1-07 | Public pregame | Public league contract exposes the canonical pregame/narrative outputs consumed by frontend surfaces. | VERIFIED |
 | W1-08 | Public pregame | Canonical Week page renders the existing matchup preview path. | VERIFIED |
 | W1-09 | Public pregame | Canonical articles route renders the existing narrative path. | VERIFIED |
-| W1-10 | Public pregame | All six Week 1 league matchups are present with correct managers/teams/schedule and current, non-fabricated data inputs. | NOT STARTED |
+| W1-10 | Public pregame | All six Week 1 league matchups are present with correct managers/teams/schedule and current, non-fabricated data inputs. | IN PROGRESS |
 | W1-11 | Public pregame | All six Week 1 narratives/previews are generated and pass factual, freshness, repetition, and matchup-specific quality review. | NOT STARTED |
 | W1-12 | Public pregame | Week 1 pregame surfaces pass mobile/navigation/link/degraded-state production verification. | NOT STARTED |
 | W1-13 | Public pregame | Public/private leakage audit proves proprietary values, edges, targets, forecasts, or private decision intelligence are not exposed publicly. | NOT STARTED |
@@ -57,12 +57,12 @@ The denominator is frozen at 30 for this launch tranche. Do not add/remove rows 
 
 ## Mechanical tally
 
-*Recounted 2026-09-04T21:00Z after merge of #1244.*
+*Recounted 2026-09-05T13:10Z. The numerator is unchanged; only W1-10 moved, NOT STARTED -> IN PROGRESS.*
 
 - VERIFIED: 14
 - IMPLEMENTED_UNVERIFIED: 1
-- IN PROGRESS: 0
-- NOT STARTED: 14
+- IN PROGRESS: 1
+- NOT STARTED: 13
 - BLOCKED: 1
 - DENOMINATOR: 30
 - COMPLETION: **14/30 = 46.7%**
@@ -78,6 +78,28 @@ The denominator is frozen at 30 for this launch tranche. Do not add/remove rows 
 - **W1-22 → VERIFIED (#1244).** `Win Matchup %` is produced by the canonical joint weekly simulation, bounded/tested, and structurally reconciles to the same draw-level joint outcomes used by the median path.
 - **W1-24 → VERIFIED (#1244).** Game Day result contracts carry generated/model/scoring metadata, coverage and unsimulable-player information, and explicit NOT_APPLICABLE / STANDINGS_RULE_UNVERIFIED / UNSIMULABLE / fallback notes instead of fabricated numeric certainty.
 - **W1-23 → BLOCKED, not VERIFIED.** #1244 correctly derives the median-side probability from the same league-wide simulation draws and correctly represents median-disabled as NOT_APPLICABLE, but host-faithful threshold/tie semantics remain unverified. `threshold_semantics_verified` is deliberately hard-coded false. The repo's historical Sleeper data cannot safely answer the question because retrospective best-ball scoring no longer reproduces the host's recorded season totals. Exact smallest decision/evidence needed: inspect one completed Sleeper week in the host UI/API evidence available at the time and establish whether `league_average_match` uses median or average and what an exact threshold tie records as. Do not guess or flip the flag without that evidence.
+
+### Row movements, 2026-09-05
+
+- **W1-10 → IN PROGRESS (not VERIFIED).** A full field-by-field audit of
+  production `GET /api/public/league/matchupPreview` against Sleeper ground
+  truth passes every clause of the row except one:
+  `docs/season-launch/W1_10_WEEK1_MATCHUP_AUDIT_2026-09-05.md`. All six Week 1
+  matchups are present in `preview` mode with pairings, `ownerId`s and roster
+  ids matching Sleeper exactly, 12 distinct owners, unplayed points as `null`
+  rather than `0`, team names resolved through the documented Sleeper fallback
+  ladder, and an H2H block that is correct including a two-week aggregated 2024
+  playoff meeting.
+  The defect: the two first-ever meetings (matchups 2 and 3 — Blaine and
+  jstuedle joined for 2026) served `avgMargin: 0.0` / `biggestMargin: 0.0` for a
+  series with zero meetings, which reads as "these two always play to a dead
+  heat" and was copied verbatim into the narrative generator's prompt JSON. An
+  average over an empty set is undefined, not zero. Repaired in
+  `matchup_preview._h2h_summary` (and the brief's re-coercing `.get(key, 0.0)`
+  defaults) with `None`; counts and sums correctly stay `0`.
+  It is IN PROGRESS rather than VERIFIED because a code repair is not
+  production evidence: the row moves when the fix is merged, deployed, and
+  production serves `avgMargin: null` for those two matchups.
 
 ### Named blockers
 
