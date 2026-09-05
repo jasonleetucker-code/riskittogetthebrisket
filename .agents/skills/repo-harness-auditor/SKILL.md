@@ -92,6 +92,22 @@ Before moving a section:
 
 Do not trade token savings for governance drift.
 
+## Graph-orchestration hygiene
+
+When the harness or a workflow uses parallel agents, audit the topology rather than assuming "parallel" means efficient or safe:
+
+- every node has a bounded input/output contract;
+- every edge passes a real dependency or protects a shared mutable/rate-limited resource;
+- fake edges are removed;
+- hidden edges (same file, worktree, state store, credential/session, API budget) are made explicit or isolated;
+- verifier nodes use fresh context and can reject the worker;
+- deterministic reduce steps use code rather than model judgment where practical;
+- fan-in counts expected vs received inputs and reports partial coverage truthfully;
+- large fan-in is layered to avoid context collapse while retaining provenance;
+- the graph terminates in external anchors, not agent self-consistency;
+- fan-out/agent/cost budgets and stop conditions are bounded;
+- the task is actually wide enough to justify a graph.
+
 ## Model-migration hygiene
 
 When Claude/Codex model behavior changes materially, treat the harness like code that is being migrated.
