@@ -198,7 +198,12 @@ def _expected_lineup(
     # to a reader, and two RB seats share the name "RB", so publish both:
     # the name to read and the index to disambiguate them.
     for slot_index, player in sorted(assignment.items()):
-        value = float(player.ros_value or 0.0)
+        # `ros_value` CANNOT be None here — only priced players entered the
+        # pool above, and each carries its estimate. Reading it directly
+        # rather than `or 0.0` keeps that an invariant: if it is ever broken
+        # this raises, instead of quietly publishing a fabricated 0.0 point
+        # projection for a player nobody priced.
+        value = float(player.ros_value)
         total += value
         slots.append(
             {
