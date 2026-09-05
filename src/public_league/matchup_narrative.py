@@ -783,8 +783,11 @@ def build_brief(
         if pair_key[0] == home_owner
         else summary.get("sideAWins", 0),
         "ties": summary.get("ties", 0),
-        "avgMargin": summary.get("avgMargin", 0.0),
-        "biggestMargin": summary.get("biggestMargin", 0.0),
+        # No ``0.0`` default: the summary answers None for a series with no
+        # meetings, and re-coercing here would put "average margin 0.0" back
+        # into the prompt JSON for a first-ever matchup.
+        "avgMargin": summary.get("avgMargin"),
+        "biggestMargin": summary.get("biggestMargin"),
         "playoffMeetings": summary.get("playoffMeetings", 0),
         "last5": last_5,
     }
