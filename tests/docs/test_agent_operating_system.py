@@ -59,3 +59,23 @@ def test_harness_migration_audit_is_evidence_not_authority():
     assert "representative baseline task set" in harness
     assert "append-only" in harness
     assert "zodchiii" in rationale
+
+
+def test_agent_os_graphs_require_real_edges_complete_fanin_and_anchors():
+    doc = _read("docs/AGENT_OPERATING_SYSTEM.md")
+    assert "Graph construction rules" in doc
+    assert "Fake-edge test" in doc
+    assert "fan out -> reduce -> verify -> synthesize" in doc
+    assert "Hidden edges" in doc
+    assert "Fan-in completeness and context safety" in doc
+    assert "Anchors" in doc
+    assert "When not to graph" in doc
+
+
+def test_harness_auditor_checks_graph_topology_not_just_prompts():
+    harness = _read(".agents/skills/repo-harness-auditor/SKILL.md")
+    rationale = _read("docs/agent-operating-system/DESIGN_RATIONALE_2026-09-05.md")
+    assert "Graph-orchestration hygiene" in harness
+    assert "fan-in counts expected vs received inputs" in harness
+    assert "fresh context" in harness
+    assert "Anatoli Kopadze" in rationale
