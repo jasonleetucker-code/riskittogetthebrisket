@@ -142,8 +142,14 @@ export const NAV_MODEL = [
     key: "myteam",
     label: "My Team",
     href: "/rosters",
-    hint: "Your roster, waivers and draft",
+    hint: "Your matchup, roster, waivers and draft",
     items: [
+      {
+        href: "/matchup",
+        label: "This Week",
+        hint: "Your matchup projected: win probability and expected lineups",
+        keywords: ["matchup", "this week", "win probability", "pregame", "opponent"],
+      },
       {
         href: "/rosters",
         label: "Team Strength",

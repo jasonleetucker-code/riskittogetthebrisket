@@ -128,10 +128,62 @@ percentages plus the tie sum to 100.0.
   an explicit week bypassing the host clock, `no-store`, not reachable under
   `/api/public/`, and the lineage reaching the wire.
 
-## 7. Row status
+## 7. The surface
 
-**W1-14 and W1-15 stay `NOT STARTED`.** The backend exists and is tested, but
-W1-14 asks for a *surface* and W1-16 for production verification of the owner's
-experience. A tested endpoint is neither. The frontend section and the
-production verification are the remaining work, and the numerator does not move
-on this.
+`/matchup` ("This Week", first item in the **My Team** nav group), rendering
+`frontend/components/MatchupIntelPanel.jsx` over the bridge route at
+`frontend/app/api/matchup/intel/route.js`.
+
+**Private by route, for the same reason `/phases` is.** Everything under
+`/league` is served by the isolated public pipeline and must never read private
+analysis. `public-routes.js` treats every path outside its allowlist as
+private, so this route needs no entry there — but it would be a boundary
+violation under `/league`, which is why it is not there. The bridge sets
+`Cache-Control: no-store` on the way back out too, so a developer running
+through it gets the same guarantee production does.
+
+**Display only.** Every number is read from the endpoint verbatim; nothing is
+recomputed, re-ranked or re-derived — the same materializer relationship
+`buildRows` has with the canonical contract.
+
+**The states are the design.** Three non-error outcomes render through the
+quiet `ds/EmptyState`, because a manager being told something is broken when
+the honest answer is "the games started" is worse than no message:
+
+| endpoint code | what the reader sees |
+|---|---|
+| `week_in_progress` | "This week has already started" — pregame intelligence is no longer the question |
+| `clock_unavailable` | "The host has not stated the current week" |
+| `team_required` / `team_not_found` | "No team selected" |
+
+Anything else is a genuine fault and renders through `ds/FailureState`, which
+is the primitive that keeps "signed out", "declining for a stated reason" and
+"not answering" from looking identical — and which puts the server's own words
+first. `components/ui/ErrorState.jsx` was deliberately not used; its own
+docstring says it is structurally unable to make those distinctions.
+
+Two real bugs the panel's tests caught, both in the first draft: `EmptyState`
+takes `title`/`description`, not `label`/`message`, so three states were
+rendering as a bare "No data"; and `ErrorState` takes `retry`, not `onRetry`,
+so the retry button never appeared. Both are why the state tests exist rather
+than a single happy-path render.
+
+## 8. Verification
+
+- `frontend/__tests__/components/matchup-intel-panel.test.jsx` — 12 tests: both
+  win probabilities; the lineup rendered by **slot name, not index**; the
+  count of players left out of the lineup rather than counted as zero; the
+  unverified median threshold surfaced; source and coverage named; the
+  no-projection path showing the matchup with **no fabricated 50%**; all four
+  error/state branches; and `cache: "no-store"` on the request.
+- `npx vitest run` — **2429 passed / 166 files**
+- `npm run build` — clean, **all 14 budgeted pages under budget**
+
+## 9. Row status
+
+**W1-14 and W1-15 stay `NOT STARTED` until this is deployed and verified on
+production.** The endpoint and the surface both exist and are tested, which is
+what those two rows describe — but W1-16 asks for production verification of
+the owner's experience, and this document is not that. The rows move when
+`/matchup` is live and answering for the owner's own team, which requires the
+projection snapshots that exist only on the box.
