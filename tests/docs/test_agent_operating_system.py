@@ -48,6 +48,7 @@ def test_agent_os_has_bounded_debugging_and_routing_rules():
     assert "Root-cause debugging" in doc
     assert "Model/effort routing and tool batching" in doc
     assert "Targeted edits over gratuitous rewrites" in doc
+    assert "Progress visibility on long runs" in doc
 
 
 def test_harness_migration_audit_is_evidence_not_authority():
