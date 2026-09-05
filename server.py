@@ -74,6 +74,7 @@ from src.api.data_contract import (
     validate_api_data_contract,
 )
 from src.api import gameplan as _gameplan
+from src.api import matchup_intel as _matchup_intel
 from src.api import roster_intelligence as _roster_intelligence
 from src.api import guest_passes as _guest_passes
 from src.api import rank_history as _rank_history
@@ -7387,6 +7388,211 @@ async def get_roster_intelligence(request: Request):
         )
 
     # Private roster intelligence — never cached by a shared proxy.
+    return JSONResponse(content=payload, headers={"Cache-Control": "no-store"})
+
+
+@app.get("/api/matchup/intel")
+async def get_matchup_intel(request: Request):
+    """PRIVATE pregame matchup intelligence for one team (W1-14 / W1-15).
+
+    The authenticated counterpart to the public ``matchupPreview`` section.
+    That one is factual and retrospective — head-to-head record, recent
+    form — and is safe for ``/league``. This one is projections, win and
+    beat-median probabilities, expected best-ball lineups and roster
+    weaknesses, which CLAUDE.md §5 puts squarely on the private side of the
+    boundary. It is ``no-store`` and never reachable from a public route.
+
+    Assembly lives in ``src/api/matchup_intel.py``; this is the transport
+    shell. Every number it returns is produced by a canonical owner —
+    ``src/ros/game_day_sim.py`` for the probabilities,
+    ``src/ros/lineup.py`` for the lineup, ``src/ros/projection_ensemble.py``
+    for the estimates, ``src/api/roster_intelligence.py`` for strength and
+    weakness — and the payload's ``lineage`` block names each of them plus
+    how fresh its inputs were.
+
+    Query parameters::
+
+        leagueKey   optional — standard resolver (explicit key, else the
+                    user's activeLeagueKey, else the registry default)
+        team        optional — ownerId. Defaults to the session's Sleeper
+                    user id, then the league's default_team_map.
+        week        optional — defaults to the host's own current week.
+        season      optional — defaults to the host's own current season.
+
+    LEAGUE-SCOPED: rosters, the schedule, starter slots and every roster
+    rank resolve through ``leagueKey``.
+
+    It **refuses a week already in progress** with ``week_in_progress``
+    rather than degrading. Distinguishing a finished player from a
+    mid-game one needs a live game-state feed this repo does not wire, and
+    collapsing them would double-project — so "come back after the games"
+    is the truthful answer, and a distinct code lets a caller render it as
+    a state rather than an error.
+
+    A league with no projection snapshot still answers: the matchup,
+    both rosters and the lineage come back, ``outcome`` is ``null`` and a
+    note says why. Never a fabricated 50%.
+    """
+    try:
+        league_cfg = _resolve_league_for_request(request)
+    except LeagueResolutionError as err:
+        body = {"error": err.code, "message": err.message}
+        requested = (request.query_params.get("leagueKey") or "").strip()
+        if requested:
+            body["leagueKey"] = requested
+        return JSONResponse(status_code=err.status, content=body)
+
+    sleeper_league_id = str(getattr(league_cfg, "sleeper_league_id", "") or "").strip()
+    if not sleeper_league_id:
+        return JSONResponse(
+            status_code=503,
+            content={
+                "error": "league_not_configured",
+                "message": f"League {league_cfg.key!r} has no Sleeper league id.",
+                "leagueKey": league_cfg.key,
+            },
+        )
+
+    owner_id = (request.query_params.get("team") or "").strip()
+    if not owner_id:
+        session = _get_auth_session(request) or {}
+        owner_id = str(session.get("sleeper_user_id") or "").strip()
+        if not owner_id:
+            username = str(session.get("username") or "").strip().lower()
+            mapped = (league_cfg.default_team_map or {}).get(username) or {}
+            owner_id = str(mapped.get("ownerId") or "").strip()
+    if not owner_id:
+        return JSONResponse(
+            status_code=400,
+            content={
+                "error": "team_required",
+                "message": (
+                    "Pass ?team=<ownerId>. It could not be inferred: this session "
+                    "carries no Sleeper user id and the league has no default team "
+                    "mapping for it."
+                ),
+                "leagueKey": league_cfg.key,
+            },
+        )
+
+    # The CLOCK comes from the host, not from this process. A season and a
+    # week are facts Sleeper states; deriving them from the calendar is how
+    # a surface ends up a week ahead of the league it describes.
+    def _resolve_clock() -> tuple[int | None, int | None, str | None]:
+        from src.public_league.sleeper_client import (  # noqa: PLC0415
+            fetch_nfl_state,
+        )
+
+        state = fetch_nfl_state() or {}
+        try:
+            season = int(state.get("season"))
+        except (TypeError, ValueError):
+            season = None
+        try:
+            week = int(state.get("week"))
+        except (TypeError, ValueError):
+            week = None
+        return season, week, str(state.get("season_type") or "") or None
+
+    def _int_param(name: str) -> int | None:
+        raw = (request.query_params.get(name) or "").strip()
+        if not raw:
+            return None
+        try:
+            return int(raw)
+        except ValueError:
+            return None
+
+    season = _int_param("season")
+    week = _int_param("week")
+    season_type = None
+    if season is None or week is None:
+        try:
+            host_season, host_week, season_type = await run_in_threadpool(_resolve_clock)
+        except Exception:  # noqa: BLE001 — the host is the only clock; say so
+            host_season = host_week = None
+        season = season if season is not None else host_season
+        week = week if week is not None else host_week
+    if season is None or week is None:
+        return JSONResponse(
+            status_code=503,
+            content={
+                "error": "clock_unavailable",
+                "message": (
+                    "The host did not state the current season/week and none was "
+                    "passed. Guessing one would describe a different week."
+                ),
+                "leagueKey": league_cfg.key,
+            },
+        )
+
+    roster_settings = {}
+    declared_teams = None
+    try:
+        roster_settings = _league_registry.get_league_roster_settings(league_cfg.key) or {}
+        raw = roster_settings.get("teamCount")
+        if isinstance(raw, int) and raw > 0:
+            declared_teams = raw
+    except Exception:  # noqa: BLE001 — the registry is optional here
+        roster_settings = {}
+
+    # The contract is OPTIONAL context: it carries roster strength/weakness
+    # and its own scrape stamp. A contract loaded for a different league is
+    # withheld rather than mixed in — one league's weaknesses must never be
+    # attached to another's matchup.
+    contract = latest_contract_data
+    if contract:
+        loaded = ((contract.get("meta") or {}) if isinstance(contract, dict) else {}).get(
+            "leagueKey"
+        )
+        if loaded and loaded != league_cfg.key:
+            contract = None
+
+    try:
+        payload = await run_in_threadpool(
+            _matchup_intel.build_matchup_intel,
+            league_key=league_cfg.key,
+            sleeper_league_id=sleeper_league_id,
+            owner_id=owner_id,
+            season=int(season),
+            week=int(week),
+            contract=contract,
+            team_count=declared_teams,
+            roster_settings=roster_settings,
+        )
+    except _matchup_intel.WeekInProgress as exc:
+        return JSONResponse(
+            status_code=409,
+            content={
+                "error": "week_in_progress",
+                "message": str(exc),
+                "leagueKey": league_cfg.key,
+                "season": int(season),
+                "week": int(week),
+            },
+        )
+    except _matchup_intel.TeamNotInLeague:
+        return JSONResponse(
+            status_code=404,
+            content={
+                "error": "team_not_found",
+                "message": f"No roster for owner {owner_id!r} in league {league_cfg.key!r}.",
+                "leagueKey": league_cfg.key,
+            },
+        )
+    except _matchup_intel.MatchupIntelError as exc:
+        return JSONResponse(
+            status_code=503,
+            content={
+                "error": "matchup_unavailable",
+                "message": str(exc),
+                "leagueKey": league_cfg.key,
+            },
+        )
+
+    if season_type:
+        payload["seasonType"] = season_type
+    # Private decision intelligence — never cached by a shared proxy.
     return JSONResponse(content=payload, headers={"Cache-Control": "no-store"})
 
 
