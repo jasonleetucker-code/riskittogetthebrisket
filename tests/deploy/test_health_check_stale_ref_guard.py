@@ -57,9 +57,7 @@ def _load_probe_namespace() -> dict:
 
 
 def _iso(hours_ago: float) -> str:
-    return (
-        dt.datetime.now(dt.timezone.utc) - dt.timedelta(hours=hours_ago)
-    ).isoformat()
+    return (dt.datetime.now(dt.timezone.utc) - dt.timedelta(hours=hours_ago)).isoformat()
 
 
 @pytest.fixture()
