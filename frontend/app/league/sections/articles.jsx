@@ -13,7 +13,17 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { Card, EmptyCard } from "../shared.jsx";
 
-export default function ArticlesSection({ mode }) {
+// ``currentSeason`` / ``currentWeek`` are optional and come from the
+// canonical ``matchupPreview`` contract section (see
+// ./matchup-previews.jsx) — this component does NOT resolve the clock
+// itself, because a second answer to "what week is it" is exactly the
+// kind of duplicate owner /league avoids. When they are supplied and
+// the newest slate on disk is for an older week, say so: the heading
+// already named the season and week, but the subhead read
+// "Wednesday-morning previews" in the present tense with nothing
+// distinguishing "this week\'s articles" from "the last articles we
+// have". Stale is not current.
+export default function ArticlesSection({ mode, currentSeason = null, currentWeek = null }) {
   const [state, setState] = useState({ loading: true, error: "", articles: [] });
 
   useEffect(() => {
@@ -81,12 +91,23 @@ export default function ArticlesSection({ mode }) {
     return (a.matchupId || 0) - (b.matchupId || 0);
   });
 
-  const heading =
-    mode === "preview"
+  // Known only when the caller supplied the clock; an unknown clock
+  // must not be reported as a match, so the check requires both.
+  const clockKnown = currentSeason !== null && currentWeek !== null;
+  const isCurrentWeek =
+    clockKnown && String(latest.season) === String(currentSeason) && latest.week === Number(currentWeek);
+  const isOlderSlate = clockKnown && !isCurrentWeek;
+
+  const heading = isOlderSlate
+    ? mode === "preview"
+      ? `Most recent previews · ${latest.season} Week ${latest.week}`
+      : `Most recent recaps · ${latest.season} Week ${latest.week}`
+    : mode === "preview"
       ? `Week ${latest.week} previews · ${latest.season}`
       : `Week ${latest.week} recaps · ${latest.season}`;
-  const subhead =
-    mode === "preview"
+  const subhead = isOlderSlate
+    ? `No ${mode === "preview" ? "previews" : "recaps"} written yet for ${currentSeason} Week ${currentWeek} — these are the most recent on file.`
+    : mode === "preview"
       ? "Wednesday-morning previews. Tap a card for the full article."
       : "Tuesday-morning recaps. Tap a card for the full article.";
 
