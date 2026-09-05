@@ -105,7 +105,7 @@ The denominator is frozen at 30 for this launch tranche. Do not add/remove rows 
 
 - **W1-11:** `ANTHROPIC_API_KEY` is not configured. `weekly-narratives.yml` therefore skips generation after its key check while reporting a green workflow; there are zero 2026 Week 1 narrative files. This needs the repository secret to exist before the scheduled Week 1 generation path can produce and quality-review all six articles.
 - **W1-23:** host threshold/tie semantics as described above. The simulation intentionally fails closed on the verification flag until real host evidence settles the rule.
-- **W1-04 / deadline mismatch:** the canonical append-only capture is scheduled for Thursday 2026-09-10, after the Wednesday 2026-09-09 launch-contract deadline, because Thursday post-waiver state is the stronger pregame observation and first write wins. Do not force an earlier capture merely to move the numerator unless the owner explicitly changes that acceptance/timing tradeoff.
+- **W1-03 / W1-04 timing — OWNER DECISION 2026-09-05:** the owner explicitly authorizes a **one-time Week 1 production capture on Wednesday 2026-09-09 after waiver processing is confirmed complete and before any NFL scoring begins**. Do not wait for the normal Thursday timer for the first Week 1 observation. Do not capture before waivers settle, do not backdate, and do not synthesize evidence. Preserve the normal Thursday recurring timer for future cadence unless a separate operational change is justified. After the authentic Wednesday capture creates `data/game_day/`, immediately run the real retention backup/proof path and verify an observed generation containing `game_day.tar.gz`. This makes W1-03 and W1-04 legitimately reachable by the Wednesday deadline without weakening either acceptance criterion.
 
 Whenever a row changes, update the row and the mechanical tally in the same bounded change. Never count prose claims or partial evidence as VERIFIED.
 
@@ -118,7 +118,7 @@ These are pacing targets, not permission to weaken acceptance:
 - **Sun Sep 6:** canonical Game Day backend/state contract and scoring/best-ball integration substantially complete.
 - **Mon Sep 7:** scheduled + live Game Day UI substantially complete.
 - **Tue Sep 8:** final state, full test matrix, deployment candidate, production verification.
-- **Wed Sep 9:** defect burn-down only; **target 30/30 VERIFIED before 23:59 CT**.
+- **Wed Sep 9:** defect burn-down + **owner-authorized post-waiver Week 1 capture and immediate retention proof**; **target 30/30 VERIFIED before 23:59 CT** if W1-11 and W1-23 owner/external evidence is also resolved.
 
 ## Hourly check-in contract
 
@@ -130,7 +130,7 @@ Hourly status checks should:
 4. identify rows newly VERIFIED since the prior check;
 5. distinguish PR-open / CI-green / merged / deployed / production-verified;
 6. surface exact blockers or methodology decisions without inventing them;
-7. name the single highest-value next action toward 30/30 by Sep 9;
+7. name the single highest-value next action toward 30/30 by Sep 9, including the owner-authorized Wednesday post-waiver capture/retention sequence when that window opens;
 8. when evidence is already settled and repository control is safe, advance bounded work rather than only describing it.
 
 When this reaches **30/30 VERIFIED**, report **WEEK 1 LAUNCH TRANCHE COMPLETE** and stop the hourly completion campaign.
