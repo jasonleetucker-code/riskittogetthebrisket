@@ -40,3 +40,21 @@ def test_new_skills_have_narrow_non_product_scope():
     assert "Fixed denominator: **30**" in traffic
     assert "Do not use for product feature implementation" in harness
     assert "Never change product methodology" in harness
+
+
+def test_agent_os_has_bounded_debugging_and_routing_rules():
+    doc = _read("docs/AGENT_OPERATING_SYSTEM.md")
+    assert "Retry budgets and exit conditions" in doc
+    assert "Root-cause debugging" in doc
+    assert "Model/effort routing and tool batching" in doc
+    assert "Targeted edits over gratuitous rewrites" in doc
+
+
+def test_harness_migration_audit_is_evidence_not_authority():
+    harness = _read(".agents/skills/repo-harness-auditor/SKILL.md")
+    rationale = _read("docs/agent-operating-system/DESIGN_RATIONALE_2026-09-05.md")
+    assert "/claude-api prompt-audit" in harness
+    assert "evidence, not authority" in harness
+    assert "representative baseline task set" in harness
+    assert "append-only" in harness
+    assert "zodchiii" in rationale
