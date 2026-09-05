@@ -94,6 +94,10 @@ const RosPowerSection = lazySection(() => import("./sections/ros-power.jsx"));
 const RosChampionshipSection = lazySection(() => import("./sections/ros-championship.jsx"));
 const RosTradeDeadlineSection = lazySection(() => import("./sections/ros-trade-deadline.jsx"));
 const ArticlesSection = lazySection(() => import("./sections/articles.jsx"));
+// The Previews tab composes the structured current-week head-to-head
+// block with the article slate; the Recaps tab stays the bare article
+// list, because a scored week is owned by the recap surfaces.
+const PreviewsSection = lazySection(() => import("./sections/matchup-previews.jsx"));
 const TeamAssignmentSection = lazySection(() => import("./sections/team-assignment.jsx"));
 
 // SUB_TABS / VALID_TABS / DEFAULT_TAB / normalizeTabKey / SECTION_FOR_TAB
@@ -407,7 +411,7 @@ function LeaguePage({ initialContract = null, initialTab = DEFAULT_TAB }) {
       {activeTab === "rosTeamStrength" && <RosTeamStrengthSection />}
       {activeTab === "rosChampionship" && <RosChampionshipSection />}
       {activeTab === "rosTradeDeadline" && <RosTradeDeadlineSection />}
-      {activeTab === "previews" && <ArticlesSection mode="preview" />}
+      {activeTab === "previews" && <PreviewsSection />}
       {activeTab === "recaps" && <ArticlesSection mode="recap" />}
       {activeTab === "teamAssignment" && (
         <TeamAssignmentSection managers={managers} />
