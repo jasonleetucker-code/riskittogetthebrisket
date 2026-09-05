@@ -36,7 +36,7 @@ The denominator is frozen at 30 for this launch tranche. Do not add/remove rows 
 | W1-10 | Public pregame | All six Week 1 league matchups are present with correct managers/teams/schedule and current, non-fabricated data inputs. | IN PROGRESS |
 | W1-11 | Public pregame | All six Week 1 narratives/previews are generated and pass factual, freshness, repetition, and matchup-specific quality review. | NOT STARTED |
 | W1-12 | Public pregame | Week 1 pregame surfaces pass mobile/navigation/link/degraded-state production verification. | NOT STARTED |
-| W1-13 | Public pregame | Public/private leakage audit proves proprietary values, edges, targets, forecasts, or private decision intelligence are not exposed publicly. | NOT STARTED |
+| W1-13 | Public pregame | Public/private leakage audit proves proprietary values, edges, targets, forecasts, or private decision intelligence are not exposed publicly. | VERIFIED |
 | W1-14 | Private pregame | Authenticated owner-facing Week 1 matchup-intelligence surface/section exists without duplicating public or canonical data owners. | NOT STARTED |
 | W1-15 | Private pregame | Private matchup intelligence reuses canonical lineup, strength/weakness, power/playoff, and projection inputs with source/freshness lineage. | NOT STARTED |
 | W1-16 | Private pregame | Owner's Week 1 private matchup-intelligence experience is deployed and production-verified for the selected team. | NOT STARTED |
@@ -57,15 +57,15 @@ The denominator is frozen at 30 for this launch tranche. Do not add/remove rows 
 
 ## Mechanical tally
 
-*Recounted 2026-09-05T13:10Z. The numerator is unchanged; only W1-10 moved, NOT STARTED -> IN PROGRESS.*
+*Recounted 2026-09-05T13:55Z after W1-13 verified.*
 
-- VERIFIED: 14
+- VERIFIED: 15
 - IMPLEMENTED_UNVERIFIED: 1
 - IN PROGRESS: 1
-- NOT STARTED: 13
+- NOT STARTED: 12
 - BLOCKED: 1
 - DENOMINATOR: 30
-- COMPLETION: **14/30 = 46.7%**
+- COMPLETION: **15/30 = 50.0%**
 
 ### Row movements, 2026-09-04
 
@@ -100,6 +100,32 @@ The denominator is frozen at 30 for this launch tranche. Do not add/remove rows 
   It is IN PROGRESS rather than VERIFIED because a code repair is not
   production evidence: the row moves when the fix is merged, deployed, and
   production serves `avgMargin: null` for those two matchups.
+
+### Row movements, 2026-09-05 (second)
+
+- **W1-13 → VERIFIED.** Public/private leakage audit run **anonymously against
+  production**, with the evidence in
+  `docs/season-launch/W1_13_PUBLIC_PRIVATE_LEAKAGE_AUDIT_2026-09-05.md`:
+  20 public contract sections served 200 and pass the canonical field
+  blocklist; the 4 private sections all 401; the pregame and forecast surfaces
+  scanned again for 22 proprietary markers by substring on every key at every
+  depth returned **zero hits**, which is the semantic half a field-name
+  denylist cannot answer; 8 private pages all land on `/login` and 6 private
+  APIs all 401. Two structural properties underwrite it rather than
+  observation: `server.py::_private_api_gate` is **default-deny** on `/api/*`
+  (a new private endpoint is closed before it is deployed — `/api/matchup/intel`
+  already answered 401 while its PR was open) and `public-routes.js` is
+  default-private on pages.
+  **One real inconsistency found and repaired:** `frontend/app/sitemap.js`
+  listed `/trades`, which `public-routes.js` declares private and which
+  redirects an anonymous visitor to `/login`. Nothing leaked — `robots.txt`
+  serves `Disallow: /` — but a sitemap is a positive assertion that a URL is
+  worth indexing and it contradicted robots.txt on the same host. The sitemap
+  was a FOURTH consumer of the public/private question that the one predicate
+  was never wired to; it now filters through `isPublicPath`, pinned and
+  mutation-proved by `frontend/__tests__/sitemap-public-only.test.js`.
+  The row is VERIFIED on the audit, which is what it asks for; the sitemap
+  repair is not yet deployed and the record says so.
 
 ### Named blockers
 
