@@ -1,5 +1,11 @@
 # Assistant Coordination
 
+> **Process context:** `docs/AGENT_OPERATING_SYSTEM.md` defines the shared
+> agent-role/loop/review/handoff model. This file remains authoritative for
+> day-to-day branch and merge mechanics. The operating-system document points
+> here rather than duplicating these rules.
+
+
 **This file is the authority for day-to-day branch and merge practice.**
 `docs/ORCHESTRATION.md` is the detail reference for file custodians, high-conflict
 files and git mechanics — but its §2 integration policy **expired on 2026-08-01**
