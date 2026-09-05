@@ -198,6 +198,50 @@ Every bounded unit converges through this loop:
 
 If a step fails, route the unit to the smallest prior step that can repair the failure. Do not discard already accepted sibling work.
 
+### Graph construction rules
+
+Use a graph only when the work is genuinely wide. A graph buys concurrency and breadth; it does not create better judgment by itself.
+
+**Node contracts**
+- one bounded job per node;
+- explicit inputs passed in rather than assumed;
+- a fixed/validated output shape whenever another node consumes the result;
+- explicit failure/unknown states instead of free-text ambiguity.
+
+**Fake-edge test**
+For every proposed dependency, ask: *does the downstream node actually consume the upstream result, or do they share a mutable/rate-limited resource that requires ordering?* If neither is true, the edge is fake and the jobs should usually run in parallel.
+
+**Default wide-work pattern: fan out -> reduce -> verify -> synthesize**
+- fan out only independent work;
+- reduce deterministically with ordinary code for dedupe/count/sort/schema checks where possible;
+- verify findings with an independent fresh context;
+- synthesize only what survived verification.
+
+**Verifier independence**
+A worker must not grade its own work through the same accumulated context. Give the reviewer the artifact/evidence it needs, not the worker's persuasive history. Use different lenses when useful: correctness, freshness, provenance/source reality, auth/privacy, or acceptance-contract compliance.
+
+**Hidden edges**
+Prompt independence is not enough. Two nodes are not independent if they:
+- edit the same file/branch/worktree;
+- mutate the same database/state/artifact;
+- compete for a rate-limited external API;
+- depend on the same exclusive credential/session;
+- otherwise share a resource whose concurrent use changes correctness.
+
+Treat shared-resource conflicts as real edges or isolate the workers.
+
+**Fan-in completeness and context safety**
+Every merge node must know how many upstream results it expected. Missing outputs make the merged result incomplete; never silently synthesize a partial set and call it complete. For very large fan-in, aggregate in layers while preserving provenance and coverage instead of dumping all raw outputs into one context.
+
+**Anchors**
+Graphs must terminate in evidence that agents cannot talk themselves around: tests that actually ran, exact-head CI, production probes, authoritative source data, fixed contract counts, real artifacts, or owner-approved methodology. Do not let an optimizer weaken the anchor just to make the graph green.
+
+**Cost and width controls**
+Start with a bounded fan-out, explicit caps, and measurable stop conditions. Expand only when the first scoped run proves useful. A discovery graph should have a convergence rule (for example, no new verified findings across successive rounds) plus a hard total-agent/action cap.
+
+**When not to graph**
+Prefer one agent/loop for small fixes, tightly sequential work, high-coupling edits, or early exploration where the problem shape is not yet known. If the fake-edge test finds no independent jobs, there is no useful graph to build.
+
 ### Retry budgets and exit conditions
 
 A convergence loop needs both an **acceptance condition** and a **bounded exit condition**.
