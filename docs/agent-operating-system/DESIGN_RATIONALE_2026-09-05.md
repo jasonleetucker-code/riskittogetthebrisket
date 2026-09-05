@@ -65,6 +65,30 @@ The current Anthropic prompting guidance independently supports the same directi
 - balance reversible autonomy with confirmation at consequential boundaries;
 - remove older prompting patterns that cause over-triggering or over-verification on newer models.
 
+### zodchiii — Fable 5.1 migration / harness guidance
+
+Owner-supplied source:
+`https://x.com/zodchiii/status/2095806517500932190`
+
+The X body was not reliably retrievable through the automated client, so this pass does **not** quote or treat a mirror as authoritative. The useful migration themes were cross-checked against Anthropic's current model prompting guidance and its open-source `prompt-audit` skill before adoption.
+
+New principles adopted:
+
+- loops need bounded retry/action budgets and explicit exit conditions, not just acceptance criteria;
+- debugging should reproduce first, trace the first broken invariant, separate evidence from root-cause conclusion, and fix the canonical cause rather than the downstream symptom;
+- model/reasoning effort should be routed to the task instead of defaulting every unit to the most expensive tier;
+- independent tool reads/actions should be batched or parallelized while genuine dependencies remain serialized;
+- prefer targeted edits over gratuitous whole-file rewrites;
+- model upgrades should trigger a migration audit of prompts/skills/tool settings, followed by representative-task revalidation and rollback capability;
+- where a harness directly manages model conversation history and the model binds reasoning to prior prefixes, accepted history should be treated append-only rather than rewritten in place.
+
+Deliberately **not** adopted into always-loaded rules:
+
+- Fable-5.1-only API syntax, pricing, or fixed effort constants that will churn;
+- blanket model-specific instructions when Claude Code/runtime already owns the behavior;
+- forced use of `/claude-api prompt-audit` when that command is unavailable;
+- any instruction to weaken existing repo verification or canonical-owner invariants in the name of prompt simplification.
+
 ## What the repo already had
 
 The audit found that this repository was **not** starting from zero.
