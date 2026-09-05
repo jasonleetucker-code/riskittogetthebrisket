@@ -16,7 +16,7 @@ def test_agent_operating_system_is_reachable_from_both_front_doors():
 
 def test_operating_system_cannot_authorize_product_scope():
     doc = _read("docs/AGENT_OPERATING_SYSTEM.md")
-    assert "Product authority: **none.**" in doc
+    assert "**Product authority:** **none.**" in doc
     assert "docs/EXECUTION_PLAN.md" in doc
     assert "ONE CONCEPT / ONE CANONICAL OWNER" in doc
     assert "missing != zero" in doc
