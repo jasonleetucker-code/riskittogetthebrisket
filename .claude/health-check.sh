@@ -118,7 +118,26 @@ def _git(*args):
     return out.stdout if out.returncode == 0 else None
 
 
-def main_contract_age_h():
+def local_main_ref_age_h():
+    """Age of the local `origin/main` REF itself, or None if unreadable.
+
+    `_git` reads refs already on disk and never fetches, so `origin/main`
+    here is whatever this checkout last saw — not what GitHub holds. A ref
+    that is itself old is not evidence about the pipeline in EITHER
+    direction, which is the half this block originally missed.
+    """
+    out = _git("log", "-1", "--format=%cI", "origin/main")
+    if not out or not out.strip():
+        return None
+    try:
+        committed = dt.datetime.fromisoformat(out.strip())
+    except ValueError:
+        return None
+    now_ = dt.datetime.now(committed.tzinfo) if committed.tzinfo else dt.datetime.now()
+    return (now_ - committed).total_seconds() / 3600.0
+
+
+def main_contract_age_h(limit):
     """Age of the contract on `origin/main`, or None if it cannot be read.
 
     This — not "how many commits behind am I" — is the predicate that
@@ -128,10 +147,24 @@ def main_contract_age_h():
     wrong cause. That is the exact defect this whole block exists to fix,
     so it must not be reintroduced in miniature.
 
+    But the ref is only evidence if the ref is CURRENT. On 2026-09-05 this
+    checkout's `origin/main` was ~38h stale and never fetched, so this
+    function read a 38h-old contract off it and the caller printed
+    "origin/main's contract is 38h old too — not a branch artifact" — a
+    confident pipeline-outage claim while production and real `main` were
+    both ~1h fresh. It cost a full incident response.
+    (docs/ops/INCIDENT_2026-09-05_FLOCK_ROOKIE_FLOOR.md)
+
+    So a ref older than the freshness budget answers None. The file's own
+    rule — "an unproven excuse must never silence a real alarm" — has a
+    converse, and this is it: an unproven ref must not raise a false one.
+
     None on any failure, and the caller treats None as "cannot tell" and
-    keeps the original warning. An unproven excuse must never silence a
-    real alarm.
+    keeps the original warning.
     """
+    ref_age = local_main_ref_age_h()
+    if ref_age is None or ref_age > limit:
+        return None
     listing = _git("ls-tree", "--name-only", "origin/main", "exports/latest/")
     if listing is None:
         return None
@@ -190,7 +223,7 @@ if age_h > limit:
     # Only a KNOWN-FRESH main redirects. None (cannot tell) falls through to
     # the warning — the guard must keep firing whenever the excuse is
     # unproven.
-    main_age = main_contract_age_h()
+    main_age = main_contract_age_h(limit)
     if main_age is not None and main_age <= limit:
         print(
             f"  NOTE: origin/main's contract is {main_age:.0f}h old — the pipeline is "
@@ -200,6 +233,14 @@ if age_h > limit:
         print(f"  WARNING: no successful scrape in {age_h:.0f}h. Check scheduled-refresh workflow.")
         if main_age is not None:
             print(f"  (origin/main's contract is {main_age:.0f}h old too — not a branch artifact.)")
+        else:
+            # Say WHY it is unattributed instead of implying the pipeline.
+            # This hook never fetches, so a stale local ref is the common case.
+            print(
+                "  (Cause NOT attributed: this checkout's origin/main ref is itself "
+                "stale or unreadable, so it proves nothing either way. Run "
+                "`git fetch origin main` and re-check before treating this as an outage.)"
+            )
 
 players = data.get("players") or {}
 stats = data.get("siteStats") or {}

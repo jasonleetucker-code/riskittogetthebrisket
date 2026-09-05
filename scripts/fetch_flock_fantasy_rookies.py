@@ -5,12 +5,19 @@ Flock Fantasy publishes a public JSON API at::
 
     https://api.flockfantasy.com/rankings?format=PROSPECTS_SF
 
-which returns ``{ format, year, data: [...] }`` with ~98 entries — the
-current incoming rookie class only (``isRookie == true`` and
-``isDraftPick == false`` for every row, scoped to the upcoming
-``draftYear``).  Each entry carries ``playerName``, ``position``,
-``averageRank`` (float, lower is better), and ``isRookie``.  After
-filtering to offensive positions (QB/RB/WR/TE) ~95+ prospects remain.
+which returns ``{ format, year, lastUpdated, data: [...] }`` — the
+current rookie class only (``isRookie == true`` and ``isDraftPick ==
+false`` for every row, scoped to that ``draftYear``).  Each entry
+carries ``playerName``, ``position``, ``averageRank`` (float, lower is
+better), and ``isRookie``.  We keep the offensive positions
+(QB/RB/WR/TE).
+
+**The board's size is phase-dependent, not fixed.**  It is largest in
+the pre-draft window (~98 entries) and CONTRACTS through the season as
+the vendor graduates rookies onto its main ``format=superflex`` board
+and prunes the deep tail.  A shrinking board here is normal vendor
+behaviour, not a degraded fetch — see
+:data:`_FF_ROOKIE_ROW_COUNT_FLOOR`.
 
 Core model
 ----------
@@ -73,13 +80,36 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_DST = REPO_ROOT / "CSVs" / "site_raw" / "flockFantasySfRookies.csv"
 DATA_DIR_DST = REPO_ROOT / "data" / "exports" / "latest" / "site_raw" / "flockFantasySfRookies.csv"
 
-# Minimum row count.  The PROSPECTS_SF endpoint currently carries ~98
-# entries (one full rookie class).  Floor set at ~60 so a class shrink
-# or a scrape regression trips exit 2 rather than silently publishing a
-# degraded CSV.  Class sizes vary year-over-year — a small class is
-# normal in summers before the next college season fully enters the
-# board, so the floor is intentionally permissive.
-_FF_ROOKIE_ROW_COUNT_FLOOR: int = 60
+# Minimum row count — a TRUNCATION guard, not a class-size expectation.
+#
+# Re-derived 2026-09-05 (incident: docs/ops/INCIDENT_2026-09-05_FLOCK_ROOKIE_FLOOR.md).
+# The previous floor of 60 was calibrated against "~98 entries = one full
+# rookie class", which is only true in the pre-draft window.  In-season the
+# vendor graduates rookies onto its main ``format=superflex`` board and
+# prunes the deep tail, so the prospects board contracts:
+#
+#   2026-08-26   83 rows   (last write that cleared the old floor)
+#   2026-09-05   48 rows   (vendor ``lastUpdated`` 2026-08-31)
+#
+# Verified on 2026-09-05 that the 48 are a COMPLETE small board and not a
+# truncated large one: ``averageRank`` runs 1..48 with no gaps, the position
+# mix is coherent (WR 20 / RB 12 / TE 9 / QB 7), all 48 also appear on the
+# healthy 500-row main board, and of the 35 departures 21 had moved to that
+# main board while the other 14 were deep-tail prospects the vendor dropped.
+#
+# So the floor cannot encode "how big should a rookie class be" — it can only
+# encode "below this, a payload is far likelier truncated than real".  24 is
+# two rounds of a 12-team superflex rookie draft: the region this source's
+# within-class rank actually has to cover for the rookie-ladder translation
+# to mean anything, and 2x headroom under today's observation.  A genuinely
+# broken or truncated response still trips exit 2.
+#
+# Known follow-up recorded in that incident note: this board is expected to
+# keep shrinking as the class fully graduates, and "the vendor no longer
+# publishes a rookie board this phase" is a DIFFERENT question from "the
+# fetch broke".  A fixed floor cannot tell those apart and this one is not
+# pretending to.
+_FF_ROOKIE_ROW_COUNT_FLOOR: int = 24
 
 # Offensive positions we accept from Flock Fantasy rookies.  The
 # PROSPECTS_SF endpoint already excludes IDP and draft picks, but we
