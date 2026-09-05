@@ -131,6 +131,28 @@ The denominator is frozen at 30 for this launch tranche. Do not add/remove rows 
 
 - **W1-11:** `ANTHROPIC_API_KEY` is not configured. `weekly-narratives.yml` therefore skips generation after its key check while reporting a green workflow; there are zero 2026 Week 1 narrative files. This needs the repository secret to exist before the scheduled Week 1 generation path can produce and quality-review all six articles.
 - **W1-23:** host threshold/tie semantics as described above. The simulation intentionally fails closed on the verification flag until real host evidence settles the rule.
+- **W1-03 — the SAME deadline mismatch as W1-04, and it is structural, not
+  operational.** The row's own note reads "no backup generation containing
+  `game_day.tar.gz` has yet been observed", which invites the reading that a
+  nightly run could clear it. It cannot. Traced 2026-09-05:
+  `data/game_day/` is written by exactly one caller
+  (`scripts/capture_game_day_predictions.py` → `game_day_archive.record_snapshot`);
+  that script runs on the `dynasty-game-day-capture` timer, whose
+  `OnCalendar` is **`Thu *-*-* 13:00:00 UTC`** (free retry 15:30), so the first
+  write is **Thursday 2026-09-10** — after the Wednesday 2026-09-09 deadline.
+  Until then the directory does not exist, and `riskit-state-backup.sh`'s
+  `backup_dir` logs `skip dir (absent)` and returns 0 for an absent source
+  (WARN/skip, deliberately not an error), so **no generation can contain
+  `game_day.tar.gz`** however many times the backup or
+  `retention-backup-proof.yml` is run.
+  The wiring is confirmed present — `backup_dir "${DATA_DIR}/game_day"` at
+  `deploy/backup/riskit-state-backup.sh:427`, pinned by
+  `tests/deploy/test_state_backup_dir_archiving.py`. `IMPLEMENTED_UNVERIFIED`
+  is therefore the correct status and running the retention proof early will
+  not change it. Do not mark this VERIFIED on the strength of the wiring: the
+  row asks for an observed generation, and the first one is possible only after
+  the capture writes.
+
 - **W1-04 / deadline mismatch:** the canonical append-only capture is scheduled for Thursday 2026-09-10, after the Wednesday 2026-09-09 launch-contract deadline, because Thursday post-waiver state is the stronger pregame observation and first write wins. Do not force an earlier capture merely to move the numerator unless the owner explicitly changes that acceptance/timing tradeoff.
 
 Whenever a row changes, update the row and the mechanical tally in the same bounded change. Never count prose claims or partial evidence as VERIFIED.
