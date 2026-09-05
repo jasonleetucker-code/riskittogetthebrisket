@@ -286,7 +286,7 @@ class TestMainExitCodes(unittest.TestCase):
             self.assertFalse(dest.exists())
 
     def test_main_exits_2_on_row_count_floor_violation(self):
-        # 2 players — below the default 60-row floor.
+        # 2 players — below the default row-count floor (a truncation guard).
         data = _make_api_response(
             ("Jeremiyah Love", "RB", 1.0, False),
             ("Carnell Tate", "WR", 2.71, False),
