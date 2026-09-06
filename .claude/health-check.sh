@@ -8,6 +8,42 @@ cd "$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
 
 echo "=== SITE HEALTH CHECK ==="
 
+# 0. Agent/work router
+#
+# The user used to have to paste a large continuation prompt at the start of
+# every long-running session just to restate process, ownership and the active
+# completion contract. That is harness state, not user intent. Keep this
+# output short and deterministic: point Claude at the canonical operating
+# layer and mechanically surface the active fixed-denominator launch contract.
+echo ""
+echo "=== AGENT ROUTER ==="
+echo "  Read: docs/AGENT_OPERATING_SYSTEM.md"
+echo "  Product authority: docs/EXECUTION_PLAN.md + any active owner-authorized contract"
+echo "  Coordination: ASSISTANT_COORDINATION.md + docs/WORK_CLAIMS.md"
+
+LAUNCH_CONTRACT="docs/season-launch/WEEK_1_LAUNCH_CONTRACT.md"
+if [[ -f "$LAUNCH_CONTRACT" ]]; then
+  LAUNCH_TOTAL=$(grep -cE '^\| W1-[0-9][0-9] .*\| (VERIFIED|IMPLEMENTED_UNVERIFIED|IN PROGRESS|NOT STARTED|BLOCKED) \|$' "$LAUNCH_CONTRACT" || true)
+  LAUNCH_VERIFIED=$(grep -cE '^\| W1-[0-9][0-9] .*\| VERIFIED \|$' "$LAUNCH_CONTRACT" || true)
+  if [[ "$LAUNCH_TOTAL" =~ ^[0-9]+$ ]] && [[ "$LAUNCH_VERIFIED" =~ ^[0-9]+$ ]] && (( LAUNCH_TOTAL > 0 )); then
+    if (( LAUNCH_VERIFIED < LAUNCH_TOTAL )); then
+      echo "  ACTIVE: $LAUNCH_CONTRACT — $LAUNCH_VERIFIED/$LAUNCH_TOTAL literal VERIFIED"
+      echo "  Keep V1 closed; do not begin broad V2 while this authorized launch tranche is incomplete."
+      echo "  Rows needing attention:"
+      grep -E '^\| W1-[0-9][0-9] .*\| (BLOCKED|IN PROGRESS|IMPLEMENTED_UNVERIFIED) \|$' "$LAUNCH_CONTRACT" \
+        | sed 's/^/    /' | head -8 || true
+    else
+      echo "  COMPLETE: $LAUNCH_CONTRACT — $LAUNCH_VERIFIED/$LAUNCH_TOTAL VERIFIED"
+      echo "  Do not continue the launch-completion campaign; route from current docs/EXECUTION_PLAN.md."
+    fi
+  else
+    echo "  WARNING: Week 1 contract exists but its row/status shape could not be counted mechanically."
+  fi
+else
+  echo "  No Week 1 fixed-denominator contract found; route from current docs/EXECUTION_PLAN.md."
+fi
+echo "=== END AGENT ROUTER ==="
+
 # 1. Test collection (fast: ~1s)
 # A session-start hook must be quick, so we run collection-only rather than the
 # full suite. Collection catches the failure class worth catching at startup:

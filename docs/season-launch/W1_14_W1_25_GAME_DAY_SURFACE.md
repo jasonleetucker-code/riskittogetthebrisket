@@ -1,4 +1,4 @@
-# W1-14 / W1-15 — private Week-N matchup intelligence
+# W1-14 / W1-15 / W1-25 / W1-26 — the Game Day surface
 
 **Rows:** `docs/season-launch/WEEK_1_LAUNCH_CONTRACT.md`
 
@@ -8,8 +8,53 @@
   strength/weakness, power/playoff, and projection inputs with source/freshness
   lineage."*
 
+- **W1-25** — *"Canonical Game Day route/section and navigation shell are
+  integrated into the existing site design and selected-team context."*
+- **W1-26** — *"SCHEDULED/PREGAME state is production-usable: matchup, projected
+  state, headline probabilities when available, drivers, freshness, and archive
+  timestamp."*
+
 `GET /api/matchup/intel` (private, league-scoped, `no-store`), assembled by
-`src/api/matchup_intel.py`.
+`src/api/matchup_intel.py`, rendered at **`/game-day`**.
+
+## 0. One route, one owner — the decision that shapes this
+
+`docs/GAME_DAY_PROBABILITY_SPEC.md` §7's recommended presentation (the two
+headline weekly probabilities, the score distributions, the best-ball lineup) is
+*exactly* what a private matchup view shows, because they are the same numbers
+from the same simulation. **Owner decision 2026-09-06: the private matchup
+surface IS Game Day.** A separate `/game-day` route beside a `/matchup` one
+would be two surface owners for one concept — the thing CLAUDE.md §3.1 exists to
+prevent.
+
+The route was renamed `/matchup` -> `/game-day` *before* it ever deployed, so no
+bookmark exists and no redirect shim is owed. Shipping first and renaming later
+would have owed one permanently.
+
+## 0b. What the rename added for W1-25 / W1-26
+
+* **Selected-team context (W1-25).** The panel now asks about
+  `useUserState().selectedTeam` — the switcher's own answer, and the same one
+  `/rosters` and `/phases` read. It previously fell back to the backend's
+  session inference, which answers a DIFFERENT question ("who is signed in"
+  rather than "which team did you pick"), so switching teams left the matchup
+  unchanged. When no team is selected the parameter is omitted entirely rather
+  than sent empty — `?team=` would be a request for a team named `""`.
+* **The state machine is named, not implicit (W1-26).** A `Scheduled · pregame`
+  badge on the answer, and `Live` on the host's own 409. Both are DERIVED from
+  the payload, never from a wall clock: a second answer to "has the week
+  started" is exactly what must not exist, and the host's is the only one that
+  counts. Once live, no probability is shown at all rather than a pregame
+  number presented as a live one.
+* **The joint weekly outcomes (spec §8).** 2-0 / 1-1 via matchup / 1-1 via
+  median / 0-2, from the same draws as the headline numbers — rendered only
+  when the median leg is live, so a median-disabled league never gets a
+  four-way split of a two-way week.
+* **The archive timestamp (W1-26).** `_archive_evidence()` publishes the
+  pregame archive's own `capturedAt`, keeping `captured` / `not_captured` /
+  `unreadable` distinct. The archive is the only record of what was knowable
+  before the outcome, so a surface that silently shows nothing when nothing was
+  captured cannot be told apart from one whose capture ran.
 
 ---
 

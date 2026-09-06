@@ -127,6 +127,43 @@ def _resolve_estimates(
     )
 
 
+def _archive_evidence(league_key: str, season: int, week: int) -> dict[str, Any]:
+    """When the perishable pregame archive last recorded this league-week.
+
+    Spec §7 / row W1-26 ask the Game Day surface to show an archive
+    timestamp, and the reason is worth stating: the archive is the ONLY
+    record of what was knowable before the outcome, and a surface that
+    silently shows nothing when nothing was captured cannot be told apart
+    from one whose capture ran. So the three states stay distinct —
+    captured (with the real `captured_at`), not captured, and unreadable.
+
+    `captured_at` is stamped by `record_snapshot` from the real clock and
+    is never accepted from a caller, so it proves WHEN a capture ran. It
+    does not prove the week was unplayed when it did; `capture_kind` is
+    what carries that claim, and it travels here unchanged.
+    """
+    try:
+        from src.ros.game_day_archive import load_snapshots_for_week
+
+        snaps = load_snapshots_for_week(league_key, int(season), int(week))
+    except Exception as exc:  # noqa: BLE001 — optional evidence, never fatal
+        return {"state": "unreadable", "reason": f"{type(exc).__name__}: {exc}"}
+    if not snaps:
+        # NOT an error: a week before the capture unit was deployed, or
+        # before this week's capture window, genuinely has none.
+        return {"state": "not_captured", "teamsCaptured": 0}
+    kinds = sorted({s.capture_kind for s in snaps})
+    return {
+        "state": "captured",
+        "teamsCaptured": len(snaps),
+        "captureKinds": kinds,
+        # The EARLIEST capture is the pregame evidence; a later one is a
+        # different observation, not a fresher version of the same one.
+        "capturedAt": min(s.captured_at for s in snaps),
+        "latestCapturedAt": max(s.captured_at for s in snaps),
+    }
+
+
 def _owner_by_roster(rosters: Sequence[Mapping[str, Any]]) -> dict[str, str]:
     return {
         str(r.get("roster_id")): str(r.get("owner_id") or "")
@@ -392,6 +429,10 @@ def build_matchup_intel(
             "medianEnabled": resolution.rules.median_enabled,
             "teamCount": resolution.rules.team_count,
             "sleeperFetchedAt": fetched.fetched_at,
+            # W1-26: the perishable pregame archive's own timestamp, with
+            # "nothing was captured" kept distinct from "we could not read
+            # the archive".
+            "archive": _archive_evidence(league_key, int(season), int(week)),
             "contractScrapeTimestamp": (
                 ((contract or {}).get("meta") or {}).get("scrapeTimestamp")
                 if isinstance(contract, Mapping)

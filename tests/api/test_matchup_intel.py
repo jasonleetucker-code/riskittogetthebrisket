@@ -230,3 +230,58 @@ class LineageTests(unittest.TestCase):
         self.assertFalse(sim["thresholdSemanticsVerified"])
         self.assertEqual(sim["thresholdSemantics"], "median")
         self.assertEqual(sim["draws"], 200)
+
+
+class ArchiveEvidenceTests(unittest.TestCase):
+    """W1-26 — the pregame archive's own timestamp travels with the answer.
+
+    The archive is the ONLY record of what was knowable before the outcome,
+    so a surface that silently shows nothing when nothing was captured
+    cannot be told apart from one whose capture ran. The three states stay
+    distinct here rather than in the renderer.
+    """
+
+    def test_nothing_captured_is_its_own_state(self) -> None:
+        with _patch_fetch(), _patch_estimates():
+            out = _build()
+        arch = out["lineage"]["archive"]
+        # No archive on disk for a synthetic league — and that is a real
+        # answer, not an error.
+        self.assertEqual(arch["state"], "not_captured")
+        self.assertEqual(arch["teamsCaptured"], 0)
+
+    def test_an_unreadable_archive_is_not_reported_as_empty(self) -> None:
+        with (
+            _patch_fetch(),
+            _patch_estimates(),
+            mock.patch(
+                "src.ros.game_day_archive.load_snapshots_for_week",
+                side_effect=PermissionError("nope"),
+            ),
+        ):
+            out = _build()
+        arch = out["lineage"]["archive"]
+        self.assertEqual(arch["state"], "unreadable")
+        self.assertIn("PermissionError", arch["reason"])
+
+    def test_a_captured_week_reports_the_earliest_stamp(self) -> None:
+        # A later capture is a DIFFERENT observation, not a fresher version
+        # of the same one, so the pregame evidence is the earliest.
+        class _Snap:
+            def __init__(self, at, kind="pregame"):
+                self.captured_at = at
+                self.capture_kind = kind
+
+        snaps = [_Snap("2026-09-09T18:02:11+00:00"), _Snap("2026-09-09T20:30:00+00:00")]
+        with (
+            _patch_fetch(),
+            _patch_estimates(),
+            mock.patch("src.ros.game_day_archive.load_snapshots_for_week", return_value=snaps),
+        ):
+            out = _build()
+        arch = out["lineage"]["archive"]
+        self.assertEqual(arch["state"], "captured")
+        self.assertEqual(arch["teamsCaptured"], 2)
+        self.assertEqual(arch["capturedAt"], "2026-09-09T18:02:11+00:00")
+        self.assertEqual(arch["latestCapturedAt"], "2026-09-09T20:30:00+00:00")
+        self.assertEqual(arch["captureKinds"], ["pregame"])

@@ -33,7 +33,7 @@ The denominator is frozen at 30 for this launch tranche. Do not add/remove rows 
 | W1-07 | Public pregame | Public league contract exposes the canonical pregame/narrative outputs consumed by frontend surfaces. | VERIFIED |
 | W1-08 | Public pregame | Canonical Week page renders the existing matchup preview path. | VERIFIED |
 | W1-09 | Public pregame | Canonical articles route renders the existing narrative path. | VERIFIED |
-| W1-10 | Public pregame | All six Week 1 league matchups are present with correct managers/teams/schedule and current, non-fabricated data inputs. | IN PROGRESS |
+| W1-10 | Public pregame | All six Week 1 league matchups are present with correct managers/teams/schedule and current, non-fabricated data inputs. | VERIFIED |
 | W1-11 | Public pregame | All six Week 1 narratives/previews are generated and pass factual, freshness, repetition, and matchup-specific quality review. | NOT STARTED |
 | W1-12 | Public pregame | Week 1 pregame surfaces pass mobile/navigation/link/degraded-state production verification. | NOT STARTED |
 | W1-13 | Public pregame | Public/private leakage audit proves proprietary values, edges, targets, forecasts, or private decision intelligence are not exposed publicly. | VERIFIED |
@@ -57,15 +57,15 @@ The denominator is frozen at 30 for this launch tranche. Do not add/remove rows 
 
 ## Mechanical tally
 
-*Recounted 2026-09-05T13:55Z after W1-13 verified.*
+*Recounted 2026-09-06T03:10Z after W1-10 production-verified.*
 
-- VERIFIED: 15
+- VERIFIED: 16
 - IMPLEMENTED_UNVERIFIED: 1
-- IN PROGRESS: 1
+- IN PROGRESS: 0
 - NOT STARTED: 12
 - BLOCKED: 1
 - DENOMINATOR: 30
-- COMPLETION: **15/30 = 50.0%**
+- COMPLETION: **16/30 = 53.3%**
 
 ### Row movements, 2026-09-04
 
@@ -127,33 +127,49 @@ The denominator is frozen at 30 for this launch tranche. Do not add/remove rows 
   The row is VERIFIED on the audit, which is what it asks for; the sitemap
   repair is not yet deployed and the record says so.
 
+### Row movements, 2026-09-06
+
+- **W1-10 → VERIFIED (production evidence).** The repair merged in #1247
+  (`bd78b09`) reached production and was re-fetched live rather than inferred
+  from the deploy's success. `GET /api/public/league/matchupPreview`
+  (`generatedAt 2026-09-05T19:05:43Z`) now serves, for both first-ever
+  meetings:
+
+  | matchup | totalMeetings | avgMargin | biggestMargin | winner |
+  |---|---|---|---|---|
+  | 2 — Blaine vs Ty | 0 | `null` | `null` | `null` |
+  | 3 — Joey vs jstuedle | 0 | `null` | `null` | `null` |
+
+  Every other clause of the row was already satisfied by the audit in
+  `docs/season-launch/W1_10_WEEK1_MATCHUP_AUDIT_2026-09-05.md` — six matchups,
+  pairings/ownerIds/rosterIds matching Sleeper exactly, unplayed points `null`
+  not `0`, team names from the documented Sleeper fallback ladder, and an H2H
+  block correct including the two-week aggregated 2024 playoff meeting.
+
 ### Named blockers
 
 - **W1-11:** `ANTHROPIC_API_KEY` is not configured. `weekly-narratives.yml` therefore skips generation after its key check while reporting a green workflow; there are zero 2026 Week 1 narrative files. This needs the repository secret to exist before the scheduled Week 1 generation path can produce and quality-review all six articles.
 - **W1-23:** host threshold/tie semantics as described above. The simulation intentionally fails closed on the verification flag until real host evidence settles the rule.
-- **W1-03 — the SAME deadline mismatch as W1-04, and it is structural, not
-  operational.** The row's own note reads "no backup generation containing
-  `game_day.tar.gz` has yet been observed", which invites the reading that a
-  nightly run could clear it. It cannot. Traced 2026-09-05:
-  `data/game_day/` is written by exactly one caller
-  (`scripts/capture_game_day_predictions.py` → `game_day_archive.record_snapshot`);
-  that script runs on the `dynasty-game-day-capture` timer, whose
-  `OnCalendar` is **`Thu *-*-* 13:00:00 UTC`** (free retry 15:30), so the first
-  write is **Thursday 2026-09-10** — after the Wednesday 2026-09-09 deadline.
-  Until then the directory does not exist, and `riskit-state-backup.sh`'s
-  `backup_dir` logs `skip dir (absent)` and returns 0 for an absent source
-  (WARN/skip, deliberately not an error), so **no generation can contain
-  `game_day.tar.gz`** however many times the backup or
-  `retention-backup-proof.yml` is run.
-  The wiring is confirmed present — `backup_dir "${DATA_DIR}/game_day"` at
-  `deploy/backup/riskit-state-backup.sh:427`, pinned by
-  `tests/deploy/test_state_backup_dir_archiving.py`. `IMPLEMENTED_UNVERIFIED`
-  is therefore the correct status and running the retention proof early will
-  not change it. Do not mark this VERIFIED on the strength of the wiring: the
-  row asks for an observed generation, and the first one is possible only after
-  the capture writes.
+- **W1-03 / W1-04 timing — OWNER DECISION 2026-09-05:** the owner explicitly authorizes a **one-time Week 1 production capture on Wednesday 2026-09-09 after waiver processing is confirmed complete and before any NFL scoring begins**. Do not wait for the normal Thursday timer for the first Week 1 observation. Do not capture before waivers settle, do not backdate, and do not synthesize evidence. Preserve the normal Thursday recurring timer for future cadence unless a separate operational change is justified. After the authentic Wednesday capture creates `data/game_day/`, immediately run the real retention backup/proof path and verify an observed generation containing `game_day.tar.gz`. This makes W1-03 and W1-04 legitimately reachable by the Wednesday deadline without weakening either acceptance criterion.
 
-- **W1-04 / deadline mismatch:** the canonical append-only capture is scheduled for Thursday 2026-09-10, after the Wednesday 2026-09-09 launch-contract deadline, because Thursday post-waiver state is the stronger pregame observation and first write wins. Do not force an earlier capture merely to move the numerator unless the owner explicitly changes that acceptance/timing tradeoff.
+  **Why the capture has to come first — the mechanism, traced 2026-09-05.**
+  Recorded so nobody spends a production action rediscovering it, and so the
+  Wednesday sequence is executed in the right order:
+  `data/game_day/` is written by exactly one caller
+  (`scripts/capture_game_day_predictions.py` → `game_day_archive.record_snapshot`),
+  running on the `dynasty-game-day-capture` timer whose `OnCalendar` is
+  `Thu *-*-* 13:00:00 UTC` (free retry 15:30). Until something writes that
+  directory it does not exist, and `riskit-state-backup.sh`'s `backup_dir` logs
+  `skip dir (absent)` and returns **0** for an absent source — WARN/skip,
+  deliberately not an error — so the generation still succeeds *without* the
+  member. **Running the retention proof before the capture therefore cannot
+  produce `game_day.tar.gz`, however many times it is run.** The backup wiring
+  itself is confirmed present: `backup_dir "${DATA_DIR}/game_day"` at
+  `deploy/backup/riskit-state-backup.sh:427`, pinned by
+  `tests/deploy/test_state_backup_dir_archiving.py`.
+  Consequence for the owner-authorized window: **capture first, then prove.**
+  Neither row may be marked VERIFIED on the strength of the wiring — each asks
+  for an observed artifact, and only the real Wednesday capture can produce it.
 
 Whenever a row changes, update the row and the mechanical tally in the same bounded change. Never count prose claims or partial evidence as VERIFIED.
 
@@ -166,7 +182,7 @@ These are pacing targets, not permission to weaken acceptance:
 - **Sun Sep 6:** canonical Game Day backend/state contract and scoring/best-ball integration substantially complete.
 - **Mon Sep 7:** scheduled + live Game Day UI substantially complete.
 - **Tue Sep 8:** final state, full test matrix, deployment candidate, production verification.
-- **Wed Sep 9:** defect burn-down only; **target 30/30 VERIFIED before 23:59 CT**.
+- **Wed Sep 9:** defect burn-down + **owner-authorized post-waiver Week 1 capture and immediate retention proof**; **target 30/30 VERIFIED before 23:59 CT** if W1-11 and W1-23 owner/external evidence is also resolved.
 
 ## Hourly check-in contract
 
@@ -178,7 +194,7 @@ Hourly status checks should:
 4. identify rows newly VERIFIED since the prior check;
 5. distinguish PR-open / CI-green / merged / deployed / production-verified;
 6. surface exact blockers or methodology decisions without inventing them;
-7. name the single highest-value next action toward 30/30 by Sep 9;
+7. name the single highest-value next action toward 30/30 by Sep 9, including the owner-authorized Wednesday post-waiver capture/retention sequence when that window opens;
 8. when evidence is already settled and repository control is safe, advance bounded work rather than only describing it.
 
 When this reaches **30/30 VERIFIED**, report **WEEK 1 LAUNCH TRANCHE COMPLETE** and stop the hourly completion campaign.

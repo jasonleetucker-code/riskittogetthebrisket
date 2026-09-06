@@ -1,5 +1,14 @@
 # CLAUDE.md — Risk It To Get The Brisket
 
+> **SESSION ROUTER — READ FIRST:** `docs/AGENT_OPERATING_SYSTEM.md` is the
+> canonical AI-workflow/coordination front door. The Claude SessionStart hook
+> prints the currently active completion contract and tally automatically.
+> This file remains the detailed technical runbook; it does **not** replace
+> `docs/EXECUTION_PLAN.md` or an active owner-authorized completion contract
+> for implementation authority. Do not ask the owner to paste the operating
+> rules again when they are already recorded in the repo.
+
+
 ## What this document is — and is not
 
 **CLAUDE.md is the technical operating / runbook document.** It describes how

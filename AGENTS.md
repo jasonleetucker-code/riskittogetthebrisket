@@ -1,5 +1,12 @@
 # Repo Instructions (Dynasty Trade Calculator)
 
+> **Agent workflow router:** read `docs/AGENT_OPERATING_SYSTEM.md` before
+> material AI-assisted work. It governs roles, loops/graphs, review,
+> persistent learning, skill/hook hygiene, and completion-contract traffic
+> control. It has no product authority; `docs/EXECUTION_PLAN.md` and any
+> active owner-authorized completion contract still decide what may be built.
+
+
 ## Scope
 This repository powers dynasty fantasy football valuation, rankings, trade calculation, source ingestion, and scraper-backed data publishing.
 
