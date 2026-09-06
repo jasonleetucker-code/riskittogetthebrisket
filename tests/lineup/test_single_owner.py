@@ -250,6 +250,7 @@ class TestNoSecondAssignmentEngine:
         # slots", which is a refusal, not a heuristic lineup.
         assignment_path = {
             "solve_optimal_assignment",
+            "precompute_slot_eligibility",
             "assign_lineup",
             "_augment",
             "_canonicalize_slots",

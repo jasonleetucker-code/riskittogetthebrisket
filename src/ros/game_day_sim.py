@@ -51,13 +51,18 @@ statistic is a one-constant change once a human reads it off the host.
 
 from __future__ import annotations
 
+import hashlib
+import json
 import random
 import statistics
-from dataclasses import dataclass, field
+import time
+from dataclasses import asdict, dataclass, field
+from pathlib import Path
 from typing import Any, Iterable, Mapping, Sequence
 
 from src.league_intel.sim_calibration import PointsModel, load_points_model
-from src.ros.lineup import RosterPlayer, solve_optimal_assignment
+from src.ros.lineup import RosterPlayer, precompute_slot_eligibility, solve_optimal_assignment
+from src.utils.config_loader import repo_root
 
 #: A player's state within the scoring period. Every one of these is a
 #: DIFFERENT statement about what is still uncertain, and collapsing any
@@ -195,6 +200,13 @@ class LeagueWeekSimulation:
     best_ball: bool
     seed: int
     notes: list[str] = field(default_factory=list)
+    #: Set only by :func:`get_cached_league_week_simulation` — this
+    #: function's own output always leaves these at the default,
+    #: because ``simulate_league_week`` is the pure, uncached
+    #: computation and does not know whether IT is being served from a
+    #: cache one layer up.
+    cached: bool = False
+    cache_computed_at: float | None = None
 
 
 def _drawable(player: PlayerWeek) -> bool:
@@ -252,6 +264,8 @@ def _team_score(
     team: TeamWeek,
     drawn: Mapping[str, float],
     rules: LeagueWeekRules,
+    *,
+    precomputed_eligibility: Mapping[str, Sequence[int]] | None = None,
 ) -> float:
     """One team's simulated weekly score under its OWN lineup rules.
 
@@ -261,6 +275,13 @@ def _team_score(
     draw can displace someone already in it. A managed league sums the
     lineup its manager actually submitted — re-optimizing there would
     award points nobody could have earned.
+
+    ``precomputed_eligibility``, when the caller has one (built once for
+    this team via :func:`src.ros.lineup.precompute_slot_eligibility`,
+    outside the per-draw loop), is passed straight through to the
+    solver so eligibility is not rederived on every one of a
+    simulation's thousands of draws for the same team. Omitting it
+    reproduces today's per-call derivation exactly.
     """
     if rules.best_ball:
         pool = [
@@ -276,7 +297,11 @@ def _team_score(
         ]
         if not pool:
             return 0.0
-        assignment = solve_optimal_assignment(pool, list(rules.starter_slots))
+        assignment = solve_optimal_assignment(
+            pool,
+            list(rules.starter_slots),
+            precomputed_eligibility=precomputed_eligibility,
+        )
         return float(sum(pl.ros_value or 0.0 for pl in assignment.values()))
     return float(sum(drawn.get(pid, 0.0) for pid in team.declared_starters))
 
@@ -327,6 +352,7 @@ def simulate_league_week(
     simulable: dict[str, tuple[PlayerWeek, ...]] = {}
     unsimulable: dict[str, tuple[str, ...]] = {}
     banked: dict[str, float] = {}
+    team_eligibility: dict[str, dict[str, tuple[int, ...]]] = {}
     for team in teams:
         ok = tuple(p for p in team.players if _drawable(p))
         simulable[team.team_id] = ok
@@ -335,6 +361,30 @@ def simulate_league_week(
         # the lineup, so a completed-but-benched score is not advertised
         # as though it is on the board.
         banked[team.team_id] = float(sum(_banked_points(p) for p in ok))
+        # Slot eligibility depends only on position/fantasy_positions,
+        # which this draws loop never changes for a given team — so it
+        # is computed ONCE here rather than once per (team, draw). At
+        # DEFAULT_DRAWS that is a 2000x-per-team reduction in redundant
+        # eligibility checks with zero change to the assignment (see
+        # precompute_slot_eligibility's own docstring for why this is
+        # exact, not an approximation). `ros_value=0.0` is a placeholder
+        # here — eligibility never reads it — and every player in `ok`
+        # is exactly the player set `_team_score` will ever build a
+        # pool from for this team, so the map is complete.
+        if rules.best_ball:
+            template_pool = [
+                RosterPlayer(
+                    player_id=p.player_id,
+                    canonical_name="",
+                    position=p.position,
+                    ros_value=0.0,
+                    fantasy_positions=p.fantasy_positions,
+                )
+                for p in ok
+            ]
+            team_eligibility[team.team_id] = precompute_slot_eligibility(
+                template_pool, list(rules.starter_slots)
+            )
 
     totals: dict[str, list[float]] = {t.team_id: [] for t in teams}
     h2h_win = {t.team_id: 0 for t in teams}
@@ -350,7 +400,15 @@ def simulate_league_week(
             drawn_by_team[team.team_id] = {
                 p.player_id: _draw_player(p, model, rng) for p in simulable[team.team_id]
             }
-        scores = {t.team_id: _team_score(t, drawn_by_team[t.team_id], rules) for t in teams}
+        scores = {
+            t.team_id: _team_score(
+                t,
+                drawn_by_team[t.team_id],
+                rules,
+                precomputed_eligibility=team_eligibility.get(t.team_id),
+            )
+            for t in teams
+        }
         for tid, sc in scores.items():
             totals[tid].append(sc)
 
@@ -472,6 +530,226 @@ def simulate_league_week(
         seed=seed,
         notes=sim_notes,
     )
+
+
+# ── Shared cache, so N managers checking one league-week pay the cost once ──
+#
+# `simulate_league_week` computes every team's outcome for a league-week in
+# ONE call (the median threshold is derived from that draw's own league-wide
+# scores, so it cannot be answered per-team). That means every manager in a
+# league checking their own Game Day page in the same window is asking the
+# IDENTICAL question — and without sharing, each of them independently pays
+# the full draws x teams x lineup-solve cost. `get_cached_league_week_simulation`
+# is that sharing. It is not a second engine: on a cache miss it calls
+# `simulate_league_week` above, unchanged, and never alters what comes back.
+
+#: Sibling to `game_day_archive.ARCHIVE_ROOT` — deliberately NOT under
+#: `data/ros/`. `scheduled-refresh.yml` force-adds `data/ros/` to git every
+#: 2 hours (`git add -f`, which overrides .gitignore) and only explicitly
+#: un-stages `data/ros/team_strength/*.json` afterward — confirmed live,
+#: `data/ros/sims/*.json` (an existing, different cache) IS tracked and
+#: committed to the public repo on that same cadence despite .gitignore
+#: saying it should not be. A per-manager win-probability/lineup cache
+#: placed under `data/ros/` would ship this league's private decision
+#: intelligence into the public repo on the next scheduled refresh.
+_SIM_CACHE_ROOT = repo_root() / "data" / "game_day" / "sims"
+
+#: Belt-and-suspenders staleness bound, matching the 2h cadence this repo
+#: already treats elsewhere (`sleeper_client`, `playoff_sim`'s own cache)
+#: as "how old before an input might have moved". The FINGERPRINT below is
+#: the real invalidation rule — a match means the cached payload IS the
+#: computation being requested, not merely "recent enough" — so this TTL
+#: only guards a fingerprint gap or bug, never decides freshness on its own.
+_GAME_DAY_SIM_CACHE_TTL_SEC = 2 * 3600
+
+
+def _sim_cache_path(league_key: str, season: int, week: int) -> Path:
+    return _SIM_CACHE_ROOT / str(league_key) / str(int(season)) / f"week_{int(week)}.json"
+
+
+def _sim_input_fingerprint(
+    *,
+    rules: LeagueWeekRules,
+    teams: Sequence[TeamWeek],
+    opponents: Mapping[str, str | None],
+    draws: int,
+    seed: int,
+    threshold_semantics: str,
+    model: PointsModel,
+) -> str:
+    """Sha256 over every input that can change ``simulate_league_week``'s
+    answer — rules, every team's players (state/position/banked/remaining/
+    fantasy positions), opponents, draws, seed, threshold semantics, and
+    the points model actually in effect. A match PROVES the cached result
+    is the same computation the caller was about to run; it is not a
+    heuristic staleness guess. Built from an explicit, sorted structure
+    rather than ``repr()``, which carries no cross-version stability
+    guarantee.
+    """
+    team_rows = []
+    for t in sorted(teams, key=lambda t: t.team_id):
+        players = sorted(
+            (
+                (
+                    p.player_id,
+                    p.position,
+                    p.state,
+                    p.points_scored,
+                    p.projected_remaining,
+                    tuple(p.fantasy_positions),
+                )
+                for p in t.players
+            ),
+            key=lambda row: row[0],
+        )
+        team_rows.append([t.team_id, players, sorted(t.declared_starters)])
+
+    payload = {
+        "rules": [
+            rules.league_key,
+            list(rules.starter_slots),
+            rules.best_ball,
+            rules.median_enabled,
+            rules.team_count,
+        ],
+        "teams": team_rows,
+        "opponents": sorted(opponents.items()),
+        "draws": draws,
+        "seed": seed,
+        "thresholdSemantics": threshold_semantics,
+        "pointsModel": [
+            model.source,
+            model.generated_at,
+            model.ros_value_per_point,
+            model.default_cv,
+            sorted(model.cv_by_position.items()),
+        ],
+    }
+    blob = json.dumps(payload, sort_keys=True, separators=(",", ":"), default=str).encode("utf-8")
+    return hashlib.sha256(blob).hexdigest()
+
+
+def _outcome_from_dict(row: Mapping[str, Any]) -> TeamWeekOutcome:
+    kwargs = dict(row)
+    kwargs["unsimulable_player_ids"] = tuple(kwargs.get("unsimulable_player_ids") or ())
+    kwargs["notes"] = list(kwargs.get("notes") or [])
+    return TeamWeekOutcome(**kwargs)
+
+
+def _read_sim_cache(path: Path, fingerprint: str) -> LeagueWeekSimulation | None:
+    """The cached simulation, only when its fingerprint matches and it is
+    within the TTL fallback — ``None`` on any miss, mismatch, staleness,
+    or unreadable file, never a partial or best-effort result."""
+    if not path.exists():
+        return None
+    try:
+        age_sec = time.time() - path.stat().st_mtime
+    except OSError:
+        return None
+    if age_sec > _GAME_DAY_SIM_CACHE_TTL_SEC:
+        return None
+    try:
+        raw = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return None
+    if raw.get("fingerprint") != fingerprint:
+        return None
+    body = raw.get("simulation")
+    if not isinstance(body, Mapping):
+        return None
+    try:
+        teams = tuple(_outcome_from_dict(row) for row in body["teams"])
+        sim = LeagueWeekSimulation(
+            league_key=body["league_key"],
+            season=body["season"],
+            week=body["week"],
+            draws=body["draws"],
+            teams=teams,
+            model_version=body["model_version"],
+            points_model_source=body["points_model_source"],
+            threshold_semantics=body["threshold_semantics"],
+            threshold_semantics_verified=body["threshold_semantics_verified"],
+            median_enabled=body["median_enabled"],
+            best_ball=body["best_ball"],
+            seed=body["seed"],
+            notes=list(body.get("notes") or []),
+        )
+    except (KeyError, TypeError):
+        # A cache written by a shape this reader no longer understands
+        # (e.g. a future field this version predates) is a miss, not a
+        # crash — the caller falls through to a live recompute.
+        return None
+    sim.cached = True
+    sim.cache_computed_at = raw.get("computedAt")
+    return sim
+
+
+def _write_sim_cache(path: Path, fingerprint: str, sim: LeagueWeekSimulation) -> None:
+    body = asdict(sim)
+    body.pop("cached", None)
+    body.pop("cache_computed_at", None)
+    computed_at = time.time()
+    payload = {"fingerprint": fingerprint, "computedAt": computed_at, "simulation": body}
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp = path.with_suffix(".json.tmp")
+    tmp.write_text(json.dumps(payload, sort_keys=True), encoding="utf-8")
+    tmp.replace(path)
+
+
+def get_cached_league_week_simulation(
+    *,
+    rules: LeagueWeekRules,
+    teams: Sequence[TeamWeek],
+    opponents: Mapping[str, str | None],
+    season: int,
+    week: int,
+    draws: int = DEFAULT_DRAWS,
+    seed: int = DEFAULT_SEED,
+    points_model: PointsModel | None = None,
+    threshold_semantics: str = THRESHOLD_SEMANTICS,
+) -> LeagueWeekSimulation:
+    """``simulate_league_week``, shared across every caller asking about
+    the SAME league-week rather than each paying its full cost.
+
+    On a cache miss this calls :func:`simulate_league_week` unchanged and
+    writes its result before returning it, so the FIRST caller for a
+    league-week pays the real cost once and every other manager checking
+    the same league-week reuses it. A scheduled precompute (this same
+    function, called proactively before the pregame window) is just
+    another caller — there is no separate mechanism to keep in sync.
+
+    See :func:`_sim_input_fingerprint` and the module-level cache-root
+    comment for the invalidation rule and why this cache cannot live
+    under ``data/ros/``.
+    """
+    model = points_model or load_points_model()
+    fingerprint = _sim_input_fingerprint(
+        rules=rules,
+        teams=teams,
+        opponents=opponents,
+        draws=draws,
+        seed=seed,
+        threshold_semantics=threshold_semantics,
+        model=model,
+    )
+    path = _sim_cache_path(rules.league_key, season, week)
+    cached = _read_sim_cache(path, fingerprint)
+    if cached is not None:
+        return cached
+
+    result = simulate_league_week(
+        rules=rules,
+        teams=teams,
+        opponents=opponents,
+        season=season,
+        week=week,
+        draws=draws,
+        seed=seed,
+        points_model=model,
+        threshold_semantics=threshold_semantics,
+    )
+    _write_sim_cache(path, fingerprint, result)
+    return result
 
 
 def rules_from_league(

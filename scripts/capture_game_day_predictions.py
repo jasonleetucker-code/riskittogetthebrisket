@@ -41,6 +41,8 @@ from src.ros.game_day_capture import (  # noqa: E402
     build_capture,
     estimate_index_from_ensemble,
 )
+from src.ros.game_day_sim import get_cached_league_week_simulation  # noqa: E402
+from src.ros.game_day_week import resolve_pregame_week  # noqa: E402
 
 
 def _resolve_estimates(
@@ -254,6 +256,38 @@ def main() -> int:
                 # observation — that one is the better evidence.
                 skipped += 1
         print(f"    wrote {wrote} snapshot(s), {skipped} already captured")
+
+        # Warm the Game Day simulation cache so the pregame window's
+        # FIRST real request (any manager checking their matchup) reuses
+        # this instead of paying the full draws x teams x lineup-solve
+        # cost live. Best-effort: `build_capture` already proved the
+        # pregame window is open for this league (same `week_has_begun`
+        # gate `resolve_pregame_week` uses below), so a failure here is
+        # this league's projections/roster shape, not a stale window —
+        # and either way it must never turn THIS script's exit code into
+        # a false failure, since the archive write above is its real job.
+        if have > 0:
+            try:
+                resolution = resolve_pregame_week(
+                    league_key=key,
+                    league_payload=league_payload,
+                    rosters=rosters,
+                    matchups=matchups,
+                    players_meta=players_meta,
+                    starter_slots=build.starter_slots,
+                    estimates=estimates,
+                    estimate_source=label,
+                )
+                sim = get_cached_league_week_simulation(
+                    rules=resolution.rules,
+                    teams=resolution.teams,
+                    opponents=resolution.opponents,
+                    season=int(season),
+                    week=int(week),
+                )
+                print(f"    sim cache: warmed (already cached={sim.cached})")
+            except Exception as exc:  # noqa: BLE001 — see comment above
+                print(f"    sim cache: warm skipped ({type(exc).__name__}: {exc})")
 
     if refusals:
         print(f"\nREFUSED {refusals} league(s): pregame window closed.", file=sys.stderr)

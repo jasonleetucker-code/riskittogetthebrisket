@@ -796,11 +796,44 @@ def _eligibility_predicate(
     return _predicate
 
 
+def precompute_slot_eligibility(
+    pool: list[RosterPlayer],
+    slots: list[str],
+    *,
+    slot_eligibility: Mapping[str, Collection[str]] | None = None,
+) -> dict[str, tuple[int, ...]]:
+    """Eligible slot indices per player, computed once.
+
+    Slot eligibility depends only on a player's ``position`` and
+    ``fantasy_positions`` — never on their objective value — so for a
+    FIXED pool composition and slot list it is identical every time
+    :func:`solve_optimal_assignment` is called on that pool, however
+    many times a caller re-solves it against different drawn values
+    (a Monte Carlo simulation over the same roster does exactly this,
+    thousands of times per team). Computing it once here and handing
+    the result to every one of those calls via
+    ``precomputed_eligibility`` removes O(pool × slots) redundant
+    eligibility checks per call — this is not an approximation, it is
+    the identical per-pair computation moved outside a loop whose
+    inputs it does not depend on.
+
+    Keyed by ``player_id`` rather than sort position: sort order is
+    VALUE-dependent and therefore changes between calls even when pool
+    composition does not, so an index-keyed cache would silently
+    misalign the moment two calls draw different values.
+    """
+    is_eligible = _eligibility_predicate(slot_eligibility)
+    return {
+        p.player_id: tuple(i for i, slot in enumerate(slots) if is_eligible(slot, p)) for p in pool
+    }
+
+
 def solve_optimal_assignment(
     pool: list[RosterPlayer],
     slots: list[str],
     *,
     slot_eligibility: Mapping[str, Collection[str]] | None = None,
+    precomputed_eligibility: Mapping[str, Sequence[int]] | None = None,
 ) -> dict[int, RosterPlayer]:
     """Exact maximum-weight player→slot assignment.
 
@@ -825,15 +858,33 @@ def solve_optimal_assignment(
     candidates — an unpriceable player must not win a slot a priced one
     could fill.  Use :func:`assign_lineup` to see which they were; this
     function returns only the assignment.
+
+    ``precomputed_eligibility``, when given, is used INSTEAD OF
+    deriving eligibility for this call — it must come from
+    :func:`precompute_slot_eligibility` over the SAME ``pool`` (by
+    player identity) / ``slots`` / ``slot_eligibility`` this call would
+    otherwise compute it from.  A caller re-solving one pool's
+    composition many times against different player VALUES (a
+    league-week simulation drawing one team thousands of times) should
+    compute this ONCE and pass it to every solve.  Omitting it (every
+    existing caller) reproduces today's per-call computation
+    byte-for-byte — a player absent from the map is treated as
+    ineligible everywhere, matching what a fresh derivation would give
+    a player found nowhere in ``slots``.
     """
     is_eligible = _eligibility_predicate(slot_eligibility)
     ordered = sorted(
         (p for p in pool if _objective(p) is not None),
         key=lambda p: (-_value_with_health_penalty(p), p.player_id),
     )
-    eligible_slots: list[list[int]] = [
-        [i for i, slot in enumerate(slots) if is_eligible(slot, p)] for p in ordered
-    ]
+    if precomputed_eligibility is not None:
+        eligible_slots: list[list[int]] = [
+            list(precomputed_eligibility.get(p.player_id, ())) for p in ordered
+        ]
+    else:
+        eligible_slots = [
+            [i for i, slot in enumerate(slots) if is_eligible(slot, p)] for p in ordered
+        ]
     # slot index -> index into `ordered`
     slot_owner: dict[int, int] = {}
 

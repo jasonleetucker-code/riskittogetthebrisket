@@ -75,13 +75,37 @@ test.describe("W1-12: public Week 1 pregame surfaces (production)", () => {
   test("the Home card's Full H2H preview link reaches the previews tab", async ({
     publicPage: page,
   }, testInfo) => {
+    // Captured from before navigation starts, so a failure during EITHER
+    // the initial load or the client-side tab switch is caught. This test
+    // previously failed on production with a bare 60s timeout and no
+    // error text to root-cause from; a leading hypothesis (investigated
+    // 2026-09-06, see LeagueClient.jsx's `lazySection` comment) is a
+    // failed chunk load or a render throw inside the lazy-loaded previews
+    // section, which a page-wide error boundary would swallow visually
+    // but which still reaches the console. Recording it here means the
+    // NEXT failure, if there is one, carries real evidence instead of
+    // another bare timeout to guess at.
+    const consoleErrors = [];
+    const pageErrors = [];
+    page.on("console", (msg) => {
+      if (msg.type() === "error") consoleErrors.push(msg.text());
+    });
+    page.on("pageerror", (err) => pageErrors.push(String(err)));
+
     // The navigation half of the row. This CTA used to land on a slate of
     // articles from a previous season.
     await page.goto(prodUrl("/league"), { waitUntil: "domcontentloaded" });
     const cta = page.getByText(/Full H2H preview/i).first();
     await expect(cta).toBeVisible({ timeout: 60_000 });
     await cta.click();
-    await expect(page.getByText(/Week \d+ matchups · \d{4}/)).toBeVisible({ timeout: 60_000 });
+    try {
+      await expect(page.getByText(/Week \d+ matchups · \d{4}/)).toBeVisible({ timeout: 60_000 });
+    } finally {
+      // Recorded on pass too — a clean run with captured errors would
+      // itself be worth knowing about (an error the page recovered from).
+      annotate(testInfo, "w1-12-console-errors", JSON.stringify(consoleErrors));
+      annotate(testInfo, "w1-12-page-errors", JSON.stringify(pageErrors));
+    }
     annotate(testInfo, "w1-12-cta", "Full H2H preview → structured previews");
   });
 

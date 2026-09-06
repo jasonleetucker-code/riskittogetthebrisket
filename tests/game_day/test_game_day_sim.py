@@ -12,6 +12,8 @@ seeded, so these run in the hard gate.
 
 from __future__ import annotations
 
+import random
+
 import pytest
 
 from src.league_intel.sim_calibration import PointsModel
@@ -511,3 +513,67 @@ def test_a_fallback_points_model_is_declared():
 def test_zero_draws_is_refused():
     with pytest.raises(GameDaySimError, match="draws"):
         _league(draws=0)
+
+
+# ── realistic scale ───────────────────────────────────────────────────
+#
+# Every test above uses toy scale (n=4 teams, a handful of players per
+# roster, draws in the low hundreds). `dynasty_main` is 12 teams with
+# ~45 active players each, simulated at `matchup_intel.py`'s
+# `DEFAULT_DRAWS = 2000` — a combination no test here had ever exercised
+# before it shipped to production and cost 45-51s per request (2000
+# draws x 12 teams x an exact per-draw lineup solve, with zero caching
+# anywhere on the path). This is a correctness check at that real
+# scale; the PERFORMANCE regression guard for the fix
+# (`precompute_slot_eligibility`) lives beside the solver it speeds up,
+# in `tests/lineup/test_canonical_lineup.py`, as a relative comparison
+# rather than an absolute wall-clock budget — a fixed-seconds assertion
+# here would be a CI-runner-speed test, not a correctness one.
+
+
+def test_realistic_scale_produces_a_result_for_every_team():
+    from src.ros.lineup import flatten_starter_slots
+
+    slots = tuple(
+        flatten_starter_slots(
+            {
+                "QB": 1, "RB": 2, "WR": 3, "TE": 2, "FLEX": 2, "SFLEX": 1,
+                "K": 1, "DL": 3, "LB": 3, "DB": 3,
+            }
+        )
+    )  # fmt: skip
+    rules = _rules(starter_slots=slots, team_count=12)
+
+    def roster(prefix, seed):
+        rng = random.Random(seed)
+        spec = (
+            ("QB", 3), ("RB", 8), ("WR", 10), ("TE", 4),
+            ("K", 2), ("DL", 6), ("LB", 6), ("DB", 6),
+        )  # fmt: skip
+        return tuple(
+            _p(f"{prefix}_{pos}{i}", pos, "not_started", remaining=10.0 + rng.random() * 5)
+            for pos, n in spec
+            for i in range(n)
+        )
+
+    teams = [TeamWeek(team_id=f"t{i}", players=roster(f"t{i}", i)) for i in range(1, 13)]
+    opponents = {}
+    for i in range(1, 13, 2):
+        opponents[f"t{i}"] = f"t{i + 1}"
+        opponents[f"t{i + 1}"] = f"t{i}"
+
+    sim = simulate_league_week(
+        rules=rules,
+        teams=teams,
+        opponents=opponents,
+        season=2026,
+        week=1,
+        draws=100,
+        seed=1,
+        points_model=_MODEL,
+    )
+    assert len(sim.teams) == 12
+    for outcome in sim.teams:
+        assert outcome.win_matchup_pct is not None
+        assert 0.0 <= outcome.win_matchup_pct <= 100.0
+        assert not outcome.unsimulable_player_ids
