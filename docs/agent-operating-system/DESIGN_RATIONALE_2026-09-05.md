@@ -135,6 +135,26 @@ Deliberately not adopted as automatic behavior:
 - no new model/provider choice is hard-coded;
 - no autonomous loop may bypass existing claims, exact-head CI, protected PR, deploy, auth, or completion-contract gates.
 
+### seeco / seeconvm — graph-engineering promotion vs mechanism
+
+Owner-supplied source:
+`https://x.com/seeconvm/status/2088199384580108339`
+
+The mirrored post promotes the shift from IDEs/prompts toward loops and graphs and makes broad adoption claims about Google engineering. A separate critique of the same post notes that the numerical/adoption framing is not independently substantiated, while the underlying graph mechanics are conventional and useful: nodes with explicit contracts, real edges, named failure states, and the diamond fan-out/reduce/synthesize pattern.
+
+Useful additions adopted:
+
+- failure states should be first-class structured values that a graph can route on, not only exceptions/free-text prose;
+- a graph should be able to retry, bypass, block, or escalate a failed node without silently dropping it or crashing unrelated sibling work;
+- external AI-engineering guidance should be decomposed into testable mechanism vs unverified adoption/hype claims before it changes the harness.
+
+Not adopted:
+
+- “delete your IDE” as policy;
+- the unverified “85% of Google engineers” figure as factual justification;
+- urgency/course-value framing;
+- any new graph skill, because node contracts/fake edges/fan-in/anchors are already canonical in the Agent OS.
+
 ## What the repo already had
 
 The audit found that this repository was **not** starting from zero.
