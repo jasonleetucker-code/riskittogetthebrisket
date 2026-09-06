@@ -194,6 +194,8 @@ The denominator is frozen at 30 for this launch tranche. Do not add/remove rows 
 - **W1-23:** host threshold/tie semantics as described above. The simulation intentionally fails closed on the verification flag until real host evidence settles the rule.
 - **W1-03 / W1-04 timing — OWNER DECISION 2026-09-05:** the owner explicitly authorizes a **one-time Week 1 production capture on Wednesday 2026-09-09 after waiver processing is confirmed complete and before any NFL scoring begins**. Do not wait for the normal Thursday timer for the first Week 1 observation. Do not capture before waivers settle, do not backdate, and do not synthesize evidence. Preserve the normal Thursday recurring timer for future cadence unless a separate operational change is justified. After the authentic Wednesday capture creates `data/game_day/`, immediately run the real retention backup/proof path and verify an observed generation containing `game_day.tar.gz`. This makes W1-03 and W1-04 legitimately reachable by the Wednesday deadline without weakening either acceptance criterion.
 
+  **Executable procedure: [`W1_03_W1_04_WEDNESDAY_CAPTURE_RUNBOOK.md`](W1_03_W1_04_WEDNESDAY_CAPTURE_RUNBOOK.md)** — the measured window (waivers ~03:05 ET, first kickoff 20:20 ET Wed 2026-09-09), the observable waiver-completion check, the two workflow dispatches in order, and what to do if the window is missed.
+
   **Why the capture has to come first — the mechanism, traced 2026-09-05.**
   Recorded so nobody spends a production action rediscovering it, and so the
   Wednesday sequence is executed in the right order:
