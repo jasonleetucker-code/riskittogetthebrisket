@@ -39,19 +39,35 @@ The existing Claude `SessionStart` hook in `.claude/health-check.sh` prints the 
 
 ### Agent OS session receipt
 
-The SessionStart router also loads the exact working-tree bytes of this file and emits:
+Root `CLAUDE.md` contains a real Claude Code import on its own line:
 
-`Agent OS loaded: <git-blob-sha>`
+`@docs/AGENT_OPERATING_SYSTEM.md`
 
-That SHA is the durable content-version receipt for the operating instructions supplied to the session.
+The existing SessionStart router then reads the same working-tree Agent OS bytes and emits one concise receipt line:
+
+`AGENT OS LOAD RECEIPT: loaded=<sha> head_blob=<sha|UNKNOWN> repo_head=<sha|UNKNOWN> dirty=<true|false|UNKNOWN> at=<utc>`
+
+It also atomically writes the same provenance to the local ignored file:
+
+`.claude/session-receipts/latest.env`
+
+The receipt records:
+- `AGENT_OS_PATH`
+- `AGENT_OS_LOADED_BLOB_SHA` — Git blob hash of the exact working-tree bytes read by the receipt harness;
+- `AGENT_OS_HEAD_BLOB_SHA` — committed `HEAD` blob for the Agent OS, or `UNKNOWN`;
+- `REPO_HEAD_SHA` — repository `HEAD`, or `UNKNOWN`;
+- `AGENT_OS_DIRTY` — `true` when loaded bytes differ from the committed HEAD blob, `false` when they match, otherwise `UNKNOWN`;
+- `LOADED_AT_UTC`.
 
 For every material Claude session:
-- carry the exact SHA from SessionStart into the first meaningful progress checkpoint;
-- include it in any PR description, final handoff, or durable session record produced by that session;
+- copy the SessionStart token into the first meaningful progress checkpoint as `Agent-OS-Receipt: <AGENT_OS_LOADED_BLOB_SHA>`;
+- carry the same `Agent-OS-Receipt: ...` token in any new material work-claim status text, PR description, and final handoff produced by that session;
+- do **not** change the `docs/WORK_CLAIMS.md` table schema merely to carry the token;
 - if the startup receipt is unavailable, read this file and run `python scripts/agent_os_receipt.py` before material work;
-- if this file changes mid-session, do not silently claim the old receipt covers the new instructions — reread it, generate a new receipt, and state that the operating version changed.
+- if this file changes mid-session, reread it, generate a new receipt, and explicitly state that the operating version changed;
+- never replace an unprovable field with a guess: use `UNKNOWN`.
 
-The receipt proves **which bytes the startup harness loaded**, not that an agent semantically complied with every instruction. Compliance still has to be established from behavior, tests, review, CI, and production evidence.
+The import plus receipt gives a reproducible provenance chain for the exact Agent OS target and bytes presented by the startup harness. It does **not** prove cognitive comprehension or semantic compliance. Compliance is established from actual behavior, tests, independent review, CI, and production evidence.
 
 ### Current launch rule
 
