@@ -40,13 +40,14 @@ from typing import Any, Mapping, Sequence
 
 from src.api import roster_intelligence as _roster_intelligence
 from src.public_league import sleeper_client
-from src.ros.game_day_sim import TeamWeekOutcome, simulate_league_week
+from src.ros.game_day_sim import TeamWeekOutcome, get_cached_league_week_simulation
 from src.ros.game_day_week import GameDayWeekRefusal, resolve_pregame_week
 from src.ros.lineup import RosterPlayer, resolve_starter_slots, solve_optimal_assignment
 
-#: Draws for the league-week simulation. The simulator's own default; named
-#: here so the payload can report what it ran rather than implying a
-#: precision it did not buy.
+#: Draws for the league-week simulation. NOT `game_day_sim.DEFAULT_DRAWS`
+#: (10,000) — this endpoint runs synchronously in a web request, so it uses
+#: a smaller count named explicitly here, so the payload can report what it
+#: actually ran rather than implying a precision it did not buy.
 DEFAULT_DRAWS = 2000
 DEFAULT_SEED = 20260905
 
@@ -339,11 +340,19 @@ def build_matchup_intel(
     # The simulation runs over the WHOLE league because the median leg's
     # threshold is derived from every team's drawn score in the same
     # iteration; simulating two teams would answer a different question.
+    #
+    # Every manager in this league asking about the SAME week is asking
+    # this identical question, so this goes through the shared cache
+    # rather than `simulate_league_week` directly — measured at
+    # dynasty_main's real scale (12 teams, ~45 active players each,
+    # draws=2000), a cold call takes ~19s and a cache hit ~1ms. See
+    # `get_cached_league_week_simulation`'s own docstring for the
+    # invalidation rule and why the cache cannot live under `data/ros/`.
     simulation = None
     sim_error: str | None = None
     if resolution.estimate_coverage[0] > 0:
         try:
-            simulation = simulate_league_week(
+            simulation = get_cached_league_week_simulation(
                 rules=resolution.rules,
                 teams=resolution.teams,
                 opponents=resolution.opponents,
@@ -447,6 +456,11 @@ def build_matchup_intel(
                     "thresholdSemantics": simulation.threshold_semantics,
                     "thresholdSemanticsVerified": simulation.threshold_semantics_verified,
                     "notes": list(simulation.notes),
+                    # Honest freshness, matching this module's own stated
+                    # purpose: a number computed 90 minutes ago and one
+                    # computed 30 seconds ago should not read the same.
+                    "cached": simulation.cached,
+                    "cacheComputedAt": simulation.cache_computed_at,
                 }
                 if simulation
                 else None

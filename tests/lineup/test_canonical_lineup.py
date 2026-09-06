@@ -21,6 +21,7 @@ from src.ros.lineup import (
     RosterPlayer,
     assign_lineup,
     player_eligible_for_slot,
+    precompute_slot_eligibility,
     solve_optimal_assignment,
 )
 
@@ -314,3 +315,90 @@ class TestConfiguredEligibility:
                         if all(elig(slots[chosen_slots[i]], combo[i]) for i in range(k)):
                             best = max(best, sum(p.ros_value or 0.0 for p in combo))
             assert total == pytest.approx(best, abs=1e-6)
+
+
+class TestPrecomputedEligibilityHoist:
+    """``precompute_slot_eligibility`` / ``precomputed_eligibility`` (Defect
+    1 fix, 2026-09-06): a Monte Carlo simulation re-solves the SAME pool
+    composition against different drawn VALUES thousands of times per
+    team, and eligibility depends only on position/fantasy_positions —
+    never on value — so it can be computed once and reused. Two things
+    must hold for that to be safe: the result must be IDENTICAL to
+    deriving eligibility fresh on every call, and it must actually be
+    faster (a hoist that isn't need not exist).
+    """
+
+    def test_precomputed_eligibility_matches_derived_on_every_call(self):
+        """Same pool identity, many different value draws (the exact
+        access pattern `game_day_sim._team_score` uses): the precomputed
+        path and the derive-every-time path must agree on every draw."""
+        rng = random.Random(2026)
+        pool_template = random_roster(rng, 45)
+        elig = precompute_slot_eligibility(pool_template, LIVE_SLOTS)
+
+        for _ in range(50):
+            drawn = [
+                RosterPlayer(
+                    player_id=p.player_id,
+                    canonical_name=p.canonical_name,
+                    position=p.position,
+                    ros_value=round(rng.uniform(0, 100), 2),
+                    fantasy_positions=p.fantasy_positions,
+                )
+                for p in pool_template
+            ]
+            derived = solve_optimal_assignment(drawn, LIVE_SLOTS)
+            precomputed = solve_optimal_assignment(drawn, LIVE_SLOTS, precomputed_eligibility=elig)
+            assert {i: p.player_id for i, p in derived.items()} == {
+                i: p.player_id for i, p in precomputed.items()
+            }
+
+    def test_precomputed_eligibility_is_not_slower_than_deriving_it(self):
+        """The actual production defect: `_eligibility_predicate` was
+        rederived from scratch on every one of 24,000 per-request solver
+        calls at realistic scale (2000 draws x 12 teams), measured at
+        45-51s in production. This does not assert an absolute wall-clock
+        budget — that is a CI-runner-speed test, not a correctness one —
+        it asserts the RELATIONSHIP the fix depends on, timed within one
+        run so environment speed cancels out: reusing a precomputed
+        eligibility map must not be slower than rederiving it every call.
+        A future change that quietly stops the hoist from doing anything
+        (e.g. an accidental copy that rebuilds the map internally anyway)
+        would show up here as the ratio collapsing to ~1, not as a
+        several-seconds-slower CI run someone has to notice separately.
+        """
+        import time
+
+        rng = random.Random(99)
+        pool_template = random_roster(rng, 45)
+        elig = precompute_slot_eligibility(pool_template, LIVE_SLOTS)
+
+        draws = [
+            [
+                RosterPlayer(
+                    player_id=p.player_id,
+                    canonical_name=p.canonical_name,
+                    position=p.position,
+                    ros_value=round(random.Random(i).uniform(0, 100), 2),
+                    fantasy_positions=p.fantasy_positions,
+                )
+                for p in pool_template
+            ]
+            for i in range(300)
+        ]
+
+        t0 = time.perf_counter()
+        for pool in draws:
+            solve_optimal_assignment(pool, LIVE_SLOTS)
+        without_precompute = time.perf_counter() - t0
+
+        t0 = time.perf_counter()
+        for pool in draws:
+            solve_optimal_assignment(pool, LIVE_SLOTS, precomputed_eligibility=elig)
+        with_precompute = time.perf_counter() - t0
+
+        assert with_precompute < without_precompute, (
+            f"precomputed eligibility ({with_precompute:.3f}s over 300 calls) was not "
+            f"faster than deriving it every call ({without_precompute:.3f}s) — the hoist "
+            "this test exists to guard has stopped doing anything."
+        )

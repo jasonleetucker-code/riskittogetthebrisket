@@ -9,10 +9,36 @@ is a number, not intelligence.
 
 from __future__ import annotations
 
+import shutil
+import tempfile
 import unittest
+from pathlib import Path
 from unittest import mock
 
 from src.api import matchup_intel
+from src.ros import game_day_sim as _game_day_sim
+
+#: `build_matchup_intel` now goes through `get_cached_league_week_simulation`
+#: (Defect 1 fix), which writes to `_game_day_sim._SIM_CACHE_ROOT` on a
+#: cache miss. Redirected to a throwaway directory for the whole module so
+#: these tests stay hermetic — the real cache root lives under this repo's
+#: `data/` and must never pick up test fixtures.
+_TMP_SIM_CACHE_DIR: str | None = None
+_ORIGINAL_SIM_CACHE_ROOT: Path | None = None
+
+
+def setUpModule() -> None:
+    global _TMP_SIM_CACHE_DIR, _ORIGINAL_SIM_CACHE_ROOT
+    _TMP_SIM_CACHE_DIR = tempfile.mkdtemp(prefix="game_day_sim_cache_test_")
+    _ORIGINAL_SIM_CACHE_ROOT = _game_day_sim._SIM_CACHE_ROOT
+    _game_day_sim._SIM_CACHE_ROOT = Path(_TMP_SIM_CACHE_DIR)
+
+
+def tearDownModule() -> None:
+    _game_day_sim._SIM_CACHE_ROOT = _ORIGINAL_SIM_CACHE_ROOT
+    if _TMP_SIM_CACHE_DIR:
+        shutil.rmtree(_TMP_SIM_CACHE_DIR, ignore_errors=True)
+
 
 SLOTS = ["QB", "RB", "RB", "WR", "WR", "FLEX"]
 
