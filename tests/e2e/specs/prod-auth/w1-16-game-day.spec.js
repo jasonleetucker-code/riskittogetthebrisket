@@ -118,6 +118,20 @@ test.describe("W1-16: the owner's Game Day experience (production)", () => {
 
     await page.goto(prodUrl(`/game-day${q}`), { waitUntil: "domcontentloaded" });
     await expect(page.getByRole("heading", { name: "Game Day" })).toBeVisible({ timeout: 60_000 });
+    // The "Game Day" heading is static SSR content and resolves near-instantly
+    // — GameDayPanel's OWN client-side fetch to /api/matchup/intel is a
+    // separate round trip that has not necessarily finished yet, even though
+    // the direct getJson call above already warmed the cache. Measured in
+    // production (run 35, 2026-09-06): reading body text right after the
+    // heading raced this and caught the panel still showing its loading
+    // state on both viewports (3.0s/5.4s total — fast, but not zero). Wait
+    // for the loading state to clear, same pattern this suite already uses
+    // for other client-fetched panels (v1-123-public-league-matrix.spec.js).
+    await page.waitForFunction(
+      () => !document.body.innerText.includes("Loading this week's matchup"),
+      null,
+      { timeout: 90_000 },
+    );
     const text = await page.locator("body").innerText();
 
     // The matchup identity is a fact and must always render.

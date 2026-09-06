@@ -142,6 +142,18 @@ test.describe("W1-12: public Week 1 pregame surfaces (production)", () => {
     // rather than inverted.
     await page.goto(prodUrl(PREVIEWS), { waitUntil: "domcontentloaded" });
     await expect(page.getByText(/Week \d+ matchups · \d{4}/)).toBeVisible({ timeout: 60_000 });
+    // ArticlesSection is a SECOND, nested lazy import inside the already
+    // lazy-loaded PreviewsSection (matchup-previews.jsx dynamic-imports
+    // ./articles.jsx separately, with its own "Loading articles..."
+    // placeholder). The outer heading resolving only proves the structured
+    // matchup cards painted — the nested chunk can still be loading.
+    // Measured in production (run 35, 2026-09-06): reading body text right
+    // after the outer heading caught the page still showing "Loading
+    // articles..." on both viewports, matching none of the three states
+    // below. Wait for it to clear first.
+    await page.waitForFunction(() => !document.body.innerText.includes("Loading articles"), null, {
+      timeout: 60_000,
+    });
 
     const body = await page.locator("body").innerText();
 
