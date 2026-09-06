@@ -1,0 +1,234 @@
+# W1-14 / W1-15 / W1-25 / W1-26 — the Game Day surface
+
+**Rows:** `docs/season-launch/WEEK_1_LAUNCH_CONTRACT.md`
+
+- **W1-14** — *"Authenticated owner-facing Week 1 matchup-intelligence surface/
+  section exists without duplicating public or canonical data owners."*
+- **W1-15** — *"Private matchup intelligence reuses canonical lineup,
+  strength/weakness, power/playoff, and projection inputs with source/freshness
+  lineage."*
+
+- **W1-25** — *"Canonical Game Day route/section and navigation shell are
+  integrated into the existing site design and selected-team context."*
+- **W1-26** — *"SCHEDULED/PREGAME state is production-usable: matchup, projected
+  state, headline probabilities when available, drivers, freshness, and archive
+  timestamp."*
+
+`GET /api/matchup/intel` (private, league-scoped, `no-store`), assembled by
+`src/api/matchup_intel.py`, rendered at **`/game-day`**.
+
+## 0. One route, one owner — the decision that shapes this
+
+`docs/GAME_DAY_PROBABILITY_SPEC.md` §7's recommended presentation (the two
+headline weekly probabilities, the score distributions, the best-ball lineup) is
+*exactly* what a private matchup view shows, because they are the same numbers
+from the same simulation. **Owner decision 2026-09-06: the private matchup
+surface IS Game Day.** A separate `/game-day` route beside a `/matchup` one
+would be two surface owners for one concept — the thing CLAUDE.md §3.1 exists to
+prevent.
+
+The route was renamed `/matchup` -> `/game-day` *before* it ever deployed, so no
+bookmark exists and no redirect shim is owed. Shipping first and renaming later
+would have owed one permanently.
+
+## 0b. What the rename added for W1-25 / W1-26
+
+* **Selected-team context (W1-25).** The panel now asks about
+  `useUserState().selectedTeam` — the switcher's own answer, and the same one
+  `/rosters` and `/phases` read. It previously fell back to the backend's
+  session inference, which answers a DIFFERENT question ("who is signed in"
+  rather than "which team did you pick"), so switching teams left the matchup
+  unchanged. When no team is selected the parameter is omitted entirely rather
+  than sent empty — `?team=` would be a request for a team named `""`.
+* **The state machine is named, not implicit (W1-26).** A `Scheduled · pregame`
+  badge on the answer, and `Live` on the host's own 409. Both are DERIVED from
+  the payload, never from a wall clock: a second answer to "has the week
+  started" is exactly what must not exist, and the host's is the only one that
+  counts. Once live, no probability is shown at all rather than a pregame
+  number presented as a live one.
+* **The joint weekly outcomes (spec §8).** 2-0 / 1-1 via matchup / 1-1 via
+  median / 0-2, from the same draws as the headline numbers — rendered only
+  when the median leg is live, so a median-disabled league never gets a
+  four-way split of a two-way week.
+* **The archive timestamp (W1-26).** `_archive_evidence()` publishes the
+  pregame archive's own `capturedAt`, keeping `captured` / `not_captured` /
+  `unreadable` distinct. The archive is the only record of what was knowable
+  before the outcome, so a surface that silently shows nothing when nothing was
+  captured cannot be told apart from one whose capture ran.
+
+---
+
+## 1. The public/private split, made concrete
+
+The public `matchupPreview` section (audited in
+`W1_10_WEEK1_MATCHUP_AUDIT_2026-09-05.md`) is **factual and retrospective**:
+head-to-head record, last meetings, recent form. Safe for `/league`.
+
+This endpoint is **projections, win and beat-median probabilities, expected
+best-ball lineups, and roster weaknesses**. CLAUDE.md §5 puts all four on the
+private side of the boundary — "proprietary values, edges, targets,
+weaknesses, forecasts". So it is authenticated, `Cache-Control: no-store`, and
+nothing here is added to the public contract.
+
+## 2. It computes nothing of its own
+
+| quantity | owner |
+|---|---|
+| roster membership, positions, IR/taxi subtraction | `src/ros/game_day_capture.py` |
+| starter slots and slot eligibility | `src/ros/lineup.py` |
+| the expected best-ball lineup | `lineup.solve_optimal_assignment` |
+| per-player distribution, win % / beat-median % | `src/ros/game_day_sim.py` |
+| resolving a live league-week into those inputs | `src/ros/game_day_week.py` |
+| projections | `src/ros/projection_ensemble.py` |
+| roster strength / weakness / age-value | `src/api/roster_intelligence.py` |
+| league identity and rules | `src/api/league_registry.py` + the host |
+
+The module's own contribution is the **assembly and the lineage**. That is not
+a small thing: a win probability with no stated projection source, coverage or
+threshold-semantics flag is a number, not intelligence, and W1-15 asks for
+exactly the second one.
+
+`rosterIntelligence` is the canonical owner's *own* answer for each side,
+copied — not a re-derivation. When the contract does not hold a team (a
+different fact from the host not holding it) that block degrades to `null`
+rather than failing the matchup.
+
+## 3. What it refuses, and why refusing is the right answer
+
+| condition | response |
+|---|---|
+| week already in progress | **409 `week_in_progress`** |
+| host states no season/week and none passed | **503 `clock_unavailable`** |
+| owner holds no roster in this league | 404 `team_not_found` |
+| unknown / inactive league | 400, per the standard table |
+
+**`week_in_progress` is a state, not an error.** Telling a finished player from
+a mid-game one needs a live game-state feed this repo does not wire, and
+collapsing them double-projects (`GAME_DAY_PROBABILITY_SPEC.md` §6). A distinct
+409 lets a caller render "come back after the games" instead of an error page.
+
+**`clock_unavailable` exists because the clock is the host's.** Deriving the
+season and week from the calendar is how a surface ends up describing a
+different week than the league is playing — the same class of error
+`src/bdvm/actuals.py` documents for `currentDraftYear`. If Sleeper does not
+state it and the caller does not pass it, the endpoint says so.
+
+## 4. Missing is never zero, at every layer
+
+- A league with **no projection snapshot** still answers: the matchup, both
+  rosters, and the full lineage come back; `outcome` is `null` and a note says
+  why. **Never a fabricated 50%.**
+- An **unpriced** player is `state="unknown"` in the resolver, excluded from
+  every draw, reported in `unsimulablePlayerIds` and in each side's
+  `unpricedPlayerIds` — and he never enters the expected-lineup pool, where he
+  would otherwise be a `0.0` the solver could seat on a thin roster.
+- An **ineligible** (IR / taxi) player is reported separately, because "cannot
+  start" and "nobody priced him" are different facts.
+- `estimateCoverage` is `{priced, active}` — two numbers, not a ratio — so "no
+  projections at all" and "thin coverage" cannot read the same.
+- A team with **no scheduled opponent** gets `opponent: null` and a note, never
+  a 50% against a game that is not on the schedule.
+- `thresholdSemanticsVerified: false` travels on every response. W1-23 is
+  `BLOCKED` on host evidence, and a private decision surface must not present
+  the median leg as settled just because it serialized cleanly.
+
+The projection lineage carries its own caveat verbatim: the only live
+`PROJECTION_MODEL` sources are `PRESEASON_FULL_SEASON` horizon, so the per-game
+figure is a full-season projection's, and `projectionHorizonNote` says so. The
+note is **absent** when there is no source at all — a caveat about a projection
+that does not exist would be noise.
+
+## 5. Verified against the live league
+
+2026-09-05, `dynasty_main`, Week 1, unplayed, no contract loaded and
+`data/bdvm/projections/` absent (it is gitignored and lives only on the box):
+
+```
+team:     JasonLeeTucker / Medical Murrayjuana   roster 1
+opponent: CollinFoz / CollinFoz                  roster 4
+outcome:  None
+notes:    ["no projection snapshot: every player is unsimulable, so no
+           probability is derivable for this week"]
+lineage:  projectionSource null · sourcesUnavailable [clayProjections,
+          idpShowProjections] · coverage {priced 0, active 674} ·
+          starterSlotSource sleeper_roster_positions · bestBall true ·
+          medianEnabled true · teamCount 12
+```
+
+The matchup is correct (roster 1 ↔ 4 matches Sleeper), and **the degraded state
+is the point**: explicit nulls with a named reason, not a number. The
+probability half resolves on production, where the snapshots exist.
+
+The priced path is exercised by the unit tests, where both sides' win
+percentages plus the tie sum to 100.0.
+
+## 6. Tests
+
+- `tests/api/test_matchup_intel.py` — 15 tests on the assembly: identity,
+  complementary probabilities, no-projections → `null` (not 50%), unpriced
+  players reported on their own side and kept out of the lineup pool, both
+  refusals, and four on lineage.
+- `tests/api/test_matchup_intel_endpoint.py` — 12 contract tests on the route:
+  the routing table, `week_in_progress` as its own 409, `clock_unavailable`,
+  an explicit week bypassing the host clock, `no-store`, not reachable under
+  `/api/public/`, and the lineage reaching the wire.
+
+## 7. The surface
+
+`/matchup` ("This Week", first item in the **My Team** nav group), rendering
+`frontend/components/MatchupIntelPanel.jsx` over the bridge route at
+`frontend/app/api/matchup/intel/route.js`.
+
+**Private by route, for the same reason `/phases` is.** Everything under
+`/league` is served by the isolated public pipeline and must never read private
+analysis. `public-routes.js` treats every path outside its allowlist as
+private, so this route needs no entry there — but it would be a boundary
+violation under `/league`, which is why it is not there. The bridge sets
+`Cache-Control: no-store` on the way back out too, so a developer running
+through it gets the same guarantee production does.
+
+**Display only.** Every number is read from the endpoint verbatim; nothing is
+recomputed, re-ranked or re-derived — the same materializer relationship
+`buildRows` has with the canonical contract.
+
+**The states are the design.** Three non-error outcomes render through the
+quiet `ds/EmptyState`, because a manager being told something is broken when
+the honest answer is "the games started" is worse than no message:
+
+| endpoint code | what the reader sees |
+|---|---|
+| `week_in_progress` | "This week has already started" — pregame intelligence is no longer the question |
+| `clock_unavailable` | "The host has not stated the current week" |
+| `team_required` / `team_not_found` | "No team selected" |
+
+Anything else is a genuine fault and renders through `ds/FailureState`, which
+is the primitive that keeps "signed out", "declining for a stated reason" and
+"not answering" from looking identical — and which puts the server's own words
+first. `components/ui/ErrorState.jsx` was deliberately not used; its own
+docstring says it is structurally unable to make those distinctions.
+
+Two real bugs the panel's tests caught, both in the first draft: `EmptyState`
+takes `title`/`description`, not `label`/`message`, so three states were
+rendering as a bare "No data"; and `ErrorState` takes `retry`, not `onRetry`,
+so the retry button never appeared. Both are why the state tests exist rather
+than a single happy-path render.
+
+## 8. Verification
+
+- `frontend/__tests__/components/matchup-intel-panel.test.jsx` — 12 tests: both
+  win probabilities; the lineup rendered by **slot name, not index**; the
+  count of players left out of the lineup rather than counted as zero; the
+  unverified median threshold surfaced; source and coverage named; the
+  no-projection path showing the matchup with **no fabricated 50%**; all four
+  error/state branches; and `cache: "no-store"` on the request.
+- `npx vitest run` — **2429 passed / 166 files**
+- `npm run build` — clean, **all 14 budgeted pages under budget**
+
+## 9. Row status
+
+**W1-14 and W1-15 stay `NOT STARTED` until this is deployed and verified on
+production.** The endpoint and the surface both exist and are tested, which is
+what those two rows describe — but W1-16 asks for production verification of
+the owner's experience, and this document is not that. The rows move when
+`/matchup` is live and answering for the owner's own team, which requires the
+projection snapshots that exist only on the box.

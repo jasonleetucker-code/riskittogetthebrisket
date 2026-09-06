@@ -173,8 +173,41 @@ const test = base.test.extend({
   },
 });
 
+/**
+ * `publicPage` fixture: an ANONYMOUS page against production.
+ *
+ * W1-12 verifies the PUBLIC Week 1 pregame surface, which by definition
+ * must work with no session — so asserting it through `prodPage` would
+ * prove the wrong thing. It lives in this file rather than a second
+ * harness because the origin, the skip policy and the URL builder are
+ * the same ones; only the cookie differs, and duplicating the rest is
+ * how two prod harnesses start disagreeing about which origin they hit.
+ *
+ * Skips on a missing PROD_ORIGIN only. It deliberately does NOT require
+ * PROD_SESSION_COOKIE_FILE: needing a credential to check that
+ * something is reachable without one would be self-defeating.
+ */
+const publicTest = base.test.extend({
+  publicPage: async ({ page, context }, use) => {
+    if (!ORIGIN) {
+      base.test.skip(
+        true,
+        "PROD_ORIGIN not set — production specs run only in the " +
+          "production verification workflow",
+      );
+      return;
+    }
+    // Prove anonymity rather than assume it: a leftover cookie from
+    // another spec's context would silently turn a public check into an
+    // authenticated one, and it would still pass.
+    await context.clearCookies();
+    await use(page);
+  },
+});
+
 module.exports = {
   test,
+  publicTest,
   expect: base.expect,
   ORIGIN,
   isConfigured,

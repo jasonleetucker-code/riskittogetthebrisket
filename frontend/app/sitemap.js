@@ -21,6 +21,7 @@
 // routes only, for one revalidate window.
 
 import { fetchBackendJson } from "../lib/server-backend.js";
+import { isPublicPath } from "../lib/public-routes.js";
 
 function _origin() {
   return (
@@ -39,6 +40,24 @@ export default async function sitemap() {
   const now = new Date();
 
   // Static public routes.
+  //
+  // FILTERED through `isPublicPath`, the one predicate that answers
+  // "is this reachable without a session". `public-routes.js` says it
+  // exists because middleware, the app shell and robots.txt used to
+  // disagree — but the sitemap was a FOURTH consumer that was never
+  // wired to it, and it drifted exactly the way the other three had.
+  //
+  // Measured on production 2026-09-05 (W1-13): `/trades` was listed
+  // here while `public-routes.js` declares it private and the page
+  // redirects an anonymous visitor to `/login?next=%2Ftrades`. Nothing
+  // leaked — `robots.txt` serves `Disallow: /` and only allows `/`,
+  // `/login` and `/league` — but a sitemap is a positive assertion that
+  // a URL is worth indexing, it is submitted to search engines, and it
+  // contradicted robots.txt on the same host.
+  //
+  // Filtering rather than deleting the entry: a hand-edited list drifts
+  // again the next time a route changes sides. The query-string entries
+  // are checked on their pathname, which is what the predicate takes.
   const staticEntries = [
     "/",
     "/trades",
@@ -59,12 +78,14 @@ export default async function sitemap() {
     "/league?tab=weekly",
     "/league?tab=superlatives",
     "/league?tab=archives",
-  ].map((path) => ({
-    url: `${origin}${path}`,
-    lastModified: now,
-    changeFrequency: "daily",
-    priority: path === "/" ? 1.0 : 0.7,
-  }));
+  ]
+    .filter((path) => isPublicPath(path.split("?")[0]))
+    .map((path) => ({
+      url: `${origin}${path}`,
+      lastModified: now,
+      changeFrequency: "daily",
+      priority: path === "/" ? 1.0 : 0.7,
+    }));
 
   // Franchise entries — one per manager.
   const leaguePayload = await _fetchJson("/api/public/league");

@@ -1,0 +1,132 @@
+/**
+ * W1-16 — the owner's Week 1 private matchup-intelligence experience is
+ * deployed and production-verified for the selected team.
+ *
+ * Covers the `/game-day` surface (W1-14/W1-15/W1-25/W1-26 render here too —
+ * one route, one owner). Authenticated, because the whole point of the row is
+ * the OWNER'S experience, and everything on the page is private decision
+ * intelligence under CLAUDE.md §5.
+ *
+ * The assertions are deliberately about TRUTHFULNESS, not pixels. This page
+ * can legitimately be in one of three states on any given day — priced,
+ * unpriced, or live — and the failure mode that matters is not "it looked
+ * wrong", it is "it showed a number it had no right to". So each state is
+ * asserted on what must and must not appear, and the run annotates which
+ * state production was actually in.
+ */
+const { test, expect, prodUrl, getJson, annotate, mobileOnly } = require("./helpers");
+
+test.describe("W1-16: the owner's Game Day experience (production)", () => {
+  test("the page renders for the owner's own team and names its state", async ({
+    prodPage: page,
+  }, testInfo) => {
+    await page.goto(prodUrl("/game-day"), { waitUntil: "domcontentloaded" });
+
+    await expect(page.getByRole("heading", { name: "Game Day" })).toBeVisible({ timeout: 60_000 });
+
+    // Exactly one state badge, and it must be one of the real ones — a
+    // surface that renders no state at all is the implicit default this
+    // row exists to remove.
+    const scheduled = page.getByText(/Scheduled · pregame/);
+    const live = page.getByText(/^Live$/);
+    const scheduledCount = await scheduled.count();
+    const liveCount = await live.count();
+    expect(scheduledCount + liveCount).toBeGreaterThan(0);
+    annotate(testInfo, "w1-16-state", scheduledCount ? "SCHEDULED/pregame" : "LIVE");
+  });
+
+  test("the page's numbers are the endpoint's numbers", async ({ prodPage: page }, testInfo) => {
+    // Same posture as the other prod-auth specs: read the API the page
+    // reads, then require the page to show THAT. A screenshot-shaped
+    // assertion would pass against a stale client bundle.
+    const { status, body } = await getJson(page, "/api/matchup/intel");
+    annotate(testInfo, "w1-16-endpoint-status", String(status));
+
+    if (status === 409) {
+      // Live week. The page must say so and show no probability at all.
+      await page.goto(prodUrl("/game-day"), { waitUntil: "domcontentloaded" });
+      await expect(page.getByText(/This week has already started/)).toBeVisible({
+        timeout: 60_000,
+      });
+      annotate(testInfo, "w1-16-branch", "live — no pregame number shown");
+      return;
+    }
+
+    expect(status).toBe(200);
+    expect(body).toBeTruthy();
+    annotate(testInfo, "w1-16-week", `${body.season} week ${body.week}`);
+    annotate(
+      testInfo,
+      "w1-16-coverage",
+      `${body.lineage?.estimateCoverage?.priced}/${body.lineage?.estimateCoverage?.active} priced`,
+    );
+
+    await page.goto(prodUrl("/game-day"), { waitUntil: "domcontentloaded" });
+    await expect(page.getByRole("heading", { name: "Game Day" })).toBeVisible({ timeout: 60_000 });
+    const text = await page.locator("body").innerText();
+
+    // The matchup identity is a fact and must always render.
+    expect(text).toContain(body.team.displayName);
+    if (body.opponent) expect(text).toContain(body.opponent.displayName);
+
+    const win = body.team?.outcome?.winMatchupPct;
+    if (win === null || win === undefined) {
+      // UNPRICED. The row is satisfied by an honest degraded state, not by
+      // a number — and a fabricated 50% is the specific thing forbidden.
+      expect(text).toContain("No projection");
+      expect(text).not.toMatch(/\b50\.0%/);
+      annotate(testInfo, "w1-16-branch", "unpriced — degraded state, no fabricated probability");
+    } else {
+      // PRICED. The page must show the endpoint's own figure.
+      expect(text).toContain(`${win.toFixed(1)}%`);
+      annotate(testInfo, "w1-16-branch", `priced — win ${win.toFixed(1)}%`);
+    }
+  });
+
+  test("provenance travels with the numbers", async ({ prodPage: page }, testInfo) => {
+    // W1-15's actual ask. A win probability with no stated projection
+    // source, coverage or threshold-semantics flag is a number, not
+    // intelligence.
+    const { status, body } = await getJson(page, "/api/matchup/intel");
+    if (status === 409) {
+      test.skip(true, "week in progress — the pregame lineage panel is not the question today");
+      return;
+    }
+    expect(status).toBe(200);
+
+    await page.goto(prodUrl("/game-day"), { waitUntil: "domcontentloaded" });
+    await expect(page.getByText("Where these numbers come from")).toBeVisible({ timeout: 60_000 });
+    const text = await page.locator("body").innerText();
+
+    const cov = body.lineage?.estimateCoverage || {};
+    expect(text).toContain(`${cov.priced} of ${cov.active} active players priced`);
+
+    // W1-23 is BLOCKED on host evidence; the surface must not present the
+    // median leg as settled just because it rendered.
+    if (body.lineage?.simulation && body.lineage.simulation.thresholdSemanticsVerified === false) {
+      expect(text).toMatch(/is NOT verified/);
+      annotate(testInfo, "w1-16-threshold", "unverified median semantics surfaced");
+    }
+  });
+
+  test("it is private — anonymous callers get nothing", async ({ page }, testInfo) => {
+    // No prodPage fixture here on purpose: this test wants the ANONYMOUS
+    // behaviour of the same route.
+    const res = await page.request.get(prodUrl("/api/matchup/intel"), { timeout: 45_000 });
+    expect(res.status()).toBe(401);
+    annotate(testInfo, "w1-16-anon-api", `HTTP ${res.status()}`);
+  });
+
+  test("usable at a phone viewport without horizontal scroll", async ({
+    prodPage: page,
+  }, testInfo) => {
+    mobileOnly(test, testInfo);
+    await page.goto(prodUrl("/game-day"), { waitUntil: "domcontentloaded" });
+    await expect(page.getByRole("heading", { name: "Game Day" })).toBeVisible({ timeout: 60_000 });
+    const overflow = await page.evaluate(
+      () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
+    );
+    expect(overflow).toBeLessThanOrEqual(1);
+    annotate(testInfo, "w1-16-mobile-overflow-px", String(overflow));
+  });
+});

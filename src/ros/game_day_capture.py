@@ -63,6 +63,22 @@ from src.utils.name_clean import normalize_player_name
 _NON_ACTIVE_ROSTER_BUCKETS: tuple[str, ...] = ("reserve", "taxi")
 
 
+def non_active_player_ids(roster: Mapping[str, Any]) -> set[str]:
+    """Rostered players who cannot fill a starting slot this week.
+
+    Exported so the Game Day WEEK resolver (`src/ros/game_day_week.py`)
+    subtracts exactly the same set this module does, from exactly the
+    same roster-payload evidence.  Two answers to "is this player
+    available" would be two definitions of the roster.
+    """
+    out: set[str] = set()
+    for bucket in _NON_ACTIVE_ROSTER_BUCKETS:
+        for pid in roster.get(bucket) or ():
+            if pid:
+                out.add(str(pid))
+    return out
+
+
 class GameDayCaptureRefusal(RuntimeError):
     """A capture that must not be written as asked.
 
@@ -224,11 +240,7 @@ def build_team_roster(
     that hides coverage gaps.
     """
     player_ids = [str(p) for p in (roster.get("players") or []) if p]
-    inactive: set[str] = set()
-    for bucket in _NON_ACTIVE_ROSTER_BUCKETS:
-        for pid in roster.get(bucket) or ():
-            if pid:
-                inactive.add(str(pid))
+    inactive = non_active_player_ids(roster)
 
     rows: list[PlayerPointEstimate] = []
     seen: set[str] = set()

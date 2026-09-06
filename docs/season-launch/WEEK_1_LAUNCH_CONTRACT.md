@@ -33,10 +33,10 @@ The denominator is frozen at 30 for this launch tranche. Do not add/remove rows 
 | W1-07 | Public pregame | Public league contract exposes the canonical pregame/narrative outputs consumed by frontend surfaces. | VERIFIED |
 | W1-08 | Public pregame | Canonical Week page renders the existing matchup preview path. | VERIFIED |
 | W1-09 | Public pregame | Canonical articles route renders the existing narrative path. | VERIFIED |
-| W1-10 | Public pregame | All six Week 1 league matchups are present with correct managers/teams/schedule and current, non-fabricated data inputs. | IN PROGRESS |
+| W1-10 | Public pregame | All six Week 1 league matchups are present with correct managers/teams/schedule and current, non-fabricated data inputs. | VERIFIED |
 | W1-11 | Public pregame | All six Week 1 narratives/previews are generated and pass factual, freshness, repetition, and matchup-specific quality review. | NOT STARTED |
 | W1-12 | Public pregame | Week 1 pregame surfaces pass mobile/navigation/link/degraded-state production verification. | NOT STARTED |
-| W1-13 | Public pregame | Public/private leakage audit proves proprietary values, edges, targets, forecasts, or private decision intelligence are not exposed publicly. | NOT STARTED |
+| W1-13 | Public pregame | Public/private leakage audit proves proprietary values, edges, targets, forecasts, or private decision intelligence are not exposed publicly. | VERIFIED |
 | W1-14 | Private pregame | Authenticated owner-facing Week 1 matchup-intelligence surface/section exists without duplicating public or canonical data owners. | NOT STARTED |
 | W1-15 | Private pregame | Private matchup intelligence reuses canonical lineup, strength/weakness, power/playoff, and projection inputs with source/freshness lineage. | NOT STARTED |
 | W1-16 | Private pregame | Owner's Week 1 private matchup-intelligence experience is deployed and production-verified for the selected team. | NOT STARTED |
@@ -57,15 +57,15 @@ The denominator is frozen at 30 for this launch tranche. Do not add/remove rows 
 
 ## Mechanical tally
 
-*Recounted 2026-09-05T13:10Z. The numerator is unchanged; only W1-10 moved, NOT STARTED -> IN PROGRESS.*
+*Recounted 2026-09-06T03:10Z after W1-10 production-verified.*
 
-- VERIFIED: 14
+- VERIFIED: 16
 - IMPLEMENTED_UNVERIFIED: 1
-- IN PROGRESS: 1
-- NOT STARTED: 13
+- IN PROGRESS: 0
+- NOT STARTED: 12
 - BLOCKED: 1
 - DENOMINATOR: 30
-- COMPLETION: **14/30 = 46.7%**
+- COMPLETION: **16/30 = 53.3%**
 
 ### Row movements, 2026-09-04
 
@@ -101,11 +101,109 @@ The denominator is frozen at 30 for this launch tranche. Do not add/remove rows 
   production evidence: the row moves when the fix is merged, deployed, and
   production serves `avgMargin: null` for those two matchups.
 
+### Row movements, 2026-09-05 (second)
+
+- **W1-13 → VERIFIED.** Public/private leakage audit run **anonymously against
+  production**, with the evidence in
+  `docs/season-launch/W1_13_PUBLIC_PRIVATE_LEAKAGE_AUDIT_2026-09-05.md`:
+  20 public contract sections served 200 and pass the canonical field
+  blocklist; the 4 private sections all 401; the pregame and forecast surfaces
+  scanned again for 22 proprietary markers by substring on every key at every
+  depth returned **zero hits**, which is the semantic half a field-name
+  denylist cannot answer; 8 private pages all land on `/login` and 6 private
+  APIs all 401. Two structural properties underwrite it rather than
+  observation: `server.py::_private_api_gate` is **default-deny** on `/api/*`
+  (a new private endpoint is closed before it is deployed — `/api/matchup/intel`
+  already answered 401 while its PR was open) and `public-routes.js` is
+  default-private on pages.
+  **One real inconsistency found and repaired:** `frontend/app/sitemap.js`
+  listed `/trades`, which `public-routes.js` declares private and which
+  redirects an anonymous visitor to `/login`. Nothing leaked — `robots.txt`
+  serves `Disallow: /` — but a sitemap is a positive assertion that a URL is
+  worth indexing and it contradicted robots.txt on the same host. The sitemap
+  was a FOURTH consumer of the public/private question that the one predicate
+  was never wired to; it now filters through `isPublicPath`, pinned and
+  mutation-proved by `frontend/__tests__/sitemap-public-only.test.js`.
+  The row is VERIFIED on the audit, which is what it asks for; the sitemap
+  repair is not yet deployed and the record says so.
+
+### Row movements, 2026-09-06
+
+- **W1-10 → VERIFIED (production evidence).** The repair merged in #1247
+  (`bd78b09`) reached production and was re-fetched live rather than inferred
+  from the deploy's success. `GET /api/public/league/matchupPreview`
+  (`generatedAt 2026-09-05T19:05:43Z`) now serves, for both first-ever
+  meetings:
+
+  | matchup | totalMeetings | avgMargin | biggestMargin | winner |
+  |---|---|---|---|---|
+  | 2 — Blaine vs Ty | 0 | `null` | `null` | `null` |
+  | 3 — Joey vs jstuedle | 0 | `null` | `null` | `null` |
+
+  Every other clause of the row was already satisfied by the audit in
+  `docs/season-launch/W1_10_WEEK1_MATCHUP_AUDIT_2026-09-05.md` — six matchups,
+  pairings/ownerIds/rosterIds matching Sleeper exactly, unplayed points `null`
+  not `0`, team names from the documented Sleeper fallback ladder, and an H2H
+  block correct including the two-week aggregated 2024 playoff meeting.
+
 ### Named blockers
 
 - **W1-11:** `ANTHROPIC_API_KEY` is not configured. `weekly-narratives.yml` therefore skips generation after its key check while reporting a green workflow; there are zero 2026 Week 1 narrative files. This needs the repository secret to exist before the scheduled Week 1 generation path can produce and quality-review all six articles.
 - **W1-23:** host threshold/tie semantics as described above. The simulation intentionally fails closed on the verification flag until real host evidence settles the rule.
 - **W1-03 / W1-04 timing — OWNER DECISION 2026-09-05:** the owner explicitly authorizes a **one-time Week 1 production capture on Wednesday 2026-09-09 after waiver processing is confirmed complete and before any NFL scoring begins**. Do not wait for the normal Thursday timer for the first Week 1 observation. Do not capture before waivers settle, do not backdate, and do not synthesize evidence. Preserve the normal Thursday recurring timer for future cadence unless a separate operational change is justified. After the authentic Wednesday capture creates `data/game_day/`, immediately run the real retention backup/proof path and verify an observed generation containing `game_day.tar.gz`. This makes W1-03 and W1-04 legitimately reachable by the Wednesday deadline without weakening either acceptance criterion.
+
+  **Why the capture has to come first — the mechanism, traced 2026-09-05.**
+  Recorded so nobody spends a production action rediscovering it, and so the
+  Wednesday sequence is executed in the right order:
+  `data/game_day/` is written by exactly one caller
+  (`scripts/capture_game_day_predictions.py` → `game_day_archive.record_snapshot`),
+  running on the `dynasty-game-day-capture` timer whose `OnCalendar` is
+  `Thu *-*-* 13:00:00 UTC` (free retry 15:30). Until something writes that
+  directory it does not exist, and `riskit-state-backup.sh`'s `backup_dir` logs
+  `skip dir (absent)` and returns **0** for an absent source — WARN/skip,
+  deliberately not an error — so the generation still succeeds *without* the
+  member. **Running the retention proof before the capture therefore cannot
+  produce `game_day.tar.gz`, however many times it is run.** The backup wiring
+  itself is confirmed present: `backup_dir "${DATA_DIR}/game_day"` at
+  `deploy/backup/riskit-state-backup.sh:427`, pinned by
+  `tests/deploy/test_state_backup_dir_archiving.py`.
+  Consequence for the owner-authorized window: **capture first, then prove.**
+
+  **THE WEEK 1 CLOCK, measured 2026-09-06 from the real nflverse schedule
+  (`src/bdvm/schedule.fetch_schedule_rows(2026)`, 272 rows / 16 Week-1 games).**
+  This is not the ordinary week the recurring timer was designed against, and
+  the difference decides the Wednesday sequence:
+
+  | | |
+  |---|---|
+  | Week 1 OPENS | **Wednesday 2026-09-09 20:20 ET** — NE @ SEA |
+  | second game | Thursday 2026-09-10 20:35 ET — SF @ LA |
+  | main slate | Sunday 2026-09-13 (13 games) |
+  | Week 1 ENDS | Monday 2026-09-14 20:15 ET — DEN @ KC |
+  | contract deadline | Wednesday 2026-09-09 23:59 CT |
+
+  Three consequences, none of them a matter of preference:
+
+  1. **The owner-authorized capture window is Wednesday morning (after waivers
+     settle) until ~19:00 ET, not "any time Wednesday."** Scoring begins at
+     20:20 ET, and `build_capture` refuses a `pregame` capture once
+     `week_has_begun` sees any nonzero score.
+  2. **The recurring `Thu 13:00 UTC` timer would produce NO valid Week 1
+     pregame capture.** It fires roughly 17 hours AFTER the Wednesday opener,
+     so the refusal would be correct and the observation would simply be lost.
+     The timer's own docstring reasons about "ordinary week — Thursday Night
+     Football" and about Thanksgiving; a **Wednesday** season opener is outside
+     the case it was designed for. The owner's Wednesday decision is therefore
+     not a deadline convenience — it is the only path to a valid Week 1
+     pregame observation at all. (The timer stays as-is for future weeks, which
+     are Thursday-opening; this is a Week-1-only gap, recorded not changed.)
+  3. **W1-28 is temporally unreachable by the deadline.** A FINAL matchup state
+     needs Week 1 to be over, and Week 1 ends Monday 2026-09-14 — five days
+     after Wednesday. **W1-27** is reachable only inside the ~3.5-hour live
+     window between the 20:20 ET kickoff and 23:59 CT.
+
+  Neither row may be marked VERIFIED on the strength of the wiring — each asks
+  for an observed artifact, and only the real Wednesday capture can produce it.
 
 Whenever a row changes, update the row and the mechanical tally in the same bounded change. Never count prose claims or partial evidence as VERIFIED.
 
