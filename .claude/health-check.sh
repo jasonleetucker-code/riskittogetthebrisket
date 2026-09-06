@@ -18,6 +18,7 @@ echo "=== SITE HEALTH CHECK ==="
 echo ""
 echo "=== AGENT ROUTER ==="
 echo "  Read: docs/AGENT_OPERATING_SYSTEM.md"
+python scripts/agent_os_receipt.py || true
 echo "  Product authority: docs/EXECUTION_PLAN.md + any active owner-authorized contract"
 echo "  Coordination: ASSISTANT_COORDINATION.md + docs/WORK_CLAIMS.md"
 

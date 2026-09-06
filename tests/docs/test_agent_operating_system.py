@@ -30,6 +30,10 @@ def test_session_start_router_mechanically_counts_launch_rows():
     assert "LAUNCH_VERIFIED" in hook
     assert "literal VERIFIED" in hook
     assert "Keep V1 closed" in hook
+    assert "scripts/agent_os_receipt.py" in hook
+    assert "@docs/AGENT_OPERATING_SYSTEM.md" in _read("CLAUDE.md").splitlines()
+    assert "Agent OS session receipt" in _read("docs/AGENT_OPERATING_SYSTEM.md")
+    assert "Agent-OS-Receipt: <AGENT_OS_LOADED_BLOB_SHA>" in _read("docs/AGENT_OPERATING_SYSTEM.md")
 
 
 def test_new_skills_have_narrow_non_product_scope():

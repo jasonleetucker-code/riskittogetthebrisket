@@ -1,5 +1,8 @@
 # CLAUDE.md — Risk It To Get The Brisket
 
+@docs/AGENT_OPERATING_SYSTEM.md
+
+
 > **SESSION ROUTER — READ FIRST:** `docs/AGENT_OPERATING_SYSTEM.md` is the
 > canonical AI-workflow/coordination front door. The Claude SessionStart hook
 > prints the currently active completion contract and tally automatically.
