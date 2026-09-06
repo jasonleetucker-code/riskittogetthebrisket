@@ -606,5 +606,115 @@ class TestNoWaitCanOutliveItsTest(unittest.TestCase):
         )
 
 
+class TestProdAuthSpecsImportEveryHelperTheyUse(unittest.TestCase):
+    """A prod-auth spec that calls an un-imported helper fails in PRODUCTION.
+
+    ``desktopOnly`` shipped in ``w1-16-game-day.spec.js`` used but not
+    destructured from ``./helpers``.  Nothing caught it:
+
+    * there is no ESLint at the repo root, so ``no-undef`` never ran;
+    * ``playwright test --list`` parses the ``describe``/``test``
+      declarations and never enters a test BODY, so the collected count
+      was correct (102 tests) while one of them could not execute;
+    * the prod-auth config is driven only by
+      ``v1-authenticated-verification.yml``, which needs a deployed
+      origin and an ephemeral guest pass — so the first execution of
+      that line would have been a production-verification cycle.
+
+    The failure would also have been misread.  ``desktopOnly(test, …)``
+    is the FIRST statement in its body, so both projects raise
+    ``ReferenceError`` before any assertion — including the
+    ``prod-mobile`` run, which the helper exists to make SKIP.  A row
+    would then have read "the deployed shell does not offer Game Day"
+    when the deployed shell was never asked.
+
+    Scoped to the helper module's own exports on purpose: this is not a
+    general undefined-identifier checker (that is ESLint's job, and
+    adding ESLint for one rule is a bigger change than the defect).  It
+    answers exactly one question — does a spec use a name that
+    ``helpers.js`` exports, without importing it — which is the shape
+    every one of these specs is written in.
+    """
+
+    _PROD_AUTH_DIR = E2E_DIR / "specs" / "prod-auth"
+
+    @staticmethod
+    def _exported_names(helpers_src: str) -> set[str]:
+        """Names in helpers.js's ``module.exports = { … }`` block."""
+        start = helpers_src.index("module.exports")
+        body = helpers_src[helpers_src.index("{", start) : helpers_src.index("}", start) + 1]
+        body = re.sub(r"//[^\n]*", "", body)
+        return {m.group(1) for m in re.finditer(r"^\s*([A-Za-z_$][\w$]*)\s*,", body, re.M)}
+
+    @staticmethod
+    def _imported_names(spec_src: str) -> set[str]:
+        """Names destructured from ``require("./helpers")``.
+
+        Handles the renaming form (``publicTest: test``) that
+        ``w1-12-public-pregame.spec.js`` uses: the LOCAL name is what the
+        body can refer to, so that is what is collected.
+        """
+        match = re.search(
+            r"""const\s*\{(.*?)\}\s*=\s*require\(\s*["']\./helpers["']\s*\)""",
+            spec_src,
+            re.S,
+        )
+        if not match:
+            return set()
+        names: set[str] = set()
+        for part in match.group(1).split(","):
+            part = re.sub(r"//[^\n]*", "", part).strip()
+            if not part:
+                continue
+            local = part.split(":")[-1].strip()
+            if re.fullmatch(r"[A-Za-z_$][\w$]*", local):
+                names.add(local)
+        return names
+
+    def test_no_prod_auth_spec_uses_an_unimported_helper(self) -> None:
+        helpers = self._PROD_AUTH_DIR / "helpers.js"
+        self.assertTrue(helpers.exists(), "prod-auth helpers.js is gone")
+        exported = self._exported_names(helpers.read_text(encoding="utf-8"))
+        self.assertGreater(
+            len(exported),
+            5,
+            f"only parsed {sorted(exported)} out of helpers.js — the "
+            "module.exports shape changed and this guard stopped seeing "
+            "anything, which would make it silently vacuous.",
+        )
+
+        offenders: list[str] = []
+        scanned = 0
+        for path in sorted(self._PROD_AUTH_DIR.glob("*.spec.js")):
+            scanned += 1
+            src = path.read_text(encoding="utf-8")
+            imported = self._imported_names(src)
+            # Compare against CODE only: a helper named in a docstring or
+            # a comment is prose, not a call.
+            code = "\n".join(_code_only(line) for line in src.splitlines())
+            for name in sorted(exported - imported):
+                for m in re.finditer(rf"\b{re.escape(name)}\s*\(", code):
+                    line_no = code[: m.start()].count("\n") + 1
+                    offenders.append(
+                        f"{path.relative_to(E2E_DIR).as_posix()}:{line_no} calls "
+                        f"{name}() but does not import it from ./helpers"
+                    )
+                    break
+
+        self.assertGreater(
+            scanned, 5, f"only found {scanned} prod-auth specs — glob stopped matching"
+        )
+        self.assertEqual(
+            offenders,
+            [],
+            "These prod-auth specs call a helper they never imported. The "
+            "line raises ReferenceError the moment the test body runs, and "
+            "the only thing that runs these specs is the production "
+            "verification workflow — so the first report would be a failed "
+            "production cycle blaming the product. Add the name to the "
+            "require({ … }) destructure.\n" + "\n".join(offenders),
+        )
+
+
 if __name__ == "__main__":  # pragma: no cover
     unittest.main()

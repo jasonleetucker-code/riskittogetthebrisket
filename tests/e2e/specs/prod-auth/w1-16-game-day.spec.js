@@ -23,7 +23,15 @@
  * asserted on what must and must not appear, and the run annotates which
  * state production was actually in.
  */
-const { test, expect, prodUrl, getJson, annotate, mobileOnly } = require("./helpers");
+const {
+  test,
+  expect,
+  prodUrl,
+  getJson,
+  annotate,
+  desktopOnly,
+  mobileOnly,
+} = require("./helpers");
 
 /**
  * A real ownerId from the deployed board. Same source `v1-27` uses
