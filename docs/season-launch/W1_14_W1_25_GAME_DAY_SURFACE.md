@@ -175,9 +175,14 @@ percentages plus the tie sum to 100.0.
 
 ## 7. The surface
 
-`/matchup` ("This Week", first item in the **My Team** nav group), rendering
-`frontend/components/MatchupIntelPanel.jsx` over the bridge route at
+`/game-day` ("Game Day", first item in the **My Team** nav group), rendering
+`frontend/components/GameDayPanel.jsx` over the bridge route at
 `frontend/app/api/matchup/intel/route.js`.
+
+The bridge path deliberately does NOT move with the page: it mirrors the
+BACKEND route (`GET /api/matchup/intel`), which did not move either. Renaming
+it would make the frontend bridge and the endpoint it proxies disagree, for no
+gain.
 
 **Private by route, for the same reason `/phases` is.** Everything under
 `/league` is served by the isolated public pipeline and must never read private
@@ -215,7 +220,7 @@ than a single happy-path render.
 
 ## 8. Verification
 
-- `frontend/__tests__/components/matchup-intel-panel.test.jsx` — 12 tests: both
+- `frontend/__tests__/components/game-day-panel.test.jsx` — 26 tests: both
   win probabilities; the lineup rendered by **slot name, not index**; the
   count of players left out of the lineup rather than counted as zero; the
   unverified median threshold surfaced; source and coverage named; the
@@ -230,5 +235,12 @@ than a single happy-path render.
 production.** The endpoint and the surface both exist and are tested, which is
 what those two rows describe — but W1-16 asks for production verification of
 the owner's experience, and this document is not that. The rows move when
-`/matchup` is live and answering for the owner's own team, which requires the
+`/game-day` is live and answering for the owner's own team, which requires the
 projection snapshots that exist only on the box.
+
+The production instrument is
+`tests/e2e/specs/prod-auth/w1-16-game-day.spec.js`, run by
+`.github/workflows/v1-authenticated-verification.yml` against the deployed
+origin. It resolves a real team from `sleeper.teams` on the authenticated
+contract and asks about it via `?team=`, because the workflow's session is a
+GUEST pass that names no team of its own.
