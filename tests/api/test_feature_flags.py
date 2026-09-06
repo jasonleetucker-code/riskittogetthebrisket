@@ -72,6 +72,21 @@ def test_every_flag_defaults_off_except_safe_additive():
         # model as a live code path.
         # Rollback: RISKIT_FEATURE_PERFECT_DRAFT=0 + restart.
         "perfect_draft",
+        # Live Waiver Opportunity shadow computation (Stage 1 of the
+        # activation plan, docs/faab-live-opportunity-model.md §5a,
+        # started 2026-09-02). Additive in the strict sense this set
+        # requires: it computes a SECOND value
+        # (src.trade.faab_opportunity.opportunity_value) alongside the
+        # canonical-only one inside server.py's /api/waiver/faab-recommend
+        # handler and logs both to
+        # data/faab/shadow_comparisons_<leagueKey>.json — the response
+        # object returned to every caller is built from the canonical-only
+        # value regardless of this flag
+        # (test_shadow_computation_never_changes_the_live_response pins
+        # this). Turning it on cannot move a number that was already on
+        # screen; it only starts a log file accumulating.
+        # Rollback: RISKIT_FEATURE_WAIVER_LIVE_OPPORTUNITY=0.
+        "waiver_live_opportunity",
     }
     # Flags that default ON and KNOWINGLY change output.  Deliberately a
     # separate set from ``safe_on``: every member of that one is there

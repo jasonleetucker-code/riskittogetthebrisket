@@ -222,13 +222,15 @@ completion of the code:
 
 - **Stage 0 (current state).** `waiver_live_opportunity` defaults off in
   production. Nothing changes for a live user.
-- **Stage 1 — turn on shadow logging in production.** Flip the flag on (via
-  the per-process env-var override this codebase already uses for
-  script-only/shadow features, matching the `bdvm_engine` precedent) and
-  restart. This requires deploy access this development session does not
-  have (see the follow-up report's production-verification section) — it is
-  a named action item for whoever operates the deploy, not something claimed
-  done here.
+- **Stage 1 — turn on shadow logging in production.** STARTED 2026-09-02:
+  `waiver_live_opportunity`'s default in `_DEFAULTS` is now `True` (see
+  `src/api/feature_flags.py`), motivated by the real overnight evidence in
+  the follow-up report's §16 — so a fresh production deploy picks this up
+  without a separate env-var change. Completing Stage 1 still requires this
+  code to actually reach production (pull `main` + restart both systemd
+  services), which this development session cannot do — see the follow-up
+  report's production-verification section. Until that deploy happens, the
+  flag change sits in the repo but does not yet affect the live server.
 - **Stage 2 — accumulation window.** No review is meaningful on a thin
   sample. Minimum bar before Stage 3 runs: **N ≥ 200** logged rows in
   `data/faab/shadow_comparisons_<leagueKey>.json`, spanning **at least one**
