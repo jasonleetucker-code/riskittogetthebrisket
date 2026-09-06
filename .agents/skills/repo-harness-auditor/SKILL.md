@@ -92,6 +92,19 @@ Before moving a section:
 
 Do not trade token savings for governance drift.
 
+## Graph-spec and transition-guard hygiene
+
+For any nontrivial graph, verify that the workflow has an explicit structured spec covering goal, input state, parallel work, critical path, verifier, failure domains, human gates, frozen rules, observability, and stopping rule.
+
+Also verify:
+- important edges have explicit data/state contracts;
+- consequential approval is enforced as a transition guard, not only requested in prompt prose;
+- protected transitions are unreachable without durable approval evidence;
+- default fan-in requires all required outputs unless an explicit quorum was defined in advance;
+- quorum runs preserve expected/received/missing coverage in downstream artifacts;
+- graph-level observability includes critical-path latency and verifier/failure/coverage metrics;
+- adding agents actually reduces critical path or increases independent coverage enough to justify coordination cost.
+
 ## Graph-orchestration hygiene
 
 When the harness or a workflow uses parallel agents, audit the topology rather than assuming "parallel" means efficient or safe:
