@@ -1,50 +1,50 @@
 {
-  "rebuiltAt": "2026-09-06T05:10:51.516130+00:00",
+  "rebuiltAt": "2026-09-06T11:26:06.880833+00:00",
   "sources": {
     "fantasyProsRosSf": {
       "status": "ok",
       "player_count": 548,
       "rows_written": 548,
-      "started_at": "2026-09-06T05:10:50.184035+00:00",
-      "completed_at": "2026-09-06T05:10:50.361419+00:00",
+      "started_at": "2026-09-06T11:26:05.230356+00:00",
+      "completed_at": "2026-09-06T11:26:05.320136+00:00",
       "error": null,
-      "run_path": "runs/fantasyProsRosSf__2026-09-06T05-10-50.361419+00-00.json"
+      "run_path": "runs/fantasyProsRosSf__2026-09-06T11-26-05.320136+00-00.json"
     },
     "draftSharksRosSf": {
       "status": "ok",
       "player_count": 598,
       "rows_written": 598,
-      "started_at": "2026-09-06T05:10:50.395812+00:00",
-      "completed_at": "2026-09-06T05:10:50.397366+00:00",
+      "started_at": "2026-09-06T11:26:05.374055+00:00",
+      "completed_at": "2026-09-06T11:26:05.376252+00:00",
       "error": null,
-      "run_path": "runs/draftSharksRosSf__2026-09-06T05-10-50.397366+00-00.json"
+      "run_path": "runs/draftSharksRosSf__2026-09-06T11-26-05.376252+00-00.json"
     },
     "fantasyProsRosIdp": {
       "status": "ok",
       "player_count": 299,
       "rows_written": 299,
-      "started_at": "2026-09-06T05:10:50.522902+00:00",
-      "completed_at": "2026-09-06T05:10:50.523599+00:00",
+      "started_at": "2026-09-06T11:26:05.565127+00:00",
+      "completed_at": "2026-09-06T11:26:05.566209+00:00",
       "error": null,
-      "run_path": "runs/fantasyProsRosIdp__2026-09-06T05-10-50.523599+00-00.json"
+      "run_path": "runs/fantasyProsRosIdp__2026-09-06T11-26-05.566209+00-00.json"
     },
     "fantasyProsRosOverall": {
       "status": "ok",
       "player_count": 491,
       "rows_written": 491,
-      "started_at": "2026-09-06T05:10:50.533374+00:00",
-      "completed_at": "2026-09-06T05:10:50.760203+00:00",
+      "started_at": "2026-09-06T11:26:05.585215+00:00",
+      "completed_at": "2026-09-06T11:26:05.874238+00:00",
       "error": null,
-      "run_path": "runs/fantasyProsRosOverall__2026-09-06T05-10-50.760203+00-00.json"
+      "run_path": "runs/fantasyProsRosOverall__2026-09-06T11-26-05.874238+00-00.json"
     },
     "ffc2qbAdp": {
       "status": "ok",
       "player_count": 230,
       "rows_written": 230,
-      "started_at": "2026-09-06T05:10:51.045325+00:00",
-      "completed_at": "2026-09-06T05:10:51.329402+00:00",
+      "started_at": "2026-09-06T11:26:06.343027+00:00",
+      "completed_at": "2026-09-06T11:26:06.580250+00:00",
       "error": null,
-      "run_path": "runs/ffc2qbAdp__2026-09-06T05-10-51.329402+00-00.json"
+      "run_path": "runs/ffc2qbAdp__2026-09-06T11-26-06.580250+00-00.json"
     }
   }
 }
