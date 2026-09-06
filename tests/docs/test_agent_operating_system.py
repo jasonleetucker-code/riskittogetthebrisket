@@ -83,3 +83,28 @@ def test_harness_auditor_checks_graph_topology_not_just_prompts():
     assert "fan-in counts expected vs received inputs" in harness
     assert "fresh context" in harness
     assert "Anatoli Kopadze" in rationale
+
+
+def test_agent_os_governs_unattended_loops_without_activating_them():
+    doc = _read("docs/AGENT_OPERATING_SYSTEM.md")
+    assert "Autonomous-loop safety envelope" in doc
+    assert "committed contract" in doc
+    assert "local operator overrides" in doc
+    assert "Hard runtime limits" in doc
+    assert "One execution gateway" in doc
+    assert "append-only run receipt" in doc
+    assert "preflight -> act -> verify -> guard -> grade -> receipt" in doc
+    assert "Emergency halt" in doc
+    assert "report-only" in doc
+    assert "Activation gate" in doc
+    assert "design policy, not activation" in doc
+
+
+def test_harness_auditor_checks_autonomous_runner_controls():
+    harness = _read(".agents/skills/repo-harness-auditor/SKILL.md")
+    rationale = _read("docs/agent-operating-system/DESIGN_RATIONALE_2026-09-05.md")
+    assert "Autonomous-runner hygiene" in harness
+    assert "fail-closed external halt sentinel" in harness
+    assert "report-only, assisted, and autonomous modes" in harness
+    assert "PolyDAO" in rationale
+    assert "2096128417108287566" in rationale
