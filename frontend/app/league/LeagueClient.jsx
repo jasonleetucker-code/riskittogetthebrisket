@@ -38,6 +38,7 @@
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import { useRouter, useSearchParams } from "next/navigation";
+import ResilientSection from "@/components/ResilientSection";
 import { SubNav, PageHeader, LoadingState, EmptyState } from "@/components/ui";
 import { PUBLIC_SECTION_KEYS, fetchPublicSection } from "@/lib/public-league-data";
 import { buildManagerLookup } from "./shared.jsx";
@@ -71,6 +72,19 @@ import OverviewSection from "./sections/overview.jsx";
 // Pattern (dynamic + `_`-prefixed siblings) matches
 // ./sections/draft-capital.jsx, which already splits its own two heavy
 // panels this way.
+//
+// KNOWN GAP, not fixed here (found 2026-09-06 investigating a W1-12
+// production failure): none of the 20 `lazySection`-mounted tabs below
+// are wrapped in an error boundary. A failed dynamic `import()` (e.g. a
+// ChunkLoadError from a non-atomic deploy overwriting `.next/` while
+// `next start` is serving — the exact class `next.config.mjs` already
+// documents) or any render throw inside a lazy section falls through to
+// the route-wide `app/error.jsx`, blanking the ENTIRE page rather than
+// just that tab. `PreviewsSection` below is wrapped in `ResilientSection`
+// because a real failure was observed reaching it via the Home tab's
+// "Full H2H preview" link; the other 19 share the identical structural
+// gap and are not fixed here — wrapping all of them is a separate,
+// larger change than the one defect this fixes.
 const sectionLoading = () => <LoadingState message="Loading section..." />;
 const lazySection = (loader) =>
   dynamic(loader, { ssr: false, loading: sectionLoading });
@@ -411,7 +425,11 @@ function LeaguePage({ initialContract = null, initialTab = DEFAULT_TAB }) {
       {activeTab === "rosTeamStrength" && <RosTeamStrengthSection />}
       {activeTab === "rosChampionship" && <RosChampionshipSection />}
       {activeTab === "rosTradeDeadline" && <RosTradeDeadlineSection />}
-      {activeTab === "previews" && <PreviewsSection />}
+      {activeTab === "previews" && (
+        <ResilientSection name="Previews">
+          <PreviewsSection />
+        </ResilientSection>
+      )}
       {activeTab === "recaps" && <ArticlesSection mode="recap" />}
       {activeTab === "teamAssignment" && (
         <TeamAssignmentSection managers={managers} />
