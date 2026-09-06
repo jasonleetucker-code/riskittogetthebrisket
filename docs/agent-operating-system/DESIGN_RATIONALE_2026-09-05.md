@@ -155,6 +155,32 @@ Not adopted:
 - urgency/course-value framing;
 - any new graph skill, because node contracts/fake edges/fan-in/anchors are already canonical in the Agent OS.
 
+### zodchiii — GPT-6 Astra setup / runtime-control guidance
+
+Owner-supplied source:
+`https://x.com/zodchiii/status/2096541972156846373`
+
+The post itself is heavily promotional, so its performance/organizational claims were not adopted as architecture. The durable runtime implications were cross-checked against OpenAI's official GPT-6 Astra model guidance and release notes:
+
+- `https://developers.openai.com/api/docs/guides/latest-model`
+- `https://openai.com/products/release-notes/`
+
+Useful additions adopted:
+
+- async tool calls should exist as explicit pending state with stable identities, while unrelated work may continue;
+- mid-turn steering should amend the active task while preserving completed work that still satisfies the new constraints;
+- when a runtime supports changing reasoning effort in place, change the configuration rather than rewriting accepted context/history;
+- capability support is surface-specific and must be detected/verified before the harness depends on it;
+- pending async calls that fail, time out, or are cancelled should feed the existing routable-failure-state machinery.
+
+Not adopted:
+
+- “money making machine this weekend” urgency framing;
+- unsupported claims about what a model can accomplish relative to an entire team/quarter;
+- fixed Astra model/effort settings for this repo;
+- OpenAI-specific API syntax in the model-agnostic operating-system rules;
+- any assumption that Claude Code automatically supports Astra-specific Responses API controls.
+
 ## What the repo already had
 
 The audit found that this repository was **not** starting from zero.
