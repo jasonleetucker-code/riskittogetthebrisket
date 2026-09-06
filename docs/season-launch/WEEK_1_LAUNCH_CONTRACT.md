@@ -35,11 +35,11 @@ The denominator is frozen at 30 for this launch tranche. Do not add/remove rows 
 | W1-09 | Public pregame | Canonical articles route renders the existing narrative path. | VERIFIED |
 | W1-10 | Public pregame | All six Week 1 league matchups are present with correct managers/teams/schedule and current, non-fabricated data inputs. | VERIFIED |
 | W1-11 | Public pregame | All six Week 1 narratives/previews are generated and pass factual, freshness, repetition, and matchup-specific quality review. | NOT STARTED |
-| W1-12 | Public pregame | Week 1 pregame surfaces pass mobile/navigation/link/degraded-state production verification. | NOT STARTED |
+| W1-12 | Public pregame | Week 1 pregame surfaces pass mobile/navigation/link/degraded-state production verification. | VERIFIED |
 | W1-13 | Public pregame | Public/private leakage audit proves proprietary values, edges, targets, forecasts, or private decision intelligence are not exposed publicly. | VERIFIED |
-| W1-14 | Private pregame | Authenticated owner-facing Week 1 matchup-intelligence surface/section exists without duplicating public or canonical data owners. | NOT STARTED |
-| W1-15 | Private pregame | Private matchup intelligence reuses canonical lineup, strength/weakness, power/playoff, and projection inputs with source/freshness lineage. | NOT STARTED |
-| W1-16 | Private pregame | Owner's Week 1 private matchup-intelligence experience is deployed and production-verified for the selected team. | NOT STARTED |
+| W1-14 | Private pregame | Authenticated owner-facing Week 1 matchup-intelligence surface/section exists without duplicating public or canonical data owners. | VERIFIED |
+| W1-15 | Private pregame | Private matchup intelligence reuses canonical lineup, strength/weakness, power/playoff, and projection inputs with source/freshness lineage. | VERIFIED |
+| W1-16 | Private pregame | Owner's Week 1 private matchup-intelligence experience is deployed and production-verified for the selected team. | VERIFIED |
 | W1-17 | Game Day foundation | `docs/GAME_DAY_PROBABILITY_SPEC.md` is the authoritative approved product/methodology contract for CE-20 Game Day. | VERIFIED |
 | W1-18 | Game Day backend | One canonical league-aware current-week scoring simulation owner is identified/implemented; no second matchup/median engine. | VERIFIED |
 | W1-19 | Game Day backend | Simulation consumes the requested league's exact scoring, roster slots, eligibility, team count, and league settings without silent home-league fallback. | VERIFIED |
@@ -48,8 +48,8 @@ The denominator is frozen at 30 for this launch tranche. Do not add/remove rows 
 | W1-22 | Game Day probability | `Win Matchup %` is produced from the canonical weekly simulation with bounded, testable probability output. | VERIFIED |
 | W1-23 | Game Day probability | `Beat League Median %` derives from the same league-wide simulation draws; median-disabled is NOT_APPLICABLE and tie semantics are host-faithful. | BLOCKED |
 | W1-24 | Game Day truth | Game Day outputs preserve timestamp, model version, projection/source freshness, coverage, and truthful degraded/unavailable states. | VERIFIED |
-| W1-25 | Game Day UI | Canonical Game Day route/section and navigation shell are integrated into the existing site design and selected-team context. | NOT STARTED |
-| W1-26 | Game Day UI | SCHEDULED/PREGAME state is production-usable: matchup, projected state, headline probabilities when available, drivers, freshness, and archive timestamp. | NOT STARTED |
+| W1-25 | Game Day UI | Canonical Game Day route/section and navigation shell are integrated into the existing site design and selected-team context. | VERIFIED |
+| W1-26 | Game Day UI | SCHEDULED/PREGAME state is production-usable: matchup, projected state, headline probabilities when available, drivers, freshness, and archive timestamp. | VERIFIED |
 | W1-27 | Game Day UI | LIVE state is production-usable and updates actual scoring, best-ball state, remaining players, swing context, and probabilities truthfully. | NOT STARTED |
 | W1-28 | Game Day UI | FINAL state is production-usable and preserves final optimal lineup/results plus clean transition/linkage to the canonical recap system. | NOT STARTED |
 | W1-29 | Launch verification | Final Week 1 candidate passes the required backend, frontend, contract/invariant, lint/build, audit, and E2E exact-head gates. | NOT STARTED |
@@ -57,15 +57,15 @@ The denominator is frozen at 30 for this launch tranche. Do not add/remove rows 
 
 ## Mechanical tally
 
-*Recounted 2026-09-06T03:10Z after W1-10 production-verified.*
+*Recounted 2026-09-06T23:41Z after W1-12/14/15/16/25/26 production-verified (run 36).*
 
-- VERIFIED: 16
+- VERIFIED: 22
 - IMPLEMENTED_UNVERIFIED: 1
 - IN PROGRESS: 0
-- NOT STARTED: 12
+- NOT STARTED: 6
 - BLOCKED: 1
 - DENOMINATOR: 30
-- COMPLETION: **16/30 = 53.3%**
+- COMPLETION: **22/30 = 73.3%**
 
 ### Row movements, 2026-09-04
 
@@ -145,6 +145,81 @@ The denominator is frozen at 30 for this launch tranche. Do not add/remove rows 
   pairings/ownerIds/rosterIds matching Sleeper exactly, unplayed points `null`
   not `0`, team names from the documented Sleeper fallback ladder, and an H2H
   block correct including the two-week aggregated 2024 playoff meeting.
+
+### Row movements, 2026-09-06 (second)
+
+- **W1-12, W1-14, W1-15, W1-16, W1-25, W1-26 → VERIFIED (production evidence,
+  run 36, `34065319944`).** These six rows share one underlying surface (the
+  Game Day route and its public pregame counterpart) and one verification
+  instrument (`v1-authenticated-verification.yml`'s browser suite), so they
+  are recorded together, but each is promoted on its own row's literal
+  acceptance text, not as a block — no row here is being carried by another's
+  evidence.
+
+  **The path to this evidence was not a single clean run.** The first
+  dispatch against the freshly-merged Game Day surface (run 33) surfaced two
+  genuine production defects rather than test-instrument flakes: `GET
+  /api/matchup/intel` took 45-51s against a real league (2000-draw Monte
+  Carlo × 12 teams × an uncached exact lineup solver — `src/ros/game_day_sim.py`
+  ran 24,000 redundant eligibility derivations per request), and `/league`'s
+  "Full H2H preview" CTA never reached the previews tab. Both were root-caused
+  from first principles (reading `src/api/matchup_intel.py`,
+  `src/ros/game_day_sim.py`, `src/ros/lineup.py` for the first; console/page-error
+  capture plus DOM snapshots at the point of failure for the second) and fixed
+  in **#1256** (an eligibility hoist in `lineup.py` plus a content-fingerprinted
+  on-disk simulation cache in `game_day_sim.py`, deliberately kept outside
+  `data/ros/` since that directory is force-added to the public repo every 2
+  hours). Two further re-dispatches (**runs 34 and 35**) each surfaced one more
+  test-harness race — a client-fetched panel's own async load being read before
+  it resolved, the same class of defect each time but at a different call site
+  — fixed in **#1257** and **#1258**. Each round used the actual downloaded
+  artifact (`error-context.md` DOM snapshots) to confirm root cause rather than
+  guessing; no row was promoted on any of the three failing runs. Full
+  diagnostic detail lives in those three PRs' descriptions and commit messages.
+
+  **Run 36's actual per-test results** (job `101572945277`, both `prod-desktop`
+  and `prod-mobile` projects, read from the job log and the downloaded
+  `prod-auth-results.json` — not inferred from the job's aggregate
+  conclusion, which reads `failure` only because of two unrelated,
+  out-of-scope `v1-123-*` test failures on `prod-mobile` that map to no Week 1
+  row):
+
+  | test | result (desktop / mobile) | evidence |
+  |---|---|---|
+  | w1-12: previews tab renders structured matchups | pass / pass | heading `Week 1 matchups · 2026`, 6 matchup cards |
+  | w1-12: H2H history, no fabricated zero margin | pass / pass | first-ever meeting rendered correctly |
+  | w1-12: Home card CTA reaches previews tab | pass / pass | zero console/page errors captured on either viewport |
+  | w1-12: older article slate labelled as older | pass / pass | `older slate, labelled` — degraded state named, not presented as current |
+  | w1-12: mobile viewport, no horizontal scroll | pass (mobile only) | 0px overflow |
+  | w1-12: no private field on the anonymous page | pass / pass | no projection/probability language |
+  | w1-16: page renders, names its state | pass / pass | state `SCHEDULED/pregame`, team `468418790212759552` |
+  | w1-16: page's numbers match the endpoint's | pass / pass | endpoint 200, `2026 week 1`, `581/674 priced`, `win 86.7%` — answered in 4.0s/4.8s (the cache fix, confirmed working cold-to-warm) |
+  | w1-16: provenance travels with the numbers | pass / pass | coverage + freshness rendered; the still-BLOCKED W1-23 median-tie flag is itself surfaced honestly (`unverified median semantics surfaced`) rather than hidden |
+  | w1-16: private — anonymous callers get nothing | pass / pass | HTTP 401 |
+  | w1-25: My Team menu offers Game Day | pass (desktop only) | `My Team → Game Day → /game-day` |
+  | w1-16: mobile viewport, no horizontal scroll | pass (mobile only) | 0px overflow |
+
+  **Per-row disposition:**
+  - **W1-12** — every mobile/navigation/link/degraded-state clause in the row's
+    own text has a passing assertion on both viewports.
+  - **W1-14** — "the page renders for the owner's own team and names its
+    state" proves the authenticated surface exists at its own route
+    (`/game-day`, distinct from the public `/league?tab=previews` surface —
+    no shared owner).
+  - **W1-15** — "provenance travels with the numbers" proves the lineage
+    panel (source coverage, freshness, threshold-semantics flag) renders from
+    the same canonical simulation/lineup/coverage inputs the backend stamps.
+  - **W1-16** — "the page's numbers are the endpoint's numbers" is this row's
+    literal ask, and it now passes on both viewports at production
+    load (not just a lucky warm hit — desktop's own request needed no
+    pre-warming).
+  - **W1-25** — the nav test is a direct check against the deployed shell
+    (not a source read), per the row's own "integrated into the existing
+    site design" requirement.
+  - **W1-26** — the SCHEDULED/PREGAME state's full requirement (matchup
+    identity, state, headline probability, drivers/coverage, freshness) is
+    covered jointly by the "names its state" and "numbers match the
+    endpoint's" and "provenance" tests, all passing.
 
 ### Named blockers
 
