@@ -24,6 +24,13 @@ vi.mock("@/components/useUserState", () => ({
   useUserState: () => mockUserState,
 }));
 
+// The URL's `?team=` override. A Map has the same `.get` shape the panel
+// uses, so no adapter is needed.
+const mockSearchParams = { value: new Map() };
+vi.mock("next/navigation", () => ({
+  useSearchParams: () => mockSearchParams.value,
+}));
+
 const PRICED = {
   leagueKey: "dynasty_main",
   season: 2026,
@@ -341,5 +348,51 @@ describe("GameDayPanel — the state machine (W1-26)", () => {
     render(<GameDayPanel />);
     await waitFor(() => expect(screen.getByText("Live")).toBeTruthy());
     expect(screen.queryByText(/%/)).toBeNull();
+  });
+});
+
+
+describe("GameDayPanel — explicit ?team= wins over the switcher", () => {
+  afterEach(() => {
+    mockSearchParams.value = new Map();
+    mockUserState.state = { selectedTeam: null };
+  });
+
+  it("uses the URL team when one is present", async () => {
+    mockSearchParams.value = new Map([["team", "own-URL"]]);
+    mockUserState.state = { selectedTeam: { ownerId: "own-SWITCHER" } };
+    mockJson(PRICED);
+    render(<GameDayPanel />);
+    await waitFor(() => expect(globalThis.fetch).toHaveBeenCalled());
+    const [url] = globalThis.fetch.mock.calls[0];
+    // Explicit over implicit — the same precedence the backend resolver
+    // uses (query param, then session, then registry default).
+    expect(url).toContain("team=own-URL");
+    expect(url).not.toContain("own-SWITCHER");
+  });
+
+  it("falls back to the switcher when the URL names no team", async () => {
+    mockSearchParams.value = new Map();
+    mockUserState.state = { selectedTeam: { ownerId: "own-SWITCHER" } };
+    mockJson(PRICED);
+    render(<GameDayPanel />);
+    await waitFor(() => expect(globalThis.fetch).toHaveBeenCalled());
+    expect(globalThis.fetch.mock.calls[0][0]).toContain("team=own-SWITCHER");
+  });
+
+  it("sends no team parameter when neither names one", async () => {
+    mockJson(PRICED);
+    render(<GameDayPanel />);
+    await waitFor(() => expect(globalThis.fetch).toHaveBeenCalled());
+    expect(globalThis.fetch.mock.calls[0][0]).toBe("/api/matchup/intel");
+  });
+
+  it("ignores a blank ?team= rather than requesting a team named \"\"", async () => {
+    mockSearchParams.value = new Map([["team", "   "]]);
+    mockUserState.state = { selectedTeam: { ownerId: "own-SWITCHER" } };
+    mockJson(PRICED);
+    render(<GameDayPanel />);
+    await waitFor(() => expect(globalThis.fetch).toHaveBeenCalled());
+    expect(globalThis.fetch.mock.calls[0][0]).toContain("team=own-SWITCHER");
   });
 });

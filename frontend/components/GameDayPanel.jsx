@@ -28,6 +28,7 @@
  */
 
 import { useCallback, useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { LoadingState } from "@/components/ui";
 import { EmptyState, FailureState } from "@/components/ds";
 import { useUserState } from "@/components/useUserState";
@@ -312,9 +313,24 @@ export default function GameDayPanel() {
   // which is a DIFFERENT question — "who is signed in" rather than "which
   // team did you pick" — so switching teams left the matchup unchanged.
   const { state: userState } = useUserState();
-  const selectedOwnerId = userState?.selectedTeam?.ownerId
-    ? String(userState.selectedTeam.ownerId)
-    : "";
+  // An explicit `?team=<ownerId>` WINS over the switcher.
+  //
+  // Two reasons, and the second is the one that made this necessary. It
+  // makes the page linkable per team, which the endpoint has always
+  // supported (`/api/matchup/intel?team=`) while the page did not. And it
+  // is the only way a session that has selected no team — a guest pass in
+  // the production-verification workflow, say — can see this surface for a
+  // REAL team at all; without it such a session gets "No team selected"
+  // and the page cannot be verified for anyone.
+  //
+  // Explicit-over-implicit is also the same precedence the backend
+  // resolver uses (query param, then session, then registry default), so
+  // the page and the endpoint agree about who wins.
+  const searchParams = useSearchParams();
+  const urlOwnerId = String(searchParams?.get("team") || "").trim();
+  const selectedOwnerId =
+    urlOwnerId ||
+    (userState?.selectedTeam?.ownerId ? String(userState.selectedTeam.ownerId) : "");
 
   const load = useCallback(async () => {
     setState({ status: "loading", payload: null, error: null });
