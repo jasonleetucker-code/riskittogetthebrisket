@@ -108,6 +108,17 @@ When the harness or a workflow uses parallel agents, audit the topology rather t
 - fan-out/agent/cost budgets and stop conditions are bounded;
 - the task is actually wide enough to justify a graph.
 
+## External-guidance hygiene
+
+When new Twitter/X posts, articles, talks, or vendor guidance are proposed for the harness:
+
+- separate reproducible engineering mechanisms from hype/adoption claims;
+- require independent support before treating statistics such as “X% of engineers use Y” as factual evidence;
+- look for incentive-heavy framing (“everyone is behind,” “worth a $500 course,” “delete your IDE”) and do not let it increase evidentiary weight;
+- prefer source-backed mechanics that can be tested in this repo;
+- record what was adopted and what was intentionally rejected;
+- do not create a new rule if the useful mechanism is already canonical here.
+
 ## Autonomous-runner hygiene
 
 When reviewing any unattended/recurrent agent runner, verify:
