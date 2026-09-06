@@ -108,3 +108,24 @@ def test_harness_auditor_checks_autonomous_runner_controls():
     assert "report-only, assisted, and autonomous modes" in harness
     assert "PolyDAO" in rationale
     assert "2096128417108287566" in rationale
+
+
+def test_graph_failures_are_routable_structured_values():
+    doc = _read("docs/AGENT_OPERATING_SYSTEM.md")
+    assert "Routable failure states" in doc
+    assert "retryable failure" in doc
+    assert "terminal failure" in doc
+    assert "blocked/external dependency" in doc
+    assert "do not convert an exception, missing result, or timeout into success" in doc
+
+
+def test_external_guidance_is_filtered_for_hype_vs_mechanism():
+    doc = _read("docs/AGENT_OPERATING_SYSTEM.md")
+    harness = _read(".agents/skills/repo-harness-auditor/SKILL.md")
+    rationale = _read("docs/agent-operating-system/DESIGN_RATIONALE_2026-09-05.md")
+    assert "External-guidance hygiene" in doc
+    assert "adoption statistics" in doc
+    assert "independently verify quantitative or institutional claims" in doc
+    assert "External-guidance hygiene" in harness
+    assert "85% of Google engineers" in rationale
+    assert "2088199384580108339" in rationale
