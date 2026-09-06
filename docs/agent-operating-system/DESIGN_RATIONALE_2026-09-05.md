@@ -109,6 +109,32 @@ Useful principles adopted:
 
 These extend the existing "loops inside graphs" rule without adding a new overlapping skill.
 
+### Mr. Buzzoni / PolyDAO — Loop Rat autonomous-runner pattern
+
+Owner-supplied source:
+`https://x.com/polydao/status/2096128417108287566`
+
+The publicly mirrored post describes an autonomous repo loop with a committed contract, local overrides, spend caps/timeouts/denylist, schedule, independent rubrics/grading, append-only receipts and action trace, resumable checkpoint, budget ledger, and an external halt file. It also separates the scheduler/engine from the model call itself: the model does not decide when it wakes. citeturn305770search2turn305770search5
+
+Useful principles adopted:
+
+- unattended autonomy needs an execution contract, not just a prompt;
+- separate committed policy from local operator overrides, and never allow local overrides to weaken the committed safety boundary;
+- enforce spend/time/action/retry/parallelism limits outside model prose;
+- centralize repo-owned model calls behind one auditable gateway;
+- externalize resumable state with checkpoints plus append-only run receipts/traces;
+- make verification executable and keep grading independent from authorship;
+- require a simple external kill/halt sentinel for unattended schedulers;
+- distinguish report-only, assisted, and autonomous modes;
+- treat deployment of unattended loops as a separate owner-authorized activation decision.
+
+Deliberately not adopted as automatic behavior:
+
+- no new night-shift scheduler is activated by this documentation change;
+- no fixed dollar budget or cadence from the example is copied into this repo;
+- no new model/provider choice is hard-coded;
+- no autonomous loop may bypass existing claims, exact-head CI, protected PR, deploy, auth, or completion-contract gates.
+
 ## What the repo already had
 
 The audit found that this repository was **not** starting from zero.
