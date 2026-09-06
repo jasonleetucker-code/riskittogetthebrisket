@@ -98,14 +98,32 @@ test.describe("W1-12: public Week 1 pregame surfaces (production)", () => {
     await expect(page.getByText(/Week \d+ matchups · \d{4}/)).toBeVisible({ timeout: 60_000 });
 
     const body = await page.locator("body").innerText();
+
+    // THREE states, not two, and they must be told apart by strings that
+    // cannot both be true. `/Wednesday-morning previews/` on its own is
+    // ambiguous: `articles.jsx` uses that phrase BOTH in the healthy
+    // subhead ("…previews. Tap a card for the full article.") and in the
+    // zero-articles EmptyCard ("…previews will land here once the cron
+    // runs."). Matching the bare phrase would record an EMPTY surface as a
+    // healthy current-week slate — the exact "degraded state presented as
+    // current" defect this row exists to catch, committed by the
+    // instrument instead of by the product.
+    const empty = /No previews yet/.test(body);
     const older = /Most recent previews ·/.test(body);
-    const current = /Wednesday-morning previews/.test(body);
-    // Exactly one of the two voices, never both and never neither.
-    expect(older || current).toBe(true);
+    const current = /Wednesday-morning previews\. Tap a card/.test(body);
+
+    const named = [empty, older, current].filter(Boolean);
+    expect(named.length, "the slate must name exactly one state").toBe(1);
+
     if (older) {
+      // Stale is not current: the older slate must name the week that is
+      // actually missing, and must not also speak in the present tense.
       expect(body).toMatch(/No previews written yet for \d{4} Week \d+/);
+      expect(body).not.toMatch(/Wednesday-morning previews\. Tap a card/);
     }
-    annotate(testInfo, "w1-12-slate-voice", older ? "older slate, labelled" : "current-week slate");
+
+    const voice = empty ? "empty slate, labelled" : older ? "older slate, labelled" : "current-week slate";
+    annotate(testInfo, "w1-12-slate-voice", voice);
   });
 
   test("the surface is usable at a phone viewport without horizontal scroll", async ({
