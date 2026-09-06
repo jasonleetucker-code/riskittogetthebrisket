@@ -255,6 +255,59 @@ Treat failure as structured data when a graph must continue safely.
 
 A graph is more resilient when a failed node can be bypassed, retried, or escalated explicitly rather than crashing the whole workflow or being silently omitted.
 
+**Graph specification contract**
+
+Before implementing a nontrivial graph, write the graph contract in structured form. At minimum declare:
+
+- `GOAL` — what must exist when the graph succeeds;
+- `INPUT_STATE` — structured state entering the graph;
+- `PARALLEL_WORK` — units proven independent enough to fan out;
+- `CRITICAL_PATH` — longest unavoidable dependency chain;
+- `VERIFIER` — who/what can reject;
+- `FAILURE_DOMAIN` — blast radius when each important node fails;
+- `HUMAN_GATE` — consequential transitions requiring human approval;
+- `FROZEN_RULES` — constraints no optimizer/agent may rewrite;
+- `OBSERVABILITY` — metrics/receipts required to understand the run;
+- `STOPPING_RULE` — explicit convergence/budget exit condition.
+
+The graph contract should be easier to audit than a collection of prompts. Prompts optimize nodes; the graph specification controls the system.
+
+**Transition contracts and approval guards**
+
+Edges are not merely arrows. A meaningful transition should identify the data/state that crosses it and, when needed, the guard that must be true before the transition is reachable.
+
+- Put machine-checkable schemas at important handoff boundaries.
+- For irreversible/consequential actions, model human approval as a **guard on the transition**, not as a conversational request inside a worker prompt.
+- If the approval record is absent, the protected transition is unreachable.
+- Do not allow a worker to rewrite, summarize away, or self-satisfy its own approval guard.
+- Keep approval evidence durable enough for later audit.
+
+**Quorum-aware fan-in**
+
+The default fan-in contract is **all required upstream results must arrive**.
+
+A graph may continue with fewer only when the graph specification explicitly defines a quorum/partial-coverage rule in advance. When quorum is allowed:
+- record expected count, received count, and missing identities;
+- preserve the coverage limitation in the downstream artifact;
+- never reinterpret silent worker loss as intentional quorum;
+- never call a partial result complete unless the contract explicitly defines that state as complete.
+
+**Critical-path and graph observability**
+
+Optimize wall-clock time by the critical path, not by raw node count.
+
+For material graphs, measure the graph rather than only reading chat transcripts. Useful metrics include:
+- critical-path latency;
+- per-node latency and failure rate;
+- retry/escalation counts;
+- verifier rejection rate;
+- expected-vs-received fan-in coverage;
+- reducer/compression ratio before synthesis;
+- tool/model cost where measurable;
+- halt/budget stop reasons.
+
+Observability should make it possible to tell whether added parallelism improved independent coverage or merely added coordination cost.
+
 **Default wide-work pattern: fan out -> reduce -> verify -> synthesize**
 - fan out only independent work;
 - reduce deterministically with ordinary code for dedupe/count/sort/schema checks where possible;
