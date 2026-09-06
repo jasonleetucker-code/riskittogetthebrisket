@@ -244,6 +244,17 @@ Use a graph only when the work is genuinely wide. A graph buys concurrency and b
 **Fake-edge test**
 For every proposed dependency, ask: *does the downstream node actually consume the upstream result, or do they share a mutable/rate-limited resource that requires ordering?* If neither is true, the edge is fake and the jobs should usually run in parallel.
 
+**Routable failure states**
+Treat failure as structured data when a graph must continue safely.
+
+- define named outcomes that downstream routing can branch on instead of relying on an agent to interpret free-form error prose;
+- distinguish at minimum success, retryable failure, terminal failure, blocked/external dependency, and unknown when those states materially change routing;
+- preserve the evidence/error payload alongside the named state;
+- route only on states the producing node is actually authorized and able to establish;
+- do not convert an exception, missing result, or timeout into success merely so the graph can continue.
+
+A graph is more resilient when a failed node can be bypassed, retried, or escalated explicitly rather than crashing the whole workflow or being silently omitted.
+
 **Default wide-work pattern: fan out -> reduce -> verify -> synthesize**
 - fan out only independent work;
 - reduce deterministically with ordinary code for dedupe/count/sort/schema checks where possible;
@@ -581,6 +592,17 @@ Before a session declares a bounded unit complete:
 7. update the canonical completion record only when its evidence bar is actually met.
 
 If the active fixed-denominator contract reaches its terminal state, report the exact terminal phrase defined by that contract and stop that completion campaign.
+
+### External-guidance hygiene
+
+Treat external AI-engineering posts as candidate design evidence, not authority.
+
+When harvesting a post/article/video:
+- separate the **engineering pattern** from adoption statistics, prestige claims, urgency language, course-price comparisons, or “everyone is already doing this” framing;
+- independently verify quantitative or institutional claims before using them as factual justification;
+- do not encode a workflow rule merely because a named company/person is claimed to use it;
+- adopt the smallest durable mechanism that survives without the marketing premise;
+- record the source URL and what was actually adopted, plus what was deliberately not adopted.
 
 ## 15. Why this system exists
 
