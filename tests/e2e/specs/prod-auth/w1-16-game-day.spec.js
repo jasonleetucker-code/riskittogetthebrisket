@@ -7,6 +7,15 @@
  * the OWNER'S experience, and everything on the page is private decision
  * intelligence under CLAUDE.md §5.
  *
+ * TEAM RESOLUTION. The workflow's session is a GUEST pass (it logs in as
+ * `guest`), so it carries no Sleeper user id and the league's default team map
+ * does not name it — `/api/matchup/intel` would answer 400 `team_required` and
+ * the page would show "No team selected". That is CORRECT behaviour and not
+ * what this row is about, so the spec resolves a real team the way the other
+ * prod-auth specs do — from `sleeper.teams` on the deployed authenticated
+ * contract — and asks about that team explicitly. Recorded because a reader
+ * would otherwise reasonably expect the session's own team to be used.
+ *
  * The assertions are deliberately about TRUTHFULNESS, not pixels. This page
  * can legitimately be in one of three states on any given day — priced,
  * unpriced, or live — and the failure mode that matters is not "it looked
@@ -16,11 +25,29 @@
  */
 const { test, expect, prodUrl, getJson, annotate, mobileOnly } = require("./helpers");
 
+/**
+ * A real ownerId from the deployed board. Same source `v1-27` uses
+ * (`/api/data?view=app` → `sleeper.teams`), so the spec cannot drift onto a
+ * team the production contract does not actually hold.
+ */
+async function resolveTeam(page) {
+  const { status, body } = await getJson(page, "/api/data?view=app");
+  expect(status, "/api/data must serve the session").toBe(200);
+  const teams = (body && body.sleeper && body.sleeper.teams) || [];
+  const withOwner = teams.filter((t) => t && t.ownerId);
+  expect(withOwner.length, "contract carries no Sleeper team with an ownerId").toBeGreaterThan(0);
+  return String(withOwner[0].ownerId);
+}
+
 test.describe("W1-16: the owner's Game Day experience (production)", () => {
   test("the page renders for the owner's own team and names its state", async ({
     prodPage: page,
   }, testInfo) => {
-    await page.goto(prodUrl("/game-day"), { waitUntil: "domcontentloaded" });
+    const team = await resolveTeam(page);
+    annotate(testInfo, "w1-16-team", team);
+    await page.goto(prodUrl(`/game-day?team=${encodeURIComponent(team)}`), {
+      waitUntil: "domcontentloaded",
+    });
 
     await expect(page.getByRole("heading", { name: "Game Day" })).toBeVisible({ timeout: 60_000 });
 
@@ -39,12 +66,14 @@ test.describe("W1-16: the owner's Game Day experience (production)", () => {
     // Same posture as the other prod-auth specs: read the API the page
     // reads, then require the page to show THAT. A screenshot-shaped
     // assertion would pass against a stale client bundle.
-    const { status, body } = await getJson(page, "/api/matchup/intel");
+    const team = await resolveTeam(page);
+    const q = `?team=${encodeURIComponent(team)}`;
+    const { status, body } = await getJson(page, `/api/matchup/intel${q}`);
     annotate(testInfo, "w1-16-endpoint-status", String(status));
 
     if (status === 409) {
       // Live week. The page must say so and show no probability at all.
-      await page.goto(prodUrl("/game-day"), { waitUntil: "domcontentloaded" });
+      await page.goto(prodUrl(`/game-day${q}`), { waitUntil: "domcontentloaded" });
       await expect(page.getByText(/This week has already started/)).toBeVisible({
         timeout: 60_000,
       });
@@ -61,7 +90,7 @@ test.describe("W1-16: the owner's Game Day experience (production)", () => {
       `${body.lineage?.estimateCoverage?.priced}/${body.lineage?.estimateCoverage?.active} priced`,
     );
 
-    await page.goto(prodUrl("/game-day"), { waitUntil: "domcontentloaded" });
+    await page.goto(prodUrl(`/game-day${q}`), { waitUntil: "domcontentloaded" });
     await expect(page.getByRole("heading", { name: "Game Day" })).toBeVisible({ timeout: 60_000 });
     const text = await page.locator("body").innerText();
 
@@ -87,14 +116,16 @@ test.describe("W1-16: the owner's Game Day experience (production)", () => {
     // W1-15's actual ask. A win probability with no stated projection
     // source, coverage or threshold-semantics flag is a number, not
     // intelligence.
-    const { status, body } = await getJson(page, "/api/matchup/intel");
+    const team = await resolveTeam(page);
+    const q = `?team=${encodeURIComponent(team)}`;
+    const { status, body } = await getJson(page, `/api/matchup/intel${q}`);
     if (status === 409) {
       test.skip(true, "week in progress — the pregame lineage panel is not the question today");
       return;
     }
     expect(status).toBe(200);
 
-    await page.goto(prodUrl("/game-day"), { waitUntil: "domcontentloaded" });
+    await page.goto(prodUrl(`/game-day${q}`), { waitUntil: "domcontentloaded" });
     await expect(page.getByText("Where these numbers come from")).toBeVisible({ timeout: 60_000 });
     const text = await page.locator("body").innerText();
 
@@ -121,7 +152,10 @@ test.describe("W1-16: the owner's Game Day experience (production)", () => {
     prodPage: page,
   }, testInfo) => {
     mobileOnly(test, testInfo);
-    await page.goto(prodUrl("/game-day"), { waitUntil: "domcontentloaded" });
+    const team = await resolveTeam(page);
+    await page.goto(prodUrl(`/game-day?team=${encodeURIComponent(team)}`), {
+      waitUntil: "domcontentloaded",
+    });
     await expect(page.getByRole("heading", { name: "Game Day" })).toBeVisible({ timeout: 60_000 });
     const overflow = await page.evaluate(
       () => document.documentElement.scrollWidth - document.documentElement.clientWidth,

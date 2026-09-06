@@ -22,7 +22,8 @@
  * which is why it is not there.
  */
 
-import { PageHeader } from "@/components/ui";
+import { Suspense } from "react";
+import { LoadingState, PageHeader } from "@/components/ui";
 import GameDayPanel from "@/components/GameDayPanel";
 
 export default function GameDayPage() {
@@ -32,7 +33,12 @@ export default function GameDayPage() {
         title="Game Day"
         subtitle="Your matchup, projected: win probability from the canonical league-week simulation, the expected best-ball lineup for both sides, and what the numbers were built on."
       />
-      <GameDayPanel />
+      {/* `useSearchParams` inside the panel requires a Suspense boundary
+          during static prerender — same convention as
+          app/players/compare/page.jsx. */}
+      <Suspense fallback={<LoadingState message="Loading this week's matchup..." />}>
+        <GameDayPanel />
+      </Suspense>
     </section>
   );
 }
