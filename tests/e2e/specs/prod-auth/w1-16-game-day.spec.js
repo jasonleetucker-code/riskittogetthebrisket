@@ -148,6 +148,30 @@ test.describe("W1-16: the owner's Game Day experience (production)", () => {
     annotate(testInfo, "w1-16-anon-api", `HTTP ${res.status()}`);
   });
 
+  test("W1-25: the shell offers Game Day in the My Team group", async ({
+    prodPage: page,
+  }, testInfo) => {
+    // W1-25's navigation-shell clause. Asserted on the DEPLOYED shell
+    // rather than by reading nav-model.js, because the row is about the
+    // integrated shell and a source read cannot tell whether the built
+    // bundle carries it.
+    desktopOnly(test, testInfo);
+    await page.goto(prodUrl("/rankings"), { waitUntil: "domcontentloaded" });
+    // Shell readiness: the same "authenticated UI is hydrated" signal
+    // v1-131-nav-gating uses.
+    await expect(page.locator(".shell-search-btn")).toBeVisible({ timeout: 60_000 });
+
+    await page.getByRole("button", { name: "My Team menu" }).click();
+    const menu = page.locator('[role="menu"][aria-label="My Team"]');
+    await expect(menu).toBeVisible();
+
+    const item = menu.getByRole("menuitem", { name: /Game Day/ });
+    await expect(item, "the My Team menu does not offer Game Day").toBeVisible();
+    const href = await item.getAttribute("href");
+    expect(href, "Game Day nav item points somewhere else").toContain("/game-day");
+    annotate(testInfo, "w1-25-nav", `My Team → Game Day → ${href}`);
+  });
+
   test("usable at a phone viewport without horizontal scroll", async ({
     prodPage: page,
   }, testInfo) => {
