@@ -89,6 +89,14 @@ def test_receipt_degrades_unprovable_state_to_unknown(monkeypatch, tmp_path):
     assert values["AGENT_OS_DIRTY"] == "UNKNOWN"
 
 
+def test_session_start_hook_has_valid_bash_syntax():
+    subprocess.run(
+        ["bash", "-n", str(REPO / ".claude" / "health-check.sh")],
+        cwd=REPO,
+        check=True,
+    )
+
+
 def test_session_start_hook_invokes_the_receipt_owner():
     hook = (REPO / ".claude" / "health-check.sh").read_text(encoding="utf-8")
     assert "python scripts/agent_os_receipt.py || true" in hook
