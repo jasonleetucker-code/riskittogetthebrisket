@@ -114,7 +114,7 @@ These extend the existing "loops inside graphs" rule without adding a new overla
 Owner-supplied source:
 `https://x.com/polydao/status/2096128417108287566`
 
-The publicly mirrored post describes an autonomous repo loop with a committed contract, local overrides, spend caps/timeouts/denylist, schedule, independent rubrics/grading, append-only receipts and action trace, resumable checkpoint, budget ledger, and an external halt file. It also separates the scheduler/engine from the model call itself: the model does not decide when it wakes. citeturn305770search2turn305770search5
+The publicly mirrored post describes an autonomous repo loop with a committed contract, local overrides, spend caps/timeouts/denylist, schedule, independent rubrics/grading, append-only receipts and action trace, resumable checkpoint, budget ledger, and an external halt file. It also separates the scheduler/engine from the model call itself: the model does not decide when it wakes. These details were cross-checked against public mirrors of the owner-supplied X post before adoption.
 
 Useful principles adopted:
 
