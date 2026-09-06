@@ -36,6 +36,23 @@ A material session begins by establishing **current state**, not replaying old c
 
 The existing Claude `SessionStart` hook in `.claude/health-check.sh` prints the active router and mechanically surfaces an incomplete Week 1 launch contract when present. This is intentional: the user should not need to paste a continuation prompt simply to tell Claude which completion contract is active.
 
+
+### Agent OS session receipt
+
+The SessionStart router also loads the exact working-tree bytes of this file and emits:
+
+`Agent OS loaded: <git-blob-sha>`
+
+That SHA is the durable content-version receipt for the operating instructions supplied to the session.
+
+For every material Claude session:
+- carry the exact SHA from SessionStart into the first meaningful progress checkpoint;
+- include it in any PR description, final handoff, or durable session record produced by that session;
+- if the startup receipt is unavailable, read this file and run `python scripts/agent_os_receipt.py` before material work;
+- if this file changes mid-session, do not silently claim the old receipt covers the new instructions — reread it, generate a new receipt, and state that the operating version changed.
+
+The receipt proves **which bytes the startup harness loaded**, not that an agent semantically complied with every instruction. Compliance still has to be established from behavior, tests, review, CI, and production evidence.
+
 ### Current launch rule
 
 While `docs/season-launch/WEEK_1_LAUNCH_CONTRACT.md` exists with fewer than all 30 rows literally `VERIFIED`, it is the active season-launch scoreboard.
