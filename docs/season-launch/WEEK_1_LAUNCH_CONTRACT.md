@@ -148,6 +148,48 @@ The denominator is frozen at 30 for this launch tranche. Do not add/remove rows 
 
 ### Named blockers
 
+- **W1-27 — METHODOLOGY STOP: what is a mid-game player's remaining
+  production?** Traced 2026-09-06. The live half of Game Day is buildable
+  except for one question the repository cannot answer from evidence.
+
+  `game_day_sim` scores five player states, and `_drawable` admits a player
+  only when the state's evidence exists: a `completed` player needs banked
+  points, an `in_progress` or `not_started` player needs
+  `projected_remaining`. For a player whose NFL game is **underway**, this
+  repo has no live in-game feed — no snap count, no quarter, no drive state —
+  so `projected_remaining` has no evidenced value. That forces a choice the
+  engine cannot make for itself, because each option is a different product
+  claim:
+
+  | option | what it asserts | cost |
+  |---|---|---|
+  | (a) prorate the pregame estimate by elapsed game time | production accrues uniformly in wall-clock time | invents a rate model with no fitted evidence |
+  | (b) remaining = 0 | a mid-game player is finished | the double-projection error spec §6 forbids, inverted |
+  | (c) exclude the player, report him, and mark the probability degraded while any roster player is mid-game | we cannot estimate this, and say so | the probability is withheld during live windows, which is most of Sunday |
+
+  **No option is implemented and none will be guessed.** (c) is the only one
+  consistent with `missing != zero` and with how this repo already treats an
+  unpriced player, but it makes the headline probability unavailable for much
+  of a live week, which is a product judgment rather than an engineering one.
+
+  **Smallest exact decision needed:** which of (a)/(b)/(c) is the Week 1
+  behaviour for a player whose game is in progress. Everything else in W1-27 —
+  banked scoring, which players are done vs upcoming, best-ball state over the
+  players whose state IS evidenced — is factual and needs no decision.
+
+  Note the Week-1 clock makes this narrow in practice: at the Wednesday
+  deadline only the NE @ SEA game is underway, so only players in that game are
+  affected.
+
+- **W1-28 — TEMPORALLY UNREACHABLE by the Wednesday deadline.** A FINAL
+  matchup state requires Week 1 to be complete, and the measured schedule ends
+  **Monday 2026-09-14 20:15 ET** (DEN @ KC) — five days after the contract's
+  Wednesday 2026-09-09 23:59 CT deadline. This is not a work-rate problem and
+  no amount of implementation changes it. Recorded so the row is not read as
+  neglected, and so the deadline's realistic ceiling is stated honestly rather
+  than discovered on Wednesday night.
+
+
 - **W1-11:** `ANTHROPIC_API_KEY` is not configured. `weekly-narratives.yml` therefore skips generation after its key check while reporting a green workflow; there are zero 2026 Week 1 narrative files. This needs the repository secret to exist before the scheduled Week 1 generation path can produce and quality-review all six articles.
 - **W1-23:** host threshold/tie semantics as described above. The simulation intentionally fails closed on the verification flag until real host evidence settles the rule.
 - **W1-03 / W1-04 timing — OWNER DECISION 2026-09-05:** the owner explicitly authorizes a **one-time Week 1 production capture on Wednesday 2026-09-09 after waiver processing is confirmed complete and before any NFL scoring begins**. Do not wait for the normal Thursday timer for the first Week 1 observation. Do not capture before waivers settle, do not backdate, and do not synthesize evidence. Preserve the normal Thursday recurring timer for future cadence unless a separate operational change is justified. After the authentic Wednesday capture creates `data/game_day/`, immediately run the real retention backup/proof path and verify an observed generation containing `game_day.tar.gz`. This makes W1-03 and W1-04 legitimately reachable by the Wednesday deadline without weakening either acceptance criterion.
