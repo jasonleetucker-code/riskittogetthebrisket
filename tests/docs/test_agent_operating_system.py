@@ -129,3 +129,25 @@ def test_external_guidance_is_filtered_for_hype_vs_mechanism():
     assert "External-guidance hygiene" in harness
     assert "85% of Google engineers" in rationale
     assert "2088199384580108339" in rationale
+
+
+def test_agent_os_handles_async_pending_state_and_midrun_steering():
+    doc = _read("docs/AGENT_OPERATING_SYSTEM.md")
+    assert "Runtime steering, pending work, and capability negotiation" in doc
+    assert "Capability negotiation" in doc
+    assert "Pending asynchronous work" in doc
+    assert "stable identity" in doc
+    assert "Mid-run steering" in doc
+    assert "Preserve completed work" in doc
+    assert "Dynamic reasoning effort" in doc
+    assert "Do not copy vendor-specific API syntax" in doc
+
+
+def test_harness_audits_runtime_capabilities_before_using_them():
+    harness = _read(".agents/skills/repo-harness-auditor/SKILL.md")
+    rationale = _read("docs/agent-operating-system/DESIGN_RATIONALE_2026-09-05.md")
+    assert "Runtime-capability hygiene" in harness
+    assert "pending tool calls as explicit identified state" in harness
+    assert "test fallback behavior" in harness
+    assert "2096541972156846373" in rationale
+    assert "developers.openai.com/api/docs/guides/latest-model" in rationale
