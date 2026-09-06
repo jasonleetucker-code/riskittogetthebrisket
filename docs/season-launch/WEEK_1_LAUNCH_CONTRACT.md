@@ -168,6 +168,40 @@ The denominator is frozen at 30 for this launch tranche. Do not add/remove rows 
   `deploy/backup/riskit-state-backup.sh:427`, pinned by
   `tests/deploy/test_state_backup_dir_archiving.py`.
   Consequence for the owner-authorized window: **capture first, then prove.**
+
+  **THE WEEK 1 CLOCK, measured 2026-09-06 from the real nflverse schedule
+  (`src/bdvm/schedule.fetch_schedule_rows(2026)`, 272 rows / 16 Week-1 games).**
+  This is not the ordinary week the recurring timer was designed against, and
+  the difference decides the Wednesday sequence:
+
+  | | |
+  |---|---|
+  | Week 1 OPENS | **Wednesday 2026-09-09 20:20 ET** — NE @ SEA |
+  | second game | Thursday 2026-09-10 20:35 ET — SF @ LA |
+  | main slate | Sunday 2026-09-13 (13 games) |
+  | Week 1 ENDS | Monday 2026-09-14 20:15 ET — DEN @ KC |
+  | contract deadline | Wednesday 2026-09-09 23:59 CT |
+
+  Three consequences, none of them a matter of preference:
+
+  1. **The owner-authorized capture window is Wednesday morning (after waivers
+     settle) until ~19:00 ET, not "any time Wednesday."** Scoring begins at
+     20:20 ET, and `build_capture` refuses a `pregame` capture once
+     `week_has_begun` sees any nonzero score.
+  2. **The recurring `Thu 13:00 UTC` timer would produce NO valid Week 1
+     pregame capture.** It fires roughly 17 hours AFTER the Wednesday opener,
+     so the refusal would be correct and the observation would simply be lost.
+     The timer's own docstring reasons about "ordinary week — Thursday Night
+     Football" and about Thanksgiving; a **Wednesday** season opener is outside
+     the case it was designed for. The owner's Wednesday decision is therefore
+     not a deadline convenience — it is the only path to a valid Week 1
+     pregame observation at all. (The timer stays as-is for future weeks, which
+     are Thursday-opening; this is a Week-1-only gap, recorded not changed.)
+  3. **W1-28 is temporally unreachable by the deadline.** A FINAL matchup state
+     needs Week 1 to be over, and Week 1 ends Monday 2026-09-14 — five days
+     after Wednesday. **W1-27** is reachable only inside the ~3.5-hour live
+     window between the 20:20 ET kickoff and 23:59 CT.
+
   Neither row may be marked VERIFIED on the strength of the wiring — each asks
   for an observed artifact, and only the real Wednesday capture can produce it.
 
