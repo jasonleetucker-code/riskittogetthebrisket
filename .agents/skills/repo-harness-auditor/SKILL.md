@@ -108,6 +108,24 @@ When the harness or a workflow uses parallel agents, audit the topology rather t
 - fan-out/agent/cost budgets and stop conditions are bounded;
 - the task is actually wide enough to justify a graph.
 
+## Autonomous-runner hygiene
+
+When reviewing any unattended/recurrent agent runner, verify:
+
+- committed contract and gitignored local overrides are separated;
+- local overrides can tighten but cannot weaken committed safety boundaries;
+- wall-clock, action/iteration, retry, parallel-width, and spend/token budgets are enforced outside prompt prose;
+- destructive/out-of-scope actions have an explicit denylist or allowlist boundary;
+- repo-owned model invocation has one auditable gateway rather than scattered hidden call sites;
+- per-run receipts and traces are append-only;
+- checkpoints contain enough state to resume but still force fresh preflight against current repo/PR/CI state;
+- verification is executable where possible and independent grading is separate from authorship;
+- a fail-closed external halt sentinel is checked before start and before consequential side effects;
+- report-only, assisted, and autonomous modes are explicit rather than inferred;
+- scheduled autonomy has an owner-approved activation decision and rollback path.
+
+Do not deploy a new unattended runner merely because the harness audit describes how one should be governed.
+
 ## Model-migration hygiene
 
 When Claude/Codex model behavior changes materially, treat the harness like code that is being migrated.
