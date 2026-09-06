@@ -75,16 +75,24 @@ test.describe("W1-12: public Week 1 pregame surfaces (production)", () => {
   test("the Home card's Full H2H preview link reaches the previews tab", async ({
     publicPage: page,
   }, testInfo) => {
-    // Captured from before navigation starts, so a failure during EITHER
-    // the initial load or the client-side tab switch is caught. This test
-    // previously failed on production with a bare 60s timeout and no
-    // error text to root-cause from; a leading hypothesis (investigated
-    // 2026-09-06, see LeagueClient.jsx's `lazySection` comment) is a
-    // failed chunk load or a render throw inside the lazy-loaded previews
-    // section, which a page-wide error boundary would swallow visually
-    // but which still reaches the console. Recording it here means the
-    // NEXT failure, if there is one, carries real evidence instead of
-    // another bare timeout to guess at.
+    // Captured from before navigation starts. A first attempt at this row
+    // (2026-09-06) hypothesized a crashed lazy-chunk load and wrapped the
+    // previews section in an error boundary — the WRONG fix. Real
+    // evidence from that attempt's own failure (console/pageerror capture:
+    // zero of either, both viewports; the failure's DOM snapshot: the page
+    // was still rendering the Home tab's OWN content, "Full H2H preview →"
+    // still present and un-clicked-looking) proves there was no crash for
+    // a boundary to catch — the click simply had no effect.
+    //
+    // This is a HYDRATION RACE, the same class this repo already diagnosed
+    // and fixed once in v1-131-nav-gating.spec.js's mobile drawer test:
+    // `domcontentloaded` + a visible CTA only proves the SSR markup
+    // painted (OverviewSection is statically imported, so its markup is
+    // in the initial HTML) — the onClick is wired by React hydration,
+    // which can still be in flight. A native click landing in that gap
+    // dispatches a real DOM event with nobody listening for it yet, and
+    // once hydration completes there is no replay. Kept here rather than
+    // removed: a real future crash would still show up in these arrays.
     const consoleErrors = [];
     const pageErrors = [];
     page.on("console", (msg) => {
@@ -97,9 +105,23 @@ test.describe("W1-12: public Week 1 pregame surfaces (production)", () => {
     await page.goto(prodUrl("/league"), { waitUntil: "domcontentloaded" });
     const cta = page.getByText(/Full H2H preview/i).first();
     await expect(cta).toBeVisible({ timeout: 60_000 });
+    // Give hydration a bounded chance to finish before clicking — same
+    // networkidle-with-fallback pattern v1-131-nav-gating.spec.js already
+    // uses for this exact race. `.catch()` because a page that legitimately
+    // never goes fully idle (polling, analytics) must not hang the test.
+    await page.waitForLoadState("networkidle", { timeout: 15_000 }).catch(() => {});
     await cta.click();
+    const previewsHeading = page.getByText(/Week \d+ matchups · \d{4}/);
     try {
-      await expect(page.getByText(/Week \d+ matchups · \d{4}/)).toBeVisible({ timeout: 60_000 });
+      try {
+        await expect(previewsHeading).toBeVisible({ timeout: 5_000 });
+      } catch {
+        // One retry covers a click that still landed pre-hydration despite
+        // the networkidle wait (e.g. a slow runner) — a genuine navigation
+        // defect fails this too, since neither attempt reaches the tab.
+        await cta.click();
+        await expect(previewsHeading).toBeVisible({ timeout: 60_000 });
+      }
     } finally {
       // Recorded on pass too — a clean run with captured errors would
       // itself be worth knowing about (an error the page recovered from).

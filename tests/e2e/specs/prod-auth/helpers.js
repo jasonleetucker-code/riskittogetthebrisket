@@ -60,8 +60,8 @@ function readCookieValue() {
  * the browser context's cookie jar).  Returns { status, body } — body is
  * null when the response is not JSON.
  */
-async function getJson(page, path) {
-  const res = await page.request.get(prodUrl(path), { timeout: 45_000 });
+async function getJson(page, path, { timeoutMs = 45_000 } = {}) {
+  const res = await page.request.get(prodUrl(path), { timeout: timeoutMs });
   let body = null;
   try {
     body = await res.json();

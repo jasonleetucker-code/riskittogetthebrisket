@@ -62,8 +62,17 @@ test.describe("W1-16: the owner's Game Day experience (production)", () => {
     // Exactly one state badge, and it must be one of the real ones — a
     // surface that renders no state at all is the implicit default this
     // row exists to remove.
+    //
+    // The badge is NOT part of the initial page shell — GameDayPanel fetches
+    // /api/matchup/intel client-side after mount, and (see the next test's
+    // comment) a cold call against a real league can genuinely take tens of
+    // seconds. `.count()` does not wait; checking it immediately after the
+    // static heading appears raced the fetch and failed at 0+0 even when the
+    // page was working correctly (measured in production, 2026-09-06). Wait
+    // for the badge itself, on the same 90s budget as the direct API calls.
     const scheduled = page.getByText(/Scheduled · pregame/);
     const live = page.getByText(/^Live$/);
+    await expect(scheduled.or(live)).toBeVisible({ timeout: 90_000 });
     const scheduledCount = await scheduled.count();
     const liveCount = await live.count();
     expect(scheduledCount + liveCount).toBeGreaterThan(0);
@@ -76,7 +85,16 @@ test.describe("W1-16: the owner's Game Day experience (production)", () => {
     // assertion would pass against a stale client bundle.
     const team = await resolveTeam(page);
     const q = `?team=${encodeURIComponent(team)}`;
-    const { status, body } = await getJson(page, `/api/matchup/intel${q}`);
+    // 90s, matching this suite's existing convention for slow-loading
+    // scenarios (v1-109/v1-111/v1-123-*): a cold call here runs the full
+    // league-week Monte Carlo (measured production floor here, before
+    // caching: 45-51s; the eligibility hoist + cache fix reduces this on
+    // a WARM hit to ~1ms, but the very first caller for a league-week
+    // still pays a real, if reduced, cost). 45s was proven too tight by
+    // this exact call timing out at exactly that mark in production.
+    const { status, body } = await getJson(page, `/api/matchup/intel${q}`, {
+      timeoutMs: 90_000,
+    });
     annotate(testInfo, "w1-16-endpoint-status", String(status));
 
     if (status === 409) {
@@ -126,7 +144,10 @@ test.describe("W1-16: the owner's Game Day experience (production)", () => {
     // intelligence.
     const team = await resolveTeam(page);
     const q = `?team=${encodeURIComponent(team)}`;
-    const { status, body } = await getJson(page, `/api/matchup/intel${q}`);
+    // 90s — see the previous test's comment for why 45s is too tight here.
+    const { status, body } = await getJson(page, `/api/matchup/intel${q}`, {
+      timeoutMs: 90_000,
+    });
     if (status === 409) {
       test.skip(true, "week in progress — the pregame lineage panel is not the question today");
       return;
