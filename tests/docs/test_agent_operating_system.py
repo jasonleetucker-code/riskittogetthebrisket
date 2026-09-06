@@ -151,3 +151,28 @@ def test_harness_audits_runtime_capabilities_before_using_them():
     assert "test fallback behavior" in harness
     assert "2096541972156846373" in rationale
     assert "developers.openai.com/api/docs/guides/latest-model" in rationale
+
+
+def test_graph_spec_has_critical_path_transition_guards_and_quorum():
+    doc = _read("docs/AGENT_OPERATING_SYSTEM.md")
+    assert "Graph specification contract" in doc
+    assert "`CRITICAL_PATH`" in doc
+    assert "`HUMAN_GATE`" in doc
+    assert "Transition contracts and approval guards" in doc
+    assert "guard on the transition" in doc
+    assert "Quorum-aware fan-in" in doc
+    assert "expected count, received count, and missing identities" in doc
+    assert "Critical-path and graph observability" in doc
+
+
+def test_harness_audits_graph_specs_and_guarded_transitions():
+    harness = _read(".agents/skills/repo-harness-auditor/SKILL.md")
+    rationale = _read("docs/agent-operating-system/DESIGN_RATIONALE_2026-09-05.md")
+    assert "Graph-spec and transition-guard hygiene" in harness
+    assert "protected transitions are unreachable without durable approval evidence" in harness
+    assert "explicit quorum was defined in advance" in harness
+    assert "LunarResearcher" in rationale
+    assert "2086071302272528833" in rationale
+    assert "2095467815041962449" in rationale
+    assert "2096726301520347470" in rationale
+    assert "exact body was not reliably recoverable" in rationale
