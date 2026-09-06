@@ -119,6 +119,18 @@ When new Twitter/X posts, articles, talks, or vendor guidance are proposed for t
 - record what was adopted and what was intentionally rejected;
 - do not create a new rule if the useful mechanism is already canonical here.
 
+## Runtime-capability hygiene
+
+When a model/runtime adds asynchronous tools, mid-turn steering, dynamic reasoning, or other long-running controls:
+
+- verify the capability on the exact product/API surface before the harness depends on it;
+- keep pending tool calls as explicit identified state, including timeout/cancel/failure outcomes;
+- confirm steering preserves still-valid completed work instead of resetting the whole task;
+- avoid rewriting accepted prompt/history prefixes merely to change reasoning effort when the runtime offers a scoped configuration update;
+- record material reasoning/effort changes when they affect cost, latency, or reproducibility;
+- test fallback behavior on runtimes that do not support the new capability;
+- keep vendor-specific request syntax out of the model-agnostic Agent OS unless the repository actually owns that API integration.
+
 ## Autonomous-runner hygiene
 
 When reviewing any unattended/recurrent agent runner, verify:
