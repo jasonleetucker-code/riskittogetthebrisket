@@ -181,6 +181,37 @@ Not adopted:
 - OpenAI-specific API syntax in the model-agnostic operating-system rules;
 - any assumption that Claude Code automatically supports Astra-specific Responses API controls.
 
+### LunarResearcher — complete graph-engineering specification
+
+Owner-supplied source:
+`https://x.com/lunarresearcher/status/2086071302272528833?s=46`
+
+A public mirror of the article presents a 10-field graph specification and several mechanisms that were only implicit in the prior Agent OS.
+
+New principles adopted:
+
+- nontrivial graphs should have a written system-level specification before implementation: goal, input state, true parallel work, critical path, verifier, failure domains, human gates, frozen rules, observability, and stopping rule;
+- optimize graph latency around the critical path rather than total step count;
+- edges should carry explicit structured data/state contracts;
+- human approval for consequential actions is better modeled as a guard on a transition than as a worker node or prompt request;
+- default fan-in requires all required results; partial continuation requires an explicit predeclared quorum and truthful coverage reporting;
+- graph observability should measure critical-path latency, node failures, verifier rejection, fan-in coverage, compression/reduction, retries, and cost where measurable.
+
+These extend the existing node-contract/fake-edge/independent-verifier/fan-in/anchor rules rather than creating a new graph skill.
+
+### External-source batch disposition — 2026-09-06
+
+This batch was evaluated under the Agent OS external-guidance hygiene rule:
+
+- `https://x.com/seeconvm/status/2088199384580108339?s=46` — duplicate in this batch and already incorporated earlier; no new rule.
+- `https://x.com/polydao/status/2096128417108287566?s=46` — already incorporated earlier; no new rule.
+- `https://x.com/hanakoxbt/status/2091515787366306154?s=46` — already incorporated earlier; no new rule.
+- `https://x.com/lunarresearcher/status/2086071302272528833?s=46` — new graph-spec/transition-guard/critical-path/observability rules adopted as described above.
+- `https://x.com/slash1sol/status/2095467815041962449?s=46` — exact body was not reliably recoverable from accessible mirrors/search at evaluation time; no rule attributed to this exact post. Neighboring slash1sol posts were **not** used as substitutes.
+- `https://x.com/cabbitar/status/2096726301520347470?s=46` — exact body was not reliably recoverable from accessible mirrors/search at evaluation time; no rule attributed to this exact post.
+
+The two unresolved exact posts may be reevaluated later if their bodies become reliably accessible. Until then, the repository must not infer their content from nearby posts or the authors' general themes.
+
 ## What the repo already had
 
 The audit found that this repository was **not** starting from zero.
