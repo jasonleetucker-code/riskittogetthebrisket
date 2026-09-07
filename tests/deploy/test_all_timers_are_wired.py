@@ -306,9 +306,9 @@ class TestNothingToDoIsNotAFailure:
 
         So the workflow must interrogate what is ACTUALLY installed.
         """
-        workflow = (
-            _REPO / ".github" / "workflows" / "game-day-capture.yml"
-        ).read_text(encoding="utf-8")
+        workflow = (_REPO / ".github" / "workflows" / "game-day-capture.yml").read_text(
+            encoding="utf-8"
+        )
         assert "systemctl show" in workflow and "SuccessExitStatus" in workflow, (
             "the on-box verification must read the installed unit's exit-code "
             "policy, not infer it from the workflow's own exit handling"
