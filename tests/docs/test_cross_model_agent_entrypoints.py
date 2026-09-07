@@ -43,7 +43,9 @@ def test_provider_specific_files_cannot_own_unique_semantics():
         "or engineering-process rule" in os_doc
     )
     assert "Provider-specific files are adapters only" in entry
-    assert "Do not make the human owner remember which model knows which rule." in entry
+    assert (
+        "Do not make the human owner remember which model knows which rule." in entry
+    )
 
 
 def test_startup_preflight_is_shared_not_claude_owned():
@@ -58,7 +60,8 @@ def test_startup_preflight_is_shared_not_claude_owned():
     assert "Scraper Syntax" in shared
     assert "exec bash scripts/agent_session_start.sh" in claude_hook
 
-    assert ".agent-runtime/session-receipts" in _read("scripts/agent_os_receipt.py")
+    receipt = _read("scripts/agent_os_receipt.py")
+    assert ".agent-runtime/session-receipts" in receipt
     assert ".agent-runtime/" in _read(".gitignore")
 
 
