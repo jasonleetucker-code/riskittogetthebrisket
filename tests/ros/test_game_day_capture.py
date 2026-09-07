@@ -515,3 +515,49 @@ class TestPregameCaptureWindow:
         now = self._at("2026-09-07T08:00:00")
         assert pregame_window_state(first_kickoff=k, now=now)[0] == "early"
         assert pregame_window_state(first_kickoff=k, now=now, window_hours=72)[0] == "open"
+
+
+@pytest.mark.parametrize(
+    "now,txns,allowed",
+    [
+        ("2026-09-08T20:00:00-04:00", [], False),
+        ("2026-09-09T09:00:00-04:00", [], False),
+        (
+            "2026-09-09T09:00:00-04:00",
+            [{"type": "waiver", "status": "complete", "status_updated": 1788937500000}],
+            True,
+        ),
+        ("2026-09-10T09:00:00-04:00", [], False),
+    ],
+)
+def test_week_one_owner_window(now, txns, allowed):
+    from datetime import datetime
+    from src.ros.game_day_capture import week_one_waiver_guard
+
+    assert (
+        week_one_waiver_guard(
+            season=2026, week=1, transactions=txns, now=datetime.fromisoformat(now)
+        )[0]
+        is allowed
+    )
+
+
+def test_week_one_pending_or_old_batch_never_proves_completion():
+    from datetime import datetime
+    from src.ros.game_day_capture import week_one_waiver_guard
+
+    now = datetime.fromisoformat("2026-09-09T09:00:00-04:00")
+    for txns in (
+        [{"type": "waiver", "status": "pending", "status_updated": 1788937500000}],
+        [{"type": "waiver", "status": "complete", "status_updated": 1788851100000}],
+        [{"type": "waiver", "status": "complete"}],
+    ):
+        assert not week_one_waiver_guard(season=2026, week=1, transactions=txns, now=now)[0]
+
+
+def test_capture_cli_guard_precedes_every_write_and_ignore_window_cannot_bypass_kickoff():
+    from pathlib import Path
+
+    text = Path("scripts/capture_game_day_predictions.py").read_text()
+    assert text.index("allowed, reason = week_one_waiver_guard") < text.index("record_snapshot(")
+    assert text.index('if state == "closed":') < text.index("if args.ignore_window:")

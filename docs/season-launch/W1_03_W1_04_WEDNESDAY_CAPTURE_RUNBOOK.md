@@ -156,3 +156,17 @@ itself (exit 3); do not work around it.
 
 The recurring Thursday timer still produces Week 2's capture on its normal
 cadence. A missed Week 1 costs Week 1's evidence only.
+
+
+## 2026-09-07 timing reconciliation
+
+PR #1263 replaced the Thursday timer with a four-hourly timer and a generic
+30-hour pre-kickoff window. That generic window opens on Tuesday for Week 1
+and does not itself establish Wednesday waiver completion. The explicit owner
+instruction above still governs: the capture CLI now refuses a 2026 Week 1
+pregame write outside Wednesday or without an observed terminal Wednesday
+waiver batch after 03:00 ET and no pending claims. `--ignore-window` cannot
+bypass this exception or the kickoff refusal. Dry-run preparation writes nothing.
+Earlier statements that the Thursday timer remains installed describe the old
+implementation; verify the actual installed timer after deployment. This guard
+preserves Wednesday timing regardless of which timer is installed.

@@ -491,3 +491,40 @@ def pregame_window_state(
         f"first kickoff is {first_kickoff.isoformat()}; inside the "
         f"{window_hours:g}h capture window",
     )
+
+
+def week_one_waiver_guard(
+    *,
+    season: int,
+    week: int,
+    transactions: Sequence[Mapping[str, Any]],
+    now: datetime | None = None,
+) -> tuple[bool, str]:
+    """Owner-authorized 2026 Week 1 exception, never a generic waiver model.
+
+    Execute only on Wednesday after the observed owner-league waiver batch.
+    The caller must ALSO pass the independent pre-kickoff and scoring gates.
+    An empty/unavailable transaction feed cannot prove completion.
+    """
+    if (season, week) != (2026, 1):
+        return True, "Wednesday exception not applicable"
+    et = ZoneInfo("America/New_York")
+    current = (now or datetime.now(timezone.utc)).astimezone(et)
+    if current.date().isoformat() != "2026-09-09":
+        return False, "2026 Week 1 capture requires Wednesday 2026-09-09 after waivers"
+    if any(t.get("status") == "pending" for t in transactions):
+        return False, "pending claims remain in the observed transaction batch"
+    waivers = [t for t in transactions if t.get("type") == "waiver"]
+    if not waivers:
+        return False, "no observed waiver batch; completion is unproven"
+    try:
+        newest = max(float(t["status_updated"]) for t in waivers)
+        batch = datetime.fromtimestamp(newest / 1000, et)
+    except (KeyError, TypeError, ValueError, OverflowError):
+        return False, "waiver timestamps unavailable or invalid"
+    if batch.date() != current.date() or batch.hour < 3 or batch > current:
+        return False, "newest waiver batch is not this Wednesday after 03:00 ET"
+    newest_rows = [t for t in waivers if float(t["status_updated"]) == newest]
+    if any(t.get("status") not in {"complete", "failed"} for t in newest_rows):
+        return False, "newest waiver batch is not terminal"
+    return True, f"observed Wednesday waiver batch {batch.isoformat()}; no pending claims"
