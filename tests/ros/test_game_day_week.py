@@ -321,3 +321,96 @@ def test_schedule_past_kickoff_without_result_is_unknown_not_live():
     )
     assert states["SEA"].state == "unknown"
     assert states["NE"].state == "unknown"
+
+
+def test_the_same_week_transitions_pregame_to_live_to_final_without_double_projection():
+    from src.ros.game_day_week import GameEvidence, resolve_scoring_week
+
+    players = {
+        "p1": dict(META["p1"], team="SEA"),
+        "p2": dict(META["p2"], team="MIN"),
+    }
+    rosters = [
+        {"roster_id": 1, "players": ["p1"]},
+        {"roster_id": 2, "players": ["p2"]},
+    ]
+    league = {"settings": {"best_ball": 1, "league_average_match": 0, "num_teams": 2}}
+    estimates = {"ann alpha": 20.0, "bob bravo": 12.0}
+
+    def resolve(matchups, evidence, now):
+        return resolve_scoring_week(
+            league_key="transition",
+            league_payload=league,
+            rosters=rosters,
+            matchups=matchups,
+            players_meta=players,
+            starter_slots=("QB", "RB"),
+            estimates=estimates,
+            estimate_source="fixture",
+            game_evidence=evidence,
+            now=now,
+        )
+
+    pregame = resolve(
+        [
+            {"roster_id": 1, "matchup_id": 1, "points": 0.0},
+            {"roster_id": 2, "matchup_id": 1, "points": 0.0},
+        ],
+        {
+            "SEA": GameEvidence("not_started", "fixture", 50.0, 100.0),
+            "MIN": GameEvidence("not_started", "fixture", 50.0, 100.0),
+        },
+        50.0,
+    )
+    live = resolve(
+        [
+            {
+                "roster_id": 1,
+                "matchup_id": 1,
+                "points": 5.0,
+                "players_points": {"p1": 5.0},
+            },
+            {
+                "roster_id": 2,
+                "matchup_id": 1,
+                "points": 0.0,
+                "players_points": {"p2": 0.0},
+            },
+        ],
+        {
+            "SEA": GameEvidence("in_progress", "fixture", 110.0, 100.0),
+            "MIN": GameEvidence("not_started", "fixture", 110.0, 120.0),
+        },
+        110.0,
+    )
+    final = resolve(
+        [
+            {
+                "roster_id": 1,
+                "matchup_id": 1,
+                "points": 20.0,
+                "players_points": {"p1": 20.0},
+            },
+            {
+                "roster_id": 2,
+                "matchup_id": 1,
+                "points": 12.0,
+                "players_points": {"p2": 12.0},
+            },
+        ],
+        {
+            "SEA": GameEvidence("completed", "fixture", 200.0, 100.0),
+            "MIN": GameEvidence("completed", "fixture", 200.0, 120.0),
+        },
+        200.0,
+    )
+
+    assert [pregame.mode, live.mode, final.mode] == ["pregame", "live", "final"]
+    assert pregame.week.teams[0].players[0].projected_remaining == 20.0
+    assert live.week.teams[0].players[0].points_scored == 5.0
+    assert live.week.teams[0].players[0].projected_remaining is None
+    assert live.policy_required_player_ids == ("p1",)
+    assert final.host_scores == {"1": 20.0, "2": 12.0}
+    assert all(
+        player.projected_remaining is None for team in final.week.teams for player in team.players
+    )
