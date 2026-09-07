@@ -1,4 +1,5 @@
 from pathlib import Path
+from runpy import run_path
 
 REPO = Path(__file__).resolve().parents[2]
 ENGINEERING_DIR = "docs/engineering"
@@ -67,8 +68,8 @@ def test_startup_preflight_is_shared_not_claude_owned():
 
     assert "exec bash scripts/agent_session_start.sh" in claude_hook
 
-    receipt = _read("scripts/agent_os_receipt.py")
-    assert ".agent-runtime/session-receipts" in receipt
+    receipt_module = run_path(str(REPO / "scripts/agent_os_receipt.py"))
+    assert receipt_module["RECEIPT_DIR"] == REPO / ".agent-runtime" / "session-receipts"
     assert ".agent-runtime/" in _read(".gitignore")
 
 
