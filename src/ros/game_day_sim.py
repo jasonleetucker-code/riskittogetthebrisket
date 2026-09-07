@@ -88,7 +88,7 @@ DEFAULT_DRAWS: int = 10_000
 #: A re-render is not new evidence.
 DEFAULT_SEED: int = 20260910
 
-MODEL_VERSION: str = "game-day-sim-v1"
+MODEL_VERSION: str = "game-day-sim-v2"
 
 
 class GameDaySimError(ValueError):
@@ -619,6 +619,10 @@ def _sim_input_fingerprint(
         team_rows.append([t.team_id, players, sorted(t.declared_starters)])
 
     payload = {
+        # Cache identity must move when simulation semantics move. Otherwise
+        # a deploy can serve a pre-change result from disk even though the
+        # Python implementation and provenance changed.
+        "modelVersion": MODEL_VERSION,
         "rules": [
             rules.league_key,
             list(rules.starter_slots),
