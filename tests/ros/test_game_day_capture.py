@@ -391,3 +391,127 @@ def test_capture_writes_once_and_refuses_the_rerun(tmp_path):
     assert len(stored) == 1
     assert stored[0].starter_slots == build.starter_slots
     assert len(stored[0].roster) == 9
+
+
+# ── the capture window is derived from the schedule, not a weekday ──
+
+
+class TestPregameCaptureWindow:
+    """The retired timer assumed a Thursday-night opener and fired
+    Thursday 13:00 UTC. Week 1 of 2026 opens on a WEDNESDAY — NE @ SEA,
+    2026-09-09 20:20 ET = 2026-09-10 00:20 UTC — so that run would have
+    been ~13 hours late, been correctly refused, and lost the
+    observation permanently. These pin the replacement.
+    """
+
+    #: The real 2026 Week 1 opener, as nflverse publishes it.
+    ROWS = [
+        {"season": 2026, "week": 1, "gameday": "2026-09-09", "gametime": "20:20"},
+        {"season": 2026, "week": 1, "gameday": "2026-09-10", "gametime": "20:35"},
+        {"season": 2026, "week": 1, "gameday": "2026-09-13", "gametime": "13:00"},
+        {"season": 2026, "week": 2, "gameday": "2026-09-17", "gametime": "20:15"},
+    ]
+
+    def _at(self, iso):
+        from datetime import datetime, timezone
+
+        return datetime.fromisoformat(iso).replace(tzinfo=timezone.utc)
+
+    def test_first_kickoff_is_the_earliest_game_of_that_week(self):
+        from src.ros.game_day_capture import first_kickoff_utc
+
+        k = first_kickoff_utc(self.ROWS, season=2026, week=1)
+        assert k == self._at("2026-09-10T00:20:00")
+
+    def test_eastern_times_convert_through_a_real_zone(self):
+        """The season crosses the DST boundary, so a fixed offset would be
+        wrong for exactly the late-season games."""
+        from src.ros.game_day_capture import first_kickoff_utc
+
+        december = [{"season": 2026, "week": 15, "gameday": "2026-12-17", "gametime": "20:15"}]
+        # EST (-5) in December, versus EDT (-4) in September.
+        assert first_kickoff_utc(december, season=2026, week=15) == self._at("2026-12-18T01:15:00")
+
+    def test_other_weeks_do_not_leak_in(self):
+        from src.ros.game_day_capture import first_kickoff_utc
+
+        assert first_kickoff_utc(self.ROWS, season=2026, week=2) == self._at("2026-09-18T00:15:00")
+
+    def test_an_unresolvable_week_is_none_not_a_guess(self):
+        from src.ros.game_day_capture import first_kickoff_utc
+
+        assert first_kickoff_utc(self.ROWS, season=2026, week=99) is None
+        assert first_kickoff_utc([], season=2026, week=1) is None
+        assert first_kickoff_utc(None, season=2026, week=1) is None
+
+    def test_malformed_rows_are_skipped_not_fatal(self):
+        from src.ros.game_day_capture import first_kickoff_utc
+
+        rows = [
+            {"season": 2026, "week": 1, "gameday": "not-a-date", "gametime": "20:20"},
+            {"season": 2026, "week": 1, "gameday": "2026-09-09", "gametime": ""},
+            {"season": "x", "week": 1, "gameday": "2026-09-09", "gametime": "20:20"},
+            {"season": 2026, "week": 1, "gameday": "2026-09-10", "gametime": "20:35"},
+        ]
+        assert first_kickoff_utc(rows, season=2026, week=1) == self._at("2026-09-11T00:35:00")
+
+    def test_the_retired_thursday_slot_would_have_been_closed(self):
+        """The regression this whole change exists for."""
+        from src.ros.game_day_capture import first_kickoff_utc, pregame_window_state
+
+        k = first_kickoff_utc(self.ROWS, season=2026, week=1)
+        state, why = pregame_window_state(first_kickoff=k, now=self._at("2026-09-10T13:00:00"))
+        assert state == "closed"
+        assert "cannot be recovered" in why
+
+    def test_the_window_is_open_the_evening_before_a_wednesday_opener(self):
+        from src.ros.game_day_capture import first_kickoff_utc, pregame_window_state
+
+        k = first_kickoff_utc(self.ROWS, season=2026, week=1)
+        # Wednesday afternoon, after waivers, before the 00:20 UTC kickoff.
+        state, _ = pregame_window_state(first_kickoff=k, now=self._at("2026-09-09T18:00:00"))
+        assert state == "open"
+
+    def test_too_early_is_early_not_open(self):
+        """Capturing days out would consume the append-only pregame slot
+        with a roster waivers will still change."""
+        from src.ros.game_day_capture import first_kickoff_utc, pregame_window_state
+
+        k = first_kickoff_utc(self.ROWS, season=2026, week=1)
+        state, _ = pregame_window_state(first_kickoff=k, now=self._at("2026-09-07T08:00:00"))
+        assert state == "early"
+
+    def test_the_window_boundary_is_exact(self):
+        from src.ros.game_day_capture import first_kickoff_utc, pregame_window_state
+
+        k = first_kickoff_utc(self.ROWS, season=2026, week=1)
+        # Opens 30h before 2026-09-10T00:20Z → 2026-09-08T18:20Z.
+        assert (
+            pregame_window_state(first_kickoff=k, now=self._at("2026-09-08T18:19:00"))[0] == "early"
+        )
+        assert (
+            pregame_window_state(first_kickoff=k, now=self._at("2026-09-08T18:21:00"))[0] == "open"
+        )
+
+    def test_kickoff_instant_itself_is_closed(self):
+        from src.ros.game_day_capture import first_kickoff_utc, pregame_window_state
+
+        k = first_kickoff_utc(self.ROWS, season=2026, week=1)
+        assert pregame_window_state(first_kickoff=k, now=k)[0] == "closed"
+
+    def test_an_unknown_kickoff_is_its_own_state(self):
+        """Not open, not closed. The caller decides, and the script's
+        choice is to proceed — the score-based gate is still in front."""
+        from src.ros.game_day_capture import pregame_window_state
+
+        state, why = pregame_window_state(first_kickoff=None)
+        assert state == "unknown"
+        assert "could be resolved" in why
+
+    def test_a_wider_window_opens_earlier(self):
+        from src.ros.game_day_capture import first_kickoff_utc, pregame_window_state
+
+        k = first_kickoff_utc(self.ROWS, season=2026, week=1)
+        now = self._at("2026-09-07T08:00:00")
+        assert pregame_window_state(first_kickoff=k, now=now)[0] == "early"
+        assert pregame_window_state(first_kickoff=k, now=now, window_hours=72)[0] == "open"
