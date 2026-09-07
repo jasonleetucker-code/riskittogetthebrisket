@@ -90,7 +90,7 @@ DEFAULT_DRAWS: int = 10_000
 #: A re-render is not new evidence.
 DEFAULT_SEED: int = 20260910
 
-MODEL_VERSION: str = "game-day-sim-v2"
+MODEL_VERSION: str = "game-day-sim-v3"
 
 
 class GameDaySimError(ValueError):
@@ -214,7 +214,7 @@ class LeagueWeekSimulation:
     cache_computed_at: float | None = None
 
 
-def _drawable(player: PlayerWeek) -> bool:
+def player_is_drawable(player: PlayerWeek) -> bool:
     """Can this player's week be simulated at all?
 
     A ``completed`` player needs a real banked score; a player who still
@@ -359,13 +359,17 @@ def simulate_league_week(
     banked: dict[str, float] = {}
     team_eligibility: dict[str, dict[str, tuple[int, ...]]] = {}
     for team in teams:
-        ok = tuple(p for p in team.players if _drawable(p))
+        ok = tuple(p for p in team.players if player_is_drawable(p))
         simulable[team.team_id] = ok
-        unsimulable[team.team_id] = tuple(p.player_id for p in team.players if not _drawable(p))
+        unsimulable[team.team_id] = tuple(
+            p.player_id for p in team.players if not player_is_drawable(p)
+        )
         # Banked points are reported from the players that COUNT toward
         # the lineup, so a completed-but-benched score is not advertised
         # as though it is on the board.
-        banked[team.team_id] = float(sum(_banked_points(p) for p in ok))
+        banked[team.team_id] = _team_score(
+            team, {p.player_id: _banked_points(p) for p in ok}, rules
+        )
         # Slot eligibility depends only on position/fantasy_positions,
         # which this draws loop never changes for a given team — so it
         # is computed ONCE here rather than once per (team, draw). At

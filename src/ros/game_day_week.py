@@ -17,14 +17,14 @@ new here — and the only reason a module is needed rather than a function —
 is the **per-player state axis** the archive has no use for, because the
 archive is pregame-only by construction while the simulation is not.
 
-**PREGAME ONLY, and it says so rather than guessing.**  Distinguishing
-`completed` from `in_progress` requires knowing whether each player's NFL
-game has ended, and no live game-state feed is wired in this repo.  Rather
-than collapse those two states — which is precisely the double-projection
-spec §6 forbids — :func:`resolve_pregame_week` REFUSES once the week has
-begun, using `game_day_capture.week_has_begun`, the same host-evidence gate
-the archive uses.  Live resolution is a different unit and needs a schedule
-or game-state source it can name.
+**Scheduled, live and final stay evidence-bounded.**  The pregame adapter
+still refuses a begun week. :func:`resolve_scoring_week` adds actual host
+scores and explicit game evidence around that canonical roster/lineup input.
+The existing nflverse schedule cache proves scheduled and completed games;
+it does not prove a game is live or estimate its remaining production. An
+in-progress source can enter through the typed :class:`GameEvidence` seam,
+while the unresolved remaining-production policy stays explicit and blocks
+probability rather than being guessed.
 
 **Missing is never zero, and the three ways a player can be absent stay
 distinct:**
@@ -41,13 +41,9 @@ distinct:**
   per-game estimate.  Nothing is banked pregame, which is an observation
   (the games have not kicked off), not a gap.
 
-**Known limitation, named rather than papered over.**  Sleeper's
-`injury_status` is NOT read, so a player the host has already declared
-`Out` is resolved as `not_started` with his full estimate rather than as a
-known zero.  Reading it is a judgment about which statuses are certain
-(`Out` yes, `Doubtful` no) and it belongs with the live-state unit that
-already has to make per-player game-state calls.  The effect is bounded and
-in one direction: it can only overstate a team's projection.
+**Known limitation, named rather than papered over.**  A host-declared
+`Out` is unavailable; less certain injury labels remain projections. With no
+evidenced live game-status feed, elapsed kickoff time remains `unknown`.
 """
 
 from __future__ import annotations
@@ -295,3 +291,242 @@ def resolve_pregame_week(
         estimate_source=estimate_source if has_estimates else None,
         notes=notes,
     )
+
+
+@dataclass(frozen=True)
+class GameEvidence:
+    """An observed NFL state, never an estimate of remaining production.
+
+    `unknown` includes a scheduled kickoff which has passed without a live
+    status feed: elapsed wall time does not prove a game actually started.
+    """
+
+    state: str
+    source: str
+    observed_at: float | None
+    kickoff_at: float | None = None
+
+    def __post_init__(self):
+        if self.state not in {"not_started", "in_progress", "completed", "unknown"}:
+            raise GameDayWeekRefusal(f"unsupported game evidence state: {self.state}")
+        if not self.source:
+            raise GameDayWeekRefusal("game evidence requires a source")
+
+
+def _finite_points(value: Any) -> float | None:
+    import math
+
+    if value is None or isinstance(value, bool):
+        return None
+    try:
+        result = float(value)
+    except (TypeError, ValueError):
+        return None
+    return result if math.isfinite(result) else None
+
+
+def schedule_game_evidence(rows, *, season, week, observed_at, now):
+    """Shape the canonical nflverse schedule; do not create a downloader.
+
+    The schedule dictionary describes scores as results for played games.
+    Both scores + result constitute completed-game evidence. A past kickoff
+    without a result stays unknown (not a fabricated in-progress status).
+    Explicit live game states can enter through GameEvidence when a source
+    capable of observing them is wired. Source age is carried unchanged.
+    """
+    from src.ros.game_day_capture import first_kickoff_utc
+
+    result = {}
+    for row in rows:
+        try:
+            if int(row.get("season")) != season or int(row.get("week")) != week:
+                continue
+        except (TypeError, ValueError):
+            continue
+        if row.get("game_type") != "REG":
+            continue
+        kickoff = first_kickoff_utc([row], season=season, week=week)
+        stamp = kickoff.timestamp() if kickoff else None
+        scores = [_finite_points(row.get(k)) for k in ("home_score", "away_score", "result")]
+        if all(s is not None for s in scores) and stamp is not None and stamp <= now:
+            state = "completed"
+        elif stamp is not None and stamp > now:
+            state = "not_started"
+        else:
+            state = "unknown"
+        for key in ("home_team", "away_team"):
+            team = str(row.get(key) or "").upper()
+            if team:
+                # nflverse LA is Sleeper LAR; no player identity guessing.
+                team = "LAR" if team == "LA" else team
+                result[team] = GameEvidence(state, "nflverse:schedules", observed_at, stamp)
+    return result
+
+
+@dataclass(frozen=True)
+class ScoringWeekResolution:
+    week: WeekResolution
+    mode: str
+    host_scores: dict[str, float | None]
+    policy_required_player_ids: tuple[str, ...]
+    game_evidence: Mapping[str, GameEvidence]
+
+
+def resolve_scoring_week(
+    *,
+    league_key,
+    league_payload,
+    rosters,
+    matchups,
+    players_meta,
+    starter_slots,
+    estimates=None,
+    estimate_source=None,
+    game_evidence: Mapping[str, GameEvidence] | None = None,
+    now: float | None = None,
+) -> ScoringWeekResolution:
+    """Factual scheduled/live/final state around an UNRESOLVED policy seam.
+
+    No rate model, zero remainder or exclusion policy is selected for a
+    mid-game player. Their actual points survive, their remainder is None,
+    and policy_required_player_ids prevents the serving path from claiming
+    an operational probability policy has been approved.
+    """
+    import time
+    from dataclasses import replace
+
+    evidence = game_evidence or {}
+    current = time.time() if now is None else now
+    begun = week_has_begun(matchups) or any(
+        g.state in {"in_progress", "completed"}
+        or (g.kickoff_at is not None and g.kickoff_at <= current)
+        for g in evidence.values()
+    )
+    # Reuse the pregame owner for roster enumeration, projection joining,
+    # IR/taxi exclusion, positions and rules. Only state is adapted below.
+    base = resolve_pregame_week(
+        league_key=league_key,
+        league_payload=league_payload,
+        rosters=rosters,
+        matchups=None if begun else matchups,
+        players_meta=players_meta,
+        starter_slots=starter_slots,
+        estimates=estimates,
+        estimate_source=estimate_source,
+    )
+    by_id = {str(m.get("roster_id")): m for m in matchups or ()}
+    opponents = opponents_from_matchups(matchups)
+    teams = []
+    required = []
+    host_scores = {}
+    unpriced = {}
+    final = bool(evidence) and all(g.state == "completed" for g in evidence.values())
+    for team in base.teams:
+        matchup = by_id.get(team.team_id, {})
+        score_map = matchup.get("players_points")
+        score_map = score_map if isinstance(score_map, Mapping) else {}
+        host_scores[team.team_id] = _finite_points(matchup.get("points")) if begun else None
+        players = []
+        for p in team.players:
+            meta = players_meta.get(p.player_id) or {}
+            game = evidence.get(str(meta.get("team") or "").upper())
+            state = game.state if game else ("unknown" if begun else "not_started")
+            actual = _finite_points(score_map.get(p.player_id)) if begun else 0.0
+            if state == "not_started":
+                actual = 0.0
+            # Out is host-declared unavailability, unlike Doubtful or
+            # Questionable. Do not override a recorded completed score.
+            if meta.get("injury_status") == "Out" and state != "completed":
+                state = "inactive"
+                if actual is None:
+                    actual = 0.0
+            remaining = p.projected_remaining if state == "not_started" else None
+            if state == "in_progress":
+                required.append(p.player_id)
+            if state == "unknown" and begun:
+                # An explicit game-state feed is also required here.
+                # A nonzero score alone cannot tell live from completed.
+                final = False
+            if state == "completed" and actual is None:
+                final = False
+            players.append(
+                replace(p, state=state, points_scored=actual, projected_remaining=remaining)
+            )
+        starters = tuple(str(pid) for pid in matchup.get("starters", ()) if pid and str(pid) != "0")
+        teams.append(replace(team, players=tuple(players), declared_starters=starters))
+        opponents.setdefault(team.team_id, None)
+        unpriced[team.team_id] = tuple(
+            p.player_id
+            for p in players
+            if p.state == "not_started" and p.projected_remaining is None
+        )
+    notes = list(base.notes) if not begun else []
+    if required:
+        notes.append(
+            "OWNER_POLICY_REQUIRED: in-progress remaining production has no approved policy"
+        )
+    if begun and any(p.state == "unknown" for t in teams for p in t.players):
+        notes.append(
+            "game-state coverage incomplete: a past kickoff is not an observed live/final status"
+        )
+    resolved = replace(
+        base, teams=tuple(teams), opponents=opponents, notes=notes, unpriced_player_ids=unpriced
+    )
+    return ScoringWeekResolution(
+        resolved,
+        "final" if final and begun else "live" if begun else "pregame",
+        host_scores,
+        tuple(required),
+        evidence,
+    )
+
+
+def actual_lineup(team: TeamWeek, rules: LeagueWeekRules, players_meta) -> dict[str, Any]:
+    """Current best-ball assignment from observed points, never roster sum.
+
+    Unobserved players are named and total is null when coverage is partial;
+    knownSubtotal is explicitly partial evidence, not a projected/final score.
+    """
+    from src.ros.lineup import RosterPlayer, solve_optimal_assignment
+
+    missing = [p.player_id for p in team.players if p.points_scored is None]
+    pool = [
+        RosterPlayer(
+            player_id=p.player_id,
+            canonical_name=_display_name(players_meta.get(p.player_id), p.player_id),
+            position=p.position,
+            fantasy_positions=p.fantasy_positions,
+            ros_value=p.points_scored,
+        )
+        for p in team.players
+        if p.points_scored is not None
+    ]
+    if rules.best_ball:
+        assignment = solve_optimal_assignment(pool, list(rules.starter_slots)) if pool else {}
+    else:
+        by_id = {p.player_id: p for p in pool}
+        assignment = {
+            i: by_id[pid]
+            for i, pid in enumerate(team.declared_starters)
+            if pid in by_id and i < len(rules.starter_slots)
+        }
+        missing = [pid for pid in team.declared_starters if pid not in by_id]
+    slots = [
+        {
+            "slot": rules.starter_slots[i],
+            "slotIndex": i,
+            "playerId": p.player_id,
+            "name": p.canonical_name,
+            "points": p.ros_value,
+        }
+        for i, p in sorted(assignment.items())
+    ]
+    total = sum(p.ros_value for p in assignment.values()) if assignment else None
+    return {
+        "slots": slots,
+        "total": total if not missing else None,
+        "knownSubtotal": total,
+        "missingPlayerIds": missing,
+        "complete": not missing,
+        "owner": "src/ros/lineup.py",
+    }

@@ -20,11 +20,10 @@ fresh its inputs were. W1-15 asks for exactly that, and it is the half a
 private decision surface cannot omit — a win probability with no stated
 projection source or coverage is not intelligence, it is a number.
 
-**PREGAME. It refuses a week in progress**, because `game_day_week` does:
-telling a finished player from a mid-game one needs a live game-state feed
-this repo does not wire, and collapsing them double-projects. The refusal
-is a distinct error code so a caller can say "come back after the games"
-rather than rendering an error.
+**Scheduled, live and final assembly.** Actual scores and canonical lineups
+remain available while game-state coverage or the explicit in-progress
+remaining-production policy is unresolved. No remaining-production policy
+is selected here. Final results need complete factual scoring evidence.
 
 **Private, and league-scoped.** Projections, win probabilities and roster
 weaknesses are proprietary decision intelligence under CLAUDE.md §5 — this
@@ -40,9 +39,23 @@ from typing import Any, Mapping, Sequence
 
 from src.api import roster_intelligence as _roster_intelligence
 from src.public_league import sleeper_client
-from src.ros.game_day_sim import TeamWeekOutcome, get_cached_league_week_simulation
-from src.ros.game_day_week import GameDayWeekRefusal, resolve_pregame_week
-from src.ros.lineup import RosterPlayer, resolve_starter_slots, solve_optimal_assignment
+from src.ros.game_day_sim import (
+    TeamWeekOutcome,
+    get_cached_league_week_simulation,
+    player_is_drawable,
+)
+from src.ros.game_day_week import (
+    GameDayWeekRefusal,
+    actual_lineup,
+    resolve_scoring_week,
+    schedule_game_evidence,
+)
+from src.ros.lineup import (
+    RosterPlayer,
+    player_eligible_for_slot,
+    resolve_starter_slots,
+    solve_optimal_assignment,
+)
 
 #: Draws for the league-week simulation. NOT `game_day_sim.DEFAULT_DRAWS`
 #: (10,000) — this endpoint runs synchronously in a web request, so it uses
@@ -89,6 +102,23 @@ def _fetch_league_week(sleeper_league_id: str, week: int) -> _LeagueFetch:
         players=sleeper_client.fetch_nfl_players(),
         fetched_at=time.time(),
     )
+
+
+def _game_evidence(season: int, week: int):
+    """Read the existing schedule cache; no request-path acquisition owner.
+
+    nflverse is a schedule/result feed, not a live opportunity feed.
+    Its age is published and a passed kickoff alone stays unknown.
+    """
+    from src.bdvm.schedule import fetch_schedule_rows
+    from src.nfl_data.cache import entry_age_seconds
+    from src.nfl_data.ingest import cache_key
+
+    now = time.time()
+    rows = fetch_schedule_rows(season, cache_only=True)
+    age = entry_age_seconds(cache_key("schedules", [season]))
+    observed = now - age if age is not None else None
+    return schedule_game_evidence(rows, season=season, week=week, observed_at=observed, now=now)
 
 
 def _resolve_estimates(
@@ -295,7 +325,7 @@ def build_matchup_intel(
     draws: int = DEFAULT_DRAWS,
     seed: int = DEFAULT_SEED,
 ) -> dict[str, Any]:
-    """One team's pregame matchup intelligence for ``week``."""
+    """One team's scheduled, live, or final matchup intelligence for ``week``."""
     fetched = _fetch_league_week(sleeper_league_id, week)
     if not fetched.rosters:
         raise MatchupIntelError(f"{league_key}: the host returned no rosters")
@@ -320,7 +350,7 @@ def build_matchup_intel(
     )
 
     try:
-        resolution = resolve_pregame_week(
+        scoring = resolve_scoring_week(
             league_key=league_key,
             league_payload=fetched.league,
             rosters=fetched.rosters,
@@ -329,12 +359,14 @@ def build_matchup_intel(
             starter_slots=slots,
             estimates=estimates,
             estimate_source=estimate_source,
+            game_evidence=_game_evidence(season, week),
         )
     except GameDayWeekRefusal as exc:
         if "already begun" in str(exc):
             raise WeekInProgress(str(exc)) from exc
         raise MatchupIntelError(str(exc)) from exc
 
+    resolution = scoring.week
     opponent_roster_id = resolution.opponents.get(my_roster_id)
 
     # The simulation runs over the WHOLE league because the median leg's
@@ -350,7 +382,13 @@ def build_matchup_intel(
     # invalidation rule and why the cache cannot live under `data/ros/`.
     simulation = None
     sim_error: str | None = None
-    if resolution.estimate_coverage[0] > 0:
+    # Do not silently activate any of the unresolved in-progress policies.
+    # Outside pregame, every simulated player requires complete evidence.
+    complete = all(player_is_drawable(p) for t in resolution.teams for p in t.players)
+    can_simulate = not scoring.policy_required_player_ids and (
+        scoring.mode == "pregame" or complete
+    )
+    if scoring.mode != "final" and can_simulate and resolution.estimate_coverage[0] > 0:
         try:
             simulation = get_cached_league_week_simulation(
                 rules=resolution.rules,
@@ -381,11 +419,69 @@ def build_matchup_intel(
             "teamName": label["teamName"],
             "outcome": _outcome_payload(outcomes.get(roster_id)),
             "expectedLineup": (
-                _expected_lineup(tw.players, slots, fetched.players) if tw else None
+                _expected_lineup(tw.players, slots, fetched.players)
+                if tw and scoring.mode == "pregame"
+                else None
             ),
             "unpricedPlayerIds": list(resolution.unpriced_player_ids.get(roster_id, ())),
             "ineligiblePlayerIds": list(resolution.ineligible_player_ids.get(roster_id, ())),
         }
+        if tw and scoring.mode != "pregame":
+            side["actualScore"] = scoring.host_scores.get(roster_id)
+            side["actualLineup"] = actual_lineup(tw, resolution.rules, fetched.players)
+            side["pointsBanked"] = side["actualLineup"]["total"]
+            side["players"] = [
+                {
+                    "playerId": p.player_id,
+                    "name": str(
+                        (fetched.players.get(p.player_id) or {}).get("full_name") or p.player_id
+                    ),
+                    "state": p.state,
+                    "pointsScored": p.points_scored,
+                    "projectedRemaining": p.projected_remaining,
+                    "fantasyPositions": list(p.fantasy_positions),
+                }
+                for p in tw.players
+            ]
+            current_ids = {s["playerId"] for s in side["actualLineup"]["slots"]}
+            possibilities = []
+            for p in tw.players:
+                if p.state not in {"not_started", "in_progress", "unknown"}:
+                    continue
+                candidate = RosterPlayer(
+                    player_id=p.player_id,
+                    canonical_name=str(
+                        (fetched.players.get(p.player_id) or {}).get("full_name") or p.player_id
+                    ),
+                    position=p.position,
+                    ros_value=p.points_scored,
+                    fantasy_positions=p.fantasy_positions,
+                )
+                eligible_slots = [
+                    {"slot": slot, "slotIndex": i}
+                    for i, slot in enumerate(slots)
+                    if player_eligible_for_slot(slot, candidate)
+                ]
+                if eligible_slots:
+                    possibilities.append(
+                        {
+                            "playerId": p.player_id,
+                            "name": candidate.canonical_name,
+                            "state": p.state,
+                            "currentOptimal": p.player_id in current_ids,
+                            "eligibleSlots": eligible_slots,
+                        }
+                    )
+            side["remainingLineupPossibilities"] = possibilities
+            side["remainingEligiblePlayerIds"] = [p["playerId"] for p in possibilities]
+            side["result"] = None
+            if scoring.mode == "final":
+                other = scoring.host_scores.get(resolution.opponents.get(roster_id))
+                own = side["actualScore"]
+                if own is not None and other is not None:
+                    side["result"] = "WIN" if own > other else "LOSS" if own < other else "TIE"
+                # A final result is a fact, not a forecast distribution.
+                side["outcome"] = None
         if contract and oid:
             # REUSE, not recomputation: the canonical roster-intelligence
             # owner's own answer for this team. `TeamNotInLeague` here means
@@ -416,7 +512,20 @@ def build_matchup_intel(
         "leagueKey": league_key,
         "season": season,
         "week": week,
-        "mode": "pregame",
+        "mode": scoring.mode,
+        "probabilityState": (
+            "FINAL"
+            if scoring.mode == "final"
+            else "OWNER_POLICY_REQUIRED"
+            if scoring.policy_required_player_ids
+            else "GAME_STATE_OR_SCORING_UNAVAILABLE"
+            if not can_simulate
+            else "AVAILABLE"
+            if simulation
+            else "UNAVAILABLE"
+        ),
+        "policyRequiredPlayerIds": list(scoring.policy_required_player_ids),
+        "recapUrl": f"/league/articles/{season}/{week}" if scoring.mode == "final" else None,
         "team": _side(my_roster_id),
         "opponent": _side(opponent_roster_id),
         # Everything a reader needs to decide how much to trust the numbers
@@ -438,6 +547,16 @@ def build_matchup_intel(
             "medianEnabled": resolution.rules.median_enabled,
             "teamCount": resolution.rules.team_count,
             "sleeperFetchedAt": fetched.fetched_at,
+            "gameEvidence": {
+                team: {
+                    "state": g.state,
+                    "source": g.source,
+                    "observedAt": g.observed_at,
+                    "kickoffAt": g.kickoff_at,
+                }
+                for team, g in scoring.game_evidence.items()
+            },
+            "gameStateLimitation": "nflverse schedule/result cache; no live game-status or remaining-production feed",
             # W1-26: the perishable pregame archive's own timestamp, with
             # "nothing was captured" kept distinct from "we could not read
             # the archive".

@@ -7393,7 +7393,7 @@ async def get_roster_intelligence(request: Request):
 
 @app.get("/api/matchup/intel")
 async def get_matchup_intel(request: Request):
-    """PRIVATE pregame matchup intelligence for one team (W1-14 / W1-15).
+    """PRIVATE scheduled/live/final matchup intelligence for one team.
 
     The authenticated counterpart to the public ``matchupPreview`` section.
     That one is factual and retrospective — head-to-head record, recent
@@ -7422,12 +7422,11 @@ async def get_matchup_intel(request: Request):
     LEAGUE-SCOPED: rosters, the schedule, starter slots and every roster
     rank resolve through ``leagueKey``.
 
-    It **refuses a week already in progress** with ``week_in_progress``
-    rather than degrading. Distinguishing a finished player from a
-    mid-game one needs a live game-state feed this repo does not wire, and
-    collapsing them would double-project — so "come back after the games"
-    is the truthful answer, and a distinct code lets a caller render it as
-    a state rather than an error.
+    Actual scoring and canonical current/final lineups remain available after
+    kickoff. Where game-state coverage or the explicit in-progress remaining
+    production policy is absent, probability is withheld and the payload
+    names the gap. The legacy ``week_in_progress`` transport remains only as
+    a defensive mapping for an explicit resolver refusal.
 
     A league with no projection snapshot still answers: the matchup,
     both rosters and the lineage come back, ``outcome`` is ``null`` and a

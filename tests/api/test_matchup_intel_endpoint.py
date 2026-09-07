@@ -3,9 +3,8 @@
 Three jobs:
 
 1. **The routing contract** — the same table every league-scoped route
-   follows, plus the two states this endpoint adds: ``week_in_progress``
-   (409, a state and not an error) and ``clock_unavailable`` (503, because
-   guessing the week describes a different week).
+   follows, plus ``clock_unavailable`` (503, because guessing the week
+   describes a different week) and the legacy explicit-refusal mapping.
 2. **The public/private boundary** — this payload is projections, win
    probabilities and roster weaknesses. CLAUDE.md §5 puts all three on the
    private side, so the response must be ``no-store`` and the endpoint must
@@ -129,8 +128,8 @@ def test_a_happy_path_answers_with_the_assembly_payload():
 
 
 def test_a_week_in_progress_is_409_with_its_own_code():
-    # A state, not an error: the caller should render "come back after the
-    # games", which it cannot do if this is indistinguishable from a 503.
+    # Defensive compatibility: an explicit resolver refusal stays distinct
+    # from infrastructure failure even though normal live weeks now resolve.
     with (
         _patch(side_effect=matchup_intel.WeekInProgress("the week has already begun")),
         _patch_clock(),

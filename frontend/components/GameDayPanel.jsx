@@ -14,17 +14,10 @@
  * verbatim; nothing is recomputed, re-ranked or re-derived, the same
  * materializer relationship `buildRows` has with the canonical contract.
  *
- * The states are the design. This endpoint has three non-error outcomes a
- * generic "failed to load" would flatten into one, and each means
- * something different to a manager:
- *
- *   • `week_in_progress` (409) — the games have started. Pregame
- *     intelligence is no longer the question, and that is a STATE, not a
- *     failure.
- *   • priced — the full answer.
- *   • unpriced — the matchup and rosters are real, but no projection
- *     snapshot covered them, so there is no probability. It renders the
- *     matchup and says why the numbers are missing. It NEVER shows 50%.
+ * Scheduled, LIVE, and FINAL are derived from the API payload. Actual scores
+ * and the canonical current lineup remain visible when probability must be
+ * withheld for missing evidence or the unresolved in-progress player policy.
+ * A missing projection never becomes 50% or zero.
  */
 
 import { useCallback, useEffect, useState } from "react";
@@ -43,10 +36,8 @@ function points(value) {
 
 //: The Game Day state machine, spec §6/§7. It is DERIVED from the payload,
 //: never from the clock: `mode: "pregame"` is what the resolver returns for a
-//: week the host reports as unplayed, and a 409 `week_in_progress` is the host
-//: saying scoring has begun. Reading a wall clock here would be a second
-//: answer to "has the week started", and the host's is the only one that
-//: counts.
+//: week the resolver reports as unplayed. Reading a wall clock here would be
+//: a second answer to "has the week started".
 const STATE_SCHEDULED = "SCHEDULED";
 const STATE_LIVE = "LIVE";
 
@@ -125,6 +116,36 @@ function SideHeadline({ side, label }) {
           Median game: {outcome.beatMedianState}
         </div>
       ) : null}
+    </div>
+  );
+}
+
+function ActualSide({ side, final }) {
+  if (!side) return null;
+  const lineup = side.actualLineup;
+  return (
+    <div style={{ flex: "1 1 280px", minWidth: 0 }}>
+      <h3>{side.displayName}</h3>
+      <p>{final ? "Final score" : "Current score"}: {points(side.actualScore) ?? "Unavailable"}
+        {final && side.result ? ` · ${side.result}` : ""}</p>
+      <p>{final ? "Final" : "Current"} optimal lineup: {points(lineup?.total) ?? "Incomplete scoring coverage"}</p>
+      {lineup?.missingPlayerIds?.length > 0 && <p>Scoring unavailable for {lineup.missingPlayerIds.length} players. Known lineup subtotal: {points(lineup.knownSubtotal) ?? "Unavailable"}.</p>}
+      <table style={{ width: "100%", fontSize: "0.8rem" }}>
+        <thead><tr><th>Slot</th><th>Player</th><th>Points</th></tr></thead>
+        <tbody>{lineup?.slots?.map(s => <tr key={s.slotIndex}><td>{s.slot}</td><td>{s.name}</td><td>{points(s.points) ?? "Unavailable"}</td></tr>)}</tbody>
+      </table>
+      {!final && <>
+        <h4>Player status and remaining possibilities</h4>
+        <p>Eligible upcoming and in-progress players can still displace the current best-ball lineup. Unknown game states remain unresolved.</p>
+        {side.remainingLineupPossibilities?.length > 0 && <ul>{side.remainingLineupPossibilities.map(player => <li key={`swing-${player.playerId}`}>
+          {player.name} · {player.currentOptimal ? "currently holding an optimal slot" : "can displace the current lineup"} · eligible at {player.eligibleSlots.map(s => s.slot).join(", ")}
+        </li>)}</ul>}
+        <ul>{side.players?.map(player => <li key={player.playerId}>
+          {player.name} · {player.state.replaceAll("_", " ")} · banked {points(player.pointsScored) ?? "unknown"}
+          {player.state === "not_started" ? ` · remaining estimate ${points(player.projectedRemaining) ?? "unavailable"}` : ""}
+          {player.state === "in_progress" ? " · remaining production policy unresolved" : ""}
+        </li>)}</ul>
+      </>}
     </div>
   );
 }
@@ -250,6 +271,9 @@ function Lineage({ lineage }) {
       title="Where these numbers come from"
       subtitle="Every figure above is produced by a canonical owner and copied here. This is what it was built on."
     >
+      {lineage.gameStateLimitation && <p>{lineage.gameStateLimitation}</p>}
+      {lineage.sleeperFetchedAt && <p>Host data fetched {new Date(lineage.sleeperFetchedAt * 1000).toISOString()}</p>}
+      {lineage.gameEvidence && <details><summary>Game-state source observations</summary><ul>{Object.entries(lineage.gameEvidence).map(([team, g]) => <li key={team}>{team}: {g.state} · {g.source} · observed {g.observedAt ? new Date(g.observedAt * 1000).toISOString() : "timestamp unavailable"}</li>)}</ul></details>}
       <dl style={{ fontSize: "0.78rem", margin: 0, display: "grid", gap: 6 }}>
         <div>
           <dt style={{ color: "var(--subtext)" }}>Projection source</dt>
@@ -352,6 +376,8 @@ export default function GameDayPanel() {
 
   useEffect(() => {
     load();
+    const timer = setInterval(load, 60000);
+    return () => clearInterval(timer);
   }, [load]);
 
   if (state.status === "loading") {
@@ -418,18 +444,25 @@ export default function GameDayPanel() {
   const p = state.payload || {};
   const team = p.team;
   const opponent = p.opponent;
+  const final = p.mode === "final";
+  const scored = p.mode === "live" || final;
+  const subtitle = final
+    ? "Final scoring and optimal lineup from canonical league owners."
+    : scored
+      ? "Current scoring and remaining-week evidence. Private — not shown on the public league page."
+      : "Win probability from the canonical league-week simulation. Private — not shown on the public league page.";
 
   return (
     <div>
       <Card
         title={`Week ${p.week} · ${p.season}`}
-        subtitle="Win probability from the canonical league-week simulation. Private — not shown on the public league page."
+        subtitle={subtitle}
       >
-        <StateBadge state={p.mode === "pregame" ? STATE_SCHEDULED : p.mode} />
+        <StateBadge state={p.mode === "pregame" ? STATE_SCHEDULED : p.mode?.toUpperCase()} />
         <div style={{ display: "flex", flexWrap: "wrap", gap: 20 }}>
-          <SideHeadline side={team} label="Your team" />
+          {scored ? <ActualSide side={team} final={final} /> : <SideHeadline side={team} label="Your team" />}
           {opponent ? (
-            <SideHeadline side={opponent} label="Opponent" />
+            scored ? <ActualSide side={opponent} final={final} /> : <SideHeadline side={opponent} label="Opponent" />
           ) : (
             <div style={{ flex: "1 1 220px", alignSelf: "center", color: "var(--subtext)" }}>
               No scheduled opponent this week.
@@ -453,9 +486,13 @@ export default function GameDayPanel() {
         )}
       </Card>
 
-      <JointOutcomes outcome={team?.outcome} />
+      {p.probabilityState === "OWNER_POLICY_REQUIRED" && <p>Live probability policy awaits an owner decision for in-progress remaining production. Actual scoring is preserved.</p>}
+      {p.probabilityState === "GAME_STATE_OR_SCORING_UNAVAILABLE" && <p>Live probabilities unavailable: game-state or scoring evidence is incomplete.</p>}
+      {scored && !final && team?.outcome && <Card title="Remaining-week probabilities"><SideHeadline side={team} label="Your team" /></Card>}
+      {final && p.recapUrl && <p><a href={p.recapUrl}>Week {p.week} articles and recap</a> · Recap appears here after the canonical manual article workflow publishes it.</p>}
+      {!final && <JointOutcomes outcome={team?.outcome} />}
 
-      <Card
+      {!scored && <Card
         title="Expected best-ball lineup"
         subtitle="The lineup your mean projection implies. The simulation re-solves this on every draw, so no single lineup is the answer — this is the one to plan against."
       >
@@ -471,7 +508,7 @@ export default function GameDayPanel() {
             </div>
           )}
         </div>
-      </Card>
+      </Card>}
 
       <Lineage lineage={p.lineage} />
     </div>
