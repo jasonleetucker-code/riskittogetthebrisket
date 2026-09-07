@@ -20,28 +20,33 @@ For product and implementation authority, follow the existing hierarchy:
 
 If this operating system conflicts with any higher-authority product or methodology record, **the higher-authority record wins**.
 
-`CLAUDE.md` remains the detailed technical runbook. `AGENTS.md` remains the compact repo instruction file. `ASSISTANT_COORDINATION.md` remains the day-to-day branch/integration authority.
+`AI_INSTRUCTIONS.md` is the universal model-neutral entrypoint. `CLAUDE.md` is the legacy-named **universal technical runbook for every LLM**, not a Claude-only authority. `AGENTS.md`, `GEMINI.md`, `.github/copilot-instructions.md`, and `.claude/` are provider adapters only. `ASSISTANT_COORDINATION.md` remains the day-to-day branch/integration authority.
 
 ## 2. Session-start router
 
 A material session begins by establishing **current state**, not replaying old chat history.
 
-1. Update/read current `main`.
+1. Enter through `AI_INSTRUCTIONS.md` and update/read current `main`.
 2. Read this file.
 3. Read `docs/EXECUTION_PLAN.md`.
 4. If an active completion contract exists, read it before selecting work.
 5. Check `docs/WORK_CLAIMS.md` plus open PRs before editing overlapping files.
 6. Read only the technical/domain documents needed for the selected unit.
-7. Use `CLAUDE.md` as a technical reference, not as a substitute roadmap.
+7. Use `CLAUDE.md` as the legacy-named universal technical reference for **all models**, not as a substitute roadmap.
+8. For engineering-system work, read `docs/engineering/ENGINEERING_RELIABILITY_PRIORITIES_2026-09-06.md`.
 
-The existing Claude `SessionStart` hook in `.claude/health-check.sh` prints the active router and mechanically surfaces an incomplete Week 1 launch contract when present. This is intentional: the user should not need to paste a continuation prompt simply to tell Claude which completion contract is active.
+`scripts/agent_session_start.sh` is the canonical model-neutral startup/preflight. Claude's `.claude/health-check.sh` is only an adapter that invokes it. Codex, Gemini, ChatGPT, Copilot, and future agents should run the same shared preflight when their runtime permits shell execution, or reproduce its read-only checks directly. This is intentional: the user should not need to restate operating context based on which model is active.
 
 
 ### Agent OS session receipt
 
-Root `CLAUDE.md` contains a real Claude Code import on its own line:
+Root `CLAUDE.md` contains Claude Code imports for the same shared system, including:
+
+`@AI_INSTRUCTIONS.md`
 
 `@docs/AGENT_OPERATING_SYSTEM.md`
+
+Other provider adapters point to `AI_INSTRUCTIONS.md`; none owns separate semantics.
 
 The existing SessionStart router then reads the same working-tree Agent OS bytes and emits one concise receipt line:
 
@@ -49,7 +54,7 @@ The existing SessionStart router then reads the same working-tree Agent OS bytes
 
 It also atomically writes the same provenance to the local ignored file:
 
-`.claude/session-receipts/latest.env`
+`.agent-runtime/session-receipts/latest.env`
 
 The receipt records:
 - `AGENT_OS_PATH`
@@ -59,7 +64,7 @@ The receipt records:
 - `AGENT_OS_DIRTY` — `true` when loaded bytes differ from the committed HEAD blob, `false` when they match, otherwise `UNKNOWN`;
 - `LOADED_AT_UTC`.
 
-For every material Claude session:
+For every material LLM/agent session:
 - copy the SessionStart token into the first meaningful progress checkpoint as `Agent-OS-Receipt: <AGENT_OS_LOADED_BLOB_SHA>`;
 - carry the same `Agent-OS-Receipt: ...` token in any new material work-claim status text, PR description, and final handoff produced by that session;
 - do **not** change the `docs/WORK_CLAIMS.md` table schema merely to carry the token;
@@ -67,7 +72,18 @@ For every material Claude session:
 - if this file changes mid-session, reread it, generate a new receipt, and explicitly state that the operating version changed;
 - never replace an unprovable field with a guess: use `UNKNOWN`.
 
-The import plus receipt gives a reproducible provenance chain for the exact Agent OS target and bytes presented by the startup harness. It does **not** prove cognitive comprehension or semantic compliance. Compliance is established from actual behavior, tests, independent review, CI, and production evidence.
+The universal entrypoint plus receipt gives a reproducible provenance chain for the exact Agent OS target and bytes presented by the shared startup harness. It does **not** prove cognitive comprehension or semantic compliance. Compliance is established from actual behavior, tests, independent review, CI, and production evidence.
+
+### Cross-model parity rule
+
+Provider-specific files and hooks are **adapters, not authorities**.
+
+- No correctness, architecture, safety, verification, product, methodology, or engineering-process rule may exist only in a Claude/Codex/Gemini/Copilot-specific file.
+- `CLAUDE.md` is a historical filename only; its technical content is universal and must be available to every model through `AI_INSTRUCTIONS.md`.
+- Provider adapters may contain only mechanics required to load shared files, invoke tools/hooks, or describe capability-specific fallbacks.
+- If a useful provider-only rule is discovered, move it into the appropriate shared canonical document and leave a pointer in the adapter.
+- When a provider cannot run a shared hook or command, reproduce the semantics with that provider's supported mechanism; do not weaken the rule.
+- Harness audits must check cross-model parity and fail any drift that would make one model materially better-informed than another.
 
 ### Current launch rule
 
@@ -684,6 +700,16 @@ When harvesting a post/article/video:
 - do not encode a workflow rule merely because a named company/person is claimed to use it;
 - adopt the smallest durable mechanism that survives without the marketing premise;
 - record the source URL and what was actually adopted, plus what was deliberately not adopted.
+
+### Engineering reliability program
+
+The research-backed, model-neutral engineering backlog lives at:
+
+`docs/engineering/ENGINEERING_RELIABILITY_PRIORITIES_2026-09-06.md`
+
+It preserves the current priority order around source replay, typed API contracts, reproducible artifacts, property/mutation testing, typing, observability/SLOs, agent evals, faster CI without weaker evidence, architecture contracts, supply-chain security, and database migration ownership.
+
+That document is a backlog/design guide, **not product authorization**. Implement it only through the current execution plan/owner-authorized work, and prefer deterministic code/tests/CI over adding prose to this Agent OS.
 
 ## 15. Why this system exists
 
