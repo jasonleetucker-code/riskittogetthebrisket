@@ -174,7 +174,7 @@ jobs:
           if [ -n "$TIMER" ]; then
             echo "###   $TIMER"
             systemctl is-enabled --quiet "$(systemctl list-units --type=timer --all --no-legend \
-              | awk '/game-day-capture/ {print $1; exit}')" 2>/dev/null \
+              | awk '/game-day-capture/ && !s {print $1; s=1}')" 2>/dev/null \
               && echo "###   enabled: yes" || echo "###   enabled: NO"
           else
             echo "###   NOT INSTALLED — no game-day-capture timer on this host."
@@ -202,10 +202,18 @@ jobs:
           # ACTUALLY installed.
           echo "###"
           echo "### installed unit — exit-code policy:"
+          # NOTE the awk idiom: match-and-set, never `{print; exit}`.
+          # `exit` closes the pipe while systemctl is still writing, which
+          # is SIGPIPE -> 141, and under `set -Eeuo pipefail` that aborts
+          # the whole run before a single line of this diagnostic prints.
+          # Measured: run 34167418550 died at exit 141 doing exactly that.
+          # The pre-existing timer lookup below survives the same idiom
+          # only because `--type=timer` is short enough to fit the pipe
+          # buffer; `--type=service --all` is not. Consume the stream.
           SVC="$(systemctl list-units --type=service --all --no-legend 2>/dev/null \
-            | awk '/game-day-capture/ {print $1; exit}')"
+            | awk '/game-day-capture/ && !s {print $1; s=1}' || true)"
           SVC="${SVC:-$(systemctl list-unit-files --no-legend 2>/dev/null \
-            | awk '/game-day-capture\.service/ {print $1; exit}')}"
+            | awk '/game-day-capture\.service/ && !s {print $1; s=1}' || true)}"
           if [ -n "$SVC" ]; then
             SES="$(systemctl show "$SVC" -p SuccessExitStatus --value 2>/dev/null || true)"
             echo "###   unit: $SVC"
