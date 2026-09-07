@@ -22,6 +22,7 @@ from src.ros.game_day_sim import (
     LeagueWeekRules,
     PlayerWeek,
     TeamWeek,
+    _threshold,
     rules_from_league,
     simulate_league_week,
 )
@@ -185,6 +186,72 @@ def test_the_three_median_states_are_distinguishable():
         for v in (True, False, None)
     }
     assert states == {"OK", "NOT_APPLICABLE", "STANDINGS_RULE_UNVERIFIED"}
+
+
+def _completed_score_league(scores):
+    """A deterministic one-player-per-team league for threshold semantics."""
+    rules = LeagueWeekRules(
+        league_key="median_semantics",
+        starter_slots=("QB",),
+        best_ball=True,
+        median_enabled=True,
+        team_count=len(scores),
+    )
+    teams = tuple(
+        TeamWeek(
+            team_id=f"t{i}",
+            players=(_p(f"p{i}", "QB", "completed", scored=float(score)),),
+        )
+        for i, score in enumerate(scores, start=1)
+    )
+    opponents = {
+        "t1": "t2",
+        "t2": "t1",
+        "t3": "t4",
+        "t4": "t3",
+    }
+    return simulate_league_week(
+        rules=rules,
+        teams=teams,
+        opponents=opponents,
+        season=2026,
+        week=1,
+        draws=5,
+        points_model=_MODEL,
+    )
+
+
+def test_sleeper_threshold_is_the_middle_two_average_not_the_mean():
+    """Sleeper documents the even-league median as the average of the
+    middle two weekly scores. [0, 10, 20, 100] therefore has threshold
+    15, not the arithmetic mean 32.5."""
+    assert _threshold([0.0, 10.0, 20.0, 100.0]) == 15.0
+    sim = _completed_score_league([0, 10, 20, 100])
+    by_id = {t.team_id: t for t in sim.teams}
+    assert by_id["t2"].beat_median_pct == 0.0
+    assert by_id["t3"].beat_median_pct == 100.0
+
+
+def test_exact_median_score_is_a_tie_not_a_joint_loss():
+    """Sleeper documents an exact score at the median as a tie. The four
+    joint buckets contain only win/loss combinations, so that tied leg
+    must not be coerced into either median-loss bucket."""
+    sim = _completed_score_league([90, 100, 100, 110])
+    by_id = {t.team_id: t for t in sim.teams}
+
+    # t2 wins H2H but ties the median. Old behavior incorrectly reported
+    # this as "1-1 via H2H" (a median loss).
+    t2 = by_id["t2"]
+    assert t2.win_matchup_pct == 100.0
+    assert t2.beat_median_pct == 0.0
+    assert t2.joint_1_1_h2h_pct == 0.0
+
+    # t3 loses H2H but ties the median. Old behavior incorrectly reported
+    # this as a 0-2 week (another median loss).
+    t3 = by_id["t3"]
+    assert t3.win_matchup_pct == 0.0
+    assert t3.beat_median_pct == 0.0
+    assert t3.joint_0_2_pct == 0.0
 
 
 # ── missing opponent ───────────────────────────────────────────────
@@ -496,12 +563,44 @@ def test_every_result_carries_its_provenance():
     assert sim.seed and sim.draws
 
 
-def test_threshold_semantics_are_declared_unverified():
-    """Reconciling 2025 against Sleeper's own records reproduced at most
-    3 of 10 teams, because Sleeper's stored historical points no longer
-    reproduce its own season totals. Until a human reads the rule off
-    the host, this must not claim fidelity."""
-    assert _league().threshold_semantics_verified is False
+def test_canonical_threshold_semantics_are_verified():
+    """Sleeper's official support documentation verifies the canonical
+    median threshold and exact-tie behavior."""
+    assert _league().threshold_semantics_verified is True
+
+
+def test_noncanonical_threshold_override_cannot_borrow_verified_provenance():
+    sim = _league()
+    overridden = simulate_league_week(
+        rules=_rules(),
+        teams=tuple(
+            TeamWeek(team_id=f"t{i}", players=_full_roster(f"t{i}", 10.0 + i)) for i in range(1, 5)
+        ),
+        opponents={"t1": "t2", "t2": "t1", "t3": "t4", "t4": "t3"},
+        season=2026,
+        week=1,
+        draws=10,
+        points_model=_MODEL,
+        threshold_semantics="mean",
+    )
+    assert sim.threshold_semantics_verified is True
+    assert overridden.threshold_semantics == "mean"
+    assert overridden.threshold_semantics_verified is False
+
+
+def test_odd_team_league_does_not_overclaim_host_verification():
+    """The official Sleeper evidence describes the middle-two calculation
+    for even-sized leagues; it does not establish odd-team behavior."""
+    sim = _league(n=3, rules=_rules(team_count=3), draws=10)
+    assert sim.threshold_semantics == "median"
+    assert sim.threshold_semantics_verified is False
+
+
+def test_team_count_mismatch_does_not_claim_verified_threshold_semantics():
+    """A partial league fetch is not host-faithful merely because the
+    number of teams that happened to arrive is even."""
+    sim = _league(n=4, rules=_rules(team_count=12), draws=10)
+    assert sim.threshold_semantics_verified is False
 
 
 def test_a_fallback_points_model_is_declared():

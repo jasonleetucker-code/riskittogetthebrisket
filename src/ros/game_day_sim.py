@@ -35,18 +35,18 @@ whose remaining production cannot be estimated is EXCLUDED from the
 lineup pool and reported in `unsimulable_player_ids`, never drawn as
 zero. A team with no opponent is `UNSIMULABLE`, never 50%.
 
-**Host semantics for the threshold are NOT yet verified**, and this
-module says so rather than implying otherwise. `THRESHOLD_SEMANTICS`
-carries the statistic actually used and
-`threshold_semantics_verified=False` travels on every result. The
-attempt and why it failed are recorded in
-`docs/game-day/MEDIAN_SEMANTICS_VERIFICATION.md`: reconciling 2025's
-records against Sleeper's own reported records reproduced at most 3 of
-10 teams under six variants, because Sleeper's stored historical
-matchup points no longer reproduce Sleeper's own season totals (a
-best-ball league recomputes the optimal lineup from current player
-stats, so accumulated stat corrections move the history). Swapping the
-statistic is a one-constant change once a human reads it off the host.
+**Host threshold/tie semantics are verified for even-sized leagues.**
+Sleeper's official support documentation states that the extra weekly
+result is against the league median, calculated as the average of the
+middle two team scores, and that a team scoring exactly at the median
+receives a tie. The owner's league has 12 teams. Odd-sized behavior is
+not extended from evidence the host did not publish.
+The authoritative evidence and the earlier failed historical
+reconstruction attempt are recorded in
+`docs/game-day/MEDIAN_SEMANTICS_VERIFICATION.md`. The canonical
+`THRESHOLD_SEMANTICS` therefore remains `"median"`; provenance is
+verified only for that canonical setting, never for an experimental
+override.
 """
 
 from __future__ import annotations
@@ -73,9 +73,14 @@ PLAYER_STATES: frozenset[str] = frozenset(
     {"completed", "in_progress", "not_started", "inactive", "unknown"}
 )
 
-#: The statistic the extra weekly result is decided against. NOT yet
-#: verified against the host — see the module docstring.
+#: The statistic the extra weekly result is decided against. Sleeper's
+#: official support documentation verifies "median"; see the module
+#: docstring and docs/game-day/MEDIAN_SEMANTICS_VERIFICATION.md.
 THRESHOLD_SEMANTICS: str = "median"
+#: The official Sleeper article defines the threshold using the middle
+#: two teams, which verifies even-sized leagues (including the owner's
+#: 12-team league). It does not explicitly establish odd-team behavior.
+THRESHOLD_SEMANTICS_VERIFIED_FOR_EVEN_LEAGUES: bool = True
 
 #: Default draws. Matches the playoff sim's own 10,000 rather than
 #: introducing a second number for the same kind of question.
@@ -85,7 +90,7 @@ DEFAULT_DRAWS: int = 10_000
 #: A re-render is not new evidence.
 DEFAULT_SEED: int = 20260910
 
-MODEL_VERSION: str = "game-day-sim-v1"
+MODEL_VERSION: str = "game-day-sim-v2"
 
 
 class GameDaySimError(ValueError):
@@ -431,16 +436,23 @@ def simulate_league_week(
                     won_h2h = False
             if thr is None:
                 continue
-            beat_med = scores[tid] > thr
-            if beat_med:
+            if scores[tid] > thr:
+                median_result: bool | None = True
                 med_win[tid] += 1
-            if won_h2h is None:
+            elif scores[tid] == thr:
+                # Sleeper records an exact-median score as a TIE. The
+                # four joint buckets model only win/loss combinations,
+                # so a tied leg must not be silently folded into a loss.
+                median_result = None
+            else:
+                median_result = False
+            if won_h2h is None or median_result is None:
                 continue
-            if won_h2h and beat_med:
+            if won_h2h and median_result:
                 joint[tid]["2_0"] += 1
             elif won_h2h:
                 joint[tid]["1_1_h2h"] += 1
-            elif beat_med:
+            elif median_result:
                 joint[tid]["1_1_med"] += 1
             else:
                 joint[tid]["0_2"] += 1
@@ -521,10 +533,16 @@ def simulate_league_week(
         model_version=MODEL_VERSION,
         points_model_source=model.source,
         threshold_semantics=threshold_semantics,
-        # Deliberately hard-coded False: see the module docstring. It flips
-        # when a human reads the rule off the host, not when a caller
-        # would like it to be true.
-        threshold_semantics_verified=False,
+        # Sleeper's official host documentation verifies the canonical
+        # median rule. An explicit non-canonical override stays unverified
+        # rather than borrowing provenance that does not apply to it.
+        threshold_semantics_verified=(
+            THRESHOLD_SEMANTICS_VERIFIED_FOR_EVEN_LEAGUES
+            and threshold_semantics == THRESHOLD_SEMANTICS
+            and rules.team_count is not None
+            and rules.team_count == len(teams)
+            and rules.team_count % 2 == 0
+        ),
         median_enabled=rules.median_enabled,
         best_ball=rules.best_ball,
         seed=seed,
@@ -577,10 +595,11 @@ def _sim_input_fingerprint(
     threshold_semantics: str,
     model: PointsModel,
 ) -> str:
-    """Sha256 over every input that can change ``simulate_league_week``'s
-    answer — rules, every team's players (state/position/banked/remaining/
-    fantasy positions), opponents, draws, seed, threshold semantics, and
-    the points model actually in effect. A match PROVES the cached result
+    """Sha256 over every input or versioned semantic that can change
+    ``simulate_league_week``'s answer — model version, rules, every
+    team's players (state/position/banked/remaining/fantasy positions),
+    opponents, draws, seed, threshold semantics, and the points model
+    actually in effect. A match PROVES the cached result
     is the same computation the caller was about to run; it is not a
     heuristic staleness guess. Built from an explicit, sorted structure
     rather than ``repr()``, which carries no cross-version stability
@@ -605,6 +624,10 @@ def _sim_input_fingerprint(
         team_rows.append([t.team_id, players, sorted(t.declared_starters)])
 
     payload = {
+        # Cache identity must move when simulation semantics move. Otherwise
+        # a deploy can serve a pre-change result from disk even though the
+        # Python implementation and provenance changed.
+        "modelVersion": MODEL_VERSION,
         "rules": [
             rules.league_key,
             list(rules.starter_slots),

@@ -222,5 +222,6 @@ class EndToEndTests(unittest.TestCase):
         # the whole probability mass.
         total = (a.win_matchup_pct or 0) + (b.win_matchup_pct or 0) + (a.tie_matchup_pct or 0)
         self.assertAlmostEqual(total, 100.0, delta=0.05)
-        # The unverified threshold semantics travel with the result.
-        self.assertFalse(sim.threshold_semantics_verified)
+        # Sleeper's official host documentation verifies the canonical
+        # median semantics for this even-sized league.
+        self.assertTrue(sim.threshold_semantics_verified)

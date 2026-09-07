@@ -175,8 +175,8 @@ test.describe("W1-16: the owner's Game Day experience (production)", () => {
     const cov = body.lineage?.estimateCoverage || {};
     expect(text).toContain(`${cov.priced} of ${cov.active} active players priced`);
 
-    // W1-23 is BLOCKED on host evidence; the surface must not present the
-    // median leg as settled just because it rendered.
+    // If this league's host semantics are unverified (for example an
+    // unsupported odd-sized case), the surface must still say so.
     if (body.lineage?.simulation && body.lineage.simulation.thresholdSemanticsVerified === false) {
       expect(text).toMatch(/is NOT verified/);
       annotate(testInfo, "w1-16-threshold", "unverified median semantics surfaced");
