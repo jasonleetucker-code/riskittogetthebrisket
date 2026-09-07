@@ -24,13 +24,16 @@ def test_operating_system_cannot_authorize_product_scope():
 
 
 def test_session_start_router_mechanically_counts_launch_rows():
+    shared = _read("scripts/agent_session_start.sh")
     hook = _read(".claude/health-check.sh")
-    assert "=== AGENT ROUTER ===" in hook
-    assert "WEEK_1_LAUNCH_CONTRACT.md" in hook
-    assert "LAUNCH_VERIFIED" in hook
-    assert "literal VERIFIED" in hook
-    assert "Keep V1 closed" in hook
-    assert "scripts/agent_os_receipt.py" in hook
+    assert "=== AGENT ROUTER ===" in shared
+    assert "WEEK_1_LAUNCH_CONTRACT.md" in shared
+    assert "LAUNCH_VERIFIED" in shared
+    assert "literal VERIFIED" in shared
+    assert "Keep V1 closed" in shared
+    assert "scripts/agent_os_receipt.py" in shared
+    assert "exec bash scripts/agent_session_start.sh" in hook
+    assert "@AI_INSTRUCTIONS.md" in _read("CLAUDE.md").splitlines()
     assert "@docs/AGENT_OPERATING_SYSTEM.md" in _read("CLAUDE.md").splitlines()
     assert "Agent OS session receipt" in _read("docs/AGENT_OPERATING_SYSTEM.md")
     assert "Agent-OS-Receipt: <AGENT_OS_LOADED_BLOB_SHA>" in _read("docs/AGENT_OPERATING_SYSTEM.md")
