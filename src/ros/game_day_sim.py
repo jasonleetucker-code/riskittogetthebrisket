@@ -35,10 +35,12 @@ whose remaining production cannot be estimated is EXCLUDED from the
 lineup pool and reported in `unsimulable_player_ids`, never drawn as
 zero. A team with no opponent is `UNSIMULABLE`, never 50%.
 
-**Host threshold/tie semantics are verified.** Sleeper's official
-support documentation states that the extra weekly result is against
-the league median, calculated as the average of the middle two team
-scores, and that a team scoring exactly at the median receives a tie.
+**Host threshold/tie semantics are verified for even-sized leagues.**
+Sleeper's official support documentation states that the extra weekly
+result is against the league median, calculated as the average of the
+middle two team scores, and that a team scoring exactly at the median
+receives a tie. The owner's league has 12 teams. Odd-sized behavior is
+not extended from evidence the host did not publish.
 The authoritative evidence and the earlier failed historical
 reconstruction attempt are recorded in
 `docs/game-day/MEDIAN_SEMANTICS_VERIFICATION.md`. The canonical
@@ -591,10 +593,11 @@ def _sim_input_fingerprint(
     threshold_semantics: str,
     model: PointsModel,
 ) -> str:
-    """Sha256 over every input that can change ``simulate_league_week``'s
-    answer — rules, every team's players (state/position/banked/remaining/
-    fantasy positions), opponents, draws, seed, threshold semantics, and
-    the points model actually in effect. A match PROVES the cached result
+    """Sha256 over every input or versioned semantic that can change
+    ``simulate_league_week``'s answer — model version, rules, every
+    team's players (state/position/banked/remaining/fantasy positions),
+    opponents, draws, seed, threshold semantics, and the points model
+    actually in effect. A match PROVES the cached result
     is the same computation the caller was about to run; it is not a
     heuristic staleness guess. Built from an explicit, sorted structure
     rather than ``repr()``, which carries no cross-version stability
