@@ -46,7 +46,7 @@ The denominator is frozen at 30 for this launch tranche. Do not add/remove rows 
 | W1-20 | Game Day backend | Best-ball simulation uses canonical optimal-lineup behavior and preserves still-eligible lineup displacement possibilities. | VERIFIED |
 | W1-21 | Game Day backend | Completed, in-progress, not-started, inactive, and unavailable player/game states are handled without double projection or missing→zero coercion. | VERIFIED |
 | W1-22 | Game Day probability | `Win Matchup %` is produced from the canonical weekly simulation with bounded, testable probability output. | VERIFIED |
-| W1-23 | Game Day probability | `Beat League Median %` derives from the same league-wide simulation draws; median-disabled is NOT_APPLICABLE and tie semantics are host-faithful. | BLOCKED |
+| W1-23 | Game Day probability | `Beat League Median %` derives from the same league-wide simulation draws; median-disabled is NOT_APPLICABLE and tie semantics are host-faithful. | VERIFIED |
 | W1-24 | Game Day truth | Game Day outputs preserve timestamp, model version, projection/source freshness, coverage, and truthful degraded/unavailable states. | VERIFIED |
 | W1-25 | Game Day UI | Canonical Game Day route/section and navigation shell are integrated into the existing site design and selected-team context. | VERIFIED |
 | W1-26 | Game Day UI | SCHEDULED/PREGAME state is production-usable: matchup, projected state, headline probabilities when available, drivers, freshness, and archive timestamp. | VERIFIED |
@@ -57,15 +57,19 @@ The denominator is frozen at 30 for this launch tranche. Do not add/remove rows 
 
 ## Mechanical tally
 
-*Recounted 2026-09-07T09:20Z after W1-11 verified on the real six Week 1 narratives.*
+*Recounted 2026-09-07 after W1-23 merged with authoritative host semantics and exact-head gates.*
 
-- VERIFIED: 23
+- VERIFIED: 24
 - IMPLEMENTED_UNVERIFIED: 1
 - IN PROGRESS: 0
 - NOT STARTED: 5
-- BLOCKED: 1
+- BLOCKED: 0
 - DENOMINATOR: 30
-- COMPLETION: **23/30 = 76.7%**
+- COMPLETION: **24/30 = 80.0%**
+
+### Row movements, 2026-09-07
+
+- **W1-23 → VERIFIED (#1268, head `ee83acc06b5461beddf7be202d2860fba2765967`, merge `e5146b21e0a256a0d2d32d255fee453658d90da6`).** Sleeper HQ documents the extra game against the league median, the even-league threshold as the average of the middle two scores, and exact equality as a tie. The owner league has 12 teams. The canonical simulator excludes an exact-median tie from the loss joint buckets, limits verified provenance to complete even leagues using canonical median semantics, advances the model version, and includes that identity in the disk-cache fingerprint. Odd-team and noncanonical semantics remain unverified. Exact-head PR Validation run `34144629578` and E2E Safety Net run `34144629587` both passed before merge. Agent-OS-Receipt: `7a029d37f101240a408c6cf285d87a3876fe49d6`.
 
 ### Row movements, 2026-09-04
 
