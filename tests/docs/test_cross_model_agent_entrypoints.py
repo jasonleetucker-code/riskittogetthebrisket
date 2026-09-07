@@ -94,3 +94,31 @@ def test_engineering_reliability_research_is_shared_and_actionable():
     assert "**product authority:** none." in lower
     assert "not permission to start broad work" in lower
     assert "active owner-authorized contracts still control timing and authorization" in lower
+
+def test_material_new_features_consider_shared_engineering_priorities():
+    entry = _read("AI_INSTRUCTIONS.md")
+    os_doc = _read("docs/AGENT_OPERATING_SYSTEM.md")
+    priorities = _read(f"{ENGINEERING_DIR}/{PRIORITIES_NAME}")
+
+    assert "Material new-feature engineering applicability check" in entry
+    assert "Material new-feature engineering applicability check" in os_doc
+    assert "New-feature applicability pass" in priorities
+
+    dispositions = (
+        "APPLY_NOW",
+        "ALREADY_COVERED",
+        "NOT_RELEVANT",
+        "DEFERRED_BY_AUTHORITY",
+    )
+    for disposition in dispositions:
+        assert disposition in entry
+        assert disposition in os_doc
+        assert disposition in priorities
+
+    # The check must make the reliability research operational without
+    # granting itself product authority or forcing every priority into
+    # every feature.
+    assert "does not authorize" in os_doc
+    assert "not new product authority" in priorities
+    assert "do not manufacture work" in os_doc
+
