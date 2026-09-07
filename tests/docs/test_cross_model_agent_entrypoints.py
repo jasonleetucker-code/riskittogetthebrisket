@@ -90,4 +90,7 @@ def test_engineering_reliability_research_is_shared_and_actionable():
     )
     for heading in required:
         assert heading in doc
-    assert "not product authorization" in doc.lower()
+    lower = doc.lower()
+    assert "**product authority:** none." in lower
+    assert "not permission to start broad work" in lower
+    assert "active owner-authorized contracts still control timing and authorization" in lower
