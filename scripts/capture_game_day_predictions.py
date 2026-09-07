@@ -37,9 +37,12 @@ from src.api import league_registry  # noqa: E402
 from src.public_league import sleeper_client  # noqa: E402
 from src.ros.game_day_archive import GameDayArchiveError, record_snapshot  # noqa: E402
 from src.ros.game_day_capture import (  # noqa: E402
+    CAPTURE_WINDOW_HOURS,
     GameDayCaptureRefusal,
     build_capture,
     estimate_index_from_ensemble,
+    first_kickoff_utc,
+    pregame_window_state,
 )
 from src.ros.game_day_sim import get_cached_league_week_simulation  # noqa: E402
 from src.ros.game_day_week import resolve_pregame_week  # noqa: E402
@@ -103,6 +106,19 @@ def main() -> int:
     parser.add_argument("--week", type=int, default=None, help="override the week Sleeper reports.")
     parser.add_argument("--run-id", default="", help="ties one batch of captures together.")
     parser.add_argument(
+        "--ignore-window",
+        action="store_true",
+        help="capture regardless of how far off kickoff is. For an owner-authorized "
+        "manual capture; the post-kickoff refusal still applies and is not bypassable.",
+    )
+    parser.add_argument(
+        "--window-hours",
+        type=float,
+        default=CAPTURE_WINDOW_HOURS,
+        help="hours before the week's first kickoff that the pregame window opens "
+        f"(default {CAPTURE_WINDOW_HOURS:g}).",
+    )
+    parser.add_argument(
         "--allow-season-type",
         action="append",
         default=None,
@@ -161,6 +177,39 @@ def main() -> int:
     if not season or not week:
         print("Nothing to do: no season/week resolved.")
         return 2
+
+    # THE CAPTURE WINDOW IS DERIVED FROM THE SCHEDULE, NOT FROM A WEEKDAY.
+    # The retired timer assumed a Thursday-night opener; Week 1 of 2026
+    # opens on a WEDNESDAY (NE @ SEA, 2026-09-09 20:20 ET = 2026-09-10
+    # 00:20 UTC), so a Thursday-13:00-UTC run would have been ~13 hours
+    # late, been correctly refused, and lost the observation for good.
+    # The timer now fires several times a day and THIS decides which of
+    # those firings is the right one.
+    if args.capture_kind == "pregame":
+        try:
+            from src.nfl_data import ingest as _nfl_ingest
+
+            kickoff = first_kickoff_utc(
+                _nfl_ingest.fetch_schedules([int(season)]),
+                season=int(season),
+                week=int(week),
+            )
+        except Exception as exc:  # noqa: BLE001 — a schedule outage must not lose a capture
+            print(f"  schedule unavailable ({type(exc).__name__}: {exc})")
+            kickoff = None
+        state, why = pregame_window_state(first_kickoff=kickoff, window_hours=args.window_hours)
+        print(f"Pregame window: {state} — {why}")
+        if args.ignore_window:
+            print("  --ignore-window: proceeding (post-kickoff refusal still applies)")
+        elif state == "early":
+            print(
+                "Nothing to do yet: capturing now would consume the append-only "
+                "pregame slot with a roster waivers will still change."
+            )
+            return 2
+        elif state == "closed":
+            print("REFUSED: the pregame window has closed for this week.", file=sys.stderr)
+            return 3
 
     print(
         f"Capturing {args.capture_kind} for season {season}, week {week} "
