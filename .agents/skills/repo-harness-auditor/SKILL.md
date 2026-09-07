@@ -1,6 +1,6 @@
 ---
 name: repo-harness-auditor
-description: Use when auditing or refactoring this repository's AI harness: CLAUDE.md, AGENTS.md, assistant coordination, agent skills, Claude hooks, repeated continuation prompts, contradictory instructions, model-migration prompt debt, or duplicated agent workflow rules. Do not use for product feature implementation.
+description: Use when auditing or refactoring this repository's AI harness: universal/provider entrypoints, CLAUDE.md, AGENTS.md, GEMINI.md, Copilot instructions, assistant coordination, agent skills, hooks, repeated continuation prompts, contradictory instructions, model-migration prompt debt, or duplicated agent workflow rules. Do not use for product feature implementation.
 ---
 
 # Repo Harness Auditor
@@ -11,14 +11,26 @@ Make the AI-development harness smaller, clearer, more deterministic, and less c
 
 ## Read first
 
-1. `docs/AGENT_OPERATING_SYSTEM.md`
-2. `CLAUDE.md`
-3. `AGENTS.md`
-4. `ASSISTANT_COORDINATION.md`
-5. `.claude/settings.json` and referenced hook scripts
-6. `.agents/skills/*/SKILL.md`
-7. `docs/WORK_CLAIMS.md`
-8. tests/docs or code references that pin the files being changed
+1. `AI_INSTRUCTIONS.md`
+2. `docs/AGENT_OPERATING_SYSTEM.md`
+3. `CLAUDE.md` (legacy filename; universal technical runbook)
+4. `AGENTS.md`, `GEMINI.md`, and `.github/copilot-instructions.md`
+5. `ASSISTANT_COORDINATION.md`
+6. provider adapters such as `.claude/settings.json` plus the shared `scripts/agent_session_start.sh`
+7. `.agents/skills/*/SKILL.md`
+8. `docs/WORK_CLAIMS.md`
+9. tests/docs or code references that pin the files being changed
+
+## Cross-model parity hygiene
+
+Audit provider-specific entrypoints as adapters, not independent constitutions.
+
+- no provider-specific file may contain a unique correctness, architecture, safety, evidence, product, methodology, or process rule;
+- `AI_INSTRUCTIONS.md` must route every model to the same Agent OS, execution authority, coordination records, and universal technical runbook;
+- Claude/Codex/Gemini/Copilot adapters should differ only where their loading/tool mechanics differ;
+- shared startup/receipt behavior belongs under `scripts/` and model-neutral runtime paths; provider hooks only invoke it;
+- any useful rule found only in a provider adapter must be promoted to a shared canonical document;
+- add parity tests for important entrypoint behavior.
 
 ## Classification pass
 
