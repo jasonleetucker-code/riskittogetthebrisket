@@ -122,4 +122,3 @@ def test_material_new_features_consider_shared_engineering_priorities():
     assert "does not authorize" in os_doc
     assert "not new product authority" in priorities
     assert "do not manufacture work" in os_doc
-
