@@ -2,7 +2,7 @@
 
 INCIDENT 2026-09-05 (docs/ops/INCIDENT_2026-09-05_FLOCK_ROOKIE_FLOOR.md §2)
 ──────────────────────────────────────────────────────────────────────────
-`.claude/health-check.sh` attributes a stale checked-out contract by asking
+`scripts/agent_session_start.sh` attributes a stale checked-out contract by asking
 what `origin/main` holds.  `_git` deliberately never fetches — a SessionStart
 hook must not wait on the network — so `origin/main` is whatever the checkout
 last saw.
@@ -25,7 +25,7 @@ must answer None ("cannot tell"), and the caller must say so explicitly
 rather than implying the pipeline.
 
 This is a behavioural test over the real script's own source: it extracts the
-Python heredoc from the shell file and exercises the functions with a stubbed
+Python heredoc from the shared shell file and exercises the functions with a stubbed
 `_git`.  No network, no git, no live board.
 """
 
@@ -37,7 +37,7 @@ from pathlib import Path
 
 import pytest
 
-_SCRIPT = Path(__file__).resolve().parents[2] / ".claude" / "health-check.sh"
+_SCRIPT = Path(__file__).resolve().parents[2] / "scripts" / "agent_session_start.sh"
 
 
 def _load_probe_namespace() -> dict:
@@ -48,7 +48,7 @@ def _load_probe_namespace() -> dict:
     """
     text = _SCRIPT.read_text(encoding="utf-8")
     blocks = re.findall(r"<<'PY'[^\n]*\n(.*?)\nPY\n", text, flags=re.DOTALL)
-    assert blocks, "no python heredoc found in .claude/health-check.sh"
+    assert blocks, "no python heredoc found in scripts/agent_session_start.sh"
     src = max(blocks, key=len)
     cut = src.index("paths = sorted(")
     ns: dict = {}
