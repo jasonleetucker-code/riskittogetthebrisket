@@ -596,6 +596,13 @@ def test_odd_team_league_does_not_overclaim_host_verification():
     assert sim.threshold_semantics_verified is False
 
 
+def test_team_count_mismatch_does_not_claim_verified_threshold_semantics():
+    """A partial league fetch is not host-faithful merely because the
+    number of teams that happened to arrive is even."""
+    sim = _league(n=4, rules=_rules(team_count=12), draws=10)
+    assert sim.threshold_semantics_verified is False
+
+
 def test_a_fallback_points_model_is_declared():
     sim = _league()
     assert sim.points_model_source == "fallback-constants"
