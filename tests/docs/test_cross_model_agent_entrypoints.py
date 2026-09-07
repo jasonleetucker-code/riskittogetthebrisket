@@ -38,7 +38,10 @@ def test_provider_specific_files_cannot_own_unique_semantics():
     entry = _read("AI_INSTRUCTIONS.md")
     assert "Cross-model parity rule" in os_doc
     assert "adapters, not authorities" in os_doc
-    assert "No correctness, architecture, safety, verification, product, methodology, or engineering-process rule" in os_doc
+    assert (
+        "No correctness, architecture, safety, verification, product, methodology, "
+        "or engineering-process rule" in os_doc
+    )
     assert "Provider-specific files are adapters only" in entry
     assert "Do not make the human owner remember which model knows which rule." in entry
 
@@ -60,7 +63,9 @@ def test_startup_preflight_is_shared_not_claude_owned():
 
 
 def test_engineering_reliability_research_is_shared_and_actionable():
-    doc = _read("docs/engineering/ENGINEERING_RELIABILITY_PRIORITIES_2026-09-06.md")
+    doc = _read(
+        "docs/engineering/ENGINEERING_RELIABILITY_PRIORITIES_2026-09-06.md"
+    )
     required = (
         "External-source deterministic replay",
         "Typed API contract spine",
