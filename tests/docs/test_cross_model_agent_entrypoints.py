@@ -95,6 +95,7 @@ def test_engineering_reliability_research_is_shared_and_actionable():
     assert "not permission to start broad work" in lower
     assert "active owner-authorized contracts still control timing and authorization" in lower
 
+
 def test_material_new_features_consider_shared_engineering_priorities():
     entry = _read("AI_INSTRUCTIONS.md")
     os_doc = _read("docs/AGENT_OPERATING_SYSTEM.md")
