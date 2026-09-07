@@ -32,6 +32,50 @@ stands.
 | Week 1 pregame (private) | NOT STARTED | scope now authorized |
 | Game Day dashboard | NOT STARTED | §2; methodology decision outstanding |
 
+## 0a. Status update — 2026-09-07 (supersedes §0's next-actions)
+
+§0 and the audit bodies below are the 2026-09-04 record and are left standing.
+This block corrects what has since become false. `WEEK_1_LAUNCH_CONTRACT.md`
+remains the canonical scoreboard and this document does not restate its tally.
+
+**§0 gets the kickoff DAY wrong, and that mislabelling is the incident.** The
+UTC timestamp is right; the weekday is not. Week 1 2026 opens on a
+**WEDNESDAY** — NE @ SEA, 2026-09-09 20:20 ET = **2026-09-10 00:20 UTC**. The
+capture timer was originally scheduled Thursday on exactly the reasoning §0
+records here, which would have fired ~12h40m AFTER kickoff, been correctly
+refused, and lost the Week 1 pregame observation permanently. The window is now
+derived from the nflverse slate rather than a weekday (#1263).
+
+**§0's "the pregame capture window is OPEN" is also false as written.** The
+window opens 30h before first kickoff — **Tue 2026-09-08 18:20 UTC** — and
+closes at kickoff. As of 2026-09-07 it has NOT opened; the script reports
+`early` and exits 2.
+
+| component | state as of 2026-09-07 | evidence |
+|---|---|---|
+| Game Day archive capture | **DEPLOYED + PRODUCTION VERIFIED** (the enabler, not a capture) | run `34154347596` on `deployed_sha c5164c46`: timer enabled, firing four-hourly, next fire 31 min out, window state correctly `early` |
+| Week 1 authentic capture | NOT YET POSSIBLE — time-gated | window opens Tue 2026-09-08 18:20 UTC |
+| Game Day simulation backend | MERGED | `src/ros/game_day_sim.py`; one simulation owner, both probabilities from the same draws |
+| Game Day LIVE / FINAL states | MERGED, awaiting live-game evidence | #1271 |
+
+**Three defects found and closed since §0, recorded so they are not
+re-derived:** the Thursday timer above (#1263); a deploy that never updated a
+CHANGED timer template, so every timer edit in repo history shipped into a hole
+and the fix above would have been inert on production (#1267); and
+`Type=oneshot` without `SuccessExitStatus`, which marked the unit `failed` on
+every correct out-of-window run and would have made a real failure
+indistinguishable from the normal case (#1272).
+
+**One owner decision is open and does NOT block anything before kickoff.** An
+in-progress player's remaining production is `None` and raises
+`OWNER_POLICY_REQUIRED` rather than silently choosing time-proration, zero
+remainder, or exclusion. Each choice changes published live probabilities; no
+evidence in the repo selects one.
+
+**One owner action is BLOCKING.** `ANTHROPIC_API_KEY` is unconfigured, so
+`weekly-narratives.yml` reports success in ~10 s with every real step skipped
+and `exports/narratives/` holds only two 2025 files.
+
 **Methodology finding that constrains Game Day, recorded here so it is not
 re-derived.** `config/projections/source_capability_census.json` has exactly
 two `implementationStatus: LIVE` `PROJECTION_MODEL` sources —
@@ -200,7 +244,7 @@ rather than a new one (avoiding a second recap-generation owner).
 | surface | classification | blocking question |
 |---|---|---|
 | Pregame writeups | READY (public) / NOT STARTED (private) | public/private scope confirmation |
-| Game Day dashboard | NOT STARTED (dashboard); substrate built but idle | none — wire the capture job now, time-critical |
+| Game Day dashboard | superseded — see §0a | capture job is wired, deployed and production-verified; do NOT re-wire it |
 | Postgame writeups | READY (public) / NOT STARTED (private "expected vs actual") | public/private scope confirmation |
 
 None of this work is V1-required; it does not touch V1-123/V1-125/V1-126 or
