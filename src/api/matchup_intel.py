@@ -50,7 +50,12 @@ from src.ros.game_day_week import (
     resolve_scoring_week,
     schedule_game_evidence,
 )
-from src.ros.lineup import RosterPlayer, resolve_starter_slots, solve_optimal_assignment
+from src.ros.lineup import (
+    RosterPlayer,
+    player_eligible_for_slot,
+    resolve_starter_slots,
+    solve_optimal_assignment,
+)
 
 #: Draws for the league-week simulation. NOT `game_day_sim.DEFAULT_DRAWS`
 #: (10,000) — this endpoint runs synchronously in a web request, so it uses
@@ -438,11 +443,37 @@ def build_matchup_intel(
                 }
                 for p in tw.players
             ]
-            side["remainingEligiblePlayerIds"] = [
-                p.player_id
-                for p in tw.players
-                if p.state in {"not_started", "in_progress", "unknown"}
-            ]
+            current_ids = {s["playerId"] for s in side["actualLineup"]["slots"]}
+            possibilities = []
+            for p in tw.players:
+                if p.state not in {"not_started", "in_progress", "unknown"}:
+                    continue
+                candidate = RosterPlayer(
+                    player_id=p.player_id,
+                    canonical_name=str(
+                        (fetched.players.get(p.player_id) or {}).get("full_name") or p.player_id
+                    ),
+                    position=p.position,
+                    ros_value=p.points_scored,
+                    fantasy_positions=p.fantasy_positions,
+                )
+                eligible_slots = [
+                    {"slot": slot, "slotIndex": i}
+                    for i, slot in enumerate(slots)
+                    if player_eligible_for_slot(slot, candidate)
+                ]
+                if eligible_slots:
+                    possibilities.append(
+                        {
+                            "playerId": p.player_id,
+                            "name": candidate.canonical_name,
+                            "state": p.state,
+                            "currentOptimal": p.player_id in current_ids,
+                            "eligibleSlots": eligible_slots,
+                        }
+                    )
+            side["remainingLineupPossibilities"] = possibilities
+            side["remainingEligiblePlayerIds"] = [p["playerId"] for p in possibilities]
             side["result"] = None
             if scoring.mode == "final":
                 other = scoring.host_scores.get(resolution.opponents.get(roster_id))

@@ -402,12 +402,14 @@ describe("GameDayPanel — explicit ?team= wins over the switcher", () => {
       policyRequiredPlayerIds: ["p1"],
       team: { ...PRICED.team, actualScore: 14.2, outcome: null,
         actualLineup: { total: 14.2, knownSubtotal: 14.2, missingPlayerIds: [], slots: [{ slot: "QB", slotIndex: 0, playerId: "p1", name: "Ann Alpha", points: 14.2 }] },
+        remainingLineupPossibilities: [{ playerId: "p2", name: "Bob Bravo", state: "not_started", currentOptimal: false, eligibleSlots: [{ slot: "RB", slotIndex: 1 }] }],
         players: [{ playerId: "p1", name: "Ann Alpha", state: "in_progress", pointsScored: 14.2, projectedRemaining: null }] },
       opponent: null,
     }) });
     render(<GameDayPanel />);
     expect(await screen.findByText(/Current score: 14.2/)).toBeInTheDocument();
     expect(screen.getByText(/remaining production policy unresolved/)).toBeInTheDocument();
+    expect(screen.getByText(/Bob Bravo · can displace the current lineup/)).toBeInTheDocument();
     expect(screen.getByText(/awaits an owner decision/)).toBeInTheDocument();
     expect(screen.queryByText(/61.5%/)).not.toBeInTheDocument();
   });

@@ -213,6 +213,13 @@ class RefusalTests(unittest.TestCase):
         self.assertEqual(out["team"]["actualScore"], 14.2)
         self.assertIsNone(out["team"]["outcome"])
         self.assertEqual(out["probabilityState"], "GAME_STATE_OR_SCORING_UNAVAILABLE")
+        self.assertEqual(
+            {p["playerId"] for p in out["team"]["remainingLineupPossibilities"]},
+            {"p1", "p2", "p3"},
+        )
+        self.assertTrue(
+            all(p["eligibleSlots"] for p in out["team"]["remainingLineupPossibilities"])
+        )
 
     def test_no_rosters_is_refused(self) -> None:
         empty = matchup_intel._LeagueFetch(

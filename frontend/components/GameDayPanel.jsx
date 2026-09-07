@@ -137,6 +137,9 @@ function ActualSide({ side, final }) {
       {!final && <>
         <h4>Player status and remaining possibilities</h4>
         <p>Eligible upcoming and in-progress players can still displace the current best-ball lineup. Unknown game states remain unresolved.</p>
+        {side.remainingLineupPossibilities?.length > 0 && <ul>{side.remainingLineupPossibilities.map(player => <li key={`swing-${player.playerId}`}>
+          {player.name} · {player.currentOptimal ? "currently holding an optimal slot" : "can displace the current lineup"} · eligible at {player.eligibleSlots.map(s => s.slot).join(", ")}
+        </li>)}</ul>}
         <ul>{side.players?.map(player => <li key={player.playerId}>
           {player.name} · {player.state.replaceAll("_", " ")} · banked {points(player.pointsScored) ?? "unknown"}
           {player.state === "not_started" ? ` · remaining estimate ${points(player.projectedRemaining) ?? "unavailable"}` : ""}
