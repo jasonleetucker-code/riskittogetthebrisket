@@ -587,6 +587,14 @@ def test_noncanonical_threshold_override_cannot_borrow_verified_provenance():
     assert overridden.threshold_semantics_verified is False
 
 
+def test_odd_team_league_does_not_overclaim_host_verification():
+    """The official Sleeper evidence describes the middle-two calculation
+    for even-sized leagues; it does not establish odd-team behavior."""
+    sim = _league(n=3, rules=_rules(team_count=3), draws=10)
+    assert sim.threshold_semantics == "median"
+    assert sim.threshold_semantics_verified is False
+
+
 def test_a_fallback_points_model_is_declared():
     sim = _league()
     assert sim.points_model_source == "fallback-constants"
