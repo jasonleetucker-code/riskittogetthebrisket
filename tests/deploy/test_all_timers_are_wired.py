@@ -291,3 +291,29 @@ class TestNothingToDoIsNotAFailure:
         codes = success_line.split("=", 1)[1].split()
         assert "1" not in codes, "a hard error must not be declared a success"
         assert "3" not in codes, "a closed capture window must not be declared a success"
+
+    def test_the_verification_workflow_reads_the_INSTALLED_policy(self):
+        """A green run of the capture workflow does NOT prove the unit on
+        the box treats exit 2 as success.
+
+        The workflow maps rc=2 to success in its own shell; systemd's
+        handling of the same code on a timer firing is a separate half of
+        the same fix. Reading one as evidence of the other is the mistake
+        this guard exists to prevent — and the distinction has teeth here,
+        because until #1267 a changed template never reached the box at
+        all, so the repo and production could disagree indefinitely with
+        every signal green.
+
+        So the workflow must interrogate what is ACTUALLY installed.
+        """
+        workflow = (_REPO / ".github" / "workflows" / "game-day-capture.yml").read_text(
+            encoding="utf-8"
+        )
+        assert "systemctl show" in workflow and "SuccessExitStatus" in workflow, (
+            "the on-box verification must read the installed unit's exit-code "
+            "policy, not infer it from the workflow's own exit handling"
+        )
+        assert "is-failed" in workflow, (
+            "report the unit's current state: a unit already sitting failed "
+            "is the symptom this fix exists to remove"
+        )
