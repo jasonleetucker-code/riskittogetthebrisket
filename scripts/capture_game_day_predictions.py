@@ -43,6 +43,7 @@ from src.ros.game_day_capture import (  # noqa: E402
     estimate_index_from_ensemble,
     first_kickoff_utc,
     pregame_window_state,
+    week_one_waiver_guard,
 )
 from src.ros.game_day_sim import get_cached_league_week_simulation  # noqa: E402
 from src.ros.game_day_week import resolve_pregame_week  # noqa: E402
@@ -199,6 +200,9 @@ def main() -> int:
             kickoff = None
         state, why = pregame_window_state(first_kickoff=kickoff, window_hours=args.window_hours)
         print(f"Pregame window: {state} — {why}")
+        if state == "closed":
+            print("REFUSED: first kickoff has passed.", file=sys.stderr)
+            return 3
         if args.ignore_window:
             print("  --ignore-window: proceeding (post-kickoff refusal still applies)")
         elif state == "early":
@@ -209,6 +213,25 @@ def main() -> int:
             return 2
         elif state == "closed":
             print("REFUSED: the pregame window has closed for this week.", file=sys.stderr)
+            return 3
+
+    # Owner's 2026 Week 1 timing overrides the generic 30h timer window.
+    # This guard cannot be bypassed with --ignore-window. Dry runs write
+    # nothing and remain useful for preparation before Wednesday.
+    if (
+        args.capture_kind == "pregame"
+        and not args.dry_run
+        and (int(season), int(week)) == (2026, 1)
+    ):
+        owner_league_id = league_registry.get_sleeper_league_id("dynasty_main")
+        transactions = (
+            sleeper_client.fetch_transactions(owner_league_id, 1) if owner_league_id else []
+        )
+        allowed, reason = week_one_waiver_guard(
+            season=int(season), week=int(week), transactions=transactions
+        )
+        print(f"Week 1 owner timing: {reason}")
+        if not allowed:
             return 3
 
     print(

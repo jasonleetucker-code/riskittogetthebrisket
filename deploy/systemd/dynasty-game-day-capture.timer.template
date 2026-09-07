@@ -24,6 +24,7 @@ Description=Weekly pre-kickoff Game Day prediction capture for __SERVICE_NAME__
 # seven firings, so the capture survives several consecutive failures.
 # Runs outside the window are cheap — the script exits before fetching
 # any roster.
+[Timer]
 OnCalendar=*-*-* 00,04,08,12,16,20:00:00 UTC
 # Deliberately NO RandomizedDelaySec: every other timer in this directory
 # spreads load, but this one is racing a kickoff. Jitter buys nothing here
