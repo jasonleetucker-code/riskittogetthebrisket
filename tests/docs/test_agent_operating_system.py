@@ -24,13 +24,16 @@ def test_operating_system_cannot_authorize_product_scope():
 
 
 def test_session_start_router_mechanically_counts_launch_rows():
+    shared = _read("scripts/agent_session_start.sh")
     hook = _read(".claude/health-check.sh")
-    assert "=== AGENT ROUTER ===" in hook
-    assert "WEEK_1_LAUNCH_CONTRACT.md" in hook
-    assert "LAUNCH_VERIFIED" in hook
-    assert "literal VERIFIED" in hook
-    assert "Keep V1 closed" in hook
-    assert "scripts/agent_os_receipt.py" in hook
+    assert "=== AGENT ROUTER ===" in shared
+    assert "WEEK_1_LAUNCH_CONTRACT.md" in shared
+    assert "LAUNCH_VERIFIED" in shared
+    assert "literal VERIFIED" in shared
+    assert "Keep V1 closed" in shared
+    assert "scripts/agent_os_receipt.py" in shared
+    assert "exec bash scripts/agent_session_start.sh" in hook
+    assert "@AI_INSTRUCTIONS.md" in _read("CLAUDE.md").splitlines()
     assert "@docs/AGENT_OPERATING_SYSTEM.md" in _read("CLAUDE.md").splitlines()
     assert "Agent OS session receipt" in _read("docs/AGENT_OPERATING_SYSTEM.md")
     assert "Agent-OS-Receipt: <AGENT_OS_LOADED_BLOB_SHA>" in _read("docs/AGENT_OPERATING_SYSTEM.md")
@@ -83,3 +86,96 @@ def test_harness_auditor_checks_graph_topology_not_just_prompts():
     assert "fan-in counts expected vs received inputs" in harness
     assert "fresh context" in harness
     assert "Anatoli Kopadze" in rationale
+
+
+def test_agent_os_governs_unattended_loops_without_activating_them():
+    doc = _read("docs/AGENT_OPERATING_SYSTEM.md")
+    assert "Autonomous-loop safety envelope" in doc
+    assert "committed contract" in doc
+    assert "local operator overrides" in doc
+    assert "Hard runtime limits" in doc
+    assert "One execution gateway" in doc
+    assert "append-only run receipt" in doc
+    assert "preflight -> act -> verify -> guard -> grade -> receipt" in doc
+    assert "Emergency halt" in doc
+    assert "report-only" in doc
+    assert "Activation gate" in doc
+    assert "design policy, not activation" in doc
+
+
+def test_harness_auditor_checks_autonomous_runner_controls():
+    harness = _read(".agents/skills/repo-harness-auditor/SKILL.md")
+    rationale = _read("docs/agent-operating-system/DESIGN_RATIONALE_2026-09-05.md")
+    assert "Autonomous-runner hygiene" in harness
+    assert "fail-closed external halt sentinel" in harness
+    assert "report-only, assisted, and autonomous modes" in harness
+    assert "PolyDAO" in rationale
+    assert "2096128417108287566" in rationale
+
+
+def test_graph_failures_are_routable_structured_values():
+    doc = _read("docs/AGENT_OPERATING_SYSTEM.md")
+    assert "Routable failure states" in doc
+    assert "retryable failure" in doc
+    assert "terminal failure" in doc
+    assert "blocked/external dependency" in doc
+    assert "do not convert an exception, missing result, or timeout into success" in doc
+
+
+def test_external_guidance_is_filtered_for_hype_vs_mechanism():
+    doc = _read("docs/AGENT_OPERATING_SYSTEM.md")
+    harness = _read(".agents/skills/repo-harness-auditor/SKILL.md")
+    rationale = _read("docs/agent-operating-system/DESIGN_RATIONALE_2026-09-05.md")
+    assert "External-guidance hygiene" in doc
+    assert "adoption statistics" in doc
+    assert "independently verify quantitative or institutional claims" in doc
+    assert "External-guidance hygiene" in harness
+    assert "85% of Google engineers" in rationale
+    assert "2088199384580108339" in rationale
+
+
+def test_agent_os_handles_async_pending_state_and_midrun_steering():
+    doc = _read("docs/AGENT_OPERATING_SYSTEM.md")
+    assert "Runtime steering, pending work, and capability negotiation" in doc
+    assert "Capability negotiation" in doc
+    assert "Pending asynchronous work" in doc
+    assert "stable identity" in doc
+    assert "Mid-run steering" in doc
+    assert "Preserve completed work" in doc
+    assert "Dynamic reasoning effort" in doc
+    assert "Do not copy vendor-specific API syntax" in doc
+
+
+def test_harness_audits_runtime_capabilities_before_using_them():
+    harness = _read(".agents/skills/repo-harness-auditor/SKILL.md")
+    rationale = _read("docs/agent-operating-system/DESIGN_RATIONALE_2026-09-05.md")
+    assert "Runtime-capability hygiene" in harness
+    assert "pending tool calls as explicit identified state" in harness
+    assert "test fallback behavior" in harness
+    assert "2096541972156846373" in rationale
+    assert "developers.openai.com/api/docs/guides/latest-model" in rationale
+
+
+def test_graph_spec_has_critical_path_transition_guards_and_quorum():
+    doc = _read("docs/AGENT_OPERATING_SYSTEM.md")
+    assert "Graph specification contract" in doc
+    assert "`CRITICAL_PATH`" in doc
+    assert "`HUMAN_GATE`" in doc
+    assert "Transition contracts and approval guards" in doc
+    assert "guard on the transition" in doc
+    assert "Quorum-aware fan-in" in doc
+    assert "expected count, received count, and missing identities" in doc
+    assert "Critical-path and graph observability" in doc
+
+
+def test_harness_audits_graph_specs_and_guarded_transitions():
+    harness = _read(".agents/skills/repo-harness-auditor/SKILL.md")
+    rationale = _read("docs/agent-operating-system/DESIGN_RATIONALE_2026-09-05.md")
+    assert "Graph-spec and transition-guard hygiene" in harness
+    assert "protected transitions are unreachable without durable approval evidence" in harness
+    assert "explicit quorum was defined in advance" in harness
+    assert "LunarResearcher" in rationale
+    assert "2086071302272528833" in rationale
+    assert "2095467815041962449" in rationale
+    assert "2096726301520347470" in rationale
+    assert "exact body was not reliably recoverable" in rationale

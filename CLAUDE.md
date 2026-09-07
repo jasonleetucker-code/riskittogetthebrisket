@@ -1,10 +1,17 @@
 # CLAUDE.md — Risk It To Get The Brisket
 
+@AI_INSTRUCTIONS.md
+
 @docs/AGENT_OPERATING_SYSTEM.md
 
 
-> **SESSION ROUTER — READ FIRST:** `docs/AGENT_OPERATING_SYSTEM.md` is the
-> canonical AI-workflow/coordination front door. The Claude SessionStart hook
+> **LEGACY FILENAME, UNIVERSAL RUNBOOK:** despite the filename, every LLM
+> (Claude, Codex, Gemini, ChatGPT, Copilot, and future agents) must treat this
+> as the shared technical runbook. No important rule here is Claude-private.
+>
+> **SESSION ROUTER — READ FIRST:** `AI_INSTRUCTIONS.md` and
+> `docs/AGENT_OPERATING_SYSTEM.md` are the canonical cross-model front doors.
+> Claude's SessionStart adapter
 > prints the currently active completion contract and tally automatically.
 > This file remains the detailed technical runbook; it does **not** replace
 > `docs/EXECUTION_PLAN.md` or an active owner-authorized completion contract
@@ -14,7 +21,7 @@
 
 ## What this document is — and is not
 
-**CLAUDE.md is the technical operating / runbook document.** It describes how
+**CLAUDE.md is the legacy-named universal technical operating / runbook document for every LLM.** It describes how
 the system is built, where the canonical owners live, which invariants the code
 must hold, and how to run and validate it.
 

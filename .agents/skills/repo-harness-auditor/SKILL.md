@@ -1,6 +1,6 @@
 ---
 name: repo-harness-auditor
-description: Use when auditing or refactoring this repository's AI harness: CLAUDE.md, AGENTS.md, assistant coordination, agent skills, Claude hooks, repeated continuation prompts, contradictory instructions, model-migration prompt debt, or duplicated agent workflow rules. Do not use for product feature implementation.
+description: Use when auditing or refactoring this repository's AI harness: universal/provider entrypoints, CLAUDE.md, AGENTS.md, GEMINI.md, Copilot instructions, assistant coordination, agent skills, hooks, repeated continuation prompts, contradictory instructions, model-migration prompt debt, or duplicated agent workflow rules. Do not use for product feature implementation.
 ---
 
 # Repo Harness Auditor
@@ -11,14 +11,26 @@ Make the AI-development harness smaller, clearer, more deterministic, and less c
 
 ## Read first
 
-1. `docs/AGENT_OPERATING_SYSTEM.md`
-2. `CLAUDE.md`
-3. `AGENTS.md`
-4. `ASSISTANT_COORDINATION.md`
-5. `.claude/settings.json` and referenced hook scripts
-6. `.agents/skills/*/SKILL.md`
-7. `docs/WORK_CLAIMS.md`
-8. tests/docs or code references that pin the files being changed
+1. `AI_INSTRUCTIONS.md`
+2. `docs/AGENT_OPERATING_SYSTEM.md`
+3. `CLAUDE.md` (legacy filename; universal technical runbook)
+4. `AGENTS.md`, `GEMINI.md`, and `.github/copilot-instructions.md`
+5. `ASSISTANT_COORDINATION.md`
+6. provider adapters such as `.claude/settings.json` plus the shared `scripts/agent_session_start.sh`
+7. `.agents/skills/*/SKILL.md`
+8. `docs/WORK_CLAIMS.md`
+9. tests/docs or code references that pin the files being changed
+
+## Cross-model parity hygiene
+
+Audit provider-specific entrypoints as adapters, not independent constitutions.
+
+- no provider-specific file may contain a unique correctness, architecture, safety, evidence, product, methodology, or process rule;
+- `AI_INSTRUCTIONS.md` must route every model to the same Agent OS, execution authority, coordination records, and universal technical runbook;
+- Claude/Codex/Gemini/Copilot adapters should differ only where their loading/tool mechanics differ;
+- shared startup/receipt behavior belongs under `scripts/` and model-neutral runtime paths; provider hooks only invoke it;
+- any useful rule found only in a provider adapter must be promoted to a shared canonical document;
+- add parity tests for important entrypoint behavior.
 
 ## Classification pass
 
@@ -92,6 +104,19 @@ Before moving a section:
 
 Do not trade token savings for governance drift.
 
+## Graph-spec and transition-guard hygiene
+
+For any nontrivial graph, verify that the workflow has an explicit structured spec covering goal, input state, parallel work, critical path, verifier, failure domains, human gates, frozen rules, observability, and stopping rule.
+
+Also verify:
+- important edges have explicit data/state contracts;
+- consequential approval is enforced as a transition guard, not only requested in prompt prose;
+- protected transitions are unreachable without durable approval evidence;
+- default fan-in requires all required outputs unless an explicit quorum was defined in advance;
+- quorum runs preserve expected/received/missing coverage in downstream artifacts;
+- graph-level observability includes critical-path latency and verifier/failure/coverage metrics;
+- adding agents actually reduces critical path or increases independent coverage enough to justify coordination cost.
+
 ## Graph-orchestration hygiene
 
 When the harness or a workflow uses parallel agents, audit the topology rather than assuming "parallel" means efficient or safe:
@@ -107,6 +132,47 @@ When the harness or a workflow uses parallel agents, audit the topology rather t
 - the graph terminates in external anchors, not agent self-consistency;
 - fan-out/agent/cost budgets and stop conditions are bounded;
 - the task is actually wide enough to justify a graph.
+
+## External-guidance hygiene
+
+When new Twitter/X posts, articles, talks, or vendor guidance are proposed for the harness:
+
+- separate reproducible engineering mechanisms from hype/adoption claims;
+- require independent support before treating statistics such as “X% of engineers use Y” as factual evidence;
+- look for incentive-heavy framing (“everyone is behind,” “worth a $500 course,” “delete your IDE”) and do not let it increase evidentiary weight;
+- prefer source-backed mechanics that can be tested in this repo;
+- record what was adopted and what was intentionally rejected;
+- do not create a new rule if the useful mechanism is already canonical here.
+
+## Runtime-capability hygiene
+
+When a model/runtime adds asynchronous tools, mid-turn steering, dynamic reasoning, or other long-running controls:
+
+- verify the capability on the exact product/API surface before the harness depends on it;
+- keep pending tool calls as explicit identified state, including timeout/cancel/failure outcomes;
+- confirm steering preserves still-valid completed work instead of resetting the whole task;
+- avoid rewriting accepted prompt/history prefixes merely to change reasoning effort when the runtime offers a scoped configuration update;
+- record material reasoning/effort changes when they affect cost, latency, or reproducibility;
+- test fallback behavior on runtimes that do not support the new capability;
+- keep vendor-specific request syntax out of the model-agnostic Agent OS unless the repository actually owns that API integration.
+
+## Autonomous-runner hygiene
+
+When reviewing any unattended/recurrent agent runner, verify:
+
+- committed contract and gitignored local overrides are separated;
+- local overrides can tighten but cannot weaken committed safety boundaries;
+- wall-clock, action/iteration, retry, parallel-width, and spend/token budgets are enforced outside prompt prose;
+- destructive/out-of-scope actions have an explicit denylist or allowlist boundary;
+- repo-owned model invocation has one auditable gateway rather than scattered hidden call sites;
+- per-run receipts and traces are append-only;
+- checkpoints contain enough state to resume but still force fresh preflight against current repo/PR/CI state;
+- verification is executable where possible and independent grading is separate from authorship;
+- a fail-closed external halt sentinel is checked before start and before consequential side effects;
+- report-only, assisted, and autonomous modes are explicit rather than inferred;
+- scheduled autonomy has an owner-approved activation decision and rollback path.
+
+Do not deploy a new unattended runner merely because the harness audit describes how one should be governed.
 
 ## Model-migration hygiene
 
