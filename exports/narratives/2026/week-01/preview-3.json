@@ -1,0 +1,40 @@
+{
+  "angleUsed": "vibes-check",
+  "away": {
+    "displayName": "jstuedle",
+    "ownerId": "712035316776669184",
+    "teamName": "jstuedle"
+  },
+  "body": "Let's talk about **Brent's Back Up Team**, because Joey's roster is deep in a way that's hard to miss. Bijan Robinson and Jahmyr Gibbs split the backfield workload, Jaxon Smith-Njigba and Terry McLaurin headline a three-deep receiver room that still has room for Quentin Johnston, and Trey McBride anchors the tight end spot with Brenton Strange behind him. Then there's a running back room that goes four deep past the top two \u2014 Ashton Jeanty, RJ Harvey and Rhamondre Stevenson all rostered behind Robinson and Gibbs. Bo Nix runs the offense. On defense, Ernest Jones and Azeez Al-Shaair lead a linebacker corps that isn't just filler.\n\njstuedle, on the other side, is playing a different game. Baker Mayfield at quarterback, Cam Skattebo and Chuba Hubbard splitting carries, and a receiver room led by Mike Evans and Makai Lemon that leans on ceiling more than volume. Alvin Kamara adds a proven name to a backfield that already includes Emmett Johnson and Jonah Coleman, and Dallas Goedert and Dalton Schultz give jstuedle a genuine two-tight-end look. The defensive front of Dexter Lawrence and Chris Jones is as good as anyone's on this slate at either position.\n\nNeither manager has a data point to lean on here \u2014 this is a first-ever meeting, zero total matchups on record, so there's no history to check the vibes against. Joey enters with a 2-1 finish to last season already banked, a stretch that averaged 569.81 points including an 820.99-point outburst in Week 16. jstuedle shows no recorded form for this window at all, a blank 0-0 slate heading into the real thing.\n\nIn a best-ball format, this is purely a question of which roster construction philosophy \u2014 Joey's depth at every skill position, or jstuedle's collection of proven top-end names \u2014 produces more points when the actual games are played. Joey's floor looks safer on paper. jstuedle's roster has more names capable of a monster individual week. That's the entire vibes check here, and it's the kind of matchup that either confirms depth wins or reminds the league that ceiling still matters in Week 1.",
+  "generatedAt": "2026-09-07T09:17:08+00:00",
+  "generationMode": "MANUAL_IMPORT",
+  "home": {
+    "displayName": "Joey",
+    "ownerId": "1012114412049731584",
+    "teamName": "Brent\u2019s Back Up Team"
+  },
+  "importedAt": "2026-09-07T09:17:08+00:00",
+  "isChampionship": false,
+  "kicker": "Depth wins Week 1 \u2014 Joey by a comfortable, unspectacular margin.",
+  "lede": "One of these rosters is stacked from top to bottom. The other is betting on three or four names going nuclear. Week 1 is where that philosophy gets its first real stress test.",
+  "matchupId": 3,
+  "mode": "preview",
+  "model": null,
+  "persona": "sharp-take",
+  "provider": null,
+  "roundLabel": "Regular Season",
+  "schemaVersion": "1.1",
+  "season": "2026",
+  "sourceSnapshotId": "2341a5c92bd27fa3",
+  "title": "Joey's Depth Chart vs. jstuedle's Ceiling: A Vibes Read",
+  "usage": {},
+  "validation": {
+    "errors": [],
+    "ok": true,
+    "warnings": [
+      "word count 383 outside the prompt's 550-750 target band"
+    ]
+  },
+  "week": 1,
+  "wordCount": 388
+}

@@ -1,0 +1,40 @@
+{
+  "angleUsed": "vibes-check",
+  "away": {
+    "displayName": "Brent",
+    "ownerId": "1002085133723299840",
+    "teamName": "Step Burrow Im Stuck"
+  },
+  "body": "Eric's **Pop Trunk** is built on balance. Caleb Williams runs the offense, Kenneth Walker and Jeremiyah Love split the backfield, and CeeDee Lamb, A.J. Brown and Rome Odunze give Eric three legitimate receivers without a clear top target \u2014 the kind of roster where the points come from everywhere rather than any one name. Colston Loveland and Sam LaPorta form a rookie-veteran tight end pairing that fits a TE-premium format well, and David Montgomery and Kyle Monangai add depth behind the top two backs. The defense mirrors the offense's spread-it-around approach: Jared Verse and Danielle Hunter up front, a three-man linebacker room in Jamien Sherwood, Zack Baun and Robert Spillane, and Jalen Pitre, Talanoa Hufanga and Brandon Jones across the secondary.\n\nBrent's **Step Burrow Im Stuck** leans hard into star power instead. Joe Burrow and Patrick Mahomes give Brent two of the league's premier quarterbacks in a superflex format built to reward exactly that, and the receiver room of Puka Nacua, Amon-Ra St. Brown and Drake London is as talented top-to-bottom as anything on this slate. Jonathan Taylor and Josh Jacobs anchor the backfield with Travis Etienne behind them, and Harold Fannin is the lone tight end. The defensive front is loaded with proven names \u2014 Aidan Hutchinson, Maxx Crosby and T.J. Watt together give Brent three legitimate edge rushers, with Derwin James and Travis Hunter giving the secondary real star power of its own.\n\nBoth managers are coming off similar closing stretches to 2025 \u2014 Eric went 2-1 over his final three, averaging 476.62 with a Week 16 win worth 703.44, while Brent matched the 2-1 record averaging even higher at 574.84, his only loss in that window an 807.8-point shootout. The two head-to-head data points are thin \u2014 just one meeting on record, a 2025 Week 5 result Brent took by 114.64, the largest margin either of these six matchups has produced this week.\n\nThat single blowout is the only history here, and it favors Brent's star-driven build. Whether Eric's balance-over-everything approach can close that gap is the entire question of the opener.",
+  "generatedAt": "2026-09-07T09:17:08+00:00",
+  "generationMode": "MANUAL_IMPORT",
+  "home": {
+    "displayName": "Eric",
+    "ownerId": "609821340567941120",
+    "teamName": "Pop Trunk"
+  },
+  "importedAt": "2026-09-07T09:17:08+00:00",
+  "isChampionship": false,
+  "kicker": "The star power carries \u2014 Brent backs up last year's blowout with another comfortable win.",
+  "lede": "Neither of these teams is fighting for a bye. Both of them closed last season 2-1. This is a pure style clash between the 6 and 9 seeds.",
+  "matchupId": 6,
+  "mode": "preview",
+  "model": null,
+  "persona": "analyst",
+  "provider": null,
+  "roundLabel": "Regular Season",
+  "schemaVersion": "1.1",
+  "season": "2026",
+  "sourceSnapshotId": "f2416a7260ee0503",
+  "title": "Eric's Balance Meets Brent's Star Power at the Middle of the Seed Sheet",
+  "usage": {},
+  "validation": {
+    "errors": [],
+    "ok": true,
+    "warnings": [
+      "word count 373 outside the prompt's 550-750 target band"
+    ]
+  },
+  "week": 1,
+  "wordCount": 372
+}

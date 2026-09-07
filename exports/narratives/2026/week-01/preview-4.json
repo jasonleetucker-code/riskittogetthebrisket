@@ -1,0 +1,38 @@
+{
+  "angleUsed": "david-vs-goliath",
+  "away": {
+    "displayName": "Collin",
+    "ownerId": "831633191830933504",
+    "teamName": "CollinFoz"
+  },
+  "body": "Seeding says Jason's **Medical Murrayjuana** is the team to beat \u2014 the 1 seed, full stop. The numbers from the end of last season say something else entirely: a 0-3 finish to close 2025, averaging 248.18 points across that stretch, with the closest of those three losses still an 88-point gap. That's the version of this roster showing up for the opener, not the one that earned the top seed.\n\nThe roster itself is genuinely talented at the top \u2014 Jayden Daniels and Kyler Murray at quarterback, Justin Jefferson leading the receivers, Brock Bowers and T.J. Hockenson giving Jason a true tight-end premium look \u2014 but it's thin underneath. Bhayshul Tuten and Demond Claiborne are the only two running backs listed, Emeka Egbuka the only complementary receiver, and the defensive side is down to a single lineman in Mason Graham and a single linebacker in Barrett Carter, backed by Malaki Starks and Devon Witherspoon in the secondary. Star power at the premium spots, real questions everywhere else.\n\nAcross from him, Collin's **CollinFoz** enters as the 4 seed \u2014 nominally the lower-ranked team, but coming off the better recent stretch. A 2-1 finish to last season averaged 478.87 points, nearly double Jason's number over the same window, capped by a 679.81-point Week 16 explosion. The roster backs that up with actual depth: Kyren Williams and Breece Hall split the backfield, Ja'Marr Chase, DJ Moore and Romeo Doubs give Collin three legitimate receivers, and Tucker Kraft and Dalton Kincaid form a real two-tight-end rotation. The defense is a full unit too \u2014 Rueben Bain and Josh Sweat up front, Foyesade Oluokun, Anthony Hill and Jack Campbell at linebacker, three defensive backs behind them.\n\nThe head-to-head has been a coin flip for exactly the reasons the seeds now contradict: four meetings, split 2-2, an average margin of 51.77 that includes a 108-point blowout Collin's way in 2025 Week 12 and a 2024 Week 16 playoff meeting Collin also took by 23.83. Jason has the two other wins in the series, including a 56.02-point margin of his own in 2025 Week 3 \u2014 so this is not a series where one side has quietly owned the other. It's a series where whoever's roster is actually clicking that week wins, and right now the depth chart says that's Collin.\n\nThis is the David-and-Goliath matchup where the seed and the substance are pointing in opposite directions, and Week 1 is the first chance to find out which one was lying.",
+  "generatedAt": "2026-09-07T09:17:08+00:00",
+  "generationMode": "MANUAL_IMPORT",
+  "home": {
+    "displayName": "Jason",
+    "ownerId": "468418790212759552",
+    "teamName": "Medical Murrayjuana"
+  },
+  "importedAt": "2026-09-07T09:17:08+00:00",
+  "isChampionship": false,
+  "kicker": "Collin's depth carries the day \u2014 the 4 seed outscores the 1 seed in the opener.",
+  "lede": "Jason opens the season as the top playoff seed in the league. His last three games of a year ago tell a very different story than that seed suggests.",
+  "matchupId": 4,
+  "mode": "preview",
+  "model": null,
+  "persona": "analyst",
+  "provider": null,
+  "roundLabel": "Regular Season",
+  "schemaVersion": "1.1",
+  "season": "2026",
+  "sourceSnapshotId": "33feb7a7af3b6d42",
+  "title": "The 1 Seed Is the Goliath Here \u2014 On Paper Only",
+  "usage": {},
+  "validation": {
+    "errors": [],
+    "ok": true,
+    "warnings": []
+  },
+  "week": 1,
+  "wordCount": 468
+}

@@ -1,0 +1,40 @@
+{
+  "angleUsed": "first-meeting",
+  "away": {
+    "displayName": "Blaine",
+    "ownerId": "1303549304882892800",
+    "teamName": "ughb"
+  },
+  "body": "There's something almost quaint about a true first meeting this deep into a dynasty league's life \u2014 but that's exactly what **TyBWell** and **ughb** are walking into. Zero total matchups on record between them, no margin history, no blowout to avenge or split to settle. Whatever storyline exists here starts from nothing.\n\nTy enters as the more established quantity, the 3 seed, coming off a 2-1 finish to last season that averaged 372.78 points over those three games \u2014 a stretch that included back-to-back wins before a Week 14 loss. The roster reflects a team that drafted for stability at the league's premium positions: Brock Purdy and C.J. Stroud split time at quarterback, James Cook and TreVeyon Henderson share the backfield, and Nico Collins headlines a receiver corps deep enough to also roster Courtland Sutton and Khalil Shakir. Juwan Johnson and Cade Otton give Ty a two-tight-end look, while the defensive side runs through Will Anderson, Josh Hines-Allen and Trey Hendrickson up front.\n\nBlaine, the 12 seed, is a blanker page \u2014 no recorded form for this window at all, a 0-0 mark with no game history attached yet. That doesn't mean the roster is thin. Josh Allen and Jalen Hurts give Blaine two legitimate weekly quarterback floors in a superflex format, Saquon Barkley and James Conner anchor the backfield, and Tee Higgins headlines the receiving corps alongside a three-tight-end room of David Njoku, Jake Tonges and Cole Kmet that a TE-premium league is built to reward. On defense, the linebacker trio of Terrel Bernard, Payton Wilson and Dee Winters gives Blaine real depth at a position that swings weekly totals in this format.\n\nThis is a best-ball league, so nobody here is making in-week decisions \u2014 the rosters as drafted, traded for, and picked up off waivers are the whole story, and Wednesday's opening slate is the first real evidence of which construction plan produces points. Ty's balance against Blaine's quarterback duo and tight end depth is as clean a style contrast as Week 1 offers anywhere on the slate.\n\nWith no history to lean on, this one is a pure roster-construction bet: Ty's proven, if streaky, floor from a year ago against Blaine's higher-variance, star-driven build with no track record yet to confirm or deny it.",
+  "generatedAt": "2026-09-07T09:17:08+00:00",
+  "generationMode": "MANUAL_IMPORT",
+  "home": {
+    "displayName": "Ty",
+    "ownerId": "473973924808355840",
+    "teamName": "TyBWell"
+  },
+  "importedAt": "2026-09-07T09:17:08+00:00",
+  "isChampionship": false,
+  "kicker": "First meetings favor the team with a floor \u2014 give it to Ty in a moderate win.",
+  "lede": "Somewhere in twelve years of league history, these two rosters have simply never crossed paths. Week 1, 2026 fixes that.",
+  "matchupId": 2,
+  "mode": "preview",
+  "model": null,
+  "persona": "storyteller",
+  "provider": null,
+  "roundLabel": "Regular Season",
+  "schemaVersion": "1.1",
+  "season": "2026",
+  "sourceSnapshotId": "abe682a5c9570656",
+  "title": "Ty and Blaine Have Never Met. That Ends Wednesday.",
+  "usage": {},
+  "validation": {
+    "errors": [],
+    "ok": true,
+    "warnings": [
+      "word count 398 outside the prompt's 550-750 target band"
+    ]
+  },
+  "week": 1,
+  "wordCount": 431
+}
