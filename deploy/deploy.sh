@@ -700,9 +700,11 @@ ensure_systemd_service() {
   # installer WITHOUT FORCE_SERVICE_INSTALL, so existing units are left
   # alone and no service is restarted — the installer only fills gaps.
   local missing_timers=""
+  local timer_templates_found=""
   local timer_template timer_unit
   shopt -s nullglob
   for timer_template in "${APP_DIR}"/deploy/systemd/*.timer.template; do
+    timer_templates_found="yes"
     timer_unit="$(basename "${timer_template}" .template)"
     # Templates are named dynasty-*; installed units use SERVICE_NAME.
     timer_unit="${SERVICE_NAME}-${timer_unit#dynasty-}"
@@ -724,13 +726,42 @@ ensure_systemd_service() {
   done
   shopt -u nullglob
 
+  # PRESENT IS NOT THE SAME AS CURRENT, and this early return used to
+  # conflate them. It asked only whether each timer EXISTED and was
+  # ENABLED, so a template whose CONTENT changed never reached the
+  # installer: the box kept the schedule it was first given while the
+  # deploy reported success. Every timer edit in this repo's history had
+  # that hole.
+  #
+  # Measured: #1263 moved the game-day capture timer off a Thursday-only
+  # schedule because Week 1 of 2026 opens on a WEDNESDAY and the old one
+  # fired ~13 hours after kickoff. Merging and deploying it would have
+  # left the wrong schedule running — a fix that ships and does not take
+  # effect is indistinguishable from no fix.
+  #
+  # Deploy does NOT re-derive currency here; that would be a second
+  # renderer beside install-systemd-service.sh, which
+  # tests/deploy/test_runtime_reconciler_wiring.py rightly forbids.
+  # Instead the installer is the single authority: it renders each
+  # template, compares it with what is installed, and rewrites only on a
+  # real difference. Running it every deploy is therefore a no-op on an
+  # up-to-date box — and it is run WITHOUT FORCE_SERVICE_INSTALL, so no
+  # service is restarted.
+  local timers_shipped="false"
+  if [[ -n "${timer_templates_found:-}" ]]; then
+    timers_shipped="true"
+  fi
+
   if [[ "${backend_present}" == "true" && "${frontend_present}" == "true" &&
-    "${force_reinstall}" != "true" && -z "${missing_timers}" ]]; then
+    "${force_reinstall}" != "true" && -z "${missing_timers}" &&
+    "${timers_shipped}" != "true" ]]; then
     return 0
   fi
 
   if [[ -n "${missing_timers}" ]]; then
     warn "Timer units missing from this host:${missing_timers}. Running installer to add them."
+  elif [[ "${timers_shipped}" == "true" ]]; then
+    log "Reconciling shipped timer templates against installed units."
   fi
 
   local installer_script

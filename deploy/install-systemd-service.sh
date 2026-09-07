@@ -168,10 +168,45 @@ install_simple_timer() {
 
   [[ -f "${service_template}" && -f "${timer_template}" ]] || return 0
 
+  # RENDER FIRST, THEN DECIDE. The old order asked "does a unit exist?"
+  # and, if it did, changed nothing without FORCE_SERVICE_INSTALL — so
+  # EDITING A TEMPLATE HAD NO EFFECT ON THE BOX. The unit stayed at
+  # whatever content it was first installed with, the deploy reported
+  # success, and nothing said otherwise.
+  #
+  # That is not hypothetical. #1263 moved this feature's timer off a
+  # Thursday-only schedule because Week 1 of 2026 opens on a Wednesday
+  # and the old schedule fired ~13 hours after kickoff. Merging and
+  # deploying it would have left the WRONG schedule running and lost the
+  # observation anyway — a fix that ships and does not take effect is
+  # indistinguishable from no fix.
+  local tmp_service tmp_timer
+  tmp_service="$(mktemp)"
+  tmp_timer="$(mktemp)"
+  sed \
+    -e "s/__SERVICE_NAME__/$(escape_sed_replacement "${SERVICE_NAME}")/g" \
+    -e "s/__APP_USER__/$(escape_sed_replacement "${APP_USER}")/g" \
+    -e "s/__APP_DIR__/$(escape_sed_replacement "${APP_DIR}")/g" \
+    -e "s/__VENV_DIR__/$(escape_sed_replacement "${VENV_DIR}")/g" \
+    "${service_template}" > "${tmp_service}"
+  sed \
+    -e "s/__SERVICE_NAME__/$(escape_sed_replacement "${SERVICE_NAME}")/g" \
+    "${timer_template}" > "${tmp_timer}"
+
   local needs_install=false
   if sudo -n "${SYSTEMCTL_BIN}" cat "${unit_name}.timer" >/dev/null 2>&1; then
     if [[ "${force_install_on}" == "true" ]]; then
       log "FORCE_SERVICE_INSTALL enabled; rewriting ${service_path} + timer."
+      needs_install=true
+    # Content drift. `cmp -s` against the INSTALLED FILES, read through
+    # sudo because /etc/systemd/system is not world-readable on every
+    # box. A read that fails is treated as drift: reinstalling a unit
+    # that was already correct is a no-op, while skipping one that
+    # changed is the silent failure above, so the safe direction is
+    # obvious.
+    elif ! sudo -n cmp -s "${tmp_timer}" "${timer_path}" \
+      || ! sudo -n cmp -s "${tmp_service}" "${service_path}"; then
+      log "${unit_name} differs from its template; updating."
       needs_install=true
     fi
   else
@@ -180,27 +215,15 @@ install_simple_timer() {
   fi
 
   if [[ "${needs_install}" == "true" ]]; then
-    local tmp_service tmp_timer
-    tmp_service="$(mktemp)"
-    tmp_timer="$(mktemp)"
-    sed \
-      -e "s/__SERVICE_NAME__/$(escape_sed_replacement "${SERVICE_NAME}")/g" \
-      -e "s/__APP_USER__/$(escape_sed_replacement "${APP_USER}")/g" \
-      -e "s/__APP_DIR__/$(escape_sed_replacement "${APP_DIR}")/g" \
-      -e "s/__VENV_DIR__/$(escape_sed_replacement "${VENV_DIR}")/g" \
-      "${service_template}" > "${tmp_service}"
-    sed \
-      -e "s/__SERVICE_NAME__/$(escape_sed_replacement "${SERVICE_NAME}")/g" \
-      "${timer_template}" > "${tmp_timer}"
     sudo -n "${INSTALL_BIN}" -m 0644 "${tmp_service}" "${service_path}"
     sudo -n "${INSTALL_BIN}" -m 0644 "${tmp_timer}" "${timer_path}"
-    rm -f "${tmp_service}" "${tmp_timer}"
     # Reload here rather than joining the shared reload below: enabling a
     # unit systemd has not re-read is the ce_needs_install failure — the
     # fix deployed, reported as deployed, and not running.
     sudo -n "${SYSTEMCTL_BIN}" daemon-reload
     log "Installed ${unit_name}.service + .timer"
   fi
+  rm -f "${tmp_service}" "${tmp_timer}"
 
   # Enablement is checked SEPARATELY, and not only when we just wrote the
   # files.  deploy.sh's detector treats installed-but-disabled as missing,
