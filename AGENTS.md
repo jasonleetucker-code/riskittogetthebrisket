@@ -1,5 +1,10 @@
 # Repo Instructions (Dynasty Trade Calculator)
 
+> **Universal model-neutral entrypoint:** read `AI_INSTRUCTIONS.md` first.
+> These instructions apply equally to Codex, Claude, Gemini, ChatGPT, Copilot,
+> and future coding agents. `CLAUDE.md` is a legacy-named universal technical
+> runbook and MUST NOT be treated as Claude-only.
+>
 > **Agent workflow router:** read `docs/AGENT_OPERATING_SYSTEM.md` before
 > material AI-assisted work. It governs roles, loops/graphs, review,
 > persistent learning, skill/hook hygiene, and completion-contract traffic
@@ -12,9 +17,9 @@ This repository powers dynasty fantasy football valuation, rankings, trade calcu
 
 ## Working Copy Coordination
 - Active working copy: `C:\Users\jason\code\riskittogetthebrisket`.
-- GitHub `main` is the shared source of truth for Claude, ChatGPT/Codex, and local work.
+- GitHub `main` is the shared source of truth for every LLM/agent and local work.
 - Before starting work, run `git pull --ff-only origin main` from the active working copy.
-- Use a task branch for meaningful changes (`codex/...` for Codex, `claude/...` for Claude).
+- Use a task branch for meaningful changes; provider-prefixed branch names are organizational only and grant no special authority.
 - Do not edit OneDrive repo copies unless the user explicitly asks; treat them as backups/archive only.
 - Do not let multiple assistants edit the same branch at the same time.
 - See `ASSISTANT_COORDINATION.md` for the shared start-of-session checklist and handoff rules.
