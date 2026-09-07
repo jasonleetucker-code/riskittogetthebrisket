@@ -22,6 +22,7 @@ from src.ros.game_day_sim import (
     LeagueWeekRules,
     PlayerWeek,
     TeamWeek,
+    _threshold,
     rules_from_league,
     simulate_league_week,
 )
@@ -224,6 +225,7 @@ def test_sleeper_threshold_is_the_middle_two_average_not_the_mean():
     """Sleeper documents the even-league median as the average of the
     middle two weekly scores. [0, 10, 20, 100] therefore has threshold
     15, not the arithmetic mean 32.5."""
+    assert _threshold([0.0, 10.0, 20.0, 100.0]) == 15.0
     sim = _completed_score_league([0, 10, 20, 100])
     by_id = {t.team_id: t for t in sim.teams}
     assert by_id["t2"].beat_median_pct == 0.0
