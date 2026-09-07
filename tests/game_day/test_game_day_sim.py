@@ -187,7 +187,6 @@ def test_the_three_median_states_are_distinguishable():
     assert states == {"OK", "NOT_APPLICABLE", "STANDINGS_RULE_UNVERIFIED"}
 
 
-
 def _completed_score_league(scores):
     """A deterministic one-player-per-team league for threshold semantics."""
     rules = LeagueWeekRules(
