@@ -209,3 +209,55 @@ def test_deploy_sh_still_derives_missing_timers_from_this_directory() -> None:
     body = _DEPLOY_SH.read_text(encoding="utf-8", errors="replace")
     assert "deploy/systemd/*.timer.template" in body
     assert "is-enabled" in body, "deploy.sh must treat installed-but-disabled as missing"
+
+
+class TestAShippedTimerIsKeptCURRENT:
+    """Wired is not the same as current, and this file's own loop had the
+    second half of the hole.
+
+    ``install_simple_timer`` changed nothing when a unit already existed
+    unless ``FORCE_SERVICE_INSTALL`` was set, and ``deploy.sh`` decided
+    whether to run the installer by asking only whether each timer
+    EXISTED and was ENABLED. So editing a timer template had **no effect
+    on the box**: the unit kept the content it was first installed with,
+    and the deploy reported success. Every timer edit in this repo's
+    history shipped into that.
+
+    Measured consequence: #1263 moved the game-day capture timer off a
+    Thursday-only schedule because Week 1 of 2026 opens on a WEDNESDAY
+    (NE @ SEA, 2026-09-09 20:20 ET) and the old schedule fired roughly
+    thirteen hours after kickoff. Merging and deploying that fix would
+    have left the wrong schedule running and lost the capture anyway — a
+    fix that ships and does not take effect is indistinguishable from no
+    fix.
+    """
+
+    def test_the_installer_renders_before_it_decides(self):
+        """You cannot compare against something you have not produced."""
+        text = _INSTALLER.read_text(encoding="utf-8")
+        render_at = text.index('"${timer_template}" > "${tmp_timer}"')
+        decide_at = text.index("local needs_install=false")
+        assert render_at < decide_at, "the timer is rendered after the install decision"
+
+    def test_the_installer_compares_content_not_just_presence(self):
+        text = _INSTALLER.read_text(encoding="utf-8")
+        assert 'cmp -s "${tmp_timer}" "${timer_path}"' in text
+        assert 'cmp -s "${tmp_service}" "${service_path}"' in text
+
+    def test_deploy_reaches_the_installer_for_shipped_timers(self):
+        """deploy.sh deliberately does NOT re-derive currency — a second
+        renderer is what ``test_runtime_reconciler_wiring`` forbids. It
+        runs the installer, which is the one authority."""
+        text = _DEPLOY_SH.read_text(encoding="utf-8")
+        early_return = text[text.index('if [[ "${backend_present}" == "true"') :]
+        early_return = early_return[: early_return.index("return 0")]
+        assert "timers_shipped" in early_return, (
+            "the early return still short-circuits on presence alone, so a changed "
+            "timer template never reaches the installer"
+        )
+
+    def test_deploy_does_not_render_templates_itself(self):
+        """Restates the wiring guard at the point of temptation: the
+        obvious way to detect drift here is to render and compare, and
+        that is exactly the second renderer that must not exist."""
+        assert "__SERVICE_NAME__/" not in _DEPLOY_SH.read_text(encoding="utf-8")
