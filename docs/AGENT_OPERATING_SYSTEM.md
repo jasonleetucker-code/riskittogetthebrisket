@@ -118,6 +118,32 @@ If the owner has asked for implementation or active traffic control and methodol
 
 Do not stop at “here is what somebody should do next” when the current role is authorized and able to perform that bounded action.
 
+### Material new-feature engineering applicability check
+
+For every **material new feature or major behavior change**, do a short applicability pass against `docs/engineering/ENGINEERING_RELIABILITY_PRIORITIES_2026-09-06.md` before implementation is materially underway.
+
+The purpose is to make the research operational at feature-design time without turning the reliability backlog into automatic scope expansion.
+
+Ask only what is relevant to the feature:
+
+- **External inputs / scraping:** does this need captured replay fixtures, parser drift checks, or explicit provenance?
+- **API or frontend/backend boundary:** should this use/extend typed request-response schemas, OpenAPI/generated types, or adversarial contract tests?
+- **Canonical logic / invariants:** would property-based tests, targeted mutation tests, progressive typing, or an architecture/import boundary catch important failure modes?
+- **Persistence / deployment identity:** does this create or change durable SQLite state, migrations, dependency identity, build artifacts, or production fingerprints?
+- **User-visible critical path:** does this warrant tracing/SLOs, route latency, Core Web Vitals, or other privacy-safe production measurements?
+- **CI / security / agent harness:** does the change justify CI structure/caching, supply-chain controls, or a repo-specific agent eval because it changes the harness itself?
+
+For each mechanism that was plausibly relevant, use one disposition:
+
+- `APPLY_NOW` — needed for this feature's correctness, evidence, operability, or safe delivery; include it in the bounded implementation.
+- `ALREADY_COVERED` — existing deterministic machinery already supplies the needed protection; reuse it rather than duplicate it.
+- `NOT_RELEVANT` — no meaningful connection to this feature; do not manufacture work.
+- `DEFERRED_BY_AUTHORITY` — useful, but outside the current authorized scope/contract; keep the follow-up visible without smuggling it into the feature.
+
+Keep this lightweight: a short note in the claim/PR/handoff is enough when there are meaningful `APPLY_NOW` or `DEFERRED_BY_AUTHORITY` items. Do not create a separate document merely to say every category was irrelevant.
+
+This check **does not authorize** a reliability workstream, override an active completion contract, or require all twelve priorities on every feature. Current product/implementation authority still wins.
+
 ### Progress visibility on long runs
 
 For work that spans many tool calls or meaningful checkpoints, keep the owner/operator informed without narrating every command.
