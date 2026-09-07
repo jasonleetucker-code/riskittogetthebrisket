@@ -155,9 +155,9 @@ describe("GameDayPanel — the answer", () => {
     );
   });
 
-  it("surfaces the unverified median threshold rather than hiding it", async () => {
-    // W1-23 is BLOCKED on host evidence; a private decision surface must
-    // not present the median leg as settled.
+  it("surfaces an unverified median threshold rather than hiding it", async () => {
+    // The owner's even-sized canonical median rule is verified, but an
+    // unsupported/odd-sized semantics state must still render honestly.
     render(<GameDayPanel />);
     await waitFor(() => expect(screen.getByText(/is NOT verified/)).toBeTruthy());
   });
