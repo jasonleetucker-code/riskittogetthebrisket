@@ -269,6 +269,23 @@ Primary/high-signal references included:
 - Anthropic agent eval guidance: https://www.anthropic.com/engineering/demystifying-evals-for-ai-agents
 - Aider repo map: https://aider.chat/docs/repomap.html
 
+## New-feature applicability pass
+
+This backlog should also be consulted when implementing a **material new feature or major behavior change**, even when the feature itself is not an engineering-infrastructure project.
+
+Do a lightweight relevance scan rather than implementing the backlog wholesale:
+
+- external/upstream dependency -> consider deterministic replay + drift/provenance;
+- API boundary -> consider typed schemas/OpenAPI/generated types + adversarial contract tests;
+- canonical/domain logic -> consider property/mutation tests + progressive typing + architecture boundaries;
+- persistent state/deploy path -> consider versioned migrations + reproducible artifact/dependency identity;
+- user-visible critical path -> consider tracing/SLOs + field frontend performance;
+- CI/security/harness changes -> consider CI structure, supply-chain controls, and repo-specific agent evals where applicable.
+
+Use the shared dispositions `APPLY_NOW`, `ALREADY_COVERED`, `NOT_RELEVANT`, and `DEFERRED_BY_AUTHORITY`.
+
+This is an **applicability check, not new product authority**. It must not expand an active feature beyond its authorized scope. When a useful mechanism is outside current authority, mark it `DEFERRED_BY_AUTHORITY` instead of either implementing it silently or forgetting it.
+
 ## How agents should use this document
 
 When authorized to improve engineering infrastructure:

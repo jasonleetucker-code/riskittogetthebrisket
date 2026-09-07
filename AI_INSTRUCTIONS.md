@@ -15,6 +15,12 @@ Claude, Codex, Gemini, ChatGPT, Copilot, and any future coding agent must use th
 7. Relevant architecture/ADR/domain docs and live code.
 8. For engineering-system improvements, read `docs/engineering/ENGINEERING_RELIABILITY_PRIORITIES_2026-09-06.md`.
 
+## Material new-feature engineering applicability check
+
+Before implementing any **material new feature or major behavior change**, perform the shared engineering-priorities applicability check in `docs/AGENT_OPERATING_SYSTEM.md` against `docs/engineering/ENGINEERING_RELIABILITY_PRIORITIES_2026-09-06.md`.
+
+This is a lightweight relevance pass, not permission to expand scope or implement all twelve priorities. Classify only the mechanisms that could materially affect the feature as `APPLY_NOW`, `ALREADY_COVERED`, `NOT_RELEVANT`, or `DEFERRED_BY_AUTHORITY`. Relevant `APPLY_NOW` items belong in the bounded feature design/tests; deferred items must stay visible rather than being silently forgotten.
+
 ## Universal startup
 
 For a material local agent session, run:
