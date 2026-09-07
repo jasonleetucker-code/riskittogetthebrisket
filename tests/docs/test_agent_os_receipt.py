@@ -89,12 +89,16 @@ def test_receipt_degrades_unprovable_state_to_unknown(monkeypatch, tmp_path):
     assert values["AGENT_OS_DIRTY"] == "UNKNOWN"
 
 
-def test_session_start_hook_has_valid_bash_syntax():
-    subprocess.run(
-        ["bash", "-n", str(REPO / ".claude" / "health-check.sh")],
-        cwd=REPO,
-        check=True,
-    )
+def test_session_start_hooks_have_valid_bash_syntax():
+    for path in (
+        REPO / ".claude" / "health-check.sh",
+        REPO / "scripts" / "agent_session_start.sh",
+    ):
+        subprocess.run(
+            ["bash", "-n", str(path)],
+            cwd=REPO,
+            check=True,
+        )
 
 
 def test_shared_session_start_invokes_the_receipt_owner_and_claude_delegates():
