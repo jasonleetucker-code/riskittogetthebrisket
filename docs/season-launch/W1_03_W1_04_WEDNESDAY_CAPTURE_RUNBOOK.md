@@ -7,8 +7,9 @@ processing is confirmed complete* and *before any NFL scoring begins*.
 
 **Forbidden, restated so it travels with the procedure:** do not capture
 before waivers settle; do not backdate; do not synthesize a snapshot; do not
-weaken either acceptance criterion. The normal Thursday recurring timer is
-preserved for future weeks — nothing here changes it.
+weaken either acceptance criterion. The recurring timer now fires every four
+hours, while the capture script remains the authority that opens the real
+schedule window and enforces the one-time Wednesday post-waiver guard.
 
 This document exists so Wednesday is *execution*, not improvisation. Every
 number below was measured on 2026-09-06, not assumed; each has its source
@@ -154,8 +155,8 @@ snapshot rebuilt afterwards and labelled `pregame` is worse than a missing one
 because nothing downstream could tell the difference. The script enforces this
 itself (exit 3); do not work around it.
 
-The recurring Thursday timer still produces Week 2's capture on its normal
-cadence. A missed Week 1 costs Week 1's evidence only.
+The four-hourly recurring timer continues to probe future schedule-derived
+capture windows. A missed Week 1 costs Week 1's evidence only.
 
 
 ## 2026-09-07 timing reconciliation
@@ -167,6 +168,5 @@ instruction above still governs: the capture CLI now refuses a 2026 Week 1
 pregame write outside Wednesday or without an observed terminal Wednesday
 waiver batch after 03:00 ET and no pending claims. `--ignore-window` cannot
 bypass this exception or the kickoff refusal. Dry-run preparation writes nothing.
-Earlier statements that the Thursday timer remains installed describe the old
-implementation; verify the actual installed timer after deployment. This guard
-preserves Wednesday timing regardless of which timer is installed.
+Verify the actual installed timer after deployment. The script guard preserves
+Wednesday timing independently of the timer cadence.
