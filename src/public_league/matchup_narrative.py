@@ -1219,9 +1219,29 @@ def build_manual_package(
     }
 
 
-_REQUIRED_MANUAL_FIELDS = ("title", "lede", "body", "kicker", "angleUsed", "wordCount")
+# wordCount is deliberately NOT required here: it is always computed from
+# body+lede (_computed_word_count), never trusted from the candidate, so a
+# missing/wrong self-reported count is not a defect -- there is no
+# self-reported number to be missing or wrong.
+_REQUIRED_MANUAL_FIELDS = ("title", "lede", "body", "kicker", "angleUsed")
 
 _PLACEHOLDER_MARKERS = ("{{", "}}", "todo", "[insert", "lorem ipsum")
+
+
+def _computed_word_count(candidate: dict[str, Any]) -> int:
+    """The one authoritative word count for a candidate article.
+
+    Always derived from body+lede, never trusted from a self-reported
+    ``wordCount`` field (a model's own count is an unverified claim, and
+    coercing a missing one to 0 would fabricate a fact this repo's own
+    decision-path coercion gate exists to catch). Body and lede are
+    always strings by the time this runs, so this is never itself a
+    missing value -- there is nothing to coerce.
+    """
+    body = str(candidate.get("body") or "")
+    lede = str(candidate.get("lede") or "")
+    return len(body.split()) + len(lede.split())
+
 
 # Private decision-intelligence vocabulary that must never leak into a
 # PUBLIC narrative (CLAUDE.md §5 public/private boundary -- same posture
@@ -1311,9 +1331,7 @@ def validate_manual_article(
                 f"private decision-intelligence vocabulary leaked into public article: {marker!r}"
             )
 
-    word_count = len(str(candidate.get("body", "")).split()) + len(
-        str(candidate.get("lede", "")).split()
-    )
+    word_count = _computed_word_count(candidate)
     if word_count < 200:
         errors.append(f"article too short to be real content ({word_count} words)")
     elif word_count > 1500:
@@ -1415,7 +1433,7 @@ def import_manual_article(
         "kicker": candidate.get("kicker") or "",
         "angleUsed": candidate.get("angleUsed") or "",
         "persona": brief.persona,
-        "wordCount": int(candidate.get("wordCount") or 0),
+        "wordCount": _computed_word_count(candidate),
         "generationMode": "MANUAL_IMPORT",
         "provider": provider,
         "model": model,
@@ -1466,6 +1484,7 @@ def collect_prior_articles(
             {
                 "season": full.get("season"),
                 "week": full.get("week"),
+                "matchupId": full.get("matchupId"),
                 "mode": full.get("mode"),
                 "title": full.get("title"),
                 "lede": full.get("lede"),

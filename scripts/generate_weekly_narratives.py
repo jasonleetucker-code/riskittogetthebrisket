@@ -322,10 +322,27 @@ async def _run_import(args: argparse.Namespace, snapshot, season: str, week: int
             print(f"  - matchup {mid}: already on disk, skipped (use --force to reimport)")
             continue
 
+        # A --force reimport of this exact matchup replaces its own prior
+        # on-disk version, so that version is not a DIFFERENT article this
+        # candidate might be repeating -- it is the same article's earlier
+        # revision. Comparing a candidate against itself always "matches"
+        # and would misreport a real repetition defect. Every other entry
+        # in `prior` (a genuinely different matchup) still applies.
+        prior_for_candidate = [
+            p
+            for p in prior
+            if not (
+                str(p.get("season")) == cand_season
+                and int(p.get("week") or -1) == cand_week
+                and int(p.get("matchupId") or -1) == mid
+                and (p.get("mode") or "") == cand_mode
+            )
+        ]
+
         article, validation = matchup_narrative.import_manual_article(
             candidate,
             brief=brief,
-            prior_articles=prior,
+            prior_articles=prior_for_candidate,
             batch=candidates,
             provider=candidate.get("provider"),
             model=candidate.get("model"),
