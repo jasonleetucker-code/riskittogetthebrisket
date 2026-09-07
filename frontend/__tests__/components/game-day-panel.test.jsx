@@ -93,7 +93,7 @@ const PRICED = {
     bestBall: true,
     medianEnabled: true,
     simulation: {
-      modelVersion: "game-day-sim-v1",
+      modelVersion: "game-day-sim-v2",
       pointsModelSource: "measured",
       draws: 2000,
       thresholdSemantics: "median",
