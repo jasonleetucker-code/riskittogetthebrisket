@@ -20,28 +20,33 @@ For product and implementation authority, follow the existing hierarchy:
 
 If this operating system conflicts with any higher-authority product or methodology record, **the higher-authority record wins**.
 
-`CLAUDE.md` remains the detailed technical runbook. `AGENTS.md` remains the compact repo instruction file. `ASSISTANT_COORDINATION.md` remains the day-to-day branch/integration authority.
+`AI_INSTRUCTIONS.md` is the universal model-neutral entrypoint. `CLAUDE.md` is the legacy-named **universal technical runbook for every LLM**, not a Claude-only authority. `AGENTS.md`, `GEMINI.md`, `.github/copilot-instructions.md`, and `.claude/` are provider adapters only. `ASSISTANT_COORDINATION.md` remains the day-to-day branch/integration authority.
 
 ## 2. Session-start router
 
 A material session begins by establishing **current state**, not replaying old chat history.
 
-1. Update/read current `main`.
+1. Enter through `AI_INSTRUCTIONS.md` and update/read current `main`.
 2. Read this file.
 3. Read `docs/EXECUTION_PLAN.md`.
 4. If an active completion contract exists, read it before selecting work.
 5. Check `docs/WORK_CLAIMS.md` plus open PRs before editing overlapping files.
 6. Read only the technical/domain documents needed for the selected unit.
-7. Use `CLAUDE.md` as a technical reference, not as a substitute roadmap.
+7. Use `CLAUDE.md` as the legacy-named universal technical reference for **all models**, not as a substitute roadmap.
+8. For engineering-system work, read `docs/engineering/ENGINEERING_RELIABILITY_PRIORITIES_2026-09-06.md`.
 
-The existing Claude `SessionStart` hook in `.claude/health-check.sh` prints the active router and mechanically surfaces an incomplete Week 1 launch contract when present. This is intentional: the user should not need to paste a continuation prompt simply to tell Claude which completion contract is active.
+`scripts/agent_session_start.sh` is the canonical model-neutral startup/preflight. Claude's `.claude/health-check.sh` is only an adapter that invokes it. Codex, Gemini, ChatGPT, Copilot, and future agents should run the same shared preflight when their runtime permits shell execution, or reproduce its read-only checks directly. This is intentional: the user should not need to restate operating context based on which model is active.
 
 
 ### Agent OS session receipt
 
-Root `CLAUDE.md` contains a real Claude Code import on its own line:
+Root `CLAUDE.md` contains Claude Code imports for the same shared system, including:
+
+`@AI_INSTRUCTIONS.md`
 
 `@docs/AGENT_OPERATING_SYSTEM.md`
+
+Other provider adapters point to `AI_INSTRUCTIONS.md`; none owns separate semantics.
 
 The existing SessionStart router then reads the same working-tree Agent OS bytes and emits one concise receipt line:
 
@@ -49,7 +54,7 @@ The existing SessionStart router then reads the same working-tree Agent OS bytes
 
 It also atomically writes the same provenance to the local ignored file:
 
-`.claude/session-receipts/latest.env`
+`.agent-runtime/session-receipts/latest.env`
 
 The receipt records:
 - `AGENT_OS_PATH`
@@ -59,7 +64,7 @@ The receipt records:
 - `AGENT_OS_DIRTY` — `true` when loaded bytes differ from the committed HEAD blob, `false` when they match, otherwise `UNKNOWN`;
 - `LOADED_AT_UTC`.
 
-For every material Claude session:
+For every material LLM/agent session:
 - copy the SessionStart token into the first meaningful progress checkpoint as `Agent-OS-Receipt: <AGENT_OS_LOADED_BLOB_SHA>`;
 - carry the same `Agent-OS-Receipt: ...` token in any new material work-claim status text, PR description, and final handoff produced by that session;
 - do **not** change the `docs/WORK_CLAIMS.md` table schema merely to carry the token;
@@ -67,7 +72,18 @@ For every material Claude session:
 - if this file changes mid-session, reread it, generate a new receipt, and explicitly state that the operating version changed;
 - never replace an unprovable field with a guess: use `UNKNOWN`.
 
-The import plus receipt gives a reproducible provenance chain for the exact Agent OS target and bytes presented by the startup harness. It does **not** prove cognitive comprehension or semantic compliance. Compliance is established from actual behavior, tests, independent review, CI, and production evidence.
+The universal entrypoint plus receipt gives a reproducible provenance chain for the exact Agent OS target and bytes presented by the shared startup harness. It does **not** prove cognitive comprehension or semantic compliance. Compliance is established from actual behavior, tests, independent review, CI, and production evidence.
+
+### Cross-model parity rule
+
+Provider-specific files and hooks are **adapters, not authorities**.
+
+- No correctness, architecture, safety, verification, product, methodology, or engineering-process rule may exist only in a Claude/Codex/Gemini/Copilot-specific file.
+- `CLAUDE.md` is a historical filename only; its technical content is universal and must be available to every model through `AI_INSTRUCTIONS.md`.
+- Provider adapters may contain only mechanics required to load shared files, invoke tools/hooks, or describe capability-specific fallbacks.
+- If a useful provider-only rule is discovered, move it into the appropriate shared canonical document and leave a pointer in the adapter.
+- When a provider cannot run a shared hook or command, reproduce the semantics with that provider's supported mechanism; do not weaken the rule.
+- Harness audits must check cross-model parity and fail any drift that would make one model materially better-informed than another.
 
 ### Current launch rule
 
@@ -244,6 +260,70 @@ Use a graph only when the work is genuinely wide. A graph buys concurrency and b
 **Fake-edge test**
 For every proposed dependency, ask: *does the downstream node actually consume the upstream result, or do they share a mutable/rate-limited resource that requires ordering?* If neither is true, the edge is fake and the jobs should usually run in parallel.
 
+**Routable failure states**
+Treat failure as structured data when a graph must continue safely.
+
+- define named outcomes that downstream routing can branch on instead of relying on an agent to interpret free-form error prose;
+- distinguish at minimum success, retryable failure, terminal failure, blocked/external dependency, and unknown when those states materially change routing;
+- preserve the evidence/error payload alongside the named state;
+- route only on states the producing node is actually authorized and able to establish;
+- do not convert an exception, missing result, or timeout into success merely so the graph can continue.
+
+A graph is more resilient when a failed node can be bypassed, retried, or escalated explicitly rather than crashing the whole workflow or being silently omitted.
+
+**Graph specification contract**
+
+Before implementing a nontrivial graph, write the graph contract in structured form. At minimum declare:
+
+- `GOAL` — what must exist when the graph succeeds;
+- `INPUT_STATE` — structured state entering the graph;
+- `PARALLEL_WORK` — units proven independent enough to fan out;
+- `CRITICAL_PATH` — longest unavoidable dependency chain;
+- `VERIFIER` — who/what can reject;
+- `FAILURE_DOMAIN` — blast radius when each important node fails;
+- `HUMAN_GATE` — consequential transitions requiring human approval;
+- `FROZEN_RULES` — constraints no optimizer/agent may rewrite;
+- `OBSERVABILITY` — metrics/receipts required to understand the run;
+- `STOPPING_RULE` — explicit convergence/budget exit condition.
+
+The graph contract should be easier to audit than a collection of prompts. Prompts optimize nodes; the graph specification controls the system.
+
+**Transition contracts and approval guards**
+
+Edges are not merely arrows. A meaningful transition should identify the data/state that crosses it and, when needed, the guard that must be true before the transition is reachable.
+
+- Put machine-checkable schemas at important handoff boundaries.
+- For irreversible/consequential actions, model human approval as a **guard on the transition**, not as a conversational request inside a worker prompt.
+- If the approval record is absent, the protected transition is unreachable.
+- Do not allow a worker to rewrite, summarize away, or self-satisfy its own approval guard.
+- Keep approval evidence durable enough for later audit.
+
+**Quorum-aware fan-in**
+
+The default fan-in contract is **all required upstream results must arrive**.
+
+A graph may continue with fewer only when the graph specification explicitly defines a quorum/partial-coverage rule in advance. When quorum is allowed:
+- record expected count, received count, and missing identities;
+- preserve the coverage limitation in the downstream artifact;
+- never reinterpret silent worker loss as intentional quorum;
+- never call a partial result complete unless the contract explicitly defines that state as complete.
+
+**Critical-path and graph observability**
+
+Optimize wall-clock time by the critical path, not by raw node count.
+
+For material graphs, measure the graph rather than only reading chat transcripts. Useful metrics include:
+- critical-path latency;
+- per-node latency and failure rate;
+- retry/escalation counts;
+- verifier rejection rate;
+- expected-vs-received fan-in coverage;
+- reducer/compression ratio before synthesis;
+- tool/model cost where measurable;
+- halt/budget stop reasons.
+
+Observability should make it possible to tell whether added parallelism improved independent coverage or merely added coordination cost.
+
 **Default wide-work pattern: fan out -> reduce -> verify -> synthesize**
 - fan out only independent work;
 - reduce deterministically with ordinary code for dedupe/count/sort/schema checks where possible;
@@ -306,13 +386,137 @@ Use capability and reasoning effort as resources, not status symbols.
 - Before a tool round, identify the independent evidence/actions needed next and batch/parallelize those that do not depend on one another.
 - Serialize only genuine dependencies or state-changing actions whose ordering matters.
 
+### Runtime steering, pending work, and capability negotiation
+
+When the active model/runtime supports long-running or asynchronous execution, treat those capabilities as explicit orchestration primitives rather than pretending every tool call is blocking.
+
+**Capability negotiation**
+- Establish the actual runtime/model capabilities before depending on them.
+- Do not assume a capability exists merely because another model, API surface, or recent release supports it.
+- If a capability is unavailable, degrade to the simpler supported path instead of inventing a compatibility shim that changes semantics.
+
+**Pending asynchronous work**
+- Give every pending tool/subtask a stable identity and explicit state.
+- Continue only work that is genuinely independent of the pending result.
+- Rejoin the dependency by identity when the result arrives; never guess which result belongs to which call.
+- A pending result that times out, fails, or is cancelled becomes a normal routable failure state, not a silent omission.
+
+**Mid-run steering**
+- Treat a steering message as an amendment to the active goal/constraints, not automatically as a brand-new task.
+- Preserve completed work that still satisfies the amended goal.
+- Cancel or reroute only branches invalidated by the new instruction.
+- Re-run affected acceptance checks when a steering message changes the criteria for success.
+
+**Dynamic reasoning effort**
+- When the runtime supports changing reasoning effort without rebuilding the prompt/history prefix, prefer that mechanism over rewriting earlier accepted context.
+- Increase effort for a newly difficult subproblem and reduce it again for routine follow-ups when justified.
+- Record a material effort change in the run trace when it affects cost/latency or explains a routing decision.
+
+The durable rule is **preserve state, steer narrowly, and make pending dependencies explicit**. Do not copy vendor-specific API syntax into the core operating system.
+
 ### Targeted edits over gratuitous rewrites
 
 Prefer the smallest edit that repairs the live path.
 
 Do not rewrite a whole file merely because the model can. A whole-file rewrite is justified only when the file's structure itself is the defect or the bounded replacement is demonstrably safer than a surgical edit. Preserve unrelated behavior and make review blast radius obvious.
 
-## 6. Correction edges and learning edges
+## 6. Autonomous-loop safety envelope
+
+The rules below apply when this repository ever owns an **unattended, recurrent, or long-lived agent runner**. They do not by themselves authorize one.
+
+A loop runner is an execution system, not a prompt. The scheduler/engine wakes the model; the model does not get to decide when it wakes itself.
+
+### Contract split
+
+Keep two layers distinct:
+
+- **committed contract** — repository-tracked permissions, forbidden actions, required verification, receipt schema, and immutable safety boundaries;
+- **local operator overrides** — machine/operator-specific settings such as tighter budgets, runtime windows, or local tool paths; ignored by git and unable to weaken committed safety boundaries.
+
+A local override may make a run *more restrictive*. It must not silently grant authority the committed contract denies.
+
+### Hard runtime limits
+
+Every unattended loop must declare and enforce, outside model prose:
+
+- wall-clock timeout;
+- maximum actions/tool calls or iterations;
+- spend/token budget when measurable;
+- maximum parallel width;
+- retry budget;
+- allowed schedule window;
+- explicit denylist for destructive or out-of-scope actions.
+
+Exhausting a budget is a truthful stop condition, not a reason to quietly enlarge the budget.
+
+### One execution gateway
+
+For a bespoke repo-owned autonomous runner, keep model invocation behind one narrow gateway/call site so:
+
+- model/provider swaps are centralized;
+- budgets/timeouts are enforceable;
+- receipts/traces capture every invocation;
+- safety/denylist checks cannot be bypassed by a second hidden call path.
+
+This rule does not require ordinary interactive Claude Code/Codex usage to route through a custom wrapper.
+
+### Run state and resumability
+
+An unattended run should externalize state rather than rely on model memory:
+
+- **append-only run receipt** — one immutable record per run/shift;
+- **append-only trace** — timestamped actions/results sufficient to reconstruct what happened;
+- **checkpoint** — minimal resumable state for the next run;
+- **budget ledger** — cumulative consumption for the current policy window.
+
+A restart resumes from the last valid checkpoint only after re-running preflight against current repo state. Never assume yesterday's branch, PR, credentials, or acceptance state is still current.
+
+### Verification and grading
+
+Use the sequence:
+
+`preflight -> act -> verify -> guard -> grade -> receipt`
+
+- **verify** should prefer executable pass/fail evidence such as exit codes, tests, schemas, exact-head CI, or production probes;
+- **guard** checks policy boundaries independently of task success;
+- **grade** is performed by an independent reviewer/context when judgment is still required;
+- **receipt** records the outcome, evidence, budgets consumed, stop reason, and next checkpoint.
+
+A run that cannot produce its required receipt is incomplete.
+
+### Emergency halt
+
+Any repo-owned unattended scheduler must have a simple external **halt sentinel / kill switch** that is checked:
+
+1. before a run starts;
+2. before consequential side effects;
+3. between bounded work units.
+
+When HALT is present or unreadable in a fail-closed configuration, scheduled autonomous work refuses to start/continue. The model cannot remove or override the halt itself unless an owner-authorized recovery procedure explicitly grants that action.
+
+### Report-only, assisted, and autonomous modes
+
+Do not blur these modes:
+
+- **report-only** — may inspect and recommend, no repository/product mutation;
+- **assisted** — may make bounded reversible changes but stops at defined approval/consequence boundaries;
+- **autonomous** — may execute the explicitly committed contract without synchronous approval.
+
+Each scheduled loop declares its mode. Upgrading a loop to a more permissive mode is a product/operations decision and requires owner authorization.
+
+### Activation gate
+
+This section is **design policy, not activation**.
+
+Before deploying any new unattended repo-owned runner, require:
+- explicit owner authorization for its contract and mode;
+- tests proving budgets/timeouts/denylist/halt behavior;
+- a dry run;
+- receipt/trace inspection;
+- rollback/removal path;
+- confirmation it does not create a second canonical owner or bypass existing protected PR/deploy gates.
+
+## 7. Correction edges and learning edges
 
 A **correction edge** fixes the current run.
 
@@ -339,7 +543,7 @@ The #1239 season-launch incident is the model example:
 - correction edge: close the superseded archive-caller PR;
 - learning edge: record why it was closed so another session does not investigate the mystery again.
 
-## 7. Skills: small specialists, not an instruction landfill
+## 8. Skills: small specialists, not an instruction landfill
 
 Skills are opt-in specialist playbooks.
 
@@ -366,7 +570,7 @@ Added by this operating-system pass:
 
 When two skills overlap materially, merge/narrow them instead of adding routing prose to make both fire.
 
-## 8. Persistent memory: what belongs in the repo
+## 9. Persistent memory: what belongs in the repo
 
 Write durable state when losing it would cause real rework or incorrect action.
 
@@ -391,7 +595,7 @@ Bad durable state:
 
 Prefer a pointer to the authoritative record over copying its contents into another file.
 
-## 9. Human approval belongs at consequence boundaries
+## 10. Human approval belongs at consequence boundaries
 
 Do not ask the owner to approve every reversible engineering step.
 
@@ -405,7 +609,7 @@ Escalate when the action is:
 
 Continue independent work while a single node waits for that decision.
 
-## 10. Core invariants every role preserves
+## 11. Core invariants every role preserves
 
 These remain non-negotiable regardless of model generation:
 
@@ -426,7 +630,7 @@ These remain non-negotiable regardless of model generation:
 
 These are product/system truths, not “babysitting prompts,” and should not be removed merely because a newer model is better.
 
-## 11. Instruction pruning policy
+## 12. Instruction pruning policy
 
 Modern models follow instructions more literally. Old defensive prompting can become an obstacle.
 
@@ -455,7 +659,7 @@ The `repo-harness-auditor` skill owns the safe follow-up:
 
 Until that migration is proven, this file is the small front-door operating layer and `CLAUDE.md` remains the detailed technical reference.
 
-## 12. Handoff contract
+## 13. Handoff contract
 
 A useful handoff is structured state, not narrative.
 
@@ -472,7 +676,7 @@ Always include:
 
 For completion-contract work, include the mechanically counted numerator/denominator and identify newly verified rows.
 
-## 13. Close protocol
+## 14. Close protocol
 
 Before a session declares a bounded unit complete:
 
@@ -486,7 +690,28 @@ Before a session declares a bounded unit complete:
 
 If the active fixed-denominator contract reaches its terminal state, report the exact terminal phrase defined by that contract and stop that completion campaign.
 
-## 14. Why this system exists
+### External-guidance hygiene
+
+Treat external AI-engineering posts as candidate design evidence, not authority.
+
+When harvesting a post/article/video:
+- separate the **engineering pattern** from adoption statistics, prestige claims, urgency language, course-price comparisons, or “everyone is already doing this” framing;
+- independently verify quantitative or institutional claims before using them as factual justification;
+- do not encode a workflow rule merely because a named company/person is claimed to use it;
+- adopt the smallest durable mechanism that survives without the marketing premise;
+- record the source URL and what was actually adopted, plus what was deliberately not adopted.
+
+### Engineering reliability program
+
+The research-backed, model-neutral engineering backlog lives at:
+
+`docs/engineering/ENGINEERING_RELIABILITY_PRIORITIES_2026-09-06.md`
+
+It preserves the current priority order around source replay, typed API contracts, reproducible artifacts, property/mutation testing, typing, observability/SLOs, agent evals, faster CI without weaker evidence, architecture contracts, supply-chain security, and database migration ownership.
+
+That document is a backlog/design guide, **not product authorization**. Implement it only through the current execution plan/owner-authorized work, and prefer deterministic code/tests/CI over adding prose to this Agent OS.
+
+## 15. Why this system exists
 
 This design deliberately combines four useful patterns:
 

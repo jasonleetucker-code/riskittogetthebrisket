@@ -38,6 +38,7 @@ test-results/
 # Local tooling
 .codex-loop/
 .claude/
+.agent-runtime/
 
 # Deploy state (when using local default path inside repo)
 .deploy/

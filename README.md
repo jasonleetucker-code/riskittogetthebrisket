@@ -24,11 +24,15 @@ snapshots). This line said "Private repo" while `SECURITY.md` and
   several deliberately. For those the env var is a rollback lever, not an
   opt-in. Read `_DEFAULTS` before assuming a capability is dormant.
 
+**AI/agent entrypoint:**
+- [`AI_INSTRUCTIONS.md`](AI_INSTRUCTIONS.md) — universal instructions for Claude, Codex, Gemini, ChatGPT, Copilot, and future agents
+
 **Orientation docs:**
 - [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) — system map
 - [`docs/ONBOARDING.md`](docs/ONBOARDING.md) — how to add a league / source / flag
 - [`docs/upgrade_phases_1_10.md`](docs/upgrade_phases_1_10.md) — April 2026 upgrade deep-dive
-- [`CLAUDE.md`](CLAUDE.md) — architectural rules + non-negotiables
+- [`CLAUDE.md`](CLAUDE.md) — legacy filename; universal technical runbook for every LLM
+- [`docs/engineering/ENGINEERING_RELIABILITY_PRIORITIES_2026-09-06.md`](docs/engineering/ENGINEERING_RELIABILITY_PRIORITIES_2026-09-06.md) — research-backed engineering improvement backlog
 
 ## Production Bootstrap
 

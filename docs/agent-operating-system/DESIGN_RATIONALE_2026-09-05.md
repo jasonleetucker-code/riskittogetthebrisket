@@ -109,6 +109,109 @@ Useful principles adopted:
 
 These extend the existing "loops inside graphs" rule without adding a new overlapping skill.
 
+### Mr. Buzzoni / PolyDAO — Loop Rat autonomous-runner pattern
+
+Owner-supplied source:
+`https://x.com/polydao/status/2096128417108287566`
+
+The publicly mirrored post describes an autonomous repo loop with a committed contract, local overrides, spend caps/timeouts/denylist, schedule, independent rubrics/grading, append-only receipts and action trace, resumable checkpoint, budget ledger, and an external halt file. It also separates the scheduler/engine from the model call itself: the model does not decide when it wakes. These details were cross-checked against public mirrors of the owner-supplied X post before adoption.
+
+Useful principles adopted:
+
+- unattended autonomy needs an execution contract, not just a prompt;
+- separate committed policy from local operator overrides, and never allow local overrides to weaken the committed safety boundary;
+- enforce spend/time/action/retry/parallelism limits outside model prose;
+- centralize repo-owned model calls behind one auditable gateway;
+- externalize resumable state with checkpoints plus append-only run receipts/traces;
+- make verification executable and keep grading independent from authorship;
+- require a simple external kill/halt sentinel for unattended schedulers;
+- distinguish report-only, assisted, and autonomous modes;
+- treat deployment of unattended loops as a separate owner-authorized activation decision.
+
+Deliberately not adopted as automatic behavior:
+
+- no new night-shift scheduler is activated by this documentation change;
+- no fixed dollar budget or cadence from the example is copied into this repo;
+- no new model/provider choice is hard-coded;
+- no autonomous loop may bypass existing claims, exact-head CI, protected PR, deploy, auth, or completion-contract gates.
+
+### seeco / seeconvm — graph-engineering promotion vs mechanism
+
+Owner-supplied source:
+`https://x.com/seeconvm/status/2088199384580108339`
+
+The mirrored post promotes the shift from IDEs/prompts toward loops and graphs and makes broad adoption claims about Google engineering. A separate critique of the same post notes that the numerical/adoption framing is not independently substantiated, while the underlying graph mechanics are conventional and useful: nodes with explicit contracts, real edges, named failure states, and the diamond fan-out/reduce/synthesize pattern.
+
+Useful additions adopted:
+
+- failure states should be first-class structured values that a graph can route on, not only exceptions/free-text prose;
+- a graph should be able to retry, bypass, block, or escalate a failed node without silently dropping it or crashing unrelated sibling work;
+- external AI-engineering guidance should be decomposed into testable mechanism vs unverified adoption/hype claims before it changes the harness.
+
+Not adopted:
+
+- “delete your IDE” as policy;
+- the unverified “85% of Google engineers” figure as factual justification;
+- urgency/course-value framing;
+- any new graph skill, because node contracts/fake edges/fan-in/anchors are already canonical in the Agent OS.
+
+### zodchiii — GPT-6 Astra setup / runtime-control guidance
+
+Owner-supplied source:
+`https://x.com/zodchiii/status/2096541972156846373`
+
+The post itself is heavily promotional, so its performance/organizational claims were not adopted as architecture. The durable runtime implications were cross-checked against OpenAI's official GPT-6 Astra model guidance and release notes:
+
+- `https://developers.openai.com/api/docs/guides/latest-model`
+- `https://openai.com/products/release-notes/`
+
+Useful additions adopted:
+
+- async tool calls should exist as explicit pending state with stable identities, while unrelated work may continue;
+- mid-turn steering should amend the active task while preserving completed work that still satisfies the new constraints;
+- when a runtime supports changing reasoning effort in place, change the configuration rather than rewriting accepted context/history;
+- capability support is surface-specific and must be detected/verified before the harness depends on it;
+- pending async calls that fail, time out, or are cancelled should feed the existing routable-failure-state machinery.
+
+Not adopted:
+
+- “money making machine this weekend” urgency framing;
+- unsupported claims about what a model can accomplish relative to an entire team/quarter;
+- fixed Astra model/effort settings for this repo;
+- OpenAI-specific API syntax in the model-agnostic operating-system rules;
+- any assumption that Claude Code automatically supports Astra-specific Responses API controls.
+
+### LunarResearcher — complete graph-engineering specification
+
+Owner-supplied source:
+`https://x.com/lunarresearcher/status/2086071302272528833?s=46`
+
+A public mirror of the article presents a 10-field graph specification and several mechanisms that were only implicit in the prior Agent OS.
+
+New principles adopted:
+
+- nontrivial graphs should have a written system-level specification before implementation: goal, input state, true parallel work, critical path, verifier, failure domains, human gates, frozen rules, observability, and stopping rule;
+- optimize graph latency around the critical path rather than total step count;
+- edges should carry explicit structured data/state contracts;
+- human approval for consequential actions is better modeled as a guard on a transition than as a worker node or prompt request;
+- default fan-in requires all required results; partial continuation requires an explicit predeclared quorum and truthful coverage reporting;
+- graph observability should measure critical-path latency, node failures, verifier rejection, fan-in coverage, compression/reduction, retries, and cost where measurable.
+
+These extend the existing node-contract/fake-edge/independent-verifier/fan-in/anchor rules rather than creating a new graph skill.
+
+### External-source batch disposition — 2026-09-06
+
+This batch was evaluated under the Agent OS external-guidance hygiene rule:
+
+- `https://x.com/seeconvm/status/2088199384580108339?s=46` — duplicate in this batch and already incorporated earlier; no new rule.
+- `https://x.com/polydao/status/2096128417108287566?s=46` — already incorporated earlier; no new rule.
+- `https://x.com/hanakoxbt/status/2091515787366306154?s=46` — already incorporated earlier; no new rule.
+- `https://x.com/lunarresearcher/status/2086071302272528833?s=46` — new graph-spec/transition-guard/critical-path/observability rules adopted as described above.
+- `https://x.com/slash1sol/status/2095467815041962449?s=46` — exact body was not reliably recoverable from accessible mirrors/search at evaluation time; no rule attributed to this exact post. Neighboring slash1sol posts were **not** used as substitutes.
+- `https://x.com/cabbitar/status/2096726301520347470?s=46` — exact body was not reliably recoverable from accessible mirrors/search at evaluation time; no rule attributed to this exact post.
+
+The two unresolved exact posts may be reevaluated later if their bodies become reliably accessible. Until then, the repository must not infer their content from nearby posts or the authors' general themes.
+
 ## What the repo already had
 
 The audit found that this repository was **not** starting from zero.

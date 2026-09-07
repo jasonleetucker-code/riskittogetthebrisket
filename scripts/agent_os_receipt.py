@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Write and print a deterministic local receipt for the Agent OS loaded at SessionStart."""
+"""Write and print a deterministic local receipt for the Agent OS loaded by any LLM session."""
 
 from __future__ import annotations
 
@@ -13,7 +13,7 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parents[1]
 AGENT_OS_REL = Path("docs/AGENT_OPERATING_SYSTEM.md")
 AGENT_OS = REPO / AGENT_OS_REL
-RECEIPT_DIR = REPO / ".claude" / "session-receipts"
+RECEIPT_DIR = REPO / ".agent-runtime" / "session-receipts"
 RECEIPT_PATH = RECEIPT_DIR / "latest.env"
 UNKNOWN = "UNKNOWN"
 
