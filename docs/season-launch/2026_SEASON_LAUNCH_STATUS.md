@@ -72,9 +72,13 @@ in-progress player's remaining production is `None` and raises
 remainder, or exclusion. Each choice changes published live probabilities; no
 evidence in the repo selects one.
 
-**One owner action is BLOCKING.** `ANTHROPIC_API_KEY` is unconfigured, so
-`weekly-narratives.yml` reports success in ~10 s with every real step skipped
-and `exports/narratives/` holds only two 2025 files.
+**No owner action is blocking as of 2026-09-07.** An earlier draft of this
+block named `ANTHROPIC_API_KEY` as a blocker; that was itself stale, which is
+the failure mode this section exists to correct. W1-11 is literally `VERIFIED`
+on the canonical contract: Manual External AI is now the generation model and
+does not depend on that secret at all, and all six real Week 1 narratives exist
+and passed validation with zero errors. Do not reintroduce the key as a launch
+blocker.
 
 **Methodology finding that constrains Game Day, recorded here so it is not
 re-derived.** `config/projections/source_capability_census.json` has exactly
