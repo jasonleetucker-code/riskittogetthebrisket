@@ -395,4 +395,36 @@ describe("GameDayPanel — explicit ?team= wins over the switcher", () => {
     await waitFor(() => expect(globalThis.fetch).toHaveBeenCalled());
     expect(globalThis.fetch.mock.calls[0][0]).toContain("team=own-SWITCHER");
   });
+
+  it("renders live actuals and withholds a policy-dependent probability", async () => {
+    global.fetch = vi.fn().mockResolvedValue({ ok: true, json: async () => ({
+      ...PRICED, mode: "live", probabilityState: "OWNER_POLICY_REQUIRED",
+      policyRequiredPlayerIds: ["p1"],
+      team: { ...PRICED.team, actualScore: 14.2, outcome: null,
+        actualLineup: { total: 14.2, knownSubtotal: 14.2, missingPlayerIds: [], slots: [{ slot: "QB", slotIndex: 0, playerId: "p1", name: "Ann Alpha", points: 14.2 }] },
+        players: [{ playerId: "p1", name: "Ann Alpha", state: "in_progress", pointsScored: 14.2, projectedRemaining: null }] },
+      opponent: null,
+    }) });
+    render(<GameDayPanel />);
+    expect(await screen.findByText(/Current score: 14.2/)).toBeInTheDocument();
+    expect(screen.getByText(/remaining production policy unresolved/)).toBeInTheDocument();
+    expect(screen.getByText(/awaits an owner decision/)).toBeInTheDocument();
+    expect(screen.queryByText(/61.5%/)).not.toBeInTheDocument();
+  });
+
+  it("renders a final result without remaining probabilities and links the canonical recap", async () => {
+    global.fetch = vi.fn().mockResolvedValue({ ok: true, json: async () => ({
+      ...PRICED, mode: "final", probabilityState: "FINAL", recapUrl: "/league/articles/2026/1",
+      team: { ...PRICED.team, actualScore: 312.4, result: "WIN", outcome: null,
+        actualLineup: { total: 312.4, knownSubtotal: 312.4, missingPlayerIds: [], slots: [] } },
+      opponent: { ...PRICED.opponent, actualScore: 290.1, result: "LOSS", outcome: null,
+        actualLineup: { total: 290.1, knownSubtotal: 290.1, missingPlayerIds: [], slots: [] } },
+    }) });
+    render(<GameDayPanel />);
+    expect(await screen.findByText(/Final score: 312.4 · WIN/)).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /Week 1 articles and recap/ })).toHaveAttribute("href", "/league/articles/2026/1");
+    expect(screen.queryByText(/How the week can land/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/remaining estimate/)).not.toBeInTheDocument();
+  });
+
 });

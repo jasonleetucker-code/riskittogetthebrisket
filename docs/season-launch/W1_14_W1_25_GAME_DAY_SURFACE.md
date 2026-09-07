@@ -93,19 +93,26 @@ copied — not a re-derivation. When the contract does not hold a team (a
 different fact from the host not holding it) that block degrades to `null`
 rather than failing the matchup.
 
-## 3. What it refuses, and why refusing is the right answer
+## 3. State and refusal behavior
 
 | condition | response |
 |---|---|
-| week already in progress | **409 `week_in_progress`** |
+| scheduled / pregame | projected lineup and probabilities when evidence permits |
+| live with complete evidence | actual score, current canonical lineup, remaining players, and probabilities |
+| live with missing game state | actual score and lineup remain; probability is withheld |
+| live with an in-progress player | remainder stays unknown; `OWNER_POLICY_REQUIRED` withholds probability |
+| final | final score, canonical optimal lineup, result, and canonical recap link |
 | host states no season/week and none passed | **503 `clock_unavailable`** |
 | owner holds no roster in this league | 404 `team_not_found` |
 | unknown / inactive league | 400, per the standard table |
 
-**`week_in_progress` is a state, not an error.** Telling a finished player from
-a mid-game one needs a live game-state feed this repo does not wire, and
-collapsing them double-projects (`GAME_DAY_PROBABILITY_SPEC.md` §6). A distinct
-409 lets a caller render "come back after the games" instead of an error page.
+The old explicit `week_in_progress` exception remains mapped to 409 for
+defensive compatibility, but a normal begun week now resolves. The API does
+not infer an in-progress game from elapsed wall time. nflverse schedule/results
+can establish scheduled and completed states; an explicit live source can use
+the typed evidence seam. Until the owner decides how to treat remaining
+production for an in-progress player, actual/banked state remains visible and
+probability is withheld.
 
 **`clock_unavailable` exists because the clock is the host's.** Deriving the
 season and week from the calendar is how a surface ends up describing a
@@ -166,7 +173,7 @@ percentages plus the tie sum to 100.0.
 
 ## 6. Tests
 
-- `tests/api/test_matchup_intel.py` — 15 tests on the assembly: identity,
+- `tests/api/test_matchup_intel.py` — 19 tests on the assembly: identity,
   complementary probabilities, no-projections → `null` (not 50%), unpriced
   players reported on their own side and kept out of the lineup pool, both
   refusals, and four on lineage.
@@ -222,7 +229,7 @@ than a single happy-path render.
 
 ## 8. Verification
 
-- `frontend/__tests__/components/game-day-panel.test.jsx` — 26 tests: both
+- `frontend/__tests__/components/game-day-panel.test.jsx` — 28 tests: both
   win probabilities; the lineup rendered by **slot name, not index**; the
   count of players left out of the lineup rather than counted as zero; the
   degraded/unverified median state surfaced; source and coverage named; the
@@ -233,12 +240,10 @@ than a single happy-path render.
 
 ## 9. Row status
 
-**W1-14 and W1-15 stay `NOT STARTED` until this is deployed and verified on
-production.** The endpoint and the surface both exist and are tested, which is
-what those two rows describe — but W1-16 asks for production verification of
-the owner's experience, and this document is not that. The rows move when
-`/game-day` is live and answering for the owner's own team, which requires the
-projection snapshots that exist only on the box.
+W1-14, W1-15, W1-16, W1-25, and W1-26 are recorded `VERIFIED` in the launch
+contract. Deterministic LIVE and FINAL coverage prepares W1-27 and W1-28, but
+does not verify either row against production. W1-27 additionally retains the
+explicit owner-policy seam for in-progress remaining production.
 
 The production instrument is
 `tests/e2e/specs/prod-auth/w1-16-game-day.spec.js`, run by

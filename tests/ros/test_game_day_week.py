@@ -225,3 +225,99 @@ class EndToEndTests(unittest.TestCase):
         # Sleeper's official host documentation verifies the canonical
         # median semantics for this even-sized league.
         self.assertTrue(sim.threshold_semantics_verified)
+
+
+def test_live_resolution_preserves_banked_and_exposes_policy_seam():
+    from src.ros.game_day_week import GameEvidence, resolve_scoring_week
+
+    players = {k: dict(v) for k, v in META.items()}
+    players["p1"] = dict(players["p1"], team="SEA")
+    players["p2"] = dict(players["p2"], team="MIN")
+    matchups = [
+        {
+            "roster_id": 1,
+            "matchup_id": 1,
+            "points": 11.5,
+            "players_points": {"p1": 11.5, "p2": 0.0},
+        },
+        {"roster_id": 8, "matchup_id": 1, "points": 0.0, "players_points": {}},
+    ]
+    result = resolve_scoring_week(
+        league_key="fixture",
+        league_payload={"settings": {"best_ball": 1, "league_average_match": 1, "num_teams": 2}},
+        rosters=[_rosters()[0], {"roster_id": 8, "players": []}],
+        matchups=matchups,
+        players_meta=players,
+        starter_slots=SLOTS,
+        estimates={"ann alpha": 20.0, "bob bravo": 12.0},
+        estimate_source="fixture",
+        game_evidence={
+            "SEA": GameEvidence("in_progress", "fixture-live", 100.0),
+            "MIN": GameEvidence("not_started", "fixture-live", 100.0),
+        },
+        now=101.0,
+    )
+    assert result.mode == "live"
+    assert result.host_scores["1"] == 11.5
+    assert result.policy_required_player_ids == ("p1",)
+    by_id = {p.player_id: p for p in result.week.teams[0].players}
+    assert by_id["p1"].points_scored == 11.5
+    assert by_id["p1"].projected_remaining is None
+    assert by_id["p2"].projected_remaining == 12.0
+
+
+def test_final_resolution_and_lineup_use_only_observed_points():
+    from src.ros.game_day_week import GameEvidence, actual_lineup, resolve_scoring_week
+
+    players = {k: dict(v) for k, v in META.items()}
+    players["p1"] = dict(players["p1"], team="SEA")
+    players["p2"] = dict(players["p2"], team="MIN")
+    roster = dict(_rosters()[0], players=["p1", "p2"], reserve=[], taxi=[])
+    matchups = [
+        {"roster_id": 1, "matchup_id": 1, "points": 28.0, "players_points": {"p1": 20.0, "p2": 8.0}}
+    ]
+    result = resolve_scoring_week(
+        league_key="fixture",
+        league_payload={"settings": {"best_ball": 1, "league_average_match": 1, "num_teams": 1}},
+        rosters=[roster],
+        matchups=matchups,
+        players_meta=players,
+        starter_slots=("QB", "RB"),
+        estimates={},
+        estimate_source=None,
+        game_evidence={
+            "SEA": GameEvidence("completed", "fixture-final", 200.0),
+            "MIN": GameEvidence("completed", "fixture-final", 200.0),
+        },
+        now=201.0,
+    )
+    assert result.mode == "final"
+    lineup = actual_lineup(result.week.teams[0], result.week.rules, players)
+    assert lineup["complete"] is True
+    assert lineup["total"] == 28.0
+    assert {s["playerId"] for s in lineup["slots"]} == {"p1", "p2"}
+    assert all(p.projected_remaining is None for p in result.week.teams[0].players)
+
+
+def test_schedule_past_kickoff_without_result_is_unknown_not_live():
+    from src.ros.game_day_week import schedule_game_evidence
+
+    rows = [
+        {
+            "season": 2026,
+            "week": 1,
+            "game_type": "REG",
+            "gameday": "2026-09-09",
+            "gametime": "20:20",
+            "home_team": "SEA",
+            "away_team": "NE",
+            "home_score": None,
+            "away_score": None,
+            "result": None,
+        }
+    ]
+    states = schedule_game_evidence(
+        rows, season=2026, week=1, observed_at=100.0, now=2_000_000_000.0
+    )
+    assert states["SEA"].state == "unknown"
+    assert states["NE"].state == "unknown"

@@ -205,11 +205,14 @@ class ExpectedLineupTests(unittest.TestCase):
 
 
 class RefusalTests(unittest.TestCase):
-    def test_a_week_that_has_begun_is_its_own_error(self) -> None:
+    def test_a_week_that_has_begun_preserves_actuals_without_guessing_states(self) -> None:
         started = [dict(MATCHUPS[0], points=14.2), MATCHUPS[1]]
         with _patch_fetch(matchups=started), _patch_estimates():
-            with self.assertRaises(matchup_intel.WeekInProgress):
-                _build()
+            out = _build()
+        self.assertEqual(out["mode"], "live")
+        self.assertEqual(out["team"]["actualScore"], 14.2)
+        self.assertIsNone(out["team"]["outcome"])
+        self.assertEqual(out["probabilityState"], "GAME_STATE_OR_SCORING_UNAVAILABLE")
 
     def test_no_rosters_is_refused(self) -> None:
         empty = matchup_intel._LeagueFetch(
@@ -218,6 +221,56 @@ class RefusalTests(unittest.TestCase):
         with mock.patch.object(matchup_intel, "_fetch_league_week", return_value=empty):
             with self.assertRaises(matchup_intel.MatchupIntelError):
                 _build()
+
+
+class FinalStateTests(unittest.TestCase):
+    def test_final_state_reports_result_and_canonical_recap_without_forecast(self) -> None:
+        from src.ros.game_day_week import GameEvidence
+
+        players = {
+            pid: dict(meta, team="SEA" if pid in {"p1", "p2", "p3"} else "MIN")
+            for pid, meta in PLAYERS.items()
+        }
+        matchups = [
+            dict(
+                MATCHUPS[0],
+                points=36.0,
+                players_points={"p1": 20.0, "p2": 9.0, "p3": 7.0},
+            ),
+            dict(
+                MATCHUPS[1],
+                points=31.0,
+                players_points={"p4": 11.0, "p5": 8.0, "p6": 12.0},
+            ),
+        ]
+        fetched = matchup_intel._LeagueFetch(
+            league=LEAGUE,
+            users=USERS,
+            rosters=ROSTERS,
+            matchups=matchups,
+            players=players,
+            fetched_at=1_700_000_000.0,
+        )
+        evidence = {
+            "SEA": GameEvidence("completed", "fixture-final", 200.0),
+            "MIN": GameEvidence("completed", "fixture-final", 200.0),
+        }
+        with (
+            mock.patch.object(matchup_intel, "_fetch_league_week", return_value=fetched),
+            mock.patch.object(matchup_intel, "_game_evidence", return_value=evidence),
+            _patch_estimates(),
+        ):
+            out = _build()
+
+        self.assertEqual(out["mode"], "final")
+        self.assertEqual(out["probabilityState"], "FINAL")
+        self.assertEqual(out["team"]["actualScore"], 36.0)
+        self.assertEqual(out["team"]["result"], "WIN")
+        self.assertEqual(out["opponent"]["result"], "LOSS")
+        self.assertIsNone(out["team"]["outcome"])
+        self.assertEqual(out["team"]["remainingEligiblePlayerIds"], [])
+        self.assertEqual(out["recapUrl"], "/league/articles/2026/1")
+        self.assertTrue(out["team"]["actualLineup"]["complete"])
 
 
 class LineageTests(unittest.TestCase):

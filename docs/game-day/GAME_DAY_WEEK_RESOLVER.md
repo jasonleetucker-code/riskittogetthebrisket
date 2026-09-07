@@ -31,17 +31,22 @@ archive has no use for it: the archive is pregame-only by construction, while
 the simulation distinguishes `completed` / `in_progress` / `not_started` /
 `inactive` / `unknown` and scores each differently.
 
-## Pregame only, and it refuses rather than guesses
+## Scheduled, live, and final resolution
 
-Telling `completed` from `in_progress` needs to know whether each player's NFL
-game has ended, and no live game-state feed is wired in this repo. Collapsing
-those two states is exactly the double-projection `docs/GAME_DAY_PROBABILITY_SPEC.md`
-§6 forbids.
+`resolve_pregame_week` remains the pregame adapter and still refuses a begun
+week. `resolve_scoring_week` reuses it for roster enumeration, projections,
+IR/taxi subtraction, positions, and rules, then overlays Sleeper actual scores
+and typed `GameEvidence`. The existing nflverse schedule cache can establish
+scheduled and completed games. A passed kickoff without a result remains
+`unknown`; wall time does not prove that a game started.
 
-So `resolve_pregame_week` **refuses** once the week has begun, using
-`game_day_capture.week_has_begun` — the same host-evidence gate (any nonzero
-team or player score) the archive already uses. Live resolution is a different
-unit and needs a source it can name.
+An explicitly evidenced `in_progress` player keeps observed points and has
+`projected_remaining=None`. The resolver returns that player in
+`policy_required_player_ids`, which blocks probability until the owner chooses
+the remaining-production policy. It does not select time proration, zero
+remainder, or exclusion. Completed players retain actual points with no
+remaining projection. Final state requires completed game evidence and actual
+player scoring, and its optimal lineup comes from `src/ros/lineup.py`.
 
 ## The three ways a player can be absent stay distinct
 
@@ -89,17 +94,18 @@ wiring, not a forecast.
 
 ## Known limitation, named rather than papered over
 
-Sleeper's `injury_status` is **not** read, so a player the host has already
-declared `Out` resolves as `not_started` with his full estimate rather than as
-a known zero. Reading it is a judgment about which statuses are certain (`Out`
-yes, `Doubtful` no) and belongs with the live-state unit, which already has to
-make per-player game-state calls. The effect is bounded and one-directional:
-it can only overstate a team's projection.
+No evidenced live remaining-production feed is wired. The API therefore shows
+actual/banked scoring and player state where it has evidence, but withholds
+probability when game state or the owner policy is missing. Sleeper `Out` is
+treated as unavailable; less certain injury labels remain projections.
 
 ## Tests
 
-`tests/ros/test_game_day_week.py` — 19 tests. The ones that matter are about
-what is not there: an unpriced player is `unknown` and reaches
+`tests/ros/test_game_day_week.py` covers pregame plus deterministic live/final
+fixtures. The new tests pin that banked points survive, in-progress remainder
+stays unknown behind the owner-policy seam, completed scoring produces the
+canonical final lineup, and a passed kickoff without a result remains unknown.
+The pregame tests still cover what is not there: an unpriced player is `unknown` and reaches
 `unsimulable_player_ids` (asserted through a real `simulate_league_week` call,
 not just on the resolver's own output); an IR player leaves the week and is
 **not** miscounted as merely unpriced; a begun week is refused on both the

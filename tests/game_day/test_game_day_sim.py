@@ -392,6 +392,7 @@ def test_best_ball_lets_a_bench_score_displace_a_starter():
     )
     a = next(t for t in sim.teams if t.team_id == "a")
     assert a.projected_mean == 30.0, "best ball must take the higher score"
+    assert a.points_banked == 30.0, "banked points must be the lineup score, not roster sum"
 
 
 def test_a_managed_league_sums_the_submitted_lineup_only():
@@ -425,6 +426,7 @@ def test_a_managed_league_sums_the_submitted_lineup_only():
     )
     a = next(t for t in sim.teams if t.team_id == "a")
     assert a.projected_mean == 10.0, "managed lineup must not re-optimize"
+    assert a.points_banked == 10.0, "a benched score is not banked in a managed lineup"
 
 
 def test_superflex_flex_te_and_idp_slots_are_all_fillable():
