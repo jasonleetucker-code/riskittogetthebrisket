@@ -37,8 +37,9 @@ W1-30 says "as temporally applicable".
 `daily_waivers = 1`, `daily_waivers_hour = 0`, `waiver_clear_days = 1`,
 `waiver_day_of_week = 2`. **The hour field is not interpreted here.** Sleeper's
 timezone semantics for `daily_waivers_hour` are not documented in this repo and
-guessing them is the same class of error W1-23 is blocked on. The observable
-check in step 1 replaces it entirely — observe the batch, do not compute it.
+guessing them is the same evidence-error class W1-23 exposed before authoritative
+host documentation resolved that separate median rule. The observable check in
+step 1 replaces this uncertainty entirely — observe the batch, do not compute it.
 
 ---
 
