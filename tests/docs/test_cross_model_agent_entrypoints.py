@@ -1,10 +1,8 @@
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[2]
-ENGINEERING_PRIORITIES = (
-    "docs/engineering/"
-    "ENGINEERING_RELIABILITY_PRIORITIES_2026-09-06.md"
-)
+ENGINEERING_DIR = "docs/engineering"
+PRIORITIES_NAME = "ENGINEERING_RELIABILITY_PRIORITIES_2026-09-06.md"
 
 
 def _read(path: str) -> str:
@@ -19,12 +17,13 @@ def test_universal_entrypoint_routes_every_model_to_same_authorities():
         "docs/WORK_CLAIMS.md",
         "ASSISTANT_COORDINATION.md",
         "CLAUDE.md",
-        ENGINEERING_PRIORITIES,
+        f"{ENGINEERING_DIR}/{PRIORITIES_NAME}",
     )
     for target in targets:
         assert target in entry
 
-    for model in ("Claude", "Codex", "Gemini", "ChatGPT", "Copilot"):
+    models = ("Claude", "Codex", "Gemini", "ChatGPT", "Copilot")
+    for model in models:
         assert model in entry
 
 
@@ -43,28 +42,19 @@ def test_provider_specific_files_cannot_own_unique_semantics():
     os_doc = _read("docs/AGENT_OPERATING_SYSTEM.md")
     entry = _read("AI_INSTRUCTIONS.md")
 
-    os_phrases = (
-        "Cross-model parity rule",
-        "adapters, not authorities",
-        "No correctness, architecture, safety, verification, product, methodology, "
-        "or engineering-process rule",
-    )
-    for phrase in os_phrases:
-        assert phrase in os_doc
-
-    entry_phrases = (
-        "Provider-specific files are adapters only",
-        "Do not make the human owner remember which model knows which rule.",
-    )
-    for phrase in entry_phrases:
-        assert phrase in entry
+    assert "Cross-model parity rule" in os_doc
+    assert "adapters, not authorities" in os_doc
+    assert "No correctness, architecture, safety" in os_doc
+    assert "engineering-process rule" in os_doc
+    assert "Provider-specific files are adapters only" in entry
+    assert "human owner remember which model knows which rule" in entry
 
 
 def test_startup_preflight_is_shared_not_claude_owned():
     shared = _read("scripts/agent_session_start.sh")
     claude_hook = _read(".claude/health-check.sh")
 
-    shared_phrases = (
+    phrases = (
         "Model-neutral session-start health check",
         "AI_INSTRUCTIONS.md",
         "Data Freshness",
@@ -72,7 +62,7 @@ def test_startup_preflight_is_shared_not_claude_owned():
         "Git Status",
         "Scraper Syntax",
     )
-    for phrase in shared_phrases:
+    for phrase in phrases:
         assert phrase in shared
 
     assert "exec bash scripts/agent_session_start.sh" in claude_hook
@@ -83,7 +73,7 @@ def test_startup_preflight_is_shared_not_claude_owned():
 
 
 def test_engineering_reliability_research_is_shared_and_actionable():
-    doc = _read(ENGINEERING_PRIORITIES)
+    doc = _read(f"{ENGINEERING_DIR}/{PRIORITIES_NAME}")
     required = (
         "External-source deterministic replay",
         "Typed API contract spine",
