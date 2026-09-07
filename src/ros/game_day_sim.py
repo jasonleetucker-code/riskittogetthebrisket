@@ -539,7 +539,9 @@ def simulate_league_week(
         threshold_semantics_verified=(
             THRESHOLD_SEMANTICS_VERIFIED_FOR_EVEN_LEAGUES
             and threshold_semantics == THRESHOLD_SEMANTICS
-            and len(teams) % 2 == 0
+            and rules.team_count is not None
+            and rules.team_count == len(teams)
+            and rules.team_count % 2 == 0
         ),
         median_enabled=rules.median_enabled,
         best_ball=rules.best_ball,
