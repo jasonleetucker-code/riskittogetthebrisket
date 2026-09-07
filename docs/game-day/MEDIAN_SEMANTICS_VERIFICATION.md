@@ -78,7 +78,11 @@ mutable historical data.
   median-loss joint bucket;
 - the provenance flag is true only for the verified canonical median
   semantics on an even-sized league;
-- an explicit non-canonical `"mean"` override remains visibly unverified.
+- an explicit non-canonical `"mean"` override remains visibly unverified;
+- the semantic repair is versioned as `game-day-sim-v2`;
+- `MODEL_VERSION` participates in the disk-cache fingerprint, so a deployment
+  cannot reuse a pre-v2 cached simulation merely because roster/projection
+  inputs are unchanged.
 
 The four optional joint buckets in the product spec describe win/loss
 combinations only (2-0, the two 1-1 paths, 0-2). A draw containing a
