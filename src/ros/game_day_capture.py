@@ -42,7 +42,9 @@ to infer it from the row count.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from datetime import datetime, timedelta, timezone
 from typing import Any, Mapping, Sequence
+from zoneinfo import ZoneInfo
 
 from src.ros.game_day_archive import PlayerPointEstimate
 from src.ros.lineup import (
@@ -77,6 +79,29 @@ def non_active_player_ids(roster: Mapping[str, Any]) -> set[str]:
             if pid:
                 out.add(str(pid))
     return out
+
+
+#: nflverse publishes `gametime` in US Eastern. Converting with a fixed
+#: offset would be wrong for exactly the games that matter here — the
+#: season spans the DST boundary — so the zone does the work.
+_NFL_CLOCK = ZoneInfo("America/New_York")
+
+#: How long before the week's first kickoff a pregame capture is taken.
+#:
+#: A WINDOW, not a weekday. The original timer assumed a Thursday-night
+#: opener and fired Thursday 13:00 UTC. Week 1 of 2026 opens on a
+#: WEDNESDAY (NE @ SEA, 2026-09-09 20:20 ET = 2026-09-10 00:20 UTC), so
+#: that timer would have run roughly thirteen hours AFTER kickoff, been
+#: correctly refused by `week_has_begun`, and lost the observation
+#: permanently. A weekday is a guess about the schedule; the schedule is
+#: a fact, and this reads it.
+#:
+#: 30 hours is chosen to clear a full waiver cycle: claims process
+#: Wednesday morning, and the roster that starts the week is the one
+#: that should be captured. It is wide enough that a timer firing a few
+#: times a day cannot miss it, and narrow enough that the capture is not
+#: taken days early against a roster that will still change.
+CAPTURE_WINDOW_HOURS: float = 30.0
 
 
 class GameDayCaptureRefusal(RuntimeError):
@@ -379,4 +404,90 @@ def build_capture(
         sources_loaded=tuple(sources_loaded),
         sources_unavailable=tuple(sources_unavailable),
         notes=notes,
+    )
+
+
+def first_kickoff_utc(
+    schedule_rows: Sequence[Mapping[str, Any]] | None,
+    *,
+    season: int,
+    week: int,
+) -> datetime | None:
+    """The earliest kickoff of one league-week, in UTC.
+
+    Reads `gameday` + `gametime` from nflverse schedule rows. Returns
+    ``None`` when the week has no usable rows — an UNKNOWN kickoff, which
+    the caller must not treat as "no kickoff yet".
+
+    The times are US Eastern and the season crosses the DST boundary, so
+    they are localised through a real zone rather than a fixed offset.
+    """
+    best: datetime | None = None
+    for row in schedule_rows or ():
+        if not isinstance(row, Mapping):
+            continue
+        try:
+            if int(float(row.get("season"))) != int(season):
+                continue
+            if int(float(row.get("week"))) != int(week):
+                continue
+        except (TypeError, ValueError):
+            continue
+        day = str(row.get("gameday") or "").strip()
+        clock = str(row.get("gametime") or "").strip()
+        if not day or not clock:
+            continue
+        try:
+            naive = datetime.strptime(f"{day} {clock}", "%Y-%m-%d %H:%M")
+        except ValueError:
+            continue
+        when = naive.replace(tzinfo=_NFL_CLOCK).astimezone(timezone.utc)
+        if best is None or when < best:
+            best = when
+    return best
+
+
+def pregame_window_state(
+    *,
+    first_kickoff: datetime | None,
+    now: datetime | None = None,
+    window_hours: float = CAPTURE_WINDOW_HOURS,
+) -> tuple[str, str]:
+    """``(state, human explanation)`` for the pregame capture window.
+
+    States:
+
+    * ``open``    — inside the window; capture now.
+    * ``early``   — kickoff is further away than the window. Capturing
+      would consume the append-only pregame slot with a roster that
+      waivers will still change, and the slot cannot be reused.
+    * ``closed``  — kickoff has passed. The observation is gone; this is
+      the same conclusion `week_has_begun` reaches from scores, derived
+      here from the schedule so it can be known BEFORE any score posts.
+    * ``unknown`` — no kickoff could be resolved. Deliberately NOT
+      treated as ``open`` or ``closed``: the caller decides, and the
+      script's choice is to proceed (a capture with an unverifiable
+      window still beats no capture, and the score-based gate is still
+      in front of it).
+    """
+    if first_kickoff is None:
+        return "unknown", "no kickoff time could be resolved for this week"
+    current = now or datetime.now(timezone.utc)
+    if current >= first_kickoff:
+        return (
+            "closed",
+            f"first kickoff was {first_kickoff.isoformat()} — the pregame window "
+            "has passed and that observation cannot be recovered",
+        )
+    opens_at = first_kickoff - timedelta(hours=window_hours)
+    if current < opens_at:
+        return (
+            "early",
+            f"first kickoff is {first_kickoff.isoformat()}; the capture window "
+            f"opens {window_hours:g}h before it, at {opens_at.isoformat()}",
+        )
+    return (
+        "open",
+        f"first kickoff is {first_kickoff.isoformat()}; inside the "
+        f"{window_hours:g}h capture window",
     )
