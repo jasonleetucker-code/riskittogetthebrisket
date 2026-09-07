@@ -247,13 +247,13 @@ class LineageTests(unittest.TestCase):
         self.assertEqual(lin["teamCount"], 2)
         self.assertEqual(lin["starterSlotSource"], "sleeper_roster_positions")
 
-    def test_the_unverified_threshold_semantics_travel_with_the_answer(self) -> None:
-        # The median leg's host semantics are unverified (W1-23 is BLOCKED),
-        # and a private surface must not present it as settled.
+    def test_verified_even_league_threshold_semantics_travel_with_the_answer(self) -> None:
+        # Sleeper's official host documentation verifies the canonical
+        # median/tie semantics for this even-sized league.
         with _patch_fetch(), _patch_estimates():
             out = _build()
         sim = out["lineage"]["simulation"]
-        self.assertFalse(sim["thresholdSemanticsVerified"])
+        self.assertTrue(sim["thresholdSemanticsVerified"])
         self.assertEqual(sim["thresholdSemantics"], "median")
         self.assertEqual(sim["draws"], 200)
 

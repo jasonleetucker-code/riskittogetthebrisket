@@ -178,7 +178,7 @@ function Lineup({ side }) {
 function JointOutcomes({ outcome }) {
   // Spec §8. Optional presentation, NOT another prediction engine: these
   // four come from the same draws as the two headline numbers, which is
-  // why they sum to ~100% and why they are only rendered when the median
+  // why ties are excluded from these win/loss buckets and why they are only rendered when the median
   // leg is actually live. A median-disabled league gets nothing here
   // rather than a four-way split of a two-way week.
   const rows = [
@@ -191,7 +191,7 @@ function JointOutcomes({ outcome }) {
   return (
     <Card
       title="How the week can land"
-      subtitle="The four mutually exclusive outcomes, from the same simulated draws as the two headline numbers."
+      subtitle="Win/loss outcomes from the same simulation. Draws with a matchup or median tie are excluded, so these may total less than 100%."
     >
       <table style={{ width: "100%", fontSize: "0.82rem", borderCollapse: "collapse" }}>
         <tbody>

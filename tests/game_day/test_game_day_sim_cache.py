@@ -127,6 +127,17 @@ def test_a_changed_player_input_forces_a_real_recompute(cache_dir):
     assert spy.call_count == 2, "a genuine input change was served a stale cached answer"
 
 
+def test_a_model_version_change_invalidates_the_cache(cache_dir):
+    """A deployment that changes simulation semantics must not reuse a
+    disk result produced by the prior model version."""
+    rules, teams, opponents = _league()
+    with mock.patch.object(gds, "simulate_league_week", wraps=gds.simulate_league_week) as spy:
+        _call(rules, teams, opponents)
+        with mock.patch.object(gds, "MODEL_VERSION", "game-day-sim-next"):
+            _call(rules, teams, opponents)
+    assert spy.call_count == 2, "model-version change reused a stale simulation result"
+
+
 def test_a_different_week_does_not_collide_with_another_weeks_cache(cache_dir):
     rules, teams, opponents = _league()
     with mock.patch.object(gds, "simulate_league_week", wraps=gds.simulate_league_week) as spy:

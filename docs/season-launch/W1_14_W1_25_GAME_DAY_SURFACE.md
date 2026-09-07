@@ -128,9 +128,11 @@ state it and the caller does not pass it, the endpoint says so.
   projections at all" and "thin coverage" cannot read the same.
 - A team with **no scheduled opponent** gets `opponent: null` and a note, never
   a 50% against a game that is not on the schedule.
-- `thresholdSemanticsVerified: false` travels on every response. W1-23 is
-  `BLOCKED` on host evidence, and a private decision surface must not present
-  the median leg as settled just because it serialized cleanly.
+- `thresholdSemanticsVerified` travels on every response. Sleeper's official
+  host documentation verifies the canonical median/tie rule for even-sized
+  leagues (including the owner's 12-team league); odd-sized or non-canonical
+  semantics remain `false`. The private surface still renders an explicit
+  warning whenever provenance is unverified.
 
 The projection lineage carries its own caveat verbatim: the only live
 `PROJECTION_MODEL` sources are `PRESEASON_FULL_SEASON` horizon, so the per-game
@@ -223,7 +225,7 @@ than a single happy-path render.
 - `frontend/__tests__/components/game-day-panel.test.jsx` — 26 tests: both
   win probabilities; the lineup rendered by **slot name, not index**; the
   count of players left out of the lineup rather than counted as zero; the
-  unverified median threshold surfaced; source and coverage named; the
+  degraded/unverified median state surfaced; source and coverage named; the
   no-projection path showing the matchup with **no fabricated 50%**; all four
   error/state branches; and `cache: "no-store"` on the request.
 - `npx vitest run` — **2429 passed / 166 files**

@@ -202,9 +202,9 @@ def test_the_payload_carries_its_projection_source_and_coverage():
     assert lin["estimateCoverage"] == {"priced": 600, "active": 674}
 
 
-def test_the_unverified_threshold_semantics_reach_the_wire():
-    # W1-23 is BLOCKED on host evidence; a private surface must not present
-    # the median leg as settled just because it serialized cleanly.
+def test_an_unverified_threshold_semantics_state_reaches_the_wire():
+    # Odd-sized/unsupported semantics must remain representable even though
+    # the owner's even-sized canonical median rule is now verified.
     with _patch(), _patch_clock(), _client() as c:
         body = c.get("/api/matchup/intel?team=own-A").json()
     assert body["lineage"]["simulation"]["thresholdSemanticsVerified"] is False
