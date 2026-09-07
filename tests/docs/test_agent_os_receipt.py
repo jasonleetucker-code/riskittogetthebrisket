@@ -8,7 +8,7 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parents[2]
 AGENT_OS = REPO / "docs" / "AGENT_OPERATING_SYSTEM.md"
 SCRIPT = REPO / "scripts" / "agent_os_receipt.py"
-RECEIPT = REPO / ".claude" / "session-receipts" / "latest.env"
+RECEIPT = REPO / ".agent-runtime" / "session-receipts" / "latest.env"
 
 
 def _git(*args: str) -> str:
@@ -97,9 +97,11 @@ def test_session_start_hook_has_valid_bash_syntax():
     )
 
 
-def test_session_start_hook_invokes_the_receipt_owner():
+def test_shared_session_start_invokes_the_receipt_owner_and_claude_delegates():
+    shared = (REPO / "scripts" / "agent_session_start.sh").read_text(encoding="utf-8")
     hook = (REPO / ".claude" / "health-check.sh").read_text(encoding="utf-8")
-    assert "python scripts/agent_os_receipt.py || true" in hook
+    assert "python scripts/agent_os_receipt.py || true" in shared
+    assert "exec bash scripts/agent_session_start.sh" in hook
 
 
 def test_claude_md_has_real_agent_os_import_on_own_line():
@@ -111,7 +113,7 @@ def test_operating_system_requires_receipt_propagation():
     doc = AGENT_OS.read_text(encoding="utf-8")
     assert "Agent OS session receipt" in doc
     assert "AGENT OS LOAD RECEIPT:" in doc
-    assert ".claude/session-receipts/latest.env" in doc
+    assert ".agent-runtime/session-receipts/latest.env" in doc
     assert "Agent-OS-Receipt: <AGENT_OS_LOADED_BLOB_SHA>" in doc
     assert "new material work-claim status text" in doc
     assert "does **not** prove cognitive comprehension" in doc
