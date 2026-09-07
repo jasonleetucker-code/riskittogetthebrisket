@@ -35,6 +35,7 @@ Key design choices:
 
 from __future__ import annotations
 
+import difflib
 import hashlib
 import json
 import os
@@ -1125,7 +1126,326 @@ async def generate_article(
         "model": _MODEL_ID,
         "generatedAt": datetime.now(timezone.utc).isoformat(timespec="seconds"),
         "usage": usage_block,
+        "schemaVersion": SCHEMA_VERSION,
+        "generationMode": "PROVIDER_GENERATED",
+        "provider": "anthropic",
+        "sourceSnapshotId": _source_snapshot_id(brief),
+        "importedAt": None,
+        "validation": None,
     }
+
+
+# ── Manual External AI workflow ──────────────────────────────────────────
+#
+# Owner decision 2026-08-14 (docs/WEEKLY_REPORT_STUDIO_MANUAL_AI_ARCHITECTURE_
+# 2026-08-14.md, tracking issue #829): Manual External AI is the DEFAULT
+# generation mode. The site prepares a provider-neutral package and makes
+# ZERO LLM/API calls; the owner runs it through an external AI product and
+# imports the structured response. On-Demand API (generate_article() above)
+# stays available as an explicit, optional convenience -- never the only
+# path, never scheduled, never required. Both modes share this ONE storage
+# owner (save_article/article_path) and this ONE validation boundary
+# (validate_manual_article) -- there is no second article-generation owner
+# (WEEK_1_LAUNCH_CONTRACT.md row W1-06).
+#
+# Scoped deliberately narrower than the full Weekly Report Studio product
+# described in that spec (no weekly-overview/Game-of-the-Week/graphics
+# package, no editorial-control-room UI) -- this covers exactly what
+# already exists: per-matchup preview/recap articles. The full Studio
+# remains future scope per that document's own §13 placement note.
+
+SCHEMA_VERSION = "1.1"
+
+
+def _source_snapshot_id(brief: MatchupBrief) -> str:
+    """Deterministic id for the exact brief data an article was built from.
+
+    Same ``brief.to_dict()`` JSON in, same id out. Lets a saved article be
+    traced back to the deterministic package that produced it, per the
+    spec's "provenance back to the deterministic source package" (§6).
+    """
+    payload = json.dumps(brief.to_dict(), sort_keys=True).encode("utf-8")
+    return hashlib.sha256(payload).hexdigest()[:16]
+
+
+def build_manual_package(
+    brief: MatchupBrief,
+    *,
+    prior_articles: list[dict[str, Any]] | None = None,
+) -> dict[str, Any]:
+    """Provider-neutral package for the Manual External AI workflow.
+
+    Zero API calls. Flattens the same (system, user) prompt
+    ``assemble_prompt`` builds for the Anthropic SDK into plain text any
+    capable chat LLM (ChatGPT, Claude, Gemini, ...) can consume, carrying
+    the versioned identity/provenance fields ``import_manual_article``
+    checks the pasted-back response against (spec §6).
+    """
+    system_blocks, messages = assemble_prompt(brief, prior_articles=prior_articles)
+    system_text = "\n".join(b.get("text", "") for b in system_blocks)
+    user_text = "\n".join(m.get("content", "") for m in messages if m.get("role") == "user")
+    return {
+        "schemaVersion": SCHEMA_VERSION,
+        "stage": "PREGAME" if brief.mode == "preview" else "POSTGAME",
+        "mode": brief.mode,
+        "season": brief.season,
+        "week": brief.week,
+        "matchupId": brief.matchup_id,
+        "sourceSnapshotId": _source_snapshot_id(brief),
+        "packagedAt": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+        "systemPrompt": system_text,
+        "userPrompt": user_text,
+        "returnShape": {
+            "season": brief.season,
+            "week": brief.week,
+            "matchupId": brief.matchup_id,
+            "mode": brief.mode,
+            "title": "<headline, <=80 chars>",
+            "lede": "<1-2 sentence opener>",
+            "body": "<markdown body>",
+            "kicker": "<one-line bold prediction or stake, <=180 chars>",
+            "angleUsed": "<one of anglePool>",
+            "wordCount": 0,
+            "provider": "<e.g. anthropic, openai, google -- optional>",
+            "model": "<e.g. claude-opus-4-7, gpt-5, gemini-3 -- optional>",
+        },
+        "instructions": (
+            "Paste systemPrompt as the system message and userPrompt as the "
+            "user message into any capable chat LLM. Take the JSON object it "
+            "returns, add season/week/matchupId/mode (echoed above) if the "
+            "model omitted them, and hand the result to "
+            "`generate_weekly_narratives.py --action import`."
+        ),
+    }
+
+
+# wordCount is deliberately NOT required here: it is always computed from
+# body+lede (_computed_word_count), never trusted from the candidate, so a
+# missing/wrong self-reported count is not a defect -- there is no
+# self-reported number to be missing or wrong.
+_REQUIRED_MANUAL_FIELDS = ("title", "lede", "body", "kicker", "angleUsed")
+
+_PLACEHOLDER_MARKERS = ("{{", "}}", "todo", "[insert", "lorem ipsum")
+
+
+def _computed_word_count(candidate: dict[str, Any]) -> int:
+    """The one authoritative word count for a candidate article.
+
+    Always derived from body+lede, never trusted from a self-reported
+    ``wordCount`` field (a model's own count is an unverified claim, and
+    coercing a missing one to 0 would fabricate a fact this repo's own
+    decision-path coercion gate exists to catch). Body and lede are
+    always strings by the time this runs, so this is never itself a
+    missing value -- there is nothing to coerce.
+    """
+    body = str(candidate.get("body") or "")
+    lede = str(candidate.get("lede") or "")
+    return len(body.split()) + len(lede.split())
+
+
+# Private decision-intelligence vocabulary that must never leak into a
+# PUBLIC narrative (CLAUDE.md §5 public/private boundary -- same posture
+# as the W1-13 leakage audit's marker scan, applied to imported prose).
+_PRIVATE_MARKERS = (
+    "win probability",
+    "beat median",
+    "beat the median",
+    "projected points",
+    "trade value",
+    "dynasty value",
+    "rankderivedvalue",
+    "consensus rank",
+)
+
+
+@dataclass
+class ManualImportValidation:
+    ok: bool
+    errors: list[str]
+    warnings: list[str]
+
+    def to_dict(self) -> dict[str, Any]:
+        return {"ok": self.ok, "errors": list(self.errors), "warnings": list(self.warnings)}
+
+
+def validate_manual_article(
+    candidate: dict[str, Any],
+    *,
+    brief: MatchupBrief,
+    prior_articles: list[dict[str, Any]] | None = None,
+    batch: list[dict[str, Any]] | None = None,
+) -> ManualImportValidation:
+    """Everything mechanically checkable about a pasted-back article.
+
+    Deliberately bounded to what code can actually verify: schema shape,
+    identity (no cross-week/season/matchup import), matchup-specific
+    detail, placeholder leftovers, private-vocabulary leakage onto a
+    public page, length, and repetition (against prior seasons' articles
+    and against the rest of this week's batch). Full semantic factual
+    review against the brief is the remaining human judgment step --
+    see docs/season-launch/WEEK_1_LAUNCH_CONTRACT.md row W1-11.
+    """
+    errors: list[str] = []
+    warnings: list[str] = []
+
+    for field in _REQUIRED_MANUAL_FIELDS:
+        if candidate.get(field) in (None, ""):
+            errors.append(f"missing required field {field!r}")
+
+    # Identity: prevent cross-week/cross-season/wrong-matchup/wrong-stage
+    # imports (spec §7 -- "prevent cross-week/cross-season accidental
+    # imports").  Only checked when the candidate carries the field at
+    # all, since older/looser paste-backs may omit it.
+    for id_field, expected in (
+        ("season", str(brief.season)),
+        ("week", brief.week),
+        ("matchupId", brief.matchup_id),
+        ("mode", brief.mode),
+    ):
+        if id_field in candidate and str(candidate[id_field]) != str(expected):
+            errors.append(
+                f"{id_field} mismatch: package was built for {expected!r}, "
+                f"import carries {candidate[id_field]!r}"
+            )
+
+    text_blob = " ".join(str(candidate.get(f, "")) for f in ("title", "lede", "body", "kicker"))
+    lower_blob = text_blob.lower()
+
+    angle_used = candidate.get("angleUsed")
+    if angle_used and angle_used not in brief.angle_pool:
+        errors.append(
+            f"angleUsed {angle_used!r} is not in this brief's anglePool {brief.angle_pool!r}"
+        )
+
+    for name in (brief.home.get("displayName"), brief.away.get("displayName")):
+        if name and name.lower() not in lower_blob:
+            errors.append(f"matchup-specific detail missing: {name!r} never appears in the article")
+
+    for marker in _PLACEHOLDER_MARKERS:
+        if marker in lower_blob:
+            errors.append(f"placeholder text left in article: {marker!r}")
+
+    for marker in _PRIVATE_MARKERS:
+        if marker in lower_blob:
+            errors.append(
+                f"private decision-intelligence vocabulary leaked into public article: {marker!r}"
+            )
+
+    word_count = _computed_word_count(candidate)
+    if word_count < 200:
+        errors.append(f"article too short to be real content ({word_count} words)")
+    elif word_count > 1500:
+        warnings.append(f"article unusually long ({word_count} words)")
+    elif not (400 <= word_count <= 900):
+        warnings.append(f"word count {word_count} outside the prompt's 550-750 target band")
+
+    title = str(candidate.get("title", "")).strip()
+    lede = str(candidate.get("lede", "")).strip()
+    for prior in prior_articles or []:
+        prior_title = (prior.get("title") or "").strip()
+        prior_lede = (prior.get("lede") or "").strip()
+        if title and prior_title:
+            if title == prior_title:
+                errors.append(f"title is identical to a prior article: {title!r}")
+            else:
+                ratio = difflib.SequenceMatcher(None, title, prior_title).ratio()
+                if ratio > 0.75:
+                    warnings.append(
+                        f"title is very similar to a prior article ({ratio:.0%} match): {prior_title!r}"
+                    )
+        if lede and prior_lede:
+            ratio = difflib.SequenceMatcher(None, lede, prior_lede).ratio()
+            if ratio > 0.6:
+                warnings.append(
+                    f"lede is very similar to a prior article's lede ({ratio:.0%} match)"
+                )
+
+    angle_counts: dict[str, int] = {}
+    body = str(candidate.get("body", ""))
+    for other in batch or []:
+        if other is candidate:
+            continue
+        other_angle = other.get("angleUsed")
+        if other_angle:
+            angle_counts[other_angle] = angle_counts.get(other_angle, 0) + 1
+        other_body = str(other.get("body", ""))
+        if other_body and body:
+            ratio = difflib.SequenceMatcher(None, body, other_body).ratio()
+            if ratio > 0.5:
+                warnings.append(
+                    f"body is unusually similar to matchup {other.get('matchupId')}'s "
+                    f"article ({ratio:.0%} match) -- check for templated phrasing across the slate"
+                )
+    same_angle = angle_counts.get(angle_used, 0)
+    if angle_used and same_angle >= 2:
+        warnings.append(
+            f"angle {angle_used!r} is reused by {same_angle} other article(s) in this slate"
+        )
+
+    return ManualImportValidation(ok=not errors, errors=errors, warnings=warnings)
+
+
+def import_manual_article(
+    candidate: dict[str, Any],
+    *,
+    brief: MatchupBrief,
+    prior_articles: list[dict[str, Any]] | None = None,
+    batch: list[dict[str, Any]] | None = None,
+    provider: str | None = None,
+    model: str | None = None,
+    force: bool = False,
+    base: Path | None = None,
+) -> tuple[dict[str, Any] | None, ManualImportValidation]:
+    """Validate a manually-generated article and, if it passes, save it.
+
+    Returns ``(article_or_None, validation)``. ``article`` is ``None``
+    when validation fails and ``force`` is not set, so a caller never
+    silently persists a broken or wrong-matchup import -- the same
+    fail-closed posture ``generate_article`` has for malformed JSON.
+    """
+    validation = validate_manual_article(
+        candidate, brief=brief, prior_articles=prior_articles, batch=batch
+    )
+    if not validation.ok and not force:
+        return None, validation
+
+    article = {
+        "schemaVersion": SCHEMA_VERSION,
+        "mode": brief.mode,
+        "season": brief.season,
+        "week": brief.week,
+        "matchupId": brief.matchup_id,
+        "isChampionship": brief.is_championship,
+        "roundLabel": brief.round_label,
+        "home": {
+            "ownerId": brief.home["ownerId"],
+            "displayName": brief.home["displayName"],
+            "teamName": brief.home["teamName"],
+        },
+        "away": {
+            "ownerId": brief.away["ownerId"],
+            "displayName": brief.away["displayName"],
+            "teamName": brief.away["teamName"],
+        },
+        "title": candidate.get("title") or "",
+        "lede": candidate.get("lede") or "",
+        "body": candidate.get("body") or "",
+        "kicker": candidate.get("kicker") or "",
+        "angleUsed": candidate.get("angleUsed") or "",
+        "persona": brief.persona,
+        "wordCount": _computed_word_count(candidate),
+        "generationMode": "MANUAL_IMPORT",
+        "provider": provider,
+        "model": model,
+        "sourceSnapshotId": _source_snapshot_id(brief),
+        "generatedAt": candidate.get("generatedAt")
+        or datetime.now(timezone.utc).isoformat(timespec="seconds"),
+        "importedAt": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+        "usage": candidate.get("usage") or {},
+        "validation": validation.to_dict(),
+    }
+    save_article(article, base=base)
+    return article, validation
 
 
 def collect_prior_articles(
@@ -1164,6 +1484,7 @@ def collect_prior_articles(
             {
                 "season": full.get("season"),
                 "week": full.get("week"),
+                "matchupId": full.get("matchupId"),
                 "mode": full.get("mode"),
                 "title": full.get("title"),
                 "lede": full.get("lede"),

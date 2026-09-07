@@ -1,0 +1,38 @@
+{
+  "angleUsed": "managerial-mastery",
+  "away": {
+    "displayName": "Roy",
+    "ownerId": "472206636534984704",
+    "teamName": "Chargers Team Doctor"
+  },
+  "body": "MaKayla's **Rage Against The Achane** is built for explosion. De'Von Achane and Chase Brown split the backfield workload without needing either to carry the ball 20 times to matter, and a receiver room of Jaylen Waddle, Zay Flowers and Jameson Williams doesn't lean on any single target to hit its number. Tyler Warren sits behind Eli Stowers at tight end in a TE-premium format that rewards exactly that kind of two-man rotation. On defense, MaKayla is younger across the front \u2014 Brian Burns, David Bailey and Jonathan Greenard up front, Quay Walker, Jordyn Brooks and Frankie Luvu at linebacker, Julian Love, Jaquan Brisker and Grant Delpit in the secondary.\n\nRoy's **Chargers Team Doctor** is built the other way: possession over ceiling. Keenan Allen and Christian Kirk are the kind of veteran, high-floor targets who show up whether or not the matchup script cooperates, paired with Brian Robinson and Kendre Miller at running back and a two-tight-end room in Oronde Gadsden and Theo Johnson. Roy's defensive spine is more established \u2014 Carl Granderson, Alex Highsmith and Joey Bosa along the line, Devin Lloyd at linebacker, Jermod McCoy and Avieon Terrell on the back end.\n\nNeither side is walking in hot off last season. MaKayla closed 2025 at 1-2 over her final three weeks, averaging 532.32 points across that stretch \u2014 but two of those three losses came in shootouts, including a 733.79-point outing that still wasn't enough. Roy's final three of a year ago were rougher: an 0-3 finish averaging 410.11, never within single digits of the opponent.\n\nThe history between them is as even as it gets. Four total meetings, split 2-2, with an average margin of 54.18 points \u2014 this is not a series that does close games. The largest swing came in 2024 Week 7, a 95.45-point win for MaKayla; the counterweight is the pair's lone playoff meeting, a 2024 Week 15 result that went to Roy by 82.58. Both managers know exactly what a blowout in this matchup looks like, in both directions.\n\nWith MaKayla holding the 5 seed and Roy sitting at 7 to open the year, this is a matchup with early standings weight behind it. In a best-ball format neither manager is making a start/sit call \u2014 the roster they built over the offseason is the whole decision, and this week is the first real test of which construction philosophy, speed or floor, is going to hold up when actual NFL production starts hitting the board.",
+  "generatedAt": "2026-09-07T09:39:32+00:00",
+  "generationMode": "MANUAL_IMPORT",
+  "home": {
+    "displayName": "MaKayla",
+    "ownerId": "714912789268865024",
+    "teamName": "Rage Against The Achane "
+  },
+  "importedAt": "2026-09-07T09:39:32+00:00",
+  "isChampionship": false,
+  "kicker": "The receiver depth wins it for MaKayla \u2014 expect the widest margin of this series yet.",
+  "lede": "Four meetings, two wins apiece, and a head-to-head that has swung on whichever roster's ceiling shows up. Nobody in this pairing has ever won by less than 17.",
+  "matchupId": 1,
+  "mode": "preview",
+  "model": null,
+  "persona": "analyst",
+  "provider": null,
+  "roundLabel": "Regular Season",
+  "schemaVersion": "1.1",
+  "season": "2026",
+  "sourceSnapshotId": "5c4e80dca7e3b5ec",
+  "title": "MaKayla's Speed vs. Roy's Floor: Rubber Match at 2-2",
+  "usage": {},
+  "validation": {
+    "errors": [],
+    "ok": true,
+    "warnings": []
+  },
+  "week": 1,
+  "wordCount": 440
+}

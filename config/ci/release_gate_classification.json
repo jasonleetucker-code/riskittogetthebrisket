@@ -782,28 +782,37 @@
     "verify-sharp-production.yml::verify::step_0": {
       "category": "blocking"
     },
-    "weekly-narratives.yml::generate::Append report to job summary": {
+    "weekly-narratives.yml::narratives::Append report to job summary": {
       "category": "blocking"
     },
-    "weekly-narratives.yml::generate::Check ANTHROPIC_API_KEY is configured": {
+    "weekly-narratives.yml::narratives::Checkout": {
       "category": "blocking"
     },
-    "weekly-narratives.yml::generate::Checkout": {
+    "weekly-narratives.yml::narratives::Commit and push new articles (generate mode only)": {
       "category": "blocking"
     },
-    "weekly-narratives.yml::generate::Commit and push new articles": {
+    "weekly-narratives.yml::narratives::Install anthropic SDK (generate mode only)": {
       "category": "blocking"
     },
-    "weekly-narratives.yml::generate::Generate articles": {
+    "weekly-narratives.yml::narratives::Install dependencies": {
       "category": "blocking"
     },
-    "weekly-narratives.yml::generate::Install dependencies": {
+    "weekly-narratives.yml::narratives::Require ANTHROPIC_API_KEY (generate mode only)": {
       "category": "blocking"
     },
-    "weekly-narratives.yml::generate::Resolve mode (manual dispatch vs cron)": {
+    "weekly-narratives.yml::narratives::Resolve action (manual dispatch vs cron)": {
       "category": "blocking"
     },
-    "weekly-narratives.yml::generate::Set up Python": {
+    "weekly-narratives.yml::narratives::Resolve mode (manual dispatch vs cron)": {
+      "category": "blocking"
+    },
+    "weekly-narratives.yml::narratives::Run narrative pipeline": {
+      "category": "blocking"
+    },
+    "weekly-narratives.yml::narratives::Set up Python": {
+      "category": "blocking"
+    },
+    "weekly-narratives.yml::narratives::Upload exported package (export mode only)": {
       "category": "blocking"
     }
   },

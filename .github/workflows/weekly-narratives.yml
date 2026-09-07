@@ -1,38 +1,61 @@
 name: Weekly Matchup Narratives
 
-# Generates ESPN-style fantasy matchup previews + recaps via Claude.
+# Manual External AI is the DEFAULT, canonical operating model (owner
+# decision 2026-08-14, docs/WEEKLY_REPORT_STUDIO_MANUAL_AI_ARCHITECTURE_
+# 2026-08-14.md — Manual External AI is the default generation mode; no
+# cron/scheduler event may spend LLM credits while it is selected).
 #
-# Two scheduled fires per week during the NFL regular season + playoffs:
+# So the two scheduled fires below run `--action export`: they build the
+# canonical brief + a provider-neutral prompt package for every matchup
+# and make ZERO LLM/API calls. NO ANTHROPIC_API_KEY IS REQUIRED for this
+# path at all — the canonical weekly workflow does not depend on it.
+# The package is uploaded as a workflow artifact for the owner to
+# download, paste into any chat LLM (ChatGPT, Claude, Gemini, ...), and
+# import locally via `generate_weekly_narratives.py --action import`
+# (importing six full article bodies back through a workflow_dispatch
+# text input isn't practical, so import is a local/session operation by
+# design — the same operation this repository's own AI sessions perform
+# interactively).
 #
-#   * Wednesday 13:00 UTC (~9 AM ET) — write previews for the upcoming week.
-#     Picks up the week the Sleeper snapshot considers "live" (matchups
-#     scheduled, not yet scored).
+#   * Wednesday 13:00 UTC (~9 AM ET) — export the previews package for
+#     the upcoming week (matchups scheduled, not yet scored).
 #
-#   * Tuesday  14:00 UTC (~10 AM ET) — write recaps for the just-completed
-#     week. Picks up the most recently fully-scored week. Tuesday rather
-#     than Monday so Monday Night Football is fully reflected.
+#   * Tuesday  14:00 UTC (~10 AM ET) — export the recaps package for the
+#     just-completed week. Tuesday rather than Monday so Monday Night
+#     Football is fully reflected.
 #
-# The script (scripts/generate_weekly_narratives.py) is idempotent: if
-# an article already exists on disk it skips, unless --force is passed.
+# `--action generate` (the original on-demand site-side API path) stays
+# available, but ONLY via an explicit `workflow_dispatch` with
+# `action: generate` — never scheduled, never the default, and it still
+# requires the `ANTHROPIC_API_KEY` secret as an explicit, optional
+# convenience (spec §3.2 "On-Demand API"). Missing credentials on that
+# explicit path are a real, loud failure, not a silent skip — the owner
+# asked for that specific mode and it should say so if it can't do it.
 #
-# When fresh articles are generated, this workflow commits the new
-# files under exports/narratives/ and pushes to main. The frontend
-# fetches them at request time via /api/league/articles, so a deploy
-# is not strictly required to surface them — but a follow-on push will
-# trigger deploy.yml as a side effect, which is fine.
+# The script (scripts/generate_weekly_narratives.py) is idempotent for
+# both export and generate: re-running is safe.
 #
-# Cost note: each article is ~$0.05–0.30 on Opus 4.7 with the static
-# system prompt cached. Six matchups × two articles per week × 18 weeks
-# ≈ $20–60 / season — well inside the budget.
+# When `--action generate` produces new articles, this workflow commits
+# them under exports/narratives/ and pushes to main, same as before.
+# `--action export` never commits anything — packages live under the
+# gitignored data/narrative_packages/, not the published article store.
 
 on:
   schedule:
-    # Wednesday 13:00 UTC - previews for the coming week.
+    # Wednesday 13:00 UTC - export the previews package for the coming week.
     - cron: "0 13 * * 3"
-    # Tuesday 14:00 UTC - recaps for the week that just ended.
+    # Tuesday 14:00 UTC - export the recaps package for the week that just ended.
     - cron: "0 14 * * 2"
   workflow_dispatch:
     inputs:
+      action:
+        description: "export (default, zero API calls) or generate (optional, needs ANTHROPIC_API_KEY)"
+        required: true
+        type: choice
+        options:
+          - export
+          - generate
+        default: export
       mode:
         description: "preview or recap"
         required: true
@@ -70,56 +93,61 @@ permissions:
   contents: write
 
 jobs:
-  generate:
-    name: Generate weekly articles
+  narratives:
+    name: Weekly narrative package / on-demand generation
     runs-on: ubuntu-latest
     timeout-minutes: 30
-    env:
-      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
     steps:
-      # The generator hard-requires ANTHROPIC_API_KEY (repo secret).
-      # When the secret is absent/empty every weekly run fails with
-      # "ERROR: ANTHROPIC_API_KEY not set" (8 straight failures as of
-      # 2026-07-25) — that's a configuration gap, not a code defect,
-      # so surface it as a loud skip instead of a red run.  Add the
-      # secret in Settings -> Secrets and variables -> Actions to
-      # re-enable article generation.
-      - name: Check ANTHROPIC_API_KEY is configured
-        id: keycheck
+      - name: Resolve action (manual dispatch vs cron)
+        id: action
         shell: bash
         run: |
-          if [[ -z "${ANTHROPIC_API_KEY}" ]]; then
-            echo "::warning title=ANTHROPIC_API_KEY not configured::Weekly narrative generation skipped — add the ANTHROPIC_API_KEY repository secret to enable it."
-            echo "have_key=false" >> "$GITHUB_OUTPUT"
-          else
-            echo "have_key=true" >> "$GITHUB_OUTPUT"
+          set -Eeuo pipefail
+          ACTION="${{ github.event.inputs.action }}"
+          if [[ -z "${ACTION}" ]]; then
+            ACTION="export"
           fi
+          echo "action=${ACTION}" >> "$GITHUB_OUTPUT"
+          echo "Resolved action: ${ACTION}"
 
       - name: Checkout
-        if: steps.keycheck.outputs.have_key == 'true'
         uses: actions/checkout@v7
 
       - name: Set up Python
-        if: ${{ steps.keycheck.outputs.have_key == 'true' }}
         uses: actions/setup-python@v7
         with:
           python-version: "3.12"
 
       - name: Install dependencies
-        if: ${{ steps.keycheck.outputs.have_key == 'true' }}
         shell: bash
         run: |
           set -Eeuo pipefail
           python -m pip install --upgrade pip
           pip install -r requirements.txt
-          # The narrative generator needs the Anthropic SDK. It's not in
-          # the runtime requirements.txt because the chat endpoint
-          # treats it as optional; keep that contract by installing it
-          # only here.
+
+      - name: Install anthropic SDK (generate mode only)
+        if: ${{ steps.action.outputs.action == 'generate' }}
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          # Only the optional on-demand API path needs this — export and
+          # import never call an LLM API, so they never need the SDK.
           pip install anthropic
 
+      - name: Require ANTHROPIC_API_KEY (generate mode only)
+        if: ${{ steps.action.outputs.action == 'generate' }}
+        id: keycheck
+        shell: bash
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          set -Eeuo pipefail
+          if [[ -z "${ANTHROPIC_API_KEY}" ]]; then
+            echo "::error title=ANTHROPIC_API_KEY not configured::On-demand generate mode was explicitly requested but the ANTHROPIC_API_KEY repository secret is not set. This is a real failure, not a skip — the canonical weekly workflow (export/import) does not need this secret at all; only this optional convenience does."
+            exit 1
+          fi
+
       - name: Resolve mode (manual dispatch vs cron)
-        if: ${{ steps.keycheck.outputs.have_key == 'true' }}
         id: mode
         shell: bash
         run: |
@@ -136,13 +164,14 @@ jobs:
           echo "mode=${MODE}" >> "$GITHUB_OUTPUT"
           echo "Resolved mode: ${MODE}"
 
-      - name: Generate articles
-        if: ${{ steps.keycheck.outputs.have_key == 'true' }}
-        id: generate
+      - name: Run narrative pipeline
+        id: run
         shell: bash
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
         run: |
           set -Eeuo pipefail
-          ARGS="--mode ${{ steps.mode.outputs.mode }}"
+          ARGS="--action ${{ steps.action.outputs.action }} --mode ${{ steps.mode.outputs.mode }}"
           if [[ -n "${{ github.event.inputs.season }}" ]]; then
             ARGS="${ARGS} --season ${{ github.event.inputs.season }}"
           fi
@@ -158,19 +187,28 @@ jobs:
           python scripts/generate_weekly_narratives.py ${ARGS} | tee narrative_report.txt
 
       - name: Append report to job summary
-        if: ${{ (always()) && steps.keycheck.outputs.have_key == 'true' }}
+        if: always()
         shell: bash
         run: |
           {
-            echo "## Weekly narrative generator (${{ steps.mode.outputs.mode }})"
+            echo "## Weekly narrative pipeline (${{ steps.action.outputs.action }} / ${{ steps.mode.outputs.mode }})"
             echo ""
             echo '```'
-            cat narrative_report.txt 2>/dev/null || echo "(no report — generator failed before tee)"
+            cat narrative_report.txt 2>/dev/null || echo "(no report — the pipeline failed before tee)"
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
 
-      - name: Commit and push new articles
-        if: ${{ (success()) && steps.keycheck.outputs.have_key == 'true' }}
+      - name: Upload exported package (export mode only)
+        if: ${{ success() && steps.action.outputs.action == 'export' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: narrative-package-${{ steps.mode.outputs.mode }}
+          path: data/narrative_packages/
+          retention-days: 14
+          if-no-files-found: warn
+
+      - name: Commit and push new articles (generate mode only)
+        if: ${{ success() && steps.action.outputs.action == 'generate' }}
         shell: bash
         run: |
           set -Eeuo pipefail
@@ -183,11 +221,12 @@ jobs:
           fi
           MODE="${{ steps.mode.outputs.mode }}"
           git commit -m "$(cat <<EOF
-          chore(narratives): auto-generate weekly ${MODE}s
+          chore(narratives): on-demand generate weekly ${MODE}s
 
-          Articles produced by scripts/generate_weekly_narratives.py at
-          $(date -u +"%Y-%m-%d %H:%M UTC"). Rendered at
-          /league/articles/<season>/<week>.
+          Articles produced by scripts/generate_weekly_narratives.py
+          --action generate at $(date -u +"%Y-%m-%d %H:%M UTC"), via an
+          explicit workflow_dispatch request for the optional On-Demand
+          API mode. Rendered at /league/articles/<season>/<week>.
           EOF
           )"
           git pull --rebase origin main
