@@ -253,6 +253,7 @@ def test_exact_median_score_is_a_tie_not_a_joint_loss():
     assert t3.beat_median_pct == 0.0
     assert t3.joint_0_2_pct == 0.0
 
+
 # ── missing opponent ───────────────────────────────────────────────
 
 
