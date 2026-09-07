@@ -1,109 +1,94 @@
-# Sleeper median-game semantics — verification attempt, 2026-09-04
+# Sleeper median-game semantics — verification record
 
-**Status:** UNRESOLVED. Recorded so the attempt is not repeated blind, and
-so no later reader mistakes the simulator's default for a verified fact.
+**Status:** RESOLVED for the owner's 12-team league and other even-sized
+Sleeper leagues by authoritative host documentation, 2026-09-06.
 
 `docs/GAME_DAY_PROBABILITY_SPEC.md` §3 requires the league-median
-threshold to be host-faithful and says explicitly: *"Verify Sleeper/host
-behavior for ties at the median and odd/even league sizes rather than
-guessing."* Contract row `W1-23` depends on it. This is that attempt.
+threshold and exact-tie behavior to be host-faithful rather than guessed.
+Contract row `W1-23` depends on that evidence.
 
-## What IS established
+## Authoritative host evidence
 
-`league_average_match = 1` on the owner's league for **2026, 2025 and
-2024** (walked via `previous_league_id`). The 2025 league ran
-`best_ball=1`, 10 teams, `playoff_week_start=14`.
+Sleeper's own support article is the authority used here:
 
-The median game is unambiguously **real and live**:
+- **Sleeper HQ, "Extra Game Each Week Against League Median"**
+- published **2024-03-26**
+- verified/retrieved **2026-09-06**
+- https://support.sleeper.com/en/articles/3971690-extra-game-each-week-against-league-median
 
-- head-to-head results alone reproduce Sleeper's reported 2025 records
-  for **0 of 10** teams;
-- every team's reported record totals exactly **26** decisions over a
-  13-week regular season — two per week, not one.
+The article settles the two facts that were previously blocked:
 
-So each week awards an H2H result **and** a threshold result. That much
-is settled and the simulator relies on it.
+1. the extra regular-season result is against the **league median**;
+2. for an even-sized league, the median is the average of the two middle
+   weekly team scores;
+3. a team whose score is exactly equal to that median receives a **tie**,
+   not a win or a loss.
 
-## What could NOT be established
+The owner's league has 12 teams, so this directly settles W1-23's
+current-league threshold and tie semantics.
 
-Whether the threshold is the league **median** or the league **average**
-— the Sleeper setting is literally named `league_average_match` — and
-what an exact tie does.
+### Honest boundary: odd-sized leagues
 
-Six variants were tested against 2025, adding each team's threshold-leg
-record to its computed H2H record and comparing with Sleeper's own
-reported `settings.wins/losses`:
+The article describes the median using the middle **two** teams and gives
+10-team and 12-team examples. It does not explicitly state Sleeper's
+behavior for an odd number of fantasy teams.
 
-| variant | teams reproduced |
-|---|---|
-| mean of all 10 | 3 / 10 |
-| median of all 10 | 2 / 10 |
-| mean excluding self | 3 / 10 |
-| median excluding self | 2 / 10 |
-| median as the lower middle value | 1 / 10 |
-| median as the upper middle value | 0 / 10 |
+The simulator therefore does **not** extend the evidence beyond what the
+host documented: `threshold_semantics_verified` is true only for the
+canonical `"median"` rule on an even-sized simulated league. An odd-sized
+league remains unverified until authoritative host evidence establishes
+that case.
 
-A season-total check does not discriminate either: across the 13 weeks,
-**both** mean and median award exactly 65 wins, which is also the number
-implied by the reported records.
+## Earlier retrospective attempt — preserved, not used as authority
 
-## Why it could not be established — the load-bearing finding
+Before the host documentation was located, the repository tried to infer
+the rule retrospectively from the owner's 2025 Sleeper league.
 
-**Sleeper's stored historical matchup points no longer reproduce
-Sleeper's own season totals.** Summing the `points` field over the 2025
-regular season and comparing with each roster's `settings.fpts`:
+What that attempt established remains useful:
 
-```
-rid  sum wk1-13    sleeper fpts     delta
-  1     4325.90        4828.64   -502.74
-  4     4711.89        5280.65   -568.76
-  9     5581.01        6088.63   -507.62
-```
+- `league_average_match = 1` on the owner's 2026, 2025 and 2024 leagues;
+- 2025 standings contained two decisions per regular-season week, proving
+  that the extra weekly standings result was active.
 
-Every team is short by 500-630 points, and **no week range closes it** —
-1-13, 1-14, 1-15, 1-16 and 1-17 all miss (closest, 1-14, still averages
-188 points per team off).
+What it could **not** establish was median-vs-mean or exact-tie behavior.
+Six candidate reconstructions reproduced at most 3 of 10 teams' recorded
+2025 results.
 
-The mechanism is specific to this format: in a **best-ball** league
-Sleeper recomputes the optimal lineup from current player stats, so any
-stat correction changes both the chosen lineup and the total. Those
-revisions accumulate across a season. The consequence is that
-back-computing *what the host decided at the time* from *what the host
-reports now* is not a sound method here, whatever threshold statistic is
-assumed.
+The load-bearing reason was historical drift: Sleeper's currently stored
+best-ball matchup points no longer reproduce Sleeper's own season totals.
+Across sampled teams, reconstructed regular-season points were hundreds of
+points short of the stored season totals. In a best-ball format, later stat
+corrections can also change the optimal lineup, so reconstructing what the
+host decided at the time from today's historical point rows is not a sound
+authority for this rule.
 
-This is the same perishability argument that motivated the Game Day
-prediction archive (`src/ros/game_day_archive.py`), arriving from the
-other direction: historical host data is not a faithful record of what
-was true when a decision was made.
+That failed reconstruction is retained here because it explains why the
+repository must prefer direct host documentation over reverse-engineering
+mutable historical data.
 
-## What the simulator does in the meantime
+## Canonical implementation disposition
 
-`src/ros/game_day_sim.py` defaults to `THRESHOLD_SEMANTICS = "median"`
-— the statistic the product spec names — and:
+`src/ros/game_day_sim.py` now follows the verified evidence:
 
-- carries `threshold_semantics` on every result, so the assumption is
-  visible rather than implicit;
-- hard-codes `threshold_semantics_verified = False`, which no caller can
-  set true;
-- accepts `threshold_semantics="mean"` as a parameter, so switching is a
-  one-argument change;
-- keeps `median_enabled=None` (`STANDINGS_RULE_UNVERIFIED`) distinct
-  from `False` (`NOT_APPLICABLE`), per spec §9.
+- `THRESHOLD_SEMANTICS = "median"`;
+- Python's `statistics.median` gives the documented average of the middle
+  two scores for an even-sized league;
+- `Beat League Median %` counts only scores strictly above the threshold;
+- an exact-median score is a **tie** and is not silently folded into a
+  median-loss joint bucket;
+- the provenance flag is true only for the verified canonical median
+  semantics on an even-sized league;
+- an explicit non-canonical `"mean"` override remains visibly unverified.
 
-An exact tie is counted as **neither** a win nor a loss and is not
-folded into either — no tie-breaking rule has been invented.
+The four optional joint buckets in the product spec describe win/loss
+combinations only (2-0, the two 1-1 paths, 0-2). A draw containing a
+median tie is therefore excluded from those win/loss buckets rather than
+misrepresented as a loss.
 
-## How to resolve it
+## W1-23 disposition
 
-A human with the Sleeper app can settle both questions in under a
-minute, which no amount of API archaeology replaces. Open any completed
-2025 week; each team shows two results. Read off:
-
-1. whether the extra result is scored against the league **median** or
-   the league **average**;
-2. what an exact tie with that threshold is recorded as.
-
-Then set `THRESHOLD_SEMANTICS`, add the tie rule if one exists, and flip
-`threshold_semantics_verified` — with the observation recorded here as
-its evidence.
+The **methodology/evidence blocker is resolved** by the authoritative
+Sleeper source above. W1-23 should be promoted to `VERIFIED` only when
+the bounded code/tests carrying that rule have passed the repository's
+required integration evidence and the contract tally is updated
+mechanically. This document alone is not a green-CI or merged-code claim.
