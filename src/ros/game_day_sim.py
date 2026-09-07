@@ -75,7 +75,10 @@ PLAYER_STATES: frozenset[str] = frozenset(
 #: official support documentation verifies "median"; see the module
 #: docstring and docs/game-day/MEDIAN_SEMANTICS_VERIFICATION.md.
 THRESHOLD_SEMANTICS: str = "median"
-THRESHOLD_SEMANTICS_VERIFIED: bool = True
+#: The official Sleeper article defines the threshold using the middle
+#: two teams, which verifies even-sized leagues (including the owner's
+#: 12-team league). It does not explicitly establish odd-team behavior.
+THRESHOLD_SEMANTICS_VERIFIED_FOR_EVEN_LEAGUES: bool = True
 
 #: Default draws. Matches the playoff sim's own 10,000 rather than
 #: introducing a second number for the same kind of question.
@@ -532,7 +535,9 @@ def simulate_league_week(
         # median rule. An explicit non-canonical override stays unverified
         # rather than borrowing provenance that does not apply to it.
         threshold_semantics_verified=(
-            THRESHOLD_SEMANTICS_VERIFIED and threshold_semantics == THRESHOLD_SEMANTICS
+            THRESHOLD_SEMANTICS_VERIFIED_FOR_EVEN_LEAGUES
+            and threshold_semantics == THRESHOLD_SEMANTICS
+            and len(teams) % 2 == 0
         ),
         median_enabled=rules.median_enabled,
         best_ball=rules.best_ball,
