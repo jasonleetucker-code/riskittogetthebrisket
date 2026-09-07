@@ -184,6 +184,16 @@ jobs:
           REMOTE
           echo "capture_exit=$rc" >> "$GITHUB_OUTPUT"
           echo "rc=$rc"
+          # Exit 2 is "nothing to do yet" — the run was correct and the
+          # window simply is not open. Failing the job on it would make a
+          # correct outcome look broken and, worse, make a red run
+          # meaningless: most firings are legitimately outside the ~30h
+          # weekly window. 1 (error) and 3 (REFUSED — window closed,
+          # observation unrecoverable) still fail loudly.
+          if [[ "$rc" == "2" ]]; then
+            echo "::notice title=Outside the capture window::Nothing to do yet; this is the expected state between windows."
+            exit 0
+          fi
           exit "$rc"
 
       - name: Upload capture log

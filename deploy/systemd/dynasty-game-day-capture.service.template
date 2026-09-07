@@ -38,6 +38,21 @@ Wants=network-online.target
 
 [Service]
 Type=oneshot
+# EXIT 2 IS A SUCCESS, AND SAYING SO IS LOAD-BEARING.
+#
+# The timer fires every four hours (see the .timer for why it cannot be
+# pinned to a weekday), while the capture window is ~30h once a week. So
+# MOST runs are correctly outside the window and exit 2 — "nothing to do
+# yet". Without this line systemd marks the unit `failed` on each of
+# them, the service sits failed almost permanently, and a REAL failure
+# becomes indistinguishable from the normal case. That is the same
+# signal-destroying confusion as a workflow that reports success while
+# skipping its own work, arriving from the opposite direction.
+#
+# 1 (hard error) and 3 (REFUSED — the pregame window has closed and the
+# observation is unrecoverable) are deliberately NOT listed. Those are
+# exactly the states an operator must be woken for.
+SuccessExitStatus=2
 User=__APP_USER__
 Group=__APP_USER__
 WorkingDirectory=__APP_DIR__

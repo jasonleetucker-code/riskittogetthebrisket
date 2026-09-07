@@ -261,3 +261,33 @@ class TestAShippedTimerIsKeptCURRENT:
         obvious way to detect drift here is to render and compare, and
         that is exactly the second renderer that must not exist."""
         assert "__SERVICE_NAME__/" not in _DEPLOY_SH.read_text(encoding="utf-8")
+
+
+class TestNothingToDoIsNotAFailure:
+    """The game-day capture timer fires every four hours while its
+    capture window is ~30h once a week, so MOST runs are correctly
+    outside the window and exit 2.
+
+    Without `SuccessExitStatus=2` systemd marks the unit `failed` on
+    each of them. The service then sits failed almost permanently and a
+    REAL failure becomes indistinguishable from the normal case — the
+    same signal-destroying confusion as a workflow that reports success
+    while skipping its own work, arriving from the opposite direction.
+    """
+
+    _SERVICE = _SYSTEMD / "dynasty-game-day-capture.service.template"
+
+    def test_exit_two_is_declared_a_success(self):
+        assert "SuccessExitStatus=2" in self._SERVICE.read_text(encoding="utf-8")
+
+    def test_error_and_refused_still_fail(self):
+        """1 is a hard error and 3 is REFUSED — the pregame window has
+        closed and the observation is unrecoverable. Those are exactly
+        the states an operator must be woken for."""
+        text = self._SERVICE.read_text(encoding="utf-8")
+        success_line = next(
+            line for line in text.splitlines() if line.startswith("SuccessExitStatus=")
+        )
+        codes = success_line.split("=", 1)[1].split()
+        assert "1" not in codes, "a hard error must not be declared a success"
+        assert "3" not in codes, "a closed capture window must not be declared a success"
