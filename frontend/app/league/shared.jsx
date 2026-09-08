@@ -16,7 +16,9 @@
 // ``shared-server.jsx`` + ``shared-helpers.js`` directly rather than
 // from this file.
 
+import { Button } from "@/components/ds";
 import { EmptyState } from "@/components/ui";
+import styles from "./league-shared.module.css";
 
 export {
   buildManagerLookup,
@@ -41,13 +43,7 @@ export function ManagerInline({ managers, ownerId, onClick, compact = false }) {
   return (
     <span
       onClick={onClick}
-      style={{
-        display: "inline-flex",
-        alignItems: "center",
-        gap: 6,
-        cursor: onClick ? "pointer" : "default",
-        color: onClick ? "var(--cyan)" : "inherit",
-      }}
+      className={onClick ? `${styles.managerInline} ${styles["managerInline--clickable"]}` : styles.managerInline}
     >
       <Avatar managers={managers} ownerId={ownerId} size={compact ? 18 : 22} />
       <span>{name}</span>
@@ -55,23 +51,16 @@ export function ManagerInline({ managers, ownerId, onClick, compact = false }) {
   );
 }
 
+/**
+ * Thin adapter over ds `Button` (ghost variant — borderless, for dense
+ * inline navigation like "View full history"). Same `onClick`/`children`
+ * call sites as before.
+ */
 export function LinkButton({ onClick, children }) {
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      style={{
-        background: "transparent",
-        border: "1px solid var(--border-bright)",
-        borderRadius: 6,
-        color: "var(--cyan)",
-        padding: "4px 10px",
-        fontSize: "0.7rem",
-        cursor: "pointer",
-      }}
-    >
+    <Button type="button" variant="ghost" size="sm" onClick={onClick}>
       {children}
-    </button>
+    </Button>
   );
 }
 
@@ -92,27 +81,21 @@ export function EmptyCard({ label, message }) {
 export function MiniLeaderboard({ managers, title, rows, metric, onRowClick }) {
   if (!rows || !rows.length) return null;
   return (
-    <div className="card" style={{ flex: "1 1 260px" }}>
-      <div style={{ fontWeight: 700, marginBottom: 8 }}>{title}</div>
-      <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+    <div className={`${styles.miniCard} ${styles.leaderboard}`}>
+      <div className={styles.leaderboardTitle}>{title}</div>
+      <div className={styles.leaderboardRows}>
         {rows.slice(0, 5).map((r, i) => (
           <div
             key={r.ownerId || i}
-            style={{
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-              fontSize: "0.74rem",
-              cursor: onRowClick ? "pointer" : "default",
-            }}
+            className={onRowClick ? `${styles.leaderboardRow} ${styles["leaderboardRow--clickable"]}` : styles.leaderboardRow}
             onClick={() => onRowClick?.(r.ownerId)}
           >
-            <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
-              <span style={{ color: "var(--subtext)", fontFamily: "var(--mono)", minWidth: 16 }}>{i + 1}.</span>
+            <span className={styles.leaderboardEntry}>
+              <span className={styles.leaderboardRank}>{i + 1}.</span>
               {managers ? <Avatar managers={managers} ownerId={r.ownerId} size={18} /> : null}
               {r.displayName || r.currentTeamName || r.ownerId}
             </span>
-            <span style={{ fontFamily: "var(--mono)", color: "var(--cyan)" }}>{metric(r)}</span>
+            <span className={styles.leaderboardMetric}>{metric(r)}</span>
           </div>
         ))}
       </div>
@@ -122,24 +105,24 @@ export function MiniLeaderboard({ managers, title, rows, metric, onRowClick }) {
 
 export function HighlightCard({ label, caption, teams }) {
   return (
-    <div style={{ border: "1px solid var(--border)", borderRadius: "var(--radius)", padding: 10 }}>
-      <div style={{ fontSize: "0.62rem", color: "var(--subtext)", textTransform: "uppercase" }}>{label}</div>
-      <div style={{ fontSize: "0.84rem", fontWeight: 700, marginTop: 2 }}>
+    <div className={styles.miniCard}>
+      <div className={styles.miniCardLabel}>{label}</div>
+      <div className={styles.miniCardValue}>
         {teams && teams[0] && teams[1]
           ? `${teams[0].displayName} vs ${teams[1].displayName}`
           : "—"}
       </div>
-      <div style={{ fontSize: "0.68rem", color: "var(--subtext)", marginTop: 2 }}>{caption}</div>
+      <div className={styles.miniCardSub}>{caption}</div>
     </div>
   );
 }
 
 export function SingleHighlight({ label, value, sub }) {
   return (
-    <div style={{ border: "1px solid var(--border)", borderRadius: "var(--radius)", padding: 10 }}>
-      <div style={{ fontSize: "0.62rem", color: "var(--subtext)", textTransform: "uppercase" }}>{label}</div>
-      <div style={{ fontSize: "0.84rem", fontWeight: 700, marginTop: 2 }}>{value}</div>
-      {sub && <div style={{ fontSize: "0.68rem", color: "var(--subtext)", marginTop: 2 }}>{sub}</div>}
+    <div className={styles.miniCard}>
+      <div className={styles.miniCardLabel}>{label}</div>
+      <div className={styles.miniCardValue}>{value}</div>
+      {sub && <div className={styles.miniCardSub}>{sub}</div>}
     </div>
   );
 }
