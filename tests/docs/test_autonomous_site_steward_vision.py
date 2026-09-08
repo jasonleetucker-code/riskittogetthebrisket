@@ -19,7 +19,7 @@ def test_steward_vision_is_owner_goal_not_runner_activation():
 
 def test_source_discovery_is_separate_from_canonical_activation():
     doc = _read("docs/AUTONOMOUS_SITE_STEWARD_VISION.md")
-    assert "DISCOVERED -> QUARANTINED -> CLASSIFIED -> REPLAYABLE -> EVALUATED -> CHALLENGER -> APPROVED -> ACTIVE" in doc
+    assert (\n        "DISCOVERED -> QUARANTINED -> CLASSIFIED -> REPLAYABLE -> EVALUATED -> "\n        "CHALLENGER -> APPROVED -> ACTIVE"\n        in doc\n    )
     assert "Source discovery and source activation are separate transitions" in doc
     assert "must not influence canonical values merely because the agent found it" in doc
     assert "ordinal vs cardinal meaning" in doc
@@ -30,7 +30,7 @@ def test_source_discovery_is_separate_from_canonical_activation():
 def test_feature_discovery_requires_independent_repo_native_implementation():
     doc = _read("docs/AUTONOMOUS_SITE_STEWARD_VISION.md")
     assert "Feature / competitor intelligence" in doc
-    assert "OBSERVED -> CONCEPT_NOTE -> FIT_ASSESSMENT -> INTERNAL_SPEC -> PROTOTYPE_BRANCH -> REVIEW -> OWNER/PRODUCT_GATE -> MERGED -> VERIFIED" in doc
+    assert (\n        "OBSERVED -> CONCEPT_NOTE -> FIT_ASSESSMENT -> INTERNAL_SPEC -> PROTOTYPE_BRANCH -> "\n        "REVIEW -> OWNER/PRODUCT_GATE -> MERGED -> VERIFIED"\n        in doc\n    )
     assert "Independent implementation rule" in doc
     assert "Do **not** copy proprietary source code" in doc
     assert "Personal/noncommercial use does not erase copyright" in doc
@@ -50,9 +50,9 @@ def test_media_lane_preserves_provenance_freshness_and_correlation():
 def test_math_lane_can_challenge_but_not_self_promote():
     doc = _read("docs/AUTONOMOUS_SITE_STEWARD_VISION.md")
     assert "Math / model / rankings steward" in doc
-    assert "fit -> backtest -> validate -> compare -> approval -> promote -> monitor -> rollback" in doc
+    assert (\n        "fit -> backtest -> validate -> compare -> approval -> promote -> monitor -> rollback"\n        in doc\n    )
     assert "may **not** silently self-promote" in doc
-    assert "Automation should make everything before the approval gate dramatically easier" in doc
+    assert (\n        "Automation should make everything before the approval gate dramatically easier"\n        in doc\n    )
 
 
 def test_autonomy_classes_keep_consequential_transitions_guarded():
@@ -70,7 +70,7 @@ def test_autonomy_classes_keep_consequential_transitions_guarded():
 
 def test_lifetime_prompt_is_versioned_contract_not_monolith():
     doc = _read("docs/AUTONOMOUS_SITE_STEWARD_VISION.md")
-    assert "“One lifetime prompt” means a versioned contract, not a giant prompt" in doc
+    assert (\n        "“One lifetime prompt” means a versioned contract, not a giant prompt" in doc\n    )
     assert "machine-readable autonomous-run contract" in doc
     assert "persistent state/checkpoints" in doc
     assert "append-only receipts" in doc
