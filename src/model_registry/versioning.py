@@ -419,8 +419,7 @@ class ModelRegistry:
             )
         now = _utcnow()
         self._versions = [
-            replace(v, applied_at=now) if v.version == version else v
-            for v in self._versions
+            replace(v, applied_at=now) if v.version == version else v for v in self._versions
         ]
         self._validate()
         return self.get(version)
