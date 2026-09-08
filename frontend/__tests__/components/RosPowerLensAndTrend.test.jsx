@@ -6,9 +6,9 @@
  * closed two of the four named Step-5 prerequisites.
  *
  * The trend is RESULTS-ONLY at every point (see power_v2.py's own
- * comment on why forward-looking has no per-week history to trend),
+ * comment on why canonical has no per-week history to trend),
  * so the delta indicator must never be described as agreeing with a
- * forward-looking headline score — it is a distinct, always-retrospective
+ * canonical headline score — it is a distinct, always-retrospective
  * quantity, named as such in the UI.
  */
 
@@ -79,13 +79,13 @@ describe("RosPowerSection — lens toggle and trend", () => {
   beforeEach(() => vi.clearAllMocks());
   afterEach(() => vi.restoreAllMocks());
 
-  it("fetches the default forward-looking lens with no query param", async () => {
+  it("fetches the default canonical lens with no query param", async () => {
     const calls = [];
     global.fetch = vi.fn((url) => {
       calls.push(String(url));
       return Promise.resolve({
         ok: true,
-        json: () => Promise.resolve(rankedPayload({ lens: "forward_looking", ownerRank: 1, priorRank: 2 })),
+        json: () => Promise.resolve(rankedPayload({ lens: "canonical", ownerRank: 1, priorRank: 2 })),
       });
     });
     const RosPowerSection = await renderFresh();
@@ -102,7 +102,7 @@ describe("RosPowerSection — lens toggle and trend", () => {
     const calls = [];
     global.fetch = vi.fn((url) => {
       calls.push(String(url));
-      const lens = String(url).includes("lens=results_only") ? "results_only" : "forward_looking";
+      const lens = String(url).includes("lens=results_only") ? "results_only" : "canonical";
       return Promise.resolve({
         ok: true,
         json: () => Promise.resolve(rankedPayload({ lens, ownerRank: 1, priorRank: 2 })),
@@ -119,12 +119,18 @@ describe("RosPowerSection — lens toggle and trend", () => {
     );
   });
 
-  it("renders an up arrow when the trend series shows an improving rank", async () => {
+  it("renders canonical movement from the previous official snapshot", async () => {
     global.fetch = vi.fn(() =>
       Promise.resolve({
         ok: true,
-        // prior week rank 5, current week rank 1 -> moved up 4 spots
-        json: () => Promise.resolve(rankedPayload({ lens: "forward_looking", ownerRank: 1, priorRank: 5 })),
+        json: () => {
+          const body = rankedPayload({ lens: "canonical", ownerRank: 1, priorRank: 5 });
+          body.currentRanking[0].weekRankDelta = 4;
+          body.asOfSeason = "2026";
+          body.asOfWeek = 2;
+          body.blend = { forwardWeight: 0.75, resultsWeight: 0.25 };
+          return Promise.resolve(body);
+        },
       }),
     );
     const RosPowerSection = await renderFresh();
@@ -151,7 +157,7 @@ describe("RosPowerSection — lens toggle and trend", () => {
               },
             ],
             unrankable: null,
-            lens: "forward_looking",
+            lens: "canonical",
             weights: {},
             effectiveWeights: {},
             missingInputs: [],
