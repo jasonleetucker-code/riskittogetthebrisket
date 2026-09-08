@@ -157,7 +157,19 @@ const BUDGETS_KB = {
   // server-side (src/trade/waiver_idp_best_available.py); this is
   // display/formatting weight only. Measured 44.7 KB, up from 37.6 —
   // 52 restores the ~15% headroom this table asks for.
-  "/waivers/page": 52,
+  //
+  // Bumped 52→61: /waivers itself is untouched — the increase (measured
+  // 52.7 KB, up from 45.8) comes from Next's automatic shared-chunk
+  // splitting reacting to `/` and `/login` adopting real `ds/` primitives
+  // (Panel/Badge/Field/Input/Button/Banner) for the first time. Confirmed
+  // by isolating the change to /login/page.jsx alone (page.jsx reverted)
+  // and rebuilding: /waivers still measured 52.7 KB, so this page's own
+  // code is not the cause. /waivers already imported the same `ds/`
+  // barrel, so once two more entry points share those modules, Next's
+  // chunk-boundary heuristic regroups them differently — a real cost of
+  // migrating foundational routes onto the design system, not page bloat.
+  // 61 restores the ~15% headroom this table asks for.
+  "/waivers/page": 61,
   "/settings/page": 60,  // bumped 50→55 for guest-pass admin panel (token reveal, list table, revoke); 55→60 for the Sharp Tracker intel section in the shared PlayerPopup chunk (useLeague + intel fetch, PR #534)
   "/login/page": 15,
   "/more/page": 10,
