@@ -174,7 +174,7 @@ jobs:
           if [ -n "$TIMER" ]; then
             echo "###   $TIMER"
             systemctl is-enabled --quiet "$(systemctl list-units --type=timer --all --no-legend \
-              | awk '/game-day-capture/ && !s {print $1; s=1}')" 2>/dev/null \
+              | awk '/game-day-capture/ && !s { for (i=1;i<=NF;i++) if ($i ~ /\.timer$/) { print $i; s=1; break } }')" 2>/dev/null \
               && echo "###   enabled: yes" || echo "###   enabled: NO"
           else
             echo "###   NOT INSTALLED — no game-day-capture timer on this host."
@@ -210,10 +210,18 @@ jobs:
           # The pre-existing timer lookup below survives the same idiom
           # only because `--type=timer` is short enough to fit the pipe
           # buffer; `--type=service --all` is not. Consume the stream.
+          # And NOT `print $1`: `systemctl list-units` puts a status BULLET
+          # in the first column for any unit that is not in a clean state,
+          # so $1 is "●" and the unit name shifts to $2. Measured: run
+          # 34170621573 printed `unit: ●`, then answered every question
+          # about a unit that does not exist — "(none)", "NO", "inactive".
+          # A probe that silently reads the wrong subject is worse than no
+          # probe, because its answers look like findings. Select the field
+          # by SUFFIX, which is position-independent and bullet-proof.
           SVC="$(systemctl list-units --type=service --all --no-legend 2>/dev/null \
-            | awk '/game-day-capture/ && !s {print $1; s=1}' || true)"
+            | awk '/game-day-capture/ && !s { for (i=1;i<=NF;i++) if ($i ~ /\.service$/) { print $i; s=1; break } }' || true)"
           SVC="${SVC:-$(systemctl list-unit-files --no-legend 2>/dev/null \
-            | awk '/game-day-capture\.service/ && !s {print $1; s=1}' || true)}"
+            | awk '/game-day-capture\.service/ && !s { for (i=1;i<=NF;i++) if ($i ~ /\.service$/) { print $i; s=1; break } }' || true)}"
           if [ -n "$SVC" ]; then
             SES="$(systemctl show "$SVC" -p SuccessExitStatus --value 2>/dev/null || true)"
             echo "###   unit: $SVC"
@@ -231,6 +239,10 @@ jobs:
               *)               echo "###   1 and 3 still fail loudly: yes" ;;
             esac
             echo "###   current state: $(systemctl is-failed "$SVC" 2>/dev/null || true)"
+            # A `failed` state here can be STALE — left by a firing that
+            # predates the SuccessExitStatus fix reaching the box — so it is
+            # only meaningful alongside the timestamp of the last run above.
+            echo "###   last result: $(systemctl show "$SVC" -p Result --value 2>/dev/null || true)"
           else
             echo "###   no game-day-capture service unit found on this host."
           fi
