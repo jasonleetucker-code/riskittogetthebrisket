@@ -404,12 +404,9 @@ class TestBuildSectionPreseason(unittest.TestCase):
       * ``currentRanking`` returns 12 rows — every roster appears,
         including the two newcomers.
       * ``preseason`` is True.
-      * Historical-results components (PPG, recent, W/L, all-play, streak,
-        luck regression) all appear in ``missingInputs`` so they're
-        excluded from the score weighting.
-      * ``effectiveWeights`` only contains the forward-looking
-        components: team_ros_strength, roster_health, schedule_adjusted
-        (when available).
+      * Canonical observed-result inputs are excluded from weighting and
+        reported unavailable rather than zero.
+      * ``effectiveWeights`` contains only ``team_ros_strength``.
     """
 
     def test_twelve_owners_preseason(self):
@@ -435,17 +432,17 @@ class TestBuildSectionPreseason(unittest.TestCase):
 
         self.assertEqual(len(section["currentRanking"]), 12)
         self.assertTrue(section["preseason"])
-        for component in power_v2._HISTORICAL_RESULTS_COMPONENTS:
-            self.assertIn(
-                component,
-                section["missingInputs"],
-                f"preseason should drop {component} from active weights",
-            )
-        # Forward-looking only in effectiveWeights.
+        # Only canonical weighted inputs belong in missingInputs. Legacy
+        # display-only diagnostics (PPG/streak/luck) are not fake "missing
+        # weights" now that they no longer participate in the score.
+        for component in ("all_play", "recent", "wl_record"):
+            self.assertIn(component, section["missingInputs"])
+        self.assertTrue(
+            any(item.startswith("team_vorp") for item in section["missingInputs"])
+        )
+        # Preseason canonical Power is forward-looking only.
         eff = section["effectiveWeights"]
-        for component in power_v2._HISTORICAL_RESULTS_COMPONENTS:
-            self.assertNotIn(component, eff)
-        self.assertIn("team_ros_strength", eff)
+        self.assertEqual(set(eff), {"team_ros_strength"})
         # ``roster_health`` was REMOVED 2026-08-18: it was
         # ``healthAvailabilityScore / 100`` republished from the auth-gated
         # rosTeamStrength section onto the PUBLIC rosPower section, and it was
@@ -461,12 +458,10 @@ class TestBuildSectionPreseason(unittest.TestCase):
         self.assertTrue(any(s > 0 for s in scores))
 
     def test_in_progress_season_keeps_historical_components(self):
-        # Sanity check that the preseason gate doesn't always fire.  Four
-        # scored weeks -- the highest progressive-eligibility minimum in
-        # ``_MIN_SCORED_GAMES`` (``recent``/``luck_regression``) -- so
-        # every historical component is eligible and this test still
-        # isolates the ORIGINAL preseason-suppression rule rather than
-        # colliding with the newer per-component gate.
+        # Sanity check that the preseason gate doesn't always fire. Four
+        # scored weeks provide a mature-enough active-season fixture; sample
+        # reliability is now handled by the smooth evidence curve rather
+        # than per-component activation cliffs.
         rosters = [{"owner_id": f"o{i}", "roster_id": i} for i in range(1, 4)]
         matchups = {
             wk: [
