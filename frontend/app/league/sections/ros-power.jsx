@@ -103,35 +103,20 @@ async function _fetchOddsOnce() {
   return promise;
 }
 
-// Rank delta between two already-computed rank values from the RESULTS-
-// ONLY trend series — never mixed with the currently-selected headline
-// lens. The trend is results-only at every point by construction (see
-// the backend's own comment on why forward-looking has no per-week
-// history to trend), so diffing it against a forward-looking headline
-// would silently compare two different quantities, exactly the bug this
-// unit exists to remove. ``null`` for either input propagates to
-// ``null`` — no trend history, or an unrankable week, is not "flat".
+// Rank delta between two already-computed rank values. Historical selector
+// rows use the diagnostic results-only series; the live canonical table gets
+// its movement directly from immutable official snapshots. ``null`` for
+// either input propagates to ``null`` — missing history is not "flat".
 function rankDelta(priorRank, currentRank) {
   if (priorRank == null || currentRank == null) return null;
   return priorRank - currentRank; // positive = moved up (lower rank number)
 }
 
-// Delta over the last two points of a per-owner trend series.
-function trendDelta(trend, ownerId) {
-  const series = trend?.seriesByOwner?.[ownerId];
-  if (!Array.isArray(series) || series.length < 2) return null;
-  const last = series[series.length - 1];
-  const prev = series[series.length - 2];
-  return rankDelta(prev?.rank, last?.rank);
-}
-
 // Delta for one specific historical week in ``trend.weeks``, against the
 // nearest PRECEDING week that lists the same owner (an owner can be
 // absent from a week — e.g. joined the league later). Same underlying
-// quantity ``trendDelta`` reads for the headline, generalized to any
-// week the reader picks rather than only the most recent two — nothing
-// new is computed, every rank this reads is already published on
-// ``trend.weeks``.
+// diagnostic quantity generalized to any historical week the reader picks.
+ // Nothing new is computed; every rank is already published on trend.weeks.
 function weekDelta(weeks, weekIndex, ownerId) {
   if (weekIndex <= 0) return null;
   const currentRow = (weeks[weekIndex]?.rankings || []).find((r) => r.ownerId === ownerId);
@@ -765,11 +750,8 @@ export default function RosPowerSection({ managers } = {}) {
 }
 
 function TrendCell({ deltaValue }) {
-  // ``null`` covers two distinct cases the reader must not conflate: no
-  // trend history yet (< 2 weeks played, or first tracked week) and a
-  // week where the owner was unrankable (results-only lens with nothing
-  // to score on). Neither is "flat" (delta 0), so neither renders an
-  // arrow.
+  // Null means there is no legitimate previous official/diagnostic rank to
+  // compare with. It is not a fabricated "flat" movement.
   if (deltaValue == null) {
     return (
       <td style={{ textAlign: "right", fontFamily: "var(--mono)", color: "var(--subtext)" }}>
