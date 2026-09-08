@@ -1250,7 +1250,13 @@ input[type="range"]:focus-visible::-moz-range-thumb {
      `bottom` and read as fine. */
   bottom: 0;
   z-index: 35;
-  background: rgba(15, 10, 26, 0.95);
+  /* Was a hardcoded rgba(15, 10, 26, 0.95) navy-black — a literal, so no
+     amount of token scoping (psi-editorial included) could ever change
+     it; the tray stayed the old dark color even after /trade's page
+     background repainted cream around it. Same fix, same token, as
+     .picker-sheet's identical R5 de-seam just above: --surface-1 is
+     this codebase's established elevated-panel surface. */
+  background: var(--surface-1);
   border-top: 1px solid var(--border);
   backdrop-filter: blur(8px);
 }
