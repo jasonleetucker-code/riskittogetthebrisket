@@ -296,6 +296,57 @@ def _refresh_team_strength_snapshot(aggregated: list[dict[str, Any]]) -> dict[st
     return out
 
 
+def _power_week_is_complete(snapshot: Any, season_label: str, week: int) -> bool:
+    """True only when the target league-week has a complete scored matchup set.
+
+    The Sleeper NFL clock advancing is necessary but not sufficient evidence
+    for an official fantasy publication. A stale/partial matchup response (or
+    an unresolved postponed-game state) must not freeze an incomplete Power
+    ranking forever, so require every current roster owner to appear in a
+    fully-scored H2H pair before finalization.
+    """
+    from src.public_league import metrics  # noqa: PLC0415
+
+    season = next(
+        (s for s in snapshot.seasons if str(s.season) == str(season_label)),
+        None,
+    )
+    if season is None:
+        return False
+
+    expected_owners: set[str] = set()
+    for roster in season.rosters or []:
+        rid = metrics.roster_id_of(roster)
+        if rid is None:
+            continue
+        oid = metrics.resolve_owner(snapshot.managers, season.league_id, rid)
+        if oid:
+            expected_owners.add(oid)
+    if not expected_owners:
+        return False
+
+    rows = season.matchups_by_week.get(int(week)) or []
+    pairs = metrics.matchup_pairs(rows)
+    if len(pairs) * 2 != len(expected_owners):
+        return False
+
+    observed: set[str] = set()
+    for a, b in pairs:
+        if not metrics.is_scored(a) or not metrics.is_scored(b):
+            return False
+        for entry in (a, b):
+            oid = metrics.resolve_owner(
+                snapshot.managers,
+                season.league_id,
+                entry.get("roster_id"),
+            )
+            if oid:
+                observed.add(oid)
+
+    return observed == expected_owners
+
+
+
 def _refresh_power_snapshots() -> dict[str, Path]:
     """Finalize at most one canonical weekly Power publication per league.
 
@@ -347,6 +398,15 @@ def _refresh_power_snapshots() -> dict[str, Path]:
                         cfg.key,
                         week,
                         host_week,
+                    )
+                    continue
+                if not _power_week_is_complete(snap, season, week):
+                    LOG.warning(
+                        "[ros] power snapshot %s: %s week %d is not a complete scored "
+                        "matchup set; refusing official publication",
+                        cfg.key,
+                        season,
+                        week,
                     )
                     continue
                 path, created = power_snapshots.record_snapshot(
