@@ -52,20 +52,28 @@ The denominator is frozen at 30 for this launch tranche. Do not add/remove rows 
 | W1-26 | Game Day UI | SCHEDULED/PREGAME state is production-usable: matchup, projected state, headline probabilities when available, drivers, freshness, and archive timestamp. | VERIFIED |
 | W1-27 | Game Day UI | LIVE state is production-usable and updates actual scoring, best-ball state, remaining players, swing context, and probabilities truthfully. | IMPLEMENTED_UNVERIFIED |
 | W1-28 | Game Day UI | FINAL state is production-usable and preserves final optimal lineup/results plus clean transition/linkage to the canonical recap system. | IMPLEMENTED_UNVERIFIED |
-| W1-29 | Launch verification | Final Week 1 candidate passes the required backend, frontend, contract/invariant, lint/build, audit, and E2E exact-head gates. | NOT STARTED |
+| W1-29 | Launch verification | Final Week 1 candidate passes the required backend, frontend, contract/invariant, lint/build, audit, and E2E exact-head gates. | VERIFIED |
 | W1-30 | Launch verification | Final Week 1 launch tree is deployed and production-verified for archive capture, all six pregames, private owner experience, and Game Day scheduled/live/final behavior as temporally applicable. | NOT STARTED |
 
 ## Mechanical tally
 
-*Recounted 2026-09-08 after W1-27/W1-28 code merged (#1271) — tally unchanged, status corrected.*
+*Recounted 2026-09-08 after W1-29's exact-head candidate gates passed.*
 
-- VERIFIED: 24
+- VERIFIED: 25
 - IMPLEMENTED_UNVERIFIED: 3
 - IN PROGRESS: 0
-- NOT STARTED: 3
+- NOT STARTED: 2
 - BLOCKED: 0
 - DENOMINATOR: 30
-- COMPLETION: **24/30 = 80.0%**
+- COMPLETION: **25/30 = 83.3%**
+
+### Row movements, 2026-09-08 (W1-29)
+
+- **W1-29 → VERIFIED.** Frozen candidate head `fd7601c2cb675e776b0ffc0c7f66e6e6bd33b2fd` — current `main` tip at freeze time, carrying #1277's contract/claims corrections plus one automated `chore(ops): record Sharp production smoke` commit (data-only; diff limited to `data/ops/sharp-production-smoke.json`, no code). Two exact-head gates dispatched against the identical SHA, confirmed matching before either was read:
+  - **Release Candidate** run `34178759157` — STRICT freshness (0 outstanding class-B/class-C drift on base), the actual merge-candidate tree built and validated (not just the head), Python format/lint, governance + planning + decision-coercion + audit-drift gates, the hard pure-logic test suite, the structural API/data-contract lane, dependency-graph/preflight/syntax/runtime-import/deploy-script gates, frontend vitest, and frontend production build + bundle-size budget — **all 21 steps green**.
+  - **E2E Safety Net** run `34178762487` — full stack booted from the committed snapshot (no external network), production frontend build, backend+frontend readiness, the complete Playwright critical-journey suite, tracking-issue auto-close-on-green — **success**.
+
+  Both runs independently confirmed `head_sha: fd7601c2cb675e776b0ffc0c7f66e6e6bd33b2fd` before being treated as paired evidence, so no evidence-mixing across heads. Live-data advisory lane (`Source health`) passed on its own merits and was not needed to pass the gate. No KTC/IDP/projection/source methodology was touched to obtain this result. Agent-OS-Receipt: `7a029d37f101240a408c6cf285d87a3876fe49d6`.
 
 ### Row movements, 2026-09-08
 
