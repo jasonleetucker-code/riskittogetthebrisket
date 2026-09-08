@@ -100,8 +100,9 @@ def test_canonical_blends_ros_and_results_after_games(monkeypatch):
     assert {"all_play", "recent", "wl_record"} <= set(out["effectiveWeights"])
     assert out["blend"]["forwardWeight"] > 0
     assert out["blend"]["resultsWeight"] > 0
-    assert out["blend"]["forwardWeight"] + out["blend"]["resultsWeight"] == pytest.approx(
-        1.0
+    assert (
+        out["blend"]["forwardWeight"] + out["blend"]["resultsWeight"]
+        == pytest.approx(1.0)
     )
 
 
