@@ -346,7 +346,6 @@ def _power_week_is_complete(snapshot: Any, season_label: str, week: int) -> bool
     return observed == expected_owners
 
 
-
 def _refresh_power_snapshots() -> dict[str, Path]:
     """Finalize at most one canonical weekly Power publication per league.
 
@@ -438,7 +437,6 @@ def _refresh_power_snapshots() -> dict[str, Path]:
         LOG.warning("[ros] power snapshot refresh failed: %s", exc)
         LOG.debug("[ros] power snapshot traceback: %s", traceback.format_exc())
     return out
-
 
 
 def _refresh_sim_caches_for_league(cfg: Any, default_key: str | None) -> dict[str, Path] | None:
