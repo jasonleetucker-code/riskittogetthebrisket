@@ -13,8 +13,9 @@ gate an additional hard backstop rather than something autopilot overrides.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from itertools import product
 from math import isfinite
-from statistics import median
+from statistics import mean, median
 from typing import Mapping, Sequence
 
 
@@ -33,6 +34,8 @@ class AutopilotPolicy:
     forward_days_required: int = 5
     forward_win_rate_required: float = 0.80
     forward_median_improvement_points: float = 25.0
+    bootstrap_lower_quantile: float = 0.05
+    min_bootstrap_lower_improvement_points: float = 25.0
 
 
 @dataclass(frozen=True)
@@ -71,6 +74,7 @@ class AutopilotDecision:
     forward_days: int = 0
     forward_win_rate: float | None = None
     forward_median_improvement: float | None = None
+    bootstrap_lower_improvement: float | None = None
 
 
 def _rel_close(a: float, b: float, tolerance: float) -> bool:
@@ -83,6 +87,53 @@ def required_improvement(champion_criterion: float, policy: AutopilotPolicy) -> 
         policy.min_current_improvement_points,
         champion_criterion * policy.min_current_improvement_fraction,
     )
+
+
+def leave_one_out_passes(
+    champion_per_source: Mapping[str, float],
+    candidate_per_source: Mapping[str, float],
+    policy: AutopilotPolicy,
+) -> bool:
+    """Require the win to survive deletion of any one scored market."""
+    names = sorted(set(champion_per_source) & set(candidate_per_source))
+    if len(names) < policy.min_improved_boards:
+        return False
+    for omitted in names:
+        kept = [name for name in names if name != omitted]
+        if len(kept) < 2:
+            return False
+        champion = mean(float(champion_per_source[name]) for name in kept)
+        candidate = mean(float(candidate_per_source[name]) for name in kept)
+        if champion - candidate < required_improvement(champion, policy):
+            return False
+    return True
+
+
+def bootstrap_lower_improvement(
+    champion_per_source: Mapping[str, float],
+    candidate_per_source: Mapping[str, float],
+    *,
+    quantile: float,
+) -> float:
+    """Exact deterministic source bootstrap; no RNG and no flaky gate.
+
+    With four holdout markets this enumerates all 4^4 resamples. It is a
+    robustness diagnostic across markets, not a claim of ground-truth
+    statistical independence.
+    """
+    names = sorted(set(champion_per_source) & set(candidate_per_source))
+    if not names:
+        return float("-inf")
+    deltas = {
+        name: float(champion_per_source[name]) - float(candidate_per_source[name])
+        for name in names
+    }
+    samples = sorted(
+        mean(deltas[name] for name in draw)
+        for draw in product(names, repeat=len(names))
+    )
+    idx = max(0, min(len(samples) - 1, int(quantile * (len(samples) - 1))))
+    return float(samples[idx])
 
 
 def choose_winner(candidates: Sequence[CandidateScore]) -> CandidateScore | None:
@@ -178,6 +229,17 @@ def decide(
         and improved >= policy.min_improved_boards
         and no_large_regression
     )
+    leave_one_out_gate = leave_one_out_passes(
+        champion_per_source,
+        winner.per_source,
+        policy,
+    )
+    bootstrap_lower = bootstrap_lower_improvement(
+        champion_per_source,
+        winner.per_source,
+        quantile=policy.bootstrap_lower_quantile,
+    )
+    bootstrap_gate = bootstrap_lower >= policy.min_bootstrap_lower_improvement_points
 
     rows_gate = (
         bool(winner.per_source_rows)
@@ -216,6 +278,8 @@ def decide(
         "winner": True,
         "current_margin": current_gate,
         "per_source": per_source_gate,
+        "leave_one_market_out": leave_one_out_gate,
+        "cross_market_bootstrap": bootstrap_gate,
         "row_health": rows_gate,
         "parameter_stability": stability_gate,
         "forward_persistence": forward_gate,
@@ -238,6 +302,7 @@ def decide(
         forward_days=forward_days,
         forward_win_rate=win_rate,
         forward_median_improvement=(med if improvements else None),
+        bootstrap_lower_improvement=bootstrap_lower,
     )
 
 
