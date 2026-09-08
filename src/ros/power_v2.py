@@ -854,24 +854,36 @@ def build_section(
     # N-1's immutable official publication. It never diffs two recalculations
     # from the same week.
     official_snapshot = None
+    share_snapshot = None
     league_key = None
-    if not results_only and as_of_season and as_of_week > 0:
+    if not results_only and as_of_season:
         try:
             from src.api.league_registry import league_key_for_sleeper_id  # noqa: PLC0415
             from src.ros import power_snapshots  # noqa: PLC0415
 
             league_key = league_key_for_sleeper_id(snapshot.root_league_id)
             if league_key:
-                movement = power_snapshots.movement_against_previous(
-                    league_key=league_key,
+                # The detailed table may be live, but its comparison anchor is
+                # always a published week — never another same-week recalculation.
+                if as_of_week > 0:
+                    movement = power_snapshots.movement_against_previous(
+                        league_key=league_key,
+                        season=as_of_season,
+                        week=as_of_week,
+                        rankings=rankings,
+                    )
+                    for row in rankings:
+                        row.update(movement.get(str(row.get("ownerId") or "")) or {})
+                    official_snapshot = power_snapshots.load_snapshot(
+                        league_key, as_of_season, as_of_week
+                    )
+                # Screenshot/share is stricter: use the latest immutable
+                # official publication in this season. If the live engine has
+                # already begun accumulating an incomplete next week, never
+                # expose that partial recalculation as a weekly share card.
+                share_snapshot = power_snapshots.latest_snapshot(
+                    league_key,
                     season=as_of_season,
-                    week=as_of_week,
-                    rankings=rankings,
-                )
-                for row in rankings:
-                    row.update(movement.get(str(row.get("ownerId") or "")) or {})
-                official_snapshot = power_snapshots.load_snapshot(
-                    league_key, as_of_season, as_of_week
                 )
         except Exception as exc:  # noqa: BLE001
             LOG.warning("[power_v2] weekly movement unavailable: %s", exc)
@@ -960,5 +972,6 @@ def build_section(
         "leagueKey": league_key,
         "scoringConfigFingerprint": scoring_fingerprint,
         "officialSnapshot": official_snapshot,
+        "shareSnapshot": share_snapshot,
     }
 
