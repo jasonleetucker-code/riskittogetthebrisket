@@ -1,47 +1,27 @@
-"""ROS-driven power rankings (v2).
+"""Canonical league Power Rankings.
 
-Spec formula (in-season):
+The league-facing score has one forward-looking input and four observed
+results targets:
 
-    power_score =
-        0.38 * team_ros_strength_percentile
-        + 0.18 * season_points_scored_percentile
-        + 0.12 * recent_points_scored_percentile
-        + 0.10 * win_loss_record_percentile
-        + 0.08 * all_play_record_percentile
-        + 0.05 * winning_streak_score
-        + 0.04 * schedule_adjusted_performance
-        + 0.02 * luck_regression_score
+    0.40 team ROS strength
+    0.20 season-to-date all-play
+    0.15 recent four-game form
+    0.15 canonical weekly realized VORP/PAR (currently unavailable)
+    0.10 official current-season record
 
-Inputs come from two places:
+Observed-results evidence enters smoothly as games are scored. Missing
+inputs stay missing and the available weights renormalize without inventing
+zeroes. The ``results_only`` lens is diagnostic; the legacy
+``forward_looking`` query string is only a compatibility alias for the
+canonical blend.
 
-    * ``data/ros/team_strength/latest.json`` — written by
-      ``src.ros.team_strength``.  Provides ``team_ros_strength_percentile``.
-    * ``PublicLeagueSnapshot`` — the same historical walk the retired
-      ``power.py`` v1 engine read.  Provides PPG, recent form, W/L,
-      all-play, streak, and luck-regression inputs.
+Current Sleeper roster membership is authoritative for the current Power
+table. Team-strength/history are fallbacks only when current roster membership
+is unavailable, so stale or historical owners cannot expand a 12-team league
+view.
 
-The owner list spans every team that owns a roster in the current
-league, sourced from the team-strength snapshot (live Sleeper rosters)
-unioned with the snapshot's current-season rosters.  Owners who joined
-the league for the upcoming year and have no prior-season record still
-appear with their ROS-based score — without this union the table
-silently drops to the count of owners with historical participation.
-
-Preseason / between-seasons handling: when no scored regular-season
-matchups exist for the snapshot's current season (either because the
-year hasn't kicked off yet or the prior year is complete and the new
-schedule isn't loaded), the historical-results components — PPG,
-recent form, W/L, all-play, streak, and luck regression — describe a
-season that is over and don't project the upcoming year.  Those
-components are routed through ``missing_inputs`` so the formula
-renormalises onto the forward-looking metrics (team ROS strength,
-roster health, and 2026 schedule SOS when available).  The same
-``missing_inputs`` machinery that protects against an absent
-team-strength file already handles renormalisation cleanly.
-
-This is the ONLY power-ranking engine.  ``src/public_league/power.py``
-(the pre-V1-52 v1 engine) and its renderer are deleted; /league → Power
-always renders this module's output.
+This is the only Power Ranking engine. Official week-to-week movement is
+materialized separately by ``src.ros.power_snapshots``.
 """
 
 from __future__ import annotations
@@ -275,17 +255,14 @@ def _is_preseason(snapshot: PublicLeagueSnapshot) -> bool:
     season".  What that IMPLIES depends on the lens, and conflating the
     two is what made this function's old docstring wrong:
 
-    * FORWARD-LOOKING — the historical-results components describe a
-      finished year and don't project the upcoming one, so the build
-      drops them via ``missing_inputs`` and the score reflects only
-      forward-looking inputs (ROS strength, SOS).
+    * CANONICAL — prior-season results do not project the upcoming year,
+      so preseason score mass remains on current ROS strength.
     * RESULTS-ONLY — the finished year IS the answer.  Nothing is
       dropped, or the lens would have nothing to say for the whole
       offseason.
 
-    ``roster_health`` is not in that forward-looking list any more: it
-    was double-counted against ``team_ros_strength`` and was folded into
-    it (0.38 -> 0.41) earlier in V1-52.
+    Legacy roster-health, schedule, streak and luck terms remain display or
+    historical diagnostics only; none is a canonical weighted input.
     """
     current = snapshot.current_season
     if current is None:
