@@ -173,7 +173,74 @@
         "created_at": {
           "$ref": "#/$defs/isoDateTime"
         }
-      }
+      },
+      "description": "Run contract. autonomy_class is the maximum permitted side-effect authority; mode is how independently the agent may operate inside that ceiling. `autonomous` never elevates autonomy_class.",
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "autonomy_class": {
+                "const": "A_REPORT_ONLY"
+              }
+            },
+            "required": [
+              "autonomy_class"
+            ]
+          },
+          "then": {
+            "properties": {
+              "mode": {
+                "const": "report_only"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "autonomy_class": {
+                "enum": [
+                  "C_PREAUTHORIZED_INTEGRATION",
+                  "D_CONSEQUENTIAL"
+                ]
+              }
+            },
+            "required": [
+              "autonomy_class"
+            ]
+          },
+          "then": {
+            "required": [
+              "owner_authorization_ref"
+            ],
+            "properties": {
+              "owner_authorization_ref": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "autonomy_class": {
+                "const": "D_CONSEQUENTIAL"
+              }
+            },
+            "required": [
+              "autonomy_class"
+            ]
+          },
+          "then": {
+            "properties": {
+              "mode": {
+                "const": "assisted"
+              }
+            }
+          }
+        }
+      ]
     },
     "checkpoint": {
       "type": "object",
@@ -225,7 +292,7 @@
         "pending": {
           "type": "array",
           "items": {
-            "type": "object"
+            "$ref": "#/$defs/pendingAction"
           }
         },
         "unresolved": {
@@ -317,7 +384,7 @@
         "actions": {
           "type": "array",
           "items": {
-            "type": "object"
+            "$ref": "#/$defs/executedAction"
           }
         },
         "verifier": {
@@ -918,6 +985,132 @@
           ]
         }
       }
+    },
+    "pendingAction": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "pending_id",
+        "kind",
+        "idempotency_key",
+        "status"
+      ],
+      "properties": {
+        "pending_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "kind": {
+          "type": "string",
+          "minLength": 1
+        },
+        "idempotency_key": {
+          "type": "string",
+          "minLength": 1
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "PENDING",
+            "RUNNING",
+            "SUCCEEDED",
+            "FAILED",
+            "CANCELLED"
+          ]
+        },
+        "target": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "resume_token": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "created_at": {
+          "$ref": "#/$defs/isoDateTime"
+        },
+        "updated_at": {
+          "$ref": "#/$defs/isoDateTime"
+        }
+      }
+    },
+    "executedAction": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "action_id",
+        "kind",
+        "idempotency_key",
+        "status"
+      ],
+      "properties": {
+        "action_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "kind": {
+          "type": "string",
+          "minLength": 1
+        },
+        "idempotency_key": {
+          "type": "string",
+          "minLength": 1
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "SUCCEEDED",
+            "FAILED",
+            "CANCELLED",
+            "SKIPPED"
+          ]
+        },
+        "target": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "result": {
+          "type": [
+            "object",
+            "null"
+          ]
+        },
+        "error": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "executed_at": {
+          "$ref": "#/$defs/isoDateTime"
+        }
+      }
     }
-  }
+  },
+  "oneOf": [
+    {
+      "$ref": "#/$defs/autonomousRunContract"
+    },
+    {
+      "$ref": "#/$defs/checkpoint"
+    },
+    {
+      "$ref": "#/$defs/runReceipt"
+    },
+    {
+      "$ref": "#/$defs/sourceCandidate"
+    },
+    {
+      "$ref": "#/$defs/featureConcept"
+    },
+    {
+      "$ref": "#/$defs/mediaEvidence"
+    }
+  ]
 }
