@@ -7,10 +7,8 @@
 // computes, without a second computation. Lazy-fetched from
 // /api/public/league/rosPower because the section reads the ROS
 // team-strength snapshot and re-walks the snapshot each call — same
-// lazy pattern as playoff odds. When the snapshot has no ROS data yet
-// (first deploy before the scrape lands), the section degrades cleanly
-// to a v1-style formula with ROS components missing — see
-// ``missingInputs`` field.
+// lazy pattern as playoff odds. Missing weighted inputs stay missing and
+// the canonical forward/results masses renormalize without inventing zeroes.
 
 import { useEffect, useMemo, useState } from "react";
 import { LoadingState, EmptyState } from "@/components/ui";
@@ -567,11 +565,9 @@ export default function RosPowerSection({ managers } = {}) {
   const forwardPct = Math.round(Number(blend.forwardWeight || 0) * 100);
   const resultsPct = Math.round(Number(blend.resultsWeight || 0) * 100);
 
-  // Render the formula description from whichever weights are actually
-  // applied so the UI doesn't claim "season PPG (18%)" when we're going
-  // into a fresh year and that component has been routed through
-  // ``missingInputs``.  Order by weight descending so the dominant
-  // contributors lead the line.
+  // Render the formula from the weights actually applied. Missing canonical
+  // inputs (for example realized weekly VORP before its owner is ready) never
+  // appear as fabricated zero-weight evidence. Order by weight descending.
   const formulaParts = Object.entries(effectiveWeights)
     .filter(([, w]) => Number(w) > 0)
     .sort((a, b) => Number(b[1]) - Number(a[1]))
