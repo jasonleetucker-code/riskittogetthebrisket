@@ -56,18 +56,18 @@ def _policy() -> tuple[AutopilotPolicy, dict[str, Any]]:
     return (
         AutopilotPolicy(
             min_current_improvement_points=float(raw["minCurrentImprovementPoints"]),
-            min_current_improvement_fraction=float(raw["minCurrentImprovementFraction"]),
+            min_current_improvement_fraction=float(\n                raw["minCurrentImprovementFraction"]\n            ),
             min_improved_boards=int(raw["minImprovedBoards"]),
             max_board_worsening_fraction=float(raw["maxBoardWorseningFraction"]),
             min_rows_per_board=int(raw["minRowsPerBoard"]),
             stable_candidates_required=int(raw["stableCandidatesRequired"]),
             stable_span_days=float(raw["stableSpanDays"]),
-            candidate_criterion_band_fraction=float(raw["candidateCriterionBandFraction"]),
+            candidate_criterion_band_fraction=float(\n                raw["candidateCriterionBandFraction"]\n            ),
             c_relative_tolerance=float(raw["cRelativeTolerance"]),
             s_relative_tolerance=float(raw["sRelativeTolerance"]),
             forward_days_required=int(raw["forwardDaysRequired"]),
             forward_win_rate_required=float(raw["forwardWinRateRequired"]),
-            forward_median_improvement_points=float(raw["forwardMedianImprovementPoints"]),
+            forward_median_improvement_points=float(\n                raw["forwardMedianImprovementPoints"]\n            ),
         ),
         raw,
     )
@@ -112,7 +112,7 @@ def _git(*args: str) -> str:
     return proc.stdout
 
 
-def _historical_commits_after(fitted_at: str, *, max_days: int = 30) -> list[tuple[str, str, str]]:
+def _historical_commits_after(\n    fitted_at: str, *, max_days: int = 30\n) -> list[tuple[str, str, str]]:
     fitted = _dt(fitted_at)
     paths = [p for p, _ in OFFENSE_HOLDOUT_SOURCES.values()]
     text = _git(
@@ -147,7 +147,7 @@ def _write_historical_root(root: Path, sha: str) -> None:
         target.write_text(_git("show", f"{sha}:{rel}"), encoding="utf-8")
 
 
-def _forward_scores(champ, winner: CandidateScore) -> tuple[list[ForwardScore], list[dict[str, Any]]]:
+def _forward_scores(\n    champ, winner: CandidateScore\n) -> tuple[list[ForwardScore], list[dict[str, Any]]]:
     out: list[ForwardScore] = []
     details: list[dict[str, Any]] = []
     commits = _historical_commits_after(winner.fitted_at)
@@ -185,7 +185,7 @@ def _forward_scores(champ, winner: CandidateScore) -> tuple[list[ForwardScore], 
     return out, details
 
 
-def _recent_row_health(current: dict[str, int], max_drop_fraction: float) -> tuple[bool, dict[str, Any]]:
+def _recent_row_health(\n    current: dict[str, int], max_drop_fraction: float\n) -> tuple[bool, dict[str, Any]]:
     """Compare this run's holdout depth with recent successful observations."""
     if not RUN_LOG.exists():
         return True, {}
@@ -231,9 +231,9 @@ def _append_log(blob: dict[str, Any]) -> None:
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--out", type=Path, required=True, help="write the full plan JSON")
-    ap.add_argument("--params-out", type=Path, required=True, help="write safe composed params")
-    ap.add_argument("--record", action="store_true", help="append this adjudication to the run log")
-    ap.add_argument("--trigger-sha", default="", help="data-refresh SHA that caused this run")
+    ap.add_argument(\n        "--params-out", type=Path, required=True, help="write safe composed params"\n    )
+    ap.add_argument(\n        "--record", action="store_true", help="append this adjudication to the run log"\n    )
+    ap.add_argument(\n        "--trigger-sha", default="", help="data-refresh SHA that caused this run"\n    )
     args = ap.parse_args()
 
     policy, raw_policy = _policy()
@@ -247,7 +247,7 @@ def main() -> int:
         )
         scores = [_score_version(v) for v in reg.versions if v.status == "challenger"]
     except (HoldoutError, KeyError, ValueError) as exc:
-        print(f"ERROR: current tournament could not be evaluated: {exc}", file=sys.stderr)
+        print(\n            f"ERROR: current tournament could not be evaluated: {exc}",\n            file=sys.stderr,\n        )
         return 2
 
     fitted_days = {
@@ -287,7 +287,7 @@ def main() -> int:
     )
 
     winner = next((c for c in scores if c.version == decision.winner_version), None)
-    params = compose_offense_only(champ.params, winner) if winner else dict(champ.params)
+    params = (\n        compose_offense_only(champ.params, winner) if winner else dict(champ.params)\n    )
     args.params_out.parent.mkdir(parents=True, exist_ok=True)
     args.params_out.write_text(json.dumps(params, indent=2, sort_keys=True) + "\n")
 
@@ -298,7 +298,7 @@ def main() -> int:
         "triggerSha": args.trigger_sha or None,
         "championVersion": champ.version,
         "championCriterion": round(champ_eval.criterion, 4),
-        "championPerSource": {k: round(v, 4) for k, v in sorted(champ_eval.per_source.items())},
+        "championPerSource": {\n            k: round(v, 4) for k, v in sorted(champ_eval.per_source.items())\n        },
         "currentRows": dict(champ_eval.per_source_rows),
         "rowHealthDetail": row_health_detail,
         "winnerVersion": decision.winner_version,
