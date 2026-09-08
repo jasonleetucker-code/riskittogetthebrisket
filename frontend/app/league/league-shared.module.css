@@ -1,0 +1,141 @@
+/* Shared presentational primitives for /league sections — Redesign R5
+   phase B. Replaces the ad hoc inline `style={{ border: "1px solid
+   var(--border)" ... }}` objects in shared.jsx / shared-server.jsx with
+   the same "flat, bordered, luminous" mini-card language ds/StatTile
+   already uses, so every section built on these primitives (Overview,
+   History, Records, Rivalries, Weekly, Franchise, Superlatives, Luck,
+   Streaks, ROS Power/Championship/Trade Deadline, Team Assignment, …)
+   picks up the Premium Sports Intelligence token layer without a
+   per-section edit. Behavior/props are unchanged — presentation only. */
+
+/* ── /league tab navigation (LeagueClient.jsx) ──────────────────────── */
+.nav {
+  margin-bottom: var(--space-4);
+}
+
+.mobileNav {
+  margin-bottom: var(--space-2);
+}
+
+.mobileNavLabel {
+  display: block;
+  font-size: var(--font-size-2xs);
+  font-weight: var(--font-weight-medium);
+  color: var(--text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-wide);
+  margin-bottom: var(--space-1);
+}
+
+.miniCard {
+  background: var(--surface-1);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-2);
+  padding: var(--space-3);
+  min-width: 0;
+}
+
+.miniCardLabel {
+  font-size: var(--font-size-2xs);
+  font-weight: var(--font-weight-medium);
+  letter-spacing: var(--tracking-wide);
+  text-transform: uppercase;
+  color: var(--text-tertiary);
+}
+
+.miniCardValue {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  color: var(--text-primary);
+  margin-top: var(--space-1);
+  line-height: var(--line-height-tight);
+}
+
+.miniCardSub {
+  font-size: var(--font-size-xs);
+  color: var(--text-tertiary);
+  margin-top: var(--space-1);
+}
+
+.miniCardAccent {
+  font-size: var(--font-size-xs);
+  color: var(--accent);
+  margin-top: var(--space-1);
+}
+
+.miniCardPoints {
+  font-size: var(--font-size-xs);
+  font-family: var(--font-data);
+  font-variant-numeric: tabular-nums;
+  color: var(--text-tertiary);
+  margin-top: var(--space-1);
+}
+
+.miniCardWinner {
+  font-weight: var(--font-weight-semibold);
+  color: var(--text-primary);
+}
+
+/* ── Leaderboard ─────────────────────────────────────────────────────── */
+.leaderboard {
+  flex: 1 1 260px;
+  min-width: 0;
+}
+
+.leaderboardTitle {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  color: var(--text-primary);
+  margin-bottom: var(--space-2);
+}
+
+.leaderboardRows {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.leaderboardRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--font-size-xs);
+}
+
+.leaderboardRow--clickable {
+  cursor: pointer;
+}
+
+.leaderboardEntry {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.leaderboardRank {
+  font-family: var(--font-data);
+  font-variant-numeric: tabular-nums;
+  color: var(--text-tertiary);
+  min-width: 1.1em;
+}
+
+.leaderboardMetric {
+  font-family: var(--font-data);
+  font-variant-numeric: tabular-nums;
+  color: var(--accent);
+  flex-shrink: 0;
+}
+
+/* ── Inline manager chip ─────────────────────────────────────────────── */
+.managerInline {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.managerInline--clickable {
+  cursor: pointer;
+  color: var(--accent);
+}
