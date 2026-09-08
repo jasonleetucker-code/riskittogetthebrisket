@@ -296,6 +296,91 @@ def _refresh_team_strength_snapshot(aggregated: list[dict[str, Any]]) -> dict[st
     return out
 
 
+def _refresh_power_snapshots() -> dict[str, Path]:
+    """Finalize at most one canonical weekly Power publication per league.
+
+    A scored week is publishable only after Sleeper's NFL clock has advanced
+    beyond it. If a run was missed, we do NOT back-fill an older week with
+    today's ROS strength; append-only truth is better than fake as-of history.
+    """
+    out: dict[str, Path] = {}
+    try:
+        from src.api.league_registry import active_leagues  # noqa: PLC0415
+        from src.public_league.snapshot import build_public_snapshot  # noqa: PLC0415
+        from src.public_league.sleeper_client import fetch_nfl_state  # noqa: PLC0415
+        from src.ros import power_snapshots, power_v2  # noqa: PLC0415
+
+        nfl_state = fetch_nfl_state() or {}
+        host_season = str(nfl_state.get("season") or "")
+        try:
+            host_week = int(nfl_state.get("week") or 0)
+        except (TypeError, ValueError):
+            host_week = 0
+        if not host_season or host_week < 2:
+            return out
+
+        for cfg in active_leagues():
+            if not cfg or not cfg.sleeper_league_id:
+                continue
+            try:
+                snap = build_public_snapshot(
+                    cfg.sleeper_league_id,
+                    include_nfl_players=False,
+                )
+                section = power_v2.build_section(snap, lens=power_v2.LENS_CANONICAL)
+                season = str(section.get("asOfSeason") or "")
+                week = int(section.get("asOfWeek") or 0)
+                if (
+                    season != host_season
+                    or week < 1
+                    or host_week <= week
+                    or section.get("unrankable")
+                ):
+                    continue
+                # Only the immediately completed host week is legitimate.
+                # If week < host_week - 1, the run missed publication time;
+                # today's ROS data cannot be back-dated into that gap.
+                if week != host_week - 1:
+                    LOG.warning(
+                        "[ros] power snapshot %s: latest scored week %s lags host week %s; "
+                        "refusing historical ROS back-fill",
+                        cfg.key,
+                        week,
+                        host_week,
+                    )
+                    continue
+                path, created = power_snapshots.record_snapshot(
+                    league_key=cfg.key,
+                    section=section,
+                    scoring_fingerprint=power_snapshots.scoring_config_fingerprint(snap),
+                )
+                if created:
+                    LOG.info(
+                        "[ros] power snapshot %s: finalized %s week %d -> %s",
+                        cfg.key,
+                        season,
+                        week,
+                        path,
+                    )
+                out[cfg.key] = path
+            except Exception as exc:  # noqa: BLE001
+                LOG.warning(
+                    "[ros] power snapshot refresh for %s failed: %s",
+                    getattr(cfg, "key", "?"),
+                    exc,
+                )
+                LOG.debug(
+                    "[ros] power snapshot %s traceback: %s",
+                    getattr(cfg, "key", "?"),
+                    traceback.format_exc(),
+                )
+    except Exception as exc:  # noqa: BLE001
+        LOG.warning("[ros] power snapshot refresh failed: %s", exc)
+        LOG.debug("[ros] power snapshot traceback: %s", traceback.format_exc())
+    return out
+
+
+
 def _refresh_sim_caches_for_league(cfg: Any, default_key: str | None) -> dict[str, Path] | None:
     """Run playoff + championship sims for a single league."""
     try:
@@ -576,6 +661,10 @@ def run_all(
     # effort and never raise — a network blip during sim cache refresh
     # shouldn't lose the aggregate write that just landed.
     team_strength_paths = _refresh_team_strength_snapshot(aggregated)
+    # Power publication runs AFTER team-strength refresh so the finalized
+    # canonical week captures the ROS information genuinely available at
+    # publication time, never a stale pre-refresh value.
+    power_snapshot_paths = _refresh_power_snapshots()
     sim_paths_by_league = _refresh_sim_caches()
 
     return {
@@ -589,6 +678,9 @@ def run_all(
         # filenames so existing readers keep working.
         "teamStrengthPaths": {
             k: str(p.relative_to(ROS_DATA_DIR)) for k, p in team_strength_paths.items()
+        },
+        "powerSnapshotPaths": {
+            k: str(p.relative_to(ROS_DATA_DIR)) for k, p in power_snapshot_paths.items()
         },
         "simPathsByLeague": {
             league_key: {kind: str(p.relative_to(ROS_DATA_DIR)) for kind, p in paths.items()}
