@@ -47,6 +47,18 @@ Reference:
 
 Keep vendor-specific API syntax out of the canonical operating rules; the architecture must survive future model/provider changes.
 
+## 2.1 Cost boundary
+
+**Owner decision, 2026-09-08:** the Steward must exhaust useful zero-incremental-cost automation before any paid autonomous intelligence is enabled.
+
+Default policy:
+- incremental Steward usage budget is `$0`;
+- existing standard public-repository GitHub Actions, existing VPS/systemd capacity, deterministic scripts/tests, SQLite/checkpoints/receipts, and legitimately free public feeds are preferred;
+- metered model/API search/transcription/computer-use calls are disabled until a separate explicit owner authorization;
+- a capability that genuinely requires paid semantic intelligence remains deferred rather than silently spending money.
+
+This is a hard runtime policy target, not a suggestion for model thrift.
+
 ## 3. “One lifetime prompt” means a versioned contract, not a giant prompt
 
 Do not attempt to encode the entire future system in one enormous static prompt.
