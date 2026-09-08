@@ -60,50 +60,51 @@ def _strip_comments_and_docstrings(text: str) -> str:
 # ── Defect 1: the refit rewrote production code and its own guard ──
 
 
-class TestTheRefitNoLongerWritesProductionCode:
-    def test_refit_does_not_write_any_file(self):
+class TestTheRefitDriverStillCannotWriteProductionCode:
+    def test_raw_refit_does_not_write_any_file(self):
         code = _strip_comments_and_docstrings(REFIT.read_text())
-        assert "write_text" not in code, "the refit driver writes a file again"
+        assert "write_text" not in code, "the raw fitter writes production again"
 
-    def test_refit_cannot_even_import_the_writer(self):
-        """MECHANISM TEST. Not importing it is stronger than not calling
-        it: a later edit cannot reach the writer by accident."""
+    def test_raw_refit_cannot_import_the_writer(self):
         code = _strip_comments_and_docstrings(REFIT.read_text())
         assert "write_committed_constants" not in code
-        import scripts.auto_refit_hill_curves as driver
 
-        assert not hasattr(driver, "write_committed_constants")
-
-    def test_refit_no_longer_rebaselines_the_guard(self):
+    def test_raw_refit_never_rebaselines_a_guard(self):
         code = _strip_comments_and_docstrings(REFIT.read_text())
         assert "rebaseline" not in code.lower()
         assert "PINNED_DELTAS" not in code
-        assert "KTC_RECONCILIATION_TEST" not in code
 
-    def test_the_guard_still_has_real_assertions_to_make(self):
-        """The guard itself was left intact — only the thing rewriting
-        it was removed. If its pins go stale it should now FAIL, which
-        is the tripwire working rather than a regression."""
-        code = _strip_comments_and_docstrings(KTC_TEST.read_text())
-        assert "assert ours == pinned_ours" in code
-        assert "abs(actual_pct - pinned_pct) <= tolerance_pp" in code
+    def test_hard_tripwire_tracks_the_registry_champion_not_literal_numbers(self):
+        tripwire = (
+            REPO / "tests" / "canonical" / "test_hill_percentile_constants_tripwire.py"
+        ).read_text()
+        assert "read_committed_constants() == reg.champion.params" in tripwire
+        assert "_PINNED = {" not in tripwire
 
 
-class TestTheWorkflowCommitsOnlyTheRegistry:
-    def test_workflow_does_not_commit_production_constants(self):
+class TestAutopilotOwnsTheOnlyAutomaticStateChangePath:
+    def test_workflow_runs_the_fail_closed_gates_before_apply(self):
         wf = WORKFLOW.read_text()
-        assert "git add config/model_registry/" in wf
-        assert "git add src/canonical/player_valuation.py" not in wf
-        assert "git add tests/canonical/test_ktc_reconciliation.py" not in wf
+        order = [
+            "scripts/hill_autopilot.py",
+            "scripts/hill_board_guard.py",
+            "scripts/model_registry.py validate",
+            "scripts/model_registry.py promote",
+            "scripts/model_registry.py apply",
+        ]
+        offsets = [wf.index(token) for token in order]
+        assert offsets == sorted(offsets)
 
-    def test_no_git_add_targets_anything_but_the_registry(self):
-        """MECHANISM TEST. Catches a second `git add` appended later —
-        the rule is 'only the registry', not 'the registry is among the
-        things committed'."""
-        adds = re.findall(r"^\s*git add (.+)$", WORKFLOW.read_text(), re.MULTILINE)
-        assert adds, "no git add found — did the commit step move?"
-        for target in adds:
-            assert target.strip() == "config/model_registry/", f"unexpected git add: {target}"
+    def test_workflow_changes_canonical_source_only_after_applied_true(self):
+        wf = WORKFLOW.read_text()
+        assert "steps.promote.outputs.applied" in wf
+        assert "git add src/canonical/player_valuation.py" in wf
+
+    def test_automatic_promotion_does_not_override_unvalidated_scopes(self):
+        autopilot = (REPO / "src" / "model_registry" / "autopilot.py").read_text()
+        assert 'out["HILL_PERCENTILE_C"]' in autopilot
+        assert 'out["HILL_PERCENTILE_S"]' in autopilot
+        assert "override_scopes" not in autopilot
 
 
 # ── Defect 3: the gate is invoked directly, not through a marker ────
