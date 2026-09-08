@@ -407,399 +407,177 @@ def _score_state(
     *,
     snapshot: PublicLeagueSnapshot,
     ros_pct: dict[str, float],
-    schedule_by_owner: dict[str, float],
     preseason: bool,
     results_only: bool,
-) -> tuple[list[dict[str, Any]], list[str], dict[str, float]]:
-    """Score one league state into a ranking.
+) -> tuple[list[dict[str, Any]], list[str], dict[str, float], dict[str, float]]:
+    """Score one current-season/as-of state with the canonical methodology.
 
-    Extracted so the current ranking and every week of the trend series
-    run through ONE code path.  A second scoring implementation for the
-    trend is how a "series" ends up being a different quantity from the
-    number it is plotted beside — which is the whole defect V1-52 exists
-    to close, reproduced one layer down.
-
-    ``state`` is ``{career, recent, allplay, expected, outcomes}`` as of
-    some point in the season.  Returns ``(rankings, missing_inputs,
-    active_weights)``.
+    Results-only is a diagnostic lens over the same observed components.
+    The canonical lens adds current ROS strength and lets results influence
+    grow smoothly as scored-game evidence accumulates.
     """
-    ros_available = bool(ros_pct)
-    schedule_available = bool(schedule_by_owner)
+    ros_available = bool(ros_pct) and not results_only
+    official_record = state.get("official_record") or {}
 
-    # Compute per-owner inputs.  ``career_state`` is a defaultdict but
-    # we read via ``.get`` to avoid mutating it for owners (e.g. new
-    # league members for the upcoming season) who never appeared in
-    # historical play.  Their historical components default to zero;
-    # in preseason mode those weights are renormalised away anyway.
-    inputs: dict[str, dict[str, float]] = {}
+    inputs: dict[str, dict[str, float | None]] = {}
     for oid in owner_ids:
         s = state["career"].get(oid, _EMPTY_CAREER)
-        ppg = s["points"] / s["games"] if s["games"] else 0.0
+        games = int(s.get("games") or 0)
+        points = float(s.get("points") or 0.0)
+        ppg = points / games if games else None
         rb = state["recent"].get(oid, [])
-        # UNMEASURED IS None, NOT 0.0 (owner invariant: missing != zero).
-        # An owner with no trailing games in the last SCORED season has
-        # no recent form -- not zero recent form, and not an average one.
-        # The retired ``else 0.0`` fed ``_percentile`` a real value, and
-        # because every owner shared it the percentile came back 0.5 for
-        # all of them: an unmeasured component published as a confident
-        # midpoint. ``None`` propagates to a dropped weight and a null
-        # component instead; see the per-owner renormalisation below.
         recent = sum(rb) / len(rb) if rb else None
-        wins = s["wins"]
-        games = s["games"] or 1
-        wl = wins / games  # already in [0, 1]
-        # UNMEASURED IS None, NOT 0.0 -- the same owner invariant recent
-        # binds to above (missing != zero).  ``last_season_allplay_share``
-        # only holds keys for owners who appeared in the last SCORED
-        # season's weeks, and all_play is an expected share on [0, 1]
-        # consumed raw (never percentiled), so the retired ``.get(oid,
-        # 0.0)`` default scored an absent owner as the league's WORST
-        # all-play performer -- a confident bottom value, at weight 0.08,
-        # for a component nothing measured.  ``None`` propagates to a
-        # dropped weight and a null component through the same per-owner
-        # renormalisation recent already uses.
+        computed_wl = float(s.get("wins") or 0.0) / games if games else None
+        wl = official_record.get(oid, computed_wl)
         all_play = state["allplay"].get(oid)
-        streak = _streak_score_from_outcomes(state["outcomes"].get(oid, []))
-        # Luck regression: a team whose actualWins lag expectedWins
-        # gets a small boost (regression toward expected).  Clamp to
-        # [-0.5, 0.5] then map to [0, 1].
-        # Re-walk the seasons to compute expectedWins (luck.py exposes
-        # this via build_section but at PR-2 budget we'd rather not
-        # invoke the whole section).  Re-use the same all_play share
-        # iteration (cheap; same data already in scope).
-        expected_share_running = state["expected"].get(oid, 0.0)
-        luck_delta = (wins - expected_share_running) / games if games else 0.0
-        luck_score = max(
-            0.0, min(1.0, 0.5 - luck_delta)
-        )  # underperformers get higher score (regression boost)
-
         inputs[oid] = {
             "ppg": ppg,
             "recent": recent,
             "wl_record": wl,
             "all_play": all_play,
-            "streak": streak,
-            "luck_regression": luck_score,
-            # UNMEASURED IS None, NOT a stand-in midpoint (the same owner
-            # invariant ``recent``/``all_play`` bind to above). An owner
-            # absent from a stale/partial team-strength file used to be
-            # scored at 0.5 -- an average schedule, published with full
-            # confidence -- rather than reporting the honest unknown that
-            # ``rosStrengthPercentile``/``ros_strength_pct`` already show
-            # for the very same owner. ``None`` now propagates to a
-            # dropped weight for THIS owner via the existing per-owner
-            # ``owner_weights`` filter below -- no new machinery.
-            "schedule_adjusted": schedule_by_owner.get(oid),
+            # Deliberately unmeasured until a canonical weekly VORP/PAR owner
+            # exists. The season-aggregate awards approximation is not a
+            # substitute for the quantity the Power spec names.
+            "team_vorp": None,
         }
 
-    # Convert raw inputs to percentiles (ppg, recent only — the others
-    # are already 0-1 scores).  ``recent_values`` may contain ``None``
-    # for owners with nothing measured; ``_percentile`` already excludes
-    # those from its comparison population (``eligible``), so an
-    # unmeasured owner cannot drag the scale others are ranked against.
-    ppg_values = [inputs[o]["ppg"] for o in owner_ids]
     recent_values = [inputs[o]["recent"] for o in owner_ids]
     recent_available = any(v is not None for v in recent_values)
-    # all_play is already a 0-1 share and is consumed raw -- unlike
-    # ``recent_values`` this list feeds no ``_percentile`` call.  It
-    # exists only to answer whether ANYONE was measured, so league-wide
-    # absence can renormalise the weight away below.
-    all_play_values = [inputs[o]["all_play"] for o in owner_ids]
-    all_play_available = any(v is not None for v in all_play_values)
+    all_play_available = any(inputs[o]["all_play"] is not None for o in owner_ids)
+    wl_available = any(inputs[o]["wl_record"] is not None for o in owner_ids)
 
-    # Renormalise weights when missing inputs are present so the score
-    # stays in [0, 100] instead of being deflated by the unfilled
-    # weight budget.
+    available_results: set[str] = set()
+    if all_play_available:
+        available_results.add("all_play")
+    if recent_available:
+        available_results.add("recent")
+    if wl_available:
+        available_results.add("wl_record")
+
     missing_inputs: list[str] = []
     if not ros_available:
         missing_inputs.append(_LENS_DROPPED_ROS if results_only else "team_ros_strength")
-    if not schedule_available:
-        missing_inputs.append("schedule_adjusted")
-    # Case (a) -- NOBODY has recent form (no scored weeks anywhere in the
-    # snapshot).  The component is unmeasurable league-wide, so it drops
-    # out of the weight budget entirely through the SAME mechanism
-    # ``team_ros_strength`` and ``schedule_adjusted`` already use.  No new
-    # rule: an input nothing can supply is renormalised away rather than
-    # scored at a stand-in value.
-    if not recent_available:
-        missing_inputs.append("recent")
-    # Same rule, same mechanism, for all_play (owner invariant: missing
-    # != zero).  With no scored weeks anywhere in the snapshot,
-    # ``last_season_allplay_share`` is empty, so the component is
-    # unmeasurable league-wide and drops out of the weight budget rather
-    # than being scored at a stand-in 0.0 for every owner.
     if not all_play_available:
         missing_inputs.append("all_play")
+    if not recent_available:
+        missing_inputs.append("recent")
+    if not wl_available:
+        missing_inputs.append("wl_record")
+    missing_inputs.append(
+        "team_vorp (canonical weekly realized VORP/PAR unavailable; not substituted)"
+    )
 
-    # THE PRESEASON SUPPRESSION BELONGS TO ONE LENS, NOT BOTH.
-    #
-    # ``_is_preseason``'s own reason for dropping the historical-results
-    # components is that they "describe a finished year and don't project
-    # the upcoming one ... so the score reflects only forward-looking
-    # inputs".  That argument is correct — for the FORWARD-LOOKING lens.
-    # It is exactly backwards for the retrospective one, whose entire
-    # subject matter IS the finished year.
-    #
-    # The results-only lens was added in V1-52 and inherited this rule
-    # unexamined.  The consequence was not subtle: results-only already
-    # drops ``team_ros_strength`` by definition, so preseason left it
-    # with NOTHING — the every-component-missing state the refusal below
-    # exists for — while the completed seasons it is made of sat in the
-    # accumulators untouched, for every day of the offseason.
-    #
-    # Measured on ``evidence/W30/power-two-engines.json``:
-    # ``preseason: true``, ``effectiveWeights`` just
-    # ``{team_ros_strength: 0.38, roster_health: 0.03}``.  After the
-    # roster-health de-double-count, forward-looking preseason carries
-    # ONE component and results-only carries none.
-    if preseason and not results_only:
-        for component in _HISTORICAL_RESULTS_COMPONENTS:
-            if component not in missing_inputs:
-                missing_inputs.append(component)
+    scored_games = _scored_game_count(state)
+    active_weights, blend = _effective_weight_vector(
+        scored_games=scored_games,
+        ros_available=ros_available,
+        available_results=available_results,
+        preseason=preseason,
+        results_only=results_only,
+    )
 
-    # PROGRESSIVE PER-COMPONENT ELIGIBILITY.
-    #
-    # Once preseason ends, every historical component used to activate
-    # SIMULTANEOUSLY on the very first scored game -- jumping the
-    # forward-looking weight basis from ~91% roster-strength/9% schedule
-    # straight to a 41%-roster-strength/59%-results mix in one week,
-    # including two components (`recent`, `streak`) that carry zero
-    # independent information yet at n=1 and one (`luck_regression`) that
-    # is a saturated 0/1 indicator there. Gating each component at its
-    # own derived minimum sample size (``_MIN_SCORED_GAMES`` above) spreads
-    # activation across weeks 1/2/4 instead. This reuses the SAME
-    # ``missing_inputs`` -> ``dropped_components`` -> ``active_weights``
-    # renormalisation the lens suppression above and the file-availability
-    # checks earlier both already use -- no new machinery, and this block
-    # never fires for the results-only lens's own subject matter (a
-    # completed season already has every game scored).
-    scored = _scored_game_count(state)
-    for component, minimum in _MIN_SCORED_GAMES.items():
-        if scored < minimum and component not in missing_inputs:
-            missing_inputs.append(f"{component} (needs {minimum} scored games, has {scored})")
-    # ``missing_inputs`` is a human-readable list; the weight lookup keys
-    # on component NAMES, so the lens marker is normalised back before it
-    # is used to drop a weight.  Without this the lens would leave
-    # ``team_ros_strength`` weighted at 0.41 against a component of 0.0 —
-    # a silent 41% deflation of every score rather than a renormalisation.
-    dropped_components = {m.split(" (")[0] for m in missing_inputs}
-    active_weights = {k: v for k, v in WEIGHTS.items() if k not in dropped_components}
+    # Canonical preseason intentionally suppresses the previous season's
+    # results. Results-only keeps them because retrospective performance is
+    # the explicit subject of that diagnostic lens.
+    suppressed_results = preseason and not results_only
 
-    # NOTHING SURVIVED -> NOTHING TO RANK ON.
-    #
-    # The renormalisation above is what makes the two lenses one engine,
-    # but it has a floor: when EVERY component is dropped there is no
-    # weighted score left to compute.  The old fallback made
-    # ``weight_total`` 1.0 against an empty numerator, so every owner
-    # scored exactly 0.0 — and the sort below, being stable over equal
-    # keys, then handed out ranks 1..N in ``owner_ids`` order.  An
-    # identifier ordering, published as a power ranking, contradicting
-    # the components printed beside it.
-    #
-    # This is reachable structurally rather than rarely: the
-    # results-only lens drops ``team_ros_strength`` BY DEFINITION and
-    # ``preseason`` drops all seven historical-results components, so
-    # the state is guaranteed for the whole offseason.
-    #
-    # Same failure family as the playoff-odds defect fixed in V1-51 — a
-    # placeholder made every entry tie and the tiebreak leaked an id
-    # ordering into a user-facing ranking.  Refuse instead: the owners
-    # are still listed and their components still published, but the
-    # score and the rank are ``None``.  ``None`` and not ``0.0``,
-    # because 0.0 is a real score a team can earn.
-    unrankable: list[dict[str, Any]] = []
+    def _component_map(oid: str) -> dict[str, float | None]:
+        i = inputs[oid]
+        recent_value = i["recent"]
+        return {
+            "team_ros_strength": ros_pct.get(oid) if ros_available else None,
+            "all_play": None if suppressed_results else i["all_play"],
+            "recent": (
+                None
+                if suppressed_results or recent_value is None
+                else _percentile(recent_values, recent_value)
+            ),
+            "team_vorp": None,
+            "wl_record": None if suppressed_results else i["wl_record"],
+            # Display-only diagnostics. Neither key appears in WEIGHTS.
+            "pointsPerGame": i["ppg"],
+            "recentAvg": recent_value,
+        }
+
     if not active_weights:
+        rows: list[dict[str, Any]] = []
         for oid in owner_ids:
-            i = inputs[oid]
-            # ``record`` is NOT set here -- see the comment on the
-            # headline post-pass in ``build_section``: this function's
-            # ``state["career"]`` is season-scoped for the headline call
-            # (V1-52 / #1032) and would silently produce a current-season
-            # record instead of the true career one this field means.
-            unrankable.append(
+            components = _component_map(oid)
+            rows.append(
                 {
                     "ownerId": oid,
                     "displayName": _metrics.display_name_for(snapshot, oid),
                     "powerScore": None,
                     "rank": None,
                     "components": {
-                        "ppg": round(_percentile(ppg_values, i["ppg"]), 4),
-                        # Unmeasured stays null on the refusal path too --
-                        # this branch already refuses to invent a score, so
-                        # inventing a component inside it would be the same
-                        # error one level down.
-                        "recent": (
-                            None
-                            if i["recent"] is None
-                            else round(_percentile(recent_values, i["recent"]), 4)
-                        ),
-                        "wl_record": round(i["wl_record"], 4),
-                        "all_play": (None if i["all_play"] is None else round(i["all_play"], 4)),
-                        "streak": round(i["streak"], 4),
-                        "luck_regression": round(i["luck_regression"], 4),
-                        "pointsPerGame": round(i["ppg"], 2),
-                        "recentAvg": (None if i["recent"] is None else round(i["recent"], 2)),
+                        k: (None if v is None else round(float(v), 4))
+                        for k, v in components.items()
                     },
                     "rosStrengthPercentile": None,
                     "weightsApplied": {},
                 }
             )
-        return unrankable, missing_inputs, active_weights
+        return rows, missing_inputs, active_weights, blend
 
-    # NOTE: the league-wide ``sum(active_weights.values())`` divisor is gone.
-    # Each row now divides by the total of the weights IT actually applied,
-    # which equals the league-wide total for every owner with complete data
-    # and differs only where a component is genuinely unknown.
     rankings: list[dict[str, Any]] = []
     for oid in owner_ids:
-        i = inputs[oid]
-        components: dict[str, float | None] = {
-            "ppg": _percentile(ppg_values, i["ppg"]),
-            # Case (b) -- this owner has no trailing games in the last
-            # SCORED season while others do.  The component is measurable
-            # league-wide, so it stays in ``active_weights``; it is THIS
-            # owner's value that is unknown.  Publishing ``None`` and
-            # dropping the weight for this row only is the same
-            # renormalisation rule as above, applied at the granularity
-            # the missingness actually has.
-            "recent": (None if i["recent"] is None else _percentile(recent_values, i["recent"])),
-            "wl_record": i["wl_record"],
-            "all_play": i["all_play"],
-            "streak": i["streak"],
-            "luck_regression": i["luck_regression"],
-        }
-        if ros_available:
-            # UNMEASURED IS None, NOT 0.0 -- an owner absent from a
-            # stale/partial team-strength file is NOT the league's worst
-            # roster; it is unknown. The retired ``.get(oid, 0.0)`` scored
-            # such an owner at the bottom of the scale with full weight
-            # while ``rosStrengthPercentile`` (below) reported the same
-            # quantity as ``None`` right beside it -- two contradictory
-            # answers to one question. ``None`` now drops this owner's
-            # weight for this row only, via the existing per-owner
-            # ``owner_weights`` filter.
-            components["team_ros_strength"] = ros_pct.get(oid)
-        # Per-owner missingness (this owner's own ``schedule_adjusted`` may
-        # be ``None`` even when the component is league-wide available --
-        # see the ``schedule_by_owner.get(oid)`` comment above) passes
-        # through unchanged; only league-wide unavailability forces None.
-        components["schedule_adjusted"] = i["schedule_adjusted"] if schedule_available else None
-
-        # A component gated off league-wide (preseason suppression or the
-        # progressive-eligibility minimum above) publishes ``None`` rather
-        # than a value this row happens to hold but the weighted sum never
-        # uses -- ``ros-power.jsx``'s ``ComponentBar`` already renders
-        # ``None`` as "no bar" rather than a fabricated 0%, so a component
-        # not yet eligible reads as absent, not as a real zero score.
-        for _dropped_key in dropped_components:
-            if _dropped_key in components:
-                components[_dropped_key] = None
-
-        # Active weighted score in [0, 1], then scale to 100.  Computed
-        # BEFORE the two raw fields below are folded in -- those are
-        # display-only and must never enter the weighted sum, which
-        # iterates ``active_weights`` (a fixed key set that never
-        # contains "pointsPerGame"/"recentAvg") rather than the whole
-        # ``components`` dict, so this ordering is a clarity choice, not
-        # a correctness dependency.
-        #
-        # PER-OWNER renormalisation.  ``active_weights``/``weight_total``
-        # are the league-wide budget; a component this owner has no value
-        # for is excluded from THEIR sum and THEIR divisor.  Multiplying a
-        # weight by a stand-in would be the coercion this change exists to
-        # remove, and leaving the weight in the divisor against a zero
-        # numerator would deflate the score by exactly that weight --
-        # the same silent deflation the league-wide renormalisation above
-        # was written to prevent.
+        components = _component_map(oid)
         owner_weights = {
-            k: w for k, w in active_weights.items() if components.get(k, 0.0) is not None
+            key: weight
+            for key, weight in active_weights.items()
+            if components.get(key) is not None
         }
         owner_weight_total = sum(owner_weights.values())
-        if not owner_weight_total:
-            # Nothing measurable for this owner at all.  Refuse rather
-            # than publish a score built from no evidence -- same rule as
-            # the section-level refusal above, same reason.
-            score = None
-        else:
-            score_unit = (
-                sum(owner_weights[k] * components[k] for k in owner_weights) / owner_weight_total
-            )
-            score = round(score_unit * 100, 2)
+        score = None
+        if owner_weight_total:
+            score_unit = sum(
+                owner_weights[key] * float(components[key]) for key in owner_weights
+            ) / owner_weight_total
+            score = round(score_unit * 100.0, 2)
 
-        # Raw magnitudes power.py's own renderer displayed alongside its
-        # percentile transforms (``pointsPerGame``/``recentAvg`` there).
-        # ``i["ppg"]``/``i["recent"]`` are the SAME locals already
-        # computed above to feed ``_percentile(...)`` a few lines up --
-        # this does not recompute anything or stand up a second engine,
-        # it stops discarding a value this function already produced.
-        # Display-only: excluded from ``active_weights`` by construction
-        # (the weight table has no "pointsPerGame"/"recentAvg" key), so
-        # publishing them cannot change ``score``.
-        components["pointsPerGame"] = round(i["ppg"], 2)
-        # ``null``, never 0.0 -- ros-power.jsx's ``fmtRaw`` already
-        # renders null as an em-dash, so an unmeasured average shows as
-        # "—" rather than a confident-looking "0.0".  That frontend
-        # behaviour is preserved, not changed.
-        components["recentAvg"] = None if i["recent"] is None else round(i["recent"], 2)
-
-        ros_strength_pct = ros_pct.get(oid, None) if ros_available else None
-        # Display name resolution: ``ManagerRegistry`` doesn't define
-        # a ``display_name_for`` method (the original ``hasattr`` guard
-        # always evaluated False), so this used to fall back to the
-        # raw Sleeper owner_id and the /league Power table rendered
-        # numeric IDs in the OWNER column.  The canonical helper lives
-        # at module scope in ``src.public_league.metrics``; use it
-        # consistently with the rest of the public-league pipeline.
-        # ``record`` is NOT set here -- see the headline post-pass in
-        # ``build_section``.
         rankings.append(
             {
                 "ownerId": oid,
                 "displayName": _metrics.display_name_for(snapshot, oid),
                 "powerScore": score,
                 "components": {
-                    k: (None if v is None else round(v, 4)) for k, v in components.items()
+                    k: (None if v is None else round(float(v), 4))
+                    for k, v in components.items()
                 },
                 "rosStrengthPercentile": (
-                    round(ros_strength_pct, 4) if ros_strength_pct is not None else None
+                    round(float(ros_pct[oid]), 4) if oid in ros_pct and ros_available else None
                 ),
-                # THIS owner's applied weights, not the league-wide budget.
-                # The field name already says "Applied", the score above is
-                # computed from exactly these, and ros-power.jsx's
-                # ``ComponentBar`` returns null for a weight it cannot find
-                # -- so an unmeasured component's bar vanishes instead of
-                # rendering a fabricated 0%.
                 "weightsApplied": dict(owner_weights),
             }
         )
 
-    # A refused row (``powerScore is None``) is NOT ranked -- ranking it
-    # would be the fabrication the refusal just avoided.  PARTITIONED
-    # rather than sorted with a placeholder key: substituting any number
-    # for the missing score, even one used only for ordering, is the
-    # coercion this change exists to remove, and it would put a real
-    # score and a stand-in on the same scale.  Ranks stay dense over the
-    # rows that have one; refused rows follow, in their existing order.
-    scored = [r for r in rankings if r["powerScore"] is not None]
+    # Standard competition ranking for exact score ties (1, 1, 3). ownerId
+    # is only a deterministic presentation tiebreak inside an equal-rank
+    # group; it never changes the published rank.
+    scored_rows = [r for r in rankings if r["powerScore"] is not None]
     refused = [r for r in rankings if r["powerScore"] is None]
-    scored.sort(key=lambda r: -r["powerScore"])
-    for rank, row in enumerate(scored, start=1):
-        row["rank"] = rank
+    scored_rows.sort(key=lambda r: (-float(r["powerScore"]), str(r["ownerId"])))
+    prior_score: float | None = None
+    prior_rank: int | None = None
+    for position, row in enumerate(scored_rows, start=1):
+        score = float(row["powerScore"])
+        if prior_score is not None and score == prior_score:
+            row["rank"] = prior_rank
+        else:
+            row["rank"] = position
+            prior_rank = position
+            prior_score = score
     for row in refused:
         row["rank"] = None
-    rankings = scored + refused
 
-    return rankings, missing_inputs, active_weights
+    return scored_rows + refused, missing_inputs, active_weights, blend
 
 
-#: The two lenses this engine publishes, and what separates them.
-#:
-#: They are NOT two formulas.  ``results_only`` is the same weight vector
-#: with ``team_ros_strength`` declared missing, renormalised by the
-#: machinery that already handles an absent team-strength file — so the
-#: relative weighting of every retrospective component is identical in
-#: both, and the only difference is whether the forward-looking input is
-#: in the mix.  That is what makes them lenses rather than engines.
+
+#: One canonical public answer plus one diagnostic retrospective lens.
+LENS_CANONICAL = "canonical"
+#: Compatibility alias accepted by the HTTP route for old bookmarks/clients.
+#: It executes the canonical blend; it is no longer a separate product label.
 LENS_FORWARD_LOOKING = "forward_looking"
 LENS_RESULTS_ONLY = "results_only"
 
