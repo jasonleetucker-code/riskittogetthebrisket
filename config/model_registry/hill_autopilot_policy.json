@@ -23,5 +23,7 @@
     "maxMedianAbsRankShift": 30,
     "maxP90AbsRankShift": 125
   },
-  "maxRowDropFromRecentMedianFraction": 0.15
+  "maxRowDropFromRecentMedianFraction": 0.15,
+  "bootstrapLowerQuantile": 0.05,
+  "minBootstrapLowerImprovementPoints": 25
 }
