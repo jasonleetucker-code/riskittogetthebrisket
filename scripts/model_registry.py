@@ -401,7 +401,9 @@ def main() -> int:
     )
     p_pro.set_defaults(fn=cmd_promote)
 
-    p_rej = sub.add_parser("reject", help="mark a challenger rejected and keep the evidence")
+    p_rej = sub.add_parser(
+        "reject", help="mark a challenger rejected and keep the evidence"
+    )
     p_rej.add_argument("version", type=int)
     p_rej.add_argument("--reason", required=True)
     p_rej.set_defaults(fn=cmd_reject)
