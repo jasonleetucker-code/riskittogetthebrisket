@@ -7,7 +7,8 @@ from types import SimpleNamespace
 
 import pytest
 
-from src.ros import power_snapshots
+from src.ros import power_snapshots, scrape
+from tests.ros.test_power_v2 import _make_snapshot
 
 
 def _section(*, week: int, ranks: dict[str, int], scores: dict[str, float] | None = None):
@@ -171,3 +172,45 @@ def test_refuses_unrankable_publication(tmp_path, monkeypatch):
             section=bad,
             scoring_fingerprint="abc",
         )
+
+def test_atomic_publication_leaves_no_visible_temp_file(tmp_path, monkeypatch):
+    monkeypatch.setattr(power_snapshots, "ROS_DATA_DIR", tmp_path)
+    path, created = power_snapshots.record_snapshot(
+        league_key="main",
+        section=_section(week=1, ranks={"a": 1, "b": 2}),
+        scoring_fingerprint="abc",
+    )
+    assert created
+    assert json.loads(path.read_text())["week"] == 1
+    assert not list(path.parent.glob(f".{path.name}.*.tmp"))
+
+
+def _publisher_snapshot(*, incomplete=False):
+    rosters = [
+        {"owner_id": "a", "roster_id": 1},
+        {"owner_id": "b", "roster_id": 2},
+        {"owner_id": "c", "roster_id": 3},
+        {"owner_id": "d", "roster_id": 4},
+    ]
+    rows = [
+        {"roster_id": 1, "matchup_id": 1, "points": 120.0},
+        {"roster_id": 2, "matchup_id": 1, "points": 110.0},
+        {"roster_id": 3, "matchup_id": 2, "points": 100.0},
+        {"roster_id": 4, "matchup_id": 2, "points": 0.0 if incomplete else 90.0},
+    ]
+    return _make_snapshot(rosters=rosters, matchups_by_week={1: rows})
+
+
+def test_publisher_requires_complete_scored_matchup_coverage():
+    complete = _publisher_snapshot()
+    assert scrape._power_week_is_complete(complete, "2026", 1)
+
+    incomplete = _publisher_snapshot(incomplete=True)
+    assert not scrape._power_week_is_complete(incomplete, "2026", 1)
+
+
+def test_publisher_rejects_missing_matchup_pair():
+    snapshot = _publisher_snapshot()
+    snapshot.current_season.matchups_by_week[1] = snapshot.current_season.matchups_by_week[1][:-1]
+    assert not scrape._power_week_is_complete(snapshot, "2026", 1)
+
