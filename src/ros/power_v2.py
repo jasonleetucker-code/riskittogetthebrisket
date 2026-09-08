@@ -48,6 +48,7 @@ from __future__ import annotations
 
 import logging
 import math
+import statistics
 from collections import defaultdict
 from typing import Any, Iterable
 
@@ -84,6 +85,21 @@ _RECENT_WINDOW = 4
 #: The existing awards approximation is season-aggregate and floors at zero;
 #: consuming it here would silently substitute a different quantity.
 _UNAVAILABLE_CANONICAL_COMPONENTS: frozenset[str] = frozenset({"team_vorp"})
+
+# Compatibility/diagnostic names retained for historical tests and payload
+# readers. They are NOT weighted by the canonical score.
+_HISTORICAL_RESULTS_COMPONENTS: tuple[str, ...] = (
+    "ppg",
+    "recent",
+    "wl_record",
+    "all_play",
+    "streak",
+    "luck_regression",
+)
+# The old cliff-based eligibility system is retired. Keeping an empty mapping
+# makes old monkeypatch-based tests harmless while the smooth blend owns sample
+# reliability.
+_MIN_SCORED_GAMES: dict[str, int] = {}
 
 METHODOLOGY_VERSION = "canonical-power-2026.09-v1"
 
@@ -430,17 +446,27 @@ def _score_state(
         computed_wl = float(s.get("wins") or 0.0) / games if games else None
         wl = official_record.get(oid, computed_wl)
         all_play = state["allplay"].get(oid)
+        outcomes = (state.get("outcomes") or {}).get(oid, [])
+        streak = _streak_score_from_outcomes(outcomes)
+        expected_total = float((state.get("expected") or {}).get(oid, 0.0))
+        luck_delta = (
+            (float(s.get("wins") or 0.0) - expected_total) / games if games else 0.0
+        )
+        luck_score = max(0.0, min(1.0, 0.5 - luck_delta))
         inputs[oid] = {
             "ppg": ppg,
             "recent": recent,
             "wl_record": wl,
             "all_play": all_play,
+            "streak": streak,
+            "luck_regression": luck_score,
             # Deliberately unmeasured until a canonical weekly VORP/PAR owner
             # exists. The season-aggregate awards approximation is not a
             # substitute for the quantity the Power spec names.
             "team_vorp": None,
         }
 
+    ppg_values = [inputs[o]["ppg"] for o in owner_ids]
     recent_values = [inputs[o]["recent"] for o in owner_ids]
     recent_available = any(v is not None for v in recent_values)
     all_play_available = any(inputs[o]["all_play"] is not None for o in owner_ids)
@@ -494,7 +520,14 @@ def _score_state(
             ),
             "team_vorp": None,
             "wl_record": None if suppressed_results else i["wl_record"],
-            # Display-only diagnostics. Neither key appears in WEIGHTS.
+            # Display-only diagnostics. None of these keys appears in WEIGHTS.
+            "ppg": (
+                None
+                if i["ppg"] is None
+                else _percentile(ppg_values, i["ppg"])
+            ),
+            "streak": None if suppressed_results else i["streak"],
+            "luck_regression": None if suppressed_results else i["luck_regression"],
             "pointsPerGame": i["ppg"],
             "recentAvg": recent_value,
         }
@@ -649,6 +682,8 @@ def build_section(
     last_season_recent: dict[str, list[float]] = defaultdict(list)
     last_season_allplay_share: dict[str, float] = {}
     allplay_share_total: dict[str, float] = defaultdict(float)
+    season_outcomes: dict[str, list[float]] = defaultdict(list)
+    expected_share_total: dict[str, float] = defaultdict(float)
     week_states: list[tuple[str, int, dict[str, Any]]] = []
     scored_week_by_season: dict[str, int] = {}
 
@@ -663,6 +698,8 @@ def build_section(
         last_season_recent = defaultdict(list)
         last_season_allplay_share = {}
         allplay_share_total = defaultdict(float)
+        season_outcomes = defaultdict(list)
+        expected_share_total = defaultdict(float)
         recent_buffer: dict[str, list[float]] = defaultdict(list)
 
         for wk in sorted(week_scores.keys()):
@@ -685,6 +722,7 @@ def build_section(
                 current["games"] += 1
                 current["wins"] += actual_share
                 current["losses"] += 1.0 - actual_share
+                season_outcomes[oid].append(actual_share)
 
                 recent = recent_buffer[oid]
                 recent.append(pts)
@@ -694,6 +732,7 @@ def build_section(
 
                 expected_share = float((all_play.get(oid) or {}).get("expectedShare", 0.0))
                 allplay_share_total[oid] += expected_share
+                expected_share_total[oid] += expected_share
                 # Season-to-date all-play, not "last week" wearing a broad
                 # label. This is the schedule-independent earned-performance
                 # signal named by the canonical spec.
@@ -711,6 +750,8 @@ def build_section(
                         "career": {o: dict(v) for o, v in season_state.items()},
                         "recent": {o: list(v) for o, v in last_season_recent.items()},
                         "allplay": dict(last_season_allplay_share),
+                        "expected": dict(expected_share_total),
+                        "outcomes": {o: list(v) for o, v in season_outcomes.items()},
                     },
                 )
             )
@@ -764,6 +805,8 @@ def build_section(
         "career": season_state,
         "recent": last_season_recent,
         "allplay": last_season_allplay_share,
+        "expected": expected_share_total,
+        "outcomes": season_outcomes,
         "official_record": official_record_scores,
     }
     rankings, missing_inputs, active_weights, blend = _score_state(
