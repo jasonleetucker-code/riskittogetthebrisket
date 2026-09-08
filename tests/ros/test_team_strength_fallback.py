@@ -86,7 +86,9 @@ class TestComputeTeamStrengthFromSnapshot(unittest.TestCase):
         by_owner = {r["ownerId"]: r for r in rows}
         self.assertIn("alpha", by_owner)
         self.assertIn("beta", by_owner)
-        self.assertGreater(by_owner["alpha"]["teamRosStrength"], by_owner["beta"]["teamRosStrength"])
+        self.assertGreater(
+            by_owner["alpha"]["teamRosStrength"], by_owner["beta"]["teamRosStrength"]
+        )
 
     def test_returns_empty_when_no_league_config_resolvable(self):
         snapshot = self._snapshot_with_players()

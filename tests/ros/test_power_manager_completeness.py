@@ -75,9 +75,7 @@ class TestManagerCompletenessUnderPartialUpstreamSources(unittest.TestCase):
         # historical_owner_ids only knows the two veterans -- exactly the
         # "10 pre-expansion owners" shape the real defect produced.
         ids = power_v2._enumerate_owner_ids(snapshot, [], ["veteran-01", "veteran-02"])
-        self.assertEqual(
-            set(ids), {"veteran-01", "veteran-02", "new-blaine", "new-jstuedle"}
-        )
+        self.assertEqual(set(ids), {"veteran-01", "veteran-02", "new-blaine", "new-jstuedle"})
 
     def test_precedence_prefers_current_season_over_stale_history(self):
         """Inverted 2026-09: current-season rosters are primary, history

@@ -194,7 +194,15 @@ class TestScenario2AfterWeek1(unittest.TestCase):
 
         eff = set(section["effectiveWeights"])
         self.assertTrue(
-            {"team_ros_strength", "ppg", "wl_record", "all_play", "streak", "recent", "luck_regression"}
+            {
+                "team_ros_strength",
+                "ppg",
+                "wl_record",
+                "all_play",
+                "streak",
+                "recent",
+                "luck_regression",
+            }
             <= eff
             or {"ppg", "wl_record", "all_play", "streak", "recent", "luck_regression"} <= eff,
             eff,
@@ -209,9 +217,13 @@ class TestScenario2AfterWeek1(unittest.TestCase):
         monotonically but never collapses to near-zero in one step."""
         shares = {}
         for n in (0, 1, 2, 4):
-            snapshot, owner_players = self._snapshot_with_n_scored_weeks(n) if n else (
-                _make_snapshot(rosters=_twelve_manager_rosters()),
-                None,
+            snapshot, owner_players = (
+                self._snapshot_with_n_scored_weeks(n)
+                if n
+                else (
+                    _make_snapshot(rosters=_twelve_manager_rosters()),
+                    None,
+                )
             )
             if owner_players is None:
                 owner_players = _hydrate_with_players(snapshot, _twelve_manager_rosters())

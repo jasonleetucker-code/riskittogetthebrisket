@@ -281,7 +281,9 @@ def test_the_trend_is_results_only_at_every_point_including_the_last(monkeypatch
     today's value is the as-of defect; splicing it into only the final
     point is worse, because the line would jump for a reason unrelated to
     play and no reader could tell that from a real move."""
-    monkeypatch.setattr(power_v2, "_load_team_strength_percentiles", lambda snapshot=None: {"o1": 0.99})
+    monkeypatch.setattr(
+        power_v2, "_load_team_strength_percentiles", lambda snapshot=None: {"o1": 0.99}
+    )
     out = power_v2.build_section(_asymmetric_snapshot())
 
     assert out["lens"] == power_v2.LENS_FORWARD_LOOKING

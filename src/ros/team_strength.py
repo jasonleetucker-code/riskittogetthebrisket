@@ -362,7 +362,9 @@ def compute_team_strength_from_snapshot(
         from src.public_league import metrics  # noqa: PLC0415
 
         cfg = (get_league_by_key(league_key) if league_key else None) or get_default_league()
-        starter_slots = flatten_starter_slots((getattr(cfg, "roster_settings", None) or {}).get("starters"))
+        starter_slots = flatten_starter_slots(
+            (getattr(cfg, "roster_settings", None) or {}).get("starters")
+        )
         if not starter_slots:
             LOG.warning("[ros] team-strength live fallback: no starter slots for %s", league_key)
             return []
@@ -422,7 +424,9 @@ def compute_team_strength_live(
         sleeper_league_id = getattr(cfg, "sleeper_league_id", None)
         if not cfg or not sleeper_league_id:
             return []
-        starter_slots = flatten_starter_slots((getattr(cfg, "roster_settings", None) or {}).get("starters"))
+        starter_slots = flatten_starter_slots(
+            (getattr(cfg, "roster_settings", None) or {}).get("starters")
+        )
         if not starter_slots:
             return []
 

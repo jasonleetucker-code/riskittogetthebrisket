@@ -277,7 +277,9 @@ def test_the_committed_dev_snapshot_shows_both_halves():
     ranks = sorted(r["rank"] for r in fwd["currentRanking"])
     assert ranks == [1, 2, 3, 4], ranks
     assert {r["ownerId"] for r in fwd["currentRanking"]} == {"o1", "o2", "o3", "o4"}
-    assert fwd["currentRanking"][0]["ownerId"] == "o1", "the highest ROS-aggregate roster ranks first"
+    assert (
+        fwd["currentRanking"][0]["ownerId"] == "o1"
+    ), "the highest ROS-aggregate roster ranks first"
 
     # RESULTS-ONLY: unchanged behaviour -- the completed season ranks on
     # real discriminating data, never a fabricated identifier order.
