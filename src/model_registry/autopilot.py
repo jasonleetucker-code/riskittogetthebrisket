@@ -146,6 +146,7 @@ def decide(
     fitted_span_days: Mapping[int, float],
     forward_scores: Sequence[ForwardScore],
     policy: AutopilotPolicy,
+    recent_row_health_ok: bool = True,
 ) -> AutopilotDecision:
     req = required_improvement(champion_criterion, policy)
     winner = choose_winner(candidates)
@@ -178,8 +179,10 @@ def decide(
         and no_large_regression
     )
 
-    rows_gate = bool(winner.per_source_rows) and all(
-        int(n) >= policy.min_rows_per_board for n in winner.per_source_rows.values()
+    rows_gate = (
+        bool(winner.per_source_rows)
+        and all(int(n) >= policy.min_rows_per_board for n in winner.per_source_rows.values())
+        and recent_row_health_ok
     )
 
     cluster = stable_cluster(
@@ -193,7 +196,11 @@ def decide(
     improvements = [x.improvement for x in forward_scores]
     forward_days = len(improvements)
     if improvements:
-        wins = sum(1 for x in improvements if x >= policy.min_current_improvement_points)
+        wins = sum(
+            1
+            for score in forward_scores
+            if score.improvement >= required_improvement(score.champion_criterion, policy)
+        )
         win_rate = wins / len(improvements)
         med = float(median(improvements))
     else:
