@@ -109,7 +109,7 @@ def test_authority_and_mode_composition_is_structurally_pinned():
 
     doc = _read("docs/autonomy/SITE_STEWARD_ARCHITECTURE_2026-09-08.md")
     assert "Mode × autonomy-class composition" in doc
-    assert "autonomous mode never upgrades the authority class" in doc
+    assert "`autonomous` mode never upgrades the authority class" in doc
 
 
 def test_pending_and_executed_actions_require_idempotency_keys():
