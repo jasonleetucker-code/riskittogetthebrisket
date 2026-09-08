@@ -126,3 +126,15 @@ def test_pending_and_executed_actions_require_idempotency_keys():
         payload["$defs"]["runReceipt"]["properties"]["actions"]["items"]["$ref"]
         == "#/$defs/executedAction"
     )
+
+
+def test_owner_zero_incremental_spend_policy_is_durable():
+    architecture = _read("docs/autonomy/SITE_STEWARD_ARCHITECTURE_2026-09-08.md")
+    vision = _read("docs/AUTONOMOUS_SITE_STEWARD_VISION.md")
+    assert "Owner cost policy — zero incremental spend by default" in architecture
+    assert "max_usd: 0" in architecture
+    assert "usage-billed OpenAI API models" in architecture
+    assert "Paid escalation requires a separate explicit owner authorization" in architecture
+    assert "Cost boundary" in vision
+    assert "incremental Steward usage budget is `$0`" in vision
+    assert "remains deferred rather than silently spending money" in vision
