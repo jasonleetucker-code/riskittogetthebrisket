@@ -172,4 +172,115 @@ describe("RosPowerSection — lens toggle and trend", () => {
     expect(container.textContent).not.toContain("▲");
     expect(container.textContent).not.toContain("▼");
   });
+  it("opens a screenshot-first 12-team share card with official movement only", async () => {
+    const rows = Array.from({ length: 12 }, (_, i) => ({
+      ownerId: `o${i + 1}`,
+      displayName: `Owner ${i + 1}`,
+      teamName: `Team ${i + 1}`,
+      powerScore: 90 - i,
+      rank: i + 1,
+      weekRankDelta: i === 0 ? 2 : i === 1 ? -1 : 0,
+      components: {},
+      weightsApplied: {},
+    }));
+    const officialRows = rows.map((row) => ({
+      ...row,
+      rankDelta: row.weekRankDelta,
+    }));
+    const body = {
+      currentRanking: rows,
+      officialSnapshot: { season: "2026", week: 2, ranking: officialRows },
+      asOfSeason: "2026",
+      asOfWeek: 2,
+      lens: "canonical",
+      weights: {},
+      effectiveWeights: {},
+      blend: { forwardWeight: 0.75, resultsWeight: 0.25 },
+      missingInputs: [],
+      preseason: false,
+      unrankable: null,
+      trend: { lens: "results_only", weeks: [], seriesByOwner: {} },
+    };
+    global.fetch = vi.fn((url) =>
+      Promise.resolve({
+        ok: true,
+        json: () =>
+          Promise.resolve(String(url).includes("playoffOdds") ? { owners: [] } : body),
+      }),
+    );
+
+    const RosPowerSection = await renderFresh();
+    render(<RosPowerSection />);
+    await waitFor(() => expect(screen.getByText("Owner 1")).toBeTruthy());
+
+    fireEvent.click(screen.getByRole("button", { name: /share rankings/i }));
+
+    const card = await screen.findByTestId("league-power-share-card");
+    expect(card.textContent).toContain("League Power Rankings");
+    expect(card.textContent).toContain("2026");
+    expect(card.textContent).toContain("Week 2");
+    expect(card.textContent).toContain("Official");
+    for (let i = 1; i <= 12; i += 1) {
+      expect(card.textContent).toContain(`Owner ${i}`);
+    }
+    expect(card.textContent).toContain("▲ 2");
+    expect(card.textContent).toContain("▼ 1");
+    expect(card.textContent).not.toContain("Power score");
+    expect(card.textContent).not.toContain("Recent form");
+  });
+
+  it("labels a first official ranking NEW rather than inventing movement", async () => {
+    const body = {
+      currentRanking: [
+        {
+          ownerId: "o1",
+          displayName: "Alice",
+          teamName: "Alice Team",
+          powerScore: 88.5,
+          rank: 1,
+          weekRankDelta: null,
+          components: {},
+          weightsApplied: {},
+        },
+      ],
+      officialSnapshot: {
+        season: "2026",
+        week: 1,
+        ranking: [
+          {
+            ownerId: "o1",
+            displayName: "Alice",
+            teamName: "Alice Team",
+            powerScore: 88.5,
+            rank: 1,
+            rankDelta: null,
+          },
+        ],
+      },
+      asOfSeason: "2026",
+      asOfWeek: 1,
+      lens: "canonical",
+      weights: {},
+      effectiveWeights: {},
+      blend: { forwardWeight: 0.75, resultsWeight: 0.25 },
+      missingInputs: [],
+      preseason: false,
+      unrankable: null,
+      trend: { lens: "results_only", weeks: [], seriesByOwner: {} },
+    };
+    global.fetch = vi.fn((url) =>
+      Promise.resolve({
+        ok: true,
+        json: () =>
+          Promise.resolve(String(url).includes("playoffOdds") ? { owners: [] } : body),
+      }),
+    );
+
+    const RosPowerSection = await renderFresh();
+    render(<RosPowerSection />);
+    await waitFor(() => expect(screen.getAllByText("Alice").length).toBeGreaterThan(0));
+    fireEvent.click(screen.getByRole("button", { name: /share rankings/i }));
+    expect((await screen.findByTestId("league-power-share-card")).textContent).toContain("NEW");
+  });
+
 });
