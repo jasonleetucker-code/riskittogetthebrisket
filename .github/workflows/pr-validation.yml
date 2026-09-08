@@ -116,16 +116,6 @@ jobs:
           # idempotent. Config: pyproject.toml [tool.ruff].
           python -m ruff format --check .
 
-      - name: TEMP diagnostic — show exact Ruff rewrite
-        if: failure()
-        shell: bash
-        run: |
-          set -Eeuo pipefail
-          python -m ruff format             src/ros/power_snapshots.py             src/ros/power_v2.py             src/ros/scrape.py             tests/ros/test_power_progressive_eligibility.py             tests/ros/test_power_snapshots.py             tests/ros/test_power_v2.py
-          git diff --             src/ros/power_snapshots.py             src/ros/power_v2.py             src/ros/scrape.py             tests/ros/test_power_progressive_eligibility.py             tests/ros/test_power_snapshots.py             tests/ros/test_power_v2.py
-          python -m ruff check             src/ros/power_snapshots.py             src/ros/power_v2.py             src/ros/scrape.py             tests/ros/test_power_progressive_eligibility.py             tests/ros/test_power_snapshots.py             tests/ros/test_power_v2.py
-          python -m pytest -q --tb=short             tests/ros/test_power_lenses.py             tests/ros/test_power_progressive_eligibility.py             tests/ros/test_power_snapshots.py             tests/ros/test_power_unrankable.py             tests/ros/test_power_v2.py             tests/ros/test_power_v2_headline_fields.py             tests/ros/test_power_v2_raw_magnitudes.py             tests/ros/test_power_v2_season_scoping.py             tests/public_league/test_server_routes.py
-
       - name: Python lint (ruff check — whole repo, blocking)
         # Was changed-files-only, and that was right at the time: phase
         # A3 ratcheted enforcement onto new violations while a ~77-item
