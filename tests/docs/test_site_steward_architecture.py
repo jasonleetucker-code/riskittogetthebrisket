@@ -81,3 +81,48 @@ def test_phase_one_requires_report_only_security_controls():
     assert "no write-capable token in model research process" in doc
     assert "HALT/budget/retry tests" in doc
     assert "resume after forced interruption without duplicate work" in doc
+
+
+def test_schema_root_validates_each_record_kind_directly():
+    payload = json.loads(_read("config/steward/contracts.schema.json"))
+    refs = {entry["$ref"] for entry in payload["oneOf"]}
+    assert refs == {
+        "#/$defs/autonomousRunContract",
+        "#/$defs/checkpoint",
+        "#/$defs/runReceipt",
+        "#/$defs/sourceCandidate",
+        "#/$defs/featureConcept",
+        "#/$defs/mediaEvidence",
+    }
+
+
+def test_authority_and_mode_composition_is_structurally_pinned():
+    payload = json.loads(_read("config/steward/contracts.schema.json"))
+    run = payload["$defs"]["autonomousRunContract"]
+    encoded = json.dumps(run["allOf"], sort_keys=True)
+    assert "A_REPORT_ONLY" in encoded
+    assert "C_PREAUTHORIZED_INTEGRATION" in encoded
+    assert "D_CONSEQUENTIAL" in encoded
+    assert "owner_authorization_ref" in encoded
+    assert "report_only" in encoded
+    assert "assisted" in encoded
+
+    doc = _read("docs/autonomy/SITE_STEWARD_ARCHITECTURE_2026-09-08.md")
+    assert "Mode × autonomy-class composition" in doc
+    assert "autonomous mode never upgrades the authority class" in doc
+
+
+def test_pending_and_executed_actions_require_idempotency_keys():
+    payload = json.loads(_read("config/steward/contracts.schema.json"))
+    pending = payload["$defs"]["pendingAction"]
+    executed = payload["$defs"]["executedAction"]
+    assert "idempotency_key" in pending["required"]
+    assert "idempotency_key" in executed["required"]
+    assert (
+        payload["$defs"]["checkpoint"]["properties"]["pending"]["items"]["$ref"]
+        == "#/$defs/pendingAction"
+    )
+    assert (
+        payload["$defs"]["runReceipt"]["properties"]["actions"]["items"]["$ref"]
+        == "#/$defs/executedAction"
+    )
