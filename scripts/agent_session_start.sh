@@ -23,6 +23,7 @@ python scripts/agent_os_receipt.py || true
 echo "  Technical runbook: CLAUDE.md (legacy filename; universal to all models)"
 echo "  Product authority: docs/EXECUTION_PLAN.md + any active owner-authorized contract"
 echo "  Coordination: ASSISTANT_COORDINATION.md + docs/WORK_CLAIMS.md"
+echo "  Python pre-push: python scripts/format_changed_python.py (run Ruff; never imitate it)"
 
 LAUNCH_CONTRACT="docs/season-launch/WEEK_1_LAUNCH_CONTRACT.md"
 if [[ -f "$LAUNCH_CONTRACT" ]]; then
