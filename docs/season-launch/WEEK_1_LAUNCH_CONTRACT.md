@@ -50,22 +50,26 @@ The denominator is frozen at 30 for this launch tranche. Do not add/remove rows 
 | W1-24 | Game Day truth | Game Day outputs preserve timestamp, model version, projection/source freshness, coverage, and truthful degraded/unavailable states. | VERIFIED |
 | W1-25 | Game Day UI | Canonical Game Day route/section and navigation shell are integrated into the existing site design and selected-team context. | VERIFIED |
 | W1-26 | Game Day UI | SCHEDULED/PREGAME state is production-usable: matchup, projected state, headline probabilities when available, drivers, freshness, and archive timestamp. | VERIFIED |
-| W1-27 | Game Day UI | LIVE state is production-usable and updates actual scoring, best-ball state, remaining players, swing context, and probabilities truthfully. | NOT STARTED |
-| W1-28 | Game Day UI | FINAL state is production-usable and preserves final optimal lineup/results plus clean transition/linkage to the canonical recap system. | NOT STARTED |
+| W1-27 | Game Day UI | LIVE state is production-usable and updates actual scoring, best-ball state, remaining players, swing context, and probabilities truthfully. | IMPLEMENTED_UNVERIFIED |
+| W1-28 | Game Day UI | FINAL state is production-usable and preserves final optimal lineup/results plus clean transition/linkage to the canonical recap system. | IMPLEMENTED_UNVERIFIED |
 | W1-29 | Launch verification | Final Week 1 candidate passes the required backend, frontend, contract/invariant, lint/build, audit, and E2E exact-head gates. | NOT STARTED |
 | W1-30 | Launch verification | Final Week 1 launch tree is deployed and production-verified for archive capture, all six pregames, private owner experience, and Game Day scheduled/live/final behavior as temporally applicable. | NOT STARTED |
 
 ## Mechanical tally
 
-*Recounted 2026-09-07 after W1-23 merged with authoritative host semantics and exact-head gates.*
+*Recounted 2026-09-08 after W1-27/W1-28 code merged (#1271) — tally unchanged, status corrected.*
 
 - VERIFIED: 24
-- IMPLEMENTED_UNVERIFIED: 1
+- IMPLEMENTED_UNVERIFIED: 3
 - IN PROGRESS: 0
-- NOT STARTED: 5
+- NOT STARTED: 3
 - BLOCKED: 0
 - DENOMINATOR: 30
 - COMPLETION: **24/30 = 80.0%**
+
+### Row movements, 2026-09-08
+
+- **W1-27 → IMPLEMENTED_UNVERIFIED (was `NOT STARTED`); W1-28 → IMPLEMENTED_UNVERIFIED (was `NOT STARTED`).** Correction, not new work: `NOT STARTED` had gone stale the moment #1271 merged (`codex/week1-live-final`, head `4e77187f5e69a9b46a78ad83972e26c1f4d913b1`, merge `a3c5e30e8d413ef324ec56bfcc1f7c473d21cbdd`, PR Validation `34147079001` green), and this repo's own IMPLEMENTED/MERGED/DEPLOYED/VERIFIED distinction forbids leaving a merged row reading as untouched. `resolve_scoring_week` builds LIVE from the existing pregame roster/projection adapter, `src/ros/lineup.py`'s exact solver, and `src/ros/game_day_sim.py`; FINAL reports WIN/LOSS/TIE and links the canonical `/league/articles/{season}/{week}` recap route; no second scoring, lineup, or narrative owner was introduced. Neither row moves to `VERIFIED` here: both need literal production LIVE/FINAL evidence during actual games, which cannot exist before Thursday's kickoff. W1-27 additionally carries an explicit, deliberately unresolved owner-methodology seam — an in-progress player's remaining production is `None` and raises `OWNER_POLICY_REQUIRED` rather than the implementation silently choosing time-proration, zero-remainder, or exclusion; nothing here selects one, and nothing should before the owner does. Tally arithmetic only: IMPLEMENTED_UNVERIFIED 1→3, NOT STARTED 5→3, VERIFIED unchanged at 24, completion unchanged at 24/30.
 
 ### Row movements, 2026-09-07
 
