@@ -376,14 +376,14 @@ class TestUnrankableUnaffected:
 #: The exact raw averages below pin that all four observed games contribute.
 _RECENT_ROSTERS = [{"roster_id": 1, "owner_id": "alpha"}, {"roster_id": 2, "owner_id": "bravo"}]
 _RECENT_SEASON_2025_SCORES = {
-    1: {1: 1000.0, 2: 0.0},
+    1: {1: 1000.0, 2: 40.0},
     2: {1: 10.0, 2: 100.0},
     3: {1: 20.0, 2: 200.0},
     4: {1: 30.0, 2: 300.0},
 }
 #: Recent-four means all four scored weeks are included.
 _ALPHA_RECENT = 265.0
-_BRAVO_RECENT = 150.0
+_BRAVO_RECENT = 160.0
 
 
 def _preseason_shape_snapshot() -> PublicLeagueSnapshot:
