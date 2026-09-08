@@ -122,3 +122,18 @@ def test_material_new_features_consider_shared_engineering_priorities():
     assert "does not authorize" in os_doc
     assert "not new product authority" in priorities
     assert "do not manufacture work" in os_doc
+
+def test_python_format_contract_is_shared_and_version_pinned():
+    entry = _read("AI_INSTRUCTIONS.md")
+    startup = _read("scripts/agent_session_start.sh")
+    gate = _read("scripts/format_python_changes.sh")
+    dev_requirements = _read("requirements-dev.txt")
+
+    assert "## Python formatting contract" in entry
+    assert "bash scripts/format_python_changes.sh" in entry
+    assert "Python format contract:" in startup
+    assert 'EXPECTED_RUFF_VERSION="0.6.9"' in gate
+    assert "ruff==0.6.9" in dev_requirements
+    assert "python -m ruff format --check ." in gate
+    assert "python -m ruff check ." in gate
+
