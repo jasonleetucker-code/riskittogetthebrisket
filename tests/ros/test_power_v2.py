@@ -309,7 +309,7 @@ class TestIsPreseason(unittest.TestCase):
 
 
 class TestEnumerateOwnerIds(unittest.TestCase):
-    def test_team_strength_takes_precedence(self):
+    def test_current_roster_membership_beats_stale_team_strength_extras(self):
         snapshot = _make_snapshot(
             rosters=[{"owner_id": "alpha", "roster_id": 1}],
         )
@@ -319,7 +319,7 @@ class TestEnumerateOwnerIds(unittest.TestCase):
         ]
         snapshot.managers.by_owner_id["bravo"] = Manager(owner_id="bravo", display_name="Bravo")
         ids = power_v2._enumerate_owner_ids(snapshot, ts_rows, [])
-        self.assertEqual(ids, ["alpha", "bravo"])
+        self.assertEqual(ids, ["alpha"])
 
     def test_falls_through_to_current_season_rosters(self):
         # Two new owners on the current Sleeper league; team_strength
@@ -333,13 +333,13 @@ class TestEnumerateOwnerIds(unittest.TestCase):
         ids = power_v2._enumerate_owner_ids(snapshot, [], [])
         self.assertEqual(set(ids), {"new1", "new2"})
 
-    def test_includes_historical_owners_still_registered(self):
+    def test_populated_current_roster_excludes_historical_only_owner(self):
         snapshot = _make_snapshot(
             rosters=[{"owner_id": "alpha", "roster_id": 1}],
         )
         snapshot.managers.by_owner_id["legacy"] = Manager(owner_id="legacy", display_name="Legacy")
         ids = power_v2._enumerate_owner_ids(snapshot, [], ["legacy"])
-        self.assertIn("legacy", ids)
+        self.assertEqual(ids, ["alpha"])
 
     def test_drops_unregistered_historical_owners(self):
         # Retired owners are filtered out at registry build time, so
