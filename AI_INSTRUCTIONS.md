@@ -35,6 +35,18 @@ Carry:
 
 into the first material checkpoint, material work-claim/PR handoff, and final handoff.
 
+## Python formatting is executable, not prose
+
+For any material Python edit, **do not hand-format or guess what Ruff will do**. The repository's formatting contract is the formatter itself:
+
+- exact tool version: `ruff==0.6.9` from `requirements-dev.txt`;
+- canonical configuration: `pyproject.toml [tool.ruff]` and `[tool.ruff.format]`;
+- canonical action before commit/push: `python scripts/format_changed_python.py`.
+
+That command runs Ruff's formatter on the changed Python files and then verifies both `ruff format --check` and `ruff check` on the same set. An agent that cannot execute the repository formatter must not claim its Python change is merge-ready; hand it off as formatting/unverified instead of approximating line wrapping by eye.
+
+This rule is model-neutral. Prompts do not need to restate Ruff line-wrapping conventions for Claude, Codex, ChatGPT, Copilot, Gemini, or future agents.
+
 ## Provider adapters
 
 - `CLAUDE.md` / `.claude/` — Claude compatibility/autostart surface.
