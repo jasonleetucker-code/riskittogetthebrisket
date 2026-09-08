@@ -351,7 +351,7 @@ function MovementMark({ value, emptyLabel = "—" }) {
 }
 
 function LeaguePowerShareCard({ data, rankings, managers }) {
-  const official = data?.officialSnapshot || null;
+  const official = data?.shareSnapshot || data?.officialSnapshot || null;
   const rows = Array.isArray(official?.ranking) && official.ranking.length ? official.ranking : rankings;
   const week = official?.week ?? data?.asOfWeek ?? null;
   const season = official?.season ?? data?.asOfSeason ?? null;
