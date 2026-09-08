@@ -47,7 +47,7 @@ def test_feature_discovery_requires_independent_repo_native_implementation():
 
 def test_media_lane_preserves_provenance_freshness_and_correlation():
     doc = _read("docs/AUTONOMOUS_SITE_STEWARD_VISION.md")
-    assert "public YouTube transcripts/captions" in doc
+    assert "publisher-permitted YouTube captions/transcripts when legitimately available" in doc
     assert "podcast transcripts or feeds" in doc
     assert "exact timestamp/range" in doc
     assert "freshness/expiry" in doc
