@@ -21,7 +21,10 @@ if str(REPO) not in sys.path:
     sys.path.insert(0, str(REPO))
 
 from src.api.data_contract import _PERCENTILE_REFERENCE_N  # noqa: E402
-from src.canonical.player_valuation import percentile_to_value, rank_to_percentile  # noqa: E402
+from src.canonical.player_valuation import (  # noqa: E402
+    percentile_to_value,
+    rank_to_percentile,
+)
 
 KTC_CSV = REPO / "CSVs" / "site_raw" / "ktc.csv"
 _PICK_PATTERN = re.compile(r"^\d{4}\s+(Early|Mid|Late)\s+\d", re.IGNORECASE)
