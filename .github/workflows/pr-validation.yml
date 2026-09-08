@@ -107,6 +107,14 @@ jobs:
           python -m py_compile server.py "Dynasty Scraper.py"
           python -m py_compile src/api/data_contract.py
 
+      - name: TEMP exact Ruff diff for Power lens test
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python -m ruff format tests/ros/test_power_lenses.py
+          git diff -- tests/ros/test_power_lenses.py
+          exit 1
+
       - name: Python format gate (ruff format --check)
         shell: bash
         run: |
