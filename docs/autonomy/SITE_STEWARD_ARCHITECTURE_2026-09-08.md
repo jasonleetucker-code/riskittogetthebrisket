@@ -425,6 +425,21 @@ GitHub scheduled workflows can be delayed under load, so deadlines requiring pre
 
 No model output can move an item to a more permissive class.
 
+### Mode × autonomy-class composition
+
+`mode` and `autonomy_class` are intentionally separate axes:
+
+- `autonomy_class` is the **maximum side-effect authority** the run may exercise;
+- `mode` is how independently the agent may operate **inside that ceiling**;
+- `autonomous` mode never upgrades the authority class.
+
+The initial machine contract enforces:
+- Class A => `report_only`;
+- Class C/D => a non-empty `owner_authorization_ref`;
+- Class D => `assisted` only (no unattended consequential execution).
+
+Future policy may narrow these combinations further. Broadening them is an owner/governance change, not a model decision.
+
 ## 18. Success metrics
 
 Track at minimum:
