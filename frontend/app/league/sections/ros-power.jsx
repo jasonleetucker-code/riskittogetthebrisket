@@ -578,6 +578,9 @@ export default function RosPowerSection({ managers } = {}) {
   const preseason = !!data.preseason;
   const trend = data.trend || null;
   const trendWeeks = trend?.weeks || [];
+  const blend = data.blend || {};
+  const forwardPct = Math.round(Number(blend.forwardWeight || 0) * 100);
+  const resultsPct = Math.round(Number(blend.resultsWeight || 0) * 100);
 
   // Render the formula description from whichever weights are actually
   // applied so the UI doesn't claim "season PPG (18%)" when we're going
@@ -609,13 +612,50 @@ export default function RosPowerSection({ managers } = {}) {
   return (
     <section>
       <Card title="Power Rankings">
-        {lensToggle}
+        <div style={{ display: "flex", justifyContent: "space-between", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+          {lensToggle}
+          {lens === LENS_CANONICAL ? (
+            <button
+              type="button"
+              onClick={() => setShareOpen((open) => !open)}
+              aria-expanded={shareOpen}
+              aria-controls="league-power-share-card"
+              style={{
+                padding: "5px 11px",
+                borderRadius: 6,
+                border: "1px solid var(--border-bright, var(--subtext))",
+                background: shareOpen ? "var(--cyan)" : "transparent",
+                color: shareOpen ? "#000" : "var(--text)",
+                cursor: "pointer",
+                fontSize: "0.72rem",
+                fontWeight: 700,
+              }}
+            >
+              {shareOpen ? "Hide Share Card" : "Share Rankings"}
+            </button>
+          ) : null}
+        </div>
+
+        {shareOpen && lens === LENS_CANONICAL ? (
+          <div id="league-power-share-card">
+            <LeaguePowerShareCard data={data} rankings={rankings} managers={managers} />
+            <div style={{ textAlign: "center", fontSize: "0.66rem", color: "var(--subtext)", margin: "-6px 0 10px" }}>
+              Sized to fit all 12 teams in one phone screenshot. Official weekly cards stay frozen after publication.
+            </div>
+          </div>
+        ) : null}
+
         <div style={{ fontSize: "0.72rem", color: "var(--subtext)", marginBottom: 10 }}>
-          {preseason && (
+          {lens === LENS_CANONICAL ? (
             <span style={{ color: "var(--cyan)" }}>
-              Going into the new season — only forward-looking inputs are used.{" "}
+              Canonical blend: {forwardPct}% forward-looking strength + {resultsPct}% results.{" "}
             </span>
+          ) : (
+            <span style={{ color: "var(--subtext)" }}>Diagnostic results-only view.{" "}</span>
           )}
+          {preseason && lens === LENS_CANONICAL ? (
+            <span>Preseason uses only legitimate forward-looking evidence.{" "}</span>
+          ) : null}
           {formulaParts.join(" + ")}
           {formulaParts.length > 0 && "."}
           {!rosAvailable && (
@@ -660,9 +700,9 @@ export default function RosPowerSection({ managers } = {}) {
               <th style={{ textAlign: "right", padding: "4px 8px" }}>Record</th>
               <th
                 style={{ textAlign: "right", padding: "4px 8px" }}
-                title="Results-only rank change vs. the prior week"
+                title={viewingHistory ? "Results-only historical change" : "Current canonical rank vs. the previous official weekly snapshot"}
               >
-                Trend
+                Move
               </th>
             </tr>
           </thead>
@@ -680,7 +720,7 @@ export default function RosPowerSection({ managers } = {}) {
                 trendDeltaValue={
                   viewingHistory
                     ? weekDelta(trendWeeks, selectedWeekIndex, row.ownerId)
-                    : trendDelta(trend, row.ownerId)
+                    : row.weekRankDelta
                 }
               />
             ))}
@@ -691,7 +731,7 @@ export default function RosPowerSection({ managers } = {}) {
       {trend?.seriesByOwner && (
         <Card
           title="Power score over time"
-          subtitle="Results-only at every point — forward-looking roster strength has no per-week history to plot."
+          subtitle="Diagnostic results-only history. Official canonical week-to-week movement is frozen in the weekly share snapshots."
         >
           <PowerChart
             series={Object.entries(trend.seriesByOwner).map(([ownerId, points]) => ({
