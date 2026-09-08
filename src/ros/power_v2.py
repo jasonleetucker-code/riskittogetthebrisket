@@ -206,41 +206,6 @@ def _load_team_strength_percentiles(
     return {oid: _percentile(score_values, score) for oid, score in scores}
 
 
-def _schedule_adjusted_scores(
-    snapshot: PublicLeagueSnapshot,
-    team_strength_pcts: dict[str, float],
-) -> dict[str, float]:
-    """Per-owner schedule difficulty score in [0, 1].
-
-    For each team, look up every remaining regular-season opponent
-    and average their team-strength percentile.  Easier schedules
-    average *low* opponent strength, so the score is the inverse:
-    ``1 - mean(opponent_strength_percentiles)``.
-
-    Empty dict when team-strength is absent or no remaining matchups
-    can be inferred — the caller's missing_inputs renormalisation
-    keeps absent metrics from deflating scores.
-    """
-    if not team_strength_pcts:
-        return {}
-    # Lazy import keeps this module's import path acyclic.
-    from src.ros import playoff_sim  # noqa: PLC0415
-
-    schedule = playoff_sim._remaining_schedule(snapshot)
-    opponents: dict[str, list[float]] = defaultdict(list)
-    for _week, owner_a, owner_b in schedule:
-        if owner_b in team_strength_pcts:
-            opponents[owner_a].append(team_strength_pcts[owner_b])
-        if owner_a in team_strength_pcts:
-            opponents[owner_b].append(team_strength_pcts[owner_a])
-    out: dict[str, float] = {}
-    for oid, op_pcts in opponents.items():
-        if not op_pcts:
-            continue
-        out[oid] = max(0.0, min(1.0, 1.0 - statistics.mean(op_pcts)))
-    return out
-
-
 def _is_preseason(snapshot: PublicLeagueSnapshot) -> bool:
     """True when no in-progress regular season exists for the snapshot.
 
