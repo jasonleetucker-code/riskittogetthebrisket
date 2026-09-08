@@ -127,16 +127,20 @@ class TestItDoesNotTouchProduction:
         assert (REPO / "src/canonical/player_valuation.py").read_bytes() == before_constants
         assert registry_path.read_bytes() == before_registry
 
-    def test_a_promotable_challenger_still_does_not_self_promote(self, tmp_path):
-        """MECHANISM TEST for the directive. Even the winning path must
-        leave production alone and hand off to a human."""
+    def test_a_promotable_raw_challenger_still_does_not_self_promote(self, tmp_path):
+        """The raw fitter never owns production mutation.
+
+        A winning raw challenger is only evidence for the separate
+        Hill Autopilot state-change gate.
+        """
         before = (REPO / "src/canonical/player_valuation.py").read_bytes()
         path = _challenger(tmp_path, HILL_PERCENTILE_C=0.098)
         r = _run("--challenger-json", str(path), "--dry-run")
         assert r.returncode == EXIT_PROMOTABLE
         assert (REPO / "src/canonical/player_valuation.py").read_bytes() == before
-        assert "A human must promote it" in r.stdout
-        assert "model_registry.py promote" in r.stdout
+        assert "Hill Autopilot" in r.stdout
+        assert "OFFENSE-only" in r.stdout
+        assert "GLOBAL/IDP are never overridden" in r.stdout
 
 
 class TestReportingHonesty:
