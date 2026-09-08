@@ -26,6 +26,7 @@ import sys
 import tempfile
 from datetime import datetime, timezone
 from pathlib import Path
+from statistics import median
 from typing import Any
 
 REPO = Path(__file__).resolve().parents[1]
@@ -184,6 +185,43 @@ def _forward_scores(champ, winner: CandidateScore) -> tuple[list[ForwardScore], 
     return out, details
 
 
+def _recent_row_health(current: dict[str, int], max_drop_fraction: float) -> tuple[bool, dict[str, Any]]:
+    """Compare this run's holdout depth with recent successful observations."""
+    if not RUN_LOG.exists():
+        return True, {}
+    history: list[dict[str, Any]] = []
+    for line in RUN_LOG.read_text(encoding="utf-8").splitlines()[-24:]:
+        try:
+            blob = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        rows = blob.get("currentRows")
+        if isinstance(rows, dict):
+            history.append(rows)
+
+    detail: dict[str, Any] = {}
+    ok = True
+    for src, now in current.items():
+        prior = [
+            int(rows[src])
+            for rows in history
+            if src in rows and isinstance(rows[src], (int, float))
+        ]
+        if len(prior) < 3:
+            continue
+        baseline = float(median(prior))
+        floor = baseline * (1.0 - max_drop_fraction)
+        source_ok = float(now) >= floor
+        detail[src] = {
+            "current": int(now),
+            "recentMedian": baseline,
+            "minimumAllowed": floor,
+            "pass": source_ok,
+        }
+        ok = ok and source_ok
+    return ok, detail
+
+
 def _append_log(blob: dict[str, Any]) -> None:
     RUN_LOG.parent.mkdir(parents=True, exist_ok=True)
     with RUN_LOG.open("a", encoding="utf-8") as f:
@@ -233,6 +271,11 @@ def main() -> int:
     if provisional is not None:
         forward, forward_details = _forward_scores(champ, provisional)
 
+    row_health_ok, row_health_detail = _recent_row_health(
+        dict(champ_eval.per_source_rows),
+        float(raw_policy.get("maxRowDropFromRecentMedianFraction", 0.15)),
+    )
+
     decision = decide(
         champion_criterion=float(champ_eval.criterion),
         champion_per_source=dict(champ_eval.per_source),
@@ -240,6 +283,7 @@ def main() -> int:
         fitted_span_days=fitted_days,
         forward_scores=forward,
         policy=policy,
+        recent_row_health_ok=row_health_ok,
     )
 
     winner = next((c for c in scores if c.version == decision.winner_version), None)
@@ -255,6 +299,8 @@ def main() -> int:
         "championVersion": champ.version,
         "championCriterion": round(champ_eval.criterion, 4),
         "championPerSource": {k: round(v, 4) for k, v in sorted(champ_eval.per_source.items())},
+        "currentRows": dict(champ_eval.per_source_rows),
+        "rowHealthDetail": row_health_detail,
         "winnerVersion": decision.winner_version,
         "ready": decision.ready,
         "reason": decision.reason,
