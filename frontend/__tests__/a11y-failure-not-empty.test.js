@@ -56,8 +56,6 @@ const BASELINE = {
   "app/league/sections/ros-power.jsx": 1,
   "app/league/LeagueClient.jsx": 2,
   "app/league/insider-trading/page.jsx": 1,
-  "app/market/sharp-people/page.jsx": 1,
-  "app/market/sharp-people/[personId]/page.jsx": 1,
 };
 
 function walk(dir, out = []) {

@@ -146,7 +146,7 @@ test.describe("public /league page", () => {
     });
 
     // On mobile (≤768px) the tab row is hidden and sections are selected
-    // via a <select> dropdown; on desktop, each tab is a <button>.
+    // via a <select> dropdown; on desktop, each ds/Tabs control is a\n    // <button role="tab">.
     //
     // This used to probe which control was live:
     //
@@ -204,7 +204,7 @@ test.describe("public /league page", () => {
         continue;
       }
       const btn = page
-        .getByRole("button", { name: label, exact: true })
+        .getByRole("tab", { name: label, exact: true })
         .first();
       if ((await btn.count()) === 0) {
         missingTabs.push(label);
@@ -249,9 +249,9 @@ test.describe("public /league page", () => {
       ).toHaveValue("awards");
     } else {
       await expect(
-        page.locator(".sub-nav-btn.active"),
-        "the active tab button must be Awards",
-      ).toHaveText("Awards");
+        page.getByRole("tab", { name: "Awards", exact: true }),
+        "the Awards tab must be selected",
+      ).toHaveAttribute("aria-selected", "true");
     }
   });
 
