@@ -21,6 +21,7 @@ from dataclasses import asdict
 from pathlib import Path
 from typing import Any
 
+from . import identity as _identity
 from .identity import Manager, ManagerRegistry, TeamAlias
 from .snapshot import PublicLeagueSnapshot, SeasonSnapshot
 
@@ -76,6 +77,7 @@ def _manager_to_dict(m: Manager) -> dict[str, Any]:
         "currentRosterId": m.current_roster_id,
         "currentTeamName": m.current_team_name,
         "currentLeagueId": m.current_league_id,
+        "isRetired": m.is_retired,
         "aliases": [asdict(a) for a in m.aliases],
     }
 
@@ -93,6 +95,14 @@ def _registry_to_dict(reg: ManagerRegistry) -> dict[str, Any]:
 def _registry_from_dict(d: dict[str, Any]) -> ManagerRegistry:
     reg = ManagerRegistry()
     for oid, row in (d.get("byOwnerId") or {}).items():
+        # ``isRetired`` re-derives from ``_RETIRED_OWNER_IDS`` with ``or``
+        # rather than trusting the stored bool alone: a snapshot persisted
+        # before this field existed round-trips ``False`` for every
+        # manager (the dataclass default), and without the re-derivation
+        # a cold-started process serving straight from that on-disk
+        # snapshot would resurrect every retired owner into current-view
+        # tables (the Power Rankings owner list among them) with a
+        # fabricated score, on every deploy until the file is rewritten.
         m = Manager(
             owner_id=str(oid),
             display_name=str(row.get("displayName") or ""),
@@ -100,6 +110,7 @@ def _registry_from_dict(d: dict[str, Any]) -> ManagerRegistry:
             current_roster_id=row.get("currentRosterId"),
             current_team_name=str(row.get("currentTeamName") or ""),
             current_league_id=str(row.get("currentLeagueId") or ""),
+            is_retired=bool(row.get("isRetired")) or str(oid) in _identity._RETIRED_OWNER_IDS,
             aliases=[
                 TeamAlias(
                     season=str(a.get("season") or ""),

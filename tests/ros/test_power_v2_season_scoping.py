@@ -173,7 +173,7 @@ class TestStreakAndLuckRegressionIsolation:
             "6-game streak would floor the score at 0.0"
         )
 
-    def test_luck_regression_uses_season_2_only_expected_share(self):
+    def test_luck_regression_uses_season_2_only_expected_share(self, monkeypatch):
         """alpha (from the main two-season fixture) went undefeated on
         all-play EXPECTATION in season 2025 (expectedShare 1.0 every
         week, blowing bravo out) and 0-for-3 on it in season 2026
@@ -190,7 +190,15 @@ class TestStreakAndLuckRegressionIsolation:
         (0 - 3.0) / 3 = -1.0 -> luck_score clamps to 1.0 (maximally
         "unlucky", which is false: nothing about season 2025 has
         anything to do with alpha's season-2 luck).
+
+        This fixture's season-2 is 3 games -- below the progressive-
+        eligibility minimum for ``luck_regression`` (4, added 2026-09).
+        That gate is orthogonal to what THIS test isolates (season
+        boundary reset, not sample-size eligibility), so it is patched
+        open here rather than adding a 4th game to a 3-way-shared fixture
+        that a dozen other tests also depend on at exactly 3 games.
         """
+        monkeypatch.setattr(power_v2, "_MIN_SCORED_GAMES", {})
         out = power_v2.build_section(_two_season_snapshot(), lens=power_v2.LENS_RESULTS_ONLY)
         alpha = _row(out["currentRanking"], "alpha")
         assert alpha["components"]["luck_regression"] == pytest.approx(0.5), (
@@ -249,11 +257,17 @@ class TestSeasonIsolation:
             assert alpha["components"]["wl_record"] == 0.0
             assert bravo["components"]["wl_record"] == 1.0
 
-    def test_recent_avg_is_exact_and_unaffected_by_the_fix(self):
+    def test_recent_avg_is_exact_and_unaffected_by_the_fix(self, monkeypatch):
         """recentAvg was ALREADY correctly season-scoped — regression
         check with real numbers, not just 'still passes'. 3 games played
         in season 2026, _RECENT_WINDOW is 3, so recentAvg == season PPG
-        here exactly."""
+        here exactly.
+
+        This fixture's season-2 is below the progressive-eligibility
+        minimum for ``recent`` (4, added 2026-09) -- orthogonal to what
+        this test isolates, so patched open rather than widening a
+        fixture shared by a dozen other 3-games-exactly tests."""
+        monkeypatch.setattr(power_v2, "_MIN_SCORED_GAMES", {})
         out = power_v2.build_section(_two_season_snapshot(), lens=power_v2.LENS_RESULTS_ONLY)
         alpha = _row(out["currentRanking"], "alpha")
         bravo = _row(out["currentRanking"], "bravo")
@@ -580,9 +594,17 @@ class TestUnmeasuredRecentFormStaysUnknown:
         )
         assert _row(out["currentRanking"], "carol")["components"]["recentAvg"] != 900.0
 
-    def test_the_absent_owner_is_scored_without_the_unknown_component(self):
+    def test_the_absent_owner_is_scored_without_the_unknown_component(self, monkeypatch):
         """Not deflated by a zero, and not credited with a midpoint --
-        the weight is simply not applied to this row."""
+        the weight is simply not applied to this row.
+
+        This fixture's 2025 season is 2 scored weeks for alpha/bravo --
+        below the progressive-eligibility minimum for ``recent`` (4,
+        added 2026-09), which would otherwise gate the component off
+        league-wide and mask what this test isolates (a per-OWNER null,
+        not a league-wide one). Patched open, orthogonal to eligibility.
+        """
+        monkeypatch.setattr(power_v2, "_MIN_SCORED_GAMES", {})
         out = power_v2.build_section(
             _owner_absent_from_last_scored_season_snapshot(), lens=power_v2.LENS_RESULTS_ONLY
         )
@@ -761,7 +783,13 @@ class TestEverySeasonResetHoldsAcrossThreeSeasons:
         assert dave["components"]["wl_record"] == pytest.approx(0.0)
         assert erin["components"]["wl_record"] == pytest.approx(1.0)
 
-    def test_reset_two_streak_and_luck_describe_the_last_scored_season(self):
+    def test_reset_two_streak_and_luck_describe_the_last_scored_season(self, monkeypatch):
+        # This fixture's 2025 season is 3 scored weeks -- below the
+        # progressive-eligibility minimum for ``luck_regression`` (4,
+        # added 2026-09), orthogonal to what this test isolates (season
+        # boundary reset). Patched open rather than widening a fixture
+        # whose exact week-by-week numbers several sibling tests depend on.
+        monkeypatch.setattr(power_v2, "_MIN_SCORED_GAMES", {})
         out = power_v2.build_section(_three_season_snapshot(), lens=power_v2.LENS_RESULTS_ONLY)
         rows = out["currentRanking"]
         # dave lost all three 2025 games. A career-scoped run would start

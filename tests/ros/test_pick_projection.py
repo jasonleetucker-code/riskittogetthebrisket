@@ -151,7 +151,12 @@ class TestPickProjectionsEndpoint:
         return TestClient(app)
 
     def test_no_snapshot_degrades_explicitly(self, monkeypatch):
-        monkeypatch.setattr(ros_api, "load_team_strength_snapshot", lambda *a, **k: None)
+        # ``get_pick_projections`` now reads team strength through
+        # ``load_or_compute_team_strength`` (2026-09), which tries the
+        # persisted snapshot, then a live-compute fallback -- so the
+        # "genuinely nothing available anywhere" case is an empty list
+        # from THAT function, not ``None`` from the old direct reader.
+        monkeypatch.setattr(ros_api, "load_or_compute_team_strength", lambda *a, **k: [])
         res = self._client().get("/api/ros/pick-projections")
         assert res.status_code == 200
         body = res.json()
@@ -161,7 +166,7 @@ class TestPickProjectionsEndpoint:
     def test_overlay_failure_degrades_explicitly(self, monkeypatch):
         monkeypatch.setattr(
             ros_api,
-            "load_team_strength_snapshot",
+            "load_or_compute_team_strength",
             lambda *a, **k: [strength_row(1, 300.0)],
         )
         import src.api.sleeper_overlay as overlay
@@ -180,7 +185,7 @@ class TestPickProjectionsEndpoint:
             team(1, "Rebuilders", [pick(2027, 1, 1, 1)]),
             team(2, "Champs", [pick(2027, 1, 2, 2)]),
         ]
-        monkeypatch.setattr(ros_api, "load_team_strength_snapshot", lambda *a, **k: strength)
+        monkeypatch.setattr(ros_api, "load_or_compute_team_strength", lambda *a, **k: strength)
         # The endpoint resolves the league lazily through the registry;
         # pin a fake league so the test doesn't depend on the sandbox's
         # registry file carrying a Sleeper id.

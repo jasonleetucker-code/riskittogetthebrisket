@@ -211,10 +211,14 @@ def league(tmp_path, monkeypatch):
     sim_path = tmp_path / "sims.json"
     sim_path.write_text(json.dumps({"playoffOdds": _sim_rows()}), encoding="utf-8")
 
+    # ``gameplan.py`` reads team strength through
+    # ``load_or_compute_team_strength`` (2026-09), which falls back to a
+    # live compute when nothing is persisted -- unlike the old direct
+    # reader, "unavailable" is an empty list, not ``None``.
     monkeypatch.setattr(
         gameplan,
-        "load_team_strength_snapshot",
-        lambda key=None: _snapshot() if key == "main" else None,
+        "load_or_compute_team_strength",
+        lambda key=None, **kw: _snapshot() if key == "main" else [],
     )
     monkeypatch.setattr(gameplan, "_team_strength_stamp_path", lambda key: snapshot_path)
     monkeypatch.setattr(gameplan, "_sim_playoff_path", lambda key: sim_path)
@@ -320,7 +324,10 @@ def test_no_leagues_configured_returns_404(tmp_path, monkeypatch):
 def test_missing_roster_snapshot_returns_503_with_a_reason(league, monkeypatch):
     """A league with no team-strength snapshot is data_not_ready, not a
     500 and not an empty 200 that reads as 'this roster has nothing'."""
-    monkeypatch.setattr(gameplan, "load_team_strength_snapshot", lambda key=None: None)
+    # ``gameplan.py`` reads team strength through
+    # ``load_or_compute_team_strength`` (2026-09); "unavailable" is now
+    # an empty list rather than ``None`` from the old direct reader.
+    monkeypatch.setattr(gameplan, "load_or_compute_team_strength", lambda key=None, **kw: [])
     with TestClient(server.app, raise_server_exceptions=True) as c:
         _install_contract(monkeypatch)
         res = _get(c, "/api/gameplan?team=owner0")

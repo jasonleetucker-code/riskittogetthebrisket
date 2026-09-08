@@ -19,7 +19,7 @@ from typing import Any
 
 from src.ros import ROS_DATA_DIR
 from src.ros.direction import build_roster_age_profile, classify_team
-from src.ros.team_strength import load_team_strength_snapshot
+from src.ros.team_strength import load_or_compute_team_strength
 from src.utils.unknown import Unknown, stamp
 
 LOG = logging.getLogger("ros.trade_deadline")
@@ -67,7 +67,7 @@ def build_team_directions(
     champs = championship_map or _load_championship_map()
     strengths = team_strength_map or {}
     if not strengths:
-        snap = load_team_strength_snapshot() or []
+        snap = load_or_compute_team_strength() or []
         strengths = {str(r.get("ownerId") or ""): r for r in snap if r.get("ownerId")}
 
     owner_ids = sorted(set(playoffs) | set(champs) | set(strengths))

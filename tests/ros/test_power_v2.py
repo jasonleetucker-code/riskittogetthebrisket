@@ -14,7 +14,7 @@ from unittest.mock import patch
 
 from src.public_league.identity import Manager, ManagerRegistry
 from src.public_league.snapshot import PublicLeagueSnapshot, SeasonSnapshot
-from src.ros import power_v2
+from src.ros import power_v2, team_strength
 
 
 class TestStreakScore(unittest.TestCase):
@@ -52,8 +52,17 @@ class TestPercentile(unittest.TestCase):
 
 
 class TestLoadTeamStrength(unittest.TestCase):
+    """``power_v2._load_team_strength_*`` delegate to
+    ``team_strength.load_or_compute_team_strength`` (2026-09), which owns
+    ``ROS_DATA_DIR``-relative path resolution now — the monkeypatch target
+    moved with it. No snapshot is passed in these two tests, so the
+    delegate's live-fallback tiers never fire: a missing file with no
+    snapshot in hand correctly falls through to [] (compute_team_strength_live
+    also finds nothing to work with in this unpatched-registry test
+    environment)."""
+
     def test_missing_file_returns_empty(self):
-        with patch.object(power_v2, "ROS_DATA_DIR", Path("/nonexistent")):
+        with patch.object(team_strength, "ROS_DATA_DIR", Path("/nonexistent")):
             self.assertEqual(power_v2._load_team_strength_percentiles(), {})
 
     def test_loads_and_percentiles(self):
@@ -74,7 +83,7 @@ class TestLoadTeamStrength(unittest.TestCase):
                     ]
                 )
             )
-            with patch.object(power_v2, "ROS_DATA_DIR", tmp_root):
+            with patch.object(team_strength, "ROS_DATA_DIR", tmp_root):
                 result = power_v2._load_team_strength_percentiles()
             self.assertEqual(set(result.keys()), {"alpha", "beta", "gamma"})
             self.assertGreater(result["alpha"], result["beta"])
@@ -421,7 +430,7 @@ class TestBuildSectionPreseason(unittest.TestCase):
             target = tmp_root / "team_strength" / "latest.json"
             target.parent.mkdir(parents=True, exist_ok=True)
             target.write_text(json.dumps(ts_rows))
-            with patch.object(power_v2, "ROS_DATA_DIR", tmp_root):
+            with patch.object(team_strength, "ROS_DATA_DIR", tmp_root):
                 section = power_v2.build_section(snapshot)
 
         self.assertEqual(len(section["currentRanking"]), 12)
@@ -452,14 +461,20 @@ class TestBuildSectionPreseason(unittest.TestCase):
         self.assertTrue(any(s > 0 for s in scores))
 
     def test_in_progress_season_keeps_historical_components(self):
-        # Sanity check that the preseason gate doesn't always fire.
+        # Sanity check that the preseason gate doesn't always fire.  Four
+        # scored weeks -- the highest progressive-eligibility minimum in
+        # ``_MIN_SCORED_GAMES`` (``recent``/``luck_regression``) -- so
+        # every historical component is eligible and this test still
+        # isolates the ORIGINAL preseason-suppression rule rather than
+        # colliding with the newer per-component gate.
         rosters = [{"owner_id": f"o{i}", "roster_id": i} for i in range(1, 4)]
         matchups = {
-            1: [
-                {"roster_id": 1, "points": 110.0},
-                {"roster_id": 2, "points": 90.0},
-                {"roster_id": 3, "points": 85.0},
-            ],
+            wk: [
+                {"roster_id": 1, "points": 110.0 + wk},
+                {"roster_id": 2, "points": 90.0 + wk},
+                {"roster_id": 3, "points": 85.0 + wk},
+            ]
+            for wk in (1, 2, 3, 4)
         }
         snapshot = _make_snapshot(rosters=rosters, matchups_by_week=matchups)
         with tempfile.TemporaryDirectory() as tmp:
@@ -478,7 +493,7 @@ class TestBuildSectionPreseason(unittest.TestCase):
                     ]
                 )
             )
-            with patch.object(power_v2, "ROS_DATA_DIR", tmp_root):
+            with patch.object(team_strength, "ROS_DATA_DIR", tmp_root):
                 section = power_v2.build_section(snapshot)
         self.assertFalse(section["preseason"])
         # Historical components should NOT have been auto-flagged
