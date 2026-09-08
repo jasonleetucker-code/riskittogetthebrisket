@@ -47,7 +47,7 @@ always renders this module's output.
 from __future__ import annotations
 
 import logging
-import statistics
+import math
 from collections import defaultdict
 from typing import Any, Iterable
 
@@ -57,59 +57,35 @@ from src.public_league.snapshot import PublicLeagueSnapshot
 LOG = logging.getLogger("ros.power_v2")
 
 
-# ── Formula weights (spec) ────────────────────────────────────────────
-# ``roster_health`` REMOVED 2026-08-18 and its 0.03 folded into
-# ``team_ros_strength``.  Two independent reasons, either sufficient:
-#
-# 1. SIGNAL INDEPENDENCE (CLAUDE.md §3.3 — "a body of evidence affects a
-#    conclusion once").  Health was counted TWICE: ``team_strength.py``
-#    already folds ``healthAvailabilityScore`` into the composite at
-#    ``WEIGHT_HEALTH = 0.05``, and this table then added it again on top of
-#    ``0.38 × percentile(composite)``.  On the preseason weight set the
-#    standalone term was 7.3% of the published score while the composite
-#    retained 4.6% of health influence.
-#
-# 2. PRIVACY (CLAUDE.md §5).  ``components.roster_health`` was
-#    ``healthAvailabilityScore / 100`` exactly — a field listed in
-#    ``tests/api/test_public_league_privacy_boundary.py::PRIVATE_MARKERS``,
-#    sourced from the AUTH-GATED ``rosTeamStrength`` section, republished on
-#    the PUBLIC ``rosPower`` section of an unauthenticated page.  The privacy
-#    guard scans for private field NAMES, so the rename+rescale passed it.
-#    The disclosure was exact rather than fuzzy: the score is
-#    ``healthy_starters / starting_slots``, so at 4dp over this league's 21
-#    slots a public reader recovers a rival's precise count of flagged
-#    starters.
-#
-# This is DE-DUPLICATION, not a weakening of the ranking, and not a
-# declassification: health keeps its designed 0.05 share inside
-# ``teamRosStrength``, whose inclusive PERCENTILE remains a public input by
-# owner decision.  Publishing only that rank is what keeps it safe — the
-# composite is ``0.72S + 0.18D + 0.05C + 0.05H`` and a rank over 12 owners is
-# 11 ordering constraints against 36 unknowns.
+# ── Canonical formula targets ─────────────────────────────────────────
+# Owner-approved starting point from docs/CANONICAL_WEEKLY_POWER_RANKINGS_SPEC.md.
+# These are TARGET masses, not a claim that every component is always
+# available. The canonical scorer preserves the forward-vs-results split
+# first, then renormalises within the results bucket when (today) canonical
+# weekly VORP/PAR is not yet available.
 WEIGHTS: dict[str, float] = {
-    "team_ros_strength": 0.41,
-    "ppg": 0.18,
-    "recent": 0.12,
+    "team_ros_strength": 0.40,
+    "all_play": 0.20,
+    "recent": 0.15,
+    "team_vorp": 0.15,
     "wl_record": 0.10,
-    "all_play": 0.08,
-    "streak": 0.05,
-    "schedule_adjusted": 0.04,
-    "luck_regression": 0.02,
 }
 
-_RECENT_WINDOW = 3  # matches power.py
+FORWARD_COMPONENTS: tuple[str, ...] = ("team_ros_strength",)
+RESULT_COMPONENTS: tuple[str, ...] = ("all_play", "recent", "team_vorp", "wl_record")
 
-# Components driven entirely by the most-recent-loaded season's results.
-# Routed through ``missing_inputs`` when no scored games exist in the
-# current season — see module docstring.
-_HISTORICAL_RESULTS_COMPONENTS: tuple[str, ...] = (
-    "ppg",
-    "recent",
-    "wl_record",
-    "all_play",
-    "streak",
-    "luck_regression",
-)
+#: Four games is both the recent-form horizon in the canonical spec and the
+#: evidence time constant.  results_evidence = 1 - exp(-games / 4) gives a
+#: smooth, monotone transition instead of arbitrary Week-1/2/4 cliffs.
+_RESULTS_EVIDENCE_TAU_GAMES = 4.0
+_RECENT_WINDOW = 4
+
+#: Canonical weekly/realized VORP is specified but not dependency-ready.
+#: The existing awards approximation is season-aggregate and floors at zero;
+#: consuming it here would silently substitute a different quantity.
+_UNAVAILABLE_CANONICAL_COMPONENTS: frozenset[str] = frozenset({"team_vorp"})
+
+METHODOLOGY_VERSION = "canonical-power-2026.09-v1"
 
 _EMPTY_CAREER: dict[str, float | int] = {
     "points": 0.0,
@@ -118,63 +94,70 @@ _EMPTY_CAREER: dict[str, float | int] = {
     "losses": 0.0,
 }
 
-# Progressive per-component eligibility (2026-09) — each historical
-# component activates the week IT, specifically, stops being a
-# double-count or a saturated indicator of an already-active one, not
-# the instant preseason ends. Every threshold below is DERIVED from the
-# component's own formula, not chosen:
-#
-#   ppg/wl_record/all_play = 1 -- real, fully-populated per-owner
-#     observations from game one. ``all_play`` in particular is ALWAYS a
-#     one-week statistic by existing design (``last_season_allplay_share``
-#     is overwritten every week, never accumulated, so mid-season trades
-#     aren't stale-weighted -- see the comment where it's built below);
-#     it never has a "sample size" to gate on, so its minimum is 1.
-#   streak = 2 -- at n=1, ``_streak_score_from_outcomes`` returns a
-#     monotone relabel of ``wl_record`` (0.6 for a win, 0.4 for a loss:
-#     no information ``wl_record`` doesn't already carry, at a second
-#     weight). n=2 is the first sample where it distinguishes a 2-0 start
-#     from a 1-1 split, which ``wl_record`` alone cannot.
-#   recent = _RECENT_WINDOW + 1 (4) -- at n <= _RECENT_WINDOW, the
-#     trailing window contains EVERY game of the season, making
-#     ``recent`` numerically identical to ``ppg`` -- the exact double
-#     count CLAUDE.md Sec 3.3 forbids. n=4 is the first sample where the
-#     window excludes a game ``ppg`` includes.
-#   luck_regression = 4 -- ``luck_score`` clamps
-#     ``0.5 - (wins - expected) / games`` to [0, 1], and that clamp binds
-#     whenever ``|wins - expected| > 0.5`` games, which is common at
-#     n <= 3 (any lopsided week against the league's all-play median
-#     saturates it to a plain 0/1 indicator rather than a graded score).
-#     n=4 requires a genuinely extreme record to still saturate.
-_MIN_SCORED_GAMES: dict[str, int] = {
-    "ppg": 1,
-    "wl_record": 1,
-    "all_play": 1,
-    "streak": 2,
-    "recent": _RECENT_WINDOW + 1,
-    "luck_regression": 4,
-}
-
 
 def _scored_game_count(state: dict[str, Any]) -> int:
-    """How many games the best-covered owner has played, as of ``state``.
-
-    Derived from ``state["career"]`` -- the SAME as-of accumulator
-    ``_score_state`` already receives -- never from the live snapshot.
-    The trend series calls this function once per past week with that
-    week's state, so eligibility reflects sample size AS OF that week,
-    not today's: the same as-of discipline the trend docstring already
-    requires elsewhere (why ROS strength is never back-filled onto past
-    weeks).
-
-    ``v.get("games", 0)`` -- not ``v.get("games") or 0`` -- because every
-    entry in ``career.values()`` is ``_EMPTY_CAREER``-shaped and always
-    carries a real accumulated int for ``games``; the key is never
-    actually missing, and 0 is a genuine "hasn't played yet" count, not a
-    stand-in for an unmeasured value.
-    """
+    """Maximum current-season games represented by an as-of state."""
     career = state.get("career") or {}
     return max((int(v.get("games", 0)) for v in career.values()), default=0)
+
+
+def _results_evidence(scored_games: int) -> float:
+    """Reliability multiplier for observed results, smoothly in [0, 1)."""
+    if scored_games <= 0:
+        return 0.0
+    return 1.0 - math.exp(-float(scored_games) / _RESULTS_EVIDENCE_TAU_GAMES)
+
+
+def _effective_weight_vector(
+    *,
+    scored_games: int,
+    ros_available: bool,
+    available_results: set[str],
+    preseason: bool,
+    results_only: bool,
+) -> tuple[dict[str, float], dict[str, float]]:
+    """Return the actual component weights plus blend metadata.
+
+    Canonical mode preserves the spec's 40/60 forward/results TARGET while
+    allowing observed evidence to earn its way into the score. Missing result
+    inputs are renormalised *inside* the results bucket so an unavailable VORP
+    dependency cannot accidentally make the ranking more forward-looking than
+    the methodology intends.
+
+    Results-only is a diagnostic lens over the same result components; it never
+    loads ROS and renormalises the available results to 100%.
+    """
+    result_keys = [k for k in RESULT_COMPONENTS if k in available_results]
+    result_base = sum(WEIGHTS[k] for k in result_keys)
+
+    if results_only:
+        forward_mass = 0.0
+        results_mass = 1.0 if result_base > 0 else 0.0
+        evidence = 1.0 if results_mass else 0.0
+    else:
+        evidence = 0.0 if preseason else _results_evidence(scored_games)
+        forward_raw = WEIGHTS["team_ros_strength"] if ros_available else 0.0
+        results_raw = sum(WEIGHTS[k] for k in RESULT_COMPONENTS) * evidence if result_base > 0 else 0.0
+        total = forward_raw + results_raw
+        forward_mass = forward_raw / total if total else 0.0
+        results_mass = results_raw / total if total else 0.0
+
+    applied: dict[str, float] = {}
+    if forward_mass and ros_available:
+        applied["team_ros_strength"] = forward_mass
+    if results_mass and result_base:
+        for key in result_keys:
+            applied[key] = results_mass * (WEIGHTS[key] / result_base)
+
+    blend = {
+        "forwardWeight": round(forward_mass, 6),
+        "resultsWeight": round(results_mass, 6),
+        "resultsEvidence": round(evidence, 6),
+        "scoredGames": int(scored_games),
+        "targetForwardWeight": WEIGHTS["team_ros_strength"],
+        "targetResultsWeight": sum(WEIGHTS[k] for k in RESULT_COMPONENTS),
+    }
+    return applied, blend
 
 
 def _percentile(values: list[float], target: float) -> float:
