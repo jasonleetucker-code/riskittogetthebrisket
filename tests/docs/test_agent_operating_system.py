@@ -202,7 +202,7 @@ def test_agent_os_requires_explicit_unresolved_completion_state():
     assert "Completion result contract" in doc
     assert "STATUS: DONE | PARTIAL | BLOCKED | ABANDONED" in doc
     assert "UNRESOLVED: NONE" in doc
-    assert "NONE is an evidence claim, not boilerplate" in doc
+    assert "`NONE` is an evidence claim, not boilerplate" in doc
     assert "may not report `STATUS: DONE`" in doc
     assert "Change-class evidence matrix" in doc
 
