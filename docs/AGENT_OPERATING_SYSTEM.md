@@ -244,6 +244,20 @@ A production verifier must distinguish:
 
 A later state cannot be inferred merely because an earlier state is true.
 
+### Change-class evidence matrix
+
+Calibrate proof to the kind of change. Do not substitute a convenient test class for the evidence the user-visible claim actually needs.
+
+- **UI / interaction** — component/unit coverage where useful **plus the real browser flow** on representative desktop/mobile surfaces when the change is user-visible. A clean build alone does not prove rendered behavior.
+- **Performance** — comparable before/after measurement with the same harness, environment, useful-state marker, sample method, and artifact identity. Do not call a timeout increase a performance fix.
+- **External source / scraper / feed** — provenance, game-type/domain classification, schema/row-count expectations, freshness, success/failure states, replay/fixture evidence where feasible, and downstream reachability. A parser existing is not source activation.
+- **API / data contract** — producer-to-consumer path, schema/typing checks where available, missing/stale/error semantics, and compatibility with affected consumers.
+- **Math / scoring / model methodology** — deterministic invariants plus representative historical/backtest/challenger evidence appropriate to the claim. Evaluation never self-authorizes production promotion.
+- **Deployment / production** — exact shipped artifact/commit identity plus observation on the actual deployed surface. Merge is not deploy; deploy is not verify.
+- **Harness / docs / agent policy** — cross-model parity, targeted documentation tests, and proof that provider adapters did not gain unique semantic authority.
+
+If the required evidence class cannot be obtained in the implementing environment, report that exact gap in `UNRESOLVED` and route it to the environment/role that can close it. Do not silently downgrade the acceptance bar.
+
 ## 5. Work is a graph; each unit is a loop
 
 ### Graph rule
@@ -272,6 +286,23 @@ Every bounded unit converges through this loop:
 9. **Record** — update the canonical contract/status and close the claim.
 
 If a step fails, route the unit to the smallest prior step that can repair the failure. Do not discard already accepted sibling work.
+
+### Completion result contract
+
+Every material bounded unit ends in structured state rather than a persuasive summary. Include:
+
+- `STATUS: DONE | PARTIAL | BLOCKED | ABANDONED`;
+- `ACCEPTANCE:` the exact criteria the unit was responsible for;
+- `EVIDENCE:` the checks/observations that actually ran;
+- `UNRESOLVED: NONE | <specific remaining acceptance gaps, uncertainties, decisions, or evidence>`;
+- `BLOCKERS:` external dependencies or owner decisions, if any;
+- `NEXT_ACTION:` the smallest dependency-ready continuation.
+
+`UNRESOLVED` is mandatory even when the value is `NONE`. `NONE` is an evidence claim, not boilerplate.
+
+A material unit may not report `STATUS: DONE` while `UNRESOLVED` contains a requirement needed for that unit's acceptance. Use `PARTIAL` or `BLOCKED` instead. Cosmetic follow-ups that are explicitly outside the unit's acceptance may remain visible without invalidating `DONE`, but label them as out-of-scope follow-ups rather than hiding them.
+
+When a machine-readable contract owns the work, prefer enforcing this result shape mechanically so a model cannot redefine completion in prose.
 
 ### Graph construction rules
 
@@ -446,6 +477,17 @@ Prefer the smallest edit that repairs the live path.
 
 Do not rewrite a whole file merely because the model can. A whole-file rewrite is justified only when the file's structure itself is the defect or the bounded replacement is demonstrably safer than a surgical edit. Preserve unrelated behavior and make review blast radius obvious.
 
+### Prefer existing mechanisms before new machinery
+
+Before adding a framework, abstraction, dependency, service, agent layer, or parallel implementation:
+
+1. inspect the existing canonical owner and nearby utilities;
+2. check whether the runtime/platform already supplies the capability;
+3. check whether an existing dependency or small local helper solves the bounded problem;
+4. introduce new machinery only when the gap and benefit are explicit.
+
+Do not add infrastructure merely because an external post recommends it or a stronger model makes it easy to generate. New dependencies and agent layers must earn their maintenance/context/security cost.
+
 ## 6. Autonomous-loop safety envelope
 
 The rules below apply when this repository ever owns an **unattended, recurrent, or long-lived agent runner**. They do not by themselves authorize one.
@@ -530,6 +572,14 @@ Do not blur these modes:
 
 Each scheduled loop declares its mode. Upgrading a loop to a more permissive mode is a product/operations decision and requires owner authorization.
 
+### Long-term autonomous site-steward target
+
+The owner-approved long-term direction is recorded in `docs/AUTONOMOUS_SITE_STEWARD_VISION.md`.
+
+The target is a **bounded, recurrent fantasy-site steward** that can continuously discover evidence, monitor source health, research new public sources and product ideas, inspect permitted media/transcripts, detect defects/performance regressions, create challenger experiments, build prototypes, repair dependency-ready defects, and keep the site useful with minimal owner attention.
+
+This is a destination and architecture contract, **not activation** and not permission to bypass existing product/methodology/source-promotion/deploy gates. Ordinary feature sessions should not preload the vision document; read it when designing or operating unattended/recurrent stewardship.
+
 ### Activation gate
 
 This section is **design policy, not activation**.
@@ -572,6 +622,20 @@ The #1239 season-launch incident is the model example:
 ## 8. Skills: small specialists, not an instruction landfill
 
 Skills are opt-in specialist playbooks.
+
+### Progressive skill disclosure
+
+Do not preload every full `SKILL.md` into every session.
+
+- At routing time, expose only the skill name, compact purpose/trigger, and location when the runtime supports that pattern.
+- Read the full skill only when the current task materially matches its trigger or an upstream trusted instruction explicitly requires it.
+- A worker should not inherit unrelated specialist instructions merely because those skills exist in the repository.
+- If multiple skills plausibly match, choose the smallest sufficient set and explain overlap only when it affects execution.
+- Harness audits should measure always-loaded instruction/context burden and treat unnecessary full-skill loading as instruction debt.
+
+### Skill-caused-stop transparency
+
+If a skill or repository instruction causes an agent to ask for approval, leave requested work unfinished, broaden verification materially, or diverge from the owner's apparent intent, the agent must name the exact file/rule that caused the stop or change and distinguish the explicit rule from its own interpretation. This is especially important on models that follow skill files more literally.
 
 A skill should:
 - have one recognizable trigger domain;
@@ -697,7 +761,8 @@ Always include:
 - tests and exact result;
 - implementation state;
 - integration/deploy/production state;
-- unresolved blocker/decision;
+- `UNRESOLVED: NONE | <specific items>` — mandatory, including evidence/acceptance gaps and owner decisions;
+- blockers, if any;
 - next dependency-ready action.
 
 For completion-contract work, include the mechanically counted numerator/denominator and identify newly verified rows.
@@ -712,7 +777,8 @@ Before a session declares a bounded unit complete:
 4. distinguish what is only implemented from what is actually deployed/verified;
 5. update/close the work claim;
 6. leave a durable disposition if abandoning/superseding a PR;
-7. update the canonical completion record only when its evidence bar is actually met.
+7. update the canonical completion record only when its evidence bar is actually met;
+8. emit the completion result contract, including mandatory `UNRESOLVED`; a nonempty acceptance-critical `UNRESOLVED` forbids `STATUS: DONE`.
 
 If the active fixed-denominator contract reaches its terminal state, report the exact terminal phrase defined by that contract and stop that completion campaign.
 
