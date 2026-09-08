@@ -128,3 +128,25 @@ def test_each_trend_point_is_as_of_that_week(monkeypatch):
         week = next(w for w in full["trend"]["weeks"] if w["week"] == week_number)
         got = {r["ownerId"]: r["powerScore"] for r in week["rankings"]}
         assert got == expected
+
+def test_exact_score_ties_share_standard_competition_rank(monkeypatch):
+    monkeypatch.setattr(power_v2, "_load_team_strength_percentiles", lambda snapshot=None: {})
+    rosters = [{"roster_id": i, "owner_id": f"o{i}"} for i in (1, 2, 3, 4)]
+    matchups = {
+        wk: [
+            {"roster_id": 1, "matchup_id": 1, "points": 100.0},
+            {"roster_id": 2, "matchup_id": 1, "points": 100.0},
+            {"roster_id": 3, "matchup_id": 2, "points": 100.0},
+            {"roster_id": 4, "matchup_id": 2, "points": 100.0},
+        ]
+        for wk in (1, 2, 3, 4)
+    }
+    out = power_v2.build_section(
+        _make_snapshot(rosters, matchups),
+        lens=power_v2.LENS_RESULTS_ONLY,
+    )
+    rows = out["currentRanking"]
+    assert {row["powerScore"] for row in rows} == {50.0}
+    assert [row["rank"] for row in rows] == [1, 1, 1, 1]
+    assert [row["ownerId"] for row in rows] == ["o1", "o2", "o3", "o4"]
+
