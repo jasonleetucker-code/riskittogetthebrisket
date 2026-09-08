@@ -129,6 +129,7 @@ def test_each_trend_point_is_as_of_that_week(monkeypatch):
         got = {r["ownerId"]: r["powerScore"] for r in week["rankings"]}
         assert got == expected
 
+
 def test_exact_score_ties_share_standard_competition_rank(monkeypatch):
     monkeypatch.setattr(power_v2, "_load_team_strength_percentiles", lambda snapshot=None: {})
     rosters = [{"roster_id": i, "owner_id": f"o{i}"} for i in (1, 2, 3, 4)]
