@@ -415,3 +415,26 @@ When a session says some variant of “I keep having to tell Claude X”:
 5. remove duplicate copies when safe.
 
 The objective is a harness that gets **smaller and more reliable** as the repo matures.
+
+
+### Astra operating-pattern batch — 2026-09-08
+
+Owner-supplied URLs:
+
+- `https://x.com/adiix_official/status/2097043504207728833?s=46`
+- `https://x.com/rewind02/status/2096918249900224631?s=46`
+- `https://x.com/av1dlive/status/2095913631766729159?s=46`
+- `https://x.com/pvncher/status/2095991462416490862?s=46`
+
+Disposition after comparing the posts against live repository behavior and current OpenAI Astra guidance:
+
+- **AdiiX** — adopted the durable completion lesson: every material unit must expose a mandatory `UNRESOLVED` field, and `DONE` is invalid when acceptance-critical unresolved work remains. This was generalized into a structured completion result rather than copied as a provider-specific prompt recipe.
+- **Rewind** — adopted progressive skill disclosure, existing-mechanism-first/anti-overengineering, and change-class evidence for browser/performance work. Did **not** hard-code a universal reasoning-effort level or install a new external framework merely because the post recommends one.
+- **Av1dlive** — the portable “one brain / multiple harnesses” direction is already embodied by `AI_INSTRUCTIONS.md` + model-neutral Agent OS + thin provider adapters. No second agent framework was imported. The useful portability principle was retained.
+- **pvncher** — reinforced the already-canonical model-migration/instruction-debt rule: stronger models can make old compensating prompts, oversized skills, and verification rituals negative value. The repo-harness auditor now explicitly measures progressive-disclosure/always-loaded instruction debt and stop causality.
+
+Current OpenAI guidance independently supports the highest-value changes: GPT-6 Astra is more sensitive to instructions in skills/AGENTS files, recommends auditing those files, can be asked to identify the exact skill that caused a pause/divergence, and recommends calibrating verification to the size/risk of a change rather than repeatedly broadening tests.
+
+The owner also established a long-term autonomy target in the same session. That target is recorded separately in `docs/AUTONOMOUS_SITE_STEWARD_VISION.md` so ordinary sessions do not pay its context cost. The durable design is a versioned repo/runtime contract plus scheduler/state/guards, **not** a monolithic “lifetime prompt.”
+
+No unattended runner is activated by this rationale section.
