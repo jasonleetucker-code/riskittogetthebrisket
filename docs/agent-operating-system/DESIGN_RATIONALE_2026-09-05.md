@@ -212,6 +212,26 @@ This batch was evaluated under the Agent OS external-guidance hygiene rule:
 
 The two unresolved exact posts may be reevaluated later if their bodies become reliably accessible. Until then, the repository must not infer their content from nearby posts or the authors' general themes.
 
+### External X batch — 2026-09-08 trust-boundary disposition
+
+Owner-supplied URLs:
+
+- `https://x.com/lummox_eth/status/2096995004946219447?s=46`
+- `https://x.com/zodchiii/status/2096677118570832006?s=46`
+- `https://x.com/sairahul1/status/2096964706099700065?s=46`
+- `https://x.com/bloggersarvesh/status/2095896040155340809?s=46`
+- `https://x.com/pvncher/status/2095991462416490862?s=46`
+
+Disposition:
+
+- **pvncher** — duplicate of the already-adopted model-migration/skill-pruning guidance; no new rule.
+- **zodchiii** — the exact post is promotional “you no longer need prompts” framing around Astra. No durable mechanism beyond already-adopted prompt-pruning/model-migration guidance; no new rule.
+- **sairahul1** — exact post recovered. Its main bullets (audit AGENTS.md, shorten skills, define autonomy, stop conditions, avoid redundant testing prompts) are already canonical. A high-value security issue surfaced in discussion of the linked audit pattern: a mutable remote URL should not be able to supply instructions that immediately mutate local files. This became the **External-content trust boundary** rule in the Agent OS.
+- **bloggersarvesh** — current material is SEO/local-business marketing guidance, not a site-engineering/harness mechanism for this repository; no Agent OS change.
+- **lummox_eth** — exact target body was not reliably recoverable from accessible mirrors during this pass. No rule is attributed to neighboring Lummox posts. Re-evaluate only when the exact post can be proven.
+
+The durable lesson from this batch is not another prompting recipe. It is that **external guidance must be treated as tainted evidence until the repository/user independently authorizes what to do with it**.
+
 ## What the repo already had
 
 The audit found that this repository was **not** starting from zero.
