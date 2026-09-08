@@ -2,6 +2,7 @@
 
 import { useMemo } from "react";
 import Link from "next/link";
+import { Badge, DataTable, Panel } from "@/components/ds";
 import { FailureState } from "@/components/ds/FailureState";
 import { EmptyState, LoadingState } from "@/components/ui";
 import { useRosterIntelligence } from "@/components/useRosterIntelligence";
@@ -9,10 +10,20 @@ import { useUserState } from "@/components/useUserState";
 import { teamStrengthLadder } from "@/lib/roster-intelligence";
 import { analyzeLeaguePhases } from "@/lib/team-phase";
 
+// Semantic signal tokens (--positive/--warning/--negative), not the
+// legacy --green/--amber/--red hex triplet — those are a SEPARATE,
+// uncalibrated color system (globals.css) from the CVD-validated
+// market-semantic tokens ds/Badge's Movement/StatusIndicator already
+// use everywhere else. Same up/warn/down meaning, one signal palette.
 const TONE_COLOR = {
-  up: "var(--green)",
-  warn: "var(--amber)",
-  down: "var(--red)",
+  up: "var(--positive)",
+  warn: "var(--warning)",
+  down: "var(--negative)",
+};
+const TONE_BADGE = {
+  up: "positive",
+  warn: "warning",
+  down: "negative",
 };
 
 function fmtAge(a) {
@@ -127,20 +138,75 @@ export default function TeamPhasePanel() {
       )
     : [];
 
-  return (
-    <div className="card" style={{ marginTop: 10, display: "flex", flexDirection: "column", gap: 10 }}>
-      <div>
-        <h3 style={{ margin: 0, fontSize: "0.92rem" }}>Win-now vs Rebuild</h3>
-        <p className="muted" style={{ fontSize: "0.7rem", margin: "4px 0 0" }}>
-          Each team classified by Team Strength (meaningful core) × value-weighted core
-          age, against the league medians ({fmtValue(analysis.leagueMedians.value)} strength ·{" "}
-          {fmtAge(analysis.leagueMedians.age)} age).
-        </p>
-      </div>
+  const columns = [
+    {
+      key: "name",
+      header: "Team",
+      sortable: true,
+      accessor: (t) => t.name,
+      render: (t) => {
+        const isMe = myOwnerId && t.ownerId === myOwnerId;
+        return (
+          <span style={{ fontWeight: isMe ? 700 : 500 }}>
+            {t.ownerId ? (
+              <Link
+                href={`/league/franchise/${encodeURIComponent(t.ownerId)}`}
+                style={{ color: "var(--accent)", textDecoration: "none" }}
+              >
+                {t.name}
+                {isMe && (
+                  <span className="muted" style={{ marginLeft: 6, fontSize: "0.66rem" }}>
+                    (you)
+                  </span>
+                )}
+              </Link>
+            ) : (
+              t.name
+            )}
+          </span>
+        );
+      },
+    },
+    {
+      key: "phase",
+      header: "Phase",
+      sortable: true,
+      accessor: (t) => t.phase.label,
+      render: (t) => <Badge tone={TONE_BADGE[t.phase.tone] || "neutral"}>{t.phase.label}</Badge>,
+    },
+    {
+      key: "totalValue",
+      header: "Team Strength",
+      numeric: true,
+      sortable: true,
+      accessor: (t) => t.totalValue,
+      render: (t) => fmtValue(t.totalValue),
+    },
+    {
+      key: "medianAge",
+      header: "Core age",
+      numeric: true,
+      sortable: true,
+      accessor: (t) => t.medianAge,
+      render: (t) => fmtAge(t.medianAge),
+    },
+  ];
 
+  return (
+    <Panel
+      title="Win-now vs Rebuild"
+      subtitle={`Each team classified by Team Strength (meaningful core) × value-weighted core age, against the league medians (${fmtValue(analysis.leagueMedians.value)} strength · ${fmtAge(analysis.leagueMedians.age)} age).`}
+    >
       {myRow && (
-        <div style={{ padding: 8, borderRadius: 4, border: "1px solid var(--border)" }}>
-          <div style={{ fontSize: "0.74rem", color: "var(--subtext)" }}>You are:</div>
+        <div
+          style={{
+            padding: "var(--space-3)",
+            borderRadius: "var(--radius-2)",
+            border: "1px solid var(--border-default)",
+            marginBottom: "var(--space-3)",
+          }}
+        >
+          <div style={{ fontSize: "0.74rem", color: "var(--text-tertiary)" }}>You are:</div>
           <div style={{ display: "flex", alignItems: "baseline", gap: 8, flexWrap: "wrap" }}>
             <strong style={{ fontSize: "0.96rem", color: TONE_COLOR[myRow.phase.tone] }}>
               {myRow.phase.label}
@@ -152,65 +218,17 @@ export default function TeamPhasePanel() {
         </div>
       )}
 
-      <div className="table-wrap">
-        <table>
-          <thead>
-            <tr>
-              <th style={{ textAlign: "left" }}>Team</th>
-              <th style={{ textAlign: "left" }}>Phase</th>
-              <th style={{ textAlign: "right" }}>Team Strength</th>
-              <th style={{ textAlign: "right" }}>Core age</th>
-            </tr>
-          </thead>
-          <tbody>
-            {analysis.teams.map((t) => {
-              const isMe = myOwnerId && t.ownerId === myOwnerId;
-              return (
-                <tr key={t.ownerId || t.name}>
-                  <td style={{ fontWeight: isMe ? 700 : 500 }}>
-                    {t.ownerId ? (
-                      <Link
-                        href={`/league/franchise/${encodeURIComponent(t.ownerId)}`}
-                        style={{ color: "var(--cyan)", textDecoration: "none" }}
-                      >
-                        {t.name}
-                        {isMe && (
-                          <span className="muted" style={{ marginLeft: 6, fontSize: "0.66rem" }}>
-                            (you)
-                          </span>
-                        )}
-                      </Link>
-                    ) : (
-                      t.name
-                    )}
-                  </td>
-                  <td>
-                    <span
-                      className="badge"
-                      style={{
-                        backgroundColor: "var(--surface-2)",
-                        color: TONE_COLOR[t.phase.tone],
-                        fontSize: "0.7rem",
-                      }}
-                    >
-                      {t.phase.label}
-                    </span>
-                  </td>
-                  <td style={{ textAlign: "right", fontFamily: "var(--mono)" }}>
-                    {fmtValue(t.totalValue)}
-                  </td>
-                  <td style={{ textAlign: "right", fontFamily: "var(--mono)" }}>
-                    {fmtAge(t.medianAge)}
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
+      <DataTable
+        columns={columns}
+        rows={analysis.teams}
+        rowKey={(t) => t.ownerId || t.name}
+        caption="League teams classified by Team Strength and value-weighted core age into win-now vs. rebuild phases."
+        density="compact"
+        defaultSort={{ key: "totalValue", direction: "desc" }}
+      />
 
       {myPartnerships.length > 0 && (
-        <div>
+        <div style={{ marginTop: "var(--space-3)" }}>
           <strong style={{ fontSize: "0.84rem" }}>Natural trade partners for you</strong>
           <ul style={{ margin: "4px 0 0 16px", padding: 0, fontSize: "0.78rem" }}>
             {myPartnerships.slice(0, 3).map((p) => {
@@ -227,7 +245,7 @@ export default function TeamPhasePanel() {
                   {direction}{" "}
                   <Link
                     href={`/league/franchise/${encodeURIComponent(otherId)}`}
-                    style={{ color: "var(--cyan)" }}
+                    style={{ color: "var(--accent)" }}
                   >
                     {otherName}
                   </Link>
@@ -237,6 +255,6 @@ export default function TeamPhasePanel() {
           </ul>
         </div>
       )}
-    </div>
+    </Panel>
   );
 }
