@@ -347,6 +347,99 @@ function PowerChart({ series, highlightOwnerId = null }) {
   );
 }
 
+function MovementMark({ value, emptyLabel = "—" }) {
+  if (value == null) return <span style={{ color: "var(--subtext)" }}>{emptyLabel}</span>;
+  if (Number(value) === 0) return <span style={{ color: "var(--subtext)" }}>—</span>;
+  const up = Number(value) > 0;
+  return (
+    <span
+      aria-label={up ? `up ${Math.abs(Number(value))}` : `down ${Math.abs(Number(value))}`}
+      style={{
+        fontFamily: "var(--mono)",
+        fontWeight: 800,
+        color: up ? "var(--positive, var(--cyan))" : "var(--negative, var(--amber))",
+      }}
+    >
+      {up ? "▲" : "▼"} {Math.abs(Number(value))}
+    </span>
+  );
+}
+
+function LeaguePowerShareCard({ data, rankings, managers }) {
+  const official = data?.officialSnapshot || null;
+  const rows = Array.isArray(official?.ranking) && official.ranking.length ? official.ranking : rankings;
+  const week = official?.week ?? data?.asOfWeek ?? null;
+  const season = official?.season ?? data?.asOfSeason ?? null;
+  const isOfficial = !!official;
+
+  return (
+    <div
+      data-testid="league-power-share-card"
+      aria-label="League Power Rankings share card"
+      style={{
+        width: "min(100%, 520px)",
+        margin: "10px auto 14px",
+        padding: "14px 14px 10px",
+        border: "1px solid var(--border-bright, var(--border))",
+        borderRadius: 12,
+        background: "var(--panel, rgba(12, 18, 28, 0.98))",
+        boxShadow: "0 10px 30px rgba(0,0,0,0.22)",
+      }}
+    >
+      <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "baseline", marginBottom: 8 }}>
+        <div>
+          <div style={{ fontSize: "1rem", fontWeight: 900, letterSpacing: "0.02em" }}>League Power Rankings</div>
+          <div style={{ fontSize: "0.68rem", color: "var(--subtext)" }}>
+            {season ? season : "Current season"}{week ? ` · Week ${week}` : ""}{isOfficial ? " · Official" : " · Current"}
+          </div>
+        </div>
+        <div style={{ fontSize: "0.62rem", color: "var(--subtext)", textAlign: "right" }}>
+          Risk It To Get The Brisket
+        </div>
+      </div>
+
+      <div style={{ display: "grid", gap: 2 }}>
+        {rows.map((row, index) => {
+          const movement = isOfficial ? row.rankDelta : row.weekRankDelta;
+          const ownerName = managers
+            ? nameFor(managers, row.ownerId)
+            : row.displayName || row.ownerId || "—";
+          return (
+            <div
+              key={row.ownerId || index}
+              style={{
+                display: "grid",
+                gridTemplateColumns: "30px minmax(0,1fr) 58px",
+                alignItems: "center",
+                minHeight: 31,
+                padding: "4px 6px",
+                borderBottom: index === rows.length - 1 ? "none" : "1px solid var(--border)",
+              }}
+            >
+              <div style={{ fontFamily: "var(--mono)", fontSize: "0.82rem", fontWeight: 900, textAlign: "center" }}>
+                {row.rank ?? "—"}
+              </div>
+              <div style={{ minWidth: 0 }}>
+                <div style={{ fontSize: "0.82rem", fontWeight: 750, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                  {ownerName}
+                </div>
+                {row.teamName ? (
+                  <div style={{ fontSize: "0.6rem", color: "var(--subtext)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                    {row.teamName}
+                  </div>
+                ) : null}
+              </div>
+              <div style={{ textAlign: "right", fontSize: "0.74rem" }}>
+                <MovementMark value={movement} emptyLabel={week && Number(week) <= 1 ? "NEW" : "—"} />
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 export default function RosPowerSection({ managers } = {}) {
   const [lens, setLens] = useState(LENS_CANONICAL);
   const [data, setData] = useState(() => _caches[LENS_CANONICAL].data);
@@ -392,7 +485,7 @@ export default function RosPowerSection({ managers } = {}) {
   const lensToggle = (
     <div style={{ display: "flex", gap: 4, marginBottom: 8, fontSize: "0.72rem" }}>
       {[
-        { key: LENS_FORWARD_LOOKING, label: "Forward-looking" },
+        { key: LENS_CANONICAL, label: "Canonical" },
         { key: LENS_RESULTS_ONLY, label: "Results only" },
       ].map((opt) => (
         <button
