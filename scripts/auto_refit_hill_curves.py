@@ -30,12 +30,12 @@ Fit → challenger → score champion and challenger on boards the fit
 never reads → record both in the model registry → report.  This script
 no longer writes ``player_valuation.py``, and does not import the
 function that can.  Constants move only through
-``scripts/model_registry.py promote`` + ``apply``, run by a human.
+``scripts/model_registry.py promote`` + ``apply``. The two-hour workflow may run those commands only after Hill Autopilot's independent readiness and board-impact gates clear.
 
 Exit codes (the workflow branches on these):
     0   champion stands — no drift, or the challenger did not clear
-        the promotion margin.  The ordinary weekly outcome.
-    1   challenger is PROMOTABLE — a human should review and promote.
+        the promotion margin.  The ordinary per-refresh outcome.
+    1   raw challenger cleared the OFFENSE gate — Hill Autopilot adjudicates canonical promotion.
     2   error — fit failed, or the gate could not be evaluated.
     3   REGRESSION ALARM — the challenger is far worse than the
         champion, which points at the fit or its inputs.
@@ -310,19 +310,12 @@ def main() -> int:
     if decision.promote:
         target = recorded if recorded is not None else "<version>"
         print(
-            "\nA human must promote it — this script cannot. To land it:\n"
-            "  python3 scripts/model_registry.py evaluate --champion --record\n"
-            f"  python3 scripts/model_registry.py validate {target}\n"
-            f'  python3 scripts/model_registry.py promote {target} --reason "held-out win"\n'
-            "  python3 scripts/model_registry.py apply\n"
-            "  # then run the suite and open a PR\n"
-            "\n"
-            "  # NOTE: `promote` runs the per-scope evidence gate and will REFUSE\n"
-            "  # if this challenger moved GLOBAL or IDP — the held-out criterion\n"
-            "  # above scores OFFENSE only. That is not a bug in the refit; it is\n"
-            "  # the criterion's scope being stated. Measure the board effect with\n"
-            "  # scripts/measure_hill_version_board.py before deciding whether to\n"
-            "  # accept the risk with --override-scope + --override-reason."
+            "\nRaw challenger cleared the paired OFFENSE gate. "
+            "Hill Autopilot now re-scores the full standing tournament, "
+            "requires forward persistence, composes an OFFENSE-only safe "
+            "candidate, measures downstream board impact, and only then may "
+            "promote/apply it automatically. GLOBAL/IDP are never overridden "
+            "from this OFFENSE verdict."
         )
         return EXIT_PROMOTABLE
 
