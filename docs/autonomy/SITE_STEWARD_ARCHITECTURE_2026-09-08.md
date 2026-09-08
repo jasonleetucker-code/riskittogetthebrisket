@@ -537,6 +537,8 @@ Platform/capability:
 Media/access/copyright:
 - https://developers.google.com/youtube/terms/developer-policies
 - https://developers.google.com/youtube/terms/api-services-terms-of-service
+- https://developers.google.com/youtube/v3/docs/captions/list
+- https://developers.google.com/youtube/v3/docs/captions/download
 - https://podcasting2.org/docs/podcast-namespace/tags/transcript
 - https://www.rssboard.org/rss-specification
 - https://www.copyright.gov/fair-use/more-info.html
