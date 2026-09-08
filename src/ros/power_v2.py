@@ -384,18 +384,18 @@ def _score_state(
     inputs: dict[str, dict[str, float | None]] = {}
     for oid in owner_ids:
         s = state["career"].get(oid, _EMPTY_CAREER)
-        games = int(s.get("games") or 0)
-        points = float(s.get("points") or 0.0)
+        games = int(s.get("games", 0))
+        points = float(s.get("points", 0.0))
         ppg = points / games if games else None
         rb = state["recent"].get(oid, [])
         recent = sum(rb) / len(rb) if rb else None
-        computed_wl = float(s.get("wins") or 0.0) / games if games else None
+        computed_wl = float(s.get("wins", 0.0)) / games if games else None
         wl = official_record.get(oid, computed_wl)
         all_play = state["allplay"].get(oid)
         outcomes = (state.get("outcomes") or {}).get(oid, [])
         streak = _streak_score_from_outcomes(outcomes)
         expected_total = float((state.get("expected") or {}).get(oid, 0.0))
-        luck_delta = (float(s.get("wins") or 0.0) - expected_total) / games if games else 0.0
+        luck_delta = (float(s.get("wins", 0.0)) - expected_total) / games if games else 0.0
         luck_score = max(0.0, min(1.0, 0.5 - luck_delta))
         inputs[oid] = {
             "ppg": ppg,
@@ -770,8 +770,8 @@ def build_section(
             row["recordSource"] = "sleeper"
         else:
             current = season_state.get(row["ownerId"], _EMPTY_CAREER)
-            wins = round(float(current.get("wins") or 0.0))
-            games = int(current.get("games") or 0)
+            wins = round(float(current.get("wins", 0.0)))
+            games = int(current.get("games", 0))
             row["record"] = f"{wins}-{games - wins}" if games else "0-0"
             row["recordSource"] = "matchups"
 
