@@ -166,9 +166,15 @@ def _scored_game_count(state: dict[str, Any]) -> int:
     not today's: the same as-of discipline the trend docstring already
     requires elsewhere (why ROS strength is never back-filled onto past
     weeks).
+
+    ``v.get("games", 0)`` -- not ``v.get("games") or 0`` -- because every
+    entry in ``career.values()`` is ``_EMPTY_CAREER``-shaped and always
+    carries a real accumulated int for ``games``; the key is never
+    actually missing, and 0 is a genuine "hasn't played yet" count, not a
+    stand-in for an unmeasured value.
     """
     career = state.get("career") or {}
-    return max((int(v.get("games") or 0) for v in career.values()), default=0)
+    return max((int(v.get("games", 0)) for v in career.values()), default=0)
 
 
 def _percentile(values: list[float], target: float) -> float:
