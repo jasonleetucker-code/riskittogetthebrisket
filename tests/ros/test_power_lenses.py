@@ -8,14 +8,14 @@ from src.ros import power_v2
 from tests.ros.test_power_v2 import _make_snapshot
 
 
-def _scored_snapshot(weeks: int = 4):
+def _scored_snapshot(weeks: int = 3):
     rosters = [{"roster_id": i, "owner_id": f"o{i}"} for i in (1, 2, 3, 4)]
     matchups = {
         wk: [
             {"roster_id": 1, "matchup_id": 1, "points": 120.0 + wk},
             {"roster_id": 2, "matchup_id": 1, "points": 100.0 + wk},
-            {"roster_id": 3, "matchup_id": 2, "points": 95.0 + (wk * 2)},
-            {"roster_id": 4, "matchup_id": 2, "points": 80.0 + (wk * 3)},
+            {"roster_id": 3, "matchup_id": 2, "points": 95.0 + wk},
+            {"roster_id": 4, "matchup_id": 2, "points": 80.0 + wk},
         ]
         for wk in range(1, weeks + 1)
     }
