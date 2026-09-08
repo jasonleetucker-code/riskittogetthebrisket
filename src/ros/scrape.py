@@ -176,63 +176,20 @@ def _rebuild_index(latest_runs: dict[str, dict[str, Any]]) -> Path:
 _flatten_starter_slots = flatten_starter_slots
 
 
+# Canonical hydration lives in ``src.ros.team_strength`` (2026-09) — moved
+# there so the scheduled-scrape overlay path and the live-fallback path
+# (``compute_team_strength_from_snapshot`` / ``compute_team_strength_live``)
+# share one implementation instead of two copies drifting.  Re-exported
+# under the historical private name so this module's one call site
+# (``_refresh_team_strength_for_league`` below) and any existing test
+# monkeypatch of ``scrape._hydrate_overlay_players`` keep working.
 def _hydrate_overlay_players(
     teams: list[dict[str, Any]],
     nfl_players: dict[str, Any],
 ) -> list[dict[str, Any]]:
-    """Convert overlay teams (with playerIds + name strings) into the
-    shape ``compute_team_strength`` expects, with canonicalName already
-    resolved against the dynasty identity layer so the lookup matches
-    the aggregate's keying.
-    """
-    from src.utils.name_clean import normalize_player_name  # noqa: PLC0415
+    from src.ros.team_strength import hydrate_overlay_players  # noqa: PLC0415
 
-    out: list[dict[str, Any]] = []
-    for team in teams:
-        ids = team.get("playerIds") or []
-        names = team.get("players") or []
-        players: list[dict[str, Any]] = []
-        for i, pid in enumerate(ids):
-            pid_str = str(pid or "")
-            meta = nfl_players.get(pid_str) or {}
-            # Prefer NFL-dump full name over the overlay's mapped name —
-            # the overlay falls back to the raw pid when its id_map is
-            # empty, which would poison the canonical lookup.
-            full_name = (meta.get("full_name") or "").strip()
-            if not full_name:
-                full_name = f"{meta.get('first_name','')} {meta.get('last_name','')}".strip() or (
-                    names[i] if i < len(names) else pid_str
-                )
-            position = (meta.get("position") or "").upper()
-            # Sleeper evaluates slot eligibility against fantasy_positions,
-            # which is often wider than `position` (a DL/LB hybrid is legal
-            # in either slot).  Passing it through lets the lineup optimizer
-            # reproduce the host's own best-ball choices (LI-3).
-            raw_fp = meta.get("fantasy_positions") or []
-            fantasy_positions = [str(p).strip().upper() for p in raw_fp if str(p or "").strip()]
-            injury = (meta.get("injury_status") or "").upper()
-            canonical = normalize_player_name(full_name) or full_name.lower()
-            players.append(
-                {
-                    "playerId": pid_str,
-                    "name": full_name,
-                    "displayName": full_name,
-                    "canonicalName": canonical,
-                    "position": position,
-                    "fantasyPositions": fantasy_positions,
-                    "injured": injury in {"OUT", "IR", "PUP", "DOUBTFUL"},
-                    "bye": False,
-                }
-            )
-        out.append(
-            {
-                "ownerId": team.get("ownerId"),
-                "rosterId": team.get("roster_id") or team.get("rosterId"),
-                "teamName": team.get("name") or team.get("teamName") or "",
-                "players": players,
-            }
-        )
-    return out
+    return hydrate_overlay_players(teams, nfl_players)
 
 
 def _sim_paths(league_key: str | None, default_key: str | None) -> tuple[Path, Path]:

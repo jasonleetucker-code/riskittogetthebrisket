@@ -184,13 +184,9 @@ def _load_team_depth_ratios() -> dict[str, float]:
     (a bench worth more than the starting lineup is anomalous; clamp
     to keep the lift bounded).
     """
-    path = ROS_DATA_DIR / "team_strength" / "latest.json"
-    if not path.exists():
-        return {}
-    try:
-        rows = json.loads(path.read_text())
-    except (json.JSONDecodeError, OSError):
-        return {}
+    from src.ros.team_strength import load_or_compute_team_strength  # noqa: PLC0415
+
+    rows = load_or_compute_team_strength()
     out: dict[str, float] = {}
     for r in rows or []:
         oid = str(r.get("ownerId") or "")
@@ -270,13 +266,9 @@ def _load_team_rosters() -> dict[str, dict[str, Any]]:
     Older snapshots without ``fullRoster`` fall back to the truncated
     read so the sim still runs.
     """
-    path = ROS_DATA_DIR / "team_strength" / "latest.json"
-    if not path.exists():
-        return {}
-    try:
-        rows = json.loads(path.read_text())
-    except (json.JSONDecodeError, OSError):
-        return {}
+    from src.ros.team_strength import load_or_compute_team_strength  # noqa: PLC0415
+
+    rows = load_or_compute_team_strength()
     out: dict[str, dict[str, Any]] = {}
     for r in rows or []:
         oid = str(r.get("ownerId") or "")
@@ -416,13 +408,9 @@ def _bestball_presim(
 
 
 def _load_ros_strength_map() -> dict[str, float]:
-    path = ROS_DATA_DIR / "team_strength" / "latest.json"
-    if not path.exists():
-        return {}
-    try:
-        rows = json.loads(path.read_text())
-    except (json.JSONDecodeError, OSError):
-        return {}
+    from src.ros.team_strength import load_or_compute_team_strength  # noqa: PLC0415
+
+    rows = load_or_compute_team_strength()
     return {
         str(r.get("ownerId") or ""): float(r.get("teamRosStrength") or 0.0)
         for r in rows or []

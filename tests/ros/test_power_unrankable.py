@@ -49,7 +49,7 @@ the same posture ``playoff_structure`` takes for an unknown bracket and
 
 from __future__ import annotations
 
-import json
+import tempfile
 from pathlib import Path
 
 from src.ros import power_v2
@@ -70,9 +70,32 @@ def _preseason_snapshot():
 def test_forward_looking_with_nothing_to_look_forward_to_refuses():
     """The reachable case: preseason drops every historical component
     from THIS lens by design, and a deploy without a team-strength file
-    drops the only forward-looking one. Nothing is left."""
+    AND with no live-fallback tier able to answer either (no resolvable
+    league config, no ROS aggregate, no overlay) drops the only
+    forward-looking one too. Nothing is left.
+
+    Since 2026-09 a missing team-strength FILE alone no longer implies
+    refusal -- the live fallback (``compute_team_strength_from_snapshot``
+    / ``compute_team_strength_live``) can answer from the snapshot or a
+    cached overlay instead. This test patches every fallback tier closed
+    to isolate the genuine every-source-down state the refusal exists
+    for, rather than accidentally exercising this sandbox's real ambient
+    league registry + committed ROS aggregate (which the ordinary
+    unpatched fixture would now find and rank on).
+    """
+    from unittest.mock import patch
+
+    from src.api import league_registry
+    from src.ros import team_strength
+
     snapshot = _preseason_snapshot()
-    section = power_v2.build_section(snapshot, lens=power_v2.LENS_FORWARD_LOOKING)
+    with (
+        tempfile.TemporaryDirectory() as tmp,
+        patch.object(team_strength, "ROS_DATA_DIR", Path(tmp)),
+        patch.object(league_registry, "get_default_league", return_value=None),
+        patch.object(league_registry, "get_league_by_key", return_value=None),
+    ):
+        section = power_v2.build_section(snapshot, lens=power_v2.LENS_FORWARD_LOOKING)
 
     assert section["preseason"] is True
     assert section["effectiveWeights"] == {}, (
@@ -161,41 +184,109 @@ def test_the_trend_is_unaffected_because_it_is_never_preseason():
 
 
 def test_the_committed_dev_snapshot_shows_both_halves():
-    """The measurement quoted in this module's docstring, pinned so the
-    claim cannot quietly stop being true — and its repaired twin.
+    """REWRITTEN 2026-09 for the live team-strength fallback.
 
-    ``owner-B`` is the whole argument in one row. Under the defect it
-    scored 0.0 and was handed rank 2 while leading ``owner-A`` on five
-    of seven components. Under the results-only lens it is now first.
+    This test used to read the ambient ``data/public_league/snapshot.json``
+    off whatever local machine ran it — gitignored, mutable, not a
+    checked-in fixture — which made it non-hermetic (it silently skipped
+    on a clean checkout and asserted a hardcoded ``"owner-B"`` id that
+    depended on the exact contents of one developer's local scrape). It
+    is now fully self-contained, with a fake league registry entry + a
+    fake ROS aggregate standing in for what the live fallback needs.
+
+    FORWARD-LOOKING (the original defect): with NO team-strength file on
+    disk, preseason used to always refuse ("nothing to rank on"), even
+    though every input the fallback needs (current-season rosters +
+    ``snapshot.nfl_players`` + the ROS aggregate) was sitting right there
+    unused. It now ranks.
+
+    RESULTS-ONLY (the repaired half, unchanged by this rewrite): the
+    completed season it is made of ranks on real discriminating data,
+    putting the component leader on top rather than the retired
+    identifier-order fallback V1-52 fixed.
     """
-    path = REPO / "data" / "public_league" / "snapshot.json"
-    if not path.exists():  # pragma: no cover - data/ is gitignored
-        import pytest
+    from unittest.mock import patch
 
-        pytest.skip("data/public_league/snapshot.json not present")
+    from src.api import league_registry
+    from src.ros import team_strength
+    from tests.ros.test_power_v2 import _make_snapshot
 
-    from src.public_league.snapshot_store import snapshot_from_dict
+    # ``is_complete=True`` marks this as a FINISHED season -- the live
+    # state of every league between the last game of one year and the
+    # first of the next -- so ``preseason`` is True even though the
+    # snapshot carries real, discriminating scores for the results-only
+    # half to rank on.
+    rosters = [{"owner_id": f"o{i}", "roster_id": i} for i in (1, 2, 3, 4)]
+    matchups = {
+        wk: [
+            {"roster_id": 1, "matchup_id": 1, "points": 130.0 + wk},
+            {"roster_id": 2, "matchup_id": 1, "points": 110.0 + wk},
+            {"roster_id": 3, "matchup_id": 2, "points": 95.0 - wk},
+            {"roster_id": 4, "matchup_id": 2, "points": 80.0 - wk},
+        ]
+        for wk in (1, 2, 3, 4)
+    }
+    snapshot = _make_snapshot(rosters, matchups, is_complete=True)
 
-    snapshot = snapshot_from_dict(json.loads(path.read_text()))
+    # Give each roster one real player so the live fallback has
+    # something to hydrate + score, with distinct ROS-aggregate values
+    # so the forward-looking ranking discriminates rather than tying.
+    player_id_by_owner = {"o1": "p1", "o2": "p2", "o3": "p3", "o4": "p4"}
+    for roster in snapshot.current_season.rosters:
+        roster["players"] = [player_id_by_owner[roster["owner_id"]]]
+    snapshot.nfl_players = {
+        pid: {"full_name": f"Player {pid.upper()}", "position": "WR", "fantasy_positions": ["WR"]}
+        for pid in player_id_by_owner.values()
+    }
+    ros_value_by_owner = {"o1": 90.0, "o2": 70.0, "o3": 50.0, "o4": 30.0}
+    aggregate_players = [
+        {
+            "canonicalName": f"player {pid.lower()}",
+            "position": "WR",
+            "rosValue": ros_value_by_owner[oid],
+            "confidence": 0.9,
+        }
+        for oid, pid in player_id_by_owner.items()
+    ]
+    fake_cfg = league_registry.LeagueConfig(
+        key="test_league",
+        display_name="Test League",
+        sleeper_league_id="test-sleeper-id",
+        scoring_profile="test",
+        roster_settings={"starters": {"WR": 1}},
+        idp_enabled=False,
+    )
 
-    # Forward-looking: preseason, and no team-strength file in this
-    # environment, so there is genuinely nothing to say. It refuses.
-    fwd = power_v2.build_section(snapshot, lens=power_v2.LENS_FORWARD_LOOKING)
+    with (
+        tempfile.TemporaryDirectory() as tmp,
+        patch.object(team_strength, "ROS_DATA_DIR", Path(tmp)),
+        patch.object(league_registry, "get_default_league", return_value=fake_cfg),
+        patch.object(league_registry, "get_league_by_key", return_value=fake_cfg),
+        patch.object(team_strength, "load_ros_aggregate_players", return_value=aggregate_players),
+    ):
+        fwd = power_v2.build_section(snapshot, lens=power_v2.LENS_FORWARD_LOOKING)
+        res = power_v2.build_section(snapshot, lens=power_v2.LENS_RESULTS_ONLY)
+
+    # FORWARD-LOOKING: the live fallback resolves team_ros_strength from
+    # the snapshot alone (no network), so preseason now RANKS instead of
+    # refusing -- the exact defect this test used to pin.
     assert fwd["preseason"] is True
-    assert fwd["effectiveWeights"] == {}
-    assert fwd.get("unrankable")
-    assert all(r["rank"] is None for r in fwd["currentRanking"])
+    assert not fwd.get("unrankable"), fwd.get("unrankable")
+    assert "team_ros_strength" in fwd["effectiveWeights"]
+    assert set(fwd["effectiveWeights"]) <= {"team_ros_strength", "schedule_adjusted"}
+    ranks = sorted(r["rank"] for r in fwd["currentRanking"])
+    assert ranks == [1, 2, 3, 4], ranks
+    assert {r["ownerId"] for r in fwd["currentRanking"]} == {"o1", "o2", "o3", "o4"}
+    assert fwd["currentRanking"][0]["ownerId"] == "o1", "the highest ROS-aggregate roster ranks first"
 
-    # Results-only: the completed seasons are exactly its subject, so it
-    # ranks — and it puts the component leader on top.
-    res = power_v2.build_section(snapshot, lens=power_v2.LENS_RESULTS_ONLY)
+    # RESULTS-ONLY: unchanged behaviour -- the completed season ranks on
+    # real discriminating data, never a fabricated identifier order.
     assert not res.get("unrankable")
     top = res["currentRanking"][0]
-    assert top["ownerId"] == "owner-B", (
-        "the row that exposed the defect must now rank first; it led "
-        "owner-A on five of seven components while ranked below it"
-    )
+    assert top["ownerId"] == "o1", "the highest-scoring, winningest roster must rank first"
     assert top["rank"] == 1 and top["powerScore"] > 0
+    scores = [r["powerScore"] for r in res["currentRanking"]]
+    assert len(set(scores)) > 1, "real data must not produce one flat score"
 
 
 # ── The suppression rule belongs to ONE lens ─────────────────────────
@@ -278,7 +369,10 @@ def test_forward_looking_still_suppresses_them():
 
 def test_an_in_progress_season_is_unchanged_for_both_lenses():
     """The suppression only ever applied in preseason; nothing about a
-    live season moves."""
+    live season moves.  Four scored weeks -- the highest progressive-
+    eligibility minimum (``recent``) -- so this test isolates the
+    ORIGINAL preseason-suppression rule rather than colliding with the
+    newer per-component sample-size gate."""
     from tests.ros.test_power_v2 import _make_snapshot
 
     rosters = [{"roster_id": i, "owner_id": f"o{i}"} for i in (1, 2, 3, 4)]
@@ -289,7 +383,7 @@ def test_an_in_progress_season_is_unchanged_for_both_lenses():
             {"roster_id": 3, "matchup_id": 2, "points": 95.0 - wk},
             {"roster_id": 4, "matchup_id": 2, "points": 80.0 - wk},
         ]
-        for wk in (1, 2, 3)
+        for wk in (1, 2, 3, 4)
     }
     snapshot = _make_snapshot(rosters, matchups)
     for lens in (power_v2.LENS_RESULTS_ONLY, power_v2.LENS_FORWARD_LOOKING):

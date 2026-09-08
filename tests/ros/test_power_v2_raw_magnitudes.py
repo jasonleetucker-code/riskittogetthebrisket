@@ -57,9 +57,14 @@ def test_raw_ppg_and_recent_avg_are_present_and_correct_on_headline_rows():
     assert seen == set(_EXPECTED_PPG)
 
 
-def test_raw_fields_are_a_different_quantity_from_the_percentile_fields():
+def test_raw_fields_are_a_different_quantity_from_the_percentile_fields(monkeypatch):
     """The percentile keys ``ppg``/``recent`` must survive unchanged --
-    this is an ADDITION, not a rename."""
+    this is an ADDITION, not a rename.
+
+    ``_scored_snapshot`` is 3 weeks -- below the progressive-eligibility
+    minimum for ``recent`` (4, added 2026-09), orthogonal to what this
+    test isolates (raw vs. percentile field shape). Patched open."""
+    monkeypatch.setattr(power_v2, "_MIN_SCORED_GAMES", {})
     out = power_v2.build_section(_scored_snapshot(), lens=power_v2.LENS_FORWARD_LOOKING)
     for row in out["currentRanking"]:
         c = row["components"]

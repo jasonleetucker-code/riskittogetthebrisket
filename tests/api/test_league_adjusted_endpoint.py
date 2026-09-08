@@ -298,7 +298,10 @@ def test_missing_roster_snapshot_degrades_to_a_200_noop_not_a_503(
     missing optional lens would be the wrong trade.  The response says
     *why* it is empty rather than presenting a no-op as a measurement.
     """
-    monkeypatch.setattr(gameplan, "load_team_strength_snapshot", lambda key=None: None)
+    # ``gameplan.py`` reads team strength through
+    # ``load_or_compute_team_strength`` (2026-09); "unavailable" is now
+    # an empty list rather than ``None`` from the old direct reader.
+    monkeypatch.setattr(gameplan, "load_or_compute_team_strength", lambda key=None, **kw: [])
     with TestClient(server.app, raise_server_exceptions=True) as c:
         _install_contract(monkeypatch)
         res = _get(c)

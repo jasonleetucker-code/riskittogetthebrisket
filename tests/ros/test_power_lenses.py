@@ -40,7 +40,16 @@ def _empty_snapshot():
 
 def _scored_snapshot():
     """A league with real scored weeks, so the engine produces real
-    scores rather than short-circuiting on a degenerate fixture."""
+    scores rather than short-circuiting on a degenerate fixture.
+
+    THREE weeks, deliberately unchanged -- this fixture is imported by
+    ``test_power_v2_headline_fields.py`` and ``test_power_v2_raw_magnitudes.py``,
+    both of which hand-compute expected values against exactly 3 weeks.
+    A test that needs a component gated off by progressive eligibility
+    (which needs >3 weeks for ``recent``/``luck_regression``) patches
+    ``power_v2._MIN_SCORED_GAMES`` open instead of widening this shared
+    fixture -- see ``test_dropping_ros_renormalises_rather_than_deflating``.
+    """
     from tests.ros.test_power_v2 import _make_snapshot
 
     rosters = [{"roster_id": i, "owner_id": f"o{i}"} for i in (1, 2, 3, 4)]
@@ -87,8 +96,15 @@ def test_dropping_ros_renormalises_rather_than_deflating(monkeypatch):
     directly and stayed GREEN when the engine's normalisation was
     reverted. It was testing its own re-derivation. This one runs the
     engine and checks the weights it actually applied.
+
+    ``_scored_snapshot`` is 3 weeks -- below the progressive-eligibility
+    minimum for ``recent``/``luck_regression`` (4, added 2026-09), which
+    is orthogonal to what this test isolates (the lens-marker
+    normalisation). Patched open rather than widening a fixture shared
+    by two other test files' hand-computed expected values.
     """
-    monkeypatch.setattr(power_v2, "_load_team_strength_percentiles", lambda: {})
+    monkeypatch.setattr(power_v2, "_load_team_strength_percentiles", lambda snapshot=None: {})
+    monkeypatch.setattr(power_v2, "_MIN_SCORED_GAMES", {})
     out = power_v2.build_section(_scored_snapshot(), lens=power_v2.LENS_RESULTS_ONLY)
 
     applied = out["effectiveWeights"]
@@ -140,7 +156,7 @@ def test_the_results_only_lens_never_reads_team_strength(monkeypatch):
     monkeypatch.setattr(
         power_v2,
         "_load_team_strength_percentiles",
-        lambda: calls.append(1) or {"o1": 0.9},
+        lambda snapshot=None: calls.append(1) or {"o1": 0.9},
     )
 
     power_v2.build_section(_empty_snapshot(), lens=power_v2.LENS_RESULTS_ONLY)
@@ -237,7 +253,7 @@ def test_each_trend_week_reflects_the_state_AS_OF_that_week(monkeypatch):
     cannot go down. Here week 1 and week 3 must differ, and at least one
     manager's rank must change across the series.
     """
-    monkeypatch.setattr(power_v2, "_load_team_strength_percentiles", lambda: {})
+    monkeypatch.setattr(power_v2, "_load_team_strength_percentiles", lambda snapshot=None: {})
     out = power_v2.build_section(_asymmetric_snapshot())
     weeks = out["trend"]["weeks"]
 
@@ -265,7 +281,7 @@ def test_the_trend_is_results_only_at_every_point_including_the_last(monkeypatch
     today's value is the as-of defect; splicing it into only the final
     point is worse, because the line would jump for a reason unrelated to
     play and no reader could tell that from a real move."""
-    monkeypatch.setattr(power_v2, "_load_team_strength_percentiles", lambda: {"o1": 0.99})
+    monkeypatch.setattr(power_v2, "_load_team_strength_percentiles", lambda snapshot=None: {"o1": 0.99})
     out = power_v2.build_section(_asymmetric_snapshot())
 
     assert out["lens"] == power_v2.LENS_FORWARD_LOOKING
@@ -283,7 +299,7 @@ def test_the_trend_says_it_differs_from_the_headline(monkeypatch):
     monkeypatch.setattr(
         power_v2,
         "_load_team_strength_percentiles",
-        lambda: {"o1": 0.99, "o2": 0.5, "o3": 0.1, "o4": 0.2},
+        lambda snapshot=None: {"o1": 0.99, "o2": 0.5, "o3": 0.1, "o4": 0.2},
     )
     out = power_v2.build_section(_asymmetric_snapshot())
 
@@ -298,7 +314,7 @@ def test_the_series_and_the_weeks_are_the_same_numbers(monkeypatch):
     """``seriesByOwner`` is a re-shape for charting, not a second
     computation — the defect this whole unit exists to close, one layer
     down."""
-    monkeypatch.setattr(power_v2, "_load_team_strength_percentiles", lambda: {})
+    monkeypatch.setattr(power_v2, "_load_team_strength_percentiles", lambda snapshot=None: {})
     out = power_v2.build_section(_asymmetric_snapshot())
 
     from_weeks = {

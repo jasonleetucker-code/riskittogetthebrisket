@@ -46,13 +46,11 @@ always renders this module's output.
 
 from __future__ import annotations
 
-import json
 import logging
 import statistics
 from collections import defaultdict
 from typing import Any, Iterable
 
-from src.ros import ROS_DATA_DIR
 from src.public_league import luck, metrics as _metrics
 from src.public_league.snapshot import PublicLeagueSnapshot
 
@@ -120,6 +118,58 @@ _EMPTY_CAREER: dict[str, float | int] = {
     "losses": 0.0,
 }
 
+# Progressive per-component eligibility (2026-09) — each historical
+# component activates the week IT, specifically, stops being a
+# double-count or a saturated indicator of an already-active one, not
+# the instant preseason ends. Every threshold below is DERIVED from the
+# component's own formula, not chosen:
+#
+#   ppg/wl_record/all_play = 1 -- real, fully-populated per-owner
+#     observations from game one. ``all_play`` in particular is ALWAYS a
+#     one-week statistic by existing design (``last_season_allplay_share``
+#     is overwritten every week, never accumulated, so mid-season trades
+#     aren't stale-weighted -- see the comment where it's built below);
+#     it never has a "sample size" to gate on, so its minimum is 1.
+#   streak = 2 -- at n=1, ``_streak_score_from_outcomes`` returns a
+#     monotone relabel of ``wl_record`` (0.6 for a win, 0.4 for a loss:
+#     no information ``wl_record`` doesn't already carry, at a second
+#     weight). n=2 is the first sample where it distinguishes a 2-0 start
+#     from a 1-1 split, which ``wl_record`` alone cannot.
+#   recent = _RECENT_WINDOW + 1 (4) -- at n <= _RECENT_WINDOW, the
+#     trailing window contains EVERY game of the season, making
+#     ``recent`` numerically identical to ``ppg`` -- the exact double
+#     count CLAUDE.md Sec 3.3 forbids. n=4 is the first sample where the
+#     window excludes a game ``ppg`` includes.
+#   luck_regression = 4 -- ``luck_score`` clamps
+#     ``0.5 - (wins - expected) / games`` to [0, 1], and that clamp binds
+#     whenever ``|wins - expected| > 0.5`` games, which is common at
+#     n <= 3 (any lopsided week against the league's all-play median
+#     saturates it to a plain 0/1 indicator rather than a graded score).
+#     n=4 requires a genuinely extreme record to still saturate.
+_MIN_SCORED_GAMES: dict[str, int] = {
+    "ppg": 1,
+    "wl_record": 1,
+    "all_play": 1,
+    "streak": 2,
+    "recent": _RECENT_WINDOW + 1,
+    "luck_regression": 4,
+}
+
+
+def _scored_game_count(state: dict[str, Any]) -> int:
+    """How many games the best-covered owner has played, as of ``state``.
+
+    Derived from ``state["career"]`` -- the SAME as-of accumulator
+    ``_score_state`` already receives -- never from the live snapshot.
+    The trend series calls this function once per past week with that
+    week's state, so eligibility reflects sample size AS OF that week,
+    not today's: the same as-of discipline the trend docstring already
+    requires elsewhere (why ROS strength is never back-filled onto past
+    weeks).
+    """
+    career = state.get("career") or {}
+    return max((int(v.get("games") or 0) for v in career.values()), default=0)
+
 
 def _percentile(values: list[float], target: float) -> float:
     """Inclusive percentile rank in [0, 1]."""
@@ -133,25 +183,31 @@ def _percentile(values: list[float], target: float) -> float:
     return (below + 0.5 * same) / len(eligible)
 
 
-def _load_team_strength_rows() -> list[dict[str, Any]]:
-    """Read raw rows from `data/ros/team_strength/latest.json`.
-    Returns [] when the snapshot is missing or unparsable.
+def _load_team_strength_rows(
+    snapshot: PublicLeagueSnapshot | None = None,
+) -> list[dict[str, Any]]:
+    """Team-strength rows for the current league.
+
+    Delegates to ``team_strength.load_or_compute_team_strength``, which
+    reads the persisted ``data/ros/team_strength/latest.json`` when
+    present and otherwise computes it LIVE from ``snapshot`` (no network)
+    or, failing that, from a cached Sleeper overlay fetch — closing the
+    single point of failure where this component went dark for a full
+    refresh cycle whenever the scheduled scrape's write step hadn't run.
+    Returns [] only when every tier is genuinely unable to answer.
     """
-    path = ROS_DATA_DIR / "team_strength" / "latest.json"
-    if not path.exists():
-        return []
-    try:
-        rows = json.loads(path.read_text())
-    except (json.JSONDecodeError, OSError):
-        return []
-    return rows or []
+    from src.ros.team_strength import load_or_compute_team_strength  # noqa: PLC0415
+
+    return load_or_compute_team_strength(snapshot=snapshot) or []
 
 
-def _load_team_strength_percentiles() -> dict[str, float]:
+def _load_team_strength_percentiles(
+    snapshot: PublicLeagueSnapshot | None = None,
+) -> dict[str, float]:
     """Convert team-strength composite to a percentile per ownerId.
     Empty dict when no snapshot — caller renormalises weights.
     """
-    rows = _load_team_strength_rows()
+    rows = _load_team_strength_rows(snapshot)
     scores: list[tuple[str, float]] = []
     for r in rows:
         oid = str(r.get("ownerId") or "")
@@ -268,12 +324,25 @@ def _enumerate_owner_ids(
     Order of precedence (for the dedup walk — rows are re-sorted by
     power score before render):
 
-      1. Owners present in the live team-strength snapshot.
-      2. Owners on the snapshot's current Sleeper season — fallback
-         for an empty team-strength file.
-      3. Owners from prior-season career history — defensive fallback
-         so a registered manager who exists in history but is missing
-         from both live sources (e.g. mid-rejoin) still appears.
+      1. Owners on the snapshot's current Sleeper season — this is what
+         league membership actually means TODAY, and it is not
+         hypothetical: this league expanded from 10 to 12 teams for the
+         2026 season, so prior-season history is a SHRINKING set that
+         cannot be trusted as a primary source without silently dropping
+         every owner who joined after the expansion.
+      2. Owners present in the live team-strength snapshot — union, not
+         override, so an owner Sleeper hasn't attached to a roster slot
+         yet (a mid-season rejoin) is still caught.
+      3. Owners from prior-season career history — last-resort fallback,
+         only meaningful when there is no current season loaded at all.
+
+    Precedence was inverted 2026-09 (was: team-strength -> current season
+    -> history). Team-strength first made history — the shrinking set —
+    the effective backstop whenever the team-strength file happened to be
+    empty AND the current-season branch failed to contribute (a stale or
+    partial persisted snapshot): the union then silently bottomed out at
+    exactly the pre-expansion owner count, dropping every newly-joined
+    manager with no error and no warning.
     """
     ordered: list[str] = []
     seen: set[str] = set()
@@ -288,16 +357,36 @@ def _enumerate_owner_ids(
         seen.add(oid)
         ordered.append(oid)
 
-    for row in team_strength_rows:
-        _add(row.get("ownerId"))
-
     current = snapshot.current_season
     if current is not None:
         for roster in current.rosters or []:
             _add(roster.get("owner_id"))
 
+    for row in team_strength_rows:
+        _add(row.get("ownerId"))
+
     for oid in historical_owner_ids:
         _add(oid)
+
+    # Floor invariant, not a correction: every registry-passing owner who
+    # holds a roster in the CURRENT season must appear in the result. This
+    # is a warning, never a synthesized row -- it exists to make a future
+    # regression in any upstream source loud instead of a silent manager
+    # drop discovered only by someone counting rows on the page.
+    if current is not None:
+        current_owner_ids = {
+            str(r.get("owner_id") or "").strip()
+            for r in (current.rosters or [])
+            if str(r.get("owner_id") or "").strip() in registry_ids
+        }
+        missing = current_owner_ids - seen
+        if missing:
+            LOG.warning(
+                "[power_v2] _enumerate_owner_ids: %d current-season roster "
+                "owner(s) failed to enumerate: %s",
+                len(missing),
+                sorted(missing),
+            )
 
     return ordered
 
@@ -402,7 +491,16 @@ def _score_state(
             "all_play": all_play,
             "streak": streak,
             "luck_regression": luck_score,
-            "schedule_adjusted": schedule_by_owner.get(oid, 0.5),
+            # UNMEASURED IS None, NOT a stand-in midpoint (the same owner
+            # invariant ``recent``/``all_play`` bind to above). An owner
+            # absent from a stale/partial team-strength file used to be
+            # scored at 0.5 -- an average schedule, published with full
+            # confidence -- rather than reporting the honest unknown that
+            # ``rosStrengthPercentile``/``ros_strength_pct`` already show
+            # for the very same owner. ``None`` now propagates to a
+            # dropped weight for THIS owner via the existing per-owner
+            # ``owner_weights`` filter below -- no new machinery.
+            "schedule_adjusted": schedule_by_owner.get(oid),
         }
 
     # Convert raw inputs to percentiles (ppg, recent only — the others
@@ -469,6 +567,27 @@ def _score_state(
         for component in _HISTORICAL_RESULTS_COMPONENTS:
             if component not in missing_inputs:
                 missing_inputs.append(component)
+
+    # PROGRESSIVE PER-COMPONENT ELIGIBILITY.
+    #
+    # Once preseason ends, every historical component used to activate
+    # SIMULTANEOUSLY on the very first scored game -- jumping the
+    # forward-looking weight basis from ~91% roster-strength/9% schedule
+    # straight to a 41%-roster-strength/59%-results mix in one week,
+    # including two components (`recent`, `streak`) that carry zero
+    # independent information yet at n=1 and one (`luck_regression`) that
+    # is a saturated 0/1 indicator there. Gating each component at its
+    # own derived minimum sample size (``_MIN_SCORED_GAMES`` above) spreads
+    # activation across weeks 1/2/4 instead. This reuses the SAME
+    # ``missing_inputs`` -> ``dropped_components`` -> ``active_weights``
+    # renormalisation the lens suppression above and the file-availability
+    # checks earlier both already use -- no new machinery, and this block
+    # never fires for the results-only lens's own subject matter (a
+    # completed season already has every game scored).
+    scored = _scored_game_count(state)
+    for component, minimum in _MIN_SCORED_GAMES.items():
+        if scored < minimum and component not in missing_inputs:
+            missing_inputs.append(f"{component} (needs {minimum} scored games, has {scored})")
     # ``missing_inputs`` is a human-readable list; the weight lookup keys
     # on component NAMES, so the lens marker is normalised back before it
     # is used to drop a weight.  Without this the lens would leave
@@ -561,8 +680,31 @@ def _score_state(
             "luck_regression": i["luck_regression"],
         }
         if ros_available:
-            components["team_ros_strength"] = ros_pct.get(oid, 0.0)
-        components["schedule_adjusted"] = i["schedule_adjusted"] if schedule_available else 0.0
+            # UNMEASURED IS None, NOT 0.0 -- an owner absent from a
+            # stale/partial team-strength file is NOT the league's worst
+            # roster; it is unknown. The retired ``.get(oid, 0.0)`` scored
+            # such an owner at the bottom of the scale with full weight
+            # while ``rosStrengthPercentile`` (below) reported the same
+            # quantity as ``None`` right beside it -- two contradictory
+            # answers to one question. ``None`` now drops this owner's
+            # weight for this row only, via the existing per-owner
+            # ``owner_weights`` filter.
+            components["team_ros_strength"] = ros_pct.get(oid)
+        # Per-owner missingness (this owner's own ``schedule_adjusted`` may
+        # be ``None`` even when the component is league-wide available --
+        # see the ``schedule_by_owner.get(oid)`` comment above) passes
+        # through unchanged; only league-wide unavailability forces None.
+        components["schedule_adjusted"] = i["schedule_adjusted"] if schedule_available else None
+
+        # A component gated off league-wide (preseason suppression or the
+        # progressive-eligibility minimum above) publishes ``None`` rather
+        # than a value this row happens to hold but the weighted sum never
+        # uses -- ``ros-power.jsx``'s ``ComponentBar`` already renders
+        # ``None`` as "no bar" rather than a fabricated 0%, so a component
+        # not yet eligible reads as absent, not as a real zero score.
+        for _dropped_key in dropped_components:
+            if _dropped_key in components:
+                components[_dropped_key] = None
 
         # Active weighted score in [0, 1], then scale to 100.  Computed
         # BEFORE the two raw fields below are folded in -- those are
@@ -724,7 +866,7 @@ def build_section(
     """
     registry = snapshot.managers
     seasons_sorted = sorted(snapshot.seasons, key=lambda s: luck._season_sort_key(s.season))
-    team_strength_rows = _load_team_strength_rows()
+    team_strength_rows = _load_team_strength_rows(snapshot)
     preseason = _is_preseason(snapshot)
     if (
         not seasons_sorted
@@ -887,7 +1029,7 @@ def build_section(
     # schedule-adjusted component (which is derived FROM team strength)
     # drops with it automatically rather than by a second rule.
     results_only = lens == LENS_RESULTS_ONLY
-    ros_pct = {} if results_only else _load_team_strength_percentiles()
+    ros_pct = {} if results_only else _load_team_strength_percentiles(snapshot)
     ros_available = bool(ros_pct)
     schedule_by_owner = _schedule_adjusted_scores(snapshot, ros_pct)
 
@@ -967,7 +1109,20 @@ def build_section(
             preseason=False,
             results_only=True,
         )
-        trend_weeks.append({"season": season_label, "week": wk, "rankings": wk_rankings})
+        trend_weeks.append(
+            {
+                "season": season_label,
+                "week": wk,
+                "rankings": wk_rankings,
+                # Additive: early weeks now score on a narrower component
+                # set than the headline (progressive per-component
+                # eligibility -- see ``_MIN_SCORED_GAMES``), so the trend
+                # payload names the basis each point was actually computed
+                # on rather than leaving it implicit.
+                "effectiveWeights": dict(_wk_weights),
+                "missingInputs": list(_wk_missing),
+            }
+        )
         for row in wk_rankings:
             series_by_owner[row["ownerId"]].append(
                 {
