@@ -1,4 +1,12 @@
-# W1-03 / W1-04 — Wednesday 2026-09-09 capture runbook
+# Week 1 final-five execution runbook (W1-03 / W1-04 / W1-27 / W1-28 / W1-30)
+
+**Scope widened 2026-09-08.** This document started as the W1-03/W1-04
+Wednesday capture procedure (§1-4 below, unchanged) and now also carries the
+LIVE (§5), FINAL (§6) and final launch-tree (§7) sequences for the remaining
+two rows and the closing verification row, so the whole final five has one
+executable runbook rather than five separate investigations. Filename kept
+as-is — it is linked directly from `WEEK_1_LAUNCH_CONTRACT.md` § Named
+blockers and renaming it would break that reference for no benefit.
 
 **Authority:** owner decision recorded in
 [`WEEK_1_LAUNCH_CONTRACT.md`](WEEK_1_LAUNCH_CONTRACT.md) § Named blockers —
@@ -170,3 +178,118 @@ waiver batch after 03:00 ET and no pending claims. `--ignore-window` cannot
 bypass this exception or the kickoff refusal. Dry-run preparation writes nothing.
 Verify the actual installed timer after deployment. The script guard preserves
 Wednesday timing independently of the timer cadence.
+
+---
+
+## 5. LIVE evidence — W1-27
+
+**No separate owner decision blocks this row's promotion.** The row's own
+acceptance text asks for the LIVE state to be "production-usable and update
+... probabilities truthfully" — a truthful *degraded* state satisfies that
+exactly as well as a numeric one. `OWNER_POLICY_REQUIRED` (an in-progress
+player's remaining production has no approved rate model — see the contract's
+"Named blockers" §W1-27) is the correct, honest answer for most of a live
+week, not a blocker to VERIFIED. The methodology decision itself (a/b/c —
+prorate / zero / withhold) stays open and undecided; nothing here resolves it
+or needs it resolved.
+
+**Instrument:** `tests/e2e/specs/prod-auth/w1-16-game-day.spec.js`'s "the
+page's numbers are the endpoint's numbers" test, dispatched via the existing
+`.github/workflows/v1-authenticated-verification.yml` — the same instrument
+that already produced W1-12/14/15/16/25/26's evidence. No new workflow.
+Fixed 2026-09-08: the test previously assumed `/api/matchup/intel` still
+refuses a started week with HTTP 409 (`WeekInProgress`), which was true
+before #1271 shipped `resolve_scoring_week` and is dead code today — the
+endpoint now resolves and returns live/final state instead of refusing. The
+test now branches on `body.mode` / `body.probabilityState` and asserts the
+real shape (score, lineup, and one of the three truthful probability states)
+instead of a refusal that can no longer happen.
+
+### Procedure
+
+1. Confirm a real NFL game covering at least one rostered player in the
+   target league is actually **underway** — not merely "the calendar says
+   Week 1 has begun". `week_has_begun` (`src/ros/game_day_week.py`) reads
+   Sleeper's own scores, so the safest external check is the same one: any
+   nonzero score on `GET https://api.sleeper.app/v1/league/<id>/matchups/1`.
+2. Dispatch **`v1-authenticated-verification.yml`** (`workflow_dispatch`,
+   default inputs — runs both the API and browser Playwright halves).
+3. Download the `prod-auth-results.json` and `prod-auth-browser.txt`
+   artifacts from the run.
+4. Find the `w1-16-game-day.spec.js` → "the page's numbers are the
+   endpoint's numbers" result and read its annotations:
+   - `w1-27-mode` — must read `live` (still `pregame` means the window has
+     not actually opened yet from the endpoint's perspective; wait and
+     re-check step 1).
+   - `w1-27-probability-state` — one of `AVAILABLE` / `OWNER_POLICY_REQUIRED`
+     / `GAME_STATE_OR_SCORING_UNAVAILABLE` / `UNAVAILABLE`.
+   - `w1-27-branch` — the exact truthful state the run observed, in prose.
+5. Test **PASSED** with `w1-27-mode: live` → the row's acceptance text is
+   satisfied by whatever truthful state was observed. **W1-27 → VERIFIED.**
+   Record the run URL, the two annotation values, and the timestamp as the
+   row's evidence.
+6. Test **FAILED** → read exactly what failed (a fabricated number, a
+   missing label, a crash) before touching the row. That is a real defect in
+   the LIVE path, not evidence to discard — fix it, validate, redeploy, and
+   re-dispatch. Do not promote on a red run.
+
+## 6. FINAL evidence — W1-28
+
+Same instrument as §5, same test. **Only reachable once Week 1 has actually
+finished** — measured 2026-09-06 from the real schedule at
+Monday 2026-09-14 20:15 ET (DEN @ KC, see "THE WEEK 1 CLOCK" above), five
+days after this contract's Wednesday 2026-09-09 23:59 CT deadline. This
+section exists so the sequence is ready to execute the moment that real state
+exists; it is not expected to run before the deadline, and the contract
+already records W1-28 as temporally unreachable by then.
+
+### Procedure
+
+1. Confirm the applicable matchup is genuinely over — every rostered player
+   relevant to the matchup reports `state: "completed"`, or the host
+   otherwise reports the week as final.
+2. Dispatch `v1-authenticated-verification.yml` again.
+3. Read the same test's `w1-28-branch` and `w1-28-recap` annotations (and
+   `w1-27-mode`, which should now read `final`).
+4. Test **PASSED** with `w1-28-branch: "final — result WIN/LOSS/TIE"` →
+   **W1-28 → VERIFIED.** Record the run URL, the result, and whether a recap
+   URL was present (the recap article itself is a separate, already-VERIFIED
+   pipeline — W1-06/W1-09 — this only checks the link renders).
+5. Test **FAILED** → same rule as §5 step 6: root-cause and fix before
+   promoting anything.
+
+## 7. W1-30 — final launch-tree verification
+
+Not a generic "the deploy workflow was green" checkbox. The row asks for
+archive capture (W1-01-04), all six pregames (W1-05-13), the private owner
+experience (W1-14-16), and Game Day scheduled/live/final "as temporally
+applicable" (W1-17-28) to all be true **together, on one production tree**.
+
+### Procedure
+
+1. Mechanically recount `docs/season-launch/WEEK_1_LAUNCH_CONTRACT.md`.
+   Confirm every row through W1-26 is already `VERIFIED`, plus whichever of
+   W1-03/W1-04/W1-27/W1-28 this runbook's earlier sections have promoted by
+   this point.
+2. Record the exact deployed production SHA: `ssh <prod> "cd <APP_DIR> && git
+   rev-parse HEAD"`, or read it from the most recent successful `Deploy
+   Production` workflow run's summary.
+3. Dispatch `v1-authenticated-verification.yml` **one final time** against
+   that same SHA — a W1-30 promotion must rest on one verification pass, not
+   evidence pieced together from separate historical runs against different
+   deployed trees.
+4. Confirm zero unexpected failures in `prod-auth-results.json`. The two
+   `v1-123-*` mobile-only failures noted in the contract's
+   "Row movements, 2026-09-06 (second)" section are the one known,
+   out-of-scope exception — re-confirm they are still exactly those two and
+   still unrelated to any Week 1 row before excluding them; a new failure
+   anywhere is not automatically the same known issue.
+5. "As temporally applicable" governs W1-27/W1-28 specifically: if Week 1 is
+   still live or has not started at verification time, W1-30 promotes on the
+   subset that IS temporally applicable (scheduled, and live if live evidence
+   already exists) — it does not wait for a FINAL state the clock has already
+   ruled out by the deadline.
+6. **W1-30 → VERIFIED** only when every temporally-applicable component above
+   is confirmed together in this one pass against the one recorded SHA.
+7. Recount the full 30-row contract mechanically and update the tally block
+   in the same bounded change.
