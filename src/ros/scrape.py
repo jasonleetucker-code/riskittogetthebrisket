@@ -362,11 +362,12 @@ def _refresh_power_snapshots() -> dict[str, Path]:
 
         nfl_state = fetch_nfl_state() or {}
         host_season = str(nfl_state.get("season") or "")
+        raw_host_week = nfl_state.get("week")
         try:
-            host_week = int(nfl_state.get("week") or 0)
+            host_week = int(raw_host_week) if raw_host_week is not None else None
         except (TypeError, ValueError):
-            host_week = 0
-        if not host_season or host_week < 2:
+            host_week = None
+        if not host_season or host_week is None or host_week < 2:
             return out
 
         for cfg in active_leagues():
@@ -379,9 +380,14 @@ def _refresh_power_snapshots() -> dict[str, Path]:
                 )
                 section = power_v2.build_section(snap, lens=power_v2.LENS_CANONICAL)
                 season = str(section.get("asOfSeason") or "")
-                week = int(section.get("asOfWeek") or 0)
+                raw_week = section.get("asOfWeek")
+                try:
+                    week = int(raw_week) if raw_week is not None else None
+                except (TypeError, ValueError):
+                    week = None
                 if (
                     season != host_season
+                    or week is None
                     or week < 1
                     or host_week <= week
                     or section.get("unrankable")
