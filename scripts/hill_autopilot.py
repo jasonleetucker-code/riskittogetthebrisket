@@ -250,10 +250,7 @@ def main() -> int:
         print(\n            f"ERROR: current tournament could not be evaluated: {exc}",\n            file=sys.stderr,\n        )
         return 2
 
-    fitted_days = {
-        c.version: _dt(c.fitted_at).timestamp() / 86400.0
-        for c in scores
-    }
+    fitted_days = {c.version: _dt(c.fitted_at).timestamp() / 86400.0 for c in scores}
     provisional = min(
         (
             c
