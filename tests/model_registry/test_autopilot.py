@@ -32,10 +32,7 @@ def test_tournament_can_select_an_older_candidate_and_clear_when_evidence_persis
         _candidate(7, 0.074, 1.150, 617.3),
         _candidate(8, 0.075, 1.135, 636.3),
     ]
-    forward = [
-        ForwardScore(str(i), 1160.0 + i, 620.0 + i)
-        for i in range(5)
-    ]
+    forward = [ForwardScore(str(i), 1160.0 + i, 620.0 + i) for i in range(5)]
     decision = decide(
         champion_criterion=1160.0,
         champion_per_source={"A": 1000.0, "B": 1200.0, "C": 1300.0, "D": 500.0},
