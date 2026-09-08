@@ -9,9 +9,13 @@ import { avatarUrlFor, nameFor, fmtPoints } from "./shared-helpers.js";
 // Imported from the MODULE, not the @/components/ds barrel, on purpose:
 // the barrel re-exports CollapsiblePanel, which carries a client
 // directive, and pulling that into this server module would drag it
-// into the server graph for nothing.  ds Panel itself is hook-free and
-// server-safe (pinned by __tests__/components/ds/panel-server-safe.test.js).
+// into the server graph for nothing.  ds Panel/StatTile are both
+// hook-free and server-safe (Panel pinned by
+// __tests__/components/ds/panel-server-safe.test.js; StatTile has no
+// hooks or client-only APIs at all).
 import { Panel } from "@/components/ds/Panel";
+import { StatTile } from "@/components/ds/StatTile";
+import styles from "./league-shared.module.css";
 
 export function Avatar({ managers, ownerId, size = 24, title }) {
   const url = avatarUrlFor(managers, ownerId);
@@ -90,43 +94,16 @@ export function Card({ title, subtitle, action, children, id }) {
   );
 }
 
+/**
+ * Thin adapter over ds `StatTile` — R5 phase B. Same prop shape every
+ * call site already uses (`label` / `value` / `sub`); StatTile's `meta`
+ * slot is the direct equivalent of `sub`. Presentation only: value/label
+ * text is unchanged, only the box (tokens, radius, tabular-nums data
+ * face) moves onto the shared primitive instead of a bespoke inline
+ * style with a raw `rgba(15, 28, 59, 0.45)` fill.
+ */
 export function Stat({ label, value, sub }) {
-  return (
-    <div
-      style={{
-        padding: "10px 12px",
-        border: "1px solid var(--border)",
-        borderRadius: "var(--radius)",
-        background: "rgba(15, 28, 59, 0.45)",
-      }}
-    >
-      <div
-        style={{
-          fontSize: "0.65rem",
-          color: "var(--subtext)",
-          textTransform: "uppercase",
-          letterSpacing: "0.04em",
-        }}
-      >
-        {label}
-      </div>
-      <div
-        style={{
-          fontSize: "1.05rem",
-          fontWeight: 700,
-          fontFamily: "var(--mono)",
-          marginTop: 2,
-        }}
-      >
-        {value}
-      </div>
-      {sub && (
-        <div style={{ fontSize: "0.68rem", color: "var(--subtext)", marginTop: 2 }}>
-          {sub}
-        </div>
-      )}
-    </div>
-  );
+  return <StatTile label={label} value={value} meta={sub} />;
 }
 
 export function MeetingCard({ label, meeting, nameA, nameB }) {
@@ -152,28 +129,28 @@ export function MeetingCard({ label, meeting, nameA, nameB }) {
   }
   // Points line, winner bolded when names are available.
   const pointsLine = nameA && nameB ? (
-    <div style={{ fontSize: "0.72rem", color: "var(--subtext)", marginTop: 2 }}>
-      <span style={{ fontWeight: meeting.winnerSide === "A" ? 700 : 400, color: meeting.winnerSide === "A" ? "var(--text)" : undefined }}>
+    <div className={styles.miniCardPoints}>
+      <span className={meeting.winnerSide === "A" ? styles.miniCardWinner : undefined}>
         {nameA} {fmtPoints(meeting.pointsA)}
       </span>
       {" · "}
-      <span style={{ fontWeight: meeting.winnerSide === "B" ? 700 : 400, color: meeting.winnerSide === "B" ? "var(--text)" : undefined }}>
+      <span className={meeting.winnerSide === "B" ? styles.miniCardWinner : undefined}>
         {nameB} {fmtPoints(meeting.pointsB)}
       </span>
     </div>
   ) : (
-    <div style={{ fontSize: "0.72rem", color: "var(--subtext)", marginTop: 2 }}>
+    <div className={styles.miniCardPoints}>
       Margin {fmtPoints(meeting.margin)} · {fmtPoints(meeting.pointsA)} / {fmtPoints(meeting.pointsB)}
     </div>
   );
   return (
-    <div style={{ border: "1px solid var(--border)", borderRadius: "var(--radius)", padding: 10 }}>
-      <div style={{ fontSize: "0.62rem", color: "var(--subtext)", textTransform: "uppercase" }}>{label}</div>
-      <div style={{ fontSize: "0.86rem", fontWeight: 700, marginTop: 2 }}>
+    <div className={styles.miniCard}>
+      <div className={styles.miniCardLabel}>{label}</div>
+      <div className={styles.miniCardValue}>
         {meeting.season} · {weekLabel}{meeting.isPlayoff ? " (P)" : ""}
       </div>
       {outcomeLine && (
-        <div style={{ fontSize: "0.74rem", marginTop: 2, color: "var(--cyan)" }}>
+        <div className={styles.miniCardAccent}>
           {outcomeLine} by {fmtPoints(meeting.margin)}
         </div>
       )}
