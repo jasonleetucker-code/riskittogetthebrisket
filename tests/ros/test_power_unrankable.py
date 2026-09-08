@@ -19,12 +19,11 @@ not depend on any data file:
 
 * ``preseason`` drops all seven ``_HISTORICAL_RESULTS_COMPONENTS``;
 * the results-only lens drops ``team_ros_strength`` *by definition*;
-* ``schedule_adjusted`` needs a schedule.
 
 So results-only + preseason is **always** every-component-missing —
 every day between the last game of one season and the first of the
-next.  The forward-looking lens reaches the same state whenever the
-team-strength file has not landed yet, which is exactly a fresh deploy.
+next.  The canonical lens reaches the same state whenever every forward-looking
+team-strength source is unavailable, which is a genuine all-inputs-down state.
 
 Measured on the committed dev snapshot, results-only lens: five owners,
 every ``powerScore`` 0.0, ranks 1-5 handed out in owner-id order — and
@@ -273,7 +272,7 @@ def test_the_committed_dev_snapshot_shows_both_halves():
     assert fwd["preseason"] is True
     assert not fwd.get("unrankable"), fwd.get("unrankable")
     assert "team_ros_strength" in fwd["effectiveWeights"]
-    assert set(fwd["effectiveWeights"]) <= {"team_ros_strength", "schedule_adjusted"}
+    assert set(fwd["effectiveWeights"]) == {"team_ros_strength"}
     ranks = sorted(r["rank"] for r in fwd["currentRanking"])
     assert ranks == [1, 2, 3, 4], ranks
     assert {r["ownerId"] for r in fwd["currentRanking"]} == {"o1", "o2", "o3", "o4"}
@@ -345,11 +344,11 @@ def test_results_only_keeps_the_finished_season_it_is_made_of():
     )
     kept = set(section["effectiveWeights"])
     assert {
-        "ppg",
         "recent",
         "wl_record",
         "all_play",
-    } <= kept, f"results-only dropped its own subject matter: kept {sorted(kept)}"
+    } <= kept, f"results-only dropped its canonical subject matter: kept {sorted(kept)}"
+    assert not ({"ppg", "streak", "luck_regression", "schedule_adjusted"} & kept)
     scores = [r["powerScore"] for r in section["currentRanking"]]
     assert all(s is not None for s in scores)
     assert len(set(scores)) > 1, "the finished season discriminates; the lens must too"
@@ -391,4 +390,4 @@ def test_an_in_progress_season_is_unchanged_for_both_lenses():
     for lens in (power_v2.LENS_RESULTS_ONLY, power_v2.LENS_FORWARD_LOOKING):
         section = power_v2.build_section(snapshot, lens=lens)
         assert section["preseason"] is False, lens
-        assert {"ppg", "recent"} <= set(section["effectiveWeights"]), lens
+        assert {"recent", "wl_record", "all_play"} <= set(section["effectiveWeights"]), lens
