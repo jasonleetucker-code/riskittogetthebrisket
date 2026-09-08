@@ -14,6 +14,8 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
+import tempfile
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -230,10 +232,29 @@ def record_snapshot(
         ],
     }
     path.parent.mkdir(parents=True, exist_ok=True)
+
+    # Write completely off-path, fsync it, then publish with an atomic
+    # hard-link that fails if another publisher already won the week. This
+    # preserves both invariants at once: readers never observe partial JSON,
+    # and an existing official snapshot is never overwritten.
+    fd, tmp_name = tempfile.mkstemp(
+        prefix=f".{path.name}.",
+        suffix=".tmp",
+        dir=path.parent,
+    )
     try:
-        with path.open("x", encoding="utf-8") as handle:
+        with os.fdopen(fd, "w", encoding="utf-8") as handle:
             json.dump(payload, handle, indent=2, sort_keys=True)
             handle.write("\n")
-    except FileExistsError:
-        return path, False
-    return path, True
+            handle.flush()
+            os.fsync(handle.fileno())
+        try:
+            os.link(tmp_name, path)
+        except FileExistsError:
+            return path, False
+        return path, True
+    finally:
+        try:
+            os.unlink(tmp_name)
+        except FileNotFoundError:
+            pass
