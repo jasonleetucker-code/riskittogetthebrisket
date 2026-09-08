@@ -22,25 +22,25 @@ import PlayoffOddsChart from "@/components/graphs/PlayoffOddsChart";
 // Same pattern + 30-min TTL that the retired power.jsx used for playoff
 // odds.
 //
-// V1-52: the canonical engine answers two lenses (forward-looking,
-// results-only) and they are genuinely different quantities, not a
-// re-sort of the same numbers — so each lens is cached and fetched
-// independently rather than sharing one slot.
+// One league-facing canonical answer plus a results-only diagnostic.
+// The backend still accepts "forward_looking" as a compatibility alias,
+// but the UI no longer presents it as a competing Power Ranking.
 const CACHE_TTL_MS = 30 * 60 * 1000;
+export const LENS_CANONICAL = "canonical";
 export const LENS_FORWARD_LOOKING = "forward_looking";
 export const LENS_RESULTS_ONLY = "results_only";
 const _caches = {
-  [LENS_FORWARD_LOOKING]: { data: null, error: null, inflight: null, fetchedAt: 0 },
+  [LENS_CANONICAL]: { data: null, error: null, inflight: null, fetchedAt: 0 },
   [LENS_RESULTS_ONLY]: { data: null, error: null, inflight: null, fetchedAt: 0 },
 };
 
 async function _fetchRosPower(lens) {
-  const cache = _caches[lens] || _caches[LENS_FORWARD_LOOKING];
+  const cache = _caches[lens] || _caches[LENS_CANONICAL];
   const fresh = cache.data && Date.now() - cache.fetchedAt < CACHE_TTL_MS;
   if (fresh) return { data: cache.data, error: null };
   if (cache.inflight) return cache.inflight;
 
-  const qs = lens && lens !== LENS_FORWARD_LOOKING ? `?lens=${encodeURIComponent(lens)}` : "";
+  const qs = lens && lens !== LENS_CANONICAL ? `?lens=${encodeURIComponent(lens)}` : "";
   const promise = fetch(`/api/public/league/rosPower${qs}`)
     .then((r) => (r.ok ? r.json() : Promise.reject(new Error(`${r.status}`))))
     .then((payload) => {
@@ -195,15 +195,11 @@ function ComponentBar({ label, value, weight }) {
 // their own dedicated table columns instead, the same treatment
 // power.py's renderer gave them.
 const COMPONENT_LABELS = {
-  team_ros_strength: "ROS roster strength",
-  ppg: "Points per game",
-  recent: "Recent form",
-  wl_record: "W/L record",
-  all_play: "All-play record",
-  streak: "Streak",
-  schedule_adjusted: "Schedule-adjusted",
-  roster_health: "Roster health",
-  luck_regression: "Luck regression",
+  team_ros_strength: "Forward-looking ROS strength",
+  all_play: "Season all-play",
+  recent: "Recent form (last 4)",
+  team_vorp: "Realized lineup VORP/PAR",
+  wl_record: "Official record",
 };
 
 const CURRENT_WEEK_KEY = "__current";
@@ -352,15 +348,16 @@ function PowerChart({ series, highlightOwnerId = null }) {
 }
 
 export default function RosPowerSection({ managers } = {}) {
-  const [lens, setLens] = useState(LENS_FORWARD_LOOKING);
-  const [data, setData] = useState(() => _caches[LENS_FORWARD_LOOKING].data);
-  const [error, setError] = useState(_caches[LENS_FORWARD_LOOKING].error);
-  const [loading, setLoading] = useState(!_caches[LENS_FORWARD_LOOKING].data);
+  const [lens, setLens] = useState(LENS_CANONICAL);
+  const [data, setData] = useState(() => _caches[LENS_CANONICAL].data);
+  const [error, setError] = useState(_caches[LENS_CANONICAL].error);
+  const [loading, setLoading] = useState(!_caches[LENS_CANONICAL].data);
   const [expanded, setExpanded] = useState(null);
   const [selectedWeekKey, setSelectedWeekKey] = useState(CURRENT_WEEK_KEY);
   const [hoverOwnerId, setHoverOwnerId] = useState(null);
   const [oddsData, setOddsData] = useState(() => _oddsCache.data);
   const [oddsError, setOddsError] = useState(() => _oddsCache.error);
+  const [shareOpen, setShareOpen] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -401,7 +398,10 @@ export default function RosPowerSection({ managers } = {}) {
         <button
           key={opt.key}
           type="button"
-          onClick={() => setLens(opt.key)}
+          onClick={() => {
+            setLens(opt.key);
+            if (opt.key !== LENS_CANONICAL) setShareOpen(false);
+          }}
           aria-pressed={lens === opt.key}
           style={{
             padding: "3px 10px",
