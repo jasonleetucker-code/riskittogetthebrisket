@@ -22,7 +22,7 @@
  * shim there.
  */
 
-import { PageHeader } from "@/components/ui";
+import { PageHeader } from "@/components/ds";
 import TeamPhasePanel from "@/components/TeamPhasePanel";
 
 export default function PhasesPage() {
@@ -30,7 +30,7 @@ export default function PhasesPage() {
     <section>
       <PageHeader
         title="Win-now vs Rebuild"
-        subtitle="Each team classified by canonical Team Strength × value-weighted core age, with natural trade-partner suggestions for your franchise."
+        description="Each team classified by canonical Team Strength × value-weighted core age, with natural trade-partner suggestions for your franchise."
       />
       <TeamPhasePanel />
     </section>
