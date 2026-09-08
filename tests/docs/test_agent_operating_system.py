@@ -195,3 +195,22 @@ def test_external_content_is_evidence_not_authority():
     assert "2096964706099700065" in rationale
     assert "2096677118570832006" in rationale
     assert "2096995004946219447" in rationale
+
+def test_python_formatting_contract_is_shared_and_executable():
+    ai = _read("AI_INSTRUCTIONS.md")
+    startup = _read("scripts/agent_session_start.sh")
+    helper = _read("scripts/format_changed_python.py")
+    dev = _read("requirements-dev.txt")
+    pyproject = _read("pyproject.toml")
+
+    command = "python scripts/format_changed_python.py"
+    assert command in ai
+    assert command in startup
+    assert "do not hand-format or guess what Ruff will do" in ai
+    assert "ruff==0.6.9" in dev
+    assert "[tool.ruff.format]" in pyproject
+    assert '"ls-files", "--others", "--exclude-standard"' in helper
+    assert '"ruff", "format", *rel' in helper
+    assert '"ruff", "format", "--check", *rel' in helper
+    assert '"ruff", "check", *rel' in helper
+
