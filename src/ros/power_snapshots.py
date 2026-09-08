@@ -136,9 +136,7 @@ def movement_against_previous(
         out[oid] = {
             "previousOfficialRank": prior_rank,
             "weekRankDelta": (
-                int(prior_rank) - int(rank)
-                if prior_rank is not None and rank is not None
-                else None
+                int(prior_rank) - int(rank) if prior_rank is not None and rank is not None else None
             ),
             "previousOfficialPowerScore": prior_score,
             "powerScoreDelta": (
