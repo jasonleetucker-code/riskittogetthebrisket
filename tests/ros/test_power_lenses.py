@@ -51,7 +51,9 @@ def test_legacy_forward_query_is_only_a_compatibility_alias(monkeypatch):
         lambda snapshot=None: {"o1": 0.9, "o2": 0.7, "o3": 0.3, "o4": 0.1},
     )
     canonical = power_v2.build_section(_scored_snapshot(), lens=power_v2.LENS_CANONICAL)
-    legacy = power_v2.build_section(_scored_snapshot(), lens=power_v2.LENS_FORWARD_LOOKING)
+    legacy = power_v2.build_section(
+        _scored_snapshot(), lens=power_v2.LENS_FORWARD_LOOKING
+    )
 
     assert legacy["lens"] == power_v2.LENS_CANONICAL
     assert legacy["requestedLens"] == power_v2.LENS_FORWARD_LOOKING
@@ -75,7 +77,9 @@ def test_results_only_never_reads_team_strength(monkeypatch):
 
 
 def test_missing_vorp_keeps_results_component_ratios(monkeypatch):
-    monkeypatch.setattr(power_v2, "_load_team_strength_percentiles", lambda snapshot=None: {})
+    monkeypatch.setattr(
+        power_v2, "_load_team_strength_percentiles", lambda snapshot=None: {}
+    )
     out = power_v2.build_section(_scored_snapshot(), lens=power_v2.LENS_RESULTS_ONLY)
     applied = out["effectiveWeights"]
 
@@ -96,7 +100,9 @@ def test_canonical_blends_ros_and_results_after_games(monkeypatch):
     assert {"all_play", "recent", "wl_record"} <= set(out["effectiveWeights"])
     assert out["blend"]["forwardWeight"] > 0
     assert out["blend"]["resultsWeight"] > 0
-    assert out["blend"]["forwardWeight"] + out["blend"]["resultsWeight"] == pytest.approx(1.0)
+    assert out["blend"]["forwardWeight"] + out["blend"]["resultsWeight"] == pytest.approx(
+        1.0
+    )
 
 
 def test_trend_remains_results_only_and_never_backfills_current_ros(monkeypatch):
@@ -116,7 +122,9 @@ def test_trend_remains_results_only_and_never_backfills_current_ros(monkeypatch)
 
 
 def test_each_trend_point_is_as_of_that_week(monkeypatch):
-    monkeypatch.setattr(power_v2, "_load_team_strength_percentiles", lambda snapshot=None: {})
+    monkeypatch.setattr(
+        power_v2, "_load_team_strength_percentiles", lambda snapshot=None: {}
+    )
     full = power_v2.build_section(_scored_snapshot(4), lens=power_v2.LENS_RESULTS_ONLY)
 
     for week_number in (1, 2, 3, 4):
@@ -131,7 +139,9 @@ def test_each_trend_point_is_as_of_that_week(monkeypatch):
 
 
 def test_exact_score_ties_share_standard_competition_rank(monkeypatch):
-    monkeypatch.setattr(power_v2, "_load_team_strength_percentiles", lambda snapshot=None: {})
+    monkeypatch.setattr(
+        power_v2, "_load_team_strength_percentiles", lambda snapshot=None: {}
+    )
     rosters = [{"roster_id": i, "owner_id": f"o{i}"} for i in (1, 2, 3, 4)]
     matchups = {
         wk: [
