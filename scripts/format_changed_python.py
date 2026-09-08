@@ -44,6 +44,7 @@ def changed_python_files(base: str | None = None) -> list[Path]:
         names.update(_git("diff", "--name-only", "--diff-filter=ACMR", f"{resolved_base}...HEAD"))
     names.update(_git("diff", "--name-only", "--diff-filter=ACMR"))
     names.update(_git("diff", "--cached", "--name-only", "--diff-filter=ACMR"))
+    names.update(_git("ls-files", "--others", "--exclude-standard"))
 
     out: list[Path] = []
     for name in sorted(names):
