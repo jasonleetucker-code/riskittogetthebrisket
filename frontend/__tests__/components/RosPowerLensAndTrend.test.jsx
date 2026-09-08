@@ -283,4 +283,84 @@ describe("RosPowerSection — lens toggle and trend", () => {
     expect((await screen.findByTestId("league-power-share-card")).textContent).toContain("NEW");
   });
 
+
+  it("shares the latest official week instead of a partial live recalculation", async () => {
+    const liveRows = [
+      {
+        ownerId: "o1",
+        displayName: "Alice",
+        teamName: "Alice Team",
+        powerScore: 99,
+        rank: 2,
+        weekRankDelta: -1,
+        components: {},
+        weightsApplied: {},
+      },
+      {
+        ownerId: "o2",
+        displayName: "Bob",
+        teamName: "Bob Team",
+        powerScore: 98,
+        rank: 1,
+        weekRankDelta: 1,
+        components: {},
+        weightsApplied: {},
+      },
+    ];
+    const body = {
+      currentRanking: liveRows,
+      shareSnapshot: {
+        season: "2026",
+        week: 1,
+        ranking: [
+          {
+            ownerId: "o1",
+            displayName: "Alice",
+            teamName: "Alice Team",
+            powerScore: 80,
+            rank: 1,
+            rankDelta: null,
+          },
+          {
+            ownerId: "o2",
+            displayName: "Bob",
+            teamName: "Bob Team",
+            powerScore: 79,
+            rank: 2,
+            rankDelta: null,
+          },
+        ],
+      },
+      asOfSeason: "2026",
+      asOfWeek: 2,
+      lens: "canonical",
+      weights: {},
+      effectiveWeights: {},
+      blend: { forwardWeight: 0.6, resultsWeight: 0.4 },
+      missingInputs: [],
+      preseason: false,
+      unrankable: null,
+      trend: { lens: "results_only", weeks: [], seriesByOwner: {} },
+    };
+    global.fetch = vi.fn((url) =>
+      Promise.resolve({
+        ok: true,
+        json: () =>
+          Promise.resolve(String(url).includes("playoffOdds") ? { owners: [] } : body),
+      }),
+    );
+
+    const RosPowerSection = await renderFresh();
+    render(<RosPowerSection />);
+    await waitFor(() => expect(screen.getAllByText("Alice").length).toBeGreaterThan(0));
+    fireEvent.click(screen.getByRole("button", { name: /share rankings/i }));
+
+    const card = await screen.findByTestId("league-power-share-card");
+    expect(card.textContent).toContain("Week 1");
+    expect(card.textContent).toContain("Official");
+    const text = card.textContent;
+    expect(text.indexOf("Alice")).toBeLessThan(text.indexOf("Bob"));
+    expect(text).toContain("NEW");
+  });
+
 });
