@@ -39,9 +39,11 @@ import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "rea
 import dynamic from "next/dynamic";
 import { useRouter, useSearchParams } from "next/navigation";
 import ResilientSection from "@/components/ResilientSection";
-import { SubNav, PageHeader, LoadingState, EmptyState } from "@/components/ui";
+import { PageHeader, Tabs, tabId, tabPanelId, Select } from "@/components/ds";
+import { LoadingState, EmptyState } from "@/components/ui";
 import { PUBLIC_SECTION_KEYS, fetchPublicSection } from "@/lib/public-league-data";
 import { buildManagerLookup } from "./shared.jsx";
+import leagueNavStyles from "./league-shared.module.css";
 import {
   DEFAULT_TAB,
   PIECE_OF_SHIT_RANKINGS_TAB,
@@ -304,49 +306,46 @@ function LeaguePage({ initialContract = null, initialTab = DEFAULT_TAB }) {
 
   return (
     <section>
-      <div className="card">
-        <PageHeader
-          title={league.leagueName || "League"}
-          subtitle={
-            `Seasons: ${seasonLabel}` +
-            ` · ${(league.managers || []).length} managers` +
-            ` · Last ${(league.seasonsCovered || []).length || 2} dynasty season${(league.seasonsCovered || []).length === 1 ? "" : "s"}`
-          }
-        />
-        {/* Mobile: a dropdown selector so all 12 sections stay reachable
+      <PageHeader
+        eyebrow="Chase Upside League"
+        title={league.leagueName || "League"}
+        description={
+          `Seasons: ${seasonLabel}` +
+          ` · ${(league.managers || []).length} managers` +
+          ` · Last ${(league.seasonsCovered || []).length || 2} dynasty season${(league.seasonsCovered || []).length === 1 ? "" : "s"}`
+        }
+      />
+      <div className={leagueNavStyles.nav}>
+        {/* Mobile: a dropdown selector so all 20 sections stay reachable
             without needing a horizontally-scrolled tab row. */}
-        <div className="mobile-only" style={{ marginBottom: "var(--space-sm)" }}>
-          <label
-            style={{
-              display: "block",
-              fontSize: "0.66rem",
-              color: "var(--subtext)",
-              textTransform: "uppercase",
-              letterSpacing: "0.08em",
-              marginBottom: 4,
-            }}
-          >
+        <div className={`mobile-only ${leagueNavStyles.mobileNav}`}>
+          <label className={leagueNavStyles.mobileNavLabel} htmlFor="league-section-select">
             Section
           </label>
-          <select
-            className="input"
+          <Select
+            id="league-section-select"
             value={activeTab}
             onChange={(e) => setActiveTab(e.target.value)}
             aria-label="Select league section"
-            style={{ width: "100%" }}
-          >
-            {SUB_TABS.map((t) => (
-              <option key={t.key} value={t.key}>
-                {t.label}
-              </option>
-            ))}
-          </select>
+            options={SUB_TABS.map((t) => ({ value: t.key, label: t.label }))}
+          />
         </div>
         <div className="desktop-only">
-          <SubNav items={SUB_TABS} active={activeTab} onChange={(key) => setActiveTab(key)} />
+          <Tabs
+            idPrefix="league"
+            label="League sections"
+            tabs={SUB_TABS.map((t) => ({ id: t.key, label: t.label }))}
+            active={activeTab}
+            onChange={(key) => setActiveTab(key)}
+          />
         </div>
       </div>
 
+      <div
+        role="tabpanel"
+        id={tabPanelId("league", activeTab)}
+        aria-labelledby={tabId("league", activeTab)}
+      >
       {/* The tab's section is fetched on open (see the effect above), so
           a tab the server did not pre-render shows its own loading /
           error state under the header and nav rather than blanking the
@@ -436,6 +435,7 @@ function LeaguePage({ initialContract = null, initialTab = DEFAULT_TAB }) {
       )}
         </>
       )}
+      </div>
     </section>
   );
 }
