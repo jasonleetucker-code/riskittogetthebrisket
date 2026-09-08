@@ -2,7 +2,18 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { EmptyState, LoadingState, PageHeader } from "@/components/ui";
+import {
+  Badge,
+  Banner,
+  Button,
+  Field,
+  Input,
+  Panel,
+  PageHeader,
+  Select,
+  StatTile,
+} from "@/components/ds";
+import { LoadingState } from "@/components/ui";
 import { apiErrorMessage } from "@/lib/api-error";
 
 const MEMBERSHIPS = [
@@ -27,33 +38,6 @@ const IDENTITIES = [
   ["untrackable", "No verified fantasy identity"],
   ["review", "Needs identity review"],
 ];
-
-function Badge({ children }) {
-  return (
-    <span
-      style={{
-        border: "1px solid var(--border-default)",
-        borderRadius: 999,
-        padding: "2px 7px",
-        fontSize: "0.62rem",
-        whiteSpace: "nowrap",
-      }}
-    >
-      {children}
-    </span>
-  );
-}
-
-function Score({ label, value }) {
-  return (
-    <div>
-      <div className="muted" style={{ fontSize: "0.62rem", textTransform: "uppercase" }}>
-        {label}
-      </div>
-      <strong>{value == null ? "—" : Number(value).toFixed(0)}</strong>
-    </div>
-  );
-}
 
 export default function SharpPeoplePage() {
   const [membership, setMembership] = useState("curated");
@@ -109,71 +93,79 @@ export default function SharpPeoplePage() {
     <section>
       <PageHeader
         title="Sharp People"
-        subtitle="The researched dynasty-industry universe, independently labeled by curation, measured performance, and public trackability."
+        description="The researched dynasty-industry universe, independently labeled by curation, measured performance, and public trackability."
       />
 
-      <div className="card" style={{ display: "flex", gap: 28, flexWrap: "wrap", marginBottom: 12 }}>
-        {headline.map(([label, value]) => (
-          <div key={label}>
-            <div className="muted" style={{ fontSize: "0.64rem", textTransform: "uppercase" }}>
-              {label}
-            </div>
-            <div style={{ fontSize: "1.35rem", fontWeight: 700 }}>{value ?? "—"}</div>
+      <Panel dense>
+        <div style={{ display: "flex", gap: 28, flexWrap: "wrap", alignItems: "center" }}>
+          {headline.map(([label, value]) => (
+            <StatTile key={label} label={label} value={value ?? "—"} bare />
+          ))}
+          <div style={{ marginLeft: "auto", display: "flex", gap: 14, alignItems: "center" }}>
+            <Link href="/market/sharp-tracker">Market signals</Link>
+            <Link href="/admin/sharp-identities">Identity review</Link>
           </div>
-        ))}
-        <div style={{ marginLeft: "auto", display: "flex", gap: 8, alignItems: "center" }}>
-          <Link href="/market/sharp-tracker">Market signals</Link>
-          <Link href="/admin/sharp-identities">Identity review</Link>
         </div>
-      </div>
+      </Panel>
 
-      <div className="card" style={{ marginBottom: 12 }}>
-        <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "end" }}>
-          <label>
-            Population<br />
-            <select value={membership} onChange={(event) => setMembership(event.target.value)}>
-              {MEMBERSHIPS.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
-            </select>
-          </label>
-          <label>
-            Platform<br />
-            <select value={platform} onChange={(event) => setPlatform(event.target.value)}>
-              <option value="all">All platforms</option>
-              <option value="sleeper">Sleeper verified</option>
-              <option value="ffpc">FFPC verified</option>
-              <option value="x">Public X handle</option>
-            </select>
-          </label>
-          <label>
-            Specialty<br />
-            <select value={specialty} onChange={(event) => setSpecialty(event.target.value)}>
-              {SPECIALTIES.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
-            </select>
-          </label>
-          <label>
-            Identity<br />
-            <select value={identity} onChange={(event) => setIdentity(event.target.value)}>
-              {IDENTITIES.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
-            </select>
-          </label>
-          <label style={{ minWidth: 220, flex: 1 }}>
-            Search<br />
-            <input
+      <Panel title="Filters" dense>
+        <div style={{ display: "flex", gap: 14, flexWrap: "wrap", alignItems: "end" }}>
+          <Field label="Population">
+            <Select
+              value={membership}
+              onChange={(event) => setMembership(event.target.value)}
+              options={MEMBERSHIPS.map(([value, label]) => ({ value, label }))}
+            />
+          </Field>
+          <Field label="Platform">
+            <Select
+              value={platform}
+              onChange={(event) => setPlatform(event.target.value)}
+              options={[
+                ["all", "All platforms"],
+                ["sleeper", "Sleeper verified"],
+                ["ffpc", "FFPC verified"],
+                ["x", "Public X handle"],
+              ].map(([value, label]) => ({ value, label }))}
+            />
+          </Field>
+          <Field label="Specialty">
+            <Select
+              value={specialty}
+              onChange={(event) => setSpecialty(event.target.value)}
+              options={SPECIALTIES.map(([value, label]) => ({ value, label }))}
+            />
+          </Field>
+          <Field label="Identity">
+            <Select
+              value={identity}
+              onChange={(event) => setIdentity(event.target.value)}
+              options={IDENTITIES.map(([value, label]) => ({ value, label }))}
+            />
+          </Field>
+          <Field label="Search" hint="Name, handle, affiliation…">
+            <Input
               value={search}
               onChange={(event) => setSearch(event.target.value)}
-              placeholder="Name, handle, affiliation…"
-              style={{ width: "100%" }}
+              placeholder="Search"
+              style={{ minWidth: 220 }}
             />
-          </label>
-          <button type="button" onClick={load} disabled={loading}>
-            {loading ? "Refreshing…" : "Refresh"}
-          </button>
+          </Field>
+          <Button type="button" variant="secondary" size="sm" loading={loading} onClick={load}>
+            Refresh
+          </Button>
         </div>
-      </div>
+      </Panel>
 
       {loading && !payload ? <LoadingState message="Loading researched Sharp people…" /> : null}
-      {error && !payload ? <div className="card"><EmptyState title="Sharp people unavailable" message={error} /></div> : null}
-      {!loading && !error && !people.length ? <div className="card"><EmptyState title="No people match these filters" /></div> : null}
+      {error && !payload ? (
+        <Banner tone="negative" title="Sharp people unavailable">
+          {error}
+        </Banner>
+      ) : null}
+      {!loading && !error && !people.length ? (
+        <Banner tone="info" title="No people match these filters" />
+      ) : null}
 
       <div style={{ display: "grid", gap: 10 }}>
         {people.map((person) => {
@@ -182,39 +174,63 @@ export default function SharpPeoplePage() {
             ["sleeper", "ffpc"].includes(account.platform),
           );
           return (
-            <article key={person.person_id} className="card">
+            <Panel key={person.person_id}>
               <div style={{ display: "flex", gap: 12, justifyContent: "space-between", flexWrap: "wrap" }}>
                 <div style={{ minWidth: 220, flex: 1 }}>
                   <Link href={`/market/sharp-people/${encodeURIComponent(person.person_id)}`}>
-                    <strong style={{ fontSize: "0.95rem" }}>{person.public_display_name || person.canonical_name}</strong>
+                    <strong style={{ fontSize: "0.95rem" }}>
+                      {person.public_display_name || person.canonical_name}
+                    </strong>
                   </Link>
                   <div className="muted" style={{ fontSize: "0.68rem", marginTop: 3 }}>
                     {person.primary_public_handle || "No verified social handle"}
                     {person.current_affiliation ? ` · ${person.current_affiliation}` : ""}
                   </div>
                   <div style={{ display: "flex", gap: 5, flexWrap: "wrap", marginTop: 8 }}>
-                    {person.curated_industry_sharp ? <Badge>Curated Industry</Badge> : null}
-                    {person.algorithmically_qualified_sharp ? <Badge>Performance-qualified</Badge> : null}
-                    {person.verified_super_sharp ? <Badge>Super Sharp</Badge> : null}
-                    {person.idp_specialist ? <Badge>IDP</Badge> : null}
-                    {person.devy_c2c_specialist ? <Badge>Devy / C2C</Badge> : null}
-                    {person.high_stakes_specialist ? <Badge>High stakes</Badge> : null}
+                    {person.curated_industry_sharp ? <Badge tone="outline">Curated Industry</Badge> : null}
+                    {person.algorithmically_qualified_sharp ? (
+                      <Badge tone="outline">Performance-qualified</Badge>
+                    ) : null}
+                    {person.verified_super_sharp ? <Badge tone="accent">Super Sharp</Badge> : null}
+                    {person.idp_specialist ? <Badge tone="outline">IDP</Badge> : null}
+                    {person.devy_c2c_specialist ? <Badge tone="outline">Devy / C2C</Badge> : null}
+                    {person.high_stakes_specialist ? <Badge tone="outline">High stakes</Badge> : null}
                     {verifiedFantasy.map((account) => (
-                      <Badge key={account.account_id}>{account.platform.toUpperCase()} verified</Badge>
+                      <Badge key={account.account_id} tone="neutral">
+                        {account.platform.toUpperCase()} verified
+                      </Badge>
                     ))}
                   </div>
                 </div>
                 <div style={{ display: "flex", gap: 22 }}>
-                  <Score label="Curated" value={person.curated_expertise_score} />
-                  <Score label="Trackability" value={person.trackability_score} />
-                  <Score label="Influence" value={person.combined_influence == null ? null : person.combined_influence * 100} />
+                  <StatTile
+                    label="Curated"
+                    value={person.curated_expertise_score == null ? "—" : Number(person.curated_expertise_score).toFixed(0)}
+                    bare
+                  />
+                  <StatTile
+                    label="Trackability"
+                    value={person.trackability_score == null ? "—" : Number(person.trackability_score).toFixed(0)}
+                    bare
+                  />
+                  <StatTile
+                    label="Influence"
+                    value={
+                      person.combined_influence == null
+                        ? "—"
+                        : Number(person.combined_influence * 100).toFixed(0)
+                    }
+                    bare
+                  />
                 </div>
               </div>
               <div className="muted" style={{ marginTop: 9, fontSize: "0.7rem", lineHeight: 1.5 }}>
-                <strong style={{ color: "var(--text-primary)" }}>{membershipState || person.candidate_status}</strong>
+                <strong style={{ color: "var(--text-primary)" }}>
+                  {membershipState || person.candidate_status}
+                </strong>
                 {person.why_included ? ` · ${person.why_included}` : ""}
               </div>
-            </article>
+            </Panel>
           );
         })}
       </div>
