@@ -116,15 +116,26 @@ def stable_cluster(
         and _rel_close(c.c, winner.c, policy.c_relative_tolerance)
         and _rel_close(c.s, winner.s, policy.s_relative_tolerance)
     ]
-    cluster.sort(key=lambda c: c.version)
+    cluster.sort(key=lambda c: (fitted_span_days.get(c.version, 0.0), c.version))
     if len(cluster) < policy.stable_candidates_required:
         return ()
-    chosen = tuple(cluster[-policy.stable_candidates_required :])
-    versions = [c.version for c in chosen]
-    span = max(fitted_span_days.get(v, 0.0) for v in versions) - min(
-        fitted_span_days.get(v, 0.0) for v in versions
+    full_span = fitted_span_days.get(cluster[-1].version, 0.0) - fitted_span_days.get(
+        cluster[0].version, 0.0
     )
-    return chosen if span >= policy.stable_span_days else ()
+    if full_span < policy.stable_span_days:
+        return ()
+
+    # Refits now run every ~2h. Taking the newest N candidates would make
+    # a five-day persistence requirement mathematically impossible because
+    # the newest three are usually only four hours apart. Select evidence
+    # across the observed time span instead: oldest + evenly-spaced interior
+    # points + newest.
+    n = policy.stable_candidates_required
+    if n == 1:
+        return (cluster[-1],)
+    indexes = [round(i * (len(cluster) - 1) / (n - 1)) for i in range(n)]
+    chosen = tuple(cluster[i] for i in indexes)
+    return chosen
 
 
 def decide(
