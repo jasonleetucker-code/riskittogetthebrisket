@@ -153,7 +153,9 @@ def _effective_weight_vector(
     else:
         evidence = 0.0 if preseason else _results_evidence(scored_games)
         forward_raw = WEIGHTS["team_ros_strength"] if ros_available else 0.0
-        results_raw = sum(WEIGHTS[k] for k in RESULT_COMPONENTS) * evidence if result_base > 0 else 0.0
+        results_raw = (
+            sum(WEIGHTS[k] for k in RESULT_COMPONENTS) * evidence if result_base > 0 else 0.0
+        )
         total = forward_raw + results_raw
         forward_mass = forward_raw / total if total else 0.0
         results_mass = results_raw / total if total else 0.0
@@ -335,11 +337,11 @@ def _enumerate_owner_ids(
          2026 season, so prior-season history is a SHRINKING set that
          cannot be trusted as a primary source without silently dropping
          every owner who joined after the expansion.
-      2. Owners present in the live team-strength snapshot — union, not
-         override, so an owner Sleeper hasn't attached to a roster slot
-         yet (a mid-season rejoin) is still caught.
-      3. Owners from prior-season career history — last-resort fallback,
-         only meaningful when there is no current season loaded at all.
+      2. If no registry-valid current roster membership is available,
+         owners present in the live team-strength snapshot are the first
+         fallback.
+      3. Prior-season career history is the final fallback. It never unions
+         departed owners into a populated current-season league table.
 
     Precedence was inverted 2026-09 (was: team-strength -> current season
     -> history). Team-strength first made history — the shrinking set —
@@ -367,11 +369,14 @@ def _enumerate_owner_ids(
         for roster in current.rosters or []:
             _add(roster.get("owner_id"))
 
-    for row in team_strength_rows:
-        _add(row.get("ownerId"))
-
-    for oid in historical_owner_ids:
-        _add(oid)
+    # A populated current-season roster is authoritative membership for this
+    # CURRENT league ranking. Team-strength/history are fallbacks for an
+    # incomplete snapshot, not unions that can resurrect departed owners.
+    if not ordered:
+        for row in team_strength_rows:
+            _add(row.get("ownerId"))
+        for oid in historical_owner_ids:
+            _add(oid)
 
     # Floor invariant, not a correction: every registry-passing owner who
     # holds a roster in the CURRENT season must appear in the result. This
@@ -449,9 +454,7 @@ def _score_state(
         outcomes = (state.get("outcomes") or {}).get(oid, [])
         streak = _streak_score_from_outcomes(outcomes)
         expected_total = float((state.get("expected") or {}).get(oid, 0.0))
-        luck_delta = (
-            (float(s.get("wins") or 0.0) - expected_total) / games if games else 0.0
-        )
+        luck_delta = (float(s.get("wins") or 0.0) - expected_total) / games if games else 0.0
         luck_score = max(0.0, min(1.0, 0.5 - luck_delta))
         inputs[oid] = {
             "ppg": ppg,
@@ -521,11 +524,7 @@ def _score_state(
             "team_vorp": None,
             "wl_record": None if suppressed_results else i["wl_record"],
             # Display-only diagnostics. None of these keys appears in WEIGHTS.
-            "ppg": (
-                None
-                if i["ppg"] is None
-                else _percentile(ppg_values, i["ppg"])
-            ),
+            "ppg": (None if i["ppg"] is None else _percentile(ppg_values, i["ppg"])),
             "streak": None if suppressed_results else i["streak"],
             "luck_regression": None if suppressed_results else i["luck_regression"],
             "pointsPerGame": i["ppg"],
@@ -556,16 +555,15 @@ def _score_state(
     for oid in owner_ids:
         components = _component_map(oid)
         owner_weights = {
-            key: weight
-            for key, weight in active_weights.items()
-            if components.get(key) is not None
+            key: weight for key, weight in active_weights.items() if components.get(key) is not None
         }
         owner_weight_total = sum(owner_weights.values())
         score = None
         if owner_weight_total:
-            score_unit = sum(
-                owner_weights[key] * float(components[key]) for key in owner_weights
-            ) / owner_weight_total
+            score_unit = (
+                sum(owner_weights[key] * float(components[key]) for key in owner_weights)
+                / owner_weight_total
+            )
             score = round(score_unit * 100.0, 2)
 
         rankings.append(
@@ -574,8 +572,7 @@ def _score_state(
                 "displayName": _metrics.display_name_for(snapshot, oid),
                 "powerScore": score,
                 "components": {
-                    k: (None if v is None else round(float(v), 4))
-                    for k, v in components.items()
+                    k: (None if v is None else round(float(v), 4)) for k, v in components.items()
                 },
                 "rosStrengthPercentile": (
                     round(float(ros_pct[oid]), 4) if oid in ros_pct and ros_available else None
@@ -604,7 +601,6 @@ def _score_state(
         row["rank"] = None
 
     return scored_rows + refused, missing_inputs, active_weights, blend
-
 
 
 #: One canonical public answer plus one diagnostic retrospective lens.
@@ -692,9 +688,7 @@ def build_section(
         if not week_scores:
             continue
 
-        season_state = defaultdict(
-            lambda: {"points": 0.0, "games": 0, "wins": 0.0, "losses": 0.0}
-        )
+        season_state = defaultdict(lambda: {"points": 0.0, "games": 0, "wins": 0.0, "losses": 0.0})
         last_season_recent = defaultdict(list)
         last_season_allplay_share = {}
         allplay_share_total = defaultdict(float)
@@ -737,9 +731,7 @@ def build_section(
                 # label. This is the schedule-independent earned-performance
                 # signal named by the canonical spec.
                 last_season_allplay_share[oid] = (
-                    allplay_share_total[oid] / int(current["games"])
-                    if current["games"]
-                    else 0.0
+                    allplay_share_total[oid] / int(current["games"]) if current["games"] else 0.0
                 )
 
             week_states.append(
@@ -793,11 +785,11 @@ def build_section(
                 official_record_scores[oid] = (
                     float(rec["wins"]) + 0.5 * float(rec["ties"])
                 ) / games
-            official_record_strings[oid] = (
-                f"{rec['wins']}-{rec['losses']}-{rec['ties']}"
-                if rec["ties"]
-                else f"{rec['wins']}-{rec['losses']}"
-            )
+                official_record_strings[oid] = (
+                    f"{rec['wins']}-{rec['losses']}-{rec['ties']}"
+                    if rec["ties"]
+                    else f"{rec['wins']}-{rec['losses']}"
+                )
 
     ros_pct = {} if results_only else _load_team_strength_percentiles(snapshot)
     ros_available = bool(ros_pct)
@@ -818,8 +810,10 @@ def build_section(
         results_only=results_only,
     )
 
-    current_league_id = current_season.league_id if current_season is not None else (
-        seasons_sorted[-1].league_id if seasons_sorted else None
+    current_league_id = (
+        current_season.league_id
+        if current_season is not None
+        else (seasons_sorted[-1].league_id if seasons_sorted else None)
     )
     for row in rankings:
         rid = (
@@ -840,8 +834,10 @@ def build_section(
             row["record"] = f"{wins}-{games - wins}" if games else "0-0"
             row["recordSource"] = "matchups"
 
-    current_season_label = str(current_season.season) if current_season is not None else (
-        str(seasons_sorted[-1].season) if seasons_sorted else None
+    current_season_label = (
+        str(current_season.season)
+        if current_season is not None
+        else (str(seasons_sorted[-1].season) if seasons_sorted else None)
     )
     as_of_week = (
         int(scored_week_by_season.get(current_season_label, 0))
@@ -974,4 +970,3 @@ def build_section(
         "officialSnapshot": official_snapshot,
         "shareSnapshot": share_snapshot,
     }
-
