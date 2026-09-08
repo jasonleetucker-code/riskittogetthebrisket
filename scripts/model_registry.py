@@ -311,6 +311,18 @@ def cmd_promote(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_reject(args: argparse.Namespace) -> int:
+    reg = _load_or_seed()
+    try:
+        version = reg.reject(args.version, reason=args.reason)
+    except RegistryError as exc:
+        print(f"ERROR: {exc}", file=sys.stderr)
+        return 2
+    reg.save()
+    print(f"rejected v{version.version}: {args.reason}")
+    return 0
+
+
 def cmd_rollback(args: argparse.Namespace) -> int:
     reg = _load_or_seed()
     try:
@@ -388,6 +400,11 @@ def main() -> int:
         help="why the owner accepts the overridden scopes' risk",
     )
     p_pro.set_defaults(fn=cmd_promote)
+
+    p_rej = sub.add_parser("reject", help="mark a challenger rejected and keep the evidence")
+    p_rej.add_argument("version", type=int)
+    p_rej.add_argument("--reason", required=True)
+    p_rej.set_defaults(fn=cmd_reject)
 
     p_rb = sub.add_parser("rollback", help="reinstate the previous champion")
     p_rb.add_argument("--to-version", type=int, default=None)
