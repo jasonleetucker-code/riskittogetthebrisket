@@ -1,0 +1,234 @@
+"""Fail-closed policy primitives for automatic Hill-master promotion.
+
+This module deliberately owns NO I/O.  The workflow/script layer gathers
+scores and history; these functions decide whether that evidence is strong
+and stable enough to let OFFENSE replace the incumbent automatically.
+
+Until GLOBAL and IDP have their own independent scorers, autopilot composes
+an OFFENSE-only parameter set: the winning OFFENSE (c, s) plus the current
+champion's other six constants.  That makes the existing per-scope promotion
+gate an additional hard backstop rather than something autopilot overrides.
+"""
+
+from __future__ import annotations
+
+from dataclasses import dataclass
+from math import isfinite
+from statistics import median
+from typing import Mapping, Sequence
+
+
+@dataclass(frozen=True)
+class AutopilotPolicy:
+    min_current_improvement_points: float = 25.0
+    min_current_improvement_fraction: float = 0.05
+    min_improved_boards: int = 3
+    max_board_worsening_fraction: float = 0.10
+    min_rows_per_board: int = 300
+    stable_candidates_required: int = 3
+    stable_span_days: float = 5.0
+    candidate_criterion_band_fraction: float = 0.05
+    c_relative_tolerance: float = 0.08
+    s_relative_tolerance: float = 0.06
+    forward_days_required: int = 5
+    forward_win_rate_required: float = 0.80
+    forward_median_improvement_points: float = 25.0
+
+
+@dataclass(frozen=True)
+class CandidateScore:
+    version: int
+    c: float
+    s: float
+    criterion: float
+    per_source: Mapping[str, float]
+    per_source_rows: Mapping[str, int]
+    fitted_at: str
+    status: str
+    training_inputs: Mapping[str, str]
+
+
+@dataclass(frozen=True)
+class ForwardScore:
+    label: str
+    champion_criterion: float
+    candidate_criterion: float
+
+    @property
+    def improvement(self) -> float:
+        return self.champion_criterion - self.candidate_criterion
+
+
+@dataclass(frozen=True)
+class AutopilotDecision:
+    ready: bool
+    winner_version: int | None
+    gates: Mapping[str, bool]
+    reason: str
+    required_improvement: float
+    current_improvement: float | None
+    stable_versions: tuple[int, ...] = ()
+    forward_days: int = 0
+    forward_win_rate: float | None = None
+    forward_median_improvement: float | None = None
+
+
+def _rel_close(a: float, b: float, tolerance: float) -> bool:
+    scale = max(abs(a), abs(b), 1e-12)
+    return abs(a - b) / scale <= tolerance
+
+
+def required_improvement(champion_criterion: float, policy: AutopilotPolicy) -> float:
+    return max(
+        policy.min_current_improvement_points,
+        champion_criterion * policy.min_current_improvement_fraction,
+    )
+
+
+def choose_winner(candidates: Sequence[CandidateScore]) -> CandidateScore | None:
+    eligible = [
+        c
+        for c in candidates
+        if c.status == "challenger"
+        and isfinite(c.criterion)
+        and c.criterion >= 0
+        and c.c > 0
+        and c.s > 0
+        and c.training_inputs
+        and all(v != "missing" for v in c.training_inputs.values())
+    ]
+    return min(eligible, key=lambda c: (c.criterion, -c.version)) if eligible else None
+
+
+def stable_cluster(
+    winner: CandidateScore,
+    candidates: Sequence[CandidateScore],
+    *,
+    policy: AutopilotPolicy,
+    fitted_span_days: Mapping[int, float],
+) -> tuple[CandidateScore, ...]:
+    max_criterion = winner.criterion * (1.0 + policy.candidate_criterion_band_fraction)
+    cluster = [
+        c
+        for c in candidates
+        if c.status == "challenger"
+        and c.criterion <= max_criterion
+        and _rel_close(c.c, winner.c, policy.c_relative_tolerance)
+        and _rel_close(c.s, winner.s, policy.s_relative_tolerance)
+    ]
+    cluster.sort(key=lambda c: c.version)
+    if len(cluster) < policy.stable_candidates_required:
+        return ()
+    chosen = tuple(cluster[-policy.stable_candidates_required :])
+    versions = [c.version for c in chosen]
+    span = max(fitted_span_days.get(v, 0.0) for v in versions) - min(
+        fitted_span_days.get(v, 0.0) for v in versions
+    )
+    return chosen if span >= policy.stable_span_days else ()
+
+
+def decide(
+    *,
+    champion_criterion: float,
+    champion_per_source: Mapping[str, float],
+    candidates: Sequence[CandidateScore],
+    fitted_span_days: Mapping[int, float],
+    forward_scores: Sequence[ForwardScore],
+    policy: AutopilotPolicy,
+) -> AutopilotDecision:
+    req = required_improvement(champion_criterion, policy)
+    winner = choose_winner(candidates)
+    if winner is None:
+        return AutopilotDecision(
+            ready=False,
+            winner_version=None,
+            gates={"winner": False},
+            reason="no eligible standing challenger",
+            required_improvement=req,
+            current_improvement=None,
+        )
+
+    improvement = champion_criterion - winner.criterion
+    current_gate = improvement >= req
+
+    source_names = set(champion_per_source) & set(winner.per_source)
+    improved = 0
+    no_large_regression = True
+    for src in source_names:
+        old = float(champion_per_source[src])
+        new = float(winner.per_source[src])
+        if new < old:
+            improved += 1
+        if old > 0 and (new - old) / old > policy.max_board_worsening_fraction:
+            no_large_regression = False
+    per_source_gate = (
+        len(source_names) >= policy.min_improved_boards
+        and improved >= policy.min_improved_boards
+        and no_large_regression
+    )
+
+    rows_gate = bool(winner.per_source_rows) and all(
+        int(n) >= policy.min_rows_per_board for n in winner.per_source_rows.values()
+    )
+
+    cluster = stable_cluster(
+        winner,
+        candidates,
+        policy=policy,
+        fitted_span_days=fitted_span_days,
+    )
+    stability_gate = len(cluster) >= policy.stable_candidates_required
+
+    improvements = [x.improvement for x in forward_scores]
+    forward_days = len(improvements)
+    if improvements:
+        wins = sum(1 for x in improvements if x >= policy.min_current_improvement_points)
+        win_rate = wins / len(improvements)
+        med = float(median(improvements))
+    else:
+        win_rate = 0.0
+        med = float("-inf")
+    forward_gate = (
+        forward_days >= policy.forward_days_required
+        and win_rate >= policy.forward_win_rate_required
+        and med >= policy.forward_median_improvement_points
+    )
+
+    gates = {
+        "winner": True,
+        "current_margin": current_gate,
+        "per_source": per_source_gate,
+        "row_health": rows_gate,
+        "parameter_stability": stability_gate,
+        "forward_persistence": forward_gate,
+    }
+    ready = all(gates.values())
+    failed = [name for name, ok in gates.items() if not ok]
+    reason = (
+        "all automatic-promotion evidence gates cleared"
+        if ready
+        else "blocked by: " + ", ".join(failed)
+    )
+    return AutopilotDecision(
+        ready=ready,
+        winner_version=winner.version,
+        gates=gates,
+        reason=reason,
+        required_improvement=req,
+        current_improvement=improvement,
+        stable_versions=tuple(c.version for c in cluster),
+        forward_days=forward_days,
+        forward_win_rate=win_rate,
+        forward_median_improvement=(med if improvements else None),
+    )
+
+
+def compose_offense_only(
+    champion_params: Mapping[str, float],
+    winner: CandidateScore,
+) -> dict[str, float]:
+    """Return a promotion payload that changes OFFENSE and nothing else."""
+    out = {str(k): float(v) for k, v in champion_params.items()}
+    out["HILL_PERCENTILE_C"] = float(winner.c)
+    out["HILL_PERCENTILE_S"] = float(winner.s)
+    return out
