@@ -33,7 +33,8 @@ from tests.ros.test_power_v2 import _make_snapshot
 class TestManagerCompletenessUnderPartialUpstreamSources(unittest.TestCase):
     """``_enumerate_owner_ids`` must return every registry-passing
     current-season roster owner, regardless of which OTHER sources are
-    empty, stale, or partial."""
+    empty, stale, or partial. A populated current roster also excludes
+    historical-only/stale extra owners."""
 
     def test_empty_team_strength_rows_still_enumerates_every_current_owner(self):
         """The exact reachable state: a fresh deploy / failed scrape
@@ -77,17 +78,18 @@ class TestManagerCompletenessUnderPartialUpstreamSources(unittest.TestCase):
         ids = power_v2._enumerate_owner_ids(snapshot, [], ["veteran-01", "veteran-02"])
         self.assertEqual(set(ids), {"veteran-01", "veteran-02", "new-blaine", "new-jstuedle"})
 
-    def test_precedence_prefers_current_season_over_stale_history(self):
-        """Inverted 2026-09: current-season rosters are primary, history
-        is the last resort. A registry-passing owner who exists ONLY in
-        history (left no current roster) must NOT silently reappear
-        ahead of real current owners in a way that could crowd out a
-        floor check -- this pins the ORDER, not just the set."""
+    def test_current_season_excludes_historical_only_owners(self):
+        """A populated current roster is authoritative membership.
+
+        A registry-valid owner who exists only in history must not reappear
+        in the current Power table or expand a 12-team league beyond 12 rows.
+        History is only a fallback when current roster membership is absent.
+        """
         rosters = [{"owner_id": "current-1", "roster_id": 1}]
         snapshot = _make_snapshot(rosters=rosters)
         snapshot.managers.by_owner_id["legacy"] = Manager(owner_id="legacy", display_name="Legacy")
         ids = power_v2._enumerate_owner_ids(snapshot, [], ["legacy"])
-        self.assertEqual(ids, ["current-1", "legacy"])
+        self.assertEqual(ids, ["current-1"])
 
     def test_end_to_end_build_section_lists_all_twelve_with_no_missing_manager(self):
         """The full pipeline, not just the enumeration helper: a 12-team
