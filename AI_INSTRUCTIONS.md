@@ -29,6 +29,26 @@ For a material local agent session, run:
 
 Claude Code runs this through its existing SessionStart adapter. Other agents should run the same shared script when their runtime permits shell execution. If not, reproduce its read-only checks directly and run `python scripts/agent_os_receipt.py` for the Agent OS receipt.
 
+
+## Python formatting contract
+
+Do not hand-format Python to imitate Ruff from memory.
+
+The repository owns one deterministic formatter contract:
+
+`bash scripts/format_python_changes.sh`
+
+Run it after changing Python and before committing or pushing. The script:
+
+- requires the exact Ruff version pinned in `requirements-dev.txt`;
+- reads `pyproject.toml` for the canonical formatting rules;
+- formats the changed Python files;
+- then runs the same repo-wide `ruff format --check .` and `ruff check .` gates CI uses.
+
+If the script changes a file, keep the formatter output. Do not manually re-wrap it based on aesthetics, guessed line length, or another formatter's conventions.
+
+If the runtime cannot execute shell commands, inspect `pyproject.toml` and `requirements-dev.txt`, and treat CI/Ruff output as authoritative rather than guessing formatting.
+
 Carry:
 
 `Agent-OS-Receipt: <AGENT_OS_LOADED_BLOB_SHA>`
