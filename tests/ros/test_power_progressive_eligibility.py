@@ -138,8 +138,7 @@ class TestCanonicalSeasonAwareBlend(unittest.TestCase):
     def test_missing_vorp_renormalises_inside_results_bucket(self):
         section = _section_with_n_scored_weeks(8)
         result_component_weight = sum(
-            section["effectiveWeights"].get(k, 0.0)
-            for k in ("all_play", "recent", "wl_record")
+            section["effectiveWeights"].get(k, 0.0) for k in ("all_play", "recent", "wl_record")
         )
         self.assertAlmostEqual(result_component_weight, section["blend"]["resultsWeight"], places=6)
         self.assertNotIn("team_vorp", section["effectiveWeights"])
