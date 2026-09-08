@@ -107,6 +107,14 @@ jobs:
           python -m py_compile server.py "Dynasty Scraper.py"
           python -m py_compile src/api/data_contract.py
 
+      - name: TEMP exact Ruff diff for Agent OS formatting test
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python -m ruff format tests/docs/test_agent_operating_system.py
+          git diff -- tests/docs/test_agent_operating_system.py
+          exit 1
+
       - name: Python format gate (ruff format --check)
         shell: bash
         run: |
