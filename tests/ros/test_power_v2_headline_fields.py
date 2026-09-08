@@ -11,9 +11,10 @@ computation of either field means exposing what the canonical engine already
 builds internally, additively, rather than adding a shim in ``overview.py``
 that re-derives them from a different source.
 
-``record`` is a FACT (career wins/losses from ``career_state``, the same
-accumulator ``power.py``'s own field reads), independent of whether a
-component survives to produce a weighted score — so it is present on BOTH
+``record`` is a current-season competitive FACT. Sleeper roster settings are
+preferred on the live headline, with matchup-derived current-season W/L as the
+fallback for historical fixtures. It is independent of whether a component
+survives to produce a weighted score — so it is present on BOTH
 the normal-scoring rows and the refuse-to-rank ("unrankable") rows. This
 file pins both.
 
@@ -116,30 +117,17 @@ def test_team_name_is_the_same_lookup_power_py_uses():
         assert row["teamName"] == expected
 
 
-def test_record_is_the_true_career_total_not_the_current_season_only():
-    """The discriminating assertion the single-season fixture above cannot
-    make. Two-season fixture (``test_power_v2_season_scoping``): season 2025
-    alpha wins all 3 (500 vs 50), season 2026 alpha loses all 3 (~10 vs
-    ~200) -- bravo is the exact mirror.
+def test_record_is_current_season_not_career_history():
+    """The headline record must describe the season being power-ranked.
 
-    SEASON-2026-ONLY (the bug this reconciliation prevents): alpha "0-3",
-    bravo "3-0" -- exactly what ``season_state``, the accumulator #1032
-    repointed the headline ``ppg``/``wl_record`` onto, would produce if
-    ``record`` had been left reading it too.
-
-    TRUE CAREER (correct, matches ``power.py``'s own semantics): both
-    owners split 3-3 across the two seasons -- a symmetric fixture on
-    purpose, so a season-scoped bug can't hide behind an accidentally
-    correct-looking asymmetric number.
+    This fixture is deliberately discriminating: alpha went 3-0 in 2025 and
+    0-3 in 2026, while bravo did the reverse. A career accumulator would show
+    both 3-3 and erase the current competitive record.
     """
     out = power_v2.build_section(_two_season_snapshot(), lens=power_v2.LENS_RESULTS_ONLY)
     alpha = _row(out["currentRanking"], "alpha")
     bravo = _row(out["currentRanking"], "bravo")
-    assert alpha["record"] == "3-3", (
-        f"got {alpha['record']!r} -- season-2026-only would read '0-3'; "
-        "record must be the true career total, not the season-scoped accumulator"
-    )
-    assert bravo["record"] == "3-3", (
-        f"got {bravo['record']!r} -- season-2026-only would read '3-0'; "
-        "record must be the true career total, not the season-scoped accumulator"
-    )
+    assert alpha["record"] == "0-3"
+    assert bravo["record"] == "3-0"
+    assert alpha["recordSource"] == "matchups"
+    assert bravo["recordSource"] == "matchups"
