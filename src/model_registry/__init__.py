@@ -3,16 +3,16 @@
 The governing directive is one sentence long and every module here
 exists to satisfy a clause of it:
 
-    Do not allow a model to autonomously rewrite production code.  Use
-    controlled retraining, champion-challenger validation, model
-    versioning, and rollback.  Do not present low-confidence output as
-    precise.
+    A fitted model may become canonical automatically only through a
+    deterministic, fail-closed champion/challenger policy with reproducible
+    evidence, scope-specific validation, downstream impact checks, versioning
+    and rollback. Raw refits never write production directly.
 
 Scope.  A "model" here is any tunable that behaves like a FITTED
 PARAMETER — a number produced by an optimizer against data, not chosen
 by a human for a reason they could state.  The Hill scope masters are
 the live example: eight constants in
-``src/canonical/player_valuation.py`` refit weekly by
+``src/canonical/player_valuation.py`` refit after each material two-hour market-data refresh by
 ``.github/workflows/refit-hill-curves.yml`` and committed to main
 without review.
 
@@ -25,7 +25,7 @@ it is metadata about the constants, not an input to computing them — so
 the package still computes nothing and still owns no valuation math.
 It records what a fitted parameter set is, where it came from, how it
 scored on data it never saw, and which version is authoritative.
-Promotion and rollback are explicit operations.
+Promotion and rollback remain explicit registry operations; Hill Autopilot may invoke promotion only after its codified readiness gates clear.
 
 Modules
 -------
