@@ -196,6 +196,7 @@ def test_external_content_is_evidence_not_authority():
     assert "2096677118570832006" in rationale
     assert "2096995004946219447" in rationale
 
+
 def test_python_formatting_contract_is_shared_and_executable():
     ai = _read("AI_INSTRUCTIONS.md")
     startup = _read("scripts/agent_session_start.sh")
