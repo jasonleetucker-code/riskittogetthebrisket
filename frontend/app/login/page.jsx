@@ -96,10 +96,18 @@ export default function LoginPage() {
   }
 
   return (
-    <section className="login-shell">
+    <section className="login-shell psi-editorial">
       <Panel className="login-panel">
         <Badge tone="accent">Account</Badge>
-        <h1 style={{ margin: "10px 0 0 0" }}>Sign in</h1>
+        <h1
+          style={{
+            margin: "10px 0 0 0",
+            fontFamily: "var(--font-display)",
+            color: "var(--text-primary)",
+          }}
+        >
+          Sign in
+        </h1>
         <p className="muted" style={{ marginTop: 8 }}>
           Continue to your dynasty rankings and trade workspace.
         </p>

@@ -1739,7 +1739,73 @@ input[type="range"]:focus-visible::-moz-range-thumb {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: radial-gradient(circle at top left, rgba(79, 155, 236, 0.08), transparent 48%);
+  /* Paint explicitly, same reasoning as board.module.css's .page: the
+     .psi-editorial class (both /login and / apply it) only changes what
+     descendants referencing tokens render as — it doesn't repaint this
+     section itself, which would otherwise stay transparent and show the
+     dark terminal body underneath. The old radial gradient (a blue-tinted
+     wash, `rgba(79, 155, 236, 0.08)`) is dropped rather than re-derived on
+     the new accent: the north star's anti-goals explicitly name "purple/
+     blue AI gradients" and "decorative blobs" — a flat canvas is more
+     PSI-aligned than a re-tinted one. */
+  background: var(--surface-0);
+  /* Full-bleed, same pattern and exact breakpoint values as
+     board.module.css's .page (globals.css's own .main-shell padding,
+     lines ~459-462/1846/2153): cancel .main-shell's padding with a
+     matching negative margin so this route isn't left in a dark frame,
+     then restore the same amount as padding so inner spacing is
+     unchanged. */
+  margin: calc(-1 * var(--space-lg));
+  padding: var(--space-lg);
+}
+
+@media (max-width: 1024px) {
+  .login-shell {
+    margin: calc(-1 * var(--space-md));
+    padding: var(--space-md);
+  }
+}
+
+@media (max-width: 768px) {
+  .login-shell {
+    /* The base rule's `100dvh - 120px` min-height is a flat desktop-chrome
+       estimate; on mobile the box doesn't stretch to fill its (non-flex)
+       parent, so min-height is what actually determines its rendered
+       height regardless of the margin/padding cancellation above. Use the
+       same topbar/navbar-aware formula the codebase already applies
+       elsewhere (e.g. globals.css ~1905/3583) so the painted background
+       reaches exactly from below the top bar to above the bottom nav
+       instead of stopping short and exposing the dark page behind it. */
+    min-height: calc(
+      100dvh - var(--mobile-topbar-h) - var(--mobile-nav-h) -
+        env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px)
+    );
+    margin: calc(-1 * var(--space-sm)) calc(-1 * var(--space-sm))
+      calc(-1 * (var(--mobile-nav-h) + env(safe-area-inset-bottom, 0px) + var(--space-md)));
+    padding: var(--space-sm) var(--space-sm)
+      calc(var(--mobile-nav-h) + env(safe-area-inset-bottom, 0px) + var(--space-md));
+  }
+}
+
+/* .main-shell tightens its own padding further at these two narrower
+   breakpoints (globals.css ~2166/2196) — the ≤768px cancellation above
+   only matches its ≤768px value, so on a real phone viewport (measured
+   390px) the mismatch left login-shell's painted background 20+px short
+   of the bottom nav bar, exposing the dark page background beneath it as
+   a visible gap. Same fix, same exact values board.module.css's .page
+   already applies for this identical problem. */
+@media (max-width: 420px) {
+  .login-shell {
+    margin: -6px -6px calc(-1 * (var(--mobile-nav-h) + env(safe-area-inset-bottom, 0px) + 10px));
+    padding: 6px 6px calc(var(--mobile-nav-h) + env(safe-area-inset-bottom, 0px) + 10px);
+  }
+}
+
+@media (max-width: 360px) {
+  .login-shell {
+    margin: -4px -4px calc(-1 * (var(--mobile-nav-h) + env(safe-area-inset-bottom, 0px) + 8px));
+    padding: 4px 4px calc(var(--mobile-nav-h) + env(safe-area-inset-bottom, 0px) + 8px);
+  }
 }
 
 /* Sizing only — background/border/radius/padding now come from ds/Panel
@@ -1940,7 +2006,16 @@ input[type="range"]:focus-visible::-moz-range-thumb {
     padding: 6px 8px;
   }
 
-  .login-shell { min-height: auto; padding: var(--space-sm); }
+  /* NOTE: min-height/padding for .login-shell are NOT re-declared here.
+     This rule used to reset them to `min-height: auto; padding:
+     var(--space-sm)`, silently overriding the sizing the primary
+     .login-shell rule above (same ≤768px breakpoint, later in source
+     order) sets deliberately — including the bottom-nav clearance in
+     its padding calc. That was invisible while the shell painted no
+     background of its own, but once PSI gave it an explicit
+     `background: var(--surface-0)`, the shrunk-to-content box left the
+     dark .main-shell exposed as a gap between the panel and the bottom
+     nav bar (measured on real device-width screenshots). */
   .login-panel { padding: var(--space-md); }
 
   /* Toast above bottom nav */

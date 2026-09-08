@@ -74,13 +74,22 @@ function ResolvingHome() {
  */
 function LandingHome() {
   return (
-    <section className="login-shell">
+    <section className="login-shell psi-editorial">
       <Panel className="login-panel">
         {/* A raw h1, not Panel's `title` slot: Panel clamps its heading to
             h2+ (a panel is normally a region within a page that already
             has its own h1), but this unauthenticated landing IS the page
             and needs a real top-level heading. */}
-        <h1 style={{ margin: "0 0 8px", fontSize: "1.4rem" }}>Chase Upside</h1>
+        <h1
+          style={{
+            margin: "0 0 8px",
+            fontSize: "1.4rem",
+            fontFamily: "var(--font-display)",
+            color: "var(--text-primary)",
+          }}
+        >
+          Chase Upside
+        </h1>
         <p className="muted" style={{ marginBottom: "var(--space-lg)" }}>
           Dynasty fantasy football valuation and trade analysis, plus the full
           public record of our league.
