@@ -1,7 +1,17 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { PageHeader, LoadingState, EmptyState } from "@/components/ui";
+import {
+  Badge,
+  Banner,
+  Button,
+  DataTable,
+  Panel,
+  PageHeader,
+  Select,
+  StatTile,
+} from "@/components/ds";
+import { LoadingState } from "@/components/ui";
 import { apiErrorMessage } from "@/lib/api-error";
 
 const WINDOWS = ["48h", "7d", "14d", "30d", "90d", "all"];
@@ -52,46 +62,33 @@ async function fetchFreshJson(path, { attempts = 3 } = {}) {
   throw lastError || new Error("Request failed");
 }
 
-function Stat({ label, value, note }) {
+// Same filter-row shape as /market/sharp-roster-percentage's `Dropdown` —
+// kept local rather than extracted, since it is two call sites total
+// across the two sharp pages and each has a slightly different label
+// column width.
+function Dropdown({ label, value, onChange, options, children }) {
   return (
-    <div style={{ minWidth: 135 }}>
-      <div className="muted" style={{ fontSize: "0.68rem", textTransform: "uppercase" }}>
+    <label style={{ display: "flex", flexDirection: "column", gap: 4, minWidth: 170 }}>
+      <span className="muted" style={{ fontSize: "0.68rem", textTransform: "uppercase" }}>
         {label}
-      </div>
-      <div style={{ fontFamily: "var(--mono)", fontSize: "1.3rem", fontWeight: 700 }}>
-        {value == null ? "—" : Number(value).toLocaleString()}
-      </div>
-      {note ? (
-        <div className="muted" style={{ fontSize: "0.66rem" }}>
-          {note}
-        </div>
-      ) : null}
-    </div>
-  );
-}
-
-function Badge({ children }) {
-  return (
-    <span
-      style={{
-        display: "inline-block",
-        border: "1px solid var(--border-default)",
-        borderRadius: 3,
-        padding: "1px 5px",
-        fontSize: "0.65rem",
-        marginRight: 4,
-      }}
-    >
-      {children}
-    </span>
+      </span>
+      <Select value={value} onChange={(event) => onChange(event.target.value)}>
+        {children ||
+          options.map(([optionValue, optionLabel]) => (
+            <option key={optionValue} value={optionValue}>
+              {optionLabel}
+            </option>
+          ))}
+      </Select>
+    </label>
   );
 }
 
 function SourceBreakdown({ sources }) {
   return (
-    <div style={{ display: "grid", gap: 6, marginTop: 8 }}>
+    <div style={{ display: "grid", gap: 6 }}>
       {Object.entries(sources || {}).map(([name, row]) => (
-        <div key={name} className="muted" style={{ fontSize: "0.7rem" }}>
+        <div key={name} className="muted" style={{ fontSize: "0.72rem" }}>
           <strong style={{ color: "var(--text-primary)" }}>
             {name === "ffpc" ? "FFPC" : "Sleeper"}
           </strong>{" "}
@@ -116,6 +113,7 @@ export default function SharpTrackerPage() {
   const [source, setSource] = useState("all");
   const [sort, setSort] = useState("strength");
   const [qualification, setQualification] = useState("all");
+  const [expandedAssetId, setExpandedAssetId] = useState(null);
 
   const loadCohort = useCallback(async () => {
     try {
@@ -180,109 +178,189 @@ export default function SharpTrackerPage() {
     return "Automated Sharp Score";
   }, [market]);
 
+  const columns = useMemo(
+    () => [
+      {
+        key: "displayName",
+        header: "Player",
+        sortable: true,
+        accessor: (row) => row.displayName || row.assetId,
+        render: (row) => (
+          <div>
+            <div style={{ fontWeight: 650 }}>{row.displayName || row.assetId}</div>
+            <div className="muted" style={{ fontSize: "0.68rem" }}>
+              {row.position || row.assetType}
+              {row.nflTeam ? ` · ${row.nflTeam}` : ""}
+            </div>
+          </div>
+        ),
+      },
+      {
+        key: "signalStrength",
+        header: "Signal",
+        numeric: true,
+        sortable: true,
+        accessor: (row) => Number(row.signalStrength || 0),
+        render: (row) => Number(row.signalStrength || 0).toFixed(1),
+      },
+      {
+        key: "buys",
+        header: "Buys",
+        numeric: true,
+        sortable: true,
+        accessor: (row) => row.windows?.[windowName]?.buys || 0,
+      },
+      {
+        key: "sells",
+        header: "Sells",
+        numeric: true,
+        sortable: true,
+        accessor: (row) => row.windows?.[windowName]?.sells || 0,
+      },
+      {
+        key: "net",
+        header: "Net",
+        numeric: true,
+        sortable: true,
+        accessor: (row) => row.windows?.[windowName]?.net || 0,
+        render: (row) => {
+          const net = row.windows?.[windowName]?.net || 0;
+          return `${net > 0 ? "+" : ""}${net}`;
+        },
+      },
+      {
+        key: "volume",
+        header: "Volume",
+        numeric: true,
+        sortable: true,
+        hideBelow: "md",
+        accessor: (row) => row.windows?.[windowName]?.volume || 0,
+      },
+      {
+        key: "uniqueManagers",
+        header: "Sharp managers",
+        numeric: true,
+        sortable: true,
+        hideBelow: "lg",
+        accessor: (row) => row.windows?.[windowName]?.uniqueManagers || 0,
+      },
+      {
+        key: "uniqueLeagues",
+        header: "Leagues",
+        numeric: true,
+        sortable: true,
+        hideBelow: "lg",
+        accessor: (row) => row.windows?.[windowName]?.uniqueLeagues || 0,
+      },
+      {
+        key: "velocity",
+        header: "Velocity",
+        numeric: true,
+        sortable: true,
+        hideBelow: "md",
+        accessor: (row) => (row.velocity == null ? -Infinity : row.velocity),
+        render: (row) => (row.velocity == null ? "—" : `${row.velocity.toFixed(2)}×`),
+      },
+      {
+        key: "confidence",
+        header: "Confidence",
+        hideBelow: "lg",
+        accessor: (row) => row.confidence,
+      },
+      {
+        key: "sources",
+        header: "Sources",
+        render: (row) => (
+          <span style={{ display: "inline-flex", gap: 4, flexWrap: "wrap" }}>
+            {(row.sourceLabels || []).map((label) => (
+              <Badge key={label} tone="outline">
+                {label}
+              </Badge>
+            ))}
+          </span>
+        ),
+      },
+      {
+        key: "lastTs",
+        header: "Last activity",
+        hideBelow: "md",
+        accessor: (row) => row.lastTs || 0,
+        render: (row) => (row.lastTs ? new Date(row.lastTs).toLocaleDateString() : "—"),
+      },
+    ],
+    [windowName],
+  );
+
   return (
-    <section>
+    <main className="page">
       <PageHeader
         title="Sharp Tracker"
-        subtitle="One normalized market view combining qualified-manager activity from Sleeper and configured FFPC public sources."
+        description="One normalized market view combining qualified-manager activity from Sleeper and configured FFPC public sources."
       />
 
-      <div className="card" style={{ marginBottom: 12 }}>
-        <div style={{ display: "flex", gap: 24, flexWrap: "wrap" }}>
-          <Stat
+      <Panel title="At a glance" subtitle={`${qualificationLabel} · methodology ${market?.methodologyVersion || cohort?.methodologyVersion || "sharp-v2"}`} dense>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 20 }}>
+          <StatTile
             label="Observable"
-            value={cohortStats.observableManagers}
-            note="platform-scoped managers observed"
+            value={cohortStats.observableManagers ?? "—"}
+            meta="platform-scoped managers observed"
           />
-          <Stat
+          <StatTile
             label="Records"
-            value={cohortStats.managersWithRecords ?? cohort?.records?.scoreableRecords}
-            note="complete evidence available"
+            value={cohortStats.managersWithRecords ?? cohort?.records?.scoreableRecords ?? "—"}
+            meta="complete evidence available"
           />
-          <Stat
+          <StatTile
             label="Automated"
-            value={cohortStats.qualifiedManagers}
-            note="passed Sharp Score v2"
+            value={cohortStats.qualifiedManagers ?? "—"}
+            meta="passed Sharp Score v2"
           />
-          <Stat
+          <StatTile
             label="Curated"
-            value={cohortStats.curatedManagers ?? market?.cohort?.curatedManagers}
-            note="verified high-stakes cohort"
+            value={cohortStats.curatedManagers ?? market?.cohort?.curatedManagers ?? "—"}
+            meta="verified high-stakes cohort"
           />
-          <Stat
+          <StatTile
             label="Provisional"
-            value={cohortStats.provisionalManagers ?? market?.cohort?.provisionalManagers}
-            note="public FFPC activity, not sharp-v2"
+            value={cohortStats.provisionalManagers ?? market?.cohort?.provisionalManagers ?? "—"}
+            meta="public FFPC activity, not sharp-v2"
           />
-          <Stat label="Assets" value={assets.length} note={`activity in ${windowName}`} />
+          <StatTile label="Assets" value={assets.length} meta={`activity in ${windowName}`} />
         </div>
-        <div className="muted" style={{ fontSize: "0.68rem", marginTop: 9 }}>
-          {qualificationLabel} · methodology{" "}
-          {market?.methodologyVersion || cohort?.methodologyVersion || "sharp-v2"}
-        </div>
-      </div>
+      </Panel>
 
-      <div className="card" style={{ marginBottom: 12 }}>
-        <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "end" }}>
-          <label style={{ fontSize: "0.7rem" }}>
-            Window
-            <br />
-            <select value={windowName} onChange={(event) => setWindowName(event.target.value)}>
-              {WINDOWS.map((value) => (
-                <option key={value} value={value}>
-                  {value}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label style={{ fontSize: "0.7rem" }}>
-            Source
-            <br />
-            <select value={source} onChange={(event) => setSource(event.target.value)}>
-              {SOURCES.map(([value, label]) => (
-                <option key={value} value={value}>
-                  {label}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label style={{ fontSize: "0.7rem" }}>
-            Sort
-            <br />
-            <select value={sort} onChange={(event) => setSort(event.target.value)}>
-              {SORTS.map(([value, label]) => (
-                <option key={value} value={value}>
-                  {label}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label style={{ fontSize: "0.7rem" }}>
-            Qualification
-            <br />
-            <select
-              value={qualification}
-              onChange={(event) => setQualification(event.target.value)}
-            >
-              <option value="all">All allowed methods</option>
-              <option value="automated">Automated only</option>
-              <option value="curated">Curated FFPC high-stakes only</option>
-              <option value="provisional">Provisional FFPC only</option>
-              {/* Researched dynasty-industry people. Empty until an identity
-                  is explicitly verified through the review queue -- an honest
-                  state, rendered by the normal empty-state copy below. */}
-              <option value="industry">Curated industry sharps only</option>
-              <option value="super">Super Sharps only</option>
-              <option value="both">Curated + performance qualified</option>
-            </select>
-          </label>
-          <button
+      <Panel title="Filters" dense>
+        <div style={{ display: "flex", gap: 14, flexWrap: "wrap", alignItems: "end" }}>
+          <Dropdown label="Window" value={windowName} onChange={setWindowName}>
+            {WINDOWS.map((value) => (
+              <option key={value} value={value}>
+                {value}
+              </option>
+            ))}
+          </Dropdown>
+          <Dropdown label="Source" value={source} onChange={setSource} options={SOURCES} />
+          <Dropdown label="Sort" value={sort} onChange={setSort} options={SORTS} />
+          <Dropdown label="Qualification" value={qualification} onChange={setQualification}>
+            <option value="all">All allowed methods</option>
+            <option value="automated">Automated only</option>
+            <option value="curated">Curated FFPC high-stakes only</option>
+            <option value="provisional">Provisional FFPC only</option>
+            {/* Researched dynasty-industry people. Empty until an identity
+                is explicitly verified through the review queue -- an honest
+                state, rendered by DataTable's own empty state below. */}
+            <option value="industry">Curated industry sharps only</option>
+            <option value="super">Super Sharps only</option>
+            <option value="both">Curated + performance qualified</option>
+          </Dropdown>
+          <Button
             type="button"
+            variant="secondary"
+            size="sm"
+            loading={loading}
             onClick={() => setRefreshToken((value) => value + 1)}
-            disabled={loading}
           >
-            {loading ? "Refreshing…" : "Refresh now"}
-          </button>
+            Refresh now
+          </Button>
         </div>
         <div className="muted" style={{ fontSize: "0.68rem", marginTop: 9 }}>
           Sleeper: {coverage.sleeper?.status || "unknown"} · {coverage.sleeper?.movements || 0}{" "}
@@ -297,141 +375,73 @@ export default function SharpTrackerPage() {
             ? ` · refreshed ${new Date(lastRefreshedAt).toLocaleTimeString()}`
             : ""}
         </div>
-        {marketError && market ? (
-          <div className="muted" style={{ fontSize: "0.68rem", marginTop: 6 }}>
-            Latest refresh failed ({marketError}); showing the last successful result and retrying
-            automatically.
-          </div>
-        ) : null}
-        {cohortError ? (
-          <div className="muted" style={{ fontSize: "0.68rem", marginTop: 6 }}>
-            Cohort totals are retrying automatically: {cohortError}
-          </div>
-        ) : null}
-      </div>
+      </Panel>
+
+      {marketError && market ? (
+        <Banner tone="warning" title="Latest refresh failed">
+          {marketError}. Showing the last successful result and retrying automatically.
+        </Banner>
+      ) : null}
+      {cohortError ? (
+        <Banner tone="warning" title="Cohort totals are retrying automatically">
+          {cohortError}
+        </Banner>
+      ) : null}
 
       {marketError && !market ? (
-        <div className="card">
-          <EmptyState
-            title="Sharp market temporarily unavailable"
-            message={`${marketError}. Retrying automatically…`}
-          />
-        </div>
-      ) : null}
-      {loading && !market ? <LoadingState message="Loading unified Sharp market…" /> : null}
-      {!loading && !marketError && !assets.length ? (
-        <div className="card">
-          <EmptyState
-            title={
-              market?.status === "cohort_building"
-                ? "The qualified cohort is still building"
-                : "No activity in this view"
+        <Banner tone="negative" title="Sharp market temporarily unavailable">
+          {marketError}. Retrying automatically…
+        </Banner>
+      ) : loading && !market ? (
+        <LoadingState message="Loading unified Sharp market…" />
+      ) : (
+        <Panel title="Market activity">
+          <DataTable
+            columns={columns}
+            rows={assets}
+            rowKey={(row) => row.assetId}
+            caption="Normalized sharp-cohort player movements: buys, sells, net flow, volume and velocity."
+            density="compact"
+            defaultSort={{ key: "signalStrength", direction: "desc" }}
+            onRowClick={(row) =>
+              setExpandedAssetId((current) => (current === row.assetId ? null : row.assetId))
             }
-            message={
-              source === "ffpc" && coverage.ffpc?.enabled === false
-                ? "FFPC collection is disabled. Sleeper remains available and unchanged."
-                : "No normalized player movements matched the selected source, window, and qualification filters."
+            renderAfterRow={(row) =>
+              row.assetId === expandedAssetId ? (
+                <tr key={`${row.assetId}-detail`}>
+                  <td colSpan={columns.length} style={{ padding: "10px 12px" }}>
+                    <SourceBreakdown sources={row.sources} />
+                  </td>
+                </tr>
+              ) : null
+            }
+            emptyState={
+              <div>
+                <strong>
+                  {market?.status === "cohort_building"
+                    ? "The qualified cohort is still building"
+                    : "No activity in this view"}
+                </strong>
+                <p className="muted">
+                  {source === "ffpc" && coverage.ffpc?.enabled === false
+                    ? "FFPC collection is disabled. Sleeper remains available and unchanged."
+                    : "No normalized player movements matched the selected source, window, and qualification filters."}
+                </p>
+              </div>
             }
           />
-        </div>
-      ) : null}
+        </Panel>
+      )}
 
-      {assets.length ? (
-        <div className="card" style={{ overflowX: "auto" }}>
-          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.72rem" }}>
-            <thead>
-              <tr>
-                {[
-                  "Player",
-                  "Signal",
-                  "Buys",
-                  "Sells",
-                  "Net",
-                  "Volume",
-                  "Sharp managers",
-                  "Leagues",
-                  "Velocity",
-                  "Confidence",
-                  "Sources",
-                  "Last activity",
-                ].map((label) => (
-                  <th
-                    key={label}
-                    style={{
-                      textAlign: "left",
-                      padding: "7px 6px",
-                      borderBottom: "1px solid var(--border-default)",
-                      whiteSpace: "nowrap",
-                    }}
-                  >
-                    {label}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {assets.map((asset) => {
-                const row = asset.windows?.[windowName] || {};
-                return (
-                  <tr key={asset.assetId}>
-                    <td
-                      style={{
-                        padding: "8px 6px",
-                        borderBottom: "1px solid var(--border-default)",
-                        minWidth: 180,
-                      }}
-                    >
-                      <details>
-                        <summary style={{ cursor: "pointer", fontWeight: 650 }}>
-                          {asset.displayName || asset.assetId}
-                        </summary>
-                        <div className="muted" style={{ marginTop: 4 }}>
-                          {asset.position || asset.assetType}
-                          {asset.nflTeam ? ` · ${asset.nflTeam}` : ""} · {asset.assetId}
-                        </div>
-                        <SourceBreakdown sources={asset.sources} />
-                      </details>
-                    </td>
-                    <td>{Number(asset.signalStrength || 0).toFixed(1)}</td>
-                    <td>{row.buys || 0}</td>
-                    <td>{row.sells || 0}</td>
-                    <td>
-                      {row.net > 0 ? "+" : ""}
-                      {row.net || 0}
-                    </td>
-                    <td>{row.volume || 0}</td>
-                    <td>{row.uniqueManagers || 0}</td>
-                    <td>{row.uniqueLeagues || 0}</td>
-                    <td>{asset.velocity == null ? "—" : `${asset.velocity.toFixed(2)}×`}</td>
-                    <td>{asset.confidence}</td>
-                    <td style={{ whiteSpace: "nowrap" }}>
-                      {(asset.sourceLabels || []).map((label) => (
-                        <Badge key={label}>{label}</Badge>
-                      ))}
-                    </td>
-                    <td style={{ whiteSpace: "nowrap" }}>
-                      {asset.lastTs ? new Date(asset.lastTs).toLocaleDateString() : "—"}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      ) : null}
-
-      <div className="card" style={{ marginTop: 12 }}>
-        <div style={{ fontWeight: 600, fontSize: "0.82rem", marginBottom: 5 }}>
-          Qualification guardrail
-        </div>
-        <div className="muted" style={{ fontSize: "0.7rem", lineHeight: 1.6 }}>
+      <Panel title="Qualification guardrail" dense>
+        <p className="muted" style={{ fontSize: "0.7rem", lineHeight: 1.6, margin: 0 }}>
           Automated managers passed the unchanged Sharp Score v2 evidence gates. Curated FFPC
           high-stakes managers and provisional public FFPC observations are separately labeled
           methods with configured weights. Provisional activity can populate the market table, but
           it is never presented as sharp-v2 qualification. Name-only or league-scoped FFPC
           identities cannot satisfy automated multi-league qualification.
-        </div>
-      </div>
-    </section>
+        </p>
+      </Panel>
+    </main>
   );
 }

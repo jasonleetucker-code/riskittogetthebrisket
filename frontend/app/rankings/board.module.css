@@ -288,8 +288,9 @@
 }
 .railItem {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: var(--space-2);
+  gap: var(--space-1) var(--space-2);
   font-size: var(--font-size-xs);
   min-width: 0;
 }
@@ -301,10 +302,14 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  /* flex item: must be allowed to shrink or the row overflows the
-     rail column (and on mobile widens the layout viewport). */
+  /* flex-basis 100% forces this onto its OWN row (flex-wrap above),
+     so the name gets the full rail-column width instead of splitting
+     it with the badge/detail that used to sit on the same line — that
+     is what was cutting names down to 6-8 characters in a 2- or
+     4-column rail on mobile. Still truncates as a safety net for a
+     genuinely long name, but now only after using all available width. */
+  flex: 1 1 100%;
   min-width: 0;
-  flex-shrink: 1;
 }
 .railName:hover {
   color: var(--accent);
@@ -315,13 +320,15 @@
   font-variant-numeric: tabular-nums;
   font-size: var(--font-size-2xs);
   color: var(--text-tertiary);
-  /* long detail strings ("Experts higher by 12") truncate rather than
-     widen the rail column past the viewport */
+  /* Shares its own row with the position badge (below the name, see
+     .railName's flex-basis: 100%), so it no longer needs to leave room
+     for the name on the same line — still capped so one long anomaly
+     string can't push the badge off the row. */
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  max-width: 60%;
+  max-width: 80%;
 }
 .railEmpty {
   margin: 0;

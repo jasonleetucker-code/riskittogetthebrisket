@@ -7,7 +7,13 @@ const route = fs.readFileSync(path.join(process.cwd(), "app/api/sharp/market/rou
 
 describe("unified Sharp Tracker surface", () => {
   it("keeps one route and one table for both sources", () => {
-    expect(page.match(/<table/g)?.length).toBe(1);
+    // Was a literal `<table` count before the R5 ds/DataTable migration;
+    // DataTable itself guarantees exactly one real <table> per instance
+    // (see components/ds/DataTable.jsx), so the source-level invariant
+    // this test actually protects — one unified table, not a Sleeper
+    // table and a separate FFPC table — is now "exactly one <DataTable
+    // instantiation".
+    expect(page.match(/<DataTable\b/g)?.length).toBe(1);
     expect(page).toContain("All sources");
     expect(page).toContain("Sleeper");
     expect(page).toContain("FFPC");

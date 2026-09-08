@@ -48,7 +48,6 @@ const BASELINE = {
   "app/players/compare/page.jsx": 1,
   "app/tools/ros-data-health/page.jsx": 1,
   "app/bdvm/page.jsx": 2,
-  "app/market/sharp-tracker/page.jsx": 1,
   "app/league/activity/page.jsx": 1,
   "app/league/sections/ros-team-strength.jsx": 1,
   "app/league/sections/ros-championship.jsx": 1,
@@ -57,8 +56,6 @@ const BASELINE = {
   "app/league/sections/ros-power.jsx": 1,
   "app/league/LeagueClient.jsx": 2,
   "app/league/insider-trading/page.jsx": 1,
-  "app/market/sharp-people/page.jsx": 1,
-  "app/market/sharp-people/[personId]/page.jsx": 1,
 };
 
 function walk(dir, out = []) {
