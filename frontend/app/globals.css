@@ -1742,24 +1742,16 @@ input[type="range"]:focus-visible::-moz-range-thumb {
   background: radial-gradient(circle at top left, rgba(79, 155, 236, 0.08), transparent 48%);
 }
 
+/* Sizing only — background/border/radius/padding now come from ds/Panel
+   (`.ds-panel`), which the R5 de-seam already token-matched (see the
+   `.card` comment below and card-surface-tokens.test.js). Keeping a
+   second copy of those properties here would drift from `.ds-panel`
+   silently instead of by a deliberate edit. */
 .login-panel {
   width: min(460px, 100%);
-  border: 1px solid var(--border-default);
-  border-radius: var(--radius-3);
-  /* R5 de-seam: was a hardcoded navy gradient — and /login is the first
-     surface a signed-out visitor sees, so it was the seam with the
-     widest audience.  (white 18.0->18.6). */
-  background: var(--surface-1);
-  padding: 18px;
 }
 
-.login-badge { color: var(--cyan); border-color: rgba(79, 155, 236, 0.35); background: rgba(79, 155, 236, 0.08); }
 .login-form { margin-top: var(--space-md); display: grid; gap: 10px; }
-.login-label { font-size: 0.78rem; font-weight: 700; color: var(--muted); }
-.login-input { width: 100%; }
-.login-check { display: inline-flex; align-items: center; gap: 8px; font-size: 0.8rem; color: var(--muted); }
-.login-check input { accent-color: var(--cyan); }
-.login-error { margin: 0; color: var(--red); font-size: 0.8rem; }
 .login-button { width: 100%; padding: 9px 12px; }
 
 /* Counter-pitch / angle page form — 3-col on desktop, stacks on mobile. */

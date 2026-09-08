@@ -4,6 +4,11 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { useAuthContext } from "@/app/AppShellWrapper";
+import { Panel } from "@/components/ds/Panel";
+import { Badge } from "@/components/ds/Badge";
+import { Field, Input } from "@/components/ds/Input";
+import { Button } from "@/components/ds/Button";
+import { Banner } from "@/components/ds/Banner";
 
 /**
  * What to tell the user, given what the server actually said.
@@ -91,59 +96,54 @@ export default function LoginPage() {
   }
 
   return (
-    <section className="card login-shell">
-      <div className="login-panel">
-        <span className="badge login-badge">Account</span>
+    <section className="login-shell">
+      <Panel className="login-panel">
+        <Badge tone="accent">Account</Badge>
         <h1 style={{ margin: "10px 0 0 0" }}>Sign in</h1>
         <p className="muted" style={{ marginTop: 8 }}>
           Continue to your dynasty rankings and trade workspace.
         </p>
 
         <form className="login-form" onSubmit={handleAdminSubmit}>
-          <label className="login-label" htmlFor="admin-username">
-            Username
-          </label>
-          <input
-            id="admin-username"
-            className="input login-input"
-            type="text"
-            autoComplete="username"
-            value={username}
-            onChange={(e) => setUsername(e.target.value)}
-            placeholder="Enter username"
-          />
+          <Field label="Username">
+            <Input
+              type="text"
+              autoComplete="username"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              placeholder="Enter username"
+            />
+          </Field>
 
-          <label className="login-label" htmlFor="admin-password">
-            Password
-          </label>
-          <input
-            id="admin-password"
-            className="input login-input"
-            type="password"
-            autoComplete="current-password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            placeholder="Enter password"
-          />
+          <Field label="Password">
+            <Input
+              type="password"
+              autoComplete="current-password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="Enter password"
+            />
+          </Field>
 
-          {/* role="alert": the failure message was silent to assistive
-              tech, so a screen-reader user pressed Sign in and was told
-              nothing at all. */}
-          {error ? (
-            <p className="login-error" role="alert">
-              {error}
-            </p>
-          ) : null}
+          {/* Banner already wires role="alert" for tone="negative" — the
+              failure message used to be silent to assistive tech, so a
+              screen-reader user pressed Sign in and was told nothing. */}
+          {error ? <Banner tone="negative">{error}</Banner> : null}
 
-          <button className="button login-button" type="submit" disabled={submitting}>
+          <Button
+            className="login-button"
+            variant="primary"
+            type="submit"
+            loading={submitting}
+          >
             {submitting ? "Signing in..." : "Sign in"}
-          </button>
+          </Button>
         </form>
 
         <p className="muted" style={{ marginBottom: 0, fontSize: "0.76rem" }}>
           Need help? <Link href="/">Go to Home</Link>
         </p>
-      </div>
+      </Panel>
     </section>
   );
 }
