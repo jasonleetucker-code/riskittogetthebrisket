@@ -150,6 +150,25 @@ Current OpenAI capability is sufficient for the reasoning side:
 
 The Steward therefore stores response IDs/conversation IDs as **references**, never as the sole state of a run.
 
+## 5.1 Owner cost policy — zero incremental spend by default
+
+**Owner decision, 2026-09-08:** get everything useful that can be achieved without new metered spend before enabling paid autonomous intelligence.
+
+Until a later explicit owner decision changes this boundary:
+
+- Phase 1 and all pre-Phase-1 Steward preparation use a **$0 incremental usage budget** (`max_usd: 0`);
+- do not invoke usage-billed OpenAI API models, API web search, transcription, computer-use, or other metered AI/tool services;
+- do not add paid data subscriptions, paid hosted workflow products, or larger paid runners for Steward work;
+- prefer the repository's existing standard GitHub Actions on this public repository, existing VPS/systemd capacity already being paid for, deterministic Python/tests, SQLite, HTTP/RSS endpoints that are legitimately free to access, and append-only local receipts;
+- an inability to perform semantic discovery/coding without a paid model is a truthful deferred capability, not a reason to silently spend money;
+- the model/runtime cannot raise `max_usd` above zero. Paid escalation requires a separate explicit owner authorization recorded durably.
+
+GitHub currently documents standard GitHub-hosted Actions runners as free for public repositories; that makes them the default recurring compute surface where they fit. Existing VPS costs are pre-existing infrastructure, not evidence that a new Steward service is free in an accounting sense.
+
+Reference:
+- https://docs.github.com/en/billing/concepts/product-billing/github-actions
+- https://docs.github.com/actions/reference/runners/github-hosted-runners
+
 ## 6. Model routing
 
 Do not use Astra for every unit.
@@ -471,7 +490,7 @@ The program succeeds only when site quality improves **and owner monitoring burd
 Build:
 - `src/steward/` deterministic controller;
 - private SQLite state + append-only receipts;
-- run-contract validation against `config/steward/contracts.schema.json`;
+- run-contract validation against `config/steward/contracts.schema.json`, with `max_usd: 0` for the owner-authorized free mode;
 - HALT/budget/idempotency/preflight logic;
 - read-only lanes for source health, new-source discovery, product concepts, repo/CI health and Steward metrics;
 - one existing scheduler trigger plus manual dry run;
