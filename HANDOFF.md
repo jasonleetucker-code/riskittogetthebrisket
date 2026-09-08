@@ -157,5 +157,5 @@ operator-only items.
 | **League key** | Which league's rosters, teams, managers and draft. Never shared. Drives context. |
 | **`rankDerivedValue`** | The canonical blended board value every engine reads. |
 | **BDVM** | Brisket Dynasty Valuation Model — the projection-driven *fundamental* value concept in `src/bdvm/`, deliberately never merged into the market board. |
-| **Hill curve** | The percentile→value conversion in `src/canonical/player_valuation.py`. Refit weekly as a *challenger*; only a human promotes one. |
+| **Hill curve** | The percentile→value conversion in `src/canonical/player_valuation.py`. Refit after every material two-hour market-data refresh. Raw refits only create challengers; `Hill Autopilot v2` may promote an OFFENSE-only scope-safe candidate automatically after tournament, forward-persistence, row-health, board-impact, paired-promotion and hard-test gates. See `docs/valuation/HILL_AUTOPILOT_V2.md`. |
 | **Scope master** | Per-scope Hill constants (GLOBAL / OFFENSE / IDP / ROOKIE). |
