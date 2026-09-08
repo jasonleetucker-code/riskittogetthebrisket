@@ -161,7 +161,7 @@ The long-term system may ingest permitted public information from:
 
 - articles;
 - newsletters where access permits;
-- public YouTube transcripts/captions;
+- publisher-permitted YouTube captions/transcripts when legitimately available;
 - podcast transcripts or feeds when lawfully/technically available;
 - press conferences/interviews;
 - public rankings/projections;
