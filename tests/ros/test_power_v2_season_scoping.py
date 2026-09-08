@@ -305,18 +305,15 @@ class TestSeasonIsolation:
         assert bravo_week1["rank"] < alpha_week1["rank"]
 
 
-class TestMidRejoinFallback:
-    """The design correction this investigation found: career_state
-    itself must NOT be reset, because _enumerate_owner_ids's historical
-    fallback depends on its keys surviving past the season loop."""
+class TestCurrentMembershipBeatsHistoricalFallback:
+    """Current Power is a current-league product, not a career census."""
 
-    def test_a_historical_only_owner_still_appears_with_a_real_zero_ppg(self):
-        """charlie played in 2025 only — absent from 2026's rosters
-        entirely (the mid-rejoin / departed-then-returned shape
-        _enumerate_owner_ids's docstring names). Must still appear
-        (career_state.keys() fallback, untouched by this fix) with a
-        REAL 0.0 ppg (season_state has nothing for him this season) —
-        distinct from the unrankable/refusal None case."""
+    def test_a_historical_only_owner_does_not_reappear_in_current_power(self):
+        """charlie played in 2025 only and has no 2026 roster.
+
+        Historical participation remains real history elsewhere, but it must
+        not expand the current Power table beyond current roster membership.
+        """
         rosters_2025 = _ROSTERS + [{"roster_id": 3, "owner_id": "charlie"}]
         scores_2025 = {wk: {**s, 3: 75.0} for wk, s in _SEASON_2025_SCORES.items()}
         season_2025 = _season("2025", "L2025", rosters_2025, scores_2025, is_complete=True)
@@ -339,10 +336,8 @@ class TestMidRejoinFallback:
         )
         out = power_v2.build_section(snapshot, lens=power_v2.LENS_RESULTS_ONLY)
         owner_ids = {r["ownerId"] for r in out["currentRanking"]}
-        assert "charlie" in owner_ids, "mid-rejoin/departed owner dropped from the table"
-        charlie = _row(out["currentRanking"], "charlie")
-        assert charlie["rank"] is not None, "a real zero must still be rankable, not refused"
-        assert charlie["components"]["wl_record"] == 0.0
+        assert owner_ids == {"alpha", "bravo"}
+        assert "charlie" not in owner_ids
 
 
 class TestUnrankableUnaffected:
@@ -377,9 +372,8 @@ class TestUnrankableUnaffected:
 #: reports in preseason (``weeksPlayed 0``) — so ``seasons_sorted[-1]`` is
 #: a season the accumulation loop ``continue``s straight past.
 #:
-#: 2025 runs FOUR weeks against ``_RECENT_WINDOW = 3`` deliberately: the
-#: trailing window must drop week 1, so a buffer that never slid would
-#: give alpha 265.0 rather than 20.0 and the test would catch that too.
+#: 2025 runs FOUR weeks because the canonical recent-form horizon is four.
+#: The exact raw averages below pin that all four observed games contribute.
 _RECENT_ROSTERS = [{"roster_id": 1, "owner_id": "alpha"}, {"roster_id": 2, "owner_id": "bravo"}]
 _RECENT_SEASON_2025_SCORES = {
     1: {1: 1000.0, 2: 0.0},
@@ -387,9 +381,9 @@ _RECENT_SEASON_2025_SCORES = {
     3: {1: 20.0, 2: 200.0},
     4: {1: 30.0, 2: 300.0},
 }
-#: Trailing-3 means over weeks 2-4, week 1 having slid out of the window.
-_ALPHA_RECENT = 20.0
-_BRAVO_RECENT = 200.0
+#: Recent-four means all four scored weeks are included.
+_ALPHA_RECENT = 265.0
+_BRAVO_RECENT = 150.0
 
 
 def _preseason_shape_snapshot() -> PublicLeagueSnapshot:
@@ -408,10 +402,11 @@ def _preseason_shape_snapshot() -> PublicLeagueSnapshot:
 
 
 class TestRecentFormSurvivesAScorelessCurrentSeason:
-    """``recent`` carries 0.12 of ``WEIGHTS`` — 21.8% of the results-only
-    score, whose active weights sum to 0.55. Under the retired binding it
-    was a constant 0.5 for every owner in every preseason, with a "0.0"
-    recentAvg rendered as though it had been observed."""
+    """Results-only may inspect the last scored season during the offseason.
+
+    The canonical league-facing ranking still suppresses those prior-season
+    results preseason; this class pins only the explicit diagnostic lens.
+    """
 
     def test_the_fixture_really_is_the_preseason_shape(self):
         """Non-vacuity: if 2026 ever gains scores this fixture stops
@@ -437,7 +432,7 @@ class TestRecentFormSurvivesAScorelessCurrentSeason:
             "every owner sharing the 0.5 midpoint is the signature of an "
             "unmeasured component, not a real tie"
         )
-        assert bravo > alpha
+        assert alpha > bravo
 
     def test_all_play_also_survives_the_scoreless_season(self):
         """``last_season_allplay_share`` resets alongside it, so the two
@@ -606,26 +601,20 @@ class TestUnmeasuredRecentFormStaysUnknown:
         )
         assert _row(out["currentRanking"], "carol")["components"]["recentAvg"] != 900.0
 
-    def test_the_absent_owner_is_scored_without_the_unknown_component(self, monkeypatch):
-        """Not deflated by a zero, and not credited with a midpoint --
-        the weight is simply not applied to this row.
+    def test_the_absent_owner_is_not_ranked_from_missing_results(self):
+        """A current owner with no observed result component stays unrankable.
 
-        This fixture's 2025 season is 2 scored weeks for alpha/bravo --
-        below the progressive-eligibility minimum for ``recent`` (4,
-        added 2026-09), which would otherwise gate the component off
-        league-wide and mask what this test isolates (a per-OWNER null,
-        not a league-wide one). Patched open, orthogonal to eligibility.
+        Missing is not zero and it is not permission to fabricate a result-only
+        rank from an empty owner-specific denominator.
         """
-        monkeypatch.setattr(power_v2, "_MIN_SCORED_GAMES", {})
         out = power_v2.build_section(
             _owner_absent_from_last_scored_season_snapshot(), lens=power_v2.LENS_RESULTS_ONLY
         )
         rows = out["currentRanking"]
         carol = _row(rows, "carol")
         assert "recent" not in carol["weightsApplied"]
-        assert carol["powerScore"] is not None
-        # The component IS measurable league-wide, so it stays in the
-        # section budget and the owners who have it keep their weight.
+        assert carol["powerScore"] is None
+        assert carol["rank"] is None
         assert "recent" in out["effectiveWeights"]
         assert "recent" in _row(rows, "alpha")["weightsApplied"]
 
@@ -687,18 +676,16 @@ class TestUnmeasuredAllPlayStaysUnknown:
         )
         assert _row(out["currentRanking"], "carol")["components"]["all_play"] != 1.0
 
-    def test_the_absent_owner_is_scored_without_the_unknown_component(self):
-        """Not deflated by a worst-in-league zero -- the weight is simply
-        not applied to this row."""
+    def test_the_absent_owner_is_not_ranked_from_missing_results(self):
+        """Missing all-play plus the other observed inputs cannot mint a rank."""
         out = power_v2.build_section(
             _owner_absent_from_last_scored_season_snapshot(), lens=power_v2.LENS_RESULTS_ONLY
         )
         rows = out["currentRanking"]
         carol = _row(rows, "carol")
         assert "all_play" not in carol["weightsApplied"]
-        assert carol["powerScore"] is not None
-        # The component IS measurable league-wide, so it stays in the
-        # section budget and the owners who have it keep their weight.
+        assert carol["powerScore"] is None
+        assert carol["rank"] is None
         assert "all_play" in out["effectiveWeights"]
         assert "all_play" in _row(rows, "alpha")["weightsApplied"]
 
@@ -731,7 +718,7 @@ class TestUnmeasuredAllPlayStaysUnknown:
         assert out.get("unrankable"), "fixture must land on the refusal path"
         rows = out["currentRanking"]
         assert _row(rows, "carol")["components"]["all_play"] is None
-        assert _row(rows, "alpha")["components"]["all_play"] is not None
+        assert _row(rows, "alpha")["components"]["all_play"] is None
 
 
 # ── All three season resets, pinned on one three-season fixture ────────
