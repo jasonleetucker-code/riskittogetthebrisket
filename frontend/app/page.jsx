@@ -5,6 +5,8 @@ import Link from "next/link";
 import { useAuthContext } from "@/app/AppShellWrapper";
 import TerminalLayout from "@/components/terminal/TerminalLayout";
 import { SkeletonStat, SkeletonTable, SkeletonText } from "@/components/ds/Skeleton";
+import { Panel } from "@/components/ds/Panel";
+import { Button } from "@/components/ds/Button";
 import styles from "@/components/terminal/terminal.module.css";
 
 /**
@@ -72,9 +74,22 @@ function ResolvingHome() {
  */
 function LandingHome() {
   return (
-    <section className="login-shell">
-      <div className="login-panel">
-        <h1 style={{ margin: "0 0 8px", fontSize: "1.4rem" }}>Chase Upside</h1>
+    <section className="login-shell psi-editorial">
+      <Panel className="login-panel">
+        {/* A raw h1, not Panel's `title` slot: Panel clamps its heading to
+            h2+ (a panel is normally a region within a page that already
+            has its own h1), but this unauthenticated landing IS the page
+            and needs a real top-level heading. */}
+        <h1
+          style={{
+            margin: "0 0 8px",
+            fontSize: "1.4rem",
+            fontFamily: "var(--font-display)",
+            color: "var(--text-primary)",
+          }}
+        >
+          Chase Upside
+        </h1>
         <p className="muted" style={{ marginBottom: "var(--space-lg)" }}>
           Dynasty fantasy football valuation and trade analysis, plus the full
           public record of our league.
@@ -85,13 +100,14 @@ function LandingHome() {
           style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}
         >
           <div>
-            <Link
+            <Button
+              as={Link}
               href="/league"
-              className="button"
+              variant="secondary"
               style={{ display: "block", textAlign: "center", padding: "14px 12px" }}
             >
               League
-            </Link>
+            </Button>
             <p
               className="muted text-xs"
               style={{ marginTop: 8, lineHeight: 1.45, textAlign: "center" }}
@@ -101,13 +117,14 @@ function LandingHome() {
             </p>
           </div>
           <div>
-            <Link
+            <Button
+              as={Link}
               href="/login"
-              className="button button-primary"
+              variant="primary"
               style={{ display: "block", textAlign: "center", padding: "14px 12px" }}
             >
               Sign in
-            </Link>
+            </Button>
             <p
               className="muted text-xs"
               style={{ marginTop: 8, lineHeight: 1.45, textAlign: "center" }}
@@ -117,7 +134,7 @@ function LandingHome() {
             </p>
           </div>
         </div>
-      </div>
+      </Panel>
     </section>
   );
 }
