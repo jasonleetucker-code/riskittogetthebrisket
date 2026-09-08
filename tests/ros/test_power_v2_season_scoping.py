@@ -460,11 +460,23 @@ class TestRecentFormSurvivesAScorelessCurrentSeason:
         carol = _row(absent["currentRanking"], "carol")["components"]
         assert carol["all_play"] is None, carol["all_play"]
 
-    def test_recent_still_carries_its_declared_weight(self):
-        """Guards the other direction: a fix that silently dropped the
-        component would also stop it being a constant."""
-        out = power_v2.build_section(_preseason_shape_snapshot(), lens=power_v2.LENS_RESULTS_ONLY)
-        assert out["effectiveWeights"].get("recent") == power_v2.WEIGHTS["recent"]
+    def test_recent_keeps_its_declared_relative_weight(self):
+        """Results-only renormalizes the available observed bucket to 100%.
+
+        The absolute weight therefore changes when canonical VORP is missing,
+        but recent/all-play/record must preserve the target vector's ratios.
+        """
+        out = power_v2.build_section(
+            _preseason_shape_snapshot(),
+            lens=power_v2.LENS_RESULTS_ONLY,
+        )
+        applied = out["effectiveWeights"]
+        assert applied["recent"] / applied["all_play"] == pytest.approx(
+            power_v2.WEIGHTS["recent"] / power_v2.WEIGHTS["all_play"]
+        )
+        assert applied["recent"] / applied["wl_record"] == pytest.approx(
+            power_v2.WEIGHTS["recent"] / power_v2.WEIGHTS["wl_record"]
+        )
 
 
 # ── Missing is never zero (owner invariant) ────────────────────────────
