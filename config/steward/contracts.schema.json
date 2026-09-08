@@ -1,0 +1,923 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://riskittogetthebrisket.local/schemas/steward-contracts.schema.json",
+  "title": "Risk It To Get The Brisket Site Steward contracts",
+  "description": "Machine-readable proposed contracts for recurrent Steward runtime. Schema existence does not activate a runner.",
+  "$defs": {
+    "isoDateTime": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "sha": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{40}$"
+    },
+    "autonomyClass": {
+      "type": "string",
+      "enum": [
+        "A_REPORT_ONLY",
+        "B_REVERSIBLE_BRANCH",
+        "C_PREAUTHORIZED_INTEGRATION",
+        "D_CONSEQUENTIAL"
+      ]
+    },
+    "runMode": {
+      "type": "string",
+      "enum": [
+        "report_only",
+        "assisted",
+        "autonomous"
+      ]
+    },
+    "runStatus": {
+      "type": "string",
+      "enum": [
+        "QUEUED",
+        "RUNNING",
+        "DONE",
+        "PARTIAL",
+        "BLOCKED",
+        "FAILED",
+        "CANCELLED",
+        "HALTED",
+        "INCOMPLETE"
+      ]
+    },
+    "budget": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "wall_clock_seconds",
+        "max_actions",
+        "max_tool_calls",
+        "max_retries",
+        "max_parallel",
+        "max_usd"
+      ],
+      "properties": {
+        "wall_clock_seconds": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "max_actions": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "max_tool_calls": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "max_retries": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "max_parallel": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "max_usd": {
+          "type": "number",
+          "minimum": 0
+        }
+      }
+    },
+    "autonomousRunContract": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "run_id",
+        "lane",
+        "mode",
+        "autonomy_class",
+        "goal",
+        "allowed_actions",
+        "denied_actions",
+        "budget",
+        "halt_sentinel",
+        "created_at"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "steward-run/v1"
+        },
+        "run_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "lane": {
+          "type": "string",
+          "enum": [
+            "source_health",
+            "source_discovery",
+            "product_intelligence",
+            "media_intelligence",
+            "repo_reliability",
+            "performance_ux",
+            "model_math",
+            "harness_audit",
+            "steward_metrics"
+          ]
+        },
+        "mode": {
+          "$ref": "#/$defs/runMode"
+        },
+        "autonomy_class": {
+          "$ref": "#/$defs/autonomyClass"
+        },
+        "goal": {
+          "type": "string",
+          "minLength": 1
+        },
+        "allowed_actions": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "uniqueItems": true
+        },
+        "denied_actions": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "uniqueItems": true
+        },
+        "allowed_paths": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "uniqueItems": true
+        },
+        "allowed_domains": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "uniqueItems": true
+        },
+        "budget": {
+          "$ref": "#/$defs/budget"
+        },
+        "halt_sentinel": {
+          "type": "string",
+          "minLength": 1
+        },
+        "owner_authorization_ref": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "created_at": {
+          "$ref": "#/$defs/isoDateTime"
+        }
+      }
+    },
+    "checkpoint": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "run_id",
+        "checkpoint_id",
+        "lane",
+        "status",
+        "repo_head_observed",
+        "state",
+        "pending",
+        "unresolved",
+        "created_at"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "steward-checkpoint/v1"
+        },
+        "run_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "checkpoint_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "lane": {
+          "type": "string",
+          "minLength": 1
+        },
+        "status": {
+          "$ref": "#/$defs/runStatus"
+        },
+        "repo_head_observed": {
+          "$ref": "#/$defs/sha"
+        },
+        "state": {
+          "type": "object"
+        },
+        "last_processed_ids": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "uniqueItems": true
+        },
+        "pending": {
+          "type": "array",
+          "items": {
+            "type": "object"
+          }
+        },
+        "unresolved": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "retry_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "spent_usd": {
+          "type": "number",
+          "minimum": 0
+        },
+        "created_at": {
+          "$ref": "#/$defs/isoDateTime"
+        }
+      }
+    },
+    "runReceipt": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "run_id",
+        "lane",
+        "status",
+        "agent_os_receipt",
+        "repo_head_start",
+        "repo_head_end",
+        "started_at",
+        "ended_at",
+        "evidence",
+        "unresolved",
+        "actions",
+        "cost"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "steward-receipt/v1"
+        },
+        "run_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "lane": {
+          "type": "string",
+          "minLength": 1
+        },
+        "status": {
+          "$ref": "#/$defs/runStatus"
+        },
+        "agent_os_receipt": {
+          "type": "string",
+          "minLength": 1
+        },
+        "repo_head_start": {
+          "$ref": "#/$defs/sha"
+        },
+        "repo_head_end": {
+          "$ref": "#/$defs/sha"
+        },
+        "started_at": {
+          "$ref": "#/$defs/isoDateTime"
+        },
+        "ended_at": {
+          "$ref": "#/$defs/isoDateTime"
+        },
+        "model_routes": {
+          "type": "array",
+          "items": {
+            "type": "object"
+          }
+        },
+        "evidence": {
+          "type": "array",
+          "items": {
+            "type": "object"
+          }
+        },
+        "unresolved": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "actions": {
+          "type": "array",
+          "items": {
+            "type": "object"
+          }
+        },
+        "verifier": {
+          "type": [
+            "object",
+            "null"
+          ]
+        },
+        "cost": {
+          "type": "object",
+          "required": [
+            "usd"
+          ],
+          "properties": {
+            "usd": {
+              "type": "number",
+              "minimum": 0
+            }
+          }
+        }
+      }
+    },
+    "sourceCandidate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "source_id",
+        "name",
+        "canonical_url",
+        "lifecycle",
+        "discovered_at",
+        "access",
+        "semantics",
+        "freshness",
+        "coverage",
+        "provenance",
+        "reliability",
+        "correlation",
+        "evaluation"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "steward-source-candidate/v1"
+        },
+        "source_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "canonical_url": {
+          "type": "string",
+          "format": "uri"
+        },
+        "lifecycle": {
+          "type": "string",
+          "enum": [
+            "DISCOVERED",
+            "QUARANTINED",
+            "CLASSIFIED",
+            "REPLAYABLE",
+            "EVALUATED",
+            "CHALLENGER",
+            "APPROVED",
+            "ACTIVE",
+            "DEGRADED",
+            "REPAIRED",
+            "RETIRED"
+          ]
+        },
+        "discovered_at": {
+          "$ref": "#/$defs/isoDateTime"
+        },
+        "access": {
+          "type": "object",
+          "required": [
+            "method",
+            "terms_reviewed_at",
+            "permitted"
+          ],
+          "properties": {
+            "method": {
+              "type": "string"
+            },
+            "terms_reviewed_at": {
+              "$ref": "#/$defs/isoDateTime"
+            },
+            "permitted": {
+              "type": [
+                "boolean",
+                "null"
+              ]
+            },
+            "notes": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          }
+        },
+        "semantics": {
+          "type": "object",
+          "required": [
+            "game_type",
+            "horizon",
+            "signal_type"
+          ],
+          "properties": {
+            "game_type": {
+              "type": "string"
+            },
+            "horizon": {
+              "type": "string"
+            },
+            "signal_type": {
+              "type": "string",
+              "enum": [
+                "ordinal",
+                "cardinal",
+                "mixed",
+                "unknown"
+              ]
+            },
+            "superflex": {
+              "type": [
+                "boolean",
+                "null"
+              ]
+            },
+            "tep": {
+              "type": [
+                "boolean",
+                "null"
+              ]
+            },
+            "idp": {
+              "type": [
+                "boolean",
+                "null"
+              ]
+            }
+          }
+        },
+        "freshness": {
+          "type": "object",
+          "required": [
+            "fetch_as_of",
+            "content_as_of",
+            "expected_cadence_hours"
+          ],
+          "properties": {
+            "fetch_as_of": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "format": "date-time"
+            },
+            "content_as_of": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "format": "date-time"
+            },
+            "expected_cadence_hours": {
+              "type": [
+                "number",
+                "null"
+              ],
+              "minimum": 0
+            }
+          }
+        },
+        "coverage": {
+          "type": "object",
+          "required": [
+            "row_count",
+            "expected_floor"
+          ],
+          "properties": {
+            "row_count": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "minimum": 0
+            },
+            "expected_floor": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "minimum": 0
+            },
+            "population_notes": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          }
+        },
+        "provenance": {
+          "type": "object",
+          "required": [
+            "publisher",
+            "acquisition_ref"
+          ],
+          "properties": {
+            "publisher": {
+              "type": "string"
+            },
+            "acquisition_ref": {
+              "type": "string"
+            },
+            "replay_fixture": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          }
+        },
+        "reliability": {
+          "type": "object",
+          "required": [
+            "successful_fetches",
+            "failed_fetches"
+          ],
+          "properties": {
+            "successful_fetches": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "failed_fetches": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "schema_fingerprint": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          }
+        },
+        "correlation": {
+          "type": "object",
+          "required": [
+            "source_family"
+          ],
+          "properties": {
+            "source_family": {
+              "type": "string"
+            },
+            "pairwise": {
+              "type": "object"
+            },
+            "incremental_information_score": {
+              "type": [
+                "number",
+                "null"
+              ]
+            }
+          }
+        },
+        "evaluation": {
+          "type": "object",
+          "required": [
+            "eligible_to_vote",
+            "reasons"
+          ],
+          "properties": {
+            "eligible_to_vote": {
+              "type": "boolean"
+            },
+            "reasons": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "retirement_reason": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    },
+    "featureConcept": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "concept_id",
+        "observed_at",
+        "source_url",
+        "lifecycle",
+        "user_problem",
+        "concept",
+        "interaction_pattern",
+        "evidence_pattern",
+        "repo_fit"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "steward-feature-concept/v1"
+        },
+        "concept_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "observed_at": {
+          "$ref": "#/$defs/isoDateTime"
+        },
+        "source_url": {
+          "type": "string",
+          "format": "uri"
+        },
+        "lifecycle": {
+          "type": "string",
+          "enum": [
+            "OBSERVED",
+            "CONCEPT_NOTE",
+            "FIT_ASSESSED",
+            "INTERNAL_SPEC",
+            "PROTOTYPE",
+            "REVIEW",
+            "APPROVED",
+            "REJECTED",
+            "MERGED",
+            "VERIFIED"
+          ]
+        },
+        "user_problem": {
+          "type": "string",
+          "minLength": 1
+        },
+        "concept": {
+          "type": "string",
+          "minLength": 1
+        },
+        "interaction_pattern": {
+          "type": "string",
+          "minLength": 1
+        },
+        "evidence_pattern": {
+          "type": "string",
+          "minLength": 1
+        },
+        "repo_fit": {
+          "type": "object",
+          "required": [
+            "existing_owner",
+            "fit",
+            "reason"
+          ],
+          "properties": {
+            "existing_owner": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "fit": {
+              "type": "string",
+              "enum": [
+                "duplicate",
+                "extend",
+                "new",
+                "reject"
+              ]
+            },
+            "reason": {
+              "type": "string"
+            }
+          }
+        },
+        "independent_implementation_notes": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "owner_gate_required": {
+          "type": "boolean"
+        }
+      }
+    },
+    "mediaEvidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "evidence_id",
+        "medium",
+        "publisher",
+        "source_url",
+        "published_at",
+        "retrieved_at",
+        "claim_type",
+        "claim",
+        "entities",
+        "horizon",
+        "provenance",
+        "freshness",
+        "source_family"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "steward-media-evidence/v1"
+        },
+        "evidence_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "medium": {
+          "type": "string",
+          "enum": [
+            "article",
+            "newsletter",
+            "podcast",
+            "youtube",
+            "press_conference",
+            "interview",
+            "ranking",
+            "projection",
+            "other"
+          ]
+        },
+        "publisher": {
+          "type": "string",
+          "minLength": 1
+        },
+        "creator": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "source_url": {
+          "type": "string",
+          "format": "uri"
+        },
+        "source_item_id": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "title": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "published_at": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date-time"
+        },
+        "retrieved_at": {
+          "$ref": "#/$defs/isoDateTime"
+        },
+        "timestamp_start_seconds": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "timestamp_end_seconds": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "claim_type": {
+          "type": "string",
+          "enum": [
+            "FACT",
+            "REPORT",
+            "ANALYST_OPINION",
+            "PROJECTION",
+            "RANKING",
+            "RUMOR",
+            "RETROSPECTIVE"
+          ]
+        },
+        "claim": {
+          "type": "string",
+          "minLength": 1
+        },
+        "entities": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "type",
+              "id_or_name"
+            ],
+            "properties": {
+              "type": {
+                "type": "string",
+                "enum": [
+                  "player",
+                  "team",
+                  "pick",
+                  "manager",
+                  "league",
+                  "other"
+                ]
+              },
+              "id_or_name": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "horizon": {
+          "type": "string"
+        },
+        "game_type": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "confidence": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 1
+        },
+        "provenance": {
+          "type": "object",
+          "required": [
+            "acquisition_method",
+            "rights_or_access_note"
+          ],
+          "properties": {
+            "acquisition_method": {
+              "type": "string"
+            },
+            "rights_or_access_note": {
+              "type": "string"
+            },
+            "transcript_url": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "format": "uri"
+            }
+          }
+        },
+        "freshness": {
+          "type": "object",
+          "required": [
+            "expires_at"
+          ],
+          "properties": {
+            "expires_at": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "format": "date-time"
+            },
+            "reason": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          }
+        },
+        "source_family": {
+          "type": "string"
+        },
+        "correlation_notes": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    }
+  }
+}
