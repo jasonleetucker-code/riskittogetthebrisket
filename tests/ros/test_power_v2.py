@@ -437,9 +437,7 @@ class TestBuildSectionPreseason(unittest.TestCase):
         # weights" now that they no longer participate in the score.
         for component in ("all_play", "recent", "wl_record"):
             self.assertIn(component, section["missingInputs"])
-        self.assertTrue(
-            any(item.startswith("team_vorp") for item in section["missingInputs"])
-        )
+        self.assertTrue(any(item.startswith("team_vorp") for item in section["missingInputs"]))
         # Preseason canonical Power is forward-looking only.
         eff = section["effectiveWeights"]
         self.assertEqual(set(eff), {"team_ros_strength"})
