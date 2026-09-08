@@ -158,8 +158,12 @@ def test_scoring_fingerprint_is_stable_and_sensitive():
             }
         )
     )
-    assert power_snapshots.scoring_config_fingerprint(snap_a) == power_snapshots.scoring_config_fingerprint(snap_b)
-    assert power_snapshots.scoring_config_fingerprint(snap_a) != power_snapshots.scoring_config_fingerprint(snap_c)
+    assert power_snapshots.scoring_config_fingerprint(
+        snap_a
+    ) == power_snapshots.scoring_config_fingerprint(snap_b)
+    assert power_snapshots.scoring_config_fingerprint(
+        snap_a
+    ) != power_snapshots.scoring_config_fingerprint(snap_c)
 
 
 def test_refuses_unrankable_publication(tmp_path, monkeypatch):
@@ -172,6 +176,7 @@ def test_refuses_unrankable_publication(tmp_path, monkeypatch):
             section=bad,
             scoring_fingerprint="abc",
         )
+
 
 def test_atomic_publication_leaves_no_visible_temp_file(tmp_path, monkeypatch):
     monkeypatch.setattr(power_snapshots, "ROS_DATA_DIR", tmp_path)
@@ -213,4 +218,3 @@ def test_publisher_rejects_missing_matchup_pair():
     snapshot = _publisher_snapshot()
     snapshot.current_season.matchups_by_week[1] = snapshot.current_season.matchups_by_week[1][:-1]
     assert not scrape._power_week_is_complete(snapshot, "2026", 1)
-
