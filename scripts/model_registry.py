@@ -140,6 +140,8 @@ def cmd_evaluate(args: argparse.Namespace) -> int:
                 notes=v.notes,
                 promoted_at=v.promoted_at,
                 retired_at=v.retired_at,
+                applied_at=v.applied_at,
+                scope_validation=v.scope_validation,
             )
             for v in reg.versions
         ]
@@ -274,6 +276,24 @@ def cmd_promote(args: argparse.Namespace) -> int:
     """
     reg = _load_or_seed()
     try:
+        target = reg.get(args.version)
+        if target.status != "challenger":
+            raise RegistryError(
+                f"v{args.version} is {target.status!r}; only a standing challenger can be promoted"
+            )
+        incumbent = reg.champion
+        champ_eval = evaluate_offense_master(
+            *(incumbent.params[k] for k in VALIDATED_PARAMS)
+        )
+        target_eval = evaluate_offense_master(
+            *(target.params[k] for k in VALIDATED_PARAMS)
+        )
+        fresh_decision = decide_promotion(champ_eval.criterion, target_eval.criterion)
+        if not fresh_decision.promote:
+            raise RegistryError(
+                "fresh paired promotion gate refused the state change: "
+                + fresh_decision.reason
+            )
         champ = reg.promote(
             args.version,
             reason=args.reason,
@@ -318,7 +338,10 @@ def cmd_apply(args: argparse.Namespace) -> int:
                 print(f"  {name}: {live.get(name)} -> {champ.params.get(name)}")
         return 0
     write_committed_constants(champ.params)
+    reg.mark_applied(champ.version)
+    reg.save()
     print(f"wrote champion v{champ.version} into {PLAYER_VALUATION.relative_to(REPO)}")
+    print(f"recorded appliedAt for champion v{champ.version}")
     print("Run the test suite before committing.")
     return 0
 
