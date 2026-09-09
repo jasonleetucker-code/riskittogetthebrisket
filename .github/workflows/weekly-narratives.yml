@@ -200,7 +200,7 @@ jobs:
 
       - name: Upload exported package (export mode only)
         if: ${{ success() && steps.action.outputs.action == 'export' }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: narrative-package-${{ steps.mode.outputs.mode }}
           path: data/narrative_packages/
