@@ -28,7 +28,7 @@ httpx~=0.28.0
 # is hard-gated in CI as of the A1 sweep; ruff-check and mypy gates are
 # introduced report-only/ratcheted in later phases.  Production never
 # installs requirements-dev.txt, so these stay out of the runtime image.
-ruff~=0.6.0
+ruff==0.6.9
 mypy~=2.3.0
 
 # tests/intel/test_workflow_scripts.py parses

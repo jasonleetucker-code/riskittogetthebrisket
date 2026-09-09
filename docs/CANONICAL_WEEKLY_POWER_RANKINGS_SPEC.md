@@ -9,7 +9,7 @@
 **Status:** OWNER-APPROVED ROADMAP FEATURE / CONSOLIDATION  
 **Owner direction captured:** 2026-08-12  
 **Product family:** Public League Experience + Upside Report + ROS Intelligence + Awards/History  
-**Implementation status:** Two existing power-ranking engines exist (`src/public_league/power.py` and `src/ros/power_v2.py`). Neither is the final canonical methodology. This specification defines the product target and requires eventual consolidation into one canonical owner.
+**Implementation status:** Canonical implementation active in `src/ros/power_v2.py` (2026-09-08 branch/PR #1295). The legacy `src/public_league/power.py` engine is retired. `results_only` remains a diagnostic lens inside the same engine; the old `forward_looking` query value is compatibility-only and resolves to the canonical blend. Official weekly history is owned by `src/ros/power_snapshots.py`.
 
 ---
 
@@ -42,24 +42,21 @@ Do not use dynasty market value as a major Power Ranking input. Young/pick-heavy
 
 ---
 
-## 3. EXISTING ENGINES — CONSOLIDATE, DO NOT ADD A THIRD PERMANENT ENGINE
+## 3. CANONICAL OWNER — ONE ENGINE, ONE LEAGUE-FACING ANSWER
 
-Current repository evidence shows two competing approaches:
+The consolidation is complete: `src/ros/power_v2.py` is the only Power Ranking engine.
 
-1. `src/public_league/power.py`: 50% season/career PPG percentile + 25% last-three scoring percentile + 25% all-play share.
-2. `src/ros/power_v2.py`: ROS strength plus PPG, recent scoring, actual record, all-play, streak, future schedule, health and luck-regression components.
+The public/default answer is `lens=canonical` and combines current forward-looking ROS strength with observed current-season performance. `lens=results_only` is retained only as an analytical diagnostic over the same observed components. The historical `forward_looking` query string is accepted as a compatibility alias and executes the canonical blend; it is not a second methodology.
 
-The final product must replace/retire the competing user-facing methodologies after validation rather than leave multiple unexplained "Power" rankings.
+The canonical implementation preserves the repairs this specification required:
 
-Specific issues to repair in canonicalization include:
-
-- current-season power must not be contaminated by career/cross-season PPG accumulation;
-- all-play must be an actual season/rolling measure, not merely the most recent week's all-play share while labeled more broadly;
+- current-season power is not contaminated by career/cross-season PPG accumulation;
+- all-play is season-to-date, not merely the latest week's share;
 - future schedule is excluded from the Power score;
-- standalone luck/streak/health factors must not double-count information already represented by all-play, recent performance or current ROS projections;
-- missing inputs renormalize honestly rather than becoming zero.
-
----
+- standalone luck/streak/health terms are not independently weighted;
+- PPG remains visible but is not a separate weighted core input;
+- missing inputs remain missing and weights renormalize rather than becoming zero;
+- exact-score ties use standard competition ranking (for example 1, 1, 3), with owner id used only for deterministic display order inside the tied rank.
 
 ## 4. TARGET VARIABLE — DEFINE ACCURACY BEFORE WEIGHTS
 
@@ -77,7 +74,7 @@ Do not tune against end-of-season standings or championships; that would incorre
 
 ## 5. INITIAL INTERPRETABLE CHAMPION CANDIDATE
 
-The following is the preferred **starting champion candidate**, not an immutable owner-mandated weight set. Replay historical weeks and validate nearby alternatives before inaugural finalization.
+The following is the current transparent canonical target vector. It originated as the owner-approved champion candidate and is now implemented as the production methodology. Future challengers may still be evaluated under §12, but they do not silently replace this version.
 
 ### A. 40% — Forward-Looking ROS Competitive Strength
 
@@ -147,16 +144,30 @@ Do not add them simply because they are familiar.
 
 ## 7. EARLY-SEASON / MISSING-DATA BEHAVIOR
 
-Preseason and early weeks require evidence-aware handling.
+The implementation uses a smooth evidence curve rather than arbitrary week-number cliffs.
 
-- Before games are played, rankings may rely almost entirely on forward-looking ROS competitive strength and should show lower confidence.
-- Missing observed components are unavailable, not zero; available weights renormalize.
-- Early season all-play/record/recent metrics should be shrunk toward league average or otherwise sample-size adjusted so Week 1 does not create false certainty.
-- As current-season evidence accumulates, observed-performance components naturally gain reliability.
+For `g` scored current-season games:
 
-Do not import prior-season raw PPG into the current-season ranking simply to fill missing weeks.
+`results_evidence = 1 - exp(-g / 4)`
 
----
+The four-game time constant matches the recent-form horizon. In canonical mode the raw forward/results target budgets are 0.40 and 0.60; the results budget is multiplied by `results_evidence`, then the surviving forward/results masses are renormalized to 100%.
+
+With ROS available, that produces approximately:
+
+| scored games | forward-looking | observed results |
+|---:|---:|---:|
+| 0 | 100.0% | 0.0% |
+| 1 | 75.1% | 24.9% |
+| 2 | 62.9% | 37.1% |
+| 4 | 51.3% | 48.7% |
+| 8 | 43.5% | 56.5% |
+| 14 | 40.7% | 59.3% |
+
+This makes Week 1 meaningful without letting one game dominate, and it approaches the intended 40/60 long-run blend smoothly.
+
+Missing inputs are unavailable, not zero. Missing result components are renormalized **inside the results bucket** so a missing result dependency cannot accidentally make the model more forward-looking than intended. Today the canonical weekly realized-lineup VORP/PAR owner is not dependency-ready; its 15% target share is therefore explicitly reported missing and redistributed among the legitimate observed-results components. The season-aggregate Awards approximation is not substituted.
+
+Do not import prior-season PPG or back-fill historical ROS values merely to fill missing data.
 
 ## 8. WHAT SHOULD NOT ENTER THE CORE POWER SCORE BY DEFAULT
 
@@ -178,31 +189,26 @@ These may be displayed as context without changing rank.
 
 ## 9. WEEKLY SNAPSHOT / MOVEMENT
 
-After every completed scored week, materialize an immutable/versioned Power Ranking snapshot.
+After every completed scored week, materialize one immutable/versioned official Power Ranking snapshot under the existing ROS refresh/persistence path.
 
-For every team preserve:
+Publication rules:
 
-- rank;
-- Power Index;
-- prior-week rank;
-- rank delta;
-- prior-week Power Index;
-- index delta;
-- component values;
-- official record;
-- season PPG;
-- recent-four scoring/all-play;
-- season all-play record/share;
-- ROS neutral-opponent strength;
-- Team Realized Lineup VORP/PAR;
-- input coverage/confidence;
-- methodology version;
-- scoring-config fingerprint;
-- finalized timestamp.
+- a snapshot is eligible only after Sleeper's NFL clock has advanced beyond the scored week;
+- the target week must contain a complete scored H2H matchup set for every current roster owner;
+- only the immediately completed host week may be finalized — if publication was missed, today's ROS strength is **not** back-dated into an older week;
+- publication is atomic and create-once; same-week recalculation cannot rewrite an official snapshot;
+- snapshots are public-safe and never persist private player-value, lineup-depth, weakness, trade, or manager-intelligence decomposition;
+- every snapshot carries `methodologyVersion`, `scoringConfigFingerprint`, `finalizedAt`, the blend/weight basis and the published ranking rows.
 
-Historical weekly rankings must not silently change when today's model/data changes. If methodology is intentionally revised, preserve versioned historical output or clearly distinguish reconstructed rankings from originally published rankings.
+Movement always compares the current official ranking with **exactly Week N-1** from the same season:
 
----
+`rankDelta = previousOfficialRank - currentRank`
+
+Therefore rank 5 → rank 2 is `+3` / ▲3; rank 1 → rank 4 is `-3` / ▼3. Week 1 or a genuinely missing prior official snapshot has no fabricated delta.
+
+For every team preserve the public-safe facts needed to reproduce the published weekly view: rank, Power Index, prior rank/delta, prior Power Index/delta, sanitized component values, official record, PPG/recent display facts, season all-play, public-safe ROS percentile, methodology version, scoring fingerprint and finalized timestamp.
+
+Historical official snapshots never silently change when today's model/data changes. The results-only chart may reconstruct retrospective results because those inputs are historical; it is explicitly labeled diagnostic and never back-fills today's ROS strength into past weeks.
 
 ## 10. UI / UX
 
@@ -243,14 +249,16 @@ Preferred treatment:
 - full report may show the complete 12-team ranking because the league is small enough to scan;
 - emphasize movement since last week;
 - highlight **Biggest Riser**, **Biggest Faller**, and a new #1 when applicable;
-- share graphic usually shows only the top 3–5 and/or the most interesting movement rather than squeezing all teams onto the image;
+- the dedicated **League Power Rankings** share card shows all 12 teams in one phone-screenshot-first surface, limited to rank + team/owner + official week-to-week movement;
 - the Interestingness Engine may elevate an unusual movement as a primary weekly story.
 
-Example:
+Example share treatment:
 
-`1. Michaela 84.6 —`
-`2. Jason 81.3 ▲2`
-`3. Roy 77.9 ▼1`
+`1. MaKayla ▲2`
+`2. Jason —`
+`3. Roy ▼1`
+
+The share card deliberately omits Power score, record, formulas, projections and explanatory analytics; those remain on the detailed Power page.
 
 A major movement should have a factual reason such as a huge recent all-play week, injury-driven ROS change, or several weeks of sustained above-replacement production.
 
