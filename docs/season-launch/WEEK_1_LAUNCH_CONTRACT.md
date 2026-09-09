@@ -26,7 +26,7 @@ The denominator is frozen at 30 for this launch tranche. Do not add/remove rows 
 |---|---|---|---|
 | W1-01 | Archive | Canonical append-only Game Day prediction archive exists, is merged, and its core refusal/identity behavior is tested. | VERIFIED |
 | W1-02 | Archive | A canonical scheduled/operational caller captures Game Day state before weekly games lock; no duplicate archive owner. | VERIFIED |
-| W1-03 | Archive | Production persistence/retention for captured Week 1 observations is durable and truthfully documented. | IMPLEMENTED_UNVERIFIED |
+| W1-03 | Archive | Production persistence/retention for captured Week 1 observations is durable and truthfully documented. | VERIFIED |
 | W1-04 | Archive | At least one authentic Week 1 pre-kickoff production capture is harvested and verified before outcomes are known. | VERIFIED |
 | W1-05 | Public pregame | Canonical matchup preview engine exists and is live/wired for upcoming matchups. | VERIFIED |
 | W1-06 | Public pregame | Canonical AI narrative preview/recap pipeline exists and is live/wired; no second article-generation owner. | VERIFIED |
@@ -57,15 +57,19 @@ The denominator is frozen at 30 for this launch tranche. Do not add/remove rows 
 
 ## Mechanical tally
 
-*Recounted 2026-09-09 after the authentic Week 1 pregame capture (W1-04).*
+*Recounted 2026-09-09 after authentic production retention proof (W1-03).*
 
-- VERIFIED: 26
-- IMPLEMENTED_UNVERIFIED: 3
+- VERIFIED: 27
+- IMPLEMENTED_UNVERIFIED: 2
 - IN PROGRESS: 0
 - NOT STARTED: 1
 - BLOCKED: 0
 - DENOMINATOR: 30
-- COMPLETION: **26/30 = 86.7%**
+- COMPLETION: **27/30 = 90.0%**
+
+### Row movements, 2026-09-09 (W1-03)
+
+- **W1-03 → VERIFIED.** The retention repair from #1302 is now deployed and proven by the production backup+restore instrument, not inferred from code or a green badge. Automatic post-deploy run [34347315139](https://github.com/jasonleetucker-code/riskittogetthebrisket/actions/runs/34347315139) completed successfully and the step log contains the exact acceptance evidence the prior run lacked: `C5-GD-02 game_day/: restored 24 file(s) (archive listed 24, source holds 24)`. The same proof concluded `backup + restore proven: 8 retention artifact(s) restored and verified`. An earlier automatic proof run [34344781988](https://github.com/jasonleetucker-code/riskittogetthebrisket/actions/runs/34344781988) independently emitted the same `C5-GD-02` line with 24 files, so this is reproducible production evidence rather than a one-off. This closes the exact blocker recorded below: Game Day is now both archived into the backup generation and actually restored/verified from that generation.
 
 ### Row movements, 2026-09-09 (W1-04)
 
