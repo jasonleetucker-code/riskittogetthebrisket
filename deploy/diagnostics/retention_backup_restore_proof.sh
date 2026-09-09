@@ -480,6 +480,16 @@ prove_dir "${DATA_DIR}/faab"              "faab"              "C1-RET-01 faab/"
 prove_dir "${DATA_DIR}/identity"          "identity"          "C1-RET-07 identity/"
 prove_dir "${DATA_DIR}/playerctx/history" "playerctx_history" "C1-RET-08 playerctx history/"
 
+# C5-GD-02: the Game Day pregame archive. riskit-state-backup.sh's own
+# header calls this "THE most irreplaceable artifact in this list" and
+# writes it (backup_dir "${DATA_DIR}/game_day", :427) — but until now
+# nothing here restored or verified it, so a backup that WROTE
+# game_day.tar.gz and a proof run that never opened it could both go
+# green while W1-03's literal bar ("restored and verified", not merely
+# written) stayed unmet. Same function, same privacy posture (counts
+# and tar integrity only, no payload) as every artifact above it.
+prove_dir "${DATA_DIR}/game_day"          "game_day"          "C5-GD-02 game_day/"
+
 log "─────────────────────────────────────────────────────────────────"
 if (( FAILURES > 0 )); then
     warn "${FAILURES} artifact(s) failed backup/restore proof"
