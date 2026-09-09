@@ -97,8 +97,12 @@ def _install_contract(monkeypatch, league_key, rows, *, rostered=None):
 
 
 def test_503_when_no_contract_loaded(idp_env, monkeypatch):
-    monkeypatch.setattr(server, "latest_contract_data", {})
+    # TestClient startup now legitimately primes the checkout-backed recovery
+    # payload when no persistent runtime cache exists. Clear the contract
+    # after startup so this test still exercises the endpoint's true
+    # no-contract behavior instead of racing app initialization.
     with TestClient(server.app, raise_server_exceptions=True) as c:
+        monkeypatch.setattr(server, "latest_contract_data", {})
         res = c.post("/api/waiver/best-available-idp", json={})
     assert res.status_code == 503
 
