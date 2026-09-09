@@ -100,7 +100,7 @@ rather than failing the matchup.
 | scheduled / pregame | projected lineup and probabilities when evidence permits |
 | live with complete evidence | actual score, current canonical lineup, remaining players, and probabilities |
 | live with missing game state | actual score and lineup remain; probability is withheld |
-| live with an in-progress player | remainder stays unknown; `OWNER_POLICY_REQUIRED` withholds probability |
+| live with an in-progress player | remainder is time-prorated from evidenced kickoff (owner decision 2026-09-09); `LIVE_PROGRESS_UNAVAILABLE` withholds probability only when that evidence is genuinely missing |
 | final | final score, canonical optimal lineup, result, and canonical recap link |
 | host states no season/week and none passed | **503 `clock_unavailable`** |
 | owner holds no roster in this league | 404 `team_not_found` |

@@ -183,15 +183,18 @@ Wednesday timing independently of the timer cadence.
 
 ## 5. LIVE evidence — W1-27
 
-**No separate owner decision blocks this row's promotion.** The row's own
-acceptance text asks for the LIVE state to be "production-usable and update
-... probabilities truthfully" — a truthful *degraded* state satisfies that
-exactly as well as a numeric one. `OWNER_POLICY_REQUIRED` (an in-progress
-player's remaining production has no approved rate model — see the contract's
-"Named blockers" §W1-27) is the correct, honest answer for most of a live
-week, not a blocker to VERIFIED. The methodology decision itself (a/b/c —
-prorate / zero / withhold) stays open and undecided; nothing here resolves it
-or needs it resolved.
+**Owner methodology decision made, 2026-09-09: in-progress remaining
+production is TIME-PRORATED** (Option A — pregame estimate scaled by the
+fraction of an assumed game duration not yet elapsed since evidenced kickoff;
+`src/ros/game_day_week.py`; see `docs/game-day/GAME_DAY_WEEK_RESOLVER.md`).
+The row's own acceptance text asks for the LIVE state to be
+"production-usable and update ... probabilities truthfully" — a truthful
+prorated number satisfies that, and so does the narrower degraded state below
+when evidence is genuinely missing. `LIVE_PROGRESS_UNAVAILABLE` (an
+in-progress player's remaining could not be time-prorated for lack of
+reliable kickoff/game-progress evidence) is the correct, honest answer when
+that evidence is missing, not a blocker to VERIFIED — it replaces the retired
+`OWNER_POLICY_REQUIRED` seam, which is now closed.
 
 **Instrument:** `tests/e2e/specs/prod-auth/w1-16-game-day.spec.js`'s "the
 page's numbers are the endpoint's numbers" test, dispatched via the existing
@@ -221,7 +224,7 @@ instead of a refusal that can no longer happen.
    - `w1-27-mode` — must read `live` (still `pregame` means the window has
      not actually opened yet from the endpoint's perspective; wait and
      re-check step 1).
-   - `w1-27-probability-state` — one of `AVAILABLE` / `OWNER_POLICY_REQUIRED`
+   - `w1-27-probability-state` — one of `AVAILABLE` / `LIVE_PROGRESS_UNAVAILABLE`
      / `GAME_STATE_OR_SCORING_UNAVAILABLE` / `UNAVAILABLE`.
    - `w1-27-branch` — the exact truthful state the run observed, in prose.
 5. Test **PASSED** with `w1-27-mode: live` → the row's acceptance text is

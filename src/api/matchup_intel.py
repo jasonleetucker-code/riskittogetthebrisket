@@ -382,10 +382,11 @@ def build_matchup_intel(
     # invalidation rule and why the cache cannot live under `data/ros/`.
     simulation = None
     sim_error: str | None = None
-    # Do not silently activate any of the unresolved in-progress policies.
-    # Outside pregame, every simulated player requires complete evidence.
+    # Do not silently simulate a player whose in-progress remaining could
+    # not be time-prorated for lack of game-progress evidence. Outside
+    # pregame, every simulated player requires complete evidence.
     complete = all(player_is_drawable(p) for t in resolution.teams for p in t.players)
-    can_simulate = not scoring.policy_required_player_ids and (
+    can_simulate = not scoring.progress_unavailable_player_ids and (
         scoring.mode == "pregame" or complete
     )
     if scoring.mode != "final" and can_simulate and resolution.estimate_coverage[0] > 0:
@@ -516,15 +517,15 @@ def build_matchup_intel(
         "probabilityState": (
             "FINAL"
             if scoring.mode == "final"
-            else "OWNER_POLICY_REQUIRED"
-            if scoring.policy_required_player_ids
+            else "LIVE_PROGRESS_UNAVAILABLE"
+            if scoring.progress_unavailable_player_ids
             else "GAME_STATE_OR_SCORING_UNAVAILABLE"
             if not can_simulate
             else "AVAILABLE"
             if simulation
             else "UNAVAILABLE"
         ),
-        "policyRequiredPlayerIds": list(scoring.policy_required_player_ids),
+        "progressUnavailablePlayerIds": list(scoring.progress_unavailable_player_ids),
         "recapUrl": f"/league/articles/{season}/{week}" if scoring.mode == "final" else None,
         "team": _side(my_roster_id),
         "opponent": _side(opponent_roster_id),

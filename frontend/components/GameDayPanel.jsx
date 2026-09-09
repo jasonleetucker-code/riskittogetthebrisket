@@ -143,7 +143,7 @@ function ActualSide({ side, final }) {
         <ul>{side.players?.map(player => <li key={player.playerId}>
           {player.name} · {player.state.replaceAll("_", " ")} · banked {points(player.pointsScored) ?? "unknown"}
           {player.state === "not_started" ? ` · remaining estimate ${points(player.projectedRemaining) ?? "unavailable"}` : ""}
-          {player.state === "in_progress" ? " · remaining production policy unresolved" : ""}
+          {player.state === "in_progress" ? (player.projectedRemaining != null ? ` · remaining (time-prorated) ${points(player.projectedRemaining)}` : " · remaining production unavailable (no reliable game-progress evidence)") : ""}
         </li>)}</ul>
       </>}
     </div>
@@ -486,7 +486,7 @@ export default function GameDayPanel() {
         )}
       </Card>
 
-      {p.probabilityState === "OWNER_POLICY_REQUIRED" && <p>Live probability policy awaits an owner decision for in-progress remaining production. Actual scoring is preserved.</p>}
+      {p.probabilityState === "LIVE_PROGRESS_UNAVAILABLE" && <p>Live probabilities unavailable: in-progress remaining production could not be estimated (no reliable game-progress evidence). Actual scoring is preserved.</p>}
       {p.probabilityState === "GAME_STATE_OR_SCORING_UNAVAILABLE" && <p>Live probabilities unavailable: game-state or scoring evidence is incomplete.</p>}
       {scored && !final && team?.outcome && <Card title="Remaining-week probabilities"><SideHeadline side={team} label="Your team" /></Card>}
       {final && p.recapUrl && <p><a href={p.recapUrl}>Week {p.week} articles and recap</a> · Recap appears here after the canonical manual article workflow publishes it.</p>}

@@ -40,13 +40,25 @@ and typed `GameEvidence`. The existing nflverse schedule cache can establish
 scheduled and completed games. A passed kickoff without a result remains
 `unknown`; wall time does not prove that a game started.
 
-An explicitly evidenced `in_progress` player keeps observed points and has
-`projected_remaining=None`. The resolver returns that player in
-`policy_required_player_ids`, which blocks probability until the owner chooses
-the remaining-production policy. It does not select time proration, zero
-remainder, or exclusion. Completed players retain actual points with no
-remaining projection. Final state requires completed game evidence and actual
-player scoring, and its optimal lineup comes from `src/ros/lineup.py`.
+**Owner methodology decision, 2026-09-09: in-progress remaining production is
+TIME-PRORATED.** An explicitly evidenced `in_progress` player keeps observed
+points, and his remaining production is his pregame per-game estimate scaled
+by the fraction of a single fixed assumed game duration
+(`_ASSUMED_GAME_DURATION_SECONDS`, ~3h15m) not yet elapsed since the evidenced
+`kickoff_at`. This is deliberately the simplest correct estimator — a future
+revision may use snaps, drives, possession or game script, but not without the
+same owner authority. The rejected alternative was "remaining = 0 for every
+in-progress player," which is not a default, it is a different forecast.
+
+When a player is evidenced `in_progress` but has no usable `kickoff_at` (or
+`now` precedes it), remaining stays `None` and the resolver reports him in
+`progress_unavailable_player_ids` — a **missing-evidence** state, never a
+**methodology-undecided** one (that seam is closed). Completed players and a
+host-declared `Out` (definitively finished) both get `remaining=0.0`, not
+`None`: the game being over is real evidence nothing further is coming, and
+`0.0` is the honest number for that, distinct from `None` ("we cannot say").
+Final state requires completed game evidence and actual player scoring, and
+its optimal lineup comes from `src/ros/lineup.py`.
 
 ## The three ways a player can be absent stay distinct
 
@@ -94,16 +106,21 @@ wiring, not a forecast.
 
 ## Known limitation, named rather than papered over
 
-No evidenced live remaining-production feed is wired. The API therefore shows
-actual/banked scoring and player state where it has evidence, but withholds
-probability when game state or the owner policy is missing. Sleeper `Out` is
-treated as unavailable; less certain injury labels remain projections.
+No live per-game clock/quarter feed is wired, so proration uses a single fixed
+assumed game duration rather than a real per-game measurement — a simple
+estimator by design (see the owner decision above), not a precise one. The API
+shows actual/banked scoring and player state where it has evidence, and
+withholds probability only when game-progress evidence for an in-progress
+player is genuinely missing. Sleeper `Out` is treated as definitively finished
+(`remaining=0.0`); less certain injury labels remain projections.
 
 ## Tests
 
 `tests/ros/test_game_day_week.py` covers pregame plus deterministic live/final
-fixtures. The new tests pin that banked points survive, in-progress remainder
-stays unknown behind the owner-policy seam, completed scoring produces the
+fixtures. The tests pin that banked points survive, in-progress remainder is
+time-prorated when kickoff evidence is usable and reports
+`progress_unavailable_player_ids` when it is not, completed and ruled-out
+players get `remaining=0.0` (not `None`), completed scoring produces the
 canonical final lineup, and a passed kickoff without a result remains unknown.
 The pregame tests still cover what is not there: an unpriced player is `unknown` and reaches
 `unsimulable_player_ids` (asserted through a real `simulate_league_week` call,
