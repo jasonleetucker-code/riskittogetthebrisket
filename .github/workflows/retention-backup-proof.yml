@@ -25,6 +25,14 @@ name: Retention backup + restore proof
 # manager name or roster reaches this log.
 
 on:
+  # TEMP Week-1 proof bridge: run this existing restore/verify instrument
+  # after a successful main deployment so C5-GD-02 can be proven on the
+  # deployed #1302 script. Remove after W1-03 evidence is recorded.
+  workflow_run:
+    workflows:
+      - Deploy Production
+    types:
+      - completed
   workflow_dispatch:
     inputs:
       run_backup:
@@ -49,6 +57,10 @@ concurrency:
 jobs:
   prove:
     name: Backup, restore, verify
+    if: >-
+      ${{ github.event_name == 'workflow_dispatch' ||
+          (github.event.workflow_run.conclusion == 'success' &&
+           github.event.workflow_run.head_branch == 'main') }}
     runs-on: ubuntu-latest
     timeout-minutes: 20
     environment: production
@@ -78,7 +90,7 @@ jobs:
           DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
           APP_DIR: ${{ vars.PROD_APP_DIR || '/home/dynasty/trade-calculator' }}
           PYTHON_BIN: ${{ vars.PROD_PYTHON_BIN || '/home/dynasty/.venvs/trade-calculator/bin/python' }}
-          RUN_BACKUP: ${{ inputs.run_backup == false && '0' || '1' }}
+          RUN_BACKUP: ${{ github.event_name == 'workflow_dispatch' && inputs.run_backup == false && '0' || '1' }}
         shell: bash
         run: |
           set -Eeuo pipefail
