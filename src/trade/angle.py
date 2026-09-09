@@ -171,7 +171,7 @@ def _market_source_for(position: str | None) -> str:
     """
     if _is_idp_position(position):
         return "idpTradeCalc"
-    return "ktcSfTep"
+    return "ktcCrowdTradesSfTep"
 
 
 # ── Package-level market valuation (ADR-010) ─────────────────────────
@@ -328,14 +328,15 @@ def _value_pair(row: dict[str, Any]) -> tuple[float, float, str] | None:
     sites = row.get("canonicalSiteValues") or {}
     source = _market_source_for(row.get("position"))
     market_val = sites.get(source) if isinstance(sites, dict) else None
-    if market_val is None and source == "ktcSfTep" and isinstance(sites, dict):
-        # Pre-supersession fixtures (and any production row missing
-        # the TE+ vote for some reason) still expose the legacy
-        # board — read it and report the actual key consulted.
-        legacy_val = sites.get("ktc")
-        if legacy_val is not None:
-            market_val = legacy_val
-            source = "ktc"
+    if market_val is None and source == "ktcCrowdTradesSfTep" and isinstance(sites, dict):
+        # Historical snapshots predate the combined board. Read them under
+        # their real key rather than relabelling Crowd-only data as combined.
+        for legacy_key in ("ktcSfTep", "ktc"):
+            legacy_val = sites.get(legacy_key)
+            if legacy_val is not None:
+                market_val = legacy_val
+                source = legacy_key
+                break
     try:
         my_num = float(my_val) if my_val is not None else 0.0
         market_num = float(market_val) if market_val is not None else 0.0

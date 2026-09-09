@@ -81,7 +81,7 @@ Validated on the live board before flipping: 719 of 874 rows moved,
 # ``data_contract`` no longer defines one: that copy served the
 # market-corridor clamp, removed under #794/#795/#796.
 MARKET_ANCHOR_BY_ASSET_CLASS: dict[str, str] = {
-    "offense": "ktcSfTep",
+    "offense": "ktcCrowdTradesSfTep",
     "idp": "idpTradeCalc",
 }
 

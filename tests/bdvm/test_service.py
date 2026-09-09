@@ -68,7 +68,7 @@ def player_row(name, pos, age=25.0, years=3, ktc=None, idptc=None, **extra):
         "canonicalSiteValues": {},
     }
     if ktc is not None:
-        row["canonicalSiteValues"]["ktcSfTep"] = ktc
+        row["canonicalSiteValues"]["ktcCrowdTradesSfTep"] = ktc
     if idptc is not None:
         row["canonicalSiteValues"]["idpTradeCalc"] = idptc
     row.update(extra)
@@ -119,7 +119,7 @@ def build_contract():
                 "displayName": "2026 1.03",
                 "assetClass": "pick",
                 "position": "PICK",
-                "canonicalSiteValues": {"ktcSfTep": 5600},
+                "canonicalSiteValues": {"ktcCrowdTradesSfTep": 5600},
             },
             {
                 # The platform's canonical slot-pick displayName form —
@@ -128,7 +128,7 @@ def build_contract():
                 "displayName": "2026 Pick 1.04",
                 "assetClass": "pick",
                 "position": "PICK",
-                "canonicalSiteValues": {"ktcSfTep": 5200},
+                "canonicalSiteValues": {"ktcCrowdTradesSfTep": 5200},
             },
             {
                 "canonicalName": "mystery pick",
@@ -256,7 +256,7 @@ class TestEndToEnd(unittest.TestCase):
     def test_market_gap_math_on_payload(self):
         p = next(x for x in self.payload["players"] if x["name"] == "Alpha Qb")
         m = p["market"]
-        self.assertEqual(m["marketSource"], "ktcSfTep")
+        self.assertEqual(m["marketSource"], "ktcCrowdTradesSfTep")
         self.assertAlmostEqual(m["gap"], p["tradeValue"]["balanced"] - m["marketValue"], places=0)
         idp = next(x for x in self.payload["players"] if x["name"] == "Epsilon Lb")
         self.assertEqual(idp["market"]["marketSource"], "idpTradeCalc")

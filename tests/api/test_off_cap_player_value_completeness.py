@@ -81,7 +81,7 @@ def _raw_payload() -> dict:
     market = 9000
     for i in range(1, N_PLAYERS + 1):
         sites = {
-            "ktcSfTep": market,
+            "ktcCrowdTradesSfTep": market,
             "idpTradeCalc": market,
             "draftSharks": market,
             "dlfSf": market,

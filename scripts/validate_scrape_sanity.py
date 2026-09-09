@@ -34,6 +34,9 @@ from pathlib import Path
 MIN_LINES: dict[str, int] = {
     "ktc": 100,
     "ktcSfTep": 100,
+    "ktcCrowdSfTep": 400,
+    "ktcTradesSfTep": 100,
+    "ktcCrowdTradesSfTep": 400,
     "idpTradeCalc": 50,
     "dynastyNerdsSfTep": 50,
     "fantasyProsSf": 50,

@@ -46,7 +46,7 @@ def test_append_then_load(path):
                 "name": "Malik Nabers",
                 "blended": 8154,
                 "rank": 17,
-                "sources": {"ktcSfTep": 7844, "fp_sf": 8580, "dlf_sf": 9720},
+                "sources": {"ktcCrowdTradesSfTep": 7844, "fp_sf": 8580, "dlf_sf": 9720},
             },
         ],
         date="2026-04-23",
@@ -58,7 +58,7 @@ def test_append_then_load(path):
     assert hist["blended"][0]["value"] == 8154
     assert hist["blended"][0]["rank"] == 17
     assert hist["blended"][0]["derived"] is False
-    assert hist["sources"]["ktcSfTep"][0]["value"] == 7844
+    assert hist["sources"]["ktcCrowdTradesSfTep"][0]["value"] == 7844
     assert hist["sources"]["fp_sf"][0]["value"] == 8580
 
 
@@ -66,20 +66,22 @@ def test_dedupe_same_date(path):
     # Two writes on the same date — the second wins.
     source_history.append_snapshot(
         _make_contract(
-            [{"name": "A", "blended": 1000, "sources": {"ktcSfTep": 900}}], date="2026-04-23"
+            [{"name": "A", "blended": 1000, "sources": {"ktcCrowdTradesSfTep": 900}}],
+            date="2026-04-23",
         ),
         path=path,
     )
     source_history.append_snapshot(
         _make_contract(
-            [{"name": "A", "blended": 1200, "sources": {"ktcSfTep": 1100}}], date="2026-04-23"
+            [{"name": "A", "blended": 1200, "sources": {"ktcCrowdTradesSfTep": 1100}}],
+            date="2026-04-23",
         ),
         path=path,
     )
     hist = source_history.load_player_history("A", path=path)
     assert len(hist["blended"]) == 1
     assert hist["blended"][0]["value"] == 1200
-    assert hist["sources"]["ktcSfTep"][0]["value"] == 1100
+    assert hist["sources"]["ktcCrowdTradesSfTep"][0]["value"] == 1100
 
 
 def test_multiple_dates_sorted(path):
@@ -88,17 +90,17 @@ def test_multiple_dates_sorted(path):
     # relies on the wall clock).  Tests must pass ``date=`` explicitly
     # to simulate historical writes.
     source_history.append_snapshot(
-        _make_contract([{"name": "A", "blended": 1000, "sources": {"ktcSfTep": 900}}]),
+        _make_contract([{"name": "A", "blended": 1000, "sources": {"ktcCrowdTradesSfTep": 900}}]),
         date="2026-04-22",
         path=path,
     )
     source_history.append_snapshot(
-        _make_contract([{"name": "A", "blended": 1050, "sources": {"ktcSfTep": 950}}]),
+        _make_contract([{"name": "A", "blended": 1050, "sources": {"ktcCrowdTradesSfTep": 950}}]),
         date="2026-04-23",
         path=path,
     )
     source_history.append_snapshot(
-        _make_contract([{"name": "A", "blended": 1100, "sources": {"ktcSfTep": 1000}}]),
+        _make_contract([{"name": "A", "blended": 1100, "sources": {"ktcCrowdTradesSfTep": 1000}}]),
         date="2026-04-24",
         path=path,
     )
@@ -117,7 +119,9 @@ def test_retention_trims_to_max_snapshots(path):
     for i in range(200):
         d = (base + timedelta(days=i)).isoformat()
         source_history.append_snapshot(
-            _make_contract([{"name": "A", "blended": 1000 + i, "sources": {"ktcSfTep": 900 + i}}]),
+            _make_contract(
+                [{"name": "A", "blended": 1000 + i, "sources": {"ktcCrowdTradesSfTep": 900 + i}}]
+            ),
             date=d,
             path=path,
             max_snapshots=180,
@@ -130,21 +134,21 @@ def test_retention_trims_to_max_snapshots(path):
 def test_case_insensitive_name_lookup(path):
     source_history.append_snapshot(
         _make_contract(
-            [{"name": "Ja'Marr Chase", "blended": 9999, "sources": {"ktcSfTep": 9900}}],
+            [{"name": "Ja'Marr Chase", "blended": 9999, "sources": {"ktcCrowdTradesSfTep": 9900}}],
             date="2026-04-23",
         ),
         path=path,
     )
     hist = source_history.load_player_history("ja'marr chase", path=path)
     assert hist["blended"][0]["value"] == 9999
-    assert hist["sources"]["ktcSfTep"][0]["value"] == 9900
+    assert hist["sources"]["ktcCrowdTradesSfTep"][0]["value"] == 9900
 
 
 def test_derived_blend_from_median_when_blended_missing(path):
     # No ``rankDerivedValue`` on the row — loader should synthesize a
     # blended entry from the per-source median.
     contract = _make_contract(
-        [{"name": "X", "sources": {"ktcSfTep": 7000, "fp_sf": 7500, "dlf_sf": 8000}}],
+        [{"name": "X", "sources": {"ktcCrowdTradesSfTep": 7000, "fp_sf": 7500, "dlf_sf": 8000}}],
         date="2026-04-23",
     )
     # Strip the blended stamp.
@@ -161,12 +165,12 @@ def test_canonical_sites_fallback(path):
     # Row has no sourceRankMeta, only canonicalSiteValues — the
     # legacy export shape.
     contract = _make_contract(
-        [{"name": "L", "canonicalSites": {"ktcSfTep": 8100, "fp_sf": 8400}}],
+        [{"name": "L", "canonicalSites": {"ktcCrowdTradesSfTep": 8100, "fp_sf": 8400}}],
         date="2026-04-23",
     )
     source_history.append_snapshot(contract, path=path)
     hist = source_history.load_player_history("L", path=path)
-    assert hist["sources"]["ktcSfTep"][0]["value"] == 8100
+    assert hist["sources"]["ktcCrowdTradesSfTep"][0]["value"] == 8100
     assert hist["sources"]["fp_sf"][0]["value"] == 8400
 
 
@@ -180,13 +184,13 @@ def test_asset_class_disambiguation(path):
                 "name": "James Williams",
                 "blended": 5000,
                 "assetClass": "offense",
-                "sources": {"ktcSfTep": 5200},
+                "sources": {"ktcCrowdTradesSfTep": 5200},
             },
             {
                 "name": "James Williams",
                 "blended": 3000,
                 "assetClass": "idp",
-                "sources": {"ktcSfTep": 3100},
+                "sources": {"ktcCrowdTradesSfTep": 3100},
             },
         ],
         date="2026-04-23",
@@ -200,7 +204,7 @@ def test_asset_class_disambiguation(path):
 
 def test_missing_player_returns_empty(path):
     source_history.append_snapshot(
-        _make_contract([{"name": "A", "blended": 1000, "sources": {"ktcSfTep": 900}}]),
+        _make_contract([{"name": "A", "blended": 1000, "sources": {"ktcCrowdTradesSfTep": 900}}]),
         path=path,
     )
     hist = source_history.load_player_history("Unknown", path=path)
@@ -213,7 +217,8 @@ def test_backfill_from_exports_merges_with_existing(tmp_path, path):
     # Seed an existing snapshot for 2026-04-23 via the live path.
     source_history.append_snapshot(
         _make_contract(
-            [{"name": "A", "blended": 9999, "sources": {"ktcSfTep": 9000}}], date="2026-04-23"
+            [{"name": "A", "blended": 9999, "sources": {"ktcCrowdTradesSfTep": 9000}}],
+            date="2026-04-23",
         ),
         date="2026-04-23",
         path=path,
@@ -226,9 +231,9 @@ def test_backfill_from_exports_merges_with_existing(tmp_path, path):
                 "date": "2026-04-20",
                 "players": {
                     "A": {
-                        "ktcSfTep": 8000,
+                        "ktcCrowdTradesSfTep": 8000,
                         "dlfSf": 8500,
-                        "_canonicalSiteValues": {"ktcSfTep": 8000, "dlfSf": 8500},
+                        "_canonicalSiteValues": {"ktcCrowdTradesSfTep": 8000, "dlfSf": 8500},
                     }
                 },
             }
@@ -264,14 +269,14 @@ def test_derive_source_ranks_assigns_ranks_from_value_sort():
     etc., per source.
     """
     entries = {
-        "A": {"sources": {"ktcSfTep": 9000, "dlfSf": 7000}},
-        "B": {"sources": {"ktcSfTep": 8500, "dlfSf": 9500}},
-        "C": {"sources": {"ktcSfTep": 7500, "dlfSf": 8000}},
+        "A": {"sources": {"ktcCrowdTradesSfTep": 9000, "dlfSf": 7000}},
+        "B": {"sources": {"ktcCrowdTradesSfTep": 8500, "dlfSf": 9500}},
+        "C": {"sources": {"ktcCrowdTradesSfTep": 7500, "dlfSf": 8000}},
     }
     source_history._derive_source_ranks(entries)
-    assert entries["A"]["sourceRanks"] == {"ktcSfTep": 1, "dlfSf": 3}
-    assert entries["B"]["sourceRanks"] == {"ktcSfTep": 2, "dlfSf": 1}
-    assert entries["C"]["sourceRanks"] == {"ktcSfTep": 3, "dlfSf": 2}
+    assert entries["A"]["sourceRanks"] == {"ktcCrowdTradesSfTep": 1, "dlfSf": 3}
+    assert entries["B"]["sourceRanks"] == {"ktcCrowdTradesSfTep": 2, "dlfSf": 1}
+    assert entries["C"]["sourceRanks"] == {"ktcCrowdTradesSfTep": 3, "dlfSf": 2}
 
 
 def test_derive_source_ranks_preserves_native_stamps():
@@ -283,16 +288,16 @@ def test_derive_source_ranks_preserves_native_stamps():
     was already partially populated by the live path."""
     entries = {
         "A": {
-            "sources": {"ktcSfTep": 5000},
-            "sourceRanks": {"ktcSfTep": 99},  # native, sentinel
+            "sources": {"ktcCrowdTradesSfTep": 5000},
+            "sourceRanks": {"ktcCrowdTradesSfTep": 99},  # native, sentinel
         },
-        "B": {"sources": {"ktcSfTep": 9000}},  # higher value, no native rank
+        "B": {"sources": {"ktcCrowdTradesSfTep": 9000}},  # higher value, no native rank
     }
     source_history._derive_source_ranks(entries)
     # A's native sentinel survives.
-    assert entries["A"]["sourceRanks"]["ktcSfTep"] == 99
+    assert entries["A"]["sourceRanks"]["ktcCrowdTradesSfTep"] == 99
     # B gets a derived rank where it had none.
-    assert entries["B"]["sourceRanks"]["ktcSfTep"] == 1
+    assert entries["B"]["sourceRanks"]["ktcCrowdTradesSfTep"] == 1
 
 
 def test_derive_source_ranks_skips_zero_or_missing_values():
@@ -300,16 +305,16 @@ def test_derive_source_ranks_skips_zero_or_missing_values():
     derived rank for that source — keeps the chart honest about
     coverage."""
     entries = {
-        "A": {"sources": {"ktcSfTep": 9000, "dlfSf": 7000}},
-        "B": {"sources": {"ktcSfTep": 8500}},  # no DLF SF coverage
+        "A": {"sources": {"ktcCrowdTradesSfTep": 9000, "dlfSf": 7000}},
+        "B": {"sources": {"ktcCrowdTradesSfTep": 8500}},  # no DLF SF coverage
         "C": {"sources": {"dlfSf": 9500}},  # no KTC coverage
     }
     source_history._derive_source_ranks(entries)
-    assert entries["A"]["sourceRanks"]["ktcSfTep"] == 1
+    assert entries["A"]["sourceRanks"]["ktcCrowdTradesSfTep"] == 1
     assert entries["A"]["sourceRanks"]["dlfSf"] == 2
-    assert entries["B"]["sourceRanks"]["ktcSfTep"] == 2
+    assert entries["B"]["sourceRanks"]["ktcCrowdTradesSfTep"] == 2
     assert "dlfSf" not in entries["B"].get("sourceRanks", {})
-    assert "ktcSfTep" not in entries["C"].get("sourceRanks", {})
+    assert "ktcCrowdTradesSfTep" not in entries["C"].get("sourceRanks", {})
     assert entries["C"]["sourceRanks"]["dlfSf"] == 1
 
 
@@ -325,19 +330,19 @@ def test_backfill_derives_ranks_for_legacy_dict_export(tmp_path, path):
                 "date": "2026-04-15",
                 "players": {
                     "Star WR": {
-                        "ktcSfTep": 9500,
+                        "ktcCrowdTradesSfTep": 9500,
                         "dlfSf": 9000,
-                        "_canonicalSiteValues": {"ktcSfTep": 9500, "dlfSf": 9000},
+                        "_canonicalSiteValues": {"ktcCrowdTradesSfTep": 9500, "dlfSf": 9000},
                     },
                     "Mid WR": {
-                        "ktcSfTep": 7000,
+                        "ktcCrowdTradesSfTep": 7000,
                         "dlfSf": 7500,
-                        "_canonicalSiteValues": {"ktcSfTep": 7000, "dlfSf": 7500},
+                        "_canonicalSiteValues": {"ktcCrowdTradesSfTep": 7000, "dlfSf": 7500},
                     },
                     "Bench WR": {
-                        "ktcSfTep": 4000,
+                        "ktcCrowdTradesSfTep": 4000,
                         "dlfSf": 4500,
-                        "_canonicalSiteValues": {"ktcSfTep": 4000, "dlfSf": 4500},
+                        "_canonicalSiteValues": {"ktcCrowdTradesSfTep": 4000, "dlfSf": 4500},
                     },
                 },
             }
@@ -351,13 +356,13 @@ def test_backfill_derives_ranks_for_legacy_dict_export(tmp_path, path):
     # Keys are ``"<displayName>::<assetClass>"`` per ``_player_key``;
     # legacy dict rows without a position resolve to ``"unknown"``.
     star_entry = next(v for k, v in snap["players"].items() if k.startswith("Star WR"))
-    assert star_entry["sourceRanks"]["ktcSfTep"] == 1
+    assert star_entry["sourceRanks"]["ktcCrowdTradesSfTep"] == 1
     assert star_entry["sourceRanks"]["dlfSf"] == 1
     mid_entry = next(v for k, v in snap["players"].items() if k.startswith("Mid WR"))
-    assert mid_entry["sourceRanks"]["ktcSfTep"] == 2
+    assert mid_entry["sourceRanks"]["ktcCrowdTradesSfTep"] == 2
     assert mid_entry["sourceRanks"]["dlfSf"] == 2
     bench_entry = next(v for k, v in snap["players"].items() if k.startswith("Bench WR"))
-    assert bench_entry["sourceRanks"]["ktcSfTep"] == 3
+    assert bench_entry["sourceRanks"]["ktcCrowdTradesSfTep"] == 3
     assert bench_entry["sourceRanks"]["dlfSf"] == 3
 
 
@@ -381,7 +386,7 @@ def test_scope_filter_drops_idp_source_for_offense_player(path):
                 # Both an offense source (legitimate) and an IDP-scope
                 # source (illegitimate leak) — the filter must drop
                 # only the IDP-scope key.
-                "sources": {"ktcSfTep": 9900, "draftSharksIdp": 1500},
+                "sources": {"ktcCrowdTradesSfTep": 9900, "draftSharksIdp": 1500},
             },
         ],
         date="2026-05-04",
@@ -390,7 +395,7 @@ def test_scope_filter_drops_idp_source_for_offense_player(path):
 
     # Read back: only the offense source survives in the history.
     hist = source_history.load_player_history("Ja'Marr Chase", path=path)
-    assert "ktcSfTep" in hist["sources"]
+    assert "ktcCrowdTradesSfTep" in hist["sources"]
     assert "draftSharksIdp" not in hist["sources"]
 
     # Snapshot on disk is also clean — write-time filter prevents the
@@ -399,7 +404,7 @@ def test_scope_filter_drops_idp_source_for_offense_player(path):
     snap = json.loads(raw[0])
     chase_entry = next(v for k, v in snap["players"].items() if k.startswith("Ja'Marr Chase"))
     assert "draftSharksIdp" not in chase_entry["sources"]
-    assert "ktcSfTep" in chase_entry["sources"]
+    assert "ktcCrowdTradesSfTep" in chase_entry["sources"]
 
 
 def test_scope_filter_drops_offense_source_for_idp_player(path):
@@ -441,16 +446,16 @@ def test_scope_filter_read_time_strips_legacy_polluted_snapshot(path):
             "Ja'Marr Chase::offense": {
                 "blended": 9550,
                 "blendedRank": 5,
-                "sources": {"ktcSfTep": 9849, "draftSharksIdp": 1552},
-                "sourceRanks": {"ktcSfTep": 5, "draftSharksIdp": 414},
+                "sources": {"ktcCrowdTradesSfTep": 9849, "draftSharksIdp": 1552},
+                "sourceRanks": {"ktcCrowdTradesSfTep": 5, "draftSharksIdp": 414},
             }
         },
     }
     path.write_text(json.dumps(polluted) + "\n")
     hist = source_history.load_player_history("Ja'Marr Chase", path=path)
-    assert "ktcSfTep" in hist["sources"]
+    assert "ktcCrowdTradesSfTep" in hist["sources"]
     assert "draftSharksIdp" not in hist["sources"]
-    assert "ktcSfTep" in hist["sourceRanks"]
+    assert "ktcCrowdTradesSfTep" in hist["sourceRanks"]
     assert "draftSharksIdp" not in hist["sourceRanks"]
 
 
@@ -512,11 +517,11 @@ def test_scope_filter_keeps_cross_scope_source_for_both_asset_classes(path):
 
 def test_retired_ktc_filtered_from_chart_at_write_and_read(path):
     """``ktc`` (standard KTC SF) was retired from the blend in favour of
-    ``ktcSfTep`` (KTC SF + TE++) but its raw value is still loaded into
-    the contract so the trade-page arbitrage finder + per-source winner
-    row can keep displaying both side-by-side.  The per-player
-    value-history chart, however, would double-show "KTC" since the
-    legend collapses both keys to the same compact label.
+    ``ktcCrowdTradesSfTep`` (KTC Crowd+Trades SF+TE++) but its raw value
+    is still loaded into the contract so the trade-page arbitrage finder
+    + per-source winner row can keep displaying both side-by-side.  The
+    per-player value-history chart, however, would double-show "KTC"
+    since the legend collapses both keys to the same compact label.
 
     Both write-time (``_extract_player_entry``) and read-time
     (``load_player_history``) filters drop ``ktc`` so the chart is
@@ -524,7 +529,8 @@ def test_retired_ktc_filtered_from_chart_at_write_and_read(path):
     window that has historical ``ktc`` entries.
     """
     # Write-time: row carries both ``ktc`` (in canonicalSites + meta)
-    # and ``ktcSfTep`` — only ``ktcSfTep`` should land in the snapshot.
+    # and ``ktcCrowdTradesSfTep`` -- only ``ktcCrowdTradesSfTep`` should
+    # land in the snapshot.
     contract = {
         "date": "2026-05-05",
         "playersArray": [
@@ -535,16 +541,16 @@ def test_retired_ktc_filtered_from_chart_at_write_and_read(path):
                 "assetClass": "offense",
                 "rankDerivedValue": 9177,
                 "canonicalConsensusRank": 6,
-                # Top-level raw values — ``ktcSfTep`` is preferred over
+                # Top-level raw values — ``ktcCrowdTradesSfTep`` is preferred over
                 # the meta valueContribution.
                 "ktc": 7932,
-                "ktcSfTep": 9594,
+                "ktcCrowdTradesSfTep": 9594,
                 "sourceRankMeta": {
                     "ktc": {"valueContribution": 7950},
-                    "ktcSfTep": {"valueContribution": 9999},
+                    "ktcCrowdTradesSfTep": {"valueContribution": 9999},
                     "fp_sf": {"valueContribution": 8500},
                 },
-                "sourceRanks": {"ktc": 14, "ktcSfTep": 6, "fp_sf": 9},
+                "sourceRanks": {"ktc": 14, "ktcCrowdTradesSfTep": 6, "fp_sf": 9},
             }
         ],
     }
@@ -555,13 +561,13 @@ def test_retired_ktc_filtered_from_chart_at_write_and_read(path):
     bowers_entry = next(v for k, v in snap["players"].items() if k.startswith("Brock Bowers"))
     assert "ktc" not in bowers_entry["sources"]
     assert "ktc" not in bowers_entry.get("sourceRanks", {})
-    # ``ktcSfTep`` is the raw scrape value, not the Hill contribution.
-    assert bowers_entry["sources"]["ktcSfTep"] == 9594
+    # ``ktcCrowdTradesSfTep`` is the raw scrape value, not the Hill contribution.
+    assert bowers_entry["sources"]["ktcCrowdTradesSfTep"] == 9594
 
     # Read-time: ``load_player_history`` confirms the chart side too.
     hist = source_history.load_player_history("Brock Bowers", path=path)
     assert "ktc" not in hist["sources"]
-    assert hist["sources"]["ktcSfTep"][0]["value"] == 9594
+    assert hist["sources"]["ktcCrowdTradesSfTep"][0]["value"] == 9594
 
 
 def test_retired_ktc_masked_from_legacy_snapshot_at_read_time(path):
@@ -575,8 +581,8 @@ def test_retired_ktc_masked_from_legacy_snapshot_at_read_time(path):
             "Brock Bowers::offense": {
                 "blended": 9089,
                 "blendedRank": 7,
-                "sources": {"ktc": 7943, "ktcSfTep": 10110, "fp_sf": 8500},
-                "sourceRanks": {"ktc": 13, "ktcSfTep": 7, "fp_sf": 9},
+                "sources": {"ktc": 7943, "ktcCrowdTradesSfTep": 10110, "fp_sf": 8500},
+                "sourceRanks": {"ktc": 13, "ktcCrowdTradesSfTep": 7, "fp_sf": 9},
             }
         },
     }
@@ -584,16 +590,16 @@ def test_retired_ktc_masked_from_legacy_snapshot_at_read_time(path):
     hist = source_history.load_player_history("Brock Bowers", path=path)
     assert "ktc" not in hist["sources"]
     assert "ktc" not in hist["sourceRanks"]
-    # ``ktcSfTep`` and other sources unaffected.
-    assert hist["sources"]["ktcSfTep"][0]["value"] == 10110
+    # ``ktcCrowdTradesSfTep`` and other sources unaffected.
+    assert hist["sources"]["ktcCrowdTradesSfTep"][0]["value"] == 10110
     assert hist["sources"]["fp_sf"][0]["value"] == 8500
 
 
-def test_ktc_sftep_uses_raw_top_level_value_over_contribution(path):
-    """``ktcSfTep`` is in ``_RAW_VALUE_PREFERRED_KEYS`` because KTC
+def test_ktc_crowd_trades_sf_tep_uses_raw_top_level_value_over_contribution(path):
+    """``ktcCrowdTradesSfTep`` is in ``_RAW_VALUE_PREFERRED_KEYS`` because KTC
     publishes a public 0-9999 dynasty board on keeptradecut.com — users
     compare popup values to the website directly.  The per-player
-    chart records the raw scrape (``row['ktcSfTep']``) rather than
+    chart records the raw scrape (``row['ktcCrowdTradesSfTep']``) rather than
     the Hill-curve contribution, even when both are available.
     """
     contract = {
@@ -606,9 +612,9 @@ def test_ktc_sftep_uses_raw_top_level_value_over_contribution(path):
                 "assetClass": "offense",
                 "rankDerivedValue": 9998,
                 "canonicalConsensusRank": 2,
-                "ktcSfTep": 9998,  # raw scrape — matches KTC.com
+                "ktcCrowdTradesSfTep": 9998,  # raw scrape — matches KTC.com
                 "sourceRankMeta": {
-                    "ktcSfTep": {"valueContribution": 9999},  # Hill contribution
+                    "ktcCrowdTradesSfTep": {"valueContribution": 9999},  # Hill contribution
                 },
             }
         ],
@@ -616,24 +622,24 @@ def test_ktc_sftep_uses_raw_top_level_value_over_contribution(path):
     source_history.append_snapshot(contract, date="2026-05-05", path=path)
     hist = source_history.load_player_history("Bijan Robinson", path=path)
     # Raw 9998 wins, not the contribution 9999.
-    assert hist["sources"]["ktcSfTep"][0]["value"] == 9998
+    assert hist["sources"]["ktcCrowdTradesSfTep"][0]["value"] == 9998
 
 
-def test_ktc_sftep_reads_raw_from_rawsource_values_field(path):
+def test_ktc_crowd_trades_sf_tep_reads_raw_from_rawsource_values_field(path):
     """Production ``playersArray`` rows from ``_derive_player_row``
-    stamp the raw scrape under ``row['rawSourceValues']['ktcSfTep']``,
+    stamp the raw scrape under ``row['rawSourceValues']['ktcCrowdTradesSfTep']``,
     NOT at the top level.  This is the path the live snapshot writer
     takes — verify the extractor reads it correctly so today's
     snapshot reflects KTC.com's published value, not the Hill-curve
     contribution.
 
     Regression guard: between PR #395 and the follow-up, the writer
-    was checking top-level ``row['ktcSfTep']`` (a key never set by the
+    was checking top-level ``row['ktcCrowdTradesSfTep']`` (a key never set by the
     contract builder), so live snapshots were silently falling
     through to the meta loop and recording valueContribution.
     """
     # Contract row matches what _derive_player_row actually emits: no
-    # top-level ktcSfTep; raw lives only under rawSourceValues.
+    # top-level ktcCrowdTradesSfTep; raw lives only under rawSourceValues.
     contract = {
         "date": "2026-05-05",
         "playersArray": [
@@ -644,10 +650,10 @@ def test_ktc_sftep_reads_raw_from_rawsource_values_field(path):
                 "assetClass": "offense",
                 "rankDerivedValue": 7527,
                 "canonicalConsensusRank": 23,
-                "canonicalSiteValues": {"ktcSfTep": 8434},  # synthetic divergent value
-                "rawSourceValues": {"ktcSfTep": 7334},  # raw scrape
+                "canonicalSiteValues": {"ktcCrowdTradesSfTep": 8434},  # synthetic divergent value
+                "rawSourceValues": {"ktcCrowdTradesSfTep": 7334},  # raw scrape
                 "sourceRankMeta": {
-                    "ktcSfTep": {"valueContribution": 7648},  # Hill contribution
+                    "ktcCrowdTradesSfTep": {"valueContribution": 7648},  # Hill contribution
                 },
             }
         ],
@@ -658,11 +664,11 @@ def test_ktc_sftep_reads_raw_from_rawsource_values_field(path):
     # canonicalSites value (8434).  Post PR #406 the canonicalSites
     # entry equals the raw scrape in production; this fixture uses
     # divergent values to prove the priority order is enforced.
-    assert hist["sources"]["ktcSfTep"][0]["value"] == 7334
+    assert hist["sources"]["ktcCrowdTradesSfTep"][0]["value"] == 7334
 
 
-def test_ktc_sftep_falls_back_to_contribution_when_raw_missing(path):
-    """If a contract row is missing the top-level ``ktcSfTep`` raw
+def test_ktc_crowd_trades_sf_tep_falls_back_to_contribution_when_raw_missing(path):
+    """If a contract row is missing the top-level ``ktcCrowdTradesSfTep`` raw
     value (e.g. legacy export, partial scrape), fall back to the
     ``valueContribution`` so the chart isn't blank.
     """
@@ -675,16 +681,16 @@ def test_ktc_sftep_falls_back_to_contribution_when_raw_missing(path):
                 "position": "WR",
                 "assetClass": "offense",
                 "rankDerivedValue": 7000,
-                # No top-level ``ktcSfTep`` — only the meta entry.
+                # No top-level ``ktcCrowdTradesSfTep`` — only the meta entry.
                 "sourceRankMeta": {
-                    "ktcSfTep": {"valueContribution": 7100},
+                    "ktcCrowdTradesSfTep": {"valueContribution": 7100},
                 },
             }
         ],
     }
     source_history.append_snapshot(contract, date="2026-05-05", path=path)
     hist = source_history.load_player_history("Some Player", path=path)
-    assert hist["sources"]["ktcSfTep"][0]["value"] == 7100
+    assert hist["sources"]["ktcCrowdTradesSfTep"][0]["value"] == 7100
 
 
 def test_idp_show_ranks_written_and_read_for_idp_player(path):

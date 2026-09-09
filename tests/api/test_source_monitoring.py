@@ -138,8 +138,8 @@ class TestRowCountFloors(unittest.TestCase):
         synthetic = copy.deepcopy(contract)
         for row in synthetic.get("playersArray") or []:
             vals = row.get("canonicalSiteValues")
-            if isinstance(vals, dict) and "ktc" in vals:
-                vals["ktc"] = 0
+            if isinstance(vals, dict) and "ktcCrowdTradesSfTep" in vals:
+                vals["ktcCrowdTradesSfTep"] = 0
         report = validate_api_data_contract(synthetic)
         self.assertFalse(
             report["ok"],
@@ -454,7 +454,7 @@ class TestTop50Coverage(unittest.TestCase):
             )
 
     def test_top50_coverage_fails_on_synthetic_drop(self):
-        """Zeroing out ktc in the top-50 offense slice trips a warning + degraded."""
+        """Zeroing out canonical KTC combined in top-50 offense trips a warning."""
         result = _get_live_contract()
         if result is None:
             self.skipTest("No live data")
@@ -468,14 +468,15 @@ class TestTop50Coverage(unittest.TestCase):
         )[:50]
         for r in offense_rows:
             vals = r.get("canonicalSiteValues")
-            if isinstance(vals, dict) and "ktc" in vals:
-                vals["ktc"] = 0
+            if isinstance(vals, dict) and "ktcCrowdTradesSfTep" in vals:
+                vals["ktcCrowdTradesSfTep"] = 0
         report = validate_api_data_contract(synthetic)
         self.assertTrue(
             any(
-                w.startswith("top50_coverage_below_floor:offense:ktc:") for w in report["warnings"]
+                w.startswith("top50_coverage_below_floor:offense:ktcCrowdTradesSfTep:")
+                for w in report["warnings"]
             ),
-            f"Expected top50_coverage_below_floor:offense:ktc warning, got {report['warnings'][:10]}",
+            f"Expected KTC Crowd+Trades top50 coverage warning, got {report['warnings'][:10]}",
         )
         self.assertIn(
             report["status"],

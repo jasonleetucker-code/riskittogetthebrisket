@@ -157,7 +157,7 @@ _PLAYERS = {
     "Alpha QB": {
         "position": "QB",
         "sites": {
-            "ktcSfTep": 9000,
+            "ktcCrowdTradesSfTep": 9000,
             "idpTradeCalc": 8800,
             "dlfSf": 5000,
             "dynastyNerdsSfTep": 9100,
@@ -166,7 +166,7 @@ _PLAYERS = {
     "Beta WR": {
         "position": "WR",
         "sites": {
-            "ktcSfTep": 7000,
+            "ktcCrowdTradesSfTep": 7000,
             "idpTradeCalc": 7100,
             "dlfSf": 9500,
             "dynastyNerdsSfTep": 6900,
@@ -175,7 +175,7 @@ _PLAYERS = {
     "Gamma RB": {
         "position": "RB",
         "sites": {
-            "ktcSfTep": 5000,
+            "ktcCrowdTradesSfTep": 5000,
             "idpTradeCalc": 5100,
             "dlfSf": 7000,
             "dynastyNerdsSfTep": 4900,
@@ -203,7 +203,7 @@ class TestEndToEndWeightOverrides:
             _payload(_PLAYERS),
             source_overrides={
                 k: {"weight": 1.0}
-                for k in ("ktcSfTep", "idpTradeCalc", "dlfSf", "dynastyNerdsSfTep")
+                for k in ("ktcCrowdTradesSfTep", "idpTradeCalc", "dlfSf", "dynastyNerdsSfTep")
             },
         )
         for name in _PLAYERS:
@@ -242,7 +242,7 @@ class TestEndToEndWeightOverrides:
         c = build_api_data_contract(_payload(_PLAYERS), source_overrides={"dlfSf": {"weight": 0.5}})
         meta = _meta_of(c, "Alpha QB")
         assert meta["dlfSf"]["appliedWeight"] == 0.5
-        assert meta["ktcSfTep"]["appliedWeight"] == 1.0
+        assert meta["ktcCrowdTradesSfTep"]["appliedWeight"] == 1.0
 
     def test_duplicate_source_records_do_not_inflate(self):
         """A source votes once: the same site value listed once vs the

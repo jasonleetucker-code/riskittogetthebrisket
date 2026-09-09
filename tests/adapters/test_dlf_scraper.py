@@ -99,14 +99,14 @@ DLF_WITH_SIDEBAR_HTML = (
   <thead>
     <tr>
       <th>Rank</th><th>Avg</th><th>Pos</th><th>Name</th>
-      <th>Expert1</th><th>Expert2</th>
+      <th>Expert1</th><th>Expert2</th><th>Value</th>
     </tr>
   </thead>
   <tbody>
 """
     + "\n".join(
         f"<tr><td>{i}</td><td>{i + 0.17:.2f}</td><td>QB{i}</td>"
-        f"<td>Player {i}</td><td>{i}</td><td>{i + 1}</td></tr>"
+        f"<td>Player {i}</td><td>{i}</td><td>{i + 1}</td><td>{250 - i * 2.5:.1f}</td></tr>"
         for i in range(1, 13)
     )
     + """
@@ -140,6 +140,8 @@ def test_parse_rankings_walks_past_sidebar_tables(dlf_module):
     assert rows[0]["pos"] == "QB1"
     assert rows[-1]["name"] == "Player 12"
     assert rows[-1]["avg"] == "12.17"
+    assert rows[0]["value"] == "247.5"
+    assert rows[-1]["value"] == "220.0"
 
 
 def test_rank_of_prefers_avg_over_rank(dlf_module):
@@ -187,6 +189,35 @@ def test_write_csv_dedups_and_sorts_by_rank(dlf_module, tmp_path: Path):
         written = list(csv.DictReader(f))
     assert [r["name"] for r in written] == ["Player A", "Player C", "Player B"]
     assert [r["rank"] for r in written] == ["1.17", "2.83", "3"]
+    assert [r["value"] for r in written] == ["", "", ""]
+
+
+def test_write_csv_preserves_native_value_separately_from_rank(dlf_module, tmp_path: Path):
+    out = tmp_path / "dlf_native.csv"
+    rows = [
+        {"name": "Bucky Irving", "avg": "74", "value": "207.5"},
+        {"name": "TreVeyon Henderson", "avg": "77.17", "value": "244.5"},
+    ]
+    dlf_module._write_csv(out, rows)
+    with out.open() as f:
+        written = list(csv.DictReader(f))
+
+    # The expert rank can prefer Bucky while DLF's atomic trade value
+    # prefers Henderson. Both facts must survive; collapsing them is the
+    # exact production defect this regression protects against.
+    assert written == [
+        {"name": "Bucky Irving", "rank": "74", "value": "207.5"},
+        {"name": "TreVeyon Henderson", "rank": "77.17", "value": "244.5"},
+    ]
+    assert float(written[1]["value"]) > float(written[0]["value"])
+
+
+def test_native_value_parser_refuses_missing_zero_and_junk(dlf_module):
+    assert dlf_module._native_value_of({"value": "244.5"}) == pytest.approx(244.5)
+    assert dlf_module._native_value_of({"value": "1,234.5"}) == pytest.approx(1234.5)
+    assert dlf_module._native_value_of({"value": ""}) is None
+    assert dlf_module._native_value_of({"value": "N/A"}) is None
+    assert dlf_module._native_value_of({"value": "0"}) is None
 
 
 def test_write_csv_preserves_integer_vs_fractional(dlf_module, tmp_path: Path):
