@@ -55,15 +55,15 @@ def _board():
     the whole reason the shared-market crosswalk exists.
     """
     return [
-        _row("Alpha QB", "QB", "offense", idpTradeCalc=9000, ktcSfTep=9000),
-        _row("Beta WR", "WR", "offense", idpTradeCalc=7000, ktcSfTep=7000),
+        _row("Alpha QB", "QB", "offense", idpTradeCalc=9000, ktcCrowdTradesSfTep=9000),
+        _row("Beta WR", "WR", "offense", idpTradeCalc=7000, ktcCrowdTradesSfTep=7000),
         _row("Gamma LB", "LB", "idp", idpTradeCalc=4200, dlfIdp=990000),
         _row("Delta DB", "DB", "idp", idpTradeCalc=3100, dlfIdp=980000),
         _row("Epsilon DL", "DL", "idp", idpTradeCalc=2400, dlfIdp=970000),
-        _row("2027 Early 1st", "PICK", "pick", idpTradeCalc=5000, ktcSfTep=5000),
+        _row("2027 Early 1st", "PICK", "pick", idpTradeCalc=5000, ktcCrowdTradesSfTep=5000),
         # The derived one — a value we computed, published under the
         # vendors' keys so the row can be blended.
-        _row("2029 Early 1st", "PICK", "pick", idpTradeCalc=3600, ktcSfTep=3600),
+        _row("2029 Early 1st", "PICK", "pick", idpTradeCalc=3600, ktcCrowdTradesSfTep=3600),
     ]
 
 
