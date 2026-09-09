@@ -44,8 +44,8 @@ def _payload_with_ages():
                 # No age — Sleeper hasn't ingested birth_date yet.
             },
         },
-        "sites": [{"key": "ktcSfTep"}],
-        "maxValues": {"ktcSfTep": 9999},
+        "sites": [{"key": "ktcCrowdTradesSfTep"}],
+        "maxValues": {"ktcCrowdTradesSfTep": 9999},
         "sleeper": {
             "positions": {
                 "Josh Allen": "QB",
