@@ -97,7 +97,11 @@ PORT = 8000
 HOST = "0.0.0.0"  # accessible from local network; use "127.0.0.1" for local only
 SCRAPE_STALL_SECONDS = int(os.getenv("SCRAPE_STALL_SECONDS", "900"))
 SCRAPE_RUN_TIMEOUT_SECONDS = int(os.getenv("SCRAPE_RUN_TIMEOUT_SECONDS", "7200"))
-# A single market/source outage must not halve the player universe and become\n# the new last-known-good cache. Relative to the prior/committed board, retain\n# at least 75% of the player population or fail over/block promotion.\nSCRAPE_PLAYER_RETENTION_FLOOR = 0.75\n# The async scraper launches a Playwright Chromium without a try/finally,
+# A single market/source outage must not halve the player universe and become
+# the new last-known-good cache. Relative to the prior/committed board, retain
+# at least 75% of the player population or fail over/block promotion.
+SCRAPE_PLAYER_RETENTION_FLOOR = 0.75
+# The async scraper launches a Playwright Chromium without a try/finally,
 # so a run-timeout cancellation skips browser.close() and orphans the
 # Chromium process tree → RAM leak across repeated 2h timeouts → OOM.
 # A single scrape_run_lock guarantees that once the scrape coroutine has
