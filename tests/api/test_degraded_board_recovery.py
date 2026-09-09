@@ -69,7 +69,9 @@ def test_active_reprime_waits_for_healthy_coverage(monkeypatch) -> None:
     monkeypatch.setattr(live_cov.time, "sleep", lambda _seconds: None)
     monkeypatch.setattr(live_cov, "_COVERAGE_WAIT_ATTEMPTS", 3)
     monkeypatch.setattr(live_cov, "_COVERAGE_WAIT_SLEEP_SECONDS", 0)
-    monkeypatch.setattr(live_cov.sys, "argv", ["verify_live_source_coverage.py", "http://localhost"])
+    monkeypatch.setattr(
+        live_cov.sys, "argv", ["verify_live_source_coverage.py", "http://localhost"]
+    )
 
     assert live_cov.main() == 0
     assert calls == ["degraded", "healthy"]
@@ -90,7 +92,9 @@ def test_idle_degraded_board_fails_without_wait_loop(monkeypatch) -> None:
     )
     monkeypatch.setattr(live_cov.time, "sleep", lambda _seconds: None)
     monkeypatch.setattr(live_cov, "_COVERAGE_WAIT_ATTEMPTS", 3)
-    monkeypatch.setattr(live_cov.sys, "argv", ["verify_live_source_coverage.py", "http://localhost"])
+    monkeypatch.setattr(
+        live_cov.sys, "argv", ["verify_live_source_coverage.py", "http://localhost"]
+    )
 
     assert live_cov.main() == 1
     assert calls == ["fetch"]
@@ -111,7 +115,9 @@ def test_stalled_scrape_does_not_mask_degraded_board(monkeypatch) -> None:
     )
     monkeypatch.setattr(live_cov.time, "sleep", lambda _seconds: None)
     monkeypatch.setattr(live_cov, "_COVERAGE_WAIT_ATTEMPTS", 3)
-    monkeypatch.setattr(live_cov.sys, "argv", ["verify_live_source_coverage.py", "http://localhost"])
+    monkeypatch.setattr(
+        live_cov.sys, "argv", ["verify_live_source_coverage.py", "http://localhost"]
+    )
 
     assert live_cov.main() == 1
     assert calls == ["fetch"]
@@ -127,9 +133,7 @@ def _write_raw_payload(path: Path, player_count: int, stamp: str) -> None:
     path.write_text(json.dumps(payload), encoding="utf-8")
 
 
-def test_startup_recovers_from_collapsed_persistent_runtime_cache(
-    tmp_path, monkeypatch
-) -> None:
+def test_startup_recovers_from_collapsed_persistent_runtime_cache(tmp_path, monkeypatch) -> None:
     data_dir = tmp_path / "data"
     checkout = tmp_path / "exports" / "latest" / "dynasty_data_2026-09-09.json"
     runtime = data_dir / "dynasty_data_2026-09-09.json"
