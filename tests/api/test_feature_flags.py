@@ -72,6 +72,10 @@ def test_every_flag_defaults_off_except_safe_additive():
         # model as a live code path.
         # Rollback: RISKIT_FEATURE_PERFECT_DRAFT=0 + restart.
         "perfect_draft",
+        # Stage 1 FAAB opportunity rollout: additive shadow computation only.
+        # The live response remains canonical-only; endpoint coverage pins
+        # byte-equivalence across flag states.
+        "waiver_live_opportunity",
     }
     # Flags that default ON and KNOWINGLY change output.  Deliberately a
     # separate set from ``safe_on``: every member of that one is there

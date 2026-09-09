@@ -948,10 +948,10 @@ def test_a_proven_te_premium_is_read_from_the_card_not_the_label(faab_env, monke
 # the live response — evaluation is not activation.
 
 
-def test_shadow_flag_off_by_default_and_response_unaffected(faab_env, monkeypatch):
+def test_shadow_flag_default_computes_but_response_still_ok(faab_env, monkeypatch):
     from src.api import feature_flags
 
-    assert feature_flags.is_enabled("waiver_live_opportunity") is False
+    assert feature_flags.is_enabled("waiver_live_opportunity") is True
     with TestClient(server.app) as c:
         res = _post(c, monkeypatch, {"addPlayerName": "Hot Pickup"})
     assert res.status_code == 200

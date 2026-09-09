@@ -220,15 +220,13 @@ invariant ("evaluation is not activation, nothing self-promotes"), promotion
 is a staged, criteria-gated, human-reviewed process, not a flag flip on
 completion of the code:
 
-- **Stage 0 (current state).** `waiver_live_opportunity` defaults off in
-  production. Nothing changes for a live user.
-- **Stage 1 — turn on shadow logging in production.** Flip the flag on (via
-  the per-process env-var override this codebase already uses for
-  script-only/shadow features, matching the `bdvm_engine` precedent) and
-  restart. This requires deploy access this development session does not
-  have (see the follow-up report's production-verification section) — it is
-  a named action item for whoever operates the deploy, not something claimed
-  done here.
+- **Stage 0 — scaffold complete.** The opportunity layer exists but remains
+  prohibited from changing the live recommendation.
+- **Stage 1 — shadow logging on by default.** CURRENT once this change is
+  deployed: `waiver_live_opportunity` defaults on so production accumulates
+  shadow comparisons without a separate env-var flip. The live response still
+  reads the canonical-only value; Stage 1 is observation, not promotion.
+  Rollback is `RISKIT_FEATURE_WAIVER_LIVE_OPPORTUNITY=0` + restart.
 - **Stage 2 — accumulation window.** No review is meaningful on a thin
   sample. Minimum bar before Stage 3 runs: **N ≥ 200** logged rows in
   `data/faab/shadow_comparisons_<leagueKey>.json`, spanning **at least one**
@@ -262,7 +260,7 @@ completion of the code:
   already established for exactly this "challenger evaluated, human
   approved, promote" sequence rather than inventing a second one.
 
-None of Stages 1-5 are executed by the 2026-09-01 follow-up work — that work
+Stage 1 is executed by the current default-on shadow rollout; Stages 2-5 remain evidence-gated. The 2026-09-01 follow-up work
 fixed the `/waivers` frontend bug (see the FAAB redesign report addendum,
 `docs/faab-redesign-2026-09-01-report.md`) and left the shadow layer's status
 otherwise unchanged. This section exists so "when does this become live" has
