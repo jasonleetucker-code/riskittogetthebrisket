@@ -163,7 +163,7 @@ Dynasty fantasy football valuation and trade calculator platform. Ingests extern
 - Use a task branch for meaningful changes (`claude/...` for Claude, `codex/...` for Codex).
 - Do not edit OneDrive repo copies unless the user explicitly asks; treat them as backups/archive only.
 - Do not let multiple assistants edit the same branch at the same time.
-- See `ASSISTANT_COORDINATION.md` for the shared start-of-session checklist and handoff rules.
+- See `ASSISTANT_COORDINATION.md` for the shared start-of-session checklist and handoff rules. Its **Benign automated `main` movement** rule is mandatory: inspect intervening commits/paths first; a proven `BENIGN_AUTOMATION_MOVE` does not restart feature CI, while a `RELEVANT_BASE_MOVE` does. Never equate “automation” with “inert” without inspecting what it changed.
 
 ## Tech Stack
 
