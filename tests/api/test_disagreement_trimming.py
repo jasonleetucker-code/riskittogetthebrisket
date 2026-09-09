@@ -160,7 +160,7 @@ class TestAnchorKeySets(unittest.TestCase):
     def _srcs(self, ktc_weight=1.0, idptc_weight=1.0):
         return [
             {"key": "idpTradeCalc", "is_cross_market": True, "weight": idptc_weight},
-            {"key": "ktcSfTep", "is_cross_market": False, "weight": ktc_weight},
+            {"key": "ktcCrowdTradesSfTep", "is_cross_market": False, "weight": ktc_weight},
             {"key": "dlfSf", "is_cross_market": False, "weight": 1.0},
         ]
 
@@ -169,21 +169,21 @@ class TestAnchorKeySets(unittest.TestCase):
 
         cross, pick = _anchor_key_sets(self._srcs())
         self.assertEqual(cross, {"idpTradeCalc"})
-        self.assertEqual(pick, {"idpTradeCalc", "ktcSfTep"})
+        self.assertEqual(pick, {"idpTradeCalc", "ktcCrowdTradesSfTep"})
 
     def test_zero_weight_ktc_never_anchors_picks(self):
         from src.api.data_contract import _anchor_key_sets
 
         cross, pick = _anchor_key_sets(self._srcs(ktc_weight=0.0))
         self.assertEqual(pick, {"idpTradeCalc"})
-        self.assertNotIn("ktcSfTep", pick)
+        self.assertNotIn("ktcCrowdTradesSfTep", pick)
 
     def test_zero_weight_cross_market_never_anchors(self):
         from src.api.data_contract import _anchor_key_sets
 
         cross, pick = _anchor_key_sets(self._srcs(idptc_weight=0.0))
         self.assertEqual(cross, set())
-        self.assertEqual(pick, {"ktcSfTep"})
+        self.assertEqual(pick, {"ktcCrowdTradesSfTep"})
 
 
 class TestActiveSourcesWeightGate(unittest.TestCase):
@@ -194,14 +194,14 @@ class TestActiveSourcesWeightGate(unittest.TestCase):
     def test_zero_weight_override_drops_source(self):
         from src.api.data_contract import _active_sources
 
-        out = _active_sources({"ktcSfTep": {"weight": 0}})
-        self.assertNotIn("ktcSfTep", {s.get("key") for s in out})
+        out = _active_sources({"ktcCrowdTradesSfTep": {"weight": 0}})
+        self.assertNotIn("ktcCrowdTradesSfTep", {s.get("key") for s in out})
 
     def test_positive_weight_override_retained_with_new_weight(self):
         from src.api.data_contract import _active_sources
 
-        out = _active_sources({"ktcSfTep": {"weight": 2.5}})
-        ktc = next(s for s in out if s.get("key") == "ktcSfTep")
+        out = _active_sources({"ktcCrowdTradesSfTep": {"weight": 2.5}})
+        ktc = next(s for s in out if s.get("key") == "ktcCrowdTradesSfTep")
         self.assertEqual(float(ktc["weight"]), 2.5)
 
     def test_no_overrides_returns_full_registry(self):
