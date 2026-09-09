@@ -2756,10 +2756,7 @@ def load_from_disk() -> dict | None:
             str(runtime_path),
             produced_at=runtime_data.get("scrapeTimestamp"),
         )
-        log.info(
-            f"Loaded cached data from {runtime_path.name} "
-            f"({runtime_count} players)"
-        )
+        log.info(f"Loaded cached data from {runtime_path.name} " f"({runtime_count} players)")
         return runtime_data
 
     if checkout_data is not None:
@@ -3096,8 +3093,7 @@ async def run_scraper(trigger: str = "manual") -> dict | None:
                 player_count / previous_player_count if previous_player_count > 0 else 1.0
             )
             population_collapsed = (
-                previous_player_count > 0
-                and player_retention < SCRAPE_PLAYER_RETENTION_FLOOR
+                previous_player_count > 0 and player_retention < SCRAPE_PLAYER_RETENTION_FLOOR
             )
             if (
                 missing_anchors
@@ -3173,24 +3169,12 @@ async def run_scraper(trigger: str = "manual") -> dict | None:
                 try:
                     import shutil as _sh
 
-                    src_json = (
-                        DATA_DIR
-                        / "exports"
-                        / "latest"
-                        / f"dynasty_data_{result_date}.json"
-                    )
-                    dst_json = (
-                        BASE_DIR
-                        / "exports"
-                        / "latest"
-                        / f"dynasty_data_{result_date}.json"
-                    )
+                    src_json = DATA_DIR / "exports" / "latest" / f"dynasty_data_{result_date}.json"
+                    dst_json = BASE_DIR / "exports" / "latest" / f"dynasty_data_{result_date}.json"
                     if src_json.exists():
                         _sh.copy2(src_json, dst_json)
                 except Exception as _export_mirror_err:  # noqa: BLE001
-                    log.warning(
-                        f"Post-promotion dynasty_data mirror failed: {_export_mirror_err}"
-                    )
+                    log.warning(f"Post-promotion dynasty_data mirror failed: {_export_mirror_err}")
 
             latest_data = result
             source_path = ""
