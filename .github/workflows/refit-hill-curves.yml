@@ -83,6 +83,12 @@ jobs:
           [[ -n "$SNAP" ]] || { echo "::error title=Hill refit::no board snapshot"; exit 1; }
           SNAP_ABS="$(cd "$(dirname "$SNAP")" && pwd)/$(basename "$SNAP")"
           echo "RISKIT_FIT_SNAPSHOT=$SNAP_ABS" >> "$GITHUB_ENV"
+          # A pin that names a path is a suggestion; a pin that also names the
+          # bytes at that path is verified. Hashed here (not re-derived later)
+          # so the challenger record states which bytes actually produced it,
+          # even if a subsequent data refresh rewrites the same filename.
+          SNAP_SHA256="$(sha256sum "$SNAP_ABS" | cut -d' ' -f1)"
+          echo "RISKIT_FIT_SNAPSHOT_SHA256=$SNAP_SHA256" >> "$GITHUB_ENV"
 
       - name: Refit on this refresh
         id: refit
@@ -165,6 +171,42 @@ jobs:
               --reason "Hill Autopilot downstream board-impact gate blocked promotion"
           fi
 
+      - name: File an issue when the board-impact gate blocks promotion
+        # This is the one path in this job that completes successfully with
+        # nothing promoted: the challenger cleared the paired OFFENSE gate,
+        # won the tournament and passed forward persistence, but the
+        # downstream board-impact check disagreed. A run exiting 0 here
+        # would otherwise be indistinguishable from an ordinary refresh
+        # where the champion simply stood -- exactly the silent-tracker
+        # failure mode this label's other consumer (audit-rank-form-drift.yml)
+        # exists to avoid. Reuses that workflow's calibration label +
+        # title-based dedup, not a second issue-filing convention.
+        if: steps.autopilot.outputs.ready == 'true' && steps.board.outputs.pass == 'false'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -Eeuo pipefail
+          TITLE="Hill Autopilot: board-impact gate blocked v${{ steps.composed.outputs.version }}"
+          BODY=$(printf '%s\n\nChallenger v%s cleared the paired OFFENSE held-out gate, won the standing tournament, and passed forward persistence, but the downstream board-impact check rejected it. It has been recorded as `rejected` in the registry; canonical OFFENSE parameters were not changed.\n\nRun: %s\n' \
+            "Hill Autopilot v2's automatic tournament -> forward-persistence -> board-impact pipeline found a candidate a human should look at." \
+            "${{ steps.composed.outputs.version }}" \
+            "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}")
+          gh label create calibration \
+            --color 5319E7 \
+            --description "Model-calibration work items opened by the weekly Hill refit and drift audits" \
+            2>/dev/null || true
+          EXISTING=$(gh issue list --state open --limit 50 \
+                       --json number,title \
+                       --jq ".[] | select(.title == \"${TITLE}\") | .number" \
+                     2>/dev/null | head -n 1 || true)
+          if [[ -n "${EXISTING}" ]]; then
+            gh issue comment "${EXISTING}" --body "${BODY}"
+          else
+            gh issue create --title "${TITLE}" --body "${BODY}" --label calibration \
+              || gh issue create --title "${TITLE}" --body "${BODY}"
+          fi
+
       - name: Promote and apply canonical OFFENSE curve
         id: promote
         if: steps.autopilot.outputs.ready == 'true' && steps.board.outputs.pass == 'true'
@@ -238,6 +280,7 @@ jobs:
         run: |
           {
             echo "## Hill Autopilot"
+            echo "**Pinned snapshot:** \`${RISKIT_FIT_SNAPSHOT:-unset}\` (sha256 \`${RISKIT_FIT_SNAPSHOT_SHA256:-unset}\`)"
             if [[ -f autopilot_plan.json ]]; then
               echo "**Ready:** $(jq -r '.ready' autopilot_plan.json)"
               echo "**Winner:** v$(jq -r '.winnerVersion // "-"' autopilot_plan.json)"

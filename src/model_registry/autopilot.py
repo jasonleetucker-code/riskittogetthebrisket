@@ -125,12 +125,10 @@ def bootstrap_lower_improvement(
     if not names:
         return float("-inf")
     deltas = {
-        name: float(champion_per_source[name]) - float(candidate_per_source[name])
-        for name in names
+        name: float(champion_per_source[name]) - float(candidate_per_source[name]) for name in names
     }
     samples = sorted(
-        mean(deltas[name] for name in draw)
-        for draw in product(names, repeat=len(names))
+        mean(deltas[name] for name in draw) for draw in product(names, repeat=len(names))
     )
     idx = max(0, min(len(samples) - 1, int(quantile * (len(samples) - 1))))
     return float(samples[idx])

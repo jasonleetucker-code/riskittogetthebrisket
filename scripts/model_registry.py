@@ -282,17 +282,12 @@ def cmd_promote(args: argparse.Namespace) -> int:
                 f"v{args.version} is {target.status!r}; only a standing challenger can be promoted"
             )
         incumbent = reg.champion
-        champ_eval = evaluate_offense_master(
-            *(incumbent.params[k] for k in VALIDATED_PARAMS)
-        )
-        target_eval = evaluate_offense_master(
-            *(target.params[k] for k in VALIDATED_PARAMS)
-        )
+        champ_eval = evaluate_offense_master(*(incumbent.params[k] for k in VALIDATED_PARAMS))
+        target_eval = evaluate_offense_master(*(target.params[k] for k in VALIDATED_PARAMS))
         fresh_decision = decide_promotion(champ_eval.criterion, target_eval.criterion)
         if not fresh_decision.promote:
             raise RegistryError(
-                "fresh paired promotion gate refused the state change: "
-                + fresh_decision.reason
+                "fresh paired promotion gate refused the state change: " + fresh_decision.reason
             )
         champ = reg.promote(
             args.version,
@@ -401,9 +396,7 @@ def main() -> int:
     )
     p_pro.set_defaults(fn=cmd_promote)
 
-    p_rej = sub.add_parser(
-        "reject", help="mark a challenger rejected and keep the evidence"
-    )
+    p_rej = sub.add_parser("reject", help="mark a challenger rejected and keep the evidence")
     p_rej.add_argument("version", type=int)
     p_rej.add_argument("--reason", required=True)
     p_rej.set_defaults(fn=cmd_reject)

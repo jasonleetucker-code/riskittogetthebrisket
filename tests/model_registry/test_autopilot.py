@@ -85,13 +85,16 @@ def test_composed_promotion_changes_offense_only():
 
 
 def test_rejected_version_cannot_be_promoted():
+    from datetime import datetime, timezone
+
+    now = datetime.now(timezone.utc).isoformat()
     champ = ModelVersion(
         model_id="x",
         version=1,
         params={"HILL_PERCENTILE_C": 0.11, "HILL_PERCENTILE_S": 1.11},
         fitted_at="now",
         producer="test",
-        holdout={"criterion": 100.0, "perSource": {"a": 1, "b": 1, "c": 1}},
+        holdout={"criterion": 100.0, "perSource": {"a": 1, "b": 1, "c": 1}, "measuredAt": now},
     )
     reg = ModelRegistry("x")
     reg.seed_champion(champ)
@@ -101,7 +104,7 @@ def test_rejected_version_cannot_be_promoted():
         params={"HILL_PERCENTILE_C": 0.10, "HILL_PERCENTILE_S": 1.11},
         fitted_at="now",
         producer="test",
-        holdout={"criterion": 50.0, "perSource": {"a": 1, "b": 1, "c": 1}},
+        holdout={"criterion": 50.0, "perSource": {"a": 1, "b": 1, "c": 1}, "measuredAt": now},
     )
     reg.add(challenger)
     reg.reject(2, reason="lost")

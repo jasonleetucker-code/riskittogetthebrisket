@@ -482,13 +482,19 @@
     "public-league-warmup.yml::warm::Warm the snapshot": {
       "category": "blocking"
     },
-    "refit-hill-curves.yml::refit::Checkout": {
+    "refit-hill-curves.yml::refit::Candidate tournament + forward gate": {
       "category": "blocking"
     },
-    "refit-hill-curves.yml::refit::Commit the registry record": {
+    "refit-hill-curves.yml::refit::Checkout exact triggering tree": {
       "category": "blocking"
     },
-    "refit-hill-curves.yml::refit::Fail loudly on error or regression": {
+    "refit-hill-curves.yml::refit::Commit calibration evidence and canonical change": {
+      "category": "blocking"
+    },
+    "refit-hill-curves.yml::refit::Downstream board-impact gate": {
+      "category": "blocking"
+    },
+    "refit-hill-curves.yml::refit::File an issue when the board-impact gate blocks promotion": {
       "category": "blocking"
     },
     "refit-hill-curves.yml::refit::Install dependencies": {
@@ -497,19 +503,31 @@
     "refit-hill-curves.yml::refit::Job summary": {
       "category": "blocking"
     },
-    "refit-hill-curves.yml::refit::Open an issue when a human must act": {
+    "refit-hill-curves.yml::refit::Pin fit snapshot": {
       "category": "blocking"
     },
-    "refit-hill-curves.yml::refit::Pin the board snapshot this fit trains on": {
+    "refit-hill-curves.yml::refit::Promote and apply canonical OFFENSE curve": {
       "category": "blocking"
     },
-    "refit-hill-curves.yml::refit::Run refit + held-out gate": {
+    "refit-hill-curves.yml::refit::Refit on this refresh": {
       "category": "blocking"
     },
-    "refit-hill-curves.yml::refit::Self-test the gate before trusting it": {
+    "refit-hill-curves.yml::refit::Refuse stale evidence": {
+      "category": "blocking"
+    },
+    "refit-hill-curves.yml::refit::Register scope-safe candidate": {
+      "category": "blocking"
+    },
+    "refit-hill-curves.yml::refit::Remember base SHA": {
+      "category": "blocking"
+    },
+    "refit-hill-curves.yml::refit::Self-test calibration machinery": {
       "category": "blocking"
     },
     "refit-hill-curves.yml::refit::Set up Python": {
+      "category": "blocking"
+    },
+    "refit-hill-curves.yml::refit::Trigger deploy after canonical promotion": {
       "category": "blocking"
     },
     "release-candidate.yml::candidate::API data contract check (structural lane)": {
@@ -630,6 +648,9 @@
       "category": "blocking"
     },
     "scheduled-refresh.yml::refresh::Trigger deploy": {
+      "category": "blocking"
+    },
+    "scheduled-refresh.yml::refresh::Trigger Hill Autopilot on material market-data refresh": {
       "category": "blocking"
     },
     "scheduled-refresh.yml::refresh::Validate scrape sanity (pre-commit gate)": {

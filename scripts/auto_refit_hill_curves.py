@@ -308,7 +308,6 @@ def main() -> int:
         return EXIT_ALARM
 
     if decision.promote:
-        target = recorded if recorded is not None else "<version>"
         print(
             "\nRaw challenger cleared the paired OFFENSE gate. "
             "Hill Autopilot now re-scores the full standing tournament, "

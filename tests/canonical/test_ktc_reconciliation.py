@@ -48,11 +48,7 @@ def _load_ktc_players_sorted() -> list[tuple[str, int]]:
 
 
 def _ours(rank: int) -> int:
-    return int(
-        percentile_to_value(
-            rank_to_percentile(rank, reference_n=_PERCENTILE_REFERENCE_N)
-        )
-    )
+    return int(percentile_to_value(rank_to_percentile(rank, reference_n=_PERCENTILE_REFERENCE_N)))
 
 
 @pytest.fixture(scope="module")
@@ -76,8 +72,7 @@ def test_canonical_curve_does_not_separate_catastrophically_from_ktc(ktc_players
     ours = _ours(rank)
     pct = abs(ours - ktc) / max(1, ktc)
     assert pct <= 0.60, (
-        f"canonical Hill diverges >60% from KTC at rank {rank}: "
-        f"ours={ours} ktc={ktc}"
+        f"canonical Hill diverges >60% from KTC at rank {rank}: " f"ours={ours} ktc={ktc}"
     )
 
 
