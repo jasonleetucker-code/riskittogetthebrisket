@@ -99,15 +99,24 @@ def build_run_receipt(
     unresolved: Iterable[str] = (),
     cost_usd: float | None = None,
 ) -> dict[str, object]:
-    """Assemble a `runReceipt` matching `config/steward/contracts.schema.json`.
+    """Assemble a `runReceipt` shaped to `config/steward/contracts.schema.json`.
 
     This is the reconciliation point between the schema (the pre-existing
     machine-readable contract) and this module's own telemetry primitives:
     `graph_summary(nodes)` becomes ONE entry in the receipt's `evidence`
     array rather than a second, disconnected receipt shape. Raises
     `ValueError` on a status/action-status outside the schema's own enums
-    or a repo SHA that isn't a full 40-hex-char commit hash -- fail closed
-    on a malformed receipt rather than persist one the schema would reject.
+    (mirrored here as `RUN_STATUSES`/`EXECUTED_ACTION_STATUSES`, kept in
+    sync by a schema-parity test) or a repo SHA that isn't a full
+    40-hex-char commit hash -- fail closed on a malformed receipt rather
+    than persist one the schema would reject.
+
+    Note what this function does NOT do: nothing in this codebase calls
+    `jsonschema.validate(...)` against the schema file at runtime. This is
+    hand-written Python parity logic, checked against the schema only by
+    the test suite -- a real but weaker guarantee than machine JSON Schema
+    validation, and worth knowing before leaning harder on "schema
+    conformance" as a safety property.
 
     `cost_usd` defaults to `None` (genuinely unmeasured), not `0.0` -- a
     real zero and an unmeasured cost are different facts. The schema's

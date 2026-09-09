@@ -5,11 +5,14 @@ This is the one real integration point between `src/steward`'s pure
 receipt/evidence primitives and durable storage. It does no network I/O of
 its own and calls no model or GitHub API: the caller (a human, a CI step,
 or a future Steward runner) supplies the run's facts as a JSON file, and
-this script assembles a schema-conformant receipt
-(`config/steward/contracts.schema.json`, `steward-receipt/v1`) and appends
-it to the local SQLite store. Nothing here proposes a promotion or grants
-authority -- see `src/steward/evidence.py` for the eligibility computation,
-which stays a separate, later step.
+this script assembles a receipt shaped to
+`config/steward/contracts.schema.json` (`steward-receipt/v1` --
+`receipts.build_run_receipt` mirrors the schema's enums/patterns in
+hand-written Python, checked against it only by tests; nothing here runs
+`jsonschema.validate` at runtime) and appends it to the local SQLite
+store. Nothing here proposes a promotion or grants authority -- see
+`src/steward/evidence.py` for the eligibility computation, which stays a
+separate, later step.
 
 Input JSON shape (one run):
 {
