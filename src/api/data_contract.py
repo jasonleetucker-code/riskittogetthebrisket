@@ -2903,19 +2903,27 @@ def collapse_to_independent_families(
     return kept, superseded
 
 
+# Retired source keys can still occur in immutable historical panels. Keep
+# their provider-family identity after retirement so a leave-one-out replay
+# does not accidentally retain a correlated modern/derived source. This is
+# provenance metadata only: listing a retired key here does NOT register it as
+# a voting source.
+_RETIRED_SOURCE_CORRELATION_GROUPS: dict[str, str] = {
+    "ktcSfTep": "ktc",
+}
+
+
 def correlation_group_for(key: str) -> str:
     """Return the correlation-group id for ``key``.
 
     Sources without a declared group are independent, so they get a
-    singleton group named after themselves.  That makes the "expand a
-    set of keys to everything correlated with it" operation total — no
-    caller has to special-case the undeclared majority.
+    singleton group named after themselves. Retired keys with durable
+    historical provenance retain their former provider-family identity.
     """
     for src in _RANKING_SOURCES:
         if str(src.get("key") or "") == key:
             return str(src.get("correlation_group") or key)
-    return key
-
+    return _RETIRED_SOURCE_CORRELATION_GROUPS.get(key, key)
 
 def expand_correlation_groups(keys: Iterable[str]) -> set[str]:
     """Expand ``keys`` to every registered source correlated with them.
