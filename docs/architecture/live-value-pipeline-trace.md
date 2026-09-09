@@ -378,16 +378,23 @@ rankDerivedValueUncalibrated = center − λ·MAD          ← players only
 ## Re-tuning the constants
 
 The four scope-level master Hill curves (GLOBAL / OFFENSE / IDP /
-ROOKIE) are refit weekly by `.github/workflows/refit-hill-curves.yml`
-(cron `17 6 * * 2`, plus manual dispatch).
+ROOKIE) are refit after every **material two-hour market-data refresh**.
+`.github/workflows/scheduled-refresh.yml` dispatches
+`.github/workflows/refit-hill-curves.yml` against the exact refresh SHA;
+freshness-stamp-only commits do not refit.
 
-**The refit does not ship anything.**  `scripts/auto_refit_hill_curves.py`
-fits a CHALLENGER, scores champion and challenger on dynasty boards the
-fit never reads (`src/model_registry/holdout.py`), records the verdict
-in `config/model_registry/`, and exits — 0 champion stands, 1
-challenger is promotable, 3 regression alarm.  Production constants
-move only via `scripts/model_registry.py promote` + `apply`, run by a
-human.
+**The raw refit does not ship anything.** `scripts/auto_refit_hill_curves.py`
+only creates/scored challengers. `scripts/hill_autopilot.py` then runs the
+standing-candidate tournament, row-health checks and forward-in-time
+persistence gate. If those pass, it composes an OFFENSE-only candidate
+(the incumbent GLOBAL/IDP/ROOKIE params are carried forward), measures the
+real downstream board with `scripts/hill_board_guard.py`, and only then
+may the workflow call `model_registry.py promote` + `apply`.
+
+Promotion is therefore automatic when the codified evidence says it is
+ready, but raw refitting can never rewrite production and OFFENSE evidence
+can never auto-promote GLOBAL/IDP. See
+`docs/valuation/HILL_AUTOPILOT_V2.md`.
 
 This section previously described the opposite: that the workflow
 "rewrites the constants in `src/canonical/player_valuation.py`, and

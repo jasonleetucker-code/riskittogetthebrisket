@@ -371,9 +371,11 @@ class ModelRegistry:
         target = self.get(version)
         if target.status == "champion":
             raise RegistryError(f"v{version} is already champion")
-        if target.status == "retired":
+        if target.status != "challenger":
             raise RegistryError(
-                f"v{version} is retired; use rollback() to reinstate a former champion"
+                f"v{version} has status {target.status!r}; only a standing challenger "
+                "can be promoted. Rejected models cannot bypass their verdict, and "
+                "retired champions must use rollback()."
             )
 
         from src.model_registry.scope_validation import assert_promotable
@@ -407,6 +409,20 @@ class ModelRegistry:
         self._versions = sorted(out, key=lambda v: v.version)
         self._validate()
         return self.champion
+
+    def mark_applied(self, version: int) -> ModelVersion:
+        """Record that the current champion was actually written live."""
+        target = self.get(version)
+        if target.status != "champion":
+            raise RegistryError(
+                f"v{version} is {target.status!r}, not champion; cannot mark it applied"
+            )
+        now = _utcnow()
+        self._versions = [
+            replace(v, applied_at=now) if v.version == version else v for v in self._versions
+        ]
+        self._validate()
+        return self.get(version)
 
     def reject(self, version: int, *, reason: str) -> ModelVersion:
         """Mark a challenger as having lost.  Kept, not deleted."""

@@ -140,6 +140,8 @@ def cmd_evaluate(args: argparse.Namespace) -> int:
                 notes=v.notes,
                 promoted_at=v.promoted_at,
                 retired_at=v.retired_at,
+                applied_at=v.applied_at,
+                scope_validation=v.scope_validation,
             )
             for v in reg.versions
         ]
@@ -274,6 +276,19 @@ def cmd_promote(args: argparse.Namespace) -> int:
     """
     reg = _load_or_seed()
     try:
+        target = reg.get(args.version)
+        if target.status != "challenger":
+            raise RegistryError(
+                f"v{args.version} is {target.status!r}; only a standing challenger can be promoted"
+            )
+        incumbent = reg.champion
+        champ_eval = evaluate_offense_master(*(incumbent.params[k] for k in VALIDATED_PARAMS))
+        target_eval = evaluate_offense_master(*(target.params[k] for k in VALIDATED_PARAMS))
+        fresh_decision = decide_promotion(champ_eval.criterion, target_eval.criterion)
+        if not fresh_decision.promote:
+            raise RegistryError(
+                "fresh paired promotion gate refused the state change: " + fresh_decision.reason
+            )
         champ = reg.promote(
             args.version,
             reason=args.reason,
@@ -288,6 +303,18 @@ def cmd_promote(args: argparse.Namespace) -> int:
     for scope in sorted(champ.scope_validation):
         print(f"  {scope}: {champ.scope_validation[scope]}")
     print("Run `apply` to write these constants into player_valuation.py.")
+    return 0
+
+
+def cmd_reject(args: argparse.Namespace) -> int:
+    reg = _load_or_seed()
+    try:
+        version = reg.reject(args.version, reason=args.reason)
+    except RegistryError as exc:
+        print(f"ERROR: {exc}", file=sys.stderr)
+        return 2
+    reg.save()
+    print(f"rejected v{version.version}: {args.reason}")
     return 0
 
 
@@ -318,7 +345,10 @@ def cmd_apply(args: argparse.Namespace) -> int:
                 print(f"  {name}: {live.get(name)} -> {champ.params.get(name)}")
         return 0
     write_committed_constants(champ.params)
+    reg.mark_applied(champ.version)
+    reg.save()
     print(f"wrote champion v{champ.version} into {PLAYER_VALUATION.relative_to(REPO)}")
+    print(f"recorded appliedAt for champion v{champ.version}")
     print("Run the test suite before committing.")
     return 0
 
@@ -365,6 +395,11 @@ def main() -> int:
         help="why the owner accepts the overridden scopes' risk",
     )
     p_pro.set_defaults(fn=cmd_promote)
+
+    p_rej = sub.add_parser("reject", help="mark a challenger rejected and keep the evidence")
+    p_rej.add_argument("version", type=int)
+    p_rej.add_argument("--reason", required=True)
+    p_rej.set_defaults(fn=cmd_reject)
 
     p_rb = sub.add_parser("rollback", help="reinstate the previous champion")
     p_rb.add_argument("--to-version", type=int, default=None)

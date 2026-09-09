@@ -1,0 +1,29 @@
+{
+  "schemaVersion": 1,
+  "minCurrentImprovementPoints": 25,
+  "minCurrentImprovementFraction": 0.05,
+  "minImprovedBoards": 3,
+  "maxBoardWorseningFraction": 0.1,
+  "minRowsPerBoard": 300,
+  "stableCandidatesRequired": 3,
+  "stableSpanDays": 5,
+  "candidateCriterionBandFraction": 0.05,
+  "cRelativeTolerance": 0.08,
+  "sRelativeTolerance": 0.06,
+  "forwardDaysRequired": 5,
+  "forwardWinRateRequired": 0.8,
+  "forwardMedianImprovementPoints": 25,
+  "boardImpact": {
+    "maxUnpricedFraction": 0.05,
+    "maxMedianAbsPctValueChange": 0.3,
+    "maxP90AbsPctValueChange": 0.45,
+    "maxSingleAbsPctValueChange": 0.65,
+    "minTop25Overlap": 20,
+    "minTop100Overlap": 85,
+    "maxMedianAbsRankShift": 30,
+    "maxP90AbsRankShift": 125
+  },
+  "maxRowDropFromRecentMedianFraction": 0.15,
+  "bootstrapLowerQuantile": 0.05,
+  "minBootstrapLowerImprovementPoints": 25
+}
