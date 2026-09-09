@@ -512,6 +512,17 @@ new.
 A green implementation head therefore stays green until the PR itself changes. The four things
 that earn a fresh full cycle are in CLAUDE.md; class-C data drift is not among them.
 
+**Automated `main` movement must be triaged, not reflexively chased.** Integration inspects the
+intervening commits and paths before invalidating any existing CI result. A known scheduled/bot
+commit is not automatically benign: if it changes code, tests, workflows, dependencies, config,
+contracts, or data/evidence consumed by the relevant gate, it is a `RELEVANT_BASE_MOVE`. If it is
+proven repository automation with no overlap or dependency/risk-surface effect, record
+`BENIGN_AUTOMATION_MOVE` and continue using the existing implementation-head CI. Do not mint a
+fresh PR head, rebase, or rerun the entire feature suite for that case. For the final shipping
+tree, perform only the bounded release-candidate freshness proof needed to establish the actual
+merge tree; never send the lane back through development merely to chase scheduled automation.
+The canonical mechanics and minimum triage record live in `ASSISTANT_COORDINATION.md`.
+
 **Release trains.** Where an ordered dependency chain exists, Integration freezes the approved
 heads and validates the combined candidate tree once rather than making each lane chase moving
 data independently. A train is an integration convenience and never makes independent PRs one
