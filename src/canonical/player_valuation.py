@@ -219,7 +219,7 @@ IDP_HILL_PERCENTILE_S: float = 1.110
 # ROOKIE master — fit from KTC + IDPTC rookie slices of the latest
 # snapshot.
 #
-# NOT ROUTED.  This curve is refit weekly by
+# NOT ROUTED.  This curve is refit after each material market-data refresh by
 # ``.github/workflows/refit-hill-curves.yml`` but no live code path
 # selects it: ``data_contract.py::_curve_for_source`` routes
 # cross-market -> GLOBAL, overall_idp -> IDP, and everything else

@@ -2473,3 +2473,13 @@ read by the Next bridge routes.
 - Do not run destructive commands without approval
 - Prefer reversible operations
 - Be explicit before any action affecting production, deployment, credentials, or public output
+
+
+## Hill Autopilot canonical rule
+
+The percentile-form Hill masters are governed by `docs/valuation/HILL_AUTOPILOT_V2.md`.
+Material market-data refreshes dispatch a refit every ~2h. The raw fitter may never write
+production. Automatic canonical promotion is allowed only through the fail-closed Hill
+Autopilot path; today it may change OFFENSE only, carrying GLOBAL/IDP/ROOKIE from the
+incumbent until those scopes have their own promotable evidence. Never bypass this with
+`--override-scope` in automation and never hand-edit the live Hill constants.

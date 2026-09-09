@@ -6589,7 +6589,7 @@ def _build_hill_curves_block() -> dict[str, dict[str, Any]]:
           ``midpoint = c * (referenceN − 1)``, ``slope = s``.
         - ``label`` — short human label for chart legends.
         - ``routed`` — whether the live ``_curve_for_source`` routing
-          currently uses this curve.  ROOKIE is fit by the monthly
+          currently uses this curve.  ROOKIE is fit by the per-refresh
           refit workflow but not routed today.
     """
     from src.canonical.player_valuation import (  # noqa: PLC0415

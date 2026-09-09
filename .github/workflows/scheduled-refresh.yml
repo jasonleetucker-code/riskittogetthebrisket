@@ -630,6 +630,26 @@ jobs:
             echo "No data changes, skipping deploy trigger"
           fi
 
+      - name: Trigger Hill Autopilot on material market-data refresh
+        # The Hill curve is a function of the market boards, so cadence is
+        # owned by the producer of those boards rather than by an unrelated
+        # weekly cron. Freshness-stamp-only commits do NOT refit: no model
+        # input changed. A real automated-data-refresh commit dispatches the
+        # fail-closed Hill workflow against the exact SHA that produced it.
+        if: ${{ !cancelled() }}
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -Eeuo pipefail
+          if git log -1 --pretty=%B | grep -q "automated data refresh"; then
+            REFRESH_SHA="$(git rev-parse HEAD)"
+            echo "Material market data changed at ${REFRESH_SHA}; dispatching Hill Autopilot"
+            gh workflow run refit-hill-curves.yml               --ref main               -f source_refresh_sha="${REFRESH_SHA}"
+          else
+            echo "No material market-data commit; Hill refit not needed"
+          fi
+
       - name: Assert DLF freshness
         # Runs after Commit + Deploy so other sources still ship even
         # when DLF is broken.  Fails the workflow when the most recent
