@@ -2800,21 +2800,33 @@ async def run_scraper(trigger: str = "manual") -> dict | None:
             if not result or not result.get("players"):
                 raise RuntimeError("Scraper returned empty result")
 
-            # Mirror fresh site_raw CSVs from the scraper's DATA_DIR output
-            # path (data/exports/latest/site_raw/) back to the repo's
-            # tracked CSVs/site_raw/ directory so that the CSV
-            # enrichment in data_contract.py (which reads relative to repo
-            # root) sees up-to-date values.  Without this, enrichment reads
-            # permanently-stale CSVs from git history.  Only copies KTC and
-            # IDPTradeCalc — DLF is a rank-signal file with a different
-            # format maintained separately.
+            # Mirror fresh scraper-owned site_raw CSVs from the DATA_DIR
+            # output path (data/exports/latest/site_raw/) back to the repo's
+            # tracked CSVs/site_raw/ directory before the canonical contract
+            # rebuild. data_contract.py reads the repo-root copies.
+            #
+            # IMPORTANT: KTC became a three-source family in September 2026.
+            # Mirroring only the legacy ktc.csv left the running scraper and
+            # the canonical voter on different generations: the scraper had
+            # fresh Crowd / Trades / Crowd+Trades files under DATA_DIR while
+            # the contract could still read an older ktcCrowdTradesSfTep.csv
+            # from the checkout. Keep the complete scraper-owned family
+            # together. DLF and other rank fetchers are maintained separately.
             try:
                 import shutil as _sh
 
                 src_raw = DATA_DIR / "exports" / "latest" / "site_raw"
                 dst_raw = BASE_DIR / "CSVs" / "site_raw"
                 if src_raw.exists() and dst_raw.exists():
-                    for fname in ("ktc.csv", "idpTradeCalc.csv"):
+                    scraper_owned_site_raw = (
+                        "ktc.csv",
+                        "ktcSfTep.csv",
+                        "ktcCrowdSfTep.csv",
+                        "ktcTradesSfTep.csv",
+                        "ktcCrowdTradesSfTep.csv",
+                        "idpTradeCalc.csv",
+                    )
+                    for fname in scraper_owned_site_raw:
                         src_file = src_raw / fname
                         dst_file = dst_raw / fname
                         if src_file.exists():
