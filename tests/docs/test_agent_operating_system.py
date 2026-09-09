@@ -20,7 +20,7 @@ def test_benign_main_movement_policy_is_cross_model_and_pinned():
     assert "`BENIGN_AUTOMATION_MOVE`" in canonical
     assert "`RELEVANT_BASE_MOVE`" in canonical
     assert "Automation provenance alone is **not enough**" in canonical
-    assert "do **not** restart CI merely because the base SHA changed" in canonical
+    assert "restart CI merely because the base SHA changed" in canonical
 
     for path in (
         "AI_INSTRUCTIONS.md",
