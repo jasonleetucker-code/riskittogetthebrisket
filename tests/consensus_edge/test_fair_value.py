@@ -26,6 +26,7 @@ That false signal is exactly what this comment exists to prevent.
 from __future__ import annotations
 
 import statistics
+import tempfile
 import unittest
 from pathlib import Path
 from unittest import mock
@@ -57,6 +58,49 @@ def _load_latest_raw_payload() -> dict | None:
 _RAW = _load_latest_raw_payload()
 _needs_payload = unittest.skipIf(_RAW is None, "no archived export payload available")
 
+
+class TestHistoricalKtcAnchorMigration(unittest.TestCase):
+    """Historical replay compatibility must never become a live fallback."""
+
+    def _root_with(self, *source_keys: str):
+        tmp = tempfile.TemporaryDirectory()
+        root = Path(tmp.name)
+        source_dir = root / "CSVs" / "site_raw"
+        source_dir.mkdir(parents=True)
+        for key in source_keys:
+            (source_dir / f"{key}.csv").write_text(
+                "name,value\nHistorical Player,5000\n",
+                encoding="utf-8",
+            )
+        return tmp, root
+
+    def test_live_default_requires_crowd_trades(self):
+        anchors = fv.resolve_market_anchors()
+        self.assertEqual(anchors["offense"], "ktcCrowdTradesSfTep")
+
+    def test_historical_tree_uses_predecessor_only_when_it_exists(self):
+        tmp, root = self._root_with("ktcSfTep")
+        self.addCleanup(tmp.cleanup)
+        anchors = fv.resolve_market_anchors(csv_root=root)
+        self.assertEqual(anchors["offense"], "ktcSfTep")
+
+    def test_historical_tree_prefers_crowd_trades_when_both_exist(self):
+        tmp, root = self._root_with("ktcSfTep", "ktcCrowdTradesSfTep")
+        self.addCleanup(tmp.cleanup)
+        anchors = fv.resolve_market_anchors(csv_root=root)
+        self.assertEqual(anchors["offense"], "ktcCrowdTradesSfTep")
+
+    def test_missing_both_does_not_invent_a_legacy_fallback(self):
+        tmp, root = self._root_with()
+        self.addCleanup(tmp.cleanup)
+        anchors = fv.resolve_market_anchors(csv_root=root)
+        self.assertEqual(anchors["offense"], "ktcCrowdTradesSfTep")
+
+    def test_retired_predecessor_keeps_its_ktc_correlation_family(self):
+        self.assertEqual(
+            dc.expand_correlation_groups(["ktcSfTep"]),
+            {"ktcSfTep", "ktcCrowdTradesSfTep", "fantasyNavigatorSf"},
+        )
 
 class TestCorrelationGroups(unittest.TestCase):
     """Leak 1: a source derived from the anchor is not independent."""
