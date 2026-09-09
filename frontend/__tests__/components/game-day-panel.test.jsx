@@ -396,10 +396,10 @@ describe("GameDayPanel — explicit ?team= wins over the switcher", () => {
     expect(globalThis.fetch.mock.calls[0][0]).toContain("team=own-SWITCHER");
   });
 
-  it("renders live actuals and withholds a policy-dependent probability", async () => {
+  it("renders live actuals and withholds a probability when game-progress evidence is missing", async () => {
     global.fetch = vi.fn().mockResolvedValue({ ok: true, json: async () => ({
-      ...PRICED, mode: "live", probabilityState: "OWNER_POLICY_REQUIRED",
-      policyRequiredPlayerIds: ["p1"],
+      ...PRICED, mode: "live", probabilityState: "LIVE_PROGRESS_UNAVAILABLE",
+      progressUnavailablePlayerIds: ["p1"],
       team: { ...PRICED.team, actualScore: 14.2, outcome: null,
         actualLineup: { total: 14.2, knownSubtotal: 14.2, missingPlayerIds: [], slots: [{ slot: "QB", slotIndex: 0, playerId: "p1", name: "Ann Alpha", points: 14.2 }] },
         remainingLineupPossibilities: [{ playerId: "p2", name: "Bob Bravo", state: "not_started", currentOptimal: false, eligibleSlots: [{ slot: "RB", slotIndex: 1 }] }],
@@ -408,10 +408,25 @@ describe("GameDayPanel — explicit ?team= wins over the switcher", () => {
     }) });
     render(<GameDayPanel />);
     expect(await screen.findByText(/Current score: 14.2/)).toBeInTheDocument();
-    expect(screen.getByText(/remaining production policy unresolved/)).toBeInTheDocument();
+    expect(screen.getByText(/remaining production unavailable \(no reliable game-progress evidence\)/)).toBeInTheDocument();
     expect(screen.getByText(/Bob Bravo · can displace the current lineup/)).toBeInTheDocument();
-    expect(screen.getByText(/awaits an owner decision/)).toBeInTheDocument();
+    expect(screen.getByText(/Live probabilities unavailable: in-progress remaining production could not be estimated/)).toBeInTheDocument();
     expect(screen.queryByText(/61.5%/)).not.toBeInTheDocument();
+  });
+
+  it("renders a time-prorated remaining estimate for an in-progress player with kickoff evidence", async () => {
+    global.fetch = vi.fn().mockResolvedValue({ ok: true, json: async () => ({
+      ...PRICED, mode: "live", probabilityState: "AVAILABLE",
+      progressUnavailablePlayerIds: [],
+      team: { ...PRICED.team, actualScore: 14.2, outcome: null,
+        actualLineup: { total: 14.2, knownSubtotal: 14.2, missingPlayerIds: [], slots: [{ slot: "QB", slotIndex: 0, playerId: "p1", name: "Ann Alpha", points: 14.2 }] },
+        remainingLineupPossibilities: [],
+        players: [{ playerId: "p1", name: "Ann Alpha", state: "in_progress", pointsScored: 14.2, projectedRemaining: 8.5 }] },
+      opponent: null,
+    }) });
+    render(<GameDayPanel />);
+    expect(await screen.findByText(/Current score: 14.2/)).toBeInTheDocument();
+    expect(screen.getByText(/remaining \(time-prorated\) 8.5/)).toBeInTheDocument();
   });
 
   it("renders a final result without remaining probabilities and links the canonical recap", async () => {

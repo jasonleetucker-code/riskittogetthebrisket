@@ -66,11 +66,14 @@ and the fix above would have been inert on production (#1267); and
 every correct out-of-window run and would have made a real failure
 indistinguishable from the normal case (#1272).
 
-**One owner decision is open and does NOT block anything before kickoff.** An
-in-progress player's remaining production is `None` and raises
-`OWNER_POLICY_REQUIRED` rather than silently choosing time-proration, zero
-remainder, or exclusion. Each choice changes published live probabilities; no
-evidence in the repo selects one.
+**Owner decision made, 2026-09-09: in-progress remaining production is
+TIME-PRORATED.** An in-progress player's remaining production is his pregame
+estimate scaled by the fraction of an assumed game duration not yet elapsed
+since evidenced kickoff (`src/ros/game_day_week.py`). When that evidence is
+missing or unusable, remaining stays `None` and the player is reported in
+`progress_unavailable_player_ids` — a missing-evidence state, not a
+methodology-undecided one; the `OWNER_POLICY_REQUIRED` seam this section
+previously described is closed.
 
 **No owner action is blocking as of 2026-09-07.** An earlier draft of this
 block named `ANTHROPIC_API_KEY` as a blocker; that was itself stale, which is

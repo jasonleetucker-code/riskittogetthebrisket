@@ -19,8 +19,10 @@
  * The assertions are deliberately about TRUTHFULNESS, not pixels. This page
  * can legitimately be in several states on any given day — pregame priced,
  * pregame unpriced, live with a numeric probability, live with the
- * OWNER_POLICY_REQUIRED degraded state, live with game-state/scoring
- * evidence unavailable, or final — and the failure mode that matters is not
+ * LIVE_PROGRESS_UNAVAILABLE degraded state (owner decision 2026-09-09: an
+ * in-progress player's remaining is time-prorated when kickoff evidence is
+ * usable; this state means it genuinely is not), live with game-state/
+ * scoring evidence unavailable, or final — and the failure mode that matters is not
  * "it looked wrong", it is "it showed a number it had no right to". So each
  * state is asserted on what must and must not appear, and the run annotates
  * which state production was actually in. This is the W1-27/W1-28 evidence
@@ -209,10 +211,15 @@ test.describe("W1-16: the owner's Game Day experience (production)", () => {
     // read and the panel's own independent 60s-interval fetch a few
     // seconds later, in either direction, while a game is actually live.
     annotate(testInfo, "w1-27-probability-state", String(body.probabilityState));
-    if (body.probabilityState === "OWNER_POLICY_REQUIRED") {
-      expect(text).toContain("Live probability policy awaits an owner decision");
-      expect(body.policyRequiredPlayerIds?.length).toBeGreaterThan(0);
-      annotate(testInfo, "w1-27-branch", "live — OWNER_POLICY_REQUIRED, no fabricated probability");
+    if (body.probabilityState === "LIVE_PROGRESS_UNAVAILABLE") {
+      // Owner methodology decision (2026-09-09): in-progress remaining
+      // production is time-prorated; this state means real evidence exists
+      // that a game is live, but no reliable kickoff/game-progress evidence
+      // exists to prorate against — a missing-evidence report, never a
+      // methodology-undecided one.
+      expect(text).toContain("could not be estimated");
+      expect(body.progressUnavailablePlayerIds?.length).toBeGreaterThan(0);
+      annotate(testInfo, "w1-27-branch", "live — LIVE_PROGRESS_UNAVAILABLE, no fabricated probability");
     } else if (body.probabilityState === "GAME_STATE_OR_SCORING_UNAVAILABLE") {
       expect(text).toContain("Live probabilities unavailable");
       annotate(testInfo, "w1-27-branch", "live — game-state/scoring evidence incomplete");
