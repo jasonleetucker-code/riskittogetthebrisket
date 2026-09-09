@@ -71,7 +71,7 @@ def _anchor_qb() -> dict[str, Any]:
     makes every other row's value-direct contribution exactly its own
     raw number.  Without this the maxima float with the fixture.
     """
-    return _row("Anchor QB", "QB", ktcSfTep=9999, idpTradeCalc=9999)
+    return _row("Anchor QB", "QB", ktcCrowdTradesSfTep=9999, idpTradeCalc=9999)
 
 
 def _by_name(rows: list[dict[str, Any]]) -> dict[str, dict[str, Any]]:
@@ -93,8 +93,8 @@ class TestSingleSourceHaircut:
     def test_offense_single_source_keeps_exactly_30_percent(self):
         """Solo row votes 5000 value-direct; haircut → 5000 × 0.30 = 1500."""
         rows = [
-            _row("Solo Guy", "WR", ktcSfTep=5000),
-            _row("Duo Guy", "WR", ktcSfTep=5000, idpTradeCalc=5000),
+            _row("Solo Guy", "WR", ktcCrowdTradesSfTep=5000),
+            _row("Duo Guy", "WR", ktcCrowdTradesSfTep=5000, idpTradeCalc=5000),
             _anchor_qb(),
         ]
         dc._compute_unified_rankings(rows, {})
@@ -115,7 +115,7 @@ class TestSingleSourceHaircut:
         ``OVERALL_RANK_LIMIT``; leaving it unpenalised would let an
         unranked single-source rookie price picks at full value.
         """
-        rows = [_row("Solo Guy", "WR", ktcSfTep=5000), _anchor_qb()]
+        rows = [_row("Solo Guy", "WR", ktcCrowdTradesSfTep=5000), _anchor_qb()]
         dc._compute_unified_rankings(rows, {})
         solo = _by_name(rows)["Solo Guy"]
         assert solo["_blendedValueUncapped"] == 1500
@@ -128,8 +128,8 @@ class TestSingleSourceHaircut:
         """
         year = dc.current_rookie_draft_year()
         rows = [
-            _row(f"{year} Pick 2.05", "PICK", ktcSfTep=4000),
-            _row("Solo WR", "WR", ktcSfTep=4000),
+            _row(f"{year} Pick 2.05", "PICK", ktcCrowdTradesSfTep=4000),
+            _row("Solo WR", "WR", ktcCrowdTradesSfTep=4000),
             _anchor_qb(),
         ]
         dc._compute_unified_rankings(rows, {})
@@ -186,7 +186,7 @@ class TestAlphaShrinkageRouting:
         the n=2 mean 6000 — not to 9000 + 0.1×(3000−9000) = 8400.
         """
         rows = [
-            _row("Split Guy", "WR", ktcSfTep=9000, idpTradeCalc=3000),
+            _row("Split Guy", "WR", ktcCrowdTradesSfTep=9000, idpTradeCalc=3000),
             _anchor_qb(),
         ]
         dc._compute_unified_rankings(rows, {})
@@ -199,7 +199,7 @@ class TestAlphaShrinkageRouting:
         """Picks carry the live α stamp, like IDP (CLAUDE.md stage 6)."""
         year = dc.current_rookie_draft_year()
         rows = [
-            _row(f"{year} Pick 1.01", "PICK", ktcSfTep=7000, idpTradeCalc=7000),
+            _row(f"{year} Pick 1.01", "PICK", ktcCrowdTradesSfTep=7000, idpTradeCalc=7000),
             _anchor_qb(),
         ]
         dc._compute_unified_rankings(rows, {})
@@ -226,12 +226,12 @@ class TestValueDirectSourceMembership:
     """
 
     def test_exactly_two_sources_vote_value_direct(self):
-        assert dc._VALUE_BASED_SOURCES == frozenset({"ktcSfTep", "idpTradeCalc"})
+        assert dc._VALUE_BASED_SOURCES == frozenset({"ktcCrowdTradesSfTep", "idpTradeCalc"})
 
     def test_value_direct_voting_is_linear_in_the_raw_value(self):
         """Demonstrate the consequence, so the assertion above has teeth.
 
-        ``ktcSfTep`` is value-direct: contribution is
+        ``ktcCrowdTradesSfTep`` is value-direct: contribution is
         ``raw / site_max × 9999``, i.e. LINEAR in the published number.
         With ``_anchor_qb`` pinning ``site_max`` at 9999, a row at half
         the scale contributes exactly half.
@@ -242,8 +242,8 @@ class TestValueDirectSourceMembership:
             2500 / 9999 × 9999 × 0.30 =  750
         """
         rows = [
-            _row("Half KTC", "WR", ktcSfTep=5000),
-            _row("Quarter KTC", "WR", ktcSfTep=2500),
+            _row("Half KTC", "WR", ktcCrowdTradesSfTep=5000),
+            _row("Quarter KTC", "WR", ktcCrowdTradesSfTep=2500),
             _anchor_qb(),
         ]
         dc._compute_unified_rankings(rows, {})
@@ -401,7 +401,7 @@ class TestPickYearDiscountThroughTheBlend:
         asserted 7000 → 5740 → 4620 for offsets 0/1/2, i.e. the config
         factors applied to every future year.  That is the defect: these
         rows carry a real per-slot vendor price, and both ingested
-        markets price the NEXT class ABOVE the imminent one (ktcSfTep
+        markets price the NEXT class ABOVE the imminent one (ktcCrowdTradesSfTep
         2026 Early 1st 5595 vs 2027 7061).  Composing a decay prior onto
         a price that already encodes the year published 2027 firsts 18%
         and 2028 firsts 34% below what both markets agreed.
@@ -412,9 +412,9 @@ class TestPickYearDiscountThroughTheBlend:
         """
         year = dc.current_rookie_draft_year()
         rows = [
-            _row(f"{year} Pick 1.01", "PICK", ktcSfTep=7000, idpTradeCalc=7000),
-            _row(f"{year + 1} Pick 1.01", "PICK", ktcSfTep=7000, idpTradeCalc=7000),
-            _row(f"{year + 2} Pick 1.01", "PICK", ktcSfTep=7000, idpTradeCalc=7000),
+            _row(f"{year} Pick 1.01", "PICK", ktcCrowdTradesSfTep=7000, idpTradeCalc=7000),
+            _row(f"{year + 1} Pick 1.01", "PICK", ktcCrowdTradesSfTep=7000, idpTradeCalc=7000),
+            _row(f"{year + 2} Pick 1.01", "PICK", ktcCrowdTradesSfTep=7000, idpTradeCalc=7000),
             _anchor_qb(),
         ]
         dc._compute_unified_rankings(rows, {})
@@ -435,7 +435,7 @@ class TestPickYearDiscountThroughTheBlend:
         year = dc.current_rookie_draft_year()
         name = f"{year + 2} Pick 1.01"
         rows = [
-            _row(name, "PICK", ktcSfTep=7000, idpTradeCalc=7000),
+            _row(name, "PICK", ktcCrowdTradesSfTep=7000, idpTradeCalc=7000),
             _anchor_qb(),
         ]
         derivations = {
@@ -455,7 +455,7 @@ class TestPickYearDiscountThroughTheBlend:
         """offset 0 → multiplier 1.0 → the row is left untouched."""
         year = dc.current_rookie_draft_year()
         rows = [
-            _row(f"{year} Pick 1.01", "PICK", ktcSfTep=7000, idpTradeCalc=7000),
+            _row(f"{year} Pick 1.01", "PICK", ktcCrowdTradesSfTep=7000, idpTradeCalc=7000),
             _anchor_qb(),
         ]
         dc._compute_unified_rankings(rows, {})
@@ -470,7 +470,7 @@ class TestPickYearDiscountThroughTheBlend:
         year = dc.current_rookie_draft_year()
         name = f"{year + 1} Pick 1.01"
         rows = [
-            _row(name, "PICK", ktcSfTep=7000, idpTradeCalc=7000),
+            _row(name, "PICK", ktcCrowdTradesSfTep=7000, idpTradeCalc=7000),
             _anchor_qb(),
         ]
         derivations = {
@@ -489,7 +489,7 @@ class TestPickYearDiscountThroughTheBlend:
         """The complement: no discount applied means no stamp to explain."""
         year = dc.current_rookie_draft_year()
         rows = [
-            _row(f"{year + 1} Pick 1.01", "PICK", ktcSfTep=7000, idpTradeCalc=7000),
+            _row(f"{year + 1} Pick 1.01", "PICK", ktcCrowdTradesSfTep=7000, idpTradeCalc=7000),
             _anchor_qb(),
         ]
         dc._compute_unified_rankings(rows, {})
@@ -503,7 +503,7 @@ class TestPickYearDiscountThroughTheBlend:
         """
         year = dc.current_rookie_draft_year()
         rows = [
-            _row(f"{year + 1} Guy", "WR", ktcSfTep=7000, idpTradeCalc=7000),
+            _row(f"{year + 1} Guy", "WR", ktcCrowdTradesSfTep=7000, idpTradeCalc=7000),
             _anchor_qb(),
         ]
         dc._compute_unified_rankings(rows, {})
@@ -533,7 +533,7 @@ class TestMadPenaltyStaysRetired:
         have moved the value.
         """
         rows = [
-            _row("Split Guy", "WR", ktcSfTep=9000, idpTradeCalc=3000),
+            _row("Split Guy", "WR", ktcCrowdTradesSfTep=9000, idpTradeCalc=3000),
             _anchor_qb(),
         ]
         dc._compute_unified_rankings(rows, {})
@@ -557,7 +557,7 @@ def _synthetic_contract() -> dict[str, Any]:
             "position": positions[i % len(positions)],
             "team": "FA",
             "_sites": 2,
-            "_canonicalSiteValues": {"ktcSfTep": value, "idpTradeCalc": value},
+            "_canonicalSiteValues": {"ktcCrowdTradesSfTep": value, "idpTradeCalc": value},
         }
     return dc.build_api_data_contract({"players": players})
 

@@ -202,11 +202,11 @@ __all__ = [
     "value_package",
 ]
 
-NORMALIZATION_VERSION = "li.crossmarket.2026-07-26.v1"
+NORMALIZATION_VERSION = "li.crossmarket.2026-09-08.v2"
 
-MARKET_KTC = "ktcSfTep"
+MARKET_KTC = "ktcCrowdTradesSfTep"
 MARKET_IDPTC = "idpTradeCalc"
-_LEGACY_KTC = "ktc"
+_LEGACY_KTC_KEYS = ("ktcSfTep", "ktc")
 
 SHARED_SCALE_ASSUMPTION = (
     "IDPTC's internal offense<->IDP exchange rate is assumed CORRECT, not merely "
@@ -381,7 +381,10 @@ def _site_value(row: Mapping[str, Any], key: str) -> float | None:
         return None
     raw = sites.get(key)
     if raw is None and key == MARKET_KTC:
-        raw = sites.get(_LEGACY_KTC)
+        for legacy_key in _LEGACY_KTC_KEYS:
+            raw = sites.get(legacy_key)
+            if raw is not None:
+                break
     try:
         v = float(raw)
     except (TypeError, ValueError):

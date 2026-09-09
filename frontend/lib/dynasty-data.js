@@ -202,8 +202,8 @@ export function resolvedRank(row) {
 // never acts on the scope — the backend computes every rank.
 export const RANKING_SOURCES = [
   {
-    // KeepTradeCut TE+ Superflex board — the canonical KTC retail
-    // signal as of 2026-04-28.  KTC publishes both a standard SF
+    // KeepTradeCut Crowd+Trades Superflex + TE++ board — the canonical KTC
+    // retail signal as of the 2026-09-08 owner decision.  KTC publishes both a standard SF
     // view and a TE+ sub-board from the same per-player API payload
     // (``superflexValues.value`` + ``superflexValues.tep`` level 1),
     // and one scrape produces both CSVs.  Historically both were
@@ -216,12 +216,11 @@ export const RANKING_SOURCES = [
     // /trade can keep displaying both side-by-side; only the blend
     // vote was removed.  Mirrors the `is_retail: True` flag on the
     // backend `_RANKING_SOURCES` entry.
-    key: "ktcSfTep",
-    displayName: "KeepTradeCut SF-TE++",
-    // Compact label is just "KTC" since the standard ``ktc`` source
-    // was retired from the blend 2026-04-28; ktcSfTep is now the
-    // sole KTC voter.  ``displayName`` keeps the SF-TEP suffix for
-    // detailed views where the underlying board matters.
+    key: "ktcCrowdTradesSfTep",
+    displayName: "KeepTradeCut Crowd+Trades SF-TE++",
+    // Compact label remains "KTC". The canonical KTC market vote is now
+    // the official Crowd+Trades SF+TE++ value; Crowd and Trades are
+    // preserved separately as same-family diagnostics and never vote beside it.
     columnLabel: "KTC",
     scope: "overall_offense",
     positionGroup: null,
@@ -1218,7 +1217,7 @@ function _materializeLegacyDictRow(name, player, posMap) {
   // is the only entry today.  Sparse: only present when the raw
   // value is a positive integer.
   const rawSourceValues = {};
-  for (const k of ["ktcSfTep"]) {
+  for (const k of ["ktcCrowdTradesSfTep", "ktcCrowdSfTep", "ktcTradesSfTep", "ktcSfTep"]) {
     const v = Number(player?.[k]);
     if (Number.isFinite(v) && v > 0) rawSourceValues[k] = Math.round(v);
   }

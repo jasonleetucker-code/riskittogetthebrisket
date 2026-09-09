@@ -5,9 +5,9 @@ These tests close the gaps documented in
 hidden-coupling that previously had no CI gate:
 
 * ``test_source_csv_paths_have_registry_entries`` — every key in
-  ``_SOURCE_CSV_PATHS`` must exist in ``_RANKING_SOURCES`` (a renamed
-  scraper output silently dropping a source from the live blend used
-  to be invisible until someone noticed missing data).
+  ``_SOURCE_CSV_PATHS`` must either vote through ``_RANKING_SOURCES`` or be
+  explicitly declared non-voting by the canonical backend owner (so
+  diagnostic/history data cannot silently become or cease being a vote).
 * ``test_frontend_source_vendors_covers_python_registry`` — the
   frontend ``SOURCE_VENDORS`` map must classify every Python source
   whose vendor is shared across multiple sub-boards.
@@ -34,36 +34,54 @@ FRONTEND_DATA = REPO_ROOT / "frontend" / "lib" / "dynasty-data.js"
 CONFIG_DIR = REPO_ROOT / "config"
 
 
-# ── G2: every CSV path key must be a registered source ────────────────────
+# ── G2: every CSV path key has a declared semantic owner ─────────────────
 class TestSourceCsvPathRegistryParity(unittest.TestCase):
-    # Sources that are intentionally loaded into ``canonicalSiteValues``
-    # for trade-finder / per-source winner display but do NOT vote in
-    # the blend.  Standard ``ktc`` was retired from the blend
-    # 2026-04-28 in favor of ``ktcSfTep`` (same scrape, TE+ values),
-    # but the standard CSV still loads so the KTC arbitrage finder +
-    # /trade per-source row can keep displaying both KTC variants.
-    DISPLAY_ONLY_CSV_KEYS: set[str] = {"ktc"}
-
     def test_source_csv_paths_have_registry_entries(self) -> None:
-        from src.api.data_contract import _SOURCE_CSV_PATHS, _RANKING_SOURCES
+        from src.api.data_contract import (
+            _NON_VOTING_SOURCE_CSV_KEYS,
+            _RANKING_SOURCES,
+            _SOURCE_CSV_PATHS,
+        )
 
         registry_keys = {str(s["key"]) for s in _RANKING_SOURCES}
         csv_keys = set(_SOURCE_CSV_PATHS.keys())
 
-        # Every CSV-mapped source must be in the registry OR the
-        # display-only allowlist.  The reverse direction is *not*
-        # enforced — some registry sources (e.g. picks-only synthetic
-        # entries) intentionally have no CSV.
-        orphans = sorted(csv_keys - registry_keys - self.DISPLAY_ONLY_CSV_KEYS)
+        # Every CSV-mapped source must either vote through the registry or be
+        # explicitly declared as a non-voting historical/diagnostic source by
+        # the canonical backend owner.  No test-local allowlist: otherwise a
+        # future source could disappear from consensus while still passing CI.
+        declared = registry_keys | set(_NON_VOTING_SOURCE_CSV_KEYS)
+        orphans = sorted(csv_keys - declared)
         self.assertEqual(
             orphans,
             [],
-            "_SOURCE_CSV_PATHS contains keys not registered in "
-            f"_RANKING_SOURCES: {orphans}.  A scraper rename or registry "
-            "removal silently dropped this source from the live blend.  "
-            "If the source should load for display but not vote, add it "
-            "to DISPLAY_ONLY_CSV_KEYS.",
+            "_SOURCE_CSV_PATHS contains keys with no voting or non-voting "
+            f"declaration: {orphans}.  Register the source if it should vote, "
+            "or declare it in _NON_VOTING_SOURCE_CSV_KEYS with durable rationale.",
         )
+
+        missing_paths = sorted(set(_NON_VOTING_SOURCE_CSV_KEYS) - csv_keys)
+        self.assertEqual(
+            missing_paths,
+            [],
+            "Non-voting source declaration points at no loadable CSV path: " f"{missing_paths}.",
+        )
+
+        accidental_votes = sorted(set(_NON_VOTING_SOURCE_CSV_KEYS) & registry_keys)
+        self.assertEqual(
+            accidental_votes,
+            [],
+            "A source is simultaneously marked non-voting and registered to vote: "
+            f"{accidental_votes}.  This can double-count historical/diagnostic evidence.",
+        )
+
+        # KTC is the concrete anti-regression that motivated the distinction:
+        # Crowd + Trades are diagnostics and legacy Crowd is historical; only
+        # KTC's official Crowd+Trades blend is the current KTC family vote.
+        self.assertIn("ktcCrowdTradesSfTep", registry_keys)
+        for key in ("ktc", "ktcSfTep", "ktcCrowdSfTep", "ktcTradesSfTep"):
+            self.assertIn(key, _NON_VOTING_SOURCE_CSV_KEYS)
+            self.assertNotIn(key, registry_keys)
 
 
 # ── G3a: frontend SOURCE_VENDORS must cover every Python multi-board vendor ──
@@ -349,6 +367,16 @@ class TestSourceFreshnessStampCoverage(unittest.TestCase):
                 for key in match.split(":"):
                     if key:
                         out.add(key)
+
+            # Main-scraper sources use ``stamp_if_present <key> <csv>`` after
+            # the browser run. These are real freshness writers too: the
+            # helper checks the manifest/mtime and only stamps a source that
+            # was refreshed rather than restored from last-known-good.
+            for match in re.findall(
+                r"stamp_if_present\s+([A-Za-z0-9_]+)\s+",
+                wf_text,
+            ):
+                out.add(match)
 
         # Pattern 2 + 3: deploy shell scripts (literal paths + for-loops).
         for script_name in ("dlf_fetch_and_push.sh", "idpshow_fetch_and_push.sh"):

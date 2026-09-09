@@ -58,7 +58,7 @@ def _row(name: str, position: str, **sites: Any) -> dict[str, Any]:
 
 
 def _anchor_qb() -> dict[str, Any]:
-    return _row("Anchor QB", "QB", ktcSfTep=9999, idpTradeCalc=9999)
+    return _row("Anchor QB", "QB", ktcCrowdTradesSfTep=9999, idpTradeCalc=9999)
 
 
 def _by_name(rows: list[dict[str, Any]]) -> dict[str, dict[str, Any]]:
@@ -92,8 +92,8 @@ class TestEmptyAndAbsentSources:
         would have produced on their own.
         """
         with_absent = [
-            _row("Star", "WR", ktcSfTep=9000, idpTradeCalc=9000),
-            _row("Mid", "WR", ktcSfTep=4500, idpTradeCalc=4500),
+            _row("Star", "WR", ktcCrowdTradesSfTep=9000, idpTradeCalc=9000),
+            _row("Mid", "WR", ktcCrowdTradesSfTep=4500, idpTradeCalc=4500),
             _anchor_qb(),
         ]
         dc._compute_unified_rankings(with_absent, {})
@@ -120,7 +120,9 @@ class TestZeroVariance:
     """Every value identical — the classic division-by-zero shape."""
 
     def test_identical_values_across_pool_do_not_divide_by_zero(self):
-        rows = [_row(f"Clone {i}", "WR", ktcSfTep=5000, idpTradeCalc=5000) for i in range(5)]
+        rows = [
+            _row(f"Clone {i}", "WR", ktcCrowdTradesSfTep=5000, idpTradeCalc=5000) for i in range(5)
+        ]
         dc._compute_unified_rankings(rows, {})
         for r in rows:
             # All tied at the top of both boards ⇒ all normalise to 9999.
@@ -129,7 +131,7 @@ class TestZeroVariance:
 
     def test_identical_values_within_one_player_give_zero_spread(self):
         rows = [
-            _row("Agreed", "WR", ktcSfTep=5000, idpTradeCalc=5000),
+            _row("Agreed", "WR", ktcCrowdTradesSfTep=5000, idpTradeCalc=5000),
             _anchor_qb(),
         ]
         dc._compute_unified_rankings(rows, {})
@@ -153,9 +155,9 @@ class TestNonPositiveAndNonFiniteValues:
         3000 × 0.30 = 900.
         """
         rows = [
-            _row("Neg", "WR", ktcSfTep=-500, idpTradeCalc=3000),
-            _row("Zero", "WR", ktcSfTep=0, idpTradeCalc=3000),
-            _row("Nil", "WR", ktcSfTep=None, idpTradeCalc=3000),
+            _row("Neg", "WR", ktcCrowdTradesSfTep=-500, idpTradeCalc=3000),
+            _row("Zero", "WR", ktcCrowdTradesSfTep=0, idpTradeCalc=3000),
+            _row("Nil", "WR", ktcCrowdTradesSfTep=None, idpTradeCalc=3000),
             _anchor_qb(),
         ]
         dc._compute_unified_rankings(rows, {})
@@ -281,14 +283,14 @@ def _payload(corrupt: Any = None) -> dict[str, Any]:
             "position": positions[i % 4],
             "team": "FA",
             "_sites": 2,
-            "_canonicalSiteValues": {"ktcSfTep": ktc, "idpTradeCalc": ktc},
+            "_canonicalSiteValues": {"ktcCrowdTradesSfTep": ktc, "idpTradeCalc": ktc},
         }
     if corrupt is not None:
         players["Glitch Guy"] = {
             "position": "WR",
             "team": "FA",
             "_sites": 2,
-            "_canonicalSiteValues": {"ktcSfTep": corrupt, "idpTradeCalc": 4000},
+            "_canonicalSiteValues": {"ktcCrowdTradesSfTep": corrupt, "idpTradeCalc": 4000},
         }
     return {"players": players}
 
@@ -315,9 +317,9 @@ class TestTiesAndDuplicates:
         iteration order.
         """
         rows = [
-            _row("Tie A", "WR", ktcSfTep=4000, idpTradeCalc=4000),
-            _row("Tie B", "WR", ktcSfTep=4000, idpTradeCalc=4000),
-            _row("Lower", "WR", ktcSfTep=3000, idpTradeCalc=3000),
+            _row("Tie A", "WR", ktcCrowdTradesSfTep=4000, idpTradeCalc=4000),
+            _row("Tie B", "WR", ktcCrowdTradesSfTep=4000, idpTradeCalc=4000),
+            _row("Lower", "WR", ktcCrowdTradesSfTep=3000, idpTradeCalc=3000),
             _anchor_qb(),
         ]
         dc._compute_unified_rankings(rows, {})
@@ -344,8 +346,8 @@ class TestTiesAndDuplicates:
         must keep each row's own evidence.
         """
         rows = [
-            _row("Josh Allen", "QB", ktcSfTep=9000, idpTradeCalc=9000),
-            _row("Josh Allen", "LB", ktcSfTep=2000, idpTradeCalc=2000),
+            _row("Josh Allen", "QB", ktcCrowdTradesSfTep=9000, idpTradeCalc=9000),
+            _row("Josh Allen", "LB", ktcCrowdTradesSfTep=2000, idpTradeCalc=2000),
             _anchor_qb(),
         ]
         dc._compute_unified_rankings(rows, {})
@@ -363,8 +365,8 @@ class TestNoNaNEscapes:
     def test_no_stamped_value_is_nan(self):
         """A NaN in any numeric stamp would poison sorting downstream."""
         rows = [
-            _row("Split", "WR", ktcSfTep=9000, idpTradeCalc=1000),
-            _row("Solo", "WR", ktcSfTep=4000),
+            _row("Split", "WR", ktcCrowdTradesSfTep=9000, idpTradeCalc=1000),
+            _row("Solo", "WR", ktcCrowdTradesSfTep=4000),
             _row("Def", "LB", idpTradeCalc=6000, dlfIdp=900000),
             _anchor_qb(),
         ]

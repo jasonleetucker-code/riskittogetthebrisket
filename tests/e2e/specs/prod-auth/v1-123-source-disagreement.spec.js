@@ -33,9 +33,12 @@ test.describe("V1-123 Phase 2: Source Disagreement /edge (production)", () => {
     await agreementTab.click();
     const agreementPanel = page.getByRole("tabpanel", { name: "Agreement" });
     await expect(agreementPanel).toBeVisible({ timeout: 15_000 });
-    await expect(agreementPanel.getByText("Consensus assets", { exact: false })).toBeVisible({
-      timeout: 15_000,
-    });
+    // The title text also appears in the panel's InfoTip accessible label,
+    // so a broad text locator resolves twice under Playwright strict mode.
+    // The section heading is the semantic target this check actually means.
+    await expect(
+      agreementPanel.getByRole("heading", { name: /^Consensus assets/ }),
+    ).toBeVisible({ timeout: 15_000 });
 
     const cautionTab = page.getByRole("tab", { name: "Data caution" });
     await cautionTab.click();

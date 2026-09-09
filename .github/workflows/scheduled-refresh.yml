@@ -276,9 +276,12 @@ jobs:
               fi
             fi
           }
-          stamp_if_present ktc                CSVs/site_raw/ktc.csv               100
-          stamp_if_present ktcSfTep           CSVs/site_raw/ktcSfTep.csv          100
-          stamp_if_present idpTradeCalc       CSVs/site_raw/idpTradeCalc.csv       50
+          stamp_if_present ktc                     CSVs/site_raw/ktc.csv                      100
+          stamp_if_present ktcSfTep                CSVs/site_raw/ktcSfTep.csv                   100
+          stamp_if_present ktcCrowdSfTep           CSVs/site_raw/ktcCrowdSfTep.csv              100
+          stamp_if_present ktcTradesSfTep          CSVs/site_raw/ktcTradesSfTep.csv             100
+          stamp_if_present ktcCrowdTradesSfTep     CSVs/site_raw/ktcCrowdTradesSfTep.csv        100
+          stamp_if_present idpTradeCalc            CSVs/site_raw/idpTradeCalc.csv                50
           # NOTE: dynastyNerdsSfTep / fantasyProsSf / fantasyProsIdp used
           # to be stamped here too.  They are now fetched below instead —
           # see "Three sources were frozen" further down.  Leaving the
@@ -625,6 +628,26 @@ jobs:
             gh workflow run deploy.yml --ref main
           else
             echo "No data changes, skipping deploy trigger"
+          fi
+
+      - name: Trigger Hill Autopilot on material market-data refresh
+        # The Hill curve is a function of the market boards, so cadence is
+        # owned by the producer of those boards rather than by an unrelated
+        # weekly cron. Freshness-stamp-only commits do NOT refit: no model
+        # input changed. A real automated-data-refresh commit dispatches the
+        # fail-closed Hill workflow against the exact SHA that produced it.
+        if: ${{ !cancelled() }}
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -Eeuo pipefail
+          if git log -1 --pretty=%B | grep -q "automated data refresh"; then
+            REFRESH_SHA="$(git rev-parse HEAD)"
+            echo "Material market data changed at ${REFRESH_SHA}; dispatching Hill Autopilot"
+            gh workflow run refit-hill-curves.yml               --ref main               -f source_refresh_sha="${REFRESH_SHA}"
+          else
+            echo "No material market-data commit; Hill refit not needed"
           fi
 
       - name: Assert DLF freshness

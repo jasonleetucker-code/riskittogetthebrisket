@@ -40,8 +40,14 @@ test.describe("V1-123 Phase 2: Team Strength/Weakness tab (production)", () => {
       expect(rowCount, "ROS team strength table rendered with no rows").toBeGreaterThan(0);
 
       // Row click expands an inline detail row (starting lineup / bench depth).
-      await rows.first().click();
-      await expect(page.getByText(/Starting lineup/i)).toBeVisible({ timeout: 15_000 });
+      // The page-level methodology copy also says "starting lineup", so scope
+      // the assertion to the detail row inserted immediately after the team.
+      const firstRow = rows.first();
+      await firstRow.click();
+      const detailRow = firstRow.locator("xpath=following-sibling::tr[1]");
+      await expect(
+        detailRow.locator("strong").filter({ hasText: /^Starting lineup \(/ }),
+      ).toBeVisible({ timeout: 15_000 });
 
       annotate(testInfo, "states-observed", `ros-team-strength: populated (${rowCount} teams)`);
     } else {

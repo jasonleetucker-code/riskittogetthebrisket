@@ -2,14 +2,14 @@
 # Dynasty Trade Value Scraper v8 (improved)
 #
 # Sources:
-# ✓ KeepTradeCut (KTC)       — browser, Superflex + TE+
+# ✓ KeepTradeCut (KTC)       — browser, Crowd / Trades / Crowd+Trades, Superflex + TE++
 # ✓ FantasyCalc              — JSON API, Superflex + TEP
 # ✓ DynastyDaddy             — browser + API intercept, dynasty-daddy.com
 # ✓ FantasyPros              — browser, current month article
 # ✓ DraftSharks              — browser, TEP url (full infinite-scroll load)
 # ✓ Yahoo (Justin Boone)     — browser, auto-discovers current month articles
 # ✓ DynastyNerds             — browser, SF+TEP consensus rankings
-# ✓ DLF (DynastyLeagueFootball) — local CSV imports, SF + IDP + rookie overlays (Avg rank → canonical value)
+# ✓ DLF (DynastyLeagueFootball) — local CSV imports, expert rank + native SF value + IDP/rookie overlays
 # ✓ IDPTradeCalc             — browser, idptradecalculator.com (SF+TEP default)
 # ✓ Flock                    — browser, saved login session, reads OVR rank per player
 #
@@ -46,6 +46,7 @@ import shutil
 import zipfile
 import bisect
 from urllib.parse import urlparse
+from pathlib import Path
 
 import requests
 from playwright.async_api import async_playwright
@@ -63,6 +64,13 @@ from src.utils.age import age_from_birthdate as _age_from_birthdate  # noqa: E40
 from src.utils.owner_names import owner_label as _owner_label  # noqa: E402
 from src.sources.site_raw_mirror import (  # noqa: E402
     mirror_site_raw_csvs as _mirror_site_raw_csvs,
+)
+from src.sources.ktc_value_sources import (  # noqa: E402
+    KTC_CROWD,
+    KtcValueSourceCapture,
+    KtcValueSourceError,
+    capture_all_value_sources,
+    write_capture_artifacts,
 )
 
 # ── C1-ID-01: the name-matching primitives this file defined are now
@@ -201,6 +209,13 @@ TOP_IDP_MIN_SOURCES = _env_int("TOP_IDP_MIN_SOURCES", 1)
 # KTC API response, so they fail together; the difference only appears when
 # the TE++ extraction breaks on its own, which is precisely the failure this
 # now covers and the old anchor did not.
+#
+# September 2026 note: ktcSfTep is now the historical Crowd-only TE++
+# lane, not the canonical market vote. It remains the in-process
+# scraper-run sentinel here because it is co-produced from the same KTC
+# page load; canonical integrity separately requires the combined
+# Crowd+Trades key (see KTC_SOURCE_FILE_KEYS[KTC_CROWD_TRADES] in
+# src/sources/ktc_value_sources.py).
 TOP_OFF_EXPECTED_SITE_KEYS = ("ktcSfTep",)
 TOP_IDP_EXPECTED_SITE_KEYS = ("idpTradeCalc",)
 
@@ -671,6 +686,11 @@ DLF_IMPORT_DEBUG = {}
 
 # KTC blocker diagnosis — set by scrape_ktc on failure for source reporting
 _KTC_BLOCKER: str | None = None
+
+# Explicit KTC source-mode captures from the current run.  The generic
+# FULL_DATA maps carry only values; this retains native ranks + provenance for
+# richer site_raw export and semantic-health checks.
+_KTC_VALUE_SOURCE_CAPTURES: dict[str, KtcValueSourceCapture] = {}
 
 # KTC crowd DB league constraints (user-specific)
 KTC_CROWD_ALLOWED_TEAMS = {10, 12, 14}
@@ -2276,6 +2296,54 @@ async def scrape_ktc(page, players):
                 f"  [KTC] {len(name_map)} players. Josh Allen={ja}, Love={jl}, Mendoza={fm}, Hutchinson={ah}"
             )
             print(f"  [KTC] Sample: {list(name_map.items())[:5]}")
+
+        # KTC's September-2026 source selector is now load-bearing.  The
+        # legacy parser above is retained as a diagnostic/fallback discovery
+        # path, but it no longer gets to define what "KTC" means: explicitly
+        # select and capture Crowd, Trades and Crowd+Trades through the public
+        # Value Source control.  If that semantic proof fails, preserve the
+        # previous good board instead of silently accepting whichever default
+        # KTC happened to render.
+        try:
+            _captures = await capture_all_value_sources(page)
+        except KtcValueSourceError as exc:
+            _KTC_BLOCKER = f"value_source_semantics:{exc}"
+            print(
+                f"  [KTC] three-source semantic capture failed — {exc}; "
+                "preserving last-good KTC files",
+                flush=True,
+            )
+            return results
+
+        _KTC_VALUE_SOURCE_CAPTURES.clear()
+        _KTC_VALUE_SOURCE_CAPTURES.update(_captures)
+
+        # Keep the legacy ktc / ktcSfTep keys explicitly CROWDSOURCED.  They
+        # are a historical paired population used by the TE++ calibration
+        # lane.  Re-labelling them Crowd+Trades would corrupt history and make
+        # the same-source base↔TE++ fit compare different populations.
+        _crowd_capture = _captures[KTC_CROWD]
+        name_map = {
+            clean_name(row.name): int(round(row.base_value))
+            for row in _crowd_capture.rows
+            if row.base_value is not None
+        }
+        tep_name_map = {
+            clean_name(row.name): int(round(row.tepp_value))
+            for row in _crowd_capture.rows
+            if row.tepp_value is not None
+        }
+        if len(name_map) < _KTC_SITE_RAW_FLOOR or len(tep_name_map) < _KTC_TEP_SITE_RAW_FLOOR:
+            _KTC_BLOCKER = (
+                "value_source_coverage:"
+                f"crowd_base={len(name_map)},crowd_tepp={len(tep_name_map)}"
+            )
+            print(
+                "  [KTC] explicit Crowd capture below canonical floors — "
+                f"base={len(name_map)}, TE++={len(tep_name_map)}; preserving last-good",
+                flush=True,
+            )
+            return results
 
         set_cache("KTC", name_map)
         match_all(players, name_map, results, site_key="KTC")
@@ -6738,6 +6806,27 @@ async def run(progress_callback=None):
             except Exception:
                 continue
 
+        # KTC source-mode files are intentionally NOT inserted into FULL_DATA:
+        # that legacy map participates in scraper composite calculations, and
+        # three correlated KTC variants there would manufacture three votes.
+        # The canonical source module owns the artifact schema/writer.
+        if _KTC_VALUE_SOURCE_CAPTURES:
+            try:
+                _ktc_written = write_capture_artifacts(
+                    _KTC_VALUE_SOURCE_CAPTURES,
+                    site_raw_dir=Path(site_raw_dir),
+                    provenance_path=Path(SCRIPT_DIR)
+                    / "data"
+                    / "scrape_state"
+                    / "ktc_value_sources.json",
+                )
+                _fresh_site_raw.update(_ktc_written)
+            except KtcValueSourceError as _ktc_write_exc:
+                print(
+                    f"  [KTC] three-source artifact write failed: {_ktc_write_exc}; "
+                    "preserving last-good",
+                    flush=True,
+                )
         # Restore any previous site_raw CSVs that weren't re-produced
         # this run.  This keeps sources like KTC alive across scrape runs
         # where they might fail due to proxy/TLS issues.

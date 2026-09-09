@@ -104,11 +104,12 @@ def _fetch_league_week(sleeper_league_id: str, week: int) -> _LeagueFetch:
     )
 
 
-def _game_evidence(season: int, week: int):
-    """Read the existing schedule cache; no request-path acquisition owner.
+def _schedule_context(season: int) -> tuple[list[Mapping[str, Any]], float | None, float]:
+    """``(rows, observed_at, now)`` for this season's cached nflverse schedule.
 
-    nflverse is a schedule/result feed, not a live opportunity feed.
-    Its age is published and a passed kickoff alone stays unknown.
+    One shared read so `_game_evidence` and the NFL slate below never fetch
+    the same cache twice for one request. Read-only against the existing
+    schedule cache; no request-path acquisition owner.
     """
     from src.bdvm.schedule import fetch_schedule_rows
     from src.nfl_data.cache import entry_age_seconds
@@ -118,7 +119,103 @@ def _game_evidence(season: int, week: int):
     rows = fetch_schedule_rows(season, cache_only=True)
     age = entry_age_seconds(cache_key("schedules", [season]))
     observed = now - age if age is not None else None
-    return schedule_game_evidence(rows, season=season, week=week, observed_at=observed, now=now)
+    return rows, observed, now
+
+
+def _game_evidence(
+    season: int, week: int, rows: list[Mapping[str, Any]], observed_at: float | None, now: float
+):
+    """Read the existing schedule cache; no request-path acquisition owner.
+
+    nflverse is a schedule/result feed, not a live opportunity feed.
+    Its age is published and a passed kickoff alone stays unknown.
+    """
+    return schedule_game_evidence(rows, season=season, week=week, observed_at=observed_at, now=now)
+
+
+def _nfl_slate(
+    *,
+    season: int,
+    week: int,
+    rows: list[Mapping[str, Any]],
+    observed_at: float | None,
+    now: float,
+    team_week: Mapping[str, Any],
+    my_roster_id: str,
+    opponent_roster_id: str | None,
+    players_meta: Mapping[str, Any],
+) -> dict[str, Any]:
+    """The week's complete real NFL schedule, this matchup's players attached to their game.
+
+    Never reorders by fantasy relevance (the ordering is `schedule_games`'s
+    own chronological one, taken verbatim). A bye-week player and a player
+    with no resolvable NFL team are both real, distinct facts — neither is
+    silently dropped, and neither is guessed into a game it is not in.
+    """
+    from src.ros.game_day_week import _normalize_nfl_team, schedule_games
+
+    if not rows:
+        return {
+            "scheduleState": "unavailable",
+            "scheduleUnavailableReason": "no cached nflverse schedule for this season",
+            "observedAt": observed_at,
+            "games": [],
+            "byeWeek": [],
+            "unattributed": [],
+        }
+
+    games = schedule_games(rows, season=season, week=week, now=now)
+    game_payloads = {
+        g.game_id: {
+            "gameId": g.game_id,
+            "homeTeam": g.home_team,
+            "awayTeam": g.away_team,
+            "kickoffAt": g.kickoff_at,
+            "state": g.state,
+            "homeScore": g.home_score,
+            "awayScore": g.away_score,
+            "players": [],
+        }
+        for g in games
+    }
+    payload_by_team: dict[str, dict[str, Any]] = {}
+    for g in games:
+        payload_by_team[g.home_team] = game_payloads[g.game_id]
+        payload_by_team[g.away_team] = game_payloads[g.game_id]
+
+    bye_week: list[dict[str, Any]] = []
+    unattributed: list[dict[str, Any]] = []
+    for side_label, roster_id in (("team", my_roster_id), ("opponent", opponent_roster_id)):
+        tw = team_week.get(roster_id) if roster_id else None
+        if not tw:
+            continue
+        for p in tw.players:
+            meta = players_meta.get(p.player_id) or {}
+            nfl_team = _normalize_nfl_team(meta.get("team"))
+            entry = {
+                "playerId": p.player_id,
+                "name": str(meta.get("full_name") or p.player_id),
+                "side": side_label,
+                "nflTeam": nfl_team or None,
+                "state": p.state,
+                "pointsScored": p.points_scored,
+                "projectedRemaining": p.projected_remaining,
+                "fantasyPositions": list(p.fantasy_positions),
+            }
+            if not nfl_team:
+                unattributed.append({**entry, "reason": "no NFL team on file for this player"})
+            elif nfl_team in payload_by_team:
+                payload_by_team[nfl_team]["players"].append(entry)
+            else:
+                bye_week.append(entry)
+
+    return {
+        "scheduleState": "available",
+        "observedAt": observed_at,
+        "games": [game_payloads[g.game_id] for g in games],
+        "byeWeek": bye_week,
+        "unattributed": unattributed,
+    }
 
 
 def _resolve_estimates(
@@ -349,6 +446,7 @@ def build_matchup_intel(
         season, fetched.league.get("scoring_settings") or {}
     )
 
+    schedule_rows, schedule_observed_at, schedule_now = _schedule_context(season)
     try:
         scoring = resolve_scoring_week(
             league_key=league_key,
@@ -359,7 +457,9 @@ def build_matchup_intel(
             starter_slots=slots,
             estimates=estimates,
             estimate_source=estimate_source,
-            game_evidence=_game_evidence(season, week),
+            game_evidence=_game_evidence(
+                season, week, schedule_rows, schedule_observed_at, schedule_now
+            ),
         )
     except GameDayWeekRefusal as exc:
         if "already begun" in str(exc):
@@ -382,10 +482,11 @@ def build_matchup_intel(
     # invalidation rule and why the cache cannot live under `data/ros/`.
     simulation = None
     sim_error: str | None = None
-    # Do not silently activate any of the unresolved in-progress policies.
-    # Outside pregame, every simulated player requires complete evidence.
+    # Do not silently simulate a player whose in-progress remaining could
+    # not be time-prorated for lack of game-progress evidence. Outside
+    # pregame, every simulated player requires complete evidence.
     complete = all(player_is_drawable(p) for t in resolution.teams for p in t.players)
-    can_simulate = not scoring.policy_required_player_ids and (
+    can_simulate = not scoring.progress_unavailable_player_ids and (
         scoring.mode == "pregame" or complete
     )
     if scoring.mode != "final" and can_simulate and resolution.estimate_coverage[0] > 0:
@@ -516,18 +617,29 @@ def build_matchup_intel(
         "probabilityState": (
             "FINAL"
             if scoring.mode == "final"
-            else "OWNER_POLICY_REQUIRED"
-            if scoring.policy_required_player_ids
+            else "LIVE_PROGRESS_UNAVAILABLE"
+            if scoring.progress_unavailable_player_ids
             else "GAME_STATE_OR_SCORING_UNAVAILABLE"
             if not can_simulate
             else "AVAILABLE"
             if simulation
             else "UNAVAILABLE"
         ),
-        "policyRequiredPlayerIds": list(scoring.policy_required_player_ids),
+        "progressUnavailablePlayerIds": list(scoring.progress_unavailable_player_ids),
         "recapUrl": f"/league/articles/{season}/{week}" if scoring.mode == "final" else None,
         "team": _side(my_roster_id),
         "opponent": _side(opponent_roster_id),
+        "nflSlate": _nfl_slate(
+            season=season,
+            week=week,
+            rows=schedule_rows,
+            observed_at=schedule_observed_at,
+            now=schedule_now,
+            team_week=team_week,
+            my_roster_id=my_roster_id,
+            opponent_roster_id=opponent_roster_id,
+            players_meta=fetched.players,
+        ),
         # Everything a reader needs to decide how much to trust the numbers
         # above, and which owner produced each of them. W1-15.
         "lineage": {

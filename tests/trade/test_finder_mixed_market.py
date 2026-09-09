@@ -37,8 +37,8 @@ def _asset(name: str, position: str, market_source: str | None) -> Asset:
 
 def test_an_offense_only_trade_is_not_flagged_mixed():
     trade = TradeCandidate(
-        give=[_asset("WR A", "WR", "ktcSfTep")],
-        receive=[_asset("RB B", "RB", "ktcSfTep")],
+        give=[_asset("WR A", "WR", "ktcCrowdTradesSfTep")],
+        receive=[_asset("RB B", "RB", "ktcCrowdTradesSfTep")],
     )
     d = trade.to_dict()
     assert d["marketsUsed"] == ["ktc"]
@@ -59,7 +59,7 @@ def test_a_trade_spanning_both_markets_is_flagged():
     """The case the disclosure exists for: the delta on this trade is
     KTC minus IDPTradeCalc."""
     trade = TradeCandidate(
-        give=[_asset("WR A", "WR", "ktcSfTep")],
+        give=[_asset("WR A", "WR", "ktcCrowdTradesSfTep")],
         receive=[_asset("LB B", "LB", "idpTradeCalc")],
     )
     d = trade.to_dict()
@@ -68,11 +68,11 @@ def test_a_trade_spanning_both_markets_is_flagged():
 
 
 def test_the_legacy_ktc_key_is_the_same_market_not_a_third_one():
-    """`ktc` and `ktcSfTep` are one publisher's board. Counting them as
+    """`ktc` and `ktcCrowdTradesSfTep` are one publisher's board. Counting them as
     two markets would flag ordinary offense trades as mixed and train
     readers to ignore the flag."""
     trade = TradeCandidate(
-        give=[_asset("WR A", "WR", "ktcSfTep")],
+        give=[_asset("WR A", "WR", "ktcCrowdTradesSfTep")],
         receive=[_asset("WR B", "WR", "ktc")],
     )
     d = trade.to_dict()
@@ -84,7 +84,7 @@ def test_unpriced_assets_contribute_no_market():
     """An asset with no market source cannot make a trade mixed — it
     contributes nothing to the delta either."""
     trade = TradeCandidate(
-        give=[_asset("WR A", "WR", "ktcSfTep")],
+        give=[_asset("WR A", "WR", "ktcCrowdTradesSfTep")],
         receive=[_asset("Nobody", "WR", None)],
     )
     d = trade.to_dict()

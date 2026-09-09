@@ -1,49 +1,25 @@
 name: Refit Hill Curves
 
-# Weekly re-fit of the four scope-level master Hill curves
-# (GLOBAL/OFFENSE/IDP/ROOKIE).
-#
-# This workflow NO LONGER SHIPS CONSTANTS.  Until 2026-07-26 it rewrote
-# src/canonical/player_valuation.py and pushed to main, triggering a
-# deploy, with nothing checking the result — see ADR-008 for the three
-# independent reasons the guard could not fail, the third being that
-# the guard was auto-marked `livedata` and this workflow's own
-# `-m "not livedata"` filter deselected it (13 deselected, 0 run).
-#
-# Now: fit -> challenger -> score against boards the fit never reads ->
-# record in the model registry -> report.  Production constants move
-# only via `scripts/model_registry.py promote` + `apply`, run by a
-# human.  The only file this workflow commits is the registry JSON.
-#
-# Behaviour by exit code from the driver:
-#   0 champion stands  - no drift, or challenger missed the margin. Green.
-#   1 promotable       - green, and opens an issue so it is acted on.
-#   2 error            - RED. Fit failed, or the gate could not be scored.
-#   3 regression alarm - RED, and opens an issue. Points at the fit or
-#                        its inputs, not at the curve.
+# Hill Autopilot v2.
+# Data refresh owns cadence. Every successful material two-hour refresh
+# dispatches this workflow. Refitting is automatic; production mutation is
+# fail-closed behind tournament, forward-persistence, scope and board gates.
 
 on:
-  schedule:
-    # Weekly Tuesday at 06:17 UTC (off the top-of-hour thundering herd,
-    # after the morning scheduled-refresh tick).  Tuesday lines up with
-    # nflverse republish cadence so the refit consumes fresh data, and
-    # the audit-dropped-sources Sunday cron has already run so
-    # source-side regressions are surfaced before this fires.
-    - cron: "17 6 * * 2"
   workflow_dispatch:
     inputs:
+      source_refresh_sha:
+        description: "Main SHA of the data refresh that triggered this run"
+        required: false
+        type: string
+        default: ""
       threshold:
-        description: "Override RMSE drift threshold (default 50.0)"
+        description: "Override raw refit RMSE drift threshold"
         required: false
         type: string
         default: ""
       dry_run:
-        description: "Evaluate and report, but do not record the challenger"
-        required: false
-        type: boolean
-        default: false
-      force:
-        description: "Evaluate even when drift is below the threshold"
+        description: "Evaluate only; never record or promote"
         required: false
         type: boolean
         default: false
@@ -55,15 +31,23 @@ concurrency:
 permissions:
   contents: write
   issues: write
+  actions: write
 
 jobs:
   refit:
-    name: Fit + Held-Out Gate + Record
+    name: Refit + Tournament + Canonical Gate
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 30
     steps:
-      - name: Checkout
+      - name: Checkout exact triggering tree
         uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Remember base SHA
+        id: base
+        shell: bash
+        run: echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
 
       - name: Set up Python
         uses: actions/setup-python@v7
@@ -79,34 +63,16 @@ jobs:
           pip check
           python scripts/check_env.py
 
-      - name: Self-test the gate before trusting it
+      - name: Self-test calibration machinery
         shell: bash
         run: |
           set -Eeuo pipefail
-          # The gate is only worth running if its own code is sound.
-          # Cheap (<1s) and directly relevant, unlike the full suite —
-          # which this workflow used to run against constants it had
-          # just rewritten, while skipping the one test that guarded
-          # them.  Nothing in this job modifies application code now,
-          # so there is nothing for a full sweep to regress.
-          python -m pytest tests/model_registry/ -q
+          python -m pytest tests/model_registry/ tests/canonical/test_hill_percentile_constants_tripwire.py -q
 
-      - name: Pin the board snapshot this fit trains on
-        id: snapshot
+      - name: Pin fit snapshot
         shell: bash
         run: |
           set -Eeuo pipefail
-          # The snapshot is a MATERIAL model input, not a convenience: it
-          # supplies the position filter and the IDPTradeCalc values behind
-          # the IDP scope, and every rookie slice.  Left unset,
-          # `_latest_snapshot()` selects by MTIME, so two runs a day apart
-          # can train different data with identical code — and the
-          # challenger record would name neither the file nor its bytes.
-          #
-          # Resolve it HERE, once, and export it.  The fitter treats a pin
-          # that does not exist as fatal rather than falling back, so a
-          # snapshot deleted between this step and the fit fails the run
-          # instead of silently training something else.
           SNAP=""
           for dir in data exports/latest; do
             if [[ -d "$dir" ]]; then
@@ -114,167 +80,128 @@ jobs:
               if [[ -n "$CAND" ]]; then SNAP="$CAND"; break; fi
             fi
           done
-          if [[ -z "$SNAP" ]]; then
-            echo "::error title=Hill refit::no dynasty_data_*.json snapshot found in data/ or exports/latest/"
-            exit 1
-          fi
+          [[ -n "$SNAP" ]] || { echo "::error title=Hill refit::no board snapshot"; exit 1; }
           SNAP_ABS="$(cd "$(dirname "$SNAP")" && pwd)/$(basename "$SNAP")"
-          SNAP_SHA="$(sha256sum "$SNAP_ABS" | cut -d' ' -f1)"
-          echo "RISKIT_FIT_SNAPSHOT=${SNAP_ABS}" >> "$GITHUB_ENV"
-          echo "path=${SNAP_ABS}" >> "$GITHUB_OUTPUT"
-          echo "sha256=${SNAP_SHA}" >> "$GITHUB_OUTPUT"
-          echo "Pinned snapshot: ${SNAP_ABS}"
-          echo "sha256: ${SNAP_SHA}"
+          echo "RISKIT_FIT_SNAPSHOT=$SNAP_ABS" >> "$GITHUB_ENV"
+          # A pin that names a path is a suggestion; a pin that also names the
+          # bytes at that path is verified. Hashed here (not re-derived later)
+          # so the challenger record states which bytes actually produced it,
+          # even if a subsequent data refresh rewrites the same filename.
+          SNAP_SHA256="$(sha256sum "$SNAP_ABS" | cut -d' ' -f1)"
+          echo "RISKIT_FIT_SNAPSHOT_SHA256=$SNAP_SHA256" >> "$GITHUB_ENV"
 
-      - name: Run refit + held-out gate
+      - name: Refit on this refresh
         id: refit
+        if: inputs.dry_run != true
         shell: bash
         run: |
           set -Eeuo pipefail
-          ARGS=""
+          ARGS="--force"
           if [[ -n "${{ inputs.threshold }}" ]]; then
-            ARGS="${ARGS} --threshold ${{ inputs.threshold }}"
-          fi
-          if [[ "${{ inputs.dry_run }}" == "true" ]]; then
-            ARGS="${ARGS} --dry-run"
-          fi
-          if [[ "${{ inputs.force }}" == "true" ]]; then
-            ARGS="${ARGS} --force"
+            ARGS="$ARGS --threshold ${{ inputs.threshold }}"
           fi
           set +e
-          python scripts/auto_refit_hill_curves.py ${ARGS} 2>&1 | tee refit_report.txt
+          python scripts/auto_refit_hill_curves.py $ARGS 2>&1 | tee refit_report.txt
           CODE=${PIPESTATUS[0]}
           set -e
-          echo "exit_code=${CODE}" >> "$GITHUB_OUTPUT"
-          echo "Driver exited ${CODE}"
+          echo "exit_code=$CODE" >> "$GITHUB_OUTPUT"
+          [[ "$CODE" == "0" || "$CODE" == "1" ]] || exit "$CODE"
 
-      - name: Job summary
-        if: always()
+      - name: Candidate tournament + forward gate
+        id: autopilot
+        if: inputs.dry_run != true
         shell: bash
+        env:
+          TRIGGER_SHA: ${{ inputs.source_refresh_sha }}
         run: |
-          {
-            echo "## Hill refit — held-out gate"
-            echo ""
-            case "${{ steps.refit.outputs.exit_code }}" in
-              0) echo "**Champion stands.** No drift, or the challenger did not clear the margin." ;;
-              1) echo "**Challenger is PROMOTABLE.** A human must promote it — see the issue." ;;
-              2) echo "**ERROR.** The fit failed or the gate could not be scored." ;;
-              3) echo "**REGRESSION ALARM.** Challenger far worse than champion." ;;
-              *) echo "Driver exit code \`${{ steps.refit.outputs.exit_code }}\`." ;;
-            esac
-            echo ""
-            echo '```'
-            cat refit_report.txt 2>/dev/null || echo "(no report)"
-            echo '```'
-          } >> "$GITHUB_STEP_SUMMARY"
+          set -Eeuo pipefail
+          set +e
+          python scripts/hill_autopilot.py \
+            --out autopilot_plan.json \
+            --params-out /tmp/hill_safe_params.json \
+            --record \
+            --trigger-sha "${TRIGGER_SHA:-${GITHUB_SHA}}" \
+            2>&1 | tee autopilot_report.txt
+          CODE=${PIPESTATUS[0]}
+          set -e
+          if [[ "$CODE" == "10" ]]; then
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          elif [[ "$CODE" == "0" ]]; then
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+          else
+            exit "$CODE"
+          fi
+          echo "winner=$(jq -r '.winnerVersion // empty' autopilot_plan.json)" >> "$GITHUB_OUTPUT"
+          echo "champion=$(jq -r '.championVersion' autopilot_plan.json)" >> "$GITHUB_OUTPUT"
 
-      # The registry is the audit trail: a dated entry every time the
-      # gate runs, whatever the verdict.  A rejected challenger is kept
-      # rather than discarded — it is evidence about the search space,
-      # and a MISSING weekly entry is itself the signal that this
-      # workflow stopped running.
-      - name: Commit the registry record
-        if: steps.refit.outputs.exit_code != '2' && inputs.dry_run != true
+      - name: Register scope-safe candidate
+        id: composed
+        if: steps.autopilot.outputs.ready == 'true'
         shell: bash
         run: |
           set -Eeuo pipefail
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          # ONLY the registry. Never player_valuation.py, never the
-          # reconciliation pins. If this path ever grows another file,
-          # the autonomous-rewrite prohibition is gone.
-          git add config/model_registry/
-          if git diff --cached --quiet; then
-            echo "No registry change to commit"
-            exit 0
+          OUT=$(python scripts/model_registry.py register \
+            --params /tmp/hill_safe_params.json \
+            --producer "Hill Autopilot OFFENSE composite from raw v${{ steps.autopilot.outputs.winner }}")
+          echo "$OUT"
+          VERSION=$(printf '%s\n' "$OUT" | sed -nE 's/.*registered challenger v([0-9]+).*/\1/p' | tail -1)
+          [[ -n "$VERSION" ]] || { echo "::error title=Hill autopilot::version parse failed"; exit 1; }
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Downstream board-impact gate
+        id: board
+        if: steps.autopilot.outputs.ready == 'true'
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python scripts/measure_hill_version_board.py "${{ steps.autopilot.outputs.champion }}" --out /tmp/hill_before.json
+          python scripts/measure_hill_version_board.py "${{ steps.composed.outputs.version }}" --out /tmp/hill_after.json
+          set +e
+          python scripts/hill_board_guard.py \
+            /tmp/hill_before.json /tmp/hill_after.json \
+            --policy config/model_registry/hill_autopilot_policy.json \
+            --out hill_board_impact.json
+          CODE=$?
+          set -e
+          if [[ "$CODE" == "0" ]]; then
+            echo "pass=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "pass=false" >> "$GITHUB_OUTPUT"
+            python scripts/model_registry.py reject "${{ steps.composed.outputs.version }}" \
+              --reason "Hill Autopilot downstream board-impact gate blocked promotion"
           fi
-          git commit -m "$(cat <<'EOF'
-          chore(calibration): record Hill refit challenger
 
-          Held-out gate result recorded in config/model_registry/.
-          No production constants changed — promotion is a human
-          action (scripts/model_registry.py promote + apply).
-          EOF
-          )"
-          git pull --rebase origin main
-          git push
-
-      # NO AUTO-CLOSE STEP HERE, DELIBERATELY.
-      #
-      # Every other rolling-issue workflow in this repo gained one on
-      # 2026-07-31 (they had copied only the failure half of
-      # scheduled-refresh.yml's pattern, so their issues could never say
-      # "recovered"). This one is excluded on purpose, and the exclusion
-      # needs to survive the next person tidying up the inconsistency.
-      #
-      # The issues below are NOT failure alerts. Exit code 1 means "a
-      # challenger beat the champion out of sample and is waiting for a
-      # human to promote it" — a work item, and the step is named for it.
-      # A green run next week does not mean that request was handled; it
-      # means the refit ran again. Auto-closing on success would silently
-      # discard promotion requests, which is strictly worse than a stale
-      # alert.
-      #
-      # These issues close when a human runs `scripts/model_registry.py
-      # promote` + `apply`, per ADR-008 in
-      # docs/roster-trade-intelligence/DECISIONS.md.
-      #
-      # Note also that this shares the `calibration` label with
-      # audit-rank-form-drift.yml, whose auto-close therefore matches on
-      # TITLE rather than label so it cannot reach over and close these.
-      # Mainline only, like the other issue-writing workflows — see the
-      # long note in e2e.yml (#716).  It matters MORE here than there,
-      # for two reasons that are specific to this file: there is no
-      # dedup (no `EXISTING` lookup, just `gh issue create`), so every
-      # branch dispatch mints a NEW issue rather than commenting on one;
-      # and there is no auto-close by design, so nothing ever retires
-      # them.  A promotion request is also a claim about the COMMITTED
-      # champion, which a branch's constants cannot make.
-      #
-      # This adds only an open-side guard.  The reasoning above against
-      # auto-closing promotion requests is untouched — not filing from a
-      # branch is not the same as closing something.
-      - name: Open an issue when a human must act
-        if: (steps.refit.outputs.exit_code == '1' || steps.refit.outputs.exit_code == '3') && github.ref == 'refs/heads/main'
+      - name: File an issue when the board-impact gate blocks promotion
+        # This is the one path in this job that completes successfully with
+        # nothing promoted: the challenger cleared the paired OFFENSE gate,
+        # won the tournament and passed forward persistence, but the
+        # downstream board-impact check disagreed. A run exiting 0 here
+        # would otherwise be indistinguishable from an ordinary refresh
+        # where the champion simply stood -- exactly the silent-tracker
+        # failure mode this label's other consumer (audit-rank-form-drift.yml)
+        # exists to avoid. Reuses that workflow's calibration label +
+        # title-based dedup, not a second issue-filing convention.
+        if: steps.autopilot.outputs.ready == 'true' && steps.board.outputs.pass == 'false'
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -Eeuo pipefail
-          if [[ "${{ steps.refit.outputs.exit_code }}" == "1" ]]; then
-            TITLE="Hill refit: challenger cleared the held-out gate"
-            LEAD="A challenger beat the champion out of sample and is waiting for a human to promote it."
-          else
-            TITLE="Hill refit: REGRESSION ALARM"
-            LEAD="The challenger scored far worse than the champion. That usually means a collapsed or stale source, not a bad curve."
-          fi
-          BODY=$(printf '%s\n\n```\n%s\n```\n\nRun: %s\n' \
-            "${LEAD}" \
-            "$(cat refit_report.txt)" \
+          # Fixed title, deliberately WITHOUT the candidate version number --
+          # next_version() strictly increments, so a per-version title would
+          # make every rejected run mint a distinct title and the dedup
+          # lookup below would never match a prior issue, filing a fresh
+          # issue roughly every 2 hours for as long as the gate keeps
+          # blocking. The version travels in the body instead.
+          TITLE="Hill Autopilot: board-impact gate is blocking promotion"
+          BODY=$(printf '%s\n\nChallenger v%s cleared the paired OFFENSE held-out gate, won the standing tournament, and passed forward persistence, but the downstream board-impact check rejected it. It has been recorded as `rejected` in the registry; canonical OFFENSE parameters were not changed.\n\nRun: %s\n' \
+            "Hill Autopilot v2's automatic tournament -> forward-persistence -> board-impact pipeline found a candidate a human should look at." \
+            "${{ steps.composed.outputs.version }}" \
             "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}")
-          # CI reliability lane, 2026-08-20.  Two defects, one cause.
-          #
-          # The `calibration` label did not exist in this repository, so
-          # `--label calibration` failed and the `||` fallback filed every
-          # issue UNLABELLED.  And this step had no dedup at all, so the
-          # weekly cron minted a fresh issue each time it fired.  Both are
-          # live and visible: #777 (2026-08-11) and #895 (2026-08-18) are
-          # the same promotion request, one week apart, neither labelled.
-          #
-          # Creating the label idempotently is the pattern
-          # scheduled-refresh.yml and e2e.yml already use.
           gh label create calibration \
             --color 5319E7 \
             --description "Model-calibration work items opened by the weekly Hill refit and drift audits" \
             2>/dev/null || true
-          # Dedup on the EXACT title, filtered client-side because
-          # `--search` is fuzzy and would match audit-rank-form-drift.yml's
-          # issues -- the same hazard that file's close step documents.
-          #
-          # This adds an OPEN-side dedup only.  The deliberate absence of
-          # an auto-close is untouched: a promotion request is a work item
-          # for a human, and silently closing one is worse than leaving it
-          # open (see the note above and ADR-008).
           EXISTING=$(gh issue list --state open --limit 50 \
                        --json number,title \
                        --jq ".[] | select(.title == \"${TITLE}\") | .number" \
@@ -286,9 +213,90 @@ jobs:
               || gh issue create --title "${TITLE}" --body "${BODY}"
           fi
 
-      - name: Fail loudly on error or regression
-        if: steps.refit.outputs.exit_code == '2' || steps.refit.outputs.exit_code == '3'
+      - name: Promote and apply canonical OFFENSE curve
+        id: promote
+        if: steps.autopilot.outputs.ready == 'true' && steps.board.outputs.pass == 'true'
         shell: bash
         run: |
-          echo "::error title=Hill refit gate::driver exited ${{ steps.refit.outputs.exit_code }}"
-          exit 1
+          set -Eeuo pipefail
+          VERSION="${{ steps.composed.outputs.version }}"
+          python scripts/model_registry.py validate "$VERSION"
+          python scripts/model_registry.py promote "$VERSION" \
+            --reason "Hill Autopilot: tournament + forward persistence + board impact passed"
+          python scripts/model_registry.py apply
+
+          set +e
+          python -m pytest tests/model_registry/ tests/canonical/test_hill_percentile_constants_tripwire.py -q
+          TEST_CODE=$?
+          set -e
+          if [[ "$TEST_CODE" != "0" ]]; then
+            python scripts/model_registry.py rollback \
+              --reason "Hill Autopilot rollback: post-apply tests failed"
+            python scripts/model_registry.py apply
+            exit "$TEST_CODE"
+          fi
+          echo "applied=true" >> "$GITHUB_OUTPUT"
+
+      - name: Refuse stale evidence
+        if: github.ref == 'refs/heads/main' && inputs.dry_run != true
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          git fetch origin main
+          BASE="${{ steps.base.outputs.sha }}"
+          REMOTE="$(git rev-parse origin/main)"
+          if [[ "$REMOTE" != "$BASE" ]]; then
+            echo "::error title=Hill autopilot::main advanced during evaluation; refusing stale write"
+            exit 1
+          fi
+
+      - name: Commit calibration evidence and canonical change
+        if: github.ref == 'refs/heads/main' && inputs.dry_run != true
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add config/model_registry/
+          if [[ "${{ steps.promote.outputs.applied }}" == "true" ]]; then
+            git add src/canonical/player_valuation.py
+          fi
+          if git diff --cached --quiet; then
+            echo "No Hill state change to commit"
+            exit 0
+          fi
+          if [[ "${{ steps.promote.outputs.applied }}" == "true" ]]; then
+            MSG="chore(calibration): autopromote canonical Hill OFFENSE curve"
+          else
+            MSG="chore(calibration): record Hill two-hour refit evidence"
+          fi
+          git commit -m "$MSG"
+          git push origin HEAD:main
+
+      - name: Trigger deploy after canonical promotion
+        if: steps.promote.outputs.applied == 'true' && github.ref == 'refs/heads/main'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run deploy.yml --ref main
+
+      - name: Job summary
+        if: always()
+        shell: bash
+        run: |
+          {
+            echo "## Hill Autopilot"
+            echo "**Pinned snapshot:** \`${RISKIT_FIT_SNAPSHOT:-unset}\` (sha256 \`${RISKIT_FIT_SNAPSHOT_SHA256:-unset}\`)"
+            if [[ -f autopilot_plan.json ]]; then
+              echo "**Ready:** $(jq -r '.ready' autopilot_plan.json)"
+              echo "**Winner:** v$(jq -r '.winnerVersion // "-"' autopilot_plan.json)"
+              echo "**Reason:** $(jq -r '.reason' autopilot_plan.json)"
+              echo "**Stable versions:** $(jq -c '.stableVersions' autopilot_plan.json)"
+              echo "**Forward days:** $(jq -r '.forwardDays' autopilot_plan.json)"
+              echo "**Forward win rate:** $(jq -r '.forwardWinRate // 0' autopilot_plan.json)"
+            fi
+            if [[ -f hill_board_impact.json ]]; then
+              echo "**Board impact:** $(jq -r '.pass' hill_board_impact.json)"
+              jq '.metrics' hill_board_impact.json
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"

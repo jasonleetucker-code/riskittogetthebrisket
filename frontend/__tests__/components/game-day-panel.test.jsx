@@ -396,10 +396,10 @@ describe("GameDayPanel — explicit ?team= wins over the switcher", () => {
     expect(globalThis.fetch.mock.calls[0][0]).toContain("team=own-SWITCHER");
   });
 
-  it("renders live actuals and withholds a policy-dependent probability", async () => {
+  it("renders live actuals and withholds a probability when game-progress evidence is missing", async () => {
     global.fetch = vi.fn().mockResolvedValue({ ok: true, json: async () => ({
-      ...PRICED, mode: "live", probabilityState: "OWNER_POLICY_REQUIRED",
-      policyRequiredPlayerIds: ["p1"],
+      ...PRICED, mode: "live", probabilityState: "LIVE_PROGRESS_UNAVAILABLE",
+      progressUnavailablePlayerIds: ["p1"],
       team: { ...PRICED.team, actualScore: 14.2, outcome: null,
         actualLineup: { total: 14.2, knownSubtotal: 14.2, missingPlayerIds: [], slots: [{ slot: "QB", slotIndex: 0, playerId: "p1", name: "Ann Alpha", points: 14.2 }] },
         remainingLineupPossibilities: [{ playerId: "p2", name: "Bob Bravo", state: "not_started", currentOptimal: false, eligibleSlots: [{ slot: "RB", slotIndex: 1 }] }],
@@ -408,10 +408,25 @@ describe("GameDayPanel — explicit ?team= wins over the switcher", () => {
     }) });
     render(<GameDayPanel />);
     expect(await screen.findByText(/Current score: 14.2/)).toBeInTheDocument();
-    expect(screen.getByText(/remaining production policy unresolved/)).toBeInTheDocument();
+    expect(screen.getByText(/remaining production unavailable \(no reliable game-progress evidence\)/)).toBeInTheDocument();
     expect(screen.getByText(/Bob Bravo · can displace the current lineup/)).toBeInTheDocument();
-    expect(screen.getByText(/awaits an owner decision/)).toBeInTheDocument();
+    expect(screen.getByText(/Live probabilities unavailable: in-progress remaining production could not be estimated/)).toBeInTheDocument();
     expect(screen.queryByText(/61.5%/)).not.toBeInTheDocument();
+  });
+
+  it("renders a time-prorated remaining estimate for an in-progress player with kickoff evidence", async () => {
+    global.fetch = vi.fn().mockResolvedValue({ ok: true, json: async () => ({
+      ...PRICED, mode: "live", probabilityState: "AVAILABLE",
+      progressUnavailablePlayerIds: [],
+      team: { ...PRICED.team, actualScore: 14.2, outcome: null,
+        actualLineup: { total: 14.2, knownSubtotal: 14.2, missingPlayerIds: [], slots: [{ slot: "QB", slotIndex: 0, playerId: "p1", name: "Ann Alpha", points: 14.2 }] },
+        remainingLineupPossibilities: [],
+        players: [{ playerId: "p1", name: "Ann Alpha", state: "in_progress", pointsScored: 14.2, projectedRemaining: 8.5 }] },
+      opponent: null,
+    }) });
+    render(<GameDayPanel />);
+    expect(await screen.findByText(/Current score: 14.2/)).toBeInTheDocument();
+    expect(screen.getByText(/remaining \(time-prorated\) 8.5/)).toBeInTheDocument();
   });
 
   it("renders a final result without remaining probabilities and links the canonical recap", async () => {
@@ -429,4 +444,133 @@ describe("GameDayPanel — explicit ?team= wins over the switcher", () => {
     expect(screen.queryByText(/remaining estimate/)).not.toBeInTheDocument();
   });
 
+});
+
+describe("GameDayPanel — the NFL slate", () => {
+  const SLATE_PAYLOAD = {
+    ...PRICED,
+    nflSlate: {
+      scheduleState: "available",
+      games: [
+        {
+          gameId: "2026_1_BUF_KC",
+          homeTeam: "KC",
+          awayTeam: "BUF",
+          kickoffAt: 1757260800,
+          state: "not_started",
+          homeScore: null,
+          awayScore: null,
+          players: [],
+        },
+        {
+          gameId: "2026_1_MIN_PHI",
+          homeTeam: "PHI",
+          awayTeam: "MIN",
+          kickoffAt: 1757271600,
+          state: "not_started",
+          homeScore: null,
+          awayScore: null,
+          players: [
+            {
+              playerId: "p1",
+              name: "Ann Alpha",
+              side: "team",
+              nflTeam: "PHI",
+              state: "not_started",
+              pointsScored: 0.0,
+              projectedRemaining: 20.0,
+              fantasyPositions: ["QB"],
+            },
+            {
+              playerId: "p4",
+              name: "Dee Delta",
+              side: "opponent",
+              nflTeam: "MIN",
+              state: "not_started",
+              pointsScored: 0.0,
+              projectedRemaining: 18.0,
+              fantasyPositions: ["QB"],
+            },
+          ],
+        },
+      ],
+      byeWeek: [
+        {
+          playerId: "p9",
+          name: "Gil Golf",
+          side: "team",
+          nflTeam: "DET",
+          state: "not_started",
+          pointsScored: 0.0,
+          projectedRemaining: 9.0,
+          fantasyPositions: ["WR"],
+        },
+      ],
+      unattributed: [
+        {
+          playerId: "p10",
+          name: "Hal Hotel",
+          side: "opponent",
+          nflTeam: null,
+          state: "unknown",
+          pointsScored: null,
+          projectedRemaining: null,
+          fantasyPositions: ["TE"],
+          reason: "no NFL team on file for this player",
+        },
+      ],
+    },
+  };
+
+  it("renders games in the order given, not re-sorted, including one with no relevant players", async () => {
+    mockJson(SLATE_PAYLOAD);
+    render(<GameDayPanel />);
+    await screen.findByText("This week's NFL slate");
+    const headings = screen.getAllByText(/^(KC|BUF|PHI|MIN)$/);
+    const order = headings.map((el) => el.textContent);
+    // BUF @ KC (no relevant players) sorts before PHI @ MIN by kickoff time,
+    // and it must still appear -- the complete schedule, not a filtered one.
+    expect(order.indexOf("BUF")).toBeLessThan(order.indexOf("MIN"));
+  });
+
+  it("groups each side's players under the NFL game they're playing in", async () => {
+    mockJson(SLATE_PAYLOAD);
+    render(<GameDayPanel />);
+    await screen.findByText(/Ann Alpha · QB · projected 20.0/);
+    expect(screen.getByText(/Dee Delta · QB · projected 18.0/)).toBeInTheDocument();
+  });
+
+  it("reports a bye-week player and an unattributed player rather than dropping them", async () => {
+    mockJson(SLATE_PAYLOAD);
+    render(<GameDayPanel />);
+    await screen.findByText(/On bye this week/);
+    expect(screen.getByText(/Gil Golf/)).toBeInTheDocument();
+    expect(screen.getByText(/Could not match to an NFL game/)).toBeInTheDocument();
+    expect(screen.getByText(/Hal Hotel/)).toBeInTheDocument();
+  });
+
+  it("shows an honest unavailable state rather than an empty slate when the schedule cache is missing", async () => {
+    mockJson({
+      ...PRICED,
+      nflSlate: {
+        scheduleState: "unavailable",
+        scheduleUnavailableReason: "no cached nflverse schedule for this season",
+        games: [],
+        byeWeek: [],
+        unattributed: [],
+      },
+    });
+    render(<GameDayPanel />);
+    await screen.findByText(/NFL schedule unavailable/);
+    expect(
+      screen.getByText(/no cached nflverse schedule for this season/),
+    ).toBeInTheDocument();
+  });
+
+  it("renders nothing for the slate section when the payload carries no nflSlate at all", async () => {
+    mockJson(PRICED);
+    render(<GameDayPanel />);
+    await screen.findByText("61.5%");
+    expect(screen.queryByText("This week's NFL slate")).not.toBeInTheDocument();
+  });
 });

@@ -65,7 +65,7 @@ def _fixture_raw_payload() -> dict[str, Any]:
                 "position": "QB",
                 "team": "BUF",
                 "_canonicalSiteValues": {
-                    "ktcSfTep": 9999,
+                    "ktcCrowdTradesSfTep": 9999,
                     "idpTradeCalc": 9800,
                     "dlfSf": 9900,
                     "dynastyNerdsSfTep": 9950,
@@ -76,7 +76,7 @@ def _fixture_raw_payload() -> dict[str, Any]:
                 "position": "WR",
                 "team": "CIN",
                 "_canonicalSiteValues": {
-                    "ktcSfTep": 9700,
+                    "ktcCrowdTradesSfTep": 9700,
                     "idpTradeCalc": 9600,
                     "dlfSf": 9850,
                     "dynastyNerdsSfTep": 9800,
@@ -87,7 +87,7 @@ def _fixture_raw_payload() -> dict[str, Any]:
                 "position": "RB",
                 "team": "ATL",
                 "_canonicalSiteValues": {
-                    "ktcSfTep": 9500,
+                    "ktcCrowdTradesSfTep": 9500,
                     "idpTradeCalc": 9500,
                     "dlfSf": 9700,
                     "dynastyNerdsSfTep": 9600,
@@ -98,7 +98,7 @@ def _fixture_raw_payload() -> dict[str, Any]:
                 "position": "QB",
                 "team": "JAX",
                 "_canonicalSiteValues": {
-                    "ktcSfTep": 6000,
+                    "ktcCrowdTradesSfTep": 6000,
                     "idpTradeCalc": 6500,
                     # DLF SF drops him
                     "dynastyNerdsSfTep": 6200,
@@ -109,7 +109,7 @@ def _fixture_raw_payload() -> dict[str, Any]:
                 "position": "WR",
                 "team": "???",
                 "_canonicalSiteValues": {
-                    "ktcSfTep": 7500,
+                    "ktcCrowdTradesSfTep": 7500,
                     # Only KTC has him
                 },
                 "_sites": 1,
@@ -118,7 +118,7 @@ def _fixture_raw_payload() -> dict[str, Any]:
                 "position": "TE",
                 "team": "???",
                 "_canonicalSiteValues": {
-                    "ktcSfTep": 5000,
+                    "ktcCrowdTradesSfTep": 5000,
                     "dlfSf": 4800,
                 },
                 "_sites": 2,
@@ -131,7 +131,7 @@ def _fixture_raw_payload() -> dict[str, Any]:
                 "position": "TE",
                 "team": "LV",
                 "_canonicalSiteValues": {
-                    "ktcSfTep": 9400,
+                    "ktcCrowdTradesSfTep": 9400,
                     "idpTradeCalc": 9300,
                     "dlfSf": 9450,
                     "dynastyNerdsSfTep": 9600,
@@ -171,14 +171,14 @@ def _fixture_raw_payload() -> dict[str, Any]:
             },
         },
         "sites": [
-            {"key": "ktcSfTep"},
+            {"key": "ktcCrowdTradesSfTep"},
             {"key": "idpTradeCalc"},
             {"key": "dlfIdp"},
             {"key": "dlfSf"},
             {"key": "dynastyNerdsSfTep"},
             {"key": "fantasyProsIdp"},
         ],
-        "maxValues": {"ktcSfTep": 9999},
+        "maxValues": {"ktcCrowdTradesSfTep": 9999},
         "sleeper": {
             "positions": {
                 "Josh Allen": "QB",
@@ -218,7 +218,7 @@ class TestCustomMixIsDisabled(unittest.TestCase):
 
     def test_a_posted_source_mix_is_ignored(self) -> None:
         out, warnings = normalize_source_overrides(
-            {"ktcSfTep": {"include": False}, "dlfSf": {"weight": 3.0}}
+            {"ktcCrowdTradesSfTep": {"include": False}, "dlfSf": {"weight": 3.0}}
         )
         self.assertEqual(out, {}, "a custom source mix still reaches the pipeline")
         self.assertTrue(
@@ -229,7 +229,7 @@ class TestCustomMixIsDisabled(unittest.TestCase):
     def test_it_is_answered_rather_than_refused(self) -> None:
         """Refusing would break /rankings for anyone whose device still
         posts a stored mix. The canonical board is served instead."""
-        out, warnings = normalize_source_overrides({"ktcSfTep": {"include": False}})
+        out, warnings = normalize_source_overrides({"ktcCrowdTradesSfTep": {"include": False}})
         self.assertEqual(out, {})
         self.assertTrue(warnings)
 
@@ -259,9 +259,9 @@ class TestNormalizeSourceOverrides(unittest.TestCase):
 
     def test_legacy_site_weights_shape(self) -> None:
         out, warnings = normalize_source_overrides(
-            {"ktcSfTep": {"include": False}, "dlfSf": {"weight": 0.5}}
+            {"ktcCrowdTradesSfTep": {"include": False}, "dlfSf": {"weight": 0.5}}
         )
-        self.assertEqual(out["ktcSfTep"], {"include": False})
+        self.assertEqual(out["ktcCrowdTradesSfTep"], {"include": False})
         self.assertEqual(out["dlfSf"], {"weight": 0.5})
         self.assertEqual(warnings, [])
 
@@ -270,7 +270,7 @@ class TestNormalizeSourceOverrides(unittest.TestCase):
             {"enabled_sources": ["idpTradeCalc", "dlfSf"], "weights": {"dlfSf": 2.0}}
         )
         # Every source NOT in enabled_sources should be marked include: False.
-        self.assertEqual(out["ktcSfTep"], {"include": False})
+        self.assertEqual(out["ktcCrowdTradesSfTep"], {"include": False})
         self.assertEqual(out["dynastyNerdsSfTep"], {"include": False})
         # idpTradeCalc and dlfSf are enabled; dlfSf carries a weight override.
         self.assertNotIn("include", out.get("idpTradeCalc", {}))
@@ -283,19 +283,23 @@ class TestNormalizeSourceOverrides(unittest.TestCase):
         self.assertTrue(any("fakeSource" in w for w in warnings))
 
     def test_invalid_weight_is_rejected(self) -> None:
-        out, warnings = normalize_source_overrides({"ktcSfTep": {"weight": "not a number"}})
-        self.assertNotIn("weight", out.get("ktcSfTep", {}))
+        out, warnings = normalize_source_overrides(
+            {"ktcCrowdTradesSfTep": {"weight": "not a number"}}
+        )
+        self.assertNotIn("weight", out.get("ktcCrowdTradesSfTep", {}))
         self.assertTrue(warnings)
-        out, warnings = normalize_source_overrides({"ktcSfTep": {"weight": -1}})
-        self.assertNotIn("weight", out.get("ktcSfTep", {}))
+        out, warnings = normalize_source_overrides({"ktcCrowdTradesSfTep": {"weight": -1}})
+        self.assertNotIn("weight", out.get("ktcCrowdTradesSfTep", {}))
         self.assertTrue(warnings)
-        out, warnings = normalize_source_overrides({"ktcSfTep": {"weight": float("inf")}})
-        self.assertNotIn("weight", out.get("ktcSfTep", {}))
+        out, warnings = normalize_source_overrides(
+            {"ktcCrowdTradesSfTep": {"weight": float("inf")}}
+        )
+        self.assertNotIn("weight", out.get("ktcCrowdTradesSfTep", {}))
         self.assertTrue(warnings)
 
     def test_include_non_bool_is_rejected(self) -> None:
-        out, warnings = normalize_source_overrides({"ktcSfTep": {"include": "yes"}})
-        self.assertNotIn("include", out.get("ktcSfTep", {}))
+        out, warnings = normalize_source_overrides({"ktcCrowdTradesSfTep": {"include": "yes"}})
+        self.assertNotIn("include", out.get("ktcCrowdTradesSfTep", {}))
         self.assertTrue(warnings)
 
 
@@ -355,7 +359,7 @@ class TestBuildApiDataContractDefaultPath(unittest.TestCase):
         self.assertIsNotNone(allen)
         self.assertIsNotNone(allen.get("canonicalConsensusRank"))
         self.assertGreater(allen.get("rankDerivedValue", 0), 0)
-        self.assertIn("ktcSfTep", allen.get("sourceRanks", {}))
+        self.assertIn("ktcCrowdTradesSfTep", allen.get("sourceRanks", {}))
         self.assertIn("dlfSf", allen.get("sourceRanks", {}))
 
     def test_default_payload_has_rankings_override_block(self) -> None:
@@ -397,18 +401,18 @@ class TestBuildApiDataContractOverridePath(unittest.TestCase):
     def test_disabling_source_removes_it_from_every_stamp(self) -> None:
         overridden = build_api_data_contract(
             _fixture_raw_payload(),
-            source_overrides={"ktcSfTep": {"include": False}},
+            source_overrides={"ktcCrowdTradesSfTep": {"include": False}},
         )
         by_name = _by_name(overridden)
         # Every row that has sourceRanks must NOT have ktc.
         for row in overridden.get("playersArray", []):
             ranks = row.get("sourceRanks") or {}
-            self.assertNotIn("ktcSfTep", ranks)
+            self.assertNotIn("ktcCrowdTradesSfTep", ranks)
 
         # Josh Allen loses one signal but stays on the board.
         allen = by_name.get("Josh Allen")
         self.assertIsNotNone(allen)
-        self.assertNotIn("ktcSfTep", allen.get("sourceRanks", {}))
+        self.assertNotIn("ktcCrowdTradesSfTep", allen.get("sourceRanks", {}))
         self.assertIsNotNone(allen.get("canonicalConsensusRank"))
 
         # Rookie Wonder was only on KTC — disabling KTC removes his
@@ -452,11 +456,11 @@ class TestBuildApiDataContractOverridePath(unittest.TestCase):
         self.assertGreater(rookie.get("rankDerivedValue") or 0, 0)
 
     def test_override_rankings_override_block_reflects_config(self) -> None:
-        override = {"ktcSfTep": {"include": False}, "dlfSf": {"weight": 0.5}}
+        override = {"ktcCrowdTradesSfTep": {"include": False}, "dlfSf": {"weight": 0.5}}
         contract = build_api_data_contract(_fixture_raw_payload(), source_overrides=override)
         rov = contract.get("rankingsOverride") or {}
         self.assertTrue(rov.get("isCustomized"))
-        self.assertNotIn("ktcSfTep", rov.get("enabledSources") or [])
+        self.assertNotIn("ktcCrowdTradesSfTep", rov.get("enabledSources") or [])
         self.assertEqual(rov.get("weights", {}).get("dlfSf"), 0.5)
         self.assertEqual(rov.get("defaults", {}).get("dlfSf"), 1.0)
 
@@ -499,7 +503,7 @@ class TestRankingsTradeCalculatorAlignment(unittest.TestCase):
     """
 
     def test_override_response_stamps_consistent_fields(self) -> None:
-        override = {"dlfSf": {"include": False}, "ktcSfTep": {"weight": 2.0}}
+        override = {"dlfSf": {"include": False}, "ktcCrowdTradesSfTep": {"weight": 2.0}}
         contract = build_api_data_contract(_fixture_raw_payload(), source_overrides=override)
         for row in contract.get("playersArray", []):
             source_ranks = row.get("sourceRanks") or {}
@@ -514,7 +518,7 @@ class TestRankingsTradeCalculatorAlignment(unittest.TestCase):
                 # dlfSf is disabled — must not appear anywhere.
                 self.assertNotEqual(key, "dlfSf")
                 # KTC's weight should be 2.0 on every row (user override).
-                if key == "ktcSfTep":
+                if key == "ktcCrowdTradesSfTep":
                     self.assertEqual(source_meta[key].get("weight"), 2.0)
 
     def test_rankings_order_matches_value_order(self) -> None:
@@ -549,18 +553,18 @@ class TestSummarizeSourceOverrides(unittest.TestCase):
         self.assertEqual(set(summary["enabledSources"]), set(get_ranking_source_keys()))
 
     def test_explicit_default_weight_is_not_customized(self) -> None:
-        summary = _summarize_source_overrides({"ktcSfTep": {"weight": 1.0}})
+        summary = _summarize_source_overrides({"ktcCrowdTradesSfTep": {"weight": 1.0}})
         self.assertFalse(summary["isCustomized"])
 
     def test_excluded_source_marks_customized(self) -> None:
-        summary = _summarize_source_overrides({"ktcSfTep": {"include": False}})
+        summary = _summarize_source_overrides({"ktcCrowdTradesSfTep": {"include": False}})
         self.assertTrue(summary["isCustomized"])
-        self.assertNotIn("ktcSfTep", summary["enabledSources"])
+        self.assertNotIn("ktcCrowdTradesSfTep", summary["enabledSources"])
 
     def test_non_default_weight_marks_customized(self) -> None:
-        summary = _summarize_source_overrides({"ktcSfTep": {"weight": 2.0}})
+        summary = _summarize_source_overrides({"ktcCrowdTradesSfTep": {"weight": 2.0}})
         self.assertTrue(summary["isCustomized"])
-        self.assertEqual(summary["weights"]["ktcSfTep"], 2.0)
+        self.assertEqual(summary["weights"]["ktcCrowdTradesSfTep"], 2.0)
 
 
 class TestOffenseAndIdpResponseToOverrides(unittest.TestCase):
@@ -597,7 +601,7 @@ class TestBuildRankingsDeltaPayload(unittest.TestCase):
     def test_delta_payload_shape(self) -> None:
         delta = build_rankings_delta_payload(
             _fixture_raw_payload(),
-            source_overrides={"ktcSfTep": {"include": False}},
+            source_overrides={"ktcCrowdTradesSfTep": {"include": False}},
         )
         self.assertEqual(delta.get("mode"), "delta")
         self.assertIn("rankingsOverride", delta)
@@ -623,7 +627,7 @@ class TestBuildRankingsDeltaPayload(unittest.TestCase):
         """
         delta = build_rankings_delta_payload(
             _fixture_raw_payload(),
-            source_overrides={"ktcSfTep": {"include": False}},
+            source_overrides={"ktcCrowdTradesSfTep": {"include": False}},
         )
         for entry in delta["rankingsDelta"]["players"]:
             self.assertNotIn("displayName", entry)
@@ -640,7 +644,7 @@ class TestBuildRankingsDeltaPayload(unittest.TestCase):
         """activePlayerIds must be a subset of the delta.players ids."""
         delta = build_rankings_delta_payload(
             _fixture_raw_payload(),
-            source_overrides={"ktcSfTep": {"include": False}},
+            source_overrides={"ktcCrowdTradesSfTep": {"include": False}},
         )
         player_ids = {e["id"] for e in delta["rankingsDelta"]["players"]}
         active_ids = set(delta["rankingsDelta"]["activePlayerIds"])
@@ -656,11 +660,11 @@ class TestBuildRankingsDeltaPayload(unittest.TestCase):
         """
         delta = build_rankings_delta_payload(
             _fixture_raw_payload(),
-            source_overrides={"ktcSfTep": {"include": False}},
+            source_overrides={"ktcCrowdTradesSfTep": {"include": False}},
         )
         full = build_api_data_contract(
             _fixture_raw_payload(),
-            source_overrides={"ktcSfTep": {"include": False}},
+            source_overrides={"ktcCrowdTradesSfTep": {"include": False}},
         )
         delta_bytes = len(json.dumps(delta, separators=(",", ":")))
         full_bytes = len(json.dumps(full, separators=(",", ":")))
@@ -806,7 +810,7 @@ class TestNormalizeTepMultiplier(unittest.TestCase):
     def test_missing_field_returns_none(self) -> None:
         self.assertIsNone(normalize_tep_multiplier(None))
         self.assertIsNone(normalize_tep_multiplier({}))
-        self.assertIsNone(normalize_tep_multiplier({"ktcSfTep": {"include": False}}))
+        self.assertIsNone(normalize_tep_multiplier({"ktcCrowdTradesSfTep": {"include": False}}))
 
     def test_snake_case_key_is_accepted(self) -> None:
         self.assertEqual(normalize_tep_multiplier({"tep_multiplier": 1.15}), 1.15)
@@ -868,9 +872,9 @@ class TestNormalizeTepMultiplier(unittest.TestCase):
         Custom Mix withdrawal — the live behaviour is pinned by
         ``TestCustomMixIsDisabled``.
         """
-        body = {"tep_multiplier": 1.2, "ktcSfTep": {"include": False}}
+        body = {"tep_multiplier": 1.2, "ktcCrowdTradesSfTep": {"include": False}}
         overrides, warnings = normalize_source_overrides(body)
-        self.assertEqual(overrides, {"ktcSfTep": {"include": False}})
+        self.assertEqual(overrides, {"ktcCrowdTradesSfTep": {"include": False}})
         self.assertEqual(warnings, [])
         self.assertEqual(normalize_tep_multiplier(body), 1.2)
 
@@ -885,7 +889,9 @@ class TestNormalizeTepNativeMultiplier(unittest.TestCase):
     def test_missing_field_returns_none(self) -> None:
         self.assertIsNone(normalize_tep_native_multiplier(None))
         self.assertIsNone(normalize_tep_native_multiplier({}))
-        self.assertIsNone(normalize_tep_native_multiplier({"ktcSfTep": {"include": False}}))
+        self.assertIsNone(
+            normalize_tep_native_multiplier({"ktcCrowdTradesSfTep": {"include": False}})
+        )
         # The non-native key must NOT satisfy the native lookup.
         self.assertIsNone(normalize_tep_native_multiplier({"tep_multiplier": 1.2}))
 
@@ -1153,7 +1159,7 @@ class TestTepMultipliersEndToEnd(unittest.TestCase):
 
       * ``dlfSf``                 — non-TEP-native (gets ``tep_multiplier``)
       * ``dynastyNerdsSfTep``     — TEP-native     (gets ``tep_native_multiplier``)
-      * ``ktcSfTep``              — KTC exempt
+      * ``ktcCrowdTradesSfTep``              — KTC exempt
       * ``idpTradeCalc``          — TEP-native     (cross-market anchor)
     """
 
@@ -1232,15 +1238,15 @@ class TestTepMultipliersEndToEnd(unittest.TestCase):
 
     def test_ktc_exemption_holds_under_default_and_override(self) -> None:
         """The KTC variants in ``_TE_BLANKET_KTC_EXEMPT_KEYS`` (``ktc``,
-        ``ktcSfTep``) stay exempt from BOTH TEP correction paths, with
+        ``ktcCrowdTradesSfTep``) stay exempt from BOTH TEP correction paths, with
         or without an explicit override.  KTC's TE++ board is the
         canonical reference the rest of the blend aligns to — letting
         either multiplier touch it would double-boost.
         """
         # Sanity: pin the exempt set so a registry refactor that drops
-        # ktcSfTep from the exemption fails this test before the
+        # ktcCrowdTradesSfTep from the exemption fails this test before the
         # behavioural assertions below would.
-        self.assertIn("ktcSfTep", _TE_BLANKET_KTC_EXEMPT_KEYS)
+        self.assertIn("ktcCrowdTradesSfTep", _TE_BLANKET_KTC_EXEMPT_KEYS)
         self.assertIn("ktc", _TE_BLANKET_KTC_EXEMPT_KEYS)
 
         for label, kwargs in (
@@ -1253,28 +1259,28 @@ class TestTepMultipliersEndToEnd(unittest.TestCase):
             contract = build_api_data_contract(_fixture_raw_payload(), **kwargs)
             bowers = _by_name(contract).get("Brock Bowers")
             self.assertIsNotNone(bowers, f"{label}: fixture must include the Brock Bowers TE row")
-            ktc_meta = (bowers.get("sourceRankMeta") or {}).get("ktcSfTep") or {}
+            ktc_meta = (bowers.get("sourceRankMeta") or {}).get("ktcCrowdTradesSfTep") or {}
             # The exempt source carries no boost / correction flag, so
             # ``valueContribution`` is the raw curve value untouched.
             self.assertNotIn(
                 "tepBoostApplied",
                 ktc_meta,
-                f"{label}: ktcSfTep must not be marked TEP-boosted on a TE row",
+                f"{label}: ktcCrowdTradesSfTep must not be marked TEP-boosted on a TE row",
             )
             self.assertNotIn(
                 "tepNativeCorrectionApplied",
                 ktc_meta,
-                f"{label}: ktcSfTep must not be marked TEP-native-corrected on a TE row",
+                f"{label}: ktcCrowdTradesSfTep must not be marked TEP-native-corrected on a TE row",
             )
             self.assertNotIn(
                 "tepMultiplier",
                 ktc_meta,
-                f"{label}: ktcSfTep meta must not stamp a tepMultiplier value",
+                f"{label}: ktcCrowdTradesSfTep meta must not stamp a tepMultiplier value",
             )
             self.assertNotIn(
                 "tepNativeCorrection",
                 ktc_meta,
-                f"{label}: ktcSfTep meta must not stamp a tepNativeCorrection value",
+                f"{label}: ktcCrowdTradesSfTep meta must not stamp a tepNativeCorrection value",
             )
 
     def test_out_of_range_overrides_are_clamped_in_summary(self) -> None:
@@ -1354,7 +1360,7 @@ class TestTheLeagueLensIsWithdrawnFromThisEndpoint(unittest.TestCase):
     def test_the_override_delta_still_serves_a_ranked_board(self) -> None:
         """Withdrawal must not have taken the endpoint's real job with it."""
         payload = build_rankings_delta_payload(
-            _fixture_raw_payload(), source_overrides={"ktcSfTep": {"include": False}}
+            _fixture_raw_payload(), source_overrides={"ktcCrowdTradesSfTep": {"include": False}}
         )
         players = payload["rankingsDelta"]["players"]
         self.assertTrue(players)

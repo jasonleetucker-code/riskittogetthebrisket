@@ -1,7 +1,7 @@
 """Hill scope masters as a registered model — shared by both drivers.
 
 ``scripts/model_registry.py`` (the human CLI) and
-``scripts/auto_refit_hill_curves.py`` (the weekly refit) both need to
+``scripts/auto_refit_hill_curves.py`` (the per-refresh raw refit) both need to
 read the live constants, resolve the registry, and fingerprint the
 training inputs.  Those helpers live here rather than in either script
 so the two cannot drift into disagreeing about what "the champion" is —
@@ -69,8 +69,9 @@ def read_committed_constants(path: Path | None = None) -> dict[str, float]:
 def write_committed_constants(params: dict[str, float], path: Path | None = None) -> None:
     """Write the champion's constants into production.
 
-    CALLED BY EXACTLY ONE PLACE: ``scripts/model_registry.py apply``,
-    run by a human.  The weekly refit must never reach this.
+    CALLED BY EXACTLY ONE PLACE: ``scripts/model_registry.py apply``. The raw
+    refit never reaches this writer; Hill Autopilot may invoke the CLI only
+    after its separate readiness, scope and board-impact gates clear.
     """
     target = path or PLAYER_VALUATION
     text = target.read_text()

@@ -3,7 +3,7 @@
 Two load-bearing facts about how TE value is priced, both verified in
 code rather than trusted from comments:
 
-1. The market anchor ``ktcSfTep`` is a TE++ board — KTC publishes it
+1. The market anchor ``ktcCrowdTradesSfTep`` is a TE++ board — KTC publishes it
    for leagues that start two TEs, so it ALREADY embeds the structural
    2-TE premium.  It must therefore receive neither blend-time TE
    multiplier, or the anchor itself would be double-counted.
@@ -29,7 +29,7 @@ class TestMarketAnchorExemption:
     def test_both_ktc_boards_are_exempt_from_both_multipliers(self):
         from src.api.data_contract import _TE_BLANKET_KTC_EXEMPT_KEYS
 
-        assert "ktcSfTep" in _TE_BLANKET_KTC_EXEMPT_KEYS
+        assert "ktcCrowdTradesSfTep" in _TE_BLANKET_KTC_EXEMPT_KEYS
         assert "ktc" in _TE_BLANKET_KTC_EXEMPT_KEYS
 
     def test_exemption_gates_the_whole_multiplier_block(self):
@@ -76,7 +76,7 @@ class TestMarketAnchorExemption:
 
         The old argument was "KTC is in the exemption set". That still
         holds, but there is now a second, structural reason: the target
-        basis IS ``tepp``, ``ktcSfTep`` is already on ``tepp``, and
+        basis IS ``tepp``, ``ktcCrowdTradesSfTep`` is already on ``tepp``, and
         ``convert_te_value`` returns the value untouched when
         ``from == to``. Even if the exemption were deleted, the anchor
         could not be lifted — which is the property that makes this

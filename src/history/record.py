@@ -42,7 +42,7 @@ ORIGIN_LIVE = "live:server"
 # numbers with synthetic rank encodings, and a synthetic encoding
 # recorded as a market observation would poison every future
 # measurement scored against it.
-_CONTRACT_RETAIL_KEYS = ("ktcSfTep", "idpTradeCalc")
+_CONTRACT_RETAIL_KEYS = ("ktcCrowdTradesSfTep", "idpTradeCalc")
 
 
 def _num(value: Any) -> float | None:

@@ -227,7 +227,7 @@ class EndToEndTests(unittest.TestCase):
         self.assertTrue(sim.threshold_semantics_verified)
 
 
-def test_live_resolution_preserves_banked_and_exposes_policy_seam():
+def test_live_resolution_preserves_banked_and_degrades_without_kickoff_evidence():
     from src.ros.game_day_week import GameEvidence, resolve_scoring_week
 
     players = {k: dict(v) for k, v in META.items()}
@@ -259,11 +259,121 @@ def test_live_resolution_preserves_banked_and_exposes_policy_seam():
     )
     assert result.mode == "live"
     assert result.host_scores["1"] == 11.5
-    assert result.policy_required_player_ids == ("p1",)
+    # No kickoff_at on the SEA evidence: real evidence exists that the game
+    # is in progress, but nothing to time-prorate against, so remaining
+    # stays None and this is a missing-evidence report, not a
+    # methodology-undecided one (that seam closed 2026-09-09).
+    assert result.progress_unavailable_player_ids == ("p1",)
     by_id = {p.player_id: p for p in result.week.teams[0].players}
     assert by_id["p1"].points_scored == 11.5
     assert by_id["p1"].projected_remaining is None
     assert by_id["p2"].projected_remaining == 12.0
+
+
+def test_in_progress_remaining_is_time_prorated_with_kickoff_evidence():
+    """Owner decision 2026-09-09: real kickoff evidence prorates, not blocks."""
+    from src.ros.game_day_week import (
+        GameEvidence,
+        _ASSUMED_GAME_DURATION_SECONDS,
+        resolve_scoring_week,
+    )
+
+    players = {k: dict(v) for k, v in META.items()}
+    players["p1"] = dict(players["p1"], team="SEA")
+    players["p2"] = dict(players["p2"], team="MIN")
+    kickoff = 1_000.0
+    elapsed = _ASSUMED_GAME_DURATION_SECONDS / 4.0  # a quarter of the assumed duration
+    matchups = [
+        {"roster_id": 1, "matchup_id": 1, "points": 6.0, "players_points": {"p1": 6.0}},
+        {"roster_id": 2, "matchup_id": 1, "points": 0.0, "players_points": {"p2": 0.0}},
+    ]
+    result = resolve_scoring_week(
+        league_key="fixture",
+        league_payload=LEAGUE,
+        rosters=_rosters(),
+        matchups=matchups,
+        players_meta=players,
+        starter_slots=SLOTS,
+        estimates={"ann alpha": 20.0, "bob bravo": 12.0},
+        estimate_source="fixture",
+        game_evidence={
+            "SEA": GameEvidence("in_progress", "fixture-live", kickoff, kickoff),
+            "MIN": GameEvidence("not_started", "fixture-live", kickoff, kickoff + 1000.0),
+        },
+        now=kickoff + elapsed,
+    )
+    assert result.mode == "live"
+    assert result.progress_unavailable_player_ids == ()
+    p1 = next(p for p in result.week.teams[0].players if p.player_id == "p1")
+    # A quarter of the assumed game elapsed -> ~75% of the pregame estimate
+    # should remain. Exact, not approximate: the model is a plain linear
+    # scale-down, so this is checkable to the cent.
+    assert p1.projected_remaining == 20.0 * 0.75
+    assert p1.points_scored == 6.0
+
+
+def test_ruled_out_player_remaining_is_zero_not_unknown():
+    """A host-declared Out is definitive evidence, not a missing observation."""
+    from src.ros.game_day_week import GameEvidence, resolve_scoring_week
+
+    players = {k: dict(v) for k, v in META.items()}
+    players["p1"] = dict(players["p1"], team="SEA", injury_status="Out")
+    players["p2"] = dict(players["p2"], team="MIN")
+    matchups = [
+        {"roster_id": 1, "matchup_id": 1, "points": 0.0, "players_points": {"p1": 0.0}},
+        {"roster_id": 2, "matchup_id": 1, "points": 3.0, "players_points": {"p2": 3.0}},
+    ]
+    result = resolve_scoring_week(
+        league_key="fixture",
+        league_payload=LEAGUE,
+        rosters=_rosters(),
+        matchups=matchups,
+        players_meta=players,
+        starter_slots=SLOTS,
+        estimates={"ann alpha": 20.0, "bob bravo": 12.0},
+        estimate_source="fixture",
+        game_evidence={
+            "SEA": GameEvidence("in_progress", "fixture-live", 100.0, 50.0),
+            "MIN": GameEvidence("in_progress", "fixture-live", 100.0, 50.0),
+        },
+        now=100.0,
+    )
+    p1 = next(p for p in result.week.teams[0].players if p.player_id == "p1")
+    assert p1.state == "inactive"
+    assert p1.projected_remaining == 0.0
+    assert "p1" not in result.progress_unavailable_player_ids
+
+
+def test_now_before_kickoff_degrades_rather_than_negative_prorates():
+    """Defensive: stale/inconsistent evidence must never overshoot to > full value."""
+    from src.ros.game_day_week import GameEvidence, resolve_scoring_week
+
+    players = {k: dict(v) for k, v in META.items()}
+    players["p1"] = dict(players["p1"], team="SEA")
+    players["p2"] = dict(players["p2"], team="MIN")
+    matchups = [
+        {"roster_id": 1, "matchup_id": 1, "points": 0.0, "players_points": {"p1": 0.0}},
+        {"roster_id": 2, "matchup_id": 1, "points": 0.0, "players_points": {"p2": 0.0}},
+    ]
+    result = resolve_scoring_week(
+        league_key="fixture",
+        league_payload=LEAGUE,
+        rosters=_rosters(),
+        matchups=matchups,
+        players_meta=players,
+        starter_slots=SLOTS,
+        estimates={"ann alpha": 20.0, "bob bravo": 12.0},
+        estimate_source="fixture",
+        game_evidence={
+            # kickoff_at is AFTER now: inconsistent/stale evidence.
+            "SEA": GameEvidence("in_progress", "fixture-live", 100.0, 500.0),
+            "MIN": GameEvidence("not_started", "fixture-live", 100.0, 600.0),
+        },
+        now=100.0,
+    )
+    p1 = next(p for p in result.week.teams[0].players if p.player_id == "p1")
+    assert p1.projected_remaining is None
+    assert "p1" in result.progress_unavailable_player_ids
 
 
 def test_final_resolution_and_lineup_use_only_observed_points():
@@ -296,7 +406,9 @@ def test_final_resolution_and_lineup_use_only_observed_points():
     assert lineup["complete"] is True
     assert lineup["total"] == 28.0
     assert {s["playerId"] for s in lineup["slots"]} == {"p1", "p2"}
-    assert all(p.projected_remaining is None for p in result.week.teams[0].players)
+    # Completed is definitive evidence nothing further is coming this week
+    # (owner decision 2026-09-09) — 0.0, not an unknown None.
+    assert all(p.projected_remaining == 0.0 for p in result.week.teams[0].players)
 
 
 def test_schedule_past_kickoff_without_result_is_unknown_not_live():
@@ -321,6 +433,82 @@ def test_schedule_past_kickoff_without_result_is_unknown_not_live():
     )
     assert states["SEA"].state == "unknown"
     assert states["NE"].state == "unknown"
+
+
+def _schedule_row(*, home, away, gameday=None, gametime=None, home_score=None, away_score=None):
+    return {
+        "season": 2026,
+        "week": 1,
+        "game_type": "REG",
+        "gameday": gameday,
+        "gametime": gametime,
+        "home_team": home,
+        "away_team": away,
+        "home_score": home_score,
+        "away_score": away_score,
+        "result": home_score - away_score
+        if home_score is not None and away_score is not None
+        else None,
+    }
+
+
+def test_schedule_games_orders_chronologically_with_unknown_kickoff_last():
+    from src.ros.game_day_week import schedule_games
+
+    rows = [
+        # No gameday/gametime at all -- an unknown kickoff, must sort LAST,
+        # never first (an unknown kickoff is not "the earliest game").
+        _schedule_row(home="LA", away="ARI"),
+        _schedule_row(home="PHI", away="DAL", gameday="2026-09-07", gametime="13:00"),
+        _schedule_row(home="KC", away="BUF", gameday="2026-09-04", gametime="20:15"),
+    ]
+    games = schedule_games(rows, season=2026, week=1, now=2_000_000_000.0)
+    assert [g.game_id for g in games] == [
+        "2026_1_BUF_KC",
+        "2026_1_DAL_PHI",
+        "2026_1_ARI_LAR",
+    ]
+    assert games[0].kickoff_at < games[1].kickoff_at
+    assert games[2].kickoff_at is None
+    # nflverse LA -> Sleeper LAR, same normalization schedule_game_evidence uses.
+    assert games[2].home_team == "LAR"
+
+
+def test_schedule_games_derives_the_same_state_schedule_game_evidence_does():
+    from src.ros.game_day_week import schedule_game_evidence, schedule_games
+
+    now = 2_000_000_000.0
+    rows = [
+        _schedule_row(home="SEA", away="NE", gameday="2020-01-01", gametime="13:00"),
+        _schedule_row(
+            home="KC",
+            away="BUF",
+            gameday="2020-01-01",
+            gametime="13:00",
+            home_score=24,
+            away_score=17,
+        ),
+        _schedule_row(home="PHI", away="DAL", gameday="2286-01-01", gametime="13:00"),
+    ]
+    games = {g.game_id: g for g in schedule_games(rows, season=2026, week=1, now=now)}
+    evidence = schedule_game_evidence(rows, season=2026, week=1, observed_at=1.0, now=now)
+
+    # A past kickoff with no result is unknown, not fabricated live/completed
+    # -- same as the existing per-team guard, now proven for the per-game shape.
+    assert games["2026_1_NE_SEA"].state == "unknown" == evidence["SEA"].state
+    # Both scores + result present and kickoff in the past -> completed.
+    assert games["2026_1_BUF_KC"].state == "completed" == evidence["KC"].state
+    assert games["2026_1_BUF_KC"].home_score == 24
+    assert games["2026_1_BUF_KC"].away_score == 17
+    # A future kickoff is not_started, whatever else the row carries.
+    assert games["2026_1_DAL_PHI"].state == "not_started" == evidence["PHI"].state
+
+
+def test_schedule_games_drops_a_row_with_no_team_code_rather_than_fabricate_one():
+    from src.ros.game_day_week import schedule_games
+
+    rows = [_schedule_row(home="", away="DAL", gameday="2026-09-07", gametime="13:00")]
+    assert schedule_games(rows, season=2026, week=1, now=2_000_000_000.0) == []
 
 
 def test_the_same_week_transitions_pregame_to_live_to_final_without_double_projection():
@@ -408,9 +596,16 @@ def test_the_same_week_transitions_pregame_to_live_to_final_without_double_proje
     assert [pregame.mode, live.mode, final.mode] == ["pregame", "live", "final"]
     assert pregame.week.teams[0].players[0].projected_remaining == 20.0
     assert live.week.teams[0].players[0].points_scored == 5.0
-    assert live.week.teams[0].players[0].projected_remaining is None
-    assert live.policy_required_player_ids == ("p1",)
+    # kickoff_at=100.0, now=110.0: real, usable game-progress evidence, so
+    # p1's remaining is time-prorated (not None, not the full 20.0) and he
+    # is not reported as progress-unavailable.
+    live_remaining = live.week.teams[0].players[0].projected_remaining
+    assert live_remaining is not None
+    assert 0.0 < live_remaining < 20.0
+    assert live.progress_unavailable_player_ids == ()
     assert final.host_scores == {"1": 20.0, "2": 12.0}
+    # Completed is definitive evidence nothing further is coming this week
+    # (owner decision 2026-09-09) — 0.0, not an unknown None.
     assert all(
-        player.projected_remaining is None for team in final.week.teams for player in team.players
+        player.projected_remaining == 0.0 for team in final.week.teams for player in team.players
     )

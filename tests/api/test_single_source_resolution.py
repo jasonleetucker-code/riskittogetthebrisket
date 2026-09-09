@@ -40,7 +40,7 @@ def _row(
     rookie: bool = False,
 ) -> dict[str, Any]:
     sites: dict[str, int | None] = {
-        "ktcSfTep": ktc,
+        "ktcCrowdTradesSfTep": ktc,
         "idpTradeCalc": idp,
         "dlfIdp": dlf,
         "dlfSf": dlf_sf,

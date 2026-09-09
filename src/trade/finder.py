@@ -136,7 +136,7 @@ MARKET_TOP_N_FILTER = 150
 KTC_TOP_N_FILTER = MARKET_TOP_N_FILTER
 
 # Canonical site keys per market, in preference order.
-OFFENSE_MARKET_KEYS = ("ktcSfTep", "ktc")
+OFFENSE_MARKET_KEYS = ("ktcCrowdTradesSfTep", "ktcSfTep", "ktc")
 IDP_MARKET_KEYS = ("idpTradeCalc",)
 
 # ── Hardening-pass thresholds ────────────────────────────────────────────

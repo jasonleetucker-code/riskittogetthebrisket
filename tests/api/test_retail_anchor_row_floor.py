@@ -81,8 +81,12 @@ from src.api.data_contract import (
     _RANKING_SOURCES,
     _is_source_health_error,
     _load_source_row_floors,
-    get_ranking_source_keys,
     validate_api_data_contract,
+)
+from src.sources.ktc_value_sources import (
+    KTC_CANONICAL_MARKET_SOURCE,
+    KTC_SOURCE_FILE_KEYS,
+    KTC_SOURCE_MIN_PRICED,
 )
 
 #: The board key this module exists to protect.  Read from the registry
@@ -130,11 +134,20 @@ def _contract_payload(*, retail_rows: int, total: int = 300) -> dict:
     return {
         "contractVersion": "2026-03-10.v2",
         "generatedAt": "2026-08-18T00:00:00+00:00",
-        "maxValues": {"ktc": 9999, "ktcSfTep": 9999, "idpTradeCalc": 9999},
+        "maxValues": {
+            "ktc": 9999,
+            "ktcSfTep": 9999,
+            "ktcCrowdTradesSfTep": 9999,
+            "idpTradeCalc": 9999,
+        },
         "players": {r["displayName"]: {} for r in rows},
         "valueAuthority": {},
         "playersArray": rows,
-        "sites": [{"key": "ktc"}, {"key": "idpTradeCalc"}],
+        "sites": [
+            {"key": "ktc"},
+            {"key": "ktcCrowdTradesSfTep"},
+            {"key": "idpTradeCalc"},
+        ],
     }
 
 
@@ -154,13 +167,13 @@ def _source_errors(payload: dict) -> list[str]:
 
 
 def test_registry_still_has_exactly_one_retail_offense_source() -> None:
-    """The premise of this module: one retail anchor, and it is KTC TE++.
+    """The premise of this module: one retail anchor, KTC Crowd+Trades TE++.
 
     If a second retail source is registered, the floors below stop being
     the whole story and this module must be revisited rather than kept
     passing on a stale assumption.
     """
-    assert _RETAIL_KEYS == ("ktcSfTep",), _RETAIL_KEYS
+    assert _RETAIL_KEYS == ("ktcCrowdTradesSfTep",), _RETAIL_KEYS
 
 
 def test_every_retail_source_carries_a_row_floor() -> None:
@@ -181,7 +194,7 @@ def test_retail_floor_is_not_weaker_than_its_twin_board() -> None:
     must not be guarded more loosely than the display-only one.
     """
     floors = _load_source_row_floors()
-    assert floors.get("ktcSfTep", 0) >= floors["ktc"]
+    assert floors.get(_RETAIL_KEYS[0], 0) >= floors["ktcSfTep"]
 
 
 def test_losing_the_retail_board_is_a_source_health_error() -> None:
@@ -251,13 +264,17 @@ def _site_raw_floor_keys() -> set[str]:
     raise AssertionError("_site_raw_floors dict literal not found in Dynasty Scraper.py")
 
 
-def test_retail_board_is_wired_into_the_scraper_site_raw_floors() -> None:
-    """Defining the constant is not the guard; using it is."""
-    keys = _site_raw_floor_keys()
-    missing = [k for k in _RETAIL_KEYS if k not in keys]
-    assert not missing, (
-        f"retail source(s) absent from Dynasty Scraper.py::_site_raw_floors: "
-        f"{missing} — a degraded board would overwrite last-good. Present: {sorted(keys)}"
+def test_current_retail_board_is_guarded_by_the_canonical_ktc_writer() -> None:
+    """The three-source writer, not FULL_DATA, owns current KTC artifacts.
+
+    Crowd+Trades is intentionally absent from the legacy scraper raw-floor
+    map because src.sources.ktc_value_sources writes these artifacts after
+    the FULL_DATA export. Pin the actual writer mapping and priced-row floor.
+    """
+    retail_key = _RETAIL_KEYS[0]
+    assert KTC_SOURCE_FILE_KEYS[KTC_CANONICAL_MARKET_SOURCE] == retail_key
+    assert (
+        KTC_SOURCE_MIN_PRICED[KTC_CANONICAL_MARKET_SOURCE] >= _load_source_row_floors()[retail_key]
     )
 
 
@@ -297,7 +314,7 @@ def test_retail_top50_floor_matches_its_twin() -> None:
     voting board must not be held to a looser premium-tier bar than the
     non-voting one."""
     floors = _top50_floors().get("offense") or {}
-    assert floors.get("ktcSfTep", 0) >= floors["ktc"]
+    assert floors.get(_RETAIL_KEYS[0], 0) >= floors["ktcSfTep"]
 
 
 # ── The scrape-promotion anchor ─────────────────────────────────────────
@@ -329,12 +346,13 @@ def _scraper_source() -> str:
     return (Path(__file__).resolve().parents[2] / "Dynasty Scraper.py").read_text()
 
 
-def test_the_offense_anchor_names_a_voting_source() -> None:
-    """The anchor must watch a board the blend actually depends on.
+def test_the_offense_anchor_is_a_ktc_transport_sentinel() -> None:
+    """Scrape promotion may watch the co-produced Crowd TE++ transport lane.
 
-    Stated as a property — "is a registered voter" — rather than as the
-    literal string, so promoting a different retail source keeps the guard
-    meaningful instead of pinning a name.
+    September 2026 separates transport liveness from market semantics:
+    ktcSfTep proves the page-load/TE++ extraction survived, while the
+    Crowd+Trades artifact is separately guarded by the canonical writer plus
+    contract and top-50 floors. The transport sentinel need not itself vote.
     """
     import ast
 
@@ -345,14 +363,12 @@ def test_the_offense_anchor_names_a_voting_source() -> None:
             isinstance(t, ast.Name) and t.id == "TOP_OFF_EXPECTED_SITE_KEYS" for t in node.targets
         ):
             keys = [e.value for e in node.value.elts if isinstance(e, ast.Constant)]
-    assert keys, "TOP_OFF_EXPECTED_SITE_KEYS not found"
+    assert keys == ["ktcSfTep"], keys
 
-    registered = set(get_ranking_source_keys())
-    non_voters = [k for k in keys if k not in registered]
-    assert not non_voters, (
-        f"the offense anchor watches non-voting source(s) {non_voters}; "
-        f"registered voters include {sorted(_RETAIL_KEYS)}"
-    )
+    retail_key = _RETAIL_KEYS[0]
+    assert KTC_SOURCE_FILE_KEYS[KTC_CANONICAL_MARKET_SOURCE] == retail_key
+    assert retail_key in _DEFAULT_SOURCE_ROW_FLOORS
+    assert KTC_SOURCE_MIN_PRICED[KTC_CANONICAL_MARKET_SOURCE] > 0
 
 
 def test_the_offense_anchor_stays_one_wide() -> None:

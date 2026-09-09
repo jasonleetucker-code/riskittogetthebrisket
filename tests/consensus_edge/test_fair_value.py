@@ -26,6 +26,7 @@ That false signal is exactly what this comment exists to prevent.
 from __future__ import annotations
 
 import statistics
+import tempfile
 import unittest
 from pathlib import Path
 from unittest import mock
@@ -58,15 +59,59 @@ _RAW = _load_latest_raw_payload()
 _needs_payload = unittest.skipIf(_RAW is None, "no archived export payload available")
 
 
+class TestHistoricalKtcAnchorMigration(unittest.TestCase):
+    """Historical replay compatibility must never become a live fallback."""
+
+    def _root_with(self, *source_keys: str):
+        tmp = tempfile.TemporaryDirectory()
+        root = Path(tmp.name)
+        source_dir = root / "CSVs" / "site_raw"
+        source_dir.mkdir(parents=True)
+        for key in source_keys:
+            (source_dir / f"{key}.csv").write_text(
+                "name,value\nHistorical Player,5000\n",
+                encoding="utf-8",
+            )
+        return tmp, root
+
+    def test_live_default_requires_crowd_trades(self):
+        anchors = fv.resolve_market_anchors()
+        self.assertEqual(anchors["offense"], "ktcCrowdTradesSfTep")
+
+    def test_historical_tree_uses_predecessor_only_when_it_exists(self):
+        tmp, root = self._root_with("ktcSfTep")
+        self.addCleanup(tmp.cleanup)
+        anchors = fv.resolve_market_anchors(csv_root=root)
+        self.assertEqual(anchors["offense"], "ktcSfTep")
+
+    def test_historical_tree_prefers_crowd_trades_when_both_exist(self):
+        tmp, root = self._root_with("ktcSfTep", "ktcCrowdTradesSfTep")
+        self.addCleanup(tmp.cleanup)
+        anchors = fv.resolve_market_anchors(csv_root=root)
+        self.assertEqual(anchors["offense"], "ktcCrowdTradesSfTep")
+
+    def test_missing_both_does_not_invent_a_legacy_fallback(self):
+        tmp, root = self._root_with()
+        self.addCleanup(tmp.cleanup)
+        anchors = fv.resolve_market_anchors(csv_root=root)
+        self.assertEqual(anchors["offense"], "ktcCrowdTradesSfTep")
+
+    def test_retired_predecessor_keeps_its_ktc_correlation_family(self):
+        self.assertEqual(
+            dc.expand_correlation_groups(["ktcSfTep"]),
+            {"ktcSfTep", "ktcCrowdTradesSfTep", "fantasyNavigatorSf"},
+        )
+
+
 class TestCorrelationGroups(unittest.TestCase):
     """Leak 1: a source derived from the anchor is not independent."""
 
     def test_expanding_the_anchor_pulls_in_its_derived_source(self):
         # fantasyNavigatorSf republishes KTC-derived values; excluding
-        # ktcSfTep alone left 440 rows still carrying an FN vote.
+        # ktcCrowdTradesSfTep alone left 440 rows still carrying an FN vote.
         self.assertEqual(
-            fv.expand_correlation_groups(["ktcSfTep"]),
-            {"ktcSfTep", "fantasyNavigatorSf"},
+            fv.expand_correlation_groups(["ktcCrowdTradesSfTep"]),
+            {"ktcCrowdTradesSfTep", "fantasyNavigatorSf"},
         )
 
     def test_an_independent_source_expands_to_only_itself(self):
@@ -141,7 +186,7 @@ class TestCorrelationMetadataDrivesTheBlendExactly(unittest.TestCase):
       as well as rank, so a row can cross into or out of pricing. Those
       rows have no *before* source list to classify. Measured: the other
       5, and each one's post-change source list does carry a duplicated
-      family (Jam Miller holds ``ktcSfTep`` + ``fantasyNavigatorSf`` and
+      family (Jam Miller holds ``ktcCrowdTradesSfTep`` + ``fantasyNavigatorSf`` and
       both Flock boards).
 
     Anything outside those two is a side effect riding along with the
@@ -255,14 +300,14 @@ class TestRookieLadderLeak(unittest.TestCase):
 
     @_needs_payload
     def test_no_surviving_ladder_translation_routes_through_the_excluded_anchor(self):
-        contract = fv.leave_one_out_board(_RAW, exclude=["ktcSfTep"])
+        contract = fv.leave_one_out_board(_RAW, exclude=["ktcCrowdTradesSfTep"])
         via_anchor = []
         for row in contract.get("playersArray") or []:
             for src_key, meta in (row.get("sourceRankMeta") or {}).items():
                 if not isinstance(meta, dict):
                     continue
                 method = str(meta.get("method") or "")
-                if "ladder_translation" in method and "ktcSfTep" in method:
+                if "ladder_translation" in method and "ktcCrowdTradesSfTep" in method:
                     via_anchor.append((row.get("displayName"), src_key, method))
         self.assertEqual(
             via_anchor,
@@ -272,10 +317,12 @@ class TestRookieLadderLeak(unittest.TestCase):
 
     @_needs_payload
     def test_the_excluded_anchor_casts_no_vote_anywhere(self):
-        contract = fv.leave_one_out_board(_RAW, exclude=["ktcSfTep"])
+        contract = fv.leave_one_out_board(_RAW, exclude=["ktcCrowdTradesSfTep"])
         for row in contract.get("playersArray") or []:
             ranks = row.get("sourceRanks") or {}
-            self.assertNotIn("ktcSfTep", ranks, f"{row.get('displayName')} still has a KTC vote")
+            self.assertNotIn(
+                "ktcCrowdTradesSfTep", ranks, f"{row.get('displayName')} still has a KTC vote"
+            )
             self.assertNotIn(
                 "fantasyNavigatorSf",
                 ranks,
@@ -550,7 +597,7 @@ class TestFairValueIndex(unittest.TestCase):
     @_needs_payload
     def test_the_fair_value_actually_differs_from_the_market(self):
         # If these were near-identical the whole exercise would be
-        # measuring noise.  Measured 2026-08-04: excluding ktcSfTep moved
+        # measuring noise.  Measured 2026-08-04: excluding ktcCrowdTradesSfTep moved
         # 541 of 808 rows, mean absolute delta 27, max 1692.
         index = fv.fair_value_index(_RAW)
         moved = [

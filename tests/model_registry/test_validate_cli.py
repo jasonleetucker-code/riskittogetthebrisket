@@ -283,12 +283,51 @@ class TestAnUnevaluableGateIsNotAPass:
 
 
 class TestTheRecipeIncludesTheRefreshStep:
-    def test_the_driver_prints_evaluate_record_before_validate(self):
-        """ADR-008 step 2 was dropped when steps 1-4 were collapsed into
+    def test_the_driver_no_longer_hands_a_human_a_manual_recipe(self):
+        """Hill Autopilot v2 retires the ADR-008 manual recipe entirely.
+
+        ADR-008 step 2 was dropped when steps 1-4 were collapsed into
         the driver, so the recipe handed to a human began at `validate`
-        against a registry nobody had refreshed."""
+        against a registry nobody had refreshed. Hill Autopilot v2 goes
+        further: there is no more human-run recipe to skip a step of.
+        The raw-refit driver's PROMOTABLE branch now hands off to the
+        automatic tournament -> forward-persistence -> board-impact ->
+        promote/apply pipeline (`scripts/hill_autopilot.py` +
+        `.github/workflows/refit-hill-curves.yml`), so asserting a
+        `model_registry.py evaluate --champion --record` /
+        `validate {target}` recipe here would pin OBSOLETE behavior.
+        """
         src = (REPO_ROOT / "scripts" / "auto_refit_hill_curves.py").read_text(encoding="utf-8")
-        i_eval = src.find("model_registry.py evaluate --champion --record")
-        i_val = src.find("model_registry.py validate {target}")
-        assert i_eval != -1, "the promotion recipe no longer refreshes the champion first"
-        assert i_eval < i_val, "the refresh step must come before validate"
+        assert "model_registry.py evaluate --champion --record" not in src, (
+            "the manual evaluate/record recipe was retired by Hill Autopilot v2 "
+            "-- if this fires, either the manual recipe came back (regression) "
+            "or this test is stale again"
+        )
+        assert "Hill Autopilot" in src, (
+            "the PROMOTABLE branch must hand off to Hill Autopilot's automatic "
+            "pipeline rather than silently dropping the promotion path"
+        )
+
+    def test_the_refit_workflow_actually_runs_the_automatic_pipeline_in_order(self):
+        """The real handoff lives in the workflow, not a printed recipe.
+
+        Pins the four automatic stages Hill Autopilot v2 requires, in
+        order, so a future edit cannot silently reorder or drop one.
+        """
+        wf = (REPO_ROOT / ".github" / "workflows" / "refit-hill-curves.yml").read_text(
+            encoding="utf-8"
+        )
+        stages = [
+            "scripts/hill_autopilot.py",
+            "scripts/model_registry.py register",
+            "scripts/measure_hill_version_board.py",
+            "scripts/hill_board_guard.py",
+        ]
+        positions = [wf.find(s) for s in stages]
+        assert all(
+            p != -1 for p in positions
+        ), f"one or more automatic pipeline stages missing from the workflow: {stages}"
+        assert positions == sorted(positions), (
+            "the automatic pipeline stages must run in order: tournament -> "
+            "register scope-safe candidate -> board-impact measurement -> guard"
+        )

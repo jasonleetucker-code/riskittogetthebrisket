@@ -34,7 +34,7 @@ What these tests are, individually:
 * ``TestTranslatedIdpRankUsesSharedMarketCurve`` — RED. Names the curve.
 * ``TestRookieLadderFollowsItsReferencePool``   — RED for the IDP ladder
   (reference ``idpTradeCalc`` = shared market), GREEN-and-must-stay for
-  the offense ladder (reference ``ktcSfTep`` = offense pool).
+  the offense ladder (reference ``ktcCrowdTradesSfTep`` = offense pool).
 * ``TestUntranslatedIdpRankKeepsIdpCurve``      — GUARD. Green before and
   after.  A rank that was NOT translated is still IDP-local, and the
   repair must not route every defender through GLOBAL just because the
@@ -145,13 +145,13 @@ def _raw_payload() -> dict:
     market = 9000
     for i in range(max(N_OFF_VET, N_IDP_VET)):
         if i < N_OFF_VET:
-            add(f"Off Vet {i + 1:03d}", "WR", market, False, ("ktcSfTep", "dlfSf"))
+            add(f"Off Vet {i + 1:03d}", "WR", market, False, ("ktcCrowdTradesSfTep", "dlfSf"))
             market -= 13
         if i < N_IDP_VET:
             add(f"Idp Vet {i + 1:03d}", "LB", market, False, ("dlfIdp", "fantasyProsIdp"))
             market -= 11
     for i in range(N_OFF_ROOKIE):
-        add(f"Off Rook {i + 1:03d}", "RB", market, True, ("ktcSfTep", "dlfRookieSf"))
+        add(f"Off Rook {i + 1:03d}", "RB", market, True, ("ktcCrowdTradesSfTep", "dlfRookieSf"))
         market -= 7
     for i in range(N_IDP_ROOKIE):
         add(f"Idp Rook {i + 1:03d}", "DL", market, True, ("dlfRookieIdp",))
@@ -466,7 +466,7 @@ class TestRookieLadderFollowsItsReferencePool(unittest.TestCase):
     Phase 1d maps a within-class rookie rank onto a reference source's
     ranks, so the result lives in whatever pool that reference occupies:
 
-      * ``dlfRookieSf`` → ``ktcSfTep``      → offense pool  (guard)
+      * ``dlfRookieSf`` → ``ktcCrowdTradesSfTep``      → offense pool  (guard)
       * ``dlfRookieIdp`` → ``idpTradeCalc`` → shared market (RED)
 
     W02-F001 was recorded as an IDP-source problem.  It is not: it is a
@@ -478,11 +478,11 @@ class TestRookieLadderFollowsItsReferencePool(unittest.TestCase):
         rows = board()
         for name in OFF_ROOKIES:
             got = meta_for(rows, name, "dlfRookieSf")
-            self.assertEqual(got["method"], "rookie_ladder_translation_via_ktcSfTep")
+            self.assertEqual(got["method"], "rookie_ladder_translation_via_ktcCrowdTradesSfTep")
             self.assertEqual(
                 got["valueContribution"],
                 curve_value(got["effectiveRank"], OFFENSE_CURVE),
-                f"{name}/dlfRookieSf: ktcSfTep's ranks are offense-pool ranks",
+                f"{name}/dlfRookieSf: ktcCrowdTradesSfTep's ranks are offense-pool ranks",
             )
 
     def test_idp_rookie_ladder_lands_in_shared_market_coordinates(self) -> None:

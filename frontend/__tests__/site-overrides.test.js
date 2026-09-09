@@ -119,27 +119,27 @@ describe("siteOverridesAreCustomized", () => {
 
   it("returns false when every override matches the default weight", () => {
     // weight: 1.0 matches the canonical registry → not customized
-    expect(siteOverridesAreCustomized({ ktcSfTep: { weight: 1.0 } })).toBe(false);
+    expect(siteOverridesAreCustomized({ ktcCrowdTradesSfTep: { weight: 1.0 } })).toBe(false);
     expect(
-      siteOverridesAreCustomized({ dlfSf: { weight: 1.0 }, ktcSfTep: { weight: 1.0 } }),
+      siteOverridesAreCustomized({ dlfSf: { weight: 1.0 }, ktcCrowdTradesSfTep: { weight: 1.0 } }),
     ).toBe(false);
   });
 
   it("returns true when a source is excluded", () => {
-    expect(siteOverridesAreCustomized({ ktcSfTep: { include: false } })).toBe(true);
+    expect(siteOverridesAreCustomized({ ktcCrowdTradesSfTep: { include: false } })).toBe(true);
     expect(
       siteOverridesAreCustomized({ dlfSf: { include: false, weight: 1.0 } }),
     ).toBe(true);
   });
 
   it("returns true when a source has a non-default weight", () => {
-    expect(siteOverridesAreCustomized({ ktcSfTep: { weight: 2.0 } })).toBe(true);
+    expect(siteOverridesAreCustomized({ ktcCrowdTradesSfTep: { weight: 2.0 } })).toBe(true);
     expect(siteOverridesAreCustomized({ dlfSf: { weight: 0 } })).toBe(true);
-    expect(siteOverridesAreCustomized({ ktcSfTep: { weight: 0.5 } })).toBe(true);
+    expect(siteOverridesAreCustomized({ ktcCrowdTradesSfTep: { weight: 0.5 } })).toBe(true);
   });
 
   it("ignores fields that are not include or weight", () => {
-    expect(siteOverridesAreCustomized({ ktcSfTep: { label: "foo" } })).toBe(false);
+    expect(siteOverridesAreCustomized({ ktcCrowdTradesSfTep: { label: "foo" } })).toBe(false);
   });
 });
 
@@ -314,7 +314,7 @@ describe("mergeRankingsDelta", () => {
         enabledSources: ["idpTradeCalc", "dlfSf"],
         weights: { ktc: 1.0, idpTradeCalc: 1.0, dlfSf: 1.0 },
         defaults: { ktc: 1.0, idpTradeCalc: 1.0, dlfSf: 1.0 },
-        received: { ktcSfTep: { include: false } },
+        received: { ktcCrowdTradesSfTep: { include: false } },
       },
       rankingsDelta: {
         playerKey: "displayName",
@@ -476,7 +476,7 @@ describe("mergeRankingsDelta — runtime-view base (no playersArray)", () => {
         enabledSources: ["idpTradeCalc"],
         weights: { ktc: 1.0, idpTradeCalc: 1.0 },
         defaults: { ktc: 1.0, idpTradeCalc: 1.0 },
-        received: { ktcSfTep: { include: false } },
+        received: { ktcCrowdTradesSfTep: { include: false } },
       },
       rankingsDelta: {
         playerKey: "displayName",
@@ -670,7 +670,7 @@ describe("fetchDynastyData — routes overrides to backend endpoint", () => {
             rankingsOverride: {
               isCustomized: true,
               enabledSources: ["idpTradeCalc"],
-              received: { ktcSfTep: { include: false } },
+              received: { ktcCrowdTradesSfTep: { include: false } },
             },
             rankingsDelta: {
               playerKey: "displayName",
@@ -689,7 +689,7 @@ describe("fetchDynastyData — routes overrides to backend endpoint", () => {
       ],
     });
     const result = await fetchDynastyData({
-      siteOverrides: { ktcSfTep: { include: false } },
+      siteOverrides: { ktcCrowdTradesSfTep: { include: false } },
     });
     expect(globalThis.fetch).toHaveBeenCalledTimes(2);
     const baseCalls = callsMatching(globalThis.fetch, /\/api\/dynasty-data/);
@@ -703,7 +703,7 @@ describe("fetchDynastyData — routes overrides to backend endpoint", () => {
     expect(opts2?.method).toBe("POST");
     expect(opts2?.headers?.["Content-Type"]).toBe("application/json");
     const body = JSON.parse(opts2.body);
-    expect(body).toEqual({ ktcSfTep: { include: false } });
+    expect(body).toEqual({ ktcCrowdTradesSfTep: { include: false } });
     expect(result.source).toBe("backend:override:delta");
     const merged = result.data.playersArray[0];
     expect(merged.rankDerivedValue).toBe(9700);
@@ -771,11 +771,11 @@ describe("fetchDynastyData — routes overrides to backend endpoint", () => {
       ],
     });
 
-    await fetchDynastyData({ siteOverrides: { ktcSfTep: { include: false } } });
+    await fetchDynastyData({ siteOverrides: { ktcCrowdTradesSfTep: { include: false } } });
     expect(globalThis.fetch).toHaveBeenCalledTimes(2);
 
     const result2 = await fetchDynastyData({
-      siteOverrides: { ktcSfTep: { weight: 2.0 } },
+      siteOverrides: { ktcCrowdTradesSfTep: { weight: 2.0 } },
     });
     // Second call: base served from the in-memory cache, so only ONE
     // more network call (the second override POST).
@@ -806,7 +806,7 @@ describe("fetchDynastyData — routes overrides to backend endpoint", () => {
     });
     const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
     const result = await fetchDynastyData({
-      siteOverrides: { ktcSfTep: { include: false } },
+      siteOverrides: { ktcCrowdTradesSfTep: { include: false } },
     });
     expect(globalThis.fetch).toHaveBeenCalledTimes(2);
     expect(result.source).toMatch(/^backend/);
@@ -979,7 +979,7 @@ describe("fetchDynastyData — tepMultiplier routes overrides to backend", () =>
     });
 
     await fetchDynastyData({
-      siteOverrides: { ktcSfTep: { include: false } },
+      siteOverrides: { ktcCrowdTradesSfTep: { include: false } },
       tepMultiplier: 1.15,
     });
 
@@ -990,7 +990,7 @@ describe("fetchDynastyData — tepMultiplier routes overrides to backend", () =>
     )[0];
     const body = JSON.parse(opts2.body);
     // siteOverrides map fields flow through
-    expect(body.ktcSfTep).toEqual({ include: false });
+    expect(body.ktcCrowdTradesSfTep).toEqual({ include: false });
     // tep_multiplier is stamped alongside
     expect(body.tep_multiplier).toBe(1.15);
   });

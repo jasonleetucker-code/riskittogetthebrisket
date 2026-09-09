@@ -22,8 +22,8 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { LoadingState } from "@/components/ui";
-import { EmptyState, FailureState } from "@/components/ds";
+import { LoadingState, NflTeamLogo } from "@/components/ui";
+import { EmptyState, FailureState, Panel } from "@/components/ds";
 import { useUserState } from "@/components/useUserState";
 
 function pct(value) {
@@ -41,9 +41,10 @@ function points(value) {
 const STATE_SCHEDULED = "SCHEDULED";
 const STATE_LIVE = "LIVE";
 
-function StateBadge({ state }) {
+function StateBadge({ state, label: labelOverride }) {
   const label =
-    state === STATE_SCHEDULED ? "Scheduled · pregame" : state === STATE_LIVE ? "Live" : state;
+    labelOverride ??
+    (state === STATE_SCHEDULED ? "Scheduled · pregame" : state === STATE_LIVE ? "Live" : state);
   return (
     <span
       style={{
@@ -143,7 +144,7 @@ function ActualSide({ side, final }) {
         <ul>{side.players?.map(player => <li key={player.playerId}>
           {player.name} · {player.state.replaceAll("_", " ")} · banked {points(player.pointsScored) ?? "unknown"}
           {player.state === "not_started" ? ` · remaining estimate ${points(player.projectedRemaining) ?? "unavailable"}` : ""}
-          {player.state === "in_progress" ? " · remaining production policy unresolved" : ""}
+          {player.state === "in_progress" ? (player.projectedRemaining != null ? ` · remaining (time-prorated) ${points(player.projectedRemaining)}` : " · remaining production unavailable (no reliable game-progress evidence)") : ""}
         </li>)}</ul>
       </>}
     </div>
@@ -328,6 +329,179 @@ function Lineage({ lineage }) {
   );
 }
 
+//: nflSlate's game-state vocabulary matches `GameEvidence.state`
+//: (`src/ros/game_day_week.py`), NOT the matchup-level SCHEDULED/LIVE pair
+//: above -- a different, per-game axis, so it gets its own label map rather
+//: than overloading STATE_SCHEDULED/STATE_LIVE.
+const NFL_GAME_STATE_LABELS = {
+  not_started: "Scheduled",
+  in_progress: "Live",
+  completed: "Final",
+  unknown: "Status unknown",
+};
+
+function formatKickoff(epochSeconds) {
+  if (epochSeconds === null || epochSeconds === undefined) return null;
+  try {
+    return new Intl.DateTimeFormat("en-US", {
+      weekday: "short",
+      month: "short",
+      day: "numeric",
+      hour: "numeric",
+      minute: "2-digit",
+      timeZone: "America/New_York",
+      timeZoneName: "short",
+    }).format(new Date(epochSeconds * 1000));
+  } catch {
+    return null;
+  }
+}
+
+function GamePlayerLine({ player }) {
+  const scoreText =
+    player.state === "not_started"
+      ? `projected ${points(player.projectedRemaining) ?? "unavailable"}`
+      : player.state === "in_progress"
+        ? `live ${points(player.pointsScored) ?? "0.0"}` +
+          (player.projectedRemaining != null
+            ? ` · remaining (time-prorated) ${points(player.projectedRemaining)}`
+            : " · remaining unavailable")
+        : player.state === "completed"
+          ? `final ${points(player.pointsScored) ?? "unavailable"}`
+          : "status unknown";
+  return (
+    <li style={{ fontSize: "0.8rem" }}>
+      {player.name}
+      {player.fantasyPositions?.length ? ` · ${player.fantasyPositions.join("/")}` : ""} ·{" "}
+      {scoreText}
+    </li>
+  );
+}
+
+function NflGameCard({ game, team, opponent }) {
+  const kickoff = formatKickoff(game.kickoffAt) || "Kickoff time unavailable";
+  const mine = game.players.filter((p) => p.side === "team");
+  const theirs = game.players.filter((p) => p.side === "opponent");
+
+  // The complete real schedule includes every game, so an irrelevant one
+  // (nobody from this matchup plays in it) still renders -- just compactly,
+  // rather than as an empty expanded card, so the games that matter stay
+  // visually prominent.
+  if (mine.length === 0 && theirs.length === 0) {
+    return (
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 8,
+          padding: "6px 4px",
+          fontSize: "0.78rem",
+          color: "var(--subtext)",
+        }}
+      >
+        <span style={{ minWidth: 190 }}>{kickoff}</span>
+        <NflTeamLogo team={game.awayTeam} size={16} showAbbr />
+        <span>@</span>
+        <NflTeamLogo team={game.homeTeam} size={16} showAbbr />
+      </div>
+    );
+  }
+
+  return (
+    <Panel
+      title={
+        <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <NflTeamLogo team={game.awayTeam} size={20} showAbbr />
+          <span>@</span>
+          <NflTeamLogo team={game.homeTeam} size={20} showAbbr />
+        </span>
+      }
+      subtitle={kickoff}
+      actions={
+        <StateBadge state={game.state} label={NFL_GAME_STATE_LABELS[game.state] || game.state} />
+      }
+      style={{ marginBottom: 10 }}
+    >
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 20 }}>
+        {mine.length > 0 && (
+          <div style={{ flex: "1 1 220px", minWidth: 200 }}>
+            <h4
+              style={{
+                fontSize: "0.72rem",
+                textTransform: "uppercase",
+                letterSpacing: "0.06em",
+                color: "var(--subtext)",
+                margin: "0 0 4px",
+              }}
+            >
+              {team?.displayName || "Your team"}
+            </h4>
+            <ul style={{ margin: 0, paddingLeft: 16 }}>
+              {mine.map((p) => (
+                <GamePlayerLine key={p.playerId} player={p} />
+              ))}
+            </ul>
+          </div>
+        )}
+        {theirs.length > 0 && (
+          <div style={{ flex: "1 1 220px", minWidth: 200 }}>
+            <h4
+              style={{
+                fontSize: "0.72rem",
+                textTransform: "uppercase",
+                letterSpacing: "0.06em",
+                color: "var(--subtext)",
+                margin: "0 0 4px",
+              }}
+            >
+              {opponent?.displayName || "Opponent"}
+            </h4>
+            <ul style={{ margin: 0, paddingLeft: 16 }}>
+              {theirs.map((p) => (
+                <GamePlayerLine key={p.playerId} player={p} />
+              ))}
+            </ul>
+          </div>
+        )}
+      </div>
+    </Panel>
+  );
+}
+
+function NflSlateSection({ slate, team, opponent }) {
+  if (!slate) return null;
+  if (slate.scheduleState !== "available") {
+    return (
+      <Card title="This week's NFL slate">
+        <p style={{ fontSize: "0.82rem", color: "var(--subtext)" }}>
+          NFL schedule unavailable
+          {slate.scheduleUnavailableReason ? ` (${slate.scheduleUnavailableReason})` : ""}.
+        </p>
+      </Card>
+    );
+  }
+  return (
+    <Card
+      title="This week's NFL slate"
+      subtitle="Every real NFL game this week, in true kickoff order, with this matchup's players grouped under the game they're playing in."
+    >
+      {slate.games.map((game) => (
+        <NflGameCard key={game.gameId} game={game} team={team} opponent={opponent} />
+      ))}
+      {slate.byeWeek?.length > 0 && (
+        <p style={{ fontSize: "0.78rem", color: "var(--subtext)", marginTop: 10 }}>
+          On bye this week: {slate.byeWeek.map((p) => p.name).join(", ")}.
+        </p>
+      )}
+      {slate.unattributed?.length > 0 && (
+        <p style={{ fontSize: "0.78rem", color: "var(--subtext)", marginTop: 4 }}>
+          Could not match to an NFL game: {slate.unattributed.map((p) => p.name).join(", ")}.
+        </p>
+      )}
+    </Card>
+  );
+}
+
 export default function GameDayPanel() {
   const [state, setState] = useState({ status: "loading", payload: null, error: null });
 
@@ -486,9 +660,12 @@ export default function GameDayPanel() {
         )}
       </Card>
 
-      {p.probabilityState === "OWNER_POLICY_REQUIRED" && <p>Live probability policy awaits an owner decision for in-progress remaining production. Actual scoring is preserved.</p>}
+      {p.probabilityState === "LIVE_PROGRESS_UNAVAILABLE" && <p>Live probabilities unavailable: in-progress remaining production could not be estimated (no reliable game-progress evidence). Actual scoring is preserved.</p>}
       {p.probabilityState === "GAME_STATE_OR_SCORING_UNAVAILABLE" && <p>Live probabilities unavailable: game-state or scoring evidence is incomplete.</p>}
       {scored && !final && team?.outcome && <Card title="Remaining-week probabilities"><SideHeadline side={team} label="Your team" /></Card>}
+
+      <NflSlateSection slate={p.nflSlate} team={team} opponent={opponent} />
+
       {final && p.recapUrl && <p><a href={p.recapUrl}>Week {p.week} articles and recap</a> · Recap appears here after the canonical manual article workflow publishes it.</p>}
       {!final && <JointOutcomes outcome={team?.outcome} />}
 

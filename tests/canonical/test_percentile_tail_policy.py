@@ -435,7 +435,7 @@ def _deep_fallback_rows() -> list[dict]:
     generated to push effective ranks well past the saturation point.
     """
     total = PERCENTILE_REFERENCE_N + 120
-    rows = [_row("Anchor QB", "QB", ktcSfTep=9999, idpTradeCalc=9999)]
+    rows = [_row("Anchor QB", "QB", ktcCrowdTradesSfTep=9999, idpTradeCalc=9999)]
     for i in range(total):
         raw = 999900 - (i + 1) * 100
         rows.append(_row(f"D{i:04d}", "LB", idpTradeCalc=raw, dlfSf=raw))

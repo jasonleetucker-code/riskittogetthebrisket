@@ -49,11 +49,12 @@ vi.mock("@/lib/dynasty-data", async (importOriginal) => {
   return {
     ...actual,
     RANKING_SOURCES: [
-      { key: "dlfSf", displayName: "DLF SF", columnLabel: "DLF" },
+      { key: "fantasyProsSf", displayName: "DLF SF", columnLabel: "DLF" },
       { key: "ktcSfTep", displayName: "KTC TE++", columnLabel: "KTC" },
+      { key: "dlfSf", displayName: "DLF SF", columnLabel: "DLF" },
     ],
-    SOURCE_VENDOR_LABELS: {},
-    vendorForSource: (key) => key,
+    SOURCE_VENDOR_LABELS: { dlf: "DLF" },
+    vendorForSource: (key) => (key === "dlfSf" ? "dlf" : key),
   };
 });
 
@@ -126,7 +127,7 @@ describe("Second Opinions does not inherit the display value mode", () => {
           name: "Covered",
           canonical: 5000,
           rawComposite: 5900,
-          covers: { dlfSf: 5000 },
+          covers: { fantasyProsSf: 5000 },
         }),
         asset({ name: "Uncovered", canonical: 4000, rawComposite: 4800 }),
       ],
@@ -138,7 +139,7 @@ describe("Second Opinions does not inherit the display value mode", () => {
           name: "Other",
           canonical: 3000,
           rawComposite: 3600,
-          covers: { dlfSf: 3000 },
+          covers: { fantasyProsSf: 3000 },
         }),
       ],
     },
@@ -181,7 +182,7 @@ describe("Second Opinions does not treat a missing value as zero", () => {
             name: "Priced",
             canonical: 5000,
             rawComposite: 5900,
-            covers: { dlfSf: 5000 },
+            covers: { fantasyProsSf: 5000 },
           }),
           {
             name: "Unpriced",
@@ -200,7 +201,7 @@ describe("Second Opinions does not treat a missing value as zero", () => {
             name: "Other",
             canonical: 3000,
             rawComposite: 3600,
-            covers: { dlfSf: 3000 },
+            covers: { fantasyProsSf: 3000 },
           }),
         ],
       },
@@ -285,10 +286,10 @@ describe("Foreign vendor-native scales never reach package math", () => {
       name: "Scaled",
       canonical: 5600,
       rawComposite: 6100,
-      covers: { dlfSf: 5600 },
+      covers: { fantasyProsSf: 5600 },
     });
-    row.sourceNativeValues = { dlfSf: 72 };
-    row.canonicalSites = { dlfSf: 100072 }; // synthetic rank encoding
+    row.sourceNativeValues = { fantasyProsSf: 72 };
+    row.canonicalSites = { fantasyProsSf: 100072 }; // synthetic rank encoding
 
     const sides = [
       { label: "A", assets: [row] },
@@ -299,7 +300,7 @@ describe("Foreign vendor-native scales never reach package math", () => {
             name: "Other",
             canonical: 3000,
             rawComposite: 3600,
-            covers: { dlfSf: 3000 },
+            covers: { fantasyProsSf: 3000 },
           }),
         ],
       },
@@ -313,6 +314,67 @@ describe("Foreign vendor-native scales never reach package math", () => {
   });
 });
 
+describe("DLF second opinion uses DLF native value, not expert-rank translation", () => {
+  it("preserves the Bucky/Henderson inversion and applies no borrowed package adjustment", () => {
+    const bucky = asset({
+      name: "Bucky Irving",
+      canonical: 5000,
+      rawComposite: 5100,
+      covers: { dlfSf: 6000 },
+    });
+    bucky.sourceNativeValues = { dlfSf: 207.5 };
+    const henderson = asset({
+      name: "TreVeyon Henderson",
+      canonical: 4800,
+      rawComposite: 4900,
+      covers: { dlfSf: 5800 },
+    });
+    henderson.sourceNativeValues = { dlfSf: 244.5 };
+
+    const { cells, text } = renderCells(
+      [
+        { label: "A", assets: [bucky] },
+        { label: "B", assets: [henderson] },
+      ],
+      "full",
+    );
+
+    const seen = numbersIn(cells);
+    expect(seen).toContain(208);
+    expect(seen).toContain(245);
+    expect(text).toMatch(/DLF/i);
+    expect(text).toMatch(/native value/i);
+    expect(text).not.toMatch(/DLF[^]*\+VA/i);
+    expect(text).toMatch(/Side B/i);
+    // The translated expert-rank contributions are intentionally different
+    // and must not leak into the literal DLF trade-value row.
+    expect(seen).not.toContain(6000);
+    expect(seen).not.toContain(5800);
+  });
+
+  it("is incomplete instead of mixing canonical units when DLF lacks a native value", () => {
+    const row = asset({
+      name: "Missing native",
+      canonical: 4000,
+      rawComposite: 4100,
+      covers: { dlfSf: 4500 },
+    });
+    const other = asset({
+      name: "Native",
+      canonical: 3900,
+      rawComposite: 4000,
+      covers: { dlfSf: 4400 },
+    });
+    other.sourceNativeValues = { dlfSf: 180 };
+
+    const { text } = renderCells([
+      { label: "A", assets: [row] },
+      { label: "B", assets: [other] },
+    ]);
+    expect(text).toMatch(/Incomplete/i);
+  });
+});
+
 describe("Strict mode keeps its meaning", () => {
   it("uncovered pieces are unresolved, not zero-valued", () => {
     const sides = [
@@ -323,7 +385,7 @@ describe("Strict mode keeps its meaning", () => {
             name: "Covered",
             canonical: 5000,
             rawComposite: 5900,
-            covers: { dlfSf: 5000 },
+            covers: { fantasyProsSf: 5000 },
           }),
           asset({ name: "Uncovered", canonical: 4000, rawComposite: 4800 }),
         ],
@@ -335,7 +397,7 @@ describe("Strict mode keeps its meaning", () => {
             name: "Other",
             canonical: 3000,
             rawComposite: 3600,
-            covers: { dlfSf: 3000 },
+            covers: { fantasyProsSf: 3000 },
           }),
         ],
       },
@@ -368,7 +430,7 @@ describe("Multi-team trades hold the same unit invariants", () => {
             name: "A1",
             canonical: 5000,
             rawComposite: 5900,
-            covers: { dlfSf: 5000 },
+            covers: { fantasyProsSf: 5000 },
           }),
         ],
       },
@@ -383,7 +445,7 @@ describe("Multi-team trades hold the same unit invariants", () => {
             name: "C1",
             canonical: 3000,
             rawComposite: 3600,
-            covers: { dlfSf: 3000 },
+            covers: { fantasyProsSf: 3000 },
           }),
         ],
       },
