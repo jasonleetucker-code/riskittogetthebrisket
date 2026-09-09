@@ -283,13 +283,17 @@ class TestNormalizeSourceOverrides(unittest.TestCase):
         self.assertTrue(any("fakeSource" in w for w in warnings))
 
     def test_invalid_weight_is_rejected(self) -> None:
-        out, warnings = normalize_source_overrides({"ktcCrowdTradesSfTep": {"weight": "not a number"}})
+        out, warnings = normalize_source_overrides(
+            {"ktcCrowdTradesSfTep": {"weight": "not a number"}}
+        )
         self.assertNotIn("weight", out.get("ktcCrowdTradesSfTep", {}))
         self.assertTrue(warnings)
         out, warnings = normalize_source_overrides({"ktcCrowdTradesSfTep": {"weight": -1}})
         self.assertNotIn("weight", out.get("ktcCrowdTradesSfTep", {}))
         self.assertTrue(warnings)
-        out, warnings = normalize_source_overrides({"ktcCrowdTradesSfTep": {"weight": float("inf")}})
+        out, warnings = normalize_source_overrides(
+            {"ktcCrowdTradesSfTep": {"weight": float("inf")}}
+        )
         self.assertNotIn("weight", out.get("ktcCrowdTradesSfTep", {}))
         self.assertTrue(warnings)
 
@@ -885,7 +889,9 @@ class TestNormalizeTepNativeMultiplier(unittest.TestCase):
     def test_missing_field_returns_none(self) -> None:
         self.assertIsNone(normalize_tep_native_multiplier(None))
         self.assertIsNone(normalize_tep_native_multiplier({}))
-        self.assertIsNone(normalize_tep_native_multiplier({"ktcCrowdTradesSfTep": {"include": False}}))
+        self.assertIsNone(
+            normalize_tep_native_multiplier({"ktcCrowdTradesSfTep": {"include": False}})
+        )
         # The non-native key must NOT satisfy the native lookup.
         self.assertIsNone(normalize_tep_native_multiplier({"tep_multiplier": 1.2}))
 

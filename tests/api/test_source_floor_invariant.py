@@ -47,6 +47,12 @@ import unittest
 from pathlib import Path
 
 from src.api.data_contract import _DEFAULT_SOURCE_ROW_FLOORS
+from src.sources.ktc_value_sources import (
+    KTC_CROWD,
+    KTC_CROWD_TRADES,
+    KTC_TRADES,
+    KTC_SOURCE_MIN_PRICED,
+)
 
 _REPO = Path(__file__).resolve().parents[2]
 _SCRIPTS = _REPO / "scripts"
@@ -141,6 +147,15 @@ _SCRAPER_FLOOR_RESOLVERS = {
     # scraper rather than allowlist the gap.
     "ktcSfTep": lambda: _module_int_const("Dynasty Scraper.py", "_KTC_TEP_SITE_RAW_FLOOR"),
     "idpTradeCalc": lambda: _module_int_const("Dynasty Scraper.py", "_IDPTC_SITE_RAW_FLOOR"),
+    # September-2026 KTC three-source cutover — the writer's own floor
+    # (``write_capture_artifacts`` in src/sources/ktc_value_sources.py)
+    # hard-fails a run below these counts rather than shipping a
+    # degraded CSV, so importing the real dict (no scraper/network
+    # side effects in this module) is the accurate resolver rather than
+    # a re-guessed static constant.
+    "ktcCrowdSfTep": lambda: KTC_SOURCE_MIN_PRICED[KTC_CROWD],
+    "ktcTradesSfTep": lambda: KTC_SOURCE_MIN_PRICED[KTC_TRADES],
+    "ktcCrowdTradesSfTep": lambda: KTC_SOURCE_MIN_PRICED[KTC_CROWD_TRADES],
 }
 
 # Sources whose scraper has NO aligned internal floor yet.  Each entry:

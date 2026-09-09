@@ -210,10 +210,12 @@ TOP_IDP_MIN_SOURCES = _env_int("TOP_IDP_MIN_SOURCES", 1)
 # the TE++ extraction breaks on its own, which is precisely the failure this
 # now covers and the old anchor did not.
 #
-# September 2026 note: ktcSfTep is now the historical Crowdsourced
-# TE++ lane, not the canonical market vote. It remains the in-process
+# September 2026 note: ktcSfTep is now the historical Crowd-only TE++
+# lane, not the canonical market vote. It remains the in-process
 # scraper-run sentinel here because it is co-produced from the same KTC
-# page load; canonical integrity separately requires ktcCrowdTradesSfTep.
+# page load; canonical integrity separately requires the combined
+# Crowd+Trades key (see KTC_SOURCE_FILE_KEYS[KTC_CROWD_TRADES] in
+# src/sources/ktc_value_sources.py).
 TOP_OFF_EXPECTED_SITE_KEYS = ("ktcSfTep",)
 TOP_IDP_EXPECTED_SITE_KEYS = ("idpTradeCalc",)
 

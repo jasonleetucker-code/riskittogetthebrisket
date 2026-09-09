@@ -148,6 +148,31 @@ _IDP_SIGNAL_KEYS = {
     "idpShowCombined",
 }
 
+# ``_OFFENSE_SIGNAL_KEYS`` names the CURRENT canonical voting KTC source
+# (``ktcCrowdTradesSfTep`` as of the September-2026 three-source cutover).
+# That source is CSV-only: ``Dynasty Scraper.py`` deliberately never writes
+# it into the raw scrape composite (to avoid the three KTC source-mode
+# variants -- Crowd / Trades / Crowd+Trades -- casting three votes), so it
+# is only ever populated by ``_enrich_from_source_csvs``, which runs LATER
+# in ``build_api_data_contract``. ``_derive_player_row``'s position-family
+# guardrail runs BEFORE that join, so it must not use
+# ``_OFFENSE_SIGNAL_KEYS`` directly for its offense-signal check:
+# ``ktcCrowdTradesSfTep`` can never be present yet, which silently blanks
+# the position of nearly every offense player (``has_off_signal`` always
+# False, ``has_idp_signal`` often True via idpTradeCalc's cross-market
+# pricing of offense players) and drops them from every source's ranking
+# pool -- not just KTC's.  Measured on the golden-board fixture: ranked
+# population collapsed 740 -> 495, wiping Josh Allen / Mahomes / Nacua /
+# Bijan Robinson's canonical ranks entirely.
+#
+# ``ktcSfTep`` remains a live per-scrape KTC pull (it only stopped casting
+# an independent blend vote), so it is kept here purely as this guardrail's
+# early-availability proxy for "this player has offense market evidence".
+# Using it here does NOT re-enable a second KTC vote in the blend --
+# nothing downstream of CSV enrichment reads this constant, and
+# ``ktcSfTep`` stays out of ``_VALUE_BASED_SOURCES`` / ``_RANKING_SOURCES``.
+_PRE_ENRICHMENT_OFFENSE_SIGNAL_KEYS: frozenset[str] = frozenset(_OFFENSE_SIGNAL_KEYS | {"ktcSfTep"})
+
 # All source signal keys — used to detect which source(s) a player has
 _ALL_SIGNAL_KEYS = _OFFENSE_SIGNAL_KEYS | _IDP_SIGNAL_KEYS
 
@@ -3622,10 +3647,12 @@ def _anchor_key_sets(
     the user left enabled but slid to weight 0 must not anchor
     anything (Codex review on PR #530 — the membership-only check
     promoted zero-weight KTC into the pick anchor at full peer
-    strength).  ``pick_anchor_keys`` additionally includes ktcSfTep —
-    the deepest pick market ingested — so on PICK rows the two real
-    pick markets (KTC + IDPTC) average as peers instead of KTC riding
-    in the α=0.10 subgroup (2026-07-25 calculation audit, F-2).
+    strength).  ``pick_anchor_keys`` additionally includes the current
+    canonical KTC vote (``ktcCrowdTradesSfTep`` as of the September-2026
+    three-source cutover; formerly ``ktcSfTep``) — the deepest pick
+    market ingested — so on PICK rows the two real pick markets (KTC +
+    IDPTC) average as peers instead of KTC riding in the α=0.10 subgroup
+    (2026-07-25 calculation audit, F-2).
 
     NOTE on weights (updated 2026-07-29 audit): subgroup/flat votes
     are weighted by each source's DECLARED weight (all 1.0 by registry
@@ -3647,7 +3674,7 @@ def _anchor_key_sets(
         for s in active_sources
         if s.get("is_cross_market") and str(s.get("key") or "") in positively_weighted
     }
-    pick_anchor = cross_market | ({"ktcSfTep"} & positively_weighted)
+    pick_anchor = cross_market | ({"ktcCrowdTradesSfTep"} & positively_weighted)
     return cross_market, pick_anchor
 
 
@@ -11162,8 +11189,13 @@ def _derive_player_row(
     pos_from_sleeper = _normalize_pos(pos_map.get(canonical_name))
     canonical_sites = _canonical_site_values(p_data, site_keys)
 
+    # Pre-CSV-enrichment guardrail: use _PRE_ENRICHMENT_OFFENSE_SIGNAL_KEYS,
+    # not _OFFENSE_SIGNAL_KEYS -- this runs before _enrich_from_source_csvs
+    # joins ktcCrowdTradesSfTep, so the canonical voting key can never be
+    # present in canonical_sites yet.  See the constant's docstring above.
     has_off_signal = any(
-        _to_int_or_none(canonical_sites.get(k)) not in (None, 0) for k in _OFFENSE_SIGNAL_KEYS
+        _to_int_or_none(canonical_sites.get(k)) not in (None, 0)
+        for k in _PRE_ENRICHMENT_OFFENSE_SIGNAL_KEYS
     )
     has_idp_signal = any(
         _to_int_or_none(canonical_sites.get(k)) not in (None, 0) for k in _IDP_SIGNAL_KEYS

@@ -305,7 +305,7 @@ async def select_value_source(page: Any, source: str) -> dict[str, str]:
         if set(KTC_VALUE_SOURCES).issubset(mapped):
             option = mapped[source]
             locator = page.locator("select").nth(int(control["index"]))
-            await locator.select_option(index=int(option["optionIndex"]), force=True)
+            await locator.select_option(index=int(option["optionIndex"]))
             await page.wait_for_timeout(1200)
             selected = await locator.locator("option:checked").text_content()
             selected_label = str(selected or "").strip()

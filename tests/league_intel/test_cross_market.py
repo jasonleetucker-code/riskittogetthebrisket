@@ -11,6 +11,7 @@ from __future__ import annotations
 import pytest
 
 from src.league_intel.cross_market import (
+    _LEGACY_KTC_KEYS,
     _RATIO_P10,
     _RATIO_P90,
     MARKET_IDPTC,
@@ -406,9 +407,12 @@ class TestRealBoardCoverage:
         return json.loads(path.read_text())["playersArray"]
 
     @staticmethod
-    def _value(row):
-        sites = row.get("canonicalSiteValues") or {}
-        for key in (MARKET_KTC, MARKET_IDPTC):
+    def _ktc_value(sites):
+        """Mirror ``cross_market._site_value``'s legacy fallback: the
+        committed baseline snapshot predates the KTC three-source cutover
+        and carries no ``MARKET_KTC`` (``ktcCrowdTradesSfTep``) key at all,
+        only the legacy ``ktcSfTep``/``ktc`` ones."""
+        for key in (MARKET_KTC, *_LEGACY_KTC_KEYS):
             try:
                 v = float(sites.get(key) or 0)
             except (TypeError, ValueError):
@@ -416,6 +420,18 @@ class TestRealBoardCoverage:
             if v > 0:
                 return v
         return 0.0
+
+    @classmethod
+    def _value(cls, row):
+        sites = row.get("canonicalSiteValues") or {}
+        ktc_v = cls._ktc_value(sites)
+        if ktc_v > 0:
+            return ktc_v
+        try:
+            idptc_v = float(sites.get(MARKET_IDPTC) or 0)
+        except (TypeError, ValueError):
+            idptc_v = 0
+        return idptc_v
 
     def test_realistic_trade_candidates_all_resolve_on_the_exact_path(self):
         """The measurement that settled the suppression debate: among
@@ -444,7 +460,7 @@ class TestRealBoardCoverage:
         ktc_only = [
             r
             for r in rows
-            if (r.get("canonicalSiteValues") or {}).get(MARKET_KTC)
+            if self._ktc_value(r.get("canonicalSiteValues") or {}) > 0
             and not (r.get("canonicalSiteValues") or {}).get(MARKET_IDPTC)
         ]
         assert ktc_only, "expected some KTC-only assets"

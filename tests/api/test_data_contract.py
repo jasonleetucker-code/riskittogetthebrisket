@@ -4,6 +4,12 @@ from src.api.data_contract import (
     OVERALL_RANK_LIMIT,
     _SINGLE_SOURCE_VALUE_RETENTION,
     _compute_unified_rankings,
+    _derive_player_row,
+    _OFFENSE_SIGNAL_KEYS,
+    _PRE_ENRICHMENT_OFFENSE_SIGNAL_KEYS,
+    _RANKABLE_POSITIONS,
+    _RANKING_SOURCES,
+    _VALUE_BASED_SOURCES,
     build_api_data_contract,
     validate_api_data_contract,
 )
@@ -481,6 +487,72 @@ class TestIdpIntegrityGuardrails(unittest.TestCase):
         report = validate_api_data_contract(payload)
         self.assertFalse(report["ok"])
         self.assertTrue(any("name collision" in e for e in report["errors"]))
+
+
+class TestKtcThreeSignalCutoverPreEnrichmentGuardrail(unittest.TestCase):
+    """Regression coverage for the 2026-09 KTC three-signal cutover bug.
+
+    ``_OFFENSE_SIGNAL_KEYS`` was renamed so the canonical voting KTC source
+    became ``ktcCrowdTradesSfTep``.  That source is CSV-only and is joined
+    by ``_enrich_from_source_csvs`` *after* ``_derive_player_row`` runs, so
+    a naive rename broke ``_derive_player_row``'s pre-CSV position-family
+    guardrail: it saw idpTradeCalc's cross-market offense evidence but no
+    offense evidence of its own (ktcCrowdTradesSfTep can never be present
+    that early), and blanked the position of nearly every offense player
+    with no native adapter position -- the normal case, not the exception.
+    Measured on the live board: ranked population collapsed 740 -> 495.
+    """
+
+    def test_pre_enrichment_key_set_would_fail_under_pre_fix_behavior(self):
+        """Proves the fix is load-bearing: using the bare (post-cutover)
+        _OFFENSE_SIGNAL_KEYS at pre-enrichment time -- the exact pre-fix
+        behavior -- sees no offense signal for this canonical_sites shape,
+        while the guardrail's actual _PRE_ENRICHMENT_OFFENSE_SIGNAL_KEYS
+        correctly does.
+        """
+        canonical_sites = {"ktcSfTep": 9500, "idpTradeCalc": 9200}
+        pre_fix_has_off_signal = any(
+            canonical_sites.get(k) not in (None, 0) for k in _OFFENSE_SIGNAL_KEYS
+        )
+        self.assertFalse(
+            pre_fix_has_off_signal,
+            "This is exactly the defect: ktcCrowdTradesSfTep is CSV-only and "
+            "can never be in canonical_sites pre-enrichment, so checking "
+            "_OFFENSE_SIGNAL_KEYS directly here always misses real offense "
+            "evidence.",
+        )
+        fixed_has_off_signal = any(
+            canonical_sites.get(k) not in (None, 0) for k in _PRE_ENRICHMENT_OFFENSE_SIGNAL_KEYS
+        )
+        self.assertTrue(fixed_has_off_signal)
+
+    def test_derive_player_row_position_not_blanked_directly(self):
+        """A player with no native adapter position (the norm), legacy
+        ktcSfTep + idpTradeCalc evidence, and no ktcCrowdTradesSfTep
+        evidence yet (it's CSV-only and _derive_player_row runs before
+        that join, for every player, real or synthetic) must keep the
+        sleeper map's offense position and stay rankable -- not get
+        blanked as a false IDP collision.
+        """
+        p_data = {
+            "position": "",
+            "_canonicalSiteValues": {"ktcSfTep": 9983, "idpTradeCalc": 9983},
+        }
+        pos_map = {"Josh Allen": "QB"}
+        site_keys = ["ktcSfTep", "ktcCrowdTradesSfTep", "idpTradeCalc"]
+        row = _derive_player_row("Josh Allen", p_data, pos_map, site_keys)
+        self.assertEqual(row["position"], "QB")
+        self.assertIn(row["position"], _RANKABLE_POSITIONS)
+
+    def test_ktc_sf_tep_stays_non_voting_after_cutover(self):
+        """The fix must not resurrect ktcSfTep as a second KTC vote --
+        only the pre-enrichment guardrail may treat it as offense evidence.
+        """
+        self.assertNotIn("ktcSfTep", _VALUE_BASED_SOURCES)
+        self.assertIn("ktcCrowdTradesSfTep", _VALUE_BASED_SOURCES)
+        ranking_keys = {s["key"] for s in _RANKING_SOURCES}
+        self.assertNotIn("ktcSfTep", ranking_keys)
+        self.assertIn("ktcCrowdTradesSfTep", ranking_keys)
 
 
 class TestStripNameSuffix(unittest.TestCase):

@@ -191,7 +191,13 @@ def test_crowd_trade_divergence_is_numeric_without_an_invented_threshold():
                 "playerID": 10,
                 "playerName": "Trade Premium",
                 "position": "RB",
-                "superflexValues": {"value": 5000, "tepp": {"value": 5500, "rank": 45}},
+                # Tradesourced carries its native value under vftValue/vftRank,
+                # not value/rank -- KTC ships all three source-native fields
+                # on the same player object (see observations_from_players_array).
+                "superflexValues": {
+                    "vftValue": 5000,
+                    "tepp": {"vftValue": 5500, "vftRank": 45},
+                },
             }
         ],
         control_value="trades",
@@ -215,7 +221,7 @@ class _OptionLocator:
         self.select = select
 
     async def text_content(self):
-        return self.select.options[self.select.selected]["text"]
+        return self.select["options"][self.select["selected"]]["text"]
 
 
 class _SelectLocator:

@@ -468,8 +468,8 @@ class TestTop50Coverage(unittest.TestCase):
         )[:50]
         for r in offense_rows:
             vals = r.get("canonicalSiteValues")
-            if isinstance(vals, dict) and "ktc" in vals:
-                vals["ktc"] = 0
+            if isinstance(vals, dict) and "ktcCrowdTradesSfTep" in vals:
+                vals["ktcCrowdTradesSfTep"] = 0
         report = validate_api_data_contract(synthetic)
         self.assertTrue(
             any(

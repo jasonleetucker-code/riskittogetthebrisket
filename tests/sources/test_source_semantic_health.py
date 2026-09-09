@@ -94,6 +94,7 @@ def test_partial_board_is_coverage_degraded_not_fetch_stale(tmp_path):
     captures = {
         "crowd": {
             "selectedLabel": "Crowdsourced",
+            "selectedControlValue": "1",
             "superflex": True,
             "tePremium": "TE++",
             "tePremiumLevel": 2,
@@ -103,6 +104,7 @@ def test_partial_board_is_coverage_degraded_not_fetch_stale(tmp_path):
         },
         "trades": {
             "selectedLabel": "Tradesourced",
+            "selectedControlValue": "3",
             "superflex": True,
             "tePremium": "TE++",
             "tePremiumLevel": 2,
@@ -112,6 +114,7 @@ def test_partial_board_is_coverage_degraded_not_fetch_stale(tmp_path):
         },
         "crowd_trades": {
             "selectedLabel": "Crowd+Trades",
+            "selectedControlValue": "2",
             "superflex": True,
             "tePremium": "TE++",
             "tePremiumLevel": 2,

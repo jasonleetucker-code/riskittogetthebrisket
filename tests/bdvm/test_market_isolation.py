@@ -56,11 +56,24 @@ def _expected_liquidity(dispersion: float) -> float:
 
 
 class TestMarketSourceHygiene(unittest.TestCase):
-    def test_offense_prefers_ktc_sf_tep(self):
+    def test_offense_prefers_ktc_crowd_trades_sf_tep(self):
+        """September-2026 three-source cutover: ktcCrowdTradesSfTep is the
+        canonical KTC vote and must win over both the historical ktcSfTep
+        and the retired ktc when all three are present on a row."""
+        row = offense_row(5000.0, {"ktc": 4800.0, "ktcCrowdTradesSfTep": 5100.0})
+        view = market_view_for_row(row, "WR", PARAMS)
+        self.assertEqual(view.market_source, "ktcCrowdTradesSfTep")
+        self.assertEqual(view.market_value, 5100.0)
+        self.assertEqual(view.market_type, "crowd_trades")
+
+    def test_offense_falls_back_to_ktc_sf_tep_when_crowd_trades_absent(self):
+        """Without ktcCrowdTradesSfTep, the legacy ktcSfTep board is still
+        preferred over standard ktc -- but it is now tagged as the
+        historical crowd source, not the live one."""
         view = market_view_for_row(offense_row(5000.0, {"ktc": 4800.0}), "WR", PARAMS)
         self.assertEqual(view.market_source, "ktcSfTep")
         self.assertEqual(view.market_value, 5000.0)
-        self.assertEqual(view.market_type, "crowd")
+        self.assertEqual(view.market_type, "crowd_historical")
 
     def test_idp_anchors_on_idp_trade_calc_only(self):
         row = {"canonicalSiteValues": {"ktcSfTep": 5000.0, "idpTradeCalc": 3200.0}}

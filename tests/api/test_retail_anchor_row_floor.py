@@ -273,9 +273,9 @@ def test_current_retail_board_is_guarded_by_the_canonical_ktc_writer() -> None:
     """
     retail_key = _RETAIL_KEYS[0]
     assert KTC_SOURCE_FILE_KEYS[KTC_CANONICAL_MARKET_SOURCE] == retail_key
-    assert KTC_SOURCE_MIN_PRICED[KTC_CANONICAL_MARKET_SOURCE] >= _load_source_row_floors()[
-        retail_key
-    ]
+    assert (
+        KTC_SOURCE_MIN_PRICED[KTC_CANONICAL_MARKET_SOURCE] >= _load_source_row_floors()[retail_key]
+    )
 
 
 def test_the_twin_board_is_wired_too() -> None:

@@ -120,7 +120,9 @@ class TestZeroVariance:
     """Every value identical — the classic division-by-zero shape."""
 
     def test_identical_values_across_pool_do_not_divide_by_zero(self):
-        rows = [_row(f"Clone {i}", "WR", ktcCrowdTradesSfTep=5000, idpTradeCalc=5000) for i in range(5)]
+        rows = [
+            _row(f"Clone {i}", "WR", ktcCrowdTradesSfTep=5000, idpTradeCalc=5000) for i in range(5)
+        ]
         dc._compute_unified_rankings(rows, {})
         for r in rows:
             # All tied at the top of both boards ⇒ all normalise to 9999.
