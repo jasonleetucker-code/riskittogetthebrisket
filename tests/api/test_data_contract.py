@@ -59,7 +59,7 @@ class TestComputeKtcRankings(unittest.TestCase):
                 "finalAdjusted": ktc,
                 "displayValue": None,
             },
-            "canonicalSiteValues": {"ktcSfTep": ktc},
+            "canonicalSiteValues": {"ktcCrowdTradesSfTep": ktc},
             "sourceCount": 1,
         }
 
@@ -120,7 +120,7 @@ class TestComputeKtcRankings(unittest.TestCase):
         rows = [self._make_player_row(f"P{i}", "WR", 9999 - i * 10) for i in range(60)]
         _compute_unified_rankings(rows, {})
         rank_50_row = next(r for r in rows if r.get("ktcRank") == 50)
-        raw_v = rank_50_row["canonicalSiteValues"]["ktcSfTep"]
+        raw_v = rank_50_row["canonicalSiteValues"]["ktcCrowdTradesSfTep"]
         # site_max comes from the same pool → P0's value 9999.
         site_max = 9999
         # This pool is KTC-only (single source), so the single-source
@@ -191,7 +191,7 @@ class TestComputeKtcRankings(unittest.TestCase):
 
     def test_mirrors_to_legacy_players_dict(self):
         rows = [self._make_player_row("Josh Allen", "QB", 9000)]
-        legacy = {"Josh Allen": {"ktcSfTep": 9000, "_finalAdjusted": 9000}}
+        legacy = {"Josh Allen": {"ktcCrowdTradesSfTep": 9000, "_finalAdjusted": 9000}}
         _compute_unified_rankings(rows, legacy)
         self.assertEqual(legacy["Josh Allen"]["ktcRank"], 1)
         # The legacy dict must mirror whatever the array row computed,
@@ -210,19 +210,19 @@ class TestComputeKtcRankings(unittest.TestCase):
                     "_composite": 9000,
                     "_rawComposite": 9000,
                     "_finalAdjusted": 9000,
-                    "_canonicalSiteValues": {"ktcSfTep": 9000},
+                    "_canonicalSiteValues": {"ktcCrowdTradesSfTep": 9000},
                     "position": "QB",
                 },
                 "Ja'Marr Chase": {
                     "_composite": 8500,
                     "_rawComposite": 8500,
                     "_finalAdjusted": 8500,
-                    "_canonicalSiteValues": {"ktcSfTep": 8500},
+                    "_canonicalSiteValues": {"ktcCrowdTradesSfTep": 8500},
                     "position": "WR",
                 },
             },
-            "sites": [{"key": "ktcSfTep"}],
-            "maxValues": {"ktcSfTep": 9999},
+            "sites": [{"key": "ktcCrowdTradesSfTep"}],
+            "maxValues": {"ktcCrowdTradesSfTep": 9999},
             "sleeper": {"positions": {}},
         }
         contract = build_api_data_contract(raw)
@@ -240,11 +240,11 @@ class TestComputeKtcRankings(unittest.TestCase):
                     "_composite": 9000,
                     "_rawComposite": 9000,
                     "_finalAdjusted": 9000,
-                    "_canonicalSiteValues": {"ktcSfTep": 9000},
+                    "_canonicalSiteValues": {"ktcCrowdTradesSfTep": 9000},
                     "position": "QB",
                 },
             },
-            "sites": [{"key": "ktcSfTep"}],
+            "sites": [{"key": "ktcCrowdTradesSfTep"}],
             "maxValues": {},
             "sleeper": {"positions": {}},
         }
@@ -265,11 +265,11 @@ class TestComputeKtcRankings(unittest.TestCase):
                     "_composite": 9000,
                     "_rawComposite": 9000,
                     "_finalAdjusted": 9000,
-                    "_canonicalSiteValues": {"ktcSfTep": 9000},
+                    "_canonicalSiteValues": {"ktcCrowdTradesSfTep": 9000},
                     "position": "QB",
                 },
             },
-            "sites": [{"key": "ktcSfTep"}],
+            "sites": [{"key": "ktcCrowdTradesSfTep"}],
             "maxValues": {},
             "sleeper": {"positions": {}},
         }
