@@ -31,6 +31,14 @@ name: V1 Authenticated Production Verification (ephemeral guest session)
 # not exist here and is not being created.
 
 on:
+  # TEMP Week-1 proof bridge: run the existing verification instrument
+  # after a successful main deployment. Remove this workflow_run trigger
+  # once W1-30 evidence is recorded; workflow_dispatch remains canonical.
+  workflow_run:
+    workflows:
+      - Deploy Production
+    types:
+      - completed
   workflow_dispatch:
     inputs:
       league:
@@ -60,6 +68,10 @@ concurrency:
 jobs:
   v1-authenticated:
     name: V1 authenticated verification
+    if: >-
+      ${{ github.event_name == 'workflow_dispatch' ||
+          (github.event.workflow_run.conclusion == 'success' &&
+           github.event.workflow_run.head_branch == 'main') }}
     runs-on: ubuntu-latest
     timeout-minutes: 45
     environment: production
@@ -101,7 +113,7 @@ jobs:
           DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
           DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
           APP_DIR: ${{ vars.PROD_APP_DIR || '/home/dynasty/trade-calculator' }}
-          PASS_HOURS: ${{ inputs.pass_hours }}
+          PASS_HOURS: ${{ inputs.pass_hours || '2' }}
           RUN_ID: ${{ github.run_id }}
         shell: bash
         run: |
@@ -152,7 +164,7 @@ jobs:
         id: login
         shell: bash
         env:
-          PASS_HOURS: ${{ inputs.pass_hours }}
+          PASS_HOURS: ${{ inputs.pass_hours || '2' }}
         run: |
           set -Eeuo pipefail
           BODY=$(python3 - "$ORIGIN" "$RUNNER_TEMP/guest_pass_token" <<'PYEOF'
@@ -200,8 +212,8 @@ jobs:
         id: api
         shell: bash
         env:
-          LEAGUE: ${{ inputs.league }}
-          PASS_HOURS: ${{ inputs.pass_hours }}
+          LEAGUE: ${{ inputs.league || 'dynasty_main' }}
+          PASS_HOURS: ${{ inputs.pass_hours || '2' }}
           EXPIRES_EPOCH: ${{ steps.login.outputs.expires_epoch }}
         run: |
           set -Eeuo pipefail
@@ -221,7 +233,7 @@ jobs:
         id: lane4
         shell: bash
         env:
-          LEAGUE: ${{ inputs.league }}
+          LEAGUE: ${{ inputs.league || 'dynasty_main' }}
         run: |
           set -Eeuo pipefail
           export RISKIT_SESSION_COOKIE="jason_session=$(cat "$RUNNER_TEMP/session_cookie")"
