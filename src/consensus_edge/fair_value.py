@@ -141,6 +141,50 @@ MARKET_ANCHOR_BY_ASSET_CLASS: dict[str, str] = {
     "idp": "idpTradeCalc",
 }
 
+# Historical panels predate the September-2026 KTC Crowd / Trades /
+# Crowd+Trades split. Their committed bytes contain the KTC board that
+# actually existed then under ``ktcSfTep`` and, correctly, contain no
+# ``ktcCrowdTradesSfTep.csv``. A historical replay must compare against
+# the market that was observable on that date rather than manufacture a
+# present-day source file or silently lose the entire offense signal.
+#
+# This is deliberately NOT a live fallback. ``csv_root is None`` is the
+# production/current-board path and always requires the canonical
+# Crowd+Trades anchor. Even in a historical tree, absence of BOTH files
+# stays missing: only positive evidence that the predecessor file exists
+# authorizes the compatibility mapping.
+_HISTORICAL_KTC_PREDECESSOR = "ktcSfTep"
+_KTC_CROWD_TRADES_CSV = Path("CSVs/site_raw/ktcCrowdTradesSfTep.csv")
+_KTC_PREDECESSOR_CSV = Path("CSVs/site_raw/ktcSfTep.csv")
+
+
+def resolve_market_anchors(
+    *,
+    anchors: dict[str, str] | None = None,
+    csv_root: "Path | None" = None,
+) -> dict[str, str]:
+    """Resolve current-vs-historical market anchors without live fallback.
+
+    Explicit ``anchors`` always win. Otherwise the live/current path
+    uses :data:`MARKET_ANCHOR_BY_ASSET_CLASS` exactly.
+
+    A caller supplying ``csv_root`` is replaying an as-of source tree.
+    When that tree genuinely predates the Crowd+Trades file but contains
+    the retired KTC predecessor board, offense uses that predecessor as
+    the historical market price. This preserves historical evidence;
+    it does not restore ``ktcSfTep`` as a canonical voting source.
+    """
+    resolved = dict(anchors or MARKET_ANCHOR_BY_ASSET_CLASS)
+    if anchors is not None or csv_root is None:
+        return resolved
+
+    root = Path(csv_root)
+    if not (root / _KTC_CROWD_TRADES_CSV).exists() and (
+        root / _KTC_PREDECESSOR_CSV
+    ).exists():
+        resolved["offense"] = _HISTORICAL_KTC_PREDECESSOR
+    return resolved
+
 # Reasons a row can fail to receive a fair value.  Surfaced verbatim so
 # the UI can say WHY a player has no signal instead of showing a blank.
 UNPRICED_NO_ANCHOR = "no_market_anchor_for_asset_class"
@@ -254,7 +298,7 @@ def fair_value_index(
     reason.  They are still useful to a caller that wants the board; they
     simply cannot carry a mispricing score.
     """
-    anchor_map = dict(anchors or MARKET_ANCHOR_BY_ASSET_CLASS)
+    anchor_map = resolve_market_anchors(anchors=anchors, csv_root=csv_root)
 
     # The default board supplies asset class, market values, and the row
     # universe.  It is never used as a fair value — that is the whole
