@@ -21,7 +21,7 @@ board's own anchor at half weight. It also manufactures a number no
 source published.
 
 Part of the intra-family spread is our own encoding artifact rather than
-two opinions: ``ktcSfTep`` votes value-direct (``raw / site_max × 9999``)
+two opinions: ``ktcCrowdTradesSfTep`` votes value-direct (``raw / site_max × 9999``)
 while ``fantasyNavigatorSf`` votes rank → percentile → Hill.
 
 If a family member genuinely carries independent signal, the repair is to
@@ -30,7 +30,7 @@ UNDECLARE the group — not to half-count it.
 PRECEDENCE IS DECLARED, NOT INVENTED
 ─────────────────────────────────────
 It is registry order, which already encodes the right heads: the board
-before its republisher (``ktcSfTep`` → ``fantasyNavigatorSf``), the
+before its republisher (``ktcCrowdTradesSfTep`` → ``fantasyNavigatorSf``), the
 consensus panel before the expert inside it (``fantasyProsSf`` →
 ``fantasyProsFitzmaurice``), and every vendor's main board before its
 rookie-specialty board.
@@ -58,19 +58,19 @@ from src.api.data_contract import (
 class TestOneVotePerFamily:
     def test_a_family_contributes_exactly_one_value(self):
         pairs = [
-            ("ktcSfTep", 9000.0, True),
+            ("ktcCrowdTradesSfTep", 9000.0, True),
             ("fantasyNavigatorSf", 7000.0, False),
             ("fantasyCalc", 8000.0, False),
         ]
         kept, superseded = collapse_to_independent_families(pairs)
 
-        assert [k for k, _v, _a in kept] == ["ktcSfTep", "fantasyCalc"]
-        assert superseded == {"fantasyNavigatorSf": "ktcSfTep"}
+        assert [k for k, _v, _a in kept] == ["ktcCrowdTradesSfTep", "fantasyCalc"]
+        assert superseded == {"fantasyNavigatorSf": "ktcCrowdTradesSfTep"}
 
     def test_the_head_keeps_its_own_published_value(self):
         """Not the mean of 9000 and 7000 — a number nobody published."""
         kept, _ = collapse_to_independent_families(
-            [("ktcSfTep", 9000.0, True), ("fantasyNavigatorSf", 7000.0, False)]
+            [("ktcCrowdTradesSfTep", 9000.0, True), ("fantasyNavigatorSf", 7000.0, False)]
         )
         assert [v for _k, v, _a in kept] == [9000.0]
 
@@ -130,12 +130,12 @@ class TestOneVotePerFamily:
         change riding along with this one."""
         pairs = [
             ("fantasyCalc", 8000.0, False),
-            ("ktcSfTep", 9000.0, True),
+            ("ktcCrowdTradesSfTep", 9000.0, True),
             ("fantasyNavigatorSf", 7000.0, False),
             ("otcffbSf", 7500.0, False),
         ]
         kept, _ = collapse_to_independent_families(pairs)
-        assert [k for k, _v, _a in kept] == ["fantasyCalc", "ktcSfTep", "otcffbSf"]
+        assert [k for k, _v, _a in kept] == ["fantasyCalc", "ktcCrowdTradesSfTep", "otcffbSf"]
 
     def test_an_empty_row_collapses_to_nothing(self):
         assert collapse_to_independent_families([]) == ([], {})
@@ -150,7 +150,7 @@ class TestPrecedenceIsDeclaredByTheRegistry:
     """
 
     HEADS = {
-        "ktc": "ktcSfTep",
+        "ktc": "ktcCrowdTradesSfTep",
         "fantasyPros": "fantasyProsSf",
         "dlf": "dlfSf",
         "flockFantasy": "flockFantasySf",
