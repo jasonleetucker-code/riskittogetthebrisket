@@ -435,6 +435,82 @@ def test_schedule_past_kickoff_without_result_is_unknown_not_live():
     assert states["NE"].state == "unknown"
 
 
+def _schedule_row(*, home, away, gameday=None, gametime=None, home_score=None, away_score=None):
+    return {
+        "season": 2026,
+        "week": 1,
+        "game_type": "REG",
+        "gameday": gameday,
+        "gametime": gametime,
+        "home_team": home,
+        "away_team": away,
+        "home_score": home_score,
+        "away_score": away_score,
+        "result": home_score - away_score
+        if home_score is not None and away_score is not None
+        else None,
+    }
+
+
+def test_schedule_games_orders_chronologically_with_unknown_kickoff_last():
+    from src.ros.game_day_week import schedule_games
+
+    rows = [
+        # No gameday/gametime at all -- an unknown kickoff, must sort LAST,
+        # never first (an unknown kickoff is not "the earliest game").
+        _schedule_row(home="LA", away="ARI"),
+        _schedule_row(home="PHI", away="DAL", gameday="2026-09-07", gametime="13:00"),
+        _schedule_row(home="KC", away="BUF", gameday="2026-09-04", gametime="20:15"),
+    ]
+    games = schedule_games(rows, season=2026, week=1, now=2_000_000_000.0)
+    assert [g.game_id for g in games] == [
+        "2026_1_BUF_KC",
+        "2026_1_DAL_PHI",
+        "2026_1_ARI_LAR",
+    ]
+    assert games[0].kickoff_at < games[1].kickoff_at
+    assert games[2].kickoff_at is None
+    # nflverse LA -> Sleeper LAR, same normalization schedule_game_evidence uses.
+    assert games[2].home_team == "LAR"
+
+
+def test_schedule_games_derives_the_same_state_schedule_game_evidence_does():
+    from src.ros.game_day_week import schedule_game_evidence, schedule_games
+
+    now = 2_000_000_000.0
+    rows = [
+        _schedule_row(home="SEA", away="NE", gameday="2020-01-01", gametime="13:00"),
+        _schedule_row(
+            home="KC",
+            away="BUF",
+            gameday="2020-01-01",
+            gametime="13:00",
+            home_score=24,
+            away_score=17,
+        ),
+        _schedule_row(home="PHI", away="DAL", gameday="2286-01-01", gametime="13:00"),
+    ]
+    games = {g.game_id: g for g in schedule_games(rows, season=2026, week=1, now=now)}
+    evidence = schedule_game_evidence(rows, season=2026, week=1, observed_at=1.0, now=now)
+
+    # A past kickoff with no result is unknown, not fabricated live/completed
+    # -- same as the existing per-team guard, now proven for the per-game shape.
+    assert games["2026_1_NE_SEA"].state == "unknown" == evidence["SEA"].state
+    # Both scores + result present and kickoff in the past -> completed.
+    assert games["2026_1_BUF_KC"].state == "completed" == evidence["KC"].state
+    assert games["2026_1_BUF_KC"].home_score == 24
+    assert games["2026_1_BUF_KC"].away_score == 17
+    # A future kickoff is not_started, whatever else the row carries.
+    assert games["2026_1_DAL_PHI"].state == "not_started" == evidence["PHI"].state
+
+
+def test_schedule_games_drops_a_row_with_no_team_code_rather_than_fabricate_one():
+    from src.ros.game_day_week import schedule_games
+
+    rows = [_schedule_row(home="", away="DAL", gameday="2026-09-07", gametime="13:00")]
+    assert schedule_games(rows, season=2026, week=1, now=2_000_000_000.0) == []
+
+
 def test_the_same_week_transitions_pregame_to_live_to_final_without_double_projection():
     from src.ros.game_day_week import GameEvidence, resolve_scoring_week
 

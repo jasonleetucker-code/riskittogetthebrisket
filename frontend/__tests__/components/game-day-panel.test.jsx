@@ -445,3 +445,132 @@ describe("GameDayPanel — explicit ?team= wins over the switcher", () => {
   });
 
 });
+
+describe("GameDayPanel — the NFL slate", () => {
+  const SLATE_PAYLOAD = {
+    ...PRICED,
+    nflSlate: {
+      scheduleState: "available",
+      games: [
+        {
+          gameId: "2026_1_BUF_KC",
+          homeTeam: "KC",
+          awayTeam: "BUF",
+          kickoffAt: 1757260800,
+          state: "not_started",
+          homeScore: null,
+          awayScore: null,
+          players: [],
+        },
+        {
+          gameId: "2026_1_MIN_PHI",
+          homeTeam: "PHI",
+          awayTeam: "MIN",
+          kickoffAt: 1757271600,
+          state: "not_started",
+          homeScore: null,
+          awayScore: null,
+          players: [
+            {
+              playerId: "p1",
+              name: "Ann Alpha",
+              side: "team",
+              nflTeam: "PHI",
+              state: "not_started",
+              pointsScored: 0.0,
+              projectedRemaining: 20.0,
+              fantasyPositions: ["QB"],
+            },
+            {
+              playerId: "p4",
+              name: "Dee Delta",
+              side: "opponent",
+              nflTeam: "MIN",
+              state: "not_started",
+              pointsScored: 0.0,
+              projectedRemaining: 18.0,
+              fantasyPositions: ["QB"],
+            },
+          ],
+        },
+      ],
+      byeWeek: [
+        {
+          playerId: "p9",
+          name: "Gil Golf",
+          side: "team",
+          nflTeam: "DET",
+          state: "not_started",
+          pointsScored: 0.0,
+          projectedRemaining: 9.0,
+          fantasyPositions: ["WR"],
+        },
+      ],
+      unattributed: [
+        {
+          playerId: "p10",
+          name: "Hal Hotel",
+          side: "opponent",
+          nflTeam: null,
+          state: "unknown",
+          pointsScored: null,
+          projectedRemaining: null,
+          fantasyPositions: ["TE"],
+          reason: "no NFL team on file for this player",
+        },
+      ],
+    },
+  };
+
+  it("renders games in the order given, not re-sorted, including one with no relevant players", async () => {
+    mockJson(SLATE_PAYLOAD);
+    render(<GameDayPanel />);
+    await screen.findByText("This week's NFL slate");
+    const headings = screen.getAllByText(/^(KC|BUF|PHI|MIN)$/);
+    const order = headings.map((el) => el.textContent);
+    // BUF @ KC (no relevant players) sorts before PHI @ MIN by kickoff time,
+    // and it must still appear -- the complete schedule, not a filtered one.
+    expect(order.indexOf("BUF")).toBeLessThan(order.indexOf("MIN"));
+  });
+
+  it("groups each side's players under the NFL game they're playing in", async () => {
+    mockJson(SLATE_PAYLOAD);
+    render(<GameDayPanel />);
+    await screen.findByText(/Ann Alpha · QB · projected 20.0/);
+    expect(screen.getByText(/Dee Delta · QB · projected 18.0/)).toBeInTheDocument();
+  });
+
+  it("reports a bye-week player and an unattributed player rather than dropping them", async () => {
+    mockJson(SLATE_PAYLOAD);
+    render(<GameDayPanel />);
+    await screen.findByText(/On bye this week/);
+    expect(screen.getByText(/Gil Golf/)).toBeInTheDocument();
+    expect(screen.getByText(/Could not match to an NFL game/)).toBeInTheDocument();
+    expect(screen.getByText(/Hal Hotel/)).toBeInTheDocument();
+  });
+
+  it("shows an honest unavailable state rather than an empty slate when the schedule cache is missing", async () => {
+    mockJson({
+      ...PRICED,
+      nflSlate: {
+        scheduleState: "unavailable",
+        scheduleUnavailableReason: "no cached nflverse schedule for this season",
+        games: [],
+        byeWeek: [],
+        unattributed: [],
+      },
+    });
+    render(<GameDayPanel />);
+    await screen.findByText(/NFL schedule unavailable/);
+    expect(
+      screen.getByText(/no cached nflverse schedule for this season/),
+    ).toBeInTheDocument();
+  });
+
+  it("renders nothing for the slate section when the payload carries no nflSlate at all", async () => {
+    mockJson(PRICED);
+    render(<GameDayPanel />);
+    await screen.findByText("61.5%");
+    expect(screen.queryByText("This week's NFL slate")).not.toBeInTheDocument();
+  });
+});

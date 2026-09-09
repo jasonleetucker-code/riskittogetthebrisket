@@ -354,6 +354,48 @@ def _finite_points(value: Any) -> float | None:
     return result if math.isfinite(result) else None
 
 
+def _normalize_nfl_team(code: Any) -> str:
+    """nflverse LA is Sleeper LAR; no player identity guessing."""
+    team = str(code or "").upper()
+    return "LAR" if team == "LA" else team
+
+
+def _row_game_state(
+    row: Mapping[str, Any], *, season: int, week: int, now: float
+) -> tuple[str, str, str, float | None, float | None, float | None] | None:
+    """One nflverse schedule row -> ``(home, away, state, kickoff_at, home_score, away_score)``.
+
+    Returns ``None`` for a row outside this season/week or not a regular-season
+    game. Shared by :func:`schedule_game_evidence` (per-team) and
+    :func:`schedule_games` (per-game) so the two never derive state/kickoff
+    differently for the same row.
+    """
+    from src.ros.game_day_capture import first_kickoff_utc
+
+    try:
+        if int(row.get("season")) != season or int(row.get("week")) != week:
+            return None
+    except (TypeError, ValueError):
+        return None
+    if row.get("game_type") != "REG":
+        return None
+    kickoff = first_kickoff_utc([row], season=season, week=week)
+    stamp = kickoff.timestamp() if kickoff else None
+    home_score = _finite_points(row.get("home_score"))
+    away_score = _finite_points(row.get("away_score"))
+    result_score = _finite_points(row.get("result"))
+    scores = (home_score, away_score, result_score)
+    if all(s is not None for s in scores) and stamp is not None and stamp <= now:
+        state = "completed"
+    elif stamp is not None and stamp > now:
+        state = "not_started"
+    else:
+        state = "unknown"
+    home = _normalize_nfl_team(row.get("home_team"))
+    away = _normalize_nfl_team(row.get("away_team"))
+    return home, away, state, stamp, home_score, away_score
+
+
 def schedule_game_evidence(rows, *, season, week, observed_at, now):
     """Shape the canonical nflverse schedule; do not create a downloader.
 
@@ -363,33 +405,74 @@ def schedule_game_evidence(rows, *, season, week, observed_at, now):
     Explicit live game states can enter through GameEvidence when a source
     capable of observing them is wired. Source age is carried unchanged.
     """
-    from src.ros.game_day_capture import first_kickoff_utc
-
     result = {}
     for row in rows:
-        try:
-            if int(row.get("season")) != season or int(row.get("week")) != week:
-                continue
-        except (TypeError, ValueError):
+        derived = _row_game_state(row, season=season, week=week, now=now)
+        if derived is None:
             continue
-        if row.get("game_type") != "REG":
-            continue
-        kickoff = first_kickoff_utc([row], season=season, week=week)
-        stamp = kickoff.timestamp() if kickoff else None
-        scores = [_finite_points(row.get(k)) for k in ("home_score", "away_score", "result")]
-        if all(s is not None for s in scores) and stamp is not None and stamp <= now:
-            state = "completed"
-        elif stamp is not None and stamp > now:
-            state = "not_started"
-        else:
-            state = "unknown"
-        for key in ("home_team", "away_team"):
-            team = str(row.get(key) or "").upper()
+        home, away, state, stamp, _home_score, _away_score = derived
+        for team in (home, away):
             if team:
-                # nflverse LA is Sleeper LAR; no player identity guessing.
-                team = "LAR" if team == "LA" else team
                 result[team] = GameEvidence(state, "nflverse:schedules", observed_at, stamp)
     return result
+
+
+@dataclass(frozen=True)
+class NflGame:
+    """One real NFL game for a week — a first-class object, unlike `GameEvidence`.
+
+    `GameEvidence` is per-TEAM (the same evidence written under both the home
+    and away team codes, with no pairing between them). This is the missing
+    per-game shape: a chronologically-orderable list of real games, each with
+    both teams and a single kickoff, for surfaces that need to render "the
+    week's NFL slate" rather than answer "is this one team's game live yet".
+    """
+
+    game_id: str
+    home_team: str
+    away_team: str
+    kickoff_at: float | None
+    state: str
+    home_score: float | None = None
+    away_score: float | None = None
+
+    def __post_init__(self):
+        if self.state not in {"not_started", "in_progress", "completed", "unknown"}:
+            raise GameDayWeekRefusal(f"unsupported game evidence state: {self.state}")
+
+
+def schedule_games(rows, *, season: int, week: int, now: float) -> list[NflGame]:
+    """The complete real NFL schedule for one week, as first-class per-game objects.
+
+    Ordered by `kickoff_at` ascending; a row with no resolvable kickoff sorts
+    LAST, never first — an unknown kickoff must never read as "the earliest
+    game", which is a fact this data does not support. Reuses the exact same
+    per-row state/kickoff derivation `schedule_game_evidence` uses, so the two
+    can never disagree about what one row means.
+    """
+    games: list[NflGame] = []
+    for row in rows:
+        derived = _row_game_state(row, season=season, week=week, now=now)
+        if derived is None:
+            continue
+        home, away, state, stamp, home_score, away_score = derived
+        if not home or not away:
+            # No player identity to guess here either: a row missing a team
+            # code names no real game and is dropped rather than fabricated.
+            continue
+        games.append(
+            NflGame(
+                game_id=f"{season}_{week}_{away}_{home}",
+                home_team=home,
+                away_team=away,
+                kickoff_at=stamp,
+                state=state,
+                home_score=home_score,
+                away_score=away_score,
+            )
+        )
+    games.sort(key=lambda g: (g.kickoff_at is None, g.kickoff_at))
+    return games
 
 
 # Owner decision, 2026-09-09: simple game-progress/time proration is the
