@@ -60,6 +60,42 @@ host-declared `Out` (definitively finished) both get `remaining=0.0`, not
 Final state requires completed game evidence and actual player scoring, and
 its optimal lineup comes from `src/ros/lineup.py`.
 
+## The NFL slate — a per-game object, not a fan-out of `GameEvidence`
+
+`GameEvidence` is per-TEAM: `schedule_game_evidence` writes the same evidence
+object under both a game's `home_team` and `away_team` keys, with no pairing
+between them and no `game_id`. That is sufficient for "is this one team's game
+live yet" but cannot answer "what is the week's real NFL schedule, in
+chronological order" — nothing needed that question until the matchup NFL
+slate (2026-09-09).
+
+`NflGame` is the missing per-game shape, and `schedule_games(rows, *, season,
+week, now)` builds the list: `game_id`, `home_team`, `away_team`, `kickoff_at`,
+`state` (the same `not_started` / `in_progress` / `completed` / `unknown`
+vocabulary as `GameEvidence`), `home_score`, `away_score`. Ordered by
+`kickoff_at` ascending, with an unknown kickoff sorted **last** — never first,
+since an unresolvable kickoff is not evidence of "earliest." Both functions
+derive state and kickoff from the same private per-row helper
+(`_row_game_state`) so they can never disagree about what one schedule row
+means; `schedule_games` is a pure additive sibling and does not change
+`schedule_game_evidence`'s existing per-team behavior.
+
+`src/api/matchup_intel.py::build_matchup_intel` consumes it to stamp a new
+`nflSlate` field: the complete real schedule for the week, with the
+requesting matchup's two rosters' players (from `TeamWeek.players` — the full
+active roster, bench included, already correctly resolved for pregame/live/
+final by `resolve_scoring_week`) attached to the game matching their NFL team
+(`side: "team" | "opponent"`). A player whose team has no game this week is a
+real fact (`byeWeek`), not a silent drop; a player with no resolvable NFL team
+on file is a data gap (`unattributed`, with a reason), never guessed into a
+game. `scheduleState: "unavailable"` (with a reason) is stamped distinctly
+from an empty `games` list when the schedule cache itself has nothing —
+"missing" and "empty" must not read the same. `frontend/components/
+GameDayPanel.jsx` renders this verbatim (materializer only): the complete
+schedule in the order given, never re-sorted or filtered by relevance, with a
+game carrying no relevant players collapsed to a compact row rather than
+hidden.
+
 ## The three ways a player can be absent stay distinct
 
 - **ineligible** — in the roster's `reserve` / `taxi` buckets. He cannot
@@ -128,3 +164,15 @@ not just on the resolver's own output); an IR player leaves the week and is
 **not** miscounted as merely unpriced; a begun week is refused on both the
 team-score and player-score signals; no rosters and no starter slots are
 refused; every team gets an opponents entry.
+
+`schedule_games` is covered separately in the same test file: chronological
+ordering including an unknown-kickoff row sorting last, state derivation
+agreeing with `schedule_game_evidence` on the same rows, `LA`→`LAR`
+normalization, and a row with no team code being dropped rather than
+fabricated into a game. `tests/api/test_matchup_intel.py::NflSlateTests`
+covers the `nflSlate` field end to end: games grouped by side, a bye-week
+player reported rather than dropped, an unattributed player reported with a
+reason, an unavailable schedule cache stamped distinctly from an empty one,
+and games rendered in kickoff order regardless of fantasy relevance.
+`frontend/__tests__/components/game-day-panel.test.jsx` pins the same
+properties on the render side.

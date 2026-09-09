@@ -371,3 +371,143 @@ class ArchiveEvidenceTests(unittest.TestCase):
         self.assertEqual(arch["capturedAt"], "2026-09-09T18:02:11+00:00")
         self.assertEqual(arch["latestCapturedAt"], "2026-09-09T20:30:00+00:00")
         self.assertEqual(arch["captureKinds"], ["pregame"])
+
+
+def _row(*, home, away, gametime, gameday="2026-09-07"):
+    return {
+        "season": 2026,
+        "week": 1,
+        "game_type": "REG",
+        "gameday": gameday,
+        "gametime": gametime,
+        "home_team": home,
+        "away_team": away,
+        "home_score": None,
+        "away_score": None,
+        "result": None,
+    }
+
+
+def _players_with_teams():
+    return {
+        pid: dict(meta, team="SEA" if pid in {"p1", "p2", "p3"} else "MIN")
+        for pid, meta in PLAYERS.items()
+    }
+
+
+def _patch_schedule(rows):
+    return mock.patch.object(
+        matchup_intel, "_schedule_context", return_value=(rows, 100.0, 2_000_000_000.0)
+    )
+
+
+class NflSlateTests(unittest.TestCase):
+    """The matchup NFL slate: complete, chronological, never a silent drop."""
+
+    def test_no_cached_schedule_is_an_explicit_unavailable_state(self) -> None:
+        with _patch_fetch(), _patch_estimates(), _patch_schedule([]):
+            out = _build()
+        slate = out["nflSlate"]
+        self.assertEqual(slate["scheduleState"], "unavailable")
+        self.assertEqual(slate["games"], [])
+
+    def test_a_player_with_no_nfl_team_on_file_is_unattributed_not_dropped(self) -> None:
+        # The default PLAYERS fixture carries no "team" field at all.
+        rows = [_row(home="KC", away="BUF", gametime="13:00")]
+        with _patch_fetch(), _patch_estimates(), _patch_schedule(rows):
+            out = _build()
+        slate = out["nflSlate"]
+        self.assertEqual(slate["scheduleState"], "available")
+        unattributed_ids = {p["playerId"] for p in slate["unattributed"]}
+        self.assertEqual(unattributed_ids, {"p1", "p2", "p3", "p4", "p5", "p6"})
+        self.assertTrue(all(p["reason"] for p in slate["unattributed"]))
+        self.assertEqual(slate["games"][0]["players"], [])
+
+    def test_players_are_grouped_under_their_real_nfl_game_by_side(self) -> None:
+        fetched = matchup_intel._LeagueFetch(
+            league=LEAGUE,
+            users=USERS,
+            rosters=ROSTERS,
+            matchups=MATCHUPS,
+            players=_players_with_teams(),
+            fetched_at=1_700_000_000.0,
+        )
+        rows = [_row(home="SEA", away="MIN", gametime="13:00")]
+        with (
+            mock.patch.object(matchup_intel, "_fetch_league_week", return_value=fetched),
+            _patch_estimates(),
+            _patch_schedule(rows),
+        ):
+            out = _build()
+        slate = out["nflSlate"]
+        self.assertEqual(len(slate["games"]), 1)
+        game = slate["games"][0]
+        self.assertEqual({game["homeTeam"], game["awayTeam"]}, {"SEA", "MIN"})
+        sides = {p["playerId"]: p["side"] for p in game["players"]}
+        self.assertEqual(
+            sides,
+            {
+                "p1": "team",
+                "p2": "team",
+                "p3": "team",
+                "p4": "opponent",
+                "p5": "opponent",
+                "p6": "opponent",
+            },
+        )
+        self.assertEqual(slate["byeWeek"], [])
+        self.assertEqual(slate["unattributed"], [])
+
+    def test_a_team_with_no_game_this_week_is_a_bye_not_a_silent_drop(self) -> None:
+        fetched = matchup_intel._LeagueFetch(
+            league=LEAGUE,
+            users=USERS,
+            rosters=ROSTERS,
+            matchups=MATCHUPS,
+            players=_players_with_teams(),
+            fetched_at=1_700_000_000.0,
+        )
+        # Only SEA plays this week; MIN has a bye.
+        rows = [_row(home="SEA", away="ARI", gametime="13:00")]
+        with (
+            mock.patch.object(matchup_intel, "_fetch_league_week", return_value=fetched),
+            _patch_estimates(),
+            _patch_schedule(rows),
+        ):
+            out = _build()
+        slate = out["nflSlate"]
+        bye_ids = {p["playerId"] for p in slate["byeWeek"]}
+        self.assertEqual(bye_ids, {"p4", "p5", "p6"})
+        self.assertEqual(slate["unattributed"], [])
+        seattle_game = next(g for g in slate["games"] if "SEA" in (g["homeTeam"], g["awayTeam"]))
+        self.assertEqual({p["playerId"] for p in seattle_game["players"]}, {"p1", "p2", "p3"})
+
+    def test_games_are_reported_in_kickoff_order_never_by_relevance(self) -> None:
+        fetched = matchup_intel._LeagueFetch(
+            league=LEAGUE,
+            users=USERS,
+            rosters=ROSTERS,
+            matchups=MATCHUPS,
+            players=_players_with_teams(),
+            fetched_at=1_700_000_000.0,
+        )
+        rows = [
+            # This matchup's own game (MIN) kicks off in the middle slot...
+            _row(home="MIN", away="GB", gametime="16:25"),
+            # ...an entirely irrelevant early game still sorts first...
+            _row(home="KC", away="BUF", gametime="13:00"),
+            # ...and this matchup's other game (SEA) is the late slot.
+            _row(home="SEA", away="NE", gametime="20:20"),
+        ]
+        with (
+            mock.patch.object(matchup_intel, "_fetch_league_week", return_value=fetched),
+            _patch_estimates(),
+            _patch_schedule(rows),
+        ):
+            out = _build()
+        games = out["nflSlate"]["games"]
+        team_order = [(g["homeTeam"], g["awayTeam"]) for g in games]
+        self.assertEqual(team_order, [("KC", "BUF"), ("MIN", "GB"), ("SEA", "NE")])
+        # The irrelevant early game is still present, with an empty roster
+        # -- the complete schedule, not filtered down to relevant games.
+        self.assertEqual(games[0]["players"], [])
