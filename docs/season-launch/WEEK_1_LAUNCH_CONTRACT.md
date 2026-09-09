@@ -82,6 +82,27 @@ The denominator is frozen at 30 for this launch tranche. Do not add/remove rows 
 
 - **W1-03 stays `IMPLEMENTED_UNVERIFIED`, deliberately, despite a green retention run.** Step 4 (run [`34324196510`](https://github.com/jasonleetucker-code/riskittogetthebrisket/actions/runs/34324196510)) wrote `data/game_day` into the backup generation (`dir ok: ... -> .../dirs/game_day.tar.gz`, not `skip dir (absent)`) — but reading the log rather than the badge found that `deploy/diagnostics/retention_backup_restore_proof.sh`'s restore+verify loop covered exactly `C1-RET-01`…`C1-RET-08` and never opened `game_day` (a different identifier, `C5-GD-02`) at all. A backup that wrote the artifact and a proof that never restored it could both go green together — the same failure class the runbook's own "read the log, not the badge" warning names, from the opposite direction. Fixed in #1302 (one additional `prove_dir` call, mutation-tested), not yet merged/deployed/re-run. W1-03 promotes only once a fresh retention run against the deployed fix produces a real `C5-GD-02 game_day/: restored N file(s)` line — not before.
 
+### Row movements, 2026-09-09 (W1-27 methodology)
+
+- **Owner methodology decision: in-progress remaining production is
+  TIME-PRORATED (Option A).** Closes the deliberately-open seam recorded in
+  the 2026-09-08 entry below. `src/ros/game_day_week.py::resolve_scoring_week`
+  now scales an in-progress player's pregame estimate by the fraction of a
+  single fixed assumed game duration (`_ASSUMED_GAME_DURATION_SECONDS`,
+  ~3h15m) not yet elapsed since evidenced `kickoff_at`. Option B
+  ("remaining = 0 for every in-progress player") was explicitly rejected.
+  When kickoff/game-progress evidence is missing or unusable, remaining
+  stays `None` and the player is reported in
+  `progress_unavailable_player_ids` (API: `probabilityState:
+  "LIVE_PROGRESS_UNAVAILABLE"`) — a missing-evidence state, not a
+  methodology-undecided one; `OWNER_POLICY_REQUIRED` is retired. Completed
+  and definitively-ruled-out (`Out`) players now report `remaining=0.0`
+  rather than `None`, since a finished game is real evidence nothing
+  further is coming. Full record: `docs/game-day/GAME_DAY_WEEK_RESOLVER.md`.
+  This does not itself move W1-27 to `VERIFIED` — that still needs literal
+  production LIVE evidence during an actual game, per the row's own
+  acceptance criteria and the entry below.
+
 ### Row movements, 2026-09-08 (W1-29)
 
 - **W1-29 → VERIFIED.** Frozen candidate head `fd7601c2cb675e776b0ffc0c7f66e6e6bd33b2fd` — current `main` tip at freeze time, carrying #1277's contract/claims corrections plus one automated `chore(ops): record Sharp production smoke` commit (data-only; diff limited to `data/ops/sharp-production-smoke.json`, no code). Two exact-head gates dispatched against the identical SHA, confirmed matching before either was read:

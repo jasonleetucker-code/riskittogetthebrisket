@@ -21,10 +21,37 @@ archive is pregame-only by construction while the simulation is not.
 still refuses a begun week. :func:`resolve_scoring_week` adds actual host
 scores and explicit game evidence around that canonical roster/lineup input.
 The existing nflverse schedule cache proves scheduled and completed games;
-it does not prove a game is live or estimate its remaining production. An
-in-progress source can enter through the typed :class:`GameEvidence` seam,
-while the unresolved remaining-production policy stays explicit and blocks
-probability rather than being guessed.
+it does not by itself prove a game is live. An in-progress source enters
+through the typed :class:`GameEvidence` seam, which now also carries
+``kickoff_at`` evidence used for the OWNER-APPROVED remaining-production
+methodology below.
+
+**Owner methodology decision (2026-09-09) — in-progress remaining
+production is TIME-PRORATED.**  For a player whose game is evidenced
+``in_progress``, remaining production is the pregame per-game estimate
+scaled by the fraction of the game clock not yet elapsed:
+``remaining = projected_remaining * max(0, 1 - elapsed / ASSUMED_GAME_SECONDS)``,
+where ``elapsed`` is wall time since the evidenced ``kickoff_at`` and
+``ASSUMED_GAME_SECONDS`` is a single fixed constant approximating an NFL
+game's kickoff-to-final-whistle duration (see
+``_ASSUMED_GAME_DURATION_SECONDS``).  This is deliberately the simplest
+correct estimator — a future revision may use snaps, drives, possession or
+game script, but may not silently change today's methodology without the
+same owner authority.  Option B ("remaining = 0 for every in-progress
+player") was explicitly rejected: it is not a defensible default, it is a
+different and unapproved forecast.
+
+**Missing/stale game-progress evidence degrades honestly; it is never
+guessed.**  When a player is evidenced ``in_progress`` but has a
+``projected_remaining`` and no usable ``kickoff_at`` (or ``now`` precedes
+it), remaining stays ``None`` and the player is reported in
+``progress_unavailable_player_ids`` — this is a *missing-evidence* state,
+never a *methodology-undecided* state (that seam is now closed; see the
+2026-09-09 decision above).  A `completed` game or a host-declared `Out`
+(definitively finished) is a DIFFERENT case: remaining is `0.0`, not
+`None`, because the game being over IS positive evidence nothing further
+is coming — that is not a guess, and coercing it to `None` would hide a
+fact behind the same spelling used for genuine absence of evidence.
 
 **Missing is never zero, and the three ways a player can be absent stay
 distinct:**
@@ -42,8 +69,10 @@ distinct:**
   (the games have not kicked off), not a gap.
 
 **Known limitation, named rather than papered over.**  A host-declared
-`Out` is unavailable; less certain injury labels remain projections. With no
-evidenced live game-status feed, elapsed kickoff time remains `unknown`.
+`Out` is unavailable; less certain injury labels remain projections.
+Proration uses a single fixed assumed game duration rather than a real
+per-game clock/quarter feed (none is wired), so it is a simple estimator by
+design, not a precise one — see the owner decision above.
 """
 
 from __future__ import annotations
@@ -363,12 +392,47 @@ def schedule_game_evidence(rows, *, season, week, observed_at, now):
     return result
 
 
+# Owner decision, 2026-09-09: simple game-progress/time proration is the
+# canonical initial estimator for in-progress remaining production (see the
+# module docstring). ~3h15m approximates NFL kickoff-to-final-whistle
+# duration across a broadcast window; it is a single fixed constant by
+# design, not a per-game measurement, because no live game-clock/quarter
+# feed is wired. A future estimator may replace this constant's role, but
+# only through the same owner authority that set it.
+_ASSUMED_GAME_DURATION_SECONDS = 3.25 * 3600.0
+
+
+def _prorated_remaining(
+    projected_remaining: float | None,
+    kickoff_at: float | None,
+    now: float,
+) -> tuple[float | None, bool]:
+    """Time-prorate one in-progress player's remaining production.
+
+    Returns ``(remaining, progress_unavailable)``. ``progress_unavailable``
+    is True only when a real projection exists but cannot be prorated for
+    lack of reliable game-progress evidence (no/invalid ``kickoff_at``) —
+    never when ``projected_remaining`` itself is missing, which is a
+    separate "unpriced player" concern this function is not responsible
+    for reporting.
+    """
+    if projected_remaining is None:
+        return None, False
+    if kickoff_at is None or now < kickoff_at:
+        return None, True
+    elapsed = now - kickoff_at
+    fraction_remaining = max(
+        0.0, 1.0 - min(elapsed, _ASSUMED_GAME_DURATION_SECONDS) / _ASSUMED_GAME_DURATION_SECONDS
+    )
+    return projected_remaining * fraction_remaining, False
+
+
 @dataclass(frozen=True)
 class ScoringWeekResolution:
     week: WeekResolution
     mode: str
     host_scores: dict[str, float | None]
-    policy_required_player_ids: tuple[str, ...]
+    progress_unavailable_player_ids: tuple[str, ...]
     game_evidence: Mapping[str, GameEvidence]
 
 
@@ -385,12 +449,17 @@ def resolve_scoring_week(
     game_evidence: Mapping[str, GameEvidence] | None = None,
     now: float | None = None,
 ) -> ScoringWeekResolution:
-    """Factual scheduled/live/final state around an UNRESOLVED policy seam.
+    """Factual scheduled/live/final state, in-progress remaining TIME-PRORATED.
 
-    No rate model, zero remainder or exclusion policy is selected for a
-    mid-game player. Their actual points survive, their remainder is None,
-    and policy_required_player_ids prevents the serving path from claiming
-    an operational probability policy has been approved.
+    Owner-approved 2026-09-09 (see module docstring): an in-progress
+    player's remaining production is his pregame estimate scaled by the
+    fraction of an assumed game duration not yet elapsed since evidenced
+    kickoff. When that evidence is missing or unusable, remaining stays
+    ``None`` and ``progress_unavailable_player_ids`` reports it as a
+    missing-evidence state, never a methodology-undecided one. A
+    ``completed`` or definitively-``inactive`` (host-declared ``Out``)
+    player's remaining is ``0.0`` — real evidence nothing further is
+    coming, not a guess.
     """
     import time
     from dataclasses import replace
@@ -417,7 +486,7 @@ def resolve_scoring_week(
     by_id = {str(m.get("roster_id")): m for m in matchups or ()}
     opponents = opponents_from_matchups(matchups)
     teams = []
-    required = []
+    progress_unavailable = []
     host_scores = {}
     unpriced = {}
     final = bool(evidence) and all(g.state == "completed" for g in evidence.values())
@@ -440,9 +509,21 @@ def resolve_scoring_week(
                 state = "inactive"
                 if actual is None:
                     actual = 0.0
-            remaining = p.projected_remaining if state == "not_started" else None
-            if state == "in_progress":
-                required.append(p.player_id)
+            if state == "not_started":
+                remaining = p.projected_remaining
+            elif state == "in_progress":
+                remaining, unavailable = _prorated_remaining(
+                    p.projected_remaining, game.kickoff_at if game else None, current
+                )
+                if unavailable:
+                    progress_unavailable.append(p.player_id)
+            elif state in ("completed", "inactive"):
+                # Definitive evidence nothing further is coming this week
+                # (owner decision 2026-09-09) — 0.0 is the evidenced fact.
+                remaining = 0.0
+            else:
+                # "unknown" — genuinely no evidence either way.
+                remaining = None
             if state == "unknown" and begun:
                 # An explicit game-state feed is also required here.
                 # A nonzero score alone cannot tell live from completed.
@@ -461,9 +542,10 @@ def resolve_scoring_week(
             if p.state == "not_started" and p.projected_remaining is None
         )
     notes = list(base.notes) if not begun else []
-    if required:
+    if progress_unavailable:
         notes.append(
-            "OWNER_POLICY_REQUIRED: in-progress remaining production has no approved policy"
+            "GAME_PROGRESS_UNAVAILABLE: in-progress remaining production could not be "
+            "time-prorated — no reliable kickoff/game-progress evidence"
         )
     if begun and any(p.state == "unknown" for t in teams for p in t.players):
         notes.append(
@@ -476,7 +558,7 @@ def resolve_scoring_week(
         resolved,
         "final" if final and begun else "live" if begun else "pregame",
         host_scores,
-        tuple(required),
+        tuple(progress_unavailable),
         evidence,
     )
 
