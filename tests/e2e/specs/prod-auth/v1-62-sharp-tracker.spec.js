@@ -89,11 +89,15 @@ test.describe("V1-62: /market/sharp-tracker renders /api/sharp/market from the p
     // [note]</div>; locate the label text node then step up to its
     // wrapper (xpath=..) so the value sibling is unambiguous, rather than
     // matching every ancestor div that merely CONTAINS the label.
+    // StatTile's canonical markup uses ds-stat__label/value. The old
+    // selector still targeted the pre-design-system ".muted" label and
+    // therefore found no element even though the Assets tile was rendered.
     const assetsTile = page
-      .locator(".muted", { hasText: /^Assets$/ })
+      .locator(".ds-stat__label")
+      .filter({ hasText: /^Assets$/ })
       .locator("xpath=..");
     await expect(
-      assetsTile.locator("div").nth(1),
+      assetsTile.locator(".ds-stat__value"),
       `the rendered Assets tile must equal the response's own filtered ` +
         `asset count (${expectedAssets.length})`,
     ).toHaveText(expectedAssets.length.toLocaleString());
