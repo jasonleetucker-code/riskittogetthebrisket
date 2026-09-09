@@ -34,6 +34,8 @@ import json
 import os
 from typing import Any, AsyncIterator
 
+from src.steward.provider_metrics import anthropic_usage
+
 
 # ── Model + client configuration ──────────────────────────────────
 
@@ -335,14 +337,22 @@ async def stream_chat_response(
                     yield _sse_event({"type": "text", "text": text})
 
             final = await stream.get_final_message()
-            usage = final.usage
+            metrics = anthropic_usage(
+                {"usage": final.usage},
+                model=_MODEL_ID,
+                effort=_EFFORT,
+                request_class="chat_response",
+            )
+            # Missing/unsupported fields stay null here (never coerced to 0
+            # via `or 0`) -- a genuine zero and an absent metric are
+            # different facts and must not read the same in the UI.
             yield _sse_event(
                 {
                     "type": "usage",
-                    "input_tokens": usage.input_tokens,
-                    "output_tokens": usage.output_tokens,
-                    "cache_read_input_tokens": usage.cache_read_input_tokens or 0,
-                    "cache_creation_input_tokens": usage.cache_creation_input_tokens or 0,
+                    "input_tokens": metrics["input_tokens"],
+                    "output_tokens": metrics["output_tokens"],
+                    "cache_read_input_tokens": metrics["cache_read_tokens"],
+                    "cache_creation_input_tokens": metrics["cache_write_tokens"],
                 }
             )
     except Exception as exc:  # noqa: BLE001 — surface any failure to the UI

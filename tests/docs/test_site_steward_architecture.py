@@ -138,3 +138,17 @@ def test_owner_zero_incremental_spend_policy_is_durable():
     assert "Cost boundary" in vision
     assert "incremental Steward usage budget is `$0`" in vision
     assert "remains deferred rather than silently spending money" in vision
+
+
+def test_run_receipt_cost_field_can_represent_genuinely_unmeasured():
+    # `runReceipt.cost.usd` was widened from a bare `number` to
+    # `["number", "null"]` (2026-09-09) so a receipt for a run whose cost
+    # was never measured is not forced to lie with a stamped 0.0 -- the
+    # same nullable-type idiom this schema already uses for e.g.
+    # `sourceCandidate.access.permitted` and `.retirement_reason`.
+    payload = json.loads(_read("config/steward/contracts.schema.json"))
+    usd_type = payload["$defs"]["runReceipt"]["properties"]["cost"]["properties"]["usd"]["type"]
+    assert set(usd_type) == {"number", "null"}
+    # `usd` stays REQUIRED on the cost object -- widening its type to admit
+    # `null` is not the same as making the key itself optional.
+    assert "usd" in payload["$defs"]["runReceipt"]["properties"]["cost"]["required"]

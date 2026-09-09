@@ -1,0 +1,72 @@
+[
+  {
+    "run_id": "pr-1319",
+    "lane": "repo_reliability",
+    "status": "DONE",
+    "agent_os_receipt": "3e06a07d93136617e8757d9c0fe2f70aeb5f4892",
+    "repo_head_start": "348b838f69616ac74e72f025f62ca2820e7783b5",
+    "repo_head_end": "a51b0f869e5038cbe6c4030f968262f525c903eb",
+    "started_at": "2026-09-09T13:53:15Z",
+    "ended_at": "2026-09-09T14:16:37Z",
+    "actions": [
+      {
+        "action_id": "merge-1319",
+        "kind": "merge_pr",
+        "idempotency_key": "jasonleetucker-code/riskittogetthebrisket#1319",
+        "status": "SUCCEEDED",
+        "target": "jasonleetucker-code/riskittogetthebrisket#1319"
+      }
+    ],
+    "unresolved": [
+      "W1-27 remains IMPLEMENTED_UNVERIFIED pending real production LIVE evidence during an actual game; implementing the methodology does not itself verify it"
+    ],
+    "cost_usd": null
+  },
+  {
+    "run_id": "pr-1315",
+    "lane": "model_math",
+    "status": "DONE",
+    "agent_os_receipt": "3e06a07d93136617e8757d9c0fe2f70aeb5f4892",
+    "repo_head_start": "22baaaa2f280f9e89c00dd835ad131a011ffb2fc",
+    "repo_head_end": "7ee9229fd64b119dfe31ca17d2e6e9cb715ce3e4",
+    "started_at": "2026-09-09T10:52:22Z",
+    "ended_at": "2026-09-09T19:01:28Z",
+    "actions": [
+      {
+        "action_id": "merge-1315",
+        "kind": "merge_pr",
+        "idempotency_key": "jasonleetucker-code/riskittogetthebrisket#1315",
+        "status": "SUCCEEDED",
+        "target": "jasonleetucker-code/riskittogetthebrisket#1315"
+      }
+    ],
+    "unresolved": [
+      "started_at/ended_at spans two agent sessions: PR opened by another session at started_at; reconciliation, the independent safety review, review-driven fixes and merge were completed by this session",
+      "safety-review findings §3.3 (row-count-only anomaly detection), §3.4 (no automated rollback/monitor) and §3.5 (no explicit multiple-comparisons correction) were left as named follow-ups, not fixed"
+    ],
+    "cost_usd": null
+  },
+  {
+    "run_id": "pr-1320",
+    "lane": "repo_reliability",
+    "status": "DONE",
+    "agent_os_receipt": "3e06a07d93136617e8757d9c0fe2f70aeb5f4892",
+    "repo_head_start": "e49bf816186b29721d24a1ebec54f18ed094ad6a",
+    "repo_head_end": "693b4af9851e4ef621919b86f579d46806ee1996",
+    "started_at": "2026-09-09T18:33:33Z",
+    "ended_at": "2026-09-09T18:59:59Z",
+    "actions": [
+      {
+        "action_id": "merge-1320",
+        "kind": "merge_pr",
+        "idempotency_key": "jasonleetucker-code/riskittogetthebrisket#1320",
+        "status": "SUCCEEDED",
+        "target": "jasonleetucker-code/riskittogetthebrisket#1320"
+      }
+    ],
+    "unresolved": [
+      "live/final Game Day slate rendering has not been observed against a real in-progress week -- only pregame was feasible to verify outside an actual game day"
+    ],
+    "cost_usd": null
+  }
+]

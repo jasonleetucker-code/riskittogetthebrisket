@@ -1089,15 +1089,22 @@ async def generate_article(
             f"---\n{raw_text[:1500]}"
         ) from exc
 
-    usage = getattr(response, "usage", None)
-    usage_block = {}
-    if usage is not None:
-        usage_block = {
-            "input_tokens": getattr(usage, "input_tokens", 0),
-            "output_tokens": getattr(usage, "output_tokens", 0),
-            "cache_read_input_tokens": getattr(usage, "cache_read_input_tokens", 0) or 0,
-            "cache_creation_input_tokens": getattr(usage, "cache_creation_input_tokens", 0) or 0,
-        }
+    # Missing/unsupported fields stay null (never coerced with `or 0`) --
+    # a genuine zero and an absent metric are different facts.
+    from src.steward.provider_metrics import anthropic_usage
+
+    metrics = anthropic_usage(
+        {"usage": getattr(response, "usage", None)},
+        model=_MODEL_ID,
+        effort=None,
+        request_class="matchup_narrative",
+    )
+    usage_block = {
+        "input_tokens": metrics["input_tokens"],
+        "output_tokens": metrics["output_tokens"],
+        "cache_read_input_tokens": metrics["cache_read_tokens"],
+        "cache_creation_input_tokens": metrics["cache_write_tokens"],
+    }
 
     return {
         "mode": brief.mode,
