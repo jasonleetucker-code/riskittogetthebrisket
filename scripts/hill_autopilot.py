@@ -68,6 +68,8 @@ def _policy() -> tuple[AutopilotPolicy, dict[str, Any]]:
             forward_days_required=int(raw["forwardDaysRequired"]),
             forward_win_rate_required=float(raw["forwardWinRateRequired"]),
             forward_median_improvement_points=float(raw["forwardMedianImprovementPoints"]),
+            bootstrap_lower_quantile=float(raw["bootstrapLowerQuantile"]),
+            min_bootstrap_lower_improvement_points=float(raw["minBootstrapLowerImprovementPoints"]),
         ),
         raw,
     )

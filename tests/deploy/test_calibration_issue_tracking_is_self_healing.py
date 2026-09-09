@@ -126,6 +126,45 @@ def test_the_open_side_dedups_and_does_not_depend_on_the_label_resolving():
     )
 
 
+def test_the_dedup_title_is_a_fixed_string_not_a_per_run_expression():
+    """A title that varies per run defeats title-based dedup by construction.
+
+    ``refit-hill-curves.yml``'s board-impact-gate issue step originally set
+    ``TITLE="...v${{ steps.composed.outputs.version }}"``. The registry's
+    version counter strictly increments (``next_version()``), so every run
+    that reaches this step registers a new version and therefore mints a
+    distinct title -- the exact-title lookup a few lines below could never
+    match a prior issue. If the gate blocks persistently (a plausible,
+    not-hypothetical case: an improving OFFENSE fit that also reprices
+    IDP-adjacent rows past the board-impact guard), this files a brand new
+    GitHub issue roughly every 2 hours indefinitely, rather than commenting
+    on one tracked issue -- the same class of defect this file's other tests
+    exist to catch, just triggered by a *value* inside TITLE rather than the
+    lookup's own filter shape.
+
+    A GitHub Actions expression (``${{ ... }}``) anywhere in a TITLE
+    assignment is the generic tell: it means the string can vary between
+    runs of the same underlying condition, which title-based dedup cannot
+    tolerate.
+    """
+    broken: list[str] = []
+    for name in CONSUMERS:
+        path = WORKFLOWS / name
+        text = path.read_text(encoding="utf-8")
+        for match in re.finditer(r'^\s*TITLE="([^"]*)"\s*$', text, flags=re.MULTILINE):
+            title_expr = match.group(1)
+            if "${{" in title_expr:
+                broken.append(f"{name} :: TITLE={title_expr!r}")
+    assert not broken, (
+        "these TITLE assignments interpolate a GitHub Actions expression, so the "
+        "title -- and therefore the exact-title dedup lookup keyed on it -- can "
+        "differ between runs of what should be the same tracked issue, minting a "
+        "duplicate every time the underlying condition recurs. Any per-run detail "
+        "(a version number, a run id, a SHA) belongs in the issue BODY, never the "
+        "TITLE:\n  " + "\n  ".join(broken)
+    )
+
+
 def test_the_refit_tracker_still_has_no_auto_close():
     """ADR-008: a promotion request is a work item, not an alert.
 

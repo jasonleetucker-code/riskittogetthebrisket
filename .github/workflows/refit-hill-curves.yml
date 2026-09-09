@@ -187,7 +187,13 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -Eeuo pipefail
-          TITLE="Hill Autopilot: board-impact gate blocked v${{ steps.composed.outputs.version }}"
+          # Fixed title, deliberately WITHOUT the candidate version number --
+          # next_version() strictly increments, so a per-version title would
+          # make every rejected run mint a distinct title and the dedup
+          # lookup below would never match a prior issue, filing a fresh
+          # issue roughly every 2 hours for as long as the gate keeps
+          # blocking. The version travels in the body instead.
+          TITLE="Hill Autopilot: board-impact gate is blocking promotion"
           BODY=$(printf '%s\n\nChallenger v%s cleared the paired OFFENSE held-out gate, won the standing tournament, and passed forward persistence, but the downstream board-impact check rejected it. It has been recorded as `rejected` in the registry; canonical OFFENSE parameters were not changed.\n\nRun: %s\n' \
             "Hill Autopilot v2's automatic tournament -> forward-persistence -> board-impact pipeline found a candidate a human should look at." \
             "${{ steps.composed.outputs.version }}" \
