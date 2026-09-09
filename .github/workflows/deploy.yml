@@ -29,7 +29,18 @@ jobs:
   validate:
     name: Validate Build Inputs
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    # Measured 2026-09-09: the last SUCCESSFUL deploy (run 34267910262,
+    # 2026-09-08T19:15-19:35) finished in 19m59s -- one second inside the
+    # old 20-minute budget. Every deploy since timed out mid-run (three in
+    # a row: runs 34326611988, 34326615945, 34329213659, all cut off
+    # around the 20:00 mark during or just after "Run unit tests"), which
+    # for 14+ hours looked identical to the documented queued-run eviction
+    # below and was misread as that. It wasn't: no run was queued behind
+    # any of them: it was this timeout, not concurrency, silently
+    # blocking every production deploy including fixes for this week's
+    # launch tranche. 30 minutes gives real margin above the observed
+    # ~20-minute unit-test step instead of racing it every run.
+    timeout-minutes: 30
     steps:
       - name: Checkout
         uses: actions/checkout@v7
