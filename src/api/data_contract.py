@@ -10486,13 +10486,18 @@ def _compute_unified_rankings(
 
         # Backward compatibility: set ktcRank / idpRank if applicable.
         # ktcRank and idpRank carry the *effective* rank consumers are
-        # used to.  Standard ``ktc`` was removed from the blend
-        # 2026-04-28 in favor of ``ktcSfTep`` (the TE+ board uses the
-        # same KTC scrape; for non-TE rows the rank ordering matches
-        # ``ktc`` exactly), so ``ktcRank`` now reflects the ktcSfTep
-        # ordinal rank — preserving the field name consumers know.
-        if "ktcSfTep" in source_ranks:
-            row["ktcRank"] = source_ranks["ktcSfTep"]
+        # Backward-compatible public field: ``ktcRank`` follows the
+        # CURRENT canonical KTC vote.  Since the September-2026 three-source
+        # cutover that is Crowd+Trades SF-TE++; legacy ``ktcSfTep`` is
+        # non-voting historical Crowd data.  Keep a legacy fallback only for
+        # direct/unit callers that intentionally construct pre-cutover rows.
+        ktc_rank_source = (
+            "ktcCrowdTradesSfTep"
+            if "ktcCrowdTradesSfTep" in source_ranks
+            else ("ktcSfTep" if "ktcSfTep" in source_ranks else None)
+        )
+        if ktc_rank_source is not None:
+            row["ktcRank"] = source_ranks[ktc_rank_source]
         if "idpTradeCalc" in source_ranks:
             row["idpRank"] = source_ranks["idpTradeCalc"]
 
@@ -10522,8 +10527,8 @@ def _compute_unified_rankings(
                         if v is not None and v > 0:
                             legacy_csv[k] = v
                             pdata[k] = v
-                if "ktcSfTep" in source_ranks:
-                    pdata["ktcRank"] = source_ranks["ktcSfTep"]
+                if ktc_rank_source is not None:
+                    pdata["ktcRank"] = source_ranks[ktc_rank_source]
                 if "idpTradeCalc" in source_ranks:
                     pdata["idpRank"] = source_ranks["idpTradeCalc"]
 
