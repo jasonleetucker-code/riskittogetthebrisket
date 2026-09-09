@@ -3,7 +3,10 @@
 from __future__ import annotations
 
 import ast
+import json
 from pathlib import Path
+
+import server as srv
 
 from scripts import verify_live_source_coverage as live_cov
 from src.sources.ktc_value_sources import KTC_SOURCE_FILE_KEYS
@@ -112,3 +115,63 @@ def test_stalled_scrape_does_not_mask_degraded_board(monkeypatch) -> None:
 
     assert live_cov.main() == 1
     assert calls == ["fetch"]
+
+
+def _write_raw_payload(path: Path, player_count: int, stamp: str) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    payload = {
+        "date": "2026-09-09",
+        "scrapeTimestamp": stamp,
+        "players": {f"Player {i}": {"position": "WR"} for i in range(player_count)},
+    }
+    path.write_text(json.dumps(payload), encoding="utf-8")
+
+
+def test_startup_recovers_from_collapsed_persistent_runtime_cache(
+    tmp_path, monkeypatch
+) -> None:
+    data_dir = tmp_path / "data"
+    checkout = tmp_path / "exports" / "latest" / "dynasty_data_2026-09-09.json"
+    runtime = data_dir / "dynasty_data_2026-09-09.json"
+
+    # Reproduce the incident shape: ignored/persistent runtime cache collapsed
+    # to roughly half the committed player universe.
+    _write_raw_payload(runtime, 531, "2026-09-09T19:40:00+00:00")
+    _write_raw_payload(checkout, 1055, "2026-09-09T16:59:50+00:00")
+
+    monkeypatch.setattr(srv, "DATA_DIR", data_dir)
+    monkeypatch.setattr(srv, "BASE_DIR", tmp_path)
+
+    recovered = srv.load_from_disk()
+
+    assert recovered is not None
+    assert len(recovered["players"]) == 1055
+    assert srv.latest_data_source["type"] == "checkout_recovery"
+    assert srv.latest_data_source["path"] == str(checkout)
+
+
+def test_startup_keeps_runtime_cache_when_population_is_not_collapsed(
+    tmp_path, monkeypatch
+) -> None:
+    data_dir = tmp_path / "data"
+    checkout = tmp_path / "exports" / "latest" / "dynasty_data_2026-09-09.json"
+    runtime = data_dir / "dynasty_data_2026-09-09.json"
+
+    _write_raw_payload(runtime, 950, "2026-09-09T19:40:00+00:00")
+    _write_raw_payload(checkout, 1055, "2026-09-09T16:59:50+00:00")
+
+    monkeypatch.setattr(srv, "DATA_DIR", data_dir)
+    monkeypatch.setattr(srv, "BASE_DIR", tmp_path)
+
+    loaded = srv.load_from_disk()
+
+    assert loaded is not None
+    assert len(loaded["players"]) == 950
+    assert srv.latest_data_source["type"] == "disk_cache"
+
+
+def test_scrape_promotion_has_relative_population_collapse_guard() -> None:
+    text = (ROOT / "server.py").read_text(encoding="utf-8")
+    assert "population_collapsed" in text
+    assert "player_retention < SCRAPE_PLAYER_RETENTION_FLOOR" in text
+    assert "PLAYER POPULATION COLLAPSE" in text
