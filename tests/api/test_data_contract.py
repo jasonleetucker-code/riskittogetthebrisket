@@ -305,7 +305,7 @@ class TestCanonicalConsensusRank(unittest.TestCase):
                 "finalAdjusted": ktc,
                 "displayValue": None,
             },
-            "canonicalSiteValues": {"ktcSfTep": ktc},
+            "canonicalSiteValues": {"ktcCrowdTradesSfTep": ktc},
             "sourceCount": 1,
         }
 
@@ -339,7 +339,7 @@ class TestCanonicalConsensusRank(unittest.TestCase):
 
     def test_canonical_consensus_rank_mirrored_to_legacy_dict(self):
         rows = [self._make_player_row("Josh Allen", "QB", 9000)]
-        legacy = {"Josh Allen": {"ktcSfTep": 9000}}
+        legacy = {"Josh Allen": {"ktcCrowdTradesSfTep": 9000}}
         _compute_unified_rankings(rows, legacy)
         self.assertEqual(legacy["Josh Allen"]["_canonicalConsensusRank"], 1)
 
@@ -382,12 +382,12 @@ class TestIdpIntegrityGuardrails(unittest.TestCase):
                     "_composite": 8000,
                     "_rawComposite": 8000,
                     "_finalAdjusted": 7900,
-                    "_canonicalSiteValues": {"ktcSfTep": 7700},
+                    "_canonicalSiteValues": {"ktcCrowdTradesSfTep": 7700},
                     "position": "WR",
                 },
             },
-            "sites": [{"key": "ktcSfTep"}, {"key": "idpTradeCalc"}],
-            "maxValues": {"ktcSfTep": 9999},
+            "sites": [{"key": "ktcCrowdTradesSfTep"}, {"key": "idpTradeCalc"}],
+            "maxValues": {"ktcCrowdTradesSfTep": 9999},
             "sleeper": {"positions": {"DJ Moore": "DB"}},
         }
         contract = build_api_data_contract(raw)
@@ -402,11 +402,11 @@ class TestIdpIntegrityGuardrails(unittest.TestCase):
                 "_composite": 5000,
                 "_rawComposite": 5000,
                 "_finalAdjusted": 5000,
-                "_canonicalSiteValues": {"ktcSfTep": 5000},
+                "_canonicalSiteValues": {"ktcCrowdTradesSfTep": 5000},
                 "position": "DB",
             },
         }
-        payload["sites"] = [{"key": "ktcSfTep"}]
+        payload["sites"] = [{"key": "ktcCrowdTradesSfTep"}]
         contract = build_api_data_contract(payload)
         report = validate_api_data_contract(contract)
         self.assertFalse(report["ok"])
@@ -419,7 +419,7 @@ class TestIdpIntegrityGuardrails(unittest.TestCase):
                 "_composite": 4000 - i,
                 "_rawComposite": 4000 - i,
                 "_finalAdjusted": 4000 - i,
-                "_canonicalSiteValues": {"ktcSfTep": 3000},
+                "_canonicalSiteValues": {"ktcCrowdTradesSfTep": 3000},
                 "position": "WR",
             }
         players["Bobby Brown"] = {
@@ -431,8 +431,8 @@ class TestIdpIntegrityGuardrails(unittest.TestCase):
         }
         raw = {
             "players": players,
-            "sites": [{"key": "ktcSfTep"}, {"key": "idpTradeCalc"}],
-            "maxValues": {"ktcSfTep": 9999},
+            "sites": [{"key": "ktcCrowdTradesSfTep"}, {"key": "idpTradeCalc"}],
+            "maxValues": {"ktcCrowdTradesSfTep": 9999},
             "sleeper": {"positions": {}},
         }
         contract = build_api_data_contract(raw)
@@ -456,7 +456,7 @@ class TestIdpIntegrityGuardrails(unittest.TestCase):
                     "finalAdjusted": 100,
                     "displayValue": 100,
                 },
-                "canonicalSiteValues": {"ktcSfTep": 100},
+                "canonicalSiteValues": {"ktcCrowdTradesSfTep": 100},
                 "sourceCount": 1,
             }
         )
