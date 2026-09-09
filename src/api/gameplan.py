@@ -140,7 +140,7 @@ from src.roster_intel import targets as _targets
 from src.roster_intel.engine import RosterIntel, analyze_roster
 from src.roster_intel.marginal import optimal_score, to_roster_players
 from src.ros.lineup import RosterPlayer, load_league_starter_slots
-from src.ros.team_strength import load_team_strength_snapshot
+from src.ros.team_strength import load_or_compute_team_strength
 
 __all__ = [
     "FIELD_POLICY",
@@ -354,14 +354,15 @@ def load_league_inputs(
     whole surface rests on is missing — that is a
     ``data_not_ready`` condition, not an empty result.
     """
-    rows = load_team_strength_snapshot(league_key)
+    rows = load_or_compute_team_strength(league_key)
     if not rows:
         raise GameplanUnavailable(
             "roster_snapshot_missing",
             (
-                f"No team-strength snapshot for league {league_key!r}. "
-                "The gameplan surface reads full rosters from "
-                "data/ros/team_strength/; run the ROS refresh for this league."
+                f"No team-strength snapshot for league {league_key!r}, and the "
+                "live-compute fallback could not answer either. The gameplan "
+                "surface reads full rosters from data/ros/team_strength/; run "
+                "the ROS refresh for this league."
             ),
         )
 
@@ -455,10 +456,13 @@ def load_league_inputs(
 def _team_strength_stamp_path(league_key: str) -> Path:
     """Path to the roster snapshot, for stamping only.
 
-    ``load_team_strength_snapshot`` owns reading it; this mirrors its
-    private path rule for the cache key.  Kept narrow — if the two ever
-    disagree the only consequence is a stale-cache miss, never a wrong
-    answer, because the stamp is one input among several.
+    ``team_strength.py`` owns this path (``_team_strength_path``); this
+    mirrors its private path rule for the cache key.  Kept narrow — if
+    the two ever disagree the only consequence is a stale-cache miss,
+    never a wrong answer, because the stamp is one input among several.
+    Note this stamps only the PERSISTED file's mtime — ``load_league_inputs``
+    itself reads through ``load_or_compute_team_strength``, which can
+    answer from a live fallback even when this file is absent/stale.
     """
     from src.ros.team_strength import _team_strength_path  # noqa: PLC0415
 

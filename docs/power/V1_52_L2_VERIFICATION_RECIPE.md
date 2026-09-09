@@ -1,5 +1,7 @@
 # V1-52 — L2 production verification recipe (#996 → #1009)
 
+> **CURRENT-METHODOLOGY SUPERSESSION — 2026-09-08.** The V1-52 material below is retained as historical implementation/reconciliation evidence. The current league-facing Power methodology, lens semantics, season-aware weighting and immutable weekly movement contract are defined by `docs/CANONICAL_WEEKLY_POWER_RANKINGS_SPEC.md` and implemented in `src/ros/power_v2.py` + `src/ros/power_snapshots.py`. In particular, `canonical` is now the default answer; `results_only` is diagnostic; `forward_looking` is compatibility-only. Do not use the old weights or old trend-delta behavior below as current product truth.
+
 Companion to `docs/power/V1_52_CANONICAL_POWER_ENGINE.md`. That document
 records the engine's design and the retirement decision; this one is the
 concrete, executable checklist for whoever merges `#996` then `#1009` onto

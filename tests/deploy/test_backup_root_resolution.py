@@ -1077,6 +1077,31 @@ def test_a_successful_proof_reports_what_it_actually_verified(tmp_path):
     ), out
 
 
+def test_game_day_is_restored_and_verified_when_present(tmp_path):
+    """C5-GD-02 wiring, not prove_dir's own correctness (that is covered by
+    the faab/identity/playerctx cases already in this suite).
+
+    Before this, the writer (riskit-state-backup.sh) wrote
+    game_day.tar.gz into every generation while this proof never opened
+    it, so a green run asserted nothing about the artifact its own
+    header calls "THE most irreplaceable" one. A capture that landed in
+    the backup and a proof that never restored it could both go green
+    at once, which is exactly the gap the runbook warns a badge alone
+    cannot catch.
+    """
+    app, data = _app(tmp_path)
+    league_dir = data / "game_day" / "predictions" / "2026" / "dynasty_main" / "week_1"
+    league_dir.mkdir(parents=True)
+    for team_id in (1, 2, 3):
+        (league_dir / f"{team_id}_pregame.json").write_text("{}", encoding="utf-8")
+
+    result = _run_proof(app, data, tmp_path / "primary", tmp_path / "fallback")
+    out = result.stdout + result.stderr
+
+    assert result.returncode == 0, out
+    assert "C5-GD-02 game_day/: restored 3 file(s) (archive listed 3, source holds 3)" in out, out
+
+
 def test_an_unresolvable_source_is_not_a_stream_that_never_started(tmp_path):
     """ROOT-SAFE. The same ENOENT/EACCES conflation, on the artifact side.
 

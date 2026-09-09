@@ -1,5 +1,7 @@
 # V1-52 follow-up 2 — `recent` / `all_play` bind to the last SCORED season
 
+> **CURRENT-METHODOLOGY SUPERSESSION — 2026-09-08.** This file is retained as historical evidence for the old V1-52 season-binding repairs. Its quoted weights and activation behavior are not current product truth. Current Power methodology is defined by `docs/CANONICAL_WEEKLY_POWER_RANKINGS_SPEC.md` and implemented in `src/ros/power_v2.py`; the current score uses only ROS strength, season all-play, recent-four form, canonical realized VORP/PAR when available, and official record, with smooth season-aware evidence weighting.
+
 2026-08-24. Claude 3 — Season/Scoring/Projections. One code file, one test
 file, two doc corrections. V1-52 is `IMPLEMENTED_UNVERIFIED`; this closes an
 **independent implementation defect** found while re-confirming whether the row

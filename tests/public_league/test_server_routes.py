@@ -81,13 +81,23 @@ class PublicLeagueRouteTests(unittest.TestCase):
         r = self.client.get("/api/public/league/nope")
         self.assertEqual(r.status_code, 404)
 
-    def test_ros_power_default_lens_is_forward_looking(self) -> None:
+    def test_ros_power_default_lens_is_canonical(self) -> None:
         from src.ros import power_v2
 
         r = self.client.get("/api/public/league/rosPower")
         self.assertEqual(r.status_code, 200)
         body = r.json()
-        self.assertEqual(body["data"]["lens"], power_v2.LENS_FORWARD_LOOKING)
+        self.assertEqual(body["data"]["lens"], power_v2.LENS_CANONICAL)
+        self.assertEqual(body["data"]["requestedLens"], power_v2.LENS_CANONICAL)
+
+    def test_legacy_forward_looking_query_is_a_canonical_alias(self) -> None:
+        from src.ros import power_v2
+
+        r = self.client.get("/api/public/league/rosPower?lens=forward_looking")
+        self.assertEqual(r.status_code, 200)
+        body = r.json()
+        self.assertEqual(body["data"]["lens"], power_v2.LENS_CANONICAL)
+        self.assertEqual(body["data"]["requestedLens"], power_v2.LENS_FORWARD_LOOKING)
 
     def test_ros_power_results_only_lens_is_reachable_over_http(self) -> None:
         """V1-52 step 1 shipped the results-only lens inside power_v2, but

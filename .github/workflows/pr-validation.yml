@@ -114,7 +114,13 @@ jobs:
           # Deterministic Black-compatible formatter. Hard-blocking is
           # safe: the repo-wide sweep already landed and the check is
           # idempotent. Config: pyproject.toml [tool.ruff].
-          python -m ruff format --check .
+          if ! python -m ruff format --check .; then
+            echo "::group::Exact Ruff formatter diff"
+            python -m ruff format .
+            git diff -- .
+            echo "::endgroup::"
+            exit 1
+          fi
 
       - name: Python lint (ruff check — whole repo, blocking)
         # Was changed-files-only, and that was right at the time: phase

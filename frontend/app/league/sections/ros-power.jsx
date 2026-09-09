@@ -7,10 +7,8 @@
 // computes, without a second computation. Lazy-fetched from
 // /api/public/league/rosPower because the section reads the ROS
 // team-strength snapshot and re-walks the snapshot each call — same
-// lazy pattern as playoff odds. When the snapshot has no ROS data yet
-// (first deploy before the scrape lands), the section degrades cleanly
-// to a v1-style formula with ROS components missing — see
-// ``missingInputs`` field.
+// lazy pattern as playoff odds. Missing weighted inputs stay missing and
+// the canonical forward/results masses renormalize without inventing zeroes.
 
 import { useEffect, useMemo, useState } from "react";
 import { LoadingState, EmptyState } from "@/components/ui";
@@ -22,25 +20,25 @@ import PlayoffOddsChart from "@/components/graphs/PlayoffOddsChart";
 // Same pattern + 30-min TTL that the retired power.jsx used for playoff
 // odds.
 //
-// V1-52: the canonical engine answers two lenses (forward-looking,
-// results-only) and they are genuinely different quantities, not a
-// re-sort of the same numbers — so each lens is cached and fetched
-// independently rather than sharing one slot.
+// One league-facing canonical answer plus a results-only diagnostic.
+// The backend still accepts "forward_looking" as a compatibility alias,
+// but the UI no longer presents it as a competing Power Ranking.
 const CACHE_TTL_MS = 30 * 60 * 1000;
+export const LENS_CANONICAL = "canonical";
 export const LENS_FORWARD_LOOKING = "forward_looking";
 export const LENS_RESULTS_ONLY = "results_only";
 const _caches = {
-  [LENS_FORWARD_LOOKING]: { data: null, error: null, inflight: null, fetchedAt: 0 },
+  [LENS_CANONICAL]: { data: null, error: null, inflight: null, fetchedAt: 0 },
   [LENS_RESULTS_ONLY]: { data: null, error: null, inflight: null, fetchedAt: 0 },
 };
 
 async function _fetchRosPower(lens) {
-  const cache = _caches[lens] || _caches[LENS_FORWARD_LOOKING];
+  const cache = _caches[lens] || _caches[LENS_CANONICAL];
   const fresh = cache.data && Date.now() - cache.fetchedAt < CACHE_TTL_MS;
   if (fresh) return { data: cache.data, error: null };
   if (cache.inflight) return cache.inflight;
 
-  const qs = lens && lens !== LENS_FORWARD_LOOKING ? `?lens=${encodeURIComponent(lens)}` : "";
+  const qs = lens && lens !== LENS_CANONICAL ? `?lens=${encodeURIComponent(lens)}` : "";
   const promise = fetch(`/api/public/league/rosPower${qs}`)
     .then((r) => (r.ok ? r.json() : Promise.reject(new Error(`${r.status}`))))
     .then((payload) => {
@@ -103,35 +101,20 @@ async function _fetchOddsOnce() {
   return promise;
 }
 
-// Rank delta between two already-computed rank values from the RESULTS-
-// ONLY trend series — never mixed with the currently-selected headline
-// lens. The trend is results-only at every point by construction (see
-// the backend's own comment on why forward-looking has no per-week
-// history to trend), so diffing it against a forward-looking headline
-// would silently compare two different quantities, exactly the bug this
-// unit exists to remove. ``null`` for either input propagates to
-// ``null`` — no trend history, or an unrankable week, is not "flat".
+// Rank delta between two already-computed rank values. Historical selector
+// rows use the diagnostic results-only series; the live canonical table gets
+// its movement directly from immutable official snapshots. ``null`` for
+// either input propagates to ``null`` — missing history is not "flat".
 function rankDelta(priorRank, currentRank) {
   if (priorRank == null || currentRank == null) return null;
   return priorRank - currentRank; // positive = moved up (lower rank number)
 }
 
-// Delta over the last two points of a per-owner trend series.
-function trendDelta(trend, ownerId) {
-  const series = trend?.seriesByOwner?.[ownerId];
-  if (!Array.isArray(series) || series.length < 2) return null;
-  const last = series[series.length - 1];
-  const prev = series[series.length - 2];
-  return rankDelta(prev?.rank, last?.rank);
-}
-
 // Delta for one specific historical week in ``trend.weeks``, against the
 // nearest PRECEDING week that lists the same owner (an owner can be
 // absent from a week — e.g. joined the league later). Same underlying
-// quantity ``trendDelta`` reads for the headline, generalized to any
-// week the reader picks rather than only the most recent two — nothing
-// new is computed, every rank this reads is already published on
-// ``trend.weeks``.
+// diagnostic quantity generalized to any historical week the reader picks.
+ // Nothing new is computed; every rank is already published on trend.weeks.
 function weekDelta(weeks, weekIndex, ownerId) {
   if (weekIndex <= 0) return null;
   const currentRow = (weeks[weekIndex]?.rankings || []).find((r) => r.ownerId === ownerId);
@@ -195,15 +178,11 @@ function ComponentBar({ label, value, weight }) {
 // their own dedicated table columns instead, the same treatment
 // power.py's renderer gave them.
 const COMPONENT_LABELS = {
-  team_ros_strength: "ROS roster strength",
-  ppg: "Points per game",
-  recent: "Recent form",
-  wl_record: "W/L record",
-  all_play: "All-play record",
-  streak: "Streak",
-  schedule_adjusted: "Schedule-adjusted",
-  roster_health: "Roster health",
-  luck_regression: "Luck regression",
+  team_ros_strength: "Forward-looking ROS strength",
+  all_play: "Season all-play",
+  recent: "Recent form (last 4)",
+  team_vorp: "Realized lineup VORP/PAR",
+  wl_record: "Official record",
 };
 
 const CURRENT_WEEK_KEY = "__current";
@@ -351,16 +330,110 @@ function PowerChart({ series, highlightOwnerId = null }) {
   );
 }
 
+function MovementMark({ value, emptyLabel = "—" }) {
+  if (value == null) return <span style={{ color: "var(--subtext)" }}>{emptyLabel}</span>;
+  if (Number(value) === 0) return <span style={{ color: "var(--subtext)" }}>—</span>;
+  const up = Number(value) > 0;
+  return (
+    <span
+      aria-label={up ? `up ${Math.abs(Number(value))}` : `down ${Math.abs(Number(value))}`}
+      style={{
+        fontFamily: "var(--mono)",
+        fontWeight: 800,
+        color: up ? "var(--positive, var(--cyan))" : "var(--negative, var(--amber))",
+      }}
+    >
+      {up ? "▲" : "▼"} {Math.abs(Number(value))}
+    </span>
+  );
+}
+
+function LeaguePowerShareCard({ data, rankings, managers }) {
+  const official = data?.shareSnapshot || data?.officialSnapshot || null;
+  const rows = Array.isArray(official?.ranking) && official.ranking.length ? official.ranking : rankings;
+  const week = official?.week ?? data?.asOfWeek ?? null;
+  const season = official?.season ?? data?.asOfSeason ?? null;
+  const isOfficial = !!official;
+
+  return (
+    <div
+      data-testid="league-power-share-card"
+      aria-label="League Power Rankings share card"
+      style={{
+        width: "min(100%, 520px)",
+        margin: "10px auto 14px",
+        padding: "14px 14px 10px",
+        border: "1px solid var(--border-bright, var(--border))",
+        borderRadius: 12,
+        background: "var(--panel, rgba(12, 18, 28, 0.98))",
+        boxShadow: "0 10px 30px rgba(0,0,0,0.22)",
+      }}
+    >
+      <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "baseline", marginBottom: 8 }}>
+        <div>
+          <div style={{ fontSize: "1rem", fontWeight: 900, letterSpacing: "0.02em" }}>League Power Rankings</div>
+          <div style={{ fontSize: "0.68rem", color: "var(--subtext)" }}>
+            {season ? season : "Current season"}{week ? ` · Week ${week}` : ""}{isOfficial ? " · Official" : " · Current"}
+          </div>
+        </div>
+        <div style={{ fontSize: "0.62rem", color: "var(--subtext)", textAlign: "right" }}>
+          Risk It To Get The Brisket
+        </div>
+      </div>
+
+      <div style={{ display: "grid", gap: 2 }}>
+        {rows.map((row, index) => {
+          const movement = isOfficial ? row.rankDelta : row.weekRankDelta;
+          const ownerName = managers
+            ? nameFor(managers, row.ownerId)
+            : row.displayName || row.ownerId || "—";
+          return (
+            <div
+              key={row.ownerId || index}
+              style={{
+                display: "grid",
+                gridTemplateColumns: "30px minmax(0,1fr) 58px",
+                alignItems: "center",
+                minHeight: 31,
+                padding: "4px 6px",
+                borderBottom: index === rows.length - 1 ? "none" : "1px solid var(--border)",
+              }}
+            >
+              <div style={{ fontFamily: "var(--mono)", fontSize: "0.82rem", fontWeight: 900, textAlign: "center" }}>
+                {row.rank ?? "—"}
+              </div>
+              <div style={{ minWidth: 0 }}>
+                <div style={{ fontSize: "0.82rem", fontWeight: 750, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                  {ownerName}
+                </div>
+                {row.teamName ? (
+                  <div style={{ fontSize: "0.6rem", color: "var(--subtext)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                    {row.teamName}
+                  </div>
+                ) : null}
+              </div>
+              <div style={{ textAlign: "right", fontSize: "0.74rem" }}>
+                <MovementMark value={movement} emptyLabel={week && Number(week) <= 1 ? "NEW" : "—"} />
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 export default function RosPowerSection({ managers } = {}) {
-  const [lens, setLens] = useState(LENS_FORWARD_LOOKING);
-  const [data, setData] = useState(() => _caches[LENS_FORWARD_LOOKING].data);
-  const [error, setError] = useState(_caches[LENS_FORWARD_LOOKING].error);
-  const [loading, setLoading] = useState(!_caches[LENS_FORWARD_LOOKING].data);
+  const [lens, setLens] = useState(LENS_CANONICAL);
+  const [data, setData] = useState(() => _caches[LENS_CANONICAL].data);
+  const [error, setError] = useState(_caches[LENS_CANONICAL].error);
+  const [loading, setLoading] = useState(!_caches[LENS_CANONICAL].data);
   const [expanded, setExpanded] = useState(null);
   const [selectedWeekKey, setSelectedWeekKey] = useState(CURRENT_WEEK_KEY);
   const [hoverOwnerId, setHoverOwnerId] = useState(null);
   const [oddsData, setOddsData] = useState(() => _oddsCache.data);
   const [oddsError, setOddsError] = useState(() => _oddsCache.error);
+  const [shareOpen, setShareOpen] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -395,13 +468,16 @@ export default function RosPowerSection({ managers } = {}) {
   const lensToggle = (
     <div style={{ display: "flex", gap: 4, marginBottom: 8, fontSize: "0.72rem" }}>
       {[
-        { key: LENS_FORWARD_LOOKING, label: "Forward-looking" },
+        { key: LENS_CANONICAL, label: "Canonical" },
         { key: LENS_RESULTS_ONLY, label: "Results only" },
       ].map((opt) => (
         <button
           key={opt.key}
           type="button"
-          onClick={() => setLens(opt.key)}
+          onClick={() => {
+            setLens(opt.key);
+            if (opt.key !== LENS_CANONICAL) setShareOpen(false);
+          }}
           aria-pressed={lens === opt.key}
           style={{
             padding: "3px 10px",
@@ -485,12 +561,13 @@ export default function RosPowerSection({ managers } = {}) {
   const preseason = !!data.preseason;
   const trend = data.trend || null;
   const trendWeeks = trend?.weeks || [];
+  const blend = data.blend || {};
+  const forwardPct = Math.round(Number(blend.forwardWeight || 0) * 100);
+  const resultsPct = Math.round(Number(blend.resultsWeight || 0) * 100);
 
-  // Render the formula description from whichever weights are actually
-  // applied so the UI doesn't claim "season PPG (18%)" when we're going
-  // into a fresh year and that component has been routed through
-  // ``missingInputs``.  Order by weight descending so the dominant
-  // contributors lead the line.
+  // Render the formula from the weights actually applied. Missing canonical
+  // inputs (for example realized weekly VORP before its owner is ready) never
+  // appear as fabricated zero-weight evidence. Order by weight descending.
   const formulaParts = Object.entries(effectiveWeights)
     .filter(([, w]) => Number(w) > 0)
     .sort((a, b) => Number(b[1]) - Number(a[1]))
@@ -516,13 +593,50 @@ export default function RosPowerSection({ managers } = {}) {
   return (
     <section>
       <Card title="Power Rankings">
-        {lensToggle}
+        <div style={{ display: "flex", justifyContent: "space-between", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+          {lensToggle}
+          {lens === LENS_CANONICAL ? (
+            <button
+              type="button"
+              onClick={() => setShareOpen((open) => !open)}
+              aria-expanded={shareOpen}
+              aria-controls="league-power-share-card"
+              style={{
+                padding: "5px 11px",
+                borderRadius: 6,
+                border: "1px solid var(--border-bright, var(--subtext))",
+                background: shareOpen ? "var(--cyan)" : "transparent",
+                color: shareOpen ? "#000" : "var(--text)",
+                cursor: "pointer",
+                fontSize: "0.72rem",
+                fontWeight: 700,
+              }}
+            >
+              {shareOpen ? "Hide Share Card" : "Share Rankings"}
+            </button>
+          ) : null}
+        </div>
+
+        {shareOpen && lens === LENS_CANONICAL ? (
+          <div id="league-power-share-card">
+            <LeaguePowerShareCard data={data} rankings={rankings} managers={managers} />
+            <div style={{ textAlign: "center", fontSize: "0.66rem", color: "var(--subtext)", margin: "-6px 0 10px" }}>
+              Sized to fit all 12 teams in one phone screenshot. Official weekly cards stay frozen after publication.
+            </div>
+          </div>
+        ) : null}
+
         <div style={{ fontSize: "0.72rem", color: "var(--subtext)", marginBottom: 10 }}>
-          {preseason && (
+          {lens === LENS_CANONICAL ? (
             <span style={{ color: "var(--cyan)" }}>
-              Going into the new season — only forward-looking inputs are used.{" "}
+              Canonical blend: {forwardPct}% forward-looking strength + {resultsPct}% results.{" "}
             </span>
+          ) : (
+            <span style={{ color: "var(--subtext)" }}>Diagnostic results-only view.{" "}</span>
           )}
+          {preseason && lens === LENS_CANONICAL ? (
+            <span>Preseason uses only legitimate forward-looking evidence.{" "}</span>
+          ) : null}
           {formulaParts.join(" + ")}
           {formulaParts.length > 0 && "."}
           {!rosAvailable && (
@@ -567,9 +681,9 @@ export default function RosPowerSection({ managers } = {}) {
               <th style={{ textAlign: "right", padding: "4px 8px" }}>Record</th>
               <th
                 style={{ textAlign: "right", padding: "4px 8px" }}
-                title="Results-only rank change vs. the prior week"
+                title={viewingHistory ? "Results-only historical change" : "Current canonical rank vs. the previous official weekly snapshot"}
               >
-                Trend
+                Move
               </th>
             </tr>
           </thead>
@@ -587,7 +701,7 @@ export default function RosPowerSection({ managers } = {}) {
                 trendDeltaValue={
                   viewingHistory
                     ? weekDelta(trendWeeks, selectedWeekIndex, row.ownerId)
-                    : trendDelta(trend, row.ownerId)
+                    : row.weekRankDelta
                 }
               />
             ))}
@@ -598,7 +712,7 @@ export default function RosPowerSection({ managers } = {}) {
       {trend?.seriesByOwner && (
         <Card
           title="Power score over time"
-          subtitle="Results-only at every point — forward-looking roster strength has no per-week history to plot."
+          subtitle="Diagnostic results-only history. Official canonical week-to-week movement is frozen in the weekly share snapshots."
         >
           <PowerChart
             series={Object.entries(trend.seriesByOwner).map(([ownerId, points]) => ({
@@ -632,11 +746,8 @@ export default function RosPowerSection({ managers } = {}) {
 }
 
 function TrendCell({ deltaValue }) {
-  // ``null`` covers two distinct cases the reader must not conflate: no
-  // trend history yet (< 2 weeks played, or first tracked week) and a
-  // week where the owner was unrankable (results-only lens with nothing
-  // to score on). Neither is "flat" (delta 0), so neither renders an
-  // arrow.
+  // Null means there is no legitimate previous official/diagnostic rank to
+  // compare with. It is not a fabricated "flat" movement.
   if (deltaValue == null) {
     return (
       <td style={{ textAlign: "right", fontFamily: "var(--mono)", color: "var(--subtext)" }}>

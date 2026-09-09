@@ -28,6 +28,7 @@ from fastapi.responses import JSONResponse
 from src.ros import ROS_DATA_DIR
 from src.ros.sources import ROS_SOURCES, enabled_ros_sources
 from src.ros.team_strength import (
+    load_or_compute_team_strength,
     load_team_strength_snapshot,
 )
 
@@ -178,13 +179,18 @@ async def get_team_strength(request: Request, leagueKey: str | None = None) -> J
             resolved_key = default_league_key()
     except Exception:  # noqa: BLE001
         pass
-    snapshot = load_team_strength_snapshot(resolved_key)
-    if snapshot is None:
+    # Falls through the persisted file -> live overlay compute chain
+    # (``load_or_compute_team_strength``) instead of going dark for a
+    # full refresh cycle whenever the scheduled scrape's write step
+    # hasn't run. ``error: "no_snapshot"`` now means every tier declined,
+    # not just that the persisted file was absent.
+    rows = load_or_compute_team_strength(resolved_key)
+    if not rows:
         return JSONResponse(
             {"teams": [], "leagueKey": resolved_key, "error": "no_snapshot"},
             status_code=200,
         )
-    return JSONResponse({"teams": _public_team_rows(snapshot), "leagueKey": resolved_key})
+    return JSONResponse({"teams": _public_team_rows(rows), "leagueKey": resolved_key})
 
 
 @router.get("/pick-projections")
@@ -216,8 +222,8 @@ async def get_pick_projections(request: Request, leagueKey: str | None = None) -
     except Exception:  # noqa: BLE001
         pass
 
-    snapshot = load_team_strength_snapshot(resolved_key)
-    if not snapshot:
+    strength_rows = load_or_compute_team_strength(resolved_key)
+    if not strength_rows:
         return JSONResponse(
             {"picks": [], "projectedOrder": [], "leagueKey": resolved_key, "error": "no_snapshot"},
         )
@@ -241,7 +247,7 @@ async def get_pick_projections(request: Request, leagueKey: str | None = None) -
 
     from src.ros.pick_projection import build_pick_projections  # noqa: PLC0415
 
-    payload = build_pick_projections(teams, snapshot)
+    payload = build_pick_projections(teams, strength_rows)
     payload["leagueKey"] = resolved_key
     return JSONResponse(payload)
 
@@ -260,7 +266,14 @@ async def get_health() -> JSONResponse:
 
     index = _read_json(ROS_DATA_DIR / "runs" / "index.json") or {}
     aggregate = _read_json(ROS_DATA_DIR / "aggregate" / "latest.json") or {}
+    # Deliberately the RAW persisted-file read, not the live fallback:
+    # this endpoint diagnoses the PERSISTED artifact's own freshness, and
+    # routing it through ``load_or_compute_team_strength`` would make
+    # ``/health`` report green on exactly the failure it exists to
+    # detect (the scheduled write never having run). Whether the live
+    # fallback tier could cover for that failure is reported separately.
     team_strength = load_team_strength_snapshot() or []
+    team_strength_fallback_available = bool(load_or_compute_team_strength())
     playoff_path = ROS_DATA_DIR / "sims" / "latest_playoff.json"
     champ_path = ROS_DATA_DIR / "sims" / "latest_championship.json"
 
@@ -295,6 +308,12 @@ async def get_health() -> JSONResponse:
             "teamStrength": {
                 "teamCount": len(team_strength),
                 "unmappedTotal": unmapped_total,
+                # True when a live-compute or cached-overlay fallback can
+                # answer even though the persisted snapshot (measured
+                # above) is missing/stale -- distinguishes "genuinely dark"
+                # from "the batch job hasn't run but nothing downstream is
+                # actually broken".
+                "teamStrengthFallbackAvailable": team_strength_fallback_available,
                 "perTeam": [
                     {
                         "teamName": t.get("teamName"),
@@ -390,10 +409,24 @@ def build_section(snapshot: Any) -> dict[str, Any]:
                     break
     except Exception:  # noqa: BLE001
         pass
-    payload = load_team_strength_snapshot(league_key)
+    persisted = load_team_strength_snapshot(league_key)
+    if persisted is not None:
+        payload: list[dict[str, Any]] | None = persisted
+        source = "snapshot"
+    else:
+        # Live fallback: this builder already has the full snapshot in
+        # scope, so it can compute without any network I/O via
+        # ``compute_team_strength_from_snapshot`` inside the loader.
+        computed = load_or_compute_team_strength(league_key, snapshot=snapshot)
+        payload = computed or None
+        source = "computed" if computed else None
     return {
         "teams": _public_team_rows(payload),
         "leagueKey": league_key,
         "computedAt": datetime.now(timezone.utc).isoformat(),
         "stale": payload is None,
+        # Distinguishes "read from the persisted batch snapshot" from
+        # "computed live because that snapshot was missing/stale" so a
+        # consumer can tell the two apart without re-deriving it.
+        "source": source,
     }
