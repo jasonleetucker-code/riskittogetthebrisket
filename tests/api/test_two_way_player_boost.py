@@ -115,7 +115,7 @@ def _build_board() -> list[dict[str, Any]]:
             _row(
                 f"Receiver {i:02d}",
                 "WR",
-                ktcSfTep=9900 - i * 200,
+                ktcCrowdTradesSfTep=9900 - i * 200,
                 idpTradeCalc=9900 - i * 120,
             )
         )
@@ -124,7 +124,7 @@ def _build_board() -> list[dict[str, Any]]:
         _row(
             "Two Way Player",
             "WR",
-            ktcSfTep=3000,
+            ktcCrowdTradesSfTep=3000,
             idpShowCombined=_synthetic_rank(5),
             idpTradeCalc=5200,
         )
