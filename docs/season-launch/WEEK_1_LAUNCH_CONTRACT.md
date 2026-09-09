@@ -27,7 +27,7 @@ The denominator is frozen at 30 for this launch tranche. Do not add/remove rows 
 | W1-01 | Archive | Canonical append-only Game Day prediction archive exists, is merged, and its core refusal/identity behavior is tested. | VERIFIED |
 | W1-02 | Archive | A canonical scheduled/operational caller captures Game Day state before weekly games lock; no duplicate archive owner. | VERIFIED |
 | W1-03 | Archive | Production persistence/retention for captured Week 1 observations is durable and truthfully documented. | IMPLEMENTED_UNVERIFIED |
-| W1-04 | Archive | At least one authentic Week 1 pre-kickoff production capture is harvested and verified before outcomes are known. | NOT STARTED |
+| W1-04 | Archive | At least one authentic Week 1 pre-kickoff production capture is harvested and verified before outcomes are known. | VERIFIED |
 | W1-05 | Public pregame | Canonical matchup preview engine exists and is live/wired for upcoming matchups. | VERIFIED |
 | W1-06 | Public pregame | Canonical AI narrative preview/recap pipeline exists and is live/wired; no second article-generation owner. | VERIFIED |
 | W1-07 | Public pregame | Public league contract exposes the canonical pregame/narrative outputs consumed by frontend surfaces. | VERIFIED |
@@ -57,15 +57,26 @@ The denominator is frozen at 30 for this launch tranche. Do not add/remove rows 
 
 ## Mechanical tally
 
-*Recounted 2026-09-08 after W1-29's exact-head candidate gates passed.*
+*Recounted 2026-09-09 after the authentic Week 1 pregame capture (W1-04).*
 
-- VERIFIED: 25
+- VERIFIED: 26
 - IMPLEMENTED_UNVERIFIED: 3
 - IN PROGRESS: 0
-- NOT STARTED: 2
+- NOT STARTED: 1
 - BLOCKED: 0
 - DENOMINATOR: 30
-- COMPLETION: **25/30 = 83.3%**
+- COMPLETION: **26/30 = 86.7%**
+
+### Row movements, 2026-09-09 (W1-04)
+
+- **W1-04 → VERIFIED.** The authentic, owner-authorized Wednesday post-waiver pre-kickoff capture. Executed in the runbook's exact order (`docs/season-launch/W1_03_W1_04_WEDNESDAY_CAPTURE_RUNBOOK.md` §3), no step skipped:
+  - **Step 1 (observe, do not compute)**: both the runbook's raw script and a direct call to `src/ros/game_day_capture.py::week_one_waiver_guard` against the live transaction feed agreed — `pending: 0`, newest waiver batch `2026-09-09T03:15:03-04:00`, guard `True | "observed Wednesday waiver batch ...; no pending claims"`. The prior day's 18:25 UTC attempt was correctly refused by the same guard (`False | "2026 Week 1 capture requires Wednesday 2026-09-09 after waivers"`, ET date was still Tuesday) — recorded as a scheduling mismatch in the check-in's own trigger timing, not a defect.
+  - **Step 2 (dry run)**: run [`34323530897`](https://github.com/jasonleetucker-code/riskittogetthebrisket/actions/runs/34323530897), `write=false` — `Pregame window: open`, both ACTIVE leagues resolved (`dynasty_main` teams=12, `dynasty_new` teams=10), `capture-exit: 0`.
+  - **Step 3 (the authentic capture)**: run [`34323773326`](https://github.com/jasonleetucker-code/riskittogetthebrisket/actions/runs/34323773326), `write=true`, `capture_kind=pregame` — `dynasty_main: wrote 12 snapshot(s), 0 already captured`; `dynasty_new: wrote 10 snapshot(s), 0 already captured`; `capture-exit: 0`. 22 real files, a genuine first write (not a duplicate-skip), confirmed by the archive-contents listing: `data/game_day/predictions/2026/{dynasty_main,dynasty_new}/week_1/{1..12,1..10}_pregame.json`.
+
+  This satisfies the row's literal text on its own — "an authentic Week 1 pre-kickoff production capture is harvested and verified before outcomes are known" is a claim about the capture, not about its retention, which is W1-03's separate row. Agent-OS-Receipt: `1d065ab778c1671c0c43dff8f088149fb3843944`.
+
+- **W1-03 stays `IMPLEMENTED_UNVERIFIED`, deliberately, despite a green retention run.** Step 4 (run [`34324196510`](https://github.com/jasonleetucker-code/riskittogetthebrisket/actions/runs/34324196510)) wrote `data/game_day` into the backup generation (`dir ok: ... -> .../dirs/game_day.tar.gz`, not `skip dir (absent)`) — but reading the log rather than the badge found that `deploy/diagnostics/retention_backup_restore_proof.sh`'s restore+verify loop covered exactly `C1-RET-01`…`C1-RET-08` and never opened `game_day` (a different identifier, `C5-GD-02`) at all. A backup that wrote the artifact and a proof that never restored it could both go green together — the same failure class the runbook's own "read the log, not the badge" warning names, from the opposite direction. Fixed in #1302 (one additional `prove_dir` call, mutation-tested), not yet merged/deployed/re-run. W1-03 promotes only once a fresh retention run against the deployed fix produces a real `C5-GD-02 game_day/: restored N file(s)` line — not before.
 
 ### Row movements, 2026-09-08 (W1-29)
 
