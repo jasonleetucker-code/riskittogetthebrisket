@@ -14,6 +14,26 @@ def test_agent_operating_system_is_reachable_from_both_front_doors():
     assert target in _read("ASSISTANT_COORDINATION.md")
 
 
+def test_benign_main_movement_policy_is_cross_model_and_pinned():
+    canonical = _read("ASSISTANT_COORDINATION.md")
+    assert "Benign automated `main` movement: classify before restarting CI" in canonical
+    assert "`BENIGN_AUTOMATION_MOVE`" in canonical
+    assert "`RELEVANT_BASE_MOVE`" in canonical
+    assert "Automation provenance alone is **not enough**" in canonical
+    assert "do **not** restart CI merely because the base SHA changed" in canonical
+
+    for path in (
+        "AI_INSTRUCTIONS.md",
+        "AGENTS.md",
+        "CLAUDE.md",
+        "docs/AGENT_OPERATING_SYSTEM.md",
+        "docs/EXECUTION_PLAN.md",
+    ):
+        doc = _read(path)
+        assert "BENIGN_AUTOMATION_MOVE" in doc, path
+        assert "RELEVANT_BASE_MOVE" in doc, path
+
+
 def test_operating_system_cannot_authorize_product_scope():
     doc = _read("docs/AGENT_OPERATING_SYSTEM.md")
     assert "**Product authority:** **none.**" in doc
