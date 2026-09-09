@@ -9,7 +9,7 @@ It is the input to /edge's premium and buy-low labels and to
 
 The whole signal rests on the two sides being **different bodies of
 evidence**. ``_compute_market_gap`` split them by the ``is_retail``
-registry flag — today exactly ``ktcSfTep`` — and put *every other*
+registry flag — today exactly ``ktcCrowdTradesSfTep`` — and put *every other*
 registered source on the consensus side.
 
 THE DEFECT
@@ -109,9 +109,9 @@ class TestTheSplitIsTakenOverFamilies:
     #: One retail source, one source declared into its family, one
     #: genuinely independent source. Values chosen so the two possible
     #: splits give visibly different answers.
-    SOURCE_RANKS = {"ktcSfTep": 1, "fantasyNavigatorSf": 2, "idpTradeCalc": 3}
+    SOURCE_RANKS = {"ktcCrowdTradesSfTep": 1, "fantasyNavigatorSf": 2, "idpTradeCalc": 3}
     META = {
-        "ktcSfTep": {"valueContribution": 9000.0},
+        "ktcCrowdTradesSfTep": {"valueContribution": 9000.0},
         "fantasyNavigatorSf": {"valueContribution": 8800.0},
         "idpTradeCalc": {"valueContribution": 5000.0},
     }
@@ -136,7 +136,7 @@ class TestTheSplitIsTakenOverFamilies:
         sides of a comparison drawn to measure disagreement with itself.
         """
         old_split, old_magnitude = _compute_market_gap(
-            self.SOURCE_RANKS, self.META, retail_keys=frozenset({"ktcSfTep"})
+            self.SOURCE_RANKS, self.META, retail_keys=frozenset({"ktcCrowdTradesSfTep"})
         )
         _, new_magnitude = _compute_market_gap(self.SOURCE_RANKS, self.META)
 
@@ -160,6 +160,6 @@ class TestTheSplitIsTakenOverFamilies:
 
     def test_the_retail_family_is_what_the_helper_resolves(self):
         assert expand_correlation_groups(_retail_source_keys()) >= {
-            "ktcSfTep",
+            "ktcCrowdTradesSfTep",
             "fantasyNavigatorSf",
         }
