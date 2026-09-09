@@ -57,6 +57,17 @@ _ATTEMPTS = 6
 _SLEEP_SECONDS = 5
 _TIMEOUT_SECONDS = 20
 
+# A backend restart deliberately launches the startup scrape three seconds
+# after the cached board is primed. The served board can therefore be
+# temporarily behind the fresh checkout CSVs while that scrape is still
+# rebuilding the canonical contract. A one-shot coverage check turned that
+# recovery window into a deploy failure and triggered rollback while the
+# process was still recovering. Retry ONLY while the server reports an
+# active, non-stalled scrape. Idle/stalled degradation still fails
+# immediately. 61 x 5s = at most five minutes of bounded recovery time.
+_COVERAGE_WAIT_ATTEMPTS = 61
+_COVERAGE_WAIT_SLEEP_SECONDS = 5
+
 
 def _fetch_status(base_url: str) -> dict | None:
     """GET ``<base>/api/status`` with retries (tolerates the brief
@@ -84,6 +95,47 @@ def _fetch_status(base_url: str) -> dict | None:
     return None
 
 
+def _coverage_result(status: dict):
+    """Evaluate one /api/status payload against checkout freshness truth.
+
+    Returns (violations, ok, skipped). violations=None means the server
+    has not published a served_source_coverage map yet.
+    """
+    cov = status.get("served_source_coverage")
+    if not isinstance(cov, dict) or not cov:
+        return None, [], []
+
+    cov_int = {str(k): int(v) for k, v in cov.items()}
+    freshness = _read_freshness()
+    thresholds = load_thresholds()
+    return evaluate_coverage_map(cov_int, freshness, thresholds)
+
+
+def _recovering_scrape(status: dict) -> bool:
+    """True only for an active scrape that still has a chance to republish."""
+    return bool(status.get("running")) and not bool(status.get("stalled") or status.get("hung"))
+
+
+def _print_coverage_failure(violations) -> None:
+    if violations is None:
+        print(
+            "::error title=Degraded board::/api/status reported no "
+            "served_source_coverage — the live board is not enriched "
+            "(serving the bare legacy export, not the full registered-source "
+            "blend)."
+        )
+        return
+
+    for key, count in violations:
+        print(
+            f"::error title=Source absent from LIVE board: {key}::"
+            f"{key} is fresh in the checkout but only {count} player(s) "
+            f"carry it in the SERVED board (/api/status "
+            f"served_source_coverage). The live process is serving a "
+            f"degraded board."
+        )
+
+
 def main() -> int:
     base_url = (
         sys.argv[1] if len(sys.argv) > 1 else os.environ.get("DEPLOY_VERIFY_BASE_URL", "")
@@ -95,50 +147,62 @@ def main() -> int:
         )
         return 1
 
-    status = _fetch_status(base_url)
-    if status is None:
-        return 1
+    last_status: dict = {}
+    last_violations = None
+    for coverage_attempt in range(1, _COVERAGE_WAIT_ATTEMPTS + 1):
+        status = _fetch_status(base_url)
+        if status is None:
+            return 1
+        last_status = status
 
-    cov = status.get("served_source_coverage")
-    if not isinstance(cov, dict) or not cov:
-        # Empty/absent == the served board carries no per-source
-        # coverage == degraded (or a server too old to expose it,
-        # which post-deploy is itself the regression).
+        violations, ok, skipped = _coverage_result(status)
+        last_violations = violations
+        if violations == []:
+            print(
+                f"ok: live board carries {len(ok)} registered source(s); "
+                f"0 fresh-but-absent ({len(skipped)} skipped: stale/empty)"
+            )
+            return 0
+
+        if not _recovering_scrape(status):
+            break
+
+        if coverage_attempt < _COVERAGE_WAIT_ATTEMPTS:
+            missing_label = (
+                "coverage map not published yet"
+                if violations is None
+                else f"{len(violations)} fresh source(s) not yet republished"
+            )
+            print(
+                f"recovery {coverage_attempt}/{_COVERAGE_WAIT_ATTEMPTS}: "
+                f"{missing_label}; startup/scheduled scrape is still active "
+                f"(step={status.get('current_step')!r}, "
+                f"source={status.get('current_source')!r}). "
+                f"Waiting {_COVERAGE_WAIT_SLEEP_SECONDS}s before re-check."
+            )
+            time.sleep(_COVERAGE_WAIT_SLEEP_SECONDS)
+
+    _print_coverage_failure(last_violations)
+    if last_violations is None:
         print(
-            "::error title=Degraded board::/api/status reported no "
-            "served_source_coverage — the live board is not enriched "
-            "(serving the bare legacy export, not the ~11-source "
-            "blend).  The process did not re-prime from the CSVs."
+            "\nfail: served board never published source coverage after the "
+            "bounded recovery window."
         )
-        return 1
-
-    cov_int = {str(k): int(v) for k, v in cov.items()}
-    freshness = _read_freshness()
-    thresholds = load_thresholds()
-    violations, ok, skipped = evaluate_coverage_map(cov_int, freshness, thresholds)
-
-    if not violations:
+    else:
         print(
-            f"ok: live board carries {len(ok)} registered source(s); "
-            f"0 fresh-but-absent ({len(skipped)} skipped: stale/empty)"
+            f"\nfail: {len(last_violations)} fresh source(s) missing from the "
+            f"LIVE board: {', '.join(k for k, _ in last_violations)}"
         )
-        return 0
-
-    for key, c in violations:
+    if _recovering_scrape(last_status):
         print(
-            f"::error title=Source absent from LIVE board: {key}::"
-            f"{key} is fresh in the checkout but only {c} player(s) "
-            f"carry it in the SERVED board (/api/status "
-            f"served_source_coverage).  The live process is serving a "
-            f"degraded board — it did not re-prime / enrich.  A "
-            f"`systemctl restart {os.environ.get('SERVICE_NAME', 'dynasty')}` "
-            f"on the host forces a re-prime; investigate why the deploy "
-            f"restart didn't take."
+            "The scrape remained active for the entire bounded recovery "
+            "window; refusing to call this deployment healthy."
         )
-    print(
-        f"\nfail: {len(violations)} fresh source(s) missing from the "
-        f"LIVE board: {', '.join(k for k, _ in violations)}"
-    )
+    else:
+        print(
+            "The board is degraded while no recoverable scrape is active; "
+            "failing immediately instead of hiding a persistent source loss."
+        )
     return 1
 
 

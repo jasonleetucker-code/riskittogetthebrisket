@@ -97,6 +97,10 @@ PORT = 8000
 HOST = "0.0.0.0"  # accessible from local network; use "127.0.0.1" for local only
 SCRAPE_STALL_SECONDS = int(os.getenv("SCRAPE_STALL_SECONDS", "900"))
 SCRAPE_RUN_TIMEOUT_SECONDS = int(os.getenv("SCRAPE_RUN_TIMEOUT_SECONDS", "7200"))
+# A single market/source outage must not halve the player universe and become
+# the new last-known-good cache. Relative to the prior/committed board, retain
+# at least 75% of the player population or fail over/block promotion.
+SCRAPE_PLAYER_RETENTION_FLOOR = 0.75
 # The async scraper launches a Playwright Chromium without a try/finally,
 # so a run-timeout cancellation skips browser.close() and orphans the
 # Chromium process tree → RAM leak across repeated 2h timeouts → OOM.
@@ -2685,27 +2689,102 @@ def _prime_latest_payload(data: dict | None, *, is_fresh_scrape: bool = False) -
     _DRAFT_CAPITAL_CACHE.clear()
 
 
+def _load_cached_payload(path: Path | None) -> dict | None:
+    if path is None or not path.exists():
+        return None
+    try:
+        with path.open("r", encoding="utf-8") as handle:
+            payload = json.load(handle)
+        return payload if isinstance(payload, dict) else None
+    except Exception as exc:  # noqa: BLE001
+        log.error(f"Failed to load cached dynasty payload {path}: {exc}")
+        return None
+
+
 def load_from_disk() -> dict | None:
-    """Load most recent dynasty_data_*.json from data/ directory."""
-    json_files = sorted(DATA_DIR.glob("dynasty_data_*.json"), reverse=True)
-    if not json_files:
-        # Also check base dir for existing files from standalone scraper runs
-        json_files = sorted(BASE_DIR.glob("dynasty_data_*.json"), reverse=True)
-    if json_files:
-        try:
-            latest_path = json_files[0]
-            with open(latest_path) as f:
-                data = json.load(f)
+    """Load the newest raw payload, with a checkout-backed collapse recovery.
+
+    Runtime data/dynasty_data_*.json is normally freshest and remains the
+    first choice. The production incident on 2026-09-09 proved that an
+    accepted-but-collapsed runtime cache can survive deploys because data/
+    is intentionally untracked: service restart then faithfully re-primes the
+    broken population again even though the checked-out exports/latest
+    payload is healthy.
+
+    Compare the runtime population with the latest committed/checked-out
+    export. A >25% player-population collapse cannot plausibly be ordinary
+    dynasty churn, so recover from the checkout copy instead. This is only a
+    boot-time raw-universe choice; the canonical value engine still enriches
+    whichever raw payload wins through the same registered source CSVs.
+    """
+    runtime_files = sorted(DATA_DIR.glob("dynasty_data_*.json"), reverse=True)
+    checkout_dir = BASE_DIR / "exports" / "latest"
+    checkout_files = sorted(checkout_dir.glob("dynasty_data_*.json"), reverse=True)
+    root_files = sorted(BASE_DIR.glob("dynasty_data_*.json"), reverse=True)
+
+    runtime_path = runtime_files[0] if runtime_files else None
+    checkout_path = checkout_files[0] if checkout_files else None
+    root_path = root_files[0] if root_files else None
+
+    runtime_data = _load_cached_payload(runtime_path)
+    checkout_data = _load_cached_payload(checkout_path)
+
+    if runtime_data is not None:
+        runtime_count = len(runtime_data.get("players") or {})
+        checkout_count = len((checkout_data or {}).get("players") or {})
+        retention = (runtime_count / checkout_count) if checkout_count > 0 else 1.0
+        if (
+            checkout_data is not None
+            and checkout_count > 0
+            and retention < SCRAPE_PLAYER_RETENTION_FLOOR
+        ):
+            log.error(
+                "Runtime dynasty cache population collapsed: "
+                f"{runtime_count}/{checkout_count} players "
+                f"({retention:.1%} retained; floor={SCRAPE_PLAYER_RETENTION_FLOOR:.0%}). "
+                f"Recovering from checked-out export {checkout_path}."
+            )
             _set_latest_data_source(
-                "disk_cache", str(latest_path), produced_at=data.get("scrapeTimestamp")
+                "checkout_recovery",
+                str(checkout_path),
+                produced_at=checkout_data.get("scrapeTimestamp"),
             )
-            log.info(
-                f"Loaded cached data from {latest_path.name} "
-                f"({len(data.get('players', {}))} players)"
-            )
-            return data
-        except Exception as e:
-            log.error(f"Failed to load {json_files[0]}: {e}")
+            return checkout_data
+
+        _set_latest_data_source(
+            "disk_cache",
+            str(runtime_path),
+            produced_at=runtime_data.get("scrapeTimestamp"),
+        )
+        log.info(f"Loaded cached data from {runtime_path.name} " f"({runtime_count} players)")
+        return runtime_data
+
+    if checkout_data is not None:
+        checkout_count = len(checkout_data.get("players") or {})
+        _set_latest_data_source(
+            "checkout_cache",
+            str(checkout_path),
+            produced_at=checkout_data.get("scrapeTimestamp"),
+        )
+        log.warning(
+            f"Runtime cache unavailable; loaded checked-out export "
+            f"{checkout_path.name} ({checkout_count} players)"
+        )
+        return checkout_data
+
+    root_data = _load_cached_payload(root_path)
+    if root_data is not None:
+        _set_latest_data_source(
+            "root_cache",
+            str(root_path),
+            produced_at=root_data.get("scrapeTimestamp"),
+        )
+        log.warning(
+            f"Loaded legacy root cache {root_path.name} "
+            f"({len(root_data.get('players') or {})} players)"
+        )
+        return root_data
+
     return None
 
 
@@ -2800,33 +2879,37 @@ async def run_scraper(trigger: str = "manual") -> dict | None:
             if not result or not result.get("players"):
                 raise RuntimeError("Scraper returned empty result")
 
-            # Mirror fresh site_raw CSVs from the scraper's DATA_DIR output
-            # path (data/exports/latest/site_raw/) back to the repo's
-            # tracked CSVs/site_raw/ directory so that the CSV
-            # enrichment in data_contract.py (which reads relative to repo
-            # root) sees up-to-date values.  Without this, enrichment reads
-            # permanently-stale CSVs from git history.  Only copies KTC and
-            # IDPTradeCalc — DLF is a rank-signal file with a different
-            # format maintained separately.
+            # Mirror fresh scraper-owned site_raw CSVs from the DATA_DIR
+            # output path (data/exports/latest/site_raw/) back to the repo's
+            # tracked CSVs/site_raw/ directory before the canonical contract
+            # rebuild. data_contract.py reads the repo-root copies.
+            #
+            # IMPORTANT: KTC became a three-source family in September 2026.
+            # Mirroring only the legacy ktc.csv left the running scraper and
+            # the canonical voter on different generations: the scraper had
+            # fresh Crowd / Trades / Crowd+Trades files under DATA_DIR while
+            # the contract could still read an older ktcCrowdTradesSfTep.csv
+            # from the checkout. Keep the complete scraper-owned family
+            # together. DLF and other rank fetchers are maintained separately.
             try:
                 import shutil as _sh
 
                 src_raw = DATA_DIR / "exports" / "latest" / "site_raw"
                 dst_raw = BASE_DIR / "CSVs" / "site_raw"
                 if src_raw.exists() and dst_raw.exists():
-                    for fname in ("ktc.csv", "idpTradeCalc.csv"):
+                    scraper_owned_site_raw = (
+                        "ktc.csv",
+                        "ktcSfTep.csv",
+                        "ktcCrowdSfTep.csv",
+                        "ktcTradesSfTep.csv",
+                        "ktcCrowdTradesSfTep.csv",
+                        "idpTradeCalc.csv",
+                    )
+                    for fname in scraper_owned_site_raw:
                         src_file = src_raw / fname
                         dst_file = dst_raw / fname
                         if src_file.exists():
                             _sh.copy2(src_file, dst_file)
-                    # Also mirror the full dynasty_data JSON so other
-                    # consumers (tests, CLI tools) see the fresh file.
-                    date_str = str(result.get("date") or "")
-                    if date_str:
-                        src_json = DATA_DIR / "exports" / "latest" / f"dynasty_data_{date_str}.json"
-                        dst_json = BASE_DIR / "exports" / "latest" / f"dynasty_data_{date_str}.json"
-                        if src_json.exists():
-                            _sh.copy2(src_json, dst_json)
             except Exception as _mirror_err:
                 log.warning(f"Post-scrape CSV mirror failed: {_mirror_err}")
 
@@ -3005,11 +3088,28 @@ async def run_scraper(trigger: str = "manual") -> dict | None:
             # particular is the IDP backbone and 90% of every IDP value
             # under alpha-shrinkage.
             missing_anchors = _missing_expected_sites(result)
-            if missing_anchors or (total_sites > 0 and site_count < total_sites / 2):
+            previous_player_count = len((latest_data or {}).get("players") or {})
+            player_retention = (
+                player_count / previous_player_count if previous_player_count > 0 else 1.0
+            )
+            population_collapsed = (
+                previous_player_count > 0 and player_retention < SCRAPE_PLAYER_RETENTION_FLOOR
+            )
+            if (
+                missing_anchors
+                or (total_sites > 0 and site_count < total_sites / 2)
+                or population_collapsed
+            ):
                 anchor_note = (
                     f"MISSING ANCHOR SOURCE(S): {', '.join(missing_anchors)}"
                     if missing_anchors
-                    else f"only {site_count}/{total_sites} sites"
+                    else (
+                        f"PLAYER POPULATION COLLAPSE: {player_count}/{previous_player_count} "
+                        f"({player_retention:.1%} retained; "
+                        f"floor={SCRAPE_PLAYER_RETENTION_FLOOR:.0%})"
+                        if population_collapsed
+                        else f"only {site_count}/{total_sites} sites"
+                    )
                 )
                 log.warning(
                     f"PARTIAL SCRAPE NOT PROMOTED — {anchor_note}; "
@@ -3060,8 +3160,23 @@ async def run_scraper(trigger: str = "manual") -> dict | None:
                     ),
                 )
 
-            latest_data = result
+            # The full raw export becomes checkout-visible only AFTER all
+            # promotion guards pass. Before 2026-09-09 this copy happened
+            # above the guard, so a refused partial scrape could overwrite the
+            # working-tree recovery artifact even while memory kept the LKG.
             result_date = str(result.get("date") or "").strip()
+            if result_date:
+                try:
+                    import shutil as _sh
+
+                    src_json = DATA_DIR / "exports" / "latest" / f"dynasty_data_{result_date}.json"
+                    dst_json = BASE_DIR / "exports" / "latest" / f"dynasty_data_{result_date}.json"
+                    if src_json.exists():
+                        _sh.copy2(src_json, dst_json)
+                except Exception as _export_mirror_err:  # noqa: BLE001
+                    log.warning(f"Post-promotion dynasty_data mirror failed: {_export_mirror_err}")
+
+            latest_data = result
             source_path = ""
             if result_date:
                 candidate = DATA_DIR / f"dynasty_data_{result_date}.json"
