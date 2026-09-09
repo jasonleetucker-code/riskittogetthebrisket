@@ -123,6 +123,53 @@ implementation -> FEATURE_GREEN -> READY_FOR_INTEGRATION
 This policy supersedes any instruction that treats every movement of `main` as
 automatic invalidation of all open PR evidence.
 
+### Benign automated `main` movement: classify before restarting CI
+
+A moving `main` is normal in this repository. Scheduled source refreshes, operational
+receipts, smoke snapshots, generated evidence and other automation can land while a
+human-authored PR is validating. **Do not restart CI merely because the base SHA changed.**
+
+When `main` advances during or after a PR validation run, Integration must first inspect
+the exact intervening commits and changed paths. The burden is to prove whether the move
+is relevant, not to assume that every new SHA invalidates the run.
+
+Classify the movement as one of these two outcomes:
+
+- **BENIGN_AUTOMATION_MOVE** — proven automated/repository-owned update, with no overlap
+  with the PR's changed files, dependencies, canonical owners, build/test/deploy
+  machinery, configuration consumed by the PR, or data/evidence consumed by the gates
+  whose result is being reused. A benign move does **not** restart feature CI, does not
+  require a freshness-only commit, and does not send the implementation lane back to
+  development.
+- **RELEVANT_BASE_MOVE** — any code/test/workflow/config/dependency/contract change that
+  can affect the PR, any data or generated artifact consumed by the relevant tests/build,
+  any semantic overlap, any merge conflict, or any movement whose relevance cannot be
+  proven. Reconcile and revalidate the smallest required candidate scope.
+
+Automation provenance alone is **not enough**. A bot can change a load-bearing CSV,
+config file, lockfile, workflow, or test fixture. Conversely, a new commit is not
+relevant merely because it is newer. Inspect the diff.
+
+Minimum triage record before reusing an existing green result:
+
+1. the previously validated PR head SHA;
+2. the base SHA that validation used;
+3. the new `main` SHA;
+4. the intervening commit(s) and authors/workflow provenance;
+5. the changed paths;
+6. an explicit `BENIGN_AUTOMATION_MOVE` or `RELEVANT_BASE_MOVE` classification with
+   one-sentence causality.
+
+For **implementation-head CI**, a proven benign move means: keep the run, keep the head,
+continue. For a **final release candidate**, benign movement still must not trigger a
+full feature-development cycle; Integration either (a) merges promptly when the merge
+tree is still the validated tree, or (b) performs only the bounded release-candidate
+freshness check needed to prove the newly composed merge tree. Never rerun the whole
+development loop just to chase scheduled automation.
+
+If uncertain, classify as relevant. The optimization is to eliminate *provably useless*
+restarts, not to weaken exact-tree shipping evidence.
+
 ## Before You Start: Check Who Else Is In There
 
 The branch rule above is necessary and **not sufficient**. Several sessions run

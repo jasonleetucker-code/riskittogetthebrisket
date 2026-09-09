@@ -195,7 +195,7 @@ Owns repository flow, not product methodology.
 
 Responsibilities:
 - read live `main`, open PRs, claims, current contract and workflow evidence;
-- reconcile exact-head CI;
+- reconcile exact-head CI **without chasing unrelated `main` churn**: when `main` moves during validation, inspect the intervening commits/paths and classify the move under `ASSISTANT_COORDINATION.md` as `BENIGN_AUTOMATION_MOVE` or `RELEVANT_BASE_MOVE`; a proven benign automation move preserves implementation-head CI and must not restart the feature-development loop;
 - merge eligible bounded PRs through the protected path;
 - harvest deployment/production proof;
 - update completion contracts only from actual acceptance evidence;

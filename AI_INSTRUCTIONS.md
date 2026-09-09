@@ -22,6 +22,17 @@ Before implementing any **material new feature or major behavior change**, perfo
 
 This is a lightweight relevance pass, not permission to expand scope or implement all twelve priorities. Classify only the mechanisms that could materially affect the feature as `APPLY_NOW`, `ALREADY_COVERED`, `NOT_RELEVANT`, or `DEFERRED_BY_AUTHORITY`. Relevant `APPLY_NOW` items belong in the bounded feature design/tests; deferred items must stay visible rather than being silently forgotten.
 
+## Main-movement / CI restart rule
+
+A new `main` SHA is not itself a CI failure. When `main` advances while a PR is
+validating, every model must use the canonical triage in
+`ASSISTANT_COORDINATION.md` → **Benign automated `main` movement: classify before
+restarting CI**. Reuse an existing implementation-head result when the intervening
+change is proven `BENIGN_AUTOMATION_MOVE`; reconcile/revalidate when it is
+`RELEVANT_BASE_MOVE`. Do not infer benignity merely from a bot/automation author,
+and do not restart the whole feature-development cycle merely because scheduled
+repository automation changed an unrelated file.
+
 ## Universal startup
 
 For a material local agent session, run:

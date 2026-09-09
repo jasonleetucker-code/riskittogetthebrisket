@@ -23,7 +23,7 @@ This repository powers dynasty fantasy football valuation, rankings, trade calcu
 - Do not edit OneDrive repo copies unless the user explicitly asks; treat them as backups/archive only.
 - Do not let multiple assistants edit the same branch at the same time.
 - See `ASSISTANT_COORDINATION.md` for the shared start-of-session checklist and handoff rules.
-- Main movement alone does **not** invalidate completed feature evidence. After a PR reaches `READY_FOR_INTEGRATION`, freeze implementation; Integration owns the planned freshness reconciliation, final shipping gate, and dependency-ordered merge. Do not make finished branches continually chase `main`. See `ASSISTANT_COORDINATION.md` → **Main-Movement and Integration Queue Policy**.
+- Main movement alone does **not** invalidate completed feature evidence. After a PR reaches `READY_FOR_INTEGRATION`, freeze implementation; Integration owns the planned freshness reconciliation, final shipping gate, and dependency-ordered merge. **If `main` moves during CI, classify the intervening diff before doing anything:** a proven `BENIGN_AUTOMATION_MOVE` does not restart feature CI or require a freshness-only branch commit; a `RELEVANT_BASE_MOVE` does. Automation provenance by itself is not proof of benignity. See `ASSISTANT_COORDINATION.md` → **Main-Movement and Integration Queue Policy** and **Benign automated `main` movement: classify before restarting CI**.
 
 ## Non-Negotiables
 - Do not assume a feature works because a helper, component, or file exists.
