@@ -26,7 +26,7 @@ def _row(**over):
         "displayName": "Test Player",
         "assetClass": "offense",
         "rankDerivedValue": 7200,
-        "canonicalSiteValues": {"ktcSfTep": 6800, "idpTradeCalc": 100},
+        "canonicalSiteValues": {"ktcCrowdTradesSfTep": 6800, "idpTradeCalc": 100},
         "values": {"displayValue": 7200, "finalAdjusted": 7200, "overall": 7200},
     }
     row.update(over)
@@ -58,7 +58,7 @@ class TestSchema:
         }
         assert d["consensusValue"] == 7200
         assert d["marketValue"] == 6800
-        assert d["marketAnchorSource"] == "ktcSfTep"
+        assert d["marketAnchorSource"] == "ktcCrowdTradesSfTep"
 
     def test_market_anchor_registry_matches_the_other_live_consumer(self):
         """Parity guard, now two-way rather than three.
@@ -148,7 +148,7 @@ class TestValueResolution:
 
     def test_non_positive_values_treated_as_unpriced(self):
         v = build_player_values(
-            _row(rankDerivedValue=0, values={}, canonicalSiteValues={"ktcSfTep": -5})
+            _row(rankDerivedValue=0, values={}, canonicalSiteValues={"ktcCrowdTradesSfTep": -5})
         )
         assert v.consensus_value is None
         assert v.market_value is None

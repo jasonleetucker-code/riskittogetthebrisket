@@ -2,7 +2,7 @@
 
 ``src/trade/angle.py`` routes each PLAYER to the board its position
 indexes (``_market_source_for``): IDP to ``idpTradeCalc``, everything
-else to ``ktcSfTep``.  That part was always right.  What was wrong is
+else to ``ktcCrowdTradesSfTep``.  That part was always right.  What was wrong is
 what happened next — the package total was a plain ``sum`` over that
 per-player list, so a package holding a TE and a linebacker added a
 KTC number to an IDPTC number and produced a total that corresponds to
@@ -47,7 +47,7 @@ MIXED_SINGLE_MARKET_TOTAL = BOWERS_IDPTC + SCHWESINGER_IDPTC  # 14642 — right
 def _row(name, position, my_value, *, ktc=None, idptc=None):
     sites = {}
     if ktc is not None:
-        sites["ktcSfTep"] = ktc
+        sites["ktcCrowdTradesSfTep"] = ktc
     if idptc is not None:
         sites["idpTradeCalc"] = idptc
     return {
@@ -156,7 +156,7 @@ class TestOfferSideIsSingleMarket(unittest.TestCase):
     def test_offense_only_offer_still_values_on_ktc(self):
         """The 5%-of-users case must not move.
 
-        ``ktcSfTep`` is the canonical retail anchor for an offense-only
+        ``ktcCrowdTradesSfTep`` is the canonical retail anchor for an offense-only
         package and nothing about this fix should touch it.
         """
         offer = _offer(["Justin Jefferson", "Chris Olave"])["offer"]

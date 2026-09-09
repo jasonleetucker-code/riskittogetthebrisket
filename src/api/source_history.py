@@ -99,7 +99,9 @@ _SCOPE_TO_ASSET_CLASSES: dict[str, frozenset[str]] = {
 # Filtered at write-time (new snapshots omit these) AND at read-time
 # (historical snapshots are masked) so the chart deduplicates
 # immediately without a destructive rewrite of the JSONL.
-_RETIRED_FROM_CHART_KEYS: frozenset[str] = frozenset({"ktc"})
+_RETIRED_FROM_CHART_KEYS: frozenset[str] = frozenset(
+    {"ktc", "ktcSfTep", "ktcCrowdSfTep", "ktcTradesSfTep"}
+)
 
 # Sources whose per-player chart series should record the *raw* scrape
 # value (top-level ``row[key]`` from the contract) rather than the
@@ -112,7 +114,7 @@ _RETIRED_FROM_CHART_KEYS: frozenset[str] = frozenset({"ktc"})
 #   directly.  Recording the contribution (e.g. 9999 for a player KTC
 #   ranks at 9594) confused users.  This flag pulls the raw value
 #   from ``row['ktcSfTep']`` instead.
-_RAW_VALUE_PREFERRED_KEYS: frozenset[str] = frozenset({"ktcSfTep"})
+_RAW_VALUE_PREFERRED_KEYS: frozenset[str] = frozenset({"ktcCrowdTradesSfTep"})
 
 
 # Highest legitimate value on the normalized scale this module's

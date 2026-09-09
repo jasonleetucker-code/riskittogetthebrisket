@@ -137,7 +137,7 @@ from src.api.data_contract import (
 # retail board publishes a pick market we can treat as a price, so pick
 # rows get no mispricing signal rather than an invented one.
 MARKET_ANCHOR_BY_ASSET_CLASS: dict[str, str] = {
-    "offense": "ktcSfTep",
+    "offense": "ktcCrowdTradesSfTep",
     "idp": "idpTradeCalc",
 }
 

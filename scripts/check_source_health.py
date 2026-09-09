@@ -53,6 +53,7 @@ Exit codes:
 from __future__ import annotations
 
 import argparse
+import csv
 import hashlib
 import json
 import os
@@ -210,6 +211,324 @@ def measure_content_staleness(repo_root: Path | None = None) -> dict[str, dict]:
     return out
 
 
+def measure_registered_source_integrity(
+    repo_root: Path,
+    *,
+    sources: list[dict] | None = None,
+    source_paths: dict[str, object] | None = None,
+    floors: dict[str, int] | None = None,
+) -> dict[str, dict[str, object]]:
+    """Audit structural and semantic truth for every registered dynasty source."""
+    if sources is None or source_paths is None or floors is None:
+        from src.api.data_contract import (
+            _RANKING_SOURCES,
+            _SOURCE_CSV_PATHS,
+            _load_source_row_floors,
+        )
+
+        if sources is None:
+            sources = list(_RANKING_SOURCES)
+        if source_paths is None:
+            source_paths = dict(_SOURCE_CSV_PATHS)
+        if floors is None:
+            floors = _load_source_row_floors()
+
+    name_aliases = {"name", "player", "player_name", "playername"}
+    rank_aliases = {"avg", "rank", "overall_rank", "overallrank", "effectiverank"}
+    value_aliases = {
+        "value",
+        "trade_value",
+        "tradevalue",
+        "3d value +",
+        "boone_value",
+        "boonevalue",
+    }
+
+    def _token(text: object) -> str:
+        return str(text or "").strip().lower()
+
+    out: dict[str, dict[str, object]] = {}
+    for source in sources:
+        key = str(source.get("key") or "")
+        if not key:
+            continue
+        cfg = source_paths.get(key)
+        if isinstance(cfg, str):
+            rel_path = cfg
+            signal = "value"
+        elif isinstance(cfg, dict):
+            rel_path = str(cfg.get("path") or "")
+            signal = str(cfg.get("signal") or "value").lower()
+        else:
+            rel_path = ""
+            signal = "unknown"
+
+        path = repo_root / rel_path if rel_path else None
+        errors: list[str] = []
+        warnings: list[str] = []
+        header: list[str] = []
+        row_count = 0
+        named_rows = 0
+        signal_rows = 0
+        zero_signal_rows = 0
+        duplicate_names: list[str] = []
+        content_hash: str | None = None
+        sample_names: list[str] = []
+
+        if not rel_path:
+            errors.append("registered source has no canonical CSV path")
+        elif path is None or not path.exists():
+            errors.append("source CSV missing")
+        else:
+            try:
+                raw = path.read_bytes()
+                content_hash = hashlib.sha256(raw).hexdigest()
+                with path.open("r", encoding="utf-8-sig", newline="") as handle:
+                    reader = csv.DictReader(handle)
+                    header = list(reader.fieldnames or [])
+                    rows = list(reader)
+            except (OSError, UnicodeError, csv.Error) as exc:
+                errors.append(f"source CSV unreadable: {exc}")
+                rows = []
+            row_count = len(rows)
+
+            name_columns = [name for name in header if _token(name) in name_aliases]
+            rank_columns = [name for name in header if _token(name) in rank_aliases]
+            value_columns = [name for name in header if _token(name) in value_aliases]
+            if not name_columns:
+                errors.append(f"no recognized player/name column in header {header!r}")
+            if signal == "rank" and not rank_columns:
+                errors.append(f"rank source has no recognized rank column in header {header!r}")
+            if signal == "value" and not value_columns:
+                errors.append(f"value source has no recognized value column in header {header!r}")
+
+            seen_names: set[str] = set()
+            duplicate_set: set[str] = set()
+            for row in rows:
+                name = ""
+                for column in name_columns:
+                    value = str(row.get(column) or "").strip()
+                    if value:
+                        name = value
+                        break
+                if name:
+                    named_rows += 1
+                    name_key = name.casefold()
+                    if name_key in seen_names:
+                        duplicate_set.add(name)
+                    seen_names.add(name_key)
+
+                columns = rank_columns if signal == "rank" else value_columns
+                numeric: float | None = None
+                for column in columns:
+                    raw_value = str(row.get(column) or "").strip().replace(",", "")
+                    if not raw_value:
+                        continue
+                    try:
+                        numeric = float(raw_value)
+                    except ValueError:
+                        continue
+                    break
+                if numeric is not None:
+                    signal_rows += 1
+                    if numeric == 0:
+                        zero_signal_rows += 1
+                    if signal == "rank" and numeric <= 0:
+                        errors.append(f"non-positive rank observed: {numeric}")
+                        break
+                    if key == "ktcCrowdTradesSfTep" and not 0 < numeric <= 9999:
+                        errors.append(f"KTC combined value outside 0-9999: {numeric}")
+                        break
+
+            duplicate_names = sorted(duplicate_set)[:20]
+            if duplicate_names:
+                warnings.append(
+                    f"{len(duplicate_set)} exact duplicate name(s); identity owner must disambiguate"
+                )
+            if row_count and named_rows < max(1, int(row_count * 0.95)):
+                errors.append(f"name coverage degraded: {named_rows}/{row_count}")
+            if row_count and signal_rows < max(1, int(row_count * 0.80)):
+                errors.append(f"numeric {signal} coverage degraded: {signal_rows}/{row_count}")
+
+            floor = floors.get(key)
+            if floor is not None and row_count < int(floor):
+                errors.append(f"row coverage {row_count} below floor {int(floor)}")
+
+            if rows and name_columns:
+                indexes = sorted({0, len(rows) // 2, len(rows) - 1})
+                for row_index in indexes:
+                    row = rows[row_index]
+                    for column in name_columns:
+                        value = str(row.get(column) or "").strip()
+                        if value:
+                            sample_names.append(value)
+                            break
+
+        game_type = source.get("game_type")
+        game_evidence = str(source.get("game_type_evidence") or "").strip()
+        if game_type != "DYNASTY":
+            errors.append(f"semantic game_type is {game_type!r}, expected DYNASTY")
+        if not game_evidence:
+            errors.append("dynasty semantic evidence missing")
+
+        out[key] = {
+            "state": "HEALTHY" if not errors else "DEGRADED",
+            "path": rel_path or None,
+            "signal": signal,
+            "scope": source.get("scope"),
+            "extraScopes": source.get("extra_scopes") or [],
+            "correlationGroup": source.get("correlation_group"),
+            "isRetail": bool(source.get("is_retail")),
+            "isTepPremium": source.get("is_tep_premium"),
+            "gameType": game_type,
+            "gameTypeEvidence": game_evidence,
+            "rowCount": row_count,
+            "rowFloor": floors.get(key),
+            "namedRows": named_rows,
+            "numericSignalRows": signal_rows,
+            "zeroSignalRows": zero_signal_rows,
+            "header": header,
+            "contentHash": content_hash,
+            "sampleNames": sample_names,
+            "duplicateNames": duplicate_names,
+            "errors": errors,
+            "warnings": warnings,
+        }
+
+    return out
+
+
+def measure_ktc_semantic_integrity(repo_root: Path) -> dict[str, object]:
+    """Verify KTC's selected source/format provenance independently of freshness.
+
+    Fetch freshness can be perfectly green while the browser successfully
+    scraped the wrong KTC mode.  The September-2026 source launch proved that
+    failure class in production, so semantic configuration is measured from
+    the capture sidecar written by the KTC adapter rather than inferred from a
+    recently-written CSV.
+    """
+    provenance_path = repo_root / "data" / "scrape_state" / "ktc_value_sources.json"
+    if not provenance_path.exists():
+        return {
+            "category": "semantic_configuration",
+            "state": "UNAVAILABLE",
+            "measurable": False,
+            "path": str(provenance_path),
+            "errors": ["KTC three-source provenance has not been captured yet"],
+            "coverageErrors": [],
+            "parserErrors": [],
+        }
+
+    try:
+        payload = json.loads(provenance_path.read_text(encoding="utf-8"))
+    except (OSError, ValueError) as exc:
+        return {
+            "category": "parser_drift",
+            "state": "PARSE_FAILED",
+            "measurable": True,
+            "path": str(provenance_path),
+            "errors": [],
+            "coverageErrors": [],
+            "parserErrors": [f"KTC provenance is unreadable: {exc}"],
+        }
+
+    semantic_errors: list[str] = []
+    coverage_errors: list[str] = []
+    parser_errors: list[str] = []
+
+    if payload.get("canonicalMarketSource") != "crowd_trades":
+        semantic_errors.append(
+            "canonical KTC market source is not crowd_trades "
+            f"({payload.get('canonicalMarketSource')!r})"
+        )
+
+    fmt = payload.get("operatorFormat") or {}
+    expected_format = {
+        "gameType": "DYNASTY",
+        "superflex": True,
+        "tePremium": "TE++",
+        "tePremiumLevel": 2,
+    }
+    for key, expected in expected_format.items():
+        if fmt.get(key) != expected:
+            semantic_errors.append(
+                f"KTC operator format {key}={fmt.get(key)!r}; expected {expected!r}"
+            )
+
+    captures = payload.get("captures") or {}
+    from src.sources.ktc_value_sources import (
+        KTC_CONTROL_VALUES,
+        KTC_SOURCE_MIN_PRICED,
+        KTC_VALUE_SOURCES,
+        classify_control_label,
+    )
+
+    for source in KTC_VALUE_SOURCES:
+        capture = captures.get(source)
+        if not isinstance(capture, dict):
+            parser_errors.append(f"KTC capture missing source mode {source}")
+            continue
+        selected_label = str(capture.get("selectedLabel") or "")
+        if classify_control_label(selected_label) != source:
+            semantic_errors.append(
+                f"KTC {source} selectedLabel={selected_label!r} no longer maps to that source"
+            )
+        if str(capture.get("selectedControlValue") or "") != KTC_CONTROL_VALUES[source]:
+            semantic_errors.append(
+                f"KTC {source} control value={capture.get('selectedControlValue')!r}; "
+                f"expected {KTC_CONTROL_VALUES[source]!r}"
+            )
+        if capture.get("superflex") is not True:
+            semantic_errors.append(f"KTC {source} is not proven Superflex")
+        if capture.get("tePremium") != "TE++" or capture.get("tePremiumLevel") != 2:
+            semantic_errors.append(f"KTC {source} is not proven TE++ level 2")
+        try:
+            rows = int(capture.get("rowCount"))
+            priced = int(capture.get("pricedCount"))
+        except (TypeError, ValueError):
+            parser_errors.append(f"KTC {source} row/priced counts are not numeric")
+        else:
+            floor = int(KTC_SOURCE_MIN_PRICED[source])
+            if rows < floor or priced < floor:
+                coverage_errors.append(
+                    f"KTC {source} coverage degraded: rows={rows}, priced={priced}, floor={floor}"
+                )
+        if not str(capture.get("contentHash") or "").strip():
+            parser_errors.append(f"KTC {source} has no content hash")
+
+    hashes = {
+        str(capture.get("contentHash"))
+        for capture in captures.values()
+        if isinstance(capture, dict) and capture.get("contentHash")
+    }
+    if len(captures) >= 3 and len(hashes) < 2:
+        parser_errors.append(
+            "KTC source selector produced byte-equivalent boards for all three modes"
+        )
+
+    state = "HEALTHY"
+    category = "semantic_configuration"
+    if parser_errors:
+        state = "SCHEMA_CHANGED"
+        category = "parser_drift"
+    elif semantic_errors:
+        state = "SCHEMA_CHANGED"
+        category = "semantic_configuration"
+    elif coverage_errors:
+        state = "PARTIAL"
+        category = "coverage_degraded"
+
+    return {
+        "category": category,
+        "state": state,
+        "measurable": True,
+        "path": str(provenance_path),
+        "errors": semantic_errors,
+        "coverageErrors": coverage_errors,
+        "parserErrors": parser_errors,
+    }
+
+
 def _load_contract_source_health(repo_root: Path) -> tuple[list[str], list[str], str]:
     """``(source_health_errors, warnings, payload_path)`` from the payload."""
     from src.api.data_contract import build_api_data_contract, validate_api_data_contract
@@ -259,6 +578,33 @@ def main() -> int:
     # than fatal — but it must be NAMED.
     unmeasurable = unmeasurable_sources()
 
+    registered_integrity = measure_registered_source_integrity(repo_root)
+    registered_degraded = {
+        key: value for key, value in registered_integrity.items() if value.get("errors")
+    }
+
+    ktc_semantic = measure_ktc_semantic_integrity(repo_root)
+    # Before the new KTC combined source is activated, a missing provenance
+    # sidecar is an honest UNKNOWN rather than a code failure. Once the
+    # combined key is the voting source, semantic proof becomes deploy-blocking.
+    try:
+        from src.api.data_contract import _RANKING_SOURCES
+
+        ktc_semantic_required = any(
+            str(source.get("key") or "") == "ktcCrowdTradesSfTep" for source in _RANKING_SOURCES
+        )
+    except Exception:
+        ktc_semantic_required = False
+
+    ktc_semantic_blocking = bool(
+        ktc_semantic.get("measurable")
+        and (
+            ktc_semantic.get("errors")
+            or ktc_semantic.get("coverageErrors")
+            or ktc_semantic.get("parserErrors")
+        )
+    ) or (ktc_semantic_required and not ktc_semantic.get("measurable"))
+
     content: dict[str, dict] = {}
     content_stale: list[tuple[str, float, float]] = []
     if not args.skip_content:
@@ -284,6 +630,8 @@ def main() -> int:
         ],
         "freshCount": len(fresh),
         "unmeasurable": unmeasurable,
+        "registeredSourceIntegrity": registered_integrity,
+        "semanticIntegrity": {"ktc": ktc_semantic},
         "contentStaleness": content,
         "contentStale": [
             {"source": s, "daysSinceChange": d, "budgetDays": b} for s, d, b in content_stale
@@ -298,8 +646,25 @@ def main() -> int:
             f"[source-health] contract source-health errors: {len(contract_errors)} · "
             f"fetch: {len(fresh)} fresh / {len(soft_stale)} soft-stale / "
             f"{len(hard_stale)} stale / {len(unmeasurable)} unmeasurable · "
-            f"content-stale: {len(content_stale)}"
+            f"content-stale: {len(content_stale)} · "
+            f"registered integrity: {len(registered_integrity) - len(registered_degraded)} healthy / "
+            f"{len(registered_degraded)} degraded · "
+            f"KTC semantic: {ktc_semantic.get('state')}"
         )
+        for source_key, item in sorted(registered_degraded.items()):
+            for msg in item.get("errors") or []:
+                print(f"::error title=Source integrity {source_key}::{msg}")
+        if not ktc_semantic.get("measurable"):
+            print(
+                "::warning title=KTC semantic integrity unmeasurable::"
+                "three-source provenance has not been captured yet"
+            )
+        for msg in ktc_semantic.get("errors") or []:
+            print(f"::error title=KTC semantic configuration::{msg}")
+        for msg in ktc_semantic.get("coverageErrors") or []:
+            print(f"::error title=KTC coverage degraded::{msg}")
+        for msg in ktc_semantic.get("parserErrors") or []:
+            print(f"::error title=KTC parser drift::{msg}")
         for msg in contract_errors:
             print(f"::error title=Source health (contract)::{msg}")
         for src_key in unmeasurable:
@@ -332,6 +697,10 @@ def main() -> int:
         lines.append(f"- contract source-health errors: **{len(contract_errors)}**")
         lines.append(f"- stale fetches: **{len(hard_stale)}** (soft: {len(soft_stale)})")
         lines.append(f"- content unchanged past budget: **{len(content_stale)}**")
+        lines.append(
+            f"- KTC semantic integrity: **{ktc_semantic.get('state')}** "
+            f"({ktc_semantic.get('category')})"
+        )
         for msg in contract_errors:
             lines.append(f"  - `{msg}`")
         for src_key, days, budget in content_stale:
@@ -342,7 +711,17 @@ def main() -> int:
         except OSError:
             pass
 
-    return 1 if (contract_errors or hard_stale or content_stale) else 0
+    return (
+        1
+        if (
+            contract_errors
+            or hard_stale
+            or content_stale
+            or registered_degraded
+            or ktc_semantic_blocking
+        )
+        else 0
+    )
 
 
 if __name__ == "__main__":

@@ -434,18 +434,18 @@ class TestPickConfidenceIsFamilyAware(unittest.TestCase):
 
     def test_two_members_of_one_family_cast_one_vote(self):
         both = assess_pick_confidence(
-            {"ktcSfTep": 4000.0, "dlfSf": 4000.0, "dlfIdp": 4000.0},
+            {"ktcCrowdTradesSfTep": 4000.0, "dlfSf": 4000.0, "dlfIdp": 4000.0},
             is_slot_specific=False,
         )
         head_only = assess_pick_confidence(
-            {"ktcSfTep": 4000.0, "dlfSf": 4000.0},
+            {"ktcCrowdTradesSfTep": 4000.0, "dlfSf": 4000.0},
             is_slot_specific=False,
         )
         self.assertEqual(both, head_only)
 
     def test_independent_sources_still_corroborate(self):
         bucket, _label = assess_pick_confidence(
-            {"ktcSfTep": 4000.0, "idpTradeCalc": 4050.0},
+            {"ktcCrowdTradesSfTep": 4000.0, "idpTradeCalc": 4050.0},
             is_slot_specific=False,
         )
         self.assertEqual(bucket, "high")

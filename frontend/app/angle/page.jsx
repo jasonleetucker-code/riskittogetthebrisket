@@ -39,7 +39,7 @@ import styles from "./angle.module.css";
 const IDP_POS_RE = /^(?:DL|DE|DT|EDGE|NT|LB|ILB|OLB|MLB|DB|CB|S|SS|FS)$/i;
 
 function marketSourceForPos(position) {
-  return IDP_POS_RE.test(String(position || "").trim()) ? "idpTradeCalc" : "ktcSfTep";
+  return IDP_POS_RE.test(String(position || "").trim()) ? "idpTradeCalc" : "ktcCrowdTradesSfTep";
 }
 
 function marketLabelForSource(source) {

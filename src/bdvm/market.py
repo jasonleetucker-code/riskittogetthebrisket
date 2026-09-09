@@ -31,8 +31,9 @@ from src.bdvm.params import ParamSet
 
 # Value-signal market sources with their market-type tags (§8.1).
 VALUE_MARKET_SOURCES: dict[str, str] = {
-    "ktcSfTep": "crowd",
-    "ktc": "crowd",
+    "ktcCrowdTradesSfTep": "crowd_trades",
+    "ktcSfTep": "crowd_historical",
+    "ktc": "crowd_historical",
     "idpTradeCalc": "crowd",
 }
 NORMALIZATION_VERSION = "ktc-idptc-peer-v1"  # 2026-07-26 study: ratio ~1.000
@@ -90,7 +91,7 @@ def market_view_for_row(
     if group in _IDP_GROUPS:
         source_order = ("idpTradeCalc",)
     else:
-        source_order = ("ktcSfTep", "ktc")
+        source_order = ("ktcCrowdTradesSfTep", "ktcSfTep", "ktc")
     value: float | None = None
     source: str | None = None
     for key in source_order:

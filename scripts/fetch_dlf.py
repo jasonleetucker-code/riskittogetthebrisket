@@ -80,6 +80,10 @@ BOARDS: dict[str, dict[str, str]] = {
         "url": "https://dynastyleaguefootball.com/dynasty-superflex-rankings/",
         "out": "CSVs/site_raw/dlfSf.csv",
         "label": "Dynasty Superflex",
+        # DLF publishes an atomic Value beside the expert rank.  Preserve it
+        # for literal DLF trade second opinions; if it disappears, refuse to
+        # overwrite the last-good file with a rank-only semantic downgrade.
+        "require_native_value": True,
         # Aligned with the downstream contract floor
         # ``_DEFAULT_SOURCE_ROW_FLOORS["dlfSf"]`` (240) so a partial
         # scrape fails here and preserves last-good rather than
@@ -318,9 +322,10 @@ def _parse_rankings(html: str) -> list[dict]:
 
     DLF renders rankings as a WPDataTable with headers
     ``Rank, Avg, Pos, Name, Team, Age, <expert1>, …, Value, Follow``.
-    We pick up every row whose ``Name`` cell is populated and emit
-    ``{name, avg, rank, pos, team}`` so the caller can write a
-    ``name,rank`` CSV that preserves the Avg column preference.
+    We pick up every row whose ``Name`` cell is populated and preserve both
+    expert rank and the native ``Value`` column.  Rank remains the DLF blend
+    signal; Value is a separate vendor-native asset quantity for literal DLF
+    trade second opinions.
     """
     try:
         from bs4 import BeautifulSoup
@@ -362,6 +367,7 @@ def _parse_rankings(html: str) -> list[dict]:
         rank_idx = _find("rank", "#")
         pos_idx = _find("pos", "position")
         team_idx = _find("team")
+        value_idx = _find("value")
         if name_idx == -1 or (avg_idx == -1 and rank_idx == -1):
             continue
         # Walk body rows.
@@ -384,6 +390,7 @@ def _parse_rankings(html: str) -> list[dict]:
             rank = _cell(rank_idx)
             pos = _cell(pos_idx)
             team = _cell(team_idx)
+            value = _cell(value_idx)
             rows_out.append(
                 {
                     "name": name,
@@ -391,6 +398,7 @@ def _parse_rankings(html: str) -> list[dict]:
                     "rank": rank,
                     "pos": pos,
                     "team": team,
+                    "value": value,
                 }
             )
         if len(rows_out) >= 10:
@@ -416,11 +424,32 @@ def _rank_of(row: dict) -> float | None:
     return None
 
 
+def _native_value_of(row: dict) -> float | None:
+    """Return DLF's positive native Value, or None when unavailable."""
+    raw = str(row.get("value") or "").strip().replace(",", "")
+    if not raw:
+        return None
+    try:
+        value = float(raw)
+    except (TypeError, ValueError):
+        return None
+    return value if value > 0 else None
+
+
+def _format_number(value: float) -> int | str:
+    """CSV-friendly number that keeps meaningful decimal precision."""
+    if value == int(value):
+        return int(value)
+    return f"{value:.2f}".rstrip("0").rstrip(".")
+
+
 def _write_csv(path: Path, rows: list[dict]) -> int:
-    """Write a ``name,rank`` CSV, preferring Avg over Rank per DLF's
-    expert-consensus ladder convention.  Rows without a valid rank
-    are silently dropped."""
-    written: list[tuple[str, float]] = []
+    """Write DLF expert rank and native value as separate columns.
+
+    Rank remains the canonical blend signal. Value is preserved for
+    vendor-literal trade second opinions and never becomes a second DLF vote.
+    """
+    written: list[tuple[str, float, float | None]] = []
     seen_names: set[str] = set()
     for r in rows:
         name = (r.get("name") or "").strip()
@@ -434,19 +463,21 @@ def _write_csv(path: Path, rows: list[dict]) -> int:
         # player; skip that kind of accidental duplicate.
         if name in seen_names:
             continue
-        written.append((name, rank_val))
+        written.append((name, rank_val, _native_value_of(r)))
         seen_names.add(name)
     written.sort(key=lambda t: t[1])
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("w", newline="", encoding="utf-8") as f:
         w = csv.writer(f)
-        w.writerow(["name", "rank"])
-        for name, rank_val in written:
-            # Preserve fractional precision from the Avg column.
-            if rank_val == int(rank_val):
-                w.writerow([name, int(rank_val)])
-            else:
-                w.writerow([name, f"{rank_val:.2f}"])
+        w.writerow(["name", "rank", "value"])
+        for name, rank_val, native_value in written:
+            w.writerow(
+                [
+                    name,
+                    int(rank_val) if rank_val == int(rank_val) else f"{rank_val:.2f}",
+                    "" if native_value is None else _format_number(native_value),
+                ]
+            )
     return len(written)
 
 
@@ -522,7 +553,7 @@ def main() -> int:
                 print(
                     f"  {i:>3}. name={r.get('name')!r} "
                     f"avg={r.get('avg')!r} rank={r.get('rank')!r} "
-                    f"pos={r.get('pos')!r}"
+                    f"value={r.get('value')!r} pos={r.get('pos')!r}"
                 )
             continue
         # Check the floor BEFORE writing.  The old code wrote the CSV
@@ -542,6 +573,17 @@ def main() -> int:
             )
             exit_code = max(exit_code, 2)
             continue
+        if cfg.get("require_native_value"):
+            native_count = sum(1 for row in rows if _native_value_of(row) is not None)
+            if native_count < min_rows:
+                print(
+                    f"[DLF] {key}: native Value coverage {native_count}/{len(rows)} "
+                    f"is below required floor {min_rows}; semantic/parser degradation. "
+                    f"Preserving last-good CSV, NOT overwriting {out_path.relative_to(REPO)}.",
+                    file=sys.stderr,
+                )
+                exit_code = max(exit_code, 2)
+                continue
         count = _write_csv(out_path, rows)
         print(
             f"[DLF] wrote {count} rows → {out_path.relative_to(REPO)}",

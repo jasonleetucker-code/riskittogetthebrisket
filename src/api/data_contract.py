@@ -135,7 +135,7 @@ _IDP_POSITIONS = {"DL", "LB", "DB"}
 # participate; picks, kickers, and unsupported positions are excluded.
 _RANKABLE_POSITIONS = _OFFENSE_POSITIONS | _IDP_POSITIONS | {"PICK"}
 _OFFENSE_SIGNAL_KEYS = {
-    "ktcSfTep",
+    "ktcCrowdTradesSfTep",
     "dlfSf",
     "dynastyNerdsSfTep",
     "yahooBoone",
@@ -413,6 +413,12 @@ _SOURCE_CSV_PATHS: dict[str, Any] = {
     # Standard ``name,value`` shape on the same 0-9999 scale; signal
     # defaults to "value".
     "ktcSfTep": "CSVs/site_raw/ktcSfTep.csv",
+    # September 2026 KTC three-source architecture. Legacy ktc / ktcSfTep
+    # remain the historical Crowdsourced base-to-TE++ pair; only the explicit
+    # Crowd+Trades source below is registered to vote.
+    "ktcCrowdSfTep": "CSVs/site_raw/ktcCrowdSfTep.csv",
+    "ktcTradesSfTep": "CSVs/site_raw/ktcTradesSfTep.csv",
+    "ktcCrowdTradesSfTep": "CSVs/site_raw/ktcCrowdTradesSfTep.csv",
     "idpTradeCalc": "CSVs/site_raw/idpTradeCalc.csv",
     "dlfIdp": {
         "path": "CSVs/site_raw/dlfIdp.csv",
@@ -725,6 +731,19 @@ _SOURCE_CSV_PATHS: dict[str, Any] = {
     },
 }
 
+# CSVs that are intentionally loadable into canonicalSiteValues but are NOT
+# eligible to cast a consensus vote.  This is a canonical declaration, not a
+# test-only exception: callers can distinguish active ranking sources from
+# historical/diagnostic observations without weakening registry parity.
+#
+# KTC's September-2026 source architecture makes this distinction load-bearing:
+# - legacy ktc / ktcSfTep remain the historical Crowdsourced base↔TE++ pair;
+# - ktcCrowdSfTep and ktcTradesSfTep are same-family diagnostics;
+# - only ktcCrowdTradesSfTep is registered in _RANKING_SOURCES and votes.
+_NON_VOTING_SOURCE_CSV_KEYS: frozenset[str] = frozenset(
+    {"ktc", "ktcSfTep", "ktcCrowdSfTep", "ktcTradesSfTep"}
+)
+
 # Rank -> synthetic value transform used when a CSV declares signal=rank.
 # The absolute number is irrelevant to the downstream pipeline (it only
 # cares about the *ordering* of eligible rows within the source), but we
@@ -770,6 +789,9 @@ _SOURCE_MAX_AGE_HOURS: dict[str, int] = {
     # KTC TE++ (level 2) sub-board is sourced from the same scrape as
     # ``ktc``, so it shares the 6-hour staleness budget.
     "ktcSfTep": 6,
+    "ktcCrowdSfTep": 6,
+    "ktcTradesSfTep": 6,
+    "ktcCrowdTradesSfTep": 6,
     "idpTradeCalc": 6,
     "dynastyNerdsSfTep": 6,
     "fantasyProsIdp": 6,
@@ -859,6 +881,9 @@ _DEFAULT_SOURCE_ROW_FLOORS: dict[str, int] = {
     # an identical 501-row count.  Guarding the voting board more loosely
     # than the display-only one is what created the gap.
     "ktcSfTep": 400,
+    "ktcCrowdSfTep": 400,
+    "ktcTradesSfTep": 100,
+    "ktcCrowdTradesSfTep": 400,
     "idpTradeCalc": 700,
     "dlfIdp": 150,
     "dlfSf": 240,
@@ -1007,7 +1032,7 @@ _PAYLOAD_SIZE_FLOOR_BYTES: int = 2_000_000
 # coverage on the premium tier specifically.
 _DEFAULT_TOP50_COVERAGE_FLOORS: dict[str, dict[str, int]] = {
     "offense": {
-        "ktc": 48,
+        "ktcCrowdTradesSfTep": 48,
         "idpTradeCalc": 48,
         "dlfSf": 42,
         "dynastyNerdsSfTep": 45,
@@ -1178,7 +1203,7 @@ def registry_keys_for_run_source(run_source: str) -> list[str]:
     this reads that owner rather than keeping a second parallel table.
     It is declared only where the in-process Dynasty Scraper run governs
     the source (the only run names that can reach
-    ``sourceRunSummary``): ``KTC`` → ``ktcSfTep``, ``IDPTradeCalc`` →
+    ``sourceRunSummary``): ``KTC`` → ``ktcCrowdTradesSfTep``, ``IDPTradeCalc`` →
     ``idpTradeCalc``, and ``DLF_LocalCSV`` → the four DLF boards it loads
     from local CSVs (V1-80 / F-17).  A registry key fetched by its own
     ``scripts/`` timer declares no ``run_source`` and a scrape-run
@@ -1386,21 +1411,17 @@ GAME_TYPES: frozenset[str] = frozenset(
 
 _RANKING_SOURCES: list[dict[str, Any]] = [
     {
-        # KeepTradeCut Superflex + TE Premium board.  KTC publishes both
-        # a standard SF view and a TE++ sub-board from the same per-
-        # player API payload (``superflexValues.value`` and
-        # ``superflexValues.tepp`` level 2) — one scrape produces both.
-        # Historically we registered both as separate blend sources,
-        # which double-counted KTC's signal: for non-TE rows the two
-        # values are identical, and for TE rows the TEP-correction step
-        # converged them both onto the league's actual TEP anyway.
-        # 2026-04-28: dropped the standard ``ktc`` blend vote and
-        # promoted ``ktcSfTep`` to the canonical retail source.  The
-        # standard ``ktc`` CSV still loads into ``canonicalSiteValues``
-        # (free side-effect of the same scrape) so the KTC arbitrage
-        # finder + per-source winner row on /trade can keep displaying
-        # both values side-by-side.  Only the blend vote was removed.
-        "key": "ktcSfTep",
+        # KeepTradeCut Crowd+Trades Superflex + TE++ board — the one current
+        # KTC retail vote. Live 2026-09-08 evidence from KTC's own page
+        # establishes the three source codes and fields:
+        #   1 Crowdsourced  -> value/rank
+        #   2 Crowd+Trades  -> blendValue/blendRank
+        #   3 Tradesourced  -> vftValue/vftRank
+        # with TE++ under superflexValues.tepp. The same payload carries all
+        # three, so Crowd and Trades are archived as same-family diagnostics
+        # while only Crowd+Trades enters consensus. Legacy ktc/ktcSfTep stay
+        # Crowd-only for historical same-population TE calibration.
+        "key": "ktcCrowdTradesSfTep",
         # F-12 / V1-76: the Dynasty Scraper run name that governs this
         # board, so a ``sourceRunSummary`` failure round-trips to this
         # registry key (``registry_keys_for_run_source``).  Declared only
@@ -1415,7 +1436,7 @@ _RANKING_SOURCES: list[dict[str, Any]] = [
             "dynasty per-player payload (superflexValues) — KTC's redraft product is a "
             "separate site section and is not fetched"
         ),
-        "display_name": "KeepTradeCut SF-TE++",
+        "display_name": "KeepTradeCut Crowd+Trades SF-TE++",
         "scope": SOURCE_SCOPE_OVERALL_OFFENSE,
         "position_group": None,
         "depth": None,
@@ -1440,7 +1461,7 @@ _RANKING_SOURCES: list[dict[str, Any]] = [
         # row sets (offense vs IDP positions), so sourceRanks["idpTradeCalc"]
         # is written exactly once per row.
         "key": "idpTradeCalc",
-        "run_source": "IDPTradeCalc",  # F-12 / V1-76 (see ktcSfTep)
+        "run_source": "IDPTradeCalc",  # F-12 / V1-76 (see KTC entry above)
         # C1-SRC-02: DYNASTY is PROVEN per endpoint, never inferred from the
         # provider being one we otherwise trust.  UNKNOWN fails closed.
         "game_type": GAME_TYPE_DYNASTY,
@@ -2874,8 +2895,8 @@ def correlation_group_for(key: str) -> str:
 def expand_correlation_groups(keys: Iterable[str]) -> set[str]:
     """Expand ``keys`` to every registered source correlated with them.
 
-    ``expand_correlation_groups(["ktcSfTep"])`` returns
-    ``{"ktcSfTep", "fantasyNavigatorSf"}``.  Unknown keys pass through
+    ``expand_correlation_groups(["ktcCrowdTradesSfTep"])`` returns
+    ``{"ktcCrowdTradesSfTep", "fantasyNavigatorSf"}``.  Unknown keys pass through
     unchanged rather than raising: a caller naming a source that has
     since been retired should get a board without it, not an exception.
     """
@@ -2931,9 +2952,9 @@ def expand_correlation_groups(keys: Iterable[str]) -> set[str]:
 # is why that caller has to be able to ask this question structurally
 # instead of discovering it as a wrong number.
 ROOKIE_LADDER_PAIRS: tuple[tuple[str, str, set[str]], ...] = (
-    ("dlfRookieSf", "ktcSfTep", _OFFENSE_POSITIONS),
+    ("dlfRookieSf", "ktcCrowdTradesSfTep", _OFFENSE_POSITIONS),
     ("dlfRookieIdp", "idpTradeCalc", _IDP_POSITIONS),
-    ("flockFantasySfRookies", "ktcSfTep", _OFFENSE_POSITIONS),
+    ("flockFantasySfRookies", "ktcCrowdTradesSfTep", _OFFENSE_POSITIONS),
 )
 
 SCALE_LOST_IDP_BACKBONE = "idp_backbone_excluded"
@@ -4920,6 +4941,58 @@ def _enrich_from_source_csvs(
     return csv_index
 
 
+def _stamp_ktc_value_source_diagnostics(players_array: list[dict[str, Any]]) -> None:
+    """Expose KTC Crowd/Trades/Combined without turning them into extra votes.
+
+    ``canonicalSiteValues`` already contains the three source-mode CSV values.
+    This stamps a stable, machine-readable diagnostic block for downstream
+    decision intelligence. Only ``ktcCrowdTradesSfTep`` is registered in
+    ``_RANKING_SOURCES``; Crowd and Trades remain same-family observations.
+    """
+    from src.sources.ktc_value_sources import value_divergence  # noqa: PLC0415
+
+    for row in players_array:
+        sites = row.get("canonicalSiteValues")
+        if not isinstance(sites, dict):
+            continue
+
+        def _positive(key: str) -> float | None:
+            raw = sites.get(key)
+            if raw is None:
+                return None
+            try:
+                value = float(raw)
+            except (TypeError, ValueError):
+                return None
+            return value if value > 0 else None
+
+        crowd = _positive("ktcCrowdSfTep")
+        trades = _positive("ktcTradesSfTep")
+        combined = _positive("ktcCrowdTradesSfTep")
+        if crowd is None and trades is None and combined is None:
+            continue
+
+        delta, percent_delta, direction = value_divergence(crowd, trades)
+        row["ktcValueSources"] = {
+            "provider": "KeepTradeCut",
+            "format": {
+                "gameType": "DYNASTY",
+                "superflex": True,
+                "tePremium": "TE++",
+                "tePremiumLevel": 2,
+            },
+            "canonicalMarketSource": "crowd_trades",
+            "crowd": {"value": crowd, "signalType": "native_value"},
+            "trades": {"value": trades, "signalType": "native_value"},
+            "crowdTrades": {"value": combined, "signalType": "native_value"},
+            "divergence": {
+                "delta": delta,
+                "percentDelta": percent_delta,
+                "direction": direction,
+            },
+        }
+
+
 def _expected_sources_for_position(
     pos: str,
     *,
@@ -6416,6 +6489,19 @@ def _apply_two_way_player_boost(
             continue
         boosted = int(round(alt_value))
         row["rankDerivedValue"] = boosted
+        # If this override created the row's first canonical value, the normal
+        # evidence gate never ran because there was no primary-family price to
+        # assess.  Stamp the derivation explicitly instead of leaving the row
+        # claiming "unpriced".  When a primary price already existed,
+        # _restate_confidence_after_override below re-runs the five-axis gate.
+        if current_value <= 0 or row.get("confidenceBasis") in ("unpriced", "no_evidence"):
+            row["confidenceBucket"] = "low"
+            row["confidenceLabel"] = "Low — derived from two-way market evidence"
+            row["confidenceBasis"] = "derived_two_way_boost"
+            row["confidenceAxes"] = None
+            row["confidenceReasons"] = [
+                "Canonical value derived from alt-position market evidence because the primary family was unpriced"
+            ]
         row["twoWayPlayerBoost"] = {
             "applied": True,
             "altFamily": alt_family,
@@ -6742,11 +6828,11 @@ _DS_COMBINED_RANK_KEYS: frozenset[str] = frozenset(
 
 _VALUE_BASED_SOURCES: frozenset[str] = frozenset(
     {
-        # ``ktcSfTep`` carries native 0-9999 values from KTC's TE+ sub-board.
-        # Standard ``ktc`` was retired from the blend 2026-04-28 (its values
-        # are still loaded into canonicalSiteValues for the arbitrage finder
-        # + per-source winner display, but it no longer votes).
-        "ktcSfTep",
+        # KTC Crowd+Trades SF+TE++ carries KTC's official combined market
+        # value and is the one KTC-family direct vote. Crowdsourced and
+        # Tradesourced remain loaded for diagnostics only; legacy ktc/ktcSfTep
+        # remain readable as historical Crowd calibration snapshots.
+        "ktcCrowdTradesSfTep",
         "idpTradeCalc",
         # ``dynastyDaddySf``, ``yahooBoone``, and ``fantasyProsFitzmaurice``
         # were moved to the rank-signal path 2026-04-22 after the Hampel
@@ -6808,7 +6894,7 @@ _VALUE_SOURCE_DECLARED_MAX: dict[str, float] = {
     # scale whose top asset is exactly 9999.  Verified against the live
     # board 2026-07-27: ktcSfTep max 9999 (Josh Allen), idpTradeCalc max
     # 9999 (Bijan Robinson), zero out-of-range rows on either.
-    "ktcSfTep": 9999.0,
+    "ktcCrowdTradesSfTep": 9999.0,
     "idpTradeCalc": 9999.0,
 }
 
@@ -7360,7 +7446,9 @@ _TEP_NATIVE_ASSUMED_MULTIPLIER: float = 1.15
 # non-duplication test in ``tests/league_intel/``.
 _TE_BLANKET_NON_NATIVE_MULTIPLIER: float = 1.15
 _TE_BLANKET_NATIVE_MULTIPLIER: float = 1.10
-_TE_BLANKET_KTC_EXEMPT_KEYS: frozenset[str] = frozenset({"ktc", "ktcSfTep"})
+_TE_BLANKET_KTC_EXEMPT_KEYS: frozenset[str] = frozenset(
+    {"ktc", "ktcSfTep", "ktcCrowdSfTep", "ktcTradesSfTep", "ktcCrowdTradesSfTep"}
+)
 
 # ── WIRED 2026-07-27: the flat multiplier is now a measured curve ─────
 #
@@ -9335,14 +9423,14 @@ def _compute_unified_rankings(
     # rookie-source rank to a combined-pool rank via the reference
     # ladder:
     #
-    #   * ``dlfRookieSf`` (offense rookies) → KTC ladder:
+    #   * ``dlfRookieSf`` (offense rookies) → KTC Crowd+Trades ladder:
     #     DLF's #1 rookie → the rank KTC gives its #1 rookie.
     #     DLF's #2 rookie → KTC's #2 rookie-slot rank.  Etc.
     #
     #   * ``dlfRookieIdp`` (IDP rookies) → IDPTC ladder:
     #     DLF's #1 IDP rookie → IDPTC's top-rookie rank, etc.
     #
-    #   * ``flockFantasySfRookies`` (offense rookies) → KTC ladder:
+    #   * ``flockFantasySfRookies`` (offense rookies) → KTC Crowd+Trades ladder:
     #     same shape as dlfRookieSf — Flock's class-only ranks anchor
     #     to KTC's offense rookie ladder.
     #
@@ -11508,6 +11596,7 @@ def build_api_data_contract(
     csv_index = _enrich_from_source_csvs(
         players_array, parse_errors=source_parse_errors, csv_root=csv_root
     )
+    _stamp_ktc_value_source_diagnostics(players_array)
 
     # V1-132 / audit F-34: the far-future injection above ran against the
     # RAW payload, where only the in-JSON pick markets exist; the CSV

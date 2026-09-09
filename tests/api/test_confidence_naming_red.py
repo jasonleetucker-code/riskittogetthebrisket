@@ -277,7 +277,7 @@ class TestPickConfidenceHasTwoOwners:
 
         assert (
             assess_pick_confidence(
-                {"ktcSfTep": 5000.0, "idpTradeCalc": 5100.0}, is_slot_specific=False
+                {"ktcCrowdTradesSfTep": 5000.0, "idpTradeCalc": 5100.0}, is_slot_specific=False
             )[0]
             == "high"
         )

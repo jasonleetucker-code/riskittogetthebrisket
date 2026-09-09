@@ -34,10 +34,10 @@ import {
   SOURCE_VENDOR_LABELS,
   vendorForSource,
 } from "@/lib/dynasty-data";
-import { valueAdjustmentFromSideArrays } from "@/lib/trade-logic";
 import { resolveVendorAssetValue, summariseSide } from "@/lib/second-opinions";
 
-const KTC_RAW_NATIVE_VENDORS = new Set(["ktcSfTep"]);
+const KTC_RAW_NATIVE_VENDORS = new Set(["ktcSfTep", "ktcCrowdTradesSfTep"]);
+const VENDOR_NATIVE_VENDORS = new Set(["dlf"]);
 
 // NOTE: this component deliberately takes NO ``valueMode``.
 //
@@ -103,6 +103,7 @@ export default function TradeSourceBreakdown({ sides, settings }) {
         // (median ratio 1.091, drifting 0.947 at the top of the board to
         // 1.142 in the tail, range 0.400-1.491).
         const useRawNative = KTC_RAW_NATIVE_VENDORS.has(vendor);
+        const useVendorNative = VENDOR_NATIVE_VENDORS.has(vendor);
         const sideSummaries = assetsBySide.map((assets) =>
           summariseSide(
             assets.map((row) =>
@@ -111,6 +112,7 @@ export default function TradeSourceBreakdown({ sides, settings }) {
                 mainSubs,
                 rookieSubs,
                 useKtcNative: useRawNative,
+                useVendorNative,
                 impute: imputeUncovered,
               }),
             ),
@@ -131,7 +133,15 @@ export default function TradeSourceBreakdown({ sides, settings }) {
         // path useful).
         if (coverage.reduce((a, b) => a + b, 0) === 0) return null;
 
-        const adjustments = valueAdjustmentFromSideArrays(sideValues);
+        // External second opinions are vendor-literal atomic sums.  The old
+        // implementation applied our historical KTC Value Adjustment port to
+        // every vendor, and an interim repair still applied it to KTC.  KTC's
+        // September 2026 three-source launch also changed the calculator
+        // behavior, so parity with that historical port is no longer proven.
+        // Until a current vendor-native package algorithm is independently
+        // verified, no row claims one. Our own canonical trade methodology is
+        // applied separately by the Trade Analyzer owner.
+        const adjustments = sideValues.map(() => 0);
         const adjustedTotals = rawTotals.map(
           (t, i) => t + (adjustments[i] || 0),
         );
@@ -177,6 +187,12 @@ export default function TradeSourceBreakdown({ sides, settings }) {
           nativeCounts,
           unresolvedCounts,
           incomplete,
+          signalType: useRawNative
+            ? "native_value"
+            : useVendorNative
+              ? "native_value"
+              : "translated_rank",
+          packageAdjustment: "none",
           winnerIdx: tied ? null : winnerIdx,
           winnerLabel: tied ? "Even" : sides[winnerIdx]?.label || "?",
           marginPct,
@@ -213,9 +229,7 @@ export default function TradeSourceBreakdown({ sides, settings }) {
             className="muted source-breakdown-subtitle"
             style={{ fontSize: "0.72rem" }}
           >
-            VA-adjusted totals on the 0-9999 value scale, summed per vendor.
-            Sub-boards (e.g. DLF SF + DLF RK) roll up into one row; margin shows
-            winner's edge as a percent.
+            Vendor-literal second opinions. KTC and DLF use native atomic values; ranking-only sources use translated rank values. No external row borrows our package adjustment. Margin shows the winner&apos;s edge.
           </span>
         </span>
         <label
@@ -278,6 +292,13 @@ export default function TradeSourceBreakdown({ sides, settings }) {
                     title={row.displayName}
                   >
                     {row.label}
+                    <span
+                      className="muted"
+                      style={{ display: "block", fontSize: "0.62rem", fontWeight: 400 }}
+                    >
+                      {row.signalType === "native_value" ? "native value" : "translated rank"}
+                      {row.packageAdjustment !== "none" ? ` + ${row.packageAdjustment}` : ""}
+                    </span>
                   </td>
                   {row.adjustedTotals.map((total, i) => {
                     const hasAdj = (row.adjustments[i] || 0) > 0;

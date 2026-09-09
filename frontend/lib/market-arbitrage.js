@@ -18,7 +18,7 @@ export const ARBITRAGE_INTERNAL_MARGIN = 0.10;
 export const ARBITRAGE_PUBLIC_FRIENDLY_PREMIUM = 0.05;
 
 const PUBLIC_MARKETS = {
-  offense: { key: "ktcSfTep", label: "KTC" },
+  offense: { key: "ktcCrowdTradesSfTep", label: "KTC" },
   idp: { key: "idpTradeCalc", label: "IDP Trade Calculator" },
 };
 

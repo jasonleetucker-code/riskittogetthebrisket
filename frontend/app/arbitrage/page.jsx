@@ -60,7 +60,7 @@ function edgeActionLabel(action) {
   return "HOLD";
 }
 
-const MARKET_LABEL = { ktcSfTep: "KTC", ktc: "KTC", idpTradeCalc: "IDPTC" };
+const MARKET_LABEL = { ktcCrowdTradesSfTep: "KTC", ktcSfTep: "KTC", ktc: "KTC", idpTradeCalc: "IDPTC" };
 
 function PlayerEdgeTable({ opportunities }) {
   if (!opportunities.length) {

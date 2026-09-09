@@ -882,6 +882,8 @@ export function getPlayerEdge(row) {
   let edgePct = 0;
   const ourValue = Number(row?.values?.full);
   const ktcValue =
+    Number(row?.rawSourceValues?.ktcCrowdTradesSfTep) ||
+    Number(row?.canonicalSites?.ktcCrowdTradesSfTep) ||
     Number(row?.rawSourceValues?.ktcSfTep) ||
     Number(row?.canonicalSites?.ktcSfTep) ||
     Number(row?.canonicalSites?.ktc);

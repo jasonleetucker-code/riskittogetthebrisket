@@ -4411,6 +4411,12 @@ export default function DraftDashboardPage() {
               // the blend-time TE multiplier), then to the legacy
               // ``ktc`` key for pre-#393 fixtures.
               ktcRawValue:
+                (typeof p?.rawSourceValues?.ktcCrowdTradesSfTep === "number"
+                  ? p.rawSourceValues.ktcCrowdTradesSfTep
+                  : null) ??
+                (typeof p?.canonicalSiteValues?.ktcCrowdTradesSfTep === "number"
+                  ? p.canonicalSiteValues.ktcCrowdTradesSfTep
+                  : null) ??
                 (typeof p?.rawSourceValues?.ktcSfTep === "number"
                   ? p.rawSourceValues.ktcSfTep
                   : null) ??
