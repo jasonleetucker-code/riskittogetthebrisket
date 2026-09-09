@@ -60,7 +60,10 @@ _needs_payload = unittest.skipIf(_RAW is None, "no archived export payload avail
 
 
 class TestHistoricalKtcAnchorMigration(unittest.TestCase):
-    """Historical replay compatibility must never become a live fallback."""
+    """Historical replay compatibility must never become a live fallback.
+
+    The compatibility is provenance-only: it cannot restore a retired vote.
+    """
 
     def _root_with(self, *source_keys: str):
         tmp = tempfile.TemporaryDirectory()
