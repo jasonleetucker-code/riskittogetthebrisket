@@ -156,13 +156,13 @@ class TestDynastyNerdsEnrichment(unittest.TestCase):
                 "_sites": 1,
                 "position": pos,
                 "team": r.get("Team") or "TST",
-                "_canonicalSiteValues": {"ktcSfTep": 5000},
+                "_canonicalSiteValues": {"ktcCrowdTradesSfTep": 5000},
             }
             positions[name] = pos
         payload = {
             "players": players,
-            "sites": [{"key": "ktcSfTep"}, {"key": "idpTradeCalc"}],
-            "maxValues": {"ktcSfTep": 9999},
+            "sites": [{"key": "ktcCrowdTradesSfTep"}, {"key": "idpTradeCalc"}],
+            "maxValues": {"ktcCrowdTradesSfTep": 9999},
             "sleeper": {"positions": positions},
         }
         cls.contract = build_api_data_contract(payload)
