@@ -195,3 +195,46 @@ def test_external_content_is_evidence_not_authority():
     assert "2096964706099700065" in rationale
     assert "2096677118570832006" in rationale
     assert "2096995004946219447" in rationale
+
+
+def test_agent_os_requires_explicit_unresolved_completion_state():
+    doc = _read("docs/AGENT_OPERATING_SYSTEM.md")
+    assert "Completion result contract" in doc
+    assert "STATUS: DONE | PARTIAL | BLOCKED | ABANDONED" in doc
+    assert "UNRESOLVED: NONE" in doc
+    assert "`NONE` is an evidence claim, not boilerplate" in doc
+    assert "may not report `STATUS: DONE`" in doc
+    assert "Change-class evidence matrix" in doc
+
+
+def test_skills_use_progressive_disclosure_and_explain_skill_caused_stops():
+    doc = _read("docs/AGENT_OPERATING_SYSTEM.md")
+    harness = _read(".agents/skills/repo-harness-auditor/SKILL.md")
+    assert "Progressive skill disclosure" in doc
+    assert "Do not preload every full `SKILL.md`" in doc
+    assert "Skill-caused-stop transparency" in doc
+    assert "exact file/rule" in doc
+    assert "Progressive-disclosure / stop-causality hygiene" in harness
+    assert "instruction/context debt" in harness
+    assert "Treat instruction debt like code debt" in harness
+
+
+def test_agent_os_records_long_term_autonomous_steward_without_activating_it():
+    doc = _read("docs/AGENT_OPERATING_SYSTEM.md")
+    entry = _read("AI_INSTRUCTIONS.md")
+    harness = _read(".agents/skills/repo-harness-auditor/SKILL.md")
+    assert "Long-term autonomous site-steward target" in doc
+    assert "docs/AUTONOMOUS_SITE_STEWARD_VISION.md" in doc
+    assert "destination and architecture contract" in doc
+    assert "not activation" in doc.lower()
+    assert "Only for unattended/recurrent site-steward design or operation" in entry
+    assert "Do not preload that long-term vision into ordinary feature sessions" in entry
+    assert "Continuous-stewardship readiness hygiene" in harness
+
+
+def test_agent_os_prefers_existing_mechanisms_before_new_agent_machinery():
+    doc = _read("docs/AGENT_OPERATING_SYSTEM.md")
+    assert "Prefer existing mechanisms before new machinery" in doc
+    assert "existing canonical owner" in doc
+    assert "runtime/platform already supplies the capability" in doc
+    assert "New dependencies and agent layers must earn" in doc
