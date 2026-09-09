@@ -3,7 +3,7 @@
 The scraper's ``sourceRunSummary`` names a source by its RUN name — the
 ``source_enabled_map`` key in ``Dynasty Scraper.py`` (``KTC``,
 ``IDPTradeCalc``, ``DLF_LocalCSV`` …).  Every population/coverage surface
-in ``data_contract`` speaks the ranking-registry KEY (``ktcSfTep``,
+in ``data_contract`` speaks the ranking-registry KEY (``ktcCrowdTradesSfTep``,
 ``idpTradeCalc``, ``dlfSf`` …).  The two vocabularies are disjoint on
 real data — ``"DLF_LocalCSV" != "dlfSf"`` — so a run-level failure could
 not be joined back to the registry rows it concerns.  The health surface
@@ -38,7 +38,7 @@ DLF_KEYS = ["dlfSf", "dlfRookieSf", "dlfIdp", "dlfRookieIdp"]
 
 class TestRunNameResolvesToRegistryKeys:
     def test_ktc_run_name_round_trips_to_its_registry_key(self):
-        assert registry_keys_for_run_source("KTC") == ["ktcSfTep"]
+        assert registry_keys_for_run_source("KTC") == ["ktcCrowdTradesSfTep"]
 
     def test_idptradecalc_run_name_round_trips(self):
         assert registry_keys_for_run_source("IDPTradeCalc") == ["idpTradeCalc"]
