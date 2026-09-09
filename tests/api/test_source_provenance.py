@@ -37,18 +37,18 @@ rule that family ownership must never be guessed from output correlation.
 
 CORRECTION TO THE AUTHORISING PREMISE, recorded so it is not re-derived
 ───────────────────────────────────────────────────────────────────────
-The B10 scope was written around "ktc weight ~1.3 + ktcSfTep ~1.0, so
+The B10 scope was written around "ktc weight ~1.3 + ktcCrowdTradesSfTep ~1.0, so
 KTC-family evidence votes at ~2.3 against IDPTC's 1.0". Measured on this
 tree, that does not describe canonical aggregation:
 
 * there is **no `ktc` entry** in `_RANKING_SOURCES`; the KTC family votes
-  canonically exactly once, through `ktcSfTep`, at weight **1.00**;
+  canonically exactly once, through `ktcCrowdTradesSfTep`, at weight **1.00**;
 * **all 21 sources are weight 1.00**, per the registry's stated policy;
 * the `1.3` is real but belongs to `LEGACY_COMPOSITE_SITE_WEIGHTS` in
   `Dynasty Scraper.py`, whose own docstring scopes it to `_composite` and
   pick-row blending — a different concept that shares the word "weight";
 * `ktc` DOES appear in `canonicalSiteValues` (464 rows, the same rows as
-  `ktcSfTep`) but is not a registered source, so it casts no vote.
+  `ktcCrowdTradesSfTep`) but is not a registered source, so it casts no vote.
 
 The real independence defect is the undeclared families above, not a
 KTC double-weight.
@@ -74,7 +74,7 @@ KNOWN_MULTI_BOARD_PROVIDERS = {
     "fantasyPros": {"fantasyProsSf", "fantasyProsIdp", "fantasyProsFitzmaurice"},
     "flockFantasy": {"flockFantasySf", "flockFantasySfRookies"},
     "draftSharks": {"draftSharks", "draftSharksIdp"},
-    "ktc": {"ktcSfTep", "fantasyNavigatorSf"},
+    "ktc": {"ktcCrowdTradesSfTep", "fantasyNavigatorSf"},
 }
 
 

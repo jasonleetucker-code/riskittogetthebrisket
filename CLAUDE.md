@@ -583,7 +583,9 @@ Steps:
 3. Hill-style percentile-to-value conversion via scope-level master
    curves in ``src/canonical/player_valuation.py``
 4. Value-direct voting for ``_VALUE_BASED_SOURCES`` (today exactly
-   ``ktcSfTep`` + ``idpTradeCalc``): ``raw / site_max × 9999``.
+   ``ktcCrowdTradesSfTep`` + ``idpTradeCalc``): ``raw / site_max × 9999``.
+   KTC Crowdsourced and Tradesourced are retained as same-family diagnostics;
+   only KTC\'s official Crowd+Trades SF+TE++ board votes.
    Every other source — including DynastyDaddy, Yahoo/Boone,
    Fitzmaurice, FantasyCalc, OTCFFB after their rank-signal
    conversions — votes via rank → percentile → Hill.  (The refit
@@ -597,8 +599,9 @@ Steps:
    ``src/league_intel/te_premium.convert_te_value(from_basis="base",
    to_basis="tepp")`` — KTC's own measured uplift, 1.209 at the top of
    the board rising toward 2.05 down it.  Replaces a flat 1.15 that sat
-   below the entire observed range.  ``ktc`` / ``ktcSfTep`` are exempt
-   (the anchor IS the TE++ board) and the conversion is a no-op when
+   below the entire observed range.  KTC TE++ boards, including the current
+   ``ktcCrowdTradesSfTep`` anchor and historical ``ktcSfTep``, are exempt
+   (the anchor IS already TE++) and the conversion is a no-op when
    ``from == to``, so the double-count guard is structural.  TEP-native
    sources keep the flat 1.10 — only base ↔ tepp is measured.
    **The target basis is a CONSTANT, not the league's measured TE
@@ -609,8 +612,8 @@ Steps:
    explicit operator slider value bypasses the curve regardless.
 6. Hierarchical anchor + α-shrinkage (α=0.10) ONLY for IDP and
    picks; offense takes a flat count-aware mean-median across all
-   sources.  Pick rows widen the anchor set to include ktcSfTep so
-   the two real pick markets (KTC + IDPTC) average as peers.
+   sources.  Pick rows widen the anchor set to include ``ktcCrowdTradesSfTep`` so
+   the two real pick markets (KTC Crowd+Trades + IDPTC) average as peers.
 7. Count-aware aggregation (n=1 passthrough, n=2 mean, n=3-4 untrimmed
    mean-median, n≥5 trimmed mean-median)
 8. RETIRED: the λ·MAD volatility penalty is switched off
@@ -1015,7 +1018,7 @@ them without reading why (WS-J F-3/F-4):
 | Engine | Gate | Ranked against |
 |---|---|---|
 | `suggestions.py` | `BOARD_TOP_N_FILTER` (150) | **our blended board** — `display_value` order, covers every asset class |
-| `finder.py` | `MARKET_TOP_N_FILTER` (150) | **the retail market, per market** — `ktcSfTep` for offense + picks, `idpTradeCalc` for IDP, each ranked within its own population |
+| `finder.py` | `MARKET_TOP_N_FILTER` (150) | **the retail market, per market** — `ktcCrowdTradesSfTep` for offense + picks, `idpTradeCalc` for IDP, each ranked within its own population |
 
 `finder.py` must anchor on a real retail value because its whole
 premise is arbitrage between our board and the market — the market
@@ -1537,7 +1540,8 @@ test-pinned (``tests/bdvm/``):
   final score — from ``data/bdvm/events/<season>.json``.
 - Fundamentals compute with ZERO market inputs; the market layer
   (``src/bdvm/market.py``) runs strictly afterward and reads only
-  value-signal sources (``ktcSfTep``/``ktc``/``idpTradeCalc`` — never
+  value-signal sources (current ``ktcCrowdTradesSfTep`` plus historical
+  ``ktcSfTep``/``ktc`` fallbacks and ``idpTradeCalc`` — never
   the rank-signal synthetic encodings in ``canonicalSiteValues``).
 - No positional multipliers anywhere: Superflex/TEP/IDP format effects
   flow from exact scoring + flex-aware dynamic replacement.

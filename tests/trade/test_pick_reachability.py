@@ -15,7 +15,7 @@ candidates.  Two independent breaks, either of which alone is sufficient:
 Meanwhile the pool *does* carry **26 priced picks** with real market values and
 ranks (``2026 Pick 1.01`` at 6,662, market rank 27), and 288 picks are owned
 across the twelve rosters.  ``CLAUDE.md`` documents the finder's market gate as
-``ktcSfTep`` for "offense **and picks**", so this is a gap between the
+``ktcCrowdTradesSfTep`` for "offense **and picks**", so this is a gap between the
 documented design and the live path, not an intended exclusion.
 
 **Why this is pinned rather than fixed here.**  Making the finder emit
@@ -162,7 +162,7 @@ def test_the_two_label_grammars_still_disagree():
             "_finalAdjusted": 5000,
             "position": "PICK",
             "_sites": 6,
-            "_canonicalSiteValues": {"ktcSfTep": 4500, "idpTradeCalc": 4500},
+            "_canonicalSiteValues": {"ktcCrowdTradesSfTep": 4500, "idpTradeCalc": 4500},
         }
     }
     pool = finder.build_asset_pool(priced)

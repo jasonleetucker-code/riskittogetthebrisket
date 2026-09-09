@@ -4,7 +4,7 @@ WHY THIS EXISTS
 ===============
 ``build_asset_pool`` routes every asset to the retail board its
 counterparty would actually consult — ``idpTradeCalc`` for IDP,
-``ktcSfTep`` for offense and picks (WS-J F-3).  It picked the branch by
+``ktcCrowdTradesSfTep`` for offense and picks (WS-J F-3).  It picked the branch by
 reading ``pdata["position"]`` off the legacy ``players`` dict.
 
 That dict has **no ``position`` key**.  Measured on the pinned
@@ -19,8 +19,8 @@ Measured effect of the fix on the same payload:
 
     pool 150 -> 300 assets
     IDP in pool 0 -> 150
-    market sources {ktcSfTep: 132, ktc: 18}
-                -> {ktcSfTep: 132, ktc: 18, idpTradeCalc: 150}
+    market sources {ktcCrowdTradesSfTep: 132, ktc: 18}
+                -> {ktcCrowdTradesSfTep: 132, ktc: 18, idpTradeCalc: 150}
 
 WHAT MAKES THIS CLASS 7 RATHER THAN A PLAIN BUG
 ===============================================
@@ -80,7 +80,7 @@ def _contract() -> dict[str, Any]:
         )
         players[name] = {
             "_sites": 5,
-            "_canonicalSiteValues": {"ktcSfTep": 7900 - i * 100},
+            "_canonicalSiteValues": {"ktcCrowdTradesSfTep": 7900 - i * 100},
         }
     for i in range(1, 21):
         name = f"Defender {i:02d}"
@@ -172,7 +172,7 @@ class TestIdpReachesThePool(unittest.TestCase):
         )
         off = [a for a in pool if _norm_pos(str(a.position or "")) not in IDP_POSITIONS]
         self.assertTrue(off)
-        self.assertEqual({a.market_source for a in off}, {"ktcSfTep"})
+        self.assertEqual({a.market_source for a in off}, {"ktcCrowdTradesSfTep"})
 
 
 class TestIdpWarningCanActuallyFire(unittest.TestCase):

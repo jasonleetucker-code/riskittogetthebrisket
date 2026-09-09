@@ -46,7 +46,7 @@ def _row(name: str, pos: str, *, idp=None, dlf=None, ktc=None, ktc_sf=None) -> d
     if ktc is not None:
         sites["ktc"] = ktc
     if ktc_sf is not None:
-        sites["ktcSfTep"] = ktc_sf
+        sites["ktcCrowdTradesSfTep"] = ktc_sf
     return {
         "canonicalName": name,
         "displayName": name,
@@ -277,7 +277,7 @@ class TestDlfParticipatesInUnifiedRankings(unittest.TestCase):
         # the rows actually present in a build (src/bridges/descriptor.py),
         # not declared — so a fixture with only IDP rows can never exercise
         # it, whatever the real board looks like.  Ten offense rows (each
-        # also carrying a corroborating ktcSfTep value so the single-source
+        # also carrying a corroborating KTC Crowd+Trades value so the single-source
         # haircut doesn't fire) give idpTradeCalc a genuine offense pool
         # alongside its IDP one, matching
         # test_dlf_rank_is_mapped_through_shared_market_when_offense_present
@@ -333,7 +333,7 @@ class TestDlfParticipatesInUnifiedRankings(unittest.TestCase):
         best IDP in the backbone."""
         # 10 offense rows all price higher in IDPTradeCalc than any IDP,
         # so the combined-pool rank of the top IDP in IDPTC is 11.  Each
-        # carries a second corroborating offense source (ktcSfTep) so
+        # carries a second corroborating offense source (KTC Crowd+Trades) so
         # the single-source confidence haircut does not fire — these
         # stand in for realistic multi-source offense players; the
         # regression under test is the DLF shared-market translation,

@@ -221,7 +221,7 @@ class TestThePickRuleLivesAtItsOwner:
         from src.api.confidence import assess_pick_confidence
 
         bucket, _label = assess_pick_confidence(
-            {"ktcSfTep": 5000.0, "idpTradeCalc": 5100.0}, is_slot_specific=False
+            {"ktcCrowdTradesSfTep": 5000.0, "idpTradeCalc": 5100.0}, is_slot_specific=False
         )
         assert bucket == "high"
         bucket, _label = assess_pick_confidence({"idpTradeCalc": 5000.0}, is_slot_specific=False)

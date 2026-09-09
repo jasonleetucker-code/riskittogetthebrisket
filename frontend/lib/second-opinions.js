@@ -59,8 +59,10 @@ export const VALUE_BASIS = {
   CANONICAL: "CANONICAL_1_9999",
   /** A vendor signal after canonical normalization (`valueContribution`). */
   NORMALIZED_VENDOR: "NORMALIZED_VENDOR_1_9999",
-  /** KTC's own published value, the basis V13 VA was calibrated on. */
+  /** KTC's own published value, the basis KTC package math is calibrated on. */
   KTC_NATIVE: "KTC_NATIVE",
+  /** Another vendor's own published atomic value; comparable only within that vendor. */
+  VENDOR_NATIVE: "VENDOR_NATIVE",
   /** No comparable number exists. Never a quantity — never zero. */
   MISSING: "MISSING",
 };
@@ -85,6 +87,7 @@ const COMPATIBLE = {
     VALUE_BASIS.NORMALIZED_VENDOR,
   ]),
   [VALUE_BASIS.KTC_NATIVE]: new Set([VALUE_BASIS.KTC_NATIVE]),
+  [VALUE_BASIS.VENDOR_NATIVE]: new Set([VALUE_BASIS.VENDOR_NATIVE]),
   [VALUE_BASIS.MISSING]: new Set(),
 };
 
@@ -123,14 +126,16 @@ export function canonicalValueOf(row) {
  * @param {object}  row          board row
  * @param {object[]} mainSubs    the vendor's main sub-boards
  * @param {object[]} rookieSubs  the vendor's rookie sub-boards
- * @param {boolean} useKtcNative true for the KTC vendor only
- * @param {boolean} impute       "fill uncovered pieces with our value"
+ * @param {boolean} useKtcNative    true for the KTC vendor only
+ * @param {boolean} useVendorNative true when a vendor-literal atomic value is required
+ * @param {boolean} impute          "fill uncovered pieces with our value"
  */
 export function resolveVendorAssetValue({
   row,
   mainSubs = [],
   rookieSubs = [],
   useKtcNative = false,
+  useVendorNative = false,
   impute = true,
 }) {
   const covered = (subs) => {
@@ -140,7 +145,9 @@ export function resolveVendorAssetValue({
       const v = useKtcNative
         ? (positive(row?.rawSourceValues?.[sub.key]) ??
           positive(row?.canonicalSites?.[sub.key]))
-        : positive(row?.sourceRankMeta?.[sub.key]?.valueContribution);
+        : useVendorNative
+          ? positive(row?.sourceNativeValues?.[sub.key])
+          : positive(row?.sourceRankMeta?.[sub.key]?.valueContribution);
       if (v) {
         sum += v;
         n += 1;
@@ -151,7 +158,9 @@ export function resolveVendorAssetValue({
 
   const basis = useKtcNative
     ? VALUE_BASIS.KTC_NATIVE
-    : VALUE_BASIS.NORMALIZED_VENDOR;
+    : useVendorNative
+      ? VALUE_BASIS.VENDOR_NATIVE
+      : VALUE_BASIS.NORMALIZED_VENDOR;
 
   // Main boards win over rookie-specialty boards: once a rookie is
   // promoted onto the main board, the rookie board is a pre-draft
@@ -174,11 +183,11 @@ export function resolveVendorAssetValue({
     };
   }
 
-  if (useKtcNative) {
-    // See the module docstring: canonical is not interchangeable with
-    // KTC-native (median 1.091, drifting 0.947 -> 1.142 across board
-    // depth, range 0.400-1.491). Imputing here would manufacture a KTC
-    // opinion on a player KTC never published, inside a nonlinear VA.
+  if (useKtcNative || useVendorNative) {
+    // Native vendor units are not interchangeable with Chase Upside's
+    // canonical 1-9999 scale. Imputing here would manufacture a vendor
+    // opinion and, for non-KTC vendors, can mix scales such as DLF's
+    // ~0-300 atomic values with canonical thousands.
     return {
       value: null,
       basis: VALUE_BASIS.MISSING,

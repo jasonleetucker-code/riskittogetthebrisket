@@ -142,6 +142,7 @@ CONFIDENCE_BASES: tuple[str, ...] = (
     "derived_year_step",  # value derived from the nearest published year
     "derived_rookie_tether",  # value inherited from the rookie at this slot
     "derived_tier_values",  # value derived from tier values (generic grade)
+    "derived_two_way_boost",  # value derived from alt-position market evidence
     "unpriced",  # no canonical value exists for this row
     "no_evidence",  # a value exists, but zero families voted
     "quarantine_degraded",  # degraded after the fact by a data-quality flag
@@ -528,7 +529,7 @@ def _pick_confidence_from_values(
     """
     raw_values: list[tuple[str, float]] = []
     for key in (
-        "ktcSfTep",
+        "ktcCrowdTradesSfTep",
         "idpTradeCalc",
         "dlfSf",
         "dynastyNerdsSfTep",
@@ -550,7 +551,7 @@ def _pick_confidence_from_values(
 
     effective_count = 0.0
     for key, _v in raw_values:
-        if key == "ktcSfTep" and is_slot_specific:
+        if key == "ktcCrowdTradesSfTep" and is_slot_specific:
             effective_count += 0.5
         else:
             effective_count += 1.0

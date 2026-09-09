@@ -276,9 +276,12 @@ jobs:
               fi
             fi
           }
-          stamp_if_present ktc                CSVs/site_raw/ktc.csv               100
-          stamp_if_present ktcSfTep           CSVs/site_raw/ktcSfTep.csv          100
-          stamp_if_present idpTradeCalc       CSVs/site_raw/idpTradeCalc.csv       50
+          stamp_if_present ktc                     CSVs/site_raw/ktc.csv                      100
+          stamp_if_present ktcSfTep                CSVs/site_raw/ktcSfTep.csv                   100
+          stamp_if_present ktcCrowdSfTep           CSVs/site_raw/ktcCrowdSfTep.csv              100
+          stamp_if_present ktcTradesSfTep          CSVs/site_raw/ktcTradesSfTep.csv             100
+          stamp_if_present ktcCrowdTradesSfTep     CSVs/site_raw/ktcCrowdTradesSfTep.csv        100
+          stamp_if_present idpTradeCalc            CSVs/site_raw/idpTradeCalc.csv                50
           # NOTE: dynastyNerdsSfTep / fantasyProsSf / fantasyProsIdp used
           # to be stamped here too.  They are now fetched below instead —
           # see "Three sources were frozen" further down.  Leaving the

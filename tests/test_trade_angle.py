@@ -1025,19 +1025,21 @@ def test_packages_player_rows_expose_package_market_source():
         min_my_gain_pct=5.0,
         max_market_gain_pct=5.0,
     )
-    # ``market_source`` now names the MARKET the whole package was
-    # priced on, not the key that one row happened to be read from.
-    # For an offense-only package that is ``ktcSfTep`` even when the
-    # fixture only carries the retired legacy ``ktc`` key — same
-    # market, and the UI renders both as "KTC".  Per-row provenance
-    # that contradicted the package total was the thing worth losing.
+    # ``market_source`` names the MARKET the whole package was priced
+    # on (``_market_source_for``), not the key that one row happened to
+    # be read from.  For an offense-only package that is the canonical
+    # KTC vote -- ``ktcCrowdTradesSfTep`` as of the September-2026
+    # three-source cutover -- even when the fixture only carries the
+    # retired legacy ``ktc`` key: same market, and the UI renders both
+    # as "KTC".  Per-row provenance that contradicted the package total
+    # was the thing worth losing.
     for c in result["candidates"]:
         for p in c["players"]:
             if p["position"] == "DL":
                 assert p["market_source"] == "idpTradeCalc"
                 assert p["market_value"] == 5100  # IDPTC value
             elif p["position"] == "WR":
-                assert p["market_source"] == "ktcSfTep"
+                assert p["market_source"] == "ktcCrowdTradesSfTep"
                 assert p["market_value"] == 5100  # KTC value
 
 

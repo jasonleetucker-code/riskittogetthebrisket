@@ -180,13 +180,13 @@ class TestIdpRankings(unittest.TestCase):
             "players": {
                 "Test QB": {
                     "_composite": 9000,
-                    "_canonicalSiteValues": {"ktcSfTep": 9000},
+                    "_canonicalSiteValues": {"ktcCrowdTradesSfTep": 9000},
                     "position": "QB",
                 },
                 "Test DL": {"_composite": 6000, "_canonicalSiteValues": {"idpTradeCalc": 5800}},
                 "Test LB": {"_composite": 5000, "_canonicalSiteValues": {"idpTradeCalc": 4000}},
             },
-            "sites": [{"key": "ktcSfTep"}, {"key": "idpTradeCalc"}],
+            "sites": [{"key": "ktcCrowdTradesSfTep"}, {"key": "idpTradeCalc"}],
             "sleeper": {"positions": {"Test QB": "QB", "Test DL": "DL", "Test LB": "LB"}},
         }
         contract = build_api_data_contract(payload)

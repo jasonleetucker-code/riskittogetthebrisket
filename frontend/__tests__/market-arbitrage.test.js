@@ -14,7 +14,7 @@ function row(overrides = {}) {
     rank: 25,
     values: { full: 6300 },
     rankDerivedValue: 6300,
-    canonicalSites: { ktcSfTep: 5000, idpTradeCalc: 5200 },
+    canonicalSites: { ktcCrowdTradesSfTep: 5000, idpTradeCalc: 5200 },
     confidenceBucket: "high",
     quarantined: false,
     ...overrides,
@@ -23,7 +23,7 @@ function row(overrides = {}) {
 
 describe("market arbitrage", () => {
   it("routes offense to KTC and IDP to IDP Trade Calculator", () => {
-    expect(publicMarketFor(row())).toEqual({ key: "ktcSfTep", label: "KTC" });
+    expect(publicMarketFor(row())).toEqual({ key: "ktcCrowdTradesSfTep", label: "KTC" });
     expect(
       publicMarketFor(row({ assetClass: "idp", pos: "LB" })),
     ).toEqual({ key: "idpTradeCalc", label: "IDP Trade Calculator" });
@@ -58,7 +58,7 @@ describe("market arbitrage", () => {
       assetClass: "idp",
       pos: "LB",
       values: { full: 6000 },
-      canonicalSites: { ktcSfTep: 1000, idpTradeCalc: 5000 },
+      canonicalSites: { ktcCrowdTradesSfTep: 1000, idpTradeCalc: 5000 },
     });
     const edge = arbitrageDescriptor(idp);
     expect(edge.marketLabel).toBe("IDP Trade Calculator");

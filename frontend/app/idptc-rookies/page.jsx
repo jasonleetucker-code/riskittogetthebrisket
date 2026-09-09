@@ -131,6 +131,7 @@ export default function IdptcRookiesPage() {
         0,
         Math.round(
           Math.max(
+            Number(r?.canonicalSites?.ktcCrowdTradesSfTep) || 0,
             Number(r?.canonicalSites?.ktcSfTep) || 0,
             Number(r?.canonicalSites?.ktc) || 0,
           ),

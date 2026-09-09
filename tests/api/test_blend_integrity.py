@@ -113,7 +113,7 @@ class TestHealthyDisagreementIsNeverCoerced(unittest.TestCase):
     """The property the corridor violated ~9% of the time, every board."""
 
     def test_violent_disagreement_passes_through_untouched(self):
-        rows = [_row("Anchor QB", "QB", ktcSfTep=9999, idpTradeCalc=9999)]
+        rows = [_row("Anchor QB", "QB", ktcCrowdTradesSfTep=9999, idpTradeCalc=9999)]
         # One source screaming, four disagreeing — real market disagreement.
         rows.append(
             _row(
@@ -142,7 +142,7 @@ class TestHealthyDisagreementIsNeverCoerced(unittest.TestCase):
         )
 
     def test_no_row_on_a_synthetic_board_is_value_altered(self):
-        rows = [_row("Anchor QB", "QB", ktcSfTep=9999, idpTradeCalc=9999)]
+        rows = [_row("Anchor QB", "QB", ktcCrowdTradesSfTep=9999, idpTradeCalc=9999)]
         for i in range(60):
             rows.append(
                 _row(
@@ -229,7 +229,7 @@ class TestQuantizationSkewIsNotViolation(unittest.TestCase):
 
     def test_the_live_incident_shape_is_not_flagged(self):
         """Truncated value one below a degenerate rounded hull."""
-        row = self._detect(3459, {"ktcSfTep": 3460, "idpTradeCalc": 3460})
+        row = self._detect(3459, {"ktcCrowdTradesSfTep": 3460, "idpTradeCalc": 3460})
         self.assertIsNone(row.get("blendIntegrityViolation"))
 
     def test_truncation_skew_below_a_narrow_hull_is_not_flagged(self):
