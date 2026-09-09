@@ -828,3 +828,12 @@ This design deliberately combines four useful patterns:
 - **model-generation hygiene:** stronger instruction-following makes contradictory, duplicated and obsolete prompts more costly, so periodically prune the harness instead of only adding to it.
 
 The operating system should become **smaller and more deterministic over time**, not larger.
+
+
+### Steward evaluation and telemetry rule
+
+For report-only Steward/harness optimization, the canonical cycle is:
+
+`EXECUTE -> MEASURE -> VERIFY -> CLASSIFY -> RETROSPECT -> PROPOSE CHALLENGER -> HELD-OUT EVALUATE -> AUTHORITY ACCEPT/REJECT -> RECORD`.
+
+A proposal, eligibility result, or cheaper challenger is never an authority transition. Provider adapters may normalize provider-specific usage, but canonical receipts remain model-neutral. Missing provider metrics remain `UNKNOWN`/null, never zero. Prefer verifier diversity when correlated blind spots materially matter (deterministic test, fresh context, alternate provider, replay, runtime evidence); this is a routing preference, not a mandatory paid second call.
