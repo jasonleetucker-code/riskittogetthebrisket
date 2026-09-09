@@ -32,9 +32,9 @@ def _make_player(name, position, *, ktc=None, idp=None, team="TST", sleeper_id=N
     sites = {}
     if ktc is not None:
         # Standard ``ktc`` was retired from the blend 2026-04-28;
-        # ``ktcSfTep`` is the canonical KTC offense source.  The
+        # ``ktcCrowdTradesSfTep`` is the canonical KTC offense source.  The
         # ``ktc`` parameter name preserved for fixture ergonomics.
-        sites["ktcSfTep"] = ktc
+        sites["ktcCrowdTradesSfTep"] = ktc
     if idp is not None:
         sites["idpTradeCalc"] = idp
     p = {
@@ -60,8 +60,8 @@ def _payload_with_players(*player_dicts):
             positions[name] = pdata["position"]
     return {
         "players": players,
-        "sites": [{"key": "ktcSfTep"}, {"key": "idpTradeCalc"}],
-        "maxValues": {"ktcSfTep": 9999},
+        "sites": [{"key": "ktcCrowdTradesSfTep"}, {"key": "idpTradeCalc"}],
+        "maxValues": {"ktcCrowdTradesSfTep": 9999},
         "sleeper": {"positions": positions},
     }
 
@@ -165,7 +165,7 @@ class TestCrossUniverseCollision(unittest.TestCase):
                 "position": "WR",
                 "assetClass": "offense",
                 "playerId": None,
-                "canonicalSiteValues": {"ktcSfTep": 7000},
+                "canonicalSiteValues": {"ktcCrowdTradesSfTep": 7000},
                 "anomalyFlags": [],
                 "confidenceBucket": "low",
                 "confidenceLabel": "",
@@ -205,7 +205,7 @@ class TestCrossUniverseCollision(unittest.TestCase):
                 "position": "QB",
                 "assetClass": "offense",
                 "playerId": None,
-                "canonicalSiteValues": {"ktcSfTep": 9000},
+                "canonicalSiteValues": {"ktcCrowdTradesSfTep": 9000},
                 "anomalyFlags": [],
                 "confidenceBucket": "high",
                 "confidenceLabel": "",
@@ -261,7 +261,7 @@ class TestNearNameMismatch(unittest.TestCase):
                 "position": "WR",
                 "assetClass": "offense",
                 "playerId": None,
-                "canonicalSiteValues": {"ktcSfTep": 8000},
+                "canonicalSiteValues": {"ktcCrowdTradesSfTep": 8000},
                 "anomalyFlags": [],
                 "confidenceBucket": "low",
                 "confidenceLabel": "",
@@ -295,7 +295,7 @@ class TestNearNameMismatch(unittest.TestCase):
                 "position": "QB",
                 "assetClass": "offense",
                 "playerId": None,
-                "canonicalSiteValues": {"ktcSfTep": 9000},
+                "canonicalSiteValues": {"ktcCrowdTradesSfTep": 9000},
                 "anomalyFlags": [],
                 "confidenceBucket": "low",
                 "confidenceLabel": "",
@@ -330,7 +330,7 @@ class TestUnsupportedPosition(unittest.TestCase):
                 "position": "OL",
                 "assetClass": "offense",
                 "playerId": None,
-                "canonicalSiteValues": {"ktcSfTep": 1000},
+                "canonicalSiteValues": {"ktcCrowdTradesSfTep": 1000},
                 "anomalyFlags": [],
                 "confidenceBucket": "none",
                 "confidenceLabel": "",
@@ -414,7 +414,7 @@ class TestQuarantineDegradation(unittest.TestCase):
                 "position": "QB",
                 "assetClass": "offense",
                 "playerId": "12345",
-                "canonicalSiteValues": {"ktcSfTep": 9000},
+                "canonicalSiteValues": {"ktcCrowdTradesSfTep": 9000},
                 "anomalyFlags": [],
                 "confidenceBucket": "low",
                 "confidenceLabel": "",
@@ -435,7 +435,7 @@ class TestIdentityConfidence(unittest.TestCase):
             "playerId": "SLEEPER123",
             "position": "QB",
             "assetClass": "offense",
-            "canonicalSiteValues": {"ktcSfTep": 9000},
+            "canonicalSiteValues": {"ktcCrowdTradesSfTep": 9000},
         }
         score, method = _compute_identity_confidence(row)
         self.assertEqual(score, 1.00)
@@ -446,7 +446,7 @@ class TestIdentityConfidence(unittest.TestCase):
             "playerId": "",
             "position": "QB",
             "assetClass": "offense",
-            "canonicalSiteValues": {"ktcSfTep": 9000},
+            "canonicalSiteValues": {"ktcCrowdTradesSfTep": 9000},
         }
         score, method = _compute_identity_confidence(row)
         self.assertEqual(score, 0.95)
@@ -458,7 +458,7 @@ class TestIdentityConfidence(unittest.TestCase):
             "playerId": "",
             "position": "LB",
             "assetClass": "idp",
-            "canonicalSiteValues": {"ktcSfTep": 5000},
+            "canonicalSiteValues": {"ktcCrowdTradesSfTep": 5000},
         }
         score, method = _compute_identity_confidence(row)
         self.assertEqual(score, 0.85)
@@ -581,7 +581,7 @@ class TestExceptionSetCoverage(unittest.TestCase):
                 "position": "QB",
                 "assetClass": "offense",
                 "playerId": None,
-                "canonicalSiteValues": {"ktcSfTep": 4200},
+                "canonicalSiteValues": {"ktcCrowdTradesSfTep": 4200},
                 "anomalyFlags": [],
                 "confidenceBucket": "low",
                 "confidenceLabel": "",
@@ -593,7 +593,7 @@ class TestExceptionSetCoverage(unittest.TestCase):
                 "position": "DL",
                 "assetClass": "idp",
                 "playerId": None,
-                "canonicalSiteValues": {"ktcSfTep": 685},
+                "canonicalSiteValues": {"ktcCrowdTradesSfTep": 685},
                 "anomalyFlags": [],
                 "confidenceBucket": "low",
                 "confidenceLabel": "",
@@ -630,7 +630,7 @@ class TestExceptionSetCoverage(unittest.TestCase):
                 "position": "DL",
                 "assetClass": "idp",
                 "playerId": None,
-                "canonicalSiteValues": {"ktcSfTep": 685},
+                "canonicalSiteValues": {"ktcCrowdTradesSfTep": 685},
                 "anomalyFlags": [],
                 "confidenceBucket": "low",
                 "confidenceLabel": "",
@@ -706,7 +706,7 @@ class TestSleeperMapCollisionGuardrail(unittest.TestCase):
         out tagged DB."""
         row, contract = self._build_row(
             sleeper_pos="DB",
-            sites={"ktcSfTep": 3000},
+            sites={"ktcCrowdTradesSfTep": 3000},
         )
         self.assertIsNotNone(row)
         self.assertNotIn(row.get("position"), {"DB", "DL", "LB"})
@@ -732,7 +732,7 @@ class TestSleeperMapCollisionGuardrail(unittest.TestCase):
         downstream collision flagging fires correctly."""
         row, _ = self._build_row(
             sleeper_pos="DB",
-            sites={"ktcSfTep": 3000, "idpTradeCalc": 3000},
+            sites={"ktcCrowdTradesSfTep": 3000, "idpTradeCalc": 3000},
         )
         self.assertIsNotNone(row)
         # Sleeper tag preserved — the collision flag elsewhere handles this.
@@ -757,7 +757,7 @@ class TestSleeperMapCollisionGuardrail(unittest.TestCase):
                 "position": "DB",
                 "assetClass": "idp",
                 "_positionFromSleeperOnly": True,
-                "canonicalSiteValues": {"ktcSfTep": 3000, "footballGuysSf": 2800},
+                "canonicalSiteValues": {"ktcCrowdTradesSfTep": 3000, "footballGuysSf": 2800},
             },
         ]
         _strip_mismatched_family_tags(rows)
@@ -782,7 +782,7 @@ class TestSleeperMapCollisionGuardrail(unittest.TestCase):
                 "position": "WR",
                 "assetClass": "offense",
                 "_positionFromSleeperOnly": False,
-                "canonicalSiteValues": {"ktcSfTep": 4500},
+                "canonicalSiteValues": {"ktcCrowdTradesSfTep": 4500},
             },
         ]
         _strip_mismatched_family_tags(rows)
