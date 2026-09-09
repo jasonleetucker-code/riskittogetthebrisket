@@ -113,9 +113,7 @@ def _coverage_result(status: dict):
 
 def _recovering_scrape(status: dict) -> bool:
     """True only for an active scrape that still has a chance to republish."""
-    return bool(status.get("running")) and not bool(
-        status.get("stalled") or status.get("hung")
-    )
+    return bool(status.get("running")) and not bool(status.get("stalled") or status.get("hung"))
 
 
 def _print_coverage_failure(violations) -> None:
