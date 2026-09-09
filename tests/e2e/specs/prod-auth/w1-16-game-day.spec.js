@@ -144,9 +144,16 @@ test.describe("W1-16: the owner's Game Day experience (production)", () => {
     // state on both viewports (3.0s/5.4s total — fast, but not zero). Wait
     // for the loading state to clear, same pattern this suite already uses
     // for other client-fetched panels (v1-123-public-league-matrix.spec.js).
+    // Wait for positive evidence that the client-side request completed.
+    // Waiting only for the *absence* of the loading copy is racy: immediately
+    // after navigation React may not have mounted GameDayPanel yet, so the
+    // loading string is absent for one frame and that negative predicate
+    // returns true before the request even starts. Production run 39 caught
+    // exactly that state on both viewports. The endpoint's own team identity
+    // is a stronger terminal signal and is required by this assertion anyway.
     await page.waitForFunction(
-      () => !document.body.innerText.includes("Loading this week's matchup"),
-      null,
+      (teamName) => document.body.innerText.includes(teamName),
+      body.team.displayName,
       { timeout: 90_000 },
     );
     const text = await page.locator("body").innerText();

@@ -208,7 +208,10 @@ jobs:
           fi
 
       - name: API verification suite
-        if: ${{ inputs.suite != 'browser' }}
+        # The temporary post-deploy Week 1 bridge needs the prod-auth browser
+        # artifact for W1-30; API/Lane-4 rows are already independently
+        # VERIFIED. Manual dispatch semantics stay unchanged.
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.suite != 'browser' }}
         id: api
         shell: bash
         env:
@@ -229,7 +232,7 @@ jobs:
           echo "API suite exit: $rc (0 pass · 2 fail · 3 proved nothing)"
 
       - name: Lane 4 remote verification (C1-C3 + C8/C9)
-        if: ${{ inputs.suite != 'browser' }}
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.suite != 'browser' }}
         id: lane4
         shell: bash
         env:
@@ -252,7 +255,7 @@ jobs:
           echo "Lane 4 remote exit: $rc"
 
       - name: Browser verification suite (prod-auth Playwright specs)
-        if: ${{ inputs.suite != 'api' && hashFiles('tests/e2e/prod-auth.config.js') != '' }}
+        if: ${{ (github.event_name == 'workflow_run' || inputs.suite != 'api') && hashFiles('tests/e2e/prod-auth.config.js') != '' }}
         id: browser
         shell: bash
         env:
