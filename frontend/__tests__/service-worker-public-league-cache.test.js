@@ -1,10 +1,11 @@
 import fs from "node:fs";
 import path from "node:path";
+import * as url from "node:url";
 import vm from "node:vm";
 
 import { describe, expect, it, vi } from "vitest";
 
-const ROOT = path.resolve(path.dirname(new URL(import.meta.url).pathname), "..");
+const ROOT = path.resolve(path.dirname(url.fileURLToPath(import.meta.url)), "..");
 const SERVICE_WORKER_SOURCE = fs.readFileSync(
   path.join(ROOT, "public", "sw.js"),
   "utf8",

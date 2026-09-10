@@ -44,6 +44,12 @@ REPO = Path(__file__).resolve().parents[2]
 PROOF = REPO / "deploy" / "diagnostics" / "retention_backup_restore_proof.sh"
 LIB = REPO / "deploy" / "backup" / "backup_root_lib.sh"
 
+if not hasattr(os, "geteuid"):
+    pytest.skip(
+        "Unix uid/permission semantics are not available on Windows",
+        allow_module_level=True,
+    )
+
 pytestmark = pytest.mark.skipif(shutil.which("bash") is None, reason="bash required")
 
 # ONE clock, read ONCE, for the whole module.

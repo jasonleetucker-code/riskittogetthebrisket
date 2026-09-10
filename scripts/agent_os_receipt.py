@@ -18,13 +18,12 @@ RECEIPT_PATH = RECEIPT_DIR / "latest.env"
 UNKNOWN = "UNKNOWN"
 
 
-def _git_text(*args: str, input_bytes: bytes | None = None) -> str:
+def _git_text(*args: str) -> str:
     """Return stripped git stdout, or UNKNOWN when the fact cannot be proven."""
     try:
         result = subprocess.run(
             ["git", *args],
             cwd=REPO,
-            input=input_bytes,
             capture_output=True,
             timeout=5,
             check=False,
@@ -36,20 +35,18 @@ def _git_text(*args: str, input_bytes: bytes | None = None) -> str:
     return result.stdout.decode(errors="replace").strip()
 
 
-def _loaded_blob_sha(content: bytes | None) -> str:
-    if content is None:
+def _working_tree_blob_sha(path: Path) -> str:
+    """Hash a working-tree file using Git's own clean/filter rules."""
+    try:
+        rel_path = path.relative_to(REPO).as_posix()
+    except ValueError:
         return UNKNOWN
-    return _git_text("hash-object", "--stdin", input_bytes=content)
+    return _git_text("hash-object", rel_path)
 
 
 def build_receipt() -> dict[str, str]:
     """Build receipt fields from observable local repository state only."""
-    try:
-        content = AGENT_OS.read_bytes()
-    except Exception:
-        content = None
-
-    loaded_sha = _loaded_blob_sha(content)
+    loaded_sha = _working_tree_blob_sha(AGENT_OS)
     head_blob_sha = _git_text("rev-parse", f"HEAD:{AGENT_OS_REL.as_posix()}")
     repo_head_sha = _git_text("rev-parse", "HEAD")
 
