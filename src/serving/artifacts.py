@@ -446,7 +446,21 @@ class ArtifactStore:
             try:
                 _write_new(pending, _json_bytes(pointer))
                 _check_path(partition / "current.json")
-                os.replace(pending, partition / "current.json")
+                # Windows readers/virus scanners can momentarily deny rename
+                # of an open pointer. Retry the atomic replacement only; never
+                # unlink the accepted pointer or expose a partial document.
+                for attempt in range(8):
+                    try:
+                        os.replace(pending, partition / "current.json")
+                        break
+                    except PermissionError as exc:
+                        if (
+                            os.name != "nt"
+                            or getattr(exc, "winerror", None) not in {5, 32}
+                            or attempt == 7
+                        ):
+                            raise
+                        time.sleep(0.01 * (attempt + 1))
                 _sync_directory(partition)
             finally:
                 pending.unlink(missing_ok=True)
