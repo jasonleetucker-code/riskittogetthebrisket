@@ -1,0 +1,13 @@
+[Unit]
+Description=Standalone source refresh every two hours (__SERVICE_NAME__)
+
+[Timer]
+# Matches the legacy completion-plus-two-hours cadence. The separate GitHub
+# :42 refresh remains an additional-feed owner, including feeds absent here.
+OnBootSec=3min
+OnUnitInactiveSec=2h
+AccuracySec=1min
+Unit=__SERVICE_NAME__-source-producer.service
+
+[Install]
+WantedBy=timers.target
