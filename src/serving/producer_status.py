@@ -12,6 +12,7 @@ from pathlib import Path
 from src.serving.artifacts import (
     ArtifactError,
     ArtifactStore,
+    CorruptArtifact,
     _check_path,
     _mkdir,
     _publish_lock,
@@ -23,6 +24,13 @@ STATUS_FILE = "source-producer-status.json"
 RECEIPT_FILE = "source-producer-receipt.json"
 REQUEST_FILE = "source-refresh.request"
 CLAIM_FILE = "source-refresh-claim.json"
+OWNERSHIP_ASSET = "source-ownership"
+OWNERSHIP_KEY = "standalone"
+OWNERSHIP_MODEL = "source-ownership-v1"
+
+
+class SourceOwnershipError(RuntimeError):
+    """Prepared serving has no intact proof of the configured source owner."""
 
 
 def _now() -> str:
@@ -190,12 +198,8 @@ class ProducerJournal:
         self._save()
 
 
-def source_receipt_ready(store: ArtifactStore, *, max_age_seconds: float = 14400) -> bool:
-    """Fail closed before disabling the old source owner at prepared-mode startup.
-
-    Required supplemental failures still permit legacy canonical publication,
-    but they cannot establish a healthy source-ownership cutover receipt.
-    """
+def _receipt_evidence_valid(receipt: dict, *, max_age_seconds: float | None) -> bool:
+    """Shared proof rules. Only an already attested receipt may ignore elapsed age."""
     from src.serving.producer import (
         MIRROR_FILES,
         SUPPLEMENTAL_SOURCES,
@@ -205,15 +209,10 @@ def source_receipt_ready(store: ArtifactStore, *, max_age_seconds: float = 14400
 
     try:
         if (
-            isinstance(max_age_seconds, bool)
-            or not math.isfinite(max_age_seconds)
-            or max_age_seconds <= 0
+            type(receipt.get("schemaVersion")) is not int
+            or receipt.get("schemaVersion") != 1
+            or receipt.get("outcome") != "success"
         ):
-            return False
-        path = store.root / RECEIPT_FILE
-        _check_path(path)
-        receipt = json.loads(path.read_bytes())
-        if receipt.get("schemaVersion") != 1 or receipt.get("outcome") != "success":
             return False
         if receipt.get("sourceParityHash") != source_parity_hash():
             return False
@@ -223,7 +222,7 @@ def source_receipt_ready(store: ArtifactStore, *, max_age_seconds: float = 14400
         for field in ("completedAt", "sourceProducedAt"):
             instant = datetime.fromisoformat(receipt[field].replace("Z", "+00:00"))
             age = (now - instant).total_seconds()
-            if not -60 <= age <= max_age_seconds:
+            if age < -60 or (max_age_seconds is not None and age > max_age_seconds):
                 return False
         evidence = receipt["sourceEvidence"]
         mirrors = evidence["mirrors"]
@@ -252,12 +251,108 @@ def source_receipt_ready(store: ArtifactStore, *, max_age_seconds: float = 14400
                 continue
             if attempt.get("outcome") != "success" or attempt.get("exitCode") != 0:
                 return False
-        artifact = store.read_current("canonical-serving", "default")
+        generation = receipt.get("acceptedGeneration")
         return (
-            artifact.generation_id == receipt.get("acceptedGeneration")
-            and artifact.manifest.get("inputGenerations", {}).get("sourceCycle")
-            == source_parity_hash()
-            and artifact.manifest.get("sourceAsOf") == receipt.get("sourceProducedAt")
+            isinstance(generation, str)
+            and len(generation) == 64
+            and all(char in "0123456789abcdef" for char in generation)
         )
     except (ArtifactError, OSError, ValueError, TypeError, KeyError, AttributeError):
         return False
+
+
+def _current_receipt_matches(store: ArtifactStore, receipt: dict, max_age_seconds: float) -> bool:
+    if not _receipt_evidence_valid(receipt, max_age_seconds=max_age_seconds):
+        return False
+    artifact = store.read_current("canonical-serving", "default")
+    return (
+        artifact.generation_id == receipt.get("acceptedGeneration")
+        and artifact.manifest.get("inputGenerations", {}).get("sourceCycle")
+        == receipt.get("sourceParityHash")
+        and artifact.manifest.get("sourceAsOf") == receipt.get("sourceProducedAt")
+    )
+
+
+def _read_receipt(store: ArtifactStore) -> dict:
+    path = store.root / RECEIPT_FILE
+    _check_path(path)
+    return json.loads(path.read_bytes())
+
+
+def source_receipt_ready(store: ArtifactStore, *, max_age_seconds: float = 14400) -> bool:
+    """Require a healthy current source cycle before the first ownership cutover.
+
+    This remains the freshness/liveness check; it deliberately returns False on
+    stale receipts. Later restarts use the separately persisted ownership proof.
+    """
+    try:
+        if (
+            isinstance(max_age_seconds, bool)
+            or not math.isfinite(max_age_seconds)
+            or max_age_seconds <= 0
+        ):
+            return False
+        return _current_receipt_matches(store, _read_receipt(store), max_age_seconds)
+    except (ArtifactError, OSError, ValueError, TypeError, KeyError, AttributeError):
+        return False
+
+
+def _validate_ownership_proof(artifact) -> None:
+    receipt = json.loads(artifact.files["receipt.json"])
+    if (
+        artifact.manifest.get("modelVersion") != OWNERSHIP_MODEL
+        or not _receipt_evidence_valid(receipt, max_age_seconds=None)
+        or artifact.manifest.get("inputGenerations", {}).get("sourceCycle")
+        != receipt.get("sourceParityHash")
+        or artifact.manifest.get("configHash") != receipt.get("sourceParityHash")
+        or artifact.manifest.get("sourceAsOf") != receipt.get("sourceProducedAt")
+    ):
+        raise CorruptArtifact("source ownership proof does not match current source policy")
+
+
+def enforce_source_ownership(store: ArtifactStore) -> None:
+    """Attest a healthy first cutover, then permit restarts with stale valid data.
+
+    The immutable proof stores the exact receipt verified against the then-current
+    canonical artifact. Later generations or upstream outages do not erase that
+    evidence. Script/policy changes or corrupt proof require a fresh healthy
+    receipt to renew ownership under the same strict first-cutover rules. Without
+    that new proof they refuse startup. This proves ownership only: the web must
+    independently load and validate its current canonical serving generation.
+    """
+    try:
+        try:
+            proof = store.read_current(OWNERSHIP_ASSET, OWNERSHIP_KEY)
+            _validate_ownership_proof(proof)
+            return
+        except (ArtifactError, OSError, ValueError, TypeError, KeyError, AttributeError):
+            # An invalid proof authorizes nothing. Only a new full check against
+            # the currently accepted artifact can establish or renew ownership.
+            pass
+        receipt = _read_receipt(store)
+        if not _current_receipt_matches(store, receipt, 14400):
+            raise SourceOwnershipError(
+                "source ownership cutover or renewal requires a healthy current source receipt"
+            )
+        proof = store.publish(
+            OWNERSHIP_ASSET,
+            OWNERSHIP_KEY,
+            {"receipt.json": json.dumps(receipt, sort_keys=True, allow_nan=False).encode()},
+            {
+                "modelVersion": OWNERSHIP_MODEL,
+                "inputGenerations": {"sourceCycle": receipt["sourceParityHash"]},
+                "configHash": receipt["sourceParityHash"],
+                "sourceAsOf": receipt["sourceProducedAt"],
+                # Renewal is a new verification event. It can select a new
+                # immutable directory if an earlier proof's files were corrupt.
+                "verifiedAt": _now(),
+            },
+            validator=_validate_ownership_proof,
+        )
+        _validate_ownership_proof(proof)
+    except SourceOwnershipError:
+        raise
+    except (ArtifactError, OSError, ValueError, TypeError, KeyError, AttributeError) as exc:
+        raise SourceOwnershipError(
+            "prepared serving requires intact verified source ownership"
+        ) from exc

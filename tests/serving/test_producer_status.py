@@ -14,6 +14,13 @@ from src.serving.producer import (
     source_receipt_ready,
 )
 from src.serving.producer_status import RECEIPT_FILE, STATUS_FILE, ProducerJournal
+from src.serving.producer_status import (
+    OWNERSHIP_ASSET,
+    OWNERSHIP_KEY,
+    OWNERSHIP_MODEL,
+    SourceOwnershipError,
+    enforce_source_ownership,
+)
 
 
 @pytest.fixture
@@ -176,3 +183,227 @@ def test_private_status_is_bounded_and_excludes_provider_payload(receipt):
     assert "private cookie" not in json.dumps(status)
     assert "roster" not in json.dumps(status)
     assert not list(store.root.glob("*.tmp"))
+
+
+def _advance_clock(monkeypatch, hours):
+    from src.serving import producer_status
+
+    later = datetime.now(timezone.utc) + timedelta(hours=hours)
+
+    class Clock(datetime):
+        @classmethod
+        def now(cls, tz=None):
+            return later if tz else later.replace(tzinfo=None)
+
+    monkeypatch.setattr(producer_status, "datetime", Clock)
+
+
+def test_attested_restart_survives_stale_source_without_faking_freshness(receipt, monkeypatch):
+    store, _, _ = receipt
+    before = (store.root / RECEIPT_FILE).read_bytes()
+    enforce_source_ownership(store)
+    proof = store.read_current(OWNERSHIP_ASSET, OWNERSHIP_KEY)
+    _advance_clock(monkeypatch, 5)
+    assert not source_receipt_ready(store)
+    enforce_source_ownership(store)
+    assert store.read_current(OWNERSHIP_ASSET, OWNERSHIP_KEY).generation_id == proof.generation_id
+    assert (store.root / RECEIPT_FILE).read_bytes() == before
+    assert not source_receipt_ready(store)
+
+
+def test_attested_restart_allows_new_accepted_generation(receipt):
+    store, _, result = receipt
+    enforce_source_ownership(store)
+    store.publish(
+        "canonical-serving",
+        "default",
+        {"input.json": b'{"later":true}'},
+        {
+            "modelVersion": "test",
+            "inputGenerations": {"sourceCycle": source_parity_hash()},
+            "configHash": "test",
+            "sourceAsOf": result.source["producedAt"],
+        },
+    )
+    assert not source_receipt_ready(store)
+    enforce_source_ownership(store)
+
+
+def test_first_cutover_cannot_attest_a_stale_receipt(receipt, monkeypatch):
+    store, _, _ = receipt
+    _advance_clock(monkeypatch, 5)
+    with pytest.raises(SourceOwnershipError, match="healthy current"):
+        enforce_source_ownership(store)
+    assert not (store.root / OWNERSHIP_ASSET).exists()
+
+
+def test_first_cutover_cannot_attest_receipt_for_another_current_generation(receipt):
+    store, _, result = receipt
+    store.publish(
+        "canonical-serving",
+        "default",
+        {"input.json": b'{"later":true}'},
+        {
+            "modelVersion": "test",
+            "inputGenerations": {"sourceCycle": source_parity_hash()},
+            "configHash": "test",
+            "sourceAsOf": result.source["producedAt"],
+        },
+    )
+    with pytest.raises(SourceOwnershipError, match="healthy current"):
+        enforce_source_ownership(store)
+
+
+def test_absent_proof_and_missing_receipt_refuse_unknown_ownership(tmp_path):
+    with pytest.raises(SourceOwnershipError):
+        enforce_source_ownership(ArtifactStore(tmp_path))
+
+
+def test_corrupt_ownership_proof_cannot_fall_back_to_stale_receipt(receipt, monkeypatch):
+    store, _, _ = receipt
+    enforce_source_ownership(store)
+    proof = store.read_current(OWNERSHIP_ASSET, OWNERSHIP_KEY)
+    path = (
+        store.root
+        / OWNERSHIP_ASSET
+        / OWNERSHIP_KEY
+        / "generations"
+        / proof.generation_id
+        / "files"
+        / "receipt.json"
+    )
+    path.write_bytes(b"{}")
+    _advance_clock(monkeypatch, 5)
+    assert not source_receipt_ready(store)
+    with pytest.raises(SourceOwnershipError):
+        enforce_source_ownership(store)
+
+
+def _replace_proof(store, change, *, model_version=OWNERSHIP_MODEL):
+    proof = store.read_current(OWNERSHIP_ASSET, OWNERSHIP_KEY)
+    payload = json.loads(proof.files["receipt.json"])
+    change(payload)
+    return store.publish(
+        OWNERSHIP_ASSET,
+        OWNERSHIP_KEY,
+        {"receipt.json": json.dumps(payload).encode()},
+        {
+            "modelVersion": model_version,
+            "inputGenerations": {"sourceCycle": source_parity_hash()},
+            "configHash": source_parity_hash(),
+            "sourceAsOf": payload["sourceProducedAt"],
+        },
+    )
+
+
+@pytest.mark.parametrize(
+    "change",
+    [
+        lambda proof: proof.update(schemaVersion=2),
+        lambda proof: proof.update(acceptedGeneration="unverified"),
+        lambda proof: proof["sourceEvidence"]["core"].update(completed=False),
+        lambda proof: proof["sourceEvidence"]["supplemental"][0].update(
+            outcome="failed", exitCode=1
+        ),
+        lambda proof: proof["sourceEvidence"]["mirrors"].pop(),
+        lambda proof: proof.update(
+            completedAt=(datetime.now(timezone.utc) + timedelta(minutes=5)).isoformat()
+        ),
+    ],
+)
+def test_checksum_valid_but_invalid_ownership_evidence_is_rejected(receipt, change):
+    store, _, _ = receipt
+    enforce_source_ownership(store)
+    _replace_proof(store, change)
+    (store.root / RECEIPT_FILE).unlink()
+    with pytest.raises(SourceOwnershipError):
+        enforce_source_ownership(store)
+
+
+def test_unknown_ownership_model_is_rejected(receipt):
+    store, _, _ = receipt
+    enforce_source_ownership(store)
+    _replace_proof(store, lambda _proof: None, model_version="future-model")
+    (store.root / RECEIPT_FILE).unlink()
+    with pytest.raises(SourceOwnershipError):
+        enforce_source_ownership(store)
+
+
+def test_source_code_drift_invalidates_durable_ownership(receipt, monkeypatch):
+    from src.serving import producer
+
+    store, _, _ = receipt
+    enforce_source_ownership(store)
+    contract = producer.source_parity_contract()
+    changed = {**contract, "coreScriptDigest": "changed-script"}
+    monkeypatch.setattr(producer, "source_parity_contract", lambda: changed)
+    with pytest.raises(SourceOwnershipError):
+        enforce_source_ownership(store)
+
+
+def test_source_policy_renewal_requires_new_exact_healthy_current_receipt(receipt, monkeypatch):
+    from src.serving import producer
+
+    store, _, result = receipt
+    enforce_source_ownership(store)
+    old_proof = store.read_current(OWNERSHIP_ASSET, OWNERSHIP_KEY)
+    policy = {**producer.source_parity_contract(), "coreScriptDigest": "new-authorized-source-code"}
+    monkeypatch.setattr(producer, "source_parity_contract", lambda: policy)
+    with pytest.raises(SourceOwnershipError):
+        enforce_source_ownership(store)
+    timestamp = datetime.now(timezone.utc).isoformat()
+    current = store.publish(
+        "canonical-serving",
+        "default",
+        {"input.json": b'{"newPolicy":true}'},
+        {
+            "modelVersion": "test",
+            "inputGenerations": {"sourceCycle": source_parity_hash()},
+            "configHash": "test",
+            "sourceAsOf": timestamp,
+        },
+    )
+    journal = ProducerJournal(store)
+    journal.accepted_generation = current.generation_id
+    result.source = {"producedAt": timestamp}
+    journal.completed(result)
+    assert source_receipt_ready(store)
+    enforce_source_ownership(store)
+    proof = store.read_current(OWNERSHIP_ASSET, OWNERSHIP_KEY)
+    assert proof.generation_id != old_proof.generation_id
+    assert json.loads(proof.files["receipt.json"])["sourceParity"] == policy
+    assert proof.manifest["inputGenerations"]["sourceCycle"] == source_parity_hash()
+
+
+def test_healthy_current_receipt_can_repair_corrupt_immutable_proof(receipt):
+    store, _, _ = receipt
+    enforce_source_ownership(store)
+    before = store.read_current(OWNERSHIP_ASSET, OWNERSHIP_KEY)
+    path = (
+        store.root
+        / OWNERSHIP_ASSET
+        / OWNERSHIP_KEY
+        / "generations"
+        / before.generation_id
+        / "files"
+        / "receipt.json"
+    )
+    path.write_bytes(b"{}")
+    assert source_receipt_ready(store)
+    enforce_source_ownership(store)
+    after = store.read_current(OWNERSHIP_ASSET, OWNERSHIP_KEY)
+    assert after.generation_id != before.generation_id
+    assert path.read_bytes() == b"{}", "renewal must not rewrite an immutable generation"
+
+
+def test_durable_ownership_does_not_replace_current_board_validation(receipt, monkeypatch):
+    store, _, _ = receipt
+    enforce_source_ownership(store)
+    original = store.read_current
+
+    def read(asset, key):
+        assert asset == OWNERSHIP_ASSET, "ownership must not impersonate board validation"
+        return original(asset, key)
+
+    monkeypatch.setattr(store, "read_current", read)
+    enforce_source_ownership(store)
