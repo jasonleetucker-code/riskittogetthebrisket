@@ -58,8 +58,8 @@ describe("prepared representation and private cache identity", () => {
     vi.stubGlobal("fetch", fetcher);
     const result = await fetchDynastyData({ readModel: "rankings", tepMultiplier: 1.2 });
     expect(gets).toBe(2); expect(posts).toBe(2);
-    expect(fetcher.mock.calls[1][0]).toBe("/api/rankings/overrides?view=board&generation=gen-a");
-    expect(fetcher.mock.calls[3][0]).toBe("/api/rankings/overrides?view=board&generation=gen-b");
+    expect(fetcher.mock.calls[1][0]).toBe("/api/rankings/overrides?view=board&generation=gen-a&leagueKey=league-a");
+    expect(fetcher.mock.calls[3][0]).toBe("/api/rankings/overrides?view=board&generation=gen-b&leagueKey=league-a");
     expect(result.data.playersArray[0].rankDerivedValue).toBe(9000);
     expect(result.data.meta.readModelGeneration).toBe("gen-b");
   });
@@ -93,13 +93,15 @@ describe("prepared representation and private cache identity", () => {
 describe("full detail preserves board semantics", () => {
   it("pins identity/generation/league, single-flights and overlays current values", async () => {
     const row = buildRows(board())[0];
-    const full = player({ rankDerivedValue: 8000, sourceAudit: { reason: "verified" }, pickDetails: { round: 1 } });
+    const full = player({ rankDerivedValue: 8000, sourceAudit: { reason: "verified" }, pickDetails: { round: 1 }, sourceRankMeta: { ktcSf: { valueContribution: 8000, sourceScope: "overall" }, removed: { valueContribution: 5000 } } });
     const fetcher = vi.fn(async () => ok({ schemaVersion: 1, generation: "gen-a", player: full })); vi.stubGlobal("fetch", fetcher);
     const [a, b] = await Promise.all([fetchPreparedPlayerDetail(row, board()), fetchPreparedPlayerDetail(row, board())]);
     expect(fetcher).toHaveBeenCalledTimes(1);
     expect(fetcher.mock.calls[0][0]).toBe("/api/read-models/players/key-a?generation=gen-a&leagueKey=league-a");
     expect(a.values.full).toBe(9500); expect(a.rank).toBe(row.rank);
     expect(a.raw.sourceAudit.reason).toBe("verified"); expect(a).toEqual(b);
+    expect(a.sourceRankMeta.ktcSf).toEqual({ valueContribution: 8100, sourceScope: "overall" });
+    expect(a.sourceRankMeta.removed).toBeUndefined();
     expect(row.raw.sourceAudit).toBeUndefined();
   });
 

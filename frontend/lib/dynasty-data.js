@@ -1203,6 +1203,14 @@ function _materializePlayerArrayRow(player) {
 // assign it a new rank or reject intentionally unranked draft picks.
 export function materializePlayerDetail(row, player) {
   const raw = { ...player, ...row.raw };
+  if (row.raw?.sourceRankMeta && typeof row.raw.sourceRankMeta === "object") {
+    // The prepared row carries only display metadata. Restore each source's
+    // diagnostics without overwriting current delta values or resurrecting a
+    // source that the current board removed.
+    raw.sourceRankMeta = Object.fromEntries(Object.entries(row.raw.sourceRankMeta).map(([key, meta]) => [key,
+      meta && typeof meta === "object" ? { ...player.sourceRankMeta?.[key], ...meta } : meta,
+    ]));
+  }
   const detail = _materializePlayerArrayRow(raw);
   if (!detail) throw new Error("Player details are unavailable.");
   return { ...row, ...detail, rank: row.rank, raw };
@@ -2305,6 +2313,7 @@ async function _postOverridesAndMerge(basePromise, body, overrideKey, readModel)
   const generation = preparedBase?.data?.meta?.readModelGeneration;
   const query = new URLSearchParams({ view: readModel ? "board" : "delta" });
   if (generation) query.set("generation", generation);
+  if (preparedBase?.data?.meta?.leagueKey) query.set("leagueKey", preparedBase.data.meta.leagueKey);
   // Kick the POST off immediately (it never needed the base payload)
   // and hold its failure in-band so the two error semantics stay
   // exactly what they were on the serial path:

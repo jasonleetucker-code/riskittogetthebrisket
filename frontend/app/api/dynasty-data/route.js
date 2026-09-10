@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { streamWithUpstreamIdleAbort } from "@/lib/upstream-stream";
 
 // Backend origin (scheme + host) resolved once at module load.  We
 // build the ``/api/data`` URL per-request so the caller's view /
@@ -126,46 +127,6 @@ async function fetchFromBackendApi(request, backendUrl) {
 // backpressure never has a timer running against it — only a genuine
 // backend stall between chunks trips the abort.  Each read gets a fresh
 // full idle window, including the first body chunk after headers.
-function streamWithUpstreamIdleAbort(res, ctl) {
-  const reader = res.body.getReader();
-  return new ReadableStream({
-    async pull(controller) {
-      let timer;
-      try {
-        const idle = new Promise((_, reject) => {
-          timer = setTimeout(() => {
-            ctl.abort();
-            reject(new Error("backend idle timeout"));
-          }, BACKEND_IDLE_TIMEOUT_MS);
-        });
-        const { done, value } = await Promise.race([reader.read(), idle]);
-        clearTimeout(timer);
-        if (done) {
-          controller.close();
-          return;
-        }
-        controller.enqueue(value);
-      } catch (err) {
-        clearTimeout(timer);
-        try {
-          ctl.abort();
-        } catch {
-          /* already aborted */
-        }
-        controller.error(err);
-      }
-    },
-    cancel(reason) {
-      try {
-        ctl.abort();
-      } catch {
-        /* already aborted */
-      }
-      return reader.cancel(reason);
-    },
-  });
-}
-
 // Copy the response headers we forward downstream (content-type,
 // cache-control, etag, vary — never content-encoding; see note above).
 function passThroughHeaders(res, names = PASS_THROUGH_HEADERS) {
