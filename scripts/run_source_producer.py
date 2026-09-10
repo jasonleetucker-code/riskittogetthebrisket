@@ -66,16 +66,22 @@ def backfill_history(config: ProducerConfig) -> int:
 async def _run(config: ProducerConfig, bootstrap_path: Path | None) -> int:
     from src.serving.builder import build_generation, record_accepted_generation
     from src.serving.serialization import publish_generation
+    from src.serving.input_manifest import capture_canonical_inputs
 
     store = ArtifactStore(config.artifact_root)
     journal = ProducerJournal(store)
 
     async def publish(raw, source):
+        manifest = capture_canonical_inputs(raw, repo_dir=config.repo_dir)
+        journal.input_manifest = manifest.as_dict()
+        # This manifest explicitly names unresolved dependencies. Never use its
+        # fingerprint to skip canonical builds until those inputs are captured.
         candidate = build_generation(raw, source, is_fresh_scrape=True)
         artifact = publish_generation(
             candidate,
             store=store,
             input_generations={
+                **manifest.input_generations,
                 "sourceCycle": journal.source_parity_hash,
             },
         )
@@ -85,7 +91,13 @@ async def _run(config: ProducerConfig, bootstrap_path: Path | None) -> int:
             from src.serving.league_views import refresh_league_serving
 
             report = refresh_league_serving(store=store)
-            journal.league_report = {"outcome": report.get("outcome", "unknown")}
+            published = len(report.get("published") or [])
+            failed = len(report.get("failed") or [])
+            journal.league_report = {
+                "outcome": "partial" if published and failed else "failed" if failed else "success",
+                "published": published,
+                "failed": failed,
+            }
         except Exception:  # noqa: BLE001 — preserve the accepted canonical generation
             journal.league_report = {"outcome": "failed"}
             journal.event("league_refresh_failed", level="warning")

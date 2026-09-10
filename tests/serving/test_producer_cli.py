@@ -114,6 +114,35 @@ def test_cli_load_build_publish_history_league_order_and_receipt(worker, capsys)
         == store.read_current("canonical-serving", "default").generation_id
     )
     assert cli._accepted_raw(store, None) == worker.raw
+    artifact = store.read_current("canonical-serving", "default")
+    assert artifact.manifest["inputGenerations"]["inputManifestComplete"] == "false"
+    receipt = json.loads((store.root / RECEIPT_FILE).read_bytes())
+    assert receipt["canonicalInputs"]["complete"] is False
+    assert receipt["canonicalInputs"]["unknowns"]
+
+
+@pytest.mark.parametrize(
+    "published,failed,outcome",
+    [
+        (["a"], [], "success"),
+        (["a"], ["b"], "partial"),
+        ([], ["b"], "failed"),
+        ([], [], "success"),
+    ],
+)
+def test_cli_derives_actual_league_refresh_outcome(worker, monkeypatch, published, failed, outcome):
+    monkeypatch.setattr(
+        worker.leagues,
+        "refresh_league_serving",
+        lambda **_kwargs: {"published": published, "failed": failed},
+    )
+    assert asyncio.run(cli._run(worker.config, worker.bootstrap)) == 0
+    status = json.loads((worker.config.serving_root / STATUS_FILE).read_bytes())
+    assert status["leagueRefresh"] == {
+        "outcome": outcome,
+        "published": len(published),
+        "failed": len(failed),
+    }
 
 
 @pytest.mark.parametrize("failure", ["build", "publish"])

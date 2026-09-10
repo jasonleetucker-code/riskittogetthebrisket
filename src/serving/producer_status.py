@@ -131,6 +131,7 @@ class ProducerJournal:
         self.source_parity_hash = source_parity_hash()
         self.accepted_generation = ""
         self.league_report: dict = {}
+        self.input_manifest: dict = {}
         self.state: dict = {"schemaVersion": 1, "pid": os.getpid(), "events": []}
 
     def _save(self) -> None:
@@ -170,6 +171,7 @@ class ProducerJournal:
             totalSites=result.total_sites,
             sourceEvidence=result.source_evidence,
             leagueRefresh=self.league_report,
+            canonicalInputs=self.input_manifest,
         )
         if result.outcome == "success" and self.accepted_generation:
             receipt = {
@@ -181,6 +183,7 @@ class ProducerJournal:
                 "sourceParityHash": self.source_parity_hash,
                 "sourceParity": self.source_parity,
                 "sourceEvidence": result.source_evidence,
+                "canonicalInputs": self.input_manifest,
             }
             _atomic_json(self.store.root, RECEIPT_FILE, receipt)
             self.state["acceptedGeneration"] = self.accepted_generation
