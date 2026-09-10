@@ -1,7 +1,68 @@
 {
-  "computedAt": "2026-09-09T21:17:52.750010+00:00",
-  "championshipOdds": [],
-  "n_simulations": 0,
+  "computedAt": "2026-09-10T00:42:20.680112+00:00",
+  "championshipOdds": [
+    {
+      "ownerId": "1012114412049731584",
+      "displayName": "Joey",
+      "championshipOdds": 0.7892,
+      "finalsOdds": 0.8413,
+      "semifinalOdds": 0.9985,
+      "playoffOdds": 1.0,
+      "expectedFinish": 1.37,
+      "contenderTier": "Favorite"
+    },
+    {
+      "ownerId": "609821340567941120",
+      "displayName": "Eric",
+      "championshipOdds": 0.169,
+      "finalsOdds": 0.7811,
+      "semifinalOdds": 0.9435,
+      "playoffOdds": 1.0,
+      "expectedFinish": 2.23,
+      "contenderTier": "Serious Contender"
+    },
+    {
+      "ownerId": "468418790212759552",
+      "displayName": "Jason",
+      "championshipOdds": 0.0323,
+      "finalsOdds": 0.2801,
+      "semifinalOdds": 0.8776,
+      "playoffOdds": 1.0,
+      "expectedFinish": 3.24,
+      "contenderTier": "Dangerous Playoff Team"
+    },
+    {
+      "ownerId": "831633191830933504",
+      "displayName": "Collin",
+      "championshipOdds": 0.0075,
+      "finalsOdds": 0.0677,
+      "semifinalOdds": 0.6604,
+      "playoffOdds": 1.0,
+      "expectedFinish": 4.38,
+      "contenderTier": "Dangerous Playoff Team"
+    },
+    {
+      "ownerId": "714912789268865024",
+      "displayName": "MaKayla",
+      "championshipOdds": 0.002,
+      "finalsOdds": 0.0281,
+      "semifinalOdds": 0.5021,
+      "playoffOdds": 1.0,
+      "expectedFinish": 4.71,
+      "contenderTier": "Dangerous Playoff Team"
+    },
+    {
+      "ownerId": "1208452010173538304",
+      "displayName": "Kich",
+      "championshipOdds": 0.0,
+      "finalsOdds": 0.0017,
+      "semifinalOdds": 0.0179,
+      "playoffOdds": 1.0,
+      "expectedFinish": 5.06,
+      "contenderTier": "Dangerous Playoff Team"
+    }
+  ],
+  "n_simulations": 10000,
   "playoffSeeds": 7,
   "byeSeeds": 1,
   "playoffStructure": {
@@ -11,9 +72,5 @@
     "source": "league_settings",
     "reason": ""
   },
-  "rosStrengthAvailable": true,
-  "unsimulable": {
-    "reason": "no_scored_weeks_in_league",
-    "detail": "no regular-season week has been scored for any team, so there is no distribution to draw from and a champion cannot be simulated. This is not a 0% chance for anyone."
-  }
+  "rosStrengthAvailable": true
 }

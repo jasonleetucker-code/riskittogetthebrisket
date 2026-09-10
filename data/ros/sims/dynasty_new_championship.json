@@ -1,7 +1,58 @@
 {
-  "computedAt": "2026-09-09T21:17:54.220373+00:00",
-  "championshipOdds": [],
-  "n_simulations": 0,
+  "computedAt": "2026-09-10T00:42:22.177068+00:00",
+  "championshipOdds": [
+    {
+      "ownerId": "1002085133723299840",
+      "displayName": "Brent",
+      "championshipOdds": 0.3507,
+      "finalsOdds": 0.6398,
+      "semifinalOdds": 0.9301,
+      "playoffOdds": 1.0,
+      "expectedFinish": 2.28,
+      "contenderTier": "Favorite"
+    },
+    {
+      "ownerId": "1033502330853302272",
+      "displayName": "cbonex21",
+      "championshipOdds": 0.2461,
+      "finalsOdds": 0.452,
+      "semifinalOdds": 0.8776,
+      "playoffOdds": 1.0,
+      "expectedFinish": 2.71,
+      "contenderTier": "Favorite"
+    },
+    {
+      "ownerId": "984270279268446208",
+      "displayName": "Comacho",
+      "championshipOdds": 0.2016,
+      "finalsOdds": 0.4276,
+      "semifinalOdds": 0.8541,
+      "playoffOdds": 1.0,
+      "expectedFinish": 2.89,
+      "contenderTier": "Favorite"
+    },
+    {
+      "ownerId": "720513970041061376",
+      "displayName": "tedkinney",
+      "championshipOdds": 0.184,
+      "finalsOdds": 0.393,
+      "semifinalOdds": 0.8575,
+      "playoffOdds": 1.0,
+      "expectedFinish": 2.97,
+      "contenderTier": "Serious Contender"
+    },
+    {
+      "ownerId": "472206636534984704",
+      "displayName": "Roy",
+      "championshipOdds": 0.0176,
+      "finalsOdds": 0.0876,
+      "semifinalOdds": 0.4807,
+      "playoffOdds": 1.0,
+      "expectedFinish": 4.15,
+      "contenderTier": "Dangerous Playoff Team"
+    }
+  ],
+  "n_simulations": 10000,
   "playoffSeeds": 6,
   "byeSeeds": 2,
   "playoffStructure": {
@@ -11,9 +62,5 @@
     "source": "league_settings",
     "reason": ""
   },
-  "rosStrengthAvailable": true,
-  "unsimulable": {
-    "reason": "no_scored_weeks_in_league",
-    "detail": "no regular-season week has been scored for any team, so there is no distribution to draw from and a champion cannot be simulated. This is not a 0% chance for anyone."
-  }
+  "rosStrengthAvailable": true
 }
