@@ -64,7 +64,13 @@ _TIMEOUT_SECONDS = 20
 # recovery window into a deploy failure and triggered rollback while the
 # process was still recovering. Retry ONLY while the server reports an
 # active, non-stalled scrape. Idle/stalled degradation still fails
-# immediately. 61 x 5s = at most five minutes of bounded recovery time.
+# immediately. When every round gets a real (if incomplete) response, this
+# is 61 x 5s = at most five minutes. A round where /api/status is fully
+# unreachable also counts as one attempt (2026-09-09 incident fix -- see
+# below) but takes longer per round, since it first burns _fetch_status's
+# own internal retry budget (up to _ATTEMPTS x (_TIMEOUT_SECONDS +
+# _SLEEP_SECONDS)) before this loop's own sleep runs; five minutes is the
+# floor of the bounded window, not a hard ceiling, in that degraded case.
 _COVERAGE_WAIT_ATTEMPTS = 61
 _COVERAGE_WAIT_SLEEP_SECONDS = 5
 
@@ -147,40 +153,69 @@ def main() -> int:
         )
         return 1
 
-    last_status: dict = {}
+    last_status: dict | None = None
     last_violations = None
     for coverage_attempt in range(1, _COVERAGE_WAIT_ATTEMPTS + 1):
         status = _fetch_status(base_url)
-        if status is None:
-            return 1
-        last_status = status
+        violations = None
+        if status is not None:
+            last_status = status
+            violations, ok, skipped = _coverage_result(status)
+            last_violations = violations
+            if violations == []:
+                print(
+                    f"ok: live board carries {len(ok)} registered source(s); "
+                    f"0 fresh-but-absent ({len(skipped)} skipped: stale/empty)"
+                )
+                return 0
 
-        violations, ok, skipped = _coverage_result(status)
-        last_violations = violations
-        if violations == []:
-            print(
-                f"ok: live board carries {len(ok)} registered source(s); "
-                f"0 fresh-but-absent ({len(skipped)} skipped: stale/empty)"
-            )
-            return 0
-
-        if not _recovering_scrape(status):
-            break
+            if not _recovering_scrape(status):
+                break
 
         if coverage_attempt < _COVERAGE_WAIT_ATTEMPTS:
-            missing_label = (
-                "coverage map not published yet"
-                if violations is None
-                else f"{len(violations)} fresh source(s) not yet republished"
-            )
-            print(
-                f"recovery {coverage_attempt}/{_COVERAGE_WAIT_ATTEMPTS}: "
-                f"{missing_label}; startup/scheduled scrape is still active "
-                f"(step={status.get('current_step')!r}, "
-                f"source={status.get('current_source')!r}). "
-                f"Waiting {_COVERAGE_WAIT_SLEEP_SECONDS}s before re-check."
-            )
+            if status is None:
+                # A totally unreachable /api/status is NOT stronger evidence
+                # of a dead process than a slow-but-responsive one -- a
+                # synchronous scrape step can legitimately block the event
+                # loop long enough that even this endpoint times out.
+                # Aborting the whole bounded-recovery window on the FIRST
+                # such round (as this used to do) defeated the window's
+                # entire purpose: the 2026-09-09 production incident showed
+                # exactly this -- five successful recovery rounds correctly
+                # waited out an active KTC scrape, then the very next round's
+                # total timeout threw away the remaining ~55 of 61 attempts
+                # and forced an unnecessary rollback while the scrape was
+                # still legitimately running. Treat it as one more "still
+                # recovering" round instead.
+                print(
+                    f"recovery {coverage_attempt}/{_COVERAGE_WAIT_ATTEMPTS}: "
+                    f"/api/status was unreachable this round -- a fully "
+                    f"blocked response is consistent with an active scrape "
+                    f"still holding the process, not a stalled/dead one. "
+                    f"Waiting {_COVERAGE_WAIT_SLEEP_SECONDS}s before re-check."
+                )
+            else:
+                missing_label = (
+                    "coverage map not published yet"
+                    if violations is None
+                    else f"{len(violations)} fresh source(s) not yet republished"
+                )
+                print(
+                    f"recovery {coverage_attempt}/{_COVERAGE_WAIT_ATTEMPTS}: "
+                    f"{missing_label}; startup/scheduled scrape is still active "
+                    f"(step={status.get('current_step')!r}, "
+                    f"source={status.get('current_source')!r}). "
+                    f"Waiting {_COVERAGE_WAIT_SLEEP_SECONDS}s before re-check."
+                )
             time.sleep(_COVERAGE_WAIT_SLEEP_SECONDS)
+
+    if last_status is None:
+        print(
+            "\nfail: /api/status never returned a parseable response during "
+            "the entire bounded recovery window -- the process may be "
+            "genuinely stuck, not merely busy scraping."
+        )
+        return 1
 
     _print_coverage_failure(last_violations)
     if last_violations is None:
