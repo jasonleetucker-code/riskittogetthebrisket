@@ -433,7 +433,10 @@ class NewsService:
         all_failed = bool(runs) and not any(run.ok for run in runs)
         observed_success = any(
             run.ok
-            and (run.attempted_count is None or run.attempted_count > (run.failed_count or 0))
+            and (
+                run.attempted_count is None
+                or (run.failed_count is not None and run.attempted_count > run.failed_count)
+            )
             for run in runs
         )
         return AggregatedNews(

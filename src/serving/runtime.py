@@ -37,6 +37,7 @@ class ServingGeneration:
     coverage: dict[str, Any]
     views: Mapping[str, PreparedPayload]
     indexes: Mapping[str, Mapping] = field(default_factory=dict)
+    artifact_generation_id: str | None = None
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "views", MappingProxyType(dict(self.views)))
@@ -134,7 +135,9 @@ class AtomicRuntime:
             artifact = self.store.read_current(self.asset, self.key)
             candidate = self.build(artifact)
             self._validate(candidate)
-            if candidate.generation_id != artifact.generation_id:
+            if (
+                candidate.artifact_generation_id or candidate.generation_id
+            ) != artifact.generation_id:
                 raise ValueError("Built serving identity does not match its artifact generation")
             # Do not install a slow build after a newer publication supersedes
             # it. The next poll consumes that newer complete pointer.

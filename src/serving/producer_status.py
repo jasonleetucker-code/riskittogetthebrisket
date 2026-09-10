@@ -50,8 +50,16 @@ def _atomic_json(root: Path, name: str, value: dict) -> None:
         temporary.unlink(missing_ok=True)
 
 
-def pending_source_refresh(store: ArtifactStore) -> dict | None:
-    path = store.root / REQUEST_FILE
+def _request_files(kind: str):
+    if kind == "source":
+        return REQUEST_FILE, CLAIM_FILE, "source-request.lock"
+    if kind == "league":
+        return "league-refresh.request", "league-refresh-claim.json", "league-request.lock"
+    raise ValueError("unknown producer queue")
+
+
+def _pending_refresh(store: ArtifactStore, kind: str) -> dict | None:
+    path = store.root / _request_files(kind)[0]
     _check_path(path)
     try:
         with path.open("rb") as handle:
@@ -78,7 +86,7 @@ def pending_source_refresh(store: ArtifactStore) -> dict | None:
     return None
 
 
-def request_source_refresh(store: ArtifactStore, trigger: str = "manual") -> dict:
+def _request_refresh(store: ArtifactStore, kind: str, trigger: str) -> dict:
     """Queue bounded operational metadata for the OS-managed source service."""
     if (
         not isinstance(trigger, str)
@@ -90,8 +98,8 @@ def request_source_refresh(store: ArtifactStore, trigger: str = "manual") -> dic
     ):
         raise ValueError("refresh trigger must be a short operational label")
     _mkdir(store.root)
-    with _publish_lock(store.root / "source-request.lock", 2):
-        existing = pending_source_refresh(store)
+    with _publish_lock(store.root / _request_files(kind)[2], 2):
+        existing = _pending_refresh(store, kind)
         if existing:
             return {**existing, "coalesced": True}
         request = {
@@ -101,27 +109,51 @@ def request_source_refresh(store: ArtifactStore, trigger: str = "manual") -> dic
             "trigger": trigger,
             "requestedAt": _now(),
         }
-        _atomic_json(store.root, REQUEST_FILE, request)
+        _atomic_json(store.root, _request_files(kind)[0], request)
         return {**request, "coalesced": False}
 
 
-def claim_source_refresh(store: ArtifactStore) -> dict | None:
+def _claim_refresh(store: ArtifactStore, kind: str) -> dict | None:
     """Called only inside the source lease; preserve requests arriving afterward."""
-    with _publish_lock(store.root / "source-request.lock", 2):
-        path = store.root / REQUEST_FILE
+    with _publish_lock(store.root / _request_files(kind)[2], 2):
+        path = store.root / _request_files(kind)[0]
         _check_path(path)
         if not path.exists():
             return None
-        request = pending_source_refresh(store)
+        request = _pending_refresh(store, kind)
         claim = (
             {**request, "outcome": "claimed", "claimedAt": _now()}
             if request
             else {"schemaVersion": 1, "outcome": "invalid_request", "claimedAt": _now()}
         )
-        _atomic_json(store.root, CLAIM_FILE, claim)
+        _atomic_json(store.root, _request_files(kind)[1], claim)
         path.unlink()
         _sync_directory(store.root)
         return claim
+
+
+def pending_source_refresh(store: ArtifactStore) -> dict | None:
+    return _pending_refresh(store, "source")
+
+
+def request_source_refresh(store: ArtifactStore, trigger: str = "manual") -> dict:
+    return _request_refresh(store, "source", trigger)
+
+
+def claim_source_refresh(store: ArtifactStore) -> dict | None:
+    return _claim_refresh(store, "source")
+
+
+def pending_league_refresh(store: ArtifactStore) -> dict | None:
+    return _pending_refresh(store, "league")
+
+
+def request_league_refresh(store: ArtifactStore, trigger: str = "manual") -> dict:
+    return _request_refresh(store, "league", trigger)
+
+
+def claim_league_refresh(store: ArtifactStore) -> dict | None:
+    return _claim_refresh(store, "league")
 
 
 class ProducerJournal:
@@ -148,10 +180,23 @@ class ProducerJournal:
 
     def event(self, name: str, *, level="info", message="", **meta) -> None:
         if name == "producer_started":
+            # Read only after lease admission, so concurrent queued workers
+            # cannot overwrite one another's completed-run history.
+            try:
+                path = self.store.root / STATUS_FILE
+                _check_path(path)
+                with path.open("rb") as stream:
+                    previous = stream.read(262145)
+                if len(previous) <= 262144:
+                    runs = json.loads(previous).get("runs", [])
+                    self.state["runs"] = runs[-200:] if isinstance(runs, list) else []
+            except (OSError, ValueError, TypeError, AttributeError):
+                self.state["runs"] = []
             self.source_parity = meta["sourceParity"]
             self.source_parity_hash = meta["sourceParityHash"]
             self.state.update(outcome="running", startedAt=_now())
             self.state["refreshRequest"] = claim_source_refresh(self.store)
+            self.state["queueWaitSeconds"] = meta.get("queueWaitSeconds")
         # Keep event names and severity, not arbitrary third-party messages.
         self.state["events"] = (
             self.state["events"] + [{"event": name, "level": level, "at": _now()}]
@@ -181,6 +226,16 @@ class ProducerJournal:
             leagueRefresh=self.league_report,
             canonicalInputs=self.input_manifest,
         )
+        self.state["runs"] = (
+            self.state.get("runs", [])
+            + [
+                {
+                    "outcome": result.outcome,
+                    "timestamp": self.state["finishedAt"],
+                    "duration": result.duration,
+                }
+            ]
+        )[-200:]
         if result.outcome == "success" and self.accepted_generation:
             receipt = {
                 "schemaVersion": 1,

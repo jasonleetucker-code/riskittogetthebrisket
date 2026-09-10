@@ -17,12 +17,10 @@ import asyncio
 import json
 import math
 import os
-import sys
 import signal
 import threading
 import time
 import logging
-import traceback
 import smtplib
 import gzip
 import hashlib
@@ -64,7 +62,6 @@ except ImportError:  # pragma: no cover — optional dep; chat endpoint degrades
 from src.api.data_contract import (
     CONTRACT_VERSION as API_DATA_CONTRACT_VERSION,
     build_api_data_contract,
-    build_api_startup_payload,
     build_rankings_delta_payload,
     get_ranking_source_registry,
     normalize_source_overrides,
@@ -79,7 +76,6 @@ from src.api import roster_intelligence as _roster_intelligence
 from src.api import guest_passes as _guest_passes
 from src.api import rank_history as _rank_history
 from src.api import source_history as _source_history
-from src.history import record as _history_record
 from src.api import push_delivery as _push_delivery
 from src.api import signal_alerts as _signal_alerts
 from src.api import terminal as _terminal
@@ -87,9 +83,11 @@ from src.api import trade_simulator as _trade_simulator
 from src.api import user_kv as _user_kv
 from src.api import league_registry as _league_registry
 from src.api import sleeper_overlay as _sleeper_overlay
+from src.api import telemetry as _telemetry
 from src.news import NewsService, build_default_service
 from src.news import custom_alerts as _custom_alerts
-from src.news.providers.espn_player import DEFAULT_MAX_TARGETS as _ESPN_NEWS_TARGET_LIMIT
+from src.news import context as _news_context
+from src.news.prepared import PreparedNewsReader, NewsNotReady
 
 # ── CONFIG ──────────────────────────────────────────────────────────────
 SCRAPE_INTERVAL_HOURS = 2
@@ -328,6 +326,10 @@ log = logging.getLogger("dynasty-server")
 # In-memory cache of latest scrape data
 latest_data: dict | None = None
 latest_contract_data: dict | None = None
+latest_serving_generation = None
+latest_candidate_error: str | None = None
+_serving_runtime = None
+_league_serving_reader = None
 latest_data_bytes: bytes | None = None
 latest_data_gzip_bytes: bytes | None = None
 latest_data_etag: str | None = None
@@ -458,12 +460,18 @@ def _compute_served_source_coverage(contract: dict | None) -> dict:
 # Lazy-built singleton.  Built on first request rather than at import
 # so unit tests can monkey-patch the factory and the server can boot
 # even if a transient DNS failure would block provider construction.
+_producer_status_reader = None
+_prepared_news_reader: PreparedNewsReader | None = None
 _news_service: NewsService | None = None
 _news_service_lock = threading.Lock()
 
 
-def _get_news_service() -> NewsService:
+def _get_news_service() -> NewsService | PreparedNewsReader:
     global _news_service
+    if os.environ.get("RISKIT_SERVING_MODE", "legacy").strip().lower() == "prepared":
+        if _prepared_news_reader is None:
+            raise NewsNotReady("prepared news reader has not started")
+        return _prepared_news_reader
     if _news_service is not None:
         return _news_service
     with _news_service_lock:
@@ -499,167 +507,32 @@ _LIVE_CONTRACT_SCAN_MEMO: dict[str, tuple[str, Any]] = {}
 
 
 def _live_contract_scan(kind: str, builder):
-    etag = latest_data_etag
+    generation = latest_serving_generation
+    contract = generation.contract if generation else latest_contract_data or {}
+    etag = generation.generation_id if generation else latest_data_etag
     if not etag:
-        return builder()
+        return builder(contract)
     hit = _LIVE_CONTRACT_SCAN_MEMO.get(kind)
     if hit is not None and hit[0] == etag:
         return hit[1]
-    val = builder()
-    _LIVE_CONTRACT_SCAN_MEMO[kind] = (etag, val)
-    return val
+    value = builder(contract)
+    _LIVE_CONTRACT_SCAN_MEMO[kind] = (etag, value)
+    return value
 
 
 def _live_player_names() -> list[str]:
-    """Return every player name visible in the live contract.
-
-    ESPN's RSS provider uses this set to tag headlines with matched
-    players; returning an empty list when the contract hasn't
-    loaded yet degrades gracefully — headlines still surface,
-    they just arrive with empty ``players[]``.
-
-    Memoized per contract generation — treat the result as read-only.
-    """
-
-    def _build() -> list[str]:
-        contract = latest_contract_data or {}
-        rows = contract.get("playersArray") or []
-        names: list[str] = []
-        for row in rows:
-            if not isinstance(row, dict):
-                continue
-            for key in ("displayName", "name", "canonicalName", "fullName"):
-                v = row.get(key)
-                if isinstance(v, str) and v.strip():
-                    names.append(v.strip())
-                    break
-        return names
-
-    return _live_contract_scan("player_names", _build)
-
-
-# How many top-board players get per-player ESPN news coverage.
-# Rostered players cluster at the top of the board, and the provider
-# trickle-refreshes ~8 ids per 3-minute aggregate cycle, so 150
-# targets fully refresh roughly hourly at a polite request rate.
-#
-# Single source of truth: ``_ESPN_NEWS_TARGET_LIMIT`` is imported at
-# the top of this file as an alias of the provider's own
-# ``DEFAULT_MAX_TARGETS`` — the supplier below and the provider's
-# ``_valid_targets`` truncation can never drift apart (Codex P2:
-# a local 150 here vs the provider's default 100 silently discarded
-# targets 101-150).
+    """Memoized names from one accepted contract; shared producer policy."""
+    return _live_contract_scan("player_names", _news_context.player_names)
 
 
 def _live_espn_news_targets() -> list[dict[str, str | None]]:
-    """Top-board players joined to their ESPN athlete ids.
-
-    Walks the live contract's ``playersArray`` in consensus-rank
-    order, resolves each row's Sleeper ``playerId`` through the
-    contract's Sleeper player directory (``sleeper.players`` — the
-    ``/v1/players/nfl`` shape, which carries ``espn_id``), and emits
-    ``{name, espnId, position, team}`` targets for the
-    ``espn_player`` news provider.  Rows without an espn_id mapping
-    are skipped; an unloaded contract yields [] and the provider
-    stays quiet.
-    """
-    contract = latest_contract_data or {}
-    rows = contract.get("playersArray") or []
-    players_dir = (contract.get("sleeper") or {}).get("players") or {}
-    if not isinstance(players_dir, dict) or not rows:
-        return []
-
-    def _rank(row: dict) -> float:
-        try:
-            r = float(row.get("canonicalConsensusRank") or row.get("rank") or 0)
-            return r if r > 0 else float("inf")
-        except (TypeError, ValueError):
-            return float("inf")
-
-    targets: list[dict[str, str | None]] = []
-    for row in sorted((r for r in rows if isinstance(r, dict)), key=_rank):
-        sid = str(row.get("playerId") or "").strip()
-        if not sid:
-            continue
-        p = players_dir.get(sid)
-        if not isinstance(p, dict):
-            continue
-        espn_id = str(p.get("espn_id") or "").strip()
-        if not espn_id:
-            continue
-        name = ""
-        for key in ("displayName", "name", "canonicalName", "fullName"):
-            v = row.get(key)
-            if isinstance(v, str) and v.strip():
-                name = v.strip()
-                break
-        if not name:
-            continue
-        position = row.get("position")
-        team = row.get("team")
-        targets.append(
-            {
-                "name": name,
-                "espnId": espn_id,
-                "position": position.strip()
-                if isinstance(position, str) and position.strip()
-                else None,
-                "team": team.strip().upper() if isinstance(team, str) and team.strip() else None,
-            }
-        )
-        if len(targets) >= _ESPN_NEWS_TARGET_LIMIT:
-            break
-    return targets
+    """Memoized top-board ESPN targets from the accepted contract."""
+    return _live_contract_scan("espn_targets", _news_context.espn_targets)
 
 
 def _live_player_meta() -> dict[str, dict[str, str | None]]:
-    """Map exact contract display names → {position, team}.
-
-    The news service stamps these identity discriminators onto
-    tagged mentions (``NewsService._enrich_player_mentions``) so
-    name-collision players (CJ Allen the LB vs C.J. Allen the WR)
-    can be told apart on per-player surfaces.  ``team`` is sparsely
-    populated until the next scrape cycle — null when absent;
-    position is always available on contract rows.
-
-    Memoized per contract generation — treat the result as read-only.
-    """
-
-    def _build() -> dict[str, dict[str, str | None]]:
-        contract = latest_contract_data or {}
-        rows = contract.get("playersArray") or []
-        meta: dict[str, dict[str, str | None]] = {}
-        for row in rows:
-            if not isinstance(row, dict):
-                continue
-            name = ""
-            for key in ("displayName", "name", "canonicalName", "fullName"):
-                v = row.get(key)
-                if isinstance(v, str) and v.strip():
-                    name = v.strip()
-                    break
-            if not name:
-                continue
-            position = row.get("position")
-            team = row.get("team")
-            entry = {
-                "position": position.strip()
-                if isinstance(position, str) and position.strip()
-                else None,
-                "team": team.strip().upper() if isinstance(team, str) and team.strip() else None,
-            }
-            prior = meta.get(name)
-            if prior is None:
-                meta[name] = entry
-            elif prior != entry:
-                # Two contract rows share the EXACT display string with
-                # different identities — an exact-name lookup can't
-                # attribute a mention safely, so stamp nothing rather
-                # than the wrong player's identity.
-                meta[name] = {"position": None, "team": None}
-        return meta
-
-    return _live_contract_scan("player_meta", _build)
+    """Memoized unambiguous identity discriminators from the accepted contract."""
+    return _live_contract_scan("player_meta", _news_context.player_meta)
 
 
 # R-9: Lightweight metrics counters
@@ -1143,60 +1016,10 @@ def _mark_scrape_success(
 
 
 def _missing_expected_sites(result: dict | None) -> list[str]:
-    """Anchor sources the scrape was expected to produce and did not.
+    """Compatibility adapter to the shared source promotion policy."""
+    from src.serving.producer import missing_expected_sites
 
-    Audit O-3.  The payload declares its own load-bearing inputs in
-    ``coverageAudit.expectedSites`` — ``{"offense": ["ktc"], "idp":
-    ["idpTradeCalc"]}`` on live data — so "did we lose an anchor?" is
-    answerable without inventing a threshold or hardcoding a source
-    name here.  A source counts as produced only if it actually carried
-    players; present-but-empty is exactly the degraded case the guard
-    exists to catch.
-
-    Returns ``[]`` on any shape surprise.  This runs on the scrape path
-    and a diagnostic that can crash the scrape is worse than the defect
-    it reports — but note that an empty list from a MALFORMED payload
-    means "no anchors known to be missing", not "all anchors present",
-    which is why the ratio test is kept alongside it rather than
-    replaced by it.
-    """
-    try:
-        audit = (result or {}).get("coverageAudit") or {}
-        expected_block = audit.get("expectedSites") or {}
-        expected: set[str] = set()
-        for names in expected_block.values():
-            if isinstance(names, (list, tuple)):
-                expected.update(str(n) for n in names if n)
-        if not expected:
-            return []
-
-        def _reported_rows(block: object, field: str) -> bool:
-            """True only when the block states a positive row count.
-
-            Absent, null or non-numeric means the source did not report
-            producing anything — which is treated the same as zero HERE
-            because this guard's question is "can we prove the anchor
-            arrived?", and unproven must not read as arrived.  Written
-            out rather than as ``or 0`` so the reasoning is visible:
-            the coercion gate flags that shape precisely because it
-            usually hides this decision instead of stating it.
-            """
-            if not isinstance(block, dict):
-                return False
-            count = block.get(field)
-            return isinstance(count, (int, float)) and count > 0
-
-        produced: set[str] = set()
-        for site in (result or {}).get("sites") or []:
-            if _reported_rows(site, "playerCount"):
-                produced.add(str(site.get("key") or ""))
-        for key, stats in ((result or {}).get("siteStats") or {}).items():
-            if _reported_rows(stats, "count"):
-                produced.add(str(key))
-
-        return sorted(expected - produced)
-    except Exception:  # noqa: BLE001 — never break the scrape over a diagnostic
-        return []
+    return missing_expected_sites(result)
 
 
 def _mark_scrape_blocked(
@@ -1450,27 +1273,13 @@ def _finalize_scrape_run(worker_id: str) -> None:
     _sync_scrape_alias_fields()
 
 
-def _build_scrape_progress_callback(worker_id: str):
-    async def _on_progress(payload: dict):
-        if scrape_status.get("worker_id") != worker_id:
-            return
-        if not isinstance(payload, dict):
-            return
-        _update_scrape_progress(
-            step=payload.get("step"),
-            source=payload.get("source"),
-            step_index=payload.get("step_index"),
-            step_total=payload.get("step_total"),
-            event=payload.get("event"),
-            message=payload.get("message"),
-            level=payload.get("level", "info"),
-            meta=payload.get("meta"),
-        )
-
-    return _on_progress
-
-
 def _scrape_status_payload() -> dict:
+    if os.environ.get("RISKIT_SERVING_MODE", "legacy").strip().lower() == "prepared":
+        return (
+            _producer_status_reader.snapshot()
+            if _producer_status_reader
+            else {"owner": "standalone", "status_summary": "unknown", "running": False}
+        )
     _reconcile_orphaned_running_state()
     stalled = _is_scrape_stalled()
     was_stalled = bool(scrape_status.get("stalled"))
@@ -2333,15 +2142,11 @@ def _scoring_identity_error(contract: Any, league_cfg: Any) -> JSONResponse | No
     )
 
 
-def _prime_latest_payload(data: dict | None, *, is_fresh_scrape: bool = False) -> None:
-    """Pre-serialize latest payload once so /api/data returns instantly.
+def _publish_serving_generation(candidate) -> None:
+    """Expose compatibility aliases, then publish one coherent serving reference.
 
-    ``is_fresh_scrape`` gates rank-history appends: startup priming
-    from cached disk data must NOT append a new "today" entry (which
-    would fabricate a history point after every server restart).
-    Scrape-promotion callers pass ``is_fresh_scrape=True``; startup
-    lifespan priming leaves it False so the history log stays read-
-    only until a real scrape lands.
+    New readers capture the reference once. Legacy aliases remain for domain
+    endpoints during migration; no expensive work or await occurs in this swap.
     """
     global latest_contract_data, latest_data_bytes, latest_data_gzip_bytes, latest_data_etag
     global \
@@ -2366,6 +2171,70 @@ def _prime_latest_payload(data: dict | None, *, is_fresh_scrape: bool = False) -
         latest_compact_data_etag
     global contract_health
     global served_source_coverage
+
+    global latest_serving_generation, latest_candidate_error, latest_data, latest_data_source
+    latest_data = candidate.raw
+    latest_data_source = dict(candidate.source)
+    latest_contract_data = candidate.contract
+    contract_health = candidate.health
+    served_source_coverage = candidate.coverage
+    latest_data_bytes = candidate.views["full"].raw
+    latest_data_gzip_bytes = candidate.views["full"].gzip
+    latest_data_etag = candidate.views["full"].etag
+    latest_runtime_data = candidate.views["runtime"].payload
+    latest_runtime_data_bytes = candidate.views["runtime"].raw
+    latest_runtime_data_gzip_bytes = candidate.views["runtime"].gzip
+    latest_runtime_data_etag = candidate.views["runtime"].etag
+    latest_startup_data = candidate.views["startup"].payload
+    latest_startup_data_bytes = candidate.views["startup"].raw
+    latest_startup_data_gzip_bytes = candidate.views["startup"].gzip
+    latest_startup_data_etag = candidate.views["startup"].etag
+    latest_array_data = candidate.views["array"].payload
+    latest_array_data_bytes = candidate.views["array"].raw
+    latest_array_data_gzip_bytes = candidate.views["array"].gzip
+    latest_array_data_etag = candidate.views["array"].etag
+    latest_compact_data = candidate.views["compact"].payload
+    latest_compact_data_bytes = candidate.views["compact"].raw
+    latest_compact_data_gzip_bytes = candidate.views["compact"].gzip
+    latest_compact_data_etag = candidate.views["compact"].etag
+    _OVERRIDES_RESPONSE_CACHE.clear()
+    _DRAFT_CAPITAL_CACHE.clear()
+    latest_candidate_error = None
+    latest_serving_generation = candidate
+
+
+def _prime_latest_payload(data: dict | None, *, is_fresh_scrape: bool = False, data_source=None):
+    """Build off-request; reject failed candidates without erasing last good data.
+
+    Only a fresh scrape appends history; startup and artifact reload never do.
+    Explicit None resets state (test/administrative reset), not build failure.
+    """
+    global latest_contract_data, latest_data_bytes, latest_data_gzip_bytes, latest_data_etag
+    global \
+        latest_runtime_data, \
+        latest_runtime_data_bytes, \
+        latest_runtime_data_gzip_bytes, \
+        latest_runtime_data_etag
+    global \
+        latest_startup_data, \
+        latest_startup_data_bytes, \
+        latest_startup_data_gzip_bytes, \
+        latest_startup_data_etag
+    global \
+        latest_array_data, \
+        latest_array_data_bytes, \
+        latest_array_data_gzip_bytes, \
+        latest_array_data_etag
+    global \
+        latest_compact_data, \
+        latest_compact_data_bytes, \
+        latest_compact_data_gzip_bytes, \
+        latest_compact_data_etag
+    global contract_health
+    global served_source_coverage
+
+    global latest_serving_generation, latest_candidate_error
+    global latest_data, latest_data_source
 
     def _swap_to_empty() -> None:
         """Publish the 'no payload' generation (falsy data / failed
@@ -2423,270 +2292,50 @@ def _prime_latest_payload(data: dict | None, *, is_fresh_scrape: bool = False) -
 
     if not data:
         _swap_to_empty()
+        latest_serving_generation = None
         return
 
-    # ── Stage 1: compute the ENTIRE new generation into locals.
-    # This function is offloaded to a worker thread at the scrape-
-    # completion call site, so requests can interleave with the
-    # multi-second build.  No global is touched until every variant is
-    # encoded; the publish happens in the tight swap at the end.  (The
-    # previous reset-globals-first shape was only safe because the
-    # whole build used to block the event loop.)
+    from src.serving.builder import build_generation, record_accepted_generation
+
+    previous = latest_serving_generation
     try:
-        contract_payload = build_api_data_contract(data, data_source=latest_data_source)
-        contract_report = validate_api_data_contract(contract_payload)
-        contract_payload["contractHealth"] = {
-            "ok": bool(contract_report.get("ok")),
-            "status": contract_report.get("status"),
-            "errorCount": int(contract_report.get("errorCount", 0)),
-            "warningCount": int(contract_report.get("warningCount", 0)),
-            "checkedAt": contract_report.get("checkedAt"),
-        }
-        # Rank-history integration:
-        # - Append a new "today" snapshot ONLY on fresh scrape
-        #   promotions.  Startup priming from cached disk data must
-        #   stay read-only or every restart fabricates a redundant
-        #   history entry (and /api/data/rank-history misleads
-        #   consumers into thinking a scrape ran).
-        # - Stamp ``rankHistory`` onto every row regardless of
-        #   source — it's a pure read of the existing log and the
-        #   frontend glyph needs it on startup-primed payloads too.
-        try:
-            if is_fresh_scrape:
-                # Each of the three recorders is isolated in its own
-                # try so one failing append can never silently skip the
-                # others (the ledger record used to sit downstream of
-                # the rank-history append inside one block — an
-                # asymmetric coupling the C1-U4 final review flagged).
-                try:
-                    _rank_history.append_snapshot(contract_payload)
-                except Exception as inner_exc:  # noqa: BLE001
-                    log.warning("rank_history: append failed: %s", inner_exc)
-                # Sister snapshot: per-source value history.  Stored in
-                # a separate JSONL so the rank-history log stays small
-                # and readable while the popup chart can stream a
-                # richer per-source series on demand.  Failures are
-                # isolated so a source-history write error doesn't
-                # nuke the rank-history append we just did.
-                try:
-                    _source_history.append_snapshot(contract_payload)
-                except Exception as inner_exc:  # noqa: BLE001
-                    log.warning(
-                        "source_history: append failed: %s",
-                        inner_exc,
-                    )
-                # Canonical temporal ledger (src/history, C1-U4): the
-                # one as-of owner records this build — including the
-                # tethered slot-pick rows the rank-gated log above
-                # structurally drops (C1-HIST-02).  Fresh scrapes only,
-                # same discipline as the appends above; isolated so a
-                # ledger failure cannot nuke either sibling append.
-                try:
-                    ledger_result = _history_record.record_contract(contract_payload)
-                    log.info(
-                        "temporal_ledger: recorded %d observations for %s "
-                        "(%d duplicate, %d unresolved rows)",
-                        ledger_result.get("written", 0),
-                        ledger_result.get("boardDate"),
-                        ledger_result.get("duplicates", 0),
-                        ledger_result.get("unresolved", 0),
-                    )
-                except Exception as inner_exc:  # noqa: BLE001
-                    log.warning("temporal_ledger: record failed: %s", inner_exc)
-            stamped = _rank_history.stamp_contract_with_history(contract_payload)
-            if stamped:
-                log.info("rank_history: stamped %d rows with history series", stamped)
-        except Exception as exc:  # noqa: BLE001
-            # Non-fatal: a history log failure must NOT break the
-            # contract response.  The glyph degrades gracefully when
-            # rankHistory is absent.
-            log.warning("rank_history: append/stamp failed: %s", exc)
-        # Tag the contract with the league + scoring profile it was
-        # built for.  Two different roles:
-        #
-        #   * ``meta.leagueKey`` — which specific league's Sleeper
-        #     block (teams, rosters, ownerIds) is stamped here.
-        #     Team-requiring endpoints (/api/terminal, /api/trade/*)
-        #     reject requests for other leagues with 503.
-        #   * ``meta.scoringProfile`` — which scoring rules produced
-        #     these rankings.  Rankings endpoints (/api/data,
-        #     /api/rankings/overrides) serve the same rankings to
-        #     any league that shares the profile, and only 503 when
-        #     profiles actually differ.
-        #
-        # This split is the core of the "scoring drives rankings,
-        # league drives context" architecture — see CLAUDE.md.
-        #   * ``meta.scoringFingerprint`` — the FACTUAL identity of the
-        #     scoring that produced them (W18-F001).  Derived from the
-        #     contract's OWN ``sleeper.scoringSettings``, i.e. the card
-        #     the scrape actually fetched from the host, and NOT copied
-        #     from the registry: a stamp taken from a second file proves
-        #     only that the second file said so, while this one can be
-        #     recomputed from the artifact it describes.  Absent — never
-        #     a hash of ``{}`` — when the scrape carried no card.
-        try:
-            _default_cfg = _league_registry.get_default_league()
-            if _default_cfg and isinstance(contract_payload, dict):
-                meta_block = contract_payload.setdefault("meta", {})
-                meta_block["leagueKey"] = _default_cfg.key
-                meta_block["scoringProfile"] = _default_cfg.scoring_profile
-                _fp = _contract_scoring_fingerprint(contract_payload)
-                if _fp:
-                    meta_block["scoringFingerprint"] = _fp
-                else:
-                    meta_block.pop("scoringFingerprint", None)
-        except Exception:  # noqa: BLE001
-            pass
-        new_coverage = _compute_served_source_coverage(contract_payload)
-
-        # Post-scrape overlay warm — for every ACTIVE league
-        # (including the default league the scraper just built for),
-        # force-refresh the Sleeper overlay so the first user request
-        # after a scrape hits a warm 15-min cache instead of round-
-        # tripping to Sleeper.  The default league used to be skipped
-        # because /api/data served its baked sleeper block directly;
-        # since /api/data now splices the overlay onto every response
-        # (default + cross-league), warming the default league makes
-        # the very first /api/data after a scrape return overlay-fresh
-        # rosters too.  Non-fatal: any failure is logged + skipped.
-        #
-        # Runs on a background daemon thread (same pattern as
-        # ``_kick_background_refresh``), NEVER inline: this function is
-        # called from the ``lifespan`` startup path BEFORE uvicorn binds
-        # the port, and from ``run_scraper`` on the event loop.  Inline,
-        # a slow Sleeper (per-league round-trips with read timeouts)
-        # blocked the socket bind past deploy verification's retry
-        # budget — the root cause of the 2026-07-25 deploy failures /
-        # auto-rollbacks — and stalled the loop at every scrape end.
-        # The warm is a cache-priming optimization; requests that land
-        # before it finishes simply fetch the overlay themselves via
-        # the existing threadpool path in ``get_data``.
-        _warm_overlays_in_background(contract_payload)
-
-        if not contract_report.get("ok"):
-            log.error(
-                "API contract validation failed: %s",
-                "; ".join((contract_report.get("errors") or [])[:5]),
-            )
-
-        raw = json.dumps(contract_payload, ensure_ascii=False, separators=(",", ":")).encode(
-            "utf-8"
+        candidate = build_generation(
+            data,
+            dict(data_source if data_source is not None else latest_data_source),
+            is_fresh_scrape=is_fresh_scrape,
+            build_contract=build_api_data_contract,
+            validate_contract=validate_api_data_contract,
+            include_read_models=os.environ.get("RISKIT_SERVING_MODE", "legacy").strip().lower()
+            != "legacy",
         )
-        full_gzip = gzip.compress(raw, compresslevel=5)
-        full_etag = hashlib.sha1(raw).hexdigest()
+        if os.environ.get("RISKIT_SERVING_MODE", "legacy").strip().lower() == "shadow":
+            from src.serving.serialization import publish_generation
 
-        # Runtime payload: keep canonical top-level data shape used by the live UI,
-        # but remove heavyweight contract array duplication to reduce parse/transfer cost.
-        runtime_payload = dict(contract_payload)
-        runtime_payload.pop("playersArray", None)
-        runtime_payload["payloadView"] = "runtime"
-        runtime_raw = json.dumps(runtime_payload, ensure_ascii=False, separators=(",", ":")).encode(
-            "utf-8"
-        )
-        runtime_gzip = gzip.compress(runtime_raw, compresslevel=5)
-        runtime_etag = hashlib.sha1(runtime_raw).hexdigest()
-
-        # Array payload: full contract minus the LEGACY ``players`` dict.
-        # ``playersArray`` and the dict are parallel encodings; the array
-        # is strictly richer (the dict's fields are underscore-mirrors +
-        # flat per-source values the array carries in structured form)
-        # and it is the branch ``buildRows`` prefers whenever present.
-        # Desktop clients request ``?view=array`` and get the identical
-        # board at roughly half the bytes/parse cost of the full view.
-        array_payload = dict(contract_payload)
-        array_payload.pop("players", None)
-        array_payload["payloadView"] = "array"
-        array_raw = json.dumps(array_payload, ensure_ascii=False, separators=(",", ":")).encode(
-            "utf-8"
-        )
-        array_gzip = gzip.compress(array_raw, compresslevel=5)
-        array_etag = hashlib.sha1(array_raw).hexdigest()
-
-        # Startup payload: same contract shape, but strips heavyweight fields
-        # not needed for first screen render so first data-visible is faster.
-        startup_payload = build_api_startup_payload(runtime_payload)
-        startup_raw = json.dumps(startup_payload, ensure_ascii=False, separators=(",", ":")).encode(
-            "utf-8"
-        )
-        startup_gzip = gzip.compress(startup_raw, compresslevel=5)
-        startup_etag = hashlib.sha1(startup_raw).hexdigest()
-
-        # Compact payload: mobile / slow-network view (~90% smaller).
-        # Precompute bytes + gzip + etag here so ``?view=compact`` serves
-        # from the same fast path as the other views instead of running
-        # ``compact_contract`` + ``json.dumps`` + gzip per request on the
-        # event loop.
-        compact_payload = None
-        compact_raw = None
-        compact_gzip = None
-        compact_etag = None
-        try:
-            from src.api.compact_view import compact_contract
-
-            compact_payload = compact_contract(contract_payload)
-            compact_raw = json.dumps(
-                compact_payload, ensure_ascii=False, separators=(",", ":")
-            ).encode("utf-8")
-            compact_gzip = gzip.compress(compact_raw, compresslevel=5)
-            compact_etag = hashlib.sha1(compact_raw).hexdigest()
-        except Exception as exc:  # noqa: BLE001
-            # Non-fatal: the endpoint falls back to on-demand compaction
-            # when the precomputed compact payload is unavailable.
-            compact_payload = None
-            compact_raw = None
-            compact_gzip = None
-            compact_etag = None
-            log.warning("compact payload precompute failed: %s", exc)
-    except Exception as e:
-        # Failed build: publish the empty generation (same end state as
-        # before — /api/data 503s, health invalid).  This also covers a
-        # mid-encode failure, which previously could leave a contract
-        # object published with no bytes behind it.
-        _swap_to_empty()
-        contract_health = {
-            "ok": False,
-            "status": "invalid",
-            "errors": [f"contract build failed: {type(e).__name__}: {e}"],
-            "warnings": [],
-            "errorCount": 1,
-            "warningCount": 0,
-            "checkedAt": _utc_now_iso(),
-            "contractVersion": API_DATA_CONTRACT_VERSION,
-            "playerCount": 0,
-        }
-        log.error(f"Failed to pre-serialize latest payload: {e}")
-        return
-
-    # ── Stage 2: tight swap — publish the new generation.  Plain
-    # reference assignments only; concurrent readers see the old
-    # generation or the new one, never a torn one (each individual
-    # response is built from ONE consistent (bytes, etag) pair grabbed
-    # in a single statement server-side).
-    latest_contract_data = contract_payload
-    contract_health = contract_report
-    served_source_coverage = new_coverage
-    latest_data_bytes = raw
-    latest_data_gzip_bytes = full_gzip
-    latest_data_etag = full_etag
-    latest_runtime_data = runtime_payload
-    latest_runtime_data_bytes = runtime_raw
-    latest_runtime_data_gzip_bytes = runtime_gzip
-    latest_runtime_data_etag = runtime_etag
-    latest_array_data = array_payload
-    latest_array_data_bytes = array_raw
-    latest_array_data_gzip_bytes = array_gzip
-    latest_array_data_etag = array_etag
-    latest_startup_data = startup_payload
-    latest_startup_data_bytes = startup_raw
-    latest_startup_data_gzip_bytes = startup_gzip
-    latest_startup_data_etag = startup_etag
-    latest_compact_data = compact_payload
-    latest_compact_data_bytes = compact_raw
-    latest_compact_data_gzip_bytes = compact_gzip
-    latest_compact_data_etag = compact_etag
-    # Old-generation memoized responses go with the old etag.
-    _OVERRIDES_RESPONSE_CACHE.clear()
-    _DRAFT_CAPITAL_CACHE.clear()
+            publish_generation(candidate)
+        _publish_serving_generation(candidate)
+        if is_fresh_scrape:
+            record_accepted_generation(candidate)
+        _warm_overlays_in_background(candidate.contract)
+        return candidate
+    except Exception as exc:  # noqa: BLE001
+        latest_candidate_error = f"{type(exc).__name__}: {exc}"
+        if previous is not None:
+            # Some legacy scrape callers stage these before invoking prime.
+            latest_data = previous.raw
+            latest_data_source = dict(previous.source)
+        else:
+            contract_health = {
+                "ok": False,
+                "status": "invalid",
+                "errors": [latest_candidate_error],
+                "warnings": [],
+                "errorCount": 1,
+                "warningCount": 0,
+                "checkedAt": _utc_now_iso(),
+                "contractVersion": API_DATA_CONTRACT_VERSION,
+                "playerCount": 0,
+            }
+        log.error("Candidate serving generation rejected; retaining previous: %s", exc)
 
 
 def _load_cached_payload(path: Path | None) -> dict | None:
@@ -2870,430 +2519,67 @@ def _load_json_file(path: Path | None) -> dict | None:
 
 
 async def run_scraper(trigger: str = "manual") -> dict | None:
-    """
-    Import and run the scraper, returning the dashboard JSON dict.
-    Runs in the same event loop as the server.
-    """
-    global latest_data
+    """Delegate the one source pipeline; prepared web only requests worker work."""
+    if os.environ.get("RISKIT_SERVING_MODE", "legacy").strip().lower() == "prepared":
+        from src.serving.artifacts import ArtifactStore
+        from src.serving.producer_status import request_source_refresh
+
+        request_source_refresh(ArtifactStore(), trigger=trigger)
+        _record_scrape_event("source_refresh_queued", message="Standalone source refresh requested")
+        return latest_data
     _reconcile_orphaned_running_state()
     if scrape_run_lock.locked():
-        _record_scrape_event(
-            "scrape_rejected_already_running",
-            level="warning",
-            message="run_scraper called while lock already held",
-        )
+        _record_scrape_event("scrape_rejected_already_running", level="warning")
         return latest_data
+    from src.serving.producer import ProducerConfig, run_source_cycle
 
     async with scrape_run_lock:
-        start = time.time()
         worker_id = _start_scrape_run(trigger=trigger)
-        log.info("=" * 60)
-        log.info("SCRAPE STARTING")
-        log.info("=" * 60)
+
+        def progress(**fields):
+            if scrape_status.get("worker_id") == worker_id:
+                _update_scrape_progress(**fields)
+
+        async def publish(raw, source):
+            candidate = await run_in_threadpool(
+                _prime_latest_payload,
+                raw,
+                is_fresh_scrape=True,
+                data_source=source,
+            )
+            if candidate is None:
+                raise RuntimeError(latest_candidate_error or "canonical candidate rejected")
 
         try:
-            _update_scrape_progress(
-                step="bootstrap",
-                source="import_scraper",
-                step_index=1,
-                step_total=4,
-                event="phase_start",
-                message="Importing scraper module",
+            result = await run_source_cycle(
+                ProducerConfig(
+                    repo_dir=BASE_DIR,
+                    data_dir=DATA_DIR,
+                    timeout_seconds=SCRAPE_RUN_TIMEOUT_SECONDS,
+                    retention_floor=SCRAPE_PLAYER_RETENTION_FLOOR,
+                    disk_min_mb=DISK_SPACE_MIN_MB,
+                ),
+                lambda: latest_serving_generation.raw if latest_serving_generation else latest_data,
+                publish=publish,
+                progress=progress,
+                event=_record_scrape_event,
+                alert=send_alert,
             )
-
-            # Import the scraper module from its exact file path
-            # (importlib handles spaces in directory names that normal import can't)
-            import importlib.util
-
-            spec = importlib.util.spec_from_file_location("Dynasty_Scraper", str(SCRAPER_PATH))
-            scraper = importlib.util.module_from_spec(spec)
-            sys.modules["Dynasty_Scraper"] = scraper
-            spec.loader.exec_module(scraper)
-
-            # Override SCRIPT_DIR so output goes to our data/ folder
-            scraper.SCRIPT_DIR = str(DATA_DIR)
-
-            _update_scrape_progress(
-                step="scrape",
-                source="Dynasty Scraper.py",
-                step_index=2,
-                step_total=4,
-                event="phase_start",
-                message="Executing scraper.run()",
-            )
-
-            progress_callback = _build_scrape_progress_callback(worker_id)
-
-            # Top-level run timeout guard so a wedged scraper cannot hold running=True forever.
-            result = await asyncio.wait_for(
-                scraper.run(progress_callback=progress_callback),
-                timeout=SCRAPE_RUN_TIMEOUT_SECONDS,
-            )
-
-            _update_scrape_progress(
-                step="validate",
-                source="result_payload",
-                step_index=3,
-                step_total=4,
-                event="phase_start",
-                message="Validating scraper output",
-            )
-
-            if not result or not result.get("players"):
-                raise RuntimeError("Scraper returned empty result")
-
-            # Mirror fresh scraper-owned site_raw CSVs from the DATA_DIR
-            # output path (data/exports/latest/site_raw/) back to the repo's
-            # tracked CSVs/site_raw/ directory before the canonical contract
-            # rebuild. data_contract.py reads the repo-root copies.
-            #
-            # IMPORTANT: KTC became a three-source family in September 2026.
-            # Mirroring only the legacy ktc.csv left the running scraper and
-            # the canonical voter on different generations: the scraper had
-            # fresh Crowd / Trades / Crowd+Trades files under DATA_DIR while
-            # the contract could still read an older ktcCrowdTradesSfTep.csv
-            # from the checkout. Keep the complete scraper-owned family
-            # together. DLF and other rank fetchers are maintained separately.
-            try:
-                import shutil as _sh
-
-                src_raw = DATA_DIR / "exports" / "latest" / "site_raw"
-                dst_raw = BASE_DIR / "CSVs" / "site_raw"
-                if src_raw.exists() and dst_raw.exists():
-                    scraper_owned_site_raw = (
-                        "ktc.csv",
-                        "ktcSfTep.csv",
-                        "ktcCrowdSfTep.csv",
-                        "ktcTradesSfTep.csv",
-                        "ktcCrowdTradesSfTep.csv",
-                        "idpTradeCalc.csv",
-                    )
-                    for fname in scraper_owned_site_raw:
-                        src_file = src_raw / fname
-                        dst_file = dst_raw / fname
-                        if src_file.exists():
-                            _sh.copy2(src_file, dst_file)
-            except Exception as _mirror_err:
-                log.warning(f"Post-scrape CSV mirror failed: {_mirror_err}")
-
-            # Refresh Dynasty Nerds SF-TEP rankings.  The DN board is
-            # inlined in the page HTML as a ``window.DR_DATA`` JS
-            # constant — no Playwright required — so we run the plain
-            # ``scripts/fetch_dynasty_nerds.py`` helper inline on every
-            # scheduled scrape cycle.  Failure is logged and ignored so
-            # a transient network error cannot fail the entire scrape.
-            try:
-                from scripts import fetch_dynasty_nerds as _dn_fetch
-
-                rc = _dn_fetch.main(["--mirror-data-dir"])
-                if rc == 2:
-                    # Schema / row-count regression — surface loudly as
-                    # a structured scrape event so /api/status shows the
-                    # failure instead of burying it as a log line.
-                    _record_scrape_event(
-                        "dynasty_nerds_schema_regression",
-                        level="error",
-                        message=(
-                            "Dynasty Nerds fetch exit=2 (DR_DATA shape changed or rows below floor)"
-                        ),
-                        exit_code=rc,
-                    )
-                elif rc != 0:
-                    _record_scrape_event(
-                        "dynasty_nerds_fetch_failed",
-                        level="warning",
-                        message=f"Dynasty Nerds fetch returned exit={rc}",
-                        exit_code=rc,
-                    )
-            except Exception as _dn_err:
-                _record_scrape_event(
-                    "dynasty_nerds_fetch_exception",
-                    level="warning",
-                    message=f"Dynasty Nerds fetch raised: {_dn_err}",
+            if result.outcome == "success":
+                _mark_scrape_success(
+                    result.duration, result.player_count, result.site_count, result.total_sites
                 )
-
-            # Refresh FantasyPros Dynasty Superflex (offense) rankings.
-            # The dynasty-superflex page inlines an ``ecrData = {...}``
-            # JS constant, so a plain ``requests.get`` with a browser
-            # UA returns the full payload.  The fetch script extracts
-            # QB/RB/WR/TE consensus ECR ranks and writes a rank-signal CSV.
-            try:
-                from scripts import fetch_fantasypros_offense as _fpoff_fetch
-
-                rc = _fpoff_fetch.main(["--mirror-data-dir"])
-                if rc == 2:
-                    _record_scrape_event(
-                        "fantasypros_offense_schema_regression",
-                        level="error",
-                        message=(
-                            "FantasyPros Offense fetch exit=2 "
-                            "(ecrData shape changed or rows below floor)"
-                        ),
-                        exit_code=rc,
-                    )
-                elif rc != 0:
-                    _record_scrape_event(
-                        "fantasypros_offense_fetch_failed",
-                        level="warning",
-                        message=f"FantasyPros Offense fetch returned exit={rc}",
-                        exit_code=rc,
-                    )
-            except Exception as _fpoff_err:
-                _record_scrape_event(
-                    "fantasypros_offense_fetch_exception",
-                    level="warning",
-                    message=f"FantasyPros Offense fetch raised: {_fpoff_err}",
-                )
-
-            # Refresh FantasyPros Dynasty IDP rankings.  The combined
-            # + DL/LB/DB pages inline their rankings in a JS
-            # ``ecrData = {...}`` constant, so a plain ``requests.get``
-            # with a browser UA returns the full payload.  The fetch
-            # script derives per-player effective overall ranks via
-            # anchor curves fit on the combined/individual overlap
-            # and writes a rank-signal CSV.
-            try:
-                from scripts import fetch_fantasypros_idp as _fp_fetch
-
-                rc = _fp_fetch.main(["--mirror-data-dir"])
-                if rc == 2:
-                    _record_scrape_event(
-                        "fantasypros_idp_schema_regression",
-                        level="error",
-                        message=(
-                            "FantasyPros IDP fetch exit=2 "
-                            "(ecrData shape changed or rows below floor)"
-                        ),
-                        exit_code=rc,
-                    )
-                elif rc != 0:
-                    _record_scrape_event(
-                        "fantasypros_idp_fetch_failed",
-                        level="warning",
-                        message=f"FantasyPros IDP fetch returned exit={rc}",
-                        exit_code=rc,
-                    )
-            except Exception as _fp_err:
-                _record_scrape_event(
-                    "fantasypros_idp_fetch_exception",
-                    level="warning",
-                    message=f"FantasyPros IDP fetch raised: {_fp_err}",
-                )
-
-            # Refresh The IDP Show (Adamidp) rankings.  The fetcher
-            # reads cookies from ``idpshow_session.json`` at the repo
-            # root — if the file is missing (e.g. fresh deploy before
-            # the operator has pasted cookies) we skip silently.
-            # When cookies have expired the fetcher returns non-zero
-            # and we surface it as a warning so the stale-data banner
-            # knows to prompt a cookie refresh.
-            _idpshow_session = BASE_DIR / "idpshow_session.json"
-            if _idpshow_session.exists():
-                try:
-                    from scripts import fetch_idpshow as _idpshow_fetch
-
-                    rc = _idpshow_fetch.main([])
-                    if rc != 0:
-                        _record_scrape_event(
-                            "idpshow_fetch_failed",
-                            level="warning",
-                            message=(
-                                f"IDP Show fetch returned exit={rc}.  "
-                                f"Session cookies may have expired — "
-                                f"refresh idpshow_session.json."
-                            ),
-                            exit_code=rc,
-                        )
-                except Exception as _idpshow_err:
-                    _record_scrape_event(
-                        "idpshow_fetch_exception",
-                        level="warning",
-                        message=f"IDP Show fetch raised: {_idpshow_err}",
-                    )
-            else:
-                log.info(
-                    "IDP Show skipped — idpshow_session.json missing; "
-                    "operator must paste cookies into that file to enable."
-                )
-
-            _update_scrape_progress(
-                step="publish",
-                source="api_cache",
-                step_index=4,
-                step_total=4,
-                event="phase_start",
-                message="Publishing data to in-memory cache",
-            )
-
-            elapsed = time.time() - start
-            player_count = len(result.get("players", {}))
-            site_count = len([s for s in result.get("sites", []) if s.get("playerCount", 0) > 0])
-            total_sites = len(result.get("sites", []))
-
-            # R-3 / audit O-3: Block partial scrape promotion.
-            #
-            # The ratio test below is NOT sufficient on its own and for a
-            # long time was the whole guard.  ``result["sites"]`` is
-            # populated from the legacy in-scraper SITES dict, which has
-            # exactly TWO entries on live data (ktc, idpTradeCalc) against
-            # a 21-source registry — measured on the pinned export
-            # fixture.  So "fewer than half the sites" degenerates to
-            # "fewer than one of two", i.e. it blocks only on TOTAL loss:
-            # if KTC dies and IDPTradeCalc survives, 1 < 1 is false and
-            # the board publishes without its own cross-market anchor.
-            #
-            # The payload already declares what it cannot do without.
-            # ``coverageAudit.expectedSites`` names the anchor per asset
-            # class ({"offense": ["ktc"], "idp": ["idpTradeCalc"]}), so a
-            # missing anchor is detectable without inventing a threshold.
-            # Losing one is not a "half the sites" condition — it is the
-            # loss of a load-bearing input, and IDPTradeCalc in
-            # particular is the IDP backbone and 90% of every IDP value
-            # under alpha-shrinkage.
-            missing_anchors = _missing_expected_sites(result)
-            previous_player_count = len((latest_data or {}).get("players") or {})
-            player_retention = (
-                player_count / previous_player_count if previous_player_count > 0 else 1.0
-            )
-            population_collapsed = (
-                previous_player_count > 0 and player_retention < SCRAPE_PLAYER_RETENTION_FLOOR
-            )
-            if (
-                missing_anchors
-                or (total_sites > 0 and site_count < total_sites / 2)
-                or population_collapsed
-            ):
-                anchor_note = (
-                    f"MISSING ANCHOR SOURCE(S): {', '.join(missing_anchors)}"
-                    if missing_anchors
-                    else (
-                        f"PLAYER POPULATION COLLAPSE: {player_count}/{previous_player_count} "
-                        f"({player_retention:.1%} retained; "
-                        f"floor={SCRAPE_PLAYER_RETENTION_FLOOR:.0%})"
-                        if population_collapsed
-                        else f"only {site_count}/{total_sites} sites"
-                    )
-                )
-                log.warning(
-                    f"PARTIAL SCRAPE NOT PROMOTED — {anchor_note}; "
-                    f"{player_count} players, {elapsed:.1f}s. Keeping last-known-good data."
-                )
-                send_alert(
-                    f"PARTIAL SCRAPE NOT PROMOTED: {anchor_note}",
-                    (
-                        f"Players: {player_count}\n"
-                        f"Sites with data: {site_count}/{total_sites}\n"
-                        + (
-                            f"Missing anchor sources: {', '.join(missing_anchors)}\n"
-                            if missing_anchors
-                            else ""
-                        )
-                        + f"Duration: {elapsed:.1f}s\n\n"
-                        "Partial scrape data was NOT promoted to production.\n"
-                        "The server continues serving last-known-good data.\n"
-                        "Some sites may be down or blocking the scraper."
-                    ),
-                )
-                # Audit O-2: this used to call _mark_scrape_success, filing a
-                # REFUSED scrape as a successful one — so the 24h success
-                # rate read 100% while every run was being thrown away.
+                return result.raw
+            if result.outcome in {"blocked", "busy"}:
                 _mark_scrape_blocked(
-                    f"Not promoted — {anchor_note}",
-                    elapsed,
-                    player_count,
-                    site_count,
-                    total_sites,
+                    result.reason,
+                    result.duration,
+                    result.player_count,
+                    result.site_count,
+                    result.total_sites,
                 )
-                return latest_data  # Return existing data, not the partial result
-
-            # R-10: Disk space guard — skip disk write if space is critically low.
-            disk_ok, free_mb = _check_disk_space()
-            if not disk_ok:
-                log.error(
-                    f"DISK SPACE LOW — only {free_mb}MB free (minimum {DISK_SPACE_MIN_MB}MB). "
-                    "Scrape data will be served from memory but NOT written to disk."
-                )
-                send_alert(
-                    f"DISK SPACE CRITICALLY LOW: {free_mb}MB free",
-                    (
-                        f"Available disk space: {free_mb}MB\n"
-                        f"Minimum required: {DISK_SPACE_MIN_MB}MB\n\n"
-                        "Scrape data was loaded into memory but NOT written to disk.\n"
-                        "Please free disk space on the server."
-                    ),
-                )
-
-            # The full raw export becomes checkout-visible only AFTER all
-            # promotion guards pass. Before 2026-09-09 this copy happened
-            # above the guard, so a refused partial scrape could overwrite the
-            # working-tree recovery artifact even while memory kept the LKG.
-            result_date = str(result.get("date") or "").strip()
-            if result_date:
-                try:
-                    import shutil as _sh
-
-                    src_json = DATA_DIR / "exports" / "latest" / f"dynasty_data_{result_date}.json"
-                    dst_json = BASE_DIR / "exports" / "latest" / f"dynasty_data_{result_date}.json"
-                    if src_json.exists():
-                        _sh.copy2(src_json, dst_json)
-                except Exception as _export_mirror_err:  # noqa: BLE001
-                    log.warning(f"Post-promotion dynasty_data mirror failed: {_export_mirror_err}")
-
-            latest_data = result
-            source_path = ""
-            if result_date:
-                candidate = DATA_DIR / f"dynasty_data_{result_date}.json"
-                if candidate.exists():
-                    source_path = str(candidate)
-            _set_latest_data_source(
-                "scrape_run", source_path, produced_at=result.get("scrapeTimestamp")
-            )
-            # Fresh scrape promotion — rank-history log gets a new
-            # "today" entry.  Startup priming from cached disk data
-            # (``_prime_latest_payload`` called in the lifespan hook)
-            # leaves is_fresh_scrape=False so the history log stays
-            # read-only until a real scrape lands.
-            #
-            # Offloaded to the threadpool: the contract build + 5×
-            # multi-MB json/gzip encodes are seconds of CPU that used
-            # to freeze the event loop at every scrape end.  The
-            # function computes into locals and publishes via a tight
-            # reference-assignment swap, so interleaved requests keep
-            # serving the OLD generation until the new one is fully
-            # encoded.  (The lifespan call site stays inline — it runs
-            # before the port binds, so there is nothing to block.)
-            await run_in_threadpool(_prime_latest_payload, result, is_fresh_scrape=True)
-
-            _mark_scrape_success(elapsed, player_count, site_count, total_sites)
-
-            log.info(
-                f"SCRAPE COMPLETE — {player_count} players, "
-                f"{site_count}/{total_sites} sites, {elapsed:.1f}s"
-            )
-
-            # Best-effort disk retention.  Regenerable raw/export
-            # archives accumulate every scrape and would otherwise fill
-            # the disk.  A prune failure must never fail the scrape.
-            try:
-                from src.maintenance.retention import prune_data_dir
-
-                _ret = prune_data_dir(BASE_DIR)
-                if _ret.total_deleted or _ret.total_errors:
-                    log.info("retention: %s", _ret.summary())
-            except Exception as _ret_exc:  # noqa: BLE001
-                log.warning("retention prune skipped: %s", _ret_exc)
-
-            return result
-        except Exception as e:
-            elapsed = time.time() - start
-            _mark_scrape_failure(e, elapsed)
-            error_trace = traceback.format_exc()
-            log.error(f"SCRAPE FAILED after {elapsed:.1f}s: {e}")
-            log.error(error_trace)
-            send_alert(
-                f"Scrape failed: {type(e).__name__}",
-                f"Error: {e}\n\nDuration: {elapsed:.1f}s\n\n{error_trace[-1500:]}",
-            )
+                return latest_data
+            _mark_scrape_failure(RuntimeError(result.reason), result.duration)
             return None
         finally:
             _finalize_scrape_run(worker_id)
@@ -3404,7 +2690,8 @@ async def schedule_loop():
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Startup: load cached data + kick off first scrape + start scheduler."""
-    global latest_data, _startup_checks_summary
+    global latest_data, _startup_checks_summary, _serving_runtime, _league_serving_reader
+    global _prepared_news_reader, _producer_status_reader
 
     _metrics["server_start_time"] = _utc_now_iso()
 
@@ -3426,14 +2713,46 @@ async def lifespan(app: FastAPI):
             "fatal": 0,
         }
 
-    # 1. Load cached data immediately so the dashboard is usable right away
-    latest_data = load_from_disk()
-    _prime_latest_payload(latest_data)
-    latest_data = _recover_startup_contract_from_checkout(latest_data)
-    if latest_data:
-        log.info("Dashboard ready with cached data")
+    from src.serving.artifacts import ArtifactStore
+    from src.serving.league_views import LeagueServingReader
+
+    mode = os.environ.get("RISKIT_SERVING_MODE", "legacy").strip().lower()
+    if mode not in {"legacy", "shadow", "prepared"}:
+        raise RuntimeError("RISKIT_SERVING_MODE must be legacy, shadow or prepared")
+    store = ArtifactStore()
+    if mode == "prepared":
+        from src.serving.producer_status import enforce_source_ownership
+        from src.serving.runtime import AtomicRuntime
+        from src.serving.serialization import ASSET, KEY, load_generation
+
+        # Refuse unsafe cutover rather than silently starting another full
+        # publisher. The first healthy standalone cycle proves source parity.
+        await run_in_threadpool(enforce_source_ownership, store)
+        _serving_runtime = AtomicRuntime(
+            store, ASSET, KEY, load_generation, on_publish=_publish_serving_generation
+        )
+        await run_in_threadpool(_serving_runtime.reload_if_changed)
+        if _serving_runtime.current is None:
+            raise RuntimeError(
+                "no accepted prepared generation: " + str(_serving_runtime.last_error)
+            )
+        _serving_runtime.start()
     else:
-        log.info("No cached data found — dashboard will show empty until first scrape completes")
+        latest_data = load_from_disk()
+        _prime_latest_payload(latest_data)
+        latest_data = _recover_startup_contract_from_checkout(latest_data)
+    if mode != "legacy":
+        _league_serving_reader = LeagueServingReader(store, lambda: latest_serving_generation)
+        _league_serving_reader.start()
+    if mode == "prepared":
+        from src.serving.status import ProducerStatusReader
+
+        _producer_status_reader = ProducerStatusReader(store, alert=send_alert)
+        await run_in_threadpool(_producer_status_reader.refresh)
+        _producer_status_reader.start()
+        _prepared_news_reader = PreparedNewsReader(store)
+        await run_in_threadpool(_prepared_news_reader.reload_if_changed)
+        _prepared_news_reader.start()
 
     # 1b. Hydrate persisted auth sessions so users don't have to re-login
     # on every deploy.  Any failure here falls through to empty in-memory
@@ -3453,10 +2772,10 @@ async def lifespan(app: FastAPI):
         await asyncio.sleep(3)  # small delay to let server finish booting
         await run_scraper(trigger="startup")
 
-    scrape_task = asyncio.create_task(initial_scrape())
+    scrape_task = asyncio.create_task(initial_scrape()) if mode != "prepared" else None
 
     # 3. Start the recurring schedule
-    scheduler_task = asyncio.create_task(schedule_loop())
+    scheduler_task = asyncio.create_task(schedule_loop()) if mode != "prepared" else None
     uptime_task = asyncio.create_task(uptime_watchdog_loop())
     # Public league snapshot warmup — kicks a background rebuild if
     # no persisted snapshot was loaded at boot.  Name is resolved at
@@ -3477,7 +2796,7 @@ async def lifespan(app: FastAPI):
     try:
         history_path = _source_history.HISTORY_PATH
         needs_backfill = not history_path.exists() or history_path.stat().st_size == 0
-        if needs_backfill:
+        if needs_backfill and mode != "prepared":
             exports = sorted((DATA_DIR).glob("dynasty_data_*.json"))
             if exports:
                 written = _source_history.backfill_from_exports(exports)
@@ -3493,9 +2812,23 @@ async def lifespan(app: FastAPI):
     yield  # app is running
 
     # Cleanup
-    scrape_task.cancel()
-    scheduler_task.cancel()
+    if scrape_task:
+        scrape_task.cancel()
+    if scheduler_task:
+        scheduler_task.cancel()
     uptime_task.cancel()
+    if _serving_runtime is not None:
+        _serving_runtime.stop()
+        _serving_runtime = None
+    if _league_serving_reader is not None:
+        _league_serving_reader.stop()
+        _league_serving_reader = None
+    if _prepared_news_reader is not None:
+        _prepared_news_reader.stop()
+        _prepared_news_reader = None
+    if _producer_status_reader is not None:
+        _producer_status_reader.stop()
+        _producer_status_reader = None
     log.info("Server shutting down")
 
 
@@ -3583,6 +2916,7 @@ _PUBLIC_API_EXACT = frozenset(
         "/api/status",
         "/api/uptime",
         "/api/metrics",
+        "/api/telemetry/web-vitals",
         "/api/leagues",
         "/api/rankings/sources",
         "/api/auth/status",
@@ -3743,6 +3077,9 @@ async def _request_context_middleware(request: Request, call_next):
     incoming = str(request.headers.get("x-request-id") or "").strip()
     rid = incoming if (1 <= len(incoming) <= 64) else _rc.new_request_id()
     token = _rc.set_request_id(rid)
+    request.state.performance_request_id = (
+        rid if re.fullmatch(r"[A-Za-z0-9_-]{1,64}", rid) else _rc.new_request_id()
+    )
     try:
         response = await call_next(request)
     finally:
@@ -3815,7 +3152,9 @@ def _evict_overlay_cache_if_oversized(keep_key) -> None:
         del _OVERLAY_ENCODE_LOCKS[k]
 
 
-async def _serialize_overlaid_response(request, scrubbed, headers, cache_key, overlay_version=None):
+async def _serialize_overlaid_response(
+    request, scrubbed, headers, cache_key, overlay_version=None, prepare=None
+):
     """Serialize a live-overlay / cross-league ``/api/data`` response
     without blocking the event loop.
 
@@ -3839,9 +3178,13 @@ async def _serialize_overlaid_response(request, scrubbed, headers, cache_key, ov
     """
 
     def _encode():
-        raw = json.dumps(scrubbed, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
-        etag = hashlib.sha1(raw).hexdigest()
-        gz = gzip.compress(raw, compresslevel=5)
+        # Expensive derived stamps share the same generation and single-flight
+        # as serialization. A conditional GET must not solve lineups again.
+        with _telemetry.work_span("overlay.prepare_encode"):
+            payload = prepare() if prepare is not None else scrubbed
+            raw = json.dumps(payload, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
+            etag = hashlib.sha1(raw).hexdigest()
+            gz = gzip.compress(raw, compresslevel=5)
         return etag, raw, gz, overlay_version
 
     if cache_key is None:
@@ -3852,6 +3195,7 @@ async def _serialize_overlaid_response(request, scrubbed, headers, cache_key, ov
         # Check freshness: if cached version doesn't match current, treat as miss
         if entry is not None and entry[3] != overlay_version:
             entry = None
+        _telemetry.cache_event("overlay.response", entry is not None)
         if entry is None:
             async with _overlay_encode_lock(cache_key):
                 # Re-check: another coroutine may have encoded this key
@@ -3921,6 +3265,51 @@ async def get_data(request: Request):
     503 ``data_not_ready`` only fires when the scoring profiles
     genuinely differ — i.e. the rankings themselves can't be reused.
     """
+    generation = latest_serving_generation
+    if generation is not None:
+        request.state.data_generation = generation.generation_id
+        captured_latest_contract_data = generation.contract
+        captured_latest_data_bytes = generation.views["full"].raw
+        captured_latest_data_gzip_bytes = generation.views["full"].gzip
+        captured_latest_data_etag = generation.views["full"].etag
+        captured_latest_runtime_data = generation.views["runtime"].payload
+        captured_latest_runtime_data_bytes = generation.views["runtime"].raw
+        captured_latest_runtime_data_gzip_bytes = generation.views["runtime"].gzip
+        captured_latest_runtime_data_etag = generation.views["runtime"].etag
+        captured_latest_startup_data = generation.views["startup"].payload
+        captured_latest_startup_data_bytes = generation.views["startup"].raw
+        captured_latest_startup_data_gzip_bytes = generation.views["startup"].gzip
+        captured_latest_startup_data_etag = generation.views["startup"].etag
+        captured_latest_array_data = generation.views["array"].payload
+        captured_latest_array_data_bytes = generation.views["array"].raw
+        captured_latest_array_data_gzip_bytes = generation.views["array"].gzip
+        captured_latest_array_data_etag = generation.views["array"].etag
+        captured_latest_compact_data = generation.views["compact"].payload
+        captured_latest_compact_data_bytes = generation.views["compact"].raw
+        captured_latest_compact_data_gzip_bytes = generation.views["compact"].gzip
+        captured_latest_compact_data_etag = generation.views["compact"].etag
+    else:
+        captured_latest_contract_data = latest_contract_data
+        captured_latest_data_bytes = latest_data_bytes
+        captured_latest_data_gzip_bytes = latest_data_gzip_bytes
+        captured_latest_data_etag = latest_data_etag
+        captured_latest_runtime_data = latest_runtime_data
+        captured_latest_runtime_data_bytes = latest_runtime_data_bytes
+        captured_latest_runtime_data_gzip_bytes = latest_runtime_data_gzip_bytes
+        captured_latest_runtime_data_etag = latest_runtime_data_etag
+        captured_latest_startup_data = latest_startup_data
+        captured_latest_startup_data_bytes = latest_startup_data_bytes
+        captured_latest_startup_data_gzip_bytes = latest_startup_data_gzip_bytes
+        captured_latest_startup_data_etag = latest_startup_data_etag
+        captured_latest_array_data = latest_array_data
+        captured_latest_array_data_bytes = latest_array_data_bytes
+        captured_latest_array_data_gzip_bytes = latest_array_data_gzip_bytes
+        captured_latest_array_data_etag = latest_array_data_etag
+        captured_latest_compact_data = latest_compact_data
+        captured_latest_compact_data_bytes = latest_compact_data_bytes
+        captured_latest_compact_data_gzip_bytes = latest_compact_data_gzip_bytes
+        captured_latest_compact_data_etag = latest_compact_data_etag
+
     # League validation comes first so a stale leagueKey returns 400
     # before we bother assembling the payload.  Skip the loaded-
     # contract check here and enforce below so the 503 path can
@@ -3930,9 +3319,11 @@ async def get_data(request: Request):
     except LeagueResolutionError as err:
         return err.json_response()
 
-    if latest_contract_data:
+    if captured_latest_contract_data:
         loaded_meta = (
-            latest_contract_data.get("meta") or {} if isinstance(latest_contract_data, dict) else {}
+            captured_latest_contract_data.get("meta") or {}
+            if isinstance(captured_latest_contract_data, dict)
+            else {}
         )
         loaded_league = str(loaded_meta.get("leagueKey") or "")
         sleeper_matches = bool(loaded_league) and loaded_league == league_cfg.key
@@ -3940,7 +3331,7 @@ async def get_data(request: Request):
         # Scoring mismatch → genuinely different data; 503.  Decided by
         # the factual fingerprint, not the registry label, and unproven
         # fails closed (W18-F001).
-        _scoring_err = _scoring_identity_error(latest_contract_data, league_cfg)
+        _scoring_err = _scoring_identity_error(captured_latest_contract_data, league_cfg)
         if _scoring_err is not None:
             return _scoring_err
 
@@ -3950,34 +3341,55 @@ async def get_data(request: Request):
         array_view = view in {"array", "desktop"}
         compact_view = view in {"compact", "slim"}
 
-        payload_bytes = latest_data_bytes
-        payload_gzip_bytes = latest_data_gzip_bytes
-        payload_etag = latest_data_etag
-        payload_obj = latest_contract_data
+        if os.environ.get("RISKIT_SERVING_MODE", "legacy").strip().lower() == "prepared":
+            prepared_view = (
+                "startup"
+                if startup_view
+                else "runtime"
+                if runtime_view
+                else "array"
+                if array_view
+                else "compact"
+                if compact_view
+                else "full"
+            )
+            prepared = (
+                _league_serving_reader.get(generation.generation_id, league_cfg.key, prepared_view)
+                if _league_serving_reader and generation
+                else None
+            )
+            if prepared is None:
+                return _prepared_read_error()
+            return _serve_prepared_bytes(request, prepared, generation.generation_id)
+
+        payload_bytes = captured_latest_data_bytes
+        payload_gzip_bytes = captured_latest_data_gzip_bytes
+        payload_etag = captured_latest_data_etag
+        payload_obj = captured_latest_contract_data
         payload_view_name = "full"
 
-        if startup_view and latest_startup_data is not None:
-            payload_bytes = latest_startup_data_bytes
-            payload_gzip_bytes = latest_startup_data_gzip_bytes
-            payload_etag = latest_startup_data_etag
-            payload_obj = latest_startup_data
+        if startup_view and captured_latest_startup_data is not None:
+            payload_bytes = captured_latest_startup_data_bytes
+            payload_gzip_bytes = captured_latest_startup_data_gzip_bytes
+            payload_etag = captured_latest_startup_data_etag
+            payload_obj = captured_latest_startup_data
             payload_view_name = "startup"
-        elif runtime_view and latest_runtime_data is not None:
-            payload_bytes = latest_runtime_data_bytes
-            payload_gzip_bytes = latest_runtime_data_gzip_bytes
-            payload_etag = latest_runtime_data_etag
-            payload_obj = latest_runtime_data
+        elif runtime_view and captured_latest_runtime_data is not None:
+            payload_bytes = captured_latest_runtime_data_bytes
+            payload_gzip_bytes = captured_latest_runtime_data_gzip_bytes
+            payload_etag = captured_latest_runtime_data_etag
+            payload_obj = captured_latest_runtime_data
             payload_view_name = "runtime"
-        elif array_view and latest_array_data is not None:
+        elif array_view and captured_latest_array_data is not None:
             # Desktop view: full contract minus the legacy ``players``
             # dict (a parallel encoding of ``playersArray``).  Identical
             # board, identical audit fields, ~half the bytes.
-            payload_bytes = latest_array_data_bytes
-            payload_gzip_bytes = latest_array_data_gzip_bytes
-            payload_etag = latest_array_data_etag
-            payload_obj = latest_array_data
+            payload_bytes = captured_latest_array_data_bytes
+            payload_gzip_bytes = captured_latest_array_data_gzip_bytes
+            payload_etag = captured_latest_array_data_etag
+            payload_obj = captured_latest_array_data
             payload_view_name = "array"
-        elif compact_view and latest_contract_data is not None:
+        elif compact_view and captured_latest_contract_data is not None:
             # Mobile / slow-network view.  Drops the legacy ``players``
             # dict (as ``array`` does) and prunes the three per-player
             # fields no frontend consumer reads.
@@ -3996,21 +3408,21 @@ async def get_data(request: Request):
             # the frontend's reads.  That gap is now
             # ``tests/api/test_compact_view_consumer_parity.py``.
             payload_view_name = "compact"
-            if latest_compact_data_bytes is not None:
+            if captured_latest_compact_data_bytes is not None:
                 # Fast path: precomputed at refresh time (bytes + gzip +
                 # etag), so mobile requests skip the compaction + JSON
                 # serialization + gzip that used to run on the event loop
                 # for every request.
-                payload_bytes = latest_compact_data_bytes
-                payload_gzip_bytes = latest_compact_data_gzip_bytes
-                payload_etag = latest_compact_data_etag
-                payload_obj = latest_compact_data
+                payload_bytes = captured_latest_compact_data_bytes
+                payload_gzip_bytes = captured_latest_compact_data_gzip_bytes
+                payload_etag = captured_latest_compact_data_etag
+                payload_obj = captured_latest_compact_data
             else:
                 # Fallback: precompute unavailable (e.g. compaction raised
                 # during refresh) — build on demand.
                 from src.api.compact_view import compact_contract
 
-                compact_obj = compact_contract(latest_contract_data)
+                compact_obj = compact_contract(captured_latest_contract_data)
                 import json as _json
 
                 payload_bytes = _json.dumps(compact_obj).encode("utf-8")
@@ -4040,8 +3452,8 @@ async def get_data(request: Request):
         # /draft etc. converge on the same 15-min ceiling regardless
         # of which league is "loaded."
         loaded_sleeper = (
-            (latest_contract_data or {}).get("sleeper") or {}
-            if isinstance(latest_contract_data, dict)
+            (captured_latest_contract_data or {}).get("sleeper") or {}
+            if isinstance(captured_latest_contract_data, dict)
             else {}
         )
         id_to_player = loaded_sleeper.get("idToPlayer") or {}
@@ -4116,31 +3528,21 @@ async def get_data(request: Request):
                     )
                 )
             scrubbed["sleeper"] = overlay_full
-            # RE-STAMP THE LINEUP (C2-U1).  The overlay rebuilds
-            # ``teams`` from scratch (``sleeper_overlay._build_teams_block``
-            # emits no ``optimalLineup``), so the stamp taken at contract
-            # build time is discarded here — on the NORMAL path, because
-            # the overlay is warmed after every scrape and cached for
-            # 15 minutes.  Without this the frontend fails closed and
-            # /terminal, /rosters and the team-tier leaderboard all lose
-            # their starter/bench split whenever Sleeper is REACHABLE,
-            # which is the opposite of a degradation.
-            #
-            # Re-SOLVED, never copied: the overlay's rosters are fresher
-            # than the baked ones, so a copied lineup could start a
-            # player dropped ten minutes ago.  Values come from the baked
-            # contract because some payload views strip ``playersArray``,
-            # and they are scoring-profile scoped so they are identical
-            # either way.  Degrades, never raises.
-            try:
-                _stamp_optimal_lineups_owner(
-                    scrubbed,
-                    rows=(latest_contract_data or {}).get("playersArray")
-                    if isinstance(latest_contract_data, dict)
-                    else None,
-                )
-            except Exception as exc:  # noqa: BLE001
-                log.warning("optimalLineup re-stamp failed for %s: %s", league_cfg.key, exc)
+            # Capture the board before an await or a generation replacement.
+            lineup_rows = (captured_latest_contract_data or {}).get("playersArray")
+
+            def prepare_overlay():
+                # stamp mutates team dictionaries: own them instead of mutating
+                # the provider cache shared with other response views.
+                import copy
+
+                prepared = {**scrubbed, "sleeper": copy.deepcopy(overlay_full)}
+                try:
+                    _stamp_optimal_lineups_owner(prepared, rows=lineup_rows)
+                except Exception as exc:  # noqa: BLE001
+                    log.warning("optimalLineup re-stamp failed for %s: %s", league_cfg.key, exc)
+                return prepared
+
             meta = dict(scrubbed.get("meta") or {})
             meta["leagueKey"] = league_cfg.key
             meta["scoringProfile"] = league_cfg.scoring_profile
@@ -4168,9 +3570,30 @@ async def get_data(request: Request):
                 if (overlay_fetched_at and payload_etag)
                 else None
             )
-            overlay_version = (overlay_fetched_at, payload_etag) if overlay_cache_key else None
+            # Roster/scoring changes are semantic inputs even when a producer
+            # reuses its timestamp. Hash only the bounded league context.
+            context_generation = hashlib.sha256(
+                json.dumps(
+                    {
+                        k: overlay_full.get(k)
+                        for k in ("teams", "rosterPositions", "scoringSettings")
+                    },
+                    sort_keys=True,
+                    separators=(",", ":"),
+                ).encode()
+            ).hexdigest()
+            overlay_version = (
+                (overlay_fetched_at, payload_etag, context_generation)
+                if overlay_cache_key
+                else None
+            )
             return await _serialize_overlaid_response(
-                request, scrubbed, headers, overlay_cache_key, overlay_version
+                request,
+                scrubbed,
+                headers,
+                overlay_cache_key,
+                overlay_version,
+                prepare=prepare_overlay,
             )
 
         if not sleeper_matches:
@@ -4670,7 +4093,21 @@ async def post_rankings_overrides(request: Request):
         override-sensitive fields per player.  The frontend merges
         the delta onto its cached base contract.
     """
-    if not latest_data or not isinstance(latest_data, dict):
+    generation = latest_serving_generation
+    contract_snapshot = generation.contract if generation else latest_contract_data
+    data_snapshot = generation.raw if generation else latest_data
+    source_snapshot = generation.source if generation else dict(latest_data_source)
+    contract_version = generation.views["full"].etag if generation else latest_data_etag
+    if generation is not None:
+        request.state.data_generation = generation.generation_id
+    requested_generation = request.query_params.get("generation")
+    if requested_generation and (
+        generation is None or requested_generation != generation.generation_id
+    ):
+        return JSONResponse(
+            {"error": "generation_changed"}, status_code=409, headers={"Cache-Control": "no-store"}
+        )
+    if not data_snapshot or not isinstance(data_snapshot, dict):
         return JSONResponse(
             status_code=503,
             content={
@@ -4696,12 +4133,10 @@ async def post_rankings_overrides(request: Request):
         )
     except LeagueResolutionError as err:
         return err.json_response()
-    loaded_meta = (
-        latest_contract_data.get("meta") or {} if isinstance(latest_contract_data, dict) else {}
-    )
+    loaded_meta = contract_snapshot.get("meta") or {} if isinstance(contract_snapshot, dict) else {}
     loaded_league = str(loaded_meta.get("leagueKey") or "")
     sleeper_matches = bool(loaded_league) and loaded_league == league_cfg.key
-    _scoring_err = _scoring_identity_error(latest_contract_data, league_cfg)
+    _scoring_err = _scoring_identity_error(contract_snapshot, league_cfg)
     if _scoring_err is not None:
         return _scoring_err
 
@@ -4710,7 +4145,12 @@ async def post_rankings_overrides(request: Request):
     tep_native_multiplier = normalize_tep_native_multiplier(body)
 
     view = (request.query_params.get("view") or "").strip().lower()
-    delta_view = view in {"delta", "compact", "slim"}
+    delta_view = view in {"delta", "compact", "slim", "board"}
+    prepared_view = view == "board"
+    if prepared_view and generation is None:
+        return JSONResponse(
+            {"error": "data_not_ready"}, status_code=503, headers={"Cache-Control": "no-store"}
+        )
 
     # ── Server-side valuation-mode composition ───────────────────────
     #
@@ -4765,9 +4205,6 @@ async def post_rankings_overrides(request: Request):
     # thread below must not re-read them mid-build: a concurrent scrape
     # promotion swaps them, and a build that saw two generations would
     # emit a chimera payload.
-    data_snapshot = latest_data
-    source_snapshot = latest_data_source
-    contract_version = latest_data_etag
 
     def _build_response_bytes() -> tuple[bytes, bytes]:
         """Full pipeline rebuild + meta stamping + JSON/gzip encode.
@@ -4779,7 +4216,16 @@ async def post_rankings_overrides(request: Request):
         so memoizing bytes instead of returning JSONResponse is
         wire-invisible.
         """
-        if delta_view:
+        if (
+            prepared_view
+            and not overrides
+            and tep_multiplier is None
+            and tep_native_multiplier is None
+        ):
+            from src.api.data_contract import project_rankings_delta
+
+            contract_payload = project_rankings_delta(contract_snapshot)
+        elif delta_view:
             contract_payload = build_rankings_delta_payload(
                 data_snapshot,
                 data_source=source_snapshot,
@@ -4809,6 +4255,8 @@ async def post_rankings_overrides(request: Request):
         # league's teams.
         if isinstance(contract_payload, dict):
             meta = contract_payload.setdefault("meta", {})
+            if prepared_view:
+                meta["readModelGeneration"] = generation.generation_id
             meta["leagueKey"] = league_cfg.key
             meta["scoringProfile"] = league_cfg.scoring_profile
             meta["sleeperDataReady"] = sleeper_matches
@@ -4876,6 +4324,7 @@ async def post_rankings_overrides(request: Request):
             "overrides",
             hashlib.sha1(normalized_inputs.encode("utf-8")).hexdigest(),
             delta_view,
+            prepared_view,
             league_cfg.key,
             sleeper_matches,
         )
@@ -5249,8 +4698,8 @@ async def get_status():
             # claimed) and so could not detect a degraded board; F-7.
             "served_source_coverage": served_source_coverage,
             # R-4: Scrape success rate tracking
-            "scrape_success_rate_24h": _scrape_success_rate_24h(),
-            "last_n_scrapes": scrape_history[-20:],
+            "scrape_success_rate_24h": status_payload.get("scrape_success_rate_24h"),
+            "last_n_scrapes": status_payload.get("last_n_scrapes", scrape_history[-20:]),
             "leagues": _league_status_snapshot(),
             # 2026-04 upgrade observability — feature-flag state +
             # unified-mapper coverage.  All flags default off so this
@@ -5706,12 +5155,15 @@ async def get_news(request: Request):
             if part.strip():
                 team_names.append(part.strip())
 
-    svc = _get_news_service()
     try:
+        svc = _get_news_service()
+
         # One callable so the two full-contract scans run on the worker
         # thread too — as call arguments they'd execute on the event
         # loop before the threadpool hop.
         def _aggregate():
+            if isinstance(svc, PreparedNewsReader):
+                return svc.aggregate(team_names=team_names or None)
             return svc.aggregate(
                 player_names=_live_player_names(),
                 team_names=team_names or None,
@@ -12086,6 +11538,22 @@ async def trigger_scrape(request: Request, background_tasks: BackgroundTasks):
     except LeagueResolutionError as err:
         return err.json_response()
     default_cfg = _league_registry.get_default_league()
+    if os.environ.get("RISKIT_SERVING_MODE", "legacy").strip().lower() == "prepared":
+        from src.serving.artifacts import ArtifactStore
+        from src.serving.producer_status import request_league_refresh, request_source_refresh
+
+        context_only = bool(default_cfg and league_cfg.key != default_cfg.key)
+        enqueue = request_league_refresh if context_only else request_source_refresh
+        queued = await run_in_threadpool(enqueue, ArtifactStore(), "manual_api")
+        return JSONResponse(
+            status_code=202,
+            content={
+                "message": "League refresh queued" if context_only else "Source refresh queued",
+                "leagueKey": league_cfg.key,
+                "request": queued,
+            },
+            headers={"Cache-Control": "no-store"},
+        )
     if default_cfg and league_cfg.key != default_cfg.key:
         # Invalidate + rewarm the overlay for this league.  Returns
         # immediately with the refreshed team/trade counts so the
@@ -15509,6 +14977,159 @@ async def get_playerctx_player(request: Request):
         content=payload,
         headers={"Cache-Control": "private, max-age=3600"},
     )
+
+
+def _prepared_read_error(error="data_not_ready", status=503):
+    return JSONResponse(
+        {"error": error, "message": "Prepared data is refreshing. Please retry."},
+        status_code=status,
+        headers={"Cache-Control": "no-store", "Retry-After": "2"},
+    )
+
+
+def _serve_prepared_bytes(request, prepared, generation):
+    request.state.data_generation = generation
+    headers = {
+        "Cache-Control": "private, max-age=30, stale-while-revalidate=30",
+        "Vary": "Accept-Encoding",
+        "ETag": prepared.etag,
+        "X-Data-Generation": generation,
+        "X-Payload-View": prepared.payload.get("payloadView", "prepared"),
+    }
+    if request.headers.get("if-none-match", "").strip('"') == prepared.etag:
+        return Response(status_code=304, headers=headers)
+    if "gzip" in request.headers.get("accept-encoding", "").lower():
+        headers["Content-Encoding"] = "gzip"
+        return Response(prepared.gzip, media_type="application/json", headers=headers)
+    return Response(prepared.raw, media_type="application/json", headers=headers)
+
+
+async def _get_prepared_read_model(request, view):
+    try:
+        cfg = _resolve_league_for_request(request)
+    except LeagueResolutionError as exc:
+        return exc.json_response()
+    generation = latest_serving_generation
+    if generation is None:
+        return _prepared_read_error()
+    error = _scoring_identity_error(generation.contract, cfg)
+    if error is not None:
+        return error
+    # One pointer lookup: no filesystem reads, canonical calculation, provider
+    # calls, or serialization occurs on a prepared page request.
+    prepared = (
+        _league_serving_reader.get(generation.generation_id, cfg.key, view)
+        if _league_serving_reader
+        else None
+    )
+    if prepared is None:
+        return _prepared_read_error()
+    return _serve_prepared_bytes(request, prepared, generation.generation_id)
+
+
+@app.get("/api/read-models/rankings")
+async def get_prepared_rankings(request: Request):
+    return await _get_prepared_read_model(request, "rankings")
+
+
+@app.get("/api/read-models/trade/context")
+async def get_prepared_trade(request: Request):
+    return await _get_prepared_read_model(request, "trade")
+
+
+@app.get("/api/read-models/players/catalog")
+async def get_prepared_catalog(request: Request):
+    return await _get_prepared_read_model(request, "catalog")
+
+
+@app.get("/api/read-models/players/{player_id}")
+async def get_prepared_player(player_id: str, request: Request):
+    try:
+        cfg = _resolve_league_for_request(request)
+    except LeagueResolutionError as exc:
+        return exc.json_response()
+    generation = latest_serving_generation
+    if generation is None:
+        return _prepared_read_error()
+    if request.query_params.get("generation") != generation.generation_id:
+        return _prepared_read_error("generation_changed", 409)
+    error = _scoring_identity_error(generation.contract, cfg)
+    if error is not None:
+        return error
+    row = generation.indexes.get("players", {}).get(player_id)
+    if row is None:
+        return JSONResponse(
+            {"error": "player_not_found"}, status_code=404, headers={"Cache-Control": "no-store"}
+        )
+    request.state.data_generation = generation.generation_id
+    # A single selected row is bounded; the universe index was built upstream.
+    # The response carries no league roster block and cannot mix generations.
+    return JSONResponse(
+        {
+            "schemaVersion": 1,
+            "generation": generation.generation_id,
+            "player": {**row, "readModelKey": player_id},
+            "meta": {**(generation.contract.get("meta") or {}), "leagueKey": cfg.key},
+        },
+        headers={
+            "Cache-Control": "private, max-age=30",
+            "X-Data-Generation": generation.generation_id,
+        },
+    )
+
+
+@app.post("/api/telemetry/web-vitals", status_code=204)
+async def record_web_vital(request: Request):
+    """Bounded, allowlisted browser timings; never store URLs or user identity."""
+    if request.headers.get("sec-fetch-site") == "cross-site":
+        return Response(status_code=403, headers={"Cache-Control": "no-store"})
+    body = bytearray()
+    async for chunk in request.stream():
+        if len(body) + len(chunk) > 8192:
+            return Response(status_code=413, headers={"Cache-Control": "no-store"})
+        body.extend(chunk)
+    try:
+        metric = _telemetry.WebVital.model_validate_json(bytes(body))
+    except ValueError:
+        return Response(status_code=400, headers={"Cache-Control": "no-store"})
+    _telemetry.record_vital(metric)
+    return Response(status_code=204, headers={"Cache-Control": "no-store"})
+
+
+@app.get("/api/performance")
+async def get_performance(request: Request):
+    denied = _require_admin_session(request)
+    if isinstance(denied, JSONResponse):
+        return denied
+    board = latest_serving_generation
+    report = {
+        **_telemetry.snapshot(),
+        "serving": {
+            "mode": os.environ.get("RISKIT_SERVING_MODE", "legacy").strip().lower(),
+            "dataGeneration": board.generation_id if board else None,
+            "artifactGeneration": board.artifact_generation_id if board else None,
+            "sourceAsOf": board.source.get("sourceAsOf", board.source.get("producedAt"))
+            if board
+            else None,
+            "candidateRejected": bool(latest_candidate_error),
+            "reloadError": _serving_runtime.last_error.split(":", 1)[0]
+            if _serving_runtime and _serving_runtime.last_error
+            else None,
+            "leagueReloadError": _league_serving_reader.last_error
+            if _league_serving_reader
+            else None,
+            "newsReloadError": _prepared_news_reader.last_error if _prepared_news_reader else None,
+        },
+        "producer": _producer_status_reader.snapshot()
+        if _producer_status_reader
+        else {"owner": "embedded"},
+    }
+    return JSONResponse(report, headers={"Cache-Control": "no-store"})
+
+
+# Outermost middleware observes auth failures and streamed bytes as well as
+# successful handlers, without buffering response bodies or changing caching.
+app.add_middleware(_telemetry.PerformanceMiddleware)
 
 
 # ── MAIN ────────────────────────────────────────────────────────────────

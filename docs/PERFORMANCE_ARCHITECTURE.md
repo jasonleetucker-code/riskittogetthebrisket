@@ -48,7 +48,7 @@ Selected-player detail uses an upstream player index and serializes one row; its
 
 The source service/timer/path templates under `deploy/systemd/dynasty-source-producer.*.template` share a process lease with the legacy wrapper.
 The timer preserves completion-plus-two-hours cadence. A manual web refresh writes bounded `source-refresh.request` metadata; the path unit starts the same worker, which claims it under the lease. The web handler does not fork workers.
-`dynasty-league-serving.*.template` supplies ten-minute refresh; `scripts/refresh_prepared_news.py` supplies explicit news production. None of these files proves an installed timer.
+`dynasty-league-serving.*.template` supplies ten-minute refresh plus a separate manual-refresh path unit; `scripts/refresh_prepared_news.py` supplies explicit news production. None of these files proves an installed timer.
 Existing BDVM service warms inputs then builds projections; its checked-in timer is Tuesday 06:10 UTC with jitter. Dedicated player-context, DLF/IDP, depth-chart, injury, game-day and model jobs retain their existing owners.
 `.github/workflows/scheduled-refresh.yml` remains a separate `42 */2 * * *` source/deploy owner, with additional Dynasty Daddy, FantasyCalc, OTCFFB, Fantasy Navigator, PFK, Flock/rookies, DraftSharks/ROS, Fitzmaurice and Yahoo feeds. A VPS replacement must not disable this larger feed set.
 Local process leases do not serialize a GitHub machine or deployment. `docs/ops/source-producer-ownership.md` contains source parity, bootstrap and rollback details.
@@ -147,3 +147,5 @@ Structural acceptance includes zero providers/builds on prepared requests, one b
 Relevant regressions: `tests/serving/test_serving_pipeline.py`, `tests/serving/test_artifacts.py`, `tests/serving/test_runtime.py`, `tests/serving/test_producer.py`, `tests/serving/test_source_requests.py`, `tests/serving/test_input_manifest.py`, `tests/serving/test_coordinator.py`; `tests/bdvm/test_cache_generations.py`, `tests/api/test_gameplan_singleflight.py`, `tests/game_day/test_game_day_sim_cache.py`.
 Local fixture tests verify mechanisms, not installed Linux units, authenticated production waterfalls, sustained RSS/FD ceilings or field p75/p95. Parent campaign evidence must record BEFORE → CHANGE → AFTER → PASS/FAIL under the same inputs/environment.
 Consolidate with `docs/performance-optimization.md` and `docs/BACKLOG_REPLAN_2026-09-10.md`: retain fixed compact/overlay transport, canonical engines, completed public-page isolation and shared primitives; do not revive retired valuation paths, duplicate source owners or unrelated unmerged systems.
+
+Legacy mode skips new board projections and league readers until explicitly opted in. The first source cutover requires a fresh matching receipt; later restarts use a durable validated ownership proof and can serve stale valid canonical data. See the campaign report for current local results and failed rollout targets.

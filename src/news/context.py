@@ -48,7 +48,10 @@ def espn_targets(contract: dict) -> list[dict]:
 
     def rank(row: dict) -> float:
         try:
-            value = float(row.get("canonicalConsensusRank") or row.get("rank") or 0)
+            raw_rank = row.get("canonicalConsensusRank") or row.get("rank")
+            if raw_rank is None:
+                return float("inf")
+            value = float(raw_rank)
             return value if value > 0 else float("inf")
         except (TypeError, ValueError):
             return float("inf")

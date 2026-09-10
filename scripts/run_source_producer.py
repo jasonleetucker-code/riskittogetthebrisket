@@ -94,7 +94,13 @@ async def _run(config: ProducerConfig, bootstrap_path: Path | None) -> int:
             published = len(report.get("published") or [])
             failed = len(report.get("failed") or [])
             journal.league_report = {
-                "outcome": "partial" if published and failed else "failed" if failed else "success",
+                "outcome": "busy"
+                if report.get("outcome") == "busy"
+                else "partial"
+                if published and failed
+                else "failed"
+                if failed
+                else "success",
                 "published": published,
                 "failed": failed,
             }

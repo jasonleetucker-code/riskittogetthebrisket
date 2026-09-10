@@ -246,7 +246,22 @@ def _identity(manifest: Mapping[str, Any]) -> str:
 def _read_json(path: Path) -> tuple[dict[str, Any], bytes]:
     _check_path(path)
     try:
-        body = path.read_bytes()
+        for attempt in range(8):
+            try:
+                body = path.read_bytes()
+                break
+            except PermissionError as exc:
+                # Opening a just-replaced Windows pointer can briefly fail
+                # alongside the atomic rename. Immutable generations do not
+                # need this retry, and persistent permission errors still fail.
+                if (
+                    os.name != "nt"
+                    or path.name != "current.json"
+                    or getattr(exc, "winerror", None) not in {None, 5, 32}
+                    or attempt == 7
+                ):
+                    raise
+                time.sleep(0.01 * (attempt + 1))
         value = json.loads(body)
     except (OSError, ValueError) as exc:
         raise CorruptArtifact(f"Cannot read artifact JSON: {path}") from exc

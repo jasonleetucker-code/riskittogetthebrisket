@@ -43,6 +43,16 @@ foundation once. Preserve small, reviewable PR boundaries within the combined ph
 
 # 0. CURRENT AUTHORIZATION — READ THIS FIRST
 
+## Performance modernization — owner directive, 2026-09-10
+
+The owner approved implementation of the audited performance modernization plan:
+measurement, isolated request/payload fixes, separated generation producers,
+prepared rankings/trade read models, and dependency-aware refresh. Rankings and
+trade lead the route migration. `docs/PERFORMANCE_CAMPAIGN.md` records the bounded
+implementation and evidence. Preserve canonical math, scoring/league separation,
+source coverage, privacy and existing protected deployment gates. This does not
+change the Week 1 denominator or mark production acceptance complete.
+
 ## Bounded Agent OS consolidation — owner directive, 2026-09-10
 
 The owner explicitly authorized one continuous local Agent OS / Site Steward

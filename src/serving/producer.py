@@ -464,6 +464,7 @@ async def run_source_cycle(
             emit(
                 "producer_started",
                 pid=os.getpid(),
+                queueWaitSeconds=round(time.monotonic() - start, 3),
                 sourceParityHash=parity_hash,
                 sourceParity=parity,
             )

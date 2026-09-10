@@ -87,14 +87,23 @@ execution as proof for changed source code.
    Required supplements must have succeeded; IDP Show may be explicitly skipped
    only when its local session was absent. This gate is required before prepared
    server mode can disable the embedded source owner. It is a startup cutover
-   check, not a per-request provider or large artifact read.
+   check, not a per-request provider or large artifact read. The first successful
+   `enforce_source_ownership` check stores the exact verified receipt as an
+   immutable `source-ownership/standalone` proof. Later restarts validate that
+   proof and separately load the accepted canonical generation; an upstream
+   outage or old source timestamp does not make last-good serving unavailable.
+   Changed source scripts/policy or corrupt proof require a new healthy current
+   receipt to renew ownership. `source_receipt_ready` remains the strict freshness
+   diagnostic and can correctly return false while durable ownership is valid.
 5. Enable the standalone source and league timers only with reviewed deployment
    authorization, then switch the server mode using its documented prepared-mode
    configuration. Keep GitHub scheduled refresh and additional feed jobs enabled.
    Verify installed unit schedules, successful receipts and freshness after the
-   switch. A prepared process must fail startup if the gate fails, rather than
-   silently spawning a competing embedded producer.
-6. For rollback, stop the standalone source timer/service, restore the reviewed
+   switch. A prepared process must fail startup if neither the durable proof nor
+   a healthy first-cutover/renewal receipt validates; it never silently starts a
+   competing embedded producer. Start the prepared news worker as well before
+   enabling prepared news reads.
+6. For rollback, stop the standalone source timer/path/service, restore the reviewed
    legacy server mode and restart it. The accepted artifact remains available;
    no deletion or raw-file promotion is required. Check legacy cycle and alert
    wiring after rollback. The shared lease also protects a brief overlap.
@@ -128,3 +137,41 @@ still immediate busy exit), with an 18000-second total service timeout.
 service exit. The bounded admission wait avoids a rapid busy-exit loop during
 the normal overlap window; an abnormal lock holder beyond that limit still
 requires operator attention. See the upstream [systemd path-unit specification](https://github.com/systemd/systemd/blob/main/man/systemd.path.xml).
+
+
+For a nondefault registered league, the same authenticated admin endpoint
+`POST /api/scrape?leagueKey=...` queues `league-refresh.request` instead of a full
+source collection. Both branches return HTTP 202 and an opaque request ID with
+no web-process provider work. The league worker refreshes active compatible
+leagues and uses `league-producer.lock`; source-cycle follow-up and independent
+league invocations cannot run that work concurrently. The league path template
+must be rendered with the same exact private root as the source path template.
+`refresh_league_serving.py --lease-wait-seconds 600` claims only the marker present
+after admission, preserving a later request for the next run. The service's
+1,200-second timeout bounds that wait and processing; busy exits preserve pending
+work. The ten-minute timer remains the regular refresh owner.
+
+## Status and prepared news
+
+`src/serving/status.py::ProducerStatusReader` polls private bounded status files
+outside requests. `/api/status` uses its cached source outcome, queue wait,
+progress, pending source/league requests, recent run history and 24-hour success
+rate. A journal that says running without the process lease is reported as
+interrupted. Malformed progress cannot kill the reader; recovery clears errors.
+The reader routes each newly observed failed/blocked/interrupted run through the
+existing alert owner, preserving its global cooldown. It is polling-based and
+does not promise delivery of every event while the web process is offline.
+`/api/performance` is admin-only and includes cached producer/generation state;
+no request parses the private artifacts to produce that response.
+
+The separate `dynasty-prepared-news.service.template` runs
+`python scripts/refresh_prepared_news.py --watch`. Keep the process alive so the
+existing ESPN target rotation and Sleeper directory cache survive successive
+refreshes. Its default healthy cadence is ten minutes, with a bounded retry
+delay after failure. Each result records actual provider attempts and last
+success; cached items never turn a failed attempted refresh into fresh success.
+The web reader performs local filtering over the accepted news snapshot.
+Missing/all-provider-failed evidence returns the existing unavailable behavior;
+a bad newer artifact does not discard a previously valid reader snapshot.
+This service is a template only and must be observed on the target host before
+claiming that ordinary prepared news reads have an active producer.

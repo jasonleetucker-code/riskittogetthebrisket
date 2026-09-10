@@ -4,8 +4,23 @@ from __future__ import annotations
 
 import os
 import tempfile
+import sys
 
 import pytest
+
+
+@pytest.fixture(autouse=True)
+def isolate_serving_reference(monkeypatch):
+    """A previous test's accepted generation must not override a handler fixture.
+
+    Legacy endpoint fixtures deliberately inject individual compatibility
+    globals. They begin without an atomic snapshot; tests of the new serving
+    path install their own coherent generation explicitly after this reset.
+    """
+    server_module = sys.modules.get("server")
+    if server_module is not None:
+        monkeypatch.setattr(server_module, "latest_serving_generation", None)
+
 
 # Allow ``import server`` in tests without a real JASON_LOGIN_PASSWORD.
 # The placeholder "changeme" is acceptable for unit/integration tests;
