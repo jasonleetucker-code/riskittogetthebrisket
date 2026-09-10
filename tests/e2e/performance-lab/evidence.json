@@ -1,0 +1,251 @@
+{
+  "scope": "Synthetic local lab only. Production cold-load and rollout acceptance remain unverified.",
+  "productCommit": "6b79946d1",
+  "harnessCommit": "447076d54",
+  "runtime": {
+    "node": "24.19.0",
+    "declaredNodeEngine": ">=20 <21",
+    "next": "16.3.4",
+    "chrome": "152.0.7977.64"
+  },
+  "validation": {
+    "flagOnProductionBuild": "PASS:77static pages",
+    "bundleBudgets": "PASS:14/14",
+    "frontendSuite": "PASS:174files,2512tests with --maxWorkers=2,109.43seconds",
+    "focusedPreviouslyFailingTests": "PASS:PerfectDraftPanel and RosPowerLensAndTrend49/49 with --maxWorkers=2",
+    "browserIntegration": "PASS:9cases; desktop/mobile rankings/trade full-shaped/prepared CSV equality, filtering, source display/audit, full popups, trade picking, first-intent catalog, no forbidden global reads, no uncaught page errors"
+  },
+  "normalProbe": {
+    "runsPerRouteAndViewport": 3,
+    "concurrentBuildsOrTests": false,
+    "cpu": 1,
+    "network": "none",
+    "comparisons": [
+      {
+        "route": "desktop /rankings",
+        "fullShapeColdWarmP95Ms": [
+          825,
+          520
+        ],
+        "preparedColdWarmP95Ms": [
+          643,
+          418
+        ]
+      },
+      {
+        "route": "desktop /trade",
+        "fullShapeColdWarmP95Ms": [
+          606,
+          265
+        ],
+        "preparedColdWarmP95Ms": [
+          351,
+          192
+        ]
+      },
+      {
+        "route": "mobile /rankings",
+        "fullShapeColdWarmP95Ms": [
+          866,
+          434
+        ],
+        "preparedColdWarmP95Ms": [
+          601,
+          368
+        ]
+      },
+      {
+        "route": "mobile /trade",
+        "fullShapeColdWarmP95Ms": [
+          615,
+          252
+        ],
+        "preparedColdWarmP95Ms": [
+          362,
+          191
+        ]
+      }
+    ],
+    "instrumentationErrors": 0,
+    "missingUseful": 0,
+    "qualification": "Small sequential local samples; do not infer a production improvement percentage."
+  },
+  "firstThrottledProbe": {
+    "status": "FAIL",
+    "runs": 1,
+    "cpu": 4,
+    "network": "4g:150ms,1.6Mbpsdown,750Kbpsup",
+    "readyTimeoutMs": 10000,
+    "routes": [
+      {
+        "route": "mobile /rankings",
+        "coldUsefulMs": null,
+        "warmUsefulMs": 9902,
+        "missingUseful": 1
+      },
+      {
+        "route": "mobile /trade",
+        "coldUsefulMs": 6607,
+        "warmUsefulMs": 1799,
+        "missingUseful": 0
+      }
+    ]
+  },
+  "isolatedThrottledRerun": {
+    "status": "FAIL:all measured useful-state times remain over cold2s/warm1s targets",
+    "concurrentBuildsOrTests": false,
+    "readyTimeoutMs": 10000,
+    "predicateChanged": false,
+    "samples": [
+      {
+        "route": "/rankings",
+        "state": "cold",
+        "usefulMs": 8929,
+        "api": [
+          {
+            "route": "/api/read-models/rankings",
+            "startMs": 3255,
+            "endMs": 4087,
+            "transferBytes": 120591
+          }
+        ],
+        "scriptResources": {
+          "requests": 26,
+          "encodedBytes": 397631,
+          "decodedBytes": 863984,
+          "transferBytes": 219611,
+          "lastEndMs": 4143.400000095367
+        },
+        "cpuMs": {
+          "ScriptDuration": 2787.714,
+          "LayoutDuration": 1218.189,
+          "RecalcStyleDuration": 933.7410000000001,
+          "TaskDuration": 8598.566
+        },
+        "longestTaskMs": 858,
+        "populatedVisibleMarker": true
+      },
+      {
+        "route": "/rankings",
+        "state": "warm",
+        "usefulMs": 6264,
+        "api": [
+          {
+            "route": "/api/read-models/rankings",
+            "startMs": 940,
+            "endMs": 1226,
+            "transferBytes": 0
+          }
+        ],
+        "scriptResources": {
+          "requests": 26,
+          "encodedBytes": 863984,
+          "decodedBytes": 863984,
+          "transferBytes": 0,
+          "lastEndMs": 1820.0999999046326
+        },
+        "cpuMs": {
+          "ScriptDuration": 2042.71,
+          "LayoutDuration": 790.7769999999999,
+          "RecalcStyleDuration": 547.665,
+          "TaskDuration": 6429.008
+        },
+        "longestTaskMs": 1076,
+        "populatedVisibleMarker": true
+      },
+      {
+        "route": "/trade",
+        "state": "cold",
+        "usefulMs": 4716,
+        "api": [
+          {
+            "route": "/api/read-models/trade/context",
+            "startMs": 3031,
+            "endMs": 3843,
+            "transferBytes": 120591
+          }
+        ],
+        "scriptResources": {
+          "requests": 26,
+          "encodedBytes": 410946,
+          "decodedBytes": 863984,
+          "transferBytes": 210226,
+          "lastEndMs": 3956.5
+        },
+        "cpuMs": {
+          "ScriptDuration": 1454.7730000000001,
+          "LayoutDuration": 752.125,
+          "RecalcStyleDuration": 358.541,
+          "TaskDuration": 4233.228999999999
+        },
+        "longestTaskMs": 582,
+        "populatedVisibleMarker": true
+      },
+      {
+        "route": "/trade",
+        "state": "warm",
+        "usefulMs": 1600,
+        "api": [
+          {
+            "route": "/api/read-models/trade/context",
+            "startMs": 798,
+            "endMs": 1050,
+            "transferBytes": 0
+          }
+        ],
+        "scriptResources": {
+          "requests": 26,
+          "encodedBytes": 863984,
+          "decodedBytes": 863984,
+          "transferBytes": 0,
+          "lastEndMs": 1574.4000000953674
+        },
+        "cpuMs": {
+          "ScriptDuration": 471.55,
+          "LayoutDuration": 170.289,
+          "RecalcStyleDuration": 130.509,
+          "TaskDuration": 1604.333
+        },
+        "longestTaskMs": 180,
+        "populatedVisibleMarker": true
+      }
+    ],
+    "findings": [
+      "Read-model transfer starts after initial JavaScript/hydration work; cold API completed before4.1s while rankings became useful at8.9s.",
+      "Warm rankings API completed around1.2s with0transferred body bytes, but useful state arrived around6.3s. Network transfer cannot explain that remaining delay.",
+      "Cold rankings CDP recorded2.79s script,1.22s layout,0.93s style and long main-thread tasks; these are broad categories, not function-level profiler attribution.",
+      "The existing DataTable initial full rendering then column-width freeze and row windowing is a candidate for separate profiling. No geometry or readiness change was made without proof.",
+      "The original throttled missing sample remains a failure; a later sample reaching readiness does not turn the target into a pass."
+    ]
+  },
+  "transport": {
+    "fixture": {
+      "scope": "synthetic fixture only; not a production payload",
+      "rows": 120,
+      "full": {
+        "decoded": 309571,
+        "gzip": 16419
+      },
+      "prepared": {
+        "decoded": 120291,
+        "gzip": 12763
+      },
+      "catalog": {
+        "decoded": 35510,
+        "gzip": 7425
+      }
+    },
+    "browserPreparedApiBytes": 120291,
+    "browserFullShapeApiBytes": 309571,
+    "qualification": "Local Next decoded streaming proxy sends equal encoded/decoded API bytes; fixture gzip bytes describe the upstream only. Production nginx direct-backend transport was not measured."
+  },
+  "limits": [
+    "All players and backend responses are synthetic, with only120rows and2sources.",
+    "Full-shaped/prepared comparisons both used flag-on read-model routes, not separate flag-off/flag-on builds.",
+    "Actual backend producer/authorization/custom arithmetic tests are separate.",
+    "Parent layout telemetry wiring is outside this frontend build.",
+    "CWV are lab-window observations, not finalized document metrics or fieldp75; unreported values staynull.",
+    "Node24was used because the bundled runtime was available; repository declares Node20."
+  ],
+  "reproduce": "See README.md, fixture-server.mjs, browser-lab.mjs, and diagnose.mjs in this directory."
+}
