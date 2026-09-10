@@ -1,16 +1,16 @@
 {
- "generatedAt": "2026-09-10T19:26:44.503846+00:00",
+ "generatedAt": "2026-09-10T22:49:47.181254+00:00",
  "servedPolicy": "scraper_sleeper_attach_v1",
  "servedBy": "src.identity.resolution",
  "legacyLadderRetired": true,
  "v2WatchEnabled": true,
  "site": "scraper_sleeper_attach",
- "calls": 1888,
+ "calls": 1947,
  "v1Agree": 0,
  "v1Diverge": 0,
  "v1Examples": [],
- "v2Same": 1869,
- "v2WouldChange": 19,
+ "v2Same": 1925,
+ "v2WouldChange": 22,
  "v2Examples": [
   {
    "name": "Bam Knight",
@@ -26,6 +26,14 @@
    "served": "11668",
    "engineV2": null,
    "v2Method": "exact_clean:name",
+   "v2Reason": "ambiguous"
+  },
+  {
+   "name": "Byron Murphy",
+   "pos": "DL",
+   "served": "11668",
+   "engineV2": null,
+   "v2Method": "exact_clean:name_pos",
    "v2Reason": "ambiguous"
   },
   {
@@ -46,6 +54,14 @@
   },
   {
    "name": "J.T. Tuimoloau",
+   "pos": "",
+   "served": "12594",
+   "engineV2": null,
+   "v2Method": "none",
+   "v2Reason": "no_candidate"
+  },
+  {
+   "name": "JT Tuimoloau",
    "pos": "",
    "served": "12594",
    "engineV2": null,
@@ -85,6 +101,14 @@
    "v2Reason": "no_candidate"
   },
   {
+   "name": "Michael Carter",
+   "pos": "",
+   "served": "7607",
+   "engineV2": null,
+   "v2Method": "exact_clean:name",
+   "v2Reason": "ambiguous"
+  },
+  {
    "name": "Michael Hall",
    "pos": "",
    "served": "11692",
@@ -118,10 +142,10 @@
   },
   {
    "name": "Byron Murphy",
-   "pos": "",
+   "pos": "DL",
    "served": "11668",
    "engineV2": null,
-   "v2Method": "exact_clean:name",
+   "v2Method": "exact_clean:name_pos",
    "v2Reason": "ambiguous"
   },
   {
