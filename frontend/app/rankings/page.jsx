@@ -274,7 +274,7 @@ function CustomMixBadge({ rankingsOverride }) {
 // ── Main component ───────────────────────────────────────────────────
 
 export default function RankingsPage() {
-  const { loading, error, failure, rows, rawData, retry } = useDynastyData();
+  const { loading, error, failure, rows, rawData, retry } = useDynastyData({ readModel: "rankings" });
   const {
     settings,
     update: updateSetting,
@@ -2082,6 +2082,7 @@ export default function RankingsPage() {
                       <td colSpan={totalCols}>
                         <SourceAuditPanel
                           row={row}
+                          rawData={rawData}
                           val={val}
                           edge={marketEdge(row)}
                           confExplain={confidenceExplain(row)}

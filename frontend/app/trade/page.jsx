@@ -101,7 +101,7 @@ const TradeDeltaHistogram = dyn(() => import("@/components/graphs/TradeDeltaHist
 const MultiTradeFlow = dyn(() => import("@/components/graphs/MultiTradeFlow"));
 
 export default function TradePage() {
-  const { loading, error, rows, rawData } = useDynastyData();
+  const { loading, error, rows, rawData } = useDynastyData({ readModel: "trade" });
   const {
     settings,
     hydrated: settingsHydrated,

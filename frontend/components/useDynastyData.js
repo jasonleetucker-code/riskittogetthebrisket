@@ -1,12 +1,14 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   buildRows,
   fetchDynastyData,
   getSiteKeys,
   prefetchBaseContract,
+  _resetBaseContractCache,
 } from "@/lib/dynasty-data";
+import { preparedReadModel } from "@/lib/read-model-policy";
 import { useSettings } from "@/components/useSettings";
 import {
   classifyContractFailure,
@@ -33,7 +35,8 @@ function buildRowsShared(rawData) {
   return rows;
 }
 
-export function useDynastyData() {
+export function useDynastyData({ readModel: requestedReadModel = null, enabled = true } = {}) {
+  const readModel = preparedReadModel(requestedReadModel);
   // Read user-level source overrides from settings so per-source
   // toggles and weight sliders actually affect the rendered board.
   // When the user has customized anything (including a non-default
@@ -92,12 +95,14 @@ export function useDynastyData() {
   const [reloadKey, setReloadKey] = useState(0);
   const [source, setSource] = useState("");
   const [rawData, setRawData] = useState(null);
+  const [loadedIdentity, setLoadedIdentity] = useState(null);
   // Bumped when the active league changes so the fetch effect below
   // re-fires.  Today's endpoints don't read leagueId (Phase 1 of the
   // multi-league migration adds that); including the bump in the
   // effect deps means the plumbing is ready the moment the endpoint
   // starts routing by league.
   const [leagueRefreshKey, setLeagueRefreshKey] = useState(0);
+  const identity = `${readModel || "legacy"}|${leagueRefreshKey}`;
 
   useEffect(() => {
     function bump() {
@@ -109,9 +114,11 @@ export function useDynastyData() {
     // leaving the page stuck on the cached "Sign-in required" error.
     window.addEventListener("league:changed", bump);
     window.addEventListener("auth:changed", bump);
+    window.addEventListener("read-model:generation-changed", bump);
     return () => {
       window.removeEventListener("league:changed", bump);
       window.removeEventListener("auth:changed", bump);
+      window.removeEventListener("read-model:generation-changed", bump);
     };
   }, []);
 
@@ -121,8 +128,8 @@ export function useDynastyData() {
   // sit behind the settings-hydration gate below — the real fetch
   // joins this in-flight request instead of starting from zero.
   useEffect(() => {
-    prefetchBaseContract();
-  }, []);
+    if (enabled) prefetchBaseContract({ readModel });
+  }, [enabled, readModel, leagueRefreshKey]);
 
   useEffect(() => {
     let active = true;
@@ -138,7 +145,7 @@ export function useDynastyData() {
     // ``loading`` is already true from its initial state, so the page
     // keeps showing its skeleton rather than an empty board; the delay
     // is one commit, not a network round trip.
-    if (!settingsHydrated) return undefined;
+    if (!enabled || !settingsHydrated) return undefined;
     async function run() {
       try {
         setLoading(true);
@@ -149,11 +156,13 @@ export function useDynastyData() {
           tepMultiplier,
           tepNativeMultiplier,
           valuationMode,
+          readModel,
         });
         if (!active) return;
 
         const data = payload?.data || null;
         setRawData(data);
+        setLoadedIdentity(identity);
         setSource(String(payload?.source || ""));
 
         // A payload that ARRIVED can still be unusable, and the two ways
@@ -208,6 +217,8 @@ export function useDynastyData() {
           }
         }
         setFailure(classified);
+        setRawData(null);
+        setLoadedIdentity(identity);
         // The message stays what it always was for anything unclassified,
         // so a consumer still reading `error` is never handed less than
         // it had.
@@ -229,38 +240,47 @@ export function useDynastyData() {
     valuationMode,
     leagueRefreshKey,
     reloadKey,
+    enabled,
+    readModel,
   ]);
+
+  const visibleData = enabled && loadedIdentity === identity ? rawData : null;
 
   const rows = useMemo(() => {
     try {
-      return buildRowsShared(rawData);
+      return buildRowsShared(visibleData);
     } catch (e) {
       console.error("[useDynastyData] buildRows crashed:", e);
       return [];
     }
     // ``buildRows`` is a pure materializer — override effects are
     // already baked into ``rawData`` by ``fetchDynastyData`` above.
-  }, [rawData]);
+  }, [visibleData]);
   const siteKeys = useMemo(() => {
     try {
-      return getSiteKeys(rawData || {});
+      return getSiteKeys(visibleData || {});
     } catch (e) {
       console.error("[useDynastyData] getSiteKeys crashed:", e);
       return [];
     }
-  }, [rawData]);
+  }, [visibleData]);
+
+  const retry = useCallback(() => {
+    _resetBaseContractCache();
+    setReloadKey((n) => n + 1);
+  }, []);
 
   return {
-    loading,
+    loading: enabled && (loading || loadedIdentity !== identity),
     error,
     // The classified failure: { kind, code, message, retryable } or null.
     failure,
     source,
-    rawData,
+    rawData: visibleData,
     rows,
     siteKeys,
     // A retry the UI can offer. `ErrorState` has had a `retry` prop all
     // along and no route could use it, because nothing here returned one.
-    retry: () => setReloadKey((n) => n + 1),
+    retry,
   };
 }

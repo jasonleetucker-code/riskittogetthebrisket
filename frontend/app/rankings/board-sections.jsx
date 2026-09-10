@@ -12,6 +12,7 @@ import { Icon, Panel } from "@/components/ds";
 import { RANKING_SOURCES } from "@/lib/dynasty-data";
 import SourceContributionBars from "@/components/graphs/SourceContributionBars";
 import SourceAgreementRadar from "@/components/graphs/SourceAgreementRadar";
+import { usePreparedPlayerDetail } from "@/components/usePreparedPlayerDetail";
 import styles from "./board.module.css";
 
 const srcLabel = (key) =>
@@ -216,7 +217,16 @@ export function MobileSourceStrip({ row, formatSourceCell }) {
 // Renders backend audit stamps verbatim. Keeps the legacy
 // ``source-audit-*`` classes (globals.css) — the panel's internal
 // grid/badge styling is unchanged in R2; the R5 CSS purge migrates it.
-export function SourceAuditPanel({ row, val, edge, confExplain }) {
+export function SourceAuditPanel({ row, rawData, val, edge, confExplain }) {
+  const detail = usePreparedPlayerDetail(row, rawData);
+  if (detail.loading || detail.error) return <div role="status">
+    <p>{detail.error || "Loading source details…"}</p>
+    {detail.error && <button type="button" onClick={detail.retry}>Try again</button>}
+  </div>;
+  return <SourceAuditContent row={detail.row} val={val} edge={edge} confExplain={confExplain} />;
+}
+
+function SourceAuditContent({ row, val, edge, confExplain }) {
   const audit = row.sourceAudit || row.raw?.sourceAudit || {};
   return (
     <div className="source-audit-panel">
