@@ -14,12 +14,15 @@ from src.serving.artifacts import (
     ArtifactStore,
     _check_path,
     _mkdir,
+    _publish_lock,
     _sync_directory,
     _write_new,
 )
 
 STATUS_FILE = "source-producer-status.json"
 RECEIPT_FILE = "source-producer-receipt.json"
+REQUEST_FILE = "source-refresh.request"
+CLAIM_FILE = "source-refresh-claim.json"
 
 
 def _now() -> str:
@@ -37,6 +40,80 @@ def _atomic_json(root: Path, name: str, value: dict) -> None:
         _sync_directory(root)
     finally:
         temporary.unlink(missing_ok=True)
+
+
+def pending_source_refresh(store: ArtifactStore) -> dict | None:
+    path = store.root / REQUEST_FILE
+    _check_path(path)
+    try:
+        with path.open("rb") as handle:
+            body = handle.read(4097)
+        if len(body) > 4096:
+            return None
+        payload = json.loads(body)
+        if (
+            payload.get("schemaVersion") == 1
+            and payload.get("outcome") == "queued"
+            and isinstance(payload.get("requestId"), str)
+            and len(payload["requestId"]) == 32
+            and isinstance(payload.get("trigger"), str)
+            and len(payload["trigger"]) <= 40
+            and isinstance(payload.get("requestedAt"), str)
+            and len(payload["requestedAt"]) <= 40
+        ):
+            return {
+                key: payload[key]
+                for key in ("schemaVersion", "outcome", "requestId", "trigger", "requestedAt")
+            }
+    except (OSError, ValueError, AttributeError):
+        pass
+    return None
+
+
+def request_source_refresh(store: ArtifactStore, trigger: str = "manual") -> dict:
+    """Queue bounded operational metadata for the OS-managed source service."""
+    if (
+        not isinstance(trigger, str)
+        or not 1 <= len(trigger) <= 40
+        or any(
+            char not in "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_-"
+            for char in trigger
+        )
+    ):
+        raise ValueError("refresh trigger must be a short operational label")
+    _mkdir(store.root)
+    with _publish_lock(store.root / "source-request.lock", 2):
+        existing = pending_source_refresh(store)
+        if existing:
+            return {**existing, "coalesced": True}
+        request = {
+            "schemaVersion": 1,
+            "outcome": "queued",
+            "requestId": uuid.uuid4().hex,
+            "trigger": trigger,
+            "requestedAt": _now(),
+        }
+        _atomic_json(store.root, REQUEST_FILE, request)
+        return {**request, "coalesced": False}
+
+
+def claim_source_refresh(store: ArtifactStore) -> dict | None:
+    """Called only inside the source lease; preserve requests arriving afterward."""
+    with _publish_lock(store.root / "source-request.lock", 2):
+        path = store.root / REQUEST_FILE
+        _check_path(path)
+        if not path.exists():
+            return None
+        request = pending_source_refresh(store)
+        claim = (
+            {**request, "outcome": "claimed", "claimedAt": _now()}
+            if request
+            else {"schemaVersion": 1, "outcome": "invalid_request", "claimedAt": _now()}
+        )
+        _atomic_json(store.root, CLAIM_FILE, claim)
+        path.unlink()
+        _sync_directory(store.root)
+        return claim
 
 
 class ProducerJournal:
@@ -65,6 +142,7 @@ class ProducerJournal:
             self.source_parity = meta["sourceParity"]
             self.source_parity_hash = meta["sourceParityHash"]
             self.state.update(outcome="running", startedAt=_now())
+            self.state["refreshRequest"] = claim_source_refresh(self.store)
         # Keep event names and severity, not arbitrary third-party messages.
         self.state["events"] = (
             self.state["events"] + [{"event": name, "level": level, "at": _now()}]

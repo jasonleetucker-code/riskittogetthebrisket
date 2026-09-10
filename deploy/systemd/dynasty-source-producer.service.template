@@ -12,11 +12,11 @@ Group=__APP_USER__
 WorkingDirectory=__APP_DIR__
 EnvironmentFile=-__APP_DIR__/.env
 Environment=PYTHONUNBUFFERED=1
-ExecStart=__VENV_DIR__/bin/python __APP_DIR__/scripts/run_source_producer.py
+ExecStart=__VENV_DIR__/bin/python __APP_DIR__/scripts/run_source_producer.py --lease-wait-seconds 9000
 # Exit 3 means another source owner holds the shared OS lease; it is not a
 # completed refresh and does not write a successful cutover receipt.
 SuccessExitStatus=3
-TimeoutStartSec=9000
+TimeoutStartSec=18000
 TimeoutStopSec=30
 KillMode=control-group
 Nice=10

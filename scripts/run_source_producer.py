@@ -132,14 +132,23 @@ def main(argv: list[str] | None = None) -> int:
         "--artifact-root", type=Path, help="Private serving directory (default RISKIT_SERVING_DIR)"
     )
     parser.add_argument("--timeout-seconds", type=float, default=7200)
+    parser.add_argument(
+        "--lease-wait-seconds",
+        type=float,
+        default=0,
+        help="Standalone service admission wait; default immediate busy exit",
+    )
     args = parser.parse_args(argv)
     if not 0 < args.timeout_seconds <= 86400:
         parser.error("--timeout-seconds must be in (0, 86400]")
+    if not 0 <= args.lease_wait_seconds <= 9000:
+        parser.error("--lease-wait-seconds must be in [0, 9000]")
     config = ProducerConfig(
         repo_dir=REPO_DIR,
         data_dir=REPO_DIR / "data",
         artifact_root=args.artifact_root,
         timeout_seconds=args.timeout_seconds,
+        lease_wait_seconds=args.lease_wait_seconds,
         disk_min_mb=int(os.getenv("DISK_SPACE_MIN_MB", "500")),
         publication_requires_disk=True,
     )

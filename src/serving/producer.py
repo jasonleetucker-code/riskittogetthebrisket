@@ -84,6 +84,7 @@ class ProducerConfig:
     disk_min_mb: int = 500
     artifact_root: Path | None = None
     publication_requires_disk: bool = False
+    lease_wait_seconds: float = 0
 
     @property
     def serving_root(self) -> Path:
@@ -457,7 +458,7 @@ async def run_source_cycle(
     counts = {"player_count": 0, "site_count": 0, "total_sites": 0}
     try:
         _mkdir(config.serving_root)
-        with _publish_lock(config.serving_root / "producer.lock", 0):
+        with _publish_lock(config.serving_root / "producer.lock", config.lease_wait_seconds):
             parity = source_parity_contract()
             parity_hash = hashlib.sha256(json.dumps(parity, sort_keys=True).encode()).hexdigest()
             emit(

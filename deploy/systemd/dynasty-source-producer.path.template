@@ -1,0 +1,11 @@
+[Unit]
+Description=Queued source refresh activation (__SERVICE_NAME__)
+# Render __SERVING_DIR__ to the SAME private RISKIT_SERVING_DIR as web/worker.
+# PathExists also recovers a request queued before this path unit starts.
+
+[Path]
+PathExists=__SERVING_DIR__/source-refresh.request
+Unit=__SERVICE_NAME__-source-producer.service
+
+[Install]
+WantedBy=paths.target

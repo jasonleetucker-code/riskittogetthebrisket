@@ -106,3 +106,25 @@ errors use argparse's exit 2. The source template treats only 3 as an additional
 successful unit exit, and uses the legacy two-hours-after-completion cadence.
 No installed service, timer, deployment, provider availability or production
 latency is verified by these templates and offline tests alone.
+
+## Manual refresh in prepared mode
+
+The web process calls `request_source_refresh(store, trigger="manual")`. It writes
+only a private, atomic `source-refresh.request` marker and returns `queued` with
+an opaque request ID. Repeated pending requests coalesce. The separate
+`dynasty-source-producer.path.template` watches the marker and starts the same
+standalone service as the timer. Render its `__SERVING_DIR__` to the exact private
+root used by the web process and worker; systemd path files do not read `.env`.
+
+The worker acknowledges/removes the marker only after acquiring the source
+lease. Status records its claim; requests arriving during that cycle remain
+queued for the next invocation. A malformed marker is acknowledged as invalid
+without copying its payload into status. `pending_source_refresh(store)` reads
+bounded queued metadata for status endpoints. No subprocess is spawned by the
+web handler. The service waits up to 9000 seconds for admission (CLI default is
+still immediate busy exit), with an 18000-second total service timeout.
+
+`PathExists` recovers a marker present before unit startup and rechecks after
+service exit. The bounded admission wait avoids a rapid busy-exit loop during
+the normal overlap window; an abnormal lock holder beyond that limit still
+requires operator attention. See the upstream [systemd path-unit specification](https://github.com/systemd/systemd/blob/main/man/systemd.path.xml).
