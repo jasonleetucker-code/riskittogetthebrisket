@@ -3,7 +3,7 @@
 **Date:** 2026-09-08  
 **Status:** implementation architecture / research reconciliation. **Not runtime activation.**  
 **Owner direction:** near-full autonomous stewardship with narrow consequential gates.  
-**Current authority constraint:** Week 1 remains an active fixed-denominator launch contract at 25/30 VERIFIED. This document does not authorize broad post-launch implementation, production mutation, new canonical source activation, or methodology promotion while that contract remains active.
+**Authority constraint:** Read the live Week 1 contract for its literal count; the 25/30 observation at this document's creation is historical. This document does not authorize broad post-launch implementation, production mutation, new canonical source activation, or methodology promotion while that contract remains active.
 
 Companion:
 - `docs/AUTONOMOUS_SITE_STEWARD_VISION.md`
@@ -11,6 +11,14 @@ Companion:
 - `docs/AGENT_OPERATING_SYSTEM.md`
 
 ## 1. Executive verdict
+
+Implementation update, 2026-09-10: the owner-authorized local report-only
+foundation now lives in `src/steward/`; see
+`docs/agent-operating-system/STEWARD_RUNTIME.md` for executable commands,
+schema/version behavior, planning and routing. The launch count and model
+pricing/ranking examples below are historical observations from this document's
+date, not current state or routing policy. Read the live Week 1 contract and
+`config/steward/routing.json`. No unattended activation is implied.
 
 The owner's destination is technically achievable in stages. The durable architecture is **not one lifetime model invocation**. It is a recurrent execution system that wakes bounded model runs, persists operational state outside model context, verifies outputs, and applies only pre-authorized transitions.
 

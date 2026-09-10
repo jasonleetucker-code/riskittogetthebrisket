@@ -23,6 +23,7 @@ python scripts/agent_os_receipt.py || true
 echo "  Technical runbook: CLAUDE.md (legacy filename; universal to all models)"
 echo "  Product authority: docs/EXECUTION_PLAN.md + any active owner-authorized contract"
 echo "  Coordination: ASSISTANT_COORDINATION.md + docs/WORK_CLAIMS.md"
+echo "  Campaign brief (on demand): python -m src.steward brief --github"
 echo "  Python format contract: bash scripts/format_python_changes.sh (Ruff 0.6.9 + pyproject.toml)"
 
 LAUNCH_CONTRACT="docs/season-launch/WEEK_1_LAUNCH_CONTRACT.md"

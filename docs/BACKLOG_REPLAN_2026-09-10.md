@@ -19,6 +19,14 @@ research passes. No code was changed to produce this document.
 
 **Starting SHA:** `b69455136b80cd1c3cd29ef44a24799c48cc3793` (origin/main, 2026-09-10).
 
+**Bounded infrastructure update, 2026-09-10:** the later owner-authorized Astra
+consolidation implements the local report-only runtime at `src/steward/`.
+This supersedes this document's architecture-only/missing-runtime statements
+for that bounded capability. See `docs/agent-operating-system/STEWARD_RUNTIME.md`
+and current tests/integration evidence. Phase 9's remaining dispatcher/census
+work and future unattended activation are separate; no product phase or launch
+acceptance is promoted by this update.
+
 ---
 
 ## 0.5. Execution-coordination reconciliation — 2026-09-10 (post-#1328)

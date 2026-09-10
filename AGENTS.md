@@ -1,62 +1,40 @@
-# Repo Instructions (Dynasty Trade Calculator)
+# Repository Agent Entry
 
-> **Universal model-neutral entrypoint:** read `AI_INSTRUCTIONS.md` first.
-> These instructions apply equally to Codex, Claude, Gemini, ChatGPT, Copilot,
-> and future coding agents. `CLAUDE.md` is a legacy-named universal technical
-> runbook and MUST NOT be treated as Claude-only.
->
-> **Agent workflow router:** read `docs/AGENT_OPERATING_SYSTEM.md` before
-> material AI-assisted work. It governs roles, loops/graphs, review,
-> persistent learning, skill/hook hygiene, and completion-contract traffic
-> control. It has no product authority; `docs/EXECUTION_PLAN.md` and any
-> active owner-authorized completion contract still decide what may be built.
+Read `AI_INSTRUCTIONS.md` first. Every model follows the same canonical
+`docs/AGENT_OPERATING_SYSTEM.md`, current execution authority and
+`ASSISTANT_COORDINATION.md`. Provider adapters grant no unique authority.
 
+## Working Copy
 
-## Scope
-This repository powers dynasty fantasy football valuation, rankings, trade calculation, source ingestion, and scraper-backed data publishing.
+Active working copy: `C:\Users\jason\code\riskittogetthebrisket`.
+GitHub main is shared repository truth. Inspect current HEAD, fetch main,
+check claims/open PRs, and use a task branch for material changes.
+Do not edit OneDrive copies or overlap another assistant's active files.
 
-## Working Copy Coordination
-- Active working copy: `C:\Users\jason\code\riskittogetthebrisket`.
-- GitHub `main` is the shared source of truth for every LLM/agent and local work.
-- Before starting work, run `git pull --ff-only origin main` from the active working copy.
-- Use a task branch for meaningful changes; provider-prefixed branch names are organizational only and grant no special authority.
-- Do not edit OneDrive repo copies unless the user explicitly asks; treat them as backups/archive only.
-- Do not let multiple assistants edit the same branch at the same time.
-- See `ASSISTANT_COORDINATION.md` for the shared start-of-session checklist and handoff rules.
-- Main movement alone does **not** invalidate completed feature evidence. After a PR reaches `READY_FOR_INTEGRATION`, freeze implementation; Integration owns the planned freshness reconciliation, final shipping gate, and dependency-ordered merge. **If `main` moves during CI, classify the intervening diff before doing anything:** a proven `BENIGN_AUTOMATION_MOVE` does not restart feature CI or require a freshness-only branch commit; a `RELEVANT_BASE_MOVE` does. Automation provenance by itself is not proof of benignity. See `ASSISTANT_COORDINATION.md` → **Main-Movement and Integration Queue Policy** and **Benign automated `main` movement: classify before restarting CI**.
+## Permanent Rules
 
-## Non-Negotiables
-- Do not assume a feature works because a helper, component, or file exists.
-- Trace the live execution path end to end before claiming anything is implemented.
-- Prefer modifying existing architecture over introducing parallel systems.
-- Preserve working behavior unless a verified flaw requires change.
-- Verify downstream effects for any value/ranking change in UI rendering, sorting, filtering, exports, and league-specific transforms.
-- Verify ingestion, normalization, merge logic, fallback behavior, and frontend consumption for any scraper/source change.
-- Call out anything mocked, bypassed, stale, duplicated, half-wired, dead, or missing.
+- Inspect before modifying; trace the live execution path before claiming completion.
+- One concept, one canonical owner. Reuse correct architecture and preserve working behavior.
+- Missing is not zero; unknown stays unknown; stale evidence is not current truth.
+- Preserve source authority, provenance, privacy and exact league semantics.
+- Obey owner/governance boundaries; capability never grants merge/deploy or spending authority.
+- Use the least expensive sufficient available profile; escalate on evidence.
+- Plan shared foundations and compatible work together; keep rollback and review boundaries clear.
+- Completion requires matching acceptance evidence, not code existence or agent confidence.
+- Keep literal launch gates; never silently weaken tests, acceptance or production requirements.
+- Do not exfiltrate data or perform unauthorized destructive actions.
+- Be explicit before production, deployment, credential or public-output actions.
 
-## Safety
-- Do not exfiltrate private data.
-- Do not run destructive commands without approval.
-- Prefer reversible operations where possible.
-- Be explicit before any action affecting production, deployment, credentials, or public output.
+## Progressive Workflow
 
-## Required Workflow
-1. Read relevant files first.
-2. Identify the real live path, not just helpers.
-3. Make the smallest correct change set.
-4. Run available validation commands/tests.
-5. Report exactly what changed, what was verified, and what remains uncertain.
+Run `bash scripts/agent_session_start.sh`. For campaign coordination load
+`docs/agent-operating-system/STEWARD_RUNTIME.md` and use the existing Steward
+brief, state and router. Read domain procedures only when relevant.
 
-## Performance Rules
-- Prioritize page-load speed and perceived responsiveness.
-- Reduce blocking work on initial load.
-- Eliminate duplicated calculations, repeated fetches, and oversized payloads.
-- Prefer memoization, batching, precomputation, caching, and lazy loading where justified.
-- Do not sacrifice correctness for speed.
+Main movement is classified under `ASSISTANT_COORDINATION.md`:
+`BENIGN_AUTOMATION_MOVE` preserves unaffected implementation evidence;
+`RELEVANT_BASE_MOVE` requires affected reconciliation. Unknown requires inspection.
+Never overwrite newer generated data with stale branch output.
 
-## Output Rules
-- Be direct.
-- Name exact files touched.
-- Name exact code paths affected.
-- Distinguish verified facts from inferences.
-- When auditing, label items as complete, partial, mocked, bypassed, stale, dead, or missing.
+Report exact files, live paths, tests and unresolved acceptance gaps.
+Separate implementation, integration, deployment and production verification.

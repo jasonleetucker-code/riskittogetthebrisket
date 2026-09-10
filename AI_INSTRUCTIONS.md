@@ -2,7 +2,7 @@
 
 **This is the model-neutral entrypoint for every LLM/agent working in this repository.**
 
-Claude, Codex, Gemini, ChatGPT, Copilot, and any future coding agent must use the same repository-owned operating rules. Provider-specific files are adapters only and may not contain unique product, engineering, safety, or verification rules.
+Astra, Claude, Codex, Gemini, Grok, ChatGPT, Copilot, and any future coding agent must use the same repository-owned operating rules. Provider-specific files are adapters only and may not contain unique product, engineering, safety, or verification rules.
 
 ## Read order for material work
 

@@ -24,6 +24,15 @@ If this operating system conflicts with any higher-authority product or methodol
 
 ## 2. Session-start router
 
+For durable campaign state, combined planning, adaptive routing and main
+reconciliation, use the report-only implementation described in
+`docs/agent-operating-system/STEWARD_RUNTIME.md`. Load that guide only for
+campaign coordination or Steward work. The shared command is
+`python -m src.steward brief --github`; it cannot merge, deploy or invoke paid
+inference. Current main wins over stale summaries; missing metrics stay unknown.
+Select the least expensive sufficient available profile and escalate on evidence.
+The planner is sequencing advice, never additional product authority.
+
 A material session begins by establishing **current state**, not replaying old chat history.
 
 1. Enter through `AI_INSTRUCTIONS.md` and update/read current `main`.

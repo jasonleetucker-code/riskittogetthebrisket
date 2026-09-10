@@ -11,7 +11,14 @@ def _read(path: str) -> str:
 def test_steward_architecture_is_not_runtime_activation():
     doc = _read("docs/autonomy/SITE_STEWARD_ARCHITECTURE_2026-09-08.md")
     assert "Not runtime activation" in doc
-    assert "Week 1 remains an active fixed-denominator launch contract at 25/30 VERIFIED" in doc
+    assert "Read the live Week 1 contract for its literal count" in doc
+    from src.steward.repository import launch_state
+
+    contract = launch_state(_read("docs/season-launch/WEEK_1_LAUNCH_CONTRACT.md"))
+    assert contract["total"] == 30
+    assert contract["verified"] == sum(
+        row["state"] == "VERIFIED" for row in contract["rows"].values()
+    )
     assert "DEFERRED_BY_AUTHORITY" in doc
     assert "zero production mutation" in doc
 
