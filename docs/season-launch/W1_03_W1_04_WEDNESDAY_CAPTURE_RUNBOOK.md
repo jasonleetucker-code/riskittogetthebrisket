@@ -40,8 +40,11 @@ early run permanently consumes the slot with a staler roster. Aim for the
 morning, not the boundary.
 
 Week 1 does not end until **Mon 2026-09-14 20:15 ET** (DEN @ KC). That is why
-W1-28 (FINAL state) is temporally unreachable by the Wednesday deadline and
-W1-30 says "as temporally applicable".
+W1-28 (FINAL state) is temporally unreachable until Week 1 actually concludes
+and W1-30 says "as temporally applicable". (CORRECTED 2026-09-10: the
+Wednesday 03:15-20:20 ET window above is the W1-03/W1-04 *pregame-capture*
+window only — it does not bound W1-27, which §5 below can execute during any
+genuine Week 1 LIVE window, Wednesday's NE@SEA or any later game.)
 
 `daily_waivers = 1`, `daily_waivers_hour = 0`, `waiver_clear_days = 1`,
 `waiver_day_of_week = 2`. **The hour field is not interpreted here.** Sleeper's

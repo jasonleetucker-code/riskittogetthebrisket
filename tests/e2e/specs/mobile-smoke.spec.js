@@ -98,4 +98,37 @@ test.describe("mobile smoke (390x844)", () => {
     await expect(page).toHaveURL(/\/rankings/, { timeout: 15_000 });
     await expect(page.locator(SEL.boardRow).first()).toBeVisible({ timeout: 60_000 });
   });
+
+  test("mobile Menu opens the drawer (#1153 local regression coverage)", async ({
+    authedPage: page,
+  }) => {
+    // #1153 ("mobile drawer still fails after #1150") was closed VERIFIED
+    // (V1-131) on the strength of a PRODUCTION-ONLY test
+    // (prod-auth/v1-131-nav-gating.spec.js), which papers over a genuine
+    // pre-hydration click race with a networkidle wait + one click retry.
+    // That spec only runs against a live deployed prod site with a real
+    // session, so this exact class of regression — Menu tap does nothing —
+    // had NO coverage in ordinary CI. This test closes that gap: it runs
+    // locally/in CI, and deliberately does NOT mask a pre-hydration race
+    // with a retry, so a genuine regression here fails loudly instead of
+    // being silently absorbed the way the prod-auth spec's retry would.
+    await page.goto(pageUrl("/rankings"), { waitUntil: "domcontentloaded" });
+
+    const nav = page.locator(".shell-tabbar");
+    await expect(nav).toBeVisible({ timeout: 30_000 });
+    const menuButton = nav.getByRole("button", { name: /Menu/ });
+    await expect(menuButton).toBeVisible({ timeout: 30_000 });
+
+    const drawerGroups = page.locator(".shell-drawer-group");
+    await expect(drawerGroups.first()).not.toBeVisible();
+
+    await menuButton.click();
+    await expect(drawerGroups.first()).toBeVisible({ timeout: 15_000 });
+
+    // The drawer should also close cleanly, so a stuck-open drawer (the
+    // inverse failure mode) is covered by the same test.
+    const closeButton = page.getByRole("button", { name: /^Close$/i });
+    await closeButton.click();
+    await expect(drawerGroups.first()).not.toBeVisible({ timeout: 15_000 });
+  });
 });

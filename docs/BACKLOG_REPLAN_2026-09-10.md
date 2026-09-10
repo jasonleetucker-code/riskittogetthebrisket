@@ -21,6 +21,54 @@ research passes. No code was changed to produce this document.
 
 ---
 
+## 0.5. Execution-coordination reconciliation — 2026-09-10 (post-#1328)
+
+A second, broader directive ("take over execution coordination, get the
+project back on track") reconciled main again a few hours after this
+document's PR (#1328) merged. New SHA verified: `3c49946940748e476d17ffff57
+dbd742ecbff730`. Zero open PRs at that point. This section is the compact
+master status matrix the directive requires — one table an owner can scan to
+answer "what shipped, what looks shipped but isn't, what's in flight, what's
+blocked by real-world timing, what's next." It supersedes stale specifics in
+§1-§3 above where they conflict (e.g. #839/#899/#838/#843 status, the
+freeze-supersession framing) without re-litigating them — see the classes
+below for the reasoning.
+
+**Reconciliation classes used**: `SHIPPED_AND_VERIFIED`,
+`SHIPPED_NEEDS_PRODUCTION_CHECK`, `PARTIAL`, `CLOSED_UNMERGED_REAL_WORK`,
+`SUPERSEDED_DO_NOT_RESURRECT`, `NOT_STARTED`, `TEMPORALLY_BLOCKED`,
+`OWNER_DECISION_REQUIRED`.
+
+| Initiative | Status | Canonical owner | Source | Next action |
+|---|---|---|---|---|
+| Power Rankings (canonical blend + weekly share card) | SHIPPED_AND_VERIFIED | `src/ros/power_v2.py`, `power_snapshots.py` | #1295, #1286, #1321 (incident, repaired) | None — frozen, do not touch methodology absent a real regression |
+| Game Day NFL slate (kickoff-ordered, players grouped by game) | SHIPPED_AND_VERIFIED | `frontend/components/GameDayPanel.jsx` (`NflSlateSection`), `src/ros/game_day_week.py` | #1320 | None — frozen |
+| KTC/DLF three-signal valuation architecture | SHIPPED_AND_VERIFIED | `src/sources/ktc_value_sources.py` | #1297 | None — frozen; genuine remaining drift tracked separately (#1322/#898/#1065/#785) |
+| Hill Autopilot v2 (auto-refit/tournament/board-impact-gate) | SHIPPED_AND_VERIFIED | `src/model_registry/autopilot.py`, `hill_masters.py`, `versioning.py` | #1315 | None — frozen. **#1290 SUPERSEDED_DO_NOT_RESURRECT** (zero code trace, never merged) |
+| FAAB Stage 1 shadow logging | SHIPPED_AND_VERIFIED | `src/api/feature_flags.py` (`waiver_live_opportunity`), `src/trade/faab_shadow.py` | #1313 | None — frozen. **#1217 SUPERSEDED_DO_NOT_RESURRECT** (zero code trace, never merged) |
+| Admin `fmtPassExpiry` crash | SHIPPED_AND_VERIFIED | `frontend/lib/guest-pass-format.js` | #779 | **Closed 2026-09-10** with evidence (`tests/e2e/specs/admin-guest-pass.spec.js`) |
+| Temp-password expiry | SHIPPED_AND_VERIFIED | `src/api/guest_passes.py` | #780 | **Closed 2026-09-10** with evidence |
+| `/league` `teamAssignment` degraded-as-200 | SHIPPED_AND_VERIFIED | `src/api/team_assignment.py` | #815 | **Closed 2026-09-10** with evidence (`tests/api/test_team_assignment_availability.py`) |
+| Mobile drawer (#1153) | SHIPPED_NEEDS_PRODUCTION_CHECK → verifying | `frontend/components/shell/MobileChrome.jsx`, `ds/Dialog.jsx` | #1153, V1-131 | Added local (non-prod-auth) regression coverage 2026-09-10 (`tests/e2e/specs/mobile-smoke.spec.js`); see its actual pass/fail result before closing #1153 |
+| Week 1 launch contract deadline/evidence-window text | PARTIAL → corrected | `docs/season-launch/WEEK_1_LAUNCH_CONTRACT.md` | directive 2026-09-10 | Corrected 2026-09-10 (docs only, acceptance criteria unchanged) |
+| W1-27 (Game Day LIVE) | TEMPORALLY_BLOCKED → next window imminent | `src/ros/game_day_week.py`, `tests/e2e/specs/prod-auth/w1-16-game-day.spec.js` | W1-27 | Next genuine LIVE window: Thu 2026-09-10 20:35 ET (SF@LA); instrument already ready, no code change needed |
+| W1-28 (Game Day FINAL) | TEMPORALLY_BLOCKED | same instrument, §6 of the runbook | W1-28 | Cannot be evidenced before Week 1's real conclusion, Mon 2026-09-14 20:15 ET |
+| W1-30 (final launch-tree verification) | NOT_STARTED, depends on W1-27/28 | §7 of the runbook | W1-30 | Execute once W1-27 and W1-28 are both real |
+| Site Steward Phase 1 runtime | CLOSED_UNMERGED_REAL_WORK | none yet — architecture only (`docs/AUTONOMOUS_SITE_STEWARD_VISION.md`, `docs/autonomy/SITE_STEWARD_ARCHITECTURE_2026-09-08.md`, `config/steward/contracts.schema.json`) | #1318 (closed unmerged), #1291 (architecture, merged) | Rebuild cleanly from current main once Week 1 = 30/30 — do not resurrect #1318's branch |
+| Analyst claim/evidence ledger persistence | CLOSED_UNMERGED_REAL_WORK | `src/analyst/claim.py`, `stance.py` (schema only) | #980 (closed unmerged) | Real remaining work: build `store.py`/`query.py` on the existing schema, as the foundation Analyst/Intelligence Platform phase needs first |
+| Realized VORP/WAR/WAB/Game Changer | CLOSED_UNMERGED_REAL_WORK | `src/scoring/replacement_level.py` (reusable primitive), `public_league/awards.py` (differently-scoped VORP) | #969 (closed unmerged) | Real remaining work: build the full core on `replacement_level.py`, do not extend `awards.py`'s award-scoped VORP in place |
+| Central Buy/Sell Reconciler + market-ticker contract | CLOSED_UNMERGED_REAL_WORK | not yet verified this pass | #970 (closed unmerged) | Re-derive from current main when the Analyst/Intelligence Platform phase reaches it — do not resurrect the closed branch |
+| Roster capacity duplicate ownership | OWNER_DECISION_REQUIRED (methodology, not a build gap) | `src/trade/roster_capacity.py` vs `src/roster_intel/droppability.py`/`marginal.py` | #843 | Consolidate onto one owner before further extension |
+| Team Strength duplicate ownership | OWNER_DECISION_REQUIRED | `src/roster_intel/strength.py` vs `src/ros/team_strength.py` | (no issue filed) | Consolidate onto one owner before further extension |
+| Competitive Posture hard labels vs. continuous design | OWNER_DECISION_REQUIRED | `src/roster_intel/window.py` (deliberately non-labeled) | #840 | Genuine methodology conflict — needs an explicit owner ruling, not a silent pick either way |
+| PSI full-site migration | PARTIAL (~5/46 routes fully activated) | `frontend/components/ds/` (primitives exist) | T-NEW-06 | Migrate remaining ~37 routes by route family using existing `ds/` primitives; do not redesign primitives |
+| Universal Player File link centralization | NOT_STARTED | `/players/[playerId]` (canonical destination exists) | owner standing UX requirement | Audit every player-name render surface, centralize through one shared player-link component |
+
+Everything not listed above keeps its disposition from §4 (the reconciled
+backlog table) and §3 (stale-manifest corrections) unchanged.
+
+---
+
 ## 0. Authority reconciliation (read this before anything else)
 
 Two of the canonical C-Series documents contain text that is **stale relative to

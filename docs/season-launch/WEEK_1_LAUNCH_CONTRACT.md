@@ -1,6 +1,24 @@
 # Week 1 Launch Completion Contract — 2026
 
-**Owner deadline:** Wednesday, 2026-09-09, 23:59 America/Chicago  
+**Owner deadline (original target for W1-01…W1-26, W1-29 — all VERIFIED against it):** Wednesday, 2026-09-09, 23:59 America/Chicago  
+**CORRECTED 2026-09-10 — evidence-window framing for W1-27/W1-28/W1-30.** The
+Wednesday 23:59 CT deadline above was written before the real Week 1 game
+clock was measured in full; it has since passed (verified `date -u` at
+correction time: Thu 2026-09-10 09:13 UTC) while W1-27/W1-28/W1-30 remained
+open, which is a documentation defect, not a decision to weaken any
+acceptance criterion. **The acceptance criteria for W1-27, W1-28 and W1-30 are
+unchanged.** What changes is only when their evidence may legitimately be
+captured: LIVE evidence (W1-27) may be captured during **any** genuine Week 1
+game window through the slate's conclusion — the Wednesday NE@SEA window was
+the *first* such window, not the *only* one; Thursday's SF@LA (2026-09-10
+20:35 ET), Sunday's 13-game slate, and Monday's finale are equally legitimate.
+FINAL evidence (W1-28) still requires the entire Week 1 slate to conclude —
+**Monday 2026-09-14 20:15 ET (DEN @ KC)** — because a fantasy matchup is not
+final while it still has a rostered player who hasn't played yet. W1-30
+follows once both are real. No row may be marked VERIFIED without the actual
+production evidence its acceptance text requires; this correction only
+removes a now-impossible deadline that would otherwise make honest
+verification structurally unreachable.
 **Scope:** Post-V1 / pre-V2 season-launch tranche: Week 1 pregames + Game Day Command Center  
 **Canonical denominator:** **30 rows**  
 **Counting rule:** **Only literal `VERIFIED` counts in the numerator.**  
@@ -371,17 +389,20 @@ The denominator is frozen at 30 for this launch tranche. Do not add/remove rows 
   banked scoring, which players are done vs upcoming, best-ball state over the
   players whose state IS evidenced — is factual and needs no decision.
 
-  Note the Week-1 clock makes this narrow in practice: at the Wednesday
-  deadline only the NE @ SEA game is underway, so only players in that game are
-  affected.
+  Note the Week-1 clock makes this narrow per individual game window: during
+  any single LIVE window (Wednesday's NE@SEA, Thursday's SF@LA, each Sunday
+  game, or Monday's finale) only the players in that specific game are
+  in-progress at once, so only they are affected at that moment.
 
-- **W1-28 — TEMPORALLY UNREACHABLE by the Wednesday deadline.** A FINAL
+- **W1-28 — TEMPORALLY UNREACHABLE until Week 1's real conclusion.** A FINAL
   matchup state requires Week 1 to be complete, and the measured schedule ends
-  **Monday 2026-09-14 20:15 ET** (DEN @ KC) — five days after the contract's
-  Wednesday 2026-09-09 23:59 CT deadline. This is not a work-rate problem and
-  no amount of implementation changes it. Recorded so the row is not read as
-  neglected, and so the deadline's realistic ceiling is stated honestly rather
-  than discovered on Wednesday night.
+  **Monday 2026-09-14 20:15 ET** (DEN @ KC). This is not a work-rate problem
+  and no amount of implementation changes it — it genuinely cannot be
+  evidenced before that real-world moment. Recorded so the row is not read as
+  neglected, and so the realistic ceiling is stated honestly. (CORRECTED
+  2026-09-10: previously framed against the now-passed Wednesday 23:59 CT
+  deadline; see the evidence-window note at the top of this document — the
+  acceptance criterion itself has not changed.)
 
 
 - **W1-11 is RESOLVED, not a blocker.** See "Row movements, 2026-09-07" above — Manual External AI is now the canonical generation model and no longer depends on `ANTHROPIC_API_KEY` at all; all six real Week 1 narratives exist and passed validation.
@@ -418,14 +439,23 @@ The denominator is frozen at 30 for this launch tranche. Do not add/remove rows 
   | second game | Thursday 2026-09-10 20:35 ET — SF @ LA |
   | main slate | Sunday 2026-09-13 (13 games) |
   | Week 1 ENDS | Monday 2026-09-14 20:15 ET — DEN @ KC |
-  | contract deadline | Wednesday 2026-09-09 23:59 CT |
+  | original pregame-capture deadline (W1-03/W1-04 only) | Wednesday 2026-09-09 23:59 CT |
 
-  Three consequences, none of them a matter of preference:
+  Three consequences, none of them a matter of preference. (CORRECTED
+  2026-09-10: point 3 below previously framed W1-27/W1-28 against the
+  Wednesday 23:59 CT deadline, which existed for the W1-03/W1-04 *pregame
+  capture* window, not for LIVE/FINAL Game Day evidence — conflating the two
+  made W1-28 read as if it had ever been reachable by Wednesday, and made
+  W1-27 read as if it closed after the first game rather than staying open
+  through every subsequent Week 1 game window. Corrected below; the
+  acceptance criteria are unchanged.)
 
-  1. **The owner-authorized capture window is Wednesday morning (after waivers
-     settle) until ~19:00 ET, not "any time Wednesday."** Scoring begins at
-     20:20 ET, and `build_capture` refuses a `pregame` capture once
-     `week_has_begun` sees any nonzero score.
+  1. **The owner-authorized pregame-capture window (W1-03/W1-04 only) was
+     Wednesday morning (after waivers settle) until ~19:00 ET, not "any time
+     Wednesday."** Scoring begins at 20:20 ET, and `build_capture` refuses a
+     `pregame` capture once `week_has_begun` sees any nonzero score. This
+     window has been used and W1-03/W1-04 are VERIFIED; it does not bound
+     W1-27/W1-28.
   2. **The recurring `Thu 13:00 UTC` timer would produce NO valid Week 1
      pregame capture.** It fires roughly 17 hours AFTER the Wednesday opener,
      so the refusal would be correct and the observation would simply be lost.
@@ -435,10 +465,12 @@ The denominator is frozen at 30 for this launch tranche. Do not add/remove rows 
      not a deadline convenience — it is the only path to a valid Week 1
      pregame observation at all. (The timer stays as-is for future weeks, which
      are Thursday-opening; this is a Week-1-only gap, recorded not changed.)
-  3. **W1-28 is temporally unreachable by the deadline.** A FINAL matchup state
-     needs Week 1 to be over, and Week 1 ends Monday 2026-09-14 — five days
-     after Wednesday. **W1-27** is reachable only inside the ~3.5-hour live
-     window between the 20:20 ET kickoff and 23:59 CT.
+  3. **W1-28 is temporally unreachable until Week 1 is actually over** —
+     Monday 2026-09-14 20:15 ET, not any earlier date. **W1-27** is reachable
+     during **any** genuine Week 1 LIVE window: Wednesday's NE@SEA (already
+     concluded), Thursday's SF@LA (2026-09-10 20:35 ET), each Sunday game
+     (2026-09-13), or Monday's finale — whichever window is used first to
+     capture real evidence.
 
   Neither row may be marked VERIFIED on the strength of the wiring — each asks
   for an observed artifact, and only the real Wednesday capture can produce it.
