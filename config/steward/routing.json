@@ -1,0 +1,96 @@
+{
+  "schema_version": "steward-routing/v1",
+  "authority": "A_REPORT_ONLY",
+  "max_incremental_usd": 0,
+  "capability_source": "Codex desktop spawn_agent tool metadata observed 2026-09-10; verify availability each session",
+  "runtime": "recommendation only; interactive lead applies supported subagent controls",
+  "profiles": {
+    "ROUTINE": [
+      "gpt-5.6-luna",
+      "gpt-5.6-terra",
+      "gpt-5.6-sol",
+      "gpt-6-astra"
+    ],
+    "STANDARD": [
+      "gpt-5.6-terra",
+      "gpt-5.6-sol",
+      "gpt-6-astra"
+    ],
+    "COMPLEX": [
+      "gpt-5.6-sol",
+      "gpt-6-astra"
+    ],
+    "CRITICAL": [
+      "gpt-6-astra"
+    ]
+  },
+  "effort": {
+    "ROUTINE": "low",
+    "STANDARD": "medium",
+    "COMPLEX": "high",
+    "CRITICAL": "high"
+  },
+  "models": {
+    "gpt-5.6-luna": {
+      "provider": "openai",
+      "billing": "included_interactive",
+      "reasoning": [
+        "low",
+        "medium",
+        "high",
+        "xhigh",
+        "max"
+      ],
+      "default_reasoning": "medium",
+      "automatic_switching": false
+    },
+    "gpt-5.6-terra": {
+      "provider": "openai",
+      "billing": "included_interactive",
+      "reasoning": [
+        "low",
+        "medium",
+        "high",
+        "xhigh",
+        "max",
+        "ultra"
+      ],
+      "default_reasoning": "medium",
+      "automatic_switching": false
+    },
+    "gpt-5.6-sol": {
+      "provider": "openai",
+      "billing": "included_interactive",
+      "reasoning": [
+        "low",
+        "medium",
+        "high",
+        "xhigh",
+        "max",
+        "ultra"
+      ],
+      "default_reasoning": "medium",
+      "automatic_switching": false
+    },
+    "gpt-6-astra": {
+      "provider": "openai",
+      "billing": "included_interactive",
+      "reasoning": [
+        "low",
+        "medium",
+        "high",
+        "xhigh",
+        "max",
+        "ultra"
+      ],
+      "default_reasoning": "medium",
+      "automatic_switching": false
+    }
+  },
+  "provider_adapters": {
+    "openai": "interactive harness metadata",
+    "anthropic": "unconfigured: supply verified capability metadata",
+    "google": "unconfigured: supply verified capability metadata",
+    "xai": "unconfigured: supply verified capability metadata"
+  }
+}

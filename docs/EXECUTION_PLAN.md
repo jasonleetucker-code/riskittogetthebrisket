@@ -43,6 +43,17 @@ foundation once. Preserve small, reviewable PR boundaries within the combined ph
 
 # 0. CURRENT AUTHORIZATION — READ THIS FIRST
 
+## Bounded Agent OS consolidation — owner directive, 2026-09-10
+
+The owner explicitly authorized one continuous local Agent OS / Site Steward
+consolidation campaign, including implementation, tests and normal protected
+repository integration. This supersedes the earlier Week-1 sequencing deferral
+for this bounded report-only infrastructure work only. It does not authorize
+the site's broader completion campaign, recurring paid inference, unattended
+execution, source activation, or changes to merge/deploy authority.
+Week 1 remains a literal 30-row contract. Runtime entry and state contracts:
+`docs/agent-operating-system/STEWARD_RUNTIME.md`.
+
 ## V1 COMPLETION SPRINT — AUTHORIZED BY THE OWNER, 2026-08-18.
 
 **This supersedes the 2026-08-17 feature freeze below, to the extent necessary for V1
