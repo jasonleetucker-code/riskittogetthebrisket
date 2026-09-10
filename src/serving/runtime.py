@@ -12,7 +12,7 @@ from __future__ import annotations
 import math
 import threading
 from collections.abc import Callable, Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from types import MappingProxyType
 from typing import Any
 
@@ -36,9 +36,11 @@ class ServingGeneration:
     health: dict[str, Any]
     coverage: dict[str, Any]
     views: Mapping[str, PreparedPayload]
+    indexes: Mapping[str, Mapping] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "views", MappingProxyType(dict(self.views)))
+        object.__setattr__(self, "indexes", MappingProxyType(dict(self.indexes)))
 
 
 class AtomicRuntime:
@@ -49,12 +51,14 @@ class AtomicRuntime:
         key: str,
         build: Callable[[Generation], ServingGeneration],
         validate: Callable[[ServingGeneration], Any] | None = None,
+        on_publish: Callable[[ServingGeneration], Any] | None = None,
     ):
         self.store = store
         self.asset = asset
         self.key = key
         self.build = build
         self.validate = validate
+        self.on_publish = on_publish
         self._current: ServingGeneration | None = None
         self._loaded_version: tuple[int, int] | None = None
         self._last_error: str | None = None
@@ -88,6 +92,11 @@ class AtomicRuntime:
             raise RejectedCandidate("Serving generation failed domain validation")
 
     def _install(self, candidate: ServingGeneration, version: tuple[int, int] | None) -> None:
+        # The adapter must finish all fallible preparation before changing
+        # external aliases: only this runtime's reference can be rolled back
+        # if arbitrary callback code mutates its own state and then raises.
+        if self.on_publish is not None:
+            self.on_publish(candidate)
         with self._state_lock:
             self._current = candidate
             self._loaded_version = version
@@ -103,10 +112,10 @@ class AtomicRuntime:
         with self._reload_lock:
             try:
                 self._validate(candidate)
+                self._install(candidate, None)
             except Exception as exc:
                 self._record_error(exc)
                 raise
-            self._install(candidate, None)
 
     def reload_if_changed(self) -> bool:
         """Load at most one candidate; all failures retain the last good state.

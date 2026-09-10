@@ -43,6 +43,7 @@ def build(artifact):
         health={"ok": True},
         coverage={"value": contract["value"]},
         views={"full": view, "rankings": view},
+        indexes={"players": {str(contract["value"]): contract}},
     )
 
 
@@ -76,6 +77,9 @@ def test_unchanged_pointer_skips_loading_and_rebuilding_large_files(tmp_path, mo
     assert captured.views["full"].raw == gzip.decompress(captured.views["full"].gzip)
     with pytest.raises(TypeError):
         captured.views["other"] = captured.views["full"]
+    assert captured.indexes["players"]["1"] is captured.contract
+    with pytest.raises(TypeError):
+        captured.indexes["other"] = {}
 
 
 def test_unchanged_computation_identity_still_refreshes_source_stamps(tmp_path):
@@ -166,6 +170,36 @@ def test_transient_builder_failure_recovers_without_another_pointer_change(tmp_p
     unavailable = False
     assert state.reload_if_changed()
     assert state.current.generation_id == first.generation_id
+    assert state.last_error is None
+
+
+def test_alias_callback_runs_before_swap_and_failure_retains_runtime_state(tmp_path):
+    store = ArtifactStore(tmp_path)
+    first = publish(store)
+    calls = []
+    state = None
+
+    def mirror(candidate):
+        calls.append((candidate.generation_id, state.current))
+        if candidate.contract["value"] == 2:
+            raise RuntimeError("alias preparation failed")
+
+    state = AtomicRuntime(store, "canonical", "default", build, on_publish=mirror)
+    assert state.reload_if_changed()
+    assert calls == [(first.generation_id, None)]
+    good = state.current
+    second = publish(store, 2)
+    assert not state.reload_if_changed()
+    assert state.current is good
+    assert state.last_error.startswith("RuntimeError:")
+    assert calls[-1] == (second.generation_id, good)
+    with pytest.raises(RuntimeError, match="alias preparation"):
+        state.publish(build(second))
+    assert state.current is good
+    third = publish(store, 3)
+    state.publish(build(third))
+    assert state.current.generation_id == third.generation_id
+    assert calls[-1] == (third.generation_id, good)
     assert state.last_error is None
 
 
