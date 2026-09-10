@@ -6,6 +6,7 @@ def task(key, **extra):
     return {
         "id": key,
         "expected_head": "a" * 40,
+        "candidate_clean": True,
         "title": key,
         "state": "PLANNED",
         "dependencies": [],
@@ -75,6 +76,18 @@ def test_shared_blocker_allows_planning_but_never_execution():
     assert len(result["phases"]) == 1
     assert result["phases"][0]["execution"] == "BLOCKED"
     assert result["phases"][0]["blockers"] == ["owner gate"]
+
+
+def test_explicit_blocked_state_and_dirty_candidate_cannot_pass():
+    assert plan([task("a", state="BLOCKED")])["phases"][0]["execution"] == "BLOCKED"
+    proof = {
+        "result": "PASS",
+        "head": "a" * 40,
+        "criteria": ["test contract"],
+        "references": ["run"],
+    }
+    with pytest.raises(ValueError):
+        satisfy([task("a", candidate_clean=False)], {"a": proof})
 
 
 def test_forged_or_stale_revision_and_abandoned_prerequisite_are_rejected():

@@ -29,6 +29,7 @@ def satisfy(tasks: list[dict], evidence: dict) -> list[dict]:
         if proof:
             if (
                 proof.get("result") != "PASS"
+                or task.get("candidate_clean") is not True
                 or not task.get("acceptance")
                 or not re.fullmatch(r"[0-9a-f]{40}", str(proof.get("head", "")))
                 or proof.get("head") != task.get("expected_head")
@@ -123,6 +124,10 @@ def plan(tasks: list[dict], *, max_phase_items: int = 4) -> dict:
     scheduled = {t["id"] for t in tasks if t["state"] in SATISFIED}
     for task in pending:
         blockers = list(task.get("blockers", []))
+        if task["state"] == "BLOCKED":
+            blockers.append(
+                "persisted BLOCKED state; reconcile its durable evidence before execution"
+            )
         blockers += [f"dependency:{dep}" for dep in graph[task["id"]] if dep not in scheduled]
         # An unverified dependency may be scheduled earlier but still gates execution.
         dependency_gates = [

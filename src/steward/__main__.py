@@ -48,13 +48,12 @@ def build_brief(
         saved = (previous or {}).get("task_states", {}).get(task["id"])
         if saved:
             task.update(saved)
-            if (
-                task["state"] in {"VERIFIED", "PRODUCTION_VERIFIED"}
-                and task.get("evidence", {}).get("head") != observed["head"]
+            if task["state"] in {"VERIFIED", "PRODUCTION_VERIFIED"} and (
+                task.get("evidence", {}).get("head") != observed["head"] or observed["dirty"]
             ):
                 task["state"] = "IMPLEMENTED_UNVERIFIED"
                 task["unresolved"].append(
-                    "saved verification belongs to another candidate revision"
+                    "saved verification does not identify this clean candidate"
                 )
     policy = json.loads((repo / "config/steward/routing.json").read_text(encoding="utf-8"))
     routes = []

@@ -113,6 +113,7 @@ def inventory(repo: Path) -> dict:
     return {
         "documents": documents,
         "repo_head": git(repo, "rev-parse", "HEAD"),
+        "candidate_clean": not bool(git(repo, "status", "--porcelain")),
         "observations": records,
         "missing_sources": missing,
         "work_items": work,
@@ -163,6 +164,7 @@ def phase_tasks(repo: Path, inv: dict) -> list[dict]:
             {
                 "id": f"P{phase}",
                 "expected_head": inv["repo_head"],
+                "candidate_clean": inv["candidate_clean"],
                 "title": group["title"],
                 "state": "PLANNED",
                 "dependencies": [f"P{p}" for p in PHASE_DEPENDENCIES.get(phase, [])],
@@ -333,12 +335,22 @@ def work_units(tasks: list[dict], inv: dict, reconciliation: dict) -> list[dict]
         if item["phase"] in excluded:
             continue
         parent = by_phase.get(item["phase"], {})
+        if item["phase"] == "CLOSURE":
+            parent = {
+                "blockers": [
+                    "final site closure requires canonical completion-contract and preceding phase acceptance"
+                ],
+                "authority": "docs/C_SERIES_REPLAN_AND_COMPLETION_CONTRACT.md",
+                "risk": "high",
+                "rollback_group": "final-closure",
+            }
         paths = re.findall(r"`((?:src|frontend|tests|docs|scripts)/[^`]+)`", item["owner"])
         units[item["id"]] = {
             "id": item["id"],
             "title": item["title"],
             "state": "PLANNED",
             "expected_head": inv["repo_head"],
+            "candidate_clean": inv["candidate_clean"],
             "dependencies": item["dependencies"],
             "touches": paths,
             "authority": parent.get("authority", "current execution plan"),
@@ -402,6 +414,7 @@ def work_units(tasks: list[dict], inv: dict, reconciliation: dict) -> list[dict]
                     "title": cells[1],
                     "state": "PLANNED",
                     "expected_head": inv["repo_head"],
+                    "candidate_clean": inv["candidate_clean"],
                     "touches": paths,
                     "dependencies": sorted(dependencies - {key}),
                     "authority": parent["authority"],

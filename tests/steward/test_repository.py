@@ -56,3 +56,5 @@ def test_all_manifest_work_is_accounted_for_and_real_dependencies_survive():
     assert units["W1-30"]["dependencies"] == ["W1-27", "W1-28"]
     assert "#792" in units["#1173"]["dependencies"]
     assert units["W1-27"]["acceptance"] == [inv["launch"]["rows"]["W1-27"]["acceptance"]]
+    closure = [row for key, row in units.items() if key.startswith("C10-")]
+    assert closure and all(row["blockers"] for row in closure)
