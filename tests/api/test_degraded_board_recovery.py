@@ -272,4 +272,3 @@ def test_startup_contract_recovery_restores_runtime_if_checkout_is_also_invalid(
     assert calls == ["runtime", "checkout", "runtime"]
     assert srv.latest_data_source["type"] == "disk_cache"
     assert srv.latest_data_source["path"] == str(runtime)
-
