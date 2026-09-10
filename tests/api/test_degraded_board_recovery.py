@@ -180,6 +180,7 @@ def test_scrape_promotion_has_relative_population_collapse_guard() -> None:
     assert "player_retention < SCRAPE_PLAYER_RETENTION_FLOOR" in text
     assert "PLAYER POPULATION COLLAPSE" in text
 
+
 def _write_marked_payload(path: Path, marker: str, player_count: int = 100) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     payload = {
