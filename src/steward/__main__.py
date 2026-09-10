@@ -44,7 +44,7 @@ def build_brief(
     tasks = phase_tasks(repo, inv)
     reconciliation = reconcile(repo, inv, tasks, remote)
     units = work_units(tasks, inv, reconciliation)
-    for task in tasks + units:
+    for task in units:
         saved = (previous or {}).get("task_states", {}).get(task["id"])
         if saved:
             task.update(saved)

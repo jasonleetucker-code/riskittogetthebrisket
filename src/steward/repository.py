@@ -337,9 +337,7 @@ def work_units(tasks: list[dict], inv: dict, reconciliation: dict) -> list[dict]
         parent = by_phase.get(item["phase"], {})
         if item["phase"] == "CLOSURE":
             parent = {
-                "blockers": [
-                    "final site closure requires canonical completion-contract and preceding phase acceptance"
-                ],
+                "blockers": [],
                 "authority": "docs/C_SERIES_REPLAN_AND_COMPLETION_CONTRACT.md",
                 "risk": "high",
                 "rollback_group": "final-closure",
@@ -351,7 +349,9 @@ def work_units(tasks: list[dict], inv: dict, reconciliation: dict) -> list[dict]
             "state": "PLANNED",
             "expected_head": inv["repo_head"],
             "candidate_clean": inv["candidate_clean"],
-            "dependencies": item["dependencies"],
+            "dependencies": sorted(set(item["dependencies"]) | set(by_phase))
+            if item["phase"] == "CLOSURE"
+            else item["dependencies"],
             "touches": paths,
             "authority": parent.get("authority", "current execution plan"),
             "rollback_group": parent.get("rollback_group", item["phase"]),
@@ -441,4 +441,5 @@ def work_units(tasks: list[dict], inv: dict, reconciliation: dict) -> list[dict]
             unit["unresolved"].append(
                 "reuse documented baseline evidence; inspect only affected dependencies"
             )
-    return list(units.values())
+    # Closure depends on evidence-validated phase contracts, not an irreversible blocker.
+    return list(units.values()) + tasks
