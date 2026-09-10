@@ -13,6 +13,34 @@ Backlog Spec and the feature specs. It does not define scope — that lives in `
 
 ---
 
+## Combined-phase sequencing overlay — 2026-09-10
+
+**`docs/BACKLOG_REPLAN_2026-09-10.md`** is the current combined-phase sequencing
+reconciliation, produced from current `main` (SHA `b69455136b80cd1c3cd29ef44a24799c48cc3793`),
+all open GitHub issues, recent merged PRs, and a verified code-reality survey. It does
+**not** change authorization — only this section (§0 below) does that — but it is the
+right place to look before picking an isolated backlog item, because it groups the
+remaining work by shared canonical owner/foundation instead of by issue number, and it
+records several places where an issue or manifest row is now stale relative to code
+(e.g. `#839`/`#899`/`#838` are already implemented in `src/roster_intel/`; several
+PRs that read as shipped were closed without merging).
+
+It also reconciles one piece of drift between canonical docs worth stating here
+directly: `docs/C_SERIES_EXECUTION_MAP.md` §18's 2026-08-17 feature-freeze text is
+**superseded** by this file's own 2026-08-18 V1 Completion Sprint authorization and
+2026-08-20 lane/POST-V1-campaign authorization below — both postdate the freeze and
+this file remains, as stated above, the sole current authorization record. The freeze
+text in the Execution Map is retained for traceability and is not itself edited.
+
+**Durable planning rule (apply before starting any isolated backlog item):** before
+implementing a backlog item, identify other active requirements that touch the same
+canonical owner, dependency, data model, API, route family, UI primitive, test
+infrastructure, or workflow. Where a shared foundation can satisfy several requirements
+without unsafe scope coupling, plan them under one combined phase and implement that
+foundation once. Preserve small, reviewable PR boundaries within the combined phase.
+
+---
+
 # 0. CURRENT AUTHORIZATION — READ THIS FIRST
 
 ## V1 COMPLETION SPRINT — AUTHORIZED BY THE OWNER, 2026-08-18.
