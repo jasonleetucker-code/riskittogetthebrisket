@@ -36,14 +36,20 @@ separately by calling the functions directly.
 
 from __future__ import annotations
 
-import grp
 import os
-import pwd
 import shutil
 import subprocess
 from pathlib import Path
 
 import pytest
+
+if not hasattr(os, "geteuid"):
+    pytest.skip(
+        "Unix uid/permission semantics are not available on Windows",
+        allow_module_level=True,
+    )
+grp = pytest.importorskip("grp", reason="Unix group database is not available on Windows")
+pwd = pytest.importorskip("pwd", reason="Unix password database is not available on Windows")
 
 REPO = Path(__file__).resolve().parents[2]
 ROLLBACK = REPO / "deploy" / "rollback.sh"

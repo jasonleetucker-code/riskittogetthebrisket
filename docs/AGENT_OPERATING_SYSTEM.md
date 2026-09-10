@@ -48,7 +48,7 @@ Root `CLAUDE.md` contains Claude Code imports for the same shared system, includ
 
 Other provider adapters point to `AI_INSTRUCTIONS.md`; none owns separate semantics.
 
-The existing SessionStart router then reads the same working-tree Agent OS bytes and emits one concise receipt line:
+The existing SessionStart router then reads the same working-tree Agent OS content through Git's normalization rules and emits one concise receipt line:
 
 `AGENT OS LOAD RECEIPT: loaded=<sha> head_blob=<sha|UNKNOWN> repo_head=<sha|UNKNOWN> dirty=<true|false|UNKNOWN> at=<utc>`
 
@@ -58,10 +58,10 @@ It also atomically writes the same provenance to the local ignored file:
 
 The receipt records:
 - `AGENT_OS_PATH`
-- `AGENT_OS_LOADED_BLOB_SHA` — Git blob hash of the exact working-tree bytes read by the receipt harness;
+- `AGENT_OS_LOADED_BLOB_SHA` — Git blob hash of the exact working-tree content read by the receipt harness, after the same clean/filter normalization Git uses for that path;
 - `AGENT_OS_HEAD_BLOB_SHA` — committed `HEAD` blob for the Agent OS, or `UNKNOWN`;
 - `REPO_HEAD_SHA` — repository `HEAD`, or `UNKNOWN`;
-- `AGENT_OS_DIRTY` — `true` when loaded bytes differ from the committed HEAD blob, `false` when they match, otherwise `UNKNOWN`;
+- `AGENT_OS_DIRTY` — `true` when the loaded, Git-normalized working-tree content differs from the committed HEAD blob, `false` when they match, otherwise `UNKNOWN`;
 - `LOADED_AT_UTC`.
 
 For every material LLM/agent session:

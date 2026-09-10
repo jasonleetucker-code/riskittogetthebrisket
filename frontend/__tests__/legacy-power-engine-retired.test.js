@@ -10,9 +10,10 @@
  */
 import fs from "node:fs";
 import path from "node:path";
+import * as url from "node:url";
 import { describe, expect, it } from "vitest";
 
-const ROOT = path.resolve(path.dirname(new URL(import.meta.url).pathname), "..");
+const ROOT = path.resolve(path.dirname(url.fileURLToPath(import.meta.url)), "..");
 
 describe("legacy power engine retirement", () => {
   it("the legacy renderer file does not exist", () => {

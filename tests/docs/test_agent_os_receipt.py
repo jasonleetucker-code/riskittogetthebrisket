@@ -38,7 +38,10 @@ def _load_receipt_module():
 
 
 def test_agent_os_receipt_matches_loaded_bytes_head_and_repo_state():
-    expected_loaded = _git("hash-object", "--no-filters", str(AGENT_OS))
+    for tmp_receipt in RECEIPT.parent.glob(".latest.*.tmp"):
+        tmp_receipt.unlink()
+
+    expected_loaded = _git("hash-object", "docs/AGENT_OPERATING_SYSTEM.md")
     expected_head_blob = _git("rev-parse", "HEAD:docs/AGENT_OPERATING_SYSTEM.md")
     expected_repo_head = _git("rev-parse", "HEAD")
 
@@ -86,6 +89,91 @@ def test_receipt_degrades_unprovable_state_to_unknown(monkeypatch, tmp_path):
     assert values["AGENT_OS_LOADED_BLOB_SHA"] == "UNKNOWN"
     assert values["AGENT_OS_HEAD_BLOB_SHA"] == "UNKNOWN"
     assert values["REPO_HEAD_SHA"] == "UNKNOWN"
+    assert values["AGENT_OS_DIRTY"] == "UNKNOWN"
+
+
+def test_clean_lf_worktree_reports_not_dirty(monkeypatch, tmp_path):
+    module = _load_receipt_module()
+    repo = tmp_path / "repo"
+    agent_os = repo / "docs" / "AGENT_OPERATING_SYSTEM.md"
+    agent_os.parent.mkdir(parents=True)
+    agent_os.write_text("line one\nline two\n", encoding="utf-8", newline="\n")
+    subprocess.run(["git", "init"], cwd=repo, check=True, capture_output=True)
+    subprocess.run(["git", "config", "user.email", "test@example.com"], cwd=repo, check=True)
+    subprocess.run(["git", "config", "user.name", "Test"], cwd=repo, check=True)
+    subprocess.run(["git", "add", "docs/AGENT_OPERATING_SYSTEM.md"], cwd=repo, check=True)
+    subprocess.run(
+        ["git", "commit", "-m", "add agent os"], cwd=repo, check=True, capture_output=True
+    )
+
+    monkeypatch.setattr(module, "REPO", repo)
+    monkeypatch.setattr(module, "AGENT_OS", agent_os)
+
+    values = module.build_receipt()
+
+    assert values["AGENT_OS_DIRTY"] == "false"
+    assert values["AGENT_OS_LOADED_BLOB_SHA"] == values["AGENT_OS_HEAD_BLOB_SHA"]
+
+
+def test_clean_crlf_worktree_reports_not_dirty_with_git_normalization(monkeypatch, tmp_path):
+    module = _load_receipt_module()
+    repo = tmp_path / "repo"
+    agent_os = repo / "docs" / "AGENT_OPERATING_SYSTEM.md"
+    agent_os.parent.mkdir(parents=True)
+    (repo / ".gitattributes").write_text("*.md text\n", encoding="utf-8")
+    agent_os.write_text("line one\nline two\n", encoding="utf-8", newline="\n")
+    subprocess.run(["git", "init"], cwd=repo, check=True, capture_output=True)
+    subprocess.run(["git", "config", "user.email", "test@example.com"], cwd=repo, check=True)
+    subprocess.run(["git", "config", "user.name", "Test"], cwd=repo, check=True)
+    subprocess.run(["git", "config", "core.autocrlf", "true"], cwd=repo, check=True)
+    subprocess.run(
+        ["git", "add", ".gitattributes", "docs/AGENT_OPERATING_SYSTEM.md"], cwd=repo, check=True
+    )
+    subprocess.run(
+        ["git", "commit", "-m", "add agent os"], cwd=repo, check=True, capture_output=True
+    )
+    agent_os.write_text("line one\r\nline two\r\n", encoding="utf-8", newline="")
+
+    monkeypatch.setattr(module, "REPO", repo)
+    monkeypatch.setattr(module, "AGENT_OS", agent_os)
+
+    values = module.build_receipt()
+
+    assert values["AGENT_OS_DIRTY"] == "false"
+    assert values["AGENT_OS_LOADED_BLOB_SHA"] == values["AGENT_OS_HEAD_BLOB_SHA"]
+
+
+def test_modified_agent_os_reports_dirty(monkeypatch, tmp_path):
+    module = _load_receipt_module()
+    repo = tmp_path / "repo"
+    agent_os = repo / "docs" / "AGENT_OPERATING_SYSTEM.md"
+    agent_os.parent.mkdir(parents=True)
+    agent_os.write_text("original\n", encoding="utf-8")
+    subprocess.run(["git", "init"], cwd=repo, check=True, capture_output=True)
+    subprocess.run(["git", "config", "user.email", "test@example.com"], cwd=repo, check=True)
+    subprocess.run(["git", "config", "user.name", "Test"], cwd=repo, check=True)
+    subprocess.run(["git", "add", "docs/AGENT_OPERATING_SYSTEM.md"], cwd=repo, check=True)
+    subprocess.run(
+        ["git", "commit", "-m", "add agent os"], cwd=repo, check=True, capture_output=True
+    )
+    agent_os.write_text("changed\n", encoding="utf-8")
+
+    monkeypatch.setattr(module, "REPO", repo)
+    monkeypatch.setattr(module, "AGENT_OS", agent_os)
+
+    values = module.build_receipt()
+
+    assert values["AGENT_OS_DIRTY"] == "true"
+    assert values["AGENT_OS_LOADED_BLOB_SHA"] != values["AGENT_OS_HEAD_BLOB_SHA"]
+
+
+def test_unreadable_loaded_hash_reports_unknown(monkeypatch):
+    module = _load_receipt_module()
+    monkeypatch.setattr(module, "_git_text", lambda *args: module.UNKNOWN)
+
+    values = module.build_receipt()
+
+    assert values["AGENT_OS_LOADED_BLOB_SHA"] == "UNKNOWN"
     assert values["AGENT_OS_DIRTY"] == "UNKNOWN"
 
 
