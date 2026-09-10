@@ -160,6 +160,8 @@ class PfkArticlesProvider(NewsProvider):
     def fetch(self, *, player_names=None, limit: int = 50) -> List[NewsItem]:
         raw = self._fetcher(self._sitemap_url)
         root = ET.fromstring(raw)
+        if root.tag.rsplit("}", 1)[-1] != "urlset":
+            raise ValueError("PFK response is not an article sitemap")
 
         known = [str(n) for n in (player_names or []) if n]
         candidates: List[tuple[Optional[datetime], str, str]] = []

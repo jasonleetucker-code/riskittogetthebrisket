@@ -126,6 +126,16 @@ class NewsItem:
         }
 
 
+@dataclass(frozen=True)
+class ProviderFetchDiagnostics:
+    """Optional sub-request accounting for providers with their own warm cache."""
+
+    attempted: int
+    failed: int
+    retained: bool = False
+    error: Optional[str] = None
+
+
 def stable_id(provider: str, payload: str) -> str:
     """Build a deterministic, short id for an item.
 
@@ -155,8 +165,9 @@ class NewsProvider(abc.ABC):
 
     Subclasses must set ``name`` and ``label`` as class attributes,
     and implement ``fetch``.  ``fetch`` MUST return a list (not a
-    generator) and MUST NOT raise — return an empty list on any
-    upstream failure.  The service layer will log and continue.
+    generator). Upstream and parse failures must raise so the service can
+    distinguish unavailable data from a healthy empty feed and retain valid items.
+    Providers serving their own warm cache can attach ProviderFetchDiagnostics.
     """
 
     name: str = ""
@@ -191,6 +202,7 @@ __all__ = [
     "NewsItem",
     "NewsProvider",
     "PlayerMention",
+    "ProviderFetchDiagnostics",
     "Severity",
     "stable_id",
     "to_iso_utc",
