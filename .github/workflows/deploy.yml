@@ -38,9 +38,12 @@ jobs:
     # below and was misread as that. It wasn't: no run was queued behind
     # any of them: it was this timeout, not concurrency, silently
     # blocking every production deploy including fixes for this week's
-    # launch tranche. 30 minutes gives real margin above the observed
-    # ~20-minute unit-test step instead of racing it every run.
-    timeout-minutes: 30
+    # launch tranche. Run 34426528602 then showed the same failure mode at
+    # 30 minutes: the hard suite was still progressing normally at 82%
+    # when the runner cancelled the job. Match PR Validation's 60-minute
+    # ceiling so the deploy gate has enough wall-clock headroom without
+    # weakening any test.
+    timeout-minutes: 60
     steps:
       - name: Checkout
         uses: actions/checkout@v7
