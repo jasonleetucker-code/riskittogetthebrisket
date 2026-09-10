@@ -179,3 +179,96 @@ def test_scrape_promotion_has_relative_population_collapse_guard() -> None:
     assert "population_collapsed" in text
     assert "player_retention < SCRAPE_PLAYER_RETENTION_FLOOR" in text
     assert "PLAYER POPULATION COLLAPSE" in text
+
+
+def _write_marked_payload(path: Path, marker: str, player_count: int = 100) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    payload = {
+        "date": "2026-09-09",
+        "scrapeTimestamp": "2026-09-09T20:00:00+00:00",
+        "marker": marker,
+        "players": {f"Player {i}": {"position": "WR"} for i in range(player_count)},
+    }
+    path.write_text(json.dumps(payload), encoding="utf-8")
+
+
+def test_startup_recovers_when_full_size_runtime_builds_degraded_contract(
+    tmp_path, monkeypatch
+) -> None:
+    data_dir = tmp_path / "data"
+    runtime = data_dir / "dynasty_data_2026-09-09.json"
+    checkout = tmp_path / "exports" / "latest" / "dynasty_data_2026-09-09.json"
+    _write_marked_payload(runtime, "runtime", 100)
+    _write_marked_payload(checkout, "checkout", 100)
+
+    monkeypatch.setattr(srv, "DATA_DIR", data_dir)
+    monkeypatch.setattr(srv, "BASE_DIR", tmp_path)
+    monkeypatch.setattr(srv, "contract_health", {})
+    monkeypatch.setattr(srv, "served_source_coverage", {})
+
+    loaded = srv.load_from_disk()
+    assert loaded is not None
+    assert loaded["marker"] == "runtime"
+    assert srv.latest_data_source["type"] == "disk_cache"
+
+    calls: list[str] = []
+
+    def fake_prime(data, *, is_fresh_scrape=False):
+        del is_fresh_scrape
+        marker = data["marker"]
+        calls.append(marker)
+        if marker == "runtime":
+            srv.contract_health = {
+                "ok": False,
+                "errors": ["source_missing:dlfSf", "source_missing:fantasyProsFitzmaurice"],
+            }
+            srv.served_source_coverage = {"dlfSf": 0, "fantasyProsFitzmaurice": 0}
+        else:
+            srv.contract_health = {"ok": True, "errors": []}
+            srv.served_source_coverage = {"dlfSf": 280, "fantasyProsFitzmaurice": 299}
+
+    monkeypatch.setattr(srv, "_prime_latest_payload", fake_prime)
+
+    fake_prime(loaded)
+    recovered = srv._recover_startup_contract_from_checkout(loaded)
+
+    assert recovered is not None
+    assert recovered["marker"] == "checkout"
+    assert calls == ["runtime", "checkout"]
+    assert srv.contract_health["ok"] is True
+    assert srv.latest_data_source["type"] == "checkout_contract_recovery"
+    assert srv.latest_data_source["path"] == str(checkout)
+
+
+def test_startup_contract_recovery_restores_runtime_if_checkout_is_also_invalid(
+    tmp_path, monkeypatch
+) -> None:
+    data_dir = tmp_path / "data"
+    runtime = data_dir / "dynasty_data_2026-09-09.json"
+    checkout = tmp_path / "exports" / "latest" / "dynasty_data_2026-09-09.json"
+    _write_marked_payload(runtime, "runtime", 100)
+    _write_marked_payload(checkout, "checkout", 100)
+
+    monkeypatch.setattr(srv, "DATA_DIR", data_dir)
+    monkeypatch.setattr(srv, "BASE_DIR", tmp_path)
+    monkeypatch.setattr(srv, "contract_health", {})
+
+    loaded = srv.load_from_disk()
+    assert loaded is not None
+
+    calls: list[str] = []
+
+    def fake_prime(data, *, is_fresh_scrape=False):
+        del is_fresh_scrape
+        calls.append(data["marker"])
+        srv.contract_health = {"ok": False, "errors": ["source_missing:dlfSf"]}
+
+    monkeypatch.setattr(srv, "_prime_latest_payload", fake_prime)
+
+    fake_prime(loaded)
+    recovered = srv._recover_startup_contract_from_checkout(loaded)
+
+    assert recovered is loaded
+    assert calls == ["runtime", "checkout", "runtime"]
+    assert srv.latest_data_source["type"] == "disk_cache"
+    assert srv.latest_data_source["path"] == str(runtime)

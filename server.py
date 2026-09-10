@@ -2788,6 +2788,69 @@ def load_from_disk() -> dict | None:
     return None
 
 
+def _recover_startup_contract_from_checkout(initial_data: dict | None) -> dict | None:
+    """Recover from a full-size runtime cache that builds a degraded contract.
+
+    The 2026-09-09 production incident showed that raw player-count retention
+    is necessary but insufficient: a persistent runtime payload can retain the
+    full player universe while identity/source joins collapse, leaving fresh
+    registered sources absent from the served canonical board.
+
+    Startup first primes the normal runtime cache. If that contract validates
+    unhealthy, try the checked-out latest export through the exact same
+    canonical build path. Keep the checkout generation only when it validates
+    healthy; otherwise restore the original runtime generation. This makes the
+    fallback evidence-based and cannot silently replace one bad board with
+    another.
+    """
+    if not initial_data:
+        return initial_data
+    if latest_data_source.get("type") != "disk_cache":
+        return initial_data
+    if bool((contract_health or {}).get("ok")):
+        return initial_data
+
+    checkout_files = sorted(
+        (BASE_DIR / "exports" / "latest").glob("dynasty_data_*.json"),
+        reverse=True,
+    )
+    checkout_path = checkout_files[0] if checkout_files else None
+    checkout_data = _load_cached_payload(checkout_path)
+    if checkout_data is None or checkout_path is None:
+        log.error("Startup contract is degraded and no checked-out recovery payload is available.")
+        return initial_data
+
+    original_source = dict(latest_data_source)
+    original_errors = list((contract_health or {}).get("errors") or [])
+    _set_latest_data_source(
+        "checkout_contract_recovery",
+        str(checkout_path),
+        produced_at=checkout_data.get("scrapeTimestamp"),
+    )
+    _prime_latest_payload(checkout_data)
+
+    if bool((contract_health or {}).get("ok")):
+        log.error(
+            "Persistent runtime cache built a degraded canonical contract; "
+            "recovered from checked-out export %s. Initial errors: %s",
+            checkout_path,
+            "; ".join(original_errors[:5]) or "<none reported>",
+        )
+        return checkout_data
+
+    log.error(
+        "Checked-out startup recovery payload also built an invalid contract; "
+        "restoring persistent runtime generation."
+    )
+    _set_latest_data_source(
+        str(original_source.get("type") or "disk_cache"),
+        str(original_source.get("path") or ""),
+        produced_at=original_source.get("producedAt"),
+    )
+    _prime_latest_payload(initial_data)
+    return initial_data
+
+
 def _latest_file(directory: Path, pattern: str) -> Path | None:
     if not directory.exists():
         return None
@@ -3366,6 +3429,7 @@ async def lifespan(app: FastAPI):
     # 1. Load cached data immediately so the dashboard is usable right away
     latest_data = load_from_disk()
     _prime_latest_payload(latest_data)
+    latest_data = _recover_startup_contract_from_checkout(latest_data)
     if latest_data:
         log.info("Dashboard ready with cached data")
     else:
