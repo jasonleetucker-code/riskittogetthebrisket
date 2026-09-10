@@ -13,6 +13,14 @@ freeze** is in force for the post-merge C-Series audit and stability gate (owner
 on a fresh owner decision. `C1-U1`, `C1-U2`, `C1-U3`, `C1-U4` and `C1-U6` are closed;
 `C0-R`, `C1-U5`, `C1-U8`, `C1-U9` and `C2-U1` are `CLOSED-PENDING-PROD`. See §18.
 
+**Reconciliation note (2026-09-10):** the fresh owner decision §18 requires has since
+been recorded in `docs/EXECUTION_PLAN.md` §0 — the 2026-08-18 V1 Completion Sprint
+authorization and the 2026-08-20 lane / POST-V1-campaign authorization both postdate
+this freeze and supersede it to the extent each states. `EXECUTION_PLAN.md` remains the
+only file that authorizes anything; this file's freeze text below is retained verbatim
+as the historical record of what it paused, not edited to match. See
+`docs/BACKLOG_REPLAN_2026-09-10.md` §0 for the full reconciliation.
+
 ---
 
 # 0. What this file is, and what it is not
@@ -731,6 +739,12 @@ the only record that authorizes anything**, and producing or reading this map st
 
 Scope reconciliation for the directive that authorized the campaign:
 `docs/C_SERIES_DIRECTIVE_RECONCILIATION_2026-08-17.md`.
+
+**2026-09-10 update:** see the reconciliation note at the top of this file (§0 summary).
+`docs/EXECUTION_PLAN.md` §0 has since authorized, on top of this freeze, the V1
+Completion Sprint (2026-08-18) and the lane-based + POST-V1-campaign work (2026-08-20).
+This section's text is left as written at the time of the freeze; do not read it alone
+as the current authorization state — read `EXECUTION_PLAN.md` §0.
 
 ---
 

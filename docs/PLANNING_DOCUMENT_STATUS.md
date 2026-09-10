@@ -21,6 +21,7 @@ below.** A document that appears nowhere is drift, and `scripts/check_planning_i
 | `docs/C_SERIES_SCOPE_MANIFEST.md` | **The exhaustive implementation/disposition census.** Answers "is this in scope, who owns it, what phase, what proves it done" |
 | `docs/C_SERIES_EXECUTION_MAP.md` | **The bounded-unit decomposition of the manifest.** Answers "what are the executable units, in what order, owned by whom, proven how". Decomposition only — it authorizes nothing; `EXECUTION_PLAN.md` alone does |
 | `docs/EXECUTION_PLAN.md` | **The ONLY record of current sequencing and explicit next authorized scope** |
+| `docs/BACKLOG_REPLAN_2026-09-10.md` | **Combined-phase sequencing overlay.** Reconciles the full remaining backlog (open issues + owner TODO + C-Series manifest) into shared-foundation-first combined phases with a dependency graph, PR map and completion forecast. Subordinate to `EXECUTION_PLAN.md`/`MASTER_PRODUCT_PLAN.md` — it authorizes nothing and creates no new requirement; it is a pointer-and-correction layer over the documents above, referenced from `EXECUTION_PLAN.md` §0 |
 | `docs/VERSION_1_COMPLETION_CONTRACT.md` | **The V1 completion denominator and status ledger.** Answers "what must be true for V1 to be complete, and how much of it is proven". Classifies scope; authorizes nothing — `EXECUTION_PLAN.md` §0 alone does |
 | `docs/CE_REGISTRY.md` | **The only place a CE identifier is defined** |
 | `docs/OWNER_REQUESTED_TODO.md` | **THE LIVE OWNER INTAKE LEDGER** — see §2 |
