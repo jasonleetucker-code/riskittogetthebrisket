@@ -67,7 +67,7 @@
 import fs from "node:fs";
 import { createRequire } from "node:module";
 import { chromium } from "playwright";
-import { hasUsefulElement, summarise, validateRunOptions } from "./route-baseline-support.mjs";
+import { hasUsefulElement, summarise, validateRunOptions, buildMetricsInitScript } from "./route-baseline-support.mjs";
 
 const require = createRequire(import.meta.url);
 // One owner for "what marks this route ready" — the e2e suite's table.
@@ -165,6 +165,9 @@ async function measureOnce(page, route, timeoutMs) {
     }
   }
 
+  // Capture only observed metrics within this declared lab window. Headless
+  // Chromium does not reliably hide a page when another tab is foregrounded;
+  // do not simulate visibility events or invent an unreported zero CLS.
   const nav = await page.evaluate(() => {
     const n = performance.getEntriesByType("navigation")[0];
     const fcp = performance
@@ -202,6 +205,7 @@ async function measureOnce(page, route, timeoutMs) {
       cls: window.__routeBaselineVitals?.CLS ?? null,
       longTaskMs: window.__routeBaselineLongTasks?.duration ?? null,
       longTaskCount: window.__routeBaselineLongTasks?.count ?? null,
+      instrumentationError: window.__routeBaselineInitError || (!window.__routeBaselineMetricsReady ? "vitals_not_initialized" : null),
     };
   });
 
@@ -244,28 +248,13 @@ const report = {
   cpuThrottle: args.cpu, network: args.network,
   coldMeaning: "fresh browser context; backend caches are not reset",
   warmMeaning: "second full navigation in the same browser context",
-  metricWindow: "navigation through useful state/load and declared interaction; CWV are lab-window observations, not field p75",
+  metricWindow: "navigation through useful state/load and declared interaction; unreported metrics stay null; CWV are lab-window observations, not finalized document metrics or field p75",
   routes: {},
 };
 // Reuse Next's pinned web-vitals implementation so CLS session windows
 // and INP are not approximated by a second home-grown metric engine.
 const vitalsCode = fs.readFileSync(require.resolve("next/dist/compiled/web-vitals"), "utf8");
-const initMetrics = `(function () {
-  const module = { exports: {} };
-  ${vitalsCode}
-  window.__routeBaselineVitals = {};
-  const report = (metric) => { window.__routeBaselineVitals[metric.name] = metric.value; };
-  for (const name of ["onLCP", "onINP", "onCLS"]) module.exports[name](report, { reportAllChanges: true });
-  if (PerformanceObserver.supportedEntryTypes.includes("longtask")) {
-    window.__routeBaselineLongTasks = { count: 0, duration: 0 };
-    new PerformanceObserver((list) => {
-      for (const entry of list.getEntries()) {
-        window.__routeBaselineLongTasks.count++;
-        window.__routeBaselineLongTasks.duration += entry.duration;
-      }
-    }).observe({ type: "longtask", buffered: true });
-  }
-})();`;
+const initMetrics = buildMetricsInitScript(vitalsCode);
 
 for (const vp of viewports) {
   for (const route of routes) {
@@ -355,13 +344,18 @@ for (const [key, r] of Object.entries(report.routes)) {
   }
 }
 const missing = Object.values(report.routes).reduce((sum, route) => sum + route.cold.usefulMissing + route.warm.usefulMissing, 0);
+const instrumentationErrors = Object.values(report.routes).reduce((sum, route) => sum + route.cold.instrumentationErrors + route.warm.instrumentationErrors, 0);
 if (OVER.length) {
   console.log(`\n${OVER.length} measurement(s) over the standard's target:`);
   for (const line of OVER) console.log(`  ${line}`);
-} else if (!missing) {
+} else if (!missing && !instrumentationErrors) {
   console.log("\nAll measured routes inside the standard's targets.");
 }
 if (missing) {
   console.error(`\n${missing} sample(s) had no useful state; incomplete baseline, not a performance pass.`);
+  process.exitCode = 1;
+}
+if (instrumentationErrors) {
+  console.error(`\n${instrumentationErrors} sample(s) had failed metric instrumentation; incomplete baseline.`);
   process.exitCode = 1;
 }

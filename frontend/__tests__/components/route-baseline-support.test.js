@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { hasUsefulElement, summarise, validateRunOptions } from "../../scripts/route-baseline-support.mjs";
+import { hasUsefulElement, summarise, validateRunOptions, buildMetricsInitScript } from "../../scripts/route-baseline-support.mjs";
 
 afterEach(() => { document.body.innerHTML = ""; vi.restoreAllMocks(); });
 
@@ -28,5 +28,16 @@ describe("route baseline validity", () => {
     for (const invalid of [{ runs: 0 }, { cpu: 0 }, { viewport: "phone" }, { routes: ["/missing"] }, { network: "fast-ish" }]) {
       expect(() => validateRunOptions({ ...valid, ...invalid }, ["/rankings"])).toThrow();
     }
+  });
+  it("runs the pinned CJS asset-base shim and makes initialization failure explicit", () => {
+    vi.stubGlobal("PerformanceObserver", class { static supportedEntryTypes = []; });
+    window.eval(buildMetricsInitScript('const base = __dirname + "/"; module.exports = { onLCP(cb) { cb({name:"LCP",value:100}); }, onINP() {}, onCLS(cb) { cb({name:"CLS",value:0}); } };'));
+    expect(window.__routeBaselineMetricsReady).toBe(true);
+    expect(window.__routeBaselineVitals).toEqual({ LCP: 100, CLS: 0 });
+    window.eval(buildMetricsInitScript('throw new Error("broken pinned bundle");'));
+    expect(window.__routeBaselineMetricsReady).toBe(false);
+    expect(window.__routeBaselineInitError).toBe("vitals_initialization_failed");
+    expect(summarise([{ instrumentationError: window.__routeBaselineInitError }]).instrumentationErrors).toBe(1);
+    vi.unstubAllGlobals();
   });
 });

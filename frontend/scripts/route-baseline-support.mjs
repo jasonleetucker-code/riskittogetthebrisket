@@ -13,7 +13,36 @@ export function summarise(samples) {
   out.usefulMissing = samples.filter((s) => s?.usefulMs == null).length;
   out.errors = samples.filter((s) => s?.error).length;
   out.interactionErrors = samples.filter((s) => s?.interactionError).length;
+  out.instrumentationErrors = samples.filter((s) => s?.instrumentationError).length;
   return out;
+}
+
+export function buildMetricsInitScript(vitalsCode) {
+  return `(function () {
+    window.__routeBaselineVitals = {};
+    window.__routeBaselineMetricsReady = false;
+    try {
+      // Next's pinned CJS bundle initializes webpack's asset base with this
+      // variable even though the metrics implementation loads no assets.
+      const __dirname = "";
+      const module = { exports: {} };
+      ${vitalsCode}
+      const report = (metric) => { window.__routeBaselineVitals[metric.name] = metric.value; };
+      for (const name of ["onLCP", "onINP", "onCLS"]) module.exports[name](report, { reportAllChanges: true });
+      if (PerformanceObserver.supportedEntryTypes.includes("longtask")) {
+        window.__routeBaselineLongTasks = { count: 0, duration: 0 };
+        new PerformanceObserver((list) => {
+          for (const entry of list.getEntries()) {
+            window.__routeBaselineLongTasks.count++;
+            window.__routeBaselineLongTasks.duration += entry.duration;
+          }
+        }).observe({ type: "longtask", buffered: true });
+      }
+      window.__routeBaselineMetricsReady = true;
+    } catch {
+      window.__routeBaselineInitError = "vitals_initialization_failed";
+    }
+  })();`;
 }
 
 /** Runs in the browser, and in jsdom tests. Skeletons, spacers and staged
