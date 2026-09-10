@@ -2817,9 +2817,7 @@ def _recover_startup_contract_from_checkout(initial_data: dict | None) -> dict |
     checkout_path = checkout_files[0] if checkout_files else None
     checkout_data = _load_cached_payload(checkout_path)
     if checkout_data is None or checkout_path is None:
-        log.error(
-            "Startup contract is degraded and no checked-out recovery payload is available."
-        )
+        log.error("Startup contract is degraded and no checked-out recovery payload is available.")
         return initial_data
 
     original_source = dict(latest_data_source)
