@@ -64,8 +64,14 @@ try {
       if (variant === "full") canonicalByViewport.set(baselineKey, initialCsv);
       else expect(initialCsv).toBe(canonicalByViewport.get(baselineKey));
       await page.getByRole("button", { name: /^Columns/ }).click();
+      await page.getByRole("checkbox", { name: "Show source columns", exact: true }).check();
+      await page.getByRole("button", { name: /^Columns/ }).click();
+      const shownColumnCount = await page.locator(".ds-table thead th").count();
+      expect(await csv(page, "Export CSV")).toBe(initialCsv);
+      await page.getByRole("button", { name: /^Columns/ }).click();
       await page.getByRole("checkbox", { name: "Show source columns", exact: true }).uncheck();
       await page.getByRole("button", { name: /^Columns/ }).click();
+      expect(await page.locator(".ds-table thead th").count()).toBeLessThan(shownColumnCount);
       expect(await csv(page, "Export CSV")).toBe(initialCsv);
       await page.getByRole("textbox", { name: "Search the board" }).fill("Player 00");
       await expect.poll(async () => page.locator(SEL.playerName).count()).toBe(10);

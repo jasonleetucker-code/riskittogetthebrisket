@@ -37,6 +37,7 @@ With Playwright installed, run from the repository root:
 ```sh
 node tests/e2e/performance-lab/browser-lab.mjs
 node tests/e2e/performance-lab/diagnose.mjs
+node tests/e2e/performance-lab/geometry.mjs
 ```
 
 Set `PW_CHROMIUM_PATH` to an installed Chromium executable if Playwright's
@@ -57,6 +58,11 @@ The diagnostic script runs one cold and warm mobile navigation per route with
 the ten-second useful-state cutoff and records resource groups, API waterfall,
 CDP script/layout task durations, long tasks, and marker geometry. Run after
 other tests/builds stop. It does not change the readiness predicate or app.
+
+The geometry script checks mounted versus total row counts, reachability of
+the last row, stable column widths while scrolling, horizontal scrolling,
+and width restoration across desktop/mobile resizing. Compare its output
+before and after a rendering change using separate `PERF_LAB_OUTPUT` folders.
 
 The general baseline harness is `frontend/scripts/measure-route-baselines.mjs`.
 Use `E2E_BASE_URL=http://127.0.0.1:3082`,
@@ -80,3 +86,6 @@ values remain null, and these are not finalized document metrics or field p75.
 
 The checked-in `evidence.json` records the bounded validation and its failures.
 Detailed generated reports and screenshots remain in the output directory.
+The median-update guard removes redundant row-window state updates and passes
+the geometry and interaction checks. Its measured speed benefit remains
+unproven, and the throttled useful-state gate remains failed.

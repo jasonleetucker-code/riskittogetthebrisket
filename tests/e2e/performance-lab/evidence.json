@@ -247,5 +247,57 @@
     "CWV are lab-window observations, not finalized document metrics or fieldp75; unreported values staynull.",
     "Node24was used because the bundled runtime was available; repository declares Node20."
   ],
-  "reproduce": "See README.md, fixture-server.mjs, browser-lab.mjs, and diagnose.mjs in this directory."
+  "reproduce": "See README.md, fixture-server.mjs, browser-lab.mjs, and diagnose.mjs in this directory.",
+  "renderingFix": {
+    "change": "Only publish row-window measurement state when one of the three median heights changes. All sampling, width freezing and windowing are preserved.",
+    "reason": "Identical measurements previously published another state update, rerendering the table and reattaching refs that schedule another measurement. Regression test verifies stable geometry does not rerender and changed median does.",
+    "performanceBenefit": "UNPROVEN. Retained as a regression-tested removal of redundant updates; no speed or stress-gate pass claim.",
+    "discardedCandidate": "Moving offset reads into an animation-frame batch and skipping disabled-window reads preserved geometry but did not improve timing; entirely reverted.",
+    "geometry": {
+      "exactBeforeAfterWidths": true,
+      "desktopTableWidth": 1278,
+      "mobileTableWidth": 623,
+      "mobileHorizontalScroll": 247,
+      "bottomRowReachable": true,
+      "resizeRestoration": true
+    },
+    "pairedProbe": {
+      "concurrentBuildsOrTests": false,
+      "readyTimeoutMs": 10000,
+      "predicateChanged": false,
+      "gate": "FAIL",
+      "samples": [
+        {
+          "route": "/rankings",
+          "state": "cold",
+          "originalUsefulMs": null,
+          "candidateUsefulMs": 8880
+        },
+        {
+          "route": "/rankings",
+          "state": "warm",
+          "originalUsefulMs": 4581,
+          "candidateUsefulMs": 5629
+        },
+        {
+          "route": "/trade",
+          "state": "cold",
+          "originalUsefulMs": 4745,
+          "candidateUsefulMs": 4464
+        },
+        {
+          "route": "/trade",
+          "state": "warm",
+          "originalUsefulMs": 1743,
+          "candidateUsefulMs": 1426
+        }
+      ]
+    },
+    "productionBuild": "PASS:flag-on median candidate, separate .next.prepared-median-lab",
+    "focusedTests": "PASS:37RowWindow/DataTable tests",
+    "finalSuite": "PASS:174files,2513tests with --maxWorkers=2,100.19seconds",
+    "finalBrowser": "PASS:9cases after explicit source-column show/hide count assertions; exports unchanged",
+    "finalBundleBudgets": "PASS:14/14",
+    "labServersStopped": true
+  }
 }
