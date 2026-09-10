@@ -1,12 +1,12 @@
 {
-  "computedAt": "2026-09-10T05:24:43.027618+00:00",
+  "computedAt": "2026-09-10T11:56:04.756814+00:00",
   "championshipOdds": [
     {
       "ownerId": "1002085133723299840",
       "displayName": "Brent",
-      "championshipOdds": 0.3442,
-      "finalsOdds": 0.6195,
-      "semifinalOdds": 0.9305,
+      "championshipOdds": 0.3433,
+      "finalsOdds": 0.6222,
+      "semifinalOdds": 0.9261,
       "playoffOdds": 1.0,
       "expectedFinish": 2.31,
       "contenderTier": "Favorite"
@@ -14,41 +14,41 @@
     {
       "ownerId": "1033502330853302272",
       "displayName": "cbonex21",
-      "championshipOdds": 0.2535,
-      "finalsOdds": 0.4615,
-      "semifinalOdds": 0.8738,
+      "championshipOdds": 0.2537,
+      "finalsOdds": 0.4614,
+      "semifinalOdds": 0.8739,
       "playoffOdds": 1.0,
-      "expectedFinish": 2.69,
+      "expectedFinish": 2.7,
       "contenderTier": "Favorite"
     },
     {
       "ownerId": "984270279268446208",
       "displayName": "Comacho",
-      "championshipOdds": 0.2174,
-      "finalsOdds": 0.4566,
-      "semifinalOdds": 0.863,
+      "championshipOdds": 0.217,
+      "finalsOdds": 0.4457,
+      "semifinalOdds": 0.8664,
       "playoffOdds": 1.0,
-      "expectedFinish": 2.8,
+      "expectedFinish": 2.81,
       "contenderTier": "Favorite"
     },
     {
       "ownerId": "720513970041061376",
       "displayName": "tedkinney",
-      "championshipOdds": 0.1664,
-      "finalsOdds": 0.3707,
-      "semifinalOdds": 0.8368,
+      "championshipOdds": 0.1656,
+      "finalsOdds": 0.3748,
+      "semifinalOdds": 0.8372,
       "playoffOdds": 1.0,
-      "expectedFinish": 3.07,
+      "expectedFinish": 3.06,
       "contenderTier": "Serious Contender"
     },
     {
       "ownerId": "472206636534984704",
       "displayName": "Roy",
-      "championshipOdds": 0.0185,
-      "finalsOdds": 0.0917,
-      "semifinalOdds": 0.4959,
+      "championshipOdds": 0.0204,
+      "finalsOdds": 0.0959,
+      "semifinalOdds": 0.4964,
       "playoffOdds": 1.0,
-      "expectedFinish": 4.12,
+      "expectedFinish": 4.11,
       "contenderTier": "Dangerous Playoff Team"
     }
   ],
