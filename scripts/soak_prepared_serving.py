@@ -14,6 +14,7 @@ import gzip
 import hashlib
 import http.client
 import json
+import math
 import os
 import platform
 import statistics
@@ -27,6 +28,19 @@ from pathlib import Path
 from types import SimpleNamespace
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+
+from scripts.soak_observation import (
+    AbsoluteSchedule,
+    ObservationTiming,
+    QuietRecovery,
+    ReloadActivity,
+    code_provenance,
+    maximum_observation_gap,
+    quiet_observations_ready,
+    serving_drain_status,
+    valid_durations,
+    wholly_within,
+)
 
 
 def percentile(values, fraction=0.95):
@@ -65,36 +79,60 @@ class TimedEvents(list):
 
 
 @contextmanager
-def resource_observations(path, observe, rows, errors, interval=1, progress=None):
+def resource_observations(
+    path, observe, rows, errors, interval=1, progress=None, *, timings=None, timed_observe=False
+):
     """Sample outside driver publication/child-start waits; never fill missed ticks."""
     done = threading.Event()
 
     def collect():
         try:
             with path.open("w", encoding="utf-8") as stream:
-                deadline = time.monotonic()
+                schedule = AbsoluteSchedule(time.monotonic(), interval)
                 while not done.is_set():
-                    row = observe()
-                    rows.append(row)
-                    stream.write(json.dumps(row) + "\n")
-                    stream.flush()
-                    if len(rows) % 60 == 0:
-                        print(
-                            json.dumps(
-                                {
-                                    "seconds": row["seconds"],
-                                    "samples": len(rows),
-                                    "errors": len(errors),
-                                    **(progress() if progress else {}),
-                                }
-                            ),
-                            flush=True,
+                    timing = ObservationTiming()
+                    actual = time.monotonic()
+                    driver_cpu = time.process_time_ns()
+                    observation = schedule.started(actual)
+                    try:
+                        with timing.stage("iteration"):
+                            with timing.stage("observe"):
+                                row = observe(timing) if timed_observe else observe()
+                            rows.append(row)
+                            with timing.stage("write"):
+                                stream.write(json.dumps(row) + "\n")
+                            with timing.stage("flush"):
+                                stream.flush()
+                            with timing.stage("progress"):
+                                if len(rows) % 60 == 0:
+                                    print(
+                                        json.dumps(
+                                            {
+                                                "seconds": row["seconds"],
+                                                "samples": len(rows),
+                                                "errors": len(errors),
+                                                **(progress() if progress else {}),
+                                            }
+                                        ),
+                                        flush=True,
+                                    )
+                    finally:
+                        # Keep completed IO/flush timings in memory; serialize
+                        # this small diagnostic ledger after observation ends.
+                        # No second synchronous log write is hidden per tick.
+                        observation.update(
+                            finishedMonotonicSeconds=time.monotonic(),
+                            driverProcessCpuMs=(time.process_time_ns() - driver_cpu) / 1_000_000,
+                            stages=timing.snapshot(),
                         )
-                    deadline += interval
-                    now = time.monotonic()
-                    if deadline < now:
-                        deadline = now + interval
-                    done.wait(max(0, deadline - now))
+                        if timings is not None:
+                            timings.append(observation)
+                    with timing.stage("schedule"):
+                        delay = schedule.next_delay(time.monotonic())
+                    observation["stages"] = timing.snapshot()
+                    observation["requestedWaitSeconds"] = delay
+                    observation["missedTicksAfter"] = schedule.skipped
+                    done.wait(delay)
         except Exception as exc:
             errors.append(f"sampling_{type(exc).__name__}")
 
@@ -210,6 +248,8 @@ def launch(args, kind, sequence=0):
         "--port",
         str(args.port),
     ]
+    if kind == "web" and getattr(args, "diagnostic_spans", False):
+        command.append("--diagnostic-spans")
     child = subprocess.Popen(
         command,
         stdout=subprocess.DEVNULL,
@@ -236,6 +276,31 @@ def web_worker(args, store):
     os.environ.setdefault("ALLOW_DEFAULT_LOGIN_DEV", "1")
     import server
 
+    tracer = None
+    if getattr(args, "diagnostic_spans", False):
+        from scripts.serving_lab_spans import LabSpans
+        from src.serving import serialization
+
+        tracer = LabSpans(args.root.with_name(args.root.name + ".spans.jsonl"))
+        tracer.install(server)
+        load_generation = serialization.load_generation
+
+    # Acceptance instrumentation is counters/clocks only. Track meaningful
+    # loads and encoding, not each unchanged 1s/2s polling call, so an entirely
+    # idle polling loop does not manufacture refresh activity.
+    from src.serving import league_views
+    from src.serving.producer_status import pending_league_refresh, pending_source_refresh
+
+    reload_activity = ReloadActivity()
+    store.read_current = reload_activity.wrap(store.read_current)
+    load_generation = reload_activity.wrap(load_generation)
+    for name in (
+        "load_league_views",
+        "validate_league_views",
+        "prepare_league_views",
+        "prepare_payload",
+    ):
+        setattr(league_views, name, reload_activity.wrap(getattr(league_views, name)))
     state = AtomicRuntime(
         store, ASSET, KEY, load_generation, on_publish=server._publish_serving_generation
     )
@@ -257,19 +322,32 @@ def web_worker(args, store):
         leagues.refresh()
         state.start()
         leagues.start()
+        if tracer:
+            tracer.begin_serving()
         (args.root / "web-ready").write_text("ready", encoding="utf-8")
         try:
             yield
         finally:
             state.stop()
             leagues.stop()
+            if tracer:
+                await tracer.end_serving()
 
     server.app.router.lifespan_context = fixture_lifespan
 
     @server.app.middleware("http")
     async def observe_reload(request, call_next):
         active = state._reload_lock.locked() or leagues._refresh_lock.locked()
-        response = await call_next(request)
+        if tracer and request.url.path in {
+            "/api/read-models/rankings",
+            "/api/read-models/trade/context",
+        }:
+            route = "rankings" if request.url.path.endswith("rankings") else "trade"
+            with tracer.request(route) as request_id:
+                response = await call_next(request)
+                response.headers["X-Soak-Request-Sequence"] = str(request_id)
+        else:
+            response = await call_next(request)
         response.headers["X-Soak-Reload-Active"] = str(
             int(active or state._reload_lock.locked() or leagues._refresh_lock.locked())
         )
@@ -286,6 +364,16 @@ def web_worker(args, store):
             state.start()
         elif action == "shutdown":
             web_server.should_exit = True
+        elif action == "drain":
+            result = await run_in_threadpool(
+                serving_drain_status,
+                store,
+                state,
+                leagues,
+                [cfg],
+                reload_activity,
+                lambda: pending_source_refresh(store) or pending_league_refresh(store),
+            )
         elif action != "state":
             raise ValueError("unknown fixture control")
         return {
@@ -302,6 +390,8 @@ def web_worker(args, store):
         args.web_loop.run_until_complete(web_server.serve())
     finally:
         args.web_loop.close()
+        if tracer:
+            tracer.close()
 
 
 def http_response(connection, path, *, etag=None, method="GET"):
@@ -323,8 +413,8 @@ class RemoteRuntime:
     def __init__(self, port):
         self.port = port
 
-    def control(self, action):
-        connection = http.client.HTTPConnection("127.0.0.1", self.port, timeout=30)
+    def control(self, action, *, timeout=30):
+        connection = http.client.HTTPConnection("127.0.0.1", self.port, timeout=timeout)
         try:
             response = http_response(connection, "/__soak/" + action, method="POST")
             assert response.status_code == 200
@@ -375,13 +465,23 @@ class ChildLedger:
         except (psutil.NoSuchProcess, psutil.AccessDenied):
             pass
 
-    def remaining(self, parent):
+    def remaining(self, parent, *, exclude=()):
         import psutil
 
-        visible = {child.pid for child in parent.children(recursive=True)}
-        with self.lock:
-            identities = tuple(self.identities)
+        visible_processes = parent.children(recursive=True)
+        visible = {child.pid for child in visible_processes}
+        discovered = set()
         remaining = reparented = unknown = 0
+        for child in visible_processes:
+            try:
+                discovered.add((child.pid, child.create_time()))
+            except psutil.NoSuchProcess:
+                pass
+            except psutil.AccessDenied:
+                unknown += 1
+        with self.lock:
+            self.identities.update(discovered)
+            identities = tuple(self.identities - set(exclude))
         for pid, created in identities:
             try:
                 process = psutil.Process(pid)
@@ -495,66 +595,90 @@ def publication_evidence(events, observed):
     return bool(changed) and all(generation and generation in observed for generation in changed)
 
 
-def sample(process, root, started, previous_cpu=None, child_ledger=None, web_identity=None):
+def sample(
+    process, root, started, previous_cpu=None, child_ledger=None, web_identity=None, *, timing=None
+):
     import psutil
 
-    members = [process, *process.children(recursive=True)]
+    timing = timing or ObservationTiming()
+    observation_started = time.monotonic()
+    with timing.stage("tree"):
+        members = [process, *process.children(recursive=True)]
     web_ids = set()
     web_observed = False
-    if web_identity is not None:
-        try:
-            web_pid, web_created = web_identity
-            web_process = psutil.Process(web_pid)
-            if web_process.create_time() == web_created:
-                web_ids = {web_pid, *(p.pid for p in web_process.children(recursive=True))}
-                web_observed = web_ids <= {member.pid for member in members}
-        except (psutil.NoSuchProcess, psutil.AccessDenied):
-            pass
+    with timing.stage("webTree"):
+        if web_identity is not None:
+            try:
+                web_pid, web_created = web_identity
+                web_process = psutil.Process(web_pid)
+                if web_process.create_time() == web_created:
+                    web_ids = {web_pid, *(p.pid for p in web_process.children(recursive=True))}
+                    web_observed = web_ids <= {member.pid for member in members}
+            except (psutil.NoSuchProcess, psutil.AccessDenied):
+                pass
     driver_rss = driver_handles = web_rss = web_handles = 0
-    if child_ledger is not None:
-        for member in members[1:]:
-            child_ledger.observe(member)
+    with timing.stage("ledger"):
+        if child_ledger is not None:
+            for member in members[1:]:
+                child_ledger.observe(member)
     rss = peak = handles = 0
     cpu = 0.0
     cpu_delta = 0.0
+    driver_cpu_delta = web_cpu_delta = 0.0
     alive = 0
+    unknown = 0
     for member in members:
         try:
-            memory = member.memory_info()
-            rss += memory.rss
-            peak += getattr(memory, "peak_wset", memory.rss)
-            descriptors = member.num_handles() if os.name == "nt" else member.num_fds()
-            handles += descriptors
-            if member.pid == process.pid:
-                driver_rss = memory.rss
-                driver_handles = descriptors
-            if member.pid in web_ids:
-                web_rss += memory.rss
-                web_handles += descriptors
-            times = member.cpu_times()
-            cpu += times.user + times.system
-            if previous_cpu is not None:
-                prior = previous_cpu.get(member.pid)
-                current = times.user + times.system
-                if prior is not None:
-                    cpu_delta += max(0, current - prior)
-                previous_cpu[member.pid] = current
-            alive += 1
+            with timing.stage("member"):
+                with timing.stage("memberMemory"):
+                    memory = member.memory_info()
+                rss += memory.rss
+                peak += getattr(memory, "peak_wset", memory.rss)
+                with timing.stage("memberHandles"):
+                    descriptors = member.num_handles() if os.name == "nt" else member.num_fds()
+                handles += descriptors
+                if member.pid == process.pid:
+                    driver_rss = memory.rss
+                    driver_handles = descriptors
+                if member.pid in web_ids:
+                    web_rss += memory.rss
+                    web_handles += descriptors
+                with timing.stage("memberCpu"):
+                    times = member.cpu_times()
+                cpu += times.user + times.system
+                if previous_cpu is not None:
+                    prior = previous_cpu.get(member.pid)
+                    current = times.user + times.system
+                    delta = max(0, current - prior) if prior is not None else 0
+                    cpu_delta += delta
+                    driver_cpu_delta += delta if member.pid == process.pid else 0
+                    web_cpu_delta += delta if member.pid in web_ids else 0
+                    previous_cpu[member.pid] = current
+                alive += 1
         except (psutil.NoSuchProcess, psutil.AccessDenied):
+            unknown += 1
             if member.pid in web_ids:
                 web_observed = False
             continue
     # Lab root only, never source archives or unrelated caches.
     disk = 0
-    for path in root.rglob("*"):
-        try:
-            if path.is_file():
-                disk += path.stat().st_size
-        except FileNotFoundError:
-            # A publisher may rename its temporary file during this observation.
-            continue
+    with timing.stage("disk"):
+        for path in root.rglob("*"):
+            try:
+                if path.is_file():
+                    disk += path.stat().st_size
+            except FileNotFoundError:
+                # A publisher may rename its temporary file during this observation.
+                continue
+    with timing.stage("hostCpu"):
+        host_cpu = psutil.cpu_percent()
+    observation_finished = time.monotonic()
     return {
-        "seconds": round(time.monotonic() - started, 3),
+        "seconds": round(observation_finished - started, 3),
+        "observationStartedSeconds": observation_started - started,
+        "observationFinishedSeconds": observation_finished - started,
+        "resourceObservationComplete": unknown == 0 and (web_identity is None or web_observed),
+        "unknownProcessObservationCount": unknown,
         "rssBytes": rss,
         "driverRssBytes": driver_rss,
         "driverDescriptorCount": driver_handles,
@@ -564,7 +688,9 @@ def sample(process, root, started, previous_cpu=None, child_ledger=None, web_ide
         "peakRssBytes": peak,
         "cpuSecondsLiveProcesses": cpu,
         "cpuSecondsSincePreviousSample": cpu_delta,
-        "hostCpuPercent": psutil.cpu_percent(),
+        "driverCpuSecondsSincePreviousSample": driver_cpu_delta,
+        "webCpuSecondsSincePreviousSample": web_cpu_delta if web_observed else None,
+        "hostCpuPercent": host_cpu,
         "processCount": alive,
         "descriptorCount": handles,
         "diskBytes": disk,
@@ -581,9 +707,14 @@ def summarize(
     *,
     children=None,
     idle_process_count=1,
+    quiet_bounds=None,
 ):
     baseline = [row for row in samples if baseline_seconds / 2 <= row["seconds"] < baseline_seconds]
-    final = samples[-min(120, max(1, len(samples) // 10)) :]
+    final = (
+        [row for row in samples if wholly_within(row, quiet_bounds)]
+        if quiet_bounds is not None
+        else samples[-min(120, max(1, len(samples) // 10)) :]
+    )
     # Compare idle-parent samples to avoid treating a currently running worker as
     # a leak. Peak tree RSS remains recorded for capacity planning.
     baseline_idle = [row for row in baseline if row["processCount"] == idle_process_count]
@@ -675,6 +806,10 @@ def main(args):
     from src.serving.serialization import ASSET, KEY, load_generation, publish_generation
 
     harness_sha = hashlib.sha256(Path(__file__).read_bytes()).hexdigest()
+    repo_root = Path(__file__).resolve().parents[1]
+    provenance_start = code_provenance(
+        repo_root, diagnostic_spans=getattr(args, "diagnostic_spans", False)
+    )
     if args.root.exists():
         raise ValueError("Soak requires a new private root; existing stores are never modified")
     args.root.mkdir(parents=True)
@@ -704,7 +839,9 @@ def main(args):
     state = RemoteRuntime(args.port)
     # Include the whole intentionally running web tree (Windows Python may use
     # launcher descendants), captured before any source/league workers start.
-    baseline_process_count = 1 + len(psutil.Process().children(recursive=True))
+    baseline_children = psutil.Process().children(recursive=True)
+    baseline_process_count = 1 + len(baseline_children)
+    web_tree_identities = {(member.pid, member.create_time()) for member in baseline_children}
     web_identity = (web_child.pid, psutil.Process(web_child.pid).create_time())
 
     started = time.monotonic()
@@ -764,6 +901,10 @@ def main(args):
                             "status": response.status_code,
                             "elapsedMs": elapsed,
                         }
+                        if getattr(args, "diagnostic_spans", False):
+                            observation["requestId"] = int(
+                                response.headers["x-soak-request-sequence"]
+                            )
                         if response.status_code not in (200, 304):
                             try:
                                 reason = json.loads(response.body).get("error")
@@ -807,6 +948,11 @@ def main(args):
     process = psutil.Process()
     previous_cpu = {}
     samples = []
+    sampler_timings = []
+    recovery = QuietRecovery(args.duration_seconds, args.quiet_seconds)
+    quiet_checks = []
+    last_quiet_check = None
+    last_quiet_sample_index = None
     child = None
     league_child = None
     sequence = 0
@@ -926,18 +1072,26 @@ def main(args):
     try:
         with resource_observations(
             sample_file,
-            lambda: sample(
-                process, args.root, started, previous_cpu, args.child_ledger, web_identity
+            lambda timing: sample(
+                process,
+                args.root,
+                started,
+                previous_cpu,
+                args.child_ledger,
+                web_identity,
+                timing=timing,
             ),
             samples,
             errors,
             progress=lambda: {"httpErrors": sum(read_error_counts.values())},
+            timings=sampler_timings,
+            timed_observe=True,
         ):
-            while time.monotonic() - started < args.duration_seconds and not stop.is_set():
+            while recovery.phase != "done" and not stop.is_set():
                 tick = time.monotonic()
                 elapsed = tick - started
                 if child is not None and child.poll() is not None:
-                    _, stderr = child.communicate()
+                    child.communicate(timeout=10)
                     if child.returncode != 0:
                         errors.append(f"worker_exit_{child.returncode}")
                     events.append(
@@ -955,7 +1109,7 @@ def main(args):
                     )
                     child = None
                 if league_child is not None and league_child.poll() is not None:
-                    league_child.communicate()
+                    league_child.communicate(timeout=10)
                     if league_child.returncode != 0:
                         errors.append(f"league_worker_exit_{league_child.returncode}")
                     events.append({"kind": "league_refresh", "exitCode": league_child.returncode})
@@ -971,7 +1125,7 @@ def main(args):
                     and child is None
                     and league_child is None
                     and (fault_thread is None or not fault_thread.is_alive())
-                    and elapsed < args.duration_seconds - args.quiet_seconds
+                    and recovery.admitting(time.monotonic() - started)
                 ):
                     sequence += 1
                     request_source_refresh(store, "soak")
@@ -985,6 +1139,7 @@ def main(args):
                     and child is None
                     and league_child is None
                     and fault_thread is None
+                    and recovery.admitting(time.monotonic() - started)
                 ):
                     fault_thread = threading.Thread(
                         target=exercise_faults, name="soak-faults", daemon=True
@@ -993,6 +1148,71 @@ def main(args):
                 if web_child.poll() is not None:
                     errors.append("fatal_web_child_exit")
                     break
+                elapsed = time.monotonic() - started
+                if elapsed >= args.duration_seconds:
+                    # No more work is admitted. Wait for natural worker exit,
+                    # then prove that both independent readers consumed their
+                    # latest pointers, before starting the full quiet interval.
+                    drain_timing = ObservationTiming()
+                    with drain_timing.stage("workerLedger"):
+                        remaining = args.child_ledger.remaining(
+                            process, exclude=web_tree_identities
+                        )
+                    workers_drained = (
+                        child is None
+                        and league_child is None
+                        and (fault_thread is None or not fault_thread.is_alive())
+                        and remaining["remainingCount"] == 0
+                        and remaining["unknownCount"] == 0
+                    )
+                    drain = {"ready": False, "continuityToken": None}
+                    if workers_drained:
+                        try:
+                            with drain_timing.stage("readerDrainControl"):
+                                drain = state.control("drain", timeout=5)["result"]
+                        except Exception as exc:
+                            drain["failureType"] = type(exc).__name__
+                    now = time.monotonic() - started
+                    current_sample_count = len(samples)
+                    first_new = (
+                        last_quiet_sample_index
+                        if last_quiet_sample_index is not None
+                        else max(0, current_sample_count - 1)
+                    )
+                    observation_complete = quiet_observations_ready(
+                        samples[:current_sample_count], first_new, now
+                    ) and (last_quiet_check is None or now - last_quiet_check <= 2)
+                    last_quiet_sample_index = current_sample_count
+                    last_quiet_check = now
+                    previous_phase = recovery.phase
+                    recovery.advance(
+                        now,
+                        workers_drained=workers_drained,
+                        reloads_drained=drain["ready"],
+                        token=drain["continuityToken"],
+                        observation_complete=observation_complete,
+                    )
+                    quiet_checks.append(
+                        {
+                            "seconds": now,
+                            "phase": recovery.phase,
+                            "workers": remaining,
+                            "observationComplete": observation_complete,
+                            "reader": drain,
+                            "stages": drain_timing.snapshot(),
+                        }
+                    )
+                    if recovery.phase != previous_phase:
+                        events.append({"kind": "recovery_phase", "phase": recovery.phase})
+                    if (
+                        recovery.phase != "done"
+                        and now
+                        >= args.duration_seconds + args.drain_timeout_seconds + args.quiet_seconds
+                    ):
+                        errors.append("quiet_drain_timeout")
+                        break
+                    if recovery.phase == "done":
+                        break
                 stop.wait(max(0, 1 - (time.monotonic() - tick)))
     except Exception as exc:
         errors.append(f"driver_{type(exc).__name__}")
@@ -1034,6 +1254,12 @@ def main(args):
     )
     if read_error_counts:
         errors.append("unexpected_read_failures")
+    quiet_report = recovery.report()
+    quiet_bounds = (
+        (quiet_report["quietStartSeconds"], quiet_report["quietEndSeconds"])
+        if quiet_report["verified"]
+        else (math.inf, -math.inf)
+    )
     report = summarize(
         samples,
         latencies,
@@ -1043,6 +1269,7 @@ def main(args):
         args.budget_bytes,
         children=args.child_ledger.remaining(process),
         idle_process_count=baseline_process_count,
+        quiet_bounds=quiet_bounds,
     )
     report["responseCounts"] = dict(response_counts)
     http_report = http_latency_summary(read_series)
@@ -1059,9 +1286,16 @@ def main(args):
     report["inputSha256"] = hashlib.sha256(args.contract.read_bytes()).hexdigest()
     report["rawInputSha256"] = hashlib.sha256(raw_path.read_bytes()).hexdigest()
     report["harnessSha256"] = harness_sha
+    report["diagnosticSpansEnabled"] = getattr(args, "diagnostic_spans", False)
+    report["requestClockOriginSeconds"] = started
     report["checks"]["harnessUnchangedDuringRun"] = (
         harness_sha == hashlib.sha256(Path(__file__).read_bytes()).hexdigest()
     )
+    provenance_end = code_provenance(
+        repo_root, diagnostic_spans=getattr(args, "diagnostic_spans", False)
+    )
+    report["codeProvenance"] = {"startup": provenance_start, "end": provenance_end}
+    report["checks"]["productAndHelperCodeUnchangedDuringRun"] = provenance_start == provenance_end
     report["environment"] = {
         "platform": platform.platform(),
         "python": sys.version.split()[0],
@@ -1071,6 +1305,9 @@ def main(args):
     }
     report["retention"] = store.retention(apply=False)
     report["readObservationSeconds"] = observation_seconds
+    report["servingExerciseSeconds"] = min(observation_seconds, args.duration_seconds)
+    report["quietRecovery"] = quiet_report
+    report["checks"]["verifiedWorkerAndReloadFreeQuietRecovery"] = quiet_report["verified"]
     baseline_resources = [
         row
         for row in samples[:observed_sample_count]
@@ -1079,8 +1316,8 @@ def main(args):
     ]
     final_resources = [
         row
-        for row in samples[max(0, observed_sample_count - 120) : observed_sample_count]
-        if row["processCount"] == baseline_process_count
+        for row in samples[:observed_sample_count]
+        if wholly_within(row, quiet_bounds) and row["processCount"] == baseline_process_count
     ]
     report["resourceOwnership"] = {
         "scope": "Attribution only; aggregate RSS/handle gates remain unchanged",
@@ -1112,16 +1349,20 @@ def main(args):
         },
     }
     report["observedSampleCountBeforeCleanup"] = observed_sample_count
-    report["maxObservationSampleGapSeconds"] = max(
-        (
-            right["seconds"] - left["seconds"]
-            for left, right in zip(
-                samples[:observed_sample_count], samples[1:observed_sample_count]
-            )
-        ),
-        default=None,
+    report["maxObservationSampleGapSeconds"] = maximum_observation_gap(
+        samples[:observed_sample_count], observation_seconds
     )
     report["sampleCoverageFraction"] = min(1, observed_sample_count / max(1, observation_seconds))
+    complete_sample_count = sum(
+        row.get("resourceObservationComplete", False) for row in samples[:observed_sample_count]
+    )
+    report["completeResourceSampleCount"] = complete_sample_count
+    report["completeResourceCoverageFraction"] = min(
+        1, complete_sample_count / max(1, observation_seconds)
+    )
+    report["checks"]["completeResourceCoverageAtLeast99Percent"] = (
+        report["completeResourceCoverageFraction"] >= 0.99
+    )
     report["checks"].update(
         sampling_evidence(
             observed_sample_count, observation_seconds, report["maxObservationSampleGapSeconds"]
@@ -1130,20 +1371,42 @@ def main(args):
     report["samplingRequirements"] = {"minimumCoverageFraction": 0.99, "maximumGapSeconds": 2}
     report["quietSeconds"] = args.quiet_seconds
     report["full60MinuteSoak"] = (
-        observation_seconds >= 3600
+        not getattr(args, "diagnostic_spans", False)
+        and report["servingExerciseSeconds"] >= 3600
         and args.baseline_seconds >= 600
         and args.quiet_seconds >= 120
+        and quiet_report["verified"]
+        and report["checks"]["completeResourceCoverageAtLeast99Percent"]
         and all(
             sampling_evidence(
                 observed_sample_count, observation_seconds, report["maxObservationSampleGapSeconds"]
             ).values()
         )
     )
+    report["checks"]["uninstrumentedAcceptance"] = not getattr(args, "diagnostic_spans", False)
     report["passed"] = all(report["checks"].values())
     latency_file = args.output.with_suffix(".latencies.json")
     latency_file.write_text(json.dumps(read_series) + "\n", encoding="utf-8")
     report["latencyObservationsFile"] = latency_file.name
     report["timestampedHttpObservationsFile"] = request_file.name
+    sampler_file = args.output.with_suffix(".sampler.jsonl")
+    sampler_file.write_text(
+        "".join(json.dumps(row) + "\n" for row in sampler_timings), encoding="utf-8"
+    )
+    quiet_file = args.output.with_suffix(".quiet.jsonl")
+    quiet_file.write_text("".join(json.dumps(row) + "\n" for row in quiet_checks), encoding="utf-8")
+    report["samplerObservationsFile"] = sampler_file.name
+    report["quietObservationsFile"] = quiet_file.name
+    report["samplerTiming"] = {
+        "scope": "Inclusive wall/thread CPU stage clocks; driver process CPU overlaps request/audit work; completed timings serialized after observation",
+        "observationCount": len(sampler_timings),
+        "missedTicks": sum(row.get("missedTicksAfter", 0) for row in sampler_timings),
+        "maxLateBySeconds": max((row["lateBySeconds"] for row in sampler_timings), default=None),
+        "stageMaxWallMs": {
+            name: max(row["stages"].get(name, {}).get("wallMs", 0) for row in sampler_timings)
+            for name in sorted({name for row in sampler_timings for name in row["stages"]})
+        },
+    }
     report["automaticSleepPrevention"] = (
         "temporary Windows system request" if os.name == "nt" else "not configured"
     )
@@ -1169,7 +1432,13 @@ if __name__ == "__main__":
         "--quiet-seconds",
         type=float,
         default=125,
-        help="Final no-launch window; short functional smoke may override",
+        help="Required continuous worker/reload-free tail after the exercise duration",
+    )
+    parser.add_argument(
+        "--drain-timeout-seconds",
+        type=float,
+        default=300,
+        help="Maximum extra drain/reset allowance beyond exercise plus required quiet",
     )
     parser.add_argument("--budget-bytes", type=int, default=512 * 1024**2)
     parser.add_argument("--worker", choices=("changed", "unchanged", "hold", "league", "web"))
@@ -1180,6 +1449,11 @@ if __name__ == "__main__":
         help="Fixture HTTP loopback port; driver chooses a free port by default",
     )
     parser.add_argument("--sequence", type=int, default=0)
+    parser.add_argument(
+        "--diagnostic-spans",
+        action="store_true",
+        help="Local attribution only; never acceptance timing",
+    )
     parsed = parser.parse_args()
     if not parsed.port:
         import socket
@@ -1200,11 +1474,13 @@ if __name__ == "__main__":
     else:
         if parsed.contract is None or parsed.output is None:
             parser.error("--contract and --output are required for the driver")
-        if (
-            not 0 < parsed.baseline_seconds < parsed.duration_seconds
-            or parsed.refresh_seconds <= 0
-            or not 0 < parsed.quiet_seconds < parsed.duration_seconds
+        if not valid_durations(
+            parsed.duration_seconds,
+            parsed.baseline_seconds,
+            parsed.refresh_seconds,
+            parsed.quiet_seconds,
+            parsed.drain_timeout_seconds,
         ):
-            parser.error("require 0 < baseline < duration and refresh > 0")
+            parser.error("require finite positive durations and baseline < exercise duration")
         with prevent_automatic_sleep():
             raise SystemExit(main(parsed))

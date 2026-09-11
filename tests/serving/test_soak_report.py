@@ -152,6 +152,18 @@ def test_child_ledger_detects_reparenting_without_counting_reused_pid(monkeypatc
         "reparentedCount": 1,
         "unknownCount": 0,
     }
+    intended_web = ledger.remaining(
+        SimpleNamespace(children=lambda recursive: []), exclude={(11, 100)}
+    )
+    assert intended_web["remainingCount"] == 0
+    wrong_creation = ledger.remaining(
+        SimpleNamespace(children=lambda recursive: []), exclude={(11, 99)}
+    )
+    assert wrong_creation["remainingCount"] == 1
+    undiscovered = ChildLedger().remaining(
+        SimpleNamespace(children=lambda recursive: [processes[11]])
+    )
+    assert undiscovered["remainingCount"] == 1
     report = summarize(
         [sample(second) for second in range(100)],
         {"baseline": [1], "refresh": [1]},
@@ -253,7 +265,7 @@ def test_remote_fault_control_preserves_runtime_none_error_contract(monkeypatch)
 
 
 def test_resource_samples_continue_while_driver_waits(tmp_path):
-    rows, errors = [], []
+    rows, errors, timings = [], [], []
     four_samples = threading.Event()
 
     def observe():
@@ -262,11 +274,56 @@ def test_resource_samples_continue_while_driver_waits(tmp_path):
         return {"seconds": time.monotonic()}
 
     path = tmp_path / "samples.jsonl"
-    with resource_observations(path, observe, rows, errors, interval=0.01):
+    with resource_observations(path, observe, rows, errors, interval=0.01, timings=timings):
         # Represents a driver thread blocked waiting on child startup/store IO.
         assert four_samples.wait(timeout=2)
     assert len(rows) >= 4 and not errors
     assert len(path.read_text().splitlines()) == len(rows)
+    assert len(timings) == len(rows)
+    assert {"observe", "write", "flush", "progress", "schedule", "iteration"} <= set(
+        timings[-1]["stages"]
+    )
+    assert all(row["actualMonotonicSeconds"] >= row["expectedMonotonicSeconds"] for row in timings)
+
+
+def test_resource_observation_failure_preserves_stage_evidence(tmp_path):
+    failed = threading.Event()
+    rows, errors, timings = [], [], []
+
+    def observe(timing):
+        with timing.stage("tree"):
+            failed.set()
+            raise OSError("injected")
+
+    with resource_observations(
+        tmp_path / "samples.jsonl", observe, rows, errors, timings=timings, timed_observe=True
+    ):
+        assert failed.wait(timeout=2)
+    assert not rows and errors == ["sampling_OSError"]
+    assert "tree" in timings[0]["stages"] and "observe" in timings[0]["stages"]
+
+
+def test_recovery_resource_median_uses_verified_quiet_bounds_not_arbitrary_tail():
+    rows = [
+        sample(second, rss=300_000_000 if 80 <= second < 100 else 100_000_000)
+        for second in range(140)
+    ]
+    report = summarize(
+        rows, {"baseline": [1], "refresh": [1]}, 10, [], [], 2000, quiet_bounds=(80, 99)
+    )
+    assert report["rssFinalBytes"] == 300_000_000
+    assert not report["checks"]["rssGrowthBound"]
+    missing = summarize(
+        rows,
+        {"baseline": [1], "refresh": [1]},
+        10,
+        [],
+        [],
+        2000,
+        quiet_bounds=(float("inf"), -float("inf")),
+    )
+    assert missing["rssFinalBytes"] is None
+    assert not missing["checks"]["rssGrowthBound"]
 
 
 def test_fault_events_have_elapsed_time_without_payload_content():

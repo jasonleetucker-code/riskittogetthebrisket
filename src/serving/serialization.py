@@ -19,6 +19,12 @@ REQUIRED_VIEWS = frozenset(
 
 
 def validate_generation(candidate: ServingGeneration) -> None:
+    _validate_generation(
+        candidate, project_contract_views(candidate.contract, candidate.generation_id)
+    )
+
+
+def _validate_generation(candidate: ServingGeneration, projections: dict) -> None:
     if not candidate.health.get("ok") or not candidate.contract.get("playersArray"):
         raise CorruptArtifact("candidate has no valid canonical board")
     if not REQUIRED_VIEWS.issubset(candidate.views):
@@ -27,16 +33,18 @@ def validate_generation(candidate: ServingGeneration) -> None:
         raise CorruptArtifact("candidate contract and full view disagree")
     if candidate.generation_id != hashlib.sha256(candidate.views["full"].raw).hexdigest():
         raise CorruptArtifact("candidate board identity disagrees with full view")
-    projections = project_contract_views(candidate.contract, candidate.generation_id)
     for name, view in candidate.views.items():
         # Canonical metadata intentionally contains Python tuples (e.g.
         # deprecations), represented as arrays on the wire. Compare the exact
         # canonical JSON encoding rather than Python container types.
-        if json_bytes(view.payload) != view.raw or gzip.decompress(view.gzip) != view.raw:
+        encoded = json_bytes(view.payload)
+        if encoded != view.raw or gzip.decompress(view.gzip) != view.raw:
             raise CorruptArtifact("candidate payload and encoded view disagree")
         if hashlib.sha1(view.raw).hexdigest() != view.etag:
             raise CorruptArtifact("candidate ETag disagrees with encoded view")
-        if name in projections and view.raw != json_bytes(projections[name]):
+        if name in projections and view.raw != (
+            encoded if view.payload is projections[name] else json_bytes(projections[name])
+        ):
             raise CorruptArtifact("candidate view differs from canonical projection")
         if name in {"rankings", "trade", "catalog"}:
             ReadModelEnvelope.model_validate(view.payload)
@@ -50,11 +58,19 @@ def load_generation(artifact: Generation) -> ServingGeneration:
         index = json.loads(artifact.files["index.json"])
         if index.get("schemaVersion") != 1:
             raise CorruptArtifact("unsupported serving index schema")
+        contract = json.loads(artifact.files["views/full.json"])
+        # Acceptance already recomputes these pure projections. Keep that graph
+        # instead of decoding eight additional graphs and then discarding the
+        # recomputed one. Exact persisted bytes still have to match below.
+        projections = project_contract_views(contract, index["generation"])
         views = {}
         for name, etag in index["views"].items():
             raw = artifact.files[f"views/{name}.json"]
             views[name] = PreparedPayload(
-                json.loads(raw), raw, artifact.files[f"views/{name}.gz"], etag
+                projections[name] if name in projections else json.loads(raw),
+                raw,
+                artifact.files[f"views/{name}.gz"],
+                etag,
             )
         candidate = ServingGeneration(
             index["generation"],
@@ -71,7 +87,7 @@ def load_generation(artifact: Generation) -> ServingGeneration:
             indexes={"players": player_index(views["full"].payload)},
             artifact_generation_id=artifact.generation_id,
         )
-        validate_generation(candidate)
+        _validate_generation(candidate, projections)
         return candidate
     except (ValueError, TypeError, KeyError, OSError) as exc:
         raise CorruptArtifact("invalid prepared serving bundle") from exc

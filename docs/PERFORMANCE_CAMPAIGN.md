@@ -659,3 +659,336 @@ resource and latency failures also block that readiness.
 | Prepared backend | No | 365,376 coherent authenticated-fixture 200/304 reads, zero errors, all changed generations adopted | RSS/latency gates fail; deployed authenticated scoring/stale/recovery evidence missing |
 | Prepared rankings/trade frontend | No — keep disabled | Full suite/build/budgets and desktop/mobile semantic parity pass | All 16 slowed rankings acceptance samples missed the observation cutoff; useful-state deadlines fail |
 | Broader page migration | Out of scope | No additional pages or infrastructure introduced | Not authorized in this continuation |
+
+## RSS / refresh-latency closure continuation — 2026-09-11
+
+Owner-authorized continuation on `codex/performance-serving`, starting from
+`07eed7d58e2c90262103f2aaf2252883f7d230e6`. The prior failed acceptance report is
+preserved above. This closure is evaluated below; current readiness remains
+**B — NOT READY**. Agent-OS-Receipt: af1d50a577c96fd9eed9f934a902a9469f8b69bc.
+
+Scope is exactly web RSS, refresh latency and sampling/quiet recovery. Preserve
+proven generation coherence, source/league acceptance, retention and local suite
+evidence unless an affected change requires revalidation. Mobile frontend,
+broader page migration and new infrastructure are excluded. No push, PR merge,
+deployment, timer installation or production flag activation follows from this
+continuation.
+
+Execution order: (1) real-artifact isolated generation lifetime and allocation
+experiment, with explicit GC diagnostic only; (2) timestamped refresh/request
+spans separating CPU/GIL, event-loop, lock, disk, GC and host scheduling costs;
+(3) sampler timing and worker/reload drain repair; (4) only demonstrated product
+fixes; (5) focused tests; (6) affected integrated backend selection; (7) a passing
+five-minute functional/resource run; (8) only then full acceptance. Do not start
+another hour while the short-run RSS, latency or sampling gate is failing.
+
+Acceptance thresholds remain unchanged: at least 3,600 seconds of serving
+exercise, followed by at least 120 seconds of verified worker-free and
+reload-drained quiet recovery; zero unexpected HTTP/coherence errors, all changed
+generations adopted; p95 below 75ms per required route/status series and refresh
+degradation at most 20%; coverage at least 99% and maximum sampling gap at most
+2 seconds; all observed workers cleaned up, existing RSS/handle recovery and
+retention/disk budgets satisfied. A demonstrated allocator plateau can inform
+a separate owner decision, but cannot be relabeled a passing RSS recovery gate.
+
+The active saved checkout completed its required fast-forward pull. New main
+`86d20e6cae3f75b6c5d58a084882f4115e3e6e19` adds four documentation paths through
+five commits (including the merge): `AI_INSTRUCTIONS.md`,
+`docs/OWNER_REQUESTED_TODO.md`, `docs/OWNER_TODO_RECOVERY_AUDIT_2026-09-10.md` and
+`docs/PLANNING_DOCUMENT_STATUS.md`. Classification: benign documentation/process
+movement; no product, input-generation or architecture conflict. Reconciliation
+was clean. The newly added durable-intake rule was read and this closure scope
+was recorded in the owner-intake ledger. No open PR was returned by the live
+ownership check. Fixed-input performance evidence is retained.
+
+Engineering applicability: allocation/request/sampler tracing and generation
+lifetime invariants **APPLY_NOW**; replay/typed contracts/retention and protected
+rollout are **ALREADY_COVERED**; frontend migration and infrastructure are
+**DEFERRED_BY_AUTHORITY**. No new valuation or configuration owner is introduced.
+
+### Closure attribution and retained change
+
+Reconciled candidate before this closure change:
+`c9308683888de260e4142f4140bc8f7376d8afc0`. The source/main SHAs and classifications
+above remain the fixed reconciliation boundary; no new frontend work was done.
+
+**RSS classification: C — CPython allocator high-water behavior is the dominant
+observed mechanism.** The sustained production ceiling remains unverified.
+The authoritative baseline control streamed its observations and retained only
+two weak references, eliminating diagnostic-history growth as the explanation.
+Across 30 real-artifact, one-league load/adopt cycles, canonical objects stayed
+at one, league bundles at one, payloads at 16, and serialized buffers at 32
+(approximately 102.487 MB). Superseded canonical weak references were zero;
+runtime/reader roots and legacy aliases pointed to the accepted generation;
+the inspected response/override/draft caches remained empty. GC tracked objects
+were 412,883 initially and 412,884 finally. Diagnostic collection reclaimed zero.
+
+Small-block live allocation grew only 5,648 bytes while CPython arena capacity
+grew by 236 MiB, reaching 512 arenas of 1 MiB each. RSS rose from 463,826,944 to
+735,023,104 bytes. Arenas stayed at 512 only for the last three observations
+(about 41 seconds); RSS still rose 17.18 MiB over cycles 21–30. This is evidence
+of late flattening, not a permanent 735 MB process limit. The separate 12-cycle
+tracemalloc experiment settled from 352,715,993 to 352,799,260 live bytes. Its
+RSS was inflated by tracer metadata/snapshots and is explicitly excluded from
+product RSS acceptance. No affirmative evidence of native leakage was found;
+the difference between resident pages and arena capacity is not itself such
+evidence. CPython allocator documentation:[memory management](https://docs.python.org/3.12/c-api/memory.html).
+
+The isolated runner is `scripts/diagnose_serving_lifetime.py`. Producers are
+separate processes using real ArtifactStore publications; the measured consumer
+uses AtomicRuntime, the server publication adapter and LeagueServingReader.
+No providers, browser, HTTP load or multi-league partial-failure concurrency
+are represented. These limitations remain attached to the classification.
+Private raw reports remain under `data/private_serving/lab/lifetime-*`;
+bounded public-safe observations are in
+`docs/evidence/performance-rss-attribution-2026-09-11.json`.
+
+| Before | Hypothesis | Change | After | Verdict |
+| --- | --- | --- | --- | --- |
+| Loader separately decodes eight view graphs, then recomputes canonical projections for validation and discards them; 12-cycle retained RSS 625.75 MiB | Reusing the already-required projection graph avoids duplicated live collections and temporary encoding allocations | `src/serving/serialization.py::load_generation` decodes full once, retains the pure projections, and validates exact persisted raw/gzip/ETag/generation/envelope values; `_validate_generation` reuses one encoding only when the compared projection is the same object. Public validation still independently recomputes projections | Same fixture/cycle count: 506.25 MiB retained RSS, 119.50 MiB less; GC tracked objects 325,907; one canonical/bundle and unchanged serialized buffers. Small-block allocation settles near 203.016 MB. Diagnostic median refresh load/adopt, cycles 1–12 (initial load excluded), 6.041 → 4.051 seconds, not HTTP acceptance | Retained memory improvement; existing RSS recovery gate still applies. Matched HTTP acceptance is reported separately below |
+| League expiry accounted for 17.46 seconds of inclusive web work in the diagnostic trace | Applying expiry before producer encoding could avoid re-encoding eight views in web | Proposal reviewed, not implemented | Independent review found that unchanged-input reobservation excludes the observation timestamp and could repeatedly renew roster-stripped bytes without restoring fresh context | Rejected before implementation. Preserve current expiry and recovery behavior |
+
+The product change does not alter values, row order, source inputs, scoring,
+legacy defaults, ownership or request publication. The existing producer
+already shares nested full/runtime/array objects. Consumers retain the same
+read-only ownership rule; overlays and expiry copy their outer dictionaries.
+Seven parametrized persisted-view tampering cases ensure that self-consistent
+wrong JSON/gzip/ETag combinations cannot bypass canonical parity checks.
+
+### Refresh attribution and validation ownership
+
+The opt-in `scripts/serving_lab_spans.py` extends the existing soak, with
+wall/process/thread CPU clocks, thread identity, generation digest, request
+sequence and nested phase spans. It records no arguments, exception messages,
+payload values, private identities or file paths. HTTP observations join to
+spans by request sequence; driver `monotonic` and child `perf_counter` origins
+are not assumed identical. Nested inclusive timings must never be summed.
+
+The 180-second diagnostic recorded these baseline serving-active spans:
+
+| Stage | Count | Inclusive wall / thread CPU | Interpretation |
+| --- | ---: | --- | --- |
+| Canonical load | 6 | 16.939 / 14.703 seconds | CPU-heavy decode and semantic validation on reload threads |
+| Canonical validation | 6 | 12.016 / 10.359 seconds | Includes recomputed projections, JSON encodings, gzip, ETags and envelope checks |
+| League refresh | 65 | 51.004 / 37.313 seconds | Includes loads, validation, stale-context re-encoding and store work |
+| League validation | 11 | 12.127 / 11.688 seconds | Canonical/league parity remains expensive |
+| League expiry | 75 | 17.457 / 12.094 seconds | 88 payload preparations; most polls are cheap, transitions are expensive |
+| Endpoint capture | 16,280 | maximum 0.100 ms wall | Captured-memory lookup; no artifact read or store lock |
+| Canonical atomic swap | 6 | maximum 0.030 ms wall | Reference publication is negligible |
+
+All observed meaningful canonical/league loading and validation spans were
+off the event-loop thread. This rules out direct synchronous reload I/O on the
+request loop in this fixture. It does not make Python threads CPU-isolated:
+217 of 221 HTTP observations at least 75 ms overlapped measured reload/league/GC
+work by request sequence. Maximum recorded loop delay was 464.3 ms; GC reached
+473.3 ms. CPU/GIL contention and stop-the-world collection are strongly supported
+contributors, not an exact apportioned causal percentage. Store-lock waits
+reached 1.574 seconds on background paths; disk copying and publication can
+delay those paths, but requests do not acquire that lock. Host scheduling and
+I/O contributions cannot be fully separated by these inclusive spans.
+
+Diagnostic limitations are explicit: 44 events were dropped from the bounded
+queue, and the original 10 ms pulse was below Windows asyncio clock resolution.
+It spun under request activity and added observer overhead. The pulse is now
+50 ms. This run is attribution only and its latency/RSS values are never used
+as acceptance results. See
+`docs/evidence/performance-refresh-attribution-2026-09-11.json`.
+
+The fixed replay's source age is beyond the roster freshness ceiling. Its
+expiry cost represents the stale-context path; it is not a forecast of a
+fresh provider observation. The fixture and thresholds remain unchanged.
+
+The prior **153.6143 ms trade conditional changed-generation 200**, one sample
+at 2,870.265 seconds, remains in the completed-hour evidence. Nearby samples
+show ten processes and approximately 24–30% host CPU, between overlapping
+source/league worker completions. There was no CPU/span trace then. Exact cause
+is **unknown**, consistent with reload contention; it is neither discarded nor
+classified as proven scheduler noise. The new diagnostic demonstrates slow
+reload-overlapping requests generally, not reproduction of that exact event.
+
+Producer and reader validation overlap: publication validates the in-memory
+candidate, the store validator loads/validates the serialized candidate representation, and
+web adoption repeats semantic validation after store checksums. Existing hashes
+prove internal byte integrity; they do not independently certify that a view
+contains the correct canonical/scoring projection. A cheaper attested boundary
+would have to bind a trusted validation owner, algorithm/model/scoring identity
+and every representation, with mutation/recovery tests. No validation check was
+removed and no unsigned assertion was promoted into such a proof in this pass.
+
+### Measurement ownership repair
+
+`scripts/soak_observation.py` supplies timing/state bookkeeping to the existing
+`scripts/soak_prepared_serving.py`; it is not another serving or storage owner.
+The sampler records expected/actual starts, lateness, missed ticks, observation,
+process-tree, psutil member, disk, serialization/write/flush/progress wall and
+thread CPU durations, plus web/driver/host CPU. Its schedule stays on the
+absolute grid and does not add another full sleep after an overrun. Missing
+ticks are never fabricated. Complete-resource coverage and full-precision
+acquisition gaps, including boundaries, drive the unchanged 99% / 2s gates.
+No speculative process-tree or disk-inventory optimization was added.
+
+Exercise now lasts the configured duration before admission closes. The driver
+then drains admitted workers and visible/remembered child identities, verifies
+accepted canonical and league pointer versions and no queued/active reload,
+and starts the continuous quiet clock. New work, pointer/activity changes,
+unknown resources or observation gaps reset it. All newly observed rows are
+checked, not merely the last row. Only samples wholly within verified quiet
+contribute to final RSS/handle recovery. A bounded drain/reset timeout fails
+closed. Start/end hashes freeze the harness, helper and measured product path.
+
+The old 2.765/2.719-second gaps cannot retrospectively identify a psutil call or
+scheduler stall because their stage clocks were absent. The old overrun sleep
+policy demonstrably amplified delays; the new observations distinguish trigger
+costs from that scheduling defect. Short-run measurements below determine
+whether the problem recurs. The old 98.984-second tail is preserved as failed,
+not retroactively repaired.
+
+### Closure validation and platform limits
+
+Completed validation in this continuation:
+
+| Selection | Observed result | Scope/limits |
+| --- | --- | --- |
+| `tests/serving/test_serving_pipeline.py` and `tests/serving/test_lab_spans.py` | 46 passed, 13.81 seconds | Focused canonical byte parity, corruption rejection, bound captures and diagnostic privacy; overlaps the integrated selection |
+| `tests/serving/test_soak_report.py` and `tests/serving/test_soak_observation.py` | 55 passed, 0.29 seconds | Absolute ticks, delayed observations, full-precision boundaries, child identity/discovery, pending reloads, late-worker extension, quiet reset, incomplete observations and code freeze |
+| Affected integrated backend selection | 477 passed, 19 skipped, 1 warning; 5 passing subtests; 155.25 seconds | Serving suite excluding the two separately reported soak files; canonical data/age, scoring, auth/cache/privacy, overrides, startup, prepared news and staged ownership. Skips include unavailable public snapshots and platform/tool-dependent cases; they are not passes |
+| Required Ruff 0.6.9 format/lint and whitespace gate | Green, 1,473 Python files checked | No new formatting/lint failures |
+| Decision-coercion gate | Green for changed files | No new coercions or stale allowances in affected files; unrelated main debt is reported by the existing ratchet |
+| Independent architecture/correctness review | Green for the retained change and repaired measurement protocol | Rejected unsafe expiry proposal; required precision, child-discovery and quiet-continuity corrections before measurement |
+
+These counts are separate observations and are not summed. The integrated
+command was:
+
+```text
+python -m pytest tests/serving tests/api/test_data_contract.py tests/api/test_data_contract_age.py tests/api/test_data_age_is_board_age.py tests/api/test_scoring_compatibility.py tests/api/test_private_auth.py tests/api/test_cache_control_privacy.py tests/api/test_overrides_response_cache.py tests/api/test_public_league_privacy_boundary.py tests/api/test_startup_nonblocking.py tests/api/test_startup_validation.py tests/news/test_prepared.py tests/deploy/test_staged_source_ownership.py --ignore=tests/serving/test_soak_report.py --ignore=tests/serving/test_soak_observation.py -q
+```
+
+Prior frontend tests/build/bundle/parity evidence is preserved; this pass changes
+neither frontend code nor canonical wire bytes. No new mobile or deployed-field
+measurement is claimed. Source, league and news ownership remain separately
+gated by the previously recorded installed-unit/feed evidence. Canonical skip
+remains disabled; no new infrastructure, timer or production flag was added.
+
+The local measurement host has 33,821,810,688 bytes of RAM and 22 logical CPUs.
+That is Windows lab capacity. Production VPS capacity/headroom, Linux allocator
+behavior, simultaneous co-resident service peaks and installed cgroup/FD state
+are still unavailable after the previously documented SSH authentication failure.
+Numerical systemd `MemoryHigh` and `MemoryMax` therefore remain **unknown**, not
+copied from the web service or inferred from this laptop. A process-tree sampled
+peak is also distinct from the sum of individual live processes' historical OS
+peaks; both are retained in the short-run evidence where available.
+
+**Separate owner decision, not applied:** retain the existing RSS recovery gate
+(the current rule), or explicitly replace it with bounded live allocation plus
+a hard process-memory gate. The alternative would first need a sustained Linux
+plateau, actual VPS headroom, combined web/worker peaks and explicit limits with
+operating reserve. The local allocator evidence does not authorize that change.
+
+### Matched short-run acceptance and final decision
+
+Both runs used the same 1,093-player contract/raw-input hashes, frozen harness,
+300 seconds of serving exercise, 60-second warm baseline, 30-second refresh
+schedule, 512 MiB serving-store budget and at least 120 seconds of separately
+verified quiet recovery. Detailed web spans were disabled. Other tests/builds
+and measurement jobs were stopped. The baseline ran first using the reconciled
+HEAD decoder, then the candidate ran with the retained change. Startup/end
+hashes prove the only measured product/helper difference was
+`src/serving/serialization.py`. The baseline wrapper restored the candidate
+automatically before the candidate run. No production state was involved.
+
+| Observation | Baseline | Candidate |
+| --- | ---: | ---: |
+| Serving exercise | 300.000 s | 300.000 s |
+| Total read observation, including drain/quiet | 440.953 s | 433.766 s |
+| Verified worker/reload-free quiet | 120.968 s | 120.969 s |
+| Quiet interval | 319.985–440.953 s | 312.797–433.766 s |
+| Quiet resets | 0 | 0 |
+| Coherent successful HTTP responses | 54,588 | 52,284 |
+| Unexpected HTTP/coherence errors | 0 | 0 |
+| HTTP generations / changed publications adopted | 7 / all 6 | 7 / all 6 |
+| Source cycles / overlapping league cycles | 9 / 8 | 9 / 8 |
+| Controlled failure/recovery scenarios | all 6 passed | all 6 passed |
+| Warm web RSS | 477,655,040 B | 397,111,296 B |
+| Quiet web RSS | 639,983,616 B | 553,066,496 B |
+| Web RSS increase | 154.81 MiB | 148.73 MiB |
+| Aggregate warm → quiet RSS | 550,109,184 → 728,989,696 B | 473,016,320 → 634,523,648 B |
+| Maximum sampled simultaneous process-tree RSS | 1,733,300,224 B | 1,390,006,272 B |
+| Largest sum of live processes' historical OS peak RSS | 2,681,122,816 B | 2,145,853,440 B |
+| Warm/quiet process count; peak count | 4 / 4; 10 | 4 / 4; 10 |
+| Aggregate warm → quiet Windows handles | 602 → 608 | 625 → 631 |
+| Web warm → quiet Windows handles | 378 → 383 | 378 → 383 |
+| Observed children / surviving / unknown | 55 / 0 / 0 | 55 / 0 / 0 |
+| Complete one-second observations | 441 | 434 |
+| Complete-resource coverage / missed ticks | 100% / 0 | 100% / 0 |
+| Maximum acquisition gap, including boundaries | 1.172 s | 1.016 s |
+| Maximum sampled store bytes | 527,528,425 B | 527,528,425 B |
+| Final store bytes / retained / protected generations | 526,914,542 B / 10 / 6 | 526,914,542 B / 10 / 6 |
+
+Tracemalloc and object enumeration were intentionally disabled during acceptance;
+the isolated live-allocation/reference observations above are separate evidence,
+not invented acceptance measurements. Acquisition gaps exclude cleanup after
+the measurement ends. The old generic `maxSampleGapSeconds` field includes a
+cleanup sample and is not the sampling gate; `maxObservationSampleGapSeconds`
+uses complete-precision acquisition starts and observation boundaries.
+
+All observed route/status p95 values were below 75 ms. Every required refresh
+series still failed the unchanged relative 20% limit:
+
+| Route/status | Baseline warm → refresh p95 | Baseline degradation | Candidate warm → refresh p95 | Candidate degradation |
+| --- | ---: | ---: | ---: | ---: |
+| Rankings 200 | 15.217 → 54.451 ms | +257.82% | 3.649 → 61.262 ms | +1,578.97% |
+| Rankings 304 | 1.698 → 3.495 ms | +105.86% | 1.737 → 3.470 ms | +99.80% |
+| Trade 200 | 1.998 → 4.567 ms | +128.60% | 1.945 → 6.686 ms | +243.83% |
+| Trade 304 | 1.578 → 3.405 ms | +115.73% | 1.547 → 3.357 ms | +116.96% |
+
+The retained change demonstrates a repeatable memory reduction: 119.50 MiB at
+cycle 12 in the isolated control, and 82.89 MiB less quiet web RSS in the
+matched HTTP run. It does **not** demonstrate an HTTP latency improvement.
+Median observed host CPU was 9.9% for baseline and 21.15% for candidate; the
+single sequential pair cannot attribute every latency difference to the decoder.
+The candidate fails the relative latency gate regardless. No speed acceptance
+is inferred from the isolated load/adopt median or from aggregate route timing.
+
+Sampler stage clocks did not reproduce the former >2s gaps. Maximum complete
+iteration time was 272.170 ms before and 113.267 ms after; the largest stage
+was disk inventory (254.240 / 94.563 ms). Process-tree maxima were 27.704 / 29.897
+ms, separate web-tree enumeration 32.544 / 25.002 ms, and all-member psutil work
+below 0.9 ms. Maximum scheduled lateness was 172 / 31 ms, with zero missed ticks.
+These observations do not identify the uninstrumented historical gap trigger,
+and do not justify replacing the process/disk observer or relaxing its limit.
+They verify the repaired sampler and actual quiet protocol in both short runs.
+
+Raw private reports, samples, requests, sampler clocks and quiet checks remain
+under `data/private_serving/lab/closure-{baseline,candidate}-01-report*`.
+Safe aggregate results and raw-evidence hashes are recorded in
+`docs/evidence/performance-closure-short-runs-2026-09-11.json`.
+
+**Final full soak: not run in this continuation.** The owner's execution rule
+forbids another hour while the five-minute RSS or refresh-latency gate fails.
+The earlier 3,600.984-second run and its 365,376 coherent responses remain
+historical evidence; they are not a passing hour for this decoder change.
+
+Current failed conditions and exact corrective actions:
+
+| Condition | Owner and evidence | Corrective action |
+| --- | --- | --- |
+| RSS recovery fails | `serialization.py::load_generation`, `league_views.py` representations and CPython allocation lifetime; candidate web +148.73 MiB despite stable isolated live roots | Keep the current gate. Reduce further demonstrated transient/live representation costs without losing parity, or obtain an explicit owner decision on a replacement gate only after sustained Linux allocation/headroom evidence. Do not add periodic GC or infer a hard bound from the short plateau |
+| Refresh degradation fails | Background canonical/league decoding, semantic validation and stale-context encoding; all four candidate series exceed +20% | Profile the remaining league/validation work against a safe producer-attestation boundary. Preserve factual scoring, byte/projection validation and fresh-observation recovery; a checksum-only bypass or the rejected roster-stripping proposal is insufficient. Repeat matched short acceptance after a demonstrated fix |
+| Current-candidate full-hour evidence absent | Short-run gating rule; sampler/quiet checks now pass locally | After RSS and latency short gates pass, run at least 3,600 seconds of exercise plus drained continuous quiet; retain exact per-series and resource checks |
+| Production resource/ownership evidence absent | Installed source/league/news units, extra GitHub feed coverage, Linux handles/FDs and VPS capacity inaccessible | Obtain working authorized read-only host access, inspect installed ownership and combined host resources, and validate Linux recovery before claiming systemd/FD readiness or selecting numerical worker limits |
+
+The preserved frontend/mobile and broader-migration dispositions remain separate
+from backend/shadow readiness. No merge to main, push, PR, deployment, timer
+activation or production flag change occurred. The closure implementation,
+experiments, review and gated decision are complete; rollout acceptance is not.
+
+| Layer | Ready? | Evidence | Blocker |
+| --- | --- | --- | --- |
+| Merge candidate | No | Main reconciled; affected tests and independent review pass; retained memory improvement | RSS recovery and relative refresh latency fail |
+| Shadow mode | No | Local ownership/retention/fault behavior preserved; short-run sampling and quiet pass | Bounded-resource acceptance incomplete; installed host evidence unavailable |
+| Source workers | Partial locally | Nine source and eight overlapping league cycles; all observed children exit in each matched run | Installed source/league/news ownership, Linux FD recovery and host capacity unverified |
+| Prepared backend | No | 52,284 coherent candidate reads, zero errors, all six changed publications adopted | RSS and relative latency fail; new full hour and deployed authenticated evidence absent |
+| Prepared rankings/trade frontend | No; keep disabled | Prior suite/build/bundle/semantic evidence retained | Separate slowed-mobile gate remains unmet; excluded from this pass |
+| Broader page migration | Out of scope | No page migration or infrastructure introduced | Not authorized in this continuation |
+
+**Exactly one current outcome: B — NOT READY.**

@@ -1,0 +1,3091 @@
+{
+  "scope": "diagnostic only; nested inclusive timings must not be summed",
+  "collection": {
+    "event": "collection",
+    "emitted": 341793,
+    "dropped": 44,
+    "scope": "diagnostic_only"
+  },
+  "limitations": [
+    "10ms pulse below Windows loop clock resolution spun under request activity; corrected to 50 ms for subsequent run",
+    "44 dropped events; missing observations remain unknown",
+    "request identity joins used; driver monotonic and child perf_counter clock origins are not assumed identical"
+  ],
+  "stages": [
+    {
+      "phase": "league",
+      "stage": "file.stat",
+      "count": 8972,
+      "inclusiveWallMs": 2072.4332,
+      "p95WallMs": 0.2084,
+      "maxWallMs": 380.8582,
+      "inclusiveThreadCpuMs": 203.125,
+      "eventLoopCount": 0
+    },
+    {
+      "phase": "canonical",
+      "stage": "file.stat",
+      "count": 8912,
+      "inclusiveWallMs": 5347.2303,
+      "p95WallMs": 0.4436,
+      "maxWallMs": 386.3759,
+      "inclusiveThreadCpuMs": 390.625,
+      "eventLoopCount": 0
+    },
+    {
+      "phase": "canonical",
+      "stage": "artifact.path_validation",
+      "count": 494,
+      "inclusiveWallMs": 9890.3927,
+      "p95WallMs": 20.3238,
+      "maxWallMs": 1099.1107,
+      "inclusiveThreadCpuMs": 1015.625,
+      "eventLoopCount": 0
+    },
+    {
+      "phase": "league",
+      "stage": "artifact.path_validation",
+      "count": 480,
+      "inclusiveWallMs": 3328.7995,
+      "p95WallMs": 11.4871,
+      "maxWallMs": 980.2635,
+      "inclusiveThreadCpuMs": 953.125,
+      "eventLoopCount": 0
+    },
+    {
+      "phase": "canonical",
+      "stage": "artifact.discovery_stat",
+      "count": 159,
+      "inclusiveWallMs": 8581.5545,
+      "p95WallMs": 389.2674,
+      "maxWallMs": 1103.9485,
+      "inclusiveThreadCpuMs": 687.5,
+      "eventLoopCount": 0
+    },
+    {
+      "phase": "canonical",
+      "stage": "canonical.reload",
+      "count": 153,
+      "inclusiveWallMs": 28120.3086,
+      "p95WallMs": 838.8687,
+      "maxWallMs": 4020.2238,
+      "inclusiveThreadCpuMs": 16234.375,
+      "eventLoopCount": 0
+    },
+    {
+      "phase": "league",
+      "stage": "artifact.discovery_stat",
+      "count": 65,
+      "inclusiveWallMs": 1912.2875,
+      "p95WallMs": 17.7616,
+      "maxWallMs": 993.4694,
+      "inclusiveThreadCpuMs": 234.375,
+      "eventLoopCount": 0
+    },
+    {
+      "phase": "league",
+      "stage": "league.refresh",
+      "count": 65,
+      "inclusiveWallMs": 51004.4278,
+      "p95WallMs": 4449.3223,
+      "maxWallMs": 5371.8221,
+      "inclusiveThreadCpuMs": 37312.5,
+      "eventLoopCount": 0
+    },
+    {
+      "phase": "endpoint",
+      "stage": "endpoint.capture",
+      "count": 16280,
+      "inclusiveWallMs": 38.2343,
+      "p95WallMs": 0.0042,
+      "maxWallMs": 0.0977,
+      "inclusiveThreadCpuMs": 31.25,
+      "eventLoopCount": 16280
+    },
+    {
+      "phase": "endpoint",
+      "stage": "endpoint.scoring",
+      "count": 16280,
+      "inclusiveWallMs": 66.5553,
+      "p95WallMs": 0.0064,
+      "maxWallMs": 0.1148,
+      "inclusiveThreadCpuMs": 125.0,
+      "eventLoopCount": 16280
+    },
+    {
+      "phase": "endpoint",
+      "stage": "endpoint.etag_and_bytes",
+      "count": 16280,
+      "inclusiveWallMs": 308.515,
+      "p95WallMs": 0.037,
+      "maxWallMs": 1.2929,
+      "inclusiveThreadCpuMs": 296.875,
+      "eventLoopCount": 16280
+    },
+    {
+      "phase": "endpoint",
+      "stage": "endpoint.dispatch",
+      "count": 16280,
+      "inclusiveWallMs": 1337.7152,
+      "p95WallMs": 0.1905,
+      "maxWallMs": 49.4493,
+      "inclusiveThreadCpuMs": 1312.5,
+      "eventLoopCount": 16280
+    },
+    {
+      "phase": "league",
+      "stage": "league.expire",
+      "count": 75,
+      "inclusiveWallMs": 17457.0669,
+      "p95WallMs": 1562.1273,
+      "maxWallMs": 2660.4495,
+      "inclusiveThreadCpuMs": 12093.75,
+      "eventLoopCount": 0
+    },
+    {
+      "phase": "canonical",
+      "stage": "file.open",
+      "count": 134,
+      "inclusiveWallMs": 55.7782,
+      "p95WallMs": 1.6424,
+      "maxWallMs": 11.4104,
+      "inclusiveThreadCpuMs": 0.0,
+      "eventLoopCount": 0
+    },
+    {
+      "phase": "canonical",
+      "stage": "file.read",
+      "count": 134,
+      "inclusiveWallMs": 449.3953,
+      "p95WallMs": 8.9653,
+      "maxWallMs": 177.6852,
+      "inclusiveThreadCpuMs": 93.75,
+      "eventLoopCount": 0
+    },
+    {
+      "phase": "canonical",
+      "stage": "decode.json",
+      "count": 74,
+      "inclusiveWallMs": 4677.1909,
+      "p95WallMs": 198.5169,
+      "maxWallMs": 354.8766,
+      "inclusiveThreadCpuMs": 4203.125,
+      "eventLoopCount": 0
+    },
+    {
+      "phase": "canonical",
+      "stage": "encode.json",
+      "count": 26303,
+      "inclusiveWallMs": 6646.2058,
+      "p95WallMs": 0.0083,
+      "maxWallMs": 241.7453,
+      "inclusiveThreadCpuMs": 6328.125,
+      "eventLoopCount": 0
+    },
+    {
+      "phase": "canonical",
+      "stage": "store.lock.hold",
+      "count": 7,
+      "inclusiveWallMs": 2026.6149,
+      "p95WallMs": 378.2389,
+      "maxWallMs": 727.1369,
+      "inclusiveThreadCpuMs": 843.75,
+      "eventLoopCount": 0
+    },
+    {
+      "phase": "canonical",
+      "stage": "artifact.copy_generation",
+      "count": 7,
+      "inclusiveWallMs": 2592.2697,
+      "p95WallMs": 434.7246,
+      "maxWallMs": 822.6918,
+      "inclusiveThreadCpuMs": 843.75,
+      "eventLoopCount": 0
+    },
+    {
+      "phase": "canonical",
+      "stage": "canonical.index",
+      "count": 6,
+      "inclusiveWallMs": 243.468,
+      "p95WallMs": 76.8524,
+      "maxWallMs": 114.9828,
+      "inclusiveThreadCpuMs": 140.625,
+      "eventLoopCount": 0
+    },
+    {
+      "phase": "canonical",
+      "stage": "canonical.projections",
+      "count": 5,
+      "inclusiveWallMs": 2880.9239,
+      "p95WallMs": 642.7886,
+      "maxWallMs": 708.9571,
+      "inclusiveThreadCpuMs": 2171.875,
+      "eventLoopCount": 0
+    },
+    {
+      "phase": "canonical",
+      "stage": "decode.gzip",
+      "count": 48,
+      "inclusiveWallMs": 951.5536999999999,
+      "p95WallMs": 43.619,
+      "maxWallMs": 78.7789,
+      "inclusiveThreadCpuMs": 703.125,
+      "eventLoopCount": 0
+    },
+    {
+      "phase": "canonical",
+      "stage": "canonical.validate",
+      "count": 6,
+      "inclusiveWallMs": 12015.9775,
+      "p95WallMs": 2104.458,
+      "maxWallMs": 2274.9816,
+      "inclusiveThreadCpuMs": 10359.375,
+      "eventLoopCount": 0
+    },
+    {
+      "phase": "canonical",
+      "stage": "canonical.load",
+      "count": 6,
+      "inclusiveWallMs": 16939.4243,
+      "p95WallMs": 2980.5086,
+      "maxWallMs": 2998.859,
+      "inclusiveThreadCpuMs": 14703.125,
+      "eventLoopCount": 0
+    },
+    {
+      "phase": "canonical",
+      "stage": "canonical.swap",
+      "count": 6,
+      "inclusiveWallMs": 0.1245,
+      "p95WallMs": 0.0252,
+      "maxWallMs": 0.0253,
+      "inclusiveThreadCpuMs": 0.0,
+      "eventLoopCount": 0
+    },
+    {
+      "phase": "league",
+      "stage": "file.open",
+      "count": 266,
+      "inclusiveWallMs": 647.0178,
+      "p95WallMs": 11.956,
+      "maxWallMs": 16.0114,
+      "inclusiveThreadCpuMs": 62.5,
+      "eventLoopCount": 0
+    },
+    {
+      "phase": "league",
+      "stage": "file.read",
+      "count": 266,
+      "inclusiveWallMs": 1072.4006,
+      "p95WallMs": 15.1158,
+      "maxWallMs": 21.1494,
+      "inclusiveThreadCpuMs": 296.875,
+      "eventLoopCount": 0
+    },
+    {
+      "phase": "league",
+      "stage": "decode.json",
+      "count": 154,
+      "inclusiveWallMs": 9151.055,
+      "p95WallMs": 171.9682,
+      "maxWallMs": 396.798,
+      "inclusiveThreadCpuMs": 8781.25,
+      "eventLoopCount": 0
+    },
+    {
+      "phase": "league",
+      "stage": "encode.json",
+      "count": 377,
+      "inclusiveWallMs": 17109.0887,
+      "p95WallMs": 147.1873,
+      "maxWallMs": 244.1719,
+      "inclusiveThreadCpuMs": 16171.875,
+      "eventLoopCount": 0
+    },
+    {
+      "phase": "league",
+      "stage": "store.lock.hold",
+      "count": 14,
+      "inclusiveWallMs": 2988.2202,
+      "p95WallMs": 333.8482,
+      "maxWallMs": 707.4097,
+      "inclusiveThreadCpuMs": 1515.625,
+      "eventLoopCount": 0
+    },
+    {
+      "phase": "league",
+      "stage": "artifact.copy_generation",
+      "count": 14,
+      "inclusiveWallMs": 6165.9603,
+      "p95WallMs": 1911.0111,
+      "maxWallMs": 1933.2483,
+      "inclusiveThreadCpuMs": 1593.75,
+      "eventLoopCount": 0
+    },
+    {
+      "phase": "league",
+      "stage": "decode.gzip",
+      "count": 112,
+      "inclusiveWallMs": 2659.0523,
+      "p95WallMs": 39.9655,
+      "maxWallMs": 412.4987,
+      "inclusiveThreadCpuMs": 1609.375,
+      "eventLoopCount": 0
+    },
+    {
+      "phase": "league",
+      "stage": "league.load",
+      "count": 14,
+      "inclusiveWallMs": 12477.0609,
+      "p95WallMs": 1104.1666,
+      "maxWallMs": 1110.6447,
+      "inclusiveThreadCpuMs": 10890.625,
+      "eventLoopCount": 0
+    },
+    {
+      "phase": "league",
+      "stage": "league.validate",
+      "count": 11,
+      "inclusiveWallMs": 12127.3301,
+      "p95WallMs": 1156.4115,
+      "maxWallMs": 1242.7575,
+      "inclusiveThreadCpuMs": 11687.5,
+      "eventLoopCount": 0
+    },
+    {
+      "phase": "league",
+      "stage": "encode.gzip",
+      "count": 88,
+      "inclusiveWallMs": 9758.0983,
+      "p95WallMs": 375.9559,
+      "maxWallMs": 622.9307,
+      "inclusiveThreadCpuMs": 6187.5,
+      "eventLoopCount": 0
+    },
+    {
+      "phase": "league",
+      "stage": "payload.prepare",
+      "count": 88,
+      "inclusiveWallMs": 17452.4518,
+      "p95WallMs": 565.9306,
+      "maxWallMs": 781.6171,
+      "inclusiveThreadCpuMs": 12093.75,
+      "eventLoopCount": 0
+    }
+  ],
+  "slowHttpCount": 221,
+  "slowHttpObservations": [
+    {
+      "route": "rankings",
+      "kind": "unconditional",
+      "status": 200,
+      "elapsedMs": 104.9958998337388,
+      "seconds": 0.14,
+      "requestId": 1,
+      "correlated": true,
+      "overlapStages": {
+        "gc": 1
+      }
+    },
+    {
+      "route": "trade",
+      "kind": "conditional",
+      "status": 304,
+      "elapsedMs": 223.82159996777773,
+      "seconds": 2.39,
+      "requestId": 248,
+      "correlated": true,
+      "overlapStages": {
+        "gc": 1
+      }
+    },
+    {
+      "route": "rankings",
+      "kind": "conditional",
+      "status": 304,
+      "elapsedMs": 213.41369999572635,
+      "seconds": 31.281,
+      "requestId": 3770,
+      "correlated": true,
+      "overlapStages": {
+        "canonical.load": 1,
+        "gc": 1
+      }
+    },
+    {
+      "route": "trade",
+      "kind": "unconditional",
+      "status": 200,
+      "elapsedMs": 261.6654997691512,
+      "seconds": 31.547,
+      "requestId": 3771,
+      "correlated": true,
+      "overlapStages": {
+        "canonical.load": 1
+      }
+    },
+    {
+      "route": "trade",
+      "kind": "conditional",
+      "status": 304,
+      "elapsedMs": 112.45879996567965,
+      "seconds": 31.656,
+      "requestId": 3772,
+      "correlated": true,
+      "overlapStages": {
+        "canonical.load": 1
+      }
+    },
+    {
+      "route": "trade",
+      "kind": "conditional",
+      "status": 304,
+      "elapsedMs": 349.44310039281845,
+      "seconds": 32.14,
+      "requestId": 3776,
+      "correlated": true,
+      "overlapStages": {
+        "canonical.load": 1
+      }
+    },
+    {
+      "route": "rankings",
+      "kind": "unconditional",
+      "status": 200,
+      "elapsedMs": 94.05760001391172,
+      "seconds": 32.422,
+      "requestId": 3781,
+      "correlated": true,
+      "overlapStages": {
+        "canonical.load": 1,
+        "gc": 15
+      }
+    },
+    {
+      "route": "rankings",
+      "kind": "conditional",
+      "status": 304,
+      "elapsedMs": 181.36239983141422,
+      "seconds": 32.609,
+      "requestId": 3782,
+      "correlated": true,
+      "overlapStages": {
+        "canonical.load": 1
+      }
+    },
+    {
+      "route": "rankings",
+      "kind": "unconditional",
+      "status": 200,
+      "elapsedMs": 203.78200011327863,
+      "seconds": 32.859,
+      "requestId": 3789,
+      "correlated": true,
+      "overlapStages": {
+        "canonical.load": 1
+      }
+    },
+    {
+      "route": "rankings",
+      "kind": "unconditional",
+      "status": 200,
+      "elapsedMs": 116.37960001826286,
+      "seconds": 33.015,
+      "requestId": 3793,
+      "correlated": true,
+      "overlapStages": {
+        "canonical.load": 1
+      }
+    },
+    {
+      "route": "rankings",
+      "kind": "unconditional",
+      "status": 200,
+      "elapsedMs": 123.38220002129674,
+      "seconds": 33.172,
+      "requestId": 3797,
+      "correlated": true,
+      "overlapStages": {
+        "canonical.load": 1
+      }
+    },
+    {
+      "route": "rankings",
+      "kind": "unconditional",
+      "status": 200,
+      "elapsedMs": 106.11760010942817,
+      "seconds": 33.312,
+      "requestId": 3801,
+      "correlated": true,
+      "overlapStages": {
+        "canonical.load": 1
+      }
+    },
+    {
+      "route": "rankings",
+      "kind": "unconditional",
+      "status": 200,
+      "elapsedMs": 81.83729974552989,
+      "seconds": 33.422,
+      "requestId": 3805,
+      "correlated": true,
+      "overlapStages": {
+        "canonical.load": 1
+      }
+    },
+    {
+      "route": "rankings",
+      "kind": "unconditional",
+      "status": 200,
+      "elapsedMs": 611.8112998083234,
+      "seconds": 34.265,
+      "requestId": 3821,
+      "correlated": true,
+      "overlapStages": {}
+    },
+    {
+      "route": "rankings",
+      "kind": "unconditional",
+      "status": 200,
+      "elapsedMs": 223.0460001155734,
+      "seconds": 34.672,
+      "requestId": 3825,
+      "correlated": true,
+      "overlapStages": {}
+    },
+    {
+      "route": "rankings",
+      "kind": "conditional",
+      "status": 304,
+      "elapsedMs": 202.80299987643957,
+      "seconds": 34.89,
+      "requestId": 3826,
+      "correlated": true,
+      "overlapStages": {}
+    },
+    {
+      "route": "rankings",
+      "kind": "unconditional",
+      "status": 200,
+      "elapsedMs": 87.11660001426935,
+      "seconds": 35.187,
+      "requestId": 3833,
+      "correlated": true,
+      "overlapStages": {
+        "gc": 1
+      }
+    },
+    {
+      "route": "rankings",
+      "kind": "unconditional",
+      "status": 200,
+      "elapsedMs": 82.13720005005598,
+      "seconds": 35.344,
+      "requestId": 3837,
+      "correlated": true,
+      "overlapStages": {
+        "gc": 1
+      }
+    },
+    {
+      "route": "rankings",
+      "kind": "unconditional",
+      "status": 200,
+      "elapsedMs": 315.9662000834942,
+      "seconds": 41.172,
+      "requestId": 4445,
+      "correlated": true,
+      "overlapStages": {
+        "canonical.load": 1
+      }
+    },
+    {
+      "route": "rankings",
+      "kind": "conditional",
+      "status": 304,
+      "elapsedMs": 96.20210016146302,
+      "seconds": 41.265,
+      "requestId": 4446,
+      "correlated": true,
+      "overlapStages": {
+        "canonical.load": 1
+      }
+    },
+    {
+      "route": "trade",
+      "kind": "unconditional",
+      "status": 200,
+      "elapsedMs": 150.80290008336306,
+      "seconds": 41.422,
+      "requestId": 4447,
+      "correlated": true,
+      "overlapStages": {
+        "canonical.load": 1
+      }
+    },
+    {
+      "route": "trade",
+      "kind": "conditional",
+      "status": 304,
+      "elapsedMs": 466.04770002886653,
+      "seconds": 41.89,
+      "requestId": 4448,
+      "correlated": true,
+      "overlapStages": {
+        "canonical.load": 1
+      }
+    },
+    {
+      "route": "trade",
+      "kind": "unconditional",
+      "status": 200,
+      "elapsedMs": 78.42320017516613,
+      "seconds": 42.094,
+      "requestId": 4451,
+      "correlated": true,
+      "overlapStages": {
+        "canonical.load": 1,
+        "gc": 4
+      }
+    },
+    {
+      "route": "rankings",
+      "kind": "conditional",
+      "status": 304,
+      "elapsedMs": 251.3462002389133,
+      "seconds": 42.437,
+      "requestId": 4454,
+      "correlated": true,
+      "overlapStages": {
+        "canonical.load": 1
+      }
+    },
+    {
+      "route": "rankings",
+      "kind": "unconditional",
+      "status": 200,
+      "elapsedMs": 243.78379993140697,
+      "seconds": 42.75,
+      "requestId": 4461,
+      "correlated": true,
+      "overlapStages": {
+        "canonical.load": 1
+      }
+    },
+    {
+      "route": "rankings",
+      "kind": "unconditional",
+      "status": 200,
+      "elapsedMs": 177.21439991146326,
+      "seconds": 42.937,
+      "requestId": 4465,
+      "correlated": true,
+      "overlapStages": {
+        "canonical.load": 1,
+        "gc": 1
+      }
+    },
+    {
+      "route": "rankings",
+      "kind": "unconditional",
+      "status": 200,
+      "elapsedMs": 166.08629981055856,
+      "seconds": 43.14,
+      "requestId": 4469,
+      "correlated": true,
+      "overlapStages": {
+        "canonical.load": 1
+      }
+    },
+    {
+      "route": "rankings",
+      "kind": "unconditional",
+      "status": 200,
+      "elapsedMs": 191.59930013120174,
+      "seconds": 43.359,
+      "requestId": 4473,
+      "correlated": true,
+      "overlapStages": {
+        "canonical.load": 1
+      }
+    },
+    {
+      "route": "rankings",
+      "kind": "unconditional",
+      "status": 200,
+      "elapsedMs": 120.9745998494327,
+      "seconds": 43.5,
+      "requestId": 4477,
+      "correlated": true,
+      "overlapStages": {
+        "canonical.load": 1
+      }
+    },
+    {
+      "route": "trade",
+      "kind": "conditional",
+      "status": 304,
+      "elapsedMs": 185.74790004640818,
+      "seconds": 49.75,
+      "requestId": 5192,
+      "correlated": true,
+      "overlapStages": {
+        "league.load": 1,
+        "gc": 1
+      }
+    },
+    {
+      "route": "rankings",
+      "kind": "unconditional",
+      "status": 200,
+      "elapsedMs": 87.81789988279343,
+      "seconds": 49.89,
+      "requestId": 5197,
+      "correlated": true,
+      "overlapStages": {
+        "league.load": 1
+      }
+    },
+    {
+      "route": "rankings",
+      "kind": "unconditional",
+      "status": 200,
+      "elapsedMs": 82.81010016798973,
+      "seconds": 50.203,
+      "requestId": 5209,
+      "correlated": true,
+      "overlapStages": {
+        "league.load": 1
+      }
+    },
+    {
+      "route": "rankings",
+      "kind": "unconditional",
+      "status": 200,
+      "elapsedMs": 136.27299992367625,
+      "seconds": 50.359,
+      "requestId": 5213,
+      "correlated": true,
+      "overlapStages": {
+        "league.validate": 1
+      }
+    },
+    {
+      "route": "trade",
+      "kind": "unconditional",
+      "status": 200,
+      "elapsedMs": 378.72330006211996,
+      "seconds": 50.75,
+      "requestId": 5215,
+      "correlated": true,
+      "overlapStages": {
+        "league.validate": 1,
+        "gc": 1
+      }
+    },
+    {
+      "route": "trade",
+      "kind": "conditional",
+      "status": 304,
+      "elapsedMs": 188.08740004897118,
+      "seconds": 50.937,
+      "requestId": 5216,
+      "correlated": true,
+      "overlapStages": {
+        "league.validate": 1
+      }
+    },
+    {
+      "route": "rankings",
+      "kind": "unconditional",
+      "status": 200,
+      "elapsedMs": 196.9616999849677,
+      "seconds": 51.156,
+      "requestId": 5217,
+      "correlated": true,
+      "overlapStages": {
+        "league.validate": 1
+      }
+    },
+    {
+      "route": "rankings",
+      "kind": "conditional",
+      "status": 304,
+      "elapsedMs": 215.75039997696877,
+      "seconds": 51.375,
+      "requestId": 5218,
+      "correlated": true,
+      "overlapStages": {
+        "league.validate": 1
+      }
+    },
+    {
+      "route": "rankings",
+      "kind": "unconditional",
+      "status": 200,
+      "elapsedMs": 130.3442995995283,
+      "seconds": 51.75,
+      "requestId": 5233,
+      "correlated": true,
+      "overlapStages": {
+        "league.expire": 1
+      }
+    },
+    {
+      "route": "trade",
+      "kind": "conditional",
+      "status": 304,
+      "elapsedMs": 359.95039995759726,
+      "seconds": 52.109,
+      "requestId": 5236,
+      "correlated": true,
+      "overlapStages": {
+        "league.expire": 1,
+        "gc": 1
+      }
+    },
+    {
+      "route": "rankings",
+      "kind": "unconditional",
+      "status": 200,
+      "elapsedMs": 75.11830003932118,
+      "seconds": 52.359,
+      "requestId": 5257,
+      "correlated": true,
+      "overlapStages": {
+        "league.expire": 1
+      }
+    },
+    {
+      "route": "rankings",
+      "kind": "unconditional",
+      "status": 200,
+      "elapsedMs": 150.6054000928998,
+      "seconds": 57.375,
+      "requestId": 5825,
+      "correlated": true,
+      "overlapStages": {
+        "league.load": 1
+      }
+    },
+    {
+      "route": "rankings",
+      "kind": "unconditional",
+      "status": 200,
+      "elapsedMs": 84.30860005319118,
+      "seconds": 57.515,
+      "requestId": 5833,
+      "correlated": true,
+      "overlapStages": {
+        "league.load": 1
+      }
+    },
+    {
+      "route": "rankings",
+      "kind": "unconditional",
+      "status": 200,
+      "elapsedMs": 147.46070001274347,
+      "seconds": 57.781,
+      "requestId": 5841,
+      "correlated": true,
+      "overlapStages": {
+        "league.load": 1
+      }
+    },
+    {
+      "route": "trade",
+      "kind": "conditional",
+      "status": 304,
+      "elapsedMs": 332.9803002998233,
+      "seconds": 58.109,
+      "requestId": 5844,
+      "correlated": true,
+      "overlapStages": {
+        "league.load": 1,
+        "gc": 1
+      }
+    },
+    {
+      "route": "rankings",
+      "kind": "unconditional",
+      "status": 200,
+      "elapsedMs": 103.72040001675487,
+      "seconds": 58.328,
+      "requestId": 5849,
+      "correlated": true,
+      "overlapStages": {
+        "league.validate": 1
+      }
+    },
+    {
+      "route": "rankings",
+      "kind": "conditional",
+      "status": 304,
+      "elapsedMs": 275.566500145942,
+      "seconds": 58.594,
+      "requestId": 5850,
+      "correlated": true,
+      "overlapStages": {
+        "league.validate": 1,
+        "gc": 1
+      }
+    },
+    {
+      "route": "trade",
+      "kind": "unconditional",
+      "status": 200,
+      "elapsedMs": 169.23240013420582,
+      "seconds": 58.765,
+      "requestId": 5851,
+      "correlated": true,
+      "overlapStages": {
+        "league.validate": 1
+      }
+    },
+    {
+      "route": "trade",
+      "kind": "conditional",
+      "status": 304,
+      "elapsedMs": 138.58600007370114,
+      "seconds": 58.906,
+      "requestId": 5852,
+      "correlated": true,
+      "overlapStages": {
+        "league.validate": 1
+      }
+    },
+    {
+      "route": "rankings",
+      "kind": "unconditional",
+      "status": 200,
+      "elapsedMs": 238.7993996962905,
+      "seconds": 59.172,
+      "requestId": 5853,
+      "correlated": true,
+      "overlapStages": {
+        "league.validate": 1
+      }
+    },
+    {
+      "route": "rankings",
+      "kind": "conditional",
+      "status": 304,
+      "elapsedMs": 130.90370036661625,
+      "seconds": 59.297,
+      "requestId": 5854,
+      "correlated": true,
+      "overlapStages": {
+        "league.expire": 1
+      }
+    },
+    {
+      "route": "trade",
+      "kind": "unconditional",
+      "status": 200,
+      "elapsedMs": 156.75179986283183,
+      "seconds": 59.609,
+      "requestId": 5871,
+      "correlated": true,
+      "overlapStages": {
+        "league.expire": 1
+      }
+    },
+    {
+      "route": "trade",
+      "kind": "unconditional",
+      "status": 200,
+      "elapsedMs": 333.5672002285719,
+      "seconds": 60.031,
+      "requestId": 5883,
+      "correlated": true,
+      "overlapStages": {
+        "league.expire": 1,
+        "canonical.load": 1,
+        "gc": 1
+      }
+    },
+    {
+      "route": "trade",
+      "kind": "conditional",
+      "status": 304,
+      "elapsedMs": 418.0356003344059,
+      "seconds": 60.453,
+      "requestId": 5884,
+      "correlated": true,
+      "overlapStages": {
+        "league.expire": 1,
+        "canonical.load": 1
+      }
+    },
+    {
+      "route": "trade",
+      "kind": "unconditional",
+      "status": 200,
+      "elapsedMs": 91.24809969216585,
+      "seconds": 60.594,
+      "requestId": 5887,
+      "correlated": true,
+      "overlapStages": {
+        "league.expire": 1,
+        "canonical.load": 1,
+        "gc": 1
+      }
+    },
+    {
+      "route": "rankings",
+      "kind": "unconditional",
+      "status": 200,
+      "elapsedMs": 190.05770003423095,
+      "seconds": 60.844,
+      "requestId": 5889,
+      "correlated": true,
+      "overlapStages": {
+        "league.expire": 1,
+        "canonical.load": 1
+      }
+    },
+    {
+      "route": "trade",
+      "kind": "unconditional",
+      "status": 200,
+      "elapsedMs": 164.68310030177236,
+      "seconds": 61.047,
+      "requestId": 5891,
+      "correlated": true,
+      "overlapStages": {
+        "league.expire": 1,
+        "canonical.load": 1
+      }
+    },
+    {
+      "route": "trade",
+      "kind": "conditional",
+      "status": 304,
+      "elapsedMs": 202.5548000819981,
+      "seconds": 61.25,
+      "requestId": 5892,
+      "correlated": true,
+      "overlapStages": {
+        "league.expire": 1,
+        "canonical.load": 1
+      }
+    },
+    {
+      "route": "rankings",
+      "kind": "unconditional",
+      "status": 200,
+      "elapsedMs": 145.1947004534304,
+      "seconds": 61.453,
+      "requestId": 5897,
+      "correlated": true,
+      "overlapStages": {
+        "league.expire": 1,
+        "canonical.load": 1
+      }
+    },
+    {
+      "route": "rankings",
+      "kind": "conditional",
+      "status": 304,
+      "elapsedMs": 124.90840023383498,
+      "seconds": 61.578,
+      "requestId": 5898,
+      "correlated": true,
+      "overlapStages": {
+        "league.expire": 1,
+        "canonical.load": 1
+      }
+    },
+    {
+      "route": "rankings",
+      "kind": "conditional",
+      "status": 304,
+      "elapsedMs": 149.2701000533998,
+      "seconds": 61.828,
+      "requestId": 5902,
+      "correlated": true,
+      "overlapStages": {
+        "canonical.load": 1
+      }
+    },
+    {
+      "route": "rankings",
+      "kind": "conditional",
+      "status": 304,
+      "elapsedMs": 134.07390005886555,
+      "seconds": 61.984,
+      "requestId": 5906,
+      "correlated": true,
+      "overlapStages": {
+        "canonical.load": 1
+      }
+    },
+    {
+      "route": "rankings",
+      "kind": "unconditional",
+      "status": 200,
+      "elapsedMs": 77.27460004389286,
+      "seconds": 62.094,
+      "requestId": 5909,
+      "correlated": true,
+      "overlapStages": {
+        "canonical.load": 1
+      }
+    },
+    {
+      "route": "rankings",
+      "kind": "conditional",
+      "status": 304,
+      "elapsedMs": 80.31790005043149,
+      "seconds": 62.172,
+      "requestId": 5910,
+      "correlated": true,
+      "overlapStages": {
+        "canonical.load": 1
+      }
+    },
+    {
+      "route": "trade",
+      "kind": "conditional",
+      "status": 304,
+      "elapsedMs": 355.3865998983383,
+      "seconds": 62.906,
+      "requestId": 5940,
+      "correlated": true,
+      "overlapStages": {
+        "gc": 1
+      }
+    },
+    {
+      "route": "rankings",
+      "kind": "unconditional",
+      "status": 200,
+      "elapsedMs": 219.90850009024143,
+      "seconds": 64.422,
+      "requestId": 6089,
+      "correlated": true,
+      "overlapStages": {
+        "league.load": 1
+      }
+    },
+    {
+      "route": "rankings",
+      "kind": "unconditional",
+      "status": 200,
+      "elapsedMs": 91.22260008007288,
+      "seconds": 64.562,
+      "requestId": 6097,
+      "correlated": true,
+      "overlapStages": {
+        "league.load": 1
+      }
+    },
+    {
+      "route": "trade",
+      "kind": "unconditional",
+      "status": 200,
+      "elapsedMs": 83.50520022213459,
+      "seconds": 64.672,
+      "requestId": 6103,
+      "correlated": true,
+      "overlapStages": {
+        "league.load": 1
+      }
+    },
+    {
+      "route": "rankings",
+      "kind": "unconditional",
+      "status": 200,
+      "elapsedMs": 154.52519990503788,
+      "seconds": 64.844,
+      "requestId": 6105,
+      "correlated": true,
+      "overlapStages": {
+        "league.load": 1,
+        "gc": 1
+      }
+    },
+    {
+      "route": "rankings",
+      "kind": "unconditional",
+      "status": 200,
+      "elapsedMs": 90.71960020810366,
+      "seconds": 64.953,
+      "requestId": 6109,
+      "correlated": true,
+      "overlapStages": {
+        "league.load": 1
+      }
+    },
+    {
+      "route": "rankings",
+      "kind": "unconditional",
+      "status": 200,
+      "elapsedMs": 163.00599975511432,
+      "seconds": 67.64,
+      "requestId": 6417,
+      "correlated": true,
+      "overlapStages": {
+        "league.load": 1,
+        "gc": 1
+      }
+    },
+    {
+      "route": "trade",
+      "kind": "conditional",
+      "status": 304,
+      "elapsedMs": 388.8040999881923,
+      "seconds": 68.031,
+      "requestId": 6420,
+      "correlated": true,
+      "overlapStages": {
+        "league.load": 1,
+        "gc": 1
+      }
+    },
+    {
+      "route": "rankings",
+      "kind": "unconditional",
+      "status": 200,
+      "elapsedMs": 83.01040017977357,
+      "seconds": 68.14,
+      "requestId": 6421,
+      "correlated": true,
+      "overlapStages": {
+        "league.load": 1,
+        "gc": 1
+      }
+    },
+    {
+      "route": "rankings",
+      "kind": "unconditional",
+      "status": 200,
+      "elapsedMs": 89.6828998811543,
+      "seconds": 68.265,
+      "requestId": 6425,
+      "correlated": true,
+      "overlapStages": {
+        "league.load": 1
+      }
+    },
+    {
+      "route": "rankings",
+      "kind": "unconditional",
+      "status": 200,
+      "elapsedMs": 100.64869979396462,
+      "seconds": 68.562,
+      "requestId": 6437,
+      "correlated": true,
+      "overlapStages": {
+        "league.validate": 1
+      }
+    },
+    {
+      "route": "rankings",
+      "kind": "conditional",
+      "status": 304,
+      "elapsedMs": 376.9054999575019,
+      "seconds": 68.953,
+      "requestId": 6438,
+      "correlated": true,
+      "overlapStages": {
+        "league.validate": 1,
+        "gc": 1
+      }
+    },
+    {
+      "route": "trade",
+      "kind": "unconditional",
+      "status": 200,
+      "elapsedMs": 249.43359987810254,
+      "seconds": 69.203,
+      "requestId": 6439,
+      "correlated": true,
+      "overlapStages": {
+        "league.validate": 1
+      }
+    },
+    {
+      "route": "trade",
+      "kind": "conditional",
+      "status": 304,
+      "elapsedMs": 146.4407998137176,
+      "seconds": 69.344,
+      "requestId": 6440,
+      "correlated": true,
+      "overlapStages": {
+        "league.validate": 1
+      }
+    },
+    {
+      "route": "rankings",
+      "kind": "unconditional",
+      "status": 200,
+      "elapsedMs": 135.2233001962304,
+      "seconds": 69.5,
+      "requestId": 6441,
+      "correlated": true,
+      "overlapStages": {
+        "league.validate": 1
+      }
+    },
+    {
+      "route": "rankings",
+      "kind": "conditional",
+      "status": 304,
+      "elapsedMs": 129.99950023368,
+      "seconds": 69.625,
+      "requestId": 6442,
+      "correlated": true,
+      "overlapStages": {
+        "league.expire": 1
+      }
+    },
+    {
+      "route": "rankings",
+      "kind": "unconditional",
+      "status": 200,
+      "elapsedMs": 162.79490012675524,
+      "seconds": 69.969,
+      "requestId": 6457,
+      "correlated": true,
+      "overlapStages": {
+        "league.expire": 1
+      }
+    },
+    {
+      "route": "rankings",
+      "kind": "conditional",
+      "status": 304,
+      "elapsedMs": 89.96779983863235,
+      "seconds": 70.234,
+      "requestId": 6478,
+      "correlated": true,
+      "overlapStages": {
+        "league.expire": 1
+      }
+    },
+    {
+      "route": "rankings",
+      "kind": "unconditional",
+      "status": 200,
+      "elapsedMs": 76.11909974366426,
+      "seconds": 70.859,
+      "requestId": 6529,
+      "correlated": true,
+      "overlapStages": {}
+    },
+    {
+      "route": "rankings",
+      "kind": "unconditional",
+      "status": 200,
+      "elapsedMs": 141.26629987731576,
+      "seconds": 87.515,
+      "requestId": 8525,
+      "correlated": true,
+      "overlapStages": {
+        "league.load": 1
+      }
+    },
+    {
+      "route": "rankings",
+      "kind": "unconditional",
+      "status": 200,
+      "elapsedMs": 110.38399999961257,
+      "seconds": 87.672,
+      "requestId": 8529,
+      "correlated": true,
+      "overlapStages": {
+        "league.load": 1
+      }
+    },
+    {
+      "route": "rankings",
+      "kind": "unconditional",
+      "status": 200,
+      "elapsedMs": 277.8118001297116,
+      "seconds": 88.094,
+      "requestId": 8533,
+      "correlated": true,
+      "overlapStages": {
+        "league.load": 1
+      }
+    },
+    {
+      "route": "rankings",
+      "kind": "unconditional",
+      "status": 200,
+      "elapsedMs": 82.85519992932677,
+      "seconds": 88.187,
+      "requestId": 8537,
+      "correlated": true,
+      "overlapStages": {
+        "league.load": 1
+      }
+    },
+    {
+      "route": "trade",
+      "kind": "unconditional",
+      "status": 200,
+      "elapsedMs": 408.4966001100838,
+      "seconds": 88.797,
+      "requestId": 8547,
+      "correlated": true,
+      "overlapStages": {
+        "league.validate": 1,
+        "gc": 1
+      }
+    },
+    {
+      "route": "trade",
+      "kind": "conditional",
+      "status": 304,
+      "elapsedMs": 138.33079999312758,
+      "seconds": 88.937,
+      "requestId": 8548,
+      "correlated": true,
+      "overlapStages": {
+        "league.validate": 1
+      }
+    },
+    {
+      "route": "rankings",
+      "kind": "unconditional",
+      "status": 200,
+      "elapsedMs": 186.32060009986162,
+      "seconds": 89.14,
+      "requestId": 8549,
+      "correlated": true,
+      "overlapStages": {
+        "league.validate": 1
+      }
+    },
+    {
+      "route": "rankings",
+      "kind": "conditional",
+      "status": 304,
+      "elapsedMs": 85.77159978449345,
+      "seconds": 89.219,
+      "requestId": 8550,
+      "correlated": true,
+      "overlapStages": {
+        "league.validate": 1
+      }
+    },
+    {
+      "route": "trade",
+      "kind": "unconditional",
+      "status": 200,
+      "elapsedMs": 170.3381002880633,
+      "seconds": 89.39,
+      "requestId": 8551,
+      "correlated": true,
+      "overlapStages": {
+        "league.validate": 1
+      }
+    },
+    {
+      "route": "rankings",
+      "kind": "unconditional",
+      "status": 200,
+      "elapsedMs": 161.0440998338163,
+      "seconds": 89.672,
+      "requestId": 8561,
+      "correlated": true,
+      "overlapStages": {
+        "league.expire": 1
+      }
+    },
+    {
+      "route": "rankings",
+      "kind": "unconditional",
+      "status": 200,
+      "elapsedMs": 441.5724999271333,
+      "seconds": 90.281,
+      "requestId": 8581,
+      "correlated": true,
+      "overlapStages": {
+        "league.expire": 1,
+        "canonical.load": 1
+      }
+    },
+    {
+      "route": "rankings",
+      "kind": "conditional",
+      "status": 304,
+      "elapsedMs": 84.86919989809394,
+      "seconds": 90.359,
+      "requestId": 8582,
+      "correlated": true,
+      "overlapStages": {
+        "league.expire": 1,
+        "canonical.load": 1
+      }
+    },
+    {
+      "route": "trade",
+      "kind": "unconditional",
+      "status": 200,
+      "elapsedMs": 75.8873000741005,
+      "seconds": 90.437,
+      "requestId": 8583,
+      "correlated": true,
+      "overlapStages": {
+        "league.expire": 1,
+        "canonical.load": 1
+      }
+    },
+    {
+      "route": "rankings",
+      "kind": "unconditional",
+      "status": 200,
+      "elapsedMs": 116.61630030721426,
+      "seconds": 90.625,
+      "requestId": 8585,
+      "correlated": true,
+      "overlapStages": {
+        "league.expire": 1,
+        "canonical.load": 1,
+        "gc": 1
+      }
+    },
+    {
+      "route": "rankings",
+      "kind": "conditional",
+      "status": 304,
+      "elapsedMs": 124.45100024342537,
+      "seconds": 90.75,
+      "requestId": 8586,
+      "correlated": true,
+      "overlapStages": {
+        "league.expire": 1,
+        "canonical.load": 1,
+        "gc": 11
+      }
+    },
+    {
+      "route": "rankings",
+      "kind": "unconditional",
+      "status": 200,
+      "elapsedMs": 100.02489993348718,
+      "seconds": 90.937,
+      "requestId": 8589,
+      "correlated": true,
+      "overlapStages": {
+        "league.expire": 1,
+        "canonical.load": 1
+      }
+    },
+    {
+      "route": "trade",
+      "kind": "unconditional",
+      "status": 200,
+      "elapsedMs": 167.86279994994402,
+      "seconds": 91.14,
+      "requestId": 8591,
+      "correlated": true,
+      "overlapStages": {
+        "league.expire": 1,
+        "canonical.load": 1
+      }
+    },
+    {
+      "route": "rankings",
+      "kind": "conditional",
+      "status": 304,
+      "elapsedMs": 163.83739979937673,
+      "seconds": 91.375,
+      "requestId": 8594,
+      "correlated": true,
+      "overlapStages": {
+        "league.expire": 1,
+        "canonical.load": 1
+      }
+    },
+    {
+      "route": "rankings",
+      "kind": "conditional",
+      "status": 304,
+      "elapsedMs": 174.2659998126328,
+      "seconds": 91.656,
+      "requestId": 8602,
+      "correlated": true,
+      "overlapStages": {
+        "canonical.load": 1
+      }
+    },
+    {
+      "route": "trade",
+      "kind": "unconditional",
+      "status": 200,
+      "elapsedMs": 95.17029998824,
+      "seconds": 91.75,
+      "requestId": 8603,
+      "correlated": true,
+      "overlapStages": {
+        "canonical.load": 1
+      }
+    },
+    {
+      "route": "rankings",
+      "kind": "unconditional",
+      "status": 200,
+      "elapsedMs": 177.65119997784495,
+      "seconds": 91.953,
+      "requestId": 8605,
+      "correlated": true,
+      "overlapStages": {
+        "canonical.load": 1
+      }
+    },
+    {
+      "route": "rankings",
+      "kind": "conditional",
+      "status": 304,
+      "elapsedMs": 109.60830003023148,
+      "seconds": 92.094,
+      "requestId": 8610,
+      "correlated": true,
+      "overlapStages": {
+        "canonical.load": 1
+      }
+    },
+    {
+      "route": "trade",
+      "kind": "unconditional",
+      "status": 200,
+      "elapsedMs": 90.99439997226,
+      "seconds": 92.187,
+      "requestId": 8611,
+      "correlated": true,
+      "overlapStages": {
+        "canonical.load": 1
+      }
+    },
+    {
+      "route": "rankings",
+      "kind": "conditional",
+      "status": 304,
+      "elapsedMs": 90.24780010804534,
+      "seconds": 92.359,
+      "requestId": 8614,
+      "correlated": true,
+      "overlapStages": {
+        "canonical.load": 1
+      }
+    },
+    {
+      "route": "rankings",
+      "kind": "conditional",
+      "status": 304,
+      "elapsedMs": 127.76490021497011,
+      "seconds": 92.5,
+      "requestId": 8618,
+      "correlated": true,
+      "overlapStages": {
+        "canonical.load": 1
+      }
+    },
+    {
+      "route": "rankings",
+      "kind": "unconditional",
+      "status": 200,
+      "elapsedMs": 101.91019997000694,
+      "seconds": 92.625,
+      "requestId": 8621,
+      "correlated": true,
+      "overlapStages": {
+        "canonical.load": 1
+      }
+    },
+    {
+      "route": "trade",
+      "kind": "conditional",
+      "status": 304,
+      "elapsedMs": 373.108500149101,
+      "seconds": 93.234,
+      "requestId": 8644,
+      "correlated": true,
+      "overlapStages": {
+        "gc": 1
+      }
+    },
+    {
+      "route": "rankings",
+      "kind": "unconditional",
+      "status": 200,
+      "elapsedMs": 163.69140008464456,
+      "seconds": 93.89,
+      "requestId": 8693,
+      "correlated": true,
+      "overlapStages": {
+        "league.load": 1
+      }
+    },
+    {
+      "route": "rankings",
+      "kind": "unconditional",
+      "status": 200,
+      "elapsedMs": 100.67509999498725,
+      "seconds": 94.047,
+      "requestId": 8701,
+      "correlated": true,
+      "overlapStages": {
+        "league.load": 1,
+        "gc": 1
+      }
+    },
+    {
+      "route": "rankings",
+      "kind": "unconditional",
+      "status": 200,
+      "elapsedMs": 82.34600024297833,
+      "seconds": 94.14,
+      "requestId": 8705,
+      "correlated": true,
+      "overlapStages": {
+        "league.load": 1
+      }
+    },
+    {
+      "route": "rankings",
+      "kind": "unconditional",
+      "status": 200,
+      "elapsedMs": 87.18820009380579,
+      "seconds": 94.265,
+      "requestId": 8709,
+      "correlated": true,
+      "overlapStages": {
+        "league.load": 1,
+        "gc": 1
+      }
+    },
+    {
+      "route": "rankings",
+      "kind": "unconditional",
+      "status": 200,
+      "elapsedMs": 175.14019971713424,
+      "seconds": 94.453,
+      "requestId": 8713,
+      "correlated": true,
+      "overlapStages": {
+        "league.load": 1,
+        "gc": 1
+      }
+    },
+    {
+      "route": "trade",
+      "kind": "conditional",
+      "status": 304,
+      "elapsedMs": 363.37019968777895,
+      "seconds": 98.437,
+      "requestId": 9160,
+      "correlated": true,
+      "overlapStages": {
+        "gc": 1
+      }
+    },
+    {
+      "route": "rankings",
+      "kind": "unconditional",
+      "status": 200,
+      "elapsedMs": 168.0777999572456,
+      "seconds": 98.734,
+      "requestId": 9169,
+      "correlated": true,
+      "overlapStages": {
+        "league.load": 1
+      }
+    },
+    {
+      "route": "trade",
+      "kind": "conditional",
+      "status": 304,
+      "elapsedMs": 92.05649979412556,
+      "seconds": 98.859,
+      "requestId": 9176,
+      "correlated": true,
+      "overlapStages": {
+        "league.load": 1
+      }
+    },
+    {
+      "route": "rankings",
+      "kind": "unconditional",
+      "status": 200,
+      "elapsedMs": 82.89070008322597,
+      "seconds": 99.203,
+      "requestId": 9189,
+      "correlated": true,
+      "overlapStages": {
+        "league.load": 1
+      }
+    },
+    {
+      "route": "rankings",
+      "kind": "unconditional",
+      "status": 200,
+      "elapsedMs": 110.48340005800128,
+      "seconds": 99.344,
+      "requestId": 9193,
+      "correlated": true,
+      "overlapStages": {
+        "league.validate": 1
+      }
+    },
+    {
+      "route": "trade",
+      "kind": "unconditional",
+      "status": 200,
+      "elapsedMs": 395.3819000162184,
+      "seconds": 99.781,
+      "requestId": 9195,
+      "correlated": true,
+      "overlapStages": {
+        "league.validate": 1
+      }
+    },
+    {
+      "route": "trade",
+      "kind": "conditional",
+      "status": 304,
+      "elapsedMs": 220.8095001988113,
+      "seconds": 100.0,
+      "requestId": 9196,
+      "correlated": true,
+      "overlapStages": {
+        "league.validate": 1
+      }
+    },
+    {
+      "route": "rankings",
+      "kind": "unconditional",
+      "status": 200,
+      "elapsedMs": 220.56859964504838,
+      "seconds": 100.234,
+      "requestId": 9197,
+      "correlated": true,
+      "overlapStages": {
+        "league.validate": 1
+      }
+    },
+    {
+      "route": "rankings",
+      "kind": "conditional",
+      "status": 304,
+      "elapsedMs": 220.80509969964623,
+      "seconds": 100.453,
+      "requestId": 9198,
+      "correlated": true,
+      "overlapStages": {
+        "league.validate": 1
+      }
+    },
+    {
+      "route": "rankings",
+      "kind": "unconditional",
+      "status": 200,
+      "elapsedMs": 167.74370009079576,
+      "seconds": 100.781,
+      "requestId": 9209,
+      "correlated": true,
+      "overlapStages": {
+        "league.expire": 1
+      }
+    },
+    {
+      "route": "rankings",
+      "kind": "unconditional",
+      "status": 200,
+      "elapsedMs": 152.05019991844893,
+      "seconds": 103.937,
+      "requestId": 9521,
+      "correlated": true,
+      "overlapStages": {
+        "league.load": 1
+      }
+    },
+    {
+      "route": "rankings",
+      "kind": "unconditional",
+      "status": 200,
+      "elapsedMs": 124.28600015118718,
+      "seconds": 104.203,
+      "requestId": 9533,
+      "correlated": true,
+      "overlapStages": {
+        "league.load": 1,
+        "gc": 1
+      }
+    },
+    {
+      "route": "rankings",
+      "kind": "unconditional",
+      "status": 200,
+      "elapsedMs": 91.6397999972105,
+      "seconds": 104.328,
+      "requestId": 9537,
+      "correlated": true,
+      "overlapStages": {
+        "league.load": 1
+      }
+    },
+    {
+      "route": "trade",
+      "kind": "unconditional",
+      "status": 200,
+      "elapsedMs": 87.36009988933802,
+      "seconds": 104.437,
+      "requestId": 9543,
+      "correlated": true,
+      "overlapStages": {
+        "league.load": 1
+      }
+    },
+    {
+      "route": "rankings",
+      "kind": "conditional",
+      "status": 304,
+      "elapsedMs": 223.14789984375238,
+      "seconds": 104.75,
+      "requestId": 9546,
+      "correlated": true,
+      "overlapStages": {
+        "league.validate": 1
+      }
+    },
+    {
+      "route": "trade",
+      "kind": "unconditional",
+      "status": 200,
+      "elapsedMs": 265.10139973834157,
+      "seconds": 105.015,
+      "requestId": 9547,
+      "correlated": true,
+      "overlapStages": {
+        "league.validate": 1
+      }
+    },
+    {
+      "route": "trade",
+      "kind": "conditional",
+      "status": 304,
+      "elapsedMs": 218.55789981782436,
+      "seconds": 105.234,
+      "requestId": 9548,
+      "correlated": true,
+      "overlapStages": {
+        "league.validate": 1
+      }
+    },
+    {
+      "route": "rankings",
+      "kind": "unconditional",
+      "status": 200,
+      "elapsedMs": 284.7886998206377,
+      "seconds": 105.531,
+      "requestId": 9549,
+      "correlated": true,
+      "overlapStages": {
+        "league.validate": 1
+      }
+    },
+    {
+      "route": "trade",
+      "kind": "unconditional",
+      "status": 200,
+      "elapsedMs": 147.76809979230165,
+      "seconds": 105.797,
+      "requestId": 9559,
+      "correlated": true,
+      "overlapStages": {
+        "league.expire": 1
+      }
+    },
+    {
+      "route": "rankings",
+      "kind": "unconditional",
+      "status": 200,
+      "elapsedMs": 82.64390006661415,
+      "seconds": 106.047,
+      "requestId": 9577,
+      "correlated": true,
+      "overlapStages": {
+        "league.expire": 1
+      }
+    },
+    {
+      "route": "trade",
+      "kind": "conditional",
+      "status": 304,
+      "elapsedMs": 242.8657002747059,
+      "seconds": 106.89,
+      "requestId": 9628,
+      "correlated": true,
+      "overlapStages": {
+        "gc": 1
+      }
+    },
+    {
+      "route": "rankings",
+      "kind": "unconditional",
+      "status": 200,
+      "elapsedMs": 375.94790011644363,
+      "seconds": 114.39,
+      "requestId": 10489,
+      "correlated": true,
+      "overlapStages": {
+        "canonical.load": 1,
+        "gc": 1
+      }
+    },
+    {
+      "route": "trade",
+      "kind": "unconditional",
+      "status": 200,
+      "elapsedMs": 148.9928998053074,
+      "seconds": 114.609,
+      "requestId": 10491,
+      "correlated": true,
+      "overlapStages": {
+        "canonical.load": 1
+      }
+    },
+    {
+      "route": "trade",
+      "kind": "conditional",
+      "status": 304,
+      "elapsedMs": 520.7576998509467,
+      "seconds": 115.125,
+      "requestId": 10492,
+      "correlated": true,
+      "overlapStages": {
+        "canonical.load": 1,
+        "gc": 5
+      }
+    },
+    {
+      "route": "rankings",
+      "kind": "unconditional",
+      "status": 200,
+      "elapsedMs": 110.58920016512275,
+      "seconds": 115.25,
+      "requestId": 10493,
+      "correlated": true,
+      "overlapStages": {
+        "canonical.load": 1
+      }
+    },
+    {
+      "route": "rankings",
+      "kind": "unconditional",
+      "status": 200,
+      "elapsedMs": 222.34350023791194,
+      "seconds": 115.594,
+      "requestId": 10497,
+      "correlated": true,
+      "overlapStages": {
+        "canonical.load": 1
+      }
+    },
+    {
+      "route": "rankings",
+      "kind": "unconditional",
+      "status": 200,
+      "elapsedMs": 260.6877996586263,
+      "seconds": 115.937,
+      "requestId": 10505,
+      "correlated": true,
+      "overlapStages": {
+        "canonical.load": 1
+      }
+    },
+    {
+      "route": "trade",
+      "kind": "unconditional",
+      "status": 200,
+      "elapsedMs": 78.41349998489022,
+      "seconds": 116.062,
+      "requestId": 10511,
+      "correlated": true,
+      "overlapStages": {
+        "canonical.load": 1
+      }
+    },
+    {
+      "route": "trade",
+      "kind": "conditional",
+      "status": 304,
+      "elapsedMs": 106.29229992628098,
+      "seconds": 116.172,
+      "requestId": 10512,
+      "correlated": true,
+      "overlapStages": {
+        "canonical.load": 1,
+        "gc": 1
+      }
+    },
+    {
+      "route": "rankings",
+      "kind": "unconditional",
+      "status": 200,
+      "elapsedMs": 218.1826001033187,
+      "seconds": 116.422,
+      "requestId": 10517,
+      "correlated": true,
+      "overlapStages": {
+        "canonical.load": 1
+      }
+    },
+    {
+      "route": "rankings",
+      "kind": "unconditional",
+      "status": 200,
+      "elapsedMs": 143.36210023611784,
+      "seconds": 116.594,
+      "requestId": 10521,
+      "correlated": true,
+      "overlapStages": {
+        "canonical.load": 1
+      }
+    },
+    {
+      "route": "rankings",
+      "kind": "unconditional",
+      "status": 200,
+      "elapsedMs": 91.83590020984411,
+      "seconds": 116.906,
+      "requestId": 10533,
+      "correlated": true,
+      "overlapStages": {
+        "canonical.load": 1
+      }
+    },
+    {
+      "route": "trade",
+      "kind": "unconditional",
+      "status": 200,
+      "elapsedMs": 158.46259985119104,
+      "seconds": 120.125,
+      "requestId": 10879,
+      "correlated": true,
+      "overlapStages": {
+        "league.load": 1,
+        "gc": 1
+      }
+    },
+    {
+      "route": "trade",
+      "kind": "conditional",
+      "status": 304,
+      "elapsedMs": 83.20279978215694,
+      "seconds": 120.25,
+      "requestId": 10884,
+      "correlated": true,
+      "overlapStages": {
+        "league.load": 1
+      }
+    },
+    {
+      "route": "rankings",
+      "kind": "unconditional",
+      "status": 200,
+      "elapsedMs": 389.35110019519925,
+      "seconds": 120.828,
+      "requestId": 10889,
+      "correlated": true,
+      "overlapStages": {
+        "league.load": 1
+      }
+    },
+    {
+      "route": "rankings",
+      "kind": "unconditional",
+      "status": 200,
+      "elapsedMs": 75.87149972096086,
+      "seconds": 120.922,
+      "requestId": 10893,
+      "correlated": true,
+      "overlapStages": {
+        "league.load": 1
+      }
+    },
+    {
+      "route": "trade",
+      "kind": "unconditional",
+      "status": 200,
+      "elapsedMs": 419.67920027673244,
+      "seconds": 121.515,
+      "requestId": 10899,
+      "correlated": true,
+      "overlapStages": {
+        "league.validate": 1
+      }
+    },
+    {
+      "route": "trade",
+      "kind": "conditional",
+      "status": 304,
+      "elapsedMs": 213.234500028193,
+      "seconds": 121.719,
+      "requestId": 10900,
+      "correlated": true,
+      "overlapStages": {
+        "league.validate": 1
+      }
+    },
+    {
+      "route": "rankings",
+      "kind": "unconditional",
+      "status": 200,
+      "elapsedMs": 325.07749972864985,
+      "seconds": 122.078,
+      "requestId": 10901,
+      "correlated": true,
+      "overlapStages": {
+        "league.validate": 1
+      }
+    },
+    {
+      "route": "rankings",
+      "kind": "unconditional",
+      "status": 200,
+      "elapsedMs": 170.46020040288568,
+      "seconds": 122.406,
+      "requestId": 10917,
+      "correlated": true,
+      "overlapStages": {
+        "league.expire": 1,
+        "gc": 1
+      }
+    },
+    {
+      "route": "rankings",
+      "kind": "unconditional",
+      "status": 200,
+      "elapsedMs": 89.04520003125072,
+      "seconds": 122.687,
+      "requestId": 10941,
+      "correlated": true,
+      "overlapStages": {
+        "league.expire": 1
+      }
+    },
+    {
+      "route": "trade",
+      "kind": "conditional",
+      "status": 304,
+      "elapsedMs": 78.66329979151487,
+      "seconds": 123.156,
+      "requestId": 10976,
+      "correlated": true,
+      "overlapStages": {
+        "league.expire": 1,
+        "gc": 1
+      }
+    },
+    {
+      "route": "rankings",
+      "kind": "unconditional",
+      "status": 200,
+      "elapsedMs": 170.54500011727214,
+      "seconds": 127.734,
+      "requestId": 11501,
+      "correlated": true,
+      "overlapStages": {
+        "league.load": 1,
+        "gc": 1
+      }
+    },
+    {
+      "route": "rankings",
+      "kind": "unconditional",
+      "status": 200,
+      "elapsedMs": 122.16070014983416,
+      "seconds": 127.922,
+      "requestId": 11509,
+      "correlated": true,
+      "overlapStages": {
+        "league.load": 1
+      }
+    },
+    {
+      "route": "rankings",
+      "kind": "unconditional",
+      "status": 200,
+      "elapsedMs": 75.22530015558004,
+      "seconds": 128.015,
+      "requestId": 11513,
+      "correlated": true,
+      "overlapStages": {
+        "league.load": 1
+      }
+    },
+    {
+      "route": "trade",
+      "kind": "unconditional",
+      "status": 200,
+      "elapsedMs": 79.37550032511353,
+      "seconds": 128.219,
+      "requestId": 11519,
+      "correlated": true,
+      "overlapStages": {
+        "league.load": 1
+      }
+    },
+    {
+      "route": "rankings",
+      "kind": "unconditional",
+      "status": 200,
+      "elapsedMs": 87.88189990445971,
+      "seconds": 128.328,
+      "requestId": 11521,
+      "correlated": true,
+      "overlapStages": {
+        "league.validate": 1
+      }
+    },
+    {
+      "route": "rankings",
+      "kind": "conditional",
+      "status": 304,
+      "elapsedMs": 403.75469997525215,
+      "seconds": 128.734,
+      "requestId": 11522,
+      "correlated": true,
+      "overlapStages": {
+        "league.validate": 1
+      }
+    },
+    {
+      "route": "trade",
+      "kind": "unconditional",
+      "status": 200,
+      "elapsedMs": 222.40770002827048,
+      "seconds": 128.953,
+      "requestId": 11523,
+      "correlated": true,
+      "overlapStages": {
+        "league.validate": 1,
+        "gc": 1
+      }
+    },
+    {
+      "route": "trade",
+      "kind": "conditional",
+      "status": 304,
+      "elapsedMs": 77.97490013763309,
+      "seconds": 129.031,
+      "requestId": 11524,
+      "correlated": true,
+      "overlapStages": {
+        "league.validate": 1
+      }
+    },
+    {
+      "route": "rankings",
+      "kind": "unconditional",
+      "status": 200,
+      "elapsedMs": 220.0845000334084,
+      "seconds": 129.265,
+      "requestId": 11525,
+      "correlated": true,
+      "overlapStages": {
+        "league.validate": 1
+      }
+    },
+    {
+      "route": "rankings",
+      "kind": "conditional",
+      "status": 304,
+      "elapsedMs": 97.44059992954135,
+      "seconds": 129.359,
+      "requestId": 11526,
+      "correlated": true,
+      "overlapStages": {
+        "league.expire": 1
+      }
+    },
+    {
+      "route": "rankings",
+      "kind": "unconditional",
+      "status": 200,
+      "elapsedMs": 134.12819989025593,
+      "seconds": 129.64,
+      "requestId": 11541,
+      "correlated": true,
+      "overlapStages": {
+        "league.expire": 1
+      }
+    },
+    {
+      "route": "trade",
+      "kind": "conditional",
+      "status": 304,
+      "elapsedMs": 343.6945001594722,
+      "seconds": 130.062,
+      "requestId": 11548,
+      "correlated": true,
+      "overlapStages": {
+        "league.expire": 1,
+        "gc": 1
+      }
+    },
+    {
+      "route": "rankings",
+      "kind": "unconditional",
+      "status": 200,
+      "elapsedMs": 83.98730028420687,
+      "seconds": 130.265,
+      "requestId": 11561,
+      "correlated": true,
+      "overlapStages": {
+        "league.expire": 1
+      }
+    },
+    {
+      "route": "rankings",
+      "kind": "unconditional",
+      "status": 200,
+      "elapsedMs": 89.66840011999011,
+      "seconds": 130.64,
+      "requestId": 11593,
+      "correlated": true,
+      "overlapStages": {
+        "league.expire": 1
+      }
+    },
+    {
+      "route": "trade",
+      "kind": "unconditional",
+      "status": 200,
+      "elapsedMs": 167.38210013136268,
+      "seconds": 149.562,
+      "requestId": 13863,
+      "correlated": true,
+      "overlapStages": {
+        "league.load": 1
+      }
+    },
+    {
+      "route": "trade",
+      "kind": "conditional",
+      "status": 304,
+      "elapsedMs": 86.33980015292764,
+      "seconds": 149.687,
+      "requestId": 13868,
+      "correlated": true,
+      "overlapStages": {
+        "league.load": 1
+      }
+    },
+    {
+      "route": "rankings",
+      "kind": "unconditional",
+      "status": 200,
+      "elapsedMs": 76.43410004675388,
+      "seconds": 149.969,
+      "requestId": 13877,
+      "correlated": true,
+      "overlapStages": {
+        "league.load": 1
+      }
+    },
+    {
+      "route": "trade",
+      "kind": "unconditional",
+      "status": 200,
+      "elapsedMs": 260.5169997550547,
+      "seconds": 150.297,
+      "requestId": 13883,
+      "correlated": true,
+      "overlapStages": {
+        "league.validate": 1
+      }
+    },
+    {
+      "route": "trade",
+      "kind": "conditional",
+      "status": 304,
+      "elapsedMs": 171.13190004602075,
+      "seconds": 150.469,
+      "requestId": 13884,
+      "correlated": true,
+      "overlapStages": {
+        "league.validate": 1,
+        "gc": 1
+      }
+    },
+    {
+      "route": "rankings",
+      "kind": "unconditional",
+      "status": 200,
+      "elapsedMs": 284.39730033278465,
+      "seconds": 150.781,
+      "requestId": 13885,
+      "correlated": true,
+      "overlapStages": {
+        "league.validate": 1
+      }
+    },
+    {
+      "route": "rankings",
+      "kind": "conditional",
+      "status": 304,
+      "elapsedMs": 315.49920001998544,
+      "seconds": 151.094,
+      "requestId": 13886,
+      "correlated": true,
+      "overlapStages": {
+        "league.validate": 1
+      }
+    },
+    {
+      "route": "trade",
+      "kind": "unconditional",
+      "status": 200,
+      "elapsedMs": 79.97599989175797,
+      "seconds": 151.234,
+      "requestId": 13891,
+      "correlated": true,
+      "overlapStages": {
+        "league.expire": 1,
+        "gc": 1
+      }
+    },
+    {
+      "route": "trade",
+      "kind": "unconditional",
+      "status": 200,
+      "elapsedMs": 374.4407999329269,
+      "seconds": 151.672,
+      "requestId": 13895,
+      "correlated": true,
+      "overlapStages": {
+        "league.expire": 1,
+        "gc": 1
+      }
+    },
+    {
+      "route": "trade",
+      "kind": "conditional",
+      "status": 304,
+      "elapsedMs": 173.16909972578287,
+      "seconds": 151.844,
+      "requestId": 13896,
+      "correlated": true,
+      "overlapStages": {
+        "league.expire": 1
+      }
+    },
+    {
+      "route": "rankings",
+      "kind": "unconditional",
+      "status": 200,
+      "elapsedMs": 192.18320026993752,
+      "seconds": 152.172,
+      "requestId": 13913,
+      "correlated": true,
+      "overlapStages": {
+        "league.expire": 1,
+        "canonical.load": 1
+      }
+    },
+    {
+      "route": "rankings",
+      "kind": "conditional",
+      "status": 304,
+      "elapsedMs": 269.6569999679923,
+      "seconds": 152.437,
+      "requestId": 13914,
+      "correlated": true,
+      "overlapStages": {
+        "league.expire": 1,
+        "canonical.load": 1
+      }
+    },
+    {
+      "route": "trade",
+      "kind": "unconditional",
+      "status": 200,
+      "elapsedMs": 233.84140012785792,
+      "seconds": 152.672,
+      "requestId": 13915,
+      "correlated": true,
+      "overlapStages": {
+        "league.expire": 1,
+        "canonical.load": 1
+      }
+    },
+    {
+      "route": "rankings",
+      "kind": "unconditional",
+      "status": 200,
+      "elapsedMs": 237.28010011836886,
+      "seconds": 152.969,
+      "requestId": 13917,
+      "correlated": true,
+      "overlapStages": {
+        "league.expire": 1,
+        "canonical.load": 1,
+        "gc": 5
+      }
+    },
+    {
+      "route": "rankings",
+      "kind": "conditional",
+      "status": 304,
+      "elapsedMs": 79.83750011771917,
+      "seconds": 153.047,
+      "requestId": 13918,
+      "correlated": true,
+      "overlapStages": {
+        "league.expire": 1,
+        "canonical.load": 1,
+        "gc": 1
+      }
+    },
+    {
+      "route": "trade",
+      "kind": "unconditional",
+      "status": 200,
+      "elapsedMs": 170.662899967283,
+      "seconds": 153.219,
+      "requestId": 13919,
+      "correlated": true,
+      "overlapStages": {
+        "league.expire": 1,
+        "canonical.load": 1
+      }
+    },
+    {
+      "route": "rankings",
+      "kind": "unconditional",
+      "status": 200,
+      "elapsedMs": 205.63329989090562,
+      "seconds": 153.484,
+      "requestId": 13921,
+      "correlated": true,
+      "overlapStages": {
+        "league.expire": 1,
+        "canonical.load": 1,
+        "gc": 11
+      }
+    },
+    {
+      "route": "trade",
+      "kind": "unconditional",
+      "status": 200,
+      "elapsedMs": 287.50000009313226,
+      "seconds": 153.812,
+      "requestId": 13923,
+      "correlated": true,
+      "overlapStages": {
+        "canonical.load": 1
+      }
+    },
+    {
+      "route": "rankings",
+      "kind": "unconditional",
+      "status": 200,
+      "elapsedMs": 229.87469984218478,
+      "seconds": 154.109,
+      "requestId": 13929,
+      "correlated": true,
+      "overlapStages": {
+        "canonical.load": 1
+      }
+    },
+    {
+      "route": "rankings",
+      "kind": "conditional",
+      "status": 304,
+      "elapsedMs": 97.88540005683899,
+      "seconds": 154.297,
+      "requestId": 13934,
+      "correlated": true,
+      "overlapStages": {
+        "canonical.load": 1
+      }
+    },
+    {
+      "route": "trade",
+      "kind": "unconditional",
+      "status": 200,
+      "elapsedMs": 165.2819998562336,
+      "seconds": 154.484,
+      "requestId": 13939,
+      "correlated": true,
+      "overlapStages": {
+        "canonical.load": 1
+      }
+    },
+    {
+      "route": "rankings",
+      "kind": "unconditional",
+      "status": 200,
+      "elapsedMs": 159.2578999698162,
+      "seconds": 154.672,
+      "requestId": 13941,
+      "correlated": true,
+      "overlapStages": {
+        "canonical.load": 1
+      }
+    },
+    {
+      "route": "rankings",
+      "kind": "conditional",
+      "status": 304,
+      "elapsedMs": 112.59479960426688,
+      "seconds": 154.781,
+      "requestId": 13942,
+      "correlated": true,
+      "overlapStages": {
+        "canonical.load": 1
+      }
+    },
+    {
+      "route": "trade",
+      "kind": "conditional",
+      "status": 304,
+      "elapsedMs": 372.8164001367986,
+      "seconds": 155.75,
+      "requestId": 14004,
+      "correlated": true,
+      "overlapStages": {
+        "gc": 1
+      }
+    },
+    {
+      "route": "trade",
+      "kind": "unconditional",
+      "status": 200,
+      "elapsedMs": 165.29079992324114,
+      "seconds": 156.265,
+      "requestId": 14039,
+      "correlated": true,
+      "overlapStages": {
+        "league.load": 1
+      }
+    },
+    {
+      "route": "rankings",
+      "kind": "unconditional",
+      "status": 200,
+      "elapsedMs": 88.77129992470145,
+      "seconds": 156.39,
+      "requestId": 14045,
+      "correlated": true,
+      "overlapStages": {
+        "league.load": 1
+      }
+    },
+    {
+      "route": "rankings",
+      "kind": "conditional",
+      "status": 304,
+      "elapsedMs": 76.18139963597059,
+      "seconds": 156.719,
+      "requestId": 14062,
+      "correlated": true,
+      "overlapStages": {
+        "league.load": 1
+      }
+    },
+    {
+      "route": "rankings",
+      "kind": "unconditional",
+      "status": 200,
+      "elapsedMs": 138.66200018674135,
+      "seconds": 160.984,
+      "requestId": 14541,
+      "correlated": true,
+      "overlapStages": {
+        "league.load": 1,
+        "gc": 1
+      }
+    },
+    {
+      "route": "rankings",
+      "kind": "unconditional",
+      "status": 200,
+      "elapsedMs": 83.10780022293329,
+      "seconds": 161.14,
+      "requestId": 14549,
+      "correlated": true,
+      "overlapStages": {
+        "league.load": 1
+      }
+    },
+    {
+      "route": "rankings",
+      "kind": "unconditional",
+      "status": 200,
+      "elapsedMs": 81.56260009855032,
+      "seconds": 161.328,
+      "requestId": 14553,
+      "correlated": true,
+      "overlapStages": {
+        "league.load": 1
+      }
+    },
+    {
+      "route": "rankings",
+      "kind": "unconditional",
+      "status": 200,
+      "elapsedMs": 271.90669998526573,
+      "seconds": 161.734,
+      "requestId": 14561,
+      "correlated": true,
+      "overlapStages": {
+        "league.validate": 1,
+        "gc": 1
+      }
+    },
+    {
+      "route": "rankings",
+      "kind": "conditional",
+      "status": 304,
+      "elapsedMs": 144.73999990150332,
+      "seconds": 161.875,
+      "requestId": 14562,
+      "correlated": true,
+      "overlapStages": {
+        "league.validate": 1
+      }
+    },
+    {
+      "route": "trade",
+      "kind": "unconditional",
+      "status": 200,
+      "elapsedMs": 232.33289970085025,
+      "seconds": 162.109,
+      "requestId": 14563,
+      "correlated": true,
+      "overlapStages": {
+        "league.validate": 1
+      }
+    },
+    {
+      "route": "trade",
+      "kind": "conditional",
+      "status": 304,
+      "elapsedMs": 143.24270002543926,
+      "seconds": 162.25,
+      "requestId": 14564,
+      "correlated": true,
+      "overlapStages": {
+        "league.validate": 1
+      }
+    },
+    {
+      "route": "rankings",
+      "kind": "unconditional",
+      "status": 200,
+      "elapsedMs": 238.56430035084486,
+      "seconds": 162.5,
+      "requestId": 14565,
+      "correlated": true,
+      "overlapStages": {
+        "league.validate": 1
+      }
+    },
+    {
+      "route": "rankings",
+      "kind": "unconditional",
+      "status": 200,
+      "elapsedMs": 145.68189997226,
+      "seconds": 162.812,
+      "requestId": 14577,
+      "correlated": true,
+      "overlapStages": {
+        "league.expire": 1
+      }
+    },
+    {
+      "route": "trade",
+      "kind": "conditional",
+      "status": 304,
+      "elapsedMs": 476.41250025480986,
+      "seconds": 163.437,
+      "requestId": 14592,
+      "correlated": true,
+      "overlapStages": {
+        "league.expire": 1,
+        "gc": 1
+      }
+    },
+    {
+      "route": "trade",
+      "kind": "unconditional",
+      "status": 200,
+      "elapsedMs": 88.49609969183803,
+      "seconds": 164.156,
+      "requestId": 14639,
+      "correlated": true,
+      "overlapStages": {
+        "league.expire": 1
+      }
+    },
+    {
+      "route": "rankings",
+      "kind": "unconditional",
+      "status": 200,
+      "elapsedMs": 192.6329997368157,
+      "seconds": 166.719,
+      "requestId": 14913,
+      "correlated": true,
+      "overlapStages": {
+        "league.load": 1
+      }
+    },
+    {
+      "route": "rankings",
+      "kind": "unconditional",
+      "status": 200,
+      "elapsedMs": 155.35280015319586,
+      "seconds": 166.937,
+      "requestId": 14921,
+      "correlated": true,
+      "overlapStages": {
+        "league.load": 1
+      }
+    },
+    {
+      "route": "rankings",
+      "kind": "unconditional",
+      "status": 200,
+      "elapsedMs": 86.02029969915748,
+      "seconds": 167.047,
+      "requestId": 14925,
+      "correlated": true,
+      "overlapStages": {
+        "league.load": 1
+      }
+    },
+    {
+      "route": "rankings",
+      "kind": "unconditional",
+      "status": 200,
+      "elapsedMs": 93.81389990448952,
+      "seconds": 167.265,
+      "requestId": 14933,
+      "correlated": true,
+      "overlapStages": {
+        "league.load": 1
+      }
+    },
+    {
+      "route": "trade",
+      "kind": "unconditional",
+      "status": 200,
+      "elapsedMs": 79.50410014018416,
+      "seconds": 167.39,
+      "requestId": 14935,
+      "correlated": true,
+      "overlapStages": {
+        "league.validate": 1
+      }
+    },
+    {
+      "route": "trade",
+      "kind": "conditional",
+      "status": 304,
+      "elapsedMs": 413.601899985224,
+      "seconds": 167.812,
+      "requestId": 14936,
+      "correlated": true,
+      "overlapStages": {
+        "league.validate": 1,
+        "gc": 1
+      }
+    },
+    {
+      "route": "rankings",
+      "kind": "unconditional",
+      "status": 200,
+      "elapsedMs": 265.2666997164488,
+      "seconds": 168.094,
+      "requestId": 14937,
+      "correlated": true,
+      "overlapStages": {
+        "league.validate": 1
+      }
+    },
+    {
+      "route": "rankings",
+      "kind": "conditional",
+      "status": 304,
+      "elapsedMs": 127.58339988067746,
+      "seconds": 168.219,
+      "requestId": 14938,
+      "correlated": true,
+      "overlapStages": {
+        "league.validate": 1
+      }
+    },
+    {
+      "route": "trade",
+      "kind": "unconditional",
+      "status": 200,
+      "elapsedMs": 209.6353000961244,
+      "seconds": 168.422,
+      "requestId": 14939,
+      "correlated": true,
+      "overlapStages": {
+        "league.expire": 1
+      }
+    },
+    {
+      "route": "trade",
+      "kind": "conditional",
+      "status": 304,
+      "elapsedMs": 180.45059964060783,
+      "seconds": 168.765,
+      "requestId": 14956,
+      "correlated": true,
+      "overlapStages": {
+        "league.expire": 1
+      }
+    },
+    {
+      "route": "rankings",
+      "kind": "unconditional",
+      "status": 200,
+      "elapsedMs": 85.02579992637038,
+      "seconds": 169.047,
+      "requestId": 14973,
+      "correlated": true,
+      "overlapStages": {
+        "league.expire": 1
+      }
+    },
+    {
+      "route": "rankings",
+      "kind": "unconditional",
+      "status": 200,
+      "elapsedMs": 93.00879994407296,
+      "seconds": 169.39,
+      "requestId": 14997,
+      "correlated": true,
+      "overlapStages": {
+        "league.expire": 1
+      }
+    },
+    {
+      "route": "trade",
+      "kind": "conditional",
+      "status": 304,
+      "elapsedMs": 241.90189968794584,
+      "seconds": 180.078,
+      "requestId": 16240,
+      "correlated": true,
+      "overlapStages": {
+        "gc": 1
+      }
+    }
+  ],
+  "maxEventLoopDelayMs": 464.3091,
+  "maxGcMs": 473.3153,
+  "maxStoreLockWaitMs": 1574.465
+}

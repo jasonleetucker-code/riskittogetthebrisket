@@ -229,6 +229,36 @@ def test_roundtrip_and_hot_reload_never_call_builder(tmp_path, board, monkeypatc
     assert runtime.current.views["rankings"].payload["playersArray"][0]["rankDerivedValue"] == 2000
 
 
+def test_loaded_projection_graph_shares_canonical_collections(tmp_path, board):
+    loaded = load_generation(publish_generation(board, store=ArtifactStore(tmp_path)))
+    assert loaded.views["array"].payload["playersArray"] is loaded.contract["playersArray"]
+    assert loaded.views["runtime"].payload["players"] is loaded.contract["players"]
+    for name, view in loaded.views.items():
+        assert view.raw == board.views[name].raw
+        assert view.gzip == board.views[name].gzip
+        assert builder.json_bytes(view.payload) == view.raw
+
+
+@pytest.mark.parametrize(
+    "name", ["runtime", "array", "startup", "compact", "rankings", "trade", "catalog"]
+)
+def test_loader_rejects_self_consistent_noncanonical_persisted_view(tmp_path, board, name):
+    artifact = publish_generation(board, store=ArtifactStore(tmp_path))
+    wrong = copy.deepcopy(board.views[name].payload)
+    wrong["date"] = "different-generation"
+    encoded = builder.prepare_payload(wrong)
+    index = json.loads(artifact.files["index.json"])
+    index["views"][name] = encoded.etag
+    files = {
+        **artifact.files,
+        "index.json": builder.json_bytes(index),
+        f"views/{name}.json": encoded.raw,
+        f"views/{name}.gz": encoded.gzip,
+    }
+    with pytest.raises(CorruptArtifact):
+        load_generation(replace(artifact, files=files))
+
+
 def coherent_reader(tmp_path, board, monkeypatch, configs=None):
     import server
 

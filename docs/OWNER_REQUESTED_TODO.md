@@ -16,6 +16,23 @@ This file is the durable repository record for owner-requested live defects, UX 
 
 ## Added 2026-08-11
 
+### Performance Phase 2 closure — owner continuation, 2026-09-11
+
+Continue `codex/performance-serving` under the existing performance authorization.
+The durable closure contract and evidence live in
+`docs/PERFORMANCE_CAMPAIGN.md` (RSS / refresh-latency closure continuation).
+Preserve the proven generation coherence, local suite and retention evidence.
+First classify web RSS using real-artifact lifetime/allocation diagnostics;
+then attribute refresh CPU/GIL/event-loop/lock/I/O costs; repair sampler timing
+and drain workers plus pending reloads before measuring at least 120 seconds
+of quiet recovery. Implement only demonstrated product fixes. Require focused
+and affected integrated tests, followed by a passing five-minute run before
+another full 3,600-second serving exercise plus verified quiet recovery.
+All existing RSS, latency, sampling, correctness and resource gates remain
+unchanged. Mobile, broader migration and new infrastructure are out of scope;
+no push, merge, deployment, timer or production flag activation is authorized.
+Status: **IMPLEMENTED / EVALUATED — B — NOT READY**. RSS attribution, a parity-preserving memory reduction and sampler/quiet repair are complete. Matched five-minute runs pass correctness/sampling/quiet but fail RSS recovery and relative refresh latency; the new full hour is gated off. See the linked campaign for measured blockers and corrective actions.
+
 *(Rows #829 and #830 and binding decisions 47–65 were added 2026-08-14 under this same heading.)*
 
 | Priority | Issue | Area | Required outcome | Status |
