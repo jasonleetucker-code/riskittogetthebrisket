@@ -56,7 +56,12 @@ No automatic worker installation, activation or serving-mode change was added.
 Local environment check on 2026-09-10 (America/New_York): `wsl --list --verbose`
 reported WSL not installed; Docker was absent from PATH. Git Bash is available
 for shell contract tests on Windows, not evidence of Linux locks, systemd or
-POSIX modes. No distribution/package was installed and no remote host contacted.
+POSIX modes. No distribution/package was installed. A subsequent bounded,
+read-only SSH attempt using the existing configured host alias failed with
+`Permission denied (publickey,password)` before remote commands could execute.
+No credentials, SSH configuration, host files or units were changed. Installed
+ownership and host-capacity measurements therefore remain inaccessible; this
+was an authentication failure, not an automatic approval-review rejection.
 Before an authorized cutover, collect installed unit contents, enable/active
 state, last/next triggers, accepted artifact and proof identities, and a completed
 worker journal from the actual target host. Keep credentials and raw payloads
@@ -90,6 +95,13 @@ legacy memory mode retains its warning behavior. Failed canonical builds and
 failed artifact validation preserve the previous accepted generation. Only
 after successful publication is the accepted raw export mirrored for recovery.
 Source `producedAt` comes from `scrapeTimestamp`, never load time.
+
+Shadow startup/cache recovery primes the legacy memory representation only.
+It cannot replace the durable accepted pointer while a standalone bootstrap is
+attesting it. In `server.py`, durable shadow publication is admitted only by
+the fresh source callback running under `producer.lock`; cache hydration never
+qualifies, even if it carries a lease marker. A first shadow artifact therefore
+waits for an accepted source cycle. Existing accepted artifacts survive startup.
 
 Supplemental source failures still warn and allow canonical publication, as in
 the existing cycle. They cannot establish initial cutover readiness. The private
@@ -215,6 +227,58 @@ after admission, preserving a later request for the next run. The service's
 work. The ten-minute timer remains the regular refresh owner.
 
 ## Status and prepared news
+
+### Prepared league adoption
+
+Canonical and league artifacts can arrive on separate schedules. The web
+`LeagueServingReader` captures a bound canonical-board/league-bundle pair per
+active league. Requests retain that pair through the response. A missing or
+rejected replacement leaves the accepted pair available; a healthy league can
+advance independently of another league's failure. Existing roster-context
+expiry still applies off-request, including when a newer canonical load fails.
+Startup primes the reader before accepting prepared requests. This is local
+generation coherence, not evidence that a deployed worker or timer is running.
+
+### Artifact maintenance and capacity
+
+`src/serving/artifacts.py` remains the single storage owner. Automatic publication
+admission and `python scripts/prune_serving_artifacts.py --root <private-root>`
+use the same policy. The command defaults to dry-run; add `--apply` to execute
+eligible deletion. A blocked report exits 2. Pins use
+`--apply --pin ASSET KEY GENERATION LABEL`; removal uses `--apply --unpin LABEL`.
+Review the bounded report before an operator maintenance application.
+
+The default is 48 hours and at least three accepted generations per partition,
+with a budget of the smaller of 4 GiB or 10% of filesystem capacity. The existing
+free-space floor remains in force. `RISKIT_SERVING_MAX_BYTES` and
+`RISKIT_SERVING_MIN_FREE_BYTES` apply consistently to web and all producers;
+the maintenance CLI also accepts explicit byte limits. Age follows accepted
+publication history, not refreshed observation timestamps. Unknown historical
+acceptance time is protected, not guessed from mtime.
+
+Current generations, the minimum accepted history, explicit rollback pins,
+ownership proofs and their transitive canonical dependencies survive pruning.
+Equivalent logical canonical variants are retained conservatively. Old eligible
+generations are pruned first; pressure can shorten the 48-hour window only for
+additional unprotected generations and reports that explicitly. If protected
+bytes plus the candidate cannot fit, publication is rejected before deletion
+and the accepted pointer stays selected. Corrupt or uncertain references block
+pruning. Source archives, historical databases, forensic evidence and unrelated
+unowned directories are outside this deletion owner.
+
+The root store lock precedes partition publication locks. Readers copy complete
+generation bytes under the root lock before deletion can occur; request handlers
+continue using captured memory. Validation happens before locked admission and
+uses private unlocked helpers inside the store, avoiding recursive acquisition.
+Retention inventory hashes retained bytes under that lock; sustained overlap
+measurements are required before claiming its cost is bounded on the host.
+
+Admin-only `/api/performance` exposes cached artifact bytes/counts, oldest
+retained publication, protection/capacity state and bounded failure diagnostics.
+The background status reader consumes the bounded persisted maintenance report;
+the HTTP request does not scan disk. Missing reports remain unobserved. Local
+resource measurements do not authorize worker memory limits: measure the actual
+Linux host and the combined service/worker peaks before assigning them.
 
 `src/serving/status.py::ProducerStatusReader` polls private bounded status files
 outside requests. `/api/status` uses its cached source outcome, queue wait,

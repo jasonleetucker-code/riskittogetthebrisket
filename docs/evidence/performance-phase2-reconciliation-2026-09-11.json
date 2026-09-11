@@ -1,0 +1,293 @@
+{
+  "previousMain": "9a24f7f67c803c2524cc5292f0385092bb88a06b",
+  "currentMain": "6054b4a650a0272c23a579cabbec06e41d95c6ff",
+  "finalFetchConfirmedUnchanged": true,
+  "previousCandidate": "45d5d407f354da198e9eb75b34d6fd40fdb17d7c",
+  "reconciledCandidate": "c1412fcf01b347f7c2814a1273a7325bcac5a1d1",
+  "conflict": "docs/WORK_CLAIMS.md adjacent independent claim additions; both preserved",
+  "commits": [
+    {
+      "sha": "4bac7f8109746c439068093dc23ccfd53ae57aa7",
+      "subject": "docs(season-launch): W1-27 VERIFIED — real production LIVE evidence (#1341)",
+      "paths": [
+        "docs/BACKLOG_REPLAN_2026-09-10.md",
+        "docs/WORK_CLAIMS.md",
+        "docs/season-launch/WEEK_1_LAUNCH_CONTRACT.md"
+      ],
+      "classification": "benign evidence/documentation movement",
+      "integration": "BENIGN_AUTOMATION_MOVE"
+    },
+    {
+      "sha": "f04245038300961f38d1ba2e05ea807bc847cfe7",
+      "subject": "chore(ops): record Sharp production smoke",
+      "paths": [
+        "data/ops/sharp-production-smoke.json"
+      ],
+      "classification": "benign evidence/documentation movement",
+      "integration": "BENIGN_AUTOMATION_MOVE"
+    },
+    {
+      "sha": "4d086e7eaa84e5baf093a5d6c4a6ffe54fbc5e1f",
+      "subject": "chore(idpshow): automated refresh 2026-09-11T02:32:19Z",
+      "paths": [
+        "data/scrape_state/idpShowCombined_last_status.json",
+        "data/scrape_state/idpShowCombined_last_success",
+        "data/scrape_state/idpShow_last_status.json",
+        "data/scrape_state/idpShow_last_success"
+      ],
+      "classification": "relevant input-generation movement",
+      "integration": "RELEVANT_BASE_MOVE"
+    },
+    {
+      "sha": "07c9f13a55aafa2cfd343c1c84f6b9e2635f148d",
+      "subject": "chore(idpshow): automated refresh 2026-09-11T04:32:13Z",
+      "paths": [
+        "data/scrape_state/idpShowCombined_last_status.json",
+        "data/scrape_state/idpShowCombined_last_success",
+        "data/scrape_state/idpShow_last_status.json",
+        "data/scrape_state/idpShow_last_success"
+      ],
+      "classification": "relevant input-generation movement",
+      "integration": "RELEVANT_BASE_MOVE"
+    },
+    {
+      "sha": "720d2013a3c63afd0f45f6f97433cac03363a796",
+      "subject": "chore: freshness stamps 2026-09-11T05:22:33Z",
+      "paths": [
+        "data/scrape_state/draftSharksIdp_last_success",
+        "data/scrape_state/draftSharksRos_last_success",
+        "data/scrape_state/draftSharks_last_success",
+        "data/scrape_state/dynastyDaddySf_last_success",
+        "data/scrape_state/dynastyDaddy_last_success",
+        "data/scrape_state/dynastyNerdsSfTep_last_success",
+        "data/scrape_state/fantasyCalc_last_success",
+        "data/scrape_state/fantasyNavigatorSf_last_success",
+        "data/scrape_state/fantasyProsFitzmaurice_last_success",
+        "data/scrape_state/fantasyProsIdp_last_success",
+        "data/scrape_state/fantasyProsSf_last_success",
+        "data/scrape_state/flockFantasyRookies_last_success",
+        "data/scrape_state/flockFantasySfRookies_last_success",
+        "data/scrape_state/flockFantasySf_last_success",
+        "data/scrape_state/flockFantasy_last_success",
+        "data/scrape_state/identity_dual_read.json",
+        "data/scrape_state/idpTradeCalc_last_success",
+        "data/scrape_state/ktcCrowdSfTep_last_success",
+        "data/scrape_state/ktcCrowdTradesSfTep_last_success",
+        "data/scrape_state/ktcSfTep_last_success",
+        "data/scrape_state/ktcTradesSfTep_last_success",
+        "data/scrape_state/ktc_last_success",
+        "data/scrape_state/ktc_value_sources.json",
+        "data/scrape_state/otcffbSf_last_success",
+        "data/scrape_state/pfkDynasty_last_success",
+        "data/scrape_state/sleeper_last_success",
+        "data/scrape_state/yahooBoone_last_success"
+      ],
+      "classification": "relevant input-generation movement",
+      "integration": "RELEVANT_BASE_MOVE"
+    },
+    {
+      "sha": "4d10723cbab70ec9e4f83b5f9485cd879aaa4e60",
+      "subject": "chore: automated data refresh 2026-09-11T05:22:36Z",
+      "paths": [
+        "CSVs/Draft Data.xlsx",
+        "CSVs/dynasty_full.csv",
+        "CSVs/dynasty_values.csv",
+        "CSVs/site_raw/draftSharksIdp.csv",
+        "CSVs/site_raw/draftSharksRosSf.csv",
+        "CSVs/site_raw/draftSharksSf.csv",
+        "CSVs/site_raw/dynastyDaddySf.csv",
+        "CSVs/site_raw/fantasyCalc.csv",
+        "CSVs/site_raw/fantasyProsSf.csv",
+        "CSVs/site_raw/ktc.csv",
+        "CSVs/site_raw/ktcCrowdSfTep.csv",
+        "CSVs/site_raw/ktcCrowdTradesSfTep.csv",
+        "CSVs/site_raw/ktcSfTep.csv",
+        "CSVs/site_raw/ktcTradesSfTep.csv",
+        "data/player_map/team_map_last_good.json",
+        "data/ros/aggregate/history/2026-09-11T05-22-12.973295+00-00.json",
+        "data/ros/aggregate/latest.json",
+        "data/ros/runs/draftSharksRosSf__2026-09-11T05-22-11.707808+00-00.json",
+        "data/ros/runs/fantasyProsRosIdp__2026-09-11T05-22-11.941570+00-00.json",
+        "data/ros/runs/fantasyProsRosOverall__2026-09-11T05-22-12.067456+00-00.json",
+        "data/ros/runs/fantasyProsRosSf__2026-09-11T05-22-11.670633+00-00.json",
+        "data/ros/runs/ffc2qbAdp__2026-09-11T05-22-12.597849+00-00.json",
+        "data/ros/runs/index.json",
+        "data/ros/sims/dynasty_new_championship.json",
+        "data/ros/sims/dynasty_new_playoff.json",
+        "data/ros/sims/latest_championship.json",
+        "data/ros/sims/latest_playoff.json",
+        "data/ros/sources/draftSharksRosSf.csv",
+        "data/ros/sources/fantasyProsRosSf.csv",
+        "data/sleeper_last_good.json",
+        "exports/archive/dynasty_export_20260911_052002.zip",
+        "exports/dynasty_export_latest.zip",
+        "exports/latest/dynasty_data.js",
+        "exports/latest/dynasty_data_2026-09-10.json",
+        "exports/latest/dynasty_data_2026-09-11.json",
+        "exports/latest/dynasty_full.csv",
+        "exports/latest/dynasty_values.csv",
+        "exports/latest/manifest.json",
+        "exports/latest/site_raw/ktc.csv",
+        "exports/latest/site_raw/ktcCrowdSfTep.csv",
+        "exports/latest/site_raw/ktcCrowdTradesSfTep.csv",
+        "exports/latest/site_raw/ktcSfTep.csv",
+        "exports/latest/site_raw/ktcTradesSfTep.csv"
+      ],
+      "classification": "relevant input-generation movement",
+      "integration": "RELEVANT_BASE_MOVE"
+    },
+    {
+      "sha": "1710af3221916db65af02fbec2d422d7ff258cab",
+      "subject": "chore(calibration): record Hill two-hour refit evidence",
+      "paths": [
+        "config/model_registry/hill_autopilot_runs.jsonl",
+        "config/model_registry/hill_scope_masters.json"
+      ],
+      "classification": "relevant input-generation movement",
+      "integration": "RELEVANT_BASE_MOVE"
+    },
+    {
+      "sha": "eef4901f0e3f78ba03e128db267253acc1661607",
+      "subject": "chore(idpshow): automated refresh 2026-09-11T06:32:10Z",
+      "paths": [
+        "data/scrape_state/idpShowCombined_last_status.json",
+        "data/scrape_state/idpShowCombined_last_success",
+        "data/scrape_state/idpShow_last_status.json",
+        "data/scrape_state/idpShow_last_success"
+      ],
+      "classification": "relevant input-generation movement",
+      "integration": "RELEVANT_BASE_MOVE"
+    },
+    {
+      "sha": "fc51e036506662771cd65ff507a14f993d773c63",
+      "subject": "chore(idpshow): automated refresh 2026-09-11T08:32:14Z",
+      "paths": [
+        "data/scrape_state/idpShowCombined_last_status.json",
+        "data/scrape_state/idpShowCombined_last_success",
+        "data/scrape_state/idpShow_last_status.json",
+        "data/scrape_state/idpShow_last_success"
+      ],
+      "classification": "relevant input-generation movement",
+      "integration": "RELEVANT_BASE_MOVE"
+    },
+    {
+      "sha": "cab6d1e0ba3481fe97848472a2e3a3977332fc31",
+      "subject": "chore(idpshow): automated refresh 2026-09-11T10:32:15Z",
+      "paths": [
+        "data/scrape_state/idpShowCombined_last_status.json",
+        "data/scrape_state/idpShowCombined_last_success",
+        "data/scrape_state/idpShow_last_status.json",
+        "data/scrape_state/idpShow_last_success"
+      ],
+      "classification": "relevant input-generation movement",
+      "integration": "RELEVANT_BASE_MOVE"
+    },
+    {
+      "sha": "cfcdea2cbf8a8ffbd204fb81122ba9f03f7ae31c",
+      "subject": "chore: freshness stamps 2026-09-11T11:54:41Z",
+      "paths": [
+        "data/scrape_state/draftSharksIdp_last_success",
+        "data/scrape_state/draftSharksRos_last_success",
+        "data/scrape_state/draftSharks_last_success",
+        "data/scrape_state/dynastyDaddySf_last_success",
+        "data/scrape_state/dynastyDaddy_last_success",
+        "data/scrape_state/dynastyNerdsSfTep_last_success",
+        "data/scrape_state/fantasyCalc_last_success",
+        "data/scrape_state/fantasyNavigatorSf_last_success",
+        "data/scrape_state/fantasyProsFitzmaurice_last_success",
+        "data/scrape_state/fantasyProsIdp_last_success",
+        "data/scrape_state/fantasyProsSf_last_success",
+        "data/scrape_state/flockFantasyRookies_last_success",
+        "data/scrape_state/flockFantasySfRookies_last_success",
+        "data/scrape_state/flockFantasySf_last_success",
+        "data/scrape_state/flockFantasy_last_success",
+        "data/scrape_state/identity_dual_read.json",
+        "data/scrape_state/idpTradeCalc_last_success",
+        "data/scrape_state/ktcCrowdSfTep_last_success",
+        "data/scrape_state/ktcCrowdTradesSfTep_last_success",
+        "data/scrape_state/ktcSfTep_last_success",
+        "data/scrape_state/ktcTradesSfTep_last_success",
+        "data/scrape_state/ktc_last_success",
+        "data/scrape_state/ktc_value_sources.json",
+        "data/scrape_state/otcffbSf_last_success",
+        "data/scrape_state/pfkDynasty_last_success",
+        "data/scrape_state/sleeper_last_success",
+        "data/scrape_state/yahooBoone_last_success"
+      ],
+      "classification": "relevant input-generation movement",
+      "integration": "RELEVANT_BASE_MOVE"
+    },
+    {
+      "sha": "a10d9047be008da82710fa9c7952d00f36df41a7",
+      "subject": "chore: automated data refresh 2026-09-11T11:54:44Z",
+      "paths": [
+        "CSVs/Draft Data.xlsx",
+        "CSVs/dynasty_full.csv",
+        "CSVs/dynasty_values.csv",
+        "CSVs/site_raw/draftSharksIdp.csv",
+        "CSVs/site_raw/draftSharksSf.csv",
+        "CSVs/site_raw/dynastyDaddySf.csv",
+        "CSVs/site_raw/fantasyCalc.csv",
+        "CSVs/site_raw/ktc.csv",
+        "CSVs/site_raw/ktcCrowdSfTep.csv",
+        "CSVs/site_raw/ktcCrowdTradesSfTep.csv",
+        "CSVs/site_raw/ktcSfTep.csv",
+        "CSVs/site_raw/ktcTradesSfTep.csv",
+        "data/player_map/team_map_last_good.json",
+        "data/ros/aggregate/history/2026-09-11T11-54-27.864803+00-00.json",
+        "data/ros/aggregate/latest.json",
+        "data/ros/runs/draftSharksRosSf__2026-09-11T11-54-26.579548+00-00.json",
+        "data/ros/runs/fantasyProsRosIdp__2026-09-11T11-54-26.715613+00-00.json",
+        "data/ros/runs/fantasyProsRosOverall__2026-09-11T11-54-27.034251+00-00.json",
+        "data/ros/runs/fantasyProsRosSf__2026-09-11T11-54-26.564244+00-00.json",
+        "data/ros/runs/ffc2qbAdp__2026-09-11T11-54-27.621601+00-00.json",
+        "data/ros/runs/index.json",
+        "data/ros/sims/dynasty_new_championship.json",
+        "data/ros/sims/dynasty_new_playoff.json",
+        "data/ros/sims/latest_championship.json",
+        "data/ros/sims/latest_playoff.json",
+        "data/ros/sources/ffc2qbAdp.csv",
+        "data/sleeper_last_good.json",
+        "exports/archive/dynasty_export_20260911_115221.zip",
+        "exports/dynasty_export_latest.zip",
+        "exports/latest/dynasty_data.js",
+        "exports/latest/dynasty_data_2026-09-11.json",
+        "exports/latest/dynasty_full.csv",
+        "exports/latest/dynasty_values.csv",
+        "exports/latest/manifest.json",
+        "exports/latest/site_raw/draftSharksIdp.csv",
+        "exports/latest/site_raw/draftSharksRosSf.csv",
+        "exports/latest/site_raw/draftSharksSf.csv",
+        "exports/latest/site_raw/ktc.csv",
+        "exports/latest/site_raw/ktcCrowdSfTep.csv",
+        "exports/latest/site_raw/ktcCrowdTradesSfTep.csv",
+        "exports/latest/site_raw/ktcSfTep.csv",
+        "exports/latest/site_raw/ktcTradesSfTep.csv"
+      ],
+      "classification": "relevant input-generation movement",
+      "integration": "RELEVANT_BASE_MOVE"
+    },
+    {
+      "sha": "484eca108d2fe05d8d3c9574baa984dbb21d8b98",
+      "subject": "chore(calibration): record Hill two-hour refit evidence",
+      "paths": [
+        "config/model_registry/hill_autopilot_runs.jsonl",
+        "config/model_registry/hill_scope_masters.json"
+      ],
+      "classification": "relevant input-generation movement",
+      "integration": "RELEVANT_BASE_MOVE"
+    },
+    {
+      "sha": "6054b4a650a0272c23a579cabbec06e41d95c6ff",
+      "subject": "chore(idpshow): automated refresh 2026-09-11T12:32:20Z",
+      "paths": [
+        "data/scrape_state/idpShowCombined_last_status.json",
+        "data/scrape_state/idpShowCombined_last_success",
+        "data/scrape_state/idpShow_last_status.json",
+        "data/scrape_state/idpShow_last_success"
+      ],
+      "classification": "relevant input-generation movement",
+      "integration": "RELEVANT_BASE_MOVE"
+    }
+  ]
+}
