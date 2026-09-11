@@ -16,6 +16,21 @@ Astra, Claude, Codex, Gemini, Grok, ChatGPT, Copilot, and any future coding agen
 8. For engineering-system improvements, read `docs/engineering/ENGINEERING_RELIABILITY_PRIORITIES_2026-09-06.md`.
 9. **Only for unattended/recurrent site-steward design or operation**, read `docs/AUTONOMOUS_SITE_STEWARD_VISION.md`. Do not preload that long-term vision into ordinary feature sessions.
 
+## Durable owner-intake capture rule
+
+When the owner says anything that a reasonable product/engineering lead would interpret as **durable future work**, do not leave that intent only in chat. This includes informal wording such as “add this,” “we need to fix/change this,” “make this better,” “remember/revisit this,” “do this later,” “put this on the list,” and equivalent statements that create, refine, pause, reject, or supersede product/process work.
+
+1. Determine whether the statement is a **definite/high-confidence durable owner instruction** or only ambiguous brainstorming.
+2. For definite/high-confidence durable work, ensure it is represented in the live owner-intake ledger, `docs/OWNER_REQUESTED_TODO.md`, either directly or through an explicit compact incorporation pointer to the detailed issue/spec/addendum that carries the long-form contract.
+3. If the statement is genuinely ambiguous, preserve it for owner review without silently promoting it into binding scope.
+4. Do **not** say “added,” “saved,” “on the TODO,” or equivalent unless the durable repository intake was actually updated or an existing canonical intake entry was verified.
+5. A GitHub issue, planning document, assistant memory, or chat response by itself is **not** a substitute when the live owner-intake ledger does not point to the durable requirement.
+6. Preserve supersession: later explicit owner instructions win; older formulations remain traceable but must not survive as conflicting active requirements.
+7. **Capture is not implementation authorization.** `docs/EXECUTION_PLAN.md` remains the sole current implementation-authorization record; an intake update must not interrupt active engineering merely because a new request was captured.
+8. Astra/Steward campaign planning must be able to consume the live owner intake plus current GitHub/planning/execution evidence without needing access to the owner's chat history. The intended path is: `owner statement -> owner intake -> detailed issue/spec if needed -> canonical mapping -> execution plan when authorized -> Astra reconciliation`.
+
+The historical recovery and rationale for this rule are tracked in `docs/OWNER_TODO_RECOVERY_AUDIT_2026-09-10.md` and issue #1336.
+
 ## Material new-feature engineering applicability check
 
 Before implementing any **material new feature or major behavior change**, perform the shared engineering-priorities applicability check in `docs/AGENT_OPERATING_SYSTEM.md` against `docs/engineering/ENGINEERING_RELIABILITY_PRIORITIES_2026-09-06.md`.

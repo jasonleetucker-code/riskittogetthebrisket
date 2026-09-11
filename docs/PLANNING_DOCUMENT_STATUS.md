@@ -156,6 +156,15 @@ it was promoted to `main`.
 
 ## 4. AUTHORITATIVE EVIDENCE / RESEARCH — NOT PRODUCT ROADMAPS
 
+### `docs/OWNER_TODO_RECOVERY_AUDIT_2026-09-10.md`
+The 2026-07-10 → 2026-09-10 zero-loss owner-intent recovery census, issue #1336. Records provenance,
+status mapping, ambiguous candidates, confirmed "claimed added but not compactly persisted" incidents and
+the reverse audit that justified backfilling `docs/OWNER_REQUESTED_TODO.md` §"Added 2026-09-10". It is a
+recovery/coverage record, not a second roadmap or execution authority, and it explicitly distinguishes
+retrievable-context coverage from literal raw-chat coverage (the latter is NOT claimed complete).
+Authoritative for *why* the 2026-09-10 intake backfill exists; it authorizes nothing and does not amend
+`docs/EXECUTION_PLAN.md`.
+
 ### `docs/POST_B_RECONCILIATION_2026-08-14.md`
 The adjudication record for the two independent post-B audits, and the source of the owner-decision list.
 Authoritative for *why* the plan is shaped this way; it authorizes nothing.
