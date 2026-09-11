@@ -298,6 +298,73 @@ At minimum:
     pre-2026-09-03 value, or that these reclassifications lack authorization, is working from a stale premise —
     check this entry's date before treating such an assertion as a new owner decision.
 
+## Added 2026-09-10 — two-month owner-intent recovery bridge
+
+**Purpose:** make every recoverable durable owner request discoverable from this one live intake ledger without duplicating the long-form contracts that already exist elsewhere. This section is an index/bridge and status snapshot, not a second roadmap. Detailed specs/issues remain authoritative for their own requirement details. **Nothing in this recovery bridge authorizes implementation; `docs/EXECUTION_PLAN.md` still controls execution.**
+
+The complete reconstruction, provenance, coverage limitations, ambiguous candidates and reverse-audit are recorded in `docs/OWNER_TODO_RECOVERY_AUDIT_2026-09-10.md` and issue #1336.
+
+### Companion intake requirements incorporated here
+
+The following existing `T-NEW-*` requirements in `docs/OWNER_REQUESTED_TODO_SPEC_INDEX.md` are hereby explicitly incorporated into this live intake ledger. A future agent must not require the owner to remember that a separate companion index exists.
+
+| Ref | Requirement | Current disposition / pointer |
+|---|---|---|
+| T-NEW-01 | Canonical Owned Future Pick Projection & Valuation | PLANNED / companion spec |
+| T-NEW-02 | Trade Calculator Generic Pick Quantities | PLANNED / companion spec |
+| T-NEW-03 | Public League Manual Sleeper Sync / Freshness | PLANNED / PARTIAL; companion spec |
+| T-NEW-04 | Authenticated Top-Level League Navigation | REPRESENTED; verify live shell before closure |
+| T-NEW-05 | `teamAssignment` Missing-Data-as-Zero Correctness | SHIPPED / VERIFIED per current backlog reconciliation |
+| T-NEW-06 | Premium Sports Intelligence Migration | PARTIAL; `docs/PREMIUM_SPORTS_INTELLIGENCE_DESIGN_NORTH_STAR.md` |
+| T-NEW-07 | The Upside Report | PLANNED; weekly showcase/report specs |
+| T-NEW-08 | Canonical Weekly Power Rankings | SHIPPED / VERIFIED; do not reopen without regression evidence |
+| T-NEW-09 | Awards & Honors | REPRESENTED; awards/report specs |
+| T-NEW-10 | Analyst Intelligence | PARTIAL; claim/stance foundation exists, persistence/query and consumers remain |
+| T-NEW-11 | B→C replanning gate | SATISFIED / superseded by current execution model |
+| T-NEW-12 | Watchdog infinity false-negative repair | DONE |
+| T-NEW-13 | Player Impact / VORP / WAR / WAB / Game Changer | REAL REMAINING work; use canonical replacement-level primitive |
+| T-NEW-14 | Trade Calculator real-trade database / market evidence | PLANNED / PARTIAL; `docs/TRADE_CALCULATOR_MARKET_EVIDENCE_EXPANSION_SPEC.md` |
+| T-NEW-15 | Canonical pick-value completeness through 2029 | REPRESENTED / PARTIAL |
+| T-NEW-16 | C-Series zero-loss deployment/completion contract | REPRESENTED; current execution/verification rules win |
+| T-NEW-17 | Historical trade replay / as-of team fit | PLANNED / dependency-gated |
+| T-NEW-18 | Roster Age-Value Portfolio / Young Core (#838) | IMPLEMENTED; close only after required acceptance/production proof |
+| T-NEW-19 | Meaningful Roster Core (#839), amended by #899 | IMPLEMENTED; latest FLEX ordering is decision 72; close only after required proof |
+
+### Recovered durable owner requirements not previously compactly discoverable here
+
+| Priority | Issue / record | Area | Required outcome | Status |
+|---|---|---|---|---|
+| Planned trade product | Master plan / trade-generation specs | Best Trade to Send Each Team + generated-package controls | For every other team, generate the best mutually defensible offer using canonical roster benefit and external native coverage; persistent outgoing protection and LOCK/EXCLUDE must be one shared constraint system. **Latest topology wins:** picks are legal when strategically beneficial, never filler; player-count difference may be at most one, picks excluded from that count. | PLANNED |
+| Owner personalization | Master plan / trade-generation specs | General outgoing exclusion / untouchables | Preserve the owner's Vikings-outgoing preference as a user/league personalization overlay through one generalized exclusion mechanism consumed by generated-trade/waiver/drop surfaces. It must not mutate league-wide canonical player values. | PLANNED |
+| Methodology decision required | #840 | Competitive Posture | Reconcile the owner-requested posture concept with the current continuous/non-hard-label design. Do not silently choose a conflicting methodology. | OWNER DECISION REQUIRED |
+| Planned trade behavior | #841 | Posture-aware generated-trade picks | Permit draft picks in generated trades when both teams' strategic positions make them mutually beneficial; never use picks as filler. | REAL REMAINING |
+| Planned trade UX | #842 | Use Team Context | Preserve an explicit team-context-aware evaluation mode/toggle using canonical roster/team context rather than page-local approximations. | REAL REMAINING |
+| Canonical-owner consolidation | #843 | Roster Capacity / forced-drop economics | Consolidate duplicate roster-capacity/droppability ownership before further extension; preserve forced-drop/open-slot economics through one canonical owner. **Owner consolidation SHIPPED 2026-08-18** (`src/trade/roster_capacity.py`, consumed by `simulate_trade`, `suggestions.py`, `finder.py` and both `angle.py` endpoints — see CLAUDE.md "Roster capacity and forced drops — one owner"); remaining scope is the deeper Analyze Trade integration, dependency-gated on #792. | PARTIAL — canonical owner shipped; remaining scope gated on #792 |
+| Source-platform work | `docs/sources/*` | Cross-position source acquisition / IDP ceiling | Preserve raw cross-position evidence; complete authorized Draft Sharks / Dynasty Dealer / Dynasty Nerds discovery and IDP Show / Footballguys lanes as applicable; never manufacture IDP ceilings or treat failed auth/acquisition as healthy empty data. | PARTIAL / some AUTH REQUIRED |
+| Future competitive expansion | #985 | DynastyStats-derived expansion | Preserve League Hub/Pulse, Asset Map, Transaction Intelligence and Manager Scout enrichment as POST-V1 / fold-when-natural competitive scope. | LONG-TERM |
+| Planned trade intelligence | #1173 | Best-ball roster-conditional utility | Add roster-conditional dynasty best-ball utility to Analyze Trade using exact legal lineup assignment, without changing standalone canonical player values. | PLANNED / dependency-gated on #792 |
+| P1 cross-site UX | #1337 | Universal Player Profile / Player File linking | Every actionable player name site-wide should resolve through one identity-safe shared player-link primitive to the canonical Player File / public-safe counterpart where intentionally applicable. Existing partial links are not completion. | TODO |
+| Cross-cutting performance research | #1338 | Data-heavy performance architecture | Trace real request paths and reconcile measured bottlenecks against the existing global performance standard: precompute/materialize/index expensive work, serve prepared outputs quickly, refresh asynchronously, preserve last-known-good where safe, and justify infrastructure changes with evidence rather than convention. | PLANNED / RESEARCH FOLLOW-THROUGH |
+| P1 Game Day / global context | #1334 | Global selected team + Game Day matchup + NFL-game impact | One canonical selected fantasy team must drive every team-dependent surface. Game Day must show that team's actual matchup. Keep the NFL slate in real kickoff order while computing selected-side, opponent-side and combined projected fantasy-point impact so higher-impact games are visibly emphasized. | PLANNED |
+| P1 Game Day UX | #1335 | Game Day information architecture | Redesign Game Day as a clean live-sports/fantasy command center: compact matchup hero, score/projection/win probability, 3–5 key swing factors, NFL slate as the primary body, progressive disclosure for lineups/best-ball diagnostics/provenance, plain-language states, mobile-first scannability. | PLANNED |
+| P0 planning/process integrity | #1336 | Owner-intent zero-loss recovery | Reconcile two months of recoverable chat-derived owner intent into this live intake, preserve provenance/supersession, and prevent future “assistant said added but no durable intake entry” failures. | IN PROGRESS |
+
+### Recovered product-family pointers
+
+These durable owner directions were already represented in canonical product/spec records but are made discoverable here so the live intake is actually a usable front door:
+
+- **BDVM / fundamental dynasty evidence + model governance:** preserve an independent football/fundamental evidence lineage, historical snapshots, leakage-safe backtesting, uncertainty, versioning and champion/challenger/rollback discipline. Do not let it silently become another expression of current market value.
+- **Podcast / Analyst Intelligence:** preserve the 2026-08-09 source-inventory reset, canonical source/analyst identity, fact/opinion separation, event-aware freshness, cross-media dedupe and personalized roster-aware team brief/podcast goals through the shared analyst-intelligence architecture.
+- **Public League Experience:** preserve `Public /league = League Museum + Sports Network + Game Day` and `private app = Front Office + War Room`; public entertainment/history/shareability must not leak private decision intelligence.
+- **Trade Calculator expansion:** the 2026-08-13/14 KTC-inspired workflow audit is durably specified in `docs/TRADE_CALCULATOR_MARKET_EVIDENCE_EXPANSION_SPEC.md`; adopt useful workflows through Chase Upside's own canonical identity/value/history/trade systems rather than copying branding or creating parallel engines.
+- **Global interactive performance:** `docs/GLOBAL_PERFORMANCE_STANDARD.md` remains the owner-approved performance authority: speed is product correctness, warm useful state targets ~1s, normal production p95 ~2s where feasible, cold supported path ~3s, and 5s is an absolute useful-state failure ceiling; expensive reusable work belongs off the interactive request path.
+
+### Durable capture rule — effective 2026-09-10
+
+For every future model/agent session, if the owner makes a definite/high-confidence statement that a reasonable product/engineering lead would treat as durable future work — even when phrased informally as “add this,” “fix/change this,” “make this better,” “remember/revisit this,” “later,” or “put this on the list” — the agent must ensure the requirement is represented **in this live intake ledger**, directly or through an explicit compact pointer to its detailed issue/spec, before claiming it was “added,” “saved,” or placed “on the TODO.”
+
+A GitHub issue, chat reply, assistant memory, or planning document alone is not enough if this live intake does not make the requirement discoverable. Ambiguous brainstorming should be retained for owner review without being silently promoted into binding scope. Later explicit owner instructions supersede older formulations. **Capture remains separate from implementation authorization.**
+
 ### Execution ordering
 
 Do not mix these unrelated UI/auth/product requirements into the currently isolated foundational repair. Immediate defects (#779-#781) should be picked up at the next safe product-hotfix checkpoint unless one blocks required verification. #782-#786 are approved scope but must enter their natural dependency checkpoints. CE-20/#789 must begin only after scoring correctness, canonical best-ball assignment, projection-source/custom-stat modeling and prediction-history foundations are ready. #790 should be audited at the next appropriate trade/model checkpoint; #791 is a small UX addition; #792 is dependency-gated until canonical value/package/Team Strength/Weakness/roster-impact foundations are trustworthy. #800 is a trade-correctness defect for the next safe Trade Calculator checkpoint. **#801 is PAUSED by owner and must not consume spend or engineering time until explicitly resumed. #802 is a scoring-correctness dependency for any exact historical league-scoring claim. #803 follows the canonical scoring/league-configuration foundations and must incorporate #802 before promoting a league-fit signal. #829 belongs at the natural Public League Experience v3 / weekly storytelling / Game Day / share-renderer checkpoint after its canonical weekly data inputs are trustworthy; when that checkpoint begins, Manual External AI is the default and automatic AI-credit spend remains disabled unless the owner later opts in. #830 belongs at the natural FAAB / Waiver Market / CE-19 / Perfect Waivers checkpoint; audit and preserve the already-correct historical normalization and market-layer trending behavior first, then extend external/Sharp market evidence through the same canonical owner.** The 2026-08-15 mathematical calibration policy must be folded into the detailed C-Series unit map before implementation progresses beyond the currently authorized foundational retention work, but it does **not** itself authorize any later C unit. #854 belongs in the detailed C5 seasonal/projection decomposition under `C5-ROS-01`, with source/lineage/schema/archive work scheduled before Game Day and other projection consumers; its archival capture should begin as early as safely authorized because pre-event forecasts are perishable evidence. CE-17–CE-21 remain future competitive expansion after their dependencies. #788 stays long-term/cost-gated.
