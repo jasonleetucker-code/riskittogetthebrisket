@@ -1,8 +1,8 @@
 """Offline, private-store resource soak; never starts providers or production units.
 
-Uses the actual ArtifactStore, serialization validation, AtomicRuntime and the
-server's prepared-byte response function. Auth/network/league routing are tested
-separately: this isolates resource contention, not end-to-end API latency.
+Uses actual ArtifactStore, AtomicRuntime, LeagueServingReader and prepared
+rankings/trade endpoints over loopback HTTP, including app middleware and a
+synthetic auth session. League selection and application lifespan are fixtures.
 Install psutil only in an isolated lab environment; it is not a serving dependency.
 """
 
@@ -10,7 +10,9 @@ from __future__ import annotations
 
 import argparse
 import copy
+import gzip
 import hashlib
+import http.client
 import json
 import os
 import platform
@@ -19,7 +21,9 @@ import subprocess
 import sys
 import threading
 import time
+from collections import Counter, OrderedDict
 from pathlib import Path
+from types import SimpleNamespace
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
@@ -31,15 +35,26 @@ def percentile(values, fraction=0.95):
     return ordered[min(len(ordered) - 1, int((len(ordered) - 1) * fraction))]
 
 
-def disable_network():
+def disable_network(loopback_port=None):
     import socket
 
-    def reject(*args, **kwargs):
-        raise RuntimeError("network disabled in offline serving soak")
+    original_connect = socket.socket.connect
+    original_connect_ex = socket.socket.connect_ex
 
-    socket.create_connection = reject
-    socket.socket.connect = reject
-    socket.socket.connect_ex = reject
+    def guard(original):
+        def connect(sock, address):
+            if (
+                loopback_port is not None
+                and isinstance(address, tuple)
+                and address[:2] == ("127.0.0.1", loopback_port)
+            ):
+                return original(sock, address)
+            raise RuntimeError("external network disabled in offline serving soak")
+
+        return connect
+
+    socket.socket.connect = guard(original_connect)
+    socket.socket.connect_ex = guard(original_connect_ex)
 
 
 def store_for(root, budget):
@@ -55,6 +70,9 @@ def worker(args):
     from src.serving.serialization import ASSET, KEY, load_generation, publish_generation
 
     store = store_for(args.root, args.budget_bytes)
+    if args.worker == "web":
+        web_worker(args, store)
+        return
     if args.worker == "league":
         league_worker(store)
         return
@@ -115,19 +133,299 @@ def launch(args, kind, sequence=0):
         str(sequence),
         "--budget-bytes",
         str(args.budget_bytes),
+        "--port",
+        str(args.port),
     ]
-    return subprocess.Popen(
+    child = subprocess.Popen(
         command,
         stdout=subprocess.DEVNULL,
-        stderr=subprocess.PIPE,
+        # The long-lived web app may log every request. An unread stderr pipe
+        # fills and blocks its event loop, manufacturing availability failures.
+        stderr=subprocess.DEVNULL if kind == "web" else subprocess.PIPE,
         creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
+    )
+    if hasattr(args, "child_ledger"):
+        args.child_ledger.observe_pid(child.pid)
+    return child
+
+
+def web_worker(args, store):
+    """Real local app/HTTP stack with only the producer lifespan replaced."""
+    from contextlib import asynccontextmanager
+    import uvicorn
+    from starlette.concurrency import run_in_threadpool
+    from src.api import league_registry
+    from src.serving.league_views import LeagueServingReader
+    from src.serving.runtime import AtomicRuntime
+    from src.serving.serialization import ASSET, KEY, load_generation
+
+    os.environ.setdefault("ALLOW_DEFAULT_LOGIN_DEV", "1")
+    import server
+
+    state = AtomicRuntime(
+        store, ASSET, KEY, load_generation, on_publish=server._publish_serving_generation
+    )
+    assert state.reload_if_changed()
+    meta = state.current.contract.get("meta") or {}
+    cfg = SimpleNamespace(key=meta.get("leagueKey"), scoring_profile=meta.get("scoringProfile"))
+    assert cfg.key, "recorded fixture requires a league identity"
+    league_registry.active_leagues = lambda: [cfg]
+    server._resolve_league_for_request = lambda request: cfg
+    server.auth_sessions["offline-soak-fixture"] = {
+        "username": "offline-soak-fixture",
+        "_last_touch_epoch": time.time() + 86400,
+    }
+    leagues = LeagueServingReader(store, lambda: server.latest_serving_generation)
+    server._league_serving_reader = leagues
+
+    @asynccontextmanager
+    async def fixture_lifespan(app):
+        leagues.refresh()
+        state.start()
+        leagues.start()
+        (args.root / "web-ready").write_text("ready", encoding="utf-8")
+        try:
+            yield
+        finally:
+            state.stop()
+            leagues.stop()
+
+    server.app.router.lifespan_context = fixture_lifespan
+
+    @server.app.middleware("http")
+    async def observe_reload(request, call_next):
+        active = state._reload_lock.locked()
+        response = await call_next(request)
+        response.headers["X-Soak-Reload-Active"] = str(int(active or state._reload_lock.locked()))
+        return response
+
+    @server.app.api_route("/__soak/{action}", methods=["GET", "POST"])
+    async def control(action: str):
+        result = None
+        if action == "stop":
+            result = await run_in_threadpool(state.stop)
+        elif action == "reload":
+            result = await run_in_threadpool(state.reload_if_changed)
+        elif action == "start":
+            state.start()
+        elif action == "shutdown":
+            web_server.should_exit = True
+        elif action != "state":
+            raise ValueError("unknown fixture control")
+        return {
+            "generation": state.current.generation_id,
+            "lastError": bool(state.last_error),
+            "result": result,
+        }
+
+    config = uvicorn.Config(
+        server.app, host="127.0.0.1", port=args.port, access_log=False, log_level="warning"
+    )
+    web_server = uvicorn.Server(config)
+    try:
+        args.web_loop.run_until_complete(web_server.serve())
+    finally:
+        args.web_loop.close()
+
+
+def http_response(connection, path, *, etag=None, method="GET"):
+    headers = {"Accept-Encoding": "gzip", "Cookie": "jason_session=offline-soak-fixture"}
+    if etag:
+        headers["If-None-Match"] = etag
+    connection.request(method, path, headers=headers)
+    response = connection.getresponse()
+    return SimpleNamespace(
+        status_code=response.status,
+        headers={key.lower(): value for key, value in response.getheaders()},
+        body=response.read(),
     )
 
 
-def sample(process, root, started, previous_cpu=None):
+class RemoteRuntime:
+    """Fault controls act on the same web-child runtime serving measured reads."""
+
+    def __init__(self, port):
+        self.port = port
+
+    def control(self, action):
+        connection = http.client.HTTPConnection("127.0.0.1", self.port, timeout=30)
+        try:
+            response = http_response(connection, "/__soak/" + action, method="POST")
+            assert response.status_code == 200
+            return json.loads(response.body)
+        finally:
+            connection.close()
+
+    @property
+    def current(self):
+        return self.control("state")["generation"]
+
+    @property
+    def last_error(self):
+        return "recorded_error" if self.control("state")["lastError"] else None
+
+    def stop(self):
+        return self.control("stop")["result"]
+
+    def reload_if_changed(self):
+        return self.control("reload")["result"]
+
+    def start(self, interval=1):
+        self.control("start")
+
+
+class ChildLedger:
+    """Remember observed process identities, including children later reparented."""
+
+    def __init__(self):
+        self.identities = set()
+        self.lock = threading.Lock()
+
+    def observe_pid(self, pid):
+        import psutil
+
+        try:
+            self.observe(psutil.Process(pid))
+        except (psutil.NoSuchProcess, psutil.AccessDenied):
+            pass
+
+    def observe(self, process):
+        import psutil
+
+        try:
+            identity = (process.pid, process.create_time())
+            with self.lock:
+                self.identities.add(identity)
+        except (psutil.NoSuchProcess, psutil.AccessDenied):
+            pass
+
+    def remaining(self, parent):
+        import psutil
+
+        visible = {child.pid for child in parent.children(recursive=True)}
+        with self.lock:
+            identities = tuple(self.identities)
+        remaining = reparented = unknown = 0
+        for pid, created in identities:
+            try:
+                process = psutil.Process(pid)
+                if process.create_time() != created or not process.is_running():
+                    continue  # PID reuse is not the observed child.
+                if process.status() == psutil.STATUS_ZOMBIE:
+                    continue
+                remaining += 1
+                reparented += pid not in visible
+            except psutil.NoSuchProcess:
+                pass
+            except psutil.AccessDenied:
+                unknown += 1
+        return {
+            "observedCount": len(identities),
+            "remainingCount": remaining,
+            "reparentedCount": reparented,
+            "unknownCount": unknown,
+        }
+
+
+class ResponseAudit:
+    """Hash-cache parsed identity metadata; never retain entire decoded bodies."""
+
+    def __init__(self, limit=64):
+        self.cache = OrderedDict()
+        self.limit = limit
+        self.cache_misses = 0
+
+    def check(self, response, view, league_key, conditional=None):
+        generation = response.headers.get("x-data-generation")
+        etag = response.headers.get("etag")
+        assert generation and etag, "missing_response_identity"
+        assert response.headers.get("x-payload-view") == view, "wrong_response_view"
+        if response.status_code == 304:
+            assert conditional == (etag, generation), "conditional_generation_mismatch"
+            assert not response.body, "conditional_body_present"
+            return etag, generation
+        assert response.status_code == 200, "unexpected_status"
+        digest = hashlib.sha256(response.body).hexdigest()
+        key = (digest, response.headers.get("content-encoding"))
+        identity = self.cache.get(key)
+        if identity is None:
+            raw = gzip.decompress(response.body) if key[1] == "gzip" else response.body
+            payload = json.loads(raw)
+            meta = payload.get("meta") or {}
+            identity = (
+                meta.get("readModelGeneration"),
+                meta.get("leagueKey"),
+                payload.get("payloadView"),
+                hashlib.sha1(raw).hexdigest(),
+            )
+            self.cache[key] = identity
+            self.cache_misses += 1
+            if len(self.cache) > self.limit:
+                self.cache.popitem(last=False)
+        else:
+            self.cache.move_to_end(key)
+        assert identity == (generation, league_key, view, etag), "body_header_identity_mismatch"
+        return etag, generation
+
+
+def http_latency_summary(series):
+    p95 = {key: percentile(values) for key, values in series.items()}
+    required = {
+        f"{view}:{phase}:{kind}:{status}"
+        for view in ("rankings", "trade")
+        for phase in ("baseline", "refresh", "postRefreshIdle")
+        for kind, status in (("unconditional", 200), ("conditional", 304))
+    }
+    comparisons = {}
+    for key in p95:
+        view, phase, kind, status = key.split(":")
+        if phase != "refresh":
+            continue
+        baseline = f"{view}:baseline:{kind}:{status}"
+        if status == "200" and p95.get(baseline) is None:
+            # A valid generation transition can turn a conditional hit into a
+            # full-body 200. Compare it with that route's normal full-body cost.
+            baseline = f"{view}:baseline:unconditional:200"
+        comparisons[key] = baseline
+    return {
+        "p95MillisecondsByReadSeries": p95,
+        "baselineComparisons": comparisons,
+        "checks": {
+            "requiredHttpReadSeriesObserved": all(p95.get(key) is not None for key in required),
+            "eachHttpReadSeriesP95Below75ms": bool(p95)
+            and all(value is not None and value < 75 for value in p95.values()),
+            "eachRefreshReadSeriesWithin20Percent": bool(comparisons)
+            and all(
+                p95.get(baseline) is not None and p95[key] <= p95[baseline] * 1.2
+                for key, baseline in comparisons.items()
+            ),
+        },
+    }
+
+
+def sampling_evidence(count, seconds, max_gap):
+    return {
+        "observationCoverageAtLeast99Percent": seconds > 0 and count / seconds >= 0.99,
+        "observationSampleGapsAtMost2Seconds": max_gap is not None and max_gap <= 2,
+    }
+
+
+def publication_evidence(events, observed):
+    changed = [
+        event.get("publishedGeneration")
+        for event in events
+        if event.get("workerKind") == "changed" and event.get("exitCode") == 0
+    ]
+    return bool(changed) and all(generation and generation in observed for generation in changed)
+
+
+def sample(process, root, started, previous_cpu=None, child_ledger=None):
     import psutil
 
     members = [process, *process.children(recursive=True)]
+    if child_ledger is not None:
+        for member in members[1:]:
+            child_ledger.observe(member)
     rss = peak = handles = 0
     cpu = 0.0
     cpu_delta = 0.0
@@ -171,13 +469,23 @@ def sample(process, root, started, previous_cpu=None):
     }
 
 
-def summarize(samples, latencies, baseline_seconds, errors, events, budget):
+def summarize(
+    samples,
+    latencies,
+    baseline_seconds,
+    errors,
+    events,
+    budget,
+    *,
+    children=None,
+    idle_process_count=1,
+):
     baseline = [row for row in samples if baseline_seconds / 2 <= row["seconds"] < baseline_seconds]
     final = samples[-min(120, max(1, len(samples) // 10)) :]
     # Compare idle-parent samples to avoid treating a currently running worker as
     # a leak. Peak tree RSS remains recorded for capacity planning.
-    baseline_idle = [row for row in baseline if row["processCount"] == 1]
-    final_idle = [row for row in final if row["processCount"] == 1]
+    baseline_idle = [row for row in baseline if row["processCount"] == idle_process_count]
+    final_idle = [row for row in final if row["processCount"] == idle_process_count]
     before = statistics.median(row["rssBytes"] for row in baseline_idle) if baseline_idle else None
     after = statistics.median(row["rssBytes"] for row in final_idle) if final_idle else None
     handle_before = (
@@ -192,9 +500,9 @@ def summarize(samples, latencies, baseline_seconds, errors, events, budget):
     refresh = percentile(latencies["refresh"])
     checks = {
         "noIncorrectResponsesOrUnexpectedFailures": not errors,
-        "preparedByteResponseWithinWarm1s": warm is not None
+        "preparedEndpointP95Below75ms": warm is not None
         and refresh is not None
-        and max(warm, refresh) <= 1000,
+        and max(warm, refresh) < 75,
         "refreshDegradationAtMost20Percent": warm is not None
         and refresh is not None
         and refresh <= warm * 1.2,
@@ -204,7 +512,9 @@ def summarize(samples, latencies, baseline_seconds, errors, events, budget):
         "handlesReturnNearBaseline": handle_before is not None
         and handle_after is not None
         and handle_after <= handle_before + max(10, handle_before * 0.1),
-        "noRemainingObservedChildren": bool(samples) and samples[-1]["processCount"] == 1,
+        "noRemainingObservedChildren": bool(samples)
+        and samples[-1]["processCount"] == 1
+        and (children is None or not (children["remainingCount"] or children["unknownCount"])),
         "diskWithinBudget": bool(samples) and samples[-1]["diskBytes"] <= budget,
         "faultScenariosObserved": {
             "rejected_candidate_kept_pointer",
@@ -230,9 +540,10 @@ def summarize(samples, latencies, baseline_seconds, errors, events, budget):
             default=None,
         ),
         "descriptorKind": "Windows handles" if os.name == "nt" else "Linux file descriptors",
-        "latencyScope": "captured AtomicRuntime generation through server._serve_prepared_bytes; excludes auth, league lookup, HTTP/network",
+        "latencyScope": "loopback HTTP through real app middleware, synthetic auth session, prepared rankings/trade endpoints and LeagueServingReader; fixed fixture league selection; excludes response audit",
         "readCounts": {key: len(value) for key, value in latencies.items()},
-        "p95Milliseconds": {"baseline": warm, "refresh": refresh},
+        "p95Milliseconds": {key: percentile(values) for key, values in latencies.items()},
+        "observedChildren": children,
         "rssBaselineBytes": before,
         "rssFinalBytes": after,
         "peakProcessTreeRssBytes": max((row["rssBytes"] for row in samples), default=None),
@@ -246,22 +557,22 @@ def summarize(samples, latencies, baseline_seconds, errors, events, budget):
         "limitations": [
             "Private recorded board replay; no external providers",
             "No deployed API or Linux/systemd proof",
+            "Separate loopback web child uses fixture lifespan and auth session; login, session persistence and external network latency are excluded",
             "Changed input uses a non-value metadata revision; canonical values remain fixed",
             "CPU seconds include currently live processes; completed child totals are unavailable",
-            "Observed fixture child cleanup does not prove cleanup of real scraper/browser children or reparented processes",
+            "PID/create-time ledger detects surviving observed descendants after reparenting; unobserved short-lived descendants and real scraper/browser cleanup are unproven",
         ],
     }
 
 
 def main(args):
     import psutil
-    from starlette.requests import Request
     from src.serving.artifacts import RejectedCandidate, RetentionCapacityError, _publish_lock
     from src.serving.builder import prepare_generation
     from src.serving.producer_status import request_league_refresh, request_source_refresh
-    from src.serving.runtime import AtomicRuntime
     from src.serving.serialization import ASSET, KEY, load_generation, publish_generation
 
+    harness_sha = hashlib.sha256(Path(__file__).read_bytes()).hexdigest()
     if args.root.exists():
         raise ValueError("Soak requires a new private root; existing stores are never modified")
     args.root.mkdir(parents=True)
@@ -272,72 +583,89 @@ def main(args):
     source = {"type": "offline-soak", "producedAt": contract.get("scrapeTimestamp")}
     candidate = prepare_generation(contract, raw, source, {"ok": True})
     publish_generation(candidate, store=store)
+    fixture_league_key = (contract.get("meta") or {}).get("leagueKey")
+    league_worker(store)
     del candidate, contract, raw
-    reload_active = threading.Event()
-
-    def observed_load(artifact):
-        reload_active.set()
-        try:
-            return load_generation(artifact)
-        finally:
-            reload_active.clear()
-
-    state = AtomicRuntime(store, ASSET, KEY, observed_load)
-    assert state.reload_if_changed()
-    # Import without lifespan: no embedded scrape, scheduler or server listener.
-    os.environ.setdefault("ALLOW_DEFAULT_LOGIN_DEV", "1")
-    import server
+    args.child_ledger = ChildLedger()
+    web_child = launch(args, "web")
+    deadline = time.monotonic() + 90
+    while (
+        not (args.root / "web-ready").exists()
+        and web_child.poll() is None
+        and time.monotonic() < deadline
+    ):
+        time.sleep(0.05)
+    if not (args.root / "web-ready").exists():
+        web_child.terminate()
+        web_child.communicate(timeout=10)
+        raise RuntimeError("fixture web child failed to become ready")
+    state = RemoteRuntime(args.port)
+    # Include the whole intentionally running web tree (Windows Python may use
+    # launcher descendants), captured before any source/league workers start.
+    baseline_process_count = 1 + len(psutil.Process().children(recursive=True))
 
     stop = threading.Event()
     errors = []
     events = []
     latencies = {"baseline": [], "refresh": [], "postRefreshIdle": []}
     worker_active = threading.Event()
+    response_counts = Counter()
+    read_series = {}
+    observed_generations = Counter()
+    read_error_counts = Counter()
+    audit = ResponseAudit()
     started = time.monotonic()
-    state.start(0.5)
 
     def read_loop():
+        connection = http.client.HTTPConnection("127.0.0.1", args.port, timeout=5)
         while not stop.wait(0.01):
-            try:
-                before = time.perf_counter()
-                captured = state.current
-                view = captured.views["rankings"]
-                request = Request(
-                    {
-                        "type": "http",
-                        "headers": [(b"accept-encoding", b"gzip")],
-                        "query_string": b"",
-                    }
-                )
-                response = server._serve_prepared_bytes(request, view, captured.generation_id)
-                elapsed = (time.perf_counter() - before) * 1000
-                phase = (
-                    "baseline"
-                    if time.monotonic() - started < args.baseline_seconds
-                    else (
-                        "refresh"
-                        if worker_active.is_set()
-                        or reload_active.is_set()
-                        or state._reload_lock.locked()
-                        else "postRefreshIdle"
-                    )
-                )
-                latencies[phase].append(elapsed)
-                assert response.status_code == 200 and response.body is view.gzip
-                assert response.headers["x-data-generation"] == captured.generation_id
-                assert view.payload["meta"]["readModelGeneration"] == captured.generation_id
-                conditional = Request(
-                    {**request.scope, "headers": [(b"if-none-match", view.etag.encode())]}
-                )
-                assert (
-                    server._serve_prepared_bytes(
-                        conditional, view, captured.generation_id
-                    ).status_code
-                    == 304
-                )
-            except Exception as exc:
-                errors.append(type(exc).__name__)
-                stop.set()
+            for view, path in (
+                ("rankings", "/api/read-models/rankings"),
+                ("trade", "/api/read-models/trade/context"),
+            ):
+                conditional = None
+                for request_kind in ("unconditional", "conditional"):
+                    if stop.is_set():
+                        break
+                    if request_kind == "conditional" and conditional is None:
+                        continue
+                    try:
+                        before = time.perf_counter()
+                        overlapping = worker_active.is_set()
+                        response = http_response(
+                            connection, path, etag=conditional[0] if conditional else None
+                        )
+                        elapsed = (time.perf_counter() - before) * 1000
+                        phase = (
+                            "baseline"
+                            if time.monotonic() - started < args.baseline_seconds
+                            else (
+                                "refresh"
+                                if overlapping
+                                or worker_active.is_set()
+                                or response.headers.get("x-soak-reload-active") == "1"
+                                else "postRefreshIdle"
+                            )
+                        )
+                        response_counts[
+                            f"{view}:{phase}:{request_kind}:{response.status_code}"
+                        ] += 1
+                        if response.status_code not in (200, 304):
+                            read_error_counts[f"{view}:http_{response.status_code}"] += 1
+                            continue
+                        latencies[phase].append(elapsed)
+                        read_series.setdefault(
+                            f"{view}:{phase}:{request_kind}:{response.status_code}", []
+                        ).append(elapsed)
+                        conditional = audit.check(response, view, fixture_league_key, conditional)
+                        observed_generations[conditional[1]] += 1
+                    except Exception as exc:
+                        read_error_counts[f"{view}:{type(exc).__name__}"] += 1
+                        if len(errors) < 20:
+                            errors.append(f"read_{view}_{type(exc).__name__}")
+                        connection.close()
+                        connection = http.client.HTTPConnection("127.0.0.1", args.port, timeout=5)
+        connection.close()
 
     reader = threading.Thread(target=read_loop, name="soak-reads", daemon=True)
     reader.start()
@@ -352,6 +680,7 @@ def main(args):
 
     def exercise_faults():
         held = None
+        fault_stage = "reject_candidate"
         try:
             accepted = store.read_current(ASSET, KEY)
             try:
@@ -366,6 +695,7 @@ def main(args):
             except RejectedCandidate:
                 assert store.read_current(ASSET, KEY).generation_id == accepted.generation_id
                 events.append({"kind": "rejected_candidate_kept_pointer"})
+            fault_stage = "stop_reader_for_corruption"
             assert state.stop(), "reader did not stop for controlled corruption"
             captured = state.current
             path = (
@@ -379,20 +709,23 @@ def main(args):
                 / "rankings.json"
             )
             original = path.read_bytes()
+            fault_stage = "retain_memory_on_corrupt_disk"
             try:
                 with _publish_lock(store.root / "store.lock", 5):
                     path.write_bytes(b"controlled soak corruption")
                     os.utime(args.root / ASSET / KEY / "current.json", None)
                 assert not state.reload_if_changed()
-                assert state.last_error and state.current is captured
+                assert state.last_error and state.current == captured
                 events.append({"kind": "corrupt_disk_generation_retained_memory"})
             finally:
                 with _publish_lock(store.root / "store.lock", 5):
                     path.write_bytes(original)
                     os.utime(args.root / ASSET / KEY / "current.json", None)
+            fault_stage = "recover_and_restart_reader"
             assert state.reload_if_changed() and state.last_error is None
             state.start(0.5)
             events.append({"kind": "reader_recovered_and_restarted"})
+            fault_stage = "capacity_exhaustion"
             pressure = store_for(args.root, 1)
             try:
                 pressure.publish(
@@ -411,6 +744,7 @@ def main(args):
                 assert store.read_current(ASSET, KEY).generation_id == accepted.generation_id
                 events.append({"kind": "capacity_exhaustion_kept_pointer"})
             worker_active.set()
+            fault_stage = "terminate_worker_with_queued_requests"
             held = launch(args, "hold")
             ready = args.root / "worker-ready"
             deadline = time.monotonic() + 30
@@ -427,6 +761,7 @@ def main(args):
                 assert pending_source_refresh(store)["requestId"] == source_request["requestId"]
                 assert pending_league_refresh(store)["requestId"] == league_request["requestId"]
                 events.append({"kind": "terminated_worker_lease_reacquired_with_queued_requests"})
+            fault_stage = "restart_worker_acknowledge_requests"
             resumed = launch(args, "unchanged")
             try:
                 resumed.communicate(timeout=60)
@@ -444,7 +779,7 @@ def main(args):
                 }
             )
         except Exception as exc:
-            errors.append(f"fault_exercise_{type(exc).__name__}")
+            errors.append(f"fault_{fault_stage}_{type(exc).__name__}")
         finally:
             if held is not None and held.poll() is None:
                 held.terminate()
@@ -468,6 +803,11 @@ def main(args):
                             "sequence": sequence,
                             "exitCode": child.returncode,
                             "workerKind": "unchanged" if sequence % 3 == 0 else "changed",
+                            "publishedGeneration": json.loads(
+                                store.read_current(ASSET, KEY).files["index.json"]
+                            )["generation"]
+                            if child.returncode == 0
+                            else None,
                         }
                     )
                     child = None
@@ -488,7 +828,7 @@ def main(args):
                     and child is None
                     and league_child is None
                     and (fault_thread is None or not fault_thread.is_alive())
-                    and elapsed < args.duration_seconds - 125
+                    and elapsed < args.duration_seconds - args.quiet_seconds
                 ):
                     sequence += 1
                     request_source_refresh(store, "soak")
@@ -507,7 +847,10 @@ def main(args):
                         target=exercise_faults, name="soak-faults", daemon=True
                     )
                     fault_thread.start()
-                row = sample(process, args.root, started, previous_cpu)
+                if web_child.poll() is not None:
+                    errors.append("fatal_web_child_exit")
+                    break
+                row = sample(process, args.root, started, previous_cpu, args.child_ledger)
                 samples.append(row)
                 stream.write(json.dumps(row) + "\n")
                 stream.flush()
@@ -529,7 +872,9 @@ def main(args):
         observation_seconds = time.monotonic() - started
         observed_sample_count = len(samples)
         stop.set()
-        reader.join(timeout=5)
+        reader.join(timeout=6)
+        if reader.is_alive():
+            errors.append("http_read_thread_stop_timeout")
         if child is not None:
             if child.poll() is None:
                 child.terminate()
@@ -542,13 +887,49 @@ def main(args):
             fault_thread.join(timeout=45)
             if fault_thread.is_alive():
                 errors.append("fault_thread_stop_timeout")
-        if not state.stop():
-            errors.append("reader_stop_timeout")
-    samples.append(sample(process, args.root, started, previous_cpu))
-    report = summarize(samples, latencies, args.baseline_seconds, errors, events, args.budget_bytes)
+        try:
+            if not state.stop():
+                errors.append("reader_stop_timeout")
+        except Exception:
+            errors.append("web_control_stop_failed")
+        try:
+            state.control("shutdown")
+            web_child.communicate(timeout=10)
+        except Exception:
+            errors.append("web_graceful_shutdown_failed")
+            web_child.terminate()
+            web_child.communicate(timeout=10)
+    samples.append(sample(process, args.root, started, previous_cpu, args.child_ledger))
+    if read_error_counts:
+        errors.append("unexpected_read_failures")
+    report = summarize(
+        samples,
+        latencies,
+        args.baseline_seconds,
+        errors,
+        events,
+        args.budget_bytes,
+        children=args.child_ledger.remaining(process),
+        idle_process_count=baseline_process_count,
+    )
+    report["responseCounts"] = dict(response_counts)
+    http_report = http_latency_summary(read_series)
+    report.update({key: value for key, value in http_report.items() if key != "checks"})
+    report["checks"].update(http_report["checks"])
+    report["observedHttpGenerations"] = dict(observed_generations)
+    report["checks"]["changedPublicationsObservedByHttp"] = publication_evidence(
+        events, observed_generations
+    )
+    report["readErrorCounts"] = dict(read_error_counts)
+    report["responseAuditCacheMisses"] = audit.cache_misses
+    report["responseAuditCacheLimit"] = audit.limit
+    report["idleProcessCount"] = baseline_process_count
     report["inputSha256"] = hashlib.sha256(args.contract.read_bytes()).hexdigest()
     report["rawInputSha256"] = hashlib.sha256(raw_path.read_bytes()).hexdigest()
-    report["harnessSha256"] = hashlib.sha256(Path(__file__).read_bytes()).hexdigest()
+    report["harnessSha256"] = harness_sha
+    report["checks"]["harnessUnchangedDuringRun"] = (
+        harness_sha == hashlib.sha256(Path(__file__).read_bytes()).hexdigest()
+    )
     report["environment"] = {
         "platform": platform.platform(),
         "python": sys.version.split()[0],
@@ -559,8 +940,37 @@ def main(args):
     report["retention"] = store.retention(apply=False)
     report["readObservationSeconds"] = observation_seconds
     report["observedSampleCountBeforeCleanup"] = observed_sample_count
+    report["maxObservationSampleGapSeconds"] = max(
+        (
+            right["seconds"] - left["seconds"]
+            for left, right in zip(
+                samples[:observed_sample_count], samples[1:observed_sample_count]
+            )
+        ),
+        default=None,
+    )
     report["sampleCoverageFraction"] = min(1, observed_sample_count / max(1, observation_seconds))
-    report["full60MinuteSoak"] = observation_seconds >= 3600 and args.baseline_seconds >= 600
+    report["checks"].update(
+        sampling_evidence(
+            observed_sample_count, observation_seconds, report["maxObservationSampleGapSeconds"]
+        )
+    )
+    report["samplingRequirements"] = {"minimumCoverageFraction": 0.99, "maximumGapSeconds": 2}
+    report["quietSeconds"] = args.quiet_seconds
+    report["full60MinuteSoak"] = (
+        observation_seconds >= 3600
+        and args.baseline_seconds >= 600
+        and args.quiet_seconds >= 120
+        and all(
+            sampling_evidence(
+                observed_sample_count, observation_seconds, report["maxObservationSampleGapSeconds"]
+            ).values()
+        )
+    )
+    report["passed"] = all(report["checks"].values())
+    latency_file = args.output.with_suffix(".latencies.json")
+    latency_file.write_text(json.dumps(read_series) + "\n", encoding="utf-8")
+    report["latencyObservationsFile"] = latency_file.name
     args.output.write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
     print(json.dumps(report, indent=2), flush=True)
     return 0 if report["passed"] else 1
@@ -579,16 +989,45 @@ if __name__ == "__main__":
     parser.add_argument("--duration-seconds", type=float, default=3600)
     parser.add_argument("--baseline-seconds", type=float, default=600)
     parser.add_argument("--refresh-seconds", type=float, default=30)
+    parser.add_argument(
+        "--quiet-seconds",
+        type=float,
+        default=125,
+        help="Final no-launch window; short functional smoke may override",
+    )
     parser.add_argument("--budget-bytes", type=int, default=512 * 1024**2)
-    parser.add_argument("--worker", choices=("changed", "unchanged", "hold", "league"))
+    parser.add_argument("--worker", choices=("changed", "unchanged", "hold", "league", "web"))
+    parser.add_argument(
+        "--port",
+        type=int,
+        default=0,
+        help="Fixture HTTP loopback port; driver chooses a free port by default",
+    )
     parser.add_argument("--sequence", type=int, default=0)
     parsed = parser.parse_args()
-    disable_network()
+    if not parsed.port:
+        import socket
+
+        with socket.socket() as reservation:
+            reservation.bind(("127.0.0.1", 0))
+            parsed.port = reservation.getsockname()[1]
+    if parsed.worker == "web":
+        import asyncio
+
+        # Windows' event-loop self-pipe creates a private socketpair. Construct
+        # it before the strict network guard; providers are not imported yet.
+        parsed.web_loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(parsed.web_loop)
+    disable_network(parsed.port)
     if parsed.worker:
         worker(parsed)
     else:
         if parsed.contract is None or parsed.output is None:
             parser.error("--contract and --output are required for the driver")
-        if not 0 < parsed.baseline_seconds < parsed.duration_seconds or parsed.refresh_seconds <= 0:
+        if (
+            not 0 < parsed.baseline_seconds < parsed.duration_seconds
+            or parsed.refresh_seconds <= 0
+            or not 0 < parsed.quiet_seconds < parsed.duration_seconds
+        ):
             parser.error("require 0 < baseline < duration and refresh > 0")
         raise SystemExit(main(parsed))
