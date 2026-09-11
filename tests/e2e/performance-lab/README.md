@@ -44,6 +44,8 @@ Set `PW_CHROMIUM_PATH` to an installed Chromium executable if Playwright's
 downloaded browser is unavailable. `PERF_LAB_OUTPUT` optionally changes the
 artifact directory; the default is `output/playwright`.
 
+The browser driver also requires successful privacy-safe document Web Vitals POSTs on each route, rejects extra fields and Referer headers, and records the Node runtime. It does not require unobserved INP/CLS values.
+
 The browser driver checks rankings/trade in desktop/mobile viewports, exact
 CSV equality between full-shaped and prepared fixtures, filtering, source
 display controls, expanded source audit, actual full popup content, trade

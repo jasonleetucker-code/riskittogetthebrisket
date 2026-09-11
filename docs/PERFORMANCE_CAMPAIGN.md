@@ -73,6 +73,11 @@ Web Vitals remain null. No final field LCP/INP/CLS claim is made.
 
 ## Validation record
 
+- **Final reconciled backend selection: 533 passed, 5 skipped**, 72.08 seconds.
+  This includes serving artifacts/runtime/producer/manifest/status, all news,
+  affected BDVM/gameplan/simulation caches, telemetry, source guards, array,
+  league routing, overrides, league adjustment, private auth and startup.
+  It supersedes the earlier resolved failures below; counts overlap.
 - Integrated serving/lifecycle/API/news selection: **522 passed, 6 skipped,
   5 subtests passed** before the final queue/status and legacy opt-out fixes.
 - Subsequent integrated selection: **371 passed, 5 skipped, one failure** from
@@ -87,11 +92,11 @@ Web Vitals remain null. No final field LCP/INP/CLS claim is made.
   failure. News and source/manifest/ownership selections also passed; these
   overlap the integrated counts and must not be summed as unique coverage.
 - Frontend before final row-measurement fix: **174 files / 2,512 tests passed**,
-  production flag-on build passed and **14/14** bundle gates passed. The browser
+  production flag-on build passed and **14/14** bundle gates passed on that earlier build. The browser
   evidence records final focused/full reruns and nine desktop/mobile cases.
 - Required Python formatter and repository lint: **GREEN**, Ruff **0.6.9**,
   **1,462** files checked. Final checks and integration reconciliation are
-  recorded below when run.
+  recorded below.
 - A broad backend run was interrupted after exposing the Windows static-scanner
   defect. It was not a completed full-suite pass. No claim is made that all
   roughly 11,000 collected backend tests ran for this campaign.
@@ -170,3 +175,79 @@ player detail on intent. Dependency-aware jobs share unchanged work, while
 unusual expensive requests receive bounded job execution and honest progress.
 This makes the usual interaction a lookup and render while the site's ongoing
 computation stays behind the serving boundary.
+
+
+## Current-main reconciliation
+
+- Validated implementation before reconciliation: `6424cf5af`, based on
+  `8202c0c29b3bd2c8b970a9ad16c53732ae8e7c2a`.
+- Fetched main: `2c3b74cf8`. Intervening commits: `7e1289470` (GitHub Actions
+  Sharp smoke), `aacd980ff` (IDP Show Fetch production evidence), `b5fedaad6`
+  (GitHub Actions freshness), `53b87921a` (GitHub Actions source refresh),
+  `2c3b74cf8` (GitHub Actions Hill refit evidence).
+- Classification: **RELEVANT_BASE_MOVE**. There are 72 changed data/evidence
+  paths, including source CSVs, raw exports, cached Sleeper/ROS inputs and the
+  Hill model registry. The Hill champion remains version 2; the new entries
+  are challenger/rejected evidence, but these are still builder/manifest inputs.
+  The change is not called benign merely because automation authored it.
+- Reconciled locally without conflict as `65a3c3aa9539bd3aafea6acaa4f48c53348a8cdd`.
+  No product source, dependency, workflow or tests changed upstream. Serving,
+  news/cache/API checks and the fixed-input payload gate are rerun against the
+  composed tree. Synthetic frontend facts remain synthetic and independent of
+  those changed source CSVs.
+- Final frontend runtime: official Node 20.20.2, downloaded from nodejs.org and
+  verified SHA256 `dc3700fdd57a63eedb8fd7e3c7baaa32e6a740a1b904167ff4204bc68ed8bf77`.
+  The integrated Node 20 suite passed **174 files / 2,513 tests** in 114.05 seconds.
+  Earlier browser timing evidence remains explicitly Node 24; it is not relabeled.
+- The first telemetry-wired Node 20 build compiled, but its bundle gate failed
+  for `/more` (11.0 KB over a 10 KB limit). A new root client entry caused the
+  styled-jsx runtime to enter that page's chunk. The reporter now mounts once
+  inside the existing `AppShellWrapper` client boundary, preserving document
+  metrics while avoiding that extra root entry. Budgets remain unchanged.
+
+
+## Final integrated evidence
+
+- Final Node 20 flag-on build with telemetry in the existing shell: **PASS**;
+  **14/14 unchanged bundle budgets PASS**. `/more` is 2.9 KB, rankings 60.9 KB,
+  trade 65.5 KB. Build warnings concern the existing middleware convention,
+  themeColor placement, Next Edge-runtime diagnostics and absent local public
+  backend; no compiler failure occurred.
+- Final affected shell/privacy tests after the mount adjustment: **46 passed**.
+- Final Node 20 / Chrome 152 browser smoke: **9/9 cases PASS**, zero page errors
+  and zero forbidden global-contract reads. **27/27 telemetry POSTs succeeded**,
+  with the six allowed fields, finite nonnegative values, fixed route templates
+  and no Referer. TTFB/FCP/LCP were observed; INP/CLS were not observed. This
+  smoke adds correctness evidence, not a new performance comparison. See
+  [the supplemental artifact](evidence/performance-browser-node20-2026-09-10.json).
+- Reconciled source-data payload replay: array **790,946** gzip bytes versus
+  rankings/trade **405,727** each, **48.70% reduction**, 40% gate **PASS**;
+  catalog **138,977** bytes, **82.43% reduction**. All 1,093 canonical rows
+  validate. Both the original and [reconciled report](evidence/performance-payloads-reconciled-2026-09-10.json)
+  remain available; no change in Python wall time is claimed as a speed gain.
+- The healthy newer checkout exposed legacy tests installing only individual
+  globals after startup had published a coherent generation. Handler suites
+  now explicitly opt into isolated startup and install their own legacy
+  representation; the independent real startup/recovery/lifecycle tests retain
+  production behavior. Added unauthenticated checks for all new read-model
+  routes and admin performance diagnostics. No assertions were weakened.
+- The legacy override path again accepts absent source metadata, as the old
+  builder boundary did; missing metadata stays absent instead of raising while
+  copying it. Removed exactly one stale coercion-baseline allowance for the
+  old news rank helper; no new allowance or budget increase was added.
+- Independent review found no remaining substantive defect in generation
+  publication/parity, factual league binding, queued refresh admission,
+  ownership renewal, last-good restart behavior, status recovery, legacy opt-out
+  or bounded Windows pointer retries. This does not certify the unresolved
+  production and slowed-mobile acceptance items.
+
+
+Final handoff: **IMPLEMENTED CANDIDATE / ROLLOUT GATED** on
+`codex/performance-serving`; no PR, push, merge or deployment performed.
+The final backend selection, Node 20 suite/build/bundles, browser smoke,
+formatter, decision-coercion ratchet and whitespace checks pass locally.
+The campaign work claim remains open for the explicit rollout acceptance gaps.
+UNRESOLVED: mobile useful-state target; deployed source ownership/cutover and
+field performance; sustained resource/retention evidence; complete canonical
+input manifest. Next action remains protected integration and deployed shadow
+validation, followed by mobile remediation before flag activation.

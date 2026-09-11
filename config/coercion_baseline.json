@@ -1,6 +1,6 @@
 {
  "note": "Known missing-data coercions on decision paths, recorded so the gate can block NEW ones while the remediation batches burn these down. Each batch deletes its findings' entries. Do not add to this file to make a build pass.",
- "count": 658,
+ "count": 657,
  "violations": [
   "frontend/lib/auction-power.js::const raw = names.map((n) => Number(totalsObj[n]) || 0);",
   "frontend/lib/bdvm.js::assetCount: _num(r?.assetCount) ?? 0,",
@@ -224,7 +224,6 @@
   "server.py::limit = int(request.query_params.get(\"limit\") or 100)",
   "server.py::or 100",
   "server.py::or float(_public_league_cache.get(\"fetched_at\") or 0.0) == 0.0",
-  "server.py::r = float(row.get(\"canonicalConsensusRank\") or row.get(\"rank\") or 0)",
   "server.py::roster_size = int(roster_settings.get(\"rosterSize\") or 0)",
   "server.py::sum(int(v or 0) for k, v in starters_map.items() if str(k).upper() != \"K\") or 20",
   "src/api/bdvm_api.py::v = float(((asset.get(\"distribution\") or {}).get(s) or {}).get(\"ev\") or 0.0)",

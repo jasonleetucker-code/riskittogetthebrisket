@@ -1,6 +1,8 @@
-Performance implementation paths versus baseline 8202c0c29b3bd2c8b970a9ad16c53732ae8e7c2a
-Does not include unrelated upstream data reconciliations.
+Performance implementation paths versus reconciled main 2c3b74cf8
+Original campaign base: 8202c0c29b3bd2c8b970a9ad16c53732ae8e7c2a
+Excludes the 72 upstream data/evidence paths merged from main.
 
+config/coercion_baseline.json
 deploy/systemd/dynasty-league-serving.path.template
 deploy/systemd/dynasty-league-serving.service.template
 deploy/systemd/dynasty-league-serving.timer.template
@@ -12,8 +14,10 @@ docs/EXECUTION_PLAN.md
 docs/PERFORMANCE_ARCHITECTURE.md
 docs/PERFORMANCE_CAMPAIGN.md
 docs/WORK_CLAIMS.md
+docs/evidence/performance-browser-node20-2026-09-10.json
 docs/evidence/performance-change-manifest.txt
 docs/evidence/performance-payloads-2026-09-10.json
+docs/evidence/performance-payloads-reconciled-2026-09-10.json
 docs/ops/serving-input-manifests.md
 docs/ops/source-producer-ownership.md
 frontend/__tests__/a11y-failure-not-empty.test.js
@@ -26,12 +30,12 @@ frontend/__tests__/draft-feed.test.js
 frontend/__tests__/prepared-bridge-routes.test.js
 frontend/__tests__/prepared-read-models.test.js
 frontend/__tests__/web-vitals-report.test.js
+frontend/app/AppShellWrapper.jsx
 frontend/app/api/dynasty-data/route.js
 frontend/app/api/rankings/overrides/route.js
 frontend/app/api/read-models/[...path]/route.js
 frontend/app/api/telemetry/web-vitals/route.js
 frontend/app/draft/page.jsx
-frontend/app/layout.jsx
 frontend/app/rankings/board-sections.jsx
 frontend/app/rankings/page.jsx
 frontend/app/trade/page.jsx
@@ -83,10 +87,15 @@ src/serving/runtime.py
 src/serving/serialization.py
 src/serving/status.py
 src/utils/singleflight.py
+tests/api/test_array_view.py
 tests/api/test_degraded_board_recovery.py
 tests/api/test_feature_flag_reachability.py
 tests/api/test_gameplan_singleflight.py
+tests/api/test_league_adjusted_endpoint.py
+tests/api/test_league_routing.py
+tests/api/test_overrides_response_cache.py
 tests/api/test_performance_telemetry.py
+tests/api/test_private_auth.py
 tests/bdvm/test_cache_generations.py
 tests/conftest.py
 tests/e2e/performance-lab/README.md

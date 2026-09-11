@@ -36,16 +36,7 @@ from tests.api.scoring_fixture import (
 
 _install_scoring_snapshots = install_scoring_snapshots
 
-
-@pytest.fixture(autouse=True)
-def isolated_route_startup(monkeypatch):
-    # Route fixtures provide their own factual cards and contracts. Startup
-    # recovery/provider ownership is covered separately with explicit inputs.
-    monkeypatch.setenv("RISKIT_SERVING_MODE", "legacy")
-    monkeypatch.setattr(server, "load_from_disk", lambda: None)
-    monkeypatch.setattr(server, "_recover_startup_contract_from_checkout", lambda raw: raw)
-    monkeypatch.setattr(server, "_warmup_public_snapshot", lambda: None)
-    monkeypatch.setattr(server, "_warm_overlays_in_background", lambda contract: None)
+pytestmark = pytest.mark.usefixtures("isolated_legacy_serving_startup")
 
 
 @pytest.fixture

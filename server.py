@@ -4096,7 +4096,7 @@ async def post_rankings_overrides(request: Request):
     generation = latest_serving_generation
     contract_snapshot = generation.contract if generation else latest_contract_data
     data_snapshot = generation.raw if generation else latest_data
-    source_snapshot = generation.source if generation else dict(latest_data_source)
+    source_snapshot = generation.source if generation else dict(latest_data_source or {})
     contract_version = generation.views["full"].etag if generation else latest_data_etag
     if generation is not None:
         request.state.data_generation = generation.generation_id

@@ -15,6 +15,10 @@ const hash = (text) => createHash("sha256").update(text).digest("hex");
 const forbidden = (paths) => paths.filter((p) => /^\/api\/(?:data|dynasty-data)$/.test(p));
 const canonicalByViewport = new Map();
 let currentPage;
+const telemetryByPage = new WeakMap();
+report.telemetry = { requests: 0, successfulResponses: 0, names: [], routes: [], valid: true, referrerAbsent: true };
+report.runtime = process.version;
+report.build = process.env.NEXT_DIST_DIR || "configured production build with shell telemetry";
 
 async function open(path, viewport) {
   const context = await browser.newContext({ viewport, acceptDownloads: true });
@@ -22,6 +26,31 @@ async function open(path, viewport) {
   await context.addInitScript(() => { localStorage.setItem("next_active_league_v1", "lab"); localStorage.setItem("next_settings_v2", JSON.stringify({ selectedTeam: "Lab Team A", selectedTeamTouched: true })); });
   const page = await context.newPage(); currentPage = page;
   const paths = [], errors = [];
+  const telemetry = { successfulResponses: 0 };
+  telemetryByPage.set(page, telemetry);
+  page.on("request", (req) => {
+    if (new URL(req.url()).pathname !== "/api/telemetry/web-vitals") return;
+    try {
+      const data = req.postDataJSON();
+      const valid = req.method() === "POST" && JSON.stringify(Object.keys(data).sort()) === JSON.stringify(["device","id","name","navigationType","route","value"])
+        && ["LCP","INP","CLS","FCP","TTFB"].includes(data.name) && Number.isFinite(data.value) && data.value >= 0
+        && typeof data.id === "string" && /^[a-zA-Z0-9_-]{1,64}$/.test(data.id)
+        && data.route === path && ["desktop","mobile","unknown"].includes(data.device)
+        && ["navigate","reload","back-forward","back-forward-cache","prerender","restore"].includes(data.navigationType)
+        && !req.headers().referer;
+      if (!valid) throw new Error("Invalid telemetry payload shape or Referer");
+      report.telemetry.requests++;
+      if (!report.telemetry.names.includes(data.name)) report.telemetry.names.push(data.name);
+      if (!report.telemetry.routes.includes(data.route)) report.telemetry.routes.push(data.route);
+    } catch {
+      errors.push("Telemetry validation failed"); report.telemetry.valid = false;
+    }
+  });
+  page.on("response", (res) => {
+    if (new URL(res.url()).pathname !== "/api/telemetry/web-vitals") return;
+    if (res.status() >= 200 && res.status() < 300) { telemetry.successfulResponses++; report.telemetry.successfulResponses++; }
+    else { errors.push("Telemetry POST failed"); report.telemetry.valid = false; }
+  });
   page.on("request", (req) => { const url = new URL(req.url()); if (url.pathname.startsWith("/api/")) paths.push(url.pathname); });
   page.on("pageerror", (err) => errors.push(err.message));
   const cdp = await context.newCDPSession(page);
@@ -98,6 +127,7 @@ try {
       if (variant === "prepared") await page.screenshot({ path: path.join(output, `rankings-${viewportName}.png`) });
       expect(forbidden(paths)).toEqual([]); expect(errors).toEqual([]);
       report.cases.push({ route: "/rankings", viewport: viewportName, variant, passed: true, csvRows: initialCsv.split("\n").length - 1, csvSha256: hash(initialCsv), filtering: true, sourceVisibilityDoesNotChangeExport: true, fullSourceAudit: true, popup: true, globalSearchOwnUniverse: true, forbiddenFullReads: 0, errors: 0, metrics: initialMetrics });
+      await expect.poll(() => telemetryByPage.get(page)?.successfulResponses || 0).toBeGreaterThan(0);
       await context.close();
     }
     for (const tradeVariant of ["full", "prepared"]) {
@@ -119,7 +149,8 @@ try {
     await expect(page.getByRole("dialog").getByText("Source Breakdown", { exact: true })).toBeVisible();
     expect(forbidden(paths)).toEqual([]); expect(errors).toEqual([]);
     report.cases.push({ route: "/trade", viewport: viewportName, variant: tradeVariant, passed: true, picker: true, csv: true, csvSha256: hash(tradeCsv), popupFullSourceBody: true, forbiddenFullReads: 0, errors: 0, metrics: initialMetrics });
-    await context.close();
+    await expect.poll(() => telemetryByPage.get(page)?.successfulResponses || 0).toBeGreaterThan(0);
+      await context.close();
     }
   }
   await fetch(`${origin}/__lab/control?variant=prepared&detailDelay=0`);
@@ -135,7 +166,10 @@ try {
   await expect(page.getByRole("dialog").getByText("Source Breakdown", { exact: true })).toBeVisible();
   expect(forbidden(paths)).toEqual([]); expect(errors).toEqual([]);
   report.cases.push({ route: "/league-comparison", passed: true, zeroInitialGlobalReads: true, firstIntentCatalogRequests: 1, fullPopup: true, errors: 0 });
-  await context.close();
+  await expect.poll(() => telemetryByPage.get(page)?.successfulResponses || 0).toBeGreaterThan(0);
+      await context.close();
+  expect(report.telemetry.valid).toBe(true);
+  expect(report.telemetry.successfulResponses).toBe(report.telemetry.requests);
   report.passed = true;
 } catch (error) {
   report.passed = false; report.failure = error.message;

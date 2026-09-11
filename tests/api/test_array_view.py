@@ -28,16 +28,11 @@ from fastapi.testclient import TestClient
 import server
 from src.api import league_registry
 
+pytestmark = pytest.mark.usefixtures("isolated_legacy_serving_startup")
+
 
 @pytest.fixture
 def array_env(tmp_path, monkeypatch):
-    # These handlers install their own compatibility representation. A healthy
-    # checked-out export must not create a second, authoritative startup board.
-    monkeypatch.setenv("RISKIT_SERVING_MODE", "legacy")
-    monkeypatch.setattr(server, "load_from_disk", lambda: None)
-    monkeypatch.setattr(server, "_recover_startup_contract_from_checkout", lambda raw: raw)
-    monkeypatch.setattr(server, "_warmup_public_snapshot", lambda: None)
-    monkeypatch.setattr(server, "_warm_overlays_in_background", lambda contract: None)
     path = tmp_path / "registry.json"
     path.write_text(
         json.dumps(

@@ -1,0 +1,59 @@
+{
+  "inputSha256": "9133cbee209b6e8b220f38f780871a033d94a8ea7e0f5d167cb0605378439d32",
+  "environment": "local offline recorded input",
+  "python": "3.12.10",
+  "boardGeneration": "adf507db98020c1d035d5a2e3629f56487f9afd6d66c9baf17a6b6c6eb79d11f",
+  "players": 1093,
+  "buildSeconds": 3.878,
+  "canonicalProjectionParity": true,
+  "views": {
+    "full": {
+      "decodedBytes": 14062173,
+      "gzipBytes": 1345028,
+      "pythonParseMedianMs": 274.139
+    },
+    "runtime": {
+      "decodedBytes": 6462971,
+      "gzipBytes": 615198,
+      "pythonParseMedianMs": 114.274
+    },
+    "array": {
+      "decodedBytes": 7886385,
+      "gzipBytes": 790946,
+      "pythonParseMedianMs": 147.0
+    },
+    "startup": {
+      "decodedBytes": 6462039,
+      "gzipBytes": 614851,
+      "pythonParseMedianMs": 127.242
+    },
+    "compact": {
+      "decodedBytes": 5758464,
+      "gzipBytes": 607466,
+      "pythonParseMedianMs": 109.948
+    },
+    "rankings": {
+      "decodedBytes": 3104971,
+      "gzipBytes": 405727,
+      "pythonParseMedianMs": 59.685,
+      "gzipReductionVsArrayPercent": 48.7
+    },
+    "trade": {
+      "decodedBytes": 3104968,
+      "gzipBytes": 405727,
+      "pythonParseMedianMs": 57.103,
+      "gzipReductionVsArrayPercent": 48.7
+    },
+    "catalog": {
+      "decodedBytes": 613184,
+      "gzipBytes": 138977,
+      "pythonParseMedianMs": 5.519,
+      "gzipReductionVsArrayPercent": 82.43
+    }
+  },
+  "limitation": "Byte and Python parse measurements only; no browser or production latency claim.",
+  "payloadBudget": {
+    "minimumBoardSavingsPercent": 40,
+    "passed": true
+  }
+}

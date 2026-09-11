@@ -9,6 +9,22 @@ import sys
 import pytest
 
 
+@pytest.fixture
+def isolated_legacy_serving_startup(monkeypatch):
+    """Opt-in for handler suites which install their own contracts/cards.
+
+    Keep checked-out exports and provider warmups out of these fixture-based
+    requests. Startup/recovery/atomic lifecycle suites do not use this fixture.
+    """
+    import server
+
+    monkeypatch.setenv("RISKIT_SERVING_MODE", "legacy")
+    monkeypatch.setattr(server, "load_from_disk", lambda: None)
+    monkeypatch.setattr(server, "_recover_startup_contract_from_checkout", lambda raw: raw)
+    monkeypatch.setattr(server, "_warmup_public_snapshot", lambda: None)
+    monkeypatch.setattr(server, "_warm_overlays_in_background", lambda contract: None)
+
+
 @pytest.fixture(autouse=True)
 def isolate_serving_reference(monkeypatch):
     """A previous test's accepted generation must not override a handler fixture.
