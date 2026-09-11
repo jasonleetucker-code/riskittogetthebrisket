@@ -13,6 +13,7 @@ from src.serving.artifacts import (
     ArtifactError,
     ArtifactStore,
     CorruptArtifact,
+    PublishLockTimeout,
     _check_path,
     _mkdir,
     _publish_lock,
@@ -27,6 +28,7 @@ CLAIM_FILE = "source-refresh-claim.json"
 OWNERSHIP_ASSET = "source-ownership"
 OWNERSHIP_KEY = "standalone"
 OWNERSHIP_MODEL = "source-ownership-v1"
+BOOTSTRAP_LEASE_WAIT_SECONDS = 2.0
 
 
 class SourceOwnershipError(RuntimeError):
@@ -163,10 +165,11 @@ class ProducerJournal:
     are deliberately excluded; status never stores source rows, cookies or rosters.
     """
 
-    def __init__(self, store: ArtifactStore):
+    def __init__(self, store: ArtifactStore, *, establish_ownership: bool = False):
         from src.serving.producer import source_parity_contract, source_parity_hash
 
         self.store = store
+        self.establish_ownership = establish_ownership
         self.source_parity = source_parity_contract()
         self.source_parity_hash = source_parity_hash()
         self.accepted_generation = ""
@@ -226,16 +229,6 @@ class ProducerJournal:
             leagueRefresh=self.league_report,
             canonicalInputs=self.input_manifest,
         )
-        self.state["runs"] = (
-            self.state.get("runs", [])
-            + [
-                {
-                    "outcome": result.outcome,
-                    "timestamp": self.state["finishedAt"],
-                    "duration": result.duration,
-                }
-            ]
-        )[-200:]
         if result.outcome == "success" and self.accepted_generation:
             receipt = {
                 "schemaVersion": 1,
@@ -250,6 +243,37 @@ class ProducerJournal:
             }
             _atomic_json(self.store.root, RECEIPT_FILE, receipt)
             self.state["acceptedGeneration"] = self.accepted_generation
+            if self.establish_ownership:
+                # The standalone cycle invokes this callback before releasing
+                # producer.lock. Degraded accepted data must not mint proof,
+                # but it does not erase a previously verified source owner.
+                # Retain intact proof on ordinary cycles: each new proof pins
+                # its referenced board for retention and is only needed when
+                # establishing or renewing ownership after corruption/drift.
+                if _ownership_proof_ready(self.store):
+                    self.state["sourceOwnership"] = {"outcome": "retained"}
+                else:
+                    try:
+                        _attest_current_source_ownership(self.store)
+                    except SourceOwnershipError:
+                        self.state["sourceOwnership"] = {
+                            "outcome": "unverified",
+                            "reason": "healthy_current_receipt_required",
+                        }
+                    else:
+                        self.state["sourceOwnership"] = {"outcome": "verified"}
+        # Attestation I/O failure is finalized by the cycle's failed callback;
+        # do not leave a second, fabricated successful run in the journal.
+        self.state["runs"] = (
+            self.state.get("runs", [])
+            + [
+                {
+                    "outcome": result.outcome,
+                    "timestamp": self.state["finishedAt"],
+                    "duration": result.duration,
+                }
+            ]
+        )[-200:]
         self._save()
 
 
@@ -365,46 +389,77 @@ def _validate_ownership_proof(artifact) -> None:
         raise CorruptArtifact("source ownership proof does not match current source policy")
 
 
-def enforce_source_ownership(store: ArtifactStore) -> None:
+def _ownership_proof_ready(store: ArtifactStore) -> bool:
+    try:
+        _validate_ownership_proof(store.read_current(OWNERSHIP_ASSET, OWNERSHIP_KEY))
+        return True
+    except (ArtifactError, OSError, ValueError, TypeError, KeyError, AttributeError):
+        return False
+
+
+def _attest_current_source_ownership(store: ArtifactStore) -> None:
+    """Persist strict current evidence; caller MUST hold this root's producer.lock.
+
+    Never short-circuit on an older ownership proof: the receipt must identify
+    the canonical artifact accepted at this verification event. Keeping the
+    source lease until publish returns prevents another source cycle replacing
+    the canonical pointer between the current-generation check and attestation.
+    """
+    receipt = _read_receipt(store)
+    if not _current_receipt_matches(store, receipt, 14400):
+        raise SourceOwnershipError(
+            "source ownership cutover or renewal requires a healthy current source receipt"
+        )
+    proof = store.publish(
+        OWNERSHIP_ASSET,
+        OWNERSHIP_KEY,
+        {"receipt.json": json.dumps(receipt, sort_keys=True, allow_nan=False).encode()},
+        {
+            "modelVersion": OWNERSHIP_MODEL,
+            "inputGenerations": {"sourceCycle": receipt["sourceParityHash"]},
+            "configHash": receipt["sourceParityHash"],
+            "sourceAsOf": receipt["sourceProducedAt"],
+            # Renewal must not rewrite a corrupt immutable proof directory.
+            "verifiedAt": _now(),
+        },
+        validator=_validate_ownership_proof,
+    )
+    _validate_ownership_proof(proof)
+
+
+def enforce_source_ownership(
+    store: ArtifactStore, *, lease_wait_seconds: float = BOOTSTRAP_LEASE_WAIT_SECONDS
+) -> None:
     """Attest a healthy first cutover, then permit restarts with stale valid data.
 
     The immutable proof stores the exact receipt verified against the then-current
     canonical artifact. Later generations or upstream outages do not erase that
     evidence. Script/policy changes or corrupt proof require a fresh healthy
     receipt to renew ownership under the same strict first-cutover rules. Without
-    that new proof they refuse startup. This proves ownership only: the web must
-    independently load and validate its current canonical serving generation.
+    that new proof they refuse startup. First attestation and renewal acquire a
+    bounded source lease, then recheck and persist proof before releasing it.
+    An already valid proof needs no source lease or source freshness upgrade.
+    This proves ownership only: the web must independently load and validate its
+    current canonical serving generation.
     """
     try:
-        try:
-            proof = store.read_current(OWNERSHIP_ASSET, OWNERSHIP_KEY)
-            _validate_ownership_proof(proof)
+        if (
+            isinstance(lease_wait_seconds, bool)
+            or not math.isfinite(lease_wait_seconds)
+            or not 0 <= lease_wait_seconds <= 30
+        ):
+            raise SourceOwnershipError("bootstrap source lease wait must be in [0, 30] seconds")
+        if _ownership_proof_ready(store):
             return
-        except (ArtifactError, OSError, ValueError, TypeError, KeyError, AttributeError):
-            # An invalid proof authorizes nothing. Only a new full check against
-            # the currently accepted artifact can establish or renew ownership.
-            pass
-        receipt = _read_receipt(store)
-        if not _current_receipt_matches(store, receipt, 14400):
-            raise SourceOwnershipError(
-                "source ownership cutover or renewal requires a healthy current source receipt"
-            )
-        proof = store.publish(
-            OWNERSHIP_ASSET,
-            OWNERSHIP_KEY,
-            {"receipt.json": json.dumps(receipt, sort_keys=True, allow_nan=False).encode()},
-            {
-                "modelVersion": OWNERSHIP_MODEL,
-                "inputGenerations": {"sourceCycle": receipt["sourceParityHash"]},
-                "configHash": receipt["sourceParityHash"],
-                "sourceAsOf": receipt["sourceProducedAt"],
-                # Renewal is a new verification event. It can select a new
-                # immutable directory if an earlier proof's files were corrupt.
-                "verifiedAt": _now(),
-            },
-            validator=_validate_ownership_proof,
-        )
-        _validate_ownership_proof(proof)
+        _mkdir(store.root)
+        with _publish_lock(store.root / "producer.lock", lease_wait_seconds):
+            # Another bootstrap may have attested while this caller waited.
+            if not _ownership_proof_ready(store):
+                _attest_current_source_ownership(store)
+    except PublishLockTimeout as exc:
+        raise SourceOwnershipError(
+            "source ownership bootstrap could not acquire the source lease; retry after the active cycle"
+        ) from exc
     except SourceOwnershipError:
         raise
     except (ArtifactError, OSError, ValueError, TypeError, KeyError, AttributeError) as exc:

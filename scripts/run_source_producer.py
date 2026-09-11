@@ -69,7 +69,7 @@ async def _run(config: ProducerConfig, bootstrap_path: Path | None) -> int:
     from src.serving.input_manifest import capture_canonical_inputs
 
     store = ArtifactStore(config.artifact_root)
-    journal = ProducerJournal(store)
+    journal = ProducerJournal(store, establish_ownership=True)
 
     async def publish(raw, source):
         manifest = capture_canonical_inputs(raw, repo_dir=config.repo_dir)

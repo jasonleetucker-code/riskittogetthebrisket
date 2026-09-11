@@ -33,6 +33,43 @@ checked-in Jenkinsfile currently has no scheduled trigger; use actual workflow
 and installed unit evidence before changing ownership. Template presence does
 not establish that a job runs in production.
 
+### Deployment audit: repository wiring versus installed state
+
+Read-only audit at parent baseline `5445a62dc` found that
+`deploy/deploy.sh::ensure_systemd_service` globbed all timer templates, while
+`deploy/install-systemd-service.sh` explicitly installs its known timer owners.
+The installer has no source-producer, league-serving or prepared-news branch.
+The presence probe now skips only `source-producer` and `league-serving`, so an
+ordinary legacy deployment does not repeatedly report staged workers missing.
+All existing installer-owned timer checks and reconciliation remain enabled.
+No automatic worker installation, activation or serving-mode change was added.
+
+| Owner | Checked-in mechanism | Installed/running evidence in this audit |
+| --- | --- | --- |
+| Legacy web source cycle | `server.py` defaults to legacy; shared `run_source_cycle` and two-hour completion cadence | Unverified; no host configuration read |
+| Standalone canonical source | `dynasty-source-producer.service/timer/path.template`; shared private root, 9000s admission wait, 18000s unit limit | Templates only; bootstrap proof does not prove timer enablement or future liveness |
+| League serving | `dynasty-league-serving.service/timer/path.template`; 10-minute timer and separate league lease | Templates only |
+| Prepared news | `dynasty-prepared-news.service.template`; persistent `--watch` process | Template only |
+| Existing BDVM and other supplementary jobs | Explicit installer blocks / `install_simple_timer` calls | Installation wiring exists; present host state unverified |
+| GitHub source/deploy owner | `.github/workflows/scheduled-refresh.yml`, separate runner and source set | Workflow definition verified; no current run or host mutation performed |
+
+Local environment check on 2026-09-10 (America/New_York): `wsl --list --verbose`
+reported WSL not installed; Docker was absent from PATH. Git Bash is available
+for shell contract tests on Windows, not evidence of Linux locks, systemd or
+POSIX modes. No distribution/package was installed and no remote host contacted.
+Before an authorized cutover, collect installed unit contents, enable/active
+state, last/next triggers, accepted artifact and proof identities, and a completed
+worker journal from the actual target host. Keep credentials and raw payloads
+out of that evidence. Those checks remain outstanding.
+
+GitHub metadata checked 2026-09-11 UTC: [Deploy Production run 34539524729](https://github.com/jasonleetucker-code/riskittogetthebrisket/actions/runs/34539524729)
+completed successfully for main `53b87921a115751c16c9749fa84ddbb40b118224`, updated
+2026-09-10T23:36:06Z. Its remote deploy, smoke and live-contract steps all report
+success. This is workflow evidence for that main revision, **not** deployment
+evidence for local campaign baseline `5445a62dc` or this change. No workflow logs,
+remote unit state, process RSS/FD, candidate route p95 or refresh-overlap provider
+counts were collected. The Windows fixture timings cannot fill those gaps.
+
 ## Publication and failure behavior
 
 Both embedded and standalone source callers acquire
@@ -88,16 +125,34 @@ execution as proof for changed source code.
    only when its local session was absent. This gate is required before prepared
    server mode can disable the embedded source owner. It is a startup cutover
    check, not a per-request provider or large artifact read. The first successful
-   `enforce_source_ownership` check stores the exact verified receipt as an
-   immutable `source-ownership/standalone` proof. Later restarts validate that
+   standalone completion stores the exact verified receipt as an immutable
+   `source-ownership/standalone` proof **before releasing `producer.lock`**.
+   For an older healthy receipt without proof, `enforce_source_ownership` acquires
+   that same lease (default wait 2s; keyword range 0–30s), rechecks the current
+   accepted generation and receipt after admission, and persists proof before
+   release. Contention or failed proof publication refuses bootstrap. It never
+   treats an existing lock file as evidence that the lease is currently held.
+   Later restarts validate that
    proof and separately load the accepted canonical generation; an upstream
    outage or old source timestamp does not make last-good serving unavailable.
    Changed source scripts/policy or corrupt proof require a new healthy current
    receipt to renew ownership. `source_receipt_ready` remains the strict freshness
    diagnostic and can correctly return false while durable ownership is valid.
-5. Enable the standalone source and league timers only with reviewed deployment
-   authorization, then switch the server mode using its documented prepared-mode
-   configuration. Keep GitHub scheduled refresh and additional feed jobs enabled.
+   A valid durable proof does not wait for an active source cycle. Standalone
+   journal `sourceOwnership` reports `verified`, `retained` or `unverified`:
+   healthy recurring cycles retain the existing valid proof; only missing,
+   invalid or changed-policy proof is renewed. Every fresh proof references a
+   canonical board protected by retention, so ordinary cycles must not create
+   an accumulating chain of pinned boards. Source receipts still update normally.
+   Expected supplemental degradation may still accept a canonical board, but
+   cannot mint proof. A proof-write failure fails the worker run without dropping
+   its already accepted board or adding a false successful run-history entry.
+5. With reviewed deployment authorization, switch the web process to prepared
+   mode and confirm the embedded loop is disabled, then enable the standalone
+   source timer/path and the independent league/news owners. The one-shot
+   bootstrap in step 3 is serialized with legacy work; do not leave two recurring
+   VPS source owners enabled. Keep GitHub scheduled refresh and additional feed
+   jobs enabled.
    Verify installed unit schedules, successful receipts and freshness after the
    switch. A prepared process must fail startup if neither the durable proof nor
    a healthy first-cutover/renewal receipt validates; it never silently starts a
@@ -115,6 +170,14 @@ errors use argparse's exit 2. The source template treats only 3 as an additional
 successful unit exit, and uses the legacy two-hours-after-completion cadence.
 No installed service, timer, deployment, provider availability or production
 latency is verified by these templates and offline tests alone.
+
+Regressions: `tests/serving/test_producer_status.py` checks strict attestation
+under the lease, bounded contention, generation changes while waiting, corrupt
+renewal and stale-proof restart; `tests/serving/test_producer_cli.py` covers proof
+before cycle release, degraded supplements and proof-write failure. Deployment
+contracts in `tests/deploy/test_all_timers_are_wired.py` and
+`tests/deploy/test_staged_source_ownership.py` keep the opt-in list explicit and
+execute the actual presence-probe loop against stub systemctl calls.
 
 ## Manual refresh in prepared mode
 

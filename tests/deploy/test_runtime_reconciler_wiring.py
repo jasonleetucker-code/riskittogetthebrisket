@@ -11,6 +11,7 @@ and that sourcing it cannot quietly disarm the caller.
 from __future__ import annotations
 
 import re
+import shlex
 import subprocess
 from pathlib import Path
 
@@ -161,7 +162,7 @@ class TestSourcingCannotDisarmTheCaller:
               if [[ -o pipefail ]]; then out+="p"; fi
               echo "$1=${{out}}"
             }}
-            source {RECONCILER}
+            source {shlex.quote(RECONCILER.as_posix())}
             report after-source
             SERVICE_NAME=x APP_DIR=/nonexistent RISKIT_LIB_DIR=/nonexistent \\
               reconcile_runtime_controls /nonexistent >/dev/null 2>&1 || true

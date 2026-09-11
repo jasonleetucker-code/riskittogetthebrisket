@@ -14,8 +14,8 @@ import pytest
 
 from scripts import run_source_producer as cli
 from src.serving import producer
-from src.serving.artifacts import ArtifactStore, CorruptArtifact
-from src.serving.producer_status import RECEIPT_FILE, STATUS_FILE
+from src.serving.artifacts import ArtifactStore, CorruptArtifact, PublishLockTimeout, _publish_lock
+from src.serving.producer_status import OWNERSHIP_ASSET, OWNERSHIP_KEY, RECEIPT_FILE, STATUS_FILE
 
 
 @pytest.fixture
@@ -119,6 +119,90 @@ def test_cli_load_build_publish_history_league_order_and_receipt(worker, capsys)
     receipt = json.loads((store.root / RECEIPT_FILE).read_bytes())
     assert receipt["canonicalInputs"]["complete"] is False
     assert receipt["canonicalInputs"]["unknowns"]
+    proof = store.read_current(OWNERSHIP_ASSET, OWNERSHIP_KEY)
+    assert json.loads(proof.files["receipt.json"]) == receipt
+    assert json.loads((store.root / STATUS_FILE).read_bytes())["sourceOwnership"] == {
+        "outcome": "verified"
+    }
+
+
+def test_cli_attests_inside_the_source_lease(worker, monkeypatch):
+    from src.serving import producer_status
+
+    checked = []
+    original = producer_status._attest_current_source_ownership
+
+    def attest(store):
+        with pytest.raises(PublishLockTimeout):
+            with _publish_lock(store.root / "producer.lock", 0):
+                pytest.fail("source lease released before strict attestation")
+        original(store)
+        checked.append(store.read_current(OWNERSHIP_ASSET, OWNERSHIP_KEY).generation_id)
+
+    monkeypatch.setattr(producer_status, "_attest_current_source_ownership", attest)
+    assert asyncio.run(cli._run(worker.config, worker.bootstrap)) == 0
+    assert len(checked) == 1
+
+
+def test_healthy_recurring_cycles_retain_one_ownership_proof(worker):
+    assert asyncio.run(cli._run(worker.config, worker.bootstrap)) == 0
+    store = ArtifactStore(worker.config.artifact_root)
+    proof = store.read_current(OWNERSHIP_ASSET, OWNERSHIP_KEY)
+    first_board = store.read_current("canonical-serving", "default").generation_id
+    worker.raw["players"]["2"] = {"name": "B"}
+    assert asyncio.run(cli._run(worker.config, None)) == 0
+    assert store.read_current("canonical-serving", "default").generation_id != first_board
+    assert store.read_current(OWNERSHIP_ASSET, OWNERSHIP_KEY).generation_id == proof.generation_id
+    assert producer.source_receipt_ready(store)
+    assert json.loads(proof.files["receipt.json"])["acceptedGeneration"] == first_board
+    assert json.loads((store.root / STATUS_FILE).read_bytes())["sourceOwnership"] == {
+        "outcome": "retained"
+    }
+    proof_root = store.root / OWNERSHIP_ASSET / OWNERSHIP_KEY / "generations"
+    assert len(list(proof_root.iterdir())) == 1
+
+
+@pytest.mark.parametrize("existing_proof", [False, True])
+def test_degraded_accepted_cycle_cannot_mint_ownership(worker, monkeypatch, existing_proof):
+    store = ArtifactStore(worker.config.artifact_root)
+    before = None
+    if existing_proof:
+        assert asyncio.run(cli._run(worker.config, worker.bootstrap)) == 0
+        before = store.read_current(OWNERSHIP_ASSET, OWNERSHIP_KEY).generation_id
+
+    def supplements(_config, emit):
+        for source, _, _ in producer.SUPPLEMENTAL_SOURCES:
+            emit("source_attempt", source=source, outcome="failed", exitCode=1)
+
+    monkeypatch.setattr(producer, "_run_supplemental_sources", supplements)
+    assert asyncio.run(cli._run(worker.config, worker.bootstrap)) == 0
+    assert store.read_current("canonical-serving", "default")
+    assert not producer.source_receipt_ready(store)
+    status = json.loads((store.root / STATUS_FILE).read_bytes())
+    assert status["sourceOwnership"]["outcome"] == ("retained" if existing_proof else "unverified")
+    if existing_proof:
+        assert store.read_current(OWNERSHIP_ASSET, OWNERSHIP_KEY).generation_id == before
+    else:
+        assert not (store.root / OWNERSHIP_ASSET).exists()
+
+
+def test_proof_write_failure_fails_worker_without_dropping_accepted_board(worker, monkeypatch):
+    original = ArtifactStore.publish
+
+    def publish(store, asset, *args, **kwargs):
+        if asset == OWNERSHIP_ASSET:
+            raise OSError("proof unavailable")
+        return original(store, asset, *args, **kwargs)
+
+    monkeypatch.setattr(ArtifactStore, "publish", publish)
+    assert asyncio.run(cli._run(worker.config, worker.bootstrap)) == 1
+    store = ArtifactStore(worker.config.artifact_root)
+    assert store.read_current("canonical-serving", "default")
+    assert not (store.root / OWNERSHIP_ASSET).exists()
+    status = json.loads((store.root / STATUS_FILE).read_bytes())
+    assert status["outcome"] == "failed"
+    assert [run["outcome"] for run in status["runs"]] == ["failed"]
+    assert worker.calls.count("record") == 1
 
 
 @pytest.mark.parametrize(

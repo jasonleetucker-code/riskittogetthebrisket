@@ -1,12 +1,14 @@
 from __future__ import annotations
 
 import json
+import threading
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta, timezone
 from types import SimpleNamespace
 
 import pytest
 
-from src.serving.artifacts import ArtifactStore
+from src.serving.artifacts import ArtifactStore, PublishLockTimeout, _publish_lock
 from src.serving.producer import (
     MIRROR_FILES,
     SUPPLEMENTAL_SOURCES,
@@ -407,3 +409,101 @@ def test_durable_ownership_does_not_replace_current_board_validation(receipt, mo
 
     monkeypatch.setattr(store, "read_current", read)
     enforce_source_ownership(store)
+
+
+def test_bootstrap_persists_proof_before_releasing_source_lease(receipt, monkeypatch):
+    store, _, _ = receipt
+    original = store.publish
+    checked = []
+
+    def publish(*args, **kwargs):
+        with pytest.raises(PublishLockTimeout):
+            with _publish_lock(store.root / "producer.lock", 0):
+                pytest.fail("source lease released before ownership publication")
+        checked.append(True)
+        return original(*args, **kwargs)
+
+    monkeypatch.setattr(store, "publish", publish)
+    enforce_source_ownership(store)
+    assert checked == [True]
+    with _publish_lock(store.root / "producer.lock", 0):
+        proof = store.read_current(OWNERSHIP_ASSET, OWNERSHIP_KEY)
+        assert json.loads(proof.files["receipt.json"])["acceptedGeneration"] == (
+            store.read_current("canonical-serving", "default").generation_id
+        )
+
+
+def test_bootstrap_busy_refuses_without_writing_proof_or_receipt(receipt):
+    store, _, _ = receipt
+    before = (store.root / RECEIPT_FILE).read_bytes()
+    with _publish_lock(store.root / "producer.lock", 0):
+        with pytest.raises(SourceOwnershipError, match="acquire the source lease"):
+            enforce_source_ownership(store, lease_wait_seconds=0)
+    assert not (store.root / OWNERSHIP_ASSET).exists()
+    assert (store.root / RECEIPT_FILE).read_bytes() == before
+
+
+def test_bootstrap_checks_current_generation_after_lease_admission(receipt, monkeypatch):
+    from src.serving import producer_status
+
+    store, _, result = receipt
+    waiting = threading.Event()
+    original = producer_status._publish_lock
+
+    def observed_lock(path, timeout):
+        waiting.set()
+        return original(path, timeout)
+
+    monkeypatch.setattr(producer_status, "_publish_lock", observed_lock)
+    with ThreadPoolExecutor(max_workers=1) as pool:
+        with _publish_lock(store.root / "producer.lock", 0):
+            future = pool.submit(enforce_source_ownership, store)
+            assert waiting.wait(1)
+            store.publish(
+                "canonical-serving",
+                "default",
+                {"input.json": b'{"newer":true}'},
+                {
+                    "modelVersion": "test",
+                    "inputGenerations": {"sourceCycle": source_parity_hash()},
+                    "configHash": "test",
+                    "sourceAsOf": result.source["producedAt"],
+                },
+            )
+        with pytest.raises(SourceOwnershipError, match="healthy current"):
+            future.result(timeout=3)
+    assert not (store.root / OWNERSHIP_ASSET).exists()
+
+
+def test_attested_stale_restart_does_not_wait_for_active_source_cycle(receipt, monkeypatch):
+    store, _, _ = receipt
+    enforce_source_ownership(store)
+    _advance_clock(monkeypatch, 5)
+    with _publish_lock(store.root / "producer.lock", 0):
+        enforce_source_ownership(store, lease_wait_seconds=0)
+    assert not source_receipt_ready(store)
+
+
+def test_bootstrap_publication_failure_releases_lease_and_cannot_attest(receipt, monkeypatch):
+    store, _, _ = receipt
+    original = store.publish
+
+    def fail(*_args, **_kwargs):
+        raise OSError("proof disk write failed")
+
+    monkeypatch.setattr(store, "publish", fail)
+    with pytest.raises(SourceOwnershipError):
+        enforce_source_ownership(store)
+    assert not (store.root / OWNERSHIP_ASSET).exists()
+    with _publish_lock(store.root / "producer.lock", 0):
+        assert source_receipt_ready(store)
+    monkeypatch.setattr(store, "publish", original)
+    enforce_source_ownership(store)
+
+
+@pytest.mark.parametrize("wait", [None, -1, 31, True, float("inf"), float("nan"), "1"])
+def test_bootstrap_lease_wait_is_bounded(receipt, wait):
+    store, _, _ = receipt
+    with pytest.raises(SourceOwnershipError):
+        enforce_source_ownership(store, lease_wait_seconds=wait)
+    assert not (store.root / OWNERSHIP_ASSET).exists()

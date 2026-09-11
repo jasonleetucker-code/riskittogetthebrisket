@@ -1,4 +1,4 @@
-"""Every shipped timer template must actually be installed.
+"""Every default-owned timer must be installed; staged owners stay opt-in.
 
 There are per-timer versions of this file already — reception-depth,
 consensus-edge, ffpc-sharp — each written after that particular timer was
@@ -23,7 +23,9 @@ forever, and quietly, because the report is a warning.
 So the invariant this file pins is not "these three specific timers are
 wired". It is:
 
-* every ``*.timer.template`` is reached by SOME install route, and
+* every default-owned ``*.timer.template`` has SOME install route;
+* the two explicit source-ownership cutover timers are not auto-installed or
+  probed as missing by an ordinary legacy deployment; and
 * every ``*_needs_install`` flag reaches the ``daemon-reload`` chain.
 
 Both are derived from what the tree actually contains, so adding a timer
@@ -40,6 +42,7 @@ _REPO = Path(__file__).resolve().parents[2]
 _SYSTEMD = _REPO / "deploy" / "systemd"
 _INSTALLER = _REPO / "deploy" / "install-systemd-service.sh"
 _DEPLOY_SH = _REPO / "deploy" / "deploy.sh"
+_OPERATOR_CUTOVER_TIMERS = frozenset({"source-producer", "league-serving"})
 
 
 def _installer() -> str:
@@ -67,7 +70,7 @@ def test_there_are_timer_templates_to_check() -> None:
     assert len(_timer_stems()) >= 10
 
 
-def test_every_timer_template_is_installed_by_something() -> None:
+def test_every_default_owned_timer_template_is_installed_by_something() -> None:
     """A template nothing installs is a producer that never runs.
 
     Two accepted routes: a dedicated block (needed when the install has
@@ -79,7 +82,8 @@ def test_every_timer_template_is_installed_by_something() -> None:
     unwired = [
         stem
         for stem in _timer_stems()
-        if f"dynasty-{stem}.timer.template" not in body
+        if stem not in _OPERATOR_CUTOVER_TIMERS
+        and f"dynasty-{stem}.timer.template" not in body
         and f'install_simple_timer "{stem}"' not in body
     ]
     assert not unwired, (
@@ -88,6 +92,14 @@ def test_every_timer_template_is_installed_by_something() -> None:
         "installer to fix it, and the installer will not install them. "
         "Add a dedicated block, or one install_simple_timer line."
     )
+
+
+def test_staged_source_ownership_timers_are_explicit_and_not_auto_installed() -> None:
+    body = _installer()
+    assert _OPERATOR_CUTOVER_TIMERS <= set(_timer_stems())
+    for stem in _OPERATOR_CUTOVER_TIMERS:
+        assert f"dynasty-{stem}.timer.template" not in body
+        assert f'install_simple_timer "{stem}"' not in body
 
 
 def test_every_needs_install_flag_reaches_the_daemon_reload() -> None:
