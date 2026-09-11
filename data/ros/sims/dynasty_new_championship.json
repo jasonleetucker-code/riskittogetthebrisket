@@ -1,54 +1,64 @@
 {
-  "computedAt": "2026-09-10T22:52:14.849285+00:00",
+  "computedAt": "2026-09-11T05:22:32.859874+00:00",
   "championshipOdds": [
     {
       "ownerId": "1002085133723299840",
       "displayName": "Brent",
-      "championshipOdds": 0.347,
-      "finalsOdds": 0.6232,
-      "semifinalOdds": 0.9267,
+      "championshipOdds": 0.4041,
+      "finalsOdds": 0.6169,
+      "semifinalOdds": 0.9282,
       "playoffOdds": 1.0,
-      "expectedFinish": 2.31,
-      "contenderTier": "Favorite"
-    },
-    {
-      "ownerId": "1033502330853302272",
-      "displayName": "cbonex21",
-      "championshipOdds": 0.2487,
-      "finalsOdds": 0.4564,
-      "semifinalOdds": 0.8752,
-      "playoffOdds": 1.0,
-      "expectedFinish": 2.71,
-      "contenderTier": "Favorite"
-    },
-    {
-      "ownerId": "984270279268446208",
-      "displayName": "Comacho",
-      "championshipOdds": 0.2072,
-      "finalsOdds": 0.4402,
-      "semifinalOdds": 0.8597,
-      "playoffOdds": 1.0,
-      "expectedFinish": 2.84,
+      "expectedFinish": 2.15,
       "contenderTier": "Favorite"
     },
     {
       "ownerId": "720513970041061376",
       "displayName": "tedkinney",
-      "championshipOdds": 0.1745,
-      "finalsOdds": 0.3798,
-      "semifinalOdds": 0.8421,
+      "championshipOdds": 0.1561,
+      "finalsOdds": 0.3488,
+      "semifinalOdds": 0.7238,
       "playoffOdds": 1.0,
-      "expectedFinish": 3.04,
+      "expectedFinish": 3.18,
+      "contenderTier": "Serious Contender"
+    },
+    {
+      "ownerId": "1033502330853302272",
+      "displayName": "cbonex21",
+      "championshipOdds": 0.156,
+      "finalsOdds": 0.3551,
+      "semifinalOdds": 0.7312,
+      "playoffOdds": 1.0,
+      "expectedFinish": 3.16,
+      "contenderTier": "Serious Contender"
+    },
+    {
+      "ownerId": "1202075501976375296",
+      "displayName": "Jhall2002",
+      "championshipOdds": 0.1207,
+      "finalsOdds": 0.2704,
+      "semifinalOdds": 0.5913,
+      "playoffOdds": 1.0,
+      "expectedFinish": 3.64,
+      "contenderTier": "Serious Contender"
+    },
+    {
+      "ownerId": "984270279268446208",
+      "displayName": "Comacho",
+      "championshipOdds": 0.1189,
+      "finalsOdds": 0.2658,
+      "semifinalOdds": 0.5877,
+      "playoffOdds": 1.0,
+      "expectedFinish": 3.65,
       "contenderTier": "Serious Contender"
     },
     {
       "ownerId": "472206636534984704",
       "displayName": "Roy",
-      "championshipOdds": 0.0226,
-      "finalsOdds": 0.1004,
-      "semifinalOdds": 0.4963,
+      "championshipOdds": 0.0442,
+      "finalsOdds": 0.143,
+      "semifinalOdds": 0.4378,
       "playoffOdds": 1.0,
-      "expectedFinish": 4.11,
+      "expectedFinish": 4.21,
       "contenderTier": "Dangerous Playoff Team"
     }
   ],
