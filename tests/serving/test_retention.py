@@ -177,6 +177,35 @@ def test_source_receipt_reference_is_protected(store, monkeypatch):
     assert directory(store, generations[0]).exists()
 
 
+def test_missing_prepared_news_canonical_dependency_blocks_all_pruning(store, monkeypatch):
+    generations, future = publish_many(store, monkeypatch, asset="canonical-serving", key="default")
+    store.publish(
+        "news-serving",
+        "public",
+        {"news.json": b"{}"},
+        metadata(inputGenerations={"canonical": generations[0].generation_id}),
+    )
+    # Reversibly simulate external loss of an old canonical directory while
+    # current.json still identifies the latest valid board.
+    directory(store, generations[0]).rename(store.root / "lost-generation")
+    report = store.retention(apply=True, now=future)
+    assert report["blocked"] and report["error"] == "CorruptArtifact"
+    assert report["deletedCount"] == 0
+    assert all(directory(store, item).exists() for item in generations[1:])
+
+
+def test_external_input_named_canonical_does_not_require_a_local_artifact(store, monkeypatch):
+    _, future = publish_many(store, monkeypatch)
+    store.publish(
+        "external-summary",
+        "public",
+        {"summary.json": b"{}"},
+        metadata(inputGenerations={"canonical": "external-source-version"}),
+    )
+    report = store.retention(apply=True, now=future)
+    assert not report["blocked"] and report["deletedCount"] == 3
+
+
 def test_explicit_reference_and_unambiguous_logical_generation_are_retained(store, monkeypatch):
     generations, future = publish_many(store, monkeypatch)
     logical = hashlib.sha256(b"board-json").hexdigest()

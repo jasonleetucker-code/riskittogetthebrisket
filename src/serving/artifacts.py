@@ -936,7 +936,8 @@ class ArtifactStore:
                     resolve(
                         version,
                         required=name
-                        in {"board", "canonicalBoard", "acceptedGeneration", "artifactGeneration"},
+                        in {"board", "canonicalBoard", "acceptedGeneration", "artifactGeneration"}
+                        or (ident[0] == "news-serving" and name == "canonical"),
                     )
                 )
             declared = manifest.get("artifactReferences", [])
