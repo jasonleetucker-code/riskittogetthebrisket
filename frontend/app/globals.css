@@ -3267,6 +3267,12 @@ input[type="range"]:focus-visible::-moz-range-thumb {
   cursor: pointer;
   transition: transform 0.12s ease, box-shadow 0.12s ease, border-color 0.12s ease;
 }
+
+/* The awards view owns a purpose-built capture action, so the global
+   full-page control must not cover race metrics on phone-sized screens. */
+body.awards-snapshot-page .screenshot-fab {
+  display: none;
+}
 /* W26-F015 / V1-109 — the FAB must stack ABOVE a pinned bottom tray,
    not on top of it.
 
