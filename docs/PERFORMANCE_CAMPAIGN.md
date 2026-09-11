@@ -3,7 +3,7 @@
 Owner-authorized 2026-09-10 after the source-grounded audit. Baseline main:
 `8202c0c29b3bd2c8b970a9ad16c53732ae8e7c2a`. Rankings and trade migrate first.
 Branch: `codex/performance-serving`. Local implementation candidate; no PR,
-merge, deployed flag, installed unit or production acceptance is claimed.
+merge to main, deployed flag, installed unit or production acceptance is claimed.
 
 Agent-OS-Receipt: af1d50a577c96fd9eed9f934a902a9469f8b69bc
 
@@ -243,7 +243,7 @@ computation stays behind the serving boundary.
 
 
 Final handoff: **IMPLEMENTED CANDIDATE / ROLLOUT GATED** on
-`codex/performance-serving`; no PR, push, merge or deployment performed.
+`codex/performance-serving`; no PR, push, merge to main or deployment performed.
 The final backend selection, Node 20 suite/build/bundles, browser smoke,
 formatter, decision-coercion ratchet and whitespace checks pass locally.
 The campaign work claim remains open for the explicit rollout acceptance gaps.
