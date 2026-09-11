@@ -30,7 +30,11 @@ export async function captureElementImage(
   const bounds = element.getBoundingClientRect();
   const rawWidth = Math.max(element.scrollWidth, Math.ceil(bounds.width), 1);
   const rawHeight = Math.max(element.scrollHeight, Math.ceil(bounds.height), 1);
-  const dprScale = Math.min(window.devicePixelRatio || 1, 2);
+  const reportedScale = window.devicePixelRatio;
+  const dprScale =
+    Number.isFinite(reportedScale) && reportedScale > 0
+      ? Math.min(reportedScale, 2)
+      : 1;
   const areaScale = Math.sqrt(maxCanvasArea / (rawWidth * rawHeight));
   const scale = Math.min(dprScale, areaScale);
 
