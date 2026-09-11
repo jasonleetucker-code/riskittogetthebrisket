@@ -14,14 +14,14 @@
       "selectedLabel": "Crowdsourced Values",
       "selectedControlValue": "1",
       "pageUrl": "https://keeptradecut.com/dynasty-rankings?sf=true&tep=0&filters=QB|WR|RB|TE|RDP",
-      "capturedAt": "2026-09-11T05:18:05.800827+00:00",
+      "capturedAt": "2026-09-11T11:50:34.676618+00:00",
       "gameType": "DYNASTY",
       "superflex": true,
       "tePremium": "TE++",
       "tePremiumLevel": 2,
       "rowCount": 500,
       "pricedCount": 500,
-      "contentHash": "f380d1117e66ac9c10ebb2a6b866c66ef5626a42caaf6e2298b1aaeec27f415c",
+      "contentHash": "090b9d0bad0a9bfd68dd1a73e948ccd33c7fb46eb9980544bd54abfdc24630b9",
       "signalType": "native_value"
     },
     "trades": {
@@ -30,14 +30,14 @@
       "selectedLabel": "Tradesourced Values",
       "selectedControlValue": "3",
       "pageUrl": "https://keeptradecut.com/dynasty-rankings?sf=true&tep=0&filters=QB|WR|RB|TE|RDP",
-      "capturedAt": "2026-09-11T05:18:05.800827+00:00",
+      "capturedAt": "2026-09-11T11:50:34.676618+00:00",
       "gameType": "DYNASTY",
       "superflex": true,
       "tePremium": "TE++",
       "tePremiumLevel": 2,
       "rowCount": 500,
       "pricedCount": 500,
-      "contentHash": "8076fcdc86233d0abd63f0a4d7fc7094543c0152825690e1bfe4e8519bd158e6",
+      "contentHash": "ee006b298cf33689ea53effa1beb5306b206d604e41271030e42f5974dfe5bda",
       "signalType": "native_value"
     },
     "crowd_trades": {
@@ -46,14 +46,14 @@
       "selectedLabel": "Crowd + Trade Values",
       "selectedControlValue": "2",
       "pageUrl": "https://keeptradecut.com/dynasty-rankings?sf=true&tep=0&filters=QB|WR|RB|TE|RDP",
-      "capturedAt": "2026-09-11T05:18:05.800827+00:00",
+      "capturedAt": "2026-09-11T11:50:34.676618+00:00",
       "gameType": "DYNASTY",
       "superflex": true,
       "tePremium": "TE++",
       "tePremiumLevel": 2,
       "rowCount": 500,
       "pricedCount": 500,
-      "contentHash": "3ecdc5cf3b49a6042bb614c2a5fd8f64fe27bd3c905bff4a1d544394bd208c5e",
+      "contentHash": "65c58542405e3f7d23bf22ef9977483c8f0564085ffd2df31b7262c1d022dadc",
       "signalType": "native_value"
     }
   },
@@ -70,64 +70,64 @@
     {
       "name": "Greg Dortch",
       "playerId": 10,
-      "crowdValue": 1159.0,
+      "crowdValue": 1162.0,
       "tradesValue": 1247.0,
-      "delta": 88.0,
-      "percentDelta": 7.5927523727351165,
+      "delta": 85.0,
+      "percentDelta": 7.314974182444062,
       "direction": "trade_premium"
     },
     {
       "name": "Ja'Marr Chase",
       "playerId": 1004,
-      "crowdValue": 9967.0,
+      "crowdValue": 9960.0,
       "tradesValue": 8927.0,
-      "delta": -1040.0,
-      "percentDelta": -10.434433630982241,
+      "delta": -1033.0,
+      "percentDelta": -10.3714859437751,
       "direction": "crowd_premium"
     },
     {
       "name": "DeVonta Smith",
       "playerId": 1005,
-      "crowdValue": 5613.0,
+      "crowdValue": 5610.0,
       "tradesValue": 5200.0,
-      "delta": -413.0,
-      "percentDelta": -7.357919116337075,
+      "delta": -410.0,
+      "percentDelta": -7.308377896613191,
       "direction": "crowd_premium"
     },
     {
       "name": "Jaylen Waddle",
       "playerId": 1007,
-      "crowdValue": 5180.0,
+      "crowdValue": 5177.0,
       "tradesValue": 4804.0,
-      "delta": -376.0,
-      "percentDelta": -7.258687258687259,
+      "delta": -373.0,
+      "percentDelta": -7.204944948812053,
       "direction": "crowd_premium"
     },
     {
       "name": "Amon-Ra St. Brown",
       "playerId": 1010,
-      "crowdValue": 8210.0,
+      "crowdValue": 8213.0,
       "tradesValue": 7731.0,
-      "delta": -479.0,
-      "percentDelta": -5.834348355663824,
+      "delta": -482.0,
+      "percentDelta": -5.868744673079265,
       "direction": "crowd_premium"
     },
     {
       "name": "Elijah Moore",
       "playerId": 1012,
-      "crowdValue": 1222.0,
+      "crowdValue": 1219.0,
       "tradesValue": 1272.0,
-      "delta": 50.0,
-      "percentDelta": 4.091653027823241,
+      "delta": 53.0,
+      "percentDelta": 4.3478260869565215,
       "direction": "trade_premium"
     },
     {
       "name": "Chuba Hubbard",
       "playerId": 1014,
-      "crowdValue": 3126.0,
+      "crowdValue": 3130.0,
       "tradesValue": 3144.0,
-      "delta": 18.0,
-      "percentDelta": 0.5758157389635317,
+      "delta": 14.0,
+      "percentDelta": 0.44728434504792336,
       "direction": "trade_premium"
     },
     {
@@ -142,55 +142,55 @@
     {
       "name": "Trey Lance",
       "playerId": 1017,
-      "crowdValue": 933.0,
+      "crowdValue": 930.0,
       "tradesValue": 1238.0,
-      "delta": 305.0,
-      "percentDelta": 32.69024651661307,
+      "delta": 308.0,
+      "percentDelta": 33.11827956989247,
       "direction": "trade_premium"
     },
     {
       "name": "Mac Jones",
       "playerId": 1018,
-      "crowdValue": 2286.0,
+      "crowdValue": 2283.0,
       "tradesValue": 2410.0,
-      "delta": 124.0,
-      "percentDelta": 5.42432195975503,
+      "delta": 127.0,
+      "percentDelta": 5.562855891371004,
       "direction": "trade_premium"
     },
     {
       "name": "Davis Mills",
       "playerId": 1029,
-      "crowdValue": 1141.0,
+      "crowdValue": 1135.0,
       "tradesValue": 1497.0,
-      "delta": 356.0,
-      "percentDelta": 31.200701139351445,
+      "delta": 362.0,
+      "percentDelta": 31.8942731277533,
       "direction": "trade_premium"
     },
     {
       "name": "Travis Etienne",
       "playerId": 1030,
-      "crowdValue": 4558.0,
+      "crowdValue": 4561.0,
       "tradesValue": 4458.0,
-      "delta": -100.0,
-      "percentDelta": -2.1939447125932423,
+      "delta": -103.0,
+      "percentDelta": -2.2582766937075203,
       "direction": "crowd_premium"
     },
     {
       "name": "Najee Harris",
       "playerId": 1031,
-      "crowdValue": 1781.0,
+      "crowdValue": 1790.0,
       "tradesValue": 1869.0,
-      "delta": 88.0,
-      "percentDelta": 4.941044357102752,
+      "delta": 79.0,
+      "percentDelta": 4.41340782122905,
       "direction": "trade_premium"
     },
     {
       "name": "Kenneth Gainwell",
       "playerId": 1032,
-      "crowdValue": 2974.0,
+      "crowdValue": 2968.0,
       "tradesValue": 2762.0,
-      "delta": -212.0,
-      "percentDelta": -7.128446536650975,
+      "delta": -206.0,
+      "percentDelta": -6.940700808625337,
       "direction": "crowd_premium"
     },
     {
@@ -205,37 +205,37 @@
     {
       "name": "Rhamondre Stevenson",
       "playerId": 1036,
-      "crowdValue": 3451.0,
+      "crowdValue": 3452.0,
       "tradesValue": 3121.0,
-      "delta": -330.0,
-      "percentDelta": -9.562445667922342,
+      "delta": -331.0,
+      "percentDelta": -9.58864426419467,
       "direction": "crowd_premium"
     },
     {
       "name": "Nico Collins",
       "playerId": 1040,
-      "crowdValue": 5827.0,
+      "crowdValue": 5828.0,
       "tradesValue": 5687.0,
-      "delta": -140.0,
-      "percentDelta": -2.4026085464218294,
+      "delta": -141.0,
+      "percentDelta": -2.4193548387096775,
       "direction": "crowd_premium"
     },
     {
       "name": "Kyle Pitts",
       "playerId": 1051,
-      "crowdValue": 5293.0,
+      "crowdValue": 5284.0,
       "tradesValue": 5396.0,
-      "delta": 103.0,
-      "percentDelta": 1.9459663706782544,
+      "delta": 112.0,
+      "percentDelta": 2.1196063588190763,
       "direction": "trade_premium"
     },
     {
       "name": "Pat Freiermuth",
       "playerId": 1053,
-      "crowdValue": 2865.0,
-      "tradesValue": 2810.0,
-      "delta": -55.0,
-      "percentDelta": -1.9197207678883073,
+      "crowdValue": 2868.0,
+      "tradesValue": 2809.0,
+      "delta": -59.0,
+      "percentDelta": -2.0571827057182706,
       "direction": "crowd_premium"
     },
     {
@@ -268,10 +268,10 @@
     {
       "name": "Dyami Brown",
       "playerId": 1069,
-      "crowdValue": 1264.0,
+      "crowdValue": 1261.0,
       "tradesValue": 1410.0,
-      "delta": 146.0,
-      "percentDelta": 11.550632911392405,
+      "delta": 149.0,
+      "percentDelta": 11.816019032513877,
       "direction": "trade_premium"
     },
     {
@@ -295,10 +295,10 @@
     {
       "name": "Trevor Lawrence",
       "playerId": 1094,
-      "crowdValue": 6391.0,
+      "crowdValue": 6393.0,
       "tradesValue": 6257.0,
-      "delta": -134.0,
-      "percentDelta": -2.096698482240651,
+      "delta": -136.0,
+      "percentDelta": -2.1273267636477398,
       "direction": "crowd_premium"
     },
     {
@@ -331,37 +331,37 @@
     {
       "name": "Malik Davis",
       "playerId": 1197,
-      "crowdValue": 2078.0,
+      "crowdValue": 2075.0,
       "tradesValue": 1621.0,
-      "delta": -457.0,
-      "percentDelta": -21.992300288739173,
+      "delta": -454.0,
+      "percentDelta": -21.879518072289155,
       "direction": "crowd_premium"
     },
     {
       "name": "Jaylen Warren",
       "playerId": 1201,
-      "crowdValue": 3320.0,
+      "crowdValue": 3317.0,
       "tradesValue": 3311.0,
-      "delta": -9.0,
-      "percentDelta": -0.2710843373493976,
+      "delta": -6.0,
+      "percentDelta": -0.18088634308109736,
       "direction": "crowd_premium"
     },
     {
       "name": "Tyler Badie",
       "playerId": 1206,
-      "crowdValue": 941.0,
+      "crowdValue": 938.0,
       "tradesValue": 1052.0,
-      "delta": 111.0,
-      "percentDelta": 11.79596174282678,
+      "delta": 114.0,
+      "percentDelta": 12.153518123667377,
       "direction": "trade_premium"
     },
     {
       "name": "Dameon Pierce",
       "playerId": 1207,
-      "crowdValue": 961.0,
+      "crowdValue": 964.0,
       "tradesValue": 1043.0,
-      "delta": 82.0,
-      "percentDelta": 8.532778355879293,
+      "delta": 79.0,
+      "percentDelta": 8.195020746887966,
       "direction": "trade_premium"
     },
     {
@@ -385,19 +385,19 @@
     {
       "name": "Malik Willis",
       "playerId": 1210,
-      "crowdValue": 3725.0,
+      "crowdValue": 3731.0,
       "tradesValue": 3950.0,
-      "delta": 225.0,
-      "percentDelta": 6.0402684563758395,
+      "delta": 219.0,
+      "percentDelta": 5.869740016081479,
       "direction": "trade_premium"
     },
     {
       "name": "Brock Purdy",
       "playerId": 1214,
-      "crowdValue": 5558.0,
+      "crowdValue": 5557.0,
       "tradesValue": 5729.0,
-      "delta": 171.0,
-      "percentDelta": 3.076646275638719,
+      "delta": 172.0,
+      "percentDelta": 3.0951952492351986,
       "direction": "trade_premium"
     },
     {
@@ -412,46 +412,46 @@
     {
       "name": "Breece Hall",
       "playerId": 1224,
-      "crowdValue": 5425.0,
+      "crowdValue": 5429.0,
       "tradesValue": 5398.0,
-      "delta": -27.0,
-      "percentDelta": -0.4976958525345622,
+      "delta": -31.0,
+      "percentDelta": -0.5710075520353656,
       "direction": "crowd_premium"
     },
     {
       "name": "Kyren Williams",
       "playerId": 1226,
-      "crowdValue": 4949.0,
+      "crowdValue": 4944.0,
       "tradesValue": 4961.0,
-      "delta": 12.0,
-      "percentDelta": 0.2424732269145282,
+      "delta": 17.0,
+      "percentDelta": 0.34385113268608414,
       "direction": "trade_premium"
     },
     {
       "name": "Kenneth Walker III",
       "playerId": 1227,
-      "crowdValue": 5767.0,
+      "crowdValue": 5758.0,
       "tradesValue": 5643.0,
-      "delta": -124.0,
-      "percentDelta": -2.1501647303624067,
+      "delta": -115.0,
+      "percentDelta": -1.9972212573810348,
       "direction": "crowd_premium"
     },
     {
       "name": "Tyler Allgeier",
       "playerId": 1228,
-      "crowdValue": 2856.0,
+      "crowdValue": 2848.0,
       "tradesValue": 2591.0,
-      "delta": -265.0,
-      "percentDelta": -9.278711484593838,
+      "delta": -257.0,
+      "percentDelta": -9.023876404494382,
       "direction": "crowd_premium"
     },
     {
       "name": "James Cook",
       "playerId": 1231,
-      "crowdValue": 6639.0,
+      "crowdValue": 6638.0,
       "tradesValue": 6328.0,
-      "delta": -311.0,
-      "percentDelta": -4.684440427775267,
+      "delta": -310.0,
+      "percentDelta": -4.670081349804158,
       "direction": "crowd_premium"
     },
     {
@@ -466,91 +466,91 @@
     {
       "name": "Romeo Doubs",
       "playerId": 1238,
-      "crowdValue": 3014.0,
+      "crowdValue": 2985.0,
       "tradesValue": 2900.0,
-      "delta": -114.0,
-      "percentDelta": -3.78234903782349,
+      "delta": -85.0,
+      "percentDelta": -2.8475711892797317,
       "direction": "crowd_premium"
     },
     {
       "name": "Jalen Nailor",
       "playerId": 1245,
-      "crowdValue": 2420.0,
+      "crowdValue": 2416.0,
       "tradesValue": 2257.0,
-      "delta": -163.0,
-      "percentDelta": -6.7355371900826455,
+      "delta": -159.0,
+      "percentDelta": -6.58112582781457,
       "direction": "crowd_premium"
     },
     {
       "name": "Tyquan Thornton",
       "playerId": 1246,
-      "crowdValue": 1765.0,
+      "crowdValue": 1762.0,
       "tradesValue": 1787.0,
-      "delta": 22.0,
-      "percentDelta": 1.246458923512748,
+      "delta": 25.0,
+      "percentDelta": 1.4188422247446084,
       "direction": "trade_premium"
     },
     {
       "name": "Jalen Tolbert",
       "playerId": 1247,
-      "crowdValue": 1574.0,
+      "crowdValue": 1568.0,
       "tradesValue": 1764.0,
-      "delta": 190.0,
-      "percentDelta": 12.07115628970775,
+      "delta": 196.0,
+      "percentDelta": 12.5,
       "direction": "trade_premium"
     },
     {
       "name": "Christian Watson",
       "playerId": 1248,
-      "crowdValue": 4120.0,
+      "crowdValue": 4117.0,
       "tradesValue": 3790.0,
-      "delta": -330.0,
-      "percentDelta": -8.009708737864079,
+      "delta": -327.0,
+      "percentDelta": -7.942676706339567,
       "direction": "crowd_premium"
     },
     {
       "name": "Trey McBride",
       "playerId": 1253,
-      "crowdValue": 8707.0,
-      "tradesValue": 8688.0,
-      "delta": -19.0,
-      "percentDelta": -0.21821522912599056,
+      "crowdValue": 8706.0,
+      "tradesValue": 8689.0,
+      "delta": -17.0,
+      "percentDelta": -0.195267631518493,
       "direction": "crowd_premium"
     },
     {
       "name": "Charlie Kolar",
       "playerId": 1254,
-      "crowdValue": 2181.0,
-      "tradesValue": 1682.0,
+      "crowdValue": 2180.0,
+      "tradesValue": 1681.0,
       "delta": -499.0,
-      "percentDelta": -22.879413113250802,
+      "percentDelta": -22.889908256880734,
       "direction": "crowd_premium"
     },
     {
       "name": "Greg Dulcich",
       "playerId": 1256,
-      "crowdValue": 2961.0,
+      "crowdValue": 2972.0,
       "tradesValue": 2838.0,
-      "delta": -123.0,
-      "percentDelta": -4.154002026342452,
+      "delta": -134.0,
+      "percentDelta": -4.508748317631225,
       "direction": "crowd_premium"
     },
     {
       "name": "Isaiah Likely",
       "playerId": 1257,
-      "crowdValue": 4263.0,
-      "tradesValue": 4196.0,
-      "delta": -67.0,
-      "percentDelta": -1.5716631480178278,
+      "crowdValue": 4258.0,
+      "tradesValue": 4197.0,
+      "delta": -61.0,
+      "percentDelta": -1.4325974635979333,
       "direction": "crowd_premium"
     },
     {
       "name": "Jake Ferguson",
       "playerId": 1258,
-      "crowdValue": 3805.0,
-      "tradesValue": 4003.0,
-      "delta": 198.0,
-      "percentDelta": 5.2036793692509855,
+      "crowdValue": 3822.0,
+      "tradesValue": 4002.0,
+      "delta": 180.0,
+      "percentDelta": 4.709576138147567,
       "direction": "trade_premium"
     },
     {
@@ -583,37 +583,37 @@
     {
       "name": "Drake London",
       "playerId": 1268,
-      "crowdValue": 6709.0,
+      "crowdValue": 6707.0,
       "tradesValue": 6726.0,
-      "delta": 17.0,
-      "percentDelta": 0.2533909673572812,
+      "delta": 19.0,
+      "percentDelta": 0.28328611898017,
       "direction": "trade_premium"
     },
     {
       "name": "Treylon Burks",
       "playerId": 1269,
-      "crowdValue": 1421.0,
+      "crowdValue": 1424.0,
       "tradesValue": 1594.0,
-      "delta": 173.0,
-      "percentDelta": 12.174524982406757,
+      "delta": 170.0,
+      "percentDelta": 11.938202247191011,
       "direction": "trade_premium"
     },
     {
       "name": "Garrett Wilson",
       "playerId": 1270,
-      "crowdValue": 5652.0,
+      "crowdValue": 5659.0,
       "tradesValue": 5526.0,
-      "delta": -126.0,
-      "percentDelta": -2.229299363057325,
+      "delta": -133.0,
+      "percentDelta": -2.350238558049125,
       "direction": "crowd_premium"
     },
     {
       "name": "Chris Olave",
       "playerId": 1271,
-      "crowdValue": 5857.0,
+      "crowdValue": 5855.0,
       "tradesValue": 5623.0,
-      "delta": -234.0,
-      "percentDelta": -3.995219395595014,
+      "delta": -232.0,
+      "percentDelta": -3.9624252775405635,
       "direction": "crowd_premium"
     },
     {
@@ -628,55 +628,55 @@
     {
       "name": "Jameson Williams",
       "playerId": 1273,
-      "crowdValue": 4895.0,
+      "crowdValue": 4890.0,
       "tradesValue": 4578.0,
-      "delta": -317.0,
-      "percentDelta": -6.475995914198161,
+      "delta": -312.0,
+      "percentDelta": -6.38036809815951,
       "direction": "crowd_premium"
     },
     {
       "name": "Wan'Dale Robinson",
       "playerId": 1274,
-      "crowdValue": 3315.0,
+      "crowdValue": 3312.0,
       "tradesValue": 3190.0,
-      "delta": -125.0,
-      "percentDelta": -3.770739064856712,
+      "delta": -122.0,
+      "percentDelta": -3.683574879227053,
       "direction": "crowd_premium"
     },
     {
       "name": "David Bell",
       "playerId": 1275,
-      "crowdValue": 1028.0,
+      "crowdValue": 1031.0,
       "tradesValue": 892.0,
-      "delta": -136.0,
-      "percentDelta": -13.229571984435799,
+      "delta": -139.0,
+      "percentDelta": -13.482056256062075,
       "direction": "crowd_premium"
     },
     {
       "name": "John Metchie",
       "playerId": 1276,
-      "crowdValue": 1372.0,
+      "crowdValue": 1375.0,
       "tradesValue": 1589.0,
-      "delta": 217.0,
-      "percentDelta": 15.816326530612246,
+      "delta": 214.0,
+      "percentDelta": 15.563636363636363,
       "direction": "trade_premium"
     },
     {
       "name": "Khalil Shakir",
       "playerId": 1278,
-      "crowdValue": 2790.0,
+      "crowdValue": 2794.0,
       "tradesValue": 2628.0,
-      "delta": -162.0,
-      "percentDelta": -5.806451612903226,
+      "delta": -166.0,
+      "percentDelta": -5.941302791696493,
       "direction": "crowd_premium"
     },
     {
       "name": "George Pickens",
       "playerId": 1279,
-      "crowdValue": 6252.0,
+      "crowdValue": 6254.0,
       "tradesValue": 6021.0,
-      "delta": -231.0,
-      "percentDelta": -3.694817658349328,
+      "delta": -233.0,
+      "percentDelta": -3.7256156060121524,
       "direction": "crowd_premium"
     },
     {
@@ -691,28 +691,28 @@
     {
       "name": "Alec Pierce",
       "playerId": 1285,
-      "crowdValue": 3765.0,
+      "crowdValue": 3763.0,
       "tradesValue": 3572.0,
-      "delta": -193.0,
-      "percentDelta": -5.126162018592297,
+      "delta": -191.0,
+      "percentDelta": -5.075737443529099,
       "direction": "crowd_premium"
     },
     {
       "name": "Jakobi Meyers",
       "playerId": 13,
-      "crowdValue": 2814.0,
+      "crowdValue": 2808.0,
       "tradesValue": 2679.0,
-      "delta": -135.0,
-      "percentDelta": -4.797441364605544,
+      "delta": -129.0,
+      "percentDelta": -4.594017094017095,
       "direction": "crowd_premium"
     },
     {
       "name": "Chigoziem Okonkwo",
       "playerId": 1320,
       "crowdValue": 3346.0,
-      "tradesValue": 3583.0,
-      "delta": 237.0,
-      "percentDelta": 7.083084279736999,
+      "tradesValue": 3582.0,
+      "delta": 236.0,
+      "percentDelta": 7.053197848176927,
       "direction": "trade_premium"
     },
     {
@@ -745,19 +745,19 @@
     {
       "name": "Jake Tonges",
       "playerId": 1356,
-      "crowdValue": 2591.0,
+      "crowdValue": 2594.0,
       "tradesValue": 2578.0,
-      "delta": -13.0,
-      "percentDelta": -0.5017367811655732,
+      "delta": -16.0,
+      "percentDelta": -0.6168080185042405,
       "direction": "crowd_premium"
     },
     {
       "name": "Rashid Shaheed",
       "playerId": 1360,
-      "crowdValue": 2700.0,
+      "crowdValue": 2701.0,
       "tradesValue": 2472.0,
-      "delta": -228.0,
-      "percentDelta": -8.444444444444445,
+      "delta": -229.0,
+      "percentDelta": -8.478341355053685,
       "direction": "crowd_premium"
     },
     {
@@ -781,64 +781,64 @@
     {
       "name": "Zach Charbonnet",
       "playerId": 1384,
-      "crowdValue": 3159.0,
+      "crowdValue": 3158.0,
       "tradesValue": 2990.0,
-      "delta": -169.0,
-      "percentDelta": -5.349794238683128,
+      "delta": -168.0,
+      "percentDelta": -5.319822672577581,
       "direction": "crowd_premium"
     },
     {
       "name": "Kendre Miller",
       "playerId": 1386,
-      "crowdValue": 1835.0,
+      "crowdValue": 1838.0,
       "tradesValue": 1858.0,
-      "delta": 23.0,
-      "percentDelta": 1.2534059945504086,
+      "delta": 20.0,
+      "percentDelta": 1.088139281828074,
       "direction": "trade_premium"
     },
     {
       "name": "Chris Rodriguez",
       "playerId": 1389,
-      "crowdValue": 2656.0,
+      "crowdValue": 2659.0,
       "tradesValue": 2430.0,
-      "delta": -226.0,
-      "percentDelta": -8.509036144578314,
+      "delta": -229.0,
+      "percentDelta": -8.612260248213614,
       "direction": "crowd_premium"
     },
     {
       "name": "Roschon Johnson",
       "playerId": 1390,
-      "crowdValue": 1689.0,
+      "crowdValue": 1692.0,
       "tradesValue": 1551.0,
-      "delta": -138.0,
-      "percentDelta": -8.170515097690942,
+      "delta": -141.0,
+      "percentDelta": -8.333333333333332,
       "direction": "crowd_premium"
     },
     {
       "name": "Keaton Mitchell",
       "playerId": 1393,
-      "crowdValue": 2696.0,
+      "crowdValue": 2693.0,
       "tradesValue": 2397.0,
-      "delta": -299.0,
-      "percentDelta": -11.090504451038576,
+      "delta": -296.0,
+      "percentDelta": -10.991459339027108,
       "direction": "crowd_premium"
     },
     {
       "name": "Chase Brown",
       "playerId": 1396,
-      "crowdValue": 5811.0,
+      "crowdValue": 5803.0,
       "tradesValue": 5549.0,
-      "delta": -262.0,
-      "percentDelta": -4.508690414730683,
+      "delta": -254.0,
+      "percentDelta": -4.377046355333449,
       "direction": "crowd_premium"
     },
     {
       "name": "De'Von Achane",
       "playerId": 1398,
-      "crowdValue": 7012.0,
+      "crowdValue": 7013.0,
       "tradesValue": 6878.0,
-      "delta": -134.0,
-      "percentDelta": -1.9110096976611524,
+      "delta": -135.0,
+      "percentDelta": -1.9249964351917868,
       "direction": "crowd_premium"
     },
     {
@@ -853,19 +853,19 @@
     {
       "name": "Sean Tucker",
       "playerId": 1400,
-      "crowdValue": 2062.0,
+      "crowdValue": 2059.0,
       "tradesValue": 1939.0,
-      "delta": -123.0,
-      "percentDelta": -5.965082444228904,
+      "delta": -120.0,
+      "percentDelta": -5.828071879553181,
       "direction": "crowd_premium"
     },
     {
       "name": "Tank Bigsby",
       "playerId": 1401,
-      "crowdValue": 2594.0,
+      "crowdValue": 2591.0,
       "tradesValue": 2318.0,
-      "delta": -276.0,
-      "percentDelta": -10.63993831919815,
+      "delta": -273.0,
+      "percentDelta": -10.536472404477037,
       "direction": "crowd_premium"
     },
     {
@@ -880,46 +880,46 @@
     {
       "name": "Anthony Richardson",
       "playerId": 1405,
-      "crowdValue": 1991.0,
+      "crowdValue": 1994.0,
       "tradesValue": 2171.0,
-      "delta": 180.0,
-      "percentDelta": 9.040683073832245,
+      "delta": 177.0,
+      "percentDelta": 8.876629889669008,
       "direction": "trade_premium"
     },
     {
       "name": "Bijan Robinson",
       "playerId": 1414,
-      "crowdValue": 9993.0,
+      "crowdValue": 9990.0,
       "tradesValue": 9134.0,
-      "delta": -859.0,
-      "percentDelta": -8.596017212048434,
+      "delta": -856.0,
+      "percentDelta": -8.568568568568569,
       "direction": "crowd_premium"
     },
     {
       "name": "Jahmyr Gibbs",
       "playerId": 1415,
-      "crowdValue": 9999.0,
+      "crowdValue": 9998.0,
       "tradesValue": 9143.0,
-      "delta": -856.0,
-      "percentDelta": -8.560856085608561,
+      "delta": -855.0,
+      "percentDelta": -8.551710342068414,
       "direction": "crowd_premium"
     },
     {
       "name": "Tyjae Spears",
       "playerId": 1417,
-      "crowdValue": 2569.0,
+      "crowdValue": 2566.0,
       "tradesValue": 2301.0,
-      "delta": -268.0,
-      "percentDelta": -10.432074737251849,
+      "delta": -265.0,
+      "percentDelta": -10.327357755261108,
       "direction": "crowd_premium"
     },
     {
       "name": "Tucker Kraft",
       "playerId": 1418,
-      "crowdValue": 5965.0,
+      "crowdValue": 5971.0,
       "tradesValue": 6059.0,
-      "delta": 94.0,
-      "percentDelta": 1.575859178541492,
+      "delta": 88.0,
+      "percentDelta": 1.4737899849271479,
       "direction": "trade_premium"
     },
     {
@@ -934,10 +934,10 @@
     {
       "name": "Jordan Addison",
       "playerId": 1420,
-      "crowdValue": 3731.0,
+      "crowdValue": 3725.0,
       "tradesValue": 3622.0,
-      "delta": -109.0,
-      "percentDelta": -2.9214687751273116,
+      "delta": -103.0,
+      "percentDelta": -2.7651006711409396,
       "direction": "crowd_premium"
     },
     {
@@ -952,37 +952,37 @@
     {
       "name": "Andrei Iosivas",
       "playerId": 1422,
-      "crowdValue": 1586.0,
+      "crowdValue": 1580.0,
       "tradesValue": 1628.0,
-      "delta": 42.0,
-      "percentDelta": 2.648171500630517,
+      "delta": 48.0,
+      "percentDelta": 3.0379746835443036,
       "direction": "trade_premium"
     },
     {
       "name": "Puka Nacua",
       "playerId": 1426,
-      "crowdValue": 8481.0,
+      "crowdValue": 8477.0,
       "tradesValue": 8285.0,
-      "delta": -196.0,
-      "percentDelta": -2.3110482254451123,
+      "delta": -192.0,
+      "percentDelta": -2.264952223664032,
       "direction": "crowd_premium"
     },
     {
       "name": "Michael Mayer",
       "playerId": 1427,
-      "crowdValue": 3218.0,
+      "crowdValue": 3222.0,
       "tradesValue": 2737.0,
-      "delta": -481.0,
-      "percentDelta": -14.947172156619018,
+      "delta": -485.0,
+      "percentDelta": -15.05276225946617,
       "direction": "crowd_premium"
     },
     {
       "name": "Dalton Kincaid",
       "playerId": 1428,
-      "crowdValue": 4073.0,
+      "crowdValue": 4075.0,
       "tradesValue": 4127.0,
-      "delta": 54.0,
-      "percentDelta": 1.3258040756199363,
+      "delta": 52.0,
+      "percentDelta": 1.2760736196319018,
       "direction": "trade_premium"
     },
     {
@@ -997,37 +997,37 @@
     {
       "name": "Luke Musgrave",
       "playerId": 1430,
-      "crowdValue": 2208.0,
-      "tradesValue": 2527.0,
-      "delta": 319.0,
-      "percentDelta": 14.447463768115941,
+      "crowdValue": 2205.0,
+      "tradesValue": 2528.0,
+      "delta": 323.0,
+      "percentDelta": 14.648526077097507,
       "direction": "trade_premium"
     },
     {
       "name": "Darnell Washington",
       "playerId": 1431,
-      "crowdValue": 2552.0,
-      "tradesValue": 2521.0,
+      "crowdValue": 2553.0,
+      "tradesValue": 2522.0,
       "delta": -31.0,
-      "percentDelta": -1.2147335423197492,
+      "percentDelta": -1.2142577359968665,
       "direction": "crowd_premium"
     },
     {
       "name": "Davis Allen",
       "playerId": 1434,
       "crowdValue": 1541.0,
-      "tradesValue": 1561.0,
-      "delta": 20.0,
-      "percentDelta": 1.2978585334198574,
+      "tradesValue": 1562.0,
+      "delta": 21.0,
+      "percentDelta": 1.3627514600908501,
       "direction": "trade_premium"
     },
     {
       "name": "Jaxon Smith-Njigba",
       "playerId": 1437,
-      "crowdValue": 9232.0,
+      "crowdValue": 9238.0,
       "tradesValue": 8498.0,
-      "delta": -734.0,
-      "percentDelta": -7.950606585788561,
+      "delta": -740.0,
+      "percentDelta": -8.010391859709893,
       "direction": "crowd_premium"
     },
     {
@@ -1042,73 +1042,73 @@
     {
       "name": "Josh Downs",
       "playerId": 1440,
-      "crowdValue": 3416.0,
+      "crowdValue": 3425.0,
       "tradesValue": 3389.0,
-      "delta": -27.0,
-      "percentDelta": -0.7903981264637002,
+      "delta": -36.0,
+      "percentDelta": -1.0510948905109487,
       "direction": "crowd_premium"
     },
     {
       "name": "Quentin Johnston",
       "playerId": 1441,
-      "crowdValue": 3572.0,
+      "crowdValue": 3573.0,
       "tradesValue": 3380.0,
-      "delta": -192.0,
-      "percentDelta": -5.375139977603583,
+      "delta": -193.0,
+      "percentDelta": -5.401623285754268,
       "direction": "crowd_premium"
     },
     {
       "name": "Marvin Mims",
       "playerId": 1442,
-      "crowdValue": 2005.0,
+      "crowdValue": 2014.0,
       "tradesValue": 1906.0,
-      "delta": -99.0,
-      "percentDelta": -4.937655860349127,
+      "delta": -108.0,
+      "percentDelta": -5.362462760675273,
       "direction": "crowd_premium"
     },
     {
       "name": "Zay Flowers",
       "playerId": 1443,
-      "crowdValue": 5401.0,
+      "crowdValue": 5398.0,
       "tradesValue": 5184.0,
-      "delta": -217.0,
-      "percentDelta": -4.0177744862062585,
+      "delta": -214.0,
+      "percentDelta": -3.9644312708410525,
       "direction": "crowd_premium"
     },
     {
       "name": "Cedric Tillman",
       "playerId": 1444,
-      "crowdValue": 1257.0,
+      "crowdValue": 1260.0,
       "tradesValue": 1822.0,
-      "delta": 565.0,
-      "percentDelta": 44.94828957836118,
+      "delta": 562.0,
+      "percentDelta": 44.60317460317461,
       "direction": "trade_premium"
     },
     {
       "name": "Parker Washington",
       "playerId": 1445,
-      "crowdValue": 4717.0,
+      "crowdValue": 4715.0,
       "tradesValue": 3863.0,
-      "delta": -854.0,
-      "percentDelta": -18.104727581089676,
+      "delta": -852.0,
+      "percentDelta": -18.06998939554613,
       "direction": "crowd_premium"
     },
     {
       "name": "Kayshon Boutte",
       "playerId": 1446,
-      "crowdValue": 2723.0,
+      "crowdValue": 2726.0,
       "tradesValue": 2389.0,
-      "delta": -334.0,
-      "percentDelta": -12.265883217040031,
+      "delta": -337.0,
+      "percentDelta": -12.362435803374908,
       "direction": "crowd_premium"
     },
     {
       "name": "Rashee Rice",
       "playerId": 1447,
-      "crowdValue": 4904.0,
+      "crowdValue": 4905.0,
       "tradesValue": 5140.0,
-      "delta": 236.0,
-      "percentDelta": 4.8123980424143555,
+      "delta": 235.0,
+      "percentDelta": 4.791029561671763,
       "direction": "trade_premium"
     },
     {
@@ -1141,10 +1141,10 @@
     {
       "name": "Xavier Hutchinson",
       "playerId": 1454,
-      "crowdValue": 1995.0,
+      "crowdValue": 1998.0,
       "tradesValue": 1768.0,
-      "delta": -227.0,
-      "percentDelta": -11.37844611528822,
+      "delta": -230.0,
+      "percentDelta": -11.511511511511511,
       "direction": "crowd_premium"
     },
     {
@@ -1159,19 +1159,19 @@
     {
       "name": "Tre Tucker",
       "playerId": 1460,
-      "crowdValue": 2586.0,
+      "crowdValue": 2583.0,
       "tradesValue": 2302.0,
-      "delta": -284.0,
-      "percentDelta": -10.982211910286157,
+      "delta": -281.0,
+      "percentDelta": -10.878823073945025,
       "direction": "crowd_premium"
     },
     {
       "name": "Brenton Strange",
       "playerId": 1461,
-      "crowdValue": 3671.0,
-      "tradesValue": 3564.0,
-      "delta": -107.0,
-      "percentDelta": -2.9147371288477255,
+      "crowdValue": 3670.0,
+      "tradesValue": 3565.0,
+      "delta": -105.0,
+      "percentDelta": -2.861035422343324,
       "direction": "crowd_premium"
     },
     {
@@ -1186,10 +1186,10 @@
     {
       "name": "Elijah Higgins",
       "playerId": 1469,
-      "crowdValue": 1687.0,
+      "crowdValue": 1680.0,
       "tradesValue": 1939.0,
-      "delta": 252.0,
-      "percentDelta": 14.937759336099585,
+      "delta": 259.0,
+      "percentDelta": 15.416666666666668,
       "direction": "trade_premium"
     },
     {
@@ -1213,10 +1213,10 @@
     {
       "name": "Jaleel McLaughlin",
       "playerId": 1486,
-      "crowdValue": 1168.0,
+      "crowdValue": 1165.0,
       "tradesValue": 1444.0,
-      "delta": 276.0,
-      "percentDelta": 23.63013698630137,
+      "delta": 279.0,
+      "percentDelta": 23.948497854077253,
       "direction": "trade_premium"
     },
     {
@@ -1231,10 +1231,10 @@
     {
       "name": "Emanuel Wilson",
       "playerId": 1515,
-      "crowdValue": 1595.0,
+      "crowdValue": 1592.0,
       "tradesValue": 1813.0,
-      "delta": 218.0,
-      "percentDelta": 13.667711598746083,
+      "delta": 221.0,
+      "percentDelta": 13.881909547738694,
       "direction": "trade_premium"
     },
     {
@@ -1249,10 +1249,10 @@
     {
       "name": "2026 Mid 1st",
       "playerId": 1528,
-      "crowdValue": 4632.0,
+      "crowdValue": 4637.0,
       "tradesValue": 4802.0,
-      "delta": 170.0,
-      "percentDelta": 3.670120898100173,
+      "delta": 165.0,
+      "percentDelta": 3.5583351304722877,
       "direction": "trade_premium"
     },
     {
@@ -1276,19 +1276,19 @@
     {
       "name": "2026 Early 2nd",
       "playerId": 1530,
-      "crowdValue": 3320.0,
+      "crowdValue": 3329.0,
       "tradesValue": 3182.0,
-      "delta": -138.0,
-      "percentDelta": -4.156626506024097,
+      "delta": -147.0,
+      "percentDelta": -4.415740462601382,
       "direction": "crowd_premium"
     },
     {
       "name": "2026 Mid 2nd",
       "playerId": 1531,
-      "crowdValue": 3164.0,
+      "crowdValue": 3161.0,
       "tradesValue": 2960.0,
-      "delta": -204.0,
-      "percentDelta": -6.447534766118837,
+      "delta": -201.0,
+      "percentDelta": -6.358747231888643,
       "direction": "crowd_premium"
     },
     {
@@ -1303,28 +1303,28 @@
     {
       "name": "2026 Early 3rd",
       "playerId": 1533,
-      "crowdValue": 2432.0,
+      "crowdValue": 2423.0,
       "tradesValue": 2292.0,
-      "delta": -140.0,
-      "percentDelta": -5.756578947368421,
+      "delta": -131.0,
+      "percentDelta": -5.40652084193149,
       "direction": "crowd_premium"
     },
     {
       "name": "2026 Mid 3rd",
       "playerId": 1534,
-      "crowdValue": 2334.0,
+      "crowdValue": 2337.0,
       "tradesValue": 2123.0,
-      "delta": -211.0,
-      "percentDelta": -9.040274207369322,
+      "delta": -214.0,
+      "percentDelta": -9.157038938810441,
       "direction": "crowd_premium"
     },
     {
       "name": "2026 Late 3rd",
       "playerId": 1535,
-      "crowdValue": 2194.0,
+      "crowdValue": 2191.0,
       "tradesValue": 1902.0,
-      "delta": -292.0,
-      "percentDelta": -13.309024612579762,
+      "delta": -289.0,
+      "percentDelta": -13.190324052943861,
       "direction": "crowd_premium"
     },
     {
@@ -1339,55 +1339,55 @@
     {
       "name": "2026 Mid 4th",
       "playerId": 1537,
-      "crowdValue": 1739.0,
+      "crowdValue": 1733.0,
       "tradesValue": 1597.0,
-      "delta": -142.0,
-      "percentDelta": -8.16561242093157,
+      "delta": -136.0,
+      "percentDelta": -7.847663012117715,
       "direction": "crowd_premium"
     },
     {
       "name": "2026 Late 4th",
       "playerId": 1538,
-      "crowdValue": 1535.0,
+      "crowdValue": 1532.0,
       "tradesValue": 1454.0,
-      "delta": -81.0,
-      "percentDelta": -5.276872964169381,
+      "delta": -78.0,
+      "percentDelta": -5.091383812010443,
       "direction": "crowd_premium"
     },
     {
       "name": "Caleb Williams",
       "playerId": 1550,
-      "crowdValue": 7632.0,
+      "crowdValue": 7629.0,
       "tradesValue": 7623.0,
-      "delta": -9.0,
-      "percentDelta": -0.1179245283018868,
+      "delta": -6.0,
+      "percentDelta": -0.07864726700747149,
       "direction": "crowd_premium"
     },
     {
       "name": "Drake Maye",
       "playerId": 1551,
-      "crowdValue": 8501.0,
+      "crowdValue": 8508.0,
       "tradesValue": 8360.0,
-      "delta": -141.0,
-      "percentDelta": -1.6586283966592164,
+      "delta": -148.0,
+      "percentDelta": -1.7395392571697226,
       "direction": "crowd_premium"
     },
     {
       "name": "Jayden Daniels",
       "playerId": 1552,
-      "crowdValue": 7097.0,
+      "crowdValue": 7096.0,
       "tradesValue": 7434.0,
-      "delta": 337.0,
-      "percentDelta": 4.748485275468508,
+      "delta": 338.0,
+      "percentDelta": 4.763246899661781,
       "direction": "trade_premium"
     },
     {
       "name": "Bo Nix",
       "playerId": 1553,
-      "crowdValue": 6070.0,
+      "crowdValue": 6064.0,
       "tradesValue": 6035.0,
-      "delta": -35.0,
-      "percentDelta": -0.5766062602965404,
+      "delta": -29.0,
+      "percentDelta": -0.4782321899736148,
       "direction": "crowd_premium"
     },
     {
@@ -1402,10 +1402,10 @@
     {
       "name": "J.J. McCarthy",
       "playerId": 1555,
-      "crowdValue": 2039.0,
+      "crowdValue": 2033.0,
       "tradesValue": 2505.0,
-      "delta": 466.0,
-      "percentDelta": 22.854340362923,
+      "delta": 472.0,
+      "percentDelta": 23.216920806689618,
       "direction": "trade_premium"
     },
     {
@@ -1420,19 +1420,19 @@
     {
       "name": "Spencer Rattler",
       "playerId": 1557,
-      "crowdValue": 1403.0,
+      "crowdValue": 1406.0,
       "tradesValue": 1660.0,
-      "delta": 257.0,
-      "percentDelta": 18.317890235210264,
+      "delta": 254.0,
+      "percentDelta": 18.06543385490754,
       "direction": "trade_premium"
     },
     {
       "name": "Blake Corum",
       "playerId": 1564,
-      "crowdValue": 3562.0,
+      "crowdValue": 3568.0,
       "tradesValue": 3281.0,
-      "delta": -281.0,
-      "percentDelta": -7.8888265019651875,
+      "delta": -287.0,
+      "percentDelta": -8.04372197309417,
       "direction": "crowd_premium"
     },
     {
@@ -1456,28 +1456,28 @@
     {
       "name": "Braelon Allen",
       "playerId": 1567,
-      "crowdValue": 2589.0,
+      "crowdValue": 2586.0,
       "tradesValue": 2339.0,
-      "delta": -250.0,
-      "percentDelta": -9.656237929702588,
+      "delta": -247.0,
+      "percentDelta": -9.551430781129158,
       "direction": "crowd_premium"
     },
     {
       "name": "Jonathon Brooks",
       "playerId": 1568,
-      "crowdValue": 3610.0,
+      "crowdValue": 3604.0,
       "tradesValue": 3289.0,
-      "delta": -321.0,
-      "percentDelta": -8.89196675900277,
+      "delta": -315.0,
+      "percentDelta": -8.74028856825749,
       "direction": "crowd_premium"
     },
     {
       "name": "Bucky Irving",
       "playerId": 1569,
-      "crowdValue": 4602.0,
+      "crowdValue": 4605.0,
       "tradesValue": 4759.0,
-      "delta": 157.0,
-      "percentDelta": 3.411560191221208,
+      "delta": 154.0,
+      "percentDelta": 3.3441910966340935,
       "direction": "trade_premium"
     },
     {
@@ -1492,10 +1492,10 @@
     {
       "name": "Ray Davis",
       "playerId": 1574,
-      "crowdValue": 2060.0,
+      "crowdValue": 2057.0,
       "tradesValue": 1858.0,
-      "delta": -202.0,
-      "percentDelta": -9.805825242718447,
+      "delta": -199.0,
+      "percentDelta": -9.674282936315022,
       "direction": "crowd_premium"
     },
     {
@@ -1519,37 +1519,37 @@
     {
       "name": "Jaylen Wright",
       "playerId": 1581,
-      "crowdValue": 2229.0,
+      "crowdValue": 2226.0,
       "tradesValue": 1899.0,
-      "delta": -330.0,
-      "percentDelta": -14.804845222072679,
+      "delta": -327.0,
+      "percentDelta": -14.690026954177899,
       "direction": "crowd_premium"
     },
     {
       "name": "Marvin Harrison Jr.",
       "playerId": 1585,
-      "crowdValue": 4790.0,
+      "crowdValue": 4781.0,
       "tradesValue": 4908.0,
-      "delta": 118.0,
-      "percentDelta": 2.4634655532359084,
+      "delta": 127.0,
+      "percentDelta": 2.656348044342188,
       "direction": "trade_premium"
     },
     {
       "name": "Malik Nabers",
       "playerId": 1586,
-      "crowdValue": 7229.0,
+      "crowdValue": 7228.0,
       "tradesValue": 7407.0,
-      "delta": 178.0,
-      "percentDelta": 2.462304606446258,
+      "delta": 179.0,
+      "percentDelta": 2.4764803541781957,
       "direction": "trade_premium"
     },
     {
       "name": "Rome Odunze",
       "playerId": 1587,
-      "crowdValue": 5138.0,
+      "crowdValue": 5144.0,
       "tradesValue": 4990.0,
-      "delta": -148.0,
-      "percentDelta": -2.88049824834566,
+      "delta": -154.0,
+      "percentDelta": -2.9937791601866253,
       "direction": "crowd_premium"
     },
     {
@@ -1573,73 +1573,73 @@
     {
       "name": "Tyler Higbee",
       "playerId": 159,
-      "crowdValue": 1855.0,
+      "crowdValue": 1862.0,
       "tradesValue": 2045.0,
-      "delta": 190.0,
-      "percentDelta": 10.242587601078167,
+      "delta": 183.0,
+      "percentDelta": 9.828141783029002,
       "direction": "trade_premium"
     },
     {
       "name": "Troy Franklin",
       "playerId": 1590,
-      "crowdValue": 2305.0,
+      "crowdValue": 2308.0,
       "tradesValue": 1996.0,
-      "delta": -309.0,
-      "percentDelta": -13.405639913232104,
+      "delta": -312.0,
+      "percentDelta": -13.518197573656845,
       "direction": "crowd_premium"
     },
     {
       "name": "Xavier Worthy",
       "playerId": 1591,
-      "crowdValue": 3087.0,
+      "crowdValue": 3075.0,
       "tradesValue": 3095.0,
-      "delta": 8.0,
-      "percentDelta": 0.25915127955944284,
+      "delta": 20.0,
+      "percentDelta": 0.6504065040650406,
       "direction": "trade_premium"
     },
     {
       "name": "Devontez Walker",
       "playerId": 1592,
-      "crowdValue": 1281.0,
+      "crowdValue": 1278.0,
       "tradesValue": 1391.0,
-      "delta": 110.0,
-      "percentDelta": 8.58704137392662,
+      "delta": 113.0,
+      "percentDelta": 8.841940532081377,
       "direction": "trade_premium"
     },
     {
       "name": "Ricky Pearsall",
       "playerId": 1593,
-      "crowdValue": 2549.0,
+      "crowdValue": 2546.0,
       "tradesValue": 2643.0,
-      "delta": 94.0,
-      "percentDelta": 3.687720674774422,
+      "delta": 97.0,
+      "percentDelta": 3.809897879025923,
       "direction": "trade_premium"
     },
     {
       "name": "Adonai Mitchell",
       "playerId": 1597,
-      "crowdValue": 2590.0,
+      "crowdValue": 2587.0,
       "tradesValue": 2244.0,
-      "delta": -346.0,
-      "percentDelta": -13.35907335907336,
+      "delta": -343.0,
+      "percentDelta": -13.258600695786626,
       "direction": "crowd_premium"
     },
     {
       "name": "Ladd McConkey",
       "playerId": 1598,
-      "crowdValue": 5773.0,
+      "crowdValue": 5770.0,
       "tradesValue": 5399.0,
-      "delta": -374.0,
-      "percentDelta": -6.478434089728044,
+      "delta": -371.0,
+      "percentDelta": -6.429809358752165,
       "direction": "crowd_premium"
     },
     {
       "name": "Jalen McMillan",
       "playerId": 1599,
-      "crowdValue": 2871.0,
+      "crowdValue": 2857.0,
       "tradesValue": 2577.0,
-      "delta": -294.0,
-      "percentDelta": -10.240334378265413,
+      "delta": -280.0,
+      "percentDelta": -9.800490024501226,
       "direction": "crowd_premium"
     },
     {
@@ -1672,10 +1672,10 @@
     {
       "name": "Malachi Corley",
       "playerId": 1607,
-      "crowdValue": 1193.0,
+      "crowdValue": 1196.0,
       "tradesValue": 1235.0,
-      "delta": 42.0,
-      "percentDelta": 3.520536462699078,
+      "delta": 39.0,
+      "percentDelta": 3.260869565217391,
       "direction": "trade_premium"
     },
     {
@@ -1690,10 +1690,10 @@
     {
       "name": "Xavier Legette",
       "playerId": 1610,
-      "crowdValue": 1787.0,
+      "crowdValue": 1790.0,
       "tradesValue": 1803.0,
-      "delta": 16.0,
-      "percentDelta": 0.8953553441522105,
+      "delta": 13.0,
+      "percentDelta": 0.7262569832402235,
       "direction": "trade_premium"
     },
     {
@@ -1708,37 +1708,37 @@
     {
       "name": "Brock Bowers",
       "playerId": 1612,
-      "crowdValue": 9832.0,
+      "crowdValue": 9823.0,
       "tradesValue": 9482.0,
-      "delta": -350.0,
-      "percentDelta": -3.559804719283971,
+      "delta": -341.0,
+      "percentDelta": -3.4714445688689812,
       "direction": "crowd_premium"
     },
     {
       "name": "Cade Stover",
       "playerId": 1613,
-      "crowdValue": 1886.0,
-      "tradesValue": 2064.0,
-      "delta": 178.0,
-      "percentDelta": 9.43796394485684,
+      "crowdValue": 1885.0,
+      "tradesValue": 2062.0,
+      "delta": 177.0,
+      "percentDelta": 9.389920424403183,
       "direction": "trade_premium"
     },
     {
       "name": "Ja'Tavion Sanders",
       "playerId": 1614,
       "crowdValue": 2403.0,
-      "tradesValue": 2685.0,
-      "delta": 282.0,
-      "percentDelta": 11.735330836454432,
+      "tradesValue": 2684.0,
+      "delta": 281.0,
+      "percentDelta": 11.693716188098211,
       "direction": "trade_premium"
     },
     {
       "name": "Ben Sinnott",
       "playerId": 1615,
-      "crowdValue": 2119.0,
+      "crowdValue": 2123.0,
       "tradesValue": 2423.0,
-      "delta": 304.0,
-      "percentDelta": 14.346389806512505,
+      "delta": 300.0,
+      "percentDelta": 14.13094677343382,
       "direction": "trade_premium"
     },
     {
@@ -1754,27 +1754,27 @@
       "name": "Jared Wiley",
       "playerId": 1619,
       "crowdValue": 1523.0,
-      "tradesValue": 1658.0,
-      "delta": 135.0,
-      "percentDelta": 8.864084044648719,
+      "tradesValue": 1657.0,
+      "delta": 134.0,
+      "percentDelta": 8.798424162836508,
       "direction": "trade_premium"
     },
     {
       "name": "Theo Johnson",
       "playerId": 1620,
-      "crowdValue": 2625.0,
-      "tradesValue": 2586.0,
-      "delta": -39.0,
-      "percentDelta": -1.4857142857142858,
+      "crowdValue": 2628.0,
+      "tradesValue": 2585.0,
+      "delta": -43.0,
+      "percentDelta": -1.6362252663622525,
       "direction": "crowd_premium"
     },
     {
       "name": "Malik Washington",
       "playerId": 1623,
-      "crowdValue": 2659.0,
+      "crowdValue": 2662.0,
       "tradesValue": 2244.0,
-      "delta": -415.0,
-      "percentDelta": -15.60737119217751,
+      "delta": -418.0,
+      "percentDelta": -15.702479338842975,
       "direction": "crowd_premium"
     },
     {
@@ -1789,28 +1789,28 @@
     {
       "name": "Sione Vaki",
       "playerId": 1627,
-      "crowdValue": 1049.0,
+      "crowdValue": 1046.0,
       "tradesValue": 1105.0,
-      "delta": 56.0,
-      "percentDelta": 5.338417540514776,
+      "delta": 59.0,
+      "percentDelta": 5.640535372848948,
       "direction": "trade_premium"
     },
     {
       "name": "AJ Barner",
       "playerId": 1629,
-      "crowdValue": 3428.0,
+      "crowdValue": 3432.0,
       "tradesValue": 3491.0,
-      "delta": 63.0,
-      "percentDelta": 1.8378063010501748,
+      "delta": 59.0,
+      "percentDelta": 1.7191142191142192,
       "direction": "trade_premium"
     },
     {
       "name": "Rasheen Ali",
       "playerId": 1631,
-      "crowdValue": 1164.0,
+      "crowdValue": 1161.0,
       "tradesValue": 1180.0,
-      "delta": 16.0,
-      "percentDelta": 1.3745704467353952,
+      "delta": 19.0,
+      "percentDelta": 1.636520241171404,
       "direction": "trade_premium"
     },
     {
@@ -1825,10 +1825,10 @@
     {
       "name": "Isaiah Davis",
       "playerId": 1635,
-      "crowdValue": 1866.0,
+      "crowdValue": 1863.0,
       "tradesValue": 1702.0,
-      "delta": -164.0,
-      "percentDelta": -8.788853161843516,
+      "delta": -161.0,
+      "percentDelta": -8.641975308641975,
       "direction": "crowd_premium"
     },
     {
@@ -1852,19 +1852,19 @@
     {
       "name": "Devaughn Vele",
       "playerId": 1643,
-      "crowdValue": 1943.0,
+      "crowdValue": 1940.0,
       "tradesValue": 1749.0,
-      "delta": -194.0,
-      "percentDelta": -9.984559958826557,
+      "delta": -191.0,
+      "percentDelta": -9.845360824742269,
       "direction": "crowd_premium"
     },
     {
       "name": "Jalen Coker",
       "playerId": 1653,
-      "crowdValue": 3335.0,
+      "crowdValue": 3329.0,
       "tradesValue": 2850.0,
-      "delta": -485.0,
-      "percentDelta": -14.54272863568216,
+      "delta": -479.0,
+      "percentDelta": -14.388705316911985,
       "direction": "crowd_premium"
     },
     {
@@ -1888,91 +1888,91 @@
     {
       "name": "Kameron Johnson",
       "playerId": 1701,
-      "crowdValue": 1219.0,
+      "crowdValue": 1213.0,
       "tradesValue": 1208.0,
-      "delta": -11.0,
-      "percentDelta": -0.9023789991796556,
+      "delta": -5.0,
+      "percentDelta": -0.4122011541632316,
       "direction": "crowd_premium"
     },
     {
       "name": "2027 Early 1st",
       "playerId": 1702,
       "crowdValue": 7047.0,
-      "tradesValue": 5975.0,
-      "delta": -1072.0,
-      "percentDelta": -15.212147012913297,
+      "tradesValue": 5976.0,
+      "delta": -1071.0,
+      "percentDelta": -15.197956577266922,
       "direction": "crowd_premium"
     },
     {
       "name": "2027 Mid 1st",
       "playerId": 1703,
-      "crowdValue": 5609.0,
+      "crowdValue": 5608.0,
       "tradesValue": 4756.0,
-      "delta": -853.0,
-      "percentDelta": -15.207701907648422,
+      "delta": -852.0,
+      "percentDelta": -15.192582025677604,
       "direction": "crowd_premium"
     },
     {
       "name": "2027 Late 1st",
       "playerId": 1704,
-      "crowdValue": 4948.0,
-      "tradesValue": 4196.0,
+      "crowdValue": 4951.0,
+      "tradesValue": 4199.0,
       "delta": -752.0,
-      "percentDelta": -15.198059822150364,
+      "percentDelta": -15.188850737224804,
       "direction": "crowd_premium"
     },
     {
       "name": "2027 Early 2nd",
       "playerId": 1705,
-      "crowdValue": 3808.0,
-      "tradesValue": 3264.0,
-      "delta": -544.0,
-      "percentDelta": -14.285714285714285,
+      "crowdValue": 3814.0,
+      "tradesValue": 3266.0,
+      "delta": -548.0,
+      "percentDelta": -14.368117461982171,
       "direction": "crowd_premium"
     },
     {
       "name": "2027 Mid 2nd",
       "playerId": 1706,
-      "crowdValue": 3421.0,
+      "crowdValue": 3424.0,
       "tradesValue": 2932.0,
-      "delta": -489.0,
-      "percentDelta": -14.294066062554808,
+      "delta": -492.0,
+      "percentDelta": -14.369158878504674,
       "direction": "crowd_premium"
     },
     {
       "name": "2027 Late 2nd",
       "playerId": 1707,
-      "crowdValue": 3237.0,
-      "tradesValue": 2774.0,
-      "delta": -463.0,
-      "percentDelta": -14.303367315415509,
+      "crowdValue": 3230.0,
+      "tradesValue": 2765.0,
+      "delta": -465.0,
+      "percentDelta": -14.396284829721361,
       "direction": "crowd_premium"
     },
     {
       "name": "2027 Early 3rd",
       "playerId": 1708,
-      "crowdValue": 2583.0,
-      "tradesValue": 2135.0,
-      "delta": -448.0,
-      "percentDelta": -17.344173441734416,
+      "crowdValue": 2592.0,
+      "tradesValue": 2137.0,
+      "delta": -455.0,
+      "percentDelta": -17.554012345679013,
       "direction": "crowd_premium"
     },
     {
       "name": "2027 Mid 3rd",
       "playerId": 1709,
-      "crowdValue": 2506.0,
+      "crowdValue": 2512.0,
       "tradesValue": 2071.0,
-      "delta": -435.0,
-      "percentDelta": -17.358339984038306,
+      "delta": -441.0,
+      "percentDelta": -17.555732484076433,
       "direction": "crowd_premium"
     },
     {
       "name": "2027 Late 3rd",
       "playerId": 1710,
-      "crowdValue": 2322.0,
-      "tradesValue": 1919.0,
-      "delta": -403.0,
-      "percentDelta": -17.3557278208441,
+      "crowdValue": 2325.0,
+      "tradesValue": 1917.0,
+      "delta": -408.0,
+      "percentDelta": -17.548387096774192,
       "direction": "crowd_premium"
     },
     {
@@ -1996,55 +1996,55 @@
     {
       "name": "2027 Late 4th",
       "playerId": 1713,
-      "crowdValue": 1717.0,
-      "tradesValue": 1540.0,
-      "delta": -177.0,
-      "percentDelta": -10.308677926616191,
+      "crowdValue": 1714.0,
+      "tradesValue": 1538.0,
+      "delta": -176.0,
+      "percentDelta": -10.268378063010502,
       "direction": "crowd_premium"
     },
     {
       "name": "Cam Ward",
       "playerId": 1730,
-      "crowdValue": 4422.0,
+      "crowdValue": 4427.0,
       "tradesValue": 5060.0,
-      "delta": 638.0,
-      "percentDelta": 14.427860696517413,
+      "delta": 633.0,
+      "percentDelta": 14.298622091709962,
       "direction": "trade_premium"
     },
     {
       "name": "Shedeur Sanders",
       "playerId": 1731,
-      "crowdValue": 2359.0,
+      "crowdValue": 2362.0,
       "tradesValue": 2632.0,
-      "delta": 273.0,
-      "percentDelta": 11.572700296735905,
+      "delta": 270.0,
+      "percentDelta": 11.43099068585944,
       "direction": "trade_premium"
     },
     {
       "name": "Jaxson Dart",
       "playerId": 1732,
-      "crowdValue": 5785.0,
+      "crowdValue": 5787.0,
       "tradesValue": 6167.0,
-      "delta": 382.0,
-      "percentDelta": 6.6032843560933445,
+      "delta": 380.0,
+      "percentDelta": 6.566442025228962,
       "direction": "trade_premium"
     },
     {
       "name": "Jalen Milroe",
       "playerId": 1733,
-      "crowdValue": 2092.0,
+      "crowdValue": 2089.0,
       "tradesValue": 2088.0,
-      "delta": -4.0,
-      "percentDelta": -0.19120458891013384,
+      "delta": -1.0,
+      "percentDelta": -0.04786979415988511,
       "direction": "crowd_premium"
     },
     {
       "name": "Quinn Ewers",
       "playerId": 1734,
-      "crowdValue": 1469.0,
+      "crowdValue": 1472.0,
       "tradesValue": 1743.0,
-      "delta": 274.0,
-      "percentDelta": 18.65214431586113,
+      "delta": 271.0,
+      "percentDelta": 18.410326086956523,
       "direction": "trade_premium"
     },
     {
@@ -2077,37 +2077,37 @@
     {
       "name": "Tyler Shough",
       "playerId": 1739,
-      "crowdValue": 4792.0,
+      "crowdValue": 4791.0,
       "tradesValue": 4775.0,
-      "delta": -17.0,
-      "percentDelta": -0.3547579298831386,
+      "delta": -16.0,
+      "percentDelta": -0.3339595074097266,
       "direction": "crowd_premium"
     },
     {
       "name": "Ashton Jeanty",
       "playerId": 1742,
-      "crowdValue": 7177.0,
+      "crowdValue": 7182.0,
       "tradesValue": 7370.0,
-      "delta": 193.0,
-      "percentDelta": 2.6891458826807857,
+      "delta": 188.0,
+      "percentDelta": 2.6176552492341965,
       "direction": "trade_premium"
     },
     {
       "name": "TreVeyon Henderson",
       "playerId": 1743,
-      "crowdValue": 4773.0,
+      "crowdValue": 4766.0,
       "tradesValue": 5194.0,
-      "delta": 421.0,
-      "percentDelta": 8.820448355332076,
+      "delta": 428.0,
+      "percentDelta": 8.98027696181284,
       "direction": "trade_premium"
     },
     {
       "name": "Omarion Hampton",
       "playerId": 1744,
-      "crowdValue": 7041.0,
+      "crowdValue": 7034.0,
       "tradesValue": 6852.0,
-      "delta": -189.0,
-      "percentDelta": -2.684277801448658,
+      "delta": -182.0,
+      "percentDelta": -2.587432470855843,
       "direction": "crowd_premium"
     },
     {
@@ -2131,64 +2131,64 @@
     {
       "name": "Dylan Sampson",
       "playerId": 1747,
-      "crowdValue": 2606.0,
+      "crowdValue": 2603.0,
       "tradesValue": 2456.0,
-      "delta": -150.0,
-      "percentDelta": -5.755947812739831,
+      "delta": -147.0,
+      "percentDelta": -5.647330003841721,
       "direction": "crowd_premium"
     },
     {
       "name": "Kaleb Johnson",
       "playerId": 1748,
-      "crowdValue": 2429.0,
+      "crowdValue": 2423.0,
       "tradesValue": 2312.0,
-      "delta": -117.0,
-      "percentDelta": -4.816797035817209,
+      "delta": -111.0,
+      "percentDelta": -4.581097812628973,
       "direction": "crowd_premium"
     },
     {
       "name": "Brashard Smith",
       "playerId": 1749,
-      "crowdValue": 1794.0,
+      "crowdValue": 1791.0,
       "tradesValue": 1681.0,
-      "delta": -113.0,
-      "percentDelta": -6.298773690078038,
+      "delta": -110.0,
+      "percentDelta": -6.141820212171971,
       "direction": "crowd_premium"
     },
     {
       "name": "Kalel Mullings",
       "playerId": 1750,
-      "crowdValue": 1060.0,
+      "crowdValue": 1063.0,
       "tradesValue": 1107.0,
-      "delta": 47.0,
-      "percentDelta": 4.433962264150943,
+      "delta": 44.0,
+      "percentDelta": 4.13922859830668,
       "direction": "trade_premium"
     },
     {
       "name": "Quinshon Judkins",
       "playerId": 1751,
-      "crowdValue": 5178.0,
+      "crowdValue": 5176.0,
       "tradesValue": 5338.0,
-      "delta": 160.0,
-      "percentDelta": 3.089996137504828,
+      "delta": 162.0,
+      "percentDelta": 3.12982998454405,
       "direction": "trade_premium"
     },
     {
       "name": "Bhayshul Tuten",
       "playerId": 1752,
-      "crowdValue": 4410.0,
+      "crowdValue": 4407.0,
       "tradesValue": 4162.0,
-      "delta": -248.0,
-      "percentDelta": -5.62358276643991,
+      "delta": -245.0,
+      "percentDelta": -5.559337417744498,
       "direction": "crowd_premium"
     },
     {
       "name": "Woody Marks",
       "playerId": 1753,
-      "crowdValue": 2817.0,
+      "crowdValue": 2814.0,
       "tradesValue": 2557.0,
-      "delta": -260.0,
-      "percentDelta": -9.229676961306355,
+      "delta": -257.0,
+      "percentDelta": -9.132906894100925,
       "direction": "crowd_premium"
     },
     {
@@ -2203,19 +2203,19 @@
     {
       "name": "Jordan James",
       "playerId": 1755,
-      "crowdValue": 2109.0,
+      "crowdValue": 2106.0,
       "tradesValue": 1992.0,
-      "delta": -117.0,
-      "percentDelta": -5.547652916073969,
+      "delta": -114.0,
+      "percentDelta": -5.413105413105413,
       "direction": "crowd_premium"
     },
     {
       "name": "Trevor Etienne",
       "playerId": 1756,
-      "crowdValue": 1921.0,
+      "crowdValue": 1924.0,
       "tradesValue": 1928.0,
-      "delta": 7.0,
-      "percentDelta": 0.3643935450286309,
+      "delta": 4.0,
+      "percentDelta": 0.2079002079002079,
       "direction": "trade_premium"
     },
     {
@@ -2230,10 +2230,10 @@
     {
       "name": "Tahj Brooks",
       "playerId": 1758,
-      "crowdValue": 1545.0,
+      "crowdValue": 1542.0,
       "tradesValue": 1612.0,
-      "delta": 67.0,
-      "percentDelta": 4.3365695792880254,
+      "delta": 70.0,
+      "percentDelta": 4.539559014267185,
       "direction": "trade_premium"
     },
     {
@@ -2248,19 +2248,19 @@
     {
       "name": "DJ Giddens",
       "playerId": 1760,
-      "crowdValue": 1847.0,
+      "crowdValue": 1838.0,
       "tradesValue": 1765.0,
-      "delta": -82.0,
-      "percentDelta": -4.439631835408771,
+      "delta": -73.0,
+      "percentDelta": -3.97170837867247,
       "direction": "crowd_premium"
     },
     {
       "name": "LeQuint Allen",
       "playerId": 1761,
-      "crowdValue": 2027.0,
+      "crowdValue": 2024.0,
       "tradesValue": 1837.0,
-      "delta": -190.0,
-      "percentDelta": -9.373458312777503,
+      "delta": -187.0,
+      "percentDelta": -9.239130434782608,
       "direction": "crowd_premium"
     },
     {
@@ -2284,73 +2284,73 @@
     {
       "name": "Kyle Monangai",
       "playerId": 1766,
-      "crowdValue": 3284.0,
+      "crowdValue": 3278.0,
       "tradesValue": 3240.0,
-      "delta": -44.0,
-      "percentDelta": -1.3398294762484775,
+      "delta": -38.0,
+      "percentDelta": -1.1592434411226358,
       "direction": "crowd_premium"
     },
     {
       "name": "RJ Harvey",
       "playerId": 1768,
-      "crowdValue": 3288.0,
+      "crowdValue": 3285.0,
       "tradesValue": 3427.0,
-      "delta": 139.0,
-      "percentDelta": 4.227493917274939,
+      "delta": 142.0,
+      "percentDelta": 4.322678843226789,
       "direction": "trade_premium"
     },
     {
       "name": "Jaydon Blue",
       "playerId": 1769,
-      "crowdValue": 1265.0,
+      "crowdValue": 1262.0,
       "tradesValue": 1992.0,
-      "delta": 727.0,
-      "percentDelta": 57.4703557312253,
+      "delta": 730.0,
+      "percentDelta": 57.84469096671949,
       "direction": "trade_premium"
     },
     {
       "name": "Luther Burden",
       "playerId": 1770,
-      "crowdValue": 5569.0,
+      "crowdValue": 5570.0,
       "tradesValue": 5277.0,
-      "delta": -292.0,
-      "percentDelta": -5.2433111869276345,
+      "delta": -293.0,
+      "percentDelta": -5.26032315978456,
       "direction": "crowd_premium"
     },
     {
       "name": "Tetairoa McMillan",
       "playerId": 1771,
-      "crowdValue": 6187.0,
+      "crowdValue": 6181.0,
       "tradesValue": 6216.0,
-      "delta": 29.0,
-      "percentDelta": 0.46872474543397447,
+      "delta": 35.0,
+      "percentDelta": 0.5662514156285391,
       "direction": "trade_premium"
     },
     {
       "name": "Tre Harris",
       "playerId": 1772,
-      "crowdValue": 2594.0,
+      "crowdValue": 2603.0,
       "tradesValue": 2441.0,
-      "delta": -153.0,
-      "percentDelta": -5.8982266769468,
+      "delta": -162.0,
+      "percentDelta": -6.22358816749904,
       "direction": "crowd_premium"
     },
     {
       "name": "Elic Ayomanor",
       "playerId": 1773,
-      "crowdValue": 2236.0,
+      "crowdValue": 2239.0,
       "tradesValue": 2044.0,
-      "delta": -192.0,
-      "percentDelta": -8.586762075134168,
+      "delta": -195.0,
+      "percentDelta": -8.709245198749443,
       "direction": "crowd_premium"
     },
     {
       "name": "Travis Hunter",
       "playerId": 1774,
-      "crowdValue": 2738.0,
+      "crowdValue": 2739.0,
       "tradesValue": 3159.0,
-      "delta": 421.0,
-      "percentDelta": 15.376186997808619,
+      "delta": 420.0,
+      "percentDelta": 15.33406352683461,
       "direction": "trade_premium"
     },
     {
@@ -2365,10 +2365,10 @@
     {
       "name": "Isaiah Bond",
       "playerId": 1776,
-      "crowdValue": 1909.0,
+      "crowdValue": 1906.0,
       "tradesValue": 1837.0,
-      "delta": -72.0,
-      "percentDelta": -3.771608171817706,
+      "delta": -69.0,
+      "percentDelta": -3.620146904512067,
       "direction": "crowd_premium"
     },
     {
@@ -2392,64 +2392,64 @@
     {
       "name": "Tez Johnson",
       "playerId": 1779,
-      "crowdValue": 2039.0,
+      "crowdValue": 2042.0,
       "tradesValue": 1797.0,
-      "delta": -242.0,
-      "percentDelta": -11.86856302108877,
+      "delta": -245.0,
+      "percentDelta": -11.998041136141039,
       "direction": "crowd_premium"
     },
     {
       "name": "Jaylin Noel",
       "playerId": 1780,
-      "crowdValue": 2444.0,
+      "crowdValue": 2450.0,
       "tradesValue": 2215.0,
-      "delta": -229.0,
-      "percentDelta": -9.36988543371522,
+      "delta": -235.0,
+      "percentDelta": -9.591836734693878,
       "direction": "crowd_premium"
     },
     {
       "name": "Emeka Egbuka",
       "playerId": 1781,
-      "crowdValue": 6050.0,
+      "crowdValue": 6053.0,
       "tradesValue": 5925.0,
-      "delta": -125.0,
-      "percentDelta": -2.066115702479339,
+      "delta": -128.0,
+      "percentDelta": -2.114653890632744,
       "direction": "crowd_premium"
     },
     {
       "name": "Pat Bryant",
       "playerId": 1782,
-      "crowdValue": 2652.0,
+      "crowdValue": 2655.0,
       "tradesValue": 2427.0,
-      "delta": -225.0,
-      "percentDelta": -8.484162895927602,
+      "delta": -228.0,
+      "percentDelta": -8.587570621468926,
       "direction": "crowd_premium"
     },
     {
       "name": "Jayden Higgins",
       "playerId": 1783,
-      "crowdValue": 2971.0,
+      "crowdValue": 2965.0,
       "tradesValue": 3073.0,
-      "delta": 102.0,
-      "percentDelta": 3.433187478963312,
+      "delta": 108.0,
+      "percentDelta": 3.642495784148398,
       "direction": "trade_premium"
     },
     {
       "name": "Jalen Royals",
       "playerId": 1786,
-      "crowdValue": 1718.0,
+      "crowdValue": 1712.0,
       "tradesValue": 1858.0,
-      "delta": 140.0,
-      "percentDelta": 8.149010477299184,
+      "delta": 146.0,
+      "percentDelta": 8.528037383177569,
       "direction": "trade_premium"
     },
     {
       "name": "Dont'e Thornton",
       "playerId": 1787,
-      "crowdValue": 1783.0,
+      "crowdValue": 1777.0,
       "tradesValue": 1788.0,
-      "delta": 5.0,
-      "percentDelta": 0.28042624789680315,
+      "delta": 11.0,
+      "percentDelta": 0.6190208216094542,
       "direction": "trade_premium"
     },
     {
@@ -2464,37 +2464,37 @@
     {
       "name": "Tai Felton",
       "playerId": 1797,
-      "crowdValue": 1352.0,
+      "crowdValue": 1355.0,
       "tradesValue": 1357.0,
-      "delta": 5.0,
-      "percentDelta": 0.3698224852071006,
+      "delta": 2.0,
+      "percentDelta": 0.14760147601476015,
       "direction": "trade_premium"
     },
     {
       "name": "Tory Horton",
       "playerId": 1798,
-      "crowdValue": 2356.0,
+      "crowdValue": 2350.0,
       "tradesValue": 2165.0,
-      "delta": -191.0,
-      "percentDelta": -8.106960950764007,
+      "delta": -185.0,
+      "percentDelta": -7.872340425531915,
       "direction": "crowd_premium"
     },
     {
       "name": "Oronde Gadsden",
       "playerId": 1799,
-      "crowdValue": 3632.0,
+      "crowdValue": 3629.0,
       "tradesValue": 4070.0,
-      "delta": 438.0,
-      "percentDelta": 12.059471365638766,
+      "delta": 441.0,
+      "percentDelta": 12.152108018737945,
       "direction": "trade_premium"
     },
     {
       "name": "Tyler Warren",
       "playerId": 1802,
-      "crowdValue": 7050.0,
+      "crowdValue": 7060.0,
       "tradesValue": 7110.0,
-      "delta": 60.0,
-      "percentDelta": 0.851063829787234,
+      "delta": 50.0,
+      "percentDelta": 0.708215297450425,
       "direction": "trade_premium"
     },
     {
@@ -2518,28 +2518,28 @@
     {
       "name": "Gunnar Helm",
       "playerId": 1805,
-      "crowdValue": 3080.0,
+      "crowdValue": 3084.0,
       "tradesValue": 3133.0,
-      "delta": 53.0,
-      "percentDelta": 1.7207792207792207,
+      "delta": 49.0,
+      "percentDelta": 1.5888456549935148,
       "direction": "trade_premium"
     },
     {
       "name": "Mason Taylor",
       "playerId": 1806,
-      "crowdValue": 3005.0,
+      "crowdValue": 3002.0,
       "tradesValue": 2736.0,
-      "delta": -269.0,
-      "percentDelta": -8.951747088186355,
+      "delta": -266.0,
+      "percentDelta": -8.860759493670885,
       "direction": "crowd_premium"
     },
     {
       "name": "Terrance Ferguson",
       "playerId": 1807,
-      "crowdValue": 3866.0,
+      "crowdValue": 3824.0,
       "tradesValue": 3491.0,
-      "delta": -375.0,
-      "percentDelta": -9.699948266942576,
+      "delta": -333.0,
+      "percentDelta": -8.7081589958159,
       "direction": "crowd_premium"
     },
     {
@@ -2554,37 +2554,37 @@
     {
       "name": "Mitchell Evans",
       "playerId": 1809,
-      "crowdValue": 1752.0,
+      "crowdValue": 1749.0,
       "tradesValue": 1802.0,
-      "delta": 50.0,
-      "percentDelta": 2.853881278538813,
+      "delta": 53.0,
+      "percentDelta": 3.0303030303030303,
       "direction": "trade_premium"
     },
     {
       "name": "Kyle Williams",
       "playerId": 1812,
-      "crowdValue": 2290.0,
+      "crowdValue": 2284.0,
       "tradesValue": 2014.0,
-      "delta": -276.0,
-      "percentDelta": -12.05240174672489,
+      "delta": -270.0,
+      "percentDelta": -11.821366024518388,
       "direction": "crowd_premium"
     },
     {
       "name": "Isaac TeSlaa",
       "playerId": 1813,
-      "crowdValue": 2416.0,
+      "crowdValue": 2421.0,
       "tradesValue": 2189.0,
-      "delta": -227.0,
-      "percentDelta": -9.39569536423841,
+      "delta": -232.0,
+      "percentDelta": -9.582817017761256,
       "direction": "crowd_premium"
     },
     {
       "name": "Chimere Dike",
       "playerId": 1814,
-      "crowdValue": 2083.0,
+      "crowdValue": 2086.0,
       "tradesValue": 1970.0,
-      "delta": -113.0,
-      "percentDelta": -5.42486797887662,
+      "delta": -116.0,
+      "percentDelta": -5.560882070949185,
       "direction": "crowd_premium"
     },
     {
@@ -2599,10 +2599,10 @@
     {
       "name": "Jaylin Lane",
       "playerId": 1816,
-      "crowdValue": 1984.0,
+      "crowdValue": 1993.0,
       "tradesValue": 1714.0,
-      "delta": -270.0,
-      "percentDelta": -13.608870967741934,
+      "delta": -279.0,
+      "percentDelta": -13.998996487706975,
       "direction": "crowd_premium"
     },
     {
@@ -2635,10 +2635,10 @@
     {
       "name": "Konata Mumpfield",
       "playerId": 1830,
-      "crowdValue": 1198.0,
+      "crowdValue": 1195.0,
       "tradesValue": 1441.0,
-      "delta": 243.0,
-      "percentDelta": 20.28380634390651,
+      "delta": 246.0,
+      "percentDelta": 20.585774058577407,
       "direction": "trade_premium"
     },
     {
@@ -2662,64 +2662,64 @@
     {
       "name": "2028 Early 1st",
       "playerId": 1882,
-      "crowdValue": 5311.0,
-      "tradesValue": 4728.0,
-      "delta": -583.0,
-      "percentDelta": -10.977217096591978,
+      "crowdValue": 5314.0,
+      "tradesValue": 4737.0,
+      "delta": -577.0,
+      "percentDelta": -10.858110651110275,
       "direction": "crowd_premium"
     },
     {
       "name": "2028 Mid 1st",
       "playerId": 1883,
-      "crowdValue": 4606.0,
+      "crowdValue": 4600.0,
       "tradesValue": 4100.0,
-      "delta": -506.0,
-      "percentDelta": -10.985670864090318,
+      "delta": -500.0,
+      "percentDelta": -10.869565217391305,
       "direction": "crowd_premium"
     },
     {
       "name": "2028 Late 1st",
       "playerId": 1884,
-      "crowdValue": 4194.0,
-      "tradesValue": 3734.0,
-      "delta": -460.0,
-      "percentDelta": -10.968049594659037,
+      "crowdValue": 4199.0,
+      "tradesValue": 3743.0,
+      "delta": -456.0,
+      "percentDelta": -10.85972850678733,
       "direction": "crowd_premium"
     },
     {
       "name": "2028 Early 2nd",
       "playerId": 1885,
-      "crowdValue": 3291.0,
-      "tradesValue": 2899.0,
-      "delta": -392.0,
-      "percentDelta": -11.911273169249469,
+      "crowdValue": 3285.0,
+      "tradesValue": 2885.0,
+      "delta": -400.0,
+      "percentDelta": -12.1765601217656,
       "direction": "crowd_premium"
     },
     {
       "name": "2028 Mid 2nd",
       "playerId": 1886,
-      "crowdValue": 3020.0,
+      "crowdValue": 3029.0,
       "tradesValue": 2661.0,
-      "delta": -359.0,
-      "percentDelta": -11.887417218543046,
+      "delta": -368.0,
+      "percentDelta": -12.149224166391548,
       "direction": "crowd_premium"
     },
     {
       "name": "2028 Late 2nd",
       "playerId": 1887,
-      "crowdValue": 2743.0,
-      "tradesValue": 2417.0,
-      "delta": -326.0,
-      "percentDelta": -11.884797666788188,
+      "crowdValue": 2740.0,
+      "tradesValue": 2407.0,
+      "delta": -333.0,
+      "percentDelta": -12.153284671532846,
       "direction": "crowd_premium"
     },
     {
       "name": "2028 Early 3rd",
       "playerId": 1888,
-      "crowdValue": 2310.0,
-      "tradesValue": 2097.0,
-      "delta": -213.0,
-      "percentDelta": -9.220779220779221,
+      "crowdValue": 2313.0,
+      "tradesValue": 2099.0,
+      "delta": -214.0,
+      "percentDelta": -9.252053610030265,
       "direction": "crowd_premium"
     },
     {
@@ -2744,27 +2744,27 @@
       "name": "2028 Early 4th",
       "playerId": 1891,
       "crowdValue": 1683.0,
-      "tradesValue": 1865.0,
-      "delta": 182.0,
-      "percentDelta": 10.81402257872846,
+      "tradesValue": 1861.0,
+      "delta": 178.0,
+      "percentDelta": 10.57635175282234,
       "direction": "trade_premium"
     },
     {
       "name": "2028 Mid 4th",
       "playerId": 1892,
-      "crowdValue": 1499.0,
+      "crowdValue": 1502.0,
       "tradesValue": 1661.0,
-      "delta": 162.0,
-      "percentDelta": 10.807204803202135,
+      "delta": 159.0,
+      "percentDelta": 10.585885486018643,
       "direction": "trade_premium"
     },
     {
       "name": "2028 Late 4th",
       "playerId": 1893,
       "crowdValue": 1375.0,
-      "tradesValue": 1524.0,
-      "delta": 149.0,
-      "percentDelta": 10.836363636363638,
+      "tradesValue": 1520.0,
+      "delta": 145.0,
+      "percentDelta": 10.545454545454545,
       "direction": "trade_premium"
     },
     {
@@ -2779,118 +2779,118 @@
     {
       "name": "Fernando Mendoza",
       "playerId": 1924,
-      "crowdValue": 5238.0,
+      "crowdValue": 5248.0,
       "tradesValue": 5372.0,
-      "delta": 134.0,
-      "percentDelta": 2.558228331424208,
+      "delta": 124.0,
+      "percentDelta": 2.3628048780487805,
       "direction": "trade_premium"
     },
     {
       "name": "Ty Simpson",
       "playerId": 1925,
-      "crowdValue": 3626.0,
+      "crowdValue": 3621.0,
       "tradesValue": 3754.0,
-      "delta": 128.0,
-      "percentDelta": 3.530060672917816,
+      "delta": 133.0,
+      "percentDelta": 3.6730185031759186,
       "direction": "trade_premium"
     },
     {
       "name": "Garrett Nussmeier",
       "playerId": 1927,
-      "crowdValue": 1443.0,
+      "crowdValue": 1440.0,
       "tradesValue": 1718.0,
-      "delta": 275.0,
-      "percentDelta": 19.057519057519055,
+      "delta": 278.0,
+      "percentDelta": 19.305555555555557,
       "direction": "trade_premium"
     },
     {
       "name": "Carson Beck",
       "playerId": 1928,
-      "crowdValue": 2773.0,
+      "crowdValue": 2782.0,
       "tradesValue": 2762.0,
-      "delta": -11.0,
-      "percentDelta": -0.3966822935448972,
+      "delta": -20.0,
+      "percentDelta": -0.7189072609633357,
       "direction": "crowd_premium"
     },
     {
       "name": "Cade Klubnik",
       "playerId": 1929,
-      "crowdValue": 2103.0,
+      "crowdValue": 2106.0,
       "tradesValue": 2107.0,
-      "delta": 4.0,
-      "percentDelta": 0.1902044698050404,
+      "delta": 1.0,
+      "percentDelta": 0.04748338081671415,
       "direction": "trade_premium"
     },
     {
       "name": "Drew Allar",
       "playerId": 1930,
-      "crowdValue": 2535.0,
+      "crowdValue": 2533.0,
       "tradesValue": 2504.0,
-      "delta": -31.0,
-      "percentDelta": -1.222879684418146,
+      "delta": -29.0,
+      "percentDelta": -1.1448874851954205,
       "direction": "crowd_premium"
     },
     {
       "name": "Jalon Daniels",
       "playerId": 1931,
-      "crowdValue": 1984.0,
+      "crowdValue": 1987.0,
       "tradesValue": 1058.0,
-      "delta": -926.0,
-      "percentDelta": -46.67338709677419,
+      "delta": -929.0,
+      "percentDelta": -46.75390035228988,
       "direction": "crowd_premium"
     },
     {
       "name": "Jeremiyah Love",
       "playerId": 1934,
-      "crowdValue": 7181.0,
+      "crowdValue": 7192.0,
       "tradesValue": 7400.0,
-      "delta": 219.0,
-      "percentDelta": 3.049714524439493,
+      "delta": 208.0,
+      "percentDelta": 2.8921023359288096,
       "direction": "trade_premium"
     },
     {
       "name": "Jadarian Price",
       "playerId": 1935,
-      "crowdValue": 5266.0,
+      "crowdValue": 5265.0,
       "tradesValue": 4980.0,
-      "delta": -286.0,
-      "percentDelta": -5.431067223699203,
+      "delta": -285.0,
+      "percentDelta": -5.413105413105413,
       "direction": "crowd_premium"
     },
     {
       "name": "Emmett Johnson",
       "playerId": 1936,
-      "crowdValue": 2772.0,
+      "crowdValue": 2763.0,
       "tradesValue": 2597.0,
-      "delta": -175.0,
-      "percentDelta": -6.313131313131313,
+      "delta": -166.0,
+      "percentDelta": -6.007962359753891,
       "direction": "crowd_premium"
     },
     {
       "name": "Seth McGowan",
       "playerId": 1937,
-      "crowdValue": 1874.0,
+      "crowdValue": 1877.0,
       "tradesValue": 1464.0,
-      "delta": -410.0,
-      "percentDelta": -21.878335112059766,
+      "delta": -413.0,
+      "percentDelta": -22.003196590303673,
       "direction": "crowd_premium"
     },
     {
       "name": "Nicholas Singleton",
       "playerId": 1938,
-      "crowdValue": 2691.0,
+      "crowdValue": 2697.0,
       "tradesValue": 2861.0,
-      "delta": 170.0,
-      "percentDelta": 6.317354143441099,
+      "delta": 164.0,
+      "percentDelta": 6.080830552465702,
       "direction": "trade_premium"
     },
     {
       "name": "Jonah Coleman",
       "playerId": 1939,
-      "crowdValue": 3279.0,
+      "crowdValue": 3291.0,
       "tradesValue": 3205.0,
-      "delta": -74.0,
-      "percentDelta": -2.25678560536749,
+      "delta": -86.0,
+      "percentDelta": -2.613187481008812,
       "direction": "crowd_premium"
     },
     {
@@ -2914,28 +2914,28 @@
     {
       "name": "Demond Claiborne",
       "playerId": 1943,
-      "crowdValue": 2303.0,
+      "crowdValue": 2297.0,
       "tradesValue": 2232.0,
-      "delta": -71.0,
-      "percentDelta": -3.0829353017802865,
+      "delta": -65.0,
+      "percentDelta": -2.8297779712668696,
       "direction": "crowd_premium"
     },
     {
       "name": "Mike Washington Jr.",
       "playerId": 1944,
-      "crowdValue": 3166.0,
+      "crowdValue": 3150.0,
       "tradesValue": 2945.0,
-      "delta": -221.0,
-      "percentDelta": -6.980416929879975,
+      "delta": -205.0,
+      "percentDelta": -6.507936507936509,
       "direction": "crowd_premium"
     },
     {
       "name": "Kaelon Black",
       "playerId": 1947,
-      "crowdValue": 2981.0,
+      "crowdValue": 3073.0,
       "tradesValue": 2465.0,
-      "delta": -516.0,
-      "percentDelta": -17.309627641730962,
+      "delta": -608.0,
+      "percentDelta": -19.78522616335828,
       "direction": "crowd_premium"
     },
     {
@@ -2959,19 +2959,19 @@
     {
       "name": "Carnell Tate",
       "playerId": 1959,
-      "crowdValue": 5411.0,
+      "crowdValue": 5419.0,
       "tradesValue": 5710.0,
-      "delta": 299.0,
-      "percentDelta": 5.525780816854556,
+      "delta": 291.0,
+      "percentDelta": 5.369994463923233,
       "direction": "trade_premium"
     },
     {
       "name": "Jordyn Tyson",
       "playerId": 1960,
-      "crowdValue": 4788.0,
+      "crowdValue": 4791.0,
       "tradesValue": 5013.0,
-      "delta": 225.0,
-      "percentDelta": 4.6992481203007515,
+      "delta": 222.0,
+      "percentDelta": 4.633688165309956,
       "direction": "trade_premium"
     },
     {
@@ -2986,19 +2986,19 @@
     {
       "name": "Denzel Boston",
       "playerId": 1962,
-      "crowdValue": 3546.0,
+      "crowdValue": 3544.0,
       "tradesValue": 3414.0,
-      "delta": -132.0,
-      "percentDelta": -3.7225042301184432,
+      "delta": -130.0,
+      "percentDelta": -3.668171557562077,
       "direction": "crowd_premium"
     },
     {
       "name": "KC Concepcion",
       "playerId": 1963,
-      "crowdValue": 4486.0,
+      "crowdValue": 4490.0,
       "tradesValue": 4239.0,
-      "delta": -247.0,
-      "percentDelta": -5.506018724921979,
+      "delta": -251.0,
+      "percentDelta": -5.590200445434299,
       "direction": "crowd_premium"
     },
     {
@@ -3013,37 +3013,37 @@
     {
       "name": "Germie Bernard",
       "playerId": 1965,
-      "crowdValue": 2817.0,
+      "crowdValue": 2818.0,
       "tradesValue": 2726.0,
-      "delta": -91.0,
-      "percentDelta": -3.230386936457224,
+      "delta": -92.0,
+      "percentDelta": -3.2647267565649396,
       "direction": "crowd_premium"
     },
     {
       "name": "CJ Daniels",
       "playerId": 1966,
-      "crowdValue": 1348.0,
+      "crowdValue": 1345.0,
       "tradesValue": 841.0,
-      "delta": -507.0,
-      "percentDelta": -37.611275964391695,
+      "delta": -504.0,
+      "percentDelta": -37.47211895910781,
       "direction": "crowd_premium"
     },
     {
       "name": "Elijah Sarratt",
       "playerId": 1967,
-      "crowdValue": 2368.0,
+      "crowdValue": 2365.0,
       "tradesValue": 2342.0,
-      "delta": -26.0,
-      "percentDelta": -1.097972972972973,
+      "delta": -23.0,
+      "percentDelta": -0.9725158562367865,
       "direction": "crowd_premium"
     },
     {
       "name": "Chris Bell",
       "playerId": 1968,
-      "crowdValue": 3128.0,
+      "crowdValue": 3143.0,
       "tradesValue": 2918.0,
-      "delta": -210.0,
-      "percentDelta": -6.713554987212277,
+      "delta": -225.0,
+      "percentDelta": -7.158765510658606,
       "direction": "crowd_premium"
     },
     {
@@ -3058,82 +3058,82 @@
     {
       "name": "Skyler Bell",
       "playerId": 1970,
-      "crowdValue": 2309.0,
+      "crowdValue": 2313.0,
       "tradesValue": 2177.0,
-      "delta": -132.0,
-      "percentDelta": -5.716760502381984,
+      "delta": -136.0,
+      "percentDelta": -5.879809770860354,
       "direction": "crowd_premium"
     },
     {
       "name": "Chris Brazzell II",
       "playerId": 1971,
-      "crowdValue": 2242.0,
+      "crowdValue": 2236.0,
       "tradesValue": 2110.0,
-      "delta": -132.0,
-      "percentDelta": -5.887600356824264,
+      "delta": -126.0,
+      "percentDelta": -5.635062611806798,
       "direction": "crowd_premium"
     },
     {
       "name": "Deion Burks",
       "playerId": 1972,
-      "crowdValue": 1364.0,
+      "crowdValue": 1361.0,
       "tradesValue": 1060.0,
-      "delta": -304.0,
-      "percentDelta": -22.28739002932551,
+      "delta": -301.0,
+      "percentDelta": -22.116091109478326,
       "direction": "crowd_premium"
     },
     {
       "name": "Malachi Fields",
       "playerId": 1973,
-      "crowdValue": 3072.0,
+      "crowdValue": 3054.0,
       "tradesValue": 2754.0,
-      "delta": -318.0,
-      "percentDelta": -10.3515625,
+      "delta": -300.0,
+      "percentDelta": -9.823182711198427,
       "direction": "crowd_premium"
     },
     {
       "name": "Antonio Williams",
       "playerId": 1974,
-      "crowdValue": 2808.0,
+      "crowdValue": 2814.0,
       "tradesValue": 2771.0,
-      "delta": -37.0,
-      "percentDelta": -1.3176638176638178,
+      "delta": -43.0,
+      "percentDelta": -1.5280739161336176,
       "direction": "crowd_premium"
     },
     {
       "name": "De'Zhaun Stribling",
       "playerId": 1976,
-      "crowdValue": 4019.0,
+      "crowdValue": 4022.0,
       "tradesValue": 3499.0,
-      "delta": -520.0,
-      "percentDelta": -12.938541925852201,
+      "delta": -523.0,
+      "percentDelta": -13.003480855295873,
       "direction": "crowd_premium"
     },
     {
       "name": "Ja'Kobi Lane",
       "playerId": 1979,
-      "crowdValue": 3268.0,
+      "crowdValue": 3270.0,
       "tradesValue": 2934.0,
-      "delta": -334.0,
-      "percentDelta": -10.2203182374541,
+      "delta": -336.0,
+      "percentDelta": -10.275229357798166,
       "direction": "crowd_premium"
     },
     {
       "name": "Cyrus Allen",
       "playerId": 1980,
-      "crowdValue": 2729.0,
+      "crowdValue": 2726.0,
       "tradesValue": 2605.0,
-      "delta": -124.0,
-      "percentDelta": -4.543788933675339,
+      "delta": -121.0,
+      "percentDelta": -4.438738077769626,
       "direction": "crowd_premium"
     },
     {
       "name": "Bryce Lance",
       "playerId": 1981,
-      "crowdValue": 1982.0,
+      "crowdValue": 1979.0,
       "tradesValue": 1652.0,
-      "delta": -330.0,
-      "percentDelta": -16.649848637739655,
+      "delta": -327.0,
+      "percentDelta": -16.523496715512888,
       "direction": "crowd_premium"
     },
     {
@@ -3157,10 +3157,10 @@
     {
       "name": "Kevin Coleman",
       "playerId": 1990,
-      "crowdValue": 2028.0,
+      "crowdValue": 2031.0,
       "tradesValue": 1689.0,
-      "delta": -339.0,
-      "percentDelta": -16.715976331360945,
+      "delta": -342.0,
+      "percentDelta": -16.838995568685377,
       "direction": "crowd_premium"
     },
     {
@@ -3193,64 +3193,64 @@
     {
       "name": "Colbie Young",
       "playerId": 2004,
-      "crowdValue": 1328.0,
+      "crowdValue": 1330.0,
       "tradesValue": 850.0,
-      "delta": -478.0,
-      "percentDelta": -35.993975903614455,
+      "delta": -480.0,
+      "percentDelta": -36.09022556390977,
       "direction": "crowd_premium"
     },
     {
       "name": "Kenyon Sadiq",
       "playerId": 2005,
-      "crowdValue": 4450.0,
+      "crowdValue": 4453.0,
       "tradesValue": 5008.0,
-      "delta": 558.0,
-      "percentDelta": 12.53932584269663,
+      "delta": 555.0,
+      "percentDelta": 12.463507747585897,
       "direction": "trade_premium"
     },
     {
       "name": "Eli Stowers",
       "playerId": 2006,
-      "crowdValue": 3661.0,
-      "tradesValue": 4144.0,
-      "delta": 483.0,
-      "percentDelta": 13.193116634799235,
+      "crowdValue": 3659.0,
+      "tradesValue": 4145.0,
+      "delta": 486.0,
+      "percentDelta": 13.282317573107406,
       "direction": "trade_premium"
     },
     {
       "name": "Jack Endries",
       "playerId": 2007,
-      "crowdValue": 1846.0,
-      "tradesValue": 1242.0,
-      "delta": -604.0,
-      "percentDelta": -32.71939328277356,
+      "crowdValue": 1849.0,
+      "tradesValue": 1241.0,
+      "delta": -608.0,
+      "percentDelta": -32.88263926446728,
       "direction": "crowd_premium"
     },
     {
       "name": "Michael Trigg",
       "playerId": 2008,
-      "crowdValue": 1780.0,
-      "tradesValue": 2052.0,
-      "delta": 272.0,
-      "percentDelta": 15.280898876404494,
+      "crowdValue": 1783.0,
+      "tradesValue": 2051.0,
+      "delta": 268.0,
+      "percentDelta": 15.030846887268648,
       "direction": "trade_premium"
     },
     {
       "name": "Max Klare",
       "playerId": 2009,
-      "crowdValue": 2890.0,
+      "crowdValue": 2883.0,
       "tradesValue": 2894.0,
-      "delta": 4.0,
-      "percentDelta": 0.13840830449826988,
+      "delta": 11.0,
+      "percentDelta": 0.3815469996531391,
       "direction": "trade_premium"
     },
     {
       "name": "Justin Joly",
       "playerId": 2010,
-      "crowdValue": 2232.0,
-      "tradesValue": 2420.0,
-      "delta": 188.0,
-      "percentDelta": 8.422939068100359,
+      "crowdValue": 2238.0,
+      "tradesValue": 2418.0,
+      "delta": 180.0,
+      "percentDelta": 8.04289544235925,
       "direction": "trade_premium"
     },
     {
@@ -3265,37 +3265,37 @@
     {
       "name": "Oscar Delp",
       "playerId": 2013,
-      "crowdValue": 2802.0,
-      "tradesValue": 2414.0,
-      "delta": -388.0,
-      "percentDelta": -13.847251962883655,
+      "crowdValue": 2792.0,
+      "tradesValue": 2416.0,
+      "delta": -376.0,
+      "percentDelta": -13.46704871060172,
       "direction": "crowd_premium"
     },
     {
       "name": "Marlin Klein",
       "playerId": 2015,
-      "crowdValue": 1990.0,
-      "tradesValue": 1370.0,
-      "delta": -620.0,
-      "percentDelta": -31.155778894472363,
+      "crowdValue": 1987.0,
+      "tradesValue": 1371.0,
+      "delta": -616.0,
+      "percentDelta": -31.001509813789635,
       "direction": "crowd_premium"
     },
     {
       "name": "Caleb Douglas",
       "playerId": 2016,
-      "crowdValue": 2825.0,
+      "crowdValue": 2831.0,
       "tradesValue": 2385.0,
-      "delta": -440.0,
-      "percentDelta": -15.575221238938052,
+      "delta": -446.0,
+      "percentDelta": -15.754150476863298,
       "direction": "crowd_premium"
     },
     {
       "name": "Eli Raridon",
       "playerId": 2018,
-      "crowdValue": 3059.0,
+      "crowdValue": 3063.0,
       "tradesValue": 2941.0,
-      "delta": -118.0,
-      "percentDelta": -3.857469761359922,
+      "delta": -122.0,
+      "percentDelta": -3.9830231798889977,
       "direction": "crowd_premium"
     },
     {
@@ -3310,46 +3310,46 @@
     {
       "name": "Tanner Koziol",
       "playerId": 2022,
-      "crowdValue": 1814.0,
-      "tradesValue": 1250.0,
-      "delta": -564.0,
-      "percentDelta": -31.091510474090406,
+      "crowdValue": 1820.0,
+      "tradesValue": 1249.0,
+      "delta": -571.0,
+      "percentDelta": -31.373626373626372,
       "direction": "crowd_premium"
     },
     {
       "name": "Adam Randall",
       "playerId": 2026,
-      "crowdValue": 2102.0,
+      "crowdValue": 2105.0,
       "tradesValue": 1908.0,
-      "delta": -194.0,
-      "percentDelta": -9.229305423406279,
+      "delta": -197.0,
+      "percentDelta": -9.358669833729216,
       "direction": "crowd_premium"
     },
     {
       "name": "Taylen Green",
       "playerId": 2029,
-      "crowdValue": 1699.0,
+      "crowdValue": 1696.0,
       "tradesValue": 1064.0,
-      "delta": -635.0,
-      "percentDelta": -37.374926427310186,
+      "delta": -632.0,
+      "percentDelta": -37.264150943396224,
       "direction": "crowd_premium"
     },
     {
       "name": "Eli Heidenreich",
       "playerId": 2036,
-      "crowdValue": 1712.0,
+      "crowdValue": 1715.0,
       "tradesValue": 1471.0,
-      "delta": -241.0,
-      "percentDelta": -14.077102803738317,
+      "delta": -244.0,
+      "percentDelta": -14.22740524781341,
       "direction": "crowd_premium"
     },
     {
       "name": "Malik Benson",
       "playerId": 2040,
-      "crowdValue": 1756.0,
+      "crowdValue": 1759.0,
       "tradesValue": 1029.0,
-      "delta": -727.0,
-      "percentDelta": -41.40091116173121,
+      "delta": -730.0,
+      "percentDelta": -41.50085275724844,
       "direction": "crowd_premium"
     },
     {
@@ -3760,10 +3760,10 @@
     {
       "name": "Hunter Henry",
       "playerId": 212,
-      "crowdValue": 3080.0,
-      "tradesValue": 3061.0,
-      "delta": -19.0,
-      "percentDelta": -0.6168831168831169,
+      "crowdValue": 3078.0,
+      "tradesValue": 3063.0,
+      "delta": -15.0,
+      "percentDelta": -0.4873294346978557,
       "direction": "crowd_premium"
     },
     {
@@ -3805,10 +3805,10 @@
     {
       "name": "Baker Mayfield",
       "playerId": 215,
-      "crowdValue": 4625.0,
+      "crowdValue": 4631.0,
       "tradesValue": 4704.0,
-      "delta": 79.0,
-      "percentDelta": 1.708108108108108,
+      "delta": 73.0,
+      "percentDelta": 1.5763334053120275,
       "direction": "trade_premium"
     },
     {
@@ -3832,19 +3832,19 @@
     {
       "name": "DK Metcalf",
       "playerId": 224,
-      "crowdValue": 3354.0,
+      "crowdValue": 3351.0,
       "tradesValue": 3317.0,
-      "delta": -37.0,
-      "percentDelta": -1.103160405485987,
+      "delta": -34.0,
+      "percentDelta": -1.0146225007460459,
       "direction": "crowd_premium"
     },
     {
       "name": "Courtland Sutton",
       "playerId": 226,
-      "crowdValue": 3021.0,
+      "crowdValue": 3009.0,
       "tradesValue": 2892.0,
-      "delta": -129.0,
-      "percentDelta": -4.270109235352533,
+      "delta": -117.0,
+      "percentDelta": -3.8883349950149553,
       "direction": "crowd_premium"
     },
     {
@@ -3859,28 +3859,28 @@
     {
       "name": "Marcus Mariota",
       "playerId": 23,
-      "crowdValue": 957.0,
+      "crowdValue": 954.0,
       "tradesValue": 1598.0,
-      "delta": 641.0,
-      "percentDelta": 66.98014629049112,
+      "delta": 644.0,
+      "percentDelta": 67.50524109014675,
       "direction": "trade_premium"
     },
     {
       "name": "Aaron Rodgers",
       "playerId": 235,
-      "crowdValue": 1910.0,
+      "crowdValue": 1907.0,
       "tradesValue": 2325.0,
-      "delta": 415.0,
-      "percentDelta": 21.727748691099478,
+      "delta": 418.0,
+      "percentDelta": 21.91924488725747,
       "direction": "trade_premium"
     },
     {
       "name": "Devin Singletary",
       "playerId": 238,
-      "crowdValue": 1142.0,
+      "crowdValue": 1145.0,
       "tradesValue": 1398.0,
-      "delta": 256.0,
-      "percentDelta": 22.416812609457093,
+      "delta": 253.0,
+      "percentDelta": 22.09606986899563,
       "direction": "trade_premium"
     },
     {
@@ -3895,28 +3895,28 @@
     {
       "name": "T.J. Hockenson",
       "playerId": 247,
-      "crowdValue": 3260.0,
+      "crowdValue": 3257.0,
       "tradesValue": 3307.0,
-      "delta": 47.0,
-      "percentDelta": 1.441717791411043,
+      "delta": 50.0,
+      "percentDelta": 1.5351550506601168,
       "direction": "trade_premium"
     },
     {
       "name": "David Njoku",
       "playerId": 252,
-      "crowdValue": 2772.0,
-      "tradesValue": 2770.0,
+      "crowdValue": 2771.0,
+      "tradesValue": 2769.0,
       "delta": -2.0,
-      "percentDelta": -0.07215007215007214,
+      "percentDelta": -0.07217610970768674,
       "direction": "crowd_premium"
     },
     {
       "name": "Deshaun Watson",
       "playerId": 261,
-      "crowdValue": 1630.0,
+      "crowdValue": 1633.0,
       "tradesValue": 2245.0,
-      "delta": 615.0,
-      "percentDelta": 37.73006134969325,
+      "delta": 612.0,
+      "percentDelta": 37.47703612982241,
       "direction": "trade_premium"
     },
     {
@@ -3931,10 +3931,10 @@
     {
       "name": "Travis Kelce",
       "playerId": 264,
-      "crowdValue": 3284.0,
+      "crowdValue": 3280.0,
       "tradesValue": 3458.0,
-      "delta": 174.0,
-      "percentDelta": 5.298416565164434,
+      "delta": 178.0,
+      "percentDelta": 5.426829268292683,
       "direction": "trade_premium"
     },
     {
@@ -3949,73 +3949,73 @@
     {
       "name": "James Conner",
       "playerId": 268,
-      "crowdValue": 1382.0,
+      "crowdValue": 1379.0,
       "tradesValue": 1809.0,
-      "delta": 427.0,
-      "percentDelta": 30.897250361794498,
+      "delta": 430.0,
+      "percentDelta": 31.18201595358956,
       "direction": "trade_premium"
     },
     {
       "name": "Patrick Mahomes",
       "playerId": 272,
-      "crowdValue": 5836.0,
+      "crowdValue": 5833.0,
       "tradesValue": 6467.0,
-      "delta": 631.0,
-      "percentDelta": 10.812200137080191,
+      "delta": 634.0,
+      "percentDelta": 10.86919252528716,
       "direction": "trade_premium"
     },
     {
       "name": "Mike Evans",
       "playerId": 275,
-      "crowdValue": 3146.0,
+      "crowdValue": 3155.0,
       "tradesValue": 3198.0,
-      "delta": 52.0,
-      "percentDelta": 1.6528925619834711,
+      "delta": 43.0,
+      "percentDelta": 1.3629160063391443,
       "direction": "trade_premium"
     },
     {
       "name": "Davante Adams",
       "playerId": 277,
-      "crowdValue": 3502.0,
+      "crowdValue": 3496.0,
       "tradesValue": 3522.0,
-      "delta": 20.0,
-      "percentDelta": 0.5711022272986864,
+      "delta": 26.0,
+      "percentDelta": 0.7437070938215103,
       "direction": "trade_premium"
     },
     {
       "name": "Alvin Kamara",
       "playerId": 282,
-      "crowdValue": 1881.0,
+      "crowdValue": 1884.0,
       "tradesValue": 2083.0,
-      "delta": 202.0,
-      "percentDelta": 10.738968633705475,
+      "delta": 199.0,
+      "percentDelta": 10.562632696390658,
       "direction": "trade_premium"
     },
     {
       "name": "Christian McCaffrey",
       "playerId": 283,
-      "crowdValue": 5446.0,
+      "crowdValue": 5450.0,
       "tradesValue": 5729.0,
-      "delta": 283.0,
-      "percentDelta": 5.196474476680132,
+      "delta": 279.0,
+      "percentDelta": 5.1192660550458715,
       "direction": "trade_premium"
     },
     {
       "name": "Tyreek Hill",
       "playerId": 286,
-      "crowdValue": 1002.0,
+      "crowdValue": 1005.0,
       "tradesValue": 2003.0,
-      "delta": 1001.0,
-      "percentDelta": 99.9001996007984,
+      "delta": 998.0,
+      "percentDelta": 99.30348258706468,
       "direction": "trade_premium"
     },
     {
       "name": "David Montgomery",
       "playerId": 288,
-      "crowdValue": 3608.0,
+      "crowdValue": 3609.0,
       "tradesValue": 3627.0,
-      "delta": 19.0,
-      "percentDelta": 0.5266075388026608,
+      "delta": 18.0,
+      "percentDelta": 0.4987531172069825,
       "direction": "trade_premium"
     },
     {
@@ -4048,37 +4048,37 @@
     {
       "name": "Chris Godwin",
       "playerId": 299,
-      "crowdValue": 3138.0,
+      "crowdValue": 3135.0,
       "tradesValue": 2872.0,
-      "delta": -266.0,
-      "percentDelta": -8.476736775015933,
+      "delta": -263.0,
+      "percentDelta": -8.389154704944177,
       "direction": "crowd_premium"
     },
     {
       "name": "Aaron Jones",
       "playerId": 301,
-      "crowdValue": 2226.0,
+      "crowdValue": 2223.0,
       "tradesValue": 2183.0,
-      "delta": -43.0,
-      "percentDelta": -1.9317160826594788,
+      "delta": -40.0,
+      "percentDelta": -1.7993702204228519,
       "direction": "crowd_premium"
     },
     {
       "name": "Josh Jacobs",
       "playerId": 303,
-      "crowdValue": 2889.0,
+      "crowdValue": 2893.0,
       "tradesValue": 3778.0,
-      "delta": 889.0,
-      "percentDelta": 30.77189338871582,
+      "delta": 885.0,
+      "percentDelta": 30.591081921880402,
       "direction": "trade_premium"
     },
     {
       "name": "D.J. Moore",
       "playerId": 304,
-      "crowdValue": 3917.0,
+      "crowdValue": 3919.0,
       "tradesValue": 3842.0,
-      "delta": -75.0,
-      "percentDelta": -1.9147306612203219,
+      "delta": -77.0,
+      "percentDelta": -1.964786935442715,
       "direction": "crowd_premium"
     },
     {
@@ -4093,19 +4093,19 @@
     {
       "name": "Marquise Brown",
       "playerId": 311,
-      "crowdValue": 1273.0,
+      "crowdValue": 1276.0,
       "tradesValue": 1712.0,
-      "delta": 439.0,
-      "percentDelta": 34.48546739984289,
+      "delta": 436.0,
+      "percentDelta": 34.1692789968652,
       "direction": "trade_premium"
     },
     {
       "name": "Terry McLaurin",
       "playerId": 328,
-      "crowdValue": 3374.0,
+      "crowdValue": 3377.0,
       "tradesValue": 3604.0,
-      "delta": 230.0,
-      "percentDelta": 6.816834617664493,
+      "delta": 227.0,
+      "percentDelta": 6.721942552561446,
       "direction": "trade_premium"
     },
     {
@@ -4120,19 +4120,19 @@
     {
       "name": "Mike Gesicki",
       "playerId": 330,
-      "crowdValue": 1933.0,
+      "crowdValue": 1936.0,
       "tradesValue": 2087.0,
-      "delta": 154.0,
-      "percentDelta": 7.966890843248836,
+      "delta": 151.0,
+      "percentDelta": 7.799586776859504,
       "direction": "trade_premium"
     },
     {
       "name": "Sam Darnold",
       "playerId": 331,
-      "crowdValue": 4227.0,
+      "crowdValue": 4224.0,
       "tradesValue": 4381.0,
-      "delta": 154.0,
-      "percentDelta": 3.6432458008043533,
+      "delta": 157.0,
+      "percentDelta": 3.7168560606060606,
       "direction": "trade_premium"
     },
     {
@@ -4156,28 +4156,28 @@
     {
       "name": "Matthew Stafford",
       "playerId": 356,
-      "crowdValue": 3759.0,
+      "crowdValue": 3752.0,
       "tradesValue": 4040.0,
-      "delta": 281.0,
-      "percentDelta": 7.475392391593509,
+      "delta": 288.0,
+      "percentDelta": 7.675906183368871,
       "direction": "trade_premium"
     },
     {
       "name": "Josh Allen",
       "playerId": 365,
-      "crowdValue": 9985.0,
+      "crowdValue": 9987.0,
       "tradesValue": 9005.0,
-      "delta": -980.0,
-      "percentDelta": -9.814722083124687,
+      "delta": -982.0,
+      "percentDelta": -9.832782617402623,
       "direction": "crowd_premium"
     },
     {
       "name": "Mark Andrews",
       "playerId": 366,
-      "crowdValue": 3369.0,
+      "crowdValue": 3366.0,
       "tradesValue": 3649.0,
-      "delta": 280.0,
-      "percentDelta": 8.311071534579995,
+      "delta": 283.0,
+      "percentDelta": 8.407605466428995,
       "direction": "trade_premium"
     },
     {
@@ -4201,19 +4201,19 @@
     {
       "name": "Lamar Jackson",
       "playerId": 372,
-      "crowdValue": 7591.0,
+      "crowdValue": 7597.0,
       "tradesValue": 7495.0,
-      "delta": -96.0,
-      "percentDelta": -1.2646555131076276,
+      "delta": -102.0,
+      "percentDelta": -1.3426352507568777,
       "direction": "crowd_premium"
     },
     {
       "name": "Kyler Murray",
       "playerId": 379,
-      "crowdValue": 3876.0,
+      "crowdValue": 3870.0,
       "tradesValue": 4410.0,
-      "delta": 534.0,
-      "percentDelta": 13.777089783281735,
+      "delta": 540.0,
+      "percentDelta": 13.953488372093023,
       "direction": "trade_premium"
     },
     {
@@ -4228,19 +4228,19 @@
     {
       "name": "Deebo Samuel",
       "playerId": 383,
-      "crowdValue": 2361.0,
+      "crowdValue": 2367.0,
       "tradesValue": 2295.0,
-      "delta": -66.0,
-      "percentDelta": -2.7954256670902162,
+      "delta": -72.0,
+      "percentDelta": -3.041825095057034,
       "direction": "crowd_premium"
     },
     {
       "name": "Jared Goff",
       "playerId": 388,
-      "crowdValue": 4592.0,
+      "crowdValue": 4598.0,
       "tradesValue": 4766.0,
-      "delta": 174.0,
-      "percentDelta": 3.789198606271777,
+      "delta": 168.0,
+      "percentDelta": 3.6537625054371463,
       "direction": "trade_premium"
     },
     {
@@ -4264,10 +4264,10 @@
     {
       "name": "Gardner Minshew",
       "playerId": 47,
-      "crowdValue": 943.0,
+      "crowdValue": 946.0,
       "tradesValue": 1211.0,
-      "delta": 268.0,
-      "percentDelta": 28.419936373276776,
+      "delta": 265.0,
+      "percentDelta": 28.012684989429175,
       "direction": "trade_premium"
     },
     {
@@ -4291,37 +4291,37 @@
     {
       "name": "Michael Pittman",
       "playerId": 536,
-      "crowdValue": 3199.0,
+      "crowdValue": 3205.0,
       "tradesValue": 3112.0,
-      "delta": -87.0,
-      "percentDelta": -2.719599874960925,
+      "delta": -93.0,
+      "percentDelta": -2.9017160686427457,
       "direction": "crowd_premium"
     },
     {
       "name": "Brandon Aiyuk",
       "playerId": 538,
-      "crowdValue": 924.0,
+      "crowdValue": 921.0,
       "tradesValue": 2090.0,
-      "delta": 1166.0,
-      "percentDelta": 126.19047619047619,
+      "delta": 1169.0,
+      "percentDelta": 126.92725298588489,
       "direction": "trade_premium"
     },
     {
       "name": "Justin Jefferson",
       "playerId": 542,
-      "crowdValue": 7427.0,
+      "crowdValue": 7430.0,
       "tradesValue": 7440.0,
-      "delta": 13.0,
-      "percentDelta": 0.17503702706341726,
+      "delta": 10.0,
+      "percentDelta": 0.13458950201884254,
       "direction": "trade_premium"
     },
     {
       "name": "Tee Higgins",
       "playerId": 543,
-      "crowdValue": 5110.0,
+      "crowdValue": 5101.0,
       "tradesValue": 4844.0,
-      "delta": -266.0,
-      "percentDelta": -5.205479452054795,
+      "delta": -257.0,
+      "percentDelta": -5.038227798470888,
       "direction": "crowd_premium"
     },
     {
@@ -4336,28 +4336,28 @@
     {
       "name": "CeeDee Lamb",
       "playerId": 546,
-      "crowdValue": 7177.0,
+      "crowdValue": 7174.0,
       "tradesValue": 7111.0,
-      "delta": -66.0,
-      "percentDelta": -0.9196042914866935,
+      "delta": -63.0,
+      "percentDelta": -0.8781711736827432,
       "direction": "crowd_premium"
     },
     {
       "name": "Rico Dowdle",
       "playerId": 555,
-      "crowdValue": 3164.0,
+      "crowdValue": 3173.0,
       "tradesValue": 3041.0,
-      "delta": -123.0,
-      "percentDelta": -3.8874841972187104,
+      "delta": -132.0,
+      "percentDelta": -4.1601008509297195,
       "direction": "crowd_premium"
     },
     {
       "name": "Colby Parkinson",
       "playerId": 565,
-      "crowdValue": 2658.0,
+      "crowdValue": 2661.0,
       "tradesValue": 2540.0,
-      "delta": -118.0,
-      "percentDelta": -4.439428141459744,
+      "delta": -121.0,
+      "percentDelta": -4.547162720781661,
       "direction": "crowd_premium"
     },
     {
@@ -4372,19 +4372,19 @@
     {
       "name": "Juwan Johnson",
       "playerId": 575,
-      "crowdValue": 3328.0,
-      "tradesValue": 3250.0,
-      "delta": -78.0,
-      "percentDelta": -2.34375,
+      "crowdValue": 3322.0,
+      "tradesValue": 3251.0,
+      "delta": -71.0,
+      "percentDelta": -2.1372667068031306,
       "direction": "crowd_premium"
     },
     {
       "name": "Jauan Jennings",
       "playerId": 576,
-      "crowdValue": 2228.0,
+      "crowdValue": 2240.0,
       "tradesValue": 2091.0,
-      "delta": -137.0,
-      "percentDelta": -6.149012567324955,
+      "delta": -149.0,
+      "percentDelta": -6.651785714285714,
       "direction": "crowd_premium"
     },
     {
@@ -4399,19 +4399,19 @@
     {
       "name": "Jordan Love",
       "playerId": 596,
-      "crowdValue": 5296.0,
+      "crowdValue": 5294.0,
       "tradesValue": 5457.0,
-      "delta": 161.0,
-      "percentDelta": 3.0400302114803623,
+      "delta": 163.0,
+      "percentDelta": 3.078957310162448,
       "direction": "trade_premium"
     },
     {
       "name": "Justin Herbert",
       "playerId": 599,
-      "crowdValue": 6911.0,
+      "crowdValue": 6910.0,
       "tradesValue": 6662.0,
-      "delta": -249.0,
-      "percentDelta": -3.6029518159455938,
+      "delta": -248.0,
+      "percentDelta": -3.5890014471780027,
       "direction": "crowd_premium"
     },
     {
@@ -4435,10 +4435,10 @@
     {
       "name": "Joe Burrow",
       "playerId": 601,
-      "crowdValue": 7206.0,
+      "crowdValue": 7208.0,
       "tradesValue": 7186.0,
-      "delta": -20.0,
-      "percentDelta": -0.2775464890369137,
+      "delta": -22.0,
+      "percentDelta": -0.3052164261931188,
       "direction": "crowd_premium"
     },
     {
@@ -4453,64 +4453,64 @@
     {
       "name": "Tyler Huntley",
       "playerId": 618,
-      "crowdValue": 1134.0,
+      "crowdValue": 1140.0,
       "tradesValue": 1332.0,
-      "delta": 198.0,
-      "percentDelta": 17.46031746031746,
+      "delta": 192.0,
+      "percentDelta": 16.842105263157894,
       "direction": "trade_premium"
     },
     {
       "name": "Jonathan Taylor",
       "playerId": 634,
-      "crowdValue": 6418.0,
+      "crowdValue": 6421.0,
       "tradesValue": 6507.0,
-      "delta": 89.0,
-      "percentDelta": 1.3867248363976317,
+      "delta": 86.0,
+      "percentDelta": 1.3393552406167264,
       "direction": "trade_premium"
     },
     {
       "name": "J.K. Dobbins",
       "playerId": 636,
-      "crowdValue": 2983.0,
+      "crowdValue": 2981.0,
       "tradesValue": 2855.0,
-      "delta": -128.0,
-      "percentDelta": -4.290982232651693,
+      "delta": -126.0,
+      "percentDelta": -4.226769540422677,
       "direction": "crowd_premium"
     },
     {
       "name": "D'Andre Swift",
       "playerId": 639,
-      "crowdValue": 4209.0,
+      "crowdValue": 4211.0,
       "tradesValue": 3837.0,
-      "delta": -372.0,
-      "percentDelta": -8.838203848895224,
+      "delta": -374.0,
+      "percentDelta": -8.881500831156496,
       "direction": "crowd_premium"
     },
     {
       "name": "Geno Smith",
       "playerId": 671,
-      "crowdValue": 2137.0,
+      "crowdValue": 2143.0,
       "tradesValue": 2507.0,
-      "delta": 370.0,
-      "percentDelta": 17.31399157697707,
+      "delta": 364.0,
+      "percentDelta": 16.985534297713485,
       "direction": "trade_premium"
     },
     {
       "name": "Mack Hollins",
       "playerId": 767,
-      "crowdValue": 1049.0,
+      "crowdValue": 1052.0,
       "tradesValue": 1217.0,
-      "delta": 168.0,
-      "percentDelta": 16.015252621544327,
+      "delta": 165.0,
+      "percentDelta": 15.684410646387834,
       "direction": "trade_premium"
     },
     {
       "name": "Darius Slayton",
       "playerId": 77,
-      "crowdValue": 1136.0,
+      "crowdValue": 1130.0,
       "tradesValue": 1494.0,
-      "delta": 358.0,
-      "percentDelta": 31.514084507042256,
+      "delta": 364.0,
+      "percentDelta": 32.21238938053098,
       "direction": "trade_premium"
     },
     {
@@ -4525,19 +4525,19 @@
     {
       "name": "Daniel Jones",
       "playerId": 87,
-      "crowdValue": 3706.0,
+      "crowdValue": 3711.0,
       "tradesValue": 3835.0,
-      "delta": 129.0,
-      "percentDelta": 3.4808418780356174,
+      "delta": 124.0,
+      "percentDelta": 3.3414174077068175,
       "direction": "trade_premium"
     },
     {
       "name": "Dawson Knox",
       "playerId": 88,
-      "crowdValue": 2272.0,
+      "crowdValue": 2276.0,
       "tradesValue": 2474.0,
-      "delta": 202.0,
-      "percentDelta": 8.890845070422536,
+      "delta": 198.0,
+      "percentDelta": 8.699472759226714,
       "direction": "trade_premium"
     },
     {
@@ -4552,10 +4552,10 @@
     {
       "name": "Nick Westbrook-Ikhine",
       "playerId": 950,
-      "crowdValue": 940.0,
+      "crowdValue": 943.0,
       "tradesValue": 1005.0,
-      "delta": 65.0,
-      "percentDelta": 6.914893617021277,
+      "delta": 62.0,
+      "percentDelta": 6.574761399787911,
       "direction": "trade_premium"
     }
   ]
