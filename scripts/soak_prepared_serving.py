@@ -268,9 +268,11 @@ def web_worker(args, store):
 
     @server.app.middleware("http")
     async def observe_reload(request, call_next):
-        active = state._reload_lock.locked()
+        active = state._reload_lock.locked() or leagues._refresh_lock.locked()
         response = await call_next(request)
-        response.headers["X-Soak-Reload-Active"] = str(int(active or state._reload_lock.locked()))
+        response.headers["X-Soak-Reload-Active"] = str(
+            int(active or state._reload_lock.locked() or leagues._refresh_lock.locked())
+        )
         return response
 
     @server.app.api_route("/__soak/{action}", methods=["GET", "POST"])
@@ -493,10 +495,22 @@ def publication_evidence(events, observed):
     return bool(changed) and all(generation and generation in observed for generation in changed)
 
 
-def sample(process, root, started, previous_cpu=None, child_ledger=None):
+def sample(process, root, started, previous_cpu=None, child_ledger=None, web_identity=None):
     import psutil
 
     members = [process, *process.children(recursive=True)]
+    web_ids = set()
+    web_observed = False
+    if web_identity is not None:
+        try:
+            web_pid, web_created = web_identity
+            web_process = psutil.Process(web_pid)
+            if web_process.create_time() == web_created:
+                web_ids = {web_pid, *(p.pid for p in web_process.children(recursive=True))}
+                web_observed = web_ids <= {member.pid for member in members}
+        except (psutil.NoSuchProcess, psutil.AccessDenied):
+            pass
+    driver_rss = driver_handles = web_rss = web_handles = 0
     if child_ledger is not None:
         for member in members[1:]:
             child_ledger.observe(member)
@@ -509,7 +523,14 @@ def sample(process, root, started, previous_cpu=None, child_ledger=None):
             memory = member.memory_info()
             rss += memory.rss
             peak += getattr(memory, "peak_wset", memory.rss)
-            handles += member.num_handles() if os.name == "nt" else member.num_fds()
+            descriptors = member.num_handles() if os.name == "nt" else member.num_fds()
+            handles += descriptors
+            if member.pid == process.pid:
+                driver_rss = memory.rss
+                driver_handles = descriptors
+            if member.pid in web_ids:
+                web_rss += memory.rss
+                web_handles += descriptors
             times = member.cpu_times()
             cpu += times.user + times.system
             if previous_cpu is not None:
@@ -520,6 +541,8 @@ def sample(process, root, started, previous_cpu=None, child_ledger=None):
                 previous_cpu[member.pid] = current
             alive += 1
         except (psutil.NoSuchProcess, psutil.AccessDenied):
+            if member.pid in web_ids:
+                web_observed = False
             continue
     # Lab root only, never source archives or unrelated caches.
     disk = 0
@@ -533,6 +556,11 @@ def sample(process, root, started, previous_cpu=None, child_ledger=None):
     return {
         "seconds": round(time.monotonic() - started, 3),
         "rssBytes": rss,
+        "driverRssBytes": driver_rss,
+        "driverDescriptorCount": driver_handles,
+        "webRssBytes": web_rss if web_observed else None,
+        "webDescriptorCount": web_handles if web_observed else None,
+        "webResourceObservationComplete": web_observed,
         "peakRssBytes": peak,
         "cpuSecondsLiveProcesses": cpu,
         "cpuSecondsSincePreviousSample": cpu_delta,
@@ -677,6 +705,7 @@ def main(args):
     # Include the whole intentionally running web tree (Windows Python may use
     # launcher descendants), captured before any source/league workers start.
     baseline_process_count = 1 + len(psutil.Process().children(recursive=True))
+    web_identity = (web_child.pid, psutil.Process(web_child.pid).create_time())
 
     started = time.monotonic()
     stop = threading.Event()
@@ -897,7 +926,9 @@ def main(args):
     try:
         with resource_observations(
             sample_file,
-            lambda: sample(process, args.root, started, previous_cpu, args.child_ledger),
+            lambda: sample(
+                process, args.root, started, previous_cpu, args.child_ledger, web_identity
+            ),
             samples,
             errors,
             progress=lambda: {"httpErrors": sum(read_error_counts.values())},
@@ -998,7 +1029,9 @@ def main(args):
             errors.append("web_graceful_shutdown_failed")
             web_child.terminate()
             web_child.communicate(timeout=10)
-    samples.append(sample(process, args.root, started, previous_cpu, args.child_ledger))
+    samples.append(
+        sample(process, args.root, started, previous_cpu, args.child_ledger, web_identity)
+    )
     if read_error_counts:
         errors.append("unexpected_read_failures")
     report = summarize(
@@ -1038,6 +1071,46 @@ def main(args):
     }
     report["retention"] = store.retention(apply=False)
     report["readObservationSeconds"] = observation_seconds
+    baseline_resources = [
+        row
+        for row in samples[:observed_sample_count]
+        if args.baseline_seconds / 2 <= row["seconds"] < args.baseline_seconds
+        and row["processCount"] == baseline_process_count
+    ]
+    final_resources = [
+        row
+        for row in samples[max(0, observed_sample_count - 120) : observed_sample_count]
+        if row["processCount"] == baseline_process_count
+    ]
+    report["resourceOwnership"] = {
+        "scope": "Attribution only; aggregate RSS/handle gates remain unchanged",
+        "webMissingObservationCount": sum(
+            not row.get("webResourceObservationComplete", False)
+            for row in samples[:observed_sample_count]
+        ),
+        "baseline": {
+            key: statistics.median(row[key] for row in baseline_resources)
+            if baseline_resources and all(row.get(key) is not None for row in baseline_resources)
+            else None
+            for key in (
+                "driverRssBytes",
+                "webRssBytes",
+                "driverDescriptorCount",
+                "webDescriptorCount",
+            )
+        },
+        "final": {
+            key: statistics.median(row[key] for row in final_resources)
+            if final_resources and all(row.get(key) is not None for row in final_resources)
+            else None
+            for key in (
+                "driverRssBytes",
+                "webRssBytes",
+                "driverDescriptorCount",
+                "webDescriptorCount",
+            )
+        },
+    }
     report["observedSampleCountBeforeCleanup"] = observed_sample_count
     report["maxObservationSampleGapSeconds"] = max(
         (

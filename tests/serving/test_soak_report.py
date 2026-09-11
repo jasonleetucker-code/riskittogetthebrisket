@@ -274,3 +274,38 @@ def test_fault_events_have_elapsed_time_without_payload_content():
     events.append({"kind": "capacity_exhaustion_kept_pointer"})
     assert events[0]["seconds"] >= 0
     assert set(events[0]) == {"kind", "seconds"}
+
+
+def test_web_resource_identity_must_match_and_missing_is_not_zero(monkeypatch, tmp_path):
+    from scripts import soak_prepared_serving as soak
+
+    def process(pid, rss, handles):
+        return SimpleNamespace(
+            pid=pid,
+            create_time=lambda: 42,
+            children=lambda recursive: [],
+            memory_info=lambda: SimpleNamespace(rss=rss),
+            num_handles=lambda: handles,
+            num_fds=lambda: handles,
+            cpu_times=lambda: SimpleNamespace(user=0, system=0),
+        )
+
+    parent, web = process(1, 100, 2), process(2, 200, 4)
+    parent.children = lambda recursive: [web]
+    monkeypatch.setitem(
+        sys.modules,
+        "psutil",
+        SimpleNamespace(
+            Process=lambda pid: web,
+            NoSuchProcess=RuntimeError,
+            AccessDenied=PermissionError,
+            cpu_percent=lambda: 0,
+        ),
+    )
+    observed = soak.sample(parent, tmp_path, time.monotonic(), web_identity=(2, 42))
+    assert observed["rssBytes"] == 300
+    assert observed["webRssBytes"] == 200
+    assert observed["driverDescriptorCount"] == 2
+    missing = soak.sample(parent, tmp_path, time.monotonic(), web_identity=(2, 41))
+    assert missing["webRssBytes"] is None
+    assert not missing["webResourceObservationComplete"]
