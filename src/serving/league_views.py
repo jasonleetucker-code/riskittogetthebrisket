@@ -375,55 +375,96 @@ def _refresh_league_serving(store) -> dict:
 
 
 class LeagueServingReader:
-    """Poll local pointers off-request, preserving an accepted same-board bundle."""
+    """Publish each league's bound board and views together, off-request."""
 
     def __init__(self, store, get_board):
         self.store, self.get_board = store, get_board
-        self._current = (None, {})
+        self._current = {}
         self._versions = {}
+        self._refresh_lock = threading.Lock()
         self._stop = threading.Event()
         self._thread = None
         self.last_error = None
 
+    def capture(self, league_key):
+        """Capture once: callers keep the bound board through their response.
+
+        A newer canonical pointer does not invalidate this accepted snapshot.
+        One snapshot per active league is retained; in-flight requests own older
+        refs. Leagues sharing a board share its object, without generation history.
+        """
+        return self._current.get(league_key)
+
     def get(self, generation, league_key, view):
-        current_generation, bundles = self._current
-        if generation != current_generation:
+        captured = self.capture(league_key)
+        if captured is None or captured[0].generation_id != generation:
             return None
-        bundle = bundles.get(league_key)
-        return bundle.views.get(view) if bundle else None
+        return captured[1].views.get(view)
 
     def refresh(self):
+        # Concurrent manual/poll refreshes coalesce. Request captures never wait
+        # on this lock or on candidate loading/encoding.
+        if not self._refresh_lock.acquire(blocking=False):
+            return
+        try:
+            self._refresh()
+        finally:
+            self._refresh_lock.release()
+
+    def _refresh(self):
+        old = self._current
+        # Even a failed next-board build must not preserve ready roster context
+        # beyond its existing source-age ceiling. Expiry stays off-request.
+        expired = {
+            key: (held_board, expire_context(bundle)) for key, (held_board, bundle) in old.items()
+        }
+        if any(expired[key][1] is not old[key][1] for key in old):
+            self._current = expired
+        old = expired
         board = self.get_board()
         if board is None:
             return
-        old_generation, old = self._current
         refresh_error = None
-        bundles = dict(old) if old_generation == board.generation_id else {}
-        versions = dict(self._versions) if old_generation == board.generation_id else {}
+        captures = {}
+        versions = {}
         for cfg in league_registry.active_leagues():
             if not compatible(board, cfg):
-                bundles.pop(cfg.key, None)
                 continue
+            held = old.get(cfg.key)
+            if held is not None:
+                captures[cfg.key] = held
+                if cfg.key in self._versions:
+                    versions[cfg.key] = self._versions[cfg.key]
             try:
                 version = self.store.current_version(ASSET, cfg.key)
-                if cfg.key in bundles and versions.get(cfg.key) == version:
-                    bundles[cfg.key] = expire_context(bundles[cfg.key])
+                if (
+                    held is not None
+                    and held[0].generation_id == board.generation_id
+                    and versions.get(cfg.key) == version
+                ):
+                    captures[cfg.key] = (board, held[1])
                     continue
                 bundle = load_league_views(self.store.read_current(ASSET, cfg.key))
                 if bundle.board_generation != board.generation_id:
                     raise CorruptArtifact("league bundle belongs to an older board")
                 validate_league_views(bundle, board, cfg)
-                bundles[cfg.key], versions[cfg.key] = expire_context(bundle), version
+                captures[cfg.key] = (board, expire_context(bundle))
+                versions[cfg.key] = version
             except (ArtifactError, ValueError, KeyError, OSError) as exc:
                 refresh_error = type(exc).__name__
-                if cfg.key not in bundles:
+                if held is not None:
+                    # Canonical publication precedes the standalone league job.
+                    # Keep coherent A until B's prepared artifacts arrive; do
+                    # not encode eight replacement views in the web process on
+                    # each refresh. Expired A context was already removed above.
+                    continue
+                if cfg.key not in captures:
                     # Explicit board-as-of context for its own league, and
                     # unavailable context for another compatible league. No
                     # provider fetch is hidden behind this fallback.
-                    bundles[cfg.key] = prepare_league_views(board, cfg)
-                bundles[cfg.key] = expire_context(bundles[cfg.key])
+                    captures[cfg.key] = (board, expire_context(prepare_league_views(board, cfg)))
         if self.get_board() is board and not self._stop.is_set():
-            self._current = (board.generation_id, bundles)
+            self._current = captures
             self._versions = versions
             self.last_error = refresh_error
 

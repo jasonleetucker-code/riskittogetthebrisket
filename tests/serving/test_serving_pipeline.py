@@ -2,7 +2,12 @@
 
 import asyncio
 import copy
+import gc
+import gzip
+import json
 import re
+import threading
+import weakref
 from dataclasses import replace
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -12,7 +17,7 @@ import pytest
 from starlette.requests import Request
 
 from src.api import rank_history
-from src.serving import builder
+from src.serving import builder, league_views
 from src.serving.artifacts import ArtifactStore, CorruptArtifact
 from src.serving.league_views import expire_context, prepare_league_views, validate_league_views
 from src.serving.projections import BOARD_FIELDS, asset_key, project_board
@@ -224,6 +229,259 @@ def test_roundtrip_and_hot_reload_never_call_builder(tmp_path, board, monkeypatc
     assert runtime.current.views["rankings"].payload["playersArray"][0]["rankDerivedValue"] == 2000
 
 
+def coherent_reader(tmp_path, board, monkeypatch, configs=None):
+    import server
+
+    configs = configs or [SimpleNamespace(key="main", scoring_profile="same")]
+    for name, value in vars(server).copy().items():
+        if name.startswith("latest_"):
+            monkeypatch.setattr(server, name, value)
+    monkeypatch.setenv("RISKIT_SERVING_MODE", "prepared")
+    monkeypatch.setattr(server, "_resolve_league_for_request", lambda request: configs[0])
+    monkeypatch.setattr(league_views.league_registry, "active_leagues", lambda: configs)
+    monkeypatch.setattr(
+        server._sleeper_overlay,
+        "fetch_sleeper_overlay",
+        lambda **k: pytest.fail("request called provider"),
+    )
+    monkeypatch.setattr(
+        server, "build_api_data_contract", lambda *a, **k: pytest.fail("request rebuilt board")
+    )
+    store = ArtifactStore(tmp_path)
+    publish_generation(board, store=store)
+    for cfg in configs:
+        league_views.publish_league_views(
+            prepare_league_views(board, cfg), store, board=board, cfg=cfg
+        )
+    runtime = AtomicRuntime(
+        store, ASSET, KEY, load_generation, on_publish=server._publish_serving_generation
+    )
+    runtime.publish(board)
+    reader = league_views.LeagueServingReader(store, lambda: server.latest_serving_generation)
+    monkeypatch.setattr(server, "_league_serving_reader", reader)
+    reader.refresh()
+    return configs, store, runtime, reader
+
+
+def next_board(board):
+    contract = copy.deepcopy(board.contract)
+    contract["playersArray"][0]["rankDerivedValue"] = 2000
+    return builder.prepare_generation(contract, board.raw, board.source, board.health)
+
+
+def assert_coherent_routes(board):
+    import server
+
+    async def check():
+        for endpoint, query in (
+            (server.get_prepared_rankings, ""),
+            (server.get_prepared_trade, ""),
+            (server.get_prepared_catalog, ""),
+            *(
+                (server.get_data, "view=" + view)
+                for view in ("full", "array", "runtime", "startup", "compact")
+            ),
+        ):
+            request = Request(
+                {
+                    "type": "http",
+                    "query_string": query.encode(),
+                    "headers": [(b"accept-encoding", b"gzip")],
+                }
+            )
+            response = await endpoint(request)
+            assert response.status_code == 200
+            payload = json.loads(gzip.decompress(response.body))
+            assert response.headers["x-data-generation"] == board.generation_id
+            assert payload["meta"]["readModelGeneration"] == board.generation_id
+            conditional = Request(
+                {
+                    **request.scope,
+                    "headers": [(b"if-none-match", response.headers["etag"].encode())],
+                }
+            )
+            cached = await endpoint(conditional)
+            assert cached.status_code == 304 and not cached.body
+            assert cached.headers["x-data-generation"] == board.generation_id
+        key = asset_key(board.contract["playersArray"][0])
+        request = Request(
+            {
+                "type": "http",
+                "query_string": f"generation={board.generation_id}".encode(),
+                "headers": [],
+            }
+        )
+        detail = await server.get_prepared_player(key, request)
+        assert detail.status_code == 200
+        assert (
+            json.loads(detail.body)["player"]["rankDerivedValue"]
+            == board.contract["playersArray"][0]["rankDerivedValue"]
+        )
+        assert detail.headers["x-data-generation"] == board.generation_id
+        stale = Request({**request.scope, "query_string": b"generation=other"})
+        assert (await server.get_prepared_player(key, stale)).status_code == 409
+
+    asyncio.run(check())
+
+
+def test_all_prepared_routes_keep_a_during_b_publication_and_reader_load(
+    tmp_path, board, monkeypatch
+):
+    cfgs, store, runtime, reader = coherent_reader(tmp_path, board, monkeypatch)
+    candidate = next_board(board)
+    captured_a = reader.capture("main")
+    runtime.publish(candidate)
+    # Missing B league publication must not rebuild eight views in the web.
+    monkeypatch.setattr(
+        league_views,
+        "prepare_league_views",
+        lambda *a, **k: pytest.fail("transition fallback encoded"),
+    )
+    reader.refresh()
+    assert_coherent_routes(board)
+    bundle_b = prepare_league_views(candidate, cfgs[0])
+    league_views.publish_league_views(bundle_b, store, board=candidate, cfg=cfgs[0])
+    entered, release = threading.Event(), threading.Event()
+    original = league_views.load_league_views
+
+    def paused(artifact):
+        entered.set()
+        assert release.wait(5)
+        return original(artifact)
+
+    monkeypatch.setattr(league_views, "load_league_views", paused)
+    thread = threading.Thread(target=reader.refresh)
+    thread.start()
+    try:
+        assert entered.wait(5)
+        assert_coherent_routes(board)
+        reader.refresh()  # Coalesces without waiting or overwriting staged work.
+    finally:
+        release.set()
+        thread.join(5)
+    assert not thread.is_alive()
+    assert_coherent_routes(candidate)
+    assert captured_a[0] is board
+    assert captured_a[1].views["rankings"].payload["playersArray"][0]["rankDerivedValue"] == 1000
+
+
+def test_partial_league_failure_does_not_hold_back_healthy_league(tmp_path, board, monkeypatch):
+    fingerprint = league_views.scoring_fingerprint(board.contract["sleeper"]["scoringSettings"])
+    monkeypatch.setattr(
+        league_views.league_registry, "scoring_fingerprint_for_league", lambda cfg: fingerprint
+    )
+    configs = [SimpleNamespace(key=key, scoring_profile="same") for key in ("main", "twin")]
+    configs, store, runtime, reader = coherent_reader(tmp_path, board, monkeypatch, configs)
+    candidate = next_board(board)
+    runtime.publish(candidate)
+    league_views.publish_league_views(
+        prepare_league_views(candidate, configs[0]), store, board=candidate, cfg=configs[0]
+    )
+    monkeypatch.setattr(
+        league_views, "prepare_league_views", lambda *a, **k: pytest.fail("fallback encoded")
+    )
+    reader.refresh()
+    assert reader.capture("main")[0] is candidate
+    assert reader.capture("twin")[0] is board
+    assert len(reader._current) == 2
+    configs.pop()
+    reader.refresh()
+    assert reader.capture("twin") is None
+
+
+@pytest.mark.parametrize("requested_fingerprint", [None, "different"])
+def test_captured_board_still_rejects_changed_or_unknown_cross_league_scoring(
+    tmp_path, board, monkeypatch, requested_fingerprint
+):
+    import server
+
+    fingerprint = league_views.scoring_fingerprint(board.contract["sleeper"]["scoringSettings"])
+    monkeypatch.setattr(
+        league_views.league_registry, "scoring_fingerprint_for_league", lambda cfg: fingerprint
+    )
+    cfg = SimpleNamespace(key="twin", scoring_profile="same")
+    coherent_reader(tmp_path, board, monkeypatch, [cfg])
+    monkeypatch.setattr(
+        league_views.league_registry,
+        "scoring_fingerprint_for_league",
+        lambda cfg: requested_fingerprint,
+    )
+    request = Request(
+        {
+            "type": "http",
+            "query_string": f"generation={board.generation_id}".encode(),
+            "headers": [],
+        }
+    )
+    for endpoint in (server.get_prepared_rankings, server.get_prepared_trade, server.get_data):
+        assert asyncio.run(endpoint(request)).status_code == 503
+    key = asset_key(board.contract["playersArray"][0])
+    assert asyncio.run(server.get_prepared_player(key, request)).status_code == 503
+
+
+def test_waiting_for_b_expires_a_rosters_without_reencoding_b(tmp_path, board, monkeypatch):
+    _, _, runtime, reader = coherent_reader(tmp_path, board, monkeypatch)
+    held_board, bundle = reader.capture("main")
+    views = {}
+    for name, view in bundle.views.items():
+        payload = copy.deepcopy(view.payload)
+        payload["meta"].update(
+            sleeperDataReady=True,
+            leagueSourceAsOf=(datetime.now(timezone.utc) - timedelta(minutes=31)).isoformat(),
+        )
+        payload["sleeper"] = {"teams": [{"privateRoster": True}]}
+        views[name] = builder.prepare_payload(payload)
+    reader._current = {"main": (held_board, replace(bundle, views=views))}
+    runtime.publish(next_board(board))
+    monkeypatch.setattr(
+        league_views, "prepare_league_views", lambda *a, **k: pytest.fail("fallback encoded")
+    )
+    reader.refresh()
+    captured = reader.capture("main")
+    assert captured[0] is board
+    for view in captured[1].views.values():
+        assert view.payload["sleeper"] is None
+        assert view.payload["meta"]["sleeperDataReady"] is False
+        assert view.payload["meta"]["leagueFreshnessState"] == "stale"
+
+
+def test_replaced_board_reference_is_released_after_request_capture(tmp_path, board, monkeypatch):
+    original = replace(board)
+    ref = weakref.ref(original)
+    cfgs, store, runtime, reader = coherent_reader(tmp_path, original, monkeypatch)
+    captured = reader.capture("main")
+    candidate = next_board(original)
+    runtime.publish(candidate)
+    league_views.publish_league_views(
+        prepare_league_views(candidate, cfgs[0]), store, board=candidate, cfg=cfgs[0]
+    )
+    reader.refresh()
+    del original
+    gc.collect()
+    assert ref() is captured[0]
+    del captured
+    gc.collect()
+    assert ref() is None
+
+
+def test_same_logical_board_reobservation_rebinds_without_reencoding(tmp_path, board, monkeypatch):
+    _, _, runtime, reader = coherent_reader(tmp_path, board, monkeypatch)
+    held = reader.capture("main")
+    observed = replace(board, source={**board.source, "sourceAsOf": "new-observation"})
+    runtime.publish(observed)
+    monkeypatch.setattr(
+        league_views, "load_league_views", lambda *a: pytest.fail("unchanged bundle reloaded")
+    )
+    monkeypatch.setattr(
+        league_views,
+        "prepare_league_views",
+        lambda *a, **k: pytest.fail("unchanged bundle encoded"),
+    )
+    reader.refresh()
+    assert reader.capture("main")[0] is observed
+    assert reader.capture("main")[1] is held[1]
+
+
 def test_rank_history_preview_matches_accepted_append_without_writing(tmp_path, board):
     path = tmp_path / "rank.jsonl"
     preview = rank_history.load_history(path=path, pending_contract=board.contract)
@@ -260,10 +518,13 @@ def test_read_model_endpoint_has_no_provider_or_builder_and_supports_etag(board,
     import server
 
     cfg = SimpleNamespace(key="main", scoring_profile="same")
-    prepared = prepare_league_views(board, cfg).views["rankings"]
+    bundle = prepare_league_views(board, cfg)
+    prepared = bundle.views["rankings"]
     monkeypatch.setattr(server, "_resolve_league_for_request", lambda request: cfg)
     monkeypatch.setattr(server, "latest_serving_generation", board)
-    monkeypatch.setattr(server, "_league_serving_reader", SimpleNamespace(get=lambda *a: prepared))
+    monkeypatch.setattr(
+        server, "_league_serving_reader", SimpleNamespace(capture=lambda key: (board, bundle))
+    )
     monkeypatch.setattr(
         server._sleeper_overlay, "fetch_sleeper_overlay", lambda **k: pytest.fail("provider called")
     )
@@ -438,12 +699,24 @@ def test_prepared_lifespan_reloads_without_scraping_or_rebuilding(tmp_path, boar
 
     store = ArtifactStore(tmp_path)
     publish_generation(board, store=store)
+    cfg = SimpleNamespace(key="main", scoring_profile="same")
+    league_views.publish_league_views(prepare_league_views(board, cfg), store, board=board, cfg=cfg)
     monkeypatch.setenv("RISKIT_SERVING_MODE", "prepared")
     monkeypatch.setenv("RISKIT_SERVING_DIR", str(tmp_path))
     for name, value in vars(server).copy().items():
         if name.startswith("latest_"):
             monkeypatch.setattr(server, name, value)
-    monkeypatch.setattr(server._league_registry, "active_leagues", lambda: [])
+    monkeypatch.setattr(server._league_registry, "active_leagues", lambda: [cfg])
+    monkeypatch.setattr(server, "_resolve_league_for_request", lambda request: cfg)
+    original_start = AtomicRuntime.start
+    starts = []
+
+    def start_after_coherent_capture(runtime, *args, **kwargs):
+        assert server._league_serving_reader.capture(cfg.key) is not None
+        starts.append(1)
+        return original_start(runtime, *args, **kwargs)
+
+    monkeypatch.setattr(AtomicRuntime, "start", start_after_coherent_capture)
     monkeypatch.setattr(startup_validation, "run_all", lambda: [])
     monkeypatch.setattr(session_store, "hydrate", lambda **k: {})
     monkeypatch.setattr(server, "_warmup_public_snapshot", lambda: None)
@@ -462,6 +735,10 @@ def test_prepared_lifespan_reloads_without_scraping_or_rebuilding(tmp_path, boar
     async def run():
         async with server.lifespan(server.app):
             assert server.latest_serving_generation.generation_id == board.generation_id
+            request = Request({"type": "http", "query_string": b"", "headers": []})
+            response = await server.get_prepared_rankings(request)
+            assert response.status_code == 200
+            assert response.headers["x-data-generation"] == board.generation_id
             await asyncio.to_thread(publish_generation, next_board, store=store)
             await asyncio.to_thread(server._serving_runtime.reload_if_changed)
             assert server.latest_serving_generation.generation_id == next_board.generation_id
@@ -472,6 +749,7 @@ def test_prepared_lifespan_reloads_without_scraping_or_rebuilding(tmp_path, boar
 
     asyncio.run(run())
     assert verified == [1]
+    assert starts == [1]
 
 
 @pytest.mark.parametrize("other_league", [True, False])
@@ -552,7 +830,7 @@ def test_prepared_legacy_array_read_never_calls_overlay(board, monkeypatch):
     monkeypatch.setattr(server, "latest_serving_generation", board)
     monkeypatch.setattr(server, "_resolve_league_for_request", lambda request: cfg)
     monkeypatch.setattr(
-        server, "_league_serving_reader", SimpleNamespace(get=lambda g, k, v: bundle.views[v])
+        server, "_league_serving_reader", SimpleNamespace(capture=lambda key: (board, bundle))
     )
     monkeypatch.setattr(
         server._sleeper_overlay, "fetch_sleeper_overlay", lambda **k: pytest.fail("provider called")

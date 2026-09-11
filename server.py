@@ -2750,13 +2750,17 @@ async def lifespan(app: FastAPI):
             raise RuntimeError(
                 "no accepted prepared generation: " + str(_serving_runtime.last_error)
             )
-        _serving_runtime.start()
     else:
         latest_data = load_from_disk()
         _prime_latest_payload(latest_data)
         latest_data = _recover_startup_contract_from_checkout(latest_data)
     if mode != "legacy":
         _league_serving_reader = LeagueServingReader(store, lambda: latest_serving_generation)
+        # Prime a coherent capture before lifespan accepts prepared requests.
+        # Failure propagates; startup cannot expose an empty reader by accident.
+        await run_in_threadpool(_league_serving_reader.refresh)
+        if mode == "prepared":
+            _serving_runtime.start()
         _league_serving_reader.start()
     if mode != "legacy":
         from src.serving.status import ProducerStatusReader
@@ -3284,6 +3288,21 @@ async def get_data(request: Request):
     503 ``data_not_ready`` only fires when the scoring profiles
     genuinely differ — i.e. the rankings themselves can't be reused.
     """
+    if os.environ.get("RISKIT_SERVING_MODE", "legacy").strip().lower() == "prepared":
+        view = (request.query_params.get("view") or "").strip().lower()
+        prepared_view = {
+            "startup": "startup",
+            "boot": "startup",
+            "initial": "startup",
+            "app": "runtime",
+            "runtime": "runtime",
+            "lite": "runtime",
+            "array": "array",
+            "desktop": "array",
+            "compact": "compact",
+            "slim": "compact",
+        }.get(view, "full")
+        return await _get_prepared_read_model(request, prepared_view)
     generation = latest_serving_generation
     if generation is not None:
         request.state.data_generation = generation.generation_id
@@ -3359,27 +3378,6 @@ async def get_data(request: Request):
         runtime_view = view in {"app", "runtime", "lite"}
         array_view = view in {"array", "desktop"}
         compact_view = view in {"compact", "slim"}
-
-        if os.environ.get("RISKIT_SERVING_MODE", "legacy").strip().lower() == "prepared":
-            prepared_view = (
-                "startup"
-                if startup_view
-                else "runtime"
-                if runtime_view
-                else "array"
-                if array_view
-                else "compact"
-                if compact_view
-                else "full"
-            )
-            prepared = (
-                _league_serving_reader.get(generation.generation_id, league_cfg.key, prepared_view)
-                if _league_serving_reader and generation
-                else None
-            )
-            if prepared is None:
-                return _prepared_read_error()
-            return _serve_prepared_bytes(request, prepared, generation.generation_id)
 
         payload_bytes = captured_latest_data_bytes
         payload_gzip_bytes = captured_latest_data_gzip_bytes
@@ -15028,19 +15026,16 @@ async def _get_prepared_read_model(request, view):
         cfg = _resolve_league_for_request(request)
     except LeagueResolutionError as exc:
         return exc.json_response()
-    generation = latest_serving_generation
-    if generation is None:
+    captured = _league_serving_reader.capture(cfg.key) if _league_serving_reader else None
+    if captured is None:
         return _prepared_read_error()
+    generation, bundle = captured
     error = _scoring_identity_error(generation.contract, cfg)
     if error is not None:
         return error
     # One pointer lookup: no filesystem reads, canonical calculation, provider
     # calls, or serialization occurs on a prepared page request.
-    prepared = (
-        _league_serving_reader.get(generation.generation_id, cfg.key, view)
-        if _league_serving_reader
-        else None
-    )
+    prepared = bundle.views.get(view)
     if prepared is None:
         return _prepared_read_error()
     return _serve_prepared_bytes(request, prepared, generation.generation_id)
@@ -15067,7 +15062,16 @@ async def get_prepared_player(player_id: str, request: Request):
         cfg = _resolve_league_for_request(request)
     except LeagueResolutionError as exc:
         return exc.json_response()
-    generation = latest_serving_generation
+    captured = None
+    if _league_serving_reader is not None:
+        captured = _league_serving_reader.capture(cfg.key)
+        generation = captured[0] if captured else None
+    else:
+        generation = (
+            None
+            if os.environ.get("RISKIT_SERVING_MODE", "legacy").strip().lower() == "prepared"
+            else latest_serving_generation
+        )
     if generation is None:
         return _prepared_read_error()
     if request.query_params.get("generation") != generation.generation_id:
@@ -15083,12 +15087,17 @@ async def get_prepared_player(player_id: str, request: Request):
     request.state.data_generation = generation.generation_id
     # A single selected row is bounded; the universe index was built upstream.
     # The response carries no league roster block and cannot mix generations.
+    metadata = (
+        captured[1].views["catalog"].payload.get("meta")
+        if captured is not None
+        else generation.contract.get("meta")
+    ) or {}
     return JSONResponse(
         {
             "schemaVersion": 1,
             "generation": generation.generation_id,
             "player": {**row, "readModelKey": player_id},
-            "meta": {**(generation.contract.get("meta") or {}), "leagueKey": cfg.key},
+            "meta": {**metadata, "leagueKey": cfg.key},
         },
         headers={
             "Cache-Control": "private, max-age=30",
