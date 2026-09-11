@@ -487,13 +487,19 @@ function SavePreview({ url, onClose }) {
   return (
     <div
       className="screenshot-preview-overlay"
-      onClick={onClose}
+      role="dialog"
+      aria-modal="true"
+      aria-label="Awards race snapshot preview"
+      tabIndex={-1}
+      onClick={(event) => {
+        if (event.target === event.currentTarget) onClose();
+      }}
+      onKeyDown={(event) => {
+        if (event.key === "Escape") onClose();
+      }}
       data-html2canvas-ignore
     >
-      <div
-        className="screenshot-preview-inner"
-        onClick={(event) => event.stopPropagation()}
-      >
+      <div className="screenshot-preview-inner">
         <p className="screenshot-preview-hint">
           Hold the image &rarr; &ldquo;Save to Photos&rdquo;
         </p>
