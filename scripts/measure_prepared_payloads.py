@@ -38,6 +38,8 @@ def main():
             raise RuntimeError("network disabled for offline payload measurement")
 
         socket.create_connection = no_network
+        socket.socket.connect = no_network
+        socket.socket.connect_ex = no_network
         sleeper = raw.get("sleeper") or {}
         card = sleeper.get("scoringSettings") or {}
         data_contract._LEAGUE_CONTEXT_CACHE.update(

@@ -3,7 +3,6 @@ import localFont from "next/font/local";
 import AppShellWrapper from "./AppShellWrapper";
 import ServiceWorkerRegistrar from "@/components/ServiceWorkerRegistrar";
 import PullToRefresh from "@/components/PullToRefresh";
-import WebVitalsReporter from "@/components/WebVitalsReporter";
 
 // Redesign R0: actually load the fonts the token layer names. The audit
 // found Inter + JetBrains Mono referenced in CSS but never loaded — every
@@ -80,7 +79,6 @@ export default function RootLayout({ children }) {
         />
       </head>
       <body>
-        <WebVitalsReporter />
         <ServiceWorkerRegistrar />
         <PullToRefresh />
         <AppShellWrapper>{children}</AppShellWrapper>

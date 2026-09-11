@@ -31,6 +31,13 @@ from src.api import league_registry
 
 @pytest.fixture
 def array_env(tmp_path, monkeypatch):
+    # These handlers install their own compatibility representation. A healthy
+    # checked-out export must not create a second, authoritative startup board.
+    monkeypatch.setenv("RISKIT_SERVING_MODE", "legacy")
+    monkeypatch.setattr(server, "load_from_disk", lambda: None)
+    monkeypatch.setattr(server, "_recover_startup_contract_from_checkout", lambda raw: raw)
+    monkeypatch.setattr(server, "_warmup_public_snapshot", lambda: None)
+    monkeypatch.setattr(server, "_warm_overlays_in_background", lambda contract: None)
     path = tmp_path / "registry.json"
     path.write_text(
         json.dumps(
@@ -86,6 +93,7 @@ def _install_views(monkeypatch):
     array_raw = json.dumps(array_payload, ensure_ascii=False, separators=(",", ":")).encode()
 
     monkeypatch.setattr(server, "latest_data", {"players": {}})
+    monkeypatch.setattr(server, "latest_serving_generation", None)
     monkeypatch.setattr(server, "latest_contract_data", full_payload)
     monkeypatch.setattr(server, "latest_data_bytes", full_raw)
     monkeypatch.setattr(server, "latest_data_gzip_bytes", _gzip.compress(full_raw))

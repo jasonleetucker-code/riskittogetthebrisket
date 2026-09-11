@@ -29,6 +29,7 @@ import StaleDataBanner from "@/components/StaleDataBanner";
 import TopBar from "@/components/shell/TopBar";
 import { MobileTopBar, MobileTabBar } from "@/components/shell/MobileChrome";
 import { isPublicPath } from "@/lib/public-routes";
+import WebVitalsReporter from "@/components/WebVitalsReporter";
 
 // Which destinations a logged-out visitor sees in the nav.  The
 // definition is shared with middleware.js and robots.js — see
@@ -141,6 +142,7 @@ export default function AppShellWrapper({ children }) {
 
   return (
     <AuthContext.Provider value={auth}>
+      <WebVitalsReporter />
       <AppShell authenticated={auth.authenticated === true} capabilities={auth.features}>
         <ShellChrome>{children}</ShellChrome>
       </AppShell>
