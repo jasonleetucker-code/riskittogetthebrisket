@@ -92,6 +92,75 @@ def test_projection_preserves_materializer_fields_and_route_envelope(board):
     )
 
 
+@pytest.mark.parametrize("lease_marker", [False, True])
+def test_shadow_cache_prime_never_replaces_durable_source_state(
+    tmp_path, board, monkeypatch, lease_marker
+):
+    import server
+    from src.serving.artifacts import _publish_lock
+
+    monkeypatch.setenv("RISKIT_SERVING_MODE", "shadow")
+    monkeypatch.setenv("RISKIT_SERVING_DIR", str(tmp_path))
+    store = ArtifactStore(tmp_path)
+    accepted = publish_generation(board, store=store)
+    contract = copy.deepcopy(board.contract)
+    contract["meta"]["cachePrime"] = True
+    cached = builder.prepare_generation(contract, board.raw, board.source, board.health)
+    monkeypatch.setattr(builder, "build_generation", lambda *a, **k: cached)
+    monkeypatch.setattr(server, "_warm_overlays_in_background", lambda *a: None)
+    with _publish_lock(tmp_path / "producer.lock", 0):
+        assert (
+            server._prime_latest_payload(
+                board.raw, data_source=board.source, _source_lease_held=lease_marker
+            )
+            is cached
+        )
+        assert store.read_current(ASSET, KEY).generation_id == accepted.generation_id
+    assert server.latest_serving_generation is cached
+
+
+def test_shadow_fresh_callback_publishes_inside_source_lease(tmp_path, board, monkeypatch):
+    import server
+    from src.serving import producer, serialization
+    from src.serving.artifacts import PublishLockTimeout, _publish_lock
+
+    monkeypatch.setenv("RISKIT_SERVING_MODE", "shadow")
+    monkeypatch.setenv("RISKIT_SERVING_DIR", str(tmp_path))
+    monkeypatch.setattr(server, "scrape_run_lock", asyncio.Lock())
+    for name in (
+        "_reconcile_orphaned_running_state",
+        "_mark_scrape_success",
+        "_finalize_scrape_run",
+        "_warm_overlays_in_background",
+    ):
+        monkeypatch.setattr(server, name, lambda *a, **k: None)
+    monkeypatch.setattr(server, "_start_scrape_run", lambda **k: "fixture")
+    monkeypatch.setattr(builder, "build_generation", lambda *a, **k: board)
+    monkeypatch.setattr(builder, "record_accepted_generation", lambda *a: None)
+    publications = []
+    original = serialization.publish_generation
+
+    def publish(candidate):
+        with pytest.raises(PublishLockTimeout):
+            with _publish_lock(tmp_path / "producer.lock", 0):
+                pytest.fail("durable shadow publisher lacked source lease")
+        publications.append(original(candidate))
+
+    async def collect(config, previous, *, publish, **kwargs):
+        with _publish_lock(config.serving_root / "producer.lock", 0):
+            await publish(board.raw, board.source)
+        return producer.ProducerResult("success", raw=board.raw)
+
+    monkeypatch.setattr(serialization, "publish_generation", publish)
+    monkeypatch.setattr(producer, "run_source_cycle", collect)
+    assert asyncio.run(server.run_scraper()) == board.raw
+    assert len(publications) == 1
+    assert (
+        ArtifactStore(tmp_path).read_current(ASSET, KEY).generation_id
+        == publications[0].generation_id
+    )
+
+
 def test_legacy_preparation_does_not_pay_for_disabled_read_models(board, monkeypatch):
     monkeypatch.setattr(
         builder, "project_board", lambda *a, **k: pytest.fail("disabled projection built")

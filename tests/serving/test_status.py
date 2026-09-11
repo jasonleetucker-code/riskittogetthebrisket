@@ -8,6 +8,34 @@ from src.serving.producer_status import STATUS_FILE, request_source_refresh
 from src.serving.status import ProducerStatusReader
 
 
+def test_shadow_artifact_diagnostics_are_cached_and_do_not_claim_source_ownership(
+    tmp_path, monkeypatch
+):
+    store = ArtifactStore(tmp_path)
+    monkeypatch.setattr(
+        store,
+        "read_retention_report",
+        lambda: {
+            "status": "ok",
+            "bytesAfter": 123,
+            "generationCount": 3,
+            "capacityFailureCount": 1,
+            "privatePath": "do-not-forward",
+            "deleted": ["private-generation"],
+        },
+    )
+    reader = ProducerStatusReader(store, observe_source=False)
+    reader.refresh()
+    monkeypatch.setattr(store, "read_retention_report", lambda: pytest.fail("request read disk"))
+    assert reader.snapshot() == {"owner": "embedded"}
+    assert reader.artifact_snapshot() == {
+        "observed": True,
+        "bytesAfter": 123,
+        "generationCount": 3,
+        "capacityFailureCount": 1,
+    }
+
+
 def test_status_observes_real_lease_and_never_reads_during_snapshot(tmp_path, monkeypatch):
     store = ArtifactStore(tmp_path)
     tmp_path.mkdir(exist_ok=True)

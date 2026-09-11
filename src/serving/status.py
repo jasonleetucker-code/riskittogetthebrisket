@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import math
 import threading
 from datetime import datetime, timezone
 
@@ -31,11 +32,17 @@ def _read(root, name):
 class ProducerStatusReader:
     """Cache bounded diagnostics; a held OS lease proves a live source owner."""
 
-    def __init__(self, store, *, alert=None):
+    def __init__(self, store, *, alert=None, observe_source=True):
         self.store = store
         self.alert = alert
+        self.observe_source = observe_source
         self._alerted = None
-        self._current = {"owner": "standalone", "status_summary": "unknown", "running": False}
+        self._current = (
+            {"owner": "standalone", "status_summary": "unknown", "running": False}
+            if observe_source
+            else {"owner": "embedded"}
+        )
+        self._artifacts = {"observed": False}
         self._stop = threading.Event()
         self._thread = None
         self.last_error = None
@@ -43,7 +50,48 @@ class ProducerStatusReader:
     def snapshot(self):
         return dict(self._current)
 
+    def artifact_snapshot(self):
+        """Only cached, bounded aggregate fields; never scan disk on a request."""
+        return dict(self._artifacts)
+
+    def _refresh_artifacts(self):
+        try:
+            report = self.store.read_retention_report()
+            fields = (
+                "bytesBefore",
+                "bytesAfter",
+                "generationCount",
+                "protectedCount",
+                "deletedCount",
+                "budgetBytes",
+                "minFreeBytes",
+                "freeBytes",
+                "oldestRetainedAt",
+                "capacityFailureCount",
+                "lastCapacityFailureAt",
+                "blocked",
+                "capacityBlocked",
+                "unknownAcceptanceCount",
+                "shortenedRollbackWindow",
+                "observedAt",
+            )
+            self._artifacts = {
+                "observed": report.get("status") in {"ok", "blocked"},
+                **{
+                    key: report[key][:80] if isinstance(report[key], str) else report[key]
+                    for key in fields
+                    if key in report
+                    and isinstance(report[key], (str, int, float, bool, type(None)))
+                    and (not isinstance(report[key], float) or math.isfinite(report[key]))
+                },
+            }
+        except (OSError, ValueError, TypeError, ArtifactError) as exc:
+            self._artifacts = {"observed": False, "observationError": type(exc).__name__}
+
     def refresh(self):
+        self._refresh_artifacts()
+        if not self.observe_source:
+            return
         try:
             state = _read(self.store.root, STATUS_FILE)
             try:

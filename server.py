@@ -2203,7 +2203,13 @@ def _publish_serving_generation(candidate) -> None:
     latest_serving_generation = candidate
 
 
-def _prime_latest_payload(data: dict | None, *, is_fresh_scrape: bool = False, data_source=None):
+def _prime_latest_payload(
+    data: dict | None,
+    *,
+    is_fresh_scrape: bool = False,
+    data_source=None,
+    _source_lease_held: bool = False,
+):
     """Build off-request; reject failed candidates without erasing last good data.
 
     Only a fresh scrape appends history; startup and artifact reload never do.
@@ -2308,9 +2314,16 @@ def _prime_latest_payload(data: dict | None, *, is_fresh_scrape: bool = False, d
             include_read_models=os.environ.get("RISKIT_SERVING_MODE", "legacy").strip().lower()
             != "legacy",
         )
-        if os.environ.get("RISKIT_SERVING_MODE", "legacy").strip().lower() == "shadow":
+        if (
+            os.environ.get("RISKIT_SERVING_MODE", "legacy").strip().lower() == "shadow"
+            and is_fresh_scrape
+            and _source_lease_held
+        ):
             from src.serving.serialization import publish_generation
 
+            # Only the admitted source callback may replace durable shadow
+            # state. Startup/cache recovery primes memory without replacing a
+            # newer accepted artifact or racing ownership attestation.
             publish_generation(candidate)
         _publish_serving_generation(candidate)
         if is_fresh_scrape:
@@ -2546,6 +2559,7 @@ async def run_scraper(trigger: str = "manual") -> dict | None:
                 raw,
                 is_fresh_scrape=True,
                 data_source=source,
+                _source_lease_held=True,
             )
             if candidate is None:
                 raise RuntimeError(latest_candidate_error or "canonical candidate rejected")
@@ -2744,12 +2758,17 @@ async def lifespan(app: FastAPI):
     if mode != "legacy":
         _league_serving_reader = LeagueServingReader(store, lambda: latest_serving_generation)
         _league_serving_reader.start()
-    if mode == "prepared":
+    if mode != "legacy":
         from src.serving.status import ProducerStatusReader
 
-        _producer_status_reader = ProducerStatusReader(store, alert=send_alert)
+        _producer_status_reader = ProducerStatusReader(
+            store,
+            alert=send_alert if mode == "prepared" else None,
+            observe_source=mode == "prepared",
+        )
         await run_in_threadpool(_producer_status_reader.refresh)
         _producer_status_reader.start()
+    if mode == "prepared":
         _prepared_news_reader = PreparedNewsReader(store)
         await run_in_threadpool(_prepared_news_reader.reload_if_changed)
         _prepared_news_reader.start()
@@ -15123,6 +15142,9 @@ async def get_performance(request: Request):
         "producer": _producer_status_reader.snapshot()
         if _producer_status_reader
         else {"owner": "embedded"},
+        "artifacts": _producer_status_reader.artifact_snapshot()
+        if _producer_status_reader
+        else {"observed": False},
     }
     return JSONResponse(report, headers={"Cache-Control": "no-store"})
 
