@@ -1,13 +1,4 @@
 {
-  "aggregatedAt": "2026-09-11T21:24:15.343539+00:00",
-  "league": {
-    "is_superflex": true,
-    "is_2qb": false,
-    "is_te_premium": true,
-    "idp_enabled": true
-  },
-  "sourceCount": 5,
-  "playerCount": 918,
   "players": [
     {
       "canonicalName": "jahmyr gibbs",
