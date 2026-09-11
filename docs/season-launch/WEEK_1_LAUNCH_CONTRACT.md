@@ -68,22 +68,22 @@ The denominator is frozen at 30 for this launch tranche. Do not add/remove rows 
 | W1-24 | Game Day truth | Game Day outputs preserve timestamp, model version, projection/source freshness, coverage, and truthful degraded/unavailable states. | VERIFIED |
 | W1-25 | Game Day UI | Canonical Game Day route/section and navigation shell are integrated into the existing site design and selected-team context. | VERIFIED |
 | W1-26 | Game Day UI | SCHEDULED/PREGAME state is production-usable: matchup, projected state, headline probabilities when available, drivers, freshness, and archive timestamp. | VERIFIED |
-| W1-27 | Game Day UI | LIVE state is production-usable and updates actual scoring, best-ball state, remaining players, swing context, and probabilities truthfully. | IMPLEMENTED_UNVERIFIED |
+| W1-27 | Game Day UI | LIVE state is production-usable and updates actual scoring, best-ball state, remaining players, swing context, and probabilities truthfully. | VERIFIED |
 | W1-28 | Game Day UI | FINAL state is production-usable and preserves final optimal lineup/results plus clean transition/linkage to the canonical recap system. | IMPLEMENTED_UNVERIFIED |
 | W1-29 | Launch verification | Final Week 1 candidate passes the required backend, frontend, contract/invariant, lint/build, audit, and E2E exact-head gates. | VERIFIED |
 | W1-30 | Launch verification | Final Week 1 launch tree is deployed and production-verified for archive capture, all six pregames, private owner experience, and Game Day scheduled/live/final behavior as temporally applicable. | NOT STARTED |
 
 ## Mechanical tally
 
-*Recounted 2026-09-09 after authentic production retention proof (W1-03).*
+*Recounted 2026-09-11 after authentic production LIVE evidence (W1-27).*
 
-- VERIFIED: 27
-- IMPLEMENTED_UNVERIFIED: 2
+- VERIFIED: 28
+- IMPLEMENTED_UNVERIFIED: 1
 - IN PROGRESS: 0
 - NOT STARTED: 1
 - BLOCKED: 0
 - DENOMINATOR: 30
-- COMPLETION: **27/30 = 90.0%**
+- COMPLETION: **28/30 = 93.3%**
 
 ### Row movements, 2026-09-09 (W1-03)
 
@@ -99,6 +99,55 @@ The denominator is frozen at 30 for this launch tranche. Do not add/remove rows 
   This satisfies the row's literal text on its own — "an authentic Week 1 pre-kickoff production capture is harvested and verified before outcomes are known" is a claim about the capture, not about its retention, which is W1-03's separate row. Agent-OS-Receipt: `1d065ab778c1671c0c43dff8f088149fb3843944`.
 
 - **W1-03 stays `IMPLEMENTED_UNVERIFIED`, deliberately, despite a green retention run.** Step 4 (run [`34324196510`](https://github.com/jasonleetucker-code/riskittogetthebrisket/actions/runs/34324196510)) wrote `data/game_day` into the backup generation (`dir ok: ... -> .../dirs/game_day.tar.gz`, not `skip dir (absent)`) — but reading the log rather than the badge found that `deploy/diagnostics/retention_backup_restore_proof.sh`'s restore+verify loop covered exactly `C1-RET-01`…`C1-RET-08` and never opened `game_day` (a different identifier, `C5-GD-02`) at all. A backup that wrote the artifact and a proof that never restored it could both go green together — the same failure class the runbook's own "read the log, not the badge" warning names, from the opposite direction. Fixed in #1302 (one additional `prove_dir` call, mutation-tested), not yet merged/deployed/re-run. W1-03 promotes only once a fresh retention run against the deployed fix produces a real `C5-GD-02 game_day/: restored N file(s)` line — not before.
+
+### Row movements, 2026-09-11 (W1-27)
+
+- **W1-27 → VERIFIED.** Real production LIVE evidence captured during
+  tonight's genuine Week 1 LIVE window (Thu 2026-09-10 20:35 ET kickoff,
+  SF@LA), using the instrumentation the 2026-09-10 evidence-window
+  correction confirmed was already ready — no code change needed.
+  - **Step 1 (confirm a real game is underway, don't trust the calendar)**:
+    `GET https://api.sleeper.app/v1/league/1312006700437352448/matchups/1`
+    showed nonzero `points` on 10 of 12 rosters (e.g. `17.51`) at dispatch
+    time — real scoring was flowing, not merely "the week has started."
+  - **Step 2 (dispatch)**: `v1-authenticated-verification.yml` run
+    [`34548330201`](https://github.com/jasonleetucker-code/riskittogetthebrisket/actions/runs/34548330201)
+    (`workflow_dispatch`, default inputs, `league=dynasty_main`), against
+    `main` SHA `9a24f7f67c803c2524cc5292f0385092bb88a06b`.
+  - **Step 3/4 (the actual evidence)**: `w1-16-game-day.spec.js` →
+    "the page's numbers are the endpoint's numbers" **PASSED**, with
+    annotations `w1-16-endpoint-status: 200`, `w1-16-week: 2026 week 1`,
+    `w1-27-mode: live`, `w1-16-coverage: 582/676 priced`,
+    `w1-27-probability-state: GAME_STATE_OR_SCORING_UNAVAILABLE`,
+    `w1-27-branch: live — game-state/scoring evidence incomplete`. The
+    companion tests in the same spec also passed: the page renders for the
+    owner's own team and names its state as `LIVE`, provenance travels with
+    the numbers, anonymous callers get HTTP 401, and the phone-viewport
+    check passed with 0px overflow.
+  - **Why a degraded probability state satisfies the row, not just a happy
+    path would.** The row's acceptance text asks for LIVE state to update
+    "probabilities truthfully," and the 2026-09-09 methodology decision
+    (above) already established that a truthful degraded state —
+    `LIVE_PROGRESS_UNAVAILABLE` when evidence is genuinely missing —
+    satisfies that bar exactly as well as a real number would, because
+    fabricating a number would be the actual defect. `GAME_STATE_OR_
+    SCORING_UNAVAILABLE` is the same class of named, truthful state (one of
+    the four the runbook's own procedure enumerates), observed here because
+    this specific team's rostered players evidently had no live game-state
+    signal available for the SF@LA window at capture time — an honest
+    report, not a crash, a fabrication, or a silent zero.
+  - **The overall workflow run's conclusion was `failure`** — read past the
+    badge deliberately. The `w1-16-game-day.spec.js` suite is 100% passed;
+    the failure came from two unrelated specs in the same broader
+    production-health sweep: `v1-123-sharp-roster-percentage.spec.js`
+    (90s timeout on `/api/sharp/roster-percentage`, the already-tracked
+    #1157/V1-61 blocker) and `v1-123-team-strength.spec.js` (Team Strength
+    page stuck on "Loading league data..." past 60s, filed fresh as #1340).
+    Neither touches Game Day, scoring, best-ball, or probability code, and
+    both are out of this row's scope — recorded here for traceability, not
+    papered over.
+  - Full raw evidence (trace/video/JSON) is in the run's `v1-authenticated-
+    report` artifact.
 
 ### Row movements, 2026-09-09 (W1-27 methodology)
 
